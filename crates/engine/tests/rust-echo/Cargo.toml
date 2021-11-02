@@ -1,0 +1,13 @@
+[package]
+    name    = "echo"
+    version = "0.1.0"
+    edition = "2021"
+    authors = ["Radu Matei <radu.matei@fermyon.com>"]
+
+[lib]
+    crate-type = ["cdylib"]
+
+[dependencies]
+    witx-bindgen-rust = { git = "https://github.com/bytecodealliance/witx-bindgen", rev = "b548ce6b35fe53feebb43c080dbe61e1ef4a5e8e" }
+
+[workspace]

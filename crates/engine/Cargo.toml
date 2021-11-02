@@ -22,4 +22,8 @@
     wasi-common                     = "0.30"
     wasi-experimental-http-wasmtime = "0.6.0"
     wasmtime                        = "0.30"
+    wasmtime-wasi                   = "0.30"
     witx-bindgen-rust               = { git = "https://github.com/bytecodealliance/witx-bindgen", rev = "0fea5183d121fdf736585ab9d291b3cc08487cd0" }
+
+[dev-dependencies]
+    witx-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/witx-bindgen", rev = "b548ce6b35fe53feebb43c080dbe61e1ef4a5e8e" }

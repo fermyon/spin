@@ -1,0 +1,38 @@
+name: Rust
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: "Install wasi-sdk"
+        run: |
+          set -x
+          curl -sS -L -O https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
+          tar xf wasi-sdk-12.0-linux.tar.gz
+          sudo mkdir -p /opt/wasi-sdk
+          sudo mv wasi-sdk-12.0/* /opt/wasi-sdk/
+      - name: "Install Wasm Rust targets"
+        run: |
+          rustup install 1.56.1
+          rustup target add wasm32-wasi
+          rustup target add wasm32-unknown-unknown
+      - uses: engineerd/configurator@v0.0.8
+        with:
+          name: "bindle-server"
+          url: "https://bindle.blob.core.windows.net/releases/bindle-v0.6.0-linux-amd64.tar.gz"
+          pathInArchive: "bindle-server"
+
+      - name: Build
+        run: cargo build
+      - name: Run tests
+        run:
+          RUST_LOG=fermyon_templates=info,fermyon_templates=info
+          cargo test --all --all-features -- --nocapture

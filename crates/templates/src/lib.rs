@@ -11,6 +11,7 @@ use walkdir::WalkDir;
 
 const SPIN_DIR: &str = "spin";
 const TEMPLATES_DIR: &str = "templates";
+const LOCAL_TEMPLATES: &str = "local";
 
 /// A WebAssembly component template repository
 #[derive(Clone, Debug, Default)]
@@ -45,8 +46,18 @@ impl TemplatesManager {
     pub async fn new(dir: impl Into<PathBuf>) -> Result<Self> {
         let root = dir.into();
 
+        Self::ensure(&root).await?;
+        Self::ensure(&root.join(TEMPLATES_DIR)).await?;
+        Self::ensure(&root.join(TEMPLATES_DIR).join(LOCAL_TEMPLATES)).await?;
+        Self::ensure(
+            &root
+                .join(TEMPLATES_DIR)
+                .join(LOCAL_TEMPLATES)
+                .join(TEMPLATES_DIR),
+        )
+        .await?;
+
         let cache = Self { root };
-        cache.ensure_root().await?;
         Ok(cache)
     }
 
@@ -63,12 +74,27 @@ impl TemplatesManager {
         Ok(())
     }
 
+    /// Add a local directory as a template.
+    pub fn add_local(&self, name: &str, src: &PathBuf) -> Result<()> {
+        let src = std::fs::canonicalize(src)?;
+        let dst = &self
+            .root
+            .join(TEMPLATES_DIR)
+            .join(LOCAL_TEMPLATES)
+            .join(TEMPLATES_DIR)
+            .join(name);
+        log::debug!("adding local template from {:?} to {:?}", src, dst);
+
+        symlink::symlink_dir(src, dst)?;
+        Ok(())
+    }
+
     /// Generate a new project given a template name from a template repository.
     pub async fn generate(&self, repo: &str, template: &str, dst: PathBuf) -> Result<()> {
         let src = self.get_path(repo, template)?;
-        let mut options = CopyOptions::new();
-        options.copy_inside = true;
-        let _ = fs_extra::dir::copy(src, dst, &options)?;
+        let mut opts = CopyOptions::new();
+        opts.copy_inside = true;
+        let _ = fs_extra::dir::copy(src, dst, &opts)?;
         Ok(())
     }
 
@@ -133,22 +159,19 @@ impl TemplatesManager {
     }
 
     /// Ensure the root directory exists, or else create it.
-    async fn ensure_root(&self) -> Result<()> {
-        if !self.root.exists() {
-            log::debug!("creating cache root directory `{}`", self.root.display());
-            fs::create_dir_all(&self.root).await.with_context(|| {
-                format!(
-                    "failed to create cache root directory `{}`",
-                    self.root.display()
-                )
+    async fn ensure(root: &PathBuf) -> Result<()> {
+        if !root.exists() {
+            log::debug!("creating cache root directory `{}`", root.display());
+            fs::create_dir_all(root).await.with_context(|| {
+                format!("failed to create cache root directory `{}`", root.display())
             })?;
-        } else if !self.root.is_dir() {
-            bail!("cache root `{}` already exists and is not a directory");
-        } else {
-            log::debug!(
-                "using existing cache root directory `{}`",
-                self.root.display()
+        } else if !root.is_dir() {
+            bail!(
+                "cache root `{}` already exists and is not a directory",
+                root.display()
             );
+        } else {
+            log::debug!("using existing cache root directory `{}`", root.display());
         }
 
         Ok(())

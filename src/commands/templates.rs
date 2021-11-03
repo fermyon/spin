@@ -37,17 +37,25 @@ pub struct Add {
     /// The URL of the templates git repository.
     /// The templates must be in a git repository in a "templates" directory.
     #[structopt(long = "git")]
-    pub git: String,
+    pub git: Option<String>,
 
     /// The optional branch of the git repository.
     #[structopt(long = "branch")]
     pub branch: Option<String>,
+
+    /// Local directory to add as a template.
+    #[structopt(long = "local")]
+    pub local: Option<PathBuf>,
 }
 
 impl Add {
     pub async fn run(self) -> Result<()> {
         let tm = TemplatesManager::default().await?;
-        Ok(tm.add_repo(&self.name, &self.git, self.branch.as_deref())?)
+
+        match self.git {
+            Some(g) => Ok(tm.add_repo(&self.name, &g, self.branch.as_deref())?),
+            None => Ok(tm.add_local(&self.name, &self.local.unwrap())?),
+        }
     }
 }
 

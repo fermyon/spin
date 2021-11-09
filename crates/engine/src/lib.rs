@@ -174,7 +174,7 @@ mod test {
     use echo::*;
     use std::sync::Arc;
 
-    witx_bindgen_wasmtime::import!("crates/engine/tests/echo.witx");
+    wai_bindgen_wasmtime::import!("crates/engine/tests/echo.witx");
     const RUST_ENTRYPOINT_PATH: &str = "tests/rust-echo/target/wasm32-wasi/release/echo.wasm";
 
     #[derive(Clone)]

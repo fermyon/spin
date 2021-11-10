@@ -591,12 +591,12 @@ dependencies = [
  "structopt",
  "tokio",
  "toml",
+ "wai-bindgen-rust",
+ "wai-bindgen-wasmtime",
  "wasi-common",
  "wasi-experimental-http-wasmtime",
  "wasmtime",
  "wasmtime-wasi",
- "witx-bindgen-rust",
- "witx-bindgen-wasmtime",
 ]
 
 [[package]]
@@ -2233,6 +2233,96 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
 
 [[package]]
+name = "wai-bindgen-gen-core"
+version = "0.1.0"
+source = "git+https://github.com/bytecodealliance/wai-bindgen?rev=10e46993d0ff3ee688c5379f4223c8cf03a6f82a#10e46993d0ff3ee688c5379f4223c8cf03a6f82a"
+dependencies = [
+ "anyhow",
+ "wai-parser",
+]
+
+[[package]]
+name = "wai-bindgen-gen-rust"
+version = "0.1.0"
+source = "git+https://github.com/bytecodealliance/wai-bindgen?rev=10e46993d0ff3ee688c5379f4223c8cf03a6f82a#10e46993d0ff3ee688c5379f4223c8cf03a6f82a"
+dependencies = [
+ "heck",
+ "wai-bindgen-gen-core",
+]
+
+[[package]]
+name = "wai-bindgen-gen-rust-wasm"
+version = "0.1.0"
+source = "git+https://github.com/bytecodealliance/wai-bindgen?rev=10e46993d0ff3ee688c5379f4223c8cf03a6f82a#10e46993d0ff3ee688c5379f4223c8cf03a6f82a"
+dependencies = [
+ "heck",
+ "wai-bindgen-gen-core",
+ "wai-bindgen-gen-rust",
+]
+
+[[package]]
+name = "wai-bindgen-gen-wasmtime"
+version = "0.1.0"
+source = "git+https://github.com/bytecodealliance/wai-bindgen?rev=10e46993d0ff3ee688c5379f4223c8cf03a6f82a#10e46993d0ff3ee688c5379f4223c8cf03a6f82a"
+dependencies = [
+ "heck",
+ "wai-bindgen-gen-core",
+ "wai-bindgen-gen-rust",
+]
+
+[[package]]
+name = "wai-bindgen-rust"
+version = "0.1.0"
+source = "git+https://github.com/bytecodealliance/wai-bindgen?rev=10e46993d0ff3ee688c5379f4223c8cf03a6f82a#10e46993d0ff3ee688c5379f4223c8cf03a6f82a"
+dependencies = [
+ "async-trait",
+ "wai-bindgen-rust-impl",
+]
+
+[[package]]
+name = "wai-bindgen-rust-impl"
+version = "0.1.0"
+source = "git+https://github.com/bytecodealliance/wai-bindgen?rev=10e46993d0ff3ee688c5379f4223c8cf03a6f82a#10e46993d0ff3ee688c5379f4223c8cf03a6f82a"
+dependencies = [
+ "proc-macro2",
+ "syn",
+ "wai-bindgen-gen-core",
+ "wai-bindgen-gen-rust-wasm",
+]
+
+[[package]]
+name = "wai-bindgen-wasmtime"
+version = "0.1.0"
+source = "git+https://github.com/bytecodealliance/wai-bindgen?rev=10e46993d0ff3ee688c5379f4223c8cf03a6f82a#10e46993d0ff3ee688c5379f4223c8cf03a6f82a"
+dependencies = [
+ "anyhow",
+ "bitflags",
+ "thiserror",
+ "wai-bindgen-wasmtime-impl",
+ "wasmtime",
+]
+
+[[package]]
+name = "wai-bindgen-wasmtime-impl"
+version = "0.1.0"
+source = "git+https://github.com/bytecodealliance/wai-bindgen?rev=10e46993d0ff3ee688c5379f4223c8cf03a6f82a#10e46993d0ff3ee688c5379f4223c8cf03a6f82a"
+dependencies = [
+ "proc-macro2",
+ "syn",
+ "wai-bindgen-gen-core",
+ "wai-bindgen-gen-wasmtime",
+]
+
+[[package]]
+name = "wai-parser"
+version = "0.1.0"
+source = "git+https://github.com/bytecodealliance/wai-bindgen?rev=10e46993d0ff3ee688c5379f4223c8cf03a6f82a#10e46993d0ff3ee688c5379f4223c8cf03a6f82a"
+dependencies = [
+ "anyhow",
+ "id-arena",
+]
+
+[[package]]
 name = "walkdir"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2716,96 +2806,6 @@ dependencies = [
  "log",
  "thiserror",
  "wast 35.0.2",
-]
-
-[[package]]
-name = "witx-bindgen-gen-core"
-version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/witx-bindgen?rev=160509774b3468f2ccba9b33732c199fa2cd7cef#160509774b3468f2ccba9b33732c199fa2cd7cef"
-dependencies = [
- "anyhow",
- "witx2",
-]
-
-[[package]]
-name = "witx-bindgen-gen-rust"
-version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/witx-bindgen?rev=160509774b3468f2ccba9b33732c199fa2cd7cef#160509774b3468f2ccba9b33732c199fa2cd7cef"
-dependencies = [
- "heck",
- "witx-bindgen-gen-core",
-]
-
-[[package]]
-name = "witx-bindgen-gen-rust-wasm"
-version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/witx-bindgen?rev=160509774b3468f2ccba9b33732c199fa2cd7cef#160509774b3468f2ccba9b33732c199fa2cd7cef"
-dependencies = [
- "heck",
- "witx-bindgen-gen-core",
- "witx-bindgen-gen-rust",
-]
-
-[[package]]
-name = "witx-bindgen-gen-wasmtime"
-version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/witx-bindgen?rev=160509774b3468f2ccba9b33732c199fa2cd7cef#160509774b3468f2ccba9b33732c199fa2cd7cef"
-dependencies = [
- "heck",
- "witx-bindgen-gen-core",
- "witx-bindgen-gen-rust",
-]
-
-[[package]]
-name = "witx-bindgen-rust"
-version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/witx-bindgen?rev=160509774b3468f2ccba9b33732c199fa2cd7cef#160509774b3468f2ccba9b33732c199fa2cd7cef"
-dependencies = [
- "async-trait",
- "witx-bindgen-rust-impl",
-]
-
-[[package]]
-name = "witx-bindgen-rust-impl"
-version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/witx-bindgen?rev=160509774b3468f2ccba9b33732c199fa2cd7cef#160509774b3468f2ccba9b33732c199fa2cd7cef"
-dependencies = [
- "proc-macro2",
- "syn",
- "witx-bindgen-gen-core",
- "witx-bindgen-gen-rust-wasm",
-]
-
-[[package]]
-name = "witx-bindgen-wasmtime"
-version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/witx-bindgen?rev=160509774b3468f2ccba9b33732c199fa2cd7cef#160509774b3468f2ccba9b33732c199fa2cd7cef"
-dependencies = [
- "anyhow",
- "bitflags",
- "thiserror",
- "wasmtime",
- "witx-bindgen-wasmtime-impl",
-]
-
-[[package]]
-name = "witx-bindgen-wasmtime-impl"
-version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/witx-bindgen?rev=160509774b3468f2ccba9b33732c199fa2cd7cef#160509774b3468f2ccba9b33732c199fa2cd7cef"
-dependencies = [
- "proc-macro2",
- "syn",
- "witx-bindgen-gen-core",
- "witx-bindgen-gen-wasmtime",
-]
-
-[[package]]
-name = "witx2"
-version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/witx-bindgen?rev=160509774b3468f2ccba9b33732c199fa2cd7cef#160509774b3468f2ccba9b33732c199fa2cd7cef"
-dependencies = [
- "anyhow",
- "id-arena",
 ]
 
 [[package]]

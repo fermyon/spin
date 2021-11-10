@@ -1,4 +1,4 @@
-witx_bindgen_rust::export!("../echo.witx");
+wai_bindgen_rust::export!("../echo.witx");
 
 struct Echo {}
 

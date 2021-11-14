@@ -2,8 +2,7 @@
     name    = "spin-cli"
     version = "0.1.0"
     edition = "2021"
-    authors = ["Radu Matei <radu.matei@fermyon.com>"]
-
+    authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
 
 [dependencies]
     anyhow            = "1.0"
@@ -13,16 +12,15 @@
     env_logger        = "0.9"
     fermyon-templates = { path = "crates/templates" }
     futures           = "0.3"
+    hippo-client      = { path = "crates/hippo-client" }
     log               = { version = "0.4", default-features = false }
-    serde             = { version = "1.0", features = ["derive"] }
+    serde             = { version = "1.0", features = [ "derive" ] }
     structopt         = "0.3"
-    tokio             = { version = "1.11", features = ["full"] }
+    tokio             = { version = "1.11", features = [ "full" ] }
     toml              = "0.5"
 
-
 [workspace]
-    members = ["crates/templates", "crates/engine"]
-
+    members = [ "crates/templates", "crates/engine", "crates/hippo-client" ]
 
 [[bin]]
     name = "spin"

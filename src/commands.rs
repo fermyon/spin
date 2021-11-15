@@ -5,3 +5,6 @@ pub mod templates;
 
 /// Commands for working with applications.
 pub mod apps;
+
+/// Commands for starting the runtime.
+pub mod run;

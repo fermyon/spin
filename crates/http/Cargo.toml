@@ -1,5 +1,5 @@
 [package]
-    name    = "fermyon-engine"
+    name    = "fermyon-http"
     version = "0.1.0"
     edition = "2021"
     authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
@@ -8,22 +8,17 @@
     anyhow                          = "1.0.44"
     async-trait                     = "0.1.51"
     bytes                           = "1.1.0"
-    dirs                            = "3.0.2"
     env_logger                      = "0.9.0"
-    fs_extra                        = "1.2.0"
     futures                         = "0.3.17"
-    git2                            = "0.13"
+    fermyon-engine                  = { path = "../engine" }
+    http                            = "0.2"
+    hyper                           = { version = "0.14.12", features = [ "full" ] }
     log                             = { version = "0.4.14", default-features = false }
     serde                           = { version = "1.0.130", features = [ "derive" ] }
-    structopt                       = "0.3.23"
     tokio                           = { version = "1.10.0", features = [ "fs" ] }
-    toml                            = "0.5.8"
-    tracing                         = { version = "0.1", features = [ "log" ] }
+    wai-bindgen-rust                = { git = "https://github.com/bytecodealliance/wai-bindgen", rev = "10e46993d0ff3ee688c5379f4223c8cf03a6f82a" }
+    wai-bindgen-wasmtime            = { git = "https://github.com/bytecodealliance/wai-bindgen", rev = "10e46993d0ff3ee688c5379f4223c8cf03a6f82a" }
     wasi-common                     = "0.30"
     wasi-experimental-http-wasmtime = "0.6.0"
     wasmtime                        = "0.30"
     wasmtime-wasi                   = "0.30"
-    wai-bindgen-rust                = { git = "https://github.com/bytecodealliance/wai-bindgen", rev = "10e46993d0ff3ee688c5379f4223c8cf03a6f82a" }
-
-[dev-dependencies]
-    wai-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wai-bindgen", rev = "10e46993d0ff3ee688c5379f4223c8cf03a6f82a" }

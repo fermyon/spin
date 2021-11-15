@@ -1,0 +1,18 @@
+type http_status = u16
+type body = list<u8>
+type headers = list<string>
+type params = list<string>
+type uri = string
+
+type request = tuple<method, uri, headers, option<params>, option<body>>
+type response = tuple<http_status, option<headers>, option<body>>
+
+enum method {
+    get,
+    post,
+    put,
+    delete,
+    patch,
+}
+
+handler: function(req: request) -> response

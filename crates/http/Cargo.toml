@@ -4,6 +4,9 @@
     edition = "2021"
     authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
 
+[lib]
+    doctest = false
+
 [dependencies]
     anyhow                          = "1.0.44"
     async-trait                     = "0.1.51"
@@ -16,6 +19,7 @@
     log                             = { version = "0.4.14", default-features = false }
     serde                           = { version = "1.0.130", features = [ "derive" ] }
     tokio                           = { version = "1.10.0", features = [ "fs" ] }
+    url                             = "2.2"
     wai-bindgen-rust                = { git = "https://github.com/bytecodealliance/wai-bindgen", rev = "10e46993d0ff3ee688c5379f4223c8cf03a6f82a" }
     wai-bindgen-wasmtime            = { git = "https://github.com/bytecodealliance/wai-bindgen", rev = "10e46993d0ff3ee688c5379f4223c8cf03a6f82a" }
     wasi-common                     = "0.30"

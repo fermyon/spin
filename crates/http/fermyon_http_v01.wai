@@ -1,12 +1,24 @@
+// The HTTP status code.
+// This is currently an unsigned 16-bit integer,
+// but it could be represented as an enum containing
+// all possible HTTP status codes.
 type http_status = u16
+
+// The HTTP body.
+// Currently, this is a synchonous byte array, but it should be
+// possible to have a stream for both request and response bodies.
 type body = list<u8>
-type headers = list<string>
-type params = list<string>
+
+// The HTTP headers represented as a list of (name, value) pairs.
+type headers = list<tuple<string, string>>
+
+// The HTTP parameter queries, represented as a list of (name, value) pairs.
+type params = list<tuple<string, string>>
+
+// The HTTP URI of the current request.
 type uri = string
 
-type request = tuple<method, uri, headers, option<params>, option<body>>
-type response = tuple<http_status, option<headers>, option<body>>
-
+// The HTTP method.
 enum method {
     get,
     post,
@@ -15,4 +27,21 @@ enum method {
     patch,
 }
 
+// An HTTP request.
+record request {
+    method: method,
+    uri: uri,
+    headers: headers,
+    params: params,
+    body: option<body>,
+}
+
+// An HTTP response.
+record response {
+    status: http_status,
+    headers: option<headers>,
+    body: option<body>,
+}
+
+// The entrypoint for an HTTP handler.
 handler: function(req: request) -> response

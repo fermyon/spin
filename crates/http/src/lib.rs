@@ -6,8 +6,9 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use std::net::SocketAddr;
-use std::{str::FromStr, sync::Arc, time::Instant};
+use std::{net::SocketAddr, str::FromStr};
+use std::{sync::Arc, time::Instant};
+use url::Url;
 use wasmtime::{Instance, Store};
 
 wai_bindgen_wasmtime::import!("crates/http/fermyon_http_v01.wai");
@@ -27,7 +28,7 @@ impl HttpService for HttpEngine {
         let start = Instant::now();
         let (store, instance) = self.0.prepare(None)?;
         let res = self.execute_impl(store, instance, req).await?;
-        log::info!("Total request execution time: {:#?}", start.elapsed());
+        log::info!("Request execution time: {:#?}", start.elapsed());
         Ok(res)
     }
 }
@@ -41,82 +42,87 @@ impl HttpEngine {
     ) -> Result<Response<Body>, Error> {
         let r = FermyonHttpV01::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
 
-        let m = match *req.method() {
+        let (parts, bytes) = req.into_parts();
+        let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
+        let body = Some(&bytes[..]);
+
+        let method = Self::method(&parts.method);
+        let uri = &parts.uri.to_string();
+        let headers = &Self::headers(&parts.headers)?;
+        let params = &Self::params(&uri)?;
+        let params: &Vec<(&str, &str)> = &params.into_iter().map(|(k, v)| (&**k, &**v)).collect();
+
+        let req = fermyon_http_v01::Request {
+            method,
+            uri,
+            headers,
+            params,
+            body,
+        };
+        log::info!("Request URI: {:?}", req.uri);
+        let res = r.handler(&mut store, req)?;
+        log::info!("Response status code: {:?}", res.status);
+        let mut fr = http::Response::builder().status(res.status);
+        Self::append_headers(fr.headers_mut().unwrap(), res.headers)?;
+
+        let body = match res.body {
+            Some(b) => Body::from(b),
+            None => Body::empty(),
+        };
+
+        Ok(fr.body(body)?)
+    }
+
+    fn method(m: &http::Method) -> Method {
+        match *m {
             http::Method::GET => Method::Get,
             http::Method::POST => Method::Post,
             http::Method::PUT => Method::Put,
             http::Method::DELETE => Method::Delete,
             http::Method::PATCH => Method::Patch,
             _ => todo!(),
-        };
-        let u = req.uri().to_string();
-
-        let headers = Self::header_map_to_vec(req.headers())?;
-        let headers: Vec<&str> = headers.iter().map(|s| &**s).collect();
-
-        let (_, b) = req.into_parts();
-        let b = hyper::body::to_bytes(b).await?.to_vec();
-        let req = (m, u.as_str(), &headers[..], None, Some(&b[..]));
-
-        let (status, headers, body) = r.handler(&mut store, req)?;
-        log::info!("Result status code: {}", status);
-        let mut hr = http::Response::builder().status(status);
-        Self::append_headers(hr.headers_mut().unwrap(), headers)?;
-
-        let body = match body {
-            Some(b) => Body::from(b),
-            None => Body::empty(),
-        };
-
-        Ok(hr.body(body)?)
+        }
     }
 
-    /// Generate a string vector from an HTTP header map.
-    fn header_map_to_vec(hm: &http::HeaderMap) -> Result<Vec<String>, Error> {
+    fn headers(hm: &http::HeaderMap) -> Result<Vec<(&str, &str)>, Error> {
         let mut res = Vec::new();
         for (name, value) in hm
             .iter()
             .map(|(name, value)| (name.as_str(), std::str::from_utf8(value.as_bytes())))
         {
             let value = value?;
-            anyhow::ensure!(
-                !name
-                    .chars()
-                    .any(|x| x.is_control() || "(),/:;<=>?@[\\]{}".contains(x)),
-                "Invalid header name"
-            );
-            anyhow::ensure!(
-                !value.chars().any(|x| x.is_control()),
-                "Invalid header value"
-            );
-            res.push(format!("{}:{}", name, value));
+            res.push((name, value));
         }
+
         Ok(res)
     }
 
-    /// Append a header map string to a mutable http::HeaderMap.
     fn append_headers(
-        res_headers: &mut http::HeaderMap,
-        source: Option<Vec<String>>,
+        res: &mut http::HeaderMap,
+        src: Option<Vec<(String, String)>>,
     ) -> Result<(), Error> {
-        match source {
-            Some(h) => {
-                for pair in h {
-                    let mut parts = pair.splitn(2, ':');
-                    let k = parts.next().ok_or_else(|| {
-                        anyhow::format_err!("Invalid serialized header: [{}]", pair)
-                    })?;
-                    let v = parts.next().unwrap();
-                    res_headers.insert(
+        match src {
+            Some(src) => {
+                for (k, v) in src.iter() {
+                    res.insert(
                         http::header::HeaderName::from_str(k)?,
                         http::header::HeaderValue::from_str(v)?,
                     );
                 }
-
-                Ok(())
             }
-            None => Ok(()),
-        }
+            None => {}
+        };
+
+        Ok(())
+    }
+
+    fn params(uri: &str) -> Result<Vec<(String, String)>, Error> {
+        let url = Url::parse(uri)?;
+        Ok(url
+            .query_pairs()
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect())
     }
 }
 
@@ -145,5 +151,38 @@ impl Trigger {
         Server::bind(&addr).serve(mk_svc).await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::HttpEngine;
+    use crate::HttpService;
+    use fermyon_engine::{Config, ExecutionContextBuilder};
+    use hyper::Body;
+    use std::sync::Arc;
+
+    const RUST_ENTRYPOINT_PATH: &str =
+        "tests/rust-http-test/target/wasm32-wasi/release/rust_http_test.wasm";
+
+    #[tokio::test]
+    async fn test_rust_hello() {
+        let engine =
+            ExecutionContextBuilder::build_default(RUST_ENTRYPOINT_PATH, Config::default())
+                .unwrap();
+        let engine = HttpEngine(Arc::new(engine));
+
+        let body = Body::from("Fermyon".as_bytes().to_vec());
+        let req = http::Request::builder()
+            .method("POST")
+            .uri("https://myservice.fermyon.dev")
+            .header("X-Custom-Foo", "Bar")
+            .header("X-Custom-Foo2", "Bar2")
+            .body(body)
+            .unwrap();
+
+        let res = engine.execute(req).await.unwrap();
+        let body_bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
+        assert_eq!(body_bytes.to_vec(), "Hello, Fermyon".as_bytes());
     }
 }

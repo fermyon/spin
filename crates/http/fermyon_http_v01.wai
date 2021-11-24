@@ -25,6 +25,7 @@ enum method {
     put,
     delete,
     patch,
+    head,
 }
 
 // An HTTP request.

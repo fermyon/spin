@@ -49,8 +49,12 @@ impl HttpEngine {
         let method = Self::method(&parts.method);
         let uri = &parts.uri.to_string();
         let headers = &Self::headers(&parts.headers)?;
-        let params = &Self::params(&uri)?;
-        let params: &Vec<(&str, &str)> = &params.into_iter().map(|(k, v)| (&**k, &**v)).collect();
+
+        // TODO
+        // Currently, this silently crashes the running thread.
+        // let params = &Self::params(&uri)?;
+        // let params: &Vec<(&str, &str)> = &params.into_iter().map(|(k, v)| (&**k, &**v)).collect();
+        let params = &Vec::new();
 
         let req = fermyon_http_v01::Request {
             method,
@@ -80,6 +84,7 @@ impl HttpEngine {
             http::Method::PUT => Method::Put,
             http::Method::DELETE => Method::Delete,
             http::Method::PATCH => Method::Patch,
+            http::Method::HEAD => Method::Head,
             _ => todo!(),
         }
     }

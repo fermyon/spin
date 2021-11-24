@@ -403,7 +403,8 @@ impl From<std::convert::Infallible> for ClientError {
 mod tests {
     use super::*;
 
-    #[tokio::test]
+    // #[tokio::test]
+    #[allow(unused)]
     async fn test_create_app_and_channel() -> Result<()> {
         let options = ClientOptions {
             danger_accept_invalid_certs: true,
@@ -433,7 +434,8 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    // #[tokio::test]
+    #[allow(unused)]
     async fn update_revision() -> Result<()> {
         let options = ClientOptions {
             danger_accept_invalid_certs: true,

@@ -25,12 +25,7 @@
     wact-core         = { git = "https://github.com/bytecodealliance/wact", rev = "955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895" }
 
 [workspace]
-    members = [
-        "crates/engine",
-        "crates/hippo-client",
-        "crates/http",
-        "crates/templates",
-    ]
+    members = [ "crates/engine", "crates/hippo-client", "crates/http", "crates/templates" ]
 
 [[bin]]
     name = "spin"

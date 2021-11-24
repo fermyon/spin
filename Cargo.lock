@@ -822,6 +822,7 @@ dependencies = [
  "log",
  "serde",
  "tokio",
+ "url",
  "wai-bindgen-rust",
  "wai-bindgen-wasmtime",
  "wasi-common",

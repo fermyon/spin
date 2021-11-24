@@ -13,7 +13,7 @@ use wact_core::Entity;
     about = "Start the default HTTP listener",
     global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp]
 )]
-pub struct Run {
+pub struct Up {
     #[structopt(
         long = "listen",
         default_value = "127.0.0.1:3000",
@@ -46,7 +46,7 @@ pub struct Run {
     pub profile: String,
 }
 
-impl Run {
+impl Up {
     pub async fn run(self) -> Result<()> {
         let start = Instant::now();
         let entrypoint = match self.local {

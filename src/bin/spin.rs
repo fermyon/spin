@@ -1,5 +1,5 @@
 use anyhow::Error;
-use spin_cli::commands::{apps::AppCommands, run::Run, templates::TemplateCommands};
+use spin_cli::commands::{app::AppCommands, templates::TemplateCommands, up::Up};
 use structopt::{clap::AppSettings, StructOpt};
 
 #[tokio::main]
@@ -20,8 +20,8 @@ async fn main() -> Result<(), Error> {
     ])]
 enum SpinApp {
     Templates(TemplateCommands),
-    Apps(AppCommands),
-    Run(Run),
+    App(AppCommands),
+    Up(Up),
 }
 
 impl SpinApp {
@@ -29,8 +29,8 @@ impl SpinApp {
     pub async fn run(self) -> Result<(), Error> {
         match self {
             SpinApp::Templates(cmd) => cmd.run().await,
-            SpinApp::Apps(cmd) => cmd.run().await,
-            SpinApp::Run(cmd) => cmd.run().await,
+            SpinApp::App(cmd) => cmd.run().await,
+            SpinApp::Up(cmd) => cmd.run().await,
         }
     }
 }

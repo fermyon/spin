@@ -3,6 +3,7 @@ use anyhow::Result;
 use hippo_client::{Client, ClientOptions};
 use structopt::StructOpt;
 
+/// Commands for working with Fermyon apps.
 #[derive(StructOpt, Debug)]
 pub enum AppCommands {
     /// Create a new application.

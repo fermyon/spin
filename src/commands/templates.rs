@@ -6,7 +6,7 @@ use structopt::StructOpt;
 
 /// Commands for working with WebAssembly component templates.
 #[derive(StructOpt, Debug)]
-pub enum TemplatesCommand {
+pub enum TemplateCommands {
     /// Add a template repository locally.
     Add(Add),
 
@@ -17,12 +17,12 @@ pub enum TemplatesCommand {
     Generate(Generate),
 }
 
-impl TemplatesCommand {
+impl TemplateCommands {
     pub async fn run(self) -> Result<()> {
         match self {
-            TemplatesCommand::Add(cmd) => cmd.run().await,
-            TemplatesCommand::Generate(cmd) => cmd.run().await,
-            TemplatesCommand::List(cmd) => cmd.run().await,
+            TemplateCommands::Add(cmd) => cmd.run().await,
+            TemplateCommands::Generate(cmd) => cmd.run().await,
+            TemplateCommands::List(cmd) => cmd.run().await,
         }
     }
 }

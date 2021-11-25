@@ -3,14 +3,14 @@
 #![deny(missing_docs)]
 
 use anyhow::Result;
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 use wasi_common::WasiCtx;
 use wasi_experimental_http_wasmtime::HttpCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
 use wasmtime_wasi::sync::{ambient_authority, Dir, WasiCtxBuilder};
 
 /// Engine configuration.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct Config {
     /// Environment variables to set inside the WebAssembly module.
     pub env_vars: Vec<(String, String)>,
@@ -110,8 +110,10 @@ impl<T: Default> ExecutionContextBuilder<T> {
 
     /// Build a new instance of the execution context by pre-instantiating the entrypoint module.
     pub fn build(self) -> Result<ExecutionContext<T>> {
+        let start = Instant::now();
         let module = Module::from_file(&self.engine, &self.entrypoint_path)?;
         let pre = self.linker.instantiate_pre(self.store, &module)?;
+        log::info!("Execution context initialized in: {:#?}", start.elapsed());
         Ok(ExecutionContext {
             config: self.config,
             engine: self.engine,

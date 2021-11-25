@@ -2,8 +2,7 @@
     name    = "spin-cli"
     version = "0.1.0"
     edition = "2021"
-    authors = ["Radu Matei <radu.matei@fermyon.com>"]
-
+    authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
 
 [dependencies]
     anyhow            = "1.0"
@@ -11,18 +10,22 @@
     bytes             = "1.1"
     comfy-table       = "4.1"
     env_logger        = "0.9"
+    fermyon-engine    = { path = "crates/engine" }
+    fermyon-http      = { path = "crates/http" }
     fermyon-templates = { path = "crates/templates" }
     futures           = "0.3"
+    hippo-client      = { path = "crates/hippo-client" }
     log               = { version = "0.4", default-features = false }
-    serde             = { version = "1.0", features = ["derive"] }
+    semver            = "1.0"
+    serde             = { version = "1.0", features = [ "derive" ] }
     structopt         = "0.3"
-    tokio             = { version = "1.11", features = ["full"] }
+    tokio             = { version = "1.11", features = [ "full" ] }
     toml              = "0.5"
-
+    wact-client       = { git = "https://github.com/bytecodealliance/wact", rev = "955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895" }
+    wact-core         = { git = "https://github.com/bytecodealliance/wact", rev = "955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895" }
 
 [workspace]
-    members = ["crates/templates", "crates/engine"]
-
+    members = [ "crates/engine", "crates/hippo-client", "crates/http", "crates/templates" ]
 
 [[bin]]
     name = "spin"

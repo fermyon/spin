@@ -1,5 +1,5 @@
 use anyhow::Error;
-use spin_cli::commands::templates::TemplatesCommand;
+use spin_cli::commands::{app::AppCommands, templates::TemplateCommands, up::Up};
 use structopt::{clap::AppSettings, StructOpt};
 
 #[tokio::main]
@@ -19,14 +19,18 @@ async fn main() -> Result<(), Error> {
         AppSettings::ColoredHelp
     ])]
 enum SpinApp {
-    Templates(TemplatesCommand),
+    Templates(TemplateCommands),
+    App(AppCommands),
+    Up(Up),
 }
 
 impl SpinApp {
     /// The main entry point to Spin.
     pub async fn run(self) -> Result<(), Error> {
         match self {
-            SpinApp::Templates(t) => t.run().await,
+            SpinApp::Templates(cmd) => cmd.run().await,
+            SpinApp::App(cmd) => cmd.run().await,
+            SpinApp::Up(cmd) => cmd.run().await,
         }
     }
 }

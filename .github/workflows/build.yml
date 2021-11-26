@@ -32,7 +32,7 @@ jobs:
           pathInArchive: "bindle-server"
 
       - name: Build
-        run: cargo build
+        run: CARGO_NET_GIT_FETCH_WITH_CLI=true cargo build
       - name: Run tests
         run:
           RUST_LOG=fermyon_templates=info,fermyon_templates=info

@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
-use fermyon_engine::{Config, ExecutionContextBuilder};
-use fermyon_http::{HttpEngine, Trigger};
 use semver::Version;
+use spin_engine::{Config, ExecutionContextBuilder};
+use spin_http::{HttpEngine, Trigger};
 use std::{sync::Arc, time::Instant};
 use structopt::{clap::AppSettings, StructOpt};
 use wact_client::Client;

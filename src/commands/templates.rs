@@ -1,6 +1,6 @@
 use anyhow::Result;
 use comfy_table::Table;
-use fermyon_templates::TemplatesManager;
+use spin_templates::TemplatesManager;
 use std::path::PathBuf;
 use structopt::StructOpt;
 

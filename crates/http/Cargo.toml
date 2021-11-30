@@ -1,5 +1,5 @@
 [package]
-    name    = "fermyon-http"
+    name    = "spin-http"
     version = "0.1.0"
     edition = "2021"
     authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
@@ -13,11 +13,11 @@
     bytes                           = "1.1.0"
     env_logger                      = "0.9.0"
     futures                         = "0.3.17"
-    fermyon-engine                  = { path = "../engine" }
     http                            = "0.2"
     hyper                           = { version = "0.14.12", features = [ "full" ] }
     log                             = { version = "0.4.14", default-features = false }
     serde                           = { version = "1.0.130", features = [ "derive" ] }
+    spin-engine                     = { path = "../engine" }
     tokio                           = { version = "1.10.0", features = [ "fs" ] }
     url                             = "2.2"
     wai-bindgen-rust                = { git = "https://github.com/bytecodealliance/wai-bindgen", rev = "10e46993d0ff3ee688c5379f4223c8cf03a6f82a" }

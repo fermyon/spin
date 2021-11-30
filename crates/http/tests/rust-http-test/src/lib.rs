@@ -1,10 +1,10 @@
-use fermyon_http_v01::{Request, Response};
+use spin_http_v01::{Request, Response};
 
-wai_bindgen_rust::export!("../../fermyon_http_v01.wai");
+wai_bindgen_rust::export!("../../spin_http_v01.wai");
 
-struct FermyonHttpV01 {}
+struct SpinHttpV01 {}
 
-impl fermyon_http_v01::FermyonHttpV01 for FermyonHttpV01 {
+impl spin_http_v01::SpinHttpV01 for SpinHttpV01 {
     fn handler(req: Request) -> Response {
         let body = Some(
             format!(

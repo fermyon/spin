@@ -782,76 +782,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fermyon-engine"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes",
- "dirs 3.0.2",
- "env_logger 0.9.0",
- "fs_extra",
- "futures",
- "git2",
- "log",
- "serde",
- "structopt",
- "tokio",
- "toml",
- "tracing",
- "wai-bindgen-rust",
- "wai-bindgen-wasmtime",
- "wasi-common",
- "wasi-experimental-http-wasmtime",
- "wasmtime",
- "wasmtime-wasi",
-]
-
-[[package]]
-name = "fermyon-http"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes",
- "env_logger 0.9.0",
- "fermyon-engine",
- "futures",
- "http",
- "hyper",
- "log",
- "serde",
- "tokio",
- "url",
- "wai-bindgen-rust",
- "wai-bindgen-wasmtime",
- "wasi-common",
- "wasi-experimental-http-wasmtime",
- "wasmtime",
- "wasmtime-wasi",
-]
-
-[[package]]
-name = "fermyon-templates"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes",
- "dirs 3.0.2",
- "env_logger 0.9.0",
- "fs_extra",
- "futures",
- "git2",
- "log",
- "serde",
- "symlink",
- "tokio",
- "toml",
- "walkdir",
-]
-
-[[package]]
 name = "file-per-thread-logger"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2627,19 +2557,89 @@ dependencies = [
  "bytes",
  "comfy-table",
  "env_logger 0.9.0",
- "fermyon-engine",
- "fermyon-http",
- "fermyon-templates",
  "futures",
  "hippo-client",
  "log",
  "semver 1.0.4",
  "serde",
+ "spin-engine",
+ "spin-http",
+ "spin-templates",
  "structopt",
  "tokio",
  "toml",
  "wact-client",
  "wact-core",
+]
+
+[[package]]
+name = "spin-engine"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "dirs 3.0.2",
+ "env_logger 0.9.0",
+ "fs_extra",
+ "futures",
+ "git2",
+ "log",
+ "serde",
+ "structopt",
+ "tokio",
+ "toml",
+ "tracing",
+ "wai-bindgen-rust",
+ "wai-bindgen-wasmtime",
+ "wasi-common",
+ "wasi-experimental-http-wasmtime",
+ "wasmtime",
+ "wasmtime-wasi",
+]
+
+[[package]]
+name = "spin-http"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "env_logger 0.9.0",
+ "futures",
+ "http",
+ "hyper",
+ "log",
+ "serde",
+ "spin-engine",
+ "tokio",
+ "url",
+ "wai-bindgen-rust",
+ "wai-bindgen-wasmtime",
+ "wasi-common",
+ "wasi-experimental-http-wasmtime",
+ "wasmtime",
+ "wasmtime-wasi",
+]
+
+[[package]]
+name = "spin-templates"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "dirs 3.0.2",
+ "env_logger 0.9.0",
+ "fs_extra",
+ "futures",
+ "git2",
+ "log",
+ "serde",
+ "symlink",
+ "tokio",
+ "toml",
+ "walkdir",
 ]
 
 [[package]]

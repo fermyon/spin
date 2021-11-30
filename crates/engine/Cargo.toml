@@ -1,5 +1,5 @@
 [package]
-    name    = "fermyon-engine"
+    name    = "spin-engine"
     version = "0.1.0"
     edition = "2021"
     authors = [ "Radu Matei <radu.matei@fermyon.com>" ]

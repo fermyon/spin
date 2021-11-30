@@ -1,8 +1,8 @@
 [package]
-    name    = "fermyon-templates"
+    name    = "spin-templates"
     version = "0.1.0"
     edition = "2021"
-    authors = ["Radu Matei <radu.matei@fermyon.com>"]
+    authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
 
 
 [dependencies]
@@ -15,8 +15,8 @@
     futures     = "0.3"
     git2        = "0.13"
     log         = { version = "0.4", default-features = false }
-    serde       = { version = "1.0", features = ["derive"] }
+    serde       = { version = "1.0", features = [ "derive" ] }
     symlink     = "0.1"
-    tokio       = { version = "1.10", features = ["fs"] }
+    tokio       = { version = "1.10", features = [ "fs" ] }
     toml        = "0.5"
     walkdir     = "2"

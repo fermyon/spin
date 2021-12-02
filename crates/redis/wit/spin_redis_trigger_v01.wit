@@ -1,0 +1,5 @@
+// The Redis message payload.
+type payload = list<u8>
+
+// The entrypoint for a Redis handler.
+handler: function(payload: payload)

@@ -121,6 +121,7 @@ impl HttpEngine {
         Ok(())
     }
 
+    #[allow(unused)]
     fn params(uri: &str) -> Result<Vec<(String, String)>, Error> {
         let url = Url::parse(uri)?;
         Ok(url

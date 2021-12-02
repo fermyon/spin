@@ -1,5 +1,11 @@
 // The Redis message payload.
 type payload = list<u8>
 
+// Error returned to the runtime.
+enum error {
+    success,
+    error
+}
+
 // The entrypoint for a Redis handler.
-handler: function(payload: payload)
+handler: function(payload: payload) -> expected<_, error>

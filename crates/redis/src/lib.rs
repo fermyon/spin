@@ -37,7 +37,7 @@ impl RedisEngine {
         let r =
             SpinRedisTriggerV01::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
 
-        r.handler(&mut store, payload)?;
+        let _ = r.handler(&mut store, payload)?;
         Ok(())
     }
 }
@@ -82,7 +82,7 @@ mod tests {
 
     const RUST_ENTRYPOINT_PATH: &str = "tests/rust/target/wasm32-wasi/release/rust.wasm";
 
-    // #[tokio::test]
+    #[tokio::test]
     #[allow(unused)]
     async fn test_pubsub() {
         let trigger = RedisTrigger {

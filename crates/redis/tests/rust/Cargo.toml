@@ -1,0 +1,13 @@
+[package]
+    name    = "rust"
+    version = "0.1.0"
+    edition = "2021"
+    authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
+
+[lib]
+    crate-type = [ "cdylib" ]
+
+[dependencies]
+    wai-bindgen-rust = { git = "https://github.com/bytecodealliance/wai-bindgen", rev = "10e46993d0ff3ee688c5379f4223c8cf03a6f82a" }
+
+[workspace]

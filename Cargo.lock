@@ -3237,7 +3237,7 @@ checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
 [[package]]
 name = "wact-client"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/wact?rev=955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895#955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895"
+source = "git+ssh://git@github.com/fermyon/wact.git?rev=955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895#955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3259,7 +3259,7 @@ dependencies = [
 [[package]]
 name = "wact-core"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/wact?rev=955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895#955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895"
+source = "git+ssh://git@github.com/fermyon/wact.git?rev=955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895#955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895"
 dependencies = [
  "anyhow",
  "async-trait",

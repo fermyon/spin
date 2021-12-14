@@ -21,8 +21,8 @@
     structopt      = "0.3"
     tokio          = { version = "1.11", features = [ "full" ] }
     toml           = "0.5"
-    wact-client    = { git = "https://github.com/fermyon/wact", rev = "955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895" }
-    wact-core      = { git = "https://github.com/fermyon/wact", rev = "955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895" }
+    wact-client    = { git = "ssh://git@github.com/fermyon/wact.git", rev = "955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895" }
+    wact-core      = { git = "ssh://git@github.com/fermyon/wact.git", rev = "955eb8fe4ace52e3bd9994c1199f5ec5b9ce7895" }
 
 [workspace]
     members = [ "crates/engine", "crates/hippo-client", "crates/http", "crates/redis", "crates/templates" ]

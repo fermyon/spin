@@ -8,7 +8,7 @@
 
 [dependencies]
     # The Wact dependency generates bindings that simplify working with interfaces.
-    wact = { git = "https://github.com/fermyon/wact" }
+    wact = { git = "https://github.com/fermyon/wact", branch = "lock-file-impl" }
 
 [workspace]
 
@@ -19,4 +19,4 @@
 
 # This component implements the fermyon/http interface.
 [package.metadata.component.exports]
-    fermyon-http = { reference = "fermyon/http", version = "0.1.0" }
+    fermyon-http = { name = "fermyon/http", version = "0.1.0" }

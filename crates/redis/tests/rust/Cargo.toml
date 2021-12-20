@@ -8,6 +8,6 @@
     crate-type = [ "cdylib" ]
 
 [dependencies]
-    wai-bindgen-rust = { git = "https://github.com/bytecodealliance/wai-bindgen", rev = "10e46993d0ff3ee688c5379f4223c8cf03a6f82a" }
+    wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "32e63116d469d8046727fae3c1333a7d35d0c5d3" }
 
 [workspace]

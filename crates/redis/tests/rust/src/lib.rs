@@ -2,7 +2,7 @@ use std::str::{from_utf8, Utf8Error};
 
 use spin_redis_trigger_v01::*;
 
-wai_bindgen_rust::export!("../../wit/spin_redis_trigger_v01.wit");
+wit_bindgen_rust::export!("../../wit/spin_redis_trigger_v01.wit");
 
 struct SpinRedisTriggerV01 {}
 

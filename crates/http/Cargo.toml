@@ -20,9 +20,9 @@
     spin-engine                     = { path = "../engine" }
     tokio                           = { version = "1.10.0", features = [ "fs" ] }
     url                             = "2.2"
-    wai-bindgen-rust                = { git = "https://github.com/bytecodealliance/wai-bindgen", rev = "10e46993d0ff3ee688c5379f4223c8cf03a6f82a" }
-    wai-bindgen-wasmtime            = { git = "https://github.com/bytecodealliance/wai-bindgen", rev = "10e46993d0ff3ee688c5379f4223c8cf03a6f82a" }
-    wasi-common                     = "0.30"
-    wasi-experimental-http-wasmtime = "0.6.0"
-    wasmtime                        = "0.30"
-    wasmtime-wasi                   = "0.30"
+    wit-bindgen-rust                = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "32e63116d469d8046727fae3c1333a7d35d0c5d3" }
+    wit-bindgen-wasmtime            = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "32e63116d469d8046727fae3c1333a7d35d0c5d3" }
+    wasi-common                     = "0.31"
+    wasi-experimental-http-wasmtime = "0.7.0"
+    wasmtime                        = "0.31"
+    wasmtime-wasi                   = "0.31"

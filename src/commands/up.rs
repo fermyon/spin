@@ -2,10 +2,10 @@ use anyhow::{bail, Result};
 use semver::Version;
 use spin_engine::{Config, ExecutionContextBuilder};
 use spin_http::{HttpEngine, Trigger};
-use std::{sync::Arc, time::Instant};
+use std::{ops::DerefMut, sync::Arc, time::Instant};
 use structopt::{clap::AppSettings, StructOpt};
 use wact_client::Client;
-use wact_core::Entity;
+use wact_core::{Entity, EntityCacheLock};
 
 /// Start the Fermyon HTTP runtime.
 #[derive(StructOpt, Debug)]
@@ -52,11 +52,15 @@ impl Up {
         let entrypoint = match self.local {
             Some(e) => e,
             None => {
-                let client = Client::new(self.registry).await?;
+                let client = Client::new(self.registry)?;
+                let mut cache = EntityCacheLock::default()?;
+                let mut cache = cache.try_write()?.expect("cannot get a cache write lock");
+
                 let entity = match client
                     .pull(
                         &self.bindle.expect("bindle reference required"),
                         &Version::parse(&self.bindle_version.expect("bindle version required"))?,
+                        &mut cache.deref_mut(),
                     )
                     .await?
                 {
@@ -69,9 +73,9 @@ impl Up {
                     Entity::Interface(_) => bail!("Cannot use interface as component."),
                 };
 
-                log::info!("Pulled component from the registry: {:?}", component.name());
+                log::info!("Pulled component from the registry: {:?}", component.name);
 
-                component.module().to_str().unwrap().to_string()
+                component.path.to_str().unwrap().to_string()
             }
         };
 

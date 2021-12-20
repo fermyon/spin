@@ -1,6 +1,6 @@
 use spin_http_v01::{Request, Response};
 
-wai_bindgen_rust::export!("../../spin_http_v01.wai");
+wit_bindgen_rust::export!("../../spin_http_v01.wai");
 
 struct SpinHttpV01 {}
 

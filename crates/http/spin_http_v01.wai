@@ -1,8 +1,11 @@
+// This is a temporary workaround very similar to https://github.com/deislabs/wasi-experimental-http.
+// Once asynchronous functions, streams, and the upstream HTTP API are available, this should be removed.
+
 // The HTTP status code.
 // This is currently an unsigned 16-bit integer,
 // but it could be represented as an enum containing
 // all possible HTTP status codes.
-type http_status = u16
+type http-status = u16
 
 // The HTTP body.
 // Currently, this is a synchonous byte array, but it should be
@@ -26,6 +29,7 @@ enum method {
     delete,
     patch,
     head,
+    options,
 }
 
 // An HTTP request.
@@ -39,9 +43,18 @@ record request {
 
 // An HTTP response.
 record response {
-    status: http_status,
+    status: http-status,
     headers: option<headers>,
     body: option<body>,
+}
+
+// HTTP errors returned by the runtime.
+enum http-error {
+    success,
+    destination-not-allowed,
+    invalid-url,
+    request-error,
+    runtime-error,
 }
 
 // The entrypoint for an HTTP handler.

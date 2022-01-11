@@ -20,7 +20,7 @@
     toml                            = "0.5.8"
     tracing                         = { version = "0.1", features = [ "log" ] }
     wasi-common                     = "0.33"
-    wasi-experimental-http-wasmtime = { git = "https://github.com/radu-matei/wasi-experimental-http", branch = "update-wasmtime-v033" }
+    wasi-experimental-http-wasmtime = { git = "https://github.com/deislabs/wasi-experimental-http", rev = "e900e5c0557b6a352e447baa2078df979fb9f134" }
     wasmtime                        = "0.33"
     wasmtime-wasi                   = "0.33"
     wit-bindgen-rust                = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2e654dc82b7f9331719ba617a36ed5967b2aecb0" }

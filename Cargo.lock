@@ -2549,7 +2549,6 @@ dependencies = [
  "tokio",
  "url",
  "wasi-common",
- "wasi-experimental-http-wasmtime",
  "wasmtime",
  "wasmtime-wasi",
  "wit-bindgen-rust",
@@ -3233,7 +3232,7 @@ dependencies = [
 [[package]]
 name = "wasi-experimental-http-wasmtime"
 version = "0.7.0"
-source = "git+https://github.com/radu-matei/wasi-experimental-http?branch=update-wasmtime-v033#5ecc940148fc8ae992d5bdf6e202cb8b54374b1a"
+source = "git+https://github.com/deislabs/wasi-experimental-http?rev=e900e5c0557b6a352e447baa2078df979fb9f134#e900e5c0557b6a352e447baa2078df979fb9f134"
 dependencies = [
  "anyhow",
  "bytes",

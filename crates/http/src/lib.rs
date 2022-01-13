@@ -11,7 +11,7 @@ use std::{sync::Arc, time::Instant};
 use url::Url;
 use wasmtime::{Instance, Store};
 
-wit_bindgen_wasmtime::import!("crates/http/spin_http_v01.wai");
+wit_bindgen_wasmtime::import!("crates/http/spin_http_v01.wit");
 
 type ExecutionContext = spin_engine::ExecutionContext<SpinHttpV01Data>;
 type RuntimeContext = spin_engine::RuntimeContext<SpinHttpV01Data>;

@@ -8,7 +8,7 @@
 
 [dependencies]
     # The Wact dependency generates bindings that simplify working with interfaces.
-    wact = { git = "https://github.com/fermyon/wact", branch = "lock-file-impl" }
+    wact = { git = "https://github.com/fermyon/wact", rev = "93a9eaeba9205918dc214a6310c0bb6e33c0e3c8" }
 
 [workspace]
 

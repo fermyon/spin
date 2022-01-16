@@ -6,7 +6,7 @@ use std::{
 const ECHO_WAI: &str = "crates/engine/tests/echo.witx";
 const ECHO_RUST: &str = "crates/engine/tests/rust-echo";
 
-const HTTP_WAI: &str = "crates/http/spin_http_v01.wai";
+const HTTP_WAI: &str = "crates/http/spin_http_v01.wit";
 const HTTP_TEST: &str = "crates/http/tests/rust-http-test";
 
 const REDIS_WIT: &str = "crates/redis/wit/spin_redis_trigger_v01.wit";

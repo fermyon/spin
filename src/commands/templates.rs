@@ -12,16 +12,12 @@ pub enum TemplateCommands {
 
     /// List the template repositories configured.
     List(List),
-
-    /// Generate a new project from a template.
-    Generate(Generate),
 }
 
 impl TemplateCommands {
     pub async fn run(self) -> Result<()> {
         match self {
             TemplateCommands::Add(cmd) => cmd.run().await,
-            TemplateCommands::Generate(cmd) => cmd.run().await,
             TemplateCommands::List(cmd) => cmd.run().await,
         }
     }
@@ -56,29 +52,6 @@ impl Add {
             Some(g) => Ok(tm.add_repo(&self.name, &g, self.branch.as_deref())?),
             None => Ok(tm.add_local(&self.name, &self.local.unwrap())?),
         }
-    }
-}
-
-/// Generate a new project based on a template.
-#[derive(StructOpt, Debug)]
-pub struct Generate {
-    /// The local templates repository.
-    #[structopt(long = "repo")]
-    pub repo: String,
-
-    /// The name of the template.
-    #[structopt(long = "template")]
-    pub template: String,
-
-    /// The destination where the template will be used.
-    #[structopt(long = "path")]
-    pub path: PathBuf,
-}
-
-impl Generate {
-    pub async fn run(self) -> Result<()> {
-        let tm = TemplatesManager::default().await?;
-        tm.generate(&self.repo, &self.template, self.path).await
     }
 }
 

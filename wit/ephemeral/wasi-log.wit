@@ -1,0 +1,20 @@
+// Log levels.
+enum level {
+    trace,
+    debug,
+    info,
+    warn,
+    error,
+    fatal
+}
+
+// General log function.
+log: function(msg: string, lvl: level)
+
+// Specialized log functions.
+trace: function(msg: string)
+debug: function(msg: string)
+info: function(msg: string)
+warn: function(msg: string)
+error: function(msg: string)
+fatal: function(msg: string)

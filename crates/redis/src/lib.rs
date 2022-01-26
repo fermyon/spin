@@ -2,14 +2,14 @@ use anyhow::Result;
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::Client;
-use spin_redis_trigger_v01::*;
+use spin_redis_trigger::{SpinRedisTrigger, SpinRedisTriggerData};
 use std::{sync::Arc, time::Instant};
 use wasmtime::{Instance, Store};
 
-wit_bindgen_wasmtime::import!("crates/redis/wit/spin_redis_trigger_v01.wit");
+wit_bindgen_wasmtime::import!("wit/ephemeral/spin-redis-trigger.wit");
 
-type ExecutionContext = spin_engine::ExecutionContext<SpinRedisTriggerV01Data>;
-type RuntimeContext = spin_engine::RuntimeContext<SpinRedisTriggerV01Data>;
+type ExecutionContext = spin_engine::ExecutionContext<SpinRedisTriggerData>;
+type RuntimeContext = spin_engine::RuntimeContext<SpinRedisTriggerData>;
 
 #[derive(Clone)]
 pub struct RedisEngine(pub Arc<ExecutionContext>);
@@ -34,8 +34,7 @@ impl RedisEngine {
         instance: Instance,
         payload: &[u8],
     ) -> Result<()> {
-        let r =
-            SpinRedisTriggerV01::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
+        let r = SpinRedisTrigger::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
 
         let _ = r.handler(&mut store, payload)?;
         Ok(())

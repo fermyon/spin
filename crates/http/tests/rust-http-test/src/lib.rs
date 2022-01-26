@@ -1,10 +1,10 @@
-use spin_http_v01::{Request, Response};
+use spin_http::{Request, Response};
 
-wit_bindgen_rust::export!("../../spin_http_v01.wit");
+wit_bindgen_rust::export!("../../../../wit/ephemeral/spin-http.wit");
 
-struct SpinHttpV01 {}
+struct SpinHttp {}
 
-impl spin_http_v01::SpinHttpV01 for SpinHttpV01 {
+impl spin_http::SpinHttp for SpinHttp {
     fn handler(req: Request) -> Response {
         let body = Some(
             format!(

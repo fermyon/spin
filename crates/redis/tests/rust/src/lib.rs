@@ -1,12 +1,12 @@
 use std::str::{from_utf8, Utf8Error};
 
-use spin_redis_trigger_v01::*;
+use spin_redis_trigger::*;
 
-wit_bindgen_rust::export!("../../wit/spin_redis_trigger_v01.wit");
+wit_bindgen_rust::export!("../../../../wit/ephemeral/spin-redis-trigger.wit");
 
-struct SpinRedisTriggerV01 {}
+struct SpinRedisTrigger {}
 
-impl spin_redis_trigger_v01::SpinRedisTriggerV01 for SpinRedisTriggerV01 {
+impl spin_redis_trigger::SpinRedisTrigger for SpinRedisTrigger {
     fn handler(payload: Payload) -> Result<(), Error> {
         println!("Message: {}", from_utf8(&payload)?);
         Ok(())

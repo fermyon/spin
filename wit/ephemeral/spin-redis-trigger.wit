@@ -1,0 +1,4 @@
+use * from types
+
+// The entrypoint for a Redis handler.
+handler: function(payload: payload) -> expected<_, error>

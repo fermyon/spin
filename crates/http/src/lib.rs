@@ -5,16 +5,15 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use spin_http_v01::{Method, SpinHttpV01, SpinHttpV01Data};
-use std::{net::SocketAddr, str::FromStr};
-use std::{sync::Arc, time::Instant};
+use spin_http::{Method, SpinHttp, SpinHttpData};
+use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Instant};
 use url::Url;
 use wasmtime::{Instance, Store};
 
-wit_bindgen_wasmtime::import!("crates/http/spin_http_v01.wit");
+wit_bindgen_wasmtime::import!("wit/ephemeral/spin-http.wit");
 
-type ExecutionContext = spin_engine::ExecutionContext<SpinHttpV01Data>;
-type RuntimeContext = spin_engine::RuntimeContext<SpinHttpV01Data>;
+type ExecutionContext = spin_engine::ExecutionContext<SpinHttpData>;
+type RuntimeContext = spin_engine::RuntimeContext<SpinHttpData>;
 
 #[derive(Clone)]
 pub struct HttpEngine(pub Arc<ExecutionContext>);
@@ -40,7 +39,7 @@ impl HttpEngine {
         instance: Instance,
         req: Request<Body>,
     ) -> Result<Response<Body>, Error> {
-        let r = SpinHttpV01::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
+        let r = SpinHttp::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
 
         let (parts, bytes) = req.into_parts();
         let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
@@ -56,7 +55,7 @@ impl HttpEngine {
         // let params: &Vec<(&str, &str)> = &params.into_iter().map(|(k, v)| (&**k, &**v)).collect();
         let params = &Vec::new();
 
-        let req = spin_http_v01::Request {
+        let req = spin_http::Request {
             method,
             uri,
             headers,

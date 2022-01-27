@@ -37,7 +37,7 @@ $ RUST_LOG=bindle=trace bindle-server --address 127.0.0.1:8080 --directory . --u
 Push the Spin HTTP interface to the registry (from the root of this repository). This step, together with starting the registry, will not be required once we set up a canonical registry instance:
 
 ```shell
-$ wact interface push --name fermyon/http --version 0.1.0 crates/http/spin_http_v01.wai
+$ wact interface publish --name fermyon/http --version 0.1.0 crates/http/spin_http_v01.wit
 pushed interface `fermyon/http` (version 0.1.0)
 ```
 

@@ -2507,6 +2507,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-config"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "spin-engine"
 version = "0.1.0"
 dependencies = [

@@ -26,7 +26,7 @@
     wact-core      = { git = "ssh://git@github.com/fermyon/wact.git", rev = "93a9eaeba9205918dc214a6310c0bb6e33c0e3c8" }
 
 [workspace]
-    members = [ "crates/engine", "crates/hippo-client", "crates/http", "crates/templates" ]
+    members = [ "crates/config", "crates/engine", "crates/hippo-client", "crates/http", "crates/templates" ]
 
 [[bin]]
     name = "spin"

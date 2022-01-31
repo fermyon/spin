@@ -47,6 +47,8 @@ Each `component` object has the following fields:
   trigger-defined custom section?).
 - `route` (OPTIONAL): Route the component will be triggered for in case of an
   HTTP component.
+- `environment` (OPTIONAL): Environment variables to be mapped inside the Wasm
+  module at runtime.
 - `files` (OPTIONAL): Paths (relative to the configuration file) of files to be
   mapped inside the Wasm module at runtime.
 - `allowed_http_hosts` (OPTIONAL): List of HTTP hosts the component is allowed

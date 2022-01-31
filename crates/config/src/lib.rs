@@ -37,6 +37,8 @@ pub struct Component {
     pub route: Option<String>,
     /// Trigger for the component.
     pub trigger: String,
+    /// Environment variables to be mapped inside the Wasm module at runtime.
+    pub environment: Option<HashMap<String, String>>,
     /// Files to be mapped inside the Wasm module at runtime.
     pub files: Option<Vec<String>>,
     /// Optional list of HTTP hosts the component is allowed to connect.

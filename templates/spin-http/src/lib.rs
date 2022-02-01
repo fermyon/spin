@@ -1,11 +1,11 @@
 // Import the HTTP objects from the generated bindings.
-use fermyon_http::{Request, Response};
+use spin_http::{Request, Response};
 
-// Generate Rust bindings for all interfaces in Cargo.toml.
-wact::component!();
+// Generate Rust bindings for interface defined in spin-http.wit file
+wit_bindgen_rust::export!("spin-http.wit");
 
-struct FermyonHttp {}
-impl fermyon_http::FermyonHttp for FermyonHttp {
+struct SpinHttp {}
+impl spin_http::SpinHttp for SpinHttp {
     // Implement the `handler` entrypoint for Spin HTTP components.
     fn handler(req: Request) -> Response {
         println!("Request: {:?}", req);

@@ -2,8 +2,9 @@ use anyhow::{bail, Result};
 use semver::Version;
 use spin_engine::{Config, ExecutionContextBuilder};
 use spin_http::{HttpEngine, Trigger};
-use std::{ops::DerefMut, sync::Arc, time::Instant};
+use std::{ops::DerefMut, sync::Arc};
 use structopt::{clap::AppSettings, StructOpt};
+use tracing::{instrument, log};
 use wact_client::Client;
 use wact_core::{Entity, EntityCacheLock};
 
@@ -47,8 +48,8 @@ pub struct Up {
 }
 
 impl Up {
+    #[instrument]
     pub async fn run(self) -> Result<()> {
-        let start = Instant::now();
         let entrypoint = match self.local {
             Some(e) => e,
             None => {
@@ -80,7 +81,7 @@ impl Up {
         };
 
         log::info!(
-            "Starting the Fermyon HTTP runtime listening on {} using entrypoint {}",
+            "Starting the Spin HTTP runtime listening on {} using entrypoint {}",
             self.address,
             entrypoint
         );
@@ -93,7 +94,7 @@ impl Up {
             address: self.address,
         };
 
-        log::info!("Total runtime initialization time: {:#?}", start.elapsed());
+        log::info!("Runtime initialized, accepting requests.");
         trigger.run(engine).await
     }
 }

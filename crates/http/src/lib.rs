@@ -6,7 +6,8 @@ use hyper::{
     Body, Request, Response, Server,
 };
 use spin_http::{Method, SpinHttp, SpinHttpData};
-use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Instant};
+use std::{net::SocketAddr, str::FromStr, sync::Arc};
+use tracing::log;
 use url::Url;
 use wasmtime::{Instance, Store};
 
@@ -24,10 +25,9 @@ impl HttpService for HttpEngine {
         &self,
         req: hyper::Request<hyper::Body>,
     ) -> Result<hyper::Response<hyper::Body>, Error> {
-        let start = Instant::now();
         let (store, instance) = self.0.prepare(None)?;
         let res = self.execute_impl(store, instance, req).await?;
-        log::info!("Request execution time: {:#?}", start.elapsed());
+        log::info!("Request finished, sending response.");
         Ok(res)
     }
 }

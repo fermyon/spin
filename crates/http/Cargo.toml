@@ -11,14 +11,13 @@
     anyhow               = "1.0"
     async-trait          = "0.1"
     bytes                = "1.1"
-    env_logger           = "0.9"
     futures              = "0.3"
     http                 = "0.2"
     hyper                = { version = "0.14", features = [ "full" ] }
-    log                  = { version = "0.4", default-features = false }
     serde                = { version = "1.0", features = [ "derive" ] }
     spin-engine          = { path = "../engine" }
     tokio                = { version = "1.10", features = [ "fs" ] }
+    tracing              = { version = "0.1", features = [ "log" ] }
     url                  = "2.2"
     wit-bindgen-rust     = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2e654dc82b7f9331719ba617a36ed5967b2aecb0" }
     wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2e654dc82b7f9331719ba617a36ed5967b2aecb0" }

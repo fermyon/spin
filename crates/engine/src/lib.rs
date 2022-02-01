@@ -3,7 +3,8 @@
 #![deny(missing_docs)]
 
 use anyhow::Result;
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
+use tracing::log;
 use wasi_common::WasiCtx;
 use wasi_experimental_http_wasmtime::HttpCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
@@ -79,6 +80,7 @@ pub struct ExecutionContextBuilder<T: Default> {
 
 impl<T: Default> ExecutionContextBuilder<T> {
     /// Create a new instance of the execution builder.
+    #[tracing::instrument]
     pub fn new(entrypoint_path: String, config: Config) -> Result<ExecutionContextBuilder<T>> {
         let data = RuntimeContext::default();
         let engine = Engine::new(&config.wasmtime_config)?;
@@ -95,12 +97,14 @@ impl<T: Default> ExecutionContextBuilder<T> {
     }
 
     /// Configure the WASI linker imports for the current execution context.
+    #[tracing::instrument(skip(self))]
     pub fn link_wasi<'a>(&'a mut self) -> Result<&'a Self> {
         wasmtime_wasi::add_to_linker(&mut self.linker, |ctx| ctx.wasi.as_mut().unwrap())?;
         Ok(self)
     }
 
     /// Configure the HTTP linker imports for the current execution context.
+    #[tracing::instrument(skip(self))]
     pub fn link_http<'a>(&'a mut self) -> Result<&'a Self> {
         let hosts = &self.config.allowed_http_hosts.clone();
         let http = HttpCtx::new(hosts.clone(), None)?;
@@ -109,11 +113,11 @@ impl<T: Default> ExecutionContextBuilder<T> {
     }
 
     /// Build a new instance of the execution context by pre-instantiating the entrypoint module.
+    #[tracing::instrument(skip(self))]
     pub fn build(self) -> Result<ExecutionContext<T>> {
-        let start = Instant::now();
         let module = Module::from_file(&self.engine, &self.entrypoint_path)?;
         let pre = self.linker.instantiate_pre(self.store, &module)?;
-        log::info!("Execution context initialized in: {:#?}", start.elapsed());
+        log::info!("Execution context initialized.");
         Ok(ExecutionContext {
             config: self.config,
             engine: self.engine,
@@ -122,6 +126,7 @@ impl<T: Default> ExecutionContextBuilder<T> {
     }
 
     /// Build a new default instance of the execution context by pre-instantiating the entrypoint module.
+    #[tracing::instrument]
     pub fn build_default(entrypoint_path: &str, config: Config) -> Result<ExecutionContext<T>> {
         let mut builder = Self::new(entrypoint_path.into(), config)?;
         builder.link_wasi()?;
@@ -144,12 +149,14 @@ pub struct ExecutionContext<T: Default> {
 
 impl<T: Default> ExecutionContext<T> {
     /// Prepare an instance with actual data
+    #[tracing::instrument(skip(self, data))]
     pub fn prepare(&self, data: Option<T>) -> Result<(Store<RuntimeContext<T>>, Instance)> {
         let mut store = self.make_store(data)?;
         let instance = self.pre.instantiate(&mut store)?;
         Ok((store, instance))
     }
 
+    #[tracing::instrument(skip(self, data))]
     fn make_store(&self, data: Option<T>) -> Result<Store<RuntimeContext<T>>> {
         let mut ctx = RuntimeContext::default();
         ctx.data = data;

@@ -22,7 +22,7 @@ impl Default for Config {
     fn default() -> Self {
         // In order for Wasmtime to run WebAssembly components, multi memory
         // and module linking must always be enabled.
-        // See https://github.com/bytecodealliance/wit-bindgen/blob/main/crates/wasmlink
+        // See https://github.com/bytecodealliance/wit-bindgen/blob/main/crates/wasmlink.
         let mut wasmtime = wasmtime::Config::default();
         wasmtime.wasm_multi_memory(true);
         wasmtime.wasm_module_linking(true);
@@ -59,7 +59,7 @@ pub struct ExecutionContextBuilder<T> {
 impl<T: Default> ExecutionContextBuilder<T> {
     /// Create a new instance of the execution builder.
     #[tracing::instrument]
-    pub fn new(entrypoint_path: String, config: Config) -> Result<ExecutionContextBuilder<T>> {
+    pub fn new(config: Config) -> Result<ExecutionContextBuilder<T>> {
         let data = RuntimeContext::default();
         let engine = Engine::new(&config.wasmtime)?;
         let store = Store::new(&engine, data);
@@ -86,7 +86,53 @@ impl<T: Default> ExecutionContextBuilder<T> {
     // linking the implementation and passing runtime data, which means with this implementation,
     // we must either have a global list of allowed hosts per-application, or switch to the new
     // outbound HTTP implementation.
-    // For now we skip adding outbound HTTP functionality by default.
+    //
+    // Importing the next version of the outbound HTTP library
+    // from https://github.com/fermyon/wasi-experimental-toolkit/tree/main/crates/http-wasmtime
+    // doesn't work as a git import, as it can't find the WIT file.
+    //
+    // For now, we skip adding outbound HTTP functionality by default.
+
+    /// Build a new instance of the execution context.
+    #[tracing::instrument(skip(self))]
+    pub fn build(&mut self) -> Result<ExecutionContext<T>> {
+        let mut components = HashMap::new();
+        for c in &self.config.spin.component {
+            let config = c.clone();
+
+            // TODO
+            //
+            // This should not attempt to use the `path` field from the configuration directly.
+            // Rather, it should use a Bindle client helper that returns the right parcel based on
+            // the component name.
+            let module = Module::from_file(
+                &self.engine,
+                c.path.clone().expect("expected path to be defined"),
+            )?;
+            let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
+            components.insert(c.name.clone(), Component { config, pre });
+        }
+
+        let config = self.config.clone();
+        let engine = self.engine.clone();
+
+        log::info!("Execution context initialized.");
+
+        Ok(ExecutionContext {
+            config,
+            engine,
+            components,
+        })
+    }
+
+    /// Build a new default instance of the execution context.
+    #[tracing::instrument]
+    pub fn build_default(config: Config) -> Result<ExecutionContext<T>> {
+        let mut builder = Self::new(config)?;
+        builder.link_wasi()?;
+
+        builder.build()
+    }
 }
 
 /// A component of a Spin application.
@@ -101,8 +147,10 @@ pub struct Component<T> {
 impl<T> Component<T> {}
 
 /// A generic execution context for WebAssembly components.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ExecutionContext<T: Default> {
+    /// Top-level runtime configuration.
+    pub config: Config,
     /// Wasmtime engine.
     pub engine: Engine,
     /// Collection of pre-initialized (and already linked) components.
@@ -147,9 +195,9 @@ impl<T: Default> ExecutionContext<T> {
         Ok(store)
     }
 
-    #[tracing::instrument(skip(component))]
+    #[tracing::instrument(skip(_component))]
     fn wasi_config(
-        component: &Component<T>,
+        _component: &Component<T>,
     ) -> Result<(Vec<(String, String)>, Vec<(String, String)>)> {
         todo!()
     }

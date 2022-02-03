@@ -22,7 +22,7 @@ pub struct Up {
     )]
     pub address: String,
 
-    /// The target profile to use.
+    /// Registry for applications.
     #[structopt(
         short = "r",
         long = "registry",
@@ -41,10 +41,6 @@ pub struct Up {
     /// The registry reference version.
     #[structopt(long = "local")]
     pub local: Option<String>,
-
-    /// The target profile to use.
-    #[structopt(short = "p", long = "profile", default_value = "wasmtime")]
-    pub profile: String,
 }
 
 impl Up {

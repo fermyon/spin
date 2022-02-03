@@ -2554,6 +2554,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-embedding-environment"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "dirs 4.0.0",
+ "fs_extra",
+ "futures",
+ "git2",
+ "serde",
+ "spin-config",
+ "structopt",
+ "tokio",
+ "toml",
+ "tracing",
+ "wasi-common",
+ "wasi-experimental-http-wasmtime",
+ "wasmtime",
+ "wasmtime-wasi",
+ "wit-bindgen-rust",
+ "wit-bindgen-wasmtime",
+]
+
+[[package]]
 name = "spin-engine"
 version = "0.1.0"
 dependencies = [

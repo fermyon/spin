@@ -6,12 +6,12 @@
 
 ## Build and Run an HTTP application with Spin
 
-- [Build and Run an HTTP application with Spin](#build-and-run-an-http-application-with-spin)
-  - [Set Up Prerequisites](#set-up-prerequisites)
-  - [Publish the Spin HTTP Interface](#publish-the-spin-http-interface)
-  - [Generate an HTTP Application Using a Template](#generate-an-http-application-using-a-template)
-  - [Publish the application using `cargo component`](#publish-the-application-using-cargo-component)
-  - [Run it with Spin from the registry](#run-it-with-spin-from-the-registry)
+* [Build and Run an HTTP application with Spin](#build-and-run-an-http-application-with-spin)
+  * [Set Up Prerequisites](#set-up-prerequisites)
+  * [Publish the Spin HTTP Interface](#publish-the-spin-http-interface)
+  * [Generate an HTTP Application Using a Template](#generate-an-http-application-using-a-template)
+  * [Publish the application using `cargo component`](#publish-the-application-using-cargo-component)
+  * [Run it with Spin from the registry](#run-it-with-spin-from-the-registry)
 
 ### Set Up Prerequisites
 

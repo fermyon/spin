@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf};
 
 /// Configuration for an application.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Config {
     /// Name of the application.
@@ -24,14 +24,17 @@ pub struct Config {
 /// An application component.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Component {
-    /// Path (relative to the configuration file) of the main
-    /// Wasm module for the current component.
-    /// Only used when packaging the application.
+    /// The path to the entrypoint Wasm module for the component.
+    /// When running locally, pointing to a `spin.toml` file, this is
+    /// the path (relative to `spin.toml`) of the Wasm module.
+    /// After pushing to the registry, this becomes the parcel name.
     pub path: Option<PathBuf>,
     /// Reference to a component from the registry.
     pub reference: Option<String>,
     /// Name of the component. Used at runtime to select between
     /// multiple components of the same application.
+    /// It is expected that at runtime, this points to an already linked module
+    /// that can be directly instantiated.
     pub name: String,
     /// Optional route for HTTP applications.
     pub route: Option<String>,

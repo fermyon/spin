@@ -2,23 +2,34 @@
 
 #![deny(missing_docs)]
 
-use anyhow::Result;
 use std::{collections::HashMap, sync::Arc};
+
+use anyhow::Result;
+use spin_config::{ComponentConfig, LocalComponentConfig, ModuleSource};
 use tracing::log;
 use wasi_common::WasiCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
-use wasmtime_wasi::sync::{ambient_authority, Dir, WasiCtxBuilder};
+use wasmtime_wasi::{ambient_authority, Dir, WasiCtxBuilder};
 
-/// Top-level configuration for a Spin execution context.
+/// Runtime configuration
+#[derive(Clone, Debug, Default)]
+pub struct RuntimeConfig;
+
+/// Builder-specific configuration.
 #[derive(Clone, Debug)]
-pub struct Config {
-    /// The Spin application configuration.
-    pub spin: spin_config::Config,
-    /// The Wasmtime engine configuration.
+pub struct ExecutionContextConfig {
+    /// Spin application configuration.
+    /// TODO
+    ///
+    /// This should be Config<StartupComponentConfig> or something like that.
+    pub app: spin_config::Config<LocalComponentConfig>,
+    /// Wasmtime engine configuration.
     pub wasmtime: wasmtime::Config,
 }
 
-impl Default for Config {
+impl ExecutionContextConfig {}
+
+impl Default for ExecutionContextConfig {
     fn default() -> Self {
         // In order for Wasmtime to run WebAssembly components, multi memory
         // and module linking must always be enabled.
@@ -27,8 +38,20 @@ impl Default for Config {
         wasmtime.wasm_multi_memory(true);
         wasmtime.wasm_module_linking(true);
 
+        log::info!("Created default execution context configuration.");
+
         Self {
             wasmtime,
+            ..Default::default()
+        }
+    }
+}
+
+impl ExecutionContextConfig {
+    /// Create a new execution context configuration.
+    pub fn new(app: spin_config::Config<LocalComponentConfig>) -> Self {
+        Self {
+            app,
             ..Default::default()
         }
     }
@@ -43,11 +66,10 @@ pub struct RuntimeContext<T> {
     pub data: Option<T>,
 }
 
-/// Builder for the execution context.
-#[derive(Default)]
-pub struct ExecutionContextBuilder<T> {
-    /// Configuration for the execution context builder.
-    pub config: Config,
+/// An execution context builder.
+pub struct Builder<T: Default> {
+    /// Top level configuration for
+    pub config: ExecutionContextConfig,
     /// Linker used to configure the execution context.
     pub linker: Linker<RuntimeContext<T>>,
     /// Store used to configure the execution context.
@@ -56,10 +78,10 @@ pub struct ExecutionContextBuilder<T> {
     pub engine: Engine,
 }
 
-impl<T: Default> ExecutionContextBuilder<T> {
+impl<T: Default> Builder<T> {
     /// Create a new instance of the execution builder.
     #[tracing::instrument]
-    pub fn new(config: Config) -> Result<ExecutionContextBuilder<T>> {
+    pub fn new(config: ExecutionContextConfig) -> Result<Builder<T>> {
         let data = RuntimeContext::default();
         let engine = Engine::new(&config.wasmtime)?;
         let store = Store::new(&engine, data);
@@ -97,20 +119,21 @@ impl<T: Default> ExecutionContextBuilder<T> {
     #[tracing::instrument(skip(self))]
     pub fn build(&mut self) -> Result<ExecutionContext<T>> {
         let mut components = HashMap::new();
-        for c in &self.config.spin.component {
+        for c in &self.config.app.components {
             let config = c.clone();
 
             // TODO
-            //
-            // This should not attempt to use the `path` field from the configuration directly.
-            // Rather, it should use a Bindle client helper that returns the right parcel based on
-            // the component name.
-            let module = Module::from_file(
-                &self.engine,
-                c.path.clone().expect("expected path to be defined"),
-            )?;
+            let p = match c.source.clone() {
+                ModuleSource::Local(p) => p,
+                ModuleSource::Bindle(_) => panic!(),
+                ModuleSource::Linked(_) => panic!(),
+            };
+
+            let module = Module::from_file(&self.engine, &p)?;
+            log::info!("Created module from file {:?}", p);
             let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
-            components.insert(c.name.clone(), Component { config, pre });
+            log::info!("Created pre-instance from module {:?}", p);
+            components.insert(c.id.clone(), Component { config, pre });
         }
 
         let config = self.config.clone();
@@ -127,7 +150,7 @@ impl<T: Default> ExecutionContextBuilder<T> {
 
     /// Build a new default instance of the execution context.
     #[tracing::instrument]
-    pub fn build_default(config: Config) -> Result<ExecutionContext<T>> {
+    pub fn build_default(config: ExecutionContextConfig) -> Result<ExecutionContext<T>> {
         let mut builder = Self::new(config)?;
         builder.link_wasi()?;
 
@@ -135,22 +158,23 @@ impl<T: Default> ExecutionContextBuilder<T> {
     }
 }
 
-/// A component of a Spin application.
+/// Component for the execution context.
 #[derive(Clone)]
-pub struct Component<T> {
-    /// The configuration for a component.
-    pub config: spin_config::Component,
-    /// The pre-instance of the component.
+pub struct Component<T: Default> {
+    /// Configuration for the component.
+    /// TODO
+    ///
+    /// This should not be LocalComponentConfig.
+    pub config: ComponentConfig<LocalComponentConfig>,
+    /// The pre-instance of the component
     pub pre: Arc<InstancePre<RuntimeContext<T>>>,
 }
-
-impl<T> Component<T> {}
 
 /// A generic execution context for WebAssembly components.
 #[derive(Clone, Default)]
 pub struct ExecutionContext<T: Default> {
     /// Top-level runtime configuration.
-    pub config: Config,
+    pub config: ExecutionContextConfig,
     /// Wasmtime engine.
     pub engine: Engine,
     /// Collection of pre-initialized (and already linked) components.
@@ -158,13 +182,14 @@ pub struct ExecutionContext<T: Default> {
 }
 
 impl<T: Default> ExecutionContext<T> {
-    /// Prepare a Wasm instance for the given component and actual data.
+    /// Create a store for a given component given its configuration and runtime data.
     #[tracing::instrument(skip(self, data))]
     pub fn prepare_component(
         &self,
         component: String,
         data: Option<T>,
     ) -> Result<(Store<RuntimeContext<T>>, Instance)> {
+        log::info!("Preparing component {}", component);
         let component = self
             .components
             .get(&component)

@@ -2531,8 +2531,9 @@ dependencies = [
  "hippo-client",
  "semver 1.0.4",
  "serde",
- "spin-engine",
- "spin-http",
+ "spin-config",
+ "spin-execution-context",
+ "spin-http-engine",
  "spin-templates",
  "structopt",
  "tokio",
@@ -2551,31 +2552,6 @@ dependencies = [
  "anyhow",
  "serde",
  "toml",
-]
-
-[[package]]
-name = "spin-embedding-environment"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes",
- "dirs 4.0.0",
- "fs_extra",
- "futures",
- "git2",
- "serde",
- "spin-config",
- "structopt",
- "tokio",
- "toml",
- "tracing",
- "wasi-common",
- "wasi-experimental-http-wasmtime",
- "wasmtime",
- "wasmtime-wasi",
- "wit-bindgen-rust",
- "wit-bindgen-wasmtime",
 ]
 
 [[package]]
@@ -2603,7 +2579,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-http"
+name = "spin-execution-context"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "dirs 4.0.0",
+ "fs_extra",
+ "futures",
+ "git2",
+ "serde",
+ "spin-config",
+ "structopt",
+ "tokio",
+ "toml",
+ "tracing",
+ "wasi-common",
+ "wasmtime",
+ "wasmtime-wasi",
+ "wit-bindgen-rust",
+ "wit-bindgen-wasmtime",
+]
+
+[[package]]
+name = "spin-http-engine"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2613,9 +2613,12 @@ dependencies = [
  "http",
  "hyper",
  "serde",
- "spin-engine",
+ "spin-config",
+ "spin-execution-context",
  "tokio",
  "tracing",
+ "tracing-futures",
+ "tracing-subscriber",
  "url",
  "wasi-common",
  "wasmtime",

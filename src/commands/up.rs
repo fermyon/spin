@@ -1,12 +1,9 @@
-use anyhow::{bail, Result};
-use semver::Version;
-use spin_engine::{Config, ExecutionContextBuilder};
-use spin_http::{HttpEngine, Trigger};
-use std::{ops::DerefMut, sync::Arc};
+use anyhow::Result;
+use spin_config::{Configuration, CoreComponent};
+use spin_http_engine::HttpTrigger;
+use std::{fs::File, io::Read, path::PathBuf};
 use structopt::{clap::AppSettings, StructOpt};
-use tracing::{instrument, log};
-use wact_client::Client;
-use wact_core::{Entity, EntityCacheLock};
+use tracing::instrument;
 
 /// Start the Fermyon HTTP runtime.
 #[derive(StructOpt, Debug)]
@@ -15,82 +12,33 @@ use wact_core::{Entity, EntityCacheLock};
     global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp]
 )]
 pub struct Up {
-    #[structopt(
-        long = "listen",
-        default_value = "127.0.0.1:3000",
-        help = "IP address and port to listen on"
-    )]
+    /// IP address and port to listen on
+    #[structopt(long = "listen", default_value = "127.0.0.1:3000")]
     pub address: String,
 
-    /// Registry for applications.
-    #[structopt(
-        short = "r",
-        long = "registry",
-        default_value = "http://localhost:8080/v1"
-    )]
-    pub registry: String,
-
-    /// The registry reference.
-    #[structopt(long = "bindle")]
-    pub bindle: Option<String>,
-
-    /// The registry reference version.
-    #[structopt(long = "bindle-version")]
-    pub bindle_version: Option<String>,
-
-    /// The registry reference version.
-    #[structopt(long = "local")]
-    pub local: Option<String>,
+    /// Path to spin.toml
+    /// TODO
+    ///
+    /// The command has to be run from the same directory
+    /// as the configuration file for now.
+    #[structopt(long = "app")]
+    pub app: PathBuf,
 }
 
 impl Up {
     #[instrument]
     pub async fn run(self) -> Result<()> {
-        let entrypoint = match self.local {
-            Some(e) => e,
-            None => {
-                let client = Client::new(self.registry)?;
-                let mut cache = EntityCacheLock::default()?;
-                let mut cache = cache.try_write()?.expect("cannot get a cache write lock");
+        let app = self.app_from_file()?;
 
-                let entity = match client
-                    .pull(
-                        &self.bindle.expect("bindle reference required"),
-                        &Version::parse(&self.bindle_version.expect("bindle version required"))?,
-                        &mut cache.deref_mut(),
-                    )
-                    .await?
-                {
-                    Some(e) => e,
-                    None => bail!("Cannot pull component from the registry."),
-                };
+        let trigger = HttpTrigger::new(self.address, app, None)?;
+        trigger.run().await
+    }
 
-                let component = match entity {
-                    Entity::Component(c) => c,
-                    Entity::Interface(_) => bail!("Cannot use interface as component."),
-                };
+    fn app_from_file(&self) -> Result<Configuration<CoreComponent>> {
+        let mut buf = vec![];
+        let mut file = File::open(&self.app)?;
+        file.read_to_end(&mut buf)?;
 
-                log::info!("Pulled component from the registry: {:?}", component.name);
-
-                component.path.to_str().unwrap().to_string()
-            }
-        };
-
-        log::info!(
-            "Starting the Spin HTTP runtime listening on {} using entrypoint {}",
-            self.address,
-            entrypoint
-        );
-
-        let engine =
-            ExecutionContextBuilder::build_default(&entrypoint, Config::default()).unwrap();
-        let engine = HttpEngine(Arc::new(engine));
-
-        let trigger = Trigger {
-            address: self.address,
-        };
-
-        log::info!("Runtime initialized, accepting requests.");
-        trigger.run(engine).await
+        Ok(toml::from_slice(&buf)?)
     }
 }

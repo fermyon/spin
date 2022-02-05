@@ -8,9 +8,8 @@ struct FermyonHttp {}
 impl fermyon_http::FermyonHttp for FermyonHttp {
     // Implement the `handler` entrypoint for Spin HTTP components.
     fn handler(req: Request) -> Response {
-        println!("Request: {:?}", req);
         Response {
-            status: 418,
+            status: 200,
             headers: None,
             body: Some("I'm a teapot".as_bytes().to_vec()),
         }

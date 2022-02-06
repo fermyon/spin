@@ -4,49 +4,34 @@
   <p>Spin is a tool that allows developers to build, publish, and deploy WebAssembly workloads. It is the next version of the Fermyon runtime.</p>
 </div>
 
-## Build and Run an HTTP application with Spin
+## Take Spin for a spin
 
-* [Build and Run an HTTP application with Spin](#build-and-run-an-http-application-with-spin)
-  * [Set Up Prerequisites](#set-up-prerequisites)
-  * [Publish the Spin HTTP Interface](#publish-the-spin-http-interface)
-  * [Generate an HTTP Application Using a Template](#generate-an-http-application-using-a-template)
-  * [Publish the application using `cargo component`](#publish-the-application-using-cargo-component)
-  * [Run it with Spin from the registry](#run-it-with-spin-from-the-registry)
+- [Build Spin CLI](#build-spin-cli)
+- [Build and Run an HTTP application with Spin](#build-and-run-an-http-application-with-spin)
+  - [Generate an HTTP Application Using a Template](#generate-an-http-application-using-a-spin-template)
+  - [Build the Application](#build-the-application)
+  - [Run the Application Locally](#run-the-application-locally)
+- [Publish HTTP application using `cargo component`](#publish-the-application-using-cargo-component)
+- [Run application with Spin from the Registry](#run-application-with-spin-from-the-registry)
+- [Publishing Interfaces](#publishing-interfaces)
+  - [Publish the Spin HTTP Interface](#publish-the-spin-http-interface)
+  - [Use Interface in HTTP Application](#use-interface-in-http-application)
 
-### Set Up Prerequisites
+## Build Spin CLI
 
-Download the following tools:
-
-- [`wact` and `cargo component`](https://github.com/fermyon/wact)
-- [Bindle server](https://github.com/deislabs/bindle)
-
-Then, clone this repository and build the Spin CLI:
+Clone this repository and build the Spin CLI:
 
 ```shell
 $ git clone https://github.com/fermyon/spin
 $ cd spin && cargo build --release
 ```
 
-Then, start a WebAssembly registry instance (Bindle):
+## Build and Run an HTTP Application with Spin
 
-```shell
-$ RUST_LOG=bindle=trace bindle-server --address 127.0.0.1:8080 --directory . --unauthenticated
-```
+### Generate an HTTP Application Using a Spin Template
 
-### Publish the Spin HTTP Interface
-
-Push the Spin HTTP interface to the registry (from the root of this repository).
-This step, together with starting the registry, will not be required once we set
-up a canonical registry instance:
-
-```shell
-$ wact interface publish --name fermyon/http --version 0.1.0 wit/ephemeral/spin-http.wit
-```
-
-### Generate an HTTP Application Using a Template
-
-Now, we should be ready to start writing a new application. Add a new Spin
-template based on the `templates/spin-http` directory from this repo:
+Add a new Spin template based on the `templates/spin-http` directory from
+this repo:
 
 ```shell
 $ spin templates add --local templates/spin-http --name spin-http
@@ -66,15 +51,15 @@ $ mkdir helloworld
 $ spin new --repo local --template spin-http --path .
 ```
 
-In the application directory, pull the interfaces, then build:
+### Build the Application
+
+In the application directory:
 
 ```shell
 $ cargo build --target wasm32-wasi --release
-# OR
-$ cargo component build --release
 ```
 
-Run the application:
+### Run the Application Locally
 
 ```shell
 $ export RUST_LOG=spin_engine=info,spin_http,wact=info
@@ -101,14 +86,25 @@ I'm a teapot
 
 ### Publish the application using `cargo component`
 
-Now that the application has been built, publish it to the registry:
+Components can be published to a bindle registry using a tool called `cargo-component`.
+Download [bindle](https://github.com/deislabs/bindle) to run a bindle registry locally.
+Also, download and set up [`wact` and `cargo component`](https://github.com/fermyon/wact)
+for the publish functionality.
+
+Start a bindle registry:
+
+```shell
+$ RUST_LOG=bindle=trace bindle-server --address 127.0.0.1:8080 --directory . --unauthenticated
+```
+
+Now that the application has been built, publish it to the registry.
 
 ```shell
 $ cargo component publish
 Published component `spinhelloworld` (version 0.1.0)
 ```
 
-### Run it with Spin from the registry
+### Run Application with Spin from the Registry
 
 Now that the application has been published, run it with Spin directly from the
 registry:
@@ -116,3 +112,77 @@ registry:
 ```shell
 $ spin up --bindle spinhelloworld --bindle-version 0.1.0
 ```
+
+## Publishing Interfaces
+
+In the example above, the interface (`.wit` file) was copied over to the local HTTP
+application directory. You can also publish interfaces to a bindle registry for others
+to consume as well as pull interfaces from a bindle registry to use. The example below
+creates and publishes the spin http interface and then walks through how to consume it
+in the HTTP application from the previous example.
+
+### Publish the Spin HTTP Interface
+
+Push the Spin HTTP interface to the registry (from the root of this repository).
+This step, together with starting the registry, will not be required once we set
+up a canonical registry instance:
+
+```shell
+$ wact interface publish --name fermyon/http --version 0.1.0 wit/ephemeral/spin-http.wit
+```
+
+### Use Interface in HTTP Application
+
+1. Update `Cargo.toml` to include the following depedency, component and interface information:
+
+```toml
+[...]
+[dependencies]
+    # The Wact dependency generates bindings that simplify working with interfaces.
+    wact = { git = "https://github.com/fermyon/wact", rev = "93a9eaeba9205918dc214a6310c0bb6e33c0e3c8" }
+
+[workspace]
+
+# Metadata about this component.
+[package.metadata.component]
+    name = "spinhelloworld"
+
+# This component implements the fermyon/http interface.
+[package.metadata.component.exports]
+    fermyon-http = { name = "fermyon/http", version = "0.1.0" }
+```
+
+2. Update the application to use wact to generate and use rust bindings. In `src/lib.rs`:
+
+```rust
+// Import the HTTP objects from the generated bindings.
+use fermyon_http::{Request, Response};
+
+// Generate Rust bindings for all interfaces in Cargo.toml.
+wact::component!();
+
+struct FermyonHttp {}
+impl fermyon_http::FermyonHttp for FermyonHttp {
+    // Implement the `handler` entrypoint for Spin HTTP components.
+    fn handler(req: Request) -> Response {
+        println!("Request: {:?}", req);
+        Response {
+            status: 418,
+            headers: None,
+            body: Some("I'm a teapot".as_bytes().to_vec()),
+        }
+    }
+}
+```
+
+3. Remove `*.wit` files from local HTTP applicaiton directory
+
+4. In the application directory, build the component:
+
+```shell
+$ cargo build --target wasm32-wasi --release
+# OR
+$ cargo component build --release
+```
+
+[Run the application locally](#run-the-application-locally) to test.

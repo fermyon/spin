@@ -1,75 +1,76 @@
-//! A Fermyon engine.
+//! A Spin execution context for applications.
 
 #![deny(missing_docs)]
 
-use anyhow::Result;
-use std::sync::Arc;
-use tracing::log;
-use wasi_common::WasiCtx;
-use wasi_experimental_http_wasmtime::HttpCtx;
-use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
-use wasmtime_wasi::sync::{ambient_authority, Dir, WasiCtxBuilder};
+use std::{collections::HashMap, sync::Arc};
 
-/// Engine configuration.
-#[derive(Clone, Default, Debug)]
-pub struct Config {
-    /// Environment variables to set inside the WebAssembly module.
-    pub env_vars: Vec<(String, String)>,
-    /// Preopened directories to map inside the WebAssembly module.
-    pub preopen_dirs: Vec<(String, String)>,
-    /// Optional list of HTTP hosts WebAssembly modules are allowed to connect to.
-    pub allowed_http_hosts: Option<Vec<String>>,
+use anyhow::Result;
+use spin_config::{CoreComponent, ModuleSource};
+use tracing::{instrument, log};
+use wasi_common::WasiCtx;
+use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
+use wasmtime_wasi::{ambient_authority, Dir, WasiCtxBuilder};
+
+/// Runtime configuration
+#[derive(Clone, Debug, Default)]
+pub struct RuntimeConfig;
+
+/// Builder-specific configuration.
+#[derive(Clone, Debug)]
+pub struct ExecutionContextConfiguration {
+    /// Spin application configuration.
+    /// TODO
+    ///
+    /// This should be Config<StartupComponentConfig> or something like that.
+    pub app: spin_config::Configuration<CoreComponent>,
     /// Wasmtime engine configuration.
-    pub wasmtime_config: wasmtime::Config,
+    pub wasmtime: wasmtime::Config,
 }
 
-impl Config {
-    /// Create a new configuration instance.
-    pub fn new(
-        env_vars: Vec<(String, String)>,
-        preopen_dirs: Vec<(String, String)>,
-        allowed_http_hosts: Option<Vec<String>>,
-    ) -> Self {
-        Self {
-            env_vars,
-            preopen_dirs,
-            allowed_http_hosts,
-            ..Default::default()
-        }
-    }
+impl ExecutionContextConfiguration {}
 
-    /// Create a default instance of the configuration instance.
-    pub fn default() -> Self {
+impl Default for ExecutionContextConfiguration {
+    #[instrument]
+    fn default() -> Self {
         // In order for Wasmtime to run WebAssembly components, multi memory
         // and module linking must always be enabled.
-        // See https://github.com/bytecodealliance/witx-bindgen/blob/main/crates/wasmlink
-        let mut wasmtime_config = wasmtime::Config::default();
-        wasmtime_config.wasm_multi_memory(true);
-        wasmtime_config.wasm_module_linking(true);
+        // See https://github.com/bytecodealliance/wit-bindgen/blob/main/crates/wasmlink.
+        let mut wasmtime = wasmtime::Config::default();
+        wasmtime.wasm_multi_memory(true);
+        wasmtime.wasm_module_linking(true);
 
+        let app = spin_config::Configuration::default();
+
+        log::info!("Created default execution context configuration.");
+
+        Self { app, wasmtime }
+    }
+}
+
+impl ExecutionContextConfiguration {
+    /// Create a new execution context configuration.
+    #[instrument]
+    pub fn new(app: spin_config::Configuration<CoreComponent>) -> Self {
         Self {
-            wasmtime_config,
+            app,
             ..Default::default()
         }
     }
 }
 
-/// Top-level runtime context data to be passed to a WebAssembly module.
+/// Top-level runtime context data to be passed to a component.
 #[derive(Default)]
 pub struct RuntimeContext<T> {
     /// WASI context data.
     pub wasi: Option<WasiCtx>,
-    /// Generic runtime data that can be configured by specific engines.
+    /// Generic runtime data that can be configured by specialized engines.
     pub data: Option<T>,
 }
 
-/// Builder for the execution context.
-#[derive(Default)]
-pub struct ExecutionContextBuilder<T: Default> {
-    /// Entrypoint of the WebAssembly compnent.
-    pub entrypoint_path: String,
-    /// Top-level runtime configuration.
-    pub config: Config,
+/// An execution context builder.
+pub struct Builder<T: Default> {
+    /// Top level configuration for
+    pub config: ExecutionContextConfiguration,
     /// Linker used to configure the execution context.
     pub linker: Linker<RuntimeContext<T>>,
     /// Store used to configure the execution context.
@@ -78,17 +79,16 @@ pub struct ExecutionContextBuilder<T: Default> {
     pub engine: Engine,
 }
 
-impl<T: Default> ExecutionContextBuilder<T> {
+impl<T: Default> Builder<T> {
     /// Create a new instance of the execution builder.
-    #[tracing::instrument]
-    pub fn new(entrypoint_path: String, config: Config) -> Result<ExecutionContextBuilder<T>> {
+    #[instrument]
+    pub fn new(config: ExecutionContextConfiguration) -> Result<Builder<T>> {
         let data = RuntimeContext::default();
-        let engine = Engine::new(&config.wasmtime_config)?;
+        let engine = Engine::new(&config.wasmtime)?;
         let store = Store::new(&engine, data);
         let linker = Linker::new(&engine);
 
         Ok(Self {
-            entrypoint_path,
             config,
             linker,
             store,
@@ -97,113 +97,180 @@ impl<T: Default> ExecutionContextBuilder<T> {
     }
 
     /// Configure the WASI linker imports for the current execution context.
-    #[tracing::instrument(skip(self))]
+    #[instrument(skip(self))]
     pub fn link_wasi<'a>(&'a mut self) -> Result<&'a Self> {
         wasmtime_wasi::add_to_linker(&mut self.linker, |ctx| ctx.wasi.as_mut().unwrap())?;
         Ok(self)
     }
 
-    /// Configure the HTTP linker imports for the current execution context.
-    #[tracing::instrument(skip(self))]
-    pub fn link_http<'a>(&'a mut self) -> Result<&'a Self> {
-        let hosts = &self.config.allowed_http_hosts.clone();
-        let http = HttpCtx::new(hosts.clone(), None)?;
-        http.add_to_linker(&mut self.linker)?;
-        Ok(self)
-    }
+    // TODO
+    //
+    // The current implementation of the outbound HTTP library makes it impossible to split
+    // linking the implementation and passing runtime data, which means with this implementation,
+    // we must either have a global list of allowed hosts per-application, or switch to the new
+    // outbound HTTP implementation.
+    //
+    // Importing the next version of the outbound HTTP library
+    // from https://github.com/fermyon/wasi-experimental-toolkit/tree/main/crates/http-wasmtime
+    // doesn't work as a git import, as it can't find the WIT file.
+    //
+    // For now, we skip adding outbound HTTP functionality by default.
 
-    /// Build a new instance of the execution context by pre-instantiating the entrypoint module.
-    #[tracing::instrument(skip(self))]
-    pub fn build(self) -> Result<ExecutionContext<T>> {
-        let module = Module::from_file(&self.engine, &self.entrypoint_path)?;
-        let pre = self.linker.instantiate_pre(self.store, &module)?;
+    /// Build a new instance of the execution context.
+    #[instrument(skip(self))]
+    pub fn build(&mut self) -> Result<ExecutionContext<T>> {
+        let mut components = HashMap::new();
+        for c in &self.config.app.components {
+            let config = c.clone();
+
+            // TODO
+            let p = match c.source.clone() {
+                ModuleSource::FileReference(p) => p,
+                ModuleSource::Bindle(_) => panic!(),
+                ModuleSource::Linked(_) => panic!(),
+            };
+
+            let module = Module::from_file(&self.engine, &p)?;
+            log::info!("Created module from file {:?}", p);
+            let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
+            log::info!("Created pre-instance from module {:?}", p);
+            components.insert(c.id.clone(), Component { core: config, pre });
+        }
+
+        let config = self.config.clone();
+        let engine = self.engine.clone();
+
         log::info!("Execution context initialized.");
+
         Ok(ExecutionContext {
-            config: self.config,
-            engine: self.engine,
-            pre: Arc::new(pre),
+            config,
+            engine,
+            components,
         })
     }
 
-    /// Build a new default instance of the execution context by pre-instantiating the entrypoint module.
-    #[tracing::instrument]
-    pub fn build_default(entrypoint_path: &str, config: Config) -> Result<ExecutionContext<T>> {
-        let mut builder = Self::new(entrypoint_path.into(), config)?;
+    /// Build a new default instance of the execution context.
+    #[instrument]
+    pub fn build_default(config: ExecutionContextConfiguration) -> Result<ExecutionContext<T>> {
+        let mut builder = Self::new(config)?;
         builder.link_wasi()?;
-        builder.link_http()?;
 
         builder.build()
     }
 }
 
-/// The generic execution context.
+/// Component for the execution context.
 #[derive(Clone)]
-pub struct ExecutionContext<T: Default> {
-    /// Top-level runtime configuration.
-    pub config: Config,
-    /// Wasmtime engine.
-    pub engine: Engine,
-    /// Pre-initialized WebAssembly instance.
+pub struct Component<T: Default> {
+    /// Configuration for the component.
+    /// TODO
+    ///
+    /// This should not be LocalComponentConfig.
+    pub core: CoreComponent,
+    /// The pre-instance of the component
     pub pre: Arc<InstancePre<RuntimeContext<T>>>,
 }
 
+/// A generic execution context for WebAssembly components.
+#[derive(Clone, Default)]
+pub struct ExecutionContext<T: Default> {
+    /// Top-level runtime configuration.
+    pub config: ExecutionContextConfiguration,
+    /// Wasmtime engine.
+    pub engine: Engine,
+    /// Collection of pre-initialized (and already linked) components.
+    pub components: HashMap<String, Component<T>>,
+}
+
 impl<T: Default> ExecutionContext<T> {
-    /// Prepare an instance with actual data
-    #[tracing::instrument(skip(self, data))]
-    pub fn prepare(&self, data: Option<T>) -> Result<(Store<RuntimeContext<T>>, Instance)> {
-        let mut store = self.make_store(data)?;
-        let instance = self.pre.instantiate(&mut store)?;
+    /// Create a store for a given component given its configuration and runtime data.
+    #[instrument(skip(self, data))]
+    pub fn prepare_component(
+        &self,
+        component: String,
+        data: Option<T>,
+    ) -> Result<(Store<RuntimeContext<T>>, Instance)> {
+        log::info!("Preparing component {}", component);
+        let component = self
+            .components
+            .get(&component)
+            .expect(&format!("cannot find component {}", component));
+        let mut store = self.store(component, data)?;
+        let instance = component.pre.instantiate(&mut store)?;
+
         Ok((store, instance))
     }
 
-    #[tracing::instrument(skip(self, data))]
-    fn make_store(&self, data: Option<T>) -> Result<Store<RuntimeContext<T>>> {
+    /// Create a store for a given component given its configuration and runtime data.
+    #[instrument(skip(self, component, data))]
+    fn store(&self, component: &Component<T>, data: Option<T>) -> Result<Store<RuntimeContext<T>>> {
+        log::info!("Creating store.");
+        let (env, dirs) = Self::wasi_config(component)?;
         let mut ctx = RuntimeContext::default();
-        ctx.data = data;
-        let mut wasi_ctx = WasiCtxBuilder::new()
-            .inherit_stdio()
-            .envs(&self.config.env_vars)?;
+        let mut wasi_ctx = WasiCtxBuilder::new().inherit_stdio().envs(&env)?;
 
-        for (guest, host) in &self.config.preopen_dirs {
+        for (guest, host) in dirs {
             wasi_ctx =
                 wasi_ctx.preopened_dir(Dir::open_ambient_dir(host, ambient_authority())?, guest)?;
         }
 
         ctx.wasi = Some(wasi_ctx.build());
+        ctx.data = data;
 
         let store = Store::new(&self.engine, ctx);
         Ok(store)
     }
+
+    #[instrument(skip(component))]
+    fn wasi_config(
+        component: &Component<T>,
+    ) -> Result<(Vec<(String, String)>, Vec<(String, String)>)> {
+        let mut env = vec![];
+        let dirs = vec![];
+
+        if let Some(e) = &component.core.wasm.environment {
+            for (k, v) in e {
+                env.push((k.clone(), v.clone()));
+            }
+        };
+
+        if let Some(_) = &component.core.wasm.files {
+            // TODO
+            // The configuration contains files or glob patterns for files.
+            // Map these inside the module.
+        }
+
+        Ok((env, dirs))
+    }
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use anyhow::Result;
-    use echo::*;
-    use std::sync::Arc;
 
-    wit_bindgen_wasmtime::import!("crates/engine/tests/echo.witx");
-    const RUST_ENTRYPOINT_PATH: &str = "tests/rust-echo/target/wasm32-wasi/release/echo.wasm";
+    const CFG_TEST: &str = r#"
+    name        = "spin-hello-world"
+    version     = "1.0.0"
+    description = "A simple application that returns hello and goodbye."
+    authors     = [ "Radu Matei <radu@fermyon.com>" ]
+    trigger     = "http"
 
-    #[derive(Clone)]
-    pub struct EchoEngine(pub Arc<ExecutionContext<EchoData>>);
-
-    impl EchoEngine {
-        pub fn execute(&self, msg: &str) -> Result<String> {
-            let (mut store, instance) = self.0.prepare(None)?;
-            let e = Echo::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
-            let res = e.echo(&mut store, msg)?;
-            Ok(res)
-        }
-    }
+    [[component]]
+        source = "target/wasm32-wasi/release/hello.wasm"
+        id     = "hello"
+    [component.trigger]
+        route = "/hello"
+    "#;
 
     #[test]
-    fn test_rust_echo() {
-        let e = ExecutionContextBuilder::build_default(RUST_ENTRYPOINT_PATH, Config::default())
-            .unwrap();
-        let e = EchoEngine(Arc::new(e));
+    fn test_simple_config() -> Result<()> {
+        let config = ExecutionContextConfiguration {
+            app: toml::from_str(CFG_TEST)?,
+            ..Default::default()
+        };
 
-        assert_eq!(e.execute("Fermyon").unwrap(), "Hello, Fermyon".to_string());
+        assert_eq!(config.app.info.name, "spin-hello-world".to_string());
+        Ok(())
     }
 }

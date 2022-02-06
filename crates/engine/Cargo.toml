@@ -5,23 +5,25 @@
     authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
 
 [dependencies]
-    anyhow                          = "1.0.44"
-    async-trait                     = "0.1.51"
-    bytes                           = "1.1.0"
-    dirs                            = "4.0"
-    fs_extra                        = "1.2.0"
-    futures                         = "0.3.17"
-    git2                            = "0.13"
-    serde                           = { version = "1.0.130", features = [ "derive" ] }
-    structopt                       = "0.3.23"
-    tokio                           = { version = "1.10.0", features = [ "fs" ] }
-    toml                            = "0.5.8"
-    tracing                         = { version = "0.1", features = [ "log" ] }
-    wasi-common                     = "0.33"
-    wasi-experimental-http-wasmtime = { git = "https://github.com/deislabs/wasi-experimental-http", rev = "e900e5c0557b6a352e447baa2078df979fb9f134" }
-    wasmtime                        = "0.33"
-    wasmtime-wasi                   = "0.33"
-    wit-bindgen-rust                = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2e654dc82b7f9331719ba617a36ed5967b2aecb0" }
+    anyhow             = "1.0.44"
+    async-trait        = "0.1.51"
+    bytes              = "1.1.0"
+    dirs               = "4.0"
+    fs_extra           = "1.2.0"
+    futures            = "0.3.17"
+    git2               = "0.13"
+    serde              = { version = "1.0.130", features = [ "derive" ] }
+    spin-config        = { path = "../config" }
+    structopt          = "0.3.23"
+    tokio              = { version = "1.10.0", features = [ "fs" ] }
+    toml               = "0.5.8"
+    tracing            = { version = "0.1", features = [ "log" ] }
+    tracing-futures    = "0.2"
+    tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
+    wasi-common        = "0.33"
+    wasmtime           = "0.33"
+    wasmtime-wasi      = "0.33"
+    wit-bindgen-rust   = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2e654dc82b7f9331719ba617a36ed5967b2aecb0" }
 
 [dev-dependencies]
     wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2e654dc82b7f9331719ba617a36ed5967b2aecb0" }

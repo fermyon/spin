@@ -8,22 +8,22 @@
     doctest = false
 
 [dependencies]
-    anyhow                 = "1.0"
-    async-trait            = "0.1"
-    bytes                  = "1.1"
-    futures                = "0.3"
-    http                   = "0.2"
-    hyper                  = { version = "0.14", features = [ "full" ] }
-    serde                  = { version = "1.0", features = [ "derive" ] }
-    spin-config            = { path = "../config" }
-    spin-execution-context = { path = "../execution-context" }
-    tokio                  = { version = "1.10", features = [ "full" ] }
-    tracing                = { version = "0.1", features = [ "log" ] }
-    tracing-futures        = "0.2"
-    tracing-subscriber     = { version = "0.3.7", features = [ "env-filter" ] }
-    url                    = "2.2"
-    wit-bindgen-rust       = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2e654dc82b7f9331719ba617a36ed5967b2aecb0" }
-    wit-bindgen-wasmtime   = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2e654dc82b7f9331719ba617a36ed5967b2aecb0" }
-    wasi-common            = "0.33"
-    wasmtime               = "0.33"
-    wasmtime-wasi          = "0.33"
+    anyhow               = "1.0"
+    async-trait          = "0.1"
+    bytes                = "1.1"
+    futures              = "0.3"
+    http                 = "0.2"
+    hyper                = { version = "0.14", features = [ "full" ] }
+    serde                = { version = "1.0", features = [ "derive" ] }
+    spin-config          = { path = "../config" }
+    spin-engine          = { path = "../engine" }
+    tokio                = { version = "1.10", features = [ "full" ] }
+    tracing              = { version = "0.1", features = [ "log" ] }
+    tracing-futures      = "0.2"
+    tracing-subscriber   = { version = "0.3.7", features = [ "env-filter" ] }
+    url                  = "2.2"
+    wit-bindgen-rust     = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2e654dc82b7f9331719ba617a36ed5967b2aecb0" }
+    wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2e654dc82b7f9331719ba617a36ed5967b2aecb0" }
+    wasi-common          = "0.33"
+    wasmtime             = "0.33"
+    wasmtime-wasi        = "0.33"

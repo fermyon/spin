@@ -1,6 +1,5 @@
 //! Implementation for the Spin HTTP engine.
 
-use crate::spin_http::{Method, SpinHttp, SpinHttpData};
 use anyhow::{Error, Result};
 use async_trait::async_trait;
 use http::StatusCode;
@@ -10,7 +9,8 @@ use hyper::{
     Body, Request, Response, Server,
 };
 use spin_config::{Configuration, CoreComponent};
-use spin_execution_context::{Builder, ExecutionContextConfiguration};
+use spin_engine::{Builder, ExecutionContextConfiguration};
+use spin_http::{Method, SpinHttp, SpinHttpData};
 use std::{collections::HashMap, net::SocketAddr, str::FromStr, sync::Arc};
 use tracing::{instrument, log};
 use url::Url;
@@ -18,8 +18,8 @@ use wasmtime::{Instance, Store};
 
 wit_bindgen_wasmtime::import!("wit/ephemeral/spin-http.wit");
 
-type ExecutionContext = spin_execution_context::ExecutionContext<SpinHttpData>;
-type RuntimeContext = spin_execution_context::RuntimeContext<SpinHttpData>;
+type ExecutionContext = spin_engine::ExecutionContext<SpinHttpData>;
+type RuntimeContext = spin_engine::RuntimeContext<SpinHttpData>;
 
 /// The Spin HTTP trigger.
 /// TODO

@@ -8,9 +8,8 @@ struct SpinHttp {}
 impl spin_http::SpinHttp for SpinHttp {
     // Implement the `handler` entrypoint for Spin HTTP components.
     fn handler(req: Request) -> Response {
-        println!("Request: {:?}", req);
         Response {
-            status: 418,
+            status: 200,
             headers: None,
             body: Some("I'm a teapot".as_bytes().to_vec()),
         }

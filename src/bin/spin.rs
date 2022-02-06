@@ -1,16 +1,19 @@
 use anyhow::Error;
 use spin_cli::commands::{app::AppCommands, new::NewCommand, templates::TemplateCommands, up::Up};
 use structopt::{clap::AppSettings, StructOpt};
+use tracing::instrument;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     SpinApp::from_args().run().await
 }
 
 /// The Spin CLI
-#[derive(StructOpt)]
+#[derive(Debug, StructOpt)]
 #[structopt(
     name = "spin",
     version = env!("CARGO_PKG_VERSION"),
@@ -27,6 +30,7 @@ enum SpinApp {
 
 impl SpinApp {
     /// The main entry point to Spin.
+    #[instrument]
     pub async fn run(self) -> Result<(), Error> {
         match self {
             SpinApp::Templates(cmd) => cmd.run().await,

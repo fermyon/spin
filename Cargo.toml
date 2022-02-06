@@ -5,28 +5,29 @@
     authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
 
 [dependencies]
-    anyhow         = "1.0"
-    async-trait    = "0.1"
-    bytes          = "1.1"
-    comfy-table    = "4.1"
-    dirs           = "4.0"
-    env_logger     = "0.9"
-    futures        = "0.3"
-    hippo-client   = { path = "crates/hippo-client" }
-    log            = { version = "0.4", default-features = false }
-    semver         = "1.0"
-    serde          = { version = "1.0", features = [ "derive" ] }
-    spin-engine    = { path = "crates/engine" }
-    spin-http      = { path = "crates/http" }
-    spin-templates = { path = "crates/templates" }
-    structopt      = "0.3"
-    tokio          = { version = "1.11", features = [ "full" ] }
-    toml           = "0.5"
-    wact-client    = { git = "ssh://git@github.com/fermyon/wact.git", rev = "93a9eaeba9205918dc214a6310c0bb6e33c0e3c8" }
-    wact-core      = { git = "ssh://git@github.com/fermyon/wact.git", rev = "93a9eaeba9205918dc214a6310c0bb6e33c0e3c8" }
+    anyhow             = "1.0"
+    async-trait        = "0.1"
+    bytes              = "1.1"
+    comfy-table        = "5.0"
+    dirs               = "4.0"
+    env_logger         = "0.9"
+    futures            = "0.3"
+    hippo-client       = { path = "crates/hippo-client" }
+    semver             = "1.0"
+    serde              = { version = "1.0", features = [ "derive" ] }
+    spin-config        = { path = "crates/config" }
+    spin-engine        = { path = "crates/engine" }
+    spin-http-engine   = { path = "crates/http" }
+    spin-templates     = { path = "crates/templates" }
+    structopt          = "0.3"
+    tokio              = { version = "1.11", features = [ "full" ] }
+    toml               = "0.5"
+    tracing            = { version = "0.1", features = [ "log" ] }
+    tracing-futures    = "0.2"
+    tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 
 [workspace]
-    members = [ "crates/engine", "crates/hippo-client", "crates/http", "crates/templates" ]
+    members = [ "crates/config", "crates/engine", "crates/http", "crates/templates" ]
 
 [[bin]]
     name = "spin"

@@ -12,8 +12,6 @@
   * [Generate an HTTP Application Using a Spin Template](#generate-an-http-application-using-a-spin-template)
   * [Build the Application](#build-the-application)
   * [Run the Application Locally](#run-the-application-locally)
-  * [Publish the application using `cargo component`](#publish-the-application-using-cargo-component)
-  * [Run Application with Spin from the Registry](#run-application-with-spin-from-the-registry)
 * [Publishing Interfaces](#publishing-interfaces)
   * [Publish the Spin HTTP Interface](#publish-the-spin-http-interface)
   * [Use Interface in HTTP Application](#use-interface-in-http-application)
@@ -88,36 +86,6 @@ content-length: 12
 date: Sun, 06 Feb 2022 02:44:08 GMT
 
 I'm a teapot
-```
-
-### Publish the application using `cargo component`
-
-Components can be published to a bindle registry using a tool called
-`cargo-component`. Download [bindle](https://github.com/deislabs/bindle) to run
-a bindle registry locally. Also, download and set up
-[`wact` and `cargo component`](https://github.com/fermyon/wact) for the publish
-functionality.
-
-Start a bindle registry:
-
-```shell
-$ RUST_LOG=bindle=trace bindle-server --address 127.0.0.1:8080 --directory . --unauthenticated
-```
-
-Now that the application has been built, publish it to the registry.
-
-```shell
-$ cargo component publish
-Published component `spinhelloworld` (version 0.1.0)
-```
-
-### Run Application with Spin from the Registry
-
-Now that the application has been published, run it with Spin directly from the
-registry:
-
-```shell
-$ spin up --bindle spinhelloworld --bindle-version 0.1.0
 ```
 
 ## Publishing Interfaces

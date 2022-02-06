@@ -7,18 +7,20 @@ In the example below we can see a simple application with a single component,
 executed when the `/hello` endpoint is accessed:
 
 ```toml
-name        = "hello-spin"
+name        = "spin-hello-world"
 version     = "1.0.0"
+description = "A simple application that returns hello and goodbye."
+authors     = [ "Radu Matei <radu@fermyon.com>" ]
+trigger     = "http"
 
 [[component]]
-    name    = "hello"
-    path    = "/hello"
-    trigger = "fermyon/http/0.1.0"
-    path    = "path/to/wasm/file.wasm"
+    source = "target/wasm32-wasi/release/spinhelloworld.wasm"
+    id     = "hello"
+[component.trigger]
+    route = "/hello"
 ```
 
-Each component handles exactly one trigger type, and contains exactly one
-implementation for such a trigger.
+All components of an application must be executed by the same trigger type.
 
 ## The `spin.toml` configuration file
 
@@ -33,28 +35,66 @@ These are the fields currently supported for the configuration:
 - `version` (REQUIRED): Version of the application.
 - `description` (OPTIONAL): Description of the application.
 - `authors` (OPTIONAL): Authors of the application.
+- `namespace` (OPTIONAL): Logical grouping of the application at runtime.
 - `component` (REQUIRED): List with the components of the application.
 
 Each `component` object has the following fields:
 
-- `name` (REQUIRED): Name of the component. Used at runtime to select between
+- `id` (REQUIRED): ID of the component, used at runtime to select between
   multiple components of the same application.
-- `path` (OPTIONAL): Path (relative to the configuration file) of the main Wasm
-  module for the current component. Only used when packaging the application.
-- `reference` (OPTIONAL): Reference to a component from the registry. Either a
-  `path` or a `reference` must be specified (TODO).
-- `trigger` (REQUIRED): Trigger for the component. (TODO: should there be a
-  trigger-defined custom section?).
-- `route` (OPTIONAL): Route the component will be triggered for in case of an
-  HTTP component.
+- `source` (REQUIRED): Source for the component. Can either be a path to a local
+  file, or a pair of `reference` (REQUIRED) and `parcel` (REQUIRED) fields
+  pointing to a remote bindle.
 - `environment` (OPTIONAL): Environment variables to be mapped inside the Wasm
   module at runtime.
 - `files` (OPTIONAL): Paths (relative to the configuration file) of files to be
   mapped inside the Wasm module at runtime.
 - `allowed_http_hosts` (OPTIONAL): List of HTTP hosts the component is allowed
   to connect to.
+- `trigger` (REQUIRED): Trigger configuration for the component.
 - `dependencies` (OPTIONAL): List of dependencies to be resolved and satisfied
   at runtime by the host.
+- `build` (OPTIONAL): Currently unused build information or configuration that
+  could be used by a plugin to build the component.
+
+### Component sources
+
+When writing a `spin.toml` file, components can either come from a local file,
+or be they can reference a remote bindle.
+
+As such, the `source` field in the component configuration can either directly
+point to the path:
+
+```toml
+  source = "path/to/wasm/file.wasm"
+```
+
+Or it can be an object containing the bindle reference and parcel:
+
+```toml
+[component.source]
+    reference = "bindle reference"
+    parcel    = "parcel"
+```
+
+### Triggers
+
+Triggers in Spin are components that generate events that cause the execution of
+components. Currently, the only trigger implemented for Spin is the HTTP
+trigger, which contains the following fields:
+
+- `route` (REQUIRED): The HTTP route the component will be invoked for.
+- `implementation` (OPTIONAL, TODO): The HTTP interface the component
+  implements. This can either be `spin`, or `wagi`.s
+
+```toml
+[component.trigger]
+    route          = "/hello"
+    implementation = "spin"
+  # implementation = "wagi"
+```
+
+### Dependencies
 
 Each entry in the `dependencies` table should correspond to exactly one import
 module from the Wasm module. Currently, this map should either contain an
@@ -66,6 +106,8 @@ a component from the registry. The fields in a dependency section are:
   `component`.
 - `reference` (OPTIONAL): Reference to a component from the registry. Required
   if `type` is `component`.
+- `parcel` (OPTIONAL): Parcel to use from the bindle reference. Required if
+  `type` is `component`.
 
 ## Glossary
 

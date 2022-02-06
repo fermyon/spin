@@ -6,16 +6,17 @@
 
 ## Take Spin for a spin
 
-- [Build Spin CLI](#build-spin-cli)
-- [Build and Run an HTTP application with Spin](#build-and-run-an-http-application-with-spin)
-  - [Generate an HTTP Application Using a Template](#generate-an-http-application-using-a-spin-template)
-  - [Build the Application](#build-the-application)
-  - [Run the Application Locally](#run-the-application-locally)
-- [Publish HTTP application using `cargo component`](#publish-the-application-using-cargo-component)
-- [Run application with Spin from the Registry](#run-application-with-spin-from-the-registry)
-- [Publishing Interfaces](#publishing-interfaces)
-  - [Publish the Spin HTTP Interface](#publish-the-spin-http-interface)
-  - [Use Interface in HTTP Application](#use-interface-in-http-application)
+* [Take Spin for a spin](#take-spin-for-a-spin)
+* [Build Spin CLI](#build-spin-cli)
+* [Build and Run an HTTP Application with Spin](#build-and-run-an-http-application-with-spin)
+  * [Generate an HTTP Application Using a Spin Template](#generate-an-http-application-using-a-spin-template)
+  * [Build the Application](#build-the-application)
+  * [Run the Application Locally](#run-the-application-locally)
+  * [Publish the application using `cargo component`](#publish-the-application-using-cargo-component)
+  * [Run Application with Spin from the Registry](#run-application-with-spin-from-the-registry)
+* [Publishing Interfaces](#publishing-interfaces)
+  * [Publish the Spin HTTP Interface](#publish-the-spin-http-interface)
+  * [Use Interface in HTTP Application](#use-interface-in-http-application)
 
 ## Build Spin CLI
 
@@ -30,8 +31,8 @@ $ cd spin && cargo build --release
 
 ### Generate an HTTP Application Using a Spin Template
 
-Add a new Spin template based on the `templates/spin-http` directory from
-this repo:
+Add a new Spin template based on the `templates/spin-http` directory from this
+repo:
 
 ```shell
 $ spin templates add --local templates/spin-http --name spin-http
@@ -61,35 +62,41 @@ $ cargo build --target wasm32-wasi --release
 
 ### Run the Application Locally
 
+The configuration file `spin.toml` contains the information required for Spin to
+run the application locally:
+
 ```shell
 $ export RUST_LOG=spin_engine=info,spin_http,wact=info
-$ spin up --local target/wasm32-wasi/release/spinhelloworld.wasm
+$ spin up --app spin.toml
 
-[2021-12-07T05:09:38Z INFO  spin_engine] Execution context initialized in: 21.745807ms
-[2021-12-07T05:09:49Z INFO  spin_http] Request URI: "/"
-Request: Request { method: Method::Get, uri: "/", headers: [("host", "localhost:3000"), ("user-agent", "curl/7.77.0"), ("accept", "*/*")], params: [], body: Some([]) }
-[2021-12-07T05:09:49Z INFO  spin_http] Response status code: 418
-[2021-12-07T05:09:49Z INFO  spin_http] Request execution time: 2.773625ms
+2022-02-06T02:44:08.810806Z  INFO spin_http_engine: Processing request for application spin-hello-world on path /hello
+2022-02-06T02:44:08.810897Z  INFO execute{component="hello"}: spin_http_engine: Executing request for component hello
+2022-02-06T02:44:08.810918Z  INFO execute{component="hello"}: prepare_component{component="hello"}: spin_engine: Preparing component hello
+2022-02-06T02:44:08.810936Z  INFO execute{component="hello"}: prepare_component{component="hello"}: store: spin_engine: Creating store.
+2022-02-06T02:44:08.811318Z  INFO execute{component="hello"}: spin_http_engine: Request URI: "/hello"
+2022-02-06T02:44:08.811553Z  INFO execute{component="hello"}: spin_http_engine: Response status code: 200
+2022-02-06T02:44:08.811715Z  INFO execute{component="hello"}: spin_http_engine: Request finished, sending response.
 ```
 
 The application is now ready, after starting, send a request using
-`curl -i localhost:3000`:
+`curl -i localhost:3000/hello`:
 
 ```console
-$ curl -i localhost:3000
-HTTP/1.1 418 I'm a teapot
+$ curl -i localhost:3000/hello
+HTTP/1.1 200 OK
 content-length: 12
-date: Tue, 14 Dec 2021 18:57:59 GMT
+date: Sun, 06 Feb 2022 02:44:08 GMT
 
 I'm a teapot
 ```
 
 ### Publish the application using `cargo component`
 
-Components can be published to a bindle registry using a tool called `cargo-component`.
-Download [bindle](https://github.com/deislabs/bindle) to run a bindle registry locally.
-Also, download and set up [`wact` and `cargo component`](https://github.com/fermyon/wact)
-for the publish functionality.
+Components can be published to a bindle registry using a tool called
+`cargo-component`. Download [bindle](https://github.com/deislabs/bindle) to run
+a bindle registry locally. Also, download and set up
+[`wact` and `cargo component`](https://github.com/fermyon/wact) for the publish
+functionality.
 
 Start a bindle registry:
 
@@ -115,11 +122,11 @@ $ spin up --bindle spinhelloworld --bindle-version 0.1.0
 
 ## Publishing Interfaces
 
-In the example above, the interface (`.wit` file) was copied over to the local HTTP
-application directory. You can also publish interfaces to a bindle registry for others
-to consume as well as pull interfaces from a bindle registry to use. The example below
-creates and publishes the spin http interface and then walks through how to consume it
-in the HTTP application from the previous example.
+In the example above, the interface (`.wit` file) was copied over to the local
+HTTP application directory. You can also publish interfaces to a bindle registry
+for others to consume as well as pull interfaces from a bindle registry to use.
+The example below creates and publishes the spin http interface and then walks
+through how to consume it in the HTTP application from the previous example.
 
 ### Publish the Spin HTTP Interface
 
@@ -133,7 +140,8 @@ $ wact interface publish --name fermyon/http --version 0.1.0 wit/ephemeral/spin-
 
 ### Use Interface in HTTP Application
 
-1. Update `Cargo.toml` to include the following depedency, component and interface information:
+1. Update `Cargo.toml` to include the following dependency, component and
+   interface information:
 
 ```toml
 [...]
@@ -152,7 +160,8 @@ $ wact interface publish --name fermyon/http --version 0.1.0 wit/ephemeral/spin-
     fermyon-http = { name = "fermyon/http", version = "0.1.0" }
 ```
 
-2. Update the application to use wact to generate and use rust bindings. In `src/lib.rs`:
+2. Update the application to use wact to generate and use rust bindings. In
+   `src/lib.rs`:
 
 ```rust
 // Import the HTTP objects from the generated bindings.
@@ -175,7 +184,7 @@ impl fermyon_http::FermyonHttp for FermyonHttp {
 }
 ```
 
-3. Remove `*.wit` files from local HTTP applicaiton directory
+3. Remove `*.wit` files from local HTTP application directory
 
 4. In the application directory, build the component:
 

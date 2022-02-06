@@ -72,7 +72,7 @@ impl HttpTrigger {
     /// Handle an incoming request using an HTTP executor.
     pub async fn handle(&self, req: Request<Body>) -> Result<Response<Body>> {
         log::info!(
-            "Processing requst for application {} on path {}",
+            "Processing request for application {} on path {}",
             &self.app.info.name,
             req.uri().path()
         );

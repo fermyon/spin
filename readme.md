@@ -55,7 +55,7 @@ $ spin new --repo local --template spin-http --path .
 In the application directory:
 
 ```shell
-$ cargo build --target wasm32-wasi --release
+$ cargo build --release
 ```
 
 ### Run the Application Locally

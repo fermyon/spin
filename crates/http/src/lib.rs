@@ -1,5 +1,8 @@
 //! Implementation for the Spin HTTP engine.
 
+mod spin;
+mod wagi;
+
 use anyhow::{Error, Result};
 use async_trait::async_trait;
 use http::StatusCode;
@@ -8,13 +11,14 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use spin_config::{Configuration, CoreComponent};
+use spin::SpinHttpExecutor;
+use spin_config::{Configuration, CoreComponent, TriggerConfig};
 use spin_engine::{Builder, ExecutionContextConfiguration};
-use spin_http::{Method, SpinHttp, SpinHttpData};
-use std::{collections::HashMap, net::SocketAddr, str::FromStr, sync::Arc};
+use spin_http::SpinHttpData;
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tracing::{instrument, log};
-use url::Url;
-use wasmtime::{Instance, Store};
+
+use crate::wagi::WagiHttpExecutor;
 
 wit_bindgen_wasmtime::import!("wit/ephemeral/spin-http.wit");
 
@@ -80,7 +84,22 @@ impl HttpTrigger {
         match req.uri().path() {
             "/healthz" => Ok(Response::new(Body::from("OK"))),
             route => match self.router.routes.get(&route.to_string()) {
-                Some(c) => return SpinHttpExecutor::execute(&self.engine, c.id.clone(), req).await,
+                Some(c) => {
+                    let TriggerConfig::Http(trigger) = &c.trigger;
+                    let implementation = match &trigger.executor {
+                        Some(i) => i,
+                        None => &spin_config::HttpExecutor::Spin,
+                    };
+
+                    match implementation {
+                        spin_config::HttpExecutor::Spin => {
+                            return SpinHttpExecutor::execute(&self.engine, c.id.clone(), req).await
+                        }
+                        spin_config::HttpExecutor::Wagi => {
+                            return WagiHttpExecutor::execute(&self.engine, c.id.clone(), req).await
+                        }
+                    }
+                }
                 None => return Ok(Self::not_found()),
             },
         }
@@ -151,140 +170,16 @@ pub trait HttpExecutor: Clone + Send + Sync + 'static {
     ) -> Result<Response<Body>>;
 }
 
-#[derive(Clone)]
-pub struct SpinHttpExecutor;
-
-#[async_trait]
-impl HttpExecutor for SpinHttpExecutor {
-    #[instrument(skip(engine))]
-    async fn execute(
-        engine: &ExecutionContext,
-        component: String,
-        req: Request<Body>,
-    ) -> Result<Response<Body>> {
-        log::info!("Executing request for component {}", component);
-        let (store, instance) = engine.prepare_component(component, None)?;
-        let res = Self::execute_impl(store, instance, req).await?;
-        log::info!("Request finished, sending response.");
-        Ok(res)
-    }
-}
-
-impl SpinHttpExecutor {
-    pub async fn execute_impl(
-        mut store: Store<RuntimeContext>,
-        instance: Instance,
-        req: Request<Body>,
-    ) -> Result<Response<Body>> {
-        let engine = SpinHttp::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
-        let (parts, bytes) = req.into_parts();
-        let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
-        let body = Some(&bytes[..]);
-
-        let method = Self::method(&parts.method);
-        let uri = &parts.uri.to_string();
-        let headers = &Self::headers(&parts.headers)?;
-        // TODO
-        // Currently, this silently crashes the running thread.
-        // let params = &Self::params(&uri)?;
-        // let params: &Vec<(&str, &str)> = &params.into_iter().map(|(k, v)| (&**k, &**v)).collect();
-        let params = &Vec::new();
-        let req = spin_http::Request {
-            method,
-            uri,
-            headers,
-            params,
-            body,
-        };
-        log::info!("Request URI: {:?}", req.uri);
-        let res = engine.handler(&mut store, req)?;
-        log::info!("Response status code: {:?}", res.status);
-        let mut response = http::Response::builder().status(res.status);
-        Self::append_headers(response.headers_mut().unwrap(), res.headers)?;
-
-        let body = match res.body {
-            Some(b) => Body::from(b),
-            None => Body::empty(),
-        };
-
-        Ok(response.body(body)?)
-    }
-
-    fn method(m: &http::Method) -> Method {
-        match *m {
-            http::Method::GET => Method::Get,
-            http::Method::POST => Method::Post,
-            http::Method::PUT => Method::Put,
-            http::Method::DELETE => Method::Delete,
-            http::Method::PATCH => Method::Patch,
-            http::Method::HEAD => Method::Head,
-            _ => todo!(),
-        }
-    }
-
-    fn headers(hm: &http::HeaderMap) -> Result<Vec<(&str, &str)>> {
-        let mut res = Vec::new();
-        for (name, value) in hm
-            .iter()
-            .map(|(name, value)| (name.as_str(), std::str::from_utf8(value.as_bytes())))
-        {
-            let value = value?;
-            res.push((name, value));
-        }
-
-        Ok(res)
-    }
-
-    fn append_headers(res: &mut http::HeaderMap, src: Option<Vec<(String, String)>>) -> Result<()> {
-        if let Some(src) = src {
-            for (k, v) in src.iter() {
-                res.insert(
-                    http::header::HeaderName::from_str(k)?,
-                    http::header::HeaderValue::from_str(v)?,
-                );
-            }
-        };
-
-        Ok(())
-    }
-
-    #[allow(unused)]
-    fn params(uri: &str) -> Result<Vec<(String, String)>> {
-        let url = Url::parse(uri)?;
-        Ok(url
-            .query_pairs()
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect())
-    }
-}
-
 // TODO
 //
 // Implement a Wagi executor.
-
-#[derive(Clone)]
-pub struct WagiHttpExecutor;
-
-#[async_trait]
-impl HttpExecutor for WagiHttpExecutor {
-    #[instrument(skip(_engine))]
-    async fn execute(
-        _engine: &ExecutionContext,
-        _component: String,
-        _req: Request<Body>,
-    ) -> Result<Response<Body>> {
-        log::info!("Executing request for component {}", _component);
-        todo!("Wagi executor not implemented yet.")
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use anyhow::Result;
     use spin_config::{
-        ApplicationInformation, Configuration, HttpConfig, HttpImplementation, ModuleSource,
+        ApplicationInformation, Configuration, HttpConfig, HttpExecutor, ModuleSource,
         TriggerConfig,
     };
 
@@ -313,7 +208,7 @@ mod tests {
             id: "test".to_string(),
             trigger: TriggerConfig::Http(HttpConfig {
                 route: "/test".to_string(),
-                implementation: Some(HttpImplementation::Spin),
+                executor: Some(HttpExecutor::Spin),
             }),
             ..Default::default()
         };

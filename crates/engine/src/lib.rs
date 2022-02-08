@@ -4,16 +4,21 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::Result;
-use spin_config::{CoreComponent, ModuleSource};
+use anyhow::{Context, Result};
+use spin_config::{ApplicationOrigin, CoreComponent, ModuleSource};
 use tracing::{instrument, log};
 use wasi_common::WasiCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
 use wasmtime_wasi::{ambient_authority, Dir, WasiCtxBuilder};
 
+mod assets;
+use assets::{prepare_local_assets, DirectoryMount};
+
 /// Runtime configuration
 #[derive(Clone, Debug, Default)]
 pub struct RuntimeConfig;
+
+const EMPTY: Vec<String> = vec![];
 
 /// Builder-specific configuration.
 #[derive(Clone, Debug)]
@@ -27,11 +32,10 @@ pub struct ExecutionContextConfiguration {
     pub wasmtime: wasmtime::Config,
 }
 
-impl ExecutionContextConfiguration {}
-
-impl Default for ExecutionContextConfiguration {
+impl ExecutionContextConfiguration {
+    /// Create a new execution context configuration.
     #[instrument]
-    fn default() -> Self {
+    pub fn new(app: spin_config::Configuration<CoreComponent>) -> Self {
         // In order for Wasmtime to run WebAssembly components, multi memory
         // and module linking must always be enabled.
         // See https://github.com/bytecodealliance/wit-bindgen/blob/main/crates/wasmlink.
@@ -39,22 +43,9 @@ impl Default for ExecutionContextConfiguration {
         wasmtime.wasm_multi_memory(true);
         wasmtime.wasm_module_linking(true);
 
-        let app = spin_config::Configuration::default();
-
-        log::info!("Created default execution context configuration.");
+        log::info!("Created execution context configuration.");
 
         Self { app, wasmtime }
-    }
-}
-
-impl ExecutionContextConfiguration {
-    /// Create a new execution context configuration.
-    #[instrument]
-    pub fn new(app: spin_config::Configuration<CoreComponent>) -> Self {
-        Self {
-            app,
-            ..Default::default()
-        }
     }
 }
 
@@ -118,7 +109,13 @@ impl<T: Default> Builder<T> {
 
     /// Build a new instance of the execution context.
     #[instrument(skip(self))]
-    pub fn build(&mut self) -> Result<ExecutionContext<T>> {
+    pub async fn build(&mut self) -> Result<ExecutionContext<T>> {
+        let working_directory = tempfile::tempdir()?;
+        log::debug!(
+            "Created temporary directory '{}'",
+            working_directory.path().display()
+        );
+
         let mut components = HashMap::new();
         for c in &self.config.app.components {
             let config = c.clone();
@@ -134,7 +131,17 @@ impl<T: Default> Builder<T> {
             log::info!("Created module from file {:?}", p);
             let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
             log::info!("Created pre-instance from module {:?}", p);
-            components.insert(c.id.clone(), Component { core: config, pre });
+
+            let asset_directories = self.prepare_assets(c, working_directory.path()).await?;
+
+            components.insert(
+                c.id.clone(),
+                Component {
+                    core: config,
+                    pre,
+                    prepared_directories: asset_directories,
+                },
+            );
         }
 
         let config = self.config.clone();
@@ -146,16 +153,45 @@ impl<T: Default> Builder<T> {
             config,
             engine,
             components,
+            working_directory: Arc::new(working_directory),
         })
+    }
+
+    async fn prepare_assets(
+        &self,
+        component: &CoreComponent,
+        working_directory: impl AsRef<std::path::Path>,
+    ) -> Result<Vec<DirectoryMount>> {
+        match &self.config.app.info.origin {
+            ApplicationOrigin::File(config_file) => {
+                let files = component.wasm.files.as_ref();
+                let source_directory = config_file
+                    .parent()
+                    .expect("The root directory cannot be the config file");
+                let mount = prepare_local_assets(
+                    files.unwrap_or(&EMPTY),
+                    source_directory,
+                    &working_directory,
+                    &component.id,
+                )
+                .await
+                .with_context(|| {
+                    format!("Error copying assets for component '{}'", component.id)
+                })?;
+                Ok(vec![mount])
+            }
+        }
     }
 
     /// Build a new default instance of the execution context.
     #[instrument]
-    pub fn build_default(config: ExecutionContextConfiguration) -> Result<ExecutionContext<T>> {
+    pub async fn build_default(
+        config: ExecutionContextConfiguration,
+    ) -> Result<ExecutionContext<T>> {
         let mut builder = Self::new(config)?;
         builder.link_wasi()?;
 
-        builder.build()
+        builder.build().await
     }
 }
 
@@ -169,10 +205,11 @@ pub struct Component<T: Default> {
     pub core: CoreComponent,
     /// The pre-instance of the component
     pub pre: Arc<InstancePre<RuntimeContext<T>>>,
+    prepared_directories: Vec<DirectoryMount>,
 }
 
 /// A generic execution context for WebAssembly components.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct ExecutionContext<T: Default> {
     /// Top-level runtime configuration.
     pub config: ExecutionContextConfiguration,
@@ -180,6 +217,9 @@ pub struct ExecutionContext<T: Default> {
     pub engine: Engine,
     /// Collection of pre-initialized (and already linked) components.
     pub components: HashMap<String, Component<T>>,
+    /// A directory for resources that need to last as long as the exeuction context
+    /// but can then be deleted.
+    working_directory: Arc<tempfile::TempDir>,
 }
 
 impl<T: Default> ExecutionContext<T> {
@@ -209,7 +249,9 @@ impl<T: Default> ExecutionContext<T> {
         let mut ctx = RuntimeContext::default();
         let mut wasi_ctx = WasiCtxBuilder::new().inherit_stdio().envs(&env)?;
 
-        for (guest, host) in dirs {
+        for dir in dirs {
+            let guest = dir.guest;
+            let host = dir.host;
             wasi_ctx =
                 wasi_ctx.preopened_dir(Dir::open_ambient_dir(host, ambient_authority())?, guest)?;
         }
@@ -224,9 +266,8 @@ impl<T: Default> ExecutionContext<T> {
     #[instrument(skip(component))]
     fn wasi_config(
         component: &Component<T>,
-    ) -> Result<(Vec<(String, String)>, Vec<(String, String)>)> {
+    ) -> Result<(Vec<(String, String)>, Vec<DirectoryMount>)> {
         let mut env = vec![];
-        let dirs = vec![];
 
         if let Some(e) = &component.core.wasm.environment {
             for (k, v) in e {
@@ -234,11 +275,7 @@ impl<T: Default> ExecutionContext<T> {
             }
         };
 
-        if let Some(_) = &component.core.wasm.files {
-            // TODO
-            // The configuration contains files or glob patterns for files.
-            // Map these inside the module.
-        }
+        let dirs = component.prepared_directories.clone();
 
         Ok((env, dirs))
     }
@@ -248,6 +285,7 @@ impl<T: Default> ExecutionContext<T> {
 mod tests {
     use super::*;
     use anyhow::Result;
+    use spin_config::{ApplicationOrigin, Configuration, RawConfiguration};
 
     const CFG_TEST: &str = r#"
     name        = "spin-hello-world"
@@ -263,12 +301,17 @@ mod tests {
         route = "/hello"
     "#;
 
+    fn fake_file_origin() -> ApplicationOrigin {
+        let dir = env!("CARGO_MANIFEST_DIR");
+        let fake_path = std::path::PathBuf::from(dir).join("fake_spin.toml");
+        ApplicationOrigin::File(fake_path)
+    }
+
     #[test]
     fn test_simple_config() -> Result<()> {
-        let config = ExecutionContextConfiguration {
-            app: toml::from_str(CFG_TEST)?,
-            ..Default::default()
-        };
+        let raw_app: RawConfiguration<CoreComponent> = toml::from_str(CFG_TEST)?;
+        let app = Configuration::from_raw(raw_app, fake_file_origin());
+        let config = ExecutionContextConfiguration::new(app);
 
         assert_eq!(config.app.info.name, "spin-hello-world".to_string());
         Ok(())

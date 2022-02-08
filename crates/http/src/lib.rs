@@ -49,20 +49,17 @@ pub struct HttpTrigger {
 impl HttpTrigger {
     /// Create a new Spin HTTP trigger.
     #[instrument]
-    pub fn new(
+    pub async fn new(
         address: String,
         app: Configuration<CoreComponent>,
         wasmtime: Option<wasmtime::Config>,
     ) -> Result<Self> {
-        let mut config = ExecutionContextConfiguration {
-            app: app.clone(),
-            ..Default::default()
-        };
+        let mut config = ExecutionContextConfiguration::new(app.clone());
         if let Some(wasmtime) = wasmtime {
             config.wasmtime = wasmtime;
         };
 
-        let engine = Arc::new(Builder::build_default(config)?);
+        let engine = Arc::new(Builder::build_default(config).await?);
         let router = Router::build(&app)?;
         log::info!("Created new HTTP trigger.");
 
@@ -147,12 +144,32 @@ impl HttpTrigger {
             }
         });
 
+        let shutdown_signal = on_ctrl_c()?;
+
         let addr: SocketAddr = self.address.parse()?;
         log::info!("Serving on address {:?}", addr);
-        Server::bind(&addr).serve(mk_svc).await?;
+        Server::bind(&addr)
+            .serve(mk_svc)
+            .with_graceful_shutdown(async {
+                shutdown_signal.await.ok();
+            })
+            .await?;
+
+        log::debug!("User requested shutdown: exiting");
 
         Ok(())
     }
+}
+
+fn on_ctrl_c() -> Result<impl std::future::Future<Output = Result<(), tokio::task::JoinError>>> {
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
+    ctrlc::set_handler(move || {
+        tx.send(()).ok();
+    })?;
+    let rx_future = tokio::task::spawn_blocking(move || {
+        rx.recv().ok();
+    });
+    Ok(rx_future)
 }
 
 /// The HTTP executor trait.
@@ -173,7 +190,7 @@ mod tests {
     use anyhow::Result;
     use spin_config::{
         ApplicationInformation, Configuration, HttpConfig, HttpExecutor, ModuleSource,
-        TriggerConfig,
+        RawApplicationInformation, TriggerConfig,
     };
     use std::{
         net::{IpAddr, Ipv4Addr},
@@ -194,16 +211,23 @@ mod tests {
         });
     }
 
+    fn fake_file_origin() -> spin_config::ApplicationOrigin {
+        let dir = env!("CARGO_MANIFEST_DIR");
+        let fake_path = std::path::PathBuf::from(dir).join("fake_spin.toml");
+        spin_config::ApplicationOrigin::File(fake_path)
+    }
+
     #[tokio::test]
     #[instrument]
     async fn test_spin_http() -> Result<()> {
         init();
 
-        let info = ApplicationInformation {
+        let raw_info = RawApplicationInformation {
             name: "test-app".to_string(),
             version: "1.0.0".to_string(),
             ..Default::default()
         };
+        let info = ApplicationInformation::from_raw(raw_info, fake_file_origin());
 
         let component = CoreComponent {
             source: ModuleSource::FileReference(RUST_ENTRYPOINT_PATH.into()),
@@ -217,7 +241,7 @@ mod tests {
         let components = vec![component];
 
         let cfg = Configuration::<CoreComponent> { info, components };
-        let trigger = HttpTrigger::new("".to_string(), cfg, None)?;
+        let trigger = HttpTrigger::new("".to_string(), cfg, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()

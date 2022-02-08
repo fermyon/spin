@@ -12,9 +12,14 @@
     fs_extra           = "1.2.0"
     futures            = "0.3.17"
     git2               = "0.13"
+glob = "0.3.0"
+lazy_static = "1.4.0"
+regex = "1.5.4"
     serde              = { version = "1.0.130", features = [ "derive" ] }
+sha2 = "0.10.1"
     spin-config        = { path = "../config" }
     structopt          = "0.3.23"
+    tempfile = "3.3.0"
     tokio              = { version = "1.10.0", features = [ "fs" ] }
     toml               = "0.5.8"
     tracing            = { version = "0.1", features = [ "log" ] }

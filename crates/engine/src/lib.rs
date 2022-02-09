@@ -187,13 +187,13 @@ impl<T: Default> ExecutionContext<T> {
     #[instrument(skip(self, data))]
     pub fn prepare_component(
         &self,
-        component: String,
+        component: &String,
         data: Option<T>,
     ) -> Result<(Store<RuntimeContext<T>>, Instance)> {
         log::info!("Preparing component {}", component);
         let component = self
             .components
-            .get(&component)
+            .get(component)
             .expect(&format!("cannot find component {}", component));
         let mut store = self.store(component, data)?;
         let instance = component.pre.instantiate(&mut store)?;

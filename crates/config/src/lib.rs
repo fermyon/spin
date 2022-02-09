@@ -149,17 +149,15 @@ impl Default for ModuleSource {
 pub struct HttpConfig {
     /// HTTP route the component will be invoked for.
     pub route: String,
-    /// The interface the component implements.
-    /// TODO
-    /// This is a weird name.
-    pub implementation: Option<HttpImplementation>,
+    /// The HTTP executor the component requires.
+    pub executor: Option<HttpExecutor>,
 }
 
 impl Default for HttpConfig {
     fn default() -> Self {
         Self {
             route: "/".to_string(),
-            implementation: Default::default(),
+            executor: Default::default(),
         }
     }
 }
@@ -170,14 +168,14 @@ impl Default for HttpConfig {
 /// These should be versioned.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub enum HttpImplementation {
+pub enum HttpExecutor {
     /// The component implements the Spin HTTP interface.
     Spin,
     /// The component implements the Wagi interface.
     Wagi,
 }
 
-impl Default for HttpImplementation {
+impl Default for HttpExecutor {
     fn default() -> Self {
         Self::Spin
     }
@@ -249,7 +247,7 @@ mod tests {
         files  = []
     [component.trigger]
         route          = "/lights"
-        implementation = "spin"
+        executor       = "spin"
     [component.dependencies]
         cache    = { type = "host" }
         markdown = { type = "component", reference = "github/octo-markdown/1.0.0", parcel = "md.wasm" }
@@ -277,7 +275,7 @@ mod tests {
         assert_eq!(cfg.components[0].core.id, "four-lights".to_string());
 
         let TriggerConfig::Http(http) = cfg.components[0].core.trigger.clone();
-        assert_eq!(http.implementation.unwrap(), HttpImplementation::Spin);
+        assert_eq!(http.executor.unwrap(), HttpExecutor::Spin);
         assert_eq!(http.route, "/lights".to_string());
 
         assert_eq!(

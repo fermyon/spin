@@ -17,8 +17,7 @@ use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http::SpinHttpData;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tracing::{instrument, log};
-
-use crate::wagi::WagiHttpExecutor;
+use wagi::WagiHttpExecutor;
 
 wit_bindgen_wasmtime::import!("wit/ephemeral/spin-http.wit");
 
@@ -73,12 +72,16 @@ impl HttpTrigger {
         })
     }
 
-    /// Handle an incoming request using an HTTP executor.
-    pub async fn handle(&self, req: Request<Body>) -> Result<Response<Body>> {
+    /// Handle incoming requests using an HTTP executor.
+    pub(crate) async fn handle(
+        &self,
+        req: Request<Body>,
+        addr: SocketAddr,
+    ) -> Result<Response<Body>> {
         log::info!(
-            "Processing request for application {} on path {}",
+            "Processing request for application {} on URI {}",
             &self.app.info.name,
-            req.uri().path()
+            req.uri()
         );
 
         match req.uri().path() {
@@ -86,17 +89,24 @@ impl HttpTrigger {
             route => match self.router.routes.get(&route.to_string()) {
                 Some(c) => {
                     let TriggerConfig::Http(trigger) = &c.trigger;
-                    let implementation = match &trigger.executor {
+                    let executor = match &trigger.executor {
                         Some(i) => i,
                         None => &spin_config::HttpExecutor::Spin,
                     };
 
-                    match implementation {
+                    let res = match executor {
                         spin_config::HttpExecutor::Spin => {
-                            return SpinHttpExecutor::execute(&self.engine, c.id.clone(), req).await
+                            SpinHttpExecutor::execute(&self.engine, &c.id, req, addr).await
                         }
                         spin_config::HttpExecutor::Wagi => {
-                            return WagiHttpExecutor::execute(&self.engine, c.id.clone(), req).await
+                            WagiHttpExecutor::execute(&self.engine, &c.id, req, addr).await
+                        }
+                    };
+                    match res {
+                        Ok(res) => return Ok(res),
+                        Err(e) => {
+                            log::error!("Error processing request: {:?}", e);
+                            return Ok(Self::internal_error());
                         }
                     }
                 }
@@ -105,21 +115,32 @@ impl HttpTrigger {
         }
     }
 
-    /// Create an HTTP 404 response
+    /// Create an HTTP 500 response.
+    fn internal_error() -> Response<Body> {
+        let mut err = Response::default();
+        *err.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+        err
+    }
+
+    /// Create an HTTP 404 response.
     fn not_found() -> Response<Body> {
         let mut not_found = Response::default();
         *not_found.status_mut() = StatusCode::NOT_FOUND;
         not_found
     }
 
+    /// Run the HTTP trigger indefinitely.
     #[instrument(skip(self))]
     pub async fn run(&self) -> Result<()> {
-        let mk_svc = make_service_fn(move |_: &AddrStream| {
+        let mk_svc = make_service_fn(move |addr: &AddrStream| {
             let t = self.clone();
+            let addr = addr.remote_addr();
+
             async move {
                 Ok::<_, Error>(service_fn(move |req| {
                     let t2 = t.clone();
-                    async move { t2.handle(req).await }
+
+                    async move { t2.handle(req, addr).await }
                 }))
             }
         });
@@ -134,7 +155,7 @@ impl HttpTrigger {
 
 /// Router for the HTTP trigger.
 #[derive(Clone)]
-pub struct Router {
+pub(crate) struct Router {
     /// Map between a path and the component that should handle it.
     pub routes: HashMap<String, CoreComponent>,
 }
@@ -161,21 +182,22 @@ impl Router {
     }
 }
 
+/// The HTTP executor trait.
+/// All HTTP executors must implement this trait.
 #[async_trait]
-pub trait HttpExecutor: Clone + Send + Sync + 'static {
+pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
     async fn execute(
         engine: &ExecutionContext,
-        component: String,
+        component: &String,
         req: Request<Body>,
+        client_addr: SocketAddr,
     ) -> Result<Response<Body>>;
 }
 
-// TODO
-//
-// Implement a Wagi executor.
-
 #[cfg(test)]
 mod tests {
+    use std::net::{IpAddr, Ipv4Addr};
+
     use super::*;
     use anyhow::Result;
     use spin_config::{
@@ -220,13 +242,18 @@ mod tests {
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()
             .method("POST")
-            .uri("https://myservice.fermyon.dev/test")
-            .header("X-Custom-Foo", "Bar")
-            .header("X-Custom-Foo2", "Bar2")
+            .uri("https://myservice.fermyon.dev/test?abc=def")
+            .header("x-custom-foo", "bar")
+            .header("x-custom-foo2", "bar2")
             .body(body)
             .unwrap();
 
-        let res = trigger.handle(req).await?;
+        let res = trigger
+            .handle(
+                req,
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 1234),
+            )
+            .await?;
         assert_eq!(res.status(), StatusCode::OK);
         let body_bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
         assert_eq!(body_bytes.to_vec(), "Hello, Fermyon".as_bytes());

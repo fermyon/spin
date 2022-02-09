@@ -3,10 +3,10 @@ use crate::HttpExecutor;
 use crate::{ExecutionContext, RuntimeContext};
 use anyhow::Result;
 use async_trait::async_trait;
+use http::Uri;
 use hyper::{Body, Request, Response};
-use std::str::FromStr;
+use std::{net::SocketAddr, str::FromStr};
 use tracing::{instrument, log};
-use url::Url;
 use wasmtime::{Instance, Store};
 
 #[derive(Clone)]
@@ -17,8 +17,9 @@ impl HttpExecutor for SpinHttpExecutor {
     #[instrument(skip(engine))]
     async fn execute(
         engine: &ExecutionContext,
-        component: String,
+        component: &String,
         req: Request<Body>,
+        _client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
         log::info!(
             "Executing request using the Spin executor for component {}",
@@ -26,7 +27,10 @@ impl HttpExecutor for SpinHttpExecutor {
         );
         let (store, instance) = engine.prepare_component(component, None)?;
         let res = Self::execute_impl(store, instance, req).await?;
-        log::info!("Request finished, sending response.");
+        log::info!(
+            "Request finished, sending response with status code {}",
+            res.status()
+        );
         Ok(res)
     }
 }
@@ -43,23 +47,22 @@ impl SpinHttpExecutor {
         let body = Some(&bytes[..]);
 
         let method = Self::method(&parts.method);
-        let uri = &parts.uri.to_string();
         let headers = &Self::headers(&parts.headers)?;
-        // TODO
-        // Currently, this silently crashes the running thread.
-        // let params = &Self::params(&uri)?;
-        // let params: &Vec<(&str, &str)> = &params.into_iter().map(|(k, v)| (&**k, &**v)).collect();
-        let params = &Vec::new();
+        let params = &Self::params(&parts.uri)?;
+        let params: Vec<(&str, &str)> = params
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+
         let req = crate::spin_http::Request {
             method,
-            uri,
+            uri: &parts.uri.to_string(),
             headers,
-            params,
+            params: &params,
             body,
         };
-        log::info!("Request URI: {:?}", req.uri);
+
         let res = engine.handler(&mut store, req)?;
-        log::info!("Response status code: {:?}", res.status);
         let mut response = http::Response::builder().status(res.status);
         Self::append_headers(response.headers_mut().unwrap(), res.headers)?;
 
@@ -109,13 +112,12 @@ impl SpinHttpExecutor {
         Ok(())
     }
 
-    #[allow(unused)]
-    fn params(uri: &str) -> Result<Vec<(String, String)>> {
-        let url = Url::parse(uri)?;
-        Ok(url
-            .query_pairs()
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect())
+    fn params(uri: &Uri) -> Result<Vec<(String, String)>> {
+        match uri.query() {
+            Some(q) => Ok(url::form_urlencoded::parse(q.as_bytes())
+                .into_owned()
+                .collect::<Vec<_>>()),
+            None => Ok(vec![]),
+        }
     }
 }

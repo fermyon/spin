@@ -249,7 +249,7 @@ mod tests {
         files  = []
     [component.trigger]
         route          = "/lights"
-        implementation = "spin"
+        executor       = "spin"
     [component.dependencies]
         cache    = { type = "host" }
         markdown = { type = "component", reference = "github/octo-markdown/1.0.0", parcel = "md.wasm" }

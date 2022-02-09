@@ -29,13 +29,14 @@ impl Router {
     /// Build a router based on application configuration.
     #[instrument]
     pub(crate) fn build(app: &Configuration<CoreComponent>) -> Result<Self> {
-        let mut routes = IndexMap::new();
-        for component in &app.components {
-            let spin_config::TriggerConfig::Http(trigger) = &component.trigger;
-            log::info!("Trying route path {}", trigger.route);
-
-            routes.insert(RoutePattern::from(trigger.route.clone()), component.clone());
-        }
+        let routes = app
+            .components
+            .iter()
+            .map(|c| {
+                let spin_config::TriggerConfig::Http(trigger) = &c.trigger;
+                (RoutePattern::from(&trigger.route), c.clone())
+            })
+            .collect();
 
         log::info!(
             "Constructed router for application {}: {:?}",
@@ -60,17 +61,15 @@ impl Router {
     pub(crate) fn route<S: Into<String> + Debug>(&self, p: S) -> Result<CoreComponent> {
         let p = p.into();
 
-        // TODO
-        // A filter would be very nice here to avoid all the clones.
-        let mut res = vec![];
-        for (rp, c) in &self.routes {
-            if rp.matches(p.clone()) {
-                res.push(c.clone());
-            }
-        }
+        let matches = &self
+            .routes
+            .iter()
+            .filter(|(rp, _)| rp.matches(&p))
+            .map(|(_, c)| c)
+            .collect::<Vec<&CoreComponent>>();
 
-        match res.last() {
-            Some(c) => Ok(c.clone()),
+        match matches.last() {
+            Some(c) => Ok((*c).clone()),
             None => bail!("Cannot match route for path {}", p),
         }
     }

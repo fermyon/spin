@@ -149,9 +149,7 @@ impl Default for ModuleSource {
 pub struct HttpConfig {
     /// HTTP route the component will be invoked for.
     pub route: String,
-    /// The interface the component implements.
-    /// TODO
-    /// This is a weird name.
+    /// The HTTP executor the component requires.
     pub executor: Option<HttpExecutor>,
 }
 

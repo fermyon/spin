@@ -1,5 +1,6 @@
 //! Implementation for the Spin HTTP engine.
 
+mod routes;
 mod spin;
 mod wagi;
 
@@ -11,11 +12,12 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
+use routes::Router;
 use spin::SpinHttpExecutor;
 use spin_config::{Configuration, CoreComponent, TriggerConfig};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http::SpinHttpData;
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 use tracing::{instrument, log};
 use wagi::WagiHttpExecutor;
 
@@ -86,8 +88,8 @@ impl HttpTrigger {
 
         match req.uri().path() {
             "/healthz" => Ok(Response::new(Body::from("OK"))),
-            route => match self.router.routes.get(&route.to_string()) {
-                Some(c) => {
+            route => match self.router.route(route) {
+                Ok(c) => {
                     let TriggerConfig::Http(trigger) = &c.trigger;
                     let executor = match &trigger.executor {
                         Some(i) => i,
@@ -110,7 +112,7 @@ impl HttpTrigger {
                         }
                     }
                 }
-                None => return Ok(Self::not_found()),
+                Err(_) => return Ok(Self::not_found()),
             },
         }
     }
@@ -153,35 +155,6 @@ impl HttpTrigger {
     }
 }
 
-/// Router for the HTTP trigger.
-#[derive(Clone)]
-pub(crate) struct Router {
-    /// Map between a path and the component that should handle it.
-    pub routes: HashMap<String, CoreComponent>,
-}
-
-impl Router {
-    /// Build a router based on application configuration.
-    #[instrument]
-    pub fn build(app: &Configuration<CoreComponent>) -> Result<Self> {
-        let mut routes = HashMap::new();
-        for component in &app.components {
-            let spin_config::TriggerConfig::Http(trigger) = &component.trigger;
-            log::info!("Trying route path {}", trigger.route);
-
-            routes.insert(trigger.route.clone(), component.clone());
-        }
-
-        log::info!(
-            "Constructed router for application {}: {:?}",
-            app.info.name,
-            routes
-        );
-
-        Ok(Self { routes })
-    }
-}
-
 /// The HTTP executor trait.
 /// All HTTP executors must implement this trait.
 #[async_trait]
@@ -196,22 +169,29 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
 
 #[cfg(test)]
 mod tests {
-    use std::net::{IpAddr, Ipv4Addr};
-
     use super::*;
     use anyhow::Result;
     use spin_config::{
         ApplicationInformation, Configuration, HttpConfig, HttpExecutor, ModuleSource,
         TriggerConfig,
     };
+    use std::{
+        net::{IpAddr, Ipv4Addr},
+        sync::Once,
+    };
+
+    static LOGGER: Once = Once::new();
 
     const RUST_ENTRYPOINT_PATH: &str =
         "tests/rust-http-test/target/wasm32-wasi/release/rust_http_test.wasm";
 
-    fn init() {
-        tracing_subscriber::fmt()
-            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-            .init();
+    /// We can only initialize the tracing subscriber once per crate.
+    pub(crate) fn init() {
+        LOGGER.call_once(|| {
+            tracing_subscriber::fmt()
+                .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+                .init();
+        });
     }
 
     #[tokio::test]

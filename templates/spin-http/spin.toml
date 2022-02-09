@@ -8,4 +8,4 @@ trigger     = "http"
     source = "target/wasm32-wasi/release/spinhelloworld.wasm"
     id     = "hello"
 [component.trigger]
-    route = "/hello"
+    route = "/hello/..."

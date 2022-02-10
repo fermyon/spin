@@ -1,10 +1,10 @@
 [package]
-    name    = "spin-config"
-    version = "0.1.0"
-    edition = "2021"
-    authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
+name = "spin-config"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
 
 [dependencies]
-    anyhow = "1.0"
-    serde  = { version = "1.0", features = [ "derive" ] }
-    toml   = "0.5"
+anyhow = "1.0"
+serde = { version = "1.0", features = [ "derive" ] }
+toml = "0.5"

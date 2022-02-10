@@ -1,21 +1,21 @@
 [package]
-    name    = "spin-redis"
-    version = "0.1.0"
-    edition = "2021"
-    authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
+name = "spin-redis"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
 
 [dependencies]
-    anyhow               = "1.0"
-    async-trait          = "0.1"
-    env_logger           = "0.9"
-    futures              = "0.3"
-    log                  = { version = "0.4", default-features = false }
-    serde                = { version = "1.0", features = [ "derive" ] }
-    spin-engine          = { path = "../engine" }
-    redis                = { version = "0.21", features = [ "tokio-comp" ] }
-    tokio                = { version = "1.14", features = [ "full" ] }
-    wit-bindgen-rust     = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
-    wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
-    wasi-common          = "0.33"
-    wasmtime             = "0.33"
-    wasmtime-wasi        = "0.33"
+anyhow = "1.0"
+async-trait = "0.1"
+env_logger = "0.9"
+futures = "0.3"
+log = { version = "0.4", default-features = false }
+serde = { version = "1.0", features = [ "derive" ] }
+spin-engine = { path = "../engine" }
+redis = { version = "0.21", features = [ "tokio-comp" ] }
+tokio = { version = "1.14", features = [ "full" ] }
+wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
+wasi-common = "0.33"
+wasmtime = "0.33"
+wasmtime-wasi = "0.33"

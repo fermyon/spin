@@ -1,11 +1,11 @@
-name        = "spin-hello-world"
-version     = "1.0.0"
+name = "spin-hello-world"
+version = "1.0.0"
 description = "A simple application that returns hello and goodbye."
-authors     = [ "Radu Matei <radu@fermyon.com>" ]
-trigger     = "http"
+authors = [ "Radu Matei <radu@fermyon.com>" ]
+trigger = "http"
 
 [[component]]
-    source = "target/wasm32-wasi/release/spinhelloworld.wasm"
-    id     = "hello"
+source = "target/wasm32-wasi/release/spinhelloworld.wasm"
+id = "hello"
 [component.trigger]
-    route = "/hello/..."
+route = "/hello/..."

@@ -75,7 +75,7 @@ impl TemplatesManager {
     }
 
     /// Add a local directory as a template.
-    pub fn add_local(&self, name: &str, src: &PathBuf) -> Result<()> {
+    pub fn add_local(&self, name: &str, src: &Path) -> Result<()> {
         let src = std::fs::canonicalize(src)?;
         let dst = &self
             .root
@@ -159,7 +159,7 @@ impl TemplatesManager {
     }
 
     /// Ensure the root directory exists, or else create it.
-    async fn ensure(root: &PathBuf) -> Result<()> {
+    async fn ensure(root: &Path) -> Result<()> {
         if !root.exists() {
             log::debug!("creating cache root directory `{}`", root.display());
             fs::create_dir_all(root).await.with_context(|| {

@@ -72,8 +72,8 @@ impl List {
                 table.add_row(vec![
                     t,
                     repo.clone().name,
-                    repo.clone().git.unwrap_or("".to_string()),
-                    repo.clone().branch.unwrap_or("".to_string()),
+                    repo.clone().git.unwrap_or_else(|| "".to_string()),
+                    repo.clone().branch.unwrap_or_else(|| "".to_string()),
                 ]);
             }
         }

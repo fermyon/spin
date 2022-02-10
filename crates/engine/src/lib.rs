@@ -4,7 +4,7 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use spin_config::{ApplicationOrigin, CoreComponent, ModuleSource};
 use tracing::{instrument, log};
 use wasi_common::WasiCtx;
@@ -227,14 +227,15 @@ impl<T: Default> ExecutionContext<T> {
     #[instrument(skip(self, data))]
     pub fn prepare_component(
         &self,
-        component: &String,
+        component: &str,
         data: Option<T>,
     ) -> Result<(Store<RuntimeContext<T>>, Instance)> {
         log::info!("Preparing component {}", component);
-        let component = self
-            .components
-            .get(component)
-            .expect(&format!("cannot find component {}", component));
+        let component = match self.components.get(component) {
+            Some(c) => c,
+            None => bail!("Cannot find component {}", component),
+        };
+
         let mut store = self.store(component, data)?;
         let instance = component.pre.instantiate(&mut store)?;
 
@@ -264,6 +265,7 @@ impl<T: Default> ExecutionContext<T> {
     }
 
     #[instrument(skip(component))]
+    #[allow(clippy::type_complexity)]
     fn wasi_config(
         component: &Component<T>,
     ) -> Result<(Vec<(String, String)>, Vec<DirectoryMount>)> {

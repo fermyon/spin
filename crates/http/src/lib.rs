@@ -102,14 +102,14 @@ impl HttpTrigger {
                         }
                     };
                     match res {
-                        Ok(res) => return Ok(res),
+                        Ok(res) => Ok(res),
                         Err(e) => {
                             log::error!("Error processing request: {:?}", e);
-                            return Ok(Self::internal_error());
+                            Ok(Self::internal_error())
                         }
                     }
                 }
-                Err(_) => return Ok(Self::not_found()),
+                Err(_) => Ok(Self::not_found()),
             },
         }
     }
@@ -178,7 +178,7 @@ fn on_ctrl_c() -> Result<impl std::future::Future<Output = Result<(), tokio::tas
 pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
     async fn execute(
         engine: &ExecutionContext,
-        component: &String,
+        component: &str,
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>>;

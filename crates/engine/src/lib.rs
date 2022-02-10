@@ -6,17 +6,19 @@ mod assets;
 /// Input / Output redirects.
 pub mod io;
 
-use anyhow::{bail, Context, Result};
-use assets::{prepare_local_assets, DirectoryMount};
+use anyhow::{bail, Result};
+use assets::{DirectoryMount};
 use io::IoStreamRedirects;
-use spin_config::{ApplicationOrigin, CoreComponent, ModuleSource};
+use spin_config::{CoreComponent, ModuleSource};
 use std::{collections::HashMap, sync::Arc};
 use tracing::{instrument, log};
 use wasi_common::WasiCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
 use wasmtime_wasi::{ambient_authority, Dir, WasiCtxBuilder};
 
-const EMPTY: Vec<String> = vec![];
+/// Runtime configuration
+#[derive(Clone, Debug, Default)]
+pub struct RuntimeConfig;
 
 /// Builder-specific configuration.
 #[derive(Clone, Debug)]
@@ -116,18 +118,29 @@ impl<T: Default> Builder<T> {
             let config = c.clone();
 
             // TODO
-            let p = match c.source.clone() {
-                ModuleSource::FileReference(p) => p,
-                ModuleSource::Bindle(_) => panic!(),
+            let module = match c.source.clone() {
+                ModuleSource::FileReference(p) => {
+                    let module = Module::from_file(&self.engine, &p)?;
+                    log::trace!("Created module from file {:?}", p);
+                    module
+                },
+                ModuleSource::Bindle(bcs) => {
+                    let module_bytes = bcs.reader.get_parcel(&bcs.parcel).await?;
+                    let module = Module::from_binary(&self.engine, &module_bytes)?;
+                    log::trace!("Created module from parcel {:?}", bcs.parcel);  // TODO: invoice id? parcel name?
+                    module
+                },
                 ModuleSource::Linked(_) => panic!(),
             };
 
-            let module = Module::from_file(&self.engine, &p)?;
-            log::trace!("Created module from file {:?}", p);
             let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
-            log::debug!("Created pre-instance from module {:?}", p);
+            log::debug!("Created pre-instance from module");  // TODO: show source?
 
-            let asset_directories = self.prepare_assets(c, working_directory.path()).await?;
+            let asset_directories = assets::prepare(
+                &c.id,
+                &c.wasm.files,
+                working_directory.path()
+            ).await?;
 
             components.insert(
                 c.id.clone(),
@@ -150,32 +163,6 @@ impl<T: Default> Builder<T> {
             components,
             working_directory: Arc::new(working_directory),
         })
-    }
-
-    async fn prepare_assets(
-        &self,
-        component: &CoreComponent,
-        working_directory: impl AsRef<std::path::Path>,
-    ) -> Result<Vec<DirectoryMount>> {
-        match &self.config.app.info.origin {
-            ApplicationOrigin::File(config_file) => {
-                let files = component.wasm.files.as_ref();
-                let source_directory = config_file
-                    .parent()
-                    .expect("The root directory cannot be the config file");
-                let mount = prepare_local_assets(
-                    files.unwrap_or(&EMPTY),
-                    source_directory,
-                    &working_directory,
-                    &component.id,
-                )
-                .await
-                .with_context(|| {
-                    format!("Error copying assets for component '{}'", component.id)
-                })?;
-                Ok(vec![mount])
-            }
-        }
     }
 
     /// Build a new default instance of the execution context.
@@ -280,11 +267,9 @@ impl<T: Default> ExecutionContext<T> {
     ) -> Result<(Vec<(String, String)>, Vec<DirectoryMount>)> {
         let mut res = vec![];
 
-        if let Some(e) = &component.core.wasm.environment {
-            for (k, v) in e {
-                res.push((k.clone(), v.clone()));
-            }
-        };
+        for (k, v) in &component.core.wasm.environment {
+            res.push((k.clone(), v.clone()));
+        }
 
         // Custom environment variables currently take precedence over component-defined
         // environment variables. This might change in the future.
@@ -304,7 +289,8 @@ impl<T: Default> ExecutionContext<T> {
 mod tests {
     use super::*;
     use anyhow::Result;
-    use spin_config::{ApplicationOrigin, Configuration, RawConfiguration};
+    use std::io::Write;
+    use spin_config::Configuration;
 
     const CFG_TEST: &str = r#"
     name        = "spin-hello-world"
@@ -320,16 +306,17 @@ mod tests {
         route = "/hello"
     "#;
 
-    fn fake_file_origin() -> ApplicationOrigin {
-        let dir = env!("CARGO_MANIFEST_DIR");
-        let fake_path = std::path::PathBuf::from(dir).join("fake_spin.toml");
-        ApplicationOrigin::File(fake_path)
+    fn read_from_temp_file(toml_text: &str) -> Result<Configuration<CoreComponent>> {
+        let mut f = tempfile::NamedTempFile::new()?;
+        f.write_all(toml_text.as_bytes())?;
+        let config = spin_config::read_from_file(&f)?;
+        drop(f);
+        Ok(config)
     }
 
     #[test]
     fn test_simple_config() -> Result<()> {
-        let raw_app: RawConfiguration<CoreComponent> = toml::from_str(CFG_TEST)?;
-        let app = Configuration::from_raw(raw_app, fake_file_origin());
+        let app = read_from_temp_file(CFG_TEST)?;
         let config = ExecutionContextConfiguration::new(app);
 
         assert_eq!(config.app.info.name, "spin-hello-world".to_string());

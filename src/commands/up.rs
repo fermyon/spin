@@ -1,9 +1,13 @@
-use anyhow::Result;
-use path_absolutize::Absolutize;
-use spin_config::{ApplicationOrigin, Configuration, CoreComponent, RawConfiguration};
+use anyhow::{Context, Result};
 use spin_http_engine::HttpTrigger;
-use std::{fs::File, io::Read, path::PathBuf};
+use std::path::PathBuf;
 use structopt::{clap::AppSettings, StructOpt};
+
+const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
+const BINDLE_ID_OPT: &str = "BINDLE_ID";
+const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
+
+const BINDLE_URL_ENV: &str = "BINDLE_URL";
 
 /// Start the Fermyon HTTP runtime.
 #[derive(StructOpt, Debug)]
@@ -21,27 +25,57 @@ pub struct Up {
     ///
     /// The command has to be run from the same directory
     /// as the configuration file for now.
-    #[structopt(long = "app")]
-    pub app: PathBuf,
+    #[structopt(
+        name = APP_CONFIG_FILE_OPT,
+        long = "app",
+        conflicts_with = BINDLE_ID_OPT,
+    )]
+    pub app: Option<PathBuf>,
+
+    /// Id of application bindle
+    #[structopt(
+        name = BINDLE_ID_OPT,
+        long = "bindle",
+        conflicts_with = APP_CONFIG_FILE_OPT,
+        requires = BINDLE_SERVER_URL_OPT,
+        parse(try_from_str = try_bindle_id_from_str)
+    )]
+    pub bindle_id: Option<bindle::Id>,
+
+    /// URL of bindle server
+    #[structopt(
+        name = BINDLE_SERVER_URL_OPT,
+        long = "bindle-server",
+        env = BINDLE_URL_ENV,
+    )]
+    pub bindle_server_url: Option<String>,
 }
 
 impl Up {
     pub async fn run(self) -> Result<()> {
-        let app = self.app_from_file()?;
+        let app = match (&self.app, &self.bindle_id) {
+            (None, None) =>
+                Err(anyhow::anyhow!("Must specify app file or bindle id")),
+            (Some(app_file), None) =>
+                spin_config::read_from_file(app_file),
+            (None, Some(bindle_id)) => {
+                if let Some(server_url) = &self.bindle_server_url {
+                    spin_config::read_from_bindle(bindle_id, server_url).await
+                } else {
+                    Err(anyhow::anyhow!("Loading from a bindle requires a Bindle server URL"))
+                }
+            },
+            (Some(_), Some(_)) =>
+                Err(anyhow::anyhow!("Specify only one of app file or bindle id")),
+        }?;
 
         let trigger = HttpTrigger::new(self.address, app, None).await?;
         trigger.run().await
     }
+}
 
-    fn app_from_file(&self) -> Result<Configuration<CoreComponent>> {
-        let mut buf = vec![];
-        let mut file = File::open(&self.app)?;
-        file.read_to_end(&mut buf)?;
-
-        let absolute_app_path = self.app.absolutize()?.into_owned();
-
-        let raw_app_config: RawConfiguration<CoreComponent> = toml::from_slice(&buf)?;
-        let file_origin = ApplicationOrigin::File(absolute_app_path);
-        Ok(Configuration::from_raw(raw_app_config, file_origin))
-    }
+fn try_bindle_id_from_str(id_str: &str) -> Result<bindle::Id> {
+    let id = bindle::Id::try_from(id_str)
+        .with_context(|| format!("'{}' is not a valid bindle ID", id_str))?;
+    Ok(id)
 }

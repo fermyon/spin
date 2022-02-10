@@ -149,6 +149,8 @@ impl RoutePattern {
 
 #[cfg(test)]
 mod route_tests {
+    use std::collections::HashMap;
+
     use super::*;
     use crate::tests::init;
 
@@ -333,7 +335,16 @@ mod route_tests {
     fn named_component(id: &str) -> CoreComponent {
         CoreComponent {
             id: id.to_string(),
-            ..Default::default()
+            source: spin_config::ModuleSource::FileReference("FAKE".into()),
+            trigger: spin_config::TriggerConfig::Http(spin_config::HttpConfig {
+                route: "/test".to_string(),
+                executor: Some(spin_config::HttpExecutor::Spin),
+            }),
+            wasm: spin_config::WasmConfig {
+                environment: HashMap::new(),
+                files: spin_config::ReferencedFiles::None,
+                allowed_http_hosts: vec![],
+            }
         }
     }
 }

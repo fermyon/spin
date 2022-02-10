@@ -1,0 +1,9 @@
+/// The goal of this interface is to allow the components of the same Spin
+/// application to invoke other components, without going through the trigger.
+/// For example, in the case of an HTTP application, this would allow distinguishing
+/// between internal and external endpoints.
+
+use * from http-types
+
+/// Invoke another HTTP component from the same application, given its component ID.
+invoke-http: function(id: string, req: request) -> response

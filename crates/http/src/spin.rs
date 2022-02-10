@@ -1,6 +1,6 @@
 use crate::spin_http::{Method, SpinHttp};
-use crate::HttpExecutor;
 use crate::{ExecutionContext, RuntimeContext};
+use crate::{HttpExecutor, HttpTriggerData};
 use anyhow::Result;
 use async_trait::async_trait;
 use http::Uri;
@@ -14,9 +14,10 @@ pub struct SpinHttpExecutor;
 
 #[async_trait]
 impl HttpExecutor for SpinHttpExecutor {
-    #[instrument(skip(engine))]
+    #[instrument(skip(engine, data))]
     async fn execute(
         engine: &ExecutionContext,
+        data: Option<HttpTriggerData>,
         component: &String,
         req: Request<Body>,
         _client_addr: SocketAddr,
@@ -25,7 +26,7 @@ impl HttpExecutor for SpinHttpExecutor {
             "Executing request using the Spin executor for component {}",
             component
         );
-        let (store, instance) = engine.prepare_component(component, None)?;
+        let (store, instance) = engine.prepare_component(component, data)?;
         let res = Self::execute_impl(store, instance, req).await?;
         log::info!(
             "Request finished, sending response with status code {}",
@@ -41,7 +42,9 @@ impl SpinHttpExecutor {
         instance: Instance,
         req: Request<Body>,
     ) -> Result<Response<Body>> {
-        let engine = SpinHttp::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
+        let engine = SpinHttp::new(&mut store, &instance, |host| {
+            &mut host.data.as_mut().unwrap().http
+        })?;
         let (parts, bytes) = req.into_parts();
         let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
         let body = Some(&bytes[..]);

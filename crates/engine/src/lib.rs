@@ -11,10 +11,6 @@ use wasi_common::WasiCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
 use wasmtime_wasi::{ambient_authority, Dir, WasiCtxBuilder};
 
-/// Runtime configuration
-#[derive(Clone, Debug, Default)]
-pub struct RuntimeConfig;
-
 /// Builder-specific configuration.
 #[derive(Clone, Debug)]
 pub struct ExecutionContextConfiguration {

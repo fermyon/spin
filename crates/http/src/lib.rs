@@ -1,5 +1,6 @@
 //! Implementation for the Spin HTTP engine.
 
+mod invoker;
 mod routes;
 mod spin;
 mod wagi;
@@ -12,6 +13,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
+use invoker::InternalInvoker;
 use routes::Router;
 use spin::SpinHttpExecutor;
 use spin_config::{Configuration, CoreComponent, TriggerConfig};
@@ -23,8 +25,14 @@ use wagi::WagiHttpExecutor;
 
 wit_bindgen_wasmtime::import!("wit/ephemeral/spin-http.wit");
 
-type ExecutionContext = spin_engine::ExecutionContext<SpinHttpData>;
-type RuntimeContext = spin_engine::RuntimeContext<SpinHttpData>;
+type ExecutionContext = spin_engine::ExecutionContext<HttpTriggerData>;
+type RuntimeContext = spin_engine::RuntimeContext<HttpTriggerData>;
+
+#[derive(Default)]
+pub struct HttpTriggerData {
+    pub invoker: InternalInvoker,
+    pub http: SpinHttpData,
+}
 
 /// The Spin HTTP trigger.
 /// TODO
@@ -44,6 +52,8 @@ pub struct HttpTrigger {
     router: Router,
     /// Spin execution context.
     engine: Arc<ExecutionContext>,
+
+    invoker: InternalInvoker,
 }
 
 impl HttpTrigger {
@@ -62,7 +72,23 @@ impl HttpTrigger {
             config.wasmtime = wasmtime;
         };
 
-        let engine = Arc::new(Builder::build_default(config)?);
+        let mut builder = Builder::new(config)?;
+        builder.link_wasi()?;
+        invoker::add_to_linker(
+            &mut builder.linker,
+            |ctx: &mut RuntimeContext| -> &mut InternalInvoker {
+                &mut ctx.data.as_mut().unwrap().invoker
+            },
+        )?;
+
+        let engine = Arc::new(builder.build()?);
+
+        let invoker = InternalInvoker {
+            app: app.clone(),
+            engine: engine.clone(),
+        };
+
+        // let engine = Arc::new(Builder::build_default(config)?);
         let router = Router::build(&app)?;
         log::info!("Created new HTTP trigger.");
 
@@ -71,6 +97,7 @@ impl HttpTrigger {
             app,
             router,
             engine,
+            invoker,
         })
     }
 
@@ -98,10 +125,17 @@ impl HttpTrigger {
 
                     let res = match executor {
                         spin_config::HttpExecutor::Spin => {
-                            SpinHttpExecutor::execute(&self.engine, &c.id, req, addr).await
+                            let invoker = &self.invoker;
+                            let data = HttpTriggerData {
+                                invoker: invoker.clone(),
+                                http: SpinHttpData::default(),
+                            };
+
+                            SpinHttpExecutor::execute(&self.engine, Some(data), &c.id, req, addr)
+                                .await
                         }
                         spin_config::HttpExecutor::Wagi => {
-                            WagiHttpExecutor::execute(&self.engine, &c.id, req, addr).await
+                            WagiHttpExecutor::execute(&self.engine, None, &c.id, req, addr).await
                         }
                     };
                     match res {
@@ -161,6 +195,7 @@ impl HttpTrigger {
 pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
     async fn execute(
         engine: &ExecutionContext,
+        data: Option<HttpTriggerData>,
         component: &String,
         req: Request<Body>,
         client_addr: SocketAddr,

@@ -1,5 +1,4 @@
-use crate::ExecutionContext;
-use crate::HttpExecutor;
+use crate::{ExecutionContext, HttpExecutor, HttpTriggerData};
 use anyhow::Result;
 use async_trait::async_trait;
 use hyper::{Body, Request, Response};
@@ -11,9 +10,10 @@ pub struct WagiHttpExecutor;
 
 #[async_trait]
 impl HttpExecutor for WagiHttpExecutor {
-    #[instrument(skip(_engine))]
+    #[instrument(skip(_engine, _data))]
     async fn execute(
         _engine: &ExecutionContext,
+        _data: Option<HttpTriggerData>,
         _component: &String,
         _req: Request<Body>,
         _client_addr: SocketAddr,

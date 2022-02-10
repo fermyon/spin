@@ -6,12 +6,32 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf};
 
 /// Application configuration.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[derive(Clone, Debug)]
 pub struct Configuration<T> {
     /// General application information.
-    #[serde(flatten)]
     pub info: ApplicationInformation,
+
+    /// Configuration for the application components.
+    pub components: Vec<T>,
+}
+
+impl<T> Configuration<T> {
+    /// Derives a Configuration from the serialisation format.
+    pub fn from_raw(raw: RawConfiguration<T>, origin: ApplicationOrigin) -> Self {
+        Self {
+            info: ApplicationInformation::from_raw(raw.info, origin),
+            components: raw.components,
+        }
+    }
+}
+
+/// Application configuration file format.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct RawConfiguration<T> {
+    /// General application information.
+    #[serde(flatten)]
+    pub info: RawApplicationInformation,
 
     /// Configuration for the application components.
     #[serde(rename = "component")]
@@ -62,7 +82,7 @@ pub struct CoreComponent {
 /// General application information.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct ApplicationInformation {
+pub struct RawApplicationInformation {
     /// Name of the application.
     pub name: String,
     /// Version of the application.
@@ -81,6 +101,53 @@ pub struct ApplicationInformation {
     pub trigger: TriggerType,
     /// TODO
     pub namespace: Option<String>,
+}
+
+/// General application information.
+#[derive(Clone, Debug)]
+pub struct ApplicationInformation {
+    /// Name of the application.
+    pub name: String,
+    /// Version of the application.
+    pub version: String,
+    /// Description of the application.
+    pub description: Option<String>,
+    /// Authors of the application.
+    pub authors: Vec<String>,
+    /// Trigger for the application.
+    ///
+    /// Currently, all components of a given application must be
+    /// invoked as a result of the same trigger "type".
+    /// In the future, applications with mixed triggers might be allowed,
+    /// but for now, a component with a different trigger must be part of
+    /// a separate application.
+    pub trigger: TriggerType,
+    /// TODO
+    pub namespace: Option<String>,
+    /// The location from which the application is loaded.
+    pub origin: ApplicationOrigin,
+}
+
+/// The location from which an application was loaded.
+#[derive(Clone, Debug)]
+pub enum ApplicationOrigin {
+    /// The application was loaded from the specified file.
+    File(PathBuf),
+}
+
+impl ApplicationInformation {
+    /// Derives an ApplicationInformation from the serialisation format.
+    pub fn from_raw(raw: RawApplicationInformation, origin: ApplicationOrigin) -> Self {
+        Self {
+            name: raw.name,
+            version: raw.version,
+            description: raw.description,
+            authors: raw.authors.unwrap_or_default(),
+            trigger: raw.trigger,
+            namespace: raw.namespace,
+            origin,
+        }
+    }
 }
 
 /// The trigger type.
@@ -244,13 +311,16 @@ mod tests {
     [[component]]
         source = "path/to/wasm/file.wasm"
         id     = "four-lights"
-        files  = []
+        files  = ["file.txt", "subdir/another.txt"]
     [component.trigger]
         route          = "/lights"
         executor       = "spin"
     [component.dependencies]
         cache    = { type = "host" }
         markdown = { type = "component", reference = "github/octo-markdown/1.0.0", parcel = "md.wasm" }
+    [component.environment]
+        env1 = "first"
+        env2 = "second"
     
     [[component]]
         id = "abc"
@@ -263,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_local_config() -> Result<()> {
-        let cfg: Configuration<LinkableComponent> = toml::from_str(CFG_TEST)?;
+        let cfg: RawConfiguration<LinkableComponent> = toml::from_str(CFG_TEST)?;
 
         assert_eq!(cfg.info.name, "chain-of-command");
         assert_eq!(cfg.info.version, "6.11.2");
@@ -278,25 +348,18 @@ mod tests {
         assert_eq!(http.executor.unwrap(), HttpExecutor::Spin);
         assert_eq!(http.route, "/lights".to_string());
 
+        let test_component = &cfg.components[0];
+        let test_deps = test_component.dependencies.as_ref().unwrap();
+        let test_env = test_component.core.wasm.environment.as_ref().unwrap();
+        let test_files = test_component.core.wasm.files.as_ref().unwrap();
+
         assert_eq!(
-            cfg.components[0]
-                .dependencies
-                .clone()
-                .unwrap()
-                .get("cache")
-                .unwrap()
-                .dependency_type,
+            test_deps.get("cache").unwrap().dependency_type,
             DependencyType::Host
         );
 
         assert_eq!(
-            cfg.components[0]
-                .dependencies
-                .clone()
-                .unwrap()
-                .get("markdown")
-                .unwrap()
-                .reference,
+            test_deps.get("markdown").unwrap().reference,
             Some(BindleComponentSource {
                 reference: "github/octo-markdown/1.0.0".to_string(),
                 parcel: "md.wasm".to_string()
@@ -311,6 +374,14 @@ mod tests {
 
         assert_eq!(b.reference, "bindle reference".to_string());
         assert_eq!(b.parcel, "parcel".to_string());
+
+        assert_eq!(2, test_env.len());
+        assert_eq!("first", test_env.get("env1").unwrap());
+        assert_eq!("second", test_env.get("env2").unwrap());
+
+        assert_eq!(2, test_files.len());
+        assert_eq!("file.txt", test_files[0]);
+        assert_eq!("subdir/another.txt", test_files[1]);
 
         Ok(())
     }

@@ -1,5 +1,6 @@
 use anyhow::Result;
-use spin_config::{Configuration, CoreComponent};
+use path_absolutize::Absolutize;
+use spin_config::{ApplicationOrigin, Configuration, CoreComponent, RawConfiguration};
 use spin_http_engine::HttpTrigger;
 use std::{fs::File, io::Read, path::PathBuf};
 use structopt::{clap::AppSettings, StructOpt};
@@ -30,7 +31,7 @@ impl Up {
     pub async fn run(self) -> Result<()> {
         let app = self.app_from_file()?;
 
-        let trigger = HttpTrigger::new(self.address, app, None)?;
+        let trigger = HttpTrigger::new(self.address, app, None).await?;
         trigger.run().await
     }
 
@@ -39,6 +40,10 @@ impl Up {
         let mut file = File::open(&self.app)?;
         file.read_to_end(&mut buf)?;
 
-        Ok(toml::from_slice(&buf)?)
+        let absolute_app_path = self.app.absolutize()?.into_owned();
+
+        let raw_app_config: RawConfiguration<CoreComponent> = toml::from_slice(&buf)?;
+        let file_origin = ApplicationOrigin::File(absolute_app_path);
+        Ok(Configuration::from_raw(raw_app_config, file_origin))
     }
 }

@@ -13,6 +13,7 @@
     env_logger         = "0.9"
     futures            = "0.3"
     hippo-client       = { path = "crates/hippo-client" }
+    path-absolutize = "3.0.11"
     semver             = "1.0"
     serde              = { version = "1.0", features = [ "derive" ] }
     spin-config        = { path = "crates/config" }

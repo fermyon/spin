@@ -1,7 +1,6 @@
 use anyhow::Error;
 use spin_cli::commands::{new::NewCommand, templates::TemplateCommands, up::Up};
 use structopt::{clap::AppSettings, StructOpt};
-use tracing::instrument;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -29,7 +28,6 @@ enum SpinApp {
 
 impl SpinApp {
     /// The main entry point to Spin.
-    #[instrument]
     pub async fn run(self) -> Result<(), Error> {
         match self {
             SpinApp::Templates(cmd) => cmd.run().await,

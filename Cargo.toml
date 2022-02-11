@@ -1,34 +1,34 @@
 [package]
-    name    = "spin-cli"
-    version = "0.1.0"
-    edition = "2021"
-    authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
+name = "spin-cli"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
 
 [dependencies]
-    anyhow             = "1.0"
-    async-trait        = "0.1"
-    bytes              = "1.1"
-    comfy-table        = "5.0"
-    dirs               = "4.0"
-    env_logger         = "0.9"
-    futures            = "0.3"
-    path-absolutize = "3.0.11"
-    semver             = "1.0"
-    serde              = { version = "1.0", features = [ "derive" ] }
-    spin-config        = { path = "crates/config" }
-    spin-engine        = { path = "crates/engine" }
-    spin-http-engine   = { path = "crates/http" }
-    spin-templates     = { path = "crates/templates" }
-    structopt          = "0.3"
-    tokio              = { version = "1.11", features = [ "full" ] }
-    toml               = "0.5"
-    tracing            = { version = "0.1", features = [ "log" ] }
-    tracing-futures    = "0.2"
-    tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
+anyhow = "1.0"
+async-trait = "0.1"
+bytes = "1.1"
+comfy-table = "5.0"
+dirs = "4.0"
+env_logger = "0.9"
+futures = "0.3"
+path-absolutize = "3.0.11"
+semver = "1.0"
+serde = { version = "1.0", features = [ "derive" ] }
+spin-config = { path = "crates/config" }
+spin-engine = { path = "crates/engine" }
+spin-http-engine = { path = "crates/http" }
+spin-templates = { path = "crates/templates" }
+structopt = "0.3"
+tokio = { version = "1.11", features = [ "full" ] }
+toml = "0.5"
+tracing = { version = "0.1", features = [ "log" ] }
+tracing-futures = "0.2"
+tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 
 [workspace]
-    members = [ "crates/config", "crates/engine", "crates/http", "crates/templates" ]
+members = [ "crates/config", "crates/engine", "crates/http", "crates/templates" ]
 
 [[bin]]
-    name = "spin"
-    path = "src/bin/spin.rs"
+name = "spin"
+path = "src/bin/spin.rs"

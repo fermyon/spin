@@ -21,7 +21,7 @@ impl Redis for RedisEngine {
 
         let (store, instance) = self.0.prepare(None)?;
         self.execute_impl(store, instance, payload)?;
-        log::info!("Request execution time: {:#?}", start.elapsed());
+        log::trace!("Request execution time: {:#?}", start.elapsed());
 
         Ok(())
     }

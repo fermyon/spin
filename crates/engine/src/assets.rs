@@ -84,8 +84,12 @@ fn collect_one_pattern(
         .into_iter()
         .map(|path| FileMountSpecifier::from_path(path, &relative_to))
         .collect::<anyhow::Result<Vec<_>>>()?;
-    ensure_all_under(&relative_to, specifiers.iter().map(|s| &s.source_path))?;
-    Ok(specifiers)
+    let files: Vec<_> = specifiers
+        .into_iter()
+        .filter(|s| s.source_path.is_file())
+        .collect();
+    ensure_all_under(&relative_to, files.iter().map(|s| &s.source_path))?;
+    Ok(files)
 }
 
 #[rustfmt::skip]
@@ -133,7 +137,7 @@ async fn copy_all_to(
     let results = futures::future::join_all(futures).await;
     let errors: Vec<_> = results.into_iter().filter_map(|r| r.err()).collect();
     for e in &errors {
-        log::error!("{}", e);
+        log::error!("{:#}", e);
     }
     if errors.is_empty() {
         Ok(())

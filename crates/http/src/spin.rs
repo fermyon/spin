@@ -17,7 +17,7 @@ impl HttpExecutor for SpinHttpExecutor {
     #[instrument(skip(engine))]
     async fn execute(
         engine: &ExecutionContext,
-        component: &String,
+        component: &str,
         req: Request<Body>,
         _client_addr: SocketAddr,
     ) -> Result<Response<Body>> {

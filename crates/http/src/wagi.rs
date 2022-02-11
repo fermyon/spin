@@ -14,7 +14,7 @@ impl HttpExecutor for WagiHttpExecutor {
     #[instrument(skip(_engine))]
     async fn execute(
         _engine: &ExecutionContext,
-        _component: &String,
+        _component: &str,
         _req: Request<Body>,
         _client_addr: SocketAddr,
     ) -> Result<Response<Body>> {

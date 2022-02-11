@@ -110,7 +110,7 @@ impl RoutePattern {
         // TODO
         // This only strips a single trailing slash.
         // Should we attempt to strip all trailing slashes?
-        match s.strip_suffix("/") {
+        match s.strip_suffix('/') {
             Some(s) => s.into(),
             None => s,
         }
@@ -127,31 +127,28 @@ mod route_tests {
         init();
 
         let rp = RoutePattern::from("/foo/bar");
-        assert_eq!(rp.matches("/foo/bar"), true);
-        assert_eq!(rp.matches("/foo/bar/"), true);
-        assert_eq!(rp.matches("/foo"), false);
-        assert_eq!(rp.matches("/foo/bar/thisshouldbefalse"), false);
-        assert_eq!(rp.matches("/abc"), false);
+        assert!(rp.matches("/foo/bar"));
+        assert!(rp.matches("/foo/bar/"));
+        assert!(!rp.matches("/foo"));
+        assert!(!rp.matches("/foo/bar/thisshouldbefalse"));
+        assert!(!rp.matches("/abc"));
     }
 
     #[test]
     fn test_pattern_route() {
         let rp = RoutePattern::from("/...");
-        assert_eq!(rp.matches("/foo/bar/"), true);
-        assert_eq!(rp.matches("/foo"), true);
-        assert_eq!(rp.matches("/foo/bar/baz"), true);
-        assert_eq!(rp.matches("/this/should/really/match/everything/"), true);
-        assert_eq!(rp.matches("/"), true);
+        assert!(rp.matches("/foo/bar/"));
+        assert!(rp.matches("/foo"));
+        assert!(rp.matches("/foo/bar/baz"));
+        assert!(rp.matches("/this/should/really/match/everything/"));
+        assert!(rp.matches("/"));
 
         let rp = RoutePattern::from("/foo/...");
-        assert_eq!(rp.matches("/foo/bar/"), true);
-        assert_eq!(rp.matches("/foo"), true);
-        assert_eq!(rp.matches("/foo/bar/baz"), true);
-        assert_eq!(
-            rp.matches("/this/should/really/not/match/everything/"),
-            false
-        );
-        assert_eq!(rp.matches("/"), false);
+        assert!(rp.matches("/foo/bar/"));
+        assert!(rp.matches("/foo"));
+        assert!(rp.matches("/foo/bar/baz"));
+        assert!(!rp.matches("/this/should/really/not/match/everything/"));
+        assert!(!rp.matches("/"));
     }
 
     #[test]

@@ -223,8 +223,8 @@ mod test {
 
     #[test]
     fn test_is_under() {
-        assert_eq!(true, is_under("/foo", "/foo/bar"));
-        assert_eq!(false, is_under("/foo", "/bar/baz"));
-        assert_eq!(false, is_under("/foo", "/foo/../bar/baz"));
+        assert!(is_under("/foo", "/foo/bar"));
+        assert!(!is_under("/foo", "/bar/baz"));
+        assert!(!is_under("/foo", "/foo/../bar/baz"));
     }
 }

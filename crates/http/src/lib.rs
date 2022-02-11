@@ -18,7 +18,7 @@ use spin_config::{Configuration, CoreComponent, TriggerConfig};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http::SpinHttpData;
 use std::{net::SocketAddr, sync::Arc};
-use tracing::{instrument, log};
+use tracing::log;
 use wagi::WagiHttpExecutor;
 
 wit_bindgen_wasmtime::import!("wit/ephemeral/spin-http.wit");
@@ -48,7 +48,6 @@ pub struct HttpTrigger {
 
 impl HttpTrigger {
     /// Create a new Spin HTTP trigger.
-    #[instrument]
     pub async fn new(
         address: String,
         app: Configuration<CoreComponent>,
@@ -61,7 +60,7 @@ impl HttpTrigger {
 
         let engine = Arc::new(Builder::build_default(config).await?);
         let router = Router::build(&app)?;
-        log::info!("Created new HTTP trigger.");
+        log::debug!("Created new HTTP trigger.");
 
         Ok(Self {
             address,
@@ -129,7 +128,6 @@ impl HttpTrigger {
     }
 
     /// Run the HTTP trigger indefinitely.
-    #[instrument(skip(self))]
     pub async fn run(&self) -> Result<()> {
         let mk_svc = make_service_fn(move |addr: &AddrStream| {
             let t = self.clone();
@@ -218,7 +216,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[instrument]
     async fn test_spin_http() -> Result<()> {
         init();
 

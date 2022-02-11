@@ -4,7 +4,6 @@ use spin_config::{ApplicationOrigin, Configuration, CoreComponent, RawConfigurat
 use spin_http_engine::HttpTrigger;
 use std::{fs::File, io::Read, path::PathBuf};
 use structopt::{clap::AppSettings, StructOpt};
-use tracing::instrument;
 
 /// Start the Fermyon HTTP runtime.
 #[derive(StructOpt, Debug)]
@@ -27,7 +26,6 @@ pub struct Up {
 }
 
 impl Up {
-    #[instrument]
     pub async fn run(self) -> Result<()> {
         let app = self.app_from_file()?;
 

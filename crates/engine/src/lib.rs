@@ -14,10 +14,6 @@ use wasmtime_wasi::{ambient_authority, Dir, WasiCtxBuilder};
 mod assets;
 use assets::{prepare_local_assets, DirectoryMount};
 
-/// Runtime configuration
-#[derive(Clone, Debug, Default)]
-pub struct RuntimeConfig;
-
 const EMPTY: Vec<String> = vec![];
 
 /// Builder-specific configuration.
@@ -34,7 +30,6 @@ pub struct ExecutionContextConfiguration {
 
 impl ExecutionContextConfiguration {
     /// Create a new execution context configuration.
-    #[instrument]
     pub fn new(app: spin_config::Configuration<CoreComponent>) -> Self {
         // In order for Wasmtime to run WebAssembly components, multi memory
         // and module linking must always be enabled.
@@ -43,7 +38,7 @@ impl ExecutionContextConfiguration {
         wasmtime.wasm_multi_memory(true);
         wasmtime.wasm_module_linking(true);
 
-        log::info!("Created execution context configuration.");
+        log::trace!("Created execution context configuration.");
 
         Self { app, wasmtime }
     }
@@ -72,7 +67,6 @@ pub struct Builder<T: Default> {
 
 impl<T: Default> Builder<T> {
     /// Create a new instance of the execution builder.
-    #[instrument]
     pub fn new(config: ExecutionContextConfiguration) -> Result<Builder<T>> {
         let data = RuntimeContext::default();
         let engine = Engine::new(&config.wasmtime)?;
@@ -88,8 +82,7 @@ impl<T: Default> Builder<T> {
     }
 
     /// Configure the WASI linker imports for the current execution context.
-    #[instrument(skip(self))]
-    pub fn link_wasi<'a>(&'a mut self) -> Result<&'a Self> {
+    pub fn link_wasi(&mut self) -> Result<&Self> {
         wasmtime_wasi::add_to_linker(&mut self.linker, |ctx| ctx.wasi.as_mut().unwrap())?;
         Ok(self)
     }
@@ -128,9 +121,9 @@ impl<T: Default> Builder<T> {
             };
 
             let module = Module::from_file(&self.engine, &p)?;
-            log::info!("Created module from file {:?}", p);
+            log::trace!("Created module from file {:?}", p);
             let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
-            log::info!("Created pre-instance from module {:?}", p);
+            log::debug!("Created pre-instance from module {:?}", p);
 
             let asset_directories = self.prepare_assets(c, working_directory.path()).await?;
 
@@ -147,7 +140,7 @@ impl<T: Default> Builder<T> {
         let config = self.config.clone();
         let engine = self.engine.clone();
 
-        log::info!("Execution context initialized.");
+        log::trace!("Execution context initialized.");
 
         Ok(ExecutionContext {
             config,
@@ -184,7 +177,6 @@ impl<T: Default> Builder<T> {
     }
 
     /// Build a new default instance of the execution context.
-    #[instrument]
     pub async fn build_default(
         config: ExecutionContextConfiguration,
     ) -> Result<ExecutionContext<T>> {
@@ -199,9 +191,6 @@ impl<T: Default> Builder<T> {
 #[derive(Clone)]
 pub struct Component<T: Default> {
     /// Configuration for the component.
-    /// TODO
-    ///
-    /// This should not be LocalComponentConfig.
     pub core: CoreComponent,
     /// The pre-instance of the component
     pub pre: Arc<InstancePre<RuntimeContext<T>>>,
@@ -230,7 +219,7 @@ impl<T: Default> ExecutionContext<T> {
         component: &str,
         data: Option<T>,
     ) -> Result<(Store<RuntimeContext<T>>, Instance)> {
-        log::info!("Preparing component {}", component);
+        log::debug!("Preparing component {}", component);
         let component = match self.components.get(component) {
             Some(c) => c,
             None => bail!("Cannot find component {}", component),
@@ -243,9 +232,8 @@ impl<T: Default> ExecutionContext<T> {
     }
 
     /// Create a store for a given component given its configuration and runtime data.
-    #[instrument(skip(self, component, data))]
     fn store(&self, component: &Component<T>, data: Option<T>) -> Result<Store<RuntimeContext<T>>> {
-        log::info!("Creating store.");
+        log::debug!("Creating store.");
         let (env, dirs) = Self::wasi_config(component)?;
         let mut ctx = RuntimeContext::default();
         let mut wasi_ctx = WasiCtxBuilder::new().inherit_stdio().envs(&env)?;
@@ -264,7 +252,6 @@ impl<T: Default> ExecutionContext<T> {
         Ok(store)
     }
 
-    #[instrument(skip(component))]
     #[allow(clippy::type_complexity)]
     fn wasi_config(
         component: &Component<T>,

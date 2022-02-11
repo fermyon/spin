@@ -4,21 +4,20 @@ use anyhow::Result;
 use async_trait::async_trait;
 use hyper::{Body, Request, Response};
 use std::net::SocketAddr;
-use tracing::{instrument, log};
+use tracing::log;
 
 #[derive(Clone)]
 pub struct WagiHttpExecutor;
 
 #[async_trait]
 impl HttpExecutor for WagiHttpExecutor {
-    #[instrument(skip(_engine))]
     async fn execute(
         _engine: &ExecutionContext,
         _component: &str,
         _req: Request<Body>,
         _client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
-        log::info!(
+        log::trace!(
             "Executing request using the Wagi executor for component {}",
             _component
         );

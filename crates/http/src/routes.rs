@@ -6,7 +6,7 @@ use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use spin_config::{Configuration, CoreComponent};
 use std::fmt::Debug;
-use tracing::{instrument, log};
+use tracing::log;
 
 // TODO
 // The current implementation of the router clones the components, which could
@@ -27,7 +27,6 @@ pub(crate) struct Router {
 
 impl Router {
     /// Build a router based on application configuration.
-    #[instrument]
     pub(crate) fn build(app: &Configuration<CoreComponent>) -> Result<Self> {
         let routes = app
             .components
@@ -38,7 +37,7 @@ impl Router {
             })
             .collect();
 
-        log::info!(
+        log::trace!(
             "Constructed router for application {}: {:?}",
             app.info.name,
             routes
@@ -57,7 +56,6 @@ impl Router {
     /// if no component matches.
     /// If there are multiple possible components registered for the same route or
     /// wildcard, return the last one in the components vector.
-    #[instrument]
     pub(crate) fn route<S: Into<String> + Debug>(&self, p: S) -> Result<CoreComponent> {
         let p = p.into();
 

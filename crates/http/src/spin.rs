@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use http::Uri;
 use hyper::{Body, Request, Response};
 use std::{net::SocketAddr, str::FromStr};
-use tracing::{instrument, log};
+use tracing::log;
 use wasmtime::{Instance, Store};
 
 #[derive(Clone)]
@@ -14,14 +14,13 @@ pub struct SpinHttpExecutor;
 
 #[async_trait]
 impl HttpExecutor for SpinHttpExecutor {
-    #[instrument(skip(engine))]
     async fn execute(
         engine: &ExecutionContext,
         component: &str,
         req: Request<Body>,
         _client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
-        log::info!(
+        log::trace!(
             "Executing request using the Spin executor for component {}",
             component
         );

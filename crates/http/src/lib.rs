@@ -4,6 +4,7 @@ mod routes;
 mod spin;
 mod wagi;
 
+use crate::wagi::WagiHttpExecutor;
 use anyhow::{Error, Result};
 use async_trait::async_trait;
 use http::StatusCode;
@@ -19,7 +20,6 @@ use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http::SpinHttpData;
 use std::{net::SocketAddr, sync::Arc};
 use tracing::log;
-use wagi::WagiHttpExecutor;
 
 wit_bindgen_wasmtime::import!("wit/ephemeral/spin-http.wit");
 
@@ -94,10 +94,24 @@ impl HttpTrigger {
 
                     let res = match executor {
                         spin_config::HttpExecutor::Spin => {
-                            SpinHttpExecutor::execute(&self.engine, &c.id, req, addr).await
+                            SpinHttpExecutor::execute(
+                                &self.engine,
+                                &c.id,
+                                &trigger.route,
+                                req,
+                                addr,
+                            )
+                            .await
                         }
                         spin_config::HttpExecutor::Wagi => {
-                            WagiHttpExecutor::execute(&self.engine, &c.id, req, addr).await
+                            WagiHttpExecutor::execute(
+                                &self.engine,
+                                &c.id,
+                                &trigger.route,
+                                req,
+                                addr,
+                            )
+                            .await
                         }
                     };
                     match res {
@@ -177,6 +191,7 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
     async fn execute(
         engine: &ExecutionContext,
         component: &str,
+        raw_route: &str,
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>>;

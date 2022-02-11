@@ -158,9 +158,11 @@ async fn copy_one_to(
 
     log::trace!("Copying asset file '{}' -> '{}'", from.display(), to.display());
     tokio::fs::create_dir_all(to.parent().expect("Cannot copy to file '/'")).await?;
+    
     let _ = tokio::fs::copy(&from, &to)
         .await
         .with_context(|| format!("Error copying asset file  '{}'", from.display()))?;
+    
     Ok(())
 }
 

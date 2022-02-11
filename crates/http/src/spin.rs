@@ -17,6 +17,7 @@ impl HttpExecutor for SpinHttpExecutor {
     async fn execute(
         engine: &ExecutionContext,
         component: &str,
+        _raw_route: &str,
         req: Request<Body>,
         _client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
@@ -24,7 +25,7 @@ impl HttpExecutor for SpinHttpExecutor {
             "Executing request using the Spin executor for component {}",
             component
         );
-        let (store, instance) = engine.prepare_component(component, None)?;
+        let (store, instance) = engine.prepare_component(component, None, None, None)?;
         let res = Self::execute_impl(store, instance, req).await?;
         log::info!(
             "Request finished, sending response with status code {}",

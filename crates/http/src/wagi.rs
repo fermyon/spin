@@ -1,3 +1,4 @@
+use crate::routes::RoutePattern;
 use crate::ExecutionContext;
 use crate::HttpExecutor;
 use anyhow::Result;
@@ -25,6 +26,7 @@ impl HttpExecutor for WagiHttpExecutor {
     async fn execute(
         engine: &ExecutionContext,
         component: &str,
+        base: &str,
         raw_route: &str,
         req: Request<Body>,
         client_addr: SocketAddr,
@@ -35,11 +37,16 @@ impl HttpExecutor for WagiHttpExecutor {
         );
 
         let (parts, body) = req.into_parts();
+
         let body = body::to_bytes(body).await?.to_vec();
         let len = body.len();
         let iostream = Self::streams_from_body(body);
-        let headers = wagi::http_util::build_headers(
-            &wagi::dispatcher::RoutePattern::parse(raw_route),
+        // TODO
+        // The default host and TLS fields are currently hard-coded.
+        let mut headers = wagi::http_util::build_headers(
+            &wagi::dispatcher::RoutePattern::parse(&RoutePattern::sanitize_with_base(
+                base, raw_route,
+            )),
             &parts,
             len,
             client_addr,
@@ -47,6 +54,22 @@ impl HttpExecutor for WagiHttpExecutor {
             false,
             &HashMap::new(),
         );
+
+        // TODO
+        // Is there any scenario where the server doesn't populate the host header?
+        let default_host = http::HeaderValue::from_str("localhost")?;
+        let host = std::str::from_utf8(
+            parts
+                .headers
+                .get("host")
+                .unwrap_or(&default_host)
+                .as_bytes(),
+        )?;
+        // Add the default Spin headers.
+        // Note that this overrides any existing headers previously set by Wagi.
+        for (k, v) in crate::default_headers(&parts.uri, raw_route, base, host)? {
+            headers.insert(k, v);
+        }
 
         let (mut store, instance) =
             engine.prepare_component(component, None, Some(iostream.clone()), Some(headers))?;

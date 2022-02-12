@@ -7,15 +7,15 @@ mod wagi;
 use crate::wagi::WagiHttpExecutor;
 use anyhow::{Error, Result};
 use async_trait::async_trait;
-use http::StatusCode;
+use http::{StatusCode, Uri};
 use hyper::{
     server::conn::AddrStream,
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use routes::Router;
+use routes::{RoutePattern, Router};
 use spin::SpinHttpExecutor;
-use spin_config::{Configuration, CoreComponent, TriggerConfig};
+use spin_config::{ApplicationTrigger, Configuration, CoreComponent, TriggerConfig};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http::SpinHttpData;
 use std::{net::SocketAddr, sync::Arc};
@@ -82,6 +82,8 @@ impl HttpTrigger {
             req.uri()
         );
 
+        let ApplicationTrigger::Http(app_trigger) = &self.app.info.trigger.clone();
+
         match req.uri().path() {
             "/healthz" => Ok(Response::new(Body::from("OK"))),
             route => match self.router.route(route) {
@@ -97,6 +99,7 @@ impl HttpTrigger {
                             SpinHttpExecutor::execute(
                                 &self.engine,
                                 &c.id,
+                                &app_trigger.base,
                                 &trigger.route,
                                 req,
                                 addr,
@@ -107,6 +110,7 @@ impl HttpTrigger {
                             WagiHttpExecutor::execute(
                                 &self.engine,
                                 &c.id,
+                                &app_trigger.base,
                                 &trigger.route,
                                 req,
                                 addr,
@@ -184,6 +188,51 @@ fn on_ctrl_c() -> Result<impl std::future::Future<Output = Result<(), tokio::tas
     Ok(rx_future)
 }
 
+// The default headers set across both executors.
+const X_FULL_URL_HEADER: &str = "X_FULL_URL";
+const PATH_INFO_HEADER: &str = "PATH_INFO";
+const X_MATCHED_ROUTE_HEADER: &str = "X_MATCHED_ROUTE";
+const X_COMPONENT_ROUTE_HEADER: &str = "X_COMPONENT_ROUTE";
+const X_RAW_COMPONENT_ROUTE_HEADER: &str = "X_RAW_COMPONENT_ROUTE";
+const X_BASE_PATH_HEADER: &str = "X_BASE_PATH";
+
+pub(crate) fn default_headers(
+    uri: &Uri,
+    raw: &str,
+    base: &str,
+    host: &str,
+    // scheme: &str,
+) -> Result<Vec<(String, String)>> {
+    let mut res = vec![];
+    let abs_path = uri
+        .path_and_query()
+        .expect("cannot get path and query")
+        .as_str();
+
+    let path_info = RoutePattern::from(base, raw).relative(abs_path)?;
+
+    // TODO: check if TLS is enabled and change the scheme to "https".
+    let scheme = "http";
+    let full_url = format!("{}://{}{}", scheme, host, abs_path);
+    let matched_route = RoutePattern::sanitize_with_base(base, raw);
+
+    res.push((PATH_INFO_HEADER.to_string(), path_info));
+    res.push((X_FULL_URL_HEADER.to_string(), full_url));
+    res.push((X_MATCHED_ROUTE_HEADER.to_string(), matched_route));
+
+    res.push((X_BASE_PATH_HEADER.to_string(), base.to_string()));
+    res.push((X_RAW_COMPONENT_ROUTE_HEADER.to_string(), raw.to_string()));
+    res.push((
+        X_COMPONENT_ROUTE_HEADER.to_string(),
+        raw.to_string()
+            .strip_suffix("/...")
+            .unwrap_or(raw)
+            .to_string(),
+    ));
+
+    Ok(res)
+}
+
 /// The HTTP executor trait.
 /// All HTTP executors must implement this trait.
 #[async_trait]
@@ -191,6 +240,7 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
     async fn execute(
         engine: &ExecutionContext,
         component: &str,
+        base: &str,
         raw_route: &str,
         req: Request<Body>,
         client_addr: SocketAddr,
@@ -228,6 +278,117 @@ mod tests {
         let dir = env!("CARGO_MANIFEST_DIR");
         let fake_path = std::path::PathBuf::from(dir).join("fake_spin.toml");
         spin_config::ApplicationOrigin::File(fake_path)
+    }
+
+    #[test]
+    fn test_default_headers_with_base_path() -> Result<()> {
+        let scheme = "https";
+        let host = "fermyon.dev";
+        let base = "/base";
+        let trigger_route = "/foo/...";
+        let component_path = "/foo";
+        let path_info = "/bar";
+
+        let req_uri = format!(
+            "{}://{}{}{}{}?key1=value1&key2=value2",
+            scheme, host, base, component_path, path_info
+        );
+
+        let req = http::Request::builder()
+            .method("POST")
+            .uri(req_uri)
+            .body("")?;
+
+        let default_headers = crate::default_headers(req.uri(), trigger_route, base, host)?;
+
+        // TODO: we currently replace the scheme with HTTP. When TLS is supported, this should be fixed.
+        assert_eq!(
+            search(X_FULL_URL_HEADER, &default_headers).unwrap(),
+            "http://fermyon.dev/base/foo/bar?key1=value1&key2=value2".to_string()
+        );
+        assert_eq!(
+            search(PATH_INFO_HEADER, &default_headers).unwrap(),
+            "/bar".to_string()
+        );
+        assert_eq!(
+            search(X_MATCHED_ROUTE_HEADER, &default_headers).unwrap(),
+            "/base/foo/...".to_string()
+        );
+        assert_eq!(
+            search(X_BASE_PATH_HEADER, &default_headers).unwrap(),
+            "/base".to_string()
+        );
+        assert_eq!(
+            search(X_RAW_COMPONENT_ROUTE_HEADER, &default_headers).unwrap(),
+            "/foo/...".to_string()
+        );
+        assert_eq!(
+            search(X_COMPONENT_ROUTE_HEADER, &default_headers).unwrap(),
+            "/foo".to_string()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_default_headers_without_base_path() -> Result<()> {
+        let scheme = "https";
+        let host = "fermyon.dev";
+        let base = "/";
+        let trigger_route = "/foo/...";
+        let component_path = "/foo";
+        let path_info = "/bar";
+
+        let req_uri = format!(
+            "{}://{}{}{}?key1=value1&key2=value2",
+            scheme, host, component_path, path_info
+        );
+
+        let req = http::Request::builder()
+            .method("POST")
+            .uri(req_uri)
+            .body("")?;
+
+        let default_headers = crate::default_headers(req.uri(), trigger_route, base, host)?;
+
+        // TODO: we currently replace the scheme with HTTP. When TLS is supported, this should be fixed.
+        assert_eq!(
+            search(X_FULL_URL_HEADER, &default_headers).unwrap(),
+            "http://fermyon.dev/foo/bar?key1=value1&key2=value2".to_string()
+        );
+        assert_eq!(
+            search(PATH_INFO_HEADER, &default_headers).unwrap(),
+            "/bar".to_string()
+        );
+        assert_eq!(
+            search(X_MATCHED_ROUTE_HEADER, &default_headers).unwrap(),
+            "/foo/...".to_string()
+        );
+        assert_eq!(
+            search(X_BASE_PATH_HEADER, &default_headers).unwrap(),
+            "/".to_string()
+        );
+        assert_eq!(
+            search(X_RAW_COMPONENT_ROUTE_HEADER, &default_headers).unwrap(),
+            "/foo/...".to_string()
+        );
+        assert_eq!(
+            search(X_COMPONENT_ROUTE_HEADER, &default_headers).unwrap(),
+            "/foo".to_string()
+        );
+
+        Ok(())
+    }
+
+    fn search(key: &str, headers: &[(String, String)]) -> Option<String> {
+        let mut res: Option<String> = None;
+        for (k, v) in headers {
+            if k == key {
+                res = Some(v.clone());
+            }
+        }
+
+        res
     }
 
     #[tokio::test]

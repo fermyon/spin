@@ -311,7 +311,7 @@ mod tests {
     version     = "1.0.0"
     description = "A simple application that returns hello and goodbye."
     authors     = [ "Radu Matei <radu@fermyon.com>" ]
-    trigger     = "http"
+    trigger     = { type = "http", base = "/" }
 
     [[component]]
         source = "target/wasm32-wasi/release/hello.wasm"

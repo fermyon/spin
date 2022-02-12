@@ -82,7 +82,7 @@ pub(crate) enum RoutePattern {
 
 impl RoutePattern {
     /// Return a RoutePattern given a path fragment.
-    pub fn from<S: Into<String>>(path: S) -> Self {
+    pub(crate) fn from<S: Into<String>>(path: S) -> Self {
         let path = path.into();
         match path.strip_suffix("/...") {
             Some(p) => Self::Wildcard(p.to_owned()),
@@ -100,6 +100,15 @@ impl RoutePattern {
                 &p == pattern || p.starts_with(&format!("{}/", pattern))
             }
         }
+    }
+
+    /// Resolve a relative path from the end of the matched path to the end of the string.
+    pub(crate) fn relative(&self, uri: &str) -> String {
+        let base = match self {
+            Self::Exact(path) => path,
+            Self::Wildcard(prefix) => prefix,
+        };
+        uri.strip_prefix(base).unwrap_or_default().to_owned()
     }
 
     /// Strip the trailing slash from a string.
@@ -147,6 +156,19 @@ mod route_tests {
         assert!(rp.matches("/foo/bar/baz"));
         assert!(!rp.matches("/this/should/really/not/match/everything/"));
         assert!(!rp.matches("/"));
+    }
+
+    #[test]
+    fn test_relative() {
+        assert_eq!(
+            RoutePattern::from("/foo").relative("/foo/bar"),
+            "/bar".to_string()
+        );
+        assert_eq!(RoutePattern::from("/foo").relative("/foo"), "".to_string());
+        assert_eq!(
+            RoutePattern::from("/static/...").relative("/static/images/abc.png"),
+            "/images/abc.png".to_string()
+        );
     }
 
     #[test]

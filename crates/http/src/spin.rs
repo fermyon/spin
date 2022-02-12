@@ -1,3 +1,4 @@
+use crate::routes::RoutePattern;
 use crate::spin_http::{Method, SpinHttp};
 use crate::HttpExecutor;
 use crate::{ExecutionContext, RuntimeContext};
@@ -17,7 +18,7 @@ impl HttpExecutor for SpinHttpExecutor {
     async fn execute(
         engine: &ExecutionContext,
         component: &str,
-        _raw_route: &str,
+        raw_route: &str,
         req: Request<Body>,
         _client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
@@ -26,7 +27,7 @@ impl HttpExecutor for SpinHttpExecutor {
             component
         );
         let (store, instance) = engine.prepare_component(component, None, None, None)?;
-        let res = Self::execute_impl(store, instance, req).await?;
+        let res = Self::execute_impl(store, instance, raw_route, req).await?;
         log::info!(
             "Request finished, sending response with status code {}",
             res.status()
@@ -39,6 +40,7 @@ impl SpinHttpExecutor {
     pub async fn execute_impl(
         mut store: Store<RuntimeContext>,
         instance: Instance,
+        raw_route: &str,
         req: Request<Body>,
     ) -> Result<Response<Body>> {
         let engine = SpinHttp::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
@@ -56,7 +58,7 @@ impl SpinHttpExecutor {
 
         let req = crate::spin_http::Request {
             method,
-            uri: &parts.uri.to_string(),
+            uri: &RoutePattern::from(raw_route).relative(&parts.uri.to_string()),
             headers,
             params: &params,
             body,

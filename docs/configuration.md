@@ -47,15 +47,17 @@ Each `component` object has the following fields:
   pointing to a remote bindle.
 - `environment` (OPTIONAL): Environment variables to be mapped inside the Wasm
   module at runtime.
-- `files` (OPTIONAL): Paths (relative to the configuration file) of files to be
-  mapped inside the Wasm module at runtime.
+- `files` (OPTIONAL): Paths (relative to the configuration file) of files and
+  file patterns to be mapped inside the Wasm module at runtime. Note all the
+  files will have read-only permissions in the WebAssembly module, and cannot be
+  modified at runtime.
 - `allowed_http_hosts` (OPTIONAL): List of HTTP hosts the component is allowed
-  to connect to.
+  to connect to. (TODO: not yet implemented)
 - `trigger` (REQUIRED): Trigger configuration for the component.
 - `dependencies` (OPTIONAL): List of dependencies to be resolved and satisfied
-  at runtime by the host.
+  at runtime by the host. (TODO: not yet implemented)
 - `build` (OPTIONAL): Currently unused build information or configuration that
-  could be used by a plugin to build the component.
+  could be used by a plugin to build the component. (TODO: not yet implemented)
 
 ### Component sources
 
@@ -84,14 +86,14 @@ components. Currently, the only trigger implemented for Spin is the HTTP
 trigger, which contains the following fields:
 
 - `route` (REQUIRED): The HTTP route the component will be invoked for.
-- `implementation` (OPTIONAL, TODO): The HTTP interface the component
-  implements. This can either be `spin`, or `wagi`.s
+- `executor` (OPTIONAL): The HTTP executor the component expects. This can
+  either be `spin`, or `wagi`.s
 
 ```toml
 [component.trigger]
-    route          = "/hello"
-    implementation = "spin"
-  # implementation = "wagi"
+    route = "/hello"
+    executor = "spin"
+  # executor = "wagi"
 ```
 
 ### Dependencies

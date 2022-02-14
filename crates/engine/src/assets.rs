@@ -1,226 +1,206 @@
 #![deny(missing_docs)]
 
-use std::path::{Path, PathBuf};
-
-use anyhow::{Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
+use futures::future;
 use sha2::Digest;
+use std::path::{Path, PathBuf};
 use tracing::log;
 
-// Prefer this to a tuple because it's not clear which way round the tuple is
-// (guest->host or host->guest)
+/// Directory mount for the assets of a component.
 #[derive(Clone, Debug)]
 pub(crate) struct DirectoryMount {
-    pub guest: String,
-    pub host: PathBuf,
+    /// Guest directory destination for mounting inside the module.
+    pub(crate) guest: String,
+    /// Host directory source for mounting inside the module.
+    pub(crate) host: PathBuf,
 }
 
-#[rustfmt::skip]
-pub(crate) async fn prepare_local_assets(
-    file_patterns: &[String],
-    source_base_directory: impl AsRef<Path>,
-    destination_base_directory: impl AsRef<Path>,
-    component_id: &str,
+/// Prepare all local assets given a component ID and its file patterns.
+/// This file will copy all assets into a temporary directory as read-only.
+pub(crate) async fn prepare(
+    patterns: &[String],
+    src: impl AsRef<Path>,
+    base_dst: impl AsRef<Path>,
+    id: &str,
 ) -> Result<DirectoryMount> {
     log::info!(
         "Mounting files from '{}' to '{}'",
-        source_base_directory.as_ref().display(),
-        destination_base_directory.as_ref().display()
+        src.as_ref().display(),
+        base_dst.as_ref().display()
     );
 
-    let files_to_mount =
-        collect_file_mounts(file_patterns, source_base_directory)?;
-    let component_directory =
-        create_mount_directory(&destination_base_directory, component_id).await?;
-    copy_all_to(&files_to_mount, &component_directory).await?;
+    let files = collect(patterns, src)?;
+    let host = create_dir(&base_dst, id).await?;
+    let guest = "/".to_string();
+    copy_all(&files, &host).await?;
 
-    Ok(DirectoryMount {
-        host: component_directory,
-        guest: "/".to_string(),
-    })
+    Ok(DirectoryMount { guest, host })
 }
 
-struct FileMountSpecifier {
-    source_path: PathBuf,
-    destination_relative_path: String,
+struct FileMount {
+    src: PathBuf,
+    relative_dst: String,
 }
 
-impl FileMountSpecifier {
-    pub fn from_path(
-        source_path: Result<PathBuf, glob::GlobError>,
-        relative_to: impl AsRef<Path>,
+impl FileMount {
+    fn from(
+        src: Result<impl AsRef<Path>, glob::GlobError>,
+        relative_dst: impl AsRef<Path>,
     ) -> Result<Self> {
-        let source_path = source_path?;
-        let destination_relative_path = to_relative(&source_path, &relative_to)?;
-        Ok(Self {
-            source_path,
-            destination_relative_path,
-        })
+        let src = src?;
+        let relative_dst = to_relative(&src, &relative_dst)?;
+        let src = src.as_ref().to_path_buf();
+        Ok(Self { src, relative_dst })
     }
 }
 
-fn collect_file_mounts(
-    file_patterns: &[String],
-    relative_to: impl AsRef<Path>,
-) -> Result<Vec<FileMountSpecifier>> {
-    let results = file_patterns.iter().map(|pattern| {
-        collect_one_pattern(pattern, &relative_to)
-            .with_context(|| format!("Failed to collect file mounts for {}", pattern))
-    });
-    let collections = results.into_iter().collect::<Result<Vec<_>>>()?;
-    let collection = collections.into_iter().flatten().collect();
-    Ok(collection)
+/// Generate a vector of file mounts for a component given all its file patterns.
+fn collect(patterns: &[String], rel: impl AsRef<Path>) -> Result<Vec<FileMount>> {
+    Ok(patterns
+        .iter()
+        .map(|pattern| {
+            collect_pattern(pattern, &rel)
+                .with_context(|| anyhow!("Failed to collect file mounts for {}", pattern))
+        })
+        .flatten()
+        .flatten()
+        .collect())
 }
 
-fn collect_one_pattern(
-    pattern: &str,
-    relative_to: impl AsRef<Path>,
-) -> Result<Vec<FileMountSpecifier>> {
-    let absolute_pattern_buf = relative_to.as_ref().join(pattern); // Without the let binding we get a 'dropped while borrowed' error
-    let absolute_pattern = absolute_pattern_buf.to_string_lossy();
-    log::debug!("Resolving asset file pattern '{}'", absolute_pattern);
+/// Generate a vector of file mounts given a file pattern.
+fn collect_pattern(pattern: &str, rel: impl AsRef<Path>) -> Result<Vec<FileMount>> {
+    let abs = rel.as_ref().join(pattern);
+    log::debug!("Resolving asset file pattern '{:?}'", abs);
 
-    let matches = glob::glob(&absolute_pattern)?;
+    let matches = glob::glob(&abs.to_string_lossy())?;
     let specifiers = matches
         .into_iter()
-        .map(|path| FileMountSpecifier::from_path(path, &relative_to))
-        .collect::<anyhow::Result<Vec<_>>>()?;
-    let files: Vec<_> = specifiers
-        .into_iter()
-        .filter(|s| s.source_path.is_file())
-        .collect();
-    ensure_all_under(&relative_to, files.iter().map(|s| &s.source_path))?;
+        .map(|path| FileMount::from(path, &rel))
+        .collect::<Result<Vec<_>>>()?;
+    let files: Vec<_> = specifiers.into_iter().filter(|s| s.src.is_file()).collect();
+    ensure_all_under(&rel, files.iter().map(|s| &s.src))?;
     Ok(files)
 }
 
-#[rustfmt::skip]
-async fn create_mount_directory(
-    base_directory: impl AsRef<Path>,
-    component_id: &str,
-) -> Result<PathBuf> {
-    let component_directory = component_dir(component_id);
-    let mount_directory = base_directory
-        .as_ref()
-        .join("assets")
-        .join(component_directory);
+/// Create the temporary directory for a component.
+async fn create_dir(base: impl AsRef<Path>, id: &str) -> Result<PathBuf> {
+    let dir = base.as_ref().join("assets").join(component_dir(id));
 
-    tokio::fs::create_dir_all(&mount_directory)
+    tokio::fs::create_dir_all(&dir)
         .await
-        .with_context(|| {
-            format!("Error creating temporary asset directory {}", mount_directory.display())
-        })?;
+        .with_context(|| anyhow!("Error creating temporary asset directory {}", dir.display()))?;
 
-    Ok(mount_directory)
+    Ok(dir)
+}
+
+/// Copy all files to the mount directory.
+async fn copy_all(files: &[FileMount], dir: impl AsRef<Path>) -> Result<()> {
+    let res = future::join_all(files.iter().map(|f| copy(f, &dir))).await;
+    match res
+        .into_iter()
+        .filter_map(|r| r.err())
+        .map(|e| log::error!("{:?}", e))
+        .count()
+    {
+        0 => Ok(()),
+        n => bail!("Error copying assets: {} file(s) not copied", n),
+    }
+}
+
+/// Copy a single file to the mount directory, setting it as read-only.
+async fn copy(file: &FileMount, dir: impl AsRef<Path>) -> Result<()> {
+    let from = &file.src;
+    let to = dir.as_ref().join(&file.relative_dst);
+
+    ensure_under(&dir.as_ref(), &to.as_path())?;
+
+    log::trace!(
+        "Copying asset file '{}' -> '{}'",
+        from.display(),
+        to.display()
+    );
+
+    tokio::fs::create_dir_all(to.parent().expect("Cannot copy to file '/'")).await?;
+
+    let _ = tokio::fs::copy(&from, &to)
+        .await
+        .with_context(|| anyhow!("Error copying asset file  '{}'", from.display()))?;
+
+    let mut perms = tokio::fs::metadata(&to).await?.permissions();
+    perms.set_readonly(true);
+    tokio::fs::set_permissions(&to, perms).await?;
+
+    Ok(())
+}
+
+/// Get the path of a file relative to a given directory.
+fn to_relative(path: impl AsRef<Path>, relative_to: impl AsRef<Path>) -> Result<String> {
+    let rel = path.as_ref().strip_prefix(&relative_to).with_context(|| {
+        format!(
+            "Copied path '{}' did not belong with expected prefix '{}'",
+            path.as_ref().display(),
+            relative_to.as_ref().display()
+        )
+    })?;
+
+    Ok(rel
+        .to_str()
+        .ok_or_else(|| anyhow!("Can't convert '{}' back to relative path", rel.display()))?
+        .to_owned()
+        // TODO: a better way
+        .replace("\\", "/"))
+}
+
+/// Ensure all paths are under a given directory.
+fn ensure_all_under(
+    desired: impl AsRef<Path>,
+    paths: impl Iterator<Item = impl AsRef<Path>>,
+) -> Result<()> {
+    match paths.filter(|p| !is_under(&desired, p.as_ref())).count() {
+        0 => Ok(()),
+        n => bail!(
+            "Error copying assets: {} file(s) were outside the application directory",
+            n
+        ),
+    }
+}
+
+/// Return an error if a path is not under a given directory.
+fn ensure_under(desired: impl AsRef<Path>, actual: impl AsRef<Path>) -> Result<()> {
+    match is_under(&desired, &actual) {
+        true => Ok(()),
+        false => bail!(
+            "Error copying assets: copy to '{}' outside the application directory",
+            actual.as_ref().display()
+        ),
+    }
+}
+
+// Check whether a path is under a given directory.
+fn is_under(desired: impl AsRef<Path>, actual: impl AsRef<Path>) -> bool {
+    // TODO: There should be a more robust check here.
+    actual.as_ref().strip_prefix(desired.as_ref()).is_ok()
+        && !(actual.as_ref().display().to_string().contains(".."))
 }
 
 lazy_static::lazy_static! {
     static ref UNSAFE_CHARACTERS: regex::Regex = regex::Regex::new("[^-_a-zA-Z0-9]").expect("Invalid identifier regex");
 }
 
-fn component_dir(component_id: &str) -> String {
+/// Generate a directory for a component using the (sanitized) component ID and its SHA256.
+fn component_dir(id: &str) -> String {
     // Using the SHA could generate quite long directory names, which could be a problem on Windows
     // if the asset paths are also long. Longer term, consider an alternative approach where
     // we use an index or something for disambiguation, and/or disambiguating only if a clash is
     // detected, etc.
-    let safe_name = UNSAFE_CHARACTERS.replace_all(component_id, "_");
-    let disambiguator = digest_string(component_id);
-    format!("{}_{}", safe_name, disambiguator)
+    format!("{}_{}", UNSAFE_CHARACTERS.replace_all(id, "_"), sha256(id))
 }
 
-#[rustfmt::skip]
-async fn copy_all_to(
-    files_to_mount: &[FileMountSpecifier],
-    mount_directory: impl AsRef<Path>,
-) -> Result<()> {
-    let futures = files_to_mount
-        .iter()
-        .map(|f| copy_one_to(f, &mount_directory));
-    let results = futures::future::join_all(futures).await;
-    let errors: Vec<_> = results.into_iter().filter_map(|r| r.err()).collect();
-    for e in &errors {
-        log::error!("{:#}", e);
-    }
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(anyhow::anyhow!("Error copying assets: {} file(s) not copied", errors.len()))
-    }
-}
-
-#[rustfmt::skip]
-async fn copy_one_to(
-    file_to_mount: &FileMountSpecifier,
-    mount_directory: impl AsRef<Path>,
-) -> Result<()> {
-    let from = &file_to_mount.source_path;
-    let to = mount_directory.as_ref().join(&file_to_mount.destination_relative_path);
-
-    ensure_under(&mount_directory, &to)?;
-
-    log::trace!("Copying asset file '{}' -> '{}'", from.display(), to.display());
-    tokio::fs::create_dir_all(to.parent().expect("Cannot copy to file '/'")).await?;
-    
-    let _ = tokio::fs::copy(&from, &to)
-        .await
-        .with_context(|| format!("Error copying asset file  '{}'", from.display()))?;
-    
-    Ok(())
-}
-
-#[rustfmt::skip]
-fn to_relative(path: impl AsRef<Path>, relative_to: impl AsRef<Path>) -> Result<String> {
-    let relative_path = path.as_ref().strip_prefix(&relative_to).with_context(|| {
-        format!("Copied path '{}' did not belong with expected prefix '{}'", path.as_ref().display(), relative_to.as_ref().display())
-    })?;
-
-    let relative_path_string = relative_path
-        .to_str()
-        .ok_or_else(|| {
-            anyhow::anyhow!("Can't convert '{}' back to relative path", relative_path.display())
-        })?
-        .to_owned()
-        .replace("\\", "/"); // TODO: a better way
-
-    Ok(relative_path_string)
-}
-
-#[rustfmt::skip]
-fn ensure_all_under<T: AsRef<Path>>(
-    desired_path: impl AsRef<Path>,
-    actual_paths: impl Iterator<Item = T>,
-) -> Result<()> {
-    let not_under: Vec<_> = actual_paths
-        .filter(|p| !is_under(&desired_path, &p.as_ref()))
-        .collect();
-
-    if not_under.is_empty() {
-        Ok(())
-    } else {
-        Err(anyhow::anyhow!("Error copying assets: {} file(s) were outside the application directory", not_under.len()))
-    }
-}
-
-#[rustfmt::skip]
-fn ensure_under(desired_path: impl AsRef<Path>, actual_path: impl AsRef<Path>) -> Result<()> {
-    if is_under(&desired_path, &actual_path) {
-        Ok(())
-    } else {
-        Err(anyhow::anyhow!("Error copying assets: copy to '{}' would be outside the application directory", actual_path.as_ref().display()))
-    }
-}
-
-#[rustfmt::skip]
-fn is_under(desired_path: impl AsRef<Path>, actual_path: impl AsRef<Path>) -> bool {
-    // TODO: This is a tragic kludge and I'm sure ingenious people could still find a way
-    // to fool it. But there doesn't seem to be an actual reliable solution!
-    actual_path.as_ref().strip_prefix(desired_path.as_ref()).is_ok()
-        && !(actual_path.as_ref().display().to_string().contains(".."))
-}
-
-fn digest_string(text: &str) -> String {
+/// Return the SHA256 digest of the input text.
+fn sha256(text: &str) -> String {
     let mut sha = sha2::Sha256::new();
     sha.update(text.as_bytes());
-    let digest_value = sha.finalize();
-    format!("{:x}", digest_value)
+    format!("{:x}", sha.finalize())
 }
 
 #[cfg(test)]

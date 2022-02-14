@@ -1,30 +1,24 @@
 //! A Spin execution context for applications.
 
 #![deny(missing_docs)]
-
 mod assets;
 /// Input / Output redirects.
 pub mod io;
 
-use anyhow::{bail, Context, Result};
-use assets::{prepare_local_assets, DirectoryMount};
+use anyhow::{anyhow, bail, Context, Result};
+use assets::DirectoryMount;
 use io::IoStreamRedirects;
 use spin_config::{ApplicationOrigin, CoreComponent, ModuleSource};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, path::Path, sync::Arc};
 use tracing::{instrument, log};
 use wasi_common::WasiCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
 use wasmtime_wasi::{ambient_authority, Dir, WasiCtxBuilder};
 
-const EMPTY: Vec<String> = vec![];
-
 /// Builder-specific configuration.
 #[derive(Clone, Debug)]
 pub struct ExecutionContextConfiguration {
     /// Spin application configuration.
-    /// TODO
-    ///
-    /// This should be Config<StartupComponentConfig> or something like that.
     pub app: spin_config::Configuration<CoreComponent>,
     /// Wasmtime engine configuration.
     pub wasmtime: wasmtime::Config,
@@ -75,6 +69,8 @@ impl<T: Default> Builder<T> {
         let store = Store::new(&engine, data);
         let linker = Linker::new(&engine);
 
+        log::trace!("Created execution context builder.");
+
         Ok(Self {
             config,
             linker,
@@ -105,15 +101,12 @@ impl<T: Default> Builder<T> {
     /// Build a new instance of the execution context.
     #[instrument(skip(self))]
     pub async fn build(&mut self) -> Result<ExecutionContext<T>> {
-        let working_directory = tempfile::tempdir()?;
-        log::debug!(
-            "Created temporary directory '{}'",
-            working_directory.path().display()
-        );
+        let dir = tempfile::tempdir()?;
+        log::debug!("Created temporary directory '{}'", dir.path().display());
 
         let mut components = HashMap::new();
         for c in &self.config.app.components {
-            let config = c.clone();
+            let core = c.clone();
 
             // TODO
             let p = match c.source.clone() {
@@ -127,20 +120,14 @@ impl<T: Default> Builder<T> {
             let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
             log::debug!("Created pre-instance from module {:?}", p);
 
-            let asset_directories = self.prepare_assets(c, working_directory.path()).await?;
+            let assets = self.prepare_assets(c, dir.path()).await?;
 
-            components.insert(
-                c.id.clone(),
-                Component {
-                    core: config,
-                    pre,
-                    prepared_directories: asset_directories,
-                },
-            );
+            components.insert(c.id.clone(), Component { core, pre, assets });
         }
 
         let config = self.config.clone();
         let engine = self.engine.clone();
+        let dir = Arc::new(dir);
 
         log::trace!("Execution context initialized.");
 
@@ -148,31 +135,37 @@ impl<T: Default> Builder<T> {
             config,
             engine,
             components,
-            working_directory: Arc::new(working_directory),
+            dir,
         })
     }
 
-    async fn prepare_assets(
+    /// Prepare the assets for a component by copying all files into a temporary
+    /// directory, which is used at instantiation time.
+    /// This way, the copying of the assets happens once at startup, and at each
+    /// instantiation, the assets from the same directory are mounted.
+    ///
+    /// All assets are copied as read-only, so while instantiated modules can all
+    /// mount the same directories, the mounted files cannot be modified.
+    /// Instances _can_ theoretically use those directories as temporary caches
+    /// that _might_ exist for future requests, but the only guarantee made by the
+    /// execution context is about the assets, which exist as read-only files in
+    /// the temporary mount directories.
+    async fn prepare_assets<P: AsRef<Path>>(
         &self,
         component: &CoreComponent,
-        working_directory: impl AsRef<std::path::Path>,
+        dir: P,
     ) -> Result<Vec<DirectoryMount>> {
         match &self.config.app.info.origin {
             ApplicationOrigin::File(config_file) => {
                 let files = component.wasm.files.as_ref();
-                let source_directory = config_file
+                let src = config_file
                     .parent()
                     .expect("The root directory cannot be the config file");
-                let mount = prepare_local_assets(
-                    files.unwrap_or(&EMPTY),
-                    source_directory,
-                    &working_directory,
-                    &component.id,
-                )
-                .await
-                .with_context(|| {
-                    format!("Error copying assets for component '{}'", component.id)
-                })?;
+                let mount = assets::prepare(files.unwrap_or(&vec![]), src, dir, &component.id)
+                    .await
+                    .with_context(|| {
+                        anyhow!("Error copying assets for component '{}'", component.id)
+                    })?;
                 Ok(vec![mount])
             }
         }
@@ -196,7 +189,8 @@ pub struct Component<T: Default> {
     pub core: CoreComponent,
     /// The pre-instance of the component
     pub pre: Arc<InstancePre<RuntimeContext<T>>>,
-    prepared_directories: Vec<DirectoryMount>,
+    /// Directories with assets to be mounted in the module instance.
+    pub(crate) assets: Vec<DirectoryMount>,
 }
 
 /// A generic execution context for WebAssembly components.
@@ -208,9 +202,9 @@ pub struct ExecutionContext<T: Default> {
     pub engine: Engine,
     /// Collection of pre-initialized (and already linked) components.
     pub components: HashMap<String, Component<T>>,
-    /// A directory for resources that need to last as long as the exeuction context
-    /// but can then be deleted.
-    working_directory: Arc<tempfile::TempDir>,
+    /// A temporary directory for resources that need to last as long
+    /// as the execution context.
+    pub(crate) dir: Arc<tempfile::TempDir>,
 }
 
 impl<T: Default> ExecutionContext<T> {
@@ -252,7 +246,6 @@ impl<T: Default> ExecutionContext<T> {
             Some(r) => {
                 wasi_ctx = wasi_ctx
                     .stderr(Box::new(r.stderr.out))
-                    // .inherit_stderr()
                     .stdout(Box::new(r.stdout.out))
                     .stdin(Box::new(r.stdin));
             }
@@ -294,7 +287,7 @@ impl<T: Default> ExecutionContext<T> {
             }
         };
 
-        let dirs = component.prepared_directories.clone();
+        let dirs = component.assets.clone();
 
         Ok((res, dirs))
     }

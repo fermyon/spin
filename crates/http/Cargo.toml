@@ -15,7 +15,7 @@ ctrlc = "3.2.1"
 futures = "0.3"
 http = "0.2"
 hyper = { version = "0.14", features = [ "full" ] }
-indexmap = "1.8"
+indexmap = "1.6"
 serde = { version = "1.0", features = [ "derive" ] }
 spin-config = { path = "../config" }
 spin-engine = { path = "../engine" }
@@ -24,8 +24,9 @@ tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 url = "2.2"
-wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
-wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
+wagi = { git = "https://github.com/radu-matei/wagi", branch = "import-wagi" }
 wasi-common = "0.33"
 wasmtime = "0.33"
 wasmtime-wasi = "0.33"
+wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }

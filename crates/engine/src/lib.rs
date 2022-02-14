@@ -2,17 +2,19 @@
 
 #![deny(missing_docs)]
 
-use std::{collections::HashMap, sync::Arc};
+mod assets;
+/// Input / Output redirects.
+pub mod io;
 
 use anyhow::{bail, Context, Result};
+use assets::{prepare_local_assets, DirectoryMount};
+use io::IoStreamRedirects;
 use spin_config::{ApplicationOrigin, CoreComponent, ModuleSource};
+use std::{collections::HashMap, sync::Arc};
 use tracing::{instrument, log};
 use wasi_common::WasiCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
 use wasmtime_wasi::{ambient_authority, Dir, WasiCtxBuilder};
-
-mod assets;
-use assets::{prepare_local_assets, DirectoryMount};
 
 const EMPTY: Vec<String> = vec![];
 
@@ -213,11 +215,13 @@ pub struct ExecutionContext<T: Default> {
 
 impl<T: Default> ExecutionContext<T> {
     /// Create a store for a given component given its configuration and runtime data.
-    #[instrument(skip(self, data))]
+    #[instrument(skip(self, data, io))]
     pub fn prepare_component(
         &self,
         component: &str,
         data: Option<T>,
+        io: Option<IoStreamRedirects>,
+        env: Option<HashMap<String, String>>,
     ) -> Result<(Store<RuntimeContext<T>>, Instance)> {
         log::debug!("Preparing component {}", component);
         let component = match self.components.get(component) {
@@ -225,18 +229,35 @@ impl<T: Default> ExecutionContext<T> {
             None => bail!("Cannot find component {}", component),
         };
 
-        let mut store = self.store(component, data)?;
+        let mut store = self.store(component, data, io, env)?;
         let instance = component.pre.instantiate(&mut store)?;
 
         Ok((store, instance))
     }
 
     /// Create a store for a given component given its configuration and runtime data.
-    fn store(&self, component: &Component<T>, data: Option<T>) -> Result<Store<RuntimeContext<T>>> {
+    fn store(
+        &self,
+        component: &Component<T>,
+        data: Option<T>,
+        io: Option<IoStreamRedirects>,
+        env: Option<HashMap<String, String>>,
+    ) -> Result<Store<RuntimeContext<T>>> {
         log::debug!("Creating store.");
-        let (env, dirs) = Self::wasi_config(component)?;
+        let (env, dirs) = Self::wasi_config(component, env)?;
         let mut ctx = RuntimeContext::default();
-        let mut wasi_ctx = WasiCtxBuilder::new().inherit_stdio().envs(&env)?;
+        let mut wasi_ctx = WasiCtxBuilder::new().envs(&env)?;
+
+        match io {
+            Some(r) => {
+                wasi_ctx = wasi_ctx
+                    .stderr(Box::new(r.stderr.out))
+                    // .inherit_stderr()
+                    .stdout(Box::new(r.stdout.out))
+                    .stdin(Box::new(r.stdin));
+            }
+            None => wasi_ctx = wasi_ctx.inherit_stdio(),
+        };
 
         for dir in dirs {
             let guest = dir.guest;
@@ -255,18 +276,27 @@ impl<T: Default> ExecutionContext<T> {
     #[allow(clippy::type_complexity)]
     fn wasi_config(
         component: &Component<T>,
+        env: Option<HashMap<String, String>>,
     ) -> Result<(Vec<(String, String)>, Vec<DirectoryMount>)> {
-        let mut env = vec![];
+        let mut res = vec![];
 
         if let Some(e) = &component.core.wasm.environment {
             for (k, v) in e {
-                env.push((k.clone(), v.clone()));
+                res.push((k.clone(), v.clone()));
+            }
+        };
+
+        // Custom environment variables currently take precedence over component-defined
+        // environment variables. This might change in the future.
+        if let Some(envs) = env {
+            for (k, v) in envs {
+                res.push((k.clone(), v.clone()));
             }
         };
 
         let dirs = component.prepared_directories.clone();
 
-        Ok((env, dirs))
+        Ok((res, dirs))
     }
 }
 

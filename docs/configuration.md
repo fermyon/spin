@@ -11,7 +11,7 @@ name        = "spin-hello-world"
 version     = "1.0.0"
 description = "A simple application that returns hello and goodbye."
 authors     = [ "Radu Matei <radu@fermyon.com>" ]
-trigger     = "http"
+trigger     = {type = "http", base = "/" }
 
 [[component]]
     source = "target/wasm32-wasi/release/spinhelloworld.wasm"
@@ -37,6 +37,12 @@ These are the fields currently supported for the configuration:
 - `authors` (OPTIONAL): Authors of the application.
 - `namespace` (OPTIONAL): Logical grouping of the application at runtime.
 - `component` (REQUIRED): List with the components of the application.
+- `trigger` (REQUIRED): Application trigger and configuration. (Currently, the
+  only implemented trigger is `http`, and the application base path can be
+  configured (`base`), and will be prepended to the routes individual components
+  are handling. For example, if `base = "/foo"`, and a component
+  `route = "/bar/..."`, that component will handle incoming requests for
+  `/foo/bar/...`.)
 
 Each `component` object has the following fields:
 

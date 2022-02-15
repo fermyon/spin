@@ -92,13 +92,12 @@ pub struct RawApplicationInformation {
     /// Authors of the application.
     pub authors: Option<Vec<String>>,
     /// Trigger for the application.
-    ///
     /// Currently, all components of a given application must be
     /// invoked as a result of the same trigger "type".
     /// In the future, applications with mixed triggers might be allowed,
     /// but for now, a component with a different trigger must be part of
     /// a separate application.
-    pub trigger: TriggerType,
+    pub trigger: ApplicationTrigger,
     /// TODO
     pub namespace: Option<String>,
 }
@@ -121,7 +120,7 @@ pub struct ApplicationInformation {
     /// In the future, applications with mixed triggers might be allowed,
     /// but for now, a component with a different trigger must be part of
     /// a separate application.
-    pub trigger: TriggerType,
+    pub trigger: ApplicationTrigger,
     /// TODO
     pub namespace: Option<String>,
     /// The location from which the application is loaded.
@@ -152,15 +151,28 @@ impl ApplicationInformation {
 
 /// The trigger type.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub enum TriggerType {
+#[serde(deny_unknown_fields, rename_all = "camelCase", tag = "type")]
+pub enum ApplicationTrigger {
     /// HTTP trigger type.
-    Http,
+    Http(HttpTriggerConfiguration),
 }
 
-impl Default for TriggerType {
+impl Default for ApplicationTrigger {
     fn default() -> Self {
-        Self::Http
+        Self::Http(HttpTriggerConfiguration::default())
+    }
+}
+
+/// HTTP trigger configuration.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct HttpTriggerConfiguration {
+    /// Base path for the HTTP application.
+    pub base: String,
+}
+impl Default for HttpTriggerConfiguration {
+    fn default() -> Self {
+        Self { base: "/".into() }
     }
 }
 
@@ -274,26 +286,14 @@ impl Default for TriggerConfig {
 /// Currently, this map should either contain an interface that
 /// should be satisfied by the host (through a host implementation),
 /// or an exact reference (*not* a version range) to a component from the registry.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct Dependency {
-    /// The dependency type.
-    #[serde(rename = "type")]
-    pub dependency_type: DependencyType,
-
-    /// Reference to a component from the registry.
-    #[serde(flatten)]
-    pub reference: Option<BindleComponentSource>,
-}
-
 /// The dependency type.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub enum DependencyType {
+#[serde(deny_unknown_fields, rename_all = "camelCase", tag = "type")]
+pub enum Dependency {
     /// A host dependency.
     Host,
     /// A component dependency.
-    Component,
+    Component(BindleComponentSource),
 }
 
 #[cfg(test)]
@@ -306,8 +306,8 @@ mod tests {
     version     = "6.11.2"
     description = "A simple application that returns the number of lights"
     authors     = [ "Gul Madred", "Edward Jellico", "JL" ]
-    trigger     = "http"
-    
+    trigger     = { type = "http", base   = "/" }
+
     [[component]]
         source = "path/to/wasm/file.wasm"
         id     = "four-lights"
@@ -334,13 +334,16 @@ mod tests {
     #[test]
     fn test_local_config() -> Result<()> {
         let cfg: RawConfiguration<LinkableComponent> = toml::from_str(CFG_TEST)?;
-
         assert_eq!(cfg.info.name, "chain-of-command");
         assert_eq!(cfg.info.version, "6.11.2");
         assert_eq!(
             cfg.info.description,
             Some("A simple application that returns the number of lights".to_string())
         );
+
+        let ApplicationTrigger::Http(http) = cfg.info.trigger;
+        assert_eq!(http.base, "/".to_string());
+
         assert_eq!(cfg.info.authors.unwrap().len(), 3);
         assert_eq!(cfg.components[0].core.id, "four-lights".to_string());
 
@@ -353,14 +356,10 @@ mod tests {
         let test_env = test_component.core.wasm.environment.as_ref().unwrap();
         let test_files = test_component.core.wasm.files.as_ref().unwrap();
 
+        assert_eq!(test_deps.get("cache").unwrap(), &Dependency::Host);
         assert_eq!(
-            test_deps.get("cache").unwrap().dependency_type,
-            DependencyType::Host
-        );
-
-        assert_eq!(
-            test_deps.get("markdown").unwrap().reference,
-            Some(BindleComponentSource {
+            test_deps.get("markdown").unwrap(),
+            &Dependency::Component(BindleComponentSource {
                 reference: "github/octo-markdown/1.0.0".to_string(),
                 parcel: "md.wasm".to_string()
             })

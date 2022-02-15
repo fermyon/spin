@@ -3,8 +3,9 @@
 #![deny(missing_docs)]
 
 use anyhow::{bail, Result};
+use http::Uri;
 use indexmap::IndexMap;
-use spin_config::{Configuration, CoreComponent};
+use spin_config::{ApplicationTrigger, Configuration, CoreComponent};
 use std::fmt::Debug;
 use tracing::log;
 
@@ -28,12 +29,16 @@ pub(crate) struct Router {
 impl Router {
     /// Build a router based on application configuration.
     pub(crate) fn build(app: &Configuration<CoreComponent>) -> Result<Self> {
+        let ApplicationTrigger::Http(app_trigger) = app.info.trigger.clone();
         let routes = app
             .components
             .iter()
             .map(|c| {
                 let spin_config::TriggerConfig::Http(trigger) = &c.trigger;
-                (RoutePattern::from(&trigger.route), c.clone())
+                (
+                    RoutePattern::from(&app_trigger.base, &trigger.route),
+                    c.clone(),
+                )
             })
             .collect();
 
@@ -82,8 +87,12 @@ pub(crate) enum RoutePattern {
 
 impl RoutePattern {
     /// Return a RoutePattern given a path fragment.
-    pub fn from<S: Into<String>>(path: S) -> Self {
-        let path = path.into();
+    pub(crate) fn from<S: Into<String>>(base: S, path: S) -> Self {
+        let path = format!(
+            "{}{}",
+            Self::sanitize(base.into()),
+            Self::sanitize(path.into())
+        );
         match path.strip_suffix("/...") {
             Some(p) => Self::Wildcard(p.to_owned()),
             None => Self::Exact(path),
@@ -100,6 +109,29 @@ impl RoutePattern {
                 &p == pattern || p.starts_with(&format!("{}/", pattern))
             }
         }
+    }
+
+    /// Resolve a relative path from the end of the matched path to the end of the string.
+    pub(crate) fn relative(&self, uri: &str) -> Result<String> {
+        let base = match self {
+            Self::Exact(path) => path,
+            Self::Wildcard(prefix) => prefix,
+        };
+        Ok(uri
+            .parse::<Uri>()?
+            .path()
+            .strip_prefix(base)
+            .unwrap_or_default()
+            .to_owned())
+    }
+
+    /// Sanitize the base and path and return a formed path.
+    pub(crate) fn sanitize_with_base<S: Into<String>>(base: S, path: S) -> String {
+        format!(
+            "{}{}",
+            Self::sanitize(base.into()),
+            Self::sanitize(path.into())
+        )
     }
 
     /// Strip the trailing slash from a string.
@@ -124,29 +156,92 @@ mod route_tests {
     fn test_exact_route() {
         init();
 
-        let rp = RoutePattern::from("/foo/bar");
+        let rp = RoutePattern::from("/", "/foo/bar");
         assert!(rp.matches("/foo/bar"));
         assert!(rp.matches("/foo/bar/"));
         assert!(!rp.matches("/foo"));
         assert!(!rp.matches("/foo/bar/thisshouldbefalse"));
         assert!(!rp.matches("/abc"));
+
+        let rp = RoutePattern::from("/base", "/foo");
+        assert!(rp.matches("/base/foo"));
+        assert!(rp.matches("/base/foo/"));
+        assert!(!rp.matches("/base/foo/bar"));
+        assert!(!rp.matches("/thishouldbefalse"));
+
+        let rp = RoutePattern::from("/base/", "/foo");
+        assert!(rp.matches("/base/foo"));
+        assert!(rp.matches("/base/foo/"));
+        assert!(!rp.matches("/base/foo/bar"));
+        assert!(!rp.matches("/thishouldbefalse"));
+
+        let rp = RoutePattern::from("/base/", "/foo/");
+        assert!(rp.matches("/base/foo"));
+        assert!(rp.matches("/base/foo/"));
+        assert!(!rp.matches("/base/foo/bar"));
+        assert!(!rp.matches("/thishouldbefalse"));
     }
 
     #[test]
     fn test_pattern_route() {
-        let rp = RoutePattern::from("/...");
+        let rp = RoutePattern::from("/", "/...");
         assert!(rp.matches("/foo/bar/"));
         assert!(rp.matches("/foo"));
         assert!(rp.matches("/foo/bar/baz"));
         assert!(rp.matches("/this/should/really/match/everything/"));
         assert!(rp.matches("/"));
 
-        let rp = RoutePattern::from("/foo/...");
+        let rp = RoutePattern::from("/", "/foo/...");
         assert!(rp.matches("/foo/bar/"));
         assert!(rp.matches("/foo"));
         assert!(rp.matches("/foo/bar/baz"));
         assert!(!rp.matches("/this/should/really/not/match/everything/"));
         assert!(!rp.matches("/"));
+
+        let rp = RoutePattern::from("/base", "/...");
+        assert!(rp.matches("/base/foo/bar/"));
+        assert!(rp.matches("/base/foo"));
+        assert!(rp.matches("/base/foo/bar/baz"));
+        assert!(rp.matches("/base/this/should/really/match/everything/"));
+        assert!(rp.matches("/base"));
+    }
+
+    #[test]
+    fn test_relative() -> Result<()> {
+        assert_eq!(
+            RoutePattern::from("/", "/foo").relative("/foo/bar")?,
+            "/bar".to_string()
+        );
+        assert_eq!(
+            RoutePattern::from("/base", "/foo").relative("/base/foo/bar")?,
+            "/bar".to_string()
+        );
+
+        assert_eq!(
+            RoutePattern::from("/", "/foo").relative("/foo")?,
+            "".to_string()
+        );
+        assert_eq!(
+            RoutePattern::from("/base", "/foo").relative("/base/foo")?,
+            "".to_string()
+        );
+
+        assert_eq!(
+            RoutePattern::from("/", "/static/...").relative("/static/images/abc.png")?,
+            "/images/abc.png".to_string()
+        );
+        assert_eq!(
+            RoutePattern::from("/base", "/static/...").relative("/base/static/images/abc.png")?,
+            "/images/abc.png".to_string()
+        );
+
+        assert_eq!(
+            RoutePattern::from("/base", "/static/...")
+                .relative("/base/static/images/abc.png?abc=def&foo=bar")?,
+            "/images/abc.png".to_string()
+        );
+
+        Ok(())
     }
 
     #[test]
@@ -156,8 +251,8 @@ mod route_tests {
         let foo_component = named_component("foo");
         let foobar_component = named_component("foobar");
 
-        routes.insert(RoutePattern::from("/foo"), foo_component);
-        routes.insert(RoutePattern::from("/foo/bar"), foobar_component);
+        routes.insert(RoutePattern::from("/", "/foo"), foo_component);
+        routes.insert(RoutePattern::from("/", "/foo/bar"), foobar_component);
 
         let r = Router { routes };
 
@@ -166,8 +261,21 @@ mod route_tests {
 
         let mut routes = IndexMap::new();
 
+        let foo_component = named_component("foo");
+        let foobar_component = named_component("foobar");
+
+        routes.insert(RoutePattern::from("/base", "/foo"), foo_component);
+        routes.insert(RoutePattern::from("/base", "/foo/bar"), foobar_component);
+
+        let r = Router { routes };
+
+        assert_eq!(r.route("/base/foo")?.id, "foo".to_string());
+        assert_eq!(r.route("/base/foo/bar")?.id, "foobar".to_string());
+
+        let mut routes = IndexMap::new();
+
         let all_component = named_component("all");
-        routes.insert(RoutePattern::from("/..."), all_component);
+        routes.insert(RoutePattern::from("/", "/..."), all_component);
 
         let r = Router { routes };
 
@@ -185,10 +293,10 @@ mod route_tests {
         let onetwo_wildcard = named_component("onetwo_wildcard");
         let onetwothree_wildcard = named_component("onetwothree_wildcard");
 
-        routes.insert(RoutePattern::from("/one/..."), one_wildcard);
-        routes.insert(RoutePattern::from("/one/two/..."), onetwo_wildcard);
+        routes.insert(RoutePattern::from("/", "/one/..."), one_wildcard);
+        routes.insert(RoutePattern::from("/", "/one/two/..."), onetwo_wildcard);
         routes.insert(
-            RoutePattern::from("/one/two/three/..."),
+            RoutePattern::from("/", "/one/two/three/..."),
             onetwothree_wildcard,
         );
 
@@ -206,11 +314,11 @@ mod route_tests {
         let onetwothree_wildcard = named_component("onetwothree_wildcard");
 
         routes.insert(
-            RoutePattern::from("/one/two/three/..."),
+            RoutePattern::from("/", "/one/two/three/..."),
             onetwothree_wildcard,
         );
-        routes.insert(RoutePattern::from("/one/two/..."), onetwo_wildcard);
-        routes.insert(RoutePattern::from("/one/..."), one_wildcard);
+        routes.insert(RoutePattern::from("/", "/one/two/..."), onetwo_wildcard);
+        routes.insert(RoutePattern::from("/", "/one/..."), one_wildcard);
 
         let r = Router { routes };
 

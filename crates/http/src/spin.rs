@@ -17,7 +17,8 @@ impl HttpExecutor for SpinHttpExecutor {
     async fn execute(
         engine: &ExecutionContext,
         component: &str,
-        _raw_route: &str,
+        base: &str,
+        raw_route: &str,
         req: Request<Body>,
         _client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
@@ -26,7 +27,7 @@ impl HttpExecutor for SpinHttpExecutor {
             component
         );
         let (store, instance) = engine.prepare_component(component, None, None, None)?;
-        let res = Self::execute_impl(store, instance, req).await?;
+        let res = Self::execute_impl(store, instance, base, raw_route, req).await?;
         log::info!(
             "Request finished, sending response with status code {}",
             res.status()
@@ -39,15 +40,27 @@ impl SpinHttpExecutor {
     pub async fn execute_impl(
         mut store: Store<RuntimeContext>,
         instance: Instance,
+        base: &str,
+        raw_route: &str,
         req: Request<Body>,
     ) -> Result<Response<Body>> {
+        let headers;
+        let mut req = req;
+        {
+            headers = Self::headers(&mut req, raw_route, base)?;
+        }
+
+        let headers: Vec<(&str, &str)> = headers
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+
         let engine = SpinHttp::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
         let (parts, bytes) = req.into_parts();
         let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
         let body = Some(&bytes[..]);
 
         let method = Self::method(&parts.method);
-        let headers = &Self::headers(&parts.headers)?;
         let params = &Self::params(&parts.uri)?;
         let params: Vec<(&str, &str)> = params
             .iter()
@@ -56,8 +69,9 @@ impl SpinHttpExecutor {
 
         let req = crate::spin_http::Request {
             method,
-            uri: &parts.uri.to_string(),
-            headers,
+            // uri: &RoutePattern::from(base, raw_route).relative(&parts.uri.to_string()),
+            uri: &parts.uri.path().to_string(),
+            headers: &headers,
             params: &params,
             body,
         };
@@ -86,14 +100,30 @@ impl SpinHttpExecutor {
         }
     }
 
-    fn headers(hm: &http::HeaderMap) -> Result<Vec<(&str, &str)>> {
+    fn headers(req: &mut Request<Body>, raw: &str, base: &str) -> Result<Vec<(String, String)>> {
         let mut res = Vec::new();
-        for (name, value) in hm
+        for (name, value) in req
+            .headers()
             .iter()
-            .map(|(name, value)| (name.as_str(), std::str::from_utf8(value.as_bytes())))
+            .map(|(name, value)| (name.to_string(), std::str::from_utf8(value.as_bytes())))
         {
-            let value = value?;
+            let value = value?.to_string();
             res.push((name, value));
+        }
+
+        // TODO
+        // Is there any scenario where the server doesn't populate the host header?
+        let default_host = http::HeaderValue::from_str("localhost")?;
+        let host = std::str::from_utf8(
+            req.headers()
+                .get("host")
+                .unwrap_or(&default_host)
+                .as_bytes(),
+        )?;
+
+        // Add the default headers.
+        for pair in crate::default_headers(req.uri(), raw, base, host)? {
+            res.push(pair);
         }
 
         Ok(res)

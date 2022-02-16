@@ -1,0 +1,5 @@
+use * from http-types
+
+variant intercept-request-result { continue(request), return(response) }
+intercept-request: function(req: request) -> intercept-request-result
+intercept-response: function(res: response) -> response

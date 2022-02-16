@@ -55,7 +55,9 @@ impl SpinHttpExecutor {
             .map(|(k, v)| (k.as_str(), v.as_str()))
             .collect();
 
-        let engine = SpinHttp::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
+        let engine = SpinHttp::new(&mut store, &instance, |host| {
+            &mut host.data.as_mut().unwrap().0
+        })?;
         let (parts, bytes) = req.into_parts();
         let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
         let body = Some(&bytes[..]);
@@ -67,16 +69,35 @@ impl SpinHttpExecutor {
             .map(|(k, v)| (k.as_str(), v.as_str()))
             .collect();
 
-        let req = crate::spin_http::Request {
-            method,
-            // uri: &RoutePattern::from(base, raw_route).relative(&parts.uri.to_string()),
+        let req = crate::spin_http_interceptor::RequestParam {
+            // FIXME: DELETE
+            method: unsafe { std::mem::transmute(method) },
             uri: &parts.uri.path().to_string(),
             headers: &headers,
             params: &params,
             body,
         };
 
-        let res = engine.handler(&mut store, req)?;
+        use crate::spin_http_interceptor::{InterceptRequestResult, SpinHttpInterceptor};
+        let interceptor = SpinHttpInterceptor::new(&mut store, &instance, |host| {
+            &mut host.data.as_mut().unwrap().1
+        })?;
+
+        let res = match interceptor.intercept_request(&mut store, req)? {
+            InterceptRequestResult::Continue(ireq) => {
+                let req = crate::spin_http::Request {
+                    // FIXME: DELETE
+                    method: unsafe { std::mem::transmute(ireq.method) },
+                    uri: &ireq.uri,
+                    headers: &mapping_strings_to_strs(&ireq.headers),
+                    params: &mapping_strings_to_strs(&ireq.params),
+                    body: ireq.body.as_deref(),
+                };
+                engine.handler(&mut store, req)?
+            }
+            InterceptRequestResult::Return(ret) => ret.into(),
+        };
+
         let mut response = http::Response::builder().status(res.status);
         Self::append_headers(response.headers_mut().unwrap(), res.headers)?;
 
@@ -148,6 +169,35 @@ impl SpinHttpExecutor {
                 .into_owned()
                 .collect::<Vec<_>>()),
             None => Ok(vec![]),
+        }
+    }
+}
+
+fn mapping_strings_to_strs(v: &Vec<(String, String)>) -> Vec<(&str, &str)> {
+    v.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect()
+}
+
+impl<'a> From<&'a crate::spin_http::Request<'a>>
+    for crate::spin_http_interceptor::RequestParam<'a>
+{
+    fn from(req: &'a crate::spin_http::Request) -> crate::spin_http_interceptor::RequestParam<'a> {
+        crate::spin_http_interceptor::RequestParam {
+            // FIXME(lann): DELETE THIS OBVIOUSLY
+            method: unsafe { std::mem::transmute(req.method) },
+            uri: &req.uri,
+            headers: req.headers,
+            params: &req.params,
+            body: req.body,
+        }
+    }
+}
+
+impl From<crate::spin_http_interceptor::ResponseResult> for crate::spin_http::Response {
+    fn from(resp: crate::spin_http_interceptor::ResponseResult) -> Self {
+        crate::spin_http::Response {
+            status: resp.status,
+            headers: resp.headers,
+            body: resp.body,
         }
     }
 }

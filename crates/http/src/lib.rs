@@ -22,9 +22,12 @@ use std::{net::SocketAddr, sync::Arc};
 use tracing::log;
 
 wit_bindgen_wasmtime::import!("wit/ephemeral/spin-http.wit");
+wit_bindgen_wasmtime::import!("wit/ephemeral/spin-http-interceptor.wit");
 
-type ExecutionContext = spin_engine::ExecutionContext<SpinHttpData>;
-type RuntimeContext = spin_engine::RuntimeContext<SpinHttpData>;
+type ExecutionContext =
+    spin_engine::ExecutionContext<(SpinHttpData, spin_http_interceptor::SpinHttpInterceptorData)>;
+type RuntimeContext =
+    spin_engine::RuntimeContext<(SpinHttpData, spin_http_interceptor::SpinHttpInterceptorData)>;
 
 /// The Spin HTTP trigger.
 /// TODO
@@ -256,8 +259,9 @@ mod tests {
         TriggerConfig,
     };
     use std::{
+        collections::HashMap,
         net::{IpAddr, Ipv4Addr},
-        sync::Once, collections::HashMap,
+        sync::Once,
     };
 
     static LOGGER: Once = Once::new();
@@ -400,11 +404,9 @@ mod tests {
             version: "1.0.0".to_string(),
             description: None,
             authors: vec![],
-            trigger: spin_config::ApplicationTrigger::Http(
-                spin_config::HttpTriggerConfiguration {
-                    base: "/".to_owned(),
-                }
-            ),
+            trigger: spin_config::ApplicationTrigger::Http(spin_config::HttpTriggerConfiguration {
+                base: "/".to_owned(),
+            }),
             namespace: None,
             origin: fake_file_origin(),
         };
@@ -420,7 +422,7 @@ mod tests {
                 environment: HashMap::new(),
                 files: spin_config::ReferencedFiles::None,
                 allowed_http_hosts: vec![],
-            }
+            },
         };
         let components = vec![component];
 

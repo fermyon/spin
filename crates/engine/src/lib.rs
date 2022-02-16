@@ -7,10 +7,10 @@ mod assets;
 pub mod io;
 
 use anyhow::{bail, Result};
-use assets::{DirectoryMount};
+use assets::DirectoryMount;
 use io::IoStreamRedirects;
-use spin_config::{CoreComponent, ModuleSource};
-use std::{collections::HashMap, sync::Arc};
+use spin_config::{ApplicationOrigin, CoreComponent, ModuleSource};
+use std::{collections::HashMap, path::Path, path::PathBuf, sync::Arc};
 use tracing::{instrument, log};
 use wasi_common::WasiCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
@@ -114,33 +114,40 @@ impl<T: Default> Builder<T> {
         );
 
         let mut components = HashMap::new();
+
         for c in &self.config.app.components {
             let config = c.clone();
 
             // TODO
             let module = match c.source.clone() {
                 ModuleSource::FileReference(p) => {
-                    let module = Module::from_file(&self.engine, &p)?;
-                    log::trace!("Created module from file {:?}", p);
+                    let path_to_component: PathBuf = self
+                        .config
+                        .app
+                        .info
+                        .origin
+                        .parent_dir()
+                        .map(|app_origin| complete_path(app_origin, &p))
+                        .unwrap_or(p);
+                    let module = Module::from_file(&self.engine, &path_to_component)?;
+                    log::trace!("Created module from path {:?}", path_to_component);
                     module
-                },
+                }
                 ModuleSource::Bindle(bcs) => {
                     let module_bytes = bcs.reader.get_parcel(&bcs.parcel).await?;
                     let module = Module::from_binary(&self.engine, &module_bytes)?;
-                    log::trace!("Created module from parcel {:?}", bcs.parcel);  // TODO: invoice id? parcel name?
+                    log::trace!("Created module from parcel {:?}", bcs.parcel); // TODO: invoice id? parcel name?
                     module
-                },
+                }
+
                 ModuleSource::Linked(_) => panic!(),
             };
 
             let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
-            log::debug!("Created pre-instance from module");  // TODO: show source?
+            log::debug!("Created pre-instance from module"); // TODO: show source?
 
-            let asset_directories = assets::prepare(
-                &c.id,
-                &c.wasm.files,
-                working_directory.path()
-            ).await?;
+            let asset_directories =
+                assets::prepare(&c.id, &c.wasm.files, working_directory.path()).await?;
 
             components.insert(
                 c.id.clone(),
@@ -285,41 +292,13 @@ impl<T: Default> ExecutionContext<T> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use anyhow::Result;
-    use std::io::Write;
-    use spin_config::Configuration;
-
-    const CFG_TEST: &str = r#"
-    name        = "spin-hello-world"
-    version     = "1.0.0"
-    description = "A simple application that returns hello and goodbye."
-    authors     = [ "Radu Matei <radu@fermyon.com>" ]
-    trigger     = { type = "http", base = "/" }
-
-    [[component]]
-        source = "target/wasm32-wasi/release/hello.wasm"
-        id     = "hello"
-    [component.trigger]
-        route = "/hello"
-    "#;
-
-    fn read_from_temp_file(toml_text: &str) -> Result<Configuration<CoreComponent>> {
-        let mut f = tempfile::NamedTempFile::new()?;
-        f.write_all(toml_text.as_bytes())?;
-        let config = spin_config::read_from_file(&f)?;
-        drop(f);
-        Ok(config)
-    }
-
-    #[test]
-    fn test_simple_config() -> Result<()> {
-        let app = read_from_temp_file(CFG_TEST)?;
-        let config = ExecutionContextConfiguration::new(app);
-
-        assert_eq!(config.app.info.name, "spin-hello-world".to_string());
-        Ok(())
+fn complete_path(app_origin: impl AsRef<Path>, component_source_path: impl AsRef<Path>) -> PathBuf {
+    if component_source_path.as_ref().is_absolute() {
+        component_source_path.as_ref().to_path_buf()
+    } else {
+        app_origin.as_ref().join(component_source_path)
     }
 }
+
+#[cfg(test)]
+mod tests;

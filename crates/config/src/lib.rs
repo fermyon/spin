@@ -21,8 +21,12 @@ pub use bindle_utils::BindleReader;
 /// Reads the application configuration from the specified file.
 pub fn read_from_file(app_file: impl AsRef<Path>) -> Result<Configuration<CoreComponent>> {
     let mut buf = vec![];
-    let mut file = File::open(&app_file)
-        .with_context(|| format!("Failed to open configuration file '{}'", app_file.as_ref().display()))?;
+    let mut file = File::open(&app_file).with_context(|| {
+        format!(
+            "Failed to open configuration file '{}'",
+            app_file.as_ref().display()
+        )
+    })?;
     file.read_to_end(&mut buf)?;
 
     let absolute_app_path = app_file.as_ref().absolutize()?.into_owned();
@@ -49,12 +53,16 @@ pub async fn read_from_bindle(
 
     let manifest_id = bindle_utils::find_application_manifest(&invoice)
         .with_context(|| format!("Failed to find application manifest in '{}'", id))?;
-    let manifest_content = reader.get_parcel(&manifest_id).await
+    let manifest_content = reader
+        .get_parcel(&manifest_id)
+        .await
         .with_context(|| format!("Failed to fetch manifest from server '{}'", server_url))?;
-    let manifest: schema::parcel::AppManifest = toml::from_slice(&manifest_content)
-        .context("Failed to parse application manifest")?;
+    let manifest: schema::parcel::AppManifest =
+        toml::from_slice(&manifest_content).context("Failed to parse application manifest")?;
 
-    Ok(parser::bindle::parse(manifest, &invoice, &reader, server_url))
+    Ok(parser::bindle::parse(
+        manifest, &invoice, &reader, server_url,
+    ))
 }
 
 /// Application configuration.
@@ -137,6 +145,21 @@ pub enum ApplicationOrigin {
     Bindle(bindle::Id, String),
 }
 
+impl ApplicationOrigin {
+    /// Returns Path if File, otherwise None
+    pub fn to_file(&self) -> Option<&PathBuf> {
+        match self {
+            Self::File(p) => Some(p),
+            _ => None,
+        }
+    }
+
+    /// Returns parent path of application origin if file
+    pub fn parent_dir(&self) -> Option<&Path> {
+        self.to_file().map(|path| path.parent()).flatten()
+    }
+}
+
 /// The trigger type.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase", tag = "type")]
@@ -190,20 +213,18 @@ pub enum ReferencedFiles {
 impl std::fmt::Debug for ReferencedFiles {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::None =>
-                f.debug_tuple("None")
-                    .finish(),
-            Self::FilePatterns(path, patterns) =>
-                f.debug_tuple("FilePatterns")
-                    .field(path)
-                    .field(patterns)
-                    .finish(),
-            Self::BindleParcels(_, invoice_id, labels) =>
-                f.debug_tuple("BindleParcels")
-                    // We can't provide any debug info about the client or token manager it seems?
-                    .field(invoice_id)
-                    .field(labels)
-                    .finish(),
+            Self::None => f.debug_tuple("None").finish(),
+            Self::FilePatterns(path, patterns) => f
+                .debug_tuple("FilePatterns")
+                .field(path)
+                .field(patterns)
+                .finish(),
+            Self::BindleParcels(_, invoice_id, labels) => f
+                .debug_tuple("BindleParcels")
+                // We can't provide any debug info about the client or token manager it seems?
+                .field(invoice_id)
+                .field(labels)
+                .finish(),
         }
     }
 }
@@ -377,9 +398,16 @@ mod tests {
         let test_files = match &test_component.wasm.files {
             ReferencedFiles::FilePatterns(_, fps) => fps,
             _ => {
-                assert!(false, "Expected file patterns but got {:?}", test_component.wasm.files);
-                panic!("Expected file patterns but got {:?}", test_component.wasm.files)
-            },
+                assert!(
+                    false,
+                    "Expected file patterns but got {:?}",
+                    test_component.wasm.files
+                );
+                panic!(
+                    "Expected file patterns but got {:?}",
+                    test_component.wasm.files
+                )
+            }
         };
 
         // TODO: restore

@@ -6,5 +6,12 @@ authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
 
 [dependencies]
 anyhow = "1.0"
+async-trait = "0.1.52"
+bindle = { version = "0.8.0", default-features = false, features = ["client"] }
+itertools = "0.10.3"
+path-absolutize = "3.0.11"
+reqwest = "0.11.9"
 serde = { version = "1.0", features = [ "derive" ] }
+tempfile = "3.3.0"
+tokio = "1.16.1"
 toml = "0.5"

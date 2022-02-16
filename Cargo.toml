@@ -7,6 +7,7 @@ authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
+bindle = { version = "0.8.0", default-features = false, features = ["client"] }
 bytes = "1.1"
 comfy-table = "5.0"
 dirs = "4.0"

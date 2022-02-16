@@ -253,11 +253,11 @@ mod tests {
     use anyhow::Result;
     use spin_config::{
         ApplicationInformation, Configuration, HttpConfig, HttpExecutor, ModuleSource,
-        RawApplicationInformation, TriggerConfig,
+        TriggerConfig,
     };
     use std::{
         net::{IpAddr, Ipv4Addr},
-        sync::Once,
+        sync::Once, collections::HashMap,
     };
 
     static LOGGER: Once = Once::new();
@@ -395,12 +395,19 @@ mod tests {
     async fn test_spin_http() -> Result<()> {
         init();
 
-        let raw_info = RawApplicationInformation {
+        let info = ApplicationInformation {
             name: "test-app".to_string(),
             version: "1.0.0".to_string(),
-            ..Default::default()
+            description: None,
+            authors: vec![],
+            trigger: spin_config::ApplicationTrigger::Http(
+                spin_config::HttpTriggerConfiguration {
+                    base: "/".to_owned(),
+                }
+            ),
+            namespace: None,
+            origin: fake_file_origin(),
         };
-        let info = ApplicationInformation::from_raw(raw_info, fake_file_origin());
 
         let component = CoreComponent {
             source: ModuleSource::FileReference(RUST_ENTRYPOINT_PATH.into()),
@@ -409,7 +416,11 @@ mod tests {
                 route: "/test".to_string(),
                 executor: Some(HttpExecutor::Spin),
             }),
-            ..Default::default()
+            wasm: spin_config::WasmConfig {
+                environment: HashMap::new(),
+                files: spin_config::ReferencedFiles::None,
+                allowed_http_hosts: vec![],
+            }
         };
         let components = vec![component];
 

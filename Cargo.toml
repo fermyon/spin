@@ -19,6 +19,7 @@ serde = { version = "1.0", features = [ "derive" ] }
 spin-config = { path = "crates/config" }
 spin-engine = { path = "crates/engine" }
 spin-http-engine = { path = "crates/http" }
+spin-loader = { path = "crates/loader" }
 spin-templates = { path = "crates/templates" }
 structopt = "0.3"
 tokio = { version = "1.11", features = [ "full" ] }
@@ -28,7 +29,7 @@ tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 
 [workspace]
-members = [ "crates/config", "crates/engine", "crates/http", "crates/templates" ]
+members = [ "crates/config", "crates/engine", "crates/http", "crates/loader", "crates/templates" ]
 
 [[bin]]
 name = "spin"

@@ -1,0 +1,11 @@
+name = "spin-local-source-test"
+apiVersion = "0.1.0"
+version = "1.0.0"
+authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
+trigger = { type = "http", base = "/" }
+
+[[component]]
+source = "spin-fs.wasm"
+id = "fs"
+files = ["**/*"]
+trigger = { route = "/...", executor = "spin" }

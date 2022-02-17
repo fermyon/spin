@@ -342,9 +342,9 @@ mod route_tests {
             }),
             wasm: spin_config::WasmConfig {
                 environment: HashMap::new(),
-                files: spin_config::ReferencedFiles::None,
+                mounts: vec![],
                 allowed_http_hosts: vec![],
-            }
+            },
         }
     }
 }

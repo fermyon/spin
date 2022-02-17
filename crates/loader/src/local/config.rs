@@ -1,50 +1,51 @@
-use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-};
+//! Internal configuration for converting a local spin.toml application manifest,
+//! WebAssembly modules, and static assets into a configuration runnable by the
+//! Spin execution context.
 
-/// Application configuration file format.
+#![deny(missing_docs)]
+
+use serde::{Deserialize, Serialize};
+use spin_config::{ApplicationTrigger, TriggerConfig};
+use std::{collections::HashMap, path::PathBuf};
+
+/// Application configuration local file format.
+/// This is the main structure spin.toml deserializes into.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct AppManifest {
+pub(crate) struct RawAppManifest {
     /// General application information.
     #[serde(flatten)]
-    pub info: AppInformation,
+    pub(crate) info: RawAppInformation,
 
     /// Configuration for the application components.
     #[serde(rename = "component")]
-    pub components: Vec<ComponentManifest>,
+    pub(crate) components: Vec<RawComponentManifest>,
 }
 
 /// General application information.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct AppInformation {
+pub(crate) struct RawAppInformation {
+    /// Spin API version.
+    pub(crate) api_version: String,
     /// Name of the application.
-    pub name: String,
+    pub(crate) name: String,
     /// Version of the application.
-    pub version: String,
+    pub(crate) version: String,
     /// Description of the application.
-    pub description: Option<String>,
+    pub(crate) description: Option<String>,
     /// Authors of the application.
-    pub authors: Option<Vec<String>>,
+    pub(crate) authors: Option<Vec<String>>,
     /// Trigger for the application.
-    ///
-    /// Currently, all components of a given application must be
-    /// invoked as a result of the same trigger "type".
-    /// In the future, applications with mixed triggers might be allowed,
-    /// but for now, a component with a different trigger must be part of
-    /// a separate application.
-    pub trigger: crate::ApplicationTrigger,
-    /// TODO
-    pub namespace: Option<String>,
+    pub(crate) trigger: ApplicationTrigger,
+    /// Namespace for the application.
+    pub(crate) namespace: Option<String>,
 }
 
 /// Core component configuration.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct ComponentManifest {
+pub struct RawComponentManifest {
     /// The module source.
     pub source: RawModuleSource,
     /// ID of the component. Used at runtime to select between
@@ -56,7 +57,7 @@ pub struct ComponentManifest {
     #[serde(flatten)]
     pub wasm: RawWasmConfig,
     /// Trigger configuration.
-    pub trigger: crate::TriggerConfig,
+    pub trigger: TriggerConfig,
 }
 
 /// WebAssembly configuration.
@@ -66,6 +67,9 @@ pub struct RawWasmConfig {
     /// Environment variables to be mapped inside the Wasm module at runtime.
     pub environment: Option<HashMap<String, String>>,
     /// Files to be mapped inside the Wasm module at runtime.
+    ///
+    /// In the local configuration file, this is a vector or file paths or
+    /// globs relative to the spin.toml file.
     pub files: Option<Vec<String>>,
     /// Optional list of HTTP hosts the component is allowed to connect.
     pub allowed_http_hosts: Option<Vec<String>>,
@@ -82,6 +86,8 @@ pub enum RawModuleSource {
 }
 
 /// A component source from Bindle.
+/// TODO
+/// The component and its entrypoint should be pulled from Bindle.
 /// This assumes access to the Bindle server.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]

@@ -766,6 +766,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dunce"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "453440c271cf5577fd2a40e4942540cb7d0d2f85e27c8d07dd0023c925a67541"
+
+[[package]]
 name = "ed25519"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2810,6 +2816,7 @@ dependencies = [
  "bytes 1.1.0",
  "comfy-table",
  "dirs 4.0.0",
+ "dunce",
  "env_logger",
  "futures",
  "path-absolutize",
@@ -2819,8 +2826,10 @@ dependencies = [
  "spin-engine",
  "spin-http-engine",
  "spin-loader",
+ "spin-publish",
  "spin-templates",
  "structopt",
+ "tempfile",
  "tokio",
  "toml",
  "tracing",
@@ -2925,6 +2934,26 @@ dependencies = [
  "tracing",
  "tracing-futures",
  "tracing-subscriber 0.3.8",
+]
+
+[[package]]
+name = "spin-publish"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bindle",
+ "dunce",
+ "futures",
+ "itertools",
+ "mime_guess",
+ "path-absolutize",
+ "serde",
+ "sha2 0.10.1",
+ "spin-loader",
+ "tempfile",
+ "tokio",
+ "toml",
 ]
 
 [[package]]

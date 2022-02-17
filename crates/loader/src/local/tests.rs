@@ -29,10 +29,9 @@ async fn test_from_local_source() -> Result<()> {
 
     assert_eq!(cfg.components[0].wasm.mounts.len(), 1);
 
-    assert_eq!(
-        cfg.info.origin,
-        ApplicationOrigin::File("tests/valid-with-files/spin.toml".into())
-    );
+    let expected_path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/valid-with-files/spin.toml");
+    assert_eq!(cfg.info.origin, ApplicationOrigin::File(expected_path));
 
     Ok(())
 }

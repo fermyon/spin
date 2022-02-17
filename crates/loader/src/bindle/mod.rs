@@ -5,14 +5,14 @@
 /// Module to prepare the assets for the components of an application.
 mod assets;
 /// Configuration representation for a Spin apoplication in Bindle.
-mod config;
+pub mod config;
 /// Bindle helper functions.
 mod utils;
 
 use self::config::RawComponentManifest;
 use crate::bindle::{
     config::RawAppManifest,
-    utils::{find_manifest, BindleReader, BindleTokenManager},
+    utils::{find_manifest, BindleReader},
 };
 use anyhow::{anyhow, Context, Result};
 use bindle::{
@@ -26,6 +26,8 @@ use spin_config::{
 };
 use std::path::{Path, PathBuf};
 use tracing::log;
+
+pub use utils::{BindleTokenManager, SPIN_MANIFEST_MEDIA_TYPE};
 
 /// Given a Bindle server URL and reference, pull it, expand its assets locally, and get a
 /// prepared application configuration consumable by a Spin execution context.

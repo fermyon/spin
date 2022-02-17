@@ -11,6 +11,7 @@ bindle = { version = "0.8.0", default-features = false, features = ["client"] }
 bytes = "1.1"
 comfy-table = "5.0"
 dirs = "4.0"
+dunce = "1.0"
 env_logger = "0.9"
 futures = "0.3"
 path-absolutize = "3.0.11"
@@ -20,8 +21,10 @@ spin-config = { path = "crates/config" }
 spin-engine = { path = "crates/engine" }
 spin-http-engine = { path = "crates/http" }
 spin-loader = { path = "crates/loader" }
+spin-publish = { path = "crates/publish" }
 spin-templates = { path = "crates/templates" }
 structopt = "0.3"
+tempfile = "3.3.0"
 tokio = { version = "1.11", features = [ "full" ] }
 toml = "0.5"
 tracing = { version = "0.1", features = [ "log" ] }

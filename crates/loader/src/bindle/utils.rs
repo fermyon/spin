@@ -22,7 +22,7 @@ static EMPTY: &Vec<bindle::Parcel> = &vec![];
 // distinguished it through a group, or an annotation.
 
 /// The media type of a `spin.toml` parcel as part of a bindle.
-pub(crate) const SPIN_MANIFEST_MEDIA_TYPE: &str = "application/vnd.fermyon.spin+toml";
+pub const SPIN_MANIFEST_MEDIA_TYPE: &str = "application/vnd.fermyon.spin+toml";
 
 pub(crate) fn find_manifest(inv: &Invoice) -> Result<String> {
     let parcels = inv
@@ -99,8 +99,10 @@ trigger     = "http"
 
 */
 
+/// Any kind of Bindle authentication.
 #[derive(Clone)]
-pub(crate) enum BindleTokenManager {
+pub enum BindleTokenManager {
+    /// Anonymous authentication
     NoToken(NoToken),
 }
 

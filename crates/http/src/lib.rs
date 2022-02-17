@@ -256,8 +256,9 @@ mod tests {
         TriggerConfig,
     };
     use std::{
+        collections::HashMap,
         net::{IpAddr, Ipv4Addr},
-        sync::Once, collections::HashMap,
+        sync::Once,
     };
 
     static LOGGER: Once = Once::new();
@@ -396,15 +397,14 @@ mod tests {
         init();
 
         let info = ApplicationInformation {
+            api_version: "0.1.0".to_string(),
             name: "test-app".to_string(),
             version: "1.0.0".to_string(),
             description: None,
             authors: vec![],
-            trigger: spin_config::ApplicationTrigger::Http(
-                spin_config::HttpTriggerConfiguration {
-                    base: "/".to_owned(),
-                }
-            ),
+            trigger: spin_config::ApplicationTrigger::Http(spin_config::HttpTriggerConfiguration {
+                base: "/".to_owned(),
+            }),
             namespace: None,
             origin: fake_file_origin(),
         };
@@ -418,9 +418,9 @@ mod tests {
             }),
             wasm: spin_config::WasmConfig {
                 environment: HashMap::new(),
-                files: spin_config::ReferencedFiles::None,
+                mounts: vec![],
                 allowed_http_hosts: vec![],
-            }
+            },
         };
         let components = vec![component];
 

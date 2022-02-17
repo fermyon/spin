@@ -2,15 +2,13 @@
 
 #![deny(missing_docs)]
 
-mod assets;
 /// Input / Output redirects.
 pub mod io;
 
 use anyhow::{bail, Result};
-use assets::DirectoryMount;
 use io::IoStreamRedirects;
-use spin_config::{ApplicationOrigin, CoreComponent, ModuleSource};
-use std::{collections::HashMap, path::Path, path::PathBuf, sync::Arc};
+use spin_config::{CoreComponent, DirectoryMount, ModuleSource};
+use std::{collections::HashMap, sync::Arc};
 use tracing::{instrument, log};
 use wasi_common::WasiCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
@@ -24,9 +22,6 @@ pub struct RuntimeConfig;
 #[derive(Clone, Debug)]
 pub struct ExecutionContextConfiguration {
     /// Spin application configuration.
-    /// TODO
-    ///
-    /// This should be Config<StartupComponentConfig> or something like that.
     pub app: spin_config::Configuration<CoreComponent>,
     /// Wasmtime engine configuration.
     pub wasmtime: wasmtime::Config,
@@ -107,56 +102,23 @@ impl<T: Default> Builder<T> {
     /// Build a new instance of the execution context.
     #[instrument(skip(self))]
     pub async fn build(&mut self) -> Result<ExecutionContext<T>> {
-        let working_directory = tempfile::tempdir()?;
-        log::debug!(
-            "Created temporary directory '{}'",
-            working_directory.path().display()
-        );
-
         let mut components = HashMap::new();
-
         for c in &self.config.app.components {
-            let config = c.clone();
+            let core = c.clone();
 
             // TODO
             let module = match c.source.clone() {
                 ModuleSource::FileReference(p) => {
-                    let path_to_component: PathBuf = self
-                        .config
-                        .app
-                        .info
-                        .origin
-                        .parent_dir()
-                        .map(|app_origin| complete_path(app_origin, &p))
-                        .unwrap_or(p);
-                    let module = Module::from_file(&self.engine, &path_to_component)?;
-                    log::trace!("Created module from path {:?}", path_to_component);
+                    let module = Module::from_file(&self.engine, &p)?;
+                    log::trace!("Created module from file {:?}", p);
                     module
                 }
-                ModuleSource::Bindle(bcs) => {
-                    let module_bytes = bcs.reader.get_parcel(&bcs.parcel).await?;
-                    let module = Module::from_binary(&self.engine, &module_bytes)?;
-                    log::trace!("Created module from parcel {:?}", bcs.parcel); // TODO: invoice id? parcel name?
-                    module
-                }
-
-                ModuleSource::Linked(_) => panic!(),
             };
 
             let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
             log::debug!("Created pre-instance from module"); // TODO: show source?
 
-            let asset_directories =
-                assets::prepare(&c.id, &c.wasm.files, working_directory.path()).await?;
-
-            components.insert(
-                c.id.clone(),
-                Component {
-                    core: config,
-                    pre,
-                    prepared_directories: asset_directories,
-                },
-            );
+            components.insert(c.id.clone(), Component { core, pre });
         }
 
         let config = self.config.clone();
@@ -168,7 +130,6 @@ impl<T: Default> Builder<T> {
             config,
             engine,
             components,
-            working_directory: Arc::new(working_directory),
         })
     }
 
@@ -190,7 +151,6 @@ pub struct Component<T: Default> {
     pub core: CoreComponent,
     /// The pre-instance of the component
     pub pre: Arc<InstancePre<RuntimeContext<T>>>,
-    prepared_directories: Vec<DirectoryMount>,
 }
 
 /// A generic execution context for WebAssembly components.
@@ -202,9 +162,6 @@ pub struct ExecutionContext<T: Default> {
     pub engine: Engine,
     /// Collection of pre-initialized (and already linked) components.
     pub components: HashMap<String, Component<T>>,
-    /// A directory for resources that need to last as long as the exeuction context
-    /// but can then be deleted.
-    working_directory: Arc<tempfile::TempDir>,
 }
 
 impl<T: Default> ExecutionContext<T> {
@@ -286,19 +243,8 @@ impl<T: Default> ExecutionContext<T> {
             }
         };
 
-        let dirs = component.prepared_directories.clone();
+        let dirs = component.core.wasm.mounts.clone();
 
         Ok((res, dirs))
     }
 }
-
-fn complete_path(app_origin: impl AsRef<Path>, component_source_path: impl AsRef<Path>) -> PathBuf {
-    if component_source_path.as_ref().is_absolute() {
-        component_source_path.as_ref().to_path_buf()
-    } else {
-        app_origin.as_ref().join(component_source_path)
-    }
-}
-
-#[cfg(test)]
-mod tests;

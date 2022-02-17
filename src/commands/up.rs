@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use spin_http_engine::HttpTrigger;
 use std::path::PathBuf;
 use structopt::{clap::AppSettings, StructOpt};
@@ -38,7 +38,6 @@ pub struct Up {
         long = "bindle",
         conflicts_with = APP_CONFIG_FILE_OPT,
         requires = BINDLE_SERVER_URL_OPT,
-        parse(try_from_str = try_bindle_id_from_str)
     )]
     pub bindle_id: Option<bindle::Id>,
 
@@ -49,33 +48,20 @@ pub struct Up {
         env = BINDLE_URL_ENV,
     )]
     pub bindle_server_url: Option<String>,
+
+    /// Temorary directory for the static assets of the components.
+    #[structopt()]
+    pub tmp: Option<PathBuf>,
 }
 
 impl Up {
     pub async fn run(self) -> Result<()> {
         let app = match (&self.app, &self.bindle_id) {
-            (None, None) =>
-                Err(anyhow::anyhow!("Must specify app file or bindle id")),
-            (Some(app_file), None) =>
-                spin_config::read_from_file(app_file),
-            (None, Some(bindle_id)) => {
-                if let Some(server_url) = &self.bindle_server_url {
-                    spin_config::read_from_bindle(bindle_id, server_url).await
-                } else {
-                    Err(anyhow::anyhow!("Loading from a bindle requires a Bindle server URL"))
-                }
-            },
-            (Some(_), Some(_)) =>
-                Err(anyhow::anyhow!("Specify only one of app file or bindle id")),
-        }?;
+            (Some(app), None) => spin_loader::from_file(app, self.tmp).await?,
+            _ => todo!("not implemented yet"),
+        };
 
         let trigger = HttpTrigger::new(self.address, app, None).await?;
         trigger.run().await
     }
-}
-
-fn try_bindle_id_from_str(id_str: &str) -> Result<bindle::Id> {
-    let id = bindle::Id::try_from(id_str)
-        .with_context(|| format!("'{}' is not a valid bindle ID", id_str))?;
-    Ok(id)
 }

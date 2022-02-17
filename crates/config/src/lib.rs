@@ -3,7 +3,11 @@
 #![deny(missing_docs)]
 
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Formatter},
+    path::PathBuf,
+};
 
 /// Application configuration.
 #[derive(Clone, Debug)]
@@ -49,8 +53,6 @@ pub struct CoreComponent {
     /// multiple components of the same application.
     pub id: String,
     /// Per-component WebAssembly configuration.
-    /// This takes precedence over the application-level
-    /// WebAssembly configuration.
     pub wasm: WasmConfig,
     /// Trigger configuration.
     pub trigger: TriggerConfig,
@@ -111,12 +113,28 @@ pub struct DirectoryMount {
 }
 
 /// Source for the entrypoint Wasm module of a component.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum ModuleSource {
     /// A local path to the entrypoint Wasm module.
     FileReference(PathBuf),
+
+    /// A buffer that contains the entrypoint Wasm module.
+    Buffer(Vec<u8>),
 }
 
+impl Debug for ModuleSource {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+        match self {
+            ModuleSource::FileReference(fp) => {
+                f.debug_struct("FileReference").field("file", fp).finish()
+            }
+            ModuleSource::Buffer(bytes) => {
+                f.debug_struct("Buffer").field("len", &bytes.len()).finish()
+            }
+        }
+    }
+}
+//f.debug_struct("Buffer").field("buffer", bytes.len().finish()
 /// Configuration for the HTTP trigger.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct HttpConfig {

@@ -52,8 +52,6 @@ pub struct RawComponentManifest {
     /// multiple components of the same application.
     pub id: String,
     /// Per-component WebAssembly configuration.
-    /// This takes precedence over the application-level
-    /// WebAssembly configuration.
     #[serde(flatten)]
     pub wasm: RawWasmConfig,
     /// Trigger configuration.

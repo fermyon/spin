@@ -105,18 +105,21 @@ impl<T: Default> Builder<T> {
         let mut components = HashMap::new();
         for c in &self.config.app.components {
             let core = c.clone();
-
-            // TODO
             let module = match c.source.clone() {
                 ModuleSource::FileReference(p) => {
                     let module = Module::from_file(&self.engine, &p)?;
                     log::trace!("Created module from file {:?}", p);
                     module
                 }
+                ModuleSource::Buffer(bytes) => {
+                    let module = Module::from_binary(&self.engine, &bytes)?;
+                    log::trace!("Created module from buffer with size {}", bytes.len());
+                    module
+                }
             };
 
             let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
-            log::debug!("Created pre-instance from module"); // TODO: show source?
+            log::debug!("Created pre-instance from module.");
 
             components.insert(c.id.clone(), Component { core, pre });
         }

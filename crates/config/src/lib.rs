@@ -137,17 +137,36 @@ impl Default for HttpConfig {
 
 /// The type of interface the component implements.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase", tag = "type")]
 pub enum HttpExecutor {
     /// The component implements the Spin HTTP interface.
     Spin,
     /// The component implements the Wagi interface.
-    Wagi,
+    Wagi(WagiConfig),
 }
 
 impl Default for HttpExecutor {
     fn default() -> Self {
         Self::Spin
+    }
+}
+
+/// Wagi specific configuration for the http executor.
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+pub struct WagiConfig {
+    /// The name of the entrypoint.
+    pub entrypoint: String,
+}
+
+impl Default for WagiConfig {
+    fn default() -> WagiConfig {
+        /// This is the default Wagi entrypoint.
+        const WAGI_DEFAULT_ENTRYPOINT: &str = "_start";
+
+        WagiConfig {
+            entrypoint: WAGI_DEFAULT_ENTRYPOINT.into(),
+        }
     }
 }
 

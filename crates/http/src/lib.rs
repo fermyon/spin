@@ -103,10 +103,11 @@ impl HttpTrigger {
                                 &trigger.route,
                                 req,
                                 addr,
+                                &(),
                             )
                             .await
                         }
-                        spin_config::HttpExecutor::Wagi => {
+                        spin_config::HttpExecutor::Wagi(wagi_config) => {
                             WagiHttpExecutor::execute(
                                 &self.engine,
                                 &c.id,
@@ -114,6 +115,7 @@ impl HttpTrigger {
                                 &trigger.route,
                                 req,
                                 addr,
+                                wagi_config,
                             )
                             .await
                         }
@@ -237,6 +239,9 @@ pub(crate) fn default_headers(
 /// All HTTP executors must implement this trait.
 #[async_trait]
 pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
+    /// Configuration specific to the implementor of this trait.
+    type Config;
+
     async fn execute(
         engine: &ExecutionContext,
         component: &str,
@@ -244,6 +249,7 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
         raw_route: &str,
         req: Request<Body>,
         client_addr: SocketAddr,
+        config: &Self::Config,
     ) -> Result<Response<Body>>;
 }
 

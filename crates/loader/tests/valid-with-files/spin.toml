@@ -1,11 +1,14 @@
-name = "spin-local-source-test"
 apiVersion = "0.1.0"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+name = "spin-local-source-test"
+trigger = {type = "http", base = "/"}
 version = "1.0.0"
-authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
-trigger = { type = "http", base = "/" }
 
 [[component]]
-source = "spin-fs.wasm"
-id = "fs"
 files = ["**/*"]
-trigger = { route = "/...", executor = "spin" }
+id = "fs"
+source = "spin-fs.wasm"
+
+[component.trigger]
+executor = {type = "spin"}
+route = "/..."

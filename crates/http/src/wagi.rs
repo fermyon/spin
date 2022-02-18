@@ -4,6 +4,7 @@ use crate::HttpExecutor;
 use anyhow::Result;
 use async_trait::async_trait;
 use hyper::{body, Body, Request, Response};
+use spin_config::WagiConfig;
 use spin_engine::io::{IoStreamRedirects, OutRedirect};
 use std::collections::HashMap;
 use std::{
@@ -13,16 +14,13 @@ use std::{
 use tracing::log;
 use wasi_common::pipe::{ReadPipe, WritePipe};
 
-/// This is the default Wagi entrypoint.
-/// There should be a way to set this in the component
-/// configuration of the trigger / executor.
-const WAGI_DEFAULT_ENTRYPOINT: &str = "_start";
-
 #[derive(Clone)]
 pub struct WagiHttpExecutor;
 
 #[async_trait]
 impl HttpExecutor for WagiHttpExecutor {
+    type Config = WagiConfig;
+
     async fn execute(
         engine: &ExecutionContext,
         component: &str,
@@ -30,6 +28,7 @@ impl HttpExecutor for WagiHttpExecutor {
         raw_route: &str,
         req: Request<Body>,
         client_addr: SocketAddr,
+        wagi_config: &Self::Config,
     ) -> Result<Response<Body>> {
         log::trace!(
             "Executing request using the Wagi executor for component {}",
@@ -75,11 +74,11 @@ impl HttpExecutor for WagiHttpExecutor {
             engine.prepare_component(component, None, Some(iostream.clone()), Some(headers))?;
 
         let start = instance
-            .get_func(&mut store, WAGI_DEFAULT_ENTRYPOINT)
+            .get_func(&mut store, &wagi_config.entrypoint)
             .ok_or_else(|| {
                 anyhow::anyhow!(
                     "No such function '{}' in {}",
-                    WAGI_DEFAULT_ENTRYPOINT,
+                    wagi_config.entrypoint,
                     component
                 )
             })?;

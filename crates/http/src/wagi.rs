@@ -35,6 +35,13 @@ impl HttpExecutor for WagiHttpExecutor {
             component
         );
 
+        let uri_path = req.uri().path();
+        let mut args = vec![uri_path.to_string()];
+        req.uri()
+            .query()
+            .map(|q| q.split('&').for_each(|item| args.push(item.to_string())))
+            .take();
+
         let (parts, body) = req.into_parts();
 
         let body = body::to_bytes(body).await?.to_vec();
@@ -70,8 +77,13 @@ impl HttpExecutor for WagiHttpExecutor {
             headers.insert(k, v);
         }
 
-        let (mut store, instance) =
-            engine.prepare_component(component, None, Some(iostream.clone()), Some(headers))?;
+        let (mut store, instance) = engine.prepare_component(
+            component,
+            None,
+            Some(iostream.clone()),
+            Some(headers),
+            Some(args),
+        )?;
 
         let start = instance
             .get_func(&mut store, &wagi_config.entrypoint)

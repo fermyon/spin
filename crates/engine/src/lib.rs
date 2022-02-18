@@ -173,6 +173,7 @@ impl<T: Default> ExecutionContext<T> {
         data: Option<T>,
         io: Option<IoStreamRedirects>,
         env: Option<HashMap<String, String>>,
+        args: Option<Vec<String>>,
     ) -> Result<(Store<RuntimeContext<T>>, Instance)> {
         log::debug!("Preparing component {}", component);
         let component = match self.components.get(component) {
@@ -180,7 +181,7 @@ impl<T: Default> ExecutionContext<T> {
             None => bail!("Cannot find component {}", component),
         };
 
-        let mut store = self.store(component, data, io, env)?;
+        let mut store = self.store(component, data, io, env, args)?;
         let instance = component.pre.instantiate(&mut store)?;
 
         Ok((store, instance))
@@ -193,11 +194,14 @@ impl<T: Default> ExecutionContext<T> {
         data: Option<T>,
         io: Option<IoStreamRedirects>,
         env: Option<HashMap<String, String>>,
+        args: Option<Vec<String>>,
     ) -> Result<Store<RuntimeContext<T>>> {
         log::debug!("Creating store.");
         let (env, dirs) = Self::wasi_config(component, env)?;
         let mut ctx = RuntimeContext::default();
-        let mut wasi_ctx = WasiCtxBuilder::new().envs(&env)?;
+        let mut wasi_ctx = WasiCtxBuilder::new()
+            .args(&args.unwrap_or_default())?
+            .envs(&env)?;
 
         match io {
             Some(r) => {

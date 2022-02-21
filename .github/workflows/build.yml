@@ -11,10 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: webfactory/ssh-agent@v0.5.4
-        with:
-            ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
       - name: "Install wasi-sdk"
         run: |
           set -x
@@ -35,17 +31,20 @@ jobs:
         run: |
           rustup target add wasm32-wasi
           rustup target add wasm32-unknown-unknown
-          rustup component add rustfmt
       - uses: engineerd/configurator@v0.0.8
         with:
           name: "bindle-server"
-          url: "https://bindle.blob.core.windows.net/releases/bindle-v0.6.0-linux-amd64.tar.gz"
+          url: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-linux-amd64.tar.gz"
           pathInArchive: "bindle-server"
 
       - name: Build
-        run: CARGO_NET_GIT_FETCH_WITH_CLI=true cargo build
-      - name: Run tests
+        run: cargo build
+      - name: Cargo Test
         run:
-          RUST_LOG=spin=info cargo test --all --all-features -- --nocapture
-          cargo clippy -- -D warnings
+          RUST_LOG=spin=trace cargo test --all --all-features -- --nocapture
+      - name: Cargo Clippy
+        run:
+          cargo clippy --all-targets --all-features -- -D warnings
+      - name: Cargo Format
+        run:
           cargo fmt --all -- --check

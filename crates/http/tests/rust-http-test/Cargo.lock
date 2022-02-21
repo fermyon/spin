@@ -147,7 +147,7 @@ checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
 [[package]]
 name = "wit-bindgen-gen-core"
 version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=439c5f8cee12a7f831103c27e2198cfd4b4bad24#439c5f8cee12a7f831103c27e2198cfd4b4bad24"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=e9c7c0a3405845cecd3fe06f3c20ab413302fc73#e9c7c0a3405845cecd3fe06f3c20ab413302fc73"
 dependencies = [
  "anyhow",
  "wit-parser",
@@ -156,7 +156,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-gen-rust"
 version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=439c5f8cee12a7f831103c27e2198cfd4b4bad24#439c5f8cee12a7f831103c27e2198cfd4b4bad24"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=e9c7c0a3405845cecd3fe06f3c20ab413302fc73#e9c7c0a3405845cecd3fe06f3c20ab413302fc73"
 dependencies = [
  "heck",
  "wit-bindgen-gen-core",
@@ -165,7 +165,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-gen-rust-wasm"
 version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=439c5f8cee12a7f831103c27e2198cfd4b4bad24#439c5f8cee12a7f831103c27e2198cfd4b4bad24"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=e9c7c0a3405845cecd3fe06f3c20ab413302fc73#e9c7c0a3405845cecd3fe06f3c20ab413302fc73"
 dependencies = [
  "heck",
  "wit-bindgen-gen-core",
@@ -175,7 +175,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-rust"
 version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=439c5f8cee12a7f831103c27e2198cfd4b4bad24#439c5f8cee12a7f831103c27e2198cfd4b4bad24"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=e9c7c0a3405845cecd3fe06f3c20ab413302fc73#e9c7c0a3405845cecd3fe06f3c20ab413302fc73"
 dependencies = [
  "async-trait",
  "bitflags",
@@ -185,7 +185,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-rust-impl"
 version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=439c5f8cee12a7f831103c27e2198cfd4b4bad24#439c5f8cee12a7f831103c27e2198cfd4b4bad24"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=e9c7c0a3405845cecd3fe06f3c20ab413302fc73#e9c7c0a3405845cecd3fe06f3c20ab413302fc73"
 dependencies = [
  "proc-macro2",
  "syn",
@@ -196,7 +196,7 @@ dependencies = [
 [[package]]
 name = "wit-parser"
 version = "0.1.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=439c5f8cee12a7f831103c27e2198cfd4b4bad24#439c5f8cee12a7f831103c27e2198cfd4b4bad24"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=e9c7c0a3405845cecd3fe06f3c20ab413302fc73#e9c7c0a3405845cecd3fe06f3c20ab413302fc73"
 dependencies = [
  "anyhow",
  "id-arena",

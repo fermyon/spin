@@ -14,8 +14,8 @@ serde = { version = "1.0", features = [ "derive" ] }
 spin-engine = { path = "../engine" }
 redis = { version = "0.21", features = [ "tokio-comp" ] }
 tokio = { version = "1.14", features = [ "full" ] }
-wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
-wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
+wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }
 wasi-common = "0.33"
 wasmtime = "0.33"
 wasmtime-wasi = "0.33"

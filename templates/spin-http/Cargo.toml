@@ -8,7 +8,7 @@ crate-type = [ "cdylib" ]
 
 [dependencies]
 # The wit-bindgen-rust dependency generates bindings for interfaces.
-wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
+wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }
 
 [workspace]
 

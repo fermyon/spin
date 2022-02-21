@@ -26,10 +26,10 @@ toml = "0.5.8"
 tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
-wasi-common = "0.33"
-wasmtime = "0.33"
-wasmtime-wasi = "0.33"
-wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
+wasi-common = "0.34"
+wasmtime = "0.34"
+wasmtime-wasi = "0.34"
+wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }
 
 [dev-dependencies]
-wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }

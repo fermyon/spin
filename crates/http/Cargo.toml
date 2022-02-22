@@ -24,7 +24,7 @@ tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 url = "2.2"
-wagi = { git = "https://github.com/radu-matei/wagi", branch = "update-wasmtime-v034" }
+wagi = { git = "https://github.com/deislabs/wagi", rev = "984c3922626b770ba434430a19685985989c45ff" }
 wasi-common = "0.34"
 wasmtime = "0.34"
 wasmtime-wasi = "0.34"

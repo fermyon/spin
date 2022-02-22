@@ -3609,7 +3609,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "wagi"
 version = "0.6.2"
-source = "git+https://github.com/radu-matei/wagi?branch=update-wasmtime-v034#4c8785d46c4ec6841034dd8e439197feee236816"
+source = "git+https://github.com/deislabs/wagi?rev=984c3922626b770ba434430a19685985989c45ff#984c3922626b770ba434430a19685985989c45ff"
 dependencies = [
  "anyhow",
  "async-stream",

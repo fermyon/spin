@@ -8,6 +8,15 @@ use serde::{Deserialize, Serialize};
 use spin_config::{ApplicationTrigger, TriggerConfig};
 use std::{collections::HashMap, path::PathBuf};
 
+/// Container for any version of the manifest.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "apiVersion")]
+pub enum RawAppManifestAnyVersion {
+    /// A manifest with API version 0.1.0.
+    #[serde(rename = "0.1.0")]
+    V0_1_0(RawAppManifest),
+}
+
 /// Application configuration local file format.
 /// This is the main structure spin.toml deserializes into.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -26,8 +35,6 @@ pub struct RawAppManifest {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct RawAppInformation {
-    /// Spin API version.
-    pub api_version: String,
     /// Name of the application.
     pub name: String,
     /// Version of the application.

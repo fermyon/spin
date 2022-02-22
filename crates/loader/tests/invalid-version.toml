@@ -1,0 +1,14 @@
+apiVersion = "77.301.12"
+authors = ["Gul Madred", "Edward Jellico", "JL"]
+description = "Because if we get to API version 77.301.12 then we have bigger problems"
+name = "chain-of-command"
+trigger = {type = "http", base = "/"}
+version = "6.11.2"
+
+[[component]]
+id = "abc"
+[component.source]
+parcel = "parcel"
+reference = "bindle reference"
+[component.trigger]
+route = "/test"

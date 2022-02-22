@@ -8,5 +8,10 @@ version = "1.0.0"
 [[component]]
 id = "hello"
 source = "target/wasm32-wasi/release/spinhelloworld.wasm"
+middleware = ["hello-middleware"]
 [component.trigger]
 route = "/hello"
+
+[[component]]
+id = "hello-middleware"
+source = "target/wasm32-wasi/release/spinhelloworld.wasm"

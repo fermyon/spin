@@ -5,7 +5,7 @@
 use anyhow::{bail, Result};
 use http::Uri;
 use indexmap::IndexMap;
-use spin_config::{ApplicationTrigger, Configuration, CoreComponent};
+use spin_config::{ApplicationTrigger, Configuration, CoreComponent, TriggerConfig};
 use std::fmt::Debug;
 use tracing::log;
 
@@ -33,12 +33,12 @@ impl Router {
         let routes = app
             .components
             .iter()
-            .map(|c| {
-                let spin_config::TriggerConfig::Http(trigger) = &c.trigger;
-                (
+            .flat_map(|c| match &c.trigger {
+                Some(TriggerConfig::Http(ref trigger)) => Some((
                     RoutePattern::from(&app_trigger.base, &trigger.route),
                     c.clone(),
-                )
+                )),
+                None => None,
             })
             .collect();
 
@@ -336,15 +336,16 @@ mod route_tests {
         CoreComponent {
             id: id.to_string(),
             source: spin_config::ModuleSource::FileReference("FAKE".into()),
-            trigger: spin_config::TriggerConfig::Http(spin_config::HttpConfig {
+            trigger: Some(spin_config::TriggerConfig::Http(spin_config::HttpConfig {
                 route: "/test".to_string(),
                 executor: Some(spin_config::HttpExecutor::Spin),
-            }),
+            })),
             wasm: spin_config::WasmConfig {
                 environment: HashMap::new(),
                 mounts: vec![],
                 allowed_http_hosts: vec![],
             },
+            middleware_ids: vec![],
         }
     }
 }

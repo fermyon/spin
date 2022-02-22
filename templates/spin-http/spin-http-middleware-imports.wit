@@ -1,0 +1,38 @@
+request: function() -> intercepted-request
+
+response: function() -> intercepted-response
+
+resource intercepted-request {
+  method: function() -> string
+  set-method: function(method: string)
+
+  url: function() -> string
+  set-url: function(uri: string)
+
+  headers: function() -> headers
+
+  body: function() -> body
+}
+
+resource intercepted-response {
+  status: function() -> u16
+  set-status: function(status: u16)
+
+  headers: function() -> headers
+
+  body: function() -> body
+}
+
+resource headers {
+  get: function(name: string) -> option<string>
+  keys: function() -> list<string>
+  set: function(name: string, value: string)
+  append: function(name: string, value: string)
+  delete: function(name: string)
+}
+
+resource body {
+  // TODO: replace with streaming interface
+  get: function() -> list<u8>
+  set: function(body: list<u8>)
+}

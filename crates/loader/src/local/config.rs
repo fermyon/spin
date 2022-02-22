@@ -57,7 +57,10 @@ pub struct RawComponentManifest {
     #[serde(flatten)]
     pub wasm: RawWasmConfig,
     /// Trigger configuration.
-    pub trigger: TriggerConfig,
+    pub trigger: Option<TriggerConfig>,
+    /// Middleware configurations.
+    #[serde(default)]
+    pub middleware: Vec<String>,
 }
 
 /// WebAssembly configuration.
@@ -76,7 +79,7 @@ pub struct RawWasmConfig {
 }
 
 /// Source for the module.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase", untagged)]
 pub enum RawModuleSource {
     /// Local path or parcel reference to a module that needs to be linked.

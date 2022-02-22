@@ -58,7 +58,9 @@ impl SpinHttpExecutor {
             .map(|(k, v)| (k.as_str(), v.as_str()))
             .collect();
 
-        let engine = SpinHttp::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
+        let engine = SpinHttp::new(&mut store, &instance, |host| {
+            &mut host.data.as_mut().unwrap().http
+        })?;
         let (parts, bytes) = req.into_parts();
         let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
         let body = Some(&bytes[..]);
@@ -79,7 +81,7 @@ impl SpinHttpExecutor {
             body,
         };
 
-        let res = engine.handler(&mut store, req)?;
+        let res = engine.handler(&mut store, req).await?;
         let mut response = http::Response::builder().status(res.status);
         Self::append_headers(response.headers_mut().unwrap(), res.headers)?;
 

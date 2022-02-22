@@ -9,6 +9,7 @@ version = "6.11.2"
 files = ["file.txt", "subdir/another.txt"]
 id = "four-lights"
 source = "path/to/wasm/file.wasm"
+middleware = ["auth-middleware"]
 [component.trigger]
 executor = {type = "spin"}
 route = "/lights"
@@ -23,3 +24,8 @@ parcel = "parcel"
 reference = "bindle reference"
 [component.trigger]
 route = "/test"
+
+[[component]]
+source = "middlewares/auth.wasm"
+id = "auth-middleware"
+    

@@ -36,6 +36,7 @@ impl ExecutionContextConfiguration {
         let mut wasmtime = wasmtime::Config::default();
         wasmtime.wasm_multi_memory(true);
         wasmtime.wasm_module_linking(true);
+        wasmtime.async_support(true);
 
         log::trace!("Created execution context configuration.");
 

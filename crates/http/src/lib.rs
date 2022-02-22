@@ -1,10 +1,11 @@
 //! Implementation for the Spin HTTP engine.
 
+mod middleware;
 mod routes;
 mod spin;
 mod wagi;
 
-use crate::wagi::WagiHttpExecutor;
+use crate::{middleware::MiddlewaresStack, wagi::WagiHttpExecutor};
 use anyhow::{Error, Result};
 use async_trait::async_trait;
 use http::{StatusCode, Uri};
@@ -13,6 +14,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
+use middleware::MiddlewareData;
 use routes::{RoutePattern, Router};
 use spin::SpinHttpExecutor;
 use spin_config::{ApplicationTrigger, Configuration, CoreComponent, TriggerConfig};
@@ -21,10 +23,16 @@ use spin_http::SpinHttpData;
 use std::{net::SocketAddr, sync::Arc};
 use tracing::log;
 
-wit_bindgen_wasmtime::import!("wit/ephemeral/spin-http.wit");
+wit_bindgen_wasmtime::import!({paths: ["wit/ephemeral/spin-http.wit"], async: *});
 
-type ExecutionContext = spin_engine::ExecutionContext<SpinHttpData>;
-type RuntimeContext = spin_engine::RuntimeContext<SpinHttpData>;
+#[derive(Default)]
+pub struct HttpData {
+    http: SpinHttpData,
+    middleware: MiddlewareData,
+}
+
+type ExecutionContext = spin_engine::ExecutionContext<HttpData>;
+type RuntimeContext = spin_engine::RuntimeContext<HttpData>;
 
 /// The Spin HTTP trigger.
 /// TODO
@@ -58,7 +66,11 @@ impl HttpTrigger {
             config.wasmtime = wasmtime;
         };
 
-        let engine = Arc::new(Builder::build_default(config).await?);
+        let mut engine_builder = Builder::new(config)?;
+        engine_builder.link_wasi()?;
+        middleware::add_middleware_to_linker(&mut engine_builder.linker)?;
+        let engine = Arc::new(engine_builder.build().await?);
+
         let router = Router::build(&app)?;
         log::debug!("Created new HTTP trigger.");
 
@@ -73,7 +85,7 @@ impl HttpTrigger {
     /// Handle incoming requests using an HTTP executor.
     pub(crate) async fn handle(
         &self,
-        req: Request<Body>,
+        mut req: Request<Body>,
         addr: SocketAddr,
     ) -> Result<Response<Body>> {
         log::info!(
@@ -88,7 +100,16 @@ impl HttpTrigger {
             "/healthz" => Ok(Response::new(Body::from("OK"))),
             route => match self.router.route(route) {
                 Ok(c) => {
-                    let TriggerConfig::Http(trigger) = &c.trigger;
+                    let TriggerConfig::Http(trigger) = &c.trigger.unwrap();
+
+                    let mut middleware_executor =
+                        MiddlewaresStack::create(&self.engine, &c.middleware_ids)?;
+
+                    req = match middleware_executor.execute_request_middlewares(req).await? {
+                        middleware::RequestMiddlewareResult::Next(req) => req,
+                        middleware::RequestMiddlewareResult::Stop(resp) => return Ok(resp),
+                    };
+
                     let executor = match &trigger.executor {
                         Some(i) => i,
                         None => &spin_config::HttpExecutor::Spin,
@@ -120,13 +141,16 @@ impl HttpTrigger {
                             .await
                         }
                     };
-                    match res {
-                        Ok(res) => Ok(res),
-                        Err(e) => {
-                            log::error!("Error processing request: {:?}", e);
-                            Ok(Self::internal_error())
-                        }
-                    }
+
+                    let res = match res {
+                        Ok(resp) => middleware_executor.execute_response_middlewares(resp).await,
+                        err => err,
+                    };
+
+                    res.or_else(|e| {
+                        log::error!("Error processing request: {:?}", e);
+                        Ok(Self::internal_error())
+                    })
                 }
                 Err(_) => Ok(Self::not_found()),
             },
@@ -418,15 +442,16 @@ mod tests {
         let component = CoreComponent {
             source: ModuleSource::FileReference(RUST_ENTRYPOINT_PATH.into()),
             id: "test".to_string(),
-            trigger: TriggerConfig::Http(HttpConfig {
+            trigger: Some(TriggerConfig::Http(HttpConfig {
                 route: "/test".to_string(),
                 executor: Some(HttpExecutor::Spin),
-            }),
+            })),
             wasm: spin_config::WasmConfig {
                 environment: HashMap::new(),
                 mounts: vec![],
                 allowed_http_hosts: vec![],
             },
+            middleware_ids: vec![],
         };
         let components = vec![component];
 

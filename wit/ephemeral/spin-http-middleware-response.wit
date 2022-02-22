@@ -1,0 +1,3 @@
+/// Called after an HTTP handler. May inspect and modify the outgoing response
+/// with the middleware imports interface.
+intercept-response: function()

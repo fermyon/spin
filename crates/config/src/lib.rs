@@ -53,7 +53,9 @@ pub struct CoreComponent {
     /// WebAssembly configuration.
     pub wasm: WasmConfig,
     /// Trigger configuration.
-    pub trigger: TriggerConfig,
+    pub trigger: Option<TriggerConfig>,
+    /// Middleware IDs.
+    pub middleware_ids: Vec<String>,
 }
 
 /// The location from which an application was loaded.

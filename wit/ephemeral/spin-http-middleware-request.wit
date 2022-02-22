@@ -1,0 +1,11 @@
+enum intercept-request-action {
+  // We're done - continue with next inner handler
+  next,
+  // Don't call inner handlers - return response
+  stop,
+}
+
+/// Called before an HTTP handler. May inspect and modify the incoming request
+/// with the middleware imports interface. May also short-circuit inner handlers
+/// by mutating the empty response returned by response() and returning `stop`.
+intercept-request: function() -> intercept-request-action

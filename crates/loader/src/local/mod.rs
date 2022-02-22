@@ -102,12 +102,14 @@ async fn core(
         allowed_http_hosts,
     };
     let trigger = raw.trigger;
+    let middleware_ids = raw.middleware;
 
     Ok(CoreComponent {
         source,
         id,
         wasm,
         trigger,
+        middleware_ids,
     })
 }
 

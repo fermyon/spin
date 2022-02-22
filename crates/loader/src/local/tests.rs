@@ -23,7 +23,7 @@ async fn test_from_local_source() -> Result<()> {
     let ApplicationTrigger::Http(http) = cfg.info.trigger;
     assert_eq!(http.base, "/".to_string());
 
-    let TriggerConfig::Http(http) = cfg.components[0].trigger.clone();
+    let TriggerConfig::Http(http) = cfg.components[0].clone().trigger.expect("trigger");
     assert_eq!(http.executor.unwrap(), HttpExecutor::Spin);
     assert_eq!(http.route, "/...".to_string());
 
@@ -55,8 +55,9 @@ fn test_manifest() -> Result<()> {
 
     assert_eq!(cfg.info.authors.unwrap().len(), 3);
     assert_eq!(cfg.components[0].id, "four-lights".to_string());
+    assert_eq!(cfg.components[0].middleware, vec!["auth-middleware"]);
 
-    let TriggerConfig::Http(http) = cfg.components[0].trigger.clone();
+    let TriggerConfig::Http(http) = cfg.components[0].clone().trigger.expect("trigger");
     assert_eq!(http.executor.unwrap(), HttpExecutor::Spin);
     assert_eq!(http.route, "/lights".to_string());
 
@@ -90,7 +91,7 @@ fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
 
     let cfg: RawAppManifest = toml::from_str(MANIFEST)?;
 
-    let TriggerConfig::Http(http_config) = &cfg.components[0].trigger;
+    let TriggerConfig::Http(http_config) = &cfg.components[0].clone().trigger.expect("trigger");
 
     match http_config.executor.as_ref().unwrap() {
         HttpExecutor::Spin => panic!("expected wagi http executor"),

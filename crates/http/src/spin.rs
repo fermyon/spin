@@ -79,7 +79,7 @@ impl SpinHttpExecutor {
             body,
         };
 
-        let res = engine.handler(&mut store, req)?;
+        let res = engine.handler(&mut store, req).await?;
         let mut response = http::Response::builder().status(res.status);
         Self::append_headers(response.headers_mut().unwrap(), res.headers)?;
 

@@ -95,7 +95,7 @@ impl HttpExecutor for WagiHttpExecutor {
                 )
             })?;
         tracing::trace!("Calling Wasm entry point");
-        start.call(&mut store, &[], &mut [])?;
+        start.call_async(&mut store, &[], &mut []).await?;
         tracing::trace!("Module execution complete");
 
         wagi::handlers::compose_response(iostream.stdout.lock)

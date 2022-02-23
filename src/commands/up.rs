@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use spin_http_engine::HttpTrigger;
 use std::path::PathBuf;
 use structopt::{clap::AppSettings, StructOpt};
@@ -6,7 +6,6 @@ use structopt::{clap::AppSettings, StructOpt};
 const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
 const BINDLE_ID_OPT: &str = "BINDLE_ID";
 const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
-
 const BINDLE_URL_ENV: &str = "BINDLE_URL";
 
 /// Start the Fermyon HTTP runtime.
@@ -21,10 +20,6 @@ pub struct Up {
     pub address: String,
 
     /// Path to spin.toml
-    /// TODO
-    ///
-    /// The command has to be run from the same directory
-    /// as the configuration file for now.
     #[structopt(
         name = APP_CONFIG_FILE_OPT,
         long = "app",
@@ -39,15 +34,15 @@ pub struct Up {
         conflicts_with = APP_CONFIG_FILE_OPT,
         requires = BINDLE_SERVER_URL_OPT,
     )]
-    pub bindle_id: Option<bindle::Id>,
+    pub bindle: Option<String>,
 
     /// URL of bindle server
     #[structopt(
         name = BINDLE_SERVER_URL_OPT,
-        long = "bindle-server",
+        long = "server",
         env = BINDLE_URL_ENV,
     )]
-    pub bindle_server_url: Option<String>,
+    pub server: Option<String>,
 
     /// Temorary directory for the static assets of the components.
     #[structopt()]
@@ -56,9 +51,14 @@ pub struct Up {
 
 impl Up {
     pub async fn run(self) -> Result<()> {
-        let app = match (&self.app, &self.bindle_id) {
+        let app = match (&self.app, &self.bindle) {
+            (None, None) => bail!("Must specify app file or bindle id"),
             (Some(app), None) => spin_loader::from_file(app, self.tmp).await?,
-            _ => todo!("not implemented yet"),
+            (None, Some(bindle)) => match &self.server {
+                Some(server) => spin_loader::from_bindle(bindle, server, self.tmp).await?,
+                _ => bail!("Loading from a bindle requires a Bindle server URL"),
+            },
+            (Some(_), Some(_)) => bail!("Specify only one of app file or bindle id"),
         };
 
         let trigger = HttpTrigger::new(self.address, app, None).await?;

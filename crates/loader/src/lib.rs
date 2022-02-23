@@ -11,7 +11,11 @@
 #![deny(missing_docs)]
 
 mod assets;
+mod bindle;
 mod local;
 
 /// Load a Spin application configuration from a spin.toml manifest file.
 pub use local::from_file;
+
+/// Load a Spin application configuration from Bindle.
+pub use crate::bindle::from_bindle;

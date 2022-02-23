@@ -29,9 +29,12 @@ pub(crate) async fn prepare_component(
     Ok(DirectoryMount { guest, host })
 }
 
-struct FileMount {
-    src: PathBuf,
-    relative_dst: String,
+/// A file that a component requires to be present at runtime.
+pub struct FileMount {
+    /// The source
+    pub src: PathBuf,
+    /// The location where the component expects the file.
+    pub relative_dst: String,
 }
 
 impl FileMount {

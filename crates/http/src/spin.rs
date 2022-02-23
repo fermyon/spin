@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use http::Uri;
 use hyper::{Body, Request, Response};
 use std::{net::SocketAddr, str::FromStr};
+use tokio::task::spawn_blocking;
 use tracing::log;
 use wasmtime::{Instance, Store};
 
@@ -30,6 +31,7 @@ impl HttpExecutor for SpinHttpExecutor {
             component
         );
         let (store, instance) = engine.prepare_component(component, None, None, None, None)?;
+
         let res = Self::execute_impl(store, instance, base, raw_route, req).await?;
         log::info!(
             "Request finished, sending response with status code {}",
@@ -53,33 +55,39 @@ impl SpinHttpExecutor {
             headers = Self::headers(&mut req, raw_route, base)?;
         }
 
-        let headers: Vec<(&str, &str)> = headers
-            .iter()
-            .map(|(k, v)| (k.as_str(), v.as_str()))
-            .collect();
-
         let engine = SpinHttp::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
         let (parts, bytes) = req.into_parts();
         let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
-        let body = Some(&bytes[..]);
 
-        let method = Self::method(&parts.method);
-        let params = &Self::params(&parts.uri)?;
-        let params: Vec<(&str, &str)> = params
-            .iter()
-            .map(|(k, v)| (k.as_str(), v.as_str()))
-            .collect();
+        let res = spawn_blocking(move || -> Result<crate::spin_http::Response> {
+            let method = Self::method(&parts.method);
 
-        let req = crate::spin_http::Request {
-            method,
-            // uri: &RoutePattern::from(base, raw_route).relative(&parts.uri.to_string()),
-            uri: &parts.uri.path().to_string(),
-            headers: &headers,
-            params: &params,
-            body,
-        };
+            let headers: Vec<(&str, &str)> = headers
+                .iter()
+                .map(|(k, v)| (k.as_str(), v.as_str()))
+                .collect();
 
-        let res = engine.handler(&mut store, req)?;
+            let params = &Self::params(&parts.uri)?;
+            let params: Vec<(&str, &str)> = params
+                .iter()
+                .map(|(k, v)| (k.as_str(), v.as_str()))
+                .collect();
+
+            let body = Some(&bytes[..]);
+
+            let req = crate::spin_http::Request {
+                method,
+                // uri: &RoutePattern::from(base, raw_route).relative(&parts.uri.to_string()),
+                uri: &parts.uri.path().to_string(),
+                headers: &headers,
+                params: &params,
+                body,
+            };
+
+            Ok(engine.handler(&mut store, req)?)
+        })
+        .await??;
+
         let mut response = http::Response::builder().status(res.status);
         Self::append_headers(response.headers_mut().unwrap(), res.headers)?;
 

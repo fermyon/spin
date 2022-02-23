@@ -9,6 +9,8 @@ const HTTP_TEST: &str = "crates/http/tests/rust-http-test";
 const REDIS_WIT: &str = "crates/redis/wit/spin_redis_trigger_v01.wit";
 const REDIS_TEST_RUST: &str = "crates/redis/tests/rust";
 
+const WAGI_TEST: &str = "crates/http/tests/wagi-test";
+
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
@@ -18,8 +20,11 @@ fn main() {
     println!("cargo:rerun-if-changed={}", REDIS_WIT);
     println!("cargo:rerun-if-changed={}/src/lib.rs", REDIS_TEST_RUST);
 
+    println!("cargo:rerun-if-changed={}/src/main.rs", WAGI_TEST);
+
     cargo_build(HTTP_TEST);
     cargo_build(REDIS_TEST_RUST);
+    cargo_build(WAGI_TEST);
 }
 
 fn cargo_build(dir: &str) {

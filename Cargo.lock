@@ -1650,6 +1650,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "mini-internal"
+version = "0.1.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f33afa7f6ca9045791ac23797bf517c9c881c65ba9d8bf83df0e33385050d312"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "miniserde"
+version = "0.1.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80f4a832d68a3f48c31237c73be79574b40884b50b86368f70d7332252f0c2e0"
+dependencies = [
+ "itoa 1.0.1",
+ "mini-internal",
+ "ryu",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2883,6 +2905,7 @@ dependencies = [
  "http 0.2.6",
  "hyper",
  "indexmap",
+ "miniserde",
  "serde",
  "spin-config",
  "spin-engine",

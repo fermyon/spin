@@ -262,7 +262,7 @@ mod tests {
         TriggerConfig,
     };
     use std::{
-        collections::HashMap,
+        collections::{BTreeMap, HashMap},
         net::{IpAddr, Ipv4Addr},
         sync::Once,
     };
@@ -271,6 +271,8 @@ mod tests {
 
     const RUST_ENTRYPOINT_PATH: &str =
         "tests/rust-http-test/target/wasm32-wasi/release/rust_http_test.wasm";
+
+    const WAGI_ENTRYPOINT_PATH: &str = "tests/wagi-test/target/wasm32-wasi/release/wagi-test.wasm";
 
     /// We can only initialize the tracing subscriber once per crate.
     pub(crate) fn init() {
@@ -451,6 +453,73 @@ mod tests {
         assert_eq!(res.status(), StatusCode::OK);
         let body_bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
         assert_eq!(body_bytes.to_vec(), "Hello, Fermyon".as_bytes());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_wagi_http() -> Result<()> {
+        init();
+
+        let info = ApplicationInformation {
+            api_version: "0.1.0".to_string(),
+            name: "test-app".to_string(),
+            version: "1.0.0".to_string(),
+            description: None,
+            authors: vec![],
+            trigger: spin_config::ApplicationTrigger::Http(spin_config::HttpTriggerConfiguration {
+                base: "/".to_owned(),
+            }),
+            namespace: None,
+            origin: fake_file_origin(),
+        };
+
+        let component = CoreComponent {
+            source: ModuleSource::FileReference(WAGI_ENTRYPOINT_PATH.into()),
+            id: "test".to_string(),
+            trigger: TriggerConfig::Http(HttpConfig {
+                route: "/test".to_string(),
+                executor: Some(HttpExecutor::Wagi(Default::default())),
+            }),
+            wasm: spin_config::WasmConfig {
+                environment: HashMap::new(),
+                mounts: vec![],
+                allowed_http_hosts: vec![],
+            },
+        };
+        let components = vec![component];
+
+        let cfg = Configuration::<CoreComponent> { info, components };
+        let trigger = HttpTrigger::new("".to_string(), cfg, None).await?;
+
+        let body = Body::from("Fermyon".as_bytes().to_vec());
+        let req = http::Request::builder()
+            .method("POST")
+            .uri("https://myservice.fermyon.dev/test?abc=def")
+            .header("x-custom-foo", "bar")
+            .header("x-custom-foo2", "bar2")
+            .body(body)
+            .unwrap();
+
+        let res = trigger
+            .handle(
+                req,
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 1234),
+            )
+            .await?;
+        assert_eq!(res.status(), StatusCode::OK);
+        let body_bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
+
+        #[derive(miniserde::Deserialize)]
+        struct Env {
+            args: Vec<String>,
+            vars: BTreeMap<String, String>,
+        }
+        let env: Env =
+            miniserde::json::from_str(std::str::from_utf8(body_bytes.as_ref()).unwrap()).unwrap();
+
+        assert_eq!(env.args, ["/test", "abc=def"]);
+        assert_eq!(env.vars["HTTP_X_CUSTOM_FOO"], "bar".to_string());
 
         Ok(())
     }

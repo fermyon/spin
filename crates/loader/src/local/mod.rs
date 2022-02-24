@@ -10,8 +10,8 @@ pub mod config;
 #[cfg(test)]
 mod tests;
 
-use anyhow::{Context, Result};
-use config::{RawAppInformation, RawAppManifest, RawComponentManifest};
+use anyhow::{anyhow, Context, Result};
+use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawComponentManifest};
 use futures::future;
 use path_absolutize::Absolutize;
 use spin_config::{
@@ -35,19 +35,30 @@ pub async fn from_file(
         .context("Failed to resolve absolute path to manifest file")?;
     let manifest = raw_manifest_from_file(&app).await?;
 
-    prepare(manifest, app, base_dst).await
+    prepare_any_version(manifest, app, base_dst).await
 }
 
 /// Reads the spin.toml file as a raw manifest.
-pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppManifest> {
+pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppManifestAnyVersion> {
     let mut buf = vec![];
     File::open(app.as_ref())
         .await?
         .read_to_end(&mut buf)
         .await
-        .with_context(|| format!("Cannot read manifest file from {:?}", app.as_ref()))?;
-    let manifest: RawAppManifest = toml::from_slice(&buf)?;
+        .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
+
+    let manifest: RawAppManifestAnyVersion = toml::from_slice(&buf)?;
     Ok(manifest)
+}
+
+async fn prepare_any_version(
+    raw: RawAppManifestAnyVersion,
+    src: impl AsRef<Path>,
+    base_dst: Option<PathBuf>,
+) -> Result<Configuration<CoreComponent>> {
+    match raw {
+        RawAppManifestAnyVersion::V0_1_0(raw) => prepare(raw, src, base_dst).await,
+    }
 }
 
 async fn prepare(
@@ -59,6 +70,7 @@ async fn prepare(
         Some(d) => d,
         None => tempfile::tempdir()?.into_path(),
     };
+
     let info = info(raw.info, &src);
 
     let components = future::join_all(
@@ -124,7 +136,7 @@ async fn core(
 /// Convert the raw application information from the spin.toml manifest to the standard configuration.
 fn info(raw: RawAppInformation, src: impl AsRef<Path>) -> ApplicationInformation {
     ApplicationInformation {
-        api_version: raw.api_version,
+        api_version: "0.1.0".to_owned(),
         name: raw.name,
         version: raw.version,
         description: raw.description,

@@ -40,7 +40,8 @@ async fn test_from_local_source() -> Result<()> {
 fn test_manifest() -> Result<()> {
     const MANIFEST: &str = include_str!("../../tests/valid-manifest.toml");
 
-    let cfg: RawAppManifest = toml::from_str(MANIFEST)?;
+    let cfg_any: RawAppManifestAnyVersion = toml::from_str(MANIFEST)?;
+    let RawAppManifestAnyVersion::V0_1_0(cfg) = cfg_any;
 
     assert_eq!(cfg.info.name, "chain-of-command");
     assert_eq!(cfg.info.version, "6.11.2");
@@ -82,12 +83,30 @@ fn test_manifest() -> Result<()> {
 }
 
 #[test]
+fn test_unknown_version_is_rejected() {
+    const MANIFEST: &str = include_str!("../../tests/invalid-version.toml");
+
+    let cfg = toml::from_str::<RawAppManifestAnyVersion>(MANIFEST);
+    assert!(
+        cfg.is_err(),
+        "Expected version to be validated but it wasn't"
+    );
+
+    let e = cfg.unwrap_err().to_string();
+    assert!(
+        e.contains("apiVersion"),
+        "Expected error to mention `apiVersion`"
+    );
+}
+
+#[test]
 fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
     const MANIFEST: &str = include_str!("../../tests/wagi-custom-entrypoint.toml");
 
     const EXPECTED_CUSTOM_ENTRYPOINT: &str = "custom-entrypoint";
 
-    let cfg: RawAppManifest = toml::from_str(MANIFEST)?;
+    let cfg_any: RawAppManifestAnyVersion = toml::from_str(MANIFEST)?;
+    let RawAppManifestAnyVersion::V0_1_0(cfg) = cfg_any;
 
     let TriggerConfig::Http(http_config) = &cfg.components[0].trigger;
 

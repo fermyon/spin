@@ -10,7 +10,7 @@ use crate::bindle_writer;
 use crate::bindle_writer::ParcelSources;
 
 use spin_loader::bindle::config as bindle_schema;
-use spin_loader::local::config as local_schema;
+use spin_loader::local::config::{self as local_schema, RawAppManifestAnyVersion};
 
 /// Expands a file-based application manifest to a Bindle invoice.
 pub async fn expand_manifest(
@@ -22,6 +22,7 @@ pub async fn expand_manifest(
         .absolutize()
         .context("Failed to resolve absoiute path to manifest file")?;
     let manifest = spin_loader::local::raw_manifest_from_file(&app_file).await?;
+    let RawAppManifestAnyVersion::V0_1_0(manifest) = manifest;
     let app_dir = app_dir(&app_file)?;
 
     // * create a new spin.toml-like document where

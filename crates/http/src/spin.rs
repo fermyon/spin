@@ -77,8 +77,7 @@ impl SpinHttpExecutor {
 
             let req = crate::spin_http::Request {
                 method,
-                // uri: &RoutePattern::from(base, raw_route).relative(&parts.uri.to_string()),
-                uri: &parts.uri.path().to_string(),
+                uri: parts.uri.path(),
                 headers: &headers,
                 params: &params,
                 body,

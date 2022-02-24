@@ -1,6 +1,6 @@
 use anyhow::Error;
 use spin_cli::commands::{
-    bindle::BindleCommands, new::NewCommand, templates::TemplateCommands, up::Up,
+    bindle::BindleCommands, new::NewCommand, templates::TemplateCommands, up::UpCommand,
 };
 use structopt::{clap::AppSettings, StructOpt};
 
@@ -25,7 +25,7 @@ async fn main() -> Result<(), Error> {
 enum SpinApp {
     Templates(TemplateCommands),
     New(NewCommand),
-    Up(Up),
+    Up(UpCommand),
     Bindle(BindleCommands),
 }
 

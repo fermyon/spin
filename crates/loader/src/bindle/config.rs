@@ -5,6 +5,7 @@ use std::collections::HashMap;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct RawAppManifest {
+    /// The application trigger.
     pub trigger: spin_config::ApplicationTrigger,
 
     /// Configuration for the application components.
@@ -32,10 +33,10 @@ pub struct RawComponentManifest {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct RawWasmConfig {
-    /// Environment variables to be mapped inside the Wasm module at runtime.
-    pub environment: Option<HashMap<String, String>>,
     /// The parcel group to be mapped inside the Wasm module at runtime.
     pub files: Option<String>,
     /// Optional list of HTTP hosts the component is allowed to connect.
     pub allowed_http_hosts: Option<Vec<String>>,
+    /// Environment variables to be mapped inside the Wasm module at runtime.
+    pub environment: Option<HashMap<String, String>>,
 }

@@ -1,5 +1,7 @@
 //! Commands for the Spin CLI.
 
+/// Command for creating bindles.
+pub mod bindle;
 /// Command for creating a new application.
 pub mod new;
 /// Commands for working with templates.

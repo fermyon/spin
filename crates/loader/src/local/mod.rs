@@ -3,16 +3,17 @@
 #![deny(missing_docs)]
 
 /// Module to prepare the assets for the components of an application.
-mod assets;
+pub mod assets;
 /// Configuration representation for a Spin apoplication as a local spin.toml file.
-mod config;
+pub mod config;
 
 #[cfg(test)]
 mod tests;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use config::{RawAppInformation, RawAppManifest, RawComponentManifest};
 use futures::future;
+use path_absolutize::Absolutize;
 use spin_config::{
     ApplicationInformation, ApplicationOrigin, Configuration, CoreComponent, ModuleSource,
     WasmConfig,
@@ -28,16 +29,25 @@ pub async fn from_file(
     app: impl AsRef<Path>,
     base_dst: Option<PathBuf>,
 ) -> Result<Configuration<CoreComponent>> {
+    let app = app
+        .as_ref()
+        .absolutize()
+        .context("Failed to resolve absolute path to manifest file")?;
+    let manifest = raw_manifest_from_file(&app).await?;
+
+    prepare(manifest, app, base_dst).await
+}
+
+/// Reads the spin.toml file as a raw manifest.
+pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppManifest> {
     let mut buf = vec![];
     File::open(app.as_ref())
         .await?
         .read_to_end(&mut buf)
         .await
-        .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
-
+        .with_context(|| format!("Cannot read manifest file from {:?}", app.as_ref()))?;
     let manifest: RawAppManifest = toml::from_slice(&buf)?;
-
-    prepare(manifest, app, base_dst).await
+    Ok(manifest)
 }
 
 async fn prepare(

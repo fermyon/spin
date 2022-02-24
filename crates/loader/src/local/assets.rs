@@ -30,6 +30,7 @@ pub(crate) async fn prepare_component(
 }
 
 /// A file that a component requires to be present at runtime.
+#[derive(Debug)]
 pub struct FileMount {
     /// The source
     pub src: PathBuf,
@@ -50,16 +51,14 @@ impl FileMount {
 }
 
 /// Generate a vector of file mounts for a component given all its file patterns.
-fn collect(patterns: &[String], rel: impl AsRef<Path>) -> Result<Vec<FileMount>> {
-    Ok(patterns
-        .iter()
-        .map(|pattern| {
-            collect_pattern(pattern, &rel)
-                .with_context(|| anyhow!("Failed to collect file mounts for {}", pattern))
-        })
-        .flatten()
-        .flatten()
-        .collect())
+pub fn collect(patterns: &[String], rel: impl AsRef<Path>) -> Result<Vec<FileMount>> {
+    let results = patterns.iter().map(|pattern| {
+        collect_pattern(pattern, &rel)
+            .with_context(|| format!("Failed to collect file mounts for {}", pattern))
+    });
+    let collections = results.collect::<Result<Vec<_>>>()?;
+    let collection = collections.into_iter().flatten().collect();
+    Ok(collection)
 }
 
 /// Generate a vector of file mounts given a file pattern.

@@ -12,34 +12,34 @@ use std::{collections::HashMap, path::PathBuf};
 /// This is the main structure spin.toml deserializes into.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub(crate) struct RawAppManifest {
+pub struct RawAppManifest {
     /// General application information.
     #[serde(flatten)]
-    pub(crate) info: RawAppInformation,
+    pub info: RawAppInformation,
 
     /// Configuration for the application components.
     #[serde(rename = "component")]
-    pub(crate) components: Vec<RawComponentManifest>,
+    pub components: Vec<RawComponentManifest>,
 }
 
 /// General application information.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub(crate) struct RawAppInformation {
+pub struct RawAppInformation {
     /// Spin API version.
-    pub(crate) api_version: String,
+    pub api_version: String,
     /// Name of the application.
-    pub(crate) name: String,
+    pub name: String,
     /// Version of the application.
-    pub(crate) version: String,
+    pub version: String,
     /// Description of the application.
-    pub(crate) description: Option<String>,
+    pub description: Option<String>,
     /// Authors of the application.
-    pub(crate) authors: Option<Vec<String>>,
+    pub authors: Option<Vec<String>>,
     /// Trigger for the application.
-    pub(crate) trigger: ApplicationTrigger,
+    pub trigger: ApplicationTrigger,
     /// Namespace for the application.
-    pub(crate) namespace: Option<String>,
+    pub namespace: Option<String>,
 }
 
 /// Core component configuration.

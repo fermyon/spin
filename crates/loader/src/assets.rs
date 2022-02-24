@@ -31,7 +31,7 @@ pub(crate) fn to_relative(path: impl AsRef<Path>, relative_to: impl AsRef<Path>)
         .ok_or_else(|| anyhow!("Can't convert '{}' back to relative path", rel.display()))?
         .to_owned()
         // TODO: a better way
-        .replace("\\", "/"))
+        .replace('\\', "/"))
 }
 
 /// Ensure all paths are under a given directory.

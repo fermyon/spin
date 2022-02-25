@@ -4,7 +4,7 @@ use spin_http::{Request, Response};
 // Generate Rust bindings for interface defined in spin-http.wit file
 wit_bindgen_rust::export!("spin-http.wit");
 
-struct SpinHttp;
+struct SpinHttp {}
 impl spin_http::SpinHttp for SpinHttp {
     // Implement the `handler` entrypoint for Spin HTTP components.
     fn handler(req: Request) -> Response {

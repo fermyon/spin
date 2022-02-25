@@ -31,6 +31,9 @@ tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 
+[dev-dependencies]
+hyper = { version = "0.14", features = [ "full" ] }
+
 [workspace]
 members = [ "crates/config", "crates/engine", "crates/http", "crates/loader", "crates/templates" ]
 

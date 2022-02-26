@@ -5,7 +5,7 @@
 /// Input / Output redirects.
 pub mod io;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use io::IoStreamRedirects;
 use spin_config::{CoreComponent, DirectoryMount, ModuleSource};
 use std::{collections::HashMap, sync::Arc};
@@ -107,19 +107,30 @@ impl<T: Default> Builder<T> {
             let core = c.clone();
             let module = match c.source.clone() {
                 ModuleSource::FileReference(p) => {
-                    let module = Module::from_file(&self.engine, &p)?;
-                    log::trace!("Created module from file {:?}", p);
+                    let module = Module::from_file(&self.engine, &p).with_context(|| {
+                        format!(
+                            "Cannot create module for component {} from file {:?}",
+                            &c.id, &p
+                        )
+                    })?;
+                    log::trace!("Created module for component {} from file {:?}", &c.id, &p);
                     module
                 }
                 ModuleSource::Buffer(bytes) => {
-                    let module = Module::from_binary(&self.engine, &bytes)?;
-                    log::trace!("Created module from buffer with size {}", bytes.len());
+                    let module = Module::from_binary(&self.engine, &bytes).with_context(|| {
+                        format!("Cannot create module for component {} from buffer", &c.id)
+                    })?;
+                    log::trace!(
+                        "Created module for component {} from buffer with size {}",
+                        &c.id,
+                        bytes.len()
+                    );
                     module
                 }
             };
 
             let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
-            log::debug!("Created pre-instance from module.");
+            log::debug!("Created pre-instance from module for component {}.", &c.id);
 
             components.insert(c.id.clone(), Component { core, pre });
         }

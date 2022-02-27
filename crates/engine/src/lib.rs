@@ -109,20 +109,22 @@ impl<T: Default> Builder<T> {
                 ModuleSource::FileReference(p) => {
                     let module = Module::from_file(&self.engine, &p).with_context(|| {
                         format!(
-                            "Cannot create module for component {} from file {:?}",
-                            &c.id, &p
+                            "Cannot create module for component {} from file {}",
+                            &c.id,
+                            &p.display()
                         )
                     })?;
                     log::trace!("Created module for component {} from file {:?}", &c.id, &p);
                     module
                 }
-                ModuleSource::Buffer(bytes) => {
+                ModuleSource::Buffer(bytes, info) => {
                     let module = Module::from_binary(&self.engine, &bytes).with_context(|| {
-                        format!("Cannot create module for component {} from buffer", &c.id)
+                        format!("Cannot create module for component {} from {}", &c.id, info)
                     })?;
                     log::trace!(
-                        "Created module for component {} from buffer with size {}",
+                        "Created module for component {} from {} with size {}",
                         &c.id,
+                        info,
                         bytes.len()
                     );
                     module

@@ -96,7 +96,7 @@ async fn core(
         .await
         .with_context(|| anyhow!("Cannot get module source from bindle"))?;
 
-    let source = ModuleSource::Buffer(bytes);
+    let source = ModuleSource::Buffer(bytes, format!("parcel {}", raw.source));
     let id = raw.id;
     let parcels = invoice
         .parcel

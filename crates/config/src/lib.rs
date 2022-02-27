@@ -118,8 +118,9 @@ pub enum ModuleSource {
     /// A local path to the entrypoint Wasm module.
     FileReference(PathBuf),
 
-    /// A buffer that contains the entrypoint Wasm module.
-    Buffer(Vec<u8>),
+    /// A buffer that contains the entrypoint Wasm module and
+    /// source information.
+    Buffer(Vec<u8>, String),
 }
 
 impl Debug for ModuleSource {
@@ -128,9 +129,11 @@ impl Debug for ModuleSource {
             ModuleSource::FileReference(fp) => {
                 f.debug_struct("FileReference").field("file", fp).finish()
             }
-            ModuleSource::Buffer(bytes) => {
-                f.debug_struct("Buffer").field("len", &bytes.len()).finish()
-            }
+            ModuleSource::Buffer(bytes, info) => f
+                .debug_struct("Buffer")
+                .field("len", &bytes.len())
+                .field("info", info)
+                .finish(),
         }
     }
 }

@@ -35,7 +35,8 @@ pub struct Prepare {
     /// Path to spin.toml
     #[structopt(
         name = APP_CONFIG_FILE_OPT,
-        long = "app",
+        short = "f",
+        long = "file",
     )]
     pub app: PathBuf,
 
@@ -54,7 +55,8 @@ pub struct Push {
     /// Path to spin.toml
     #[structopt(
         name = APP_CONFIG_FILE_OPT,
-        long = "app",
+        short = "f",
+        long = "file",
     )]
     pub app: PathBuf,
 

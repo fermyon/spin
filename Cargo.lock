@@ -2896,6 +2896,7 @@ dependencies = [
  "tracing-futures",
  "tracing-subscriber 0.3.8",
  "wasi-common",
+ "wasi-experimental-http-wasmtime 0.9.0 (git+https://github.com/deislabs/wasi-experimental-http?rev=4ed321d6943f75546e38bba80e14a59797aa29de)",
  "wasmtime",
  "wasmtime-wasi",
  "wit-bindgen-rust",
@@ -3689,7 +3690,7 @@ dependencies = [
  "url-escape",
  "wasi-cap-std-sync",
  "wasi-common",
- "wasi-experimental-http-wasmtime",
+ "wasi-experimental-http-wasmtime 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmtime",
  "wasmtime-cache",
  "wasmtime-wasi",
@@ -3806,6 +3807,25 @@ name = "wasi-experimental-http-wasmtime"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2611669cdde1adfb2433ed99a175298a26f7f496da296b8d9dc88f99bb1d3b30"
+dependencies = [
+ "anyhow",
+ "bytes 1.1.0",
+ "futures",
+ "http 0.2.6",
+ "reqwest",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "url 2.2.2",
+ "wasi-common",
+ "wasmtime",
+ "wasmtime-wasi",
+]
+
+[[package]]
+name = "wasi-experimental-http-wasmtime"
+version = "0.9.0"
+source = "git+https://github.com/deislabs/wasi-experimental-http?rev=4ed321d6943f75546e38bba80e14a59797aa29de#4ed321d6943f75546e38bba80e14a59797aa29de"
 dependencies = [
  "anyhow",
  "bytes 1.1.0",

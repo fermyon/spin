@@ -73,11 +73,34 @@ pub struct RawWasmConfig {
     pub environment: Option<HashMap<String, String>>,
     /// Files to be mapped inside the Wasm module at runtime.
     ///
-    /// In the local configuration file, this is a vector or file paths or
-    /// globs relative to the spin.toml file.
-    pub files: Option<Vec<String>>,
+    /// In the local configuration file, this is a vector, each element of which
+    /// is either a file paths or glob relative to the spin.toml file, or a
+    /// mapping of a source path to an absolute mount path in the guest.
+    pub files: Option<Vec<RawFileMount>>,
     /// Optional list of HTTP hosts the component is allowed to connect.
     pub allowed_http_hosts: Option<Vec<String>>,
+}
+
+/// An entry in the `files` list mapping a source path to an absolute
+/// mount path in the guest.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct RawDirectoryPlacement {
+    /// The source to mount.
+    pub source: PathBuf,
+    /// Where to mount the directory specified in `source`.
+    pub destination: PathBuf,
+}
+
+/// A specification for a file or set of files to mount in the
+/// Wasm module.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase", untagged)]
+pub enum RawFileMount {
+    /// Mount a specified directory at a specified location.
+    Placement(RawDirectoryPlacement),
+    /// Mount a file or set of files at their relative path.
+    Pattern(String),
 }
 
 /// Source for the module.

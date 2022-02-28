@@ -1,4 +1,4 @@
-use crate::local::config::RawModuleSource;
+use crate::local::config::{RawDirectoryPlacement, RawFileMount, RawModuleSource};
 
 use super::*;
 use anyhow::Result;
@@ -67,9 +67,19 @@ fn test_manifest() -> Result<()> {
     assert_eq!(test_env.get("env2").unwrap(), "second");
 
     let test_files = &test_component.wasm.files.as_ref().unwrap();
-    assert_eq!(test_files.len(), 2);
-    assert_eq!(test_files[0], "file.txt");
-    assert_eq!(test_files[1], "subdir/another.txt");
+    assert_eq!(test_files.len(), 3);
+    assert_eq!(test_files[0], RawFileMount::Pattern("file.txt".to_owned()));
+    assert_eq!(
+        test_files[1],
+        RawFileMount::Placement(RawDirectoryPlacement {
+            source: PathBuf::from("valid-with-files"),
+            destination: PathBuf::from("/vwf"),
+        })
+    );
+    assert_eq!(
+        test_files[2],
+        RawFileMount::Pattern("subdir/another.txt".to_owned())
+    );
 
     let b = match cfg.components[1].source.clone() {
         RawModuleSource::Bindle(b) => b,

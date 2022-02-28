@@ -4,6 +4,9 @@ mod routes;
 mod spin;
 mod wagi;
 
+pub use tls::TlsConfig;
+mod tls;
+
 use crate::wagi::WagiHttpExecutor;
 use anyhow::{Error, Result};
 use async_trait::async_trait;
@@ -18,8 +21,16 @@ use spin::SpinHttpExecutor;
 use spin_config::{ApplicationTrigger, Configuration, CoreComponent, TriggerConfig};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http::SpinHttpData;
-use std::{net::SocketAddr, sync::Arc};
+use std::{future::ready, net::SocketAddr, sync::Arc};
 use tracing::log;
+
+use futures_util::stream::StreamExt;
+
+use hyper::server::accept;
+
+use tls_listener::TlsListener;
+use tokio_rustls::server::TlsStream;
+use tokio::net::{TcpStream, TcpListener};
 
 wit_bindgen_wasmtime::import!("wit/ephemeral/spin-http.wit");
 
@@ -40,6 +51,8 @@ pub struct HttpTrigger {
     pub address: String,
     /// Configuration for the application.
     pub app: Configuration<CoreComponent>,
+    /// TLS configuration for the server.
+    tls: Option<TlsConfig>,
     /// Router.
     router: Router,
     /// Spin execution context.
@@ -52,6 +65,7 @@ impl HttpTrigger {
         address: String,
         app: Configuration<CoreComponent>,
         wasmtime: Option<wasmtime::Config>,
+        tls: Option<TlsConfig>,
     ) -> Result<Self> {
         let mut config = ExecutionContextConfiguration::new(app.clone());
         if let Some(wasmtime) = wasmtime {
@@ -67,6 +81,7 @@ impl HttpTrigger {
             app,
             router,
             engine,
+            tls,
         })
     }
 
@@ -149,6 +164,15 @@ impl HttpTrigger {
 
     /// Run the HTTP trigger indefinitely.
     pub async fn run(&self) -> Result<()> {
+        if let Some(tls) = &self.tls {
+            self.serve_tls(tls).await?;
+        } else {
+            self.serve().await?;
+        }
+        Ok(())
+    }
+
+    async fn serve(&self) -> Result<()> {
         let mk_svc = make_service_fn(move |addr: &AddrStream| {
             let t = self.clone();
             let addr = addr.remote_addr();
@@ -162,11 +186,71 @@ impl HttpTrigger {
             }
         });
 
+        let addr: SocketAddr = self.address.parse()?;
+
+        log::info!("Serving HTTP on address {:?}", addr);
+
         let shutdown_signal = on_ctrl_c()?;
 
-        let addr: SocketAddr = self.address.parse()?;
-        log::info!("Serving on address {:?}", addr);
         Server::bind(&addr)
+            .serve(mk_svc)
+            .with_graceful_shutdown(async {
+                shutdown_signal.await.ok();
+            })
+            .await?;
+
+        log::debug!("User requested shutdown: exiting");
+
+        Ok(())
+    }
+
+    async fn serve_tls(&self, tls: &TlsConfig) -> Result<()> {
+        let mk_svc = make_service_fn(move |conn: &TlsStream<TcpStream>| {
+            let (inner, _) = conn.get_ref();
+            let addr_res = inner.peer_addr().map_err(|e| e.to_string());
+            let t = self.clone();
+
+            Box::pin(async move {
+                Ok::<_, Error>(service_fn(move |req| {
+                    let t2 = t.clone();
+                    let a_res = addr_res.clone();
+
+                    async move {
+                        match a_res {
+                            Ok(addr) => t2.handle(req, addr).await,
+                            Err(e) => {
+                                log::warn!("Socket connection error on new connection: {}", e);
+                                Ok(Response::builder()
+                                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                                    .body(Body::from("Socket connection error"))
+                                    .unwrap())
+                            },
+                        }
+                    }
+                }))
+            })
+        });
+
+        let addr: SocketAddr = self.address.parse()?;
+        let listener = TcpListener::bind(&addr).await?;
+
+        let tls_srv_cfg = tls.server_config()?;
+
+        let incoming = accept::from_stream(TlsListener::new(tls_srv_cfg, listener)
+            .filter(|conn| {
+                if let Err(err) = conn {
+                    log::warn!("{:?}", err);
+                    ready(false)
+                } else {
+                    ready(true)
+                }
+            }));
+
+        log::info!("Serving HTTPS on address {:?}", addr);
+
+        let shutdown_signal = on_ctrl_c()?;
+
+        Server::builder(incoming)
             .serve(mk_svc)
             .with_graceful_shutdown(async {
                 shutdown_signal.await.ok();
@@ -253,6 +337,7 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
     ) -> Result<Response<Body>>;
 }
 
+// TODO(brian): Add test for TLS
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -431,7 +516,7 @@ mod tests {
         let components = vec![component];
 
         let cfg = Configuration::<CoreComponent> { info, components };
-        let trigger = HttpTrigger::new("".to_string(), cfg, None).await?;
+        let trigger = HttpTrigger::new("".to_string(), cfg, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()

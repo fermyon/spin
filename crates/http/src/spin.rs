@@ -15,16 +15,14 @@ pub struct SpinHttpExecutor;
 
 #[async_trait]
 impl HttpExecutor for SpinHttpExecutor {
-    type Config = ();
-
     async fn execute(
+        &self,
         engine: &ExecutionContext,
         component: &str,
         base: &str,
         raw_route: &str,
         req: Request<Body>,
         _client_addr: SocketAddr,
-        _config: &Self::Config,
     ) -> Result<Response<Body>> {
         log::trace!(
             "Executing request using the Spin executor for component {}",

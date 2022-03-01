@@ -27,6 +27,7 @@ tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 wasi-common = "0.34"
+wasi-experimental-http-wasmtime = { git = "https://github.com/deislabs/wasi-experimental-http", rev = "4ed321d6943f75546e38bba80e14a59797aa29de" }
 wasmtime = "0.34"
 wasmtime-wasi = "0.34"
 wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }

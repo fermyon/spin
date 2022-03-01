@@ -48,6 +48,8 @@ impl ExecutionContextConfiguration {
 pub struct RuntimeContext<T> {
     /// WASI context data.
     pub wasi: Option<WasiCtx>,
+    /// Outbound HTTP configuration.
+    pub http: Option<wasi_experimental_http_wasmtime::HttpCtx>,
     /// Generic runtime data that can be configured by specialized engines.
     pub data: Option<T>,
 }
@@ -86,18 +88,17 @@ impl<T: Default> Builder<T> {
         Ok(self)
     }
 
-    // TODO
-    //
-    // The current implementation of the outbound HTTP library makes it impossible to split
-    // linking the implementation and passing runtime data, which means with this implementation,
-    // we must either have a global list of allowed hosts per-application, or switch to the new
-    // outbound HTTP implementation.
-    //
     // Importing the next version of the outbound HTTP library
     // from https://github.com/fermyon/wasi-experimental-toolkit/tree/main/crates/http-wasmtime
     // doesn't work as a git import, as it can't find the WIT file.
-    //
-    // For now, we skip adding outbound HTTP functionality by default.
+
+    /// Configure the ability to execute outbound HTTP requests.
+    pub fn link_http(&mut self) -> Result<&Self> {
+        wasi_experimental_http_wasmtime::HttpState::new()?
+            .add_to_linker(&mut self.linker, |ctx| ctx.http.as_ref().unwrap())?;
+
+        Ok(self)
+    }
 
     /// Build a new instance of the execution context.
     #[instrument(skip(self))]
@@ -155,6 +156,7 @@ impl<T: Default> Builder<T> {
     ) -> Result<ExecutionContext<T>> {
         let mut builder = Self::new(config)?;
         builder.link_wasi()?;
+        builder.link_http()?;
 
         builder.build().await
     }
@@ -237,7 +239,13 @@ impl<T: Default> ExecutionContext<T> {
                 wasi_ctx.preopened_dir(Dir::open_ambient_dir(host, ambient_authority())?, guest)?;
         }
 
+        let http = wasi_experimental_http_wasmtime::HttpCtx {
+            allowed_hosts: Some(component.core.wasm.allowed_http_hosts.clone()),
+            max_concurrent_requests: None,
+        };
+
         ctx.wasi = Some(wasi_ctx.build());
+        ctx.http = Some(http);
         ctx.data = data;
 
         let store = Store::new(&self.engine, ctx);

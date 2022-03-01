@@ -2841,6 +2841,7 @@ dependencies = [
  "dunce",
  "env_logger",
  "futures",
+ "hyper",
  "path-absolutize",
  "semver",
  "serde",

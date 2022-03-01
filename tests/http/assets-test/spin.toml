@@ -1,0 +1,14 @@
+apiVersion = "0.1.0"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+name = "spin-assets-test"
+trigger = {type = "http", base = "/"}
+version = "1.0.0"
+
+[[component]]
+id = "fs"
+source = "spin_static_fs.wasm"
+files = ["static/thisshouldbemounted/*"]
+environment = { PATH_PREFIX = "static/" }
+[component.trigger]
+executor = {type = "spin"}
+route = "/static/..."

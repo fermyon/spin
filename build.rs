@@ -8,8 +8,10 @@ const HTTP_TEST: &str = "crates/http/tests/rust-http-test";
 
 const REDIS_WIT: &str = "crates/redis/wit/spin_redis_trigger_v01.wit";
 const REDIS_TEST_RUST: &str = "crates/redis/tests/rust";
-
 const WAGI_TEST: &str = "crates/http/tests/wagi-test";
+
+const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
+const RUST_HTTP_INTEGRATION_ENV_TEST: &str = "tests/http/headers-env-routes-test";
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
@@ -25,6 +27,9 @@ fn main() {
     cargo_build(HTTP_TEST);
     cargo_build(REDIS_TEST_RUST);
     cargo_build(WAGI_TEST);
+
+    cargo_build(RUST_HTTP_INTEGRATION_TEST);
+    cargo_build(RUST_HTTP_INTEGRATION_ENV_TEST);
 }
 
 fn cargo_build(dir: &str) {

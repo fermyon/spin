@@ -23,13 +23,15 @@ pub struct UpCommand {
     /// Path to spin.toml.
     #[structopt(
         name = APP_CONFIG_FILE_OPT,
-        long = "app",
+        short = "f",
+        long = "file",
         conflicts_with = BINDLE_ID_OPT,
     )]
     pub app: Option<PathBuf>,
     /// ID of application bindle.
     #[structopt(
         name = BINDLE_ID_OPT,
+        short = "b",
         long = "bindle",
         conflicts_with = APP_CONFIG_FILE_OPT,
         requires = BINDLE_SERVER_URL_OPT,

@@ -1,0 +1,17 @@
+[package]
+edition = "2021"
+name = "spin-sdk"
+version = "0.1.0"
+
+[lib]
+name = "spin_sdk"
+
+[dependencies]
+anyhow = "1"
+bytes = "1"
+http = "0.2"
+spin-macro = {path = "macro"}
+wasi-experimental-http = { git = "https://github.com/radu-matei/wasi-experimental-http", branch = "from-client" }
+
+[workspace]
+members = ["macro"]

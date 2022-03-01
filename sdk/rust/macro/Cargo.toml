@@ -1,0 +1,19 @@
+[package]
+edition = "2021"
+name = "spin-macro"
+version = "0.1.0"
+
+[lib]
+name = "spin_macro"
+proc-macro = true
+
+[dependencies]
+anyhow = "1"
+bytes = "1"
+http = "0.2"
+proc-macro2 = "1"
+quote = "1.0"
+syn = { version = "1.0", features = [ "full" ]}
+wit-bindgen-gen-rust-wasm = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }
+wit-bindgen-gen-core = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }
+wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }

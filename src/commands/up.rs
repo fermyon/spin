@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use spin_config::{Configuration, CoreComponent};
-use spin_http_engine::HttpTrigger;
+use spin_http_engine::{HttpTrigger, TlsConfig};
 use std::path::PathBuf;
 use structopt::{clap::AppSettings, StructOpt};
 
@@ -8,6 +8,12 @@ const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
 const BINDLE_ID_OPT: &str = "BINDLE_ID";
 const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
 const BINDLE_URL_ENV: &str = "BINDLE_URL";
+
+const TLS_CERT_FILE_OPT: &str = "TLS_CERT_FILE";
+const TLS_KEY_FILE_OPT: &str = "TLS_KEY_FILE";
+
+const TLS_CERT_ENV_VAR: &str = "SPIN_TLS_CERT";
+const TLS_KEY_ENV_VAR: &str = "SPIN_TLS_KEY";
 
 /// Start the Fermyon HTTP runtime.
 #[derive(StructOpt, Debug)]
@@ -50,6 +56,24 @@ pub struct UpCommand {
     /// Pass an environment variable (key=value) to all components of the application.
     #[structopt(long = "env", short = "e", parse(try_from_str = parse_env_var))]
     env: Vec<(String, String)>,
+
+    /// The path to the certificate to use for https, if this is not set, normal http will be used. The cert should be in PEM format
+    #[structopt(
+        name = TLS_CERT_FILE_OPT,
+        long = "tls-cert",
+        env = TLS_CERT_ENV_VAR,
+        requires = TLS_KEY_FILE_OPT,
+    )]
+    pub tls_cert: Option<PathBuf>,
+
+    /// The path to the certificate key to use for https, if this is not set, normal http will be used. The key should be in PKCS#8 format
+    #[structopt(
+        name = TLS_KEY_FILE_OPT,
+        long = "tls-key",
+        env = TLS_KEY_ENV_VAR,
+        requires = TLS_CERT_FILE_OPT,
+    )]
+    pub tls_key: Option<PathBuf>,
 }
 
 impl UpCommand {
@@ -65,7 +89,24 @@ impl UpCommand {
         };
         append_env(&mut app, &self.env)?;
 
-        let trigger = HttpTrigger::new(self.address, app, None).await?;
+        let tls = match (self.tls_key, self.tls_cert) {
+            (Some(key_path), Some(cert_path)) => {
+                if !cert_path.is_file() {
+                    bail!("TLS certificate file does not exist or is not a file")
+                }
+                if !key_path.is_file() {
+                    bail!("TLS key file does not exist or is not a file")
+                }
+                Some(TlsConfig {
+                    cert_path,
+                    key_path,
+                })
+            }
+            (None, None) => None,
+            _ => unreachable!(),
+        };
+
+        let trigger = HttpTrigger::new(self.address, app, None, tls).await?;
         trigger.run().await
     }
 }

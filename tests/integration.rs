@@ -386,7 +386,7 @@ mod integration_tests {
                 Ok(_) => break,
                 Err(_) => {
                     wait_count += 1;
-                    sleep(Duration::from_secs(1)).await;
+                    sleep(Duration::from_secs(120)).await;
                 }
             }
         }

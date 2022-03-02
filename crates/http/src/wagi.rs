@@ -16,20 +16,20 @@ use tracing::log;
 use wasi_common::pipe::{ReadPipe, WritePipe};
 
 #[derive(Clone)]
-pub struct WagiHttpExecutor;
+pub struct WagiHttpExecutor {
+    pub wagi_config: WagiConfig,
+}
 
 #[async_trait]
 impl HttpExecutor for WagiHttpExecutor {
-    type Config = WagiConfig;
-
     async fn execute(
+        &self,
         engine: &ExecutionContext,
         component: &str,
         base: &str,
         raw_route: &str,
         req: Request<Body>,
         client_addr: SocketAddr,
-        wagi_config: &Self::Config,
     ) -> Result<Response<Body>> {
         log::trace!(
             "Executing request using the Wagi executor for component {}",
@@ -72,6 +72,7 @@ impl HttpExecutor for WagiHttpExecutor {
                 .unwrap_or(&default_host)
                 .as_bytes(),
         )?;
+
         // Add the default Spin headers.
         // Note that this overrides any existing headers previously set by Wagi.
         for (k, v) in crate::default_headers(&parts.uri, raw_route, base, host)? {
@@ -87,11 +88,11 @@ impl HttpExecutor for WagiHttpExecutor {
         )?;
 
         let start = instance
-            .get_func(&mut store, &wagi_config.entrypoint)
+            .get_func(&mut store, &self.wagi_config.entrypoint)
             .ok_or_else(|| {
                 anyhow::anyhow!(
                     "No such function '{}' in {}",
-                    wagi_config.entrypoint,
+                    self.wagi_config.entrypoint,
                     component
                 )
             })?;

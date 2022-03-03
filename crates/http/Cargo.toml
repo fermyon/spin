@@ -11,25 +11,31 @@ doctest = false
 anyhow = "1.0"
 async-trait = "0.1"
 bytes = "1.1"
+cap-std = "0.24.1"
 ctrlc = "3.2.1"
 futures = "0.3"
 futures-util = "0.3.8"
 http = "0.2"
-hyper = { version = "0.14", features = [ "full" ] }
+hyper = { version = "0.14", features = ["full"] }
 hyper-rustls = { version = "0.23.0" }
 indexmap = "1.6"
-serde = { version = "1.0", features = [ "derive" ] }
+serde = { version = "1.0", features = ["derive"] }
 spin-config = { path = "../config" }
 spin-engine = { path = "../engine" }
-tls-listener = { version = "0.4.0", features = ["rustls", "hyper-h1", "hyper-h2"] }
-tokio = { version = "1.10", features = [ "full" ] }
+tls-listener = { version = "0.4.0", features = [
+    "rustls",
+    "hyper-h1",
+    "hyper-h2",
+] }
+tokio = { version = "1.10", features = ["full"] }
 tokio-rustls = { version = "0.23.2" }
 rustls-pemfile = "0.3.0"
-tracing = { version = "0.1", features = [ "log" ] }
+tracing = { version = "0.1", features = ["log"] }
 tracing-futures = "0.2"
-tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
+tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 url = "2.2"
 wagi = { git = "https://github.com/deislabs/wagi", rev = "a5b3e7b9e94f86bcb753d7a009d51fd016a41f4e" }
+wasi-cap-std-sync = "0.34"
 wasi-common = "0.34"
 wasmtime = "0.34"
 wasmtime-wasi = "0.34"

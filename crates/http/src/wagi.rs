@@ -80,7 +80,6 @@ impl HttpExecutor for WagiHttpExecutor {
         for (k, v) in crate::default_headers(&parts.uri, raw_route, base, host)? {
             headers.insert(k, v);
         }
-
         let (mut store, instance) = engine.prepare_component(
             component,
             None,
@@ -101,6 +100,8 @@ impl HttpExecutor for WagiHttpExecutor {
         tracing::trace!("Calling Wasm entry point");
         spawn_blocking(move || start.call(&mut store, &[], &mut [])).await??;
         tracing::trace!("Module execution complete");
+
+        engine.save_output_to_logs(iostream.clone(), component, false, true)?;
 
         wagi::handlers::compose_response(iostream.stdout.lock)
     }

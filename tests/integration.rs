@@ -25,6 +25,8 @@ mod integration_tests {
     const SPIN_BINARY: &str = "./target/debug/spin";
     const BINDLE_SERVER_BINARY: &str = "bindle-server";
 
+    const BINDLE_SERVER_PATH_ENV: &str = "SPIN_TEST_BINDLE_SERVER_PATH";
+
     // This assumes all tests have been previously compiled by the top-level build script.
 
     #[tokio::test]
@@ -294,7 +296,10 @@ mod integration_tests {
             let address = format!("127.0.0.1:{}", get_random_port()?);
             let url = format!("http://{}/v1/", address);
 
-            let server_handle = Command::new(BINDLE_SERVER_BINARY)
+            let bindle_server_binary = std::env::var(BINDLE_SERVER_PATH_ENV)
+                .unwrap_or_else(|_| BINDLE_SERVER_BINARY.to_owned());
+
+            let server_handle_result = Command::new(&bindle_server_binary)
                 .args(&[
                     "-d",
                     server_cache.path().to_string_lossy().to_string().as_str(),
@@ -302,8 +307,28 @@ mod integration_tests {
                     address.as_str(),
                     "--unauthenticated",
                 ])
-                .spawn()
-                .with_context(|| format!("executing {}", BINDLE_SERVER_BINARY))?;
+                .spawn();
+
+            let server_handle = match server_handle_result {
+                Ok(h) => Ok(h),
+                Err(e) => {
+                    let is_path_explicit = std::env::var(BINDLE_SERVER_PATH_ENV).is_ok();
+                    let context = match e.kind() {
+                        std::io::ErrorKind::NotFound => {
+                            if is_path_explicit {
+                                format!(
+                                    "executing {}: is the path/filename correct?",
+                                    bindle_server_binary
+                                )
+                            } else {
+                                format!("executing {}: is binary on PATH?", bindle_server_binary)
+                            }
+                        }
+                        _ => format!("executing {}", bindle_server_binary),
+                    };
+                    Err(e).context(context)
+                }
+            }?;
 
             wait_tcp(&address, BINDLE_SERVER_BINARY).await?;
 

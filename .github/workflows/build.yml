@@ -2,6 +2,8 @@ name: Rust
 on:
   push:
     branches: [main]
+    # Also run on tag pushes, as the release.yml doesn't currently run tests
+    tags: ["v*"]
   pull_request:
     branches: [main]
 env:
@@ -18,7 +20,6 @@ jobs:
           tar xf wasi-sdk-12.0-linux.tar.gz
           sudo mkdir -p /opt/wasi-sdk
           sudo mv wasi-sdk-12.0/* /opt/wasi-sdk/
-
 
       - name: Install latest Rust stable toolchain
         uses: actions-rs/toolchain@v1

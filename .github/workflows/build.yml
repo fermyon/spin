@@ -34,7 +34,7 @@ jobs:
       - uses: engineerd/configurator@v0.0.8
         with:
           name: "bindle-server"
-          url: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-linux-amd64.tar.gz"
+          url: "https://github.com/deislabs/bindle/releases/download/v0.8.0/bindle-v0.8.0-linux-amd64.tar.gz"
           pathInArchive: "bindle-server"
 
       - name: Build

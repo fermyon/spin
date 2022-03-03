@@ -81,8 +81,8 @@ async fn prepare(
     )
     .await
     .into_iter()
-    .map(|x| x.expect("Cannot prepare component."))
-    .collect::<Vec<_>>();
+    .collect::<Result<Vec<_>>>()
+    .context("Failed to prepare configuration")?;
 
     Ok(Configuration { info, components })
 }
@@ -113,7 +113,7 @@ async fn core(
 
     let id = raw.id;
     let mounts = match raw.wasm.files {
-        Some(f) => vec![assets::prepare_component(&f, src, &base_dst, &id).await?],
+        Some(f) => assets::prepare_component(&f, src, &base_dst, &id).await?,
         None => vec![],
     };
     let environment = raw.wasm.environment.unwrap_or_default();

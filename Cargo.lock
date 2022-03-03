@@ -2987,6 +2987,7 @@ dependencies = [
  "tracing",
  "tracing-futures",
  "tracing-subscriber 0.3.8",
+ "walkdir",
 ]
 
 [[package]]

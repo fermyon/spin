@@ -6,7 +6,7 @@ trigger = {type = "http", base = "/"}
 version = "6.11.2"
 
 [[component]]
-files = ["file.txt", "subdir/another.txt"]
+files = ["file.txt", { source = "valid-with-files", destination = "/vwf" }, "subdir/another.txt"]
 id = "four-lights"
 source = "path/to/wasm/file.wasm"
 [component.trigger]

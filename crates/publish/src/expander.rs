@@ -4,13 +4,13 @@ use anyhow::{Context, Result};
 use bindle::{BindleSpec, Condition, Group, Invoice, Label, Parcel};
 use path_absolutize::Absolutize;
 use sha2::{Digest, Sha256};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::bindle_writer;
 use crate::bindle_writer::ParcelSources;
 
 use spin_loader::bindle::config as bindle_schema;
-use spin_loader::local::config::{self as local_schema, RawAppManifestAnyVersion};
+use spin_loader::local::config as local_schema;
 
 /// Expands a file-based application manifest to a Bindle invoice.
 pub async fn expand_manifest(
@@ -22,7 +22,7 @@ pub async fn expand_manifest(
         .absolutize()
         .context("Failed to resolve absoiute path to manifest file")?;
     let manifest = spin_loader::local::raw_manifest_from_file(&app_file).await?;
-    let RawAppManifestAnyVersion::V0_1_0(manifest) = manifest;
+    let local_schema::RawAppManifestAnyVersion::V0_1_0(manifest) = manifest;
     let app_dir = app_dir(&app_file)?;
 
     // * create a new spin.toml-like document where
@@ -50,9 +50,10 @@ pub async fn expand_manifest(
         .context("Failed to collect asset files")?;
     let asset_parcels = consolidate_asset_parcels(asset_parcels);
     // - one parcel to rule them all, and in the Spin app bind them
-    let (manifest_parcel, sources) = manifest_parcel(&dest_manifest, &scratch_dir).await?;
+    let manifest_parcel = manifest_parcel(&dest_manifest, &scratch_dir).await?;
 
-    let parcels = itertools::concat([vec![manifest_parcel], wasm_parcels, asset_parcels]);
+    let sourced_parcels = itertools::concat([vec![manifest_parcel], wasm_parcels, asset_parcels]);
+    let (parcels, sources) = split_sources(sourced_parcels);
 
     let bindle_id = bindle_id(&manifest.info)?;
     let groups = build_groups(&manifest);
@@ -125,7 +126,7 @@ fn bindle_component_manifest(
 async fn wasm_parcels(
     manifest: &local_schema::RawAppManifest,
     base_dir: &Path,
-) -> Result<Vec<Parcel>> {
+) -> Result<Vec<SourcedParcel>> {
     let parcel_futures = manifest.components.iter().map(|c| wasm_parcel(c, base_dir));
     let parcels = futures::future::join_all(parcel_futures).await;
     parcels.into_iter().collect()
@@ -134,7 +135,7 @@ async fn wasm_parcels(
 async fn wasm_parcel(
     component: &local_schema::RawComponentManifest,
     base_dir: &Path,
-) -> Result<Parcel> {
+) -> Result<SourcedParcel> {
     let wasm_file = match &component.source {
         local_schema::RawModuleSource::FileReference(path) => path,
         local_schema::RawModuleSource::Bindle(_) => {
@@ -151,7 +152,7 @@ async fn wasm_parcel(
 async fn asset_parcels(
     manifest: &local_schema::RawAppManifest,
     base_dir: impl AsRef<Path>,
-) -> Result<Vec<Parcel>> {
+) -> Result<Vec<SourcedParcel>> {
     let assets_by_component: Vec<Vec<_>> = manifest
         .components
         .iter()
@@ -183,7 +184,7 @@ fn collect_assets(
 async fn file_parcel_from_mount(
     file_mount: &spin_loader::local::assets::FileMount,
     component_id: &str,
-) -> Result<Parcel> {
+) -> Result<SourcedParcel> {
     let source_file = &file_mount.src;
 
     let media_type = mime_guess::from_path(&source_file)
@@ -197,6 +198,7 @@ async fn file_parcel_from_mount(
         &media_type,
     )
     .await
+    .with_context(|| format!("Failed to assemble parcel from '{}'", source_file.display()))
 }
 
 async fn file_parcel(
@@ -204,14 +206,14 @@ async fn file_parcel(
     dest_relative_path: impl AsRef<Path>,
     component_id: Option<&str>,
     media_type: impl Into<String>,
-) -> Result<Parcel> {
+) -> Result<SourcedParcel> {
     let digest = file_digest_string(&abs_src)
         .with_context(|| format!("Failed to calculate digest for '{}'", abs_src.display()))?;
     let size = tokio::fs::metadata(&abs_src).await?.len();
 
     let member_of = component_id.map(|id| vec![group_name_for(id)]);
 
-    Ok(Parcel {
+    let parcel = Parcel {
         label: Label {
             sha256: digest,
             name: dest_relative_path.as_ref().display().to_string(),
@@ -225,13 +227,18 @@ async fn file_parcel(
             member_of,
             requires: None,
         }),
+    };
+
+    Ok(SourcedParcel {
+        parcel,
+        source: abs_src.to_owned(),
     })
 }
 
 async fn manifest_parcel(
     manifest: &bindle_schema::RawAppManifest,
     scratch_dir: impl AsRef<Path>,
-) -> Result<(Parcel, ParcelSources)> {
+) -> Result<SourcedParcel> {
     let text = toml::to_string_pretty(&manifest).context("Failed to write app manifest to TOML")?;
     let bytes = text.as_bytes();
     let digest = bytes_digest_string(bytes);
@@ -263,26 +270,27 @@ async fn manifest_parcel(
         conditions: None,
     };
 
-    let parcel_sources = ParcelSources::single(&digest, &absolute_path);
-
-    Ok((parcel, parcel_sources))
+    Ok(SourcedParcel {
+        parcel,
+        source: absolute_path,
+    })
 }
 
-fn consolidate_wasm_parcels(parcels: Vec<Parcel>) -> Vec<Parcel> {
+fn consolidate_wasm_parcels(parcels: Vec<SourcedParcel>) -> Vec<SourcedParcel> {
     // We use only the content of Wasm parcels, not their names, so we only
     // care if the content is the same.
     let mut parcels = parcels;
-    parcels.dedup_by_key(|p| p.label.sha256.clone());
+    parcels.dedup_by_key(|p| p.parcel.label.sha256.clone());
     parcels
 }
 
-fn consolidate_asset_parcels(parcels: Vec<Parcel>) -> Vec<Parcel> {
+fn consolidate_asset_parcels(parcels: Vec<SourcedParcel>) -> Vec<SourcedParcel> {
     let mut consolidated = vec![];
 
     for mut parcel in parcels {
         match consolidated
             .iter_mut()
-            .find(|p| can_consolidate_asset_parcels(p, &parcel))
+            .find(|p: &&mut SourcedParcel| can_consolidate_asset_parcels(&p.parcel, &parcel.parcel))
         {
             None => consolidated.push(parcel),
             Some(existing) => {
@@ -292,8 +300,8 @@ fn consolidate_asset_parcels(parcels: Vec<Parcel>) -> Vec<Parcel> {
                 //
                 // TODO: modify can_consolidate to return suitable stuff so we don't
                 // have to unwrap.
-                let existing_conds = existing.conditions.as_mut().unwrap();
-                let conds_to_merge = parcel.conditions.as_mut().unwrap();
+                let existing_conds = existing.parcel.conditions.as_mut().unwrap();
+                let conds_to_merge = parcel.parcel.conditions.as_mut().unwrap();
                 let existing_member_of = existing_conds.member_of.as_mut().unwrap();
                 let member_of_to_merge = conds_to_merge.member_of.as_mut().unwrap();
                 existing_member_of.append(member_of_to_merge);
@@ -385,4 +393,19 @@ fn app_dir(app_file: impl AsRef<Path>) -> Result<std::path::PathBuf> {
         })?
         .to_owned();
     Ok(path_buf)
+}
+
+struct SourcedParcel {
+    parcel: Parcel,
+    source: PathBuf,
+}
+
+fn split_sources(sourced_parcels: Vec<SourcedParcel>) -> (Vec<Parcel>, ParcelSources) {
+    let sources = sourced_parcels
+        .iter()
+        .map(|sp| (sp.parcel.label.sha256.clone(), &sp.source));
+    let parcel_sources = ParcelSources::from_iter(sources);
+    let parcels = sourced_parcels.into_iter().map(|sp| sp.parcel);
+
+    (parcels.collect(), parcel_sources)
 }

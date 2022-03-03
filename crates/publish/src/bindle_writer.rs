@@ -89,7 +89,7 @@ impl BindleWriter {
 }
 
 #[derive(Debug, Clone)]
-struct ParcelSource {
+pub struct ParcelSource {
     digest: String,
     source_path: PathBuf,
 }
@@ -115,6 +115,17 @@ impl ParcelSources {
         Self {
             sources: vec![parcel_source],
         }
+    }
+
+    pub fn from_iter(paths: impl Iterator<Item = (String, impl AsRef<Path>)>) -> Self {
+        let sources = paths
+            .map(|(digest, path)| ParcelSource {
+                digest,
+                source_path: path.as_ref().to_owned(),
+            })
+            .collect();
+
+        Self { sources }
     }
 }
 

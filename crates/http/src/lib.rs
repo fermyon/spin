@@ -11,7 +11,7 @@ use crate::{
     spin::SpinHttpExecutor,
     wagi::WagiHttpExecutor,
 };
-use anyhow::{Context, Error, Result};
+use anyhow::{anyhow, ensure, Context, Error, Result};
 use async_trait::async_trait;
 use futures_util::stream::StreamExt;
 use http::{uri::Scheme, StatusCode, Uri};
@@ -21,7 +21,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use spin_config::{ApplicationTrigger, Configuration, CoreComponent, TriggerConfig};
+use spin_config::{Configuration, CoreComponent};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http::SpinHttpData;
 use std::{future::ready, net::SocketAddr, path::PathBuf, sync::Arc};
@@ -44,9 +44,9 @@ type RuntimeContext = spin_engine::RuntimeContext<SpinHttpData>;
 #[derive(Clone)]
 pub struct HttpTrigger {
     /// Listening address for the server.
-    pub address: String,
+    address: String,
     /// Configuration for the application.
-    pub app: Configuration<CoreComponent>,
+    app: Configuration<CoreComponent>,
     /// TLS configuration for the server.
     tls: Option<TlsConfig>,
     /// Router.
@@ -64,6 +64,11 @@ impl HttpTrigger {
         tls: Option<TlsConfig>,
         log_dir: Option<PathBuf>,
     ) -> Result<Self> {
+        ensure!(
+            app.info.trigger.as_http().is_some(),
+            "Application trigger is not HTTP"
+        );
+
         let mut config = ExecutionContextConfiguration::new(app.clone(), log_dir);
         if let Some(wasmtime) = wasmtime {
             config.wasmtime = wasmtime;
@@ -94,13 +99,16 @@ impl HttpTrigger {
             req.uri()
         );
 
-        let ApplicationTrigger::Http(app_trigger) = &self.app.info.trigger.clone();
+        // We can unwrap here because the trigger type has already been asserted in `HttpTrigger::new`
+        let app_trigger = self.app.info.trigger.as_http().cloned().unwrap();
 
         match req.uri().path() {
             "/healthz" => Ok(Response::new(Body::from("OK"))),
             route => match self.router.route(route) {
                 Ok(c) => {
-                    let TriggerConfig::Http(trigger) = &c.trigger;
+                    let trigger = c.trigger.as_http().ok_or_else(|| {
+                        anyhow!("Expected HTTP configuration for component {}", c.id)
+                    })?;
                     let executor = match &trigger.executor {
                         Some(i) => i,
                         None => &spin_config::HttpExecutor::Spin,

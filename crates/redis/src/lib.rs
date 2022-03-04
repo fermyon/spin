@@ -1,99 +1,152 @@
-use anyhow::Result;
+//! Implementation for the Spin Redis engine.
+
+mod spin;
+
+use crate::spin::SpinRedisExecutor;
+use anyhow::{ensure, Result};
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::Client;
-use spin_redis_trigger::{SpinRedisTrigger, SpinRedisTriggerData};
-use std::{sync::Arc, time::Instant};
-use wasmtime::{Instance, Store};
+use spin_config::{Configuration, CoreComponent, RedisConfig};
+use spin_engine::{Builder, ExecutionContextConfiguration};
+use spin_redis_trigger::SpinRedisTriggerData;
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 wit_bindgen_wasmtime::import!("wit/ephemeral/spin-redis-trigger.wit");
 
 type ExecutionContext = spin_engine::ExecutionContext<SpinRedisTriggerData>;
 type RuntimeContext = spin_engine::RuntimeContext<SpinRedisTriggerData>;
 
+/// The Spin Redis trigger.
 #[derive(Clone)]
-pub struct RedisEngine(pub Arc<ExecutionContext>);
-
-#[async_trait]
-impl Redis for RedisEngine {
-    async fn execute(&self, payload: &[u8]) -> Result<()> {
-        let start = Instant::now();
-
-        let (store, instance) = self.0.prepare(None)?;
-        self.execute_impl(store, instance, payload)?;
-        log::trace!("Request execution time: {:#?}", start.elapsed());
-
-        Ok(())
-    }
-}
-
-impl RedisEngine {
-    pub fn execute_impl(
-        &self,
-        mut store: Store<RuntimeContext>,
-        instance: Instance,
-        payload: &[u8],
-    ) -> Result<()> {
-        let r = SpinRedisTrigger::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
-
-        let _ = r.handler(&mut store, payload)?;
-        Ok(())
-    }
-}
-
-#[async_trait]
-pub trait Redis {
-    async fn execute(&self, payload: &[u8]) -> Result<()>;
-}
-
 pub struct RedisTrigger {
-    pub address: String,
-    pub channel: String,
+    /// Configuration for the application.
+    app: Configuration<CoreComponent>,
+    /// Spin execution context.
+    engine: Arc<ExecutionContext>,
+    /// Map from channel name to tuple of component name & index.
+    subscriptions: HashMap<String, usize>,
 }
 
 impl RedisTrigger {
-    pub async fn run(&self, runtime: impl Redis) -> Result<()> {
-        let addr = &self.address.clone();
-        let ch = &self.channel.clone();
+    /// Create a new Spin Redis trigger.
+    pub async fn new(
+        app: Configuration<CoreComponent>,
+        wasmtime: Option<wasmtime::Config>,
+        log_dir: Option<PathBuf>,
+    ) -> Result<Self> {
+        ensure!(
+            app.info.trigger.as_redis().is_some(),
+            "Application trigger is not Redis"
+        );
 
-        let client = Client::open(addr.as_str())?;
+        let mut config = ExecutionContextConfiguration::new(app.clone(), log_dir);
+        if let Some(wasmtime) = wasmtime {
+            config.wasmtime = wasmtime;
+        };
+        let engine = Arc::new(Builder::build_default(config).await?);
+        log::debug!("Created new Redis trigger.");
+
+        let subscriptions =
+            app.components
+                .iter()
+                .enumerate()
+                .fold(HashMap::new(), |mut map, (idx, c)| {
+                    if let Some(RedisConfig { channel, .. }) = c.trigger.as_redis() {
+                        map.insert(channel.clone(), idx);
+                    }
+                    map
+                });
+
+        Ok(Self {
+            app,
+            engine,
+            subscriptions,
+        })
+    }
+
+    /// Run the Redis trigger indefinitely.
+    pub async fn run(&self) -> Result<()> {
+        // We can unwrap here because the trigger type has already been asserted in `RedisTrigger::new`
+        let address = self.app.info.trigger.as_redis().cloned().unwrap().address;
+
+        log::info!("Connecting to Redis server at {}", address);
+        let client = Client::open(address.clone())?;
         let mut pubsub = client.get_async_connection().await?.into_pubsub();
-        pubsub.subscribe(ch).await?;
-        println!("Subscribed to channel: {}", ch);
+
+        // Subscribe to channels
+        for (subscription, id) in self.subscriptions.iter() {
+            let name = &self.app.components[*id].id;
+            log::info!(
+                "Subscribed component #{} ({}) to channel: {}",
+                id,
+                name,
+                subscription
+            );
+            pubsub.subscribe(subscription).await?;
+        }
+
         let mut stream = pubsub.on_message();
         loop {
             match stream.next().await {
-                Some(p) => {
-                    let payload = p.get_payload_bytes();
-                    runtime.execute(payload).await?;
-                }
+                Some(msg) => drop(self.handle(msg).await),
                 None => log::debug!("Empty message"),
             };
         }
     }
+
+    // Handle the message.
+    async fn handle(&self, msg: redis::Msg) -> Result<()> {
+        let channel = msg.get_channel_name();
+        log::info!("Received message on channel {:?}", channel);
+
+        if let Some(id) = self.subscriptions.get(channel).copied() {
+            let component = &self.app.components[id];
+            let executor = component
+                .trigger
+                .as_redis()
+                .cloned()
+                .unwrap() // TODO
+                .executor
+                .unwrap_or_default();
+
+            match executor {
+                spin_config::RedisExecutor::Spin => {
+                    log::trace!("Executing Spin Redis component {}", component.id);
+                    let executor = SpinRedisExecutor;
+                    executor
+                        .execute(
+                            &self.engine,
+                            &component.id,
+                            channel,
+                            msg.get_payload_bytes(),
+                        )
+                        .await?
+                }
+                spin_config::RedisExecutor::Wagi(_) => {
+                    todo!();
+                }
+            };
+        } else {
+            log::debug!("No subscription found for {:?}", channel);
+        }
+
+        Ok(())
+    }
+}
+
+/// The Redis executor trait.
+/// All Redis executors must implement this trait.
+#[async_trait]
+pub(crate) trait RedisExecutor: Clone + Send + Sync + 'static {
+    async fn execute(
+        &self,
+        engine: &ExecutionContext,
+        component: &str,
+        channel: &str,
+        payload: &[u8],
+    ) -> Result<()>;
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::{RedisEngine, RedisTrigger};
-    use spin_engine::{Config, ExecutionContextBuilder};
-    use std::sync::Arc;
-
-    const RUST_ENTRYPOINT_PATH: &str = "tests/rust/target/wasm32-wasi/release/rust.wasm";
-
-    // #[tokio::test]
-    #[allow(unused)]
-    async fn test_pubsub() {
-        let trigger = RedisTrigger {
-            address: "redis://localhost:6379".to_string(),
-            channel: "channel".to_string(),
-        };
-
-        let engine =
-            ExecutionContextBuilder::build_default(RUST_ENTRYPOINT_PATH, Config::default())
-                .unwrap();
-        let engine = RedisEngine(Arc::new(engine));
-
-        trigger.run(engine).await.unwrap();
-    }
-}
+mod tests;

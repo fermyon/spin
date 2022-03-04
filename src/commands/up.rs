@@ -1,6 +1,7 @@
 use anyhow::{bail, Result};
-use spin_config::{Configuration, CoreComponent};
+use spin_config::{ApplicationTrigger, Configuration, CoreComponent};
 use spin_http_engine::{HttpTrigger, TlsConfig};
+use spin_redis_engine::RedisTrigger;
 use std::path::{Path, PathBuf};
 use structopt::{clap::AppSettings, StructOpt};
 use tempfile::TempDir;
@@ -121,8 +122,16 @@ impl UpCommand {
             _ => unreachable!(),
         };
 
-        let trigger = HttpTrigger::new(self.address, app, None, tls, self.log).await?;
-        trigger.run().await?;
+        match &app.info.trigger {
+            ApplicationTrigger::Http(_) => {
+                let trigger = HttpTrigger::new(self.address, app, None, tls, self.log).await?;
+                trigger.run().await?;
+            }
+            ApplicationTrigger::Redis(_) => {
+                let trigger = RedisTrigger::new(app, None, self.log).await?;
+                trigger.run().await?;
+            }
+        }
 
         // We need to be absolutely sure it stays alive until this point: we don't want
         // any temp directory to be deleted prematurely.

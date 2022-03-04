@@ -2,7 +2,7 @@
 name = "spin-cli"
 version = "0.1.0"
 edition = "2021"
-authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
+authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 
 [dependencies]
 anyhow = "1.0"
@@ -22,6 +22,7 @@ spin-engine = { path = "crates/engine" }
 spin-http-engine = { path = "crates/http" }
 spin-loader = { path = "crates/loader" }
 spin-publish = { path = "crates/publish" }
+spin-redis-engine = { path = "crates/redis" }
 spin-templates = { path = "crates/templates" }
 structopt = "0.3"
 tempfile = "3.3.0"
@@ -35,7 +36,7 @@ tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 hyper = { version = "0.14", features = [ "full" ] }
 
 [workspace]
-members = [ "crates/config", "crates/engine", "crates/http", "crates/loader", "crates/templates", "sdk/rust", "sdk/rust/macro" ]
+members = [ "crates/config", "crates/engine", "crates/http", "crates/loader", "crates/redis", "crates/templates", "sdk/rust", "sdk/rust/macro" ]
 
 [[bin]]
 name = "spin"

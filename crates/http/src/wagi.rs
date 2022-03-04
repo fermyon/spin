@@ -91,7 +91,7 @@ impl HttpExecutor for WagiHttpExecutor {
             None,
             Some(iostream.clone()),
             Some(headers),
-            Some(argv.split(" ").map(|s| s.to_owned()).collect()),
+            Some(argv.split(' ').map(|s| s.to_owned()).collect()),
         )?;
 
         let start = instance

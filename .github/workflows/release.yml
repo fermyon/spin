@@ -131,7 +131,22 @@ jobs:
           cd _dist
           tar czf spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz readme.md LICENSE spin${{ matrix.config.extension }}
 
-      - uses: actions/upload-artifact@v1
+      - name: upload binary as GitHub artifact
+        uses: actions/upload-artifact@v1
         with:
           name: spin
           path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
+
+      - name: upload binary to canary GitHub release
+        uses: svenstaro/upload-release-action@2.2.1
+        if: github.ref == 'refs/heads/main'
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
+          asset_name: spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
+          tag: canary
+          overwrite: true
+          prerelease: true
+          body: |
+            This is a "canary" release of the most recent commits on our main branch. Canary is **not stable**.
+            It is only intended for developers wishing to try out the latest features in Spin, some of which may not be fully implemented.

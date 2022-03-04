@@ -90,14 +90,30 @@ components. Currently, the only trigger implemented for Spin is the HTTP
 trigger, which contains the following fields:
 
 - `route` (REQUIRED): The HTTP route the component will be invoked for.
-- `implementation` (OPTIONAL, TODO): The HTTP interface the component
-  implements. This can either be `spin`, or `wagi`.s
+- `executor` (REQUIRED): The object that sets an executor. There are currently two executor `type`s:
+  - `spin` uses the Spin HTTP executor
+  - `wagi` uses the Wagi CGI executor
+
+
 
 ```toml
 [component.trigger]
     route          = "/hello"
-    implementation = "spin"
-  # implementation = "wagi"
+    executor = { type = "spin" }
+    # executor = { type="wagi" }
+```
+
+### Wagi Executor
+
+Some executors have additional configuration. Wagi supports the following extra configurations:
+
+- `argv` (OPTIONAL): The string representation of the `argv` list that should be passed into the handler. `${SCRIPT_NAME}` will be replaced with the script name, and `${ARGS}` will be replaced with the query parameters of the request, formatted as arguments. The default is to follow the CGI specification, and pass `${SCRIPT_NAME} ${ARGS}`
+- `entrypoint` (OPTIONAL, EXPERT): The name of the function that should be called as the entrypoint to this handler. By default, it is `_start` (which in most languages translates to calling `main` in the guest module).
+
+```toml
+[component.trigger]
+route = "/..."
+executor = {type="wagi", argv="test ${SCRIPT_NAME} ${ARGS} done", entrypoint="_start"}
 ```
 
 ### Dependencies

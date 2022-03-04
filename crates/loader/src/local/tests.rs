@@ -114,6 +114,7 @@ fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
     const MANIFEST: &str = include_str!("../../tests/wagi-custom-entrypoint.toml");
 
     const EXPECTED_CUSTOM_ENTRYPOINT: &str = "custom-entrypoint";
+    const EXPECTED_DEFAULT_ARGV: &str = "${SCRIPT_NAME} ${ARGS}";
 
     let cfg_any: RawAppManifestAnyVersion = toml::from_str(MANIFEST)?;
     let RawAppManifestAnyVersion::V0_1_0(cfg) = cfg_any;
@@ -122,8 +123,9 @@ fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
 
     match http_config.executor.as_ref().unwrap() {
         HttpExecutor::Spin => panic!("expected wagi http executor"),
-        HttpExecutor::Wagi(spin_config::WagiConfig { entrypoint }) => {
+        HttpExecutor::Wagi(spin_config::WagiConfig { entrypoint, argv }) => {
             assert_eq!(entrypoint, EXPECTED_CUSTOM_ENTRYPOINT);
+            assert_eq!(argv, EXPECTED_DEFAULT_ARGV);
         }
     };
 

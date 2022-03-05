@@ -2,13 +2,15 @@
 
 #![deny(missing_docs)]
 
-/// Export the macros
+/// Exports the procedural macros for writing handlers for Spin components.
 pub use spin_macro::*;
 
-/// Export the experimental outbound HTTP crate.
+/// Exports the experimental outbound HTTP crate.
 pub use wasi_experimental_http as outbound_http;
 
-/// HTTP helpers.
+/// Helpers for building Spin HTTP components.
+/// These are convenience helpers, and the types in this module are
+/// based on the [`http`](https://crates.io/crates) crate.
 pub mod http {
     use anyhow::Result;
 

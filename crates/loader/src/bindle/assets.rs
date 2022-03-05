@@ -1,7 +1,9 @@
 #![deny(missing_docs)]
 
-use super::utils::BindleReader;
-use crate::assets::{create_dir, ensure_under};
+use crate::{
+    assets::{create_dir, ensure_under},
+    bindle::utils::BindleReader,
+};
 use anyhow::{anyhow, bail, Context, Result};
 use bindle::{Id, Label};
 use futures::future;
@@ -62,7 +64,6 @@ impl Copier {
         }
     }
 
-    /// Copy
     async fn copy(&self, p: &Label, dir: impl AsRef<Path>) -> Result<()> {
         let to = dir.as_ref().join(&p.name);
 

@@ -4,14 +4,13 @@
 
 /// Module to prepare the assets for the components of an application.
 mod assets;
-/// Configuration representation for a Spin apoplication in Bindle.
+/// Configuration representation for a Spin application in Bindle.
 pub mod config;
 /// Bindle helper functions.
 mod utils;
 
-use self::config::RawComponentManifest;
 use crate::bindle::{
-    config::RawAppManifest,
+    config::{RawAppManifest, RawComponentManifest},
     utils::{find_manifest, BindleReader},
 };
 use anyhow::{anyhow, Context, Result};
@@ -26,7 +25,6 @@ use spin_config::{
 };
 use std::path::{Path, PathBuf};
 use tracing::log;
-
 pub use utils::{BindleTokenManager, SPIN_MANIFEST_MEDIA_TYPE};
 
 /// Given a Bindle server URL and reference, pull it, expand its assets locally, and get a
@@ -47,6 +45,7 @@ pub async fn from_bindle(
     prepare(id, url, &reader, base_dst).await
 }
 
+/// Converts a Bindle invoice into Spin configuration.
 async fn prepare(
     id: &str,
     url: &str,
@@ -58,13 +57,13 @@ async fn prepare(
         None => tempfile::tempdir()?.into_path(),
     };
 
-    // first, get the invoice.
+    // First, get the invoice from the Bindle server.
     let invoice = reader
         .get_invoice()
         .await
         .with_context(|| anyhow!("Failed to load invoice '{}' from '{}'", id, url))?;
 
-    // then, reconstruct application manifest from the parcel.
+    // Then, reconstruct the application manifest from the parcels.
     let raw: RawAppManifest =
         toml::from_slice(&reader.get_parcel(&find_manifest(&invoice)?).await?)?;
     log::trace!("Recreated manifest from bindle: {:?}", raw);
@@ -85,6 +84,7 @@ async fn prepare(
     Ok(Configuration { info, components })
 }
 
+/// Given a raw component manifest, prepare its assets and return a fully formed core component.
 async fn core(
     raw: RawComponentManifest,
     invoice: &Invoice,
@@ -128,7 +128,7 @@ async fn core(
     })
 }
 
-/// Convert the raw application manifest from the bindle invoice into the
+/// Converts the raw application manifest from the bindle invoice into the
 /// standard application configuration.
 fn info(raw: &RawAppManifest, invoice: &Invoice, url: &str) -> ApplicationInformation {
     ApplicationInformation {

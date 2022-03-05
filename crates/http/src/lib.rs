@@ -4,8 +4,13 @@ mod routes;
 mod spin;
 mod tls;
 mod wagi;
+pub use tls::TlsConfig;
 
-use crate::wagi::WagiHttpExecutor;
+use crate::{
+    routes::{RoutePattern, Router},
+    spin::SpinHttpExecutor,
+    wagi::WagiHttpExecutor,
+};
 use anyhow::{Context, Error, Result};
 use async_trait::async_trait;
 use futures_util::stream::StreamExt;
@@ -16,13 +21,10 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use routes::{RoutePattern, Router};
-use spin::SpinHttpExecutor;
 use spin_config::{ApplicationTrigger, Configuration, CoreComponent, TriggerConfig};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http::SpinHttpData;
 use std::{future::ready, net::SocketAddr, sync::Arc};
-pub use tls::TlsConfig;
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
@@ -54,7 +56,7 @@ pub struct HttpTrigger {
 }
 
 impl HttpTrigger {
-    /// Create a new Spin HTTP trigger.
+    /// Creates a new Spin HTTP trigger.
     pub async fn new(
         address: String,
         app: Configuration<CoreComponent>,
@@ -79,7 +81,7 @@ impl HttpTrigger {
         })
     }
 
-    /// Handle incoming requests using an HTTP executor.
+    /// Handles incoming requests using an HTTP executor.
     pub(crate) async fn handle(
         &self,
         req: Request<Body>,
@@ -146,7 +148,7 @@ impl HttpTrigger {
         }
     }
 
-    /// Create an HTTP 500 response.
+    /// Creates an HTTP 500 response.
     fn internal_error(body: Option<&str>) -> Result<Response<Body>> {
         let body = match body {
             Some(body) => Body::from(body.as_bytes().to_vec()),
@@ -158,14 +160,14 @@ impl HttpTrigger {
             .body(body)?)
     }
 
-    /// Create an HTTP 404 response.
+    /// Creates an HTTP 404 response.
     fn not_found() -> Result<Response<Body>> {
         let mut not_found = Response::default();
         *not_found.status_mut() = StatusCode::NOT_FOUND;
         Ok(not_found)
     }
 
-    /// Run the HTTP trigger indefinitely.
+    /// Runs the HTTP trigger indefinitely.
     pub async fn run(&self) -> Result<()> {
         match self.tls.as_ref() {
             Some(tls) => self.serve_tls(tls).await?,

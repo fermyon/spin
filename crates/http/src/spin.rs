@@ -1,6 +1,7 @@
-use crate::spin_http::{Method, SpinHttp};
-use crate::HttpExecutor;
-use crate::{ExecutionContext, RuntimeContext};
+use crate::{
+    spin_http::{Method, SpinHttp},
+    ExecutionContext, HttpExecutor, RuntimeContext,
+};
 use anyhow::Result;
 use async_trait::async_trait;
 use http::Uri;
@@ -119,8 +120,6 @@ impl SpinHttpExecutor {
             res.push((name, value));
         }
 
-        // TODO
-        // Is there any scenario where the server doesn't populate the host header?
         let default_host = http::HeaderValue::from_str("localhost")?;
         let host = std::str::from_utf8(
             req.headers()

@@ -2991,6 +2991,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-macro"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes 1.1.0",
+ "http 0.2.6",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "wit-bindgen-gen-core",
+ "wit-bindgen-gen-rust-wasm",
+ "wit-bindgen-rust",
+]
+
+[[package]]
 name = "spin-publish"
 version = "0.1.0"
 dependencies = [
@@ -3008,6 +3023,17 @@ dependencies = [
  "tempfile",
  "tokio",
  "toml",
+]
+
+[[package]]
+name = "spin-sdk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes 1.1.0",
+ "http 0.2.6",
+ "spin-macro",
+ "wasi-experimental-http",
 ]
 
 [[package]]
@@ -3844,6 +3870,18 @@ dependencies = [
  "tracing",
  "wiggle",
  "winapi",
+]
+
+[[package]]
+name = "wasi-experimental-http"
+version = "0.9.0"
+source = "git+https://github.com/radu-matei/wasi-experimental-http?branch=from-client#410e9c598131aeec4d21ffdb65dfd703304da37d"
+dependencies = [
+ "anyhow",
+ "bytes 1.1.0",
+ "http 0.2.6",
+ "thiserror",
+ "tracing",
 ]
 
 [[package]]

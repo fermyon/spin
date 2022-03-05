@@ -38,7 +38,7 @@ pub struct ApplicationInformation {
     /// but for now, a component with a different trigger must be part of
     /// a separate application.
     pub trigger: ApplicationTrigger,
-    /// Namespace for groupping applications.
+    /// Namespace for grouping applications.
     pub namespace: Option<String>,
     /// The location from which the application is loaded.
     pub origin: ApplicationOrigin,
@@ -137,7 +137,6 @@ impl Debug for ModuleSource {
         }
     }
 }
-//f.debug_struct("Buffer").field("buffer", bytes.len().finish()
 /// Configuration for the HTTP trigger.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct HttpConfig {
@@ -156,13 +155,17 @@ impl Default for HttpConfig {
     }
 }
 
-/// The type of interface the component implements.
+/// The executor for the HTTP component.
+/// The component can either implement the Spin HTTP interface,
+/// or the Wagi CGI interface.
+///
+/// If an executor is not specified, the inferred default is `HttpExecutor::Spin`.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase", tag = "type")]
 pub enum HttpExecutor {
     /// The component implements the Spin HTTP interface.
     Spin,
-    /// The component implements the Wagi interface.
+    /// The component implements the Wagi CGI interface.
     Wagi(WagiConfig),
 }
 

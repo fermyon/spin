@@ -6,7 +6,7 @@ use std::{
 };
 use tokio_rustls::{rustls, TlsAcceptor};
 
-/// Tls configuration for the server.
+/// TLS configuration for the server.
 #[derive(Clone)]
 pub struct TlsConfig {
     /// Path to TLS certificate.
@@ -16,7 +16,7 @@ pub struct TlsConfig {
 }
 
 impl TlsConfig {
-    // Create a TLS acceptor from server config.
+    // Creates a TLS acceptor from server config.
     pub(super) fn server_config(&self) -> anyhow::Result<TlsAcceptor> {
         let certs = load_certs(&self.cert_path)?;
         let mut keys = load_keys(&self.key_path)?;
@@ -31,14 +31,14 @@ impl TlsConfig {
     }
 }
 
-// Load public certificate from file.
+// Loads public certificate from file.
 fn load_certs(path: impl AsRef<Path>) -> io::Result<Vec<rustls::Certificate>> {
     certs(&mut io::BufReader::new(fs::File::open(path)?))
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid cert"))
         .map(|mut certs| certs.drain(..).map(rustls::Certificate).collect())
 }
 
-// Load private key from file.
+// Loads private key from file.
 fn load_keys(path: impl AsRef<Path>) -> io::Result<Vec<rustls::PrivateKey>> {
     pkcs8_private_keys(&mut io::BufReader::new(fs::File::open(path)?))
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid key"))

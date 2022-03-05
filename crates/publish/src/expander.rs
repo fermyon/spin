@@ -1,16 +1,12 @@
 #![deny(missing_docs)]
 
+use crate::bindle_writer::{self, ParcelSources};
 use anyhow::{Context, Result};
 use bindle::{BindleSpec, Condition, Group, Invoice, Label, Parcel};
 use path_absolutize::Absolutize;
 use sha2::{Digest, Sha256};
+use spin_loader::{bindle::config as bindle_schema, local::config as local_schema};
 use std::path::{Path, PathBuf};
-
-use crate::bindle_writer;
-use crate::bindle_writer::ParcelSources;
-
-use spin_loader::bindle::config as bindle_schema;
-use spin_loader::local::config as local_schema;
 
 /// Expands a file-based application manifest to a Bindle invoice.
 pub async fn expand_manifest(
@@ -20,7 +16,7 @@ pub async fn expand_manifest(
     let app_file = app_file
         .as_ref()
         .absolutize()
-        .context("Failed to resolve absoiute path to manifest file")?;
+        .context("Failed to resolve absolute path to manifest file")?;
     let manifest = spin_loader::local::raw_manifest_from_file(&app_file).await?;
     let local_schema::RawAppManifestAnyVersion::V0_1_0(manifest) = manifest;
     let app_dir = app_dir(&app_file)?;

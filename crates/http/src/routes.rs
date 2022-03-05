@@ -13,7 +13,7 @@ use tracing::log;
 // The current implementation of the router clones the components, which could
 // become costly if we have a lot of components.
 // The router should borrow the components, which needs to introduce a lifetime
-// paramter which surfaces in the HTTP trigger (and which needs a &'static because
+// parameter which surfaces in the HTTP trigger (and which needs a &'static because
 // of the Hyper server.)
 //
 // For now we continue to use the router using owned data, but in the future it might
@@ -27,7 +27,7 @@ pub(crate) struct Router {
 }
 
 impl Router {
-    /// Build a router based on application configuration.
+    /// Builds a router based on application configuration.
     pub(crate) fn build(app: &Configuration<CoreComponent>) -> Result<Self> {
         let ApplicationTrigger::Http(app_trigger) = app.info.trigger.clone();
         let routes = app
@@ -57,10 +57,10 @@ impl Router {
     // but might not hold if the application configuration is deserialized in
     // other ways.
 
-    /// Return the component that should handle the given path, or an error
+    /// Returns the component that should handle the given path, or an error
     /// if no component matches.
     /// If there are multiple possible components registered for the same route or
-    /// wildcard, return the last one in the components vector.
+    /// wildcard, this returns the last one in the components vector.
     pub(crate) fn route<S: Into<String> + Debug>(&self, p: S) -> Result<CoreComponent> {
         let p = p.into();
 
@@ -86,7 +86,7 @@ pub(crate) enum RoutePattern {
 }
 
 impl RoutePattern {
-    /// Return a RoutePattern given a path fragment.
+    /// Returns a RoutePattern given a path fragment.
     pub(crate) fn from<S: Into<String>>(base: S, path: S) -> Self {
         let path = format!(
             "{}{}",
@@ -111,7 +111,7 @@ impl RoutePattern {
         }
     }
 
-    /// Resolve a relative path from the end of the matched path to the end of the string.
+    /// Resolves a relative path from the end of the matched path to the end of the string.
     pub(crate) fn relative(&self, uri: &str) -> Result<String> {
         let base = match self {
             Self::Exact(path) => path,
@@ -125,7 +125,7 @@ impl RoutePattern {
             .to_owned())
     }
 
-    /// Sanitize the base and path and return a formed path.
+    /// Sanitizes the base and path and return a formed path.
     pub(crate) fn sanitize_with_base<S: Into<String>>(base: S, path: S) -> String {
         format!(
             "{}{}",
@@ -134,7 +134,7 @@ impl RoutePattern {
         )
     }
 
-    /// Strip the trailing slash from a string.
+    /// Strips the trailing slash from a string.
     fn sanitize<S: Into<String>>(s: S) -> String {
         let s = s.into();
         // TODO

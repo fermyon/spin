@@ -37,11 +37,17 @@ impl HttpExecutor for WagiHttpExecutor {
         );
 
         let uri_path = req.uri().path();
-        let mut args = vec![uri_path.to_string()];
-        req.uri()
-            .query()
-            .map(|q| q.split('&').for_each(|item| args.push(item.to_string())))
-            .take();
+
+        // Build the argv array by starting with the config for `argv` and substituting in
+        // script name and args where appropriate.
+        let script_name = uri_path.to_string();
+        let args = req.uri().query().unwrap_or_default().replace('&', " ");
+        let argv = self
+            .wagi_config
+            .argv
+            .clone()
+            .replace("${SCRIPT_NAME}", &script_name)
+            .replace("${ARGS}", &args);
 
         let (parts, body) = req.into_parts();
 
@@ -64,6 +70,7 @@ impl HttpExecutor for WagiHttpExecutor {
 
         // TODO
         // Is there any scenario where the server doesn't populate the host header?
+        // MPB: Yes, a misbehaving client can fail to set the HOST.
         let default_host = http::HeaderValue::from_str("localhost")?;
         let host = std::str::from_utf8(
             parts
@@ -84,7 +91,7 @@ impl HttpExecutor for WagiHttpExecutor {
             None,
             Some(iostream.clone()),
             Some(headers),
-            Some(args),
+            Some(argv.split(' ').map(|s| s.to_owned()).collect()),
         )?;
 
         let start = instance

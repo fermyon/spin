@@ -1,17 +1,15 @@
-// Import the HTTP objects from the generated bindings.
-use spin_http::{Request, Response};
+use anyhow::Result;
+use spin_sdk::{
+    http::{Request, Response},
+    http_component,
+};
 
-// Generate Rust bindings for interface defined in spin-http.wit file
-wit_bindgen_rust::export!("spin-http.wit");
-
-struct SpinHttp;
-impl spin_http::SpinHttp for SpinHttp {
-    // Implement the `handler` entrypoint for Spin HTTP components.
-    fn handler(req: Request) -> Response {
-        Response {
-            status: 200,
-            headers: None,
-            body: Some("I'm a teapot".as_bytes().to_vec()),
-        }
-    }
+/// A simple Spin HTTP component.
+#[http_component]
+fn hello_world(req: Request) -> Result<Response> {
+    println!("{:?}", req.headers());
+    Ok(http::Response::builder()
+        .status(200)
+        .header("foo", "bar")
+        .body(Some("Hello, Fermyon".into()))?)
 }

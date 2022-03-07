@@ -2,8 +2,7 @@
 name = "spin-templates"
 version = "0.1.0"
 edition = "2021"
-authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
-
+authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 
 [dependencies]
 anyhow = "1.0"

@@ -2888,10 +2888,7 @@ name = "spin-config"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
- "itertools",
  "serde",
- "tokio",
 ]
 
 [[package]]
@@ -2899,31 +2896,15 @@ name = "spin-engine"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
- "bindle",
  "bytes 1.1.0",
- "dirs 4.0.0",
- "fs_extra",
- "futures",
- "git2",
- "glob",
- "lazy_static",
- "regex",
- "serde",
- "sha2 0.10.1",
  "spin-config",
- "structopt",
- "tempfile",
  "tokio",
- "toml",
  "tracing",
  "tracing-futures",
- "tracing-subscriber 0.3.8",
  "wasi-common",
  "wasi-experimental-http-wasmtime 0.9.0 (git+https://github.com/deislabs/wasi-experimental-http?rev=4ed321d6943f75546e38bba80e14a59797aa29de)",
  "wasmtime",
  "wasmtime-wasi",
- "wit-bindgen-rust",
  "wit-bindgen-wasmtime",
 ]
 
@@ -2957,7 +2938,6 @@ dependencies = [
  "wasi-common",
  "wasmtime",
  "wasmtime-wasi",
- "wit-bindgen-rust",
  "wit-bindgen-wasmtime",
 ]
 

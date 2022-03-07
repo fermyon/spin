@@ -2,7 +2,7 @@
 name = "spin-http-engine"
 version = "0.1.0"
 edition = "2021"
-authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
+authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 
 [lib]
 doctest = false
@@ -33,7 +33,6 @@ wagi = { git = "https://github.com/deislabs/wagi", rev = "984c3922626b770ba43443
 wasi-common = "0.34"
 wasmtime = "0.34"
 wasmtime-wasi = "0.34"
-wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }
 wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }
 
 [dev-dependencies]

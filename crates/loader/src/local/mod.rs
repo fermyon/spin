@@ -4,7 +4,7 @@
 
 /// Module to prepare the assets for the components of an application.
 pub mod assets;
-/// Configuration representation for a Spin apoplication as a local spin.toml file.
+/// Configuration representation for a Spin application as a local spin.toml file.
 pub mod config;
 
 #[cfg(test)]
@@ -51,6 +51,8 @@ pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppMani
     Ok(manifest)
 }
 
+/// Converts a raw application manifest into Spin configuration while handling
+/// the Spin manifest and API version.
 async fn prepare_any_version(
     raw: RawAppManifestAnyVersion,
     src: impl AsRef<Path>,
@@ -61,6 +63,7 @@ async fn prepare_any_version(
     }
 }
 
+/// Converts a raw application manifest into Spin configuration.
 async fn prepare(
     raw: RawAppManifest,
     src: impl AsRef<Path>,
@@ -87,7 +90,7 @@ async fn prepare(
     Ok(Configuration { info, components })
 }
 
-/// Given a component manifest, prepare its assets and return a fully formed core component.
+/// Given a raw component manifest, prepare its assets and return a fully formed core component.
 async fn core(
     raw: RawComponentManifest,
     src: impl AsRef<Path>,
@@ -133,7 +136,7 @@ async fn core(
     })
 }
 
-/// Convert the raw application information from the spin.toml manifest to the standard configuration.
+/// Converts the raw application information from the spin.toml manifest to the standard configuration.
 fn info(raw: RawAppInformation, src: impl AsRef<Path>) -> ApplicationInformation {
     ApplicationInformation {
         api_version: "0.1.0".to_owned(),

@@ -1,13 +1,11 @@
-use crate::routes::RoutePattern;
-use crate::ExecutionContext;
-use crate::HttpExecutor;
+use crate::{routes::RoutePattern, ExecutionContext, HttpExecutor};
 use anyhow::Result;
 use async_trait::async_trait;
 use hyper::{body, Body, Request, Response};
 use spin_config::WagiConfig;
 use spin_engine::io::{IoStreamRedirects, OutRedirect};
-use std::collections::HashMap;
 use std::{
+    collections::HashMap,
     net::SocketAddr,
     sync::{Arc, RwLock},
 };
@@ -68,9 +66,6 @@ impl HttpExecutor for WagiHttpExecutor {
             &HashMap::new(),
         );
 
-        // TODO
-        // Is there any scenario where the server doesn't populate the host header?
-        // MPB: Yes, a misbehaving client can fail to set the HOST.
         let default_host = http::HeaderValue::from_str("localhost")?;
         let host = std::str::from_utf8(
             parts
@@ -114,12 +109,12 @@ impl HttpExecutor for WagiHttpExecutor {
 impl WagiHttpExecutor {
     fn streams_from_body(body: Vec<u8>) -> IoStreamRedirects {
         let stdin = ReadPipe::from(body);
-        let stdout_buf: Vec<u8> = vec![];
+        let stdout_buf = vec![];
         let lock = Arc::new(RwLock::new(stdout_buf));
         let stdout = WritePipe::from_shared(lock.clone());
         let stdout = OutRedirect { out: stdout, lock };
 
-        let stderr_buf: Vec<u8> = vec![];
+        let stderr_buf = vec![];
         let lock = Arc::new(RwLock::new(stderr_buf));
         let stderr = WritePipe::from_shared(lock.clone());
         let stderr = OutRedirect { out: stderr, lock };

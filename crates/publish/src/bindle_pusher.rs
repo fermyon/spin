@@ -1,16 +1,15 @@
 #![deny(missing_docs)]
 
-use std::path::Path;
-
 use anyhow::{Context, Result};
-use bindle::standalone::StandaloneRead;
+use bindle::{standalone::StandaloneRead, Id};
+use std::path::Path;
 
 type BindleClient = bindle::client::Client<spin_loader::bindle::BindleTokenManager>;
 
 /// Pushes a standalone bindle to a Bindle server.
 pub async fn push_all(
     path: impl AsRef<Path>,
-    bindle_id: &bindle::Id,
+    bindle_id: &Id,
     client: &BindleClient,
     server_url: &str,
 ) -> Result<()> {

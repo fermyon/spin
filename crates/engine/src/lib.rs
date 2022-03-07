@@ -14,10 +14,6 @@ use wasi_common::WasiCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
 use wasmtime_wasi::{ambient_authority, Dir, WasiCtxBuilder};
 
-/// Runtime configuration
-#[derive(Clone, Debug, Default)]
-pub struct RuntimeConfig;
-
 /// Builder-specific configuration.
 #[derive(Clone, Debug)]
 pub struct ExecutionContextConfiguration {
@@ -28,7 +24,7 @@ pub struct ExecutionContextConfiguration {
 }
 
 impl ExecutionContextConfiguration {
-    /// Create a new execution context configuration.
+    /// Creates a new execution context configuration.
     pub fn new(app: spin_config::Configuration<CoreComponent>) -> Self {
         // In order for Wasmtime to run WebAssembly components, multi memory
         // and module linking must always be enabled.
@@ -67,7 +63,7 @@ pub struct Builder<T: Default> {
 }
 
 impl<T: Default> Builder<T> {
-    /// Create a new instance of the execution builder.
+    /// Creates a new instance of the execution builder.
     pub fn new(config: ExecutionContextConfiguration) -> Result<Builder<T>> {
         let data = RuntimeContext::default();
         let engine = Engine::new(&config.wasmtime)?;
@@ -82,17 +78,13 @@ impl<T: Default> Builder<T> {
         })
     }
 
-    /// Configure the WASI linker imports for the current execution context.
+    /// Configures the WASI linker imports for the current execution context.
     pub fn link_wasi(&mut self) -> Result<&Self> {
         wasmtime_wasi::add_to_linker(&mut self.linker, |ctx| ctx.wasi.as_mut().unwrap())?;
         Ok(self)
     }
 
-    // Importing the next version of the outbound HTTP library
-    // from https://github.com/fermyon/wasi-experimental-toolkit/tree/main/crates/http-wasmtime
-    // doesn't work as a git import, as it can't find the WIT file.
-
-    /// Configure the ability to execute outbound HTTP requests.
+    /// Configures the ability to execute outbound HTTP requests.
     pub fn link_http(&mut self) -> Result<&Self> {
         wasi_experimental_http_wasmtime::HttpState::new()?
             .add_to_linker(&mut self.linker, |ctx| ctx.http.as_ref().unwrap())?;
@@ -100,7 +92,7 @@ impl<T: Default> Builder<T> {
         Ok(self)
     }
 
-    /// Build a new instance of the execution context.
+    /// Builds a new instance of the execution context.
     #[instrument(skip(self))]
     pub async fn build(&mut self) -> Result<ExecutionContext<T>> {
         let mut components = HashMap::new();
@@ -150,7 +142,7 @@ impl<T: Default> Builder<T> {
         })
     }
 
-    /// Build a new default instance of the execution context.
+    /// Builds a new default instance of the execution context.
     pub async fn build_default(
         config: ExecutionContextConfiguration,
     ) -> Result<ExecutionContext<T>> {
@@ -183,7 +175,7 @@ pub struct ExecutionContext<T: Default> {
 }
 
 impl<T: Default> ExecutionContext<T> {
-    /// Create a store for a given component given its configuration and runtime data.
+    /// Creates a store for a given component given its configuration and runtime data.
     #[instrument(skip(self, data, io))]
     pub fn prepare_component(
         &self,
@@ -205,7 +197,7 @@ impl<T: Default> ExecutionContext<T> {
         Ok((store, instance))
     }
 
-    /// Create a store for a given component given its configuration and runtime data.
+    /// Creates a store for a given component given its configuration and runtime data.
     fn store(
         &self,
         component: &Component<T>,
@@ -225,7 +217,6 @@ impl<T: Default> ExecutionContext<T> {
             Some(r) => {
                 wasi_ctx = wasi_ctx
                     .stderr(Box::new(r.stderr.out))
-                    // .inherit_stderr()
                     .stdout(Box::new(r.stdout.out))
                     .stdin(Box::new(r.stdin));
             }

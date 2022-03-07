@@ -1,12 +1,11 @@
 #![deny(missing_docs)]
 
+use anyhow::{Context, Result};
+use bindle::{Invoice, Parcel};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
 };
-
-use anyhow::{Context, Result};
-use bindle::{Invoice, Parcel};
 
 struct BindleWriter {
     source_dir: PathBuf,

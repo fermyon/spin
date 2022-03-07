@@ -38,7 +38,9 @@ jobs:
           url: "https://github.com/deislabs/bindle/releases/download/v0.8.0/bindle-v0.8.0-linux-amd64.tar.gz"
           pathInArchive: "bindle-server"
 
-      - name: Build
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Cargo Build
         run: cargo build
       - name: Cargo Test
         run:

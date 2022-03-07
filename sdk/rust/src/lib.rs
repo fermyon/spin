@@ -20,6 +20,9 @@ pub mod http {
     /// The Spin HTTP response.
     pub type Response = http::Response<Option<bytes::Bytes>>;
 
+    /// Directly expose the ability to send an HTTP request.
+    pub use crate::outbound_http::send_request as send;
+
     /// Helper function to return a 404 Not Found response.
     pub fn not_found() -> Result<Response> {
         Ok(http::Response::builder()

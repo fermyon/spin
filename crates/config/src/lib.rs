@@ -185,7 +185,7 @@ pub struct WagiConfig {
     ///
     /// This should be a space-separate list of strings. The value
     /// ${SCRIPT_NAME} will be replaced with the Wagi SCRIPT_NAME,
-    /// and the value ${ARGS} will be replaced with the query paramater
+    /// and the value ${ARGS} will be replaced with the query parameter
     /// name/value pairs presented as args. For example,
     /// `param1=val1&param2=val2` will become `param1=val1 param2=val2`,
     /// which will then be presented to the program as two arguments

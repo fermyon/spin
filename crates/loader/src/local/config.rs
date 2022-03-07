@@ -74,7 +74,7 @@ pub struct RawWasmConfig {
     /// Files to be mapped inside the Wasm module at runtime.
     ///
     /// In the local configuration file, this is a vector, each element of which
-    /// is either a file paths or glob relative to the spin.toml file, or a
+    /// is either a file path or glob relative to the spin.toml file, or a
     /// mapping of a source path to an absolute mount path in the guest.
     pub files: Option<Vec<RawFileMount>>,
     /// Optional list of HTTP hosts the component is allowed to connect.

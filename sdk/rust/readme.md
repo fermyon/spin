@@ -22,7 +22,7 @@ fn hello_world(req: Request) -> Result<Response> {
     Ok(http::Response::builder()
         .status(200)
         .header("foo", "bar")
-        .body(Some("Hello, Fermyon".into()))?)
+        .body(Some("Hello, Fermyon!".into()))?)
 }
 ```
 
@@ -46,7 +46,7 @@ server, modifies the result, then returns it:
 ```rust
 #[http_component]
 fn hello_world(_req: Request) -> Result<Response> {
-    let mut res = spin_sdk::outbound_http::send_request(
+    let mut res = spin_sdk::http::send(
         http::Request::builder()
             .method("GET")
             .uri("https://fermyon.com")
@@ -54,10 +54,11 @@ fn hello_world(_req: Request) -> Result<Response> {
     )?;
 
     res.headers_mut()
-        .insert(header::SERVER, "spin/0.1.0".try_into()?);
+        .insert(http::header::SERVER, "spin/0.1.0".try_into()?);
 
     Ok(res)
 }
+
 ```
 
 In order for the component above to be allowed to make the outbound HTTP
@@ -81,6 +82,5 @@ $ curl -I localhost:3000/hello
 HTTP/1.1 200 OK
 content-length: 29350
 content-type: text/html; charset=utf-8
-date: Fri, 04 Mar 2022 23:06:43 GMT
 server: spin/0.1.0
 ```

@@ -3711,8 +3711,8 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "wagi"
-version = "0.6.2"
-source = "git+https://github.com/deislabs/wagi?rev=984c3922626b770ba434430a19685985989c45ff#984c3922626b770ba434430a19685985989c45ff"
+version = "0.7.0"
+source = "git+https://github.com/deislabs/wagi?rev=a5b3e7b9e94f86bcb753d7a009d51fd016a41f4e#a5b3e7b9e94f86bcb753d7a009d51fd016a41f4e"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -3727,6 +3727,7 @@ dependencies = [
  "hyper",
  "indexmap",
  "oci-distribution",
+ "reqwest",
  "serde",
  "sha2 0.9.9",
  "tempfile",

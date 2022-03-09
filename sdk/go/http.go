@@ -11,7 +11,7 @@ import (
 // but as Go implements support for the component model, the underlying
 // implementation of this function can change, but the exported signature
 // can continue to always be
-// `func Handler(h func(w http.ResponseWriter, r *http.Request)) error`.
-func Handler(h func(w http.ResponseWriter, r *http.Request)) error {
+// `func HandleRequest(h func(w http.ResponseWriter, r *http.Request)) error`.
+func HandleRequest(h func(w http.ResponseWriter, r *http.Request)) error {
 	return cgi.Serve(http.HandlerFunc(h))
 }

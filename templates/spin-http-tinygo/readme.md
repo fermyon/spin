@@ -68,3 +68,9 @@ date: Wed, 09 Mar 2022 17:23:08 GMT
 
 Hello, Fermyon!
 ```
+
+## Notes
+
+- components built using TinyGo will be run in Spin using the Wagi executor
+- any time consuming work taking place in the `main` function will block the
+  handler function

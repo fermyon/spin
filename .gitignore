@@ -1,3 +1,5 @@
 target
 .husky
 cache
+node_modules
+ignored-assets

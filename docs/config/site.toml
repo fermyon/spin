@@ -1,0 +1,8 @@
+title = "Spin Documentation"
+base_url = "http://localhost:3000"
+about = "Spin — a framework for building fast, secure, and composable microservices with WebAssembly"
+
+[extra]
+copyright = "Fermyon"
+github = "https://github.com/fermyon/spin"
+twitter = "https://twitter.com/fermyontech"

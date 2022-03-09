@@ -1,0 +1,21 @@
+name = "spin-docs"
+apiVersion = "0.1.0"
+version = "0.1.0"
+description = "The Spin documentation website running on... Spin."
+authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
+trigger = { type = "http", base = "/" }
+
+[[component]]
+source = "modules/bartholomew-wagi.wasm"
+id = "bartholomew"
+files = [ "content/**/*" , "templates/*", "scripts/*", "config/*"]
+[component.trigger]
+route = "/..."
+executor = { type = "wagi" }
+
+[[component]]
+source = "modules/spin_static_fs.wasm"
+id = "fileserver"
+files = [ { source = "static/", destination = "/" } ]
+[component.trigger]
+route = "/static/..."

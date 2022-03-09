@@ -210,8 +210,8 @@ async fn copy(file: &FileMount, dir: impl AsRef<Path>) -> Result<()> {
         .await
         .with_context(|| anyhow!("Error copying asset file  '{}'", from.display()))?;
 
-    let mut perms = tokio::fs::metadata(&to).await?.permissions();
-    perms.set_readonly(true);
+    let perms = tokio::fs::metadata(&to).await?.permissions();
+    // perms.set_readonly(true);
     tokio::fs::set_permissions(&to, perms).await?;
 
     Ok(())

@@ -51,8 +51,8 @@ pub struct UpCommand {
         env = BINDLE_URL_ENV,
     )]
     pub server: Option<String>,
-    /// Temorary directory for the static assets of the components.
-    #[structopt()]
+    /// Temporary directory for the static assets of the components.
+    #[structopt(long = "temp")]
     pub tmp: Option<PathBuf>,
     /// Pass an environment variable (key=value) to all components of the application.
     #[structopt(long = "env", short = "e", parse(try_from_str = parse_env_var))]

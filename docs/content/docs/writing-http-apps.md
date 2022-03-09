@@ -175,6 +175,27 @@ standard input, and return the response to standard output. You can follow the
 on writing modules (note that a module declaring its subroutes will not be
 implemented in Spin).
 
+## Writing HTTP components in (Tiny)Go
+
+Below is a complete implementation for a Spin HTTP component in Go:
+
+```go
+package main
+
+import (
+ "io"
+ "net/http"
+
+ spin_http "github.com/fermyon/spin-sdk"
+)
+
+func main() {
+ spin_http.HandleRequest(func(w http.ResponseWriter, r *http.Request) {
+  io.WriteString(w, "Hello, Fermyon!")
+ })
+}
+```
+
 ## The default headers set in Spin HTTP components
 
 Spin sets a few default headers on the request based on the base path, component

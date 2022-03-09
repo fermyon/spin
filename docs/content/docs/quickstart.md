@@ -2,7 +2,7 @@
 
 ## Getting the `spin` binary
 
-You can download the [latest release](https://github.com/fermyon/spin/releases).
+<!-- You can download the [latest release](https://github.com/fermyon/spin/releases).
 For example, for an M1 macOS machine:
 
 ```
@@ -13,11 +13,10 @@ $ ./spin --help
 
 > On an M1 macOS machine you might need to install / configure OpenSSL@1.1 by
 > running
-> `brew install openssl@1.1 && sudo ln -s /opt/homebrew/Cellar/openssl@1.1/1.1.1m /usr/local/openssl-aarch64`
+> `brew install openssl@1.1 && sudo ln -s /opt/homebrew/Cellar/openssl@1.1/1.1.1m /usr/local/openssl-aarch64` -->
 
-Alternatively, if you want to build Spin from source,
-[follow the contribution guide](./contributing.md) for a detailed guide on
-getting started:
+First, [follow the contribution guide](./contributing.md) for a detailed guide
+on getting building Spin from source:
 
 ```shell
 $ git clone https://github.com/fermyon/spin
@@ -28,7 +27,7 @@ $ ./target/release/spin --help
 At this point, move the `spin` binary somewhere in your path, so it can be
 accessed from any directory.
 
-## Creating a new Spin HTTP application in Rust
+<!-- ## Creating a new Spin HTTP application in Rust
 
 First, we need to add the official Spin templates from the repository:
 
@@ -47,9 +46,13 @@ Now we can create a new application from the template:
 ```
 $ spin new --repo fermyon --template spin-http --path spin-hello-world
 $ cd spin-hello-world
-```
+``` -->
 
-This generated all we need to build and run our very first Spin application.
+Now let's look at the example applications from the `examples/` directory.
+
+## Building the example applications
+
+Let's first look at the Rust example from the `examples/http-rust` directory.
 Let's have a look at `spin.toml`:
 
 ```toml

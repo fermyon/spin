@@ -23,7 +23,7 @@ use spin_config::{
     ApplicationInformation, ApplicationOrigin, Configuration, CoreComponent, ModuleSource,
     WasmConfig,
 };
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tracing::log;
 pub use utils::{BindleTokenManager, SPIN_MANIFEST_MEDIA_TYPE};
 
@@ -34,7 +34,7 @@ pub use utils::{BindleTokenManager, SPIN_MANIFEST_MEDIA_TYPE};
 pub async fn from_bindle(
     id: &str,
     url: &str,
-    base_dst: Option<PathBuf>,
+    base_dst: impl AsRef<Path>,
 ) -> Result<Configuration<CoreComponent>> {
     // TODO
     // Handle Bindle authentication.
@@ -50,13 +50,8 @@ async fn prepare(
     id: &str,
     url: &str,
     reader: &BindleReader,
-    base_dst: Option<PathBuf>,
+    base_dst: impl AsRef<Path>,
 ) -> Result<Configuration<CoreComponent>> {
-    let dir = match base_dst {
-        Some(d) => d,
-        None => tempfile::tempdir()?.into_path(),
-    };
-
     // First, get the invoice from the Bindle server.
     let invoice = reader
         .get_invoice()
@@ -73,7 +68,7 @@ async fn prepare(
     let components = future::join_all(
         raw.components
             .into_iter()
-            .map(|c| async { core(c, &invoice, reader, &dir).await })
+            .map(|c| async { core(c, &invoice, reader, &base_dst).await })
             .collect::<Vec<_>>(),
     )
     .await

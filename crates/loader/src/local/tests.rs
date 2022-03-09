@@ -9,7 +9,8 @@ use std::path::PathBuf;
 async fn test_from_local_source() -> Result<()> {
     const MANIFEST: &str = "tests/valid-with-files/spin.toml";
 
-    let dir: Option<PathBuf> = None;
+    let temp_dir = tempfile::tempdir()?;
+    let dir = temp_dir.path();
     let cfg = from_file(MANIFEST, dir).await?;
 
     assert_eq!(cfg.info.name, "spin-local-source-test");

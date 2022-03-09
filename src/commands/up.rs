@@ -1,8 +1,9 @@
 use anyhow::{bail, Result};
 use spin_config::{Configuration, CoreComponent};
 use spin_http_engine::{HttpTrigger, TlsConfig};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use structopt::{clap::AppSettings, StructOpt};
+use tempfile::TempDir;
 
 const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
 const BINDLE_ID_OPT: &str = "BINDLE_ID";
@@ -78,11 +79,17 @@ pub struct UpCommand {
 
 impl UpCommand {
     pub async fn run(self) -> Result<()> {
+        let working_dir_holder = match &self.tmp {
+            None => WorkingDirectory::Temporary(tempfile::tempdir()?),
+            Some(d) => WorkingDirectory::Given(d.to_owned()),
+        };
+        let working_dir = working_dir_holder.path();
+
         let mut app = match (&self.app, &self.bindle) {
             (None, None) => bail!("Must specify app file or bindle id"),
-            (Some(app), None) => spin_loader::from_file(app, self.tmp).await?,
+            (Some(app), None) => spin_loader::from_file(app, working_dir).await?,
             (None, Some(bindle)) => match &self.server {
-                Some(server) => spin_loader::from_bindle(bindle, server, self.tmp).await?,
+                Some(server) => spin_loader::from_bindle(bindle, server, working_dir).await?,
                 _ => bail!("Loading from a bindle requires a Bindle server URL"),
             },
             (Some(_), Some(_)) => bail!("Specify only one of app file or bindle ID"),
@@ -107,7 +114,13 @@ impl UpCommand {
         };
 
         let trigger = HttpTrigger::new(self.address, app, None, tls).await?;
-        trigger.run().await
+        trigger.run().await?;
+
+        // We need to be absolutely sure it stays alive until this point: we don't want
+        // any temp directory to be deleted prematurely.
+        drop(working_dir_holder);
+
+        Ok(())
     }
 }
 
@@ -128,4 +141,18 @@ fn append_env(app: &mut Configuration<CoreComponent>, env: &[(String, String)]) 
         }
     }
     Ok(())
+}
+
+enum WorkingDirectory {
+    Given(PathBuf),
+    Temporary(TempDir),
+}
+
+impl WorkingDirectory {
+    fn path(&self) -> &Path {
+        match self {
+            Self::Given(p) => p,
+            Self::Temporary(t) => t.path(),
+        }
+    }
 }

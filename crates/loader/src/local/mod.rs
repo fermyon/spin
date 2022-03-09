@@ -18,7 +18,7 @@ use spin_config::{
     ApplicationInformation, ApplicationOrigin, Configuration, CoreComponent, ModuleSource,
     WasmConfig,
 };
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tokio::{fs::File, io::AsyncReadExt};
 
 /// Given the path to a spin.toml manifest file, prepare its assets locally and
@@ -27,7 +27,7 @@ use tokio::{fs::File, io::AsyncReadExt};
 /// otherwise create a new temporary directory.
 pub async fn from_file(
     app: impl AsRef<Path>,
-    base_dst: Option<PathBuf>,
+    base_dst: impl AsRef<Path>,
 ) -> Result<Configuration<CoreComponent>> {
     let app = app
         .as_ref()
@@ -56,7 +56,7 @@ pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppMani
 async fn prepare_any_version(
     raw: RawAppManifestAnyVersion,
     src: impl AsRef<Path>,
-    base_dst: Option<PathBuf>,
+    base_dst: impl AsRef<Path>,
 ) -> Result<Configuration<CoreComponent>> {
     match raw {
         RawAppManifestAnyVersion::V0_1_0(raw) => prepare(raw, src, base_dst).await,
@@ -67,19 +67,14 @@ async fn prepare_any_version(
 async fn prepare(
     raw: RawAppManifest,
     src: impl AsRef<Path>,
-    base_dst: Option<PathBuf>,
+    base_dst: impl AsRef<Path>,
 ) -> Result<Configuration<CoreComponent>> {
-    let dir = match base_dst {
-        Some(d) => d,
-        None => tempfile::tempdir()?.into_path(),
-    };
-
     let info = info(raw.info, &src);
 
     let components = future::join_all(
         raw.components
             .into_iter()
-            .map(|c| async { core(c, &src, &dir).await })
+            .map(|c| async { core(c, &src, &base_dst).await })
             .collect::<Vec<_>>(),
     )
     .await

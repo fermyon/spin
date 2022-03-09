@@ -8,11 +8,13 @@ pub mod io;
 use anyhow::{bail, Context, Result};
 use io::IoStreamRedirects;
 use spin_config::{CoreComponent, DirectoryMount, ModuleSource};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
 use tracing::{instrument, log};
 use wasi_common::WasiCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
 use wasmtime_wasi::{ambient_authority, Dir, WasiCtxBuilder};
+
+const SPIN_HOME: &str = ".spin";
 
 /// Builder-specific configuration.
 #[derive(Clone, Debug)]
@@ -21,11 +23,13 @@ pub struct ExecutionContextConfiguration {
     pub app: spin_config::Configuration<CoreComponent>,
     /// Wasmtime engine configuration.
     pub wasmtime: wasmtime::Config,
+    /// Log directory on host
+    pub log_dir: Option<PathBuf>,
 }
 
 impl ExecutionContextConfiguration {
     /// Creates a new execution context configuration.
-    pub fn new(app: spin_config::Configuration<CoreComponent>) -> Self {
+    pub fn new(app: spin_config::Configuration<CoreComponent>, log_dir: Option<PathBuf>) -> Self {
         // In order for Wasmtime to run WebAssembly components, multi memory
         // and module linking must always be enabled.
         // See https://github.com/bytecodealliance/wit-bindgen/blob/main/crates/wasmlink.
@@ -35,7 +39,11 @@ impl ExecutionContextConfiguration {
 
         log::trace!("Created execution context configuration.");
 
-        Self { app, wasmtime }
+        Self {
+            app,
+            wasmtime,
+            log_dir,
+        }
     }
 }
 
@@ -197,6 +205,53 @@ impl<T: Default> ExecutionContext<T> {
         Ok((store, instance))
     }
 
+    /// Save logs for a given component in the log directory on the host
+    pub fn save_output_to_logs(
+        &self,
+        io_redirects: IoStreamRedirects,
+        component: &str,
+        save_stdout: bool,
+        save_stderr: bool,
+    ) -> Result<()> {
+        let log_dir = match &self.config.log_dir {
+            Some(l) => l.clone(),
+            None => match dirs::home_dir() {
+                Some(h) => h
+                    .join(SPIN_HOME)
+                    .join(&self.config.app.info.name)
+                    .join("logs"),
+                None => PathBuf::from(&self.config.app.info.name).join("logs"),
+            },
+        };
+
+        std::fs::create_dir_all(&log_dir)?;
+
+        let stdout_filename = log_dir.join(format!("{}.stdout", &component));
+        let stderr_filename = log_dir.join(format!("{}.stderr", &component));
+        log::debug!("Saving logs to {:?} {:?}", stdout_filename, stderr_filename);
+
+        if save_stdout {
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .append(true)
+                .create(true)
+                .open(stdout_filename)?;
+            let contents = io_redirects.stdout.lock.read().unwrap();
+            file.write_all(&contents)?;
+        }
+
+        if save_stderr {
+            let contents = io_redirects.stderr.lock.read().unwrap();
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .append(true)
+                .create(true)
+                .open(stderr_filename)?;
+            file.write_all(&contents)?;
+        }
+
+        Ok(())
+    }
     /// Creates a store for a given component given its configuration and runtime data.
     fn store(
         &self,
@@ -212,7 +267,6 @@ impl<T: Default> ExecutionContext<T> {
         let mut wasi_ctx = WasiCtxBuilder::new()
             .args(&args.unwrap_or_default())?
             .envs(&env)?;
-
         match io {
             Some(r) => {
                 wasi_ctx = wasi_ctx

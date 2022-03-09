@@ -6,9 +6,16 @@ use anyhow::Result;
 use async_trait::async_trait;
 use http::Uri;
 use hyper::{Body, Request, Response};
-use std::{net::SocketAddr, str::FromStr};
+use spin_engine::io::{IoStreamRedirects, OutRedirect};
+use std::{
+    net::SocketAddr,
+    str,
+    str::FromStr,
+    sync::{Arc, RwLock},
+};
 use tokio::task::spawn_blocking;
 use tracing::log;
+use wasi_common::pipe::{ReadPipe, WritePipe};
 use wasmtime::{Instance, Store};
 
 #[derive(Clone)]
@@ -29,9 +36,16 @@ impl HttpExecutor for SpinHttpExecutor {
             "Executing request using the Spin executor for component {}",
             component
         );
-        let (store, instance) = engine.prepare_component(component, None, None, None, None)?;
+
+        let io_redirects = prepare_io_redirects()?;
+
+        let (store, instance) =
+            engine.prepare_component(component, None, Some(io_redirects.clone()), None, None)?;
 
         let res = Self::execute_impl(store, instance, base, raw_route, req).await?;
+
+        engine.save_output_to_logs(io_redirects, component, true, true)?;
+
         log::info!(
             "Request finished, sending response with status code {}",
             res.status()
@@ -157,4 +171,24 @@ impl SpinHttpExecutor {
             None => Ok(vec![]),
         }
     }
+}
+
+pub fn prepare_io_redirects() -> Result<IoStreamRedirects> {
+    let stdin = ReadPipe::from(vec![]);
+
+    let stdout_buf: Vec<u8> = vec![];
+    let lock = Arc::new(RwLock::new(stdout_buf));
+    let stdout = WritePipe::from_shared(lock.clone());
+    let stdout = OutRedirect { out: stdout, lock };
+
+    let stderr_buf: Vec<u8> = vec![];
+    let lock = Arc::new(RwLock::new(stderr_buf));
+    let stderr = WritePipe::from_shared(lock.clone());
+    let stderr = OutRedirect { out: stderr, lock };
+
+    Ok(IoStreamRedirects {
+        stdin,
+        stdout,
+        stderr,
+    })
 }

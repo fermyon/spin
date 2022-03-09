@@ -24,7 +24,7 @@ use hyper::{
 use spin_config::{ApplicationTrigger, Configuration, CoreComponent, TriggerConfig};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http::SpinHttpData;
-use std::{future::ready, net::SocketAddr, sync::Arc};
+use std::{future::ready, net::SocketAddr, path::PathBuf, sync::Arc};
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
@@ -62,8 +62,9 @@ impl HttpTrigger {
         app: Configuration<CoreComponent>,
         wasmtime: Option<wasmtime::Config>,
         tls: Option<TlsConfig>,
+        log_dir: Option<PathBuf>,
     ) -> Result<Self> {
-        let mut config = ExecutionContextConfiguration::new(app.clone());
+        let mut config = ExecutionContextConfiguration::new(app.clone(), log_dir);
         if let Some(wasmtime) = wasmtime {
             config.wasmtime = wasmtime;
         };
@@ -548,7 +549,7 @@ mod tests {
         let components = vec![component];
 
         let cfg = Configuration::<CoreComponent> { info, components };
-        let trigger = HttpTrigger::new("".to_string(), cfg, None, None).await?;
+        let trigger = HttpTrigger::new("".to_string(), cfg, None, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()
@@ -605,7 +606,7 @@ mod tests {
         let components = vec![component];
 
         let cfg = Configuration::<CoreComponent> { info, components };
-        let trigger = HttpTrigger::new("".to_string(), cfg, None, None).await?;
+        let trigger = HttpTrigger::new("".to_string(), cfg, None, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()

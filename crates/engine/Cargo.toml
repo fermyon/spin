@@ -2,15 +2,18 @@
 name = "spin-engine"
 version = "0.1.0"
 edition = "2021"
-authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
+authors = ["Radu Matei <radu.matei@fermyon.com>"]
 
 [dependencies]
 anyhow = "1.0.44"
 bytes = "1.1.0"
+dirs = "4.0"
 spin-config = { path = "../config" }
+tempfile = "3.3.0"
 tokio = { version = "1.10.0", features = [ "fs" ] }
 tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
+wasi-cap-std-sync = "0.34"
 wasi-common = "0.34"
 wasi-experimental-http-wasmtime = { git = "https://github.com/deislabs/wasi-experimental-http", rev = "4ed321d6943f75546e38bba80e14a59797aa29de" }
 wasmtime = "0.34"

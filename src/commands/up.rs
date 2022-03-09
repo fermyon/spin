@@ -9,6 +9,7 @@ const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
 const BINDLE_ID_OPT: &str = "BINDLE_ID";
 const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
 const BINDLE_URL_ENV: &str = "BINDLE_URL";
+const APP_LOG_DIR: &str = "APP_LOG_DIR";
 
 const TLS_CERT_FILE_OPT: &str = "TLS_CERT_FILE";
 const TLS_KEY_FILE_OPT: &str = "TLS_KEY_FILE";
@@ -75,6 +76,13 @@ pub struct UpCommand {
         requires = TLS_CERT_FILE_OPT,
     )]
     pub tls_key: Option<PathBuf>,
+    /// Log directory for the stdout and stderr of components.
+    #[structopt(
+        name = APP_LOG_DIR,
+        short = "L",
+        long = "log-dir",
+        )]
+    pub log: Option<PathBuf>,
 }
 
 impl UpCommand {
@@ -113,7 +121,7 @@ impl UpCommand {
             _ => unreachable!(),
         };
 
-        let trigger = HttpTrigger::new(self.address, app, None, tls).await?;
+        let trigger = HttpTrigger::new(self.address, app, None, tls, self.log).await?;
         trigger.run().await?;
 
         // We need to be absolutely sure it stays alive until this point: we don't want

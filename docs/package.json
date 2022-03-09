@@ -1,0 +1,35 @@
+{
+  "name": "spin-docs",
+  "version": "0.1.0",
+  "homepage": "https://github.com/fermyon/spin",
+  "author": {
+    "name": "Fermyon Engineering",
+    "email": "engineering@fermyon.com",
+    "url": "https://fermyon.com"
+  },
+  "description": "Documentation website for Spin",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fermyon/spin.git"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "fermyon",
+    "styleguide",
+    "sass",
+    "design",
+    "responsive"
+  ],
+  "bugs": {
+    "url": "https://github.com/fermyon/spin/issues"
+  },
+  "devDependencies": {
+    "@parcel/transformer-sass": "2.3.2",
+    "nodemon": "^2.0.15",
+    "parcel": "^2.3.2",
+    "sass": "^1.49.9"
+  },
+  "scripts": {
+    "spin": "nodemon --watch content --watch static --watch templates --ext md,rhai,hbs,css --verbose --legacy-watch --exec 'RUST_LOG=spin=trace spin up --file spin.toml'"
+  }
+}

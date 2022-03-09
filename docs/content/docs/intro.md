@@ -1,3 +1,10 @@
+title = "Spin"
+description = "Introducing Spin"
+
+[extra]
+date = "March 8, 2022"
+---
+
 # Introducing Spin
 
 Spin is an open source framework for building and running fast, secure, and

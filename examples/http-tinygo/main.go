@@ -9,6 +9,10 @@ import (
 
 func main() {
 	spin_http.HandleRequest(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "Hello, Fermyon!")
+		header := w.Header()
+		header.Set("Content-Type", "text/plain; charset=utf-8")
+		fmt.Fprintf(w, "\n")
+
+		fmt.Fprintln(w, "Hello, world!")
 	})
 }

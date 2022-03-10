@@ -2968,6 +2968,7 @@ dependencies = [
  "wasi-cap-std-sync",
  "wasi-common",
  "wasi-experimental-http-wasmtime 0.9.0 (git+https://github.com/deislabs/wasi-experimental-http?rev=4ed321d6943f75546e38bba80e14a59797aa29de)",
+ "wasi-outbound-http",
  "wasmtime",
  "wasmtime-wasi",
  "wit-bindgen-wasmtime",
@@ -3993,6 +3994,22 @@ dependencies = [
  "wasi-common",
  "wasmtime",
  "wasmtime-wasi",
+]
+
+[[package]]
+name = "wasi-outbound-http"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes 1.1.0",
+ "futures",
+ "http 0.2.6",
+ "reqwest",
+ "tokio",
+ "tracing",
+ "tracing-futures",
+ "url 2.2.2",
+ "wit-bindgen-wasmtime",
 ]
 
 [[package]]

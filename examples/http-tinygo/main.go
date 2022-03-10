@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"net/http"
 
-	spin_http "github.com/fermyon/spin-sdk"
+	spin "github.com/fermyon/spin-sdk/http"
 )
 
 func main() {
-	spin_http.HandleRequest(func(w http.ResponseWriter, r *http.Request) {
+	spin.HandleRequest(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "Hello, Fermyon!")
 	})
 }

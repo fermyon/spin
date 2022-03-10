@@ -1,4 +1,4 @@
-module github.com/fermyon/spin/templates/spin-http-tinygo
+module github.com/fermyon/spin/templates/spin-http-tinygo-outbound-http
 
 go 1.17
 

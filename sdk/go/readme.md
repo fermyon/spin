@@ -5,16 +5,6 @@ This package contains an SDK that facilitates building Spin components in
 executor.
 
 ```go
-package main
-
-import (
- "fmt"
- "net/http"
-
- // import this SDK
- spin_http "github.com/fermyon/spin-sdk"
-)
-
 func main() {
  // call the HandleRequest function
  spin_http.HandleRequest(func(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,6 @@
 spin_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
-description = "A simple Spin application written in (Tiny)Go."
+description = "A simple Spin application written in (Tiny)Go that performs outbound HTTP requests."
 name = "spin-hello-tinygo"
 trigger = { type = "http", base = "/" }
 version = "1.0.0"
@@ -8,6 +8,7 @@ version = "1.0.0"
 [[component]]
 id = "tinygo-hello"
 source = "main.wasm"
+allowed_http_hosts = [ "https://some-random-api.ml", "https://postman-echo.com" ]
 [component.trigger]
 route = "/hello"
 executor = { type = "wagi" }

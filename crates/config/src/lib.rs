@@ -85,6 +85,8 @@ pub enum ApplicationOrigin {
 pub enum ApplicationTrigger {
     /// HTTP trigger type.
     Http(HttpTriggerConfiguration),
+    /// Redis trigger type.
+    Redis(RedisTriggerConfiguration),
 }
 
 /// HTTP trigger configuration.
@@ -96,6 +98,31 @@ pub struct HttpTriggerConfiguration {
 impl Default for HttpTriggerConfiguration {
     fn default() -> Self {
         Self { base: "/".into() }
+    }
+}
+
+/// Redis trigger configuration.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct RedisTriggerConfiguration {
+    /// Address of Redis server.
+    pub address: String,
+}
+
+impl ApplicationTrigger {
+    /// Returns the HttpTriggerConfiguration else None.
+    pub fn as_http(&self) -> Option<&HttpTriggerConfiguration> {
+        match self {
+            ApplicationTrigger::Http(http) => Some(http),
+            _ => None,
+        }
+    }
+
+    /// Returns the RedisTriggerConfiguration else None.
+    pub fn as_redis(&self) -> Option<&RedisTriggerConfiguration> {
+        match self {
+            ApplicationTrigger::Redis(redis) => Some(redis),
+            _ => None,
+        }
     }
 }
 
@@ -213,16 +240,62 @@ impl Default for WagiConfig {
     }
 }
 
+/// Configuration for the Redis trigger.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RedisConfig {
+    /// Redis channel to subscribe.
+    pub channel: String,
+    /// The Redis executor the component requires.
+    pub executor: Option<RedisExecutor>,
+}
+
+/// The executor for the Redis component.
+///
+/// If an executor is not specified, the inferred default is `RedisExecutor::Spin`.
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase", tag = "type")]
+pub enum RedisExecutor {
+    /// The component implements the Spin Redis interface.
+    Spin,
+    /// The component implements the Wagi CGI interface.
+    Wagi(WagiConfig),
+}
+
+impl Default for RedisExecutor {
+    fn default() -> Self {
+        Self::Spin
+    }
+}
+
 /// Trigger configuration.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase", untagged)]
 pub enum TriggerConfig {
     /// HTTP trigger configuration
     Http(HttpConfig),
+    /// Redis trigger configuration
+    Redis(RedisConfig),
 }
 
 impl Default for TriggerConfig {
     fn default() -> Self {
         Self::Http(Default::default())
+    }
+}
+
+impl TriggerConfig {
+    /// Returns the HttpConfig else None.
+    pub fn as_http(&self) -> Option<&HttpConfig> {
+        match self {
+            TriggerConfig::Http(http) => Some(http),
+            _ => None,
+        }
+    }
+    /// Returns the RedisConfig else None.
+    pub fn as_redis(&self) -> Option<&RedisConfig> {
+        match self {
+            TriggerConfig::Redis(redis) => Some(redis),
+            _ => None,
+        }
     }
 }

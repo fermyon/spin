@@ -6,10 +6,12 @@ use wit_bindgen_gen_rust_wasm::RustWasm;
 /// The entrypoint to a Spin HTTP component written in Rust.
 #[proc_macro_attribute]
 pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    const HTTP_COMPONENT_WIT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/wit/spin-http.wit");
+
     let func = syn::parse_macro_input!(item as syn::ItemFn);
     let func_name = &func.sig.ident;
 
-    let iface = Interface::parse_file(concat!(env!("CARGO_MANIFEST_DIR"), "/wit/spin-http.wit"))
+    let iface = Interface::parse_file(HTTP_COMPONENT_WIT_PATH)
         .expect("cannot parse Spin HTTP interface file");
 
     let mut files = Files::default();
@@ -171,6 +173,38 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             Ok(res)
         }
+    )
+    .into()
+}
+
+/// Generates the entrypoint to a Spin Redis component written in Rust.
+#[proc_macro_attribute]
+pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    const REDIS_COMPONENT_WIT: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/wit/spin-redis.wit"));
+
+    let func = syn::parse_macro_input!(item as syn::ItemFn);
+    let func_name = &func.sig.ident;
+
+    quote!(
+        wit_bindgen_rust::export!({src["spin_redis"]: #REDIS_COMPONENT_WIT});
+
+        struct SpinRedis;
+
+        impl spin_redis::SpinRedis for SpinRedis {
+            fn handler(payload: spin_redis::Payload) -> Result<(), spin_redis::Error> {
+                #func
+
+                match #func_name(payload.try_into().expect("cannot convert from Spin Redis payload")) {
+                    Ok(()) => Ok(()),
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        Err(spin_redis::Error::Error)
+                    },
+                }
+            }
+        }
+
     )
     .into()
 }

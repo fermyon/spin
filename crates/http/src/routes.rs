@@ -5,7 +5,7 @@
 use anyhow::{bail, Result};
 use http::Uri;
 use indexmap::IndexMap;
-use spin_config::{ApplicationTrigger, Configuration, CoreComponent};
+use spin_config::{Configuration, CoreComponent};
 use std::fmt::Debug;
 use tracing::log;
 
@@ -29,12 +29,12 @@ pub(crate) struct Router {
 impl Router {
     /// Builds a router based on application configuration.
     pub(crate) fn build(app: &Configuration<CoreComponent>) -> Result<Self> {
-        let ApplicationTrigger::Http(app_trigger) = app.info.trigger.clone();
+        let app_trigger = app.info.trigger.as_http().unwrap().clone();
         let routes = app
             .components
             .iter()
             .map(|c| {
-                let spin_config::TriggerConfig::Http(trigger) = &c.trigger;
+                let trigger = c.trigger.as_http().unwrap();
                 (
                     RoutePattern::from(&app_trigger.base, &trigger.route),
                     c.clone(),

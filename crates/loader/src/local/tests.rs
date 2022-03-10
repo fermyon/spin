@@ -2,7 +2,7 @@ use crate::local::config::{RawDirectoryPlacement, RawFileMount, RawModuleSource}
 
 use super::*;
 use anyhow::Result;
-use spin_config::{ApplicationTrigger, HttpExecutor, TriggerConfig};
+use spin_config::HttpExecutor;
 use std::path::PathBuf;
 
 #[tokio::test]
@@ -21,10 +21,10 @@ async fn test_from_local_source() -> Result<()> {
         "Fermyon Engineering <engineering@fermyon.com>"
     );
 
-    let ApplicationTrigger::Http(http) = cfg.info.trigger;
+    let http = cfg.info.trigger.as_http().unwrap().clone();
     assert_eq!(http.base, "/".to_string());
 
-    let TriggerConfig::Http(http) = cfg.components[0].trigger.clone();
+    let http = cfg.components[0].trigger.as_http().unwrap().clone();
     assert_eq!(http.executor.unwrap(), HttpExecutor::Spin);
     assert_eq!(http.route, "/...".to_string());
 
@@ -51,13 +51,13 @@ fn test_manifest() -> Result<()> {
         Some("A simple application that returns the number of lights".to_string())
     );
 
-    let ApplicationTrigger::Http(http) = cfg.info.trigger;
+    let http = cfg.info.trigger.as_http().unwrap().clone();
     assert_eq!(http.base, "/".to_string());
 
     assert_eq!(cfg.info.authors.unwrap().len(), 3);
     assert_eq!(cfg.components[0].id, "four-lights".to_string());
 
-    let TriggerConfig::Http(http) = cfg.components[0].trigger.clone();
+    let http = cfg.components[0].trigger.as_http().unwrap().clone();
     assert_eq!(http.executor.unwrap(), HttpExecutor::Spin);
     assert_eq!(http.route, "/lights".to_string());
 
@@ -120,7 +120,7 @@ fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
     let cfg_any: RawAppManifestAnyVersion = toml::from_str(MANIFEST)?;
     let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
 
-    let TriggerConfig::Http(http_config) = &cfg.components[0].trigger;
+    let http_config = cfg.components[0].trigger.as_http().unwrap();
 
     match http_config.executor.as_ref().unwrap() {
         HttpExecutor::Spin => panic!("expected wagi http executor"),

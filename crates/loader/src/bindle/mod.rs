@@ -21,7 +21,7 @@ use bindle::{
 use futures::future;
 use spin_config::{
     ApplicationInformation, ApplicationOrigin, Configuration, CoreComponent, ModuleSource,
-    WasmConfig,
+    SpinVersion, WasmConfig,
 };
 use std::path::Path;
 use tracing::log;
@@ -129,7 +129,7 @@ fn info(raw: &RawAppManifest, invoice: &Invoice, url: &str) -> ApplicationInform
     ApplicationInformation {
         // TODO
         // Handle API version and namespace.
-        api_version: "0.1.0".to_string(),
+        spin_version: SpinVersion::V1,
         name: invoice.bindle.id.name().to_string(),
         version: invoice.bindle.id.version_string(),
         description: invoice.bindle.description.clone(),

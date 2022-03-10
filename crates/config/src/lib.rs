@@ -18,11 +18,18 @@ pub struct Configuration<T> {
     pub components: Vec<T>,
 }
 
+/// Spin API version.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum SpinVersion {
+    /// Version 1 format.
+    V1,
+}
+
 /// General application information.
 #[derive(Clone, Debug)]
 pub struct ApplicationInformation {
     /// Spin API version.
-    pub api_version: String,
+    pub spin_version: SpinVersion,
     /// Name of the application.
     pub name: String,
     /// Version of the application.

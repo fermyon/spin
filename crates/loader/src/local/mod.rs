@@ -16,7 +16,7 @@ use futures::future;
 use path_absolutize::Absolutize;
 use spin_config::{
     ApplicationInformation, ApplicationOrigin, Configuration, CoreComponent, ModuleSource,
-    WasmConfig,
+    SpinVersion, WasmConfig,
 };
 use std::path::Path;
 use tokio::{fs::File, io::AsyncReadExt};
@@ -59,7 +59,7 @@ async fn prepare_any_version(
     base_dst: impl AsRef<Path>,
 ) -> Result<Configuration<CoreComponent>> {
     match raw {
-        RawAppManifestAnyVersion::V0_1_0(raw) => prepare(raw, src, base_dst).await,
+        RawAppManifestAnyVersion::V1(raw) => prepare(raw, src, base_dst).await,
     }
 }
 
@@ -134,7 +134,7 @@ async fn core(
 /// Converts the raw application information from the spin.toml manifest to the standard configuration.
 fn info(raw: RawAppInformation, src: impl AsRef<Path>) -> ApplicationInformation {
     ApplicationInformation {
-        api_version: "0.1.0".to_owned(),
+        spin_version: SpinVersion::V1,
         name: raw.name,
         version: raw.version,
         description: raw.description,

@@ -1,5 +1,5 @@
 name = "spin-wagi-custom-entrypoint"
-apiVersion = "0.1.0"
+spin_version = "1"
 version = "1.0.0"
 authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 trigger = { type = "http", base = "/" }

@@ -1,4 +1,4 @@
-apiVersion = "0.1.0"
+spin_version = "1"
 name = "spin-headers-env-routes-test"
 version = "1.0.0"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]

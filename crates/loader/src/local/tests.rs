@@ -15,7 +15,7 @@ async fn test_from_local_source() -> Result<()> {
 
     assert_eq!(cfg.info.name, "spin-local-source-test");
     assert_eq!(cfg.info.version, "1.0.0");
-    assert_eq!(cfg.info.api_version, "0.1.0");
+    assert_eq!(cfg.info.spin_version, SpinVersion::V1);
     assert_eq!(
         cfg.info.authors[0],
         "Fermyon Engineering <engineering@fermyon.com>"
@@ -42,7 +42,7 @@ fn test_manifest() -> Result<()> {
     const MANIFEST: &str = include_str!("../../tests/valid-manifest.toml");
 
     let cfg_any: RawAppManifestAnyVersion = toml::from_str(MANIFEST)?;
-    let RawAppManifestAnyVersion::V0_1_0(cfg) = cfg_any;
+    let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
 
     assert_eq!(cfg.info.name, "chain-of-command");
     assert_eq!(cfg.info.version, "6.11.2");
@@ -105,8 +105,8 @@ fn test_unknown_version_is_rejected() {
 
     let e = cfg.unwrap_err().to_string();
     assert!(
-        e.contains("apiVersion"),
-        "Expected error to mention `apiVersion`"
+        e.contains("spin_version"),
+        "Expected error to mention `spin_version`"
     );
 }
 
@@ -118,7 +118,7 @@ fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
     const EXPECTED_DEFAULT_ARGV: &str = "${SCRIPT_NAME} ${ARGS}";
 
     let cfg_any: RawAppManifestAnyVersion = toml::from_str(MANIFEST)?;
-    let RawAppManifestAnyVersion::V0_1_0(cfg) = cfg_any;
+    let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
 
     let TriggerConfig::Http(http_config) = &cfg.components[0].trigger;
 

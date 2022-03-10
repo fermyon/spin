@@ -1,4 +1,4 @@
-apiVersion = "77.301.12"
+spin_version = "77.301.12"
 authors = ["Gul Madred", "Edward Jellico", "JL"]
 description = "Because if we get to API version 77.301.12 then we have bigger problems"
 name = "chain-of-command"

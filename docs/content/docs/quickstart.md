@@ -56,7 +56,7 @@ Let's first look at the Rust example from the `examples/http-rust` directory.
 Let's have a look at `spin.toml`:
 
 ```toml
-apiVersion = "0.1.0"
+spin_version = "1"
 name = "spin-hello-world"
 description = "A simple application that returns hello world."
 trigger = { type = "http", base = "/" }

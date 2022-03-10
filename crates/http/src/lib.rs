@@ -521,7 +521,7 @@ mod tests {
         init();
 
         let info = ApplicationInformation {
-            api_version: "0.1.0".to_string(),
+            spin_version: spin_config::SpinVersion::V1,
             name: "test-app".to_string(),
             version: "1.0.0".to_string(),
             description: None,
@@ -578,7 +578,7 @@ mod tests {
         init();
 
         let info = ApplicationInformation {
-            api_version: "0.1.0".to_string(),
+            spin_version: spin_config::SpinVersion::V1,
             name: "test-app".to_string(),
             version: "1.0.0".to_string(),
             description: None,

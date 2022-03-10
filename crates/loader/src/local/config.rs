@@ -10,17 +10,17 @@ use std::{collections::HashMap, path::PathBuf};
 
 /// Container for any version of the manifest.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(tag = "apiVersion")]
+#[serde(tag = "spin_version")]
 pub enum RawAppManifestAnyVersion {
-    /// A manifest with API version 0.1.0.
-    #[serde(rename = "0.1.0")]
-    V0_1_0(RawAppManifest),
+    /// A manifest with API version 1.
+    #[serde(rename = "1")]
+    V1(RawAppManifest),
 }
 
 /// Application configuration local file format.
 /// This is the main structure spin.toml deserializes into.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct RawAppManifest {
     /// General application information.
     #[serde(flatten)]
@@ -33,7 +33,7 @@ pub struct RawAppManifest {
 
 /// General application information.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct RawAppInformation {
     /// Name of the application.
     pub name: String,
@@ -51,7 +51,7 @@ pub struct RawAppInformation {
 
 /// Core component configuration.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct RawComponentManifest {
     /// The module source.
     pub source: RawModuleSource,
@@ -67,7 +67,7 @@ pub struct RawComponentManifest {
 
 /// WebAssembly configuration.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct RawWasmConfig {
     /// Environment variables to be mapped inside the Wasm module at runtime.
     pub environment: Option<HashMap<String, String>>,
@@ -84,7 +84,7 @@ pub struct RawWasmConfig {
 /// An entry in the `files` list mapping a source path to an absolute
 /// mount path in the guest.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct RawDirectoryPlacement {
     /// The source to mount.
     pub source: PathBuf,
@@ -95,7 +95,7 @@ pub struct RawDirectoryPlacement {
 /// A specification for a file or set of files to mount in the
 /// Wasm module.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase", untagged)]
+#[serde(deny_unknown_fields, rename_all = "snake_case", untagged)]
 pub enum RawFileMount {
     /// Mount a specified directory at a specified location.
     Placement(RawDirectoryPlacement),
@@ -105,7 +105,7 @@ pub enum RawFileMount {
 
 /// Source for the module.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase", untagged)]
+#[serde(deny_unknown_fields, rename_all = "snake_case", untagged)]
 pub enum RawModuleSource {
     /// Local path or parcel reference to a module that needs to be linked.
     FileReference(PathBuf),
@@ -118,7 +118,7 @@ pub enum RawModuleSource {
 /// The component and its entrypoint should be pulled from Bindle.
 /// This assumes access to the Bindle server.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct FileComponentBindleSource {
     /// Reference to the bindle (name/version)
     pub reference: String,

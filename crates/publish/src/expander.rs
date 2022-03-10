@@ -18,7 +18,7 @@ pub async fn expand_manifest(
         .absolutize()
         .context("Failed to resolve absolute path to manifest file")?;
     let manifest = spin_loader::local::raw_manifest_from_file(&app_file).await?;
-    let local_schema::RawAppManifestAnyVersion::V0_1_0(manifest) = manifest;
+    let local_schema::RawAppManifestAnyVersion::V1(manifest) = manifest;
     let app_dir = app_dir(&app_file)?;
 
     // * create a new spin.toml-like document where

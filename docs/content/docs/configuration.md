@@ -5,7 +5,7 @@ least one _component_. In the example below we can see a simple HTTP application
 with a single component executed when the `/hello` endpoint is accessed:
 
 ```toml
-apiVersion = "0.1.0"
+spin_version = "1"
 name = "spin-hello-world"
 description = "A simple application that returns hello world."
 trigger = { type = "http", base = "/" }
@@ -22,7 +22,7 @@ route = "/hello"
 
 The following are the fields supported by the `spin.toml` configuration file:
 
-- `apiVersion` (REQUIRED): Spin API version. Currently, this value MUST be
+- `spin_version` (REQUIRED): Spin API version. Currently, this value MUST be
   `"0.1.0"`.
 - `name` (REQUIRED): Name of the application.
 - `version` (REQUIRED): Version of the application.

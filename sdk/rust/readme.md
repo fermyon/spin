@@ -69,7 +69,7 @@ configuration:
 [[component]]
 id = "hello"
 source = "target/wasm32-wasi/release/spinhelloworld.wasm"
-allowedHttpHosts = [ "https://fermyon.com" ]
+allowed_http_hosts = [ "https://fermyon.com" ]
 [component.trigger]
 route = "/hello"
 ```

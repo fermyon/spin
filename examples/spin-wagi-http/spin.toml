@@ -1,0 +1,20 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A hello world application that serves content from a C++ program and a Rust program"
+name = "spin-wagi-hello"
+trigger = { type = "http", base = "/" }
+version = "1.0.0"
+
+[[component]]
+id = "hello"
+source = "wagi-http-cpp/main.wasm"
+[component.trigger]
+route = "/hello"
+executor =  { type = "wagi" } # _start (the default entrypoint) is automatically mapped to main()
+
+[[component]]
+id = "goodbye"
+source = "http-rust/target/wasm32-wasi/release/goodbyerust.wasm"
+[component.trigger]
+route = "/goodbye"
+executor =  { type = "spin" }

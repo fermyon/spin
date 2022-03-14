@@ -1,0 +1,17 @@
+[package]
+name = "spin-object-store"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+cap-std = "0.24.1"
+serde = { version = "1.0", features = ["derive"] }
+tracing = { version = "0.1", features = ["log"] }
+wasmtime = "0.34"
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2f46ce4cc072107153da0cefe15bdc69aa5b84d0" }

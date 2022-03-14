@@ -1,0 +1,20 @@
+[package]
+name = "wasi-outbound-http"
+version = "0.1.0"
+edition = "2021"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow  = "1.0"
+bytes = "1"
+futures = "0.3"
+http = "0.2"
+reqwest = { version = "0.11", default-features = true, features = [ "json", "blocking" ] }
+tokio = { version = "1.4.0", features = [ "full" ] }
+tracing = { version = "0.1", features = [ "log" ] }
+tracing-futures = "0.2"
+url = "2.2.1"
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }

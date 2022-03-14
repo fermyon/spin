@@ -4,4 +4,4 @@ build:
 
 . PHONY: serve
 serve:
-	RUST_LOG=spin=trace spin up --file spin.toml
+	RUST_LOG=spin=trace,wasi_outbound_http=trace spin up --file spin.toml

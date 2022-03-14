@@ -36,7 +36,7 @@ tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 hyper = { version = "0.14", features = [ "full" ] }
 
 [workspace]
-members = [ "crates/config", "crates/engine", "crates/http", "crates/loader", "crates/redis", "crates/templates", "sdk/rust", "sdk/rust/macro" ]
+members = [ "crates/config", "crates/engine", "crates/http", "crates/loader", "crates/outbound-http", "crates/redis", "crates/templates", "sdk/rust", "sdk/rust/macro" ]
 
 [[bin]]
 name = "spin"

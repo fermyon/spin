@@ -52,8 +52,10 @@ impl ExecutionContextConfiguration {
 pub struct RuntimeContext<T> {
     /// WASI context data.
     pub wasi: Option<WasiCtx>,
+    /// Experimental outbound HTTP configuration.
+    pub experimental_http: Option<wasi_experimental_http_wasmtime::HttpCtx>,
     /// Outbound HTTP configuration.
-    pub http: Option<wasi_experimental_http_wasmtime::HttpCtx>,
+    pub outbound_http: Option<wasi_outbound_http::OutboundHttp>,
     /// Generic runtime data that can be configured by specialized engines.
     pub data: Option<T>,
 }
@@ -95,7 +97,13 @@ impl<T: Default> Builder<T> {
     /// Configures the ability to execute outbound HTTP requests.
     pub fn link_http(&mut self) -> Result<&Self> {
         wasi_experimental_http_wasmtime::HttpState::new()?
-            .add_to_linker(&mut self.linker, |ctx| ctx.http.as_ref().unwrap())?;
+            .add_to_linker(&mut self.linker, |ctx| {
+                ctx.experimental_http.as_ref().unwrap()
+            })?;
+
+        wasi_outbound_http::add_to_linker(&mut self.linker, |ctx| {
+            ctx.outbound_http.as_mut().unwrap()
+        })?;
 
         Ok(self)
     }
@@ -284,13 +292,18 @@ impl<T: Default> ExecutionContext<T> {
                 wasi_ctx.preopened_dir(Dir::open_ambient_dir(host, ambient_authority())?, guest)?;
         }
 
-        let http = wasi_experimental_http_wasmtime::HttpCtx {
+        // We basically have to support both versions of outbound HTTP for the time being.
+        let experimental_http = wasi_experimental_http_wasmtime::HttpCtx {
             allowed_hosts: Some(component.core.wasm.allowed_http_hosts.clone()),
             max_concurrent_requests: None,
         };
+        let outbound_http = wasi_outbound_http::OutboundHttp {
+            allowed_hosts: Some(component.core.wasm.allowed_http_hosts.clone()),
+        };
 
         ctx.wasi = Some(wasi_ctx.build());
-        ctx.http = Some(http);
+        ctx.experimental_http = Some(experimental_http);
+        ctx.outbound_http = Some(outbound_http);
         ctx.data = data;
 
         let store = Store::new(&self.engine, ctx);

@@ -1,3 +1,11 @@
+title = "Configuration for Spin applications"
+template = "main"
+date = "2022-03-14T00:22:56Z"
+[extra]
+author = "Fermyon"
+
+---
+
 # Configuration for Spin applications
 
 Spin applications are comprised of general information, and a collection of at

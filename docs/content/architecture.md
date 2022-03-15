@@ -1,3 +1,11 @@
+title = "Architecture and Internals"
+template = "main"
+date = "2022-03-14T00:22:56Z"
+[extra]
+author = "Fermyon"
+
+---
+
 # Spin architecture and internals
 
 This document aims to offer an overview to the implementation of Spin, as well

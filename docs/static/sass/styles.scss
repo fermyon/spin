@@ -1,0 +1,70 @@
+/* FERMYON SHINY VENEER
+=======================
+For the benefit of browser-based experiences, websites and application user 
+interfaces. This Sass file should be compiled to a CSS stylesheet and served 
+after a base framework such as Bulma, Bootstrap or similar base grid system.
+
+to generate to css:
+https://sass-lang.com/install 
+
+then run:
+sass --watch static/sass/styles.scss static/css/style.css --style compressed
+
+
+TABLE OF CONTENTS
+================= */
+@import "../../node_modules/fermyon-styleguide/scss/fermyon";
+    /* 
+    npm package 'fermyon-styleguide':
+    =================================
+    0.1. Brand Colors
+    0.2. Variables and Mixins
+    0.3. Global Layout
+    0.4. Typography
+
+1.1. Spin: Docs Styles
+*/
+
+/* 1.1 Spin: Docs Styles
+*/
+aside.menu.is-sticky {
+    min-height: 100vh;
+}
+
+
+.content {
+    pre,
+    code {
+        font-size: 0.925em !important;
+    }
+
+    h1, h2, h3, h4, h5 {
+        code {
+            font-weight: bold;
+        }
+    }
+
+    .hljs {
+        background-color: transparent !important;
+    }
+
+    h1 {
+        position: relative;
+        padding-bottom: 2.67rem;
+        margin: -1.5rem 0 5rem;
+        
+        &:after {
+            position: absolute;
+            width: 25%;
+            margin: 2rem 0 0;
+            display: inline-block;
+            margin: 2.5rem 0 0;
+            bottom: 0;
+            left: 0;
+            content: " ";
+            height: .33rem;
+            background: $lavender;
+            @include border-radius(0.33rem, 0.33rem);
+        }
+    }
+}

@@ -13,9 +13,16 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
     std::fs::create_dir_all("target/test-programs").unwrap();
+
     build_wasm_test_program("rust-http-test.wasm", "crates/http/tests/rust-http-test");
     build_wasm_test_program("redis-rust.wasm", "crates/redis/tests/rust");
     build_wasm_test_program("wagi-test.wasm", "crates/http/tests/wagi-test");
+
+    build_wasm_test_program(
+        "spin-http-benchmark.wasm",
+        "crates/http/benches/spin-http-benchmark",
+    );
+    build_wasm_test_program("wagi-benchmark.wasm", "crates/http/benches/wagi-benchmark");
 
     cargo_build(RUST_HTTP_INTEGRATION_TEST);
     cargo_build(RUST_HTTP_INTEGRATION_ENV_TEST);

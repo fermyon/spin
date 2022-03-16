@@ -127,7 +127,7 @@ impl ApplicationTrigger {
 }
 
 /// WebAssembly configuration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct WasmConfig {
     /// Environment variables to be mapped inside the Wasm module at runtime.
     pub environment: HashMap<String, String>,

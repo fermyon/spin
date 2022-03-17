@@ -1,14 +1,10 @@
 use std::{
     collections::HashMap,
+    path::Path,
     process::{self, Command},
 };
 
-const HTTP_WIT: &str = "crates/http/spin_http_v01.wit";
-const HTTP_TEST: &str = "crates/http/tests/rust-http-test";
-
-const REDIS_WIT: &str = "crates/redis/wit/spin_redis_trigger_v01.wit";
-const REDIS_TEST_RUST: &str = "crates/redis/tests/rust";
-const WAGI_TEST: &str = "crates/http/tests/wagi-test";
+use cargo_target_dep::build_target_dep;
 
 const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
 const RUST_HTTP_INTEGRATION_ENV_TEST: &str = "tests/http/headers-env-routes-test";
@@ -16,20 +12,20 @@ const RUST_HTTP_INTEGRATION_ENV_TEST: &str = "tests/http/headers-env-routes-test
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
-    println!("cargo:rerun-if-changed={}", HTTP_WIT);
-    println!("cargo:rerun-if-changed={}/src/lib.rs", HTTP_TEST);
-
-    println!("cargo:rerun-if-changed={}", REDIS_WIT);
-    println!("cargo:rerun-if-changed={}/src/lib.rs", REDIS_TEST_RUST);
-
-    println!("cargo:rerun-if-changed={}/src/main.rs", WAGI_TEST);
-
-    cargo_build(HTTP_TEST);
-    cargo_build(REDIS_TEST_RUST);
-    cargo_build(WAGI_TEST);
+    std::fs::create_dir_all("target/test-programs").unwrap();
+    build_wasm_test_program("rust-http-test.wasm", "crates/http/tests/rust-http-test");
+    build_wasm_test_program("redis-rust.wasm", "crates/redis/tests/rust");
+    build_wasm_test_program("wagi-test.wasm", "crates/http/tests/wagi-test");
 
     cargo_build(RUST_HTTP_INTEGRATION_TEST);
     cargo_build(RUST_HTTP_INTEGRATION_ENV_TEST);
+}
+
+fn build_wasm_test_program(name: &'static str, root: &'static str) {
+    build_target_dep(root, Path::new("target/test-programs").join(name))
+        .release()
+        .target("wasm32-wasi")
+        .build();
 }
 
 fn cargo_build(dir: &str) {

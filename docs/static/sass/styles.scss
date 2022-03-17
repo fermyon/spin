@@ -35,17 +35,35 @@ aside.menu.is-sticky {
 .content {
     pre,
     code {
-        font-size: 0.925em !important;
+        margin-bottom: 2rem !important;
+    }
+
+    pre {
+        code {
+            margin-bottom: 0 !important;
+        }
+    }
+
+    p, li, blockquote {
+        pre,
+        code {
+            font-size: 1rem !important;
+        }
     }
 
     h1, h2, h3, h4, h5 {
         code {
             font-weight: bold;
+            font-size: 1em !important;
         }
     }
 
     .hljs {
         background-color: transparent !important;
+    }
+
+    a {
+        border-radius: 0.333rem;
     }
 
     h1 {
@@ -67,4 +85,42 @@ aside.menu.is-sticky {
             @include border-radius(0.33rem, 0.33rem);
         }
     }
+
+    blockquote {
+        p {
+            font-size: 1rem;
+            background-color: darken($darkspace, 5%);
+        }
+
+        blockquote {
+            p {
+
+            }
+        }
+    }
+}
+
+
+body.dark-theme {
+
+    .content {
+        a {
+            &:hover {
+                background: darken($darkspace, 5%) !important;
+            }
+        }
+
+        blockquote {
+            p {
+                background-color: darken($darkspace, 5%) !important;
+            }
+    
+            blockquote {
+                p {
+    
+                }
+            }
+        }
+    }
+
 }

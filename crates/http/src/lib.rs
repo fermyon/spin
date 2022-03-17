@@ -394,10 +394,9 @@ mod tests {
 
     static LOGGER: Once = Once::new();
 
-    const RUST_ENTRYPOINT_PATH: &str =
-        "tests/rust-http-test/target/wasm32-wasi/release/rust_http_test.wasm";
+    const RUST_ENTRYPOINT_PATH: &str = "../../target/test-programs/rust-http-test.wasm";
 
-    const WAGI_ENTRYPOINT_PATH: &str = "tests/wagi-test/target/wasm32-wasi/release/wagi-test.wasm";
+    const WAGI_ENTRYPOINT_PATH: &str = "../../target/test-programs/wagi-test.wasm";
 
     /// We can only initialize the tracing subscriber once per crate.
     pub(crate) fn init() {

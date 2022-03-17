@@ -371,6 +371,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cargo-target-dep"
+version = "0.1.0"
+source = "git+https://github.com/fermyon/cargo-target-dep?rev=bf68b880c0df4ecaefdb1526c0d760e993fa2321#bf68b880c0df4ecaefdb1526c0d760e993fa2321"
+dependencies = [
+ "glob",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2920,6 +2928,7 @@ dependencies = [
  "async-trait",
  "bindle",
  "bytes 1.1.0",
+ "cargo-target-dep",
  "comfy-table",
  "dirs 4.0.0",
  "dunce",

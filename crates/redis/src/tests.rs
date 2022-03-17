@@ -8,7 +8,7 @@ use std::{collections::HashMap, sync::Once};
 
 static LOGGER: Once = Once::new();
 
-const RUST_ENTRYPOINT_PATH: &str = "tests/rust/target/wasm32-wasi/release/rust.wasm";
+const RUST_ENTRYPOINT_PATH: &str = "../../target/test-programs/redis-rust.wasm";
 
 /// We can only initialize the tracing subscriber once per crate.
 pub(crate) fn init() {

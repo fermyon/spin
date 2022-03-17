@@ -58,6 +58,10 @@ aside.menu.is-sticky {
         }
     }
 
+    blockquote, dl, ol, p, ul {
+        max-width: 70vw;
+    }
+
     .hljs {
         background-color: transparent !important;
     }
@@ -114,13 +118,12 @@ body.dark-theme {
             p {
                 background-color: darken($darkspace, 5%) !important;
             }
-    
-            blockquote {
-                p {
-    
-                }
-            }
         }
+    }
+
+    aside.menu a.button svg,
+    aside.menu a.button path {
+        fill: white !important;
     }
 
 }

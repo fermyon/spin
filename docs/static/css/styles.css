@@ -1029,6 +1029,9 @@ aside.menu.is-sticky {
   font-weight: bold;
   font-size: 1em !important;
 }
+.content blockquote, .content dl, .content ol, .content p, .content ul {
+  max-width: 70vw;
+}
 .content .hljs {
   background-color: transparent !important;
 }
@@ -1064,5 +1067,9 @@ body.dark-theme .content a:hover {
 }
 body.dark-theme .content blockquote p {
   background-color: #1b2c4f !important;
+}
+body.dark-theme aside.menu a.button svg,
+body.dark-theme aside.menu a.button path {
+  fill: white !important;
 }
 /*# sourceMappingURL=styles.css.map */

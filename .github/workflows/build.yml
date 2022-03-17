@@ -13,13 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: "Install wasi-sdk"
-        run: |
-          set -x
-          curl -sS -L -O https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
-          tar xf wasi-sdk-12.0-linux.tar.gz
-          sudo mkdir -p /opt/wasi-sdk
-          sudo mv wasi-sdk-12.0/* /opt/wasi-sdk/
 
       - name: Install latest Rust stable toolchain
         uses: actions-rs/toolchain@v1

@@ -23,6 +23,7 @@ fn main() {
         "crates/http/benches/spin-http-benchmark",
     );
     build_wasm_test_program("wagi-benchmark.wasm", "crates/http/benches/wagi-benchmark");
+    build_wasm_test_program("echo.wasm", "examples/spin-timer-echo/example");
 
     cargo_build(RUST_HTTP_INTEGRATION_TEST);
     cargo_build(RUST_HTTP_INTEGRATION_ENV_TEST);

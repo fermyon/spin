@@ -6,7 +6,7 @@ trigger = {type = "redis", address = "redis://localhost:6379"}
 version = "0.1.0"
 
 [[component]]
-id = "example"
+id = "echo-message"
 source = "target/wasm32-wasi/release/spinredis.wasm"
 [component.trigger]
 channel="messages"

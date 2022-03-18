@@ -1,0 +1,26 @@
+[package]
+name = "spin-timer-echo"
+version = "0.1.0"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+chrono = "0.4"
+env_logger = "0.9"
+futures = "0.3"
+log = { version = "0.4", default-features = false }
+spin-engine = { path = "../../crates/engine" }
+spin-config = { path = "../../crates/config" }
+tokio = { version = "1.14", features = [ "full" ] }
+tracing = { version = "0.1", features = [ "log" ] }
+tracing-futures = "0.2"
+tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
+wasi-common = "0.34"
+wasmtime = "0.34"
+wasmtime-wasi = "0.34"
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2f46ce4cc072107153da0cefe15bdc69aa5b84d0" }

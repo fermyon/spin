@@ -1019,18 +1019,12 @@ aside.menu.is-sticky {
 .content pre code {
   margin-bottom: 0 !important;
 }
-.content p pre,
-.content p code, .content li pre,
-.content li code, .content blockquote pre,
-.content blockquote code {
-  font-size: 1rem !important;
-}
 .content h1 code, .content h2 code, .content h3 code, .content h4 code, .content h5 code {
   font-weight: bold;
   font-size: 1em !important;
 }
-.content blockquote, .content dl, .content ol, .content p, .content ul {
-  max-width: 70vw;
+.content blockquote, .content dl, .content ol, .content p, .content ul, .content pre {
+  max-width: 65vw;
 }
 .content .hljs {
   background-color: transparent !important;
@@ -1060,13 +1054,19 @@ aside.menu.is-sticky {
 }
 .content blockquote p {
   font-size: 1rem;
-  background-color: #1b2c4f;
+  line-height: 1.4;
 }
+
+html {
+  background-color: #0D203F;
+}
+
 body.dark-theme .content a:hover {
   background: #1b2c4f !important;
 }
 body.dark-theme .content blockquote p {
   background-color: #1b2c4f !important;
+  line-height: 1.4;
 }
 body.dark-theme aside.menu a.button svg,
 body.dark-theme aside.menu a.button path {

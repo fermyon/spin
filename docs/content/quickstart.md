@@ -1,12 +1,7 @@
 title = "Taking Spin for a Spin"
 template = "main"
 date = "2022-03-14T00:22:56Z"
-[extra]
-author = "Fermyon"
-
 ---
-
-# Taking Spin for a Spin
 
 ## Getting the `spin` binary
 
@@ -23,12 +18,12 @@ $ ./spin --help
 > running
 > `brew install openssl@1.1 && sudo ln -s /opt/homebrew/Cellar/openssl@1.1/1.1.1m /usr/local/openssl-aarch64` -->
 
-First, [follow the contribution guide](./contributing.md) for a detailed guide
+First, [follow the contribution document](/contributing) for a detailed guide
 on getting building Spin from source:
 
-```shell
+```bash
 $ git clone https://github.com/fermyon/spin
-$ cd spin && cargo build --release
+$ cd spin && make build
 $ ./target/release/spin --help
 ```
 
@@ -56,17 +51,14 @@ $ spin new --repo fermyon --template spin-http --path spin-hello-world
 $ cd spin-hello-world
 ``` -->
 
-Now let's look at the example applications from the `examples/` directory.
-
 ## Building the example applications
 
-Let's first look at the Rust example from the `examples/http-rust` directory.  
-Let's have a look at `spin.toml`:
+Let's explore the Rust example from the `examples/http-rust` directory,
+focusing first on `spin.toml`:
 
 ```toml
 spin_version = "1"
 name = "spin-hello-world"
-description = "A simple application that returns hello world."
 trigger = { type = "http", base = "/" }
 version = "1.0.0"
 
@@ -77,16 +69,16 @@ source = "target/wasm32-wasi/release/spinhelloworld.wasm"
 route = "/hello"
 ```
 
-Since this is an HTTP application, the application trigger is of `type = http`,
-and there is one component that responds to requests on route `/hello` using the
-`spinhelloworld.wasm` WebAssembly module. (See the
-[configuration document](./configuration.md) for a detailed guide on the Spin
+This is a simple Spin HTTP application (triggered by an HTTP request), with a
+single component called `hello`. Spin will execute the `spinhelloworld.wasm`
+WebAssembly module for HTTP requests on the route `/hello`.
+(See the [configuration document](/configuration) for a detailed guide on the Spin
 application configuration.)
 
-Now let's have a look at the `hello` component — below is the complete source
-code for a Spin HTTP component written in Rust. It is a regular Rust function
-that takes an HTTP request and returns an HTTP response, annotated with the
-`http_component` macro:
+Now let's have a look at the `hello` component. Below is the complete source
+code for a Spin HTTP component written in Rust — a regular Rust function that
+takes an HTTP request as a parameter and returns an HTTP response, and it is
+annotated with the `http_component` macro:
 
 ```rust
 use anyhow::Result;
@@ -98,7 +90,6 @@ use spin_sdk::{
 /// A simple Spin HTTP component.
 #[http_component]
 fn hello_world(req: Request) -> Result<Response> {
-    println!("{:?}", req.headers());
     Ok(http::Response::builder()
         .status(200)
         .header("foo", "bar")
@@ -106,8 +97,7 @@ fn hello_world(req: Request) -> Result<Response> {
 }
 ```
 
-> See
-> [the section on building HTTP applications with Spin for a detailed guide](./writing-http-apps.md).
+> See [the section on building HTTP applications with Spin for a detailed guide](/writing-http-apps).
 
 We can build this component using the regular Rust toolchain, targeting
 `wasm32-wasi`, which will produce the WebAssembly module referenced in
@@ -122,8 +112,9 @@ $ cargo build --target wasm32-wasi --release
 Now that we configured the application and built our component, we can _spin up_
 the application (pun intended):
 
-```shell
-# optionally, use RUST_LOG=spin=trace to see detailed logs
+```bash
+# optionally, set the RUST_LOG environment variable for detailed logs 
+$ export RUST_LOG=spin=trace
 $ spin up --file spin.toml
 INFO spin_http_engine: Serving HTTP on address 127.0.0.1:3000
 ```
@@ -143,32 +134,12 @@ Hello, Fermyon!
 ```
 
 You can add as many components as needed in `spin.toml`, mount files and
-directories, allow granular outbound HTTP connections, or environment variables.
-(see the [configuration document](./configuration.md) for a detailed guide on
+directories, allow granular outbound HTTP connections, or set environment variables
+(see the [configuration document](/configuration) for a detailed guide on
 the Spin application configuration) and iterate locally with
 `spin up --file spin.toml` until you are ready to distribute the application.
 
-## Distributing the application
-
-First, we need to start the registry. You can
-[install the latest Bindle release](https://github.com/deislabs/bindle/tree/main/docs#from-the-binary-releases),
-or use the
-[`autobindle`](https://marketplace.visualstudio.com/items?itemName=fermyon.autobindle)
-VS Code extension, which automatically downloads and starts Bindle on
-`http://localhost:8080/v1`. Now we can package the entire application, the
-components, and all the referenced files and publishes them to the registry:
-
-```
-$ export BINDLE_URL=http://localhost:8080/v1
-$ spin bindle push --file spin.toml
-pushed: spin-hello-world/1.0.0
-```
-
-Now we can run the application using `spin up` directly from the registry:
-
-```
-$ spin up --bindle spin-hello-world/1.0.0
-```
-
-Congratulations! You just completed writing, building, publishing, and running
-your first Spin application.
+Congratulations! You just completed building and running your first Spin
+application!
+Next, check out the [Rust](/rust-components) or [Go](/go-components) language
+guides.

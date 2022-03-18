@@ -39,7 +39,18 @@ hyper = { version = "0.14", features = [ "full" ] }
 cargo-target-dep = { git = "https://github.com/fermyon/cargo-target-dep", rev = "b7b1989fe0984c0f7c4966398304c6538e52fe49" }
 
 [workspace]
-members = [ "crates/config", "crates/engine", "crates/http", "crates/loader", "crates/outbound-http", "crates/redis", "crates/templates", "sdk/rust", "sdk/rust/macro" ]
+members = [ 
+    "crates/config",
+    "crates/engine",
+    "crates/http",
+    "crates/loader",
+    "crates/outbound-http",
+    "crates/redis",
+    "crates/templates",
+    "examples/spin-timer-echo",
+    "sdk/rust", 
+    "sdk/rust/macro"
+]
 
 [[bin]]
 name = "spin"

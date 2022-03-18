@@ -221,21 +221,29 @@ impl<T: Default> ExecutionContext<T> {
         save_stdout: bool,
         save_stderr: bool,
     ) -> Result<()> {
+        let sanitized_app_name = sanitize(&self.config.app.info.name);
+        let sanitized_component_name = sanitize(&component);
+
         let log_dir = match &self.config.log_dir {
             Some(l) => l.clone(),
             None => match dirs::home_dir() {
-                Some(h) => h
-                    .join(SPIN_HOME)
-                    .join(&self.config.app.info.name)
-                    .join("logs"),
-                None => PathBuf::from(&self.config.app.info.name).join("logs"),
+                Some(h) => h.join(SPIN_HOME).join(sanitized_app_name).join("logs"),
+                None => PathBuf::from(sanitized_app_name).join("logs"),
             },
         };
 
+        let stdout_filename = log_dir.join(sanitize(format!(
+            "{}_{}.txt",
+            sanitized_component_name, "stdout",
+        )));
+
+        let stderr_filename = log_dir.join(sanitize(format!(
+            "{}_{}.txt",
+            sanitized_component_name, "stderr"
+        )));
+
         std::fs::create_dir_all(&log_dir)?;
 
-        let stdout_filename = log_dir.join(format!("{}.stdout", &component));
-        let stderr_filename = log_dir.join(format!("{}.stderr", &component));
         log::debug!("Saving logs to {:?} {:?}", stdout_filename, stderr_filename);
 
         if save_stdout {
@@ -333,4 +341,20 @@ impl<T: Default> ExecutionContext<T> {
 
         Ok((res, dirs))
     }
+}
+
+fn sanitize(name: impl AsRef<str>) -> String {
+    // options block copied from sanitize_filename project readme
+    let options = sanitize_filename::Options {
+        // true by default, truncates to 255 bytes
+        truncate: true,
+        // default value depends on the OS, removes reserved names like `con` from start of strings on Windows
+        windows: true,
+        // str to replace sanitized chars/strings
+        replacement: "",
+    };
+
+    // filename logic defined in the project works for directory names as well
+    // refer to: https://github.com/kardeiz/sanitize-filename/blob/f5158746946ed81015c3a33078dedf164686da19/src/lib.rs#L76-L165
+    sanitize_filename::sanitize_with_options(name, options)
 }

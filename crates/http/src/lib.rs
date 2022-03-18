@@ -88,11 +88,7 @@ impl HttpTrigger {
     }
 
     /// Handles incoming requests using an HTTP executor.
-    pub(crate) async fn handle(
-        &self,
-        req: Request<Body>,
-        addr: SocketAddr,
-    ) -> Result<Response<Body>> {
+    pub async fn handle(&self, req: Request<Body>, addr: SocketAddr) -> Result<Response<Body>> {
         log::info!(
             "Processing request for application {} on URI {}",
             &self.app.info.name,
@@ -547,11 +543,7 @@ mod tests {
                 route: "/test".to_string(),
                 executor: Some(HttpExecutor::Spin),
             }),
-            wasm: spin_config::WasmConfig {
-                environment: HashMap::new(),
-                mounts: vec![],
-                allowed_http_hosts: vec![],
-            },
+            wasm: Default::default(),
         };
         let components = vec![component];
 

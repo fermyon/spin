@@ -1,4 +1,12 @@
-# Taking Spin for a spin
+title = "Taking Spin for a Spin"
+template = "main"
+date = "2022-03-14T00:22:56Z"
+[extra]
+author = "Fermyon"
+
+---
+
+# Taking Spin for a Spin
 
 ## Getting the `spin` binary
 
@@ -52,7 +60,7 @@ Now let's look at the example applications from the `examples/` directory.
 
 ## Building the example applications
 
-Let's first look at the Rust example from the `examples/http-rust` directory.
+Let's first look at the Rust example from the `examples/http-rust` directory.  
 Let's have a look at `spin.toml`:
 
 ```toml

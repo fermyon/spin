@@ -1,21 +1,31 @@
 {{! This adds the HTML head section and the beginning of the body. See content_top.hbs. }}
 {{> content_top }}
 
-<div class="col-md-8">
-    <article class="blog-post">
-        {{#with page.frontmatter}}
-        <h1 class="blog-post-title border-bottom">{{title}}</h2>
-            <p class="blog-post-meta">{{#if extra.date}}Published: {{extra.date}}{{/if}}</p>
-            {{/with}}
-            {{! Since this is HTML, we use the triple-curly }}
-            {{{page.body}}}
-            {{! Remove the `!` on the line below to see how to call a Rhai script }}
-            {{! echo "world" }}
-    </article>
-</div><!-- end col -->
+<main class="container is-fullwidth is-widescreen page-wrap">
+    <div class="columns">
 
-{{! This adds the sidebar }}
-{{> content_sidebar }}
+        {{! This adds the sidebar }}
+        {{> content_sidebar }}
+
+        <article class="column content content-docs content-docs-wide">
+            <section id="type">
+                {{#with page.frontmatter}}
+                <h1 class="blog-post-title border-bottom">{{title}}</h1>
+                <hr class="page-break" />
+
+                <p class="blog-post-meta">{{#if extra.date}}Published: {{extra.date}}{{/if}}</p>
+                {{/with}}
+
+                {{{page.body}}}
+
+            </section>
+        </article>
+
+    </div>
+</main>
 
 {{! This closes the body. See content_bottom.hbs. }}
 {{> content_bottom }}
+
+</body>
+</html>

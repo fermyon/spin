@@ -1,12 +1,25 @@
-{{! See content_top.hbs }}
-</div>
-</main>
-<footer>
-    {{#if site.info.extra.copyright }}
-    <p>&copy; {{site.info.extra.copyright}}</p>
-    {{/if}}
+<footer class="container is-fullwidth is-shallow">
+    <div class="footer-nav">
+        <div class="columns">
+            <div class="column is-one-quarter">
+                <p>
+                    <a href="https://fermyon.com">
+                        <img src="{{site.info.base_url}}/static/image/logo-badge.png" alt="Fermyon" />
+                    </a>
+                </p>
+            </div>
+            <div class="column">
+                <nav class="navbar" role="navigation" aria-label="footer navigation">
+                    <div class="navbar-end has-text-right">
+                        <div class="navbar-item"><a href="https://twitter.com/fermyontech">Twitter</a></div>
+                        <div class="navbar-item"><a href="https://github.com/fermyon/spin">GitHub</a></div>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </div>
 </footer>
-</div><!-- End main container -->
-</body>
-
-</html>
+    
+<script src="{{site.info.base_url}}/static/js/headroom.min.js"></script>
+<script src="{{site.info.base_url}}/static/js/highlight.min.js"></script>
+<script src="{{site.info.base_url}}/static/js/main.js"></script>

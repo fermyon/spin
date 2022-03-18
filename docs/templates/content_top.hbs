@@ -2,40 +2,78 @@
 <html>
 
 <head>
-    {{! Use the formatter.title and formatter.description in the head }}
-    <title>{{page.frontmatter.title}} | {{site.info.title}}</title>
-    {{#if page.frontmatter.description}}
-    {{! Only render the description if it exists }}
-    <meta name="description" content="{{page.frontmatter.description}}">
+    <meta charset="utf-8">
+    {{#if site.info.extra.ga_measurement_id }}
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{site.info.extra.ga_measurement_id}}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){window.dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', '{{site.info.extra.ga_measurement_id}}');
+    </script>
     {{/if}}
-    <!-- Twitter Bootstrap -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    {{! Use the formatter.title and formatter.description in the head }}
+    <title>{{page.head.title}} | {{site.info.title}}</title>
+
+    <meta name="keywords" content="{{#if (lt 0 (len page.head.tags))}}{{#each page.head.tags}}{{this}}, {{/each}}{{else}}{{site.info.extra.keywords}}{{/if}}">
+
+    <meta name="title" property="og:title" content="{{page.head.title}}">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="{{site.info.base_url}}{{env.PATH_INFO}}">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:site_name" content="{{site.info.title}}">
+    <meta property="article:section" content="blog">
+
+    <meta property="article:published_time" content="{{date_format "%Y-%m-%dT%H:%M:%SZ" page.head.date}}">
+    {{#if page.head.extra.last_modified}}
+    <meta property="article:modified_time" content="{{date_format "%Y-%m-%dT%H:%M:%SZ" page.head.extra.last_modified}}">
+    {{else}}
+    <meta property="article:modified_time" content="{{date_format "%Y-%m-%dT%H:%M:%SZ" page.head.date}}">
+    {{/if}}
+
+    <meta name="twitter:title" content="{{page.head.title}}">
+    {{#if page.head.extra.image}}
+        <meta name="twitter:card" content="{{page.head.extra.twitter_card_type}}">
+        <meta name="twitter:image" content="{{site.info.base_url}}{{page.head.extra.image}}">
+        <meta name="image" property="og:image" content="{{site.info.base_url}}{{page.head.extra.image}}">
+    {{else}}
+        <meta name="twitter:card" content="summary">
+        <meta name="twitter:image" content="{{site.info.base_url}}{{site.info.extra.twitter_card}}">
+        <meta name="image" property="og:image" content="{{site.info.base_url}}{{site.info.extra.twitter_card}}">
+    {{/if}}
+
+    {{#if page.head.description}}
+    {{! Only render the description if it exists }}
+    <meta name="description" content="{{page.head.description}}">
+    <meta property="og:description" content="{{page.head.description}}">
+    <meta name="twitter:description" content="{{page.head.description}}">
+    {{/if}}
+
+    {{#if page.head.extra.author}}
+    <meta name="author" content="page.head.extra.author">
+    {{/if}}
+
+    <link rel="icon" type="image/png" href="{{site.info.base_url}}/static/image/icon/favicon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{site.info.base_url}}/static/image/icon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{site.info.base_url}}/static/image/icon/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{site.info.base_url}}/static/image/icon/apple-touch-icon.png">
+    <link rel="manifest" href="{{site.info.base_url}}/static/image/icon/site.webmanifest">
+    <link rel="mask-icon" href="{{site.info.base_url}}/static/image/icon/safari-pinned-tab.svg" color="#0d203f">
+    <meta name="msapplication-TileColor" content="#0d203f">
+    <meta name="theme-color" content="#ffffff">
+
+    <link rel="alternate" type="application/rss+xml" title="{{site.info.title}}" href="{{site.info.base_url}}/atom.xml">
+    <link rel="canonical" href="{{site.info.base_url}}{{env.PATH_INFO}}">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.3/css/bulma.min.css"
+        integrity="sha512-IgmDkwzs96t4SrChW29No3NXBIBv8baW490zk5aXvhCD8vuZM3yUSkbyTBcXohkySecyzIrUwiF/qV0cuPcL3Q==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Sen:wght@400;700&amp;display=swap" rel="stylesheet" />
-    <!-- JavaScript Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-U1DAWAznBHeqEIlVSCgzq+c9gqGAJn5c/t99JyeKa9xxaYpSvHU5awsuZVVFIhvj"
-        crossorigin="anonymous"></script>
-
-    <style>
-        /* pretend we have some style */
-        body {
-            margin-top: 1em;
-            margin-left: 5em;
-        }
-
-        nav {
-            margin-bottom: 1em;
-        }
-
-        .learn-more-card-group {
-            margin-top: 2em;
-        }
-    </style>
+    <link rel="stylesheet" href="{{site.info.base_url}}/static/css/styles.css" />
 </head>
+<body class="documentation">
 
-<body>
-    <div class="container" id="main-container">
-        {{> navbar }}
-        <main>
-            <div class="row">
+    
+    {{> content_navbar }}

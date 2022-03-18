@@ -1,3 +1,11 @@
+title = "Building HTTP applications using Spin"
+template = "main"
+date = "2022-03-14T00:22:56Z"
+[extra]
+author = "Fermyon"
+
+---
+
 # Building HTTP applications using Spin
 
 Currently, the only applications that can be built with Spin are web based, or

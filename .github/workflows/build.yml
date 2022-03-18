@@ -31,19 +31,41 @@ jobs:
           url: "https://github.com/deislabs/bindle/releases/download/v0.8.0/bindle-v0.8.0-linux-amd64.tar.gz"
           pathInArchive: "bindle-server"
 
-      - uses: Swatinem/rust-cache@v1
-
-      - name: Cargo Build
-        run: cargo build
-      - name: Cargo Test
-        run:
-          RUST_LOG=spin=trace cargo test --all --all-features -- --nocapture
-      - name: Cargo Clippy
-        run:
-          cargo clippy --all-targets --all-features -- -D warnings
       - name: Cargo Format
         run:
           cargo fmt --all -- --check
+
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Cargo Clippy
+        run:
+          cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Cargo Test
+        run:
+          RUST_LOG=spin=trace cargo test --all --all-features -- --nocapture
+
+      - name: Cargo Build
+        run: cargo build --release
+
+      - name: Download previous benchmark results
+        # if: ${{ github.ref == 'refs/heads/main' }}
+        uses: actions/download-artifact@v3
+        continue-on-error: true
+        with:
+          name: benchmark-data
+          path: target/criterion
+      - name: Benchmarks
+        # if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          cargo install cargo-criterion
+          cargo criterion --workspace
+      - name: Upload benchmark results
+        # if: ${{ github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-data
+          path: target/criterion
 
     # Cancel in-progress runs for PRs
     # https://docs.github.com/en/actions/using-jobs/using-concurrency#example-using-a-fallback-value

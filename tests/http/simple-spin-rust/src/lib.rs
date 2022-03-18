@@ -7,7 +7,7 @@ wit_bindgen_rust::export!("spin-http.wit");
 struct SpinHttp {}
 impl spin_http::SpinHttp for SpinHttp {
     // Implement the `handler` entrypoint for Spin HTTP components.
-    fn handler(req: Request) -> Response {
+    fn handler(_req: Request) -> Response {
         Response {
             status: 200,
             headers: None,

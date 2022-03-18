@@ -1,0 +1,5 @@
+[parameters]
+project-description = { type = "string",  prompt = "Project description" }
+project-name = { type = "string",  prompt = "Project name" }
+http-base = { type = "string", prompt = "HTTP base", default = "/" }
+http-path = { type = "string", prompt = "HTTP path", default = "/v1/..." }

@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use comfy_table::Table;
 use spin_templates::TemplatesManager;
 use std::path::PathBuf;
@@ -6,6 +6,7 @@ use structopt::StructOpt;
 
 /// Commands for working with WebAssembly component templates.
 #[derive(StructOpt, Debug)]
+#[structopt(visible_alias = "tpl")]
 pub enum TemplateCommands {
     /// Add a template repository locally.
     Add(Add),
@@ -32,31 +33,41 @@ pub struct Add {
 
     /// The URL of the templates git repository.
     /// The templates must be in a git repository in a "templates" directory.
-    #[structopt(long = "git")]
+    #[structopt(long = "git", conflicts_with = "local")]
     pub git: Option<String>,
 
     /// The optional branch of the git repository.
-    #[structopt(long = "branch")]
+    #[structopt(long = "branch", conflicts_with = "local")]
     pub branch: Option<String>,
 
     /// Local directory to add as a template.
-    #[structopt(long = "local")]
+    #[structopt(long = "path", conflicts_with = "git", conflicts_with = "branch")]
     pub local: Option<PathBuf>,
 }
 
 impl Add {
     pub async fn run(self) -> Result<()> {
+        let Add {
+            name,
+            git,
+            branch,
+            local,
+        } = self;
+
         let tm = TemplatesManager::default().await?;
 
-        match self.git {
-            Some(g) => Ok(tm.add_repo(&self.name, &g, self.branch.as_deref())?),
-            None => Ok(tm.add_local(&self.name, &self.local.unwrap())?),
+        match (git, local) {
+            (Some(git), None) => Ok(tm.add_repo(&name, &git, branch.as_deref())?),
+            (None, Some(path)) => Ok(tm.add_local(&name, &path)?),
+            (Some(_), Some(_)) => bail!("Specify only one of git repository or local path"),
+            (None, None) => bail!("Must specify git repository or local path"),
         }
     }
 }
 
 /// List existing templates.
 #[derive(StructOpt, Debug)]
+#[structopt(visible_alias = "ls")]
 pub struct List {}
 
 impl List {

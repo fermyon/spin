@@ -123,9 +123,6 @@ impl RedisTrigger {
                         )
                         .await?
                 }
-                spin_config::RedisExecutor::Wagi(_) => {
-                    todo!();
-                }
             };
         } else {
             log::debug!("No subscription found for {:?}", channel);

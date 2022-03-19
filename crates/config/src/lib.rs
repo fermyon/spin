@@ -257,8 +257,6 @@ pub struct RedisConfig {
 pub enum RedisExecutor {
     /// The component implements the Spin Redis interface.
     Spin,
-    /// The component implements the Wagi CGI interface.
-    Wagi(WagiConfig),
 }
 
 impl Default for RedisExecutor {

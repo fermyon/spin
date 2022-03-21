@@ -1,6 +1,6 @@
 <div align="center">
   <h1>Spin</h1>
-  <img src="./docs/static/spin.png" width="300"/>
+  <img src="./docs/static/image/spin.png" width="300"/>
   <p>Spin is a framework for building, deploying, and running fast, secure, and composable cloud microservices with WebAssembly.</p>
 </div>
 

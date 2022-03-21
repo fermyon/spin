@@ -36,7 +36,7 @@ tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 hyper = { version = "0.14", features = [ "full" ] }
 
 [build-dependencies]
-cargo-target-dep = { git = "https://github.com/fermyon/cargo-target-dep", rev = "bf68b880c0df4ecaefdb1526c0d760e993fa2321" }
+cargo-target-dep = { git = "https://github.com/fermyon/cargo-target-dep", rev = "b7b1989fe0984c0f7c4966398304c6538e52fe49" }
 
 [workspace]
 members = [ "crates/config", "crates/engine", "crates/http", "crates/loader", "crates/outbound-http", "crates/redis", "crates/templates", "sdk/rust", "sdk/rust/macro" ]

@@ -19,7 +19,7 @@ applications and how to get started.
 
 ## Getting started
 
-See the [quickstart document](./docs/content/docs/quickstart.md) for a detailed
+See the [quickstart document](./docs/content/quickstart.md) for a detailed
 guide on configuring Spin and writing your first Spin application, but in short:
 
 ```
@@ -28,11 +28,11 @@ $ tar xfv spin-canary-<os-arch>.tar.gz
 $ ./spin --help
 ```
 
-After you follow the [quickstart document](./docs/content/docs/quickstart.md),
+After you follow the [quickstart document](./docs/content/quickstart.md),
 you can follow the
-[guide on writing HTTP applications with Spin](./docs/content/docs/writing-http-apps.md)
+[guide on writing HTTP applications with Spin](./docs/content/writing-http-apps.md)
 and the
-[guide on configuring Spin applications](./docs/content/docs/configuration.md).
+[guide on configuring Spin applications](./docs/content/configuration.md).
 
 After you built your application, run it using Spin, pointing to the Spin
 application configuration file:
@@ -44,4 +44,4 @@ $ spin up --file spin.toml
 ## Contributing
 
 We are delighted that you are interested in making Spin better! Thank you!
-Please follow the [contributing guide](./docs/content/docs/contributing.md).
+Please follow the [contributing guide](./docs/content/contributing.md).

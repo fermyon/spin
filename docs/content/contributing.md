@@ -1,12 +1,7 @@
 title = "Contributing to Spin"
 template = "main"
 date = "2022-03-14T00:22:56Z"
-[extra]
-author = "Fermyon"
-
 ---
-
-# Contributing to Spin
 
 We are delighted that you are interested in making Spin better! Thank you! This
 document will guide you in making your first contribution to the project.
@@ -14,13 +9,12 @@ document will guide you in making your first contribution to the project.
 First, any contribution and interaction on any Fermyon project MUST follow our
 [code of conduct](https://www.fermyon.com/code-of-conduct). Thank you for being
 part of an inclusive and open community!
-
 We welcome and appreciate contributions of all types — opening issues, fixing
 typos, adding examples, one-liner code fixes, tests, or complete features.
 
 If you plan on contributing anything complex, please go through the issue and PR
 queues first to make sure someone else has not started working on it. If it
-doesn't exist already, please open an issue so you have a change to get feedback
+doesn't exist already, please open an issue so you have a chance to get feedback
 from the community and the maintainers before you start working on your feature.
 
 ## Making code contributions to Spin
@@ -49,7 +43,7 @@ configured:
 Once you have set up the prerequisites and identified the contribution you want
 to make to Spin, make sure you can correctly build the project:
 
-```shell
+```
 # clone the repository
 $ git clone https://github.com/fermyon/spin && cd spin
 # add a new remote pointing to your fork of the project
@@ -71,9 +65,9 @@ $ make test
 
 Now you should be ready to start making your contribution. To familiarize
 yourself with the Spin project, please read the
-[architecture document](./architecture.md). Since most of Spin is implemented in
+[document about extending Spin](/extending-and-embedding). Since most of Spin is implemented in
 Rust, we try to follow the common Rust coding conventions (keep an eye on the
-recommendations from Clippy!) If applicable, add units or integration tests to
+recommendations from Clippy!) If applicable, add unit or integration tests to
 ensure your contribution is correct.
 
 Build the project and run the tests (`make build test`), and if everything is

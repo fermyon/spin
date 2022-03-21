@@ -23,37 +23,47 @@ document.querySelectorAll('.modal-button').forEach(function(el) {
 });
 
 
+const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+  ? "dark"
+  : "light";
 
-const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
-if (prefersDarkScheme.matches) {
-  document.body.classList.add('dark-theme');
-} else {
-  document.body.classList.remove('dark-theme');
-}
+// the default theme is the system theme, unless the user has
+// explicitly overriden it.
+var savedTheme = localStorage.getItem("theme") || systemTheme;
+setTheme(savedTheme);
 
-// toggle light and dark mode
 const btn = document.querySelector(".dark-mode");
-const currentTheme = localStorage.getItem("theme");
-
-if (currentTheme == "dark") {
-  document.body.classList.add("dark-theme");
-}
-
-btn.addEventListener("click", function() {
-  document.body.classList.toggle("dark-theme");
-  
-  let theme = "light";
-  if (document.body.classList.contains("dark-theme")) {
-    theme = "dark";
+btn.addEventListener("click", () => {
+  if(savedTheme === "dark") {
+    setTheme("light");
+  } else if(savedTheme === "light") {
+    setTheme("dark");
   }
-  // save theme to localstorage
-  localStorage.setItem("theme", theme);
 });
 
+// change the website theme when the system theme changes.
+window
+  .matchMedia("(prefers-color-scheme: dark)")
+  .addEventListener("change", (event) => {
+    if (event.matches) {
+      setTheme("dark");
+    } else {
+      setTheme("light");
+    }
+  });
+
+function setTheme(mode) {
+  localStorage.setItem("theme", mode);
+  savedTheme = mode;
+  if (mode === "dark") {
+    document.body.classList.add('dark-theme');
+  } else if (mode === "light") {
+    document.body.classList.remove('dark-theme');
+  }
+}
 
 document.addEventListener("DOMContentLoaded", function(){
   // init after dom
-
   (function () {
     var burger = document.querySelector('.burger');
     var menu = document.querySelector('#' + burger.dataset.target);

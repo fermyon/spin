@@ -9,12 +9,7 @@
 
         <article class="column content content-docs content-docs-wide">
             <section id="type">
-                {{#with page.frontmatter}}
-                <h1 class="blog-post-title border-bottom">{{title}}</h1>
-                <hr class="page-break" />
-
-                <p class="blog-post-meta">{{#if extra.date}}Published: {{extra.date}}{{/if}}</p>
-                {{/with}}
+                <h1 class="blog-post-title border-bottom">{{page.head.title}}</h1>
 
                 {{{page.body}}}
 

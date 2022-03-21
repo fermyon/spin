@@ -1,12 +1,7 @@
-title = "Creating a New Spin Release"
+title = "Creating a new Spin release"
 template = "main"
 date = "2022-03-14T00:22:56Z"
-[extra]
-author = "Fermyon"
-
 ---
-
-# Creating a new Spin release
 
 To cut a release of Spin, you will need to do the following:
 

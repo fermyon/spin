@@ -31,7 +31,6 @@ aside.menu.is-sticky {
     min-height: 100vh;
 }
 
-
 .content {
     pre,
     code {
@@ -44,13 +43,6 @@ aside.menu.is-sticky {
         }
     }
 
-    p, li, blockquote {
-        pre,
-        code {
-            font-size: 1rem !important;
-        }
-    }
-
     h1, h2, h3, h4, h5 {
         code {
             font-weight: bold;
@@ -58,8 +50,8 @@ aside.menu.is-sticky {
         }
     }
 
-    blockquote, dl, ol, p, ul {
-        max-width: 70vw;
+    blockquote, dl, ol, p, ul, pre {
+        max-width: 65vw;
     }
 
     .hljs {
@@ -93,20 +85,16 @@ aside.menu.is-sticky {
     blockquote {
         p {
             font-size: 1rem;
-            background-color: darken($darkspace, 5%);
-        }
-
-        blockquote {
-            p {
-
-            }
+            line-height: 1.4;
         }
     }
 }
 
+html {
+    background-color: #0D203F;
+}
 
 body.dark-theme {
-
     .content {
         a {
             &:hover {
@@ -117,6 +105,7 @@ body.dark-theme {
         blockquote {
             p {
                 background-color: darken($darkspace, 5%) !important;
+                line-height: 1.4;
             }
         }
     }
@@ -125,5 +114,4 @@ body.dark-theme {
     aside.menu a.button path {
         fill: white !important;
     }
-
 }

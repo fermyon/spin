@@ -39,7 +39,7 @@ wasi-cap-std-sync = "0.34"
 wasi-common = "0.34"
 wasmtime = "0.34"
 wasmtime-wasi = "0.34"
-wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2f46ce4cc072107153da0cefe15bdc69aa5b84d0" }
 
 [dev-dependencies]
 criterion = { version = "0.3.5", features = ["async_tokio"] }

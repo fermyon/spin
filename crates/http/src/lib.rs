@@ -30,7 +30,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
 use tracing::log;
 
-wit_bindgen_wasmtime::import!("wit/ephemeral/spin-http.wit");
+wit_bindgen_wasmtime::import!("../../wit/ephemeral/spin-http.wit");
 
 type ExecutionContext = spin_engine::ExecutionContext<SpinHttpData>;
 type RuntimeContext = spin_engine::RuntimeContext<SpinHttpData>;

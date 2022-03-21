@@ -7,7 +7,7 @@ use wasi_outbound_http::*;
 
 pub use wasi_outbound_http::add_to_linker;
 
-wit_bindgen_wasmtime::export!("wit/ephemeral/wasi-outbound-http.wit");
+wit_bindgen_wasmtime::export!("../../wit/ephemeral/wasi-outbound-http.wit");
 
 /// A very simple implementation for outbound HTTP requests.
 #[derive(Default, Clone)]

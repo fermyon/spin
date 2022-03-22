@@ -7,8 +7,7 @@ version = "1.0.0"
 [[component]]
 id = "fs"
 source = "spin_static_fs.wasm"
-files = ["static/thisshouldbemounted/*"]
-environment = { PATH_PREFIX = "static/" }
+files = [{source = "static/thisshouldbemounted", destination = "/thisshouldbemounted"}]
 [component.trigger]
 executor = {type = "spin"}
 route = "/static/..."

@@ -10,7 +10,7 @@ impl spin_http::SpinHttp for SpinHttp {
     // This handler does the following:
     // - returns all environment variables as headers with an ENV_ prefix
     // - returns all request headers as response headers.
-    fn handler(req: Request) -> Response {
+    fn handle_http_request(req: Request) -> Response {
         let mut headers = Self::env_to_headers();
         Self::append_request_headers(&mut headers, &req.headers);
         let headers = Some(headers);

@@ -3,7 +3,7 @@ wit_bindgen_rust::export!("../../../../wit/ephemeral/spin-http.wit");
 struct SpinHttp {}
 
 impl spin_http::SpinHttp for SpinHttp {
-    fn handler(req: spin_http::Request) -> spin_http::Response {
+    fn handle_http_request(req: spin_http::Request) -> spin_http::Response {
         for param in req.params {
             #[allow(clippy::single_match)]
             match (param.0.as_str(), param.1) {

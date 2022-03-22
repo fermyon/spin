@@ -96,7 +96,7 @@ impl SpinHttpExecutor {
                 body,
             };
 
-            Ok(engine.handler(&mut store, req)?)
+            Ok(engine.handle_http_request(&mut store, req)?)
         })
         .await??;
 

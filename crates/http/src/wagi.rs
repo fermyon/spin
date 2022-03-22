@@ -98,10 +98,17 @@ impl HttpExecutor for WagiHttpExecutor {
                 )
             })?;
         tracing::trace!("Calling Wasm entry point");
-        spawn_blocking(move || start.call(&mut store, &[], &mut [])).await??;
+        let guest_result = spawn_blocking(move || start.call(&mut store, &[], &mut [])).await;
         tracing::trace!("Module execution complete");
 
-        engine.save_output_to_logs(iostream.clone(), component, false, true)?;
+        let log_result = engine.save_output_to_logs(iostream.clone(), component, false, true);
+
+        // Defer checking for failures until here so that the logging runs
+        // even if the guest code fails. (And when checking, check the guest
+        // result first, so that guest failures are returned in preference to
+        // log failures.)
+        guest_result??;
+        log_result?;
 
         wagi::handlers::compose_response(iostream.stdout.lock)
     }

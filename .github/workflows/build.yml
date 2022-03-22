@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: Rust
 on:
   push:
@@ -104,7 +106,7 @@ jobs:
 
       - name: Cargo Test
         run:
-          cargo test --workspace --all-targets --all-features -- --nocapture
+          cargo test --workspace --all-targets --all-features --no-fail-fast -- --nocapture
         env:
           RUST_LOG: spin=trace
 

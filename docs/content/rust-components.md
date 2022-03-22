@@ -1,6 +1,8 @@
 title = "Building Spin components in Rust"
 template = "main"
 date = "2022-03-14T00:22:56Z"
+[extra]
+url = "https://github.com/fermyon/spin/blob/main/docs/content/rust-components.md"
 ---
 
 Spin aims to have best in class support for building components in Rust, and

@@ -1,6 +1,8 @@
 title = "Contributing to Spin"
 template = "main"
 date = "2022-03-14T00:22:56Z"
+[extra]
+url = "https://github.com/fermyon/spin/blob/main/docs/content/contributing.md"
 ---
 
 We are delighted that you are interested in making Spin better! Thank you! This

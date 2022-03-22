@@ -1,6 +1,8 @@
 title = "Building Spin components in Go"
 template = "main"
 date = "2022-03-14T00:22:56Z"
+[extra]
+url = "https://github.com/fermyon/spin/blob/main/docs/content/go-components.md"
 ---
 
 [TinyGo](https://tinygo.org/) is an implementation of the
@@ -139,7 +141,6 @@ date: Fri, 18 Mar 2022 23:27:33 GMT
 Any
 [package from the Go standard library](https://tinygo.org/docs/reference/lang-support/stdlib/) that can be imported in TinyGo and that compiles to
 WASI can be used when implementing a Spin component.
-
 
 > Make sure to read [the page describing the HTTP trigger](/http-trigger) for more
 > details about building HTTP applications.

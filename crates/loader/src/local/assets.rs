@@ -165,7 +165,7 @@ fn collect_placement(
 /// Generate a vector of file mounts given a file pattern.
 fn collect_pattern(pattern: &str, rel: impl AsRef<Path>) -> Result<Vec<FileMount>> {
     let abs = rel.as_ref().join(pattern);
-    log::debug!("Resolving asset file pattern '{:?}'", abs);
+    log::trace!("Resolving asset file pattern '{:?}'", abs);
 
     let matches = glob::glob(&abs.to_string_lossy())?;
     let specifiers = matches

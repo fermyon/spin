@@ -76,7 +76,7 @@ impl HttpTrigger {
 
         let engine = Arc::new(Builder::build_default(config).await?);
         let router = Router::build(&app)?;
-        log::debug!("Created new HTTP trigger.");
+        log::trace!("Created new HTTP trigger.");
 
         Ok(Self {
             address,

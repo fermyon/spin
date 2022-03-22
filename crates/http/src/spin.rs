@@ -42,15 +42,22 @@ impl HttpExecutor for SpinHttpExecutor {
         let (store, instance) =
             engine.prepare_component(component, None, Some(io_redirects.clone()), None, None)?;
 
-        let res = Self::execute_impl(store, instance, base, raw_route, req).await?;
+        let resp_result = Self::execute_impl(store, instance, base, raw_route, req).await;
 
-        engine.save_output_to_logs(io_redirects, component, true, true)?;
+        let log_result = engine.save_output_to_logs(io_redirects, component, true, true);
+
+        // Defer checking for failures until here so that the logging runs
+        // even if the guest code fails. (And when checking, check the guest
+        // result first, so that guest failures are returned in preference to
+        // log failures.)
+        let resp = resp_result?;
+        log_result?;
 
         log::info!(
             "Request finished, sending response with status code {}",
-            res.status()
+            resp.status()
         );
-        Ok(res)
+        Ok(resp)
     }
 }
 

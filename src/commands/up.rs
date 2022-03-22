@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use structopt::{clap::AppSettings, StructOpt};
 use tempfile::TempDir;
 
+const DEFAULT_MANIFEST_FILE: &str = "spin.toml";
+
 const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
 const BINDLE_ID_OPT: &str = "BINDLE_ID";
 const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
@@ -95,8 +97,12 @@ impl UpCommand {
         let working_dir = working_dir_holder.path();
 
         let mut app = match (&self.app, &self.bindle) {
-            (None, None) => bail!("Must specify app file or bindle id"),
-            (Some(app), None) => spin_loader::from_file(app, working_dir).await?,
+            (app, None) => {
+                let manifest_file = app
+                    .as_deref()
+                    .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
+                spin_loader::from_file(manifest_file, working_dir).await?
+            }
             (None, Some(bindle)) => match &self.server {
                 Some(server) => spin_loader::from_bindle(bindle, server, working_dir).await?,
                 _ => bail!("Loading from a bindle requires a Bindle server URL"),

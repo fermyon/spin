@@ -1,4 +1,4 @@
-title = "Taking Spin for a Spin"
+title = "Taking Spin for a spin"
 template = "main"
 date = "2022-03-14T00:22:56Z"
 [extra]
@@ -21,7 +21,7 @@ $ ./spin --help
 > `brew install openssl@1.1 && sudo ln -s /opt/homebrew/Cellar/openssl@1.1/1.1.1m /usr/local/openssl-aarch64` -->
 
 First, [follow the contribution document](/contributing) for a detailed guide
-on getting building Spin from source:
+on building Spin from source:
 
 ```bash
 $ git clone https://github.com/fermyon/spin

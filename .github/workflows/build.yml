@@ -12,7 +12,50 @@ env:
   CARGO_TERM_COLOR: always
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build Spin
+    runs-on: ${{ matrix.config.os }}
+    env: ${{ matrix.config.env }}
+    strategy:
+      matrix:
+        config:
+          - {
+              os: "ubuntu-latest",
+              arch: "amd64",
+              extension: "",
+              extraArgs: "",
+              target: "",
+              targetDir: "target/release",
+              env: {},
+              bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-linux-amd64.tar.gz",
+              bindleBinary: "bindle-server",
+              pathInBindleArchive: "bindle-server",
+            }
+          # Currently disable macOS builds, as mac minutes are 10x billed.
+          # TODO: uncomment once we make the repository public.
+          # - {
+          #     os: "macos-latest",
+          #     arch: "aarch64",
+          #     extension: "",
+          #     extraArgs: "--target aarch64-apple-darwin",
+          #     target: "aarch64-apple-darwin",
+          #     targetDir: "target/aarch64-apple-darwin/release/",
+          #     env: { OPENSSL_DIR: "/usr/local/openssl-aarch64" },
+          #     bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-macos-amd64.tar.gz",
+          #     bindleBinary: "bindle-server",
+          #     pathInBindleArchive: "bindle-server",
+          #   }
+          - {
+              os: "windows-latest",
+              arch: "amd64",
+              extension: ".exe",
+              extraArgs: "",
+              target: "",
+              targetDir: "target/release",
+              env: {},
+              bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-windows-amd64.tar.gz",
+              bindleBinary: "bindle-server.exe",
+              pathInBindleArchive: "bindle-server.exe",
+            }
     steps:
       - uses: actions/checkout@v2
 
@@ -27,19 +70,36 @@ jobs:
         run: |
           rustup target add wasm32-wasi
           rustup target add wasm32-unknown-unknown
+
       - uses: engineerd/configurator@v0.0.8
         with:
-          name: "bindle-server"
-          url: "https://github.com/deislabs/bindle/releases/download/v0.8.0/bindle-v0.8.0-linux-amd64.tar.gz"
-          pathInArchive: "bindle-server"
+          name: ${{ matrix.config.bindleBinary }}
+          url: ${{ matrix.config.bindleUrl }}
+          pathInArchive: ${{ matrix.config.pathInBindleArchive }}
+
 
       - uses: Swatinem/rust-cache@v1
 
+      # - name: setup for cross-compiled darwin aarch64 build
+      #   if: matrix.config.target == 'aarch64-apple-darwin'
+      #   run: |
+      #     cd /tmp
+      #     git clone https://github.com/openssl/openssl
+      #     cd openssl
+      #     git checkout OpenSSL_1_1_1l
+      #     sudo mkdir -p $OPENSSL_DIR
+      #     ./Configure enable-rc5 zlib darwin64-arm64-cc no-asm --prefix=$OPENSSL_DIR --openssldir=$OPENSSL_DIR shared
+      #     sudo make install
+
       - name: Cargo Build
         run: cargo build
+
       - name: Cargo Test
         run:
-          RUST_LOG=spin=trace cargo test --all --all-features -- --nocapture
+          cargo test --all --all-features -- --nocapture
+        env:
+          RUST_LOG: spin=trace
+
       - name: Cargo Clippy
         run:
           cargo clippy --all-targets --all-features -- -D warnings

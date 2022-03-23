@@ -14,6 +14,8 @@ to build programs written in Go as Spin components.
 > This guide assumes you are familiar with the Go programming language, and that
 > you have
 > [configured the TinyGo toolchain locally](https://tinygo.org/getting-started/install/).
+Using TinyGo to compile components for Spin is currently required, as the
+[Go compiler doesn't currently have support for compiling to WASI](https://github.com/golang/go/issues/31105).
 
 > All examples from this page can be found in [the Spin repository on GitHub](https://github.com/fermyon/spin/tree/main/examples).
 
@@ -47,7 +49,7 @@ func main() {
 
 The important things to note in the implementation above:
 
-- the entrypoint to the component is the standard `func main()` for Go programs
+- the entry point to the component is the standard `func main()` for Go programs
 - handling the request is done by calling the `spin.HandleRequest` function,
 which takes a `func(w http.ResponseWriter, r *http.Request)` as parameter — these
 contain the HTTP request and response writer you can use to handle the request

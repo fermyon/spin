@@ -64,8 +64,8 @@ Each `component` object has the following fields:
   - a string with the path to a local file containing the WebAssembly module for
     the component OR
   - a pair of `reference` (REQUIRED) and `parcel` (REQUIRED) fields pointing to
-    a remote bindle package (Note that this is currently not implemented, see
-    [#135](https://github.com/fermyon/spin/issues/135)).
+    a remote bindle package
+    ([Planned in #135](https://github.com/fermyon/spin/issues/135)).
 - `environment` (OPTIONAL): Environment variables to be made available inside
   the WebAssembly module at runtime.
 - `files` (OPTIONAL): Files to be made available inside the WebAssembly module
@@ -75,7 +75,7 @@ Each `component` object has the following fields:
   - a mapping of a `source` (REQUIRED), a directory relative to `spin.toml` and
     `destination` (REQUIRED), the absolute mount path to be mapped inside the
     WebAssembly module. For example
-    `{ source = "/content/", destination = "/"}`.
+    `{ source = "content/", destination = "/"}`.
 - `allowed_http_hosts` (OPTIONAL): List of HTTP hosts the component is allowed
   to make HTTP requests to (using the
   [WASI experimental HTTP library](https://github.com/deislabs/wasi-experimental-http))
@@ -104,7 +104,7 @@ Each `component` object has the following fields:
           parameters of the request, formatted as arguments. The default is to
           follow the CGI specification, and pass `${SCRIPT_NAME} ${ARGS}`
         - `entrypoint` (OPTIONAL): The name of the function that should be called
-          as the entrypoint to this handler. By default, it is `_start` (which in
+          as the entry point to this handler. By default, it is `_start` (which in
           most languages translates to calling `main` in the guest module).
   - `redis`: The configuration for a Redis component. This has the following fields:
     - `channel` (REQUIRED): The Redis channel for which, whenever a new message
@@ -124,7 +124,7 @@ route = "/static/..."
 ```
 
 - a Wagi HTTP component that contains file mounts and sets the module `argv` and
-  invokes a custom export function as the entrypoint:
+  invokes a custom export function as the entry point:
 
 ```toml
 [[component]]

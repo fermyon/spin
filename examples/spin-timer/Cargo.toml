@@ -1,11 +1,8 @@
 [package]
-name = "spin-timer-echo"
+name = "spin-timer"
 version = "0.1.0"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 edition = "2021"
-
-[lib]
-doctest = false
 
 [dependencies]
 anyhow = "1.0"

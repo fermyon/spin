@@ -112,10 +112,9 @@ fn collect_placement(
             source.display()
         );
     }
-    // TODO: check if this works if the host is Windows
-    if !guest_path.is_absolute() {
+    if !is_absolute_guest_path(guest_path) {
         bail!(
-            "Cannot place {}: guest paths must be absolute",
+            "Cannot place at {}: guest paths must be absolute",
             guest_path.display()
         );
     }
@@ -235,4 +234,15 @@ fn as_placement(fm: &RawFileMount) -> Option<RawDirectoryPlacement> {
         RawFileMount::Placement(p) => Some(p.clone()),
         _ => None,
     }
+}
+
+fn is_absolute_guest_path(path: impl AsRef<Path>) -> bool {
+    // We can't use `is_absolute` to check that guest paths are absolute,
+    // because that would use the logic of the host filesystem.  If the
+    // host is Windows, that would mean a path like `/assets` would not
+    // be considered absolute, and a path like `e:\assets` would be. But
+    // the Wasmtime preopened directory interface only works - as far as I
+    // can tell - with Unix-style guest paths. So we have to check these
+    // paths specifically using Unix logic rather than the system function.
+    path.as_ref().to_string_lossy().starts_with('/')
 }

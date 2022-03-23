@@ -43,6 +43,7 @@ mod integration_tests {
         assert_status(&s, "/test/hello", 200).await?;
         assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
         assert_status(&s, "/thisshouldfail", 404).await?;
+        assert_status(&s, "/test/hello/test-placement", 200).await?;
 
         Ok(())
     }

@@ -149,8 +149,6 @@ impl RoutePattern {
 
 #[cfg(test)]
 mod route_tests {
-    use std::collections::HashMap;
-
     use super::*;
     use crate::tests::init;
 
@@ -340,11 +338,7 @@ mod route_tests {
                 route: "/test".to_string(),
                 executor: Some(spin_config::HttpExecutor::Spin),
             }),
-            wasm: spin_config::WasmConfig {
-                environment: HashMap::new(),
-                mounts: vec![],
-                allowed_http_hosts: vec![],
-            },
+            wasm: spin_config::WasmConfig::default(),
         }
     }
 }

@@ -4,7 +4,7 @@ use spin_config::{
     ApplicationInformation, Configuration, CoreComponent, ModuleSource, RedisConfig, RedisExecutor,
     SpinVersion, TriggerConfig,
 };
-use std::{collections::HashMap, sync::Once};
+use std::sync::Once;
 
 static LOGGER: Once = Once::new();
 
@@ -50,11 +50,7 @@ async fn test_pubsub() -> Result<()> {
             channel: "messages".to_string(),
             executor: Some(RedisExecutor::Spin),
         }),
-        wasm: spin_config::WasmConfig {
-            environment: HashMap::new(),
-            mounts: vec![],
-            allowed_http_hosts: vec![],
-        },
+        wasm: spin_config::WasmConfig::default(),
     }];
 
     let app = Configuration::<CoreComponent> { info, components };

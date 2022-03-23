@@ -91,21 +91,22 @@ jobs:
       #     ./Configure enable-rc5 zlib darwin64-arm64-cc no-asm --prefix=$OPENSSL_DIR --openssldir=$OPENSSL_DIR shared
       #     sudo make install
 
-      - name: Cargo Build
-        run: cargo build
-
-      - name: Cargo Test
-        run:
-          cargo test --all --all-features -- --nocapture
-        env:
-          RUST_LOG: spin=trace
-
-      - name: Cargo Clippy
-        run:
-          cargo clippy --all-targets --all-features -- -D warnings
       - name: Cargo Format
         run:
           cargo fmt --all -- --check
+
+      - name: Cargo Clippy
+        run:
+          cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Cargo Build
+        run: cargo build --workspace --all-targets --all-features
+
+      - name: Cargo Test
+        run:
+          cargo test --workspace --all-targets --all-features -- --nocapture
+        env:
+          RUST_LOG: spin=trace
 
     # Cancel in-progress runs for PRs
     # https://docs.github.com/en/actions/using-jobs/using-concurrency#example-using-a-fallback-value

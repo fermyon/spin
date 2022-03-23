@@ -5,7 +5,7 @@ wit_bindgen_rust::export!("../../../../wit/ephemeral/spin-http.wit");
 struct SpinHttp {}
 
 impl spin_http::SpinHttp for SpinHttp {
-    fn handler(req: Request) -> Response {
+    fn handle_http_request(req: Request) -> Response {
         assert!(req.params.contains(&("abc".to_string(), "def".to_string())));
 
         assert!(req

@@ -29,7 +29,7 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
         struct SpinHttp;
         impl spin_http::SpinHttp for SpinHttp {
             // Implement the `handler` entrypoint for Spin HTTP components.
-            fn handler(req: spin_http::Request) -> spin_http::Response {
+            fn handle_http_request(req: spin_http::Request) -> spin_http::Response {
                 #func
 
                 match #func_name(req.try_into().expect("cannot convert from Spin HTTP request")) {
@@ -192,10 +192,10 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
         struct SpinRedis;
 
         impl spin_redis::SpinRedis for SpinRedis {
-            fn handler(payload: spin_redis::Payload) -> Result<(), spin_redis::Error> {
+            fn handle_redis_message(message: spin_redis::Payload) -> Result<(), spin_redis::Error> {
                 #func
 
-                match #func_name(payload.try_into().expect("cannot convert from Spin Redis payload")) {
+                match #func_name(message.try_into().expect("cannot convert from Spin Redis payload")) {
                     Ok(()) => Ok(()),
                     Err(e) => {
                         eprintln!("{}", e);

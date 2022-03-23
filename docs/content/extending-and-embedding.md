@@ -26,15 +26,11 @@ defined using
 
 ```fsharp
 // The entrypoint for an HTTP handler.
-handler: function(req: request) -> response
+handle-http-request: function(req: request) -> response
 
 // The entrypoint for a Redis handler.
-handler: function(msg: payload) -> expected<_, error>
+handle-redis-message: function(msg: payload) -> expected<_, error>
 ```
-
-> `handler` as the entrypoint name is a convention that [might change](https://github.com/fermyon/spin/issues/196)
-> in the future to allow a single WebAssembly module to implement the entrypoints
-> for multiple component types.
 
 Let's see how define a new application entrypoint for Spin:
 

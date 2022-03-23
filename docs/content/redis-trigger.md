@@ -42,13 +42,13 @@ The current interface is defined using the
 format, and is a function that takes the message payload as its only parameter:
 
 ```fsharp
-// wit/ephemeral/spin-redis-trigger.wit
+// wit/ephemeral/spin-redis.wit
 
 // The message payload.
 type payload = list<u8>
 
 // The entrypoint for a Redis handler.
-handler: function(msg: payload) -> expected<_, error>
+handle-redis-message: function(msg: payload) -> expected<_, error>
 ```
 
 > The interface might change in the future to add the Redis instance and

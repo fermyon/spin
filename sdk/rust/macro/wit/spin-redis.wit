@@ -1,5 +1,5 @@
 // The entrypoint for a Redis handler.
-handler: function(p: payload) -> expected<_, error>
+handle-redis-message: function(message: payload) -> expected<_, error>
 
 // The message payload.
 type payload = list<u8>

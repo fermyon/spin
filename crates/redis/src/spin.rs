@@ -1,6 +1,4 @@
-use crate::{
-    spin_redis_trigger::SpinRedisTrigger, ExecutionContext, RedisExecutor, RuntimeContext,
-};
+use crate::{spin_redis::SpinRedis, ExecutionContext, RedisExecutor, RuntimeContext};
 use anyhow::Result;
 use async_trait::async_trait;
 use tokio::task::spawn_blocking;
@@ -44,13 +42,12 @@ impl SpinRedisExecutor {
         _channel: &str,
         payload: Vec<u8>,
     ) -> Result<()> {
-        let engine =
-            SpinRedisTrigger::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
+        let engine = SpinRedis::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
 
-        let _res = spawn_blocking(move || -> Result<crate::spin_redis_trigger::Error> {
-            match engine.handler(&mut store, &payload) {
-                Ok(_) => Ok(crate::spin_redis_trigger::Error::Success),
-                Err(_) => Ok(crate::spin_redis_trigger::Error::Error),
+        let _res = spawn_blocking(move || -> Result<crate::spin_redis::Error> {
+            match engine.handle_redis_message(&mut store, &payload) {
+                Ok(_) => Ok(crate::spin_redis::Error::Success),
+                Err(_) => Ok(crate::spin_redis::Error::Error),
             }
         })
         .await??;

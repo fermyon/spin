@@ -156,7 +156,7 @@ Then, we define the entrypoint for a Spin HTTP component:
 
 use * from http-types
 // The entrypoint for an HTTP handler.
-handler: function(req: request) -> response
+handle-http-request: function(req: request) -> response
 ```
 
 This is the function signature that all HTTP components must implement, and

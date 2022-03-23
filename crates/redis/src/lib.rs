@@ -9,13 +9,13 @@ use futures::StreamExt;
 use redis::Client;
 use spin_config::{Configuration, CoreComponent, RedisConfig};
 use spin_engine::{Builder, ExecutionContextConfiguration};
-use spin_redis_trigger::SpinRedisTriggerData;
+use spin_redis::SpinRedisData;
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-wit_bindgen_wasmtime::import!("../../wit/ephemeral/spin-redis-trigger.wit");
+wit_bindgen_wasmtime::import!("../../wit/ephemeral/spin-redis.wit");
 
-type ExecutionContext = spin_engine::ExecutionContext<SpinRedisTriggerData>;
-type RuntimeContext = spin_engine::RuntimeContext<SpinRedisTriggerData>;
+type ExecutionContext = spin_engine::ExecutionContext<SpinRedisData>;
+type RuntimeContext = spin_engine::RuntimeContext<SpinRedisData>;
 
 /// The Spin Redis trigger.
 #[derive(Clone)]

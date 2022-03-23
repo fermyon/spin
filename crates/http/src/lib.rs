@@ -383,7 +383,7 @@ mod tests {
         TriggerConfig,
     };
     use std::{
-        collections::{BTreeMap, HashMap},
+        collections::BTreeMap,
         net::{IpAddr, Ipv4Addr},
         sync::Once,
     };
@@ -596,11 +596,7 @@ mod tests {
                 route: "/test".to_string(),
                 executor: Some(HttpExecutor::Wagi(Default::default())),
             }),
-            wasm: spin_config::WasmConfig {
-                environment: HashMap::new(),
-                mounts: vec![],
-                allowed_http_hosts: vec![],
-            },
+            wasm: spin_config::WasmConfig::default(),
         };
         let components = vec![component];
 

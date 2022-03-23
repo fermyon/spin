@@ -141,7 +141,7 @@ impl<T: Default> Builder<T> {
             };
 
             let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
-            log::debug!("Created pre-instance from module for component {}.", &c.id);
+            log::trace!("Created pre-instance from module for component {}.", &c.id);
 
             components.insert(c.id.clone(), Component { core, pre });
         }
@@ -201,7 +201,7 @@ impl<T: Default> ExecutionContext<T> {
         env: Option<HashMap<String, String>>,
         args: Option<Vec<String>>,
     ) -> Result<(Store<RuntimeContext<T>>, Instance)> {
-        log::debug!("Preparing component {}", component);
+        log::trace!("Preparing component {}", component);
         let component = match self.components.get(component) {
             Some(c) => c,
             None => bail!("Cannot find component {}", component),
@@ -244,7 +244,7 @@ impl<T: Default> ExecutionContext<T> {
 
         std::fs::create_dir_all(&log_dir)?;
 
-        log::debug!("Saving logs to {:?} {:?}", stdout_filename, stderr_filename);
+        log::trace!("Saving logs to {:?} {:?}", stdout_filename, stderr_filename);
 
         if save_stdout {
             let mut file = std::fs::OpenOptions::new()
@@ -277,7 +277,7 @@ impl<T: Default> ExecutionContext<T> {
         env: Option<HashMap<String, String>>,
         args: Option<Vec<String>>,
     ) -> Result<Store<RuntimeContext<T>>> {
-        log::debug!("Creating store.");
+        log::trace!("Creating store.");
         let (env, dirs) = Self::wasi_config(component, env)?;
         let mut ctx = RuntimeContext::default();
         let mut wasi_ctx = WasiCtxBuilder::new()

@@ -64,7 +64,7 @@ impl TemplatesManager {
     /// Adds the given templates repository locally and offline by cloning it.
     pub fn add_repo(&self, name: &str, url: &str, branch: Option<&str>) -> Result<()> {
         let dst = &self.root.join(TEMPLATES_DIR).join(name);
-        log::debug!("adding repository {} to {:?}", url, dst);
+        log::trace!("adding repository {} to {:?}", url, dst);
 
         match branch {
             Some(b) => RepoBuilder::new().branch(b).clone(url, dst)?,
@@ -83,7 +83,7 @@ impl TemplatesManager {
             .join(LOCAL_TEMPLATES)
             .join(TEMPLATES_DIR)
             .join(name);
-        log::debug!("adding local template from {:?} to {:?}", src, dst);
+        log::trace!("adding local template from {:?} to {:?}", src, dst);
 
         symlink::symlink_dir(src, dst)?;
         Ok(())
@@ -161,7 +161,7 @@ impl TemplatesManager {
     /// Ensure the root directory exists, or else create it.
     async fn ensure(root: &Path) -> Result<()> {
         if !root.exists() {
-            log::debug!("creating cache root directory `{}`", root.display());
+            log::trace!("Creating cache root directory `{}`", root.display());
             fs::create_dir_all(root).await.with_context(|| {
                 format!("failed to create cache root directory `{}`", root.display())
             })?;
@@ -171,7 +171,7 @@ impl TemplatesManager {
                 root.display()
             );
         } else {
-            log::debug!("using existing cache root directory `{}`", root.display());
+            log::trace!("Using existing cache root directory `{}`", root.display());
         }
 
         Ok(())

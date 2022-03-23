@@ -45,7 +45,7 @@ impl RedisTrigger {
             config.wasmtime = wasmtime;
         };
         let engine = Arc::new(Builder::build_default(config).await?);
-        log::debug!("Created new Redis trigger.");
+        log::trace!("Created new Redis trigger.");
 
         let subscriptions =
             app.components
@@ -90,7 +90,7 @@ impl RedisTrigger {
         loop {
             match stream.next().await {
                 Some(msg) => drop(self.handle(msg).await),
-                None => log::debug!("Empty message"),
+                None => log::trace!("Empty message"),
             };
         }
     }

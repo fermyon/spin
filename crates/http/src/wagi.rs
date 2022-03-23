@@ -99,7 +99,7 @@ impl HttpExecutor for WagiHttpExecutor {
             })?;
         tracing::trace!("Calling Wasm entry point");
         let guest_result = spawn_blocking(move || start.call(&mut store, &[], &mut [])).await;
-        tracing::trace!("Module execution complete");
+        tracing::info!("Module execution complete");
 
         let log_result = engine.save_output_to_logs(iostream.clone(), component, false, true);
 

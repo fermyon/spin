@@ -31,7 +31,7 @@
     "sass": "^1.49.9"
   },
   "scripts": {
-    "spin": "nodemon --watch content --watch static --watch templates --ext md,rhai,hbs,css,js --verbose --legacy-watch --signal SIGINT --exec 'RUST_LOG=spin=trace spin up --file spin.toml'",
+    "spin": "nodemon --watch content --watch static --watch templates --ext md,rhai,hbs,css,js --verbose --legacy-watch --signal SIGINT --exec 'spin up --file spin.toml'",
     "styles": "npx parcel build static/sass/styles.scss --dist-dir static/css --no-optimize"
   }
 }

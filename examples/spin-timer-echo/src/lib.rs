@@ -1,3 +1,6 @@
+// The wit_bindgen_wasmtime::import below is triggering this lint
+#![allow(clippy::needless_question_mark)]
+
 use anyhow::Result;
 use spin_config::{Configuration, CoreComponent};
 use spin_engine::{Builder, ExecutionContextConfiguration};

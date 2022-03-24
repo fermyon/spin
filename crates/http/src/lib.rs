@@ -209,14 +209,16 @@ impl HttpTrigger {
 
         let shutdown_signal = on_ctrl_c()?;
 
-        Server::bind(&addr)
-            .serve(mk_svc)
-            .with_graceful_shutdown(async {
-                shutdown_signal.await.ok();
-            })
-            .await?;
+        let server = Server::bind(&addr).serve(mk_svc);
 
-        log::debug!("User requested shutdown: exiting");
+        tokio::select! {
+            _ = server => {
+                log::debug!("Server shut down: exiting");
+            },
+            _ = shutdown_signal => {
+                log::debug!("User requested shutdown: exiting");
+            },
+        };
 
         Ok(())
     }
@@ -272,14 +274,16 @@ impl HttpTrigger {
 
         let shutdown_signal = on_ctrl_c()?;
 
-        Server::builder(incoming)
-            .serve(mk_svc)
-            .with_graceful_shutdown(async {
-                shutdown_signal.await.ok();
-            })
-            .await?;
+        let server = Server::builder(incoming).serve(mk_svc);
 
-        log::debug!("User requested shutdown: exiting");
+        tokio::select! {
+            _ = server => {
+                log::debug!("Server shut down: exiting");
+            },
+            _ = shutdown_signal => {
+                log::debug!("User requested shutdown: exiting");
+            },
+        };
 
         Ok(())
     }

@@ -104,12 +104,12 @@ Spin HTTP _executor_ is defined using WebAssembly interfaces.
 
 > The WebAssembly component model is in its early stages, and during the `0.x`
 > releases of Spin, the triggers and application entry points will suffer
-> breaking changes, particularly around the primitive types used to defined
+> breaking changes, particularly around the primitive types used to define
 > the HTTP objects and function signatures — i.e. bodies will become streams,
 > handler functions will become asynchronous.
 
 We define the HTTP objects as
-[WebAssembly Interface (WIT)]((https://github.com/bytecodealliance/wit-bindgen/blob/main/WIT.md))
+[WebAssembly Interface (WIT)](https://github.com/bytecodealliance/wit-bindgen/blob/main/WIT.md)
 objects, currently using _records_:
 
 ```fsharp

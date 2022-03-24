@@ -40,9 +40,6 @@ To build and run the Spin example applications, clone the Spin repository:
 $ git clone https://github.com/fermyon/spin
 ```
 
-> We are [working on templates](https://github.com/fermyon/spin/pull/186)
-> to streamline the process of creating new applications.
-
 Let's explore [the Rust example from the `examples/http-rust` directory](https://github.com/fermyon/spin/tree/main/examples/http-rust):
 
 ```
@@ -102,6 +99,9 @@ We can build this component using the regular Rust toolchain, targeting
 ```
 $ cargo build --target wasm32-wasi --release
 ```
+
+> We are [working on templates](https://github.com/fermyon/spin/pull/186)
+> to streamline the process of creating new applications.
 
 ## Running the application with `spin up`
 

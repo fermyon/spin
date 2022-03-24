@@ -3,17 +3,17 @@ template = "main"
 date = "2022-03-14T00:22:56Z"
 [extra]
 url = "https://github.com/fermyon/spin/blob/main/docs/content/index.md"
+
 ---
 
 Spin is an open source framework for building and running fast, secure, and
 composable cloud microservices with WebAssembly. It aims to be the easiest way
 to get started with WebAssembly microservices, and takes advantage of the latest
 developments in the
-[WebAssembly component model](https://github.com/WebAssembly/component-model)
+WebAssembly [component model](https://github.com/WebAssembly/component-model)
 and [Wasmtime](https://wasmtime.dev/) runtime.
 
-Spin offers a simple framework that helps you write, distribute, and execute
-[fast](https://fermyon.github.io/spin-benchmarks/criterion/reports/),
+With Spin, you can write, distribute, and execute[fast](https://fermyon.github.io/spin-benchmarks/criterion/reports/),
 stateless, event-driven applications, with components based on functions:
 
 ```rust
@@ -24,8 +24,6 @@ fn hello_world(req: Request) -> Result<Response> {​
         .body(Some("Hello, Fermyon!".into()))?)​
 }​
 ```
-
-### Overview
 
 Spin applications are comprised of one or more function-based _components_, and
 follow the event-driven model — they are executed as the result of events being

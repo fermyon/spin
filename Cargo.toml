@@ -47,6 +47,7 @@ members = [
     "crates/outbound-http",
     "crates/redis",
     "crates/templates",
+    "crates/testing",
     "examples/spin-timer",
     "sdk/rust", 
     "sdk/rust/macro"

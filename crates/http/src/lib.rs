@@ -384,21 +384,11 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
 mod tests {
     use super::*;
     use anyhow::Result;
-    use spin_config::{
-        ApplicationInformation, Configuration, HttpConfig, HttpExecutor, ModuleSource,
-        TriggerConfig,
-    };
-    use std::{
-        collections::BTreeMap,
-        net::{IpAddr, Ipv4Addr},
-        sync::Once,
-    };
+    use spin_config::{HttpConfig, HttpExecutor};
+    use spin_testing::test_socket_addr;
+    use std::{collections::BTreeMap, sync::Once};
 
     static LOGGER: Once = Once::new();
-
-    const RUST_ENTRYPOINT_PATH: &str = "../../target/test-programs/rust-http-test.wasm";
-
-    const WAGI_ENTRYPOINT_PATH: &str = "../../target/test-programs/wagi-test.wasm";
 
     /// We can only initialize the tracing subscriber once per crate.
     pub(crate) fn init() {
@@ -407,12 +397,6 @@ mod tests {
                 .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
                 .init();
         });
-    }
-
-    fn fake_file_origin() -> spin_config::ApplicationOrigin {
-        let dir = env!("CARGO_MANIFEST_DIR");
-        let fake_path = std::path::PathBuf::from(dir).join("fake_spin.toml");
-        spin_config::ApplicationOrigin::File(fake_path)
     }
 
     #[test]
@@ -529,48 +513,24 @@ mod tests {
     async fn test_spin_http() -> Result<()> {
         init();
 
-        let info = ApplicationInformation {
-            spin_version: spin_config::SpinVersion::V1,
-            name: "test-app".to_string(),
-            version: "1.0.0".to_string(),
-            description: None,
-            authors: vec![],
-            trigger: spin_config::ApplicationTrigger::Http(spin_config::HttpTriggerConfiguration {
-                base: "/".to_owned(),
-            }),
-            namespace: None,
-            origin: fake_file_origin(),
-        };
-
-        let component = CoreComponent {
-            source: ModuleSource::FileReference(RUST_ENTRYPOINT_PATH.into()),
-            id: "test".to_string(),
-            trigger: TriggerConfig::Http(HttpConfig {
+        let cfg = spin_testing::TestConfig::default()
+            .test_program("rust-http-test.wasm")
+            .http_trigger(HttpConfig {
                 route: "/test".to_string(),
                 executor: Some(HttpExecutor::Spin),
-            }),
-            wasm: Default::default(),
-        };
-        let components = vec![component];
+            })
+            .build_configuration();
 
-        let cfg = Configuration::<CoreComponent> { info, components };
         let trigger = HttpTrigger::new("".to_string(), cfg, None, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
-        let req = http::Request::builder()
-            .method("POST")
-            .uri("https://myservice.fermyon.dev/test?abc=def")
+        let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
             .header("x-custom-foo", "bar")
             .header("x-custom-foo2", "bar2")
             .body(body)
             .unwrap();
 
-        let res = trigger
-            .handle(
-                req,
-                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 1234),
-            )
-            .await?;
+        let res = trigger.handle(req, test_socket_addr()).await?;
         assert_eq!(res.status(), StatusCode::OK);
         let body_bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
         assert_eq!(body_bytes.to_vec(), "Hello, Fermyon".as_bytes());
@@ -582,31 +542,14 @@ mod tests {
     async fn test_wagi_http() -> Result<()> {
         init();
 
-        let info = ApplicationInformation {
-            spin_version: spin_config::SpinVersion::V1,
-            name: "test-app".to_string(),
-            version: "1.0.0".to_string(),
-            description: None,
-            authors: vec![],
-            trigger: spin_config::ApplicationTrigger::Http(spin_config::HttpTriggerConfiguration {
-                base: "/".to_owned(),
-            }),
-            namespace: None,
-            origin: fake_file_origin(),
-        };
-
-        let component = CoreComponent {
-            source: ModuleSource::FileReference(WAGI_ENTRYPOINT_PATH.into()),
-            id: "test".to_string(),
-            trigger: TriggerConfig::Http(HttpConfig {
+        let cfg = spin_testing::TestConfig::default()
+            .test_program("wagi-test.wasm")
+            .http_trigger(HttpConfig {
                 route: "/test".to_string(),
                 executor: Some(HttpExecutor::Wagi(Default::default())),
-            }),
-            wasm: spin_config::WasmConfig::default(),
-        };
-        let components = vec![component];
+            })
+            .build_configuration();
 
-        let cfg = Configuration::<CoreComponent> { info, components };
         let trigger = HttpTrigger::new("".to_string(), cfg, None, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
@@ -618,12 +561,7 @@ mod tests {
             .body(body)
             .unwrap();
 
-        let res = trigger
-            .handle(
-                req,
-                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 1234),
-            )
-            .await?;
+        let res = trigger.handle(req, test_socket_addr()).await?;
         assert_eq!(res.status(), StatusCode::OK);
         let body_bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
 

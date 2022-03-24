@@ -3143,6 +3143,7 @@ dependencies = [
  "serde",
  "spin-config",
  "spin-engine",
+ "spin-testing",
  "tls-listener",
  "tokio",
  "tokio-rustls 0.23.3",
@@ -3235,6 +3236,7 @@ dependencies = [
  "serde",
  "spin-config",
  "spin-engine",
+ "spin-testing",
  "tokio",
  "tracing",
  "tracing-futures",
@@ -3274,6 +3276,17 @@ dependencies = [
  "tokio",
  "toml",
  "walkdir",
+]
+
+[[package]]
+name = "spin-testing"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "http 0.2.6",
+ "hyper",
+ "spin-config",
+ "spin-http-engine",
 ]
 
 [[package]]

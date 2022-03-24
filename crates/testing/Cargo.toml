@@ -1,0 +1,12 @@
+[package]
+name = "spin-testing"
+version = "0.1.0"
+edition = "2021"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+
+[dependencies]
+anyhow = "1.0"
+http = "0.2"
+hyper = "0.14"
+spin-config = { path = "../config" }
+spin-http-engine = { path = "../http" }

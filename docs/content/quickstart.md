@@ -3,6 +3,7 @@ template = "main"
 date = "2022-03-14T00:22:56Z"
 [extra]
 url = "https://github.com/fermyon/spin/blob/main/docs/content/quickstart.md"
+
 ---
 
 ## Getting the `spin` binary
@@ -67,7 +68,7 @@ WebAssembly module for HTTP requests on the route `/hello`.
 (See the [configuration document](/configuration) for a detailed guide on the Spin
 application configuration.)
 
-Now let's have a look at the `hello` component. Below is the complete source
+Now let's have a look at the `hello` component (`examples/http-rust/src/lib.rs`). Below is the complete source
 code for a Spin HTTP component written in Rust — a regular Rust function that
 takes an HTTP request as a parameter and returns an HTTP response, and it is
 annotated with the `http_component` macro:
@@ -94,7 +95,8 @@ fn hello_world(req: Request) -> Result<Response> {
 > components for Spin.
 
 We can build this component using the regular Rust toolchain, targeting
-`wasm32-wasi`, which will produce the WebAssembly module referenced in
+`wasm32-wasi`, which will produce the WebAssembly module and place it at
+`target/wasm32-wasi/release/spinhelloworld.wasm` as referenced in the
 `spin.toml`:
 
 ```
@@ -112,7 +114,9 @@ the application (pun intended):
 ```bash
 # optionally, set the RUST_LOG environment variable for detailed logs
 $ export RUST_LOG=spin=trace
-$ spin up --file spin.toml
+# `spin up` in the example/http-rust directory
+# alternatively, use `spin up --file <path/to/spin.toml>`
+$ spin up
 INFO spin_http_engine: Serving HTTP on address 127.0.0.1:3000
 ```
 

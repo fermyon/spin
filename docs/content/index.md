@@ -13,7 +13,7 @@ developments in the
 WebAssembly [component model](https://github.com/WebAssembly/component-model)
 and [Wasmtime](https://wasmtime.dev/) runtime.
 
-With Spin, you can write, distribute, and execute[fast](https://fermyon.github.io/spin-benchmarks/criterion/reports/),
+With Spin, you can write, distribute, and execute [fast](https://fermyon.github.io/spin-benchmarks/criterion/reports/),
 stateless, event-driven applications, with components based on functions:
 
 ```rust

@@ -1,15 +1,28 @@
-// The wit_bindgen_wasmtime::import below is triggering this lint
+// The wit_bindgen_wasmtime::import below is triggering this lint.
 #![allow(clippy::needless_question_mark)]
 
 use anyhow::Result;
-use spin_config::{Configuration, CoreComponent};
+use spin_config::{
+    ApplicationInformation, ApplicationOrigin, Configuration, CoreComponent, ModuleSource,
+    TriggerConfig, WasmConfig,
+};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use std::{sync::Arc, time::Duration};
 use tokio::task::spawn_blocking;
 
-wit_bindgen_wasmtime::import!("echo.wit");
+wit_bindgen_wasmtime::import!("spin-timer.wit");
 
-type ExecutionContext = spin_engine::ExecutionContext<echo::EchoData>;
+type ExecutionContext = spin_engine::ExecutionContext<spin_timer::SpinTimerData>;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
+
+    let trigger = TimerTrigger::new(Duration::from_secs(1), app()).await?;
+    trigger.run().await
+}
 
 /// A custom timer trigger that executes the
 /// first component of an application on every interval.
@@ -58,12 +71,39 @@ impl TimerTrigger {
                 .prepare_component(&self.app.components[0].id, None, None, None, None)?;
 
         let res = spawn_blocking(move || -> Result<String> {
-            let e = echo::Echo::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
-            Ok(e.echo(&mut store, &msg)?)
+            let t = spin_timer::SpinTimer::new(&mut store, &instance, |host| {
+                host.data.as_mut().unwrap()
+            })?;
+            Ok(t.handle_timer_request(&mut store, &msg)?)
         })
         .await??;
         log::info!("{}\n", res);
 
         Ok(())
     }
+}
+
+pub fn app() -> Configuration<CoreComponent> {
+    let info = ApplicationInformation {
+        spin_version: spin_config::SpinVersion::V1,
+        name: "test-app".to_string(),
+        version: "1.0.0".to_string(),
+        description: None,
+        authors: vec![],
+        trigger: spin_config::ApplicationTrigger::Http(spin_config::HttpTriggerConfiguration {
+            base: "/".to_owned(),
+        }),
+        namespace: None,
+        origin: ApplicationOrigin::File("".into()),
+    };
+
+    let component = CoreComponent {
+        source: ModuleSource::FileReference("target/test-programs/echo.wasm".into()),
+        id: "test".to_string(),
+        trigger: TriggerConfig::default(),
+        wasm: WasmConfig::default(),
+    };
+    let components = vec![component];
+
+    Configuration::<CoreComponent> { info, components }
 }

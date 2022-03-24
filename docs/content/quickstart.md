@@ -7,20 +7,20 @@ url = "https://github.com/fermyon/spin/blob/main/docs/content/quickstart.md"
 
 ## Getting the `spin` binary
 
-<!-- You can download the [latest release](https://github.com/fermyon/spin/releases).
+You can download the [latest release](https://github.com/fermyon/spin/releases).
 For example, for an M1 macOS machine:
 
 ```
-$ wget https://github.com/fermyon/spin/releases/download/canary/spin-canary-macos-aarch64.tar.gz
-$ tar xfv spin-canary-macos-aarch64.tar.gz
+$ wget https://github.com/fermyon/spin/releases/download/v0.1.0-rc.1/spin-v0.1.0-rc.1-macos-aarch64.tar.gz
+$ tar xfv spin-v0.1.0-rc.1-macos-aarch64.tar.gz
 $ ./spin --help
 ```
 
 > On an M1 macOS machine you might need to install / configure OpenSSL@1.1 by
 > running
-> `brew install openssl@1.1 && sudo ln -s /opt/homebrew/Cellar/openssl@1.1/1.1.1m /usr/local/openssl-aarch64` -->
+> `brew install openssl@1.1 && sudo ln -s /opt/homebrew/Cellar/openssl@1.1/1.1.1m /usr/local/openssl-aarch64`
 
-First, [follow the contribution document](/contributing) for a detailed guide
+Alternatively, [follow the contribution document](/contributing) for a detailed guide
 on building Spin from source:
 
 ```bash
@@ -32,37 +32,25 @@ $ ./target/release/spin --help
 At this point, move the `spin` binary somewhere in your path, so it can be
 accessed from any directory.
 
-<!-- ## Creating a new Spin HTTP application in Rust
-
-First, we need to add the official Spin templates from the repository:
-
-```
-$ spin templates add --git https://github.com/fermyon/spin --name fermyon
-$ spin templates list
-+-----------------------------------------------------------------------------------+
-| Name        Repository   URL                                      Branch          |
-+===================================================================================+
-| spin-http     fermyon   https://github.com/fermyon/bartholomew   refs/heads/main |
-+-----------------------------------------------------------------------------------+
-```
-
-Now we can create a new application from the template:
-
-```
-$ spin new --repo fermyon --template spin-http --path spin-hello-world
-$ cd spin-hello-world
-``` -->
-
 ## Building the example applications
 
-Let's explore the Rust example from the `examples/http-rust` directory,
-focusing first on `spin.toml`:
+To build and run the Spin example applications, clone the Spin repository:
+
+```
+$ git clone https://github.com/fermyon/spin
+```
+
+> We are [working on templates](https://github.com/fermyon/spin/pull/186)
+> to streamline the process of creating new applications.
+
+Let's explore [the Rust example from the `examples/http-rust` directory](https://github.com/fermyon/spin/tree/main/examples/http-rust),
+focusing first on `spin.toml`, the definition file for a Spin application:
 
 ```toml
 spin_version = "1"
 name = "spin-hello-world"
-trigger = { type = "http", base = "/" }
 version = "1.0.0"
+trigger = { type = "http", base = "/" }
 
 [[component]]
 id = "hello"
@@ -99,7 +87,8 @@ fn hello_world(req: Request) -> Result<Response> {
 }
 ```
 
-> See [the section on building HTTP applications with Spin for a detailed guide](/writing-http-apps).
+> See the document on writing [Rust](/rust-components) and [Go](/go-components)
+> components for Spin.
 
 We can build this component using the regular Rust toolchain, targeting
 `wasm32-wasi`, which will produce the WebAssembly module referenced in

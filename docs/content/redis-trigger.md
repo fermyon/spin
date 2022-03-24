@@ -47,7 +47,7 @@ format, and is a function that takes the message payload as its only parameter:
 // The message payload.
 type payload = list<u8>
 
-// The entrypoint for a Redis handler.
+// The entry point for a Redis handler.
 handle-redis-message: function(msg: payload) -> expected<_, error>
 ```
 

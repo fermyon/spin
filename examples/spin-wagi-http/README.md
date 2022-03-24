@@ -2,7 +2,7 @@
 
 This example shows how to run a Spin application serving routes from two programs written in different languages (Rust and C++) using both the Spin executor and the Wagi executor.
 
-## Compile Applications to WASM
+## Compile Applications to Wasm
 
 ```
 cd http-rust

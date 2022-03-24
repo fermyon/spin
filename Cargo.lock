@@ -3277,7 +3277,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-timer-echo"
+name = "spin-timer"
 version = "0.1.0"
 dependencies = [
  "anyhow",

@@ -14,7 +14,7 @@ is used in Spin.
 The HTTP trigger in Spin is a web server. It listens for incoming requests and
 based on the [application configuration](/configuration), it routes them to an
 _executor_ which instantiates the appropriate component, executes its
-entrypoint function, then returns an HTTP response.
+entry point function, then returns an HTTP response.
 
 Creating an HTTP application is done when [configuring the application](/configuration)
 by defining the top-level application trigger:
@@ -33,7 +33,7 @@ and the _HTTP executor_ (see details below about executors). For example:
 ```toml
 [component.trigger]
 route = "/hello"
-executor = "spin"
+executor = { type = "spin" }
 ```
 
 - an HTTP component configured on the `/goodbye` route that uses the Wagi executor:
@@ -53,7 +53,7 @@ to all component routes defined for that application.
 
 For example, if the application `base` path is `base = /base`, and a component
 has defined `route = /foo`, that component will be executed for requests on
-`http/s::<spin-up-defined-address-and-port>/base/bar`.
+`http/s://<spin-up-defined-address-and-port>/base/foo`.
 
 Components can either define exact routes, for example `route = /bar/baz`, where
 the component will be invoked only for requests on `/base/bar/baz`, or they
@@ -103,7 +103,7 @@ community on building exciting new features and tools for it. As a result, the
 Spin HTTP _executor_ is defined using WebAssembly interfaces.
 
 > The WebAssembly component model is in its early stages, and during the `0.x`
-> releases of Spin, the triggers and application entrypoints will suffer
+> releases of Spin, the triggers and application entry points will suffer
 > breaking changes, particularly around the primitive types used to defined
 > the HTTP objects and function signatures — i.e. bodies will become streams,
 > handler functions will become asynchronous.
@@ -149,13 +149,13 @@ record response {
 > HTTP requests, and you can see its implementation in
 > [the WASI toolkit repository](https://github.com/fermyon/wasi-experimental-toolkit).
 
-Then, we define the entrypoint for a Spin HTTP component:
+Then, we define the entry point for a Spin HTTP component:
 
 ```fsharp
 // wit/ephemeral/spin-http.wit
 
 use * from http-types
-// The entrypoint for an HTTP handler.
+// The entry point for an HTTP handler.
 handle-http-request: function(req: request) -> response
 ```
 

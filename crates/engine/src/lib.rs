@@ -166,8 +166,34 @@ impl<T: Default> Builder<T> {
         builder.link_wasi()?;
         builder.link_http()?;
 
-        builder.build().await
+        let context = with_sloth_warning(
+            builder.build()
+        ).await;
+
+        context
     }
+}
+
+async fn with_sloth_warning<T>(fut: impl std::future::Future<Output = T>) -> T {
+    let sloth_warning = tokio::spawn(warn_slow());
+    let res = fut.await;
+    sloth_warning.abort();
+    res
+}
+
+#[cfg(debug_assertions)]
+async fn warn_slow() {
+    tokio::time::sleep(tokio::time::Duration::from_millis(1250)).await;
+    println!("This is a debug build - preparing Wasm modules might take a few seconds");
+    println!("If you're experiencing long startup times please switch to the release build");
+    println!();
+}
+
+#[cfg(not(debug_assertions))]
+async fn warn_slow() {
+    tokio::time::sleep(tokio::time::Duration::from_millis(1250)).await;
+    println!("Preparing Wasm modules is taking a few seconds...");
+    println!();
 }
 
 /// Component for the execution context.

@@ -33,4 +33,4 @@ component is executed by Spin. The entry points to components are _functions_.
 This, together with the fact that they are invoked in response to events, brings
 the Spin application model closer to the Function-as-a-Service model.
 
-In the next section, we will [take Spin for a spin](/quickstart).
+In the next section, we will take Spin for a spin in the [quickstart guide](/quickstart).

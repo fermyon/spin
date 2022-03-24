@@ -1,9 +1,12 @@
-title = "Taking Spin for a spin"
+title = "Quickstart"
 template = "main"
 date = "2022-03-14T00:22:56Z"
 [extra]
 url = "https://github.com/fermyon/spin/blob/main/docs/content/quickstart.md"
+
 ---
+
+Let's take Spin for a spin!
 
 ## Getting the `spin` binary
 

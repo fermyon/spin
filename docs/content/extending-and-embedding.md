@@ -36,7 +36,7 @@ handle-redis-message: function(msg: payload) -> expected<_, error>
 ```
 
 The entry point we want to execute for our timer trigger takes a string as its
-only argument (and the trigger will populate that with the current date and time),
+only argument (the trigger will populate that with the current date and time),
 and it expects a string as the only return value. This is purposefully chosen
 to be a simple function signature:
 

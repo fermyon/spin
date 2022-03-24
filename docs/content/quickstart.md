@@ -111,7 +111,7 @@ INFO spin_http_engine: Serving HTTP on address 127.0.0.1:3000
 ```
 
 Spin will instantiate all components from the application configuration, and
-will crate the router configuration for the HTTP trigger accordingly. The
+will create the router configuration for the HTTP trigger accordingly. The
 component can now be invoked by making requests to `http://localhost:3000/hello`
 (see route field in the configuration):
 

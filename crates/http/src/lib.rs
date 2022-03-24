@@ -205,6 +205,7 @@ impl HttpTrigger {
 
         let addr: SocketAddr = self.address.parse()?;
 
+        println!("Serving HTTP on address http://{:?}", addr);
         log::info!("Serving HTTP on address {:?}", addr);
 
         let shutdown_signal = on_ctrl_c()?;
@@ -268,6 +269,7 @@ impl HttpTrigger {
                 }
             }));
 
+        println!("Serving HTTPS on address https://{:?}", addr);
         log::info!("Serving HTTPS on address {:?}", addr);
 
         let shutdown_signal = on_ctrl_c()?;

@@ -9,6 +9,8 @@ use anyhow::{bail, Context, Result};
 use io::IoStreamRedirects;
 use spin_config::{CoreComponent, DirectoryMount, ModuleSource};
 use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
+use tokio::task::JoinHandle;
+use tokio::time::{sleep, Duration};
 use tracing::{instrument, log};
 use wasi_common::WasiCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
@@ -162,6 +164,8 @@ impl<T: Default> Builder<T> {
     pub async fn build_default(
         config: ExecutionContextConfiguration,
     ) -> Result<ExecutionContext<T>> {
+        let _sloth_warning = warn_if_slothful();
+
         let mut builder = Self::new(config)?;
         builder.link_wasi()?;
         builder.link_http()?;
@@ -357,4 +361,36 @@ fn sanitize(name: impl AsRef<str>) -> String {
     // filename logic defined in the project works for directory names as well
     // refer to: https://github.com/kardeiz/sanitize-filename/blob/f5158746946ed81015c3a33078dedf164686da19/src/lib.rs#L76-L165
     sanitize_filename::sanitize_with_options(name, options)
+}
+
+const SLOTH_WARNING_DELAY_MILLIS: u64 = 1250;
+
+struct SlothWarning<T> {
+    warning: JoinHandle<T>,
+}
+
+impl<T> Drop for SlothWarning<T> {
+    fn drop(&mut self) {
+        self.warning.abort()
+    }
+}
+
+fn warn_if_slothful() -> SlothWarning<()> {
+    let warning = tokio::spawn(warn_slow());
+    SlothWarning { warning }
+}
+
+#[cfg(debug_assertions)]
+async fn warn_slow() {
+    sleep(Duration::from_millis(SLOTH_WARNING_DELAY_MILLIS)).await;
+    println!("This is a debug build - preparing Wasm modules might take a few seconds");
+    println!("If you're experiencing long startup times please switch to the release build");
+    println!();
+}
+
+#[cfg(not(debug_assertions))]
+async fn warn_slow() {
+    sleep(Duration::from_millis(SLOTH_WARNING_DELAY_MILLIS)).await;
+    println!("Preparing Wasm modules is taking a few seconds...");
+    println!();
 }

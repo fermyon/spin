@@ -126,7 +126,7 @@ audible only to dogs, just for his Shetland sheepdog."}
 
 > Without the `allowed_http_hosts` field populated properly in `spin.toml`,
 > the component would not be allowed to send HTTP requests, and sending the
-> request would generate in a "Destination not allowed" error.
+> request would result in a "Destination not allowed" error.
 
 We just built a WebAssembly component that sends an HTTP request to another
 service, manipulates that result, then responds to the original request.
@@ -140,7 +140,7 @@ Besides the HTTP trigger, Spin has built-in support for a Redis trigger —
 which will connect to a Redis instance and will execute Spin components for
 new messages on the configured channels.
 
-> See the [Redis trigger](/redis-rigger) for details about the Redis trigger.
+> See the [Redis trigger](/redis-trigger) for details about the Redis trigger.
 
 Writing a Redis component in Rust also takes advantage of the SDK:
 
@@ -186,7 +186,7 @@ This application will connect to `redis://localhost:6379`, and for every new
 message on the `messages` channel, the `echo-message` component will be executed.
 
 ```bash
-# first, start redis-server on the default prot 6379
+# first, start redis-server on the default port 6379
 $ redis-server --port 6379
 # then, start the Spin application
 $ spin up --file spin.toml

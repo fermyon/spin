@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 
+[features]
+vendored-openssl = ['openssl/vendored']
+
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
@@ -31,6 +34,7 @@ toml = "0.5"
 tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
+openssl = { version = "0.10", optional = true }
 
 [dev-dependencies]
 hyper = { version = "0.14", features = [ "full" ] }

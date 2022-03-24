@@ -80,6 +80,7 @@ use spin_sdk::{
 /// A simple Spin HTTP component.
 #[http_component]
 fn hello_world(req: Request) -> Result<Response> {
+    println!("{:?}", req);
     Ok(http::Response::builder()
         .status(200)
         .header("foo", "bar")

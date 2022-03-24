@@ -36,6 +36,7 @@ that takes an HTTP request as a parameter, and returns an HTTP response — belo
 is a complete implementation for such a component:
 
 ```rust
+use anyhow::Result;
 use spin_sdk::{
     http::{Request, Response},
     http_component,
@@ -43,7 +44,7 @@ use spin_sdk::{
 
 /// A simple Spin HTTP component.
 #[http_component]
-fn hello_world(req: Request) -> anyhow::Result<Response> {
+fn hello_world(req: Request) -> Result<Response> {
     println!("{:?}", req);
     Ok(http::Response::builder()
         .status(200)
@@ -140,7 +141,7 @@ Besides the HTTP trigger, Spin has built-in support for a Redis trigger —
 which will connect to a Redis instance and will execute Spin components for
 new messages on the configured channels.
 
-> See the [Redis trigger](/redis-rigger) for details about the Redis trigger.
+> See the [Redis trigger](/redis-trigger) for details about the Redis trigger.
 
 Writing a Redis component in Rust also takes advantage of the SDK:
 

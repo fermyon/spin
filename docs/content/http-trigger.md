@@ -53,7 +53,7 @@ to all component routes defined for that application.
 
 For example, if the application `base` path is `base = /base`, and a component
 has defined `route = /foo`, that component will be executed for requests on
-`http/s://<spin-up-defined-address-and-port>/base/foo`.
+`http(s)://<spin-up-defined-address-and-port>/base/foo`.
 
 Components can either define exact routes, for example `route = /bar/baz`, where
 the component will be invoked only for requests on `/base/bar/baz`, or they

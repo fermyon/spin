@@ -56,7 +56,7 @@ handle-redis-message: function(msg: payload) -> expected<_, error>
 
 This is the function that all Redis components must implement, and which is
 used by the Spin Redis executor when instantiating and invoking the component.
-This interface (`spin-redis-trigger.wit`) can be directly used together with the
+This interface (`spin-redis.wit`) can be directly used together with the
 [Bytecode Alliance `wit-bindgen` project](https://github.com/bytecodealliance/wit-bindgen)
 to build a component that the Spin HTTP executor can invoke.
 This is exactly how [the Rust SDK for Spin](/rust-components) is built, and,

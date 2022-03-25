@@ -1243,74 +1243,36 @@ body.dark-theme .content strong, body.dark-theme article strong {
   }
 }
 
-aside.menu.is-sticky {
-  min-height: 100vh;
+.documentation .content {
+  padding-top: 8.5rem;
 }
 
-.content pre, .content code {
-  margin-bottom: 2rem !important;
-}
-
-.content pre code {
-  margin-bottom: 0 !important;
-}
-
-.content h1 code, .content h2 code, .content h3 code, .content h4 code, .content h5 code {
-  font-weight: bold;
-  font-size: 1em !important;
-}
-
-.content blockquote, .content dl, .content ol, .content p, .content ul, .content pre {
-  max-width: 65vw;
-}
-
-.content .hljs {
-  background-color: #0000 !important;
-}
-
-.content a {
-  border-radius: .333rem;
-}
-
-.content h1 {
-  margin: -1.5rem 0 5rem;
+.documentation .content h1 {
+  margin-top: 2rem;
   padding-bottom: 2.67rem;
   position: relative;
 }
 
-.content h1:after {
-  width: 25%;
-  content: " ";
-  height: .33rem;
-  background: #bea7e5;
-  border-radius: .33rem;
-  margin: 2.5rem 0 0;
-  display: inline-block;
-  position: absolute;
-  bottom: 0;
-  left: 0;
+.documentation .content.content-docs-wide p {
+  line-height: 1.725;
 }
 
-.content blockquote p {
-  font-size: 1rem;
-  line-height: 1.4;
+.documentation aside.menu {
+  padding-bottom: 7.5rem;
 }
 
-html {
-  background-color: #0d203f;
-}
+@media screen and (max-width: 1023px) {
+  .documentation .content h1 {
+    font-size: 6.333vw;
+  }
 
-body.dark-theme .content a:hover {
-  background: #1b2c4f !important;
-}
+  .documentation .content h2 {
+    font-size: 5vw;
+  }
 
-body.dark-theme .content blockquote p {
-  line-height: 1.4;
-  background-color: #1b2c4f !important;
-}
-
-body.dark-theme aside.menu a.button svg, body.dark-theme aside.menu a.button path {
-  fill: #fff !important;
+  .documentation .content h3 {
+    font-size: 3.33vw;
+  }
 }
 
 /*# sourceMappingURL=styles.css.map */

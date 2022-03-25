@@ -28,91 +28,43 @@ TABLE OF CONTENTS
 
 /* 1.1 Spin: Docs Styles
 */
-aside.menu.is-sticky {
-    min-height: 100vh;
-}
 
-.content {
-    pre,
-    code {
-        margin-bottom: 2rem !important;
-    }
-
-    pre {
-        code {
-            margin-bottom: 0 !important;
-        }
-    }
-
-    h1, h2, h3, h4, h5 {
-        code {
-            font-weight: bold;
-            font-size: 1em !important;
-        }
-    }
-
-    blockquote, dl, ol, p, ul, pre {
-        max-width: 65vw;
-    }
-
-    .hljs {
-        background-color: transparent !important;
-    }
-
-    a {
-        border-radius: 0.333rem;
-    }
-
-    h1 {
-        position: relative;
-        padding-bottom: 2.67rem;
-        margin: -1.5rem 0 5rem;
-        
-        &:after {
-            position: absolute;
-            width: 25%;
-            margin: 2rem 0 0;
-            display: inline-block;
-            margin: 2.5rem 0 0;
-            bottom: 0;
-            left: 0;
-            content: " ";
-            height: .33rem;
-            background: $lavender;
-            @include border-radius(0.33rem, 0.33rem);
-        }
-    }
-
-    blockquote {
-        p {
-            font-size: 1rem;
-            line-height: 1.4;
-        }
-    }
-}
-
-html {
-    background-color: #0D203F;
-}
-
-body.dark-theme {
+.documentation {
     .content {
-        a {
-            &:hover {
-                background: darken($darkspace, 5%) !important;
-            }
+        padding-top: 8.5rem;
+
+        h1 {
+            margin-top: 2rem;
+            position: relative;
+            padding-bottom: 2.67rem;
         }
 
-        blockquote {
+        &.content-docs-wide {
             p {
-                background-color: darken($darkspace, 5%) !important;
-                line-height: 1.4;
+                line-height: 1.725;
             }
         }
     }
 
-    aside.menu a.button svg,
-    aside.menu a.button path {
-        fill: white !important;
+    aside.menu {
+        padding-bottom: 7.5rem;
+    }
+}
+
+@media screen and (max-width: 1023px) {
+    .documentation {
+        .content {
+            h1 {
+                font-size: 6.333vw;
+            }
+
+            h2 {
+                font-size: 5vw;
+            }
+
+            h3 {
+                font-size: 3.33vw;
+            }
+        }
     }
 }

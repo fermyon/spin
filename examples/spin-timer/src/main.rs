@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use spin_config::{
-    ApplicationInformation, ApplicationOrigin, Configuration, CoreComponent, ModuleSource,
+    Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     TriggerConfig, WasmConfig,
 };
 use spin_engine::{Builder, ExecutionContextConfiguration};
@@ -31,14 +31,14 @@ pub struct TimerTrigger {
     /// The interval at which the component is executed.
     pub interval: Duration,
     /// The application configuration.
-    app: Configuration<CoreComponent>,
+    app: Application<CoreComponent>,
     /// The Spin execution context.
     engine: Arc<ExecutionContext>,
 }
 
 impl TimerTrigger {
     /// Creates a new trigger.
-    pub async fn new(interval: Duration, app: Configuration<CoreComponent>) -> Result<Self> {
+    pub async fn new(interval: Duration, app: Application<CoreComponent>) -> Result<Self> {
         let config = ExecutionContextConfiguration::new(app.clone(), None);
         let engine = Arc::new(Builder::build_default(config).await?);
         log::debug!("Created new Timer trigger.");
@@ -83,7 +83,7 @@ impl TimerTrigger {
     }
 }
 
-pub fn app() -> Configuration<CoreComponent> {
+pub fn app() -> Application<CoreComponent> {
     let info = ApplicationInformation {
         spin_version: spin_config::SpinVersion::V1,
         name: "test-app".to_string(),
@@ -105,5 +105,5 @@ pub fn app() -> Configuration<CoreComponent> {
     };
     let components = vec![component];
 
-    Configuration::<CoreComponent> { info, components }
+    Application::<CoreComponent> { info, components }
 }

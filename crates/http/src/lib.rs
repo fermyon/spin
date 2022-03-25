@@ -21,7 +21,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use spin_config::{Configuration, CoreComponent};
+use spin_config::{Application, CoreComponent};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http::SpinHttpData;
 use std::{future::ready, net::SocketAddr, path::PathBuf, sync::Arc};
@@ -46,7 +46,7 @@ pub struct HttpTrigger {
     /// Listening address for the server.
     address: String,
     /// Configuration for the application.
-    app: Configuration<CoreComponent>,
+    app: Application<CoreComponent>,
     /// TLS configuration for the server.
     tls: Option<TlsConfig>,
     /// Router.
@@ -59,7 +59,7 @@ impl HttpTrigger {
     /// Creates a new Spin HTTP trigger.
     pub async fn new(
         address: String,
-        app: Configuration<CoreComponent>,
+        app: Application<CoreComponent>,
         wasmtime: Option<wasmtime::Config>,
         tls: Option<TlsConfig>,
         log_dir: Option<PathBuf>,

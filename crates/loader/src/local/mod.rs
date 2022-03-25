@@ -15,7 +15,7 @@ use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawCom
 use futures::future;
 use path_absolutize::Absolutize;
 use spin_config::{
-    ApplicationInformation, ApplicationOrigin, Configuration, CoreComponent, ModuleSource,
+    Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
 use std::path::Path;
@@ -28,7 +28,7 @@ use tokio::{fs::File, io::AsyncReadExt};
 pub async fn from_file(
     app: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
-) -> Result<Configuration<CoreComponent>> {
+) -> Result<Application<CoreComponent>> {
     let app = app
         .as_ref()
         .absolutize()
@@ -57,7 +57,7 @@ async fn prepare_any_version(
     raw: RawAppManifestAnyVersion,
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
-) -> Result<Configuration<CoreComponent>> {
+) -> Result<Application<CoreComponent>> {
     match raw {
         RawAppManifestAnyVersion::V1(raw) => prepare(raw, src, base_dst).await,
     }
@@ -68,7 +68,7 @@ async fn prepare(
     raw: RawAppManifest,
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
-) -> Result<Configuration<CoreComponent>> {
+) -> Result<Application<CoreComponent>> {
     let info = info(raw.info, &src);
 
     let components = future::join_all(
@@ -82,7 +82,7 @@ async fn prepare(
     .collect::<Result<Vec<_>>>()
     .context("Failed to prepare configuration")?;
 
-    Ok(Configuration { info, components })
+    Ok(Application { info, components })
 }
 
 /// Given a raw component manifest, prepare its assets and return a fully formed core component.

@@ -9,7 +9,7 @@ use std::{
 use http::{Request, Response};
 use hyper::Body;
 use spin_config::{
-    ApplicationInformation, ApplicationOrigin, ApplicationTrigger, Configuration, CoreComponent,
+    Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
     HttpConfig, ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion, TriggerConfig,
 };
 use spin_http_engine::HttpTrigger;
@@ -83,8 +83,8 @@ impl TestConfig {
         }
     }
 
-    pub fn build_configuration(&self) -> Configuration<CoreComponent> {
-        Configuration {
+    pub fn build_configuration(&self) -> Application<CoreComponent> {
+        Application {
             info: self.build_application_information(),
             components: vec![self.build_component()],
         }

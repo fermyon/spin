@@ -22,7 +22,7 @@ const SPIN_HOME: &str = ".spin";
 #[derive(Clone, Debug)]
 pub struct ExecutionContextConfiguration {
     /// Spin application configuration.
-    pub app: spin_config::Configuration<CoreComponent>,
+    pub app: spin_config::Application<CoreComponent>,
     /// Wasmtime engine configuration.
     pub wasmtime: wasmtime::Config,
     /// Log directory on host
@@ -31,7 +31,7 @@ pub struct ExecutionContextConfiguration {
 
 impl ExecutionContextConfiguration {
     /// Creates a new execution context configuration.
-    pub fn new(app: spin_config::Configuration<CoreComponent>, log_dir: Option<PathBuf>) -> Self {
+    pub fn new(app: spin_config::Application<CoreComponent>, log_dir: Option<PathBuf>) -> Self {
         // In order for Wasmtime to run WebAssembly components, multi memory
         // and module linking must always be enabled.
         // See https://github.com/bytecodealliance/wit-bindgen/blob/main/crates/wasmlink.

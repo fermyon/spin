@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use spin_config::{ApplicationTrigger, Configuration, CoreComponent};
+use spin_config::{Application, ApplicationTrigger, CoreComponent};
 use spin_http_engine::{HttpTrigger, TlsConfig};
 use spin_redis_engine::RedisTrigger;
 use std::path::{Path, PathBuf};
@@ -157,7 +157,7 @@ fn parse_env_var(s: &str) -> Result<(String, String)> {
 }
 
 /// Append the environment variables passed as options to all components.
-fn append_env(app: &mut Configuration<CoreComponent>, env: &[(String, String)]) -> Result<()> {
+fn append_env(app: &mut Application<CoreComponent>, env: &[(String, String)]) -> Result<()> {
     for c in app.components.iter_mut() {
         for (k, v) in env {
             c.wasm.environment.insert(k.clone(), v.clone());

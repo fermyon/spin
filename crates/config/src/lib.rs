@@ -11,7 +11,7 @@ use std::{
 
 /// Application configuration.
 #[derive(Clone, Debug)]
-pub struct Configuration<T> {
+pub struct Application<T> {
     /// General application information.
     pub info: ApplicationInformation,
     /// Configuration for the application components.

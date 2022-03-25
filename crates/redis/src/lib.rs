@@ -7,7 +7,7 @@ use anyhow::{ensure, Result};
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::Client;
-use spin_config::{Configuration, CoreComponent, RedisConfig};
+use spin_config::{Application, CoreComponent, RedisConfig};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_redis::SpinRedisData;
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
@@ -21,7 +21,7 @@ type RuntimeContext = spin_engine::RuntimeContext<SpinRedisData>;
 #[derive(Clone)]
 pub struct RedisTrigger {
     /// Configuration for the application.
-    app: Configuration<CoreComponent>,
+    app: Application<CoreComponent>,
     /// Spin execution context.
     engine: Arc<ExecutionContext>,
     /// Map from channel name to tuple of component name & index.
@@ -31,7 +31,7 @@ pub struct RedisTrigger {
 impl RedisTrigger {
     /// Create a new Spin Redis trigger.
     pub async fn new(
-        app: Configuration<CoreComponent>,
+        app: Application<CoreComponent>,
         wasmtime: Option<wasmtime::Config>,
         log_dir: Option<PathBuf>,
     ) -> Result<Self> {

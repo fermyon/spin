@@ -1,15 +1,12 @@
-use std::path::PathBuf;
 use std::time::Instant;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use futures::future::join_all;
-use http::{Request, StatusCode};
-use spin_config::{
-    ApplicationInformation, ApplicationOrigin, Configuration, CoreComponent, HttpConfig,
-    HttpExecutor, ModuleSource, SpinVersion, TriggerConfig,
-};
+use http::Request;
+use spin_config::{HttpConfig, HttpExecutor};
 use spin_http_engine::HttpTrigger;
+use spin_testing::{assert_http_response_success, TestConfig};
 use tokio::runtime::Runtime;
 use tokio::task;
 
@@ -21,10 +18,6 @@ criterion_group!(
     bench_wagi_concurrency_minimal,
 );
 
-const SPIN_HTTP_MINIMAL_PATH: &str = "../../target/test-programs/spin-http-benchmark.wasm";
-
-const WAGI_MINIMAL_PATH: &str = "../../target/test-programs/wagi-benchmark.wasm";
-
 // Benchmark time to start and process one request
 fn bench_startup(c: &mut Criterion) {
     let async_runtime = Runtime::new().unwrap();
@@ -32,14 +25,24 @@ fn bench_startup(c: &mut Criterion) {
     let mut group = c.benchmark_group("startup");
     group.bench_function("spin-executor", |b| {
         b.to_async(&async_runtime).iter(|| async {
-            let trigger = build_trigger(SPIN_HTTP_MINIMAL_PATH, HttpExecutor::Spin).await;
+            let trigger = TestConfig::default()
+                .test_program("spin-http-benchmark.wasm")
+                .http_trigger(Default::default())
+                .build_http_trigger()
+                .await;
             run_concurrent_requests(&trigger, 0, 1).await;
         });
     });
     group.bench_function("spin-wagi-executor", |b| {
         b.to_async(&async_runtime).iter(|| async {
-            let trigger =
-                build_trigger(WAGI_MINIMAL_PATH, HttpExecutor::Wagi(Default::default())).await;
+            let trigger = TestConfig::default()
+                .test_program("wagi-benchmark.wasm")
+                .http_trigger(HttpConfig {
+                    executor: Some(HttpExecutor::Wagi(Default::default())),
+                    ..Default::default()
+                })
+                .build_http_trigger()
+                .await;
             run_concurrent_requests(&trigger, 0, 1).await;
         });
     });
@@ -49,8 +52,12 @@ fn bench_startup(c: &mut Criterion) {
 fn bench_spin_concurrency_minimal(c: &mut Criterion) {
     let async_runtime = Runtime::new().unwrap();
 
-    let spin_trigger =
-        async_runtime.block_on(build_trigger(SPIN_HTTP_MINIMAL_PATH, HttpExecutor::Spin));
+    let spin_trigger = async_runtime.block_on(
+        TestConfig::default()
+            .test_program("spin-http-benchmark.wasm")
+            .http_trigger(Default::default())
+            .build_http_trigger(),
+    );
 
     let sleep_ms = 1;
     let mut group = c.benchmark_group(format!("spin-executor/sleep-{}ms", sleep_ms));
@@ -79,10 +86,15 @@ fn bench_spin_concurrency_minimal(c: &mut Criterion) {
 fn bench_wagi_concurrency_minimal(c: &mut Criterion) {
     let async_runtime = Runtime::new().unwrap();
 
-    let wagi_trigger = async_runtime.block_on(build_trigger(
-        WAGI_MINIMAL_PATH,
-        HttpExecutor::Wagi(Default::default()),
-    ));
+    let wagi_trigger = async_runtime.block_on(
+        TestConfig::default()
+            .test_program("wagi-benchmark.wasm")
+            .http_trigger(HttpConfig {
+                executor: Some(HttpExecutor::Wagi(Default::default())),
+                ..Default::default()
+            })
+            .build_http_trigger(),
+    );
 
     let sleep_ms = 1;
     let mut group = c.benchmark_group(format!("spin-wagi-executor/sleep-{}ms", sleep_ms));
@@ -129,41 +141,8 @@ async fn run_concurrent_requests(trigger: &HttpTrigger, sleep_ms: u32, concurren
                 .handle(req, "127.0.0.1:55555".parse().unwrap())
                 .await
                 .unwrap();
-            assert_eq!(resp.status(), StatusCode::OK);
+            assert_http_response_success(&resp);
         })
     }))
     .await;
-}
-
-async fn build_trigger(entrypoint_path: &str, executor: HttpExecutor) -> HttpTrigger {
-    let entrypoint_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(entrypoint_path);
-
-    let info = ApplicationInformation {
-        spin_version: SpinVersion::V1,
-        name: "bench-app".to_string(),
-        version: "1.0.0".to_string(),
-        description: None,
-        authors: vec![],
-        trigger: spin_config::ApplicationTrigger::Http(spin_config::HttpTriggerConfiguration {
-            base: "/".to_owned(),
-        }),
-        namespace: None,
-        origin: ApplicationOrigin::File("bench_spin.toml".into()),
-    };
-
-    let component = CoreComponent {
-        source: ModuleSource::FileReference(entrypoint_path),
-        id: "bench".to_string(),
-        trigger: TriggerConfig::Http(HttpConfig {
-            route: "/".to_string(),
-            executor: Some(executor),
-        }),
-        wasm: Default::default(),
-    };
-    let components = vec![component];
-
-    let cfg = Configuration::<CoreComponent> { info, components };
-    HttpTrigger::new("".to_string(), cfg, None, None, None)
-        .await
-        .unwrap()
 }

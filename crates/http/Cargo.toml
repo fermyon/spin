@@ -45,6 +45,7 @@ wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen"
 criterion = { version = "0.3.5", features = ["async_tokio"] }
 miniserde = "0.1"
 num_cpus = "1"
+spin-testing = { path = "../testing" }
 
 [[bench]]
 name = "baseline"

@@ -24,10 +24,10 @@
     "url": "https://github.com/fermyon/spin/issues"
   },
   "devDependencies": {
-    "@parcel/transformer-sass": "2.3.2",
-    "fermyon-styleguide": "^0.1.1",
+    "@fermyon/styleguide": "^0.1",
+    "@parcel/transformer-sass": "2.4.0",
     "nodemon": "^2.0.15",
-    "parcel": "^2.3.2",
+    "parcel": "^2.4.0",
     "sass": "^1.49.9"
   },
   "scripts": {

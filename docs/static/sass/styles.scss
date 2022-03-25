@@ -13,7 +13,7 @@ sass --watch static/sass/styles.scss static/css/style.css --style compressed
 
 TABLE OF CONTENTS
 ================= */
-@import "../../node_modules/fermyon-styleguide/scss/fermyon";
+@import "../../node_modules/@fermyon/styleguide/scss/fermyon";
     /* 
     npm package 'fermyon-styleguide':
     =================================
@@ -21,6 +21,7 @@ TABLE OF CONTENTS
     0.2. Variables and Mixins
     0.3. Global Layout
     0.4. Typography
+    0.5. Responsive Media Queries
 
 1.1. Spin: Docs Styles
 */

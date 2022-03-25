@@ -63,7 +63,7 @@ pub struct TimerTrigger {
     /// The interval at which the component is executed.
     pub interval: Duration,
     /// The application configuration.
-    app: Configuration<CoreComponent>,
+    app: Application<CoreComponent>,
     /// The Spin execution context.
     engine: Arc<ExecutionContext>,
 }
@@ -76,10 +76,10 @@ A few important things to note from the start:
 to generate "import" bindings based on the entry point — this generates code that
 allows us to easily invoke the entry point from application components that
 implement our new application model.
-- the new trigger has a field that contains a `Configuration<CoreComponent>` —
+- the new trigger has a field that contains a `Application<CoreComponent>` —
 in most cases, either `CoreComponent` will have to be updated with new trigger
 and component configuration (not the case for our simple application model),
-or an entirely new component can be defined and used in `Configuration<T>`.
+or an entirely new component can be defined and used in `Application<T>`.
 - the trigger has a field that contains the Spin execution context — this is the
 part of Spin that instantiates and helps execute the WebAssembly modules. When
 creating the trigger (in the `new` function, you get access to the underlying
@@ -177,5 +177,5 @@ for context)
 re-implementing the [`loader`](https://github.com/fermyon/spin/tree/main/crates/loader)
 and [`publish`](https://github.com/fermyon/spin/tree/main/crates/publish) crates —
 all is required is that loading the application returns a valid
-`Configuration<CoreComponent>` that the Spin execution context can use to
+`Application<CoreComponent>` that the Spin execution context can use to
 instantiate and execute components.

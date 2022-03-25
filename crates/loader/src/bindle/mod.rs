@@ -20,7 +20,7 @@ use bindle::{
 };
 use futures::future;
 use spin_config::{
-    ApplicationInformation, ApplicationOrigin, Configuration, CoreComponent, ModuleSource,
+    Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
 use std::path::Path;
@@ -35,7 +35,7 @@ pub async fn from_bindle(
     id: &str,
     url: &str,
     base_dst: impl AsRef<Path>,
-) -> Result<Configuration<CoreComponent>> {
+) -> Result<Application<CoreComponent>> {
     // TODO
     // Handle Bindle authentication.
     let manager = BindleTokenManager::NoToken(NoToken);
@@ -51,7 +51,7 @@ async fn prepare(
     url: &str,
     reader: &BindleReader,
     base_dst: impl AsRef<Path>,
-) -> Result<Configuration<CoreComponent>> {
+) -> Result<Application<CoreComponent>> {
     // First, get the invoice from the Bindle server.
     let invoice = reader
         .get_invoice()
@@ -76,7 +76,7 @@ async fn prepare(
     .map(|x| x.expect("Cannot prepare component"))
     .collect::<Vec<_>>();
 
-    Ok(Configuration { info, components })
+    Ok(Application { info, components })
 }
 
 /// Given a raw component manifest, prepare its assets and return a fully formed core component.

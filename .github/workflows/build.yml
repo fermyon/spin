@@ -68,10 +68,8 @@ jobs:
           default: true
           components: clippy, rustfmt
 
-      - name: "Install Wasm Rust targets"
-        run: |
-          rustup target add wasm32-wasi
-          rustup target add wasm32-unknown-unknown
+      - name: "Install Wasm Rust target"
+        run: rustup target add wasm32-wasi
 
       - uses: engineerd/configurator@v0.0.8
         with:

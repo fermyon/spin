@@ -80,10 +80,8 @@ jobs:
           OS=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
           echo "RUNNER_OS=$OS" >> $GITHUB_ENV
 
-      - name: "Install Wasm Rust targets"
-        run: |
-          rustup target add wasm32-wasi
-          rustup target add wasm32-unknown-unknown
+      - name: "Install Wasm Rust target"
+        run: rustup target add wasm32-wasi
 
       - name: Install latest Rust stable toolchain
         uses: actions-rs/toolchain@v1

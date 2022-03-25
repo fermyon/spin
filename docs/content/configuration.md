@@ -5,8 +5,9 @@ date = "2022-03-14T00:22:56Z"
 url = "https://github.com/fermyon/spin/blob/main/docs/content/configuration.md"
 ---
 
-Spin applications are comprised of general information, and a collection of at
-least one _component_. In the example below we can see a simple HTTP application
+Spin applications are comprised of general information (metadata), and a collection
+of at least one _component_. Configuration for a Spin application lives in a TOML
+file called `spin.toml`. In the example below we can see a simple HTTP application
 with a single component executed when the `/hello` endpoint is accessed:
 
 ```toml

@@ -75,10 +75,6 @@ impl TestConfig {
         CoreComponent {
             source: ModuleSource::FileReference(module_path),
             id: "test-component".to_string(),
-            trigger: self
-                .trigger_config
-                .clone()
-                .expect("http_trigger or redis_trigger required"),
             wasm: Default::default(),
         }
     }
@@ -87,11 +83,19 @@ impl TestConfig {
         Application {
             info: self.build_application_information(),
             components: vec![self.build_component()],
+            component_triggers: [(
+                "test-component".to_string(),
+                self.trigger_config
+                    .clone()
+                    .expect("http_trigger or redis_trigger required"),
+            )]
+            .into_iter()
+            .collect(),
         }
     }
 
     pub async fn build_http_trigger(&self) -> HttpTrigger {
-        HttpTrigger::new("".to_string(), self.build_configuration(), None, None, None)
+        HttpTrigger::new("".to_string(), self.build_configuration(), None, None)
             .await
             .expect("failed to build HttpTrigger")
     }

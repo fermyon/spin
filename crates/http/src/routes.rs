@@ -34,7 +34,7 @@ impl Router {
             .components
             .iter()
             .map(|c| {
-                let trigger = c.trigger.as_http().unwrap();
+                let trigger = app.component_triggers.get(c).unwrap().as_http().unwrap();
                 (
                     RoutePattern::from(&app_trigger.base, &trigger.route),
                     c.clone(),
@@ -334,10 +334,6 @@ mod route_tests {
         CoreComponent {
             id: id.to_string(),
             source: spin_config::ModuleSource::FileReference("FAKE".into()),
-            trigger: spin_config::TriggerConfig::Http(spin_config::HttpConfig {
-                route: "/test".to_string(),
-                executor: Some(spin_config::HttpExecutor::Spin),
-            }),
             wasm: spin_config::WasmConfig::default(),
         }
     }

@@ -2,10 +2,7 @@
 #![allow(clippy::needless_question_mark)]
 
 use anyhow::Result;
-use spin_config::{
-    Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
-    TriggerConfig, WasmConfig,
-};
+use spin_config::{CoreComponent, ModuleSource, WasmConfig};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use std::{sync::Arc, time::Duration};
 use tokio::task::spawn_blocking;
@@ -20,7 +17,7 @@ async fn main() -> Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let trigger = TimerTrigger::new(Duration::from_secs(1), app()).await?;
+    let trigger = TimerTrigger::new(Duration::from_secs(1), component()).await?;
     trigger.run().await
 }
 
@@ -30,24 +27,22 @@ async fn main() -> Result<()> {
 pub struct TimerTrigger {
     /// The interval at which the component is executed.
     pub interval: Duration,
-    /// The application configuration.
-    app: Application<CoreComponent>,
     /// The Spin execution context.
     engine: Arc<ExecutionContext>,
 }
 
 impl TimerTrigger {
     /// Creates a new trigger.
-    pub async fn new(interval: Duration, app: Application<CoreComponent>) -> Result<Self> {
-        let config = ExecutionContextConfiguration::new(app.clone(), None);
+    pub async fn new(interval: Duration, component: CoreComponent) -> Result<Self> {
+        let config = ExecutionContextConfiguration {
+            components: vec![component],
+            label: "timer-app".to_string(),
+            ..Default::default()
+        };
         let engine = Arc::new(Builder::build_default(config).await?);
         log::debug!("Created new Timer trigger.");
 
-        Ok(Self {
-            interval,
-            app,
-            engine,
-        })
+        Ok(Self { interval, engine })
     }
 
     /// Runs the trigger at every interval.
@@ -66,9 +61,13 @@ impl TimerTrigger {
 
     /// Execute the first component in the application configuration.
     async fn handle(&self, msg: String) -> Result<()> {
-        let (mut store, instance) =
-            self.engine
-                .prepare_component(&self.app.components[0].id, None, None, None, None)?;
+        let (mut store, instance) = self.engine.prepare_component(
+            &self.engine.config.components[0].id,
+            None,
+            None,
+            None,
+            None,
+        )?;
 
         let res = spawn_blocking(move || -> Result<String> {
             let t = spin_timer::SpinTimer::new(&mut store, &instance, |host| {
@@ -83,27 +82,10 @@ impl TimerTrigger {
     }
 }
 
-pub fn app() -> Application<CoreComponent> {
-    let info = ApplicationInformation {
-        spin_version: spin_config::SpinVersion::V1,
-        name: "test-app".to_string(),
-        version: "1.0.0".to_string(),
-        description: None,
-        authors: vec![],
-        trigger: spin_config::ApplicationTrigger::Http(spin_config::HttpTriggerConfiguration {
-            base: "/".to_owned(),
-        }),
-        namespace: None,
-        origin: ApplicationOrigin::File("".into()),
-    };
-
-    let component = CoreComponent {
+pub fn component() -> CoreComponent {
+    CoreComponent {
         source: ModuleSource::FileReference("target/test-programs/echo.wasm".into()),
         id: "test".to_string(),
-        trigger: TriggerConfig::default(),
         wasm: WasmConfig::default(),
-    };
-    let components = vec![component];
-
-    Application::<CoreComponent> { info, components }
+    }
 }

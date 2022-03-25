@@ -7,7 +7,7 @@ pub mod io;
 
 use anyhow::{bail, Context, Result};
 use io::IoStreamRedirects;
-use spin_config::{CoreComponent, DirectoryMount, ModuleSource};
+use spin_config::{Application, CoreComponent, DirectoryMount, ModuleSource};
 use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, Duration};
@@ -19,32 +19,22 @@ use wasmtime_wasi::{ambient_authority, Dir, WasiCtxBuilder};
 const SPIN_HOME: &str = ".spin";
 
 /// Builder-specific configuration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct ExecutionContextConfiguration {
-    /// Spin application configuration.
-    pub app: spin_config::Application<CoreComponent>,
-    /// Wasmtime engine configuration.
-    pub wasmtime: wasmtime::Config,
-    /// Log directory on host
+    /// Component configuration.
+    pub components: Vec<CoreComponent>,
+    /// Label for logging, etc.
+    pub label: String,
+    /// Log directory on host.
     pub log_dir: Option<PathBuf>,
 }
 
-impl ExecutionContextConfiguration {
-    /// Creates a new execution context configuration.
-    pub fn new(app: spin_config::Application<CoreComponent>, log_dir: Option<PathBuf>) -> Self {
-        // In order for Wasmtime to run WebAssembly components, multi memory
-        // and module linking must always be enabled.
-        // See https://github.com/bytecodealliance/wit-bindgen/blob/main/crates/wasmlink.
-        let mut wasmtime = wasmtime::Config::default();
-        wasmtime.wasm_multi_memory(true);
-        wasmtime.wasm_module_linking(true);
-
-        log::trace!("Created execution context configuration.");
-
+impl From<Application<CoreComponent>> for ExecutionContextConfiguration {
+    fn from(app: Application<CoreComponent>) -> Self {
         Self {
-            app,
-            wasmtime,
-            log_dir,
+            components: app.components,
+            label: app.info.name,
+            ..Default::default()
         }
     }
 }
@@ -64,21 +54,31 @@ pub struct RuntimeContext<T> {
 
 /// An execution context builder.
 pub struct Builder<T: Default> {
-    /// Top level configuration for
-    pub config: ExecutionContextConfiguration,
-    /// Linker used to configure the execution context.
-    pub linker: Linker<RuntimeContext<T>>,
-    /// Store used to configure the execution context.
-    pub store: Store<RuntimeContext<T>>,
-    /// Wasmtime engine.
-    pub engine: Engine,
+    config: ExecutionContextConfiguration,
+    linker: Linker<RuntimeContext<T>>,
+    store: Store<RuntimeContext<T>>,
+    engine: Engine,
 }
 
 impl<T: Default> Builder<T> {
     /// Creates a new instance of the execution builder.
     pub fn new(config: ExecutionContextConfiguration) -> Result<Builder<T>> {
+        Self::with_wasmtime_config(config, Default::default())
+    }
+
+    /// Creates a new instance of the execution builder with the given wasmtime::Config.
+    pub fn with_wasmtime_config(
+        config: ExecutionContextConfiguration,
+        mut wasmtime: wasmtime::Config,
+    ) -> Result<Builder<T>> {
+        // In order for Wasmtime to run WebAssembly components, multi memory
+        // and module linking must always be enabled.
+        // See https://github.com/bytecodealliance/wit-bindgen/blob/main/crates/wasmlink.
+        wasmtime.wasm_multi_memory(true);
+        wasmtime.wasm_module_linking(true);
+
         let data = RuntimeContext::default();
-        let engine = Engine::new(&config.wasmtime)?;
+        let engine = Engine::new(&wasmtime)?;
         let store = Store::new(&engine, data);
         let linker = Linker::new(&engine);
 
@@ -91,13 +91,13 @@ impl<T: Default> Builder<T> {
     }
 
     /// Configures the WASI linker imports for the current execution context.
-    pub fn link_wasi(&mut self) -> Result<&Self> {
+    pub fn link_wasi(&mut self) -> Result<&mut Self> {
         wasmtime_wasi::add_to_linker(&mut self.linker, |ctx| ctx.wasi.as_mut().unwrap())?;
         Ok(self)
     }
 
     /// Configures the ability to execute outbound HTTP requests.
-    pub fn link_http(&mut self) -> Result<&Self> {
+    pub fn link_http(&mut self) -> Result<&mut Self> {
         wasi_experimental_http_wasmtime::HttpState::new()?
             .add_to_linker(&mut self.linker, |ctx| {
                 ctx.experimental_http.as_ref().unwrap()
@@ -114,7 +114,7 @@ impl<T: Default> Builder<T> {
     #[instrument(skip(self))]
     pub async fn build(&mut self) -> Result<ExecutionContext<T>> {
         let mut components = HashMap::new();
-        for c in &self.config.app.components {
+        for c in &self.config.components {
             let core = c.clone();
             let module = match c.source.clone() {
                 ModuleSource::FileReference(p) => {
@@ -165,12 +165,7 @@ impl<T: Default> Builder<T> {
         config: ExecutionContextConfiguration,
     ) -> Result<ExecutionContext<T>> {
         let _sloth_warning = warn_if_slothful();
-
-        let mut builder = Self::new(config)?;
-        builder.link_wasi()?;
-        builder.link_http()?;
-
-        builder.build().await
+        Self::new(config)?.link_wasi()?.link_http()?.build().await
     }
 }
 
@@ -225,14 +220,14 @@ impl<T: Default> ExecutionContext<T> {
         save_stdout: bool,
         save_stderr: bool,
     ) -> Result<()> {
-        let sanitized_app_name = sanitize(&self.config.app.info.name);
+        let sanitized_label = sanitize(&self.config.label);
         let sanitized_component_name = sanitize(&component);
 
         let log_dir = match &self.config.log_dir {
             Some(l) => l.clone(),
             None => match dirs::home_dir() {
-                Some(h) => h.join(SPIN_HOME).join(sanitized_app_name).join("logs"),
-                None => PathBuf::from(sanitized_app_name).join("logs"),
+                Some(h) => h.join(SPIN_HOME).join(&sanitized_label).join("logs"),
+                None => PathBuf::from(&sanitized_label).join("logs"),
             },
         };
 

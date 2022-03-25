@@ -65,6 +65,11 @@ async fn prepare(
 
     let info = info(&raw, &invoice, url);
     log::trace!("Application information from bindle: {:?}", info);
+    let component_triggers = raw
+        .components
+        .iter()
+        .map(|c| (c.id.clone(), c.trigger.clone()))
+        .collect();
     let components = future::join_all(
         raw.components
             .into_iter()
@@ -76,7 +81,11 @@ async fn prepare(
     .map(|x| x.expect("Cannot prepare component"))
     .collect::<Vec<_>>();
 
-    Ok(Application { info, components })
+    Ok(Application {
+        info,
+        components,
+        component_triggers,
+    })
 }
 
 /// Given a raw component manifest, prepare its assets and return a fully formed core component.
@@ -113,14 +122,7 @@ async fn core(
         mounts,
         allowed_http_hosts,
     };
-    let trigger = raw.trigger;
-
-    Ok(CoreComponent {
-        source,
-        id,
-        wasm,
-        trigger,
-    })
+    Ok(CoreComponent { source, id, wasm })
 }
 
 /// Converts the raw application manifest from the bindle invoice into the

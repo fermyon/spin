@@ -11,28 +11,35 @@ async fn test_from_local_source() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let cfg = from_file(MANIFEST, dir).await?;
+    let app = from_file(MANIFEST, dir).await?;
 
-    assert_eq!(cfg.info.name, "spin-local-source-test");
-    assert_eq!(cfg.info.version, "1.0.0");
-    assert_eq!(cfg.info.spin_version, SpinVersion::V1);
+    assert_eq!(app.info.name, "spin-local-source-test");
+    assert_eq!(app.info.version, "1.0.0");
+    assert_eq!(app.info.spin_version, SpinVersion::V1);
     assert_eq!(
-        cfg.info.authors[0],
+        app.info.authors[0],
         "Fermyon Engineering <engineering@fermyon.com>"
     );
 
-    let http = cfg.info.trigger.as_http().unwrap().clone();
+    let http = app.info.trigger.as_http().unwrap().clone();
     assert_eq!(http.base, "/".to_string());
 
-    let http = cfg.components[0].trigger.as_http().unwrap().clone();
+    let component = &app.components[0];
+    assert_eq!(component.wasm.mounts.len(), 1);
+
+    let http = app
+        .component_triggers
+        .get(component)
+        .unwrap()
+        .as_http()
+        .unwrap()
+        .clone();
     assert_eq!(http.executor.unwrap(), HttpExecutor::Spin);
     assert_eq!(http.route, "/...".to_string());
 
-    assert_eq!(cfg.components[0].wasm.mounts.len(), 1);
-
     let expected_path =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/valid-with-files/spin.toml");
-    assert_eq!(cfg.info.origin, ApplicationOrigin::File(expected_path));
+    assert_eq!(app.info.origin, ApplicationOrigin::File(expected_path));
 
     Ok(())
 }

@@ -205,12 +205,14 @@ impl HttpTrigger {
 
         let addr: SocketAddr = self.address.parse()?;
 
+        let server = Server::try_bind(&addr)
+            .with_context(|| format!("Unable to listen on {}", addr))?
+            .serve(mk_svc);
+
         println!("Serving HTTP on address http://{:?}", addr);
         log::info!("Serving HTTP on address {:?}", addr);
 
         let shutdown_signal = on_ctrl_c()?;
-
-        let server = Server::bind(&addr).serve(mk_svc);
 
         tokio::select! {
             _ = server => {
@@ -257,7 +259,9 @@ impl HttpTrigger {
         });
 
         let addr: SocketAddr = self.address.parse()?;
-        let listener = TcpListener::bind(&addr).await?;
+        let listener = TcpListener::bind(&addr)
+            .await
+            .with_context(|| format!("Unable to listen on {}", addr))?;
 
         let tls_srv_cfg = tls.server_config()?;
 
@@ -271,12 +275,12 @@ impl HttpTrigger {
                 }
             }));
 
+        let server = Server::builder(incoming).serve(mk_svc);
+
         println!("Serving HTTPS on address https://{:?}", addr);
         log::info!("Serving HTTPS on address {:?}", addr);
 
         let shutdown_signal = on_ctrl_c()?;
-
-        let server = Server::builder(incoming).serve(mk_svc);
 
         tokio::select! {
             _ = server => {

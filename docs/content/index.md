@@ -31,7 +31,7 @@ This `hello_world` function written in Rust defines a component that takes an `h
 
 ```rust
 #[http_component]​
-fn hello_world(req: http::Request) -> Result<http::Response> {​
+fn hello_world(_req: http::Request) -> Result<http::Response> {​
     Ok(http::Response::builder()​
         .status(200)​
         .body(Some("Hello, Fermyon!".into()))?)​

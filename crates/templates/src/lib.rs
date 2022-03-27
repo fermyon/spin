@@ -4,8 +4,8 @@
 
 use anyhow::{bail, Context, Result};
 use fs_extra::dir::CopyOptions;
-use git2::{build::RepoBuilder, Repository};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use tokio::fs;
 use walkdir::WalkDir;
 
@@ -66,11 +66,14 @@ impl TemplatesManager {
         let dst = &self.root.join(TEMPLATES_DIR).join(name);
         log::trace!("adding repository {} to {:?}", url, dst);
 
-        match branch {
-            Some(b) => RepoBuilder::new().branch(b).clone(url, dst)?,
-            None => RepoBuilder::new().clone(url, dst)?,
-        };
+        let mut git = Command::new("git");
+        git.arg("clone");
 
+        if let Some(b) = branch {
+            git.arg("--branch").arg(b);
+        }
+
+        git.arg(url).arg(dst).output()?;
         Ok(())
     }
 
@@ -120,22 +123,13 @@ impl TemplatesManager {
                 templates.push(Self::path_to_name(t.path()));
             }
 
-            let repo = match Repository::open(tr.clone().path()) {
-                Ok(repo) => TemplateRepository {
-                    name,
-                    git: repo
-                        .find_remote(repo.remotes()?.get(0).unwrap_or("origin"))?
-                        .url()
-                        .map(|s| s.to_string()),
-                    branch: repo.head().unwrap().name().map(|s| s.to_string()),
-                    templates,
-                },
-                Err(_) => TemplateRepository {
-                    name,
-                    git: None,
-                    branch: None,
-                    templates,
-                },
+            log::trace!("listing local template in {:?}", tr.clone().path());
+
+            let repo = TemplateRepository {
+                name,
+                git: Self::git_remote_url(tr.clone().path()),
+                branch: Self::git_branch(tr.clone().path()),
+                templates,
             };
             res.push(repo);
         }
@@ -179,5 +173,58 @@ impl TemplatesManager {
 
     fn path_to_name(p: &Path) -> String {
         p.file_name().unwrap().to_str().unwrap().to_string()
+    }
+
+    fn git_remote_url(path: &Path) -> Option<String> {
+        let branch = Self::git_branch(path).unwrap_or_else(|| "main".to_string());
+
+        let remote = Command::new("git")
+            .current_dir(path)
+            .arg("config")
+            .arg("--get")
+            .arg(format!("branch.{}.remote", &branch))
+            .output()
+            .ok()
+            .and_then(|output| {
+                let v = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v)
+                }
+            })
+            .unwrap_or_else(|| "origin".to_string());
+
+        Command::new("git")
+            .current_dir(path)
+            .arg("config")
+            .arg("--get")
+            .arg(format!("remote.{}.url", &remote))
+            .output()
+            .ok()
+            .and_then(|output| {
+                let v = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v)
+                }
+            })
+    }
+
+    fn git_branch(path: &Path) -> Option<String> {
+        Command::new("git")
+            .current_dir(path)
+            .args(&["rev-parse", "--abbrev-ref", "HEAD"])
+            .output()
+            .ok()
+            .and_then(|output| {
+                let v = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v)
+                }
+            })
     }
 }

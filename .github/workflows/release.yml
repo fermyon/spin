@@ -32,7 +32,6 @@ jobs:
               extraArgs: "--target aarch64-unknown-linux-gnu",
               target: "aarch64-unknown-linux-gnu",
               targetDir: "target/aarch64-unknown-linux-gnu/release",
-              env: { OPENSSL_DIR: "/usr/local/openssl-aarch64" },
             }
           - {
               os: "macos-latest",
@@ -50,7 +49,6 @@ jobs:
               extraArgs: "--target aarch64-apple-darwin",
               target: "aarch64-apple-darwin",
               targetDir: "target/aarch64-apple-darwin/release/",
-              env: { OPENSSL_DIR: "/usr/local/openssl-aarch64" },
             }
           - {
               os: "windows-latest",
@@ -95,27 +93,8 @@ jobs:
         run: |
           sudo apt update
           sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          cd /tmp
-          git clone https://github.com/openssl/openssl
-          cd openssl
-          git checkout OpenSSL_1_1_1l
-          sudo mkdir -p $OPENSSL_DIR
-          ./Configure linux-aarch64 --prefix=$OPENSSL_DIR --openssldir=$OPENSSL_DIR shared
-          make CC=aarch64-linux-gnu-gcc
-          sudo make install
           echo '[target.aarch64-unknown-linux-gnu]' >> ${HOME}/.cargo/config.toml
           echo 'linker = "aarch64-linux-gnu-gcc"' >> ${HOME}/.cargo/config.toml
-
-      - name: setup for cross-compiled darwin aarch64 build
-        if: matrix.config.target == 'aarch64-apple-darwin'
-        run: |
-          cd /tmp
-          git clone https://github.com/openssl/openssl
-          cd openssl
-          git checkout OpenSSL_1_1_1l
-          sudo mkdir -p $OPENSSL_DIR
-          ./Configure enable-rc5 zlib darwin64-arm64-cc no-asm --prefix=$OPENSSL_DIR --openssldir=$OPENSSL_DIR shared
-          sudo make install
 
       - name: build release
         uses: actions-rs/cargo@v1

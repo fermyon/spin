@@ -41,7 +41,6 @@ jobs:
           #     extraArgs: "--target aarch64-apple-darwin",
           #     target: "aarch64-apple-darwin",
           #     targetDir: "target/aarch64-apple-darwin/release/",
-          #     env: { OPENSSL_DIR: "/usr/local/openssl-aarch64" },
           #     bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-macos-amd64.tar.gz",
           #     bindleBinary: "bindle-server",
           #     pathInBindleArchive: "bindle-server",
@@ -79,17 +78,6 @@ jobs:
 
 
       - uses: Swatinem/rust-cache@v1
-
-      # - name: setup for cross-compiled darwin aarch64 build
-      #   if: matrix.config.target == 'aarch64-apple-darwin'
-      #   run: |
-      #     cd /tmp
-      #     git clone https://github.com/openssl/openssl
-      #     cd openssl
-      #     git checkout OpenSSL_1_1_1l
-      #     sudo mkdir -p $OPENSSL_DIR
-      #     ./Configure enable-rc5 zlib darwin64-arm64-cc no-asm --prefix=$OPENSSL_DIR --openssldir=$OPENSSL_DIR shared
-      #     sudo make install
 
       - name: Cargo Format
         run:

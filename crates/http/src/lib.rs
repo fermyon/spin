@@ -191,7 +191,7 @@ impl HttpTrigger {
                     let t2 = t.clone();
 
                     async move {
-                        match set_req_uri(&mut req, Scheme::HTTPS) {
+                        match set_req_uri(&mut req, Scheme::HTTP) {
                             Ok(()) => t2.handle(req, addr).await,
                             Err(e) => {
                                 log::warn!("{}", e);

@@ -28,10 +28,6 @@ $ tar xfv spin-<version>-<os-arch>.tar.gz
 $ ./spin --help
 ```
 
-> On an M1 macOS machine you might need to install / configure OpenSSL@1.1 by
-> running
-> `brew install openssl@1.1 && sudo ln -s /opt/homebrew/Cellar/openssl@1.1/1.1.1m /usr/local/openssl-aarch64`
-
 > Alternatively, you could [build Spin from source](./docs/content/contributing.md).
 
 After you follow the [quickstart document](./docs/content/quickstart.md),

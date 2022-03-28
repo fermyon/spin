@@ -1,3 +1,3 @@
-module github.com/fermyon/spin-sdk
+module github.com/fermyon/spin/sdk/go
 
 go 1.17

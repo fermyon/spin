@@ -260,6 +260,56 @@ the template files/content.  E.g.:
 This separation reduces the risk that metadata files may end up in the output,
 and gives authors an unobstructed view of the content.
 
+### Applications and components
+
+We discussed above the possibility of having "bare app," "smol app," and
+"incremental add" - create an app with no components, create an app with
+one component, and add a component to an existing app.
+
+If we do this, it requires further tweaking to the template format,
+or possibly two categories of template:
+
+* We need to be able to generate a `spin.toml` _only_.  Our triggers
+  are currently simple enough that this hardly merits a template - it needs
+  only a trigger type and parameter placeholders, the set of which
+  is fixed based on the trigger.
+* We need to be able to generate a component (source code and `spin.toml`
+  entry) _only_.
+* We need to be able to restrict template selection in the incremental
+  scenario to only those templates compatible with the application trigger.
+  Adding a Redis component to a HTTP application is, at least for now,
+  an error.
+
+We could of course make these two separate categories of template. But
+then we need an easy way to do the "smol app" without the user having
+to pick and choose.
+
+A possible strategy here is:
+
+* Templates are for components (there are no templates for metadata).
+* Each template says what trigger it works with.
+* If you `spin new foo`:
+  * If there's a `spin.toml`, it checks that `foo` works with the
+    current trigger and if so adds a new component based on the template.
+  * If there's no `spin.toml`, it looks at the trigger that `foo` works
+    with and creates a `spin.toml` with that as the application trigger.
+    It gets the trigger parameters from _TO DO: waves hand_.  Then it
+    adds the component as above.
+* If you `spin new`:
+  * If there's a `spin.toml`, it prompts you with a list of installed
+    templates that work with the trigger in that `spin.toml`.
+  * If there's no `spin.toml`, it prompts you with a list of installed
+    templates BUT ALSO offers you "Empty application".  If you choose that,
+    then  it prompts for the trigger, and creates the `spin.toml` using _hand
+    waving intensifies_.
+  * We could reserve the name `empty` so you could go `spin new empty`?
+
+| Command             | `spin.toml` exists            | `spin.toml` doesn't exist         |
+|---------------------|-------------------------------|-----------------------------------|
+| `spin new`          | Prompt for compatible template      | Prompt for template OR empty; if template, use its trigger type; if empty, prompt for trigger type |
+| `spin new foo`      | Add a `foo` component if compatible | Create with starter `foo` component     |
+| ? `spin new empty` ? | Friendly error               | Prompt for trigger type           |
+
 ### Implementation detail: fiddly files
 
 From the `yo wasm` experience we learned that some template content files

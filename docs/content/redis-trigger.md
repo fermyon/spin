@@ -38,7 +38,7 @@ channel = "messages"
 The Redis trigger is built on top of the
 [WebAssembly component model](https://github.com/WebAssembly/component-model).
 The current interface is defined using the
-[WebAssembly Interface (WIT)]((https://github.com/bytecodealliance/wit-bindgen/blob/main/WIT.md))
+[WebAssembly Interface (WIT)](https://github.com/bytecodealliance/wit-bindgen/blob/main/WIT.md)
 format, and is a function that takes the message payload as its only parameter:
 
 ```fsharp

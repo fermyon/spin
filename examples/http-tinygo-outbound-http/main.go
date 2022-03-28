@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	spin_http "github.com/fermyon/spin-sdk/http"
+	spin_http "github.com/fermyon/spin/sdk/go/http"
 )
 
 func main() {

@@ -16,6 +16,8 @@ pub struct Application<T> {
     pub info: ApplicationInformation,
     /// Configuration for the application components.
     pub components: Vec<T>,
+    /// Configuration for the components' triggers.
+    pub component_triggers: ComponentMap<TriggerConfig>,
 }
 
 /// Spin API version.
@@ -61,8 +63,6 @@ pub struct CoreComponent {
     pub id: String,
     /// Per-component WebAssembly configuration.
     pub wasm: WasmConfig,
-    /// Trigger configuration.
-    pub trigger: TriggerConfig,
 }
 
 /// The location from which an application was loaded.
@@ -295,5 +295,38 @@ impl TriggerConfig {
             TriggerConfig::Redis(redis) => Some(redis),
             _ => None,
         }
+    }
+}
+
+/// Component trigger configurations.
+#[derive(Clone, Debug)]
+pub struct ComponentMap<T>(HashMap<String, T>);
+
+impl<T> ComponentMap<T> {
+    /// Get a value for the given component.
+    pub fn get(&self, component: &CoreComponent) -> Option<&T> {
+        self.0.get(&component.id)
+    }
+
+    /// Iterate over all (component id, value) pairs.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &T)> {
+        self.0.iter().map(|(k, v)| (k.as_str(), v))
+    }
+
+    /// Transforms the ComponentMap into a new one with different values, with possible failures.
+    pub fn try_map_values<U, E>(
+        &self,
+        mut f: impl FnMut(&str, &T) -> Result<U, E>,
+    ) -> Result<ComponentMap<U>, E> {
+        self.0
+            .iter()
+            .map(|(id, val)| Ok((id.clone(), f(id.as_str(), val)?)))
+            .collect()
+    }
+}
+
+impl<T> FromIterator<(String, T)> for ComponentMap<T> {
+    fn from_iter<I: IntoIterator<Item = (String, T)>>(iter: I) -> Self {
+        Self(HashMap::from_iter(iter))
     }
 }

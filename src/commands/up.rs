@@ -130,11 +130,11 @@ impl UpCommand {
 
         match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
-                let trigger = HttpTrigger::new(self.address, app, None, tls, self.log).await?;
+                let trigger = HttpTrigger::new(self.address, app, tls, self.log).await?;
                 trigger.run().await?;
             }
             ApplicationTrigger::Redis(_) => {
-                let trigger = RedisTrigger::new(app, None, self.log).await?;
+                let trigger = RedisTrigger::new(app, self.log).await?;
                 trigger.run().await?;
             }
         }

@@ -11,7 +11,7 @@ use crate::{
     spin::SpinHttpExecutor,
     wagi::WagiHttpExecutor,
 };
-use anyhow::{anyhow, ensure, Context, Error, Result};
+use anyhow::{anyhow, Context, Error, Result};
 use async_trait::async_trait;
 use futures_util::stream::StreamExt;
 use http::{uri::Scheme, StatusCode, Uri};
@@ -21,7 +21,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use spin_config::{Application, CoreComponent};
+use spin_config::{Application, ComponentMap, CoreComponent, HttpConfig, HttpTriggerConfiguration};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http::SpinHttpData;
 use std::{future::ready, net::SocketAddr, path::PathBuf, sync::Arc};
@@ -45,10 +45,12 @@ type RuntimeContext = spin_engine::RuntimeContext<SpinHttpData>;
 pub struct HttpTrigger {
     /// Listening address for the server.
     address: String,
-    /// Configuration for the application.
-    app: Application<CoreComponent>,
     /// TLS configuration for the server.
     tls: Option<TlsConfig>,
+    /// Trigger configuration.
+    trigger_config: HttpTriggerConfiguration,
+    /// Component trigger configurations.
+    component_triggers: ComponentMap<HttpConfig>,
     /// Router.
     router: Router,
     /// Spin execution context.
@@ -60,28 +62,38 @@ impl HttpTrigger {
     pub async fn new(
         address: String,
         app: Application<CoreComponent>,
-        wasmtime: Option<wasmtime::Config>,
         tls: Option<TlsConfig>,
         log_dir: Option<PathBuf>,
     ) -> Result<Self> {
-        ensure!(
-            app.info.trigger.as_http().is_some(),
-            "Application trigger is not HTTP"
-        );
+        let trigger_config = app
+            .info
+            .trigger
+            .as_http()
+            .ok_or_else(|| anyhow!("Application trigger is not HTTP"))?
+            .clone();
 
-        let mut config = ExecutionContextConfiguration::new(app.clone(), log_dir);
-        if let Some(wasmtime) = wasmtime {
-            config.wasmtime = wasmtime;
-        };
+        let component_triggers = app.component_triggers.try_map_values(|id, trigger| {
+            trigger
+                .as_http()
+                .cloned()
+                .ok_or_else(|| anyhow!("Expected HTTP configuration for component {}", id))
+        })?;
 
-        let engine = Arc::new(Builder::build_default(config).await?);
         let router = Router::build(&app)?;
+
+        let config = ExecutionContextConfiguration {
+            log_dir,
+            ..app.into()
+        };
+        let engine = Arc::new(Builder::build_default(config).await?);
+
         log::trace!("Created new HTTP trigger.");
 
         Ok(Self {
             address,
-            app,
             tls,
+            trigger_config,
+            component_triggers,
             router,
             engine,
         })
@@ -91,20 +103,16 @@ impl HttpTrigger {
     pub async fn handle(&self, req: Request<Body>, addr: SocketAddr) -> Result<Response<Body>> {
         log::info!(
             "Processing request for application {} on URI {}",
-            &self.app.info.name,
+            &self.engine.config.label,
             req.uri()
         );
-
-        // We can unwrap here because the trigger type has already been asserted in `HttpTrigger::new`
-        let app_trigger = self.app.info.trigger.as_http().cloned().unwrap();
 
         match req.uri().path() {
             "/healthz" => Ok(Response::new(Body::from("OK"))),
             route => match self.router.route(route) {
                 Ok(c) => {
-                    let trigger = c.trigger.as_http().ok_or_else(|| {
-                        anyhow!("Expected HTTP configuration for component {}", c.id)
-                    })?;
+                    let trigger = self.component_triggers.get(&c).unwrap();
+
                     let executor = match &trigger.executor {
                         Some(i) => i,
                         None => &spin_config::HttpExecutor::Spin,
@@ -117,7 +125,7 @@ impl HttpTrigger {
                                 .execute(
                                     &self.engine,
                                     &c.id,
-                                    &app_trigger.base,
+                                    &self.trigger_config.base,
                                     &trigger.route,
                                     req,
                                     addr,
@@ -132,7 +140,7 @@ impl HttpTrigger {
                                 .execute(
                                     &self.engine,
                                     &c.id,
-                                    &app_trigger.base,
+                                    &self.trigger_config.base,
                                     &trigger.route,
                                     req,
                                     addr,
@@ -525,7 +533,7 @@ mod tests {
             })
             .build_configuration();
 
-        let trigger = HttpTrigger::new("".to_string(), cfg, None, None, None).await?;
+        let trigger = HttpTrigger::new("".to_string(), cfg, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
@@ -554,7 +562,7 @@ mod tests {
             })
             .build_configuration();
 
-        let trigger = HttpTrigger::new("".to_string(), cfg, None, None, None).await?;
+        let trigger = HttpTrigger::new("".to_string(), cfg, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()

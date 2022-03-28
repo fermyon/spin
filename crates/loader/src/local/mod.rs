@@ -71,6 +71,11 @@ async fn prepare(
 ) -> Result<Application<CoreComponent>> {
     let info = info(raw.info, &src);
 
+    let component_triggers = raw
+        .components
+        .iter()
+        .map(|c| (c.id.clone(), c.trigger.clone()))
+        .collect();
     let components = future::join_all(
         raw.components
             .into_iter()
@@ -82,7 +87,11 @@ async fn prepare(
     .collect::<Result<Vec<_>>>()
     .context("Failed to prepare configuration")?;
 
-    Ok(Application { info, components })
+    Ok(Application {
+        info,
+        components,
+        component_triggers,
+    })
 }
 
 /// Given a raw component manifest, prepare its assets and return a fully formed core component.
@@ -121,14 +130,7 @@ async fn core(
         mounts,
         allowed_http_hosts,
     };
-    let trigger = raw.trigger;
-
-    Ok(CoreComponent {
-        source,
-        id,
-        wasm,
-        trigger,
-    })
+    Ok(CoreComponent { source, id, wasm })
 }
 
 /// Converts the raw application information from the spin.toml manifest to the standard configuration.

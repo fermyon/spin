@@ -56,14 +56,11 @@ Let's have a look at building the timer trigger:
 wit_bindgen_wasmtime::import!("spin-timer.wit");
 type ExecutionContext = spin_engine::ExecutionContext<spin_timer::SpinTimerData>;
 
-/// A custom timer trigger that executes the
-/// first component of an application on every interval.
+/// A custom timer trigger that executes a component on every interval.
 #[derive(Clone)]
 pub struct TimerTrigger {
     /// The interval at which the component is executed.
     pub interval: Duration,
-    /// The application configuration.
-    app: Application<CoreComponent>,
     /// The Spin execution context.
     engine: Arc<ExecutionContext>,
 }

@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use bindle::client::Client as BindleClient;
+use bindle::client::ClientBuilder as BindleClientBuilder;
 use spin_loader::bindle::BindleTokenManager;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
@@ -9,6 +10,7 @@ const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
 const STAGING_DIR_OPT: &str = "STAGING_DIR";
 
 const BINDLE_URL_ENV: &str = "BINDLE_URL";
+const INSECURE_OPT: &str = "INSECURE";
 
 /// Commands for publishing applications as bindles.
 #[derive(StructOpt, Debug)]
@@ -76,6 +78,15 @@ pub struct Push {
         env = BINDLE_URL_ENV,
     )]
     pub bindle_server_url: String,
+
+    /// Ignore server certificate errors
+    #[structopt(
+        name = INSECURE_OPT,
+        short = "k",
+        long = "insecure",
+        takes_value = false,
+    )]
+    pub insecure: bool,
 }
 
 impl Prepare {
@@ -136,17 +147,19 @@ impl Push {
     }
 
     fn create_bindle_client(&self) -> Result<BindleClient<BindleTokenManager>> {
-        BindleClient::new(
-            &self.bindle_server_url,
-            // TODO: pick up auth options from the command line
-            BindleTokenManager::NoToken(bindle::client::tokens::NoToken),
-        )
-        .with_context(|| {
-            format!(
-                "Failed to create client for bindle server '{}'",
-                self.bindle_server_url
+        BindleClientBuilder::default()
+            .danger_accept_invalid_certs(self.insecure)
+            .build(
+                &self.bindle_server_url,
+                // TODO: pick up auth options from the command line
+                BindleTokenManager::NoToken(bindle::client::tokens::NoToken),
             )
-        })
+            .with_context(|| {
+                format!(
+                    "Failed to create client for bindle server '{}'",
+                    self.bindle_server_url
+                )
+            })
     }
 }
 

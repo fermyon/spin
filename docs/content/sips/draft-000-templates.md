@@ -129,6 +129,34 @@ If the user runs `spin http foo`:
 (Note: if the user runs the command in silent/no-interaction mode, then instead
 of listing or prompting, we should just fail with an explanatory message.)
 
+### Applications and components
+
+Our current templates are of the "hello world" variety - they produce a small
+but complete application, including the application metadata and a starter
+component (code and wiring).
+
+It would be good to provide a way to add a component to an existing application.
+This is a little tricky because (a) it requires modification of an existing
+file, not just copying a file; and (b) the component templates have to be
+constrained by the trigger type of the application.
+
+@michelleN has also proposed that it should be possible to create _only_ the
+application metadata, up to and including the trigger type, but with no
+components.  (The `spin up` command would then be modified to detect if
+an app had not components and guide the user on how to add them.)  The
+user experience for this is a bit tricky.  One option is to have separate
+`spin init/spin new` verbs, but for some readers that will create ambiguity -
+I want to create an application, which one is right for me?  Another is
+to have flags on `spin new` to indicate "bare starter," "full starter,"
+or "incremental add," but this creates ceremony and cognitive load. A
+possible approach is to make it interactive - if no manifest exists,
+ask whether to create a bare one or one with a starter component.  But
+this may be a confusing question for users' first encounter with Spin!
+"I don't know, I just want to work!"
+
+_TODO: think about how bare and incremental `new` might impact the
+authoring of templates as well as the consumer experience._
+
 ### Running a template without installing
 
 This could be something like:

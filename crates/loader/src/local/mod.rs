@@ -65,17 +65,29 @@ async fn prepare_any_version(
 
 /// Converts a raw application manifest into Spin configuration.
 async fn prepare(
-    raw: RawAppManifest,
+    mut raw: RawAppManifest,
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
 ) -> Result<Application<CoreComponent>> {
     let info = info(raw.info, &src);
+
+    let mut config_root = raw.config.unwrap_or_default();
+    for component in &mut raw.components {
+        if let Some(config) = component.config.take() {
+            let path = component.id.clone().try_into().with_context(|| {
+                format!("component ID {:?} not a valid config path", component.id)
+            })?;
+            config_root.merge_defaults(&path, config)?;
+        }
+    }
+    let config_resolver = Some(spin_config::Resolver::new(config_root)?);
 
     let component_triggers = raw
         .components
         .iter()
         .map(|c| (c.id.clone(), c.trigger.clone()))
         .collect();
+
     let components = future::join_all(
         raw.components
             .into_iter()
@@ -91,6 +103,7 @@ async fn prepare(
         info,
         components,
         component_triggers,
+        config_resolver,
     })
 }
 

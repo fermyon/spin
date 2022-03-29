@@ -5,9 +5,14 @@ name = "spin-hello-world"
 trigger = {type = "http", base = "/test"}
 version = "1.0.0"
 
+[config]
+object = { default = "teapot" }
+
 [[component]]
 id = "hello"
 source = "target/wasm32-wasi/release/spinhelloworld.wasm"
 files = [ { source = "assets", destination = "/" } ]
 [component.trigger]
 route = "/hello/..."
+[component.config]
+message = "I'm a {{object}}"

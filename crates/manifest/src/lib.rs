@@ -3,6 +3,7 @@
 #![deny(missing_docs)]
 
 use serde::{Deserialize, Serialize};
+use spin_config::Resolver;
 use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
@@ -10,7 +11,7 @@ use std::{
 };
 
 /// Application configuration.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Application<T> {
     /// General application information.
     pub info: ApplicationInformation,
@@ -18,6 +19,8 @@ pub struct Application<T> {
     pub components: Vec<T>,
     /// Configuration for the components' triggers.
     pub component_triggers: ComponentMap<TriggerConfig>,
+    /// Application-specific configuration resolver.
+    pub config_resolver: Option<Resolver>,
 }
 
 /// Spin API version.

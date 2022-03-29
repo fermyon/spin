@@ -85,10 +85,12 @@ fn bindle_manifest(
         .collect::<Result<Vec<_>>>()
         .context("Failed to convert components to Bindle format")?;
     let trigger = local.info.trigger.clone();
+    let config = local.config.clone();
 
     Ok(bindle_schema::RawAppManifest {
         trigger,
         components,
+        config,
     })
 }
 
@@ -118,6 +120,7 @@ fn bindle_component_manifest(
             allowed_http_hosts: local.wasm.allowed_http_hosts.clone(),
         },
         trigger: local.trigger.clone(),
+        config: local.config.clone(),
     })
 }
 

@@ -111,6 +111,11 @@ impl UpCommand {
         };
         append_env(&mut app, &self.env)?;
 
+        if let Some(ref mut resolver) = app.config_resolver {
+            // TODO(lann): Make config provider(s) configurable.
+            resolver.add_provider(spin_config::provider::env::EnvProvider::default());
+        }
+
         let tls = match (self.tls_key, self.tls_cert) {
             (Some(key_path), Some(cert_path)) => {
                 if !cert_path.is_file() {

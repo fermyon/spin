@@ -26,6 +26,9 @@ pub struct RawAppManifest {
     #[serde(flatten)]
     pub info: RawAppInformation,
 
+    /// Application-specific configuration schema.
+    pub config: Option<spin_config::Tree>,
+
     /// Configuration for the application components.
     #[serde(rename = "component")]
     pub components: Vec<RawComponentManifest>,
@@ -63,6 +66,8 @@ pub struct RawComponentManifest {
     pub wasm: RawWasmConfig,
     /// Trigger configuration.
     pub trigger: TriggerConfig,
+    /// Component-specific configuration values.
+    pub config: Option<HashMap<String, String>>,
 }
 
 /// WebAssembly configuration.

@@ -59,9 +59,20 @@ async fn prepare(
         .with_context(|| anyhow!("Failed to load invoice '{}' from '{}'", id, url))?;
 
     // Then, reconstruct the application manifest from the parcels.
-    let raw: RawAppManifest =
+    let mut raw: RawAppManifest =
         toml::from_slice(&reader.get_parcel(&find_manifest(&invoice)?).await?)?;
     log::trace!("Recreated manifest from bindle: {:?}", raw);
+
+    let mut config_root = raw.config.take().unwrap_or_default();
+    for component in &mut raw.components {
+        if let Some(config) = component.config.take() {
+            let path = component.id.clone().try_into().with_context(|| {
+                format!("component ID {:?} not a valid config path", component.id)
+            })?;
+            config_root.merge_defaults(&path, config)?;
+        }
+    }
+    let config_resolver = Some(spin_config::Resolver::new(config_root)?);
 
     let info = info(&raw, &invoice, url);
     log::trace!("Application information from bindle: {:?}", info);
@@ -85,6 +96,7 @@ async fn prepare(
         info,
         components,
         component_triggers,
+        config_resolver,
     })
 }
 

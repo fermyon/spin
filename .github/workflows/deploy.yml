@@ -1,0 +1,60 @@
+name: Deploy Docs
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+jobs:
+  deploy:
+    name: Deploy docs
+    runs-on: "ubuntu-latest"
+    env: 
+    steps:
+      - uses: actions/checkout@v2
+
+      # Build
+      # TODO: do we want to use a known, released version of spin here?
+      # Would save time and potentially avoid unintentional errors or
+      # breaking changes introduced in the commit that triggered this action to run.
+
+      - name: Install latest Rust stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+
+      - name: "Install Wasm Rust target"
+        run: rustup target add wasm32-wasi
+
+      - name: Cargo Build
+        run: |
+          cargo build --release
+          echo "$PWD/target/release/spin" >> $GITHUB_PATH
+
+      # Publish
+
+      - name: Prep docs
+        run: |
+          echo "BUILDINFO=g$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          cd docs
+
+      - name: Publish Docs - Canary
+        if: github.ref == 'refs/heads/main'
+        env:
+          BINDLE_URL: ${{ secrets.BINDLE_URL }}
+        run: |
+          spin bindle push \
+            -f spin.toml \
+            -d ./staging_dir \
+            --buildinfo "${BUILDINFO}"
+
+      - name: Publish Docs - Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          BINDLE_URL: ${{ secrets.BINDLE_URL }}
+        run: |
+          spin bindle push \
+            -f spin.toml \
+            -d ./staging_dir

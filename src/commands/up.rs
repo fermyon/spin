@@ -20,10 +20,10 @@ const TLS_KEY_FILE_OPT: &str = "TLS_KEY_FILE";
 const TLS_CERT_ENV_VAR: &str = "SPIN_TLS_CERT";
 const TLS_KEY_ENV_VAR: &str = "SPIN_TLS_KEY";
 
-/// Start the Fermyon HTTP runtime.
+/// Start the Fermyon runtime.
 #[derive(StructOpt, Debug)]
 #[structopt(
-    about = "Start the default HTTP listener",
+    about = "Start the Spin application",
     global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp]
 )]
 

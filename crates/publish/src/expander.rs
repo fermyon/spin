@@ -5,13 +5,14 @@ use anyhow::{Context, Result};
 use bindle::{BindleSpec, Condition, Group, Invoice, Label, Parcel};
 use path_absolutize::Absolutize;
 use sha2::{Digest, Sha256};
+use semver::BuildMetadata;
 use spin_loader::{bindle::config as bindle_schema, local::config as local_schema};
 use std::path::{Path, PathBuf};
 
 /// Expands a file-based application manifest to a Bindle invoice.
 pub async fn expand_manifest(
     app_file: impl AsRef<Path>,
-    buildinfo: Option<String>,
+    buildinfo: Option<BuildMetadata>,
     scratch_dir: impl AsRef<Path>,
 ) -> Result<(Invoice, ParcelSources)> {
     let app_file = app_file
@@ -372,7 +373,7 @@ fn bytes_digest_string(bytes: &[u8]) -> String {
     digest_string
 }
 
-fn bindle_id(app_info: &local_schema::RawAppInformation, buildinfo: Option<String>) -> Result<bindle::Id> {
+fn bindle_id(app_info: &local_schema::RawAppInformation, buildinfo: Option<BuildMetadata>) -> Result<bindle::Id> {
     let text = match buildinfo {
         None => format!("{}/{}", app_info.name, app_info.version),
         Some(buildinfo) => format!("{}/{}+{}", app_info.name, app_info.version, buildinfo),

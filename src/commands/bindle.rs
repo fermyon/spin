@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{Context, Result};
 use bindle::client::Client as BindleClient;
 use bindle::client::ClientBuilder as BindleClientBuilder;
-use semver::BuildMetadata;
+use semver::{BuildMetadata, Error};
 use spin_loader::bindle::BindleTokenManager;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
@@ -33,11 +33,8 @@ impl BindleCommands {
     }
 }
 
-fn parse_buildinfo(buildinfo: &str) -> Result<String, Error> {
-    match BuildMetadata::new(buildinfo) {
-        Ok(..) => Ok(buildinfo.to_string()),
-        Err(e) => Err(anyhow!("Supplied --buildinfo '{}' results in invalid semver: {}", buildinfo, e)),
-    }
+fn parse_buildinfo(buildinfo: &str) -> Result<BuildMetadata, Error> {
+    BuildMetadata::new(buildinfo)
 }
 
 /// Create a standalone bindle for subsequent publication.
@@ -57,7 +54,7 @@ pub struct Prepare {
         long = "buildinfo",
         parse(try_from_str = parse_buildinfo),
     )]
-    pub buildinfo: Option<String>,
+    pub buildinfo: Option<BuildMetadata>,
 
     /// Path to create standalone bindle.
     #[structopt(
@@ -85,7 +82,7 @@ pub struct Push {
         long = "buildinfo",
         parse(try_from_str = parse_buildinfo),
     )]
-    pub buildinfo: Option<String>,
+    pub buildinfo: Option<BuildMetadata>,
 
     /// Path to assemble the bindle before pushing (defaults to
     /// temporary directory).

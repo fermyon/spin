@@ -637,146 +637,146 @@ footer .footer-nav p {
   }
 }
 
-body.dark-theme {
+html.dark-theme > body {
   color: #fff;
   background: #0d203f;
 }
 
-body.dark-theme h1, body.dark-theme h2, body.dark-theme h3, body.dark-theme h4, body.dark-theme h5, body.dark-theme p, body.dark-theme li {
+html.dark-theme > body h1, html.dark-theme > body h2, html.dark-theme > body h3, html.dark-theme > body h4, html.dark-theme > body h5, html.dark-theme > body p, html.dark-theme > body li {
   color: #fff;
 }
 
-body.dark-theme #topbar.navbar {
+html.dark-theme > body #topbar.navbar {
   background: #0d203f;
   border-color: #0a455a;
 }
 
-body.dark-theme #topbar.navbar .logo svg, body.dark-theme #topbar.navbar .logo path {
+html.dark-theme > body #topbar.navbar .logo svg, html.dark-theme > body #topbar.navbar .logo path {
   fill: #fff !important;
 }
 
-body.dark-theme #topbar.navbar .logo-project a {
+html.dark-theme > body #topbar.navbar .logo-project a {
   color: #34e8bd;
 }
 
-body.dark-theme #topbar.navbar .logo-project a .tag {
+html.dark-theme > body #topbar.navbar .logo-project a .tag {
   background-color: #213762;
   color: #bea7e5 !important;
 }
 
-body.dark-theme #topbar.navbar .navbar-burger {
+html.dark-theme > body #topbar.navbar .navbar-burger {
   color: #bea7e5;
   height: 5.75rem;
 }
 
-body.dark-theme #topbar.navbar .navbar-menu a {
+html.dark-theme > body #topbar.navbar .navbar-menu a {
   color: #34e8bd;
 }
 
-body.dark-theme #topbar.navbar .navbar-menu .button {
+html.dark-theme > body #topbar.navbar .navbar-menu .button {
   border: 3px solid #34e8bd;
 }
 
-body.dark-theme #topbar.navbar .navbar-menu .button:hover {
+html.dark-theme > body #topbar.navbar .navbar-menu .button:hover {
   color: #0d203f;
   background: #34e8bd !important;
 }
 
-body.dark-theme #topbar.navbar .dark-mode svg {
+html.dark-theme > body #topbar.navbar .dark-mode svg {
   fill: #34e8bd;
   transition: all .3s ease-in-out;
   transform: rotate(180deg);
 }
 
-body.dark-theme .menu-wrap {
+html.dark-theme > body .menu-wrap {
   background: #0d203f;
 }
 
-body.dark-theme aside.menu:hover {
+html.dark-theme > body aside.menu:hover {
   border-right: 2px solid #321a59;
 }
 
-body.dark-theme aside.menu a {
+html.dark-theme > body aside.menu a {
   color: #fff;
 }
 
-body.dark-theme aside.menu a:hover {
+html.dark-theme > body aside.menu a:hover {
   color: #34e8bd;
   background-color: #213762;
 }
 
-body.dark-theme aside.menu a.button svg, body.dark-theme aside.menu a.button path {
+html.dark-theme > body aside.menu a.button svg, html.dark-theme > body aside.menu a.button path {
   fill: #fff !important;
 }
 
-body.dark-theme pre {
+html.dark-theme > body pre {
   background: linear-gradient(0, #173564 15%, #233e68 100%);
 }
 
-body.dark-theme .card {
+html.dark-theme > body .card {
   background: linear-gradient(0, #112b54, #0d203f 100%);
   color: #fff;
   outline: 1px solid #fff3;
   box-shadow: 0 .5em 1em -.125em #0a0a0a80, 0 0 0 1px #0a0a0a85;
 }
 
-body.dark-theme .card figure.image {
+html.dark-theme > body .card figure.image {
   border-bottom: 1px solid #fff5;
 }
 
-body.dark-theme .card p {
+html.dark-theme > body .card p {
   color: #fff;
 }
 
-body.dark-theme .content .box {
+html.dark-theme > body .content .box {
   color: #fff;
   background-color: #213762;
 }
 
-body.dark-theme .content h1 code, body.dark-theme .content h2 code, body.dark-theme .content h3 code, body.dark-theme .content h4 code, body.dark-theme .content h5 code, body.dark-theme .content p code, body.dark-theme .content li code, body.dark-theme .content th code, body.dark-theme .content td code, body.dark-theme .content dd code {
+html.dark-theme > body .content h1 code, html.dark-theme > body .content h2 code, html.dark-theme > body .content h3 code, html.dark-theme > body .content h4 code, html.dark-theme > body .content h5 code, html.dark-theme > body .content p code, html.dark-theme > body .content li code, html.dark-theme > body .content th code, html.dark-theme > body .content td code, html.dark-theme > body .content dd code {
   color: #ece5ee;
   background-color: #213762;
 }
 
-body.dark-theme .content section table {
+html.dark-theme > body .content section table {
   background-color: #213762;
 }
 
-body.dark-theme .content blockquote {
+html.dark-theme > body .content blockquote {
   background-color: #0000;
 }
 
-body.dark-theme .content blockquote p {
+html.dark-theme > body .content blockquote p {
   color: #fff;
   background-color: #1b2c4f;
   border-color: #243c6c;
 }
 
-body.dark-theme .content blockquote > blockquote p, body.dark-theme .content aside p {
+html.dark-theme > body .content blockquote > blockquote p, html.dark-theme > body .content aside p {
   color: #fff;
   background-color: #243c6c;
   border-color: #2b477f;
 }
 
-body.dark-theme .content a:hover {
+html.dark-theme > body .content a:hover {
   background: #1b2c4f !important;
 }
 
-body.dark-theme footer {
+html.dark-theme > body footer {
   color: #fff;
   background: #0d203f;
   border-color: #0a455a;
 }
 
-body.dark-theme footer h4 {
+html.dark-theme > body footer h4 {
   color: #fff;
 }
 
-body.dark-theme footer .footer-nav {
+html.dark-theme > body footer .footer-nav {
   border-color: #06101f;
 }
 
-body.dark-theme footer p, body.dark-theme footer li, body.dark-theme footer a {
+html.dark-theme > body footer p, html.dark-theme > body footer li, html.dark-theme > body footer a {
   color: #34e8bd;
 }
 
@@ -881,6 +881,19 @@ body {
 
 .content blockquote a {
   color: #0e8fdd;
+}
+
+.content pre, .content code {
+  margin-bottom: 2rem !important;
+}
+
+.content pre code {
+  margin-bottom: 0 !important;
+}
+
+.content h1 code, .content h2 code, .content h3 code, .content h4 code, .content h5 code {
+  font-weight: bold;
+  font-size: 1em !important;
 }
 
 .content pre, .content code {
@@ -1156,20 +1169,20 @@ body {
   text-decoration: underline;
 }
 
-body.dark-theme {
+html.dark-theme > body {
   color: #fff;
   background: #0d203f;
 }
 
-body.dark-theme h1, body.dark-theme h2, body.dark-theme h3, body.dark-theme h4, body.dark-theme p, body.dark-theme li {
+html.dark-theme > body h1, html.dark-theme > body h2, html.dark-theme > body h3, html.dark-theme > body h4, html.dark-theme > body p, html.dark-theme > body li {
   color: #fff;
 }
 
-body.dark-theme .content a, body.dark-theme article a {
+html.dark-theme > body .content a, html.dark-theme > body article a {
   color: #34e8bd;
 }
 
-body.dark-theme .content strong, body.dark-theme article strong {
+html.dark-theme > body .content strong, html.dark-theme > body article strong {
   color: #ece5ee;
 }
 

@@ -22,53 +22,6 @@ document.querySelectorAll('.modal-button').forEach(function(el) {
   });
 });
 
-
-const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
-  ? "dark"
-  : "light";
-
-// The default theme is the system theme, unless the user has
-// explicitly overriden it.
-var savedTheme = localStorage.getItem("theme") || systemTheme;
-setTheme(savedTheme);
-
-const btn = document.querySelector(".dark-mode");
-btn.addEventListener("click", () => {
-  if(savedTheme === "dark") {
-    setTheme("light");
-  } else if(savedTheme === "light") {
-    setTheme("dark");
-  }
-});
-
-// Change the website theme when the system theme changes.
-window
-  .matchMedia("(prefers-color-scheme: dark)")
-  .addEventListener("change", (event) => {
-    if (event.matches) {
-      setTheme("dark");
-    } else {
-      setTheme("light");
-    }
-  });
-
-// Change the website theme when a different tab changed it.
-window.onstorage = () => {
-  // When local storage changes, update the theme.
-  setTheme(localStorage.getItem("theme"));
-};
-
-
-function setTheme(mode) {
-  localStorage.setItem("theme", mode);
-  savedTheme = mode;
-  if (mode === "dark") {
-    document.body.classList.add('dark-theme');
-  } else if (mode === "light") {
-    document.body.classList.remove('dark-theme');
-  }
-}
-
 document.addEventListener("DOMContentLoaded", function(){
   // Initialize after the DOM.
   (function () {

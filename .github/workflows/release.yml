@@ -109,12 +109,26 @@ jobs:
           cp readme.md LICENSE ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} _dist/
           cd _dist
           tar czf spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz readme.md LICENSE spin${{ matrix.config.extension }}
+          zip -r spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip readme.md LICENSE spin${{ matrix.config.extension }}
+          shasum -a 256 *.tar.gz *.zip > checksums-${{ env.RELEASE_VERSION }}.txt
 
       - name: upload binary as GitHub artifact
         uses: actions/upload-artifact@v1
         with:
           name: spin
           path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
+
+      - name: upload binary as GitHub artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: spin
+          path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip
+
+      - name: upload binary as GitHub artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: spin
+          path: _dist/checksums-${{ env.RELEASE_VERSION }}.txt
 
       - name: upload binary to canary GitHub release
         uses: svenstaro/upload-release-action@2.2.1

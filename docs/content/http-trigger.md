@@ -238,10 +238,29 @@ Array.forEach(print, Process.argv());
 > You can find examples on how to build Wagi applications in
 > [the DeisLabs GitHub organization](https://github.com/deislabs?q=wagi&type=public&language=&sort=).
 
-## The default headers set in Spin HTTP components
+### The default headers set in Spin HTTP components
 
 Spin sets a few default headers on the request based on the base path, component
 route, and request URI, which will always be available when writing a module:
+
+- `spin-full-url` - the full URL of the request —
+  `http://localhost:3000/test/wagi/abc/def?foo=bar`
+- `spin-path-info` - the path info, relative to both the base application path _and_
+  component route — in our example, where the base path is `/test`, and the
+  component route is `/hello`, this is `/abc/def`.
+- `spin-matched-route` - the base path and route pattern matched (including the
+  wildcard pattern, if applicable) (this updates the header set in Wagi to
+  include the base path) — in our case `"/test/hello/..."`.
+- `spin-raw-component-route` - the route pattern matched (including the wildcard
+  pattern, if applicable) — in our case `/hello/...`.
+- `spin-component-route` - the route path matched (stripped of the wildcard
+  pattern) — in our case `/hello`
+- `spin-base-path` - the application base path — in our case `/test`.
+
+### The default headers set in Wagi HTTP components
+
+For Wagi HTTP components, the following are set as environment variables for the
+handler WebAssembly modules:
 
 - `X_FULL_URL` - the full URL of the request —
   `http://localhost:3000/test/wagi/abc/def?foo=bar`
@@ -257,6 +276,5 @@ route, and request URI, which will always be available when writing a module:
   pattern) — in our case `/hello`
 - `X_BASE_PATH` - the application base path — in our case `/test`.
 
-Besides the headers above, components that use the Wagi executor also have
-available
+Besides the headers above, components that use the Wagi executor also have set
 [all headers set by Wagi, following the CGI spec](https://github.com/deislabs/wagi/blob/main/docs/environment_variables.md).

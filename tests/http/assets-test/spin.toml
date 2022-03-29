@@ -6,6 +6,7 @@ version = "1.0.0"
 
 [[component]]
 id = "fs"
+# should we just use git submodules to avoid having binary test files here?
 source = "spin_static_fs.wasm"
 files = [{source = "static/thisshouldbemounted", destination = "/thisshouldbemounted"}]
 [component.trigger]

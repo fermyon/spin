@@ -70,10 +70,10 @@ The `Router` structure is a Rust representation of the TOML configuration above.
 
 ```rust
 pub fn redirect(self, req: Request) -> Result<Response> {
-    // read the request path from the `PATH_INFO` header
+    // read the request path from the `spin-path-info` header
     let path_info = req
         .headers()
-        .get("PATH_INFO")
+        .get("spin-path-info")
         .expect("cannot get path info from request headers");
     // if the path is not present in the router configuration,
     // return 404 Not Found.
@@ -91,7 +91,7 @@ pub fn redirect(self, req: Request) -> Result<Response> {
 ```
 
 The `redirect` function is straightforward — it reads the request path from the
-`PATH_INFO` header (make sure to read the [document about the HTTP trigger](/http-trigger)
+`spin-path-info` header (make sure to read the [document about the HTTP trigger](/http-trigger)
 for an overview of the HTTP headers present in Spin components), selects the
 corresponding destination from the router configuration, then sends the
 HTTP redirect to the new location.

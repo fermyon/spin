@@ -6,6 +6,9 @@ url = "https://github.com/fermyon/spin/blob/main/docs/content/quickstart.md"
 
 ---
 
+> This is an early preview of the Spin project. It is still experimental code,
+> and you should expect breaking changes before the first stable release.
+
 ## Getting the `spin` binary
 
 You can download the [latest release](https://github.com/fermyon/spin/releases).

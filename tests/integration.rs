@@ -183,8 +183,8 @@ mod integration_tests {
 
         assert_eq!(
             res.headers()
-                .get(HeaderName::from_bytes("PATH_INFO".as_bytes())?)
-                .unwrap_or_else(|| panic!("cannot find PATH_INFO header"))
+                .get(HeaderName::from_bytes("spin-path-info".as_bytes())?)
+                .unwrap_or_else(|| panic!("cannot find spin-path-info header"))
                 .to_str()?,
             expected_path_info
         );

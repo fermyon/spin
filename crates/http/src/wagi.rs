@@ -76,10 +76,13 @@ impl HttpExecutor for WagiHttpExecutor {
         )?;
 
         // Add the default Spin headers.
+        // This sets the current environment variables Wagi expects (such as
+        // `PATH_INFO`, or `X_FULL_URL`).
         // Note that this overrides any existing headers previously set by Wagi.
-        for (k, v) in crate::default_headers(&parts.uri, raw_route, base, host)? {
-            headers.insert(k, v);
+        for (keys, val) in crate::compute_default_headers(&parts.uri, raw_route, base, host)? {
+            headers.insert(keys[1].to_string(), val);
         }
+
         let (mut store, instance) = engine.prepare_component(
             component,
             None,

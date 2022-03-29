@@ -333,20 +333,24 @@ fn on_ctrl_c() -> Result<impl std::future::Future<Output = Result<(), tokio::tas
     Ok(rx_future)
 }
 
-// The default headers set across both executors.
-const X_FULL_URL_HEADER: &str = "X_FULL_URL";
-const PATH_INFO_HEADER: &str = "PATH_INFO";
-const X_MATCHED_ROUTE_HEADER: &str = "X_MATCHED_ROUTE";
-const X_COMPONENT_ROUTE_HEADER: &str = "X_COMPONENT_ROUTE";
-const X_RAW_COMPONENT_ROUTE_HEADER: &str = "X_RAW_COMPONENT_ROUTE";
-const X_BASE_PATH_HEADER: &str = "X_BASE_PATH";
+// We need to make the following pieces of information available to both executors.
+// While the values we set are identical, the way they are passed to the
+// modules is going to be different, so each executor must must use the info
+// in its standardized way (environment variables for the Wagi executor, and custom headers
+// for the Spin HTTP executor).
+const FULL_URL: &[&str] = &["SPIN_FULL_URL", "X_FULL_URL"];
+const PATH_INFO: &[&str] = &["SPIN_PATH_INFO", "PATH_INFO"];
+const MATCHED_ROUTE: &[&str] = &["SPIN_MATCHED_ROUTE", "X_MATCHED_ROUTE"];
+const COMPONENT_ROUTE: &[&str] = &["SPIN_COMPONENT_ROUTE", "X_COMPONENT_ROUTE"];
+const RAW_COMPONENT_ROUTE: &[&str] = &["SPIN_RAW_COMPONENT_ROUTE", "X_RAW_COMPONENT_ROUTE"];
+const BASE_PATH: &[&str] = &["SPIN_BASE_PATH", "X_BASE_PATH"];
 
-pub(crate) fn default_headers(
+pub(crate) fn compute_default_headers<'a>(
     uri: &Uri,
     raw: &str,
     base: &str,
     host: &str,
-) -> Result<Vec<(String, String)>> {
+) -> Result<Vec<(&'a [&'a str], String)>> {
     let mut res = vec![];
     let abs_path = uri
         .path_and_query()
@@ -360,14 +364,14 @@ pub(crate) fn default_headers(
     let full_url = format!("{}://{}{}", scheme, host, abs_path);
     let matched_route = RoutePattern::sanitize_with_base(base, raw);
 
-    res.push((PATH_INFO_HEADER.to_string(), path_info));
-    res.push((X_FULL_URL_HEADER.to_string(), full_url));
-    res.push((X_MATCHED_ROUTE_HEADER.to_string(), matched_route));
+    res.push((PATH_INFO, path_info));
+    res.push((FULL_URL, full_url));
+    res.push((MATCHED_ROUTE, matched_route));
 
-    res.push((X_BASE_PATH_HEADER.to_string(), base.to_string()));
-    res.push((X_RAW_COMPONENT_ROUTE_HEADER.to_string(), raw.to_string()));
+    res.push((BASE_PATH, base.to_string()));
+    res.push((RAW_COMPONENT_ROUTE, raw.to_string()));
     res.push((
-        X_COMPONENT_ROUTE_HEADER.to_string(),
+        COMPONENT_ROUTE,
         raw.to_string()
             .strip_suffix("/...")
             .unwrap_or(raw)
@@ -430,30 +434,30 @@ mod tests {
             .uri(req_uri)
             .body("")?;
 
-        let default_headers = crate::default_headers(req.uri(), trigger_route, base, host)?;
+        let default_headers = crate::compute_default_headers(req.uri(), trigger_route, base, host)?;
 
         assert_eq!(
-            search(X_FULL_URL_HEADER, &default_headers).unwrap(),
+            search(FULL_URL, &default_headers).unwrap(),
             "https://fermyon.dev/base/foo/bar?key1=value1&key2=value2".to_string()
         );
         assert_eq!(
-            search(PATH_INFO_HEADER, &default_headers).unwrap(),
+            search(PATH_INFO, &default_headers).unwrap(),
             "/bar".to_string()
         );
         assert_eq!(
-            search(X_MATCHED_ROUTE_HEADER, &default_headers).unwrap(),
+            search(MATCHED_ROUTE, &default_headers).unwrap(),
             "/base/foo/...".to_string()
         );
         assert_eq!(
-            search(X_BASE_PATH_HEADER, &default_headers).unwrap(),
+            search(BASE_PATH, &default_headers).unwrap(),
             "/base".to_string()
         );
         assert_eq!(
-            search(X_RAW_COMPONENT_ROUTE_HEADER, &default_headers).unwrap(),
+            search(RAW_COMPONENT_ROUTE, &default_headers).unwrap(),
             "/foo/...".to_string()
         );
         assert_eq!(
-            search(X_COMPONENT_ROUTE_HEADER, &default_headers).unwrap(),
+            search(COMPONENT_ROUTE, &default_headers).unwrap(),
             "/foo".to_string()
         );
 
@@ -479,41 +483,43 @@ mod tests {
             .uri(req_uri)
             .body("")?;
 
-        let default_headers = crate::default_headers(req.uri(), trigger_route, base, host)?;
+        let default_headers = crate::compute_default_headers(req.uri(), trigger_route, base, host)?;
 
         // TODO: we currently replace the scheme with HTTP. When TLS is supported, this should be fixed.
         assert_eq!(
-            search(X_FULL_URL_HEADER, &default_headers).unwrap(),
+            search(FULL_URL, &default_headers).unwrap(),
             "https://fermyon.dev/foo/bar?key1=value1&key2=value2".to_string()
         );
         assert_eq!(
-            search(PATH_INFO_HEADER, &default_headers).unwrap(),
+            search(PATH_INFO, &default_headers).unwrap(),
             "/bar".to_string()
         );
         assert_eq!(
-            search(X_MATCHED_ROUTE_HEADER, &default_headers).unwrap(),
+            search(MATCHED_ROUTE, &default_headers).unwrap(),
             "/foo/...".to_string()
         );
         assert_eq!(
-            search(X_BASE_PATH_HEADER, &default_headers).unwrap(),
+            search(BASE_PATH, &default_headers).unwrap(),
             "/".to_string()
         );
         assert_eq!(
-            search(X_RAW_COMPONENT_ROUTE_HEADER, &default_headers).unwrap(),
+            search(RAW_COMPONENT_ROUTE, &default_headers).unwrap(),
             "/foo/...".to_string()
         );
         assert_eq!(
-            search(X_COMPONENT_ROUTE_HEADER, &default_headers).unwrap(),
+            search(COMPONENT_ROUTE, &default_headers).unwrap(),
             "/foo".to_string()
         );
 
         Ok(())
     }
 
-    fn search(key: &str, headers: &[(String, String)]) -> Option<String> {
+    // fn _search(key: &str, headers: &[(String, String)]) -> Option<String> {}
+
+    fn search<'a>(keys: &'a [&'a str], headers: &[(&[&str], String)]) -> Option<String> {
         let mut res: Option<String> = None;
         for (k, v) in headers {
-            if k == key {
+            if k[0] == keys[0] && k[1] == keys[1] {
                 res = Some(v.clone());
             }
         }

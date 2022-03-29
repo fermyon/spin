@@ -149,12 +149,18 @@ impl SpinHttpExecutor {
                 .as_bytes(),
         )?;
 
-        // Add the default headers.
-        for pair in crate::default_headers(req.uri(), raw, base, host)? {
-            res.push(pair);
+        // Set the environment information (path info, base path, etc) as headers.
+        // In the future, we might want to have this information in a context
+        // object as opposed to headers.
+        for (keys, val) in crate::compute_default_headers(req.uri(), raw, base, host)? {
+            res.push((Self::prepare_header_key(keys[0]), val));
         }
 
         Ok(res)
+    }
+
+    fn prepare_header_key(key: &str) -> String {
+        key.replace('_', "-").to_ascii_lowercase()
     }
 
     fn append_headers(res: &mut http::HeaderMap, src: Option<Vec<(String, String)>>) -> Result<()> {
@@ -198,4 +204,25 @@ pub fn prepare_io_redirects() -> Result<IoStreamRedirects> {
         stdout,
         stderr,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_spin_header_keys() {
+        assert_eq!(
+            SpinHttpExecutor::prepare_header_key("SPIN_FULL_URL"),
+            "spin-full-url".to_string()
+        );
+        assert_eq!(
+            SpinHttpExecutor::prepare_header_key("SPIN_PATH_INFO"),
+            "spin-path-info".to_string()
+        );
+        assert_eq!(
+            SpinHttpExecutor::prepare_header_key("SPIN_RAW_COMPONENT_ROUTE"),
+            "spin-raw-component-route".to_string()
+        );
+    }
 }

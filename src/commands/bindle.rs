@@ -13,7 +13,6 @@ const BUILDINFO_OPT: &str = "BUILDINFO";
 const INSECURE_OPT: &str = "INSECURE";
 const STAGING_DIR_OPT: &str = "STAGING_DIR";
 
-
 /// Commands for publishing applications as bindles.
 #[derive(StructOpt, Debug)]
 pub enum BindleCommands {
@@ -116,9 +115,12 @@ impl Prepare {
         let source_dir = app_dir(&self.app)?;
         let dest_dir = &self.staging_dir;
 
-        let (invoice, sources) = spin_publish::expand_manifest(&self.app, self.buildinfo, &dest_dir)
-            .await
-            .with_context(|| format!("Failed to expand '{}' to a bindle", self.app.display()))?;
+        let (invoice, sources) =
+            spin_publish::expand_manifest(&self.app, self.buildinfo, &dest_dir)
+                .await
+                .with_context(|| {
+                    format!("Failed to expand '{}' to a bindle", self.app.display())
+                })?;
 
         let bindle_id = &invoice.bindle.id;
 
@@ -150,9 +152,12 @@ impl Push {
             Some(path) => path.as_path(),
         };
 
-        let (invoice, sources) = spin_publish::expand_manifest(&self.app, self.buildinfo, &dest_dir)
-            .await
-            .with_context(|| format!("Failed to expand '{}' to a bindle", self.app.display()))?;
+        let (invoice, sources) =
+            spin_publish::expand_manifest(&self.app, self.buildinfo, &dest_dir)
+                .await
+                .with_context(|| {
+                    format!("Failed to expand '{}' to a bindle", self.app.display())
+                })?;
 
         let bindle_id = &invoice.bindle.id;
 

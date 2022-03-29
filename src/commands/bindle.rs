@@ -1,16 +1,17 @@
 use anyhow::{Context, Result};
 use bindle::client::Client as BindleClient;
 use bindle::client::ClientBuilder as BindleClientBuilder;
+use semver::{BuildMetadata, Error};
 use spin_loader::bindle::BindleTokenManager;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 
 const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
 const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
-const STAGING_DIR_OPT: &str = "STAGING_DIR";
-
 const BINDLE_URL_ENV: &str = "BINDLE_URL";
+const BUILDINFO_OPT: &str = "BUILDINFO";
 const INSECURE_OPT: &str = "INSECURE";
+const STAGING_DIR_OPT: &str = "STAGING_DIR";
 
 /// Commands for publishing applications as bindles.
 #[derive(StructOpt, Debug)]
@@ -31,6 +32,10 @@ impl BindleCommands {
     }
 }
 
+fn parse_buildinfo(buildinfo: &str) -> Result<BuildMetadata, Error> {
+    BuildMetadata::new(buildinfo)
+}
+
 /// Create a standalone bindle for subsequent publication.
 #[derive(StructOpt, Debug)]
 pub struct Prepare {
@@ -41,6 +46,14 @@ pub struct Prepare {
         long = "file",
     )]
     pub app: PathBuf,
+
+    /// Build metadata to append to the bindle version
+    #[structopt(
+        name = BUILDINFO_OPT,
+        long = "buildinfo",
+        parse(try_from_str = parse_buildinfo),
+    )]
+    pub buildinfo: Option<BuildMetadata>,
 
     /// Path to create standalone bindle.
     #[structopt(
@@ -61,6 +74,14 @@ pub struct Push {
         long = "file",
     )]
     pub app: PathBuf,
+
+    /// Build metadata to append to the bindle version
+    #[structopt(
+        name = BUILDINFO_OPT,
+        long = "buildinfo",
+        parse(try_from_str = parse_buildinfo),
+    )]
+    pub buildinfo: Option<BuildMetadata>,
 
     /// Path to assemble the bindle before pushing (defaults to
     /// temporary directory).
@@ -94,9 +115,12 @@ impl Prepare {
         let source_dir = app_dir(&self.app)?;
         let dest_dir = &self.staging_dir;
 
-        let (invoice, sources) = spin_publish::expand_manifest(&self.app, &dest_dir)
-            .await
-            .with_context(|| format!("Failed to expand '{}' to a bindle", self.app.display()))?;
+        let (invoice, sources) =
+            spin_publish::expand_manifest(&self.app, self.buildinfo, &dest_dir)
+                .await
+                .with_context(|| {
+                    format!("Failed to expand '{}' to a bindle", self.app.display())
+                })?;
 
         let bindle_id = &invoice.bindle.id;
 
@@ -128,9 +152,12 @@ impl Push {
             Some(path) => path.as_path(),
         };
 
-        let (invoice, sources) = spin_publish::expand_manifest(&self.app, &dest_dir)
-            .await
-            .with_context(|| format!("Failed to expand '{}' to a bindle", self.app.display()))?;
+        let (invoice, sources) =
+            spin_publish::expand_manifest(&self.app, self.buildinfo, &dest_dir)
+                .await
+                .with_context(|| {
+                    format!("Failed to expand '{}' to a bindle", self.app.display())
+                })?;
 
         let bindle_id = &invoice.bindle.id;
 

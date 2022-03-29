@@ -3160,6 +3160,7 @@ dependencies = [
  "itertools",
  "mime_guess",
  "path-absolutize",
+ "semver",
  "serde",
  "sha2 0.10.2",
  "spin-loader",

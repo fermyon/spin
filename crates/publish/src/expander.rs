@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 /// Expands a file-based application manifest to a Bindle invoice.
 pub async fn expand_manifest(
     app_file: impl AsRef<Path>,
+    buildinfo: Option<String>,
     scratch_dir: impl AsRef<Path>,
 ) -> Result<(Invoice, ParcelSources)> {
     let app_file = app_file
@@ -51,7 +52,7 @@ pub async fn expand_manifest(
     let sourced_parcels = itertools::concat([vec![manifest_parcel], wasm_parcels, asset_parcels]);
     let (parcels, sources) = split_sources(sourced_parcels);
 
-    let bindle_id = bindle_id(&manifest.info)?;
+    let bindle_id = bindle_id(&manifest.info, buildinfo)?;
     let groups = build_groups(&manifest);
 
     let invoice = Invoice {
@@ -371,8 +372,11 @@ fn bytes_digest_string(bytes: &[u8]) -> String {
     digest_string
 }
 
-fn bindle_id(app_info: &local_schema::RawAppInformation) -> Result<bindle::Id> {
-    let text = format!("{}/{}", app_info.name, app_info.version);
+fn bindle_id(app_info: &local_schema::RawAppInformation, buildinfo: Option<String>) -> Result<bindle::Id> {
+    let text = match buildinfo {
+        None => format!("{}/{}", app_info.name, app_info.version),
+        Some(buildinfo) => format!("{}/{}+{}", app_info.name, app_info.version, buildinfo),
+    };
     bindle::Id::try_from(&text)
         .with_context(|| format!("App name and version '{}' do not form a bindle ID", text))
 }

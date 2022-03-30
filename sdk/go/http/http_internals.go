@@ -6,7 +6,7 @@
 
 package http
 
-// #cgo CFLAGS: -Wall
+// #cgo CFLAGS: -Wno-unused-parameter -Wno-switch-bool
 // #include "wasi-outbound-http.h"
 // #include<stdlib.h>
 import "C"

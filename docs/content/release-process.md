@@ -22,8 +22,8 @@ To cut a release of Spin, you will need to do the following:
    [action](https://github.com/fermyon/spin/actions/workflows/release.yaml) to
    complete, and download the binary artifacts and checksums that are generated
    by that action.
-1. Go to the GitHub [tags page](https://github.com/fermyon/spin/releases) and
-   create a release, adding release notes, and uploading the binaries you
-   downloaded above. The SHAs should go in the release notes.
+1. Go to the GitHub [tags page](https://github.com/fermyon/spin/releases),
+   create a release, add the release notes, and upload the binaries and
+   checksums you downloaded above.
 
 At this point, you can verify in the GitHub UI that the release was successful.

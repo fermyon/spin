@@ -1,10 +1,8 @@
 name: Release
 on:
   push:
-    # TODO: enable running for merges to main, also needed to update the canary release
-    # https://github.com/fermyon/spin/issues/128
-    # branches:
-    #   - main
+    branches:
+      - main
     tags:
       - "v*"
 
@@ -119,6 +117,8 @@ jobs:
             _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip
             _dist/checksums-${{ env.RELEASE_VERSION }}.txt
 
+      # TODO: actually update/override the canary release each time
+      # See https://github.com/fermyon/spin/issues/128
       - name: upload binary to canary GitHub release
         uses: svenstaro/upload-release-action@2.2.1
         if: github.ref == 'refs/heads/main'

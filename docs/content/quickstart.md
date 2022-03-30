@@ -9,6 +9,8 @@ url = "https://github.com/fermyon/spin/blob/main/docs/content/quickstart.md"
 > This is an early preview of the Spin project. It is still experimental code,
 > and you should expect breaking changes before the first stable release.
 
+<iframe width="560" height="315" src="https://www.youtube.com/embed/sDiQV5RHorE" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
 ## Getting the `spin` binary
 
 You can download the [latest release](https://github.com/fermyon/spin/releases).
@@ -142,4 +144,5 @@ the Spin application configuration) and iterate locally with
 Congratulations! You just completed building and running your first Spin
 application!
 Next, check out the [Rust](/rust-components) or [Go](/go-components) language
-guides.
+guides, or have a look at [a more complex Spin application with components built
+in multiple programming languages](https://github.com/fermyon/spin-kitchensink/).

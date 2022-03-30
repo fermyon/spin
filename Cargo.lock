@@ -3942,8 +3942,8 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "wagi"
-version = "0.7.0"
-source = "git+https://github.com/deislabs/wagi?rev=a5b3e7b9e94f86bcb753d7a009d51fd016a41f4e#a5b3e7b9e94f86bcb753d7a009d51fd016a41f4e"
+version = "0.8.1"
+source = "git+https://github.com/deislabs/wagi?tag=v0.8.1#ff730bafb4fbc223be4a6281674e5ec4c3d46e87"
 dependencies = [
  "anyhow",
  "async-stream",

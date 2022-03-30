@@ -34,7 +34,7 @@ tracing = { version = "0.1", features = ["log"] }
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 url = "2.2"
-wagi = { git = "https://github.com/deislabs/wagi", rev = "a5b3e7b9e94f86bcb753d7a009d51fd016a41f4e" }
+wagi = { git = "https://github.com/deislabs/wagi", tag = "v0.8.1" }
 wasi-cap-std-sync = "0.34"
 wasi-common = "0.34"
 wasmtime = "0.34"

@@ -111,7 +111,7 @@ jobs:
           shasum -a 256 *.tar.gz *.zip > checksums-${{ env.RELEASE_VERSION }}.txt
 
       - name: upload binary as GitHub artifact
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: spin
           path: |

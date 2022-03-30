@@ -17,8 +17,8 @@ You can download the [latest release](https://github.com/fermyon/spin/releases).
 For example, for an M1 macOS machine:
 
 ```
-$ wget https://github.com/fermyon/spin/releases/download/v0.1.0-rc.1/spin-v0.1.0-rc.1-macos-aarch64.tar.gz
-$ tar xfv spin-v0.1.0-rc.1-macos-aarch64.tar.gz
+$ wget https://github.com/fermyon/spin/releases/download/v0.1.0/spin-v0.1.0-macos-aarch64.tar.gz
+$ tar xfv spin-v0.1.0-macos-aarch64.tar.gz
 $ ./spin --help
 ```
 

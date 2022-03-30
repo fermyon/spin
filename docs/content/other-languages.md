@@ -31,3 +31,6 @@ Wagi executor — for example in languages such as
 [Python](https://github.com/fermyon/wagi-python).
 - if your language doesn't currently compile to WASI, there is no way to
 build and run Spin components in that programming language
+
+> Make sure to check out [a more complex Spin application with components built
+in multiple programming languages](https://github.com/fermyon/spin-kitchensink/).

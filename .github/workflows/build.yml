@@ -16,7 +16,6 @@ jobs:
   build:
     name: Build Spin
     runs-on: ${{ matrix.config.os }}
-    env: ${{ matrix.config.env }}
     strategy:
       matrix:
         config:
@@ -27,7 +26,6 @@ jobs:
               extraArgs: "",
               target: "",
               targetDir: "target/release",
-              env: {},
               bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-linux-amd64.tar.gz",
               bindleBinary: "bindle-server",
               pathInBindleArchive: "bindle-server",
@@ -52,7 +50,6 @@ jobs:
               extraArgs: "",
               target: "",
               targetDir: "target/release",
-              env: {},
               bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-windows-amd64.tar.gz",
               bindleBinary: "bindle-server.exe",
               pathInBindleArchive: "bindle-server.exe",

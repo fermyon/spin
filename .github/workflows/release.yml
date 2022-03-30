@@ -12,7 +12,6 @@ jobs:
   build:
     name: build release assets
     runs-on: ${{ matrix.config.os }}
-    env: ${{ matrix.config.env }}
     strategy:
       matrix:
         config:
@@ -23,7 +22,6 @@ jobs:
               extraArgs: "",
               target: "",
               targetDir: "target/release",
-              env: {},
             }
           - {
               os: "ubuntu-latest",
@@ -40,7 +38,6 @@ jobs:
               extraArgs: "",
               target: "",
               targetDir: "target/release",
-              env: {},
             }
           - {
               os: "macos-latest",
@@ -57,7 +54,6 @@ jobs:
               extraArgs: "",
               target: "",
               targetDir: "target/release",
-              env: {},
             }
     steps:
       - uses: actions/checkout@v2

@@ -116,19 +116,10 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: spin
-          path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
-
-      - name: upload binary as GitHub artifact
-        uses: actions/upload-artifact@v1
-        with:
-          name: spin
-          path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip
-
-      - name: upload binary as GitHub artifact
-        uses: actions/upload-artifact@v1
-        with:
-          name: spin
-          path: _dist/checksums-${{ env.RELEASE_VERSION }}.txt
+          path: |
+            _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
+            _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip
+            _dist/checksums-${{ env.RELEASE_VERSION }}.txt
 
       - name: upload binary to canary GitHub release
         uses: svenstaro/upload-release-action@2.2.1

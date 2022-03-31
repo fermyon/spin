@@ -59,7 +59,7 @@ route = "/hello"
 #### Running a Spin Application
 
 Running this application with the `spin` CLI is as simple as using the `spin up` command.
-Because a trigger type of `http` type is specified in the `spin.toml`, `spin up` will start
+Because a trigger type of `http` is specified in the `spin.toml`, `spin up` will start
 a web server. Any time a request is made on the `/hello` route, it will invoke the
 `hello_world` function. Adding another component is as simple as adding another `[[component]]`
 stanza to the `spin.toml` file.

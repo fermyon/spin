@@ -105,7 +105,6 @@ jobs:
           cp readme.md LICENSE ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} _dist/
           cd _dist
           tar czf spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz readme.md LICENSE spin${{ matrix.config.extension }}
-          zip -r spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip readme.md LICENSE spin${{ matrix.config.extension }}
 
       - name: package release assets
         if: runner.os == 'Windows'
@@ -114,22 +113,27 @@ jobs:
           mkdir _dist
           cp readme.md LICENSE ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} _dist/
           cd _dist
-          tar czf spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz readme.md LICENSE spin${{ matrix.config.extension }}
           7z a -tzip spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip readme.md LICENSE spin${{ matrix.config.extension }}
 
       - name: upload binary as GitHub artifact
+        if: runner.os != 'Windows'
         uses: actions/upload-artifact@v3
         with:
           name: spin
-          path: |
-            _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
-            _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip
+          path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
+
+      - name: upload binary as GitHub artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v3
+        with:
+          name: spin
+          path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip
 
       # TODO: actually update/override the canary release each time
       # See https://github.com/fermyon/spin/issues/128
       - name: upload binary to canary GitHub release
         uses: svenstaro/upload-release-action@2.2.1
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && runner.os != 'Windows'
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
@@ -143,7 +147,7 @@ jobs:
 
       - name: upload binary to canary GitHub release
         uses: svenstaro/upload-release-action@2.2.1
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && runner.os == 'Windows'
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip

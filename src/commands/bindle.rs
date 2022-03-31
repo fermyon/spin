@@ -1,9 +1,10 @@
+use crate::parse_buildinfo;
 use anyhow::{Context, Result};
 use bindle::client::Client as BindleClient;
 use bindle::client::ClientBuilder as BindleClientBuilder;
-use semver::{BuildMetadata, Error};
+use semver::BuildMetadata;
 use spin_loader::bindle::BindleTokenManager;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use structopt::StructOpt;
 
 use crate::commands::up::DEFAULT_MANIFEST_FILE;
@@ -32,10 +33,6 @@ impl BindleCommands {
             Self::Push(cmd) => cmd.run().await,
         }
     }
-}
-
-fn parse_buildinfo(buildinfo: &str) -> Result<BuildMetadata, Error> {
-    BuildMetadata::new(buildinfo)
 }
 
 /// Create a standalone bindle for subsequent publication.
@@ -118,7 +115,8 @@ impl Prepare {
             .app
             .as_deref()
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-        let source_dir = app_dir(app_file)?;
+        let source_dir = crate::app_dir(app_file)?;
+
         let dest_dir = &self.staging_dir;
 
         let (invoice, sources) = spin_publish::expand_manifest(app_file, self.buildinfo, &dest_dir)
@@ -129,7 +127,7 @@ impl Prepare {
 
         spin_publish::write(&source_dir, &dest_dir, &invoice, &sources)
             .await
-            .with_context(|| write_failed_msg(bindle_id, dest_dir))?;
+            .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
 
         // We can't try to canonicalise it until the directory has been created
         let full_dest_dir =
@@ -148,7 +146,7 @@ impl Push {
             .app
             .as_deref()
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-        let source_dir = app_dir(app_file)?;
+        let source_dir = crate::app_dir(app_file)?;
         let client = self.create_bindle_client()?;
 
         // TODO: only create this if not given a staging dir
@@ -167,7 +165,7 @@ impl Push {
 
         spin_publish::write(&source_dir, &dest_dir, &invoice, &sources)
             .await
-            .with_context(|| write_failed_msg(bindle_id, dest_dir))?;
+            .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
 
         spin_publish::push_all(&dest_dir, bindle_id, &client, &self.bindle_server_url)
             .await
@@ -192,26 +190,4 @@ impl Push {
                 )
             })
     }
-}
-
-fn app_dir(app_file: impl AsRef<Path>) -> Result<std::path::PathBuf> {
-    let path_buf = app_file
-        .as_ref()
-        .parent()
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Failed to get containing directory for app file '{}'",
-                app_file.as_ref().display()
-            )
-        })?
-        .to_owned();
-    Ok(path_buf)
-}
-
-fn write_failed_msg(bindle_id: &bindle::Id, dest_dir: &Path) -> String {
-    format!(
-        "Failed to write bindle '{}' to {}",
-        bindle_id,
-        dest_dir.display()
-    )
 }

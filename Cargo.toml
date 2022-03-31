@@ -14,8 +14,10 @@ dirs = "4.0"
 dunce = "1.0"
 env_logger = "0.9"
 futures = "0.3"
+hippo-openapi = "0.4"
 lazy_static = "1.4.0"
 path-absolutize = "3.0.11"
+reqwest = { version = "0.11", features = ["stream"] }
 semver = "1.0"
 serde = { version = "1.0", features = [ "derive" ] }
 spin-config = { path = "crates/config" }

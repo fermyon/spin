@@ -27,9 +27,8 @@ It is common for applications to require configuration at runtime that isn't kno
 Configuration within a "parent" (component or application) consists of a number of configuration "slots":
 - slots are uniquely identified within their parent by a string "key"; in order to allow unambiguous conversion to environment variables or file paths, keys are constrained:
   - must start with a letter (required for env vars)
-  - consisting of only lowercase ascii alphanum and `-`
-    - only one `-` at a time and not at the end (to allow separating env vars with `__`)
-    - `-` matches WIT syntax but `_` might be more familiar to users
+  - consisting of only lowercase ascii alphanum and `_` (`[a-z0-9_]`)
+    - only one `_` at a time and not at the end (to allow delimiting in env vars with `__`)
 - a slot must _either_ be marked as "required" _or_ must be given a default value
 - a slot may be marked as "secret", in which case any associated value should be handled with care (e.g. not logged)
 
@@ -56,13 +55,13 @@ In dependency configuration, templates can reference the app config and "ancesto
 `spin.toml`:
 ```toml
 [config]
-app-root = "/app"
+app_root = "/app"
 ...
 [[component.config]]
 # Note: no '.'s needed when referencing top-level app config
-work-root = "{{ app-root }}/work"  # -> "/app/work"
+work_root = "{{ app_root }}/work"  # -> "/app/work"
 [[component.dependencies.dep1.config]]
-dep-root = "{{ ..work-root }}/dep" # -> "/app/work/dep"
+dep_root = "{{ ..work_root }}/dep" # -> "/app/work/dep"
 ```
 
 ### Configuration "providers" resolve application configuration
@@ -74,11 +73,11 @@ Provider configuration is handled by spin at instantiation time (`spin up`).
 _Note: Provider configuration is TBD; as TOML it could look like:_
 
 ```toml
-[[config_provider]]
+[[config-provider]]
 type = "json_file"
 path = "config.json"
 
-[[config_provider]]
+[[config-provider]]
 type = "env"
 prefix = "MY_APP_"
 ```
@@ -87,10 +86,10 @@ prefix = "MY_APP_"
 
 - Environment provider
   - Configured with a prefix, e.g. `SPIN_APP_`
-  - `key-one` -> `SPIN_APP_KEY_ONE`
+  - `key_one` -> `SPIN_APP_KEY_ONE`
 - File provider
   ```json
-  {"key-one": "value-one"}
+  {"key_one": "value-one"}
   ```
 - Vault provider
 
@@ -110,15 +109,15 @@ get-config: function(key: string) -> expect<string>
 The above assumes only string values, but we could include some typing:
 ```toml
 # Simple form is typed implicitly from its default value
-string-key = "value"
-string-key = { type = "string", default = "value" }
+string_key = "value"
+string_key = { type = "string", default = "value" }
 
-number-key = 123
-number-key = { type = "number", default = 123 }
+number_key = 123
+number_key = { type = "number", default = 123 }
 
-required-string = { type = "string", required = true }
+required_string = { type = "string", required = true }
 # "bytes" would require e.g. base64 encoding in some places
-encryption-key = { type = "bytes", required = true, secret = true}
+encryption_key = { type = "bytes", required = true, secret = true}
 ```
 - This would complicate the implementation but might be nice for users.
 
@@ -127,12 +126,12 @@ encryption-key = { type = "bytes", required = true, secret = true}
 For languages without component support, we could expose config as synthetic mounted files:
 
 ```ruby
-key1-value = File.read("/config/key1")
+key1_value = File.read("/config/key1")
 
 # Typed config; `.json` encodes values to JSON
-key1-value = JSON.parse(File.read("/config/key1.json"))
+key1_value = JSON.parse(File.read("/config/key1.json"))
 
 # "bytes" type; `.raw` decodes from base64
-encryption-key = File.read("/config/encryption_key.raw")
+encryption_key = File.read("/config/encryption_key.raw")
 ```
   

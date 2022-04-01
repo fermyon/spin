@@ -25,12 +25,12 @@ It is common for applications to require configuration at runtime that isn't kno
 ### Configuration is defined by components and applications
 
 Configuration within a "parent" (component or application) consists of a number of configuration "slots":
-- slots are uniquely identified within their parent by a string "key"; in order to allow unambiguous conversion to environment variables or file paths, keys are constrained:
-  - must start with a letter (required for env vars)
-  - consisting of only lowercase ascii alphanum and `_` (`[a-z0-9_]`)
-    - only one `_` at a time and not at the end (to allow delimiting in env vars with `__`)
-- a slot must _either_ be marked as "required" _or_ must be given a default value
-- a slot may be marked as "secret", in which case any associated value should be handled with care (e.g. not logged)
+- Slots are uniquely identified within their parent by a string "key"; in order to allow unambiguous conversion to environment variables or file paths, keys are constrained:
+  - Keys must start with a letter (required for env vars)
+  - Keys consist of only lowercase ascii alphanum and `_` (`[a-z0-9_]`)
+    - Only one `_` at a time and not at the end (to allow delimiting in env vars with `__`)
+- A slot must _either_ be marked as "required" _or_ must be given a default value
+- A slot may be marked as "secret", in which case any associated value should be handled with care (e.g. not logged)
 
 ```toml
 [config]
@@ -42,26 +42,32 @@ key1 = { default = "default_value" }
 key2 = { required = true, secret = true }
 ```
 
-Defaults can use template strings to reference other slots.
+Default values can use template strings to reference other slots.
 ```toml
+[config]
 key1 = { required = true }
-key2 = "prefix-{{ .key1 }}-suffix"
+key2 = "prefix-{{ key1 }}-suffix"
 ```
 
 ### Components and applications can set configuration of their direct dependencies
 
-In dependency configuration, templates can reference the app config and "ancestor" dependant configs:
+In dependency configuration, templates can reference top-level config keys (those in `[config]`), "sibling" keys within the same dependency, and "ancestor" dependant configs.
+
+- Top-level references use just the key name: `{{ top_level_key }}`
+- "Sibling" references use a single `.` prefix: `{{ .sibling_key }}`
+- "Ancestor" references use multiple `.`s: `{{ ..parent_dep_key }}`, `{{ ...grandparent_key }}`
 
 `spin.toml`:
 ```toml
 [config]
 app_root = "/app"
+log_file = "{{ app_root }}/log.txt"    # -> "/app/log.txt"
 ...
 [[component.config]]
-# Note: no '.'s needed when referencing top-level app config
-work_root = "{{ app_root }}/work"  # -> "/app/work"
+work_root = "{{ app_root }}/work"      # -> "/app/work"
+work_out = "{{ .work_root }}/output"   # -> "/app/work/output"
 [[component.dependencies.dep1.config]]
-dep_root = "{{ ..work_root }}/dep" # -> "/app/work/dep"
+dep_root = "{{ ..work_root }}/dep"     # -> "/app/work/dep"
 ```
 
 ### Configuration "providers" resolve application configuration

@@ -11,5 +11,5 @@ fn goodbye_world(req: Request) -> Result<Response> {
     Ok(http::Response::builder()
         .status(200)
         .header("foo", "bar")
-        .body(Some("Goodbye".into()))?)
+        .body(Some("Goodbye, Fermyon!\n".into()))?)
 }

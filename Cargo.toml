@@ -14,6 +14,7 @@ dirs = "4.0"
 dunce = "1.0"
 env_logger = "0.9"
 futures = "0.3"
+lazy_static = "1.4.0"
 path-absolutize = "3.0.11"
 semver = "1.0"
 serde = { version = "1.0", features = [ "derive" ] }
@@ -37,9 +38,10 @@ hyper = { version = "0.14", features = [ "full" ] }
 
 [build-dependencies]
 cargo-target-dep = { git = "https://github.com/fermyon/cargo-target-dep", rev = "b7b1989fe0984c0f7c4966398304c6538e52fe49" }
+vergen = { version = "7", default-features = false, features = [ "build", "git" ] }
 
 [workspace]
-members = [ 
+members = [
     "crates/config",
     "crates/engine",
     "crates/http",
@@ -49,7 +51,7 @@ members = [
     "crates/templates",
     "crates/testing",
     "examples/spin-timer",
-    "sdk/rust", 
+    "sdk/rust",
     "sdk/rust/macro"
 ]
 

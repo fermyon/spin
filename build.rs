@@ -27,6 +27,11 @@ fn main() {
 
     cargo_build(RUST_HTTP_INTEGRATION_TEST);
     cargo_build(RUST_HTTP_INTEGRATION_ENV_TEST);
+
+    let mut config = vergen::Config::default();
+    *config.git_mut().sha_kind_mut() = vergen::ShaKind::Short;
+    *config.git_mut().commit_timestamp_kind_mut() = vergen::TimestampKind::DateOnly;
+    vergen::vergen(config).expect("failed to extract build information");
 }
 
 fn build_wasm_test_program(name: &'static str, root: &'static str) {

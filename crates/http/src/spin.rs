@@ -94,10 +94,14 @@ impl SpinHttpExecutor {
                 .collect();
 
             let body = Some(&bytes[..]);
+            let uri = match parts.uri.path_and_query() {
+                Some(u) => u.to_string(),
+                None => parts.uri.to_string(),
+            };
 
             let req = crate::spin_http::Request {
                 method,
-                uri: parts.uri.path(),
+                uri: &uri,
                 headers: &headers,
                 params: &params,
                 body,

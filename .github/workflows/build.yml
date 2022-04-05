@@ -30,19 +30,17 @@ jobs:
               bindleBinary: "bindle-server",
               pathInBindleArchive: "bindle-server",
             }
-          # Currently disable macOS builds, as mac minutes are 10x billed.
-          # TODO: uncomment once we make the repository public.
-          # - {
-          #     os: "macos-latest",
-          #     arch: "aarch64",
-          #     extension: "",
-          #     extraArgs: "--target aarch64-apple-darwin",
-          #     target: "aarch64-apple-darwin",
-          #     targetDir: "target/aarch64-apple-darwin/release/",
-          #     bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-macos-amd64.tar.gz",
-          #     bindleBinary: "bindle-server",
-          #     pathInBindleArchive: "bindle-server",
-          #   }
+          - {
+              os: "macos-latest",
+              arch: "aarch64",
+              extension: "",
+              extraArgs: "--target aarch64-apple-darwin",
+              target: "aarch64-apple-darwin",
+              targetDir: "target/aarch64-apple-darwin/release/",
+              bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-macos-amd64.tar.gz",
+              bindleBinary: "bindle-server",
+              pathInBindleArchive: "bindle-server",
+            }
           - {
               os: "windows-latest",
               arch: "amd64",

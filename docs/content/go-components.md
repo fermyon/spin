@@ -97,7 +97,7 @@ $ tinygo build -wasm-abi=generic -target=wasi -o main.wasm main.go
 ```
 
 Before we can execute this component, we need to add the
-`https://some-random-api.ml` domain to the application configuration
+`https://some-random-api.ml` domain to the application manifest `allowed_http_hosts`
 list containing the list of domains the component is allowed to make HTTP
 requests to:
 

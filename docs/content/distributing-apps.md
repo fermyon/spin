@@ -7,7 +7,7 @@ url = "https://github.com/fermyon/spin/blob/main/docs/content/distributing-apps.
 
 Packaging and distributing Spin applications is done using [Bindle](https://github.com/deislabs/bindle),
 an open source aggregate object storage system. This allows the packaging of the
-application configuration, components, and static assets together, and
+application manifest, components, and static assets together, and
 takes advantage of the features of a modern object storage system.
 
 To distribute applications, we first need a Bindle registry. You can

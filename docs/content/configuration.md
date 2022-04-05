@@ -7,8 +7,9 @@ url = "https://github.com/fermyon/spin/blob/main/docs/content/configuration.md"
 
 Spin applications are comprised of general information (metadata), and a collection
 of at least one _component_. Configuration for a Spin application lives in a TOML
-file called `spin.toml`. In the example below we can see a simple HTTP application
-with a single component executed when the `/hello` endpoint is accessed:
+file called `spin.toml` (the _application manifest_). In the example below we can see
+a simple HTTP application with a single component executed when the `/hello` endpoint
+is accessed:
 
 ```toml
 spin_version = "1"
@@ -26,9 +27,9 @@ route = "/hello"
 
 ## Configuration reference
 
-### Application configuration
+### Application manifest
 
-The following are the fields supported by the `spin.toml` configuration file:
+The following are the fields supported by the `spin.toml` manifest file:
 
 - `spin_version` (REQUIRED): Spin API version. Currently, this value MUST be
   `"1"`.

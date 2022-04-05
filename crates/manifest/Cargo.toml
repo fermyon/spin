@@ -1,5 +1,5 @@
 [package]
-name = "spin-config"
+name = "spin-manifest"
 version = "0.1.0"
 edition = "2021"
 authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]

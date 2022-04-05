@@ -6,7 +6,7 @@ use std::collections::HashMap;
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct RawAppManifest {
     /// The application trigger.
-    pub trigger: spin_config::ApplicationTrigger,
+    pub trigger: spin_manifest::ApplicationTrigger,
 
     /// Configuration for the application components.
     #[serde(rename = "component")]
@@ -26,7 +26,7 @@ pub struct RawComponentManifest {
     #[serde(flatten)]
     pub wasm: RawWasmConfig,
     /// Trigger configuration.
-    pub trigger: spin_config::TriggerConfig,
+    pub trigger: spin_manifest::TriggerConfig,
 }
 
 /// WebAssembly configuration.

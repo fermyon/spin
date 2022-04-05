@@ -19,7 +19,7 @@ use bindle::{
     Invoice,
 };
 use futures::future;
-use spin_config::{
+use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };

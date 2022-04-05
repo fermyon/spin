@@ -5,7 +5,7 @@
 use anyhow::{bail, Result};
 use http::Uri;
 use indexmap::IndexMap;
-use spin_config::{Application, CoreComponent};
+use spin_manifest::{Application, CoreComponent};
 use std::fmt::Debug;
 use tracing::log;
 
@@ -333,8 +333,8 @@ mod route_tests {
     fn named_component(id: &str) -> CoreComponent {
         CoreComponent {
             id: id.to_string(),
-            source: spin_config::ModuleSource::FileReference("FAKE".into()),
-            wasm: spin_config::WasmConfig::default(),
+            source: spin_manifest::ModuleSource::FileReference("FAKE".into()),
+            wasm: spin_manifest::WasmConfig::default(),
         }
     }
 }

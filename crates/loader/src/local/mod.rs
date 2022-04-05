@@ -14,7 +14,7 @@ use anyhow::{anyhow, Context, Result};
 use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawComponentManifest};
 use futures::future;
 use path_absolutize::Absolutize;
-use spin_config::{
+use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };

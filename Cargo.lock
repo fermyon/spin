@@ -3090,10 +3090,10 @@ dependencies = [
  "path-absolutize",
  "semver",
  "serde",
- "spin-config",
  "spin-engine",
  "spin-http-engine",
  "spin-loader",
+ "spin-manifest",
  "spin-publish",
  "spin-redis-engine",
  "spin-templates",
@@ -3108,14 +3108,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-config"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
-]
-
-[[package]]
 name = "spin-engine"
 version = "0.1.0"
 dependencies = [
@@ -3123,7 +3115,7 @@ dependencies = [
  "bytes 1.1.0",
  "dirs 4.0.0",
  "sanitize-filename",
- "spin-config",
+ "spin-manifest",
  "tempfile",
  "tokio",
  "tracing",
@@ -3157,8 +3149,8 @@ dependencies = [
  "num_cpus",
  "rustls-pemfile 0.3.0",
  "serde",
- "spin-config",
  "spin-engine",
+ "spin-manifest",
  "spin-testing",
  "tls-listener",
  "tokio",
@@ -3194,7 +3186,7 @@ dependencies = [
  "reqwest",
  "serde",
  "sha2 0.10.2",
- "spin-config",
+ "spin-manifest",
  "tempfile",
  "tokio",
  "toml",
@@ -3217,6 +3209,14 @@ dependencies = [
  "wit-bindgen-gen-core",
  "wit-bindgen-gen-rust-wasm",
  "wit-bindgen-rust",
+]
+
+[[package]]
+name = "spin-manifest"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
 ]
 
 [[package]]
@@ -3251,8 +3251,8 @@ dependencies = [
  "log",
  "redis",
  "serde",
- "spin-config",
  "spin-engine",
+ "spin-manifest",
  "spin-testing",
  "tokio",
  "tracing",
@@ -3301,8 +3301,8 @@ dependencies = [
  "anyhow",
  "http 0.2.6",
  "hyper",
- "spin-config",
  "spin-http-engine",
+ "spin-manifest",
 ]
 
 [[package]]
@@ -3315,8 +3315,8 @@ dependencies = [
  "env_logger",
  "futures",
  "log",
- "spin-config",
  "spin-engine",
+ "spin-manifest",
  "tokio",
  "tracing",
  "tracing-futures",

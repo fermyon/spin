@@ -20,7 +20,7 @@ hyper = { version = "0.14", features = ["full"] }
 hyper-rustls = { version = "0.23.0" }
 indexmap = "1.6"
 serde = { version = "1.0", features = ["derive"] }
-spin-config = { path = "../config" }
+spin-manifest = { path = "../manifest" }
 spin-engine = { path = "../engine" }
 tls-listener = { version = "0.4.0", features = [
     "rustls",

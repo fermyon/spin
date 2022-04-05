@@ -1,6 +1,6 @@
 use super::*;
 use anyhow::Result;
-use spin_config::{RedisConfig, RedisExecutor};
+use spin_manifest::{RedisConfig, RedisExecutor};
 use spin_testing::TestConfig;
 use std::sync::Once;
 
@@ -26,7 +26,7 @@ async fn test_pubsub() -> Result<()> {
             channel: "messages".to_string(),
             executor: Some(RedisExecutor::Spin),
         })
-        .build_configuration();
+        .build_application();
 
     let trigger = RedisTrigger::new(cfg, None).await?;
 

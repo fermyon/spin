@@ -5,7 +5,7 @@
 #![deny(missing_docs)]
 
 use serde::{Deserialize, Serialize};
-use spin_config::{ApplicationTrigger, TriggerConfig};
+use spin_manifest::{ApplicationTrigger, TriggerConfig};
 use std::{collections::HashMap, path::PathBuf};
 
 /// Container for any version of the manifest.

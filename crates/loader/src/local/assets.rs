@@ -3,7 +3,7 @@
 use crate::assets::{create_dir, ensure_all_under, ensure_under, to_relative};
 use anyhow::{anyhow, bail, Context, Result};
 use futures::future;
-use spin_config::DirectoryMount;
+use spin_manifest::DirectoryMount;
 use std::path::{Path, PathBuf};
 use tracing::log;
 use walkdir::WalkDir;

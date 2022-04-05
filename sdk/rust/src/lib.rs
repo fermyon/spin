@@ -37,3 +37,11 @@ pub mod http {
             .body(Some("Internal Server Error".into()))?)
     }
 }
+
+#[allow(missing_docs)]
+pub mod redis {
+    wit_bindgen_rust::import!("../../wit/ephemeral/outbound-redis.wit");
+
+    /// Exports the generated outbound Redis items.
+    pub use outbound_redis::*;
+}

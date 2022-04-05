@@ -50,6 +50,7 @@ members = [
     "crates/manifest",
     "crates/object-store",
     "crates/outbound-http",
+    "crates/outbound-redis",
     "crates/redis",
     "crates/templates",
     "crates/testing",

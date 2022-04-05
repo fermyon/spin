@@ -2140,6 +2140,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "outbound-redis"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "redis",
+ "wit-bindgen-wasmtime",
+]
+
+[[package]]
 name = "parking_lot"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3126,6 +3135,7 @@ dependencies = [
  "anyhow",
  "bytes 1.1.0",
  "dirs 4.0.0",
+ "outbound-redis",
  "sanitize-filename",
  "spin-config",
  "spin-manifest",
@@ -3300,6 +3310,7 @@ dependencies = [
  "http 0.2.6",
  "spin-macro",
  "wasi-experimental-http",
+ "wit-bindgen-rust",
 ]
 
 [[package]]

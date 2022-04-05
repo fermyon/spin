@@ -101,7 +101,7 @@ We can build this component using the regular Rust toolchain, targeting
 `spin.toml`:
 
 ```
-$ cargo build --target wasm32-wasi --release
+$ cargo build --release
 ```
 
 > We are [working on templates](https://github.com/fermyon/spin/pull/186)

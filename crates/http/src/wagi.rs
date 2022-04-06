@@ -110,7 +110,7 @@ impl HttpExecutor for WagiHttpExecutor {
         // even if the guest code fails. (And when checking, check the guest
         // result first, so that guest failures are returned in preference to
         // log failures.)
-        guest_result??;
+        guest_result?.or_else(ignore_successful_proc_exit_trap)?;
         log_result?;
 
         wagi::handlers::compose_response(iostream.stdout.lock)
@@ -135,5 +135,15 @@ impl WagiHttpExecutor {
             stdout,
             stderr,
         }
+    }
+}
+
+fn ignore_successful_proc_exit_trap(guest_err: anyhow::Error) -> Result<()> {
+    match guest_err.root_cause().downcast_ref::<wasmtime::Trap>() {
+        Some(trap) => match trap.i32_exit_status() {
+            Some(0) => Ok(()),
+            _ => Err(guest_err),
+        },
+        None => Err(guest_err),
     }
 }

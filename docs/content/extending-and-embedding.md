@@ -86,7 +86,7 @@ Finally, whenever there is a new event (in the case of our timer-based trigger
 every `n` seconds), we execute the entry point of a selected component:
 
 ```rust
-/// Execute the first component in the application configuration.
+/// Execute the first component in the application manifest.
 async fn handle(&self, msg: String) -> Result<()> {
     // create a new Wasmtime store and instance based on the first component's WebAssembly module.
     let (mut store, instance) =
@@ -139,7 +139,7 @@ fn handle_timer_request(msg: String) -> String {
 ```
 
 Components can be compiled to WebAssembly, then used from a `spin.toml`
-application configuration.
+application manifest.
 
 Embedding the new trigger in a Rust application is done by creating a new trigger
 instance, then calling its `run` function:
@@ -155,7 +155,7 @@ trigger.run().await
 > such as Go or C#.
 
 In this example, we built a simple timer trigger — building more complex triggers
-would also involve updating the Spin application configuration, and extending
+would also involve updating the Spin application manifest, and extending
 the application-level trigger configuration, as well as component-level
 trigger configuration (an example of component-level trigger configuration
 for this scenario would be each component being able to define its own
@@ -167,7 +167,7 @@ Besides building custom triggers, the internals of Spin could also be used
 independently:
 
 - the Spin execution context can be used entirely without a `spin.toml`
-application configuration — for embedding scenarios, the configuration for the
+application manifest — for embedding scenarios, the configuration for the
 execution can be constructed without a `spin.toml` (see [issue #229](https://github.com/fermyon/spin/issues/229)
 for context)
 - the standard way of distributing a Spin application can be changed by

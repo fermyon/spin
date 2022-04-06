@@ -90,7 +90,7 @@ fn hello_world(_req: Request) -> Result<Response> {
 ```
 
 Before we can execute this component, we need to add the `https://some-random-api.ml`
-domain to the application configuration list containing the list of
+domain to the application manifest `allowed_http_hosts` list containing the list of
 domains the component is allowed to make HTTP requests to:
 
 ```toml
@@ -167,7 +167,7 @@ The component can be built with Cargo by executing:
 $ cargo build --target wasm32-wasi --release
 ```
 
-The configuration for a Redis application must contain the address of the Redis
+The manifest for a Redis application must contain the address of the Redis
 instance the trigger must connect to:
 
 ```toml

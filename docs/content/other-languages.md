@@ -86,7 +86,7 @@ Upstream [Ruby](https://www.ruby-lang.org/en/) officially supports WebAssembly a
 
 ## Zig
 
-Zig is a low-lelve systems language that has support for Wasm and WASI, and can be used to write Spin apps.
+Zig is a low-level systems language that has support for Wasm and WASI, and can be used to write Spin apps.
 
 - The [Zig entry in the Wasm Language Guide](https://www.fermyon.com/wasm-languages/zig) covers the basics
 - Zig's [0.4 release notes](https://ziglang.org/download/0.4.0/release-notes.html#WebAssembly-Support) explain WebAssembly support

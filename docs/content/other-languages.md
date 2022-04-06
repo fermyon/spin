@@ -67,18 +67,6 @@ C and C++ are both broadly supported in the WebAssembly ecosystem. WASI/Wagi sup
 - A simple [Hello World example](https://github.com/deislabs/hello-wagi-grain) shows how to use Grain
 - For a production-quality example. the [Wagi Fileserver](https://github.com/deislabs/wagi-fileserver) is written in Grain
 
-## Haskell
-
-The Asterius project provides a Haskell compiler. It [advertises](https://github.com/tweag/asterius/blob/13b7e89dce41610ba2d1e89a0e1241f2caeaa242/docs/src/roadmap.md) that it has WASI support, which means it can be used to create apps for Spin. 
-
-## JavaScript
-
-JavaScript support is ever-evolving. We know of three implementations that currently advertise WASI support. The best way to stay up-to-date on JavaScript is to keep an eye on the [JavaScript entry in the Wasm Language Guide](https://www.fermyon.com/wasm-languages/javascript)
-
-- [Shopify Javy](https://github.com/Shopify/javy) or Suborbital's [fork of Javy](https://github.com/suborbital/javy) support WASI
-- While not all of its features are available on Spin, the [WasmEdge QuickJS interpreter](https://github.com/second-state/wasmedge-quickjs) should also work
-- Spidermonkey (Mozilla's JavaScript engine) can compile to Wasm, but we haven't yet seen WASI access
-
 ## Python
 
 Python's interpreter can be compiled to WebAssembly, and it has WASI support. It is known to work for Spin.

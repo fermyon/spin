@@ -29,6 +29,7 @@ jobs:
               bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-linux-amd64.tar.gz",
               bindleBinary: "bindle-server",
               pathInBindleArchive: "bindle-server",
+              platformAgnosticChecks: true,
             }
           - {
               os: "macos-latest",
@@ -75,10 +76,12 @@ jobs:
       - uses: Swatinem/rust-cache@v1
 
       - name: Cargo Format
+        if: ${{ matrix.config.platformAgnosticChecks }}
         run:
           cargo fmt --all -- --check
 
       - name: Cargo Clippy
+        if: ${{ matrix.config.platformAgnosticChecks }}
         run:
           cargo clippy --workspace --all-targets --all-features -- -D warnings
 

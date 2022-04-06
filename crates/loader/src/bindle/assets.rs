@@ -7,7 +7,7 @@ use crate::{
 use anyhow::{anyhow, bail, Context, Result};
 use bindle::{Id, Label};
 use futures::future;
-use spin_config::DirectoryMount;
+use spin_manifest::DirectoryMount;
 use std::path::Path;
 use tokio::fs;
 use tracing::log;

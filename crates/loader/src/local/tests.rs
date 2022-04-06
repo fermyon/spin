@@ -2,7 +2,7 @@ use crate::local::config::{RawDirectoryPlacement, RawFileMount, RawModuleSource}
 
 use super::*;
 use anyhow::Result;
-use spin_config::HttpExecutor;
+use spin_manifest::HttpExecutor;
 use std::path::PathBuf;
 
 #[tokio::test]
@@ -131,7 +131,7 @@ fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
 
     match http_config.executor.as_ref().unwrap() {
         HttpExecutor::Spin => panic!("expected wagi http executor"),
-        HttpExecutor::Wagi(spin_config::WagiConfig { entrypoint, argv }) => {
+        HttpExecutor::Wagi(spin_manifest::WagiConfig { entrypoint, argv }) => {
             assert_eq!(entrypoint, EXPECTED_CUSTOM_ENTRYPOINT);
             assert_eq!(argv, EXPECTED_DEFAULT_ARGV);
         }

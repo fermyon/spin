@@ -2,8 +2,8 @@ use crate::{routes::RoutePattern, ExecutionContext, HttpExecutor};
 use anyhow::Result;
 use async_trait::async_trait;
 use hyper::{body, Body, Request, Response};
-use spin_config::WagiConfig;
 use spin_engine::io::{IoStreamRedirects, OutRedirect};
+use spin_manifest::WagiConfig;
 use std::{
     collections::HashMap,
     net::SocketAddr,

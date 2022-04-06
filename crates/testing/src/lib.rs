@@ -8,11 +8,11 @@ use std::{
 
 use http::{Request, Response};
 use hyper::Body;
-use spin_config::{
+use spin_http_engine::HttpTrigger;
+use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
     HttpConfig, ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion, TriggerConfig,
 };
-use spin_http_engine::HttpTrigger;
 
 #[derive(Default)]
 pub struct TestConfig {
@@ -79,7 +79,7 @@ impl TestConfig {
         }
     }
 
-    pub fn build_configuration(&self) -> Application<CoreComponent> {
+    pub fn build_application(&self) -> Application<CoreComponent> {
         Application {
             info: self.build_application_information(),
             components: vec![self.build_component()],
@@ -95,7 +95,7 @@ impl TestConfig {
     }
 
     pub async fn build_http_trigger(&self) -> HttpTrigger {
-        HttpTrigger::new("".to_string(), self.build_configuration(), None, None)
+        HttpTrigger::new("".to_string(), self.build_application(), None, None)
             .await
             .expect("failed to build HttpTrigger")
     }

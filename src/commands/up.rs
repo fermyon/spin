@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
-use spin_config::{Application, ApplicationTrigger, CoreComponent};
 use spin_http_engine::{HttpTrigger, TlsConfig};
+use spin_manifest::{Application, ApplicationTrigger, CoreComponent};
 use spin_redis_engine::RedisTrigger;
 use std::path::{Path, PathBuf};
 use structopt::{clap::AppSettings, StructOpt};

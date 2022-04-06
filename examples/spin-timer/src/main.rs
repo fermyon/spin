@@ -2,8 +2,8 @@
 #![allow(clippy::needless_question_mark)]
 
 use anyhow::Result;
-use spin_config::{CoreComponent, ModuleSource, WasmConfig};
 use spin_engine::{Builder, ExecutionContextConfiguration};
+use spin_manifest::{CoreComponent, ModuleSource, WasmConfig};
 use std::{sync::Arc, time::Duration};
 use tokio::task::spawn_blocking;
 

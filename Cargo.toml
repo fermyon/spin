@@ -18,7 +18,7 @@ lazy_static = "1.4.0"
 path-absolutize = "3.0.11"
 semver = "1.0"
 serde = { version = "1.0", features = [ "derive" ] }
-spin-config = { path = "crates/config" }
+spin-manifest = { path = "crates/manifest" }
 spin-engine = { path = "crates/engine" }
 spin-http-engine = { path = "crates/http" }
 spin-loader = { path = "crates/loader" }
@@ -42,10 +42,10 @@ vergen = { version = "7", default-features = false, features = [ "build", "git" 
 
 [workspace]
 members = [
-    "crates/config",
     "crates/engine",
     "crates/http",
     "crates/loader",
+    "crates/manifest",
     "crates/outbound-http",
     "crates/redis",
     "crates/templates",

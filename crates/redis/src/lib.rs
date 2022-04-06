@@ -7,10 +7,10 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::Client;
-use spin_config::{
+use spin_engine::{Builder, ExecutionContextConfiguration};
+use spin_manifest::{
     Application, ComponentMap, CoreComponent, RedisConfig, RedisTriggerConfiguration,
 };
-use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_redis::SpinRedisData;
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
@@ -114,7 +114,7 @@ impl RedisTrigger {
                 .unwrap_or_default();
 
             match executor {
-                spin_config::RedisExecutor::Spin => {
+                spin_manifest::RedisExecutor::Spin => {
                     log::trace!("Executing Spin Redis component {}", component.id);
                     let executor = SpinRedisExecutor;
                     executor

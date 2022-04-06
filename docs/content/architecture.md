@@ -17,8 +17,8 @@ be pushed to the registry then referenced using its remote ID
 
 Regardless of the application origin (local file or remote reference from the
 registry), a Spin application is defined by
-`spin_config::Application<CoreComponent>` (contained in the
-[`spin-config`](https://github.com/fermyon/spin/tree/main/crates/config) crate),
+`spin_manifest::Application<CoreComponent>` (contained in the
+[`spin-manifest`](https://github.com/fermyon/spin/tree/main/crates/manifest) crate),
 which is the canonical representation of a Spin application.
 
 The crate responsible for transforming a custom configuration into a canonical

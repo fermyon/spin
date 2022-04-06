@@ -12,7 +12,7 @@ env_logger = "0.9"
 futures = "0.3"
 log = { version = "0.4", default-features = false }
 spin-engine = { path = "../../crates/engine" }
-spin-config = { path = "../../crates/config" }
+spin-manifest = { path = "../../crates/manifest" }
 tokio = { version = "1.14", features = [ "full" ] }
 tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"

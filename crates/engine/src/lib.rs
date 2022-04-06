@@ -7,7 +7,7 @@ pub mod io;
 
 use anyhow::{bail, Context, Result};
 use io::IoStreamRedirects;
-use spin_config::{Application, CoreComponent, DirectoryMount, ModuleSource};
+use spin_manifest::{Application, CoreComponent, DirectoryMount, ModuleSource};
 use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, Duration};

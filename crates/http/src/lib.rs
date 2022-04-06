@@ -21,9 +21,11 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use spin_config::{Application, ComponentMap, CoreComponent, HttpConfig, HttpTriggerConfiguration};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http::SpinHttpData;
+use spin_manifest::{
+    Application, ComponentMap, CoreComponent, HttpConfig, HttpTriggerConfiguration,
+};
 use std::{future::ready, net::SocketAddr, path::PathBuf, sync::Arc};
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
@@ -115,11 +117,11 @@ impl HttpTrigger {
 
                     let executor = match &trigger.executor {
                         Some(i) => i,
-                        None => &spin_config::HttpExecutor::Spin,
+                        None => &spin_manifest::HttpExecutor::Spin,
                     };
 
                     let res = match executor {
-                        spin_config::HttpExecutor::Spin => {
+                        spin_manifest::HttpExecutor::Spin => {
                             let executor = SpinHttpExecutor;
                             executor
                                 .execute(
@@ -132,7 +134,7 @@ impl HttpTrigger {
                                 )
                                 .await
                         }
-                        spin_config::HttpExecutor::Wagi(wagi_config) => {
+                        spin_manifest::HttpExecutor::Wagi(wagi_config) => {
                             let executor = WagiHttpExecutor {
                                 wagi_config: wagi_config.clone(),
                             };
@@ -400,7 +402,7 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
 mod tests {
     use super::*;
     use anyhow::Result;
-    use spin_config::{HttpConfig, HttpExecutor};
+    use spin_manifest::{HttpConfig, HttpExecutor};
     use spin_testing::test_socket_addr;
     use std::{collections::BTreeMap, sync::Once};
 
@@ -537,7 +539,7 @@ mod tests {
                 route: "/test".to_string(),
                 executor: Some(HttpExecutor::Spin),
             })
-            .build_configuration();
+            .build_application();
 
         let trigger = HttpTrigger::new("".to_string(), cfg, None, None).await?;
 
@@ -566,7 +568,7 @@ mod tests {
                 route: "/test".to_string(),
                 executor: Some(HttpExecutor::Wagi(Default::default())),
             })
-            .build_configuration();
+            .build_application();
 
         let trigger = HttpTrigger::new("".to_string(), cfg, None, None).await?;
 

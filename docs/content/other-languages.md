@@ -34,3 +34,71 @@ build and run Spin components in that programming language
 
 > Make sure to check out [a more complex Spin application with components built
 in multiple programming languages](https://github.com/fermyon/spin-kitchensink/).
+
+## AssemblyScript
+
+[AssemblyScript](https://www.assemblyscript.org/) is a TypeScript-based language that compiles directly to WebAssembly.
+AssemblyScript has WASI/Wagi support, and so can be used with Spin.
+
+- The [AssemblyScript entry in the Wasm Language Guide](https://www.fermyon.com/wasm-languages/assemblyscript) includes a full example
+- The [Spin Kitchen Sink](https://github.com/fermyon/spin-kitchensink) repo has an AssemblyScript demo
+- An [example AssemblyScript app](https://github.com/deislabs/hello-wagi-as) designed for Wagi runs on Spin
+
+## C/C++
+
+C and C++ are both broadly supported in the WebAssembly ecosystem. WASI/Wagi support means that both can be used to write Spin apps.
+
+- The [C entry in the Wasm Language Guide](https://www.fermyon.com/wasm-languages/c-lang) has examples.
+- The [C++ entry in the Wasm Language Guide](https://www.fermyon.com/wasm-languages/cpp) has specific caveats for writing C++ (like exception handling)
+- The [yo-wasm](https://github.com/deislabs/yo-wasm) project makes setting up C easier.
+
+## C# and .NET languages
+
+.NET has experimental support for WASI, so many (if not all) .NET languages, including C# and F#, can be used to write Spin applications.
+
+- The [C# entry in the Wasm Language Guide](https://www.fermyon.com/wasm-languages/c-sharp) has a full example.
+- The [Spin Kitchen Sink repo](https://github.com/fermyon/spin-kitchensink) has two C# examples and one F# example.
+
+## Grain
+
+[Grain](https://grain-lang.org/), a new functional programming language, has WASI/Wagi support and can be used to write Spin apps.
+
+- The [Grain entry in the Wasm Language Guide](https://www.fermyon.com/wasm-languages/grain) has details
+- A simple [Hello World example](https://github.com/deislabs/hello-wagi-grain) shows how to use Grain
+- For a production-quality example. the [Wagi Fileserver](https://github.com/deislabs/wagi-fileserver) is written in Grain
+
+## Haskell
+
+The Asterius project provides a Haskell compiler. It [advertises](https://github.com/tweag/asterius/blob/13b7e89dce41610ba2d1e89a0e1241f2caeaa242/docs/src/roadmap.md) that it has WASI support, which means it can be used to create apps for Spin. 
+
+## JavaScript
+
+JavaScript support is ever-evolving. We know of three implementations that currently advertise WASI support. The best way to stay up-to-date on JavaScript is to keep an eye on the [JavaScript entry in the Wasm Language Guide](https://www.fermyon.com/wasm-languages/javascript)
+
+- [Shopify Javy](https://github.com/Shopify/javy) or Suborbital's [fork of Javy](https://github.com/suborbital/javy) support WASI
+- While not all of its features are available on Spin, the [WasmEdge QuickJS interpreter](https://github.com/second-state/wasmedge-quickjs) should also work
+- Spidermonkey (Mozilla's JavaScript engine) can compile to Wasm, but we haven't yet seen WASI access
+
+## Python
+
+Python's interpreter can be compiled to WebAssembly, and it has WASI support. It is known to work for Spin.
+
+- The [Spin Kitchen Sink](https://github.com/fermyon/spin-kitchensink) repo includes a Python example
+- The [Python entry in the Wasm Language Guide](https://www.fermyon.com/wasm-languages/python) lists two implementations
+- There is a Fermyon blog post about [using Python with WAGI](https://www.fermyon.com/blog/python-wagi)
+- The [Python docs](https://pythondev.readthedocs.io/wasm.html) have a page on WebAssembly
+- SingleStore also has [a Python build](https://github.com/singlestore-labs/python-wasi) that uses mainline Python
+
+## Ruby
+
+Upstream [Ruby](https://www.ruby-lang.org/en/) officially supports WebAssembly and WASI, and we here at Fermyon have successfully run Ruby apps in Spin.
+
+- The [Ruby entry in the Wasm Language Guide](https://www.fermyon.com/wasm-languages/ruby) has the latest information
+- [Ruby's 3.2.0 Preview 1 release notes](https://www.ruby-lang.org/en/news/2022/04/03/ruby-3-2-0-preview1-released/) detail WASI support
+
+## Zig
+
+Zig is a low-lelve systems language that has support for Wasm and WASI, and can be used to write Spin apps.
+
+- The [Zig entry in the Wasm Language Guide](https://www.fermyon.com/wasm-languages/zig) covers the basics
+- Zig's [0.4 release notes](https://ziglang.org/download/0.4.0/release-notes.html#WebAssembly-Support) explain WebAssembly support

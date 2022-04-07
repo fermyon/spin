@@ -48,6 +48,7 @@ members = [
     "crates/http",
     "crates/loader",
     "crates/manifest",
+    "crates/object-store",
     "crates/outbound-http",
     "crates/redis",
     "crates/templates",

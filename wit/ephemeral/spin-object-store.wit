@@ -1,0 +1,32 @@
+type size = u64
+type error = string
+
+/// An object reader represents a readable object.
+resource object-reader {
+    /// Reads data into the given buffer. On successful read, returns the nonzero
+    /// number of bytes read, which may be smaller than the buffer.
+    /// When no data remains to be read, returns zero.
+    read: function(buf: push-buffer<u8>) -> expected<size, error>
+    
+    /// Returns the size of the object in bytes, if available.
+    size: function() -> option<size>
+}
+
+/// And object writer represents a writable object.
+resource object-writer {
+    /// Writes data to the given object.
+    write: function(buf: pull-buffer<u8>) -> expected<_, error>
+
+    /// Commits the written data. Until this returns success the state of the
+    /// object is unspecified (implementation-specific).
+    commit: function() -> expected<_, error>
+}
+
+/// Prepare an object with the given key to be written. See `object-writer`.
+get-object: function(key: string) -> expected<object-reader, error>
+
+/// Prepare an object with the given key to be read. See `object-reader`.
+put-object: function(key: string) -> expected<object-writer, error>
+
+/// Delete the object with the given key.
+delete-object: function(key: string) -> expected<_, error>

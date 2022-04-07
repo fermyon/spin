@@ -3234,6 +3234,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-object-store"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "cap-std",
+ "serde",
+ "tracing",
+ "wasmtime",
+ "wit-bindgen-wasmtime",
+]
+
+[[package]]
 name = "spin-publish"
 version = "0.1.0"
 dependencies = [

@@ -7,10 +7,13 @@ pub mod io;
 
 use anyhow::{bail, Context, Result};
 use io::IoStreamRedirects;
+use spin_config::{host_component::ComponentConfig, Resolver};
 use spin_manifest::{Application, CoreComponent, DirectoryMount, ModuleSource};
 use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
-use tokio::task::JoinHandle;
-use tokio::time::{sleep, Duration};
+use tokio::{
+    task::JoinHandle,
+    time::{sleep, Duration},
+};
 use tracing::{instrument, log};
 use wasi_common::WasiCtx;
 use wasmtime::{Engine, Instance, InstancePre, Linker, Module, Store};
@@ -27,6 +30,8 @@ pub struct ExecutionContextConfiguration {
     pub label: String,
     /// Log directory on host.
     pub log_dir: Option<PathBuf>,
+    /// Application configuration resolver.
+    pub config_resolver: Option<Arc<Resolver>>,
 }
 
 impl From<Application<CoreComponent>> for ExecutionContextConfiguration {
@@ -34,6 +39,7 @@ impl From<Application<CoreComponent>> for ExecutionContextConfiguration {
         Self {
             components: app.components,
             label: app.info.name,
+            config_resolver: app.config_resolver.map(Arc::new),
             ..Default::default()
         }
     }
@@ -48,6 +54,8 @@ pub struct RuntimeContext<T> {
     pub experimental_http: Option<wasi_experimental_http_wasmtime::HttpCtx>,
     /// Outbound HTTP configuration.
     pub outbound_http: Option<wasi_outbound_http::OutboundHttp>,
+    /// Component configuration.
+    pub component_config: Option<spin_config::host_component::ComponentConfig>,
     /// Generic runtime data that can be configured by specialized engines.
     pub data: Option<T>,
 }
@@ -110,6 +118,14 @@ impl<T: Default> Builder<T> {
         Ok(self)
     }
 
+    /// Configures the application configuration interface.
+    pub fn link_config(&mut self) -> Result<&mut Self> {
+        spin_config::host_component::add_to_linker(&mut self.linker, |ctx| {
+            ctx.component_config.as_mut().unwrap()
+        })?;
+        Ok(self)
+    }
+
     /// Builds a new instance of the execution context.
     #[instrument(skip(self))]
     pub async fn build(&mut self) -> Result<ExecutionContext<T>> {
@@ -165,7 +181,12 @@ impl<T: Default> Builder<T> {
         config: ExecutionContextConfiguration,
     ) -> Result<ExecutionContext<T>> {
         let _sloth_warning = warn_if_slothful();
-        Self::new(config)?.link_wasi()?.link_http()?.build().await
+        Self::new(config)?
+            .link_wasi()?
+            .link_http()?
+            .link_config()?
+            .build()
+            .await
     }
 }
 
@@ -307,6 +328,11 @@ impl<T: Default> ExecutionContext<T> {
         let outbound_http = wasi_outbound_http::OutboundHttp {
             allowed_hosts: Some(component.core.wasm.allowed_http_hosts.clone()),
         };
+
+        if let Some(resolver) = &self.config.config_resolver {
+            ctx.component_config =
+                Some(ComponentConfig::new(&component.core.id, resolver.clone())?);
+        }
 
         ctx.wasi = Some(wasi_ctx.build());
         ctx.experimental_http = Some(experimental_http);

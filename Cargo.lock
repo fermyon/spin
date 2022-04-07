@@ -3090,6 +3090,7 @@ dependencies = [
  "path-absolutize",
  "semver",
  "serde",
+ "spin-config",
  "spin-engine",
  "spin-http-engine",
  "spin-loader",
@@ -3108,6 +3109,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-config"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "thiserror",
+ "toml",
+ "wit-bindgen-wasmtime",
+]
+
+[[package]]
 name = "spin-engine"
 version = "0.1.0"
 dependencies = [
@@ -3115,6 +3127,7 @@ dependencies = [
  "bytes 1.1.0",
  "dirs 4.0.0",
  "sanitize-filename",
+ "spin-config",
  "spin-manifest",
  "tempfile",
  "tokio",
@@ -3186,6 +3199,7 @@ dependencies = [
  "reqwest",
  "serde",
  "sha2 0.10.2",
+ "spin-config",
  "spin-manifest",
  "tempfile",
  "tokio",
@@ -3215,8 +3229,8 @@ dependencies = [
 name = "spin-manifest"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "serde",
+ "spin-config",
 ]
 
 [[package]]

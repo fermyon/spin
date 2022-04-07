@@ -1,0 +1,10 @@
+// Get a configuration value for the current component.
+// The config key must match one defined in in the component manifest.
+get-config: function(key: string) -> expected<string, error>
+
+variant error {
+    provider(string),
+    invalid-key(string),
+    invalid-schema(string),
+    other(string),
+}

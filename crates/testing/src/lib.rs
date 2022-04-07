@@ -91,6 +91,7 @@ impl TestConfig {
             )]
             .into_iter()
             .collect(),
+            config_resolver: None,
         }
     }
 

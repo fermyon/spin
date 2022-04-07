@@ -37,9 +37,9 @@ impl TemplatesManager {
         let mut root = dirs::cache_dir().context("cannot get system cache directory")?;
         root.push(SPIN_DIR);
 
-        Ok(Self::new(root)
+        Self::new(root)
             .await
-            .context("failed to create cache root directory")?)
+            .context("failed to create cache root directory")
     }
 
     /// Creates a cache using the given root directory.

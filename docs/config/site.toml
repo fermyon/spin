@@ -1,7 +1,6 @@
 title = "Spin Documentation"
 base_url = "http://localhost:3000"
 about = "Spin — a framework for building fast, secure, and composable microservices with WebAssembly"
-content_encoding = "gzip"
 
 [extra]
 copyright = "Fermyon"

@@ -1,5 +1,5 @@
 import { Console } from 'as-wasi';
-import { handleRequest, Request, Response, ResponseBuilder, StatusCode } from '../../sdk/as';
+import { handleRequest, Request, Response, ResponseBuilder, StatusCode } from '../../sdk/assemblyscript';
 
 export function _start(): void {
     handleRequest((request: Request): Response => {

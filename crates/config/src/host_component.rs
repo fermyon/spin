@@ -15,7 +15,10 @@ pub struct ComponentConfig {
 
 impl ComponentConfig {
     pub fn new(component_id: impl Into<String>, resolver: Arc<Resolver>) -> crate::Result<Self> {
-        let component_root = Path::new(component_id)?;
+        let component_root = Path::new(component_id).or_else(|_| {
+            // Temporary mitigation for https://github.com/fermyon/spin/issues/337
+            Path::new("invalid.path.issue_337")
+        })?;
         Ok(Self {
             component_root,
             resolver,

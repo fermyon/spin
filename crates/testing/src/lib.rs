@@ -96,7 +96,10 @@ impl TestConfig {
         }
     }
 
-    pub async fn prepare_builder<T: Default>(&self, app: Application<CoreComponent>) -> Builder<T> {
+    pub async fn prepare_builder<T: Default + 'static>(
+        &self,
+        app: Application<CoreComponent>,
+    ) -> Builder<T> {
         let mut builder = Builder::new(app.into()).expect("Builder::new failed");
         builder.link_defaults().expect("link_defaults failed");
         builder

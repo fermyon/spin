@@ -160,7 +160,7 @@ impl UpCommand {
         Ok(())
     }
 
-    async fn prepare_ctx_builder<T: Default>(
+    async fn prepare_ctx_builder<T: Default + 'static>(
         &self,
         app: Application<CoreComponent>,
     ) -> Result<Builder<T>> {
@@ -170,6 +170,7 @@ impl UpCommand {
         };
         let mut builder = Builder::new(config)?;
         builder.link_defaults()?;
+        builder.add_host_component(outbound_redis::OutboundRedis)?;
         Ok(builder)
     }
 }

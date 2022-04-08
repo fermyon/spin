@@ -15,6 +15,7 @@ dunce = "1.0"
 env_logger = "0.9"
 futures = "0.3"
 lazy_static = "1.4.0"
+outbound-redis = { path = "crates/outbound-redis" }
 path-absolutize = "3.0.11"
 semver = "1.0"
 serde = { version = "1.0", features = [ "derive" ] }

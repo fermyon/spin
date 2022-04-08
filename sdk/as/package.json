@@ -1,0 +1,28 @@
+{
+  "name": "@fermyon/spin-sdk-as",
+  "main": "index.ts",
+  "ascMain": "index.ts",
+  "types": "index.ts",
+  "version": "0.1.0",
+  "description": "A lightweight Spin SDK for AssemblyScript",
+  "author": {
+    "name": "Fermyon Engineering",
+    "email": "engineering@fermyon.com"
+  },
+  "homepage": "https://github.com/fermyon/spin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fermyon/spin"
+  },
+  "bugs": {
+    "url": "https://github.com/fermyon/spin/issues"
+  },
+  "license": "Apache V2",
+  "scripts": {
+    "asbuild": "asc index.ts -b build/optimized.wasm --use abort=wasi_abort --debug"
+  },
+  "dependencies": {
+    "as-wasi": "0.4.4",
+    "assemblyscript": "^0.18.16"
+  }
+}

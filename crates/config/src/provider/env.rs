@@ -42,7 +42,6 @@ impl Provider for EnvProvider {
 #[cfg(test)]
 mod test {
     use super::*;
-
     #[test]
     fn provider_get() {
         std::env::set_var("TESTING_SPIN_ENV_KEY1", "val");

@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use structopt::{clap::AppSettings, StructOpt};
 use tempfile::TempDir;
 
-const DEFAULT_MANIFEST_FILE: &str = "spin.toml";
+pub const DEFAULT_MANIFEST_FILE: &str = "spin.toml";
 
 const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
 const BINDLE_ID_OPT: &str = "BINDLE_ID";

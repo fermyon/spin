@@ -42,7 +42,9 @@ impl HttpExecutor for SpinHttpExecutor {
         let (store, instance) =
             engine.prepare_component(component, None, Some(io_redirects.clone()), None, None)?;
 
-        let resp_result = Self::execute_impl(store, instance, base, raw_route, req).await;
+        let resp_result = Self::execute_impl(store, instance, base, raw_route, req)
+            .await
+            .map_err(contextualise_err);
 
         let log_result = engine.save_output_to_logs(io_redirects, component, true, true);
 
@@ -187,6 +189,18 @@ impl SpinHttpExecutor {
                 .collect::<Vec<_>>()),
             None => Ok(vec![]),
         }
+    }
+}
+
+fn contextualise_err(e: anyhow::Error) -> anyhow::Error {
+    if e.to_string()
+        .contains("failed to find function export `canonical_abi_free`")
+    {
+        e.context(
+            "component is not compatible with Spin executor - should this use the Wagi executor?",
+        )
+    } else {
+        e
     }
 }
 

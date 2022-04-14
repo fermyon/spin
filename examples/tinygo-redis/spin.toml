@@ -1,0 +1,13 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A redis application."
+name = "spin-redis"
+trigger = { type = "redis", address = "redis://localhost:6379" }
+version = "0.1.0"
+
+[[component]]
+id = "echo-message"
+source = "main.wasm"
+[component.trigger]
+channel = "messages"
+

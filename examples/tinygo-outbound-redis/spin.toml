@@ -1,0 +1,13 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+name = "tinygo-outbound-redis-example"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[[component]]
+id = "outbound-redis"
+source = "main.wasm"
+environment = { REDIS_ADDRESS = "redis://127.0.0.1:6379", REDIS_CHANNEL = "messages" }
+[component.trigger]
+route = "/publish"
+executor = { type = "wagi" }

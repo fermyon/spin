@@ -94,8 +94,3 @@ jobs:
         env:
           RUST_LOG: spin=trace
 
-    # Cancel in-progress runs for PRs
-    # https://docs.github.com/en/actions/using-jobs/using-concurrency#example-using-a-fallback-value
-    concurrency:
-      group: ${{ github.head_ref || github.run_id }}
-      cancel-in-progress: true

@@ -41,20 +41,26 @@ func post(url string, contentType string, body io.Reader) (*http.Response, error
 
 func send(req *http.Request) (*http.Response, error) {
 	var spinReq C.wasi_outbound_http_request_t
+	var spinRes C.wasi_outbound_http_response_t
+	defer func() {
+		C.wasi_outbound_http_request_free(&spinReq)
+		C.wasi_outbound_http_response_free(&spinRes)
+	}()
+
 	m, err := method(req.Method)
 	if err != nil {
 		return nil, err
 	}
 	spinReq.method = uint8(m)
-	spinReq.uri = C.wasi_outbound_http_uri_t{ptr: C.CString(req.URL.String()), len: C.ulong(len(req.URL.String()))}
-
-	hm, _ := toSpinReqHeaders(req.Header)
-	spinReq.headers = hm
-
-	b, _ := toSpinReqBody(req.Body)
-	spinReq.body = b
-
-	var spinRes C.wasi_outbound_http_response_t
+	spinReq.uri = C.wasi_outbound_http_uri_t{
+		ptr: C.CString(req.URL.String()),
+		len: C.ulong(len(req.URL.String())),
+	}
+	spinReq.headers = toSpinReqHeaders(req.Header)
+	spinReq.body, err = toSpinReqBody(req.Body)
+	if err != nil {
+		return nil, err
+	}
 
 	code := C.wasi_outbound_http_request(&spinReq, &spinRes)
 
@@ -90,16 +96,8 @@ func method(m string) (int, error) {
 func toStdHttpResp(res *C.wasi_outbound_http_response_t) (*http.Response, error) {
 	var body []byte
 	if res.body.tag {
-		body = make([]byte, res.body.val.len)
-		ptr := unsafe.Pointer(res.body.val.ptr)
-		p := uintptr(ptr)
-		for i := 0; i < len(body); i++ {
-			body[i] = byte(*(*C.uint8_t)(unsafe.Pointer(p)))
-			p++
-		}
+		body = C.GoBytes(unsafe.Pointer(res.body.val.ptr), C.int(res.body.val.len))
 	}
-
-	headers, _ := toStdResHeaders(&res.headers)
 
 	t := &http.Response{
 		Status:        fmt.Sprintf("%v %v", res.status, http.StatusText(int(res.status))),
@@ -110,12 +108,12 @@ func toStdHttpResp(res *C.wasi_outbound_http_response_t) (*http.Response, error)
 		Body:          ioutil.NopCloser(bytes.NewBuffer(body)),
 		ContentLength: int64(len(body)),
 		Request:       nil, // we don't really have a request to populate with here
-		Header:        headers,
+		Header:        toStdResHeaders(&res.headers),
 	}
 	return t, nil
 }
 
-func toSpinReqHeaders(hm http.Header) (C.wasi_outbound_http_headers_t, error) {
+func toSpinReqHeaders(hm http.Header) C.wasi_outbound_http_headers_t {
 	var reqHeaders C.wasi_outbound_http_headers_t
 	headersLen := len(hm)
 
@@ -134,7 +132,7 @@ func toSpinReqHeaders(hm http.Header) (C.wasi_outbound_http_headers_t, error) {
 		reqHeaders.ptr = &ptr[0]
 	}
 
-	return reqHeaders, nil
+	return reqHeaders
 }
 
 func toSpinReqBody(body io.Reader) (C.wasi_outbound_http_option_body_t, error) {
@@ -150,19 +148,19 @@ func toSpinReqBody(body io.Reader) (C.wasi_outbound_http_option_body_t, error) {
 
 		if len > 0 {
 			spinBody.tag = true
-			var actualBody C.wasi_outbound_http_body_t
-			actualBody.len = C.size_t(len)
-			actualBody.ptr = &buf.Bytes()[0]
-			spinBody.val = actualBody
+			spinBody.val = C.wasi_outbound_http_body_t{
+				ptr: &buf.Bytes()[0],
+				len: C.size_t(len),
+			}
 		}
 	}
 
 	return spinBody, nil
 }
 
-func toStdResHeaders(hm *C.wasi_outbound_http_option_headers_t) (http.Header, error) {
+func toStdResHeaders(hm *C.wasi_outbound_http_option_headers_t) http.Header {
 	if !hm.tag {
-		return make(map[string][]string, 0), nil
+		return make(map[string][]string, 0)
 	}
 	headersLen := int(hm.val.len)
 	headers := make(http.Header, headersLen)
@@ -177,7 +175,7 @@ func toStdResHeaders(hm *C.wasi_outbound_http_option_headers_t) (http.Header, er
 		headers.Add(k, v)
 	}
 
-	return headers, nil
+	return headers
 }
 
 func toErr(code C.uint8_t, url string) error {

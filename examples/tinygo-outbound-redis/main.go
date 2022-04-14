@@ -5,7 +5,7 @@ import (
 	"os"
 
 	spin_http "github.com/fermyon/spin/sdk/go/http"
-	redis "github.com/fermyon/spin/sdk/go/outbound_redis"
+	"github.com/fermyon/spin/sdk/go/redis"
 )
 
 func main() {

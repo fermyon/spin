@@ -163,10 +163,6 @@ jobs:
     needs: checksums
     if: github.ref == 'refs/heads/main'
     steps:
-      - name: Set the release version
-        shell: bash
-        run: echo "RELEASE_VERSION=canary" >> $GITHUB_ENV
-
       - name: Download release assets
         uses: actions/download-artifact@v3
         with:
@@ -185,7 +181,7 @@ jobs:
           tag: canary
           allowUpdates: true
           prerelease: true
-          artifacts: "checksums-${{ env.RELEASE_VERSION }}.txt,spin-${{ env.RELEASE_VERSION }}*"
+          artifacts: "checksums-canary.txt,spin-canary*"
           body: |
             This is a "canary" release of the most recent commits on our main branch. Canary is **not stable**.
             It is only intended for developers wishing to try out the latest features in Spin, some of which may not be fully implemented.

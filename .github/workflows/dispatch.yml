@@ -9,6 +9,7 @@ jobs:
   changes:
     name: Detect files changed
     runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'fermyon' }}
     outputs:
       docs: ${{ steps.filter.outputs.docs }}
     steps:

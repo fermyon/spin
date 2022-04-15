@@ -176,7 +176,7 @@ jobs:
           tag_name: canary
 
       - name: Recreate canary tag and release
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@v1.10.0
         with:
           tag: canary
           allowUpdates: true

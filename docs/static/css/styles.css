@@ -203,7 +203,6 @@ main {
   opacity: 1;
   border-radius: 50%;
   transition: all .3s ease-in-out;
-  animation: halfSpin 4s infinite;
   display: inline-block;
   position: absolute;
   top: 1.25rem;
@@ -234,6 +233,10 @@ main {
   position: absolute;
   top: 1.295rem;
   right: 1.875rem;
+}
+
+#topbar.navbar:hover .logo .spin-front {
+  animation: halfSpin 4s infinite;
 }
 
 #topbar.navbar .logo-project {

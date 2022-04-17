@@ -29,7 +29,10 @@
     "matklad.rust-analyzer",
     "tamasfe.even-better-toml",
     "serayuzgur.crates",
-    "fermyon.autobindle"
+    "fermyon.autobindle",
+    "golang.Go",
+    "grain-lang.vscode-grain",
+    "saulecabrera.asls"
   ],
 
   // Use 'forwardPorts' to make a list of ports inside the container available locally.

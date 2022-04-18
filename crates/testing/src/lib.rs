@@ -96,7 +96,7 @@ impl TestConfig {
     }
 
     pub async fn build_http_trigger(&self) -> HttpTrigger {
-        HttpTrigger::new("".to_string(), self.build_application(), None, None)
+        HttpTrigger::new("".to_string(), self.build_application(), None, None, None)
             .await
             .expect("failed to build HttpTrigger")
     }

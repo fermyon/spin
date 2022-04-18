@@ -135,7 +135,7 @@ impl UpCommand {
 
         match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
-                let trigger = HttpTrigger::new(self.address, app, tls, self.log).await?;
+                let trigger = HttpTrigger::new(self.address, app, tls, self.log, None).await?;
                 trigger.run().await?;
             }
             ApplicationTrigger::Redis(_) => {

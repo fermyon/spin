@@ -66,6 +66,7 @@ impl HttpTrigger {
         app: Application<CoreComponent>,
         tls: Option<TlsConfig>,
         log_dir: Option<PathBuf>,
+        execution_context: Option<ExecutionContext>,
     ) -> Result<Self> {
         let trigger_config = app
             .info
@@ -83,11 +84,16 @@ impl HttpTrigger {
 
         let router = Router::build(&app)?;
 
-        let config = ExecutionContextConfiguration {
-            log_dir,
-            ..app.into()
+        let engine = match execution_context {
+            Some(engine) => Arc::new(engine),
+            None => {
+                let config = ExecutionContextConfiguration {
+                    log_dir,
+                    ..app.into()
+                };
+                Arc::new(Builder::build_default(config).await?)
+            }
         };
-        let engine = Arc::new(Builder::build_default(config).await?);
 
         log::trace!("Created new HTTP trigger.");
 
@@ -541,7 +547,7 @@ mod tests {
             })
             .build_application();
 
-        let trigger = HttpTrigger::new("".to_string(), cfg, None, None).await?;
+        let trigger = HttpTrigger::new("".to_string(), cfg, None, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
@@ -570,7 +576,7 @@ mod tests {
             })
             .build_application();
 
-        let trigger = HttpTrigger::new("".to_string(), cfg, None, None).await?;
+        let trigger = HttpTrigger::new("".to_string(), cfg, None, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()

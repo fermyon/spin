@@ -114,7 +114,9 @@ impl SpinHttpExecutor {
         .await??;
 
         let mut response = http::Response::builder().status(res.status);
-        Self::append_headers(response.headers_mut().unwrap(), res.headers)?;
+        if let Some(headers) = response.headers_mut() {
+            Self::append_headers(headers, res.headers)?;
+        }
 
         let body = match res.body {
             Some(b) => Body::from(b),

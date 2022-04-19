@@ -1,5 +1,6 @@
 use anyhow::{bail, Result};
-use spin_http_engine::{HttpTrigger, TlsConfig};
+use spin_engine::{Builder, ExecutionContext, ExecutionContextConfiguration};
+use spin_http_engine::{spin_http::SpinHttpData, HttpTrigger, TlsConfig};
 use spin_manifest::{Application, ApplicationTrigger, CoreComponent};
 use spin_redis_engine::RedisTrigger;
 use std::path::{Path, PathBuf};
@@ -111,10 +112,10 @@ impl UpCommand {
         };
         append_env(&mut app, &self.env)?;
 
-        if let Some(ref mut resolver) = app.config_resolver {
-            // TODO(lann): Make config provider(s) configurable.
-            resolver.add_provider(spin_config::provider::env::EnvProvider::default());
-        }
+        // if let Some(ref mut resolver) = app.config_resolver {
+        //     // TODO(lann): Make config provider(s) configurable.
+        //     resolver.add_provider(spin_config::provider::env::EnvProvider::default());
+        // }
 
         let tls = match (self.tls_key, self.tls_cert) {
             (Some(key_path), Some(cert_path)) => {
@@ -139,7 +140,7 @@ impl UpCommand {
                 trigger.run().await?;
             }
             ApplicationTrigger::Redis(_) => {
-                let trigger = RedisTrigger::new(app, self.log).await?;
+                let trigger = RedisTrigger::new(app, self.log, None).await?;
                 trigger.run().await?;
             }
         }

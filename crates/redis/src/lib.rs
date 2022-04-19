@@ -34,7 +34,11 @@ pub struct RedisTrigger {
 
 impl RedisTrigger {
     /// Create a new Spin Redis trigger.
-    pub async fn new(app: Application<CoreComponent>, log_dir: Option<PathBuf>) -> Result<Self> {
+    pub async fn new(
+        app: Application<CoreComponent>,
+        log_dir: Option<PathBuf>,
+        execution_context: Option<ExecutionContext>,
+    ) -> Result<Self> {
         let trigger_config = app
             .info
             .trigger
@@ -56,11 +60,17 @@ impl RedisTrigger {
             .filter_map(|(idx, c)| component_triggers.get(c).map(|c| (c.channel.clone(), idx)))
             .collect();
 
-        let config = ExecutionContextConfiguration {
-            log_dir,
-            ..app.into()
+        let engine = match execution_context {
+            Some(exec_ctx) => Arc::new(exec_ctx),
+            None => {
+                let config = ExecutionContextConfiguration {
+                    log_dir,
+                    ..app.into()
+                };
+                Arc::new(Builder::build_default(config).await?)
+            }
         };
-        let engine = Arc::new(Builder::build_default(config).await?);
+
         log::trace!("Created new Redis trigger.");
 
         Ok(Self {

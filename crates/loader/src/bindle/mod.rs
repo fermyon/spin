@@ -23,7 +23,7 @@ use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 use tracing::log;
 pub use utils::{BindleTokenManager, SPIN_MANIFEST_MEDIA_TYPE};
 
@@ -72,7 +72,7 @@ async fn prepare(
             config_root.merge_defaults(&path, config)?;
         }
     }
-    let config_resolver = Some(spin_config::Resolver::new(config_root)?);
+    let config_resolver = Some(Arc::new(spin_config::Resolver::new(config_root)?));
 
     let info = info(&raw, &invoice, url);
     log::trace!("Application information from bindle: {:?}", info);

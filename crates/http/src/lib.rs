@@ -4,6 +4,7 @@ mod routes;
 mod spin;
 mod tls;
 mod wagi;
+use futures::Future;
 pub use tls::TlsConfig;
 
 use crate::{
@@ -83,7 +84,6 @@ impl HttpTrigger {
         })?;
 
         let router = Router::build(&app)?;
-
         let engine = match execution_context {
             Some(engine) => Arc::new(engine),
             None => {
@@ -546,9 +546,12 @@ mod tests {
                 executor: Some(HttpExecutor::Spin),
             })
             .build_application();
-
-        let trigger = HttpTrigger::new("".to_string(), cfg, None, None, None).await?;
-
+        let config = ExecutionContextConfiguration {
+            log_dir: None,
+            ..cfg.clone().into()
+        };
+        let exec_ctx = Builder::build_default(config).await?;
+        let trigger = HttpTrigger::new("".to_string(), cfg, None, None, Some(exec_ctx)).await?;
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
             .header("x-custom-foo", "bar")
@@ -575,7 +578,6 @@ mod tests {
                 executor: Some(HttpExecutor::Wagi(Default::default())),
             })
             .build_application();
-
         let trigger = HttpTrigger::new("".to_string(), cfg, None, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());

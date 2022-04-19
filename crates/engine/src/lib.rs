@@ -39,7 +39,7 @@ impl From<Application<CoreComponent>> for ExecutionContextConfiguration {
         Self {
             components: app.components,
             label: app.info.name,
-            config_resolver: app.config_resolver.map(Arc::new),
+            config_resolver: app.config_resolver,
             ..Default::default()
         }
     }

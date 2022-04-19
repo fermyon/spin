@@ -6,7 +6,7 @@ use crate::spin::SpinRedisExecutor;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use futures::StreamExt;
-use redis::Client;
+use redis::{Client, ConnectionLike};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_manifest::{
     Application, ComponentMap, CoreComponent, RedisConfig, RedisTriggerConfiguration,
@@ -76,7 +76,7 @@ impl RedisTrigger {
         let address = self.trigger_config.address.as_str();
 
         log::info!("Connecting to Redis server at {}", address);
-        let client = Client::open(address.to_string())?;
+        let mut client = Client::open(address.to_string())?;
         let mut pubsub = client.get_async_connection().await?.into_pubsub();
 
         // Subscribe to channels
@@ -95,7 +95,13 @@ impl RedisTrigger {
         loop {
             match stream.next().await {
                 Some(msg) => drop(self.handle(msg).await),
-                None => log::trace!("Empty message"),
+                None => {
+                    log::trace!("Empty message");
+                    if !client.check_connection() {
+                        log::info!("No Redis connection available");
+                        break Ok(());
+                    }
+                }
             };
         }
     }

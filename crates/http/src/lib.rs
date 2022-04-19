@@ -4,7 +4,6 @@ mod routes;
 mod spin;
 mod tls;
 mod wagi;
-use futures::Future;
 pub use tls::TlsConfig;
 
 use crate::{

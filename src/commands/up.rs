@@ -1,6 +1,5 @@
 use anyhow::{bail, Result};
-use spin_engine::{Builder, ExecutionContext, ExecutionContextConfiguration};
-use spin_http_engine::{spin_http::SpinHttpData, HttpTrigger, TlsConfig};
+use spin_http_engine::{HttpTrigger, TlsConfig};
 use spin_manifest::{Application, ApplicationTrigger, CoreComponent};
 use spin_redis_engine::RedisTrigger;
 use std::path::{Path, PathBuf};

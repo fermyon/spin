@@ -7,12 +7,11 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};
-use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_manifest::{
     Application, ComponentMap, CoreComponent, RedisConfig, RedisTriggerConfiguration,
 };
 use spin_redis::SpinRedisData;
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 wit_bindgen_wasmtime::import!("../../wit/ephemeral/spin-redis.wit");
 
@@ -34,7 +33,7 @@ pub struct RedisTrigger {
 
 impl RedisTrigger {
     /// Create a new Spin Redis trigger.
-    pub async fn new(app: Application<CoreComponent>, log_dir: Option<PathBuf>) -> Result<Self> {
+    pub async fn new(engine: ExecutionContext, app: Application<CoreComponent>) -> Result<Self> {
         let trigger_config = app
             .info
             .trigger
@@ -56,11 +55,8 @@ impl RedisTrigger {
             .filter_map(|(idx, c)| component_triggers.get(c).map(|c| (c.channel.clone(), idx)))
             .collect();
 
-        let config = ExecutionContextConfiguration {
-            log_dir,
-            ..app.into()
-        };
-        let engine = Arc::new(Builder::build_default(config).await?);
+        let engine = Arc::new(engine);
+
         log::trace!("Created new Redis trigger.");
 
         Ok(Self {

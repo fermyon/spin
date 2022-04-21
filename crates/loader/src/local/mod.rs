@@ -18,7 +18,7 @@ use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 use tokio::{fs::File, io::AsyncReadExt};
 
 /// Given the path to a spin.toml manifest file, prepare its assets locally and
@@ -80,7 +80,7 @@ async fn prepare(
             config_root.merge_defaults(&path, config)?;
         }
     }
-    let config_resolver = Some(spin_config::Resolver::new(config_root)?);
+    let config_resolver = Some(Arc::new(spin_config::Resolver::new(config_root)?));
 
     let component_triggers = raw
         .components

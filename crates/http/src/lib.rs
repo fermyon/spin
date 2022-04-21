@@ -21,12 +21,11 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http::SpinHttpData;
 use spin_manifest::{
     Application, ComponentMap, CoreComponent, HttpConfig, HttpTriggerConfiguration,
 };
-use std::{future::ready, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{future::ready, net::SocketAddr, sync::Arc};
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
@@ -62,10 +61,10 @@ pub struct HttpTrigger {
 impl HttpTrigger {
     /// Creates a new Spin HTTP trigger.
     pub async fn new(
-        address: String,
+        engine: ExecutionContext,
         app: Application<CoreComponent>,
+        address: String,
         tls: Option<TlsConfig>,
-        log_dir: Option<PathBuf>,
     ) -> Result<Self> {
         let trigger_config = app
             .info
@@ -82,12 +81,7 @@ impl HttpTrigger {
         })?;
 
         let router = Router::build(&app)?;
-
-        let config = ExecutionContextConfiguration {
-            log_dir,
-            ..app.into()
-        };
-        let engine = Arc::new(Builder::build_default(config).await?);
+        let engine = Arc::new(engine);
 
         log::trace!("Created new HTTP trigger.");
 
@@ -533,15 +527,16 @@ mod tests {
     async fn test_spin_http() -> Result<()> {
         init();
 
-        let cfg = spin_testing::TestConfig::default()
-            .test_program("rust-http-test.wasm")
+        let mut cfg = spin_testing::TestConfig::default();
+        cfg.test_program("rust-http-test.wasm")
             .http_trigger(HttpConfig {
                 route: "/test".to_string(),
                 executor: Some(HttpExecutor::Spin),
-            })
-            .build_application();
+            });
+        let app = cfg.build_application();
+        let engine = cfg.build_execution_context(app.clone()).await;
 
-        let trigger = HttpTrigger::new("".to_string(), cfg, None, None).await?;
+        let trigger = HttpTrigger::new(engine, app, "".to_string(), None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
@@ -562,15 +557,15 @@ mod tests {
     async fn test_wagi_http() -> Result<()> {
         init();
 
-        let cfg = spin_testing::TestConfig::default()
-            .test_program("wagi-test.wasm")
-            .http_trigger(HttpConfig {
-                route: "/test".to_string(),
-                executor: Some(HttpExecutor::Wagi(Default::default())),
-            })
-            .build_application();
+        let mut cfg = spin_testing::TestConfig::default();
+        cfg.test_program("wagi-test.wasm").http_trigger(HttpConfig {
+            route: "/test".to_string(),
+            executor: Some(HttpExecutor::Wagi(Default::default())),
+        });
+        let app = cfg.build_application();
+        let engine = cfg.build_execution_context(app.clone()).await;
 
-        let trigger = HttpTrigger::new("".to_string(), cfg, None, None).await?;
+        let trigger = HttpTrigger::new(engine, app, "".to_string(), None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()

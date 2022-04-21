@@ -8,5 +8,6 @@ authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 anyhow = "1.0"
 http = "0.2"
 hyper = "0.14"
+spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }
 spin-http-engine = { path = "../http" }

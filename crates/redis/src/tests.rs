@@ -20,15 +20,16 @@ pub(crate) fn init() {
 async fn test_pubsub() -> Result<()> {
     init();
 
-    let cfg = TestConfig::default()
-        .test_program("redis-rust.wasm")
+    let mut cfg = TestConfig::default();
+    cfg.test_program("redis-rust.wasm")
         .redis_trigger(RedisConfig {
             channel: "messages".to_string(),
             executor: Some(RedisExecutor::Spin),
-        })
-        .build_application();
+        });
+    let app = cfg.build_application();
+    let engine = cfg.prepare_builder(app.clone()).await;
 
-    let trigger = RedisTrigger::new(cfg, None).await?;
+    let trigger = RedisTrigger::new(engine, app).await?;
 
     // TODO
     // use redis::{FromRedisValue, Msg, Value};

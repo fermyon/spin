@@ -8,10 +8,11 @@ use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
     path::PathBuf,
+    sync::Arc,
 };
 
 /// Application configuration.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Application<T> {
     /// General application information.
     pub info: ApplicationInformation,
@@ -20,7 +21,7 @@ pub struct Application<T> {
     /// Configuration for the components' triggers.
     pub component_triggers: ComponentMap<TriggerConfig>,
     /// Application-specific configuration resolver.
-    pub config_resolver: Option<Resolver>,
+    pub config_resolver: Option<Arc<Resolver>>,
 }
 
 /// Spin API version.

@@ -8,6 +8,7 @@ use std::{
 
 use http::{Request, Response};
 use hyper::Body;
+use spin_engine::Builder;
 use spin_http_engine::HttpTrigger;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
@@ -95,8 +96,16 @@ impl TestConfig {
         }
     }
 
+    pub async fn prepare_builder<T: Default>(&self, app: Application<CoreComponent>) -> Builder<T> {
+        let mut builder = Builder::new(app.into()).expect("Builder::new failed");
+        builder.link_defaults().expect("link_defaults failed");
+        builder
+    }
+
     pub async fn build_http_trigger(&self) -> HttpTrigger {
-        HttpTrigger::new("".to_string(), self.build_application(), None, None)
+        let app = self.build_application();
+        let builder = self.prepare_builder(app.clone()).await;
+        HttpTrigger::new(builder, app, "".to_string(), None)
             .await
             .expect("failed to build HttpTrigger")
     }

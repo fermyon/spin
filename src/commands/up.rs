@@ -1,8 +1,12 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
+use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http_engine::{HttpTrigger, TlsConfig};
 use spin_manifest::{Application, ApplicationTrigger, CoreComponent};
 use spin_redis_engine::RedisTrigger;
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use structopt::{clap::AppSettings, StructOpt};
 use tempfile::TempDir;
 
@@ -112,11 +116,14 @@ impl UpCommand {
         append_env(&mut app, &self.env)?;
 
         if let Some(ref mut resolver) = app.config_resolver {
+            // TODO(lann): This should be safe but ideally this get_mut would be refactored away.
+            let resolver = Arc::get_mut(resolver)
+                .context("Internal error: app.config_resolver unexpectedly shared")?;
             // TODO(lann): Make config provider(s) configurable.
             resolver.add_provider(spin_config::provider::env::EnvProvider::default());
         }
 
-        let tls = match (self.tls_key, self.tls_cert) {
+        let tls = match (self.tls_key.clone(), self.tls_cert.clone()) {
             (Some(key_path), Some(cert_path)) => {
                 if !cert_path.is_file() {
                     bail!("TLS certificate file does not exist or is not a file")
@@ -135,11 +142,13 @@ impl UpCommand {
 
         match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
-                let trigger = HttpTrigger::new(self.address, app, tls, self.log).await?;
+                let builder = self.prepare_ctx_builder(app.clone()).await?;
+                let trigger = HttpTrigger::new(builder, app, self.address, tls).await?;
                 trigger.run().await?;
             }
             ApplicationTrigger::Redis(_) => {
-                let trigger = RedisTrigger::new(app, self.log).await?;
+                let builder = self.prepare_ctx_builder(app.clone()).await?;
+                let trigger = RedisTrigger::new(builder, app).await?;
                 trigger.run().await?;
             }
         }
@@ -149,6 +158,19 @@ impl UpCommand {
         drop(working_dir_holder);
 
         Ok(())
+    }
+
+    async fn prepare_ctx_builder<T: Default>(
+        &self,
+        app: Application<CoreComponent>,
+    ) -> Result<Builder<T>> {
+        let config = ExecutionContextConfiguration {
+            log_dir: self.log.clone(),
+            ..app.into()
+        };
+        let mut builder = Builder::new(config)?;
+        builder.link_defaults()?;
+        Ok(builder)
     }
 }
 

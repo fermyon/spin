@@ -113,6 +113,13 @@ impl SpinHttpExecutor {
         })
         .await??;
 
+        if res.status < 100 || res.status > 600 {
+            log::error!("malformed HTTP status code");
+            return Ok(Response::builder()
+                .status(http::StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::empty())?);
+        };
+
         let mut response = http::Response::builder().status(res.status);
         if let Some(headers) = response.headers_mut() {
             Self::append_headers(headers, res.headers)?;

@@ -54,8 +54,6 @@ pub struct DeployCommand {
         name = HIPPO_SERVER_URL_OPT,
         long = "hippo-server",
         env = HIPPO_URL_ENV,
-        default_value = "https://localhost:5309",
-
     )]
     pub hippo_server_url: String,
 
@@ -90,7 +88,7 @@ impl DeployCommand {
         let bindle_id = self
             .create_and_push_bindle()
             .await
-            .expect("Unable to create and push bindle from app {}");
+            .expect("Unable to create and push bindle from Spin app");
 
         let hippo_client_config = self.create_hippo_client_config().await;
 

@@ -4,6 +4,7 @@ mod routes;
 mod spin;
 mod tls;
 mod wagi;
+use spin_engine::Builder;
 pub use tls::TlsConfig;
 
 use crate::{
@@ -61,7 +62,7 @@ pub struct HttpTrigger {
 impl HttpTrigger {
     /// Creates a new Spin HTTP trigger.
     pub async fn new(
-        engine: ExecutionContext,
+        mut builder: Builder<SpinHttpData>,
         app: Application<CoreComponent>,
         address: String,
         tls: Option<TlsConfig>,
@@ -81,7 +82,7 @@ impl HttpTrigger {
         })?;
 
         let router = Router::build(&app)?;
-        let engine = Arc::new(engine);
+        let engine = Arc::new(builder.build().await?);
 
         log::trace!("Created new HTTP trigger.");
 
@@ -534,7 +535,7 @@ mod tests {
                 executor: Some(HttpExecutor::Spin),
             });
         let app = cfg.build_application();
-        let engine = cfg.build_execution_context(app.clone()).await;
+        let engine = cfg.prepare_builder(app.clone()).await;
 
         let trigger = HttpTrigger::new(engine, app, "".to_string(), None).await?;
 
@@ -563,7 +564,7 @@ mod tests {
             executor: Some(HttpExecutor::Wagi(Default::default())),
         });
         let app = cfg.build_application();
-        let engine = cfg.build_execution_context(app.clone()).await;
+        let engine = cfg.prepare_builder(app.clone()).await;
 
         let trigger = HttpTrigger::new(engine, app, "".to_string(), None).await?;
 

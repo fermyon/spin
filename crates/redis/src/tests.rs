@@ -27,7 +27,7 @@ async fn test_pubsub() -> Result<()> {
             executor: Some(RedisExecutor::Spin),
         });
     let app = cfg.build_application();
-    let engine = cfg.build_execution_context(app.clone()).await;
+    let engine = cfg.prepare_builder(app.clone()).await;
 
     let trigger = RedisTrigger::new(engine, app).await?;
 

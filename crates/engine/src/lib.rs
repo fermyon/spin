@@ -139,6 +139,7 @@ impl<T: Default> Builder<T> {
     /// Builds a new instance of the execution context.
     #[instrument(skip(self))]
     pub async fn build(&mut self) -> Result<ExecutionContext<T>> {
+        let _sloth_warning = warn_if_slothful();
         let mut components = HashMap::new();
         for c in &self.config.components {
             let core = c.clone();
@@ -186,18 +187,16 @@ impl<T: Default> Builder<T> {
         })
     }
 
+    /// Configures default host interface implementations.
+    pub fn link_defaults(&mut self) -> Result<&mut Self> {
+        self.link_wasi()?.link_http()?.link_config()
+    }
+
     /// Builds a new default instance of the execution context.
     pub async fn build_default(
         config: ExecutionContextConfiguration,
     ) -> Result<ExecutionContext<T>> {
-        let _sloth_warning = warn_if_slothful();
-        Self::new(config)?
-            .link_wasi()?
-            .link_http()?
-            .link_config()?
-            .link_redis()?
-            .build()
-            .await
+        Self::new(config)?.link_defaults()?.build().await
     }
 }
 

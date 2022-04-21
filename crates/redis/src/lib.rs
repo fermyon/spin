@@ -7,6 +7,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};
+use spin_engine::Builder;
 use spin_manifest::{
     Application, ComponentMap, CoreComponent, RedisConfig, RedisTriggerConfiguration,
 };
@@ -33,7 +34,10 @@ pub struct RedisTrigger {
 
 impl RedisTrigger {
     /// Create a new Spin Redis trigger.
-    pub async fn new(engine: ExecutionContext, app: Application<CoreComponent>) -> Result<Self> {
+    pub async fn new(
+        mut builder: Builder<SpinRedisData>,
+        app: Application<CoreComponent>,
+    ) -> Result<Self> {
         let trigger_config = app
             .info
             .trigger
@@ -55,7 +59,7 @@ impl RedisTrigger {
             .filter_map(|(idx, c)| component_triggers.get(c).map(|c| (c.channel.clone(), idx)))
             .collect();
 
-        let engine = Arc::new(engine);
+        let engine = Arc::new(builder.build().await?);
 
         log::trace!("Created new Redis trigger.");
 

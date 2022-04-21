@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use spin_engine::{Builder, ExecutionContext, ExecutionContextConfiguration};
+use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http_engine::{HttpTrigger, TlsConfig};
 use spin_manifest::{Application, ApplicationTrigger, CoreComponent};
 use spin_redis_engine::RedisTrigger;
@@ -142,13 +142,13 @@ impl UpCommand {
 
         match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
-                let engine = self.build_execution_context(app.clone()).await?;
-                let trigger = HttpTrigger::new(engine, app, self.address, tls).await?;
+                let builder = self.prepare_ctx_builder(app.clone()).await?;
+                let trigger = HttpTrigger::new(builder, app, self.address, tls).await?;
                 trigger.run().await?;
             }
             ApplicationTrigger::Redis(_) => {
-                let engine = self.build_execution_context(app.clone()).await?;
-                let trigger = RedisTrigger::new(engine, app).await?;
+                let builder = self.prepare_ctx_builder(app.clone()).await?;
+                let trigger = RedisTrigger::new(builder, app).await?;
                 trigger.run().await?;
             }
         }
@@ -160,15 +160,17 @@ impl UpCommand {
         Ok(())
     }
 
-    async fn build_execution_context<T: Default>(
+    async fn prepare_ctx_builder<T: Default>(
         &self,
         app: Application<CoreComponent>,
-    ) -> Result<ExecutionContext<T>> {
+    ) -> Result<Builder<T>> {
         let config = ExecutionContextConfiguration {
             log_dir: self.log.clone(),
             ..app.into()
         };
-        Builder::build_default(config).await
+        let mut builder = Builder::new(config)?;
+        builder.link_defaults()?;
+        Ok(builder)
     }
 }
 

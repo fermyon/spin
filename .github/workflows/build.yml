@@ -81,11 +81,30 @@ jobs:
           url: ${{ matrix.config.bindleUrl }}
           pathInArchive: ${{ matrix.config.pathInBindleArchive }}
 
-      - uses: engineerd/configurator@v0.0.8
+      - uses: actions/setup-go@v3
         with:
-          name: ${{ matrix.config.tinygoBinary }}
-          url: ${{ matrix.config.tinygoUrl }}
-          pathInArchive: ${{ matrix.config.pathInTinygoArchive }}
+          go-version: '1.17'
+
+      - name: "Install TinyGo"
+        if: matrix.config.os == 'ubuntu-latest'
+        run: |
+          wget https://github.com/tinygo-org/tinygo/releases/download/v0.22.0/tinygo_0.22.0_amd64.deb
+          sudo dpkg -i tinygo_0.22.0_amd64.deb
+          tinygo env
+
+      - name: "Install TinyGo"
+        if: matrix.config.os == 'macos-latest'
+        run: |
+          wget https://github.com/tinygo-org/tinygo/releases/download/v0.22.0/tinygo0.22.0.darwin-amd64.tar.gz
+          tar -xzf ./tinygo0.22.0.darwin-amd64.tar.gz
+          echo "${PWD}/tinygo/bin" >> $GITHUB_PATH
+          tinygo env
+
+      # - uses: engineerd/configurator@v0.0.8
+      #   with:
+      #     name: ${{ matrix.config.tinygoBinary }}
+      #     url: ${{ matrix.config.tinygoUrl }}
+      #     pathInArchive: ${{ matrix.config.pathInTinygoArchive }}
 
       - uses: Swatinem/rust-cache@v1
 

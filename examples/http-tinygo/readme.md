@@ -28,7 +28,7 @@ Building this as a WebAssembly module can be done using the `tinygo` compiler:
 
 ```shell
 $ make build
-tinygo build -wasm-abi=generic -target=wasi -o main.wasm main.go
+tinygo build -wasm-abi=generic -target=wasi -no-debug -o main.wasm main.go
 ```
 
 Finally, we can create a Spin application configuration to execute this

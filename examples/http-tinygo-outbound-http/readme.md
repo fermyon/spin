@@ -25,7 +25,7 @@ Building this as a WebAssembly module can be done using the `tinygo` compiler:
 
 ```shell
 $ make build
-tinygo build -wasm-abi=generic -target=wasi -gc=leaking -o main.wasm main.go
+tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go
 ```
 
 The component configuration must contain a list of all hosts allowed to send

@@ -1,24 +1,27 @@
-//nolint:staticcheck
-
 // Package http contains the helper functions for writing Spin HTTP components
 // in TinyGo, as well as for sending outbound HTTP requests.
 package http
 
 import (
+	"fmt"
 	"io"
 	"net/http"
-	"net/http/cgi"
+	"os"
 )
 
-// HandleRequest is the entrypoint handler for a Spin HTTP component.
-//
-// This is currently handled using CGI to form the request and reponse,
-// but as Go implements support for the component model, the underlying
-// implementation of this function can change, but the exported signature
-// can continue to always be
-// `func HandleRequest(h func(w http.ResponseWriter, r *http.Request)) error`.
-func HandleRequest(h func(w http.ResponseWriter, r *http.Request)) error {
-	return cgi.Serve(http.HandlerFunc(h))
+// handler is the function that will be called by the http trigger in Spin.
+var handler = defaultHandler
+
+// defaultHandler is a placeholder for returning a useful error to stdout when
+// the handler is not set.
+var defaultHandler = func(http.ResponseWriter, *http.Request) {
+	fmt.Fprintln(os.Stderr, "http handler undefined")
+}
+
+// Handle sets the handler function for the http trigger.
+// It must be set in an init() function.
+func Handle(fn func(http.ResponseWriter, *http.Request)) {
+	handler = fn
 }
 
 // Get creates a GET HTTP request to a given URL and returns the HTTP response.

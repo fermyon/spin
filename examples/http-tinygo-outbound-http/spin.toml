@@ -8,7 +8,6 @@ version = "1.0.0"
 [[component]]
 id = "tinygo-hello"
 source = "main.wasm"
-allowed_http_hosts = [ "https://some-random-api.ml", "https://postman-echo.com" ]
+allowed_http_hosts = ["https://some-random-api.ml", "https://postman-echo.com"]
 [component.trigger]
 route = "/hello"
-executor = { type = "wagi" }

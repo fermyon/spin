@@ -17,6 +17,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"unsafe"
 )
 
@@ -56,36 +57,35 @@ func send(req *http.Request) (*http.Response, error) {
 		ptr: C.CString(req.URL.String()),
 		len: C.ulong(len(req.URL.String())),
 	}
-	spinReq.headers = toSpinReqHeaders(req.Header)
-	spinReq.body, err = toSpinReqBody(req.Body)
+	spinReq.headers = toOutboundHeaders(req.Header)
+	spinReq.body, err = toOutboundReqBody(req.Body)
 	if err != nil {
 		return nil, err
 	}
 
 	code := C.wasi_outbound_http_request(&spinReq, &spinRes)
 
-	err = toErr(code, req.URL.String())
-	if err != nil {
+	if err := toErr(code, req.URL.String()); err != nil {
 		return nil, err
 	}
-	return toStdHttpResp(&spinRes)
+	return toResponse(&spinRes)
 }
 
 func method(m string) (int, error) {
-	switch m {
-	case "GET", "get":
+	switch strings.ToUpper(m) {
+	case "GET":
 		return 0, nil
-	case "POST", "post":
+	case "POST":
 		return 1, nil
-	case "PUT", "put":
+	case "PUT":
 		return 2, nil
-	case "DELETE", "delete":
+	case "DELETE":
 		return 3, nil
-	case "PATCH", "patch":
+	case "PATCH":
 		return 4, nil
-	case "HEAD", "head":
+	case "HEAD":
 		return 5, nil
-	case "OPTIONS", "options":
+	case "OPTIONS":
 		return 6, nil
 	default:
 		return -1, fmt.Errorf("Unknown HTTP method %v", m)
@@ -93,7 +93,7 @@ func method(m string) (int, error) {
 }
 
 // Transform a C outbound HTTP response to a Go *http.Response.
-func toStdHttpResp(res *C.wasi_outbound_http_response_t) (*http.Response, error) {
+func toResponse(res *C.wasi_outbound_http_response_t) (*http.Response, error) {
 	var body []byte
 	if res.body.tag {
 		body = C.GoBytes(unsafe.Pointer(res.body.val.ptr), C.int(res.body.val.len))
@@ -108,12 +108,25 @@ func toStdHttpResp(res *C.wasi_outbound_http_response_t) (*http.Response, error)
 		Body:          ioutil.NopCloser(bytes.NewBuffer(body)),
 		ContentLength: int64(len(body)),
 		Request:       nil, // we don't really have a request to populate with here
-		Header:        toStdResHeaders(&res.headers),
+		Header:        toHeaders(&res.headers),
 	}
 	return t, nil
 }
 
-func toSpinReqHeaders(hm http.Header) C.wasi_outbound_http_headers_t {
+// outboundString is the go type for C.wasi_outbound_http_string_t.
+type outboundString C.wasi_outbound_http_string_t
+
+// newOutboundString creates a new spinString with the given string.
+func newOutboundString(s string) spinString {
+	return C.wasi_outbound_http_string_t{ptr: C.CString(s), len: C.size_t(len(s))}
+}
+
+// String returns the outboundString as a go string.
+func (ws outboundString) String() string {
+	return C.GoStringN(ws.ptr, C.int(ws.len))
+}
+
+func toOutboundHeaders(hm http.Header) C.wasi_outbound_http_headers_t {
 	var reqHeaders C.wasi_outbound_http_headers_t
 	headersLen := len(hm)
 
@@ -125,8 +138,8 @@ func toSpinReqHeaders(hm http.Header) C.wasi_outbound_http_headers_t {
 
 		idx := 0
 		for k, v := range hm {
-			ptr[idx].f0 = C.wasi_outbound_http_string_t{ptr: C.CString(k), len: C.ulong(len(k))}
-			ptr[idx].f1 = C.wasi_outbound_http_string_t{ptr: C.CString(v[0]), len: C.ulong(len(v[0]))}
+			ptr[idx].f0 = newOutboundString(k)
+			ptr[idx].f1 = newOutboundString(v[0])
 			idx++
 		}
 		reqHeaders.ptr = &ptr[0]
@@ -135,7 +148,7 @@ func toSpinReqHeaders(hm http.Header) C.wasi_outbound_http_headers_t {
 	return reqHeaders
 }
 
-func toSpinReqBody(body io.Reader) (C.wasi_outbound_http_option_body_t, error) {
+func toOutboundReqBody(body io.Reader) (C.wasi_outbound_http_option_body_t, error) {
 	var spinBody C.wasi_outbound_http_option_body_t
 	spinBody.tag = false
 
@@ -158,7 +171,7 @@ func toSpinReqBody(body io.Reader) (C.wasi_outbound_http_option_body_t, error) {
 	return spinBody, nil
 }
 
-func toStdResHeaders(hm *C.wasi_outbound_http_option_headers_t) http.Header {
+func toHeaders(hm *C.wasi_outbound_http_option_headers_t) http.Header {
 	if !hm.tag {
 		return make(map[string][]string, 0)
 	}

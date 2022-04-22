@@ -1356,6 +1356,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "hippo-openapi"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccdd4ea8f4de601a7a88363fef1b19dea97c69f13d292aa96872f3220cc92cf2"
+dependencies = [
+ "reqwest",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "url 2.2.2",
+]
+
+[[package]]
 name = "http"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2606,6 +2619,7 @@ dependencies = [
  "lazy_static",
  "log",
  "mime",
+ "mime_guess",
  "native-tls",
  "percent-encoding 2.1.0",
  "pin-project-lite",
@@ -3094,9 +3108,11 @@ dependencies = [
  "dunce",
  "env_logger",
  "futures",
+ "hippo-openapi",
  "hyper",
  "lazy_static",
  "path-absolutize",
+ "reqwest",
  "semver",
  "serde",
  "spin-config",

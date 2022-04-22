@@ -2,6 +2,8 @@
 
 /// Command for creating bindles.
 pub mod bindle;
+/// Command for deploying a Spin app to Hippo
+pub mod deploy;
 /// Command for creating a new application.
 pub mod new;
 /// Commands for working with templates.

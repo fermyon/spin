@@ -29,6 +29,9 @@ jobs:
               bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-linux-amd64.tar.gz",
               bindleBinary: "bindle-server",
               pathInBindleArchive: "bindle-server",
+              tinygoUrl: "https://github.com/tinygo-org/tinygo/releases/download/v0.22.0/tinygo0.22.0.linux-amd64.tar.gz",
+              tinygoBinary: "tinygo",
+              pathInTinygoArchive: "tinygo/bin/tinygo",
               platformAgnosticChecks: true,
             }
           - {
@@ -41,6 +44,9 @@ jobs:
               bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-macos-amd64.tar.gz",
               bindleBinary: "bindle-server",
               pathInBindleArchive: "bindle-server",
+              tinygoUrl: "https://github.com/tinygo-org/tinygo/releases/download/v0.22.0/tinygo0.22.0.darwin-amd64.tar.gz",
+              tinygoBinary: "tinygo",
+              pathInTinygoArchive: "tinygo/bin/tinygo",
             }
           - {
               os: "windows-latest",
@@ -52,6 +58,9 @@ jobs:
               bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-windows-amd64.tar.gz",
               bindleBinary: "bindle-server.exe",
               pathInBindleArchive: "bindle-server.exe",
+              tinygoUrl: "https://github.com/tinygo-org/tinygo/releases/download/v0.22.0/tinygo0.22.0.windows-amd64.zip",
+              tinygoBinary: "tinygo.exe",
+              pathInTinygoArchive: "tinygo/bin/tinygo.exe",
             }
     steps:
       - uses: actions/checkout@v2
@@ -72,6 +81,11 @@ jobs:
           url: ${{ matrix.config.bindleUrl }}
           pathInArchive: ${{ matrix.config.pathInBindleArchive }}
 
+      - uses: engineerd/configurator@v0.0.8
+        with:
+          name: ${{ matrix.config.tinygoBinary }}
+          url: ${{ matrix.config.tinygoUrl }}
+          pathInArchive: ${{ matrix.config.pathInTinygoArchive }}
 
       - uses: Swatinem/rust-cache@v1
 

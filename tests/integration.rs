@@ -20,6 +20,8 @@ mod integration_tests {
     const RUST_HTTP_HEADERS_ENV_ROUTES_TEST: &str = "tests/http/headers-env-routes-test";
     const RUST_HTTP_HEADERS_ENV_ROUTES_TEST_REF: &str = "spin-headers-env-routes-test/1.0.0";
 
+    const TINYGO_HTTP_TEST: &str = "tests/http/http-tinygo";
+
     const DEFAULT_MANIFEST_LOCATION: &str = "spin.toml";
 
     const SPIN_BINARY: &str = "./target/debug/spin";
@@ -160,6 +162,21 @@ mod integration_tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn test_tinygo_http() -> Result<()> {
+        let s = SpinTestController::with_manifest(
+            &format!("{}/{}", TINYGO_HTTP_TEST, DEFAULT_MANIFEST_LOCATION),
+            &[],
+        )
+        .await?;
+
+        assert_status(&s, "/hello", 200).await?;
+        assert_output(&s, "/hello", "Hello world!").await?;
+        verify_headers(&s, "/hello/friend", 200, &[("foo", "bar")], "/friend").await?;
+
+        Ok(())
+    }
+
     async fn verify_headers(
         s: &SpinTestController,
         absolute_uri: &str,
@@ -199,6 +216,19 @@ mod integration_tests {
     ) -> Result<()> {
         let res = req(s, absolute_uri).await?;
         assert_eq!(res.status(), expected);
+
+        Ok(())
+    }
+
+    async fn assert_output(
+        s: &SpinTestController,
+        absolute_uri: &str,
+        expected: &str,
+    ) -> Result<()> {
+        let res = req(s, absolute_uri).await?;
+        let body_bytes = hyper::body::to_bytes(res.into_body()).await?;
+        let body_string = String::from_utf8(body_bytes.to_vec())?;
+        assert_eq!(body_string.trim(), String::from(expected));
 
         Ok(())
     }

@@ -28,6 +28,8 @@ fn main() {
     cargo_build(RUST_HTTP_INTEGRATION_TEST);
     cargo_build(RUST_HTTP_INTEGRATION_ENV_TEST);
 
+    build_tinygo_test_program("tests/http/http-tinygo");
+
     let mut config = vergen::Config::default();
     *config.git_mut().sha_kind_mut() = vergen::ShaKind::Short;
     *config.git_mut().commit_timestamp_kind_mut() = vergen::TimestampKind::DateOnly;
@@ -44,6 +46,23 @@ fn build_wasm_test_program(name: &'static str, root: &'static str) {
 fn cargo_build(dir: &str) {
     run(
         vec!["cargo", "build", "--target", "wasm32-wasi", "--release"],
+        Some(dir),
+        None,
+    );
+}
+
+fn build_tinygo_test_program(dir: &str) {
+    run(
+        vec![
+            "tinygo",
+            "build",
+            "-wasm-abi=generic",
+            "-target=wasi",
+            "-gc=leaking",
+            "-o",
+            "main.wasm",
+            "main.go",
+        ],
         Some(dir),
         None,
     );

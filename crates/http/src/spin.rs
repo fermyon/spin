@@ -6,6 +6,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use http::Uri;
 use hyper::{Body, Request, Response};
+use serde::Deserialize;
 use spin_engine::io::{IoStreamRedirects, OutRedirect};
 use std::{
     net::SocketAddr,
@@ -17,6 +18,15 @@ use tokio::task::spawn_blocking;
 use tracing::log;
 use wasi_common::pipe::{ReadPipe, WritePipe};
 use wasmtime::{Instance, Store};
+
+impl<'de> Deserialize<'de> for crate::spin_http::Request<'_> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        todo!()
+    }
+}
 
 #[derive(Clone)]
 pub struct SpinHttpExecutor;

@@ -6,7 +6,7 @@ use anyhow::{bail, Result};
 use http::Uri;
 use indexmap::IndexMap;
 use spin_manifest::{Application, CoreComponent};
-use std::fmt::Debug;
+use std::fmt;
 use tracing::log;
 
 // TODO
@@ -61,7 +61,7 @@ impl Router {
     /// if no component matches.
     /// If there are multiple possible components registered for the same route or
     /// wildcard, this returns the last one in the components vector.
-    pub(crate) fn route<S: Into<String> + Debug>(&self, p: S) -> Result<CoreComponent> {
+    pub(crate) fn route<S: Into<String> + fmt::Debug>(&self, p: S) -> Result<CoreComponent> {
         let p = p.into();
 
         let matches = &self
@@ -143,6 +143,15 @@ impl RoutePattern {
         match s.strip_suffix('/') {
             Some(s) => s.into(),
             None => s,
+        }
+    }
+}
+
+impl fmt::Display for RoutePattern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            RoutePattern::Exact(path) => write!(f, "{}", path),
+            RoutePattern::Wildcard(pattern) => write!(f, "{} (wildcard)", pattern),
         }
     }
 }

@@ -93,7 +93,7 @@ func main() {
 The component can be built using the `tingygo` toolchain:
 
 ```bash
-$ tinygo build -wasm-abi=generic -target=wasi -o main.wasm main.go
+$ tinygo build -wasm-abi=generic -target=wasi -no-debug -o main.wasm main.go
 ```
 
 Before we can execute this component, we need to add the

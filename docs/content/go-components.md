@@ -19,6 +19,12 @@ Using TinyGo to compile components for Spin is currently required, as the
 
 > All examples from this page can be found in [the Spin repository on GitHub](https://github.com/fermyon/spin/tree/main/examples).
 
+## Versions
+
+TinyGo currently requires Go versions `1.15.x` through `1.17.x`. The recommendation is to use
+Go version `1.17.9`, and TinyGo version `0.22.0`. Go `1.18.x` support will be added in an upcoming
+TinyGo release `0.22.x`.
+
 ## HTTP components
 
 In Spin, HTTP components are triggered by the occurrence of an HTTP request, and

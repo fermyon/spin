@@ -12,7 +12,7 @@ ARG BINDLE_URL="https://github.com/deislabs/bindle/releases/download/v0.8.0/bind
 RUN curl -sL "$BINDLE_URL" | tar -xzf - -C /usr/local/bin bindle bindle-server
 
 # Go installation, see https://go.dev/doc/install
-ARG GO_URL="https://go.dev/dl/go1.18.1.linux-amd64.tar.gz"
+ARG GO_URL="https://go.dev/dl/go1.17.9.linux-amd64.tar.gz"
 RUN curl -sL "$GO_URL" | tar -xzf - -C /usr/local
 ENV PATH "$PATH:/usr/local/go/bin"
 

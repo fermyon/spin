@@ -217,6 +217,11 @@ impl HttpTrigger {
         println!("Serving HTTP on address http://{:?}", addr);
         log::info!("Serving HTTP on address {:?}", addr);
 
+        println!("Available Routes:");
+        for (route, _) in &self.router.routes {
+            println!("  http://{:?}{}", addr, route);
+        }
+
         let shutdown_signal = on_ctrl_c()?;
 
         tokio::select! {

@@ -139,3 +139,25 @@ fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_duplicate_component_id_is_rejected() -> Result<()> {
+    const MANIFEST: &str = "tests/invalid-manifest-duplicate-id.toml";
+
+    let temp_dir = tempfile::tempdir()?;
+    let dir = temp_dir.path();
+    let app = from_file(MANIFEST, dir).await;
+
+    assert!(
+        app.is_err(),
+        "Expected component IDs to be unique, but there were duplicates"
+    );
+
+    let e = app.unwrap_err().to_string();
+    assert!(
+        e.contains("hello"),
+        "Expected error to contain duplicate component ID `hello`"
+    );
+
+    Ok(())
+}

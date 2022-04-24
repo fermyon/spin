@@ -10,7 +10,7 @@ pub mod config;
 #[cfg(test)]
 mod tests;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawComponentManifest};
 use futures::future;
 use path_absolutize::Absolutize;
@@ -63,6 +63,20 @@ async fn prepare_any_version(
     }
 }
 
+/// Iterates over a vector of RawComponentManifest structs and throws an error if any component ids are duplicated
+fn error_on_duplicate_ids(components: Vec<RawComponentManifest>) -> Result<()> {
+    let mut ids: Vec<String> = Vec::new();
+    for c in components {
+        let id = c.id;
+        if ids.contains(&id) {
+            bail!("cannot have duplicate component IDs: {}", id);
+        } else {
+            ids.push(id);
+        }
+    }
+    Ok(())
+}
+
 /// Converts a raw application manifest into Spin configuration.
 async fn prepare(
     mut raw: RawAppManifest,
@@ -70,6 +84,8 @@ async fn prepare(
     base_dst: impl AsRef<Path>,
 ) -> Result<Application<CoreComponent>> {
     let info = info(raw.info, &src);
+
+    error_on_duplicate_ids(raw.components.clone())?;
 
     let mut config_root = raw.config.unwrap_or_default();
     for component in &mut raw.components {

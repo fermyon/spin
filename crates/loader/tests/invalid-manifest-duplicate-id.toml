@@ -1,0 +1,16 @@
+spin_version = "1"
+name = "spin-hello-world-duplicate"
+version = "1.0.0"
+trigger = { type = "http", base = "/" }
+
+[[component]]
+id = "hello"
+source = "path/to/wasm/file.wasm"
+[component.trigger]
+route = "/hello"
+
+[[component]]
+id = "hello"
+source = "path/to/wasm/file.wasm"
+[component.trigger]
+route = "/hello"

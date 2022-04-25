@@ -10,3 +10,5 @@ id = "echo-message"
 source = "target/wasm32-wasi/release/spinredis.wasm"
 [component.trigger]
 channel="messages"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

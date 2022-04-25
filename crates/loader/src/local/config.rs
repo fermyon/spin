@@ -68,6 +68,16 @@ pub struct RawComponentManifest {
     pub trigger: TriggerConfig,
     /// Component-specific configuration values.
     pub config: Option<HashMap<String, String>>,
+    /// Build configuration for the component.
+    pub build: Option<RawBuildConfig>,
+}
+
+/// Build configuration for the component.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub struct RawBuildConfig {
+    /// Build command.
+    pub command: String,
 }
 
 /// WebAssembly configuration.

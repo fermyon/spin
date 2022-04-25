@@ -54,9 +54,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.56"
+version = "1.0.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4361135be9122e0870de935d7c439aef945b9f9ddd4199a553b5270b49c82a27"
+checksum = "08f9b8508dccb7687a1d6c4ce66b2b0ecef467c94667de27d8d7fe1f8d2a9cdc"
 
 [[package]]
 name = "async-compression"
@@ -3095,6 +3095,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
+name = "spin-build"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "path-absolutize",
+ "spin-loader",
+ "subprocess",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "spin-cli"
 version = "0.1.0"
 dependencies = [
@@ -3115,6 +3128,7 @@ dependencies = [
  "reqwest",
  "semver",
  "serde",
+ "spin-build",
  "spin-config",
  "spin-engine",
  "spin-http-engine",
@@ -3435,6 +3449,16 @@ dependencies = [
  "quote",
  "rustversion",
  "syn",
+]
+
+[[package]]
+name = "subprocess"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "055cf3ebc2981ad8f0a5a17ef6652f652d87831f79fddcba2ac57bcb9a0aa407"
+dependencies = [
+ "libc",
+ "winapi",
 ]
 
 [[package]]

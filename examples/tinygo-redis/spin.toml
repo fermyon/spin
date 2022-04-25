@@ -10,4 +10,5 @@ id = "echo-message"
 source = "main.wasm"
 [component.trigger]
 channel = "messages"
-
+[component.build]
+command = "tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go"

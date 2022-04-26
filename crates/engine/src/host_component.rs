@@ -1,5 +1,6 @@
 use std::{any::Any, marker::PhantomData};
 
+use anyhow::Result;
 use spin_manifest::CoreComponent;
 use wasmtime::Linker;
 
@@ -8,24 +9,24 @@ use crate::RuntimeContext;
 /// Represents a host implementation of a Wasm interface.
 pub trait HostComponent: Send + Sync {
     /// Host component runtime state.
-    type Data: Any + Send;
+    type State: Any + Send;
 
-    /// Add this component to the given Linker, using the given runtime state-getting closure.
+    /// Add this component to the given Linker, using the given runtime state-getting handle.
     fn add_to_linker<T>(
         linker: &mut Linker<RuntimeContext<T>>,
-        data_handle: HostComponentsDataHandle<Self::Data>,
-    ) -> anyhow::Result<()>;
+        state_handle: HostComponentsStateHandle<Self::State>,
+    ) -> Result<()>;
 
     /// Build a new runtime state object for the given component.
-    fn build_data(&self, component: &CoreComponent) -> anyhow::Result<Self::Data>;
+    fn build_state(&self, component: &CoreComponent) -> Result<Self::State>;
 }
-type HostComponentData = Box<dyn Any + Send>;
+type HostComponentState = Box<dyn Any + Send>;
 
-type DataBuilder = Box<dyn Fn(&CoreComponent) -> anyhow::Result<HostComponentData> + Send + Sync>;
+type StateBuilder = Box<dyn Fn(&CoreComponent) -> Result<HostComponentState> + Send + Sync>;
 
 #[derive(Default)]
 pub(crate) struct HostComponents {
-    data_builders: Vec<DataBuilder>,
+    state_builders: Vec<StateBuilder>,
 }
 
 impl HostComponents {
@@ -33,42 +34,42 @@ impl HostComponents {
         &mut self,
         linker: &'a mut Linker<RuntimeContext<T>>,
         host_component: Component,
-    ) -> anyhow::Result<()> {
-        let handle = HostComponentsDataHandle {
-            idx: self.data_builders.len(),
+    ) -> Result<()> {
+        let handle = HostComponentsStateHandle {
+            idx: self.state_builders.len(),
             _phantom: PhantomData,
         };
         Component::add_to_linker(linker, handle)?;
-        self.data_builders.push(Box::new(move |c| {
-            Ok(Box::new(host_component.build_data(c)?))
+        self.state_builders.push(Box::new(move |c| {
+            Ok(Box::new(host_component.build_state(c)?))
         }));
         Ok(())
     }
 
-    pub(crate) fn build_data(&self, c: &CoreComponent) -> anyhow::Result<HostComponentsData> {
-        Ok(HostComponentsData(
-            self.data_builders
+    pub(crate) fn build_state(&self, c: &CoreComponent) -> Result<HostComponentsState> {
+        Ok(HostComponentsState(
+            self.state_builders
                 .iter()
-                .map(|build_data| build_data(c))
-                .collect::<anyhow::Result<_>>()?,
+                .map(|build_state| build_state(c))
+                .collect::<Result<_>>()?,
         ))
     }
 }
 
-/// A collection of host component data.
+/// A collection of host components state.
 #[derive(Default)]
-pub struct HostComponentsData(Vec<HostComponentData>);
+pub struct HostComponentsState(Vec<HostComponentState>);
 
-/// A handle to component data, used in HostComponent::add_to_linker.
-pub struct HostComponentsDataHandle<T> {
+/// A handle to component state, used in HostComponent::add_to_linker.
+pub struct HostComponentsStateHandle<T> {
     idx: usize,
     _phantom: PhantomData<fn(T) -> T>,
 }
 
-impl<T: 'static> HostComponentsDataHandle<T> {
-    /// Get the component data associated with this handle from the RuntimeContext.
+impl<T: 'static> HostComponentsStateHandle<T> {
+    /// Get the component state associated with this handle from the RuntimeContext.
     pub fn get_mut<'a, U>(&self, ctx: &'a mut RuntimeContext<U>) -> &'a mut T {
-        ctx.host_components_data
+        ctx.host_components_state
             .0
             .get_mut(self.idx)
             .unwrap()
@@ -77,7 +78,7 @@ impl<T: 'static> HostComponentsDataHandle<T> {
     }
 }
 
-impl<T> Clone for HostComponentsDataHandle<T> {
+impl<T> Clone for HostComponentsStateHandle<T> {
     fn clone(&self) -> Self {
         Self {
             idx: self.idx,
@@ -86,4 +87,4 @@ impl<T> Clone for HostComponentsDataHandle<T> {
     }
 }
 
-impl<T> Copy for HostComponentsDataHandle<T> {}
+impl<T> Copy for HostComponentsStateHandle<T> {}

@@ -40,7 +40,7 @@ impl From<Error> for wit::spin_config::Error {
             Error::InvalidKey(msg) => Self::InvalidKey(msg),
             Error::InvalidSchema(msg) => Self::InvalidSchema(msg),
             Error::Provider(msg) => Self::Provider(msg.to_string()),
-            other => Self::Other(format!("{:?}", other)),
+            other => Self::Other(format!("{}", other)),
         }
     }
 }

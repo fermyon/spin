@@ -1,20 +1,10 @@
-use crate::parse_buildinfo;
+use crate::{opts::*, parse_buildinfo};
 use anyhow::{Context, Result};
-use bindle::client::Client as BindleClient;
-use bindle::client::ClientBuilder as BindleClientBuilder;
+use bindle::client::{Client as BindleClient, ClientBuilder as BindleClientBuilder};
 use semver::BuildMetadata;
 use spin_loader::bindle::BindleTokenManager;
 use std::path::PathBuf;
 use structopt::StructOpt;
-
-use crate::commands::up::DEFAULT_MANIFEST_FILE;
-
-const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
-const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
-const BINDLE_URL_ENV: &str = "BINDLE_URL";
-const BUILDINFO_OPT: &str = "BUILDINFO";
-const INSECURE_OPT: &str = "INSECURE";
-const STAGING_DIR_OPT: &str = "STAGING_DIR";
 
 /// Commands for publishing applications as bindles.
 #[derive(StructOpt, Debug)]

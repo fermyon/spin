@@ -1,3 +1,4 @@
+use crate::opts::*;
 use anyhow::{Context, Result};
 use bindle::Id;
 use core::panic;
@@ -16,14 +17,6 @@ use hippo_openapi::models::{
 use reqwest::header;
 use std::path::PathBuf;
 use structopt::{clap::AppSettings, StructOpt};
-
-const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
-const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
-const BINDLE_URL_ENV: &str = "BINDLE_URL";
-const HIPPO_SERVER_URL_OPT: &str = "HIPPO_SERVER_URL";
-const HIPPO_URL_ENV: &str = "HIPPO_URL";
-const STAGING_DIR_OPT: &str = "STAGING_DIR";
-const JSON_MIME_TYPE: &str = "application/json";
 
 /// Package and upload Spin artifacts, notifying Hippo
 #[derive(StructOpt, Debug)]

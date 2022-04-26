@@ -10,3 +10,5 @@ id = "hello"
 source = "target/wasm32-wasi/release/spinhelloworld.wasm"
 [component.trigger]
 route = "/hello"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

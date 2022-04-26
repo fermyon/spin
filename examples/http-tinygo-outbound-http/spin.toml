@@ -11,3 +11,5 @@ source = "main.wasm"
 allowed_http_hosts = ["https://some-random-api.ml", "https://postman-echo.com"]
 [component.trigger]
 route = "/hello"
+[component.build]
+command = "tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go"

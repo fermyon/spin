@@ -62,7 +62,7 @@ pub struct HttpTrigger {
 impl HttpTrigger {
     /// Creates a new Spin HTTP trigger.
     pub async fn new(
-        mut builder: Builder<SpinHttpData>,
+        builder: Builder<SpinHttpData>,
         app: Application<CoreComponent>,
         address: String,
         tls: Option<TlsConfig>,

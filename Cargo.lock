@@ -2158,6 +2158,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "redis",
+ "spin-engine",
+ "spin-manifest",
  "wit-bindgen-wasmtime",
 ]
 
@@ -3111,6 +3113,7 @@ dependencies = [
  "hippo-openapi",
  "hyper",
  "lazy_static",
+ "outbound-redis",
  "path-absolutize",
  "reqwest",
  "semver",
@@ -3151,7 +3154,6 @@ dependencies = [
  "anyhow",
  "bytes 1.1.0",
  "dirs 4.0.0",
- "outbound-redis",
  "sanitize-filename",
  "spin-config",
  "spin-manifest",
@@ -3267,6 +3269,8 @@ dependencies = [
  "async-trait",
  "cap-std",
  "serde",
+ "spin-engine",
+ "spin-manifest",
  "tracing",
  "wasmtime",
  "wit-bindgen-wasmtime",

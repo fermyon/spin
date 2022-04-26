@@ -2,10 +2,13 @@
 
 #![deny(missing_docs)]
 
+/// Host components.
+pub mod host_component;
 /// Input / Output redirects.
 pub mod io;
 
 use anyhow::{bail, Context, Result};
+use host_component::{HostComponent, HostComponents, HostComponentsData};
 use io::IoStreamRedirects;
 use spin_config::{host_component::ComponentConfig, Resolver};
 use spin_manifest::{Application, CoreComponent, DirectoryMount, ModuleSource};
@@ -56,8 +59,8 @@ pub struct RuntimeContext<T> {
     pub outbound_http: Option<wasi_outbound_http::OutboundHttp>,
     /// Component configuration.
     pub component_config: Option<spin_config::host_component::ComponentConfig>,
-    /// Outbound Redis configuration.
-    pub outbound_redis: Option<outbound_redis::OutboundRedis>,
+    /// Host components data.
+    pub host_components_data: HostComponentsData,
     /// Generic runtime data that can be configured by specialized engines.
     pub data: Option<T>,
 }
@@ -68,9 +71,10 @@ pub struct Builder<T: Default> {
     linker: Linker<RuntimeContext<T>>,
     store: Store<RuntimeContext<T>>,
     engine: Engine,
+    host_components: HostComponents,
 }
 
-impl<T: Default> Builder<T> {
+impl<T: Default + 'static> Builder<T> {
     /// Creates a new instance of the execution builder.
     pub fn new(config: ExecutionContextConfiguration) -> Result<Builder<T>> {
         Self::with_wasmtime_config(config, Default::default())
@@ -91,12 +95,14 @@ impl<T: Default> Builder<T> {
         let engine = Engine::new(&wasmtime)?;
         let store = Store::new(&engine, data);
         let linker = Linker::new(&engine);
+        let host_components = Default::default();
 
         Ok(Self {
             config,
             linker,
             store,
             engine,
+            host_components,
         })
     }
 
@@ -128,17 +134,19 @@ impl<T: Default> Builder<T> {
         Ok(self)
     }
 
-    /// Configures the ability to execute outbound Redis commands.
-    pub fn link_redis(&mut self) -> Result<&mut Self> {
-        outbound_redis::add_to_linker(&mut self.linker, |ctx| {
-            ctx.outbound_redis.as_mut().unwrap()
-        })?;
+    /// Adds a HostComponent to the execution context.
+    pub fn add_host_component(
+        &mut self,
+        host_component: impl HostComponent + 'static,
+    ) -> Result<&mut Self> {
+        self.host_components
+            .insert(&mut self.linker, host_component)?;
         Ok(self)
     }
 
     /// Builds a new instance of the execution context.
     #[instrument(skip(self))]
-    pub async fn build(&mut self) -> Result<ExecutionContext<T>> {
+    pub async fn build(mut self) -> Result<ExecutionContext<T>> {
         let _sloth_warning = warn_if_slothful();
         let mut components = HashMap::new();
         for c in &self.config.components {
@@ -175,15 +183,13 @@ impl<T: Default> Builder<T> {
             components.insert(c.id.clone(), Component { core, pre });
         }
 
-        let config = self.config.clone();
-        let engine = self.engine.clone();
-
         log::trace!("Execution context initialized.");
 
         Ok(ExecutionContext {
-            config,
-            engine,
+            config: self.config,
+            engine: self.engine,
             components,
+            host_components: Arc::new(self.host_components),
         })
     }
 
@@ -196,7 +202,9 @@ impl<T: Default> Builder<T> {
     pub async fn build_default(
         config: ExecutionContextConfiguration,
     ) -> Result<ExecutionContext<T>> {
-        Self::new(config)?.link_defaults()?.build().await
+        let mut builder = Self::new(config)?;
+        builder.link_defaults()?;
+        builder.build().await
     }
 }
 
@@ -218,6 +226,8 @@ pub struct ExecutionContext<T: Default> {
     pub engine: Engine,
     /// Collection of pre-initialized (and already linked) components.
     pub components: HashMap<String, Component<T>>,
+
+    host_components: Arc<HostComponents>,
 }
 
 impl<T: Default> ExecutionContext<T> {
@@ -344,10 +354,11 @@ impl<T: Default> ExecutionContext<T> {
                 Some(ComponentConfig::new(&component.core.id, resolver.clone())?);
         }
 
+        ctx.host_components_data = self.host_components.build_data(&component.core)?;
+
         ctx.wasi = Some(wasi_ctx.build());
         ctx.experimental_http = Some(experimental_http);
         ctx.outbound_http = Some(outbound_http);
-        ctx.outbound_redis = Some(outbound_redis::OutboundRedis);
         ctx.data = data;
 
         let store = Store::new(&self.engine, ctx);

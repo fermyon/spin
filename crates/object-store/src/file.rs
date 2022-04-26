@@ -7,11 +7,8 @@ use std::{
 use crate::wit::spin_object_store;
 use anyhow::Context;
 use cap_std::{ambient_authority, fs::OpenOptions};
-
-pub type FileObjectStoreData = (
-    FileObjectStore,
-    spin_object_store::SpinObjectStoreTables<FileObjectStore>,
-);
+use spin_engine::host_component::{HostComponent, HostComponentsDataHandle};
+use spin_manifest::CoreComponent;
 
 pub struct FileObjectStore {
     root: cap_std::fs::Dir,
@@ -25,9 +22,29 @@ impl FileObjectStore {
     }
 }
 
-impl From<FileObjectStore> for FileObjectStoreData {
-    fn from(fos: FileObjectStore) -> Self {
-        (fos, Default::default())
+pub struct FileObjectStoreComponent {
+    pub root: Path,
+}
+
+impl HostComponent for FileObjectStoreComponent {
+    type Data = (
+        FileObjectStore,
+        spin_object_store::SpinObjectStoreTables<FileObjectStore>,
+    );
+
+    fn add_to_linker<T>(
+        linker: &mut wasmtime::Linker<spin_engine::RuntimeContext<T>>,
+        data_handle: HostComponentsDataHandle<Self::Data>,
+    ) -> anyhow::Result<()> {
+        crate::add_to_linker(linker, move |ctx| {
+            let (data, table) = data_handle.get_mut(ctx);
+            (data, table)
+        })
+    }
+
+    fn build_data(&self, _component: &CoreComponent) -> anyhow::Result<Self::Data> {
+        let store = FileObjectStore::new(&self.root)?;
+        Ok((store, Default::default()))
     }
 }
 

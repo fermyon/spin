@@ -141,6 +141,41 @@ handle-cloudevent: function(event: event) -> expected<event, error>
 
 At the runtime, Spin will use CloudEvent SDK to parse the event payload and invoke the function. For example, take a look at the [CloudEvents SDK Rust](https://github.com/cloudevents/sdk-rust) library.
 
+## The CloudEvents Spin SDK
+```rust
+// A Spin CloudEvents component written in Rust
+use anyhow::Result;
+use spin_sdk::{
+    event::{Event},
+    event_component,
+};
+
+/// A simple Spin event component.
+#[event_component]
+fn trigger(event: Event) -> Result<Event, _> {
+    println!("event is {}", event.id());
+    Ok(event)
+}
+```
+
+```go
+// A Spin CloudEvents component written in Go
+package main
+
+import (
+ "fmt"
+ "context"
+
+ spin "github.com/fermyon/spin/sdk/go/event"
+)
+
+func main() {
+ spin.ReceiveEvent(func(ctx context.Context, event spin.Event) {
+  fmt.Printf("%s", event)
+  spin.SendEvent(ctx, event)
+ })
+}
+```
 
 ## Future design considerations
 

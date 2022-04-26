@@ -35,7 +35,7 @@ pub enum Error {
     Provider(anyhow::Error),
 
     /// Unknown config path.
-    #[error("unknown config path {0}")]
+    #[error("unknown config path: {0}")]
     UnknownPath(String),
 }
 
@@ -75,7 +75,7 @@ impl Resolver {
         let depth = depth + 1;
         if depth > Self::RECURSION_LIMIT {
             return Err(Error::InvalidTemplate(format!(
-                "hit recursion limit at path {:?}",
+                "hit recursion limit at path: {}",
                 path
             )));
         }
@@ -94,7 +94,7 @@ impl Resolver {
             self.resolve_template(path, template, depth)
         } else {
             Err(Error::InvalidPath(format!(
-                "missing value at required path {:?}",
+                "missing value at required path: {}",
                 path
             )))
         }

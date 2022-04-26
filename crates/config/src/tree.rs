@@ -15,7 +15,7 @@ impl Tree {
     pub(crate) fn get(&self, path: &Path) -> Result<&Slot> {
         self.0
             .get(path)
-            .ok_or_else(|| Error::InvalidPath(format!("no slot at path {:?}", path)))
+            .ok_or_else(|| Error::InvalidPath(format!("no slot at path: {}", path)))
     }
 
     pub fn merge(&mut self, base: &Path, other: Tree) -> Result<()> {
@@ -40,7 +40,10 @@ impl Tree {
 
     fn merge_slot(&mut self, path: Path, slot: Slot) -> Result<()> {
         if self.0.contains_key(&path) {
-            return Err(Error::InvalidPath(format!("duplicate key at {:?}", path)));
+            return Err(Error::InvalidPath(format!(
+                "duplicate key at path: {}",
+                path
+            )));
         }
         self.0.insert(path, slot);
         Ok(())
@@ -84,7 +87,7 @@ impl Path {
             Some((idx, _)) => format!("{}.{}", &self.0[..idx], key),
             None => {
                 return Err(Error::InvalidPath(format!(
-                    "rel has too many dots relative to base path {:?}",
+                    "rel has too many dots relative to base path {}",
                     self
                 )))
             }
@@ -101,6 +104,12 @@ impl Path {
 impl AsRef<str> for Path {
     fn as_ref(&self) -> &str {
         self.0.as_ref()
+    }
+}
+
+impl std::fmt::Display for Path {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_ref())
     }
 }
 
@@ -241,6 +250,12 @@ mod tests {
         for rel in ["", "x", "....x"] {
             path.resolve_relative(rel).expect_err(rel);
         }
+    }
+
+    #[test]
+    fn path_display() {
+        let path = Path::new("a.b.c").unwrap();
+        assert_eq!(format!("{}", path), "a.b.c");
     }
 
     #[test]

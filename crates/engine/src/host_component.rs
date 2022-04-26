@@ -67,7 +67,17 @@ pub struct HostComponentsStateHandle<T> {
 }
 
 impl<T: 'static> HostComponentsStateHandle<T> {
-    /// Get the component state associated with this handle from the RuntimeContext.
+    /// Get a ref to the component state associated with this handle from the RuntimeContext.
+    pub fn get<'a, U>(&self, ctx: &'a RuntimeContext<U>) -> &'a T {
+        ctx.host_components_state
+            .0
+            .get(self.idx)
+            .unwrap()
+            .downcast_ref()
+            .unwrap()
+    }
+
+    /// Get a mutable ref to the component state associated with this handle from the RuntimeContext.
     pub fn get_mut<'a, U>(&self, ctx: &'a mut RuntimeContext<U>) -> &'a mut T {
         ctx.host_components_state
             .0

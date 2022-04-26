@@ -53,10 +53,6 @@ impl From<Application<CoreComponent>> for ExecutionContextConfiguration {
 pub struct RuntimeContext<T> {
     /// WASI context data.
     pub wasi: Option<WasiCtx>,
-    /// Experimental outbound HTTP configuration.
-    pub experimental_http: Option<wasi_experimental_http_wasmtime::HttpCtx>,
-    /// Outbound HTTP configuration.
-    pub outbound_http: Option<wasi_outbound_http::OutboundHttp>,
     /// Component configuration.
     pub component_config: Option<spin_config::host_component::ComponentConfig>,
     /// Host components state.
@@ -109,20 +105,6 @@ impl<T: Default + 'static> Builder<T> {
     /// Configures the WASI linker imports for the current execution context.
     pub fn link_wasi(&mut self) -> Result<&mut Self> {
         wasmtime_wasi::add_to_linker(&mut self.linker, |ctx| ctx.wasi.as_mut().unwrap())?;
-        Ok(self)
-    }
-
-    /// Configures the ability to execute outbound HTTP requests.
-    pub fn link_http(&mut self) -> Result<&mut Self> {
-        wasi_experimental_http_wasmtime::HttpState::new()?
-            .add_to_linker(&mut self.linker, |ctx| {
-                ctx.experimental_http.as_ref().unwrap()
-            })?;
-
-        wasi_outbound_http::add_to_linker(&mut self.linker, |ctx| {
-            ctx.outbound_http.as_mut().unwrap()
-        })?;
-
         Ok(self)
     }
 
@@ -195,7 +177,7 @@ impl<T: Default + 'static> Builder<T> {
 
     /// Configures default host interface implementations.
     pub fn link_defaults(&mut self) -> Result<&mut Self> {
-        self.link_wasi()?.link_http()?.link_config()
+        self.link_wasi()?.link_config()
     }
 
     /// Builds a new default instance of the execution context.
@@ -340,15 +322,6 @@ impl<T: Default> ExecutionContext<T> {
                 wasi_ctx.preopened_dir(Dir::open_ambient_dir(host, ambient_authority())?, guest)?;
         }
 
-        // We basically have to support both versions of outbound HTTP for the time being.
-        let experimental_http = wasi_experimental_http_wasmtime::HttpCtx {
-            allowed_hosts: Some(component.core.wasm.allowed_http_hosts.clone()),
-            max_concurrent_requests: None,
-        };
-        let outbound_http = wasi_outbound_http::OutboundHttp {
-            allowed_hosts: Some(component.core.wasm.allowed_http_hosts.clone()),
-        };
-
         if let Some(resolver) = &self.config.config_resolver {
             ctx.component_config =
                 Some(ComponentConfig::new(&component.core.id, resolver.clone())?);
@@ -357,8 +330,6 @@ impl<T: Default> ExecutionContext<T> {
         ctx.host_components_state = self.host_components.build_state(&component.core)?;
 
         ctx.wasi = Some(wasi_ctx.build());
-        ctx.experimental_http = Some(experimental_http);
-        ctx.outbound_http = Some(outbound_http);
         ctx.data = data;
 
         let store = Store::new(&self.engine, ctx);

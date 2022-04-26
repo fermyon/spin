@@ -8,7 +8,7 @@ pub mod host_component;
 pub mod io;
 
 use anyhow::{bail, Context, Result};
-use host_component::{HostComponent, HostComponents, HostComponentsData};
+use host_component::{HostComponent, HostComponents, HostComponentsState};
 use io::IoStreamRedirects;
 use spin_config::{host_component::ComponentConfig, Resolver};
 use spin_manifest::{Application, CoreComponent, DirectoryMount, ModuleSource};
@@ -59,8 +59,8 @@ pub struct RuntimeContext<T> {
     pub outbound_http: Option<wasi_outbound_http::OutboundHttp>,
     /// Component configuration.
     pub component_config: Option<spin_config::host_component::ComponentConfig>,
-    /// Host components data.
-    pub host_components_data: HostComponentsData,
+    /// Host components state.
+    pub host_components_state: HostComponentsState,
     /// Generic runtime data that can be configured by specialized engines.
     pub data: Option<T>,
 }
@@ -354,7 +354,7 @@ impl<T: Default> ExecutionContext<T> {
                 Some(ComponentConfig::new(&component.core.id, resolver.clone())?);
         }
 
-        ctx.host_components_data = self.host_components.build_data(&component.core)?;
+        ctx.host_components_state = self.host_components.build_state(&component.core)?;
 
         ctx.wasi = Some(wasi_ctx.build());
         ctx.experimental_http = Some(experimental_http);

@@ -7,7 +7,7 @@ use std::{
 use crate::wit::spin_object_store;
 use anyhow::Context;
 use cap_std::{ambient_authority, fs::OpenOptions};
-use spin_engine::host_component::{HostComponent, HostComponentsDataHandle};
+use spin_engine::host_component::{HostComponent, HostComponentsStateHandle};
 use spin_manifest::CoreComponent;
 
 pub struct FileObjectStore {
@@ -27,22 +27,22 @@ pub struct FileObjectStoreComponent {
 }
 
 impl HostComponent for FileObjectStoreComponent {
-    type Data = (
+    type State = (
         FileObjectStore,
         spin_object_store::SpinObjectStoreTables<FileObjectStore>,
     );
 
     fn add_to_linker<T>(
         linker: &mut wasmtime::Linker<spin_engine::RuntimeContext<T>>,
-        data_handle: HostComponentsDataHandle<Self::Data>,
+        state_handle: HostComponentsStateHandle<Self::State>,
     ) -> anyhow::Result<()> {
         crate::add_to_linker(linker, move |ctx| {
-            let (data, table) = data_handle.get_mut(ctx);
+            let (data, table) = state_handle.get_mut(ctx);
             (data, table)
         })
     }
 
-    fn build_data(&self, _component: &CoreComponent) -> anyhow::Result<Self::Data> {
+    fn build_state(&self, _component: &CoreComponent) -> anyhow::Result<Self::State> {
         let store = FileObjectStore::new(&self.root)?;
         Ok((store, Default::default()))
     }

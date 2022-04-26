@@ -2,7 +2,11 @@ use outbound_redis::*;
 use redis::Commands;
 
 pub use outbound_redis::add_to_linker;
-use spin_engine::host_component::HostComponent;
+use spin_engine::{
+    host_component::{HostComponent, HostComponentsStateHandle},
+    RuntimeContext,
+};
+use wit_bindgen_wasmtime::wasmtime::Linker;
 
 wit_bindgen_wasmtime::export!("../../wit/ephemeral/outbound-redis.wit");
 
@@ -11,16 +15,19 @@ wit_bindgen_wasmtime::export!("../../wit/ephemeral/outbound-redis.wit");
 pub struct OutboundRedis;
 
 impl HostComponent for OutboundRedis {
-    type Data = Self;
+    type State = Self;
 
     fn add_to_linker<T>(
-        linker: &mut wit_bindgen_wasmtime::wasmtime::Linker<spin_engine::RuntimeContext<T>>,
-        data_handle: spin_engine::host_component::HostComponentsDataHandle<Self::Data>,
+        linker: &mut Linker<RuntimeContext<T>>,
+        state_handle: HostComponentsStateHandle<Self::State>,
     ) -> anyhow::Result<()> {
-        add_to_linker(linker, move |ctx| data_handle.get_mut(ctx))
+        add_to_linker(linker, move |ctx| state_handle.get_mut(ctx))
     }
 
-    fn build_data(&self, _component: &spin_manifest::CoreComponent) -> anyhow::Result<Self::Data> {
+    fn build_state(
+        &self,
+        _component: &spin_manifest::CoreComponent,
+    ) -> anyhow::Result<Self::State> {
         Ok(Self)
     }
 }

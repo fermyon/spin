@@ -36,6 +36,7 @@ toml = "0.5"
 tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
+wasi-outbound-http = { path = "crates/outbound-http" }
 
 [dev-dependencies]
 hyper = { version = "0.14", features = [ "full" ] }

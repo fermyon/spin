@@ -170,6 +170,7 @@ impl UpCommand {
         };
         let mut builder = Builder::new(config)?;
         builder.link_defaults()?;
+        builder.add_host_component(wasi_outbound_http::OutboundHttpComponent)?;
         builder.add_host_component(outbound_redis::OutboundRedis)?;
         Ok(builder)
     }

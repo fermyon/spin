@@ -143,7 +143,13 @@ impl DeployCommand {
 
     async fn create_and_push_bindle(&self) -> Result<Id> {
         let source_dir = crate::app_dir(&self.app)?;
-        let client = crate::create_bindle_client(true, &self.bindle_server_url)?;
+        let bindle_connection_info = spin_publish::BindleConnectionInfo::new(
+            &self.bindle_server_url,
+            // TODO: do we want to add insecure and http user/pw opts for this deploy cmd?
+            true,
+            None,
+            None,
+        );
 
         let temp_dir = tempfile::tempdir()?;
         let dest_dir = match &self.staging_dir {
@@ -160,7 +166,7 @@ impl DeployCommand {
             .await
             .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
 
-        spin_publish::push_all(&dest_dir, bindle_id, &client, &self.bindle_server_url)
+        spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info)
             .await
             .context("Failed to push bindle to server")?;
 

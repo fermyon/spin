@@ -1,10 +1,8 @@
 pub mod commands;
 pub(crate) mod opts;
 
-use anyhow::{anyhow, bail, Context, Result};
-use bindle::client::{Client as BindleClient, ClientBuilder as BindleClientBuilder};
+use anyhow::{anyhow, bail, Result};
 use semver::BuildMetadata;
-use spin_loader::bindle::BindleTokenManager;
 use spin_manifest::{Application, CoreComponent};
 use std::path::{Path, PathBuf};
 
@@ -28,25 +26,6 @@ pub(crate) fn write_failed_msg(bindle_id: &bindle::Id, dest_dir: &Path) -> Strin
         bindle_id,
         dest_dir.display()
     )
-}
-
-pub(crate) fn create_bindle_client(
-    insecure: bool,
-    bindle_server_url: &str,
-) -> Result<BindleClient<BindleTokenManager>> {
-    BindleClientBuilder::default()
-        .danger_accept_invalid_certs(insecure)
-        .build(
-            bindle_server_url,
-            // TODO: pick up auth options from the command line
-            BindleTokenManager::NoToken(bindle::client::tokens::NoToken),
-        )
-        .with_context(|| {
-            format!(
-                "Failed to create client for bindle server '{}'",
-                bindle_server_url,
-            )
-        })
 }
 
 pub(crate) fn parse_buildinfo(buildinfo: &str) -> Result<BuildMetadata> {

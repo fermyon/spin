@@ -28,8 +28,8 @@ pub struct BindleConnectionInfo {
 
 impl BindleConnectionInfo {
     /// Generates a new BindleConnectionInfo instance using the provided
-    /// base_url, allow_insecure and optional username and password for
-    /// basic http auth
+    /// base_url, allow_insecure setting and optional username and password
+    /// for basic http auth
     pub fn new<I: Into<String>>(
         base_url: I,
         allow_insecure: bool,
@@ -60,7 +60,7 @@ impl BindleConnectionInfo {
 }
 
 /// AnyAuth wraps an authentication token manager which applies
-/// the appropriate auth header configuration per its configuration
+/// the appropriate auth header per its configuration
 #[derive(Clone)]
 pub struct AnyAuth {
     token_manager: Arc<Box<dyn TokenManager + Send + Sync>>,

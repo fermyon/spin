@@ -92,7 +92,7 @@ pub struct Push {
         name = BINDLE_USERNAME,
         long = "bindle-username",
         env = BINDLE_USERNAME,
-        requires(BINDLE_PASSWORD)
+        requires = BINDLE_PASSWORD
     )]
     pub bindle_username: Option<String>,
 
@@ -101,7 +101,7 @@ pub struct Push {
         name = BINDLE_PASSWORD,
         long = "bindle-password",
         env = BINDLE_PASSWORD,
-        requires(BINDLE_USERNAME)
+        requires = BINDLE_USERNAME
     )]
     pub bindle_password: Option<String>,
 

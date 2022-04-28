@@ -92,6 +92,7 @@ pub struct Push {
         name = BINDLE_HTTP_USER,
         long = "bindle-http-user",
         env = BINDLE_HTTP_USER,
+        requires(BINDLE_HTTP_PASSWORD)
     )]
     pub bindle_http_user: Option<String>,
 
@@ -100,6 +101,7 @@ pub struct Push {
         name = BINDLE_HTTP_PASSWORD,
         long = "bindle-http-password",
         env = BINDLE_HTTP_PASSWORD,
+        requires(BINDLE_HTTP_USER)
     )]
     pub bindle_http_password: Option<String>,
 

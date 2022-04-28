@@ -12,6 +12,31 @@ const RUST_HTTP_INTEGRATION_ENV_TEST: &str = "tests/http/headers-env-routes-test
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
+    if !has_wasm32_wasi_target() {
+        // Current toolchain: e.g. "stable-x86_64-pc-windows-msvc", "1.60-x86_64-pc-windows-msvc"
+        let current_toolchain = std::env::var("RUSTUP_TOOLCHAIN").unwrap();
+        let current_toolchain = current_toolchain.split_once('-').unwrap().0;
+
+        // Default toolchain: e.g. "stable (default)", "nightly", "1.60-x86_64-pc-windows-msvc"
+        let default_toolchain = run(vec!["rustup", "default"], None, None);
+        let default_toolchain = std::str::from_utf8(&default_toolchain.stdout).unwrap();
+        let default_toolchain = default_toolchain.split(['-', ' ']).next().unwrap();
+
+        let toolchain_override = if current_toolchain != default_toolchain {
+            format!(" +{}", current_toolchain)
+        } else {
+            String::new()
+        };
+
+        println!(
+            r#"
+error: the `wasm32-wasi` target is not installed
+    = help: consider downloading the target with `rustup{} target add wasm32-wasi`"#,
+            toolchain_override
+        );
+        process::exit(1);
+    }
+
     std::fs::create_dir_all("target/test-programs").unwrap();
 
     build_wasm_test_program("rust-http-test.wasm", "crates/http/tests/rust-http-test");
@@ -41,6 +66,18 @@ fn build_wasm_test_program(name: &'static str, root: &'static str) {
         .build();
 }
 
+fn has_wasm32_wasi_target() -> bool {
+    let output = run(vec!["rustup", "target", "list", "--installed"], None, None);
+    let output = std::str::from_utf8(&output.stdout).unwrap();
+    for line in output.lines() {
+        if line == "wasm32-wasi" {
+            return true;
+        }
+    }
+
+    false
+}
+
 fn cargo_build(dir: &str) {
     run(
         vec!["cargo", "build", "--target", "wasm32-wasi", "--release"],
@@ -53,7 +90,7 @@ fn run<S: Into<String> + AsRef<std::ffi::OsStr>>(
     args: Vec<S>,
     dir: Option<S>,
     env: Option<HashMap<S, S>>,
-) {
+) -> process::Output {
     let mut cmd = Command::new(get_os_process());
     cmd.stdout(process::Stdio::piped());
     cmd.stderr(process::Stdio::piped());
@@ -84,6 +121,8 @@ fn run<S: Into<String> + AsRef<std::ffi::OsStr>>(
         // just fail
         assert_eq!(0, code);
     }
+
+    output
 }
 
 fn get_os_process() -> String {

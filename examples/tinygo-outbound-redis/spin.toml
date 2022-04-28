@@ -10,6 +10,5 @@ source = "main.wasm"
 environment = { REDIS_ADDRESS = "redis://127.0.0.1:6379", REDIS_CHANNEL = "messages" }
 [component.trigger]
 route = "/publish"
-executor = { type = "wagi" }
 [component.build]
 command = "tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go"

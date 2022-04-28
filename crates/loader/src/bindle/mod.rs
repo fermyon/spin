@@ -11,7 +11,7 @@ mod utils;
 
 use crate::bindle::{
     config::{RawAppManifest, RawComponentManifest},
-    utils::{find_manifest, BindleReader},
+    utils::{find_manifest, parcels_in_group, BindleReader},
 };
 use anyhow::{anyhow, Context, Result};
 use bindle::{
@@ -114,17 +114,14 @@ async fn core(
 
     let source = ModuleSource::Buffer(bytes, format!("parcel {}", raw.source));
     let id = raw.id;
-    let parcels = invoice
-        .parcel
-        .as_ref()
-        .unwrap_or(&vec![])
-        .iter()
-        .map(|p| p.label.clone())
-        .collect::<Vec<_>>();
     let mounts = match raw.wasm.files {
-        Some(_) => vec![
-            assets::prepare_component(reader, &invoice.bindle.id, &parcels, base_dst, &id).await?,
-        ],
+        Some(group) => {
+            let parcels = parcels_in_group(invoice, &group);
+            vec![
+                assets::prepare_component(reader, &invoice.bindle.id, &parcels, base_dst, &id)
+                    .await?,
+            ]
+        }
         None => vec![],
     };
     let environment = raw.wasm.environment.unwrap_or_default();

@@ -12,6 +12,7 @@ use spin_manifest::{
     Application, ComponentMap, CoreComponent, RedisConfig, RedisTriggerConfiguration,
 };
 use spin_redis::SpinRedisData;
+use spin_trigger::Trigger;
 use std::{collections::HashMap, sync::Arc};
 
 wit_bindgen_wasmtime::import!("../../wit/ephemeral/spin-redis.wit");
@@ -30,6 +31,44 @@ pub struct RedisTrigger {
     engine: Arc<ExecutionContext>,
     /// Map from channel name to tuple of component name & index.
     subscriptions: HashMap<String, usize>,
+}
+
+#[async_trait]
+impl Trigger for RedisTrigger {
+    /// Run the Redis trigger indefinitely.
+    async fn run(&self) -> Result<()> {
+        let address = self.trigger_config.address.as_str();
+
+        log::info!("Connecting to Redis server at {}", address);
+        let mut client = Client::open(address.to_string())?;
+        let mut pubsub = client.get_async_connection().await?.into_pubsub();
+
+        // Subscribe to channels
+        for (subscription, idx) in self.subscriptions.iter() {
+            let name = &self.engine.config.components[*idx].id;
+            log::info!(
+                "Subscribed component #{} ({}) to channel: {}",
+                idx,
+                name,
+                subscription
+            );
+            pubsub.subscribe(subscription).await?;
+        }
+
+        let mut stream = pubsub.on_message();
+        loop {
+            match stream.next().await {
+                Some(msg) => drop(self.handle(msg).await),
+                None => {
+                    log::trace!("Empty message");
+                    if !client.check_connection() {
+                        log::info!("No Redis connection available");
+                        break Ok(());
+                    }
+                }
+            };
+        }
+    }
 }
 
 impl RedisTrigger {
@@ -69,41 +108,6 @@ impl RedisTrigger {
             engine,
             subscriptions,
         })
-    }
-
-    /// Run the Redis trigger indefinitely.
-    pub async fn run(&self) -> Result<()> {
-        let address = self.trigger_config.address.as_str();
-
-        log::info!("Connecting to Redis server at {}", address);
-        let mut client = Client::open(address.to_string())?;
-        let mut pubsub = client.get_async_connection().await?.into_pubsub();
-
-        // Subscribe to channels
-        for (subscription, idx) in self.subscriptions.iter() {
-            let name = &self.engine.config.components[*idx].id;
-            log::info!(
-                "Subscribed component #{} ({}) to channel: {}",
-                idx,
-                name,
-                subscription
-            );
-            pubsub.subscribe(subscription).await?;
-        }
-
-        let mut stream = pubsub.on_message();
-        loop {
-            match stream.next().await {
-                Some(msg) => drop(self.handle(msg).await),
-                None => {
-                    log::trace!("Empty message");
-                    if !client.check_connection() {
-                        log::info!("No Redis connection available");
-                        break Ok(());
-                    }
-                }
-            };
-        }
     }
 
     // Handle the message.

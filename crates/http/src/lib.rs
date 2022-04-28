@@ -26,6 +26,7 @@ use spin_http::SpinHttpData;
 use spin_manifest::{
     Application, ComponentMap, CoreComponent, HttpConfig, HttpTriggerConfiguration,
 };
+use spin_trigger::Trigger;
 use std::{future::ready, net::SocketAddr, sync::Arc};
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
@@ -57,6 +58,18 @@ pub struct HttpTrigger {
     router: Router,
     /// Spin execution context.
     engine: Arc<ExecutionContext>,
+}
+
+#[async_trait]
+impl Trigger for HttpTrigger {
+    /// Runs the HTTP trigger indefinitely.
+    async fn run(&self) -> Result<()> {
+        match self.tls.as_ref() {
+            Some(tls) => self.serve_tls(tls).await?,
+            None => self.serve().await?,
+        }
+        Ok(())
+    }
 }
 
 impl HttpTrigger {
@@ -175,15 +188,6 @@ impl HttpTrigger {
         let mut not_found = Response::default();
         *not_found.status_mut() = StatusCode::NOT_FOUND;
         Ok(not_found)
-    }
-
-    /// Runs the HTTP trigger indefinitely.
-    pub async fn run(&self) -> Result<()> {
-        match self.tls.as_ref() {
-            Some(tls) => self.serve_tls(tls).await?,
-            None => self.serve().await?,
-        }
-        Ok(())
     }
 
     async fn serve(&self) -> Result<()> {

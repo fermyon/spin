@@ -4,6 +4,7 @@ use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http_engine::{HttpTrigger, TlsConfig};
 use spin_manifest::{Application, ApplicationTrigger, CoreComponent};
 use spin_redis_engine::RedisTrigger;
+use spin_trigger::Trigger;
 use std::{
     path::{Path, PathBuf},
     sync::Arc,

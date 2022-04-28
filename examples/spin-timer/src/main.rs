@@ -2,8 +2,10 @@
 #![allow(clippy::needless_question_mark)]
 
 use anyhow::Result;
+use async_trait::async_trait;
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_manifest::{CoreComponent, ModuleSource, WasmConfig};
+use spin_trigger::Trigger;
 use std::{sync::Arc, time::Duration};
 use tokio::task::spawn_blocking;
 
@@ -31,6 +33,23 @@ pub struct TimerTrigger {
     engine: Arc<ExecutionContext>,
 }
 
+#[async_trait]
+impl Trigger for TimerTrigger {
+    /// Runs the trigger at every interval.
+    async fn run(&self) -> Result<()> {
+        let mut interval = tokio::time::interval(self.interval);
+        loop {
+            interval.tick().await;
+            self.handle(
+                chrono::Local::now()
+                    .format("%Y-%m-%d][%H:%M:%S")
+                    .to_string(),
+            )
+            .await?;
+        }
+    }
+}
+
 impl TimerTrigger {
     /// Creates a new trigger.
     pub async fn new(interval: Duration, component: CoreComponent) -> Result<Self> {
@@ -43,20 +62,6 @@ impl TimerTrigger {
         log::debug!("Created new Timer trigger.");
 
         Ok(Self { interval, engine })
-    }
-
-    /// Runs the trigger at every interval.
-    pub async fn run(&self) -> Result<()> {
-        let mut interval = tokio::time::interval(self.interval);
-        loop {
-            interval.tick().await;
-            self.handle(
-                chrono::Local::now()
-                    .format("%Y-%m-%d][%H:%M:%S")
-                    .to_string(),
-            )
-            .await?;
-        }
     }
 
     /// Execute the first component in the application configuration.

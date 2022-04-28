@@ -89,21 +89,21 @@ pub struct Push {
 
     /// Basic http auth username for the bindle server
     #[structopt(
-        name = BINDLE_HTTP_USER,
-        long = "bindle-http-user",
-        env = BINDLE_HTTP_USER,
-        requires(BINDLE_HTTP_PASSWORD)
+        name = BINDLE_USERNAME,
+        long = "bindle-username",
+        env = BINDLE_USERNAME,
+        requires(BINDLE_PASSWORD)
     )]
-    pub bindle_http_user: Option<String>,
+    pub bindle_username: Option<String>,
 
     /// Basic http auth password for the bindle server
     #[structopt(
-        name = BINDLE_HTTP_PASSWORD,
-        long = "bindle-http-password",
-        env = BINDLE_HTTP_PASSWORD,
-        requires(BINDLE_HTTP_USER)
+        name = BINDLE_PASSWORD,
+        long = "bindle-password",
+        env = BINDLE_PASSWORD,
+        requires(BINDLE_USERNAME)
     )]
-    pub bindle_http_password: Option<String>,
+    pub bindle_password: Option<String>,
 
     /// Ignore server certificate errors
     #[structopt(
@@ -156,8 +156,8 @@ impl Push {
         let bindle_connection_info = spin_publish::BindleConnectionInfo::new(
             &self.bindle_server_url,
             self.insecure,
-            self.bindle_http_user,
-            self.bindle_http_password,
+            self.bindle_username,
+            self.bindle_password,
         );
 
         // TODO: only create this if not given a staging dir

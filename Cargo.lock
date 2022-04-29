@@ -3115,6 +3115,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "atty",
  "bindle",
  "bytes 1.1.0",
  "cargo-target-dep",
@@ -3189,6 +3190,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "atty",
  "bytes 1.1.0",
  "cap-std",
  "criterion",

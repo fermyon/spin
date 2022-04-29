@@ -26,6 +26,9 @@ mod integration_tests {
     const BINDLE_SERVER_BINARY: &str = "bindle-server";
 
     const BINDLE_SERVER_PATH_ENV: &str = "SPIN_TEST_BINDLE_SERVER_PATH";
+    const BINDLE_SERVER_BASIC_AUTH_HTPASSWD_FILE: &str = "tests/http/htpasswd";
+    const BINDLE_SERVER_BASIC_AUTH_USER: &str = "bindle-user";
+    const BINDLE_SERVER_BASIC_AUTH_PASSWORD: &str = "topsecret";
 
     // This assumes all tests have been previously compiled by the top-level build script.
 
@@ -49,9 +52,12 @@ mod integration_tests {
     }
 
     #[tokio::test]
-    async fn test_bindle_roundtrip() -> Result<()> {
+    async fn test_bindle_roundtrip_no_auth() -> Result<()> {
         // start the Bindle registry.
-        let b = BindleTestController::new().await?;
+        let config = BindleTestControllerConfig {
+            basic_auth_enabled: false,
+        };
+        let b = BindleTestController::new(config).await?;
 
         // push the application to the registry using the Spin CLI.
         run(
@@ -82,9 +88,52 @@ mod integration_tests {
     }
 
     #[tokio::test]
+    async fn test_bindle_roundtrip_basic_auth() -> Result<()> {
+        // start the Bindle registry.
+        let config = BindleTestControllerConfig {
+            basic_auth_enabled: true,
+        };
+        let b = BindleTestController::new(config).await?;
+
+        // push the application to the registry using the Spin CLI.
+        run(
+            vec![
+                SPIN_BINARY,
+                "bindle",
+                "push",
+                "--file",
+                &format!(
+                    "{}/{}",
+                    RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
+                ),
+                "--bindle-server",
+                &b.url,
+                "--bindle-username",
+                BINDLE_SERVER_BASIC_AUTH_USER,
+                "--bindle-password",
+                BINDLE_SERVER_BASIC_AUTH_PASSWORD,
+            ],
+            None,
+        )?;
+
+        // start Spin using the bindle reference of the application that was just pushed.
+        let s =
+            SpinTestController::with_bindle(RUST_HTTP_INTEGRATION_TEST_REF, &b.url, &[]).await?;
+
+        assert_status(&s, "/test/hello", 200).await?;
+        assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
+        assert_status(&s, "/thisshouldfail", 404).await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_bindle_static_assets() -> Result<()> {
         // start the Bindle registry.
-        let b = BindleTestController::new().await?;
+        let config = BindleTestControllerConfig {
+            basic_auth_enabled: false,
+        };
+        let b = BindleTestController::new(config).await?;
 
         // push the application to the registry using the Spin CLI.
         run(
@@ -119,7 +168,10 @@ mod integration_tests {
     #[tokio::test]
     async fn test_headers_env_routes() -> Result<()> {
         // start the Bindle registry.
-        let b = BindleTestController::new().await?;
+        let config = BindleTestControllerConfig {
+            basic_auth_enabled: false,
+        };
+        let b = BindleTestController::new(config).await?;
 
         // push the application to the registry using the Spin CLI.
         run(
@@ -290,8 +342,13 @@ mod integration_tests {
         server_handle: Child,
     }
 
+    /// Config for the BindleTestController
+    pub struct BindleTestControllerConfig {
+        pub basic_auth_enabled: bool,
+    }
+
     impl BindleTestController {
-        pub async fn new() -> Result<BindleTestController> {
+        pub async fn new(config: BindleTestControllerConfig) -> Result<BindleTestController> {
             let server_cache = tempfile::tempdir()?;
 
             let address = format!("127.0.0.1:{}", get_random_port()?);
@@ -300,14 +357,24 @@ mod integration_tests {
             let bindle_server_binary = std::env::var(BINDLE_SERVER_PATH_ENV)
                 .unwrap_or_else(|_| BINDLE_SERVER_BINARY.to_owned());
 
+            let auth_args = match config.basic_auth_enabled {
+                true => vec!["--htpasswd-file", BINDLE_SERVER_BASIC_AUTH_HTPASSWD_FILE],
+                false => vec!["--unauthenticated"],
+            };
+
             let server_handle_result = Command::new(&bindle_server_binary)
-                .args(&[
-                    "-d",
-                    server_cache.path().to_string_lossy().to_string().as_str(),
-                    "-i",
-                    address.as_str(),
-                    "--unauthenticated",
-                ])
+                .args(
+                    [
+                        &[
+                            "-d",
+                            server_cache.path().to_string_lossy().to_string().as_str(),
+                            "-i",
+                            address.as_str(),
+                        ],
+                        auth_args.as_slice(),
+                    ]
+                    .concat(),
+                )
                 .spawn();
 
             let server_handle = match server_handle_result {

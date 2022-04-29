@@ -4,20 +4,23 @@ use anyhow::{Context, Result};
 use bindle::{standalone::StandaloneRead, Id};
 use std::path::Path;
 
-type BindleClient = bindle::client::Client<spin_loader::bindle::BindleTokenManager>;
-
 /// Pushes a standalone bindle to a Bindle server.
 pub async fn push_all(
     path: impl AsRef<Path>,
     bindle_id: &Id,
-    client: &BindleClient,
-    server_url: &str,
+    bindle_connection_info: crate::BindleConnectionInfo,
 ) -> Result<()> {
     let reader = StandaloneRead::new(&path, bindle_id).await?;
+    let client = &bindle_connection_info.client().with_context(|| {
+        format!(
+            "Failed to create a bindle client for server '{}'",
+            &bindle_connection_info.base_url
+        )
+    })?;
     reader
         .push(client)
         .await
-        .with_context(|| push_failed_msg(path, server_url))
+        .with_context(|| push_failed_msg(path, &bindle_connection_info.base_url))
 }
 
 fn push_failed_msg(path: impl AsRef<Path>, server_url: &str) -> String {

@@ -60,6 +60,7 @@ members = [
     "crates/redis",
     "crates/templates",
     "crates/testing",
+    "crates/trigger",
     "examples/spin-timer",
     "sdk/rust",
     "sdk/rust/macro"

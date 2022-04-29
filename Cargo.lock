@@ -3401,6 +3401,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-trigger"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "outbound-redis",
+ "spin-engine",
+ "spin-manifest",
+ "wasi-outbound-http",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

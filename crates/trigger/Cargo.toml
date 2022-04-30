@@ -8,4 +8,8 @@ authors = ["mossaka <duibao55328@gmail.com>"]
 
 [dependencies]
 anyhow = "1.0"
-async-trait = "0.1.53"
+async-trait = "0.1"
+outbound-redis = { path = "../outbound-redis" }
+spin-engine = { path = "../engine" }
+spin-manifest = { path = "../manifest" }
+wasi-outbound-http = { path = "../outbound-http" } 

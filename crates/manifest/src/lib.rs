@@ -11,6 +11,14 @@ use std::{
     sync::Arc,
 };
 
+/// A trigger error.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    /// Invalid config key.
+    #[error("invalid trigger type")]
+    InvalidTriggerType,
+}
+
 /// Application configuration.
 #[derive(Clone, Debug)]
 pub struct Application<T> {
@@ -105,11 +113,33 @@ impl Default for HttpTriggerConfiguration {
     }
 }
 
+impl TryFrom<ApplicationTrigger> for HttpTriggerConfiguration {
+    type Error = Error;
+
+    fn try_from(trigger: ApplicationTrigger) -> Result<Self, Self::Error> {
+        match trigger.as_http() {
+            Some(config) => Ok(config.clone()),
+            None => Err(Error::InvalidTriggerType),
+        }
+    }
+}
+
 /// Redis trigger configuration.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct RedisTriggerConfiguration {
     /// Address of Redis server.
     pub address: String,
+}
+
+impl TryFrom<ApplicationTrigger> for RedisTriggerConfiguration {
+    type Error = Error;
+
+    fn try_from(trigger: ApplicationTrigger) -> Result<Self, Self::Error> {
+        match trigger.as_redis() {
+            Some(config) => Ok(config.clone()),
+            None => Err(Error::InvalidTriggerType),
+        }
+    }
 }
 
 impl ApplicationTrigger {
@@ -285,6 +315,28 @@ impl Default for TriggerConfig {
     }
 }
 
+impl TryFrom<TriggerConfig> for HttpConfig {
+    type Error = Error;
+
+    fn try_from(trigger: TriggerConfig) -> Result<Self, Self::Error> {
+        match trigger {
+            TriggerConfig::Http(http) => Ok(http),
+            _ => Err(Error::InvalidTriggerType),
+        }
+    }
+}
+
+impl TryFrom<TriggerConfig> for RedisConfig {
+    type Error = Error;
+
+    fn try_from(trigger: TriggerConfig) -> Result<Self, Self::Error> {
+        match trigger {
+            TriggerConfig::Redis(redis) => Ok(redis),
+            _ => Err(Error::InvalidTriggerType),
+        }
+    }
+}
+
 impl TriggerConfig {
     /// Returns the HttpConfig else None.
     pub fn as_http(&self) -> Option<&HttpConfig> {
@@ -305,6 +357,12 @@ impl TriggerConfig {
 /// Component trigger configurations.
 #[derive(Clone, Debug)]
 pub struct ComponentMap<T>(HashMap<String, T>);
+
+impl<T> Default for ComponentMap<T> {
+    fn default() -> Self {
+        ComponentMap(HashMap::new())
+    }
+}
 
 impl<T> ComponentMap<T> {
     /// Get a value for the given component.

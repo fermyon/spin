@@ -1,10 +1,10 @@
 use crate::opts::*;
 use anyhow::{bail, Context, Result};
 use spin_engine::{Builder, ExecutionContextConfiguration};
-use spin_http_engine::{HttpTrigger, TlsConfig};
+use spin_http_engine::{HttpRuntimeConfig, HttpTrigger, TlsConfig};
 use spin_manifest::{Application, ApplicationTrigger, CoreComponent};
 use spin_redis_engine::RedisTrigger;
-use spin_trigger::Trigger;
+use spin_trigger::{run_trigger, RunOptions, Trigger};
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -138,14 +138,21 @@ impl UpCommand {
 
         match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
-                let builder = self.prepare_ctx_builder(app.clone()).await?;
-                let trigger = HttpTrigger::new(builder, app, self.opts.address, tls).await?;
-                trigger.run().await?;
+                run_trigger(
+                    app,
+                    RunOptions::<HttpTrigger>::new(
+                        self.opts.log.clone(),
+                        HttpRuntimeConfig::new(self.opts.address, tls),
+                    ),
+                )
+                .await?;
             }
             ApplicationTrigger::Redis(_) => {
-                let builder = self.prepare_ctx_builder(app.clone()).await?;
-                let trigger = RedisTrigger::new(builder, app).await?;
-                trigger.run().await?;
+                run_trigger(
+                    app,
+                    RunOptions::<RedisTrigger>::new(self.opts.log.clone(), ()),
+                )
+                .await?;
             }
         }
 

@@ -4,7 +4,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use spin_engine::{Builder, ExecutionContextConfiguration};
-use spin_manifest::{CoreComponent, ModuleSource, WasmConfig};
+use spin_manifest::{CoreComponent, ModuleSource, WasmConfig, ComponentMap, Application};
+use spin_timer::SpinTimerData;
 use spin_trigger::Trigger;
 use std::{sync::Arc, time::Duration};
 use tokio::task::spawn_blocking;
@@ -19,25 +20,56 @@ async fn main() -> Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let trigger = TimerTrigger::new(Duration::from_secs(1), component()).await?;
-    trigger.run().await
+    let component = component();
+    let builder = Builder::build_default(ExecutionContextConfiguration {
+        components: vec![component],
+        label: "timer-app".to_string(),
+        ..Default::default()
+    }).await?;
+    let trigger = TimerTrigger::new(builder, (), Default::default(), ())?;
+    trigger.run(TimerRuntimeConfig { interval: Duration::from_secs(1) }).await
 }
 
 /// A custom timer trigger that executes the
 /// first component of an application on every interval.
 #[derive(Clone)]
-pub struct TimerTrigger {
-    /// The interval at which the component is executed.
-    pub interval: Duration,
+pub struct TimerTrigger {    
     /// The Spin execution context.
     engine: Arc<ExecutionContext>,
 }
 
+#[derive(Clone)]
+pub struct TimerRuntimeConfig {
+    /// The interval at which the component is executed.   
+    pub interval: Duration,
+}
+
 #[async_trait]
 impl Trigger for TimerTrigger {
+    type ContextData = SpinTimerData;
+    type Config = ();
+    type ComponentConfig = ();
+    type RuntimeConfig = TimerRuntimeConfig;
+    type TriggerExtra = ();
+
+    /// Creates a new trigger.
+    fn new(
+        execution_context: ExecutionContext,
+        config: Self::Config,
+        component_configs: ComponentMap<Self::ComponentConfig>,
+        trigger_extra: Self::TriggerExtra,
+    ) -> Result<Self> {
+        Ok(Self {
+            engine: Arc::new(execution_context),
+        })
+    }
+
+    fn build_trigger_extra(app: Application<CoreComponent>) -> Result<Self::TriggerExtra> {
+        Ok(())
+    }
     /// Runs the trigger at every interval.
-    async fn run(&self) -> Result<()> {
-        let mut interval = tokio::time::interval(self.interval);
+    async fn run(&self, run_config: Self::RuntimeConfig) -> Result<()> {
+        let mut interval = tokio::time::interval(run_config.interval);
         loop {
             interval.tick().await;
             self.handle(
@@ -51,19 +83,6 @@ impl Trigger for TimerTrigger {
 }
 
 impl TimerTrigger {
-    /// Creates a new trigger.
-    pub async fn new(interval: Duration, component: CoreComponent) -> Result<Self> {
-        let config = ExecutionContextConfiguration {
-            components: vec![component],
-            label: "timer-app".to_string(),
-            ..Default::default()
-        };
-        let engine = Arc::new(Builder::build_default(config).await?);
-        log::debug!("Created new Timer trigger.");
-
-        Ok(Self { interval, engine })
-    }
-
     /// Execute the first component in the application configuration.
     async fn handle(&self, msg: String) -> Result<()> {
         let (mut store, instance) = self.engine.prepare_component(

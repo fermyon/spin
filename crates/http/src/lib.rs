@@ -46,10 +46,6 @@ type RuntimeContext = spin_engine::RuntimeContext<SpinHttpData>;
 /// would work across multiple applications.)
 #[derive(Clone)]
 pub struct HttpTrigger {
-    /// Listening address for the server.
-    address: String,
-    /// TLS configuration for the server.
-    tls: Option<TlsConfig>,
     /// Trigger configuration.
     trigger_config: HttpTriggerConfiguration,
     /// Component trigger configurations.
@@ -60,55 +56,55 @@ pub struct HttpTrigger {
     engine: Arc<ExecutionContext>,
 }
 
+#[derive(Clone)]
+pub struct HttpRuntimeConfig {
+    address: String,
+    tls: Option<TlsConfig>,
+}
+
+impl HttpRuntimeConfig {
+    pub fn new(address: String, tls: Option<TlsConfig>) -> Self {
+        Self { address, tls }
+    }
+}
+
 #[async_trait]
 impl Trigger for HttpTrigger {
+    type ContextData = SpinHttpData;
+    type Config = HttpTriggerConfiguration;
+    type ComponentConfig = HttpConfig;
+    type RuntimeConfig = HttpRuntimeConfig;
+    type TriggerExtra = Router;
+
+    fn new(
+        execution_context: ExecutionContext,
+        config: Self::Config,
+        component_configs: ComponentMap<Self::ComponentConfig>,
+        trigger_extra: Self::TriggerExtra,
+    ) -> Result<Self> {
+        Ok(Self {
+            trigger_config: config,
+            component_triggers: component_configs,
+            router: trigger_extra,
+            engine: Arc::new(execution_context),
+        })
+    }
+
+    fn build_trigger_extra(app: Application<CoreComponent>) -> Result<Self::TriggerExtra> {
+        Router::build(&app)
+    }
+
     /// Runs the HTTP trigger indefinitely.
-    async fn run(&self) -> Result<()> {
-        match self.tls.as_ref() {
-            Some(tls) => self.serve_tls(tls).await?,
-            None => self.serve().await?,
+    async fn run(&self, run_config: Self::RuntimeConfig) -> Result<()> {
+        match run_config.tls.as_ref() {
+            Some(tls) => self.serve_tls(tls, run_config.address).await?,
+            None => self.serve(run_config.address).await?,
         }
         Ok(())
     }
 }
 
 impl HttpTrigger {
-    /// Creates a new Spin HTTP trigger.
-    pub async fn new(
-        builder: Builder<SpinHttpData>,
-        app: Application<CoreComponent>,
-        address: String,
-        tls: Option<TlsConfig>,
-    ) -> Result<Self> {
-        let trigger_config = app
-            .info
-            .trigger
-            .as_http()
-            .ok_or_else(|| anyhow!("Application trigger is not HTTP"))?
-            .clone();
-
-        let component_triggers = app.component_triggers.try_map_values(|id, trigger| {
-            trigger
-                .as_http()
-                .cloned()
-                .ok_or_else(|| anyhow!("Expected HTTP configuration for component {}", id))
-        })?;
-
-        let router = Router::build(&app)?;
-        let engine = Arc::new(builder.build().await?);
-
-        log::trace!("Created new HTTP trigger.");
-
-        Ok(Self {
-            address,
-            tls,
-            trigger_config,
-            component_triggers,
-            router,
-            engine,
-        })
-    }
-
     /// Handles incoming requests using an HTTP executor.
     pub async fn handle(&self, req: Request<Body>, addr: SocketAddr) -> Result<Response<Body>> {
         log::info!(
@@ -190,7 +186,7 @@ impl HttpTrigger {
         Ok(not_found)
     }
 
-    async fn serve(&self) -> Result<()> {
+    async fn serve(&self, address: String) -> Result<()> {
         let mk_svc = make_service_fn(move |addr: &AddrStream| {
             let t = self.clone();
             let addr = addr.remote_addr();
@@ -212,7 +208,7 @@ impl HttpTrigger {
             }
         });
 
-        let addr: SocketAddr = self.address.parse()?;
+        let addr: SocketAddr = address.parse()?;
 
         let server = Server::try_bind(&addr)
             .with_context(|| format!("Unable to listen on {}", addr))?
@@ -240,7 +236,7 @@ impl HttpTrigger {
         Ok(())
     }
 
-    async fn serve_tls(&self, tls: &TlsConfig) -> Result<()> {
+    async fn serve_tls(&self, tls: &TlsConfig, address: String) -> Result<()> {
         let mk_svc = make_service_fn(move |conn: &TlsStream<TcpStream>| {
             let (inner, _) = conn.get_ref();
             let addr_res = inner.peer_addr().map_err(|e| e.to_string());
@@ -272,7 +268,7 @@ impl HttpTrigger {
             })
         });
 
-        let addr: SocketAddr = self.address.parse()?;
+        let addr: SocketAddr = address.parse()?;
         let listener = TcpListener::bind(&addr)
             .await
             .with_context(|| format!("Unable to listen on {}", addr))?;
@@ -408,6 +404,7 @@ mod tests {
     use anyhow::Result;
     use spin_manifest::{HttpConfig, HttpExecutor};
     use spin_testing::test_socket_addr;
+    use spin_trigger::{RunOptions, get_default_trigger};
     use std::{collections::BTreeMap, sync::Once};
 
     static LOGGER: Once = Once::new();
@@ -544,9 +541,11 @@ mod tests {
                 executor: Some(HttpExecutor::Spin),
             });
         let app = cfg.build_application();
-        let engine = cfg.prepare_builder(app.clone()).await;
 
-        let trigger = HttpTrigger::new(engine, app, "".to_string(), None).await?;
+        let trigger = get_default_trigger(app, RunOptions::<HttpTrigger>::new(
+            None,
+            HttpRuntimeConfig::new("".to_string(), None))
+        ).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
@@ -573,9 +572,11 @@ mod tests {
             executor: Some(HttpExecutor::Wagi(Default::default())),
         });
         let app = cfg.build_application();
-        let engine = cfg.prepare_builder(app.clone()).await;
 
-        let trigger = HttpTrigger::new(engine, app, "".to_string(), None).await?;
+        let trigger = get_default_trigger(app, RunOptions::<HttpTrigger>::new(
+            None,
+            HttpRuntimeConfig::new("".to_string(), None))
+        ).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()

@@ -21,7 +21,7 @@ use tracing::log;
 
 /// Router for the HTTP trigger.
 #[derive(Clone, Debug)]
-pub(crate) struct Router {
+pub struct Router {
     /// Ordered map between a path and the component that should handle it.
     pub(crate) routes: IndexMap<RoutePattern, CoreComponent>,
 }

@@ -8,12 +8,13 @@ use std::{
 
 use http::{Request, Response};
 use hyper::Body;
-use spin_engine::Builder;
+use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http_engine::HttpTrigger;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
-    HttpConfig, ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion, TriggerConfig,
+    HttpConfig, ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion, TriggerConfig, HttpTriggerConfiguration, ComponentMap,
 };
+use spin_trigger::Trigger;
 
 #[derive(Default)]
 pub struct TestConfig {
@@ -107,10 +108,31 @@ impl TestConfig {
 
     pub async fn build_http_trigger(&self) -> HttpTrigger {
         let app = self.build_application();
-        let builder = self.prepare_builder(app.clone()).await;
-        HttpTrigger::new(builder, app, "".to_string(), None)
-            .await
-            .expect("failed to build HttpTrigger")
+        let app2 = app.clone();
+        let mut builder = Builder::new(ExecutionContextConfiguration {
+            components: app2.components,
+            label: app2.info.name,
+            log_dir: None,
+            config_resolver: app2.config_resolver,
+        }).expect("Builder::new failed");
+        HttpTrigger::configure_execution_context(&mut builder).expect("configure_execution_context failed");
+        let execution_ctx = builder.build().await.unwrap();
+        let trigger_config = app2.info.trigger.try_into().unwrap();
+
+        let component_triggers: ComponentMap<HttpConfig> = app2.component_triggers.try_map_values(|id, trigger| {
+            trigger
+                .clone()
+                .try_into()
+        }).unwrap();
+
+        let trigger_extra = HttpTrigger::build_trigger_extra(app).unwrap();
+        let trigger = HttpTrigger::new(
+            execution_ctx,
+            trigger_config,
+            component_triggers,
+            trigger_extra,
+        ).unwrap();
+        trigger
     }
 
     pub async fn handle_http_request(&self, req: Request<Body>) -> anyhow::Result<Response<Body>> {

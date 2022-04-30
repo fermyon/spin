@@ -35,8 +35,41 @@ pub struct RedisTrigger {
 
 #[async_trait]
 impl Trigger for RedisTrigger {
+    type ContextData = SpinRedisData;
+    type Config = RedisTriggerConfiguration;
+    type ComponentConfig = RedisConfig;
+    type RuntimeConfig = ();
+    type TriggerExtra = HashMap<String, usize>;
+
+    fn new(
+        execution_context: ExecutionContext,
+        config: Self::Config,
+        component_configs: ComponentMap<Self::ComponentConfig>,
+        trigger_extra: Self::TriggerExtra,
+    ) -> Result<Self> {
+        Ok(Self {
+            trigger_config: config,
+            component_triggers: component_configs,
+            engine: Arc::new(execution_context),
+            subscriptions: trigger_extra,
+        })
+    }
+
+    fn build_trigger_extra(app: Application<CoreComponent>) -> Result<Self::TriggerExtra> {
+        Ok(app
+            .components
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, c)| {
+                app.component_triggers
+                    .get(c)
+                    .map(|c| (c.as_redis().unwrap().channel.clone(), idx))
+            })
+            .collect())
+    }
+
     /// Run the Redis trigger indefinitely.
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, _: Self::RuntimeConfig) -> Result<()> {
         let address = self.trigger_config.address.as_str();
 
         log::info!("Connecting to Redis server at {}", address);

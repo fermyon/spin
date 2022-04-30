@@ -3272,8 +3272,10 @@ dependencies = [
 name = "spin-manifest"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "serde",
  "spin-config",
+ "thiserror",
 ]
 
 [[package]]
@@ -3379,6 +3381,7 @@ dependencies = [
  "spin-engine",
  "spin-http-engine",
  "spin-manifest",
+ "spin-trigger",
 ]
 
 [[package]]
@@ -3410,6 +3413,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "outbound-redis",
+ "spin-engine",
+ "spin-manifest",
+ "wasi-outbound-http",
 ]
 
 [[package]]

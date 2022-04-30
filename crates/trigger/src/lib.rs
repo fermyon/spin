@@ -1,4 +1,4 @@
-use std::{error::Error, path::PathBuf, sync::Arc};
+use std::{error::Error, path::PathBuf};
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;

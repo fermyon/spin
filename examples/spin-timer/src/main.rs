@@ -60,9 +60,9 @@ impl Trigger for TimerTrigger {
     /// Creates a new trigger.
     fn new(
         execution_context: ExecutionContext,
-        config: Self::Config,
-        component_configs: ComponentMap<Self::ComponentConfig>,
-        trigger_extra: Self::TriggerExtra,
+        _: Self::Config,
+        _: ComponentMap<Self::ComponentConfig>,
+        _: Self::TriggerExtra,
     ) -> Result<Self> {
         Ok(Self {
             engine: Arc::new(execution_context),

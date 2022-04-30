@@ -4,7 +4,7 @@ use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http_engine::{HttpRuntimeConfig, HttpTrigger, TlsConfig};
 use spin_manifest::{Application, ApplicationTrigger, CoreComponent};
 use spin_redis_engine::RedisTrigger;
-use spin_trigger::{run_trigger, RunOptions, Trigger};
+use spin_trigger::{run_trigger, RunOptions};
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -161,21 +161,6 @@ impl UpCommand {
         drop(working_dir_holder);
 
         Ok(())
-    }
-
-    async fn prepare_ctx_builder<T: Default + 'static>(
-        &self,
-        app: Application<CoreComponent>,
-    ) -> Result<Builder<T>> {
-        let config = ExecutionContextConfiguration {
-            log_dir: self.opts.log.clone(),
-            ..app.into()
-        };
-        let mut builder = Builder::new(config)?;
-        builder.link_defaults()?;
-        builder.add_host_component(wasi_outbound_http::OutboundHttpComponent)?;
-        builder.add_host_component(outbound_redis::OutboundRedis)?;
-        Ok(builder)
     }
 }
 

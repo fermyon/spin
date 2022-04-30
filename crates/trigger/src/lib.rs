@@ -36,7 +36,6 @@ pub trait Trigger: Sized {
     }
 }
 
-
 pub struct RunOptions<T: Trigger> {
     log_dir: Option<PathBuf>,
     trigger_run_config: T::RuntimeConfig,
@@ -53,7 +52,7 @@ impl<T: Trigger> RunOptions<T> {
 
 pub async fn get_default_trigger<T: Trigger>(
     app: Application<CoreComponent>,
-    opts: RunOptions<T>,
+    log_dir: Option<PathBuf>,
 ) -> Result<T>
 where
     T::Config: TryFrom<ApplicationTrigger>,
@@ -65,7 +64,7 @@ where
     let mut builder = Builder::<T::ContextData>::new(ExecutionContextConfiguration {
         components: app_2.components,
         label: app_2.info.name,
-        log_dir: opts.log_dir,
+        log_dir: log_dir,
         config_resolver: app_2.config_resolver,
     })?;
     T::configure_execution_context(&mut builder)?;
@@ -99,30 +98,6 @@ where
     <T::Config as TryFrom<ApplicationTrigger>>::Error: Error + Send + Sync + 'static,
     <T::ComponentConfig as TryFrom<TriggerConfig>>::Error: Error + Send + Sync + 'static,
 {
-    let app_2 = app.clone();
-    let mut builder = Builder::<T::ContextData>::new(ExecutionContextConfiguration {
-        components: app_2.components,
-        label: app_2.info.name,
-        log_dir: opts.log_dir,
-        config_resolver: app_2.config_resolver,
-    })?;
-    T::configure_execution_context(&mut builder)?;
-    let execution_ctx = builder.build().await?;
-    let trigger_config = app_2.info.trigger.try_into()?;
-
-    let component_triggers = app_2.component_triggers.try_map_values(|id, trigger| {
-        trigger
-            .clone()
-            .try_into()
-            .with_context(|| format!("Failed to convert trigger config for component {}", id))
-    })?;
-
-    let trigger_extra = T::build_trigger_extra(app)?;
-    let trigger = T::new(
-        execution_ctx,
-        trigger_config,
-        component_triggers,
-        trigger_extra,
-    )?;
+    let trigger: T = get_default_trigger(app, opts.log_dir).await?;
     trigger.run(opts.trigger_run_config).await
 }

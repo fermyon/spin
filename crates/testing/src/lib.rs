@@ -11,8 +11,9 @@ use hyper::Body;
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http_engine::HttpTrigger;
 use spin_manifest::{
-    Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
-    HttpConfig, ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion, TriggerConfig, HttpTriggerConfiguration, ComponentMap,
+    Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, ComponentMap,
+    CoreComponent, HttpConfig, HttpTriggerConfiguration, ModuleSource, RedisConfig,
+    RedisTriggerConfiguration, SpinVersion, TriggerConfig,
 };
 use spin_trigger::Trigger;
 
@@ -114,16 +115,17 @@ impl TestConfig {
             label: app2.info.name,
             log_dir: None,
             config_resolver: app2.config_resolver,
-        }).expect("Builder::new failed");
-        HttpTrigger::configure_execution_context(&mut builder).expect("configure_execution_context failed");
+        })
+        .expect("Builder::new failed");
+        HttpTrigger::configure_execution_context(&mut builder)
+            .expect("configure_execution_context failed");
         let execution_ctx = builder.build().await.unwrap();
         let trigger_config = app2.info.trigger.try_into().unwrap();
 
-        let component_triggers: ComponentMap<HttpConfig> = app2.component_triggers.try_map_values(|id, trigger| {
-            trigger
-                .clone()
-                .try_into()
-        }).unwrap();
+        let component_triggers: ComponentMap<HttpConfig> = app2
+            .component_triggers
+            .try_map_values(|id, trigger| trigger.clone().try_into())
+            .unwrap();
 
         let trigger_extra = HttpTrigger::build_trigger_extra(app).unwrap();
         let trigger = HttpTrigger::new(
@@ -131,7 +133,8 @@ impl TestConfig {
             trigger_config,
             component_triggers,
             trigger_extra,
-        ).unwrap();
+        )
+        .unwrap();
         trigger
     }
 

@@ -4,7 +4,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use spin_engine::{Builder, ExecutionContextConfiguration};
-use spin_manifest::{CoreComponent, ModuleSource, WasmConfig, ComponentMap, Application};
+use spin_manifest::{Application, ComponentMap, CoreComponent, ModuleSource, WasmConfig};
 use spin_timer::SpinTimerData;
 use spin_trigger::Trigger;
 use std::{sync::Arc, time::Duration};
@@ -25,15 +25,20 @@ async fn main() -> Result<()> {
         components: vec![component],
         label: "timer-app".to_string(),
         ..Default::default()
-    }).await?;
+    })
+    .await?;
     let trigger = TimerTrigger::new(builder, (), Default::default(), ())?;
-    trigger.run(TimerRuntimeConfig { interval: Duration::from_secs(1) }).await
+    trigger
+        .run(TimerRuntimeConfig {
+            interval: Duration::from_secs(1),
+        })
+        .await
 }
 
 /// A custom timer trigger that executes the
 /// first component of an application on every interval.
 #[derive(Clone)]
-pub struct TimerTrigger {    
+pub struct TimerTrigger {
     /// The Spin execution context.
     engine: Arc<ExecutionContext>,
 }

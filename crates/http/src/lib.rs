@@ -404,7 +404,7 @@ mod tests {
     use anyhow::Result;
     use spin_manifest::{HttpConfig, HttpExecutor};
     use spin_testing::test_socket_addr;
-    use spin_trigger::{RunOptions, get_default_trigger};
+    use spin_trigger::get_default_trigger;
     use std::{collections::BTreeMap, sync::Once};
 
     static LOGGER: Once = Once::new();
@@ -542,10 +542,7 @@ mod tests {
             });
         let app = cfg.build_application();
 
-        let trigger = get_default_trigger(app, RunOptions::<HttpTrigger>::new(
-            None,
-            HttpRuntimeConfig::new("".to_string(), None))
-        ).await?;
+        let trigger: HttpTrigger = get_default_trigger(app, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
@@ -573,10 +570,7 @@ mod tests {
         });
         let app = cfg.build_application();
 
-        let trigger = get_default_trigger(app, RunOptions::<HttpTrigger>::new(
-            None,
-            HttpRuntimeConfig::new("".to_string(), None))
-        ).await?;
+        let trigger: HttpTrigger = get_default_trigger(app, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()

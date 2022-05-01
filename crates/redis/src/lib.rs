@@ -105,44 +105,6 @@ impl Trigger for RedisTrigger {
 }
 
 impl RedisTrigger {
-    /// Create a new Spin Redis trigger.
-    pub async fn new(
-        builder: Builder<SpinRedisData>,
-        app: Application<CoreComponent>,
-    ) -> Result<Self> {
-        let trigger_config = app
-            .info
-            .trigger
-            .as_redis()
-            .ok_or_else(|| anyhow!("Application trigger is not Redis"))?
-            .clone();
-
-        let component_triggers = app.component_triggers.try_map_values(|id, trigger| {
-            trigger
-                .as_redis()
-                .cloned()
-                .ok_or_else(|| anyhow!("Expected Redis configuration for component {}", id))
-        })?;
-
-        let subscriptions = app
-            .components
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, c)| component_triggers.get(c).map(|c| (c.channel.clone(), idx)))
-            .collect();
-
-        let engine = Arc::new(builder.build().await?);
-
-        log::trace!("Created new Redis trigger.");
-
-        Ok(Self {
-            trigger_config,
-            component_triggers,
-            engine,
-            subscriptions,
-        })
-    }
-
     // Handle the message.
     async fn handle(&self, msg: redis::Msg) -> Result<()> {
         let channel = msg.get_channel_name();

@@ -2,7 +2,7 @@ use super::*;
 use anyhow::Result;
 use spin_manifest::{RedisConfig, RedisExecutor};
 use spin_testing::TestConfig;
-use spin_trigger::{get_default_trigger, Trigger};
+use spin_trigger::get_default_trigger;
 use std::sync::Once;
 
 static LOGGER: Once = Once::new();

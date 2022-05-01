@@ -12,8 +12,8 @@ use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http_engine::HttpTrigger;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, ComponentMap,
-    CoreComponent, HttpConfig, ModuleSource, RedisConfig,
-    RedisTriggerConfiguration, SpinVersion, TriggerConfig,
+    CoreComponent, HttpConfig, ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion,
+    TriggerConfig,
 };
 use spin_trigger::Trigger;
 
@@ -128,7 +128,7 @@ impl TestConfig {
             .unwrap();
 
         let trigger_extra = HttpTrigger::build_trigger_extra(app).unwrap();
-        
+
         HttpTrigger::new(
             execution_ctx,
             trigger_config,

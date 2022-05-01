@@ -3,11 +3,11 @@
 mod spin;
 
 use crate::spin::SpinRedisExecutor;
-use anyhow::{anyhow, Result};
+use anyhow::{Result};
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};
-use spin_engine::Builder;
+
 use spin_manifest::{
     Application, ComponentMap, CoreComponent, RedisConfig, RedisTriggerConfiguration,
 };

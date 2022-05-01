@@ -2,7 +2,7 @@
 
 The purpose of this example is to show that a simple spin component can be used to protect HTTP CloudEvents authentication.
 
-> CloudEvents v1.0 implements its own [abuse protection semantics](https://docs.microsoft.com/en-us/azure/event-grid/webhook-event-delivery) using the HTTP OPTIONS method.
+> CloudEvents v1.0 implements its own [abuse protection semantics](https://github.com/cloudevents/spec/blob/v1.0/http-webhook.md#4-abuse-protection) using the HTTP OPTIONS method.
 
 > An example of the abuse protection provider is the [Azure Event Grid](https://docs.microsoft.com/en-us/azure/event-grid/webhook-event-delivery) webhook service.
 

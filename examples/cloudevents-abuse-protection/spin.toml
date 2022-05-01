@@ -7,7 +7,8 @@ version = "1.0.0"
 
 [[component]]
 id = "validate"
-source = "target/wasm32-wasi/release/event_grid_validation.wasm"
+source = "target/wasm32-wasi/release/cloudevents_abuse_protection.wasm"
+allowed_http_hosts = ["*"]
 [component.trigger]
 route = "/"
 [component.build]

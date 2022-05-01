@@ -2,7 +2,7 @@ use crate::opts::*;
 use anyhow::{bail, Context, Result};
 
 use spin_http_engine::{HttpRuntimeConfig, HttpTrigger, TlsConfig};
-use spin_manifest::{ApplicationTrigger};
+use spin_manifest::ApplicationTrigger;
 use spin_redis_engine::RedisTrigger;
 use spin_trigger::{run_trigger, RunOptions};
 use std::{

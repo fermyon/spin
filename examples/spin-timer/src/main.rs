@@ -69,7 +69,7 @@ impl Trigger for TimerTrigger {
         })
     }
 
-    fn build_trigger_extra(app: Application<CoreComponent>) -> Result<Self::TriggerExtra> {
+    fn build_trigger_extra(_app: Application<CoreComponent>) -> Result<Self::TriggerExtra> {
         Ok(())
     }
     /// Runs the trigger at every interval.

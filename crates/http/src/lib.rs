@@ -4,7 +4,7 @@ mod routes;
 mod spin;
 mod tls;
 mod wagi;
-use spin_engine::Builder;
+
 pub use tls::TlsConfig;
 
 use crate::{
@@ -12,7 +12,7 @@ use crate::{
     spin::SpinHttpExecutor,
     wagi::WagiHttpExecutor,
 };
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{Context, Error, Result};
 use async_trait::async_trait;
 use futures_util::stream::StreamExt;
 use http::{uri::Scheme, StatusCode, Uri};

@@ -12,7 +12,7 @@ use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http_engine::HttpTrigger;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, ComponentMap,
-    CoreComponent, HttpConfig, HttpTriggerConfiguration, ModuleSource, RedisConfig,
+    CoreComponent, HttpConfig, ModuleSource, RedisConfig,
     RedisTriggerConfiguration, SpinVersion, TriggerConfig,
 };
 use spin_trigger::Trigger;
@@ -124,18 +124,18 @@ impl TestConfig {
 
         let component_triggers: ComponentMap<HttpConfig> = app2
             .component_triggers
-            .try_map_values(|id, trigger| trigger.clone().try_into())
+            .try_map_values(|_id, trigger| trigger.clone().try_into())
             .unwrap();
 
         let trigger_extra = HttpTrigger::build_trigger_extra(app).unwrap();
-        let trigger = HttpTrigger::new(
+        
+        HttpTrigger::new(
             execution_ctx,
             trigger_config,
             component_triggers,
             trigger_extra,
         )
-        .unwrap();
-        trigger
+        .unwrap()
     }
 
     pub async fn handle_http_request(&self, req: Request<Body>) -> anyhow::Result<Response<Body>> {

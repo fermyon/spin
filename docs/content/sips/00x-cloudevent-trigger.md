@@ -151,7 +151,7 @@ use spin_sdk::{
 };
 
 /// A simple Spin event component.
-#[event_component]
+#[cloud_event_component]
 fn trigger(event: Event) -> Result<Event, _> {
     println!("event is {}", event.id());
     Ok(event)

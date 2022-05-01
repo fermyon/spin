@@ -3,7 +3,7 @@
 mod spin;
 
 use crate::spin::SpinRedisExecutor;
-use anyhow::{Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};

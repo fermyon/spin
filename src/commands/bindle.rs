@@ -1,20 +1,8 @@
-use crate::parse_buildinfo;
+use crate::{opts::*, parse_buildinfo};
 use anyhow::{Context, Result};
-use bindle::client::Client as BindleClient;
-use bindle::client::ClientBuilder as BindleClientBuilder;
 use semver::BuildMetadata;
-use spin_loader::bindle::BindleTokenManager;
 use std::path::PathBuf;
 use structopt::StructOpt;
-
-use crate::commands::up::DEFAULT_MANIFEST_FILE;
-
-const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
-const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
-const BINDLE_URL_ENV: &str = "BINDLE_URL";
-const BUILDINFO_OPT: &str = "BUILDINFO";
-const INSECURE_OPT: &str = "INSECURE";
-const STAGING_DIR_OPT: &str = "STAGING_DIR";
 
 /// Commands for publishing applications as bindles.
 #[derive(StructOpt, Debug)]
@@ -99,6 +87,24 @@ pub struct Push {
     )]
     pub bindle_server_url: String,
 
+    /// Basic http auth username for the bindle server
+    #[structopt(
+        name = BINDLE_USERNAME,
+        long = "bindle-username",
+        env = BINDLE_USERNAME,
+        requires = BINDLE_PASSWORD
+    )]
+    pub bindle_username: Option<String>,
+
+    /// Basic http auth password for the bindle server
+    #[structopt(
+        name = BINDLE_PASSWORD,
+        long = "bindle-password",
+        env = BINDLE_PASSWORD,
+        requires = BINDLE_USERNAME
+    )]
+    pub bindle_password: Option<String>,
+
     /// Ignore server certificate errors
     #[structopt(
         name = INSECURE_OPT,
@@ -147,7 +153,12 @@ impl Push {
             .as_deref()
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
         let source_dir = crate::app_dir(app_file)?;
-        let client = self.create_bindle_client()?;
+        let bindle_connection_info = spin_publish::BindleConnectionInfo::new(
+            &self.bindle_server_url,
+            self.insecure,
+            self.bindle_username,
+            self.bindle_password,
+        );
 
         // TODO: only create this if not given a staging dir
         let temp_dir = tempfile::tempdir()?;
@@ -167,27 +178,11 @@ impl Push {
             .await
             .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
 
-        spin_publish::push_all(&dest_dir, bindle_id, &client, &self.bindle_server_url)
+        spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info)
             .await
             .context("Failed to push bindle to server")?;
 
         println!("pushed: {}", bindle_id);
         Ok(())
-    }
-
-    fn create_bindle_client(&self) -> Result<BindleClient<BindleTokenManager>> {
-        BindleClientBuilder::default()
-            .danger_accept_invalid_certs(self.insecure)
-            .build(
-                &self.bindle_server_url,
-                // TODO: pick up auth options from the command line
-                BindleTokenManager::NoToken(bindle::client::tokens::NoToken),
-            )
-            .with_context(|| {
-                format!(
-                    "Failed to create client for bindle server '{}'",
-                    self.bindle_server_url
-                )
-            })
     }
 }

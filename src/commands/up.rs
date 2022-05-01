@@ -1,3 +1,4 @@
+use crate::opts::*;
 use anyhow::{bail, Context, Result};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http_engine::{HttpTrigger, TlsConfig};
@@ -10,20 +11,6 @@ use std::{
 use structopt::{clap::AppSettings, StructOpt};
 use tempfile::TempDir;
 
-pub const DEFAULT_MANIFEST_FILE: &str = "spin.toml";
-
-const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
-const BINDLE_ID_OPT: &str = "BINDLE_ID";
-const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
-const BINDLE_URL_ENV: &str = "BINDLE_URL";
-const APP_LOG_DIR: &str = "APP_LOG_DIR";
-
-const TLS_CERT_FILE_OPT: &str = "TLS_CERT_FILE";
-const TLS_KEY_FILE_OPT: &str = "TLS_KEY_FILE";
-
-const TLS_CERT_ENV_VAR: &str = "SPIN_TLS_CERT";
-const TLS_KEY_ENV_VAR: &str = "SPIN_TLS_KEY";
-
 /// Start the Fermyon runtime.
 #[derive(StructOpt, Debug)]
 #[structopt(
@@ -32,69 +19,77 @@ const TLS_KEY_ENV_VAR: &str = "SPIN_TLS_KEY";
 )]
 
 pub struct UpCommand {
-    /// IP address and port to listen on
-    #[structopt(long = "listen", default_value = "127.0.0.1:3000")]
-    pub address: String,
+    #[structopt(flatten)]
+    pub opts: UpOpts,
+
     /// Path to spin.toml.
     #[structopt(
-        name = APP_CONFIG_FILE_OPT,
-        short = "f",
-        long = "file",
-        conflicts_with = BINDLE_ID_OPT,
-    )]
+            name = APP_CONFIG_FILE_OPT,
+            short = "f",
+            long = "file",
+            conflicts_with = BINDLE_ID_OPT,
+        )]
     pub app: Option<PathBuf>,
+
     /// ID of application bindle.
     #[structopt(
-        name = BINDLE_ID_OPT,
-        short = "b",
-        long = "bindle",
-        conflicts_with = APP_CONFIG_FILE_OPT,
-        requires = BINDLE_SERVER_URL_OPT,
-    )]
+            name = BINDLE_ID_OPT,
+            short = "b",
+            long = "bindle",
+            conflicts_with = APP_CONFIG_FILE_OPT,
+            requires = BINDLE_SERVER_URL_OPT,
+        )]
     pub bindle: Option<String>,
     /// URL of bindle server.
     #[structopt(
-        name = BINDLE_SERVER_URL_OPT,
-        long = "server",
-        env = BINDLE_URL_ENV,
-    )]
+            name = BINDLE_SERVER_URL_OPT,
+            long = "server",
+            env = BINDLE_URL_ENV,
+        )]
     pub server: Option<String>,
+}
+
+#[derive(StructOpt, Debug)]
+pub struct UpOpts {
+    /// IP address and port to listen on
+    #[structopt(name = ADDRESS_OPT, long = "listen", default_value = "127.0.0.1:3000")]
+    pub address: String,
     /// Temporary directory for the static assets of the components.
     #[structopt(long = "temp")]
     pub tmp: Option<PathBuf>,
     /// Pass an environment variable (key=value) to all components of the application.
-    #[structopt(long = "env", short = "e", parse(try_from_str = parse_env_var))]
-    env: Vec<(String, String)>,
+    #[structopt(long = "env", short = "e", parse(try_from_str = crate::parse_env_var))]
+    pub env: Vec<(String, String)>,
 
     /// The path to the certificate to use for https, if this is not set, normal http will be used. The cert should be in PEM format
     #[structopt(
-        name = TLS_CERT_FILE_OPT,
-        long = "tls-cert",
-        env = TLS_CERT_ENV_VAR,
-        requires = TLS_KEY_FILE_OPT,
-    )]
+            name = TLS_CERT_FILE_OPT,
+            long = "tls-cert",
+            env = TLS_CERT_ENV_VAR,
+            requires = TLS_KEY_FILE_OPT,
+        )]
     pub tls_cert: Option<PathBuf>,
 
     /// The path to the certificate key to use for https, if this is not set, normal http will be used. The key should be in PKCS#8 format
     #[structopt(
-        name = TLS_KEY_FILE_OPT,
-        long = "tls-key",
-        env = TLS_KEY_ENV_VAR,
-        requires = TLS_CERT_FILE_OPT,
-    )]
+            name = TLS_KEY_FILE_OPT,
+            long = "tls-key",
+            env = TLS_KEY_ENV_VAR,
+            requires = TLS_CERT_FILE_OPT,
+        )]
     pub tls_key: Option<PathBuf>,
     /// Log directory for the stdout and stderr of components.
     #[structopt(
-        name = APP_LOG_DIR,
-        short = "L",
-        long = "log-dir",
-        )]
+            name = APP_LOG_DIR,
+            short = "L",
+            long = "log-dir",
+            )]
     pub log: Option<PathBuf>,
 }
 
 impl UpCommand {
     pub async fn run(self) -> Result<()> {
-        let working_dir_holder = match &self.tmp {
+        let working_dir_holder = match &self.opts.tmp {
             None => WorkingDirectory::Temporary(tempfile::tempdir()?),
             Some(d) => WorkingDirectory::Given(d.to_owned()),
         };
@@ -113,7 +108,7 @@ impl UpCommand {
             },
             (Some(_), Some(_)) => bail!("Specify only one of app file or bindle ID"),
         };
-        append_env(&mut app, &self.env)?;
+        crate::append_env(&mut app, &self.opts.env)?;
 
         if let Some(ref mut resolver) = app.config_resolver {
             // TODO(lann): This should be safe but ideally this get_mut would be refactored away.
@@ -123,7 +118,7 @@ impl UpCommand {
             resolver.add_provider(spin_config::provider::env::EnvProvider::default());
         }
 
-        let tls = match (self.tls_key.clone(), self.tls_cert.clone()) {
+        let tls = match (self.opts.tls_key.clone(), self.opts.tls_cert.clone()) {
             (Some(key_path), Some(cert_path)) => {
                 if !cert_path.is_file() {
                     bail!("TLS certificate file does not exist or is not a file")
@@ -143,7 +138,7 @@ impl UpCommand {
         match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
                 let builder = self.prepare_ctx_builder(app.clone()).await?;
-                let trigger = HttpTrigger::new(builder, app, self.address, tls).await?;
+                let trigger = HttpTrigger::new(builder, app, self.opts.address, tls).await?;
                 trigger.run().await?;
             }
             ApplicationTrigger::Redis(_) => {
@@ -160,37 +155,20 @@ impl UpCommand {
         Ok(())
     }
 
-    async fn prepare_ctx_builder<T: Default>(
+    async fn prepare_ctx_builder<T: Default + 'static>(
         &self,
         app: Application<CoreComponent>,
     ) -> Result<Builder<T>> {
         let config = ExecutionContextConfiguration {
-            log_dir: self.log.clone(),
+            log_dir: self.opts.log.clone(),
             ..app.into()
         };
         let mut builder = Builder::new(config)?;
         builder.link_defaults()?;
+        builder.add_host_component(wasi_outbound_http::OutboundHttpComponent)?;
+        builder.add_host_component(outbound_redis::OutboundRedis)?;
         Ok(builder)
     }
-}
-
-/// Parse the environment variables passed in `key=value` pairs.
-fn parse_env_var(s: &str) -> Result<(String, String)> {
-    let parts: Vec<_> = s.splitn(2, '=').collect();
-    if parts.len() != 2 {
-        bail!("Environment variable must be of the form `key=value`");
-    }
-    Ok((parts[0].to_owned(), parts[1].to_owned()))
-}
-
-/// Append the environment variables passed as options to all components.
-fn append_env(app: &mut Application<CoreComponent>, env: &[(String, String)]) -> Result<()> {
-    for c in app.components.iter_mut() {
-        for (k, v) in env {
-            c.wasm.environment.insert(k.clone(), v.clone());
-        }
-    }
-    Ok(())
 }
 
 enum WorkingDirectory {

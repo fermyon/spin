@@ -7,7 +7,7 @@ mod tree;
 use std::fmt::Debug;
 
 pub use provider::Provider;
-pub use tree::{Path, Tree};
+pub use tree::{Tree, TreePath};
 
 use template::{Part, Template};
 
@@ -35,7 +35,7 @@ pub enum Error {
     Provider(anyhow::Error),
 
     /// Unknown config path.
-    #[error("unknown config path {0}")]
+    #[error("unknown config path: {0}")]
     UnknownPath(String),
 }
 
@@ -63,7 +63,7 @@ impl Resolver {
     }
 
     /// Resolves a config value for the given path.
-    pub fn resolve(&self, path: &Path) -> Result<String> {
+    pub fn resolve(&self, path: &TreePath) -> Result<String> {
         self.resolve_path(path, 0)
     }
 
@@ -71,11 +71,11 @@ impl Resolver {
     const RECURSION_LIMIT: usize = 100;
 
     // TODO(lann): make this non-recursive and/or "flatten" templates
-    fn resolve_path(&self, path: &Path, depth: usize) -> Result<String> {
+    fn resolve_path(&self, path: &TreePath, depth: usize) -> Result<String> {
         let depth = depth + 1;
         if depth > Self::RECURSION_LIMIT {
             return Err(Error::InvalidTemplate(format!(
-                "hit recursion limit at path {:?}",
+                "hit recursion limit at path: {}",
                 path
             )));
         }
@@ -94,13 +94,18 @@ impl Resolver {
             self.resolve_template(path, template, depth)
         } else {
             Err(Error::InvalidPath(format!(
-                "missing value at required path {:?}",
+                "missing value at required path: {}",
                 path
             )))
         }
     }
 
-    fn resolve_template(&self, path: &Path, template: &Template, depth: usize) -> Result<String> {
+    fn resolve_template(
+        &self,
+        path: &TreePath,
+        template: &Template,
+        depth: usize,
+    ) -> Result<String> {
         template.parts().try_fold(String::new(), |value, part| {
             Ok(match part {
                 Part::Lit(lit) => value + lit,
@@ -108,7 +113,7 @@ impl Resolver {
                     let expr_path = if expr.starts_with('.') {
                         path.resolve_relative(expr)?
                     } else {
-                        Path::new(expr.to_string())?
+                        TreePath::new(expr.to_string())?
                     };
                     value + &self.resolve_path(&expr_path, depth)?
                 }
@@ -179,7 +184,7 @@ mod tests {
         .try_into()
         .unwrap();
         tree.merge_defaults(
-            &Path::new("child").unwrap(),
+            &TreePath::new("child").unwrap(),
             toml! {
                 subtree_key = "sub"
                 top_ref = "{{ top_level }}"
@@ -191,7 +196,7 @@ mod tests {
         )
         .unwrap();
         tree.merge_defaults(
-            &Path::new("child.grandchild").unwrap(),
+            &TreePath::new("child.grandchild").unwrap(),
             toml! {
                 top_ref = "{{ top_level }}"
                 parent_ref = "{{ ..subtree_key }}"
@@ -214,7 +219,7 @@ mod tests {
             ("child.grandchild.parent_ref", "sub"),
             ("child.grandchild.mixed_ref", "top/top+top"),
         ] {
-            let path = Path::new(path).unwrap();
+            let path = TreePath::new(path).unwrap();
             let value = resolver.resolve(&path).unwrap();
             assert_eq!(value, expected, "mismatch at {:?}", path);
         }

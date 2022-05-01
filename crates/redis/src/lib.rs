@@ -35,7 +35,7 @@ pub struct RedisTrigger {
 impl RedisTrigger {
     /// Create a new Spin Redis trigger.
     pub async fn new(
-        mut builder: Builder<SpinRedisData>,
+        builder: Builder<SpinRedisData>,
         app: Application<CoreComponent>,
     ) -> Result<Self> {
         let trigger_config = app

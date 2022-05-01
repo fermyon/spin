@@ -1,3 +1,4 @@
+use crate::opts::*;
 use anyhow::{Context, Result};
 use bindle::Id;
 use core::panic;
@@ -16,14 +17,6 @@ use hippo_openapi::models::{
 use reqwest::header;
 use std::path::PathBuf;
 use structopt::{clap::AppSettings, StructOpt};
-
-const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
-const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
-const BINDLE_URL_ENV: &str = "BINDLE_URL";
-const HIPPO_SERVER_URL_OPT: &str = "HIPPO_SERVER_URL";
-const HIPPO_URL_ENV: &str = "HIPPO_URL";
-const STAGING_DIR_OPT: &str = "STAGING_DIR";
-const JSON_MIME_TYPE: &str = "application/json";
 
 /// Package and upload Spin artifacts, notifying Hippo
 #[derive(StructOpt, Debug)]
@@ -48,6 +41,33 @@ pub struct DeployCommand {
         env = BINDLE_URL_ENV,
     )]
     pub bindle_server_url: String,
+
+    /// Basic http auth username for the bindle server
+    #[structopt(
+        name = BINDLE_USERNAME,
+        long = "bindle-username",
+        env = BINDLE_USERNAME,
+        requires = BINDLE_PASSWORD
+    )]
+    pub bindle_username: Option<String>,
+
+    /// Basic http auth password for the bindle server
+    #[structopt(
+        name = BINDLE_PASSWORD,
+        long = "bindle-password",
+        env = BINDLE_PASSWORD,
+        requires = BINDLE_USERNAME
+    )]
+    pub bindle_password: Option<String>,
+
+    /// Ignore server certificate errors from bindle and hippo
+    #[structopt(
+        name = INSECURE_OPT,
+        short = "k",
+        long = "insecure",
+        takes_value = false,
+    )]
+    pub insecure: bool,
 
     /// URL of hippo server
     #[structopt(
@@ -150,7 +170,12 @@ impl DeployCommand {
 
     async fn create_and_push_bindle(&self) -> Result<Id> {
         let source_dir = crate::app_dir(&self.app)?;
-        let client = crate::create_bindle_client(true, &self.bindle_server_url)?;
+        let bindle_connection_info = spin_publish::BindleConnectionInfo::new(
+            &self.bindle_server_url,
+            self.insecure,
+            self.bindle_username.clone(),
+            self.bindle_password.clone(),
+        );
 
         let temp_dir = tempfile::tempdir()?;
         let dest_dir = match &self.staging_dir {
@@ -167,7 +192,7 @@ impl DeployCommand {
             .await
             .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
 
-        spin_publish::push_all(&dest_dir, bindle_id, &client, &self.bindle_server_url)
+        spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info)
             .await
             .context("Failed to push bindle to server")?;
 
@@ -205,7 +230,7 @@ impl DeployCommand {
         headers.insert(header::CONTENT_TYPE, JSON_MIME_TYPE.parse().unwrap());
 
         hippo_client_config.client = reqwest::Client::builder()
-            .danger_accept_invalid_certs(true)
+            .danger_accept_invalid_certs(self.insecure)
             .default_headers(headers)
             .build()
             .unwrap();

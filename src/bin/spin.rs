@@ -1,8 +1,8 @@
 use anyhow::Error;
 use lazy_static::lazy_static;
 use spin_cli::commands::{
-    bindle::BindleCommands, deploy::DeployCommand, new::NewCommand, templates::TemplateCommands,
-    up::UpCommand,
+    bindle::BindleCommands, build::BuildCommand, deploy::DeployCommand, new::NewCommand,
+    templates::TemplateCommands, up::UpCommand,
 };
 use structopt::{clap::AppSettings, StructOpt};
 
@@ -40,6 +40,7 @@ enum SpinApp {
     Up(UpCommand),
     Bindle(BindleCommands),
     Deploy(DeployCommand),
+    Build(BuildCommand),
 }
 
 impl SpinApp {
@@ -51,6 +52,7 @@ impl SpinApp {
             SpinApp::New(cmd) => cmd.run().await,
             SpinApp::Bindle(cmd) => cmd.run().await,
             SpinApp::Deploy(cmd) => cmd.run().await,
+            SpinApp::Build(cmd) => cmd.run().await,
         }
     }
 }

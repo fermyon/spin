@@ -9,16 +9,16 @@ use crate::{Error, Key, Result};
 
 /// A configuration tree.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct Tree(BTreeMap<Path, Slot>);
+pub struct Tree(BTreeMap<TreePath, Slot>);
 
 impl Tree {
-    pub(crate) fn get(&self, path: &Path) -> Result<&Slot> {
+    pub(crate) fn get(&self, path: &TreePath) -> Result<&Slot> {
         self.0
             .get(path)
-            .ok_or_else(|| Error::InvalidPath(format!("no slot at path {:?}", path)))
+            .ok_or_else(|| Error::InvalidPath(format!("no slot at path: {}", path)))
     }
 
-    pub fn merge(&mut self, base: &Path, other: Tree) -> Result<()> {
+    pub fn merge(&mut self, base: &TreePath, other: Tree) -> Result<()> {
         for (subpath, slot) in other.0.into_iter() {
             self.merge_slot(base + &subpath, slot)?;
         }
@@ -27,7 +27,7 @@ impl Tree {
 
     pub fn merge_defaults(
         &mut self,
-        base: &Path,
+        base: &TreePath,
         defaults: impl IntoIterator<Item = (String, String)>,
     ) -> Result<()> {
         for (ref key, default) in defaults {
@@ -38,21 +38,24 @@ impl Tree {
         Ok(())
     }
 
-    fn merge_slot(&mut self, path: Path, slot: Slot) -> Result<()> {
+    fn merge_slot(&mut self, path: TreePath, slot: Slot) -> Result<()> {
         if self.0.contains_key(&path) {
-            return Err(Error::InvalidPath(format!("duplicate key at {:?}", path)));
+            return Err(Error::InvalidPath(format!(
+                "duplicate key at path: {}",
+                path
+            )));
         }
         self.0.insert(path, slot);
         Ok(())
     }
 }
 
-/// A configuration path.
+/// A path into a config tree.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Deserialize, Serialize)]
 #[serde(try_from = "String")]
-pub struct Path(String);
+pub struct TreePath(String);
 
-impl Path {
+impl TreePath {
     /// Creates a ConfigPath from a String.
     pub fn new(path: impl Into<String>) -> Result<Self> {
         let path = path.into();
@@ -60,7 +63,7 @@ impl Path {
             return Err(Error::InvalidPath("empty".to_string()));
         }
         path.split('.').try_for_each(Key::validate)?;
-        Ok(Path(path))
+        Ok(TreePath(path))
     }
 
     /// Returns the number of keys in this Path.
@@ -84,7 +87,7 @@ impl Path {
             Some((idx, _)) => format!("{}.{}", &self.0[..idx], key),
             None => {
                 return Err(Error::InvalidPath(format!(
-                    "rel has too many dots relative to base path {:?}",
+                    "rel has too many dots relative to base path {}",
                     self
                 )))
             }
@@ -98,27 +101,33 @@ impl Path {
     }
 }
 
-impl AsRef<str> for Path {
+impl AsRef<str> for TreePath {
     fn as_ref(&self) -> &str {
         self.0.as_ref()
     }
 }
 
-impl std::ops::Add for &Path {
-    type Output = Path;
-    fn add(self, rhs: &Path) -> Self::Output {
-        Path(format!("{}.{}", self.0, rhs.0))
+impl std::fmt::Display for TreePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_ref())
     }
 }
 
-impl std::ops::Add<Key<'_>> for &Path {
-    type Output = Path;
+impl std::ops::Add for &TreePath {
+    type Output = TreePath;
+    fn add(self, rhs: &TreePath) -> Self::Output {
+        TreePath(format!("{}.{}", self.0, rhs.0))
+    }
+}
+
+impl std::ops::Add<Key<'_>> for &TreePath {
+    type Output = TreePath;
     fn add(self, key: Key) -> Self::Output {
-        Path(format!("{}.{}", self.0, key.0))
+        TreePath(format!("{}.{}", self.0, key.0))
     }
 }
 
-impl TryFrom<String> for Path {
+impl TryFrom<String> for TreePath {
     type Error = Error;
     fn try_from(value: String) -> Result<Self> {
         Self::new(value)
@@ -204,32 +213,32 @@ mod tests {
     #[test]
     fn paths_good() {
         for path in ["x", "x.y", "a.b_c.d", "f.a1.x_1"] {
-            Path::new(path).expect(path);
+            TreePath::new(path).expect(path);
         }
     }
 
     #[test]
     fn paths_bad() {
         for path in ["", "_x", "a._x", "a..b"] {
-            Path::new(path).expect_err(path);
+            TreePath::new(path).expect_err(path);
         }
     }
 
     #[test]
     fn path_keys() {
         assert_eq!(
-            Path::new("a").unwrap().keys().collect::<Vec<_>>(),
+            TreePath::new("a").unwrap().keys().collect::<Vec<_>>(),
             &[Key("a")]
         );
         assert_eq!(
-            Path::new("a.b_c.d").unwrap().keys().collect::<Vec<_>>(),
+            TreePath::new("a.b_c.d").unwrap().keys().collect::<Vec<_>>(),
             &[Key("a"), Key("b_c"), Key("d")]
         );
     }
 
     #[test]
     fn path_resolve_relative() {
-        let path = Path::new("a.b.c").unwrap();
+        let path = TreePath::new("a.b.c").unwrap();
         for (rel, expected) in [(".x", "a.b.x"), ("..x", "a.x"), ("...x", "x")] {
             assert_eq!(path.resolve_relative(rel).unwrap().as_ref(), expected);
         }
@@ -237,10 +246,16 @@ mod tests {
 
     #[test]
     fn path_resolve_relative_bad() {
-        let path = Path::new("a.b.c").unwrap();
+        let path = TreePath::new("a.b.c").unwrap();
         for rel in ["", "x", "....x"] {
             path.resolve_relative(rel).expect_err(rel);
         }
+    }
+
+    #[test]
+    fn path_display() {
+        let path = TreePath::new("a.b.c").unwrap();
+        assert_eq!(format!("{}", path), "a.b.c");
     }
 
     #[test]
@@ -281,7 +296,7 @@ mod tests {
                 },
             ),
         ] {
-            let path = Path::new(key).expect(key);
+            let path = TreePath::new(key).expect(key);
             assert_eq!(tree.get(&path).expect(key), &expected_slot);
         }
     }

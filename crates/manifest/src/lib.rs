@@ -65,6 +65,8 @@ pub struct CoreComponent {
     /// ID of the component. Used at runtime to select between
     /// multiple components of the same application.
     pub id: String,
+    /// Description of the component(Optional).
+    pub description: Option<String>,
     /// Per-component WebAssembly configuration.
     pub wasm: WasmConfig,
 }

@@ -114,6 +114,7 @@ async fn core(
 
     let source = ModuleSource::Buffer(bytes, format!("parcel {}", raw.source));
     let id = raw.id;
+    let description = raw.description;
     let mounts = match raw.wasm.files {
         Some(group) => {
             let parcels = parcels_in_group(invoice, &group);
@@ -131,7 +132,12 @@ async fn core(
         mounts,
         allowed_http_hosts,
     };
-    Ok(CoreComponent { source, id, wasm })
+    Ok(CoreComponent {
+        source,
+        id,
+        description,
+        wasm,
+    })
 }
 
 /// Converts the raw application manifest from the bindle invoice into the

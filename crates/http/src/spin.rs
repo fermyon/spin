@@ -6,16 +6,10 @@ use anyhow::Result;
 use async_trait::async_trait;
 use http::Uri;
 use hyper::{Body, Request, Response};
-use spin_engine::io::{IoStreamRedirects, OutRedirect};
-use std::{
-    net::SocketAddr,
-    str,
-    str::FromStr,
-    sync::{Arc, RwLock},
-};
+use spin_engine::io::prepare_io_redirects;
+use std::{net::SocketAddr, str, str::FromStr};
 use tokio::task::spawn_blocking;
 use tracing::log;
-use wasi_common::pipe::{ReadPipe, WritePipe};
 use wasmtime::{Instance, Store};
 
 #[derive(Clone)]
@@ -212,26 +206,6 @@ fn contextualise_err(e: anyhow::Error) -> anyhow::Error {
     } else {
         e
     }
-}
-
-pub fn prepare_io_redirects() -> Result<IoStreamRedirects> {
-    let stdin = ReadPipe::from(vec![]);
-
-    let stdout_buf: Vec<u8> = vec![];
-    let lock = Arc::new(RwLock::new(stdout_buf));
-    let stdout = WritePipe::from_shared(lock.clone());
-    let stdout = OutRedirect { out: stdout, lock };
-
-    let stderr_buf: Vec<u8> = vec![];
-    let lock = Arc::new(RwLock::new(stderr_buf));
-    let stderr = WritePipe::from_shared(lock.clone());
-    let stderr = OutRedirect { out: stderr, lock };
-
-    Ok(IoStreamRedirects {
-        stdin,
-        stdout,
-        stderr,
-    })
 }
 
 #[cfg(test)]

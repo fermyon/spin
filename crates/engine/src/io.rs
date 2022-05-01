@@ -20,3 +20,25 @@ pub struct OutRedirect {
     /// Lock for writing.
     pub lock: Arc<RwLock<Vec<u8>>>,
 }
+
+/// Prepares WASI pipes which redirect a component's output to
+/// memory buffers.
+pub fn prepare_io_redirects() -> anyhow::Result<IoStreamRedirects> {
+    let stdin = ReadPipe::from(vec![]);
+
+    let stdout_buf: Vec<u8> = vec![];
+    let lock = Arc::new(RwLock::new(stdout_buf));
+    let stdout = WritePipe::from_shared(lock.clone());
+    let stdout = OutRedirect { out: stdout, lock };
+
+    let stderr_buf: Vec<u8> = vec![];
+    let lock = Arc::new(RwLock::new(stderr_buf));
+    let stderr = WritePipe::from_shared(lock.clone());
+    let stderr = OutRedirect { out: stderr, lock };
+
+    Ok(IoStreamRedirects {
+        stdin,
+        stdout,
+        stderr,
+    })
+}

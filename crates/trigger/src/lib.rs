@@ -64,7 +64,7 @@ where
     let mut builder = Builder::<T::ContextData>::new(ExecutionContextConfiguration {
         components: app_2.components,
         label: app_2.info.name,
-        log_dir: log_dir,
+        log_dir,
         config_resolver: app_2.config_resolver,
     })?;
     T::configure_execution_context(&mut builder)?;
@@ -79,13 +79,12 @@ where
     })?;
 
     let trigger_extra = T::build_trigger_extra(app)?;
-    let trigger = T::new(
+    T::new(
         execution_ctx,
         trigger_config,
         component_triggers,
         trigger_extra,
-    );
-    trigger
+    )
 }
 
 pub async fn run_trigger<T: Trigger>(

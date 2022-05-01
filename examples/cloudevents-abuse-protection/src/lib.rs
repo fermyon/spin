@@ -5,7 +5,7 @@ use spin_sdk::{
 };
 
 /// A spin component that can be used to test the event-grid-validation.
-/// For more info, see here: https://docs.microsoft.com/en-us/azure/event-grid/webhook-event-delivery
+/// For more info, see here: https://github.com/cloudevents/spec/blob/v1.0/http-webhook.md#42-validation-response
 #[http_component]
 fn validation(req: Request) -> Result<Response> {
     println!("{:?}", req);

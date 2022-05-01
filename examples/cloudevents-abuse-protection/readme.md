@@ -1,8 +1,10 @@
-## Event Grid validation component
+## CloudEvents Abuse Protection
 
-The purpose of this example is to show that a simple spin component can be used to authenticate Event Grid. For more information, you can see [here](https://docs.microsoft.com/en-us/azure/event-grid/webhook-event-delivery). 
+The purpose of this example is to show that a simple spin component can be used to protect HTTP CloudEvents authentication.
 
-> CloudEvents v1.0 implements its own [abuse protection semantics](https://docs.microsoft.com/en-us/azure/event-grid/webhook-event-delivery) using the HTTP OPTIONS method. You can read more about it [here](https://github.com/cloudevents/spec/blob/v1.0/http-webhook.md#4-abuse-protection)
+> CloudEvents v1.0 implements its own [abuse protection semantics](https://docs.microsoft.com/en-us/azure/event-grid/webhook-event-delivery) using the HTTP OPTIONS method.
+
+> An example of the abuse protection provider is the [Azure Event Grid](https://docs.microsoft.com/en-us/azure/event-grid/webhook-event-delivery) webhook service.
 
 ### build
 - Run `spin build` to build the component in current directory.
@@ -14,6 +16,8 @@ The purpose of this example is to show that a simple spin component can be used 
 - Run `ngrok http 3000` to start a local ngrok tunnel to the component.
 
 ### sample request
+
+The following request is sent by [Azure Event Grid](https://docs.microsoft.com/en-us/azure/event-grid/webhook-event-delivery)
 ```rust
 Request { 
     method: OPTIONS, 

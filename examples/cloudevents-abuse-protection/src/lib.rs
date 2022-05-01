@@ -11,7 +11,7 @@ fn validation(req: Request) -> Result<Response> {
     println!("{:?}", req);
     let mut origin: &str = "";
     let mut callback: &str = "";
-    let mut rate = "120";
+    let rate = "120";
     req.headers().iter().for_each(|(k, v)| {
         if k == "webhook-request-origin" {
             origin = v.to_str().unwrap();

@@ -61,7 +61,7 @@ pub struct RawComponentManifest {
     /// ID of the component. Used at runtime to select between
     /// multiple components of the same application.
     pub id: String,
-    /// Description of the component(Optional).
+    /// Description of the component.
     pub description: Option<String>,
     /// Per-component WebAssembly configuration.
     #[serde(flatten)]

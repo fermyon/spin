@@ -85,6 +85,25 @@ pub struct UpOpts {
             long = "log-dir",
             )]
     pub log: Option<PathBuf>,
+
+    /// Disable Wasmtime cache.
+    #[structopt(
+        name = DISABLE_WASMTIME_CACHE,
+        long = "disable-cache",
+        env = DISABLE_WASMTIME_CACHE,
+        conflicts_with = WASMTIME_CACHE_FILE,
+        takes_value = false,
+    )]
+    pub disable_cache: bool,
+
+    /// Wasmtime cache configuration file.
+    #[structopt(
+        name = WASMTIME_CACHE_FILE,
+        long = "cache",
+        env = WASMTIME_CACHE_FILE,
+        conflicts_with = DISABLE_WASMTIME_CACHE,
+    )]
+    pub cache: Option<PathBuf>,
 }
 
 impl UpCommand {
@@ -163,7 +182,16 @@ impl UpCommand {
             log_dir: self.opts.log.clone(),
             ..app.into()
         };
-        let mut builder = Builder::new(config)?;
+
+        let mut wasmtime_config = wasmtime::Config::default();
+        if !self.opts.disable_cache {
+            match &self.opts.cache {
+                Some(p) => wasmtime_config.cache_config_load(p)?,
+                None => wasmtime_config.cache_config_load_default()?,
+            };
+        }
+
+        let mut builder = Builder::with_wasmtime_config(config, wasmtime_config)?;
         builder.link_defaults()?;
         builder.add_host_component(wasi_outbound_http::OutboundHttpComponent)?;
         builder.add_host_component(outbound_redis::OutboundRedis)?;

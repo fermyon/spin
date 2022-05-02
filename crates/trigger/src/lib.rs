@@ -50,6 +50,7 @@ impl<T: Trigger> RunOptions<T> {
 pub async fn build_trigger_from_app<T: Trigger>(
     app: Application<CoreComponent>,
     log_dir: Option<PathBuf>,
+    wasmtime_config: Option<wasmtime::Config>,
 ) -> Result<T>
 where
     T::Config: TryFrom<ApplicationTrigger>,
@@ -57,12 +58,19 @@ where
     <T::Config as TryFrom<ApplicationTrigger>>::Error: Error + Send + Sync + 'static,
     <T::ComponentConfig as TryFrom<TriggerConfig>>::Error: Error + Send + Sync + 'static,
 {
-    let mut builder = Builder::<T::ContextData>::new(ExecutionContextConfiguration {
+    let config = ExecutionContextConfiguration {
         components: app.components,
         label: app.info.name,
         log_dir,
         config_resolver: app.config_resolver,
-    })?;
+    };
+    let mut builder = match wasmtime_config {
+        Some(wasmtime_config) => {
+            Builder::<T::ContextData>::with_wasmtime_config(config, wasmtime_config)
+        }
+        None => Builder::<T::ContextData>::new(config),
+    }?;
+
     T::configure_execution_context(&mut builder)?;
     let execution_ctx = builder.build().await?;
     let trigger_config = app.info.trigger.try_into()?;
@@ -86,6 +94,7 @@ where
 pub async fn run_trigger<T: Trigger>(
     app: Application<CoreComponent>,
     opts: RunOptions<T>,
+    wasmtime_config: Option<wasmtime::Config>,
 ) -> Result<()>
 where
     T::Config: TryFrom<ApplicationTrigger>,
@@ -93,6 +102,6 @@ where
     <T::Config as TryFrom<ApplicationTrigger>>::Error: Error + Send + Sync + 'static,
     <T::ComponentConfig as TryFrom<TriggerConfig>>::Error: Error + Send + Sync + 'static,
 {
-    let trigger: T = build_trigger_from_app(app, opts.log_dir).await?;
+    let trigger: T = build_trigger_from_app(app, opts.log_dir, wasmtime_config).await?;
     trigger.run(opts.trigger_run_config).await
 }

@@ -110,6 +110,7 @@ pub fn component() -> CoreComponent {
     CoreComponent {
         source: ModuleSource::FileReference("target/test-programs/echo.wasm".into()),
         id: "test".to_string(),
+        description: None,
         wasm: WasmConfig::default(),
     }
 }

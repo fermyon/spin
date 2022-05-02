@@ -37,7 +37,7 @@ redirect to `https://github.com/fermyon/spin`. Now that we have a basic
 understanding of how the component should behave, let's see how to implement it
 using Spin.
 
-First, we start with [a new Spin component written in Rust](/rust-components):
+First, we start with [a new Spin component written in Rust](./rust-components.md):
 
 ```rust
 /// A Spin HTTP component that redirects requests 
@@ -91,7 +91,7 @@ pub fn redirect(self, req: Request) -> Result<Response> {
 ```
 
 The `redirect` function is straightforward — it reads the request path from the
-`spin-path-info` header (make sure to read the [document about the HTTP trigger](/http-trigger)
+`spin-path-info` header (make sure to read the [document about the HTTP trigger](./http-trigger.md)
 for an overview of the HTTP headers present in Spin components), selects the
 corresponding destination from the router configuration, then sends the
 HTTP redirect to the new location.
@@ -130,7 +130,7 @@ Not Found
 > Notice that you can use the `--listen` option for `spin up` to start the
 > web server on a specific host and port, which you can then bind to a domain.
 
-We can now [publish the application to the registry](/distributing-apps) (together
+We can now [publish the application to the registry](./distributing-apps.md) (together
 with router configuration file):
 
 ```bash

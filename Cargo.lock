@@ -3115,6 +3115,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "atty",
  "bindle",
  "bytes 1.1.0",
  "cargo-target-dep",
@@ -3150,6 +3151,7 @@ dependencies = [
  "tracing-subscriber 0.3.9",
  "vergen",
  "wasi-outbound-http",
+ "wasmtime",
 ]
 
 [[package]]
@@ -3190,6 +3192,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "atty",
  "bytes 1.1.0",
  "cap-std",
  "criterion",
@@ -3417,6 +3420,7 @@ dependencies = [
  "spin-engine",
  "spin-manifest",
  "wasi-outbound-http",
+ "wasmtime",
 ]
 
 [[package]]

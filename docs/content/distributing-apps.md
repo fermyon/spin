@@ -20,7 +20,7 @@ VS Code extension (through the `Bindle: Start` command):
 $ bindle-server --address 127.0.0.1:8000 --directory .
 ```
 
-Let's push the application from the [quickstart](/quickstart) to the registry:
+Let's push the application from the [quickstart](./quickstart.md) to the registry:
 
 ```bash
 $ export BINDLE_URL=http://localhost:8080/v1

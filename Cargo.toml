@@ -7,6 +7,7 @@ authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
+atty = "0.2"
 bindle = { version = "0.8.0", default-features = false, features = ["client"] }
 bytes = "1.1"
 comfy-table = "5.0"
@@ -39,6 +40,7 @@ tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 wasi-outbound-http = { path = "crates/outbound-http" }
+wasmtime = "0.34"
 
 [dev-dependencies]
 hyper = { version = "0.14", features = [ "full" ] }

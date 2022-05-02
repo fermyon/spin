@@ -86,6 +86,25 @@ pub struct UpOpts {
             long = "log-dir",
             )]
     pub log: Option<PathBuf>,
+
+    /// Disable Wasmtime cache.
+    #[structopt(
+        name = DISABLE_WASMTIME_CACHE,
+        long = "disable-cache",
+        env = DISABLE_WASMTIME_CACHE,
+        conflicts_with = WASMTIME_CACHE_FILE,
+        takes_value = false,
+    )]
+    pub disable_cache: bool,
+
+    /// Wasmtime cache configuration file.
+    #[structopt(
+        name = WASMTIME_CACHE_FILE,
+        long = "cache",
+        env = WASMTIME_CACHE_FILE,
+        conflicts_with = DISABLE_WASMTIME_CACHE,
+    )]
+    pub cache: Option<PathBuf>,
 }
 
 impl UpCommand {
@@ -136,6 +155,14 @@ impl UpCommand {
             _ => unreachable!(),
         };
 
+        let mut wasmtime_config = wasmtime::Config::default();
+        if !self.opts.disable_cache {
+            match &self.opts.cache {
+                Some(p) => wasmtime_config.cache_config_load(p)?,
+                None => wasmtime_config.cache_config_load_default()?,
+            };
+        }
+
         match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
                 run_trigger(
@@ -144,6 +171,7 @@ impl UpCommand {
                         self.opts.log.clone(),
                         HttpRuntimeConfig::new(self.opts.address, tls),
                     ),
+                    Some(wasmtime_config),
                 )
                 .await?;
             }
@@ -151,6 +179,7 @@ impl UpCommand {
                 run_trigger(
                     app,
                     RunOptions::<RedisTrigger>::new(self.opts.log.clone(), ()),
+                    Some(wasmtime_config),
                 )
                 .await?;
             }

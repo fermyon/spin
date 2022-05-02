@@ -76,6 +76,7 @@ impl TestConfig {
         CoreComponent {
             source: ModuleSource::FileReference(module_path),
             id: "test-component".to_string(),
+            description: None,
             wasm: Default::default(),
         }
     }
@@ -107,7 +108,7 @@ impl TestConfig {
 
     pub async fn build_http_trigger(&self) -> HttpTrigger {
         let app = self.build_application();
-        spin_trigger::build_trigger_from_app(app, None)
+        spin_trigger::build_trigger_from_app(app, None, None)
             .await
             .unwrap()
     }

@@ -217,8 +217,13 @@ impl HttpTrigger {
         log::info!("Serving HTTP on address {:?}", addr);
 
         println!("Available Routes:");
-        for (route, _) in &self.router.routes {
-            println!("  http://{:?}{}", addr, route);
+        for (route, component) in &self.router.routes {
+            println!("  {}: http://{:?}{}", component, addr, route);
+            if let Some(component) = self.engine.components.get(component) {
+                if let Some(description) = &component.core.description {
+                    println!("    {}", description);
+                }
+            }
         }
 
         let shutdown_signal = on_ctrl_c()?;
@@ -413,6 +418,7 @@ mod tests {
         LOGGER.call_once(|| {
             tracing_subscriber::fmt()
                 .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+                .with_ansi(atty::is(atty::Stream::Stderr))
                 .init();
         });
     }
@@ -541,7 +547,7 @@ mod tests {
             });
         let app = cfg.build_application();
 
-        let trigger: HttpTrigger = build_trigger_from_app(app, None).await?;
+        let trigger: HttpTrigger = build_trigger_from_app(app, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
@@ -569,7 +575,7 @@ mod tests {
         });
         let app = cfg.build_application();
 
-        let trigger: HttpTrigger = build_trigger_from_app(app, None).await?;
+        let trigger: HttpTrigger = build_trigger_from_app(app, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()

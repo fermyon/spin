@@ -127,15 +127,7 @@ impl TestConfig {
             .try_map_values(|_id, trigger| trigger.clone().try_into())
             .unwrap();
 
-        let trigger_extra = HttpTrigger::build_trigger_extra(app).unwrap();
-
-        HttpTrigger::new(
-            execution_ctx,
-            trigger_config,
-            component_triggers,
-            trigger_extra,
-        )
-        .unwrap()
+        HttpTrigger::new(execution_ctx, trigger_config, component_triggers).unwrap()
     }
 
     pub async fn handle_http_request(&self, req: Request<Body>) -> anyhow::Result<Response<Body>> {

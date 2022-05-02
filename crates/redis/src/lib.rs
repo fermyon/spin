@@ -8,9 +8,7 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};
 
-use spin_manifest::{
-    Application, ComponentMap, CoreComponent, RedisConfig, RedisTriggerConfiguration,
-};
+use spin_manifest::{ComponentMap, RedisConfig, RedisTriggerConfiguration};
 use spin_redis::SpinRedisData;
 use spin_trigger::Trigger;
 use std::{collections::HashMap, sync::Arc};
@@ -39,33 +37,30 @@ impl Trigger for RedisTrigger {
     type Config = RedisTriggerConfiguration;
     type ComponentConfig = RedisConfig;
     type RuntimeConfig = ();
-    type TriggerExtra = HashMap<String, usize>;
 
     fn new(
         execution_context: ExecutionContext,
-        config: Self::Config,
-        component_configs: ComponentMap<Self::ComponentConfig>,
-        trigger_extra: Self::TriggerExtra,
+        trigger_config: Self::Config,
+        component_triggers: ComponentMap<Self::ComponentConfig>,
     ) -> Result<Self> {
-        Ok(Self {
-            trigger_config: config,
-            component_triggers: component_configs,
-            engine: Arc::new(execution_context),
-            subscriptions: trigger_extra,
-        })
-    }
-
-    fn build_trigger_extra(app: Application<CoreComponent>) -> Result<Self::TriggerExtra> {
-        Ok(app
+        let subscriptions = execution_context
+            .config
             .components
             .iter()
             .enumerate()
-            .filter_map(|(idx, c)| {
-                app.component_triggers
-                    .get(c)
-                    .map(|c| (c.as_redis().unwrap().channel.clone(), idx))
+            .filter_map(|(idx, component)| {
+                component_triggers
+                    .get(component)
+                    .map(|redis_config| (redis_config.channel.clone(), idx))
             })
-            .collect())
+            .collect();
+
+        Ok(Self {
+            trigger_config,
+            component_triggers,
+            engine: Arc::new(execution_context),
+            subscriptions,
+        })
     }
 
     /// Run the Redis trigger indefinitely.

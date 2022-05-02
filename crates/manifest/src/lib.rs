@@ -370,6 +370,11 @@ impl<T> ComponentMap<T> {
         self.0.get(&component.id)
     }
 
+    /// Get a value for the given component ID.
+    pub fn get_by_id(&self, id: &str) -> Option<&T> {
+        self.0.get(id)
+    }
+
     /// Iterate over all (component id, value) pairs.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &T)> {
         self.0.iter().map(|(k, v)| (k.as_str(), v))

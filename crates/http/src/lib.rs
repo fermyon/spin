@@ -23,9 +23,7 @@ use hyper::{
     Body, Request, Response, Server,
 };
 use spin_http::SpinHttpData;
-use spin_manifest::{
-    Application, ComponentMap, CoreComponent, HttpConfig, HttpTriggerConfiguration,
-};
+use spin_manifest::{ComponentMap, HttpConfig, HttpTriggerConfiguration};
 use spin_trigger::Trigger;
 use std::{future::ready, net::SocketAddr, sync::Arc};
 use tls_listener::TlsListener;
@@ -74,33 +72,34 @@ impl Trigger for HttpTrigger {
     type Config = HttpTriggerConfiguration;
     type ComponentConfig = HttpConfig;
     type RuntimeConfig = HttpRuntimeConfig;
-    type TriggerExtra = Router;
 
     fn new(
         execution_context: ExecutionContext,
-        config: Self::Config,
-        component_configs: ComponentMap<Self::ComponentConfig>,
-        trigger_extra: Self::TriggerExtra,
+        trigger_config: Self::Config,
+        component_triggers: ComponentMap<Self::ComponentConfig>,
     ) -> Result<Self> {
+        let router = Router::build(&trigger_config.base, &component_triggers)?;
+        log::trace!(
+            "Constructed router for application {}: {:?}",
+            execution_context.config.label,
+            router.routes
+        );
+
         Ok(Self {
-            trigger_config: config,
-            component_triggers: component_configs,
-            router: trigger_extra,
+            trigger_config,
+            component_triggers,
+            router,
             engine: Arc::new(execution_context),
         })
     }
 
-    fn build_trigger_extra(app: Application<CoreComponent>) -> Result<Self::TriggerExtra> {
-        Router::build(&app)
-    }
-
     /// Runs the HTTP trigger indefinitely.
     async fn run(&self, run_config: Self::RuntimeConfig) -> Result<()> {
-        match run_config.tls.as_ref() {
-            Some(tls) => self.serve_tls(tls, run_config.address).await?,
-            None => self.serve(run_config.address).await?,
+        if let Some(ref tls) = run_config.tls {
+            self.serve_tls(run_config.address, tls).await
+        } else {
+            self.serve(run_config.address).await
         }
-        Ok(())
     }
 }
 
@@ -116,8 +115,8 @@ impl HttpTrigger {
         match req.uri().path() {
             "/healthz" => Ok(Response::new(Body::from("OK"))),
             route => match self.router.route(route) {
-                Ok(c) => {
-                    let trigger = self.component_triggers.get(&c).unwrap();
+                Ok(component_id) => {
+                    let trigger = self.component_triggers.get_by_id(component_id).unwrap();
 
                     let executor = match &trigger.executor {
                         Some(i) => i,
@@ -130,7 +129,7 @@ impl HttpTrigger {
                             executor
                                 .execute(
                                     &self.engine,
-                                    &c.id,
+                                    component_id,
                                     &self.trigger_config.base,
                                     &trigger.route,
                                     req,
@@ -145,7 +144,7 @@ impl HttpTrigger {
                             executor
                                 .execute(
                                     &self.engine,
-                                    &c.id,
+                                    component_id,
                                     &self.trigger_config.base,
                                     &trigger.route,
                                     req,
@@ -236,7 +235,7 @@ impl HttpTrigger {
         Ok(())
     }
 
-    async fn serve_tls(&self, tls: &TlsConfig, address: String) -> Result<()> {
+    async fn serve_tls(&self, address: String, tls: &TlsConfig) -> Result<()> {
         let mk_svc = make_service_fn(move |conn: &TlsStream<TcpStream>| {
             let (inner, _) = conn.get_ref();
             let addr_res = inner.peer_addr().map_err(|e| e.to_string());

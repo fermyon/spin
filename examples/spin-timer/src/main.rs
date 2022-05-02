@@ -4,7 +4,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use spin_engine::{Builder, ExecutionContextConfiguration};
-use spin_manifest::{Application, ComponentMap, CoreComponent, ModuleSource, WasmConfig};
+use spin_manifest::{ComponentMap, CoreComponent, ModuleSource, WasmConfig};
 use spin_timer::SpinTimerData;
 use spin_trigger::Trigger;
 use std::{sync::Arc, time::Duration};
@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
         ..Default::default()
     })
     .await?;
-    let trigger = TimerTrigger::new(builder, (), Default::default(), ())?;
+    let trigger = TimerTrigger::new(builder, (), Default::default())?;
     trigger
         .run(TimerRuntimeConfig {
             interval: Duration::from_secs(1),
@@ -55,23 +55,18 @@ impl Trigger for TimerTrigger {
     type Config = ();
     type ComponentConfig = ();
     type RuntimeConfig = TimerRuntimeConfig;
-    type TriggerExtra = ();
 
     /// Creates a new trigger.
     fn new(
         execution_context: ExecutionContext,
         _: Self::Config,
         _: ComponentMap<Self::ComponentConfig>,
-        _: Self::TriggerExtra,
     ) -> Result<Self> {
         Ok(Self {
             engine: Arc::new(execution_context),
         })
     }
 
-    fn build_trigger_extra(_app: Application<CoreComponent>) -> Result<Self::TriggerExtra> {
-        Ok(())
-    }
     /// Runs the trigger at every interval.
     async fn run(&self, run_config: Self::RuntimeConfig) -> Result<()> {
         let mut interval = tokio::time::interval(run_config.interval);

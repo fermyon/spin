@@ -150,5 +150,5 @@ Any
 [package from the Go standard library](https://tinygo.org/docs/reference/lang-support/stdlib/) that can be imported in TinyGo and that compiles to
 WASI can be used when implementing a Spin component.
 
-> Make sure to read [the page describing the HTTP trigger](/http-trigger) for more
+> Make sure to read [the page describing the HTTP trigger](./http-trigger.md) for more
 > details about building HTTP applications.

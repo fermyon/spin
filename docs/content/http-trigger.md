@@ -12,11 +12,11 @@ some implementation details around the WebAssembly component model and how it
 is used in Spin.
 
 The HTTP trigger in Spin is a web server. It listens for incoming requests and
-based on the [application manifest](/configuration), it routes them to an
+based on the [application manifest](./configuration.md), it routes them to an
 _executor_ which instantiates the appropriate component, executes its
 entry point function, then returns an HTTP response.
 
-Creating an HTTP application is done when [configuring the application](/configuration)
+Creating an HTTP application is done when [configuring the application](./configuration.md)
 by defining the top-level application trigger:
 
 ```toml
@@ -165,7 +165,7 @@ component.
 This interface (`spin-http.wit`) can be directly used together with the
 [Bytecode Alliance `wit-bindgen` project](https://github.com/bytecodealliance/wit-bindgen)
 to build a component that the Spin HTTP executor can invoke.
-This is exactly how [the Rust SDK for Spin](/rust-components) is built, and,
+This is exactly how [the Rust SDK for Spin](./rust-components.md) is built, and,
 as more languages add support for the component model, how we plan to add
 support for them as well.
 
@@ -194,7 +194,7 @@ responses through the module's standard output.
 This means that if a language has support for the WebAssembly System Interface,
 it can be used to build Spin HTTP components.
 The Wagi model is only used to parse the HTTP request and response. Everything
-else — defining the application, running it, or [distributing](/distributing-apps)
+else — defining the application, running it, or [distributing](./distributing-apps.md)
 is done the same way as a component that uses the Spin executor.
 
 Building a Wagi component in a particular programming language that can compile
@@ -215,7 +215,7 @@ print("content-type: text/html; charset=UTF-8\n\n");
 print("hello world\n");
 ```
 
-The [Go SDK for Spin](/go-components) is built on the Wagi executor support.
+The [Go SDK for Spin](./go-components.md) is built on the Wagi executor support.
 Here is another example, written in [Grain](https://grain-lang.org/),
 a new programming language that natively targets WebAssembly:
 

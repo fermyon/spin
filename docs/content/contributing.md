@@ -66,7 +66,7 @@ $ make test
 
 Now you should be ready to start making your contribution. To familiarize
 yourself with the Spin project, please read the
-[document about extending Spin](/extending-and-embedding). Since most of Spin is implemented in
+[document about extending Spin](./extending-and-embedding.md). Since most of Spin is implemented in
 Rust, we try to follow the common Rust coding conventions (keep an eye on the
 recommendations from Clippy!) If applicable, add unit or integration tests to
 ensure your contribution is correct.

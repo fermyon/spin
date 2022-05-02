@@ -141,7 +141,7 @@ Besides the HTTP trigger, Spin has built-in support for a Redis trigger —
 which will connect to a Redis instance and will execute Spin components for
 new messages on the configured channels.
 
-> See the [Redis trigger](/redis-trigger) for details about the Redis trigger.
+> See the [Redis trigger](./redis-trigger.md) for details about the Redis trigger.
 
 Writing a Redis component in Rust also takes advantage of the SDK:
 
@@ -221,7 +221,7 @@ annotated using the `http_component` macro, compiled to the
 This means that any [crate](https://crates.io) that compiles to `wasm32-wasi` can
 be used when implementing the component.
 
-> Make sure to read [the page describing the HTTP trigger](/http-trigger) for more
+> Make sure to read [the page describing the HTTP trigger](./http-trigger.md) for more
 > details about building HTTP applications.
 
 ## Troubleshooting

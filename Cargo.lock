@@ -4272,7 +4272,7 @@ dependencies = [
 [[package]]
 name = "wasi-experimental-http"
 version = "0.9.0"
-source = "git+https://github.com/radu-matei/wasi-experimental-http?branch=from-client#410e9c598131aeec4d21ffdb65dfd703304da37d"
+source = "git+https://github.com/deislabs/wasi-experimental-http?rev=a82ae3d6c85c4251b3663035febeb8100068f51d#a82ae3d6c85c4251b3663035febeb8100068f51d"
 dependencies = [
  "anyhow",
  "bytes 1.1.0",

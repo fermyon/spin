@@ -9,9 +9,9 @@ url = "https://github.com/fermyon/spin/blob/main/docs/content/extending-and-embe
 
 Spin currently implements triggers and application models for:
 
-- [HTTP applications](/http-trigger) that are triggered by incoming HTTP
+- [HTTP applications](./http-trigger.md) that are triggered by incoming HTTP
 requests, and that return an HTTP response
-- [Redis applications](/redis-trigger) that are triggered by messages on Redis
+- [Redis applications](./redis-trigger.md) that are triggered by messages on Redis
 channels
 
 The Spin internals and execution context (the part of Spin executing
@@ -25,7 +25,7 @@ timer, executing Spin components at configured time interval.
 
 The current application types that can be implemented with Spin have entry points
 defined using
-[WebAssembly Interface (WIT)]((https://github.com/bytecodealliance/wit-bindgen/blob/main/WIT.md)):
+[WebAssembly Interface (WIT)](https://github.com/bytecodealliance/wit-bindgen/blob/main/WIT.md):
 
 ```fsharp
 // The entry point for an HTTP handler.
@@ -120,7 +120,7 @@ this is an implementation choice based on the needs of the trigger.
 used — in the case of the HTTP trigger, this is an HTTP response, which is then
 returned to the client.
 
-This is very similar to how the [HTTP](/http-trigger) and [Redis](/redis-trigger)
+This is very similar to how the [HTTP](./http-trigger.md) and [Redis](./redis-trigger.md)
 triggers are implemented, and it is the recommended way to extend Spin with your
 own trigger and application model.
 

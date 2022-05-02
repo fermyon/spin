@@ -64,4 +64,4 @@ a web server. Any time a request is made on the `/hello` route, it will invoke t
 `hello_world` function. Adding another component is as simple as adding another `[[component]]`
 stanza to the `spin.toml` file.
 
-In the next section, we will [take Spin for a spin](/quickstart).
+In the next section, we will [take Spin for a spin](./quickstart.md).

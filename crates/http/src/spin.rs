@@ -141,6 +141,7 @@ impl SpinHttpExecutor {
             http::Method::DELETE => Method::Delete,
             http::Method::PATCH => Method::Patch,
             http::Method::HEAD => Method::Head,
+            http::Method::OPTIONS => Method::Options,
             _ => todo!(),
         }
     }

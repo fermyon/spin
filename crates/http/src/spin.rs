@@ -6,7 +6,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use http::Uri;
 use hyper::{Body, Request, Response};
-use spin_engine::io::prepare_io_redirects;
+use spin_engine::io::capture_io_to_memory;
 use std::{net::SocketAddr, str, str::FromStr};
 use tokio::task::spawn_blocking;
 use tracing::log;
@@ -25,22 +25,23 @@ impl HttpExecutor for SpinHttpExecutor {
         raw_route: &str,
         req: Request<Body>,
         _client_addr: SocketAddr,
+        follow: bool,
     ) -> Result<Response<Body>> {
         log::trace!(
             "Executing request using the Spin executor for component {}",
             component
         );
 
-        let io_redirects = prepare_io_redirects()?;
+        let (redirects, outputs) = capture_io_to_memory(follow, follow);
 
         let (store, instance) =
-            engine.prepare_component(component, None, Some(io_redirects.clone()), None, None)?;
+            engine.prepare_component(component, None, Some(redirects), None, None)?;
 
         let resp_result = Self::execute_impl(store, instance, base, raw_route, req)
             .await
             .map_err(contextualise_err);
 
-        let log_result = engine.save_output_to_logs(io_redirects, component, true, true);
+        let log_result = engine.save_output_to_logs(outputs.read(), component, true, true);
 
         // Defer checking for failures until here so that the logging runs
         // even if the guest code fails. (And when checking, check the guest

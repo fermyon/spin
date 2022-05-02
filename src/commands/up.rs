@@ -5,6 +5,7 @@ use anyhow::{bail, Context, Result};
 use clap::{Args, Parser};
 use tempfile::TempDir;
 
+use spin_engine::io::FollowComponents;
 use spin_http_engine::{HttpTrigger, HttpTriggerExecutionConfig, TlsConfig};
 use spin_manifest::ApplicationTrigger;
 use spin_redis_engine::RedisTrigger;
@@ -102,6 +103,21 @@ pub struct UpOpts {
         conflicts_with = DISABLE_WASMTIME_CACHE,
     )]
     pub cache: Option<PathBuf>,
+
+    /// Print output for given component(s) to stdout/stderr
+    #[clap(
+        name = FOLLOW_LOG_OPT,
+        long = "follow",
+        multiple_occurrences = true,
+        )]
+    pub follow_components: Vec<String>,
+
+    /// Print all component output to stdout/stderr
+    #[clap(
+        long = "follow-all",
+        conflicts_with = FOLLOW_LOG_OPT,
+        )]
+    pub follow_all_components: bool,
 }
 
 impl UpCommand {
@@ -154,12 +170,15 @@ impl UpCommand {
 
         let wasmtime_config = self.wasmtime_default_config()?;
 
+        let follow = self.follow_components();
+
         match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
                 run_trigger(
                     app,
                     ExecutionOptions::<HttpTrigger>::new(
                         self.opts.log.clone(),
+                        follow,
                         HttpTriggerExecutionConfig::new(self.opts.address, tls),
                     ),
                     Some(wasmtime_config),
@@ -169,12 +188,12 @@ impl UpCommand {
             ApplicationTrigger::Redis(_) => {
                 run_trigger(
                     app,
-                    ExecutionOptions::<RedisTrigger>::new(self.opts.log.clone(), ()),
+                    ExecutionOptions::<RedisTrigger>::new(self.opts.log.clone(), follow, ()),
                     Some(wasmtime_config),
                 )
                 .await?;
             }
-        }
+        };
 
         // We need to be absolutely sure it stays alive until this point: we don't want
         // any temp directory to be deleted prematurely.
@@ -191,6 +210,17 @@ impl UpCommand {
             };
         }
         Ok(wasmtime_config)
+    }
+
+    fn follow_components(&self) -> FollowComponents {
+        if self.opts.follow_all_components {
+            FollowComponents::All
+        } else if self.opts.follow_components.is_empty() {
+            FollowComponents::None
+        } else {
+            let followed = self.opts.follow_components.clone().into_iter().collect();
+            FollowComponents::Named(followed)
+        }
     }
 }
 

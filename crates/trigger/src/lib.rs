@@ -47,7 +47,7 @@ impl<T: Trigger> RunOptions<T> {
     }
 }
 
-pub async fn get_default_trigger<T: Trigger>(
+pub async fn build_trigger_from_app<T: Trigger>(
     app: Application<CoreComponent>,
     log_dir: Option<PathBuf>,
 ) -> Result<T>
@@ -87,6 +87,6 @@ where
     <T::Config as TryFrom<ApplicationTrigger>>::Error: Error + Send + Sync + 'static,
     <T::ComponentConfig as TryFrom<TriggerConfig>>::Error: Error + Send + Sync + 'static,
 {
-    let trigger: T = get_default_trigger(app, opts.log_dir).await?;
+    let trigger: T = build_trigger_from_app(app, opts.log_dir).await?;
     trigger.run(opts.trigger_run_config).await
 }

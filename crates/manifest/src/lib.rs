@@ -107,6 +107,7 @@ pub struct HttpTriggerConfiguration {
     /// Base path for the HTTP application.
     pub base: String,
 }
+
 impl Default for HttpTriggerConfiguration {
     fn default() -> Self {
         Self { base: "/".into() }
@@ -135,10 +136,7 @@ impl TryFrom<ApplicationTrigger> for RedisTriggerConfiguration {
     type Error = Error;
 
     fn try_from(trigger: ApplicationTrigger) -> Result<Self, Self::Error> {
-        match trigger.as_redis() {
-            Some(config) => Ok(config.clone()),
-            None => Err(Error::InvalidTriggerType),
-        }
+        trigger.as_redis().ok_or(Error::InvalidTriggerType)
     }
 }
 

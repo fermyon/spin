@@ -109,25 +109,7 @@ impl TestConfig {
 
     pub async fn build_http_trigger(&self) -> HttpTrigger {
         let app = self.build_application();
-        let app2 = app.clone();
-        let mut builder = Builder::new(ExecutionContextConfiguration {
-            components: app2.components,
-            label: app2.info.name,
-            log_dir: None,
-            config_resolver: app2.config_resolver,
-        })
-        .expect("Builder::new failed");
-        HttpTrigger::configure_execution_context(&mut builder)
-            .expect("configure_execution_context failed");
-        let execution_ctx = builder.build().await.unwrap();
-        let trigger_config = app2.info.trigger.try_into().unwrap();
-
-        let component_triggers: ComponentMap<HttpConfig> = app2
-            .component_triggers
-            .try_map_values(|_id, trigger| trigger.clone().try_into())
-            .unwrap();
-
-        HttpTrigger::new(execution_ctx, trigger_config, component_triggers).unwrap()
+        spin_trigger::build_trigger_from_app(app, None).unwrap()
     }
 
     pub async fn handle_http_request(&self, req: Request<Body>) -> anyhow::Result<Response<Body>> {

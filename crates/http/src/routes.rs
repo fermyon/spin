@@ -342,6 +342,7 @@ mod route_tests {
     fn named_component(id: &str) -> CoreComponent {
         CoreComponent {
             id: id.to_string(),
+            description: None,
             source: spin_manifest::ModuleSource::FileReference("FAKE".into()),
             wasm: spin_manifest::WasmConfig::default(),
         }

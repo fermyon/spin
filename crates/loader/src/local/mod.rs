@@ -148,6 +148,7 @@ async fn core(
     };
 
     let id = raw.id;
+    let description = raw.description;
     let mounts = match raw.wasm.files {
         Some(f) => assets::prepare_component(&f, src, &base_dst, &id).await?,
         None => vec![],
@@ -159,7 +160,12 @@ async fn core(
         mounts,
         allowed_http_hosts,
     };
-    Ok(CoreComponent { source, id, wasm })
+    Ok(CoreComponent {
+        source,
+        id,
+        description,
+        wasm,
+    })
 }
 
 /// Converts the raw application information from the spin.toml manifest to the standard configuration.

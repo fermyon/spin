@@ -20,6 +20,7 @@ version = "1.0.0"
 
 [[component]]
 id = "hello"
+description = "A simple component that returns hello world."
 source = "target/wasm32-wasi/release/spinhelloworld.wasm"
 [component.trigger]
 route = "/hello"
@@ -61,6 +62,7 @@ Each `component` object has the following fields:
 
 - `id` (REQUIRED): unique (per application) ID of the component, used at runtime
   to select between multiple components of the same application.
+- `description` (OPTIONAL): Description of the component.
 - `source` (REQUIRED): Source for the WebAssembly module of the component. This
   field can be _one_ the following:
   - a string with the path to a local file containing the WebAssembly module for

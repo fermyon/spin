@@ -218,8 +218,11 @@ impl HttpTrigger {
         log::info!("Serving HTTP on address {:?}", addr);
 
         println!("Available Routes:");
-        for (route, _) in &self.router.routes {
-            println!("  http://{:?}{}", addr, route);
+        for (route, component) in &self.router.routes {
+            println!("  {}: http://{:?}{}", component.id, addr, route);
+            if let Some(description) = &component.description {
+                println!("    {}", description);
+            }
         }
 
         let shutdown_signal = on_ctrl_c()?;

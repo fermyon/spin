@@ -25,7 +25,8 @@ impl OutboundHttp {
     }
 
     /// Check if guest module is allowed to send request to URL, based on the list of
-    /// allowed hosts defined by the runtime.
+    /// allowed hosts defined by the runtime. If the list of allowed hosts contains
+    /// `*`, then all hosts are allowed.
     /// If `None` is passed, the guest module is not allowed to send the request.
     fn is_allowed(url: &str, allowed_hosts: Option<Vec<String>>) -> Result<bool, HttpError> {
         let url_host = Url::parse(url)
@@ -35,13 +36,20 @@ impl OutboundHttp {
             .to_owned();
         match allowed_hosts.as_deref() {
             Some(domains) => {
-                let allowed: Result<Vec<_>, _> = domains.iter().map(|d| Url::parse(d)).collect();
-                let allowed = allowed.map_err(|_| HttpError::InvalidUrl)?;
+                log::info!("Allowed hosts: {:?}", domains);
+                // check domains has any "*" wildcard
+                if domains.iter().any(|domain| domain == "*") {
+                    Ok(true)
+                } else {
+                    let allowed: Result<Vec<_>, _> =
+                        domains.iter().map(|d| Url::parse(d)).collect();
+                    let allowed = allowed.map_err(|_| HttpError::InvalidUrl)?;
 
-                Ok(allowed
-                    .iter()
-                    .map(|u| u.host_str().unwrap())
-                    .any(|x| x == url_host.as_str()))
+                    Ok(allowed
+                        .iter()
+                        .map(|u| u.host_str().unwrap())
+                        .any(|x| x == url_host.as_str()))
+                }
             }
             None => Ok(false),
         }

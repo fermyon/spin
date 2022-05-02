@@ -4297,7 +4297,7 @@ dependencies = [
 [[package]]
 name = "wasi-experimental-http-wasmtime"
 version = "0.9.0"
-source = "git+https://github.com/deislabs/wasi-experimental-http?rev=4ed321d6943f75546e38bba80e14a59797aa29de#4ed321d6943f75546e38bba80e14a59797aa29de"
+source = "git+https://github.com/Mossaka/wasi-experimental-http?rev=c09372349dadf3a6d5b5fdad5ae0d89e2daad19b#c09372349dadf3a6d5b5fdad5ae0d89e2daad19b"
 dependencies = [
  "anyhow",
  "bytes 1.1.0",
@@ -4321,6 +4321,7 @@ dependencies = [
  "bytes 1.1.0",
  "futures",
  "http 0.2.6",
+ "log",
  "reqwest",
  "spin-engine",
  "spin-manifest",
@@ -4328,7 +4329,7 @@ dependencies = [
  "tracing",
  "tracing-futures",
  "url 2.2.2",
- "wasi-experimental-http-wasmtime 0.9.0 (git+https://github.com/deislabs/wasi-experimental-http?rev=4ed321d6943f75546e38bba80e14a59797aa29de)",
+ "wasi-experimental-http-wasmtime 0.9.0 (git+https://github.com/Mossaka/wasi-experimental-http?rev=c09372349dadf3a6d5b5fdad5ae0d89e2daad19b)",
  "wit-bindgen-wasmtime",
 ]
 

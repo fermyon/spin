@@ -8,14 +8,12 @@ use std::{
 
 use http::{Request, Response};
 use hyper::Body;
-use spin_engine::{Builder, ExecutionContextConfiguration};
+use spin_engine::Builder;
 use spin_http_engine::HttpTrigger;
 use spin_manifest::{
-    Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, ComponentMap,
-    CoreComponent, HttpConfig, ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion,
-    TriggerConfig,
+    Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
+    HttpConfig, ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion, TriggerConfig,
 };
-use spin_trigger::Trigger;
 
 #[derive(Default)]
 pub struct TestConfig {
@@ -109,7 +107,9 @@ impl TestConfig {
 
     pub async fn build_http_trigger(&self) -> HttpTrigger {
         let app = self.build_application();
-        spin_trigger::build_trigger_from_app(app, None).unwrap()
+        spin_trigger::build_trigger_from_app(app, None)
+            .await
+            .unwrap()
     }
 
     pub async fn handle_http_request(&self, req: Request<Body>) -> anyhow::Result<Response<Body>> {

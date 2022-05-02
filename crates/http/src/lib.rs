@@ -116,7 +116,7 @@ impl HttpTrigger {
             "/healthz" => Ok(Response::new(Body::from("OK"))),
             route => match self.router.route(route) {
                 Ok(component_id) => {
-                    let trigger = self.component_triggers.get_by_id(component_id).unwrap();
+                    let trigger = self.component_triggers.get(component_id).unwrap();
 
                     let executor = match &trigger.executor {
                         Some(i) => i,

@@ -67,12 +67,18 @@ where
     let execution_ctx = builder.build().await?;
     let trigger_config = app.info.trigger.try_into()?;
 
-    let component_triggers = app.component_triggers.try_map_values(|id, trigger| {
-        trigger
-            .clone()
-            .try_into()
-            .with_context(|| format!("Failed to convert trigger config for component {}", id))
-    })?;
+    let component_triggers = app
+        .component_triggers
+        .into_iter()
+        .map(|(id, trigger)| {
+            Ok((
+                id.clone(),
+                trigger.try_into().with_context(|| {
+                    format!("Failed to convert trigger config for component {}", id)
+                })?,
+            ))
+        })
+        .collect::<Result<_>>()?;
 
     T::new(execution_ctx, trigger_config, component_triggers)
 }

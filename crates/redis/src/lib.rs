@@ -50,7 +50,7 @@ impl Trigger for RedisTrigger {
             .enumerate()
             .filter_map(|(idx, component)| {
                 component_triggers
-                    .get(component)
+                    .get(&component.id)
                     .map(|redis_config| (redis_config.channel.clone(), idx))
             })
             .collect();
@@ -109,7 +109,7 @@ impl RedisTrigger {
             let component = &self.engine.config.components[idx];
             let executor = self
                 .component_triggers
-                .get(component)
+                .get(&component.id)
                 .and_then(|t| t.executor.clone())
                 .unwrap_or_default();
 

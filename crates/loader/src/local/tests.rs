@@ -2,7 +2,7 @@ use crate::local::config::{RawDirectoryPlacement, RawFileMount, RawModuleSource}
 
 use super::*;
 use anyhow::Result;
-use spin_manifest::HttpExecutor;
+use spin_manifest::{HttpConfig, HttpExecutor, HttpTriggerConfiguration};
 use std::path::PathBuf;
 
 #[tokio::test]
@@ -21,19 +21,18 @@ async fn test_from_local_source() -> Result<()> {
         "Fermyon Engineering <engineering@fermyon.com>"
     );
 
-    let http = app.info.trigger.as_http().unwrap().clone();
+    let http: HttpTriggerConfiguration = app.info.trigger.try_into()?;
     assert_eq!(http.base, "/".to_string());
 
     let component = &app.components[0];
     assert_eq!(component.wasm.mounts.len(), 1);
 
-    let http = app
+    let http: HttpConfig = app
         .component_triggers
-        .get(component)
+        .get(&component.id)
+        .cloned()
         .unwrap()
-        .as_http()
-        .unwrap()
-        .clone();
+        .try_into()?;
     assert_eq!(http.executor.unwrap(), HttpExecutor::Spin);
     assert_eq!(http.route, "/...".to_string());
 
@@ -58,13 +57,13 @@ fn test_manifest() -> Result<()> {
         Some("A simple application that returns the number of lights".to_string())
     );
 
-    let http = cfg.info.trigger.as_http().unwrap().clone();
+    let http: HttpTriggerConfiguration = cfg.info.trigger.try_into()?;
     assert_eq!(http.base, "/".to_string());
 
     assert_eq!(cfg.info.authors.unwrap().len(), 3);
     assert_eq!(cfg.components[0].id, "four-lights".to_string());
 
-    let http = cfg.components[0].trigger.as_http().unwrap().clone();
+    let http: HttpConfig = cfg.components[0].trigger.clone().try_into()?;
     assert_eq!(http.executor.unwrap(), HttpExecutor::Spin);
     assert_eq!(http.route, "/lights".to_string());
 
@@ -127,7 +126,7 @@ fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
     let cfg_any: RawAppManifestAnyVersion = toml::from_str(MANIFEST)?;
     let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
 
-    let http_config = cfg.components[0].trigger.as_http().unwrap();
+    let http_config: HttpConfig = cfg.components[0].trigger.clone().try_into()?;
 
     match http_config.executor.as_ref().unwrap() {
         HttpExecutor::Spin => panic!("expected wagi http executor"),

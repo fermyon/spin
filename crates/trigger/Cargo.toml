@@ -1,0 +1,16 @@
+[package]
+name = "spin-trigger"
+version = "0.1.0"
+edition = "2021"
+authors = ["mossaka <duibao55328@gmail.com>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+outbound-redis = { path = "../outbound-redis" }
+spin-engine = { path = "../engine" }
+spin-manifest = { path = "../manifest" }
+wasi-outbound-http = { path = "../outbound-http" } 
+wasmtime = "0.34"

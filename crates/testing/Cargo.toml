@@ -11,3 +11,4 @@ hyper = "0.14"
 spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }
 spin-http-engine = { path = "../http" }
+spin-trigger = { path = "../trigger" }

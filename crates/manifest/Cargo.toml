@@ -7,3 +7,5 @@ authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 [dependencies]
 serde = { version = "1.0", features = [ "derive" ] }
 spin-config = { path = "../config" }
+anyhow = "1.0"
+thiserror = "1"

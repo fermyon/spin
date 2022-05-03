@@ -105,10 +105,9 @@ impl TestConfig {
 
     pub async fn build_http_trigger(&self) -> HttpTrigger {
         let app = self.build_application();
-        let builder = self.prepare_builder(app.clone()).await;
-        HttpTrigger::new(builder, app, "".to_string(), None)
+        spin_trigger::build_trigger_from_app(app, None, None)
             .await
-            .expect("failed to build HttpTrigger")
+            .unwrap()
     }
 
     pub async fn handle_http_request(&self, req: Request<Body>) -> anyhow::Result<Response<Body>> {

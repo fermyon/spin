@@ -4,7 +4,8 @@ mod routes;
 mod spin;
 mod tls;
 mod wagi;
-use spin_engine::Builder;
+
+use spin_manifest::{ComponentMap, HttpConfig, HttpTriggerConfiguration};
 pub use tls::TlsConfig;
 
 use crate::{
@@ -12,7 +13,7 @@ use crate::{
     spin::SpinHttpExecutor,
     wagi::WagiHttpExecutor,
 };
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{Context, Error, Result};
 use async_trait::async_trait;
 use futures_util::stream::StreamExt;
 use http::{uri::Scheme, StatusCode, Uri};
@@ -23,7 +24,7 @@ use hyper::{
     Body, Request, Response, Server,
 };
 use spin_http::SpinHttpData;
-use spin_manifest::{Application, ComponentMap, HttpConfig, HttpTriggerConfiguration};
+use spin_trigger::Trigger;
 use std::{future::ready, net::SocketAddr, sync::Arc};
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
@@ -43,10 +44,6 @@ type RuntimeContext = spin_engine::RuntimeContext<SpinHttpData>;
 /// would work across multiple applications.)
 #[derive(Clone)]
 pub struct HttpTrigger {
-    /// Listening address for the server.
-    address: String,
-    /// TLS configuration for the server.
-    tls: Option<TlsConfig>,
     /// Trigger configuration.
     trigger_config: HttpTriggerConfiguration,
     /// Component trigger configurations.
@@ -57,43 +54,56 @@ pub struct HttpTrigger {
     engine: Arc<ExecutionContext>,
 }
 
-impl HttpTrigger {
-    /// Creates a new Spin HTTP trigger.
-    pub async fn new(
-        builder: Builder<SpinHttpData>,
-        app: Application,
-        address: String,
-        tls: Option<TlsConfig>,
+#[derive(Clone)]
+pub struct HttpTriggerExecutionConfig {
+    address: String,
+    tls: Option<TlsConfig>,
+}
+
+impl HttpTriggerExecutionConfig {
+    pub fn new(address: String, tls: Option<TlsConfig>) -> Self {
+        Self { address, tls }
+    }
+}
+
+#[async_trait]
+impl Trigger for HttpTrigger {
+    type ContextData = SpinHttpData;
+    type Config = HttpTriggerConfiguration;
+    type ComponentConfig = HttpConfig;
+    type ExecutionConfig = HttpTriggerExecutionConfig;
+
+    fn new(
+        execution_context: ExecutionContext,
+        trigger_config: Self::Config,
+        component_triggers: ComponentMap<Self::ComponentConfig>,
     ) -> Result<Self> {
-        let trigger_config = app
-            .info
-            .trigger
-            .as_http()
-            .ok_or_else(|| anyhow!("Application trigger is not HTTP"))?
-            .clone();
-
-        let component_triggers = app.component_triggers.try_map_values(|id, trigger| {
-            trigger
-                .as_http()
-                .cloned()
-                .ok_or_else(|| anyhow!("Expected HTTP configuration for component {}", id))
-        })?;
-
-        let router = Router::build(&app)?;
-        let engine = Arc::new(builder.build().await?);
-
-        log::trace!("Created new HTTP trigger.");
+        let router = Router::build(&trigger_config.base, &component_triggers)?;
+        log::trace!(
+            "Constructed router for application {}: {:?}",
+            execution_context.config.label,
+            router.routes
+        );
 
         Ok(Self {
-            address,
-            tls,
             trigger_config,
             component_triggers,
             router,
-            engine,
+            engine: Arc::new(execution_context),
         })
     }
 
+    /// Runs the HTTP trigger indefinitely.
+    async fn run(&self, run_config: Self::ExecutionConfig) -> Result<()> {
+        if let Some(ref tls) = run_config.tls {
+            self.serve_tls(run_config.address, tls).await
+        } else {
+            self.serve(run_config.address).await
+        }
+    }
+}
+
+impl HttpTrigger {
     /// Handles incoming requests using an HTTP executor.
     pub async fn handle(&self, req: Request<Body>, addr: SocketAddr) -> Result<Response<Body>> {
         log::info!(
@@ -105,8 +115,8 @@ impl HttpTrigger {
         match req.uri().path() {
             "/healthz" => Ok(Response::new(Body::from("OK"))),
             route => match self.router.route(route) {
-                Ok(c) => {
-                    let trigger = self.component_triggers.get(&c).unwrap();
+                Ok(component_id) => {
+                    let trigger = self.component_triggers.get(component_id).unwrap();
 
                     let executor = match &trigger.executor {
                         Some(i) => i,
@@ -119,7 +129,7 @@ impl HttpTrigger {
                             executor
                                 .execute(
                                     &self.engine,
-                                    &c.id,
+                                    component_id,
                                     &self.trigger_config.base,
                                     &trigger.route,
                                     req,
@@ -134,7 +144,7 @@ impl HttpTrigger {
                             executor
                                 .execute(
                                     &self.engine,
-                                    &c.id,
+                                    component_id,
                                     &self.trigger_config.base,
                                     &trigger.route,
                                     req,
@@ -175,16 +185,7 @@ impl HttpTrigger {
         Ok(not_found)
     }
 
-    /// Runs the HTTP trigger indefinitely.
-    pub async fn run(&self) -> Result<()> {
-        match self.tls.as_ref() {
-            Some(tls) => self.serve_tls(tls).await?,
-            None => self.serve().await?,
-        }
-        Ok(())
-    }
-
-    async fn serve(&self) -> Result<()> {
+    async fn serve(&self, address: String) -> Result<()> {
         let mk_svc = make_service_fn(move |addr: &AddrStream| {
             let t = self.clone();
             let addr = addr.remote_addr();
@@ -206,7 +207,7 @@ impl HttpTrigger {
             }
         });
 
-        let addr: SocketAddr = self.address.parse()?;
+        let addr: SocketAddr = address.parse()?;
 
         let server = Server::try_bind(&addr)
             .with_context(|| format!("Unable to listen on {}", addr))?
@@ -217,9 +218,11 @@ impl HttpTrigger {
 
         println!("Available Routes:");
         for (route, component) in &self.router.routes {
-            println!("  {}: http://{:?}{}", component.id, addr, route);
-            if let Some(description) = &component.description {
-                println!("    {}", description);
+            println!("  {}: http://{:?}{}", component, addr, route);
+            if let Some(component) = self.engine.components.get(component) {
+                if let Some(description) = &component.core.description {
+                    println!("    {}", description);
+                }
             }
         }
 
@@ -237,7 +240,7 @@ impl HttpTrigger {
         Ok(())
     }
 
-    async fn serve_tls(&self, tls: &TlsConfig) -> Result<()> {
+    async fn serve_tls(&self, address: String, tls: &TlsConfig) -> Result<()> {
         let mk_svc = make_service_fn(move |conn: &TlsStream<TcpStream>| {
             let (inner, _) = conn.get_ref();
             let addr_res = inner.peer_addr().map_err(|e| e.to_string());
@@ -269,7 +272,7 @@ impl HttpTrigger {
             })
         });
 
-        let addr: SocketAddr = self.address.parse()?;
+        let addr: SocketAddr = address.parse()?;
         let listener = TcpListener::bind(&addr)
             .await
             .with_context(|| format!("Unable to listen on {}", addr))?;
@@ -405,6 +408,7 @@ mod tests {
     use anyhow::Result;
     use spin_manifest::{HttpConfig, HttpExecutor};
     use spin_testing::test_socket_addr;
+    use spin_trigger::build_trigger_from_app;
     use std::{collections::BTreeMap, sync::Once};
 
     static LOGGER: Once = Once::new();
@@ -542,9 +546,8 @@ mod tests {
                 executor: Some(HttpExecutor::Spin),
             });
         let app = cfg.build_application();
-        let engine = cfg.prepare_builder(app.clone()).await;
 
-        let trigger = HttpTrigger::new(engine, app, "".to_string(), None).await?;
+        let trigger: HttpTrigger = build_trigger_from_app(app, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
@@ -571,9 +574,8 @@ mod tests {
             executor: Some(HttpExecutor::Wagi(Default::default())),
         });
         let app = cfg.build_application();
-        let engine = cfg.prepare_builder(app.clone()).await;
 
-        let trigger = HttpTrigger::new(engine, app, "".to_string(), None).await?;
+        let trigger: HttpTrigger = build_trigger_from_app(app, None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()

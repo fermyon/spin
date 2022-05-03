@@ -81,7 +81,7 @@ impl TestConfig {
         }
     }
 
-    pub fn build_application(&self) -> Application<CoreComponent> {
+    pub fn build_application(&self) -> Application {
         Application {
             info: self.build_application_information(),
             components: vec![self.build_component()],
@@ -97,10 +97,7 @@ impl TestConfig {
         }
     }
 
-    pub async fn prepare_builder<T: Default + 'static>(
-        &self,
-        app: Application<CoreComponent>,
-    ) -> Builder<T> {
+    pub async fn prepare_builder<T: Default + 'static>(&self, app: Application) -> Builder<T> {
         let mut builder = Builder::new(app.into()).expect("Builder::new failed");
         builder.link_defaults().expect("link_defaults failed");
         builder
@@ -108,10 +105,9 @@ impl TestConfig {
 
     pub async fn build_http_trigger(&self) -> HttpTrigger {
         let app = self.build_application();
-        let builder = self.prepare_builder(app.clone()).await;
-        HttpTrigger::new(builder, app, "".to_string(), None)
+        spin_trigger::build_trigger_from_app(app, None, None)
             .await
-            .expect("failed to build HttpTrigger")
+            .unwrap()
     }
 
     pub async fn handle_http_request(&self, req: Request<Body>) -> anyhow::Result<Response<Body>> {

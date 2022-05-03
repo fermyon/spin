@@ -2,6 +2,7 @@ use super::*;
 use anyhow::Result;
 use spin_manifest::{RedisConfig, RedisExecutor};
 use spin_testing::TestConfig;
+use spin_trigger::build_trigger_from_app;
 use std::sync::Once;
 
 static LOGGER: Once = Once::new();
@@ -27,9 +28,8 @@ async fn test_pubsub() -> Result<()> {
             executor: Some(RedisExecutor::Spin),
         });
     let app = cfg.build_application();
-    let engine = cfg.prepare_builder(app.clone()).await;
 
-    let trigger = RedisTrigger::new(engine, app).await?;
+    let trigger: RedisTrigger = build_trigger_from_app(app, None, None).await?;
 
     // TODO
     // use redis::{FromRedisValue, Msg, Value};

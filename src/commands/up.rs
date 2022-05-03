@@ -1,9 +1,10 @@
 use crate::opts::*;
 use anyhow::{bail, Context, Result};
-use spin_engine::{Builder, ExecutionContextConfiguration};
-use spin_http_engine::{HttpTrigger, TlsConfig};
-use spin_manifest::{Application, ApplicationTrigger, CoreComponent};
+
+use spin_http_engine::{HttpTrigger, HttpTriggerExecutionConfig, TlsConfig};
+use spin_manifest::ApplicationTrigger;
 use spin_redis_engine::RedisTrigger;
+use spin_trigger::{run_trigger, ExecutionOptions};
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -154,16 +155,27 @@ impl UpCommand {
             _ => unreachable!(),
         };
 
+        let wasmtime_config = self.wasmtime_default_config()?;
+
         match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
-                let builder = self.prepare_ctx_builder(app.clone()).await?;
-                let trigger = HttpTrigger::new(builder, app, self.opts.address, tls).await?;
-                trigger.run().await?;
+                run_trigger(
+                    app,
+                    ExecutionOptions::<HttpTrigger>::new(
+                        self.opts.log.clone(),
+                        HttpTriggerExecutionConfig::new(self.opts.address, tls),
+                    ),
+                    Some(wasmtime_config),
+                )
+                .await?;
             }
             ApplicationTrigger::Redis(_) => {
-                let builder = self.prepare_ctx_builder(app.clone()).await?;
-                let trigger = RedisTrigger::new(builder, app).await?;
-                trigger.run().await?;
+                run_trigger(
+                    app,
+                    ExecutionOptions::<RedisTrigger>::new(self.opts.log.clone(), ()),
+                    Some(wasmtime_config),
+                )
+                .await?;
             }
         }
 
@@ -174,15 +186,7 @@ impl UpCommand {
         Ok(())
     }
 
-    async fn prepare_ctx_builder<T: Default + 'static>(
-        &self,
-        app: Application<CoreComponent>,
-    ) -> Result<Builder<T>> {
-        let config = ExecutionContextConfiguration {
-            log_dir: self.opts.log.clone(),
-            ..app.into()
-        };
-
+    fn wasmtime_default_config(&self) -> Result<wasmtime::Config> {
         let mut wasmtime_config = wasmtime::Config::default();
         if !self.opts.disable_cache {
             match &self.opts.cache {
@@ -190,12 +194,7 @@ impl UpCommand {
                 None => wasmtime_config.cache_config_load_default()?,
             };
         }
-
-        let mut builder = Builder::with_wasmtime_config(config, wasmtime_config)?;
-        builder.link_defaults()?;
-        builder.add_host_component(wasi_outbound_http::OutboundHttpComponent)?;
-        builder.add_host_component(outbound_redis::OutboundRedis)?;
-        Ok(builder)
+        Ok(wasmtime_config)
     }
 }
 

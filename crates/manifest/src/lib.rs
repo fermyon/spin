@@ -2,6 +2,7 @@
 
 #![deny(missing_docs)]
 
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use spin_config::Resolver;
 use std::{
@@ -19,8 +20,8 @@ pub enum Error {
     InvalidTriggerType,
 }
 
-/// A map of component IDs to some value.
-pub type ComponentMap<T> = HashMap<String, T>;
+/// An ordered map of component IDs to some value.
+pub type ComponentMap<T> = IndexMap<String, T>;
 
 /// Application configuration.
 #[derive(Clone, Debug)]

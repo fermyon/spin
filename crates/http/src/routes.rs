@@ -34,16 +34,13 @@ impl Router {
         Ok(Self { routes })
     }
 
-    // This assumes the order of the components in the app configuration vector
-    // has been preserved, so the routing algorithm, which takes the order into
-    // account, is correct. This seems to be the case with the TOML deserializer,
-    // but might not hold if the application configuration is deserialized in
-    // other ways.
-
+    // This assumes the order of the components in the manifest has been
+    // preserved, so the routing algorithm, which takes the order into account,
+    // is correct.
     /// Returns the component ID that should handle the given path, or an error
     /// if no component matches.
     /// If there are multiple possible components registered for the same route or
-    /// wildcard, this returns the last one in the components vector.
+    /// wildcard, this returns the last entry in the component map.
     pub(crate) fn route(&self, p: &str) -> Result<&str> {
         self.routes
             .iter()

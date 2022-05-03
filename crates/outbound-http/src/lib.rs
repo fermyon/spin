@@ -36,7 +36,7 @@ impl OutboundHttp {
             .to_owned();
         match allowed_hosts.as_deref() {
             Some(domains) => {
-                log::info!("Allowed hosts: {:?}", domains);
+                tracing::info!("Allowed hosts: {:?}", domains);
                 // check domains has any "*" wildcard
                 if domains.iter().any(|domain| domain == "*") {
                     Ok(true)

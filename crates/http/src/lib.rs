@@ -63,7 +63,7 @@ impl HttpTrigger {
     /// Creates a new Spin HTTP trigger.
     pub async fn new(
         builder: Builder<SpinHttpData>,
-        app: Application<CoreComponent>,
+        app: Application,
         address: String,
         tls: Option<TlsConfig>,
     ) -> Result<Self> {

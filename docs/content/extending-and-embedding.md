@@ -73,7 +73,7 @@ A few important things to note from the start:
 to generate "import" bindings based on the entry point — this generates code that
 allows us to easily invoke the entry point from application components that
 implement our new application model.
-- the new trigger has a field that contains a `Application<CoreComponent>` —
+- the new trigger has a field that contains a `Application` —
 in most cases, either `CoreComponent` will have to be updated with new trigger
 and component configuration (not the case for our simple application model),
 or an entirely new component can be defined and used in `Application<T>`.
@@ -174,5 +174,5 @@ for context)
 re-implementing the [`loader`](https://github.com/fermyon/spin/tree/main/crates/loader)
 and [`publish`](https://github.com/fermyon/spin/tree/main/crates/publish) crates —
 all is required is that loading the application returns a valid
-`Application<CoreComponent>` that the Spin execution context can use to
+`Application` that the Spin execution context can use to
 instantiate and execute components.

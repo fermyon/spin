@@ -5,7 +5,7 @@
 //! can be consumed by the Spin execution context.
 //!
 //! This crate can be extended (or replaced entirely) to support additional loaders,
-//! and any implementation that produces a `Application<CoreComponent>` is compatible
+//! and any implementation that produces a `Application` is compatible
 //! with the Spin execution context.
 
 #![deny(missing_docs)]

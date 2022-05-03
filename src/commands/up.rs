@@ -176,7 +176,7 @@ impl UpCommand {
 
     async fn prepare_ctx_builder<T: Default + 'static>(
         &self,
-        app: Application<CoreComponent>,
+        app: Application,
     ) -> Result<Builder<T>> {
         let config = ExecutionContextConfiguration {
             log_dir: self.opts.log.clone(),

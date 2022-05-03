@@ -28,7 +28,7 @@ pub(crate) struct Router {
 
 impl Router {
     /// Builds a router based on application configuration.
-    pub(crate) fn build(app: &Application<CoreComponent>) -> Result<Self> {
+    pub(crate) fn build(app: &Application) -> Result<Self> {
         let app_trigger = app.info.trigger.as_http().unwrap().clone();
         let routes = app
             .components

@@ -13,7 +13,7 @@ use std::{
 
 /// Application configuration.
 #[derive(Clone, Debug)]
-pub struct Application<T> {
+pub struct Application<T = CoreComponent> {
     /// General application information.
     pub info: ApplicationInformation,
     /// Configuration for the application components.

@@ -42,7 +42,7 @@ pub(crate) fn parse_env_var(s: &str) -> Result<(String, String)> {
 }
 
 /// Append the environment variables passed as options to all components.
-fn append_env(app: &mut Application<CoreComponent>, env: &[(String, String)]) -> Result<()> {
+fn append_env(app: &mut Application, env: &[(String, String)]) -> Result<()> {
     for c in app.components.iter_mut() {
         for (k, v) in env {
             c.wasm.environment.insert(k.clone(), v.clone());

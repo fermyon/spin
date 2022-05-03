@@ -7,7 +7,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};
-
 use spin_manifest::{ComponentMap, RedisConfig, RedisTriggerConfiguration};
 use spin_redis::SpinRedisData;
 use spin_trigger::Trigger;

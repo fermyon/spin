@@ -24,11 +24,11 @@ pub type ComponentMap<T> = HashMap<String, T>;
 
 /// Application configuration.
 #[derive(Clone, Debug)]
-pub struct Application<T> {
+pub struct Application {
     /// General application information.
     pub info: ApplicationInformation,
     /// Configuration for the application components.
-    pub components: Vec<T>,
+    pub components: Vec<CoreComponent>,
     /// Configuration for the components' triggers.
     pub component_triggers: ComponentMap<TriggerConfig>,
     /// Application-specific configuration resolver.

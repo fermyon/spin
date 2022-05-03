@@ -3,7 +3,7 @@ use std::{error::Error, path::PathBuf};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use spin_engine::{Builder, ExecutionContext, ExecutionContextConfiguration};
-use spin_manifest::{Application, ApplicationTrigger, ComponentMap, CoreComponent, TriggerConfig};
+use spin_manifest::{Application, ApplicationTrigger, ComponentMap, TriggerConfig};
 
 /// The trigger
 #[async_trait]
@@ -48,7 +48,7 @@ impl<T: Trigger> ExecutionOptions<T> {
 }
 
 pub async fn build_trigger_from_app<T: Trigger>(
-    app: Application<CoreComponent>,
+    app: Application,
     log_dir: Option<PathBuf>,
     wasmtime_config: Option<wasmtime::Config>,
 ) -> Result<T>
@@ -92,7 +92,7 @@ where
 }
 
 pub async fn run_trigger<T: Trigger>(
-    app: Application<CoreComponent>,
+    app: Application,
     opts: ExecutionOptions<T>,
     wasmtime_config: Option<wasmtime::Config>,
 ) -> Result<()>

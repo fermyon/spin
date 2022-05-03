@@ -81,7 +81,7 @@ impl TestConfig {
         }
     }
 
-    pub fn build_application(&self) -> Application<CoreComponent> {
+    pub fn build_application(&self) -> Application {
         Application {
             info: self.build_application_information(),
             components: vec![self.build_component()],
@@ -97,10 +97,7 @@ impl TestConfig {
         }
     }
 
-    pub async fn prepare_builder<T: Default + 'static>(
-        &self,
-        app: Application<CoreComponent>,
-    ) -> Builder<T> {
+    pub async fn prepare_builder<T: Default + 'static>(&self, app: Application) -> Builder<T> {
         let mut builder = Builder::new(app.into()).expect("Builder::new failed");
         builder.link_defaults().expect("link_defaults failed");
         builder

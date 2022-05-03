@@ -5,6 +5,7 @@ mod spin;
 mod tls;
 mod wagi;
 
+use spin_manifest::{ComponentMap, HttpConfig, HttpTriggerConfiguration};
 pub use tls::TlsConfig;
 
 use crate::{
@@ -23,7 +24,6 @@ use hyper::{
     Body, Request, Response, Server,
 };
 use spin_http::SpinHttpData;
-use spin_manifest::{ComponentMap, HttpConfig, HttpTriggerConfiguration};
 use spin_trigger::Trigger;
 use std::{future::ready, net::SocketAddr, sync::Arc};
 use tls_listener::TlsListener;

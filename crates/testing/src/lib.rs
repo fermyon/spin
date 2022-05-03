@@ -76,6 +76,7 @@ impl TestConfig {
         CoreComponent {
             source: ModuleSource::FileReference(module_path),
             id: "test-component".to_string(),
+            description: None,
             wasm: Default::default(),
         }
     }

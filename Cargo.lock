@@ -3143,6 +3143,7 @@ dependencies = [
  "tracing-subscriber 0.3.11",
  "vergen",
  "wasi-outbound-http",
+ "wasmtime",
 ]
 
 [[package]]

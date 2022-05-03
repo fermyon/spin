@@ -9,7 +9,7 @@ Spin applications can be triggered by a new message on a [Redis channel](https:/
 Spin will connect to a configured Redis instance and will invoke components for
 new messages on the configured channels.
 
-> See the [Rust language guide](/rust-components) for details on using Rust to
+> See the [Rust language guide](./rust-components.md) for details on using Rust to
 > build Redis components.
 
 The Redis instance address is specified in the application trigger:
@@ -25,7 +25,7 @@ trigger = { type = "redis", address = "redis://localhost:6379" }
 > messages to channels.
 
 Then, all components in the application are triggered when new messages are
-published to channels in the instance. [Configuring](/configuration) the channel
+published to channels in the instance. [Configuring](./configuration.md) the channel
  is done by setting the `channel` field in the component trigger configuration.
 
 ```toml
@@ -59,7 +59,7 @@ used by the Spin Redis executor when instantiating and invoking the component.
 This interface (`spin-redis.wit`) can be directly used together with the
 [Bytecode Alliance `wit-bindgen` project](https://github.com/bytecodealliance/wit-bindgen)
 to build a component that the Spin HTTP executor can invoke.
-This is exactly how [the Rust SDK for Spin](/rust-components) is built, and,
+This is exactly how [the Rust SDK for Spin](./rust-components.md) is built, and,
 as more languages add support for the component model, how we plan to add
 support for them as well.
 

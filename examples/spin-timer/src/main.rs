@@ -29,7 +29,7 @@ async fn main() -> Result<()> {
     .await?;
     let trigger = TimerTrigger::new(builder, (), Default::default())?;
     trigger
-        .run(TimerRuntimeConfig {
+        .run(TimerExecutionConfig {
             interval: Duration::from_secs(1),
         })
         .await
@@ -44,7 +44,7 @@ pub struct TimerTrigger {
 }
 
 #[derive(Clone)]
-pub struct TimerRuntimeConfig {
+pub struct TimerExecutionConfig {
     /// The interval at which the component is executed.   
     pub interval: Duration,
 }
@@ -54,7 +54,7 @@ impl Trigger for TimerTrigger {
     type ContextData = SpinTimerData;
     type Config = ();
     type ComponentConfig = ();
-    type RuntimeConfig = TimerRuntimeConfig;
+    type ExecutionConfig = TimerExecutionConfig;
 
     /// Creates a new trigger.
     fn new(
@@ -68,7 +68,7 @@ impl Trigger for TimerTrigger {
     }
 
     /// Runs the trigger at every interval.
-    async fn run(&self, run_config: Self::RuntimeConfig) -> Result<()> {
+    async fn run(&self, run_config: Self::ExecutionConfig) -> Result<()> {
         let mut interval = tokio::time::interval(run_config.interval);
         loop {
             interval.tick().await;

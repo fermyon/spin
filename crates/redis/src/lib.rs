@@ -36,7 +36,7 @@ impl Trigger for RedisTrigger {
     type ContextData = SpinRedisData;
     type Config = RedisTriggerConfiguration;
     type ComponentConfig = RedisConfig;
-    type RuntimeConfig = ();
+    type ExecutionConfig = ();
 
     fn new(
         execution_context: ExecutionContext,
@@ -64,7 +64,7 @@ impl Trigger for RedisTrigger {
     }
 
     /// Run the Redis trigger indefinitely.
-    async fn run(&self, _: Self::RuntimeConfig) -> Result<()> {
+    async fn run(&self, _: Self::ExecutionConfig) -> Result<()> {
         let address = self.trigger_config.address.as_str();
 
         log::info!("Connecting to Redis server at {}", address);

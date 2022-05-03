@@ -55,12 +55,12 @@ pub struct HttpTrigger {
 }
 
 #[derive(Clone)]
-pub struct HttpRuntimeConfig {
+pub struct HttpTriggerExecutionConfig {
     address: String,
     tls: Option<TlsConfig>,
 }
 
-impl HttpRuntimeConfig {
+impl HttpTriggerExecutionConfig {
     pub fn new(address: String, tls: Option<TlsConfig>) -> Self {
         Self { address, tls }
     }
@@ -71,7 +71,7 @@ impl Trigger for HttpTrigger {
     type ContextData = SpinHttpData;
     type Config = HttpTriggerConfiguration;
     type ComponentConfig = HttpConfig;
-    type RuntimeConfig = HttpRuntimeConfig;
+    type ExecutionConfig = HttpTriggerExecutionConfig;
 
     fn new(
         execution_context: ExecutionContext,
@@ -94,7 +94,7 @@ impl Trigger for HttpTrigger {
     }
 
     /// Runs the HTTP trigger indefinitely.
-    async fn run(&self, run_config: Self::RuntimeConfig) -> Result<()> {
+    async fn run(&self, run_config: Self::ExecutionConfig) -> Result<()> {
         if let Some(ref tls) = run_config.tls {
             self.serve_tls(run_config.address, tls).await
         } else {

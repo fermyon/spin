@@ -1,10 +1,10 @@
 use crate::opts::*;
 use anyhow::{bail, Context, Result};
 
-use spin_http_engine::{HttpRuntimeConfig, HttpTrigger, TlsConfig};
+use spin_http_engine::{HttpTrigger, HttpTriggerExecutionConfig, TlsConfig};
 use spin_manifest::ApplicationTrigger;
 use spin_redis_engine::RedisTrigger;
-use spin_trigger::{run_trigger, RunOptions};
+use spin_trigger::{run_trigger, ExecutionOptions};
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -155,21 +155,15 @@ impl UpCommand {
             _ => unreachable!(),
         };
 
-        let mut wasmtime_config = wasmtime::Config::default();
-        if !self.opts.disable_cache {
-            match &self.opts.cache {
-                Some(p) => wasmtime_config.cache_config_load(p)?,
-                None => wasmtime_config.cache_config_load_default()?,
-            };
-        }
+        let wasmtime_config = self.wasmtime_default_config()?;
 
         match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
                 run_trigger(
                     app,
-                    RunOptions::<HttpTrigger>::new(
+                    ExecutionOptions::<HttpTrigger>::new(
                         self.opts.log.clone(),
-                        HttpRuntimeConfig::new(self.opts.address, tls),
+                        HttpTriggerExecutionConfig::new(self.opts.address, tls),
                     ),
                     Some(wasmtime_config),
                 )
@@ -178,7 +172,7 @@ impl UpCommand {
             ApplicationTrigger::Redis(_) => {
                 run_trigger(
                     app,
-                    RunOptions::<RedisTrigger>::new(self.opts.log.clone(), ()),
+                    ExecutionOptions::<RedisTrigger>::new(self.opts.log.clone(), ()),
                     Some(wasmtime_config),
                 )
                 .await?;
@@ -190,6 +184,17 @@ impl UpCommand {
         drop(working_dir_holder);
 
         Ok(())
+    }
+
+    fn wasmtime_default_config(&self) -> Result<wasmtime::Config> {
+        let mut wasmtime_config = wasmtime::Config::default();
+        if !self.opts.disable_cache {
+            match &self.opts.cache {
+                Some(p) => wasmtime_config.cache_config_load(p)?,
+                None => wasmtime_config.cache_config_load_default()?,
+            };
+        }
+        Ok(wasmtime_config)
     }
 }
 

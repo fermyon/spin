@@ -15,7 +15,7 @@ pub trait Trigger: Sized {
     /// component configuration
     type ComponentConfig;
     /// runtime configuration
-    type RuntimeConfig;
+    type ExecutionConfig;
 
     fn new(
         execution_context: ExecutionContext<Self::ContextData>,
@@ -23,7 +23,7 @@ pub trait Trigger: Sized {
         component_configs: ComponentMap<Self::ComponentConfig>,
     ) -> Result<Self>;
 
-    async fn run(&self, run_config: Self::RuntimeConfig) -> Result<()>;
+    async fn run(&self, run_config: Self::ExecutionConfig) -> Result<()>;
 
     fn configure_execution_context(builder: &mut Builder<Self::ContextData>) -> Result<()> {
         builder.link_defaults()?;
@@ -33,16 +33,16 @@ pub trait Trigger: Sized {
     }
 }
 
-pub struct RunOptions<T: Trigger> {
+pub struct ExecutionOptions<T: Trigger> {
     log_dir: Option<PathBuf>,
-    trigger_run_config: T::RuntimeConfig,
+    execution_config: T::ExecutionConfig,
 }
 
-impl<T: Trigger> RunOptions<T> {
-    pub fn new(log_dir: Option<PathBuf>, trigger_run_config: T::RuntimeConfig) -> Self {
+impl<T: Trigger> ExecutionOptions<T> {
+    pub fn new(log_dir: Option<PathBuf>, execution_config: T::ExecutionConfig) -> Self {
         Self {
             log_dir,
-            trigger_run_config,
+            execution_config,
         }
     }
 }
@@ -93,7 +93,7 @@ where
 
 pub async fn run_trigger<T: Trigger>(
     app: Application<CoreComponent>,
-    opts: RunOptions<T>,
+    opts: ExecutionOptions<T>,
     wasmtime_config: Option<wasmtime::Config>,
 ) -> Result<()>
 where
@@ -103,5 +103,5 @@ where
     <T::ComponentConfig as TryFrom<TriggerConfig>>::Error: Error + Send + Sync + 'static,
 {
     let trigger: T = build_trigger_from_app(app, opts.log_dir, wasmtime_config).await?;
-    trigger.run(opts.trigger_run_config).await
+    trigger.run(opts.execution_config).await
 }

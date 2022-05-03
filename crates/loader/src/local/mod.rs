@@ -25,10 +25,7 @@ use tokio::{fs::File, io::AsyncReadExt};
 /// get a prepared application configuration consumable by a Spin execution context.
 /// If a directory is provided, use it as the base directory to expand the assets,
 /// otherwise create a new temporary directory.
-pub async fn from_file(
-    app: impl AsRef<Path>,
-    base_dst: impl AsRef<Path>,
-) -> Result<Application<CoreComponent>> {
+pub async fn from_file(app: impl AsRef<Path>, base_dst: impl AsRef<Path>) -> Result<Application> {
     let app = app
         .as_ref()
         .absolutize()
@@ -57,7 +54,7 @@ async fn prepare_any_version(
     raw: RawAppManifestAnyVersion,
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
-) -> Result<Application<CoreComponent>> {
+) -> Result<Application> {
     match raw {
         RawAppManifestAnyVersion::V1(raw) => prepare(raw, src, base_dst).await,
     }
@@ -82,7 +79,7 @@ async fn prepare(
     mut raw: RawAppManifest,
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
-) -> Result<Application<CoreComponent>> {
+) -> Result<Application> {
     let info = info(raw.info, &src);
 
     error_on_duplicate_ids(raw.components.clone())?;

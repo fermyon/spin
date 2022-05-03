@@ -23,9 +23,7 @@ use hyper::{
     Body, Request, Response, Server,
 };
 use spin_http::SpinHttpData;
-use spin_manifest::{
-    Application, ComponentMap, CoreComponent, HttpConfig, HttpTriggerConfiguration,
-};
+use spin_manifest::{Application, ComponentMap, HttpConfig, HttpTriggerConfiguration};
 use std::{future::ready, net::SocketAddr, sync::Arc};
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
@@ -63,7 +61,7 @@ impl HttpTrigger {
     /// Creates a new Spin HTTP trigger.
     pub async fn new(
         builder: Builder<SpinHttpData>,
-        app: Application<CoreComponent>,
+        app: Application,
         address: String,
         tls: Option<TlsConfig>,
     ) -> Result<Self> {

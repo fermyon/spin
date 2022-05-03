@@ -2,7 +2,7 @@ use crate::opts::*;
 use anyhow::{bail, Context, Result};
 use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http_engine::{HttpTrigger, TlsConfig};
-use spin_manifest::{Application, ApplicationTrigger, CoreComponent};
+use spin_manifest::{Application, ApplicationTrigger};
 use spin_redis_engine::RedisTrigger;
 use std::{
     path::{Path, PathBuf},
@@ -176,7 +176,7 @@ impl UpCommand {
 
     async fn prepare_ctx_builder<T: Default + 'static>(
         &self,
-        app: Application<CoreComponent>,
+        app: Application,
     ) -> Result<Builder<T>> {
         let config = ExecutionContextConfiguration {
             log_dir: self.opts.log.clone(),

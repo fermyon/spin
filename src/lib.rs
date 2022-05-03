@@ -3,7 +3,7 @@ pub(crate) mod opts;
 
 use anyhow::{anyhow, bail, Result};
 use semver::BuildMetadata;
-use spin_manifest::{Application, CoreComponent};
+use spin_manifest::Application;
 use std::path::{Path, PathBuf};
 
 pub(crate) fn app_dir(app_file: impl AsRef<Path>) -> Result<PathBuf> {

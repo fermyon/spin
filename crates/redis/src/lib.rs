@@ -8,9 +8,7 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};
 use spin_engine::Builder;
-use spin_manifest::{
-    Application, ComponentMap, CoreComponent, RedisConfig, RedisTriggerConfiguration,
-};
+use spin_manifest::{Application, ComponentMap, RedisConfig, RedisTriggerConfiguration};
 use spin_redis::SpinRedisData;
 use std::{collections::HashMap, sync::Arc};
 

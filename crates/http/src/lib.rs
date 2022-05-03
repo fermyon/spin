@@ -23,9 +23,7 @@ use hyper::{
     Body, Request, Response, Server,
 };
 use spin_http::SpinHttpData;
-use spin_manifest::{
-    Application, ComponentMap, CoreComponent, HttpConfig, HttpTriggerConfiguration,
-};
+use spin_manifest::{Application, ComponentMap, HttpConfig, HttpTriggerConfiguration};
 use std::{future::ready, net::SocketAddr, sync::Arc};
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};

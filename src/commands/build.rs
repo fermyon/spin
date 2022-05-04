@@ -1,22 +1,18 @@
-use std::path::PathBuf;
+use std::{ffi::OsString, path::PathBuf};
 
 use anyhow::Result;
 use clap::Parser;
 
 use spin_loader::local::{config::RawAppManifestAnyVersion, raw_manifest_from_file};
 
-use crate::{
-    commands::up::{UpCommand, UpOpts},
-    opts::{APP_CONFIG_FILE_OPT, BUILD_UP_OPT, DEFAULT_MANIFEST_FILE},
-};
+use crate::opts::{APP_CONFIG_FILE_OPT, BUILD_UP_OPT, DEFAULT_MANIFEST_FILE};
+
+use super::up::UpCommand;
 
 /// Run the build command for each component.
 #[derive(Parser, Debug)]
-#[clap(about = "Build the Spin application")]
+#[clap(about = "Build the Spin application", allow_hyphen_values = true)]
 pub struct BuildCommand {
-    #[clap(flatten)]
-    pub opts: UpOpts,
-
     /// Path to spin.toml.
     #[clap(
             name = APP_CONFIG_FILE_OPT,
@@ -28,6 +24,9 @@ pub struct BuildCommand {
     /// Run the application after building.
     #[clap(name = BUILD_UP_OPT, short = 'u', long = "up")]
     pub up: bool,
+
+    #[clap(requires = BUILD_UP_OPT)]
+    pub up_args: Vec<OsString>,
 }
 
 impl BuildCommand {
@@ -41,13 +40,14 @@ impl BuildCommand {
         spin_build::build(app, manifest_file).await?;
 
         if self.up {
-            let cmd = UpCommand {
-                app: Some(manifest_file.into()),
-                opts: self.opts,
-                bindle: None,
-                server: None,
-            };
-
+            let mut cmd = UpCommand::parse_from(
+                std::iter::once(OsString::from(format!(
+                    "{} up",
+                    std::env::args().next().unwrap()
+                )))
+                .chain(self.up_args),
+            );
+            cmd.app = Some(manifest_file.into());
             cmd.run().await
         } else {
             Ok(())

@@ -6,11 +6,14 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Context, Result};
 use bindle::{Id, Label};
-use futures::future;
+use futures::{future, stream, StreamExt, TryStreamExt};
 use spin_manifest::DirectoryMount;
 use std::path::Path;
-use tokio::fs;
+use tokio::{fs, io::AsyncWriteExt};
 use tracing::log;
+
+/// Maximum number of assets to download in parallel
+const MAX_PARALLEL_COPIES: usize = 16;
 
 pub(crate) async fn prepare_component(
     reader: &BindleReader,
@@ -52,12 +55,12 @@ impl Copier {
     }
 
     async fn copy_all(&self, parcels: &[Label], dir: impl AsRef<Path>) -> Result<()> {
-        match future::join_all(parcels.iter().map(|p| self.copy(p, &dir)))
-            .await
-            .into_iter()
-            .filter_map(|r| r.err())
+        match stream::iter(parcels.iter().map(|p| self.copy(p, &dir)))
+            .buffer_unordered(MAX_PARALLEL_COPIES)
+            .filter_map(|r| future::ready(r.err()))
             .map(|e| log::error!("{:?}", e))
             .count()
+            .await
         {
             0 => Ok(()),
             n => bail!("Error copying assets: {} file(s) not copied", n),
@@ -76,18 +79,35 @@ impl Copier {
             to.display()
         );
         fs::create_dir_all(to.parent().expect("Cannot copy to file '/'")).await?;
-        let buf =
-            self.reader.get_parcel(&p.sha256).await.with_context(|| {
-                anyhow!("Failed to fetch asset parcel '{}@{}'", self.id, p.sha256)
-            })?;
-        fs::write(&to, &buf).await.with_context(|| {
+        let mut stream = self
+            .reader
+            .get_parcel_stream(&p.sha256)
+            .await
+            .with_context(|| anyhow!("Failed to fetch asset parcel '{}@{}'", self.id, p.sha256))?;
+
+        let mut file = fs::File::create(&to).await.with_context(|| {
             anyhow!(
-                "Failed to write asset parcel '{}@{}' to {}",
+                "Failed to create local file for asset parcel '{}@{}'",
                 self.id,
-                p.sha256,
-                to.display()
+                p.sha256
             )
         })?;
+
+        while let Some(chunk) = stream
+            .try_next()
+            .await
+            .with_context(|| anyhow!("Failed to read asset parcel '{}@{}'", self.id, p.sha256))?
+        {
+            file.write_all(&chunk).await.with_context(|| {
+                anyhow!(
+                    "Failed to write asset parcel '{}@{}' to {}",
+                    self.id,
+                    p.sha256,
+                    to.display()
+                )
+            })?;
+        }
+
         Ok(())
     }
 }

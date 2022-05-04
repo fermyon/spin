@@ -65,7 +65,6 @@ pub struct RuntimeContext<T> {
 pub struct Builder<T: Default> {
     config: ExecutionContextConfiguration,
     linker: Linker<RuntimeContext<T>>,
-    store: Store<RuntimeContext<T>>,
     engine: Engine,
     host_components: HostComponents,
 }
@@ -81,25 +80,33 @@ impl<T: Default + 'static> Builder<T> {
         config: ExecutionContextConfiguration,
         mut wasmtime: wasmtime::Config,
     ) -> Result<Builder<T>> {
-        // In order for Wasmtime to run WebAssembly components, multi memory
-        // and module linking must always be enabled.
-        // See https://github.com/bytecodealliance/wit-bindgen/blob/main/crates/wasmlink.
-        wasmtime.wasm_multi_memory(true);
-        wasmtime.wasm_module_linking(true);
-
-        let data = RuntimeContext::default();
+        add_default_engine_config(&mut wasmtime);
         let engine = Engine::new(&wasmtime)?;
-        let store = Store::new(&engine, data);
         let linker = Linker::new(&engine);
         let host_components = Default::default();
 
         Ok(Self {
             config,
-            linker,
-            store,
             engine,
+            linker,
             host_components,
         })
+    }
+
+    /// Creates a new instance of the execution builder with the given wasmtime::Engine.
+    pub fn with_wasmtime_engine(
+        config: ExecutionContextConfiguration,
+        engine: wasmtime::Engine,
+    ) -> Builder<T> {
+        let linker = Linker::new(&engine);
+        let host_components = Default::default();
+
+        Self {
+            config,
+            engine,
+            linker,
+            host_components,
+        }
     }
 
     /// Configures the WASI linker imports for the current execution context.
@@ -129,6 +136,8 @@ impl<T: Default + 'static> Builder<T> {
     /// Builds a new instance of the execution context.
     #[instrument(skip(self))]
     pub async fn build(mut self) -> Result<ExecutionContext<T>> {
+        let data = RuntimeContext::default();
+        let mut store = Store::new(&self.engine, data);
         let _sloth_warning = warn_if_slothful();
         let mut components = HashMap::new();
         for c in &self.config.components {
@@ -159,7 +168,7 @@ impl<T: Default + 'static> Builder<T> {
                 }
             };
 
-            let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
+            let pre = Arc::new(self.linker.instantiate_pre(&mut store, &module)?);
             log::trace!("Created pre-instance from module for component {}.", &c.id);
 
             components.insert(c.id.clone(), Component { core, pre });
@@ -188,6 +197,15 @@ impl<T: Default + 'static> Builder<T> {
         builder.link_defaults()?;
         builder.build().await
     }
+}
+
+/// set default features for engine configuration
+pub fn add_default_engine_config(config: &mut wasmtime::Config) {
+    // In order for Wasmtime to run WebAssembly components, multi memory
+    // and module linking must always be enabled.
+    // See https://github.com/bytecodealliance/wit-bindgen/blob/main/crates/wasmlink.
+    config.wasm_multi_memory(true);
+    config.wasm_module_linking(true);
 }
 
 /// Component for the execution context.

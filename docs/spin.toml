@@ -6,12 +6,11 @@ authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 trigger = { type = "http", base = "/" }
 
 [[component]]
-source = "modules/bartholomew-wagi.wasm"
+source = "modules/bartholomew.wasm"
 id = "bartholomew"
 files = [ "content/**/*" , "templates/*", "scripts/*", "config/*"]
 [component.trigger]
 route = "/..."
-executor = { type = "wagi" }
 
 [[component]]
 source = "modules/spin_static_fs.wasm"

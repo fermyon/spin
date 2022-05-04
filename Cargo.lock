@@ -3269,6 +3269,7 @@ name = "spin-manifest"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "indexmap",
  "serde",
  "spin-config",
  "thiserror",

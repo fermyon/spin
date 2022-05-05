@@ -1,0 +1,14 @@
+spin_version = "1"
+authors = ["{{authors}}"]
+description = "{{project-description}}"
+name = "{{project-name}}"
+trigger = { type = "redis", base = "{{redis-address}}" }
+version = "0.1.0"
+
+[[component]]
+id = "{{project-name | kebab_case}}"
+source = "target/wasm32-wasi/release/{{project-name | snake_case}}.wasm"
+[component.trigger]
+channel = "{{redis-channel}}"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

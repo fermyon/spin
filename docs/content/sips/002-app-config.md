@@ -1,6 +1,5 @@
-title = "SIP xxx - Application Configuration"
+title = "SIP 002 - Application Configuration"
 template = "main"
-date = "2022-03-22T14:53:30Z"
 
 ---
 

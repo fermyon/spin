@@ -140,7 +140,7 @@ impl<T: Default + 'static> Builder<T> {
 
     /// Builds a new instance of the execution context.
     #[instrument(skip(self))]
-    pub async fn build(mut self) -> Result<ExecutionContext<T>> {
+    pub async fn build(self) -> Result<ExecutionContext<T>> {
         let data = RuntimeContext::default();
         let mut store = Store::new(&self.engine.0, data);
         let _sloth_warning = warn_if_slothful();

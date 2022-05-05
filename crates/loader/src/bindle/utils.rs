@@ -1,6 +1,6 @@
 #![deny(missing_docs)]
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Error, Result};
 use async_trait::async_trait;
 use bindle::{
     client::{
@@ -11,10 +11,12 @@ use bindle::{
     standalone::StandaloneRead,
     Id, Invoice, Label, Parcel,
 };
+use futures::{Stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use reqwest::RequestBuilder;
 use std::{fmt::Debug, path::Path, sync::Arc};
 use tokio::fs;
+use tokio_util::codec::{BytesCodec, FramedRead};
 
 static EMPTY: &Vec<bindle::Parcel> = &vec![];
 
@@ -147,6 +149,35 @@ impl BindleReader {
                         path.display()
                     )
                 })
+            }
+        }
+    }
+
+    /// Gets the content of a parcel from the bindle source as a stream.
+    pub(crate) async fn get_parcel_stream(
+        &self,
+        id: &str,
+    ) -> Result<impl Stream<Item = Result<bytes::Bytes>> + '_> {
+        match &self.inner {
+            BindleReaderInner::Remote(c, bindle_id) => c
+                .get_parcel_stream(bindle_id, id)
+                .await
+                .with_context(|| anyhow!("Error fetching remote parcel {}@{}", bindle_id, id))
+                .map(|s| s.map_err(Error::from).boxed()),
+
+            BindleReaderInner::Standalone(s) => {
+                let path = s.parcel_dir.join(format!("{}.dat", id));
+                let file = fs::File::open(&path).await.with_context(|| {
+                    anyhow!(
+                        "Error reading standalone parcel {} from {}",
+                        id,
+                        path.display()
+                    )
+                })?;
+                Ok(FramedRead::new(file, BytesCodec::new())
+                    .map_ok(bytes::BytesMut::freeze)
+                    .map_err(Error::from)
+                    .boxed())
             }
         }
     }

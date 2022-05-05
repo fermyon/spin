@@ -34,6 +34,16 @@ $ ./target/release/spin --help
 At this point, move the `spin` binary somewhere in your path, so it can be
 accessed from any directory.
 
+### Linux: Additional Libraries
+
+On a fresh Linux installation, you will also need the standard build toolchain (`gcc`, `make`, etc.), the SSL library headers, and on some distributions you may need `pkg-config`.
+
+On Debian-like distributions, including Ubuntu, you can install these with a command like this:
+
+```console
+$ sudo apt-get install build-essential libssl-dev pkg-config
+```
+
 ## Building the example applications
 
 To build and run the Spin example applications, clone the Spin repository:

@@ -20,9 +20,54 @@ before compiling Rust components for Spin:
 In order to compile Rust programs to Spin components, you also need the
 `wasm32-wasi` target. You can add it using `rustup`:
 
-```plaintext
+```console
 $ rustup target add wasm32-wasi
 ```
+
+## Creating New Projects with Cargo
+
+When creating a new Spin projects with Cargo, you should use the `--lib` flag.
+
+```console
+$ cargo init --lib
+```
+
+A `Cargo.toml` with standard Spin dependencies looks like this:
+
+```toml
+[package]
+name = "your-app"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = [ "cdylib" ]
+
+[dependencies]
+# Useful crate to handle errors.
+anyhow = "1"
+# Crate to simplify working with bytes.
+bytes = "1"
+# General-purpose crate with common HTTP types.
+http = "0.2"
+# The Spin SDK.
+spin-sdk = { git = "https://github.com/fermyon/spin" }
+# Crate that generates Rust Wasm bindings from a WebAssembly interface.
+wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2f46ce4cc072107153da0cefe15bdc69aa5b84d0" }
+```
+
+At the time of this writing, `wit-bindgen` must be pinned to a specific `rev`.
+This will change in the future.
+
+## Compiling Rust to WebAssembly
+
+When compiling these examples to WebAssembly, we suggest using the following Cargo command:
+
+```console
+$ cargo build --target wasm32-wasi --release
+```
+
+The `--target wasm32-wasi` tells Cargo which compile target to use. And the `--release` flag instructs Cargo to optimize the binary by stripping debugging information.
 
 ## HTTP components
 

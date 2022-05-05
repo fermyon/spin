@@ -2,7 +2,7 @@ use std::{error::Error, path::PathBuf};
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use spin_engine::{Builder, ExecutionContext, ExecutionContextConfiguration};
+use spin_engine::{Builder, Engine, ExecutionContext, ExecutionContextConfiguration};
 use spin_manifest::{Application, ApplicationTrigger, ComponentMap, TriggerConfig};
 
 /// The trigger
@@ -66,7 +66,7 @@ where
     };
     let mut builder = match wasmtime_config {
         Some(wasmtime_config) => {
-            Builder::<T::ContextData>::with_wasmtime_config(config, wasmtime_config)
+            Builder::<T::ContextData>::with_engine(config, Engine::new(wasmtime_config)?)
         }
         None => Builder::<T::ContextData>::new(config),
     }?;

@@ -17,13 +17,13 @@ or use the
 VS Code extension (through the `Bindle: Start` command):
 
 ```bash
-$ bindle-server --address 127.0.0.1:8000 --directory .
+$ bindle-server --address 127.0.0.1:8000 --directory . --unauthenticated
 ```
 
 Let's push the application from the [quickstart](./quickstart.md) to the registry:
 
 ```bash
-$ export BINDLE_URL=http://localhost:8080/v1
+$ export BINDLE_URL=http://localhost:8000/v1
 $ spin bindle push --file spin.toml
 pushed: spin-hello-world/1.0.0
 ```

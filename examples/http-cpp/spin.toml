@@ -1,0 +1,15 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A simple application that returns hello."
+name = "spin-hello-world"
+trigger = { type = "http", base = "/" }
+version = "1.0.0"
+
+[[component]]
+id = "hello"
+source = "lib.wasm"
+description = "A simple component that returns hello."
+[component.trigger]
+route = "/hello"
+[component.build]
+command = "make"

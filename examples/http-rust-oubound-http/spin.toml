@@ -17,7 +17,7 @@ command = "cargo build --target wasm32-wasi --release"
 [[component]]
 id = "rust-outbound-http-wildcard"
 source = "target/wasm32-wasi/release/http_rust_outbound_http.wasm"
-allowed_http_hosts = ["*"]
+allowed_http_hosts = ["insecure:allow-all"]
 [component.trigger]
 route = "/wildcard"
 [component.build]

@@ -12,6 +12,8 @@ pub use wasi_outbound_http::add_to_linker;
 
 wit_bindgen_wasmtime::export!("../../wit/ephemeral/wasi-outbound-http.wit");
 
+const ALLOW_ALL_HOSTS: &str = "insecure:allow-all";
+
 /// A very simple implementation for outbound HTTP requests.
 #[derive(Default, Clone)]
 pub struct OutboundHttp {
@@ -37,8 +39,8 @@ impl OutboundHttp {
         match allowed_hosts.as_deref() {
             Some(domains) => {
                 tracing::info!("Allowed hosts: {:?}", domains);
-                // check domains has any "*" wildcard
-                if domains.iter().any(|domain| domain == "*") {
+                // check domains has any "insecure:allow-all" wildcard
+                if domains.iter().any(|domain| domain == ALLOW_ALL_HOSTS) {
                     Ok(true)
                 } else {
                     let allowed: Result<Vec<_>, _> =

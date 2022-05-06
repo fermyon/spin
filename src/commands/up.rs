@@ -41,7 +41,7 @@ pub struct UpCommand {
     /// URL of bindle server.
     #[clap(
             name = BINDLE_SERVER_URL_OPT,
-            long = "server",
+            long = "bindle-server",
             env = BINDLE_URL_ENV,
         )]
     pub server: Option<String>,

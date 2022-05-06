@@ -1,10 +1,11 @@
 use anyhow::Error;
+use clap::Parser;
 use lazy_static::lazy_static;
+
 use spin_cli::commands::{
     bindle::BindleCommands, build::BuildCommand, deploy::DeployCommand, new::NewCommand,
     templates::TemplateCommands, up::UpCommand,
 };
-use structopt::{clap::AppSettings, StructOpt};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -14,7 +15,7 @@ async fn main() -> Result<(), Error> {
         .with_ansi(atty::is(atty::Stream::Stderr))
         .init();
 
-    SpinApp::from_args().run().await
+    SpinApp::parse().run().await
 }
 
 lazy_static! {
@@ -27,18 +28,17 @@ fn version() -> &'static str {
 }
 
 /// The Spin CLI
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Parser, Debug)]
+#[clap(
     name = "spin",
     version = version(),
-    global_settings = &[
-        AppSettings::VersionlessSubcommands,
-        AppSettings::ColoredHelp
-    ])]
+)]
 enum SpinApp {
+    #[clap(subcommand)]
     Templates(TemplateCommands),
     New(NewCommand),
     Up(UpCommand),
+    #[clap(subcommand)]
     Bindle(BindleCommands),
     Deploy(DeployCommand),
     Build(BuildCommand),
@@ -48,12 +48,12 @@ impl SpinApp {
     /// The main entry point to Spin.
     pub async fn run(self) -> Result<(), Error> {
         match self {
-            SpinApp::Templates(cmd) => cmd.run().await,
-            SpinApp::Up(cmd) => cmd.run().await,
-            SpinApp::New(cmd) => cmd.run().await,
-            SpinApp::Bindle(cmd) => cmd.run().await,
-            SpinApp::Deploy(cmd) => cmd.run().await,
-            SpinApp::Build(cmd) => cmd.run().await,
+            Self::Templates(cmd) => cmd.run().await,
+            Self::Up(cmd) => cmd.run().await,
+            Self::New(cmd) => cmd.run().await,
+            Self::Bindle(cmd) => cmd.run().await,
+            Self::Deploy(cmd) => cmd.run().await,
+            Self::Build(cmd) => cmd.run().await,
         }
     }
 }

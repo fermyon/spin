@@ -1,11 +1,13 @@
-use crate::{opts::*, parse_buildinfo};
-use anyhow::{Context, Result};
-use semver::BuildMetadata;
 use std::path::PathBuf;
-use structopt::StructOpt;
+
+use anyhow::{Context, Result};
+use clap::{Parser, Subcommand};
+use semver::BuildMetadata;
+
+use crate::{opts::*, parse_buildinfo};
 
 /// Commands for publishing applications as bindles.
-#[derive(StructOpt, Debug)]
+#[derive(Subcommand, Debug)]
 pub enum BindleCommands {
     /// Create a standalone bindle for subsequent publication.
     Prepare(Prepare),
@@ -24,18 +26,18 @@ impl BindleCommands {
 }
 
 /// Create a standalone bindle for subsequent publication.
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub struct Prepare {
     /// Path to spin.toml
-    #[structopt(
+    #[clap(
         name = APP_CONFIG_FILE_OPT,
-        short = "f",
+        short = 'f',
         long = "file",
     )]
     pub app: Option<PathBuf>,
 
     /// Build metadata to append to the bindle version
-    #[structopt(
+    #[clap(
         name = BUILDINFO_OPT,
         long = "buildinfo",
         parse(try_from_str = parse_buildinfo),
@@ -43,27 +45,27 @@ pub struct Prepare {
     pub buildinfo: Option<BuildMetadata>,
 
     /// Path to create standalone bindle.
-    #[structopt(
+    #[clap(
         name = STAGING_DIR_OPT,
         long = "staging-dir",
-        short = "-d",
+        short = 'd',
     )]
     pub staging_dir: PathBuf,
 }
 
 /// Publish an application as a bindle.
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub struct Push {
     /// Path to spin.toml
-    #[structopt(
+    #[clap(
         name = APP_CONFIG_FILE_OPT,
-        short = "f",
+        short = 'f',
         long = "file",
     )]
     pub app: Option<PathBuf>,
 
     /// Build metadata to append to the bindle version
-    #[structopt(
+    #[clap(
         name = BUILDINFO_OPT,
         long = "buildinfo",
         parse(try_from_str = parse_buildinfo),
@@ -72,15 +74,15 @@ pub struct Push {
 
     /// Path to assemble the bindle before pushing (defaults to
     /// temporary directory).
-    #[structopt(
+    #[clap(
         name = STAGING_DIR_OPT,
         long = "staging-dir",
-        short = "-d",
+        short = 'd',
     )]
     pub staging_dir: Option<PathBuf>,
 
     /// URL of bindle server
-    #[structopt(
+    #[clap(
         name = BINDLE_SERVER_URL_OPT,
         long = "bindle-server",
         env = BINDLE_URL_ENV,
@@ -88,7 +90,7 @@ pub struct Push {
     pub bindle_server_url: String,
 
     /// Basic http auth username for the bindle server
-    #[structopt(
+    #[clap(
         name = BINDLE_USERNAME,
         long = "bindle-username",
         env = BINDLE_USERNAME,
@@ -97,7 +99,7 @@ pub struct Push {
     pub bindle_username: Option<String>,
 
     /// Basic http auth password for the bindle server
-    #[structopt(
+    #[clap(
         name = BINDLE_PASSWORD,
         long = "bindle-password",
         env = BINDLE_PASSWORD,
@@ -106,9 +108,9 @@ pub struct Push {
     pub bindle_password: Option<String>,
 
     /// Ignore server certificate errors
-    #[structopt(
+    #[clap(
         name = INSECURE_OPT,
-        short = "k",
+        short = 'k',
         long = "insecure",
         takes_value = false,
     )]
@@ -135,7 +137,7 @@ impl Prepare {
             .await
             .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
 
-        // We can't try to canonicalise it until the directory has been created
+        // We can't try to canonicalize it until the directory has been created
         let full_dest_dir =
             dunce::canonicalize(&self.staging_dir).unwrap_or_else(|_| dest_dir.clone());
 

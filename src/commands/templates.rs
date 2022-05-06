@@ -1,16 +1,18 @@
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
+use clap::{Parser, Subcommand};
 use comfy_table::Table;
+
 use spin_templates::{
     InstallationResults, ProgressReporter, SkippedReason, Template, TemplateManager, TemplateSource,
 };
-use std::path::PathBuf;
-use structopt::StructOpt;
 
 const INSTALL_FROM_DIR_OPT: &str = "FROM_DIR";
 const INSTALL_FROM_GIT_OPT: &str = "FROM_GIT";
 
 /// Commands for working with WebAssembly component templates.
-#[derive(StructOpt, Debug)]
+#[derive(Subcommand, Debug)]
 pub enum TemplateCommands {
     /// Install templates from a Git repository or local directory.
     Install(Install),
@@ -33,11 +35,11 @@ impl TemplateCommands {
 }
 
 /// Install templates from a Git repository or local directory.
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub struct Install {
     /// The URL of the templates git repository.
     /// The templates must be in a git repository in a "templates" directory.
-    #[structopt(
+    #[clap(
         name = INSTALL_FROM_GIT_OPT,
         long = "git",
         conflicts_with = INSTALL_FROM_DIR_OPT,
@@ -45,11 +47,11 @@ pub struct Install {
     pub git: Option<String>,
 
     /// The optional branch of the git repository.
-    #[structopt(long = "branch", requires = INSTALL_FROM_GIT_OPT)]
+    #[clap(long = "branch", requires = INSTALL_FROM_GIT_OPT)]
     pub branch: Option<String>,
 
     /// Local directory containing the template(s) to install.
-    #[structopt(
+    #[clap(
         name = INSTALL_FROM_DIR_OPT,
         long = "dir",
         conflicts_with = INSTALL_FROM_GIT_OPT,
@@ -58,7 +60,7 @@ pub struct Install {
 }
 
 /// Remove a template from your installation.
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub struct Uninstall {
     /// The template to uninstall.
     pub template_id: String,
@@ -140,7 +142,7 @@ impl Uninstall {
 }
 
 /// List the installed templates.
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub struct List {}
 
 impl List {

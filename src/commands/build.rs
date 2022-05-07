@@ -1,33 +1,32 @@
 use std::path::PathBuf;
 
+use anyhow::Result;
+use clap::Parser;
+
+use spin_loader::local::{config::RawAppManifestAnyVersion, raw_manifest_from_file};
+
 use crate::{
     commands::up::{UpCommand, UpOpts},
     opts::{APP_CONFIG_FILE_OPT, BUILD_UP_OPT, DEFAULT_MANIFEST_FILE},
 };
-use anyhow::Result;
-use spin_loader::local::{config::RawAppManifestAnyVersion, raw_manifest_from_file};
-use structopt::{clap::AppSettings, StructOpt};
 
 /// Run the build command for each component.
-#[derive(StructOpt, Debug)]
-#[structopt(
-    about = "Build the Spin application",
-    global_settings = &[AppSettings::ColoredHelp]
-)]
+#[derive(Parser, Debug)]
+#[clap(about = "Build the Spin application")]
 pub struct BuildCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub opts: UpOpts,
 
     /// Path to spin.toml.
-    #[structopt(
+    #[clap(
             name = APP_CONFIG_FILE_OPT,
-            short = "f",
+            short = 'f',
             long = "file",
         )]
     pub app: Option<PathBuf>,
 
     /// Run the application after building.
-    #[structopt(name = BUILD_UP_OPT, short = "u", long = "up")]
+    #[clap(name = BUILD_UP_OPT, short = 'u', long = "up")]
     pub up: bool,
 }
 

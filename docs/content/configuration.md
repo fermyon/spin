@@ -20,6 +20,7 @@ version = "1.0.0"
 
 [[component]]
 id = "hello"
+description = "A simple component that returns hello world."
 source = "target/wasm32-wasi/release/spinhelloworld.wasm"
 [component.trigger]
 route = "/hello"
@@ -40,7 +41,7 @@ The following are the fields supported by the `spin.toml` manifest file:
 - `trigger` (REQUIRED): Trigger for the application. Currently, the two
 implemented trigger types are:
   - `http`: All components of the application are invoked as a result of
-  incoming HTTP requests. [The HTTP trigger](/http-trigger) configuration has
+  incoming HTTP requests. [The HTTP trigger](./http-trigger.md) configuration has
   the following fields:
     - `type` (REQUIRED): The application trigger type with the value `"http"`.
     - `base` (REQUIRED): The base path for the HTTP application which will be
@@ -48,7 +49,7 @@ implemented trigger types are:
       and a component has `route = "/bar"`, the component will be invoked for
       requests on `/foo/bar`.)
   - `redis`: All components of the application are invoked as a result of messages
-being published on the queues of Redis instance. [The Redis trigger](/redis-trigger)
+being published on the queues of Redis instance. [The Redis trigger](./redis-trigger.md)
 configuration has the following fields:
     - `type` (REQUIRED): The application trigger type with the value `"redis"`.
     - `address` (REQUIRED): The address of the Redis instance the components
@@ -61,6 +62,7 @@ Each `component` object has the following fields:
 
 - `id` (REQUIRED): unique (per application) ID of the component, used at runtime
   to select between multiple components of the same application.
+- `description` (OPTIONAL): Description of the component.
 - `source` (REQUIRED): Source for the WebAssembly module of the component. This
   field can be _one_ the following:
   - a string with the path to a local file containing the WebAssembly module for

@@ -2,79 +2,51 @@
 
 #![deny(missing_docs)]
 
-use anyhow::{bail, Result};
+use anyhow::{Context, Result};
 use http::Uri;
 use indexmap::IndexMap;
-use spin_manifest::{Application, CoreComponent};
+use spin_manifest::{ComponentMap, HttpConfig};
 use std::fmt;
-use tracing::log;
-
-// TODO
-// The current implementation of the router clones the components, which could
-// become costly if we have a lot of components.
-// The router should borrow the components, which needs to introduce a lifetime
-// parameter which surfaces in the HTTP trigger (and which needs a &'static because
-// of the Hyper server.)
-//
-// For now we continue to use the router using owned data, but in the future it might
-// make sense to try borrowing the components from the trigger.
 
 /// Router for the HTTP trigger.
 #[derive(Clone, Debug)]
-pub(crate) struct Router {
-    /// Ordered map between a path and the component that should handle it.
-    pub(crate) routes: IndexMap<RoutePattern, CoreComponent>,
+pub struct Router {
+    /// Ordered map between a path and the component ID that should handle it.
+    pub(crate) routes: IndexMap<RoutePattern, String>,
 }
 
 impl Router {
     /// Builds a router based on application configuration.
-    pub(crate) fn build(app: &Application<CoreComponent>) -> Result<Self> {
-        let app_trigger = app.info.trigger.as_http().unwrap().clone();
-        let routes = app
-            .components
+    pub(crate) fn build(
+        base: &str,
+        component_http_configs: &ComponentMap<HttpConfig>,
+    ) -> Result<Self> {
+        let routes = component_http_configs
             .iter()
-            .map(|c| {
-                let trigger = app.component_triggers.get(c).unwrap().as_http().unwrap();
+            .map(|(component_id, http_config)| {
                 (
-                    RoutePattern::from(&app_trigger.base, &trigger.route),
-                    c.clone(),
+                    RoutePattern::from(base, &http_config.route),
+                    component_id.to_string(),
                 )
             })
             .collect();
 
-        log::trace!(
-            "Constructed router for application {}: {:?}",
-            app.info.name,
-            routes
-        );
-
         Ok(Self { routes })
     }
 
-    // This assumes the order of the components in the app configuration vector
-    // has been preserved, so the routing algorithm, which takes the order into
-    // account, is correct. This seems to be the case with the TOML deserializer,
-    // but might not hold if the application configuration is deserialized in
-    // other ways.
-
-    /// Returns the component that should handle the given path, or an error
+    // This assumes the order of the components in the manifest has been
+    // preserved, so the routing algorithm, which takes the order into account,
+    // is correct.
+    /// Returns the component ID that should handle the given path, or an error
     /// if no component matches.
     /// If there are multiple possible components registered for the same route or
-    /// wildcard, this returns the last one in the components vector.
-    pub(crate) fn route<S: Into<String> + fmt::Debug>(&self, p: S) -> Result<CoreComponent> {
-        let p = p.into();
-
-        let matches = &self
-            .routes
+    /// wildcard, this returns the last entry in the component map.
+    pub(crate) fn route(&self, p: &str) -> Result<&str> {
+        self.routes
             .iter()
-            .filter(|(rp, _)| rp.matches(&p))
-            .map(|(_, c)| c)
-            .collect::<Vec<&CoreComponent>>();
-
-        match matches.last() {
-            Some(c) => Ok((*c).clone()),
-            None => bail!("Cannot match route for path {}", p),
-        }
+            .rfind(|(rp, _)| rp.matches(p))
+            .map(|(_, c)| c.as_ref())
+            .with_context(|| format!("Cannot match route for path {}", p))
     }
 }
 
@@ -257,93 +229,82 @@ mod route_tests {
     fn test_router() -> Result<()> {
         let mut routes = IndexMap::new();
 
-        let foo_component = named_component("foo");
-        let foobar_component = named_component("foobar");
-
-        routes.insert(RoutePattern::from("/", "/foo"), foo_component);
-        routes.insert(RoutePattern::from("/", "/foo/bar"), foobar_component);
+        routes.insert(RoutePattern::from("/", "/foo"), "foo".to_string());
+        routes.insert(RoutePattern::from("/", "/foo/bar"), "foobar".to_string());
 
         let r = Router { routes };
 
-        assert_eq!(r.route("/foo")?.id, "foo".to_string());
-        assert_eq!(r.route("/foo/bar")?.id, "foobar".to_string());
+        assert_eq!(r.route("/foo")?, "foo".to_string());
+        assert_eq!(r.route("/foo/bar")?, "foobar".to_string());
 
         let mut routes = IndexMap::new();
 
-        let foo_component = named_component("foo");
-        let foobar_component = named_component("foobar");
-
-        routes.insert(RoutePattern::from("/base", "/foo"), foo_component);
-        routes.insert(RoutePattern::from("/base", "/foo/bar"), foobar_component);
+        routes.insert(RoutePattern::from("/base", "/foo"), "foo".to_string());
+        routes.insert(
+            RoutePattern::from("/base", "/foo/bar"),
+            "foobar".to_string(),
+        );
 
         let r = Router { routes };
 
-        assert_eq!(r.route("/base/foo")?.id, "foo".to_string());
-        assert_eq!(r.route("/base/foo/bar")?.id, "foobar".to_string());
+        assert_eq!(r.route("/base/foo")?, "foo".to_string());
+        assert_eq!(r.route("/base/foo/bar")?, "foobar".to_string());
 
         let mut routes = IndexMap::new();
 
-        let all_component = named_component("all");
-        routes.insert(RoutePattern::from("/", "/..."), all_component);
+        routes.insert(RoutePattern::from("/", "/..."), "all".to_string());
 
         let r = Router { routes };
 
-        assert_eq!(r.route("/foo/bar")?.id, "all".to_string());
-        assert_eq!(r.route("/abc/")?.id, "all".to_string());
-        assert_eq!(r.route("/")?.id, "all".to_string());
+        assert_eq!(r.route("/foo/bar")?, "all".to_string());
+        assert_eq!(r.route("/abc/")?, "all".to_string());
+        assert_eq!(r.route("/")?, "all".to_string());
         assert_eq!(
-            r.route("/this/should/be/captured?abc=def")?.id,
+            r.route("/this/should/be/captured?abc=def")?,
             "all".to_string()
         );
 
         let mut routes = IndexMap::new();
 
-        let one_wildcard = named_component("one_wildcard");
-        let onetwo_wildcard = named_component("onetwo_wildcard");
-        let onetwothree_wildcard = named_component("onetwothree_wildcard");
-
-        routes.insert(RoutePattern::from("/", "/one/..."), one_wildcard);
-        routes.insert(RoutePattern::from("/", "/one/two/..."), onetwo_wildcard);
+        routes.insert(
+            RoutePattern::from("/", "/one/..."),
+            "one_wildcard".to_string(),
+        );
+        routes.insert(
+            RoutePattern::from("/", "/one/two/..."),
+            "onetwo_wildcard".to_string(),
+        );
         routes.insert(
             RoutePattern::from("/", "/one/two/three/..."),
-            onetwothree_wildcard,
+            "onetwothree_wildcard".to_string(),
         );
 
         let r = Router { routes };
 
         assert_eq!(
-            r.route("/one/two/three/four")?.id,
+            r.route("/one/two/three/four")?,
             "onetwothree_wildcard".to_string()
         );
 
         let mut routes = IndexMap::new();
 
-        let one_wildcard = named_component("one_wildcard");
-        let onetwo_wildcard = named_component("onetwo_wildcard");
-        let onetwothree_wildcard = named_component("onetwothree_wildcard");
-
         routes.insert(
             RoutePattern::from("/", "/one/two/three/..."),
-            onetwothree_wildcard,
+            "onetwothree_wildcard".to_string(),
         );
-        routes.insert(RoutePattern::from("/", "/one/two/..."), onetwo_wildcard);
-        routes.insert(RoutePattern::from("/", "/one/..."), one_wildcard);
+        routes.insert(
+            RoutePattern::from("/", "/one/two/..."),
+            "onetwo_wildcard".to_string(),
+        );
+        routes.insert(
+            RoutePattern::from("/", "/one/..."),
+            "one_wildcard".to_string(),
+        );
 
         let r = Router { routes };
 
-        assert_eq!(
-            r.route("/one/two/three/four")?.id,
-            "one_wildcard".to_string()
-        );
+        assert_eq!(r.route("/one/two/three/four")?, "one_wildcard".to_string());
 
         Ok(())
-    }
-
-    fn named_component(id: &str) -> CoreComponent {
-        CoreComponent {
-            id: id.to_string(),
-            source: spin_manifest::ModuleSource::FileReference("FAKE".into()),
-            wasm: spin_manifest::WasmConfig::default(),
-        }
     }
 }

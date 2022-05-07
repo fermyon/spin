@@ -9,9 +9,9 @@ url = "https://github.com/fermyon/spin/blob/main/docs/content/extending-and-embe
 
 Spin currently implements triggers and application models for:
 
-- [HTTP applications](/http-trigger) that are triggered by incoming HTTP
+- [HTTP applications](./http-trigger.md) that are triggered by incoming HTTP
 requests, and that return an HTTP response
-- [Redis applications](/redis-trigger) that are triggered by messages on Redis
+- [Redis applications](./redis-trigger.md) that are triggered by messages on Redis
 channels
 
 The Spin internals and execution context (the part of Spin executing
@@ -25,7 +25,7 @@ timer, executing Spin components at configured time interval.
 
 The current application types that can be implemented with Spin have entry points
 defined using
-[WebAssembly Interface (WIT)]((https://github.com/bytecodealliance/wit-bindgen/blob/main/WIT.md)):
+[WebAssembly Interface (WIT)](https://github.com/bytecodealliance/wit-bindgen/blob/main/WIT.md):
 
 ```fsharp
 // The entry point for an HTTP handler.
@@ -73,7 +73,7 @@ A few important things to note from the start:
 to generate "import" bindings based on the entry point — this generates code that
 allows us to easily invoke the entry point from application components that
 implement our new application model.
-- the new trigger has a field that contains a `Application<CoreComponent>` —
+- the new trigger has a field that contains a `Application` —
 in most cases, either `CoreComponent` will have to be updated with new trigger
 and component configuration (not the case for our simple application model),
 or an entirely new component can be defined and used in `Application<T>`.
@@ -120,7 +120,7 @@ this is an implementation choice based on the needs of the trigger.
 used — in the case of the HTTP trigger, this is an HTTP response, which is then
 returned to the client.
 
-This is very similar to how the [HTTP](/http-trigger) and [Redis](/redis-trigger)
+This is very similar to how the [HTTP](./http-trigger.md) and [Redis](./redis-trigger.md)
 triggers are implemented, and it is the recommended way to extend Spin with your
 own trigger and application model.
 
@@ -174,5 +174,5 @@ for context)
 re-implementing the [`loader`](https://github.com/fermyon/spin/tree/main/crates/loader)
 and [`publish`](https://github.com/fermyon/spin/tree/main/crates/publish) crates —
 all is required is that loading the application returns a valid
-`Application<CoreComponent>` that the Spin execution context can use to
+`Application` that the Spin execution context can use to
 instantiate and execute components.

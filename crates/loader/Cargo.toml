@@ -24,6 +24,7 @@ spin-config = { path = "../config" }
 spin-manifest = { path = "../manifest" }
 tempfile = "3.3.0"
 tokio = { version = "1.11", features = [ "full" ] }
+tokio-util = "0.6"
 toml = "0.5"
 tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"

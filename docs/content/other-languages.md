@@ -8,7 +8,7 @@ url = "https://github.com/fermyon/spin/blob/main/docs/content/other-languages.md
 > This document is continuously evolving as we improve language SDKs and add
 > more examples on how to build Spin components in various programming languages.
 
-> See the document on writing [Rust](/rust-components) and [Go](/go-components)
+> See the document on writing [Rust](./rust-components.md) and [Go](./go-components.md)
 > components for Spin for detailed guides.
 
 WebAssembly is becoming [a popular compilation target for programming languages](https://www.fermyon.com/wasm-languages/webassembly-language-support), and as language toolchains add support for the
@@ -20,11 +20,11 @@ As a general rule:
 - if your language supports the
 [WebAssembly component model](https://github.com/WebAssembly/component-model),
 building Spin components is supported either through an official Spin SDK
-(such as [the Spin SDK for Rust](/rust-components)), or through using
+(such as [the Spin SDK for Rust](./rust-components.md)), or through using
 bindings generators like [`wit-bindgen`](https://github.com/bytecodealliance/wit-bindgen)
 (for languages such as C and C++)
 - if your language compiles to WASI, but doesn't have support for the component
-model, you can build [Spin HTTP components](/http-trigger) that use the
+model, you can build [Spin HTTP components](./http-trigger.md) that use the
 Wagi executor — for example in languages such as
 [Grain](https://github.com/deislabs/hello-wagi-grain),
 [AssemblyScript](https://github.com/deislabs/hello-wagi-as), or

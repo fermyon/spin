@@ -305,7 +305,13 @@ mod integration_tests {
         ) -> Result<SpinTestController> {
             let url = format!("127.0.0.1:{}", get_random_port()?);
             let mut args = vec![
-                "up", "--bindle", id, "--server", bindle_url, "--listen", &url,
+                "up",
+                "--bindle",
+                id,
+                "--bindle-server",
+                bindle_url,
+                "--listen",
+                &url,
             ];
             for v in env {
                 args.push("--env");

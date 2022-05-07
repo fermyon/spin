@@ -1,68 +1,66 @@
-use crate::opts::*;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
 use anyhow::{bail, Context, Result};
-use spin_engine::{Builder, ExecutionContextConfiguration};
-use spin_http_engine::{HttpTrigger, TlsConfig};
-use spin_manifest::{Application, ApplicationTrigger, CoreComponent};
-use spin_redis_engine::RedisTrigger;
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
-use structopt::{clap::AppSettings, StructOpt};
+use clap::{Args, Parser};
 use tempfile::TempDir;
 
+use spin_http_engine::{HttpTrigger, HttpTriggerExecutionConfig, TlsConfig};
+use spin_manifest::ApplicationTrigger;
+use spin_redis_engine::RedisTrigger;
+use spin_trigger::{run_trigger, ExecutionOptions};
+
+use crate::opts::*;
+
 /// Start the Fermyon runtime.
-#[derive(StructOpt, Debug)]
-#[structopt(
-    about = "Start the Spin application",
-    global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp]
-)]
+#[derive(Parser, Debug)]
+#[clap(about = "Start the Spin application")]
 
 pub struct UpCommand {
     #[structopt(flatten)]
     pub opts: UpOpts,
 
     /// Path to spin.toml.
-    #[structopt(
+    #[clap(
             name = APP_CONFIG_FILE_OPT,
-            short = "f",
+            short = 'f',
             long = "file",
             conflicts_with = BINDLE_ID_OPT,
         )]
     pub app: Option<PathBuf>,
 
     /// ID of application bindle.
-    #[structopt(
+    #[clap(
             name = BINDLE_ID_OPT,
-            short = "b",
+            short = 'b',
             long = "bindle",
             conflicts_with = APP_CONFIG_FILE_OPT,
             requires = BINDLE_SERVER_URL_OPT,
         )]
     pub bindle: Option<String>,
     /// URL of bindle server.
-    #[structopt(
+    #[clap(
             name = BINDLE_SERVER_URL_OPT,
-            long = "server",
+            long = "bindle-server",
             env = BINDLE_URL_ENV,
         )]
     pub server: Option<String>,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Args, Debug)]
 pub struct UpOpts {
     /// IP address and port to listen on
-    #[structopt(name = ADDRESS_OPT, long = "listen", default_value = "127.0.0.1:3000")]
+    #[clap(name = ADDRESS_OPT, long = "listen", default_value = "127.0.0.1:3000")]
     pub address: String,
     /// Temporary directory for the static assets of the components.
-    #[structopt(long = "temp")]
+    #[clap(long = "temp")]
     pub tmp: Option<PathBuf>,
     /// Pass an environment variable (key=value) to all components of the application.
-    #[structopt(long = "env", short = "e", parse(try_from_str = crate::parse_env_var))]
+    #[clap(long = "env", short = 'e', parse(try_from_str = crate::parse_env_var))]
     pub env: Vec<(String, String)>,
 
     /// The path to the certificate to use for https, if this is not set, normal http will be used. The cert should be in PEM format
-    #[structopt(
+    #[clap(
             name = TLS_CERT_FILE_OPT,
             long = "tls-cert",
             env = TLS_CERT_ENV_VAR,
@@ -71,7 +69,7 @@ pub struct UpOpts {
     pub tls_cert: Option<PathBuf>,
 
     /// The path to the certificate key to use for https, if this is not set, normal http will be used. The key should be in PKCS#8 format
-    #[structopt(
+    #[clap(
             name = TLS_KEY_FILE_OPT,
             long = "tls-key",
             env = TLS_KEY_ENV_VAR,
@@ -79,12 +77,31 @@ pub struct UpOpts {
         )]
     pub tls_key: Option<PathBuf>,
     /// Log directory for the stdout and stderr of components.
-    #[structopt(
+    #[clap(
             name = APP_LOG_DIR,
-            short = "L",
+            short = 'L',
             long = "log-dir",
             )]
     pub log: Option<PathBuf>,
+
+    /// Disable Wasmtime cache.
+    #[clap(
+        name = DISABLE_WASMTIME_CACHE,
+        long = "disable-cache",
+        env = DISABLE_WASMTIME_CACHE,
+        conflicts_with = WASMTIME_CACHE_FILE,
+        takes_value = false,
+    )]
+    pub disable_cache: bool,
+
+    /// Wasmtime cache configuration file.
+    #[clap(
+        name = WASMTIME_CACHE_FILE,
+        long = "cache",
+        env = WASMTIME_CACHE_FILE,
+        conflicts_with = DISABLE_WASMTIME_CACHE,
+    )]
+    pub cache: Option<PathBuf>,
 }
 
 impl UpCommand {
@@ -135,16 +152,27 @@ impl UpCommand {
             _ => unreachable!(),
         };
 
+        let wasmtime_config = self.wasmtime_default_config()?;
+
         match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
-                let builder = self.prepare_ctx_builder(app.clone()).await?;
-                let trigger = HttpTrigger::new(builder, app, self.opts.address, tls).await?;
-                trigger.run().await?;
+                run_trigger(
+                    app,
+                    ExecutionOptions::<HttpTrigger>::new(
+                        self.opts.log.clone(),
+                        HttpTriggerExecutionConfig::new(self.opts.address, tls),
+                    ),
+                    Some(wasmtime_config),
+                )
+                .await?;
             }
             ApplicationTrigger::Redis(_) => {
-                let builder = self.prepare_ctx_builder(app.clone()).await?;
-                let trigger = RedisTrigger::new(builder, app).await?;
-                trigger.run().await?;
+                run_trigger(
+                    app,
+                    ExecutionOptions::<RedisTrigger>::new(self.opts.log.clone(), ()),
+                    Some(wasmtime_config),
+                )
+                .await?;
             }
         }
 
@@ -154,20 +182,15 @@ impl UpCommand {
 
         Ok(())
     }
-
-    async fn prepare_ctx_builder<T: Default + 'static>(
-        &self,
-        app: Application<CoreComponent>,
-    ) -> Result<Builder<T>> {
-        let config = ExecutionContextConfiguration {
-            log_dir: self.opts.log.clone(),
-            ..app.into()
-        };
-        let mut builder = Builder::new(config)?;
-        builder.link_defaults()?;
-        builder.add_host_component(wasi_outbound_http::OutboundHttpComponent)?;
-        builder.add_host_component(outbound_redis::OutboundRedis)?;
-        Ok(builder)
+    fn wasmtime_default_config(&self) -> Result<wasmtime::Config> {
+        let mut wasmtime_config = wasmtime::Config::default();
+        if !self.opts.disable_cache {
+            match &self.opts.cache {
+                Some(p) => wasmtime_config.cache_config_load(p)?,
+                None => wasmtime_config.cache_config_load_default()?,
+            };
+        }
+        Ok(wasmtime_config)
     }
 }
 

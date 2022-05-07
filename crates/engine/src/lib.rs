@@ -37,8 +37,8 @@ pub struct ExecutionContextConfiguration {
     pub config_resolver: Option<Arc<Resolver>>,
 }
 
-impl From<Application<CoreComponent>> for ExecutionContextConfiguration {
-    fn from(app: Application<CoreComponent>) -> Self {
+impl From<Application> for ExecutionContextConfiguration {
+    fn from(app: Application) -> Self {
         Self {
             components: app.components,
             label: app.info.name,

@@ -31,11 +31,7 @@ pub use utils::{BindleTokenManager, SPIN_MANIFEST_MEDIA_TYPE};
 /// prepared application configuration consumable by a Spin execution context.
 /// If a directory is provided, use it as the base directory to expand the assets,
 /// otherwise create a new temporary directory.
-pub async fn from_bindle(
-    id: &str,
-    url: &str,
-    base_dst: impl AsRef<Path>,
-) -> Result<Application<CoreComponent>> {
+pub async fn from_bindle(id: &str, url: &str, base_dst: impl AsRef<Path>) -> Result<Application> {
     // TODO
     // Handle Bindle authentication.
     let manager = BindleTokenManager::NoToken(NoToken);
@@ -51,7 +47,7 @@ async fn prepare(
     url: &str,
     reader: &BindleReader,
     base_dst: impl AsRef<Path>,
-) -> Result<Application<CoreComponent>> {
+) -> Result<Application> {
     // First, get the invoice from the Bindle server.
     let invoice = reader
         .get_invoice()
@@ -114,6 +110,7 @@ async fn core(
 
     let source = ModuleSource::Buffer(bytes, format!("parcel {}", raw.source));
     let id = raw.id;
+    let description = raw.description;
     let mounts = match raw.wasm.files {
         Some(group) => {
             let parcels = parcels_in_group(invoice, &group);
@@ -131,7 +128,12 @@ async fn core(
         mounts,
         allowed_http_hosts,
     };
-    Ok(CoreComponent { source, id, wasm })
+    Ok(CoreComponent {
+        source,
+        id,
+        description,
+        wasm,
+    })
 }
 
 /// Converts the raw application manifest from the bindle invoice into the

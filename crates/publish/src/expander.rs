@@ -113,6 +113,7 @@ fn bindle_component_manifest(
     let asset_group = local.wasm.files.as_ref().map(|_| group_name_for(&local.id));
     Ok(bindle_schema::RawComponentManifest {
         id: local.id.clone(),
+        description: local.description.clone(),
         source: source_digest,
         wasm: bindle_schema::RawWasmConfig {
             environment: local.wasm.environment.clone(),

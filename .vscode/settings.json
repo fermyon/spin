@@ -10,5 +10,8 @@
             "-sdk",
             "-examples"
         ],
-    }
+    },
+    "rust-analyzer.files.excludeDirs": [
+        "templates"
+    ]
 }

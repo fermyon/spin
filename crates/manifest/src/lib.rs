@@ -2,6 +2,7 @@
 
 #![deny(missing_docs)]
 
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use spin_config::Resolver;
 use std::{
@@ -11,13 +12,24 @@ use std::{
     sync::Arc,
 };
 
+/// A trigger error.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    /// Invalid config key.
+    #[error("invalid trigger type")]
+    InvalidTriggerType,
+}
+
+/// An ordered map of component IDs to some value.
+pub type ComponentMap<T> = IndexMap<String, T>;
+
 /// Application configuration.
 #[derive(Clone, Debug)]
-pub struct Application<T> {
+pub struct Application {
     /// General application information.
     pub info: ApplicationInformation,
     /// Configuration for the application components.
-    pub components: Vec<T>,
+    pub components: Vec<CoreComponent>,
     /// Configuration for the components' triggers.
     pub component_triggers: ComponentMap<TriggerConfig>,
     /// Application-specific configuration resolver.
@@ -65,6 +77,8 @@ pub struct CoreComponent {
     /// ID of the component. Used at runtime to select between
     /// multiple components of the same application.
     pub id: String,
+    /// Description of the component.
+    pub description: Option<String>,
     /// Per-component WebAssembly configuration.
     pub wasm: WasmConfig,
 }
@@ -99,9 +113,21 @@ pub struct HttpTriggerConfiguration {
     /// Base path for the HTTP application.
     pub base: String,
 }
+
 impl Default for HttpTriggerConfiguration {
     fn default() -> Self {
         Self { base: "/".into() }
+    }
+}
+
+impl TryFrom<ApplicationTrigger> for HttpTriggerConfiguration {
+    type Error = Error;
+
+    fn try_from(trigger: ApplicationTrigger) -> Result<Self, Self::Error> {
+        match trigger {
+            ApplicationTrigger::Http(http) => Ok(http),
+            _ => Err(Error::InvalidTriggerType),
+        }
     }
 }
 
@@ -112,20 +138,13 @@ pub struct RedisTriggerConfiguration {
     pub address: String,
 }
 
-impl ApplicationTrigger {
-    /// Returns the HttpTriggerConfiguration else None.
-    pub fn as_http(&self) -> Option<&HttpTriggerConfiguration> {
-        match self {
-            ApplicationTrigger::Http(http) => Some(http),
-            _ => None,
-        }
-    }
+impl TryFrom<ApplicationTrigger> for RedisTriggerConfiguration {
+    type Error = Error;
 
-    /// Returns the RedisTriggerConfiguration else None.
-    pub fn as_redis(&self) -> Option<&RedisTriggerConfiguration> {
-        match self {
-            ApplicationTrigger::Redis(redis) => Some(redis),
-            _ => None,
+    fn try_from(trigger: ApplicationTrigger) -> Result<Self, Self::Error> {
+        match trigger {
+            ApplicationTrigger::Redis(redis) => Ok(redis),
+            _ => Err(Error::InvalidTriggerType),
         }
     }
 }
@@ -285,52 +304,24 @@ impl Default for TriggerConfig {
     }
 }
 
-impl TriggerConfig {
-    /// Returns the HttpConfig else None.
-    pub fn as_http(&self) -> Option<&HttpConfig> {
-        match self {
-            TriggerConfig::Http(http) => Some(http),
-            _ => None,
-        }
-    }
-    /// Returns the RedisConfig else None.
-    pub fn as_redis(&self) -> Option<&RedisConfig> {
-        match self {
-            TriggerConfig::Redis(redis) => Some(redis),
-            _ => None,
+impl TryFrom<TriggerConfig> for HttpConfig {
+    type Error = Error;
+
+    fn try_from(trigger: TriggerConfig) -> Result<Self, Self::Error> {
+        match trigger {
+            TriggerConfig::Http(http) => Ok(http),
+            _ => Err(Error::InvalidTriggerType),
         }
     }
 }
 
-/// Component trigger configurations.
-#[derive(Clone, Debug)]
-pub struct ComponentMap<T>(HashMap<String, T>);
+impl TryFrom<TriggerConfig> for RedisConfig {
+    type Error = Error;
 
-impl<T> ComponentMap<T> {
-    /// Get a value for the given component.
-    pub fn get(&self, component: &CoreComponent) -> Option<&T> {
-        self.0.get(&component.id)
-    }
-
-    /// Iterate over all (component id, value) pairs.
-    pub fn iter(&self) -> impl Iterator<Item = (&str, &T)> {
-        self.0.iter().map(|(k, v)| (k.as_str(), v))
-    }
-
-    /// Transforms the ComponentMap into a new one with different values, with possible failures.
-    pub fn try_map_values<U, E>(
-        &self,
-        mut f: impl FnMut(&str, &T) -> Result<U, E>,
-    ) -> Result<ComponentMap<U>, E> {
-        self.0
-            .iter()
-            .map(|(id, val)| Ok((id.clone(), f(id.as_str(), val)?)))
-            .collect()
-    }
-}
-
-impl<T> FromIterator<(String, T)> for ComponentMap<T> {
-    fn from_iter<I: IntoIterator<Item = (String, T)>>(iter: I) -> Self {
-        Self(HashMap::from_iter(iter))
+    fn try_from(trigger: TriggerConfig) -> Result<Self, Self::Error> {
+        match trigger {
+            TriggerConfig::Redis(redis) => Ok(redis),
+            _ => Err(Error::InvalidTriggerType),
+        }
     }
 }

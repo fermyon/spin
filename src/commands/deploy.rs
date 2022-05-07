@@ -1,7 +1,9 @@
-use crate::opts::*;
+use std::panic;
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 use bindle::Id;
-use core::panic;
+use clap::Parser;
 use hippo_openapi::apis::{
     account_api::api_account_createtoken_post,
     app_api::{api_app_post, ApiAppPostError},
@@ -15,27 +17,24 @@ use hippo_openapi::models::{
     RegisterRevisionCommand,
 };
 use reqwest::header;
-use std::path::PathBuf;
-use structopt::{clap::AppSettings, StructOpt};
+
+use crate::opts::*;
 
 /// Package and upload Spin artifacts, notifying Hippo
-#[derive(StructOpt, Debug)]
-#[structopt(
-    about = "Deploy a Spin application",
-    global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp]
-)]
+#[derive(Parser, Debug)]
+#[clap(about = "Deploy a Spin application")]
 pub struct DeployCommand {
     /// Path to spin.toml
-    #[structopt(
+    #[clap(
         name = APP_CONFIG_FILE_OPT,
-        short = "f",
+        short = 'f',
         long = "file",
         default_value = "spin.toml"
     )]
     pub app: PathBuf,
 
     /// URL of bindle server
-    #[structopt(
+    #[clap(
         name = BINDLE_SERVER_URL_OPT,
         long = "bindle-server",
         env = BINDLE_URL_ENV,
@@ -43,7 +42,7 @@ pub struct DeployCommand {
     pub bindle_server_url: String,
 
     /// Basic http auth username for the bindle server
-    #[structopt(
+    #[clap(
         name = BINDLE_USERNAME,
         long = "bindle-username",
         env = BINDLE_USERNAME,
@@ -52,7 +51,7 @@ pub struct DeployCommand {
     pub bindle_username: Option<String>,
 
     /// Basic http auth password for the bindle server
-    #[structopt(
+    #[clap(
         name = BINDLE_PASSWORD,
         long = "bindle-password",
         env = BINDLE_PASSWORD,
@@ -61,16 +60,16 @@ pub struct DeployCommand {
     pub bindle_password: Option<String>,
 
     /// Ignore server certificate errors from bindle and hippo
-    #[structopt(
+    #[clap(
         name = INSECURE_OPT,
-        short = "k",
+        short = 'k',
         long = "insecure",
         takes_value = false,
     )]
     pub insecure: bool,
 
     /// URL of hippo server
-    #[structopt(
+    #[clap(
         name = HIPPO_SERVER_URL_OPT,
         long = "hippo-server",
         env = HIPPO_URL_ENV,
@@ -79,15 +78,15 @@ pub struct DeployCommand {
 
     /// Path to assemble the bindle before pushing (defaults to
     /// a temporary directory)
-    #[structopt(
+    #[clap(
         name = STAGING_DIR_OPT,
         long = "staging-dir",
-        short = "-d", 
+        short = 'd',
     )]
     pub staging_dir: Option<PathBuf>,
 
     /// Hippo username
-    #[structopt(
+    #[clap(
         name = "HIPPO_USERNAME",
         long = "hippo-username",
         env = "HIPPO_USERNAME"
@@ -95,7 +94,7 @@ pub struct DeployCommand {
     pub hippo_username: String,
 
     /// Hippo password
-    #[structopt(
+    #[clap(
         name = "HIPPO_PASSWORD",
         long = "hippo-password",
         env = "HIPPO_PASSWORD"

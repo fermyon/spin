@@ -22,7 +22,7 @@ $ tar xfv spin-v0.1.0-macos-aarch64.tar.gz
 $ ./spin --help
 ```
 
-Alternatively, [follow the contribution document](/contributing) for a detailed guide
+Alternatively, [follow the contribution document](./contributing.md) for a detailed guide
 on building Spin from source:
 
 ```bash
@@ -33,6 +33,16 @@ $ ./target/release/spin --help
 
 At this point, move the `spin` binary somewhere in your path, so it can be
 accessed from any directory.
+
+### Linux: Additional Libraries
+
+On a fresh Linux installation, you will also need the standard build toolchain (`gcc`, `make`, etc.), the SSL library headers, and on some distributions you may need `pkg-config`.
+
+On Debian-like distributions, including Ubuntu, you can install these with a command like this:
+
+```console
+$ sudo apt-get install build-essential libssl-dev pkg-config
+```
 
 ## Building the example applications
 
@@ -66,7 +76,7 @@ route = "/hello"
 This represents a simple Spin HTTP application (triggered by an HTTP request), with
 a single component called `hello`. Spin will execute the `spinhelloworld.wasm`
 WebAssembly module for HTTP requests on the route `/hello`.
-(See the [configuration document](/configuration) for a detailed guide on the Spin
+(See the [configuration document](./configuration.md) for a detailed guide on the Spin
 application manifest.)
 
 Now let's have a look at the `hello` component (`examples/http-rust/src/lib.rs`). Below is the complete source
@@ -92,7 +102,7 @@ fn hello_world(req: Request) -> Result<Response> {
 }
 ```
 
-> See the document on writing [Rust](/rust-components) and [Go](/go-components)
+> See the document on writing [Rust](./rust-components.md) and [Go](./go-components.md)
 > components for Spin.
 
 We can build this component using the regular Rust toolchain, targeting
@@ -137,12 +147,12 @@ Hello, Fermyon!
 
 You can add as many components as needed in `spin.toml`, mount files and
 directories, allow granular outbound HTTP connections, or set environment variables
-(see the [configuration document](/configuration) for a detailed guide on
+(see the [configuration document](./configuration.md) for a detailed guide on
 the Spin application manifest) and iterate locally with
 `spin up --file spin.toml` until you are ready to distribute the application.
 
 Congratulations! You just completed building and running your first Spin
 application!
-Next, check out the [Rust](/rust-components) or [Go](/go-components) language
+Next, check out the [Rust](./rust-components.md) or [Go](./go-components.md) language
 guides, or have a look at [a more complex Spin application with components built
 in multiple programming languages](https://github.com/fermyon/spin-kitchensink/).

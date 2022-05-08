@@ -123,7 +123,8 @@ impl TemplateManager {
         reporter.report(&message);
 
         let dest_dir = self.store.get_directory(&id);
-        if dest_dir.exists() {
+
+        let template = if dest_dir.exists() {
             match options.exists_behaviour {
                 ExistsBehaviour::Skip => {
                     return Ok(InstallationResult::Skipped(
@@ -131,47 +132,15 @@ impl TemplateManager {
                         SkippedReason::AlreadyExists,
                     ))
                 }
-                ExistsBehaviour::Update => tokio::fs::remove_dir_all(&dest_dir)
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "Failed while deleting {} in order to update {}",
-                            dest_dir.display(),
-                            id
-                        )
-                    })?,
+                ExistsBehaviour::Update => {
+                    copy_template_over_existing(id, source_dir, &dest_dir).await?
+                }
             }
-        }
+        } else {
+            copy_template_into(id, source_dir, &dest_dir).await?
+        };
 
-        tokio::fs::create_dir_all(&dest_dir)
-            .await
-            .with_context(|| {
-                format!(
-                    "Failed to create directory {} for {}",
-                    dest_dir.display(),
-                    id
-                )
-            })?;
-
-        fs_extra::dir::copy(source_dir, &dest_dir, &copy_content()).with_context(|| {
-            format!(
-                "Failed to copy template content from {} to {} for {}",
-                source_dir.display(),
-                dest_dir.display(),
-                id
-            )
-        })?;
-
-        let dest_layout = TemplateLayout::new(&dest_dir);
-        let dest_template = Template::load_from(&dest_layout).with_context(|| {
-            format!(
-                "Template {} was not copied correctly into {}",
-                id,
-                dest_dir.display()
-            )
-        })?;
-
-        Ok(InstallationResult::Installed(dest_template))
+        Ok(InstallationResult::Installed(template))
     }
 
     pub async fn uninstall(&self, template_id: impl AsRef<str>) -> anyhow::Result<()> {
@@ -210,6 +179,127 @@ impl TemplateManager {
             .map(|l| Template::load_from(&l))
             .transpose()
     }
+}
+
+async fn copy_template_over_existing(
+    id: &str,
+    source_dir: &Path,
+    dest_dir: &Path,
+) -> anyhow::Result<Template> {
+    // The nearby directory to which we initially copy the source
+    let stage_dir = dest_dir.with_extension(".stage");
+    // The nearby directory to which we move the existing
+    let unstage_dir = dest_dir.with_extension(".unstage");
+
+    // Clean up temp directories in case left over from previous failures.
+    if stage_dir.exists() {
+        tokio::fs::remove_dir_all(&stage_dir)
+            .await
+            .with_context(|| {
+                format!(
+                    "Failed while deleting {} in order to update {}",
+                    stage_dir.display(),
+                    id
+                )
+            })?
+    };
+
+    if unstage_dir.exists() {
+        tokio::fs::remove_dir_all(&unstage_dir)
+            .await
+            .with_context(|| {
+                format!(
+                    "Failed while deleting {} in order to update {}",
+                    unstage_dir.display(),
+                    id
+                )
+            })?
+    };
+
+    // Copy template source into stage directory, and do best effort
+    // cleanup if it goes wrong.
+    let copy_to_stage_err = copy_template_into(id, source_dir, &stage_dir).await.err();
+    if let Some(e) = copy_to_stage_err {
+        let _ = tokio::fs::remove_dir_all(&stage_dir).await;
+        return Err(e);
+    };
+
+    // We have a valid template in stage.  Now, move existing to unstage...
+    if let Err(e) = tokio::fs::rename(dest_dir, &unstage_dir)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to move existing template out of {} in order to update {}",
+                dest_dir.display(),
+                id
+            )
+        })
+    {
+        let _ = tokio::fs::remove_dir_all(&stage_dir).await;
+        return Err(e);
+    }
+
+    // ...and move stage into position.
+    if let Err(e) = tokio::fs::rename(&stage_dir, dest_dir)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to move new template into {} in order to update {}",
+                dest_dir.display(),
+                id
+            )
+        })
+    {
+        // Put it back quick and hope nobody notices.
+        let _ = tokio::fs::rename(&unstage_dir, dest_dir).await;
+        let _ = tokio::fs::remove_dir_all(&stage_dir).await;
+        return Err(e);
+    }
+
+    // Remove whichever directories remain.  (As we are ignoring errors, we
+    // can skip checking whether the directories exist.)
+    let _ = tokio::fs::remove_dir_all(&stage_dir).await;
+    let _ = tokio::fs::remove_dir_all(&unstage_dir).await;
+
+    load_template_from(id, dest_dir)
+}
+
+async fn copy_template_into(
+    id: &str,
+    source_dir: &Path,
+    dest_dir: &Path,
+) -> anyhow::Result<Template> {
+    tokio::fs::create_dir_all(&dest_dir)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to create directory {} for {}",
+                dest_dir.display(),
+                id
+            )
+        })?;
+
+    fs_extra::dir::copy(source_dir, &dest_dir, &copy_content()).with_context(|| {
+        format!(
+            "Failed to copy template content from {} to {} for {}",
+            source_dir.display(),
+            dest_dir.display(),
+            id
+        )
+    })?;
+
+    load_template_from(id, dest_dir)
+}
+
+fn load_template_from(id: &str, dest_dir: &Path) -> anyhow::Result<Template> {
+    let layout = TemplateLayout::new(&dest_dir);
+    Template::load_from(&layout).with_context(|| {
+        format!(
+            "Template {} was not copied correctly into {}",
+            id,
+            dest_dir.display()
+        )
+    })
 }
 
 fn copy_content() -> fs_extra::dir::CopyOptions {

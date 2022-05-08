@@ -5,6 +5,7 @@ mod spin;
 mod tls;
 mod wagi;
 
+use spin_engine::io::FollowComponents;
 use spin_manifest::{ComponentMap, HttpConfig, HttpTriggerConfiguration};
 pub use tls::TlsConfig;
 
@@ -52,6 +53,8 @@ pub struct HttpTrigger {
     router: Router,
     /// Spin execution context.
     engine: Arc<ExecutionContext>,
+    /// Which components should have their logs followed on stdout/stderr.
+    follow: FollowComponents,
 }
 
 #[derive(Clone)]
@@ -77,6 +80,7 @@ impl Trigger for HttpTrigger {
         execution_context: ExecutionContext,
         trigger_config: Self::Config,
         component_triggers: ComponentMap<Self::ComponentConfig>,
+        follow: FollowComponents,
     ) -> Result<Self> {
         let router = Router::build(&trigger_config.base, &component_triggers)?;
         log::trace!(
@@ -90,6 +94,7 @@ impl Trigger for HttpTrigger {
             component_triggers,
             router,
             engine: Arc::new(execution_context),
+            follow,
         })
     }
 
@@ -123,6 +128,8 @@ impl HttpTrigger {
                         None => &spin_manifest::HttpExecutor::Spin,
                     };
 
+                    let follow = self.follow.should_follow(component_id);
+
                     let res = match executor {
                         spin_manifest::HttpExecutor::Spin => {
                             let executor = SpinHttpExecutor;
@@ -134,6 +141,7 @@ impl HttpTrigger {
                                     &trigger.route,
                                     req,
                                     addr,
+                                    follow,
                                 )
                                 .await
                         }
@@ -149,6 +157,7 @@ impl HttpTrigger {
                                     &trigger.route,
                                     req,
                                     addr,
+                                    follow,
                                 )
                                 .await
                         }
@@ -391,6 +400,9 @@ pub(crate) fn compute_default_headers<'a>(
 /// All HTTP executors must implement this trait.
 #[async_trait]
 pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
+    // TODO: allowing this lint because I want to gather feedback before
+    // investing time in reorganising this
+    #[allow(clippy::too_many_arguments)]
     async fn execute(
         &self,
         engine: &ExecutionContext,
@@ -399,6 +411,7 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
         raw_route: &str,
         req: Request<Body>,
         client_addr: SocketAddr,
+        follow: bool,
     ) -> Result<Response<Body>>;
 }
 
@@ -547,7 +560,8 @@ mod tests {
             });
         let app = cfg.build_application();
 
-        let trigger: HttpTrigger = build_trigger_from_app(app, None, None).await?;
+        let trigger: HttpTrigger =
+            build_trigger_from_app(app, None, FollowComponents::None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
@@ -575,7 +589,8 @@ mod tests {
         });
         let app = cfg.build_application();
 
-        let trigger: HttpTrigger = build_trigger_from_app(app, None, None).await?;
+        let trigger: HttpTrigger =
+            build_trigger_from_app(app, None, FollowComponents::None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()

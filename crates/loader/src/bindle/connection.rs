@@ -1,0 +1,66 @@
+use std::sync::Arc;
+
+use bindle::client::{
+    tokens::{HttpBasic, NoToken, TokenManager},
+    Client, ClientBuilder,
+};
+
+/// BindleConnectionInfo holds the details of a connection to a
+/// Bindle server, including url, insecure configuration and an
+/// auth token manager
+#[derive(Clone)]
+pub struct BindleConnectionInfo {
+    base_url: String,
+    allow_insecure: bool,
+    token_manager: AnyAuth,
+}
+
+impl BindleConnectionInfo {
+    /// Generates a new BindleConnectionInfo instance using the provided
+    /// base_url, allow_insecure setting and optional username and password
+    /// for basic http auth
+    pub fn new<I: Into<String>>(
+        base_url: I,
+        allow_insecure: bool,
+        username: Option<String>,
+        password: Option<String>,
+    ) -> Self {
+        let token_manager: Box<dyn TokenManager + Send + Sync> = match (username, password) {
+            (Some(u), Some(p)) => Box::new(HttpBasic::new(&u, &p)),
+            _ => Box::new(NoToken::default()),
+        };
+
+        Self {
+            base_url: base_url.into(),
+            allow_insecure,
+            token_manager: AnyAuth {
+                token_manager: Arc::new(token_manager),
+            },
+        }
+    }
+
+    /// Returns a client based on this instance's configuration
+    pub fn client(&self) -> bindle::client::Result<Client<AnyAuth>> {
+        let builder = ClientBuilder::default()
+            .http2_prior_knowledge(false)
+            .danger_accept_invalid_certs(self.allow_insecure);
+        builder.build(&self.base_url, self.token_manager.clone())
+    }
+}
+
+/// AnyAuth wraps an authentication token manager which applies
+/// the appropriate auth header per its configuration
+#[derive(Clone)]
+pub struct AnyAuth {
+    token_manager: Arc<Box<dyn TokenManager + Send + Sync>>,
+}
+
+#[async_trait::async_trait]
+impl TokenManager for AnyAuth {
+    async fn apply_auth_header(
+        &self,
+        builder: reqwest::RequestBuilder,
+    ) -> bindle::client::Result<reqwest::RequestBuilder> {
+        self.token_manager.apply_auth_header(builder).await
+    }
+}

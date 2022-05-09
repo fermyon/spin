@@ -3449,6 +3449,7 @@ dependencies = [
  "reqwest",
  "semver",
  "serde",
+ "sha2 0.10.2",
  "spin-build",
  "spin-config",
  "spin-engine",

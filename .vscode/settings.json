@@ -8,7 +8,8 @@
     "gopls": {
         "build.directoryFilters": [
             "-sdk",
-            "-examples"
+            "-examples",
+            "-templates"
         ],
     },
     "rust-analyzer.files.excludeDirs": [

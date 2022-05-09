@@ -9,7 +9,8 @@ on:
   pull_request:
     branches: [main]
     paths-ignore:
-      - 'docs/**'
+      - "docs/**"
+      - "readme.md"
 env:
   CARGO_TERM_COLOR: always
 jobs:

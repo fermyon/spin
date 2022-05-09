@@ -5,7 +5,8 @@ use clap::{Parser, Subcommand};
 use comfy_table::Table;
 
 use spin_templates::{
-    InstallationResults, ProgressReporter, SkippedReason, Template, TemplateManager, TemplateSource,
+    InstallOptions, InstallationResults, ProgressReporter, SkippedReason, Template,
+    TemplateManager, TemplateSource,
 };
 
 const INSTALL_FROM_DIR_OPT: &str = "FROM_DIR";
@@ -57,6 +58,10 @@ pub struct Install {
         conflicts_with = INSTALL_FROM_GIT_OPT,
     )]
     pub dir: Option<PathBuf>,
+
+    /// If present, updates existing templates instead of skipping.
+    #[structopt(long = "update")]
+    pub update: bool,
 }
 
 /// Remove a template from your installation.
@@ -77,9 +82,10 @@ impl Install {
         };
 
         let reporter = ConsoleProgressReporter;
+        let options = InstallOptions::default().update(self.update);
 
         let installation_results = template_manager
-            .install(&source, &reporter)
+            .install(&source, &options, &reporter)
             .await
             .context("Failed to install one or more templates")?;
 

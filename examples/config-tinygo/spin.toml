@@ -1,0 +1,17 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A simple Spin application written in (Tiny)Go."
+name = "spin-config-tinygo"
+trigger = { type = "http", base = "/" }
+version = "1.0.0"
+
+[config]
+object = { default = "teapot" }
+
+[[component]]
+id = "spin_config_tinygo"
+source = "main.wasm"
+[component.trigger]
+route = "/..."
+[component.config]
+message = "I'm a {{object}}"

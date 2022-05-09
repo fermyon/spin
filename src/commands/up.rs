@@ -1,69 +1,67 @@
-use crate::opts::*;
-use anyhow::{bail, Context, Result};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
+use anyhow::{bail, Context, Result};
+use clap::{Args, Parser};
+use tempfile::TempDir;
+
+use spin_engine::io::FollowComponents;
 use spin_http_engine::{HttpTrigger, HttpTriggerExecutionConfig, TlsConfig};
 use spin_manifest::ApplicationTrigger;
 use spin_redis_engine::RedisTrigger;
 use spin_trigger::{run_trigger, ExecutionOptions};
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
-use structopt::{clap::AppSettings, StructOpt};
-use tempfile::TempDir;
+
+use crate::opts::*;
 
 /// Start the Fermyon runtime.
-#[derive(StructOpt, Debug)]
-#[structopt(
-    about = "Start the Spin application",
-    global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp]
-)]
+#[derive(Parser, Debug)]
+#[clap(about = "Start the Spin application")]
 
 pub struct UpCommand {
     #[structopt(flatten)]
     pub opts: UpOpts,
 
     /// Path to spin.toml.
-    #[structopt(
+    #[clap(
             name = APP_CONFIG_FILE_OPT,
-            short = "f",
+            short = 'f',
             long = "file",
             conflicts_with = BINDLE_ID_OPT,
         )]
     pub app: Option<PathBuf>,
 
     /// ID of application bindle.
-    #[structopt(
+    #[clap(
             name = BINDLE_ID_OPT,
-            short = "b",
+            short = 'b',
             long = "bindle",
             conflicts_with = APP_CONFIG_FILE_OPT,
             requires = BINDLE_SERVER_URL_OPT,
         )]
     pub bindle: Option<String>,
     /// URL of bindle server.
-    #[structopt(
+    #[clap(
             name = BINDLE_SERVER_URL_OPT,
-            long = "server",
+            long = "bindle-server",
             env = BINDLE_URL_ENV,
         )]
     pub server: Option<String>,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Args, Debug)]
 pub struct UpOpts {
     /// IP address and port to listen on
-    #[structopt(name = ADDRESS_OPT, long = "listen", default_value = "127.0.0.1:3000")]
+    #[clap(name = ADDRESS_OPT, long = "listen", default_value = "127.0.0.1:3000")]
     pub address: String,
     /// Temporary directory for the static assets of the components.
-    #[structopt(long = "temp")]
+    #[clap(long = "temp")]
     pub tmp: Option<PathBuf>,
     /// Pass an environment variable (key=value) to all components of the application.
-    #[structopt(long = "env", short = "e", parse(try_from_str = crate::parse_env_var))]
+    #[clap(long = "env", short = 'e', parse(try_from_str = crate::parse_env_var))]
     pub env: Vec<(String, String)>,
 
     /// The path to the certificate to use for https, if this is not set, normal http will be used. The cert should be in PEM format
-    #[structopt(
+    #[clap(
             name = TLS_CERT_FILE_OPT,
             long = "tls-cert",
             env = TLS_CERT_ENV_VAR,
@@ -72,7 +70,7 @@ pub struct UpOpts {
     pub tls_cert: Option<PathBuf>,
 
     /// The path to the certificate key to use for https, if this is not set, normal http will be used. The key should be in PKCS#8 format
-    #[structopt(
+    #[clap(
             name = TLS_KEY_FILE_OPT,
             long = "tls-key",
             env = TLS_KEY_ENV_VAR,
@@ -80,15 +78,15 @@ pub struct UpOpts {
         )]
     pub tls_key: Option<PathBuf>,
     /// Log directory for the stdout and stderr of components.
-    #[structopt(
+    #[clap(
             name = APP_LOG_DIR,
-            short = "L",
+            short = 'L',
             long = "log-dir",
             )]
     pub log: Option<PathBuf>,
 
     /// Disable Wasmtime cache.
-    #[structopt(
+    #[clap(
         name = DISABLE_WASMTIME_CACHE,
         long = "disable-cache",
         env = DISABLE_WASMTIME_CACHE,
@@ -98,13 +96,28 @@ pub struct UpOpts {
     pub disable_cache: bool,
 
     /// Wasmtime cache configuration file.
-    #[structopt(
+    #[clap(
         name = WASMTIME_CACHE_FILE,
         long = "cache",
         env = WASMTIME_CACHE_FILE,
         conflicts_with = DISABLE_WASMTIME_CACHE,
     )]
     pub cache: Option<PathBuf>,
+
+    /// Print output for given component(s) to stdout/stderr
+    #[clap(
+        name = FOLLOW_LOG_OPT,
+        long = "follow",
+        multiple_occurrences = true,
+        )]
+    pub follow_components: Vec<String>,
+
+    /// Print all component output to stdout/stderr
+    #[clap(
+        long = "follow-all",
+        conflicts_with = FOLLOW_LOG_OPT,
+        )]
+    pub follow_all_components: bool,
 }
 
 impl UpCommand {
@@ -157,12 +170,15 @@ impl UpCommand {
 
         let wasmtime_config = self.wasmtime_default_config()?;
 
+        let follow = self.follow_components();
+
         match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
                 run_trigger(
                     app,
                     ExecutionOptions::<HttpTrigger>::new(
                         self.opts.log.clone(),
+                        follow,
                         HttpTriggerExecutionConfig::new(self.opts.address, tls),
                     ),
                     Some(wasmtime_config),
@@ -172,12 +188,12 @@ impl UpCommand {
             ApplicationTrigger::Redis(_) => {
                 run_trigger(
                     app,
-                    ExecutionOptions::<RedisTrigger>::new(self.opts.log.clone(), ()),
+                    ExecutionOptions::<RedisTrigger>::new(self.opts.log.clone(), follow, ()),
                     Some(wasmtime_config),
                 )
                 .await?;
             }
-        }
+        };
 
         // We need to be absolutely sure it stays alive until this point: we don't want
         // any temp directory to be deleted prematurely.
@@ -185,7 +201,6 @@ impl UpCommand {
 
         Ok(())
     }
-
     fn wasmtime_default_config(&self) -> Result<wasmtime::Config> {
         let mut wasmtime_config = wasmtime::Config::default();
         if !self.opts.disable_cache {
@@ -195,6 +210,17 @@ impl UpCommand {
             };
         }
         Ok(wasmtime_config)
+    }
+
+    fn follow_components(&self) -> FollowComponents {
+        if self.opts.follow_all_components {
+            FollowComponents::All
+        } else if self.opts.follow_components.is_empty() {
+            FollowComponents::None
+        } else {
+            let followed = self.opts.follow_components.clone().into_iter().collect();
+            FollowComponents::Named(followed)
+        }
     }
 }
 

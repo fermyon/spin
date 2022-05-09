@@ -1,6 +1,7 @@
 use crate::{spin_redis::SpinRedis, ExecutionContext, RedisExecutor, RuntimeContext};
 use anyhow::Result;
 use async_trait::async_trait;
+use spin_engine::io::capture_io_to_memory;
 use tokio::task::spawn_blocking;
 use wasmtime::{Instance, Store};
 
@@ -15,14 +16,19 @@ impl RedisExecutor for SpinRedisExecutor {
         component: &str,
         channel: &str,
         payload: &[u8],
+        follow: bool,
     ) -> Result<()> {
         log::trace!(
             "Executing request using the Spin executor for component {}",
             component
         );
-        let (store, instance) = engine.prepare_component(component, None, None, None, None)?;
 
-        match Self::execute_impl(store, instance, channel, payload.to_vec()).await {
+        let (redirects, outputs) = capture_io_to_memory(follow, follow);
+
+        let (store, instance) =
+            engine.prepare_component(component, None, Some(redirects), None, None)?;
+
+        let result = match Self::execute_impl(store, instance, channel, payload.to_vec()).await {
             Ok(()) => {
                 log::trace!("Request finished OK");
                 Ok(())
@@ -31,7 +37,11 @@ impl RedisExecutor for SpinRedisExecutor {
                 log::trace!("Request finished with error {}", e);
                 Err(e)
             }
-        }
+        };
+
+        let log_result = engine.save_output_to_logs(outputs.read(), component, true, true);
+
+        result.and(log_result)
     }
 }
 

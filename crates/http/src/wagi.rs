@@ -2,12 +2,14 @@ use crate::{routes::RoutePattern, ExecutionContext, HttpExecutor};
 use anyhow::Result;
 use async_trait::async_trait;
 use hyper::{body, Body, Request, Response};
-use spin_engine::io::{IoStreamRedirects, OutRedirect};
+use spin_engine::io::{
+    redirect_to_mem_buffer, Follow, ModuleIoRedirects, OutputBuffers, WriteDestinations,
+};
 use spin_manifest::WagiConfig;
 use std::{
     collections::HashMap,
     net::SocketAddr,
-    sync::{Arc, RwLock},
+    sync::{Arc, RwLock, RwLockReadGuard},
 };
 use tokio::task::spawn_blocking;
 use tracing::log;
@@ -28,6 +30,7 @@ impl HttpExecutor for WagiHttpExecutor {
         raw_route: &str,
         req: Request<Body>,
         client_addr: SocketAddr,
+        follow: bool,
     ) -> Result<Response<Body>> {
         log::trace!(
             "Executing request using the Wagi executor for component {}",
@@ -51,7 +54,7 @@ impl HttpExecutor for WagiHttpExecutor {
 
         let body = body::to_bytes(body).await?.to_vec();
         let len = body.len();
-        let iostream = Self::streams_from_body(body);
+        let (redirects, outputs) = Self::streams_from_body(body, follow);
         // TODO
         // The default host and TLS fields are currently hard-coded.
         let mut headers = wagi::http_util::build_headers(
@@ -86,7 +89,7 @@ impl HttpExecutor for WagiHttpExecutor {
         let (mut store, instance) = engine.prepare_component(
             component,
             None,
-            Some(iostream.clone()),
+            Some(redirects),
             Some(headers),
             Some(argv.split(' ').map(|s| s.to_owned()).collect()),
         )?;
@@ -104,7 +107,7 @@ impl HttpExecutor for WagiHttpExecutor {
         let guest_result = spawn_blocking(move || start.call(&mut store, &[], &mut [])).await;
         tracing::info!("Module execution complete");
 
-        let log_result = engine.save_output_to_logs(iostream.clone(), component, false, true);
+        let log_result = engine.save_output_to_logs(outputs.read(), component, false, true);
 
         // Defer checking for failures until here so that the logging runs
         // even if the guest code fails. (And when checking, check the guest
@@ -113,28 +116,63 @@ impl HttpExecutor for WagiHttpExecutor {
         guest_result?.or_else(ignore_successful_proc_exit_trap)?;
         log_result?;
 
-        wagi::handlers::compose_response(iostream.stdout.lock)
+        wagi::handlers::compose_response(outputs.stdout)
     }
 }
 
 impl WagiHttpExecutor {
-    fn streams_from_body(body: Vec<u8>) -> IoStreamRedirects {
+    fn streams_from_body(
+        body: Vec<u8>,
+        follow_on_stderr: bool,
+    ) -> (ModuleIoRedirects, WagiRedirectReadHandles) {
         let stdin = ReadPipe::from(body);
+
         let stdout_buf = vec![];
-        let lock = Arc::new(RwLock::new(stdout_buf));
-        let stdout = WritePipe::from_shared(lock.clone());
-        let stdout = OutRedirect { out: stdout, lock };
+        let stdout_lock = Arc::new(RwLock::new(stdout_buf));
+        let stdout_pipe = WritePipe::from_shared(stdout_lock.clone());
 
-        let stderr_buf = vec![];
-        let lock = Arc::new(RwLock::new(stderr_buf));
-        let stderr = WritePipe::from_shared(lock.clone());
-        let stderr = OutRedirect { out: stderr, lock };
+        let (stderr_pipe, stderr_lock) = redirect_to_mem_buffer(Follow::stderr(follow_on_stderr));
 
-        IoStreamRedirects {
-            stdin,
-            stdout,
-            stderr,
+        let rd = ModuleIoRedirects::new(
+            Box::new(stdin),
+            Box::new(stdout_pipe),
+            Box::new(stderr_pipe),
+        );
+
+        let h = WagiRedirectReadHandles {
+            stdout: stdout_lock,
+            stderr: stderr_lock,
+        };
+
+        (rd, h)
+    }
+}
+
+struct WagiRedirectReadHandles {
+    stdout: Arc<RwLock<Vec<u8>>>,
+    stderr: Arc<RwLock<WriteDestinations>>,
+}
+
+impl WagiRedirectReadHandles {
+    fn read(&self) -> impl OutputBuffers + '_ {
+        WagiRedirectReadHandlesLock {
+            stdout: self.stdout.read().unwrap(),
+            stderr: self.stderr.read().unwrap(),
         }
+    }
+}
+
+struct WagiRedirectReadHandlesLock<'a> {
+    stdout: RwLockReadGuard<'a, Vec<u8>>,
+    stderr: RwLockReadGuard<'a, WriteDestinations>,
+}
+
+impl<'a> OutputBuffers for WagiRedirectReadHandlesLock<'a> {
+    fn stdout(&self) -> &[u8] {
+        &self.stdout
+    }
+    fn stderr(&self) -> &[u8] {
+        self.stderr.buffer()
     }
 }
 

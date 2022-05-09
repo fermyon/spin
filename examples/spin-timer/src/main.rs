@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use spin_engine::{Builder, ExecutionContextConfiguration};
+use spin_engine::{io::FollowComponents, Builder, ExecutionContextConfiguration};
 use spin_manifest::{ComponentMap, CoreComponent, ModuleSource, WasmConfig};
 use spin_timer::SpinTimerData;
 use spin_trigger::Trigger;
@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
         ..Default::default()
     })
     .await?;
-    let trigger = TimerTrigger::new(builder, (), Default::default())?;
+    let trigger = TimerTrigger::new(builder, (), Default::default(), FollowComponents::None)?;
     trigger
         .run(TimerExecutionConfig {
             interval: Duration::from_secs(1),
@@ -61,6 +61,7 @@ impl Trigger for TimerTrigger {
         execution_context: ExecutionContext,
         _: Self::Config,
         _: ComponentMap<Self::ComponentConfig>,
+        _: FollowComponents,
     ) -> Result<Self> {
         Ok(Self {
             engine: Arc::new(execution_context),

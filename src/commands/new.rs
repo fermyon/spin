@@ -1,24 +1,26 @@
-use anyhow::{anyhow, Context, Result};
-use spin_templates::{RunOptions, TemplateManager};
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
-use structopt::StructOpt;
+
+use anyhow::{anyhow, Context, Result};
+use clap::Parser;
+
+use spin_templates::{RunOptions, TemplateManager};
 
 /// Scaffold a new application or component based on a template.
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub struct NewCommand {
     /// The template from which to create the new application or component.
     pub template_id: String,
 
     /// The name of the new application or component.
-    #[structopt(short = "n", long = "name")]
+    #[clap(short = 'n', long = "name")]
     pub name: Option<String>,
 
     /// The directory in which to create the new application or component.
-    #[structopt(short = "o", long = "output")]
+    #[clap(short = 'o', long = "output")]
     pub output_path: Option<PathBuf>,
 
     /// Parameter values to be passed to the template (in name=value format).
-    #[structopt(short = "v", long = "value", multiple = true)]
+    #[clap(short = 'v', long = "value", multiple_occurrences = true)]
     pub values: Vec<ParameterValue>,
 }
 

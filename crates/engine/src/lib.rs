@@ -9,7 +9,7 @@ pub mod io;
 
 use anyhow::{bail, Context, Result};
 use host_component::{HostComponent, HostComponents, HostComponentsState};
-use io::IoStreamRedirects;
+use io::{ModuleIoRedirects, OutputBuffers};
 use spin_config::{host_component::ComponentConfig, Resolver};
 use spin_manifest::{Application, CoreComponent, DirectoryMount, ModuleSource};
 use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
@@ -219,7 +219,7 @@ impl<T: Default> ExecutionContext<T> {
         &self,
         component: &str,
         data: Option<T>,
-        io: Option<IoStreamRedirects>,
+        io: Option<ModuleIoRedirects>,
         env: Option<HashMap<String, String>>,
         args: Option<Vec<String>>,
     ) -> Result<(Store<RuntimeContext<T>>, Instance)> {
@@ -238,7 +238,7 @@ impl<T: Default> ExecutionContext<T> {
     /// Save logs for a given component in the log directory on the host
     pub fn save_output_to_logs(
         &self,
-        io_redirects: IoStreamRedirects,
+        io_redirects: impl OutputBuffers,
         component: &str,
         save_stdout: bool,
         save_stderr: bool,
@@ -274,18 +274,18 @@ impl<T: Default> ExecutionContext<T> {
                 .append(true)
                 .create(true)
                 .open(stdout_filename)?;
-            let contents = io_redirects.stdout.lock.read().unwrap();
-            file.write_all(&contents)?;
+            let contents = io_redirects.stdout();
+            file.write_all(contents)?;
         }
 
         if save_stderr {
-            let contents = io_redirects.stderr.lock.read().unwrap();
             let mut file = std::fs::OpenOptions::new()
                 .write(true)
                 .append(true)
                 .create(true)
                 .open(stderr_filename)?;
-            file.write_all(&contents)?;
+            let contents = io_redirects.stderr();
+            file.write_all(contents)?;
         }
 
         Ok(())
@@ -295,7 +295,7 @@ impl<T: Default> ExecutionContext<T> {
         &self,
         component: &Component<T>,
         data: Option<T>,
-        io: Option<IoStreamRedirects>,
+        io: Option<ModuleIoRedirects>,
         env: Option<HashMap<String, String>>,
         args: Option<Vec<String>>,
     ) -> Result<Store<RuntimeContext<T>>> {
@@ -307,10 +307,7 @@ impl<T: Default> ExecutionContext<T> {
             .envs(&env)?;
         match io {
             Some(r) => {
-                wasi_ctx = wasi_ctx
-                    .stderr(Box::new(r.stderr.out))
-                    .stdout(Box::new(r.stdout.out))
-                    .stdin(Box::new(r.stdin));
+                wasi_ctx = wasi_ctx.stderr(r.stderr).stdout(r.stdout).stdin(r.stdin);
             }
             None => wasi_ctx = wasi_ctx.inherit_stdio(),
         };

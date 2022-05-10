@@ -15,11 +15,10 @@ Updated: April 24, 2022
 
 Currently spin supports two triggers, one for Redis messages and one for HTTP requests. [CloudEvents](https://cloudevents.io/) are a new standard for eventing and received huge interests from the major cloud providers. Supporting CloudEvents could make spin a great solution for writing serverless applications. 
 
+
 ## Proposal
 
-This document proposes adding a new trigger for CloudEvents. The triggers are invoked by a CloudEvent source. The CloudEvent source is a event provider service that sends CloudEvents to spin, such as Kafka topics, HTTP requests, AMQP messages. For example, the [CloudEvents spec](https://github.com/cloudevents/spec/tree/main/cloudevents/bindings) list a few protocol bindings including AMQP, HTTP, Kafka etc.
-
-This proposal aims at providing a CloudEvent component for the [HTTP Protocol Bindings](https://github.com/cloudevents/spec/blob/main/cloudevents/bindings/http-protocol-binding.md). This example shows the mapping of an event with an HTTP POST request.
+This document proposes adding features in the spin SDK to support CloudEvents. CloudEvents itself is a envelop for the underlying transport protocol, such as AMQP, Kafka, HTTP, etc. This proposal aims at providing a CloudEvent component for the [HTTP Protocol Bindings](https://github.com/cloudevents/spec/blob/main/cloudevents/bindings/http-protocol-binding.md). Here is an example shows the mapping of an event with an HTTP POST request in CloudEvent's binary format.
 ```
 POST /someresource HTTP/1.1
 Host: webhook.example.com
@@ -36,53 +35,32 @@ Content-Length: nnnn
 }
 ```
 
-Creating an CloudEvents trigger is done when [configuring the application](/configuration)
-by defining the top-level application trigger:
+Creating an HTTP CloudEvents trigger is done by defining the top level application trigger in spin. The following code snippet shows the definition of a HTTP CloudEvents trigger.
+```toml
+# spin.toml
+trigger = { type = "http", base = "/", schema = "cloudevents" }
+```
+
+The added `schema` attribute in trigger will tell spin application that it will expect the HTTP request and responses are CloudEvents.
+
+> Note that the `schema` attribute is not the same as the `schema` attribute in the CloudEvents spec. The `schema` attribute in the spec is the schema of the payload.
+
+We also allow users to define individual component to be CloudEvents components. For example, we could define a HTTP CloudEvents component in spin.toml:
 
 ```toml
 # spin.toml
-trigger = { type = "cloudevent" }
-```
+trigger = { type = "http", base = "/" }
 
-Then, when defining the component (in `spin.toml`), you can set the protocol binding for the component. For example:
-
-- an HTTP CloudEvents component:
-
-```toml
+[[component]]
+id = "hello"
+source = "target/wasm32-wasi/release/spinhelloworld.wasm"
+description = "A simple component that returns hello."
+schema = "cloudevents"
 [component.trigger]
-binding = "http"
+route = "/hello"
 ```
 
-- an Kafka CloudEvents component (optional):
-
-```toml
-[component.trigger]
-binding = "kafka"
-broker = ["localhost:9092", "localhost:9093"]
-topic = "mytopic"
-group = "mygroup"
-```
-
-- an AMQP CloudEvents component (optional WIP):
-
-```toml
-[component.trigger]
-binding = "amqp"
-broker = "localhost:5672"
-exchange = "myexchange"
-routing_key = "myroutingkey"
-```
-
-You can also set the sink address for the component that returns a CloudEvent. For example:
-
-```toml
-[component.trigger]
-binding = "http"
-sink = "http://localhost:8080/someresource"
-```
-
-Note that the sink address is only used when the component is invoked. The component will make a outbound HTTP request that includes the CloudEvents to the sink address.
-
+> Note that if there is no `schema` attribute in the application or individual component, the HTTP request and responses are not CloudEvents.
 
 ## The WebAssembly interface
 
@@ -170,7 +148,7 @@ import (
 )
 
 func main() {
- spin.ReceiveEvent(func(ctx context.Context, event spin.Event) {
+ spin.ReceiveEvent(func(event spin.Event) {
   fmt.Printf("%s", event)
   spin.SendEvent(ctx, event)
  })
@@ -179,5 +157,94 @@ func main() {
 
 ## Future design considerations
 
-- CloudEvents bindings for different protocols, such as AMQP, Kafka, etc.
-- Filter events based on event attributes.
+#### More transport protocols bindings
+- Kafka binding
+- AMQP binding
+- NATS binding
+
+#### Filtering based on event attributes
+```toml
+[[component]]
+id = "filter"
+source = "target/wasm32-wasi/release/spinhelloworld.wasm"
+description = "A simple component that filters events based on event attributes."
+schema = "cloudevents"
+[component.trigger]
+route = "/filter"
+[component.filter]
+ce.type = "com.example.someevent"
+ce.source = "/mycontext/subcontext"
+```
+
+#### Generic CloudEvent component
+A generic CloudEvents component is defined in the following way:
+```rust
+// A Spin CloudEvents component written in Rust
+use anyhow::Result;
+use spin_sdk::{
+    event::{Event},
+    cloud_event_component,
+};
+
+/// A simple Spin event component.
+#[cloud_event_component]
+fn trigger(event: Event) -> Result<Event, _> {
+    println!("event is {}", event.id());
+    // do something with the event
+    Ok(event)
+}
+```
+
+It is trigger-agnostic, at least within the supported CloudEvents protocol bindings. You can see the list of supported protocols in the [CloudEvents documentation](https://github.com/cloudevents/spec/blob/main/cloudevents/bindings). The benefits of doing this are:
+1. Rapid prototyping: you can quickly prototype your event components and test them locally using HTTP bindings. Once you are confident that they are working, You can switch the trigger to a different type, without having to modify the code.
+2. Reusability: you can reuse the same event components with different protocols bindings, such as AMQP and Kafka.
+3. Chaining: you can chain multiple event components together since they share the same component signature.
+
+#### CloudEvents trigger
+
+Creating an CloudEvents trigger is done when [configuring the application](/configuration)
+by defining the top-level application trigger:
+
+```toml
+# spin.toml
+trigger = { type = "cloudevent" }
+```
+
+Then, when defining the component (in `spin.toml`), you can set the protocol binding for the component. For example:
+
+- an HTTP CloudEvents component:
+
+```toml
+[component.trigger]
+binding = "http"
+```
+
+- an Kafka CloudEvents component (optional):
+
+```toml
+[component.trigger]
+binding = "kafka"
+broker = ["localhost:9092", "localhost:9093"]
+topic = "mytopic"
+group = "mygroup"
+```
+
+- an AMQP CloudEvents component (optional WIP):
+
+```toml
+[component.trigger]
+binding = "amqp"
+broker = "localhost:5672"
+exchange = "myexchange"
+routing_key = "myroutingkey"
+```
+
+You can also set the sink address for the component that returns a CloudEvent. For example:
+
+```toml
+[component.trigger]
+binding = "http"
+sink = "http://localhost:8080/someresource"
+```
+
+Note that the sink address is only used when the component is invoked. The component will make a outbound HTTP request that includes the CloudEvents to the sink address.

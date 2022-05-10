@@ -12,9 +12,6 @@ use std::path::Path;
 use tokio::{fs, io::AsyncWriteExt};
 use tracing::log;
 
-/// Maximum number of assets to download in parallel
-const MAX_PARALLEL_COPIES: usize = 16;
-
 pub(crate) async fn prepare_component(
     reader: &BindleReader,
     bindle_id: &Id,
@@ -56,7 +53,7 @@ impl Copier {
 
     async fn copy_all(&self, parcels: &[Label], dir: impl AsRef<Path>) -> Result<()> {
         match stream::iter(parcels.iter().map(|p| self.copy(p, &dir)))
-            .buffer_unordered(MAX_PARALLEL_COPIES)
+            .buffer_unordered(crate::MAX_PARALLEL_ASSET_PROCESSING)
             .filter_map(|r| future::ready(r.err()))
             .map(|e| log::error!("{:?}", e))
             .count()

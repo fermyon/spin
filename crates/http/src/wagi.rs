@@ -131,12 +131,12 @@ impl WagiHttpExecutor {
         let stdout_lock = Arc::new(RwLock::new(stdout_buf));
         let stdout_pipe = WritePipe::from_shared(stdout_lock.clone());
 
-        let (stderr_pipe, stderr_lock) = redirect_to_mem_buffer(Follow::stderr(follow_on_stderr));
+        let (stderr_pipe, stderr_lock) = redirect_to_mem_buffer(Follow::stderr(follow_on_stderr), None);
 
         let rd = ModuleIoRedirects::new(
             Box::new(stdin),
             Box::new(stdout_pipe),
-            Box::new(stderr_pipe),
+            stderr_pipe,
         );
 
         let h = WagiRedirectReadHandles {

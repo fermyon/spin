@@ -1,12 +1,14 @@
 use std::{
     collections::HashSet,
     io::{LineWriter, Write},
-    sync::{Arc, RwLock, RwLockReadGuard}, path::PathBuf,
+    sync::{Arc, RwLock, RwLockReadGuard}, path::PathBuf, fs::OpenOptions,
 };
 use wasi_common::{
     pipe::{ReadPipe, WritePipe},
     WasiFile,
 };
+use wasmtime_wasi::sync::file::File as WasmtimeFile;
+use cap_std::fs::File as CapFile;
 
 /// Which components should have their logs followed on stdout/stderr.
 #[derive(Clone, Debug)]
@@ -118,20 +120,31 @@ impl<'a> OutputBuffers for RedirectReadHandlesLock<'a> {
 pub fn capture_io_to_memory(
     follow_on_stdout: bool,
     follow_on_stderr: bool,
+    custom_log_pipes: Option<CustomLogPipes>
 ) -> (ModuleIoRedirects, RedirectReadHandles) {
     let stdout_follow = Follow::stdout(follow_on_stdout);
     let stderr_follow = Follow::stderr(follow_on_stderr);
 
     let stdin = ReadPipe::from(vec![]);
 
-    let (stdout_pipe, stdout_lock) = redirect_to_mem_buffer(stdout_follow);
+    let (stdout_pipe, stdout_lock) = 
+        redirect_to_mem_buffer(stdout_follow, 
+        match custom_log_pipes.clone() {
+            Some(clp) => Some(clp.stdout_pipe_path),
+            None => None
+    });
 
-    let (stderr_pipe, stderr_lock) = redirect_to_mem_buffer(stderr_follow);
+    let (stderr_pipe, stderr_lock) = 
+    redirect_to_mem_buffer(stderr_follow, 
+        match custom_log_pipes.clone() {
+            Some(clp) => Some(clp.stderr_pipe_path),
+            None => None
+    });
 
     let redirects = ModuleIoRedirects {
         stdin: Box::new(stdin),
-        stdout: Box::new(stdout_pipe),
-        stderr: Box::new(stderr_pipe),
+        stdout: stdout_pipe,
+        stderr: stderr_pipe,
     };
 
     let outputs = RedirectReadHandles {
@@ -185,14 +198,23 @@ impl Follow {
 /// copying to the specified output stream.
 pub fn redirect_to_mem_buffer(
     follow: Follow,
-) -> (WritePipe<WriteDestinations>, Arc<RwLock<WriteDestinations>>) {
+    log_pipe_path: Option<PathBuf>
+) -> (Box<dyn WasiFile>, Arc<RwLock<WriteDestinations>>) {
     let immediate = follow.writer();
 
     let buffer: Vec<u8> = vec![];
     let std_dests = WriteDestinations { buffer, immediate };
     let lock = Arc::new(RwLock::new(std_dests));
-    let std_pipe = WritePipe::from_shared(lock.clone());
-
+    let std_pipe: Box<dyn WasiFile> = match log_pipe_path {
+        Some(lpp) => {
+           let f = OpenOptions::new().read(true).write(true).open(lpp).unwrap();
+           let wf = WasmtimeFile::from_cap_std(CapFile::from_std(f));
+           Box::new(wf)
+        },
+        None => {
+           Box::new(WritePipe::from_shared(lock.clone()))
+        }
+       };
     (std_pipe, lock)
 }
 

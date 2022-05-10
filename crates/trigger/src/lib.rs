@@ -73,6 +73,7 @@ where
         label: app.info.name,
         log_dir,
         config_resolver: app.config_resolver,
+        ..Default::default()
     };
     let mut builder = match wasmtime_config {
         Some(wasmtime_config) => {

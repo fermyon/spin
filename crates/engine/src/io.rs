@@ -1,12 +1,14 @@
 use std::{
     collections::HashSet,
     io::{LineWriter, Write},
-    sync::{Arc, RwLock, RwLockReadGuard},
+    sync::{Arc, RwLock, RwLockReadGuard}, path::PathBuf, fs::{OpenOptions, File},
 };
 use wasi_common::{
     pipe::{ReadPipe, WritePipe},
     WasiFile,
 };
+use wasmtime_wasi::sync::file::File as WasmtimeFile;
+use cap_std::fs::File as CapFile;
 
 /// Which components should have their logs followed on stdout/stderr.
 #[derive(Clone, Debug)]
@@ -36,6 +38,63 @@ pub trait OutputBuffers {
     fn stdout(&self) -> &[u8];
     /// The buffer in which stderr has been saved.
     fn stderr(&self) -> &[u8];
+}
+
+/// Wrapper around File w/ a convienient PathBuf for cloning
+pub struct PipeFile(pub(crate) File, pub(crate)PathBuf);
+
+impl PipeFile {
+    /// Constructs an instance from a set of PipeFile objects.
+    pub fn new(
+        file: File,
+        path: PathBuf,
+    ) -> Self {
+        Self(
+            file,
+            path,
+        )
+    } 
+}
+
+impl std::fmt::Debug for PipeFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PipeFile")
+            .field("File", &self.0)
+            .field("PathBuf", &self.1)
+            .finish()
+    }
+}
+
+impl Clone for PipeFile {
+    fn clone(&self) -> Self {
+        let f = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .open(&self.1)
+                    .unwrap();
+        Self(f, self.1.clone())
+    }
+}
+
+/// CustomIoPipes that can be passed to `ExecutionContextConfiguration`
+/// to direct out and err
+#[derive(Clone, Debug)]
+pub struct CustomLogPipes {
+    pub(crate) stdout_pipe: PipeFile,
+    pub(crate) stderr_pipe: PipeFile,
+}
+
+impl CustomLogPipes {
+    /// Constructs an instance from a set of PipeFile objects.
+    pub fn new(
+        stdout_pipe: PipeFile,
+        stderr_pipe: PipeFile,
+    ) -> Self {
+        Self {
+            stdout_pipe,
+            stderr_pipe,
+        }
+    } 
 }
 
 /// A set of redirected standard I/O streams with which
@@ -97,20 +156,31 @@ impl<'a> OutputBuffers for RedirectReadHandlesLock<'a> {
 pub fn capture_io_to_memory(
     follow_on_stdout: bool,
     follow_on_stderr: bool,
+    custom_log_pipes: Option<CustomLogPipes>
 ) -> (ModuleIoRedirects, RedirectReadHandles) {
     let stdout_follow = Follow::stdout(follow_on_stdout);
     let stderr_follow = Follow::stderr(follow_on_stderr);
 
     let stdin = ReadPipe::from(vec![]);
 
-    let (stdout_pipe, stdout_lock) = redirect_to_mem_buffer(stdout_follow);
+    let (stdout_pipe, stdout_lock) = 
+        redirect_to_mem_buffer(stdout_follow, 
+        match custom_log_pipes.clone() {
+            Some(clp) => Some(clp.stdout_pipe.0),
+            None => None
+    });
 
-    let (stderr_pipe, stderr_lock) = redirect_to_mem_buffer(stderr_follow);
+    let (stderr_pipe, stderr_lock) = 
+    redirect_to_mem_buffer(stderr_follow, 
+        match custom_log_pipes.clone() {
+            Some(clp) => Some(clp.stderr_pipe.0),
+            None => None
+    });
 
     let redirects = ModuleIoRedirects {
         stdin: Box::new(stdin),
-        stdout: Box::new(stdout_pipe),
-        stderr: Box::new(stderr_pipe),
+        stdout: stdout_pipe,
+        stderr: stderr_pipe,
     };
 
     let outputs = RedirectReadHandles {
@@ -164,14 +234,22 @@ impl Follow {
 /// copying to the specified output stream.
 pub fn redirect_to_mem_buffer(
     follow: Follow,
-) -> (WritePipe<WriteDestinations>, Arc<RwLock<WriteDestinations>>) {
+    log_pipe: Option<File>
+) -> (Box<dyn WasiFile>, Arc<RwLock<WriteDestinations>>) {
     let immediate = follow.writer();
 
     let buffer: Vec<u8> = vec![];
     let std_dests = WriteDestinations { buffer, immediate };
     let lock = Arc::new(RwLock::new(std_dests));
-    let std_pipe = WritePipe::from_shared(lock.clone());
-
+    let std_pipe: Box<dyn WasiFile> = match log_pipe {
+        Some(lp) => {
+           let wf = WasmtimeFile::from_cap_std(CapFile::from_std(lp));
+           Box::new(wf)
+        },
+        None => {
+           Box::new(WritePipe::from_shared(lock.clone()))
+        }
+       };
     (std_pipe, lock)
 }
 

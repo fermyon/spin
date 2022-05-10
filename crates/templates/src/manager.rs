@@ -8,20 +8,29 @@ use crate::{
     template::Template,
 };
 
+/// Provides access to and operations on the set of installed
+/// templates.
 pub struct TemplateManager {
     store: TemplateStore,
 }
 
+/// Used during template installation to report progress and
+/// current activity.
 pub trait ProgressReporter {
+    /// Report the specified message.
     fn report(&self, message: impl AsRef<str>);
 }
 
+/// Options controlling template installation.
 #[derive(Debug)]
 pub struct InstallOptions {
     exists_behaviour: ExistsBehaviour,
 }
 
 impl InstallOptions {
+    /// Sets the option to update existing templates. If `update` is true,
+    /// existing templates are updated. If false, existing templates are
+    /// skipped.
     pub fn update(self, update: bool) -> Self {
         let exists_behaviour = if update {
             ExistsBehaviour::Update
@@ -52,21 +61,28 @@ enum InstallationResult {
     Skipped(String, SkippedReason),
 }
 
+/// The reason a template was skipped during installation.
 pub enum SkippedReason {
+    /// The template was skipped because it was already present.
     AlreadyExists,
 }
 
+/// The results of installing a set of templates.
 pub struct InstallationResults {
+    /// The templates that were installed during the install operation.
     pub installed: Vec<Template>,
+    /// The templates that were skipped during the install operation.
     pub skipped: Vec<(String, SkippedReason)>,
 }
 
 impl TemplateManager {
+    /// Creates a `TemplateManager` for the default install location.
     pub fn default() -> anyhow::Result<Self> {
         let store = TemplateStore::default()?;
         Ok(Self { store })
     }
 
+    /// Installs templates from the specified source.
     pub async fn install(
         &self,
         source: &TemplateSource,
@@ -143,6 +159,7 @@ impl TemplateManager {
         Ok(InstallationResult::Installed(template))
     }
 
+    /// Uninstalls the specified template.
     pub async fn uninstall(&self, template_id: impl AsRef<str>) -> anyhow::Result<()> {
         let template_dir = self.store.get_directory(template_id);
         tokio::fs::remove_dir_all(&template_dir)
@@ -155,6 +172,7 @@ impl TemplateManager {
             })
     }
 
+    /// Lists all installed templates.
     pub async fn list(&self) -> anyhow::Result<Vec<Template>> {
         let mut templates = vec![];
 
@@ -173,6 +191,9 @@ impl TemplateManager {
         Ok(templates)
     }
 
+    /// Gets the specified template. The result will be `Ok(Some(template))` if
+    /// the template was found, and `Ok(None)` if the template was not
+    /// found.
     pub fn get(&self, id: impl AsRef<str>) -> anyhow::Result<Option<Template>> {
         self.store
             .get_layout(id)
@@ -309,6 +330,8 @@ fn copy_content() -> fs_extra::dir::CopyOptions {
 }
 
 impl InstallationResults {
+    /// Gets whether the `InstallationResults` contains no templates. This
+    /// indicates that no templates were found in the installation source.
     pub fn is_empty(&self) -> bool {
         self.installed.is_empty() && self.skipped.is_empty()
     }

@@ -1,22 +1,14 @@
 #![deny(missing_docs)]
 
 use anyhow::{anyhow, bail, Context, Error, Result};
-use async_trait::async_trait;
-use bindle::{
-    client::{
-        self,
-        tokens::{NoToken, TokenManager},
-        Client,
-    },
-    standalone::StandaloneRead,
-    Id, Invoice, Label, Parcel,
-};
+use bindle::{client::Client, standalone::StandaloneRead, Id, Invoice, Label, Parcel};
 use futures::{Stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
-use reqwest::RequestBuilder;
 use std::{fmt::Debug, path::Path, sync::Arc};
 use tokio::fs;
 use tokio_util::codec::{BytesCodec, FramedRead};
+
+use super::connection::AnyAuth;
 
 static EMPTY: &Vec<bindle::Parcel> = &vec![];
 
@@ -101,30 +93,6 @@ trigger     = "http"
 
 */
 
-/// Any kind of Bindle authentication.
-#[derive(Clone)]
-pub enum BindleTokenManager {
-    /// Anonymous authentication
-    NoToken(NoToken),
-}
-
-#[async_trait]
-impl TokenManager for BindleTokenManager {
-    async fn apply_auth_header(&self, builder: RequestBuilder) -> client::Result<RequestBuilder> {
-        match self {
-            Self::NoToken(t) => t.apply_auth_header(builder).await,
-        }
-    }
-}
-
-impl Debug for BindleTokenManager {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NoToken(_) => f.debug_tuple("NoToken").finish(),
-        }
-    }
-}
-
 /// Encapsulate a Bindle source.
 #[derive(Clone, Debug)]
 pub(crate) struct BindleReader {
@@ -207,7 +175,7 @@ impl BindleReader {
         }
     }
 
-    pub(crate) fn remote(c: &Client<BindleTokenManager>, id: &Id) -> Self {
+    pub(crate) fn remote(c: &Client<AnyAuth>, id: &Id) -> Self {
         Self {
             inner: BindleReaderInner::Remote(c.clone(), id.clone()),
         }
@@ -225,7 +193,7 @@ impl BindleReader {
 #[derive(Clone)]
 enum BindleReaderInner {
     Standalone(Arc<StandaloneRead>),
-    Remote(Client<BindleTokenManager>, Id),
+    Remote(Client<AnyAuth>, Id),
 }
 
 impl Debug for BindleReaderInner {

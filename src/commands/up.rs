@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser};
+use spin_loader::bindle::BindleConnectionInfo;
 use tempfile::TempDir;
 
 use spin_engine::io::FollowComponents;
@@ -133,7 +134,8 @@ impl UpCommand {
                 let manifest_file = app
                     .as_deref()
                     .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-                spin_loader::from_file(manifest_file, working_dir).await?
+                let bindle_connection = self.bindle_connection();
+                spin_loader::from_file(manifest_file, working_dir, &bindle_connection).await?
             }
             (None, Some(bindle)) => match &self.server {
                 Some(server) => spin_loader::from_bindle(bindle, server, working_dir).await?,
@@ -221,6 +223,12 @@ impl UpCommand {
             let followed = self.opts.follow_components.clone().into_iter().collect();
             FollowComponents::Named(followed)
         }
+    }
+
+    fn bindle_connection(&self) -> Option<BindleConnectionInfo> {
+        self.server
+            .as_ref()
+            .map(|url| BindleConnectionInfo::new(url, false, None, None))
     }
 }
 

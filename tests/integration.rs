@@ -5,6 +5,7 @@ mod integration_tests {
     use std::{
         ffi::OsStr,
         net::{Ipv4Addr, SocketAddrV4, TcpListener},
+        path::{Path, PathBuf},
         process::{self, Child, Command},
         time::Duration,
     };
@@ -40,6 +41,7 @@ mod integration_tests {
                 RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
             ),
             &[],
+            None,
         )
         .await?;
 
@@ -212,6 +214,57 @@ mod integration_tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn test_using_parcel_as_module_source() -> Result<()> {
+        let wasm_path = PathBuf::from(RUST_HTTP_INTEGRATION_TEST)
+            .join("target")
+            .join("wasm32-wasi")
+            .join("release")
+            .join("spinhelloworld.wasm");
+        let parcel_sha = file_digest_string(&wasm_path).expect("failed to get sha for parcel");
+
+        // start the Bindle registry.
+        let config = BindleTestControllerConfig {
+            basic_auth_enabled: false,
+        };
+        let b = BindleTestController::new(config).await?;
+
+        // push the application to the registry using the Spin CLI.
+        run(
+            vec![
+                SPIN_BINARY,
+                "bindle",
+                "push",
+                "--file",
+                &format!(
+                    "{}/{}",
+                    RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
+                ),
+                "--bindle-server",
+                &b.url,
+            ],
+            None,
+        )?;
+
+        let manifest_template =
+            format!("{}/{}", RUST_HTTP_INTEGRATION_TEST, "spin-from-parcel.toml");
+        let manifest = replace_text(&manifest_template, "AWAITING_PARCEL_SHA", &parcel_sha);
+
+        let s = SpinTestController::with_manifest(
+            &format!("{}", manifest.path.display()),
+            &[],
+            Some(&b.url),
+        )
+        .await?;
+
+        assert_status(&s, "/test/hello", 200).await?;
+        assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
+        assert_status(&s, "/thisshouldfail", 404).await?;
+        assert_status(&s, "/test/hello/test-placement", 200).await?;
+
+        Ok(())
+    }
+
     async fn verify_headers(
         s: &SpinTestController,
         absolute_uri: &str,
@@ -273,16 +326,21 @@ mod integration_tests {
         pub async fn with_manifest(
             manifest_path: &str,
             env: &[&str],
+            bindle_url: Option<&str>,
         ) -> Result<SpinTestController> {
             // start Spin using the given application manifest and wait for the HTTP server to be available.
             let url = format!("127.0.0.1:{}", get_random_port()?);
             let mut args = vec!["up", "--file", manifest_path, "--listen", &url];
+            if let Some(b) = bindle_url {
+                args.push("--bindle-server");
+                args.push(b);
+            }
             for v in env {
                 args.push("--env");
                 args.push(v);
             }
 
-            let spin_handle = Command::new(get_process(SPIN_BINARY))
+            let mut spin_handle = Command::new(get_process(SPIN_BINARY))
                 .args(args)
                 .env(
                     "RUST_LOG",
@@ -292,7 +350,7 @@ mod integration_tests {
                 .with_context(|| "executing Spin")?;
 
             // ensure the server is accepting requests before continuing.
-            wait_tcp(&url, SPIN_BINARY).await?;
+            wait_tcp(&url, &mut spin_handle, SPIN_BINARY).await?;
 
             Ok(SpinTestController { url, spin_handle })
         }
@@ -318,7 +376,7 @@ mod integration_tests {
                 args.push(v);
             }
 
-            let spin_handle = Command::new(get_process(SPIN_BINARY))
+            let mut spin_handle = Command::new(get_process(SPIN_BINARY))
                 .args(args)
                 .env(
                     "RUST_LOG",
@@ -328,7 +386,7 @@ mod integration_tests {
                 .with_context(|| "executing Spin")?;
 
             // ensure the server is accepting requests before continuing.
-            wait_tcp(&url, SPIN_BINARY).await?;
+            wait_tcp(&url, &mut spin_handle, SPIN_BINARY).await?;
 
             Ok(SpinTestController { url, spin_handle })
         }
@@ -383,7 +441,7 @@ mod integration_tests {
                 )
                 .spawn();
 
-            let server_handle = match server_handle_result {
+            let mut server_handle = match server_handle_result {
                 Ok(h) => Ok(h),
                 Err(e) => {
                     let is_path_explicit = std::env::var(BINDLE_SERVER_PATH_ENV).is_ok();
@@ -404,7 +462,7 @@ mod integration_tests {
                 }
             }?;
 
-            wait_tcp(&address, BINDLE_SERVER_BINARY).await?;
+            wait_tcp(&address, &mut server_handle, BINDLE_SERVER_BINARY).await?;
 
             Ok(Self {
                 url,
@@ -472,7 +530,7 @@ mod integration_tests {
         )
     }
 
-    async fn wait_tcp(url: &str, target: &str) -> Result<()> {
+    async fn wait_tcp(url: &str, process: &mut Child, target: &str) -> Result<()> {
         let mut wait_count = 0;
         loop {
             if wait_count >= 120 {
@@ -481,6 +539,14 @@ mod integration_tests {
                     target, url
                 );
             }
+
+            if let Ok(Some(_)) = process.try_wait() {
+                panic!(
+                    "Process exited before starting to serve {} to start on URL {}",
+                    target, url
+                );
+            }
+
             match TcpStream::connect(&url).await {
                 Ok(_) => break,
                 Err(_) => {
@@ -491,5 +557,34 @@ mod integration_tests {
         }
 
         Ok(())
+    }
+
+    fn file_digest_string(path: impl AsRef<Path>) -> Result<String> {
+        use sha2::{Digest, Sha256};
+        let mut file = std::fs::File::open(&path)?;
+        let mut sha = Sha256::new();
+        std::io::copy(&mut file, &mut sha)?;
+        let digest_value = sha.finalize();
+        let digest_string = format!("{:x}", digest_value);
+        Ok(digest_string)
+    }
+
+    struct AutoDeleteFile {
+        pub path: PathBuf,
+    }
+
+    fn replace_text(template_path: impl AsRef<Path>, from: &str, to: &str) -> AutoDeleteFile {
+        let dest = template_path.as_ref().with_extension("temp");
+        let source_text =
+            std::fs::read_to_string(template_path).expect("failed to read manifest template");
+        let result_text = source_text.replace(from, to);
+        std::fs::write(&dest, result_text).expect("failed to write temp manifest");
+        AutoDeleteFile { path: dest }
+    }
+
+    impl Drop for AutoDeleteFile {
+        fn drop(&mut self) {
+            std::fs::remove_file(&self.path).unwrap();
+        }
     }
 }

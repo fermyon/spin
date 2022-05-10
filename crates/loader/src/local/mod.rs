@@ -18,21 +18,27 @@ use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
-use std::{path::Path, sync::Arc};
+use std::{path::Path, str::FromStr, sync::Arc};
 use tokio::{fs::File, io::AsyncReadExt};
+
+use crate::bindle::BindleConnectionInfo;
 
 /// Given the path to a spin.toml manifest file, prepare its assets locally and
 /// get a prepared application configuration consumable by a Spin execution context.
 /// If a directory is provided, use it as the base directory to expand the assets,
 /// otherwise create a new temporary directory.
-pub async fn from_file(app: impl AsRef<Path>, base_dst: impl AsRef<Path>) -> Result<Application> {
+pub async fn from_file(
+    app: impl AsRef<Path>,
+    base_dst: impl AsRef<Path>,
+    bindle_connection: &Option<BindleConnectionInfo>,
+) -> Result<Application> {
     let app = app
         .as_ref()
         .absolutize()
         .context("Failed to resolve absolute path to manifest file")?;
     let manifest = raw_manifest_from_file(&app).await?;
 
-    prepare_any_version(manifest, app, base_dst).await
+    prepare_any_version(manifest, app, base_dst, bindle_connection).await
 }
 
 /// Reads the spin.toml file as a raw manifest.
@@ -54,9 +60,10 @@ async fn prepare_any_version(
     raw: RawAppManifestAnyVersion,
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
+    bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<Application> {
     match raw {
-        RawAppManifestAnyVersion::V1(raw) => prepare(raw, src, base_dst).await,
+        RawAppManifestAnyVersion::V1(raw) => prepare(raw, src, base_dst, bindle_connection).await,
     }
 }
 
@@ -79,6 +86,7 @@ async fn prepare(
     mut raw: RawAppManifest,
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
+    bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<Application> {
     let info = info(raw.info, &src);
 
@@ -104,7 +112,7 @@ async fn prepare(
     let components = future::join_all(
         raw.components
             .into_iter()
-            .map(|c| async { core(c, &src, &base_dst).await })
+            .map(|c| async { core(c, &src, &base_dst, bindle_connection).await })
             .collect::<Vec<_>>(),
     )
     .await
@@ -125,7 +133,10 @@ async fn core(
     raw: RawComponentManifest,
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
+    bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<CoreComponent> {
+    let id = raw.id;
+
     let src = src
         .as_ref()
         .parent()
@@ -139,12 +150,33 @@ async fn core(
 
             ModuleSource::FileReference(p)
         }
-        config::RawModuleSource::Bindle(_) => {
-            todo!("Bindle module sources are not yet supported in file-based app config")
+        config::RawModuleSource::Bindle(b) => {
+            let bindle_id = bindle::Id::from_str(&b.reference).with_context(|| {
+                format!("Invalid bindle ID {} in component {}", b.reference, id)
+            })?;
+            let parcel_sha = &b.parcel;
+            let client = match bindle_connection {
+                None => anyhow::bail!(
+                    "Component {} requires a Bindle connection but none was specified",
+                    id
+                ),
+                Some(c) => c.client()?,
+            };
+            let bindle_reader = crate::bindle::BindleReader::remote(&client, &bindle_id);
+            let bytes = bindle_reader
+                .get_parcel(parcel_sha)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to download parcel {}@{} for component {}",
+                        bindle_id, parcel_sha, id
+                    )
+                })?;
+            let name = format!("{}@{}", bindle_id, parcel_sha);
+            ModuleSource::Buffer(bytes, name)
         }
     };
 
-    let id = raw.id;
     let description = raw.description;
     let mounts = match raw.wasm.files {
         Some(f) => assets::prepare_component(&f, src, &base_dst, &id).await?,

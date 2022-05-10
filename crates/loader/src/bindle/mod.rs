@@ -6,18 +6,17 @@
 mod assets;
 /// Configuration representation for a Spin application in Bindle.
 pub mod config;
+mod connection;
 /// Bindle helper functions.
 mod utils;
 
 use crate::bindle::{
     config::{RawAppManifest, RawComponentManifest},
-    utils::{find_manifest, parcels_in_group, BindleReader},
+    utils::{find_manifest, parcels_in_group},
 };
 use anyhow::{anyhow, Context, Result};
-use bindle::{
-    client::{tokens::NoToken, Client},
-    Invoice,
-};
+use bindle::Invoice;
+pub use connection::BindleConnectionInfo;
 use futures::future;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
@@ -25,7 +24,8 @@ use spin_manifest::{
 };
 use std::{path::Path, sync::Arc};
 use tracing::log;
-pub use utils::{BindleTokenManager, SPIN_MANIFEST_MEDIA_TYPE};
+pub(crate) use utils::BindleReader;
+pub use utils::SPIN_MANIFEST_MEDIA_TYPE;
 
 /// Given a Bindle server URL and reference, pull it, expand its assets locally, and get a
 /// prepared application configuration consumable by a Spin execution context.
@@ -34,8 +34,8 @@ pub use utils::{BindleTokenManager, SPIN_MANIFEST_MEDIA_TYPE};
 pub async fn from_bindle(id: &str, url: &str, base_dst: impl AsRef<Path>) -> Result<Application> {
     // TODO
     // Handle Bindle authentication.
-    let manager = BindleTokenManager::NoToken(NoToken);
-    let client = Client::new(url, manager)?;
+    let connection_info = BindleConnectionInfo::new(url, false, None, None);
+    let client = connection_info.client()?;
     let reader = BindleReader::remote(&client, &id.parse()?);
 
     prepare(id, url, &reader, base_dst).await

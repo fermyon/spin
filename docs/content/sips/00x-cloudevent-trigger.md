@@ -155,6 +155,19 @@ func main() {
 }
 ```
 
+## Implementation
+### Funtional Requirements
+1. Enable Rust SDK to serialize/deserialize CloudEvents using CloudEvnets SDK.
+2. Enable Go SDK to serialize/deserialize CloudEvents using CloudEvnets SDK.
+3. Add a new CloudEvents component macro to Rust SDK.
+4. Add CloudEvents webhook to both Rust and Go SDK.
+5. Fully test the new CloudEvents component.
+6. Write examples for new CloudEvents component.
+
+### Non-Functional Requirements
+1. Scale spin to support thousands of CloudEvents requests per second.
+2. Establish reasonable performance metrics for the new CloudEvents component.
+
 ## Future design considerations
 
 #### More transport protocols bindings

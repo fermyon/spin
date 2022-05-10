@@ -1,6 +1,6 @@
 title = "SIP 001 - Spin Deploy"
 template = "main"
-
+date = "2022-03-18T14:53:30Z"
 ---
 
 Summary: A Spin CLI command that will deploy a Spin application to the cloud

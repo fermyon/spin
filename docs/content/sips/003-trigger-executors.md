@@ -1,6 +1,6 @@
-title = "SIP xxx - Trigger Executors"
+title = "SIP 003 - Trigger Executors"
 template = "main"
-
+date = "2022-04-29T14:53:30Z"
 ---
 
 Summary: A new architecture for Spin trigger executors.

@@ -28,7 +28,7 @@ impl OutboundHttp {
 
     /// Check if guest module is allowed to send request to URL, based on the list of
     /// allowed hosts defined by the runtime. If the list of allowed hosts contains
-    /// `*`, then all hosts are allowed.
+    /// `insecure:allow-all`, then all hosts are allowed.
     /// If `None` is passed, the guest module is not allowed to send the request.
     fn is_allowed(url: &str, allowed_hosts: Option<Vec<String>>) -> Result<bool, HttpError> {
         let url_host = Url::parse(url)

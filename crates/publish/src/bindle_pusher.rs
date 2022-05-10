@@ -17,6 +17,11 @@ pub async fn push_all(
             &bindle_connection_info.base_url
         )
     })?;
+
+    if client.get_yanked_invoice(bindle_id).await.is_ok() {
+        anyhow::bail!("Bindle {} already exists on the server", bindle_id);
+    }
+
     reader
         .push(client)
         .await

@@ -50,3 +50,7 @@ $ spin up
 
 We are delighted that you are interested in making Spin better! Thank you!
 Please follow the [contributing guide](./docs/content/contributing.md).
+
+## Developer Meetings
+
+Join the Spin monthly developer meetings. More info [here](https://hackmd.io/@radu/H1od0apSc).

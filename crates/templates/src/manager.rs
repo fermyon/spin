@@ -16,6 +16,37 @@ pub trait ProgressReporter {
     fn report(&self, message: impl AsRef<str>);
 }
 
+#[derive(Debug)]
+pub struct InstallOptions {
+    exists_behaviour: ExistsBehaviour,
+}
+
+impl InstallOptions {
+    pub fn update(self, update: bool) -> Self {
+        let exists_behaviour = if update {
+            ExistsBehaviour::Update
+        } else {
+            ExistsBehaviour::Skip
+        };
+
+        Self { exists_behaviour }
+    }
+}
+
+impl Default for InstallOptions {
+    fn default() -> Self {
+        Self {
+            exists_behaviour: ExistsBehaviour::Skip,
+        }
+    }
+}
+
+#[derive(Debug)]
+enum ExistsBehaviour {
+    Skip,
+    Update,
+}
+
 enum InstallationResult {
     Installed(Template),
     Skipped(String, SkippedReason),
@@ -39,6 +70,7 @@ impl TemplateManager {
     pub async fn install(
         &self,
         source: &TemplateSource,
+        options: &InstallOptions,
         reporter: &impl ProgressReporter,
     ) -> anyhow::Result<InstallationResults> {
         if source.requires_copy() {
@@ -59,7 +91,7 @@ impl TemplateManager {
 
         for template_dir in template_dirs {
             let install_result = self
-                .install_one(&template_dir, reporter)
+                .install_one(&template_dir, options, reporter)
                 .await
                 .with_context(|| {
                     format!("Failed to install template from {}", template_dir.display())
@@ -79,6 +111,7 @@ impl TemplateManager {
     async fn install_one(
         &self,
         source_dir: &Path,
+        options: &InstallOptions,
         reporter: &impl ProgressReporter,
     ) -> anyhow::Result<InstallationResult> {
         let layout = TemplateLayout::new(source_dir);
@@ -90,42 +123,24 @@ impl TemplateManager {
         reporter.report(&message);
 
         let dest_dir = self.store.get_directory(&id);
-        if dest_dir.exists() {
-            return Ok(InstallationResult::Skipped(
-                id.to_owned(),
-                SkippedReason::AlreadyExists,
-            ));
-        }
 
-        tokio::fs::create_dir_all(&dest_dir)
-            .await
-            .with_context(|| {
-                format!(
-                    "Failed to create directory {} for {}",
-                    dest_dir.display(),
-                    id
-                )
-            })?;
+        let template = if dest_dir.exists() {
+            match options.exists_behaviour {
+                ExistsBehaviour::Skip => {
+                    return Ok(InstallationResult::Skipped(
+                        id.to_owned(),
+                        SkippedReason::AlreadyExists,
+                    ))
+                }
+                ExistsBehaviour::Update => {
+                    copy_template_over_existing(id, source_dir, &dest_dir).await?
+                }
+            }
+        } else {
+            copy_template_into(id, source_dir, &dest_dir).await?
+        };
 
-        fs_extra::dir::copy(source_dir, &dest_dir, &copy_content()).with_context(|| {
-            format!(
-                "Failed to copy template content from {} to {} for {}",
-                source_dir.display(),
-                dest_dir.display(),
-                id
-            )
-        })?;
-
-        let dest_layout = TemplateLayout::new(&dest_dir);
-        let dest_template = Template::load_from(&dest_layout).with_context(|| {
-            format!(
-                "Template {} was not copied correctly into {}",
-                id,
-                dest_dir.display()
-            )
-        })?;
-
-        Ok(InstallationResult::Installed(dest_template))
+        Ok(InstallationResult::Installed(template))
     }
 
     pub async fn uninstall(&self, template_id: impl AsRef<str>) -> anyhow::Result<()> {
@@ -164,6 +179,127 @@ impl TemplateManager {
             .map(|l| Template::load_from(&l))
             .transpose()
     }
+}
+
+async fn copy_template_over_existing(
+    id: &str,
+    source_dir: &Path,
+    dest_dir: &Path,
+) -> anyhow::Result<Template> {
+    // The nearby directory to which we initially copy the source
+    let stage_dir = dest_dir.with_extension(".stage");
+    // The nearby directory to which we move the existing
+    let unstage_dir = dest_dir.with_extension(".unstage");
+
+    // Clean up temp directories in case left over from previous failures.
+    if stage_dir.exists() {
+        tokio::fs::remove_dir_all(&stage_dir)
+            .await
+            .with_context(|| {
+                format!(
+                    "Failed while deleting {} in order to update {}",
+                    stage_dir.display(),
+                    id
+                )
+            })?
+    };
+
+    if unstage_dir.exists() {
+        tokio::fs::remove_dir_all(&unstage_dir)
+            .await
+            .with_context(|| {
+                format!(
+                    "Failed while deleting {} in order to update {}",
+                    unstage_dir.display(),
+                    id
+                )
+            })?
+    };
+
+    // Copy template source into stage directory, and do best effort
+    // cleanup if it goes wrong.
+    let copy_to_stage_err = copy_template_into(id, source_dir, &stage_dir).await.err();
+    if let Some(e) = copy_to_stage_err {
+        let _ = tokio::fs::remove_dir_all(&stage_dir).await;
+        return Err(e);
+    };
+
+    // We have a valid template in stage.  Now, move existing to unstage...
+    if let Err(e) = tokio::fs::rename(dest_dir, &unstage_dir)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to move existing template out of {} in order to update {}",
+                dest_dir.display(),
+                id
+            )
+        })
+    {
+        let _ = tokio::fs::remove_dir_all(&stage_dir).await;
+        return Err(e);
+    }
+
+    // ...and move stage into position.
+    if let Err(e) = tokio::fs::rename(&stage_dir, dest_dir)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to move new template into {} in order to update {}",
+                dest_dir.display(),
+                id
+            )
+        })
+    {
+        // Put it back quick and hope nobody notices.
+        let _ = tokio::fs::rename(&unstage_dir, dest_dir).await;
+        let _ = tokio::fs::remove_dir_all(&stage_dir).await;
+        return Err(e);
+    }
+
+    // Remove whichever directories remain.  (As we are ignoring errors, we
+    // can skip checking whether the directories exist.)
+    let _ = tokio::fs::remove_dir_all(&stage_dir).await;
+    let _ = tokio::fs::remove_dir_all(&unstage_dir).await;
+
+    load_template_from(id, dest_dir)
+}
+
+async fn copy_template_into(
+    id: &str,
+    source_dir: &Path,
+    dest_dir: &Path,
+) -> anyhow::Result<Template> {
+    tokio::fs::create_dir_all(&dest_dir)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to create directory {} for {}",
+                dest_dir.display(),
+                id
+            )
+        })?;
+
+    fs_extra::dir::copy(source_dir, &dest_dir, &copy_content()).with_context(|| {
+        format!(
+            "Failed to copy template content from {} to {} for {}",
+            source_dir.display(),
+            dest_dir.display(),
+            id
+        )
+    })?;
+
+    load_template_from(id, dest_dir)
+}
+
+fn load_template_from(id: &str, dest_dir: &Path) -> anyhow::Result<Template> {
+    let layout = TemplateLayout::new(&dest_dir);
+    Template::load_from(&layout).with_context(|| {
+        format!(
+            "Template {} was not copied correctly into {}",
+            id,
+            dest_dir.display()
+        )
+    })
 }
 
 fn copy_content() -> fs_extra::dir::CopyOptions {
@@ -213,7 +349,10 @@ mod tests {
 
         assert_eq!(0, manager.list().await.unwrap().len());
 
-        let install_result = manager.install(&source, &DiscardingReporter).await.unwrap();
+        let install_result = manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
         assert_eq!(TPLS_IN_THIS, install_result.installed.len());
         assert_eq!(0, install_result.skipped.len());
 
@@ -227,7 +366,10 @@ mod tests {
         let manager = TemplateManager { store };
         let source = TemplateSource::File(project_root());
 
-        manager.install(&source, &DiscardingReporter).await.unwrap();
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
         assert_eq!(TPLS_IN_THIS, manager.list().await.unwrap().len());
         manager.uninstall("http-rust").await.unwrap();
 
@@ -243,12 +385,18 @@ mod tests {
         let manager = TemplateManager { store };
         let source = TemplateSource::File(project_root());
 
-        manager.install(&source, &DiscardingReporter).await.unwrap();
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
         manager.uninstall("http-rust").await.unwrap();
         manager.uninstall("http-go").await.unwrap();
         assert_eq!(TPLS_IN_THIS - 2, manager.list().await.unwrap().len());
 
-        let install_result = manager.install(&source, &DiscardingReporter).await.unwrap();
+        let install_result = manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
         assert_eq!(2, install_result.installed.len());
         assert_eq!(TPLS_IN_THIS - 2, install_result.skipped.len());
 
@@ -259,13 +407,46 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn can_update_existing() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+        manager.uninstall("http-rust").await.unwrap();
+        assert_eq!(TPLS_IN_THIS - 1, manager.list().await.unwrap().len());
+
+        let install_result = manager
+            .install(
+                &source,
+                &InstallOptions::default().update(true),
+                &DiscardingReporter,
+            )
+            .await
+            .unwrap();
+        assert_eq!(3, install_result.installed.len());
+        assert_eq!(0, install_result.skipped.len());
+
+        let installed = manager.list().await.unwrap();
+        assert_eq!(TPLS_IN_THIS, installed.len());
+        assert!(installed.iter().any(|t| t.id() == "http-go"));
+    }
+
+    #[tokio::test]
     async fn can_read_installed_template() {
         let temp_dir = tempdir().unwrap();
         let store = TemplateStore::new(temp_dir.path());
         let manager = TemplateManager { store };
         let source = TemplateSource::File(project_root());
 
-        manager.install(&source, &DiscardingReporter).await.unwrap();
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
 
         let template = manager.get("http-rust").unwrap().unwrap();
         assert_eq!(
@@ -287,7 +468,10 @@ mod tests {
         let manager = TemplateManager { store };
         let source = TemplateSource::File(project_root());
 
-        manager.install(&source, &DiscardingReporter).await.unwrap();
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
 
         let template = manager.get("http-rust").unwrap().unwrap();
 

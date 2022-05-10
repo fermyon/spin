@@ -1,0 +1,12 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A simple Spin application written in (Tiny)Go."
+name = "spin-http-tinygo-test"
+trigger = { type = "http", base = "/" }
+version = "1.0.0"
+
+[[component]]
+id = "http-tinygo-test"
+source = "main.wasm"
+[component.trigger]
+route = "/hello/..."

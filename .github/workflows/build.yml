@@ -30,6 +30,9 @@ jobs:
               bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-linux-amd64.tar.gz",
               bindleBinary: "bindle-server",
               pathInBindleArchive: "bindle-server",
+              wasmtimeUrl: "https://github.com/bytecodealliance/wasmtime/releases/download/v0.36.0/wasmtime-v0.36.0-x86_64-linux.tar.xz",
+              wasmtimeBinary: "wasmtime",
+              pathInWasmtimeArchive: "wasmtime-v0.36.0-x86_64-linux/wasmtime",
               platformAgnosticChecks: true,
             }
           - {
@@ -73,7 +76,6 @@ jobs:
           url: ${{ matrix.config.bindleUrl }}
           pathInArchive: ${{ matrix.config.pathInBindleArchive }}
 
-
       - uses: Swatinem/rust-cache@v1
 
       - name: Cargo Format
@@ -95,3 +97,27 @@ jobs:
         env:
           RUST_LOG: spin=trace
 
+      - name: "Install Go"
+        if: ${{ matrix.config.platformAgnosticChecks }}
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.17'
+
+      - name: "Install TinyGo"
+        if: ${{ matrix.config.platformAgnosticChecks }}
+        run: |
+          wget https://github.com/tinygo-org/tinygo/releases/download/v0.22.0/tinygo_0.22.0_amd64.deb
+          sudo dpkg -i tinygo_0.22.0_amd64.deb
+          tinygo env
+
+      - name: "Install Wasmtime"
+        uses: engineerd/configurator@v0.0.8
+        if: ${{ matrix.config.platformAgnosticChecks }}
+        with:
+          name: ${{ matrix.config.wasmtimeBinary }}
+          url: ${{ matrix.config.wasmtimeUrl }}
+          pathInArchive: ${{ matrix.config.pathInWasmtimeArchive }}
+
+      - name: "Test Go SDK"
+        if: ${{ matrix.config.platformAgnosticChecks }}
+        run: make test-sdk-go

@@ -26,9 +26,9 @@ source = "target/wasm32-wasi/release/spinhelloworld.wasm"
 route = "/hello"
 ```
 
-## Configuration reference
+## Application manifest reference
 
-### Application manifest
+### Application configuration
 
 The following are the fields supported by the `spin.toml` manifest file:
 
@@ -54,7 +54,8 @@ configuration has the following fields:
     - `type` (REQUIRED): The application trigger type with the value `"redis"`.
     - `address` (REQUIRED): The address of the Redis instance the components
 are using for message subscriptions.
-- a list of `component` objects (REQUIRED) defining the application components.
+- `config` (OPTIONAL): [Custom configuration](#custom-configuration) "slots".
+- A list of `component` objects (REQUIRED) defining the application components.
 
 ### Component configuration
 
@@ -113,6 +114,54 @@ Each `component` object has the following fields:
   - `redis`: The configuration for a Redis component. This has the following fields:
     - `channel` (REQUIRED): The Redis channel for which, whenever a new message
 is published, the component will be invoked.
+- `config` (OPTIONAL): [Custom configuration](#custom-configuration) values.
+
+## Custom Configuration
+
+Spin applications may define custom configuration which can be looked up by
+component code via the [spin-config interface](https://github.com/fermyon/spin/blob/main/wit/ephemeral/spin-config.wit).
+
+### Custom Config Slots
+
+Application-global custom config "slots" are defined in the top-level `[config]`
+section. These entries aren't accessed directly by components, but are referenced
+by [component config](#component-custom-config) value templates. Each entry must
+either have a `default` value or be marked as `required = true`. "Required" entries
+must be [provided](#custom-config-providers) with a value.
+
+```toml
+[config]
+api_host = { default = "api.example.com" }
+api_key = { required = true }
+```
+
+### Component Custom Config
+
+The configuration entries available to a component are listed in its
+`[component.config]` section. Configuration values may reference
+[config slots](#custom-config-slots) with simple
+[mustache](https://mustache.github.io/)-inspired string templates.
+
+```toml
+[[component]]
+# ...
+[component.config]
+api_base_url = "https://{{ api_host }}/v1"
+api_key = "{{ api_key }}"
+```
+
+### Custom Config Providers
+
+[Custom config slot](#custom-config-slots) values may be set at runtime by
+config "providers. Currently there is only one provider: the environment
+variable provider, which gets config values from the `spin` process's
+environment (_not_ the component `environment`). Config keys are translated
+to environment variables by upper-casing and prepending with `SPIN_APP_`:
+
+```sh
+$ export SPIN_APP_API_KEY = "1234"
+$ spin up
+```
 
 ## Examples
 

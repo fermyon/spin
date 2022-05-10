@@ -1,7 +1,7 @@
 use std::{
     collections::HashSet,
     io::{LineWriter, Write},
-    sync::{Arc, RwLock, RwLockReadGuard},
+    sync::{Arc, RwLock, RwLockReadGuard}, path::PathBuf,
 };
 use wasi_common::{
     pipe::{ReadPipe, WritePipe},
@@ -36,6 +36,27 @@ pub trait OutputBuffers {
     fn stdout(&self) -> &[u8];
     /// The buffer in which stderr has been saved.
     fn stderr(&self) -> &[u8];
+}
+
+/// CustomIoPipes that can be passed to `ExecutionContextConfiguration`
+/// to direct out and err
+#[derive(Clone, Debug)]
+pub struct CustomIoPipes {
+    pub(crate) stdout_pipe_path: PathBuf,
+    pub(crate) stderr_pipe_path: PathBuf,
+}
+
+impl CustomIoPipes {
+       /// Constructs an instance from a set of PathBuf objects.
+       pub fn new(
+        stdout_pipe_path: PathBuf,
+        stderr_pipe_path: PathBuf,
+    ) -> Self {
+        Self {
+            stdout_pipe_path,
+            stderr_pipe_path,
+        }
+    } 
 }
 
 /// A set of redirected standard I/O streams with which

@@ -41,12 +41,12 @@ pub trait OutputBuffers {
 /// CustomIoPipes that can be passed to `ExecutionContextConfiguration`
 /// to direct out and err
 #[derive(Clone, Debug)]
-pub struct CustomIoPipes {
+pub struct CustomLogPipes {
     pub(crate) stdout_pipe_path: PathBuf,
     pub(crate) stderr_pipe_path: PathBuf,
 }
 
-impl CustomIoPipes {
+impl CustomLogPipes {
        /// Constructs an instance from a set of PathBuf objects.
        pub fn new(
         stdout_pipe_path: PathBuf,

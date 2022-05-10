@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
 
 /// Application configuration file format.
 #[derive(Clone, Debug, Deserialize, Serialize)]

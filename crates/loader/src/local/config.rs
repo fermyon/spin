@@ -4,9 +4,10 @@
 
 #![deny(missing_docs)]
 
+use std::{collections::HashMap, path::PathBuf};
+
 use serde::{Deserialize, Serialize};
 use spin_manifest::{ApplicationTrigger, TriggerConfig};
-use std::{collections::HashMap, path::PathBuf};
 
 /// Container for any version of the manifest.
 #[derive(Clone, Debug, Deserialize, Serialize)]

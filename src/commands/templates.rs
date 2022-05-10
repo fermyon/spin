@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use comfy_table::Table;
-
 use spin_templates::{
     InstallOptions, InstallationResults, ProgressReporter, SkippedReason, Template,
     TemplateManager, TemplateSource,

@@ -1,13 +1,14 @@
 #[cfg(test)]
 mod integration_tests {
-    use anyhow::{Context, Result};
-    use hyper::{header::HeaderName, Body, Client, Response};
     use std::{
         ffi::OsStr,
         net::{Ipv4Addr, SocketAddrV4, TcpListener},
         process::{self, Child, Command},
         time::Duration,
     };
+
+    use anyhow::{Context, Result};
+    use hyper::{header::HeaderName, Body, Client, Response};
     use tempfile::TempDir;
     use tokio::{net::TcpStream, time::sleep};
 

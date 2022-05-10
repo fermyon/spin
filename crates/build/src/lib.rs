@@ -2,10 +2,11 @@
 
 //! A library for building Spin components.
 
+use std::path::Path;
+
 use anyhow::{bail, Context, Result};
 use path_absolutize::Absolutize;
 use spin_loader::local::config::{RawAppManifest, RawComponentManifest};
-use std::path::Path;
 use subprocess::{Exec, Redirection};
 use tracing::log;
 

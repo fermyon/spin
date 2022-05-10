@@ -1,5 +1,7 @@
 #![deny(missing_docs)]
 
+use std::{fmt::Debug, path::Path, sync::Arc};
+
 use anyhow::{anyhow, bail, Context, Error, Result};
 use async_trait::async_trait;
 use bindle::{
@@ -14,7 +16,6 @@ use bindle::{
 use futures::{Stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use reqwest::RequestBuilder;
-use std::{fmt::Debug, path::Path, sync::Arc};
 use tokio::fs;
 use tokio_util::codec::{BytesCodec, FramedRead};
 

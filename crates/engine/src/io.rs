@@ -3,6 +3,7 @@ use std::{
     io::{LineWriter, Write},
     sync::{Arc, RwLock, RwLockReadGuard},
 };
+
 use wasi_common::{
     pipe::{ReadPipe, WritePipe},
     WasiFile,

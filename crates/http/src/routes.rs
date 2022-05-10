@@ -2,11 +2,12 @@
 
 #![deny(missing_docs)]
 
+use std::fmt;
+
 use anyhow::{Context, Result};
 use http::Uri;
 use indexmap::IndexMap;
 use spin_manifest::{ComponentMap, HttpConfig};
-use std::fmt;
 
 /// Router for the HTTP trigger.
 #[derive(Clone, Debug)]

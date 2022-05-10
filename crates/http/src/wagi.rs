@@ -1,4 +1,9 @@
-use crate::{routes::RoutePattern, ExecutionContext, HttpExecutor};
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    sync::{Arc, RwLock, RwLockReadGuard},
+};
+
 use anyhow::Result;
 use async_trait::async_trait;
 use hyper::{body, Body, Request, Response};
@@ -6,14 +11,11 @@ use spin_engine::io::{
     redirect_to_mem_buffer, Follow, ModuleIoRedirects, OutputBuffers, WriteDestinations,
 };
 use spin_manifest::WagiConfig;
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    sync::{Arc, RwLock, RwLockReadGuard},
-};
 use tokio::task::spawn_blocking;
 use tracing::log;
 use wasi_common::pipe::{ReadPipe, WritePipe};
+
+use crate::{routes::RoutePattern, ExecutionContext, HttpExecutor};
 
 #[derive(Clone)]
 pub struct WagiHttpExecutor {

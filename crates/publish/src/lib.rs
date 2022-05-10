@@ -6,15 +6,15 @@ mod bindle_pusher;
 mod bindle_writer;
 mod expander;
 
-pub use bindle_pusher::push_all;
-pub use bindle_writer::write;
-pub use expander::expand_manifest;
+use std::sync::Arc;
 
 use bindle::client::{
     tokens::{HttpBasic, NoToken, TokenManager},
     Client, ClientBuilder,
 };
-use std::sync::Arc;
+pub use bindle_pusher::push_all;
+pub use bindle_writer::write;
+pub use expander::expand_manifest;
 
 /// BindleConnectionInfo holds the details of a connection to a
 /// Bindle server, including url, insecure configuration and an

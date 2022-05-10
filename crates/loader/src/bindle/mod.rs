@@ -9,10 +9,8 @@ pub mod config;
 /// Bindle helper functions.
 mod utils;
 
-use crate::bindle::{
-    config::{RawAppManifest, RawComponentManifest},
-    utils::{find_manifest, parcels_in_group, BindleReader},
-};
+use std::{path::Path, sync::Arc};
+
 use anyhow::{anyhow, Context, Result};
 use bindle::{
     client::{tokens::NoToken, Client},
@@ -23,9 +21,13 @@ use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
-use std::{path::Path, sync::Arc};
 use tracing::log;
 pub use utils::{BindleTokenManager, SPIN_MANIFEST_MEDIA_TYPE};
+
+use crate::bindle::{
+    config::{RawAppManifest, RawComponentManifest},
+    utils::{find_manifest, parcels_in_group, BindleReader},
+};
 
 /// Given a Bindle server URL and reference, pull it, expand its assets locally, and get a
 /// prepared application configuration consumable by a Spin execution context.

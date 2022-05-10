@@ -1,16 +1,18 @@
 #![deny(missing_docs)]
 
-use crate::{
-    assets::{create_dir, ensure_under},
-    bindle::utils::BindleReader,
-};
+use std::path::Path;
+
 use anyhow::{anyhow, bail, Context, Result};
 use bindle::{Id, Label};
 use futures::{future, stream, StreamExt, TryStreamExt};
 use spin_manifest::DirectoryMount;
-use std::path::Path;
 use tokio::{fs, io::AsyncWriteExt};
 use tracing::log;
+
+use crate::{
+    assets::{create_dir, ensure_under},
+    bindle::utils::BindleReader,
+};
 
 /// Maximum number of assets to download in parallel
 const MAX_PARALLEL_COPIES: usize = 16;

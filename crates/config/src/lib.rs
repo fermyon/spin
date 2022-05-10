@@ -7,9 +7,8 @@ mod tree;
 use std::fmt::Debug;
 
 pub use provider::Provider;
-pub use tree::{Tree, TreePath};
-
 use template::{Part, Template};
+pub use tree::{Tree, TreePath};
 
 /// A config resolution error.
 #[derive(Debug, thiserror::Error)]

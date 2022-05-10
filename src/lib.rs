@@ -1,10 +1,11 @@
 pub mod commands;
 pub(crate) mod opts;
 
+use std::path::{Path, PathBuf};
+
 use anyhow::{anyhow, bail, Result};
 use semver::BuildMetadata;
 use spin_manifest::Application;
-use std::path::{Path, PathBuf};
 
 pub(crate) fn app_dir(app_file: impl AsRef<Path>) -> Result<PathBuf> {
     let path_buf = app_file

@@ -1,7 +1,6 @@
 use anyhow::Error;
 use clap::Parser;
 use lazy_static::lazy_static;
-
 use spin_cli::commands::{
     bindle::BindleCommands, build::BuildCommand, deploy::DeployCommand, new::NewCommand,
     templates::TemplateCommands, up::UpCommand,

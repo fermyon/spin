@@ -2,7 +2,6 @@ use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-
 use spin_templates::{RunOptions, TemplateManager};
 
 /// Scaffold a new application or component based on a template.

@@ -1,7 +1,6 @@
 use std::time::Instant;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
 use futures::future::join_all;
 use http::Request;
 use spin_http_engine::HttpTrigger;

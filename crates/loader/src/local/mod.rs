@@ -10,6 +10,8 @@ pub mod config;
 #[cfg(test)]
 mod tests;
 
+use std::{path::Path, sync::Arc};
+
 use anyhow::{anyhow, bail, Context, Result};
 use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawComponentManifest};
 use futures::future;
@@ -18,7 +20,6 @@ use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
-use std::{path::Path, sync::Arc};
 use tokio::{fs::File, io::AsyncReadExt};
 
 /// Given the path to a spin.toml manifest file, prepare its assets locally and

@@ -2,15 +2,16 @@
 
 #![deny(missing_docs)]
 
-use indexmap::IndexMap;
-use serde::{Deserialize, Serialize};
-use spin_config::Resolver;
 use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
     path::PathBuf,
     sync::Arc,
 };
+
+use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
+use spin_config::Resolver;
 
 /// A trigger error.
 #[derive(Debug, thiserror::Error)]

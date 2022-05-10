@@ -1,9 +1,10 @@
-use rustls_pemfile::{certs, pkcs8_private_keys};
 use std::{
     fs, io,
     path::{Path, PathBuf},
     sync::Arc,
 };
+
+use rustls_pemfile::{certs, pkcs8_private_keys};
 use tokio_rustls::{rustls, TlsAcceptor};
 
 /// TLS configuration for the server.

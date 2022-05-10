@@ -1,9 +1,11 @@
-use super::*;
+use std::sync::Once;
+
 use anyhow::Result;
 use spin_manifest::{RedisConfig, RedisExecutor};
 use spin_testing::TestConfig;
 use spin_trigger::build_trigger_from_app;
-use std::sync::Once;
+
+use super::*;
 
 static LOGGER: Once = Once::new();
 

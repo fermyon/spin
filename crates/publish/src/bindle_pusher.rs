@@ -1,8 +1,9 @@
 #![deny(missing_docs)]
 
+use std::path::Path;
+
 use anyhow::{Context, Result};
 use bindle::{standalone::StandaloneRead, Id};
-use std::path::Path;
 
 /// Pushes a standalone bindle to a Bindle server.
 pub async fn push_all(

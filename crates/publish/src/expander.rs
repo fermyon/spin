@@ -1,13 +1,15 @@
 #![deny(missing_docs)]
 
-use crate::bindle_writer::{self, ParcelSources};
+use std::path::{Path, PathBuf};
+
 use anyhow::{Context, Result};
 use bindle::{BindleSpec, Condition, Group, Invoice, Label, Parcel};
 use path_absolutize::Absolutize;
 use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
 use spin_loader::{bindle::config as bindle_schema, local::config as local_schema};
-use std::path::{Path, PathBuf};
+
+use crate::bindle_writer::{self, ParcelSources};
 
 /// Expands a file-based application manifest to a Bindle invoice.
 pub async fn expand_manifest(

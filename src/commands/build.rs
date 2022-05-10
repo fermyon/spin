@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
-
 use spin_loader::local::{config::RawAppManifestAnyVersion, raw_manifest_from_file};
 
 use crate::{

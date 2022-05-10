@@ -4,11 +4,12 @@ use std::{
     path::Path,
 };
 
-use crate::wit::spin_object_store;
 use anyhow::Context;
 use cap_std::{ambient_authority, fs::OpenOptions};
 use spin_engine::host_component::{HostComponent, HostComponentsStateHandle};
 use spin_manifest::CoreComponent;
+
+use crate::wit::spin_object_store;
 
 pub struct FileObjectStore {
     root: cap_std::fs::Dir,

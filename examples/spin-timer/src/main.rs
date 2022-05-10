@@ -1,13 +1,14 @@
 // The wit_bindgen_wasmtime::import below is triggering this lint.
 #![allow(clippy::needless_question_mark)]
 
+use std::{sync::Arc, time::Duration};
+
 use anyhow::Result;
 use async_trait::async_trait;
 use spin_engine::{io::FollowComponents, Builder, ExecutionContextConfiguration};
 use spin_manifest::{ComponentMap, CoreComponent, ModuleSource, WasmConfig};
 use spin_timer::SpinTimerData;
 use spin_trigger::Trigger;
-use std::{sync::Arc, time::Duration};
 use tokio::task::spawn_blocking;
 
 wit_bindgen_wasmtime::import!("spin-timer.wit");

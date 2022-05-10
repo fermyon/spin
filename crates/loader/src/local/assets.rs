@@ -1,8 +1,8 @@
 #![deny(missing_docs)]
 
 use crate::assets::{create_dir, ensure_all_under, ensure_under, to_relative};
-use anyhow::{anyhow, bail, Context, Result};
-use futures::future;
+use anyhow::{anyhow, bail, ensure, Context, Result};
+use futures::{future, stream, StreamExt};
 use spin_manifest::DirectoryMount;
 use std::path::{Path, PathBuf};
 use tracing::log;
@@ -178,16 +178,19 @@ fn collect_pattern(pattern: &str, rel: impl AsRef<Path>) -> Result<Vec<FileMount
 
 /// Copy all files to the mount directory.
 async fn copy_all(files: &[FileMount], dir: impl AsRef<Path>) -> Result<()> {
-    let res = future::join_all(files.iter().map(|f| copy(f, &dir))).await;
-    match res
-        .into_iter()
-        .filter_map(|r| r.err())
+    let copy_futures = files.iter().map(|f| copy(f, &dir));
+    let errors = stream::iter(copy_futures)
+        .buffer_unordered(crate::MAX_PARALLEL_ASSET_PROCESSING)
+        .filter_map(|r| future::ready(r.err()))
         .map(|e| log::error!("{:?}", e))
         .count()
-    {
-        0 => Ok(()),
-        n => bail!("Error copying assets: {} file(s) not copied", n),
-    }
+        .await;
+    ensure!(
+        errors == 0,
+        "Error copying assets: {} file(s) not copied",
+        errors
+    );
+    Ok(())
 }
 
 /// Copy a single file to the mount directory, setting it as read-only.

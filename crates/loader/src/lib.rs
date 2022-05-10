@@ -19,3 +19,6 @@ pub use local::from_file;
 
 /// Load a Spin application configuration from Bindle.
 pub use crate::bindle::from_bindle;
+
+/// Maximum number of assets to process in parallel
+pub(crate) const MAX_PARALLEL_ASSET_PROCESSING: usize = 16;

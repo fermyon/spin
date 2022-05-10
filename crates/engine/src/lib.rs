@@ -88,6 +88,7 @@ impl Engine {
 pub struct Builder<T: Default> {
     config: ExecutionContextConfiguration,
     linker: Linker<RuntimeContext<T>>,
+    store: Store<RuntimeContext<T>>,
     engine: Engine,
     host_components: HostComponents,
 }
@@ -103,13 +104,16 @@ impl<T: Default + 'static> Builder<T> {
         config: ExecutionContextConfiguration,
         engine: Engine,
     ) -> Result<Builder<T>> {
-        let linker = Linker::new(&engine.0);
+        let data = RuntimeContext::default();
+        let linker = Linker::new(&engine.inner());
+        let store = Store::new(&engine.inner(), data);
         let host_components = Default::default();
 
         Ok(Self {
             config,
-            engine,
             linker,
+            store,
+            engine,
             host_components,
         })
     }
@@ -140,28 +144,27 @@ impl<T: Default + 'static> Builder<T> {
 
     /// Builds a new instance of the execution context.
     #[instrument(skip(self))]
-    pub async fn build(self) -> Result<ExecutionContext<T>> {
-        let data = RuntimeContext::default();
-        let mut store = Store::new(&self.engine.0, data);
+    pub async fn build(mut self) -> Result<ExecutionContext<T>> {
         let _sloth_warning = warn_if_slothful();
         let mut components = HashMap::new();
         for c in &self.config.components {
             let core = c.clone();
             let module = match c.source.clone() {
                 ModuleSource::FileReference(p) => {
-                    let module = Module::from_file(&self.engine.0, &p).with_context(|| {
-                        format!(
-                            "Cannot create module for component {} from file {}",
-                            &c.id,
-                            &p.display()
-                        )
-                    })?;
+                    let module =
+                        Module::from_file(&self.engine.inner(), &p).with_context(|| {
+                            format!(
+                                "Cannot create module for component {} from file {}",
+                                &c.id,
+                                &p.display()
+                            )
+                        })?;
                     log::trace!("Created module for component {} from file {:?}", &c.id, &p);
                     module
                 }
                 ModuleSource::Buffer(bytes, info) => {
                     let module =
-                        Module::from_binary(&self.engine.0, &bytes).with_context(|| {
+                        Module::from_binary(&self.engine.inner(), &bytes).with_context(|| {
                             format!("Cannot create module for component {} from {}", &c.id, info)
                         })?;
                     log::trace!(
@@ -174,7 +177,7 @@ impl<T: Default + 'static> Builder<T> {
                 }
             };
 
-            let pre = Arc::new(self.linker.instantiate_pre(&mut store, &module)?);
+            let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
             log::trace!("Created pre-instance from module for component {}.", &c.id);
 
             components.insert(c.id.clone(), Component { core, pre });
@@ -344,7 +347,7 @@ impl<T: Default> ExecutionContext<T> {
         ctx.wasi = Some(wasi_ctx.build());
         ctx.data = data;
 
-        let store = Store::new(&self.engine.0, ctx);
+        let store = Store::new(&self.engine.inner(), ctx);
         Ok(store)
     }
 

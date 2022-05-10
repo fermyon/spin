@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 
-pub fn subdirectories(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
+pub(crate) fn subdirectories(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
     let dir_entries = std::fs::read_dir(dir)
         .with_context(|| format!("Failed to read contents of '{}' directory", dir.display()))?;
     let directories = dir_entries

@@ -11,6 +11,7 @@ use crate::{
     store::TemplateLayout,
 };
 
+/// A Spin template.
 #[derive(Debug)]
 pub struct Template {
     id: String,
@@ -66,14 +67,21 @@ impl Template {
         Ok(template)
     }
 
+    /// The ID of the template. This is used to identify the template
+    /// on the Spin command line.
     pub fn id(&self) -> &str {
         &self.id
     }
 
+    /// A human-readable description of the template, provided by the
+    /// template author.
     pub fn description(&self) -> &Option<String> {
         &self.description
     }
 
+    /// A human-readable description of the template, provided by the
+    /// template author, or an empty string if no description was
+    /// provided.
     pub fn description_or_empty(&self) -> &str {
         match &self.description {
             Some(s) => s,
@@ -93,6 +101,10 @@ impl Template {
         &self.content_dir
     }
 
+    /// Creates a runner for the template, governed by the given options. Call
+    /// the relevant associated function of the `Run` to execute the template
+    /// as appropriate to your application (e.g. `interactive()` to prompt the user
+    /// for values and interact with the user at the console).
     pub fn run(self, options: RunOptions) -> Run {
         Run::new(self, options)
     }

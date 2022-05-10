@@ -1,24 +1,24 @@
-title = "SIP xxx - CloudEvents trigger"
+title = "SIP xxx - Spin SDK CloudEvents Support"
 template = "main"
 date = "2022-04-25T14:53:30Z"
 ---
 
-Summary: A CloudEvents trigger for spin.
+Summary: Spin SDK support CloudEvents as a alternative message schema.
 
 Owner: jiazho@microsoft.com
 
 Created: April 24, 2022
 
-Updated: April 24, 2022
+Updated: May 10, 2022
 
 ## Background
 
-Currently spin supports two triggers, one for Redis messages and one for HTTP requests. [CloudEvents](https://cloudevents.io/) are a new standard for eventing and received huge interests from the major cloud providers. Supporting CloudEvents could make spin a great solution for writing serverless applications. 
+Currently Spin supports two triggers, one for Redis messages and one for HTTP requests. [CloudEvents](https://cloudevents.io/) is a new specification for eventing and received huge interests from the major cloud providers. Supporting CloudEvents could make Spin a great solution for writing serverless applications. 
 
 
 ## Proposal
 
-This document proposes adding features in the spin SDK to support CloudEvents. CloudEvents itself is a envelop for the underlying transport protocol, such as AMQP, Kafka, HTTP, etc. This proposal aims at providing a CloudEvent component for the [HTTP Protocol Bindings](https://github.com/cloudevents/spec/blob/main/cloudevents/bindings/http-protocol-binding.md). Here is an example shows the mapping of an event with an HTTP POST request in CloudEvent's binary format.
+This document proposes adding features in the Spin SDK to support CloudEvents. CloudEvents itself is an envelope for the underlying transport protocol, such as AMQP, Kafka, HTTP, etc. This proposal aims at providing a CloudEvents component for the [HTTP Protocol Bindings](https://github.com/cloudevents/spec/blob/main/cloudevents/bindings/http-protocol-binding.md). Here is an example shows the mapping of an event with an HTTP POST request in CloudEvents's binary format.
 ```
 POST /someresource HTTP/1.1
 Host: webhook.example.com
@@ -35,13 +35,13 @@ Content-Length: nnnn
 }
 ```
 
-Creating an HTTP CloudEvents trigger is done by defining the top level application trigger in spin. The following code snippet shows the definition of a HTTP CloudEvents trigger.
+Creating a HTTP CloudEvents trigger is done by defining the top level application trigger in Spin. The following code snippet shows the definition of a HTTP CloudEvents trigger.
 ```toml
 # spin.toml
 trigger = { type = "http", base = "/", schema = "cloudevents" }
 ```
 
-The added `schema` attribute in trigger will tell spin application that it will expect the HTTP request and responses are CloudEvents.
+The added `schema` attribute in trigger will tell Spin application that it will expect the HTTP request and responses are CloudEvents.
 
 > Note that the `schema` attribute is not the same as the `schema` attribute in the CloudEvents spec. The `schema` attribute in the spec is the schema of the payload.
 
@@ -55,23 +55,23 @@ trigger = { type = "http", base = "/" }
 id = "hello"
 source = "target/wasm32-wasi/release/spinhelloworld.wasm"
 description = "A simple component that returns hello."
-schema = "cloudevents"
 [component.trigger]
 route = "/hello"
+schema = "cloudevents"
 ```
 
 > Note that if there is no `schema` attribute in the application or individual component, the HTTP request and responses are not CloudEvents.
 
 ## The WebAssembly interface
 
-The CloudEvent trigger is built on top of the
+The CloudEvents HTTP trigger is built on top of the
 [WebAssembly component model](https://github.com/WebAssembly/component-model).
 The current interface is defined using the
 [WebAssembly Interface (WIT)](https://github.com/bytecodealliance/wit-bindgen/blob/main/WIT.md)
 format, and is a function that takes the event payload as its only parameter:
 
 ```fsharp
-// wit/ephemeral/spin-ce.wit
+// wit/ephemeral/Spin-ce.wit
 
 // The event payload.
 record event {
@@ -92,32 +92,18 @@ record event {
     // The event time.
     time: option<string>,
     // The event data.
-    data: option<string>
+    data: option<list<u8>>
 }
 
-// The entry point for a CloudEvent handler.
+// The entry point for a CloudEvents handler.
 handle-cloudevent: function(event: event) -> expected<event, error>
 ```
 
 
 This is the function that all CloudEvents components must implement, and which is
-used by the Spin Redis executor when instantiating and invoking the component.
+used by the Spin HTTP executor when instantiating and invoking the component.
 
-Notice that the function will return a `expected<event, error>` value. If the sink address is not set, the function will return `expected<event, error>` with `event` as the value. If the sink address is set, spin will make an outbound HTTP request to the sink address and return the response as the value.
-
-Due to the [known issue](https://github.com/bytecodealliance/wit-bindgen/issues/171) of the cannonical ABI representation cannot exceeds the number of parameters (16) in the wasmtime API, the proposed WIT format cannot be compiled. I am proposing an alternative WIT format for CloudEvents:
-
-```fsharp
-// wit/ephemeral/spin-ce.wit
-
-// The event payload.
-type event = string
-
-// The entry point for a CloudEvent handler.
-handle-cloudevent: function(event: event) -> expected<event, error>
-```
-
-At the runtime, Spin will use CloudEvent SDK to parse the event payload and invoke the function. For example, take a look at the [CloudEvents SDK Rust](https://github.com/cloudevents/sdk-rust) library.
+Notice that the function will return a `expected<event, error>` value.
 
 ## The CloudEvents Spin SDK
 ```rust
@@ -144,15 +130,17 @@ import (
  "fmt"
  "context"
 
- spin "github.com/fermyon/spin/sdk/go/event"
+ Spin "github.com/fermyon/Spin/sdk/go/event"
 )
 
-func main() {
- spin.ReceiveEvent(func(event spin.Event) {
-  fmt.Printf("%s", event)
-  spin.SendEvent(ctx, event)
- })
+func init() {
+	spincloudevents.Handle(func(in Spin.Event) (out Spin.Event, err error) {
+		fmt.Printf("%s", event)
+        return in, nil
+	})
 }
+
+func main() {}
 ```
 
 ## Implementation
@@ -165,7 +153,7 @@ func main() {
 6. Write examples for new CloudEvents component.
 
 ### Non-Functional Requirements
-1. Scale spin to support thousands of CloudEvents requests per second.
+1. Scale Spin to support thousands of CloudEvents requests per second.
 2. Establish reasonable performance metrics for the new CloudEvents component.
 
 ## Future design considerations
@@ -189,7 +177,7 @@ ce.type = "com.example.someevent"
 ce.source = "/mycontext/subcontext"
 ```
 
-#### Generic CloudEvent component
+#### Generic CloudEvents component
 A generic CloudEvents component is defined in the following way:
 ```rust
 // A Spin CloudEvents component written in Rust
@@ -252,7 +240,7 @@ exchange = "myexchange"
 routing_key = "myroutingkey"
 ```
 
-You can also set the sink address for the component that returns a CloudEvent. For example:
+You can also set the sink address for the component that returns a CloudEvents. For example:
 
 ```toml
 [component.trigger]

@@ -105,8 +105,8 @@ impl<T: Default + 'static> Builder<T> {
         engine: Engine,
     ) -> Result<Builder<T>> {
         let data = RuntimeContext::default();
-        let linker = Linker::new(&engine.inner());
-        let store = Store::new(&engine.inner(), data);
+        let linker = Linker::new(&engine.0);
+        let store = Store::new(&engine.0, data);
         let host_components = Default::default();
 
         Ok(Self {
@@ -151,20 +151,19 @@ impl<T: Default + 'static> Builder<T> {
             let core = c.clone();
             let module = match c.source.clone() {
                 ModuleSource::FileReference(p) => {
-                    let module =
-                        Module::from_file(&self.engine.inner(), &p).with_context(|| {
-                            format!(
-                                "Cannot create module for component {} from file {}",
-                                &c.id,
-                                &p.display()
-                            )
-                        })?;
+                    let module = Module::from_file(&self.engine.0, &p).with_context(|| {
+                        format!(
+                            "Cannot create module for component {} from file {}",
+                            &c.id,
+                            &p.display()
+                        )
+                    })?;
                     log::trace!("Created module for component {} from file {:?}", &c.id, &p);
                     module
                 }
                 ModuleSource::Buffer(bytes, info) => {
                     let module =
-                        Module::from_binary(&self.engine.inner(), &bytes).with_context(|| {
+                        Module::from_binary(&self.engine.0, &bytes).with_context(|| {
                             format!("Cannot create module for component {} from {}", &c.id, info)
                         })?;
                     log::trace!(
@@ -347,7 +346,7 @@ impl<T: Default> ExecutionContext<T> {
         ctx.wasi = Some(wasi_ctx.build());
         ctx.data = data;
 
-        let store = Store::new(&self.engine.inner(), ctx);
+        let store = Store::new(&self.engine.0, ctx);
         Ok(store)
     }
 

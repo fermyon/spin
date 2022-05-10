@@ -1,14 +1,14 @@
 mod host_component;
 
+use std::str::FromStr;
+
 use futures::executor::block_on;
+pub use host_component::OutboundHttpComponent;
 use http::HeaderMap;
 use reqwest::{Client, Url};
-use std::str::FromStr;
 use tokio::runtime::Handle;
-use wasi_outbound_http::*;
-
-pub use host_component::OutboundHttpComponent;
 pub use wasi_outbound_http::add_to_linker;
+use wasi_outbound_http::*;
 
 wit_bindgen_wasmtime::export!("../../wit/ephemeral/wasi-outbound-http.wit");
 

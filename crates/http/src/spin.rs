@@ -1,16 +1,18 @@
-use crate::{
-    spin_http::{Method, SpinHttp},
-    ExecutionContext, HttpExecutor, RuntimeContext,
-};
+use std::{net::SocketAddr, str, str::FromStr};
+
 use anyhow::Result;
 use async_trait::async_trait;
 use http::Uri;
 use hyper::{Body, Request, Response};
 use spin_engine::io::capture_io_to_memory;
-use std::{net::SocketAddr, str, str::FromStr};
 use tokio::task::spawn_blocking;
 use tracing::log;
 use wasmtime::{Instance, Store};
+
+use crate::{
+    spin_http::{Method, SpinHttp},
+    ExecutionContext, HttpExecutor, RuntimeContext,
+};
 
 #[derive(Clone)]
 pub struct SpinHttpExecutor;

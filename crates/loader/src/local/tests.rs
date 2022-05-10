@@ -1,9 +1,10 @@
-use crate::local::config::{RawDirectoryPlacement, RawFileMount, RawModuleSource};
+use std::path::PathBuf;
 
-use super::*;
 use anyhow::Result;
 use spin_manifest::{HttpConfig, HttpExecutor, HttpTriggerConfiguration};
-use std::path::PathBuf;
+
+use super::*;
+use crate::local::config::{RawDirectoryPlacement, RawFileMount, RawModuleSource};
 
 #[tokio::test]
 async fn test_from_local_source() -> Result<()> {

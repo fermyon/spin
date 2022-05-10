@@ -1,9 +1,10 @@
-use crate::{spin_redis::SpinRedis, ExecutionContext, RedisExecutor, RuntimeContext};
 use anyhow::Result;
 use async_trait::async_trait;
 use spin_engine::io::capture_io_to_memory;
 use tokio::task::spawn_blocking;
 use wasmtime::{Instance, Store};
+
+use crate::{spin_redis::SpinRedis, ExecutionContext, RedisExecutor, RuntimeContext};
 
 #[derive(Clone)]
 pub struct SpinRedisExecutor;

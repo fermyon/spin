@@ -2,7 +2,8 @@
 
 mod spin;
 
-use crate::spin::SpinRedisExecutor;
+use std::{collections::HashMap, sync::Arc};
+
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -11,7 +12,8 @@ use spin_engine::io::FollowComponents;
 use spin_manifest::{ComponentMap, RedisConfig, RedisTriggerConfiguration};
 use spin_redis::SpinRedisData;
 use spin_trigger::Trigger;
-use std::{collections::HashMap, sync::Arc};
+
+use crate::spin::SpinRedisExecutor;
 
 wit_bindgen_wasmtime::import!("../../wit/ephemeral/spin-redis.wit");
 

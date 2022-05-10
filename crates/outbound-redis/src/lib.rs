@@ -1,7 +1,6 @@
+pub use outbound_redis::add_to_linker;
 use outbound_redis::*;
 use redis::Commands;
-
-pub use outbound_redis::add_to_linker;
 use spin_engine::{
     host_component::{HostComponent, HostComponentsStateHandle},
     RuntimeContext,

@@ -1,7 +1,7 @@
-use crate::template::{TemplateParameter, TemplateParameterDataType};
-
 // use console::style;
 use dialoguer::Input;
+
+use crate::template::{TemplateParameter, TemplateParameterDataType};
 
 pub(crate) fn prompt_parameter(parameter: &TemplateParameter) -> Option<String> {
     let prompt = parameter.prompt();

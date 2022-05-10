@@ -5,15 +5,8 @@ mod spin;
 mod tls;
 mod wagi;
 
-use spin_engine::io::FollowComponents;
-use spin_manifest::{ComponentMap, HttpConfig, HttpTriggerConfiguration};
-pub use tls::TlsConfig;
+use std::{future::ready, net::SocketAddr, sync::Arc};
 
-use crate::{
-    routes::{RoutePattern, Router},
-    spin::SpinHttpExecutor,
-    wagi::WagiHttpExecutor,
-};
 use anyhow::{Context, Error, Result};
 use async_trait::async_trait;
 use futures_util::stream::StreamExt;
@@ -24,13 +17,21 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
+use spin_engine::io::FollowComponents;
 use spin_http::SpinHttpData;
+use spin_manifest::{ComponentMap, HttpConfig, HttpTriggerConfiguration};
 use spin_trigger::Trigger;
-use std::{future::ready, net::SocketAddr, sync::Arc};
+pub use tls::TlsConfig;
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
 use tracing::log;
+
+use crate::{
+    routes::{RoutePattern, Router},
+    spin::SpinHttpExecutor,
+    wagi::WagiHttpExecutor,
+};
 
 wit_bindgen_wasmtime::import!("../../wit/ephemeral/spin-http.wit");
 
@@ -417,12 +418,14 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::{collections::BTreeMap, sync::Once};
+
     use anyhow::Result;
     use spin_manifest::{HttpConfig, HttpExecutor};
     use spin_testing::test_socket_addr;
     use spin_trigger::build_trigger_from_app;
-    use std::{collections::BTreeMap, sync::Once};
+
+    use super::*;
 
     static LOGGER: Once = Once::new();
 

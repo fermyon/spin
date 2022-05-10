@@ -1,14 +1,15 @@
 #![deny(missing_docs)]
 
-use crate::assets::{create_dir, ensure_all_under, ensure_under, to_relative};
+use std::path::{Path, PathBuf};
+
 use anyhow::{anyhow, bail, Context, Result};
 use futures::future;
 use spin_manifest::DirectoryMount;
-use std::path::{Path, PathBuf};
 use tracing::log;
 use walkdir::WalkDir;
 
 use super::config::{RawDirectoryPlacement, RawFileMount};
+use crate::assets::{create_dir, ensure_all_under, ensure_under, to_relative};
 
 /// Prepare all local assets given a component ID and its file patterns.
 /// This file will copy all assets into a temporary directory as read-only.

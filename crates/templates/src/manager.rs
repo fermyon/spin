@@ -320,9 +320,8 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use crate::RunOptions;
-
     use super::*;
+    use crate::RunOptions;
 
     struct DiscardingReporter;
 

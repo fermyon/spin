@@ -3,13 +3,12 @@ use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser};
-use tempfile::TempDir;
-
 use spin_engine::io::FollowComponents;
 use spin_http_engine::{HttpTrigger, HttpTriggerExecutionConfig, TlsConfig};
 use spin_manifest::ApplicationTrigger;
 use spin_redis_engine::RedisTrigger;
 use spin_trigger::{run_trigger, ExecutionOptions};
+use tempfile::TempDir;
 
 use crate::opts::*;
 

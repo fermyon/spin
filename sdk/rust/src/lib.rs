@@ -4,7 +4,6 @@
 
 /// Exports the procedural macros for writing handlers for Spin components.
 pub use spin_macro::*;
-
 /// Exports the experimental outbound HTTP crate.
 pub use wasi_experimental_http as outbound_http;
 

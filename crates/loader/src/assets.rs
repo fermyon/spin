@@ -1,8 +1,9 @@
 #![deny(missing_docs)]
 
+use std::path::{Path, PathBuf};
+
 use anyhow::{anyhow, bail, Context, Result};
 use sha2::Digest;
-use std::path::{Path, PathBuf};
 use tokio::fs;
 
 /// Create the temporary directory for a component.

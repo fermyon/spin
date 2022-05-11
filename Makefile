@@ -11,6 +11,10 @@ test:
 	cargo clippy --all-targets --all-features -- -D warnings
 	cargo fmt --all -- --check
 
+.PHONY: test-sdk-go
+test-sdk-go:
+	$(MAKE) -C sdk/go test
+
 # simple convenience for developing with TLS
 .PHONY: tls
 tls: ${CERT_NAME}.crt.pem

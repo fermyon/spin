@@ -32,7 +32,7 @@ defined using
 handle-http-request: function(req: request) -> response
 
 // The entry point for a Redis handler.
-handle-redis-message: function(msg: payload) -> expected<_, error>
+handle-redis-message: function(msg: payload) -> expected<unit, error>
 ```
 
 The entry point we want to execute for our timer trigger takes a string as its

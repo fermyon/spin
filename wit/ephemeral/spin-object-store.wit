@@ -15,11 +15,11 @@ resource object-reader {
 /// And object writer represents a writable object.
 resource object-writer {
     /// Writes data to the given object.
-    write: function(buf: pull-buffer<u8>) -> expected<_, error>
+    write: function(buf: pull-buffer<u8>) -> expected<unit, error>
 
     /// Commits the written data. Until this returns success the state of the
     /// object is unspecified (implementation-specific).
-    commit: function() -> expected<_, error>
+    commit: function() -> expected<unit, error>
 }
 
 /// Prepare an object with the given key to be written. See `object-writer`.
@@ -29,4 +29,4 @@ get-object: function(key: string) -> expected<object-reader, error>
 put-object: function(key: string) -> expected<object-writer, error>
 
 /// Delete the object with the given key.
-delete-object: function(key: string) -> expected<_, error>
+delete-object: function(key: string) -> expected<unit, error>

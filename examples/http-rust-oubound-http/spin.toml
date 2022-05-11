@@ -1,0 +1,24 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A simple application that makes an outbound http call."
+name = "spin-outbound-http"
+trigger = { type = "http", base = "/" }
+version = "1.0.0"
+
+[[component]]
+id = "rust-outbound-http"
+source = "target/wasm32-wasi/release/http_rust_outbound_http.wasm"
+allowed_http_hosts = ["https://some-random-api.ml"]
+[component.trigger]
+route = "/outbound"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+
+[[component]]
+id = "rust-outbound-http-wildcard"
+source = "target/wasm32-wasi/release/http_rust_outbound_http.wasm"
+allowed_http_hosts = ["insecure:allow-all"]
+[component.trigger]
+route = "/wildcard"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

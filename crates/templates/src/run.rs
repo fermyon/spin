@@ -79,7 +79,10 @@ impl Run {
     /// write artefacts to the output. You must still call `execute` on the
     /// result to perform the write.
     pub fn interactive(&self) -> TemplatePreparationResult {
-        let raw_prepared = self.run_inner(|| self.populate_parameters_interactive());
+        let raw_prepared = self.run_inner(
+            |path| self.check_allow_generate_interactive(path),
+            || self.populate_parameters_interactive(),
+        );
         let inner = Cancellable::from_result_option(raw_prepared);
         TemplatePreparationResult { inner }
     }
@@ -93,32 +96,39 @@ impl Run {
     /// write artefacts to the output. You must still call `execute` on the
     /// result to perform the write.
     pub fn silent(&self) -> TemplatePreparationResult {
-        let raw_prepared = self.run_inner(|| self.populate_parameters_silent());
+        let raw_prepared = self.run_inner(
+            |path| self.check_allow_generate_silent(path),
+            || self.populate_parameters_silent(),
+        );
         let inner = Cancellable::from_result_option(raw_prepared);
         TemplatePreparationResult { inner }
     }
 
     fn run_inner(
         &self,
+        allow_generate: impl Fn(&Path) -> Cancellable<(), anyhow::Error>,
         populate_parameters: impl Fn() -> anyhow::Result<Option<HashMap<String, String>>>,
     ) -> anyhow::Result<Option<PreparedTemplate>> {
+        // TODO: rationalise `path` and `dir`
+        let to = self.target_dir()?;
+
+        match allow_generate(&to) {
+            Cancellable::Cancelled => return Ok(None),
+            Cancellable::Ok(_) => (),
+            Cancellable::Err(e) => return Err(e),
+        };
+
         // TODO: Ok(None) means the run was cancelled - this is hard to follow but plays
         // nicely with the Rust ? operator - is there a better way?
 
         self.validate_provided_values()?;
-
-        // TODO: rationalise `path` and `dir`
-        let to = match &self.options.output_path {
-            None => std::env::current_dir()?, // TODO: handle error
-            Some(path) => path.clone(),
-        };
 
         let outputs = match self.template.content_dir() {
             None => HashMap::new(),
             Some(path) => {
                 let from = path
                     .absolutize()
-                    .context("Failed to get absoluate path of template directory")?
+                    .context("Failed to get absolute path of template directory")?
                     .into_owned();
                 let template_content_files = Self::collect_all_content(&from)?;
                 // TODO: okay we do want to do *some* parsing here because we don't want
@@ -139,6 +149,14 @@ impl Run {
             }
             None => Ok(None),
         }
+    }
+
+    fn target_dir(&self) -> Result<PathBuf, anyhow::Error> {
+        let target_dir = match &self.options.output_path {
+            None => std::env::current_dir()?, // TODO: handle error
+            Some(path) => path.clone(),
+        };
+        Ok(target_dir)
     }
 
     fn validate_provided_values(&self) -> anyhow::Result<()> {
@@ -201,6 +219,37 @@ impl Run {
             .collect::<Result<Vec<_>, _>>()?;
         let pairs = paths.into_iter().zip(contents).collect();
         Ok(pairs)
+    }
+
+    fn check_allow_generate_interactive(
+        &self,
+        target_dir: &Path,
+    ) -> Cancellable<(), anyhow::Error> {
+        if !is_directory_empty(target_dir) {
+            let prompt = format!(
+                "{} already contains other files. Generate into it anyway?",
+                target_dir.display()
+            );
+            match crate::interaction::confirm(&prompt) {
+                Ok(true) => Cancellable::Ok(()),
+                Ok(false) => Cancellable::Cancelled,
+                Err(e) => Cancellable::Err(anyhow::Error::from(e)),
+            }
+        } else {
+            Cancellable::Ok(())
+        }
+    }
+
+    fn check_allow_generate_silent(&self, target_dir: &Path) -> Cancellable<(), anyhow::Error> {
+        if is_directory_empty(target_dir) {
+            Cancellable::Ok(())
+        } else {
+            let err = anyhow!(
+                "Can't generate into {} as it already contains other files",
+                target_dir.display()
+            );
+            Cancellable::Err(err)
+        }
     }
 
     // TODO: we can unify most of this with populate_parameters_silent
@@ -266,6 +315,19 @@ impl Run {
             .filter(crate::filters::SnakeCaseFilterParser)
             .build()
             .expect("can't fail due to no partials support")
+    }
+}
+
+fn is_directory_empty(path: &Path) -> bool {
+    if !path.exists() {
+        return true;
+    }
+    if !path.is_dir() {
+        return false;
+    }
+    match path.read_dir() {
+        Err(_) => false,
+        Ok(mut read_dir) => read_dir.next().is_none(),
     }
 }
 

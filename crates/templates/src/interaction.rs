@@ -1,7 +1,11 @@
 use crate::template::{TemplateParameter, TemplateParameterDataType};
 
 // use console::style;
-use dialoguer::Input;
+use dialoguer::{Confirm, Input};
+
+pub(crate) fn confirm(text: &str) -> std::io::Result<bool> {
+    Confirm::new().with_prompt(text).interact()
+}
 
 pub(crate) fn prompt_parameter(parameter: &TemplateParameter) -> Option<String> {
     let prompt = parameter.prompt();

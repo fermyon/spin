@@ -32,7 +32,7 @@ impl HttpExecutor for SpinHttpExecutor {
             component
         );
 
-        let (redirects, outputs) = capture_io_to_memory(follow, follow, engine.config.custom_log_pipes.clone());
+        let (redirects, outputs) = capture_io_to_memory(follow, follow, None);
 
         let (store, instance) =
             engine.prepare_component(component, None, Some(redirects), None, None)?;
@@ -41,7 +41,7 @@ impl HttpExecutor for SpinHttpExecutor {
             .await
             .map_err(contextualise_err);
 
-        let log_result = engine.save_output_to_logs(outputs.read(), component, true, true);
+        let log_result = engine.save_output_to_logs(outputs.read(), component, true, true, engine.config.custom_log_pipes.clone());
 
         // Defer checking for failures until here so that the logging runs
         // even if the guest code fails. (And when checking, check the guest

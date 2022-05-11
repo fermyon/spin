@@ -1,7 +1,7 @@
 use std::{
     collections::HashSet,
     io::{LineWriter, Write},
-    sync::{Arc, RwLock, RwLockReadGuard}, path::PathBuf, fs::OpenOptions,
+    sync::{Arc, RwLock, RwLockReadGuard}, path::PathBuf, fs::{OpenOptions, File},
 };
 use wasi_common::{
     pipe::{ReadPipe, WritePipe},
@@ -40,23 +40,59 @@ pub trait OutputBuffers {
     fn stderr(&self) -> &[u8];
 }
 
+/// Wrapper around File w/ a convienient PathBuf for cloning
+pub struct PipeFile(pub(crate) File, pub(crate)PathBuf);
+
+impl PipeFile {
+    /// Constructs an instance from a set of PipeFile objects.
+    pub fn new(
+        file: File,
+        path: PathBuf,
+    ) -> Self {
+        Self(
+            file,
+            path,
+        )
+    } 
+}
+
+impl std::fmt::Debug for PipeFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PipeFile")
+            .field("File", &self.0)
+            .field("PathBuf", &self.1)
+            .finish()
+    }
+}
+
+impl Clone for PipeFile {
+    fn clone(&self) -> Self {
+        let f = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .open(&self.1)
+                    .unwrap();
+        Self(f, self.1.clone())
+    }
+}
+
 /// CustomIoPipes that can be passed to `ExecutionContextConfiguration`
 /// to direct out and err
 #[derive(Clone, Debug)]
 pub struct CustomLogPipes {
-    pub(crate) stdout_pipe_path: PathBuf,
-    pub(crate) stderr_pipe_path: PathBuf,
+    pub(crate) stdout_pipe: PipeFile,
+    pub(crate) stderr_pipe: PipeFile,
 }
 
 impl CustomLogPipes {
-       /// Constructs an instance from a set of PathBuf objects.
-       pub fn new(
-        stdout_pipe_path: PathBuf,
-        stderr_pipe_path: PathBuf,
+    /// Constructs an instance from a set of PipeFile objects.
+    pub fn new(
+        stdout_pipe: PipeFile,
+        stderr_pipe: PipeFile,
     ) -> Self {
         Self {
-            stdout_pipe_path,
-            stderr_pipe_path,
+            stdout_pipe,
+            stderr_pipe,
         }
     } 
 }
@@ -130,14 +166,14 @@ pub fn capture_io_to_memory(
     let (stdout_pipe, stdout_lock) = 
         redirect_to_mem_buffer(stdout_follow, 
         match custom_log_pipes.clone() {
-            Some(clp) => Some(clp.stdout_pipe_path),
+            Some(clp) => Some(clp.stdout_pipe.0),
             None => None
     });
 
     let (stderr_pipe, stderr_lock) = 
     redirect_to_mem_buffer(stderr_follow, 
         match custom_log_pipes.clone() {
-            Some(clp) => Some(clp.stderr_pipe_path),
+            Some(clp) => Some(clp.stderr_pipe.0),
             None => None
     });
 
@@ -198,17 +234,16 @@ impl Follow {
 /// copying to the specified output stream.
 pub fn redirect_to_mem_buffer(
     follow: Follow,
-    log_pipe_path: Option<PathBuf>
+    log_pipe: Option<File>
 ) -> (Box<dyn WasiFile>, Arc<RwLock<WriteDestinations>>) {
     let immediate = follow.writer();
 
     let buffer: Vec<u8> = vec![];
     let std_dests = WriteDestinations { buffer, immediate };
     let lock = Arc::new(RwLock::new(std_dests));
-    let std_pipe: Box<dyn WasiFile> = match log_pipe_path {
-        Some(lpp) => {
-           let f = OpenOptions::new().read(true).write(true).open(lpp).unwrap();
-           let wf = WasmtimeFile::from_cap_std(CapFile::from_std(f));
+    let std_pipe: Box<dyn WasiFile> = match log_pipe {
+        Some(lp) => {
+           let wf = WasmtimeFile::from_cap_std(CapFile::from_std(lp));
            Box::new(wf)
         },
         None => {

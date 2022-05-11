@@ -275,7 +275,7 @@ impl<T: Default> ExecutionContext<T> {
         };
 
         let stdout_filename = match custom_log_pipes.clone() {
-            Some(clp) => clp.stdout_pipe_path,
+            Some(clp) => clp.stdout_pipe.1,
             None => log_dir.join(sanitize(format!(
             "{}_{}.txt",
             sanitized_component_name, "stdout",
@@ -283,7 +283,7 @@ impl<T: Default> ExecutionContext<T> {
         };
 
         let stderr_filename = match custom_log_pipes.clone() {
-            Some(clp) => clp.stdout_pipe_path,
+            Some(clp) => clp.stderr_pipe.1,
             None => log_dir.join(sanitize(format!(
             "{}_{}.txt",
             sanitized_component_name, "stderr"
@@ -296,10 +296,7 @@ impl<T: Default> ExecutionContext<T> {
 
         if save_stdout {
             let mut file = match custom_log_pipes.clone() {
-                Some(_) => std::fs::OpenOptions::new()
-                    .read(true)
-                    .write(true)
-                    .open(stdout_filename)?,
+                Some(clp) => clp.stdout_pipe.0,
                 None => std::fs::OpenOptions::new()
                 .write(true)
                 .append(true)
@@ -313,10 +310,7 @@ impl<T: Default> ExecutionContext<T> {
 
         if save_stderr {
             let mut file =  match custom_log_pipes.clone() {
-                Some(_) => std::fs::OpenOptions::new()
-                    .read(true)
-                    .write(true)
-                    .open(stderr_filename)?,
+                Some(clp) => clp.stderr_pipe.0,
                 None => std::fs::OpenOptions::new()
                 .write(true)
                 .append(true)

@@ -261,7 +261,6 @@ impl<T: Default> ExecutionContext<T> {
         component: &str,
         save_stdout: bool,
         save_stderr: bool,
-        custom_log_pipes: Option<CustomLogPipes>
     ) -> Result<()> {
         let sanitized_label = sanitize(&self.config.label);
         let sanitized_component_name = sanitize(&component);
@@ -274,50 +273,36 @@ impl<T: Default> ExecutionContext<T> {
             },
         };
 
-        let stdout_filename = match custom_log_pipes.clone() {
-            Some(clp) => clp.stdout_pipe.1,
-            None => log_dir.join(sanitize(format!(
+        let stdout_filename = log_dir.join(sanitize(format!(
             "{}_{}.txt",
             sanitized_component_name, "stdout",
-            )))
-        };
+        )));
 
-        let stderr_filename = match custom_log_pipes.clone() {
-            Some(clp) => clp.stderr_pipe.1,
-            None => log_dir.join(sanitize(format!(
+        let stderr_filename = log_dir.join(sanitize(format!(
             "{}_{}.txt",
             sanitized_component_name, "stderr"
-            )))
-    }   ;
+        )));
 
         std::fs::create_dir_all(&log_dir)?;
 
         log::trace!("Saving logs to {:?} {:?}", stdout_filename, stderr_filename);
 
         if save_stdout {
-            let mut file = match custom_log_pipes.clone() {
-                Some(clp) => clp.stdout_pipe.0,
-                None => std::fs::OpenOptions::new()
+            let mut file = std::fs::OpenOptions::new()
                 .write(true)
                 .append(true)
                 .create(true)
-                .open(stdout_filename)?
-            };
-
+                .open(stdout_filename)?;
             let contents = io_redirects.stdout();
             file.write_all(contents)?;
         }
 
         if save_stderr {
-            let mut file =  match custom_log_pipes.clone() {
-                Some(clp) => clp.stderr_pipe.0,
-                None => std::fs::OpenOptions::new()
+            let mut file = std::fs::OpenOptions::new()
                 .write(true)
                 .append(true)
                 .create(true)
-                .open(stderr_filename)?
-            };
-
+                .open(stderr_filename)?;
             let contents = io_redirects.stderr();
             file.write_all(contents)?;
         }

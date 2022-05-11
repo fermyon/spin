@@ -107,7 +107,7 @@ impl HttpExecutor for WagiHttpExecutor {
         let guest_result = spawn_blocking(move || start.call(&mut store, &[], &mut [])).await;
         tracing::info!("Module execution complete");
 
-        let log_result = engine.save_output_to_logs(outputs.read(), component, false, true, engine.config.custom_log_pipes.clone());
+        let log_result = engine.save_output_to_logs(outputs.read(), component, false, true);
 
         // Defer checking for failures until here so that the logging runs
         // even if the guest code fails. (And when checking, check the guest

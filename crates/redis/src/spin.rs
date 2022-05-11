@@ -39,7 +39,7 @@ impl RedisExecutor for SpinRedisExecutor {
             }
         };
 
-        let log_result = engine.save_output_to_logs(outputs.read(), component, true, true, engine.config.custom_log_pipes.clone());
+        let log_result = engine.save_output_to_logs(outputs.read(), component, true, true);
 
         result.and(log_result)
     }

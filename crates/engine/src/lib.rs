@@ -9,7 +9,7 @@ pub mod io;
 
 use anyhow::{bail, Context, Result};
 use host_component::{HostComponent, HostComponents, HostComponentsState};
-use io::{ModuleIoRedirects, OutputBuffers, CustomLogPipes};
+use io::{CustomLogPipes, ModuleIoRedirects, OutputBuffers};
 use spin_config::{host_component::ComponentConfig, Resolver};
 use spin_manifest::{Application, CoreComponent, DirectoryMount, ModuleSource};
 use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};

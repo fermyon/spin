@@ -1,14 +1,16 @@
+use cap_std::fs::File as CapFile;
 use std::{
     collections::HashSet,
+    fs::{File, OpenOptions},
     io::{LineWriter, Write},
-    sync::{Arc, RwLock, RwLockReadGuard}, path::PathBuf, fs::{OpenOptions, File},
+    path::PathBuf,
+    sync::{Arc, RwLock, RwLockReadGuard},
 };
 use wasi_common::{
     pipe::{ReadPipe, WritePipe},
     WasiFile,
 };
 use wasmtime_wasi::sync::file::File as WasmtimeFile;
-use cap_std::fs::File as CapFile;
 
 /// Which components should have their logs followed on stdout/stderr.
 #[derive(Clone, Debug)]
@@ -41,19 +43,13 @@ pub trait OutputBuffers {
 }
 
 /// Wrapper around File w/ a convienient PathBuf for cloning
-pub struct PipeFile(pub(crate) File, pub(crate)PathBuf);
+pub struct PipeFile(pub(crate) File, pub(crate) PathBuf);
 
 impl PipeFile {
     /// Constructs an instance from a set of PipeFile objects.
-    pub fn new(
-        file: File,
-        path: PathBuf,
-    ) -> Self {
-        Self(
-            file,
-            path,
-        )
-    } 
+    pub fn new(file: File, path: PathBuf) -> Self {
+        Self(file, path)
+    }
 }
 
 impl std::fmt::Debug for PipeFile {
@@ -68,10 +64,10 @@ impl std::fmt::Debug for PipeFile {
 impl Clone for PipeFile {
     fn clone(&self) -> Self {
         let f = OpenOptions::new()
-                    .read(true)
-                    .write(true)
-                    .open(&self.1)
-                    .unwrap();
+            .read(true)
+            .write(true)
+            .open(&self.1)
+            .unwrap();
         Self(f, self.1.clone())
     }
 }
@@ -80,21 +76,20 @@ impl Clone for PipeFile {
 /// to direct out and err
 #[derive(Clone, Debug)]
 pub struct CustomLogPipes {
+    pub(crate) stdin_pipe: PipeFile,
     pub(crate) stdout_pipe: PipeFile,
     pub(crate) stderr_pipe: PipeFile,
 }
 
 impl CustomLogPipes {
     /// Constructs an instance from a set of PipeFile objects.
-    pub fn new(
-        stdout_pipe: PipeFile,
-        stderr_pipe: PipeFile,
-    ) -> Self {
+    pub fn new(stdin_pipe: PipeFile, stdout_pipe: PipeFile, stderr_pipe: PipeFile) -> Self {
         Self {
+            stdin_pipe,
             stdout_pipe,
             stderr_pipe,
         }
-    } 
+    }
 }
 
 /// A set of redirected standard I/O streams with which
@@ -156,29 +151,36 @@ impl<'a> OutputBuffers for RedirectReadHandlesLock<'a> {
 pub fn capture_io_to_memory(
     follow_on_stdout: bool,
     follow_on_stderr: bool,
-    custom_log_pipes: Option<CustomLogPipes>
+    custom_log_pipes: Option<CustomLogPipes>,
 ) -> (ModuleIoRedirects, RedirectReadHandles) {
     let stdout_follow = Follow::stdout(follow_on_stdout);
     let stderr_follow = Follow::stderr(follow_on_stderr);
 
-    let stdin = ReadPipe::from(vec![]);
+    let stdin_pipe: Box<dyn WasiFile> = match custom_log_pipes.clone() {
+        Some(clp) => Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(
+            clp.stdin_pipe.0,
+        ))),
+        None => Box::new(ReadPipe::from(vec![])),
+    };
 
-    let (stdout_pipe, stdout_lock) = 
-        redirect_to_mem_buffer(stdout_follow, 
+    let (stdout_pipe, stdout_lock) = redirect_to_mem_buffer(
+        stdout_follow,
         match custom_log_pipes.clone() {
             Some(clp) => Some(clp.stdout_pipe.0),
-            None => None
-    });
+            None => None,
+        },
+    );
 
-    let (stderr_pipe, stderr_lock) = 
-    redirect_to_mem_buffer(stderr_follow, 
+    let (stderr_pipe, stderr_lock) = redirect_to_mem_buffer(
+        stderr_follow,
         match custom_log_pipes.clone() {
             Some(clp) => Some(clp.stderr_pipe.0),
-            None => None
-    });
+            None => None,
+        },
+    );
 
     let redirects = ModuleIoRedirects {
-        stdin: Box::new(stdin),
+        stdin: stdin_pipe,
         stdout: stdout_pipe,
         stderr: stderr_pipe,
     };
@@ -234,7 +236,7 @@ impl Follow {
 /// copying to the specified output stream.
 pub fn redirect_to_mem_buffer(
     follow: Follow,
-    log_pipe: Option<File>
+    log_pipe: Option<File>,
 ) -> (Box<dyn WasiFile>, Arc<RwLock<WriteDestinations>>) {
     let immediate = follow.writer();
 
@@ -243,13 +245,11 @@ pub fn redirect_to_mem_buffer(
     let lock = Arc::new(RwLock::new(std_dests));
     let std_pipe: Box<dyn WasiFile> = match log_pipe {
         Some(lp) => {
-           let wf = WasmtimeFile::from_cap_std(CapFile::from_std(lp));
-           Box::new(wf)
-        },
-        None => {
-           Box::new(WritePipe::from_shared(lock.clone()))
+            let wf = WasmtimeFile::from_cap_std(CapFile::from_std(lp));
+            Box::new(wf)
         }
-       };
+        None => Box::new(WritePipe::from_shared(lock.clone())),
+    };
     (std_pipe, lock)
 }
 

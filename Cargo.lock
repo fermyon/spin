@@ -2379,7 +2379,7 @@ checksum = "8e22443d1643a904602595ba1cd8f7d896afe56d26712531c5ff73a15b2fbf64"
 
 [[package]]
 name = "outbound-redis"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "redis",
@@ -3414,7 +3414,7 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "spin-build"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "futures",
@@ -3427,7 +3427,7 @@ dependencies = [
 
 [[package]]
 name = "spin-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3473,7 +3473,7 @@ dependencies = [
 
 [[package]]
 name = "spin-config"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -3484,7 +3484,7 @@ dependencies = [
 
 [[package]]
 name = "spin-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bytes 1.1.0",
@@ -3505,7 +3505,7 @@ dependencies = [
 
 [[package]]
 name = "spin-http-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3545,7 +3545,7 @@ dependencies = [
 
 [[package]]
 name = "spin-loader"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3591,7 +3591,7 @@ dependencies = [
 
 [[package]]
 name = "spin-manifest"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "indexmap",
@@ -3602,7 +3602,7 @@ dependencies = [
 
 [[package]]
 name = "spin-object-store"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3617,7 +3617,7 @@ dependencies = [
 
 [[package]]
 name = "spin-publish"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3639,7 +3639,7 @@ dependencies = [
 
 [[package]]
 name = "spin-redis-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3664,7 +3664,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sdk"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bytes 1.1.0",
@@ -3676,7 +3676,7 @@ dependencies = [
 
 [[package]]
 name = "spin-templates"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3711,7 +3711,7 @@ dependencies = [
 
 [[package]]
 name = "spin-testing"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "http 0.2.6",
@@ -3747,7 +3747,7 @@ dependencies = [
 
 [[package]]
 name = "spin-trigger"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4675,7 +4675,7 @@ dependencies = [
 
 [[package]]
 name = "wasi-outbound-http"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bytes 1.1.0",

@@ -129,6 +129,8 @@ by [component config](#component-custom-config) value templates. Each entry must
 either have a `default` value or be marked as `required = true`. "Required" entries
 must be [provided](#custom-config-providers) with a value.
 
+Configuration keys may only contain lowercase letters and underscores between letters.
+
 ```toml
 [config]
 api_host = { default = "api.example.com" }
@@ -153,13 +155,13 @@ api_key = "{{ api_key }}"
 ### Custom Config Providers
 
 [Custom config slot](#custom-config-slots) values may be set at runtime by
-config "providers. Currently there is only one provider: the environment
+config "providers". Currently there is only one provider: the environment
 variable provider, which gets config values from the `spin` process's
 environment (_not_ the component `environment`). Config keys are translated
 to environment variables by upper-casing and prepending with `SPIN_APP_`:
 
 ```sh
-$ export SPIN_APP_API_KEY = "1234"
+$ export SPIN_APP_API_KEY = "1234"  # Sets the `api_key` value.
 $ spin up
 ```
 

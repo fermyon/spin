@@ -105,6 +105,10 @@ pub struct UpOpts {
     )]
     pub cache: Option<PathBuf>,
 
+    /// Directory in which to cache Bindle assets.
+    #[clap(long = "bindle-cache-dir")]
+    pub bindle_cache_dir: Option<PathBuf>,
+
     /// Print output for given component(s) to stdout/stderr
     #[clap(
         name = FOLLOW_LOG_OPT,
@@ -135,10 +139,24 @@ impl UpCommand {
                     .as_deref()
                     .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
                 let bindle_connection = self.bindle_connection();
-                spin_loader::from_file(manifest_file, working_dir, &bindle_connection).await?
+                spin_loader::from_file(
+                    manifest_file,
+                    working_dir,
+                    &bindle_connection,
+                    &self.opts.bindle_cache_dir,
+                )
+                .await?
             }
             (None, Some(bindle)) => match &self.server {
-                Some(server) => spin_loader::from_bindle(bindle, server, working_dir).await?,
+                Some(server) => {
+                    spin_loader::from_bindle(
+                        bindle,
+                        server,
+                        &self.opts.bindle_cache_dir,
+                        working_dir,
+                    )
+                    .await?
+                }
                 _ => bail!("Loading from a bindle requires a Bindle server URL"),
             },
             (Some(_), Some(_)) => bail!("Specify only one of app file or bindle ID"),

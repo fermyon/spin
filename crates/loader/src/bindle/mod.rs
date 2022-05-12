@@ -22,7 +22,10 @@ use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
-use std::{path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use tracing::log;
 pub(crate) use utils::BindleReader;
 pub use utils::SPIN_MANIFEST_MEDIA_TYPE;
@@ -31,12 +34,17 @@ pub use utils::SPIN_MANIFEST_MEDIA_TYPE;
 /// prepared application configuration consumable by a Spin execution context.
 /// If a directory is provided, use it as the base directory to expand the assets,
 /// otherwise create a new temporary directory.
-pub async fn from_bindle(id: &str, url: &str, base_dst: impl AsRef<Path>) -> Result<Application> {
+pub async fn from_bindle(
+    id: &str,
+    url: &str,
+    cache_dir: &Option<PathBuf>,
+    base_dst: impl AsRef<Path>,
+) -> Result<Application> {
     // TODO
     // Handle Bindle authentication.
     let connection_info = BindleConnectionInfo::new(url, false, None, None);
     let client = connection_info.client()?;
-    let reader = BindleReader::remote(&client, &id.parse()?);
+    let reader = BindleReader::remote(&client, &id.parse()?, cache_dir).await?;
 
     prepare(id, url, &reader, base_dst).await
 }

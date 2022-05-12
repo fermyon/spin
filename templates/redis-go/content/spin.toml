@@ -7,8 +7,8 @@ version = "0.1.0"
 
 [[component]]
 id = "{{project-name | kebab_case}}"
-source = "target/wasm32-wasi/release/{{project-name | snake_case}}.wasm"
+source = "main.wasm"
 [component.trigger]
 channel = "{{redis-channel}}"
 [component.build]
-command = "cargo build --target wasm32-wasi --release"
+command = "tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go"

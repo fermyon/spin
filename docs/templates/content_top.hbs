@@ -117,6 +117,16 @@
             document.documentElement.classList.toggle('dark-theme', mode === "dark");
         }
     </script>
+    <script>
+        // Automatically pick up file changes and show them in the browser
+        // without manually refreshing, but only when the host is localhost.
+        var script = document.createElement("script");
+        if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+            script.src = "https://livejs.com/live.js";
+        }
+        document.head.appendChild(script);
+    </script>
+
 </head>
 <body class="documentation">
 

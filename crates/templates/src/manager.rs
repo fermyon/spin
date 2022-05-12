@@ -481,7 +481,7 @@ mod tests {
         let cargo = tokio::fs::read_to_string(content_dir.join("Cargo.toml"))
             .await
             .unwrap();
-        assert!(cargo.contains("name = \"{{project-name | snake_case}}\""));
+        assert!(cargo.contains("name = \"{{project-name | kebab_case}}\""));
     }
 
     #[tokio::test]
@@ -519,6 +519,6 @@ mod tests {
         let cargo = tokio::fs::read_to_string(output_dir.join("Cargo.toml"))
             .await
             .unwrap();
-        assert!(cargo.contains("name = \"my_project\""));
+        assert!(cargo.contains("name = \"my-project\""));
     }
 }

@@ -25,16 +25,11 @@ pub(crate) async fn get_authors() -> Result<Authors> {
     async fn discover_author() -> Result<(String, Option<String>)> {
         let git_config = find_real_git_config().await;
 
-        let name_variables = [
-            "GIT_AUTHOR_NAME",
-            "GIT_COMMITTER_NAME",
-            "USER",
-            "USERNAME",
-            "NAME",
-        ];
-        let name = get_environment_variable(&name_variables[0..3])
+        let name_variables = ["GIT_AUTHOR_NAME", "GIT_COMMITTER_NAME"];
+        let backup_name_variables = ["USER", "USERNAME", "NAME"];
+        let name = get_environment_variable(&name_variables)
             .or_else(|| git_config.get("user.name").map(|s| s.to_owned()))
-            .or_else(|| get_environment_variable(&name_variables[3..]));
+            .or_else(|| get_environment_variable(&backup_name_variables));
 
         let name = match name {
             Some(name) => name,

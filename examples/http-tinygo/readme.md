@@ -6,17 +6,20 @@ This example showcases how to build Spin HTTP components using TinyGo.
 package main
 
 import (
- "fmt"
- "net/http"
+	"fmt"
+	"net/http"
 
- spin_http "github.com/fermyon/spin-sdk"
+	spinhttp "github.com/fermyon/spin/sdk/go/http"
 )
 
-func main() {
- spin_http.HandleRequest(func(w http.ResponseWriter, r *http.Request) {
-  fmt.Fprintln(w, "Hello, Fermyon!")
- })
+func init() {
+	spinhttp.Handle(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprintln(w, "Hello Fermyon!")
+	})
 }
+
+func main() {}
 ```
 
 > For more information and examples for using TinyGo with WebAssembly, check
@@ -47,7 +50,6 @@ id = "hello"
 source = "main.wasm"
 [component.trigger]
 route = "/hello"
-executor = { type = "wagi" }
 ```
 
 At this point, we can execute the application with the `spin` CLI:
@@ -68,9 +70,3 @@ date: Wed, 09 Mar 2022 17:23:08 GMT
 
 Hello, Fermyon!
 ```
-
-## Notes
-
-- components built using TinyGo will be run in Spin using the Wagi executor
-- any time-consuming work taking place in the `main` function will block the
-  handler function

@@ -14,9 +14,6 @@ official resources for learning Rust](https://www.rust-lang.org/learn).
 
 > All examples from this page can be found in [the Spin repository on GitHub](https://github.com/fermyon/spin/tree/main/examples).
 
-Besides `cargo` and the Rust compiler, you need to add the `wasm32-wasi` target
-before compiling Rust components for Spin:
-
 In order to compile Rust programs to Spin components, you also need the
 `wasm32-wasi` target. You can add it using `rustup`:
 
@@ -24,57 +21,15 @@ In order to compile Rust programs to Spin components, you also need the
 $ rustup target add wasm32-wasi
 ```
 
-## Creating New Projects with Cargo
-
-When creating a new Spin projects with Cargo, you should use the `--lib` flag.
-
-```console
-$ cargo init --lib
-```
-
-A `Cargo.toml` with standard Spin dependencies looks like this:
-
-```toml
-[package]
-name = "your-app"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-crate-type = [ "cdylib" ]
-
-[dependencies]
-# Useful crate to handle errors.
-anyhow = "1"
-# Crate to simplify working with bytes.
-bytes = "1"
-# General-purpose crate with common HTTP types.
-http = "0.2"
-# The Spin SDK.
-spin-sdk = { git = "https://github.com/fermyon/spin" }
-# Crate that generates Rust Wasm bindings from a WebAssembly interface.
-wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2f46ce4cc072107153da0cefe15bdc69aa5b84d0" }
-```
-
-At the time of this writing, `wit-bindgen` must be pinned to a specific `rev`.
-This will change in the future.
-
-## Compiling Rust to WebAssembly
-
-When compiling these examples to WebAssembly, we suggest using the following Cargo command:
-
-```console
-$ cargo build --target wasm32-wasi --release
-```
-
-The `--target wasm32-wasi` tells Cargo which compile target to use. And the `--release` flag instructs Cargo to optimize the binary by stripping debugging information.
-
 ## HTTP components
 
 In Spin, HTTP components are triggered by the occurrence of an HTTP request, and
 must return an HTTP response at the end of their execution. Components can be
-built in any language that compiles to WASI, and Rust has improved support
-for writing applications, through its SDK.
+built in any language that compiles to WASI, but Rust has improved support
+for writing Spin components with the Spin Rust SDK.
+
+> Make sure to read [the page describing the HTTP trigger](./http-trigger.md) for more
+> details about building HTTP applications.
 
 Building a Spin HTTP component using the Rust SDK means writing a single function
 that takes an HTTP request as a parameter, and returns an HTTP response — below
@@ -111,8 +66,7 @@ The important things to note in the implementation above:
 
 ## Sending outbound HTTP requests
 
-If allowed, Spin components can send outbound HTTP requests using the [DeisLabs
-WASI experimental HTTP library](https://github.com/deislabs/wasi-experimental-http).
+If allowed, Spin components can send outbound HTTP requests.
 Let's see an example of a component that makes a request to
 [an API that returns random dog facts](https://some-random-api.ml/facts/dog) and
 inserts a custom header into the response before returning:
@@ -173,6 +127,10 @@ audible only to dogs, just for his Shetland sheepdog."}
 > Without the `allowed_http_hosts` field populated properly in `spin.toml`,
 > the component would not be allowed to send HTTP requests, and sending the
 > request would result in a "Destination not allowed" error.
+
+> You can set `allowed_http_hosts = ["insecure:allow-all"]` if you want to allow
+> the component to make requests to any HTTP host. This is **NOT** recommended
+> for any production or publicly-accessible application.
 
 We just built a WebAssembly component that sends an HTTP request to another
 service, manipulates that result, then responds to the original request.
@@ -254,9 +212,54 @@ INFO spin_redis_engine: Received message on channel "messages"
 Hello, there!
 ```
 
-> We are also evaluating adding
-> [host support for connecting to Redis databases](https://github.com/fermyon/spin/issues/181),
-> which would allow using the key/value store and publishing messages to channels.
+> You can find a complete example for a Redis triggered component in the
+> [Spin repository on GitHub](https://github.com/fermyon/spin/tree/main/examples/redis-rust).
+
+## Storing data in Redis from Rust components
+
+Using the Spin's Rust SDK, you can use the Redis key/value store and to publish
+messages to Redis channels. This can be used from both HTTP and Redis triggered
+components.
+
+Let's see how we can use the Rust SDK to connect to Redis:
+
+```rust
+#[spin_sdk::http_component]
+fn publish(_req: Request) -> Result<Response> {
+    let address = std::env::var(REDIS_ADDRESS_ENV)?;
+    let channel = std::env::var(REDIS_CHANNEL_ENV)?;
+
+    // Get the message to publish from the Redis key "mykey"
+    let payload = spin_sdk::redis::get(&address, &"mykey").map_err(|_| anyhow!("Error querying Redis"))?;
+
+    // Set the Redis key "spin-example" to value "Eureka!"
+    spin_sdk::redis::set(&address, &"spin-example", &b"Eureka!"[..])
+        .map_err(|_| anyhow!("Error executing Redis command"))?;
+
+    // Publish to Redis
+    match spin_sdk::redis::publish(&address, &channel, &payload) {
+        Ok(()) => Ok(http::Response::builder().status(200).body(None)?),
+        Err(_e) => internal_server_error(),
+    }
+}
+```
+
+This HTTP component demonstrates fetching a value from Redis by key, setting a
+key with a value, and publishing a message to a Redis channel. The component is
+triggered by an HTTP request served on the route configured in the `spin.toml`:
+
+```toml
+[[component]]
+environment = { REDIS_ADDRESS = "redis://127.0.0.1:6379", REDIS_CHANNEL = "messages" }
+[component.trigger]
+route = "/publish"
+```
+
+This HTTP component can be paired with a Redis component, triggered on new
+messages on the `messages` Redis channel.
+
+> You can find a complete example for using outbound Redis from an HTTP component
+> in the [Spin repository on GitHub](https://github.com/fermyon/spin/tree/main/examples/rust-outbound-redis).
 
 ## Using external crates in Rust components
 
@@ -265,9 +268,6 @@ annotated using the `http_component` macro, compiled to the
 [`wasm32-wasi` target](https://doc.rust-lang.org/stable/nightly-rustc/rustc_target/spec/wasm32_wasi/index.html).
 This means that any [crate](https://crates.io) that compiles to `wasm32-wasi` can
 be used when implementing the component.
-
-> Make sure to read [the page describing the HTTP trigger](./http-trigger.md) for more
-> details about building HTTP applications.
 
 ## Troubleshooting
 
@@ -286,3 +286,42 @@ the `target/wasm32-wasi/release` directory and looking for `.wasm` files)
 - make sure the path and name of the Wasm module in `target/wasm32-wasi/release`
 match `source` field in the component configuration (the `source` field contains
 the path to the Wasm module, relative to `spin.toml`)
+
+## Manually creating new projects with Cargo
+
+The recommended way of creating new Spin projects is by starting from a template.
+This section shows how to  manually create a new project with Cargo.
+
+When creating a new Spin projects with Cargo, you should use the `--lib` flag.
+
+```console
+$ cargo init --lib
+```
+
+A `Cargo.toml` with standard Spin dependencies looks like this:
+
+```toml
+[package]
+name = "your-app"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+# Required to have a `cdylib` (dynamic library) to produce a Wasm module.
+crate-type = [ "cdylib" ]
+
+[dependencies]
+# Useful crate to handle errors.
+anyhow = "1"
+# Crate to simplify working with bytes.
+bytes = "1"
+# General-purpose crate with common HTTP types.
+http = "0.2"
+# The Spin SDK.
+spin-sdk = { git = "https://github.com/fermyon/spin" }
+# Crate that generates Rust Wasm bindings from a WebAssembly interface.
+wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2f46ce4cc072107153da0cefe15bdc69aa5b84d0" }
+```
+
+At the time of this writing, `wit-bindgen` must be pinned to a specific `rev`.
+This will change in the future.

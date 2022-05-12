@@ -2,7 +2,7 @@ spin_version = "1"
 authors = ["{{authors}}"]
 description = "{{project-description}}"
 name = "{{project-name}}"
-trigger = { type = "redis", base = "{{redis-address}}" }
+trigger = { type = "redis", address = "{{redis-address}}" }
 version = "0.1.0"
 
 [[component]]

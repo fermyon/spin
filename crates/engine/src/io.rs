@@ -80,6 +80,7 @@ impl Clone for PipeFile {
 /// to direct out and err
 #[derive(Clone, Debug)]
 pub struct CustomLogPipes {
+    pub(crate) stdin_pipe: PipeFile,
     pub(crate) stdout_pipe: PipeFile,
     pub(crate) stderr_pipe: PipeFile,
 }
@@ -87,10 +88,12 @@ pub struct CustomLogPipes {
 impl CustomLogPipes {
     /// Constructs an instance from a set of PipeFile objects.
     pub fn new(
+        stdin_pipe: PipeFile,
         stdout_pipe: PipeFile,
         stderr_pipe: PipeFile,
     ) -> Self {
         Self {
+            stdin_pipe,
             stdout_pipe,
             stderr_pipe,
         }
@@ -161,7 +164,10 @@ pub fn capture_io_to_memory(
     let stdout_follow = Follow::stdout(follow_on_stdout);
     let stderr_follow = Follow::stderr(follow_on_stderr);
 
-    let stdin = ReadPipe::from(vec![]);
+    let stdin_pipe : Box<dyn WasiFile> = match custom_log_pipes.clone() {
+        Some(clp) => Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(clp.stdin_pipe.0))),
+        None => Box::new(ReadPipe::from(vec![]))
+    };
 
     let (stdout_pipe, stdout_lock) = 
         redirect_to_mem_buffer(stdout_follow, 
@@ -178,7 +184,7 @@ pub fn capture_io_to_memory(
     });
 
     let redirects = ModuleIoRedirects {
-        stdin: Box::new(stdin),
+        stdin: stdin_pipe,
         stdout: stdout_pipe,
         stderr: stderr_pipe,
     };

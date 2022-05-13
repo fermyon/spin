@@ -1,0 +1,13 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A simple Spin application written in AssemblyScript"
+name = "spinass"
+trigger = { type = "http", base = "/" }
+version = "1.0.0"
+
+[[component]]
+id = "as"
+source = "build/optimized.wasm"
+[component.trigger]
+route = "/hello"
+executor = { type = "wagi" }

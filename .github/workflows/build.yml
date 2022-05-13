@@ -10,7 +10,7 @@ on:
     branches: [main]
     paths-ignore:
       - "docs/**"
-      - "readme.md"
+      - "README.md"
 env:
   CARGO_TERM_COLOR: always
 jobs:

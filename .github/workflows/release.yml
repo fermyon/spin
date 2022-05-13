@@ -102,18 +102,18 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           mkdir _dist
-          cp readme.md LICENSE ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} _dist/
+          cp README.md LICENSE ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} _dist/
           cd _dist
-          tar czf spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz readme.md LICENSE spin${{ matrix.config.extension }}
+          tar czf spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz README.md LICENSE spin${{ matrix.config.extension }}
 
       - name: package release assets
         if: runner.os == 'Windows'
         shell: bash
         run: |
           mkdir _dist
-          cp readme.md LICENSE ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} _dist/
+          cp README.md LICENSE ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} _dist/
           cd _dist
-          7z a -tzip spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip readme.md LICENSE spin${{ matrix.config.extension }}
+          7z a -tzip spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip README.md LICENSE spin${{ matrix.config.extension }}
 
       - name: upload binary as GitHub artifact
         if: runner.os != 'Windows'

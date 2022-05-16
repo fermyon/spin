@@ -3,7 +3,8 @@ use std::{error::Error, path::PathBuf};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use spin_engine::{
-    io::FollowComponents, Builder, Engine, ExecutionContext, ExecutionContextConfiguration,
+    io::{FollowComponents, ModuleIoRedirectsTypes},
+    Builder, Engine, ExecutionContext, ExecutionContextConfiguration,
 };
 use spin_manifest::{Application, ApplicationTrigger, ComponentMap, TriggerConfig};
 
@@ -73,7 +74,7 @@ where
         label: app.info.name,
         log_dir,
         config_resolver: app.config_resolver,
-        ..Default::default()
+        module_io_redirects: ModuleIoRedirectsTypes::default(),
     };
     let mut builder = match wasmtime_config {
         Some(wasmtime_config) => {

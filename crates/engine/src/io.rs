@@ -58,11 +58,11 @@ pub trait OutputBuffers {
     fn stderr(&self) -> &[u8];
 }
 
-/// Wrapper around File w/ a convienient PathBuf for cloning
+/// Wrapper around File with a convenient PathBuf for cloning
 pub struct PipeFile(pub File, pub PathBuf);
 
 impl PipeFile {
-    /// Constructs an instance from a set of PipeFile objects.
+    /// Constructs an instance from a file, and the PathBuf to that file.
     pub fn new(file: File, path: PathBuf) -> Self {
         Self(file, path)
     }
@@ -90,19 +90,23 @@ impl Clone for PipeFile {
 
 /// CustomIoPipes that can be passed to `ExecutionContextConfiguration`
 /// to direct out and err
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct CustomLogPipes {
     /// in pipe (file and pathbuf)
-    pub stdin_pipe: PipeFile,
+    pub stdin_pipe: Option<PipeFile>,
     /// out pipe (file and pathbuf)
-    pub stdout_pipe: PipeFile,
+    pub stdout_pipe: Option<PipeFile>,
     /// err pipe (file and pathbuf)
-    pub stderr_pipe: PipeFile,
+    pub stderr_pipe: Option<PipeFile>,
 }
 
 impl CustomLogPipes {
     /// Constructs an instance from a set of PipeFile objects.
-    pub fn new(stdin_pipe: PipeFile, stdout_pipe: PipeFile, stderr_pipe: PipeFile) -> Self {
+    pub fn new(
+        stdin_pipe: Option<PipeFile>,
+        stdout_pipe: Option<PipeFile>,
+        stderr_pipe: Option<PipeFile>,
+    ) -> Self {
         Self {
             stdin_pipe,
             stdout_pipe,
@@ -111,7 +115,7 @@ impl CustomLogPipes {
     }
 }
 
-/// Types of ModuleIoRedirectsCreation
+/// Types of ModuleIoRedirects
 #[derive(Clone, Debug)]
 pub enum ModuleIoRedirectsTypes {
     /// This will signal the executor to use `capture_io_to_memory_default()`
@@ -130,54 +134,64 @@ impl Default for ModuleIoRedirectsTypes {
 /// a Wasm module is to be run.
 pub struct ModuleIoRedirects {
     /// pipes for ModuleIoRedirects
-    pub pipes: Arc<RedirectPipes>,
+    pub pipes: RedirectPipes,
     /// read handles for ModuleIoRedirects
-    pub read_handles: Arc<RedirectReadHandles>,
+    pub read_handles: RedirectReadHandles,
 }
 
-impl Clone for ModuleIoRedirects {
-    fn clone(&self) -> Self {
-        Self { pipes: Arc::clone(&self.pipes), read_handles: Arc::clone(&self.read_handles) }
+impl Default for ModuleIoRedirects {
+    fn default() -> Self {
+        Self::new(false)
     }
 }
 
 impl ModuleIoRedirects {
     /// Constructs the ModuleIoRedirects, and RedirectReadHandles instances the default way
-    pub fn new() -> Self {
-        let rrh = RedirectReadHandles::new();
+    pub fn new(follow: bool) -> Self {
+        let rrh = RedirectReadHandles::new(follow);
 
         let in_stdpipe: Box<dyn WasiFile> = Box::new(ReadPipe::from(vec![]));
         let out_stdpipe: Box<dyn WasiFile> = Box::new(WritePipe::from_shared(rrh.stdout.clone()));
         let err_stdpipe: Box<dyn WasiFile> = Box::new(WritePipe::from_shared(rrh.stderr.clone()));
 
         Self {
-            pipes: Arc::new(RedirectPipes {
+            pipes: RedirectPipes {
                 stdin: in_stdpipe,
                 stdout: out_stdpipe,
                 stderr: err_stdpipe,
-            }),
-            read_handles: Arc::new(rrh),
+            },
+            read_handles: rrh,
         }
     }
 
     /// Constructs the ModuleIoRedirects, and RedirectReadHandles instances from `File`s directly
-    pub fn new_from_files(stdin_file: File, stdout_file: File, stderr_file: File) -> Self {
-        let rrh = RedirectReadHandles::new();
+    pub fn new_from_files(
+        stdin_file: Option<File>,
+        stdout_file: Option<File>,
+        stderr_file: Option<File>,
+    ) -> Self {
+        let rrh = RedirectReadHandles::new(true);
 
-        let in_stdpipe: Box<dyn WasiFile> =
-            Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(stdin_file)));
-        let out_stdpipe: Box<dyn WasiFile> =
-            Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(stdout_file)));
-        let err_stdpipe: Box<dyn WasiFile> =
-            Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(stderr_file)));
+        let in_stdpipe: Box<dyn WasiFile> = match stdin_file {
+            Some(inf) => Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(inf))),
+            None => Box::new(ReadPipe::from(vec![])),
+        };
+        let out_stdpipe: Box<dyn WasiFile> = match stdout_file {
+            Some(ouf) => Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(ouf))),
+            None => Box::new(WritePipe::from_shared(rrh.stdout.clone())),
+        };
+        let err_stdpipe: Box<dyn WasiFile> = match stderr_file {
+            Some(erf) => Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(erf))),
+            None => Box::new(WritePipe::from_shared(rrh.stderr.clone())),
+        };
 
         Self {
-            pipes: Arc::new(RedirectPipes {
+            pipes: RedirectPipes {
                 stdin: in_stdpipe,
                 stdout: out_stdpipe,
                 stderr: err_stdpipe,
-            }),
-            read_handles: Arc::new(rrh),
+            },
+            read_handles: rrh,
         }
     }
 }
@@ -187,12 +201,6 @@ pub struct RedirectPipes {
     pub(crate) stdin: Box<dyn WasiFile>,
     pub(crate) stdout: Box<dyn WasiFile>,
     pub(crate) stderr: Box<dyn WasiFile>,
-}
-
-impl Debug for RedirectPipes {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RedirectPipes {}").finish()
-    }
 }
 
 impl RedirectPipes {
@@ -217,11 +225,17 @@ pub struct RedirectReadHandles {
     stderr: Arc<RwLock<WriteDestinations>>,
 }
 
+impl Default for RedirectReadHandles {
+    fn default() -> Self {
+        Self::new(false)
+    }
+}
+
 impl RedirectReadHandles {
     /// Creates a new RedirectReadHandles instance
-    pub fn new() -> Self {
-        let out_immediate = Follow::Stdout.writer();
-        let err_immediate = Follow::Stderr.writer();
+    pub fn new(follow: bool) -> Self {
+        let out_immediate = Follow::stdout(follow).writer();
+        let err_immediate = Follow::stderr(follow).writer();
 
         let out_buffer: Vec<u8> = vec![];
         let err_buffer: Vec<u8> = vec![];

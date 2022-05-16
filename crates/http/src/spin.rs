@@ -32,38 +32,27 @@ impl HttpExecutor for SpinHttpExecutor {
             component
         );
 
-        let mior: Option<ModuleIoRedirects>;
-
-        if follow {
-            mior = match engine.config.module_io_redirects.clone() {
-                ModuleIoRedirectsTypes::Default => Some(ModuleIoRedirects::new()),
-                ModuleIoRedirectsTypes::FromFiles(clp) => Some(ModuleIoRedirects::new_from_files(
-                    clp.stdin_pipe.0,
-                    clp.stdout_pipe.0,
-                    clp.stderr_pipe.0,
-                )),
-            };
+        let mior = if let ModuleIoRedirectsTypes::FromFiles(clp) =
+            engine.config.module_io_redirects.clone()
+        {
+            ModuleIoRedirects::new_from_files(
+                clp.stdin_pipe.map(|inp| inp.0),
+                clp.stdout_pipe.map(|oup| oup.0),
+                clp.stderr_pipe.map(|erp| erp.0),
+            )
         } else {
-            mior = None;
-        }
+            ModuleIoRedirects::new(follow)
+        };
 
-        let (store, instance) = engine.prepare_component(
-            component,
-            None,
-            match mior.clone() {
-                Some(mr) => Some(mr.pipes),
-                None => None,
-            },
-            None,
-            None,
-        )?;
+        let (store, instance) =
+            engine.prepare_component(component, None, Some(mior.pipes), None, None)?;
 
         let resp_result = Self::execute_impl(store, instance, base, raw_route, req)
             .await
             .map_err(contextualise_err);
 
         let log_result =
-            engine.save_output_to_logs(mior.unwrap().read_handles.read(), component, true, true);
+            engine.save_output_to_logs(mior.read_handles.read(), component, true, true);
 
         // Defer checking for failures until here so that the logging runs
         // even if the guest code fails. (And when checking, check the guest

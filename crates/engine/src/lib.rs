@@ -9,7 +9,7 @@ pub mod io;
 
 use anyhow::{bail, Context, Result};
 use host_component::{HostComponent, HostComponents, HostComponentsState};
-use io::{RedirectPipes, OutputBuffers, ModuleIoRedirectsTypes};
+use io::{ModuleIoRedirectsTypes, OutputBuffers, RedirectPipes};
 use spin_config::{host_component::ComponentConfig, Resolver};
 use spin_manifest::{Application, CoreComponent, DirectoryMount, ModuleSource};
 use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
@@ -238,7 +238,7 @@ impl<T: Default> ExecutionContext<T> {
         &self,
         component: &str,
         data: Option<T>,
-        io: Option<Arc<RedirectPipes>>,
+        io: Option<RedirectPipes>,
         env: Option<HashMap<String, String>>,
         args: Option<Vec<String>>,
     ) -> Result<(Store<RuntimeContext<T>>, Instance)> {
@@ -257,7 +257,7 @@ impl<T: Default> ExecutionContext<T> {
     /// Save logs for a given component in the log directory on the host
     pub fn save_output_to_logs(
         &self,
-        io_redirects: impl OutputBuffers,
+        ior: impl OutputBuffers,
         component: &str,
         save_stdout: bool,
         save_stderr: bool,
@@ -293,7 +293,7 @@ impl<T: Default> ExecutionContext<T> {
                 .append(true)
                 .create(true)
                 .open(stdout_filename)?;
-            let contents = io_redirects.stdout();
+            let contents = ior.stdout();
             file.write_all(contents)?;
         }
 
@@ -303,7 +303,7 @@ impl<T: Default> ExecutionContext<T> {
                 .append(true)
                 .create(true)
                 .open(stderr_filename)?;
-            let contents = io_redirects.stderr();
+            let contents = ior.stderr();
             file.write_all(contents)?;
         }
 
@@ -314,7 +314,7 @@ impl<T: Default> ExecutionContext<T> {
         &self,
         component: &Component<T>,
         data: Option<T>,
-        io: Option<Arc<RedirectPipes>>,
+        io: Option<RedirectPipes>,
         env: Option<HashMap<String, String>>,
         args: Option<Vec<String>>,
     ) -> Result<Store<RuntimeContext<T>>> {
@@ -326,8 +326,7 @@ impl<T: Default> ExecutionContext<T> {
             .envs(&env)?;
         match io {
             Some(r) => {
-                let rp = Arc::try_unwrap(r).unwrap();
-                wasi_ctx = wasi_ctx.stderr(rp.stderr).stdout(rp.stdout).stdin(rp.stdin);
+                wasi_ctx = wasi_ctx.stderr(r.stderr).stdout(r.stdout).stdin(r.stdin);
             }
             None => wasi_ctx = wasi_ctx.inherit_stdio(),
         };

@@ -3,7 +3,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use hyper::{body, Body, Request, Response};
 use spin_engine::io::{
-    redirect_to_mem_buffer, Follow, ModuleIoRedirects, OutputBuffers, WriteDestinations,
+    redirect_to_mem_buffer, Follow, OutputBuffers, RedirectPipes, WriteDestinations,
 };
 use spin_manifest::WagiConfig;
 use std::{
@@ -89,7 +89,7 @@ impl HttpExecutor for WagiHttpExecutor {
         let (mut store, instance) = engine.prepare_component(
             component,
             None,
-            Some(redirects),
+            Some(Arc::new(redirects)),
             Some(headers),
             Some(argv.split(' ').map(|s| s.to_owned()).collect()),
         )?;
@@ -124,17 +124,20 @@ impl WagiHttpExecutor {
     fn streams_from_body(
         body: Vec<u8>,
         follow_on_stderr: bool,
-    ) -> (ModuleIoRedirects, WagiRedirectReadHandles) {
+    ) -> (RedirectPipes, WagiRedirectReadHandles) {
         let stdin = ReadPipe::from(body);
 
         let stdout_buf = vec![];
         let stdout_lock = Arc::new(RwLock::new(stdout_buf));
         let stdout_pipe = WritePipe::from_shared(stdout_lock.clone());
 
-        let (stderr_pipe, stderr_lock) =
-            redirect_to_mem_buffer(Follow::stderr(follow_on_stderr), None);
+        let (stderr_pipe, stderr_lock) = redirect_to_mem_buffer(Follow::stderr(follow_on_stderr));
 
-        let rd = ModuleIoRedirects::new(Box::new(stdin), Box::new(stdout_pipe), stderr_pipe);
+        let rd = RedirectPipes::new(
+            Box::new(stdin),
+            Box::new(stdout_pipe),
+            Box::new(stderr_pipe),
+        );
 
         let h = WagiRedirectReadHandles {
             stdout: stdout_lock,

@@ -6,7 +6,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use http::Uri;
 use hyper::{Body, Request, Response};
-use spin_engine::io::capture_io_to_memory;
+use spin_engine::io::{ModuleIoRedirects, ModuleIoRedirectsTypes};
 use std::{net::SocketAddr, str, str::FromStr};
 use tokio::task::spawn_blocking;
 use tracing::log;
@@ -32,17 +32,38 @@ impl HttpExecutor for SpinHttpExecutor {
             component
         );
 
-        let (redirects, outputs) =
-            capture_io_to_memory(follow, follow, engine.config.custom_log_pipes.clone());
+        let mior: Option<ModuleIoRedirects>;
 
-        let (store, instance) =
-            engine.prepare_component(component, None, Some(redirects), None, None)?;
+        if follow {
+            mior = match engine.config.module_io_redirects.clone() {
+                ModuleIoRedirectsTypes::Default => Some(ModuleIoRedirects::new()),
+                ModuleIoRedirectsTypes::FromFiles(clp) => Some(ModuleIoRedirects::new_from_files(
+                    clp.stdin_pipe.0,
+                    clp.stdout_pipe.0,
+                    clp.stderr_pipe.0,
+                )),
+            };
+        } else {
+            mior = None;
+        }
+
+        let (store, instance) = engine.prepare_component(
+            component,
+            None,
+            match mior.clone() {
+                Some(mr) => Some(mr.pipes),
+                None => None,
+            },
+            None,
+            None,
+        )?;
 
         let resp_result = Self::execute_impl(store, instance, base, raw_route, req)
             .await
             .map_err(contextualise_err);
 
-        let log_result = engine.save_output_to_logs(outputs.read(), component, true, true);
+        let log_result =
+            engine.save_output_to_logs(mior.unwrap().read_handles.read(), component, true, true);
 
         // Defer checking for failures until here so that the logging runs
         // even if the guest code fails. (And when checking, check the guest

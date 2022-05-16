@@ -1,6 +1,7 @@
 use cap_std::fs::File as CapFile;
 use std::{
     collections::HashSet,
+    fmt::Debug,
     fs::{File, OpenOptions},
     io::{LineWriter, Write},
     path::PathBuf,
@@ -11,6 +12,21 @@ use wasi_common::{
     WasiFile,
 };
 use wasmtime_wasi::sync::file::File as WasmtimeFile;
+
+/// Prepares a WASI pipe which writes to a memory buffer, optionally
+/// copying to the specified output stream.
+pub fn redirect_to_mem_buffer(
+    follow: Follow,
+) -> (WritePipe<WriteDestinations>, Arc<RwLock<WriteDestinations>>) {
+    let immediate = follow.writer();
+
+    let buffer: Vec<u8> = vec![];
+    let std_dests = WriteDestinations { buffer, immediate };
+    let lock = Arc::new(RwLock::new(std_dests));
+    let std_pipe = WritePipe::from_shared(lock.clone());
+
+    (std_pipe, lock)
+}
 
 /// Which components should have their logs followed on stdout/stderr.
 #[derive(Clone, Debug)]
@@ -43,7 +59,7 @@ pub trait OutputBuffers {
 }
 
 /// Wrapper around File w/ a convienient PathBuf for cloning
-pub struct PipeFile(pub(crate) File, pub(crate) PathBuf);
+pub struct PipeFile(pub File, pub PathBuf);
 
 impl PipeFile {
     /// Constructs an instance from a set of PipeFile objects.
@@ -76,9 +92,12 @@ impl Clone for PipeFile {
 /// to direct out and err
 #[derive(Clone, Debug)]
 pub struct CustomLogPipes {
-    pub(crate) stdin_pipe: PipeFile,
-    pub(crate) stdout_pipe: PipeFile,
-    pub(crate) stderr_pipe: PipeFile,
+    /// in pipe (file and pathbuf)
+    pub stdin_pipe: PipeFile,
+    /// out pipe (file and pathbuf)
+    pub stdout_pipe: PipeFile,
+    /// err pipe (file and pathbuf)
+    pub stderr_pipe: PipeFile,
 }
 
 impl CustomLogPipes {
@@ -92,15 +111,91 @@ impl CustomLogPipes {
     }
 }
 
+/// Types of ModuleIoRedirectsCreation
+#[derive(Clone, Debug)]
+pub enum ModuleIoRedirectsTypes {
+    /// This will signal the executor to use `capture_io_to_memory_default()`
+    Default,
+    /// This will signal the executor to use `capture_io_to_memory_files()`
+    FromFiles(CustomLogPipes),
+}
+
+impl Default for ModuleIoRedirectsTypes {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
 /// A set of redirected standard I/O streams with which
 /// a Wasm module is to be run.
 pub struct ModuleIoRedirects {
+    /// pipes for ModuleIoRedirects
+    pub pipes: Arc<RedirectPipes>,
+    /// read handles for ModuleIoRedirects
+    pub read_handles: Arc<RedirectReadHandles>,
+}
+
+impl Clone for ModuleIoRedirects {
+    fn clone(&self) -> Self {
+        Self { pipes: Arc::clone(&self.pipes), read_handles: Arc::clone(&self.read_handles) }
+    }
+}
+
+impl ModuleIoRedirects {
+    /// Constructs the ModuleIoRedirects, and RedirectReadHandles instances the default way
+    pub fn new() -> Self {
+        let rrh = RedirectReadHandles::new();
+
+        let in_stdpipe: Box<dyn WasiFile> = Box::new(ReadPipe::from(vec![]));
+        let out_stdpipe: Box<dyn WasiFile> = Box::new(WritePipe::from_shared(rrh.stdout.clone()));
+        let err_stdpipe: Box<dyn WasiFile> = Box::new(WritePipe::from_shared(rrh.stderr.clone()));
+
+        Self {
+            pipes: Arc::new(RedirectPipes {
+                stdin: in_stdpipe,
+                stdout: out_stdpipe,
+                stderr: err_stdpipe,
+            }),
+            read_handles: Arc::new(rrh),
+        }
+    }
+
+    /// Constructs the ModuleIoRedirects, and RedirectReadHandles instances from `File`s directly
+    pub fn new_from_files(stdin_file: File, stdout_file: File, stderr_file: File) -> Self {
+        let rrh = RedirectReadHandles::new();
+
+        let in_stdpipe: Box<dyn WasiFile> =
+            Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(stdin_file)));
+        let out_stdpipe: Box<dyn WasiFile> =
+            Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(stdout_file)));
+        let err_stdpipe: Box<dyn WasiFile> =
+            Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(stderr_file)));
+
+        Self {
+            pipes: Arc::new(RedirectPipes {
+                stdin: in_stdpipe,
+                stdout: out_stdpipe,
+                stderr: err_stdpipe,
+            }),
+            read_handles: Arc::new(rrh),
+        }
+    }
+}
+
+/// Pipes from `ModuleIoRedirects`
+pub struct RedirectPipes {
     pub(crate) stdin: Box<dyn WasiFile>,
     pub(crate) stdout: Box<dyn WasiFile>,
     pub(crate) stderr: Box<dyn WasiFile>,
 }
 
-impl ModuleIoRedirects {
+impl Debug for RedirectPipes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RedirectPipes {}").finish()
+    }
+}
+
+impl RedirectPipes {
     /// Constructs an instance from a set of WasiFile objects.
     pub fn new(
         stdin: Box<dyn WasiFile>,
@@ -123,6 +218,28 @@ pub struct RedirectReadHandles {
 }
 
 impl RedirectReadHandles {
+    /// Creates a new RedirectReadHandles instance
+    pub fn new() -> Self {
+        let out_immediate = Follow::Stdout.writer();
+        let err_immediate = Follow::Stderr.writer();
+
+        let out_buffer: Vec<u8> = vec![];
+        let err_buffer: Vec<u8> = vec![];
+
+        let out_std_dests = WriteDestinations {
+            buffer: out_buffer,
+            immediate: out_immediate,
+        };
+        let err_std_dests = WriteDestinations {
+            buffer: err_buffer,
+            immediate: err_immediate,
+        };
+
+        Self {
+            stdout: Arc::new(RwLock::new(out_std_dests)),
+            stderr: Arc::new(RwLock::new(err_std_dests)),
+        }
+    }
     /// Acquires a read lock for the in-memory output buffers.
     pub fn read(&self) -> impl OutputBuffers + '_ {
         RedirectReadHandlesLock {
@@ -144,53 +261,6 @@ impl<'a> OutputBuffers for RedirectReadHandlesLock<'a> {
     fn stderr(&self) -> &[u8] {
         self.stderr.buffer()
     }
-}
-
-/// Prepares WASI pipes which redirect a component's output to
-/// memory buffers.
-pub fn capture_io_to_memory(
-    follow_on_stdout: bool,
-    follow_on_stderr: bool,
-    custom_log_pipes: Option<CustomLogPipes>,
-) -> (ModuleIoRedirects, RedirectReadHandles) {
-    let stdout_follow = Follow::stdout(follow_on_stdout);
-    let stderr_follow = Follow::stderr(follow_on_stderr);
-
-    let stdin_pipe: Box<dyn WasiFile> = match custom_log_pipes.clone() {
-        Some(clp) => Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(
-            clp.stdin_pipe.0,
-        ))),
-        None => Box::new(ReadPipe::from(vec![])),
-    };
-
-    let (stdout_pipe, stdout_lock) = redirect_to_mem_buffer(
-        stdout_follow,
-        match custom_log_pipes.clone() {
-            Some(clp) => Some(clp.stdout_pipe.0),
-            None => None,
-        },
-    );
-
-    let (stderr_pipe, stderr_lock) = redirect_to_mem_buffer(
-        stderr_follow,
-        match custom_log_pipes.clone() {
-            Some(clp) => Some(clp.stderr_pipe.0),
-            None => None,
-        },
-    );
-
-    let redirects = ModuleIoRedirects {
-        stdin: stdin_pipe,
-        stdout: stdout_pipe,
-        stderr: stderr_pipe,
-    };
-
-    let outputs = RedirectReadHandles {
-        stdout: stdout_lock,
-        stderr: stderr_lock,
-    };
-
-    (redirects, outputs)
 }
 
 /// Indicates whether a memory redirect should also pipe the output to
@@ -230,27 +300,6 @@ impl Follow {
             Self::None
         }
     }
-}
-
-/// Prepares a WASI pipe which writes to a memory buffer, optionally
-/// copying to the specified output stream.
-pub fn redirect_to_mem_buffer(
-    follow: Follow,
-    log_pipe: Option<File>,
-) -> (Box<dyn WasiFile>, Arc<RwLock<WriteDestinations>>) {
-    let immediate = follow.writer();
-
-    let buffer: Vec<u8> = vec![];
-    let std_dests = WriteDestinations { buffer, immediate };
-    let lock = Arc::new(RwLock::new(std_dests));
-    let std_pipe: Box<dyn WasiFile> = match log_pipe {
-        Some(lp) => {
-            let wf = WasmtimeFile::from_cap_std(CapFile::from_std(lp));
-            Box::new(wf)
-        }
-        None => Box::new(WritePipe::from_shared(lock.clone())),
-    };
-    (std_pipe, lock)
 }
 
 /// The destinations to which a component writes an output stream.

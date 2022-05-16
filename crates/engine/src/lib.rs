@@ -9,7 +9,7 @@ pub mod io;
 
 use anyhow::{bail, Context, Result};
 use host_component::{HostComponent, HostComponents, HostComponentsState};
-use io::{CustomLogPipes, ModuleIoRedirects, OutputBuffers};
+use io::{RedirectPipes, OutputBuffers, ModuleIoRedirectsTypes};
 use spin_config::{host_component::ComponentConfig, Resolver};
 use spin_manifest::{Application, CoreComponent, DirectoryMount, ModuleSource};
 use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
@@ -35,8 +35,8 @@ pub struct ExecutionContextConfiguration {
     pub log_dir: Option<PathBuf>,
     /// Application configuration resolver.
     pub config_resolver: Option<Arc<Resolver>>,
-    /// Custom log pipes on host.
-    pub custom_log_pipes: Option<CustomLogPipes>,
+    /// The type of io redirects for the module (default, or files)
+    pub module_io_redirects: ModuleIoRedirectsTypes,
 }
 
 impl From<Application> for ExecutionContextConfiguration {
@@ -238,7 +238,7 @@ impl<T: Default> ExecutionContext<T> {
         &self,
         component: &str,
         data: Option<T>,
-        io: Option<ModuleIoRedirects>,
+        io: Option<Arc<RedirectPipes>>,
         env: Option<HashMap<String, String>>,
         args: Option<Vec<String>>,
     ) -> Result<(Store<RuntimeContext<T>>, Instance)> {
@@ -314,7 +314,7 @@ impl<T: Default> ExecutionContext<T> {
         &self,
         component: &Component<T>,
         data: Option<T>,
-        io: Option<ModuleIoRedirects>,
+        io: Option<Arc<RedirectPipes>>,
         env: Option<HashMap<String, String>>,
         args: Option<Vec<String>>,
     ) -> Result<Store<RuntimeContext<T>>> {
@@ -326,7 +326,8 @@ impl<T: Default> ExecutionContext<T> {
             .envs(&env)?;
         match io {
             Some(r) => {
-                wasi_ctx = wasi_ctx.stderr(r.stderr).stdout(r.stdout).stdin(r.stdin);
+                let rp = Arc::try_unwrap(r).unwrap();
+                wasi_ctx = wasi_ctx.stderr(rp.stderr).stdout(rp.stdout).stdin(rp.stdin);
             }
             None => wasi_ctx = wasi_ctx.inherit_stdio(),
         };

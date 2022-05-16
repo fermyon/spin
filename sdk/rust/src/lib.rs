@@ -8,6 +8,9 @@ pub use spin_macro::*;
 /// Exports the experimental outbound HTTP crate.
 pub use wasi_experimental_http as outbound_http;
 
+/// Exports the webhook crate.
+pub mod webhook;
+
 /// Helpers for building Spin HTTP components.
 /// These are convenience helpers, and the types in this module are
 /// based on the [`http`](https://crates.io/crates) crate.

@@ -202,7 +202,7 @@ dependencies = [
  "openid",
  "rand 0.7.3",
  "reqwest",
- "semver",
+ "semver 1.0.6",
  "serde",
  "serde_cbor",
  "serde_json",
@@ -522,6 +522,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a37c35f1112dad5e6e0b1adaff798507497a18fceeb30cceb3bae7d1427b9213"
 dependencies = [
  "os_str_bytes",
+]
+
+[[package]]
+name = "colored"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3616f750b84d8f0de8a58bda93e08e2a81ad3f523089b05f1dffecab48c6cbd"
+dependencies = [
+ "atty",
+ "lazy_static",
+ "winapi",
 ]
 
 [[package]]
@@ -865,6 +876,18 @@ name = "data-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ee2393c4a91429dffb4bedf19f4d6abf27d8a732c8ce4980305d782e5426d57"
+
+[[package]]
+name = "dialoguer"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61579ada4ec0c6031cfac3f86fdba0d195a7ebeb5e36693bd53cb5999a25beeb"
+dependencies = [
+ "console",
+ "lazy_static",
+ "tempfile",
+ "zeroize",
+]
 
 [[package]]
 name = "dialoguer"
@@ -1496,10 +1519,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "hippo"
+version = "0.12.0"
+source = "git+https://github.com/deislabs/hippo-cli#5a7654e6fa9d063d934b078e5216a39ea2f91147"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "clap 3.1.15",
+ "colored",
+ "dialoguer 0.9.0",
+ "dirs 4.0.0",
+ "dunce",
+ "env_logger",
+ "futures",
+ "glob",
+ "hippo-openapi",
+ "itertools",
+ "log",
+ "mime_guess",
+ "regex",
+ "reqwest",
+ "semver 0.11.0",
+ "serde",
+ "serde_json",
+ "sha2 0.9.9",
+ "tokio",
+ "toml",
+]
+
+[[package]]
 name = "hippo-openapi"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccdd4ea8f4de601a7a88363fef1b19dea97c69f13d292aa96872f3220cc92cf2"
+checksum = "819f70d18f069df5f41af1f8c38d58b685d67084d25071ef2335286ac90f72bf"
 dependencies = [
  "reqwest",
  "serde",
@@ -2979,7 +3032,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
- "semver",
+ "semver 1.0.6",
 ]
 
 [[package]]
@@ -3157,11 +3210,30 @@ dependencies = [
 
 [[package]]
 name = "semver"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f301af10236f6df4160f7c3f04eec6dbc70ace82d23326abad5edee88801c6b6"
+dependencies = [
+ "semver-parser",
+ "serde",
+]
+
+[[package]]
+name = "semver"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4a3381e03edd24287172047536f20cabde766e2cd3e65e6b00fb3af51c4f38d"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "semver-parser"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00b0bef5b7f9e0df16536d3961cfb6e84331c065b4066afb39768d0e319411f7"
+dependencies = [
+ "pest",
 ]
 
 [[package]]
@@ -3441,6 +3513,7 @@ dependencies = [
  "dunce",
  "env_logger",
  "futures",
+ "hippo",
  "hippo-openapi",
  "hyper",
  "lazy_static",
@@ -3448,7 +3521,7 @@ dependencies = [
  "path-absolutize",
  "regex",
  "reqwest",
- "semver",
+ "semver 1.0.6",
  "serde",
  "sha2 0.10.2",
  "spin-build",
@@ -3629,7 +3702,7 @@ dependencies = [
  "mime_guess",
  "path-absolutize",
  "reqwest",
- "semver",
+ "semver 1.0.6",
  "serde",
  "sha2 0.10.2",
  "spin-loader",
@@ -3683,7 +3756,7 @@ dependencies = [
  "async-trait",
  "bytes 1.1.0",
  "console",
- "dialoguer",
+ "dialoguer 0.10.0",
  "dirs 3.0.2",
  "env_logger",
  "fs_extra",

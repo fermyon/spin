@@ -168,6 +168,73 @@ mod integration_tests {
     }
 
     #[tokio::test]
+    async fn test_can_cache_bindle_data() -> Result<()> {
+        // start the Bindle registry.
+        let config = BindleTestControllerConfig {
+            basic_auth_enabled: false,
+        };
+        let b = BindleTestController::new(config).await?;
+        let url = b.url.clone();
+
+        // push the application to the registry using the Spin CLI.
+        run(
+            vec![
+                SPIN_BINARY,
+                "bindle",
+                "push",
+                "--file",
+                &format!(
+                    "{}/{}",
+                    RUST_HTTP_STATIC_ASSETS_TEST, DEFAULT_MANIFEST_LOCATION
+                ),
+                "--bindle-server",
+                &b.url,
+            ],
+            None,
+        )?;
+
+        let cache_dir = tempfile::tempdir()?;
+        let cache_dir_text = format!("{}", cache_dir.path().display());
+
+        // start Spin using the bindle reference of the application that was just pushed.
+        let s = SpinTestController::with_bindle_opts(
+            RUST_HTTP_STATIC_ASSETS_REST_REF,
+            &url,
+            &[],
+            Some(&cache_dir_text),
+        )
+        .await?;
+
+        assert_status(&s, "/static/thisshouldbemounted/1", 200).await?;
+        assert_status(&s, "/static/thisshouldbemounted/2", 200).await?;
+        assert_status(&s, "/static/thisshouldbemounted/3", 200).await?;
+
+        assert_status(&s, "/static/donotmount/a", 404).await?;
+
+        drop(s);
+        drop(b);
+
+        // The Bindle server is now unavailable but Spin should still be able to use the cache.
+        let s = SpinTestController::with_bindle_opts(
+            RUST_HTTP_STATIC_ASSETS_REST_REF,
+            &url,
+            &[],
+            Some(&cache_dir_text),
+        )
+        .await?;
+
+        assert_status(&s, "/static/thisshouldbemounted/1", 200).await?;
+        assert_status(&s, "/static/thisshouldbemounted/2", 200).await?;
+        assert_status(&s, "/static/thisshouldbemounted/3", 200).await?;
+
+        assert_status(&s, "/static/donotmount/a", 404).await?;
+
+        drop(cache_dir);
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_headers_env_routes() -> Result<()> {
         // start the Bindle registry.
         let config = BindleTestControllerConfig {
@@ -355,11 +422,20 @@ mod integration_tests {
             Ok(SpinTestController { url, spin_handle })
         }
 
-        // Unfortunately, this is a lot of duplicated code.
         pub async fn with_bindle(
             id: &str,
             bindle_url: &str,
             env: &[&str],
+        ) -> Result<SpinTestController> {
+            Self::with_bindle_opts(id, bindle_url, env, None).await
+        }
+
+        // Unfortunately, this is a lot of duplicated code.
+        pub async fn with_bindle_opts(
+            id: &str,
+            bindle_url: &str,
+            env: &[&str],
+            cache_dir: Option<&str>,
         ) -> Result<SpinTestController> {
             let url = format!("127.0.0.1:{}", get_random_port()?);
             let mut args = vec![
@@ -374,6 +450,10 @@ mod integration_tests {
             for v in env {
                 args.push("--env");
                 args.push(v);
+            }
+            if let Some(d) = cache_dir {
+                args.push("--bindle-cache-dir");
+                args.push(d);
             }
 
             let mut spin_handle = Command::new(get_process(SPIN_BINARY))

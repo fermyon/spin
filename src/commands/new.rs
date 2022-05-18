@@ -12,10 +12,10 @@ pub struct NewCommand {
     pub template_id: String,
 
     /// The name of the new application or component.
-    #[clap(short = 'n', long = "name")]
-    pub name: Option<String>,
+    pub name: String,
 
     /// The directory in which to create the new application or component.
+    /// The default is the name argument.
     #[clap(short = 'o', long = "output")]
     pub output_path: Option<PathBuf>,
 
@@ -31,14 +31,18 @@ impl NewCommand {
         let template = template_manager
             .get(&self.template_id)
             .with_context(|| format!("Error retrieving template {}", self.template_id))?;
+        let output_path = self
+            .output_path
+            .clone()
+            .unwrap_or_else(|| path_safe(&self.name));
         let options = RunOptions {
             name: self.name.clone(),
-            output_path: self.output_path.clone(),
+            output_path,
             values: to_hash_map(&self.values),
         };
 
         match template {
-            Some(template) => template.run(options).interactive().execute().await,
+            Some(template) => template.run(options).interactive().await.execute().await,
             None => {
                 // TODO: guidance experience
                 println!("Template {} not found", self.template_id);
@@ -74,4 +78,13 @@ fn to_hash_map(values: &[ParameterValue]) -> HashMap<String, String> {
         .iter()
         .map(|p| (p.name.clone(), p.value.clone()))
         .collect()
+}
+
+lazy_static::lazy_static! {
+    static ref PATH_UNSAFE_CHARACTERS: regex::Regex = regex::Regex::new("[^-_.a-zA-Z0-9]").expect("Invalid path safety regex");
+}
+
+fn path_safe(text: &str) -> PathBuf {
+    let path = PATH_UNSAFE_CHARACTERS.replace_all(text, "_");
+    PathBuf::from(path.to_string())
 }

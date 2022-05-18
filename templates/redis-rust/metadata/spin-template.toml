@@ -4,6 +4,5 @@ description = "Redis message handler using Rust"
 
 [parameters]
 project-description = { type = "string",  prompt = "Project description" }
-project-name = { type = "string",  prompt = "Project name" }
 redis-address = { type = "string", prompt = "Redis address", default = "redis://localhost:6379" }
 redis-channel = { type = "string", prompt = "Redis channel" }

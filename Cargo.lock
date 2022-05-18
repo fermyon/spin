@@ -3446,6 +3446,7 @@ dependencies = [
  "lazy_static",
  "outbound-redis",
  "path-absolutize",
+ "regex",
  "reqwest",
  "semver",
  "serde",

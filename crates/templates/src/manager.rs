@@ -501,7 +501,6 @@ mod tests {
         let dest_temp_dir = tempdir().unwrap();
         let output_dir = dest_temp_dir.path().join("myproj");
         let values = [
-            ("project-name".to_owned(), "my project".to_owned()),
             ("project-description".to_owned(), "my desc".to_owned()),
             ("http-base".to_owned(), "/base".to_owned()),
             ("http-path".to_owned(), "/path/...".to_owned()),
@@ -509,12 +508,18 @@ mod tests {
         .into_iter()
         .collect();
         let options = RunOptions {
-            output_path: Some(output_dir.clone()),
-            name: None,
+            output_path: output_dir.clone(),
+            name: "my project".to_owned(),
             values,
         };
 
-        template.run(options).silent().execute().await.unwrap();
+        template
+            .run(options)
+            .silent()
+            .await
+            .execute()
+            .await
+            .unwrap();
 
         let cargo = tokio::fs::read_to_string(output_dir.join("Cargo.toml"))
             .await

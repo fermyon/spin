@@ -27,11 +27,11 @@ The following illustrates how to define an HTTP application.
 
 #### HTTP Handler
 
-This `hello_world` function written in Rust defines a component that takes an `http::Request`and returns a `Result<http::Response>`.
+This `hello_world` function written in Rust defines a component that takes a `Request` and returns a `Result<Response>`.
 
 ```rust
 #[http_component]​
-fn hello_world(_req: http::Request) -> Result<http::Response> {​
+fn hello_world(_req: Request) -> Result<Response> {​
     Ok(http::Response::builder()​
         .status(200)​
         .body(Some("Hello, Fermyon!".into()))?)​
@@ -60,7 +60,16 @@ route = "/hello"
 
 Running this application with the `spin` CLI is as simple as using the `spin up` command.
 Because a trigger type of `http` is specified in the `spin.toml`, `spin up` will start
-a web server. Any time a request is made on the `/hello` route, it will invoke the
+a web server:
+
+```console
+$ spin up
+Serving HTTP on address http://127.0.0.1:3000
+Available Routes:
+  hello: http://127.0.0.1:3000/hello
+```
+
+Any time a request is made on the `/hello` route, it will invoke the
 `hello_world` function. Adding another component is as simple as adding another `[[component]]`
 stanza to the `spin.toml` file.
 

@@ -361,7 +361,7 @@ mod tests {
         PathBuf::from(crate_dir).join("..").join("..")
     }
 
-    const TPLS_IN_THIS: usize = 3;
+    const TPLS_IN_THIS: usize = 4;
 
     #[tokio::test]
     async fn can_install_into_new_directory() {
@@ -379,7 +379,7 @@ mod tests {
         assert_eq!(TPLS_IN_THIS, install_result.installed.len());
         assert_eq!(0, install_result.skipped.len());
 
-        assert_eq!(3, manager.list().await.unwrap().len());
+        assert_eq!(TPLS_IN_THIS, manager.list().await.unwrap().len());
     }
 
     #[tokio::test]
@@ -451,7 +451,7 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(3, install_result.installed.len());
+        assert_eq!(TPLS_IN_THIS, install_result.installed.len());
         assert_eq!(0, install_result.skipped.len());
 
         let installed = manager.list().await.unwrap();
@@ -481,7 +481,7 @@ mod tests {
         let cargo = tokio::fs::read_to_string(content_dir.join("Cargo.toml"))
             .await
             .unwrap();
-        assert!(cargo.contains("name = \"{{project-name | snake_case}}\""));
+        assert!(cargo.contains("name = \"{{project-name | kebab_case}}\""));
     }
 
     #[tokio::test]
@@ -519,6 +519,6 @@ mod tests {
         let cargo = tokio::fs::read_to_string(output_dir.join("Cargo.toml"))
             .await
             .unwrap();
-        assert!(cargo.contains("name = \"my_project\""));
+        assert!(cargo.contains("name = \"my-project\""));
     }
 }

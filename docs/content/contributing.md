@@ -76,7 +76,7 @@ successful, you should be ready to commit your changes. We try to follow the
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
 guidelines for writing commit messages:
 
-```shell
+```bash
 $ git commit -S -s -m "<your commit message that follows https://www.conventionalcommits.org/en/v1.0.0/>"
 ```
 
@@ -86,7 +86,7 @@ often, please
 before opening a pull request. Once you are happy with your changes you can push
 the branch to your fork:
 
-```shell
+```bash
 # "fork" is the name of the git remote pointing to your fork
 $ git push fork
 ```

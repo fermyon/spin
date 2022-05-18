@@ -1,6 +1,6 @@
 [package]
 name = "spin-trigger"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["mossaka <duibao55328@gmail.com>"]
 

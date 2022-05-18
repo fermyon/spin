@@ -33,7 +33,7 @@ built in any language that compiles to WASI, and Go has improved support for
 writing applications, through its SDK.
 
 Building a Spin HTTP component using the Go SDK means writing a single function,
-`main` — below is a complete implementation for such a component:
+`init` — below is a complete implementation for such a component:
 
 ```go
 // A Spin component written in Go that returns "Hello, Fermyon!"
@@ -43,20 +43,23 @@ import (
  "fmt"
  "net/http"
 
- spin "github.com/fermyon/spin/sdk/go/http"
+ spinhttp "github.com/fermyon/spin/sdk/go/http"
 )
 
-func main() {
- spin.HandleRequest(func(w http.ResponseWriter, r *http.Request) {
-  fmt.Fprintln(w, "Hello, Fermyon!")
+func init() {
+ spinhttp.Handle(func(w http.ResponseWriter, r *http.Request) {
+  w.Header().Set("Content-Type", "text/plain")
+  fmt.Fprintln(w, "Hello Fermyon!")
  })
 }
+
+func main() {}
 ```
 
 The important things to note in the implementation above:
 
-- the entry point to the component is the standard `func main()` for Go programs
-- handling the request is done by calling the `spin.HandleRequest` function,
+- the entry point to the component is the standard `func init()` for Go programs
+- handling the request is done by calling the `spinhttp.Handle` function,
 which takes a `func(w http.ResponseWriter, r *http.Request)` as parameter — these
 contain the HTTP request and response writer you can use to handle the request
 - the HTTP objects (`*http.Request`, `http.Response`, and `http.ResponseWriter`)
@@ -73,27 +76,34 @@ inserts a custom header into the response before returning:
 ```go
 // A Spin component written in Go that sends a request to an API
 // with random dog facts.
+
 package main
 
 import (
+ "bytes"
  "fmt"
  "net/http"
  "os"
 
- spin_http "github.com/fermyon/spin/sdk/go/http"
+ spinhttp "github.com/fermyon/spin/sdk/go/http"
 )
 
-func main() {
- spin_http.HandleRequest(func(w http.ResponseWriter, r *http.Request) {
-  res, err := spin_http.Get("https://some-random-api.ml/facts/dog")
-  if err != nil {
+func init() {
+ spinhttp.Handle(func(w http.ResponseWriter, r *http.Request) {
+  r, _ := spinhttp.Get("https://some-random-api.ml/facts/dog")
+
+  fmt.Fprintln(w, r.Body)
+  fmt.Fprintln(w, r.Header.Get("content-type"))
+
+  // `spin.toml` is not configured to allow outbound HTTP requests to this host,
+  // so this request will fail.
+  if _, err := spinhttp.Get("https://fermyon.com"); err != nil {
    fmt.Fprintf(os.Stderr, "Cannot send HTTP request: %v", err)
   }
-  // optionally writing a response header
-  w.Header().Add("server", "spin/0.1.0")
-  fmt.Fprintln(w, res.Body)
  })
 }
+
+func main() {}
 ```
 
 The component can be built using the `tingygo` toolchain:
@@ -120,7 +130,6 @@ source = "main.wasm"
 allowed_http_hosts = [ "https://some-random-api.ml" ]
 [component.trigger]
 route = "/hello"
-executor = { type = "wagi" }
 ```
 
 > Spin HTTP components written in Go must currently use the Wagi executor.
@@ -143,6 +152,161 @@ date: Fri, 18 Mar 2022 23:27:33 GMT
 > Without the `allowed_http_hosts` field populated properly in `spin.toml`,
 > the component would not be allowed to send HTTP requests, and sending the
 > request would generate in a "Destination not allowed" error.
+
+> You can set `allowed_http_hosts = ["insecure:allow-all"]` if you want to allow
+> the component to make requests to any HTTP host. This is **NOT** recommended
+> for any production or publicly-accessible application.
+
+## Redis components
+
+Besides the HTTP trigger, Spin has built-in support for a Redis trigger, which
+will connect to a Redis instance and will execute components for new messages
+on the configured channels.
+
+> See the [Redis trigger](./redis-trigger.md) for details about the Redis trigger.
+
+Writing a Redis component in Go also takes advantage of the SDK:
+
+```go
+package main
+
+import (
+ "fmt"
+
+ "github.com/fermyon/spin/sdk/go/redis"
+)
+
+func init() {
+ // redis.Handle() must be called in the init() function.
+ redis.Handle(func(payload []byte) error {
+  fmt.Println("Payload::::")
+  fmt.Println(string(payload))
+  return nil
+ })
+}
+
+// main function must be included for the compiler but is not executed.
+func main() {}
+```
+
+The manifest for a Redis application must contain the address of the Redis instance:
+
+```toml
+spin_version = "1"
+name = "spin-redis"
+trigger = { type = "redis", address = "redis://localhost:6379" }
+version = "0.1.0"
+
+[[component]]
+id = "echo-message"
+source = "main.wasm"
+[component.trigger]
+channel = "messages"
+[component.build]
+command = "tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go"
+```
+
+The application will connect to `redis://localhost:6379`, and for every new message
+on the `messages` channel, the `echo-message` component will be executed:
+
+```bash
+# first, start redis-server on the default port 6379
+$ redis-server --port 6379
+# then, start the Spin application
+$ spin build --up
+INFO spin_redis_engine: Connecting to Redis server at redis://localhost:6379
+INFO spin_redis_engine: Subscribed component 0 (echo-message) to channel: messages
+```
+
+For every new message on the `messages` channel:
+
+```bash
+$ redis-cli
+127.0.0.1:6379> publish messages "Hello, there!"
+```
+
+Spin will instantiate and execute the component:
+
+```bash
+INFO spin_redis_engine: Received message on channel "messages"
+Payload::::
+Hello, there!
+```
+
+## Storing data in Redis from Go components
+
+Using the Spin's Go SDK, you can use the Redis key/value store to publish
+messages to Redis channels. This can be used from both HTTP and Redis triggered
+components.
+
+Let's see how we can use the Go SDK to connect to Redis:
+
+```go
+package main
+
+import (
+ "net/http"
+ "os"
+
+ spin_http "github.com/fermyon/spin/sdk/go/http"
+ "github.com/fermyon/spin/sdk/go/redis"
+)
+
+func init() {
+ // handler for the http trigger
+ spin_http.Handle(func(w http.ResponseWriter, r *http.Request) {
+
+  // addr is the environment variable set in `spin.toml` that points to the
+  // address of the Redis server.
+  addr := os.Getenv("REDIS_ADDRESS")
+
+  // channel is the environment variable set in `spin.toml` that specifies
+  // the Redis channel that the component will publish to.
+  channel := os.Getenv("REDIS_CHANNEL")
+
+  // payload is the data publish to the redis channel.
+  payload := []byte(`Hello redis from tinygo!`)
+
+  if err := redis.Publish(addr, channel, payload); err != nil {
+   http.Error(w, err.Error(), http.StatusInternalServerError)
+   return
+  }
+
+  // set redis `mykey` = `myvalue`
+  if err := redis.Set(addr, "mykey", []byte("myvalue")); err != nil {
+   http.Error(w, err.Error(), http.StatusInternalServerError)
+   return
+  }
+
+  // get redis payload for `mykey`
+  if payload, err := redis.Get(addr, "mykey"); err != nil {
+   http.Error(w, err.Error(), http.StatusInternalServerError)
+  } else {
+   w.Write([]byte("mykey value was: "))
+   w.Write(payload)
+  }
+ })
+}
+
+func main() {}
+```
+
+This HTTP component demonstrates fetching a value from Redis by key, setting a
+key with a value, and publishing a message to a Redis channel. The component is
+triggered by an HTTP request served on the route configured in the `spin.toml`:
+
+```toml
+[[component]]
+environment = { REDIS_ADDRESS = "redis://127.0.0.1:6379", REDIS_CHANNEL = "messages" }
+[component.trigger]
+route = "/publish"
+```
+
+This HTTP component can be paired with a Redis component, triggered on new
+messages on the `messages` Redis channel.
+
+> You can find a complete example for using outbound Redis from an HTTP component
+> in the [Spin repository on GitHub](https://github.com/fermyon/spin/tree/main/examples/tinygo-outbound-redis).
 
 ## Using Go packages in Spin components
 

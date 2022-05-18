@@ -15,5 +15,5 @@ func init() {
 	})
 }
 
-// main function must be included for the compiler but is not executed.
+// main functiion must be included for the compiler but is not executed.
 func main() {}

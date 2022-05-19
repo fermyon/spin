@@ -6,14 +6,15 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use http::{Request, Response};
+use http::{uri::Scheme, Request, Response};
 use hyper::Body;
-use spin_engine::{io::FollowComponents, Builder};
+use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http_engine::HttpTrigger;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
     HttpConfig, ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion, TriggerConfig,
 };
+use spin_trigger::TriggerExecutorBuilder;
 
 #[derive(Default)]
 pub struct TestConfig {
@@ -98,14 +99,20 @@ impl TestConfig {
     }
 
     pub async fn prepare_builder<T: Default + 'static>(&self, app: Application) -> Builder<T> {
-        let mut builder = Builder::new(app.into()).expect("Builder::new failed");
+        let config = ExecutionContextConfiguration {
+            components: app.components,
+            label: app.info.name,
+            config_resolver: app.config_resolver,
+            ..Default::default()
+        };
+        let mut builder = Builder::new(config).expect("Builder::new failed");
         builder.link_defaults().expect("link_defaults failed");
         builder
     }
 
     pub async fn build_http_trigger(&self) -> HttpTrigger {
-        let app = self.build_application();
-        spin_trigger::build_trigger_from_app(app, None, FollowComponents::None, None)
+        TriggerExecutorBuilder::new(self.build_application())
+            .build()
             .await
             .unwrap()
     }
@@ -113,7 +120,7 @@ impl TestConfig {
     pub async fn handle_http_request(&self, req: Request<Body>) -> anyhow::Result<Response<Body>> {
         self.build_http_trigger()
             .await
-            .handle(req, test_socket_addr())
+            .handle(req, Scheme::HTTP, test_socket_addr())
             .await
     }
 }

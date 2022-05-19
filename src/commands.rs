@@ -12,9 +12,3 @@ pub mod new;
 pub mod templates;
 /// Commands for starting the runtime.
 pub mod up;
-
-/// Trigger executor commands.
-pub mod trigger_http;
-pub mod trigger_redis;
-
-pub(crate) mod trigger;

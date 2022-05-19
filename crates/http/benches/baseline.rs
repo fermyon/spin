@@ -1,8 +1,10 @@
+use std::sync::Arc;
 use std::time::Instant;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use futures::future::join_all;
+use http::uri::Scheme;
 use http::Request;
 use spin_http_engine::HttpTrigger;
 use spin_manifest::{HttpConfig, HttpExecutor};
@@ -30,7 +32,7 @@ fn bench_startup(c: &mut Criterion) {
                 .http_trigger(Default::default())
                 .build_http_trigger()
                 .await;
-            run_concurrent_requests(&trigger, 0, 1).await;
+            run_concurrent_requests(Arc::new(trigger), 0, 1).await;
         });
     });
     group.bench_function("spin-wagi-executor", |b| {
@@ -43,7 +45,7 @@ fn bench_startup(c: &mut Criterion) {
                 })
                 .build_http_trigger()
                 .await;
-            run_concurrent_requests(&trigger, 0, 1).await;
+            run_concurrent_requests(Arc::new(trigger), 0, 1).await;
         });
     });
 }
@@ -52,11 +54,13 @@ fn bench_startup(c: &mut Criterion) {
 fn bench_spin_concurrency_minimal(c: &mut Criterion) {
     let async_runtime = Runtime::new().unwrap();
 
-    let spin_trigger = async_runtime.block_on(
-        TestConfig::default()
-            .test_program("spin-http-benchmark.wasm")
-            .http_trigger(Default::default())
-            .build_http_trigger(),
+    let spin_trigger = Arc::new(
+        async_runtime.block_on(
+            TestConfig::default()
+                .test_program("spin-http-benchmark.wasm")
+                .http_trigger(Default::default())
+                .build_http_trigger(),
+        ),
     );
 
     let sleep_ms = 1;
@@ -64,7 +68,7 @@ fn bench_spin_concurrency_minimal(c: &mut Criterion) {
     for concurrency in concurrency_steps() {
         let bench_inner = || {
             black_box(run_concurrent_requests(
-                &spin_trigger,
+                spin_trigger.clone(),
                 sleep_ms,
                 concurrency,
             ))
@@ -86,14 +90,16 @@ fn bench_spin_concurrency_minimal(c: &mut Criterion) {
 fn bench_wagi_concurrency_minimal(c: &mut Criterion) {
     let async_runtime = Runtime::new().unwrap();
 
-    let wagi_trigger = async_runtime.block_on(
-        TestConfig::default()
-            .test_program("wagi-benchmark.wasm")
-            .http_trigger(HttpConfig {
-                executor: Some(HttpExecutor::Wagi(Default::default())),
-                ..Default::default()
-            })
-            .build_http_trigger(),
+    let wagi_trigger = Arc::new(
+        async_runtime.block_on(
+            TestConfig::default()
+                .test_program("wagi-benchmark.wasm")
+                .http_trigger(HttpConfig {
+                    executor: Some(HttpExecutor::Wagi(Default::default())),
+                    ..Default::default()
+                })
+                .build_http_trigger(),
+        ),
     );
 
     let sleep_ms = 1;
@@ -101,7 +107,7 @@ fn bench_wagi_concurrency_minimal(c: &mut Criterion) {
     for concurrency in concurrency_steps() {
         let bench_inner = || {
             black_box(run_concurrent_requests(
-                &wagi_trigger,
+                wagi_trigger.clone(),
                 sleep_ms,
                 concurrency,
             ))
@@ -130,15 +136,15 @@ fn concurrency_steps() -> [u32; 3] {
     }
 }
 
-async fn run_concurrent_requests(trigger: &HttpTrigger, sleep_ms: u32, concurrency: u32) {
+async fn run_concurrent_requests(trigger: Arc<HttpTrigger>, sleep_ms: u32, concurrency: u32) {
     join_all((0..concurrency).map(|_| {
-        let trigger = trigger.to_owned();
+        let trigger = trigger.clone();
         task::spawn(async move {
             let req = Request::get(format!("/?sleep={}", sleep_ms))
                 .body(Default::default())
                 .unwrap();
             let resp = trigger
-                .handle(req, "127.0.0.1:55555".parse().unwrap())
+                .handle(req, Scheme::HTTP, "127.0.0.1:55555".parse().unwrap())
                 .await
                 .unwrap();
             assert_http_response_success(&resp);

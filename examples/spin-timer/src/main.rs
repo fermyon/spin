@@ -1,13 +1,11 @@
 // The wit_bindgen_wasmtime::import below is triggering this lint.
 #![allow(clippy::needless_question_mark)]
 
-use anyhow::Result;
-use async_trait::async_trait;
-use spin_engine::{io::FollowComponents, Builder, ExecutionContextConfiguration};
-use spin_manifest::{ComponentMap, CoreComponent, ModuleSource, WasmConfig};
-use spin_timer::SpinTimerData;
-use spin_trigger::Trigger;
 use std::{sync::Arc, time::Duration};
+
+use anyhow::Result;
+use spin_engine::{Builder, ExecutionContextConfiguration};
+use spin_manifest::{CoreComponent, ModuleSource, WasmConfig};
 use tokio::task::spawn_blocking;
 
 wit_bindgen_wasmtime::import!("spin-timer.wit");
@@ -21,18 +19,17 @@ async fn main() -> Result<()> {
         .init();
 
     let component = component();
-    let builder = Builder::build_default(ExecutionContextConfiguration {
+    let engine = Builder::build_default(ExecutionContextConfiguration {
         components: vec![component],
         label: "timer-app".to_string(),
         ..Default::default()
     })
     .await?;
-    let trigger = TimerTrigger::new(builder, (), Default::default(), FollowComponents::None)?;
-    trigger
-        .run(TimerExecutionConfig {
-            interval: Duration::from_secs(1),
-        })
-        .await
+    let trigger = TimerTrigger {
+        engine: Arc::new(engine),
+        interval: Duration::from_secs(1),
+    };
+    trigger.run().await
 }
 
 /// A custom timer trigger that executes the
@@ -41,36 +38,14 @@ async fn main() -> Result<()> {
 pub struct TimerTrigger {
     /// The Spin execution context.
     engine: Arc<ExecutionContext>,
-}
-
-#[derive(Clone)]
-pub struct TimerExecutionConfig {
     /// The interval at which the component is executed.   
     pub interval: Duration,
 }
 
-#[async_trait]
-impl Trigger for TimerTrigger {
-    type ContextData = SpinTimerData;
-    type Config = ();
-    type ComponentConfig = ();
-    type ExecutionConfig = TimerExecutionConfig;
-
-    /// Creates a new trigger.
-    fn new(
-        execution_context: ExecutionContext,
-        _: Self::Config,
-        _: ComponentMap<Self::ComponentConfig>,
-        _: FollowComponents,
-    ) -> Result<Self> {
-        Ok(Self {
-            engine: Arc::new(execution_context),
-        })
-    }
-
+impl TimerTrigger {
     /// Runs the trigger at every interval.
-    async fn run(&self, run_config: Self::ExecutionConfig) -> Result<()> {
-        let mut interval = tokio::time::interval(run_config.interval);
+    async fn run(&self) -> Result<()> {
+        let mut interval = tokio::time::interval(self.interval);
         loop {
             interval.tick().await;
             self.handle(
@@ -81,9 +56,6 @@ impl Trigger for TimerTrigger {
             .await?;
         }
     }
-}
-
-impl TimerTrigger {
     /// Execute the first component in the application configuration.
     async fn handle(&self, msg: String) -> Result<()> {
         let (mut store, instance) = self.engine.prepare_component(

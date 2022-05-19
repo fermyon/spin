@@ -1,12 +1,13 @@
 use anyhow::Error;
 use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
-
 use spin_cli::commands::{
     bindle::BindleCommands, build::BuildCommand, deploy::DeployCommand, new::NewCommand,
-    templates::TemplateCommands, trigger_http::TriggerHttpCommand,
-    trigger_redis::TriggerRedisCommand, up::UpCommand,
+    templates::TemplateCommands, up::UpCommand,
 };
+use spin_http_engine::HttpTrigger;
+use spin_redis_engine::RedisTrigger;
+use spin_trigger::cli::TriggerExecutorCommand;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -29,7 +30,7 @@ fn version() -> &'static str {
 }
 
 /// The Spin CLI
-#[derive(Parser, Debug)]
+#[derive(Parser)]
 #[clap(
     name = "spin",
     version = version(),
@@ -47,10 +48,10 @@ enum SpinApp {
     Trigger(TriggerCommands),
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand)]
 enum TriggerCommands {
-    Http(TriggerHttpCommand),
-    Redis(TriggerRedisCommand),
+    Http(TriggerExecutorCommand<HttpTrigger>),
+    Redis(TriggerExecutorCommand<RedisTrigger>),
 }
 
 impl SpinApp {

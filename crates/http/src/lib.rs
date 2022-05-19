@@ -5,17 +5,11 @@ mod spin;
 mod tls;
 mod wagi;
 
-use spin_engine::io::FollowComponents;
-use spin_manifest::{ComponentMap, HttpConfig, HttpTriggerConfiguration};
-pub use tls::TlsConfig;
+use std::{future::ready, net::SocketAddr, path::PathBuf, sync::Arc};
 
-use crate::{
-    routes::{RoutePattern, Router},
-    spin::SpinHttpExecutor,
-    wagi::WagiHttpExecutor,
-};
 use anyhow::{Context, Error, Result};
 use async_trait::async_trait;
+use clap::Args;
 use futures_util::stream::StreamExt;
 use http::{uri::Scheme, StatusCode, Uri};
 use hyper::{
@@ -25,12 +19,19 @@ use hyper::{
     Body, Request, Response, Server,
 };
 use spin_http::SpinHttpData;
-use spin_trigger::Trigger;
-use std::{future::ready, net::SocketAddr, sync::Arc};
+use spin_manifest::{ComponentMap, HttpConfig, HttpTriggerConfiguration, TriggerConfig};
+use spin_trigger::TriggerExecutor;
+pub use tls::TlsConfig;
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
 use tracing::log;
+
+use crate::{
+    routes::{RoutePattern, Router},
+    spin::SpinHttpExecutor,
+    wagi::WagiHttpExecutor,
+};
 
 wit_bindgen_wasmtime::import!("../../wit/ephemeral/spin-http.wit");
 
@@ -43,7 +44,6 @@ type RuntimeContext = spin_engine::RuntimeContext<SpinHttpData>;
 /// (there could be a field apps: HashMap<String, Config>, where
 /// the key is the base path for the application, and the trigger
 /// would work across multiple applications.)
-#[derive(Clone)]
 pub struct HttpTrigger {
     /// Trigger configuration.
     trigger_config: HttpTriggerConfiguration,
@@ -52,37 +52,65 @@ pub struct HttpTrigger {
     /// Router.
     router: Router,
     /// Spin execution context.
-    engine: Arc<ExecutionContext>,
-    /// Which components should have their logs followed on stdout/stderr.
-    follow: FollowComponents,
+    engine: ExecutionContext,
 }
 
-#[derive(Clone)]
-pub struct HttpTriggerExecutionConfig {
-    address: String,
-    tls: Option<TlsConfig>,
+#[derive(Args)]
+pub struct CliArgs {
+    /// IP address and port to listen on
+    #[clap(long = "listen", default_value = "127.0.0.1:3000")]
+    pub address: String,
+
+    /// The path to the certificate to use for https, if this is not set, normal http will be used. The cert should be in PEM format
+    #[clap(long, env = "SPIN_TLS_CERT", requires = "tls-key")]
+    pub tls_cert: Option<PathBuf>,
+
+    /// The path to the certificate key to use for https, if this is not set, normal http will be used. The key should be in PKCS#8 format
+    #[clap(long, env = "SPIN_TLS_KEY", requires = "tls-cert")]
+    pub tls_key: Option<PathBuf>,
 }
 
-impl HttpTriggerExecutionConfig {
-    pub fn new(address: String, tls: Option<TlsConfig>) -> Self {
-        Self { address, tls }
+impl CliArgs {
+    fn into_tls_config(self) -> Option<TlsConfig> {
+        match (self.tls_cert, self.tls_key) {
+            (Some(cert_path), Some(key_path)) => Some(TlsConfig {
+                cert_path,
+                key_path,
+            }),
+            (None, None) => None,
+            _ => unreachable!(),
+        }
+    }
+}
+
+pub struct HttpTriggerConfig(String, HttpConfig);
+
+impl TryFrom<(String, TriggerConfig)> for HttpTriggerConfig {
+    type Error = spin_manifest::Error;
+
+    fn try_from((component, config): (String, TriggerConfig)) -> Result<Self, Self::Error> {
+        Ok(HttpTriggerConfig(component, config.try_into()?))
     }
 }
 
 #[async_trait]
-impl Trigger for HttpTrigger {
-    type ContextData = SpinHttpData;
-    type Config = HttpTriggerConfiguration;
-    type ComponentConfig = HttpConfig;
-    type ExecutionConfig = HttpTriggerExecutionConfig;
+impl TriggerExecutor for HttpTrigger {
+    type GlobalConfig = HttpTriggerConfiguration;
+    type TriggerConfig = HttpTriggerConfig;
+    type RunConfig = CliArgs;
+    type RuntimeContext = SpinHttpData;
 
     fn new(
         execution_context: ExecutionContext,
-        trigger_config: Self::Config,
-        component_triggers: ComponentMap<Self::ComponentConfig>,
-        follow: FollowComponents,
+        global_config: Self::GlobalConfig,
+        trigger_configs: impl IntoIterator<Item = Self::TriggerConfig>,
     ) -> Result<Self> {
-        let router = Router::build(&trigger_config.base, &component_triggers)?;
+        let component_triggers: ComponentMap<HttpConfig> = trigger_configs
+            .into_iter()
+            .map(|config| (config.0, config.1))
+            .collect();
+
+        let router = Router::build(&global_config.base, &component_triggers)?;
         log::trace!(
             "Constructed router for application {}: {:?}",
             execution_context.config.label,
@@ -90,27 +118,51 @@ impl Trigger for HttpTrigger {
         );
 
         Ok(Self {
-            trigger_config,
+            trigger_config: global_config,
             component_triggers,
             router,
-            engine: Arc::new(execution_context),
-            follow,
+            engine: execution_context,
         })
     }
 
-    /// Runs the HTTP trigger indefinitely.
-    async fn run(&self, run_config: Self::ExecutionConfig) -> Result<()> {
-        if let Some(ref tls) = run_config.tls {
-            self.serve_tls(run_config.address, tls).await
-        } else {
-            self.serve(run_config.address).await
+    async fn run(self, config: Self::RunConfig) -> Result<()> {
+        let listen_addr = config.address.parse()?;
+        let tls = config.into_tls_config();
+
+        // Print startup messages
+        let scheme = if tls.is_some() { "https" } else { "http" };
+        let base_url = format!("{}://{:?}", scheme, listen_addr);
+        println!("Serving {}", base_url);
+        log::info!("Serving {}", base_url);
+        println!("Available Routes:");
+        for (route, component) in &self.router.routes {
+            println!("  {}: {}{}", component, base_url, route);
+            if let Some(component) = self.engine.components.get(component) {
+                if let Some(description) = &component.core.description {
+                    println!("    {}", description);
+                }
+            }
         }
+
+        if let Some(tls) = tls {
+            self.serve_tls(listen_addr, tls).await?
+        } else {
+            self.serve(listen_addr).await?
+        };
+        Ok(())
     }
 }
 
 impl HttpTrigger {
     /// Handles incoming requests using an HTTP executor.
-    pub async fn handle(&self, req: Request<Body>, addr: SocketAddr) -> Result<Response<Body>> {
+    pub async fn handle(
+        &self,
+        mut req: Request<Body>,
+        scheme: Scheme,
+        addr: SocketAddr,
+    ) -> Result<Response<Body>> {
+        set_req_uri(&mut req, scheme)?;
+
         log::info!(
             "Processing request for application {} on URI {}",
             &self.engine.config.label,
@@ -128,7 +180,11 @@ impl HttpTrigger {
                         None => &spin_manifest::HttpExecutor::Spin,
                     };
 
-                    let follow = self.follow.should_follow(component_id);
+                    let follow = self
+                        .engine
+                        .config
+                        .follow_components
+                        .should_follow(component_id);
 
                     let res = match executor {
                         spin_manifest::HttpExecutor::Spin => {
@@ -194,126 +250,69 @@ impl HttpTrigger {
         Ok(not_found)
     }
 
-    async fn serve(&self, address: String) -> Result<()> {
-        let mk_svc = make_service_fn(move |addr: &AddrStream| {
-            let t = self.clone();
-            let addr = addr.remote_addr();
-
+    async fn serve(self, listen_addr: SocketAddr) -> Result<()> {
+        let self_ = Arc::new(self);
+        let make_service = make_service_fn(|conn: &AddrStream| {
+            let self_ = self_.clone();
+            let addr = conn.remote_addr();
             async move {
-                Ok::<_, Error>(service_fn(move |mut req| {
-                    let t2 = t.clone();
-
-                    async move {
-                        match set_req_uri(&mut req, Scheme::HTTP) {
-                            Ok(()) => t2.handle(req, addr).await,
-                            Err(e) => {
-                                log::warn!("{}", e);
-                                Self::internal_error(Some("Socket connection error"))
-                            }
-                        }
-                    }
-                }))
+                let service = service_fn(move |req| {
+                    let self_ = self_.clone();
+                    async move { self_.handle(req, Scheme::HTTP, addr).await }
+                });
+                Ok::<_, Error>(service)
             }
         });
 
-        let addr: SocketAddr = address.parse()?;
-
-        let server = Server::try_bind(&addr)
-            .with_context(|| format!("Unable to listen on {}", addr))?
-            .serve(mk_svc);
-
-        println!("Serving HTTP on address http://{:?}", addr);
-        log::info!("Serving HTTP on address {:?}", addr);
-
-        println!("Available Routes:");
-        for (route, component) in &self.router.routes {
-            println!("  {}: http://{:?}{}", component, addr, route);
-            if let Some(component) = self.engine.components.get(component) {
-                if let Some(description) = &component.core.description {
-                    println!("    {}", description);
-                }
-            }
-        }
-
-        let shutdown_signal = on_ctrl_c()?;
-
-        tokio::select! {
-            _ = server => {
-                log::debug!("Server shut down: exiting");
-            },
-            _ = shutdown_signal => {
-                log::debug!("User requested shutdown: exiting");
-            },
-        };
-
+        Server::try_bind(&listen_addr)
+            .with_context(|| format!("Unable to listen on {}", listen_addr))?
+            .serve(make_service)
+            .await?;
         Ok(())
     }
 
-    async fn serve_tls(&self, address: String, tls: &TlsConfig) -> Result<()> {
-        let mk_svc = make_service_fn(move |conn: &TlsStream<TcpStream>| {
-            let (inner, _) = conn.get_ref();
-            let addr_res = inner.peer_addr().map_err(|e| e.to_string());
-            let t = self.clone();
+    async fn serve_tls(self, listen_addr: SocketAddr, tls: TlsConfig) -> Result<()> {
+        let self_ = Arc::new(self);
+        let make_service = make_service_fn(|conn: &TlsStream<TcpStream>| {
+            let self_ = self_.clone();
+            let (inner_conn, _) = conn.get_ref();
+            let addr_res = inner_conn.peer_addr().map_err(|err| err.to_string());
 
-            Box::pin(async move {
-                Ok::<_, Error>(service_fn(move |mut req| {
-                    let t2 = t.clone();
-                    let a_res = addr_res.clone();
+            async move {
+                let service = service_fn(move |req| {
+                    let self_ = self_.clone();
+                    let addr_res = addr_res.clone();
 
                     async move {
-                        match set_req_uri(&mut req, Scheme::HTTPS) {
-                            Ok(()) => {}
-                            Err(e) => {
-                                log::warn!("{}", e);
-                                return Self::internal_error(Some("Socket connection error"));
-                            }
-                        }
-
-                        match a_res {
-                            Ok(addr) => t2.handle(req, addr).await,
-                            Err(e) => {
-                                log::warn!("Socket connection error on new connection: {}", e);
+                        match addr_res {
+                            Ok(addr) => self_.handle(req, Scheme::HTTPS, addr).await,
+                            Err(err) => {
+                                log::warn!("Failed to get remote socket address: {}", err);
                                 Self::internal_error(Some("Socket connection error"))
                             }
                         }
                     }
-                }))
-            })
+                });
+                Ok::<_, Error>(service)
+            }
         });
 
-        let addr: SocketAddr = address.parse()?;
-        let listener = TcpListener::bind(&addr)
+        let listener = TcpListener::bind(&listen_addr)
             .await
-            .with_context(|| format!("Unable to listen on {}", addr))?;
+            .with_context(|| format!("Unable to listen on {}", listen_addr))?;
 
-        let tls_srv_cfg = tls.server_config()?;
-
-        let incoming =
-            accept::from_stream(TlsListener::new(tls_srv_cfg, listener).filter(|conn| {
+        let incoming = accept::from_stream(
+            TlsListener::new(tls.server_config()?, listener).filter(|conn| {
                 if let Err(err) = conn {
                     log::warn!("{:?}", err);
                     ready(false)
                 } else {
                     ready(true)
                 }
-            }));
+            }),
+        );
 
-        let server = Server::builder(incoming).serve(mk_svc);
-
-        println!("Serving HTTPS on address https://{:?}", addr);
-        log::info!("Serving HTTPS on address {:?}", addr);
-
-        let shutdown_signal = on_ctrl_c()?;
-
-        tokio::select! {
-            _ = server => {
-                log::debug!("Server shut down: exiting");
-            },
-            _ = shutdown_signal => {
-                log::debug!("User requested shutdown: exiting");
-            },
-        };
-
+        Server::builder(incoming).serve(make_service).await?;
         Ok(())
     }
 }
@@ -335,17 +334,6 @@ fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> Result<()> {
     parts.scheme = Some(scheme);
     *req.uri_mut() = Uri::from_parts(parts).unwrap();
     Ok(())
-}
-
-fn on_ctrl_c() -> Result<impl std::future::Future<Output = Result<(), tokio::task::JoinError>>> {
-    let (tx, rx) = std::sync::mpsc::channel::<()>();
-    ctrlc::set_handler(move || {
-        tx.send(()).ok();
-    })?;
-    let rx_future = tokio::task::spawn_blocking(move || {
-        rx.recv().ok();
-    });
-    Ok(rx_future)
 }
 
 // We need to make the following pieces of information available to both executors.
@@ -401,7 +389,7 @@ pub(crate) fn compute_default_headers<'a>(
 #[async_trait]
 pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
     // TODO: allowing this lint because I want to gather feedback before
-    // investing time in reorganising this
+    // investing time in reorganizing this
     #[allow(clippy::too_many_arguments)]
     async fn execute(
         &self,
@@ -417,12 +405,14 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::{collections::BTreeMap, sync::Once};
+
     use anyhow::Result;
     use spin_manifest::{HttpConfig, HttpExecutor};
     use spin_testing::test_socket_addr;
-    use spin_trigger::build_trigger_from_app;
-    use std::{collections::BTreeMap, sync::Once};
+    use spin_trigger::TriggerExecutorBuilder;
+
+    use super::*;
 
     static LOGGER: Once = Once::new();
 
@@ -560,8 +550,7 @@ mod tests {
             });
         let app = cfg.build_application();
 
-        let trigger: HttpTrigger =
-            build_trigger_from_app(app, None, FollowComponents::None, None).await?;
+        let trigger: HttpTrigger = TriggerExecutorBuilder::new(app).build().await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
@@ -570,7 +559,9 @@ mod tests {
             .body(body)
             .unwrap();
 
-        let res = trigger.handle(req, test_socket_addr()).await?;
+        let res = trigger
+            .handle(req, Scheme::HTTPS, test_socket_addr())
+            .await?;
         assert_eq!(res.status(), StatusCode::OK);
         let body_bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
         assert_eq!(body_bytes.to_vec(), "Hello, Fermyon".as_bytes());
@@ -589,8 +580,7 @@ mod tests {
         });
         let app = cfg.build_application();
 
-        let trigger: HttpTrigger =
-            build_trigger_from_app(app, None, FollowComponents::None, None).await?;
+        let trigger: HttpTrigger = TriggerExecutorBuilder::new(app).build().await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()
@@ -601,7 +591,9 @@ mod tests {
             .body(body)
             .unwrap();
 
-        let res = trigger.handle(req, test_socket_addr()).await?;
+        let res = trigger
+            .handle(req, Scheme::HTTPS, test_socket_addr())
+            .await?;
         assert_eq!(res.status(), StatusCode::OK);
         let body_bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
 

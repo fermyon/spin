@@ -10,12 +10,12 @@ pub(crate) mod store;
 
 pub struct Control {
     scheduler: Box<dyn Scheduler>,
-    store: Arc<RwLock<Box<dyn WorkStore>>>,
+    store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
 }
 
 impl Control {
     pub fn in_memory() -> Self {
-        let box_store: Box<dyn WorkStore> = Box::new(InMemoryWorkStore::new());
+        let box_store: Box<dyn WorkStore + Send + Sync> = Box::new(InMemoryWorkStore::new());
         let store = Arc::new(RwLock::new(box_store));
         Self {
             scheduler: Box::new(LocalScheduler::new(store.clone())),

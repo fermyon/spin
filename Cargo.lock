@@ -3498,13 +3498,17 @@ dependencies = [
  "semver",
  "serde",
  "sha2 0.10.2",
+ "spin-config",
+ "spin-engine",
  "spin-http-engine",
  "spin-loader",
+ "spin-manifest",
  "spin-redis-engine",
  "spin-trigger",
  "tempfile",
  "tokio",
  "toml",
+ "wasmtime",
 ]
 
 [[package]]

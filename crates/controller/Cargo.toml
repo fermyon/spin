@@ -16,10 +16,14 @@ reqwest = "0.11"
 semver = "1.0"
 serde = { version = "1.0", features = [ "derive" ] }
 sha2 = "0.10.1"
+spin-config = { path = "../config" }
+spin-engine = { path = "../engine" }
 spin-http-engine = { path = "../http" }
 spin-loader = { path = "../loader" }
+spin-manifest = { path = "../manifest" }
 spin-redis-engine = { path = "../redis" }
 spin-trigger = { path = "../trigger" }
 tempfile = "3.3.0"
 tokio = "1.16.1"
 toml = "0.5"
+wasmtime = "0.34"

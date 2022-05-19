@@ -1,16 +1,20 @@
 #![deny(missing_docs)]
 
-use crate::{
-    assets::{create_dir, ensure_under},
-    bindle::utils::BindleReader,
-};
+use std::path::Path;
+use std::path::PathBuf;
+
 use anyhow::{anyhow, bail, Context, Result};
 use bindle::{Id, Label};
 use futures::{future, stream, StreamExt, TryStreamExt};
 use spin_manifest::DirectoryMount;
-use std::path::Path;
 use tokio::{fs, io::AsyncWriteExt};
 use tracing::log;
+
+use crate::file_sha256_digest_string;
+use crate::{
+    assets::{create_dir, ensure_under},
+    bindle::utils::BindleReader,
+};
 
 pub(crate) async fn prepare_component(
     reader: &BindleReader,
@@ -69,6 +73,14 @@ impl Copier {
 
         ensure_under(&dir, &to)?;
 
+        if to.exists() {
+            match check_existing_file(to.clone(), p).await {
+                Ok(true) => return Ok(()),
+                Ok(false) => (),
+                Err(err) => tracing::error!("Error verifying existing parcel: {}", err),
+            }
+        }
+
         log::trace!(
             "Copying asset file '{}@{}' -> '{}'",
             self.id,
@@ -107,4 +119,10 @@ impl Copier {
 
         Ok(())
     }
+}
+
+async fn check_existing_file(path: PathBuf, label: &Label) -> Result<bool> {
+    let sha256_digest =
+        tokio::task::spawn_blocking(move || file_sha256_digest_string(path)).await??;
+    Ok(sha256_digest == label.sha256)
 }

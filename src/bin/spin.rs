@@ -1,10 +1,11 @@
 use anyhow::Error;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
 
 use spin_cli::commands::{
     bindle::BindleCommands, build::BuildCommand, deploy::DeployCommand, new::NewCommand,
-    templates::TemplateCommands, up::UpCommand,
+    templates::TemplateCommands, trigger_http::TriggerHttpCommand,
+    trigger_redis::TriggerRedisCommand, up::UpCommand,
 };
 
 #[tokio::main]
@@ -42,6 +43,14 @@ enum SpinApp {
     Bindle(BindleCommands),
     Deploy(DeployCommand),
     Build(BuildCommand),
+    #[clap(subcommand, hide = true)]
+    Trigger(TriggerCommands),
+}
+
+#[derive(Subcommand, Debug)]
+enum TriggerCommands {
+    Http(TriggerHttpCommand),
+    Redis(TriggerRedisCommand),
 }
 
 impl SpinApp {
@@ -54,6 +63,8 @@ impl SpinApp {
             Self::Bindle(cmd) => cmd.run().await,
             Self::Deploy(cmd) => cmd.run().await,
             Self::Build(cmd) => cmd.run().await,
+            Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run().await,
+            Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run().await,
         }
     }
 }

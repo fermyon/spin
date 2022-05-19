@@ -55,6 +55,7 @@ vergen = { version = "7", default-features = false, features = [ "build", "git" 
 members = [
     "crates/build",
     "crates/config",
+    "crates/controller",
     "crates/engine",
     "crates/http",
     "crates/loader",

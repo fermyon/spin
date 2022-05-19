@@ -3484,6 +3484,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-controller"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bindle",
+ "futures",
+ "itertools",
+ "mime_guess",
+ "path-absolutize",
+ "reqwest",
+ "semver",
+ "serde",
+ "sha2 0.10.2",
+ "spin-http-engine",
+ "spin-loader",
+ "spin-redis-engine",
+ "spin-trigger",
+ "tempfile",
+ "tokio",
+ "toml",
+]
+
+[[package]]
 name = "spin-engine"
 version = "0.2.0"
 dependencies = [

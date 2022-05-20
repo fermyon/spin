@@ -123,83 +123,131 @@ pub struct UpOpts {
 
 impl UpCommand {
     pub async fn run(self) -> Result<()> {
-        let working_dir_holder = match &self.opts.tmp {
-            None => WorkingDirectory::Temporary(tempfile::tempdir()?),
-            Some(d) => WorkingDirectory::Given(d.to_owned()),
-        };
-        let working_dir = working_dir_holder.path();
+        let mut controller = spin_controller::Control::in_memory();
 
-        let mut app = match (&self.app, &self.bindle) {
+        let manifest = match (&self.app, &self.bindle) {
             (app, None) => {
                 let manifest_file = app
                     .as_deref()
                     .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-                let bindle_connection = self.bindle_connection();
-                spin_loader::from_file(manifest_file, working_dir, &bindle_connection).await?
-            }
-            (None, Some(bindle)) => match &self.server {
-                Some(server) => spin_loader::from_bindle(bindle, server, working_dir).await?,
-                _ => bail!("Loading from a bindle requires a Bindle server URL"),
+                spin_controller::WorkloadManifest::File(manifest_file.to_owned())
+            },
+            (None, Some(id)) => {
+                spin_controller::WorkloadManifest::Bindle(id.clone())
             },
             (Some(_), Some(_)) => bail!("Specify only one of app file or bindle ID"),
         };
-        crate::append_env(&mut app, &self.opts.env)?;
 
-        if let Some(ref mut resolver) = app.config_resolver {
-            // TODO(lann): This should be safe but ideally this get_mut would be refactored away.
-            let resolver = Arc::get_mut(resolver)
-                .context("Internal error: app.config_resolver unexpectedly shared")?;
-            // TODO(lann): Make config provider(s) configurable.
-            resolver.add_provider(spin_config::provider::env::EnvProvider::default());
-        }
-
-        let tls = match (self.opts.tls_key.clone(), self.opts.tls_cert.clone()) {
-            (Some(key_path), Some(cert_path)) => {
-                if !cert_path.is_file() {
-                    bail!("TLS certificate file does not exist or is not a file")
-                }
-                if !key_path.is_file() {
-                    bail!("TLS key file does not exist or is not a file")
-                }
-                Some(TlsConfig {
-                    cert_path,
-                    key_path,
-                })
-            }
-            (None, None) => None,
-            _ => unreachable!(),
+        let opts = spin_controller::WorkloadOpts {
+            server: self.server.clone(),
+            address: self.opts.address.clone(),
+            tmp: self.opts.tmp.clone(),
+            env: self.opts.env.clone(),
+            tls_cert: self.opts.tls_cert.clone(),
+            tls_key: self.opts.tls_key.clone(),
+            log: self.opts.log.clone(),
+            disable_cache: self.opts.disable_cache,
+            cache: self.opts.cache.clone(),
+            follow_components: self.opts.follow_components.clone(),
+            follow_all_components: self.opts.follow_all_components,
         };
 
-        let wasmtime_config = self.wasmtime_default_config()?;
-
-        let follow = self.follow_components();
-
-        match &app.info.trigger {
-            ApplicationTrigger::Http(_) => {
-                run_trigger(
-                    app,
-                    ExecutionOptions::<HttpTrigger>::new(
-                        self.opts.log.clone(),
-                        follow,
-                        HttpTriggerExecutionConfig::new(self.opts.address, tls),
-                    ),
-                    Some(wasmtime_config),
-                )
-                .await?;
-            }
-            ApplicationTrigger::Redis(_) => {
-                run_trigger(
-                    app,
-                    ExecutionOptions::<RedisTrigger>::new(self.opts.log.clone(), follow, ()),
-                    Some(wasmtime_config),
-                )
-                .await?;
-            }
+        let the_id = spin_controller::WorkloadId::new();
+        let spec = spin_controller::WorkloadSpec {
+            status: spin_controller::WorkloadStatus::Running,
+            opts,
+            manifest,
         };
 
-        // We need to be absolutely sure it stays alive until this point: we don't want
-        // any temp directory to be deleted prematurely.
-        drop(working_dir_holder);
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        ctrlc::set_handler(move || { tx.send(()).unwrap(); })?;
+
+        controller.set_workload(&the_id, spec).await?;
+
+        // We still need to figure out how to exit if the trigger exits/fails,
+        // and how to report that failure back.
+        rx.recv()?;
+
+        controller.remove_workload(&the_id).await?;
+
+        // let working_dir_holder = match &self.opts.tmp {
+        //     None => WorkingDirectory::Temporary(tempfile::tempdir()?),
+        //     Some(d) => WorkingDirectory::Given(d.to_owned()),
+        // };
+        // let working_dir = working_dir_holder.path();
+
+        // let mut app = match (&self.app, &self.bindle) {
+        //     (app, None) => {
+        //         let manifest_file = app
+        //             .as_deref()
+        //             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
+        //         let bindle_connection = self.bindle_connection();
+        //         spin_loader::from_file(manifest_file, working_dir, &bindle_connection).await?
+        //     }
+        //     (None, Some(bindle)) => match &self.server {
+        //         Some(server) => spin_loader::from_bindle(bindle, server, working_dir).await?,
+        //         _ => bail!("Loading from a bindle requires a Bindle server URL"),
+        //     },
+        //     (Some(_), Some(_)) => bail!("Specify only one of app file or bindle ID"),
+        // };
+        // crate::append_env(&mut app, &self.opts.env)?;
+
+        // if let Some(ref mut resolver) = app.config_resolver {
+        //     // TODO(lann): This should be safe but ideally this get_mut would be refactored away.
+        //     let resolver = Arc::get_mut(resolver)
+        //         .context("Internal error: app.config_resolver unexpectedly shared")?;
+        //     // TODO(lann): Make config provider(s) configurable.
+        //     resolver.add_provider(spin_config::provider::env::EnvProvider::default());
+        // }
+
+        // let tls = match (self.opts.tls_key.clone(), self.opts.tls_cert.clone()) {
+        //     (Some(key_path), Some(cert_path)) => {
+        //         if !cert_path.is_file() {
+        //             bail!("TLS certificate file does not exist or is not a file")
+        //         }
+        //         if !key_path.is_file() {
+        //             bail!("TLS key file does not exist or is not a file")
+        //         }
+        //         Some(TlsConfig {
+        //             cert_path,
+        //             key_path,
+        //         })
+        //     }
+        //     (None, None) => None,
+        //     _ => unreachable!(),
+        // };
+
+        // let wasmtime_config = self.wasmtime_default_config()?;
+
+        // let follow = self.follow_components();
+
+        // match &app.info.trigger {
+        //     ApplicationTrigger::Http(_) => {
+        //         run_trigger(
+        //             app,
+        //             ExecutionOptions::<HttpTrigger>::new(
+        //                 self.opts.log.clone(),
+        //                 follow,
+        //                 HttpTriggerExecutionConfig::new(self.opts.address, tls),
+        //             ),
+        //             Some(wasmtime_config),
+        //         )
+        //         .await?;
+        //     }
+        //     ApplicationTrigger::Redis(_) => {
+        //         run_trigger(
+        //             app,
+        //             ExecutionOptions::<RedisTrigger>::new(self.opts.log.clone(), follow, ()),
+        //             Some(wasmtime_config),
+        //         )
+        //         .await?;
+        //     }
+        // };
+
+        // // We need to be absolutely sure it stays alive until this point: we don't want
+        // // any temp directory to be deleted prematurely.
+        // drop(working_dir_holder);
 
         Ok(())
     }

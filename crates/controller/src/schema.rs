@@ -1,7 +1,7 @@
 
 // It's not really a schema
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{path::PathBuf};
 
 use spin_engine::io::FollowComponents;
 use spin_loader::bindle::BindleConnectionInfo;
@@ -11,13 +11,20 @@ pub struct WorkloadId {
     id: String,
 }
 
+impl WorkloadId {
+    pub fn new() -> Self {
+        let id = format!("{}", uuid::Uuid::new_v4().hyphenated());
+        Self { id }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct WorkloadSpec {
-    pub(crate) status: WorkloadStatus,
-    pub(crate) opts: WorkloadOpts,
+    pub status: WorkloadStatus,
+    pub opts: WorkloadOpts,
     // TODO: how do we represent the app definition itself - by reference or by inclusion?
     // Punt for now
-    pub(crate) manifest: WorkloadManifest,
+    pub manifest: WorkloadManifest,
 }
 
 // #[derive(Clone, Debug)]
@@ -27,20 +34,20 @@ pub struct WorkloadSpec {
 // }
 
 #[derive(Clone, Debug)]
-pub(crate) enum WorkloadStatus {
+pub enum WorkloadStatus {
     Running,
     Stopped,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum WorkloadManifest {
+pub enum WorkloadManifest {
     File(PathBuf),
-    Bindle(bindle::Id),
+    Bindle(String /*bindle::Id*/),
 }
 
 // UpOpts in a trenchcoat
 #[derive(Clone, Debug)]
-pub(crate) struct WorkloadOpts {
+pub struct WorkloadOpts {
     pub server: Option<String>,
     pub address: String,
     pub tmp: Option<PathBuf>,
@@ -58,7 +65,7 @@ impl WorkloadOpts {
     pub(crate) fn wasmtime_default_config(&self) -> anyhow::Result<wasmtime::Config> {
         let mut wasmtime_config = wasmtime::Config::default();
         if !self.disable_cache {
-            match &self.opts.cache {
+            match &self.cache {
                 Some(p) => wasmtime_config.cache_config_load(p)?,
                 None => wasmtime_config.cache_config_load_default()?,
             };

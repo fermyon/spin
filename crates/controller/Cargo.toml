@@ -26,4 +26,5 @@ spin-trigger = { path = "../trigger" }
 tempfile = "3.3.0"
 tokio = "1.16.1"
 toml = "0.5"
+uuid = { version = "1.0", features = ["v4"] }
 wasmtime = "0.34"

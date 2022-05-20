@@ -3437,6 +3437,7 @@ dependencies = [
  "cargo-target-dep",
  "clap 3.1.15",
  "comfy-table",
+ "ctrlc",
  "dirs 4.0.0",
  "dunce",
  "env_logger",
@@ -3453,6 +3454,7 @@ dependencies = [
  "sha2 0.10.2",
  "spin-build",
  "spin-config",
+ "spin-controller",
  "spin-engine",
  "spin-http-engine",
  "spin-loader",
@@ -3508,6 +3510,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "toml",
+ "uuid",
  "wasmtime",
 ]
 
@@ -4415,6 +4418,15 @@ name = "utf-8"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
+
+[[package]]
+name = "uuid"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8cfcd319456c4d6ea10087ed423473267e1a071f3bc0aa89f80d60997843c6f0"
+dependencies = [
+ "getrandom 0.2.5",
+]
 
 [[package]]
 name = "validator"

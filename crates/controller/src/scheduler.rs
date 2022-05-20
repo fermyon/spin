@@ -4,7 +4,7 @@ use anyhow::{bail, Context};
 use spin_http_engine::{HttpTrigger, TlsConfig, HttpTriggerExecutionConfig};
 use spin_manifest::ApplicationTrigger;
 use spin_redis_engine::RedisTrigger;
-use spin_trigger::{Trigger, ExecutionOptions, run_trigger};
+use spin_trigger::{ExecutionOptions, run_trigger};
 use tempfile::TempDir;
 
 use crate::{schema::{WorkloadId, WorkloadManifest}, store::WorkStore, WorkloadSpec};
@@ -34,12 +34,11 @@ struct RunningWorkload {
 }
 
 enum RunHandle {
-    Fut(core::pin::Pin<Box<dyn core::future::Future<Output = anyhow::Result<()>> + Send>>),
+    Fut(tokio::task::JoinHandle<anyhow::Result<()>>),
 }
 
-#[async_trait::async_trait]
-impl Scheduler for LocalScheduler {
-    async fn notify_changed(&self, workload: &WorkloadId) -> anyhow::Result<()> {
+impl LocalScheduler {
+    pub async fn notify_changed(&self, workload: &WorkloadId) -> anyhow::Result<()> {
         // TODO: look at WorkloadSpec::status
         match self.extricate(workload) {
             (Some(w), Some(c)) => self.restart_workload(workload, w, c).await?,
@@ -50,12 +49,10 @@ impl Scheduler for LocalScheduler {
 
         Ok(())
     }
-}
 
-impl LocalScheduler {
     fn extricate(&self, workload: &WorkloadId) -> (Option<WorkloadSpec>, Option<RunningWorkload>) {
         let spec = self.store.read().unwrap().get_workload(workload);
-        let running = self.running.read().unwrap();
+        let mut running = self.running.write().unwrap();
         let current = running.remove(workload);
         (spec, current)
     }
@@ -118,9 +115,9 @@ impl LocalScheduler {
 
         let follow = spec.opts.follow_components();
 
-        let fut = match &app.info.trigger {
+        let jh = match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
-                let fut = run_trigger(
+                tokio::spawn(run_trigger(
                     app,
                     ExecutionOptions::<HttpTrigger>::new(
                         spec.opts.log.clone(),
@@ -128,24 +125,20 @@ impl LocalScheduler {
                         HttpTriggerExecutionConfig::new(spec.opts.address, tls),
                     ),
                     Some(wasmtime_config),
-                );
-                let fut2: core::pin::Pin<Box<dyn core::future::Future<Output = anyhow::Result<()>> + Send>> = Box::pin(fut);
-                fut2
+                ))
             }
             ApplicationTrigger::Redis(_) => {
-                let fut = run_trigger(
+                tokio::spawn(run_trigger(
                     app,
                     ExecutionOptions::<RedisTrigger>::new(spec.opts.log.clone(), follow, ()),
                     Some(wasmtime_config),
-                );
-                let fut2: core::pin::Pin<Box<dyn core::future::Future<Output = anyhow::Result<()>> + Send>> = Box::pin(fut);
-                fut2
+                ))
             }
         };
 
         Ok(RunningWorkload {
             work_dir: working_dir_holder,
-            handle: RunHandle::Fut(fut),
+            handle: RunHandle::Fut(jh),
         })
     }
 
@@ -162,10 +155,10 @@ impl LocalScheduler {
 
 impl RunningWorkload {
     fn stop(self) {
-        drop(self.work_dir);
         match self.handle {
-            RunHandle::Fut(f) => drop(f),
+            RunHandle::Fut(f) => f.abort(),
         }
+        drop(self.work_dir);
     }
 }
 

@@ -4,6 +4,7 @@ use crate::schema::{WorkloadId, WorkloadSpec};
 
 pub(crate) trait WorkStore {
     fn set_workload(&mut self, workload: &WorkloadId, spec: WorkloadSpec);
+    fn remove_workload(&mut self, workload: &WorkloadId);
     fn get_workload(&self, workload: &WorkloadId) -> Option<WorkloadSpec>;
 }
 
@@ -22,6 +23,10 @@ impl InMemoryWorkStore {
 impl WorkStore for InMemoryWorkStore {
     fn set_workload(&mut self, workload: &WorkloadId, spec: WorkloadSpec) {
         self.workloads.insert(workload.clone(), spec);
+    }
+
+    fn remove_workload(&mut self, workload: &WorkloadId) {
+        self.workloads.remove(workload);
     }
 
     fn get_workload(&self, workload: &WorkloadId) -> Option<WorkloadSpec> {

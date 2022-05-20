@@ -235,16 +235,17 @@ impl HttpTrigger {
             }
         }
 
-        let shutdown_signal = on_ctrl_c()?;
+        server.await?;
+        // let shutdown_signal = on_ctrl_c()?;
 
-        tokio::select! {
-            _ = server => {
-                log::debug!("Server shut down: exiting");
-            },
-            _ = shutdown_signal => {
-                log::debug!("User requested shutdown: exiting");
-            },
-        };
+        // tokio::select! {
+        //     _ = server => {
+        //         log::debug!("Server shut down: exiting");
+        //     },
+        //     _ = shutdown_signal => {
+        //         log::debug!("User requested shutdown: exiting");
+        //     },
+        // };
 
         Ok(())
     }
@@ -303,16 +304,17 @@ impl HttpTrigger {
         println!("Serving HTTPS on address https://{:?}", addr);
         log::info!("Serving HTTPS on address {:?}", addr);
 
-        let shutdown_signal = on_ctrl_c()?;
+        server.await?;
+        // let shutdown_signal = on_ctrl_c()?;
 
-        tokio::select! {
-            _ = server => {
-                log::debug!("Server shut down: exiting");
-            },
-            _ = shutdown_signal => {
-                log::debug!("User requested shutdown: exiting");
-            },
-        };
+        // tokio::select! {
+        //     _ = server => {
+        //         log::debug!("Server shut down: exiting");
+        //     },
+        //     _ = shutdown_signal => {
+        //         log::debug!("User requested shutdown: exiting");
+        //     },
+        // };
 
         Ok(())
     }
@@ -337,16 +339,16 @@ fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> Result<()> {
     Ok(())
 }
 
-fn on_ctrl_c() -> Result<impl std::future::Future<Output = Result<(), tokio::task::JoinError>>> {
-    let (tx, rx) = std::sync::mpsc::channel::<()>();
-    ctrlc::set_handler(move || {
-        tx.send(()).ok();
-    })?;
-    let rx_future = tokio::task::spawn_blocking(move || {
-        rx.recv().ok();
-    });
-    Ok(rx_future)
-}
+// fn on_ctrl_c() -> Result<impl std::future::Future<Output = Result<(), tokio::task::JoinError>>> {
+//     let (tx, rx) = std::sync::mpsc::channel::<()>();
+//     ctrlc::set_handler(move || {
+//         tx.send(()).ok();
+//     })?;
+//     let rx_future = tokio::task::spawn_blocking(move || {
+//         rx.recv().ok();
+//     });
+//     Ok(rx_future)
+// }
 
 // We need to make the following pieces of information available to both executors.
 // While the values we set are identical, the way they are passed to the

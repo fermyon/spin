@@ -98,19 +98,28 @@ mod tests {
 
     #[test]
     fn test_construct_workdir() {
-        assert_eq!(
-            construct_workdir("/home/alice/app/spin.toml", None::<PathBuf>).unwrap(),
-            Path::new("/home/alice/app"),
-        );
-        assert_eq!(
-            construct_workdir("/home/alice/app/spin.toml", Some("foo/bar")).unwrap(),
-            Path::new("/home/alice/app/foo/bar"),
-        );
-        assert_eq!(
-            construct_workdir("/home/alice/app/spin.toml", Some("../other-app")).unwrap(),
-            Path::new("/home/alice/other-app"),
-        );
+        /// Compares paths with `strip_prefix` instead of `==` to avoid handling
+        /// different operating systems separately.
+        fn assert_workdir(
+            src: impl AsRef<Path>,
+            workdir_param: Option<impl AsRef<Path>>,
+            expected: impl AsRef<Path>,
+        ) {
+            let got = construct_workdir(src.as_ref(), workdir_param.as_ref()).unwrap();
+            assert_eq!(
+                got.strip_prefix(expected.as_ref()),
+                Ok(Path::new("")),
+                "{:?} != {:?}",
+                got,
+                expected.as_ref(),
+            )
+        }
 
-        assert!(construct_workdir(Path::new("/home/alice/app/spin.toml"), Some("/etc")).is_err());
+        let src = Path::new("/home/alice/app/spin.toml");
+        assert_workdir(src, None::<PathBuf>, "/home/alice/app");
+        assert_workdir(src, Some("foo/bar"), "/home/alice/app/foo/bar");
+        assert_workdir(src, Some("../other-app"), "/home/alice/other-app");
+
+        assert!(construct_workdir(src, Some("/etc")).is_err());
     }
 }

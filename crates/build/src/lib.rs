@@ -39,7 +39,7 @@ async fn build_component(raw: RawComponentManifest, src: impl AsRef<Path>) -> Re
                 raw.id, b.command
             );
             let workdir = construct_workdir(src.as_ref(), b.workdir.as_ref())?;
-            if !src.as_ref().starts_with(workdir.as_path()) {
+            if b.workdir.is_some() {
                 println!("Working directory: {:?}", workdir);
             }
 

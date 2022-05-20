@@ -80,6 +80,9 @@ pub struct RawComponentManifest {
 pub struct RawBuildConfig {
     /// Build command.
     pub command: String,
+    /// Working directory in which the build command is executed. It must be
+    /// relative to the directory in which `spin.toml` is located.
+    pub workdir: Option<PathBuf>,
 }
 
 /// WebAssembly configuration.

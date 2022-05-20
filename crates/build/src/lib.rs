@@ -5,7 +5,7 @@
 use anyhow::{bail, Context, Result};
 use path_absolutize::Absolutize;
 use spin_loader::local::config::{RawAppManifest, RawComponentManifest};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use subprocess::{Exec, Redirection};
 use tracing::log;
 
@@ -38,13 +38,13 @@ async fn build_component(raw: RawComponentManifest, src: impl AsRef<Path>) -> Re
                 "Executing the build command for component {}: {}",
                 raw.id, b.command
             );
+            let workdir = construct_workdir(src.as_ref(), b.workdir.as_ref())?;
+            if !src.as_ref().starts_with(workdir.as_path()) {
+                println!("Working directory: {:?}", workdir);
+            }
 
             let res = Exec::shell(&b.command)
-                .cwd(
-                    src.as_ref()
-                        .parent()
-                        .context("The application file did not have a parent directory.")?,
-                )
+                .cwd(workdir)
                 .stdout(Redirection::Pipe)
                 .capture()
                 .with_context(|| {
@@ -70,5 +70,47 @@ async fn build_component(raw: RawComponentManifest, src: impl AsRef<Path>) -> Re
             Ok(())
         }
         _ => Ok(()),
+    }
+}
+
+/// Constructs the absolute working directory in which to run the build command.
+fn construct_workdir(src: impl AsRef<Path>, workdir: Option<impl AsRef<Path>>) -> Result<PathBuf> {
+    let mut cwd = src
+        .as_ref()
+        .parent()
+        .context("The application file did not have a parent directory.")?
+        .to_path_buf();
+
+    if let Some(workdir) = workdir {
+        if !workdir.as_ref().is_relative() {
+            bail!("The workdir is not relative.");
+        }
+        cwd.push(workdir);
+        cwd = cwd.absolutize()?.to_path_buf();
+    }
+
+    Ok(cwd)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_construct_workdir() {
+        assert_eq!(
+            construct_workdir("/home/alice/app/spin.toml", None::<PathBuf>).unwrap(),
+            Path::new("/home/alice/app"),
+        );
+        assert_eq!(
+            construct_workdir("/home/alice/app/spin.toml", Some("foo/bar")).unwrap(),
+            Path::new("/home/alice/app/foo/bar"),
+        );
+        assert_eq!(
+            construct_workdir("/home/alice/app/spin.toml", Some("../other-app")).unwrap(),
+            Path::new("/home/alice/other-app"),
+        );
+
+        assert!(construct_workdir(Path::new("/home/alice/app/spin.toml"), Some("/etc")).is_err());
     }
 }

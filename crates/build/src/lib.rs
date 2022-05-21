@@ -82,8 +82,11 @@ fn construct_workdir(src: impl AsRef<Path>, workdir: Option<impl AsRef<Path>>) -
         .to_path_buf();
 
     if let Some(workdir) = workdir {
-        if !workdir.as_ref().is_relative() {
-            bail!("The workdir is not relative.");
+        // Using `Path::has_root` as `is_relative` and `is_absolute` have
+        // surprising behavior on Windows, see:
+        // https://doc.rust-lang.org/std/path/struct.Path.html#method.is_absolute
+        if workdir.as_ref().has_root() {
+            bail!("The workdir specified in the application file must be relative.");
         }
         cwd.push(workdir);
         cwd = cwd.absolutize()?.to_path_buf();

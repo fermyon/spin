@@ -91,35 +91,3 @@ fn construct_workdir(src: impl AsRef<Path>, workdir: Option<impl AsRef<Path>>) -
 
     Ok(cwd)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_construct_workdir() {
-        /// Compares paths with `strip_prefix` instead of `==` to avoid handling
-        /// different operating systems separately.
-        fn assert_workdir(
-            src: impl AsRef<Path>,
-            workdir_param: Option<impl AsRef<Path>>,
-            expected: impl AsRef<Path>,
-        ) {
-            let got = construct_workdir(src.as_ref(), workdir_param.as_ref()).unwrap();
-            assert_eq!(
-                got.strip_prefix(expected.as_ref()),
-                Ok(Path::new("")),
-                "{:?} != {:?}",
-                got,
-                expected.as_ref(),
-            )
-        }
-
-        let src = Path::new("/home/alice/app/spin.toml");
-        assert_workdir(src, None::<PathBuf>, "/home/alice/app");
-        assert_workdir(src, Some("foo/bar"), "/home/alice/app/foo/bar");
-        assert_workdir(src, Some("../other-app"), "/home/alice/other-app");
-
-        assert!(construct_workdir(src, Some("/etc")).is_err());
-    }
-}

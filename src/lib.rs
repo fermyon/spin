@@ -2,9 +2,7 @@ pub mod commands;
 pub(crate) mod opts;
 
 use anyhow::{anyhow, bail, Result};
-use semver::BuildMetadata;
-use spin_manifest::Application;
-use std::path::{Path, PathBuf};
+use semver::BuildMetadata;use std::path::{Path, PathBuf};
 
 pub(crate) fn app_dir(app_file: impl AsRef<Path>) -> Result<PathBuf> {
     let path_buf = app_file
@@ -41,12 +39,12 @@ pub(crate) fn parse_env_var(s: &str) -> Result<(String, String)> {
     Ok((parts[0].to_owned(), parts[1].to_owned()))
 }
 
-/// Append the environment variables passed as options to all components.
-fn append_env(app: &mut Application, env: &[(String, String)]) -> Result<()> {
-    for c in app.components.iter_mut() {
-        for (k, v) in env {
-            c.wasm.environment.insert(k.clone(), v.clone());
-        }
-    }
-    Ok(())
-}
+// /// Append the environment variables passed as options to all components.
+// fn append_env(app: &mut Application, env: &[(String, String)]) -> Result<()> {
+//     for c in app.components.iter_mut() {
+//         for (k, v) in env {
+//             c.wasm.environment.insert(k.clone(), v.clone());
+//         }
+//     }
+//     Ok(())
+// }

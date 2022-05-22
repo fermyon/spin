@@ -1,7 +1,7 @@
 
 // It's not really a schema
 
-use std::{path::PathBuf};
+use std::{path::PathBuf, sync::Arc};
 
 use spin_engine::io::FollowComponents;
 use spin_loader::bindle::BindleConnectionInfo;
@@ -89,4 +89,9 @@ impl WorkloadOpts {
             .as_ref()
             .map(|url| BindleConnectionInfo::new(url, false, None, None))
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum WorkloadEvent {
+    Stopped(WorkloadId, Option<Arc<anyhow::Error>>),
 }

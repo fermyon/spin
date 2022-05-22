@@ -12,6 +12,7 @@ bindle = { version = "0.8.0", default-features = false, features = ["client"] }
 bytes = "1.1"
 clap = { version = "3.1.15", features = ["derive", "env"] }
 comfy-table = "5.0"
+crossbeam-channel = "0.5.4"
 ctrlc = "3.2.1"
 dirs = "4.0"
 dunce = "1.0"

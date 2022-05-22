@@ -1,16 +1,7 @@
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::path::{PathBuf};
 
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser};
-use spin_loader::bindle::BindleConnectionInfo;
-use tempfile::TempDir;
-
-use spin_engine::io::FollowComponents;
-use spin_http_engine::{HttpTrigger, HttpTriggerExecutionConfig, TlsConfig};
-use spin_manifest::ApplicationTrigger;
-use spin_redis_engine::RedisTrigger;
-use spin_trigger::{run_trigger, ExecutionOptions};
 
 use crate::opts::*;
 
@@ -159,17 +150,41 @@ impl UpCommand {
             manifest,
         };
 
-        let (tx, rx) = std::sync::mpsc::channel();
+        let (ctrlc_tx, ctrlc_rx) = crossbeam_channel::bounded(1);
+        let work_rx = controller.notifications();
 
-        ctrlc::set_handler(move || { tx.send(()).unwrap(); })?;
+        ctrlc::set_handler(move || { ctrlc_tx.send(()).unwrap(); })?;
 
         controller.set_workload(&the_id, spec).await?;
 
         // We still need to figure out how to exit if the trigger exits/fails,
         // and how to report that failure back.
-        rx.recv()?;
+        crossbeam_channel::select! {
+            recv(ctrlc_rx) -> _ => {
+                controller.remove_workload(&the_id).await?;        
+            }
+            recv(work_rx) -> msg => {
+                match msg {
+                    Ok(spin_controller::WorkloadEvent::Stopped(id, err)) => {
+                        if id == the_id {
+                            match err {
+                                None => {
+                                    println!("Listener stopped without error");
+                                },
+                                Some(e) => {
+                                    let err_text = format!("Listener stopped with error {:#}", e);  // because I haven't figured out how to get the error itself
+                                    anyhow::bail!(err_text);
+                                }
+                            }
+                        }
+                    },
+                    Err(e) => anyhow::bail!(anyhow::Error::from(e).context("Error receiving notification from controller")),
+                }
+            }
+        }
+        // rx.recv()?;
 
-        controller.remove_workload(&the_id).await?;
+        // controller.remove_workload(&the_id).await?;
 
         // let working_dir_holder = match &self.opts.tmp {
         //     None => WorkingDirectory::Temporary(tempfile::tempdir()?),
@@ -251,45 +266,46 @@ impl UpCommand {
 
         Ok(())
     }
-    fn wasmtime_default_config(&self) -> Result<wasmtime::Config> {
-        let mut wasmtime_config = wasmtime::Config::default();
-        if !self.opts.disable_cache {
-            match &self.opts.cache {
-                Some(p) => wasmtime_config.cache_config_load(p)?,
-                None => wasmtime_config.cache_config_load_default()?,
-            };
-        }
-        Ok(wasmtime_config)
-    }
 
-    fn follow_components(&self) -> FollowComponents {
-        if self.opts.follow_all_components {
-            FollowComponents::All
-        } else if self.opts.follow_components.is_empty() {
-            FollowComponents::None
-        } else {
-            let followed = self.opts.follow_components.clone().into_iter().collect();
-            FollowComponents::Named(followed)
-        }
-    }
+    // fn wasmtime_default_config(&self) -> Result<wasmtime::Config> {
+    //     let mut wasmtime_config = wasmtime::Config::default();
+    //     if !self.opts.disable_cache {
+    //         match &self.opts.cache {
+    //             Some(p) => wasmtime_config.cache_config_load(p)?,
+    //             None => wasmtime_config.cache_config_load_default()?,
+    //         };
+    //     }
+    //     Ok(wasmtime_config)
+    // }
 
-    fn bindle_connection(&self) -> Option<BindleConnectionInfo> {
-        self.server
-            .as_ref()
-            .map(|url| BindleConnectionInfo::new(url, false, None, None))
-    }
+    // fn follow_components(&self) -> FollowComponents {
+    //     if self.opts.follow_all_components {
+    //         FollowComponents::All
+    //     } else if self.opts.follow_components.is_empty() {
+    //         FollowComponents::None
+    //     } else {
+    //         let followed = self.opts.follow_components.clone().into_iter().collect();
+    //         FollowComponents::Named(followed)
+    //     }
+    // }
+
+    // fn bindle_connection(&self) -> Option<BindleConnectionInfo> {
+    //     self.server
+    //         .as_ref()
+    //         .map(|url| BindleConnectionInfo::new(url, false, None, None))
+    // }
 }
 
-enum WorkingDirectory {
-    Given(PathBuf),
-    Temporary(TempDir),
-}
+// enum WorkingDirectory {
+//     Given(PathBuf),
+//     Temporary(TempDir),
+// }
 
-impl WorkingDirectory {
-    fn path(&self) -> &Path {
-        match self {
-            Self::Given(p) => p,
-            Self::Temporary(t) => t.path(),
-        }
-    }
-}
+// impl WorkingDirectory {
+//     fn path(&self) -> &Path {
+//         match self {
+//             Self::Given(p) => p,
+//             Self::Temporary(t) => t.path(),
+//         }
+//     }
+// }

@@ -3489,6 +3489,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "bytes 1.1.0",
+ "cap-std",
  "dirs 4.0.0",
  "sanitize-filename",
  "spin-config",

@@ -1,7 +1,7 @@
 use crate::{spin_redis::SpinRedis, ExecutionContext, RedisExecutor, RuntimeContext};
 use anyhow::Result;
 use async_trait::async_trait;
-use spin_engine::io::capture_io_to_memory;
+use spin_engine::io::{ModuleIoRedirects, ModuleIoRedirectsTypes};
 use tokio::task::spawn_blocking;
 use wasmtime::{Instance, Store};
 
@@ -23,10 +23,20 @@ impl RedisExecutor for SpinRedisExecutor {
             component
         );
 
-        let (redirects, outputs) = capture_io_to_memory(follow, follow);
+        let mior = if let ModuleIoRedirectsTypes::FromFiles(clp) =
+            engine.config.module_io_redirects.clone()
+        {
+            ModuleIoRedirects::new_from_files(
+                clp.stdin_pipe.map(|inp| inp.0),
+                clp.stdout_pipe.map(|oup| oup.0),
+                clp.stderr_pipe.map(|erp| erp.0),
+            )
+        } else {
+            ModuleIoRedirects::new(follow)
+        };
 
         let (store, instance) =
-            engine.prepare_component(component, None, Some(redirects), None, None)?;
+            engine.prepare_component(component, None, Some(mior.pipes), None, None)?;
 
         let result = match Self::execute_impl(store, instance, channel, payload.to_vec()).await {
             Ok(()) => {
@@ -39,7 +49,8 @@ impl RedisExecutor for SpinRedisExecutor {
             }
         };
 
-        let log_result = engine.save_output_to_logs(outputs.read(), component, true, true);
+        let log_result =
+            engine.save_output_to_logs(mior.read_handles.read(), component, true, true);
 
         result.and(log_result)
     }

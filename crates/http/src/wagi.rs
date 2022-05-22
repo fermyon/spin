@@ -3,7 +3,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use hyper::{body, Body, Request, Response};
 use spin_engine::io::{
-    redirect_to_mem_buffer, Follow, ModuleIoRedirects, OutputBuffers, WriteDestinations,
+    redirect_to_mem_buffer, Follow, OutputBuffers, RedirectPipes, WriteDestinations,
 };
 use spin_manifest::WagiConfig;
 use std::{
@@ -124,7 +124,7 @@ impl WagiHttpExecutor {
     fn streams_from_body(
         body: Vec<u8>,
         follow_on_stderr: bool,
-    ) -> (ModuleIoRedirects, WagiRedirectReadHandles) {
+    ) -> (RedirectPipes, WagiRedirectReadHandles) {
         let stdin = ReadPipe::from(body);
 
         let stdout_buf = vec![];
@@ -133,7 +133,7 @@ impl WagiHttpExecutor {
 
         let (stderr_pipe, stderr_lock) = redirect_to_mem_buffer(Follow::stderr(follow_on_stderr));
 
-        let rd = ModuleIoRedirects::new(
+        let rd = RedirectPipes::new(
             Box::new(stdin),
             Box::new(stdout_pipe),
             Box::new(stderr_pipe),

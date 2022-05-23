@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::{Arc, RwLock}, path::{Path, PathBuf}};
 
 use anyhow::{bail, Context};
 use tempfile::TempDir;
+use tokio::task::JoinHandle;
 
 use crate::{schema::{WorkloadId, WorkloadOperation}, store::WorkStore, WorkloadSpec, WorkloadEvent, run::run};
 
@@ -42,7 +43,13 @@ pub(crate) enum RunHandle {
 }
 
 impl LocalScheduler {
-    pub async fn start(mut self) {
+    pub fn start(self) -> JoinHandle<()> {
+        tokio::task::spawn(
+            self.run_event_loop()
+        )
+    }
+
+    async fn run_event_loop(mut self) {
         loop {
             match self.operation_receiver.recv().await {
                 Ok(oper) => {
@@ -57,20 +64,22 @@ impl LocalScheduler {
     }
 
     async fn process_operation(&self, oper: WorkloadOperation) {
-        match oper {
+        let evt = match oper {
             WorkloadOperation::Changed(workload) =>
-                match self.process_workload_changed(&workload).await {
-                    Ok(()) => (),
-                    Err(e) => {
-                        let evt = WorkloadEvent::UpdateFailed(workload.clone(), Arc::new(e));
-                        match self.event_sender.send(evt) {
-                            Ok(_) => (),
-                            Err(_) => {
-                                println!("SCHED: process_operation error, and send failed");
-                            },
-                        }
-                    }
+                self.process_workload_changed(&workload).await.err()
+                    .map(|e| WorkloadEvent::UpdateFailed(workload.clone(), Arc::new(e))),
+        };
+
+        match evt {
+            None => (),
+            Some(evt) => {
+                match self.event_sender.send(evt) {
+                    Ok(_) => (),
+                    Err(_) => {
+                        println!("SCHED: process_operation error, and send failed");
+                    },
                 }
+            }
         }
     }
 

@@ -190,8 +190,6 @@ impl UpCommand {
             }
         }
 
-        // controller.remove_workload(&the_id).await?;
-
         Ok(())
     }
 }

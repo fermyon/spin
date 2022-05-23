@@ -25,7 +25,7 @@ impl Control {
         let (evt_tx, evt_rx) = tokio::sync::broadcast::channel(1000);
         let (oper_tx, oper_rx) = tokio::sync::broadcast::channel(1000);
         let scheduler = LocalScheduler::new(store.clone(), &evt_tx, oper_rx);
-        let jh = tokio::task::spawn(scheduler.start());
+        let jh = scheduler.start();
         Self {
             _scheduler: jh,
             store,

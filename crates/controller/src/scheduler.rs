@@ -7,7 +7,7 @@ use spin_redis_engine::RedisTrigger;
 use spin_trigger::{ExecutionOptions, run_trigger};
 use tempfile::TempDir;
 
-use crate::{schema::{WorkloadId, WorkloadManifest}, store::WorkStore, WorkloadSpec};
+use crate::{schema::{WorkloadId, WorkloadManifest}, store::WorkStore, WorkloadSpec, WorkloadEvent};
 
 #[async_trait::async_trait]
 pub(crate) trait Scheduler {
@@ -17,13 +17,15 @@ pub(crate) trait Scheduler {
 pub(crate) struct LocalScheduler {
     store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
     running: Arc<RwLock<HashMap<WorkloadId, RunningWorkload>>>,
+    notification_sender: crossbeam_channel::Sender<WorkloadEvent>,
 }
 
 impl LocalScheduler {
-    pub(crate) fn new(store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>) -> Self {
+    pub(crate) fn new(store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>, notification_sender: &crossbeam_channel::Sender<WorkloadEvent>) -> Self {
         Self {
             store,
-            running: Arc::new(RwLock::new(HashMap::new()))
+            running: Arc::new(RwLock::new(HashMap::new())),
+            notification_sender: notification_sender.clone(),
         }
     }
 }
@@ -34,7 +36,7 @@ struct RunningWorkload {
 }
 
 enum RunHandle {
-    Fut(tokio::task::JoinHandle<anyhow::Result<()>>),
+    Fut(tokio::task::JoinHandle<()>),
 }
 
 impl LocalScheduler {
@@ -61,13 +63,13 @@ impl LocalScheduler {
         // Identify the application type
         // Instantiate the relevant trigger
         // Start the relevant trigger
-        let running = self.start_workload_from_spec(spec).await?;
+        let running = self.start_workload_from_spec(workload, spec).await?;
         // Stash the task
         self.running.write().unwrap().insert(workload.clone(), running);
         Ok(())
     }
 
-    async fn start_workload_from_spec(&self, spec: WorkloadSpec) -> anyhow::Result<RunningWorkload> {
+    async fn start_workload_from_spec(&self, workload: &WorkloadId, spec: WorkloadSpec) -> anyhow::Result<RunningWorkload> {
         let working_dir_holder = match &spec.opts.tmp {
             None => WorkingDirectory::Temporary(tempfile::tempdir()?),
             Some(d) => WorkingDirectory::Given(d.to_owned()),
@@ -115,24 +117,42 @@ impl LocalScheduler {
 
         let follow = spec.opts.follow_components();
 
+        let tx = self.notification_sender.clone();
+        let id = workload.clone();
+
         let jh = match &app.info.trigger {
             ApplicationTrigger::Http(_) => {
-                tokio::spawn(run_trigger(
-                    app,
-                    ExecutionOptions::<HttpTrigger>::new(
-                        spec.opts.log.clone(),
-                        follow,
-                        HttpTriggerExecutionConfig::new(spec.opts.address, tls),
-                    ),
-                    Some(wasmtime_config),
-                ))
+                tokio::spawn(async move {
+                    let r = run_trigger(
+                        app,
+                        ExecutionOptions::<HttpTrigger>::new(
+                            spec.opts.log.clone(),
+                            follow,
+                            HttpTriggerExecutionConfig::new(spec.opts.address, tls),
+                        ),
+                        Some(wasmtime_config),
+                    ).await;
+                    let err = match r {
+                        Ok(()) => None,
+                        Err(e) => Some(Arc::new(e)),
+                    };
+                    // TODO: this should update the workflow status in the scheduler's record
+                    let _ = tx.send(WorkloadEvent::Stopped(id, err));
+                })
             }
             ApplicationTrigger::Redis(_) => {
-                tokio::spawn(run_trigger(
-                    app,
-                    ExecutionOptions::<RedisTrigger>::new(spec.opts.log.clone(), follow, ()),
-                    Some(wasmtime_config),
-                ))
+                tokio::spawn(async move {
+                    let r = run_trigger(
+                        app,
+                        ExecutionOptions::<RedisTrigger>::new(spec.opts.log.clone(), follow, ()),
+                        Some(wasmtime_config),
+                    ).await;
+                    let err = match r {
+                        Ok(()) => None,
+                        Err(e) => Some(Arc::new(e)),
+                    };
+                    let _ = tx.send(WorkloadEvent::Stopped(id, err));
+                })
             }
         };
 

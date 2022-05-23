@@ -157,8 +157,6 @@ impl UpCommand {
 
         controller.set_workload(&the_id, spec).await?;
 
-        // We still need to figure out how to exit if the trigger exits/fails,
-        // and how to report that failure back.
         crossbeam_channel::select! {
             recv(ctrlc_rx) -> _ => {
                 controller.remove_workload(&the_id).await?;        

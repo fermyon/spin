@@ -235,6 +235,8 @@ impl HttpTrigger {
             }
         }
 
+        // anyhow::bail!("A COMPLETELY FICTIONAL ERROR HAS OCCURRED DAVE");
+
         server.await?;
         // let shutdown_signal = on_ctrl_c()?;
 

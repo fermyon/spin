@@ -11,7 +11,7 @@ pub(crate) mod store;
 pub struct Control {
     scheduler: LocalScheduler,  // having some grief with the async trait stuff on the Scheduler trait
     store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
-    notification_sender: crossbeam_channel::Sender<WorkloadEvent>,
+    notification_sender: crossbeam_channel::Sender<WorkloadEvent>,  // For in memory it sorta works to have the comms directly from scheduler but WHO KNOWS
     notification_receiver: crossbeam_channel::Receiver<WorkloadEvent>,
 }
 
@@ -21,7 +21,7 @@ impl Control {
         let store = Arc::new(RwLock::new(box_store));
         let (tx, rx) = crossbeam_channel::unbounded();
         Self {
-            scheduler: LocalScheduler::new(store.clone()),
+            scheduler: LocalScheduler::new(store.clone(), &tx),
             store,
             notification_sender: tx,
             notification_receiver: rx,

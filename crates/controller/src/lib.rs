@@ -4,6 +4,7 @@ use scheduler::{Scheduler, LocalScheduler};
 pub use schema::{WorkloadEvent, WorkloadId, WorkloadManifest, WorkloadOpts, WorkloadSpec, WorkloadStatus};
 use store::{WorkStore, InMemoryWorkStore};
 
+mod run;
 pub(crate) mod scheduler;
 pub(crate) mod schema;
 pub(crate) mod store;

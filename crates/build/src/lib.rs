@@ -5,7 +5,7 @@
 use anyhow::{bail, Context, Result};
 use path_absolutize::Absolutize;
 use spin_loader::local::config::{RawAppManifest, RawComponentManifest};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use subprocess::{Exec, Redirection};
 use tracing::log;
 
@@ -38,13 +38,13 @@ async fn build_component(raw: RawComponentManifest, src: impl AsRef<Path>) -> Re
                 "Executing the build command for component {}: {}",
                 raw.id, b.command
             );
+            let workdir = construct_workdir(src.as_ref(), b.workdir.as_ref())?;
+            if b.workdir.is_some() {
+                println!("Working directory: {:?}", workdir);
+            }
 
             let res = Exec::shell(&b.command)
-                .cwd(
-                    src.as_ref()
-                        .parent()
-                        .context("The application file did not have a parent directory.")?,
-                )
+                .cwd(workdir)
                 .stdout(Redirection::Pipe)
                 .capture()
                 .with_context(|| {
@@ -71,4 +71,26 @@ async fn build_component(raw: RawComponentManifest, src: impl AsRef<Path>) -> Re
         }
         _ => Ok(()),
     }
+}
+
+/// Constructs the absolute working directory in which to run the build command.
+fn construct_workdir(src: impl AsRef<Path>, workdir: Option<impl AsRef<Path>>) -> Result<PathBuf> {
+    let mut cwd = src
+        .as_ref()
+        .parent()
+        .context("The application file did not have a parent directory.")?
+        .to_path_buf();
+
+    if let Some(workdir) = workdir {
+        // Using `Path::has_root` as `is_relative` and `is_absolute` have
+        // surprising behavior on Windows, see:
+        // https://doc.rust-lang.org/std/path/struct.Path.html#method.is_absolute
+        if workdir.as_ref().has_root() {
+            bail!("The workdir specified in the application file must be relative.");
+        }
+        cwd.push(workdir);
+        cwd = cwd.absolutize()?.to_path_buf();
+    }
+
+    Ok(cwd)
 }

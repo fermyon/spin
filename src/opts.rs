@@ -16,7 +16,6 @@ pub const INSECURE_OPT: &str = "INSECURE";
 pub const STAGING_DIR_OPT: &str = "STAGING_DIR";
 pub const HIPPO_SERVER_URL_OPT: &str = "HIPPO_SERVER_URL";
 pub const HIPPO_URL_ENV: &str = "HIPPO_URL";
-pub const JSON_MIME_TYPE: &str = "application/json";
 pub const BUILD_UP_OPT: &str = "UP";
 pub const DISABLE_WASMTIME_CACHE: &str = "DISABLE_WASMTIME_CACHE";
 pub const WASMTIME_CACHE_FILE: &str = "WASMTIME_CACHE_FILE";

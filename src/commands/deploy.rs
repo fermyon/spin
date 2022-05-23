@@ -1,22 +1,10 @@
-use std::panic;
-use std::path::PathBuf;
-
+use anyhow::anyhow;
 use anyhow::{Context, Result};
 use bindle::Id;
 use clap::Parser;
-use hippo_openapi::apis::{
-    account_api::api_account_createtoken_post,
-    app_api::{api_app_post, ApiAppPostError},
-    channel_api::api_channel_post,
-    configuration::{ApiKey, Configuration},
-    revision_api::{api_revision_post, ApiRevisionPostError},
-    Error,
-};
-use hippo_openapi::models::{
-    ChannelRevisionSelectionStrategy, CreateAppCommand, CreateChannelCommand, CreateTokenCommand,
-    RegisterRevisionCommand,
-};
-use reqwest::header;
+use hippo::{Client, ConnectionInfo};
+use hippo_openapi::models::ChannelRevisionSelectionStrategy;
+use std::path::PathBuf;
 
 use crate::opts::*;
 
@@ -104,67 +92,59 @@ pub struct DeployCommand {
 
 impl DeployCommand {
     pub async fn run(self) -> Result<()> {
-        let bindle_id = self
-            .create_and_push_bindle()
-            .await
-            .expect("Unable to create and push bindle from Spin app");
+        let bindle_id = self.create_and_push_bindle().await?;
 
-        let hippo_client_config = self.create_hippo_client_config().await;
+        let token = match Client::login(
+            &Client::new(ConnectionInfo {
+                url: self.hippo_server_url.clone(),
+                danger_accept_invalid_certs: self.insecure,
+                api_key: None,
+            }),
+            self.hippo_username,
+            self.hippo_password,
+        )
+        .await?
+        .token
+        {
+            Some(t) => t,
+            None => String::from(""),
+        };
 
-        let app_id = self
-            .create_hippo_app(&hippo_client_config, &bindle_id)
-            .await
-            .expect("Unable to create Hippo App");
+        let hippo_client = Client::new(ConnectionInfo {
+            url: self.hippo_server_url.clone(),
+            danger_accept_invalid_certs: self.insecure,
+            api_key: Some(token),
+        });
 
-        self.create_spin_deploy_channel(&hippo_client_config, app_id.as_ref())
-            .await
-            .expect("Unable to create Hippo Channel");
+        let name = bindle_id.name().to_string();
 
-        self.deploy(&hippo_client_config, &bindle_id).await?;
-        println!("Successfully deployed application! See Traefik dashboard for IP address of app.");
+        let app_id = match Client::add_app(&hippo_client, name.clone(), name.clone()).await {
+            Ok(id) => id,
+            Err(e) => {
+                return Err(anyhow!(
+                    "Error creating Hippo app called {}: {}",
+                    name.clone(),
+                    e
+                ))
+            }
+        };
+
+        Client::add_channel(
+            &hippo_client,
+            app_id,
+            name.clone(),
+            None,
+            ChannelRevisionSelectionStrategy::UseRangeRule,
+            None,
+            None,
+            None,
+        )
+        .await?;
+
+        Client::add_revision(&hippo_client, name.clone(), bindle_id.version_string()).await?;
+        println!("Successfully deployed application!");
 
         Ok(())
-    }
-
-    async fn deploy(
-        &self,
-        hippo_client_config: &Configuration,
-        bindle_id: &Id,
-    ) -> Result<(), Error<ApiRevisionPostError>> {
-        api_revision_post(
-            hippo_client_config,
-            Some(RegisterRevisionCommand {
-                app_storage_id: bindle_id.name().to_string(),
-                revision_number: bindle_id.version_string(),
-            }),
-        )
-        .await
-    }
-
-    async fn create_spin_deploy_channel(
-        &self,
-        hippo_client_config: &Configuration,
-        app_id: &str,
-    ) -> Result<String, anyhow::Error> {
-        api_channel_post(
-            hippo_client_config,
-            Some(CreateChannelCommand {
-                app_id: app_id.to_string(),
-                name: "spin-deploy".to_string(),
-                domain: None,
-                revision_selection_strategy: ChannelRevisionSelectionStrategy::_0,
-                range_rule: None,
-                active_revision_id: None,
-                certificate_id: None,
-            }),
-        )
-        .await
-        .map_err(|e| match e {
-            Error::ResponseError(r) => {
-                anyhow::anyhow!("Unable to create Hippo App: {}", r.content)
-            }
-            _ => anyhow::anyhow!("Unable to create hippo app"),
-        })
     }
 
     async fn create_and_push_bindle(&self) -> Result<Id> {
@@ -196,76 +176,5 @@ impl DeployCommand {
             .context("Failed to push bindle to server")?;
 
         Ok(bindle_id.clone())
-    }
-
-    async fn create_hippo_app(
-        &self,
-        hippo_client_config: &Configuration,
-        bindle_id: &Id,
-    ) -> Result<String, Error<ApiAppPostError>> {
-        let app_name = bindle_id.name().to_string();
-        let bindle_storage_id = bindle_id.name().to_string();
-
-        api_app_post(
-            hippo_client_config,
-            Some(CreateAppCommand {
-                name: app_name.clone(),
-                storage_id: bindle_storage_id.clone(),
-            }),
-        )
-        .await
-    }
-
-    async fn create_hippo_client_config(&self) -> Configuration {
-        let mut hippo_client_config = Configuration {
-            base_path: self.hippo_server_url.clone(),
-            ..Default::default()
-        };
-
-        hippo_client_config.base_path = self.hippo_server_url.clone();
-
-        let mut headers = header::HeaderMap::new();
-        headers.insert(header::ACCEPT, JSON_MIME_TYPE.parse().unwrap());
-        headers.insert(header::CONTENT_TYPE, JSON_MIME_TYPE.parse().unwrap());
-
-        hippo_client_config.client = reqwest::Client::builder()
-            .danger_accept_invalid_certs(self.insecure)
-            .default_headers(headers)
-            .build()
-            .unwrap();
-
-        match self.get_hippo_token(&hippo_client_config).await {
-            Ok(t) => {
-                hippo_client_config.api_key = Some(ApiKey {
-                    prefix: Some("Bearer".to_owned()),
-                    key: t,
-                });
-            }
-            Err(e) => panic!("Unable to log into Hippo: {}", e),
-        }
-        hippo_client_config
-    }
-
-    // Do the auth dance
-    // if username/password provided: (1) request token (2) use token to set API_KEY
-    // TODO: if username/password not provided: Check file for token
-    //      (1) If token is not expired, use.
-    //      (2) If token is expired, prompt user for basic auth, request token, use token.
-
-    async fn get_hippo_token(&self, hippo_client_config: &Configuration) -> Result<String> {
-        let token = api_account_createtoken_post(
-            hippo_client_config,
-            Some(CreateTokenCommand {
-                user_name: self.hippo_username.clone(),
-                password: self.hippo_password.clone(),
-            }),
-        )
-        .await?
-        .token;
-
-        match token {
-            Some(t) => Ok(t),
-            None => panic!("Unable to log into Hippo"),
-        }
     }
 }

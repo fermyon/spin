@@ -1,6 +1,6 @@
 title = "Deploying Spin applications to Hippo"
 template = "main"
-date = "2022-05-12T17:41:53.438445Z"
+date = "2022-05-20"
 [extra]
 url = "https://github.com/fermyon/spin/blob/main/docs/content/deploying-to-hippo.md"
 
@@ -19,11 +19,12 @@ coming soon.
 
 ### Pre-requisites
 
-- [Spin <= v0.2.0](https://github.com/fermyon/spin/releases)
-- [Hippo CLI v0.10.0](https://github.com/deislabs/hippo-cli/releases/tag/v0.10.0)
+- [Spin](https://github.com/fermyon/spin/releases)
+- [Hippo CLI latest](https://github.com/deislabs/hippo-cli)
 - [Bindle v0.8.0](https://github.com/deislabs/bindle/releases/tag/v0.8.0)
 - [Nomad >= v1.2.6](https://www.nomadproject.io/)
 - [Consul >= v1.11.3](https://www.consul.io/)
+- [Vault >= v1.9.3](https://www.vaultproject.io/)
 - [Traefik >= 2.6.1](https://github.com/traefik/traefik/releases)
 - [Dotnet 6.0 CLI](https://dotnet.microsoft.com/en-us/download)
 
@@ -40,24 +41,13 @@ $ git checkout 64cf9334528f1975d7cbff207997d83cee4f19c2
 $ ./run_servers.sh
 ```
 
-Clone the Hippo repo locally and checkout the v0.6.2 tag. Set the `BINDLE_URL` environment variable from the `run_servers.sh` script. For now, we'll need to manuall update a few lines in the Nomad job in the project and then, run the `dotnet build` command to build the project. Change into the `src/Web` directory and use `dotnet run` to run the project.
+Clone the Hippo repo locally. The Hippo commit this doc was tested at is `2a659c11ffc260a552f71fb3dba791916d4e064a`. Set the `BINDLE_URL` environment variable from the `run_servers.sh` script. Run the `dotnet clean && dotnet build` command to build the project. Change into the `src/Web` directory and use `dotnet run` to run the project.
 
 ```
 $ git clone git@github.com:deislabs/hippo.git
 $ cd hippo
-$ git checkout tags/v0.6.2
-```
-
-In `src/Infrastructure/Jobs/NomadJob.cs`, comment out the artifact stanza on [lines 191-195](https://github.com/deislabs/hippo/blob/v0.6.2/src/Infrastructure/Jobs/NomadJob.cs#L191-L195).
-This will ensure that Hippo uses the Spin binary on your machine instead of downloading a specific version.
-
-If you are using a mac and not a linux machine, also change the `driver` value on [line 189](https://github.com/deislabs/hippo/blob/v0.6.2/src/Infrastructure/Jobs/NomadJob.cs#L189) from `driver = ""exec""` to `driver = ""raw_exec""`
-
-_Note: These manual job changes are updated and unnecessary using the latest version of Hippo and Spin will update to use a newer version of Hippo soon_
-
-```
 $ export BINDLE_URL=http://bindle.local.fermyon.link:8088/v1
-$ dotnet build
+$ dotnet clean && dotnet build
 $ cd src/Web
 $ dotnet run \
   --Scheduler:Driver=nomad \
@@ -90,7 +80,7 @@ $ export BINDLE_URL=http://bindle.local.fermyon.link:8088/v1
 $ export HIPPO_USERNAME=user
 $ export HIPPO_PASSWORD=PassW0rd!
 
-$ spin deploy
+$ spin deploy -k
 
 ```
 

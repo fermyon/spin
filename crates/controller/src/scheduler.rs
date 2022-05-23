@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::{Arc, RwLock}, path::{Path, PathBuf}};
 use anyhow::{bail, Context};
 use tempfile::TempDir;
 
-use crate::{schema::WorkloadId, store::WorkStore, WorkloadSpec, WorkloadEvent, run::run};
+use crate::{schema::{WorkloadId, WorkloadOperation}, store::WorkStore, WorkloadSpec, WorkloadEvent, run::run};
 
 #[async_trait::async_trait]
 pub(crate) trait Scheduler {
@@ -13,15 +13,21 @@ pub(crate) trait Scheduler {
 pub(crate) struct LocalScheduler {
     store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
     running: Arc<RwLock<HashMap<WorkloadId, RunningWorkload>>>,
-    notification_sender: crossbeam_channel::Sender<WorkloadEvent>,
+    event_sender: tokio::sync::broadcast::Sender<WorkloadEvent>,
+    operation_receiver: tokio::sync::broadcast::Receiver<WorkloadOperation>,
 }
 
 impl LocalScheduler {
-    pub(crate) fn new(store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>, notification_sender: &crossbeam_channel::Sender<WorkloadEvent>) -> Self {
+    pub(crate) fn new(
+        store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
+        event_sender: &tokio::sync::broadcast::Sender<WorkloadEvent>,
+        operation_receiver: tokio::sync::broadcast::Receiver<WorkloadOperation>
+    ) -> Self {
         Self {
             store,
             running: Arc::new(RwLock::new(HashMap::new())),
-            notification_sender: notification_sender.clone(),
+            event_sender: event_sender.clone(),
+            operation_receiver,
         }
     }
 }
@@ -36,7 +42,39 @@ pub(crate) enum RunHandle {
 }
 
 impl LocalScheduler {
-    pub async fn notify_changed(&self, workload: &WorkloadId) -> anyhow::Result<()> {
+    pub async fn start(mut self) {
+        loop {
+            match self.operation_receiver.recv().await {
+                Ok(oper) => {
+                    self.process_operation(oper).await;
+                },
+                Err(_) => {
+                    println!("SCHED: Oh no!");
+                    break;
+                }
+            }
+        }
+    }
+
+    async fn process_operation(&self, oper: WorkloadOperation) {
+        match oper {
+            WorkloadOperation::Changed(workload) =>
+                match self.process_workload_changed(&workload).await {
+                    Ok(()) => (),
+                    Err(e) => {
+                        let evt = WorkloadEvent::UpdateFailed(workload.clone(), Arc::new(e));
+                        match self.event_sender.send(evt) {
+                            Ok(_) => (),
+                            Err(_) => {
+                                println!("SCHED: process_operation error, and send failed");
+                            },
+                        }
+                    }
+                }
+        }
+    }
+
+    async fn process_workload_changed(&self, workload: &WorkloadId) -> anyhow::Result<()> {
         // TODO: look at WorkloadSpec::status
         match self.extricate(workload) {
             (Some(w), Some(c)) => self.restart_workload(workload, w, c).await?,
@@ -59,7 +97,7 @@ impl LocalScheduler {
         // Identify the application type
         // Instantiate the relevant trigger
         // Start the relevant trigger
-        let running = run(workload, spec, &self.notification_sender).await?;
+        let running = run(workload, spec, &self.event_sender).await?;
         // Stash the task
         self.running.write().unwrap().insert(workload.clone(), running);
         Ok(())

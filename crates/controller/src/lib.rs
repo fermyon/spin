@@ -1,6 +1,7 @@
 use std::sync::{RwLock, Arc};
 
 use scheduler::{Scheduler, LocalScheduler};
+use schema::WorkloadOperation;
 pub use schema::{WorkloadEvent, WorkloadId, WorkloadManifest, WorkloadOpts, WorkloadSpec, WorkloadStatus};
 use store::{WorkStore, InMemoryWorkStore};
 
@@ -10,39 +11,45 @@ pub(crate) mod schema;
 pub(crate) mod store;
 
 pub struct Control {
-    scheduler: LocalScheduler,  // having some grief with the async trait stuff on the Scheduler trait
+    _scheduler: tokio::task::JoinHandle<()>,
     store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
-    notification_sender: crossbeam_channel::Sender<WorkloadEvent>,  // For in memory it sorta works to have the comms directly from scheduler but WHO KNOWS
-    notification_receiver: crossbeam_channel::Receiver<WorkloadEvent>,
+    event_sender: tokio::sync::broadcast::Sender<WorkloadEvent>,  // For in memory it sorta works to have the comms directly from scheduler but WHO KNOWS
+    _event_receiver: tokio::sync::broadcast::Receiver<WorkloadEvent>,
+    scheduler_notifier: tokio::sync::broadcast::Sender<WorkloadOperation>,
 }
 
 impl Control {
     pub fn in_memory() -> Self {
         let box_store: Box<dyn WorkStore + Send + Sync> = Box::new(InMemoryWorkStore::new());
         let store = Arc::new(RwLock::new(box_store));
-        let (tx, rx) = crossbeam_channel::unbounded();
+        let (evt_tx, evt_rx) = tokio::sync::broadcast::channel(1000);
+        let (oper_tx, oper_rx) = tokio::sync::broadcast::channel(1000);
+        let scheduler = LocalScheduler::new(store.clone(), &evt_tx, oper_rx);
+        let jh = tokio::task::spawn(scheduler.start());
         Self {
-            scheduler: LocalScheduler::new(store.clone(), &tx),
+            _scheduler: jh,
             store,
-            notification_sender: tx,
-            notification_receiver: rx,
+            event_sender: evt_tx,
+            _event_receiver: evt_rx,
+            scheduler_notifier: oper_tx,
         }
     }
 
     pub async fn set_workload(&mut self, workload: &WorkloadId, spec: WorkloadSpec) -> anyhow::Result<()> {
         self.store.write().unwrap().set_workload(workload, spec);
-        // TODO: probably an indirection here
-        self.scheduler.notify_changed(workload).await?;
+        let oper = WorkloadOperation::Changed(workload.clone());
+        self.scheduler_notifier.send(oper)?;
         Ok(())
     }
 
     pub async fn remove_workload(&mut self, workload: &WorkloadId) -> anyhow::Result<()> {
         self.store.write().unwrap().remove_workload(workload);
-        self.scheduler.notify_changed(workload).await?;
+        let oper = WorkloadOperation::Changed(workload.clone());
+        self.scheduler_notifier.send(oper)?;
         Ok(())
     }
 
-    pub fn notifications(&self) -> crossbeam_channel::Receiver<WorkloadEvent> {
-        self.notification_receiver.clone()
+    pub fn notifications(&self) -> tokio::sync::broadcast::Receiver<WorkloadEvent> {
+        self.event_sender.subscribe()
     }
 }

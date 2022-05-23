@@ -178,7 +178,8 @@ fn collect_pattern(pattern: &str, rel: impl AsRef<Path>) -> Result<Vec<FileMount
 
 /// Copy all files to the mount directory.
 async fn copy_all(files: &[FileMount], dir: impl AsRef<Path>) -> Result<()> {
-    let copy_futures = files.iter().map(|f| copy(f, &dir));
+    let copy_nth = |i: usize| copy(&files[i], &dir);
+    let copy_futures = (0..files.len()).into_iter().map(copy_nth);
     let errors = stream::iter(copy_futures)
         .buffer_unordered(crate::MAX_PARALLEL_ASSET_PROCESSING)
         .filter_map(|r| future::ready(r.err()))

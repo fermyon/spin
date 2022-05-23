@@ -94,4 +94,10 @@ impl WorkloadOpts {
 #[derive(Clone, Debug)]
 pub enum WorkloadEvent {
     Stopped(WorkloadId, Option<Arc<anyhow::Error>>),
+    UpdateFailed(WorkloadId, Arc<anyhow::Error>),
+}
+
+#[derive(Clone, Debug)]
+pub enum WorkloadOperation {
+    Changed(WorkloadId),
 }

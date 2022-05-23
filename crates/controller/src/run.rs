@@ -10,7 +10,7 @@ use spin_trigger::{ExecutionOptions, run_trigger};
 
 use crate::{schema::{WorkloadId, WorkloadManifest}, WorkloadSpec, WorkloadEvent, scheduler::{WorkingDirectory, RunningWorkload, RunHandle}};
 
-pub(crate) async fn run(workload: &WorkloadId, spec: WorkloadSpec, notification_sender: &crossbeam_channel::Sender<WorkloadEvent>) -> anyhow::Result<RunningWorkload> {
+pub(crate) async fn run(workload: &WorkloadId, spec: WorkloadSpec, notification_sender: &tokio::sync::broadcast::Sender<WorkloadEvent>) -> anyhow::Result<RunningWorkload> {
     let working_dir_holder = match &spec.opts.tmp {
         None => WorkingDirectory::Temporary(tempfile::tempdir()?),
         Some(d) => WorkingDirectory::Given(d.to_owned()),

@@ -52,7 +52,8 @@ impl Copier {
     }
 
     async fn copy_all(&self, parcels: &[Label], dir: impl AsRef<Path>) -> Result<()> {
-        match stream::iter(parcels.iter().map(|p| self.copy(p, &dir)))
+        let copy_nth = |i: usize| self.copy(&parcels[i], &dir);
+        match stream::iter((0..parcels.len()).into_iter().map(copy_nth))
             .buffer_unordered(crate::MAX_PARALLEL_ASSET_PROCESSING)
             .filter_map(|r| future::ready(r.err()))
             .map(|e| log::error!("{:?}", e))

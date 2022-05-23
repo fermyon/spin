@@ -150,18 +150,21 @@ impl UpCommand {
             manifest,
         };
 
-        let (ctrlc_tx, ctrlc_rx) = crossbeam_channel::bounded(1);
-        let work_rx = controller.notifications();
+        let (ctrlc_tx, mut ctrlc_rx) = tokio::sync::broadcast::channel(1);
+        let mut work_rx = controller.notifications();
+
+        let ctrlc_rx_recv = ctrlc_rx.recv();
+        let work_rx_recv = work_rx.recv();
 
         ctrlc::set_handler(move || { ctrlc_tx.send(()).unwrap(); })?;
 
         controller.set_workload(&the_id, spec).await?;
 
-        crossbeam_channel::select! {
-            recv(ctrlc_rx) -> _ => {
-                controller.remove_workload(&the_id).await?;        
-            }
-            recv(work_rx) -> msg => {
+        tokio::select! {
+            _ = ctrlc_rx_recv => {
+                controller.remove_workload(&the_id).await?;
+            },
+            msg = work_rx_recv => {
                 match msg {
                     Ok(spin_controller::WorkloadEvent::Stopped(id, err)) => {
                         if id == the_id {
@@ -176,134 +179,19 @@ impl UpCommand {
                             }
                         }
                     },
+                    Ok(spin_controller::WorkloadEvent::UpdateFailed(id, err)) => {
+                        if id == the_id {
+                            let err_text = format!("Failed to start app with error {:#}", err);  // because I haven't figured out how to get the error itself
+                            anyhow::bail!(err_text);
+                        }
+                    },
                     Err(e) => anyhow::bail!(anyhow::Error::from(e).context("Error receiving notification from controller")),
                 }
             }
         }
-        // rx.recv()?;
 
         // controller.remove_workload(&the_id).await?;
 
-        // let working_dir_holder = match &self.opts.tmp {
-        //     None => WorkingDirectory::Temporary(tempfile::tempdir()?),
-        //     Some(d) => WorkingDirectory::Given(d.to_owned()),
-        // };
-        // let working_dir = working_dir_holder.path();
-
-        // let mut app = match (&self.app, &self.bindle) {
-        //     (app, None) => {
-        //         let manifest_file = app
-        //             .as_deref()
-        //             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-        //         let bindle_connection = self.bindle_connection();
-        //         spin_loader::from_file(manifest_file, working_dir, &bindle_connection).await?
-        //     }
-        //     (None, Some(bindle)) => match &self.server {
-        //         Some(server) => spin_loader::from_bindle(bindle, server, working_dir).await?,
-        //         _ => bail!("Loading from a bindle requires a Bindle server URL"),
-        //     },
-        //     (Some(_), Some(_)) => bail!("Specify only one of app file or bindle ID"),
-        // };
-        // crate::append_env(&mut app, &self.opts.env)?;
-
-        // if let Some(ref mut resolver) = app.config_resolver {
-        //     // TODO(lann): This should be safe but ideally this get_mut would be refactored away.
-        //     let resolver = Arc::get_mut(resolver)
-        //         .context("Internal error: app.config_resolver unexpectedly shared")?;
-        //     // TODO(lann): Make config provider(s) configurable.
-        //     resolver.add_provider(spin_config::provider::env::EnvProvider::default());
-        // }
-
-        // let tls = match (self.opts.tls_key.clone(), self.opts.tls_cert.clone()) {
-        //     (Some(key_path), Some(cert_path)) => {
-        //         if !cert_path.is_file() {
-        //             bail!("TLS certificate file does not exist or is not a file")
-        //         }
-        //         if !key_path.is_file() {
-        //             bail!("TLS key file does not exist or is not a file")
-        //         }
-        //         Some(TlsConfig {
-        //             cert_path,
-        //             key_path,
-        //         })
-        //     }
-        //     (None, None) => None,
-        //     _ => unreachable!(),
-        // };
-
-        // let wasmtime_config = self.wasmtime_default_config()?;
-
-        // let follow = self.follow_components();
-
-        // match &app.info.trigger {
-        //     ApplicationTrigger::Http(_) => {
-        //         run_trigger(
-        //             app,
-        //             ExecutionOptions::<HttpTrigger>::new(
-        //                 self.opts.log.clone(),
-        //                 follow,
-        //                 HttpTriggerExecutionConfig::new(self.opts.address, tls),
-        //             ),
-        //             Some(wasmtime_config),
-        //         )
-        //         .await?;
-        //     }
-        //     ApplicationTrigger::Redis(_) => {
-        //         run_trigger(
-        //             app,
-        //             ExecutionOptions::<RedisTrigger>::new(self.opts.log.clone(), follow, ()),
-        //             Some(wasmtime_config),
-        //         )
-        //         .await?;
-        //     }
-        // };
-
-        // // We need to be absolutely sure it stays alive until this point: we don't want
-        // // any temp directory to be deleted prematurely.
-        // drop(working_dir_holder);
-
         Ok(())
     }
-
-    // fn wasmtime_default_config(&self) -> Result<wasmtime::Config> {
-    //     let mut wasmtime_config = wasmtime::Config::default();
-    //     if !self.opts.disable_cache {
-    //         match &self.opts.cache {
-    //             Some(p) => wasmtime_config.cache_config_load(p)?,
-    //             None => wasmtime_config.cache_config_load_default()?,
-    //         };
-    //     }
-    //     Ok(wasmtime_config)
-    // }
-
-    // fn follow_components(&self) -> FollowComponents {
-    //     if self.opts.follow_all_components {
-    //         FollowComponents::All
-    //     } else if self.opts.follow_components.is_empty() {
-    //         FollowComponents::None
-    //     } else {
-    //         let followed = self.opts.follow_components.clone().into_iter().collect();
-    //         FollowComponents::Named(followed)
-    //     }
-    // }
-
-    // fn bindle_connection(&self) -> Option<BindleConnectionInfo> {
-    //     self.server
-    //         .as_ref()
-    //         .map(|url| BindleConnectionInfo::new(url, false, None, None))
-    // }
 }
-
-// enum WorkingDirectory {
-//     Given(PathBuf),
-//     Temporary(TempDir),
-// }
-
-// impl WorkingDirectory {
-//     fn path(&self) -> &Path {
-//         match self {
-//             Self::Given(p) => p,
-//             Self::Temporary(t) => t.path(),
-//         }
-//     }
-// }

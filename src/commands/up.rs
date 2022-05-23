@@ -158,11 +158,11 @@ impl UpCommand {
 
         ctrlc::set_handler(move || { ctrlc_tx.send(()).unwrap(); })?;
 
-        controller.set_workload(&the_id, spec).await?;
+        controller.set_workload(&the_id, spec)?;
 
         tokio::select! {
             _ = ctrlc_rx_recv => {
-                controller.remove_workload(&the_id).await?;
+                controller.remove_workload(&the_id)?;
             },
             msg = work_rx_recv => {
                 match msg {

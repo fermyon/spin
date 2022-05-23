@@ -35,14 +35,14 @@ impl Control {
         }
     }
 
-    pub async fn set_workload(&mut self, workload: &WorkloadId, spec: WorkloadSpec) -> anyhow::Result<()> {
+    pub fn set_workload(&mut self, workload: &WorkloadId, spec: WorkloadSpec) -> anyhow::Result<()> {
         self.store.write().unwrap().set_workload(workload, spec);
         let oper = WorkloadOperation::Changed(workload.clone());
         self.scheduler_notifier.send(oper)?;
         Ok(())
     }
 
-    pub async fn remove_workload(&mut self, workload: &WorkloadId) -> anyhow::Result<()> {
+    pub fn remove_workload(&mut self, workload: &WorkloadId) -> anyhow::Result<()> {
         self.store.write().unwrap().remove_workload(workload);
         let oper = WorkloadOperation::Changed(workload.clone());
         self.scheduler_notifier.send(oper)?;

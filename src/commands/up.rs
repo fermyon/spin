@@ -144,21 +144,36 @@ impl UpCommand {
         };
 
         let the_id = spin_controller::WorkloadId::new();
-        let spec = spin_controller::WorkloadSpec {
+        let /*mut*/ spec = spin_controller::WorkloadSpec {
             status: spin_controller::WorkloadStatus::Running,
             opts,
             manifest,
         };
 
         let (ctrlc_tx, mut ctrlc_rx) = tokio::sync::broadcast::channel(1);
+        // let (key_tx, mut key_rx) = tokio::sync::broadcast::channel(1);
         let mut work_rx = controller.notifications();
 
         let ctrlc_rx_recv = ctrlc_rx.recv();
+        // let key_rx_recv = key_rx.recv();
         let work_rx_recv = work_rx.recv();
 
-        ctrlc::set_handler(move || { ctrlc_tx.send(()).unwrap(); })?;
+        ctrlc::set_handler(move || { let _ = ctrlc_tx.send(()); })?;
 
-        controller.set_workload(&the_id, spec)?;
+        controller.set_workload(&the_id, spec.clone())?;
+
+        // TODO: this fouls up Ctrl+C handling but interesting to play with it
+        // tokio::task::spawn(async move {
+        //     loop {
+        //         let mut s = "".to_owned();
+        //         let _ = std::io::stdin().read_line(&mut s);
+        //         match s.trim() {
+        //             "s" => { let _ = key_tx.send(OperatorCommand::Stop); },
+        //             "r" => { let _ = key_tx.send(OperatorCommand::Remove); },
+        //             _ => (),
+        //         }
+        //     }
+        // });
 
         tokio::select! {
             _ = ctrlc_rx_recv => {
@@ -187,9 +202,29 @@ impl UpCommand {
                     },
                     Err(e) => anyhow::bail!(anyhow::Error::from(e).context("Error receiving notification from controller")),
                 }
-            }
+            },
+            // cmd = key_rx_recv => {
+            //     match cmd {
+            //         Ok(OperatorCommand::Remove) => {
+            //             println!("removing");
+            //             controller.remove_workload(&the_id)?;
+            //         },
+            //         Ok(OperatorCommand::Stop) => {
+            //             println!("stopping");
+            //             spec.status = spin_controller::WorkloadStatus::Stopped;
+            //             controller.set_workload(&the_id, spec.clone())?;
+            //         },
+            //         Err(e) => anyhow::bail!(anyhow::Error::from(e).context("Error receiving command from stdin")),
+            //     }
+            // }
         }
 
         Ok(())
     }
 }
+
+// #[derive(Clone, Debug, PartialEq)]
+// enum OperatorCommand {
+//     Remove,
+//     Stop,
+// }

@@ -4,7 +4,7 @@ use anyhow::{bail, Context};
 use tempfile::TempDir;
 use tokio::task::JoinHandle;
 
-use crate::{schema::{WorkloadId, WorkloadOperation}, store::WorkStore, WorkloadSpec, WorkloadEvent, run::run};
+use crate::{schema::{WorkloadId, WorkloadOperation}, store::WorkStore, WorkloadSpec, WorkloadEvent, run::run, WorkloadStatus};
 
 #[async_trait::async_trait]
 pub(crate) trait Scheduler {
@@ -86,8 +86,20 @@ impl LocalScheduler {
     async fn process_workload_changed(&self, workload: &WorkloadId) -> anyhow::Result<()> {
         // TODO: look at WorkloadSpec::status
         match self.extricate(workload) {
-            (Some(w), Some(c)) => self.restart_workload(workload, w, c).await?,
-            (Some(w), None) => self.start_workload(workload, w).await?,
+            (Some(w), Some(c)) => {
+                if w.status == WorkloadStatus::Running {
+                    self.restart_workload(workload, w, c).await?
+                } else {
+                    self.stop_workload(workload, c)
+                }
+            },
+            (Some(w), None) => {
+                if w.status == WorkloadStatus::Running {
+                    self.start_workload(workload, w).await?
+                } else {
+                    ()
+                }
+            },
             (None, Some(c)) => self.stop_workload(workload, c),
             (None, None) => (),
         }

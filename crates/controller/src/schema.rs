@@ -33,7 +33,7 @@ pub struct WorkloadSpec {
 //     values: HashMap<String, String>,
 // }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum WorkloadStatus {
     Running,
     Stopped,

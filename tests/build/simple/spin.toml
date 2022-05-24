@@ -1,0 +1,13 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+name = "spin-build-simple"
+trigger = {type = "http", base = "/"}
+version = "1.0.0"
+
+[[component]]
+id = "foo"
+source = "foo"
+[component.build]
+command = "echo '' > foo"
+[component.trigger]
+route = "/..."

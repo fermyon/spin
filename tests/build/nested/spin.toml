@@ -1,0 +1,15 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+name = "spin-build-nested"
+trigger = {type = "http", base = "/"}
+version = "1.0.0"
+
+[[component]]
+id = "foo"
+source = "deep/foo"
+description = "Building in a workdir which is a subdirectory."
+[component.build]
+command = "echo '' > foo"
+workdir = "deep"
+[component.trigger]
+route = "/..."

@@ -9,10 +9,10 @@ pub mod io;
 
 use anyhow::{bail, Context, Result};
 use host_component::{HostComponent, HostComponents, HostComponentsState};
-use io::{ModuleIoRedirectsTypes, OutputBuffers, RedirectPipes};
+use io::{ComponentStdio, ComponentStdioOverrides};
 use spin_config::{host_component::ComponentConfig, Resolver};
 use spin_manifest::{Application, CoreComponent, DirectoryMount, ModuleSource};
-use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 use tokio::{
     task::JoinHandle,
     time::{sleep, Duration},
@@ -22,7 +22,7 @@ use wasi_common::WasiCtx;
 use wasmtime::{Instance, InstancePre, Linker, Module, Store};
 use wasmtime_wasi::{ambient_authority, Dir, WasiCtxBuilder};
 
-const SPIN_HOME: &str = ".spin";
+use crate::io::apply_component_stdio;
 
 /// Builder-specific configuration.
 #[derive(Clone, Debug, Default)]
@@ -31,12 +31,8 @@ pub struct ExecutionContextConfiguration {
     pub components: Vec<CoreComponent>,
     /// Label for logging, etc.
     pub label: String,
-    /// Log directory on host.
-    pub log_dir: Option<PathBuf>,
     /// Application configuration resolver.
     pub config_resolver: Option<Arc<Resolver>>,
-    /// The type of io redirects for the module (default, or files)
-    pub module_io_redirects: ModuleIoRedirectsTypes,
 }
 
 impl From<Application> for ExecutionContextConfiguration {
@@ -45,7 +41,6 @@ impl From<Application> for ExecutionContextConfiguration {
             components: app.components,
             label: app.info.name,
             config_resolver: app.config_resolver,
-            ..Default::default()
         }
     }
 }
@@ -178,10 +173,13 @@ impl<T: Default + 'static> Builder<T> {
                 }
             };
 
+            // FIXME: configuration
+            let stdio = ComponentStdio::default();
+
             let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
             log::trace!("Created pre-instance from module for component {}.", &c.id);
 
-            components.insert(c.id.clone(), Component { core, pre });
+            components.insert(c.id.clone(), Component { core, stdio, pre });
         }
 
         log::trace!("Execution context initialized.");
@@ -214,6 +212,8 @@ impl<T: Default + 'static> Builder<T> {
 pub struct Component<T: Default> {
     /// Configuration for the component.
     pub core: CoreComponent,
+    /// The stdio behaviors for the component.
+    pub stdio: ComponentStdio,
     /// The pre-instance of the component
     pub pre: Arc<InstancePre<RuntimeContext<T>>>,
 }
@@ -233,12 +233,12 @@ pub struct ExecutionContext<T: Default> {
 
 impl<T: Default> ExecutionContext<T> {
     /// Creates a store for a given component given its configuration and runtime data.
-    #[instrument(skip(self, data, io))]
+    #[instrument(skip(self, data, stdio_overrides))]
     pub fn prepare_component(
         &self,
         component: &str,
         data: Option<T>,
-        io: Option<RedirectPipes>,
+        stdio_overrides: ComponentStdioOverrides,
         env: Option<HashMap<String, String>>,
         args: Option<Vec<String>>,
     ) -> Result<(Store<RuntimeContext<T>>, Instance)> {
@@ -248,73 +248,18 @@ impl<T: Default> ExecutionContext<T> {
             None => bail!("Cannot find component {}", component),
         };
 
-        let mut store = self.store(component, data, io, env, args)?;
+        let mut store = self.store(component, data, stdio_overrides, env, args)?;
         let instance = component.pre.instantiate(&mut store)?;
 
         Ok((store, instance))
     }
 
-    /// Save logs for a given component in the log directory on the host
-    pub fn save_output_to_logs(
-        &self,
-        ior: impl OutputBuffers,
-        component: &str,
-        save_stdout: bool,
-        save_stderr: bool,
-    ) -> Result<()> {
-        let sanitized_label = sanitize(&self.config.label);
-        let sanitized_component_name = sanitize(&component);
-
-        let log_dir = match &self.config.log_dir {
-            Some(l) => l.clone(),
-            None => match dirs::home_dir() {
-                Some(h) => h.join(SPIN_HOME).join(&sanitized_label).join("logs"),
-                None => PathBuf::from(&sanitized_label).join("logs"),
-            },
-        };
-
-        let stdout_filename = log_dir.join(sanitize(format!(
-            "{}_{}.txt",
-            sanitized_component_name, "stdout",
-        )));
-
-        let stderr_filename = log_dir.join(sanitize(format!(
-            "{}_{}.txt",
-            sanitized_component_name, "stderr"
-        )));
-
-        std::fs::create_dir_all(&log_dir)?;
-
-        log::trace!("Saving logs to {:?} {:?}", stdout_filename, stderr_filename);
-
-        if save_stdout {
-            let mut file = std::fs::OpenOptions::new()
-                .write(true)
-                .append(true)
-                .create(true)
-                .open(stdout_filename)?;
-            let contents = ior.stdout();
-            file.write_all(contents)?;
-        }
-
-        if save_stderr {
-            let mut file = std::fs::OpenOptions::new()
-                .write(true)
-                .append(true)
-                .create(true)
-                .open(stderr_filename)?;
-            let contents = ior.stderr();
-            file.write_all(contents)?;
-        }
-
-        Ok(())
-    }
     /// Creates a store for a given component given its configuration and runtime data.
     fn store(
         &self,
         component: &Component<T>,
         data: Option<T>,
-        io: Option<RedirectPipes>,
+        stdio_overrides: ComponentStdioOverrides,
         env: Option<HashMap<String, String>>,
         args: Option<Vec<String>>,
     ) -> Result<Store<RuntimeContext<T>>> {
@@ -324,12 +269,8 @@ impl<T: Default> ExecutionContext<T> {
         let mut wasi_ctx = WasiCtxBuilder::new()
             .args(&args.unwrap_or_default())?
             .envs(&env)?;
-        match io {
-            Some(r) => {
-                wasi_ctx = wasi_ctx.stderr(r.stderr).stdout(r.stdout).stdin(r.stdin);
-            }
-            None => wasi_ctx = wasi_ctx.inherit_stdio(),
-        };
+
+        wasi_ctx = apply_component_stdio(wasi_ctx, component, stdio_overrides);
 
         for dir in dirs {
             let guest = dir.guest;
@@ -375,22 +316,6 @@ impl<T: Default> ExecutionContext<T> {
 
         Ok((res, dirs))
     }
-}
-
-fn sanitize(name: impl AsRef<str>) -> String {
-    // options block copied from sanitize_filename project readme
-    let options = sanitize_filename::Options {
-        // true by default, truncates to 255 bytes
-        truncate: true,
-        // default value depends on the OS, removes reserved names like `con` from start of strings on Windows
-        windows: true,
-        // str to replace sanitized chars/strings
-        replacement: "",
-    };
-
-    // filename logic defined in the project works for directory names as well
-    // refer to: https://github.com/kardeiz/sanitize-filename/blob/f5158746946ed81015c3a33078dedf164686da19/src/lib.rs#L76-L165
-    sanitize_filename::sanitize_with_options(name, options)
 }
 
 const SLOTH_WARNING_DELAY_MILLIS: u64 = 1250;

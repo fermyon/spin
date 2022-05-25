@@ -1,356 +1,342 @@
-use cap_std::fs::File as CapFile;
-use std::{
-    collections::HashSet,
-    fmt::Debug,
-    fs::{File, OpenOptions},
-    io::{LineWriter, Write},
-    path::PathBuf,
-    sync::{Arc, RwLock, RwLockReadGuard},
-};
+use std::io::{Read, Write};
+
+use spin_manifest::CoreComponent;
+use wasi_cap_std_sync::WasiCtxBuilder;
 use wasi_common::{
     pipe::{ReadPipe, WritePipe},
     WasiFile,
 };
-use wasmtime_wasi::sync::file::File as WasmtimeFile;
 
-/// Prepares a WASI pipe which writes to a memory buffer, optionally
-/// copying to the specified output stream.
-pub fn redirect_to_mem_buffer(
-    follow: Follow,
-) -> (WritePipe<WriteDestinations>, Arc<RwLock<WriteDestinations>>) {
-    let immediate = follow.writer();
+use crate::Component;
 
-    let buffer: Vec<u8> = vec![];
-    let std_dests = WriteDestinations { buffer, immediate };
-    let lock = Arc::new(RwLock::new(std_dests));
-    let std_pipe = WritePipe::from_shared(lock.clone());
-
-    (std_pipe, lock)
+/// Configuration for the WASI stdio (stdin, stdout, stderr) of a component.
+#[derive(Clone)]
+pub struct ComponentStdio {
+    stdin: StdInput,
+    stdout: StdOutput,
+    stderr: StdOutput,
 }
 
-/// Which components should have their logs followed on stdout/stderr.
-#[derive(Clone, Debug)]
-pub enum FollowComponents {
-    /// No components should have their logs followed.
-    None,
-    /// Only the specified components should have their logs followed.
-    Named(HashSet<String>),
-    /// All components should have their logs followed.
-    All,
+impl Default for ComponentStdio {
+    fn default() -> Self {
+        Self {
+            stdin: StdInput::Null,
+            stdout: StdOutput::Null,
+            stderr: StdOutput::Log,
+        }
+    }
 }
 
-impl FollowComponents {
-    /// Whether a given component should have its logs followed on stdout/stderr.
-    pub fn should_follow(&self, component_id: &str) -> bool {
+/// Configuration overrides for WASI stdio of a component. Used by trigger executors
+/// that need control of stdio stream(s).
+#[derive(Default)]
+pub struct ComponentStdioOverrides {
+    stdin: Option<Box<dyn WasiFile>>,
+    stdout: Option<Box<dyn WasiFile>>,
+    stderr: Option<Box<dyn WasiFile>>,
+}
+
+impl ComponentStdioOverrides {
+    /// Set the stdin override to the given WasiFile.
+    pub fn stdin(mut self, f: impl WasiFile + 'static) -> Self {
+        self.stdin = Some(Box::new(f));
+        self
+    }
+
+    /// Set the stdout override to the given WasiFile.
+    pub fn stdout(mut self, f: impl WasiFile + 'static) -> Self {
+        self.stdout = Some(Box::new(f));
+        self
+    }
+
+    /// Set the stderr override to the given WasiFile.
+    pub fn stderr(mut self, f: impl WasiFile + 'static) -> Self {
+        self.stderr = Some(Box::new(f));
+        self
+    }
+}
+
+/// Configuration for the behavior of a component's WASI input stream (stdin).
+#[derive(Clone)]
+pub enum StdInput {
+    /// Input is empty.
+    Null,
+    /// Input is read from the given `ReadPipe`.
+    Pipe(ReadPipe<Box<dyn Read + Send + Sync>>),
+}
+
+impl StdInput {
+    /// Wrap the given reader for use as a StdInput.
+    pub fn pipe(reader: impl Read + Send + Sync + 'static) -> Self {
+        Self::Pipe(ReadPipe::new(Box::new(reader)))
+    }
+
+    fn to_wasi_file(&self) -> Option<Box<dyn WasiFile>> {
         match self {
-            Self::None => false,
-            Self::All => true,
-            Self::Named(ids) => ids.contains(component_id),
+            StdInput::Null => None,
+            StdInput::Pipe(pipe) => Some(Box::new(pipe.clone())),
         }
     }
 }
 
-/// The buffers in which Wasm module output has been saved.
-pub trait OutputBuffers {
-    /// The buffer in which stdout has been saved.
-    fn stdout(&self) -> &[u8];
-    /// The buffer in which stderr has been saved.
-    fn stderr(&self) -> &[u8];
+/// Configuration for the behavior of a component's WASI output streams (stdout/stderr).
+#[derive(Clone)]
+pub enum StdOutput {
+    /// Output is discarded.
+    Null,
+    /// Output is logged via `tracing`.
+    Log,
+    /// Output is written to the given `WritePipe`.
+    Pipe(WritePipe<Box<dyn Write + Send + Sync>>),
 }
 
-/// Wrapper around File with a convenient PathBuf for cloning
-pub struct PipeFile(pub File, pub PathBuf);
-
-impl PipeFile {
-    /// Constructs an instance from a file, and the PathBuf to that file.
-    pub fn new(file: File, path: PathBuf) -> Self {
-        Self(file, path)
-    }
-}
-
-impl std::fmt::Debug for PipeFile {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PipeFile")
-            .field("File", &self.0)
-            .field("PathBuf", &self.1)
-            .finish()
-    }
-}
-
-impl Clone for PipeFile {
-    fn clone(&self) -> Self {
-        let f = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&self.1)
-            .unwrap();
-        Self(f, self.1.clone())
-    }
-}
-
-/// CustomIoPipes that can be passed to `ExecutionContextConfiguration`
-/// to direct out and err
-#[derive(Clone, Debug, Default)]
-pub struct CustomLogPipes {
-    /// in pipe (file and pathbuf)
-    pub stdin_pipe: Option<PipeFile>,
-    /// out pipe (file and pathbuf)
-    pub stdout_pipe: Option<PipeFile>,
-    /// err pipe (file and pathbuf)
-    pub stderr_pipe: Option<PipeFile>,
-}
-
-impl CustomLogPipes {
-    /// Constructs an instance from a set of PipeFile objects.
-    pub fn new(
-        stdin_pipe: Option<PipeFile>,
-        stdout_pipe: Option<PipeFile>,
-        stderr_pipe: Option<PipeFile>,
-    ) -> Self {
-        Self {
-            stdin_pipe,
-            stdout_pipe,
-            stderr_pipe,
-        }
-    }
-}
-
-/// Types of ModuleIoRedirects
-#[derive(Clone, Debug)]
-pub enum ModuleIoRedirectsTypes {
-    /// This will signal the executor to use `capture_io_to_memory_default()`
-    Default,
-    /// This will signal the executor to use `capture_io_to_memory_files()`
-    FromFiles(CustomLogPipes),
-}
-
-impl Default for ModuleIoRedirectsTypes {
-    fn default() -> Self {
-        Self::Default
-    }
-}
-
-/// A set of redirected standard I/O streams with which
-/// a Wasm module is to be run.
-pub struct ModuleIoRedirects {
-    /// pipes for ModuleIoRedirects
-    pub pipes: RedirectPipes,
-    /// read handles for ModuleIoRedirects
-    pub read_handles: RedirectReadHandles,
-}
-
-impl Default for ModuleIoRedirects {
-    fn default() -> Self {
-        Self::new(false)
-    }
-}
-
-impl ModuleIoRedirects {
-    /// Constructs the ModuleIoRedirects, and RedirectReadHandles instances the default way
-    pub fn new(follow: bool) -> Self {
-        let rrh = RedirectReadHandles::new(follow);
-
-        let in_stdpipe: Box<dyn WasiFile> = Box::new(ReadPipe::from(vec![]));
-        let out_stdpipe: Box<dyn WasiFile> = Box::new(WritePipe::from_shared(rrh.stdout.clone()));
-        let err_stdpipe: Box<dyn WasiFile> = Box::new(WritePipe::from_shared(rrh.stderr.clone()));
-
-        Self {
-            pipes: RedirectPipes {
-                stdin: in_stdpipe,
-                stdout: out_stdpipe,
-                stderr: err_stdpipe,
-            },
-            read_handles: rrh,
-        }
+impl StdOutput {
+    /// Wrap the given writer for use as a StdOutput.
+    pub fn pipe(writer: impl Write + Send + Sync + 'static) -> Self {
+        Self::Pipe(WritePipe::new(Box::new(writer)))
     }
 
-    /// Constructs the ModuleIoRedirects, and RedirectReadHandles instances from `File`s directly
-    pub fn new_from_files(
-        stdin_file: Option<File>,
-        stdout_file: Option<File>,
-        stderr_file: Option<File>,
-    ) -> Self {
-        let rrh = RedirectReadHandles::new(true);
-
-        let in_stdpipe: Box<dyn WasiFile> = match stdin_file {
-            Some(inf) => Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(inf))),
-            None => Box::new(ReadPipe::from(vec![])),
-        };
-        let out_stdpipe: Box<dyn WasiFile> = match stdout_file {
-            Some(ouf) => Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(ouf))),
-            None => Box::new(WritePipe::from_shared(rrh.stdout.clone())),
-        };
-        let err_stdpipe: Box<dyn WasiFile> = match stderr_file {
-            Some(erf) => Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(erf))),
-            None => Box::new(WritePipe::from_shared(rrh.stderr.clone())),
-        };
-
-        Self {
-            pipes: RedirectPipes {
-                stdin: in_stdpipe,
-                stdout: out_stdpipe,
-                stderr: err_stdpipe,
-            },
-            read_handles: rrh,
-        }
-    }
-}
-
-/// Pipes from `ModuleIoRedirects`
-pub struct RedirectPipes {
-    pub(crate) stdin: Box<dyn WasiFile>,
-    pub(crate) stdout: Box<dyn WasiFile>,
-    pub(crate) stderr: Box<dyn WasiFile>,
-}
-
-impl RedirectPipes {
-    /// Constructs an instance from a set of WasiFile objects.
-    pub fn new(
-        stdin: Box<dyn WasiFile>,
-        stdout: Box<dyn WasiFile>,
-        stderr: Box<dyn WasiFile>,
-    ) -> Self {
-        Self {
-            stdin,
-            stdout,
-            stderr,
-        }
-    }
-}
-
-/// The destinations to which redirected module output will be written.
-/// Used for subsequently reading back the output.
-pub struct RedirectReadHandles {
-    stdout: Arc<RwLock<WriteDestinations>>,
-    stderr: Arc<RwLock<WriteDestinations>>,
-}
-
-impl Default for RedirectReadHandles {
-    fn default() -> Self {
-        Self::new(false)
-    }
-}
-
-impl RedirectReadHandles {
-    /// Creates a new RedirectReadHandles instance
-    pub fn new(follow: bool) -> Self {
-        let out_immediate = Follow::stdout(follow).writer();
-        let err_immediate = Follow::stderr(follow).writer();
-
-        let out_buffer: Vec<u8> = vec![];
-        let err_buffer: Vec<u8> = vec![];
-
-        let out_std_dests = WriteDestinations {
-            buffer: out_buffer,
-            immediate: out_immediate,
-        };
-        let err_std_dests = WriteDestinations {
-            buffer: err_buffer,
-            immediate: err_immediate,
-        };
-
-        Self {
-            stdout: Arc::new(RwLock::new(out_std_dests)),
-            stderr: Arc::new(RwLock::new(err_std_dests)),
-        }
-    }
-    /// Acquires a read lock for the in-memory output buffers.
-    pub fn read(&self) -> impl OutputBuffers + '_ {
-        RedirectReadHandlesLock {
-            stdout: self.stdout.read().unwrap(),
-            stderr: self.stderr.read().unwrap(),
-        }
-    }
-}
-
-struct RedirectReadHandlesLock<'a> {
-    stdout: RwLockReadGuard<'a, WriteDestinations>,
-    stderr: RwLockReadGuard<'a, WriteDestinations>,
-}
-
-impl<'a> OutputBuffers for RedirectReadHandlesLock<'a> {
-    fn stdout(&self) -> &[u8] {
-        self.stdout.buffer()
-    }
-    fn stderr(&self) -> &[u8] {
-        self.stderr.buffer()
-    }
-}
-
-/// Indicates whether a memory redirect should also pipe the output to
-/// the console so it can be followed live.
-pub enum Follow {
-    /// Do not pipe to console - only write to memory.
-    None,
-    /// Also pipe to stdout.
-    Stdout,
-    /// Also pipe to stderr.
-    Stderr,
-}
-
-impl Follow {
-    pub(crate) fn writer(&self) -> Box<dyn Write + Send + Sync> {
+    fn to_wasi_file(
+        &self,
+        core: &CoreComponent,
+        stream: &'static str,
+    ) -> Option<Box<dyn WasiFile>> {
         match self {
-            Self::None => Box::new(DiscardingWriter),
-            Self::Stdout => Box::new(LineWriter::new(std::io::stdout())),
-            Self::Stderr => Box::new(LineWriter::new(std::io::stderr())),
-        }
-    }
-
-    /// Follow on stdout if so specified.
-    pub fn stdout(follow_on_stdout: bool) -> Self {
-        if follow_on_stdout {
-            Self::Stdout
-        } else {
-            Self::None
-        }
-    }
-
-    /// Follow on stderr if so specified.
-    pub fn stderr(follow_on_stderr: bool) -> Self {
-        if follow_on_stderr {
-            Self::Stderr
-        } else {
-            Self::None
+            Self::Null => None,
+            Self::Log => Some(Box::new(log::LoggingWasiFile::new(core, stream))),
+            Self::Pipe(pipe) => Some(Box::new(pipe.clone())),
         }
     }
 }
 
-/// The destinations to which a component writes an output stream.
-pub struct WriteDestinations {
-    buffer: Vec<u8>,
-    immediate: Box<dyn Write + Send + Sync>,
+pub(crate) fn apply_component_stdio<T: Default>(
+    mut builder: WasiCtxBuilder,
+    component: &Component<T>,
+    overrides: ComponentStdioOverrides,
+) -> WasiCtxBuilder {
+    // stdin
+    if let Some(wasi_file) = overrides
+        .stdin
+        .or_else(|| component.stdio.stdin.to_wasi_file())
+    {
+        builder = builder.stdin(wasi_file);
+    }
+    // stdout
+    if let Some(wasi_file) = overrides.stdout.or_else(|| {
+        component
+            .stdio
+            .stdout
+            .to_wasi_file(&component.core, "stdout")
+    }) {
+        builder = builder.stdout(wasi_file);
+    }
+    // stderr
+    if let Some(wasi_file) = overrides.stderr.or_else(|| {
+        component
+            .stdio
+            .stderr
+            .to_wasi_file(&component.core, "stderr")
+    }) {
+        builder = builder.stderr(wasi_file);
+    }
+    builder
 }
 
-impl WriteDestinations {
-    /// The memory buffer to which a component writes an output stream.
-    pub fn buffer(&self) -> &[u8] {
-        &self.buffer
-    }
-}
+mod log {
+    use std::{
+        any::Any,
+        io::{self, Write},
+        sync::Mutex,
+    };
 
-impl Write for WriteDestinations {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let written = self.buffer.write(buf)?;
-        self.immediate.write_all(&buf[0..written])?;
-        Ok(written)
-    }
+    use anyhow::Context;
+    use async_trait::async_trait;
+    use spin_manifest::CoreComponent;
+    use tracing::{event, event_enabled, warn, Level};
+    use wasi_common::{
+        file::{Advice, FdFlags, FileType, Filestat, WasiFile},
+        Error, ErrorExt, SystemTimeSpec,
+    };
 
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.buffer.flush()?;
-        self.immediate.flush()?;
-        Ok(())
-    }
-}
-
-struct DiscardingWriter;
-
-impl Write for DiscardingWriter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        Ok(buf.len())
+    pub(crate) struct LoggingWasiFile {
+        component_id: String,
+        stream: &'static str,
+        unprocessed: Mutex<Vec<u8>>,
     }
 
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
+    impl LoggingWasiFile {
+        const TARGET: &'static str = "component-log";
+        const LEVEL: Level = Level::INFO;
+
+        pub fn new(core: &CoreComponent, stream: &'static str) -> Self {
+            Self {
+                component_id: core.id.to_string(),
+                stream,
+                unprocessed: Default::default(),
+            }
+        }
+
+        fn write_line(&self, line: &[u8]) {
+            match std::str::from_utf8(line) {
+                Ok(message) => {
+                    event!(
+                        target: LoggingWasiFile::TARGET,
+                        LoggingWasiFile::LEVEL,
+                        message = message.trim_end(),
+                        component_id = self.component_id.as_str(),
+                        stream = self.stream,
+                    );
+                }
+                Err(err) => {
+                    warn!(
+                        target: LoggingWasiFile::TARGET,
+                        message = format!("invalid log message encoding: {}", err).as_str(),
+                        component_id = self.component_id.as_str(),
+                        stream = self.stream,
+                    );
+                }
+            }
+        }
+    }
+
+    impl Drop for LoggingWasiFile {
+        fn drop(&mut self) {
+            if let Ok(buf) = self.unprocessed.try_lock() {
+                if !buf.is_empty() {
+                    self.write_line(&buf[..]);
+                }
+            } else {
+            }
+        }
+    }
+
+    // Adapted from WritePipe
+    #[allow(unused_variables)]
+    #[async_trait]
+    impl WasiFile for LoggingWasiFile {
+        async fn write_vectored<'a>(&self, bufs: &[io::IoSlice<'a>]) -> Result<u64, Error> {
+            if event_enabled!(
+                target: LoggingWasiFile::TARGET,
+                LoggingWasiFile::LEVEL,
+                component_id,
+                stream,
+            ) {
+                let mut unprocessed = self.unprocessed.lock().unwrap();
+                let mut n: u64 = 0;
+                for buf in bufs {
+                    let mut buf = buf.as_ref();
+                    n += buf.len() as u64;
+                    if unprocessed.is_empty() {
+                        // Fast path: nothing left over from previous writes; don't need to copy
+                        while let Some(nl_idx) = buf.iter().position(|b| *b == b'\n') {
+                            let line;
+                            (line, buf) = buf.split_at(nl_idx + 1);
+                            self.write_line(line);
+                        }
+                    }
+                    unprocessed.extend_from_slice(buf);
+                }
+                // Slow path: log line(s) split over multiple writes
+                while let Some(nl_idx) = unprocessed.iter().position(|b| *b == b'\n') {
+                    let rest = unprocessed.split_off(nl_idx + 1);
+                    let line = std::mem::replace(&mut *unprocessed, rest);
+                    self.write_line(&line[..]);
+                }
+                Ok(n)
+            } else {
+                std::io::sink()
+                    .write_vectored(bufs)
+                    .map(|n| n as u64)
+                    .context("infallible")
+            }
+        }
+
+        // === Unchanged from WritePipe below this line ===
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+        async fn datasync(&self) -> Result<(), Error> {
+            Ok(())
+        }
+        async fn sync(&self) -> Result<(), Error> {
+            Ok(())
+        }
+        async fn get_filetype(&self) -> Result<FileType, Error> {
+            Ok(FileType::Pipe)
+        }
+        async fn get_fdflags(&self) -> Result<FdFlags, Error> {
+            Ok(FdFlags::APPEND)
+        }
+        async fn set_fdflags(&mut self, _fdflags: FdFlags) -> Result<(), Error> {
+            Err(Error::badf())
+        }
+        async fn get_filestat(&self) -> Result<Filestat, Error> {
+            Ok(Filestat {
+                device_id: 0,
+                inode: 0,
+                filetype: self.get_filetype().await?,
+                nlink: 0,
+                size: 0, // XXX no way to get a size out of a Write :(
+                atim: None,
+                mtim: None,
+                ctim: None,
+            })
+        }
+        async fn set_filestat_size(&self, _size: u64) -> Result<(), Error> {
+            Err(Error::badf())
+        }
+        async fn advise(&self, offset: u64, len: u64, advice: Advice) -> Result<(), Error> {
+            Err(Error::badf())
+        }
+        async fn allocate(&self, offset: u64, len: u64) -> Result<(), Error> {
+            Err(Error::badf())
+        }
+        async fn read_vectored<'a>(&self, bufs: &mut [io::IoSliceMut<'a>]) -> Result<u64, Error> {
+            Err(Error::badf())
+        }
+        async fn read_vectored_at<'a>(
+            &self,
+            bufs: &mut [io::IoSliceMut<'a>],
+            offset: u64,
+        ) -> Result<u64, Error> {
+            Err(Error::badf())
+        }
+        async fn write_vectored_at<'a>(
+            &self,
+            bufs: &[io::IoSlice<'a>],
+            offset: u64,
+        ) -> Result<u64, Error> {
+            Err(Error::badf())
+        }
+        async fn seek(&self, pos: std::io::SeekFrom) -> Result<u64, Error> {
+            Err(Error::badf())
+        }
+        async fn peek(&self, buf: &mut [u8]) -> Result<u64, Error> {
+            Err(Error::badf())
+        }
+        async fn set_times(
+            &self,
+            atime: Option<SystemTimeSpec>,
+            mtime: Option<SystemTimeSpec>,
+        ) -> Result<(), Error> {
+            Err(Error::badf())
+        }
+        async fn num_ready_bytes(&self) -> Result<u64, Error> {
+            Ok(0)
+        }
+        fn isatty(&self) -> bool {
+            false
+        }
+        async fn readable(&self) -> Result<(), Error> {
+            Err(Error::badf())
+        }
+        async fn writable(&self) -> Result<(), Error> {
+            Err(Error::badf())
+        }
+
+        async fn sock_accept(&mut self, fdflags: FdFlags) -> Result<Box<dyn WasiFile>, Error> {
+            Err(Error::badf())
+        }
     }
 }

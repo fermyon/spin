@@ -8,7 +8,7 @@ use std::{
 
 use http::{Request, Response};
 use hyper::Body;
-use spin_engine::{io::FollowComponents, Builder};
+use spin_engine::Builder;
 use spin_http_engine::HttpTrigger;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
@@ -105,7 +105,7 @@ impl TestConfig {
 
     pub async fn build_http_trigger(&self) -> HttpTrigger {
         let app = self.build_application();
-        spin_trigger::build_trigger_from_app(app, None, FollowComponents::None, None)
+        spin_trigger::build_trigger_from_app(app, None)
             .await
             .unwrap()
     }

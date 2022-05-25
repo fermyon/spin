@@ -12,5 +12,6 @@ async-trait = "0.1"
 outbound-redis = { path = "../outbound-redis" }
 spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }
+tracing = "0.1"
 wasi-outbound-http = { path = "../outbound-http" } 
 wasmtime = "0.34"

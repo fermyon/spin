@@ -7,7 +7,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};
-use spin_engine::io::FollowComponents;
 use spin_manifest::{ComponentMap, RedisConfig, RedisTriggerConfiguration};
 use spin_redis::SpinRedisData;
 use spin_trigger::Trigger;
@@ -29,8 +28,6 @@ pub struct RedisTrigger {
     engine: Arc<ExecutionContext>,
     /// Map from channel name to tuple of component name & index.
     subscriptions: HashMap<String, usize>,
-    /// Which components should have their logs followed on stdout/stderr.
-    follow: FollowComponents,
 }
 
 #[async_trait]
@@ -44,7 +41,6 @@ impl Trigger for RedisTrigger {
         execution_context: ExecutionContext,
         trigger_config: Self::Config,
         component_triggers: ComponentMap<Self::ComponentConfig>,
-        follow: FollowComponents,
     ) -> Result<Self> {
         let subscriptions = execution_context
             .config
@@ -63,7 +59,6 @@ impl Trigger for RedisTrigger {
             component_triggers,
             engine: Arc::new(execution_context),
             subscriptions,
-            follow,
         })
     }
 
@@ -117,8 +112,6 @@ impl RedisTrigger {
                 .and_then(|t| t.executor.clone())
                 .unwrap_or_default();
 
-            let follow = self.follow.should_follow(&component.id);
-
             match executor {
                 spin_manifest::RedisExecutor::Spin => {
                     log::trace!("Executing Spin Redis component {}", component.id);
@@ -129,7 +122,6 @@ impl RedisTrigger {
                             &component.id,
                             channel,
                             msg.get_payload_bytes(),
-                            follow,
                         )
                         .await?
                 }
@@ -152,7 +144,6 @@ pub(crate) trait RedisExecutor: Clone + Send + Sync + 'static {
         component: &str,
         channel: &str,
         payload: &[u8],
-        follow: bool,
     ) -> Result<()>;
 }
 

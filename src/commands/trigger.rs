@@ -3,7 +3,6 @@ use std::{path::PathBuf, sync::Arc};
 use anyhow::{bail, Context, Result};
 use clap::Args;
 use reqwest::Url;
-use spin_engine::io::FollowComponents;
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_manifest::Application;
 
@@ -69,17 +68,6 @@ impl TriggerCommonOpts {
             };
         }
         Ok(wasmtime_config)
-    }
-
-    pub fn follow_components(&self) -> FollowComponents {
-        if self.follow_all_components {
-            FollowComponents::All
-        } else if self.follow_components.is_empty() {
-            FollowComponents::None
-        } else {
-            let followed = self.follow_components.clone().into_iter().collect();
-            FollowComponents::Named(followed)
-        }
     }
 
     pub async fn app_from_env(&self) -> Result<Application> {

@@ -6,7 +6,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 use http::Uri;
 use hyper::{Body, Request, Response};
-use spin_engine::io::{ModuleIoRedirects, ModuleIoRedirectsTypes};
 use std::{net::SocketAddr, str, str::FromStr};
 use tokio::task::spawn_blocking;
 use tracing::log;
@@ -25,41 +24,18 @@ impl HttpExecutor for SpinHttpExecutor {
         raw_route: &str,
         req: Request<Body>,
         _client_addr: SocketAddr,
-        follow: bool,
     ) -> Result<Response<Body>> {
         log::trace!(
             "Executing request using the Spin executor for component {}",
             component
         );
 
-        let mior = if let ModuleIoRedirectsTypes::FromFiles(clp) =
-            engine.config.module_io_redirects.clone()
-        {
-            ModuleIoRedirects::new_from_files(
-                clp.stdin_pipe.map(|inp| inp.0),
-                clp.stdout_pipe.map(|oup| oup.0),
-                clp.stderr_pipe.map(|erp| erp.0),
-            )
-        } else {
-            ModuleIoRedirects::new(follow)
-        };
-
         let (store, instance) =
-            engine.prepare_component(component, None, Some(mior.pipes), None, None)?;
+            engine.prepare_component(component, None, Default::default(), None, None)?;
 
-        let resp_result = Self::execute_impl(store, instance, base, raw_route, req)
+        let resp = Self::execute_impl(store, instance, base, raw_route, req)
             .await
-            .map_err(contextualise_err);
-
-        let log_result =
-            engine.save_output_to_logs(mior.read_handles.read(), component, true, true);
-
-        // Defer checking for failures until here so that the logging runs
-        // even if the guest code fails. (And when checking, check the guest
-        // result first, so that guest failures are returned in preference to
-        // log failures.)
-        let resp = resp_result?;
-        log_result?;
+            .map_err(contextualise_err)?;
 
         log::info!(
             "Request finished, sending response with status code {}",

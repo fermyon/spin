@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{bail, Result};
 use clap::Parser;
 use spin_http_engine::{HttpTrigger, HttpTriggerExecutionConfig, TlsConfig};
-use spin_trigger::{run_trigger, ExecutionOptions};
+use spin_trigger::run_trigger;
 
 use super::trigger::TriggerCommonOpts;
 use crate::opts::*;
@@ -59,13 +59,9 @@ impl TriggerHttpCommand {
             _ => unreachable!(),
         };
 
-        run_trigger(
+        run_trigger::<HttpTrigger>(
             app,
-            ExecutionOptions::<HttpTrigger>::new(
-                self.opts.log.clone(),
-                self.opts.follow_components(),
-                HttpTriggerExecutionConfig::new(self.address.clone(), tls),
-            ),
+            HttpTriggerExecutionConfig::new(self.address.clone(), tls),
             Some(self.opts.wasmtime_config()?),
         )
         .await

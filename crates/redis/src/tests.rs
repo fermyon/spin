@@ -29,8 +29,7 @@ async fn test_pubsub() -> Result<()> {
         });
     let app = cfg.build_application();
 
-    let trigger: RedisTrigger =
-        build_trigger_from_app(app, None, FollowComponents::None, None).await?;
+    let trigger: RedisTrigger = build_trigger_from_app(app, None).await?;
 
     // TODO
     // use redis::{FromRedisValue, Msg, Value};

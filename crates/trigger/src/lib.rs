@@ -1,11 +1,8 @@
-use std::{error::Error, path::PathBuf};
+use std::error::Error;
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use spin_engine::{
-    io::{FollowComponents, ModuleIoRedirectsTypes},
-    Builder, Engine, ExecutionContext, ExecutionContextConfiguration,
-};
+use spin_engine::{Builder, Engine, ExecutionContext, ExecutionContextConfiguration};
 use spin_manifest::{Application, ApplicationTrigger, ComponentMap, TriggerConfig};
 
 /// The trigger
@@ -24,7 +21,6 @@ pub trait Trigger: Sized {
         execution_context: ExecutionContext<Self::ContextData>,
         config: Self::Config,
         component_configs: ComponentMap<Self::ComponentConfig>,
-        follow: FollowComponents,
     ) -> Result<Self>;
 
     async fn run(&self, run_config: Self::ExecutionConfig) -> Result<()>;
@@ -37,30 +33,8 @@ pub trait Trigger: Sized {
     }
 }
 
-pub struct ExecutionOptions<T: Trigger> {
-    log_dir: Option<PathBuf>,
-    follow: FollowComponents,
-    execution_config: T::ExecutionConfig,
-}
-
-impl<T: Trigger> ExecutionOptions<T> {
-    pub fn new(
-        log_dir: Option<PathBuf>,
-        follow: FollowComponents,
-        execution_config: T::ExecutionConfig,
-    ) -> Self {
-        Self {
-            log_dir,
-            follow,
-            execution_config,
-        }
-    }
-}
-
 pub async fn build_trigger_from_app<T: Trigger>(
     app: Application,
-    log_dir: Option<PathBuf>,
-    follow: FollowComponents,
     wasmtime_config: Option<wasmtime::Config>,
 ) -> Result<T>
 where
@@ -72,9 +46,7 @@ where
     let config = ExecutionContextConfiguration {
         components: app.components,
         label: app.info.name,
-        log_dir,
         config_resolver: app.config_resolver,
-        module_io_redirects: ModuleIoRedirectsTypes::default(),
     };
     let mut builder = match wasmtime_config {
         Some(wasmtime_config) => {
@@ -100,12 +72,12 @@ where
         })
         .collect::<Result<_>>()?;
 
-    T::new(execution_ctx, trigger_config, component_triggers, follow)
+    T::new(execution_ctx, trigger_config, component_triggers)
 }
 
 pub async fn run_trigger<T: Trigger>(
     app: Application,
-    opts: ExecutionOptions<T>,
+    exec_config: T::ExecutionConfig,
     wasmtime_config: Option<wasmtime::Config>,
 ) -> Result<()>
 where
@@ -114,7 +86,9 @@ where
     <T::Config as TryFrom<ApplicationTrigger>>::Error: Error + Send + Sync + 'static,
     <T::ComponentConfig as TryFrom<TriggerConfig>>::Error: Error + Send + Sync + 'static,
 {
-    let trigger: T =
-        build_trigger_from_app(app, opts.log_dir, opts.follow, wasmtime_config).await?;
-    trigger.run(opts.execution_config).await
+    let trigger: T = build_trigger_from_app(app, wasmtime_config).await?;
+
+    {
+        trigger.run(exec_config).await
+    }
 }

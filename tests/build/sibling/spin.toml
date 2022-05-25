@@ -1,0 +1,15 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+name = "spin-build-sibling"
+trigger = {type = "http", base = "/"}
+version = "1.0.0"
+
+[[component]]
+id = "bar"
+source = "../simple/bar"
+description = "Building in a workdir which is a sibling."
+[component.build]
+command = "echo '' > bar"
+workdir = "../simple"
+[component.trigger]
+route = "/..."

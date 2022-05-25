@@ -7,7 +7,7 @@ use spin_sdk::{
 /// A simple Spin HTTP component.
 #[http_component]
 fn hello_world(req: Request) -> Result<Response> {
-    println!("{:?}", req.headers());
+    println!("HTTP-RUST SEZ {:?}", req.uri());
     Ok(http::Response::builder()
         .status(200)
         .header("foo", "bar")

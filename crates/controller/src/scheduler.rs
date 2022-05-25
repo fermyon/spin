@@ -4,7 +4,7 @@ use anyhow::{bail, Context};
 use tempfile::TempDir;
 use tokio::task::JoinHandle;
 
-use crate::{schema::{WorkloadId, WorkloadOperation}, store::WorkStore, WorkloadSpec, WorkloadEvent, run::run, WorkloadStatus};
+use crate::{schema::{WorkloadId, SchedulerOperation}, store::WorkStore, WorkloadSpec, WorkloadEvent, run::run, WorkloadStatus};
 
 #[async_trait::async_trait]
 pub(crate) trait Scheduler {
@@ -15,14 +15,14 @@ pub(crate) struct LocalScheduler {
     store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
     running: Arc<RwLock<HashMap<WorkloadId, RunningWorkload>>>,
     event_sender: tokio::sync::broadcast::Sender<WorkloadEvent>,
-    operation_receiver: tokio::sync::broadcast::Receiver<WorkloadOperation>,
+    operation_receiver: tokio::sync::broadcast::Receiver<SchedulerOperation>,
 }
 
 impl LocalScheduler {
     pub(crate) fn new(
         store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
         event_sender: &tokio::sync::broadcast::Sender<WorkloadEvent>,
-        operation_receiver: tokio::sync::broadcast::Receiver<WorkloadOperation>
+        operation_receiver: tokio::sync::broadcast::Receiver<SchedulerOperation>
     ) -> Self {
         Self {
             store,
@@ -44,30 +44,41 @@ pub(crate) enum RunHandle {
 
 impl LocalScheduler {
     pub fn start(self) -> JoinHandle<()> {
-        tokio::task::spawn(
-            self.run_event_loop()
-        )
+        tokio::task::spawn(async move {
+            self.run_event_loop().await;
+        })
     }
 
     async fn run_event_loop(mut self) {
         loop {
             match self.operation_receiver.recv().await {
                 Ok(oper) => {
-                    self.process_operation(oper).await;
+                    match self.process_operation(oper).await {
+                        true => (),
+                        false => {
+                            return;
+                        }
+                    }
                 },
-                Err(_) => {
-                    println!("SCHED: Oh no!");
+                Err(e) => {
+                    println!("SCHED: Oh no! {:?}", e);
                     break;
                 }
             }
         }
     }
 
-    async fn process_operation(&self, oper: WorkloadOperation) {
+    async fn process_operation(&self, oper: SchedulerOperation) -> bool {
         let evt = match oper {
-            WorkloadOperation::Changed(workload) =>
+            SchedulerOperation::WorkloadChanged(workload) =>
                 self.process_workload_changed(&workload).await.err()
                     .map(|e| WorkloadEvent::UpdateFailed(workload.clone(), Arc::new(e))),
+            SchedulerOperation::Stop => {
+                for (_, h) in self.running.write().unwrap().drain() {
+                    h.stop();
+                }
+                return false;
+            }
         };
 
         match evt {
@@ -81,6 +92,8 @@ impl LocalScheduler {
                 }
             }
         }
+
+        true
     }
 
     async fn process_workload_changed(&self, workload: &WorkloadId) -> anyhow::Result<()> {

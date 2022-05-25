@@ -98,6 +98,7 @@ pub enum WorkloadEvent {
 }
 
 #[derive(Clone, Debug)]
-pub enum WorkloadOperation {
-    Changed(WorkloadId),
+pub enum SchedulerOperation {
+    Stop,
+    WorkloadChanged(WorkloadId),
 }

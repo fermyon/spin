@@ -8,6 +8,7 @@ struct Output {
 }
 
 fn main() {
+    eprintln!("WAGI-HTTP-RUST SEZ {:?}", std::env::var("X_FULL_URL"));
     println!(
         "Content-Type: application/json\n\n{}",
         json::to_string(&Output {

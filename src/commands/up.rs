@@ -2,6 +2,7 @@ use std::path::{PathBuf};
 
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser};
+use spin_controller::{WorkloadEvent, Control, WorkloadId, WorkloadSpec};
 
 use crate::opts::*;
 
@@ -144,87 +145,158 @@ impl UpCommand {
         };
 
         let the_id = spin_controller::WorkloadId::new();
-        let /*mut*/ spec = spin_controller::WorkloadSpec {
+        let mut spec = spin_controller::WorkloadSpec {
             status: spin_controller::WorkloadStatus::Running,
             opts,
             manifest,
         };
 
         let (ctrlc_tx, mut ctrlc_rx) = tokio::sync::broadcast::channel(1);
-        // let (key_tx, mut key_rx) = tokio::sync::broadcast::channel(1);
+        let (key_tx, mut key_rx) = tokio::sync::broadcast::channel(1);
         let mut work_rx = controller.notifications();
 
-        let ctrlc_rx_recv = ctrlc_rx.recv();
+        // let ctrlc_rx_recv = ctrlc_rx.recv();
         // let key_rx_recv = key_rx.recv();
-        let work_rx_recv = work_rx.recv();
+        // let work_rx_recv = work_rx.recv();
 
-        ctrlc::set_handler(move || { let _ = ctrlc_tx.send(()); })?;
+        ctrlc::set_handler(move || {
+            let _ = ctrlc_tx.send(());
+        })?;
 
         controller.set_workload(&the_id, spec.clone())?;
 
         // TODO: this fouls up Ctrl+C handling but interesting to play with it
-        // tokio::task::spawn(async move {
+        // let keyh = tokio::task::spawn(async move {
         //     loop {
         //         let mut s = "".to_owned();
         //         let _ = std::io::stdin().read_line(&mut s);
         //         match s.trim() {
+        //             "n" => { let _ = key_tx.send(OperatorCommand::New); },
         //             "s" => { let _ = key_tx.send(OperatorCommand::Stop); },
         //             "r" => { let _ = key_tx.send(OperatorCommand::Remove); },
+        //             "q" => { let _ = key_tx.send(OperatorCommand::Quit); break; },
         //             _ => (),
         //         }
         //     }
         // });
 
+        loop {
+            match self.wait_next(
+                &mut controller,
+                &the_id,
+                &mut spec,
+                &mut ctrlc_rx,
+                &mut work_rx,
+                &mut key_rx,
+            ).await? {
+                true => {
+                    // println!("loop requested continuation");
+                },
+                false => {
+                    // println!("loop requested exit");
+                    break;
+                }
+            }
+        }
+
+        // keyh.abort();
+
+        Ok(())
+    }
+
+    async fn wait_next(&self,
+        controller: &mut Control,
+        the_id: &WorkloadId,
+        spec: &mut WorkloadSpec,
+        ctrlc_rx: &mut tokio::sync::broadcast::Receiver<()>,
+        work_rx: &mut tokio::sync::broadcast::Receiver<WorkloadEvent>,
+        key_rx: &mut tokio::sync::broadcast::Receiver<OperatorCommand>,
+    ) -> anyhow::Result<bool> {
         tokio::select! {
-            _ = ctrlc_rx_recv => {
+            _ = ctrlc_rx.recv() => {
                 controller.remove_workload(&the_id)?;
+                Ok(false)
             },
-            msg = work_rx_recv => {
+            msg = work_rx.recv() => {
                 match msg {
                     Ok(spin_controller::WorkloadEvent::Stopped(id, err)) => {
-                        if id == the_id {
+                        if &id == the_id {
                             match err {
                                 None => {
                                     println!("Listener stopped without error");
+                                    Ok(false)
                                 },
                                 Some(e) => {
                                     let err_text = format!("Listener stopped with error {:#}", e);  // because I haven't figured out how to get the error itself
                                     anyhow::bail!(err_text);
                                 }
                             }
+                        } else {
+                            Ok(true)
                         }
                     },
                     Ok(spin_controller::WorkloadEvent::UpdateFailed(id, err)) => {
-                        if id == the_id {
+                        if &id == the_id {
                             let err_text = format!("Failed to start app with error {:#}", err);  // because I haven't figured out how to get the error itself
                             anyhow::bail!(err_text);
+                        } else {
+                            Ok(true)
                         }
                     },
                     Err(e) => anyhow::bail!(anyhow::Error::from(e).context("Error receiving notification from controller")),
                 }
             },
-            // cmd = key_rx_recv => {
-            //     match cmd {
-            //         Ok(OperatorCommand::Remove) => {
-            //             println!("removing");
-            //             controller.remove_workload(&the_id)?;
-            //         },
-            //         Ok(OperatorCommand::Stop) => {
-            //             println!("stopping");
-            //             spec.status = spin_controller::WorkloadStatus::Stopped;
-            //             controller.set_workload(&the_id, spec.clone())?;
-            //         },
-            //         Err(e) => anyhow::bail!(anyhow::Error::from(e).context("Error receiving command from stdin")),
-            //     }
-            // }
+            cmd = key_rx.recv() => {
+                match cmd {
+                    Ok(OperatorCommand::Remove) => {
+                        println!("removing");
+                        controller.remove_workload(&the_id)?;
+                        Ok(true)
+                    },
+                    Ok(OperatorCommand::Stop) => {
+                        println!("stopping");
+                        spec.status = spin_controller::WorkloadStatus::Stopped;
+                        controller.set_workload(&the_id, spec.clone())?;
+                        Ok(true)
+                    },
+                    Ok(OperatorCommand::Quit) => {
+                        println!("quitting");
+                        let _ = controller.shutdown().await;
+                        return Ok(false);
+                    },
+                    Ok(OperatorCommand::New) => {
+                        let new_id = WorkloadId::new();
+                        let new_spec = WorkloadSpec {
+                            status: spin_controller::WorkloadStatus::Running,
+                            opts: spin_controller::WorkloadOpts {
+                                server: self.server.clone(),
+                                address: "127.0.0.1:3001".to_owned(),
+                                tmp: self.opts.tmp.clone(),
+                                env: self.opts.env.clone(),
+                                tls_cert: self.opts.tls_cert.clone(),
+                                tls_key: self.opts.tls_key.clone(),
+                                log: self.opts.log.clone(),
+                                disable_cache: self.opts.disable_cache,
+                                cache: self.opts.cache.clone(),
+                                follow_components: self.opts.follow_components.clone(),
+                                follow_all_components: self.opts.follow_all_components,
+                            },
+                            manifest: spin_controller::WorkloadManifest::File(PathBuf::from("./examples/wagi-http-rust/spin.toml")),
+                        };
+                        let _ = controller.set_workload(&new_id, new_spec);
+                        Ok(true)
+                    },
+                    Err(e) => anyhow::bail!(anyhow::Error::from(e).context("Error receiving command from stdin")),
+                }
+            }
         }
-
-        Ok(())
     }
 }
 
-// #[derive(Clone, Debug, PartialEq)]
-// enum OperatorCommand {
-//     Remove,
-//     Stop,
-// }
+#[derive(Clone, Debug, PartialEq)]
+enum OperatorCommand {
+    Remove,
+    Stop,
+    Quit,
+    New,
+}

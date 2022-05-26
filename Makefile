@@ -28,3 +28,7 @@ doc:
 	DATE=$(shell date --utc +%Y-%m-%dT%TZ)
 	echo "title = \"<insert title here>\"\ntemplate = \"main\"\ndate = \"`date --utc +%Y-%m-%dT%TZ`\"\n" > docs/content/$(SPIN_DOC_NAME)
 	echo "[extra]\nurl = \"https://github.com/fermyon/spin/blob/main/docs/content/$(SPIN_DOC_NAME)\"\n\n---\n" >> docs/content/$(SPIN_DOC_NAME)
+
+.PHONY: check-content
+check-content:
+	cd docs && bart check content/* && bart check content/**/*

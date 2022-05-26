@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::{Arc, RwLock}, path::{Path, PathBuf}};
+use std::{collections::HashMap, sync::{Arc, RwLock}, path::{Path, PathBuf}, net::SocketAddr, fmt::Debug};
 
 use anyhow::{bail, Context};
 use tempfile::TempDir;
@@ -11,24 +11,132 @@ pub(crate) trait Scheduler {
     async fn notify_changed(&self, workload: &WorkloadId) -> anyhow::Result<()>;
 }
 
-pub(crate) struct LocalScheduler {
+#[derive(Clone, Debug)]
+pub(crate) enum EventSender {
+    InProcess(tokio::sync::broadcast::Sender<WorkloadEvent>),
+}
+
+#[derive(Debug)]
+pub(crate) enum OperationReceiver {
+    InProcess(tokio::sync::broadcast::Receiver<SchedulerOperation>),
+    Remote(RemoteOperationReceiver),
+}
+
+impl EventSender {
+    pub fn send(&self, e: WorkloadEvent) -> anyhow::Result<()> {
+        match self {
+            Self::InProcess(c) => { c.send(e)?; },
+        }
+        Ok(())
+    }
+}
+
+impl OperationReceiver {
+    pub async fn recv(&mut self) -> anyhow::Result<SchedulerOperation> {
+        match self {
+            Self::InProcess(c) => Ok(c.recv().await?),
+            Self::Remote(ror) => Ok(ror.recv().await?),
+        }
+    }
+}
+
+pub(crate) struct RemoteOperationReceiver {
+    handler: message_io::node::NodeHandler<SchedulerOperation>,
+    // listener: message_io::node::NodeListener<SchedulerOperation>,
+    pending: Arc<RwLock<Vec<SchedulerOperation>>>,
+    node_task: message_io::node::NodeTask,
+}
+
+impl RemoteOperationReceiver {
+    pub fn new(
+        handler: message_io::node::NodeHandler<SchedulerOperation>,
+        listener: message_io::node::NodeListener<SchedulerOperation>,
+    ) -> Self {
+        let pending = Arc::new(RwLock::new(vec![]));
+        let pending2 = pending.clone();
+        let node_task = listener.for_each_async(move |e| {
+            match e {
+                message_io::node::NodeEvent::Network(ne) => {
+                    match ne {
+                        message_io::network::NetEvent::Message(_, body) => {
+                            let oper = serde_json::from_slice(body).unwrap();
+                            pending2.write().unwrap().push(oper);
+                        },
+                        _ => (),
+                    }
+                },
+                _ => (),
+            }
+        });
+
+        Self { handler, pending, node_task }
+    }
+
+    pub async fn recv(&self) -> anyhow::Result<SchedulerOperation> {
+        loop {
+            match self.pop() {
+                Some(o) => { return Ok(o); },
+                None => tokio::time::sleep(tokio::time::Duration::from_millis(10)).await,
+            }
+        }
+    }
+
+    fn pop(&self) -> Option<SchedulerOperation> {
+        self.pending.write().unwrap().pop()
+    }
+}
+
+impl Debug for RemoteOperationReceiver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RemoteOperationReceiver").finish()
+    }
+}
+
+struct SchedulerCore {
     store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
     running: Arc<RwLock<HashMap<WorkloadId, RunningWorkload>>>,
-    event_sender: tokio::sync::broadcast::Sender<WorkloadEvent>,
-    operation_receiver: tokio::sync::broadcast::Receiver<SchedulerOperation>,
+    event_sender: EventSender,
+}
+
+pub(crate) struct LocalScheduler {
+    // store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
+    // running: Arc<RwLock<HashMap<WorkloadId, RunningWorkload>>>,
+    // event_sender: EventSender,
+    core: SchedulerCore,
+    operation_receiver: OperationReceiver,
 }
 
 impl LocalScheduler {
-    pub(crate) fn new(
+    pub(crate) fn new_in_process(
         store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
         event_sender: &tokio::sync::broadcast::Sender<WorkloadEvent>,
         operation_receiver: tokio::sync::broadcast::Receiver<SchedulerOperation>
     ) -> Self {
         Self {
-            store,
-            running: Arc::new(RwLock::new(HashMap::new())),
-            event_sender: event_sender.clone(),
-            operation_receiver,
+            core: SchedulerCore {
+                store,
+                running: Arc::new(RwLock::new(HashMap::new())),
+                event_sender: EventSender::InProcess(event_sender.clone()),
+            },
+            operation_receiver: OperationReceiver::InProcess(operation_receiver),
+        }
+    }
+
+    pub(crate) fn new_rpc(
+        store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
+        event_sender: &tokio::sync::broadcast::Sender<WorkloadEvent>,
+        operation_receiver_addr: &str,
+    ) -> Self {
+        let (handler, listener) = message_io::node::split();
+        handler.network().listen(message_io::network::Transport::FramedTcp, operation_receiver_addr).unwrap();
+        let ror = RemoteOperationReceiver::new(handler, listener);
+        Self {
+            core: SchedulerCore {
+                store,
+                running: Arc::new(RwLock::new(HashMap::new())),
+                event_sender: EventSender::InProcess(event_sender.clone()),
+            },
+            operation_receiver: OperationReceiver::Remote(ror),
         }
     }
 }
@@ -49,11 +157,14 @@ impl LocalScheduler {
         })
     }
 
-    async fn run_event_loop(mut self) {
+    async fn run_event_loop(self) {
+        let core = self.core;
+        let mut operation_receiver = self.operation_receiver;
+
         loop {
-            match self.operation_receiver.recv().await {
+            match operation_receiver.recv().await {
                 Ok(oper) => {
-                    match self.process_operation(oper).await {
+                    match core.process_operation(oper).await {
                         true => (),
                         false => {
                             return;
@@ -68,11 +179,77 @@ impl LocalScheduler {
         }
     }
 
+    // async fn handle_net_evt(&self, e: message_io::node::NodeEvent<'_, SchedulerOperation>) {
+    //     match e {
+    //         message_io::node::NodeEvent(ne) => {
+    //             match ne {
+    //                 message_io::network::NetEvent::Message(_, data) =>
+    //                     match Self::parse_oper(data) {
+    //                         Ok(oper) => {
+    //                             match core.process_operation(oper).await {
+    //                                 true => (),
+    //                                 false => {
+    //                                     return;
+    //                                 }
+    //                             }
+    //                         },
+    //                         Err(e) => {
+    //                             println!("SCHED: Oh no! {:?}", e);
+    //                             return;
+    //                         }
+    //                     },
+    //                 _ => (),
+    //             }
+    //         }
+    //     }
+
+    // }
+
+    // async fn run_channel_event_loop(&self, c: &mut tokio::sync::broadcast::Receiver<SchedulerOperation>) {
+    //     loop {
+    //         match c.recv().await {
+    //             Ok(oper) => {
+    //                 match self.process_operation(oper).await {
+    //                     true => (),
+    //                     false => {
+    //                         return;
+    //                     }
+    //                 }
+    //             },
+    //             Err(e) => {
+    //                 println!("SCHED: Oh no! {:?}", e);
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+
+    // async fn run_ror_event_loop(mut self, ror: &mut RemoteOperationReceiver) {
+    //     loop {
+    //         // match self.operation_receiver.recv().await {
+    //         //     Ok(oper) => {
+    //         //         match self.process_operation(oper).await {
+    //         //             true => (),
+    //         //             false => {
+    //         //                 return;
+    //         //             }
+    //         //         }
+    //         //     },
+    //         //     Err(e) => {
+    //         //         println!("SCHED: Oh no! {:?}", e);
+    //         //         break;
+    //         //     }
+    //         // }
+    //     }
+    // }
+}
+
+impl SchedulerCore {
     async fn process_operation(&self, oper: SchedulerOperation) -> bool {
         let evt = match oper {
             SchedulerOperation::WorkloadChanged(workload) =>
                 self.process_workload_changed(&workload).await.err()
-                    .map(|e| WorkloadEvent::UpdateFailed(workload.clone(), Arc::new(e))),
+                    .map(|e| WorkloadEvent::UpdateFailed(workload.clone(), format!("{:#}", e))),
             SchedulerOperation::Stop => {
                 for (_, h) in self.running.write().unwrap().drain() {
                     h.stop();
@@ -147,6 +324,40 @@ impl LocalScheduler {
         self.running.write().unwrap().remove(workload);
     }
 }
+
+// use std::pin::Pin;
+// use futures::{Stream, StreamExt};
+
+// fn translate_oper(msg: crate::messages::SchedulerOperation) -> SchedulerOperation {
+//     todo!()
+// }
+
+// #[async_trait::async_trait]
+// impl crate::messages::scheduler_server::Scheduler for RemoteScheduler {
+//     type SchedulerStream = Pin<Box<dyn Stream<Item = Result<crate::messages::WorkloadEvent, tonic::Status>> + Send + 'static>>;
+//     async fn scheduler(&self, request: tonic::Request<tonic::Streaming<crate::messages::SchedulerOperation> >) -> Result<tonic::Response<Self::SchedulerStream>, tonic::Status> {  // Pin<Box<(dyn futures::Future<Output = Result<tonic::Response<<Self as scheduler_server::Scheduler>::SchedulerStream>, Status>> + std::marker::Send + 'async_trait)>> { todo!() }`: `fn scheduler(&'life0 self, _: tonic::Request<Streaming<messages::SchedulerOperation>>) -> Pin<Box<(dyn futures::Future<Output = Result<tonic::Response<<Self as scheduler_server::Scheduler>::SchedulerStream>, Status>> + std::marker::Send + 'async_trait)>>
+//         let mut stream = request.into_inner();
+
+//         let output = async_stream::try_stream! {
+//             while let Some(oper) = stream.next().await {
+//                 let oper = oper?;
+//                 let message = oper.message.clone().unwrap();
+
+//                 let roper = translate_oper(message);
+//                 let should_continue = process_operation(roper).await;
+//                 if !should_continue {
+//                     break;
+//                 }
+
+//                 for note in location_notes {
+//                     yield note.clone();
+//                 }
+//             }
+//         };
+
+//         Ok(Response::new(Box::pin(output) as Self::RouteChatStream))
+//     }
+// }
 
 impl RunningWorkload {
     fn stop(self) {

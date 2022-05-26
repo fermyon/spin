@@ -8,9 +8,9 @@ use spin_manifest::ApplicationTrigger;
 use spin_redis_engine::RedisTrigger;
 use spin_trigger::{ExecutionOptions, run_trigger};
 
-use crate::{schema::{WorkloadId, WorkloadManifest}, WorkloadSpec, WorkloadEvent, scheduler::{WorkingDirectory, RunningWorkload, RunHandle}};
+use crate::{schema::{WorkloadId, WorkloadManifest}, WorkloadSpec, WorkloadEvent, scheduler::{WorkingDirectory, RunningWorkload, RunHandle, EventSender}};
 
-pub(crate) async fn run(workload: &WorkloadId, spec: WorkloadSpec, notification_sender: &tokio::sync::broadcast::Sender<WorkloadEvent>) -> anyhow::Result<RunningWorkload> {
+pub(crate) async fn run(workload: &WorkloadId, spec: WorkloadSpec, notification_sender: &EventSender) -> anyhow::Result<RunningWorkload> {
     let working_dir_holder = match &spec.opts.tmp {
         None => WorkingDirectory::Temporary(tempfile::tempdir()?),
         Some(d) => WorkingDirectory::Given(d.to_owned()),
@@ -75,7 +75,7 @@ pub(crate) async fn run(workload: &WorkloadId, spec: WorkloadSpec, notification_
                 ).await;
                 let err = match r {
                     Ok(()) => None,
-                    Err(e) => Some(Arc::new(e)),
+                    Err(e) => Some(format!("{:#}", e)),
                 };
                 // TODO: this should update the workflow status in the scheduler's record
                 let _ = tx.send(WorkloadEvent::Stopped(id, err));
@@ -90,7 +90,7 @@ pub(crate) async fn run(workload: &WorkloadId, spec: WorkloadSpec, notification_
                 ).await;
                 let err = match r {
                     Ok(()) => None,
-                    Err(e) => Some(Arc::new(e)),
+                    Err(e) => Some(format!("{:#}", e)),
                 };
                 let _ = tx.send(WorkloadEvent::Stopped(id, err));
             })

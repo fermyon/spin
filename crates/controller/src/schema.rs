@@ -6,7 +6,7 @@ use std::{path::PathBuf, sync::Arc};
 use spin_engine::io::FollowComponents;
 use spin_loader::bindle::BindleConnectionInfo;
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct WorkloadId {
     id: String,
 }
@@ -16,9 +16,19 @@ impl WorkloadId {
         let id = format!("{}", uuid::Uuid::new_v4().hyphenated());
         Self { id }
     }
+
+    pub fn new_from(id: &str) -> Self {
+        Self { id: id.to_owned() }
+    }
 }
 
-#[derive(Clone, Debug)]
+impl ToString for WorkloadId {
+    fn to_string(&self) -> String {
+        self.id.clone()
+    }
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct WorkloadSpec {
     pub status: WorkloadStatus,
     pub opts: WorkloadOpts,
@@ -33,20 +43,20 @@ pub struct WorkloadSpec {
 //     values: HashMap<String, String>,
 // }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum WorkloadStatus {
     Running,
     Stopped,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum WorkloadManifest {
     File(PathBuf),
     Bindle(String /*bindle::Id*/),
 }
 
 // UpOpts in a trenchcoat
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct WorkloadOpts {
     pub server: Option<String>,
     pub address: String,
@@ -91,13 +101,13 @@ impl WorkloadOpts {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum WorkloadEvent {
-    Stopped(WorkloadId, Option<Arc<anyhow::Error>>),
-    UpdateFailed(WorkloadId, Arc<anyhow::Error>),
+    Stopped(WorkloadId, Option<String>),
+    UpdateFailed(WorkloadId, String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum SchedulerOperation {
     Stop,
     WorkloadChanged(WorkloadId),

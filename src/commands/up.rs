@@ -115,7 +115,7 @@ pub struct UpOpts {
 
 impl UpCommand {
     pub async fn run(self) -> Result<()> {
-        let mut controller = spin_controller::Control::in_memory();
+        let mut controller = spin_controller::Control::in_memory_rpc("127.0.0.1:3636");
 
         let manifest = match (&self.app, &self.bindle) {
             (app, None) => {

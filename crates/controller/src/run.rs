@@ -8,7 +8,7 @@ use spin_manifest::ApplicationTrigger;
 use spin_redis_engine::RedisTrigger;
 use spin_trigger::{ExecutionOptions, run_trigger};
 
-use crate::{schema::{WorkloadId, WorkloadManifest}, WorkloadSpec, WorkloadEvent, scheduler::{WorkingDirectory, RunningWorkload, RunHandle, EventSender}};
+use crate::{schema::{WorkloadId, WorkloadManifest}, WorkloadSpec, WorkloadEvent, scheduler::{WorkingDirectory, RunningWorkload, RunHandle}, messaging::EventSender};
 
 pub(crate) async fn run(workload: &WorkloadId, spec: WorkloadSpec, notification_sender: &EventSender) -> anyhow::Result<RunningWorkload> {
     let working_dir_holder = match &spec.opts.tmp {

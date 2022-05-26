@@ -1,95 +1,14 @@
-use std::{collections::HashMap, sync::{Arc, RwLock}, path::{Path, PathBuf}, net::SocketAddr, fmt::Debug};
+use std::{collections::HashMap, sync::{Arc, RwLock}, path::{Path, PathBuf}};
 
-use anyhow::{bail, Context};
 use tempfile::TempDir;
 use tokio::task::JoinHandle;
 
+use crate::messaging::{EventSender, OperationReceiver, RemoteOperationReceiver};
 use crate::{schema::{WorkloadId, SchedulerOperation}, store::WorkStore, WorkloadSpec, WorkloadEvent, run::run, WorkloadStatus};
 
 #[async_trait::async_trait]
 pub(crate) trait Scheduler {
     async fn notify_changed(&self, workload: &WorkloadId) -> anyhow::Result<()>;
-}
-
-#[derive(Clone, Debug)]
-pub(crate) enum EventSender {
-    InProcess(tokio::sync::broadcast::Sender<WorkloadEvent>),
-}
-
-#[derive(Debug)]
-pub(crate) enum OperationReceiver {
-    InProcess(tokio::sync::broadcast::Receiver<SchedulerOperation>),
-    Remote(RemoteOperationReceiver),
-}
-
-impl EventSender {
-    pub fn send(&self, e: WorkloadEvent) -> anyhow::Result<()> {
-        match self {
-            Self::InProcess(c) => { c.send(e)?; },
-        }
-        Ok(())
-    }
-}
-
-impl OperationReceiver {
-    pub async fn recv(&mut self) -> anyhow::Result<SchedulerOperation> {
-        match self {
-            Self::InProcess(c) => Ok(c.recv().await?),
-            Self::Remote(ror) => Ok(ror.recv().await?),
-        }
-    }
-}
-
-pub(crate) struct RemoteOperationReceiver {
-    handler: message_io::node::NodeHandler<SchedulerOperation>,
-    // listener: message_io::node::NodeListener<SchedulerOperation>,
-    pending: Arc<RwLock<Vec<SchedulerOperation>>>,
-    node_task: message_io::node::NodeTask,
-}
-
-impl RemoteOperationReceiver {
-    pub fn new(
-        handler: message_io::node::NodeHandler<SchedulerOperation>,
-        listener: message_io::node::NodeListener<SchedulerOperation>,
-    ) -> Self {
-        let pending = Arc::new(RwLock::new(vec![]));
-        let pending2 = pending.clone();
-        let node_task = listener.for_each_async(move |e| {
-            match e {
-                message_io::node::NodeEvent::Network(ne) => {
-                    match ne {
-                        message_io::network::NetEvent::Message(_, body) => {
-                            let oper = serde_json::from_slice(body).unwrap();
-                            pending2.write().unwrap().push(oper);
-                        },
-                        _ => (),
-                    }
-                },
-                _ => (),
-            }
-        });
-
-        Self { handler, pending, node_task }
-    }
-
-    pub async fn recv(&self) -> anyhow::Result<SchedulerOperation> {
-        loop {
-            match self.pop() {
-                Some(o) => { return Ok(o); },
-                None => tokio::time::sleep(tokio::time::Duration::from_millis(10)).await,
-            }
-        }
-    }
-
-    fn pop(&self) -> Option<SchedulerOperation> {
-        self.pending.write().unwrap().pop()
-    }
-}
-
-impl Debug for RemoteOperationReceiver {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RemoteOperationReceiver").finish()
-    }
 }
 
 struct SchedulerCore {

@@ -1,7 +1,7 @@
 
 // It's not really a schema
 
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf};
 
 use spin_engine::io::FollowComponents;
 use spin_loader::bindle::BindleConnectionInfo;

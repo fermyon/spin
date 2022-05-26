@@ -1,39 +1,16 @@
 use std::sync::{RwLock, Arc};
 
-use scheduler::{Scheduler, LocalScheduler};
+use messaging::{SchedulerOperationSender, RemoteOperationSender};
+use scheduler::{LocalScheduler};
 use schema::SchedulerOperation;
 pub use schema::{WorkloadEvent, WorkloadId, WorkloadManifest, WorkloadOpts, WorkloadSpec, WorkloadStatus};
 use store::{WorkStore, InMemoryWorkStore};
 
+mod messaging;
 mod run;
 pub(crate) mod scheduler;
 pub(crate) mod schema;
 pub(crate) mod store;
-
-enum SchedulerOperationSender {
-    InProcess(tokio::sync::broadcast::Sender<SchedulerOperation>),
-    Remote(RemoteOperationSender),
-}
-
-impl SchedulerOperationSender {
-    pub fn send(&self, oper: SchedulerOperation) -> anyhow::Result<()> {
-        match self {
-            Self::InProcess(c) => { c.send(oper)?; },
-            Self::Remote(ros) => {
-                let body = serde_json::to_vec(&oper).unwrap();
-                ros.handler.network().send(ros.server, &body);
-                // ros.handler.signals().send(oper);
-            }
-        }
-        Ok(())
-    }
-}
-
-struct RemoteOperationSender {
-    handler: message_io::node::NodeHandler<SchedulerOperation>,
-    listener: message_io::node::NodeListener<SchedulerOperation>,
-    server: message_io::network::Endpoint,
-}
 
 pub struct Control {
     scheduler: tokio::task::JoinHandle<()>,

@@ -1,6 +1,6 @@
 title = "Deploying Spin applications to Hippo"
 template = "main"
-date = "2022-05-20"
+date = "2022-05-20T00:22:56Z"
 [extra]
 url = "https://github.com/fermyon/spin/blob/main/docs/content/deploying-to-hippo.md"
 

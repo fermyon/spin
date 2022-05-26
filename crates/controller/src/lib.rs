@@ -1,10 +1,12 @@
 use std::sync::{RwLock, Arc};
 
-use messaging::{SchedulerOperationSender, RemoteOperationSender};
+use messaging::{SchedulerOperationSender, RemoteOperationSender, SchedulerOperationReceiver, EventSender, ControllerCommandReceiver};
+pub use messaging::{CommandSender, WorkloadEventReceiver};
 use scheduler::{LocalScheduler};
-use schema::SchedulerOperation;
-pub use schema::{WorkloadEvent, WorkloadId, WorkloadManifest, WorkloadOpts, WorkloadSpec, WorkloadStatus};
+use schema::{SchedulerOperation};
+pub use schema::{ControllerCommand, WorkloadEvent, WorkloadId, WorkloadManifest, WorkloadOpts, WorkloadSpec, WorkloadStatus};
 use store::{WorkStore, InMemoryWorkStore};
+use tokio::task::JoinHandle;
 
 mod messaging;
 mod run;
@@ -12,48 +14,144 @@ pub(crate) mod scheduler;
 pub(crate) mod schema;
 pub(crate) mod store;
 
-pub struct Control {
-    scheduler: tokio::task::JoinHandle<()>,
+// pub struct Control {
+//     scheduler: tokio::task::JoinHandle<()>,
+//     store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
+//     event_sender: tokio::sync::broadcast::Sender<WorkloadEvent>,  // For in memory it sorta works to have the comms directly from scheduler but WHO KNOWS
+//     _event_receiver: tokio::sync::broadcast::Receiver<WorkloadEvent>,
+//     scheduler_notifier: SchedulerOperationSender, // tokio::sync::broadcast::Sender<SchedulerOperation>,
+// }
+
+pub struct Controller {
+    core: ControllerCore,
+    scheduler_task: tokio::task::JoinHandle<()>,
+    client_cmd_receiver: ControllerCommandReceiver,
+    client_evt_notifier: EventSender,
+    sched_evt_receiver: WorkloadEventReceiver,
+}
+
+impl Controller {
+    pub fn in_memory() -> (Self, CommandSender, WorkloadEventReceiver) {
+        let box_store: Box<dyn WorkStore + Send + Sync> = Box::new(InMemoryWorkStore::new());
+        let store = Arc::new(RwLock::new(box_store));
+
+        let (sched_evt_tx, sched_evt_rx) = tokio::sync::broadcast::channel(1000);
+        let (sched_oper_tx, sched_oper_rx) = tokio::sync::broadcast::channel(1000);
+        let (client_cmd_tx, client_cmd_rx) = tokio::sync::broadcast::channel(1000);
+        let (client_evt_tx, client_evt_rx) = tokio::sync::broadcast::channel(1000);
+
+        let scheduler = LocalScheduler::new_in_process(store.clone(), &sched_evt_tx, sched_oper_rx);
+        let scheduler_task = scheduler.start();
+        let scheduler_notifier = SchedulerOperationSender::InProcess(sched_oper_tx);
+
+        let core = ControllerCore {
+            store,
+            scheduler_notifier,
+        };
+        let client_cmd_receiver = ControllerCommandReceiver::InProcess(client_cmd_rx);
+        let client_evt_notifier = EventSender::InProcess(client_evt_tx);
+        let sched_evt_receiver = WorkloadEventReceiver::InProcess(sched_evt_rx);
+
+        let controller = Self {
+            core,
+            scheduler_task,
+            client_cmd_receiver,
+            client_evt_notifier,
+            sched_evt_receiver,
+        };
+
+        let client_cmd_sender = CommandSender::InProcess(client_cmd_tx);
+        let client_evt_receiver = WorkloadEventReceiver::InProcess(client_evt_rx);
+        (controller, client_cmd_sender, client_evt_receiver)
+    }
+
+    pub fn in_memory_sched_rpc(sched_addr: &str) -> (Self, CommandSender, WorkloadEventReceiver) {
+        let box_store: Box<dyn WorkStore + Send + Sync> = Box::new(InMemoryWorkStore::new());
+        let store = Arc::new(RwLock::new(box_store));
+
+        let (sched_evt_tx, sched_evt_rx) = tokio::sync::broadcast::channel(1000);
+        let (client_cmd_tx, client_cmd_rx) = tokio::sync::broadcast::channel(1000);
+        let (client_evt_tx, client_evt_rx) = tokio::sync::broadcast::channel(1000);
+
+        let scheduler = LocalScheduler::new_rpc(store.clone(), &sched_evt_tx, sched_addr);
+        let scheduler_task = scheduler.start();
+
+        // TODO: this should probably not attempt to connect in its constructor
+        let sched_oper_tx = RemoteOperationSender::new(sched_addr);
+        let scheduler_notifier = SchedulerOperationSender::Remote(sched_oper_tx);
+
+        let core = ControllerCore {
+            store,
+            scheduler_notifier,
+        };
+        let client_cmd_receiver = ControllerCommandReceiver::InProcess(client_cmd_rx);
+        let client_evt_notifier = EventSender::InProcess(client_evt_tx);
+        let sched_evt_receiver = WorkloadEventReceiver::InProcess(sched_evt_rx);
+
+        let controller = Self {
+            core,
+            scheduler_task,
+            client_cmd_receiver,
+            client_evt_notifier,
+            sched_evt_receiver,
+        };
+
+        let client_cmd_sender = CommandSender::InProcess(client_cmd_tx);
+        let client_evt_receiver = WorkloadEventReceiver::InProcess(client_evt_rx);
+        (controller, client_cmd_sender, client_evt_receiver)
+    }
+
+    pub fn start(self) -> JoinHandle<()> {
+        tokio::task::spawn(async move {
+            self.run_event_loop().await;
+        })
+    }
+
+    async fn run_event_loop(self) {
+        let mut core = self.core;
+        let mut receiver = self.client_cmd_receiver;
+
+        loop {
+            println!("CTRL: waiting to receive");
+            match receiver.recv().await {
+                Ok(msg) => {
+                    println!("CTRL: received, processing");
+                    match core.process_message(msg) {
+                        Ok(true) => (),
+                        Ok(false) => { return; }
+                        Err(e) => { println!("CTRL: processing failed {:#}", e); return; }
+                    }
+                },
+                Err(e) => {
+                    println!("SCHED: Oh no! {:?}", e);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+
+struct ControllerCore {
     store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
-    event_sender: tokio::sync::broadcast::Sender<WorkloadEvent>,  // For in memory it sorta works to have the comms directly from scheduler but WHO KNOWS
-    _event_receiver: tokio::sync::broadcast::Receiver<WorkloadEvent>,
     scheduler_notifier: SchedulerOperationSender, // tokio::sync::broadcast::Sender<SchedulerOperation>,
 }
 
-impl Control {
-    pub fn in_memory() -> Self {
-        let box_store: Box<dyn WorkStore + Send + Sync> = Box::new(InMemoryWorkStore::new());
-        let store = Arc::new(RwLock::new(box_store));
-        let (evt_tx, evt_rx) = tokio::sync::broadcast::channel(1000);
-        let (oper_tx, oper_rx) = tokio::sync::broadcast::channel(1000);
-        let scheduler = LocalScheduler::new_in_process(store.clone(), &evt_tx, oper_rx);
-        let jh = scheduler.start();
-        Self {
-            scheduler: jh,
-            store,
-            event_sender: evt_tx,
-            _event_receiver: evt_rx,
-            scheduler_notifier: SchedulerOperationSender::InProcess(oper_tx),
-        }
-    }
+impl ControllerCore {
+    pub fn process_message(&mut self, msg: ControllerCommand) -> anyhow::Result<bool> {
+        match msg {
+            ControllerCommand::SetWorkload(workload, spec) =>
+                self.set_workload(&workload, spec)?,
+            ControllerCommand::RemoveWorkload(workload) =>
+                self.remove_workload(&workload)?,
+            ControllerCommand::Shutdown => {
+                self.shutdown()?;
+                return Ok(false);
+            },
+        };
 
-    pub fn in_memory_rpc(addr: &str) -> Self {
-        let box_store: Box<dyn WorkStore + Send + Sync> = Box::new(InMemoryWorkStore::new());
-        let store = Arc::new(RwLock::new(box_store));
-        let (evt_tx, evt_rx) = tokio::sync::broadcast::channel(1000);
-        // let (oper_tx, oper_rx) = tokio::sync::broadcast::channel(1000);
-        let scheduler = LocalScheduler::new_rpc(store.clone(), &evt_tx, addr);
-        let jh = scheduler.start();
-
-        let ros = RemoteOperationSender::new(addr);
-
-        Self {
-            scheduler: jh,
-            store,
-            event_sender: evt_tx,
-            _event_receiver: evt_rx,
-            scheduler_notifier: SchedulerOperationSender::Remote(ros),
-        }
+        println!("CTRL: message sent to scheduler");
+        Ok(true)
     }
 
     pub fn set_workload(&mut self, workload: &WorkloadId, spec: WorkloadSpec) -> anyhow::Result<()> {
@@ -70,14 +168,9 @@ impl Control {
         Ok(())
     }
 
-    pub async fn shutdown(&mut self) -> anyhow::Result<()> {
+    pub fn shutdown(&mut self) -> anyhow::Result<()> {
         self.scheduler_notifier.send(SchedulerOperation::Stop)?;
-        (&mut self.scheduler).await?;
         Ok(())
-    }
-
-    pub fn notifications(&self) -> tokio::sync::broadcast::Receiver<WorkloadEvent> {
-        self.event_sender.subscribe()
     }
 }
 

@@ -2,7 +2,7 @@ use std::path::{PathBuf};
 
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser};
-use spin_controller::{WorkloadEvent, Control, WorkloadId, WorkloadSpec};
+use spin_controller::{WorkloadEvent, WorkloadId, WorkloadSpec, ControllerCommand, WorkloadEventReceiver, CommandSender};
 
 use crate::opts::*;
 
@@ -115,7 +115,10 @@ pub struct UpOpts {
 
 impl UpCommand {
     pub async fn run(self) -> Result<()> {
-        let mut controller = spin_controller::Control::in_memory_rpc("127.0.0.1:3636");
+        // let mut controller = spin_controller::Control::in_memory_rpc("127.0.0.1:3636");
+        // let (controller, cmd_tx, mut work_rx) = spin_controller::Controller::in_memory();
+        let (controller, cmd_tx, mut work_rx) = spin_controller::Controller::in_memory_sched_rpc("127.0.0.1:3636");
+        let controller_jh = controller.start();
 
         let manifest = match (&self.app, &self.bindle) {
             (app, None) => {
@@ -153,7 +156,6 @@ impl UpCommand {
 
         let (ctrlc_tx, mut ctrlc_rx) = tokio::sync::broadcast::channel(1);
         let (key_tx, mut key_rx) = tokio::sync::broadcast::channel(1);
-        let mut work_rx = controller.notifications();
 
         // let ctrlc_rx_recv = ctrlc_rx.recv();
         // let key_rx_recv = key_rx.recv();
@@ -163,7 +165,8 @@ impl UpCommand {
             let _ = ctrlc_tx.send(());
         })?;
 
-        controller.set_workload(&the_id, spec.clone())?;
+        // controller.set_workload(&the_id, spec.clone())?;
+        cmd_tx.send(ControllerCommand::SetWorkload(the_id.clone(), spec.clone()))?;
 
         // TODO: this fouls up Ctrl+C handling but interesting to play with it
         let keyh = tokio::task::spawn(async move {
@@ -182,7 +185,7 @@ impl UpCommand {
 
         loop {
             match self.wait_next(
-                &mut controller,
+                &cmd_tx,
                 &the_id,
                 &mut spec,
                 &mut ctrlc_rx,
@@ -200,21 +203,23 @@ impl UpCommand {
         }
 
         keyh.abort();
+        controller_jh.abort();
 
         Ok(())
     }
 
     async fn wait_next(&self,
-        controller: &mut Control,
+        cmd_tx: &CommandSender,
         the_id: &WorkloadId,
         spec: &mut WorkloadSpec,
         ctrlc_rx: &mut tokio::sync::broadcast::Receiver<()>,
-        work_rx: &mut tokio::sync::broadcast::Receiver<WorkloadEvent>,
+        work_rx: &mut WorkloadEventReceiver,
         key_rx: &mut tokio::sync::broadcast::Receiver<OperatorCommand>,
     ) -> anyhow::Result<bool> {
         tokio::select! {
             _ = ctrlc_rx.recv() => {
-                controller.remove_workload(&the_id)?;
+                // controller.remove_workload(&the_id)?;
+                cmd_tx.send(ControllerCommand::RemoveWorkload(the_id.clone()))?;
                 Ok(false)
             },
             msg = work_rx.recv() => {
@@ -250,18 +255,21 @@ impl UpCommand {
                 match cmd {
                     Ok(OperatorCommand::Remove) => {
                         println!("removing");
-                        controller.remove_workload(&the_id)?;
+                        // controller.remove_workload(&the_id)?;
+                        cmd_tx.send(ControllerCommand::RemoveWorkload(the_id.clone()))?;
                         Ok(true)
                     },
                     Ok(OperatorCommand::Stop) => {
                         println!("stopping");
                         spec.status = spin_controller::WorkloadStatus::Stopped;
-                        controller.set_workload(&the_id, spec.clone())?;
+                        // controller.set_workload(&the_id, spec.clone())?;
+                        cmd_tx.send(ControllerCommand::SetWorkload(the_id.clone(), spec.clone()))?;
                         Ok(true)
                     },
                     Ok(OperatorCommand::Quit) => {
                         println!("quitting");
-                        let _ = controller.shutdown().await;
+                        // let _ = controller.shutdown().await;
+                        cmd_tx.send(ControllerCommand::Shutdown)?;
                         return Ok(false);
                     },
                     Ok(OperatorCommand::New) => {
@@ -283,7 +291,8 @@ impl UpCommand {
                             },
                             manifest: spin_controller::WorkloadManifest::File(PathBuf::from("./examples/wagi-http-rust/spin.toml")),
                         };
-                        let _ = controller.set_workload(&new_id, new_spec);
+                        // let _ = controller.set_workload(&new_id, new_spec);
+                        cmd_tx.send(ControllerCommand::SetWorkload(new_id, new_spec))?;
                         Ok(true)
                     },
                     Err(e) => anyhow::bail!(anyhow::Error::from(e).context("Error receiving command from stdin")),

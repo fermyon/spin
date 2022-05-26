@@ -81,8 +81,10 @@ impl LocalScheduler {
         let mut operation_receiver = self.operation_receiver;
 
         loop {
+            println!("SCHED: waiting to receive");
             match operation_receiver.recv().await {
                 Ok(oper) => {
+                    println!("SCHED: received, processing");
                     match core.process_operation(oper).await {
                         true => (),
                         false => {

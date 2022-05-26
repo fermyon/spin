@@ -112,3 +112,10 @@ pub enum SchedulerOperation {
     Stop,
     WorkloadChanged(WorkloadId),
 }
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum ControllerCommand {
+    Shutdown,
+    SetWorkload(WorkloadId, WorkloadSpec),
+    RemoveWorkload(WorkloadId),
+}

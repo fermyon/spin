@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::{Arc, RwLock}, path::{Path, PathBuf}};
 use tempfile::TempDir;
 use tokio::task::JoinHandle;
 
-use crate::messaging::{EventSender, OperationReceiver, RemoteOperationReceiver};
+use crate::messaging::{EventSender, SchedulerOperationReceiver, RemoteOperationReceiver};
 use crate::{schema::{WorkloadId, SchedulerOperation}, store::WorkStore, WorkloadSpec, WorkloadEvent, run::run, WorkloadStatus};
 
 #[async_trait::async_trait]
@@ -22,7 +22,7 @@ pub(crate) struct LocalScheduler {
     // running: Arc<RwLock<HashMap<WorkloadId, RunningWorkload>>>,
     // event_sender: EventSender,
     core: SchedulerCore,
-    operation_receiver: OperationReceiver,
+    operation_receiver: SchedulerOperationReceiver,
 }
 
 impl LocalScheduler {
@@ -37,7 +37,7 @@ impl LocalScheduler {
                 running: Arc::new(RwLock::new(HashMap::new())),
                 event_sender: EventSender::InProcess(event_sender.clone()),
             },
-            operation_receiver: OperationReceiver::InProcess(operation_receiver),
+            operation_receiver: SchedulerOperationReceiver::InProcess(operation_receiver),
         }
     }
 
@@ -55,7 +55,7 @@ impl LocalScheduler {
                 running: Arc::new(RwLock::new(HashMap::new())),
                 event_sender: EventSender::InProcess(event_sender.clone()),
             },
-            operation_receiver: OperationReceiver::Remote(ror),
+            operation_receiver: SchedulerOperationReceiver::Remote(ror),
         }
     }
 }
@@ -97,70 +97,6 @@ impl LocalScheduler {
             }
         }
     }
-
-    // async fn handle_net_evt(&self, e: message_io::node::NodeEvent<'_, SchedulerOperation>) {
-    //     match e {
-    //         message_io::node::NodeEvent(ne) => {
-    //             match ne {
-    //                 message_io::network::NetEvent::Message(_, data) =>
-    //                     match Self::parse_oper(data) {
-    //                         Ok(oper) => {
-    //                             match core.process_operation(oper).await {
-    //                                 true => (),
-    //                                 false => {
-    //                                     return;
-    //                                 }
-    //                             }
-    //                         },
-    //                         Err(e) => {
-    //                             println!("SCHED: Oh no! {:?}", e);
-    //                             return;
-    //                         }
-    //                     },
-    //                 _ => (),
-    //             }
-    //         }
-    //     }
-
-    // }
-
-    // async fn run_channel_event_loop(&self, c: &mut tokio::sync::broadcast::Receiver<SchedulerOperation>) {
-    //     loop {
-    //         match c.recv().await {
-    //             Ok(oper) => {
-    //                 match self.process_operation(oper).await {
-    //                     true => (),
-    //                     false => {
-    //                         return;
-    //                     }
-    //                 }
-    //             },
-    //             Err(e) => {
-    //                 println!("SCHED: Oh no! {:?}", e);
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
-
-    // async fn run_ror_event_loop(mut self, ror: &mut RemoteOperationReceiver) {
-    //     loop {
-    //         // match self.operation_receiver.recv().await {
-    //         //     Ok(oper) => {
-    //         //         match self.process_operation(oper).await {
-    //         //             true => (),
-    //         //             false => {
-    //         //                 return;
-    //         //             }
-    //         //         }
-    //         //     },
-    //         //     Err(e) => {
-    //         //         println!("SCHED: Oh no! {:?}", e);
-    //         //         break;
-    //         //     }
-    //         // }
-    //     }
-    // }
 }
 
 impl SchedulerCore {

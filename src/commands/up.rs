@@ -166,19 +166,19 @@ impl UpCommand {
         controller.set_workload(&the_id, spec.clone())?;
 
         // TODO: this fouls up Ctrl+C handling but interesting to play with it
-        // let keyh = tokio::task::spawn(async move {
-        //     loop {
-        //         let mut s = "".to_owned();
-        //         let _ = std::io::stdin().read_line(&mut s);
-        //         match s.trim() {
-        //             "n" => { let _ = key_tx.send(OperatorCommand::New); },
-        //             "s" => { let _ = key_tx.send(OperatorCommand::Stop); },
-        //             "r" => { let _ = key_tx.send(OperatorCommand::Remove); },
-        //             "q" => { let _ = key_tx.send(OperatorCommand::Quit); break; },
-        //             _ => (),
-        //         }
-        //     }
-        // });
+        let keyh = tokio::task::spawn(async move {
+            loop {
+                let mut s = "".to_owned();
+                let _ = std::io::stdin().read_line(&mut s);
+                match s.trim() {
+                    "n" => { let _ = key_tx.send(OperatorCommand::New); },
+                    "s" => { let _ = key_tx.send(OperatorCommand::Stop); },
+                    "r" => { let _ = key_tx.send(OperatorCommand::Remove); },
+                    "q" => { let _ = key_tx.send(OperatorCommand::Quit); break; },
+                    _ => (),
+                }
+            }
+        });
 
         loop {
             match self.wait_next(
@@ -199,7 +199,7 @@ impl UpCommand {
             }
         }
 
-        // keyh.abort();
+        keyh.abort();
 
         Ok(())
     }

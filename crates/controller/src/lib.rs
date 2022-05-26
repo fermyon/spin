@@ -45,9 +45,7 @@ impl Control {
         let scheduler = LocalScheduler::new_rpc(store.clone(), &evt_tx, addr);
         let jh = scheduler.start();
 
-        let (handler, listener) = message_io::node::split();
-        let (server, _) = handler.network().connect(message_io::network::Transport::FramedTcp, addr).unwrap();
-        let ros = RemoteOperationSender { handler, listener, server };
+        let ros = RemoteOperationSender::new(addr);
 
         Self {
             scheduler: jh,

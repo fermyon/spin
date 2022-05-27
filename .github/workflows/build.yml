@@ -121,3 +121,18 @@ jobs:
       - name: "Test Go SDK"
         if: ${{ matrix.config.platformAgnosticChecks }}
         run: make test-sdk-go
+
+  check-docs:
+    name: Check Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install bart
+        run: |
+          curl -LOs https://github.com/fermyon/bartholomew/releases/download/v0.3.0/bart
+          chmod +x bart
+          mv bart /usr/local/bin
+
+      - name: Check docs site content
+        run: make check-content

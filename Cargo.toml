@@ -63,6 +63,7 @@ members = [
     "crates/object-store",
     "crates/outbound-http",
     "crates/outbound-redis",
+    "crates/key-value",
     "crates/redis",
     "crates/templates",
     "crates/testing",
@@ -75,3 +76,6 @@ members = [
 [[bin]]
 name = "spin"
 path = "src/bin/spin.rs"
+
+[features]
+redis_kv_store = ["spin-engine/redis_kv_store"]

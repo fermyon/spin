@@ -1,0 +1,11 @@
+// General purpose error.
+enum error {
+    error,
+}
+
+// The message payload.
+type payload = list<u8>
+
+get: function(key: string) -> expected<option<payload>, error>
+set: function(key: string, value: payload) -> expected<_, error> 
+delete: function(key: string) -> expected<_, error> 

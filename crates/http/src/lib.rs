@@ -561,7 +561,7 @@ mod tests {
         let app = cfg.build_application();
 
         let trigger: HttpTrigger =
-            build_trigger_from_app(app, None, FollowComponents::None, None).await?;
+            build_trigger_from_app(app, None, None, FollowComponents::None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
@@ -590,7 +590,7 @@ mod tests {
         let app = cfg.build_application();
 
         let trigger: HttpTrigger =
-            build_trigger_from_app(app, None, FollowComponents::None, None).await?;
+            build_trigger_from_app(app, None, None, FollowComponents::None, None).await?;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()

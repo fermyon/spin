@@ -24,6 +24,14 @@ pub struct TriggerCommonOpts {
             )]
     pub log: Option<PathBuf>,
 
+    /// Log directory for the stdout and stderr of components.
+    #[clap(
+            name = APP_KV_DIR,
+            short = 'K',
+            long = "kv-dir",
+            )]
+    pub kv_dir: Option<PathBuf>,
+
     /// Disable Wasmtime cache.
     #[clap(
         name = DISABLE_WASMTIME_CACHE,

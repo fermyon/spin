@@ -1,0 +1,12 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+name = "rust-key-value-example"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[[component]]
+id = "key-value"
+source = "target/wasm32-wasi/release/rust_key_value.wasm"
+# redis_address = "redis://localhost/"
+[component.trigger]
+route = "/" 

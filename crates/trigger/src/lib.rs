@@ -38,6 +38,7 @@ pub trait Trigger: Sized {
 }
 
 pub struct ExecutionOptions<T: Trigger> {
+    kv_dir: Option<PathBuf>,
     log_dir: Option<PathBuf>,
     follow: FollowComponents,
     execution_config: T::ExecutionConfig,
@@ -45,11 +46,13 @@ pub struct ExecutionOptions<T: Trigger> {
 
 impl<T: Trigger> ExecutionOptions<T> {
     pub fn new(
+        kv_dir: Option<PathBuf>,
         log_dir: Option<PathBuf>,
         follow: FollowComponents,
         execution_config: T::ExecutionConfig,
     ) -> Self {
         Self {
+            kv_dir,
             log_dir,
             follow,
             execution_config,
@@ -59,6 +62,7 @@ impl<T: Trigger> ExecutionOptions<T> {
 
 pub async fn build_trigger_from_app<T: Trigger>(
     app: Application,
+    kv_dir: Option<PathBuf>,
     log_dir: Option<PathBuf>,
     follow: FollowComponents,
     wasmtime_config: Option<wasmtime::Config>,
@@ -72,6 +76,7 @@ where
     let config = ExecutionContextConfiguration {
         components: app.components,
         label: app.info.name,
+        kv_dir,
         log_dir,
         config_resolver: app.config_resolver,
         module_io_redirects: ModuleIoRedirectsTypes::default(),
@@ -115,6 +120,7 @@ where
     <T::ComponentConfig as TryFrom<TriggerConfig>>::Error: Error + Send + Sync + 'static,
 {
     let trigger: T =
-        build_trigger_from_app(app, opts.log_dir, opts.follow, wasmtime_config).await?;
+        build_trigger_from_app(app, opts.kv_dir, opts.log_dir, opts.follow, wasmtime_config)
+            .await?;
     trigger.run(opts.execution_config).await
 }

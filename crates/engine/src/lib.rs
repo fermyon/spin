@@ -33,6 +33,8 @@ pub struct ExecutionContextConfiguration {
     pub label: String,
     /// Log directory on host.
     pub log_dir: Option<PathBuf>,
+    /// KV store directory on host.
+    pub kv_dir: Option<PathBuf>,
     /// Application configuration resolver.
     pub config_resolver: Option<Arc<Resolver>>,
     /// The type of io redirects for the module (default, or files)
@@ -57,6 +59,8 @@ pub struct RuntimeContext<T> {
     pub wasi: Option<WasiCtx>,
     /// Component configuration.
     pub component_config: Option<spin_config::host_component::ComponentConfig>,
+    /// Outbound KV configuration.
+    pub key_value: Option<key_value::KeyValue>,
     /// Host components state.
     pub host_components_state: HostComponentsState,
     /// Generic runtime data that can be configured by specialized engines.
@@ -131,6 +135,13 @@ impl<T: Default + 'static> Builder<T> {
         spin_config::host_component::add_to_linker(&mut self.linker, |ctx| {
             ctx.component_config.as_mut().unwrap()
         })?;
+
+        Ok(self)
+    }
+
+    /// Configures the ability to store and retrieve data from the Spin key-value store
+    pub fn link_kv(&mut self) -> Result<&mut Self> {
+        key_value::add_to_linker(&mut self.linker, |ctx| ctx.key_value.as_mut().unwrap())?;
         Ok(self)
     }
 
@@ -196,7 +207,7 @@ impl<T: Default + 'static> Builder<T> {
 
     /// Configures default host interface implementations.
     pub fn link_defaults(&mut self) -> Result<&mut Self> {
-        self.link_wasi()?.link_config()
+        self.link_wasi()?.link_config()?.link_kv()
     }
 
     /// Builds a new default instance of the execution context.
@@ -252,6 +263,22 @@ impl<T: Default> ExecutionContext<T> {
         let instance = component.pre.instantiate(&mut store)?;
 
         Ok((store, instance))
+    }
+
+    #[cfg(not(feature = "redis_kv_store"))]
+    fn create_kv_store(&self) -> Result<PathBuf, anyhow::Error> {
+        let sanitized_label = sanitize(&self.config.label);
+
+        let kv_dir = match &self.config.kv_dir {
+            Some(l) => l.clone(),
+            None => match dirs::home_dir() {
+                Some(h) => h.join(SPIN_HOME).join(&sanitized_label).join("key-value"),
+                None => PathBuf::from(&sanitized_label).join("key-value"),
+            },
+        };
+
+        std::fs::create_dir_all(&kv_dir)?;
+        Ok(kv_dir.join(sanitize("db.json")))
     }
 
     /// Save logs for a given component in the log directory on the host
@@ -338,6 +365,11 @@ impl<T: Default> ExecutionContext<T> {
                 wasi_ctx.preopened_dir(Dir::open_ambient_dir(host, ambient_authority())?, guest)?;
         }
 
+        #[cfg(feature = "redis_kv_store")]
+        let key_value = key_value::KeyValue::from_redis("localhost")?;
+        #[cfg(not(feature = "redis_kv_store"))]
+        let key_value = key_value::KeyValue::from_file(self.create_kv_store()?)?;
+
         if let Some(resolver) = &self.config.config_resolver {
             ctx.component_config =
                 Some(ComponentConfig::new(&component.core.id, resolver.clone())?);
@@ -346,6 +378,7 @@ impl<T: Default> ExecutionContext<T> {
         ctx.host_components_state = self.host_components.build_state(&component.core)?;
 
         ctx.wasi = Some(wasi_ctx.build());
+        ctx.key_value = Some(key_value);
         ctx.data = data;
 
         let store = Store::new(&self.engine.0, ctx);

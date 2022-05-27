@@ -50,6 +50,14 @@ pub struct UpCommand {
         )]
     pub server: Option<String>,
 
+    /// Key value store for the engine to use.
+    #[structopt(
+        name = APP_KV_DIR,
+        short = 'K',
+        long = "kv-dir",
+        )]
+    pub kv: Option<PathBuf>,
+
     /// Temporary directory for the static assets of the components.
     #[clap(long = "temp")]
     pub tmp: Option<PathBuf>,

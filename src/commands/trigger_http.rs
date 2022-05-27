@@ -62,6 +62,7 @@ impl TriggerHttpCommand {
         run_trigger(
             app,
             ExecutionOptions::<HttpTrigger>::new(
+                self.opts.kv_dir.clone(),
                 self.opts.log.clone(),
                 self.opts.follow_components(),
                 HttpTriggerExecutionConfig::new(self.address.clone(), tls),

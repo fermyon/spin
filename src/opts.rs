@@ -7,6 +7,7 @@ pub const BINDLE_URL_ENV: &str = "BINDLE_URL";
 pub const BINDLE_USERNAME: &str = "BINDLE_USERNAME";
 pub const BINDLE_PASSWORD: &str = "BINDLE_PASSWORD";
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
+pub const APP_KV_DIR: &str = "APP_KV_DIR";
 pub const TLS_CERT_FILE_OPT: &str = "TLS_CERT_FILE";
 pub const TLS_KEY_FILE_OPT: &str = "TLS_KEY_FILE";
 pub const TLS_CERT_ENV_VAR: &str = "SPIN_TLS_CERT";

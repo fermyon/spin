@@ -20,6 +20,7 @@ impl TriggerRedisCommand {
         run_trigger(
             app,
             ExecutionOptions::<RedisTrigger>::new(
+                self.opts.kv_dir.clone(),
                 self.opts.log.clone(),
                 self.opts.follow_components(),
                 (),

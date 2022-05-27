@@ -1,0 +1,18 @@
+[package]
+name = "key-value"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0"
+redis = { version = "0.21", features = [ "tokio-comp" ] }
+serde = { version = "1.0", features = [ "derive" ] }
+serde_json = "1.0"
+tempfile = "3.3.0"
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2f46ce4cc072107153da0cefe15bdc69aa5b84d0" }
+
+[features]
+redis_kv_store = []

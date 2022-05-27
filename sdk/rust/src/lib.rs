@@ -45,3 +45,11 @@ pub mod redis {
     /// Exports the generated outbound Redis items.
     pub use outbound_redis::*;
 }
+
+#[allow(missing_docs)]
+pub mod key_value {
+    wit_bindgen_rust::import!("../../wit/ephemeral/key-value.wit");
+
+    /// Exports the generated outbound key-value items.
+    pub use key_value::*;
+}

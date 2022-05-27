@@ -2,7 +2,7 @@ use std::path::{PathBuf};
 
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser};
-use spin_controller::{WorkloadEvent, WorkloadId, WorkloadSpec, ControllerCommand, WorkloadEventReceiver, CommandSender, RemoteEventReceiver, RemoteCommandSender};
+use spin_controller::{ControllerCommand};
 
 use crate::opts::*;
 
@@ -116,22 +116,22 @@ pub struct UpOpts {
 impl UpCommand {
     pub async fn run(self) -> Result<()> {
         // All channels all the time
-        // let (controller, cmd_tx, mut work_rx) = spin_controller::Controller::in_memory();
+        let (controller, cmd_tx, mut work_rx) = spin_controller::Controller::in_memory();
 
         // Channels around the client, network between ctrl and sched
         // let (controller, cmd_tx, mut work_rx) = spin_controller::Controller::in_memory_sched_rpc("127.0.0.1:3636");
 
         // All network all the time though the topology is an embarrassment
-        let (evt_handler, evt_listener) = message_io::node::split();
-        evt_handler.network().listen(message_io::network::Transport::FramedTcp, "127.0.0.1:2626").unwrap();
-        let evt_rx = RemoteEventReceiver::new(evt_handler, evt_listener);
-        let mut work_rx = WorkloadEventReceiver::Remote(evt_rx);
-        let controller = spin_controller::Controller::remote("127.0.0.1:2626", "127.0.0.1:4646", "127.0.0.1:4647", "127.0.0.1:3636");
+        // let (evt_handler, evt_listener) = message_io::node::split();
+        // evt_handler.network().listen(message_io::network::Transport::FramedTcp, "127.0.0.1:2626").unwrap();
+        // let evt_rx = RemoteEventReceiver::new(evt_handler, evt_listener);
+        // let mut work_rx = WorkloadEventReceiver::Remote(evt_rx);
+        // let controller = spin_controller::Controller::remote("127.0.0.1:2626", "127.0.0.1:4646", "127.0.0.1:4647", "127.0.0.1:3636");
 
         let controller_jh = controller.start();
 
-        let cmd_sender = RemoteCommandSender::new("127.0.0.1:4646");
-        let cmd_tx = CommandSender::Remote(cmd_sender);
+        // let cmd_sender = RemoteCommandSender::new("127.0.0.1:4646");
+        // let cmd_tx = CommandSender::Remote(cmd_sender);
 
         let manifest = match (&self.app, &self.bindle) {
             (app, None) => {
@@ -168,159 +168,36 @@ impl UpCommand {
         };
 
         let (ctrlc_tx, mut ctrlc_rx) = tokio::sync::broadcast::channel(1);
-        let (key_tx, mut key_rx) = tokio::sync::broadcast::channel(1);
-
-        // let ctrlc_rx_recv = ctrlc_rx.recv();
-        // let key_rx_recv = key_rx.recv();
-        // let work_rx_recv = work_rx.recv();
 
         ctrlc::set_handler(move || {
             let _ = ctrlc_tx.send(());
         })?;
 
-        // controller.set_workload(&the_id, spec.clone())?;
-        println!("UP: sending");
         cmd_tx.send(ControllerCommand::SetWorkload(the_id.clone(), spec.clone()))?;
-        println!("UP: sent");
 
-        // TODO: this fouls up Ctrl+C handling but interesting to play with it
-        let keyh = tokio::task::spawn(async move {
-            loop {
-                let mut s = "".to_owned();
-                let _ = std::io::stdin().read_line(&mut s);
-                match s.trim() {
-                    "n" => { let _ = key_tx.send(OperatorCommand::New); },
-                    "s" => { let _ = key_tx.send(OperatorCommand::Stop); },
-                    "r" => { let _ = key_tx.send(OperatorCommand::Remove); },
-                    "q" => { let _ = key_tx.send(OperatorCommand::Quit); break; },
-                    _ => (),
+        tokio::select! {
+            _ = ctrlc_rx.recv() => {
+                cmd_tx.send(ControllerCommand::RemoveWorkload(the_id.clone()))?;
+            },
+            msg = work_rx.recv() => {
+                match msg {
+                    Ok(spin_controller::WorkloadEvent::Stopped(id, err)) if id == the_id => {
+                        match err {
+                            None => println!("Listener stopped without error"),
+                            Some(e) => println!("Listener stopped with error {}", e),
+                        }
+                    },
+                    Ok(spin_controller::WorkloadEvent::UpdateFailed(id, err)) if id == the_id =>
+                        println!("Failed to start app with error {}", err),
+                    Err(e) => anyhow::bail!(anyhow::Error::from(e).context("Error receiving notification from controller")),
+                    _ => anyhow::bail!(anyhow::anyhow!("Unexpected event from controller")),
                 }
-            }
-        });
+            },
 
-        loop {
-            match self.wait_next(
-                &cmd_tx,
-                &the_id,
-                &mut spec,
-                &mut ctrlc_rx,
-                &mut work_rx,
-                &mut key_rx,
-            ).await? {
-                true => {
-                    // println!("loop requested continuation");
-                },
-                false => {
-                    // println!("loop requested exit");
-                    break;
-                }
-            }
         }
 
-        keyh.abort();
         controller_jh.abort();
 
         Ok(())
     }
-
-    async fn wait_next(&self,
-        cmd_tx: &CommandSender,
-        the_id: &WorkloadId,
-        spec: &mut WorkloadSpec,
-        ctrlc_rx: &mut tokio::sync::broadcast::Receiver<()>,
-        work_rx: &mut WorkloadEventReceiver,
-        key_rx: &mut tokio::sync::broadcast::Receiver<OperatorCommand>,
-    ) -> anyhow::Result<bool> {
-        tokio::select! {
-            _ = ctrlc_rx.recv() => {
-                // controller.remove_workload(&the_id)?;
-                cmd_tx.send(ControllerCommand::RemoveWorkload(the_id.clone()))?;
-                Ok(false)
-            },
-            msg = work_rx.recv() => {
-                match msg {
-                    Ok(spin_controller::WorkloadEvent::Stopped(id, err)) => {
-                        if &id == the_id {
-                            match err {
-                                None => {
-                                    println!("Listener stopped without error");
-                                    Ok(false)
-                                },
-                                Some(e) => {
-                                    let err_text = format!("Listener stopped with error {:#}", e);  // because I haven't figured out how to get the error itself
-                                    anyhow::bail!(err_text);
-                                }
-                            }
-                        } else {
-                            Ok(true)
-                        }
-                    },
-                    Ok(spin_controller::WorkloadEvent::UpdateFailed(id, err)) => {
-                        if &id == the_id {
-                            let err_text = format!("Failed to start app with error {:#}", err);  // because I haven't figured out how to get the error itself
-                            anyhow::bail!(err_text);
-                        } else {
-                            Ok(true)
-                        }
-                    },
-                    Err(e) => anyhow::bail!(anyhow::Error::from(e).context("Error receiving notification from controller")),
-                }
-            },
-            cmd = key_rx.recv() => {
-                match cmd {
-                    Ok(OperatorCommand::Remove) => {
-                        println!("removing");
-                        // controller.remove_workload(&the_id)?;
-                        cmd_tx.send(ControllerCommand::RemoveWorkload(the_id.clone()))?;
-                        Ok(true)
-                    },
-                    Ok(OperatorCommand::Stop) => {
-                        println!("stopping");
-                        spec.status = spin_controller::WorkloadStatus::Stopped;
-                        // controller.set_workload(&the_id, spec.clone())?;
-                        cmd_tx.send(ControllerCommand::SetWorkload(the_id.clone(), spec.clone()))?;
-                        Ok(true)
-                    },
-                    Ok(OperatorCommand::Quit) => {
-                        println!("quitting");
-                        // let _ = controller.shutdown().await;
-                        cmd_tx.send(ControllerCommand::Shutdown)?;
-                        return Ok(false);
-                    },
-                    Ok(OperatorCommand::New) => {
-                        let new_id = WorkloadId::new();
-                        let new_spec = WorkloadSpec {
-                            status: spin_controller::WorkloadStatus::Running,
-                            opts: spin_controller::WorkloadOpts {
-                                server: self.server.clone(),
-                                address: "127.0.0.1:3001".to_owned(),
-                                tmp: self.opts.tmp.clone(),
-                                env: self.opts.env.clone(),
-                                tls_cert: self.opts.tls_cert.clone(),
-                                tls_key: self.opts.tls_key.clone(),
-                                log: self.opts.log.clone(),
-                                disable_cache: self.opts.disable_cache,
-                                cache: self.opts.cache.clone(),
-                                follow_components: self.opts.follow_components.clone(),
-                                follow_all_components: self.opts.follow_all_components,
-                            },
-                            manifest: spin_controller::WorkloadManifest::File(PathBuf::from("./examples/wagi-http-rust/spin.toml")),
-                        };
-                        // let _ = controller.set_workload(&new_id, new_spec);
-                        cmd_tx.send(ControllerCommand::SetWorkload(new_id, new_spec))?;
-                        Ok(true)
-                    },
-                    Err(e) => anyhow::bail!(anyhow::Error::from(e).context("Error receiving command from stdin")),
-                }
-            }
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum OperatorCommand {
-    Remove,
-    Stop,
-    Quit,
-    New,
 }

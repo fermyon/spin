@@ -1,6 +1,6 @@
 use std::sync::{RwLock, Arc};
 
-use messaging::{SchedulerOperationSender, RemoteOperationSender, SchedulerOperationReceiver, EventSender, ControllerCommandReceiver, RemoteCommandReceiver, RemoteEventSender};
+use messaging::{SchedulerOperationSender, RemoteOperationSender, EventSender, ControllerCommandReceiver, RemoteCommandReceiver, RemoteEventSender};
 pub use messaging::{CommandSender, RemoteCommandSender, RemoteEventReceiver, WorkloadEventReceiver};
 use scheduler::{LocalScheduler};
 use schema::{SchedulerOperation};

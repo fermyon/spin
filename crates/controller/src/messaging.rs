@@ -58,10 +58,10 @@ pub(crate) enum SchedulerOperationReceiver {
 
 impl SchedulerOperationReceiver {
     pub async fn recv(&mut self) -> anyhow::Result<SchedulerOperation> {
-        match self {
-            Self::InProcess(c) => println!("SOR: listening in proc"),
-            Self::Remote(ror) => println!("SOR: listening on {}", ror.addr),
-        };
+        // match self {
+        //     Self::InProcess(c) => println!("SOR: listening in proc"),
+        //     Self::Remote(ror) => println!("SOR: listening on {}", ror.addr),
+        // };
         match self {
             Self::InProcess(c) => Ok(c.recv().await?),
             Self::Remote(ror) => Ok(ror.recv().await?),
@@ -91,7 +91,6 @@ impl RemoteOperationReceiver {
         let node_task = listener.for_each_async(move |e| {
             match e {
                 message_io::node::NodeEvent::Network(ne) => {
-                    println!("ROR: network event");
                     match ne {
                         message_io::network::NetEvent::Message(_, body) => {
                             let oper = serde_json::from_slice(body).unwrap();

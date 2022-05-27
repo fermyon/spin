@@ -3598,6 +3598,7 @@ dependencies = [
  "hippo-openapi",
  "hyper",
  "lazy_static",
+ "message-io",
  "outbound-redis",
  "path-absolutize",
  "regex",

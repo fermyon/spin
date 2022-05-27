@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::{Arc, RwLock}, path::{Path, PathBuf}};
 use tempfile::TempDir;
 use tokio::task::JoinHandle;
 
-use crate::messaging::{EventSender, SchedulerOperationReceiver, RemoteOperationReceiver};
+use crate::messaging::{EventSender, SchedulerOperationReceiver, RemoteOperationReceiver, RemoteEventSender};
 use crate::{schema::{WorkloadId, SchedulerOperation}, store::WorkStore, WorkloadSpec, WorkloadEvent, run::run, WorkloadStatus};
 
 #[async_trait::async_trait]
@@ -54,6 +54,27 @@ impl LocalScheduler {
                 store,
                 running: Arc::new(RwLock::new(HashMap::new())),
                 event_sender: EventSender::InProcess(event_sender.clone()),
+            },
+            operation_receiver: SchedulerOperationReceiver::Remote(ror),
+        }
+    }
+
+    pub(crate) fn remote(
+        store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
+        event_addr: &str,
+        operation_receiver_addr: &str,
+    ) -> Self {
+        let (handler, listener) = message_io::node::split();
+        handler.network().listen(message_io::network::Transport::FramedTcp, operation_receiver_addr).unwrap();
+        let ror = RemoteOperationReceiver::new(handler, listener);
+
+        let event_sender = RemoteEventSender::new(event_addr);
+
+        Self {
+            core: SchedulerCore {
+                store,
+                running: Arc::new(RwLock::new(HashMap::new())),
+                event_sender: EventSender::Remote(event_sender),
             },
             operation_receiver: SchedulerOperationReceiver::Remote(ror),
         }

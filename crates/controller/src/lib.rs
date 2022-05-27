@@ -1,7 +1,7 @@
 use std::sync::{RwLock, Arc};
 
-use messaging::{SchedulerOperationSender, RemoteOperationSender, SchedulerOperationReceiver, EventSender, ControllerCommandReceiver};
-pub use messaging::{CommandSender, WorkloadEventReceiver};
+use messaging::{SchedulerOperationSender, RemoteOperationSender, SchedulerOperationReceiver, EventSender, ControllerCommandReceiver, RemoteCommandReceiver, RemoteEventSender};
+pub use messaging::{CommandSender, RemoteCommandSender, RemoteEventReceiver, WorkloadEventReceiver};
 use scheduler::{LocalScheduler};
 use schema::{SchedulerOperation};
 pub use schema::{ControllerCommand, WorkloadEvent, WorkloadId, WorkloadManifest, WorkloadOpts, WorkloadSpec, WorkloadStatus};
@@ -13,14 +13,6 @@ mod run;
 pub(crate) mod scheduler;
 pub(crate) mod schema;
 pub(crate) mod store;
-
-// pub struct Control {
-//     scheduler: tokio::task::JoinHandle<()>,
-//     store: Arc<RwLock<Box<dyn WorkStore + Send + Sync>>>,
-//     event_sender: tokio::sync::broadcast::Sender<WorkloadEvent>,  // For in memory it sorta works to have the comms directly from scheduler but WHO KNOWS
-//     _event_receiver: tokio::sync::broadcast::Receiver<WorkloadEvent>,
-//     scheduler_notifier: SchedulerOperationSender, // tokio::sync::broadcast::Sender<SchedulerOperation>,
-// }
 
 pub struct Controller {
     core: ControllerCore,
@@ -99,6 +91,46 @@ impl Controller {
         let client_cmd_sender = CommandSender::InProcess(client_cmd_tx);
         let client_evt_receiver = WorkloadEventReceiver::InProcess(client_evt_rx);
         (controller, client_cmd_sender, client_evt_receiver)
+    }
+
+    pub fn remote(client_addr: &str, ctrl_cmd_addr: &str, ctrl_evt_addr: &str, sched_addr: &str) -> Self {
+        let box_store: Box<dyn WorkStore + Send + Sync> = Box::new(InMemoryWorkStore::new());
+        let store = Arc::new(RwLock::new(box_store));
+
+        let scheduler = LocalScheduler::remote(store.clone(), client_addr, sched_addr);
+        let scheduler_task = scheduler.start();
+
+        // TODO: this should probably not attempt to connect in its constructor
+        let sched_oper_tx = RemoteOperationSender::new(sched_addr);
+        let scheduler_notifier = SchedulerOperationSender::Remote(sched_oper_tx);
+
+        let (ctrl_evt_handler, ctrl_evt_listener) = message_io::node::split();
+        ctrl_evt_handler.network().listen(message_io::network::Transport::FramedTcp, ctrl_evt_addr).unwrap();
+        let sched_evt_rx = RemoteEventReceiver::new(ctrl_evt_handler, ctrl_evt_listener);
+
+        let (client_cmd_handler, client_cmd_listener) = message_io::node::split();
+        client_cmd_handler.network().listen(message_io::network::Transport::FramedTcp, ctrl_cmd_addr).unwrap();
+        let client_cmd_rx = RemoteCommandReceiver::new(client_cmd_handler, client_cmd_listener);
+
+        let client_evt_tx = RemoteEventSender::new(client_addr);
+
+        let core = ControllerCore {
+            store,
+            scheduler_notifier,
+        };
+        let client_cmd_receiver = ControllerCommandReceiver::Remote(client_cmd_rx);
+        let client_evt_notifier = EventSender::Remote(client_evt_tx);
+        let sched_evt_receiver = WorkloadEventReceiver::Remote(sched_evt_rx);
+
+        let controller = Self {
+            core,
+            scheduler_task,
+            client_cmd_receiver,
+            client_evt_notifier,
+            sched_evt_receiver,
+        };
+
+        controller
     }
 
     pub fn start(self) -> JoinHandle<()> {

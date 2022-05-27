@@ -2,7 +2,7 @@ use std::path::{PathBuf};
 
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser};
-use spin_controller::{WorkloadEvent, WorkloadId, WorkloadSpec, ControllerCommand, WorkloadEventReceiver, CommandSender};
+use spin_controller::{WorkloadEvent, WorkloadId, WorkloadSpec, ControllerCommand, WorkloadEventReceiver, CommandSender, RemoteEventReceiver, RemoteCommandSender};
 
 use crate::opts::*;
 
@@ -115,10 +115,23 @@ pub struct UpOpts {
 
 impl UpCommand {
     pub async fn run(self) -> Result<()> {
-        // let mut controller = spin_controller::Control::in_memory_rpc("127.0.0.1:3636");
+        // All channels all the time
         // let (controller, cmd_tx, mut work_rx) = spin_controller::Controller::in_memory();
-        let (controller, cmd_tx, mut work_rx) = spin_controller::Controller::in_memory_sched_rpc("127.0.0.1:3636");
+
+        // Channels around the client, network between ctrl and sched
+        // let (controller, cmd_tx, mut work_rx) = spin_controller::Controller::in_memory_sched_rpc("127.0.0.1:3636");
+
+        // All network all the time though the topology is an embarrassment
+        let (evt_handler, evt_listener) = message_io::node::split();
+        evt_handler.network().listen(message_io::network::Transport::FramedTcp, "127.0.0.1:2626").unwrap();
+        let evt_rx = RemoteEventReceiver::new(evt_handler, evt_listener);
+        let mut work_rx = WorkloadEventReceiver::Remote(evt_rx);
+        let controller = spin_controller::Controller::remote("127.0.0.1:2626", "127.0.0.1:4646", "127.0.0.1:4647", "127.0.0.1:3636");
+
         let controller_jh = controller.start();
+
+        let cmd_sender = RemoteCommandSender::new("127.0.0.1:4646");
+        let cmd_tx = CommandSender::Remote(cmd_sender);
 
         let manifest = match (&self.app, &self.bindle) {
             (app, None) => {

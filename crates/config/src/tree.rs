@@ -134,7 +134,7 @@ impl TryFrom<String> for TreePath {
     }
 }
 
-#[derive(Clone, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Default, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(into = "RawSlot", try_from = "RawSlot")]
 pub(crate) struct Slot {
     pub secret: bool,
@@ -193,10 +193,10 @@ impl std::fmt::Debug for Slot {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, Eq, PartialEq)]
 pub struct RawSection(pub HashMap<String, RawSlot>);
 
-#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
 pub struct RawSlot {
     pub default: Option<String>,

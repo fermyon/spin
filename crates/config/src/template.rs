@@ -4,7 +4,7 @@ use crate::{Error, Result};
 
 /// Template represents a simple string template that allows expressions in
 /// double curly braces, similar to Mustache or Liquid.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct Template(Vec<Part>);
 
 impl Template {
@@ -54,7 +54,7 @@ impl Display for Template {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum Part {
     Lit(Box<str>),
     Expr(Box<str>),

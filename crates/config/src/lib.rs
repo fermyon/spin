@@ -123,7 +123,7 @@ impl Resolver {
 }
 
 /// A config key.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Key<'a>(&'a str);
 
 impl<'a> Key<'a> {

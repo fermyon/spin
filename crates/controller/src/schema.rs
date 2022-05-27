@@ -1,7 +1,7 @@
 
 // It's not really a schema
 
-use std::{path::PathBuf};
+use std::{path::PathBuf, fmt::Display};
 
 use spin_engine::io::FollowComponents;
 use spin_loader::bindle::BindleConnectionInfo;
@@ -22,9 +22,15 @@ impl WorkloadId {
     }
 }
 
-impl ToString for WorkloadId {
-    fn to_string(&self) -> String {
-        self.id.clone()
+// impl ToString for WorkloadId {
+//     fn to_string(&self) -> String {
+//         self.id.clone()
+//     }
+// }
+
+impl Display for WorkloadId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.id)
     }
 }
 
@@ -115,6 +121,7 @@ pub enum SchedulerOperation {
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ControllerCommand {
+    Connect(String),
     Shutdown,
     SetWorkload(WorkloadId, WorkloadSpec),
     RemoveWorkload(WorkloadId),

@@ -179,7 +179,9 @@ impl UpCommand {
         })?;
 
         // controller.set_workload(&the_id, spec.clone())?;
+        println!("UP: sending");
         cmd_tx.send(ControllerCommand::SetWorkload(the_id.clone(), spec.clone()))?;
+        println!("UP: sent");
 
         // TODO: this fouls up Ctrl+C handling but interesting to play with it
         let keyh = tokio::task::spawn(async move {

@@ -46,9 +46,9 @@ impl LocalScheduler {
         event_sender: &tokio::sync::broadcast::Sender<WorkloadEvent>,
         operation_receiver_addr: &str,
     ) -> Self {
-        let (handler, listener) = message_io::node::split();
-        handler.network().listen(message_io::network::Transport::FramedTcp, operation_receiver_addr).unwrap();
-        let ror = RemoteOperationReceiver::new(handler, listener);
+        // let (handler, listener) = message_io::node::split();
+        // handler.network().listen(message_io::network::Transport::FramedTcp, operation_receiver_addr).unwrap();
+        let ror = RemoteOperationReceiver::new(operation_receiver_addr);
         Self {
             core: SchedulerCore {
                 store,
@@ -64,9 +64,7 @@ impl LocalScheduler {
         event_addr: &str,
         operation_receiver_addr: &str,
     ) -> Self {
-        let (handler, listener) = message_io::node::split();
-        handler.network().listen(message_io::network::Transport::FramedTcp, operation_receiver_addr).unwrap();
-        let ror = RemoteOperationReceiver::new(handler, listener);
+        let ror = RemoteOperationReceiver::new(operation_receiver_addr);
 
         let event_sender = RemoteEventSender::new(event_addr);
 

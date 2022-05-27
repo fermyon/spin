@@ -220,6 +220,7 @@ impl HttpTrigger {
 
         let server = Server::try_bind(&addr)
             .with_context(|| format!("Unable to listen on {}", addr))?
+            .http1_keepalive(false)
             .serve(mk_svc);
 
         println!("Serving HTTP on address http://{:?}", addr);

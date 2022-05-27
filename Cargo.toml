@@ -78,3 +78,11 @@ members = [
 [[bin]]
 name = "spin"
 path = "src/bin/spin.rs"
+
+[[bin]]
+name = "carousel-serve"
+path = "src/bin/carousel-serve.rs"
+
+[[bin]]
+name = "carousel"
+path = "src/bin/carousel-ui.rs"

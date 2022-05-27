@@ -22,6 +22,108 @@ pub struct Controller {
     sched_evt_receiver: WorkloadEventReceiver,
 }
 
+pub struct StandaloneController {
+    core: ControllerCore,
+    scheduler_task: tokio::task::JoinHandle<()>,
+    client_cmd_receiver: ControllerCommandReceiver,
+    client_evt_notifiers: Arc<RwLock<Vec<EventSender>>>,
+    sched_evt_receiver: WorkloadEventReceiver,
+}
+
+impl StandaloneController {
+    pub fn new(ctrl_cmd_addr: &str, ctrl_evt_addr: &str, sched_addr: &str) -> Self {
+        let box_store: Box<dyn WorkStore + Send + Sync> = Box::new(InMemoryWorkStore::new());
+        let store = Arc::new(RwLock::new(box_store));
+
+        let (ctrl_evt_handler, ctrl_evt_listener) = message_io::node::split();
+        ctrl_evt_handler.network().listen(message_io::network::Transport::FramedTcp, ctrl_evt_addr).unwrap();
+        let sched_evt_rx = RemoteEventReceiver::new(ctrl_evt_handler, ctrl_evt_listener);
+
+        let scheduler = LocalScheduler::remote(store.clone(), ctrl_evt_addr, sched_addr);
+        let scheduler_task = scheduler.start();
+
+        // TODO: this should probably not attempt to connect in its constructor
+        let sched_oper_tx = RemoteOperationSender::new(sched_addr);
+        let scheduler_notifier = SchedulerOperationSender::Remote(sched_oper_tx);
+
+        let (client_cmd_handler, client_cmd_listener) = message_io::node::split();
+        client_cmd_handler.network().listen(message_io::network::Transport::FramedTcp, ctrl_cmd_addr).unwrap();
+        let client_cmd_rx = RemoteCommandReceiver::new(client_cmd_handler, client_cmd_listener);
+
+        let core = ControllerCore {
+            store,
+            scheduler_notifier,
+        };
+        let client_cmd_receiver = ControllerCommandReceiver::Remote(client_cmd_rx);
+        let sched_evt_receiver = WorkloadEventReceiver::Remote(sched_evt_rx);
+
+        let controller = Self {
+            core,
+            scheduler_task,
+            client_cmd_receiver,
+            client_evt_notifiers: Arc::new(RwLock::new(vec![])),
+            sched_evt_receiver,
+        };
+
+        controller
+    }
+
+    pub fn start(self) -> JoinHandle<()> {
+        tokio::task::spawn(async move {
+            self.run_event_loop().await;
+        })
+    }
+
+    async fn run_event_loop(self) {
+        let mut core = self.core;
+        let mut receiver = self.client_cmd_receiver;
+        let mut evt_receiver = self.sched_evt_receiver;
+
+        loop {
+            println!("CTRL: waiting to receive");
+            tokio::select! {
+                cmd = receiver.recv() => {
+                    match cmd {
+                        Ok(ControllerCommand::Connect(addr)) => {
+                            println!("CTRL: connection received from {}", addr);
+                            let tx = RemoteEventSender::new(&addr);
+                            self.client_evt_notifiers.write().unwrap().push(EventSender::Remote(tx));
+                        },
+                        Ok(msg) => {
+                            println!("CTRL: received, processing");
+                            match core.process_message(msg) {
+                                Ok(true) => (),
+                                Ok(false) => { return; }
+                                Err(e) => { println!("CTRL: processing failed {:#}", e); return; }
+                            }
+                        },
+                        Err(e) => {
+                            println!("CTRL CMD: Oh no! {:?}", e);
+                            break;
+                        }
+                    }
+                },
+                evt = evt_receiver.recv() => {
+                    match evt {
+                        Ok(e) => {
+                            let notifs = self.client_evt_notifiers.read().unwrap();
+                            for notif in notifs.iter() {
+                                if let Err(err) = notif.send(e.clone()) {
+                                    println!("CTRL EVT: send err {:?}", err);
+                                }
+                            }
+                        },
+                        Err(e) => {
+                            println!("CTRL EVT: Oh no! {:?}", e);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl Controller {
     pub fn in_memory() -> (Self, CommandSender, WorkloadEventReceiver) {
         let box_store: Box<dyn WorkStore + Send + Sync> = Box::new(InMemoryWorkStore::new());
@@ -180,6 +282,7 @@ impl ControllerCore {
                 self.shutdown()?;
                 return Ok(false);
             },
+            ControllerCommand::Connect(_) => (),  // Handled at a higher level. Yes, messy
         };
 
         println!("CTRL: message sent to scheduler");

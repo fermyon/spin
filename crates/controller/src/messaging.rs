@@ -6,6 +6,8 @@ use crate::schema::ControllerCommand;
 use crate::schema::SchedulerOperation;
 use crate::schema::WorkloadEvent;
 
+//////////////////// TODO: GENERICS Y U NO WORk /////////////////////
+
 /////////////// SCHEDULER OPERATIONS /////////////////////
 
 ////// SENDING
@@ -23,7 +25,7 @@ impl SchedulerOperationSender {
                 let body = serde_json::to_vec(&oper).unwrap();
                 match ros.handler.network().send(ros.server, &body) {
                     SendStatus::Sent => (),
-                    err => { anyhow::bail!("OperationSender: remote send failed: {:?}", err); },
+                    err => { anyhow::bail!("RemoteOperationSender: remote send to {} failed: {:?}", ros.addr, err); },
                 }
             }
         }
@@ -32,6 +34,7 @@ impl SchedulerOperationSender {
 }
 
 pub struct RemoteOperationSender {
+    addr: String,
     pub handler: message_io::node::NodeHandler<SchedulerOperation>,
     // pub listener: message_io::node::NodeListener<SchedulerOperation>,
     pub server: message_io::network::Endpoint,
@@ -41,7 +44,7 @@ impl RemoteOperationSender {
     pub fn new(addr: &str) -> Self {
         let (handler, _listener) = message_io::node::split();
         let (server, _) = handler.network().connect(message_io::network::Transport::FramedTcp, addr).unwrap();
-        Self { handler, server }
+        Self { addr: addr.to_owned(), handler, server }
     }
 }
 
@@ -56,6 +59,10 @@ pub(crate) enum SchedulerOperationReceiver {
 impl SchedulerOperationReceiver {
     pub async fn recv(&mut self) -> anyhow::Result<SchedulerOperation> {
         match self {
+            Self::InProcess(c) => println!("SOR: listening in proc"),
+            Self::Remote(ror) => println!("SOR: listening on {}", ror.addr),
+        };
+        match self {
             Self::InProcess(c) => Ok(c.recv().await?),
             Self::Remote(ror) => Ok(ror.recv().await?),
         }
@@ -63,6 +70,7 @@ impl SchedulerOperationReceiver {
 }
 
 pub(crate) struct RemoteOperationReceiver {
+    addr: String,
     handler: message_io::node::NodeHandler<SchedulerOperation>,
     // listener: message_io::node::NodeListener<SchedulerOperation>,
     pending: Arc<RwLock<Vec<SchedulerOperation>>>,
@@ -71,14 +79,19 @@ pub(crate) struct RemoteOperationReceiver {
 
 impl RemoteOperationReceiver {
     pub fn new(
-        handler: message_io::node::NodeHandler<SchedulerOperation>,
-        listener: message_io::node::NodeListener<SchedulerOperation>,
+        addr: &str,
+        // handler: message_io::node::NodeHandler<SchedulerOperation>,
+        // listener: message_io::node::NodeListener<SchedulerOperation>,
     ) -> Self {
+        let (handler, listener) = message_io::node::split();
+        handler.network().listen(message_io::network::Transport::FramedTcp, addr).unwrap();
+
         let pending = Arc::new(RwLock::new(vec![]));
         let pending2 = pending.clone();
         let node_task = listener.for_each_async(move |e| {
             match e {
                 message_io::node::NodeEvent::Network(ne) => {
+                    println!("ROR: network event");
                     match ne {
                         message_io::network::NetEvent::Message(_, body) => {
                             let oper = serde_json::from_slice(body).unwrap();
@@ -91,7 +104,7 @@ impl RemoteOperationReceiver {
             }
         });
 
-        Self { handler, pending, node_task }
+        Self { addr: addr.to_owned(), handler, pending, node_task }
     }
 
     pub async fn recv(&self) -> anyhow::Result<SchedulerOperation> {

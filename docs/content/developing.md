@@ -43,3 +43,29 @@ instead, or the build command can call that process.
 
 `spin build --up` can be used to start the application after the build process
 finishes for all application components.
+
+## Component `workdir`
+
+By default, the `command` to build a component is executed in the manifest's
+directory. This can be changed. For example, assume a component is located in
+subdirectory `deep`:
+
+```bash
+.
+├── deep
+│   ├── Cargo.toml
+│   └── src
+│       └── lib.rs
+└── spin.toml
+```
+
+To run the build `command` in directory `deep`, set the component's `workdir`:
+
+```toml
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+workdir = "deep"
+```
+
+Note that `workdir` must be a relative path and it operates relative to the
+`spin.toml`. Specifying an absolute path leads to an error.

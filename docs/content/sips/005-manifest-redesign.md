@@ -1,4 +1,4 @@
-title = "SIP xxx - Application Manifest Redesign"
+title = "SIP 005 - Application Manifest Redesign"
 template = "main"
 date = "2022-05-20T13:22:30Z"
 ---

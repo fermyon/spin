@@ -15,3 +15,4 @@ Here is a list of accepted SIPs:
 - [Application Configuration](../sips/002-app-config.md)
 - [Trigger Executors](../sips/003-trigger-executors.md)
 - [Spin Build](../sips/004-spin-build.md)
+- [Application Manifest Redesign](../sips/005-manifest-redesign.md)

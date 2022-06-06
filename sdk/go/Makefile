@@ -33,6 +33,7 @@ $(EXAMPLES_DIR)/%/main.wasm: $(EXAMPLES_DIR)/%/main.go
 # ----------------------------------------------------------------------
 # Generate C bindings
 # ----------------------------------------------------------------------
+GENERATED_SPIN_CONFIG    = config/spin-config.c config/spin-config.h
 GENERATED_OUTBOUND_HTTP  = http/wasi-outbound-http.c http/wasi-outbound-http.h
 GENERATED_SPIN_HTTP      = http/spin-http.c http/spin-http.h
 GENERATED_OUTBOUND_REDIS = redis/outbound-redis.c redis/outbound-redis.h
@@ -41,6 +42,10 @@ GENERATED_SPIN_REDIS     = redis/spin-redis.c redis/spin-redis.h
 .PHONY: generate
 generate: $(GENERATED_OUTBOUND_HTTP) $(GENERATED_SPIN_HTTP)
 generate: $(GENERATED_OUTBOUND_REDIS) $(GENERATED_SPIN_REDIS)
+generate: $(GENERATED_SPIN_CONFIG)
+
+$(GENERATED_SPIN_CONFIG):
+	wit-bindgen c --import ../../wit/ephemeral/spin-config.wit --out-dir ./config
 
 $(GENERATED_OUTBOUND_HTTP):
 	wit-bindgen c --import ../../wit/ephemeral/wasi-outbound-http.wit --out-dir ./http
@@ -59,6 +64,7 @@ $(GENERATED_SPIN_REDIS):
 # ----------------------------------------------------------------------
 .PHONY: clean
 clean:
+	rm -rf $(GENERATED_SPIN_CONFIG)
 	rm -f $(GENERATED_OUTBOUND_HTTP) $(GENERATED_SPIN_HTTP)
 	rm -f $(GENERATED_OUTBOUND_REDIS) $(GENERATED_SPIN_REDIS)
 	rm -f http/testdata/http-tinygo/main.wasm

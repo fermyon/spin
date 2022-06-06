@@ -1,7 +1,13 @@
-use std::{collections::HashMap, path::PathBuf, str::FromStr};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+use path_absolutize::Absolutize;
+use tokio::{fs::File, io::AsyncReadExt};
 
 use spin_templates::{RunOptions, TemplateManager};
 
@@ -22,6 +28,12 @@ pub struct NewCommand {
     /// Parameter values to be passed to the template (in name=value format).
     #[clap(short = 'v', long = "value", multiple_occurrences = true)]
     pub values: Vec<ParameterValue>,
+
+    /// A TOML file which contains parameter values in name = "value" format.
+    /// Parameters passed as CLI option overwrite parameters specified in the
+    /// file.
+    #[clap(long = "values-file")]
+    pub values_file: Option<PathBuf>,
 }
 
 impl NewCommand {
@@ -35,10 +47,18 @@ impl NewCommand {
             .output_path
             .clone()
             .unwrap_or_else(|| path_safe(&self.name));
+        let values = {
+            let mut values = match self.values_file.as_ref() {
+                Some(file) => values_from_file(file.as_path()).await?,
+                None => HashMap::new(),
+            };
+            merge_values(&mut values, &self.values);
+            values
+        };
         let options = RunOptions {
             name: self.name.clone(),
             output_path,
-            values: to_hash_map(&self.values),
+            values,
         };
 
         match template {
@@ -73,11 +93,28 @@ impl FromStr for ParameterValue {
     }
 }
 
-fn to_hash_map(values: &[ParameterValue]) -> HashMap<String, String> {
-    values
-        .iter()
-        .map(|p| (p.name.clone(), p.value.clone()))
-        .collect()
+async fn values_from_file(file: impl AsRef<Path>) -> Result<HashMap<String, String>> {
+    let file = file
+        .as_ref()
+        .absolutize()
+        .context("Failed to resolve absolute path to values file")?;
+
+    let mut buf = vec![];
+    File::open(file.as_ref())
+        .await?
+        .read_to_end(&mut buf)
+        .await
+        .with_context(|| anyhow!("Cannot read values file from {:?}", file.as_ref()))?;
+
+    toml::from_slice(&buf).context("Failed to deserialize values file")
+}
+
+/// Merges values from file and values passed as command line options. CLI
+/// options take precedence by overwriting values defined in the file.
+fn merge_values(from_file: &mut HashMap<String, String>, from_cli: &[ParameterValue]) {
+    for value in from_cli {
+        from_file.insert(value.name.to_owned(), value.value.to_owned());
+    }
 }
 
 lazy_static::lazy_static! {
@@ -87,4 +124,77 @@ lazy_static::lazy_static! {
 fn path_safe(text: &str) -> PathBuf {
     let path = PATH_UNSAFE_CHARACTERS.replace_all(text, "_");
     PathBuf::from(path.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use tempfile::{NamedTempFile, TempPath};
+
+    use super::*;
+
+    const TOML_PARAMETER_VALUES: &str = r#"
+    key_1 = 'value_1'
+    key_2 = 'value_2'
+    "#;
+
+    /// Writes to a new temporary file, closes it, and returns its path.
+    fn create_tempfile(content: &str) -> Result<TempPath> {
+        let mut file = NamedTempFile::new()?;
+        write!(file, "{}", content).unwrap();
+        Ok(file.into_temp_path())
+    }
+
+    #[tokio::test]
+    async fn test_values_from_file_empty() {
+        let file = create_tempfile("").unwrap();
+        let values = values_from_file(&file).await.unwrap();
+        assert_eq!(HashMap::new(), values);
+    }
+
+    #[tokio::test]
+    async fn test_values_from_file_good() {
+        let file = create_tempfile(TOML_PARAMETER_VALUES).unwrap();
+        let values = values_from_file(&file).await.unwrap();
+        let want: HashMap<_, _> = HashMap::from_iter([
+            ("key_1".to_owned(), "value_1".to_owned()),
+            ("key_2".to_owned(), "value_2".to_owned()),
+        ]);
+        assert_eq!(want, values);
+    }
+
+    #[tokio::test]
+    async fn test_values_from_file_bad() {
+        let bad_content = [
+            "key_1 = 1", // value is not a string
+        ];
+        for content in bad_content {
+            let file = create_tempfile(content).unwrap();
+            assert!(
+                values_from_file(&file).await.is_err(),
+                "content: {}",
+                content
+            );
+        }
+    }
+
+    /// Verify values passed as CLI option overwrite values set in file.
+    #[test]
+    fn merge_values_cli_option_precedence() {
+        let mut values = HashMap::from_iter([
+            ("key_1".to_owned(), "value_1".to_owned()),
+            ("key_2".to_owned(), "value_2".to_owned()),
+        ]);
+        let from_cli = vec![ParameterValue {
+            name: "key_2".to_owned(),
+            value: "foo".to_owned(),
+        }];
+        let want = HashMap::from_iter([
+            ("key_1".to_owned(), "value_1".to_owned()),
+            ("key_2".to_owned(), "foo".to_owned()),
+        ]);
+        merge_values(&mut values, &from_cli);
+        assert_eq!(want, values);
+    }
 }

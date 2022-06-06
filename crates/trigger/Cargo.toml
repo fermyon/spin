@@ -4,13 +4,19 @@ version = "0.2.0"
 edition = "2021"
 authors = ["mossaka <duibao55328@gmail.com>"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
+clap = "3"
+ctrlc = "3.2"
+futures = "0.3"
+http = "0.2"
 outbound-redis = { path = "../outbound-redis" }
+serde = "1.0"
+spin-config = { path = "../config" }
 spin-engine = { path = "../engine" }
+spin-loader = { path = "../loader" }
 spin-manifest = { path = "../manifest" }
+tracing = { version = "0.1", features = [ "log" ] }
 wasi-outbound-http = { path = "../outbound-http" } 
 wasmtime = "0.34"

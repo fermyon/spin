@@ -7,10 +7,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};
-use spin_engine::io::FollowComponents;
-use spin_manifest::{ComponentMap, RedisConfig, RedisTriggerConfiguration};
+use spin_manifest::{ComponentMap, RedisConfig, RedisTriggerConfiguration, TriggerConfig};
 use spin_redis::SpinRedisData;
-use spin_trigger::Trigger;
+use spin_trigger::{cli::NoArgs, TriggerExecutor};
 use std::{collections::HashMap, sync::Arc};
 
 wit_bindgen_wasmtime::import!("../../wit/ephemeral/spin-redis.wit");
@@ -29,23 +28,34 @@ pub struct RedisTrigger {
     engine: Arc<ExecutionContext>,
     /// Map from channel name to tuple of component name & index.
     subscriptions: HashMap<String, usize>,
-    /// Which components should have their logs followed on stdout/stderr.
-    follow: FollowComponents,
+}
+
+pub struct RedisTriggerConfig(String, RedisConfig);
+
+impl TryFrom<(String, TriggerConfig)> for RedisTriggerConfig {
+    type Error = spin_manifest::Error;
+
+    fn try_from((component, config): (String, TriggerConfig)) -> Result<Self, Self::Error> {
+        Ok(RedisTriggerConfig(component, config.try_into()?))
+    }
 }
 
 #[async_trait]
-impl Trigger for RedisTrigger {
-    type ContextData = SpinRedisData;
-    type Config = RedisTriggerConfiguration;
-    type ComponentConfig = RedisConfig;
-    type ExecutionConfig = ();
+impl TriggerExecutor for RedisTrigger {
+    type GlobalConfig = RedisTriggerConfiguration;
+    type TriggerConfig = RedisTriggerConfig;
+    type RunConfig = NoArgs;
+    type RuntimeContext = SpinRedisData;
 
     fn new(
         execution_context: ExecutionContext,
-        trigger_config: Self::Config,
-        component_triggers: ComponentMap<Self::ComponentConfig>,
-        follow: FollowComponents,
+        global_config: Self::GlobalConfig,
+        trigger_configs: impl IntoIterator<Item = Self::TriggerConfig>,
     ) -> Result<Self> {
+        let component_triggers: ComponentMap<RedisConfig> = trigger_configs
+            .into_iter()
+            .map(|config| (config.0, config.1))
+            .collect();
         let subscriptions = execution_context
             .config
             .components
@@ -59,16 +69,15 @@ impl Trigger for RedisTrigger {
             .collect();
 
         Ok(Self {
-            trigger_config,
+            trigger_config: global_config,
             component_triggers,
             engine: Arc::new(execution_context),
             subscriptions,
-            follow,
         })
     }
 
     /// Run the Redis trigger indefinitely.
-    async fn run(&self, _: Self::ExecutionConfig) -> Result<()> {
+    async fn run(self, _config: Self::RunConfig) -> Result<()> {
         let address = self.trigger_config.address.as_str();
 
         log::info!("Connecting to Redis server at {}", address);
@@ -117,7 +126,11 @@ impl RedisTrigger {
                 .and_then(|t| t.executor.clone())
                 .unwrap_or_default();
 
-            let follow = self.follow.should_follow(&component.id);
+            let follow = self
+                .engine
+                .config
+                .follow_components
+                .should_follow(&component.id);
 
             match executor {
                 spin_manifest::RedisExecutor::Spin => {

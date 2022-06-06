@@ -7,6 +7,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, RwLock, RwLockReadGuard},
 };
+
 use wasi_common::{
     pipe::{ReadPipe, WritePipe},
     WasiFile,
@@ -47,6 +48,12 @@ impl FollowComponents {
             Self::All => true,
             Self::Named(ids) => ids.contains(component_id),
         }
+    }
+}
+
+impl Default for FollowComponents {
+    fn default() -> Self {
+        Self::None
     }
 }
 

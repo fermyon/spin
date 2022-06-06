@@ -7,12 +7,13 @@ pub mod host_component;
 /// Input / Output redirects.
 pub mod io;
 
+use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
+
 use anyhow::{bail, Context, Result};
 use host_component::{HostComponent, HostComponents, HostComponentsState};
-use io::{ModuleIoRedirectsTypes, OutputBuffers, RedirectPipes};
+use io::{FollowComponents, ModuleIoRedirectsTypes, OutputBuffers, RedirectPipes};
 use spin_config::{host_component::ComponentConfig, Resolver};
-use spin_manifest::{Application, CoreComponent, DirectoryMount, ModuleSource};
-use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
+use spin_manifest::{CoreComponent, DirectoryMount, ModuleSource};
 use tokio::{
     task::JoinHandle,
     time::{sleep, Duration},
@@ -33,21 +34,12 @@ pub struct ExecutionContextConfiguration {
     pub label: String,
     /// Log directory on host.
     pub log_dir: Option<PathBuf>,
+    /// Component log following configuration.
+    pub follow_components: FollowComponents,
     /// Application configuration resolver.
     pub config_resolver: Option<Arc<Resolver>>,
     /// The type of io redirects for the module (default, or files)
     pub module_io_redirects: ModuleIoRedirectsTypes,
-}
-
-impl From<Application> for ExecutionContextConfiguration {
-    fn from(app: Application) -> Self {
-        Self {
-            components: app.components,
-            label: app.info.name,
-            config_resolver: app.config_resolver,
-            ..Default::default()
-        }
-    }
 }
 
 /// Top-level runtime context data to be passed to a component.
@@ -64,7 +56,7 @@ pub struct RuntimeContext<T> {
 }
 
 /// The engine struct that encapsulate wasmtime engine
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Engine(wasmtime::Engine);
 
 impl Engine {

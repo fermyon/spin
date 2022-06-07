@@ -2,6 +2,9 @@
 
 #![deny(missing_docs)]
 
+mod v0;
+mod v1;
+
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use spin_config::Resolver;
@@ -323,5 +326,44 @@ impl TryFrom<TriggerConfig> for RedisConfig {
             TriggerConfig::Redis(redis) => Ok(redis),
             _ => Err(Error::InvalidTriggerType),
         }
+    }
+}
+
+/// ManifestVersion represents a schema version field with a const value.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(into = "usize", try_from = "usize")]
+pub struct ManifestVersion<const V: usize>;
+
+impl<const V: usize> From<ManifestVersion<V>> for usize {
+    fn from(_: ManifestVersion<V>) -> usize {
+        V
+    }
+}
+
+impl<const V: usize> From<ManifestVersion<V>> for String {
+    fn from(_: ManifestVersion<V>) -> String {
+        V.to_string()
+    }
+}
+
+impl<const V: usize> TryFrom<usize> for ManifestVersion<V> {
+    type Error = String;
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        if value != V {
+            return Err(format!("invalid manifest version {} != {}", value, V));
+        }
+        Ok(Self)
+    }
+}
+
+impl<const V: usize> TryFrom<String> for ManifestVersion<V> {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let value: usize = value
+            .parse()
+            .map_err(|err| format!("invalid version: {}", err))?;
+        value.try_into()
     }
 }

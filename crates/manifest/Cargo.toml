@@ -8,5 +8,10 @@ authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 anyhow = "1.0"
 indexmap = "1.6"
 serde = { version = "1.0", features = [ "derive" ] }
+serde-value = "0.7"
+serde_with = "1.14"
 spin-config = { path = "../config" }
 thiserror = "1"
+
+[dev-dependencies]
+toml = "0.5"

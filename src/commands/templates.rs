@@ -16,6 +16,9 @@ const INSTALL_FROM_GIT_OPT: &str = "FROM_GIT";
 #[derive(Subcommand, Debug)]
 pub enum TemplateCommands {
     /// Install templates from a Git repository or local directory.
+    ///
+    /// The files of the templates are copied to the local template store: a
+    /// directory in your data or home directory.
     Install(Install),
 
     /// Remove a template from your installation.

@@ -50,6 +50,15 @@ pub struct UpCommand {
         )]
     pub server: Option<String>,
 
+    /// Ignore server certificate errors from bindle server
+    #[clap(
+        name = INSECURE_OPT,
+        short = 'k',
+        long = "insecure",
+        takes_value = false,
+    )]
+    pub insecure: bool,
+
     /// Temporary directory for the static assets of the components.
     #[clap(long = "temp")]
     pub tmp: Option<PathBuf>,
@@ -141,7 +150,7 @@ impl UpCommand {
     fn bindle_connection(&self) -> Option<BindleConnectionInfo> {
         self.server
             .as_ref()
-            .map(|url| BindleConnectionInfo::new(url, false, None, None))
+            .map(|url| BindleConnectionInfo::new(url, self.insecure, None, None))
     }
 }
 

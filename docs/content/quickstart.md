@@ -13,7 +13,7 @@ url = "https://github.com/fermyon/spin/blob/main/docs/content/quickstart.md"
 ## Getting the `spin` binary
 
 You can download the [latest release](https://github.com/fermyon/spin/releases).
-For example, for an M1 macOS machine:
+For example, for an Apple silicon macOS machine:
 
 ```
 $ wget https://github.com/fermyon/spin/releases/download/v0.2.0/spin-v0.2.0-macos-aarch64.tar.gz
@@ -150,7 +150,11 @@ fn spin_hello_world(req: Request) -> Result<Response> {
 ```
 
 > See the document on writing [Rust](./rust-components.md) and [Go](./go-components.md)
-> components for Spin.
+> components for Spin, to ensure you have all dependencies installed.
+
+For Rust templates you need the `wasm32-wasi` target. You can add it using `rustup`:`rustup target add wasm32-wasi`.
+
+For TinyGo templates you need the [TinyGo toolchain installed](https://tinygo.org/getting-started/install/).
 
 We can build this component using the regular Rust toolchain, targeting
 `wasm32-wasi`, which will produce the WebAssembly module and place it at
@@ -178,14 +182,16 @@ Now that we configured the application and built our component, we can _spin up_
 the application (pun intended):
 
 ```bash
-# optionally, set the RUST_LOG environment variable for detailed logs
-$ export RUST_LOG=spin=trace
-# `spin up` in the example/http-rust directory
-# alternatively, use `spin up --file <path/to/spin.toml>`
 $ spin up
 Serving HTTP on address http://127.0.0.1:3000
 Available Routes:
   spin-hello-world: http://127.0.0.1:3000/hello
+```
+
+Optionally, set the RUST_LOG environment variable for detailed logs, before running `spin up`.
+
+```bash
+$ export RUST_LOG=spin=trace
 ```
 
 Spin will instantiate all components from the application manifest, and

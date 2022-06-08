@@ -50,6 +50,33 @@ pub struct UpCommand {
         )]
     pub server: Option<String>,
 
+    /// Basic http auth username for the bindle server
+    #[clap(
+        name = BINDLE_USERNAME,
+        long = "bindle-username",
+        env = BINDLE_USERNAME,
+        requires = BINDLE_PASSWORD
+    )]
+    pub bindle_username: Option<String>,
+
+    /// Basic http auth password for the bindle server
+    #[clap(
+        name = BINDLE_PASSWORD,
+        long = "bindle-password",
+        env = BINDLE_PASSWORD,
+        requires = BINDLE_USERNAME
+    )]
+    pub bindle_password: Option<String>,
+
+    /// Ignore server certificate errors from bindle server
+    #[clap(
+        name = INSECURE_OPT,
+        short = 'k',
+        long = "insecure",
+        takes_value = false,
+    )]
+    pub insecure: bool,
+
     /// Temporary directory for the static assets of the components.
     #[clap(long = "temp")]
     pub tmp: Option<PathBuf>,
@@ -139,9 +166,14 @@ impl UpCommand {
     }
 
     fn bindle_connection(&self) -> Option<BindleConnectionInfo> {
-        self.server
-            .as_ref()
-            .map(|url| BindleConnectionInfo::new(url, false, None, None))
+        self.server.as_ref().map(|url| {
+            BindleConnectionInfo::new(
+                url,
+                self.insecure,
+                self.bindle_username.clone(),
+                self.bindle_password.clone(),
+            )
+        })
     }
 }
 

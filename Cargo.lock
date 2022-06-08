@@ -1554,6 +1554,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+
+[[package]]
 name = "hippo"
 version = "0.12.0"
 source = "git+https://github.com/deislabs/hippo-cli#5a7654e6fa9d063d934b078e5216a39ea2f91147"
@@ -3363,6 +3369,7 @@ version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "678b5a069e50bf00ecd22d0cd8ddf7c236f68581b03db652061ed5eb13a312ff"
 dependencies = [
+ "hex",
  "serde",
  "serde_with_macros",
 ]
@@ -3752,7 +3759,9 @@ dependencies = [
  "indexmap",
  "serde",
  "serde-value",
+ "serde_json",
  "serde_with",
+ "sha2 0.10.2",
  "spin-config",
  "thiserror",
  "toml",

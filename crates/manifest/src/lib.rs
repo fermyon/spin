@@ -2,6 +2,7 @@
 
 #![deny(missing_docs)]
 
+mod resolved;
 mod v0;
 mod v1;
 

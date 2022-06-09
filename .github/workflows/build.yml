@@ -77,11 +77,11 @@ jobs:
           cargo clippy --workspace --all-targets --all-features -- -D warnings
 
       - name: Cargo Build
-        run: cargo build --workspace --all-targets --all-features
+        run: cargo build --workspace --all-targets
 
       - name: Cargo Test
         run:
-          cargo test --workspace --all-targets --all-features --no-fail-fast -- --nocapture
+          cargo test --workspace --all-targets --no-fail-fast -- --nocapture
         env:
           RUST_LOG: spin=trace
 

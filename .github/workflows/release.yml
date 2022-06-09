@@ -17,7 +17,9 @@ jobs:
               os: "ubuntu-latest",
               arch: "amd64",
               extension: "",
-              extraArgs: "",
+              # Ubuntu 22.04 no longer ships libssl1.1, so we statically
+              # link it here to preserve release binary compatibility.
+              extraArgs: "--features vendored-openssl",
               target: "",
               targetDir: "target/release",
             }
@@ -96,7 +98,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: "--all-features --release ${{ matrix.config.extraArgs }}"
+          args: "--release ${{ matrix.config.extraArgs }}"
 
       - name: package release assets
         if: runner.os != 'Windows'

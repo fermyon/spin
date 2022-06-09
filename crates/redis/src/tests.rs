@@ -1,5 +1,6 @@
 use super::*;
 use anyhow::Result;
+use redis::{Msg, Value};
 use spin_manifest::{RedisConfig, RedisExecutor};
 use spin_testing::TestConfig;
 use spin_trigger::build_trigger_from_app;
@@ -16,8 +17,17 @@ pub(crate) fn init() {
     });
 }
 
+fn create_trigger_event(channel: &str, payload: &str) -> redis::Msg {
+    Msg::from_value(&redis::Value::Bulk(vec![
+        Value::Data("message".into()),
+        Value::Data(channel.into()),
+        Value::Data(payload.into()),
+    ]))
+    .unwrap()
+}
+
+#[ignore]
 #[tokio::test]
-#[allow(unused)]
 async fn test_pubsub() -> Result<()> {
     init();
 
@@ -32,11 +42,8 @@ async fn test_pubsub() -> Result<()> {
     let trigger: RedisTrigger =
         build_trigger_from_app(app, None, FollowComponents::None, None).await?;
 
-    // TODO
-    // use redis::{FromRedisValue, Msg, Value};
-    // let val = FromRedisValue::from_redis_value(&Value::Data("hello".into()))?;
-    // let msg = Msg::from_value(&val).unwrap();
-    // trigger.handle(msg).await?;
+    let msg = create_trigger_event("messages", "hello");
+    trigger.handle(msg).await?;
 
     Ok(())
 }

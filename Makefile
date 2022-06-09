@@ -8,7 +8,7 @@ build:
 
 .PHONY: test
 test:
-	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --nocapture
+	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --nocapture --include-ignored
 	cargo clippy --all-targets --all-features -- -D warnings
 	cargo fmt --all -- --check
 

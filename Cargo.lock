@@ -612,18 +612,18 @@ dependencies = [
 
 [[package]]
 name = "cranelift-bforest"
-version = "0.81.1"
+version = "0.81.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32f027f29ace03752bb83c112eb4f53744bc4baadf19955e67fcde1d71d2f39d"
+checksum = "0eba0f73ab0da95f5d3bd5161da14edc586a88aeae1d09e4a0924f7a141a0093"
 dependencies = [
  "cranelift-entity",
 ]
 
 [[package]]
 name = "cranelift-codegen"
-version = "0.81.1"
+version = "0.81.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c10af69cbf4e228c11bdc26d8f9d5276773909152a769649a160571b282f92f"
+checksum = "e9cff8758662518d743460f32c3ca6f32d726070af612c19ba92d01ea727e6d9"
 dependencies = [
  "cranelift-bforest",
  "cranelift-codegen-meta",
@@ -638,33 +638,33 @@ dependencies = [
 
 [[package]]
 name = "cranelift-codegen-meta"
-version = "0.81.1"
+version = "0.81.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "290ac14d2cef43cbf1b53ad5c1b34216c9e32e00fa9b6ac57b5e5a2064369e02"
+checksum = "bfc82fef9d470dd617c4d2537d8f4146d82526bb3bc3ef35b599a3978dad8c81"
 dependencies = [
  "cranelift-codegen-shared",
 ]
 
 [[package]]
 name = "cranelift-codegen-shared"
-version = "0.81.1"
+version = "0.81.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "beb9142d134a03d01e3995e6d8dd3aecf16312261d0cb0c5dcd73d5be2528c1c"
+checksum = "a06f531b6173eb2fd92d9a9b2a0dbb2450079f913040bdc323ec43ec752b7e44"
 
 [[package]]
 name = "cranelift-entity"
-version = "0.81.1"
+version = "0.81.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1268a50b7cbbfee8514d417fc031cedd9965b15fa9e5ed1d4bc16de86f76765e"
+checksum = "d84f8e8a408071d67f479a00c6d3da965b1f9b4b240b7e7e27edb1a34401b3cd"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "cranelift-frontend"
-version = "0.81.1"
+version = "0.81.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97ac0d440469e19ab12183e31a9e41b4efd8a4ca5fbde2a10c78c7bb857cc2a4"
+checksum = "72cc22592c10f1fa6664a55e34ec52593125a94176856d3ec2f7af5664374da1"
 dependencies = [
  "cranelift-codegen",
  "log",
@@ -674,9 +674,9 @@ dependencies = [
 
 [[package]]
 name = "cranelift-native"
-version = "0.81.1"
+version = "0.81.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "794cd1a5694a01c68957f9cfdc5ac092cf8b4e9c2d1697c4a5100f90103e9e9e"
+checksum = "c3da723ebbee69f348feb49acc9f6f5b7ad668c04a145abbc7a75b669f9b0afd"
 dependencies = [
  "cranelift-codegen",
  "libc",
@@ -685,9 +685,9 @@ dependencies = [
 
 [[package]]
 name = "cranelift-wasm"
-version = "0.81.1"
+version = "0.81.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2ddd4ca6963f6e94d00e8935986411953581ac893587ab1f0eb4f0b5a40ae65"
+checksum = "642c30e1600295e9c58fc349376187831dce1df6822ece7e8ab880010d6e4be2"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -4847,9 +4847,9 @@ checksum = "0559cc0f1779240d6f894933498877ea94f693d84f3ee39c9a9932c6c312bd70"
 
 [[package]]
 name = "wasmtime"
-version = "0.34.1"
+version = "0.34.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4882e78d9daceeaff656d82869f298fd472ea8d8ccf96fbd310da5c1687773ac"
+checksum = "cc8463ad287e1d87d9a141a010cbe4b3f8227ade85cc8ac64f2bef3219b66f94"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4881,9 +4881,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-cache"
-version = "0.34.1"
+version = "0.34.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf5b9af2d970624455f9ea109acc60cc477afe097f86c190eb519a8b7d6646cd"
+checksum = "b066cd527050ed06eba8f4eb8948d833f033401f09313a5e5231ebe3e316bb9d"
 dependencies = [
  "anyhow",
  "base64 0.13.0",
@@ -4901,9 +4901,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-cranelift"
-version = "0.34.1"
+version = "0.34.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ed6ff21d2dbfe568af483f0c508e049fc6a497c73635e2c50c9b1baf3a93ed8"
+checksum = "381b034926e26980a0aed3f26ec4ba2ff3be9763f386bfb18b7bf2a3fbc1a284"
 dependencies = [
  "anyhow",
  "cranelift-codegen",
@@ -4923,9 +4923,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-environ"
-version = "0.34.1"
+version = "0.34.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "860936d38df423b4291b3e31bc28d4895e2208f9daba351c2397d18a0a10e0bf"
+checksum = "877230e7f92f8b5509845e804bb27c7c993197339a7cf0de4a2af411ee6ea75b"
 dependencies = [
  "anyhow",
  "cranelift-entity",
@@ -4943,9 +4943,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-fiber"
-version = "0.34.1"
+version = "0.34.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67e285306aa274d85a22753bef826226e1cc473bac0b541523f46dccf80751cc"
+checksum = "dffb509e67c6c2ea49f38bd5db3712476fcc94c4776521012e5f69ae4bb27b4a"
 dependencies = [
  "cc",
  "rustix",
@@ -4954,9 +4954,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-jit"
-version = "0.34.1"
+version = "0.34.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e794310a0df5266c7ac73e8211a024a49e3860ac0ca2af5db8527be942ad063e"
+checksum = "4ee2da33bb337fbdfb6e031d485bf2a39d51f37f48e79c6327228d3fc68ec531"
 dependencies = [
  "addr2line",
  "anyhow",
@@ -4979,9 +4979,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-runtime"
-version = "0.34.1"
+version = "0.34.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90ffe5cb3db705ea43fcf37475a79891a3ada754c1cbe333540879649de943d5"
+checksum = "bcb5bd981c971c398dac645874748f261084dc907a98b3ee70fa41e005a2b365"
 dependencies = [
  "anyhow",
  "backtrace",
@@ -5005,9 +5005,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-types"
-version = "0.34.1"
+version = "0.34.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70a5b60d70c1927c5a403f7c751de179414b6b91da75b2312c3ae78196cf9dc3"
+checksum = "73696a97fb815c2944896ae9e4fc49182fd7ec0b58088f9ad9768459a521e347"
 dependencies = [
  "cranelift-entity",
  "serde",

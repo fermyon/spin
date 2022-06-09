@@ -45,7 +45,8 @@ pub async fn from_file(
 pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppManifestAnyVersion> {
     let mut buf = vec![];
     File::open(app.as_ref())
-        .await?
+        .await
+        .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?
         .read_to_end(&mut buf)
         .await
         .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;

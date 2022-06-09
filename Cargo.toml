@@ -22,7 +22,6 @@ futures = "0.3"
 hippo-openapi = "0.5"
 hippo = { git = "https://github.com/deislabs/hippo-cli"}
 lazy_static = "1.4.0"
-openssl = { version = "0.10", optional = true }
 outbound-redis = { path = "crates/outbound-redis" }
 path-absolutize = "3.0.11"
 regex = "1.5.5"
@@ -47,6 +46,9 @@ tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 wasi-outbound-http = { path = "crates/outbound-http" }
 wasmtime = "0.34"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+openssl = { version = "0.10", optional = true }
 
 [dev-dependencies]
 hyper = { version = "0.14", features = [ "full" ] }

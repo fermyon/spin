@@ -27,10 +27,15 @@ coming soon.
 - [Vault >= v1.9.3](https://www.vaultproject.io/)
 - [Traefik >= 2.6.1](https://github.com/traefik/traefik/releases)
 - [Dotnet 6.0 CLI](https://dotnet.microsoft.com/en-us/download)
+- [Node >= 16.10](https://nodejs.org/en/)
+
+*Please note:* Nomad, Spin, Bindle, and Traefik must be installed such that they
+appear in the root user's `PATH` since Nomad is run using `sudo`. The
+`run_servers.sh` script used below may complain if this is not the case.
 
 ### Getting Set Up
 
-Start Nomad, Consul, and Traefik using the `run_servers.sh` script from the [nomad-local-demo repo](https://github.com/fermyon/nomad-local-demo).
+Start Nomad, Consul, Bindle, and Traefik using the `run_servers.sh` script from the [nomad-local-demo repo](https://github.com/fermyon/nomad-local-demo).
 
 ```
 $ git clone git@github.com:fermyon/nomad-local-demo.git
@@ -41,12 +46,12 @@ $ git checkout 64cf9334528f1975d7cbff207997d83cee4f19c2
 $ ./run_servers.sh
 ```
 
-Clone the Hippo repo locally. The Hippo commit this doc was tested at is `2a659c11ffc260a552f71fb3dba791916d4e064a`. Set the `BINDLE_URL` environment variable from the `run_servers.sh` script. Run the `dotnet clean && dotnet build` command to build the project. Change into the `src/Web` directory and use `dotnet run` to run the project.
+Clone the Hippo repo locally. The Hippo commit this doc was tested at is `84fc599826ea7803881f3db8f7e1c05d0b783567`. Set the `BINDLE_URL` environment variable from the `run_servers.sh` script. Run the `dotnet clean && dotnet build` command to build the project. Change into the `src/Web` directory and use `dotnet run` to run the project.
 
 ```
 $ git clone git@github.com:deislabs/hippo.git
 $ cd hippo
-$ export BINDLE_URL=http://bindle.local.fermyon.link:8088/v1
+$ export BINDLE_URL=http://bindle.local.fermyon.link/v1
 $ dotnet clean && dotnet build
 $ cd src/Web
 $ dotnet run \
@@ -54,12 +59,12 @@ $ dotnet run \
   --Bindle:Url="${BINDLE_URL}"
 ```
 
-Check that the Hippo platform is running by making sure you see the hippo dashboard in the browser at https://localhost:5309.
+Check that the Hippo platform is running by making sure you see the hippo dashboard in the browser at http://localhost:5309.
 
 Register an account in Hippo using the Hippo CLI.
 
 ```
-hippo auth register --username user --password PassW0rd! --url https://localhost:5309 -k
+hippo auth register --username user --password PassW0rd! --url http://localhost:5309 -k
 ```
 
 ### Deploy the example http-rust app
@@ -75,8 +80,8 @@ $ spin build
 Then, set the relevant environment variables and use `spin deploy` to deploy the app to Hippo. _Note: you can also use flags to configure spin deploy_
 
 ```
-$ export HIPPO_URL=https://localhost:5309
-$ export BINDLE_URL=http://bindle.local.fermyon.link:8088/v1
+$ export HIPPO_URL=http://localhost:5309
+$ export BINDLE_URL=http://bindle.local.fermyon.link/v1
 $ export HIPPO_USERNAME=user
 $ export HIPPO_PASSWORD=PassW0rd!
 

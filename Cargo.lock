@@ -3783,6 +3783,7 @@ dependencies = [
  "path-absolutize",
  "pathdiff",
  "regex",
+ "semver 1.0.6",
  "serde",
  "sha2 0.10.2",
  "symlink",

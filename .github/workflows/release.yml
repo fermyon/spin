@@ -17,7 +17,9 @@ jobs:
               os: "ubuntu-18.04",
               arch: "amd64",
               extension: "",
-              extraArgs: "",
+              # Ubuntu 22.04 no longer ships libssl1.1, so we statically
+              # link it here to preserve release binary compatibility.
+              extraArgs: "--features openssl/vendored",
               target: "",
               targetDir: "target/release",
             }

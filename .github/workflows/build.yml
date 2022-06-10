@@ -23,6 +23,8 @@ jobs:
           - {
               os: "ubuntu-latest",
               extension: "",
+              # We have this enabled for releases, so we should test it.
+              extraArgs: "--features openssl/vendored",
               bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-linux-amd64.tar.gz",
               bindleBinary: "bindle-server",
               pathInBindleArchive: "bindle-server",
@@ -34,6 +36,7 @@ jobs:
           - {
               os: "macos-latest",
               extension: "",
+              extraArgs: "",
               bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-macos-amd64.tar.gz",
               bindleBinary: "bindle-server",
               pathInBindleArchive: "bindle-server",
@@ -41,6 +44,7 @@ jobs:
           - {
               os: "windows-latest",
               extension: ".exe",
+              extraArgs: "",
               bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-windows-amd64.tar.gz",
               bindleBinary: "bindle-server.exe",
               pathInBindleArchive: "bindle-server.exe",
@@ -77,7 +81,7 @@ jobs:
           cargo clippy --workspace --all-targets --all-features -- -D warnings
 
       - name: Cargo Build
-        run: cargo build --workspace --all-targets --all-features
+        run: cargo build --workspace --all-targets --all-features ${{ matrix.config.extraArgs }}
 
       - name: Cargo Test
         run:

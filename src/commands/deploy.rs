@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use anyhow::{Context, Result};
 use bindle::Id;
 use clap::Parser;
@@ -100,8 +99,8 @@ impl DeployCommand {
                 danger_accept_invalid_certs: self.insecure,
                 api_key: None,
             }),
-            self.hippo_username,
-            self.hippo_password,
+            self.hippo_username.clone(),
+            self.hippo_password.clone(),
         )
         .await?
         .token
@@ -118,16 +117,16 @@ impl DeployCommand {
 
         let name = bindle_id.name().to_string();
 
-        let app_id = match Client::add_app(&hippo_client, name.clone(), name.clone()).await {
-            Ok(id) => id,
-            Err(e) => {
-                return Err(anyhow!(
-                    "Error creating Hippo app called {}: {}",
-                    name.clone(),
-                    e
-                ))
-            }
-        };
+        // delete app if it exists in Hippo already
+        if let Ok(id) = self.get_app_id(&hippo_client, name.clone()).await {
+            Client::remove_app(&hippo_client, id)
+                .await
+                .context("Problem cleaning up existing Hippo app")?
+        }
+
+        let app_id = Client::add_app(&hippo_client, name.clone(), name.clone())
+            .await
+            .context("Unable to create Hippo app")?;
 
         Client::add_channel(
             &hippo_client,
@@ -135,16 +134,26 @@ impl DeployCommand {
             name.clone(),
             None,
             ChannelRevisionSelectionStrategy::UseRangeRule,
-            None,
+            Some(bindle_id.version_string()),
             None,
             None,
         )
-        .await?;
+        .await
+        .context("Problem creating a channel in Hippo")?;
 
         Client::add_revision(&hippo_client, name.clone(), bindle_id.version_string()).await?;
         println!("Successfully deployed application!");
 
         Ok(())
+    }
+
+    async fn get_app_id(&self, hippo_client: &Client, name: String) -> Result<String> {
+        let apps_vm = Client::list_apps(hippo_client).await?;
+        let app = apps_vm.apps.iter().find(|&x| x.name == name.clone());
+        match app {
+            Some(a) => Ok(a.id.clone()),
+            None => anyhow::bail!("No app with name: {}", name),
+        }
     }
 
     async fn create_and_push_bindle(&self) -> Result<Id> {

@@ -1,9 +1,8 @@
-use anyhow::anyhow;
 use anyhow::{Context, Result};
 use bindle::Id;
 use clap::Parser;
 use hippo::{Client, ConnectionInfo};
-use hippo_openapi::models::ChannelRevisionSelectionStrategy;
+use hippo_openapi::models::{ChannelRevisionSelectionStrategy};
 use std::path::PathBuf;
 
 use crate::opts::*;
@@ -100,8 +99,8 @@ impl DeployCommand {
                 danger_accept_invalid_certs: self.insecure,
                 api_key: None,
             }),
-            self.hippo_username,
-            self.hippo_password,
+            self.hippo_username.clone(),
+            self.hippo_password.clone(),
         )
         .await?
         .token
@@ -118,33 +117,51 @@ impl DeployCommand {
 
         let name = bindle_id.name().to_string();
 
-        let app_id = match Client::add_app(&hippo_client, name.clone(), name.clone()).await {
-            Ok(id) => id,
-            Err(e) => {
-                return Err(anyhow!(
-                    "Error creating Hippo app called {}: {}",
+        match self.get_app_id(&hippo_client, name.clone()).await {
+            Ok(app_id) => { // app exists
+                let channels_list = Client::list_channels(&hippo_client).await.context("Problem listing channels in Hippo")?;
+                let ch = channels_list.channels.iter().find(|&x| x.name == name.clone() && x.app_id == app_id);
+                    match ch {
+                        Some(_) => {
+                            Client::add_revision(&hippo_client, name.clone(), bindle_id.version_string()).await?;
+                            println!("Successfully deployed application {} version {}!", name.clone(), bindle_id.version_string());
+                            return Ok(())
+                        },
+                        None => anyhow::bail!("No channel with name: {}", name)
+                    }
+            },
+            Err(_) => {
+                let app_id = Client::add_app(&hippo_client,name.clone(),name.clone())
+                .await.context("Unable to create Hippo app")?;
+        
+                
+                Client::add_channel(
+                    &hippo_client,
+                    app_id,
                     name.clone(),
-                    e
-                ))
+                    None,
+                    ChannelRevisionSelectionStrategy::UseRangeRule,
+                    None,
+                    None,
+                    None,
+                )
+                .await.context("Problem creating a channel in Hippo")?;
+        
+                Client::add_revision(&hippo_client, name.clone(), bindle_id.version_string()).await?;
+                println!("Successfully deployed application {} version {}!", name.clone(), bindle_id.version_string());
+        
+                Ok(())
             }
-        };
+        }
+    }
 
-        Client::add_channel(
-            &hippo_client,
-            app_id,
-            name.clone(),
-            None,
-            ChannelRevisionSelectionStrategy::UseRangeRule,
-            None,
-            None,
-            None,
-        )
-        .await?;
-
-        Client::add_revision(&hippo_client, name.clone(), bindle_id.version_string()).await?;
-        println!("Successfully deployed application!");
-
-        Ok(())
+    async fn get_app_id(&self, hippo_client: &Client, name: String) -> Result<String> {
+         let apps_vm =  Client::list_apps(hippo_client).await?;
+         let app = apps_vm.apps.iter().find(|&x| x.name == name.clone());
+         match app {
+             Some(a) => Ok(a.id.clone()),
+             None => anyhow::bail!("No app with name: {}", name)
+         }
     }
 
     async fn create_and_push_bindle(&self) -> Result<Id> {

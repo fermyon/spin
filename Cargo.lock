@@ -1520,8 +1520,8 @@ dependencies = [
 
 [[package]]
 name = "hippo"
-version = "0.13.0"
-source = "git+https://github.com/deislabs/hippo-cli#1d4e8254d77bcd843a5c126a5d7b45978d16e973"
+version = "0.13.1"
+source = "git+https://github.com/deislabs/hippo-cli#67f6368fa39d296c3d1b11a93e43bc4c751cba6b"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1550,9 +1550,9 @@ dependencies = [
 
 [[package]]
 name = "hippo-openapi"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a406e029108ee79482884f716d494f76f321dac8d8bf047abdc36441f077ad7"
+checksum = "166cf7f4fa00a93743a2f19a5021b5a04e1be013c92288b10939c897af173263"
 dependencies = [
  "reqwest",
  "serde",

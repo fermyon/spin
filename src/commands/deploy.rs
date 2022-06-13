@@ -3,6 +3,8 @@ use bindle::Id;
 use clap::Parser;
 use hippo::{Client, ConnectionInfo};
 use hippo_openapi::models::ChannelRevisionSelectionStrategy;
+use spin_loader::local::config::RawAppManifestAnyVersion;
+use spin_manifest::HttpTriggerConfiguration;
 use std::path::PathBuf;
 
 use crate::opts::*;
@@ -91,6 +93,10 @@ pub struct DeployCommand {
 
 impl DeployCommand {
     pub async fn run(self) -> Result<()> {
+        let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
+        let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
+        let is_http_config = HttpTriggerConfiguration::try_from(cfg.info.trigger).is_ok();
+
         let bindle_id = self.create_and_push_bindle().await?;
 
         let token = match Client::login(
@@ -128,7 +134,7 @@ impl DeployCommand {
             .await
             .context("Unable to create Hippo app")?;
 
-        Client::add_channel(
+        let channel_id = Client::add_channel(
             &hippo_client,
             app_id,
             name.clone(),
@@ -142,7 +148,17 @@ impl DeployCommand {
         .context("Problem creating a channel in Hippo")?;
 
         Client::add_revision(&hippo_client, name.clone(), bindle_id.version_string()).await?;
-        println!("Successfully deployed application!");
+        println!(
+            "Successfully deployed application {} version {}!",
+            name.clone(),
+            bindle_id.version_string()
+        );
+        if is_http_config {
+            let channel = Client::get_channel_by_id(&hippo_client, &channel_id)
+                .await
+                .context("Problem getting channel by id")?;
+            println!("Application is running at {}", channel.domain);
+        }
 
         Ok(())
     }

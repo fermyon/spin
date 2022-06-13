@@ -60,7 +60,7 @@ to install a starter set.
 We first need to configure the [templates from the Spin repository](https://github.com/fermyon/spin/tree/main/templates):
 
 ```console
-$ spin templates install --git https://github.com/fermyon/spin --branch v0.2.0
+$ spin templates install --git https://github.com/fermyon/spin
 Copying remote template source
 Installing template redis-rust...
 Installing template http-rust...
@@ -74,9 +74,6 @@ Installing template http-go...
 | ...                                              |
 +--------------------------------------------------+
 ```
-
-> If you downloaded the canary build instead of the release build, leave off the `--branch`
-> flag in `spin templates install`.
 
 > The Spin templates experience is still early — if you are interested in
 > writing your own templates, you can follow the existing

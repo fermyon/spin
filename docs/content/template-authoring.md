@@ -84,3 +84,15 @@ supported:
 | Key           | Value and usage |
 |---------------|-----------------|
 | `pattern`     | A regular expression. The user input must match the regular expression to be accepted. |
+
+## Hosting templates in Git
+
+You can publish templates in a Git repo.  The templates must be in the `/templates`
+directory, with a subdirectory per template.
+
+When a user installs templates from your repo, by default Spin looks for a tag
+to identify a compatible version of the templates.  This tag is of the
+form `spin/templates/vX.Y`, where X is the major version, and Y the minor
+version, of the user's copy of Spin. For example, if the user is on
+Spin 0.3.1, templates will be installed from `spin/templates/v0.3`.  If this
+tag does not exist, Spin installs templates from `HEAD`.

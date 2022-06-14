@@ -1,6 +1,6 @@
 //! Implementation for the Spin HTTP engine.
 
-mod routes;
+pub mod routes;
 mod spin;
 mod tls;
 mod wagi;

@@ -3,8 +3,9 @@ use bindle::Id;
 use clap::Parser;
 use hippo::{Client, ConnectionInfo};
 use hippo_openapi::models::ChannelRevisionSelectionStrategy;
+use spin_http_engine::routes::RoutePattern;
 use spin_loader::local::config::RawAppManifestAnyVersion;
-use spin_manifest::HttpTriggerConfiguration;
+use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
 use std::path::PathBuf;
 
 use crate::opts::*;
@@ -95,7 +96,6 @@ impl DeployCommand {
     pub async fn run(self) -> Result<()> {
         let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
         let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
-        let is_http_config = HttpTriggerConfiguration::try_from(cfg.info.trigger).is_ok();
 
         let bindle_id = self.create_and_push_bindle().await?;
 
@@ -153,10 +153,12 @@ impl DeployCommand {
             name.clone(),
             bindle_id.version_string()
         );
-        if is_http_config {
-            let channel = Client::get_channel_by_id(&hippo_client, &channel_id)
-                .await
-                .context("Problem getting channel by id")?;
+        let channel = Client::get_channel_by_id(&hippo_client, &channel_id)
+            .await
+            .context("Problem getting channel by id")?;
+        if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
+            print_available_routes(&channel.domain, &http_config.base, &cfg);
+        } else {
             println!("Application is running at {}", channel.domain);
         }
 
@@ -201,5 +203,26 @@ impl DeployCommand {
             .context("Failed to push bindle to server")?;
 
         Ok(bindle_id.clone())
+    }
+}
+
+fn print_available_routes(
+    address: &str,
+    base: &str,
+    cfg: &spin_loader::local::config::RawAppManifest,
+) {
+    if cfg.components.is_empty() {
+        return;
+    }
+
+    println!("Available Routes:");
+    for component in &cfg.components {
+        if let TriggerConfig::Http(http_cfg) = &component.trigger {
+            let route = RoutePattern::from(base, &http_cfg.route);
+            println!("  {}: http://{}{}", component.id, address, route);
+            if let Some(description) = &component.description {
+                println!("    {}", description);
+            }
+        }
     }
 }

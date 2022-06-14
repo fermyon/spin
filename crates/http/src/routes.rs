@@ -52,14 +52,16 @@ impl Router {
 
 /// Route patterns for HTTP components.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub(crate) enum RoutePattern {
+pub enum RoutePattern {
+    /// A route pattern that only matches the exact path given.
     Exact(String),
+    /// A route pattern that matches any path starting with the given string.
     Wildcard(String),
 }
 
 impl RoutePattern {
     /// Returns a RoutePattern given a path fragment.
-    pub(crate) fn from<S: Into<String>>(base: S, path: S) -> Self {
+    pub fn from<S: Into<String>>(base: S, path: S) -> Self {
         let path = format!(
             "{}{}",
             Self::sanitize(base.into()),

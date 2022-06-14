@@ -137,7 +137,7 @@ impl DeployCommand {
         let channel_id = Client::add_channel(
             &hippo_client,
             app_id,
-            name.clone(),
+            String::from("spin-deploy"),
             None,
             ChannelRevisionSelectionStrategy::UseRangeRule,
             Some(bindle_id.version_string()),

@@ -97,7 +97,11 @@ pub struct DeployCommand {
     pub hippo_password: String,
 
     /// Disable attaching buildinfo
-    #[clap(long = "no-buildinfo", conflicts_with = "buildinfo")]
+    #[clap(
+        long = "no-buildinfo",
+        conflicts_with = "buildinfo",
+        env = "SPIN_DEPLOY_NO_BUILDINFO"
+    )]
     pub no_buildinfo: bool,
 
     /// Build metadata to append to the bindle version
@@ -108,8 +112,8 @@ pub struct DeployCommand {
     )]
     pub buildinfo: Option<BuildMetadata>,
 
-    /// Re-deploy bindle if it already exists in bindle server
-    #[clap(short = 'r', long = "redeploy")]
+    /// Deploy existing bindle if it already exists on bindle server
+    #[clap(short = 'd', long = "deploy-existing-bindle")]
     pub redeploy: bool,
 }
 
@@ -267,14 +271,19 @@ impl DeployCommand {
 
         if let Err(publish_err) = publish_result {
             // TODO: maybe use `thiserror` to return type errors.
-            if publish_err
+            let already_exists = publish_err
                 .to_string()
-                .contains("already exists on the server")
-                && self.redeploy
-            {
-                return Ok(bindle_id.clone());
+                .contains("already exists on the server");
+            if already_exists {
+                if self.redeploy {
+                    return Ok(bindle_id.clone());
+                } else {
+                    return Err(anyhow!(
+                        "Failed to push bindle to server.\n{}\nTry using the --deploy-existing-bindle flag",
+                        publish_err
+                    ));
+                }
             } else {
-                // TODO: Tell user we should use redeploy flag and return error
                 return Err(anyhow!("Failed to push bindle to server {}", publish_err));
             }
         }

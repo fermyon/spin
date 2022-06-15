@@ -41,7 +41,7 @@ void spin_config_string_free(spin_config_string_t *ret) {
   ret->len = 0;
 }
 void spin_config_error_free(spin_config_error_t *ptr) {
-  switch (ptr->tag) {
+  switch ((int32_t) ptr->tag) {
     case 0: {
       spin_config_string_free(&ptr->val.provider);
       break;
@@ -61,54 +61,53 @@ void spin_config_error_free(spin_config_error_t *ptr) {
   }
 }
 void spin_config_expected_string_error_free(spin_config_expected_string_error_t *ptr) {
-  switch (ptr->tag) {
-    case 0: {
-      spin_config_string_free(&ptr->val.ok);
-      break;
-    }
-    case 1: {
-      spin_config_error_free(&ptr->val.err);
-      break;
-    }
+  if (!ptr->is_err) {
+    spin_config_string_free(&ptr->val.ok);
+  } else {
+    spin_config_error_free(&ptr->val.err);
   }
 }
-static int64_t RET_AREA[4];
+
+__attribute__((aligned(4)))
+static uint8_t RET_AREA[16];
 __attribute__((import_module("spin-config"), import_name("get-config")))
 void __wasm_import_spin_config_get_config(int32_t, int32_t, int32_t);
 void spin_config_get_config(spin_config_string_t *key, spin_config_expected_string_error_t *ret0) {
   int32_t ptr = (int32_t) &RET_AREA;
   __wasm_import_spin_config_get_config((int32_t) (*key).ptr, (int32_t) (*key).len, ptr);
-  spin_config_expected_string_error_t variant0;
-  variant0.tag = *((int32_t*) (ptr + 0));
-  switch ((int32_t) variant0.tag) {
+  spin_config_expected_string_error_t expected;
+  switch ((int32_t) (*((uint8_t*) (ptr + 0)))) {
     case 0: {
-      variant0.val.ok = (spin_config_string_t) { (char*)(*((int32_t*) (ptr + 8))), (size_t)(*((int32_t*) (ptr + 16))) };
+      expected.is_err = false;
+      
+      expected.val.ok = (spin_config_string_t) { (char*)(*((int32_t*) (ptr + 4))), (size_t)(*((int32_t*) (ptr + 8))) };
       break;
     }
     case 1: {
+      expected.is_err = true;
       spin_config_error_t variant;
-      variant.tag = *((int32_t*) (ptr + 8));
+      variant.tag = (int32_t) (*((uint8_t*) (ptr + 4)));
       switch ((int32_t) variant.tag) {
         case 0: {
-          variant.val.provider = (spin_config_string_t) { (char*)(*((int32_t*) (ptr + 16))), (size_t)(*((int32_t*) (ptr + 24))) };
+          variant.val.provider = (spin_config_string_t) { (char*)(*((int32_t*) (ptr + 8))), (size_t)(*((int32_t*) (ptr + 12))) };
           break;
         }
         case 1: {
-          variant.val.invalid_key = (spin_config_string_t) { (char*)(*((int32_t*) (ptr + 16))), (size_t)(*((int32_t*) (ptr + 24))) };
+          variant.val.invalid_key = (spin_config_string_t) { (char*)(*((int32_t*) (ptr + 8))), (size_t)(*((int32_t*) (ptr + 12))) };
           break;
         }
         case 2: {
-          variant.val.invalid_schema = (spin_config_string_t) { (char*)(*((int32_t*) (ptr + 16))), (size_t)(*((int32_t*) (ptr + 24))) };
+          variant.val.invalid_schema = (spin_config_string_t) { (char*)(*((int32_t*) (ptr + 8))), (size_t)(*((int32_t*) (ptr + 12))) };
           break;
         }
         case 3: {
-          variant.val.other = (spin_config_string_t) { (char*)(*((int32_t*) (ptr + 16))), (size_t)(*((int32_t*) (ptr + 24))) };
+          variant.val.other = (spin_config_string_t) { (char*)(*((int32_t*) (ptr + 8))), (size_t)(*((int32_t*) (ptr + 12))) };
           break;
         }
       }
-      variant0.val.err = variant;
+      
+      expected.val.err = variant;
       break;
     }
-  }
-  *ret0 = variant0;
+  }*ret0 = expected;
 }

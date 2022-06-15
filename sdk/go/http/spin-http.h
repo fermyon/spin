@@ -54,8 +54,7 @@ extern "C"
   typedef spin_http_string_t spin_http_uri_t;
   void spin_http_uri_free(spin_http_uri_t *ptr);
   typedef struct {
-    // `true` if `val` is present, `false` otherwise
-    bool tag;
+    bool is_some;
     spin_http_body_t val;
   } spin_http_option_body_t;
   void spin_http_option_body_free(spin_http_option_body_t *ptr);
@@ -68,8 +67,7 @@ extern "C"
   } spin_http_request_t;
   void spin_http_request_free(spin_http_request_t *ptr);
   typedef struct {
-    // `true` if `val` is present, `false` otherwise
-    bool tag;
+    bool is_some;
     spin_http_headers_t val;
   } spin_http_option_headers_t;
   void spin_http_option_headers_free(spin_http_option_headers_t *ptr);

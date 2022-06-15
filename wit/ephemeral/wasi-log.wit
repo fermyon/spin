@@ -9,12 +9,12 @@ enum level {
 }
 
 // General log function.
-log: function(msg: string, lvl: level)
+log: func(msg: string, lvl: level)
 
 // Specialized log functions.
-trace: function(msg: string)
-debug: function(msg: string)
-info: function(msg: string)
-warn: function(msg: string)
-error: function(msg: string)
-fatal: function(msg: string)
+trace: func(msg: string)
+debug: func(msg: string)
+info: func(msg: string)
+warn: func(msg: string)
+error: func(msg: string)
+fatal: func(msg: string)

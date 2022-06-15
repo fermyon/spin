@@ -1,10 +1,10 @@
 use * from redis-types
 
 // Publish a Redis message to the specificed channel and return an error, if any.
-publish: function(address: string, channel: string, payload: payload) -> expected<_, error>
+publish: func(address: string, channel: string, payload: payload) -> expected<unit, error>
 
 // Get the value of a key.
-get: function(address: string, key: string) -> expected<payload, error>
+get: func(address: string, key: string) -> expected<payload, error>
 
 // Set key to value. If key alreads holds a value, it is overwritten.
-set: function(address: string, key: string, value: payload) -> expected<_, error>
+set: func(address: string, key: string, value: payload) -> expected<unit, error>

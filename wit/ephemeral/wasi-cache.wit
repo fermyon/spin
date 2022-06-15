@@ -5,11 +5,11 @@ use * from types
 // Set the payload for the given key.
 // Implementations may choose to ignore the time-to-live (in seconds) argument.
 // TODO (@radu-matei): perhaps return the number of bytes written?
-set: function(key: string, value: payload, ttl: option<u32>) -> expected<_, error>
+set: func(key: string, value: payload, ttl: option<u32>) -> expected<unit, error>
 
 // Get the payload stored in the cache for the given key.
 // If not found, return a success result with an empty payload.
-get: function(key: string) -> expected<payload, error>
+get: func(key: string) -> expected<payload, error>
 
 // Delete the cache entry for the given key.
-delete: function(key: string) -> expected<_, error>
+delete: func(key: string) -> expected<unit, error>

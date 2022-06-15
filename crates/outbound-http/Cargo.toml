@@ -19,5 +19,5 @@ tokio = { version = "1.4.0", features = [ "full" ] }
 tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
 url = "2.2.1"
-wasi-experimental-http-wasmtime = { git = "https://github.com/deislabs/wasi-experimental-http", rev = "9a143fa7d8be2a66d6d636c5c1b0c6e2bad68912" }
-wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2f46ce4cc072107153da0cefe15bdc69aa5b84d0" }
+wasi-experimental-http-wasmtime = "0.10.0"
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "dde4694aaa6acf9370206527a798ac4ba6a8c5b8" }

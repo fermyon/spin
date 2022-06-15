@@ -20,7 +20,7 @@ func get(key string) (string, error) {
 
 	C.spin_config_get_config(&spinKey, &spinResponse)
 
-	if spinResponse.tag > 0 { // error response from spin
+	if spinResponse.is_err { // error response from spin
 		spinErr := (*C.spin_config_error_t)(unsafe.Pointer(&spinResponse.val))
 		return "", toError(spinErr)
 	}

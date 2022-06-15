@@ -36,11 +36,11 @@ func handle_http_request(req *C.spin_http_request_t, res *C.spin_http_response_t
 	res.status = C.uint16_t(w.status)
 	if len(w.header) > 0 {
 		res.headers = C.spin_http_option_headers_t{
-			tag: true,
+			is_some: true,
 			val: toSpinHeaders(w.header),
 		}
 	} else {
-		res.headers = C.spin_http_option_headers_t{tag: false}
+		res.headers = C.spin_http_option_headers_t{is_some: false}
 	}
 
 	res.body, err = toSpinBody(w.w)
@@ -72,7 +72,7 @@ func toSpinHeaders(hm http.Header) C.spin_http_headers_t {
 
 func toSpinBody(body io.Reader) (C.spin_http_option_body_t, error) {
 	var spinBody C.spin_http_option_body_t
-	spinBody.tag = false
+	spinBody.is_some = false
 
 	if body == nil {
 		return spinBody, nil
@@ -85,7 +85,7 @@ func toSpinBody(body io.Reader) (C.spin_http_option_body_t, error) {
 	}
 
 	if len > 0 {
-		spinBody.tag = true
+		spinBody.is_some = true
 		spinBody.val = C.spin_http_body_t{
 			ptr: &buf.Bytes()[0],
 			len: C.size_t(len),
@@ -159,7 +159,7 @@ func (sr spinRequest) URL() string {
 
 // Body returns the request body as a go []byte.
 func (sr spinRequest) Body() []byte {
-	if !sr.body.tag {
+	if !sr.body.is_some {
 		return nil
 	}
 	return spinBody(sr.body.val).Bytes()

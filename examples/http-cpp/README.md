@@ -22,7 +22,7 @@ Then install a compatible version of
 writing, Spin uses a specific revision, which you can install like so:
 
 ```bash
-cargo install --git https://github.com/bytecodealliance/wit-bindgen --rev 2f46ce4cc072107153da0cefe15bdc69aa5b84d0 wit-bindgen-cli
+cargo install --git https://github.com/bytecodealliance/wit-bindgen --rev dde4694aaa6acf9370206527a798ac4ba6a8c5b8 wit-bindgen-cli
 ```
 
 Finally, build and run the example from within this directory:

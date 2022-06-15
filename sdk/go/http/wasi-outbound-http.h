@@ -54,8 +54,7 @@ extern "C"
   typedef wasi_outbound_http_string_t wasi_outbound_http_uri_t;
   void wasi_outbound_http_uri_free(wasi_outbound_http_uri_t *ptr);
   typedef struct {
-    // `true` if `val` is present, `false` otherwise
-    bool tag;
+    bool is_some;
     wasi_outbound_http_body_t val;
   } wasi_outbound_http_option_body_t;
   void wasi_outbound_http_option_body_free(wasi_outbound_http_option_body_t *ptr);
@@ -68,8 +67,7 @@ extern "C"
   } wasi_outbound_http_request_t;
   void wasi_outbound_http_request_free(wasi_outbound_http_request_t *ptr);
   typedef struct {
-    // `true` if `val` is present, `false` otherwise
-    bool tag;
+    bool is_some;
     wasi_outbound_http_headers_t val;
   } wasi_outbound_http_option_headers_t;
   void wasi_outbound_http_option_headers_free(wasi_outbound_http_option_headers_t *ptr);

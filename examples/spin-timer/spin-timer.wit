@@ -1,1 +1,1 @@
-handle-timer-request: function(msg: string) -> string
+handle-timer-request: func(msg: string) -> string

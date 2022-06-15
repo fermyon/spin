@@ -25,6 +25,7 @@ regex = "1.5.5"
 reqwest = { version = "0.11", features = ["stream"] }
 semver = "1.0"
 serde = { version = "1.0", features = [ "derive" ] }
+sha2 = "0.10.2"
 spin-build = { path = "crates/build" }
 spin-config = { path = "crates/config" }
 spin-engine = { path = "crates/engine" }

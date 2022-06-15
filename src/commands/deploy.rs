@@ -1,14 +1,19 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use bindle::Id;
 use clap::Parser;
 use hippo::{Client, ConnectionInfo};
 use hippo_openapi::models::ChannelRevisionSelectionStrategy;
+use semver::BuildMetadata;
+use sha2::{Digest, Sha256};
 use spin_http_engine::routes::RoutePattern;
-use spin_loader::local::config::RawAppManifestAnyVersion;
+use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
+use spin_loader::local::{assets, config};
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
+use std::fs::File;
+use std::io::copy;
 use std::path::PathBuf;
 
-use crate::opts::*;
+use crate::{opts::*, parse_buildinfo};
 
 /// Package and upload Spin artifacts, notifying Hippo
 #[derive(Parser, Debug)]
@@ -90,6 +95,22 @@ pub struct DeployCommand {
         env = "HIPPO_PASSWORD"
     )]
     pub hippo_password: String,
+
+    /// Disable attaching buildinfo
+    #[clap(long = "no-buildinfo", conflicts_with = "buildinfo")]
+    pub no_buildinfo: bool,
+
+    /// Build metadata to append to the bindle version
+    #[clap(
+        name = BUILDINFO_OPT,
+        long = "buildinfo",
+        parse(try_from_str = parse_buildinfo),
+    )]
+    pub buildinfo: Option<BuildMetadata>,
+
+    /// Re-deploy bindle if it already exists in bindle server
+    #[clap(short = 'r', long = "redeploy")]
+    pub redeploy: bool,
 }
 
 impl DeployCommand {
@@ -97,7 +118,16 @@ impl DeployCommand {
         let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
         let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
 
-        let bindle_id = self.create_and_push_bindle().await?;
+        let buildinfo = if !self.no_buildinfo {
+            match &self.buildinfo {
+                Some(i) => Some(i.clone()),
+                None => self.compute_buildinfo(&cfg).await.map(Option::Some)?,
+            }
+        } else {
+            None
+        };
+
+        let bindle_id = self.create_and_push_bindle(buildinfo).await?;
 
         let token = match Client::login(
             &Client::new(ConnectionInfo {
@@ -149,7 +179,7 @@ impl DeployCommand {
 
         Client::add_revision(&hippo_client, name.clone(), bindle_id.version_string()).await?;
         println!(
-            "Successfully deployed application {} version {}!",
+            "Deployed {} version {}",
             name.clone(),
             bindle_id.version_string()
         );
@@ -165,6 +195,40 @@ impl DeployCommand {
         Ok(())
     }
 
+    async fn compute_buildinfo(&self, cfg: &RawAppManifest) -> Result<BuildMetadata> {
+        let mut sha256 = Sha256::new();
+
+        for x in cfg.components.iter() {
+            match &x.source {
+                config::RawModuleSource::FileReference(p) => {
+                    let mut r = File::open(p)?;
+                    copy(&mut r, &mut sha256)?;
+                }
+                config::RawModuleSource::Bindle(_b) => {}
+            }
+            if let Some(files) = &x.wasm.files {
+                let source_dir = crate::app_dir(&self.app)?;
+                let fm = assets::collect(files, &source_dir)?;
+                for f in fm.iter() {
+                    let src_path = source_dir.join(&f.src);
+                    let mut r = File::open(src_path)?;
+                    copy(&mut r, &mut sha256)?;
+                }
+            }
+        }
+
+        let mut r = File::open(&self.app)?;
+        copy(&mut r, &mut sha256)?;
+
+        let mut final_digest = format!("q{:x}", sha256.finalize());
+        final_digest.truncate(8);
+
+        let buildinfo =
+            BuildMetadata::new(&final_digest).with_context(|| "Could not compute build info")?;
+
+        Ok(buildinfo)
+    }
+
     async fn get_app_id(&self, hippo_client: &Client, name: String) -> Result<String> {
         let apps_vm = Client::list_apps(hippo_client).await?;
         let app = apps_vm.apps.iter().find(|&x| x.name == name.clone());
@@ -174,7 +238,7 @@ impl DeployCommand {
         }
     }
 
-    async fn create_and_push_bindle(&self) -> Result<Id> {
+    async fn create_and_push_bindle(&self, buildinfo: Option<BuildMetadata>) -> Result<Id> {
         let source_dir = crate::app_dir(&self.app)?;
         let bindle_connection_info = spin_publish::BindleConnectionInfo::new(
             &self.bindle_server_url,
@@ -188,7 +252,7 @@ impl DeployCommand {
             None => temp_dir.path(),
             Some(path) => path.as_path(),
         };
-        let (invoice, sources) = spin_publish::expand_manifest(&self.app, None, &dest_dir)
+        let (invoice, sources) = spin_publish::expand_manifest(&self.app, buildinfo, &dest_dir)
             .await
             .with_context(|| format!("Failed to expand '{}' to a bindle", self.app.display()))?;
 
@@ -198,9 +262,22 @@ impl DeployCommand {
             .await
             .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
 
-        spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info)
-            .await
-            .context("Failed to push bindle to server")?;
+        let publish_result =
+            spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info).await;
+
+        if let Err(publish_err) = publish_result {
+            // TODO: maybe use `thiserror` to return type errors.
+            if publish_err
+                .to_string()
+                .contains("already exists on the server")
+                && self.redeploy
+            {
+                return Ok(bindle_id.clone());
+            } else {
+                // TODO: Tell user we should use redeploy flag and return error
+                return Err(anyhow!("Failed to push bindle to server {}", publish_err));
+            }
+        }
 
         Ok(bindle_id.clone())
     }

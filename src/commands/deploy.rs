@@ -99,7 +99,7 @@ pub struct DeployCommand {
     /// Disable attaching buildinfo
     #[clap(
         long = "no-buildinfo",
-        conflicts_with = "buildinfo",
+        conflicts_with = BUILDINFO_OPT,
         env = "SPIN_DEPLOY_NO_BUILDINFO"
     )]
     pub no_buildinfo: bool,

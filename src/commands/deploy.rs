@@ -113,7 +113,7 @@ pub struct DeployCommand {
     pub buildinfo: Option<BuildMetadata>,
 
     /// Deploy existing bindle if it already exists on bindle server
-    #[clap(short = 'd', long = "deploy-existing-bindle")]
+    #[clap(short = 'e', long = "deploy-existing-bindle")]
     pub redeploy: bool,
 }
 

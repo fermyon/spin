@@ -83,9 +83,8 @@ Installing template http-go...
 Let's create a new Spin application based on the Rust HTTP template:
 
 ```console
-$ spin new http-rust
+$ spin new http-rust spin-hello-world
 Project description: A simple Spin HTTP component in Rust
-Project name: spin-hello-world
 HTTP base: /
 HTTP path: /hello
 $ tree

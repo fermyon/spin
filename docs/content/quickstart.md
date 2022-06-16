@@ -21,6 +21,16 @@ $ tar xfv spin-v0.2.0-macos-aarch64.tar.gz
 $ ./spin --help
 ```
 
+If you have [`cargo`](https://doc.rust-lang.org/cargo/getting-started/installation.html), you can clone the repo and install it to your path:
+
+```bash
+$ git clone https://github.com/fermyon/spin
+$ cd spin
+$ rustup target add wasm32-wasi
+$ cargo install --path .
+$ spint --help
+```
+
 Alternatively, [follow the contribution document](./contributing.md) for a detailed guide
 on building Spin from source:
 

@@ -14,7 +14,7 @@ use spin_templates::{RunOptions, TemplateManager};
 /// Scaffold a new application or component based on a template.
 #[derive(Parser, Debug)]
 pub struct NewCommand {
-    /// The template from which to create the new application or component.
+    /// The template from which to create the new application or component. Run `spin templates list` to see available options.
     pub template_id: String,
 
     /// The name of the new application or component.

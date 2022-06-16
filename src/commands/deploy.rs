@@ -181,7 +181,6 @@ impl DeployCommand {
         .await
         .context("Problem creating a channel in Hippo")?;
 
-        Client::add_revision(&hippo_client, name.clone(), bindle_id.version_string()).await?;
         println!(
             "Deployed {} version {}",
             name.clone(),

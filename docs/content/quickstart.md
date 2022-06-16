@@ -28,7 +28,7 @@ $ git clone https://github.com/fermyon/spin
 $ cd spin
 $ rustup target add wasm32-wasi
 $ cargo install --path .
-$ spint --help
+$ spin --help
 ```
 
 Alternatively, [follow the contribution document](./contributing.md) for a detailed guide

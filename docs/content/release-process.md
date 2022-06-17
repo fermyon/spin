@@ -20,10 +20,8 @@ To cut a release of Spin, you will need to do the following:
    - This will trigger a release build
 1. Wait for the `release`
    [action](https://github.com/fermyon/spin/actions/workflows/release.yaml) to
-   complete, and download the binary artifacts and checksums that are generated
-   by that action.
+   complete, binary artifacts and checksums will be automatically uploaded.
 1. Go to the GitHub [tags page](https://github.com/fermyon/spin/releases),
-   create a release, add the release notes, and upload the binaries and
-   checksums you downloaded above.
+   edit a release, add the release notes.
 
 At this point, you can verify in the GitHub UI that the release was successful.

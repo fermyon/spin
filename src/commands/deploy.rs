@@ -12,6 +12,7 @@ use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
 use std::fs::File;
 use std::io::copy;
 use std::path::PathBuf;
+use url::Url;
 
 use crate::{opts::*, parse_buildinfo};
 
@@ -190,7 +191,12 @@ impl DeployCommand {
             .await
             .context("Problem getting channel by id")?;
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
-            print_available_routes(&channel.domain, &http_config.base, &cfg);
+            print_available_routes(
+                &channel.domain,
+                &http_config.base,
+                &self.hippo_server_url,
+                &cfg,
+            );
         } else {
             println!("Application is running at {}", channel.domain);
         }
@@ -294,6 +300,7 @@ impl DeployCommand {
 fn print_available_routes(
     address: &str,
     base: &str,
+    hippo_url: &str,
     cfg: &spin_loader::local::config::RawAppManifest,
 ) {
     if cfg.components.is_empty() {
@@ -303,8 +310,14 @@ fn print_available_routes(
     println!("Available Routes:");
     for component in &cfg.components {
         if let TriggerConfig::Http(http_cfg) = &component.trigger {
+            let url_result = Url::parse(hippo_url);
+            let scheme = match &url_result {
+                Ok(url) => url.scheme(),
+                Err(_) => "http",
+            };
+
             let route = RoutePattern::from(base, &http_cfg.route);
-            println!("  {}: http://{}{}", component.id, address, route);
+            println!("  {}: {}://{}{}", component.id, scheme, address, route);
             if let Some(description) = &component.description {
                 println!("    {}", description);
             }

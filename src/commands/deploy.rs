@@ -200,11 +200,19 @@ impl DeployCommand {
 
     async fn compute_buildinfo(&self, cfg: &RawAppManifest) -> Result<BuildMetadata> {
         let mut sha256 = Sha256::new();
+        let app_folder = self.app.parent().with_context(|| {
+            anyhow!(
+                "Cannot get a parent directory of manifest file {}",
+                &self.app.display()
+            )
+        })?;
 
         for x in cfg.components.iter() {
             match &x.source {
                 config::RawModuleSource::FileReference(p) => {
-                    let mut r = File::open(p)?;
+                    let full_path = app_folder.join(p);
+                    let mut r = File::open(&full_path)
+                        .with_context(|| anyhow!("Cannot open file {}", &full_path.display()))?;
                     copy(&mut r, &mut sha256)?;
                 }
                 config::RawModuleSource::Bindle(_b) => {}

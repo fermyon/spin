@@ -1,5 +1,6 @@
 pub mod commands;
 pub(crate) mod opts;
+mod sloth;
 
 use std::path::{Path, PathBuf};
 

@@ -132,6 +132,8 @@ impl DeployCommand {
             None
         };
 
+        self.check_hippo_healthz().await?;
+
         let bindle_id = self.create_and_push_bindle(buildinfo).await?;
 
         let token = match Client::login(
@@ -294,6 +296,20 @@ impl DeployCommand {
         }
 
         Ok(bindle_id.clone())
+    }
+
+    async fn check_hippo_healthz(&self) -> Result<()> {
+        let hippo_base_url = url::Url::parse(&self.hippo_server_url)?;
+        let hippo_healthz_url = hippo_base_url.join("/healthz")?;
+        let result = reqwest::get(hippo_healthz_url.to_string())
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+        if result != "Healthy" {
+            return Err(anyhow!("Hippo server {} is unhealthy", hippo_base_url));
+        }
+        Ok(())
     }
 }
 

@@ -3,7 +3,7 @@
   <img src="./docs/static/image/spin.png" width="300"/>
   <p>Spin is a framework for building, deploying, and running fast, secure, and composable cloud microservices with WebAssembly.</p>
       <a href="https://github.com/fermyon/spin/actions/workflows/build.yml"><img src="https://github.com/fermyon/spin/actions/workflows/build.yml/badge.svg" alt="build status" /></a>
-    <img alt="Discord" src="https://img.shields.io/discord/926888690310053918?label=Discord">
+      <a href="https://discord.gg/eGN8saYqCk"><img alt="Discord" src="https://img.shields.io/discord/926888690310053918?label=Discord"></a>
 </div>
 
 > This is an early preview of the Spin project. It is still experimental code,
@@ -50,6 +50,7 @@ $ spin up
 
 We are delighted that you are interested in making Spin better! Thank you!
 Please follow the [contributing guide](./docs/content/contributing.md).
+And join our [Discord server]!(https://discord.gg/eGN8saYqCk).
 
 ## Developer Meetings
 

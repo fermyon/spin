@@ -119,6 +119,7 @@ fn bindle_component_manifest(
             environment: local.wasm.environment.clone(),
             files: asset_group,
             allowed_http_hosts: local.wasm.allowed_http_hosts.clone(),
+            enable_monitoring: local.wasm.enable_monitoring,
         },
         trigger: local.trigger.clone(),
         config: local.config.clone(),

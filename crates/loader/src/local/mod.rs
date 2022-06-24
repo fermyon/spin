@@ -185,10 +185,12 @@ async fn core(
     };
     let environment = raw.wasm.environment.unwrap_or_default();
     let allowed_http_hosts = raw.wasm.allowed_http_hosts.unwrap_or_default();
+    let enable_monitoring = raw.wasm.enable_monitoring.unwrap_or_default();
     let wasm = WasmConfig {
         environment,
         mounts,
         allowed_http_hosts,
+        enable_monitoring,
     };
     Ok(CoreComponent {
         source,

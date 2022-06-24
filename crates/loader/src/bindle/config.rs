@@ -46,4 +46,6 @@ pub struct RawWasmConfig {
     pub allowed_http_hosts: Option<Vec<String>>,
     /// Environment variables to be mapped inside the Wasm module at runtime.
     pub environment: Option<HashMap<String, String>>,
+    /// Flag to enable access to the Spin home directory
+    pub enable_monitoring: Option<bool>,
 }

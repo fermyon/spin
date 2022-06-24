@@ -99,6 +99,8 @@ pub struct RawWasmConfig {
     pub files: Option<Vec<RawFileMount>>,
     /// Optional list of HTTP hosts the component is allowed to connect.
     pub allowed_http_hosts: Option<Vec<String>>,
+    /// Flag to enable access to the Spin home directory
+    pub enable_monitoring: Option<bool>,
 }
 
 /// An entry in the `files` list mapping a source path to an absolute

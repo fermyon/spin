@@ -158,6 +158,8 @@ pub struct WasmConfig {
     pub mounts: Vec<DirectoryMount>,
     /// Optional list of HTTP hosts the component is allowed to connect.
     pub allowed_http_hosts: Vec<String>,
+    /// Flag to enable access to the Spin home directory
+    pub enable_monitoring: bool,
 }
 
 /// Directory mount for the assets of a component.

@@ -1,0 +1,8 @@
+use * from pg-types
+
+// execute command to the database: insert, update, delete
+execute: function(statement: string, params: list<string>) -> expected<u64, error>
+
+// query the database: select
+query: function(statement: string, params: list<string>) -> expected<list<list<payload>>, error>
+

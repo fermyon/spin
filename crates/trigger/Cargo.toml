@@ -12,6 +12,7 @@ ctrlc = "3.2"
 futures = "0.3"
 http = "0.2"
 outbound-redis = { path = "../outbound-redis" }
+outbound-pg = { path = "../outbound-pg" }
 serde = "1.0"
 spin-config = { path = "../config" }
 spin-engine = { path = "../engine" }

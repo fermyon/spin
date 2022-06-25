@@ -45,3 +45,11 @@ pub mod redis {
     /// Exports the generated outbound Redis items.
     pub use outbound_redis::*;
 }
+
+#[allow(missing_docs)]
+pub mod pg {
+    wit_bindgen_rust::import!("../../wit/ephemeral/outbound-pg.wit");
+
+    /// Exports the generated outbound Pg items.
+    pub use outbound_pg::*;
+}

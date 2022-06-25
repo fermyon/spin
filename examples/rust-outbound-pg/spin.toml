@@ -1,15 +1,16 @@
 spin_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
-name = "rust-outbound-redis-example"
+name = "rust-outbound-pg-example"
 trigger = { type = "http", base = "/" }
 version = "0.1.0"
 
 [[component]]
-environment = { REDIS_ADDRESS = "redis://127.0.0.1:6379", REDIS_CHANNEL = "messages" }
-id = "outbound-redis"
-source = "target/wasm32-wasi/release/rust_outbound_redis.wasm"
+environment = { DB_URL = "postgres://localhost/postgres" }
+id = "outbound-pg"
+source = "target/wasm32-wasi/release/rust_outbound_pg.wasm"
 [component.trigger]
-route = "/publish"
+#route = "/write"
+route = "/read"
 [component.build]
 command = "cargo build --target wasm32-wasi --release"
 

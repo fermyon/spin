@@ -121,5 +121,6 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 pub fn add_default_host_components<T: Default + 'static>(builder: &mut Builder<T>) -> Result<()> {
     builder.add_host_component(wasi_outbound_http::OutboundHttpComponent)?;
     builder.add_host_component(outbound_redis::OutboundRedis)?;
+    builder.add_host_component(outbound_pg::OutboundPg)?;
     Ok(())
 }

@@ -1,0 +1,14 @@
+[package]
+name = "outbound-pg"
+version = "0.2.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0"
+postgres = { version = "0.19.3" }
+spin-engine = { path = "../engine" }
+spin-manifest = { path = "../manifest" }
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2f46ce4cc072107153da0cefe15bdc69aa5b84d0" }

@@ -297,7 +297,12 @@ impl DeployCommand {
                     ));
                 }
             } else {
-                return Err(anyhow!("Failed to push bindle to server {}", publish_err));
+                return Err(publish_err).with_context(|| {
+                    format!(
+                        "Failed to push bindle {} to server {}",
+                        bindle_id, self.bindle_server_url
+                    )
+                });
             }
         }
 

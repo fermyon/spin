@@ -50,7 +50,7 @@ $ spin up
 
 We are delighted that you are interested in making Spin better! Thank you!
 Please follow the [contributing guide](./docs/content/contributing.md).
-And join our [Discord server]!(https://discord.gg/eGN8saYqCk).
+And join our [Discord server](https://discord.gg/eGN8saYqCk).
 
 ## Developer Meetings
 

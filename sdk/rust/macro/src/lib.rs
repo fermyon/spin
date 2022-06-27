@@ -35,10 +35,12 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 match #func_name(req.try_into().expect("cannot convert from Spin HTTP request")) {
                     Ok(resp) => resp.try_into().expect("cannot convert to Spin HTTP response"),
                     Err(e) => {
+                        let body = e.to_string();
+                        eprintln!("Handler returned an error: {}", body);
                         spin_http::Response {
                             status: 500,
                             headers: None,
-                            body: Some(e.to_string().as_bytes().to_vec()),
+                            body: Some(body.as_bytes().to_vec()),
                         }
                     },
                 }

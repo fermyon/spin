@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use semver::BuildMetadata;
 
-use crate::{opts::*, parse_buildinfo};
+use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response};
 
 /// Commands for publishing applications as bindles.
 #[derive(Subcommand, Debug)]
@@ -179,6 +179,8 @@ impl Push {
         spin_publish::write(&source_dir, &dest_dir, &invoice, &sources)
             .await
             .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
+
+        let _sloth_warning = warn_if_slow_response(&self.bindle_server_url);
 
         spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info)
             .await

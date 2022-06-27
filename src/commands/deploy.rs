@@ -14,7 +14,7 @@ use std::io::copy;
 use std::path::PathBuf;
 use url::Url;
 
-use crate::{opts::*, parse_buildinfo};
+use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response};
 
 /// Package and upload Spin artifacts, notifying Hippo
 #[derive(Parser, Debug)]
@@ -135,6 +135,8 @@ impl DeployCommand {
         self.check_hippo_healthz().await?;
 
         let bindle_id = self.create_and_push_bindle(buildinfo).await?;
+
+        let _sloth_warning = warn_if_slow_response(&self.hippo_server_url);
 
         let token = match Client::login(
             &Client::new(ConnectionInfo {
@@ -280,6 +282,8 @@ impl DeployCommand {
         spin_publish::write(&source_dir, &dest_dir, &invoice, &sources)
             .await
             .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
+
+        let _sloth_warning = warn_if_slow_response(&self.bindle_server_url);
 
         let publish_result =
             spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info).await;

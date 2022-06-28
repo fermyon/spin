@@ -42,7 +42,6 @@ struct Cli {
 impl Cli {
     pub async fn run(self) -> Result<(), Error> {
         let filter = EnvFilter::builder()
-            .with_env_var("RUST_LOG")
             .with_default_directive(match self.verbose {
                 0 => LevelFilter::OFF.into(),
                 1 => LevelFilter::ERROR.into(),
@@ -51,7 +50,7 @@ impl Cli {
                 4 => LevelFilter::DEBUG.into(),
                 _ => LevelFilter::TRACE.into(),
             })
-            .parse("")?;
+            .from_env()?;
 
         tracing_subscriber::fmt()
             .with_writer(std::io::stderr)

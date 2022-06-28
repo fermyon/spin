@@ -334,7 +334,7 @@ mod integration_tests {
         ) -> Result<SpinTestController> {
             // start Spin using the given application manifest and wait for the HTTP server to be available.
             let url = format!("127.0.0.1:{}", get_random_port()?);
-            let mut args = vec!["up", "--file", manifest_path, "--listen", &url];
+            let mut args = vec!["-vvvvv", "up", "--file", manifest_path, "--listen", &url];
             if let Some(b) = bindle_url {
                 args.push("--bindle-server");
                 args.push(b);
@@ -346,10 +346,6 @@ mod integration_tests {
 
             let mut spin_handle = Command::new(get_process(SPIN_BINARY))
                 .args(args)
-                .env(
-                    "RUST_LOG",
-                    "spin=trace,spin_loader=trace,spin_engine=trace,spin_http=trace",
-                )
                 .spawn()
                 .with_context(|| "executing Spin")?;
 
@@ -367,6 +363,7 @@ mod integration_tests {
         ) -> Result<SpinTestController> {
             let url = format!("127.0.0.1:{}", get_random_port()?);
             let mut args = vec![
+                "-vvvvv",
                 "up",
                 "--bindle",
                 id,
@@ -382,10 +379,6 @@ mod integration_tests {
 
             let mut spin_handle = Command::new(get_process(SPIN_BINARY))
                 .args(args)
-                .env(
-                    "RUST_LOG",
-                    "spin=trace,spin_loader=trace,spin_engine=trace,spin_http=trace",
-                )
                 .spawn()
                 .with_context(|| "executing Spin")?;
 

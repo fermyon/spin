@@ -19,7 +19,7 @@ make build
 From application root:
 
 ```
-RUST_LOG=spin=trace spin up -f spin.toml
+spin -vvvvv up -f spin.toml
 ```
 
 Curl the hello route:

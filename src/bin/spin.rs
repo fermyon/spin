@@ -8,16 +8,11 @@ use spin_cli::commands::{
 use spin_http_engine::HttpTrigger;
 use spin_redis_engine::RedisTrigger;
 use spin_trigger::cli::TriggerExecutorCommand;
+use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .with_ansi(atty::is(atty::Stream::Stderr))
-        .init();
-
-    SpinApp::parse().run().await
+    Cli::parse().run().await
 }
 
 lazy_static! {
@@ -35,7 +30,41 @@ fn version() -> &'static str {
     name = "spin",
     version = version(),
 )]
-enum SpinApp {
+struct Cli {
+    /// Turn debugging information on
+    #[clap(short, parse(from_occurrences))]
+    verbose: u8,
+
+    #[clap(subcommand)]
+    command: Commands,
+}
+
+impl Cli {
+    pub async fn run(self) -> Result<(), Error> {
+        let filter = EnvFilter::builder()
+            .with_env_var("RUST_LOG")
+            .with_default_directive(match self.verbose {
+                0 => LevelFilter::OFF.into(),
+                1 => LevelFilter::ERROR.into(),
+                2 => LevelFilter::WARN.into(),
+                3 => LevelFilter::INFO.into(),
+                4 => LevelFilter::DEBUG.into(),
+                _ => LevelFilter::TRACE.into(),
+            })
+            .parse("")?;
+
+        tracing_subscriber::fmt()
+            .with_writer(std::io::stderr)
+            .with_env_filter(filter)
+            .with_ansi(atty::is(atty::Stream::Stderr))
+            .init();
+
+        self.command.run().await
+    }
+}
+
+#[derive(Subcommand)]
+enum Commands {
     #[clap(subcommand)]
     Templates(TemplateCommands),
     New(NewCommand),
@@ -54,7 +83,7 @@ enum TriggerCommands {
     Redis(TriggerExecutorCommand<RedisTrigger>),
 }
 
-impl SpinApp {
+impl Commands {
     /// The main entry point to Spin.
     pub async fn run(self) -> Result<(), Error> {
         match self {

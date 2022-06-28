@@ -4,4 +4,4 @@ build:
 
 .PHONY: serve
 serve:
-	RUST_LOG=spin=trace spin up --file spin.toml
+	spin -vvvvv up --file spin.toml

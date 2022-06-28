@@ -49,7 +49,7 @@ At this point, we can execute the application with the `spin` CLI:
 
 ```shell
 $ make serve
-RUST_LOG=spin=trace,wasi_outbound_http=trace spin up --file spin.toml
+$ spin -vvvvv up --file spin.toml
 ```
 
 The application can now receive requests on `http://localhost:3000/hello`:

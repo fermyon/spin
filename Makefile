@@ -1,13 +1,17 @@
 LOG_LEVEL ?= spin=trace
 CERT_NAME ?= local
 SPIN_DOC_NAME ?= new-doc.md
+NOMAD := nomad
+ifeq ($(OS),Windows_NT)
+	NOMAD = nomad.exe
+endif
 
 .PHONY: build
 build:
 	cargo build --release
 
 .PHONY: test
-test:
+test: nomad-version
 	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --nocapture --include-ignored
 	cargo clippy --all-targets --all-features -- -D warnings
 	cargo fmt --all -- --check
@@ -32,3 +36,7 @@ doc:
 .PHONY: check-content
 check-content:
 	cd docs && bart check content/* && bart check content/**/*
+
+.PHONY: nomad-version
+nomad-version:
+	$(NOMAD) --version

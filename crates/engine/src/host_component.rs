@@ -30,9 +30,9 @@ pub(crate) struct HostComponents {
 }
 
 impl HostComponents {
-    pub(crate) fn insert<'a, T: 'static, Component: HostComponent + 'static>(
+    pub(crate) fn insert<T: 'static, Component: HostComponent + 'static>(
         &mut self,
-        linker: &'a mut Linker<RuntimeContext<T>>,
+        linker: &mut Linker<RuntimeContext<T>>,
         host_component: Component,
     ) -> Result<()> {
         let handle = HostComponentsStateHandle {

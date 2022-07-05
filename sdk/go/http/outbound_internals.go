@@ -95,7 +95,7 @@ func method(m string) (int, error) {
 // Transform a C outbound HTTP response to a Go *http.Response.
 func toResponse(res *C.wasi_outbound_http_response_t) (*http.Response, error) {
 	var body []byte
-	if res.body.tag {
+	if res.body.is_some {
 		body = C.GoBytes(unsafe.Pointer(res.body.val.ptr), C.int(res.body.val.len))
 	}
 
@@ -150,7 +150,7 @@ func toOutboundHeaders(hm http.Header) C.wasi_outbound_http_headers_t {
 
 func toOutboundReqBody(body io.Reader) (C.wasi_outbound_http_option_body_t, error) {
 	var spinBody C.wasi_outbound_http_option_body_t
-	spinBody.tag = false
+	spinBody.is_some = false
 
 	if body != nil {
 		buf := new(bytes.Buffer)
@@ -160,7 +160,7 @@ func toOutboundReqBody(body io.Reader) (C.wasi_outbound_http_option_body_t, erro
 		}
 
 		if len > 0 {
-			spinBody.tag = true
+			spinBody.is_some = true
 			spinBody.val = C.wasi_outbound_http_body_t{
 				ptr: &buf.Bytes()[0],
 				len: C.size_t(len),
@@ -172,7 +172,7 @@ func toOutboundReqBody(body io.Reader) (C.wasi_outbound_http_option_body_t, erro
 }
 
 func toHeaders(hm *C.wasi_outbound_http_option_headers_t) http.Header {
-	if !hm.tag {
+	if !hm.is_some {
 		return make(map[string][]string, 0)
 	}
 	headersLen := int(hm.val.len)

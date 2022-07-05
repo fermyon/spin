@@ -26,54 +26,38 @@ void spin_redis_payload_free(spin_redis_payload_t *ptr) {
   canonical_abi_free(ptr->ptr, ptr->len * 1, 1);
 }
 typedef struct {
-  // 0 if `val` is `ok`, 1 otherwise
-  uint8_t tag;
+  bool is_err;
   union {
     spin_redis_error_t err;
   } val;
-} spin_redis_expected_void_error_t;
-static int64_t RET_AREA[2];
+} spin_redis_expected_unit_error_t;
+
+__attribute__((aligned(1)))
+static uint8_t RET_AREA[2];
 __attribute__((export_name("handle-redis-message")))
 int32_t __wasm_export_spin_redis_handle_redis_message(int32_t arg, int32_t arg0) {
   spin_redis_payload_t arg1 = (spin_redis_payload_t) { (uint8_t*)(arg), (size_t)(arg0) };
   spin_redis_error_t ret = spin_redis_handle_redis_message(&arg1);
   
-  spin_redis_expected_void_error_t ret2;
+  spin_redis_expected_unit_error_t ret2;
   if (ret <= 2) {
-    ret2.tag = 1;
+    ret2.is_err = true;
     ret2.val.err = ret;
   } else {
-    ret2.tag = 0;
+    ret2.is_err = false;
     
   }
-  int32_t variant6;
-  int32_t variant7;
-  switch ((int32_t) (ret2).tag) {
-    case 0: {
-      variant6 = 0;
-      variant7 = 0;
-      break;
-    }
-    case 1: {
-      const spin_redis_error_t *payload3 = &(ret2).val.err;
-      int32_t variant;
-      switch ((int32_t) *payload3) {
-        case 0: {
-          variant = 0;
-          break;
-        }
-        case 1: {
-          variant = 1;
-          break;
-        }
-      }
-      variant6 = 1;
-      variant7 = variant;
-      break;
-    }
-  }
   int32_t ptr = (int32_t) &RET_AREA;
-  *((int32_t*)(ptr + 8)) = variant7;
-  *((int32_t*)(ptr + 0)) = variant6;
+  
+  if ((ret2).is_err) {
+    const spin_redis_error_t *payload3 = &(ret2).val.err;
+    *((int8_t*)(ptr + 0)) = 1;
+    *((int8_t*)(ptr + 1)) = (int32_t) *payload3;
+    
+  } else {
+    
+    *((int8_t*)(ptr + 0)) = 0;
+    
+  }
   return ptr;
 }

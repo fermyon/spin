@@ -44,7 +44,7 @@ tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 url = "2.2.2"
 wasi-outbound-http = { path = "crates/outbound-http" }
-wasmtime = "0.34"
+wasmtime = "0.35.3"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # This needs to be an explicit dependency to enable
@@ -67,7 +67,6 @@ members = [
     "crates/http",
     "crates/loader",
     "crates/manifest",
-    "crates/object-store",
     "crates/outbound-http",
     "crates/outbound-redis",
     "crates/redis",

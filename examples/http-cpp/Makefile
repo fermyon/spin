@@ -3,7 +3,7 @@
 # sudo mv wasi-sdk-14.0 /opt/wasi-sdk
 WASI_CC       ?= /opt/wasi-sdk/bin/clang
 
-# cargo install --git https://github.com/bytecodealliance/wit-bindgen --rev 2f46ce4cc072107153da0cefe15bdc69aa5b84d0 wit-bindgen-cli
+# cargo install --git https://github.com/bytecodealliance/wit-bindgen --rev dde4694aaa6acf9370206527a798ac4ba6a8c5b8 wit-bindgen-cli
 WIT_BINDGEN   ?= wit-bindgen
 
 lib.wasm: lib.o spin-http.o

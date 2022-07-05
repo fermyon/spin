@@ -21,7 +21,7 @@ impl HostComponent for OutboundHttpComponent {
         crate::add_to_linker(linker, move |ctx| &mut data_handle.get_mut(ctx).0)?;
         HttpState::new()
             .expect("HttpState::new failed")
-            .add_to_linker(linker, move |ctx| &data_handle.get(ctx).1)?;
+            .add_to_linker(linker, move |ctx| data_handle.get(ctx).1.clone())?;
         Ok(())
     }
 

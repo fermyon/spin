@@ -31,8 +31,7 @@ extern "C"
   #define SPIN_CONFIG_ERROR_OTHER 3
   void spin_config_error_free(spin_config_error_t *ptr);
   typedef struct {
-    // 0 if `val` is `ok`, 1 otherwise
-    uint8_t tag;
+    bool is_err;
     union {
       spin_config_string_t ok;
       spin_config_error_t err;

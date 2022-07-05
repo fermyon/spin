@@ -19,4 +19,4 @@ spin-loader = { path = "../loader" }
 spin-manifest = { path = "../manifest" }
 tracing = { version = "0.1", features = [ "log" ] }
 wasi-outbound-http = { path = "../outbound-http" } 
-wasmtime = "0.34"
+wasmtime = "0.35.3"

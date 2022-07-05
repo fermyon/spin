@@ -36,12 +36,12 @@ tracing = { version = "0.1", features = ["log"] }
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 url = "2.2"
-wagi = { git = "https://github.com/deislabs/wagi", tag = "v0.8.1" }
-wasi-cap-std-sync = "0.34"
-wasi-common = "0.34"
-wasmtime = "0.34"
-wasmtime-wasi = "0.34"
-wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2f46ce4cc072107153da0cefe15bdc69aa5b84d0" }
+wagi = { git = "https://github.com/deislabs/wagi", rev = "479fae0e375679865be47a2bc2f1cc183531ab52" }
+wasi-cap-std-sync = "0.35.3"
+wasi-common = "0.35.3"
+wasmtime = "0.35.3"
+wasmtime-wasi = "0.35.3"
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "dde4694aaa6acf9370206527a798ac4ba6a8c5b8" }
 
 [dev-dependencies]
 criterion = { version = "0.3.5", features = ["async_tokio"] }

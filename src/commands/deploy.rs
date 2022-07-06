@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context, Result, bail};
 use bindle::Id;
 use clap::Parser;
 use hippo::{Client, ConnectionInfo};
@@ -318,7 +318,7 @@ impl DeployCommand {
         if status_code.is_success() {
             return Ok(());
         }
-        Err(anyhow!("Hippo server {} is unhealthy", hippo_base_url))
+        bail!("Hippo server {} is unhealthy", hippo_base_url)
     }
 }
 

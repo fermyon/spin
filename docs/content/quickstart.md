@@ -24,7 +24,7 @@ $ ./spin --help
 If you have [`cargo`](https://doc.rust-lang.org/cargo/getting-started/installation.html), you can clone the repo and install it to your path:
 
 ```bash
-$ git clone https://github.com/fermyon/spin
+$ git clone https://github.com/fermyon/spin -b v0.3.0
 $ cd spin
 $ rustup target add wasm32-wasi
 $ cargo install --path .

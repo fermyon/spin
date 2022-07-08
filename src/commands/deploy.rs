@@ -251,8 +251,8 @@ impl DeployCommand {
     }
 
     async fn get_app_id(&self, hippo_client: &Client, name: String) -> Result<String> {
-        let apps_vm = Client::list_apps(hippo_client).await?;
-        let app = apps_vm.apps.iter().find(|&x| x.name == name.clone());
+        let app_list = Client::list_apps(hippo_client).await?;
+        let app = app_list.items.iter().find(|&x| x.name == name.clone());
         match app {
             Some(a) => Ok(a.id.clone()),
             None => anyhow::bail!("No app with name: {}", name),

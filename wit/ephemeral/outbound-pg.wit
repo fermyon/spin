@@ -1,7 +1,7 @@
 use * from pg-types
 
 // query the database: select
-query: function(address: string, statement: string, params: list<string>) -> expected<list<list<payload>>, error>
+query: func(address: string, statement: string, params: list<string>) -> expected<list<list<payload>>, error>
 
 // execute command to the database: insert, update, delete
-execute: function(address: string, statement: string, params: list<string>) -> expected<u64, error>
+execute: func(address: string, statement: string, params: list<string>) -> expected<u64, error>

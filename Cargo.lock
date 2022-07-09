@@ -3631,7 +3631,6 @@ dependencies = [
  "hyper",
  "lazy_static",
  "openssl",
- "outbound-pg",
  "outbound-redis",
  "path-absolutize",
  "regex",

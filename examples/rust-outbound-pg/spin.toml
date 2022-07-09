@@ -5,7 +5,7 @@ trigger = { type = "http", base = "/" }
 version = "0.1.0"
 
 [[component]]
-environment = { DB_URL = "postgres://localhost/postgres" }
+environment = { DB_URL = "host=localhost user=postgres password=123 dbname=postgres" }
 id = "outbound-pg"
 source = "target/wasm32-wasi/release/rust_outbound_pg.wasm"
 [component.trigger]

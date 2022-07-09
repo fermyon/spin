@@ -33,9 +33,8 @@ impl HostComponent for OutboundPg {
 }
 
 impl outbound_pg::OutboundPg for OutboundPg {
-    fn execute(&mut self, statement: &str, params: Vec<&str>) -> Result<u64, Error> {
-        let mut client = Client::connect("host=localhost user=postgres password=123 dbname=postgres", NoTls)
-                        .map_err(|_| Error::Error)?;
+    fn execute(&mut self, address: &str,  statement: &str, params: Vec<&str>) -> Result<u64, Error> {
+        let mut client = Client::connect(address, NoTls).map_err(|_| Error::Error)?;
 
         let params: Vec<&(dyn ToSql + Sync)> = params.iter().map(|item| item as &(dyn ToSql + Sync)).collect();
 
@@ -46,9 +45,8 @@ impl outbound_pg::OutboundPg for OutboundPg {
         Ok(nrow)
     }
     
-    fn query(&mut self, statement: &str, params: Vec<&str>) -> Result<Vec<Vec<Payload>>, Error> {
-        let mut client = Client::connect("host=localhost user=postgres password=123 dbname=postgres", NoTls)
-                        .map_err(|_| Error::Error)?;
+    fn query(&mut self, address: &str, statement: &str, params: Vec<&str>) -> Result<Vec<Vec<Payload>>, Error> {
+        let mut client = Client::connect(address, NoTls).map_err(|_| Error::Error)?;
         
         let params: Vec<&(dyn ToSql + Sync)> = params.iter().map(|item| item as &(dyn ToSql + Sync)).collect();
 

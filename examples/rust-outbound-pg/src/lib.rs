@@ -10,10 +10,10 @@ const DB_URL_ENV: &str = "DB_URL";
 
 #[http_component]
 fn read(_req: Request) -> Result<Response> {
-    let _address = std::env::var(DB_URL_ENV)?;
+    let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "select * from articletest";
-    let rows = pg::query(sql, &vec![]).map_err(|_| anyhow!("Error execute pg command"))?;
+    let rows = pg::query(address,sql, &vec![]).map_err(|_| anyhow!("Error execute pg command"))?;
 
     println!("rows: {:?}", rows);
 
@@ -21,10 +21,10 @@ fn read(_req: Request) -> Result<Response> {
 }
 /*
 fn write(_req: Request) -> Result<Response> {
-    let _address = std::env::var(DB_URL_ENV)?;
+    let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "insert into articletest values ('aaa', 'bbb', 'ccc')";
-    let nrow_executed = pg::execute(sql, &vec![]).map_err(|_| anyhow!("Error execute pg command"))?;
+    let nrow_executed = pg::execute(address, sql, &vec![]).map_err(|_| anyhow!("Error execute pg command"))?;
 
     println!("nrow_executed: {}", nrow_executed);
 

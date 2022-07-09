@@ -28,10 +28,6 @@ configured:
 - [Rust](https://www.rust-lang.org/) at
   [1.56+](https://www.rust-lang.org/tools/install) with the `wasm32-wasi` target configured
   (`rustup target add wasm32-wasi`)
-- [`rustfmt`](https://github.com/rust-lang/rustfmt) and
-  [`clippy`](https://github.com/rust-lang/rust-clippy) configured for your Rust
-  installation
-- `make`
 - [Bindle server v0.8.0](https://github.com/deislabs/bindle/releases/tag/v0.8.0)
   in your system path.
 - if you are a VS Code user, we recommend the
@@ -56,12 +52,10 @@ $ git checkout -b <your-branch>
 # you can skip compiling and running the tests.
 
 # build a release version of the Spin CLI
-$ cargo build --release
-# make sure compilation is successful
-$ ./target/release/spin --help
+$ cargo xtask build
 
 # run the tests and make sure they pass
-$ make test
+$ cargo xtask test
 ```
 
 Now you should be ready to start making your contribution. To familiarize
@@ -71,7 +65,7 @@ Rust, we try to follow the common Rust coding conventions (keep an eye on the
 recommendations from Clippy!) If applicable, add unit or integration tests to
 ensure your contribution is correct.
 
-Build the project and run the tests (`make build test`), and if everything is
+Build the project(`cargo xtask build`) and run the tests (`cargo xtask test`), and if everything is
 successful, you should be ready to commit your changes. We try to follow the
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
 guidelines for writing commit messages:

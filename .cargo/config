@@ -1,2 +1,5 @@
 [net]
     git-fetch-with-cli = true
+
+[alias]
+xtask = "run -p xtask --"

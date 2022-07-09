@@ -75,7 +75,8 @@ members = [
     "crates/trigger",
     "examples/spin-timer",
     "sdk/rust",
-    "sdk/rust/macro"
+    "sdk/rust/macro",
+    "xtask",
 ]
 
 [[bin]]

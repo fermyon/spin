@@ -6,3 +6,4 @@ ignored-assets
 main.wasm
 .parcel-cache
 .vscode/*.log
+Cargo.lock

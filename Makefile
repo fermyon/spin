@@ -1,20 +1,27 @@
 LOG_LEVEL ?= spin=trace
 CERT_NAME ?= local
 SPIN_DOC_NAME ?= new-doc.md
-NOMAD := nomad
-ifeq ($(OS),Windows_NT)
-	NOMAD = nomad.exe
-endif
 
 .PHONY: build
 build:
 	cargo build --release
 
 .PHONY: test
-test: nomad-version
-	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --nocapture --include-ignored
+test: lint test-unit test-integration
+
+.PHONY: lint 
+lint:
 	cargo clippy --all-targets --all-features -- -D warnings
 	cargo fmt --all -- --check
+
+.PHONY: test-unit
+test-unit:
+	RUST_LOG=$(LOG_LEVEL) cargo test --no-fail-fast -- --skip integration_tests --nocapture --include-ignored
+
+.PHONY: test-integration
+test-integration:
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast  -- integration_tests::test_dependencies --nocapture
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast -- --skip integration_tests::test_dependencies --nocapture --include-ignored
 
 .PHONY: test-sdk-go
 test-sdk-go:
@@ -36,7 +43,3 @@ doc:
 .PHONY: check-content
 check-content:
 	cd docs && bart check content/* && bart check content/**/*
-
-.PHONY: nomad-version
-nomad-version:
-	$(NOMAD) --version

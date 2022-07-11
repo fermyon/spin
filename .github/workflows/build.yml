@@ -122,8 +122,9 @@ jobs:
         run: cargo build --workspace --all-targets --all-features ${{ matrix.config.extraArgs }}
 
       - name: Cargo Test
-        run:
-          cargo test --workspace --all-targets --all-features --no-fail-fast -- --nocapture
+        run: |
+          make test-unit
+          make test-integration
         env:
           RUST_LOG: spin=trace
 

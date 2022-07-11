@@ -231,8 +231,8 @@ impl DeployCommand {
                 let source_dir = crate::app_dir(&self.app)?;
                 let fm = assets::collect(files, &source_dir)?;
                 for f in fm.iter() {
-                    let src_path = source_dir.join(&f.src);
-                    let mut r = File::open(src_path)?;
+                    let mut r = File::open(&f.src)
+                        .with_context(|| anyhow!("Cannot open file {}", &f.src.display()))?;
                     copy(&mut r, &mut sha256)?;
                 }
             }

@@ -113,19 +113,6 @@ func toResponse(res *C.wasi_outbound_http_response_t) (*http.Response, error) {
 	return t, nil
 }
 
-// outboundString is the go type for C.wasi_outbound_http_string_t.
-type outboundString C.wasi_outbound_http_string_t
-
-// newOutboundString creates a new spinString with the given string.
-func newOutboundString(s string) spinString {
-	return C.wasi_outbound_http_string_t{ptr: C.CString(s), len: C.size_t(len(s))}
-}
-
-// String returns the outboundString as a go string.
-func (ws outboundString) String() string {
-	return C.GoStringN(ws.ptr, C.int(ws.len))
-}
-
 func toOutboundHeaders(hm http.Header) C.wasi_outbound_http_headers_t {
 	var reqHeaders C.wasi_outbound_http_headers_t
 	headersLen := len(hm)
@@ -138,8 +125,8 @@ func toOutboundHeaders(hm http.Header) C.wasi_outbound_http_headers_t {
 
 		idx := 0
 		for k, v := range hm {
-			ptr[idx].f0 = newOutboundString(k)
-			ptr[idx].f1 = newOutboundString(v[0])
+			ptr[idx].f0 = C.wasi_outbound_http_string_t{ptr: C.CString(k), len: C.size_t(len(k))}
+			ptr[idx].f1 = C.wasi_outbound_http_string_t{ptr: C.CString(v[0]), len: C.size_t(len(v[0]))}
 			idx++
 		}
 		reqHeaders.ptr = &ptr[0]

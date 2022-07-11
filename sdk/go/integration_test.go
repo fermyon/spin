@@ -82,6 +82,7 @@ func TestHTTPTriger(t *testing.T) {
 	if resp.Body == nil {
 		t.Fatal("body is nil")
 	}
+	t.Log(resp.Status)
 	b, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {

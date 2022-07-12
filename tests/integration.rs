@@ -15,6 +15,7 @@ mod integration_tests {
     };
     use tempfile::TempDir;
     use tokio::{net::TcpStream, time::sleep};
+    use which::which;
 
     const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
     const RUST_HTTP_INTEGRATION_TEST_REF: &str = "spin-hello-world/1.0.0";
@@ -29,13 +30,30 @@ mod integration_tests {
 
     const SPIN_BINARY: &str = "./target/debug/spin";
     const BINDLE_SERVER_BINARY: &str = "bindle-server";
+    const NOMAD_BINARY: &str = "nomad";
+    const HIPPO_BINARY: &str = "Hippo.Web";
 
     const BINDLE_SERVER_PATH_ENV: &str = "SPIN_TEST_BINDLE_SERVER_PATH";
     const BINDLE_SERVER_BASIC_AUTH_HTPASSWD_FILE: &str = "tests/http/htpasswd";
     const BINDLE_SERVER_BASIC_AUTH_USER: &str = "bindle-user";
     const BINDLE_SERVER_BASIC_AUTH_PASSWORD: &str = "topsecret";
 
+    const HIPPO_BASIC_AUTH_USER: &str = "hippo-user";
+    const HIPPO_BASIC_AUTH_PASSWORD: &str = "topsecret";
+
     // This assumes all tests have been previously compiled by the top-level build script.
+
+    #[tokio::test]
+    async fn test_dependencies() -> Result<()> {
+        which(get_process(BINDLE_SERVER_BINARY))
+            .with_context(|| format!("Can't find {}", get_process(BINDLE_SERVER_BINARY)))?;
+        which(get_process(NOMAD_BINARY))
+            .with_context(|| format!("Can't find {}", get_process(NOMAD_BINARY)))?;
+        which(get_process(HIPPO_BINARY))
+            .with_context(|| format!("Can't find {}", get_process(HIPPO_BINARY)))?;
+
+        Ok(())
+    }
 
     #[tokio::test]
     async fn test_simple_rust_local() -> Result<()> {
@@ -269,6 +287,44 @@ mod integration_tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn test_spin_deploy() -> Result<()> {
+        // start the Bindle registry.
+        let config = BindleTestControllerConfig {
+            basic_auth_enabled: false,
+        };
+        let _nomad = NomadTestController::new().await?;
+        let bindle = BindleTestController::new(config).await?;
+        let hippo = HippoTestController::new(&bindle.url).await?;
+
+        // push the application to the registry using the Spin CLI.
+        run(
+            vec![
+                SPIN_BINARY,
+                "deploy",
+                "--file",
+                &format!(
+                    "{}/{}",
+                    RUST_HTTP_HEADERS_ENV_ROUTES_TEST, DEFAULT_MANIFEST_LOCATION
+                ),
+                "--bindle-server",
+                &bindle.url,
+                "--hippo-server",
+                &hippo.url,
+                "--hippo-username",
+                HIPPO_BASIC_AUTH_USER,
+                "--hippo-password",
+                HIPPO_BASIC_AUTH_PASSWORD,
+            ],
+            None,
+        )?;
+
+        let apps_vm = hippo.client.list_apps().await?;
+        assert_eq!(apps_vm.apps.len(), 1, "hippo apps: {apps_vm:?}");
+
+        Ok(())
+    }
+
     async fn verify_headers(
         s: &SpinTestController,
         absolute_uri: &str,
@@ -482,6 +538,95 @@ mod integration_tests {
         }
     }
 
+    /// Controller for running Nomad.
+    pub struct NomadTestController {
+        pub url: String,
+        nomad_handle: Child,
+    }
+
+    impl NomadTestController {
+        pub async fn new() -> Result<NomadTestController> {
+            let url = "127.0.0.1:4646".to_string();
+
+            let mut nomad_handle = Command::new(get_process(NOMAD_BINARY))
+                .args(["agent", "-dev"])
+                .spawn()
+                .with_context(|| "executing nomad")?;
+
+            wait_tcp(&url, &mut nomad_handle, NOMAD_BINARY).await?;
+
+            Ok(Self { url, nomad_handle })
+        }
+    }
+
+    impl Drop for NomadTestController {
+        fn drop(&mut self) {
+            let _ = self.nomad_handle.kill();
+        }
+    }
+
+    /// Controller for running Hippo.
+    pub struct HippoTestController {
+        pub url: String,
+        pub client: hippo::Client,
+        hippo_handle: Child,
+    }
+
+    impl HippoTestController {
+        pub async fn new(bindle_url: &str) -> Result<HippoTestController> {
+            let url = format!("http://127.0.0.1:{}", get_random_port()?);
+
+            let mut hippo_handle = Command::new(get_process(HIPPO_BINARY))
+                .env("ASPNETCORE_URLS", &url)
+                .env("Nomad__Driver", "raw_exec")
+                .env("Nomad__Datacenters__0", "dc1")
+                .env("Database__Driver", "inmemory")
+                .env("ConnectionStrings__Bindle", format!("Address={bindle_url}"))
+                .env("Jwt__Key", "ceci n'est pas une jeton")
+                .env("Jwt__Issuer", "localhost")
+                .env("Jwt__Audience", "localhost")
+                .spawn()
+                .with_context(|| "executing hippo")?;
+
+            wait_hippo(&url, &mut hippo_handle, HIPPO_BINARY).await?;
+
+            let client = hippo::Client::new(hippo::ConnectionInfo {
+                url: url.clone(),
+                danger_accept_invalid_certs: true,
+                api_key: None,
+            });
+            client
+                .register(
+                    HIPPO_BASIC_AUTH_USER.into(),
+                    HIPPO_BASIC_AUTH_PASSWORD.into(),
+                )
+                .await?;
+            let token_info = client
+                .login(
+                    HIPPO_BASIC_AUTH_USER.into(),
+                    HIPPO_BASIC_AUTH_PASSWORD.into(),
+                )
+                .await?;
+            let client = hippo::Client::new(hippo::ConnectionInfo {
+                url: url.clone(),
+                danger_accept_invalid_certs: true,
+                api_key: token_info.token,
+            });
+
+            Ok(Self {
+                url,
+                client,
+                hippo_handle,
+            })
+        }
+    }
+
+    impl Drop for HippoTestController {
+        fn drop(&mut self) {
+            let _ = self.hippo_handle.kill();
+        }
+    }
+
     fn run<S: Into<String> + AsRef<OsStr>>(args: Vec<S>, dir: Option<S>) -> Result<()> {
         let mut cmd = Command::new(get_os_process());
         cmd.stdout(process::Stdio::piped());
@@ -558,6 +703,38 @@ mod integration_tests {
                     sleep(Duration::from_secs(1)).await;
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    async fn wait_hippo(url: &str, process: &mut Child, target: &str) -> Result<()> {
+        let mut wait_count = 0;
+        loop {
+            if wait_count >= 120 {
+                panic!(
+                    "Ran out of retries waiting for {} to start on URL {}",
+                    target, url
+                );
+            }
+
+            if let Ok(Some(_)) = process.try_wait() {
+                panic!(
+                    "Process exited before starting to serve {} to start on URL {}",
+                    target, url
+                );
+            }
+
+            if let Ok(rsp) = reqwest::get(format!("{url}/healthz")).await {
+                if let Ok(result) = rsp.text().await {
+                    if result == "Healthy" {
+                        break;
+                    }
+                }
+            }
+
+            wait_count += 1;
+            sleep(Duration::from_secs(1)).await;
         }
 
         Ok(())

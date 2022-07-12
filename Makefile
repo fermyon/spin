@@ -7,10 +7,21 @@ build:
 	cargo build --release
 
 .PHONY: test
-test:
-	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --nocapture --include-ignored
+test: lint test-unit test-integration
+
+.PHONY: lint 
+lint:
 	cargo clippy --all-targets --all-features -- -D warnings
 	cargo fmt --all -- --check
+
+.PHONY: test-unit
+test-unit:
+	RUST_LOG=$(LOG_LEVEL) cargo test --no-fail-fast -- --skip integration_tests --nocapture --include-ignored
+
+.PHONY: test-integration
+test-integration:
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast  -- integration_tests::test_dependencies --nocapture
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast -- --skip integration_tests::test_dependencies --nocapture --include-ignored
 
 .PHONY: test-sdk-go
 test-sdk-go:

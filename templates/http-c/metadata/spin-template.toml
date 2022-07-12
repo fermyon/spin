@@ -1,6 +1,6 @@
 manifest_version = "1"
 id = "http-c"
-description = "HTTP request handler using C with the wasi-sdk"
+description = "HTTP request handler using C and the Zig toolchain"
 
 [parameters]
 project-description = { type = "string",  prompt = "Project description" }

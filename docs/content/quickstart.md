@@ -16,15 +16,15 @@ You can download the [latest release](https://github.com/fermyon/spin/releases).
 For example, for an Apple silicon macOS machine:
 
 ```
-$ wget https://github.com/fermyon/spin/releases/download/v0.3.0/spin-v0.3.0-macos-aarch64.tar.gz
-$ tar xfv spin-v0.3.0-macos-aarch64.tar.gz
+$ wget https://github.com/fermyon/spin/releases/download/v0.4.0/spin-v0.4.0-macos-aarch64.tar.gz
+$ tar xfv spin-v0.4.0-macos-aarch64.tar.gz
 $ ./spin --help
 ```
 
 If you have [`cargo`](https://doc.rust-lang.org/cargo/getting-started/installation.html), you can clone the repo and install it to your path:
 
 ```bash
-$ git clone https://github.com/fermyon/spin -b v0.3.0
+$ git clone https://github.com/fermyon/spin -b v0.4.0
 $ cd spin
 $ rustup target add wasm32-wasi
 $ cargo install --path .

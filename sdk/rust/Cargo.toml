@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "spin-sdk"
-version = "0.3.0"
+version = "0.4.0"
 
 [lib]
 name = "spin_sdk"

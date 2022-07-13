@@ -13,7 +13,7 @@ fn read(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "select * from articletest";
-    let rows = pg::query(address,sql, &vec![]).map_err(|_| anyhow!("Error execute pg command"))?;
+    let rows = pg::query(&address,sql, &vec![]).map_err(|_| anyhow!("Error execute pg command"))?;
 
     println!("rows: {:?}", rows);
 
@@ -24,7 +24,7 @@ fn write(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "insert into articletest values ('aaa', 'bbb', 'ccc')";
-    let nrow_executed = pg::execute(address, sql, &vec![]).map_err(|_| anyhow!("Error execute pg command"))?;
+    let nrow_executed = pg::execute(&address, sql, &vec![]).map_err(|_| anyhow!("Error execute pg command"))?;
 
     println!("nrow_executed: {}", nrow_executed);
 

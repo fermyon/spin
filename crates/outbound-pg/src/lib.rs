@@ -1,5 +1,5 @@
 use outbound_pg::*;
-use postgres::{Client, NoTls, types::ToSql};
+use postgres::{types::ToSql, Client, NoTls};
 
 pub use outbound_pg::add_to_linker;
 use spin_engine::{
@@ -33,27 +33,38 @@ impl HostComponent for OutboundPg {
 }
 
 impl outbound_pg::OutboundPg for OutboundPg {
-    fn execute(&mut self, address: &str,  statement: &str, params: Vec<&str>) -> Result<u64, Error> {
+    fn execute(&mut self, address: &str, statement: &str, params: Vec<&str>) -> Result<u64, Error> {
         let mut client = Client::connect(address, NoTls).map_err(|_| Error::Error)?;
 
-        let params: Vec<&(dyn ToSql + Sync)> = params.iter().map(|item| item as &(dyn ToSql + Sync)).collect();
+        let params: Vec<&(dyn ToSql + Sync)> = params
+            .iter()
+            .map(|item| item as &(dyn ToSql + Sync))
+            .collect();
 
         let nrow = client
             .execute(statement, params.as_slice())
             .map_err(|_| Error::Error)?;
-        
+
         Ok(nrow)
     }
-    
-    fn query(&mut self, address: &str, statement: &str, params: Vec<&str>) -> Result<Vec<Vec<Payload>>, Error> {
+
+    fn query(
+        &mut self,
+        address: &str,
+        statement: &str,
+        params: Vec<&str>,
+    ) -> Result<Vec<Vec<Payload>>, Error> {
         let mut client = Client::connect(address, NoTls).map_err(|_| Error::Error)?;
-        
-        let params: Vec<&(dyn ToSql + Sync)> = params.iter().map(|item| item as &(dyn ToSql + Sync)).collect();
+
+        let params: Vec<&(dyn ToSql + Sync)> = params
+            .iter()
+            .map(|item| item as &(dyn ToSql + Sync))
+            .collect();
 
         let results = client
             .query(statement, params.as_slice())
             .map_err(|_| Error::Error)?;
-        
+
         let mut output: Vec<Vec<Payload>> = Vec::new();
         for row in results {
             let ncol = row.len();
@@ -63,12 +74,11 @@ impl outbound_pg::OutboundPg for OutboundPg {
                 let col_payload: Payload = col_payload.as_bytes().to_vec();
                 row_vec.push(col_payload);
             }
-            if row_vec.len() > 0 {
+            if !row_vec.is_empty() {
                 output.push(row_vec);
             }
         }
-            
+
         Ok(output)
     }
-
 }

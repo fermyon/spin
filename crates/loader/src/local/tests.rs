@@ -11,7 +11,7 @@ async fn test_from_local_source() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, dir, &None).await?;
+    let app = from_file(MANIFEST, dir, &None, false).await?;
 
     assert_eq!(app.info.name, "spin-local-source-test");
     assert_eq!(app.info.version, "1.0.0");
@@ -145,7 +145,7 @@ async fn test_duplicate_component_id_is_rejected() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, dir, &None).await;
+    let app = from_file(MANIFEST, dir, &None, false).await;
 
     assert!(
         app.is_err(),

@@ -81,6 +81,10 @@ pub struct UpCommand {
     #[clap(long = "temp")]
     pub tmp: Option<PathBuf>,
 
+    /// Set the static assets of the components in the temporary directory as writable.
+    #[clap(long = "allow-transient-write")]
+    pub allow_transient_write: bool,
+
     /// All other args, to be passed through to the trigger
     pub trigger_args: Vec<OsString>,
 }
@@ -112,10 +116,24 @@ impl UpCommand {
                     .as_deref()
                     .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
                 let bindle_connection = self.bindle_connection();
-                spin_loader::from_file(manifest_file, working_dir, &bindle_connection).await?
+                spin_loader::from_file(
+                    manifest_file,
+                    working_dir,
+                    &bindle_connection,
+                    self.allow_transient_write,
+                )
+                .await?
             }
             (None, Some(bindle)) => match &self.server {
-                Some(server) => spin_loader::from_bindle(bindle, server, working_dir).await?,
+                Some(server) => {
+                    spin_loader::from_bindle(
+                        bindle,
+                        server,
+                        working_dir,
+                        self.allow_transient_write,
+                    )
+                    .await?
+                }
                 _ => bail!("Loading from a bindle requires a Bindle server URL"),
             },
             (Some(_), Some(_)) => bail!("Specify only one of app file or bindle ID"),
@@ -148,6 +166,10 @@ impl UpCommand {
             .env("SPIN_WORKING_DIR", working_dir)
             .env("SPIN_MANIFEST_URL", manifest_url)
             .env("SPIN_TRIGGER_TYPE", trigger_type)
+            .env(
+                "SPIN_ALLOW_TRANSIENT_WRITE",
+                self.allow_transient_write.to_string(),
+            )
             .arg(trigger_type)
             .args(trigger_args);
 

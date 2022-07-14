@@ -200,7 +200,7 @@ impl ProgressReporter for ConsoleProgressReporter {
 
 fn reason_text(reason: &SkippedReason) -> String {
     match reason {
-        SkippedReason::AlreadyExists => "Already exists",
+        SkippedReason::AlreadyExists => "Already exists".to_owned(),
+        SkippedReason::InvalidManifest(msg) => format!("Template load error: {}", msg),
     }
-    .to_owned()
 }

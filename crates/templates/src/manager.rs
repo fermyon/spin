@@ -65,6 +65,8 @@ enum InstallationResult {
 pub enum SkippedReason {
     /// The template was skipped because it was already present.
     AlreadyExists,
+    /// The template was skipped because its manifest was missing or invalid.
+    InvalidManifest(String),
 }
 
 /// The results of installing a set of templates.
@@ -131,8 +133,20 @@ impl TemplateManager {
         reporter: &impl ProgressReporter,
     ) -> anyhow::Result<InstallationResult> {
         let layout = TemplateLayout::new(source_dir);
-        let template = Template::load_from(&layout)
-            .with_context(|| format!("Failed to read template from {}", source_dir.display()))?;
+        let template = match Template::load_from(&layout) {
+            Ok(t) => t,
+            Err(e) => {
+                let fake_id = source_dir
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| format!("{}", source_dir.display()));
+                let message = format!("{}", e);
+                return Ok(InstallationResult::Skipped(
+                    fake_id,
+                    SkippedReason::InvalidManifest(message),
+                ));
+            }
+        };
         let id = template.id();
 
         let message = format!("Installing template {}...", id);
@@ -339,7 +353,7 @@ impl InstallationResults {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{fs, path::PathBuf};
 
     use tempfile::tempdir;
 
@@ -380,6 +394,38 @@ mod tests {
         assert_eq!(0, install_result.skipped.len());
 
         assert_eq!(TPLS_IN_THIS, manager.list().await.unwrap().len());
+    }
+
+    #[tokio::test]
+    async fn skips_bad_templates() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+
+        let temp_source = tempdir().unwrap();
+        let temp_source_tpls_dir = temp_source.path().join("templates");
+        fs_extra::dir::copy(
+            project_root().join("templates"),
+            &temp_source_tpls_dir,
+            &copy_content(),
+        )
+        .unwrap();
+        fs::create_dir(temp_source_tpls_dir.join("notta-template")).unwrap();
+        let source = TemplateSource::File(temp_source.path().to_owned());
+
+        assert_eq!(0, manager.list().await.unwrap().len());
+
+        let install_result = manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+        assert_eq!(TPLS_IN_THIS, install_result.installed.len());
+        assert_eq!(1, install_result.skipped.len());
+
+        assert!(matches!(
+            install_result.skipped[0].1,
+            SkippedReason::InvalidManifest(_)
+        ));
     }
 
     #[tokio::test]

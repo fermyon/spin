@@ -65,6 +65,8 @@ enum InstallationResult {
 pub enum SkippedReason {
     /// The template was skipped because it was already present.
     AlreadyExists,
+    /// The template was skipped because its manifest was missing or invalid.
+    InvalidManifest(String),
 }
 
 /// The results of installing a set of templates.
@@ -73,6 +75,22 @@ pub struct InstallationResults {
     pub installed: Vec<Template>,
     /// The templates that were skipped during the install operation.
     pub skipped: Vec<(String, SkippedReason)>,
+}
+
+/// The result of listing templates.
+#[derive(Debug)]
+pub struct ListResults {
+    /// The installed templates.
+    pub templates: Vec<Template>,
+    /// Any warnings identified during the list operation.
+    pub warnings: Vec<(String, InstalledTemplateWarning)>,
+}
+
+/// A recoverable problem while listing templates.
+#[derive(Debug)]
+pub enum InstalledTemplateWarning {
+    /// The manifest is invalid. The directory may not represent a template.
+    InvalidManifest(String),
 }
 
 impl TemplateManager {
@@ -131,8 +149,20 @@ impl TemplateManager {
         reporter: &impl ProgressReporter,
     ) -> anyhow::Result<InstallationResult> {
         let layout = TemplateLayout::new(source_dir);
-        let template = Template::load_from(&layout)
-            .with_context(|| format!("Failed to read template from {}", source_dir.display()))?;
+        let template = match Template::load_from(&layout) {
+            Ok(t) => t,
+            Err(e) => {
+                let fake_id = source_dir
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| format!("{}", source_dir.display()));
+                let message = format!("{}", e);
+                return Ok(InstallationResult::Skipped(
+                    fake_id,
+                    SkippedReason::InvalidManifest(message),
+                ));
+            }
+        };
         let id = template.id();
 
         let message = format!("Installing template {}...", id);
@@ -173,22 +203,23 @@ impl TemplateManager {
     }
 
     /// Lists all installed templates.
-    pub async fn list(&self) -> anyhow::Result<Vec<Template>> {
+    pub async fn list(&self) -> anyhow::Result<ListResults> {
         let mut templates = vec![];
+        let mut warnings = vec![];
 
         for template_layout in self.store.list_layouts().await? {
-            let template = Template::load_from(&template_layout).with_context(|| {
-                format!(
-                    "Failed to read template from {}",
-                    template_layout.metadata_dir().display()
-                )
-            })?;
-            templates.push(template);
+            match Template::load_from(&template_layout) {
+                Ok(template) => templates.push(template),
+                Err(e) => warnings.push(build_list_warning(&template_layout, e)?),
+            }
         }
 
         templates.sort_by_key(|t| t.id().to_owned());
 
-        Ok(templates)
+        Ok(ListResults {
+            templates,
+            warnings,
+        })
     }
 
     /// Gets the specified template. The result will be `Ok(Some(template))` if
@@ -329,6 +360,23 @@ fn copy_content() -> fs_extra::dir::CopyOptions {
     options
 }
 
+fn build_list_warning(
+    template_layout: &TemplateLayout,
+    load_err: anyhow::Error,
+) -> anyhow::Result<(String, InstalledTemplateWarning)> {
+    match template_layout.metadata_dir().parent() {
+        Some(source_dir) => {
+            let fake_id = source_dir
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| format!("{}", source_dir.display()));
+            let message = format!("{}", load_err);
+            Ok((fake_id, InstalledTemplateWarning::InvalidManifest(message)))
+        }
+        None => Err(load_err).context("Failed to load template but unable to determine which one"),
+    }
+}
+
 impl InstallationResults {
     /// Gets whether the `InstallationResults` contains no templates. This
     /// indicates that no templates were found in the installation source.
@@ -339,7 +387,7 @@ impl InstallationResults {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{fs, path::PathBuf};
 
     use tempfile::tempdir;
 
@@ -370,7 +418,7 @@ mod tests {
         let manager = TemplateManager { store };
         let source = TemplateSource::File(project_root());
 
-        assert_eq!(0, manager.list().await.unwrap().len());
+        assert_eq!(0, manager.list().await.unwrap().templates.len());
 
         let install_result = manager
             .install(&source, &InstallOptions::default(), &DiscardingReporter)
@@ -379,7 +427,70 @@ mod tests {
         assert_eq!(TPLS_IN_THIS, install_result.installed.len());
         assert_eq!(0, install_result.skipped.len());
 
-        assert_eq!(TPLS_IN_THIS, manager.list().await.unwrap().len());
+        assert_eq!(TPLS_IN_THIS, manager.list().await.unwrap().templates.len());
+        assert_eq!(0, manager.list().await.unwrap().warnings.len());
+    }
+
+    #[tokio::test]
+    async fn skips_bad_templates() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+
+        let temp_source = tempdir().unwrap();
+        let temp_source_tpls_dir = temp_source.path().join("templates");
+        fs_extra::dir::copy(
+            project_root().join("templates"),
+            &temp_source_tpls_dir,
+            &copy_content(),
+        )
+        .unwrap();
+        fs::create_dir(temp_source_tpls_dir.join("notta-template")).unwrap();
+        let source = TemplateSource::File(temp_source.path().to_owned());
+
+        assert_eq!(0, manager.list().await.unwrap().templates.len());
+        assert_eq!(0, manager.list().await.unwrap().warnings.len());
+
+        let install_result = manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+        assert_eq!(TPLS_IN_THIS, install_result.installed.len());
+        assert_eq!(1, install_result.skipped.len());
+
+        assert!(matches!(
+            install_result.skipped[0].1,
+            SkippedReason::InvalidManifest(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn can_list_if_bad_dir_in_store() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        assert_eq!(0, manager.list().await.unwrap().templates.len());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        assert_eq!(TPLS_IN_THIS, manager.list().await.unwrap().templates.len());
+        assert_eq!(0, manager.list().await.unwrap().warnings.len());
+
+        fs::create_dir(temp_dir.path().join("i-trip-you-up")).unwrap();
+
+        let list_results = manager.list().await.unwrap();
+        assert_eq!(TPLS_IN_THIS, list_results.templates.len());
+        assert_eq!(1, list_results.warnings.len());
+        assert_eq!("i-trip-you-up", list_results.warnings[0].0);
+        assert!(matches!(
+            list_results.warnings[0].1,
+            InstalledTemplateWarning::InvalidManifest(_)
+        ));
     }
 
     #[tokio::test]
@@ -393,12 +504,13 @@ mod tests {
             .install(&source, &InstallOptions::default(), &DiscardingReporter)
             .await
             .unwrap();
-        assert_eq!(TPLS_IN_THIS, manager.list().await.unwrap().len());
+        assert_eq!(TPLS_IN_THIS, manager.list().await.unwrap().templates.len());
         manager.uninstall("http-rust").await.unwrap();
 
         let installed = manager.list().await.unwrap();
-        assert_eq!(TPLS_IN_THIS - 1, installed.len());
-        assert!(!installed.iter().any(|t| t.id() == "http-rust"));
+        assert_eq!(TPLS_IN_THIS - 1, installed.templates.len());
+        assert_eq!(0, installed.warnings.len());
+        assert!(!installed.templates.iter().any(|t| t.id() == "http-rust"));
     }
 
     #[tokio::test]
@@ -414,7 +526,10 @@ mod tests {
             .unwrap();
         manager.uninstall("http-rust").await.unwrap();
         manager.uninstall("http-go").await.unwrap();
-        assert_eq!(TPLS_IN_THIS - 2, manager.list().await.unwrap().len());
+        assert_eq!(
+            TPLS_IN_THIS - 2,
+            manager.list().await.unwrap().templates.len()
+        );
 
         let install_result = manager
             .install(&source, &InstallOptions::default(), &DiscardingReporter)
@@ -423,7 +538,7 @@ mod tests {
         assert_eq!(2, install_result.installed.len());
         assert_eq!(TPLS_IN_THIS - 2, install_result.skipped.len());
 
-        let installed = manager.list().await.unwrap();
+        let installed = manager.list().await.unwrap().templates;
         assert_eq!(TPLS_IN_THIS, installed.len());
         assert!(installed.iter().any(|t| t.id() == "http-rust"));
         assert!(installed.iter().any(|t| t.id() == "http-go"));
@@ -441,7 +556,10 @@ mod tests {
             .await
             .unwrap();
         manager.uninstall("http-rust").await.unwrap();
-        assert_eq!(TPLS_IN_THIS - 1, manager.list().await.unwrap().len());
+        assert_eq!(
+            TPLS_IN_THIS - 1,
+            manager.list().await.unwrap().templates.len()
+        );
 
         let install_result = manager
             .install(
@@ -454,7 +572,7 @@ mod tests {
         assert_eq!(TPLS_IN_THIS, install_result.installed.len());
         assert_eq!(0, install_result.skipped.len());
 
-        let installed = manager.list().await.unwrap();
+        let installed = manager.list().await.unwrap().templates;
         assert_eq!(TPLS_IN_THIS, installed.len());
         assert!(installed.iter().any(|t| t.id() == "http-go"));
     }

@@ -122,18 +122,30 @@ where
     pub async fn build_application(&self) -> Result<Application> {
         let working_dir = std::env::var("SPIN_WORKING_DIR").context("SPIN_WORKING_DIR")?;
         let manifest_url = std::env::var("SPIN_MANIFEST_URL").context("SPIN_MANIFEST_URL")?;
+        let allow_transient_write: bool = std::env::var("SPIN_ALLOW_TRANSIENT_WRITE")
+            .unwrap_or_else(|_| "false".to_string())
+            .trim()
+            .parse()
+            .context("SPIN_ALLOW_TRANSIENT_WRITE")?;
 
         // TODO(lann): Find a better home for this; spin_loader?
         let mut app = if let Some(manifest_file) = manifest_url.strip_prefix("file://") {
             let bindle_connection = std::env::var("BINDLE_URL")
                 .ok()
                 .map(|url| BindleConnectionInfo::new(url, false, None, None));
-            spin_loader::from_file(manifest_file, working_dir, &bindle_connection).await?
+            spin_loader::from_file(
+                manifest_file,
+                working_dir,
+                &bindle_connection,
+                allow_transient_write,
+            )
+            .await?
         } else if let Some(bindle_url) = manifest_url.strip_prefix("bindle+") {
             let (bindle_server, bindle_id) = bindle_url
                 .rsplit_once("?id=")
                 .context("invalid bindle URL")?;
-            spin_loader::from_bindle(bindle_id, bindle_server, working_dir).await?
+            spin_loader::from_bindle(bindle_id, bindle_server, working_dir, allow_transient_write)
+                .await?
         } else {
             bail!("invalid SPIN_MANIFEST_URL {}", manifest_url);
         };

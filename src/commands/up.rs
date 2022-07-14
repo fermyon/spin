@@ -179,7 +179,20 @@ impl UpCommand {
 
         tracing::trace!("Running trigger executor: {:?}", cmd);
 
-        let status = cmd.status().context("Failed to execute trigger")?;
+        let mut child = cmd.spawn().context("Failed to execute trigger")?;
+
+        #[cfg(not(windows))]
+        {
+            // https://github.com/nix-rust/nix/issues/656
+            let pid = nix::unistd::Pid::from_raw(child.id() as i32);
+            ctrlc::set_handler(move || {
+                if let Err(err) = nix::sys::signal::kill(pid, nix::sys::signal::SIGTERM) {
+                    tracing::warn!("Failed to kill trigger handler process: {:?}", err)
+                }
+            })?;
+        }
+
+        let status = child.wait()?;
         if status.success() {
             Ok(())
         } else {

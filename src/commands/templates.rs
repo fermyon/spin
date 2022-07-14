@@ -5,8 +5,8 @@ use clap::{Parser, Subcommand};
 use comfy_table::Table;
 
 use spin_templates::{
-    InstallOptions, InstallationResults, ProgressReporter, SkippedReason, Template,
-    TemplateManager, TemplateSource,
+    InstallOptions, InstallationResults, InstalledTemplateWarning, ListResults, ProgressReporter,
+    SkippedReason, TemplateManager, TemplateSource,
 };
 
 const INSTALL_FROM_DIR_OPT: &str = "FROM_DIR";
@@ -128,7 +128,7 @@ impl Install {
                 table.load_preset(comfy_table::presets::ASCII_BORDERS_ONLY_CONDENSED);
 
                 for (id, reason) in skipped {
-                    table.add_row(vec![id.clone(), reason_text(reason)]);
+                    table.add_row(vec![id.clone(), skipped_reason_text(reason)]);
                 }
 
                 println!();
@@ -160,17 +160,19 @@ impl List {
     pub async fn run(self) -> Result<()> {
         let template_manager =
             TemplateManager::default().context("Failed to construct template directory path")?;
-        let templates = template_manager
+        let list_results = template_manager
             .list()
             .await
             .context("Failed to list templates")?;
 
-        self.print_templates(&templates);
+        self.print_templates(&list_results);
 
         Ok(())
     }
 
-    fn print_templates(&self, templates: &[Template]) {
+    fn print_templates(&self, list_results: &ListResults) {
+        let templates = &list_results.templates;
+        let warnings = &list_results.warnings;
         if templates.is_empty() {
             println!("You have no templates installed. Run");
             println!("spin templates install --git https://github.com/fermyon/spin");
@@ -187,6 +189,20 @@ impl List {
 
             println!("{}", table);
         }
+
+        if !warnings.is_empty() {
+            if !templates.is_empty() {
+                println!();
+            }
+
+            for (id, warning) in warnings {
+                println!(
+                    "note: ignored invalid entry {} ({})",
+                    id,
+                    list_warn_reason_text(warning)
+                );
+            }
+        }
     }
 }
 
@@ -198,9 +214,15 @@ impl ProgressReporter for ConsoleProgressReporter {
     }
 }
 
-fn reason_text(reason: &SkippedReason) -> String {
+fn skipped_reason_text(reason: &SkippedReason) -> String {
     match reason {
         SkippedReason::AlreadyExists => "Already exists".to_owned(),
         SkippedReason::InvalidManifest(msg) => format!("Template load error: {}", msg),
+    }
+}
+
+fn list_warn_reason_text(reason: &InstalledTemplateWarning) -> String {
+    match reason {
+        InstalledTemplateWarning::InvalidManifest(msg) => format!("Template load error: {}", msg),
     }
 }

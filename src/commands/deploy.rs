@@ -147,7 +147,8 @@ impl DeployCommand {
             self.hippo_username.clone(),
             self.hippo_password.clone(),
         )
-        .await?
+        .await
+        .context("Problem login Hippo")?
         .token
         {
             Some(t) => t,

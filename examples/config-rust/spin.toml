@@ -1,0 +1,19 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A Spin Rust application demonstrating the config sdk."
+name = "spin-config-rust"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[config]
+object = { default = "teapot" }
+
+[[component]]
+id = "spin_config_rust"
+source = "target/wasm32-wasi/release/spin_config_example.wasm"
+[component.trigger]
+route = "/..."
+[component.config]
+message = "I'm a {{object}}"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

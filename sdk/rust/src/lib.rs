@@ -38,10 +38,35 @@ pub mod http {
     }
 }
 
+/// Implementation of the spin redis interface.
 #[allow(missing_docs)]
 pub mod redis {
     wit_bindgen_rust::import!("../../wit/ephemeral/outbound-redis.wit");
 
     /// Exports the generated outbound Redis items.
     pub use outbound_redis::*;
+}
+
+/// Implementation of the spin config interface.
+#[allow(missing_docs)]
+pub mod config {
+    wit_bindgen_rust::import!("../../wit/ephemeral/spin-config.wit");
+
+    /// Exports the generated Spin config items.
+    pub use spin_config::{get_config as get, Error};
+
+    impl ::std::fmt::Display for Error {
+        fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+            match self {
+                Error::Provider(provider_err) => write!(f, "provider error: {}", provider_err),
+                Error::InvalidKey(invalid_key) => write!(f, "invalid key: {}", invalid_key),
+                Error::InvalidSchema(invalid_schema) => {
+                    write!(f, "invalid schema: {}", invalid_schema)
+                }
+                Error::Other(other) => write!(f, "other: {}", other),
+            }
+        }
+    }
+
+    impl ::std::error::Error for Error {}
 }

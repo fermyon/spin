@@ -4,15 +4,78 @@
 <head>
     <meta charset="utf-8">
     {{#if site.info.extra.ga_measurement_id }}
-    <script async src="https://www.googletagmanager.com/gtag/js?id={{site.info.extra.ga_measurement_id}}"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){window.dataLayer.push(arguments);}
-        gtag('js', new Date());
+        <script async src="https://www.googletagmanager.com/gtag/js?id={{site.info.extra.ga_measurement_id}}"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){window.dataLayer.push(arguments);}
+            gtag('js', new Date());
 
-        gtag('config', '{{site.info.extra.ga_measurement_id}}');
-    </script>
+            gtag('config', '{{site.info.extra.ga_measurement_id}}');
+        </script>
+        <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent2/3.1.1/cookieconsent.min.css" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/cookieconsent2/3.1.1/cookieconsent.min.js" data-cfasync="false"></script>
+
+        <script>
+        const propertyID = "{{site.info.extra.ga_measurement_id}}";
+        var popup;
+        window.addEventListener('load', function(){
+            window.cookieconsent.initialise({
+            type: "opt-in",
+            theme: "classic",
+            palette: {
+                popup: {
+                background: "#525776",
+                text: "#fff"
+                },
+                button: {
+                background: "#1fbca0",
+                text: "#fff"
+                }
+            },
+            onInitialise: function(status) {
+                // request gtag.js on page-load when the client already consented
+                if(status == cookieconsent.status.allow) setCookies();
+            },
+            onStatusChange: function(status) {
+                // resquest gtag cookies on a new consent
+                if (this.hasConsented()) setCookies();
+                else deleteCookies(this.options.cookie.name)
+            },
+            /* enable this to hide the cookie banner outside GDPR regions
+                law: {
+                    regionalLaw: false,
+                },
+                location: true,
+                },
+            */
+            function (p) {
+                popup = p;
+            }
+            });
+        });
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', propertyID);
+        function setCookies() {
+            var s = document.createElement('script');
+            s.type = "text/javascript"
+            s.async = "true";
+            s.src = `https://www.googletagmanager.com/gtag/js?id={{site.info.extra.ga_measurement_id}}`;
+            var x = document.getElementsByTagName('script')[0];
+            x.parentNode.insertBefore(s, x);
+        };
+        function deleteCookies(cookieconsent_name) {
+            var keep = [cookieconsent_name, "DYNSRV"];
+            document.cookie.split(';').forEach(function(c) {
+            c = c.split('=')[0].trim();
+            if (!~keep.indexOf(c))
+                document.cookie = c + '=;' + 'expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/';
+            });
+        };
+        </script>
     {{/if}}
+
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     {{! Use the formatter.title and formatter.description in the head }}

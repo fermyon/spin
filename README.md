@@ -28,7 +28,7 @@ See the [quickstart document](https://spin.fermyon.dev/quickstart/) for a detail
 guide on configuring Spin and writing your first Spin application, but in short:
 
 ```
-$ wget https://github.com/fermyon/spin/releases/download/<version>/spin-<version>-<os-arch>.tar.gz
+$ wget https://github.com/fermyon/spin/releases/tag/<version>/spin-<version>-<os-arch>.tar.gz
 $ tar xfv spin-<version>-<os-arch>.tar.gz
 $ ./spin --help
 ```

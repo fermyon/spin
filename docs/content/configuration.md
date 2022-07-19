@@ -54,7 +54,7 @@ configuration has the following fields:
     - `type` (REQUIRED): The application trigger type with the value `"redis"`.
     - `address` (REQUIRED): The address of the Redis instance the components
 are using for message subscriptions.
-- `config` (OPTIONAL): [Custom configuration](#custom-configuration) "slots".
+- `variables` (OPTIONAL): [Custom configuration](#custom-configuration) "slots".
 - A list of `component` objects (REQUIRED) defining the application components.
 
 ### Component configuration
@@ -123,7 +123,7 @@ component code via the [spin-config interface](https://github.com/fermyon/spin/b
 
 ### Custom Config Slots
 
-Application-global custom config "slots" are defined in the top-level `[config]`
+Application-global custom config "slots" are defined in the top-level `[variables]`
 section. These entries aren't accessed directly by components, but are referenced
 by [component config](#component-custom-config) value templates. Each entry must
 either have a `default` value or be marked as `required = true`. "Required" entries
@@ -132,7 +132,7 @@ must be [provided](#custom-config-providers) with a value.
 Configuration keys may only contain lowercase letters and underscores between letters.
 
 ```toml
-[config]
+[variables]
 api_host = { default = "api.example.com" }
 api_key = { required = true }
 ```

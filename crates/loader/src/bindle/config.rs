@@ -9,6 +9,7 @@ pub struct RawAppManifest {
     pub trigger: spin_manifest::ApplicationTrigger,
 
     /// Application-specific configuration schema.
+    #[serde(rename = "variables")]
     pub config: Option<spin_config::Tree>,
 
     /// Configuration for the application components.

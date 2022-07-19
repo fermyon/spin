@@ -5,7 +5,7 @@ name = "spin-config-rust"
 trigger = { type = "http", base = "/" }
 version = "0.1.0"
 
-[config]
+[variables]
 object = { default = "teapot" }
 
 [[component]]

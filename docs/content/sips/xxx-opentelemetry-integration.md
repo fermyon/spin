@@ -1,4 +1,15 @@
 
+title = "SIP xxx - OpenTelemetry Integration" template = "main" date = "2022-08-20T13:53:52Z"
+---
+
+Summary: Integrate OpenTelemetry into SPIN
+
+Owner: bogdan@genez.io
+
+Created: Jul 20, 2022
+
+Updated: Jul 20, 2022
+
 # Background
 
 Debugging distributed systems can be a very hard task. The current Spin logging system allows the user to log events with different log levels. These logs are then saved in files which can be later inspected. However, if Spin is used in the context of a larger distributed system, the debugging process can become quite cumbersome. An open source standard called OpenTelemetry has emerged to address the problem of observability in distributed systems. For more information about OpenTelemetry, check the documentation [here](https://opentelemetry.io/docs/concepts/observability-primer/).

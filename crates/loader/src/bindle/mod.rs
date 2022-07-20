@@ -31,14 +31,19 @@ pub use utils::SPIN_MANIFEST_MEDIA_TYPE;
 /// prepared application configuration consumable by a Spin execution context.
 /// If a directory is provided, use it as the base directory to expand the assets,
 /// otherwise create a new temporary directory.
-pub async fn from_bindle(id: &str, url: &str, base_dst: impl AsRef<Path>) -> Result<Application> {
+pub async fn from_bindle(
+    id: &str,
+    url: &str,
+    base_dst: impl AsRef<Path>,
+    allow_transient_write: bool,
+) -> Result<Application> {
     // TODO
     // Handle Bindle authentication.
     let connection_info = BindleConnectionInfo::new(url, false, None, None);
     let client = connection_info.client()?;
     let reader = BindleReader::remote(&client, &id.parse()?);
 
-    prepare(id, url, &reader, base_dst).await
+    prepare(id, url, &reader, base_dst, allow_transient_write).await
 }
 
 /// Converts a Bindle invoice into Spin configuration.
@@ -47,6 +52,7 @@ async fn prepare(
     url: &str,
     reader: &BindleReader,
     base_dst: impl AsRef<Path>,
+    allow_transient_write: bool,
 ) -> Result<Application> {
     // First, get the invoice from the Bindle server.
     let invoice = reader
@@ -80,7 +86,7 @@ async fn prepare(
     let components = future::join_all(
         raw.components
             .into_iter()
-            .map(|c| async { core(c, &invoice, reader, &base_dst).await })
+            .map(|c| async { core(c, &invoice, reader, &base_dst, allow_transient_write).await })
             .collect::<Vec<_>>(),
     )
     .await
@@ -102,6 +108,7 @@ async fn core(
     invoice: &Invoice,
     reader: &BindleReader,
     base_dst: impl AsRef<Path>,
+    allow_transient_write: bool,
 ) -> Result<CoreComponent> {
     let bytes = reader
         .get_parcel(&raw.source)
@@ -115,8 +122,15 @@ async fn core(
         Some(group) => {
             let parcels = parcels_in_group(invoice, &group);
             vec![
-                assets::prepare_component(reader, &invoice.bindle.id, &parcels, base_dst, &id)
-                    .await?,
+                assets::prepare_component(
+                    reader,
+                    &invoice.bindle.id,
+                    &parcels,
+                    base_dst,
+                    &id,
+                    allow_transient_write,
+                )
+                .await?,
             ]
         }
         None => vec![],

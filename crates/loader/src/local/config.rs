@@ -27,6 +27,7 @@ pub struct RawAppManifest {
     pub info: RawAppInformation,
 
     /// Application-specific configuration schema.
+    #[serde(rename = "variables")]
     pub config: Option<spin_config::Tree>,
 
     /// Configuration for the application components.

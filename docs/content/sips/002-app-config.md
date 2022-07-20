@@ -9,7 +9,7 @@ Owner: lann.martin@fermyon.com
 
 Created: March 22, 2022
 
-Updated: April 4, 2022
+Updated: July 19, 2022
 
 ## Background
 
@@ -33,7 +33,7 @@ Configuration within a "parent" (component or application) consists of a number 
 - A slot may be marked as "secret", in which case any associated value should be handled with care (e.g. not logged)
 
 ```toml
-[config]
+[variables]
 required_key = { required = true }
 optional_key = { default = "default_value" }
 secret_key = { required = true, secret = true }
@@ -41,14 +41,14 @@ secret_key = { required = true, secret = true }
 
 Default values can use template strings to reference other slots.
 ```toml
-[config]
+[variables]
 key1 = { required = true }
 key2 = { default = "prefix-{{ key1 }}-suffix" }
 ```
 
 ### Components and applications set configuration values of their dependencies
 
-In dependency configuration, templates strings can reference top-level config keys (those in `[config]`), "sibling" keys within the same dependency, and "ancestor" dependant configs.
+In dependency configuration, templates strings can reference top-level config keys (those in `[variables]`), "sibling" keys within the same dependency, and "ancestor" dependant configs.
 
 - Top-level references use just the key name: `{{ top_level_key }}`
 - "Sibling" references use a single `.` prefix: `{{ .sibling_key }}`
@@ -57,7 +57,7 @@ In dependency configuration, templates strings can reference top-level config ke
 
 `spin.toml`:
 ```toml
-[config]
+[variables]
 app_root = { default = "/app" }
 log_file = { default = "{{ app_root }}/log.txt" }
 ...

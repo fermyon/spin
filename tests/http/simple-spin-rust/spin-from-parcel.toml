@@ -5,7 +5,7 @@ name = "spin-hello-from-parcel"
 trigger = {type = "http", base = "/test"}
 version = "1.0.0"
 
-[config]
+[variables]
 object = { default = "teapot" }
 
 [[component]]

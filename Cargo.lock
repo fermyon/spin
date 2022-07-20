@@ -2216,6 +2216,7 @@ dependencies = [
  "bitflags",
  "cfg-if",
  "libc",
+ "memoffset",
 ]
 
 [[package]]
@@ -3622,6 +3623,7 @@ dependencies = [
  "cargo-target-dep",
  "clap 3.1.15",
  "comfy-table",
+ "ctrlc",
  "dirs 4.0.0",
  "dunce",
  "env_logger",
@@ -3630,6 +3632,7 @@ dependencies = [
  "hippo-openapi",
  "hyper",
  "lazy_static",
+ "nix",
  "openssl",
  "outbound-redis",
  "path-absolutize",

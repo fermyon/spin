@@ -16,7 +16,7 @@ lint:
 
 .PHONY: test-unit
 test-unit:
-	RUST_LOG=$(LOG_LEVEL) cargo test --no-fail-fast -- --skip integration_tests --nocapture --include-ignored
+	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --skip integration_tests --nocapture --include-ignored
 
 .PHONY: test-integration
 test-integration:

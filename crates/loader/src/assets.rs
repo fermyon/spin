@@ -90,6 +90,19 @@ pub fn file_sha256_digest_string(path: impl AsRef<Path>) -> std::io::Result<Stri
     Ok(digest_string)
 }
 
+/// Change file to writable or readonly
+pub(crate) async fn change_file_permission(
+    path: impl AsRef<Path>,
+    allow_transient_write: bool,
+) -> Result<()> {
+    let mut perms = tokio::fs::metadata(&path).await?.permissions();
+    perms.set_readonly(!allow_transient_write);
+    tokio::fs::set_permissions(path, perms.clone())
+        .await
+        .with_context(|| anyhow!("Cannot set permission {:?}", perms.clone()))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

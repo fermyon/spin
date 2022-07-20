@@ -1,5 +1,5 @@
 
-title = "SIP xxx - OpenTelemetry Integration" template = "main" date = "2022-08-20T13:53:52Z"
+title = "SIP xxx - OpenTelemetry Integration" template = "main" date = "2022-07-20T13:53:52Z"
 ---
 
 Summary: Integrate OpenTelemetry into SPIN

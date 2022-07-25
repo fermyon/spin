@@ -7,7 +7,12 @@ pub mod host_component;
 /// Input / Output redirects.
 pub mod io;
 
-use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    io::Write,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::{bail, Context, Result};
 use host_component::{HostComponent, HostComponents, HostComponentsState};
@@ -246,6 +251,17 @@ impl<T: Default> ExecutionContext<T> {
         Ok((store, instance))
     }
 
+    /// Sanitizes the component's label and returns the component's directory in
+    /// Spin home or simply just the component's directory depending on if a
+    /// home directory is present
+    fn app_dir(&self) -> PathBuf {
+        let sanitized_label = sanitize(&self.config.label);
+        match dirs::home_dir() {
+            Some(h) => h.join(SPIN_HOME).join(&sanitized_label),
+            None => PathBuf::from(&sanitized_label),
+        }
+    }
+
     /// Save logs for a given component in the log directory on the host
     pub fn save_output_to_logs(
         &self,
@@ -254,15 +270,11 @@ impl<T: Default> ExecutionContext<T> {
         save_stdout: bool,
         save_stderr: bool,
     ) -> Result<()> {
-        let sanitized_label = sanitize(&self.config.label);
         let sanitized_component_name = sanitize(&component);
 
         let log_dir = match &self.config.log_dir {
             Some(l) => l.clone(),
-            None => match dirs::home_dir() {
-                Some(h) => h.join(SPIN_HOME).join(&sanitized_label).join("logs"),
-                None => PathBuf::from(&sanitized_label).join("logs"),
-            },
+            None => self.app_dir().join("log"),
         };
 
         let stdout_filename = log_dir.join(sanitize(format!(
@@ -328,6 +340,16 @@ impl<T: Default> ExecutionContext<T> {
             let host = dir.host;
             wasi_ctx =
                 wasi_ctx.preopened_dir(Dir::open_ambient_dir(host, ambient_authority())?, guest)?;
+        }
+
+        if component.core.wasm.enable_monitoring {
+            let app_dir = self.app_dir();
+            std::fs::create_dir_all(&app_dir)?;
+            log::trace!("Pre-opening app dir {:?}", app_dir);
+            wasi_ctx = wasi_ctx.preopened_dir(
+                Dir::open_ambient_dir(&app_dir, ambient_authority())?,
+                Path::new("/.spin/"),
+            )?;
         }
 
         if let Some(resolver) = &self.config.config_resolver {

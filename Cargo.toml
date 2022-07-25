@@ -49,7 +49,6 @@ url = "2.2.2"
 wasi-outbound-http = { path = "crates/outbound-http" }
 wasmtime = "0.35.3"
 
-
 [target.'cfg(target_os = "linux")'.dependencies]
 # This needs to be an explicit dependency to enable
 # '--features openssl/vendored', which is used for Linux releases.

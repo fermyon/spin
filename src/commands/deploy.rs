@@ -119,12 +119,6 @@ pub struct DeployCommand {
     pub redeploy: bool,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-struct LoginHippoError {
-    title: String,
-    detail: String,
-}
-
 impl DeployCommand {
     pub async fn run(self) -> Result<()> {
         let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
@@ -157,10 +151,7 @@ impl DeployCommand {
         .await
         {
             Ok(token_info) => token_info.token.unwrap_or_default(),
-            Err(err) => {
-                let error: LoginHippoError = serde_json::from_str(err.to_string().as_str())?;
-                bail!("Problem login into Hippo: {}", error.detail);
-            }
+            Err(err) => bail!(format_login_error(&err)?),
         };
 
         let hippo_client = Client::new(ConnectionInfo {
@@ -364,5 +355,23 @@ fn print_available_routes(
                 println!("    {}", description);
             }
         }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+struct LoginHippoError {
+    title: String,
+    detail: String,
+}
+
+fn format_login_error(err: &anyhow::Error) -> anyhow::Result<String> {
+    let error: LoginHippoError = serde_json::from_str(err.to_string().as_str())?;
+    if error.detail.ends_with(": ") {
+        Ok(format!(
+            "Problem logging into Hippo: {}",
+            error.detail.replace(": ", ".")
+        ))
+    } else {
+        Ok(format!("Problem logging into Hippo: {}", error.detail))
     }
 }

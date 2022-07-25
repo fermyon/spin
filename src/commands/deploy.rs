@@ -1,9 +1,10 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use bindle::Id;
 use clap::Parser;
 use hippo::{Client, ConnectionInfo};
 use hippo_openapi::models::ChannelRevisionSelectionStrategy;
 use semver::BuildMetadata;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use spin_http_engine::routes::RoutePattern;
 use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
@@ -147,11 +148,10 @@ impl DeployCommand {
             self.hippo_username.clone(),
             self.hippo_password.clone(),
         )
-        .await?
-        .token
+        .await
         {
-            Some(t) => t,
-            None => String::from(""),
+            Ok(token_info) => token_info.token.unwrap_or_default(),
+            Err(err) => bail!(format_login_error(&err)?),
         };
 
         let hippo_client = Client::new(ConnectionInfo {
@@ -355,5 +355,23 @@ fn print_available_routes(
                 println!("    {}", description);
             }
         }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+struct LoginHippoError {
+    title: String,
+    detail: String,
+}
+
+fn format_login_error(err: &anyhow::Error) -> anyhow::Result<String> {
+    let error: LoginHippoError = serde_json::from_str(err.to_string().as_str())?;
+    if error.detail.ends_with(": ") {
+        Ok(format!(
+            "Problem logging into Hippo: {}",
+            error.detail.replace(": ", ".")
+        ))
+    } else {
+        Ok(format!("Problem logging into Hippo: {}", error.detail))
     }
 }

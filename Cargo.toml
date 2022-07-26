@@ -18,7 +18,7 @@ dunce = "1.0"
 env_logger = "0.9"
 futures = "0.3"
 hippo-openapi = "0.8"
-hippo = { git = "https://github.com/deislabs/hippo-cli"}
+hippo = { git = "https://github.com/deislabs/hippo-cli", rev = "67f6368fa39d296c3d1b11a93e43bc4c751cba6b"}
 lazy_static = "1.4.0"
 nix = { version = "0.24", features = ["signal"] }
 outbound-redis = { path = "crates/outbound-redis" }

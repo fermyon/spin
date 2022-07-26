@@ -23,10 +23,10 @@ extern "C" void spin_http_handle_http_request(spin_http_request_t *request,
   memcpy(body, body_string, body_length);
 
   response->status = 200;
-  response->headers.tag = true;
+  response->headers.is_some = true;
   response->headers.val.ptr = header;
   response->headers.val.len = 1;
-  response->body.tag = true;
+  response->body.is_some = true;
   response->body.val.ptr = body;
   response->body.val.len = body_length;
 }

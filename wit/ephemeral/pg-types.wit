@@ -1,0 +1,8 @@
+// General purpose error.
+enum error {
+    success,
+    error,
+}
+
+// The field payload
+type payload = list<u8>

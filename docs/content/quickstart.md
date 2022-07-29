@@ -194,10 +194,12 @@ Available Routes:
   spin-hello-world: http://127.0.0.1:3000/hello
 ```
 
-Optionally, set the RUST_LOG environment variable for detailed logs, before running `spin up`.
+Optionally, add the `-v` flag for detailed logs, before running `spin up`.
+Each addition of the `-v` flag increases the verbosity, capping at 5 for
+logs at the trace level.
 
 ```bash
-$ export RUST_LOG=spin=trace
+$ spin -vvvvv up
 ```
 
 Spin will instantiate all components from the application manifest, and

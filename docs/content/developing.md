@@ -26,7 +26,7 @@ command = "cargo build --target wasm32-wasi --release --manifest-path http-rust/
 Then, running `spin build` will execute, sequentially, each build command:
 
 ```
-$ RUST_LOG=spin=trace spin build
+$ spin -vvvvv build
 2022-04-25T03:01:56.721630Z  INFO spin_build: Executing the build command for component rust-hello.
     Finished release [optimized] target(s) in 0.05s
 2022-04-25T03:01:56.832360Z  INFO spin_build: Executing the build command for component rust-static-assets.

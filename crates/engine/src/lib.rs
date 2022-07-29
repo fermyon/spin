@@ -7,7 +7,14 @@ pub mod host_component;
 /// Input / Output redirects.
 pub mod io;
 
-use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
+use std::{
+    borrow::Borrow,
+    collections::{HashMap, HashSet},
+    hash::Hash,
+    io::Write,
+    path::PathBuf,
+    sync::Arc,
+};
 
 use anyhow::{bail, Context, Result};
 use host_component::{HostComponent, HostComponents, HostComponentsState};
@@ -140,16 +147,15 @@ impl<T: Default + 'static> Builder<T> {
     #[instrument(skip(self))]
     pub async fn build(mut self) -> Result<ExecutionContext<T>> {
         let _sloth_warning = warn_if_slothful();
-        let mut components = HashMap::new();
+        let mut components = HashSet::with_capacity(self.config.components.len() / 2);
         for c in &self.config.components {
-            let core = c.clone();
-            let module = match c.source.clone() {
+            let module = match &c.source {
                 ModuleSource::FileReference(p) => {
                     let module = Module::from_file(&self.engine.0, &p).with_context(|| {
                         format!(
                             "Cannot create module for component {} from file {}",
                             &c.id,
-                            &p.display()
+                            p.display()
                         )
                     })?;
                     log::trace!("Created module for component {} from file {:?}", &c.id, &p);
@@ -173,7 +179,8 @@ impl<T: Default + 'static> Builder<T> {
             let pre = Arc::new(self.linker.instantiate_pre(&mut self.store, &module)?);
             log::trace!("Created pre-instance from module for component {}.", &c.id);
 
-            components.insert(c.id.clone(), Component { core, pre });
+            let core = c.clone();
+            components.insert(Component { core, pre });
         }
 
         log::trace!("Execution context initialized.");
@@ -210,6 +217,32 @@ pub struct Component<T: Default> {
     pub pre: Arc<InstancePre<RuntimeContext<T>>>,
 }
 
+impl<T: Default> Hash for Component<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.core.id.hash(state);
+    }
+}
+
+impl<T: Default> Borrow<str> for Component<T> {
+    fn borrow(&self) -> &str {
+        &self.core.id
+    }
+}
+
+impl<T: Default> Borrow<String> for Component<T> {
+    fn borrow(&self) -> &String {
+        &self.core.id
+    }
+}
+
+impl<T: Default> PartialEq for Component<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.core.id == other.core.id
+    }
+}
+
+impl<T: Default> Eq for Component<T> {}
+
 /// A generic execution context for WebAssembly components.
 #[derive(Clone)]
 pub struct ExecutionContext<T: Default> {
@@ -218,7 +251,7 @@ pub struct ExecutionContext<T: Default> {
     /// Wasmtime engine.
     pub engine: Engine,
     /// Collection of pre-initialized (and already linked) components.
-    pub components: HashMap<String, Component<T>>,
+    pub components: HashSet<Component<T>>,
 
     host_components: Arc<HostComponents>,
 }
@@ -228,16 +261,16 @@ impl<T: Default> ExecutionContext<T> {
     #[instrument(skip(self, data, io))]
     pub fn prepare_component(
         &self,
-        component: &str,
+        component_id: &str,
         data: Option<T>,
         io: Option<RedirectPipes>,
         env: Option<HashMap<String, String>>,
         args: Option<Vec<String>>,
     ) -> Result<(Store<RuntimeContext<T>>, Instance)> {
-        log::trace!("Preparing component {}", component);
-        let component = match self.components.get(component) {
+        log::trace!("Preparing component {}", component_id);
+        let component = match self.components.get(component_id) {
             Some(c) => c,
-            None => bail!("Cannot find component {}", component),
+            None => bail!("Cannot find component {}", component_id),
         };
 
         let mut store = self.store(component, data, io, env, args)?;
@@ -250,12 +283,12 @@ impl<T: Default> ExecutionContext<T> {
     pub fn save_output_to_logs(
         &self,
         ior: impl OutputBuffers,
-        component: &str,
+        component_id: &str,
         save_stdout: bool,
         save_stderr: bool,
     ) -> Result<()> {
         let sanitized_label = sanitize(&self.config.label);
-        let sanitized_component_name = sanitize(&component);
+        let sanitized_component_name = sanitize(&component_id);
 
         let log_dir = match &self.config.log_dir {
             Some(l) => l.clone(),

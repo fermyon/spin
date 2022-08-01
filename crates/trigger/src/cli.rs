@@ -1,7 +1,7 @@
 use std::{error::Error, path::PathBuf, sync::Arc};
 
 use anyhow::{bail, Context, Result};
-use clap::{Args, Parser};
+use clap::{Args, IntoApp, Parser};
 use spin_engine::io::FollowComponents;
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_manifest::{Application, ApplicationTrigger, TriggerConfig};
@@ -15,6 +15,7 @@ pub const WASMTIME_CACHE_FILE: &str = "WASMTIME_CACHE_FILE";
 
 /// A command that runs a TriggerExecutor.
 #[derive(Parser, Debug)]
+#[clap(next_help_heading = "TRIGGER OPTIONS")]
 pub struct TriggerExecutorCommand<Executor: TriggerExecutor>
 where
     Executor::RunConfig: Args,
@@ -67,6 +68,9 @@ where
 
     #[clap(flatten)]
     pub run_config: Executor::RunConfig,
+
+    #[clap(long = "help-args-only", hide = true)]
+    pub help_args_only: bool,
 }
 
 /// An empty implementation of clap::Args to be used as TriggerExecutor::RunConfig
@@ -85,6 +89,14 @@ where
 {
     /// Create a new TriggerExecutorBuilder from this TriggerExecutorCommand.
     pub async fn run(self) -> Result<()> {
+        if self.help_args_only {
+            Self::command()
+                .disable_help_flag(true)
+                .help_template("{all-args}")
+                .print_long_help()?;
+            return Ok(());
+        }
+
         let app = self.build_application().await?;
         let mut builder = TriggerExecutorBuilder::new(app);
         self.update_wasmtime_config(builder.wasmtime_config_mut())?;

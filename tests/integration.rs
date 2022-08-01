@@ -726,10 +726,8 @@ mod integration_tests {
             }
 
             if let Ok(rsp) = reqwest::get(format!("{url}/healthz")).await {
-                if let Ok(result) = rsp.text().await {
-                    if result == "Healthy" {
-                        break;
-                    }
+                if rsp.status().is_success() {
+                    break;
                 }
             }
 

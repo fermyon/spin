@@ -318,14 +318,10 @@ impl DeployCommand {
     async fn check_hippo_healthz(&self) -> Result<()> {
         let hippo_base_url = url::Url::parse(&self.hippo_server_url)?;
         let hippo_healthz_url = hippo_base_url.join("/healthz")?;
-        let result = reqwest::get(hippo_healthz_url.to_string())
+        reqwest::get(hippo_healthz_url.to_string())
             .await?
-            .error_for_status()?
-            .text()
-            .await?;
-        if result != "Healthy" {
-            return Err(anyhow!("Hippo server {} is unhealthy", hippo_base_url));
-        }
+            .error_for_status()
+            .with_context(|| format!("Hippo server {} is unhealthy", hippo_base_url))?;
         Ok(())
     }
 }

@@ -86,16 +86,23 @@ pub struct UpCommand {
     pub allow_transient_write: bool,
 
     /// All other args, to be passed through to the trigger
+    #[clap(hide = true)]
     pub trigger_args: Vec<OsString>,
 }
 
 impl UpCommand {
     pub async fn run(self) -> Result<()> {
         let help = self.help;
+        if help {
+            Self::command()
+                .name("spin-up")
+                .bin_name("spin up")
+                .print_help()?;
+            println!();
+        }
         self.run_inner().await.or_else(|err| {
             if help {
                 tracing::warn!("Error resolving trigger-specific help: {}", err);
-                Self::command().print_help()?;
                 Ok(())
             } else {
                 Err(err)
@@ -154,7 +161,7 @@ impl UpCommand {
         };
 
         let trigger_args = if self.help {
-            vec![OsString::from("--help")]
+            vec![OsString::from("--help-args-only")]
         } else {
             self.trigger_args
         };

@@ -1,6 +1,7 @@
 #![deny(missing_docs)]
 
 use anyhow::{anyhow, bail, Context, Result};
+use reqwest::Url;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use tokio::fs;
@@ -100,6 +101,24 @@ pub(crate) async fn change_file_permission(
     tokio::fs::set_permissions(path, perms.clone())
         .await
         .with_context(|| anyhow!("Cannot set permission {:?}", perms.clone()))?;
+    Ok(())
+}
+
+pub fn validate_allowed_http_hosts(http_hosts: &Option<Vec<String>>) -> Result<()> {
+    if let Some(domains) = http_hosts.as_deref() {
+        if domains
+            .iter()
+            .any(|domain| domain == wasi_outbound_http::ALLOW_ALL_HOSTS)
+        {
+            return Ok(());
+        }
+        let _ = domains
+            .iter()
+            .map(|d| {
+                Url::parse(d).with_context(|| format!("Can't parse {} in allowed_http_hosts", d))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+    }
     Ok(())
 }
 

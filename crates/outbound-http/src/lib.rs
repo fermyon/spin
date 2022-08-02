@@ -12,7 +12,7 @@ pub use wasi_outbound_http::add_to_linker;
 
 wit_bindgen_wasmtime::export!("../../wit/ephemeral/wasi-outbound-http.wit");
 
-const ALLOW_ALL_HOSTS: &str = "insecure:allow-all";
+pub const ALLOW_ALL_HOSTS: &str = "insecure:allow-all";
 
 /// A very simple implementation for outbound HTTP requests.
 #[derive(Default, Clone)]

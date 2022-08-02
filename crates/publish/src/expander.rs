@@ -6,7 +6,10 @@ use bindle::{BindleSpec, Condition, Group, Invoice, Label, Parcel};
 use path_absolutize::Absolutize;
 use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
-use spin_loader::{bindle::config as bindle_schema, local::config as local_schema};
+use spin_loader::{
+    bindle::config as bindle_schema,
+    local::{config as local_schema, validate_raw_app_manifest},
+};
 use std::path::{Path, PathBuf};
 
 /// Expands a file-based application manifest to a Bindle invoice.
@@ -20,6 +23,7 @@ pub async fn expand_manifest(
         .absolutize()
         .context("Failed to resolve absolute path to manifest file")?;
     let manifest = spin_loader::local::raw_manifest_from_file(&app_file).await?;
+    validate_raw_app_manifest(&manifest)?;
     let local_schema::RawAppManifestAnyVersion::V1(manifest) = manifest;
     let app_dir = app_dir(&app_file)?;
 

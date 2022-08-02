@@ -698,7 +698,8 @@ mod integration_tests {
 
             match TcpStream::connect(&url).await {
                 Ok(_) => break,
-                Err(_) => {
+                Err(e) => {
+                    println!("connect {} error {}, retry {}", &url, e, wait_count);
                     wait_count += 1;
                     sleep(Duration::from_secs(1)).await;
                 }

@@ -3767,6 +3767,7 @@ dependencies = [
  "tracing-futures",
  "tracing-subscriber 0.3.9",
  "walkdir",
+ "wasi-outbound-http",
 ]
 
 [[package]]

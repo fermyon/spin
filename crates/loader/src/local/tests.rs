@@ -160,3 +160,41 @@ async fn test_duplicate_component_id_is_rejected() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_insecure_allow_all_with_invalid_url() -> Result<()> {
+    const MANIFEST: &str = "tests/insecure-allow-all-with-invalid-url.toml";
+
+    let temp_dir = tempfile::tempdir()?;
+    let dir = temp_dir.path();
+    let app = from_file(MANIFEST, dir, &None, false).await;
+
+    assert!(
+        app.is_ok(),
+        "Expected insecure:allow-all can skip url validation"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_invalid_url_in_allowed_http_hosts_is_rejected() -> Result<()> {
+    const MANIFEST: &str = "tests/invalid-url-in-allowed-http-hosts.toml";
+
+    let temp_dir = tempfile::tempdir()?;
+    let dir = temp_dir.path();
+    let app = from_file(MANIFEST, dir, &None, false).await;
+
+    assert!(
+        app.is_err(),
+        "Expected url can be parsed by reqwest Url, but there was invalid url"
+    );
+
+    let e = app.unwrap_err().to_string();
+    assert!(
+        e.contains("some-random-api.ml"),
+        "Expected error to contain invalid url `some-random-api.ml`"
+    );
+
+    Ok(())
+}

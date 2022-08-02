@@ -185,6 +185,39 @@ mod integration_tests {
         assert_status(&s, "/static/thisshouldbemounted/3", 200).await?;
 
         assert_status(&s, "/static/donotmount/a", 404).await?;
+        assert_status(
+            &s,
+            "/static/thisshouldbemounted/thisshouldbeexcluded/4",
+            404,
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_static_assets_without_bindle() -> Result<()> {
+        let s = SpinTestController::with_manifest(
+            &format!(
+                "{}/{}",
+                RUST_HTTP_STATIC_ASSETS_TEST, DEFAULT_MANIFEST_LOCATION
+            ),
+            &[],
+            None,
+        )
+        .await?;
+
+        assert_status(&s, "/static/thisshouldbemounted/1", 200).await?;
+        assert_status(&s, "/static/thisshouldbemounted/2", 200).await?;
+        assert_status(&s, "/static/thisshouldbemounted/3", 200).await?;
+
+        assert_status(&s, "/static/donotmount/a", 404).await?;
+        assert_status(
+            &s,
+            "/static/thisshouldbemounted/thisshouldbeexcluded/4",
+            404,
+        )
+        .await?;
 
         Ok(())
     }

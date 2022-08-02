@@ -98,6 +98,9 @@ pub struct RawWasmConfig {
     /// is either a file path or glob relative to the spin.toml file, or a
     /// mapping of a source path to an absolute mount path in the guest.
     pub files: Option<Vec<RawFileMount>>,
+    /// Optional list of file path or glob relative to the spin.toml that don't mount to wasm.
+    /// When exclude_files conflict with files config, exclude_files take precedence.
+    pub exclude_files: Option<Vec<String>>,
     /// Optional list of HTTP hosts the component is allowed to connect.
     pub allowed_http_hosts: Option<Vec<String>>,
 }

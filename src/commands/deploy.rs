@@ -229,7 +229,8 @@ impl DeployCommand {
             }
             if let Some(files) = &x.wasm.files {
                 let source_dir = crate::app_dir(&self.app)?;
-                let fm = assets::collect(files, &source_dir)?;
+                let exclude_files = x.wasm.exclude_files.clone().unwrap_or_default();
+                let fm = assets::collect(files, &exclude_files, &source_dir)?;
                 for f in fm.iter() {
                     let mut r = File::open(&f.src)
                         .with_context(|| anyhow!("Cannot open file {}", &f.src.display()))?;

@@ -174,7 +174,8 @@ fn collect_assets(
     base_dir: impl AsRef<Path>,
 ) -> Result<Vec<(spin_loader::local::assets::FileMount, String)>> {
     let patterns = component.wasm.files.clone().unwrap_or_default();
-    let file_mounts = spin_loader::local::assets::collect(&patterns, &base_dir)
+    let exclude_files = component.wasm.exclude_files.clone().unwrap_or_default();
+    let file_mounts = spin_loader::local::assets::collect(&patterns, &exclude_files, &base_dir)
         .with_context(|| format!("Failed to get file mounts for component '{}'", component.id))?;
     let annotated = file_mounts
         .into_iter()

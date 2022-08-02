@@ -9,6 +9,7 @@ id = "fs"
 # should we just use git submodules to avoid having binary test files here?
 source = "spin_static_fs.wasm"
 files = [{source = "static/thisshouldbemounted", destination = "/thisshouldbemounted"}]
+exclude_files = ["static/thisshouldbemounted/thisshouldbeexcluded/*"]
 [component.trigger]
 executor = {type = "spin"}
 route = "/static/..."

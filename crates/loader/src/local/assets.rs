@@ -6,7 +6,10 @@ use crate::assets::{
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use futures::{future, stream, StreamExt};
 use spin_manifest::DirectoryMount;
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    vec,
+};
 use tracing::log;
 use walkdir::WalkDir;
 
@@ -20,6 +23,7 @@ pub(crate) async fn prepare_component(
     base_dst: impl AsRef<Path>,
     id: &str,
     allow_transient_write: bool,
+    exclude_files: &[String],
 ) -> Result<Vec<DirectoryMount>> {
     log::info!(
         "Mounting files from '{}' to '{}'",
@@ -27,7 +31,7 @@ pub(crate) async fn prepare_component(
         base_dst.as_ref().display()
     );
 
-    let files = collect(raw_mounts, src)?;
+    let files = collect(raw_mounts, exclude_files, src)?;
     let host = create_dir(&base_dst, id).await?;
     let guest = "/".to_string();
     copy_all(&files, &host, allow_transient_write).await?;
@@ -45,11 +49,7 @@ pub struct FileMount {
 }
 
 impl FileMount {
-    fn from(
-        src: Result<impl AsRef<Path>, glob::GlobError>,
-        relative_to: impl AsRef<Path>,
-    ) -> Result<Self> {
-        let src = src?;
+    fn from(src: impl AsRef<Path>, relative_to: impl AsRef<Path>) -> Result<Self> {
         let relative_dst = to_relative(&src, &relative_to)?;
         let src = src.as_ref().to_path_buf();
         Ok(Self { src, relative_dst })
@@ -63,13 +63,19 @@ impl FileMount {
 }
 
 /// Generate a vector of file mounts for a component given all its file patterns.
-pub fn collect(raw_mounts: &[RawFileMount], rel: impl AsRef<Path>) -> Result<Vec<FileMount>> {
+pub fn collect(
+    raw_mounts: &[RawFileMount],
+    exclude_files: &[String],
+    rel: impl AsRef<Path>,
+) -> Result<Vec<FileMount>> {
     let (patterns, placements) = uncase(raw_mounts);
 
     let pattern_files = collect_patterns(&patterns, &rel)?;
     let placement_files = collect_placements(&placements, &rel)?;
     let all_files = [pattern_files, placement_files].concat();
-    Ok(all_files)
+
+    let exclude_patterns = convert_strings_to_glob_patterns(exclude_files, &rel)?;
+    Ok(get_included_files(all_files, &exclude_patterns))
 }
 
 fn collect_placements(
@@ -172,7 +178,7 @@ fn collect_pattern(pattern: &str, rel: impl AsRef<Path>) -> Result<Vec<FileMount
     let matches = glob::glob(&abs.to_string_lossy())?;
     let specifiers = matches
         .into_iter()
-        .map(|path| FileMount::from(path, &rel))
+        .map(|path| FileMount::from(path?, &rel))
         .collect::<Result<Vec<_>>>()?;
     let files: Vec<_> = specifiers.into_iter().filter(|s| s.src.is_file()).collect();
     ensure_all_under(&rel, files.iter().map(|s| &s.src))?;
@@ -259,4 +265,48 @@ fn is_absolute_guest_path(path: impl AsRef<Path>) -> bool {
     // can tell - with Unix-style guest paths. So we have to check these
     // paths specifically using Unix logic rather than the system function.
     path.as_ref().to_string_lossy().starts_with('/')
+}
+
+/// Convert strings to glob patterns
+fn convert_strings_to_glob_patterns<T: AsRef<str>>(
+    files: &[T],
+    rel: impl AsRef<Path>,
+) -> Result<Vec<glob::Pattern>> {
+    let file_paths = files
+        .iter()
+        .map(|f| match rel.as_ref().join(f.as_ref()).to_str() {
+            Some(abs) => Ok(abs.to_owned()),
+            None => Err(anyhow!(
+                "Can't join {} and {}",
+                rel.as_ref().display(),
+                f.as_ref()
+            )),
+        })
+        .collect::<Result<Vec<_>>>()?;
+    file_paths
+        .iter()
+        .map(|f| {
+            glob::Pattern::new(f).with_context(|| format!("can't convert {} to glob pattern", f))
+        })
+        .collect::<Result<Vec<glob::Pattern>>>()
+}
+
+/// Remove files which match excluded patterns
+fn get_included_files(files: Vec<FileMount>, exclude_patterns: &[glob::Pattern]) -> Vec<FileMount> {
+    files
+        .into_iter()
+        .filter(|f| {
+            for exclude_pattern in exclude_patterns {
+                if exclude_pattern.matches_path(Path::new(&f.src)) {
+                    tracing::info!(
+                        "file: {} is excluded by pattern {}",
+                        f.src.display(),
+                        exclude_pattern
+                    );
+                    return false;
+                }
+            }
+            true
+        })
+        .collect::<Vec<_>>()
 }

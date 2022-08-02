@@ -185,6 +185,39 @@ mod integration_tests {
         assert_status(&s, "/static/thisshouldbemounted/3", 200).await?;
 
         assert_status(&s, "/static/donotmount/a", 404).await?;
+        assert_status(
+            &s,
+            "/static/thisshouldbemounted/thisshouldbeexcluded/4",
+            404,
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_static_assets_without_bindle() -> Result<()> {
+        let s = SpinTestController::with_manifest(
+            &format!(
+                "{}/{}",
+                RUST_HTTP_STATIC_ASSETS_TEST, DEFAULT_MANIFEST_LOCATION
+            ),
+            &[],
+            None,
+        )
+        .await?;
+
+        assert_status(&s, "/static/thisshouldbemounted/1", 200).await?;
+        assert_status(&s, "/static/thisshouldbemounted/2", 200).await?;
+        assert_status(&s, "/static/thisshouldbemounted/3", 200).await?;
+
+        assert_status(&s, "/static/donotmount/a", 404).await?;
+        assert_status(
+            &s,
+            "/static/thisshouldbemounted/thisshouldbeexcluded/4",
+            404,
+        )
+        .await?;
 
         Ok(())
     }
@@ -682,7 +715,7 @@ mod integration_tests {
     async fn wait_tcp(url: &str, process: &mut Child, target: &str) -> Result<()> {
         let mut wait_count = 0;
         loop {
-            if wait_count >= 120 {
+            if wait_count >= 180 {
                 panic!(
                     "Ran out of retries waiting for {} to start on URL {}",
                     target, url
@@ -698,7 +731,8 @@ mod integration_tests {
 
             match TcpStream::connect(&url).await {
                 Ok(_) => break,
-                Err(_) => {
+                Err(e) => {
+                    println!("connect {} error {}, retry {}", &url, e, wait_count);
                     wait_count += 1;
                     sleep(Duration::from_secs(1)).await;
                 }

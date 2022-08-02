@@ -196,7 +196,16 @@ async fn core(
     let description = raw.description;
     let mounts = match raw.wasm.files {
         Some(f) => {
-            assets::prepare_component(&f, src, &base_dst, &id, allow_transient_write).await?
+            let exclude_files = raw.wasm.exclude_files.unwrap_or_default();
+            assets::prepare_component(
+                &f,
+                src,
+                &base_dst,
+                &id,
+                allow_transient_write,
+                &exclude_files,
+            )
+            .await?
         }
         None => vec![],
     };

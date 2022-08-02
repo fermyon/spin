@@ -55,4 +55,11 @@ impl outbound_redis::OutboundRedis for OutboundRedis {
         conn.set(key, value).map_err(|_| Error::Error)?;
         Ok(())
     }
+
+    fn incr(&mut self, address: &str, key: &str) -> Result<i64, Error> {
+        let client = redis::Client::open(address).map_err(|_| Error::Error)?;
+        let mut conn = client.get_connection().map_err(|_| Error::Error)?;
+        let value = conn.incr(key, 1).map_err(|_| Error::Error)?;
+        Ok(value)
+    }
 }

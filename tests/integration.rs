@@ -715,7 +715,7 @@ mod integration_tests {
     async fn wait_tcp(url: &str, process: &mut Child, target: &str) -> Result<()> {
         let mut wait_count = 0;
         loop {
-            if wait_count >= 120 {
+            if wait_count >= 180 {
                 panic!(
                     "Ran out of retries waiting for {} to start on URL {}",
                     target, url

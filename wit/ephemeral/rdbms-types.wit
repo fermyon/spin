@@ -1,0 +1,28 @@
+enum db-data-type {
+    boolean,
+    int32,
+    int64,
+    db-string,
+    other,
+}
+
+variant db-value {
+    boolean(bool),
+    int32(s32),
+    int64(s64),
+    db-string(string),
+    db-null,
+    unsupported,
+}
+
+record column {
+    name: string,
+    data-type: db-data-type,
+}
+
+type row = list<db-value>
+
+record row-set {
+    // columns: list<column>,
+    rows: list<row>,
+}

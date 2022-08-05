@@ -1,8 +1,7 @@
 // General purpose error.
-enum error {
+variant pg-error {
     success,
-    error,
+    connection-failed(string),
+    query-failed(string),
+    other-error(string)
 }
-
-// The field payload
-type payload = list<u8>

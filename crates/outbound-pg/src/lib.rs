@@ -1,5 +1,5 @@
 use outbound_pg::*;
-use postgres::{types::ToSql, Client, NoTls};
+use postgres::{types::ToSql, types::Type, Client, NoTls, Row};
 
 pub use outbound_pg::add_to_linker;
 use spin_engine::{
@@ -33,8 +33,8 @@ impl HostComponent for OutboundPg {
 }
 
 impl outbound_pg::OutboundPg for OutboundPg {
-    fn execute(&mut self, address: &str, statement: &str, params: Vec<&str>) -> Result<u64, Error> {
-        let mut client = Client::connect(address, NoTls).map_err(|_| Error::Error)?;
+    fn execute(&mut self, address: &str, statement: &str, params: Vec<&str>) -> Result<u64, PgError> {
+        let mut client = Client::connect(address, NoTls).map_err(|_| PgError::OtherError("tba".to_owned()))?;
 
         let params: Vec<&(dyn ToSql + Sync)> = params
             .iter()
@@ -43,7 +43,7 @@ impl outbound_pg::OutboundPg for OutboundPg {
 
         let nrow = client
             .execute(statement, params.as_slice())
-            .map_err(|_| Error::Error)?;
+            .map_err(|_| PgError::OtherError("tba".to_owned()))?;
 
         Ok(nrow)
     }
@@ -53,8 +53,8 @@ impl outbound_pg::OutboundPg for OutboundPg {
         address: &str,
         statement: &str,
         params: Vec<&str>,
-    ) -> Result<Vec<Vec<Payload>>, Error> {
-        let mut client = Client::connect(address, NoTls).map_err(|_| Error::Error)?;
+    ) -> Result<RowSet, PgError> {
+        let mut client = Client::connect(address, NoTls).map_err(|_| PgError::OtherError("tba".to_owned()))?;
 
         let params: Vec<&(dyn ToSql + Sync)> = params
             .iter()
@@ -63,22 +63,66 @@ impl outbound_pg::OutboundPg for OutboundPg {
 
         let results = client
             .query(statement, params.as_slice())
-            .map_err(|_| Error::Error)?;
+            .map_err(|_| PgError::OtherError("tba".to_owned()))?;
 
-        let mut output: Vec<Vec<Payload>> = Vec::new();
-        for row in results {
-            let ncol = row.len();
-            let mut row_vec = Vec::new();
-            for i in 0..ncol {
-                let col_payload: &str = row.get(i);
-                let col_payload: Payload = col_payload.as_bytes().to_vec();
-                row_vec.push(col_payload);
-            }
-            if !row_vec.is_empty() {
-                output.push(row_vec);
-            }
-        }
+        let rows = results.iter().map(convert_row).collect();
+        // let mut output: Vec<Vec<DbValue>> = Vec::new();
+        // for row in results {
+        //     let ncol = row.len();
+        //     let mut row_vec = Vec::new();
+        //     for i in 0..ncol {
+        //         let col_payload: &str = row.get(i);
+        //         let col_payload = DbValue::DbString(col_payload.to_owned());
+        //         row_vec.push(col_payload);
+        //     }
+        //     if !row_vec.is_empty() {
+        //         output.push(row_vec);
+        //     }
+        // }
 
-        Ok(output)
+        Ok(RowSet { rows })
+    }
+}
+
+fn convert_row(row: &Row) -> Vec<DbValue> {
+    let mut result = Vec::with_capacity(row.len());
+    for index in 0..row.len() {
+        result.push(convert_entry(row, index));
+    }
+    result
+}
+
+fn convert_entry(row: &Row, index: usize) -> DbValue {
+    let column = &row.columns()[index];
+    match column.type_() {
+        &Type::BOOL => {
+            let value: Option<bool> = row.get(index);
+            match value {
+                Some(v) => DbValue::Boolean(v),
+                None => DbValue::DbNull,
+            }
+        },
+        &Type::INT4 => {
+            let value: Option<i32> = row.get(index);
+            match value {
+                Some(v) => DbValue::Int32(v),
+                None => DbValue::DbNull,
+            }
+        },
+        &Type::INT8 =>  {
+            let value: Option<i64> = row.get(index);
+            match value {
+                Some(v) => DbValue::Int64(v),
+                None => DbValue::DbNull,
+            }
+        },
+        &Type::VARCHAR =>  {
+            let value: Option<&str> = row.get(index);
+            match value {
+                Some(v) => DbValue::DbString(v.to_owned()),
+                None => DbValue::DbNull,
+            }
+        },
+        _ => DbValue::Unsupported,
     }
 }

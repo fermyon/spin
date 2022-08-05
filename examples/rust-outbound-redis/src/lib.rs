@@ -27,7 +27,14 @@ fn publish(_req: Request) -> Result<Response> {
 
     // Set the Redis key "spin-example" to value "Eureka!"
     redis::set(&address, &"spin-example", &b"Eureka!"[..])
-        .map_err(|_| anyhow!("Error executing Redis command"))?;
+        .map_err(|_| anyhow!("Error executing Redis set command"))?;
+
+    // Set the Redis key "int-key" to value 0
+    redis::set(&address, &"int-key", format!("{:x}", 0).as_bytes())
+        .map_err(|_| anyhow!("Error executing Redis set command"))?;
+    let int_value = redis::incr(&address, &"int-key")
+        .map_err(|_| anyhow!("Error executing Redis incr command",))?;
+    assert_eq!(int_value, 1);
 
     // Publish to Redis
     match redis::publish(&address, &channel, &payload) {

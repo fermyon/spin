@@ -23,6 +23,6 @@ record column {
 type row = list<db-value>
 
 record row-set {
-    // columns: list<column>,
+    columns: list<column>,
     rows: list<row>,
 }

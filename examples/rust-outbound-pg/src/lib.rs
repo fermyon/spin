@@ -12,7 +12,7 @@ const DB_URL_ENV: &str = "DB_URL";
 #[derive(Debug, Clone)]
 struct Article {
     id: i32,
-    title: String, 
+    title: String,
     content: String,
     authorname: String,
 }
@@ -22,8 +22,15 @@ fn read(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "select id, title, content, authorname from articletest";
-    let rowset = pg::query(&address,sql, &[])
+    let rowset = pg::query(&address, sql, &[])
         .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
+
+    let column_summary = rowset
+        .columns
+        .iter()
+        .map(format_col)
+        .collect::<Vec<_>>()
+        .join(", ");
 
     let mut response_lines = vec![];
 
@@ -33,20 +40,29 @@ fn read(_req: Request) -> Result<Response> {
         let content = as_owned_string(&row[2])?;
         let authorname = as_owned_string(&row[3])?;
 
-        let article = Article {id, title, content, authorname};
+        let article = Article {
+            id,
+            title,
+            content,
+            authorname,
+        };
 
         println!("article: {:#?}", article);
         response_lines.push(format!("article: {:#?}", article));
     }
-    
+
     // use it in business logic
 
-    let response = format!("Found {} article(s) as follows:\n{}\n",
+    let response = format!(
+        "Found {} article(s) as follows:\n{}\n\n(Column info: {})\n",
         response_lines.len(),
-        response_lines.join("\n")
+        response_lines.join("\n"),
+        column_summary,
     );
 
-    Ok(http::Response::builder().status(200).body(Some(response.into()))?)
+    Ok(http::Response::builder()
+        .status(200)
+        .body(Some(response.into()))?)
 }
 /*
 fn write(_req: Request) -> Result<Response> {
@@ -71,6 +87,13 @@ fn as_owned_string(value: &pg::DbValue) -> anyhow::Result<String> {
 fn as_int(value: &pg::DbValue) -> anyhow::Result<i32> {
     match value {
         pg::DbValue::Int32(n) => Ok(*n),
-        _ => Err(anyhow!("Expected integer from database but got {:?}", value)),
+        _ => Err(anyhow!(
+            "Expected integer from database but got {:?}",
+            value
+        )),
     }
+}
+
+fn format_col(column: &pg::Column) -> String {
+    format!("{}:{:?}", column.name, column.data_type)
 }

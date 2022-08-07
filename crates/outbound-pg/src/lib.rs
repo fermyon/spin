@@ -39,8 +39,8 @@ impl outbound_pg::OutboundPg for OutboundPg {
         statement: &str,
         params: Vec<&str>,
     ) -> Result<u64, PgError> {
-        let mut client =
-            Client::connect(address, NoTls).map_err(|_| PgError::OtherError("tba".to_owned()))?;
+        let mut client = Client::connect(address, NoTls)
+            .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?;
 
         let params: Vec<&(dyn ToSql + Sync)> = params
             .iter()
@@ -49,7 +49,7 @@ impl outbound_pg::OutboundPg for OutboundPg {
 
         let nrow = client
             .execute(statement, params.as_slice())
-            .map_err(|_| PgError::OtherError("tba".to_owned()))?;
+            .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
 
         Ok(nrow)
     }
@@ -72,9 +72,45 @@ impl outbound_pg::OutboundPg for OutboundPg {
             .query(statement, params.as_slice())
             .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
 
+        if results.is_empty() {
+            return Ok(RowSet {
+                columns: vec![],
+                rows: vec![],
+            });
+        }
+
+        let columns = infer_columns(&results[0]);
         let rows = results.iter().map(convert_row).collect();
 
-        Ok(RowSet { rows })
+        Ok(RowSet { columns, rows })
+    }
+}
+
+fn infer_columns(row: &Row) -> Vec<Column> {
+    let mut result = Vec::with_capacity(row.len());
+    for index in 0..row.len() {
+        result.push(infer_column(row, index));
+    }
+    result
+}
+
+fn infer_column(row: &Row, index: usize) -> Column {
+    let column = &row.columns()[index];
+    let name = column.name().to_owned();
+    let data_type = convert_data_type(column.type_());
+    Column { name, data_type }
+}
+
+fn convert_data_type(pg_type: &Type) -> DbDataType {
+    match pg_type {
+        &Type::BOOL => DbDataType::Boolean,
+        &Type::INT4 => DbDataType::Int32,
+        &Type::INT8 => DbDataType::Int64,
+        &Type::VARCHAR => DbDataType::DbString,
+        _ => {
+            tracing::debug!("Couldn't convert Postgres type {} to WIT", pg_type.name(),);
+            DbDataType::Other
+        }
     }
 }
 

@@ -11,6 +11,7 @@ const DB_URL_ENV: &str = "DB_URL";
 
 #[derive(Debug, Clone)]
 struct Article {
+    id: i32,
     title: String, 
     content: String,
     authorname: String,
@@ -20,23 +21,32 @@ struct Article {
 fn read(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
 
-    let sql = "select title, content, authorname from articletest";
-    let rows = pg::query(&address,sql, &[]).map_err(|_| anyhow!("Error execute pg command"))?;
+    let sql = "select id, title, content, authorname from articletest";
+    let rowset = pg::query(&address,sql, &[])
+        .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
 
-    println!("rows: {:?}", rows);
-    for row in rows {
-        let title = String::from_utf8(row[0].clone())?;
-        let content = String::from_utf8(row[1].clone())?;
-        let authorname = String::from_utf8(row[2].clone())?;
+    let mut response_lines = vec![];
 
-        let article = Article {title, content, authorname};
+    for row in rowset.rows {
+        let id = as_int(&row[0])?;
+        let title = as_owned_string(&row[1])?;
+        let content = as_owned_string(&row[2])?;
+        let authorname = as_owned_string(&row[3])?;
+
+        let article = Article {id, title, content, authorname};
 
         println!("article: {:#?}", article);
+        response_lines.push(format!("article: {:#?}", article));
     }
     
     // use it in business logic
 
-    Ok(http::Response::builder().status(200).body(None)?)
+    let response = format!("Found {} article(s) as follows:\n{}\n",
+        response_lines.len(),
+        response_lines.join("\n")
+    );
+
+    Ok(http::Response::builder().status(200).body(Some(response.into()))?)
 }
 /*
 fn write(_req: Request) -> Result<Response> {
@@ -50,3 +60,17 @@ fn write(_req: Request) -> Result<Response> {
     Ok(http::Response::builder().status(200).body(None)?)
 }
 */
+
+fn as_owned_string(value: &pg::DbValue) -> anyhow::Result<String> {
+    match value {
+        pg::DbValue::DbString(s) => Ok(s.to_owned()),
+        _ => Err(anyhow!("Expected string from database but got {:?}", value)),
+    }
+}
+
+fn as_int(value: &pg::DbValue) -> anyhow::Result<i32> {
+    match value {
+        pg::DbValue::Int32(n) => Ok(*n),
+        _ => Err(anyhow!("Expected integer from database but got {:?}", value)),
+    }
+}

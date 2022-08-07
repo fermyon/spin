@@ -54,7 +54,8 @@ impl outbound_pg::OutboundPg for OutboundPg {
         statement: &str,
         params: Vec<&str>,
     ) -> Result<RowSet, PgError> {
-        let mut client = Client::connect(address, NoTls).map_err(|_| PgError::OtherError("tba".to_owned()))?;
+        let mut client = Client::connect(address, NoTls)
+            .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?;
 
         let params: Vec<&(dyn ToSql + Sync)> = params
             .iter()
@@ -63,22 +64,9 @@ impl outbound_pg::OutboundPg for OutboundPg {
 
         let results = client
             .query(statement, params.as_slice())
-            .map_err(|_| PgError::OtherError("tba".to_owned()))?;
+            .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
 
         let rows = results.iter().map(convert_row).collect();
-        // let mut output: Vec<Vec<DbValue>> = Vec::new();
-        // for row in results {
-        //     let ncol = row.len();
-        //     let mut row_vec = Vec::new();
-        //     for i in 0..ncol {
-        //         let col_payload: &str = row.get(i);
-        //         let col_payload = DbValue::DbString(col_payload.to_owned());
-        //         row_vec.push(col_payload);
-        //     }
-        //     if !row_vec.is_empty() {
-        //         output.push(row_vec);
-        //     }
-        // }
 
         Ok(RowSet { rows })
     }
@@ -123,6 +111,9 @@ fn convert_entry(row: &Row, index: usize) -> DbValue {
                 None => DbValue::DbNull,
             }
         },
-        _ => DbValue::Unsupported,
+        t => {
+            tracing::debug!("Couldn't convert Postgres type {} in column {}", t.name(), column.name());
+            DbValue::Unsupported
+        },
     }
 }

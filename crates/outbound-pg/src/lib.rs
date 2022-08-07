@@ -33,8 +33,14 @@ impl HostComponent for OutboundPg {
 }
 
 impl outbound_pg::OutboundPg for OutboundPg {
-    fn execute(&mut self, address: &str, statement: &str, params: Vec<&str>) -> Result<u64, PgError> {
-        let mut client = Client::connect(address, NoTls).map_err(|_| PgError::OtherError("tba".to_owned()))?;
+    fn execute(
+        &mut self,
+        address: &str,
+        statement: &str,
+        params: Vec<&str>,
+    ) -> Result<u64, PgError> {
+        let mut client =
+            Client::connect(address, NoTls).map_err(|_| PgError::OtherError("tba".to_owned()))?;
 
         let params: Vec<&(dyn ToSql + Sync)> = params
             .iter()
@@ -89,31 +95,35 @@ fn convert_entry(row: &Row, index: usize) -> DbValue {
                 Some(v) => DbValue::Boolean(v),
                 None => DbValue::DbNull,
             }
-        },
+        }
         &Type::INT4 => {
             let value: Option<i32> = row.get(index);
             match value {
                 Some(v) => DbValue::Int32(v),
                 None => DbValue::DbNull,
             }
-        },
-        &Type::INT8 =>  {
+        }
+        &Type::INT8 => {
             let value: Option<i64> = row.get(index);
             match value {
                 Some(v) => DbValue::Int64(v),
                 None => DbValue::DbNull,
             }
-        },
-        &Type::VARCHAR =>  {
+        }
+        &Type::VARCHAR => {
             let value: Option<&str> = row.get(index);
             match value {
                 Some(v) => DbValue::DbString(v.to_owned()),
                 None => DbValue::DbNull,
             }
-        },
+        }
         t => {
-            tracing::debug!("Couldn't convert Postgres type {} in column {}", t.name(), column.name());
+            tracing::debug!(
+                "Couldn't convert Postgres type {} in column {}",
+                t.name(),
+                column.name()
+            );
             DbValue::Unsupported
-        },
+        }
     }
 }

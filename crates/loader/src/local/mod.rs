@@ -21,7 +21,7 @@ use spin_manifest::{
 use std::{path::Path, str::FromStr, sync::Arc};
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::bindle::BindleConnectionInfo;
+use crate::{bindle::BindleConnectionInfo, validation::validate_allowed_http_hosts};
 
 /// Given the path to a spin.toml manifest file, prepare its assets locally and
 /// get a prepared application configuration consumable by a Spin execution context.
@@ -38,6 +38,7 @@ pub async fn from_file(
         .absolutize()
         .context("Failed to resolve absolute path to manifest file")?;
     let manifest = raw_manifest_from_file(&app).await?;
+    validate_raw_app_manifest(&manifest)?;
 
     prepare_any_version(
         manifest,
@@ -88,6 +89,20 @@ fn error_on_duplicate_ids(components: Vec<RawComponentManifest>) -> Result<()> {
             bail!("cannot have duplicate component IDs: {}", id);
         } else {
             ids.push(id);
+        }
+    }
+    Ok(())
+}
+
+/// Validate fields in raw app manifest
+pub fn validate_raw_app_manifest(raw: &RawAppManifestAnyVersion) -> Result<()> {
+    match raw {
+        RawAppManifestAnyVersion::V1(raw) => {
+            let _ = raw
+                .components
+                .iter()
+                .map(|c| validate_allowed_http_hosts(&c.wasm.allowed_http_hosts))
+                .collect::<Result<Vec<_>>>()?;
         }
     }
     Ok(())

@@ -10,9 +10,12 @@ mod connection;
 /// Bindle helper functions.
 mod utils;
 
-use crate::bindle::{
-    config::{RawAppManifest, RawComponentManifest},
-    utils::{find_manifest, parcels_in_group},
+use crate::{
+    bindle::{
+        config::{RawAppManifest, RawComponentManifest},
+        utils::{find_manifest, parcels_in_group},
+    },
+    validation::validate_allowed_http_hosts,
 };
 use anyhow::{anyhow, Context, Result};
 use bindle::Invoice;
@@ -67,6 +70,7 @@ async fn prepare(
 
     let mut config_root = raw.config.take().unwrap_or_default();
     for component in &mut raw.components {
+        validate_allowed_http_hosts(&component.wasm.allowed_http_hosts)?;
         if let Some(config) = component.config.take() {
             let path = component.id.clone().try_into().with_context(|| {
                 format!("component ID {:?} not a valid config path", component.id)

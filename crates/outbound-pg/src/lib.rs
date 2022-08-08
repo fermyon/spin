@@ -37,14 +37,14 @@ impl outbound_pg::OutboundPg for OutboundPg {
         &mut self,
         address: &str,
         statement: &str,
-        params: Vec<&str>,
+        params: Vec<ParameterValue<'_>>,
     ) -> Result<u64, PgError> {
         let mut client = Client::connect(address, NoTls)
             .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?;
 
         let params: Vec<&(dyn ToSql + Sync)> = params
             .iter()
-            .map(|item| item as &(dyn ToSql + Sync))
+            .map(to_sql_parameter)
             .collect();
 
         let nrow = client
@@ -58,14 +58,14 @@ impl outbound_pg::OutboundPg for OutboundPg {
         &mut self,
         address: &str,
         statement: &str,
-        params: Vec<&str>,
+        params: Vec<ParameterValue<'_>>,
     ) -> Result<RowSet, PgError> {
         let mut client = Client::connect(address, NoTls)
             .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?;
 
         let params: Vec<&(dyn ToSql + Sync)> = params
             .iter()
-            .map(|item| item as &(dyn ToSql + Sync))
+            .map(to_sql_parameter)
             .collect();
 
         let results = client
@@ -83,6 +83,18 @@ impl outbound_pg::OutboundPg for OutboundPg {
         let rows = results.iter().map(convert_row).collect();
 
         Ok(RowSet { columns, rows })
+    }
+}
+
+const DB_NULL: Option<i32> = None;
+
+fn to_sql_parameter<'a>(value: &'a ParameterValue) -> &'a (dyn ToSql + Sync) {
+    match value {
+        ParameterValue::Boolean(v) => v,
+        ParameterValue::Int32(v) => v,
+        ParameterValue::Int64(v) => v,
+        ParameterValue::DbString(v) => v,
+        ParameterValue::DbNull => &DB_NULL,
     }
 }
 

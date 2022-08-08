@@ -15,6 +15,14 @@ variant db-value {
     unsupported,
 }
 
+variant parameter-value {
+    boolean(bool),
+    int32(s32),
+    int64(s64),
+    db-string(string),
+    db-null,
+}
+
 record column {
     name: string,
     data-type: db-data-type,

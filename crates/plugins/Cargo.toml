@@ -1,0 +1,22 @@
+[package]
+name = "spin-plugins"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+bytes = "1.1"
+flate2 = "1.0"
+log = { version = "0.4", default-features = false }
+reqwest = { version = "0.11", features = ["json"] }
+sha2 = "0.10.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tar = "0.4.38"
+tempfile = "3.3.0"
+tokio = { version = "1.10", features = [ "fs", "process", "rt", "macros" ] }
+url = "2.2.2"
+
+

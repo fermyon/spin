@@ -42,10 +42,7 @@ impl outbound_pg::OutboundPg for OutboundPg {
         let mut client = Client::connect(address, NoTls)
             .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?;
 
-        let params: Vec<&(dyn ToSql + Sync)> = params
-            .iter()
-            .map(to_sql_parameter)
-            .collect();
+        let params: Vec<&(dyn ToSql + Sync)> = params.iter().map(to_sql_parameter).collect();
 
         let nrow = client
             .execute(statement, params.as_slice())
@@ -63,10 +60,7 @@ impl outbound_pg::OutboundPg for OutboundPg {
         let mut client = Client::connect(address, NoTls)
             .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?;
 
-        let params: Vec<&(dyn ToSql + Sync)> = params
-            .iter()
-            .map(to_sql_parameter)
-            .collect();
+        let params: Vec<&(dyn ToSql + Sync)> = params.iter().map(to_sql_parameter).collect();
 
         let results = client
             .query(statement, params.as_slice())
@@ -114,11 +108,11 @@ fn infer_column(row: &Row, index: usize) -> Column {
 }
 
 fn convert_data_type(pg_type: &Type) -> DbDataType {
-    match pg_type {
-        &Type::BOOL => DbDataType::Boolean,
-        &Type::INT4 => DbDataType::Int32,
-        &Type::INT8 => DbDataType::Int64,
-        &Type::VARCHAR => DbDataType::DbString,
+    match *pg_type {
+        Type::BOOL => DbDataType::Boolean,
+        Type::INT4 => DbDataType::Int32,
+        Type::INT8 => DbDataType::Int64,
+        Type::VARCHAR => DbDataType::DbString,
         _ => {
             tracing::debug!("Couldn't convert Postgres type {} to WIT", pg_type.name(),);
             DbDataType::Other

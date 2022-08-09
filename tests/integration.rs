@@ -353,7 +353,7 @@ mod integration_tests {
         )?;
 
         let apps_vm = hippo.client.list_apps().await?;
-        assert_eq!(apps_vm.apps.len(), 1, "hippo apps: {apps_vm:?}");
+        assert_eq!(apps_vm.items.len(), 1, "hippo apps: {apps_vm:?}");
 
         Ok(())
     }
@@ -760,10 +760,8 @@ mod integration_tests {
             }
 
             if let Ok(rsp) = reqwest::get(format!("{url}/healthz")).await {
-                if let Ok(result) = rsp.text().await {
-                    if result == "Healthy" {
-                        break;
-                    }
+                if rsp.status().is_success() {
+                    break;
                 }
             }
 

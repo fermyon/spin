@@ -191,7 +191,7 @@ impl DeployCommand {
             name.clone(),
             bindle_id.version_string()
         );
-        let channel = Client::get_channel_by_id(&hippo_client, &channel_id)
+        let channel = Client::get_channel_by_id(&hippo_client, &channel_id.to_string())
             .await
             .context("Problem getting channel by id")?;
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
@@ -253,9 +253,9 @@ impl DeployCommand {
 
     async fn get_app_id(&self, hippo_client: &Client, name: String) -> Result<String> {
         let apps_vm = Client::list_apps(hippo_client).await?;
-        let app = apps_vm.apps.iter().find(|&x| x.name == name.clone());
+        let app = apps_vm.items.iter().find(|&x| x.name == name.clone());
         match app {
-            Some(a) => Ok(a.id.clone()),
+            Some(a) => Ok(a.id.to_string()),
             None => anyhow::bail!("No app with name: {}", name),
         }
     }
@@ -319,14 +319,10 @@ impl DeployCommand {
     async fn check_hippo_healthz(&self) -> Result<()> {
         let hippo_base_url = url::Url::parse(&self.hippo_server_url)?;
         let hippo_healthz_url = hippo_base_url.join("/healthz")?;
-        let result = reqwest::get(hippo_healthz_url.to_string())
+        reqwest::get(hippo_healthz_url.to_string())
             .await?
-            .error_for_status()?
-            .text()
-            .await?;
-        if result != "Healthy" {
-            return Err(anyhow!("Hippo server {} is unhealthy", hippo_base_url));
-        }
+            .error_for_status()
+            .with_context(|| format!("Hippo server {} is unhealthy", hippo_base_url))?;
         Ok(())
     }
 }

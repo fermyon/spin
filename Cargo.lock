@@ -1521,12 +1521,11 @@ dependencies = [
 
 [[package]]
 name = "hippo"
-version = "0.13.1"
-source = "git+https://github.com/deislabs/hippo-cli?rev=67f6368fa39d296c3d1b11a93e43bc4c751cba6b#67f6368fa39d296c3d1b11a93e43bc4c751cba6b"
+version = "0.15.0"
+source = "git+https://github.com/deislabs/hippo-cli?tag=v0.15.0#97a7dae0dbeefad9959b496d2f7a4fb7223f57d5"
 dependencies = [
  "anyhow",
  "async-trait",
- "chrono",
  "clap 3.1.15",
  "colored",
  "dialoguer 0.9.0",
@@ -1547,19 +1546,21 @@ dependencies = [
  "sha2 0.9.9",
  "tokio",
  "toml",
+ "uuid",
 ]
 
 [[package]]
 name = "hippo-openapi"
-version = "0.8.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "166cf7f4fa00a93743a2f19a5021b5a04e1be013c92288b10939c897af173263"
+checksum = "2312754662f7213bf7c2d95f453b7afad2dc99ded7eedc205acf82cf6a14fb51"
 dependencies = [
  "reqwest",
  "serde",
  "serde_derive",
  "serde_json",
  "url 2.2.2",
+ "uuid",
 ]
 
 [[package]]
@@ -4623,6 +4624,15 @@ name = "utf-8"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
+
+[[package]]
+name = "uuid"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd6469f4314d5f1ffec476e05f17cc9a78bc7a27a6a857842170bdf8d6f98d2f"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "validator"

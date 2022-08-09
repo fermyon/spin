@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use outbound_pg::*;
 use postgres::{types::ToSql, types::Type, Client, NoTls, Row};
 
@@ -42,11 +43,15 @@ impl outbound_pg::OutboundPg for OutboundPg {
         let mut client = Client::connect(address, NoTls)
             .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?;
 
-        let params: Vec<&(dyn ToSql + Sync)> = params.iter().map(to_sql_parameter).collect();
+        let params: Vec<&(dyn ToSql + Sync)> = params
+            .iter()
+            .map(to_sql_parameter)
+            .collect::<anyhow::Result<Vec<_>>>()
+            .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
 
         let nrow = client
             .execute(statement, params.as_slice())
-            .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
+            .map_err(|e| PgError::ValueConversionFailed(format!("{:?}", e)))?;
 
         Ok(nrow)
     }
@@ -60,7 +65,11 @@ impl outbound_pg::OutboundPg for OutboundPg {
         let mut client = Client::connect(address, NoTls)
             .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?;
 
-        let params: Vec<&(dyn ToSql + Sync)> = params.iter().map(to_sql_parameter).collect();
+        let params: Vec<&(dyn ToSql + Sync)> = params
+            .iter()
+            .map(to_sql_parameter)
+            .collect::<anyhow::Result<Vec<_>>>()
+            .map_err(|e| PgError::BadParameter(format!("{:?}", e)))?;
 
         let results = client
             .query(statement, params.as_slice())
@@ -74,7 +83,11 @@ impl outbound_pg::OutboundPg for OutboundPg {
         }
 
         let columns = infer_columns(&results[0]);
-        let rows = results.iter().map(convert_row).collect();
+        let rows = results
+            .iter()
+            .map(convert_row)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
 
         Ok(RowSet { columns, rows })
     }
@@ -82,13 +95,22 @@ impl outbound_pg::OutboundPg for OutboundPg {
 
 const DB_NULL: Option<i32> = None;
 
-fn to_sql_parameter<'a>(value: &'a ParameterValue) -> &'a (dyn ToSql + Sync) {
+fn to_sql_parameter<'a>(value: &'a ParameterValue) -> anyhow::Result<&'a (dyn ToSql + Sync)> {
     match value {
-        ParameterValue::Boolean(v) => v,
-        ParameterValue::Int32(v) => v,
-        ParameterValue::Int64(v) => v,
-        ParameterValue::DbString(v) => v,
-        ParameterValue::DbNull => &DB_NULL,
+        ParameterValue::Boolean(v) => Ok(v),
+        ParameterValue::Int32(v) => Ok(v),
+        ParameterValue::Int64(v) => Ok(v),
+        ParameterValue::Int8(v) => Ok(v),
+        ParameterValue::Int16(v) => Ok(v),
+        ParameterValue::Floating32(v) => Ok(v),
+        ParameterValue::Floating64(v) => Ok(v),
+        ParameterValue::Uint8(_) => Err(anyhow!("Postgres does not support unsigned integers")),
+        ParameterValue::Uint16(_) => Err(anyhow!("Postgres does not support unsigned integers")),
+        ParameterValue::Uint32(_) => Err(anyhow!("Postgres does not support unsigned integers")),
+        ParameterValue::Uint64(_) => Err(anyhow!("Postgres does not support unsigned integers")),
+        ParameterValue::DbString(v) => Ok(v),
+        ParameterValue::Binary(v) => Ok(v),
+        ParameterValue::DbNull => Ok(&DB_NULL),
     }
 }
 
@@ -110,8 +132,13 @@ fn infer_column(row: &Row, index: usize) -> Column {
 fn convert_data_type(pg_type: &Type) -> DbDataType {
     match *pg_type {
         Type::BOOL => DbDataType::Boolean,
+        Type::BYTEA => DbDataType::Binary,
+        Type::FLOAT4 => DbDataType::Floating32,
+        Type::FLOAT8 => DbDataType::Floating64,
+        Type::INT2 => DbDataType::Int16,
         Type::INT4 => DbDataType::Int32,
         Type::INT8 => DbDataType::Int64,
+        Type::TEXT => DbDataType::DbString,
         Type::VARCHAR => DbDataType::DbString,
         _ => {
             tracing::debug!("Couldn't convert Postgres type {} to WIT", pg_type.name(),);
@@ -120,40 +147,75 @@ fn convert_data_type(pg_type: &Type) -> DbDataType {
     }
 }
 
-fn convert_row(row: &Row) -> Vec<DbValue> {
+fn convert_row(row: &Row) -> Result<Vec<DbValue>, postgres::Error> {
     let mut result = Vec::with_capacity(row.len());
     for index in 0..row.len() {
-        result.push(convert_entry(row, index));
+        result.push(convert_entry(row, index)?);
     }
-    result
+    Ok(result)
 }
 
-fn convert_entry(row: &Row, index: usize) -> DbValue {
+fn convert_entry(row: &Row, index: usize) -> Result<DbValue, postgres::Error> {
     let column = &row.columns()[index];
-    match column.type_() {
+    let value = match column.type_() {
         &Type::BOOL => {
-            let value: Option<bool> = row.get(index);
+            let value: Option<bool> = row.try_get(index)?;
             match value {
                 Some(v) => DbValue::Boolean(v),
                 None => DbValue::DbNull,
             }
         }
+        &Type::BYTEA => {
+            let value: Option<Vec<u8>> = row.try_get(index)?;
+            match value {
+                Some(v) => DbValue::Binary(v),
+                None => DbValue::DbNull,
+            }
+        }
+        &Type::FLOAT4 => {
+            let value: Option<f32> = row.try_get(index)?;
+            match value {
+                Some(v) => DbValue::Floating32(v),
+                None => DbValue::DbNull,
+            }
+        }
+        &Type::FLOAT8 => {
+            let value: Option<f64> = row.try_get(index)?;
+            match value {
+                Some(v) => DbValue::Floating64(v),
+                None => DbValue::DbNull,
+            }
+        }
+        &Type::INT2 => {
+            let value: Option<i16> = row.try_get(index)?;
+            match value {
+                Some(v) => DbValue::Int16(v),
+                None => DbValue::DbNull,
+            }
+        }
         &Type::INT4 => {
-            let value: Option<i32> = row.get(index);
+            let value: Option<i32> = row.try_get(index)?;
             match value {
                 Some(v) => DbValue::Int32(v),
                 None => DbValue::DbNull,
             }
         }
         &Type::INT8 => {
-            let value: Option<i64> = row.get(index);
+            let value: Option<i64> = row.try_get(index)?;
             match value {
                 Some(v) => DbValue::Int64(v),
                 None => DbValue::DbNull,
             }
         }
+        &Type::TEXT => {
+            let value: Option<&str> = row.try_get(index)?;
+            match value {
+                Some(v) => DbValue::DbString(v.to_owned()),
+                None => DbValue::DbNull,
+            }
+        }
         &Type::VARCHAR => {
-            let value: Option<&str> = row.get(index);
+            let value: Option<&str> = row.try_get(index)?;
             match value {
                 Some(v) => DbValue::DbString(v.to_owned()),
                 None => DbValue::DbNull,
@@ -167,5 +229,6 @@ fn convert_entry(row: &Row, index: usize) -> DbValue {
             );
             DbValue::Unsupported
         }
-    }
+    };
+    Ok(value)
 }

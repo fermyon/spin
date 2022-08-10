@@ -10,7 +10,7 @@ enum db-data-type {
     uint64,
     floating32,
     floating64,
-    db-string,
+    str,
     binary,
     other,
 }
@@ -27,7 +27,7 @@ variant db-value {
     uint64(u64),
     floating32(float32),
     floating64(float64),
-    db-string(string),
+    str(string),
     binary(list<u8>),
     db-null,
     unsupported,
@@ -45,7 +45,7 @@ variant parameter-value {
     uint64(u64),
     floating32(float32),
     floating64(float64),
-    db-string(string),
+    str(string),
     binary(list<u8>),
     db-null,
 }

@@ -108,7 +108,7 @@ fn to_sql_parameter<'a>(value: &'a ParameterValue) -> anyhow::Result<&'a (dyn To
         ParameterValue::Uint16(_) => Err(anyhow!("Postgres does not support unsigned integers")),
         ParameterValue::Uint32(_) => Err(anyhow!("Postgres does not support unsigned integers")),
         ParameterValue::Uint64(_) => Err(anyhow!("Postgres does not support unsigned integers")),
-        ParameterValue::DbString(v) => Ok(v),
+        ParameterValue::Str(v) => Ok(v),
         ParameterValue::Binary(v) => Ok(v),
         ParameterValue::DbNull => Ok(&DB_NULL),
     }
@@ -138,8 +138,8 @@ fn convert_data_type(pg_type: &Type) -> DbDataType {
         Type::INT2 => DbDataType::Int16,
         Type::INT4 => DbDataType::Int32,
         Type::INT8 => DbDataType::Int64,
-        Type::TEXT => DbDataType::DbString,
-        Type::VARCHAR => DbDataType::DbString,
+        Type::TEXT => DbDataType::Str,
+        Type::VARCHAR => DbDataType::Str,
         _ => {
             tracing::debug!("Couldn't convert Postgres type {} to WIT", pg_type.name(),);
             DbDataType::Other
@@ -210,14 +210,14 @@ fn convert_entry(row: &Row, index: usize) -> Result<DbValue, postgres::Error> {
         &Type::TEXT => {
             let value: Option<&str> = row.try_get(index)?;
             match value {
-                Some(v) => DbValue::DbString(v.to_owned()),
+                Some(v) => DbValue::Str(v.to_owned()),
                 None => DbValue::DbNull,
             }
         }
         &Type::VARCHAR => {
             let value: Option<&str> = row.try_get(index)?;
             match value {
-                Some(v) => DbValue::DbString(v.to_owned()),
+                Some(v) => DbValue::Str(v.to_owned()),
                 None => DbValue::DbNull,
             }
         }

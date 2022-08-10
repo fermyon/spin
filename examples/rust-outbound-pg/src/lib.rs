@@ -79,7 +79,7 @@ fn write(_req: Request) -> Result<Response> {
 
 fn as_owned_string(value: &pg::DbValue) -> anyhow::Result<String> {
     match value {
-        pg::DbValue::DbString(s) => Ok(s.to_owned()),
+        pg::DbValue::Str(s) => Ok(s.to_owned()),
         _ => Err(anyhow!("Expected string from database but got {:?}", value)),
     }
 }

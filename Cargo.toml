@@ -63,6 +63,10 @@ which = "4.2.5"
 cargo-target-dep = { git = "https://github.com/fermyon/cargo-target-dep", rev = "b7b1989fe0984c0f7c4966398304c6538e52fe49" }
 vergen = { version = "7", default-features = false, features = [ "build", "git" ] }
 
+[features]
+default = []
+e2e-tests = []
+
 [workspace]
 members = [
     "crates/build",

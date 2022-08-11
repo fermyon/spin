@@ -120,6 +120,10 @@ spin plugin install --custom <url_to_plugin_metadata>
 
 The plugins can be updated using the `--update` flag on the `install` subcommand. The `--update` argument will update a package to the newest version if it already exists or else will install the newest version.
 
+**Dealing with Breaking changes**
+
+This is a section that still needs discussion. One of the solutions is for the plugin manifest to list the versions of spin that it is compatible with and use that to make an informed update of plugins avoiding updates to incompatible versions.
+
 ### Centralized plugin Repository
 
 - A new github repository `spin-plugins` will act as the index for all the plugins.

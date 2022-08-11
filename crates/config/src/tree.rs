@@ -193,10 +193,10 @@ impl std::fmt::Debug for Slot {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct RawSection(pub HashMap<String, RawSlot>);
 
-#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(default)]
 pub struct RawSlot {
     pub default: Option<String>,

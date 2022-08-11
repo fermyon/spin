@@ -107,7 +107,7 @@ pub struct RawWasmConfig {
 
 /// An entry in the `files` list mapping a source path to an absolute
 /// mount path in the guest.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct RawDirectoryPlacement {
     /// The source to mount.
@@ -118,7 +118,7 @@ pub struct RawDirectoryPlacement {
 
 /// A specification for a file or set of files to mount in the
 /// Wasm module.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case", untagged)]
 pub enum RawFileMount {
     /// Mount a specified directory at a specified location.
@@ -141,7 +141,7 @@ pub enum RawModuleSource {
 /// TODO
 /// The component and its entrypoint should be pulled from Bindle.
 /// This assumes access to the Bindle server.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct FileComponentBindleSource {
     /// Reference to the bindle (name/version)

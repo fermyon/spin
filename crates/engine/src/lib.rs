@@ -11,7 +11,7 @@ use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
 
 use anyhow::{bail, Context, Result};
 use host_component::{HostComponent, HostComponents, HostComponentsState};
-use io::{FollowComponents, ModuleIoRedirectsTypes, OutputBuffers, RedirectPipes};
+use io::{FollowComponents, OutputBuffers, RedirectPipes};
 use spin_config::{host_component::ComponentConfig, Resolver};
 use spin_manifest::{CoreComponent, DirectoryMount, ModuleSource};
 use tokio::{
@@ -38,8 +38,6 @@ pub struct ExecutionContextConfiguration {
     pub follow_components: FollowComponents,
     /// Application configuration resolver.
     pub config_resolver: Option<Arc<Resolver>>,
-    /// The type of io redirects for the module (default, or files)
-    pub module_io_redirects: ModuleIoRedirectsTypes,
 }
 
 /// Top-level runtime context data to be passed to a component.

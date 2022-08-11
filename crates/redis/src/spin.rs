@@ -1,7 +1,7 @@
 use crate::{spin_redis::SpinRedis, ExecutionContext, RedisExecutor, RuntimeContext};
 use anyhow::Result;
 use async_trait::async_trait;
-use spin_engine::io::{ModuleIoRedirects, ModuleIoRedirectsTypes};
+use spin_engine::io::ModuleIoRedirects;
 use tokio::task::spawn_blocking;
 use wasmtime::{Instance, Store};
 
@@ -23,17 +23,7 @@ impl RedisExecutor for SpinRedisExecutor {
             component
         );
 
-        let mior = if let ModuleIoRedirectsTypes::FromFiles(clp) =
-            engine.config.module_io_redirects.clone()
-        {
-            ModuleIoRedirects::new_from_files(
-                clp.stdin_pipe.map(|inp| inp.0),
-                clp.stdout_pipe.map(|oup| oup.0),
-                clp.stderr_pipe.map(|erp| erp.0),
-            )
-        } else {
-            ModuleIoRedirects::new(follow)
-        };
+        let mior = ModuleIoRedirects::new(follow);
 
         let (store, instance) =
             engine.prepare_component(component, None, Some(mior.pipes), None, None)?;

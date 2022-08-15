@@ -136,11 +136,85 @@ This is a section that still needs discussion. One of the solutions is for the p
 
 ### Centralized Plugin Repository
 
-- A new github repository `spin-plugins` will act as the index for all the plugins.
-- It will contain information about the plugins such as location of binary release for the various operating system, version and checksum along with potentially other details such as author details and a description.
+- A new github repository `spin-plugins` will act as the index for all the plugin manifests.
+- Each plugin manifest will contain information about the plugins such as location of binary release for the various operating system, version and checksum along with potentially other details such as author details and a description.
 - Creators of new plugins can submit PRs with the required information to add it to the plugins index repository.
 
-The structure of data stored for every plugin is a json file with the following structure
+The structure of data stored for every plugin is a json file with a specified JSON schema. The initial JSON schema will be the following:
+```json
+{
+    "$schema": "https://json-schema.org/draft/2019-09/schema",
+    "$id": "https://github.com/fermyon/spin-plugins/json-schema/spin-plugin-manifest-schema-0.1.json",
+    "type": "object",
+    "title": "spin-plugin-manifest-schema-0.1",
+    "required": [
+        "name",
+        "description",
+        "version",
+        "license",
+        "packages"
+    ],
+    "properties": {
+        "name": {
+            "type": "string",
+        },
+        "description": {
+            "type": "string"
+        },
+        "homepage": {
+            "type": "string"
+        },
+        "version": {
+            "type": "string"
+        },
+        "license": {
+            "type": "string"
+        },
+        "packages": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": [
+                    "os",
+                    "arch",
+                    "url",
+                    "sha256"
+                ],
+                "properties": {
+                    "os": {
+                        "type": "string",
+                        "enum": [
+                            "linux",
+                            "osx",
+                            "windows"
+                        ]
+                    },
+                    "arch": {
+                        "type": "string",
+                        "enum": [
+                            "amd64",
+                            "aarch64"
+                        ]
+                    },
+                    "url": {
+                        "type": "string"
+                    },
+                    "sha256": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
+            }
+        }
+    },
+    "additionalProperties": false
+}
+```
+
+The JSON schema will live with the plugin manifests in the `spin-plugins` repository. A GitHub workflow will validate all plugin manifests against the JSON schema before they are allowed to be merged.
+
+An example plugin manifest that matches the schema is the following:
 
 ```
 {
@@ -157,7 +231,7 @@ The structure of data stored for every plugin is a json file with the following 
             "sha256": "18f023db8b39b567a6889fa6597550ab2b47f7947ca47792ee6f89dfc5a814e3"
         },
         {
-            "os": "macOs",
+            "os": "osx",
             "arch": "aarch64",
             "url": "<url_to_plugin_tar>",
             "sha256": "18f023db8b39b567a6889fa6597550ab2b47f7947ca47792ee6f89dfc5a814e3"

@@ -11,4 +11,4 @@ source = "target/wasm32-wasi/release/{{project-name | snake_case}}.wasm"
 [component.trigger]
 route = "{{http-path}}"
 [component.build]
-command = "cargo build --target wasm32-wasi --release"
+command = "cargo build --release"

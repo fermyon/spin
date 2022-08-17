@@ -20,8 +20,12 @@ test-unit:
 
 .PHONY: test-integration
 test-integration:
-	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast  -- integration_tests::test_dependencies --nocapture
-	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast -- --skip integration_tests::test_dependencies --nocapture --include-ignored
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast -- --nocapture --include-ignored
+
+.PHONY: test-e2e
+test-e2e:
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features e2e-tests --no-fail-fast  -- integration_tests::test_dependencies --nocapture 
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features e2e-tests --no-fail-fast -- --skip integration_tests::test_dependencies --nocapture --include-ignored
 
 .PHONY: test-sdk-go
 test-sdk-go:

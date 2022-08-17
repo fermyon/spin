@@ -93,7 +93,6 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
             log_dir: self.log_dir,
             follow_components: self.follow_components,
             config_resolver: app.config_resolver,
-            module_io_redirects: Default::default(),
         };
         let engine = Engine::new(self.wasmtime_config)?;
         let mut ctx_builder = Builder::with_engine(ctx_config, engine)?;

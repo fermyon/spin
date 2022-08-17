@@ -84,7 +84,7 @@ pub struct CoreComponent {
 }
 
 /// The location from which an application was loaded.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ApplicationOrigin {
     /// The application was loaded from the specified file.
     File(PathBuf),
@@ -98,7 +98,7 @@ pub enum ApplicationOrigin {
 }
 
 /// The trigger type.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase", tag = "type")]
 pub enum ApplicationTrigger {
     /// HTTP trigger type.
@@ -108,7 +108,7 @@ pub enum ApplicationTrigger {
 }
 
 /// HTTP trigger configuration.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct HttpTriggerConfiguration {
     /// Base path for the HTTP application.
     pub base: String,
@@ -132,7 +132,7 @@ impl TryFrom<ApplicationTrigger> for HttpTriggerConfiguration {
 }
 
 /// Redis trigger configuration.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct RedisTriggerConfiguration {
     /// Address of Redis server.
     pub address: String,
@@ -217,7 +217,7 @@ impl Default for HttpConfig {
 /// or the Wagi CGI interface.
 ///
 /// If an executor is not specified, the inferred default is `HttpExecutor::Spin`.
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase", tag = "type")]
 pub enum HttpExecutor {
     /// The component implements the Spin HTTP interface.
@@ -233,7 +233,7 @@ impl Default for HttpExecutor {
 }
 
 /// Wagi specific configuration for the http executor.
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct WagiConfig {
     /// The name of the entrypoint.
@@ -275,7 +275,7 @@ pub struct RedisConfig {
 /// The executor for the Redis component.
 ///
 /// If an executor is not specified, the inferred default is `RedisExecutor::Spin`.
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase", tag = "type")]
 pub enum RedisExecutor {
     /// The component implements the Spin Redis interface.

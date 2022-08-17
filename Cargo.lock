@@ -2475,6 +2475,7 @@ dependencies = [
  "postgres",
  "spin-engine",
  "spin-manifest",
+ "tracing",
  "wit-bindgen-wasmtime",
 ]
 
@@ -3768,6 +3769,7 @@ dependencies = [
  "tracing-futures",
  "tracing-subscriber 0.3.9",
  "walkdir",
+ "wasi-outbound-http",
 ]
 
 [[package]]

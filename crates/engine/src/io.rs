@@ -1,10 +1,7 @@
-use cap_std::fs::File as CapFile;
 use std::{
     collections::HashSet,
     fmt::Debug,
-    fs::{File, OpenOptions},
     io::{LineWriter, Write},
-    path::PathBuf,
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
@@ -12,7 +9,6 @@ use wasi_common::{
     pipe::{ReadPipe, WritePipe},
     WasiFile,
 };
-use wasmtime_wasi::sync::file::File as WasmtimeFile;
 
 /// Prepares a WASI pipe which writes to a memory buffer, optionally
 /// copying to the specified output stream.
@@ -65,78 +61,6 @@ pub trait OutputBuffers {
     fn stderr(&self) -> &[u8];
 }
 
-/// Wrapper around File with a convenient PathBuf for cloning
-pub struct PipeFile(pub File, pub PathBuf);
-
-impl PipeFile {
-    /// Constructs an instance from a file, and the PathBuf to that file.
-    pub fn new(file: File, path: PathBuf) -> Self {
-        Self(file, path)
-    }
-}
-
-impl std::fmt::Debug for PipeFile {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PipeFile")
-            .field("File", &self.0)
-            .field("PathBuf", &self.1)
-            .finish()
-    }
-}
-
-impl Clone for PipeFile {
-    fn clone(&self) -> Self {
-        let f = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&self.1)
-            .unwrap();
-        Self(f, self.1.clone())
-    }
-}
-
-/// CustomIoPipes that can be passed to `ExecutionContextConfiguration`
-/// to direct out and err
-#[derive(Clone, Debug, Default)]
-pub struct CustomLogPipes {
-    /// in pipe (file and pathbuf)
-    pub stdin_pipe: Option<PipeFile>,
-    /// out pipe (file and pathbuf)
-    pub stdout_pipe: Option<PipeFile>,
-    /// err pipe (file and pathbuf)
-    pub stderr_pipe: Option<PipeFile>,
-}
-
-impl CustomLogPipes {
-    /// Constructs an instance from a set of PipeFile objects.
-    pub fn new(
-        stdin_pipe: Option<PipeFile>,
-        stdout_pipe: Option<PipeFile>,
-        stderr_pipe: Option<PipeFile>,
-    ) -> Self {
-        Self {
-            stdin_pipe,
-            stdout_pipe,
-            stderr_pipe,
-        }
-    }
-}
-
-/// Types of ModuleIoRedirects
-#[derive(Clone, Debug)]
-pub enum ModuleIoRedirectsTypes {
-    /// This will signal the executor to use `capture_io_to_memory_default()`
-    Default,
-    /// This will signal the executor to use `capture_io_to_memory_files()`
-    FromFiles(CustomLogPipes),
-}
-
-impl Default for ModuleIoRedirectsTypes {
-    fn default() -> Self {
-        Self::Default
-    }
-}
-
 /// A set of redirected standard I/O streams with which
 /// a Wasm module is to be run.
 pub struct ModuleIoRedirects {
@@ -160,37 +84,6 @@ impl ModuleIoRedirects {
         let in_stdpipe: Box<dyn WasiFile> = Box::new(ReadPipe::from(vec![]));
         let out_stdpipe: Box<dyn WasiFile> = Box::new(WritePipe::from_shared(rrh.stdout.clone()));
         let err_stdpipe: Box<dyn WasiFile> = Box::new(WritePipe::from_shared(rrh.stderr.clone()));
-
-        Self {
-            pipes: RedirectPipes {
-                stdin: in_stdpipe,
-                stdout: out_stdpipe,
-                stderr: err_stdpipe,
-            },
-            read_handles: rrh,
-        }
-    }
-
-    /// Constructs the ModuleIoRedirects, and RedirectReadHandles instances from `File`s directly
-    pub fn new_from_files(
-        stdin_file: Option<File>,
-        stdout_file: Option<File>,
-        stderr_file: Option<File>,
-    ) -> Self {
-        let rrh = RedirectReadHandles::new(true);
-
-        let in_stdpipe: Box<dyn WasiFile> = match stdin_file {
-            Some(inf) => Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(inf))),
-            None => Box::new(ReadPipe::from(vec![])),
-        };
-        let out_stdpipe: Box<dyn WasiFile> = match stdout_file {
-            Some(ouf) => Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(ouf))),
-            None => Box::new(WritePipe::from_shared(rrh.stdout.clone())),
-        };
-        let err_stdpipe: Box<dyn WasiFile> = match stderr_file {
-            Some(erf) => Box::new(WasmtimeFile::from_cap_std(CapFile::from_std(erf))),
-            None => Box::new(WritePipe::from_shared(rrh.stderr.clone())),
-        };
 
         Self {
             pipes: RedirectPipes {

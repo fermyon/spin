@@ -124,7 +124,7 @@ jobs:
       - name: Cargo Test
         run: |
           make test-unit
-          make test-integration
+          make test-e2e
         env:
           RUST_LOG: spin=trace
 

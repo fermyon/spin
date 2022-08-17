@@ -17,6 +17,8 @@ use url::Url;
 
 use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response};
 
+const SPIN_DEPLOY_CHANNEL_NAME: &str = "spin-deploy";
+
 /// Package and upload Spin artifacts, notifying Hippo
 #[derive(Parser, Debug)]
 #[clap(about = "Deploy a Spin application")]
@@ -161,26 +163,51 @@ impl DeployCommand {
         });
 
         let name = bindle_id.name().to_string();
+        // Values for channel creation are determined by whether the app already exists
+        let mut active_revision_id = None;
+        let mut range_rule = None;
+        let mut revision_selection_strategy = ChannelRevisionSelectionStrategy::UseRangeRule;
 
-        // delete app if it exists in Hippo already
-        if let Ok(id) = self.get_app_id(&hippo_client, name.clone()).await {
-            Client::remove_app(&hippo_client, id)
-                .await
-                .context("Problem cleaning up existing Hippo app")?
-        }
+        // Create or update app
+        let app_id = match self.get_app_id(&hippo_client, name.clone()).await {
+            Ok(app_id) => {
+                Client::add_revision(
+                    &hippo_client,
+                    name.clone(),
+                    bindle_id.version_string().clone(),
+                )
+                .await?;
 
-        let app_id = Client::add_app(&hippo_client, name.clone(), name.clone())
-            .await
-            .context("Unable to create Hippo app")?;
+                // Remove existing channel to prevent conflict
+                // TODO: in the future, expand hippo API to update channel rather than delete and recreate
+                let existing_channel_id = self
+                    .get_channel_id(&hippo_client, SPIN_DEPLOY_CHANNEL_NAME.to_string())
+                    .await?;
+                Client::remove_channel(&hippo_client, existing_channel_id).await?;
+                active_revision_id = Some(
+                    self.get_revision_id(&hippo_client, bindle_id.version_string().clone())
+                        .await?,
+                );
+                revision_selection_strategy =
+                    ChannelRevisionSelectionStrategy::UseSpecifiedRevision;
+                app_id
+            }
+            Err(_) => {
+                range_rule = Some(bindle_id.version_string());
+                Client::add_app(&hippo_client, name.clone(), name.clone())
+                    .await
+                    .context("Unable to create Hippo app")?
+            }
+        };
 
         let channel_id = Client::add_channel(
             &hippo_client,
             app_id,
-            String::from("spin-deploy"),
+            String::from(SPIN_DEPLOY_CHANNEL_NAME),
             None,
-            ChannelRevisionSelectionStrategy::UseRangeRule,
-            Some(bindle_id.version_string()),
-            None,
+            revision_selection_strategy,
+            range_rule,
+            active_revision_id,
             None,
         )
         .await
@@ -257,6 +284,34 @@ impl DeployCommand {
         match app {
             Some(a) => Ok(a.id.to_string()),
             None => anyhow::bail!("No app with name: {}", name),
+        }
+    }
+
+    async fn get_revision_id(
+        &self,
+        hippo_client: &Client,
+        bindle_version: String,
+    ) -> Result<String> {
+        let revisions = Client::list_revisions(hippo_client).await?;
+        let revision = revisions
+            .revisions
+            .iter()
+            .find(|&x| x.revision_number == bindle_version);
+        Ok(revision
+            .ok_or_else(|| anyhow::anyhow!("No revision with version {}", bindle_version))?
+            .id
+            .clone())
+    }
+
+    async fn get_channel_id(&self, hippo_client: &Client, name: String) -> Result<String> {
+        let channels_vm = Client::list_channels(hippo_client).await?;
+        let channel = channels_vm
+            .channels
+            .iter()
+            .find(|&x| x.name == name.clone());
+        match channel {
+            Some(c) => Ok(c.id.clone()),
+            None => anyhow::bail!("No channel with name: {}", name),
         }
     }
 

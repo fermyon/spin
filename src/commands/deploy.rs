@@ -14,6 +14,7 @@ use std::fs::File;
 use std::io::copy;
 use std::path::PathBuf;
 use url::Url;
+use uuid::Uuid;
 
 use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response};
 
@@ -183,7 +184,7 @@ impl DeployCommand {
                 let existing_channel_id = self
                     .get_channel_id(&hippo_client, SPIN_DEPLOY_CHANNEL_NAME.to_string())
                     .await?;
-                Client::remove_channel(&hippo_client, existing_channel_id).await?;
+                Client::remove_channel(&hippo_client, existing_channel_id.to_string()).await?;
                 active_revision_id = Some(
                     self.get_revision_id(&hippo_client, bindle_id.version_string().clone())
                         .await?,
@@ -213,7 +214,12 @@ impl DeployCommand {
         .await
         .context("Problem creating a channel in Hippo")?;
 
-        let channel = Client::get_channel_by_id(&hippo_client, &channel_id)
+        println!(
+            "Deployed {} version {}",
+            name.clone(),
+            bindle_id.version_string()
+        );
+        let channel = Client::get_channel_by_id(&hippo_client, &channel_id.to_string())
             .await
             .context("Problem getting channel by id")?;
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
@@ -273,39 +279,31 @@ impl DeployCommand {
         Ok(buildinfo)
     }
 
-    async fn get_app_id(&self, hippo_client: &Client, name: String) -> Result<String> {
+    async fn get_app_id(&self, hippo_client: &Client, name: String) -> Result<Uuid> {
         let apps_vm = Client::list_apps(hippo_client).await?;
-        let app = apps_vm.apps.iter().find(|&x| x.name == name.clone());
+        let app = apps_vm.items.iter().find(|&x| x.name == name.clone());
         match app {
-            Some(a) => Ok(a.id.clone()),
+            Some(a) => Ok(a.id),
             None => anyhow::bail!("No app with name: {}", name),
         }
     }
 
-    async fn get_revision_id(
-        &self,
-        hippo_client: &Client,
-        bindle_version: String,
-    ) -> Result<String> {
+    async fn get_revision_id(&self, hippo_client: &Client, bindle_version: String) -> Result<Uuid> {
         let revisions = Client::list_revisions(hippo_client).await?;
         let revision = revisions
-            .revisions
+            .items
             .iter()
             .find(|&x| x.revision_number == bindle_version);
         Ok(revision
             .ok_or_else(|| anyhow::anyhow!("No revision with version {}", bindle_version))?
-            .id
-            .clone())
+            .id)
     }
 
-    async fn get_channel_id(&self, hippo_client: &Client, name: String) -> Result<String> {
+    async fn get_channel_id(&self, hippo_client: &Client, name: String) -> Result<Uuid> {
         let channels_vm = Client::list_channels(hippo_client).await?;
-        let channel = channels_vm
-            .channels
-            .iter()
-            .find(|&x| x.name == name.clone());
+        let channel = channels_vm.items.iter().find(|&x| x.name == name.clone());
         match channel {
-            Some(c) => Ok(c.id.clone()),
+            Some(c) => Ok(c.id),
             None => anyhow::bail!("No channel with name: {}", name),
         }
     }
@@ -369,14 +367,10 @@ impl DeployCommand {
     async fn check_hippo_healthz(&self) -> Result<()> {
         let hippo_base_url = url::Url::parse(&self.hippo_server_url)?;
         let hippo_healthz_url = hippo_base_url.join("/healthz")?;
-        let result = reqwest::get(hippo_healthz_url.to_string())
+        reqwest::get(hippo_healthz_url.to_string())
             .await?
-            .error_for_status()?
-            .text()
-            .await?;
-        if result != "Healthy" {
-            return Err(anyhow!("Hippo server {} is unhealthy", hippo_base_url));
-        }
+            .error_for_status()
+            .with_context(|| format!("Hippo server {} is unhealthy", hippo_base_url))?;
         Ok(())
     }
 }

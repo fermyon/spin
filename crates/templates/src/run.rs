@@ -25,6 +25,8 @@ pub struct RunOptions {
     pub output_path: PathBuf,
     /// The values to use for template parameters.
     pub values: HashMap<String, String>,
+    /// If true accept default values where available
+    pub accept_defaults: bool,
 }
 
 enum Cancellable<T, E> {
@@ -282,7 +284,10 @@ impl Run {
     fn populate_parameter_interactive(&self, parameter: &TemplateParameter) -> Option<String> {
         match self.options.values.get(parameter.id()) {
             Some(s) => Some(s.clone()),
-            None => crate::interaction::prompt_parameter(parameter),
+            None => match (self.options.accept_defaults, parameter.default_value()) {
+                (true, Some(v)) => Some(v.to_string()),
+                _ => crate::interaction::prompt_parameter(parameter),
+            },
         }
     }
 
@@ -298,7 +303,10 @@ impl Run {
     fn populate_parameter_silent(&self, parameter: &TemplateParameter) -> anyhow::Result<String> {
         match self.options.values.get(parameter.id()) {
             Some(s) => Ok(s.clone()),
-            None => Err(anyhow!("Parameter '{}' not provided", parameter.id())),
+            None => match (self.options.accept_defaults, parameter.default_value()) {
+                (true, Some(v)) => Ok(v.to_string()),
+                _ => Err(anyhow!("Parameter '{}' not provided", parameter.id())),
+            },
         }
     }
 

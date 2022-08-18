@@ -7,3 +7,8 @@ copyright = "Fermyon"
 github = "https://github.com/fermyon/spin"
 twitter = "https://twitter.com/fermyontech"
 ga_measurement_id = "G-GY8C28F0SN"
+
+# Static assets that we need to provide
+favicon = "/static/image/favicon.png"
+twitter_card_type = "summary"
+twitter_card = "/static/image/twitter_card_summary.png"

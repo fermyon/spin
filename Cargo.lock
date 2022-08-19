@@ -3852,9 +3852,9 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "bytes 1.1.0",
+ "form_urlencoded",
  "http 0.2.6",
  "spin-macro",
- "wasi-experimental-http",
  "wit-bindgen-rust",
 ]
 
@@ -4873,18 +4873,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasi-experimental-http"
-version = "0.9.0"
-source = "git+https://github.com/deislabs/wasi-experimental-http?rev=a82ae3d6c85c4251b3663035febeb8100068f51d#a82ae3d6c85c4251b3663035febeb8100068f51d"
-dependencies = [
- "anyhow",
- "bytes 1.1.0",
- "http 0.2.6",
- "thiserror",
- "tracing",
-]
-
-[[package]]
 name = "wasi-experimental-http-wasmtime"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4919,7 +4907,6 @@ dependencies = [
  "tracing",
  "tracing-futures",
  "url 2.2.2",
- "wasi-experimental-http-wasmtime",
  "wit-bindgen-wasmtime",
 ]
 

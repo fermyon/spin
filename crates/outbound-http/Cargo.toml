@@ -19,5 +19,4 @@ tokio = { version = "1.4.0", features = [ "full" ] }
 tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
 url = "2.2.1"
-wasi-experimental-http-wasmtime = "0.10.0"
 wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "dde4694aaa6acf9370206527a798ac4ba6a8c5b8" }

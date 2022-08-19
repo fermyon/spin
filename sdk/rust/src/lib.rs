@@ -2,11 +2,11 @@
 
 #![deny(missing_docs)]
 
+/// Outbound HTTP request functionality.
+pub mod outbound_http;
+
 /// Exports the procedural macros for writing handlers for Spin components.
 pub use spin_macro::*;
-
-/// Exports the experimental outbound HTTP crate.
-pub use wasi_experimental_http as outbound_http;
 
 /// Helpers for building Spin HTTP components.
 /// These are convenience helpers, and the types in this module are
@@ -20,7 +20,6 @@ pub mod http {
     /// The Spin HTTP response.
     pub type Response = http::Response<Option<bytes::Bytes>>;
 
-    /// Directly expose the ability to send an HTTP request.
     pub use crate::outbound_http::send_request as send;
 
     /// Helper function to return a 404 Not Found response.

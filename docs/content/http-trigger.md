@@ -146,8 +146,7 @@ record response {
 ```
 
 > The same HTTP types are also used to model the API for sending outbound
-> HTTP requests, and you can see its implementation in
-> [the WASI toolkit repository](https://github.com/fermyon/wasi-experimental-toolkit).
+> HTTP requests.
 
 Then, we define the entry point for a Spin HTTP component:
 

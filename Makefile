@@ -14,6 +14,12 @@ lint:
 	cargo clippy --all-targets --all-features -- -D warnings
 	cargo fmt --all -- --check
 
+.PHONY: check-rust-examples
+check-rust-examples:
+	for manifest_path in examples/*/Cargo.toml; do \
+		cargo clippy --manifest-path "$${manifest_path}" -- -D warnings || exit 1 ; \
+	done
+
 .PHONY: test-unit
 test-unit:
 	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --skip integration_tests --nocapture --include-ignored

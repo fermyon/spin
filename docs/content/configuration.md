@@ -82,8 +82,7 @@ Each `component` object has the following fields:
     WebAssembly module. For example
     `{ source = "content/", destination = "/"}`.
 - `allowed_http_hosts` (OPTIONAL): List of HTTP hosts the component is allowed
-  to make HTTP requests to (using the
-  [WASI experimental HTTP library](https://github.com/deislabs/wasi-experimental-http))
+  to make HTTP requests to
 - `trigger` (REQUIRED): Trigger configuration for the component. Triggers are
   the components that generate events that cause the execution of components.
   The trigger configuration for a component must be compatible with the top-level

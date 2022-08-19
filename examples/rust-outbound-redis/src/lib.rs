@@ -23,16 +23,16 @@ fn publish(_req: Request) -> Result<Response> {
     let channel = std::env::var(REDIS_CHANNEL_ENV)?;
 
     // Get the message to publish from the Redis key "mykey"
-    let payload = redis::get(&address, &"mykey").map_err(|_| anyhow!("Error querying Redis"))?;
+    let payload = redis::get(&address, "mykey").map_err(|_| anyhow!("Error querying Redis"))?;
 
     // Set the Redis key "spin-example" to value "Eureka!"
-    redis::set(&address, &"spin-example", &b"Eureka!"[..])
+    redis::set(&address, "spin-example", &b"Eureka!"[..])
         .map_err(|_| anyhow!("Error executing Redis set command"))?;
 
     // Set the Redis key "int-key" to value 0
-    redis::set(&address, &"int-key", format!("{:x}", 0).as_bytes())
+    redis::set(&address, "int-key", format!("{:x}", 0).as_bytes())
         .map_err(|_| anyhow!("Error executing Redis set command"))?;
-    let int_value = redis::incr(&address, &"int-key")
+    let int_value = redis::incr(&address, "int-key")
         .map_err(|_| anyhow!("Error executing Redis incr command",))?;
     assert_eq!(int_value, 1);
 

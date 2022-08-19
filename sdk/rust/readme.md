@@ -37,9 +37,6 @@ The important things to note in the function above:
 
 ### Making outbound HTTP requests
 
-This library includes the ability to send outbound HTTP requests using the
-[DeisLabs WASI experimental HTTP library](https://github.com/deislabs/wasi-experimental-http).
-
 Let's see an example where the component makes an outbound HTTP request to a
 server, modifies the result, then returns it:
 

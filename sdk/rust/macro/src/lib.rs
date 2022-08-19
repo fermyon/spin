@@ -129,24 +129,6 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
             Ok(())
         }
 
-        impl TryFrom<spin_sdk::outbound_http::Response> for spin_http::Response {
-            type Error = anyhow::Error;
-
-            fn try_from(outbound_res: spin_sdk::outbound_http::Response) -> Result<Self, Self::Error> {
-                let mut outbound_res = outbound_res;
-                let status = outbound_res.status_code.as_u16();
-                let body = Some(outbound_res.body_read_all()?);
-
-                let headers = Some(outbound_headers(&outbound_res.headers_get_all()?)?);
-
-                Ok(spin_http::Response {
-                    status,
-                    headers,
-                    body,
-                })
-            }
-        }
-
         impl TryFrom<http::Response<Option<bytes::Bytes>>> for spin_http::Response {
             type Error = anyhow::Error;
 

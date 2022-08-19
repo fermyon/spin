@@ -1,3 +1,5 @@
+mod util;
+
 use crate::{routes::RoutePattern, ExecutionContext, HttpExecutor};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -7,7 +9,6 @@ use spin_engine::io::{
 };
 use spin_manifest::WagiConfig;
 use std::{
-    collections::HashMap,
     net::SocketAddr,
     sync::{Arc, RwLock, RwLockReadGuard},
 };
@@ -57,16 +58,13 @@ impl HttpExecutor for WagiHttpExecutor {
         let (redirects, outputs) = Self::streams_from_body(body, follow);
         // TODO
         // The default host and TLS fields are currently hard-coded.
-        let mut headers = wagi::http_util::build_headers(
-            &wagi::dispatcher::RoutePattern::parse(&RoutePattern::sanitize_with_base(
-                base, raw_route,
-            )),
+        let mut headers = util::build_headers(
+            &RoutePattern::from(base, raw_route),
             &parts,
             len,
             client_addr,
             "default_host",
             false,
-            &HashMap::new(),
         );
 
         let default_host = http::HeaderValue::from_str("localhost")?;
@@ -116,7 +114,8 @@ impl HttpExecutor for WagiHttpExecutor {
         guest_result?.or_else(ignore_successful_proc_exit_trap)?;
         log_result?;
 
-        wagi::handlers::compose_response(outputs.stdout)
+        let stdout = outputs.stdout.read().unwrap();
+        util::compose_response(&stdout)
     }
 }
 

@@ -3,6 +3,6 @@ id = "http-swift"
 description = "HTTP request handler using SwiftWasm"
 
 [parameters]
-project-description = { type = "string",  prompt = "Project description" }
+project-description = { type = "string",  prompt = "Project description", default = "" }
 http-base = { type = "string", prompt = "HTTP base", default = "/", pattern = "^/\\S*$" }
 http-path = { type = "string", prompt = "HTTP path", default = "/...", pattern = "^/\\S*$" }

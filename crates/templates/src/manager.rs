@@ -387,7 +387,7 @@ impl InstallationResults {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, path::PathBuf};
+    use std::{collections::HashMap, fs, path::PathBuf};
 
     use tempfile::tempdir;
 
@@ -629,6 +629,7 @@ mod tests {
             output_path: output_dir.clone(),
             name: "my project".to_owned(),
             values,
+            accept_defaults: false,
         };
 
         template
@@ -643,5 +644,47 @@ mod tests {
             .await
             .unwrap();
         assert!(cargo.contains("name = \"my-project\""));
+    }
+
+    #[tokio::test]
+    async fn can_run_template_with_accept_defaults() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let template = manager.get("http-rust").unwrap().unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let output_dir = dest_temp_dir.path().join("myproj");
+        let values = HashMap::new();
+        let options = RunOptions {
+            output_path: output_dir.clone(),
+            name: "my project".to_owned(),
+            values,
+            accept_defaults: true,
+        };
+
+        template
+            .run(options)
+            .silent()
+            .await
+            .execute()
+            .await
+            .unwrap();
+
+        let cargo = tokio::fs::read_to_string(output_dir.join("Cargo.toml"))
+            .await
+            .unwrap();
+        assert!(cargo.contains("name = \"my-project\""));
+        let spin_toml = tokio::fs::read_to_string(output_dir.join("spin.toml"))
+            .await
+            .unwrap();
+        assert!(spin_toml.contains("route = \"/...\""));
     }
 }

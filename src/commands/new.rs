@@ -34,6 +34,11 @@ pub struct NewCommand {
     /// file.
     #[clap(long = "values-file")]
     pub values_file: Option<PathBuf>,
+
+    /// An optional argument that allows to skip prompts for the manifest file
+    /// by accepting the defaults if available on the template
+    #[clap(long = "accept-defaults", takes_value = false)]
+    pub accept_defaults: bool,
 }
 
 impl NewCommand {
@@ -59,6 +64,7 @@ impl NewCommand {
             name: self.name.clone(),
             output_path,
             values,
+            accept_defaults: self.accept_defaults,
         };
 
         match template {

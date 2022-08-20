@@ -6,6 +6,7 @@ use anyhow::{bail, Context, Result};
 use path_absolutize::Absolutize;
 use spin_loader::local::config::{RawAppManifest, RawComponentManifest};
 use std::path::{Path, PathBuf};
+use std::{fs, time::Duration};
 use subprocess::{Exec, Redirection};
 use tracing::log;
 
@@ -26,7 +27,22 @@ pub async fn build(app: RawAppManifest, src: &Path) -> Result<()> {
         }
     }
 
-    println!("Successfully ran the build command for the Spin components.");
+    let mut path = src.to_str().unwrap().split('/').collect::<Vec<&str>>();
+    path.pop();
+    path.push("target");
+    path.push("wasm32-wasi");
+    path.push("release");
+    let path = path.join("/");
+
+    let modified = fs::metadata(Path::new(&path)).unwrap().modified();
+    let ten_secs = Duration::from_secs(10);
+
+    if modified.unwrap().elapsed().unwrap() >= ten_secs {
+        println!("nothing to build. Everything up to date");
+    } else {
+        println!("Successfully ran the build command for the Spin components.");
+    }
+
     Ok(())
 }
 

@@ -278,9 +278,6 @@ impl<T: Default> ExecutionContext<T> {
 
         log::trace!("Saving logs to {:?} {:?}", stdout_filename, stderr_filename);
 
-        let log_prefix = format!("{:} ", timestamp());
-        let log_prefix_buf = log_prefix.as_bytes();
-
         if save_stdout {
             let mut file = std::fs::OpenOptions::new()
                 .write(true)
@@ -288,7 +285,6 @@ impl<T: Default> ExecutionContext<T> {
                 .create(true)
                 .open(stdout_filename)?;
             let contents = ior.stdout();
-            file.write(log_prefix_buf)?;
             file.write_all(contents)?;
         }
 
@@ -299,7 +295,6 @@ impl<T: Default> ExecutionContext<T> {
                 .create(true)
                 .open(stderr_filename)?;
             let contents = ior.stderr();
-            file.write(log_prefix_buf)?;
             file.write_all(contents)?;
         }
 
@@ -421,7 +416,8 @@ async fn warn_slow() {
     println!();
 }
 
-fn timestamp() -> i64 {
+/// generate timestamp
+pub(crate) fn timestamp() -> i64 {
     let start = SystemTime::now();
     let since_the_epoch = start
         .duration_since(UNIX_EPOCH)

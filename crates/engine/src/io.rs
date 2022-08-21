@@ -10,6 +10,8 @@ use wasi_common::{
     WasiFile,
 };
 
+use crate::timestamp;
+
 /// Prepares a WASI pipe which writes to a memory buffer, optionally
 /// copying to the specified output stream.
 pub fn redirect_to_mem_buffer(
@@ -231,8 +233,15 @@ impl WriteDestinations {
 
 impl Write for WriteDestinations {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let log_prefix = format!("{:} ", timestamp());
+        let log_prefix_buf = log_prefix.as_bytes();
+
+        self.buffer.write(log_prefix_buf)?;
         let written = self.buffer.write(buf)?;
+
+        self.immediate.write(log_prefix_buf)?;
         self.immediate.write_all(&buf[0..written])?;
+
         Ok(written)
     }
 

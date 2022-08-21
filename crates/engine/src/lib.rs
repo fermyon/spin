@@ -14,6 +14,7 @@ use host_component::{HostComponent, HostComponents, HostComponentsState};
 use io::{FollowComponents, OutputBuffers, RedirectPipes};
 use spin_config::{host_component::ComponentConfig, Resolver};
 use spin_manifest::{CoreComponent, DirectoryMount, ModuleSource};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::{
     task::JoinHandle,
     time::{sleep, Duration},
@@ -277,6 +278,9 @@ impl<T: Default> ExecutionContext<T> {
 
         log::trace!("Saving logs to {:?} {:?}", stdout_filename, stderr_filename);
 
+        let log_prefix = format!("{:} ", timestamp());
+        let log_prefix_buf = log_prefix.as_bytes();
+
         if save_stdout {
             let mut file = std::fs::OpenOptions::new()
                 .write(true)
@@ -284,6 +288,7 @@ impl<T: Default> ExecutionContext<T> {
                 .create(true)
                 .open(stdout_filename)?;
             let contents = ior.stdout();
+            file.write(log_prefix_buf)?;
             file.write_all(contents)?;
         }
 
@@ -294,6 +299,7 @@ impl<T: Default> ExecutionContext<T> {
                 .create(true)
                 .open(stderr_filename)?;
             let contents = ior.stderr();
+            file.write(log_prefix_buf)?;
             file.write_all(contents)?;
         }
 
@@ -413,4 +419,14 @@ async fn warn_slow() {
     sleep(Duration::from_millis(SLOTH_WARNING_DELAY_MILLIS)).await;
     println!("Preparing Wasm modules is taking a few seconds...");
     println!();
+}
+
+fn timestamp() -> i64 {
+    let start = SystemTime::now();
+    let since_the_epoch = start
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
+    let ms = since_the_epoch.as_secs() as i64 * 1000i64
+        + (since_the_epoch.subsec_nanos() as f64 / 1_000_000.0) as i64;
+    ms
 }

@@ -5,14 +5,29 @@
 use anyhow::{bail, Context, Result};
 use path_absolutize::Absolutize;
 use spin_loader::local::config::{RawAppManifest, RawComponentManifest};
+use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
-use std::{fs, time::Duration};
 use subprocess::{Exec, Redirection};
+use toml::Value;
 use tracing::log;
 
 /// If present, run the build command of each component.
 pub async fn build(app: RawAppManifest, src: &Path) -> Result<()> {
     let src = src.absolutize()?;
+    let mut path = src.to_str().unwrap().split('/').collect::<Vec<&str>>();
+    path.pop();
+    path.push("spin.toml");
+    let path = path.join("/");
+
+    let spin_manifest = read_to_string(&path).unwrap();
+    let manifest_info: Value = toml::from_str(&spin_manifest).unwrap();
+
+    //return early if build command not found
+    if !manifest_info.to_string().contains("component.build") {
+        println!("No build command found");
+        return Ok(());
+    }
+
     let results = futures::future::join_all(
         app.components
             .into_iter()
@@ -27,21 +42,7 @@ pub async fn build(app: RawAppManifest, src: &Path) -> Result<()> {
         }
     }
 
-    let mut path = src.to_str().unwrap().split('/').collect::<Vec<&str>>();
-    path.pop();
-    path.push("target");
-    path.push("wasm32-wasi");
-    path.push("release");
-    let path = path.join("/");
-
-    let modified = fs::metadata(Path::new(&path)).unwrap().modified();
-    let ten_secs = Duration::from_secs(10);
-
-    if modified.unwrap().elapsed().unwrap() >= ten_secs {
-        println!("nothing to build. Everything up to date");
-    } else {
-        println!("Successfully ran the build command for the Spin components.");
-    }
+    println!("Successfully ran the build command for the Spin components.");
 
     Ok(())
 }

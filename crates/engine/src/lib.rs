@@ -59,12 +59,7 @@ pub struct Engine(wasmtime::Engine);
 
 impl Engine {
     /// Create a new engine and initialize it with the given config.
-    pub fn new(mut config: wasmtime::Config) -> Result<Self> {
-        // In order for Wasmtime to run WebAssembly components, multi memory
-        // and module linking must always be enabled.
-        // See https://github.com/bytecodealliance/wit-bindgen/blob/main/crates/wasmlink.
-        config.wasm_multi_memory(true);
-        config.wasm_module_linking(true);
+    pub fn new(config: wasmtime::Config) -> Result<Self> {
         Ok(Self(wasmtime::Engine::new(&config)?))
     }
 

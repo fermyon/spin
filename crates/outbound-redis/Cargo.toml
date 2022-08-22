@@ -8,10 +8,10 @@ doctest = false
 
 [dependencies]
 anyhow = "1.0"
+owning_ref = "0.4.1"
 redis = { version = "0.21", features = [ "tokio-comp" ] }
 spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }
-wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "dde4694aaa6acf9370206527a798ac4ba6a8c5b8" }
 tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
-owning_ref = "0.4.1"
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }

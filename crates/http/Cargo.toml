@@ -19,7 +19,7 @@ futures-util = "0.3.8"
 http = "0.2"
 hyper = { version = "0.14", features = ["full"] }
 hyper-rustls = { version = "0.23.0" }
-indexmap = "1.6"
+indexmap = "1"
 serde = { version = "1.0", features = ["derive"] }
 spin-manifest = { path = "../manifest" }
 spin-engine = { path = "../engine" }

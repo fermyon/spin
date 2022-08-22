@@ -5,26 +5,16 @@
 use anyhow::{bail, Context, Result};
 use path_absolutize::Absolutize;
 use spin_loader::local::config::{RawAppManifest, RawComponentManifest};
-use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 use subprocess::{Exec, Redirection};
-use toml::Value;
 use tracing::log;
 
 /// If present, run the build command of each component.
 pub async fn build(app: RawAppManifest, src: &Path) -> Result<()> {
     let src = src.absolutize()?;
-    let mut path = src.to_str().unwrap().split('/').collect::<Vec<&str>>();
-    path.pop();
-    path.push("spin.toml");
-    let path = path.join("/");
 
-    let spin_manifest = read_to_string(&path).unwrap();
-    let manifest_info: Value = toml::from_str(&spin_manifest).unwrap();
-
-    //return early if build command not found
-    if !manifest_info.to_string().contains("component.build") {
-        println!("No build command found");
+    if (app.components.iter().all(|c| c.build.is_none())) {
+        println!("No build command found!");
         return Ok(());
     }
 

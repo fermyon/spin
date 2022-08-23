@@ -26,15 +26,15 @@ A [`spin-plugins` repository](#centralized-plugin-manifest-repository) will act 
 The `spin plugin` command will have three sub-commands.
 
 ```bash
-Commands for working with Spin plugins
+Commands for working with Spin plugins.
 
 USAGE:
     spin plugin <SUBCOMMAND>
 
 SUBCOMMANDS:
-    install      Install plugin as described by a remote or local plugin manifest
-    uninstall    Uninstall a plugin
-	update		 Update one or all plugins to the latest or specified version 
+    install      Install plugin as described by a remote or local plugin manifest.
+    uninstall    Uninstall a plugin.
+    update       Update one or all plugins to the latest or specified version.
 ```
 
 **`spin plugin install`**
@@ -44,16 +44,16 @@ The `spin plugin install` subcommand installs a plugin named `$name`. By default
 ```bash
 Install a Spin plugin using a plugin manifest file. 
 By default, looks for the plugin manifest named <name>.json
-in the Spin plugins repository https://github.com/fermyon/spin-plugins
+in the Spin plugins repository https://github.com/fermyon/spin-plugins.
 
 USAGE:
     spin plugin install <name>
 
 OPTIONS:
-    -f, --file                       Path to local plugin manifest
-	-u, --url                        Address of remote plugin manifest
-    -v, --version                    Desired version to update plugin to. Defaults to latest.
-    -s, --skip-version-compat-check  Instructs Spin to install the plugin even 
+    -f, --file                       Path to local plugin manifest.
+    -u, --url                        Address of remote plugin manifest.
+    -v, --version                    Version of plugin to be installed. Defaults to latest.
+        -s, --skip-version-compat-check  Instructs Spin to install the plugin even 
                                      if its manifest specifies that it is 
                                      incompatible with the current version of Spin
 ```
@@ -63,10 +63,10 @@ If the manifest is found, Spin will check that the plugin is compatible with the
 ```bash
 Installing plugin deploy with license Apache 2.0 from https://github.com/fermyon/spin-plugin-deploy/releases/download/v0.1.0/spin-plugin-deploy-v0.1.0-macos-aarch64.tar.gz
 For more information, reference the plugin metadata at `https://github.com/fermyon/spin-plugins/plugin-manifests/deploy.json`.
-Are you sure you want to proceed? ('yes'/'no') (default: no)
+Are you sure you want to proceed? (y/N)
 ```
 
-The plugin will only be installed if a user enters `yes`. Otherwise, the command exits. 
+The plugin will only be installed if a user enters `y` or `yes` (ignoring capitalization). Otherwise, the command exits. 
 
 Spin will reference the plugin manifest in order to fetch the plugin binary and install it into the user’s local data directory under a Spin-managed `plugins` subdirectory. The plugin manifest will be stored within a `manifests` subdirectory. 
 
@@ -96,11 +96,11 @@ USAGE:
     spin plugin update [OPTIONS]
 
 OPTIONS:
-	-a, --all        Update all installed plugins (cannot be used with any other option)
-    -p, --plugin     Name of plugin
+    -a, --all        Update all installed plugins (cannot be used with any other option).
+    -p, --plugin     Name of plugin to update.
     -v, --version    Desired version to update the plugin to. Defaults to latest. 
-    -f, --file       Path to local manifest (mutex with `-u`)
-    -u, --url        Address of remote manifest (mutex with `-f`)
+    -f, --file       Path to local manifest (mutex with `-u`).
+    -u, --url        Address of remote manifest (mutex with `-f`).
     -d, --downgrade  Enables downgrading a plugin to an older specified version.
     -s, --skip-version-compat-check  Instructs Spin to install the plugin even 
                                      if its manifest specifies that it is 
@@ -224,6 +224,7 @@ Spin will use the [`semver`](https://docs.rs/semver/1.0.13/semver/struct.Version
 
 The concept of Spin plugins is to allow both new subcommands and functionality to be added to Spin. This SIP focuses on the former, enabling users to both install and execute subcommands from the Spin CLI; however, there are cases where it may be useful to install a new Spin feature that is executed by Spin rather than the user. An example of this is Spin triggers. A user may wish to [extend Spin to support a timer trigger](https://spin.fermyon.dev/extending-and-embedding/) that executes components at a configured time interval. Instead of having to understand, modify, and grow the spin codebase, a user could package the trigger as a plugin. After installing the trigger via `spin plugin install`. Spin could invoke it when a Spin manifest references the trigger. 
 
+### WebAssembly Plugin Support
 While for now plugins are assumed to be executables, in the future, support for plugging in WebAssembly modules may be desirable.
 
 ### Clean versioning and Spin plugin compatibility

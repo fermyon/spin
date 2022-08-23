@@ -137,7 +137,7 @@ A Spin plugin is defined by a Spin Plugin Manifest which is a JSON file that con
         },
         "spinCompatibility": {
             "type": "string",
-            "pattern": "^[><~^*]?[=]?v?(0|[1-9]\\d*)(\\.(0|[1-9]\\d*))?(\\.(0|[1-9]\\d*))?(-(0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(\\.(0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\\+[0-9a-zA-Z-]+(\\.[0-9a-zA-Z-]+)*)?$"
+            "pattern": "^([><~^*]?[=]?v?(0|[1-9]\\d*)(\\.(0|[1-9]\\d*))?(\\.(0|[1-9]\\d*))?(-(0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(\\.(0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\\+[0-9a-zA-Z-]+(\\.[0-9a-zA-Z-]+)*)?)(?:, *([><~^*]?[=]?v?(0|[1-9]\\d*)(\\.(0|[1-9]\\d*))?(\\.(0|[1-9]\\d*))?(-(0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(\\.(0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\\+[0-9a-zA-Z-]+(\\.[0-9a-zA-Z-]+)*)?))*$"
         },
         "license": {
             "type": "string"
@@ -201,8 +201,8 @@ The following naming conventions are to be followed for plugins where `$name` i
 
 #### Plugin Compatibility
 
-Spin plugins must specify compatible versions of Spin in the `spinCompatibility` field of the manifest. The field is expected to be a [comparison operator](https://docs.rs/semver/1.0.13/semver/enum.Op.html) (`=, >, >=, <, <=, ~, ^, *`) along with the compatible version of Spin. The JSON schema validates that the `spinCompatibility` field is a string that matches the following regular expression: `^[><~^*]?[=]?v?(0|[1-9]\d*)(\.(0|[1-9]\d*))?(\.(0|[1-9]\d*))?(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\+[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?$`. 
-For example, specifying `=0.4` means that the plugin is compatible with versions equivalent to `>=0.4.0, <0.5.0`.
+Spin plugins must specify compatible versions of Spin in the `spinCompatibility` field of the manifest. The field is expected to be a list of rules, with each rule being a [comparison operators](https://docs.rs/semver/1.0.13/semver/enum.Op.html) (`=, >, >=, <, <=, ~, ^, *`) along with the compatible version of Spin. The JSON schema validates that the `spinCompatibility` field is a string that matches the following regular expression: `^([><~^*]?[=]?v?(0|[1-9]\d*)(\.(0|[1-9]\d*))?(\.(0|[1-9]\d*))?(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\+[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?)(?:, *([><~^*]?[=]?v?(0|[1-9]\d*)(\.(0|[1-9]\d*))?(\.(0|[1-9]\d*))?(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\+[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?))*$`. 
+For example, specifying `=0.4` means that the plugin is compatible with versions equivalent to `>=0.4.0, <0.5.0`. Multiple rules may be specified (i.e. `>=0.2, <0.5`).
 
 Spin will use the [`semver`](https://docs.rs/semver/1.0.13/semver/struct.VersionReq.html) crate that inspired this syntax to verify that the plugin works on the current version of Spin. If it does not, it will fail to install the plugin and log a message explaining the version mismatch.
 

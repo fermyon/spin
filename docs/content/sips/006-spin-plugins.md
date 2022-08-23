@@ -53,6 +53,7 @@ OPTIONS:
     -f, --file                       Path to local plugin manifest.
     -u, --url                        Address of remote plugin manifest.
     -v, --version                    Version of plugin to be installed. Defaults to latest.
+    -y, --yes                        Assume yes to all queries.
 ```
 
 If the manifest is found, Spin will check that the plugin is compatible with the current OS, platform, and version of Spin. If so, before installing the plugin, Spin will prompt the user as to whether to trust the source. For example, the following prompt would be displayed for a plugin named `deploy` with an Apache 2 license and hosted at [`https://github.com/fermyon/spin-plugin-deploy/releases/download/v0.1.0/spin-plugin-deploy-v0.1.0-macos-aarch64.tar.gz`](https://github.com/fermyon/spin-plugin-deploy/releases/download/v0.1.0/spin-plugin-deploy-v0.1.0-macos-aarch64.tar.gz):

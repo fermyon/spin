@@ -53,9 +53,6 @@ OPTIONS:
     -f, --file                       Path to local plugin manifest.
     -u, --url                        Address of remote plugin manifest.
     -v, --version                    Version of plugin to be installed. Defaults to latest.
-        -s, --skip-version-compat-check  Instructs Spin to install the plugin even 
-                                     if its manifest specifies that it is 
-                                     incompatible with the current version of Spin
 ```
 
 If the manifest is found, Spin will check that the plugin is compatible with the current OS, platform, and version of Spin. If so, before installing the plugin, Spin will prompt the user as to whether to trust the source. For example, the following prompt would be displayed for a plugin named `deploy` with an Apache 2 license and hosted at [`https://github.com/fermyon/spin-plugin-deploy/releases/download/v0.1.0/spin-plugin-deploy-v0.1.0-macos-aarch64.tar.gz`](https://github.com/fermyon/spin-plugin-deploy/releases/download/v0.1.0/spin-plugin-deploy-v0.1.0-macos-aarch64.tar.gz):
@@ -102,12 +99,9 @@ OPTIONS:
     -f, --file       Path to local manifest (mutex with `-u`).
     -u, --url        Address of remote manifest (mutex with `-f`).
     -d, --downgrade  Enables downgrading a plugin to an older specified version.
-    -s, --skip-version-compat-check  Instructs Spin to install the plugin even 
-                                     if its manifest specifies that it is 
-                                     incompatible with the current version of Spin
 ```
 
-The update will fail if the latest or user-specified version of the plugin is not [compatible with the current version of Spin](#plugin-compatibility). This failure can be overridden with `--skip-version-compat-check`.
+The update will fail if the latest or user-specified version of the plugin is not [compatible with the current version of Spin](#plugin-compatibility).
 
 ### Spin Plugin Manifest
 
@@ -209,7 +203,7 @@ The following naming conventions are to be followed for plugins where `$name` i
 Spin plugins must specify compatible versions of Spin in the `spinCompatibility` field of the manifest. The field is expected to be a [comparison operator](https://docs.rs/semver/1.0.13/semver/enum.Op.html) (`=, >, >=, <, <=, ~, ^, *`) along with the compatible version of Spin. The JSON schema validates that the `spinCompatibility` field is a string that matches the following regular expression: `^[><~^*]?[=]?v?(0|[1-9]\d*)(\.(0|[1-9]\d*))?(\.(0|[1-9]\d*))?(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\+[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?$`. 
 For example, specifying `=0.4` means that the plugin is compatible with versions equivalent to `>=0.4.0, <0.5.0`.
 
-Spin will use the [`semver`](https://docs.rs/semver/1.0.13/semver/struct.VersionReq.html) crate that inspired this syntax to verify that the plugin works on the current version of Spin. If it does not, it will fail to install the plugin and log a message explaining the version mismatch. An `--skip-version-compat-check` flag can be added to a plugin installation to ignore this error.
+Spin will use the [`semver`](https://docs.rs/semver/1.0.13/semver/struct.VersionReq.html) crate that inspired this syntax to verify that the plugin works on the current version of Spin. If it does not, it will fail to install the plugin and log a message explaining the version mismatch.
 
 #### Centralized Plugin Manifest Repository
 

@@ -34,7 +34,7 @@ USAGE:
 SUBCOMMANDS:
     install      Install plugin as described by a remote or local plugin manifest.
     uninstall    Uninstall a plugin.
-    update       Update one or all plugins to the latest or specified version.
+    upgrade      Upgrade one or all plugins to the latest or specified version.
 ```
 
 **`spin plugin install`**
@@ -83,26 +83,26 @@ USAGE:
     spin plugin uninstall <name>
 ```
 
-**`spin plugin update`**
+**`spin plugin upgrade`**
 
-The `spin plugin update` command updates one or all plugins. If updating a single plugin, the desired version can be specified. By default, plugins are updated to the latest version in the plugins repository. As with `spin plugin install`, the local path or remote addresses to a plugin manifest can be specified.
+The `spin plugin upgrade` command upgrades one or all plugins. If upgrading a single plugin, the desired version can be specified. By default, plugins are upgraded to the latest version in the plugins repository. As with `spin plugin install`, the local path or remote addresses to a plugin manifest can be specified.
 
 ```bash
-Update one or all installed Spin plugins.
+Upgrade one or all installed Spin plugins.
 
 USAGE:
-    spin plugin update [OPTIONS]
+    spin plugin upgrade [OPTIONS]
 
 OPTIONS:
-    -a, --all        Update all installed plugins (cannot be used with any other option).
-    -p, --plugin     Name of plugin to update.
-    -v, --version    Desired version to update the plugin to. Defaults to latest. 
+    -a, --all        Upgrade all installed plugins to latest versions (cannot be used with any other option).
+    -p, --plugin     Name of plugin to upgrade.
+    -v, --version    Desired version to upgrade the plugin to. Defaults to latest. 
     -f, --file       Path to local manifest (mutex with `-u`).
     -u, --url        Address of remote manifest (mutex with `-f`).
     -d, --downgrade  Enables downgrading a plugin to an older specified version.
 ```
 
-The update will fail if the latest or user-specified version of the plugin is not [compatible with the current version of Spin](#plugin-compatibility).
+The upgrade will fail if the latest or user-specified version of the plugin is not [compatible with the current version of Spin](#plugin-compatibility).
 
 ### Spin Plugin Manifest
 

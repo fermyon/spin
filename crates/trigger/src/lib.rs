@@ -1,4 +1,10 @@
-use std::{error::Error, marker::PhantomData, path::PathBuf};
+use std::{
+    collections::HashMap,
+    error::Error,
+    marker::PhantomData,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -119,7 +125,9 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 /// Add the default set of host components to the given builder.
 pub fn add_default_host_components<T: Default + 'static>(builder: &mut Builder<T>) -> Result<()> {
     builder.add_host_component(wasi_outbound_http::OutboundHttpComponent)?;
-    builder.add_host_component(outbound_redis::OutboundRedis)?;
+    builder.add_host_component(outbound_redis::OutboundRedis {
+        connections: Arc::new(RwLock::new(HashMap::new())),
+    })?;
     builder.add_host_component(outbound_pg::OutboundPg)?;
     Ok(())
 }

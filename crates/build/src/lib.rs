@@ -12,6 +12,12 @@ use tracing::log;
 /// If present, run the build command of each component.
 pub async fn build(app: RawAppManifest, src: &Path) -> Result<()> {
     let src = src.absolutize()?;
+
+    if app.components.iter().all(|c| c.build.is_none()) {
+        println!("No build command found!");
+        return Ok(());
+    }
+
     let results = futures::future::join_all(
         app.components
             .into_iter()

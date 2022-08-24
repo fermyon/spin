@@ -1,4 +1,9 @@
-use std::{error::Error, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    error::Error,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::{bail, Context, Result};
 use clap::{Args, IntoApp, Parser};
@@ -141,7 +146,9 @@ where
             .context("SPIN_ALLOW_TRANSIENT_WRITE")?;
 
         // TODO(lann): Find a better home for this; spin_loader?
+        let dotenv_path;
         let mut app = if let Some(manifest_file) = manifest_url.strip_prefix("file://") {
+            dotenv_path = Path::new(manifest_file).parent().unwrap().join(".env");
             let bindle_connection = std::env::var("BINDLE_URL")
                 .ok()
                 .map(|url| BindleConnectionInfo::new(url, false, None, None));
@@ -153,6 +160,7 @@ where
             )
             .await?
         } else if let Some(bindle_url) = manifest_url.strip_prefix("bindle+") {
+            dotenv_path = Path::new("./.env").to_path_buf();
             let (bindle_server, bindle_id) = bindle_url
                 .rsplit_once("?id=")
                 .context("invalid bindle URL")?;
@@ -169,12 +177,17 @@ where
             }
         }
 
+        let envs = read_dotenv(dotenv_path)?;
+
         // Add default config provider(s).
         // TODO(lann): Make config provider(s) configurable.
         if let Some(ref mut resolver) = app.config_resolver {
             let resolver = Arc::get_mut(resolver)
                 .context("Internal error: app.config_resolver unexpectedly shared")?;
-            resolver.add_provider(spin_config::provider::env::EnvProvider::default());
+            resolver.add_provider(spin_config::provider::env::EnvProvider::new(
+                spin_config::provider::env::DEFAULT_PREFIX,
+                envs,
+            ));
         }
 
         Ok(app)
@@ -210,4 +223,19 @@ fn parse_env_var(s: &str) -> Result<(String, String)> {
         bail!("Environment variable must be of the form `key=value`");
     }
     Ok((parts[0].to_owned(), parts[1].to_owned()))
+}
+
+// Return environment key value mapping in ".env" file.
+fn read_dotenv(dotenv_path: impl AsRef<Path>) -> Result<HashMap<String, String>> {
+    let mut envs = HashMap::new();
+    if !dotenv_path.as_ref().exists() {
+        return Ok(envs);
+    }
+
+    let env_iter = dotenvy::from_path_iter(dotenv_path)?;
+    for env_item in env_iter {
+        let (key, value) = env_item?;
+        envs.insert(key, value);
+    }
+    Ok(envs)
 }

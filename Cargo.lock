@@ -1007,6 +1007,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dotenvy"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e851a83c30366fd01d75b913588e95e74a1705c1ecc5d58b1f8e1a6d556525f"
+dependencies = [
+ "dirs 4.0.0",
+]
+
+[[package]]
 name = "dtoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3938,6 +3947,7 @@ dependencies = [
  "async-trait",
  "clap 3.1.15",
  "ctrlc",
+ "dotenvy",
  "futures",
  "http 0.2.6",
  "outbound-pg",

@@ -39,7 +39,9 @@ SUBCOMMANDS:
 
 **`spin plugin install`**
 
-The `spin plugin install` subcommand installs a plugin named `$name`. By default, it will look for a plugin manifest named `$name.json` in the `spin-plugin` repository; however, it can be directed to use a local manifest or one at a different remote location using the `--file` or `--url` flag, respectively.
+The `spin plugin install` subcommand installs a plugin named `$name`. By default, it will look for a plugin manifest named `$name.json` in the `spin-plugin` repository; however, it can be directed to use a local manifest or one at a different remote location using the `--file` or `--url` flag, respectively. 
+
+> Note: the plugin `$name` must not match an existing internal Spin command name. For example, `spin plugin install up` would elicit an error.
 
 ```bash
 Install a Spin plugin using a plugin manifest file. 
@@ -56,11 +58,11 @@ OPTIONS:
     -y, --yes                        Assume yes to all queries.
 ```
 
-If the manifest is found, Spin will check that the plugin is compatible with the current OS, platform, and version of Spin. If so, before installing the plugin, Spin will prompt the user as to whether to trust the source. For example, the following prompt would be displayed for a plugin named `deploy` with an Apache 2 license and hosted at [`https://github.com/fermyon/spin-plugin-deploy/releases/download/v0.1.0/spin-plugin-deploy-v0.1.0-macos-aarch64.tar.gz`](https://github.com/fermyon/spin-plugin-deploy/releases/download/v0.1.0/spin-plugin-deploy-v0.1.0-macos-aarch64.tar.gz):
+If the manifest is found, Spin will check that the plugin is compatible with the current OS, platform, and version of Spin. If so, before installing the plugin, Spin will prompt the user as to whether to trust the source. For example, the following prompt would be displayed for a plugin named `test` with an Apache 2 license and hosted at `https://github.com/fermyon/spin-plugin-test/releases/download/v0.1.0/spin-plugin-test-v0.1.0-macos-aarch64.tar.gz`:
 
 ```bash
-Installing plugin deploy with license Apache 2.0 from https://github.com/fermyon/spin-plugin-deploy/releases/download/v0.1.0/spin-plugin-deploy-v0.1.0-macos-aarch64.tar.gz
-For more information, reference the plugin metadata at `https://github.com/fermyon/spin-plugins/plugin-manifests/deploy.json`.
+Installing plugin `test` with license Apache 2.0 from https://github.com/fermyon/spin-plugin-test/releases/download/v0.1.0/spin-plugin-test-v0.1.0-macos-aarch64.tar.gz
+For more information, reference the plugin metadata at `https://github.com/fermyon/spin-plugins/plugin-manifests/test.json`.
 Are you sure you want to proceed? (y/N)
 ```
 
@@ -70,7 +72,6 @@ Spin will reference the plugin manifest in order to fetch the plugin binary and 
 
 After installing a plugin, it can be executed directly from the Spin CLI. For example, a plugin named `$name` would be executed by running `spin $name <args>`. Any additional arguments supplied will be passed when executing the associated binary.
 
- 
 
 **`spin plugin uninstall`**
 

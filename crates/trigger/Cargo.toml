@@ -9,6 +9,7 @@ anyhow = "1.0"
 async-trait = "0.1"
 clap = { version = "3.1.15", features = ["derive", "env"] }
 ctrlc = { version = "3.2", features = ["termination"] }
+dotenvy = "0.15.1"
 futures = "0.3"
 http = "0.2"
 outbound-redis = { path = "../outbound-redis" }
@@ -20,5 +21,4 @@ spin-loader = { path = "../loader" }
 spin-manifest = { path = "../manifest" }
 tracing = { version = "0.1", features = [ "log" ] }
 wasi-outbound-http = { path = "../outbound-http" } 
-wasmtime = "0.35.3"
-dotenvy = "0.15.1"
+wasmtime = "0.39.1"

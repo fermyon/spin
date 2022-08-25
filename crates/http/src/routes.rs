@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use http::Uri;
 use indexmap::IndexMap;
 use spin_manifest::{ComponentMap, HttpConfig};
-use std::fmt;
+use std::{borrow::Cow, fmt};
 
 /// Router for the HTTP trigger.
 #[derive(Clone, Debug)]
@@ -62,11 +62,7 @@ pub enum RoutePattern {
 impl RoutePattern {
     /// Returns a RoutePattern given a path fragment.
     pub fn from<S: Into<String>>(base: S, path: S) -> Self {
-        let path = format!(
-            "{}{}",
-            Self::sanitize(base.into()),
-            Self::sanitize(path.into())
-        );
+        let path = Self::sanitize_with_base(base, path);
         match path.strip_suffix("/...") {
             Some(p) => Self::Wildcard(p.to_owned()),
             None => Self::Exact(path),
@@ -97,6 +93,22 @@ impl RoutePattern {
             .strip_prefix(base)
             .unwrap_or_default()
             .to_owned())
+    }
+
+    /// The full path (for Exact) or prefix (for Wildcard).
+    pub(crate) fn path_or_prefix(&self) -> &str {
+        match self {
+            RoutePattern::Exact(s) => s,
+            RoutePattern::Wildcard(s) => s,
+        }
+    }
+
+    /// The full pattern, with trailing "/..." for Wildcard.
+    pub(crate) fn full_pattern(&self) -> Cow<str> {
+        match self {
+            Self::Exact(path) => path.into(),
+            Self::Wildcard(prefix) => format!("{}/...", prefix).into(),
+        }
     }
 
     /// Sanitizes the base and path and return a formed path.

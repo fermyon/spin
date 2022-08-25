@@ -20,6 +20,7 @@ http = "0.2"
 hyper = { version = "0.14", features = ["full"] }
 hyper-rustls = { version = "0.23.0" }
 indexmap = "1"
+percent-encoding = "2"
 serde = { version = "1.0", features = ["derive"] }
 spin-manifest = { path = "../manifest" }
 spin-engine = { path = "../engine" }
@@ -36,7 +37,6 @@ tracing = { version = "0.1", features = ["log"] }
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 url = "2.2"
-wagi = { git = "https://github.com/deislabs/wagi", rev = "479fae0e375679865be47a2bc2f1cc183531ab52" }
 wasi-cap-std-sync = "0.35.3"
 wasi-common = "0.35.3"
 wasmtime = "0.35.3"

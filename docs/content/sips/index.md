@@ -16,3 +16,4 @@ Here is a list of accepted SIPs:
 - [Trigger Executors](../sips/003-trigger-executors.md)
 - [Spin Build](../sips/004-spin-build.md)
 - [Application Manifest Redesign](../sips/005-manifest-redesign.md)
+- [Spin Plugins](../sips/006-spin-plugins.md)

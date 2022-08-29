@@ -55,4 +55,5 @@ enum http-error {
     invalid-url,
     request-error,
     runtime-error,
+    too-many-requests,
 }

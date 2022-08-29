@@ -1,7 +1,10 @@
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use semver::Version;
-use spin_plugins::install::{ManifestLocation, PluginInfo, PluginInstaller};
+use spin_plugins::{
+    install::{ManifestLocation, PluginInfo, PluginInstaller},
+    uninstall::PluginUninstaller,
+};
 use std::path::PathBuf;
 use url::Url;
 
@@ -78,18 +81,18 @@ pub struct Install {
 
 impl Install {
     pub async fn run(self) -> Result<()> {
-        println!("Attempting to install plugin: {:?}", self.name);
         let manifest_location = match (self.local_manifest_src, self.remote_manifest_src, self.name) {
             // TODO: move all this parsing into clap to catch input errors.
             (Some(path), None, None) => ManifestLocation::Local(path),
             (None, Some(url), None) => ManifestLocation::Remote(url),
-            (None, None, Some(name)) => ManifestLocation::PluginsRepository(PluginInfo::new(name, Url::parse(SPIN_PLUGINS_REPO)?)),
+            (None, None, Some(name)) => ManifestLocation::PluginsRepository(PluginInfo::new(name, Url::parse(SPIN_PLUGINS_REPO)?, self.version)),
             _ => return Err(anyhow::anyhow!("Must provide plugin name for plugin look up xor remote xor local path to plugin manifest")),
         };
         PluginInstaller::new(
             manifest_location,
             get_spin_plugins_directory()?,
             self.yes_to_all,
+            env!("VERGEN_BUILD_SEMVER"),
         )
         .install()
         .await?;
@@ -109,7 +112,7 @@ pub struct Uninstall {
 
 impl Uninstall {
     pub async fn run(self) -> Result<()> {
-        println!("The plugin {:?} will be removed", self.name);
+        PluginUninstaller::new(&self.name, get_spin_plugins_directory()?).run()?;
         Ok(())
     }
 }

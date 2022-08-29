@@ -28,7 +28,7 @@ impl GitSource {
         let mut git = Command::new("git");
         git.args([
             "clone",
-            &self.source_url.to_string(),
+            self.source_url.as_ref(),
             "--branch",
             &self.branch,
             "--single-branch",
@@ -55,7 +55,7 @@ impl GitSource {
         let pull_result = git.output().await?;
         match pull_result.status.success() {
             true => {
-                println!("Updated Repository Successfully");
+                println!("Updated repository successfully");
                 Ok(())
             }
             false => Err(anyhow!(

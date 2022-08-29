@@ -8,8 +8,8 @@ pub(crate) struct PluginManifest {
     description: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     homepage: Option<String>,
-    version: String,
-    spin_compatibility: String,
+    pub version: String,
+    pub spin_compatibility: String,
     pub license: String,
     pub packages: Vec<PluginPackage>,
 }

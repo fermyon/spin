@@ -6,7 +6,8 @@ struct SpinHttp {}
 
 impl spin_http::SpinHttp for SpinHttp {
     fn handle_http_request(req: Request) -> Response {
-        assert!(req.params.contains(&("abc".to_string(), "def".to_string())));
+        assert!(req.params.is_empty());
+        assert!(req.uri.contains("?abc=def"));
 
         assert!(req
             .headers

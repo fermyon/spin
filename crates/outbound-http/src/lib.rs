@@ -70,6 +70,10 @@ impl wasi_outbound_http::WasiOutboundHttp for OutboundHttp {
         let headers = request_headers(req.headers)?;
         let body = req.body.unwrap_or_default().to_vec();
 
+        if !req.params.is_empty() {
+            tracing::log::warn!("HTTP params field is deprecated");
+        }
+
         match Handle::try_current() {
             // If running in a Tokio runtime, spawn a new blocking executor
             // that will send the HTTP request, and block on its execution.

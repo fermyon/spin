@@ -1,1 +1,0 @@
-handle-timer-request: func(msg: string) -> string

@@ -15,12 +15,13 @@ futures = "0.3.17"
 glob = "0.3.0"
 itertools = "0.10.3"
 lazy_static = "1.4.0"
+outbound-http = { path = "../outbound-http" } 
 path-absolutize = "3.0.11"
 regex = "1.5.4"
 reqwest = "0.11.9"
 sha2 = "0.10.1"
 serde = { version = "1.0", features = [ "derive" ] }
-spin-config = { path = "../config" }
+spin-app = { path = "../app" }
 spin-manifest = { path = "../manifest" }
 tempfile = "3.3.0"
 tokio = { version = "1.11", features = [ "full" ] }
@@ -28,6 +29,4 @@ tokio-util = "0.6"
 toml = "0.5"
 tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
-tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 walkdir = "2.3.2"
-wasi-outbound-http = { path = "../outbound-http" } 

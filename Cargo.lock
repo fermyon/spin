@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "Inflector"
+version = "0.11.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
+
+[[package]]
 name = "addr2line"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -36,6 +42,12 @@ checksum = "1e37cfd5e7657ada45f742d6e99ca5788580b5c529dc78faf11ece6dc702656f"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "aliasable"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "250f629c0161ad8107cf89319e990051fae62832fd343083bea452d93e2205fd"
 
 [[package]]
 name = "ambient-authority"
@@ -2186,13 +2198,51 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ff7415e9ae3fff1225851df9e0d9e4e5479f947619774677a63572e55e80eff"
 
 [[package]]
+name = "ouroboros"
+version = "0.15.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f56a2b0aa5fc88687aaf63e85a7974422790ce3419a2e1a15870f8a55227822"
+dependencies = [
+ "aliasable",
+ "ouroboros_macro",
+]
+
+[[package]]
+name = "ouroboros_macro"
+version = "0.15.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c40641e27d0eb38cae3dee081d920104d2db47a8e853c1a592ef68d33f5ebf4"
+dependencies = [
+ "Inflector",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "outbound-http"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "http",
+ "reqwest",
+ "spin-app",
+ "spin-core",
+ "tracing",
+ "tracing-futures",
+ "url",
+ "wit-bindgen-wasmtime",
+]
+
+[[package]]
 name = "outbound-pg"
 version = "0.2.0"
 dependencies = [
  "anyhow",
  "postgres",
- "spin-engine",
- "spin-manifest",
+ "spin-core",
  "tracing",
  "wit-bindgen-wasmtime",
 ]
@@ -2202,22 +2252,12 @@ name = "outbound-redis"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "owning_ref",
  "redis",
- "spin-engine",
- "spin-manifest",
+ "spin-core",
+ "tokio",
  "tracing",
  "tracing-futures",
  "wit-bindgen-wasmtime",
-]
-
-[[package]]
-name = "owning_ref"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ff55baddef9e4ad00f88b6c743a2a8062d4c6ade126c2a528644b8e444d52ce"
-dependencies = [
- "stable_deref_trait",
 ]
 
 [[package]]
@@ -2938,9 +2978,9 @@ dependencies = [
 
 [[package]]
 name = "sanitize-filename"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf18934a12018228c5b55a6dae9df5d0641e3566b3630cb46cc55564068e7c2f"
+checksum = "08c502bdb638f1396509467cb0580ef3b29aa2a45c5d43e5d84928241280296c"
 dependencies = [
  "lazy_static",
  "regex",
@@ -3261,6 +3301,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
+name = "spin-app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "ouroboros",
+ "serde",
+ "serde_json",
+ "spin-core",
+ "thiserror",
+]
+
+[[package]]
 name = "spin-build"
 version = "0.2.0"
 dependencies = [
@@ -3296,7 +3349,6 @@ dependencies = [
  "lazy_static",
  "nix 0.24.2",
  "openssl",
- "outbound-redis",
  "path-absolutize",
  "regex",
  "reqwest",
@@ -3306,7 +3358,6 @@ dependencies = [
  "sha2 0.10.3",
  "spin-build",
  "spin-config",
- "spin-engine",
  "spin-http-engine",
  "spin-loader",
  "spin-manifest",
@@ -3323,7 +3374,6 @@ dependencies = [
  "url",
  "uuid",
  "vergen",
- "wasi-outbound-http",
  "wasmtime",
  "which",
 ]
@@ -3333,32 +3383,28 @@ name = "spin-config"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "serde",
+ "async-trait",
+ "dotenvy",
+ "once_cell",
+ "spin-app",
+ "spin-core",
  "thiserror",
+ "tokio",
  "toml",
  "wit-bindgen-wasmtime",
 ]
 
 [[package]]
-name = "spin-engine"
-version = "0.2.0"
+name = "spin-core"
+version = "0.1.0"
 dependencies = [
  "anyhow",
- "bytes",
- "cap-std 0.24.4",
- "dirs 4.0.0",
- "sanitize-filename",
- "spin-config",
- "spin-manifest",
- "tempfile",
- "tokio",
+ "async-trait",
  "tracing",
- "tracing-futures",
  "wasi-cap-std-sync",
  "wasi-common",
  "wasmtime",
  "wasmtime-wasi",
- "wit-bindgen-wasmtime",
 ]
 
 [[package]]
@@ -3383,7 +3429,8 @@ dependencies = [
  "percent-encoding",
  "rustls-pemfile 0.3.0",
  "serde",
- "spin-engine",
+ "spin-app",
+ "spin-core",
  "spin-manifest",
  "spin-testing",
  "spin-trigger",
@@ -3392,12 +3439,8 @@ dependencies = [
  "tokio-rustls",
  "tracing",
  "tracing-futures",
- "tracing-subscriber",
  "url",
- "wasi-cap-std-sync",
- "wasi-common",
  "wasmtime",
- "wasmtime-wasi",
  "wit-bindgen-wasmtime",
 ]
 
@@ -3415,12 +3458,13 @@ dependencies = [
  "glob",
  "itertools",
  "lazy_static",
+ "outbound-http",
  "path-absolutize",
  "regex",
  "reqwest",
  "serde",
  "sha2 0.10.3",
- "spin-config",
+ "spin-app",
  "spin-manifest",
  "tempfile",
  "tokio",
@@ -3428,9 +3472,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-futures",
- "tracing-subscriber",
  "walkdir",
- "wasi-outbound-http",
 ]
 
 [[package]]
@@ -3493,14 +3535,14 @@ dependencies = [
  "log",
  "redis",
  "serde",
- "spin-engine",
+ "spin-app",
+ "spin-core",
  "spin-manifest",
  "spin-testing",
  "spin-trigger",
  "tokio",
  "tracing",
  "tracing-futures",
- "tracing-subscriber",
  "wasi-common",
  "wasmtime",
  "wasmtime-wasi",
@@ -3562,33 +3604,13 @@ dependencies = [
  "anyhow",
  "http",
  "hyper",
- "spin-engine",
+ "serde",
+ "serde_json",
+ "spin-app",
+ "spin-core",
  "spin-http-engine",
- "spin-manifest",
  "spin-trigger",
-]
-
-[[package]]
-name = "spin-timer"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "env_logger",
- "futures",
- "log",
- "spin-engine",
- "spin-manifest",
- "spin-trigger",
- "tokio",
- "tracing",
- "tracing-futures",
  "tracing-subscriber",
- "wasi-common",
- "wasmtime",
- "wasmtime-wasi",
- "wit-bindgen-wasmtime",
 ]
 
 [[package]]
@@ -3599,19 +3621,21 @@ dependencies = [
  "async-trait",
  "clap 3.2.19",
  "ctrlc",
- "dotenvy",
+ "dirs 4.0.0",
  "futures",
  "http",
+ "outbound-http",
  "outbound-pg",
  "outbound-redis",
+ "sanitize-filename",
  "serde",
+ "serde_json",
+ "spin-app",
  "spin-config",
- "spin-engine",
+ "spin-core",
  "spin-loader",
  "spin-manifest",
  "tracing",
- "wasi-outbound-http",
- "wasmtime",
 ]
 
 [[package]]
@@ -4297,21 +4321,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasi-outbound-http"
-version = "0.2.0"
+name = "wasi-tokio"
+version = "0.39.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ab325bba31ae9286b8ebdc18d32a43d6471312c9bc4e477240be444e00ec4f4"
 dependencies = [
  "anyhow",
- "bytes",
- "futures",
- "http",
- "reqwest",
- "spin-engine",
- "spin-manifest",
+ "cap-std 0.25.2",
+ "io-extras 0.15.0",
+ "io-lifetimes 0.7.3",
+ "lazy_static",
+ "rustix 0.35.9",
  "tokio",
- "tracing",
- "tracing-futures",
- "url",
- "wit-bindgen-wasmtime",
+ "wasi-cap-std-sync",
+ "wasi-common",
+ "wiggle",
 ]
 
 [[package]]
@@ -4592,6 +4616,7 @@ dependencies = [
  "anyhow",
  "wasi-cap-std-sync",
  "wasi-common",
+ "wasi-tokio",
  "wasmtime",
  "wiggle",
 ]
@@ -4679,6 +4704,7 @@ dependencies = [
  "tracing",
  "wasmtime",
  "wiggle-macro",
+ "witx",
 ]
 
 [[package]]
@@ -4878,6 +4904,7 @@ version = "0.2.0"
 source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba#cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bitflags",
  "thiserror",
  "wasmtime",

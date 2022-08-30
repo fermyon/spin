@@ -21,7 +21,6 @@ hippo-openapi = "0.10"
 hippo = { git = "https://github.com/deislabs/hippo-cli", tag = "v0.16.1" }
 lazy_static = "1.4.0"
 nix = { version = "0.24", features = ["signal"] }
-outbound-redis = { path = "crates/outbound-redis" }
 path-absolutize = "3.0.11"
 regex = "1.5.5"
 reqwest = { version = "0.11", features = ["stream"] }
@@ -31,7 +30,6 @@ serde_json = "1.0.82"
 sha2 = "0.10.2"
 spin-build = { path = "crates/build" }
 spin-config = { path = "crates/config" }
-spin-engine = { path = "crates/engine" }
 spin-http-engine = { path = "crates/http" }
 spin-loader = { path = "crates/loader" }
 spin-manifest = { path = "crates/manifest" }
@@ -44,10 +42,9 @@ tokio = { version = "1.11", features = [ "full" ] }
 toml = "0.5"
 tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
-tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
+tracing-subscriber = { version = "0.3", features = [ "env-filter" ] }
 url = "2.2.2"
 uuid = "^1.0"
-wasi-outbound-http = { path = "crates/outbound-http" }
 wasmtime = "0.39.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -70,9 +67,10 @@ e2e-tests = []
 
 [workspace]
 members = [
+    "crates/app",
     "crates/build",
     "crates/config",
-    "crates/engine",
+    "crates/core",
     "crates/http",
     "crates/loader",
     "crates/manifest",
@@ -82,7 +80,6 @@ members = [
     "crates/templates",
     "crates/testing",
     "crates/trigger",
-    "examples/spin-timer",
     "sdk/rust",
     "sdk/rust/macro"
 ]

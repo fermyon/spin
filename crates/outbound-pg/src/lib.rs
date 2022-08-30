@@ -1,40 +1,33 @@
 use anyhow::anyhow;
-use outbound_pg::*;
 use postgres::{types::ToSql, types::Type, Client, NoTls, Row};
+use spin_core::HostComponent;
+use wit_bindgen_wasmtime::async_trait;
 
-pub use outbound_pg::add_to_linker;
-use spin_engine::{
-    host_component::{HostComponent, HostComponentsStateHandle},
-    RuntimeContext,
-};
-use wit_bindgen_wasmtime::wasmtime::Linker;
-
-wit_bindgen_wasmtime::export!("../../wit/ephemeral/outbound-pg.wit");
+wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/outbound-pg.wit"], async: *});
+use outbound_pg::{Column, DbDataType, DbValue, ParameterValue, PgError, RowSet};
 
 /// A simple implementation to support outbound pg connection
 #[derive(Default, Clone)]
 pub struct OutboundPg;
 
 impl HostComponent for OutboundPg {
-    type State = Self;
+    type Data = Self;
 
-    fn add_to_linker<T>(
-        linker: &mut Linker<RuntimeContext<T>>,
-        state_handle: HostComponentsStateHandle<Self::State>,
+    fn add_to_linker<T: Send>(
+        linker: &mut spin_core::Linker<T>,
+        get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
     ) -> anyhow::Result<()> {
-        add_to_linker(linker, move |ctx| state_handle.get_mut(ctx))
+        outbound_pg::add_to_linker(linker, get)
     }
 
-    fn build_state(
-        &self,
-        _component: &spin_manifest::CoreComponent,
-    ) -> anyhow::Result<Self::State> {
-        Ok(Self)
+    fn build_data(&self) -> Self::Data {
+        Default::default()
     }
 }
 
+#[async_trait]
 impl outbound_pg::OutboundPg for OutboundPg {
-    fn execute(
+    async fn execute(
         &mut self,
         address: &str,
         statement: &str,
@@ -56,7 +49,7 @@ impl outbound_pg::OutboundPg for OutboundPg {
         Ok(nrow)
     }
 
-    fn query(
+    async fn query(
         &mut self,
         address: &str,
         statement: &str,

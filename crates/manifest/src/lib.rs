@@ -4,12 +4,10 @@
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use spin_config::Resolver;
 use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
     path::PathBuf,
-    sync::Arc,
 };
 
 /// A trigger error.
@@ -32,8 +30,8 @@ pub struct Application {
     pub components: Vec<CoreComponent>,
     /// Configuration for the components' triggers.
     pub component_triggers: ComponentMap<TriggerConfig>,
-    /// Application-specific configuration resolver.
-    pub config_resolver: Option<Arc<Resolver>>,
+    /// Custom config variables
+    pub variables: HashMap<String, Variable>,
 }
 
 /// Spin API version.
@@ -81,6 +79,8 @@ pub struct CoreComponent {
     pub description: Option<String>,
     /// Per-component WebAssembly configuration.
     pub wasm: WasmConfig,
+    /// Custom config
+    pub config: HashMap<String, String>,
 }
 
 /// The location from which an application was loaded.
@@ -149,70 +149,6 @@ impl TryFrom<ApplicationTrigger> for RedisTriggerConfiguration {
     }
 }
 
-/// An HTTP host allow-list.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum AllowedHttpHosts {
-    /// All HTTP hosts are allowed (the "insecure:allow-all" value was present in the list)
-    AllowAll,
-    /// Only the specified hosts are allowed.
-    AllowSpecific(Vec<AllowedHttpHost>),
-}
-
-impl Default for AllowedHttpHosts {
-    fn default() -> Self {
-        Self::AllowSpecific(vec![])
-    }
-}
-
-impl AllowedHttpHosts {
-    /// Tests whether the given URL is allowed according to the allow-list.
-    pub fn allow(&self, url: &url::Url) -> bool {
-        match self {
-            Self::AllowAll => true,
-            Self::AllowSpecific(hosts) => hosts.iter().any(|h| h.allow(url)),
-        }
-    }
-}
-
-/// An HTTP host allow-list entry.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct AllowedHttpHost {
-    domain: String,
-    port: Option<u16>,
-}
-
-impl AllowedHttpHost {
-    /// Creates a new allow-list entry.
-    pub fn new(name: impl Into<String>, port: Option<u16>) -> Self {
-        Self {
-            domain: name.into(),
-            port,
-        }
-    }
-
-    /// An allow-list entry that specifies a host and allows the default port.
-    pub fn host(name: impl Into<String>) -> Self {
-        Self {
-            domain: name.into(),
-            port: None,
-        }
-    }
-
-    /// An allow-list entry that specifies a host and port.
-    pub fn host_and_port(name: impl Into<String>, port: u16) -> Self {
-        Self {
-            domain: name.into(),
-            port: Some(port),
-        }
-    }
-
-    fn allow(&self, url: &url::Url) -> bool {
-        (url.scheme() == "http" || url.scheme() == "https")
-            && self.domain == url.host_str().unwrap_or_default()
-            && self.port == url.port()
-    }
-}
-
 /// WebAssembly configuration.
 #[derive(Clone, Debug, Default)]
 pub struct WasmConfig {
@@ -221,7 +157,7 @@ pub struct WasmConfig {
     /// List of directory mounts that need to be mapped inside the WebAssembly module.
     pub mounts: Vec<DirectoryMount>,
     /// Optional list of HTTP hosts the component is allowed to connect.
-    pub allowed_http_hosts: AllowedHttpHosts,
+    pub allowed_http_hosts: Vec<String>,
 }
 
 /// Directory mount for the assets of a component.
@@ -388,4 +324,19 @@ impl TryFrom<TriggerConfig> for RedisConfig {
             _ => Err(Error::InvalidTriggerType),
         }
     }
+}
+
+/// Custom configuration variable
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Variable {
+    /// If true, this variable is required by the application.
+    #[serde(default)]
+    pub required: bool,
+    /// Default value for this variable; must be specified iff `required` is false
+    #[serde(default)]
+    pub default: Option<String>,
+    /// If true, this variable may contain sensitive information and shouldn't be e.g. logged.
+    #[serde(default)]
+    pub secret: bool,
 }

@@ -89,12 +89,12 @@ fn bindle_manifest(
         .collect::<Result<Vec<_>>>()
         .context("Failed to convert components to Bindle format")?;
     let trigger = local.info.trigger.clone();
-    let config = local.config.clone();
+    let variables = local.variables.clone();
 
     Ok(bindle_schema::RawAppManifest {
         trigger,
+        variables,
         components,
-        config,
     })
 }
 

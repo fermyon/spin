@@ -8,6 +8,7 @@ use anyhow::{bail, Context, Result};
 use clap::{CommandFactory, Parser};
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_manifest::ApplicationTrigger;
+use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_WORKING_DIR};
 use tempfile::TempDir;
 
 use crate::opts::*;
@@ -77,13 +78,13 @@ pub struct UpCommand {
     )]
     pub insecure: bool,
 
+    /// Pass an environment variable (key=value) to all components of the application.
+    #[clap(short = 'e', long = "env", parse(try_from_str = parse_env_var))]
+    pub env: Vec<(String, String)>,
+
     /// Temporary directory for the static assets of the components.
     #[clap(long = "temp")]
     pub tmp: Option<PathBuf>,
-
-    /// Set the static assets of the components in the temporary directory as writable.
-    #[clap(long = "allow-transient-write")]
-    pub allow_transient_write: bool,
 
     /// All other args, to be passed through to the trigger
     #[clap(hide = true)]
@@ -92,6 +93,8 @@ pub struct UpCommand {
 
 impl UpCommand {
     pub async fn run(self) -> Result<()> {
+        // For displaying help, first print `spin up`'s own usage text, then
+        // attempt to load an app and print trigger-type-specific usage.
         let help = self.help;
         if help {
             Self::command()
@@ -100,6 +103,7 @@ impl UpCommand {
                 .print_help()?;
             println!();
         }
+
         self.run_inner().await.or_else(|err| {
             if help {
                 tracing::warn!("Error resolving trigger-specific help: {}", err);
@@ -111,55 +115,48 @@ impl UpCommand {
     }
 
     async fn run_inner(self) -> Result<()> {
-        let working_dir_holder = match &self.tmp {
+        let working_dir = match &self.tmp {
             None => WorkingDirectory::Temporary(tempfile::tempdir()?),
             Some(d) => WorkingDirectory::Given(d.to_owned()),
         };
-        let working_dir = working_dir_holder.path();
 
-        let app = match (&self.app, &self.bindle) {
+        let mut app = match (&self.app, &self.bindle) {
             (app, None) => {
                 let manifest_file = app
                     .as_deref()
                     .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
                 let bindle_connection = self.bindle_connection();
-                spin_loader::from_file(
-                    manifest_file,
-                    working_dir,
-                    &bindle_connection,
-                    self.allow_transient_write,
-                )
-                .await?
+                spin_loader::from_file(manifest_file, &working_dir, &bindle_connection).await?
             }
             (None, Some(bindle)) => match &self.server {
-                Some(server) => {
-                    spin_loader::from_bindle(
-                        bindle,
-                        server,
-                        working_dir,
-                        self.allow_transient_write,
-                    )
-                    .await?
-                }
+                Some(server) => spin_loader::from_bindle(bindle, server, &working_dir).await?,
                 _ => bail!("Loading from a bindle requires a Bindle server URL"),
             },
             (Some(_), Some(_)) => bail!("Specify only one of app file or bindle ID"),
         };
 
-        let manifest_url = match app.info.origin {
-            spin_manifest::ApplicationOrigin::File(path) => {
-                format!("file://{}", path.canonicalize()?.to_string_lossy())
+        // Apply --env to component environments
+        if !self.env.is_empty() {
+            for component in app.components.iter_mut() {
+                component.wasm.environment.extend(self.env.iter().cloned());
             }
-            spin_manifest::ApplicationOrigin::Bindle { id, server } => {
-                format!("bindle+{}?id={}", server, id)
-            }
-        };
+        }
 
         let trigger_type = match app.info.trigger {
             ApplicationTrigger::Http(_) => "http",
             ApplicationTrigger::Redis(_) => "redis",
         };
 
+        // Build and write app lock file
+        let locked_app = spin_trigger::locked::build_locked_app(app, working_dir.as_ref())?;
+        let locked_path = working_dir.as_ref().join("spin.lock");
+        let locked_app_contents =
+            serde_json::to_vec_pretty(&locked_app).context("failed to serialize locked app")?;
+        std::fs::write(&locked_path, locked_app_contents)
+            .with_context(|| format!("failed to write {:?}", locked_path))?;
+        let locked_url = format!("file://{}", locked_path.to_string_lossy());
+
+        // For `spin up --help`, we just want the executor to dump its own argument usage info
         let trigger_args = if self.help {
             vec![OsString::from("--help-args-only")]
         } else {
@@ -168,26 +165,20 @@ impl UpCommand {
 
         // The docs for `current_exe` warn that this may be insecure because it could be executed
         // via hard-link. I think it should be fine as long as we aren't `setuid`ing this binary.
-        let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
+        let spin_path = std::env::current_exe().unwrap();
+
+        let mut cmd = std::process::Command::new(spin_path);
         cmd.arg("trigger")
-            .env("SPIN_WORKING_DIR", working_dir)
-            .env("SPIN_MANIFEST_URL", manifest_url)
-            .env("SPIN_TRIGGER_TYPE", trigger_type)
-            .env(
-                "SPIN_ALLOW_TRANSIENT_WRITE",
-                self.allow_transient_write.to_string(),
-            )
+            .env(SPIN_WORKING_DIR, working_dir.as_ref())
+            .env(SPIN_LOCKED_URL, locked_url)
             .arg(trigger_type)
             .args(trigger_args);
-
-        if let Some(bindle_server) = self.server {
-            cmd.env(BINDLE_URL_ENV, bindle_server);
-        }
 
         tracing::trace!("Running trigger executor: {:?}", cmd);
 
         let mut child = cmd.spawn().context("Failed to execute trigger")?;
 
+        // Terminate trigger executor if `spin up` itself receives a termination signal
         #[cfg(not(windows))]
         {
             // https://github.com/nix-rust/nix/issues/656
@@ -224,11 +215,20 @@ enum WorkingDirectory {
     Temporary(TempDir),
 }
 
-impl WorkingDirectory {
-    fn path(&self) -> &Path {
+impl AsRef<Path> for WorkingDirectory {
+    fn as_ref(&self) -> &Path {
         match self {
             Self::Given(p) => p,
             Self::Temporary(t) => t.path(),
         }
     }
+}
+
+// Parse the environment variables passed in `key=value` pairs.
+fn parse_env_var(s: &str) -> Result<(String, String)> {
+    let parts: Vec<_> = s.splitn(2, '=').collect();
+    if parts.len() != 2 {
+        bail!("Environment variable must be of the form `key=value`");
+    }
+    Ok((parts[0].to_owned(), parts[1].to_owned()))
 }

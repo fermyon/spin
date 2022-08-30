@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use spin_manifest::Variable;
 use std::collections::HashMap;
 
 /// Application configuration file format.
@@ -9,8 +10,8 @@ pub struct RawAppManifest {
     pub trigger: spin_manifest::ApplicationTrigger,
 
     /// Application-specific configuration schema.
-    #[serde(rename = "variables")]
-    pub config: Option<spin_config::Tree>,
+    #[serde(default)]
+    pub variables: HashMap<String, Variable>,
 
     /// Configuration for the application components.
     #[serde(rename = "component")]

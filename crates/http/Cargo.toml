@@ -22,8 +22,9 @@ hyper-rustls = { version = "0.23.0" }
 indexmap = "1"
 percent-encoding = "2"
 serde = { version = "1.0", features = ["derive"] }
+spin-app = { path = "../app" }
+spin-core = { path = "../core" }
 spin-manifest = { path = "../manifest" }
-spin-engine = { path = "../engine" }
 spin-trigger = { path = "../trigger" }
 tls-listener = { version = "0.4.0", features = [
     "rustls",
@@ -35,13 +36,9 @@ tokio-rustls = { version = "0.23.2" }
 rustls-pemfile = "0.3.0"
 tracing = { version = "0.1", features = ["log"] }
 tracing-futures = "0.2"
-tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 url = "2.2"
-wasi-cap-std-sync = "0.39.1"
-wasi-common = "0.39.1"
 wasmtime = "0.39.1"
-wasmtime-wasi = "0.39.1"
-wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }
+wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba", features = ["async"] }
 
 [dev-dependencies]
 criterion = { version = "0.3.5", features = ["async_tokio"] }

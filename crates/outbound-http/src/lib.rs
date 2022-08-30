@@ -1,19 +1,17 @@
+pub mod allowed_http_hosts;
 mod host_component;
 
-use futures::executor::block_on;
+use std::str::FromStr;
+
 use http::HeaderMap;
 use reqwest::{Client, Url};
-use spin_manifest::AllowedHttpHosts;
-use std::str::FromStr;
-use tokio::runtime::Handle;
-use wasi_outbound_http::*;
+use spin_app::async_trait;
 
+use allowed_http_hosts::AllowedHttpHosts;
 pub use host_component::OutboundHttpComponent;
-pub use wasi_outbound_http::add_to_linker;
 
-wit_bindgen_wasmtime::export!("../../wit/ephemeral/wasi-outbound-http.wit");
-
-pub const ALLOW_ALL_HOSTS: &str = "insecure:allow-all";
+wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/wasi-outbound-http.wit"], async: *});
+use wasi_outbound_http::*;
 
 /// A very simple implementation for outbound HTTP requests.
 #[derive(Default, Clone)]
@@ -37,8 +35,9 @@ impl OutboundHttp {
     }
 }
 
+#[async_trait]
 impl wasi_outbound_http::WasiOutboundHttp for OutboundHttp {
-    fn request(&mut self, req: Request) -> Result<Response, HttpError> {
+    async fn request(&mut self, req: Request<'_>) -> Result<Response, HttpError> {
         if !self.is_allowed(req.uri)? {
             tracing::log::info!("Destination not allowed: {}", req.uri);
             return Err(HttpError::DestinationNotAllowed);
@@ -53,61 +52,39 @@ impl wasi_outbound_http::WasiOutboundHttp for OutboundHttp {
             tracing::log::warn!("HTTP params field is deprecated");
         }
 
-        match Handle::try_current() {
-            // If running in a Tokio runtime, spawn a new blocking executor
-            // that will send the HTTP request, and block on its execution.
-            // This attempts to avoid any deadlocks from other operations
-            // already executing on the same executor (compared with just
-            // blocking on the current one).
-            Ok(r) => block_on(r.spawn_blocking(move || -> Result<Response, HttpError> {
-                let client = Client::builder().build().unwrap();
-                let res = block_on(
-                    client
-                        .request(method, url)
-                        .headers(headers)
-                        .body(body)
-                        .send(),
-                );
-                let res = log_request_error(res)?;
-                Response::try_from(res)
-            }))
-            .map_err(|_| HttpError::RuntimeError)?,
-            Err(_) => {
-                let res = reqwest::blocking::Client::new()
-                    .request(method, url)
-                    .headers(headers)
-                    .body(body)
-                    .send();
-                let res = log_request_error(res)?;
-                Ok(Response::try_from(res)?)
-            }
-        }
+        let client = Client::builder().build().unwrap();
+        let resp = client
+            .request(method, url)
+            .headers(headers)
+            .body(body)
+            .send()
+            .await
+            .map_err(log_reqwest_error)?;
+        Response::from_reqwest(resp).await
     }
 }
 
-fn log_request_error<R>(response: Result<R, reqwest::Error>) -> Result<R, reqwest::Error> {
-    if let Err(e) = &response {
-        let error_desc = if e.is_timeout() {
-            "timeout error"
-        } else if e.is_connect() {
-            "connection error"
-        } else if e.is_body() || e.is_decode() {
-            "message body error"
-        } else if e.is_request() {
-            "request error"
-        } else {
-            "error"
-        };
-        tracing::warn!(
-            "Outbound HTTP {}: URL {}, error detail {:?}",
-            error_desc,
-            e.url()
-                .map(|u| u.to_string())
-                .unwrap_or_else(|| "<unknown>".to_owned()),
-            e
-        );
-    }
-    response
+fn log_reqwest_error(err: reqwest::Error) -> HttpError {
+    let error_desc = if err.is_timeout() {
+        "timeout error"
+    } else if err.is_connect() {
+        "connection error"
+    } else if err.is_body() || err.is_decode() {
+        "message body error"
+    } else if err.is_request() {
+        "request error"
+    } else {
+        "error"
+    };
+    tracing::warn!(
+        "Outbound HTTP {}: URL {}, error detail {:?}",
+        error_desc,
+        err.url()
+            .map(|u| u.to_string())
+            .unwrap_or_else(|| "<unknown>".to_owned()),
+        err
+    );
+    HttpError::RuntimeError
 }
 
 impl From<Method> for http::Method {
@@ -124,30 +101,12 @@ impl From<Method> for http::Method {
     }
 }
 
-impl TryFrom<reqwest::Response> for Response {
-    type Error = HttpError;
-
-    fn try_from(res: reqwest::Response) -> Result<Self, Self::Error> {
+impl Response {
+    async fn from_reqwest(res: reqwest::Response) -> Result<Self, HttpError> {
         let status = res.status().as_u16();
         let headers = response_headers(res.headers())?;
 
-        let body = Some(block_on(res.bytes())?.to_vec());
-
-        Ok(Response {
-            status,
-            headers,
-            body,
-        })
-    }
-}
-
-impl TryFrom<reqwest::blocking::Response> for Response {
-    type Error = HttpError;
-
-    fn try_from(res: reqwest::blocking::Response) -> Result<Self, Self::Error> {
-        let status = res.status().as_u16();
-        let headers = response_headers(res.headers())?;
-        let body = Some(res.bytes()?.to_vec());
+        let body = Some(res.bytes().await?.to_vec());
 
         Ok(Response {
             status,

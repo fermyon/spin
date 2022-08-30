@@ -417,7 +417,7 @@ fn print_available_routes(
                 Err(_) => "http",
             };
 
-            let route = RoutePattern::from(base, &http_cfg.route);
+            let route = RoutePattern::with_base(base, &http_cfg.route);
             println!("  {}: {}://{}{}", component.id, scheme, address, route);
             if let Some(description) = &component.description {
                 println!("    {}", description);

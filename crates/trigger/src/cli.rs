@@ -1,22 +1,20 @@
-use std::{
-    collections::HashMap,
-    error::Error,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::path::PathBuf;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use clap::{Args, IntoApp, Parser};
-use spin_engine::io::FollowComponents;
-use spin_loader::bindle::BindleConnectionInfo;
-use spin_manifest::{Application, ApplicationTrigger, TriggerConfig};
+use serde::de::DeserializeOwned;
 
+use crate::{stdio::FollowComponents, loader::TriggerLoader};
 use crate::{TriggerExecutor, TriggerExecutorBuilder};
 
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
 pub const DISABLE_WASMTIME_CACHE: &str = "DISABLE_WASMTIME_CACHE";
 pub const FOLLOW_LOG_OPT: &str = "FOLLOW_ID";
 pub const WASMTIME_CACHE_FILE: &str = "WASMTIME_CACHE_FILE";
+
+// Set by `spin up`
+pub const SPIN_LOCKED_URL: &str = "SPIN_LOCKED_URL";
+pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
 
 /// A command that runs a TriggerExecutor.
 #[derive(Parser, Debug)]
@@ -25,10 +23,6 @@ pub struct TriggerExecutorCommand<Executor: TriggerExecutor>
 where
     Executor::RunConfig: Args,
 {
-    /// Pass an environment variable (key=value) to all components of the application.
-    #[clap(long = "env", short = 'e', parse(try_from_str = parse_env_var))]
-    pub env: Vec<(String, String)>,
-
     /// Log directory for the stdout and stderr of components.
     #[clap(
             name = APP_LOG_DIR,
@@ -71,6 +65,10 @@ where
         )]
     pub follow_all_components: bool,
 
+    /// Set the static assets of the components in the temporary directory as writable.
+    #[clap(long = "allow-transient-write")]
+    pub allow_transient_write: bool,
+
     #[clap(flatten)]
     pub run_config: Executor::RunConfig,
 
@@ -86,11 +84,7 @@ pub struct NoArgs;
 impl<Executor: TriggerExecutor> TriggerExecutorCommand<Executor>
 where
     Executor::RunConfig: Args,
-    Executor::GlobalConfig: TryFrom<ApplicationTrigger>,
-    <Executor::GlobalConfig as TryFrom<ApplicationTrigger>>::Error: Error + Send + Sync + 'static,
-    Executor::TriggerConfig: TryFrom<(String, TriggerConfig)>,
-    <Executor::TriggerConfig as TryFrom<(String, TriggerConfig)>>::Error:
-        Error + Send + Sync + 'static,
+    Executor::TriggerConfig: DeserializeOwned,
 {
     /// Create a new TriggerExecutorBuilder from this TriggerExecutorCommand.
     pub async fn run(self) -> Result<()> {
@@ -102,15 +96,22 @@ where
             return Ok(());
         }
 
-        let app = self.build_application().await?;
-        let mut builder = TriggerExecutorBuilder::new(app);
-        self.update_wasmtime_config(builder.wasmtime_config_mut())?;
-        builder.follow_components(self.follow_components());
-        if let Some(log_dir) = self.log {
-            builder.log_dir(log_dir);
-        }
+        // Required env vars
+        let working_dir = std::env::var(SPIN_WORKING_DIR).context(SPIN_WORKING_DIR)?;
+        let locked_url = std::env::var(SPIN_LOCKED_URL).context(SPIN_LOCKED_URL)?;
 
-        let executor: Executor = builder.build().await?;
+        let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
+
+        let executor: Executor = {
+            let mut builder = TriggerExecutorBuilder::new(loader);
+            self.update_wasmtime_config(builder.wasmtime_config_mut())?;
+            builder.follow_components(self.follow_components());
+            if let Some(log_dir) = self.log {
+                builder.log_dir(log_dir);
+            }
+            builder.build(locked_url).await?
+        };
+
         let run_fut = executor.run(self.run_config);
 
         let (abortable, abort_handle) = futures::future::abortable(run_fut);
@@ -130,68 +131,6 @@ where
             }
         }
     }
-}
-
-impl<Executor: TriggerExecutor> TriggerExecutorCommand<Executor>
-where
-    Executor::RunConfig: Args,
-{
-    pub async fn build_application(&self) -> Result<Application> {
-        let working_dir = std::env::var("SPIN_WORKING_DIR").context("SPIN_WORKING_DIR")?;
-        let manifest_url = std::env::var("SPIN_MANIFEST_URL").context("SPIN_MANIFEST_URL")?;
-        let allow_transient_write: bool = std::env::var("SPIN_ALLOW_TRANSIENT_WRITE")
-            .unwrap_or_else(|_| "false".to_string())
-            .trim()
-            .parse()
-            .context("SPIN_ALLOW_TRANSIENT_WRITE")?;
-
-        // TODO(lann): Find a better home for this; spin_loader?
-        let dotenv_path;
-        let mut app = if let Some(manifest_file) = manifest_url.strip_prefix("file://") {
-            dotenv_path = Path::new(manifest_file).parent().unwrap().join(".env");
-            let bindle_connection = std::env::var("BINDLE_URL")
-                .ok()
-                .map(|url| BindleConnectionInfo::new(url, false, None, None));
-            spin_loader::from_file(
-                manifest_file,
-                working_dir,
-                &bindle_connection,
-                allow_transient_write,
-            )
-            .await?
-        } else if let Some(bindle_url) = manifest_url.strip_prefix("bindle+") {
-            dotenv_path = Path::new("./.env").to_path_buf();
-            let (bindle_server, bindle_id) = bindle_url
-                .rsplit_once("?id=")
-                .context("invalid bindle URL")?;
-            spin_loader::from_bindle(bindle_id, bindle_server, working_dir, allow_transient_write)
-                .await?
-        } else {
-            bail!("invalid SPIN_MANIFEST_URL {}", manifest_url);
-        };
-
-        // Apply --env to all components in the given app
-        for c in app.components.iter_mut() {
-            for (k, v) in self.env.iter().cloned() {
-                c.wasm.environment.insert(k, v);
-            }
-        }
-
-        let envs = read_dotenv(dotenv_path)?;
-
-        // Add default config provider(s).
-        // TODO(lann): Make config provider(s) configurable.
-        if let Some(ref mut resolver) = app.config_resolver {
-            let resolver = Arc::get_mut(resolver)
-                .context("Internal error: app.config_resolver unexpectedly shared")?;
-            resolver.add_provider(spin_config::provider::env::EnvProvider::new(
-                spin_config::provider::env::DEFAULT_PREFIX,
-                envs,
-            ));
-        }
-
-        Ok(app)
-    }
 
     pub fn follow_components(&self) -> FollowComponents {
         if self.follow_all_components {
@@ -204,7 +143,7 @@ where
         }
     }
 
-    fn update_wasmtime_config(&self, config: &mut wasmtime::Config) -> Result<()> {
+    fn update_wasmtime_config(&self, config: &mut spin_core::wasmtime::Config) -> Result<()> {
         // Apply --cache / --disable-cache
         if !self.disable_cache {
             match &self.cache {
@@ -214,28 +153,4 @@ where
         }
         Ok(())
     }
-}
-
-// Parse the environment variables passed in `key=value` pairs.
-fn parse_env_var(s: &str) -> Result<(String, String)> {
-    let parts: Vec<_> = s.splitn(2, '=').collect();
-    if parts.len() != 2 {
-        bail!("Environment variable must be of the form `key=value`");
-    }
-    Ok((parts[0].to_owned(), parts[1].to_owned()))
-}
-
-// Return environment key value mapping in ".env" file.
-fn read_dotenv(dotenv_path: impl AsRef<Path>) -> Result<HashMap<String, String>> {
-    let mut envs = HashMap::new();
-    if !dotenv_path.as_ref().exists() {
-        return Ok(envs);
-    }
-
-    let env_iter = dotenvy::from_path_iter(dotenv_path)?;
-    for env_item in env_iter {
-        let (key, value) = env_item?;
-        envs.insert(key, value);
-    }
-    Ok(envs)
 }

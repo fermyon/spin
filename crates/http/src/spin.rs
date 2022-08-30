@@ -1,15 +1,16 @@
-use crate::{
-    spin_http::{Method, SpinHttp},
-    ExecutionContext, HttpExecutor, RuntimeContext,
-};
+use std::{net::SocketAddr, str, str::FromStr};
+
 use anyhow::Result;
 use async_trait::async_trait;
 use hyper::{Body, Request, Response};
-use spin_engine::io::ModuleIoRedirects;
-use std::{net::SocketAddr, str, str::FromStr};
-use tokio::task::spawn_blocking;
+use spin_core::Instance;
+use spin_trigger::TriggerAppEngine;
 use tracing::log;
-use wasmtime::{Instance, Store};
+
+use crate::{
+    spin_http::{Method, SpinHttp},
+    HttpExecutor, HttpTrigger, Store,
+};
 
 #[derive(Clone)]
 pub struct SpinHttpExecutor;
@@ -18,37 +19,22 @@ pub struct SpinHttpExecutor;
 impl HttpExecutor for SpinHttpExecutor {
     async fn execute(
         &self,
-        engine: &ExecutionContext,
-        component: &str,
-        base: &str,
+        app_engine: &TriggerAppEngine<HttpTrigger>,
+        component_id: &str,
         raw_route: &str,
         req: Request<Body>,
         _client_addr: SocketAddr,
-        follow: bool,
     ) -> Result<Response<Body>> {
         log::trace!(
             "Executing request using the Spin executor for component {}",
-            component
+            component_id
         );
 
-        let mior = ModuleIoRedirects::new(follow);
+        let (instance, store) = app_engine.prepare_instance(component_id).await?;
 
-        let (store, instance) =
-            engine.prepare_component(component, None, Some(mior.pipes), None, None)?;
-
-        let resp_result = Self::execute_impl(store, instance, base, raw_route, req)
+        let resp = Self::execute_impl(store, instance, raw_route, req)
             .await
-            .map_err(contextualise_err);
-
-        let log_result =
-            engine.save_output_to_logs(mior.read_handles.read(), component, true, true);
-
-        // Defer checking for failures until here so that the logging runs
-        // even if the guest code fails. (And when checking, check the guest
-        // result first, so that guest failures are returned in preference to
-        // log failures.)
-        let resp = resp_result?;
-        log_result?;
+            .map_err(contextualise_err)?;
 
         log::info!(
             "Request finished, sending response with status code {}",
@@ -60,52 +46,48 @@ impl HttpExecutor for SpinHttpExecutor {
 
 impl SpinHttpExecutor {
     pub async fn execute_impl(
-        mut store: Store<RuntimeContext>,
+        mut store: Store,
         instance: Instance,
-        base: &str,
         raw_route: &str,
         req: Request<Body>,
     ) -> Result<Response<Body>> {
         let headers;
         let mut req = req;
         {
-            headers = Self::headers(&mut req, raw_route, base)?;
+            headers = Self::headers(&mut req, raw_route)?;
         }
 
-        let engine = SpinHttp::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
+        let engine = SpinHttp::new(&mut store, &instance, |host| host.as_mut())?;
         let (parts, bytes) = req.into_parts();
         let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
 
-        let res = spawn_blocking(move || -> Result<crate::spin_http::Response> {
-            let method = Self::method(&parts.method);
+        let method = Self::method(&parts.method);
 
-            let headers: Vec<(&str, &str)> = headers
-                .iter()
-                .map(|(k, v)| (k.as_str(), v.as_str()))
-                .collect();
+        let headers: Vec<(&str, &str)> = headers
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
 
-            // Preparing to remove the params field. We are leaving it in place for now
-            // to avoid breaking the ABI, but no longer pass or accept values in it.
-            // https://github.com/fermyon/spin/issues/663
-            let params = vec![];
+        // Preparing to remove the params field. We are leaving it in place for now
+        // to avoid breaking the ABI, but no longer pass or accept values in it.
+        // https://github.com/fermyon/spin/issues/663
+        let params = vec![];
 
-            let body = Some(&bytes[..]);
-            let uri = match parts.uri.path_and_query() {
-                Some(u) => u.to_string(),
-                None => parts.uri.to_string(),
-            };
+        let body = Some(&bytes[..]);
+        let uri = match parts.uri.path_and_query() {
+            Some(u) => u.to_string(),
+            None => parts.uri.to_string(),
+        };
 
-            let req = crate::spin_http::Request {
-                method,
-                uri: &uri,
-                headers: &headers,
-                params: &params,
-                body,
-            };
+        let req = crate::spin_http::Request {
+            method,
+            uri: &uri,
+            headers: &headers,
+            params: &params,
+            body,
+        };
 
-            Ok(engine.handle_http_request(&mut store, req)?)
-        })
-        .await??;
+        let res = engine.handle_http_request(&mut store, req).await?;
 
         if res.status < 100 || res.status > 600 {
             log::error!("malformed HTTP status code");
@@ -140,7 +122,7 @@ impl SpinHttpExecutor {
         }
     }
 
-    fn headers(req: &mut Request<Body>, raw: &str, base: &str) -> Result<Vec<(String, String)>> {
+    fn headers(req: &mut Request<Body>, raw: &str) -> Result<Vec<(String, String)>> {
         let mut res = Vec::new();
         for (name, value) in req
             .headers()
@@ -159,10 +141,10 @@ impl SpinHttpExecutor {
                 .as_bytes(),
         )?;
 
-        // Set the environment information (path info, base path, etc) as headers.
+        // Set the environment information (path info, etc) as headers.
         // In the future, we might want to have this information in a context
         // object as opposed to headers.
-        for (keys, val) in crate::compute_default_headers(req.uri(), raw, base, host)? {
+        for (keys, val) in crate::compute_default_headers(req.uri(), raw, host)? {
             res.push((Self::prepare_header_key(keys[0]), val));
         }
 

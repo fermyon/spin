@@ -5,7 +5,7 @@
 #![deny(missing_docs)]
 
 use serde::{Deserialize, Serialize};
-use spin_manifest::{ApplicationTrigger, TriggerConfig};
+use spin_manifest::{ApplicationTrigger, TriggerConfig, Variable};
 use std::{collections::HashMap, path::PathBuf};
 
 /// Container for any version of the manifest.
@@ -27,8 +27,8 @@ pub struct RawAppManifest {
     pub info: RawAppInformation,
 
     /// Application-specific configuration schema.
-    #[serde(rename = "variables")]
-    pub config: Option<spin_config::Tree>,
+    #[serde(default)]
+    pub variables: HashMap<String, Variable>,
 
     /// Configuration for the application components.
     #[serde(rename = "component")]

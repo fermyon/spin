@@ -1,5 +1,5 @@
 [package]
-name = "wasi-outbound-http"
+name = "outbound-http"
 version = "0.2.0"
 edition = "2021"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
@@ -10,13 +10,16 @@ doctest = false
 [dependencies]
 anyhow  = "1.0"
 bytes = "1"
-futures = "0.3"
 http = "0.2"
 reqwest = { version = "0.11", default-features = true, features = [ "json", "blocking" ] }
-spin-engine = { path = "../engine" }
-spin-manifest = { path = "../manifest" }
-tokio = { version = "1.4.0", features = [ "full" ] }
+spin-app = { path = "../app" }
+spin-core = { path = "../core" }
 tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
 url = "2.2.1"
-wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }
+
+[dependencies.wit-bindgen-wasmtime]
+git = "https://github.com/bytecodealliance/wit-bindgen"
+rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
+features = ["async"]
+

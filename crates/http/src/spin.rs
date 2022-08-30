@@ -4,7 +4,6 @@ use crate::{
 };
 use anyhow::Result;
 use async_trait::async_trait;
-use http::Uri;
 use hyper::{Body, Request, Response};
 use spin_engine::io::ModuleIoRedirects;
 use std::{net::SocketAddr, str, str::FromStr};
@@ -85,11 +84,10 @@ impl SpinHttpExecutor {
                 .map(|(k, v)| (k.as_str(), v.as_str()))
                 .collect();
 
-            let params = &Self::params(&parts.uri)?;
-            let params: Vec<(&str, &str)> = params
-                .iter()
-                .map(|(k, v)| (k.as_str(), v.as_str()))
-                .collect();
+            // Preparing to remove the params field. We are leaving it in place for now
+            // to avoid breaking the ABI, but no longer pass or accept values in it.
+            // https://github.com/fermyon/spin/issues/663
+            let params = vec![];
 
             let body = Some(&bytes[..]);
             let uri = match parts.uri.path_and_query() {
@@ -186,15 +184,6 @@ impl SpinHttpExecutor {
         };
 
         Ok(())
-    }
-
-    fn params(uri: &Uri) -> Result<Vec<(String, String)>> {
-        match uri.query() {
-            Some(q) => Ok(url::form_urlencoded::parse(q.as_bytes())
-                .into_owned()
-                .collect::<Vec<_>>()),
-            None => Ok(vec![]),
-        }
     }
 }
 

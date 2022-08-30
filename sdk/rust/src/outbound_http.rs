@@ -1,4 +1,4 @@
-use http::{header::HeaderName, HeaderValue, Uri};
+use http::{header::HeaderName, HeaderValue};
 
 use super::http::{Request, Response};
 
@@ -16,12 +16,9 @@ pub fn send_request(req: Request) -> Result<Response> {
 
     let method = req.method.try_into()?;
 
-    let (uri, params) = split_uri(req.uri)?;
+    let uri = req.uri.to_string();
 
-    let params = &params
-        .iter()
-        .map(|(k, v)| (k.as_str(), v.as_str()))
-        .collect::<Vec<_>>();
+    let params = vec![];
 
     let headers = &req
         .headers
@@ -34,7 +31,7 @@ pub fn send_request(req: Request) -> Result<Response> {
     let out_req = OutboundRequest {
         method,
         uri: &uri,
-        params,
+        params: &params,
         headers,
         body,
     };
@@ -53,23 +50,6 @@ pub fn send_request(req: Request) -> Result<Response> {
     resp_builder
         .body(body.map(Into::into))
         .map_err(|_| OutboundHttpError::RuntimeError)
-}
-
-fn split_uri(uri: Uri) -> Result<(String, Vec<(String, String)>)> {
-    let params = form_urlencoded::parse(uri.query().unwrap_or_default().as_bytes())
-        .into_owned()
-        .collect();
-    let uri_without_params = {
-        let mut parts = uri.into_parts();
-        if let Some(paq) = parts.path_and_query.as_mut() {
-            // Rebuild PathAndQuery from just path
-            *paq = paq.path().try_into().unwrap();
-        }
-        Uri::from_parts(parts)
-            .map_err(|_| OutboundHttpError::InvalidUrl)?
-            .to_string()
-    };
-    Ok((uri_without_params, params))
 }
 
 fn try_header_to_strs<'k, 'v>(

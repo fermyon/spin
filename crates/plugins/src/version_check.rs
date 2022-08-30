@@ -31,7 +31,8 @@ pub(crate) fn get_plugin_manifest(plugin_name: &str, plugins_dir: &Path) -> Resu
         .join(PLUGIN_MANIFESTS_DIRECTORY_NAME)
         .join(get_manifest_file_name(plugin_name));
     log::info!("Reading plugin manifest from {:?}", manifest_path);
-    let manifest_file = File::open(manifest_path)?;
+    let manifest_file =
+        File::open(manifest_path).map_err(|_| anyhow!("The plugin does not exist"))?;
     let manifest = serde_json::from_reader(manifest_file)?;
     Ok(manifest)
 }

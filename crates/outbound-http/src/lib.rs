@@ -88,8 +88,8 @@ impl wasi_outbound_http::WasiOutboundHttp for OutboundHttp {
                         .headers(headers)
                         .body(body)
                         .send(),
-                )?;
-
+                );
+                let res = log_request_error(res)?;
                 Response::try_from(res)
             }))
             .map_err(|_| HttpError::RuntimeError)?,
@@ -98,11 +98,37 @@ impl wasi_outbound_http::WasiOutboundHttp for OutboundHttp {
                     .request(method, url)
                     .headers(headers)
                     .body(body)
-                    .send()?;
+                    .send();
+                let res = log_request_error(res)?;
                 Ok(Response::try_from(res)?)
             }
         }
     }
+}
+
+fn log_request_error<R>(response: Result<R, reqwest::Error>) -> Result<R, reqwest::Error> {
+    if let Err(e) = &response {
+        let error_desc = if e.is_timeout() {
+            "timeout error"
+        } else if e.is_connect() {
+            "connection error"
+        } else if e.is_body() || e.is_decode() {
+            "message body error"
+        } else if e.is_request() {
+            "request error"
+        } else {
+            "error"
+        };
+        tracing::warn!(
+            "Outbound HTTP {}: URL {}, error detail {:?}",
+            error_desc,
+            e.url()
+                .map(|u| u.to_string())
+                .unwrap_or_else(|| "<unknown>".to_owned()),
+            e
+        );
+    }
+    response
 }
 
 impl From<Method> for http::Method {

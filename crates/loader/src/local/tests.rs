@@ -185,15 +185,16 @@ async fn test_invalid_url_in_allowed_http_hosts_is_rejected() -> Result<()> {
     let dir = temp_dir.path();
     let app = from_file(MANIFEST, dir, &None, false).await;
 
-    assert!(
-        app.is_err(),
-        "Expected url can be parsed by reqwest Url, but there was invalid url"
-    );
+    assert!(app.is_err(), "Expected allowed_http_hosts parsing error");
 
     let e = app.unwrap_err().to_string();
     assert!(
-        e.contains("some-random-api.ml"),
-        "Expected error to contain invalid url `some-random-api.ml`"
+        e.contains("ftp://some-random-api.ml"),
+        "Expected allowed_http_hosts parse error to contain `ftp://some-random-api.ml`"
+    );
+    assert!(
+        e.contains("example.com/wib/wob"),
+        "Expected allowed_http_hosts parse error to contain `example.com/wib/wob`"
     );
 
     Ok(())

@@ -3538,6 +3538,7 @@ dependencies = [
  "serde",
  "spin-config",
  "thiserror",
+ "url",
 ]
 
 [[package]]

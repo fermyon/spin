@@ -3,6 +3,7 @@ mod host_component;
 use futures::executor::block_on;
 use http::HeaderMap;
 use reqwest::{Client, Url};
+use spin_manifest::AllowedHttpHosts;
 use std::str::FromStr;
 use tokio::runtime::Handle;
 use wasi_outbound_http::*;
@@ -18,11 +19,11 @@ pub const ALLOW_ALL_HOSTS: &str = "insecure:allow-all";
 #[derive(Default, Clone)]
 pub struct OutboundHttp {
     /// List of hosts guest modules are allowed to make requests to.
-    pub allowed_hosts: Option<Vec<String>>,
+    pub allowed_hosts: AllowedHttpHosts,
 }
 
 impl OutboundHttp {
-    pub fn new(allowed_hosts: Option<Vec<String>>) -> Self {
+    pub fn new(allowed_hosts: AllowedHttpHosts) -> Self {
         Self { allowed_hosts }
     }
 
@@ -30,37 +31,15 @@ impl OutboundHttp {
     /// allowed hosts defined by the runtime. If the list of allowed hosts contains
     /// `insecure:allow-all`, then all hosts are allowed.
     /// If `None` is passed, the guest module is not allowed to send the request.
-    fn is_allowed(url: &str, allowed_hosts: Option<Vec<String>>) -> Result<bool, HttpError> {
-        let url_host = Url::parse(url)
-            .map_err(|_| HttpError::InvalidUrl)?
-            .host_str()
-            .ok_or(HttpError::InvalidUrl)?
-            .to_owned();
-        match allowed_hosts.as_deref() {
-            Some(domains) => {
-                tracing::info!("Allowed hosts: {:?}", domains);
-                // check domains has any "insecure:allow-all" wildcard
-                if domains.iter().any(|domain| domain == ALLOW_ALL_HOSTS) {
-                    Ok(true)
-                } else {
-                    let allowed: Result<Vec<_>, _> =
-                        domains.iter().map(|d| Url::parse(d)).collect();
-                    let allowed = allowed.map_err(|_| HttpError::InvalidUrl)?;
-
-                    Ok(allowed
-                        .iter()
-                        .map(|u| u.host_str().unwrap())
-                        .any(|x| x == url_host.as_str()))
-                }
-            }
-            None => Ok(false),
-        }
+    fn is_allowed(&self, url: &str) -> Result<bool, HttpError> {
+        let url = Url::parse(url).map_err(|_| HttpError::InvalidUrl)?;
+        Ok(self.allowed_hosts.allow(&url))
     }
 }
 
 impl wasi_outbound_http::WasiOutboundHttp for OutboundHttp {
     fn request(&mut self, req: Request) -> Result<Response, HttpError> {
-        if !Self::is_allowed(req.uri, self.allowed_hosts.clone())? {
+        if !self.is_allowed(req.uri)? {
             tracing::log::info!("Destination not allowed: {}", req.uri);
             return Err(HttpError::DestinationNotAllowed);
         }

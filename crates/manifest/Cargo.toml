@@ -10,3 +10,4 @@ indexmap = "1"
 serde = { version = "1.0", features = [ "derive" ] }
 spin-config = { path = "../config" }
 thiserror = "1"
+url = "2.2"

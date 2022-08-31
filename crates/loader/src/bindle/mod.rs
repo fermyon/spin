@@ -15,7 +15,7 @@ use crate::{
         config::{RawAppManifest, RawComponentManifest},
         utils::{find_manifest, parcels_in_group},
     },
-    validation::validate_allowed_http_hosts,
+    validation::{parse_allowed_http_hosts, validate_allowed_http_hosts},
 };
 use anyhow::{anyhow, Context, Result};
 use bindle::Invoice;
@@ -68,9 +68,10 @@ async fn prepare(
         toml::from_slice(&reader.get_parcel(&find_manifest(&invoice)?).await?)?;
     log::trace!("Recreated manifest from bindle: {:?}", raw);
 
+    validate_raw_app_manifest(&raw)?;
+
     let mut config_root = raw.config.take().unwrap_or_default();
     for component in &mut raw.components {
-        validate_allowed_http_hosts(&component.wasm.allowed_http_hosts)?;
         if let Some(config) = component.config.take() {
             let path = component.id.clone().try_into().with_context(|| {
                 format!("component ID {:?} not a valid config path", component.id)
@@ -104,6 +105,12 @@ async fn prepare(
         component_triggers,
         config_resolver,
     })
+}
+
+fn validate_raw_app_manifest(raw: &RawAppManifest) -> Result<()> {
+    raw.components
+        .iter()
+        .try_for_each(|c| validate_allowed_http_hosts(&c.wasm.allowed_http_hosts))
 }
 
 /// Given a raw component manifest, prepare its assets and return a fully formed core component.
@@ -140,7 +147,7 @@ async fn core(
         None => vec![],
     };
     let environment = raw.wasm.environment.unwrap_or_default();
-    let allowed_http_hosts = raw.wasm.allowed_http_hosts.unwrap_or_default();
+    let allowed_http_hosts = parse_allowed_http_hosts(&raw.wasm.allowed_http_hosts)?;
     let wasm = WasmConfig {
         environment,
         mounts,

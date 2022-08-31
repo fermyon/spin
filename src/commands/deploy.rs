@@ -164,55 +164,59 @@ impl DeployCommand {
         });
 
         let name = bindle_id.name().to_string();
-        // Values for channel creation are determined by whether the app already exists
-        let mut active_revision_id = None;
-        let mut range_rule = None;
-        let mut revision_selection_strategy = ChannelRevisionSelectionStrategy::UseRangeRule;
 
         // Create or update app
-        let app_id = match self.get_app_id(&hippo_client, name.clone()).await {
-            Ok(app_id) => {
+        // TODO: this process involves many calls to Hippo. Should be able to update the channel
+        // via only `add_revision` if bindle naming schema is updated so bindles can be deterministically ordered by Hippo.
+        let channel_id = match self.get_app_id(&hippo_client, name.clone()).await {
+            Ok(_) => {
                 Client::add_revision(
                     &hippo_client,
                     name.clone(),
                     bindle_id.version_string().clone(),
                 )
                 .await?;
-
-                // Remove existing channel to prevent conflict
-                // TODO: in the future, expand hippo API to update channel rather than delete and recreate
                 let existing_channel_id = self
                     .get_channel_id(&hippo_client, SPIN_DEPLOY_CHANNEL_NAME.to_string())
                     .await?;
-                Client::remove_channel(&hippo_client, existing_channel_id.to_string()).await?;
-                active_revision_id = Some(
-                    self.get_revision_id(&hippo_client, bindle_id.version_string().clone())
-                        .await?,
-                );
-                revision_selection_strategy =
-                    ChannelRevisionSelectionStrategy::UseSpecifiedRevision;
-                app_id
+                let active_revision_id = self
+                    .get_revision_id(&hippo_client, bindle_id.version_string().clone())
+                    .await?;
+                Client::patch_channel(
+                    &hippo_client,
+                    existing_channel_id,
+                    None,
+                    None,
+                    Some(ChannelRevisionSelectionStrategy::UseSpecifiedRevision),
+                    None,
+                    Some(active_revision_id),
+                    None,
+                    None,
+                )
+                .await
+                .context("Problem patching a channel in Hippo")?;
+
+                existing_channel_id
             }
             Err(_) => {
-                range_rule = Some(bindle_id.version_string());
-                Client::add_app(&hippo_client, name.clone(), name.clone())
+                let range_rule = Some(bindle_id.version_string());
+                let app_id = Client::add_app(&hippo_client, name.clone(), name.clone())
                     .await
-                    .context("Unable to create Hippo app")?
+                    .context("Unable to create Hippo app")?;
+                Client::add_channel(
+                    &hippo_client,
+                    app_id,
+                    String::from(SPIN_DEPLOY_CHANNEL_NAME),
+                    None,
+                    ChannelRevisionSelectionStrategy::UseRangeRule,
+                    range_rule,
+                    None,
+                    None,
+                )
+                .await
+                .context("Problem creating a channel in Hippo")?
             }
         };
-
-        let channel_id = Client::add_channel(
-            &hippo_client,
-            app_id,
-            String::from(SPIN_DEPLOY_CHANNEL_NAME),
-            None,
-            revision_selection_strategy,
-            range_rule,
-            active_revision_id,
-            None,
-        )
-        .await
-        .context("Problem creating a channel in Hippo")?;
 
         println!(
             "Deployed {} version {}",

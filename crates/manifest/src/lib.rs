@@ -149,6 +149,70 @@ impl TryFrom<ApplicationTrigger> for RedisTriggerConfiguration {
     }
 }
 
+/// An HTTP host allow-list.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AllowedHttpHosts {
+    /// All HTTP hosts are allowed (the "insecure:allow-all" value was present in the list)
+    AllowAll,
+    /// Only the specified hosts are allowed.
+    AllowSpecific(Vec<AllowedHttpHost>),
+}
+
+impl Default for AllowedHttpHosts {
+    fn default() -> Self {
+        Self::AllowSpecific(vec![])
+    }
+}
+
+impl AllowedHttpHosts {
+    /// Tests whether the given URL is allowed according to the allow-list.
+    pub fn allow(&self, url: &url::Url) -> bool {
+        match self {
+            Self::AllowAll => true,
+            Self::AllowSpecific(hosts) => hosts.iter().any(|h| h.allow(url)),
+        }
+    }
+}
+
+/// An HTTP host allow-list entry.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct AllowedHttpHost {
+    domain: String,
+    port: Option<u16>,
+}
+
+impl AllowedHttpHost {
+    /// Creates a new allow-list entry.
+    pub fn new(name: impl Into<String>, port: Option<u16>) -> Self {
+        Self {
+            domain: name.into(),
+            port,
+        }
+    }
+
+    /// An allow-list entry that specifies a host and allows the default port.
+    pub fn host(name: impl Into<String>) -> Self {
+        Self {
+            domain: name.into(),
+            port: None,
+        }
+    }
+
+    /// An allow-list entry that specifies a host and port.
+    pub fn host_and_port(name: impl Into<String>, port: u16) -> Self {
+        Self {
+            domain: name.into(),
+            port: Some(port),
+        }
+    }
+
+    fn allow(&self, url: &url::Url) -> bool {
+        (url.scheme() == "http" || url.scheme() == "https")
+            && self.domain == url.host_str().unwrap_or_default()
+            && self.port == url.port()
+    }
+}
+
 /// WebAssembly configuration.
 #[derive(Clone, Debug, Default)]
 pub struct WasmConfig {
@@ -157,7 +221,7 @@ pub struct WasmConfig {
     /// List of directory mounts that need to be mapped inside the WebAssembly module.
     pub mounts: Vec<DirectoryMount>,
     /// Optional list of HTTP hosts the component is allowed to connect.
-    pub allowed_http_hosts: Vec<String>,
+    pub allowed_http_hosts: AllowedHttpHosts,
 }
 
 /// Directory mount for the assets of a component.

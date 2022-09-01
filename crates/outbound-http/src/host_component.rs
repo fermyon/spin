@@ -24,7 +24,7 @@ impl HostComponent for OutboundHttpComponent {
 
     fn build_state(&self, component: &CoreComponent) -> Result<Self::State> {
         Ok(OutboundHttp {
-            allowed_hosts: Some(component.wasm.allowed_http_hosts.clone()),
+            allowed_hosts: component.wasm.allowed_http_hosts.clone(),
         })
     }
 }

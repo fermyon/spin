@@ -88,7 +88,7 @@ fn hello_world(_req: Request) -> Result<Response> {
 }
 ```
 
-Before we can execute this component, we need to add the `https://some-random-api.ml`
+Before we can execute this component, we need to add the `some-random-api.ml`
 domain to the application manifest `allowed_http_hosts` list containing the list of
 domains the component is allowed to make HTTP requests to:
 
@@ -102,7 +102,7 @@ version = "1.0.0"
 [[component]]
 id = "hello"
 source = "target/wasm32-wasi/release/spinhelloworld.wasm"
-allowed_http_hosts = [ "https://some-random-api.ml" ]
+allowed_http_hosts = [ "some-random-api.ml" ]
 [component.trigger]
 route = "/hello"
 ```

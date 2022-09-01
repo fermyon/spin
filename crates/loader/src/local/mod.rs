@@ -21,7 +21,10 @@ use spin_manifest::{
 use std::{path::Path, str::FromStr, sync::Arc};
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::{bindle::BindleConnectionInfo, validation::validate_allowed_http_hosts};
+use crate::{
+    bindle::BindleConnectionInfo,
+    validation::{parse_allowed_http_hosts, validate_allowed_http_hosts},
+};
 
 /// Given the path to a spin.toml manifest file, prepare its assets locally and
 /// get a prepared application configuration consumable by a Spin execution context.
@@ -225,7 +228,7 @@ async fn core(
         None => vec![],
     };
     let environment = raw.wasm.environment.unwrap_or_default();
-    let allowed_http_hosts = raw.wasm.allowed_http_hosts.unwrap_or_default();
+    let allowed_http_hosts = parse_allowed_http_hosts(&raw.wasm.allowed_http_hosts)?;
     let wasm = WasmConfig {
         environment,
         mounts,

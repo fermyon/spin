@@ -169,7 +169,7 @@ impl DeployCommand {
         // TODO: this process involves many calls to Hippo. Should be able to update the channel
         // via only `add_revision` if bindle naming schema is updated so bindles can be deterministically ordered by Hippo.
         let channel_id = match self.get_app_id(&hippo_client, name.clone()).await {
-            Ok(_) => {
+            Ok(app_id) => {
                 Client::add_revision(
                     &hippo_client,
                     name.clone(),
@@ -177,10 +177,10 @@ impl DeployCommand {
                 )
                 .await?;
                 let existing_channel_id = self
-                    .get_channel_id(&hippo_client, SPIN_DEPLOY_CHANNEL_NAME.to_string())
+                    .get_channel_id(&hippo_client, SPIN_DEPLOY_CHANNEL_NAME.to_string(), app_id)
                     .await?;
                 let active_revision_id = self
-                    .get_revision_id(&hippo_client, bindle_id.version_string().clone())
+                    .get_revision_id(&hippo_client, bindle_id.version_string().clone(), app_id)
                     .await?;
                 Client::patch_channel(
                     &hippo_client,
@@ -292,23 +292,42 @@ impl DeployCommand {
         }
     }
 
-    async fn get_revision_id(&self, hippo_client: &Client, bindle_version: String) -> Result<Uuid> {
+    async fn get_revision_id(
+        &self,
+        hippo_client: &Client,
+        bindle_version: String,
+        app_id: Uuid,
+    ) -> Result<Uuid> {
         let revisions = Client::list_revisions(hippo_client).await?;
         let revision = revisions
             .items
             .iter()
-            .find(|&x| x.revision_number == bindle_version);
+            .find(|&x| x.revision_number == bindle_version && x.app_id == app_id);
         Ok(revision
-            .ok_or_else(|| anyhow::anyhow!("No revision with version {}", bindle_version))?
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No revision with version {} and app id {}",
+                    bindle_version,
+                    app_id
+                )
+            })?
             .id)
     }
 
-    async fn get_channel_id(&self, hippo_client: &Client, name: String) -> Result<Uuid> {
+    async fn get_channel_id(
+        &self,
+        hippo_client: &Client,
+        name: String,
+        app_id: Uuid,
+    ) -> Result<Uuid> {
         let channels_vm = Client::list_channels(hippo_client).await?;
-        let channel = channels_vm.items.iter().find(|&x| x.name == name.clone());
+        let channel = channels_vm
+            .items
+            .iter()
+            .find(|&x| x.app_id == app_id && x.name == name.clone());
         match channel {
             Some(c) => Ok(c.id),
-            None => anyhow::bail!("No channel with name: {}", name),
+            None => anyhow::bail!("No channel with app_id {} and name {}", app_id, name),
         }
     }
 

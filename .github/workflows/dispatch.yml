@@ -33,4 +33,4 @@ jobs:
           token: ${{ secrets.DEST_REPO_ACCESS_TOKEN }}
           repository: ${{ secrets.DEST_REPO }}
           event-type: spin-docs-updated
-          client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
+          client-payload: '{"event_type": "spin-docs-updated", "ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'

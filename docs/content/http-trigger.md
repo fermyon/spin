@@ -214,7 +214,7 @@ print("content-type: text/html; charset=UTF-8\n\n");
 print("hello world\n");
 ```
 
-The [Go SDK for Spin](./go-components.md) is built on the Wagi executor support.
+The [Go SDK for Spin](./go-components.md) supports the Spin executor.
 Here is another example, written in [Grain](https://grain-lang.org/),
 a new programming language that natively targets WebAssembly:
 

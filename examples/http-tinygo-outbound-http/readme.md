@@ -42,7 +42,6 @@ source = "main.wasm"
 allowed_http_hosts = [ "https://some-random-api.ml", "https://postman-echo.com" ]
 [component.trigger]
 route = "/hello"
-executor = { type = "wagi" }
 ```
 
 At this point, we can execute the application with the `spin` CLI:

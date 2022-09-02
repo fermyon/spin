@@ -3,15 +3,21 @@ use std::path::PathBuf;
 use tokio::process::Command;
 use url::Url;
 
-const PLUGINS_REPO_BRANCH: &str = "main";
+const DEFAULT_BRANCH: &str = "main";
 
+/// Enables cloning and fetching the latest of a git repository to a local
+/// directory.
 pub struct GitSource {
+    /// Address to remote git repository.
     source_url: Url,
+    /// Branch to clone/fetch.
     branch: String,
+    /// Destination to clone repository into.
     local_repo_dir: PathBuf,
 }
 
 impl GitSource {
+    /// Creates a new git source
     pub fn new(
         source_url: &Url,
         branch: Option<String>,
@@ -19,11 +25,12 @@ impl GitSource {
     ) -> Result<GitSource> {
         Ok(Self {
             source_url: source_url.clone(),
-            branch: branch.unwrap_or_else(|| PLUGINS_REPO_BRANCH.to_owned()),
+            branch: branch.unwrap_or_else(|| DEFAULT_BRANCH.to_owned()),
             local_repo_dir,
         })
     }
 
+    /// Clones a contents of a git repository to a local directory
     pub async fn clone(&self) -> Result<()> {
         let mut git = Command::new("git");
         git.args([
@@ -36,10 +43,7 @@ impl GitSource {
         ]);
         let clone_result = git.output().await?;
         match clone_result.status.success() {
-            true => {
-                println!("Cloned Repository Successfully!");
-                Ok(())
-            }
+            true => Ok(()),
             false => Err(anyhow!(
                 "Error cloning Git repo {}: {}",
                 self.source_url,
@@ -49,15 +53,13 @@ impl GitSource {
         }
     }
 
+    /// Fetches the latest changes from the source repository
     pub async fn pull(&self) -> Result<()> {
         let mut git = Command::new("git");
         git.args(["-C", &self.local_repo_dir.to_string_lossy(), "pull"]);
         let pull_result = git.output().await?;
         match pull_result.status.success() {
-            true => {
-                println!("Updated repository successfully");
-                Ok(())
-            }
+            true => Ok(()),
             false => Err(anyhow!(
                 "Error updating Git repo at {:?}: {}",
                 self.local_repo_dir,

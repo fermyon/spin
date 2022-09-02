@@ -1,10 +1,22 @@
 mod git;
-// TODO: just export PluginInstaller
 pub mod install;
 mod plugin_manifest;
 mod prompt;
 pub mod uninstall;
 pub mod version_check;
+
+/// List of Spin internal subcommands
+pub(crate) const SPIN_INTERNAL_COMMANDS: [&str; 9] = [
+    "templates",
+    "up",
+    "new",
+    "bindle",
+    "deploy",
+    "build",
+    "plugin",
+    "trigger",
+    "external",
+];
 
 /// Directory where the manifests of installed plugins are stored.
 pub const PLUGIN_MANIFESTS_DIRECTORY_NAME: &str = "manifests";

@@ -1,8 +1,8 @@
-/// Prompts user as to whether they trust the source of the plugin and
-/// want to proceed with installation
 use anyhow::Result;
 use std::io;
 
+/// Prompts user as to whether they trust the source of the plugin and
+/// want to proceed with installation.
 pub(crate) struct Prompter {
     plugin_name: String,
     plugin_license: String,
@@ -10,6 +10,7 @@ pub(crate) struct Prompter {
 }
 
 impl Prompter {
+    /// Creates a new prompter
     pub fn new(plugin_name: &str, plugin_license: &str, source_url: &str) -> Result<Self> {
         Ok(Self {
             plugin_name: plugin_name.to_string(),
@@ -17,6 +18,7 @@ impl Prompter {
             source_url: source_url.to_string(),
         })
     }
+
     fn print_prompt(&self) {
         println!(
             "Installing plugin {} with license {} from {}\n",
@@ -30,13 +32,13 @@ impl Prompter {
         io::stdin().read_line(&mut resp)?;
         Ok(self.parse_response(&mut resp))
     }
+
     fn parse_response(&self, resp: &mut str) -> bool {
         let resp = resp.trim().to_lowercase();
         resp.eq("yes") || resp.eq("y")
-        // TODO: consider checking for invalid response
     }
 
-    // Returns whether or not the user would like to proceed with the installation
+    /// Returns whether or not the user would like to proceed with the installation of a plugin.
     pub(crate) fn run(&self) -> Result<bool> {
         self.print_prompt();
         self.are_you_sure()

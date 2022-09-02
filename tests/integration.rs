@@ -8,11 +8,13 @@ mod integration_tests {
     };
     use std::{
         ffi::OsStr,
+        fs::{self, File},
         net::{Ipv4Addr, SocketAddrV4, TcpListener},
         path::Path,
         process::{self, Child, Command},
         time::Duration,
     };
+    use tempfile::tempdir;
     use tokio::{net::TcpStream, time::sleep};
 
     const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
@@ -867,6 +869,106 @@ mod integration_tests {
         }
         assert_eq!(missing_sources_count, 0);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_spin_plugin_install_command() -> Result<()> {
+        // Create a temporary directory for plugin source and manifests
+        let temp_dir = tempdir()?;
+        let dir = temp_dir.path();
+        let installed_plugins_dir = dir.join("tmp");
+
+        // Ensure that spin installs the plugins into the temporary directory
+        std::env::set_var(
+            "TEST_PLUGINS_DIRECTORY",
+            installed_plugins_dir.to_str().unwrap(),
+        );
+
+        let path_to_test_dir = std::env::current_dir()?;
+        // TODO: test on Windows
+        let plugin_manifest_json_template = r#"
+        {
+            "name": "example",
+            "description": "A description of the plugin.",
+            "homepage": "www.example.com",
+            "version": "0.2.0",
+            "spinCompatibility": ">=0.4, <=5.0",
+            "license": "MIT",
+            "packages": [
+                {
+                    "os": "linux",
+                    "arch": "amd64",
+                    "url": "file:PATH_TO_TESTS/tests/plugin/example.tar.gz",
+                    "sha256": "57a0d87fcd9900b0122affcb570c5bb878246e2f169f4db377fd055af8e0491e"
+                },
+                {
+                    "os": "osx",
+                    "arch": "aarch64",
+                    "url": "file:PATH_TO_TESTS/tests/plugin/example.tar.gz",
+                    "sha256": "57a0d87fcd9900b0122affcb570c5bb878246e2f169f4db377fd055af8e0491e"
+                }
+            ]
+        }"#;
+        let plugin_manifest_json = plugin_manifest_json_template
+            .replace("PATH_TO_TESTS", path_to_test_dir.to_str().unwrap());
+
+        let manifest_file_path = dir.join("example-plugin-manifest.json");
+        fs::write(&manifest_file_path, plugin_manifest_json.as_bytes())?;
+
+        let output_file_path = dir.join("example.txt");
+        File::create(&output_file_path)?;
+
+        // Install plugin
+        let install_args = vec![
+            SPIN_BINARY,
+            "plugin",
+            "install",
+            "--file",
+            manifest_file_path.to_str().unwrap(),
+            "--yes",
+        ];
+        run(install_args, None)?;
+
+        // Execute example plugin which writes "This is an example Spin plugin!" to a specified file
+        let execute_args = vec![SPIN_BINARY, "example", output_file_path.to_str().unwrap()];
+        run(execute_args, None)?;
+
+        // Verify plugin successfully wrote to output file
+        let contents = fs::read_to_string(output_file_path)?;
+        assert_eq!(contents.trim(), "This is an example Spin plugin!");
+
+        // Upgrade plugin to newer version
+        let plugin_manifest_json_latest = plugin_manifest_json.replace("0.2.0", "0.2.1");
+        fs::write(
+            dir.join("example-plugin-manifest.json"),
+            plugin_manifest_json_latest.as_bytes(),
+        )?;
+        let upgrade_args = vec![
+            SPIN_BINARY,
+            "plugin",
+            "upgrade",
+            "example",
+            "--file",
+            manifest_file_path
+                .to_str()
+                .ok_or_else(|| anyhow::anyhow!("Cannot convert PathBuf to str"))?,
+            "--yes",
+        ];
+        run(upgrade_args, None)?;
+
+        // Check plugin version
+        let installed_manifest = installed_plugins_dir
+            .join("spin")
+            .join("plugins")
+            .join("manifests")
+            .join("example.json");
+        let manifest = fs::read_to_string(installed_manifest)?;
+        assert!(manifest.contains("0.2.1"));
+
+        // Uninstall plugin
+        let uninstall_args = vec![SPIN_BINARY, "plugin", "uninstall", "example"];
+        run(uninstall_args, None)?;
         Ok(())
     }
 

@@ -1,13 +1,13 @@
 use crate::{
     get_manifest_file_name, get_manifest_file_name_version,
     version_check::{assert_supported_version, get_plugin_manifest},
-    PLUGIN_MANIFESTS_DIRECTORY_NAME,
+    PLUGIN_MANIFESTS_DIRECTORY_NAME, SPIN_INTERNAL_COMMANDS,
 };
 
 use super::git::GitSource;
 use super::plugin_manifest::{Os, PluginManifest};
 use super::prompt::Prompter;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use flate2::read::GzDecoder;
 use semver::Version;
 use std::{
@@ -19,23 +19,32 @@ use tar::Archive;
 use tempfile::{tempdir, TempDir};
 use url::Url;
 
-/// Name of the subdirectory that contains the installed plugin JSON manifests
+// Name of directory that contains the cloned centralized Spin plugins
+// repository
 const PLUGINS_REPO_LOCAL_DIRECTORY: &str = ".spin-plugins";
+// Name of directory containing the installed manifests
 const PLUGINS_REPO_MANIFESTS_DIRECTORY: &str = "manifests";
-/// Anticipated url scheme prefix in manifest to indicate local path to plugin binary
+// Url scheme prefix of a plugin that is installed from a local source
 const URL_FILE_SCHEME: &str = "file";
 
+/// Location of manifest of the plugin to be installed.
 pub enum ManifestLocation {
+    /// Plugin manifest can be copied from a local path.
     Local(PathBuf),
+    /// Plugin manifest should be pulled from a specific address.
     Remote(Url),
+    /// Plugin manifest lives in the centralized plugins repository
     PluginsRepository(PluginInfo),
 }
 
+/// Information about the plugin manifest that should be fetched from the
+/// centralized Spin plugins repository.
 pub struct PluginInfo {
     name: String,
     repo_url: Url,
     version: Option<Version>,
 }
+
 impl PluginInfo {
     pub fn new(name: &str, repo_url: Url, version: Option<Version>) -> Self {
         Self {
@@ -46,6 +55,7 @@ impl PluginInfo {
     }
 }
 
+/// Retrieves the appropriate plugin manifest and installs the Spin plugin
 pub struct PluginInstaller {
     manifest_location: ManifestLocation,
     plugins_dir: PathBuf,
@@ -68,11 +78,16 @@ impl PluginInstaller {
         }
     }
 
+    /// Installs a Spin plugin. First attempts to retrieve the plugin manifest.
+    /// If installing a plugin from the centralized Spin plugins repository, it
+    /// fetches the latest contents of the repository and searches for the
+    /// appropriately named and versioned plugin manifest. Parses the plugin
+    /// manifest to get the appropriate source for the machine OS and
+    /// architecture. Verifies the checksum of the source, unpacks and installs
+    /// it into the plugins directory.
     pub async fn install(&self) -> Result<()> {
-        // TODO: Potentially handle errors to give useful error messages
         let plugin_manifest: PluginManifest = match &self.manifest_location {
             ManifestLocation::Remote(url) => {
-                // Remote manifest source is provided
                 log::info!("Pulling manifest for plugin from {}", url);
                 reqwest::get(url.as_ref())
                     .await?
@@ -80,9 +95,9 @@ impl PluginInstaller {
                     .await?
             }
             ManifestLocation::Local(path) => {
-                // Local manifest source is provided
                 log::info!("Pulling manifest for plugin from {:?}", path);
-                let file = File::open(path)?;
+                let file = File::open(path)
+                    .map_err(|_| anyhow!("The local manifest could not be opened"))?;
                 serde_json::from_reader(file)?
             }
             ManifestLocation::PluginsRepository(info) => {
@@ -104,6 +119,9 @@ impl PluginInstaller {
                 {
                     git_source.clone().await?;
                 } else {
+                    // TODO: consider moving this to a separate `spin plugin
+                    // update` subcommand rather than always updating the
+                    // repository on each install.
                     git_source.pull().await?;
                 }
                 let file = File::open(
@@ -128,15 +146,27 @@ impl PluginInstaller {
             }
         };
 
+        // Disallow installing plugins with the same name as spin internal
+        // subcommands
+        if SPIN_INTERNAL_COMMANDS
+            .iter()
+            .any(|&s| s == plugin_manifest.name())
+        {
+            bail!(
+                "Trying to install a plugin with the same name '{}' as an internal plugin",
+                plugin_manifest.name()
+            );
+        }
+
         // Disallow downgrades and reinstalling identical plugins
-        if let Ok(installed) = get_plugin_manifest(&plugin_manifest.name, &self.plugins_dir) {
+        if let Ok(installed) = get_plugin_manifest(&plugin_manifest.name(), &self.plugins_dir) {
             if installed.version > plugin_manifest.version || installed == plugin_manifest {
-                return Err(anyhow!(
+                bail!(
                     "plugin {} already installed with version {} but attempting to install same or older version ({})",
-                    installed.name,
+                    installed.name(),
                     installed.version,
                     plugin_manifest.version,
-                ));
+                );
             }
         }
 
@@ -149,22 +179,23 @@ impl PluginInstaller {
         } else if cfg!(target_os = "macos") {
             Os::Osx
         } else {
-            return Err(anyhow!("This plugin is not supported on this OS"));
+            bail!("This plugin is not supported on this OS");
         };
-        // TODO: Add logic for architecture as well
+        let arch = std::env::consts::ARCH;
         let plugin_package = plugin_manifest
             .packages
             .iter()
-            .find(|p| p.os == os)
-            .ok_or_else(|| anyhow!("This plugin does not support this OS"))?;
+            .find(|p| p.os == os && p.arch.to_string() == arch)
+            .ok_or_else(|| anyhow!("This plugin does not support this OS or architecture"))?;
         let target = plugin_package.url.to_owned();
 
-        // Ask for user confirmation if not overridden with CLI option
+        // Ask for user confirmation to install if not overridden with CLI
+        // option
         if !self.yes_to_all
-            && !Prompter::new(&plugin_manifest.name, &plugin_manifest.license, &target)?.run()?
+            && !Prompter::new(&plugin_manifest.name(), &plugin_manifest.license, &target)?.run()?
         {
             // User has requested to not install package, returning early
-            println!("Plugin {} will not be installed", plugin_manifest.name);
+            println!("Plugin {} will not be installed", plugin_manifest.name());
             return Ok(());
         }
         let target_url = Url::parse(&target)?;
@@ -172,15 +203,20 @@ impl PluginInstaller {
         let plugin_tarball_path = match target_url.scheme() {
             URL_FILE_SCHEME => PathBuf::from(target_url.path()),
             _ => {
-                PluginInstaller::download_plugin(&plugin_manifest.name, &temp_dir, &target).await?
+                PluginInstaller::download_plugin(&plugin_manifest.name(), &temp_dir, &target)
+                    .await?
             }
         };
         self.verify_checksum(&plugin_tarball_path, &plugin_package.sha256)?;
 
-        self.untar_plugin(&plugin_tarball_path, &plugin_manifest.name)?;
+        self.untar_plugin(&plugin_tarball_path, &plugin_manifest.name())?;
+
         // Save manifest to installed plugins directory
         self.add_to_manifest_dir(&plugin_manifest)?;
-        log::info!("Plugin [{}] installed successfully", plugin_manifest.name);
+        println!(
+            "Plugin [{}] was installed successfully!",
+            plugin_manifest.name()
+        );
         Ok(())
     }
 
@@ -191,7 +227,6 @@ impl PluginInstaller {
         let tar = GzDecoder::new(tar_gz);
         // Get plugin from tarball
         let mut archive = Archive::new(tar);
-        // TODO: this is unix only. Look into whether permissions are preserved
         archive.set_preserve_permissions(true);
         // Create subdirectory in plugins directory for this plugin
         let plugin_sub_dir = self.plugins_dir.join(plugin_name);
@@ -202,7 +237,7 @@ impl PluginInstaller {
     }
 
     async fn download_plugin(name: &str, temp_dir: &TempDir, target_url: &str) -> Result<PathBuf> {
-        log::info!(
+        log::trace!(
             "Trying to get tar file for plugin {} from {}",
             name,
             target_url
@@ -217,25 +252,27 @@ impl PluginInstaller {
         Ok(plugin_file)
     }
 
-    // Validate checksum of downloaded content with checksum from Index
     fn verify_checksum(&self, plugin_file: &PathBuf, checksum: &str) -> Result<()> {
         let binary_sha256 = file_digest_string(plugin_file).expect("failed to get sha for parcel");
         let verification_sha256 = checksum;
         if binary_sha256 == verification_sha256 {
-            println!("Package verified successfully");
+            log::info!("Package checksum verified successfully");
             Ok(())
         } else {
-            Err(anyhow!("Could not validate Checksum"))
+            Err(anyhow!(
+                "Could not validate Checksum, aborting installation"
+            ))
         }
     }
 
-    fn add_to_manifest_dir(&self, plugin: &PluginManifest) -> Result<()> {
+    fn add_to_manifest_dir(&self, plugin_manifest: &PluginManifest) -> Result<()> {
         let manifests_dir = self.plugins_dir.join(PLUGIN_MANIFESTS_DIRECTORY_NAME);
         fs::create_dir_all(&manifests_dir)?;
         serde_json::to_writer(
-            &File::create(manifests_dir.join(get_manifest_file_name(&plugin.name)))?,
-            plugin,
+            &File::create(manifests_dir.join(get_manifest_file_name(&plugin_manifest.name())))?,
+            plugin_manifest,
         )?;
+        log::trace!("Added manifest for {}", &plugin_manifest.name());
         Ok(())
     }
 }

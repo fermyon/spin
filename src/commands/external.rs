@@ -1,17 +1,23 @@
+use crate::commands::plugins::get_spin_plugins_directory;
+
 use anyhow::{anyhow, Result};
 use spin_plugins::version_check::check_plugin_spin_compatibility;
 use std::{collections::HashMap, env, path::Path};
 use tokio::process::Command;
 use tracing::log;
 
-use crate::commands::plugins::get_spin_plugins_directory;
-
+/// Executes a Spin plugin as a subprocess, expecting the first argument to
+/// indicate the plugin to execute. Passes all subsequent arguments on to the
+/// subprocess.
 pub async fn execute_external_subcommand(args: Vec<String>) -> Result<()> {
     let plugin_name = args.first().ok_or_else(|| anyhow!("Expected subcommand"))?;
     let plugins_dir = get_spin_plugins_directory()?;
     check_plugin_spin_compatibility(plugin_name, env!("VERGEN_BUILD_SEMVER"), &plugins_dir)?;
     let path = plugins_dir.join(plugin_name);
-    let binary = path.join(plugin_name);
+    let mut binary = path.join(plugin_name);
+    if cfg!(target_os = "windows") {
+        binary.set_extension("exe");
+    }
     let mut command = Command::new(binary);
     if args.len() > 1 {
         command.args(&args[1..]);

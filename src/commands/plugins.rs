@@ -12,23 +12,20 @@ use url::Url;
 
 const SPIN_PLUGINS_REPO: &str = "https://github.com/fermyon/spin-plugins/";
 
-/// Install/uninstall plugins
+/// Install/uninstall Spin plugins.
 #[derive(Subcommand, Debug)]
 pub enum PluginCommands {
-    /// Install plugin from the Spin plugin repository.
+    /// Install plugin from a manifest.
     ///
-    /// The binary or .wasm file of the plugin is copied to the local Spin plugins directory
-    /// TODO: consider the ability to install multiple plugins
+    /// The binary file and manifest of the plugin is copied to the local Spin
+    /// plugins directory.
     Install(Install),
 
     /// Remove a plugin from your installation.
     Uninstall(Uninstall),
 
-    /// Upgrade one or all plugins
+    /// Upgrade one or all plugins.
     Upgrade(Upgrade),
-    // TODO: consider Search command
-
-    // TODO: consider List command
 }
 
 impl PluginCommands {
@@ -52,7 +49,8 @@ pub struct Install {
         required_unless_present_any = ["REMOTE_PLUGIN_MANIFEST", "LOCAL_PLUGIN_MANIFEST"],
     )]
     pub name: Option<String>,
-    /// source of local manifest file
+
+    /// Path to local plugin manifest.
     #[clap(
         name = "LOCAL_PLUGIN_MANIFEST",
         short = 'f',
@@ -61,7 +59,8 @@ pub struct Install {
         conflicts_with = "PLUGIN_NAME"
     )]
     pub local_manifest_src: Option<PathBuf>,
-    /// source of remote manifest file
+
+    /// Path to remote plugin manifest.
     #[clap(
         name = "REMOTE_PLUGIN_MANIFEST",
         short = 'u',
@@ -70,10 +69,13 @@ pub struct Install {
         conflicts_with = "PLUGIN_NAME"
     )]
     pub remote_manifest_src: Option<Url>,
-    /// skips prompt to accept the installation of the plugin.
+
+    /// Skips prompt to accept the installation of the plugin.
     #[clap(short = 'y', long = "yes", takes_value = false)]
     pub yes_to_all: bool,
-    /// specify particular version of plugin to install from centralized repository
+
+    /// Specific version of a plugin to be install from the centralized plugins
+    /// repository.
     #[clap(
         long = "version",
         short = 'v',
@@ -81,14 +83,12 @@ pub struct Install {
         conflicts_with = "LOCAL_PLUGIN_MANIFEST",
         requires("PLUGIN_NAME")
     )]
-    /// Specify a particular version of the plugin to be installed from the Centralized Repository
     pub version: Option<Version>,
 }
 
 impl Install {
     pub async fn run(self) -> Result<()> {
         let manifest_location = match (self.local_manifest_src, self.remote_manifest_src, self.name) {
-            // TODO: move all this parsing into clap to catch input errors.
             (Some(path), None, None) => ManifestLocation::Local(path),
             (None, Some(url), None) => ManifestLocation::Remote(url),
             (None, None, Some(name)) => ManifestLocation::PluginsRepository(PluginInfo::new(&name, Url::parse(SPIN_PLUGINS_REPO)?, self.version)),
@@ -106,14 +106,11 @@ impl Install {
     }
 }
 
-/// Remove the specified plugin
+/// Uninstalls specified plugin.
 #[derive(Parser, Debug)]
 pub struct Uninstall {
     /// Name of Spin plugin.
     pub name: String,
-    // TODO: think about how to handle breaking changes
-    // #[structopt(long = "update")]
-    // pub update: bool,
 }
 
 impl Uninstall {
@@ -132,51 +129,62 @@ pub struct Upgrade {
         required_unless_present_any = ["ALL"],
     )]
     pub name: Option<String>,
-    /// Upgrade all plugins
+
+    /// Upgrade all plugins.
     #[clap(
         short = 'a',
         long = "all",
         name = "ALL",
         conflicts_with = "PLUGIN_NAME",
+        conflicts_with = "REMOTE_PLUGIN_MANIFEST",
+        conflicts_with = "LOCAL_PLUGIN_MANIFEST",
         takes_value = false
     )]
     pub all: bool,
-    /// Source of local manifest file
+
+    /// Path to local plugin manifest.
     #[clap(
         name = "LOCAL_PLUGIN_MANIFEST",
         short = 'f',
         long = "file",
-        conflicts_with = "REMOTE_PLUGIN_MANIFEST",
-        conflicts_with = "PLUGIN_NAME"
+        conflicts_with = "REMOTE_PLUGIN_MANIFEST"
     )]
     pub local_manifest_src: Option<PathBuf>,
-    /// Source of remote manifest file
+
+    /// Path to remote plugin manifest.
     #[clap(
         name = "REMOTE_PLUGIN_MANIFEST",
         short = 'u',
         long = "url",
-        conflicts_with = "LOCAL_PLUGIN_MANIFEST",
-        conflicts_with = "PLUGIN_NAME"
+        conflicts_with = "LOCAL_PLUGIN_MANIFEST"
     )]
     pub remote_manifest_src: Option<Url>,
-    /// skips prompt to accept the installation of the plugin.
+
+    /// Skips prompt to accept the installation of the plugin[s].
     #[clap(short = 'y', long = "yes", takes_value = false)]
     pub yes_to_all: bool,
+
+    /// Specific version of a plugin to be install from the centralized plugins
+    /// repository.
     #[clap(
         long = "version",
         short = 'v',
         conflicts_with = "REMOTE_PLUGIN_MANIFEST",
         conflicts_with = "LOCAL_PLUGIN_MANIFEST",
+        conflicts_with = "ALL",
         requires("PLUGIN_NAME")
     )]
-    /// Specify a particular version of the plugin to be installed from the centralized plugin repository
     pub version: Option<Version>,
-    /// Allow downgrading a plugin's version
+
+    /// Allow downgrading a plugin's version.
     #[clap(short = 'd', long = "downgrade", takes_value = false)]
     pub downgrade: bool,
 }
 
 impl Upgrade {
+    /// Upgrades one or all plugins by reinstalling the latest or a specified
+    /// version of a plugin. If downgrade is specified, first uninstalls the
+    /// plugin.
     pub async fn run(self) -> Result<()> {
         let plugins_dir = get_spin_plugins_directory()?;
         let spin_version = env!("VERGEN_BUILD_SEMVER");
@@ -211,7 +219,8 @@ impl Upgrade {
                 .install()
                 .await
                 {
-                    // Ignore plugins that were not installed from the central plugins repository
+                    // Ignore plugins that were not installed from the central
+                    // plugins repository
                     if e.to_string().contains("Could not find plugin") {
                         log::info!(
                             "Could not update {} plugin as DNE in central repository",
@@ -231,7 +240,6 @@ impl Upgrade {
                 PluginUninstaller::new(&name, plugins_dir.clone()).run()?;
             }
             let manifest_location = match (self.local_manifest_src, self.remote_manifest_src) {
-                // TODO: move all this parsing into clap to catch input errors.
                 (Some(path), None) => ManifestLocation::Local(path),
                 (None, Some(url)) => ManifestLocation::Remote(url),
                 _ => ManifestLocation::PluginsRepository(PluginInfo::new(
@@ -254,11 +262,14 @@ impl Upgrade {
     }
 }
 
-/// Gets the path to where Spin plugin are (to be) installed
+/// Gets the path to where Spin plugin are installed.
 pub fn get_spin_plugins_directory() -> anyhow::Result<PathBuf> {
-    let data_dir = dirs::data_local_dir()
-        .or_else(|| dirs::home_dir().map(|p| p.join(".spin")))
-        .ok_or_else(|| anyhow!("Unable to get local data directory or home directory"))?;
+    let data_dir = match std::env::var("TEST_PLUGINS_DIRECTORY") {
+        Ok(test_dir) => PathBuf::from(test_dir),
+        Err(_) => dirs::data_local_dir()
+            .or_else(|| dirs::home_dir().map(|p| p.join(".spin")))
+            .ok_or_else(|| anyhow!("Unable to get local data directory or home directory"))?,
+    };
     let plugins_dir = data_dir.join("spin").join("plugins");
     Ok(plugins_dir)
 }

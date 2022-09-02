@@ -3470,7 +3470,7 @@ dependencies = [
  "flate2",
  "log",
  "reqwest",
- "semver 1.0.6",
+ "semver 1.0.13",
  "serde",
  "serde_json",
  "sha2 0.10.3",

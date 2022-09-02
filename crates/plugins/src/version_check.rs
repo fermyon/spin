@@ -6,7 +6,6 @@ use semver::{Version, VersionReq};
 use std::{fs::File, path::Path};
 
 /// Checks whether the plugin supports the currently running version of Spin.
-// TODO: check whether on main or canary (aka beyond the specified version).
 pub fn assert_supported_version(spin_version: &str, supported: &str) -> Result<()> {
     let supported = VersionReq::parse(supported).map_err(|e| {
         anyhow!(
@@ -37,6 +36,8 @@ pub(crate) fn get_plugin_manifest(plugin_name: &str, plugins_dir: &Path) -> Resu
     Ok(manifest)
 }
 
+/// Verifies that a plugin is compatible with the currently running version of Spin
+/// by fetching it's manifest and assessing it's `spinCompatibility`.
 pub fn check_plugin_spin_compatibility(
     plugin_name: &str,
     spin_version: &str,

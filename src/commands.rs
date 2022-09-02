@@ -6,7 +6,7 @@ pub mod bindle;
 pub mod build;
 /// Command for deploying a Spin app to Hippo
 pub mod deploy;
-/// commands for external subcommands
+/// Commands for external subcommands (i.e. plugins)
 pub mod external;
 /// Command for creating a new application.
 pub mod new;

@@ -3,8 +3,6 @@ name = "spin-plugins"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 anyhow = "1.0"
 bytes = "1.1"
@@ -19,5 +17,3 @@ tar = "0.4.38"
 tempfile = "3.3.0"
 tokio = { version = "1.10", features = [ "fs", "process", "rt", "macros" ] }
 url = "2.2.2"
-
-

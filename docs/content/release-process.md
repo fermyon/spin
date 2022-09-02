@@ -17,7 +17,9 @@ To cut a release of Spin, you will need to do the following:
 1. Before proceeding, verify that the merge commit on `main` intended to be
    tagged is green, i.e. CI is successful
 1. Create a new tag with a `v` and then the version number (`v0.5.1`)
-1. The Go SDK tag `sdk/go/v0.5.1` and template tag `spin/templates/v0.5` will be created in `release` [action](https://github.com/fermyon/spin/actions/workflows/release.yaml).
+1. The Go SDK tag `sdk/go/v0.5.1` and template tag `spin/templates/v0.5` will
+   be created in the `release`
+   [action](https://github.com/fermyon/spin/actions/workflows/release.yaml).
 1. When the `release`
    [action](https://github.com/fermyon/spin/actions/workflows/release.yaml)
    completes, binary artifacts and checksums will be automatically uploaded.

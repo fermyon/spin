@@ -3275,7 +3275,7 @@ dependencies = [
 
 [[package]]
 name = "spin-cli"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3509,7 +3509,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sdk"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "bytes",

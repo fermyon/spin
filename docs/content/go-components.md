@@ -132,7 +132,7 @@ allowed_http_hosts = [ "some-random-api.ml" ]
 route = "/hello"
 ```
 
-> Spin HTTP components written in Go must currently use the Wagi executor.
+> Spin HTTP components written in Go use the Spin executor.
 
 Running the application using `spin up --file spin.toml` will start the HTTP
 listener locally (by default on `localhost:3000`), and our component can

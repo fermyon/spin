@@ -221,7 +221,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: set the tag sdk/go/v*
+      - name: Set the tag to sdk/go/v*
         shell: bash
         run: echo "GO_SDK_TAG=sdk/go/${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
 
@@ -233,23 +233,17 @@ jobs:
           git tag ${{ env.GO_SDK_TAG }}
           git push origin ${{ env.GO_SDK_TAG }}
 
-  commit-and-create-template-tag:
-    name: Change sdk version in templates and create a new tag spin/templates/v*
+  create-template-sdk-update-pr:
+    name: Create PR with template SDK updates
     runs-on: ubuntu-latest
     needs: create-go-sdk-tag
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v2
 
-      - name: set the spin tag
+      - name: Set the spin tag
         shell: bash
         run: echo "SPIN_TAG=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
-
-      - name: set the tag spin/templates/v*
-        shell: bash
-        run: |
-          IFS=. read -r major minor patch <<< "${{ env.SPIN_TAG }}"
-          echo "TEMPLATE_TAG=spin/templates/$major.$minor" >> $GITHUB_ENV
 
       - name: Change sdk version
         shell: bash
@@ -265,19 +259,33 @@ jobs:
           git_user_signingkey: true
           git_commit_gpgsign: true
 
-      - name: Commit changes
-        uses: stefanzweifel/git-auto-commit-action@v4
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4
         with:
-          commit_message: "feat(templates): update sdk to ${{ env.SPIN_TAG }}"
-          commit_options: '-s -S'
-          commit_user_name: fermybot
-          commit_user_email: 103076628+fermybot@users.noreply.github.com
-          commit_author: fermybot <103076628+fermybot@users.noreply.github.com>
-          file_pattern: templates/*
-          branch: main
-          skip_dirty_check: true
-          skip_fetch: true
-          skip_checkout: true
+          commit-message: "feat(templates): update sdk to ${{ env.SPIN_TAG }}"
+          title: "feat(templates): update sdk to ${{ env.SPIN_TAG }}"
+          body: Update the SDK version used by the templates
+          branch: update-sdk-${{ env.SPIN_TAG }}
+          base: main
+          delete-branch: true
+          committer: fermybot <103076628+fermybot@users.noreply.github.com>
+          author: fermybot <103076628+fermybot@users.noreply.github.com>
+          signoff: true
+
+  # This will run when the PR above is approved and merged into main via a merge commit
+  push-templates-tag:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event.commits[0].author.name == 'fermybot' && contains(github.event.commits[0].message, 'update sdk')
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set the tag to spin/templates/v*
+        shell: bash
+        run: |
+          spin_tag=$(echo "${{ github.event.commits[0].message }}" | grep -Eo v[0-9.]+)
+          IFS=. read -r major minor patch <<< "${spin_tag}"
+          echo "TEMPLATE_TAG=spin/templates/$major.$minor" >> $GITHUB_ENV
 
       - name: Tag spin/templates/v* and push it
         shell: bash

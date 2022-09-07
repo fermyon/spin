@@ -18,6 +18,7 @@ pub struct NewCommand {
     pub template_id: String,
 
     /// The name of the new application or component.
+    #[clap(value_parser = validate_name)]
     pub name: String,
 
     /// The directory in which to create the new application or component.
@@ -125,11 +126,20 @@ fn merge_values(from_file: &mut HashMap<String, String>, from_cli: &[ParameterVa
 
 lazy_static::lazy_static! {
     static ref PATH_UNSAFE_CHARACTERS: regex::Regex = regex::Regex::new("[^-_.a-zA-Z0-9]").expect("Invalid path safety regex");
+    static ref PROJECT_NAME: regex::Regex = regex::Regex::new("^[a-zA-Z].*").expect("Invalid project name regex");
 }
 
 fn path_safe(text: &str) -> PathBuf {
     let path = PATH_UNSAFE_CHARACTERS.replace_all(text, "_");
     PathBuf::from(path.to_string())
+}
+
+fn validate_name(name: &str) -> Result<String, String> {
+    if PROJECT_NAME.is_match(name) {
+        Ok(name.to_owned())
+    } else {
+        Err("Name must start with a letter".to_owned())
+    }
 }
 
 #[cfg(test)]
@@ -202,5 +212,14 @@ mod tests {
         ]);
         merge_values(&mut values, &from_cli);
         assert_eq!(want, values);
+    }
+
+    #[test]
+    fn project_names_must_start_with_letter() {
+        assert_eq!("hello", validate_name("hello").unwrap());
+        assert_eq!("Proj123!.456", validate_name("Proj123!.456").unwrap());
+        validate_name("123").unwrap_err();
+        validate_name("1hello").unwrap_err();
+        validate_name("_foo").unwrap_err();
     }
 }

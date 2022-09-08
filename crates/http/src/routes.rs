@@ -144,12 +144,13 @@ impl fmt::Display for RoutePattern {
 
 #[cfg(test)]
 mod route_tests {
+    use spin_testing::init_tracing;
+
     use super::*;
-    use crate::tests::init;
 
     #[test]
     fn test_exact_route() {
-        init();
+        init_tracing();
 
         let rp = RoutePattern::from("/", "/foo/bar");
         assert!(rp.matches("/foo/bar"));

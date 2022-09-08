@@ -3586,6 +3586,7 @@ dependencies = [
  "spin-http-engine",
  "spin-manifest",
  "spin-trigger",
+ "tracing-subscriber",
 ]
 
 [[package]]

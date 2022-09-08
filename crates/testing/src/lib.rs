@@ -4,17 +4,25 @@
 use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
+    sync::Once,
 };
 
-use http::{uri::Scheme, Request, Response};
+use http::Response;
 use hyper::Body;
-use spin_engine::{Builder, ExecutionContextConfiguration};
 use spin_http_engine::HttpTrigger;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
     HttpConfig, ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion, TriggerConfig,
 };
 use spin_trigger::TriggerExecutorBuilder;
+
+/// Initialize a test writer for `tracing`, making its output compatible with libtest
+pub fn init_tracing() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        tracing_subscriber::fmt().with_test_writer().init();
+    })
+}
 
 #[derive(Default)]
 pub struct TestConfig {
@@ -25,6 +33,7 @@ pub struct TestConfig {
 
 impl TestConfig {
     pub fn module_path(&mut self, path: impl Into<PathBuf>) -> &mut Self {
+        init_tracing();
         self.module_path = Some(path.into());
         self
     }
@@ -99,32 +108,11 @@ impl TestConfig {
         }
     }
 
-    pub async fn prepare_builder<T: Default + Send + 'static>(
-        &self,
-        app: Application,
-    ) -> Builder<T> {
-        let config = ExecutionContextConfiguration {
-            components: app.components,
-            label: app.info.name,
-            ..Default::default()
-        };
-        let mut builder = Builder::new(config).expect("Builder::new failed");
-        builder.link_defaults().expect("link_defaults failed");
-        builder
-    }
-
     pub async fn build_http_trigger(&self) -> HttpTrigger {
         TriggerExecutorBuilder::new(self.build_application())
             .build()
             .await
             .unwrap()
-    }
-
-    pub async fn handle_http_request(&self, req: Request<Body>) -> anyhow::Result<Response<Body>> {
-        self.build_http_trigger()
-            .await
-            .handle(req, Scheme::HTTP, test_socket_addr())
-            .await
     }
 }
 

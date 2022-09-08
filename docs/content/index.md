@@ -41,7 +41,7 @@ fn hello_world(_req: Request) -> Result<Response> {​
 #### Spin Manifest
 
 Once the code is compiled to a WebAssembly component, it can be referenced in a `spin.toml`
-file to create an HTTP application like below.
+file to create an HTTP application like what you can see below:
 
 ```toml
 spin_version = "1"
@@ -58,8 +58,8 @@ route = "/hello"
 
 #### Running a Spin Application
 
-Running this application with the `spin` CLI is as simple as using the `spin up` command.
-Because a trigger type of `http` is specified in the `spin.toml`, `spin up` will start
+Running this application with the spin CLI is as simple as using the `spin up` command.
+Because a trigger type of `http` is specified in the `spin.toml` file, `spin up` will start
 a web server:
 
 ```console

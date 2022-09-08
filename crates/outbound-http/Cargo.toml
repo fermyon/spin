@@ -1,5 +1,5 @@
 [package]
-name = "wasi-outbound-http"
+name = "outbound-http"
 version = "0.2.0"
 edition = "2021"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]

@@ -16,7 +16,7 @@ pub fn parse_allowed_http_hosts(raw: &Option<Vec<String>>) -> Result<AllowedHttp
         Some(list) => {
             if list
                 .iter()
-                .any(|domain| domain == wasi_outbound_http::ALLOW_ALL_HOSTS)
+                .any(|domain| domain == outbound_http::ALLOW_ALL_HOSTS)
             {
                 Ok(AllowedHttpHosts::AllowAll)
             } else {

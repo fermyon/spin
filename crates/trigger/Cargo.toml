@@ -12,6 +12,7 @@ ctrlc = { version = "3.2", features = ["termination"] }
 dotenvy = "0.15.1"
 futures = "0.3"
 http = "0.2"
+outbound-http = { path = "../outbound-http" } 
 outbound-redis = { path = "../outbound-redis" }
 outbound-pg = { path = "../outbound-pg" }
 serde = "1.0"
@@ -20,5 +21,4 @@ spin-engine = { path = "../engine" }
 spin-loader = { path = "../loader" }
 spin-manifest = { path = "../manifest" }
 tracing = { version = "0.1", features = [ "log" ] }
-wasi-outbound-http = { path = "../outbound-http" } 
 wasmtime = "0.39.1"

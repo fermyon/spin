@@ -2186,6 +2186,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ff7415e9ae3fff1225851df9e0d9e4e5479f947619774677a63572e55e80eff"
 
 [[package]]
+name = "outbound-http"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "futures",
+ "http",
+ "reqwest",
+ "spin-engine",
+ "spin-manifest",
+ "tokio",
+ "tracing",
+ "tracing-futures",
+ "url",
+ "wit-bindgen-wasmtime",
+]
+
+[[package]]
 name = "outbound-pg"
 version = "0.2.0"
 dependencies = [
@@ -3296,6 +3314,7 @@ dependencies = [
  "lazy_static",
  "nix 0.24.2",
  "openssl",
+ "outbound-http",
  "outbound-redis",
  "path-absolutize",
  "regex",
@@ -3323,7 +3342,6 @@ dependencies = [
  "url",
  "uuid",
  "vergen",
- "wasi-outbound-http",
  "wasmtime",
  "which",
 ]
@@ -3415,6 +3433,7 @@ dependencies = [
  "glob",
  "itertools",
  "lazy_static",
+ "outbound-http",
  "path-absolutize",
  "regex",
  "reqwest",
@@ -3430,7 +3449,6 @@ dependencies = [
  "tracing-futures",
  "tracing-subscriber",
  "walkdir",
- "wasi-outbound-http",
 ]
 
 [[package]]
@@ -3602,6 +3620,7 @@ dependencies = [
  "dotenvy",
  "futures",
  "http",
+ "outbound-http",
  "outbound-pg",
  "outbound-redis",
  "serde",
@@ -3610,7 +3629,6 @@ dependencies = [
  "spin-loader",
  "spin-manifest",
  "tracing",
- "wasi-outbound-http",
  "wasmtime",
 ]
 
@@ -4294,24 +4312,6 @@ dependencies = [
  "tracing",
  "wiggle",
  "windows-sys",
-]
-
-[[package]]
-name = "wasi-outbound-http"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "bytes",
- "futures",
- "http",
- "reqwest",
- "spin-engine",
- "spin-manifest",
- "tokio",
- "tracing",
- "tracing-futures",
- "url",
- "wit-bindgen-wasmtime",
 ]
 
 [[package]]

@@ -21,6 +21,7 @@ hippo-openapi = "0.10"
 hippo = { git = "https://github.com/deislabs/hippo-cli", tag = "v0.16.1" }
 lazy_static = "1.4.0"
 nix = { version = "0.24", features = ["signal"] }
+outbound-http = { path = "crates/outbound-http" }
 outbound-redis = { path = "crates/outbound-redis" }
 path-absolutize = "3.0.11"
 regex = "1.5.5"
@@ -47,7 +48,6 @@ tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 url = "2.2.2"
 uuid = "^1.0"
-wasi-outbound-http = { path = "crates/outbound-http" }
 wasmtime = "0.39.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]

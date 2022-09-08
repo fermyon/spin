@@ -11,9 +11,9 @@ use spin_engine::{
     host_component::{HostComponent, HostComponentsStateHandle},
     RuntimeContext,
 };
-use wit_bindgen_wasmtime::wasmtime::Linker;
+use wit_bindgen_wasmtime::{async_trait, wasmtime::Linker};
 
-wit_bindgen_wasmtime::export!("../../wit/ephemeral/outbound-redis.wit");
+wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/outbound-redis.wit"], async: *});
 
 /// A simple implementation to support outbound Redis commands.
 pub struct OutboundRedis {
@@ -23,7 +23,7 @@ pub struct OutboundRedis {
 impl HostComponent for OutboundRedis {
     type State = Self;
 
-    fn add_to_linker<T>(
+    fn add_to_linker<T: Send>(
         linker: &mut Linker<RuntimeContext<T>>,
         state_handle: HostComponentsStateHandle<Self::State>,
     ) -> anyhow::Result<()> {
@@ -43,8 +43,10 @@ impl HostComponent for OutboundRedis {
     }
 }
 
+// TODO: use spawn_blocking or async client methods (redis::aio)
+#[async_trait]
 impl outbound_redis::OutboundRedis for OutboundRedis {
-    fn publish(&mut self, address: &str, channel: &str, payload: &[u8]) -> Result<(), Error> {
+    async fn publish(&mut self, address: &str, channel: &str, payload: &[u8]) -> Result<(), Error> {
         let conn_map = self.get_reused_conn_map(address)?;
         let mut conn = conn_map
             .get(address)
@@ -55,7 +57,7 @@ impl outbound_redis::OutboundRedis for OutboundRedis {
         Ok(())
     }
 
-    fn get(&mut self, address: &str, key: &str) -> Result<Vec<u8>, Error> {
+    async fn get(&mut self, address: &str, key: &str) -> Result<Vec<u8>, Error> {
         let conn_map = self.get_reused_conn_map(address)?;
         let mut conn = conn_map
             .get(address)
@@ -66,7 +68,7 @@ impl outbound_redis::OutboundRedis for OutboundRedis {
         Ok(value)
     }
 
-    fn set(&mut self, address: &str, key: &str, value: &[u8]) -> Result<(), Error> {
+    async fn set(&mut self, address: &str, key: &str, value: &[u8]) -> Result<(), Error> {
         let conn_map = self.get_reused_conn_map(address)?;
         let mut conn = conn_map
             .get(address)
@@ -77,7 +79,7 @@ impl outbound_redis::OutboundRedis for OutboundRedis {
         Ok(())
     }
 
-    fn incr(&mut self, address: &str, key: &str) -> Result<i64, Error> {
+    async fn incr(&mut self, address: &str, key: &str) -> Result<i64, Error> {
         let conn_map = self.get_reused_conn_map(address)?;
         let mut conn = conn_map
             .get(address)

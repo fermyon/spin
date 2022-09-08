@@ -11,5 +11,11 @@ anyhow = "1.0"
 postgres = { version = "0.19.3" }
 spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }
+tokio = { version = "1", features = [ "rt" ] }
 tracing = { version = "0.1", features = [ "log" ] }
-wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }
+
+[dependencies.wit-bindgen-wasmtime]
+git = "https://github.com/bytecodealliance/wit-bindgen"
+rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
+features = ["async"]
+

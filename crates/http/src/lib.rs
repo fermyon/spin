@@ -33,7 +33,7 @@ use crate::{
     wagi::WagiHttpExecutor,
 };
 
-wit_bindgen_wasmtime::import!("../../wit/ephemeral/spin-http.wit");
+wit_bindgen_wasmtime::import!({paths: ["../../wit/ephemeral/spin-http.wit"], async: *});
 
 type ExecutionContext = spin_engine::ExecutionContext<SpinHttpData>;
 type RuntimeContext = spin_engine::RuntimeContext<SpinHttpData>;

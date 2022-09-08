@@ -98,7 +98,10 @@ impl TestConfig {
         }
     }
 
-    pub async fn prepare_builder<T: Default + 'static>(&self, app: Application) -> Builder<T> {
+    pub async fn prepare_builder<T: Default + Send + 'static>(
+        &self,
+        app: Application,
+    ) -> Builder<T> {
         let config = ExecutionContextConfiguration {
             components: app.components,
             label: app.info.name,

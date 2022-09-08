@@ -12,7 +12,7 @@ pub trait HostComponent: Send + Sync {
     type State: Any + Send;
 
     /// Add this component to the given Linker, using the given runtime state-getting handle.
-    fn add_to_linker<T>(
+    fn add_to_linker<T: Send>(
         linker: &mut Linker<RuntimeContext<T>>,
         state_handle: HostComponentsStateHandle<Self::State>,
     ) -> Result<()>;
@@ -30,7 +30,7 @@ pub(crate) struct HostComponents {
 }
 
 impl HostComponents {
-    pub(crate) fn insert<T: 'static, Component: HostComponent + 'static>(
+    pub(crate) fn insert<T: Send + 'static, Component: HostComponent + 'static>(
         &mut self,
         linker: &mut Linker<RuntimeContext<T>>,
         host_component: Component,

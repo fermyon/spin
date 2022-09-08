@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::common::RawVariable;
+
 /// Application configuration file format.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -9,8 +11,8 @@ pub struct RawAppManifest {
     pub trigger: spin_manifest::ApplicationTrigger,
 
     /// Application-specific configuration schema.
-    #[serde(rename = "variables")]
-    pub config: Option<spin_config::Tree>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub variables: HashMap<String, RawVariable>,
 
     /// Configuration for the application components.
     #[serde(rename = "component")]

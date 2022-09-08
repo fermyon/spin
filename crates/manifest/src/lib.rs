@@ -4,12 +4,10 @@
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use spin_config::Resolver;
 use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
     path::PathBuf,
-    sync::Arc,
 };
 
 /// A trigger error.
@@ -28,12 +26,12 @@ pub type ComponentMap<T> = IndexMap<String, T>;
 pub struct Application {
     /// General application information.
     pub info: ApplicationInformation,
+    /// Application-specific configuration variables.
+    pub variables: HashMap<String, Variable>,
     /// Configuration for the application components.
     pub components: Vec<CoreComponent>,
     /// Configuration for the components' triggers.
     pub component_triggers: ComponentMap<TriggerConfig>,
-    /// Application-specific configuration resolver.
-    pub config_resolver: Option<Arc<Resolver>>,
 }
 
 /// Spin API version.
@@ -81,6 +79,17 @@ pub struct CoreComponent {
     pub description: Option<String>,
     /// Per-component WebAssembly configuration.
     pub wasm: WasmConfig,
+    /// Per-component configuration values.
+    pub config: HashMap<String, String>,
+}
+
+/// A custom config variable.
+#[derive(Clone, Debug)]
+pub struct Variable {
+    /// If set, the default value of this variable. If unset, this variable is required.
+    pub default: Option<String>,
+    /// If set, this variable's value should be treated as sensitive (e.g. not logged).
+    pub secret: bool,
 }
 
 /// The location from which an application was loaded.

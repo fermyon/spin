@@ -12,6 +12,7 @@
 
 mod assets;
 pub mod bindle;
+mod common;
 pub mod local;
 mod validation;
 

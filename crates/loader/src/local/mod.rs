@@ -18,7 +18,7 @@ use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
-use std::{path::Path, str::FromStr, sync::Arc};
+use std::{path::Path, str::FromStr};
 use tokio::{fs::File, io::AsyncReadExt};
 
 use crate::{
@@ -113,7 +113,7 @@ pub fn validate_raw_app_manifest(raw: &RawAppManifestAnyVersion) -> Result<()> {
 
 /// Converts a raw application manifest into Spin configuration.
 async fn prepare(
-    mut raw: RawAppManifest,
+    raw: RawAppManifest,
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
@@ -122,17 +122,6 @@ async fn prepare(
     let info = info(raw.info, &src);
 
     error_on_duplicate_ids(raw.components.clone())?;
-
-    let mut config_root = raw.config.unwrap_or_default();
-    for component in &mut raw.components {
-        if let Some(config) = component.config.take() {
-            let path = component.id.clone().try_into().with_context(|| {
-                format!("component ID {:?} not a valid config path", component.id)
-            })?;
-            config_root.merge_defaults(&path, config)?;
-        }
-    }
-    let config_resolver = Some(Arc::new(spin_config::Resolver::new(config_root)?));
 
     let component_triggers = raw
         .components
@@ -153,11 +142,17 @@ async fn prepare(
     .collect::<Result<Vec<_>>>()
     .context("Failed to prepare configuration")?;
 
+    let variables = raw
+        .variables
+        .into_iter()
+        .map(|(key, var)| Ok((key, var.try_into()?)))
+        .collect::<Result<_>>()?;
+
     Ok(Application {
         info,
+        variables,
         components,
         component_triggers,
-        config_resolver,
     })
 }
 
@@ -234,11 +229,13 @@ async fn core(
         mounts,
         allowed_http_hosts,
     };
+    let config = raw.config.unwrap_or_default();
     Ok(CoreComponent {
         source,
         id,
         description,
         wasm,
+        config,
     })
 }
 

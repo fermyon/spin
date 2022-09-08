@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use spin_manifest::{ApplicationTrigger, TriggerConfig};
 use std::{collections::HashMap, path::PathBuf};
 
+use crate::common::RawVariable;
+
 /// Container for any version of the manifest.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "spin_version")]
@@ -27,8 +29,8 @@ pub struct RawAppManifest {
     pub info: RawAppInformation,
 
     /// Application-specific configuration schema.
-    #[serde(rename = "variables")]
-    pub config: Option<spin_config::Tree>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub variables: HashMap<String, RawVariable>,
 
     /// Configuration for the application components.
     #[serde(rename = "component")]

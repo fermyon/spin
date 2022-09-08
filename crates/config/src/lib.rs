@@ -2,59 +2,60 @@ pub mod host_component;
 pub mod provider;
 
 mod template;
-mod tree;
 
-use std::fmt::Debug;
+use std::{borrow::Cow, collections::HashMap, fmt::Debug};
+
+pub use async_trait::async_trait;
 
 pub use provider::Provider;
-pub use tree::{Tree, TreePath};
-
+use spin_manifest::Variable;
 use template::{Part, Template};
-
-/// A config resolution error.
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    /// Invalid config key.
-    #[error("invalid config key: {0}")]
-    InvalidKey(String),
-
-    /// Invalid config path.
-    #[error("invalid config path: {0}")]
-    InvalidPath(String),
-
-    /// Invalid config schema.
-    #[error("invalid config schema: {0}")]
-    InvalidSchema(String),
-
-    /// Invalid config template.
-    #[error("invalid config template: {0}")]
-    InvalidTemplate(String),
-
-    /// Config provider error.
-    #[error("provider error: {0:?}")]
-    Provider(anyhow::Error),
-
-    /// Unknown config path.
-    #[error("unknown config path: {0}")]
-    UnknownPath(String),
-}
 
 type Result<T> = std::result::Result<T, Error>;
 
 /// A configuration resolver.
 #[derive(Debug, Default)]
 pub struct Resolver {
-    tree: Tree,
+    // variable key -> variable
+    variables: HashMap<String, Variable>,
+    // component ID -> config key -> config value template
+    components_configs: HashMap<String, HashMap<String, Template>>,
     providers: Vec<Box<dyn Provider>>,
 }
 
 impl Resolver {
     /// Creates a Resolver for the given Tree.
-    pub fn new(tree: Tree) -> Result<Self> {
+    pub fn new(variables: impl IntoIterator<Item = (String, Variable)>) -> Result<Self> {
+        let variables: HashMap<_, _> = variables.into_iter().collect();
+        // Validate keys so that we can rely on them during resolution
+        variables.keys().try_for_each(|key| Key::validate(key))?;
         Ok(Self {
-            tree,
-            providers: vec![],
+            variables,
+            components_configs: Default::default(),
+            providers: Default::default(),
         })
+    }
+
+    /// Adds component configuration values to the Resolver.
+    pub fn add_component_config(
+        &mut self,
+        component_id: impl Into<String>,
+        config: impl IntoIterator<Item = (String, String)>,
+    ) -> Result<()> {
+        let component_id = component_id.into();
+        let templates = config
+            .into_iter()
+            .map(|(key, val)| {
+                // Validate config keys so that we can rely on them during resolution
+                Key::validate(&key)?;
+                let template = self.validate_template(val)?;
+                Ok((key, template))
+            })
+            .collect::<Result<_>>()?;
+
+        self.components_configs.insert(component_id, templates);
+
+        Ok(())
     }
 
     /// Adds a config Provider to the Resolver.
@@ -63,66 +64,64 @@ impl Resolver {
     }
 
     /// Resolves a config value for the given path.
-    pub fn resolve(&self, path: &TreePath) -> Result<String> {
-        self.resolve_path(path, 0)
+    pub async fn resolve(&self, component_id: &str, key: Key<'_>) -> Result<String> {
+        let configs = self.components_configs.get(component_id).ok_or_else(|| {
+            Error::UnknownPath(format!("no config for component {component_id:?}"))
+        })?;
+
+        let key = key.as_ref();
+        let template = configs
+            .get(key)
+            .ok_or_else(|| Error::UnknownPath(format!("no config for {component_id:?}.{key:?}")))?;
+
+        self.resolve_template(template).await
     }
 
-    // Simple protection against infinite recursion
-    const RECURSION_LIMIT: usize = 100;
-
-    // TODO(lann): make this non-recursive and/or "flatten" templates
-    fn resolve_path(&self, path: &TreePath, depth: usize) -> Result<String> {
-        let depth = depth + 1;
-        if depth > Self::RECURSION_LIMIT {
-            return Err(Error::InvalidTemplate(format!(
-                "hit recursion limit at path: {}",
-                path
-            )));
+    async fn resolve_template(&self, template: &Template) -> Result<String> {
+        let mut resolved_parts: Vec<Cow<str>> = Vec::with_capacity(template.parts().len());
+        for part in template.parts() {
+            resolved_parts.push(match part {
+                Part::Lit(lit) => lit.as_ref().into(),
+                Part::Expr(var) => self.resolve_variable(var).await?.into(),
+            });
         }
-        let slot = self.tree.get(path)?;
-        // If we're resolving top-level config we are ready to query provider(s).
-        if path.size() == 1 {
-            let key = path.keys().next().unwrap();
-            for provider in &self.providers {
-                if let Some(value) = provider.get(&key).map_err(Error::Provider)? {
-                    return Ok(value);
-                }
+        Ok(resolved_parts.concat())
+    }
+
+    async fn resolve_variable(&self, key: &str) -> Result<String> {
+        let var = self
+            .variables
+            .get(key)
+            // This should have been caught by validate_template
+            .ok_or_else(|| Error::InvalidKey(key.to_string()))?;
+
+        for provider in &self.providers {
+            if let Some(value) = provider.get(&Key(key)).await.map_err(Error::Provider)? {
+                return Ok(value);
             }
         }
-        // Resolve default template
-        if let Some(template) = &slot.default {
-            self.resolve_template(path, template, depth)
-        } else {
-            Err(Error::InvalidPath(format!(
-                "missing value at required path: {}",
-                path
-            )))
-        }
+
+        var.default.clone().ok_or_else(|| {
+            Error::Provider(anyhow::anyhow!(
+                "no provider resolved required variable {key:?}"
+            ))
+        })
     }
 
-    fn resolve_template(
-        &self,
-        path: &TreePath,
-        template: &Template,
-        depth: usize,
-    ) -> Result<String> {
-        template.parts().try_fold(String::new(), |value, part| {
-            Ok(match part {
-                Part::Lit(lit) => value + lit,
-                Part::Expr(expr) => {
-                    let expr_path = if expr.starts_with('.') {
-                        path.resolve_relative(expr)?
-                    } else {
-                        TreePath::new(expr.to_string())?
-                    };
-                    value + &self.resolve_path(&expr_path, depth)?
-                }
-            })
-        })
+    fn validate_template(&self, template: String) -> Result<Template> {
+        let template = Template::new(template)?;
+        // Validate template variables are valid
+        template.parts().try_for_each(|part| match part {
+            Part::Expr(var) if !self.variables.contains_key(var.as_ref()) => {
+                Err(Error::InvalidTemplate(format!("unknown variable {var:?}")))
+            }
+            _ => Ok(()),
+        })?;
+        Ok(template)
     }
 }
 
-/// A config key.
+/// A config key
 #[derive(Debug, PartialEq, Eq)]
 pub struct Key<'a>(&'a str);
 
@@ -156,7 +155,7 @@ impl<'a> Key<'a> {
                 Ok(())
             }
         }
-        .map_err(Error::InvalidKey)
+        .map_err(|reason| Error::InvalidKey(format!("{key:?} {reason}")))
     }
 }
 
@@ -166,81 +165,99 @@ impl<'a> AsRef<str> for Key<'a> {
     }
 }
 
+/// A config resolution error.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    /// Invalid config key.
+    #[error("invalid config key: {0}")]
+    InvalidKey(String),
+
+    /// Invalid config path.
+    #[error("invalid config path: {0}")]
+    InvalidPath(String),
+
+    /// Invalid config schema.
+    #[error("invalid config schema: {0}")]
+    InvalidSchema(String),
+
+    /// Invalid config template.
+    #[error("invalid config template: {0}")]
+    InvalidTemplate(String),
+
+    /// Config provider error.
+    #[error("provider error: {0:?}")]
+    Provider(anyhow::Error),
+
+    /// Unknown config path.
+    #[error("unknown config path: {0}")]
+    UnknownPath(String),
+}
+
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use toml::toml;
-
     use super::*;
 
-    #[test]
-    fn resolver_resolve_defaults() {
-        let mut tree: Tree = toml! {
-            top_level = { default = "top" }
-            top_ref = { default = "{{ top_level }}+{{ top_level }}" }
-            top_required = { required = true }
-        }
-        .try_into()
-        .unwrap();
-        tree.merge_defaults(
-            &TreePath::new("child").unwrap(),
-            toml! {
-                subtree_key = "sub"
-                top_ref = "{{ top_level }}"
-                recurse_ref = "{{ top_ref }}"
-                own_ref = "{{ .subtree_key }}"
-            }
-            .try_into::<HashMap<String, String>>()
-            .unwrap(),
-        )
-        .unwrap();
-        tree.merge_defaults(
-            &TreePath::new("child.grandchild").unwrap(),
-            toml! {
-                top_ref = "{{ top_level }}"
-                parent_ref = "{{ ..subtree_key }}"
-                mixed_ref = "{{ top_level }}/{{ ..recurse_ref }}"
-            }
-            .try_into::<HashMap<String, String>>()
-            .unwrap(),
-        )
-        .unwrap();
+    #[derive(Debug)]
+    struct TestProvider;
 
-        let resolver = Resolver::new(tree).unwrap();
-        for (path, expected) in [
-            ("top_level", "top"),
-            ("top_ref", "top+top"),
-            ("child.subtree_key", "sub"),
-            ("child.top_ref", "top"),
-            ("child.recurse_ref", "top+top"),
-            ("child.own_ref", "sub"),
-            ("child.grandchild.top_ref", "top"),
-            ("child.grandchild.parent_ref", "sub"),
-            ("child.grandchild.mixed_ref", "top/top+top"),
-        ] {
-            let path = TreePath::new(path).unwrap();
-            let value = resolver.resolve(&path).unwrap();
-            assert_eq!(value, expected, "mismatch at {:?}", path);
+    #[async_trait]
+    impl Provider for TestProvider {
+        async fn get(&self, key: &Key) -> anyhow::Result<Option<String>> {
+            match key.as_ref() {
+                "required" => Ok(Some("provider-value".to_string())),
+                "broken" => anyhow::bail!("broken"),
+                _ => Ok(None),
+            }
         }
     }
 
-    #[test]
-    fn resolver_recursion_limit() {
-        let resolver = Resolver::new(
-            toml! {
-                x = { default = "{{y}}" }
-                y = { default = "{{x}}" }
-            }
-            .try_into()
-            .unwrap(),
-        )
+    async fn test_resolve(config_template: &str) -> Result<String> {
+        let mut resolver = Resolver::new([
+            (
+                "required".into(),
+                Variable {
+                    default: None,
+                    secret: false,
+                },
+            ),
+            (
+                "default".into(),
+                Variable {
+                    default: Some("default-value".into()),
+                    secret: false,
+                },
+            ),
+        ])
         .unwrap();
-        let path = "x".to_string().try_into().unwrap();
-        assert!(matches!(
-            resolver.resolve(&path),
-            Err(Error::InvalidTemplate(_))
-        ));
+        resolver
+            .add_component_config(
+                "test-component",
+                [("test_key".into(), config_template.into())],
+            )
+            .unwrap();
+        resolver.add_provider(TestProvider);
+        resolver.resolve("test-component", Key("test_key")).await
+    }
+
+    #[tokio::test]
+    async fn resolve_static() {
+        assert_eq!(test_resolve("static-value").await.unwrap(), "static-value");
+    }
+
+    #[tokio::test]
+    async fn resolve_variable_default() {
+        assert_eq!(
+            test_resolve("prefix-{{ default }}-suffix").await.unwrap(),
+            "prefix-default-value-suffix"
+        );
+    }
+
+    #[tokio::test]
+    async fn resolve_variable_provider() {
+        assert_eq!(
+            test_resolve("prefix-{{ required }}-suffix").await.unwrap(),
+            "prefix-provider-value-suffix"
+        );
     }
 
     #[test]
@@ -252,7 +269,7 @@ mod tests {
 
     #[test]
     fn keys_bad() {
-        for key in ["", "aX", "1bc", "_x", "x_", "a__b", "x-y"] {
+        for key in ["", "aX", "1bc", "_x", "x.y", "x_", "a__b", "x-y"] {
             Key::new(key).expect_err(key);
         }
     }

@@ -77,5 +77,6 @@ pub fn component() -> CoreComponent {
         id: "test".to_string(),
         description: None,
         wasm: WasmConfig::default(),
+        config: Default::default(),
     }
 }

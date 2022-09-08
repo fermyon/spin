@@ -54,7 +54,7 @@ configuration has the following fields:
     - `type` (REQUIRED): The application trigger type with the value `"redis"`.
     - `address` (REQUIRED): The address of the Redis instance the components
 are using for message subscriptions.
-- `variables` (OPTIONAL): [Custom configuration](#custom-configuration) "slots".
+- `variables` (OPTIONAL): [Custom configuration](#custom-configuration) variables.
 - A list of `component` objects (REQUIRED) defining the application components.
 
 ### Component configuration
@@ -120,9 +120,9 @@ is published, the component will be invoked.
 Spin applications may define custom configuration which can be looked up by
 component code via the [spin-config interface](https://github.com/fermyon/spin/blob/main/wit/ephemeral/spin-config.wit).
 
-### Custom Config Slots
+### Custom Config Variables
 
-Application-global custom config "slots" are defined in the top-level `[variables]`
+Application-global custom config variables are defined in the top-level `[variables]`
 section. These entries aren't accessed directly by components, but are referenced
 by [component config](#component-custom-config) value templates. Each entry must
 either have a `default` value or be marked as `required = true`. "Required" entries
@@ -140,7 +140,7 @@ api_key = { required = true }
 
 The configuration entries available to a component are listed in its
 `[component.config]` section. Configuration values may reference
-[config slots](#custom-config-slots) with simple
+[config variables](#custom-config-variables) with simple
 [mustache](https://mustache.github.io/)-inspired string templates.
 
 ```toml
@@ -153,7 +153,7 @@ api_key = "{{ api_key }}"
 
 ### Custom Config Providers
 
-[Custom config slot](#custom-config-slots) values may be set at runtime by
+[Custom config variables](#custom-config-variables) values may be set at runtime by
 config "providers". Currently there is only one provider: the environment
 variable provider, which gets config values from the `spin` process's
 environment (_not_ the component `environment`). Config keys are translated

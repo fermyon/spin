@@ -12,7 +12,6 @@ use std::{collections::HashMap, io::Write, path::PathBuf, sync::Arc};
 use anyhow::{bail, Context, Result};
 use host_component::{HostComponent, HostComponents, HostComponentsState};
 use io::{FollowComponents, OutputBuffers, RedirectPipes};
-use spin_config::{host_component::ComponentConfig, Resolver};
 use spin_manifest::{CoreComponent, DirectoryMount, ModuleSource};
 use tokio::{
     task::JoinHandle,
@@ -36,8 +35,6 @@ pub struct ExecutionContextConfiguration {
     pub log_dir: Option<PathBuf>,
     /// Component log following configuration.
     pub follow_components: FollowComponents,
-    /// Application configuration resolver.
-    pub config_resolver: Option<Arc<Resolver>>,
 }
 
 /// Top-level runtime context data to be passed to a component.
@@ -45,8 +42,6 @@ pub struct ExecutionContextConfiguration {
 pub struct RuntimeContext<T> {
     /// WASI context data.
     pub wasi: Option<WasiCtx>,
-    /// Component configuration.
-    pub component_config: Option<spin_config::host_component::ComponentConfig>,
     /// Host components state.
     pub host_components_state: HostComponentsState,
     /// Generic runtime data that can be configured by specialized engines.
@@ -106,17 +101,14 @@ impl<T: Default + Send + 'static> Builder<T> {
         })
     }
 
+    /// Returns the current ExecutionContextConfiguration.
+    pub fn config(&self) -> &ExecutionContextConfiguration {
+        &self.config
+    }
+
     /// Configures the WASI linker imports for the current execution context.
     pub fn link_wasi(&mut self) -> Result<&mut Self> {
         wasmtime_wasi::add_to_linker(&mut self.linker, |ctx| ctx.wasi.as_mut().unwrap())?;
-        Ok(self)
-    }
-
-    /// Configures the application configuration interface.
-    pub fn link_config(&mut self) -> Result<&mut Self> {
-        spin_config::host_component::add_to_linker(&mut self.linker, |ctx| {
-            ctx.component_config.as_mut().unwrap()
-        })?;
         Ok(self)
     }
 
@@ -182,7 +174,7 @@ impl<T: Default + Send + 'static> Builder<T> {
 
     /// Configures default host interface implementations.
     pub fn link_defaults(&mut self) -> Result<&mut Self> {
-        self.link_wasi()?.link_config()
+        self.link_wasi()
     }
 
     /// Builds a new default instance of the execution context.
@@ -322,11 +314,6 @@ impl<T: Default + Send> ExecutionContext<T> {
             let host = dir.host;
             wasi_ctx =
                 wasi_ctx.preopened_dir(Dir::open_ambient_dir(host, ambient_authority())?, guest)?;
-        }
-
-        if let Some(resolver) = &self.config.config_resolver {
-            ctx.component_config =
-                Some(ComponentConfig::new(&component.core.id, resolver.clone())?);
         }
 
         ctx.host_components_state = self.host_components.build_state(&component.core)?;

@@ -25,7 +25,7 @@ use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 use tracing::log;
 pub(crate) use utils::BindleReader;
 pub use utils::SPIN_MANIFEST_MEDIA_TYPE;
@@ -64,22 +64,11 @@ async fn prepare(
         .with_context(|| anyhow!("Failed to load invoice '{}' from '{}'", id, url))?;
 
     // Then, reconstruct the application manifest from the parcels.
-    let mut raw: RawAppManifest =
+    let raw: RawAppManifest =
         toml::from_slice(&reader.get_parcel(&find_manifest(&invoice)?).await?)?;
     log::trace!("Recreated manifest from bindle: {:?}", raw);
 
     validate_raw_app_manifest(&raw)?;
-
-    let mut config_root = raw.config.take().unwrap_or_default();
-    for component in &mut raw.components {
-        if let Some(config) = component.config.take() {
-            let path = component.id.clone().try_into().with_context(|| {
-                format!("component ID {:?} not a valid config path", component.id)
-            })?;
-            config_root.merge_defaults(&path, config)?;
-        }
-    }
-    let config_resolver = Some(Arc::new(spin_config::Resolver::new(config_root)?));
 
     let info = info(&raw, &invoice, url);
     log::trace!("Application information from bindle: {:?}", info);
@@ -99,11 +88,17 @@ async fn prepare(
     .map(|x| x.expect("Cannot prepare component"))
     .collect::<Vec<_>>();
 
+    let variables = raw
+        .variables
+        .into_iter()
+        .map(|(key, var)| Ok((key, var.try_into()?)))
+        .collect::<Result<_>>()?;
+
     Ok(Application {
         info,
+        variables,
         components,
         component_triggers,
-        config_resolver,
     })
 }
 
@@ -153,11 +148,13 @@ async fn core(
         mounts,
         allowed_http_hosts,
     };
+    let config = raw.config.unwrap_or_default();
     Ok(CoreComponent {
         source,
         id,
         description,
         wasm,
+        config,
     })
 }
 

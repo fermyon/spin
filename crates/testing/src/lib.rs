@@ -79,6 +79,7 @@ impl TestConfig {
             id: "test-component".to_string(),
             description: None,
             wasm: Default::default(),
+            config: Default::default(),
         }
     }
 
@@ -94,7 +95,7 @@ impl TestConfig {
             )]
             .into_iter()
             .collect(),
-            config_resolver: None,
+            variables: Default::default(),
         }
     }
 
@@ -105,7 +106,6 @@ impl TestConfig {
         let config = ExecutionContextConfiguration {
             components: app.components,
             label: app.info.name,
-            config_resolver: app.config_resolver,
             ..Default::default()
         };
         let mut builder = Builder::new(config).expect("Builder::new failed");

@@ -2,16 +2,17 @@ use std::{
     collections::HashMap,
     error::Error,
     marker::PhantomData,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, RwLock},
 };
 
 use anyhow::Result;
 use async_trait::async_trait;
+use spin_config::{host_component::ConfigHostComponent, Resolver};
 use spin_engine::{
     io::FollowComponents, Builder, Engine, ExecutionContext, ExecutionContextConfiguration,
 };
-use spin_manifest::{Application, ApplicationTrigger, TriggerConfig};
+use spin_manifest::{Application, ApplicationOrigin, ApplicationTrigger, TriggerConfig, Variable};
 
 pub mod cli;
 #[async_trait]
@@ -92,20 +93,27 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     {
         let app = self.application;
 
+        // The .env file is either a sibling to the manifest file or (for bindles) in the current dir.
+        let dotenv_root = match &app.info.origin {
+            ApplicationOrigin::File(path) => path.parent().unwrap(),
+            ApplicationOrigin::Bindle { .. } => Path::new("."),
+        };
+
         // Build ExecutionContext
         let ctx_config = ExecutionContextConfiguration {
             components: app.components,
             label: app.info.name,
             log_dir: self.log_dir,
             follow_components: self.follow_components,
-            config_resolver: app.config_resolver,
         };
         let engine = Engine::new(self.wasmtime_config)?;
         let mut ctx_builder = Builder::with_engine(ctx_config, engine)?;
         ctx_builder.link_defaults()?;
         if !self.disable_default_host_components {
             add_default_host_components(&mut ctx_builder)?;
+            add_config_host_component(&mut ctx_builder, app.variables, dotenv_root)?;
         }
+
         Executor::configure_execution_context(&mut ctx_builder)?;
         let execution_context = ctx_builder.build().await?;
 
@@ -132,4 +140,43 @@ pub fn add_default_host_components<T: Default + Send + 'static>(
     })?;
     builder.add_host_component(outbound_pg::OutboundPg)?;
     Ok(())
+}
+
+pub fn add_config_host_component<T: Default + Send + 'static>(
+    ctx_builder: &mut Builder<T>,
+    variables: HashMap<String, Variable>,
+    dotenv_path: &Path,
+) -> Result<()> {
+    let mut resolver = Resolver::new(variables)?;
+
+    // Add all component configs to the Resolver.
+    for component in &ctx_builder.config().components {
+        resolver.add_component_config(
+            &component.id,
+            component.config.iter().map(|(k, v)| (k.clone(), v.clone())),
+        )?;
+    }
+
+    let envs = read_dotenv(dotenv_path)?;
+
+    // Add default config provider(s).
+    // TODO(lann): Make config provider(s) configurable.
+    resolver.add_provider(spin_config::provider::env::EnvProvider::new(
+        spin_config::provider::env::DEFAULT_PREFIX,
+        envs,
+    ));
+
+    ctx_builder.add_host_component(ConfigHostComponent::new(resolver))?;
+    Ok(())
+}
+
+// Return environment key value mapping in ".env" file.
+fn read_dotenv(dotenv_root: &Path) -> Result<HashMap<String, String>> {
+    let dotenv_path = dotenv_root.join(".env");
+    if !dotenv_path.is_file() {
+        return Ok(Default::default());
+    }
+    dotenvy::from_path_iter(dotenv_path)?
+        .map(|item| Ok(item?))
+        .collect()
 }

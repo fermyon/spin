@@ -3351,7 +3351,10 @@ name = "spin-config"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "serde",
+ "spin-engine",
+ "spin-manifest",
  "thiserror",
  "tokio",
  "toml",
@@ -3367,7 +3370,6 @@ dependencies = [
  "cap-std 0.24.4",
  "dirs 4.0.0",
  "sanitize-filename",
- "spin-config",
  "spin-manifest",
  "tempfile",
  "tokio",
@@ -3474,7 +3476,6 @@ dependencies = [
  "anyhow",
  "indexmap",
  "serde",
- "spin-config",
  "thiserror",
  "url",
 ]

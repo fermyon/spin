@@ -40,7 +40,7 @@ impl Template {
         Ok(Template(parts))
     }
 
-    pub(crate) fn parts(&self) -> impl Iterator<Item = &Part> {
+    pub(crate) fn parts(&self) -> std::slice::Iter<Part> {
         self.0.iter()
     }
 }

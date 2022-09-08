@@ -17,9 +17,11 @@ tracing = { version = "0.1", features = [ "log" ] }
 tracing-futures = "0.2"
 wasi-cap-std-sync = "0.39.1"
 wasi-common = "0.39.1"
-wasmtime = "0.39.1"
+wasmtime = { version = "0.39.1", features = [ "async" ] }
 wasmtime-wasi = "0.39.1"
 cap-std = "0.24.1"
 
-[dev-dependencies]
-wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }
+[dev-dependencies.wit-bindgen-wasmtime]
+git = "https://github.com/bytecodealliance/wit-bindgen"
+rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
+features = [ "async" ]

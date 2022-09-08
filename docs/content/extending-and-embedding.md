@@ -53,7 +53,7 @@ Let's have a look at building the timer trigger:
 
 ```rust
 // examples/spin-timer/src/main.rs
-wit_bindgen_wasmtime::import!("spin-timer.wit");
+wit_bindgen_wasmtime::import!({paths: ["spin-timer.wit"], async: *});
 type ExecutionContext = spin_engine::ExecutionContext<spin_timer::SpinTimerData>;
 
 /// A custom timer trigger that executes a component on every interval.

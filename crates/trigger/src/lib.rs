@@ -19,7 +19,7 @@ pub trait TriggerExecutor: Sized {
     type GlobalConfig;
     type TriggerConfig;
     type RunConfig;
-    type RuntimeContext: Default + 'static;
+    type RuntimeContext: Default + Send + 'static;
 
     /// Create a new trigger executor.
     fn new(
@@ -123,7 +123,9 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 }
 
 /// Add the default set of host components to the given builder.
-pub fn add_default_host_components<T: Default + 'static>(builder: &mut Builder<T>) -> Result<()> {
+pub fn add_default_host_components<T: Default + Send + 'static>(
+    builder: &mut Builder<T>,
+) -> Result<()> {
     builder.add_host_component(outbound_http::OutboundHttpComponent)?;
     builder.add_host_component(outbound_redis::OutboundRedis {
         connections: Arc::new(RwLock::new(HashMap::new())),

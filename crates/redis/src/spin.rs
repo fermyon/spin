@@ -2,7 +2,6 @@ use crate::{spin_redis::SpinRedis, ExecutionContext, RedisExecutor, RuntimeConte
 use anyhow::Result;
 use async_trait::async_trait;
 use spin_engine::io::ModuleIoRedirects;
-use tokio::task::spawn_blocking;
 use wasmtime::{Instance, Store};
 
 #[derive(Clone)]
@@ -25,8 +24,9 @@ impl RedisExecutor for SpinRedisExecutor {
 
         let mior = ModuleIoRedirects::new(follow);
 
-        let (store, instance) =
-            engine.prepare_component(component, None, Some(mior.pipes), None, None)?;
+        let (store, instance) = engine
+            .prepare_component(component, None, Some(mior.pipes), None, None)
+            .await?;
 
         let result = match Self::execute_impl(store, instance, channel, payload.to_vec()).await {
             Ok(()) => {
@@ -55,13 +55,7 @@ impl SpinRedisExecutor {
     ) -> Result<()> {
         let engine = SpinRedis::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
 
-        let _res = spawn_blocking(move || -> Result<crate::spin_redis::Error> {
-            match engine.handle_redis_message(&mut store, &payload) {
-                Ok(_) => Ok(crate::spin_redis::Error::Success),
-                Err(_) => Ok(crate::spin_redis::Error::Error),
-            }
-        })
-        .await??;
+        let _res = engine.handle_redis_message(&mut store, &payload).await;
 
         Ok(())
     }

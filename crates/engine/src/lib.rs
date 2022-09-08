@@ -59,7 +59,8 @@ pub struct Engine(wasmtime::Engine);
 
 impl Engine {
     /// Create a new engine and initialize it with the given config.
-    pub fn new(config: wasmtime::Config) -> Result<Self> {
+    pub fn new(mut config: wasmtime::Config) -> Result<Self> {
+        config.async_support(true);
         Ok(Self(wasmtime::Engine::new(&config)?))
     }
 
@@ -80,7 +81,7 @@ pub struct Builder<T: Default> {
     host_components: HostComponents,
 }
 
-impl<T: Default + 'static> Builder<T> {
+impl<T: Default + Send + 'static> Builder<T> {
     /// Creates a new instance of the execution builder.
     pub fn new(config: ExecutionContextConfiguration) -> Result<Builder<T>> {
         Self::with_engine(config, Engine::new(Default::default())?)
@@ -216,10 +217,10 @@ pub struct ExecutionContext<T: Default> {
     host_components: Arc<HostComponents>,
 }
 
-impl<T: Default> ExecutionContext<T> {
+impl<T: Default + Send> ExecutionContext<T> {
     /// Creates a store for a given component given its configuration and runtime data.
     #[instrument(skip(self, data, io))]
-    pub fn prepare_component(
+    pub async fn prepare_component(
         &self,
         component: &str,
         data: Option<T>,
@@ -234,7 +235,7 @@ impl<T: Default> ExecutionContext<T> {
         };
 
         let mut store = self.store(component, data, io, env, args)?;
-        let instance = component.pre.instantiate(&mut store)?;
+        let instance = component.pre.instantiate_async(&mut store).await?;
 
         Ok((store, instance))
     }

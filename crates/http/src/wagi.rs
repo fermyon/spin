@@ -12,7 +12,6 @@ use std::{
     net::SocketAddr,
     sync::{Arc, RwLock, RwLockReadGuard},
 };
-use tokio::task::spawn_blocking;
 use tracing::log;
 use wasi_common::pipe::{ReadPipe, WritePipe};
 
@@ -84,13 +83,15 @@ impl HttpExecutor for WagiHttpExecutor {
             headers.insert(keys[1].to_string(), val);
         }
 
-        let (mut store, instance) = engine.prepare_component(
-            component,
-            None,
-            Some(redirects),
-            Some(headers),
-            Some(argv.split(' ').map(|s| s.to_owned()).collect()),
-        )?;
+        let (mut store, instance) = engine
+            .prepare_component(
+                component,
+                None,
+                Some(redirects),
+                Some(headers),
+                Some(argv.split(' ').map(|s| s.to_owned()).collect()),
+            )
+            .await?;
 
         let start = instance
             .get_func(&mut store, &self.wagi_config.entrypoint)
@@ -102,7 +103,7 @@ impl HttpExecutor for WagiHttpExecutor {
                 )
             })?;
         tracing::trace!("Calling Wasm entry point");
-        let guest_result = spawn_blocking(move || start.call(&mut store, &[], &mut [])).await;
+        let guest_result = start.call_async(&mut store, &[], &mut []).await;
         tracing::info!("Module execution complete");
 
         let log_result = engine.save_output_to_logs(outputs.read(), component, false, true);
@@ -111,7 +112,7 @@ impl HttpExecutor for WagiHttpExecutor {
         // even if the guest code fails. (And when checking, check the guest
         // result first, so that guest failures are returned in preference to
         // log failures.)
-        guest_result?.or_else(ignore_successful_proc_exit_trap)?;
+        guest_result.or_else(ignore_successful_proc_exit_trap)?;
         log_result?;
 
         let stdout = outputs.stdout.read().unwrap();

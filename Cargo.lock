@@ -2196,7 +2196,6 @@ dependencies = [
  "reqwest",
  "spin-engine",
  "spin-manifest",
- "tokio",
  "tracing",
  "tracing-futures",
  "url",
@@ -2211,6 +2210,7 @@ dependencies = [
  "postgres",
  "spin-engine",
  "spin-manifest",
+ "tokio",
  "tracing",
  "wit-bindgen-wasmtime",
 ]
@@ -3353,6 +3353,7 @@ dependencies = [
  "anyhow",
  "serde",
  "thiserror",
+ "tokio",
  "toml",
  "wit-bindgen-wasmtime",
 ]
@@ -4878,6 +4879,7 @@ version = "0.2.0"
 source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba#cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bitflags",
  "thiserror",
  "wasmtime",

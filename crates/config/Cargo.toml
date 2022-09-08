@@ -8,7 +8,12 @@ authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 anyhow = "1.0"
 serde = { version = "1.0", features = [ "derive" ] }
 thiserror = "1"
-wit-bindgen-wasmtime = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }
+tokio = { version = "1", features = [ "rt-multi-thread" ] }
+
+[dependencies.wit-bindgen-wasmtime]
+git = "https://github.com/bytecodealliance/wit-bindgen"
+rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
+features = ["async"]
 
 [dev-dependencies]
 toml = "0.5"

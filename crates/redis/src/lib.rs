@@ -12,7 +12,7 @@ use spin_redis::SpinRedisData;
 use spin_trigger::{cli::NoArgs, TriggerExecutor};
 use std::{collections::HashMap, sync::Arc};
 
-wit_bindgen_wasmtime::import!("../../wit/ephemeral/spin-redis.wit");
+wit_bindgen_wasmtime::import!({paths: ["../../wit/ephemeral/spin-redis.wit"], async: *});
 
 type ExecutionContext = spin_engine::ExecutionContext<SpinRedisData>;
 type RuntimeContext = spin_engine::RuntimeContext<SpinRedisData>;

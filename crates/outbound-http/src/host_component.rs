@@ -14,7 +14,7 @@ pub struct OutboundHttpComponent;
 impl HostComponent for OutboundHttpComponent {
     type State = OutboundHttp;
 
-    fn add_to_linker<T>(
+    fn add_to_linker<T: Send>(
         linker: &mut Linker<RuntimeContext<T>>,
         data_handle: HostComponentsStateHandle<Self::State>,
     ) -> Result<()> {

@@ -7,7 +7,6 @@ use async_trait::async_trait;
 use hyper::{Body, Request, Response};
 use spin_engine::io::ModuleIoRedirects;
 use std::{net::SocketAddr, str, str::FromStr};
-use tokio::task::spawn_blocking;
 use tracing::log;
 use wasmtime::{Instance, Store};
 
@@ -33,8 +32,9 @@ impl HttpExecutor for SpinHttpExecutor {
 
         let mior = ModuleIoRedirects::new(follow);
 
-        let (store, instance) =
-            engine.prepare_component(component, None, Some(mior.pipes), None, None)?;
+        let (store, instance) = engine
+            .prepare_component(component, None, Some(mior.pipes), None, None)
+            .await?;
 
         let resp_result = Self::execute_impl(store, instance, base, raw_route, req)
             .await
@@ -76,50 +76,47 @@ impl SpinHttpExecutor {
         let (parts, bytes) = req.into_parts();
         let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
 
-        let res = spawn_blocking(move || -> Result<crate::spin_http::Response> {
-            let method = Self::method(&parts.method);
+        let method = Self::method(&parts.method);
 
-            let headers: Vec<(&str, &str)> = headers
-                .iter()
-                .map(|(k, v)| (k.as_str(), v.as_str()))
-                .collect();
+        let headers: Vec<(&str, &str)> = headers
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
 
-            // Preparing to remove the params field. We are leaving it in place for now
-            // to avoid breaking the ABI, but no longer pass or accept values in it.
-            // https://github.com/fermyon/spin/issues/663
-            let params = vec![];
+        // Preparing to remove the params field. We are leaving it in place for now
+        // to avoid breaking the ABI, but no longer pass or accept values in it.
+        // https://github.com/fermyon/spin/issues/663
+        let params = vec![];
 
-            let body = Some(&bytes[..]);
-            let uri = match parts.uri.path_and_query() {
-                Some(u) => u.to_string(),
-                None => parts.uri.to_string(),
-            };
+        let body = Some(&bytes[..]);
+        let uri = match parts.uri.path_and_query() {
+            Some(u) => u.to_string(),
+            None => parts.uri.to_string(),
+        };
 
-            let req = crate::spin_http::Request {
-                method,
-                uri: &uri,
-                headers: &headers,
-                params: &params,
-                body,
-            };
+        let req = crate::spin_http::Request {
+            method,
+            uri: &uri,
+            headers: &headers,
+            params: &params,
+            body,
+        };
 
-            Ok(engine.handle_http_request(&mut store, req)?)
-        })
-        .await??;
+        let resp = engine.handle_http_request(&mut store, req).await?;
 
-        if res.status < 100 || res.status > 600 {
+        if resp.status < 100 || resp.status > 600 {
             log::error!("malformed HTTP status code");
             return Ok(Response::builder()
                 .status(http::StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Body::empty())?);
         };
 
-        let mut response = http::Response::builder().status(res.status);
+        let mut response = http::Response::builder().status(resp.status);
         if let Some(headers) = response.headers_mut() {
-            Self::append_headers(headers, res.headers)?;
+            Self::append_headers(headers, resp.headers)?;
         }
 
-        let body = match res.body {
+        let body = match resp.body {
             Some(b) => Body::from(b),
             None => Body::empty(),
         };

@@ -5,13 +5,13 @@ use http::HeaderMap;
 use reqwest::{Client, Url};
 use spin_manifest::AllowedHttpHosts;
 use std::str::FromStr;
-use tokio::runtime::Handle;
 use wasi_outbound_http::*;
+use wit_bindgen_wasmtime::async_trait;
 
 pub use host_component::OutboundHttpComponent;
 pub use wasi_outbound_http::add_to_linker;
 
-wit_bindgen_wasmtime::export!("../../wit/ephemeral/wasi-outbound-http.wit");
+wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/wasi-outbound-http.wit"], async: *});
 
 pub const ALLOW_ALL_HOSTS: &str = "insecure:allow-all";
 
@@ -37,8 +37,9 @@ impl OutboundHttp {
     }
 }
 
+#[async_trait]
 impl wasi_outbound_http::WasiOutboundHttp for OutboundHttp {
-    fn request(&mut self, req: Request) -> Result<Response, HttpError> {
+    async fn request(&mut self, req: Request<'_>) -> Result<Response, HttpError> {
         if !self.is_allowed(req.uri)? {
             tracing::log::info!("Destination not allowed: {}", req.uri);
             return Err(HttpError::DestinationNotAllowed);
@@ -53,35 +54,16 @@ impl wasi_outbound_http::WasiOutboundHttp for OutboundHttp {
             tracing::log::warn!("HTTP params field is deprecated");
         }
 
-        match Handle::try_current() {
-            // If running in a Tokio runtime, spawn a new blocking executor
-            // that will send the HTTP request, and block on its execution.
-            // This attempts to avoid any deadlocks from other operations
-            // already executing on the same executor (compared with just
-            // blocking on the current one).
-            Ok(r) => block_on(r.spawn_blocking(move || -> Result<Response, HttpError> {
-                let client = Client::builder().build().unwrap();
-                let res = block_on(
-                    client
-                        .request(method, url)
-                        .headers(headers)
-                        .body(body)
-                        .send(),
-                );
-                let res = log_request_error(res)?;
-                Response::try_from(res)
-            }))
-            .map_err(|_| HttpError::RuntimeError)?,
-            Err(_) => {
-                let res = reqwest::blocking::Client::new()
-                    .request(method, url)
-                    .headers(headers)
-                    .body(body)
-                    .send();
-                let res = log_request_error(res)?;
-                Ok(Response::try_from(res)?)
-            }
-        }
+        let client = Client::builder().build().unwrap();
+        let res = block_on(
+            client
+                .request(method, url)
+                .headers(headers)
+                .body(body)
+                .send(),
+        );
+        let resp = log_request_error(res)?;
+        Response::try_from(resp).map_err(|_| HttpError::RuntimeError)
     }
 }
 

@@ -7,9 +7,9 @@ use spin_engine::{
     host_component::{HostComponent, HostComponentsStateHandle},
     RuntimeContext,
 };
-use wit_bindgen_wasmtime::wasmtime::Linker;
+use wit_bindgen_wasmtime::{async_trait, wasmtime::Linker};
 
-wit_bindgen_wasmtime::export!("../../wit/ephemeral/outbound-pg.wit");
+wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/outbound-pg.wit"], async: *});
 
 /// A simple implementation to support outbound pg connection
 #[derive(Default, Clone)]
@@ -18,7 +18,7 @@ pub struct OutboundPg;
 impl HostComponent for OutboundPg {
     type State = Self;
 
-    fn add_to_linker<T>(
+    fn add_to_linker<T: Send>(
         linker: &mut Linker<RuntimeContext<T>>,
         state_handle: HostComponentsStateHandle<Self::State>,
     ) -> anyhow::Result<()> {
@@ -33,8 +33,10 @@ impl HostComponent for OutboundPg {
     }
 }
 
+// TODO: use spawn_blocking or an async Postgres client
+#[async_trait]
 impl outbound_pg::OutboundPg for OutboundPg {
-    fn execute(
+    async fn execute(
         &mut self,
         address: &str,
         statement: &str,
@@ -56,7 +58,7 @@ impl outbound_pg::OutboundPg for OutboundPg {
         Ok(nrow)
     }
 
-    fn query(
+    async fn query(
         &mut self,
         address: &str,
         statement: &str,

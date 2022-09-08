@@ -3,9 +3,10 @@ use std::sync::Arc;
 use crate::{Error, Key, Resolver, TreePath};
 
 mod wit {
-    wit_bindgen_wasmtime::export!("../../wit/ephemeral/spin-config.wit");
+    wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/spin-config.wit"], async: *});
 }
 pub use wit::spin_config::add_to_linker;
+use wit_bindgen_wasmtime::async_trait;
 
 /// A component configuration interface implementation.
 pub struct ComponentConfig {
@@ -26,11 +27,13 @@ impl ComponentConfig {
     }
 }
 
+#[async_trait]
 impl wit::spin_config::SpinConfig for ComponentConfig {
-    fn get_config(&mut self, key: &str) -> Result<String, wit::spin_config::Error> {
+    async fn get_config(&mut self, key: &str) -> Result<String, wit::spin_config::Error> {
         let key = Key::new(key)?;
         let path = &self.component_root + key;
-        Ok(self.resolver.resolve(&path)?)
+        // TODO(lann): Make resolve async
+        tokio::task::block_in_place(|| Ok(self.resolver.resolve(&path)?))
     }
 }
 

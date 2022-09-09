@@ -12,3 +12,4 @@ spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }
 spin-http-engine = { path = "../http" }
 spin-trigger = { path = "../trigger" }
+tracing-subscriber = "0.3"

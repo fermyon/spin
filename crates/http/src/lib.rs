@@ -405,7 +405,7 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, sync::Once};
+    use std::collections::BTreeMap;
 
     use anyhow::Result;
     use spin_manifest::{HttpConfig, HttpExecutor};
@@ -413,18 +413,6 @@ mod tests {
     use spin_trigger::TriggerExecutorBuilder;
 
     use super::*;
-
-    static LOGGER: Once = Once::new();
-
-    /// We can only initialize the tracing subscriber once per crate.
-    pub(crate) fn init() {
-        LOGGER.call_once(|| {
-            tracing_subscriber::fmt()
-                .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-                .with_ansi(atty::is(atty::Stream::Stderr))
-                .init();
-        });
-    }
 
     #[test]
     fn test_default_headers_with_base_path() -> Result<()> {
@@ -525,8 +513,6 @@ mod tests {
         Ok(())
     }
 
-    // fn _search(key: &str, headers: &[(String, String)]) -> Option<String> {}
-
     fn search<'a>(keys: &'a [&'a str], headers: &[(&[&str], String)]) -> Option<String> {
         let mut res: Option<String> = None;
         for (k, v) in headers {
@@ -540,8 +526,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_spin_http() -> Result<()> {
-        init();
-
         let mut cfg = spin_testing::TestConfig::default();
         cfg.test_program("rust-http-test.wasm")
             .http_trigger(HttpConfig {
@@ -571,8 +555,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_wagi_http() -> Result<()> {
-        init();
-
         let mut cfg = spin_testing::TestConfig::default();
         cfg.test_program("wagi-test.wasm").http_trigger(HttpConfig {
             route: "/test".to_string(),

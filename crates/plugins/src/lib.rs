@@ -4,7 +4,7 @@ pub mod manager;
 pub mod manifest;
 mod prompt;
 mod store;
-pub use lookup::{PluginLookup, PLUGIN_NOT_FOUND_ERROR_MSG};
+pub use lookup::{fetch_plugins_repo, PluginLookup, PLUGIN_NOT_FOUND_ERROR_MSG};
 pub use prompt::prompt;
 pub use store::PluginStore;
 

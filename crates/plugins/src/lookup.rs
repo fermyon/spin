@@ -14,20 +14,21 @@ const PLUGINS_REPO_LOCAL_DIRECTORY: &str = ".spin-plugins";
 // Name of directory containing the installed manifests
 const PLUGINS_REPO_MANIFESTS_DIRECTORY: &str = "manifests";
 
+// Error message indicating plugin could not be found in plugins repository.
 pub const PLUGIN_NOT_FOUND_ERROR_MSG: &str = "plugin not found";
+
+const SPIN_PLUGINS_REPO: &str = "https://github.com/fermyon/spin-plugins/";
 
 /// Looks up plugin manifests in centralized spin plugin repository.
 pub struct PluginLookup {
     pub name: String,
-    repo_url: Url,
     pub version: Option<Version>,
 }
 
 impl PluginLookup {
-    pub fn new(name: &str, repo_url: Url, version: Option<Version>) -> Self {
+    pub fn new(name: &str, version: Option<Version>) -> Self {
         Self {
             name: name.to_lowercase(),
-            repo_url,
             version,
         }
     }
@@ -43,18 +44,9 @@ impl PluginLookup {
         log::info!(
             "Pulling manifest for plugin {} from {}",
             self.name,
-            self.repo_url
+            SPIN_PLUGINS_REPO
         );
-        let git_root = plugin_manifests_repo_path(plugins_dir);
-        let git_source = GitSource::new(&self.repo_url, None, &git_root)?;
-        if !git_root.join(".git").exists() {
-            git_source.clone().await?;
-        } else {
-            // TODO: consider moving this to a separate `spin plugin
-            // update` subcommand rather than always updating the
-            // repository on each install.
-            git_source.pull().await?;
-        }
+        fetch_plugins_repo(plugins_dir, false).await?;
         let file = File::open(spin_plugins_repo_manifest_path(
             &self.name,
             &self.version,
@@ -72,6 +64,19 @@ impl PluginLookup {
         Ok(manifest)
     }
 }
+
+pub async fn fetch_plugins_repo(plugins_dir: &Path, update: bool) -> Result<()> {
+    let repo_url = Url::parse(SPIN_PLUGINS_REPO)?;
+    let git_root = plugin_manifests_repo_path(plugins_dir);
+    let git_source = GitSource::new(&repo_url, None, &git_root)?;
+    if !git_root.join(".git").exists() {
+        git_source.clone().await?;
+    } else if update {
+        git_source.pull().await?;
+    }
+    Ok(())
+}
+
 fn plugin_manifests_repo_path(plugins_dir: &Path) -> PathBuf {
     plugins_dir.join(PLUGINS_REPO_LOCAL_DIRECTORY)
 }

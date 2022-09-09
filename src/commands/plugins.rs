@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use semver::Version;
 use spin_plugins::{
+    fetch_plugins_repo,
     manager::{self, ManifestLocation, PluginManager},
     manifest::{PluginManifest, PluginPackage},
     prompt, PluginLookup, PLUGIN_NOT_FOUND_ERROR_MSG,
@@ -11,8 +12,6 @@ use tracing::log;
 use url::Url;
 
 use crate::opts::*;
-
-const SPIN_PLUGINS_REPO: &str = "https://github.com/fermyon/spin-plugins/";
 
 /// Install/uninstall Spin plugins.
 #[derive(Subcommand, Debug)]
@@ -28,6 +27,9 @@ pub enum PluginCommands {
 
     /// Upgrade one or all plugins.
     Upgrade(Upgrade),
+
+    /// Fetch the latest Spin plugins from the spin-plugins repository.
+    Update,
 }
 
 impl PluginCommands {
@@ -36,6 +38,7 @@ impl PluginCommands {
             PluginCommands::Install(cmd) => cmd.run().await,
             PluginCommands::Uninstall(cmd) => cmd.run().await,
             PluginCommands::Upgrade(cmd) => cmd.run().await,
+            PluginCommands::Update => update().await,
         }
     }
 }
@@ -93,7 +96,7 @@ impl Install {
         let manifest_location = match (self.local_manifest_src, self.remote_manifest_src, self.name) {
             (Some(path), None, None) => ManifestLocation::Local(path),
             (None, Some(url), None) => ManifestLocation::Remote(url),
-            (None, None, Some(name)) => ManifestLocation::PluginsRepository(PluginLookup::new(&name, Url::parse(SPIN_PLUGINS_REPO)?, self.version)),
+            (None, None, Some(name)) => ManifestLocation::PluginsRepository(PluginLookup::new(&name, self.version)),
             _ => return Err(anyhow::anyhow!("For plugin lookup, must provide exactly one of: plugin name, url to manifest, local path to manifest")),
         };
         let manager = PluginManager::default()?;
@@ -216,11 +219,8 @@ impl Upgrade {
                 .to_str()
                 .ok_or_else(|| anyhow!("Cannot convert path {} stem to str", path.display()))?
                 .to_string();
-            let manifest_location = ManifestLocation::PluginsRepository(PluginLookup::new(
-                &name,
-                Url::parse(SPIN_PLUGINS_REPO)?,
-                None,
-            ));
+            let manifest_location =
+                ManifestLocation::PluginsRepository(PluginLookup::new(&name, None));
             if let Err(e) = try_install(
                 &manifest_location,
                 &manager,
@@ -249,11 +249,7 @@ impl Upgrade {
         let manifest_location = match (self.local_manifest_src, self.remote_manifest_src) {
             (Some(path), None) => ManifestLocation::Local(path),
             (None, Some(url)) => ManifestLocation::Remote(url),
-            _ => ManifestLocation::PluginsRepository(PluginLookup::new(
-                name,
-                Url::parse(SPIN_PLUGINS_REPO)?,
-                self.version,
-            )),
+            _ => ManifestLocation::PluginsRepository(PluginLookup::new(name, self.version)),
         };
         try_install(
             &manifest_location,
@@ -264,6 +260,12 @@ impl Upgrade {
         .await?;
         Ok(())
     }
+}
+
+async fn update() -> Result<()> {
+    let manager = PluginManager::default()?;
+    let plugins_dir = manager.store().get_plugins_directory();
+    fetch_plugins_repo(plugins_dir, true).await
 }
 
 fn continue_to_install(

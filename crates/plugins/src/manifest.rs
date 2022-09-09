@@ -101,7 +101,7 @@ fn inner_check_supported_version(supported_on: &str, spin_version: &str) -> Resu
     let version = Version::parse(spin_version)?;
     if !comparator.matches(&version) {
         return Err(anyhow!(
-            "Spin version compatibility check failed (supported: {}, actual: {}).",
+            "Spin version compatibility check failed (supported: {}, actual: {}). Try running `spin plugin update` to get latest.",
             supported_on,
             spin_version
         ));

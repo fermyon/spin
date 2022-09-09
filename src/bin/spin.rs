@@ -1,5 +1,5 @@
 use anyhow::Error;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use lazy_static::lazy_static;
 use spin_cli::commands::{
     bindle::BindleCommands, build::BuildCommand, deploy::DeployCommand,
@@ -71,7 +71,7 @@ impl SpinApp {
             Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run().await,
             Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run().await,
             Self::Plugin(cmd) => cmd.run().await,
-            Self::External(cmd) => execute_external_subcommand(cmd).await,
+            Self::External(cmd) => execute_external_subcommand(cmd, SpinApp::command()).await,
         }
     }
 }

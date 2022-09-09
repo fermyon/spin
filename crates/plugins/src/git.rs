@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::process::Command;
 use url::Url;
 
@@ -13,7 +13,7 @@ pub struct GitSource {
     /// Branch to clone/fetch.
     branch: String,
     /// Destination to clone repository into.
-    local_repo_dir: PathBuf,
+    git_root: PathBuf,
 }
 
 impl GitSource {
@@ -21,12 +21,12 @@ impl GitSource {
     pub fn new(
         source_url: &Url,
         branch: Option<String>,
-        local_repo_dir: PathBuf,
+        git_root: impl AsRef<Path>,
     ) -> Result<GitSource> {
         Ok(Self {
             source_url: source_url.clone(),
             branch: branch.unwrap_or_else(|| DEFAULT_BRANCH.to_owned()),
-            local_repo_dir,
+            git_root: git_root.as_ref().to_owned(),
         })
     }
 
@@ -39,7 +39,7 @@ impl GitSource {
             "--branch",
             &self.branch,
             "--single-branch",
-            &self.local_repo_dir.to_string_lossy(),
+            &self.git_root.to_string_lossy(),
         ]);
         let clone_result = git.output().await?;
         match clone_result.status.success() {
@@ -56,13 +56,13 @@ impl GitSource {
     /// Fetches the latest changes from the source repository
     pub async fn pull(&self) -> Result<()> {
         let mut git = Command::new("git");
-        git.args(["-C", &self.local_repo_dir.to_string_lossy(), "pull"]);
+        git.args(["-C", &self.git_root.to_string_lossy(), "pull"]);
         let pull_result = git.output().await?;
         match pull_result.status.success() {
             true => Ok(()),
             false => Err(anyhow!(
-                "Error updating Git repo at {:?}: {}",
-                self.local_repo_dir,
+                "Error updating Git repo at {}: {}",
+                self.git_root.display(),
                 String::from_utf8(pull_result.stderr)
                     .unwrap_or_else(|_| "(cannot update error)".to_owned())
             )),

@@ -3467,6 +3467,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytes",
+ "dirs 4.0.0",
  "flate2",
  "log",
  "reqwest",

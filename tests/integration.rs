@@ -286,7 +286,6 @@ mod integration_tests {
 
         #[tokio::test]
         async fn test_spin_deploy() -> Result<()> {
-            println!("Testng spin deploy");
             // start the Bindle registry.
             let config = BindleTestControllerConfig {
                 basic_auth_enabled: false,
@@ -903,7 +902,7 @@ mod integration_tests {
                     "sha256": "57a0d87fcd9900b0122affcb570c5bb878246e2f169f4db377fd055af8e0491e"
                 },
                 {
-                    "os": "osx",
+                    "os": "macos",
                     "arch": "aarch64",
                     "url": "file:PATH_TO_TESTS/tests/plugin/example.tar.gz",
                     "sha256": "57a0d87fcd9900b0122affcb570c5bb878246e2f169f4db377fd055af8e0491e"

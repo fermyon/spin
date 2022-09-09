@@ -148,7 +148,7 @@ impl UpCommand {
 
         let manifest_url = match app.info.origin {
             spin_manifest::ApplicationOrigin::File(path) => {
-                format!("file://{}", path.canonicalize()?.to_string_lossy())
+                format!("file:{}", path.canonicalize()?.to_string_lossy())
             }
             spin_manifest::ApplicationOrigin::Bindle { id, server } => {
                 format!("bindle+{}?id={}", server, id)

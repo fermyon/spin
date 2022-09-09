@@ -141,7 +141,7 @@ where
             .context("SPIN_ALLOW_TRANSIENT_WRITE")?;
 
         // TODO(lann): Find a better home for this; spin_loader?
-        let mut app = if let Some(manifest_file) = manifest_url.strip_prefix("file://") {
+        let mut app = if let Some(manifest_file) = manifest_url.strip_prefix("file:") {
             let bindle_connection = std::env::var("BINDLE_URL")
                 .ok()
                 .map(|url| BindleConnectionInfo::new(url, false, None, None));

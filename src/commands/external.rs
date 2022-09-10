@@ -30,7 +30,7 @@ pub async fn execute_external_subcommand(args: Vec<String>, app: App<'_>) -> Res
                 if io_e.kind() == std::io::ErrorKind::NotFound {
                     eprintln!("Unknown command.");
                     app.clone().print_help()?;
-                    process::exit(1);
+                    process::exit(2);
                 }
             }
             return Err(e);

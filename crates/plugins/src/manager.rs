@@ -174,7 +174,13 @@ pub fn get_package(plugin_manifest: &PluginManifest) -> Result<&PluginPackage> {
         .packages
         .iter()
         .find(|p| p.os.to_string() == os && p.arch.to_string() == arch)
-        .ok_or_else(|| anyhow!("This plugin does not support this OS or architecture."))
+        .ok_or_else(|| {
+            anyhow!(
+                "This plugin does not support this OS ({}) or architecture ({}).",
+                os,
+                arch
+            )
+        })
 }
 
 async fn download_plugin(name: &str, temp_dir: &TempDir, target_url: &str) -> Result<PathBuf> {

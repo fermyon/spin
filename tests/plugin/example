@@ -1,3 +1,2 @@
 #!/bin/bash
-FILE=${1:-~/tmp/example.txt}
-echo "This is an example Spin plugin!" > $FILE
+echo "This is an example Spin plugin!"

@@ -7,4 +7,4 @@ To recreate:
 
 1. Package and zip it by running `tar czvf example.tar.gz example`.
 2. Get checksum: `shasum -a 256 example.tar.gz`.
-3. Modify plugin manifest to use the correct checksum.
+3. Modify plugin manifest in the tests to use the correct checksum.

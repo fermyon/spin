@@ -24,6 +24,8 @@ description = "A simple component that returns hello world."
 source = "target/wasm32-wasi/release/spinhelloworld.wasm"
 [component.trigger]
 route = "/hello"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
 ```
 
 ## Application manifest reference

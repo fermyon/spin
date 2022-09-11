@@ -32,7 +32,7 @@ route = "/hello"
 
 The following are the fields supported by the `spin.toml` manifest file:
 
-- `spin_version` (REQUIRED): Spin API version. Currently, this value MUST be
+- `spin_version` (REQUIRED): Spin SDK version. Currently, this value MUST be
   `"1"`.
 - `name` (REQUIRED): Name of the application.
 - `version` (REQUIRED): Version of the application.

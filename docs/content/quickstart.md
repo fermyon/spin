@@ -12,36 +12,49 @@ url = "https://github.com/fermyon/spin/blob/main/docs/content/quickstart.md"
 
 ## Getting the `spin` binary
 
-You can download the [latest release](https://github.com/fermyon/spin/releases).
-For example, for an Apple silicon macOS machine:
+You can install the `spin` binary using the `install.sh` script hosted on this site.
 
-```
-$ wget https://github.com/fermyon/spin/releases/download/v0.5.0/spin-v0.5.0-macos-aarch64.tar.gz
-$ tar xfv spin-v0.5.0-macos-aarch64.tar.gz
-$ ./spin --help
+```console
+$ curl https://spin.fermyon.dev/downloads/install.sh | bash
 ```
 
-If you have [`cargo`](https://doc.rust-lang.org/cargo/getting-started/installation.html), you can clone the repo and install it to your path:
+To install a specific version (or canary), you can pass arguments to the install script this way:
 
-```bash
-$ git clone https://github.com/fermyon/spin -b v0.5.0
-$ cd spin
-$ rustup target add wasm32-wasi
-$ cargo install --locked --path .
-$ spin --help
+```console
+$ curl https://spin.fermyon.dev/downloads/install.sh | bash -s -- -v v0.5.0
+
+$ curl https://spin.fermyon.dev/downloads/install.sh | bash -s -- -v canary
+``` 
+
+At this point, move the `spin` binary somewhere in your path, so it can be
+accessed from any directory. For example:
+
+```console
+$ sudo mv ./spin /usr/local/bin/spin
 ```
 
-Alternatively, [follow the contribution document](./contributing.md) for a detailed guide
+### Alternative 1: Building Spin from source
+
+[Follow the contribution document](./contributing.md) for a detailed guide
 on building Spin from source:
 
-```bash
+```console
 $ git clone https://github.com/fermyon/spin
 $ cd spin && make build
 $ ./target/release/spin --help
 ```
 
-At this point, move the `spin` binary somewhere in your path, so it can be
-accessed from any directory.
+### Alternative 2: Using Cargo to install Spin
+
+If you have [`cargo`](https://doc.rust-lang.org/cargo/getting-started/installation.html), you can clone the repo and install it to your path:
+
+```console
+$ git clone https://github.com/fermyon/spin -b v0.4.0
+$ cd spin
+$ rustup target add wasm32-wasi
+$ cargo install --locked --path .
+$ spin --help
+```
 
 ### Linux: Additional Libraries
 

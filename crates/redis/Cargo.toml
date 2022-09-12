@@ -11,7 +11,6 @@ doctest = false
 anyhow = "1.0"
 async-trait = "0.1"
 futures = "0.3"
-log = { version = "0.4", default-features = false }
 spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }
 spin-trigger = { path = "../trigger" }

@@ -2,7 +2,8 @@
 
 mod spin;
 
-use crate::spin::SpinRedisExecutor;
+use std::{collections::HashMap, sync::Arc};
+
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -10,7 +11,8 @@ use redis::{Client, ConnectionLike};
 use spin_manifest::{ComponentMap, RedisConfig, RedisTriggerConfiguration, TriggerConfig};
 use spin_redis::SpinRedisData;
 use spin_trigger::{cli::NoArgs, TriggerExecutor};
-use std::{collections::HashMap, sync::Arc};
+
+use crate::spin::SpinRedisExecutor;
 
 wit_bindgen_wasmtime::import!({paths: ["../../wit/ephemeral/spin-redis.wit"], async: *});
 
@@ -80,14 +82,14 @@ impl TriggerExecutor for RedisTrigger {
     async fn run(self, _config: Self::RunConfig) -> Result<()> {
         let address = self.trigger_config.address.as_str();
 
-        log::info!("Connecting to Redis server at {}", address);
+        tracing::info!("Connecting to Redis server at {}", address);
         let mut client = Client::open(address.to_string())?;
         let mut pubsub = client.get_async_connection().await?.into_pubsub();
 
         // Subscribe to channels
         for (subscription, idx) in self.subscriptions.iter() {
             let name = &self.engine.config.components[*idx].id;
-            log::info!(
+            tracing::info!(
                 "Subscribed component #{} ({}) to channel: {}",
                 idx,
                 name,
@@ -101,9 +103,9 @@ impl TriggerExecutor for RedisTrigger {
             match stream.next().await {
                 Some(msg) => drop(self.handle(msg).await),
                 None => {
-                    log::trace!("Empty message");
+                    tracing::trace!("Empty message");
                     if !client.check_connection() {
-                        log::info!("No Redis connection available");
+                        tracing::info!("No Redis connection available");
                         break Ok(());
                     }
                 }
@@ -116,7 +118,7 @@ impl RedisTrigger {
     // Handle the message.
     async fn handle(&self, msg: redis::Msg) -> Result<()> {
         let channel = msg.get_channel_name();
-        log::info!("Received message on channel {:?}", channel);
+        tracing::info!("Received message on channel {:?}", channel);
 
         if let Some(idx) = self.subscriptions.get(channel).copied() {
             let component = &self.engine.config.components[idx];
@@ -134,7 +136,7 @@ impl RedisTrigger {
 
             match executor {
                 spin_manifest::RedisExecutor::Spin => {
-                    log::trace!("Executing Spin Redis component {}", component.id);
+                    tracing::trace!("Executing Spin Redis component {}", component.id);
                     let executor = SpinRedisExecutor;
                     executor
                         .execute(
@@ -148,7 +150,7 @@ impl RedisTrigger {
                 }
             };
         } else {
-            log::debug!("No subscription found for {:?}", channel);
+            tracing::debug!("No subscription found for {:?}", channel);
         }
 
         Ok(())

@@ -17,7 +17,7 @@ impl RedisExecutor for SpinRedisExecutor {
         payload: &[u8],
         follow: bool,
     ) -> Result<()> {
-        log::trace!(
+        tracing::trace!(
             "Executing request using the Spin executor for component {}",
             component
         );
@@ -30,11 +30,11 @@ impl RedisExecutor for SpinRedisExecutor {
 
         let result = match Self::execute_impl(store, instance, channel, payload.to_vec()).await {
             Ok(()) => {
-                log::trace!("Request finished OK");
+                tracing::trace!("Request finished OK");
                 Ok(())
             }
             Err(e) => {
-                log::trace!("Request finished with error {}", e);
+                tracing::trace!("Request finished with error {}", e);
                 Err(e)
             }
         };

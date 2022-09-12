@@ -3503,7 +3503,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "futures",
- "log",
  "redis",
  "spin-engine",
  "spin-manifest",

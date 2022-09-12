@@ -2237,8 +2237,7 @@ name = "outbound-pg"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "spin-engine",
- "spin-manifest",
+ "spin-core",
  "tokio",
  "tokio-postgres",
  "tracing",

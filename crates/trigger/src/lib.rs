@@ -129,8 +129,5 @@ pub fn add_default_host_components<T: Default + Send + 'static>(
     builder.add_host_component(outbound_redis::OutboundRedis {
         connections: Arc::new(RwLock::new(HashMap::new())),
     })?;
-    builder.add_host_component(outbound_pg::OutboundPg {
-        connections: HashMap::new(),
-    })?;
     Ok(())
 }

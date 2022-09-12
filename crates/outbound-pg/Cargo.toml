@@ -8,10 +8,9 @@ doctest = false
 
 [dependencies]
 anyhow = "1.0"
-tokio-postgres = { version = "0.7.7" }
-spin-engine = { path = "../engine" }
-spin-manifest = { path = "../manifest" }
+spin-core = { path = "../core" }
 tokio = { version = "1", features = [ "rt-multi-thread" ] }
+tokio-postgres = { version = "0.7.7" }
 tracing = { version = "0.1", features = [ "log" ] }
 
 [dependencies.wit-bindgen-wasmtime]

@@ -21,6 +21,13 @@ $ tar xfv spin-v0.5.0-macos-aarch64.tar.gz
 $ ./spin --help
 ```
 
+For Intel-based Macs, here is the way to go for installation:
+```
+$ wget https://github.com/fermyon/spin/releases/download/v0.5.0/spin-v0.5.0-macos-amd64.tar.gz
+$ tar xfv spin-v0.5.0-macos-amd64.tar.gz
+$ ./spin --help
+```
+
 If you have [`cargo`](https://doc.rust-lang.org/cargo/getting-started/installation.html), you can clone the repo and install it to your path:
 
 ```bash

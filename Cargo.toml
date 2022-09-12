@@ -71,8 +71,10 @@ e2e-tests = []
 [workspace]
 members = [
     "crates/abi-conformance",
+    "crates/app",
     "crates/build",
     "crates/config",
+    "crates/core",
     "crates/engine",
     "crates/http",
     "crates/loader",

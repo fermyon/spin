@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "Inflector"
+version = "0.11.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
+
+[[package]]
 name = "addr2line"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -36,6 +42,12 @@ checksum = "1e37cfd5e7657ada45f742d6e99ca5788580b5c529dc78faf11ece6dc702656f"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "aliasable"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "250f629c0161ad8107cf89319e990051fae62832fd343083bea452d93e2205fd"
 
 [[package]]
 name = "ambient-authority"
@@ -2184,6 +2196,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ff7415e9ae3fff1225851df9e0d9e4e5479f947619774677a63572e55e80eff"
 
 [[package]]
+name = "ouroboros"
+version = "0.15.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dfbb50b356159620db6ac971c6d5c9ab788c9cc38a6f49619fca2a27acb062ca"
+dependencies = [
+ "aliasable",
+ "ouroboros_macro",
+]
+
+[[package]]
+name = "ouroboros_macro"
+version = "0.15.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a0d9d1a6191c4f391f87219d1ea42b23f09ee84d64763cd05ee6ea88d9f384d"
+dependencies = [
+ "Inflector",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "outbound-http"
 version = "0.2.0"
 dependencies = [
@@ -3269,6 +3304,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "ouroboros",
+ "serde",
+ "serde_json",
+ "spin-core",
+ "thiserror",
+]
+
+[[package]]
 name = "spin-build"
 version = "0.2.0"
 dependencies = [
@@ -3347,6 +3395,19 @@ dependencies = [
  "tokio",
  "toml",
  "wit-bindgen-wasmtime",
+]
+
+[[package]]
+name = "spin-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "tracing",
+ "wasi-cap-std-sync",
+ "wasi-common",
+ "wasmtime",
+ "wasmtime-wasi",
 ]
 
 [[package]]
@@ -4313,6 +4374,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasi-tokio"
+version = "0.39.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ab325bba31ae9286b8ebdc18d32a43d6471312c9bc4e477240be444e00ec4f4"
+dependencies = [
+ "anyhow",
+ "cap-std 0.25.2",
+ "io-extras 0.15.0",
+ "io-lifetimes 0.7.3",
+ "lazy_static",
+ "rustix 0.35.9",
+ "tokio",
+ "wasi-cap-std-sync",
+ "wasi-common",
+ "wiggle",
+]
+
+[[package]]
 name = "wasm-bindgen"
 version = "0.2.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4590,6 +4669,7 @@ dependencies = [
  "anyhow",
  "wasi-cap-std-sync",
  "wasi-common",
+ "wasi-tokio",
  "wasmtime",
  "wiggle",
 ]
@@ -4677,6 +4757,7 @@ dependencies = [
  "tracing",
  "wasmtime",
  "wiggle-macro",
+ "witx",
 ]
 
 [[package]]

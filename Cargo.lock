@@ -1520,9 +1520,7 @@ checksum = "d87c48c02e0dc5e3b849a2041db3029fd066650f8f717c07bf8ed78ccb895cac"
 dependencies = [
  "http",
  "hyper",
- "log",
  "rustls",
- "rustls-native-certs",
  "tokio",
  "tokio-rustls",
 ]
@@ -2197,7 +2195,6 @@ dependencies = [
  "spin-engine",
  "spin-manifest",
  "tracing",
- "tracing-futures",
  "url",
  "wit-bindgen-wasmtime",
 ]
@@ -2210,7 +2207,6 @@ dependencies = [
  "postgres",
  "spin-engine",
  "spin-manifest",
- "tokio",
  "tracing",
  "wit-bindgen-wasmtime",
 ]
@@ -2225,7 +2221,6 @@ dependencies = [
  "spin-engine",
  "spin-manifest",
  "tracing",
- "tracing-futures",
  "wit-bindgen-wasmtime",
 ]
 
@@ -2904,18 +2899,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustls-native-certs"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0167bac7a9f490495f3c33013e7722b53cb087ecbe082fb0c6387c96f634ea50"
-dependencies = [
- "openssl-probe",
- "rustls-pemfile 1.0.1",
- "schannel",
- "security-framework",
-]
-
-[[package]]
 name = "rustls-pemfile"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3287,7 +3270,6 @@ dependencies = [
  "path-absolutize",
  "spin-loader",
  "subprocess",
- "tokio",
  "tracing",
 ]
 
@@ -3337,7 +3319,6 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
- "tracing-futures",
  "tracing-subscriber",
  "url",
  "uuid",
@@ -3352,7 +3333,6 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "serde",
  "spin-engine",
  "spin-manifest",
  "thiserror",
@@ -3374,7 +3354,6 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
- "tracing-futures",
  "wasi-cap-std-sync",
  "wasi-common",
  "wasmtime",
@@ -3388,22 +3367,17 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "atty",
- "bytes",
- "cap-std 0.24.4",
  "clap 3.2.19",
  "criterion",
  "futures",
  "futures-util",
  "http",
  "hyper",
- "hyper-rustls",
  "indexmap",
  "miniserde",
  "num_cpus",
  "percent-encoding",
  "rustls-pemfile 0.3.0",
- "serde",
  "spin-engine",
  "spin-manifest",
  "spin-testing",
@@ -3412,13 +3386,8 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tracing",
- "tracing-futures",
- "tracing-subscriber",
- "url",
- "wasi-cap-std-sync",
  "wasi-common",
  "wasmtime",
- "wasmtime-wasi",
  "wit-bindgen-wasmtime",
 ]
 
@@ -3430,8 +3399,6 @@ dependencies = [
  "async-trait",
  "bindle",
  "bytes",
- "dirs 4.0.0",
- "fs_extra",
  "futures",
  "glob",
  "itertools",
@@ -3449,8 +3416,6 @@ dependencies = [
  "tokio-util 0.6.10",
  "toml",
  "tracing",
- "tracing-futures",
- "tracing-subscriber",
  "walkdir",
 ]
 
@@ -3508,22 +3473,16 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "env_logger",
  "futures",
  "log",
  "redis",
- "serde",
  "spin-engine",
  "spin-manifest",
  "spin-testing",
  "spin-trigger",
  "tokio",
  "tracing",
- "tracing-futures",
- "tracing-subscriber",
- "wasi-common",
  "wasmtime",
- "wasmtime-wasi",
  "wit-bindgen-wasmtime",
 ]
 
@@ -3604,7 +3563,6 @@ dependencies = [
  "spin-trigger",
  "tokio",
  "tracing",
- "tracing-futures",
  "tracing-subscriber",
  "wasi-common",
  "wasmtime",
@@ -3622,11 +3580,9 @@ dependencies = [
  "ctrlc",
  "dotenvy",
  "futures",
- "http",
  "outbound-http",
  "outbound-pg",
  "outbound-redis",
- "serde",
  "spin-config",
  "spin-engine",
  "spin-loader",

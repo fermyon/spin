@@ -8,7 +8,6 @@ authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 anyhow = "1.0.57"
 futures = "0.3.21"
 path-absolutize = "3.0.11"
-tokio = { version = "1.11", features = [ "full" ] }
 spin-loader = { path = "../loader" }
 subprocess = "0.2.8"
 tracing = { version = "0.1", features = [ "log" ] }

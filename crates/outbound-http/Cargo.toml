@@ -16,7 +16,6 @@ reqwest = { version = "0.11", default-features = true, features = [ "json", "blo
 spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }
 tracing = { version = "0.1", features = [ "log" ] }
-tracing-futures = "0.2"
 url = "2.2.1"
 
 [dependencies.wit-bindgen-wasmtime]

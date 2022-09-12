@@ -13,7 +13,6 @@ spin-manifest = { path = "../manifest" }
 tempfile = "3.3.0"
 tokio = { version = "1.10.0", features = [ "full" ] }
 tracing = { version = "0.1", features = [ "log" ] }
-tracing-futures = "0.2"
 wasi-cap-std-sync = "0.39.1"
 wasi-common = "0.39.1"
 wasmtime = { version = "0.39.1", features = [ "async" ] }

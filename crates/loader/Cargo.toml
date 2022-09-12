@@ -9,8 +9,6 @@ anyhow = "1"
 async-trait = "0.1.52"
 bindle = { git = "https://github.com/fermyon/bindle", tag = "v0.8.1", default-features = false, features = ["client"] }
 bytes = "1.1.0"
-dirs = "4.0"
-fs_extra = "1.2.0"
 futures = "0.3.17"
 glob = "0.3.0"
 itertools = "0.10.3"
@@ -28,6 +26,4 @@ tokio = { version = "1.11", features = [ "full" ] }
 tokio-util = "0.6"
 toml = "0.5"
 tracing = { version = "0.1", features = [ "log" ] }
-tracing-futures = "0.2"
-tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 walkdir = "2.3.2"

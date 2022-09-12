@@ -11,7 +11,6 @@ anyhow = "1.0"
 postgres = { version = "0.19.3" }
 spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }
-tokio = { version = "1", features = [ "rt" ] }
 tracing = { version = "0.1", features = [ "log" ] }
 
 [dependencies.wit-bindgen-wasmtime]

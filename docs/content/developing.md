@@ -5,7 +5,7 @@ date = "2022-03-14T00:22:56Z"
 url = "https://github.com/fermyon/spin/blob/main/docs/content/developing.md"
 ---
 
-The Spin CLI offers a few commands to simplify developing applications.
+The Spin CLI offers a few commands to simplify developing applications. The Spn CLI enables you to run commands on your terminal - when you have the Spin CLI in your project, you can run commands from your terminal when you have the Spin CLI in your project.
 
 ## Building Spin applications
 
@@ -67,5 +67,5 @@ command = "cargo build --target wasm32-wasi --release"
 workdir = "deep"
 ```
 
-Note that `workdir` must be a relative path and it operates relative to the
+**Note**: `workdir` must be a relative path and it operates relative to the
 `spin.toml`. Specifying an absolute path leads to an error.

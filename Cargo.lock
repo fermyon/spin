@@ -3326,7 +3326,7 @@ dependencies = [
  "spin-build",
  "spin-config",
  "spin-engine",
- "spin-http-engine",
+ "spin-http",
  "spin-loader",
  "spin-manifest",
  "spin-publish",
@@ -3383,7 +3383,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-http-engine"
+name = "spin-http"
 version = "0.2.0"
 dependencies = [
  "anyhow",
@@ -3583,7 +3583,7 @@ dependencies = [
  "http",
  "hyper",
  "spin-engine",
- "spin-http-engine",
+ "spin-http",
  "spin-manifest",
  "spin-trigger",
  "tracing-subscriber",

@@ -2,13 +2,14 @@
 
 #![deny(missing_docs)]
 
-use indexmap::IndexMap;
-use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
     path::PathBuf,
 };
+
+use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 
 /// A trigger error.
 #[derive(Debug, thiserror::Error)]
@@ -219,6 +220,15 @@ impl AllowedHttpHost {
         (url.scheme() == "http" || url.scheme() == "https")
             && self.domain == url.host_str().unwrap_or_default()
             && self.port == url.port()
+    }
+}
+
+impl From<AllowedHttpHost> for String {
+    fn from(allowed: AllowedHttpHost) -> Self {
+        match allowed.port {
+            Some(port) => format!("{}:{}", allowed.domain, port),
+            None => allowed.domain,
+        }
     }
 }
 

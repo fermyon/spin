@@ -2970,6 +2970,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sanitize-filename"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08c502bdb638f1396509467cb0580ef3b29aa2a45c5d43e5d84928241280296c"
+dependencies = [
+ "lazy_static",
+ "regex",
+]
+
+[[package]]
 name = "schannel"
 version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3418,7 +3428,7 @@ dependencies = [
  "bytes",
  "cap-std 0.24.4",
  "dirs 4.0.0",
- "sanitize-filename",
+ "sanitize-filename 0.3.0",
  "spin-manifest",
  "tempfile",
  "tokio",
@@ -3677,6 +3687,35 @@ dependencies = [
  "spin-loader",
  "spin-manifest",
  "tracing",
+ "wasmtime",
+]
+
+[[package]]
+name = "spin-trigger-new"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap 3.2.19",
+ "ctrlc",
+ "dirs 4.0.0",
+ "futures",
+ "outbound-http",
+ "outbound-pg",
+ "outbound-redis",
+ "sanitize-filename 0.4.0",
+ "serde",
+ "serde_json",
+ "spin-app",
+ "spin-config",
+ "spin-core",
+ "spin-loader",
+ "spin-manifest",
+ "tempfile",
+ "tokio",
+ "toml",
+ "tracing",
+ "url",
  "wasmtime",
 ]
 

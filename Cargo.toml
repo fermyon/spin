@@ -86,6 +86,7 @@ members = [
     "crates/templates",
     "crates/testing",
     "crates/trigger",
+    "crates/trigger-new",
     "examples/spin-timer",
     "sdk/rust",
     "sdk/rust/macro"

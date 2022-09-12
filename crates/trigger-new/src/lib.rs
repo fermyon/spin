@@ -96,10 +96,10 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 // FIXME(lann): migrate host components from prototype
                 // builder.add_host_component(outbound_redis::OutboundRedis::default())?;
                 // builder.add_host_component(outbound_pg::OutboundPg)?;
-                // self.loader.add_dynamic_host_component(
-                //     &mut builder,
-                //     outbound_http::OutboundHttpComponent,
-                // )?;
+                self.loader.add_dynamic_host_component(
+                    &mut builder,
+                    outbound_http::OutboundHttpComponent,
+                )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
                     spin_config::ConfigHostComponent::new(self.default_config_providers(&app_uri)),

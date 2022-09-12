@@ -10,21 +10,20 @@ pub mod config;
 #[cfg(test)]
 mod tests;
 
+use std::{path::Path, str::FromStr};
+
 use anyhow::{anyhow, bail, Context, Result};
-use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawComponentManifest};
 use futures::future;
+use outbound_http::allowed_http_hosts::validate_allowed_http_hosts;
 use path_absolutize::Absolutize;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
-use std::{path::Path, str::FromStr};
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::{
-    bindle::BindleConnectionInfo,
-    validation::{parse_allowed_http_hosts, validate_allowed_http_hosts},
-};
+use crate::bindle::BindleConnectionInfo;
+use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawComponentManifest};
 
 /// Given the path to a spin.toml manifest file, prepare its assets locally and
 /// get a prepared application configuration consumable by a Spin execution context.
@@ -103,11 +102,9 @@ fn error_on_duplicate_ids(components: Vec<RawComponentManifest>) -> Result<()> {
 pub fn validate_raw_app_manifest(raw: &RawAppManifestAnyVersion) -> Result<()> {
     match raw {
         RawAppManifestAnyVersion::V1(raw) => {
-            let _ = raw
-                .components
+            raw.components
                 .iter()
-                .map(|c| validate_allowed_http_hosts(&c.wasm.allowed_http_hosts))
-                .collect::<Result<Vec<_>>>()?;
+                .try_for_each(|c| validate_allowed_http_hosts(&c.wasm.allowed_http_hosts))?;
         }
     }
     Ok(())
@@ -225,7 +222,7 @@ async fn core(
         None => vec![],
     };
     let environment = raw.wasm.environment.unwrap_or_default();
-    let allowed_http_hosts = parse_allowed_http_hosts(&raw.wasm.allowed_http_hosts)?;
+    let allowed_http_hosts = raw.wasm.allowed_http_hosts.unwrap_or_default();
     let wasm = WasmConfig {
         environment,
         mounts,

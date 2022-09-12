@@ -2223,12 +2223,10 @@ name = "outbound-http"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "bytes",
- "futures",
  "http",
  "reqwest",
- "spin-engine",
- "spin-manifest",
+ "spin-app",
+ "spin-core",
  "tracing",
  "url",
  "wit-bindgen-wasmtime",

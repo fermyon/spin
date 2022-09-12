@@ -3,7 +3,6 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context, Result};
-use outbound_http::ALLOW_ALL_HOSTS;
 use spin_app::{
     locked::{
         self, ContentPath, ContentRef, LockedApp, LockedComponent, LockedComponentSource,
@@ -12,8 +11,8 @@ use spin_app::{
     values::{ValuesMap, ValuesMapBuilder},
 };
 use spin_manifest::{
-    AllowedHttpHosts, Application, ApplicationInformation, ApplicationTrigger, CoreComponent,
-    HttpConfig, HttpTriggerConfiguration, RedisConfig, TriggerConfig,
+    Application, ApplicationInformation, ApplicationTrigger, CoreComponent, HttpConfig,
+    HttpTriggerConfiguration, RedisConfig, TriggerConfig,
 };
 
 const WASM_CONTENT_TYPE: &str = "application/wasm";
@@ -130,10 +129,7 @@ impl LockedAppBuilder {
 
         let metadata = ValuesMapBuilder::new()
             .string_option("description", component.description)
-            .string_array(
-                "allowed_http_hosts",
-                allowed_http_hosts_to_strings(component.wasm.allowed_http_hosts),
-            )
+            .string_array("allowed_http_hosts", component.wasm.allowed_http_hosts)
             .build();
 
         let source = {
@@ -195,13 +191,6 @@ fn file_uri(path: &Path, is_dir: bool) -> Result<String> {
     }
     .map_err(|err| anyhow!("Could not construct file URI: {err:?}"))?;
     Ok(uri.to_string())
-}
-
-fn allowed_http_hosts_to_strings(allowed_hosts: AllowedHttpHosts) -> Vec<String> {
-    match allowed_hosts {
-        AllowedHttpHosts::AllowAll => vec![ALLOW_ALL_HOSTS.into()],
-        AllowedHttpHosts::AllowSpecific(hosts) => hosts.into_iter().map(Into::into).collect(),
-    }
 }
 
 #[cfg(test)]

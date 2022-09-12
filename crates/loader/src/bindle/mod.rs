@@ -10,23 +10,24 @@ mod connection;
 /// Bindle helper functions.
 mod utils;
 
-use crate::{
-    bindle::{
-        config::{RawAppManifest, RawComponentManifest},
-        utils::{find_manifest, parcels_in_group},
-    },
-    validation::{parse_allowed_http_hosts, validate_allowed_http_hosts},
-};
+use std::path::Path;
+
 use anyhow::{anyhow, Context, Result};
 use bindle::Invoice;
-pub use connection::BindleConnectionInfo;
 use futures::future;
+
+use outbound_http::allowed_http_hosts::validate_allowed_http_hosts;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
-use std::path::Path;
 use tracing::log;
+
+use crate::bindle::{
+    config::{RawAppManifest, RawComponentManifest},
+    utils::{find_manifest, parcels_in_group},
+};
+pub use connection::BindleConnectionInfo;
 pub(crate) use utils::BindleReader;
 pub use utils::SPIN_MANIFEST_MEDIA_TYPE;
 
@@ -142,7 +143,7 @@ async fn core(
         None => vec![],
     };
     let environment = raw.wasm.environment.unwrap_or_default();
-    let allowed_http_hosts = parse_allowed_http_hosts(&raw.wasm.allowed_http_hosts)?;
+    let allowed_http_hosts = raw.wasm.allowed_http_hosts.unwrap_or_default();
     let wasm = WasmConfig {
         environment,
         mounts,

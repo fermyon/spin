@@ -9,7 +9,7 @@ use std::{
 
 use http::Response;
 use hyper::Body;
-use spin_http_engine::HttpTrigger;
+use spin_http::HttpTrigger;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
     HttpConfig, ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion, TriggerConfig,

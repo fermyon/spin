@@ -10,6 +10,6 @@ http = "0.2"
 hyper = "0.14"
 spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }
-spin-http-engine = { path = "../http" }
+spin-http = { path = "../http" }
 spin-trigger = { path = "../trigger" }
 tracing-subscriber = "0.3"

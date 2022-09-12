@@ -6,7 +6,7 @@ use hippo_openapi::models::ChannelRevisionSelectionStrategy;
 use semver::BuildMetadata;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use spin_http_engine::routes::RoutePattern;
+use spin_http::routes::RoutePattern;
 use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
 use spin_loader::local::{assets, config};
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};

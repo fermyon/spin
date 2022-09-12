@@ -5,7 +5,7 @@ use spin_cli::commands::{
     bindle::BindleCommands, build::BuildCommand, deploy::DeployCommand, new::NewCommand,
     templates::TemplateCommands, up::UpCommand,
 };
-use spin_http_engine::HttpTrigger;
+use spin_http::HttpTrigger;
 use spin_redis_engine::RedisTrigger;
 use spin_trigger::cli::TriggerExecutorCommand;
 

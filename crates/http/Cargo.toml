@@ -1,5 +1,5 @@
 [package]
-name = "spin-http-engine"
+name = "spin-http"
 version = "0.2.0"
 edition = "2021"
 authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]

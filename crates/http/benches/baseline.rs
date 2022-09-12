@@ -6,7 +6,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use futures::future::join_all;
 use http::uri::Scheme;
 use http::Request;
-use spin_http_engine::HttpTrigger;
+use spin_http::HttpTrigger;
 use spin_manifest::{HttpConfig, HttpExecutor};
 use spin_testing::{assert_http_response_success, TestConfig};
 use tokio::runtime::Runtime;

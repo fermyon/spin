@@ -16,7 +16,6 @@ spin-manifest = { path = "../../crates/manifest" }
 spin-trigger = { path = "../../crates/trigger" }
 tokio = { version = "1.14", features = [ "full" ] }
 tracing = { version = "0.1", features = [ "log" ] }
-tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 wasi-common = "0.39.1"
 wasmtime = "0.39.1"

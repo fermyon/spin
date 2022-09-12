@@ -10,18 +10,13 @@ doctest = false
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-atty = "0.2"
-bytes = "1.1"
-cap-std = "0.24.1"
 clap = "3"
 futures = "0.3"
 futures-util = "0.3.8"
 http = "0.2"
 hyper = { version = "0.14", features = ["full"] }
-hyper-rustls = { version = "0.23.0" }
 indexmap = "1"
 percent-encoding = "2"
-serde = { version = "1.0", features = ["derive"] }
 spin-manifest = { path = "../manifest" }
 spin-engine = { path = "../engine" }
 spin-trigger = { path = "../trigger" }
@@ -34,13 +29,8 @@ tokio = { version = "1.10", features = ["full"] }
 tokio-rustls = { version = "0.23.2" }
 rustls-pemfile = "0.3.0"
 tracing = { version = "0.1", features = ["log"] }
-tracing-futures = "0.2"
-tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
-url = "2.2"
-wasi-cap-std-sync = "0.39.1"
 wasi-common = "0.39.1"
 wasmtime = { version = "0.39.1", features = ["async"] }
-wasmtime-wasi = "0.39.1"
 
 [dependencies.wit-bindgen-wasmtime]
 git = "https://github.com/bytecodealliance/wit-bindgen"

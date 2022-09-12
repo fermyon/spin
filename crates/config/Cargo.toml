@@ -7,11 +7,9 @@ authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-serde = { version = "1.0", features = [ "derive" ] }
 spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }
 thiserror = "1"
-tokio = { version = "1", features = [ "rt-multi-thread" ] }
 
 [dependencies.wit-bindgen-wasmtime]
 git = "https://github.com/bytecodealliance/wit-bindgen"
@@ -19,4 +17,5 @@ rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
 features = ["async"]
 
 [dev-dependencies]
+tokio = { version = "1", features = [ "rt-multi-thread" ] }
 toml = "0.5"

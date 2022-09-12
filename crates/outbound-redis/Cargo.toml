@@ -13,7 +13,6 @@ redis = { version = "0.21", features = [ "tokio-comp" ] }
 spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }
 tracing = { version = "0.1", features = [ "log" ] }
-tracing-futures = "0.2"
 
 [dependencies.wit-bindgen-wasmtime]
 git = "https://github.com/bytecodealliance/wit-bindgen"

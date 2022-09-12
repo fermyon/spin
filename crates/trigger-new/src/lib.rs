@@ -93,8 +93,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
             let mut builder = Engine::builder(&self.config)?;
 
             if !self.disable_default_host_components {
-                // FIXME(lann): migrate host components from prototype
-                // builder.add_host_component(outbound_redis::OutboundRedis::default())?;
+                builder.add_host_component(outbound_redis::OutboundRedis::default())?;
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,

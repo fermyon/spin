@@ -1,10 +1,4 @@
-use std::{
-    collections::HashMap,
-    error::Error,
-    marker::PhantomData,
-    path::PathBuf,
-    sync::{Arc, RwLock},
-};
+use std::{error::Error, marker::PhantomData, path::PathBuf};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -124,10 +118,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 
 /// Add the default set of host components to the given builder.
 pub fn add_default_host_components<T: Default + Send + 'static>(
-    builder: &mut Builder<T>,
+    _builder: &mut Builder<T>,
 ) -> Result<()> {
-    builder.add_host_component(outbound_redis::OutboundRedis {
-        connections: Arc::new(RwLock::new(HashMap::new())),
-    })?;
     Ok(())
 }

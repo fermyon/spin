@@ -14,7 +14,6 @@ futures = "0.3"
 outbound-http = { path = "../outbound-http" } 
 outbound-redis = { path = "../outbound-redis" }
 outbound-pg = { path = "../outbound-pg" }
-spin-config = { path = "../config" }
 spin-engine = { path = "../engine" }
 spin-loader = { path = "../loader" }
 spin-manifest = { path = "../manifest" }

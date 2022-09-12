@@ -3,7 +3,11 @@ mod loader;
 pub mod locked;
 mod stdio;
 
-use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
+use std::{
+    collections::HashMap,
+    marker::PhantomData,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -81,7 +85,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         self
     }
 
-    pub async fn build(self, app_uri: String) -> Result<Executor>
+    pub async fn build(mut self, app_uri: String) -> Result<Executor>
     where
         Executor::TriggerConfig: DeserializeOwned,
     {
@@ -96,10 +100,10 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 //     &mut builder,
                 //     outbound_http::OutboundHttpComponent,
                 // )?;
-                // self.loader.add_dynamic_host_component(
-                //     &mut builder,
-                //     spin_config::ConfigHostComponent::new(self.default_config_providers(&app_uri)),
-                // )?;
+                self.loader.add_dynamic_host_component(
+                    &mut builder,
+                    spin_config::ConfigHostComponent::new(self.default_config_providers(&app_uri)),
+                )?;
             }
 
             Executor::configure_engine(&mut builder)?;
@@ -125,17 +129,16 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         )
     }
 
-    pub fn default_config_providers(&self, _app_uri: &str) -> Vec<Box<dyn Provider>> {
+    pub fn default_config_providers(&self, app_uri: &str) -> Vec<Box<dyn Provider>> {
         // EnvProvider
-        // FIXME(lann): Update EnvProvider from prototype
-        // let dotenv_path = app_uri
-        //     .strip_prefix("file://")
-        //     .and_then(|path| Path::new(path).parent())
-        //     .unwrap_or_else(|| Path::new("."))
-        //     .join(".env");
+        let dotenv_path = app_uri
+            .strip_prefix("file://")
+            .and_then(|path| Path::new(path).parent())
+            .unwrap_or_else(|| Path::new("."))
+            .join(".env");
         vec![Box::new(EnvProvider::new(
             SPIN_CONFIG_ENV_PREFIX,
-            Default::default(),
+            Some(dotenv_path),
         ))]
     }
 }

@@ -688,7 +688,7 @@ mod integration_tests {
                 .args(args)
                 .env(
                     "RUST_LOG",
-                    "spin=trace,spin_loader=trace,spin_engine=trace,spin_http=trace",
+                    "spin=trace,spin_loader=trace,spin_core=trace,spin_http=trace",
                 )
                 .spawn()
                 .with_context(|| "executing Spin")?;
@@ -725,7 +725,7 @@ mod integration_tests {
                 .args(args)
                 .env(
                     "RUST_LOG",
-                    "spin=trace,spin_loader=trace,spin_engine=trace,spin_http=trace",
+                    "spin=trace,spin_loader=trace,spin_core=trace,spin_http=trace",
                 )
                 .spawn()
                 .with_context(|| "executing Spin")?;

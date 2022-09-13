@@ -47,6 +47,7 @@ impl Loader for TriggerLoader {
             .context("LockedComponentSource missing source field")?;
         let path = unwrap_file_uri(source)?;
         spin_core::Module::from_file(engine, path)
+            .with_context(|| format!("loading module {path:?}"))
     }
 
     async fn mount_files(

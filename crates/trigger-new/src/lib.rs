@@ -10,7 +10,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use async_trait::async_trait;
+pub use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 
 use spin_app::{App, AppLoader, AppTrigger, Loader, OwnedApp};
@@ -30,7 +30,7 @@ pub trait TriggerExecutor: Sized {
     type RunConfig;
 
     /// Create a new trigger executor.
-    fn new(app_engine: TriggerAppEngine<Self>) -> Result<Self>;
+    fn new(engine: TriggerAppEngine<Self>) -> Result<Self>;
 
     /// Run the trigger executor.
     async fn run(self, config: Self::RunConfig) -> Result<()>;

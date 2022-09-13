@@ -7,7 +7,6 @@ use futures::future::join_all;
 use http::uri::Scheme;
 use http::Request;
 use spin_http::HttpTrigger;
-use spin_manifest::{HttpConfig, HttpExecutor};
 use spin_testing::{assert_http_response_success, TestConfig};
 use tokio::runtime::Runtime;
 use tokio::task;
@@ -29,7 +28,7 @@ fn bench_startup(c: &mut Criterion) {
         b.to_async(&async_runtime).iter(|| async {
             let trigger = TestConfig::default()
                 .test_program("spin-http-benchmark.wasm")
-                .http_trigger(Default::default())
+                .http_spin_trigger("/")
                 .build_http_trigger()
                 .await;
             run_concurrent_requests(Arc::new(trigger), 0, 1).await;
@@ -39,10 +38,7 @@ fn bench_startup(c: &mut Criterion) {
         b.to_async(&async_runtime).iter(|| async {
             let trigger = TestConfig::default()
                 .test_program("wagi-benchmark.wasm")
-                .http_trigger(HttpConfig {
-                    executor: Some(HttpExecutor::Wagi(Default::default())),
-                    ..Default::default()
-                })
+                .http_wagi_trigger("/", Default::default())
                 .build_http_trigger()
                 .await;
             run_concurrent_requests(Arc::new(trigger), 0, 1).await;
@@ -58,7 +54,7 @@ fn bench_spin_concurrency_minimal(c: &mut Criterion) {
         async_runtime.block_on(
             TestConfig::default()
                 .test_program("spin-http-benchmark.wasm")
-                .http_trigger(Default::default())
+                .http_spin_trigger("/")
                 .build_http_trigger(),
         ),
     );
@@ -94,10 +90,7 @@ fn bench_wagi_concurrency_minimal(c: &mut Criterion) {
         async_runtime.block_on(
             TestConfig::default()
                 .test_program("wagi-benchmark.wasm")
-                .http_trigger(HttpConfig {
-                    executor: Some(HttpExecutor::Wagi(Default::default())),
-                    ..Default::default()
-                })
+                .http_wagi_trigger("/", Default::default())
                 .build_http_trigger(),
         ),
     );

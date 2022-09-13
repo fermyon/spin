@@ -1,38 +1,70 @@
 mod util;
 
-use crate::{routes::RoutePattern, ExecutionContext, HttpExecutor};
+use std::{io::Cursor, net::SocketAddr};
+
 use anyhow::Result;
 use async_trait::async_trait;
-use hyper::{body, Body, Request, Response};
-use spin_engine::io::{
-    redirect_to_mem_buffer, Follow, OutputBuffers, RedirectPipes, WriteDestinations,
+use hyper::{
+    body::{self},
+    Body, Request, Response,
 };
-use spin_manifest::WagiConfig;
-use std::{
-    net::SocketAddr,
-    sync::{Arc, RwLock, RwLockReadGuard},
-};
-use tracing::log;
-use wasi_common::pipe::{ReadPipe, WritePipe};
+use serde::{Deserialize, Serialize};
+use spin_core::Trap;
+use spin_trigger_new::TriggerAppEngine;
+
+use crate::{routes::RoutePattern, HttpExecutor, HttpTrigger};
+
+/// Wagi specific configuration for the http executor.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct WagiTriggerConfig {
+    /// The name of the entrypoint.
+    #[serde(default)]
+    pub entrypoint: String,
+
+    /// A string representation of the argv array.
+    ///
+    /// This should be a space-separate list of strings. The value
+    /// ${SCRIPT_NAME} will be replaced with the Wagi SCRIPT_NAME,
+    /// and the value ${ARGS} will be replaced with the query parameter
+    /// name/value pairs presented as args. For example,
+    /// `param1=val1&param2=val2` will become `param1=val1 param2=val2`,
+    /// which will then be presented to the program as two arguments
+    /// in argv.
+    #[serde(default)]
+    pub argv: String,
+}
+
+impl Default for WagiTriggerConfig {
+    fn default() -> Self {
+        /// This is the default Wagi entrypoint.
+        const WAGI_DEFAULT_ENTRYPOINT: &str = "_start";
+        const WAGI_DEFAULT_ARGV: &str = "${SCRIPT_NAME} ${ARGS}";
+
+        Self {
+            entrypoint: WAGI_DEFAULT_ENTRYPOINT.to_owned(),
+            argv: WAGI_DEFAULT_ARGV.to_owned(),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct WagiHttpExecutor {
-    pub wagi_config: WagiConfig,
+    pub wagi_config: WagiTriggerConfig,
 }
 
 #[async_trait]
 impl HttpExecutor for WagiHttpExecutor {
     async fn execute(
         &self,
-        engine: &ExecutionContext,
+        engine: &TriggerAppEngine<HttpTrigger>,
         component: &str,
         base: &str,
         raw_route: &str,
         req: Request<Body>,
         client_addr: SocketAddr,
-        follow: bool,
     ) -> Result<Response<Body>> {
-        log::trace!(
+        tracing::trace!(
             "Executing request using the Wagi executor for component {}",
             component
         );
@@ -54,7 +86,7 @@ impl HttpExecutor for WagiHttpExecutor {
 
         let body = body::to_bytes(body).await?.to_vec();
         let len = body.len();
-        let (redirects, outputs) = Self::streams_from_body(body, follow);
+
         // TODO
         // The default host and TLS fields are currently hard-coded.
         let mut headers = util::build_headers(
@@ -83,14 +115,16 @@ impl HttpExecutor for WagiHttpExecutor {
             headers.insert(keys[1].to_string(), val);
         }
 
-        let (mut store, instance) = engine
-            .prepare_component(
-                component,
-                None,
-                Some(redirects),
-                Some(headers),
-                Some(argv.split(' ').map(|s| s.to_owned()).collect()),
-            )
+        let mut store_builder = engine.store_builder(component)?;
+
+        // Set up Wagi environment
+        store_builder.args(argv.split(' '))?;
+        store_builder.env(headers)?;
+        store_builder.stdin_pipe(Cursor::new(body));
+        let mut stdout_buffer = store_builder.stdout_buffered();
+
+        let (instance, mut store) = engine
+            .prepare_instance_with_store(component, store_builder)
             .await?;
 
         let start = instance
@@ -103,81 +137,18 @@ impl HttpExecutor for WagiHttpExecutor {
                 )
             })?;
         tracing::trace!("Calling Wasm entry point");
-        let guest_result = start.call_async(&mut store, &[], &mut []).await;
+        start
+            .call_async(&mut store, &[], &mut [])
+            .await
+            .or_else(ignore_successful_proc_exit_trap)?;
         tracing::info!("Module execution complete");
 
-        let log_result = engine.save_output_to_logs(outputs.read(), component, false, true);
-
-        // Defer checking for failures until here so that the logging runs
-        // even if the guest code fails. (And when checking, check the guest
-        // result first, so that guest failures are returned in preference to
-        // log failures.)
-        guest_result.or_else(ignore_successful_proc_exit_trap)?;
-        log_result?;
-
-        let stdout = outputs.stdout.read().unwrap();
-        util::compose_response(&stdout)
-    }
-}
-
-impl WagiHttpExecutor {
-    fn streams_from_body(
-        body: Vec<u8>,
-        follow_on_stderr: bool,
-    ) -> (RedirectPipes, WagiRedirectReadHandles) {
-        let stdin = ReadPipe::from(body);
-
-        let stdout_buf = vec![];
-        let stdout_lock = Arc::new(RwLock::new(stdout_buf));
-        let stdout_pipe = WritePipe::from_shared(stdout_lock.clone());
-
-        let (stderr_pipe, stderr_lock) = redirect_to_mem_buffer(Follow::stderr(follow_on_stderr));
-
-        let rd = RedirectPipes::new(
-            Box::new(stdin),
-            Box::new(stdout_pipe),
-            Box::new(stderr_pipe),
-        );
-
-        let h = WagiRedirectReadHandles {
-            stdout: stdout_lock,
-            stderr: stderr_lock,
-        };
-
-        (rd, h)
-    }
-}
-
-struct WagiRedirectReadHandles {
-    stdout: Arc<RwLock<Vec<u8>>>,
-    stderr: Arc<RwLock<WriteDestinations>>,
-}
-
-impl WagiRedirectReadHandles {
-    fn read(&self) -> impl OutputBuffers + '_ {
-        WagiRedirectReadHandlesLock {
-            stdout: self.stdout.read().unwrap(),
-            stderr: self.stderr.read().unwrap(),
-        }
-    }
-}
-
-struct WagiRedirectReadHandlesLock<'a> {
-    stdout: RwLockReadGuard<'a, Vec<u8>>,
-    stderr: RwLockReadGuard<'a, WriteDestinations>,
-}
-
-impl<'a> OutputBuffers for WagiRedirectReadHandlesLock<'a> {
-    fn stdout(&self) -> &[u8] {
-        &self.stdout
-    }
-    fn stderr(&self) -> &[u8] {
-        self.stderr.buffer()
+        util::compose_response(&stdout_buffer.take())
     }
 }
 
 fn ignore_successful_proc_exit_trap(guest_err: anyhow::Error) -> Result<()> {
-    match guest_err.root_cause().downcast_ref::<wasmtime::Trap>() {
+    match guest_err.root_cause().downcast_ref::<Trap>() {
         Some(trap) => match trap.i32_exit_status() {
             Some(0) => Ok(()),
             _ => Err(guest_err),

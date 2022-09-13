@@ -9,7 +9,7 @@ use anyhow::Result;
 use tracing::instrument;
 use wasmtime_wasi::WasiCtx;
 
-pub use wasmtime::{self, Instance, Module};
+pub use wasmtime::{self, Instance, Module, Trap};
 
 use self::host_component::{HostComponents, HostComponentsBuilder};
 

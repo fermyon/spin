@@ -1946,28 +1946,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mini-internal"
-version = "0.1.27"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a63337614a1d280fdb2880599af563c99e9f388757f8d6515d785d85d14fb01"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "miniserde"
-version = "0.1.27"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f4313e4a66a442473e181963daf8c1e9def85c2d9fb0bb2ae59444260b28285"
-dependencies = [
- "itoa 1.0.3",
- "mini-internal",
- "ryu",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3368,6 +3346,7 @@ dependencies = [
  "spin-redis-engine",
  "spin-templates",
  "spin-trigger",
+ "spin-trigger-new",
  "tempfile",
  "tokio",
  "toml",
@@ -3442,20 +3421,19 @@ dependencies = [
  "http",
  "hyper",
  "indexmap",
- "miniserde",
  "num_cpus",
  "percent-encoding",
  "rustls-pemfile 0.3.0",
- "spin-engine",
- "spin-manifest",
+ "serde",
+ "serde_json",
+ "spin-app",
+ "spin-core",
  "spin-testing",
- "spin-trigger",
+ "spin-trigger-new",
  "tls-listener",
  "tokio",
  "tokio-rustls",
  "tracing",
- "wasi-common",
- "wasmtime",
  "wit-bindgen-wasmtime",
 ]
 
@@ -3629,10 +3607,15 @@ dependencies = [
  "anyhow",
  "http",
  "hyper",
+ "serde",
+ "serde_json",
+ "spin-app",
+ "spin-core",
  "spin-engine",
  "spin-http",
  "spin-manifest",
  "spin-trigger",
+ "spin-trigger-new",
  "tracing-subscriber",
 ]
 

@@ -110,16 +110,17 @@ impl<'a> App<'a> {
         &self.uri
     }
 
-    pub fn get_metadata<'this, T: Deserialize<'this>>(&'this self, key: &str) -> Option<Result<T>> {
+    pub fn get_metadata<'this, T: Deserialize<'this>>(&'this self, key: &str) -> Result<Option<T>> {
         self.locked
             .metadata
             .get(key)
             .map(|value| Ok(T::deserialize(value)?))
+            .transpose()
     }
 
     pub fn require_metadata<'this, T: Deserialize<'this>>(&'this self, key: &str) -> Result<T> {
-        self.get_metadata(key)
-            .ok_or_else(|| Error::ManifestError(format!("missing required {key:?}")))?
+        self.get_metadata(key)?
+            .ok_or_else(|| Error::ManifestError(format!("missing required {key:?}")))
     }
 
     pub fn variables(&self) -> impl Iterator<Item = (&String, &Variable)> {
@@ -169,11 +170,18 @@ impl<'a> AppComponent<'a> {
         self.locked.files.iter()
     }
 
-    pub fn get_metadata<T: Deserialize<'a>>(&self, key: &str) -> Option<Result<T>> {
+    pub fn get_metadata<T: Deserialize<'a>>(&self, key: &str) -> Result<Option<T>> {
         self.locked
             .metadata
             .get(key)
-            .map(|value| Ok(T::deserialize(value)?))
+            .map(|value| {
+                T::deserialize(value).map_err(|err| {
+                    Error::ManifestError(format!(
+                        "failed to deserialize {key:?} = {value:?}: {err:?}"
+                    ))
+                })
+            })
+            .transpose()
     }
 
     pub fn config(&self) -> impl Iterator<Item = (&String, &String)> {

@@ -54,7 +54,7 @@ enum SpinApp {
 
 #[derive(Subcommand)]
 enum TriggerCommands {
-    Http(TriggerExecutorCommand<HttpTrigger>),
+    Http(spin_trigger_new::cli::TriggerExecutorCommand<HttpTrigger>),
     Redis(TriggerExecutorCommand<RedisTrigger>),
 }
 

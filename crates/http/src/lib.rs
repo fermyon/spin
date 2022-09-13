@@ -5,7 +5,7 @@ mod spin;
 mod tls;
 mod wagi;
 
-use std::{future::ready, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, future::ready, net::SocketAddr, path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Error, Result};
 use async_trait::async_trait;
@@ -18,10 +18,8 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use spin_http::SpinHttpData;
-use spin_manifest::{ComponentMap, HttpConfig, HttpTriggerConfiguration, TriggerConfig};
-use spin_trigger::TriggerExecutor;
-pub use tls::TlsConfig;
+use serde::{Deserialize, Serialize};
+use spin_trigger_new::{TriggerAppEngine, TriggerExecutor};
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
@@ -32,27 +30,25 @@ use crate::{
     spin::SpinHttpExecutor,
     wagi::WagiHttpExecutor,
 };
+pub use tls::TlsConfig;
+pub use wagi::WagiTriggerConfig;
 
 wit_bindgen_wasmtime::import!({paths: ["../../wit/ephemeral/spin-http.wit"], async: *});
 
-type ExecutionContext = spin_engine::ExecutionContext<SpinHttpData>;
-type RuntimeContext = spin_engine::RuntimeContext<SpinHttpData>;
+pub(crate) type RuntimeData = spin_http::SpinHttpData;
+pub(crate) type Store = spin_core::Store<RuntimeData>;
+
+/// App metadata key for storing HTTP trigger "base" value
+pub const HTTP_BASE_METADATA_KEY: &str = "http_base";
 
 /// The Spin HTTP trigger.
-///
-/// Could this contain a list of multiple HTTP applications?
-/// (there could be a field apps: HashMap<String, Config>, where
-/// the key is the base path for the application, and the trigger
-/// would work across multiple applications.)
 pub struct HttpTrigger {
-    /// Trigger configuration.
-    trigger_config: HttpTriggerConfiguration,
-    /// Component trigger configurations.
-    component_triggers: ComponentMap<HttpConfig>,
-    /// Router.
+    engine: TriggerAppEngine<Self>,
     router: Router,
-    /// Spin execution context.
-    engine: ExecutionContext,
+    // Base path for component routes.
+    base: String,
+    // Component ID -> component trigger config
+    component_trigger_configs: HashMap<String, HttpTriggerConfig>,
 }
 
 #[derive(Args)]
@@ -83,45 +79,70 @@ impl CliArgs {
     }
 }
 
-pub struct HttpTriggerConfig(String, HttpConfig);
+/// Configuration for the HTTP trigger
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct HttpTriggerConfig {
+    /// Component ID to invoke
+    pub component: String,
+    /// HTTP route the component will be invoked for
+    pub route: String,
+    /// The HTTP executor the component requires
+    #[serde(default)]
+    pub executor: Option<HttpExecutorType>,
+}
 
-impl TryFrom<(String, TriggerConfig)> for HttpTriggerConfig {
-    type Error = spin_manifest::Error;
-
-    fn try_from((component, config): (String, TriggerConfig)) -> Result<Self, Self::Error> {
-        Ok(HttpTriggerConfig(component, config.try_into()?))
-    }
+/// The executor for the HTTP component.
+/// The component can either implement the Spin HTTP interface,
+/// or the Wagi CGI interface.
+///
+/// If an executor is not specified, the inferred default is `HttpExecutor::Spin`.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "lowercase", tag = "type")]
+pub enum HttpExecutorType {
+    /// The component implements the Spin HTTP interface.
+    #[default]
+    Spin,
+    /// The component implements the Wagi CGI interface.
+    Wagi(WagiTriggerConfig),
 }
 
 #[async_trait]
 impl TriggerExecutor for HttpTrigger {
-    type GlobalConfig = HttpTriggerConfiguration;
+    const TRIGGER_TYPE: &'static str = "http";
+    type RuntimeData = RuntimeData;
     type TriggerConfig = HttpTriggerConfig;
     type RunConfig = CliArgs;
-    type RuntimeContext = SpinHttpData;
 
-    fn new(
-        execution_context: ExecutionContext,
-        global_config: Self::GlobalConfig,
-        trigger_configs: impl IntoIterator<Item = Self::TriggerConfig>,
-    ) -> Result<Self> {
-        let component_triggers: ComponentMap<HttpConfig> = trigger_configs
-            .into_iter()
-            .map(|config| (config.0, config.1))
-            .collect();
+    fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
+        let base = engine
+            .app()
+            .get_metadata(HTTP_BASE_METADATA_KEY)?
+            .unwrap_or("/")
+            .to_string();
 
-        let router = Router::build(&global_config.base, &component_triggers)?;
+        let component_routes = engine
+            .trigger_configs()
+            .map(|(_, config)| (config.component.as_str(), config.route.as_str()));
+
+        let router = Router::build(&base, component_routes)?;
+
         log::trace!(
             "Constructed router for application {}: {:?}",
-            execution_context.config.label,
+            engine.app_name,
             router.routes
         );
 
+        let component_trigger_configs = engine
+            .trigger_configs()
+            .map(|(_, config)| (config.component.clone(), config.clone()))
+            .collect();
+
         Ok(Self {
-            trigger_config: global_config,
-            component_triggers,
+            engine,
             router,
-            engine: execution_context,
+            base,
+            component_trigger_configs,
         })
     }
 
@@ -135,10 +156,10 @@ impl TriggerExecutor for HttpTrigger {
         println!("Serving {}", base_url);
         log::info!("Serving {}", base_url);
         println!("Available Routes:");
-        for (route, component) in &self.router.routes {
-            println!("  {}: {}{}", component, base_url, route);
-            if let Some(component) = self.engine.components.get(component) {
-                if let Some(description) = &component.core.description {
+        for (route, component_id) in &self.router.routes {
+            println!("  {}: {}{}", component_id, base_url, route);
+            if let Some(component) = self.engine.app().get_component(component_id) {
+                if let Some(description) = component.get_metadata::<&str>("description")? {
                     println!("    {}", description);
                 }
             }
@@ -165,7 +186,7 @@ impl HttpTrigger {
 
         log::info!(
             "Processing request for application {} on URI {}",
-            &self.engine.config.label,
+            &self.engine.app_name,
             req.uri()
         );
 
@@ -173,35 +194,25 @@ impl HttpTrigger {
             "/healthz" => Ok(Response::new(Body::from("OK"))),
             route => match self.router.route(route) {
                 Ok(component_id) => {
-                    let trigger = self.component_triggers.get(component_id).unwrap();
+                    let trigger = self.component_trigger_configs.get(component_id).unwrap();
 
-                    let executor = match &trigger.executor {
-                        Some(i) => i,
-                        None => &spin_manifest::HttpExecutor::Spin,
-                    };
-
-                    let follow = self
-                        .engine
-                        .config
-                        .follow_components
-                        .should_follow(component_id);
+                    let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Spin);
 
                     let res = match executor {
-                        spin_manifest::HttpExecutor::Spin => {
+                        HttpExecutorType::Spin => {
                             let executor = SpinHttpExecutor;
                             executor
                                 .execute(
                                     &self.engine,
                                     component_id,
-                                    &self.trigger_config.base,
+                                    &self.base,
                                     &trigger.route,
                                     req,
                                     addr,
-                                    follow,
                                 )
                                 .await
                         }
-                        spin_manifest::HttpExecutor::Wagi(wagi_config) => {
+                        HttpExecutorType::Wagi(wagi_config) => {
                             let executor = WagiHttpExecutor {
                                 wagi_config: wagi_config.clone(),
                             };
@@ -209,11 +220,10 @@ impl HttpTrigger {
                                 .execute(
                                     &self.engine,
                                     component_id,
-                                    &self.trigger_config.base,
+                                    &self.base,
                                     &trigger.route,
                                     req,
                                     addr,
-                                    follow,
                                 )
                                 .await
                         }
@@ -393,13 +403,12 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
     #[allow(clippy::too_many_arguments)]
     async fn execute(
         &self,
-        engine: &ExecutionContext,
-        component: &str,
+        engine: &TriggerAppEngine<HttpTrigger>,
+        component_id: &str,
         base: &str,
         raw_route: &str,
         req: Request<Body>,
         client_addr: SocketAddr,
-        follow: bool,
     ) -> Result<Response<Body>>;
 }
 
@@ -408,9 +417,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use anyhow::Result;
-    use spin_manifest::{HttpConfig, HttpExecutor};
     use spin_testing::test_socket_addr;
-    use spin_trigger::TriggerExecutorBuilder;
 
     use super::*;
 
@@ -526,15 +533,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_spin_http() -> Result<()> {
-        let mut cfg = spin_testing::TestConfig::default();
-        cfg.test_program("rust-http-test.wasm")
-            .http_trigger(HttpConfig {
-                route: "/test".to_string(),
-                executor: Some(HttpExecutor::Spin),
-            });
-        let app = cfg.build_application();
-
-        let trigger: HttpTrigger = TriggerExecutorBuilder::new(app).build().await?;
+        let trigger = spin_testing::TestConfig::default()
+            .test_program("rust-http-test.wasm")
+            .http_spin_trigger("/test")
+            .build_http_trigger()
+            .await;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
@@ -555,14 +558,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_wagi_http() -> Result<()> {
-        let mut cfg = spin_testing::TestConfig::default();
-        cfg.test_program("wagi-test.wasm").http_trigger(HttpConfig {
-            route: "/test".to_string(),
-            executor: Some(HttpExecutor::Wagi(Default::default())),
-        });
-        let app = cfg.build_application();
-
-        let trigger: HttpTrigger = TriggerExecutorBuilder::new(app).build().await?;
+        let trigger = spin_testing::TestConfig::default()
+            .test_program("wagi-test.wasm")
+            .http_wagi_trigger("/test", Default::default())
+            .build_http_trigger()
+            .await;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
         let req = http::Request::builder()
@@ -579,13 +579,13 @@ mod tests {
         assert_eq!(res.status(), StatusCode::OK);
         let body_bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
 
-        #[derive(miniserde::Deserialize)]
+        #[derive(Deserialize)]
         struct Env {
             args: Vec<String>,
             vars: BTreeMap<String, String>,
         }
         let env: Env =
-            miniserde::json::from_str(std::str::from_utf8(body_bytes.as_ref()).unwrap()).unwrap();
+            serde_json::from_str(std::str::from_utf8(body_bytes.as_ref()).unwrap()).unwrap();
 
         assert_eq!(env.args, ["/test", "abc=def"]);
         assert_eq!(env.vars["HTTP_X_CUSTOM_FOO"], "bar".to_string());

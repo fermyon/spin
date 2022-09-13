@@ -9,12 +9,18 @@ use std::{
 
 use http::Response;
 use hyper::Body;
-use spin_http::HttpTrigger;
+use serde::de::DeserializeOwned;
+use spin_app::{
+    async_trait,
+    locked::{LockedApp, LockedComponentSource},
+    AppComponent, Loader,
+};
+use spin_core::{Module, StoreBuilder};
+use spin_http::{HttpExecutorType, HttpTrigger, HttpTriggerConfig, WagiTriggerConfig};
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
-    HttpConfig, ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion, TriggerConfig,
+    ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion, TriggerConfig,
 };
-use spin_trigger::TriggerExecutorBuilder;
 
 /// Initialize a test writer for `tracing`, making its output compatible with libtest
 pub fn init_tracing() {
@@ -24,11 +30,19 @@ pub fn init_tracing() {
     })
 }
 
+// Convenience wrapper for deserializing from literal JSON
+macro_rules! from_json {
+    ($($json:tt)+) => {
+        serde_json::from_value(serde_json::json!($($json)+)).expect("valid json")
+    };
+}
+
 #[derive(Default)]
 pub struct TestConfig {
     module_path: Option<PathBuf>,
     application_trigger: Option<ApplicationTrigger>,
     trigger_config: Option<TriggerConfig>,
+    http_trigger_config: HttpTriggerConfig,
 }
 
 impl TestConfig {
@@ -46,17 +60,33 @@ impl TestConfig {
         )
     }
 
-    pub fn http_trigger(&mut self, config: HttpConfig) -> &mut Self {
-        self.application_trigger = Some(ApplicationTrigger::Http(Default::default()));
-        self.trigger_config = Some(TriggerConfig::Http(config));
-        self
-    }
-
     pub fn redis_trigger(&mut self, config: RedisConfig) -> &mut Self {
         self.application_trigger = Some(ApplicationTrigger::Redis(RedisTriggerConfiguration {
             address: "redis://localhost:6379".to_owned(),
         }));
         self.trigger_config = Some(TriggerConfig::Redis(config));
+        self
+    }
+
+    pub fn http_spin_trigger(&mut self, route: impl Into<String>) -> &mut Self {
+        self.http_trigger_config = HttpTriggerConfig {
+            component: "test-component".to_string(),
+            route: route.into(),
+            executor: None,
+        };
+        self
+    }
+
+    pub fn http_wagi_trigger(
+        &mut self,
+        route: impl Into<String>,
+        wagi_config: WagiTriggerConfig,
+    ) -> &mut Self {
+        self.http_trigger_config = HttpTriggerConfig {
+            component: "test-component".to_string(),
+            route: route.into(),
+            executor: Some(HttpExecutorType::Wagi(wagi_config)),
+        };
         self
     }
 
@@ -108,11 +138,85 @@ impl TestConfig {
         }
     }
 
-    pub async fn build_http_trigger(&self) -> HttpTrigger {
-        TriggerExecutorBuilder::new(self.build_application())
-            .build()
+    pub fn build_locked_app(&self) -> LockedApp {
+        let components = from_json!([{
+            "id": "test-component",
+            "source": {
+                "content_type": "application/wasm",
+                "digest": "test-source",
+            },
+        }]);
+        let triggers = from_json!([
+            {
+                "id": "test-http-trigger",
+                "trigger_type": "http",
+                "trigger_config": self.http_trigger_config,
+            },
+        ]);
+        let metadata = from_json!({"name": "test-app", "redis_address": "test-redis-host"});
+        let variables = Default::default();
+        LockedApp {
+            spin_lock_version: spin_app::locked::FixedVersion,
+            components,
+            triggers,
+            metadata,
+            variables,
+        }
+    }
+
+    pub fn build_loader(&self) -> impl Loader {
+        init_tracing();
+        TestLoader {
+            app: self.build_locked_app(),
+            module_path: self.module_path.clone().expect("module path to be set"),
+        }
+    }
+
+    pub async fn build_trigger<Executor: spin_trigger_new::TriggerExecutor>(&self) -> Executor
+    where
+        Executor::TriggerConfig: DeserializeOwned,
+    {
+        spin_trigger_new::TriggerExecutorBuilder::new(self.build_loader())
+            .build(TEST_APP_URI.to_string())
             .await
             .unwrap()
+    }
+
+    pub async fn build_http_trigger(&self) -> HttpTrigger {
+        self.build_trigger().await
+    }
+}
+
+const TEST_APP_URI: &str = "spin-test:";
+
+struct TestLoader {
+    app: LockedApp,
+    module_path: PathBuf,
+}
+
+#[async_trait]
+impl Loader for TestLoader {
+    async fn load_app(&self, uri: &str) -> anyhow::Result<LockedApp> {
+        assert_eq!(uri, TEST_APP_URI);
+        Ok(self.app.clone())
+    }
+
+    async fn load_module(
+        &self,
+        engine: &spin_core::wasmtime::Engine,
+        source: &LockedComponentSource,
+    ) -> anyhow::Result<spin_core::Module> {
+        assert_eq!(source.content.digest.as_deref(), Some("test-source"),);
+        Module::from_file(engine, &self.module_path)
+    }
+
+    async fn mount_files(
+        &self,
+        _store_builder: &mut StoreBuilder,
+        component: &AppComponent,
+    ) -> anyhow::Result<()> {
+        assert_eq!(component.files().len(), 0, "files testing not implemented");
+        Ok(())
     }
 }
 

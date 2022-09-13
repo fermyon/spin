@@ -3345,7 +3345,6 @@ dependencies = [
  "spin-publish",
  "spin-redis-engine",
  "spin-templates",
- "spin-trigger",
  "spin-trigger-new",
  "tempfile",
  "tokio",
@@ -3542,13 +3541,12 @@ dependencies = [
  "async-trait",
  "futures",
  "redis",
- "spin-engine",
- "spin-manifest",
+ "serde",
+ "spin-app",
+ "spin-core",
  "spin-testing",
- "spin-trigger",
- "tokio",
+ "spin-trigger-new",
  "tracing",
- "wasmtime",
  "wit-bindgen-wasmtime",
 ]
 
@@ -3611,11 +3609,9 @@ dependencies = [
  "serde_json",
  "spin-app",
  "spin-core",
- "spin-engine",
  "spin-http",
- "spin-manifest",
- "spin-trigger",
  "spin-trigger-new",
+ "tokio",
  "tracing-subscriber",
 ]
 

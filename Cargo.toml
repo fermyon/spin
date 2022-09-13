@@ -40,7 +40,6 @@ spin-plugins = { path = "crates/plugins" }
 spin-publish = { path = "crates/publish" }
 spin-redis-engine = { path = "crates/redis" }
 spin-templates = { path = "crates/templates" }
-spin-trigger = { path = "crates/trigger" }
 spin-trigger-new = { path = "crates/trigger-new" }
 tempfile = "3.3.0"
 tokio = { version = "1.11", features = [ "full" ] }

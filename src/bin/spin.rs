@@ -8,7 +8,7 @@ use spin_cli::commands::{
 };
 use spin_http::HttpTrigger;
 use spin_redis_engine::RedisTrigger;
-use spin_trigger::cli::TriggerExecutorCommand;
+use spin_trigger_new::cli::TriggerExecutorCommand;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -54,7 +54,7 @@ enum SpinApp {
 
 #[derive(Subcommand)]
 enum TriggerCommands {
-    Http(spin_trigger_new::cli::TriggerExecutorCommand<HttpTrigger>),
+    Http(TriggerExecutorCommand<HttpTrigger>),
     Redis(TriggerExecutorCommand<RedisTrigger>),
 }
 

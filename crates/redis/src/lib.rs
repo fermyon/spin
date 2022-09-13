@@ -2,100 +2,81 @@
 
 mod spin;
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};
-use spin_manifest::{ComponentMap, RedisConfig, RedisTriggerConfiguration, TriggerConfig};
-use spin_redis::SpinRedisData;
-use spin_trigger::{cli::NoArgs, TriggerExecutor};
+use serde::{de::IgnoredAny, Deserialize, Serialize};
+use spin_trigger_new::{cli::NoArgs, TriggerAppEngine, TriggerExecutor};
 
 use crate::spin::SpinRedisExecutor;
 
 wit_bindgen_wasmtime::import!({paths: ["../../wit/ephemeral/spin-redis.wit"], async: *});
 
-type ExecutionContext = spin_engine::ExecutionContext<SpinRedisData>;
-type RuntimeContext = spin_engine::RuntimeContext<SpinRedisData>;
+pub(crate) type RuntimeData = spin_redis::SpinRedisData;
+pub(crate) type Store = spin_core::Store<RuntimeData>;
 
 /// The Spin Redis trigger.
-#[derive(Clone)]
 pub struct RedisTrigger {
-    /// Trigger configuration.
-    trigger_config: RedisTriggerConfiguration,
-    /// Component trigger configurations.
-    component_triggers: ComponentMap<RedisConfig>,
-    /// Spin execution context.
-    engine: Arc<ExecutionContext>,
-    /// Map from channel name to tuple of component name & index.
-    subscriptions: HashMap<String, usize>,
+    engine: TriggerAppEngine<Self>,
+    // Redis address to connect to
+    address: String,
+    // Mapping of subscription channels to component IDs
+    channel_components: HashMap<String, String>,
 }
 
-pub struct RedisTriggerConfig(String, RedisConfig);
-
-impl TryFrom<(String, TriggerConfig)> for RedisTriggerConfig {
-    type Error = spin_manifest::Error;
-
-    fn try_from((component, config): (String, TriggerConfig)) -> Result<Self, Self::Error> {
-        Ok(RedisTriggerConfig(component, config.try_into()?))
-    }
+/// Redis trigger configuration.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RedisTriggerConfig {
+    /// Component ID to invoke
+    pub component: String,
+    /// Channel to subscribe to
+    pub channel: String,
+    /// Trigger executor (currently unused)
+    #[serde(default, skip_serializing)]
+    pub executor: IgnoredAny,
 }
 
 #[async_trait]
 impl TriggerExecutor for RedisTrigger {
-    type GlobalConfig = RedisTriggerConfiguration;
+    const TRIGGER_TYPE: &'static str = "redis";
+    type RuntimeData = RuntimeData;
     type TriggerConfig = RedisTriggerConfig;
     type RunConfig = NoArgs;
-    type RuntimeContext = SpinRedisData;
 
-    fn new(
-        execution_context: ExecutionContext,
-        global_config: Self::GlobalConfig,
-        trigger_configs: impl IntoIterator<Item = Self::TriggerConfig>,
-    ) -> Result<Self> {
-        let component_triggers: ComponentMap<RedisConfig> = trigger_configs
-            .into_iter()
-            .map(|config| (config.0, config.1))
-            .collect();
-        let subscriptions = execution_context
-            .config
-            .components
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, component)| {
-                component_triggers
-                    .get(&component.id)
-                    .map(|redis_config| (redis_config.channel.clone(), idx))
-            })
+    fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
+        let address = engine
+            .app()
+            .require_metadata("redis_address")
+            .context("Failed to configure Redis trigger")?;
+
+        let channel_components = engine
+            .trigger_configs()
+            .map(|(_, config)| (config.channel.clone(), config.component.clone()))
             .collect();
 
         Ok(Self {
-            trigger_config: global_config,
-            component_triggers,
-            engine: Arc::new(execution_context),
-            subscriptions,
+            engine,
+            address,
+            channel_components,
         })
     }
 
     /// Run the Redis trigger indefinitely.
     async fn run(self, _config: Self::RunConfig) -> Result<()> {
-        let address = self.trigger_config.address.as_str();
+        let address = &self.address;
 
         tracing::info!("Connecting to Redis server at {}", address);
         let mut client = Client::open(address.to_string())?;
         let mut pubsub = client.get_async_connection().await?.into_pubsub();
 
         // Subscribe to channels
-        for (subscription, idx) in self.subscriptions.iter() {
-            let name = &self.engine.config.components[*idx].id;
-            tracing::info!(
-                "Subscribed component #{} ({}) to channel: {}",
-                idx,
-                name,
-                subscription
-            );
-            pubsub.subscribe(subscription).await?;
+        for (channel, component) in self.channel_components.iter() {
+            tracing::info!("Subscribing component {component:?} to channel {channel:?}");
+            pubsub.subscribe(channel).await?;
         }
 
         let mut stream = pubsub.on_message();
@@ -120,35 +101,12 @@ impl RedisTrigger {
         let channel = msg.get_channel_name();
         tracing::info!("Received message on channel {:?}", channel);
 
-        if let Some(idx) = self.subscriptions.get(channel).copied() {
-            let component = &self.engine.config.components[idx];
-            let executor = self
-                .component_triggers
-                .get(&component.id)
-                .and_then(|t| t.executor.clone())
-                .unwrap_or_default();
-
-            let follow = self
-                .engine
-                .config
-                .follow_components
-                .should_follow(&component.id);
-
-            match executor {
-                spin_manifest::RedisExecutor::Spin => {
-                    tracing::trace!("Executing Spin Redis component {}", component.id);
-                    let executor = SpinRedisExecutor;
-                    executor
-                        .execute(
-                            &self.engine,
-                            &component.id,
-                            channel,
-                            msg.get_payload_bytes(),
-                            follow,
-                        )
-                        .await?
-                }
-            };
+        if let Some(component_id) = self.channel_components.get(channel) {
+            tracing::trace!("Executing Redis component {component_id:?}");
+            let executor = SpinRedisExecutor;
+            executor
+                .execute(&self.engine, component_id, channel, msg.get_payload_bytes())
+                .await?
         } else {
             tracing::debug!("No subscription found for {:?}", channel);
         }
@@ -163,11 +121,10 @@ impl RedisTrigger {
 pub(crate) trait RedisExecutor: Clone + Send + Sync + 'static {
     async fn execute(
         &self,
-        engine: &ExecutionContext,
-        component: &str,
+        engine: &TriggerAppEngine<RedisTrigger>,
+        component_id: &str,
         channel: &str,
         payload: &[u8],
-        follow: bool,
     ) -> Result<()>;
 }
 

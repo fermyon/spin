@@ -17,10 +17,9 @@ use spin_app::{
 };
 use spin_core::{Module, StoreBuilder};
 use spin_http::{HttpExecutorType, HttpTrigger, HttpTriggerConfig, WagiTriggerConfig};
-use spin_manifest::{
-    Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
-    ModuleSource, RedisConfig, RedisTriggerConfiguration, SpinVersion, TriggerConfig,
-};
+use spin_trigger_new::{TriggerExecutor, TriggerExecutorBuilder};
+
+pub use tokio;
 
 /// Initialize a test writer for `tracing`, making its output compatible with libtest
 pub fn init_tracing() {
@@ -40,9 +39,8 @@ macro_rules! from_json {
 #[derive(Default)]
 pub struct TestConfig {
     module_path: Option<PathBuf>,
-    application_trigger: Option<ApplicationTrigger>,
-    trigger_config: Option<TriggerConfig>,
     http_trigger_config: HttpTriggerConfig,
+    redis_channel: String,
 }
 
 impl TestConfig {
@@ -58,14 +56,6 @@ impl TestConfig {
                 .join("../../target/test-programs")
                 .join(name),
         )
-    }
-
-    pub fn redis_trigger(&mut self, config: RedisConfig) -> &mut Self {
-        self.application_trigger = Some(ApplicationTrigger::Redis(RedisTriggerConfiguration {
-            address: "redis://localhost:6379".to_owned(),
-        }));
-        self.trigger_config = Some(TriggerConfig::Redis(config));
-        self
     }
 
     pub fn http_spin_trigger(&mut self, route: impl Into<String>) -> &mut Self {
@@ -90,52 +80,9 @@ impl TestConfig {
         self
     }
 
-    pub fn build_application_information(&self) -> ApplicationInformation {
-        ApplicationInformation {
-            spin_version: SpinVersion::V1,
-            name: "test-app".to_string(),
-            version: "1.0.0".to_string(),
-            description: None,
-            authors: vec![],
-            trigger: self
-                .application_trigger
-                .clone()
-                .expect("http_trigger or redis_trigger required"),
-            namespace: None,
-            origin: ApplicationOrigin::File(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fake_spin.toml"),
-            ),
-        }
-    }
-
-    pub fn build_component(&self) -> CoreComponent {
-        let module_path = self
-            .module_path
-            .clone()
-            .expect("module_path or test_program required");
-        CoreComponent {
-            source: ModuleSource::FileReference(module_path),
-            id: "test-component".to_string(),
-            description: None,
-            wasm: Default::default(),
-            config: Default::default(),
-        }
-    }
-
-    pub fn build_application(&self) -> Application {
-        Application {
-            info: self.build_application_information(),
-            components: vec![self.build_component()],
-            component_triggers: [(
-                "test-component".to_string(),
-                self.trigger_config
-                    .clone()
-                    .expect("http_trigger or redis_trigger required"),
-            )]
-            .into_iter()
-            .collect(),
-            variables: Default::default(),
-        }
+    pub fn redis_trigger(&mut self, channel: impl Into<String>) -> &mut Self {
+        self.redis_channel = channel.into();
+        self
     }
 
     pub fn build_locked_app(&self) -> LockedApp {
@@ -172,11 +119,11 @@ impl TestConfig {
         }
     }
 
-    pub async fn build_trigger<Executor: spin_trigger_new::TriggerExecutor>(&self) -> Executor
+    pub async fn build_trigger<Executor: TriggerExecutor>(&self) -> Executor
     where
         Executor::TriggerConfig: DeserializeOwned,
     {
-        spin_trigger_new::TriggerExecutorBuilder::new(self.build_loader())
+        TriggerExecutorBuilder::new(self.build_loader())
             .build(TEST_APP_URI.to_string())
             .await
             .unwrap()

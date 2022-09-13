@@ -11,7 +11,7 @@ async fn test_from_local_source() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, dir, &None, false).await?;
+    let app = from_file(MANIFEST, dir, &None).await?;
 
     assert_eq!(app.info.name, "spin-local-source-test");
     assert_eq!(app.info.version, "1.0.0");
@@ -105,7 +105,7 @@ async fn test_invalid_manifest() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, dir, &None, false).await;
+    let app = from_file(MANIFEST, dir, &None).await;
 
     let e = app.unwrap_err().to_string();
     assert!(
@@ -162,7 +162,7 @@ async fn test_duplicate_component_id_is_rejected() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, dir, &None, false).await;
+    let app = from_file(MANIFEST, dir, &None).await;
 
     assert!(
         app.is_err(),
@@ -184,7 +184,7 @@ async fn test_insecure_allow_all_with_invalid_url() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, dir, &None, false).await;
+    let app = from_file(MANIFEST, dir, &None).await;
 
     assert!(
         app.is_ok(),
@@ -200,7 +200,7 @@ async fn test_invalid_url_in_allowed_http_hosts_is_rejected() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, dir, &None, false).await;
+    let app = from_file(MANIFEST, dir, &None).await;
 
     assert!(app.is_err(), "Expected allowed_http_hosts parsing error");
 

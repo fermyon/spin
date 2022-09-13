@@ -230,7 +230,7 @@ mod tests {
         let tempdir = TempDir::new().expect("tempdir");
         std::env::set_current_dir(tempdir.path()).unwrap();
         std::fs::write("spin.toml", TEST_MANIFEST).expect("write manifest");
-        let app = spin_loader::local::from_file("spin.toml", &tempdir, &None, false)
+        let app = spin_loader::local::from_file("spin.toml", &tempdir, &None)
             .await
             .expect("load app");
         (app, tempdir)

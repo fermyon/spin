@@ -33,7 +33,6 @@ pub async fn from_file(
     app: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
-    allow_transient_write: bool,
 ) -> Result<Application> {
     let app = app
         .as_ref()
@@ -42,14 +41,7 @@ pub async fn from_file(
     let manifest = raw_manifest_from_file(&app).await?;
     validate_raw_app_manifest(&manifest)?;
 
-    prepare_any_version(
-        manifest,
-        app,
-        base_dst,
-        bindle_connection,
-        allow_transient_write,
-    )
-    .await
+    prepare_any_version(manifest, app, base_dst, bindle_connection).await
 }
 
 /// Reads the spin.toml file as a raw manifest.
@@ -75,12 +67,9 @@ async fn prepare_any_version(
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
-    allow_transient_write: bool,
 ) -> Result<Application> {
     match raw {
-        RawAppManifestAnyVersion::V1(raw) => {
-            prepare(raw, src, base_dst, bindle_connection, allow_transient_write).await
-        }
+        RawAppManifestAnyVersion::V1(raw) => prepare(raw, src, base_dst, bindle_connection).await,
     }
 }
 
@@ -116,7 +105,6 @@ async fn prepare(
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
-    allow_transient_write: bool,
 ) -> Result<Application> {
     let info = info(raw.info, &src);
 
@@ -131,9 +119,7 @@ async fn prepare(
     let components = future::join_all(
         raw.components
             .into_iter()
-            .map(|c| async {
-                core(c, &src, &base_dst, bindle_connection, allow_transient_write).await
-            })
+            .map(|c| async { core(c, &src, &base_dst, bindle_connection).await })
             .collect::<Vec<_>>(),
     )
     .await
@@ -161,7 +147,6 @@ async fn core(
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
-    allow_transient_write: bool,
 ) -> Result<CoreComponent> {
     let id = raw.id;
 
@@ -209,15 +194,7 @@ async fn core(
     let mounts = match raw.wasm.files {
         Some(f) => {
             let exclude_files = raw.wasm.exclude_files.unwrap_or_default();
-            assets::prepare_component(
-                &f,
-                src,
-                &base_dst,
-                &id,
-                allow_transient_write,
-                &exclude_files,
-            )
-            .await?
+            assets::prepare_component(&f, src, &base_dst, &id, &exclude_files).await?
         }
         None => vec![],
     };

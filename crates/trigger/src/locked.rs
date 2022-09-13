@@ -20,7 +20,7 @@ const WASM_CONTENT_TYPE: &str = "application/wasm";
 /// Construct a LockedApp from the given Application. Any buffered component
 /// sources will be written to the given `working_dir`.
 pub fn build_locked_app(app: Application, working_dir: impl Into<PathBuf>) -> Result<LockedApp> {
-    let working_dir = working_dir.into();
+    let working_dir = working_dir.into().canonicalize()?;
     LockedAppBuilder { working_dir }.build(app)
 }
 
@@ -51,7 +51,7 @@ impl LockedAppBuilder {
         builder.string(
             "origin",
             match info.origin {
-                spin_manifest::ApplicationOrigin::File(path) => file_uri(&path, false)?,
+                spin_manifest::ApplicationOrigin::File(path) => file_uri(&path)?,
                 spin_manifest::ApplicationOrigin::Bindle { id, server } => {
                     format!("bindle+{server}?id={id}")
                 }
@@ -145,7 +145,7 @@ impl LockedAppBuilder {
             };
             LockedComponentSource {
                 content_type: WASM_CONTENT_TYPE.into(),
-                content: content_ref_path(&path, false)?,
+                content: content_ref_path(&path)?,
             }
         };
 
@@ -157,7 +157,7 @@ impl LockedAppBuilder {
             .into_iter()
             .map(|mount| {
                 Ok(ContentPath {
-                    content: content_ref_path(&mount.host, true)?,
+                    content: content_ref_path(&mount.host)?,
                     path: mount.guest.into(),
                 })
             })
@@ -176,20 +176,21 @@ impl LockedAppBuilder {
     }
 }
 
-fn content_ref_path(path: &Path, is_dir: bool) -> Result<ContentRef> {
+fn content_ref_path(path: &Path) -> Result<ContentRef> {
     Ok(ContentRef {
-        source: Some(file_uri(path, is_dir)?),
+        source: Some(file_uri(path)?),
         ..Default::default()
     })
 }
 
-fn file_uri(path: &Path, is_dir: bool) -> Result<String> {
-    let uri = if is_dir {
-        url::Url::from_directory_path(path)
+fn file_uri(path: &Path) -> Result<String> {
+    let path = path.canonicalize()?;
+    let uri = if path.is_dir() {
+        url::Url::from_directory_path(&path)
     } else {
-        url::Url::from_file_path(path)
+        url::Url::from_file_path(&path)
     }
-    .map_err(|err| anyhow!("Could not construct file URI: {err:?}"))?;
+    .map_err(|_| anyhow!("Could not construct file URI for {path:?}"))?;
     Ok(uri.to_string())
 }
 
@@ -211,7 +212,7 @@ mod tests {
         [[component]]
         id = "test-component"
         source = "test-source.wasm"
-        files = ["content/*"]
+        files = ["static.txt"]
         allowed_http_hosts = ["example.com"]
         [component.config]
         test_config = "{{test_var}}"
@@ -220,7 +221,7 @@ mod tests {
 
         [[component]]
         id = "test-component-2"
-        source = "test-source-2.wasm"
+        source = "test-source.wasm"
         allowed_http_hosts = ["insecure:allow-all"]
         [component.trigger]
         route = "/other"
@@ -230,6 +231,8 @@ mod tests {
         let tempdir = TempDir::new().expect("tempdir");
         std::env::set_current_dir(tempdir.path()).unwrap();
         std::fs::write("spin.toml", TEST_MANIFEST).expect("write manifest");
+        std::fs::write("test-source.wasm", "not actual wasm").expect("write source");
+        std::fs::write("static.txt", "content").expect("write static");
         let app = spin_loader::local::from_file("spin.toml", &tempdir, &None)
             .await
             .expect("load app");

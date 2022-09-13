@@ -3345,7 +3345,7 @@ dependencies = [
  "spin-publish",
  "spin-redis-engine",
  "spin-templates",
- "spin-trigger-new",
+ "spin-trigger",
  "tempfile",
  "tokio",
  "toml",
@@ -3428,7 +3428,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-testing",
- "spin-trigger-new",
+ "spin-trigger",
  "tls-listener",
  "tokio",
  "tokio-rustls",
@@ -3545,7 +3545,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-testing",
- "spin-trigger-new",
+ "spin-trigger",
  "tracing",
  "wit-bindgen-wasmtime",
 ]
@@ -3610,7 +3610,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-http",
- "spin-trigger-new",
+ "spin-trigger",
  "tokio",
  "tracing-subscriber",
 ]
@@ -3630,26 +3630,6 @@ dependencies = [
 
 [[package]]
 name = "spin-trigger"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap 3.2.19",
- "ctrlc",
- "dotenvy",
- "futures",
- "outbound-http",
- "outbound-pg",
- "outbound-redis",
- "spin-engine",
- "spin-loader",
- "spin-manifest",
- "tracing",
- "wasmtime",
-]
-
-[[package]]
-name = "spin-trigger-new"
 version = "0.2.0"
 dependencies = [
  "anyhow",

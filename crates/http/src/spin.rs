@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use hyper::{Body, Request, Response};
 use spin_core::Instance;
-use spin_trigger_new::TriggerAppEngine;
+use spin_trigger::TriggerAppEngine;
 
 use crate::{
     spin_http::{Method, SpinHttp},

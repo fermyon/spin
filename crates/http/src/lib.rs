@@ -19,7 +19,7 @@ use hyper::{
     Body, Request, Response, Server,
 };
 use serde::{Deserialize, Serialize};
-use spin_trigger_new::{TriggerAppEngine, TriggerExecutor};
+use spin_trigger::{TriggerAppEngine, TriggerExecutor};
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;

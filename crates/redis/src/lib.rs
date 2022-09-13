@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};
 use serde::{de::IgnoredAny, Deserialize, Serialize};
-use spin_trigger_new::{cli::NoArgs, TriggerAppEngine, TriggerExecutor};
+use spin_trigger::{cli::NoArgs, TriggerAppEngine, TriggerExecutor};
 
 use crate::spin::SpinRedisExecutor;
 

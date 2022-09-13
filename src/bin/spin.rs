@@ -8,7 +8,7 @@ use spin_cli::commands::{
 };
 use spin_http::HttpTrigger;
 use spin_redis_engine::RedisTrigger;
-use spin_trigger_new::cli::TriggerExecutorCommand;
+use spin_trigger::cli::TriggerExecutorCommand;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {

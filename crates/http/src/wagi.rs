@@ -10,7 +10,7 @@ use hyper::{
 };
 use serde::{Deserialize, Serialize};
 use spin_core::Trap;
-use spin_trigger_new::TriggerAppEngine;
+use spin_trigger::TriggerAppEngine;
 
 use crate::{routes::RoutePattern, HttpExecutor, HttpTrigger};
 

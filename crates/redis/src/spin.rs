@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use spin_core::Instance;
-use spin_trigger_new::TriggerAppEngine;
+use spin_trigger::TriggerAppEngine;
 
 use crate::{spin_redis::SpinRedis, RedisExecutor, RedisTrigger, Store};
 

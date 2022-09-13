@@ -21,7 +21,7 @@ rustls-pemfile = "0.3.0"
 serde = { version = "1.0", features = ["derive"] }
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
-spin-trigger-new = { path = "../trigger-new" }
+spin-trigger = { path = "../trigger" }
 tls-listener = { version = "0.4.0", features = [
     "rustls",
     "hyper-h1",

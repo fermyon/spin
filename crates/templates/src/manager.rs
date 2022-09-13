@@ -409,6 +409,11 @@ mod tests {
         PathBuf::from(crate_dir).join("..").join("..")
     }
 
+    fn test_data_root() -> PathBuf {
+        let crate_dir = env!("CARGO_MANIFEST_DIR");
+        PathBuf::from(crate_dir).join("tests")
+    }
+
     const TPLS_IN_THIS: usize = 8;
 
     #[tokio::test]
@@ -686,5 +691,50 @@ mod tests {
             .await
             .unwrap();
         assert!(spin_toml.contains("route = \"/...\""));
+    }
+
+    #[tokio::test]
+    async fn can_use_custom_filter_in_template() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(test_data_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let template = manager.get("testing-custom-filter").unwrap().unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let output_dir = dest_temp_dir.path().join("myproj");
+        let values = [
+            ("p1".to_owned(), "biscuits".to_owned()),
+            ("p2".to_owned(), "nomnomnom".to_owned()),
+        ]
+        .into_iter()
+        .collect();
+        let options = RunOptions {
+            output_path: output_dir.clone(),
+            name: "custom-filter-test".to_owned(),
+            values,
+            accept_defaults: false,
+        };
+
+        template
+            .run(options)
+            .silent()
+            .await
+            .execute()
+            .await
+            .unwrap();
+
+        let message = tokio::fs::read_to_string(output_dir.join("test.txt"))
+            .await
+            .unwrap();
+        assert!(message.contains("p1/studly = bIsCuItS"));
+        assert!(message.contains("p2/studly = nOmNoMnOm"));
+        assert!(message.contains("p1/clappy = b👏i👏s👏c👏u👏i👏t👏s"));
     }
 }

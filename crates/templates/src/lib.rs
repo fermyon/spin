@@ -3,6 +3,7 @@
 #![deny(missing_docs)]
 
 mod constraints;
+mod custom_filters;
 mod directory;
 mod environment;
 mod filters;

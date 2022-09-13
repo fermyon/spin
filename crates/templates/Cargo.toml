@@ -35,3 +35,10 @@ tokio = { version = "1.10", features = [ "fs", "process", "rt", "macros" ] }
 toml = "0.5"
 url = "2.2.2"
 walkdir = "2"
+wasmtime = { version = "0.39.1", features = [ "async" ] }
+wasmtime-wasi = "0.39.1"
+
+[dependencies.wit-bindgen-wasmtime]
+git = "https://github.com/bytecodealliance/wit-bindgen"
+rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
+features = ["async"]

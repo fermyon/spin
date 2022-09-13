@@ -3573,6 +3573,9 @@ dependencies = [
  "toml",
  "url",
  "walkdir",
+ "wasmtime",
+ "wasmtime-wasi",
+ "wit-bindgen-wasmtime",
 ]
 
 [[package]]

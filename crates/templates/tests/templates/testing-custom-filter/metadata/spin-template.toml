@@ -1,0 +1,15 @@
+manifest_version = "1"
+id = "testing-custom-filter"
+description = "TEST - do not use"
+
+[parameters]
+p1 = { type = "string", prompt = "P1" }
+p2 = { type = "string", prompt = "P2" }
+
+[[custom_filters]]
+name = "studly_caps"
+wasm = "studly_caps.wasm"
+
+[[custom_filters]]
+name = "clappy"
+wasm = "clappy.wasm"

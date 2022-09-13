@@ -5,7 +5,7 @@ use spin_plugins::{
     fetch_plugins_repo,
     manager::{self, ManifestLocation, PluginManager},
     manifest::{PluginManifest, PluginPackage},
-    prompt, PluginLookup, PLUGIN_NOT_FOUND_ERROR_MSG,
+    prompt_confirm_install, PluginLookup, PLUGIN_NOT_FOUND_ERROR_MSG,
 };
 use std::path::{Path, PathBuf};
 use tracing::log;
@@ -117,7 +117,15 @@ pub struct Uninstall {
 impl Uninstall {
     pub async fn run(self) -> Result<()> {
         let manager = PluginManager::default()?;
-        manager.uninstall(&self.name)?;
+        let uninstalled = manager.uninstall(&self.name)?;
+        if uninstalled {
+            println!("Plugin {} was successfully uninstalled", self.name);
+        } else {
+            println!(
+                "Plugin {} isn't present, so no changes were made",
+                self.name
+            );
+        }
         Ok(())
     }
 }
@@ -262,6 +270,7 @@ impl Upgrade {
     }
 }
 
+/// Updates the locally cached spin-plugins repository, fetching the latest plugins.
 async fn update() -> Result<()> {
     let manager = PluginManager::default()?;
     let plugins_dir = manager.store().get_plugins_directory();
@@ -273,7 +282,7 @@ fn continue_to_install(
     package: &PluginPackage,
     yes_to_all: bool,
 ) -> Result<bool> {
-    Ok(yes_to_all || prompt(manifest, package)?)
+    Ok(yes_to_all || prompt_confirm_install(manifest, package)?)
 }
 
 async fn try_install(
@@ -289,7 +298,8 @@ async fn try_install(
     if !continue_to_install(&manifest, package, yes_to_all)? {
         Ok(false)
     } else {
-        manager.install(&manifest, package).await?;
+        let installed = manager.install(&manifest, package).await?;
+        println!("Plugin {} was installed successfully!", installed);
         Ok(true)
     }
 }

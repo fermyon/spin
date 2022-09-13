@@ -60,7 +60,8 @@ impl PluginLookup {
                 PLUGIN_NOT_FOUND_ERROR_MSG,
             )
         })?;
-        let manifest: PluginManifest = serde_json::from_reader(file)?;
+        let manifest: PluginManifest = serde_json::from_reader(file)
+            .with_context(|| format!("Failed to deserialize {} plugin manifest", self.name))?;
         Ok(manifest)
     }
 }
@@ -69,10 +70,12 @@ pub async fn fetch_plugins_repo(plugins_dir: &Path, update: bool) -> Result<()> 
     let repo_url = Url::parse(SPIN_PLUGINS_REPO)?;
     let git_root = plugin_manifests_repo_path(plugins_dir);
     let git_source = GitSource::new(&repo_url, None, &git_root)?;
-    if !git_root.join(".git").exists() {
+    if git_root.join(".git").exists() {
+        if update {
+            git_source.pull().await?;
+        }
+    } else {
         git_source.clone().await?;
-    } else if update {
-        git_source.pull().await?;
     }
     Ok(())
 }

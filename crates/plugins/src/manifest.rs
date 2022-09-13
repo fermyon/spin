@@ -94,7 +94,7 @@ pub fn check_supported_version(manifest: &PluginManifest, spin_version: &str) ->
 fn inner_check_supported_version(supported_on: &str, spin_version: &str) -> Result<()> {
     let comparator = VersionReq::parse(supported_on).with_context(|| {
         format!(
-            "could not parse manifest compatibility version {} as valid semver",
+            "Could not parse manifest compatibility version {} as valid semver",
             &supported_on,
         )
     })?;

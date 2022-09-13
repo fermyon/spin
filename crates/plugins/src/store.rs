@@ -70,13 +70,13 @@ impl PluginStore {
         log::info!("Reading plugin manifest from {}", manifest_path.display());
         let manifest_file = File::open(manifest_path.clone()).with_context(|| {
             format!(
-                "The plugin manifest does not exist at {}",
+                "Plugin manifest does not exist at {}",
                 manifest_path.display()
             )
         })?;
         let manifest = serde_json::from_reader(manifest_file).with_context(|| {
             format!(
-                "Plugin manifest JSON at {} is not properly formatted",
+                "Failed to deserialize plugin manifest at {}.",
                 manifest_path.display()
             )
         })?;

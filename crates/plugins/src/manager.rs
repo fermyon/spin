@@ -50,11 +50,12 @@ impl PluginManager {
     /// the appropriately named and versioned plugin manifest. Parses the plugin manifest to get the
     /// appropriate source for the machine OS and architecture. Verifies the checksum of the source,
     /// unpacks and installs it into the plugins directory.
+    /// Returns name of plugin that was successfully installed.
     pub async fn install(
         &self,
         plugin_manifest: &PluginManifest,
         plugin_package: &PluginPackage,
-    ) -> Result<()> {
+    ) -> Result<String> {
         let target = plugin_package.url.to_owned();
         let target_url = Url::parse(&target)?;
         let temp_dir = tempdir()?;
@@ -69,16 +70,13 @@ impl PluginManager {
 
         // Save manifest to installed plugins directory
         self.store.add_manifest(plugin_manifest)?;
-        println!(
-            "Plugin {} was installed successfully!",
-            plugin_manifest.name()
-        );
-        Ok(())
+        Ok(plugin_manifest.name())
     }
 
     /// Uninstalls a plugin with a given name, removing it and it's manifest from the local plugins
     /// directory.
-    pub fn uninstall(&self, plugin_name: &str) -> Result<()> {
+    /// Returns true if plugin was successfully uninstalled and false if plugin did not exist.
+    pub fn uninstall(&self, plugin_name: &str) -> Result<bool> {
         let plugin_store = self.store();
         let manifest_file = plugin_store.installed_manifest_path(plugin_name);
         match manifest_file.exists() {
@@ -86,16 +84,10 @@ impl PluginManager {
             true => {
                 fs::remove_file(manifest_file)?;
                 fs::remove_dir_all(plugin_store.plugin_subdirectory_path(plugin_name))?;
-                println!("Uninstalled plugin {} successfully", plugin_name);
+                Ok(true)
             }
-            false => {
-                println!(
-                    "Plugin \"{}\" isn't present, so no changes were made",
-                    plugin_name
-                );
-            }
+            false => Ok(false),
         }
-        Ok(())
     }
 
     /// Checks manifest to see if the plugin is compatible with the running version of Spin, does
@@ -113,21 +105,25 @@ impl PluginManager {
             .any(|&s| s == plugin_manifest.name())
         {
             bail!(
-                "Can't install a plugin with the same name ({}) as an internal plugin",
+                "Can't install a plugin with the same name ({}) as an internal command",
                 plugin_manifest.name()
             );
         }
 
         // Disallow reinstalling identical plugins and downgrading unless permitted.
         if let Ok(installed) = self.store.read_plugin_manifest(&plugin_manifest.name()) {
-            if &installed == plugin_manifest
-                || (installed.version > plugin_manifest.version && !allow_downgrades)
-            {
+            if &installed == plugin_manifest {
                 bail!(
-                    "Cannot install plugin {} {}. Plugin is already installed with version {}.",
+                    "Plugin {} is already installed with version {}.",
+                    plugin_manifest.name(),
+                    installed.version,
+                );
+            } else if installed.version > plugin_manifest.version && !allow_downgrades {
+                bail!(
+                    "Newer version {} of {} plugin is already installed. To downgrade to version {} set the `--downgrade` flag.",
+                    installed.version,
                     plugin_manifest.name(),
                     plugin_manifest.version,
-                    installed.version,
                 );
             }
         }
@@ -146,15 +142,18 @@ impl PluginManager {
                 log::info!("Pulling manifest for plugin from {}", url);
                 reqwest::get(url.as_ref())
                     .await?
+                    .error_for_status()
+                    .with_context(|| format!("Manifest endpoint {} is unhealthy", url))?
                     .json::<PluginManifest>()
-                    .await?
+                    .await
+                    .with_context(|| format!("Failed to deserialize remote plugin at {}", url))?
             }
             ManifestLocation::Local(path) => {
                 log::info!("Pulling manifest for plugin from {}", path.display());
                 let file = File::open(path).with_context(|| {
                     format!("The local manifest {} could not be opened", path.display())
                 })?;
-                serde_json::from_reader(file)?
+                serde_json::from_reader(file).with_context(|| format!("Failed to deserialize local manifest at {}. Ensure it has the expected plugin manifest format", path.display()))?
             }
             ManifestLocation::PluginsRepository(lookup) => {
                 lookup

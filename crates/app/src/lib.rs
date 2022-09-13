@@ -263,11 +263,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("spin core error: {0}")]
+    #[error("spin core error: {0:#}")]
     CoreError(anyhow::Error),
-    #[error("host component error: {0}")]
+    #[error("host component error: {0:#}")]
     HostComponentError(anyhow::Error),
-    #[error("loader error: {0}")]
+    #[error("loader error: {0:#}")]
     LoaderError(anyhow::Error),
     #[error("manifest error: {0}")]
     ManifestError(String),

@@ -3620,20 +3620,11 @@ name = "spin-timer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "chrono",
- "env_logger",
- "futures",
- "log",
- "spin-engine",
- "spin-manifest",
- "spin-trigger",
+ "spin-core",
  "tokio",
  "tracing",
  "tracing-subscriber",
- "wasi-common",
- "wasmtime",
- "wasmtime-wasi",
  "wit-bindgen-wasmtime",
 ]
 

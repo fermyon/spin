@@ -130,7 +130,7 @@ impl LockedAppBuilder {
         let metadata = ValuesMapBuilder::new()
             .string_option("description", component.description)
             .string_array("allowed_http_hosts", component.wasm.allowed_http_hosts)
-            .build();
+            .take();
 
         let source = {
             let path = match component.source {

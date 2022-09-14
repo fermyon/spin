@@ -110,7 +110,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         };
 
         let app = self.loader.load_owned_app(app_uri).await?;
-        let app_name = app.require_metadata("name")?;
+        let app_name = app.borrowed().require_metadata("name")?;
 
         let log_dir = {
             let sanitized_app = sanitize_filename::sanitize(&app_name);
@@ -176,6 +176,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         <Executor as TriggerExecutor>::TriggerConfig: DeserializeOwned,
     {
         let trigger_configs = app
+            .borrowed()
             .triggers_with_type(Executor::TRIGGER_TYPE)
             .map(|trigger| {
                 trigger.typed_config().with_context(|| {
@@ -185,7 +186,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
             .collect::<Result<_>>()?;
 
         let mut component_instance_pres = HashMap::default();
-        for component in app.components() {
+        for component in app.borrowed().components() {
             let module = component.load_module(&engine).await?;
             let instance_pre = engine.instantiate_pre(&module)?;
             component_instance_pres.insert(component.id().to_string(), instance_pre);
@@ -204,12 +205,12 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
 
     /// Returns a reference to the App.
     pub fn app(&self) -> &App {
-        &self.app
+        self.app.borrowed()
     }
 
     /// Returns AppTriggers and typed TriggerConfigs for this executor type.
     pub fn trigger_configs(&self) -> impl Iterator<Item = (AppTrigger, &Executor::TriggerConfig)> {
-        self.app
+        self.app()
             .triggers_with_type(Executor::TRIGGER_TYPE)
             .zip(&self.trigger_configs)
     }
@@ -257,7 +258,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         mut store_builder: StoreBuilder,
     ) -> Result<(Instance, Store<Executor::RuntimeData>)> {
         // Look up AppComponent
-        let component = self.app.get_component(component_id).with_context(|| {
+        let component = self.app().get_component(component_id).with_context(|| {
             format!(
                 "app {:?} has no component {:?}",
                 self.app_name, component_id

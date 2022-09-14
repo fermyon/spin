@@ -87,14 +87,9 @@ pub struct OwnedApp {
     app: App<'this>,
 }
 
-impl std::ops::Deref for OwnedApp {
-    type Target = App<'static>;
-
-    fn deref(&self) -> &Self::Target {
-        unsafe {
-            // We know that App's lifetime param is for AppLoader, which is owned by self here.
-            std::mem::transmute::<&App, &App<'static>>(self.borrow_app())
-        }
+impl OwnedApp {
+    pub fn borrowed(&self) -> &App {
+        self.borrow_app()
     }
 }
 

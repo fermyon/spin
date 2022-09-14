@@ -1,6 +1,6 @@
 #![allow(dead_code)] // Refactor WIP
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
@@ -9,6 +9,8 @@ use spin_app::{
     AppComponent, Loader,
 };
 use spin_core::StoreBuilder;
+
+use crate::parse_file_url;
 
 pub struct TriggerLoader {
     working_dir: PathBuf,
@@ -26,10 +28,10 @@ impl TriggerLoader {
 
 #[async_trait]
 impl Loader for TriggerLoader {
-    async fn load_app(&self, uri: &str) -> Result<LockedApp> {
-        let path = unwrap_file_uri(uri)?;
+    async fn load_app(&self, url: &str) -> Result<LockedApp> {
+        let path = parse_file_url(url)?;
         let contents =
-            std::fs::read(path).with_context(|| format!("failed to read manifest at {path:?}"))?;
+            std::fs::read(&path).with_context(|| format!("failed to read manifest at {path:?}"))?;
         let app =
             serde_json::from_slice(&contents).context("failed to parse app lock file JSON")?;
         Ok(app)
@@ -45,8 +47,8 @@ impl Loader for TriggerLoader {
             .source
             .as_ref()
             .context("LockedComponentSource missing source field")?;
-        let path = unwrap_file_uri(source)?;
-        spin_core::Module::from_file(engine, path)
+        let path = parse_file_url(source)?;
+        spin_core::Module::from_file(engine, &path)
             .with_context(|| format!("loading module {path:?}"))
     }
 
@@ -61,7 +63,7 @@ impl Loader for TriggerLoader {
                 .source
                 .as_deref()
                 .with_context(|| format!("Missing 'source' on files mount {content_dir:?}"))?;
-            let source_path = self.working_dir.join(unwrap_file_uri(source_uri)?);
+            let source_path = self.working_dir.join(parse_file_url(source_uri)?);
             ensure!(
                 source_path.is_dir(),
                 "TriggerLoader only supports directory mounts; {source_path:?} is not a directory"
@@ -75,11 +77,4 @@ impl Loader for TriggerLoader {
         }
         Ok(())
     }
-}
-
-fn unwrap_file_uri(uri: &str) -> Result<&Path> {
-    Ok(Path::new(
-        uri.strip_prefix("file://")
-            .context("TriggerLoader supports only file:// URIs")?,
-    ))
 }

@@ -9,7 +9,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 pub use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 
@@ -130,9 +130,11 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 
     pub fn default_config_providers(&self, app_uri: &str) -> Vec<Box<dyn Provider>> {
         // EnvProvider
-        let dotenv_path = app_uri
-            .strip_prefix("file://")
-            .and_then(|path| Path::new(path).parent())
+        // Look for a .env file in either the manifest parent directory for local apps
+        // or the current directory for remote (e.g. bindle) apps.
+        let dotenv_path = parse_file_url(app_uri)
+            .as_deref()
+            .ok()
             .unwrap_or_else(|| Path::new("."))
             .join(".env");
         vec![Box::new(EnvProvider::new(
@@ -279,4 +281,11 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
 
         Ok((instance, store))
     }
+}
+
+pub(crate) fn parse_file_url(url: &str) -> Result<PathBuf> {
+    url::Url::parse(url)
+        .with_context(|| format!("Invalid URL: {url:?}"))?
+        .to_file_path()
+        .map_err(|_| anyhow!("Invalid file URL path: {url:?}"))
 }

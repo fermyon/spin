@@ -4,8 +4,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::{CommandFactory, Parser};
+use reqwest::Url;
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_manifest::ApplicationTrigger;
 use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_WORKING_DIR};
@@ -154,7 +155,9 @@ impl UpCommand {
             serde_json::to_vec_pretty(&locked_app).context("failed to serialize locked app")?;
         std::fs::write(&locked_path, locked_app_contents)
             .with_context(|| format!("failed to write {:?}", locked_path))?;
-        let locked_url = format!("file://{}", locked_path.to_string_lossy());
+        let locked_url = Url::from_file_path(&locked_path)
+            .map_err(|_| anyhow!("cannot convert to file URL: {locked_path:?}"))?
+            .to_string();
 
         // For `spin up --help`, we just want the executor to dump its own argument usage info
         let trigger_args = if self.help {

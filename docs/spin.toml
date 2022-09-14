@@ -14,7 +14,14 @@ route = "/..."
 
 [[component]]
 source = "modules/spin_static_fs.wasm"
-id = "fileserver"
+id = "fileserver_static"
 files = [ { source = "static/", destination = "/" } ]
 [component.trigger]
 route = "/static/..."
+
+[[component]]
+source = "modules/spin_static_fs.wasm"
+id = "fileserver_downloads"
+files = [ { source = "downloads/", destination = "/" } ]
+[component.trigger]
+route = "/downloads/..."

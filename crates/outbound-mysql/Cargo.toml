@@ -1,0 +1,17 @@
+[package]
+name = "outbound-mysql"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0"
+mysql_async = "0.30.0"
+mysql_common = "0.29.1"
+spin-core = { path = "../core" }
+tokio = { version = "1", features = [ "rt-multi-thread" ] }
+tracing = { version = "0.1", features = [ "log" ] }
+wit-bindgen-wasmtime = { workspace = true }

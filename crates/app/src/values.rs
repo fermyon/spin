@@ -1,7 +1,9 @@
+//! Dynamically-typed value helpers.
+
 use serde::Serialize;
 use serde_json::Value;
 
-// ValuesMap stores dynamically-typed values.
+/// A String-keyed map with dynamically-typed values.
 pub type ValuesMap = serde_json::Map<String, Value>;
 
 /// ValuesMapBuilder assists in building a ValuesMap.

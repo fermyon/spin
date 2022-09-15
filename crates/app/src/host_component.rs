@@ -4,7 +4,15 @@ use spin_core::{EngineBuilder, HostComponent, HostComponentsData};
 
 use crate::AppComponent;
 
+/// A trait for "dynamic" Spin host components.
+///
+/// This extends [`HostComponent`] to support per-[`AppComponent`] dynamic
+/// runtime configuration.
 pub trait DynamicHostComponent: HostComponent {
+    /// Called on [`AppComponent`] instance initialization.
+    ///
+    /// The `data` returned by [`HostComponent::build_data`] is passed, along
+    /// with a reference to the `component` being instantiated.
     fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> anyhow::Result<()>;
 }
 

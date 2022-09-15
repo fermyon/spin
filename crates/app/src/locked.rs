@@ -1,3 +1,5 @@
+//! Spin lock file (spin.lock) serialization models.
+
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -5,7 +7,7 @@ use serde_json::Value;
 
 use crate::values::ValuesMap;
 
-// LockedMap gives deterministic encoding, which we want.
+/// A String-keyed map with deterministic serialization order.
 pub type LockedMap<T> = std::collections::BTreeMap<String, T>;
 
 /// A LockedApp represents a "fully resolved" Spin application.
@@ -26,10 +28,12 @@ pub struct LockedApp {
 }
 
 impl LockedApp {
+    /// Deserializes a [`LockedApp`] from the given JSON data.
     pub fn from_json(contents: &[u8]) -> serde_json::Result<Self> {
         serde_json::from_slice(contents)
     }
 
+    /// Serializes the [`LockedApp`] into JSON data.
     pub fn to_json(&self) -> serde_json::Result<Vec<u8>> {
         serde_json::to_vec_pretty(&self)
     }

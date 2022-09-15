@@ -16,11 +16,18 @@ use super::{
     Data,
 };
 
+/// A `Store` holds the runtime state of a Spin instance.
+///
+/// In general, a `Store` is expected to live only for the lifetime of a single
+/// Spin trigger invocation.
+///
+/// A `Store` can be built with a [`StoreBuilder`].
 pub struct Store<T> {
     inner: wasmtime::Store<Data<T>>,
 }
 
 impl<T> Store<T> {
+    /// Returns a mutable reference to the [`HostComponentsData`] of this [`Store`].
     pub fn host_components_data(&mut self) -> &mut HostComponentsData {
         &mut self.inner.data_mut().host_components_data
     }
@@ -70,6 +77,9 @@ const READ_ONLY_FILE_CAPS: FileCaps = FileCaps::from_bits_truncate(
         | FileCaps::POLL_READWRITE.bits(),
 );
 
+/// A builder interface for configuring a new [`Store`].
+///
+/// A new [`StoreBuilder`] can be obtained with [`crate::Engine::store_builder`].
 pub struct StoreBuilder {
     engine: wasmtime::Engine,
     wasi: std::result::Result<Option<WasiCtxBuilder>, String>,
@@ -79,6 +89,7 @@ pub struct StoreBuilder {
 }
 
 impl StoreBuilder {
+    // Called by Engine::store_builder.
     pub(crate) fn new(engine: wasmtime::Engine, host_components: &HostComponents) -> Self {
         Self {
             engine,
@@ -89,50 +100,65 @@ impl StoreBuilder {
         }
     }
 
+    /// Sets a maximum memory allocation limit.
+    ///
+    /// See [`wasmtime::ResourceLimiter::memory_growing`] (`maximum`) for
+    /// details on how this limit is enforced.
     pub fn max_memory_size(&mut self, max_memory_size: usize) {
         self.store_limits = StoreLimitsAsync::new(Some(max_memory_size), None);
     }
 
+    /// Inherit stdin, stdout, and stderr from the host process.
     pub fn inherit_stdio(&mut self) {
         self.with_wasi(|wasi| wasi.inherit_stdio());
     }
 
+    /// Sets the WASI `stdin` descriptor.
     pub fn stdin(&mut self, file: impl WasiFile + 'static) {
         self.with_wasi(|wasi| wasi.stdin(Box::new(file)))
     }
 
+    /// Sets the WASI `stdin` descriptor to the given [`Read`]er.
     pub fn stdin_pipe(&mut self, r: impl Read + Send + Sync + 'static) {
         self.stdin(ReadPipe::new(r))
     }
 
+    /// Sets the WASI `stdout` descriptor.
     pub fn stdout(&mut self, file: impl WasiFile + 'static) {
         self.with_wasi(|wasi| wasi.stdout(Box::new(file)))
     }
 
+    /// Sets the WASI `stdout` descriptor to the given [`Write`]er.
     pub fn stdout_pipe(&mut self, w: impl Write + Send + Sync + 'static) {
         self.stdout(WritePipe::new(w))
     }
-
+    /// Sets the WASI `stdout` descriptor to an in-memory buffer which can be
+    /// retrieved after execution from the returned [`OutputBuffer`].
     pub fn stdout_buffered(&mut self) -> OutputBuffer {
         let buffer = OutputBuffer::default();
         self.stdout(buffer.writer());
         buffer
     }
 
+    /// Sets the WASI `stderr` descriptor.
     pub fn stderr(&mut self, file: impl WasiFile + 'static) {
         self.with_wasi(|wasi| wasi.stderr(Box::new(file)))
     }
 
+    /// Sets the WASI `stderr` descriptor to the given [`Write`]er.
     pub fn stderr_pipe(&mut self, w: impl Write + Send + Sync + 'static) {
         self.stderr(WritePipe::new(w))
     }
 
+    /// Sets the WASI `stderr` descriptor to an in-memory buffer which can be
+    /// retrieved after execution from the returned [`OutputBuffer`].
     pub fn stderr_buffered(&mut self) -> OutputBuffer {
         let buffer = OutputBuffer::default();
         self.stderr(buffer.writer());
         buffer
     }
 
+    /// Appends the given strings to the the WASI 'args'.
     pub fn args<'b>(&mut self, args: impl IntoIterator<Item = &'b str>) -> Result<()> {
         self.try_with_wasi(|mut wasi| {
             for arg in args {
@@ -142,6 +168,7 @@ impl StoreBuilder {
         })
     }
 
+    /// Sets the given key/value string entries on the the WASI 'env'.
     pub fn env(
         &mut self,
         vars: impl IntoIterator<Item = (impl AsRef<str>, impl AsRef<str>)>,
@@ -154,6 +181,8 @@ impl StoreBuilder {
         })
     }
 
+    /// "Mounts" the given `host_path` into the WASI filesystem at the given
+    /// `guest_path` with read-only capabilities.
     pub fn read_only_preopened_dir(
         &mut self,
         host_path: impl AsRef<Path>,
@@ -166,6 +195,8 @@ impl StoreBuilder {
         Ok(())
     }
 
+    /// "Mounts" the given `host_path` into the WASI filesystem at the given
+    /// `guest_path` with read and write capabilities.
     pub fn read_write_preopened_dir(
         &mut self,
         host_path: impl AsRef<Path>,
@@ -175,10 +206,14 @@ impl StoreBuilder {
         self.try_with_wasi(|wasi| wasi.preopened_dir(dir, guest_path))
     }
 
+    /// Returns a mutable reference to the built
     pub fn host_components_data(&mut self) -> &mut HostComponentsData {
         &mut self.host_components_data
     }
 
+    /// Builds a [`Store`] from this builder with given host state data.
+    ///
+    /// If `T: Default`, it may be preferable to use [`StoreBuilder::build`].
     pub fn build_with_data<T>(self, inner_data: T) -> Result<Store<T>> {
         let mut wasi = self.wasi.map_err(anyhow::Error::msg)?.unwrap().build();
 
@@ -202,9 +237,13 @@ impl StoreBuilder {
         Ok(Store { inner })
     }
 
+    /// Builds a [`Store`] from this builder with `Default` host state data.
     pub fn build<T: Default>(self) -> Result<Store<T>> {
         self.build_with_data(T::default())
     }
+
+    // Helpers for adapting the "consuming builder" style of WasiCtxBuilder to
+    // StoreBuilder's "non-consuming builder" style.
 
     fn with_wasi(&mut self, f: impl FnOnce(WasiCtxBuilder) -> WasiCtxBuilder) {
         let _ = self.try_with_wasi(|wasi| Ok(f(wasi)));

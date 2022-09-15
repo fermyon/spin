@@ -1,3 +1,12 @@
+//! Spin core execution engine
+//!
+//! This crate provides low-level Wasm and WASI functionality required by Spin.
+//! Most of this functionality consists of wrappers around [`wasmtime`] and
+//! [`wasmtime_wasi`] that narrows the flexibility of `wasmtime` to the set of
+//! features used by Spin (such as only supporting `wasmtime`'s async calling style).
+
+#![deny(missing_docs)]
+
 mod host_component;
 mod io;
 mod limits;
@@ -14,8 +23,12 @@ pub use wasmtime::{self, Instance, Module, Trap};
 use self::host_component::{HostComponents, HostComponentsBuilder};
 
 pub use host_component::{HostComponent, HostComponentDataHandle, HostComponentsData};
+pub use io::OutputBuffer;
 pub use store::{Store, StoreBuilder};
 
+/// Global configuration for `EngineBuilder`.
+///
+/// This is currently only used for advanced (undocumented) use cases.
 pub struct Config {
     inner: wasmtime::Config,
 }
@@ -37,6 +50,7 @@ impl Default for Config {
     }
 }
 
+/// Host state data associated with individual [Store]s and [Instance]s.
 pub struct Data<T> {
     inner: T,
     wasi: WasiCtx,
@@ -56,8 +70,12 @@ impl<T> AsMut<T> for Data<T> {
     }
 }
 
+/// An alias for [`wasmtime::Linker`] specialized to [`Data`].
 pub type Linker<T> = wasmtime::Linker<Data<T>>;
 
+/// A builder interface for configuring a new [`Engine`].
+///
+/// A new [`EngineBuilder`] can be obtained with [`Engine::builder`].
 pub struct EngineBuilder<T> {
     engine: wasmtime::Engine,
     linker: Linker<T>,
@@ -78,6 +96,18 @@ impl<T: Send + Sync> EngineBuilder<T> {
         })
     }
 
+    /// Adds definition(s) to the built [`Engine`].
+    ///
+    /// This method's signature is meant to be used with
+    /// [`wit-bindgen`](https://github.com/bytecodealliance/wit-bindgen)'s
+    /// generated `add_to_linker` functions, e.g.:
+    ///
+    /// ```ignore
+    /// wit_bindgen_wasmtime::import!({paths: ["my-interface.wit"], async: *});
+    /// // ...
+    /// let mut builder: EngineBuilder<my_interface::MyInterfaceData> = Engine::builder();
+    /// builder.link_import(my_interface::MyInterface::add_to_linker)?;
+    /// ```
     pub fn link_import(
         &mut self,
         f: impl FnOnce(&mut Linker<T>, fn(&mut Data<T>) -> &mut T) -> Result<()>,
@@ -85,6 +115,11 @@ impl<T: Send + Sync> EngineBuilder<T> {
         f(&mut self.linker, Data::as_mut)
     }
 
+    /// Adds a [`HostComponent`] to the built [`Engine`].
+    ///
+    /// Returns a [`HostComponentDataHandle`] which can be passed to
+    /// [`HostComponentsData`] to access or set associated
+    /// [`HostComponent::Data`] for an instance.
     pub fn add_host_component<HC: HostComponent + Send + Sync + 'static>(
         &mut self,
         host_component: HC,
@@ -93,6 +128,11 @@ impl<T: Send + Sync> EngineBuilder<T> {
             .add_host_component(&mut self.linker, host_component)
     }
 
+    /// Builds an [`Engine`] from this builder with the given host state data.
+    ///
+    /// Note that this data will generally go entirely unused, but is needed
+    /// by the implementation of [`Engine::instantiate_pre`]. If `T: Default`,
+    /// it is probably preferable to use [`EngineBuilder::build`].
     pub fn build_with_data(self, instance_pre_data: T) -> Engine<T> {
         let host_components = self.host_components_builder.build();
 
@@ -112,11 +152,14 @@ impl<T: Send + Sync> EngineBuilder<T> {
 }
 
 impl<T: Default + Send + Sync> EngineBuilder<T> {
+    /// Builds an [`Engine`] from this builder.
     pub fn build(self) -> Engine<T> {
         self.build_with_data(T::default())
     }
 }
 
+/// An `Engine` is a global context for the initialization and execution of
+/// Spin components.
 pub struct Engine<T> {
     inner: wasmtime::Engine,
     linker: Linker<T>,
@@ -125,14 +168,17 @@ pub struct Engine<T> {
 }
 
 impl<T: Send + Sync> Engine<T> {
+    /// Creates a new [`EngineBuilder`] with the given [`Config`].
     pub fn builder(config: &Config) -> Result<EngineBuilder<T>> {
         EngineBuilder::new(config)
     }
 
+    /// Creates a new [`StoreBuilder`].
     pub fn store_builder(&self) -> StoreBuilder {
         StoreBuilder::new(self.inner.clone(), &self.host_components)
     }
 
+    /// Creates a new [`InstancePre`] for the given [`Module`].
     #[instrument(skip_all)]
     pub fn instantiate_pre(&self, module: &Module) -> Result<InstancePre<T>> {
         let mut store = self.instance_pre_store.lock().unwrap();
@@ -147,11 +193,15 @@ impl<T> AsRef<wasmtime::Engine> for Engine<T> {
     }
 }
 
+/// A pre-initialized instance that is ready to be instantiated.
+///
+/// See [`wasmtime::InstancePre`] for more information.
 pub struct InstancePre<T> {
     inner: wasmtime::InstancePre<Data<T>>,
 }
 
 impl<T: Send + Sync> InstancePre<T> {
+    /// Instantiates this instance with the given [`Store`].
     #[instrument(skip_all)]
     pub async fn instantiate_async(&self, store: &mut Store<T>) -> Result<Instance> {
         self.inner.instantiate_async(store).await

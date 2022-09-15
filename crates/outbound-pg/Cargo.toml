@@ -8,6 +8,8 @@ doctest = false
 
 [dependencies]
 anyhow = "1.0"
+mysql_async = "0.30.0"
+mysql_common = "0.29.1"
 postgres = { version = "0.19.3" }
 spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }

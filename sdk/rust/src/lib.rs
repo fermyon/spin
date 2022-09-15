@@ -55,6 +55,15 @@ pub mod pg {
     pub use outbound_pg::*;
 }
 
+/// Implementation of the Spin MySQL database interface.
+#[allow(missing_docs)]
+pub mod mysql {
+    wit_bindgen_rust::import!("../../wit/ephemeral/outbound-mysql.wit");
+
+    /// Exports the generated outbound MySQL items.
+    pub use outbound_mysql::*;
+}
+
 /// Implementation of the spin config interface.
 #[allow(missing_docs)]
 pub mod config {

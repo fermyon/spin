@@ -12,7 +12,6 @@ fn create_trigger_event(channel: &str, payload: &str) -> redis::Msg {
     .unwrap()
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_pubsub() -> Result<()> {
     let trigger: RedisTrigger = TestConfig::default()

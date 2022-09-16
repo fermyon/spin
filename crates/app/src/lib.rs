@@ -16,6 +16,7 @@ use spin_core::{wasmtime, Engine, EngineBuilder, StoreBuilder};
 
 use host_component::DynamicHostComponents;
 use locked::{ContentPath, LockedApp, LockedComponent, LockedComponentSource, LockedTrigger};
+use values::MetadataExt;
 
 pub use async_trait::async_trait;
 pub use host_component::DynamicHostComponent;
@@ -141,20 +142,15 @@ impl<'a> App<'a> {
     /// `Err` only if there _is_ a value for the `key` but the typed
     /// deserialization failed.
     pub fn get_metadata<'this, T: Deserialize<'this>>(&'this self, key: &str) -> Result<Option<T>> {
-        self.locked
-            .metadata
-            .get(key)
-            .map(|value| Ok(T::deserialize(value)?))
-            .transpose()
+        self.locked.metadata.get_typed(key)
     }
 
     /// Deserializes typed metadata for this app.
     ///
-    /// Like [`App::get_metadata`], but returns an `Err` if there is no metadata
-    /// for the given `key`.
+    /// Like [`App::get_metadata`], but returns an error if there is
+    /// no metadata for the given `key`.
     pub fn require_metadata<'this, T: Deserialize<'this>>(&'this self, key: &str) -> Result<T> {
-        self.get_metadata(key)?
-            .ok_or_else(|| Error::MetadataError(format!("missing required {key:?}")))
+        self.locked.metadata.require_typed(key)
     }
 
     /// Returns an iterator of custom config [`Variable`]s defined for this app.
@@ -223,17 +219,15 @@ impl<'a> AppComponent<'a> {
     /// `Err` only if there _is_ a value for the `key` but the typed
     /// deserialization failed.
     pub fn get_metadata<T: Deserialize<'a>>(&self, key: &str) -> Result<Option<T>> {
-        self.locked
-            .metadata
-            .get(key)
-            .map(|value| {
-                T::deserialize(value).map_err(|err| {
-                    Error::MetadataError(format!(
-                        "failed to deserialize {key:?} = {value:?}: {err:?}"
-                    ))
-                })
-            })
-            .transpose()
+        self.locked.metadata.get_typed(key)
+    }
+
+    /// Deserializes typed metadata for this component.
+    ///
+    /// Like [`AppComponent::get_metadata`], but returns an error if there is
+    /// no metadata for the given `key`.
+    pub fn require_metadata<'this, T: Deserialize<'this>>(&'this self, key: &str) -> Result<T> {
+        self.locked.metadata.require_typed(key)
     }
 
     /// Returns an iterator of custom config values for this component.

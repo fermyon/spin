@@ -3172,7 +3172,7 @@ name = "spin-abi-conformance"
 version = "0.5.0"
 dependencies = [
  "anyhow",
- "cap-std 0.25.2",
+ "cap-std",
  "clap 3.2.19",
  "rand 0.8.5",
  "rand_chacha 0.3.1",

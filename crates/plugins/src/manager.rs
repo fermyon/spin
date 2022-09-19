@@ -1,4 +1,5 @@
 use crate::{
+    error::*,
     lookup::PluginLookup,
     manifest::{check_supported_version, PluginManifest, PluginPackage},
     store::PluginStore,
@@ -60,7 +61,9 @@ impl PluginManager {
         let target_url = Url::parse(&target)?;
         let temp_dir = tempdir()?;
         let plugin_tarball_path = match target_url.scheme() {
-            URL_FILE_SCHEME => PathBuf::from(target_url.path()),
+            URL_FILE_SCHEME => target_url
+                .to_file_path()
+                .map_err(|_| anyhow!("Invalid file URL: {target_url:?}"))?,
             _ => download_plugin(&plugin_manifest.name(), &temp_dir, &target).await?,
         };
         verify_checksum(&plugin_tarball_path, &plugin_package.sha256)?;
@@ -79,15 +82,13 @@ impl PluginManager {
     pub fn uninstall(&self, plugin_name: &str) -> Result<bool> {
         let plugin_store = self.store();
         let manifest_file = plugin_store.installed_manifest_path(plugin_name);
-        match manifest_file.exists() {
+        let exists = manifest_file.exists();
+        if exists {
             // Remove the manifest and the plugin installation directory
-            true => {
-                fs::remove_file(manifest_file)?;
-                fs::remove_dir_all(plugin_store.plugin_subdirectory_path(plugin_name))?;
-                Ok(true)
-            }
-            false => Ok(false),
+            fs::remove_file(manifest_file)?;
+            fs::remove_dir_all(plugin_store.plugin_subdirectory_path(plugin_name))?;
         }
+        Ok(exists)
     }
 
     /// Checks manifest to see if the plugin is compatible with the running version of Spin, does
@@ -105,7 +106,7 @@ impl PluginManager {
             .any(|&s| s == plugin_manifest.name())
         {
             bail!(
-                "Can't install a plugin with the same name ({}) as an internal command",
+                "Can't install a plugin with the same name ('{}') as an internal command",
                 plugin_manifest.name()
             );
         }
@@ -114,13 +115,13 @@ impl PluginManager {
         if let Ok(installed) = self.store.read_plugin_manifest(&plugin_manifest.name()) {
             if &installed == plugin_manifest {
                 bail!(
-                    "Plugin {} is already installed with version {}.",
+                    "Plugin '{}' is already installed with version {}.",
                     plugin_manifest.name(),
                     installed.version,
                 );
             } else if installed.version > plugin_manifest.version && !allow_downgrades {
                 bail!(
-                    "Newer version {} of {} plugin is already installed. To downgrade to version {} set the `--downgrade` flag.",
+                    "Newer version {} of plugin '{}' is already installed. To downgrade to version {} set the `--downgrade` flag.",
                     installed.version,
                     plugin_manifest.name(),
                     plugin_manifest.version,
@@ -136,24 +137,51 @@ impl PluginManager {
     pub async fn get_manifest(
         &self,
         manifest_location: &ManifestLocation,
-    ) -> Result<PluginManifest> {
+    ) -> PluginLookupResult<PluginManifest> {
         let plugin_manifest = match manifest_location {
             ManifestLocation::Remote(url) => {
-                log::info!("Pulling manifest for plugin from {}", url);
+                log::info!("Pulling manifest for plugin from {url}");
                 reqwest::get(url.as_ref())
-                    .await?
+                    .await
+                    .map_err(|e| {
+                        Error::ConnectionFailed(ConnectionFailedError::new(
+                            url.as_str().to_string(),
+                            e.to_string(),
+                        ))
+                    })?
                     .error_for_status()
-                    .with_context(|| format!("Manifest endpoint {} is unhealthy", url))?
+                    .map_err(|e| {
+                        Error::ConnectionFailed(ConnectionFailedError::new(
+                            url.as_str().to_string(),
+                            e.to_string(),
+                        ))
+                    })?
                     .json::<PluginManifest>()
                     .await
-                    .with_context(|| format!("Failed to deserialize remote plugin at {}", url))?
+                    .map_err(|e| {
+                        Error::InvalidManifest(InvalidManifestError::new(
+                            None,
+                            url.as_str().to_string(),
+                            e.to_string(),
+                        ))
+                    })?
             }
             ManifestLocation::Local(path) => {
                 log::info!("Pulling manifest for plugin from {}", path.display());
-                let file = File::open(path).with_context(|| {
-                    format!("The local manifest {} could not be opened", path.display())
+                let file = File::open(path).map_err(|e| {
+                    Error::NotFound(NotFoundError::new(
+                        None,
+                        path.display().to_string(),
+                        e.to_string(),
+                    ))
                 })?;
-                serde_json::from_reader(file).with_context(|| format!("Failed to deserialize local manifest at {}. Ensure it has the expected plugin manifest format", path.display()))?
+                serde_json::from_reader(file).map_err(|e| {
+                    Error::InvalidManifest(InvalidManifestError::new(
+                        None,
+                        path.display().to_string(),
+                        e.to_string(),
+                    ))
+                })?
             }
             ManifestLocation::PluginsRepository(lookup) => {
                 lookup
@@ -167,27 +195,18 @@ impl PluginManager {
 
 /// Gets the appropriate package for the running OS and Arch if exists
 pub fn get_package(plugin_manifest: &PluginManifest) -> Result<&PluginPackage> {
-    let os = std::env::consts::OS;
-    let arch = std::env::consts::ARCH;
+    use std::env::consts::{ARCH, OS};
     plugin_manifest
         .packages
         .iter()
-        .find(|p| p.os.to_string() == os && p.arch.to_string() == arch)
+        .find(|p| p.os.rust_name() == OS && p.arch.rust_name() == ARCH)
         .ok_or_else(|| {
-            anyhow!(
-                "This plugin does not support this OS ({}) or architecture ({}).",
-                os,
-                arch
-            )
+            anyhow!("This plugin does not support this OS ({OS}) or architecture ({ARCH}).")
         })
 }
 
 async fn download_plugin(name: &str, temp_dir: &TempDir, target_url: &str) -> Result<PathBuf> {
-    log::trace!(
-        "Trying to get tar file for plugin {} from {}",
-        name,
-        target_url
-    );
+    log::trace!("Trying to get tar file for plugin '{name}' from {target_url}");
     let plugin_bin = reqwest::get(target_url).await?;
     let mut content = Cursor::new(plugin_bin.bytes().await?);
     let dir = temp_dir.path();

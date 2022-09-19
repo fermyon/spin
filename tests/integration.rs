@@ -888,6 +888,7 @@ mod integration_tests {
         Ok(())
     }
 
+    // TODO: Test on Windows
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn test_spin_plugin_install_command() -> Result<()> {
@@ -904,41 +905,44 @@ mod integration_tests {
         );
 
         let path_to_test_dir = std::env::current_dir()?;
-        // TODO: test on Windows
-        let plugin_manifest_json_template = r#"
+        let file_url = format!(
+            "file:{}/tests/plugin/example.tar.gz",
+            path_to_test_dir.to_str().unwrap()
+        );
+        let mut plugin_manifest_json = serde_json::json!(
         {
             "name": "example",
             "description": "A description of the plugin.",
             "homepage": "www.example.com",
             "version": "0.2.0",
-            "spinCompatibility": ">=0.4",
+            "spinCompatibility": ">=0.5",
             "license": "MIT",
             "packages": [
                 {
                     "os": "linux",
                     "arch": "amd64",
-                    "url": "file:PATH_TO_TESTS/tests/plugin/example.tar.gz",
+                    "url": file_url,
                     "sha256": "f7a5a8c16a94fe934007f777a1bf532ef7e42b02133e31abf7523177b220a1ce"
                 },
                 {
                     "os": "macos",
                     "arch": "aarch64",
-                    "url": "file:PATH_TO_TESTS/tests/plugin/example.tar.gz",
+                    "url": file_url,
                     "sha256": "f7a5a8c16a94fe934007f777a1bf532ef7e42b02133e31abf7523177b220a1ce"
                 },
                 {
                     "os": "macos",
                     "arch": "amd64",
-                    "url": "file:PATH_TO_TESTS/tests/plugin/example.tar.gz",
+                    "url": file_url,
                     "sha256": "f7a5a8c16a94fe934007f777a1bf532ef7e42b02133e31abf7523177b220a1ce"
                 }
             ]
-        }"#;
-        let plugin_manifest_json = plugin_manifest_json_template
-            .replace("PATH_TO_TESTS", path_to_test_dir.to_str().unwrap());
-
+        });
         let manifest_file_path = dir.join("example-plugin-manifest.json");
-        fs::write(&manifest_file_path, plugin_manifest_json.as_bytes())?;
+        fs::write(
+            &manifest_file_path,
+            serde_json::to_string(&plugin_manifest_json).unwrap(),
+        )?;
 
         // Install plugin
         let install_args = vec![
@@ -962,10 +966,10 @@ mod integration_tests {
         );
 
         // Upgrade plugin to newer version
-        let plugin_manifest_json_latest = plugin_manifest_json.replace("0.2.0", "0.2.1");
+        *plugin_manifest_json.get_mut("version").unwrap() = serde_json::json!("0.2.1");
         fs::write(
             dir.join("example-plugin-manifest.json"),
-            plugin_manifest_json_latest.as_bytes(),
+            serde_json::to_string(&plugin_manifest_json).unwrap(),
         )?;
         let upgrade_args = vec![
             SPIN_BINARY,

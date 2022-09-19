@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use flate2::read::GzDecoder;
 use std::{
     fs::{self, File},
@@ -6,7 +6,7 @@ use std::{
 };
 use tar::Archive;
 
-use crate::manifest::PluginManifest;
+use crate::{error::*, manifest::PluginManifest};
 
 /// Directory where the manifests of installed plugins are stored.
 pub const PLUGIN_MANIFESTS_DIRECTORY_NAME: &str = "manifests";
@@ -17,10 +17,8 @@ pub struct PluginStore {
 }
 
 impl PluginStore {
-    pub fn new(root: impl AsRef<Path>) -> Self {
-        Self {
-            root: root.as_ref().to_owned(),
-        }
+    pub fn new(root: impl Into<PathBuf>) -> Self {
+        Self { root: root.into() }
     }
 
     pub fn default() -> Result<Self> {
@@ -65,20 +63,22 @@ impl PluginStore {
 
     /// Returns the PluginManifest for an installed plugin with a given name.
     /// Looks up and parses the JSON plugin manifest file into object form.
-    pub fn read_plugin_manifest(&self, plugin_name: &str) -> Result<PluginManifest> {
+    pub fn read_plugin_manifest(&self, plugin_name: &str) -> PluginLookupResult<PluginManifest> {
         let manifest_path = self.installed_manifest_path(plugin_name);
         log::info!("Reading plugin manifest from {}", manifest_path.display());
-        let manifest_file = File::open(manifest_path.clone()).with_context(|| {
-            format!(
-                "Plugin manifest does not exist at {}",
-                manifest_path.display()
-            )
+        let manifest_file = File::open(manifest_path.clone()).map_err(|e| {
+            Error::NotFound(NotFoundError::new(
+                Some(plugin_name.to_string()),
+                manifest_path.display().to_string(),
+                e.to_string(),
+            ))
         })?;
-        let manifest = serde_json::from_reader(manifest_file).with_context(|| {
-            format!(
-                "Failed to deserialize plugin manifest at {}.",
-                manifest_path.display()
-            )
+        let manifest = serde_json::from_reader(manifest_file).map_err(|e| {
+            Error::InvalidManifest(InvalidManifestError::new(
+                Some(plugin_name.to_string()),
+                manifest_path.display().to_string(),
+                e.to_string(),
+            ))
         })?;
         Ok(manifest)
     }
@@ -113,5 +113,5 @@ impl PluginStore {
 
 /// Given a plugin name, returns the expected file name for the installed manifest
 pub fn manifest_file_name(plugin_name: &str) -> String {
-    format!("{}.json", plugin_name)
+    format!("{plugin_name}.json")
 }

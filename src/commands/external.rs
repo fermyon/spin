@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use clap::App;
-use spin_plugins::{manifest::check_supported_version, PluginStore};
+use spin_plugins::{error::Error, manifest::check_supported_version, PluginStore};
 use std::{collections::HashMap, env, process};
 use tokio::process::Command;
 use tracing::log;
@@ -8,14 +8,16 @@ use tracing::log;
 /// Executes a Spin plugin as a subprocess, expecting the first argument to
 /// indicate the plugin to execute. Passes all subsequent arguments on to the
 /// subprocess.
-pub async fn execute_external_subcommand(args: Vec<String>, app: App<'_>) -> Result<()> {
-    let plugin_name = args.first().ok_or_else(|| anyhow!("Expected subcommand"))?;
+pub async fn execute_external_subcommand(cmd: Vec<String>, app: App<'_>) -> anyhow::Result<()> {
+    let (plugin_name, args) = cmd
+        .split_first()
+        .ok_or_else(|| anyhow!("Expected subcommand"))?;
     let plugin_store = PluginStore::default()?;
     match plugin_store.read_plugin_manifest(plugin_name) {
         Ok(manifest) => {
             let spin_version = env!("VERGEN_BUILD_SEMVER");
             if let Err(e) = check_supported_version(&manifest, spin_version) {
-                eprintln!("{}", e);
+                eprintln!("{e}");
                 eprintln!(
                     "Try running `spin plugin upgrade {}` to get the latest version of the plugin.",
                     manifest.name()
@@ -23,24 +25,17 @@ pub async fn execute_external_subcommand(args: Vec<String>, app: App<'_>) -> Res
                 process::exit(1);
             }
         }
-        Err(e) => {
-            // If a manifest file cannot be found for a plugin with the given name
-            // error that the command does not exist.
-            if let Some(io_e) = e.downcast_ref::<std::io::Error>() {
-                if io_e.kind() == std::io::ErrorKind::NotFound {
-                    eprintln!("Unknown command.");
-                    app.clone().print_help()?;
-                    process::exit(2);
-                }
-            }
-            return Err(e);
+        Err(Error::NotFound(e)) => {
+            // Manifest file cannot be found for a plugin with the given name.
+            eprintln!("Unknown command: {e}\n");
+            app.clone().print_help()?;
+            process::exit(2);
         }
+        Err(e) => return Err(e.into()),
     }
 
     let mut command = Command::new(plugin_store.installed_binary_path(plugin_name));
-    if args.len() > 1 {
-        command.args(&args[1..]);
-    }
+    command.args(args);
     command.envs(get_env_vars_map()?);
     log::info!("Executing command {:?}", command);
     // Allow user to interact with stdio/stdout of child process

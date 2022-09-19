@@ -1,5 +1,4 @@
-use crate::{git::GitSource, manifest::PluginManifest, store::manifest_file_name};
-use anyhow::{Context, Result};
+use crate::{error::*, git::GitSource, manifest::PluginManifest, store::manifest_file_name};
 use semver::Version;
 use std::{
     fs::File,
@@ -13,9 +12,6 @@ const PLUGINS_REPO_LOCAL_DIRECTORY: &str = ".spin-plugins";
 
 // Name of directory containing the installed manifests
 const PLUGINS_REPO_MANIFESTS_DIRECTORY: &str = "manifests";
-
-// Error message indicating plugin could not be found in plugins repository.
-pub const PLUGIN_NOT_FOUND_ERROR_MSG: &str = "plugin not found";
 
 const SPIN_PLUGINS_REPO: &str = "https://github.com/fermyon/spin-plugins/";
 
@@ -33,49 +29,53 @@ impl PluginLookup {
         }
     }
 
-    fn version_string(&self) -> String {
-        self.version
-            .as_ref()
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| String::from("latest"))
-    }
-
-    pub async fn get_manifest_from_repository(&self, plugins_dir: &Path) -> Result<PluginManifest> {
-        log::info!(
-            "Pulling manifest for plugin {} from {}",
-            self.name,
-            SPIN_PLUGINS_REPO
-        );
-        fetch_plugins_repo(plugins_dir, false).await?;
-        let file = File::open(spin_plugins_repo_manifest_path(
-            &self.name,
-            &self.version,
-            plugins_dir,
-        ))
-        .with_context(|| {
-            format!(
-                "{} {} {} in centralized repository",
-                self.name,
-                self.version_string(),
-                PLUGIN_NOT_FOUND_ERROR_MSG,
-            )
+    pub async fn get_manifest_from_repository(
+        &self,
+        plugins_dir: &Path,
+    ) -> PluginLookupResult<PluginManifest> {
+        let url = plugins_repo_url()?;
+        log::info!("Pulling manifest for plugin {} from {url}", self.name);
+        fetch_plugins_repo(&url, plugins_dir, false)
+            .await
+            .map_err(|e| {
+                Error::ConnectionFailed(ConnectionFailedError::new(url.to_string(), e.to_string()))
+            })?;
+        let expected_path = spin_plugins_repo_manifest_path(&self.name, &self.version, plugins_dir);
+        let file = File::open(&expected_path).map_err(|e| {
+            Error::NotFound(NotFoundError::new(
+                Some(self.name.clone()),
+                expected_path.display().to_string(),
+                e.to_string(),
+            ))
         })?;
-        let manifest: PluginManifest = serde_json::from_reader(file)
-            .with_context(|| format!("Failed to deserialize {} plugin manifest", self.name))?;
+        let manifest: PluginManifest = serde_json::from_reader(file).map_err(|e| {
+            Error::InvalidManifest(InvalidManifestError::new(
+                Some(self.name.clone()),
+                expected_path.display().to_string(),
+                e.to_string(),
+            ))
+        })?;
         Ok(manifest)
     }
 }
 
-pub async fn fetch_plugins_repo(plugins_dir: &Path, update: bool) -> Result<()> {
-    let repo_url = Url::parse(SPIN_PLUGINS_REPO)?;
+pub fn plugins_repo_url() -> Result<Url, url::ParseError> {
+    Url::parse(SPIN_PLUGINS_REPO)
+}
+
+pub async fn fetch_plugins_repo(
+    repo_url: &Url,
+    plugins_dir: &Path,
+    update: bool,
+) -> anyhow::Result<()> {
     let git_root = plugin_manifests_repo_path(plugins_dir);
-    let git_source = GitSource::new(&repo_url, None, &git_root)?;
+    let git_source = GitSource::new(repo_url, None, &git_root);
     if git_root.join(".git").exists() {
         if update {
             git_source.pull().await?;
         }
     } else {
-        git_source.clone().await?;
+        git_source.clone_repo().await?;
     }
     Ok(())
 }

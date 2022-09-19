@@ -3477,6 +3477,7 @@ dependencies = [
  "sha2 0.10.3",
  "tar",
  "tempfile",
+ "thiserror",
  "tokio",
  "url",
 ]

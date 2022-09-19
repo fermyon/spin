@@ -1,11 +1,12 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 use semver::Version;
 use spin_plugins::{
-    fetch_plugins_repo,
+    error::Error,
+    lookup::{fetch_plugins_repo, plugins_repo_url, PluginLookup},
     manager::{self, ManifestLocation, PluginManager},
     manifest::{PluginManifest, PluginPackage},
-    prompt_confirm_install, PluginLookup, PLUGIN_NOT_FOUND_ERROR_MSG,
+    prompt_confirm_install,
 };
 use std::path::{Path, PathBuf};
 use tracing::log;
@@ -102,7 +103,8 @@ impl Install {
         let manager = PluginManager::default()?;
         // Downgrades are only allowed via the `upgrade` subcommand
         let downgrade = false;
-        try_install(&manifest_location, &manager, self.yes_to_all, downgrade).await?;
+        let manifest = manager.get_manifest(&manifest_location).await?;
+        try_install(&manifest, &manager, self.yes_to_all, downgrade).await?;
         Ok(())
     }
 }
@@ -211,7 +213,7 @@ impl Upgrade {
             let plugin_name = self
                 .name
                 .clone()
-                .ok_or_else(|| anyhow!("plugin name is required for upgrades"))?;
+                .context("plugin name is required for upgrades")?;
             self.upgrade_one(&plugin_name).await
         }
     }
@@ -229,25 +231,15 @@ impl Upgrade {
                 .to_string();
             let manifest_location =
                 ManifestLocation::PluginsRepository(PluginLookup::new(&name, None));
-            if let Err(e) = try_install(
-                &manifest_location,
-                &manager,
-                self.yes_to_all,
-                self.downgrade,
-            )
-            .await
-            {
-                // Ignore plugins that were not installed from the central
-                // plugins repository
-                if e.to_string().contains(PLUGIN_NOT_FOUND_ERROR_MSG) {
-                    log::info!(
-                        "Could not upgrade {} plugin as does not exist in spin-plugins repository",
-                        name
-                    );
-                } else {
-                    return Err(e);
+            let manifest = match manager.get_manifest(&manifest_location).await {
+                Err(Error::NotFound(e)) => {
+                    log::info!("Could not upgrade plugin '{name}': {e:?}");
+                    continue;
                 }
-            }
+                Err(e) => return Err(e.into()),
+                Ok(m) => m,
+            };
+            try_install(&manifest, &manager, self.yes_to_all, self.downgrade).await?;
         }
         Ok(())
     }
@@ -259,13 +251,8 @@ impl Upgrade {
             (None, Some(url)) => ManifestLocation::Remote(url),
             _ => ManifestLocation::PluginsRepository(PluginLookup::new(name, self.version)),
         };
-        try_install(
-            &manifest_location,
-            &manager,
-            self.yes_to_all,
-            self.downgrade,
-        )
-        .await?;
+        let manifest = manager.get_manifest(&manifest_location).await?;
+        try_install(&manifest, &manager, self.yes_to_all, self.downgrade).await?;
         Ok(())
     }
 }
@@ -274,7 +261,8 @@ impl Upgrade {
 async fn update() -> Result<()> {
     let manager = PluginManager::default()?;
     let plugins_dir = manager.store().get_plugins_directory();
-    fetch_plugins_repo(plugins_dir, true).await
+    let url = plugins_repo_url()?;
+    fetch_plugins_repo(&url, plugins_dir, true).await
 }
 
 fn continue_to_install(
@@ -286,20 +274,19 @@ fn continue_to_install(
 }
 
 async fn try_install(
-    manifest_location: &ManifestLocation,
+    manifest: &PluginManifest,
     manager: &PluginManager,
     yes_to_all: bool,
     downgrade: bool,
 ) -> Result<bool> {
     let spin_version = env!("VERGEN_BUILD_SEMVER");
-    let manifest = manager.get_manifest(manifest_location).await?;
-    manager.check_manifest(&manifest, spin_version, downgrade)?;
-    let package = manager::get_package(&manifest)?;
-    if !continue_to_install(&manifest, package, yes_to_all)? {
-        Ok(false)
-    } else {
-        let installed = manager.install(&manifest, package).await?;
-        println!("Plugin {} was installed successfully!", installed);
+    manager.check_manifest(manifest, spin_version, downgrade)?;
+    let package = manager::get_package(manifest)?;
+    if continue_to_install(manifest, package, yes_to_all)? {
+        let installed = manager.install(manifest, package).await?;
+        println!("Plugin '{installed}' was installed successfully!");
         Ok(true)
+    } else {
+        Ok(false)
     }
 }

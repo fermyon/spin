@@ -108,9 +108,9 @@ impl StoreBuilder {
         self.store_limits = StoreLimitsAsync::new(Some(max_memory_size), None);
     }
 
-    /// Inherit stdin, stdout, and stderr from the host process.
-    pub fn inherit_stdio(&mut self) {
-        self.with_wasi(|wasi| wasi.inherit_stdio());
+    /// Inherit stdin from the host process.
+    pub fn inherit_stdin(&mut self) {
+        self.with_wasi(|wasi| wasi.inherit_stdin());
     }
 
     /// Sets the WASI `stdin` descriptor.
@@ -121,6 +121,11 @@ impl StoreBuilder {
     /// Sets the WASI `stdin` descriptor to the given [`Read`]er.
     pub fn stdin_pipe(&mut self, r: impl Read + Send + Sync + 'static) {
         self.stdin(ReadPipe::new(r))
+    }
+
+    /// Inherit stdin from the host process.
+    pub fn inherit_stdout(&mut self) {
+        self.with_wasi(|wasi| wasi.inherit_stdout());
     }
 
     /// Sets the WASI `stdout` descriptor.
@@ -138,6 +143,11 @@ impl StoreBuilder {
         let buffer = OutputBuffer::default();
         self.stdout(buffer.writer());
         buffer
+    }
+
+    /// Inherit stdin from the host process.
+    pub fn inherit_stderr(&mut self) {
+        self.with_wasi(|wasi| wasi.inherit_stderr());
     }
 
     /// Sets the WASI `stderr` descriptor.

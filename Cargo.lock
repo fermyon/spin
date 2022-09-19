@@ -3288,6 +3288,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "tempfile",
+ "tokio",
  "tracing",
  "wasi-cap-std-sync",
  "wasi-common",

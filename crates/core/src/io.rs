@@ -16,3 +16,22 @@ impl OutputBuffer {
         WritePipe::from_shared(self.0.clone())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::IoSlice;
+
+    use wasi_common::WasiFile;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn take_what_you_write() {
+        let mut buf = OutputBuffer::default();
+        buf.writer()
+            .write_vectored(&[IoSlice::new(b"foo")])
+            .await
+            .unwrap();
+        assert_eq!(buf.take(), b"foo");
+    }
+}

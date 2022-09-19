@@ -174,3 +174,44 @@ impl HostComponentsData {
         self.data[idx].get_or_insert_with(|| self.data_builders[idx]())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TestHC;
+
+    impl HostComponent for TestHC {
+        type Data = u8;
+
+        fn add_to_linker<T: Send>(
+            _linker: &mut Linker<T>,
+            _get: impl Fn(&mut Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
+        ) -> Result<()> {
+            Ok(())
+        }
+
+        fn build_data(&self) -> Self::Data {
+            0
+        }
+    }
+
+    #[test]
+    fn host_components_data() {
+        let engine = wasmtime::Engine::default();
+        let mut linker: crate::Linker<()> = crate::Linker::new(&engine);
+
+        let mut builder = HostComponents::builder();
+        let handle1 = builder
+            .add_host_component(&mut linker, Arc::new(TestHC))
+            .unwrap();
+        let handle2 = builder.add_host_component(&mut linker, TestHC).unwrap();
+        let host_components = builder.build();
+        let mut hc_data = host_components.new_data();
+
+        assert_eq!(hc_data.get_or_insert(handle1), &0);
+
+        hc_data.set(handle2, 1);
+        assert_eq!(hc_data.get_or_insert(handle2), &1);
+    }
+}

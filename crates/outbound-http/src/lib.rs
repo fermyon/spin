@@ -55,13 +55,12 @@ impl wasi_outbound_http::WasiOutboundHttp for OutboundHttp {
         }
 
         let client = Client::builder().build().unwrap();
-        let res = block_on(
-            client
-                .request(method, url)
-                .headers(headers)
-                .body(body)
-                .send(),
-        );
+        let res = client
+            .request(method, url)
+            .headers(headers)
+            .body(body)
+            .send()
+            .await;
         let resp = log_request_error(res)?;
         Response::try_from(resp).map_err(|_| HttpError::RuntimeError)
     }

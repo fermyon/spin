@@ -1,8 +1,9 @@
 use anyhow::Error;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use lazy_static::lazy_static;
 use spin_cli::commands::{
-    bindle::BindleCommands, build::BuildCommand, deploy::DeployCommand, new::NewCommand,
+    bindle::BindleCommands, build::BuildCommand, deploy::DeployCommand,
+    external::execute_external_subcommand, new::NewCommand, plugins::PluginCommands,
     templates::TemplateCommands, up::UpCommand,
 };
 use spin_http::HttpTrigger;
@@ -16,7 +17,6 @@ async fn main() -> Result<(), Error> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .with_ansi(atty::is(atty::Stream::Stderr))
         .init();
-
     SpinApp::parse().run().await
 }
 
@@ -44,8 +44,12 @@ enum SpinApp {
     Bindle(BindleCommands),
     Deploy(DeployCommand),
     Build(BuildCommand),
+    #[clap(subcommand)]
+    Plugin(PluginCommands),
     #[clap(subcommand, hide = true)]
     Trigger(TriggerCommands),
+    #[clap(external_subcommand)]
+    External(Vec<String>),
 }
 
 #[derive(Subcommand)]
@@ -66,6 +70,8 @@ impl SpinApp {
             Self::Build(cmd) => cmd.run().await,
             Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run().await,
             Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run().await,
+            Self::Plugin(cmd) => cmd.run().await,
+            Self::External(cmd) => execute_external_subcommand(cmd, SpinApp::command()).await,
         }
     }
 }

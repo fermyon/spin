@@ -7,12 +7,15 @@ mod integration_tests {
         raw_manifest_from_file,
     };
     use std::{
+        collections::HashMap,
         ffi::OsStr,
+        fs,
         net::{Ipv4Addr, SocketAddrV4, TcpListener},
         path::Path,
-        process::{self, Child, Command},
+        process::{self, Child, Command, Output},
         time::Duration,
     };
+    use tempfile::tempdir;
     use tokio::{net::TcpStream, time::sleep};
 
     const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
@@ -87,6 +90,7 @@ mod integration_tests {
                     &b.url,
                 ],
                 None,
+                None,
             )?;
 
             // start Spin using the bindle reference of the application that was just pushed.
@@ -127,6 +131,7 @@ mod integration_tests {
                     BINDLE_SERVER_BASIC_AUTH_PASSWORD,
                 ],
                 None,
+                None,
             )?;
 
             // start Spin using the bindle reference of the application that was just pushed.
@@ -162,6 +167,7 @@ mod integration_tests {
                     "--bindle-server",
                     &b.url,
                 ],
+                None,
                 None,
             )?;
 
@@ -206,6 +212,7 @@ mod integration_tests {
                     "--bindle-server",
                     &b.url,
                 ],
+                None,
                 None,
             )?;
 
@@ -261,6 +268,7 @@ mod integration_tests {
                     &b.url,
                 ],
                 None,
+                None,
             )?;
 
             let manifest_template =
@@ -284,7 +292,6 @@ mod integration_tests {
 
         #[tokio::test]
         async fn test_spin_deploy() -> Result<()> {
-            println!("Testng spin deploy");
             // start the Bindle registry.
             let config = BindleTestControllerConfig {
                 basic_auth_enabled: false,
@@ -312,6 +319,7 @@ mod integration_tests {
                     "--hippo-password",
                     HIPPO_BASIC_AUTH_PASSWORD,
                 ],
+                None,
                 None,
             )?;
 
@@ -735,7 +743,11 @@ mod integration_tests {
         }
     }
 
-    fn run<S: Into<String> + AsRef<OsStr>>(args: Vec<S>, dir: Option<S>) -> Result<()> {
+    fn run<S: Into<String> + AsRef<OsStr>>(
+        args: Vec<S>,
+        dir: Option<S>,
+        envs: Option<HashMap<&str, &str>>,
+    ) -> Result<Output> {
         let mut cmd = Command::new(get_os_process());
         cmd.stdout(process::Stdio::piped());
         cmd.stderr(process::Stdio::piped());
@@ -751,6 +763,11 @@ mod integration_tests {
                 .collect::<Vec<String>>()
                 .join(" "),
         );
+        if let Some(envs) = envs {
+            for (k, v) in envs {
+                cmd.env(k, v);
+            }
+        }
 
         let output = cmd.output()?;
         let code = output.status.code().expect("should have status code");
@@ -760,7 +777,7 @@ mod integration_tests {
             panic!("command `{:?}` exited with code {}", cmd, code);
         }
 
-        Ok(())
+        Ok(output)
     }
 
     fn get_process(binary: &str) -> String {
@@ -851,6 +868,7 @@ mod integration_tests {
                 manifest_file.to_str().unwrap(),
             ],
             None,
+            None,
         )?;
 
         let mut missing_sources_count = 0;
@@ -867,6 +885,117 @@ mod integration_tests {
         }
         assert_eq!(missing_sources_count, 0);
 
+        Ok(())
+    }
+
+    // TODO: Test on Windows
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn test_spin_plugin_install_command() -> Result<()> {
+        // Create a temporary directory for plugin source and manifests
+        let temp_dir = tempdir()?;
+        let dir = temp_dir.path();
+        let installed_plugins_dir = dir.join("tmp");
+
+        // Ensure that spin installs the plugins into the temporary directory
+        let mut env_map: HashMap<&str, &str> = HashMap::new();
+        env_map.insert(
+            "TEST_PLUGINS_DIRECTORY",
+            installed_plugins_dir.to_str().unwrap(),
+        );
+
+        let path_to_test_dir = std::env::current_dir()?;
+        let file_url = format!(
+            "file:{}/tests/plugin/example.tar.gz",
+            path_to_test_dir.to_str().unwrap()
+        );
+        let mut plugin_manifest_json = serde_json::json!(
+        {
+            "name": "example",
+            "description": "A description of the plugin.",
+            "homepage": "www.example.com",
+            "version": "0.2.0",
+            "spinCompatibility": ">=0.5",
+            "license": "MIT",
+            "packages": [
+                {
+                    "os": "linux",
+                    "arch": "amd64",
+                    "url": file_url,
+                    "sha256": "f7a5a8c16a94fe934007f777a1bf532ef7e42b02133e31abf7523177b220a1ce"
+                },
+                {
+                    "os": "macos",
+                    "arch": "aarch64",
+                    "url": file_url,
+                    "sha256": "f7a5a8c16a94fe934007f777a1bf532ef7e42b02133e31abf7523177b220a1ce"
+                },
+                {
+                    "os": "macos",
+                    "arch": "amd64",
+                    "url": file_url,
+                    "sha256": "f7a5a8c16a94fe934007f777a1bf532ef7e42b02133e31abf7523177b220a1ce"
+                }
+            ]
+        });
+        let manifest_file_path = dir.join("example-plugin-manifest.json");
+        fs::write(
+            &manifest_file_path,
+            serde_json::to_string(&plugin_manifest_json).unwrap(),
+        )?;
+
+        // Install plugin
+        let install_args = vec![
+            SPIN_BINARY,
+            "plugin",
+            "install",
+            "--file",
+            manifest_file_path.to_str().unwrap(),
+            "--yes",
+        ];
+        run(install_args, None, Some(env_map.clone()))?;
+
+        // Execute example plugin which writes "This is an example Spin plugin!" to a specified file
+        let execute_args = vec![SPIN_BINARY, "example"];
+        let output = run(execute_args, None, Some(env_map.clone()))?;
+
+        // Verify plugin successfully wrote to output file
+        assert_eq!(
+            std::str::from_utf8(&output.stdout)?.trim(),
+            "This is an example Spin plugin!"
+        );
+
+        // Upgrade plugin to newer version
+        *plugin_manifest_json.get_mut("version").unwrap() = serde_json::json!("0.2.1");
+        fs::write(
+            dir.join("example-plugin-manifest.json"),
+            serde_json::to_string(&plugin_manifest_json).unwrap(),
+        )?;
+        let upgrade_args = vec![
+            SPIN_BINARY,
+            "plugin",
+            "upgrade",
+            "example",
+            "--file",
+            manifest_file_path
+                .to_str()
+                .ok_or_else(|| anyhow::anyhow!("Cannot convert PathBuf to str"))?,
+            "--yes",
+        ];
+        run(upgrade_args, None, Some(env_map))?;
+
+        // Check plugin version
+        let installed_manifest = installed_plugins_dir
+            .join("spin")
+            .join("plugins")
+            .join("manifests")
+            .join("example.json");
+        let manifest = fs::read_to_string(installed_manifest)?;
+        assert!(manifest.contains("0.2.1"));
+
+        // Uninstall plugin
+        let uninstall_args = vec![SPIN_BINARY, "plugin", "uninstall", "example"];
+        run(uninstall_args, None, None)?;
         Ok(())
     }
 

@@ -3311,6 +3311,7 @@ dependencies = [
  "spin-http",
  "spin-loader",
  "spin-manifest",
+ "spin-plugins",
  "spin-publish",
  "spin-redis-engine",
  "spin-templates",
@@ -3442,6 +3443,27 @@ dependencies = [
  "indexmap",
  "serde",
  "thiserror",
+ "url",
+]
+
+[[package]]
+name = "spin-plugins"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "dirs 4.0.0",
+ "flate2",
+ "log",
+ "reqwest",
+ "semver 1.0.13",
+ "serde",
+ "serde_json",
+ "sha2 0.10.3",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "tokio",
  "url",
 ]
 
@@ -3691,6 +3713,17 @@ dependencies = [
  "rustix 0.35.9",
  "windows-sys",
  "winx 0.33.0",
+]
+
+[[package]]
+name = "tar"
+version = "0.4.38"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b55807c0344e1e6c04d7c965f5289c39a8d94ae23ed5c0b57aabac549f871c6"
+dependencies = [
+ "filetime",
+ "libc",
+ "xattr",
 ]
 
 [[package]]

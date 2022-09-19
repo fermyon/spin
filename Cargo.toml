@@ -36,6 +36,7 @@ spin-engine = { path = "crates/engine" }
 spin-http = { path = "crates/http" }
 spin-loader = { path = "crates/loader" }
 spin-manifest = { path = "crates/manifest" }
+spin-plugins = { path = "crates/plugins" }
 spin-publish = { path = "crates/publish" }
 spin-redis-engine = { path = "crates/redis" }
 spin-templates = { path = "crates/templates" }
@@ -77,6 +78,7 @@ members = [
     "crates/manifest",
     "crates/outbound-http",
     "crates/outbound-redis",
+    "crates/plugins",
     "crates/redis",
     "crates/templates",
     "crates/testing",

@@ -3263,6 +3263,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
+name = "spin-abi-conformance"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "cap-std 0.25.2",
+ "clap 3.2.19",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.3",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml",
+ "wasi-common",
+ "wasmtime",
+ "wasmtime-wasi",
+ "wit-bindgen-wasmtime",
+]
+
+[[package]]
 name = "spin-build"
 version = "0.2.0"
 dependencies = [

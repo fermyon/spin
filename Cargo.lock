@@ -2204,10 +2204,10 @@ name = "outbound-pg"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "postgres",
  "spin-engine",
  "spin-manifest",
  "tokio",
+ "tokio-postgres",
  "tracing",
  "wit-bindgen-wasmtime",
 ]
@@ -2453,20 +2453,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9a81d2759aae1dae668f783c308bc5c8ebd191ff4184aaa1b37f65a6ae5a56f"
 dependencies = [
  "plotters-backend",
-]
-
-[[package]]
-name = "postgres"
-version = "0.19.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "960c214283ef8f0027974c03e9014517ced5db12f021a9abb66185a5751fab0a"
-dependencies = [
- "bytes",
- "fallible-iterator",
- "futures-util",
- "log",
- "tokio",
- "tokio-postgres",
 ]
 
 [[package]]

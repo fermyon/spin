@@ -1,6 +1,10 @@
 use anyhow::anyhow;
 use outbound_pg::*;
-use postgres::{types::ToSql, types::Type, Client, NoTls, Row};
+use tokio_postgres::{
+    tls::NoTlsStream,
+    types::{ToSql, Type},
+    Connection, NoTls, Row, Socket,
+};
 
 pub use outbound_pg::add_to_linker;
 use spin_engine::{
@@ -41,23 +45,24 @@ impl outbound_pg::OutboundPg for OutboundPg {
         statement: &str,
         params: Vec<ParameterValue<'_>>,
     ) -> Result<u64, PgError> {
-        // TODO: consider using async tokio-postgres crate
-        tokio::task::block_in_place(|| {
-            let mut client = Client::connect(address, NoTls)
-                .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?;
+        let (client, connection) = tokio_postgres::connect(address, NoTls)
+            .await
+            .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?;
 
-            let params: Vec<&(dyn ToSql + Sync)> = params
-                .iter()
-                .map(to_sql_parameter)
-                .collect::<anyhow::Result<Vec<_>>>()
-                .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
+        spawn(connection);
 
-            let nrow = client
-                .execute(statement, params.as_slice())
-                .map_err(|e| PgError::ValueConversionFailed(format!("{:?}", e)))?;
+        let params: Vec<&(dyn ToSql + Sync)> = params
+            .iter()
+            .map(to_sql_parameter)
+            .collect::<anyhow::Result<Vec<_>>>()
+            .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
 
-            Ok(nrow)
-        })
+        let nrow = client
+            .execute(statement, params.as_slice())
+            .await
+            .map_err(|e| PgError::ValueConversionFailed(format!("{:?}", e)))?;
+
+        Ok(nrow)
     }
 
     async fn query(
@@ -66,36 +71,38 @@ impl outbound_pg::OutboundPg for OutboundPg {
         statement: &str,
         params: Vec<ParameterValue<'_>>,
     ) -> Result<RowSet, PgError> {
-        tokio::task::block_in_place(|| {
-            let mut client = Client::connect(address, NoTls)
-                .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?;
+        let (client, connection) = tokio_postgres::connect(address, NoTls)
+            .await
+            .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?;
 
-            let params: Vec<&(dyn ToSql + Sync)> = params
-                .iter()
-                .map(to_sql_parameter)
-                .collect::<anyhow::Result<Vec<_>>>()
-                .map_err(|e| PgError::BadParameter(format!("{:?}", e)))?;
+        spawn(connection);
 
-            let results = client
-                .query(statement, params.as_slice())
-                .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
+        let params: Vec<&(dyn ToSql + Sync)> = params
+            .iter()
+            .map(to_sql_parameter)
+            .collect::<anyhow::Result<Vec<_>>>()
+            .map_err(|e| PgError::BadParameter(format!("{:?}", e)))?;
 
-            if results.is_empty() {
-                return Ok(RowSet {
-                    columns: vec![],
-                    rows: vec![],
-                });
-            }
+        let results = client
+            .query(statement, params.as_slice())
+            .await
+            .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
 
-            let columns = infer_columns(&results[0]);
-            let rows = results
-                .iter()
-                .map(convert_row)
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
+        if results.is_empty() {
+            return Ok(RowSet {
+                columns: vec![],
+                rows: vec![],
+            });
+        }
 
-            Ok(RowSet { columns, rows })
-        })
+        let columns = infer_columns(&results[0]);
+        let rows = results
+            .iter()
+            .map(convert_row)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
+
+        Ok(RowSet { columns, rows })
     }
 }
 
@@ -110,10 +117,10 @@ fn to_sql_parameter<'a>(value: &'a ParameterValue) -> anyhow::Result<&'a (dyn To
         ParameterValue::Int16(v) => Ok(v),
         ParameterValue::Floating32(v) => Ok(v),
         ParameterValue::Floating64(v) => Ok(v),
-        ParameterValue::Uint8(_) => Err(anyhow!("Postgres does not support unsigned integers")),
-        ParameterValue::Uint16(_) => Err(anyhow!("Postgres does not support unsigned integers")),
-        ParameterValue::Uint32(_) => Err(anyhow!("Postgres does not support unsigned integers")),
-        ParameterValue::Uint64(_) => Err(anyhow!("Postgres does not support unsigned integers")),
+        ParameterValue::Uint8(_)
+        | ParameterValue::Uint16(_)
+        | ParameterValue::Uint32(_)
+        | ParameterValue::Uint64(_) => Err(anyhow!("Postgres does not support unsigned integers")),
         ParameterValue::Str(v) => Ok(v),
         ParameterValue::Binary(v) => Ok(v),
         ParameterValue::DbNull => Ok(&DB_NULL),
@@ -153,7 +160,7 @@ fn convert_data_type(pg_type: &Type) -> DbDataType {
     }
 }
 
-fn convert_row(row: &Row) -> Result<Vec<DbValue>, postgres::Error> {
+fn convert_row(row: &Row) -> Result<Vec<DbValue>, tokio_postgres::Error> {
     let mut result = Vec::with_capacity(row.len());
     for index in 0..row.len() {
         result.push(convert_entry(row, index)?);
@@ -161,7 +168,7 @@ fn convert_row(row: &Row) -> Result<Vec<DbValue>, postgres::Error> {
     Ok(result)
 }
 
-fn convert_entry(row: &Row, index: usize) -> Result<DbValue, postgres::Error> {
+fn convert_entry(row: &Row, index: usize) -> Result<DbValue, tokio_postgres::Error> {
     let column = &row.columns()[index];
     let value = match column.type_() {
         &Type::BOOL => {
@@ -237,4 +244,12 @@ fn convert_entry(row: &Row, index: usize) -> Result<DbValue, postgres::Error> {
         }
     };
     Ok(value)
+}
+
+fn spawn(connection: Connection<Socket, NoTlsStream>) {
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            tracing::warn!("Postgres connection error: {}", e);
+        }
+    });
 }

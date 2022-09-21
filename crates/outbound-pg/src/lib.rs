@@ -55,12 +55,12 @@ impl outbound_pg::OutboundPg for OutboundPg {
             .iter()
             .map(to_sql_parameter)
             .collect::<anyhow::Result<Vec<_>>>()
-            .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
+            .map_err(|e| PgError::ValueConversionFailed(format!("{:?}", e)))?;
 
         let nrow = client
             .execute(statement, params.as_slice())
             .await
-            .map_err(|e| PgError::ValueConversionFailed(format!("{:?}", e)))?;
+            .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
 
         Ok(nrow)
     }

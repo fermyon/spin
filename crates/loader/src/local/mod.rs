@@ -63,7 +63,9 @@ pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppMani
         .await
         .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
 
-    let manifest: RawAppManifestAnyVersion = toml::from_slice(&buf)?;
+    let manifest: RawAppManifestAnyVersion = toml::from_slice(&buf)
+        .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
+
     Ok(manifest)
 }
 

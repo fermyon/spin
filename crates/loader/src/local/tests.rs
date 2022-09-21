@@ -99,6 +99,23 @@ fn test_manifest() -> Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn test_invalid_manifest() -> Result<()> {
+    const MANIFEST: &str = "tests/invalid-manifest.toml";
+
+    let temp_dir = tempfile::tempdir()?;
+    let dir = temp_dir.path();
+    let app = from_file(MANIFEST, dir, &None, false).await;
+
+    let e = app.unwrap_err().to_string();
+    assert!(
+        e.contains("invalid-manifest.toml"),
+        "Expected error to contain the manifest name"
+    );
+
+    Ok(())
+}
+
 #[test]
 fn test_unknown_version_is_rejected() {
     const MANIFEST: &str = include_str!("../../tests/invalid-version.toml");

@@ -1,0 +1,6 @@
+spin_version = "1"
+authors = ["Gul Madred", "Edward Jellico", "JL"]
+description = "A simple application that returns the number of lights"
+name = "chain-of-command"
+trigger = {type = "http", base = "/"}
+ver

@@ -195,6 +195,9 @@ Successfully ran the build command for the Spin components.
 >
 > For more details, see the [page about developing Spin applications](./developing.md).
 
+If you run into errors, you might want to use `rustup check` to see if your Rust installation is up-to-date.
+This quickstart is known to work with Rust version 1.64.
+
 ## Running the application with `spin up`
 
 Now that we configured the application and built our component, we can _spin up_

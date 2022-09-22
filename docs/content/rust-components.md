@@ -194,6 +194,7 @@ message on the `messages` channel, the `echo-message` component will be executed
 $ redis-server --port 6379
 # then, start the Spin application
 $ spin up --file spin.toml
+# the application log file will output the following
 INFO spin_redis_engine: Connecting to Redis server at redis://localhost:6379
 INFO spin_redis_engine: Subscribed component 0 (echo-message) to channel: messages
 ```
@@ -205,11 +206,17 @@ $ redis-cli
 127.0.0.1:6379> publish messages "Hello, there!"
 ```
 
-Spin will instantiate and execute the component we just built:
+Spin will instantiate and execute the component we just built, which will emit the `println!` message to the application log file:
 
 ```
 INFO spin_redis_engine: Received message on channel "messages"
 Hello, there!
+```
+
+If you would also like to see the `println!` messages echoed to the console as they happen, please include the additional `--follow-all` option, when starting the spin application. For example:
+
+```bash
+spin up --file spin.toml --follow-all
 ```
 
 > You can find a complete example for a Redis triggered component in the

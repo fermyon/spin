@@ -194,8 +194,15 @@ message on the `messages` channel, the `echo-message` component will be executed
 $ redis-server --port 6379
 # then, start the Spin application
 $ spin up --file spin.toml
+# the logs will output the following
 INFO spin_redis_engine: Connecting to Redis server at redis://localhost:6379
 INFO spin_redis_engine: Subscribed component 0 (echo-message) to channel: messages
+```
+
+**Please note**: By default, `stdout` goes only to the logs. This is because Spin is intended to run as a server. If you would like to see the published messages interactively please use the `--follow-all` option, when starting the spin application. For example:
+
+```bash
+spin up --file spin.toml --follow-all
 ```
 
 For every new message on the  `messages` channel:

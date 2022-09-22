@@ -8,7 +8,7 @@ doctest = false
 
 [dependencies]
 anyhow = "1.0"
-postgres = { version = "0.19.3" }
+tokio-postgres = { version = "0.7.7" }
 spin-engine = { path = "../engine" }
 spin-manifest = { path = "../manifest" }
 tokio = { version = "1", features = [ "rt-multi-thread" ] }
@@ -18,4 +18,3 @@ tracing = { version = "0.1", features = [ "log" ] }
 git = "https://github.com/bytecodealliance/wit-bindgen"
 rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
 features = ["async"]
-

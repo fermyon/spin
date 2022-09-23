@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail, Context, Result};
 use bindle::Id;
 use clap::Parser;
-use hippo::{Client, ConnectionInfo};
+use hippo::{client::Client, config::ConnectionInfo};
 use hippo_openapi::models::ChannelRevisionSelectionStrategy;
 use semver::BuildMetadata;
 use serde::{Deserialize, Serialize};
@@ -146,21 +146,21 @@ impl DeployCommand {
             &Client::new(ConnectionInfo {
                 url: self.hippo_server_url.clone(),
                 danger_accept_invalid_certs: self.insecure,
-                api_key: None,
+                token: Default::default(),
             }),
             self.hippo_username.clone(),
             self.hippo_password.clone(),
         )
         .await
         {
-            Ok(token_info) => token_info.token.unwrap_or_default(),
+            Ok(token_info) => token_info,
             Err(err) => bail!(format_login_error(&err)?),
         };
 
         let hippo_client = Client::new(ConnectionInfo {
             url: self.hippo_server_url.clone(),
             danger_accept_invalid_certs: self.insecure,
-            api_key: Some(token),
+            token: token,
         });
 
         let name = bindle_id.name().to_string();

@@ -1,0 +1,15 @@
+[package]
+name = "hippo"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
+
+[dependencies]
+anyhow = "1.0"
+dirs = "4.0"
+hippo-openapi = "0.10"
+reqwest = { version = "0.11", features = ["stream"] }
+serde = { version = "1.0", features = [ "derive" ] }
+serde_json = "1.0.82"
+tracing = { version = "0.1", features = [ "log" ] }
+uuid = "^1.0"

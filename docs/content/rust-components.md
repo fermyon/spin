@@ -281,8 +281,8 @@ be used when implementing the component.
 Sometimes things can go wrong, especially such early projects. If you bump into
 issues building and running your Rust component:
 
-- ensure `cargo` is present in your path — we recommend
-[Rust](https://www.rust-lang.org/) at [1.56+](https://www.rust-lang.org/tools/install)
+- ensure `cargo` is present in your path
+- ensure your [Rust](https://www.rust-lang.org/) version is recent, via `rustup check`
 - ensure `wasm32-wasi` target is configured for your Rust installation —
 you can add it by running `rustup target add wasm32-wasi`
 - build a `release` version of the component — all Spin application definitions

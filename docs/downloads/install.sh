@@ -66,7 +66,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Check all required utilities are available
-require wget
+require curl
 require tar
 require uname
 
@@ -106,7 +106,7 @@ esac
 
 # Check desired version. Default to latest if no desired version was requested
 if [[ $VERSION = "" ]]; then
-    VERSION=$(wget -qO- https://github.com/fermyon/spin/releases | grep 'href="/fermyon/spin/releases/tag/v[0-9]*.[0-9]*.[0-9]*\"' | sed -E 's/.*\/fermyon\/spin\/releases\/tag\/(v[0-9\.]+)".*/\1/g' | head -1)
+    VERSION=$(curl -so- https://github.com/fermyon/spin/releases | grep 'href="/fermyon/spin/releases/tag/v[0-9]*.[0-9]*.[0-9]*\"' | sed -E 's/.*\/fermyon\/spin\/releases\/tag\/(v[0-9\.]+)".*/\1/g' | head -1)
 fi
 
 # Constructing download FILE and URL
@@ -115,7 +115,7 @@ URL="https://github.com/fermyon/spin/releases/download/${VERSION}/${FILE}"
 
 # Download file, exit if not found - e.g. version does not exist
 fancy_print 0 "Step 1: Downloading: ${URL}"
-wget -q $URL || (fancy_print 1 "The requested file does not exist: ${FILE}"; exit 1)
+curl -sOL $URL || (fancy_print 1 "The requested file does not exist: ${FILE}"; exit 1)
 fancy_print 0 "Done...\n"
 
 # Decompress the file

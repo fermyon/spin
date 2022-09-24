@@ -109,7 +109,7 @@ Spin HTTP _executor_ is defined using WebAssembly interfaces.
 > handler functions will become asynchronous.
 
 We define the HTTP objects as
-[WebAssembly Interface (WIT)](https://github.com/bytecodealliance/wit-bindgen/blob/main/WIT.md)
+[WebAssembly Interface (WIT)](https://github.com/bytecodealliance/wit-bindgen/blob/main/README.md)
 objects, currently using _records_:
 
 ```fsharp

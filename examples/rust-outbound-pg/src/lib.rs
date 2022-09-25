@@ -18,10 +18,20 @@ struct Article {
 }
 
 #[http_component]
+fn process(req: Request) -> Result<Response> {
+    match req.uri().path() {
+        "/read" => read(req),
+        "/write" => write(req),
+        _ => Ok(http::Response::builder()
+            .status(404)
+            .body(Some("Not found".into()))?),
+    }
+}
+
 fn read(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
 
-    let sql = "select id, title, content, authorname from articletest";
+    let sql = "SELECT id, title, content, authorname FROM articletest";
     let rowset = pg::query(&address, sql, &[])
         .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
 
@@ -64,18 +74,27 @@ fn read(_req: Request) -> Result<Response> {
         .status(200)
         .body(Some(response.into()))?)
 }
-/*
+
 fn write(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
 
-    let sql = "insert into articletest values ('aaa', 'bbb', 'ccc')";
-    let nrow_executed = pg::execute(&address, sql, &vec![]).map_err(|_| anyhow!("Error execute pg command"))?;
+    let sql = "INSERT INTO articletest (title, content, authorname) VALUES ('aaa', 'bbb', 'ccc')";
+    let nrow_executed =
+        pg::execute(&address, sql, &[]).map_err(|_| anyhow!("Error execute pg command"))?;
 
     println!("nrow_executed: {}", nrow_executed);
 
-    Ok(http::Response::builder().status(200).body(None)?)
+    let sql = "SELECT COUNT(id) FROM articletest";
+    let rowset = pg::query(&address, sql, &[])
+        .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
+    let row = &rowset.rows[0];
+    let count = as_bigint(&row[0])?;
+    let response = format!("Count: {}\n", count);
+
+    Ok(http::Response::builder()
+        .status(200)
+        .body(Some(response.into()))?)
 }
-*/
 
 fn as_owned_string(value: &pg::DbValue) -> anyhow::Result<String> {
     match value {
@@ -87,6 +106,16 @@ fn as_owned_string(value: &pg::DbValue) -> anyhow::Result<String> {
 fn as_int(value: &pg::DbValue) -> anyhow::Result<i32> {
     match value {
         pg::DbValue::Int32(n) => Ok(*n),
+        _ => Err(anyhow!(
+            "Expected integer from database but got {:?}",
+            value
+        )),
+    }
+}
+
+fn as_bigint(value: &pg::DbValue) -> anyhow::Result<i64> {
+    match value {
+        pg::DbValue::Int64(n) => Ok(*n),
         _ => Err(anyhow!(
             "Expected integer from database but got {:?}",
             value

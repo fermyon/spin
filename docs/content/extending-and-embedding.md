@@ -25,7 +25,7 @@ timer, executing Spin components at configured time interval.
 
 The current application types that can be implemented with Spin have entry points
 defined using
-[WebAssembly Interface (WIT)](https://github.com/bytecodealliance/wit-bindgen/blob/main/WIT.md):
+[WebAssembly Interface (WIT)](https://github.com/bytecodealliance/wit-bindgen/blob/main/README.md):
 
 ```fsharp
 // The entry point for an HTTP handler.

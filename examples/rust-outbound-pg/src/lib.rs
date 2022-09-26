@@ -22,6 +22,7 @@ fn process(req: Request) -> Result<Response> {
     match req.uri().path() {
         "/read" => read(req),
         "/write" => write(req),
+        "/pg_backend_pid" => pg_backend_pid(req),
         _ => Ok(http::Response::builder()
             .status(404)
             .body(Some("Not found".into()))?),
@@ -90,6 +91,27 @@ fn write(_req: Request) -> Result<Response> {
     let row = &rowset.rows[0];
     let count = as_bigint(&row[0])?;
     let response = format!("Count: {}\n", count);
+
+    Ok(http::Response::builder()
+        .status(200)
+        .body(Some(response.into()))?)
+}
+
+fn pg_backend_pid(_req: Request) -> Result<Response> {
+    let address = std::env::var(DB_URL_ENV)?;
+    let sql = "SELECT pg_backend_pid()";
+
+    let get_pid = || {
+        let rowset = pg::query(&address, sql, &[])
+            .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
+
+        let row = &rowset.rows[0];
+        as_int(&row[0])
+    };
+
+    assert_eq!(get_pid()?, get_pid()?);
+
+    let response = format!("pg_backend_pid: {}\n", get_pid()?);
 
     Ok(http::Response::builder()
         .status(200)

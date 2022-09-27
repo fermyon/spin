@@ -12,7 +12,7 @@ import (
 // handler is the function that will be called by the http trigger in Spin.
 var handler = defaultHandler
 
-// defaultHandler is a placeholder for returning a useful error to stdout when
+// defaultHandler is a placeholder for returning a useful error to stderr when
 // the handler is not set.
 var defaultHandler = func(http.ResponseWriter, *http.Request) {
 	fmt.Fprintln(os.Stderr, "http handler undefined")

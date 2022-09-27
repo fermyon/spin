@@ -119,7 +119,7 @@ impl UpCommand {
             None => WorkingDirectory::Temporary(tempfile::tempdir()?),
             Some(d) => WorkingDirectory::Given(d.to_owned()),
         };
-        let working_dir = working_dir_holder.path();
+        let working_dir = working_dir_holder.path().canonicalize()?;
 
         let mut app = match (&self.app, &self.bindle) {
             (app, None) => {
@@ -127,10 +127,10 @@ impl UpCommand {
                     .as_deref()
                     .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
                 let bindle_connection = self.bindle_connection();
-                spin_loader::from_file(manifest_file, working_dir, &bindle_connection).await?
+                spin_loader::from_file(manifest_file, &working_dir, &bindle_connection).await?
             }
             (None, Some(bindle)) => match &self.server {
-                Some(server) => spin_loader::from_bindle(bindle, server, working_dir).await?,
+                Some(server) => spin_loader::from_bindle(bindle, server, &working_dir).await?,
                 _ => bail!("Loading from a bindle requires a Bindle server URL"),
             },
             (Some(_), Some(_)) => bail!("Specify only one of app file or bindle ID"),
@@ -149,7 +149,7 @@ impl UpCommand {
         };
 
         // Build and write app lock file
-        let locked_app = spin_trigger::locked::build_locked_app(app, working_dir)?;
+        let locked_app = spin_trigger::locked::build_locked_app(app, &working_dir)?;
         let locked_path = working_dir.join("spin.lock");
         let locked_app_contents =
             serde_json::to_vec_pretty(&locked_app).context("failed to serialize locked app")?;

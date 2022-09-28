@@ -6,7 +6,7 @@ authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 
 [dependencies]
 anyhow = "1.0"
-bindle = { git = "https://github.com/fermyon/bindle", tag = "v0.8.2", default-features = false, features = ["client"] }
+bindle = { git = "https://github.com/fermyon/bindle", tag = "v0.9.0-rc.1", default-features = false, features = ["client"] }
 dunce = "1.0"
 futures = "0.3.14"
 itertools = "0.10.3"
@@ -19,4 +19,5 @@ sha2 = "0.10.1"
 spin-loader = { path = "../loader" }
 tempfile = "3.3.0"
 tokio = "1.16.1"
+dirs = "4.0.0"
 toml = "0.5"

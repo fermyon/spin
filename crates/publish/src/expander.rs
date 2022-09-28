@@ -2,7 +2,13 @@
 
 use crate::bindle_writer::{self, ParcelSources};
 use anyhow::{Context, Result};
-use bindle::{BindleSpec, Condition, Group, Invoice, Label, Parcel};
+use bindle::{
+    invoice::{
+        signature::{LabelMatch, SecretKeyEntry, SecretKeyFile},
+        SignatureRole,
+    },
+    BindleSpec, Condition, Group, Invoice, Label, Parcel,
+};
 use path_absolutize::Absolutize;
 use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
@@ -17,6 +23,10 @@ pub async fn expand_manifest(
     app_file: impl AsRef<Path>,
     buildinfo: Option<BuildMetadata>,
     scratch_dir: impl AsRef<Path>,
+    bindle_secret_file: Option<PathBuf>,
+    bindle_role: Option<String>,
+    bindle_label: Option<String>,
+    bindle_label_matching: Option<String>,
 ) -> Result<(Invoice, ParcelSources)> {
     let app_file = app_file
         .as_ref()
@@ -26,6 +36,36 @@ pub async fn expand_manifest(
     validate_raw_app_manifest(&manifest)?;
     let local_schema::RawAppManifestAnyVersion::V1(manifest) = manifest;
     let app_dir = app_dir(&app_file)?;
+
+    // bindle secret key file
+    let bindle_secret_file_path = get_bindle_secret_file_path(bindle_secret_file).await?;
+
+    // bindle role
+    let bindle_role = if let Some(r) = bindle_role {
+        r.parse()
+            .map_err(|e| anyhow::anyhow!("Can't parse {}, err: {}", &r, e))?
+    } else {
+        SignatureRole::Creator
+    };
+
+    let bindle_label_match_type = match (bindle_label, bindle_label_matching) {
+        (Some(label), None) => Some(LabelMatch::FullMatch(label)),
+        (None, Some(label_matching)) => Some(LabelMatch::PartialMatch(label_matching)),
+        (None, None) => None,
+        _ => {
+            unreachable!(
+                "both bindle-label and bindle-label-matching cannot be present at the same time"
+            )
+        }
+    };
+
+    // bindle key
+    let bindle_key = get_bindle_first_matching_key(
+        bindle_secret_file_path,
+        &bindle_role,
+        bindle_label_match_type.as_ref(),
+    )
+    .await?;
 
     // * create a new spin.toml-like document where
     //   - each component changes its `files` entry to a group name
@@ -60,7 +100,7 @@ pub async fn expand_manifest(
     let bindle_id = bindle_id(&manifest.info, buildinfo)?;
     let groups = build_groups(&manifest);
 
-    let invoice = Invoice {
+    let mut invoice = Invoice {
         bindle_version: "1.0.0".to_owned(),
         yanked: None,
         bindle: BindleSpec {
@@ -74,6 +114,7 @@ pub async fn expand_manifest(
         signature: None,
         yanked_signature: None,
     };
+    invoice.sign(bindle_role.clone(), &bindle_key)?;
 
     Ok((invoice, sources))
 }
@@ -421,4 +462,53 @@ fn split_sources(sourced_parcels: Vec<SourcedParcel>) -> (Vec<Parcel>, ParcelSou
     let parcels = sourced_parcels.into_iter().map(|sp| sp.parcel);
 
     (parcels.collect(), parcel_sources)
+}
+
+/// Get the config dir, ensuring that it exists.
+///
+/// This will return the default config directory. If that directory does not
+/// exist, it will be created before the path is returned.
+///
+/// If the system does not have a configuration directory, this will create a directory named
+/// `bindle/` in the local working directory.
+pub async fn ensure_config_dir() -> Result<PathBuf> {
+    let dir = dirs::config_dir()
+        .map(|v| v.join("bindle/"))
+        .unwrap_or_else(|| "./bindle".into());
+    tokio::fs::create_dir_all(&dir).await?;
+    Ok(dir)
+}
+
+async fn get_bindle_secret_file_path(bindle_secret_file: Option<PathBuf>) -> Result<PathBuf> {
+    match bindle_secret_file {
+        Some(dir) => Ok(dir),
+        None => {
+            let dir = ensure_config_dir().await?;
+            Ok(dir.join("secret_keys.toml"))
+        }
+    }
+}
+
+async fn get_bindle_first_matching_key(
+    fpath: PathBuf,
+    role: &SignatureRole,
+    label_match: Option<&LabelMatch>,
+) -> Result<SecretKeyEntry> {
+    let keys = SecretKeyFile::load_file(&fpath).await.context(format!(
+        "can't load bindle secret key from {}",
+        &fpath.display()
+    ))?;
+
+    keys.key
+        .iter()
+        .find(|k| {
+            k.roles.contains(role)
+                && match label_match {
+                    Some(LabelMatch::FullMatch(label)) => k.label.eq(label),
+                    Some(LabelMatch::PartialMatch(label)) => k.label.contains(label),
+                    None => true,
+                }
+        })
+        .map(|k| k.to_owned())
+        .ok_or_else(|| anyhow::anyhow!("No satisfactory key found"))
 }

@@ -70,6 +70,14 @@ pub struct UpCommand {
     )]
     pub bindle_password: Option<String>,
 
+    /// Bindle keyring file path. Defaults to $XDG_CONFIG/bindle/keyring.toml.
+    #[clap(
+        name = BINDLE_KEYRING_FILE,
+        long = "bindle-keyring-file",
+        env = BINDLE_KEYRING_FILE,
+    )]
+    pub bindle_keyring_file: Option<PathBuf>,
+
     /// Ignore server certificate errors from bindle server
     #[clap(
         name = INSECURE_OPT,
@@ -126,11 +134,19 @@ impl UpCommand {
                 let manifest_file = app
                     .as_deref()
                     .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-                let bindle_connection = self.bindle_connection();
+                let bindle_connection = self.bindle_connection().await?;
                 spin_loader::from_file(manifest_file, &working_dir, &bindle_connection).await?
             }
             (None, Some(bindle)) => match &self.server {
-                Some(server) => spin_loader::from_bindle(bindle, server, &working_dir).await?,
+                Some(server) => {
+                    spin_loader::from_bindle(
+                        bindle,
+                        server,
+                        &working_dir,
+                        self.bindle_keyring_file.clone(),
+                    )
+                    .await?
+                }
                 _ => bail!("Loading from a bindle requires a Bindle server URL"),
             },
             (Some(_), Some(_)) => bail!("Specify only one of app file or bindle ID"),
@@ -199,15 +215,20 @@ impl UpCommand {
         }
     }
 
-    fn bindle_connection(&self) -> Option<BindleConnectionInfo> {
-        self.server.as_ref().map(|url| {
-            BindleConnectionInfo::new(
-                url,
-                self.insecure,
-                self.bindle_username.clone(),
-                self.bindle_password.clone(),
-            )
-        })
+    async fn bindle_connection(&self) -> Result<Option<BindleConnectionInfo>> {
+        match self.server.as_ref() {
+            Some(url) => Ok(Some(
+                BindleConnectionInfo::new(
+                    url,
+                    self.insecure,
+                    self.bindle_username.clone(),
+                    self.bindle_password.clone(),
+                    self.bindle_keyring_file.clone(),
+                )
+                .await?,
+            )),
+            None => Ok(None),
+        }
     }
 }
 

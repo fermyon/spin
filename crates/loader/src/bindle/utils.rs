@@ -153,10 +153,16 @@ impl BindleReader {
     /// Get the invoice from the bindle source
     pub(crate) async fn get_invoice(&self) -> Result<Invoice> {
         match &self.inner {
-            BindleReaderInner::Remote(c, id) => c
-                .get_invoice(id)
-                .await
-                .with_context(|| anyhow!("Error fetching remote invoice {}", id)),
+            BindleReaderInner::Remote(c, id) => {
+                let remote_result = c
+                    .get_invoice(id)
+                    .await
+                    .with_context(|| anyhow!("Error fetching remote invoice {}", id));
+                match remote_result {
+                    Ok(verified_invoice) => Ok(verified_invoice.into()),
+                    Err(e) => Err(e),
+                }
+            }
 
             BindleReaderInner::Standalone(s) => {
                 let bytes = fs::read(&s.invoice_file).await.with_context(|| {

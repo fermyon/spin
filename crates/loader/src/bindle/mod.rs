@@ -10,7 +10,7 @@ mod connection;
 /// Bindle helper functions.
 mod utils;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use bindle::Invoice;
@@ -33,11 +33,16 @@ pub use utils::SPIN_MANIFEST_MEDIA_TYPE;
 /// prepared application configuration consumable by a Spin execution context.
 /// If a directory is provided, use it as the base directory to expand the assets,
 /// otherwise create a new temporary directory.
-pub async fn from_bindle(id: &str, url: &str, base_dst: impl AsRef<Path>) -> Result<Application> {
+pub async fn from_bindle(
+    id: &str,
+    url: &str,
+    base_dst: impl AsRef<Path>,
+    keyring_file: Option<PathBuf>,
+) -> Result<Application> {
     // TODO
     // Handle Bindle authentication.
-    let connection_info = BindleConnectionInfo::new(url, false, None, None);
-    let client = connection_info.client()?;
+    let connection_info = BindleConnectionInfo::new(url, false, None, None, keyring_file).await?;
+    let client = connection_info.client().await?;
     let reader = BindleReader::remote(&client, &id.parse()?);
 
     prepare(id, url, &reader, base_dst).await

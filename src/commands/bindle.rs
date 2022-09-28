@@ -52,6 +52,39 @@ pub struct Prepare {
         short = 'd',
     )]
     pub staging_dir: PathBuf,
+
+    /// Bindle secret file path to load key. Defaults to $XDG_CONFIG/bindle/secret_keys.toml.
+    #[clap(
+        name = BINDLE_SECRET_FILE,
+        long = "bindle-secret-file",
+        env = BINDLE_SECRET_FILE,
+    )]
+    pub bindle_secret_file: Option<PathBuf>,
+
+    /// Bindle role to sign the file. Defaults to Creator.
+    #[clap(
+        name = BINDLE_ROLE,
+        long = "bindle-role",
+        env = BINDLE_ROLE,
+    )]
+    pub bindle_role: Option<String>,
+
+    /// Bindle key label.
+    #[clap(
+        name = BINDLE_LABEL,
+        long = "bindle-label",
+        env = BINDLE_LABEL,
+        conflicts_with = BINDLE_LABEL_MATCHING,
+    )]
+    pub bindle_label: Option<String>,
+
+    /// Bindle label which partially matches keys.
+    #[clap(
+        name = BINDLE_LABEL_MATCHING,
+        long = "bindle-label-matching",
+        env = BINDLE_LABEL_MATCHING,
+    )]
+    pub bindle_label_matching: Option<String>,
 }
 
 /// Publish an application as a bindle.
@@ -116,6 +149,47 @@ pub struct Push {
         takes_value = false,
     )]
     pub insecure: bool,
+
+    /// Bindle secret file path to load key
+    #[clap(
+        name = BINDLE_SECRET_FILE,
+        long = "bindle-secret-file",
+        env = BINDLE_SECRET_FILE,
+    )]
+    pub bindle_secret_file: Option<PathBuf>,
+
+    /// Bindle keyring file path. Defaults to $XDG_CONFIG/bindle/keyring.toml.
+    #[clap(
+        name = BINDLE_KEYRING_FILE,
+        long = "bindle-keyring-file",
+        env = BINDLE_KEYRING_FILE,
+    )]
+    pub bindle_keyring_file: Option<PathBuf>,
+
+    /// Bindle role to sign the file
+    #[clap(
+        name = BINDLE_ROLE,
+        long = "bindle-role",
+        env = BINDLE_ROLE,
+    )]
+    pub bindle_role: Option<String>,
+
+    /// Bindle key label
+    #[clap(
+        name = BINDLE_LABEL,
+        long = "bindle-label",
+        env = BINDLE_LABEL,
+        conflicts_with = BINDLE_LABEL_MATCHING,
+    )]
+    pub bindle_label: Option<String>,
+
+    /// Bindle label which partially matches keys
+    #[clap(
+        name = BINDLE_LABEL_MATCHING,
+        long = "bindle-label-matching",
+        env = BINDLE_LABEL_MATCHING,
+    )]
+    pub bindle_label_matching: Option<String>,
 }
 
 impl Prepare {
@@ -128,9 +202,17 @@ impl Prepare {
 
         let dest_dir = &self.staging_dir;
 
-        let (invoice, sources) = spin_publish::expand_manifest(app_file, self.buildinfo, &dest_dir)
-            .await
-            .with_context(|| format!("Failed to expand '{}' to a bindle", app_file.display()))?;
+        let (invoice, sources) = spin_publish::expand_manifest(
+            app_file,
+            self.buildinfo,
+            &dest_dir,
+            self.bindle_secret_file,
+            self.bindle_role,
+            self.bindle_label,
+            self.bindle_label_matching,
+        )
+        .await
+        .with_context(|| format!("Failed to expand '{}' to a bindle", app_file.display()))?;
 
         let bindle_id = &invoice.bindle.id;
 
@@ -161,7 +243,9 @@ impl Push {
             self.insecure,
             self.bindle_username,
             self.bindle_password,
-        );
+            self.bindle_keyring_file.clone(),
+        )
+        .await?;
 
         // TODO: only create this if not given a staging dir
         let temp_dir = tempfile::tempdir()?;
@@ -171,9 +255,17 @@ impl Push {
             Some(path) => path.as_path(),
         };
 
-        let (invoice, sources) = spin_publish::expand_manifest(app_file, self.buildinfo, &dest_dir)
-            .await
-            .with_context(|| format!("Failed to expand '{}' to a bindle", app_file.display()))?;
+        let (invoice, sources) = spin_publish::expand_manifest(
+            app_file,
+            self.buildinfo,
+            &dest_dir,
+            self.bindle_secret_file,
+            self.bindle_role,
+            self.bindle_label,
+            self.bindle_label_matching,
+        )
+        .await
+        .with_context(|| format!("Failed to expand '{}' to a bindle", app_file.display()))?;
 
         let bindle_id = &invoice.bindle.id;
 

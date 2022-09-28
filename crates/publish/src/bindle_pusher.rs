@@ -11,7 +11,7 @@ pub async fn push_all(
     bindle_connection_info: spin_loader::bindle::BindleConnectionInfo,
 ) -> Result<()> {
     let reader = StandaloneRead::new(&path, bindle_id).await?;
-    let client = &bindle_connection_info.client().with_context(|| {
+    let client = &bindle_connection_info.client().await.with_context(|| {
         format!(
             "Failed to create a bindle client for server '{}'",
             &bindle_connection_info.base_url()

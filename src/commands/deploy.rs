@@ -48,6 +48,89 @@ pub struct DeployCommand {
     )]
     pub app: PathBuf,
 
+    /// URL of bindle server
+    #[clap(
+        name = BINDLE_SERVER_URL_OPT,
+        long = "bindle-server",
+        env = BINDLE_URL_ENV,
+    )]
+    pub bindle_server_url: String,
+
+    /// Basic http auth username for the bindle server
+    #[clap(
+        name = BINDLE_USERNAME,
+        long = "bindle-username",
+        env = BINDLE_USERNAME,
+        requires = BINDLE_PASSWORD
+    )]
+    pub bindle_username: Option<String>,
+
+    /// Basic http auth password for the bindle server
+    #[clap(
+        name = BINDLE_PASSWORD,
+        long = "bindle-password",
+        env = BINDLE_PASSWORD,
+        requires = BINDLE_USERNAME
+    )]
+    pub bindle_password: Option<String>,
+
+    /// Bindle secret file path to load key
+    #[clap(
+        name = BINDLE_SECRET_FILE,
+        long = "bindle-secret-file",
+        env = BINDLE_SECRET_FILE,
+    )]
+    pub bindle_secret_file: Option<PathBuf>,
+
+    /// Bindle keyring file path. Defaults to $XDG_CONFIG/bindle/keyring.toml.
+    #[clap(
+        name = BINDLE_KEYRING_FILE,
+        long = "bindle-keyring-file",
+        env = BINDLE_KEYRING_FILE,
+    )]
+    pub bindle_keyring_file: Option<PathBuf>,
+
+    /// Bindle role to sign the file
+    #[clap(
+        name = BINDLE_ROLE,
+        long = "bindle-role",
+        env = BINDLE_ROLE,
+    )]
+    pub bindle_role: Option<String>,
+
+    /// Bindle key label
+    #[clap(
+        name = BINDLE_LABEL,
+        long = "bindle-label",
+        env = BINDLE_LABEL,
+    )]
+    pub bindle_label: Option<String>,
+
+    /// Bindle label which partially matches keys
+    #[clap(
+        name = BINDLE_LABEL_MATCHING,
+        long = "bindle-label-matching",
+        env = BINDLE_LABEL_MATCHING,
+    )]
+    pub bindle_label_matching: Option<String>,
+
+    /// Ignore server certificate errors from bindle and hippo
+    #[clap(
+        name = INSECURE_OPT,
+        short = 'k',
+        long = "insecure",
+        takes_value = false,
+    )]
+    pub insecure: bool,
+
+    /// URL of hippo server
+    #[clap(
+        name = HIPPO_SERVER_URL_OPT,
+        long = "hippo-server",
+        env = HIPPO_URL_ENV,
+    )]
+    pub hippo_server_url: String,
+
     /// Path to assemble the bindle before pushing (defaults to
     /// a temporary directory)
     #[clap(
@@ -201,7 +284,9 @@ impl DeployCommand {
             login_connection.danger_accept_invalid_certs,
             login_connection.bindle_username,
             login_connection.bindle_password,
-        );
+            self.bindle_keyring_file.clone(),
+        )
+        .await?;
 
         let bindle_id = self
             .create_and_push_bindle(buildinfo, bindle_connection_info)
@@ -341,7 +426,9 @@ impl DeployCommand {
             su.join(BINDLE_REGISTRY_URL_PATH)?.to_string(),
             login_connection.danger_accept_invalid_certs,
             login_connection.token,
-        );
+            self.bindle_keyring_file.clone(),
+        )
+        .await?;
 
         let bindle_id = self
             .create_and_push_bindle(buildinfo, bindle_connection_info)
@@ -574,9 +661,17 @@ impl DeployCommand {
             None => temp_dir.path(),
             Some(path) => path.as_path(),
         };
-        let (invoice, sources) = spin_publish::expand_manifest(&self.app, buildinfo, &dest_dir)
-            .await
-            .with_context(|| format!("Failed to expand '{}' to a bindle", self.app.display()))?;
+        let (invoice, sources) = spin_publish::expand_manifest(
+            &self.app,
+            buildinfo,
+            &dest_dir,
+            self.bindle_secret_file.clone(),
+            self.bindle_role.clone(),
+            self.bindle_label.clone(),
+            self.bindle_label_matching.clone(),
+        )
+        .await
+        .with_context(|| format!("Failed to expand '{}' to a bindle", self.app.display()))?;
 
         let bindle_id = &invoice.bindle.id;
 

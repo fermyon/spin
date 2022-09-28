@@ -8,4 +8,4 @@ mod expander;
 
 pub use bindle_pusher::push_all;
 pub use bindle_writer::write;
-pub use expander::expand_manifest;
+pub use expander::{ensure_config_dir, expand_manifest};

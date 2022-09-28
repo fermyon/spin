@@ -173,7 +173,7 @@ async fn core(
                     "Component {} requires a Bindle connection but none was specified",
                     id
                 ),
-                Some(c) => c.client()?,
+                Some(c) => c.client().await?,
             };
             let bindle_reader = crate::bindle::BindleReader::remote(&client, &bindle_id);
             let bytes = bindle_reader

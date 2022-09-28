@@ -5,12 +5,10 @@ trigger = { type = "http", base = "/" }
 version = "0.1.0"
 
 [[component]]
-environment = { DB_URL = "host=localhost user=postgres password=123 dbname=postgres" }
+environment = { DB_URL = "host=localhost user=postgres dbname=spin_dev" }
 id = "outbound-pg"
 source = "target/wasm32-wasi/release/rust_outbound_pg.wasm"
 [component.trigger]
-#route = "/write"
-route = "/read"
+route = "/..."
 [component.build]
 command = "cargo build --target wasm32-wasi --release"
-

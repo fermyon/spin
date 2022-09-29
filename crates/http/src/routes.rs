@@ -5,7 +5,6 @@
 use anyhow::{Context, Result};
 use http::Uri;
 use indexmap::IndexMap;
-use spin_manifest::{ComponentMap, HttpConfig};
 use std::{borrow::Cow, fmt};
 
 /// Router for the HTTP trigger.
@@ -17,17 +16,14 @@ pub struct Router {
 
 impl Router {
     /// Builds a router based on application configuration.
-    pub(crate) fn build(
+    pub(crate) fn build<'a>(
         base: &str,
-        component_http_configs: &ComponentMap<HttpConfig>,
+        component_routes: impl IntoIterator<Item = (&'a str, &'a str)>,
     ) -> Result<Self> {
-        let routes = component_http_configs
-            .iter()
-            .map(|(component_id, http_config)| {
-                (
-                    RoutePattern::from(base, &http_config.route),
-                    component_id.to_string(),
-                )
+        let routes = component_routes
+            .into_iter()
+            .map(|(component_id, route)| {
+                (RoutePattern::from(base, route), component_id.to_string())
             })
             .collect();
 

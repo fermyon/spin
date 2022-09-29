@@ -8,8 +8,11 @@ authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 anyhow = "1.0"
 http = "0.2"
 hyper = "0.14"
-spin-engine = { path = "../engine" }
-spin-manifest = { path = "../manifest" }
+serde = "1"
+serde_json = "1"
+spin-app = { path = "../app" }
+spin-core = { path = "../core" }
 spin-http = { path = "../http" }
 spin-trigger = { path = "../trigger" }
+tokio = { version = "1", features = ["macros", "rt"] }
 tracing-subscriber = "0.3"

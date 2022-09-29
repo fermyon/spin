@@ -10,23 +10,22 @@ mod connection;
 /// Bindle helper functions.
 mod utils;
 
-use crate::{
-    bindle::{
-        config::{RawAppManifest, RawComponentManifest},
-        utils::{find_manifest, parcels_in_group},
-    },
-    validation::{parse_allowed_http_hosts, validate_allowed_http_hosts},
-};
+use std::path::Path;
+
 use anyhow::{anyhow, Context, Result};
 use bindle::Invoice;
-pub use connection::BindleConnectionInfo;
 use futures::future;
+use outbound_http::allowed_http_hosts::validate_allowed_http_hosts;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
-use std::path::Path;
-use tracing::log;
+
+use crate::bindle::{
+    config::{RawAppManifest, RawComponentManifest},
+    utils::{find_manifest, parcels_in_group},
+};
+pub use connection::BindleConnectionInfo;
 pub(crate) use utils::BindleReader;
 pub use utils::SPIN_MANIFEST_MEDIA_TYPE;
 
@@ -34,19 +33,14 @@ pub use utils::SPIN_MANIFEST_MEDIA_TYPE;
 /// prepared application configuration consumable by a Spin execution context.
 /// If a directory is provided, use it as the base directory to expand the assets,
 /// otherwise create a new temporary directory.
-pub async fn from_bindle(
-    id: &str,
-    url: &str,
-    base_dst: impl AsRef<Path>,
-    allow_transient_write: bool,
-) -> Result<Application> {
+pub async fn from_bindle(id: &str, url: &str, base_dst: impl AsRef<Path>) -> Result<Application> {
     // TODO
     // Handle Bindle authentication.
     let connection_info = BindleConnectionInfo::new(url, false, None, None);
     let client = connection_info.client()?;
     let reader = BindleReader::remote(&client, &id.parse()?);
 
-    prepare(id, url, &reader, base_dst, allow_transient_write).await
+    prepare(id, url, &reader, base_dst).await
 }
 
 /// Converts a Bindle invoice into Spin configuration.
@@ -55,7 +49,6 @@ async fn prepare(
     url: &str,
     reader: &BindleReader,
     base_dst: impl AsRef<Path>,
-    allow_transient_write: bool,
 ) -> Result<Application> {
     // First, get the invoice from the Bindle server.
     let invoice = reader
@@ -66,12 +59,12 @@ async fn prepare(
     // Then, reconstruct the application manifest from the parcels.
     let raw: RawAppManifest =
         toml::from_slice(&reader.get_parcel(&find_manifest(&invoice)?).await?)?;
-    log::trace!("Recreated manifest from bindle: {:?}", raw);
+    tracing::trace!("Recreated manifest from bindle: {:?}", raw);
 
     validate_raw_app_manifest(&raw)?;
 
     let info = info(&raw, &invoice, url);
-    log::trace!("Application information from bindle: {:?}", info);
+    tracing::trace!("Application information from bindle: {:?}", info);
     let component_triggers = raw
         .components
         .iter()
@@ -80,7 +73,7 @@ async fn prepare(
     let components = future::join_all(
         raw.components
             .into_iter()
-            .map(|c| async { core(c, &invoice, reader, &base_dst, allow_transient_write).await })
+            .map(|c| async { core(c, &invoice, reader, &base_dst).await })
             .collect::<Vec<_>>(),
     )
     .await
@@ -114,7 +107,6 @@ async fn core(
     invoice: &Invoice,
     reader: &BindleReader,
     base_dst: impl AsRef<Path>,
-    allow_transient_write: bool,
 ) -> Result<CoreComponent> {
     let bytes = reader
         .get_parcel(&raw.source)
@@ -128,21 +120,14 @@ async fn core(
         Some(group) => {
             let parcels = parcels_in_group(invoice, &group);
             vec![
-                assets::prepare_component(
-                    reader,
-                    &invoice.bindle.id,
-                    &parcels,
-                    base_dst,
-                    &id,
-                    allow_transient_write,
-                )
-                .await?,
+                assets::prepare_component(reader, &invoice.bindle.id, &parcels, base_dst, &id)
+                    .await?,
             ]
         }
         None => vec![],
     };
     let environment = raw.wasm.environment.unwrap_or_default();
-    let allowed_http_hosts = parse_allowed_http_hosts(&raw.wasm.allowed_http_hosts)?;
+    let allowed_http_hosts = raw.wasm.allowed_http_hosts.unwrap_or_default();
     let wasm = WasmConfig {
         environment,
         mounts,

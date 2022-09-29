@@ -1,15 +1,14 @@
 // The wit_bindgen_wasmtime::import below is triggering this lint.
 #![allow(clippy::needless_question_mark)]
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use anyhow::Result;
-use spin_engine::{Builder, ExecutionContextConfiguration};
-use spin_manifest::{CoreComponent, ModuleSource, WasmConfig};
+use spin_core::{Engine, InstancePre, Module};
 
 wit_bindgen_wasmtime::import!({paths: ["spin-timer.wit"], async: *});
 
-type ExecutionContext = spin_engine::ExecutionContext<spin_timer::SpinTimerData>;
+type RuntimeData = spin_timer::SpinTimerData;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -17,27 +16,32 @@ async fn main() -> Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let component = component();
-    let engine = Builder::build_default(ExecutionContextConfiguration {
-        components: vec![component],
-        label: "timer-app".to_string(),
-        ..Default::default()
-    })
-    .await?;
+    let engine = Engine::builder(&Default::default())?.build();
+
+    let module = Module::from_file(
+        engine.as_ref(),
+        "example/target/wasm32-wasi/release/rust_echo_test.wasm",
+    )?;
+
+    let instance_pre = engine.instantiate_pre(&module)?;
+
     let trigger = TimerTrigger {
-        engine: Arc::new(engine),
+        engine,
+        instance_pre,
         interval: Duration::from_secs(1),
     };
+
     trigger.run().await
 }
 
-/// A custom timer trigger that executes the
-/// first component of an application on every interval.
-#[derive(Clone)]
+/// A custom timer trigger that executes a component on
+/// every interval.
 pub struct TimerTrigger {
-    /// The Spin execution context.
-    engine: Arc<ExecutionContext>,
-    /// The interval at which the component is executed.   
+    /// The Spin core engine.
+    pub engine: Engine<RuntimeData>,
+    /// The pre-initialized component instance to execute.
+    pub instance_pre: InstancePre<RuntimeData>,
+    /// The interval at which the component is executed.
     pub interval: Duration,
 }
 
@@ -57,26 +61,15 @@ impl TimerTrigger {
     }
     /// Execute the first component in the application configuration.
     async fn handle(&self, msg: String) -> Result<()> {
-        let (mut store, instance) = self
-            .engine
-            .prepare_component(&self.engine.config.components[0].id, None, None, None, None)
+        let mut store = self.engine.store_builder().build()?;
+        let instance = self.instance_pre.instantiate_async(&mut store).await?;
+        let timer_instance =
+            spin_timer::SpinTimer::new(&mut store, &instance, |data| data.as_mut())?;
+        let res = timer_instance
+            .handle_timer_request(&mut store, &msg)
             .await?;
-
-        let t =
-            spin_timer::SpinTimer::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
-        let res = t.handle_timer_request(&mut store, &msg).await?;
-        log::info!("{}\n", res);
+        tracing::info!("{}\n", res);
 
         Ok(())
-    }
-}
-
-pub fn component() -> CoreComponent {
-    CoreComponent {
-        source: ModuleSource::FileReference("target/test-programs/echo.wasm".into()),
-        id: "test".to_string(),
-        description: None,
-        wasm: WasmConfig::default(),
-        config: Default::default(),
     }
 }

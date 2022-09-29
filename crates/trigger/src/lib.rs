@@ -1,46 +1,49 @@
+pub mod cli;
+mod loader;
+pub mod locked;
+mod stdio;
+
 use std::{
     collections::HashMap,
-    error::Error,
     marker::PhantomData,
     path::{Path, PathBuf},
-    sync::{Arc, RwLock},
 };
 
-use anyhow::Result;
-use async_trait::async_trait;
-use spin_config::{host_component::ConfigHostComponent, Resolver};
-use spin_engine::{
-    io::FollowComponents, Builder, Engine, ExecutionContext, ExecutionContextConfiguration,
-};
-use spin_manifest::{Application, ApplicationOrigin, ApplicationTrigger, TriggerConfig, Variable};
+use anyhow::{anyhow, Context, Result};
+pub use async_trait::async_trait;
+use serde::de::DeserializeOwned;
 
-pub mod cli;
+use spin_app::{App, AppLoader, AppTrigger, Loader, OwnedApp};
+use spin_config::{provider::env::EnvProvider, Provider};
+use spin_core::{Config, Engine, EngineBuilder, Instance, InstancePre, Store, StoreBuilder};
+
+use stdio::{ComponentStdioWriter, FollowComponents};
+
+const SPIN_HOME: &str = ".spin";
+const SPIN_CONFIG_ENV_PREFIX: &str = "SPIN_APP";
+
 #[async_trait]
 pub trait TriggerExecutor: Sized {
-    type GlobalConfig;
+    const TRIGGER_TYPE: &'static str;
+    type RuntimeData: Default + Send + Sync + 'static;
     type TriggerConfig;
     type RunConfig;
-    type RuntimeContext: Default + Send + 'static;
 
     /// Create a new trigger executor.
-    fn new(
-        execution_context: ExecutionContext<Self::RuntimeContext>,
-        global_config: Self::GlobalConfig,
-        trigger_configs: impl IntoIterator<Item = Self::TriggerConfig>,
-    ) -> Result<Self>;
+    fn new(engine: TriggerAppEngine<Self>) -> Result<Self>;
 
     /// Run the trigger executor.
     async fn run(self, config: Self::RunConfig) -> Result<()>;
 
     /// Make changes to the ExecutionContext using the given Builder.
-    fn configure_execution_context(_builder: &mut Builder<Self::RuntimeContext>) -> Result<()> {
+    fn configure_engine(_builder: &mut EngineBuilder<Self::RuntimeData>) -> Result<()> {
         Ok(())
     }
 }
 
 pub struct TriggerExecutorBuilder<Executor: TriggerExecutor> {
-    application: Application,
-    wasmtime_config: wasmtime::Config,
+    loader: AppLoader,
+    config: Config,
     log_dir: Option<PathBuf>,
     follow_components: FollowComponents,
     disable_default_host_components: bool,
@@ -49,10 +52,10 @@ pub struct TriggerExecutorBuilder<Executor: TriggerExecutor> {
 
 impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     /// Create a new TriggerExecutorBuilder with the given Application.
-    pub fn new(application: Application) -> Self {
+    pub fn new(loader: impl Loader + Send + Sync + 'static) -> Self {
         Self {
-            application,
-            wasmtime_config: Default::default(),
+            loader: AppLoader::new(loader),
+            config: Default::default(),
             log_dir: None,
             follow_components: Default::default(),
             disable_default_host_components: false,
@@ -63,8 +66,8 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     /// !!!Warning!!! Using a custom Wasmtime Config is entirely unsupported;
     /// many configurations are likely to cause errors or unexpected behavior.
     #[doc(hidden)]
-    pub fn wasmtime_config_mut(&mut self) -> &mut wasmtime::Config {
-        &mut self.wasmtime_config
+    pub fn wasmtime_config_mut(&mut self) -> &mut spin_core::wasmtime::Config {
+        self.config.wasmtime_config()
     }
 
     pub fn log_dir(&mut self, log_dir: PathBuf) -> &mut Self {
@@ -82,103 +85,208 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         self
     }
 
-    pub async fn build(self) -> Result<Executor>
+    pub async fn build(mut self, app_uri: String) -> Result<Executor>
     where
-        Executor::GlobalConfig: TryFrom<ApplicationTrigger>,
-        <Executor::GlobalConfig as TryFrom<ApplicationTrigger>>::Error:
-            Error + Send + Sync + 'static,
-        Executor::TriggerConfig: TryFrom<(String, TriggerConfig)>,
-        <Executor::TriggerConfig as TryFrom<(String, TriggerConfig)>>::Error:
-            Error + Send + Sync + 'static,
+        Executor::TriggerConfig: DeserializeOwned,
     {
-        let app = self.application;
+        let engine = {
+            let mut builder = Engine::builder(&self.config)?;
 
-        // The .env file is either a sibling to the manifest file or (for bindles) in the current dir.
-        let dotenv_root = match &app.info.origin {
-            ApplicationOrigin::File(path) => path.parent().unwrap(),
-            ApplicationOrigin::Bindle { .. } => Path::new("."),
+            if !self.disable_default_host_components {
+                builder.add_host_component(outbound_redis::OutboundRedis::default())?;
+                builder.add_host_component(outbound_pg::OutboundPg::default())?;
+                self.loader.add_dynamic_host_component(
+                    &mut builder,
+                    outbound_http::OutboundHttpComponent,
+                )?;
+                self.loader.add_dynamic_host_component(
+                    &mut builder,
+                    spin_config::ConfigHostComponent::new(self.default_config_providers(&app_uri)),
+                )?;
+            }
+
+            Executor::configure_engine(&mut builder)?;
+            builder.build()
         };
 
-        // Build ExecutionContext
-        let ctx_config = ExecutionContextConfiguration {
-            components: app.components,
-            label: app.info.name,
-            log_dir: self.log_dir,
-            follow_components: self.follow_components,
+        let app = self.loader.load_owned_app(app_uri).await?;
+        let app_name = app.borrowed().require_metadata("name")?;
+
+        let log_dir = {
+            let sanitized_app = sanitize_filename::sanitize(&app_name);
+            let parent_dir = match dirs::home_dir() {
+                Some(home) => home.join(SPIN_HOME),
+                None => PathBuf::new(), // "./"
+            };
+            parent_dir.join(sanitized_app).join("logs")
         };
-        let engine = Engine::new(self.wasmtime_config)?;
-        let mut ctx_builder = Builder::with_engine(ctx_config, engine)?;
-        ctx_builder.link_defaults()?;
-        if !self.disable_default_host_components {
-            add_default_host_components(&mut ctx_builder)?;
-            add_config_host_component(&mut ctx_builder, app.variables, dotenv_root)?;
-        }
-
-        Executor::configure_execution_context(&mut ctx_builder)?;
-        let execution_context = ctx_builder.build().await?;
-
-        // Build trigger configurations
-        let global_config = app.info.trigger.try_into()?;
-        let trigger_configs = app
-            .component_triggers
-            .into_iter()
-            .map(|(id, config)| Ok((id, config).try_into()?))
-            .collect::<Result<Vec<_>>>()?;
+        std::fs::create_dir_all(&log_dir)?;
 
         // Run trigger executor
-        Executor::new(execution_context, global_config, trigger_configs)
+        Executor::new(
+            TriggerAppEngine::new(engine, app_name, app, log_dir, self.follow_components).await?,
+        )
+    }
+
+    pub fn default_config_providers(&self, app_uri: &str) -> Vec<Box<dyn Provider>> {
+        // EnvProvider
+        // Look for a .env file in either the manifest parent directory for local apps
+        // or the current directory for remote (e.g. bindle) apps.
+        let dotenv_path = parse_file_url(app_uri)
+            .as_deref()
+            .ok()
+            .unwrap_or_else(|| Path::new("."))
+            .join(".env");
+        vec![Box::new(EnvProvider::new(
+            SPIN_CONFIG_ENV_PREFIX,
+            Some(dotenv_path),
+        ))]
     }
 }
 
-/// Add the default set of host components to the given builder.
-pub fn add_default_host_components<T: Default + Send + 'static>(
-    builder: &mut Builder<T>,
-) -> Result<()> {
-    builder.add_host_component(outbound_http::OutboundHttpComponent)?;
-    builder.add_host_component(outbound_redis::OutboundRedis {
-        connections: Arc::new(RwLock::new(HashMap::new())),
-    })?;
-    builder.add_host_component(outbound_pg::OutboundPg {
-        connections: HashMap::new(),
-    })?;
-    Ok(())
+/// Execution context for a TriggerExecutor executing a particular App.
+pub struct TriggerAppEngine<Executor: TriggerExecutor> {
+    /// Engine to be used with this executor.
+    pub engine: Engine<Executor::RuntimeData>,
+    /// Name of the app for e.g. logging.
+    pub app_name: String,
+    // An owned wrapper of the App.
+    app: OwnedApp,
+    // Log directory
+    log_dir: PathBuf,
+    // Component stdio follow config
+    follow_components: FollowComponents,
+    // Trigger configs for this trigger type, with order matching `app.triggers_with_type(Executor::TRIGGER_TYPE)`
+    trigger_configs: Vec<Executor::TriggerConfig>,
+    // Map of {Component ID -> InstancePre} for each component.
+    component_instance_pres: HashMap<String, InstancePre<Executor::RuntimeData>>,
 }
 
-pub fn add_config_host_component<T: Default + Send + 'static>(
-    ctx_builder: &mut Builder<T>,
-    variables: HashMap<String, Variable>,
-    dotenv_path: &Path,
-) -> Result<()> {
-    let mut resolver = Resolver::new(variables)?;
+impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
+    /// Returns a new TriggerAppEngine. May return an error if trigger config validation or
+    /// component pre-instantiation fails.
+    pub async fn new(
+        engine: Engine<Executor::RuntimeData>,
+        app_name: String,
+        app: OwnedApp,
+        log_dir: PathBuf,
+        follow_components: FollowComponents,
+    ) -> Result<Self>
+    where
+        <Executor as TriggerExecutor>::TriggerConfig: DeserializeOwned,
+    {
+        let trigger_configs = app
+            .borrowed()
+            .triggers_with_type(Executor::TRIGGER_TYPE)
+            .map(|trigger| {
+                trigger.typed_config().with_context(|| {
+                    format!("invalid trigger configuration for {:?}", trigger.id())
+                })
+            })
+            .collect::<Result<_>>()?;
 
-    // Add all component configs to the Resolver.
-    for component in &ctx_builder.config().components {
-        resolver.add_component_config(
-            &component.id,
-            component.config.iter().map(|(k, v)| (k.clone(), v.clone())),
-        )?;
+        let mut component_instance_pres = HashMap::default();
+        for component in app.borrowed().components() {
+            let module = component.load_module(&engine).await?;
+            let instance_pre = engine.instantiate_pre(&module)?;
+            component_instance_pres.insert(component.id().to_string(), instance_pre);
+        }
+
+        Ok(Self {
+            engine,
+            app_name,
+            app,
+            log_dir,
+            follow_components,
+            trigger_configs,
+            component_instance_pres,
+        })
     }
 
-    let envs = read_dotenv(dotenv_path)?;
+    /// Returns a reference to the App.
+    pub fn app(&self) -> &App {
+        self.app.borrowed()
+    }
 
-    // Add default config provider(s).
-    // TODO(lann): Make config provider(s) configurable.
-    resolver.add_provider(spin_config::provider::env::EnvProvider::new(
-        spin_config::provider::env::DEFAULT_PREFIX,
-        envs,
-    ));
+    /// Returns AppTriggers and typed TriggerConfigs for this executor type.
+    pub fn trigger_configs(&self) -> impl Iterator<Item = (AppTrigger, &Executor::TriggerConfig)> {
+        self.app()
+            .triggers_with_type(Executor::TRIGGER_TYPE)
+            .zip(&self.trigger_configs)
+    }
 
-    ctx_builder.add_host_component(ConfigHostComponent::new(resolver))?;
-    Ok(())
+    /// Returns a new StoreBuilder for the given component ID.
+    pub fn store_builder(&self, component_id: &str) -> Result<StoreBuilder> {
+        let mut builder = self.engine.store_builder();
+
+        // Set up stdio logging
+        builder.stdout_pipe(self.component_stdio_writer(component_id, "stdout")?);
+        builder.stderr_pipe(self.component_stdio_writer(component_id, "stderr")?);
+
+        Ok(builder)
+    }
+
+    fn component_stdio_writer(
+        &self,
+        component_id: &str,
+        log_suffix: &str,
+    ) -> Result<ComponentStdioWriter> {
+        let sanitized_component_id = sanitize_filename::sanitize(component_id);
+        // e.g.
+        let log_path = self
+            .log_dir
+            .join(format!("{sanitized_component_id}_{log_suffix}.txt"));
+        let follow = self.follow_components.should_follow(component_id);
+        ComponentStdioWriter::new(&log_path, follow)
+            .with_context(|| format!("Failed to open log file {log_path:?}"))
+    }
+
+    /// Returns a new Store and Instance for the given component ID.
+    pub async fn prepare_instance(
+        &self,
+        component_id: &str,
+    ) -> Result<(Instance, Store<Executor::RuntimeData>)> {
+        let store_builder = self.store_builder(component_id)?;
+        self.prepare_instance_with_store(component_id, store_builder)
+            .await
+    }
+
+    /// Returns a new Store and Instance for the given component ID and StoreBuilder.
+    pub async fn prepare_instance_with_store(
+        &self,
+        component_id: &str,
+        mut store_builder: StoreBuilder,
+    ) -> Result<(Instance, Store<Executor::RuntimeData>)> {
+        // Look up AppComponent
+        let component = self.app().get_component(component_id).with_context(|| {
+            format!(
+                "app {:?} has no component {:?}",
+                self.app_name, component_id
+            )
+        })?;
+
+        // Build Store
+        component.apply_store_config(&mut store_builder).await?;
+        let mut store = store_builder.build()?;
+
+        // Instantiate
+        let instance = self.component_instance_pres[component_id]
+            .instantiate_async(&mut store)
+            .await
+            .with_context(|| {
+                format!(
+                    "app {:?} component {:?} instantiation failed",
+                    self.app_name, component_id
+                )
+            })?;
+
+        Ok((instance, store))
+    }
 }
 
-// Return environment key value mapping in ".env" file.
-fn read_dotenv(dotenv_root: &Path) -> Result<HashMap<String, String>> {
-    let dotenv_path = dotenv_root.join(".env");
-    if !dotenv_path.is_file() {
-        return Ok(Default::default());
-    }
-    dotenvy::from_path_iter(dotenv_path)?
-        .map(|item| Ok(item?))
-        .collect()
+pub(crate) fn parse_file_url(url: &str) -> Result<PathBuf> {
+    url::Url::parse(url)
+        .with_context(|| format!("Invalid URL: {url:?}"))?
+        .to_file_path()
+        .map_err(|_| anyhow!("Invalid file URL path: {url:?}"))
 }

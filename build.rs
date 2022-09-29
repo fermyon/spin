@@ -39,6 +39,7 @@ error: the `wasm32-wasi` target is not installed
 
     std::fs::create_dir_all("target/test-programs").unwrap();
 
+    build_wasm_test_program("core-wasi-test.wasm", "crates/core/tests/core-wasi-test");
     build_wasm_test_program("rust-http-test.wasm", "crates/http/tests/rust-http-test");
     build_wasm_test_program("redis-rust.wasm", "crates/redis/tests/rust");
     build_wasm_test_program("wagi-test.wasm", "crates/http/tests/wagi-test");

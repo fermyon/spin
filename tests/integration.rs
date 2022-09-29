@@ -647,7 +647,11 @@ mod integration_tests {
         expected: u16,
     ) -> Result<()> {
         let res = req(s, absolute_uri).await?;
-        assert_eq!(res.status(), expected);
+        let status = res.status();
+        let body = hyper::body::to_bytes(res.into_body())
+            .await
+            .expect("read body");
+        assert_eq!(status, expected, "{}", String::from_utf8_lossy(&body));
 
         Ok(())
     }
@@ -688,7 +692,7 @@ mod integration_tests {
                 .args(args)
                 .env(
                     "RUST_LOG",
-                    "spin=trace,spin_loader=trace,spin_engine=trace,spin_http=trace",
+                    "spin=trace,spin_loader=trace,spin_core=trace,spin_http=trace",
                 )
                 .spawn()
                 .with_context(|| "executing Spin")?;
@@ -725,7 +729,7 @@ mod integration_tests {
                 .args(args)
                 .env(
                     "RUST_LOG",
-                    "spin=trace,spin_loader=trace,spin_engine=trace,spin_http=trace",
+                    "spin=trace,spin_loader=trace,spin_core=trace,spin_http=trace",
                 )
                 .spawn()
                 .with_context(|| "executing Spin")?;

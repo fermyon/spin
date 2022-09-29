@@ -10,21 +10,20 @@ pub mod config;
 #[cfg(test)]
 mod tests;
 
+use std::{path::Path, str::FromStr};
+
 use anyhow::{anyhow, bail, Context, Result};
-use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawComponentManifest};
 use futures::future;
+use outbound_http::allowed_http_hosts::validate_allowed_http_hosts;
 use path_absolutize::Absolutize;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
-use std::{path::Path, str::FromStr};
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::{
-    bindle::BindleConnectionInfo,
-    validation::{parse_allowed_http_hosts, validate_allowed_http_hosts},
-};
+use crate::bindle::BindleConnectionInfo;
+use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawComponentManifest};
 
 /// Given the path to a spin.toml manifest file, prepare its assets locally and
 /// get a prepared application configuration consumable by a Spin execution context.
@@ -34,7 +33,6 @@ pub async fn from_file(
     app: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
-    allow_transient_write: bool,
 ) -> Result<Application> {
     let app = app
         .as_ref()
@@ -43,14 +41,7 @@ pub async fn from_file(
     let manifest = raw_manifest_from_file(&app).await?;
     validate_raw_app_manifest(&manifest)?;
 
-    prepare_any_version(
-        manifest,
-        app,
-        base_dst,
-        bindle_connection,
-        allow_transient_write,
-    )
-    .await
+    prepare_any_version(manifest, app, base_dst, bindle_connection).await
 }
 
 /// Reads the spin.toml file as a raw manifest.
@@ -76,12 +67,9 @@ async fn prepare_any_version(
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
-    allow_transient_write: bool,
 ) -> Result<Application> {
     match raw {
-        RawAppManifestAnyVersion::V1(raw) => {
-            prepare(raw, src, base_dst, bindle_connection, allow_transient_write).await
-        }
+        RawAppManifestAnyVersion::V1(raw) => prepare(raw, src, base_dst, bindle_connection).await,
     }
 }
 
@@ -103,11 +91,9 @@ fn error_on_duplicate_ids(components: Vec<RawComponentManifest>) -> Result<()> {
 pub fn validate_raw_app_manifest(raw: &RawAppManifestAnyVersion) -> Result<()> {
     match raw {
         RawAppManifestAnyVersion::V1(raw) => {
-            let _ = raw
-                .components
+            raw.components
                 .iter()
-                .map(|c| validate_allowed_http_hosts(&c.wasm.allowed_http_hosts))
-                .collect::<Result<Vec<_>>>()?;
+                .try_for_each(|c| validate_allowed_http_hosts(&c.wasm.allowed_http_hosts))?;
         }
     }
     Ok(())
@@ -119,7 +105,6 @@ async fn prepare(
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
-    allow_transient_write: bool,
 ) -> Result<Application> {
     let info = info(raw.info, &src);
 
@@ -134,9 +119,7 @@ async fn prepare(
     let components = future::join_all(
         raw.components
             .into_iter()
-            .map(|c| async {
-                core(c, &src, &base_dst, bindle_connection, allow_transient_write).await
-            })
+            .map(|c| async { core(c, &src, &base_dst, bindle_connection).await })
             .collect::<Vec<_>>(),
     )
     .await
@@ -164,7 +147,6 @@ async fn core(
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
-    allow_transient_write: bool,
 ) -> Result<CoreComponent> {
     let id = raw.id;
 
@@ -212,20 +194,12 @@ async fn core(
     let mounts = match raw.wasm.files {
         Some(f) => {
             let exclude_files = raw.wasm.exclude_files.unwrap_or_default();
-            assets::prepare_component(
-                &f,
-                src,
-                &base_dst,
-                &id,
-                allow_transient_write,
-                &exclude_files,
-            )
-            .await?
+            assets::prepare_component(&f, src, &base_dst, &id, &exclude_files).await?
         }
         None => vec![],
     };
     let environment = raw.wasm.environment.unwrap_or_default();
-    let allowed_http_hosts = parse_allowed_http_hosts(&raw.wasm.allowed_http_hosts)?;
+    let allowed_http_hosts = raw.wasm.allowed_http_hosts.unwrap_or_default();
     let wasm = WasmConfig {
         environment,
         mounts,

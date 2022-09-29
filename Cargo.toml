@@ -32,7 +32,6 @@ serde_json = "1.0.82"
 sha2 = "0.10.2"
 spin-build = { path = "crates/build" }
 spin-config = { path = "crates/config" }
-spin-engine = { path = "crates/engine" }
 spin-http = { path = "crates/http" }
 spin-loader = { path = "crates/loader" }
 spin-manifest = { path = "crates/manifest" }
@@ -71,9 +70,10 @@ e2e-tests = []
 [workspace]
 members = [
     "crates/abi-conformance",
+    "crates/app",
     "crates/build",
     "crates/config",
-    "crates/engine",
+    "crates/core",
     "crates/http",
     "crates/loader",
     "crates/manifest",

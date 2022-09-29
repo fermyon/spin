@@ -2,21 +2,31 @@
 name = "spin-trigger"
 version = "0.2.0"
 edition = "2021"
-authors = ["mossaka <duibao55328@gmail.com>"]
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
 clap = { version = "3.1.15", features = ["derive", "env"] }
 ctrlc = { version = "3.2", features = ["termination"] }
-dotenvy = "0.15.1"
+dirs = "4"
 futures = "0.3"
 outbound-http = { path = "../outbound-http" } 
 outbound-redis = { path = "../outbound-redis" }
 outbound-pg = { path = "../outbound-pg" }
+sanitize-filename = "0.4"
+serde = "1.0"
+serde_json = "1.0"
+spin-app = { path = "../app" }
 spin-config = { path = "../config" }
-spin-engine = { path = "../engine" }
+spin-core = { path = "../core" }
 spin-loader = { path = "../loader" }
 spin-manifest = { path = "../manifest" }
 tracing = { version = "0.1", features = [ "log" ] }
+url = "2"
 wasmtime = "0.39.1"
+
+[dev-dependencies]
+tempfile = "3.3.0"
+toml = "0.5"
+tokio = { version = "1.0", features = ["rt", "macros"] }

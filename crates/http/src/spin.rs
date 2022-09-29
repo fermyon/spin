@@ -1,14 +1,15 @@
-use crate::{
-    spin_http::{Method, SpinHttp},
-    ExecutionContext, HttpExecutor, RuntimeContext,
-};
+use std::{net::SocketAddr, str, str::FromStr};
+
 use anyhow::Result;
 use async_trait::async_trait;
 use hyper::{Body, Request, Response};
-use spin_engine::io::ModuleIoRedirects;
-use std::{net::SocketAddr, str, str::FromStr};
-use tracing::log;
-use wasmtime::{Instance, Store};
+use spin_core::Instance;
+use spin_trigger::TriggerAppEngine;
+
+use crate::{
+    spin_http::{Method, SpinHttp},
+    HttpExecutor, HttpTrigger, Store,
+};
 
 #[derive(Clone)]
 pub struct SpinHttpExecutor;
@@ -17,40 +18,25 @@ pub struct SpinHttpExecutor;
 impl HttpExecutor for SpinHttpExecutor {
     async fn execute(
         &self,
-        engine: &ExecutionContext,
-        component: &str,
+        engine: &TriggerAppEngine<HttpTrigger>,
+        component_id: &str,
         base: &str,
         raw_route: &str,
         req: Request<Body>,
         _client_addr: SocketAddr,
-        follow: bool,
     ) -> Result<Response<Body>> {
-        log::trace!(
+        tracing::trace!(
             "Executing request using the Spin executor for component {}",
-            component
+            component_id
         );
 
-        let mior = ModuleIoRedirects::new(follow);
+        let (instance, store) = engine.prepare_instance(component_id).await?;
 
-        let (store, instance) = engine
-            .prepare_component(component, None, Some(mior.pipes), None, None)
-            .await?;
-
-        let resp_result = Self::execute_impl(store, instance, base, raw_route, req)
+        let resp = Self::execute_impl(store, instance, base, raw_route, req)
             .await
-            .map_err(contextualise_err);
+            .map_err(contextualise_err)?;
 
-        let log_result =
-            engine.save_output_to_logs(mior.read_handles.read(), component, true, true);
-
-        // Defer checking for failures until here so that the logging runs
-        // even if the guest code fails. (And when checking, check the guest
-        // result first, so that guest failures are returned in preference to
-        // log failures.)
-        let resp = resp_result?;
-        log_result?;
-
-        log::info!(
+        tracing::info!(
             "Request finished, sending response with status code {}",
             resp.status()
         );
@@ -60,7 +46,7 @@ impl HttpExecutor for SpinHttpExecutor {
 
 impl SpinHttpExecutor {
     pub async fn execute_impl(
-        mut store: Store<RuntimeContext>,
+        mut store: Store,
         instance: Instance,
         base: &str,
         raw_route: &str,
@@ -72,7 +58,7 @@ impl SpinHttpExecutor {
             headers = Self::headers(&mut req, raw_route, base)?;
         }
 
-        let engine = SpinHttp::new(&mut store, &instance, |host| host.data.as_mut().unwrap())?;
+        let http_instance = SpinHttp::new(&mut store, &instance, |data| data.as_mut())?;
         let (parts, bytes) = req.into_parts();
         let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
 
@@ -102,10 +88,10 @@ impl SpinHttpExecutor {
             body,
         };
 
-        let resp = engine.handle_http_request(&mut store, req).await?;
+        let resp = http_instance.handle_http_request(&mut store, req).await?;
 
         if resp.status < 100 || resp.status > 600 {
-            log::error!("malformed HTTP status code");
+            tracing::error!("malformed HTTP status code");
             return Ok(Response::builder()
                 .status(http::StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Body::empty())?);

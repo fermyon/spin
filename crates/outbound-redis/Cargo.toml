@@ -8,11 +8,10 @@ doctest = false
 
 [dependencies]
 anyhow = "1.0"
-owning_ref = "0.4.1"
-redis = { version = "0.21", features = [ "tokio-comp" ] }
-spin-engine = { path = "../engine" }
-spin-manifest = { path = "../manifest" }
-tracing = { version = "0.1", features = [ "log" ] }
+redis = { version = "0.21", features = ["tokio-comp"] }
+spin-core = { path = "../core" }
+tokio = { version = "1", features = ["sync"] }
+tracing = { version = "0.1", features = ["log"] }
 
 [dependencies.wit-bindgen-wasmtime]
 git = "https://github.com/bytecodealliance/wit-bindgen"

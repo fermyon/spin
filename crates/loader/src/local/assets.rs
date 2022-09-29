@@ -1,8 +1,6 @@
 #![deny(missing_docs)]
 
-use crate::assets::{
-    change_file_permission, create_dir, ensure_all_under, ensure_under, to_relative,
-};
+use crate::assets::{create_dir, ensure_all_under, ensure_under, to_relative};
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use futures::{future, stream, StreamExt};
 use spin_manifest::DirectoryMount;
@@ -10,7 +8,6 @@ use std::{
     path::{Path, PathBuf},
     vec,
 };
-use tracing::log;
 use walkdir::WalkDir;
 
 use super::config::{RawDirectoryPlacement, RawFileMount};
@@ -22,10 +19,9 @@ pub(crate) async fn prepare_component(
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     id: &str,
-    allow_transient_write: bool,
     exclude_files: &[String],
 ) -> Result<Vec<DirectoryMount>> {
-    log::info!(
+    tracing::info!(
         "Mounting files from '{}' to '{}'",
         src.as_ref().display(),
         base_dst.as_ref().display()
@@ -34,7 +30,7 @@ pub(crate) async fn prepare_component(
     let files = collect(raw_mounts, exclude_files, src)?;
     let host = create_dir(&base_dst, id).await?;
     let guest = "/".to_string();
-    copy_all(&files, &host, allow_transient_write).await?;
+    copy_all(&files, &host).await?;
 
     Ok(vec![DirectoryMount { guest, host }])
 }
@@ -173,7 +169,7 @@ fn collect_placement(
 /// Generate a vector of file mounts given a file pattern.
 fn collect_pattern(pattern: &str, rel: impl AsRef<Path>) -> Result<Vec<FileMount>> {
     let abs = rel.as_ref().join(pattern);
-    log::trace!("Resolving asset file pattern '{:?}'", abs);
+    tracing::trace!("Resolving asset file pattern '{:?}'", abs);
 
     let matches = glob::glob(&abs.to_string_lossy())?;
     let specifiers = matches
@@ -186,52 +182,35 @@ fn collect_pattern(pattern: &str, rel: impl AsRef<Path>) -> Result<Vec<FileMount
 }
 
 /// Copy all files to the mount directory.
-async fn copy_all(
-    files: &[FileMount],
-    dir: impl AsRef<Path>,
-    allow_transient_write: bool,
-) -> Result<()> {
-    let copy_futures = files.iter().map(|f| copy(f, &dir, allow_transient_write));
+async fn copy_all(files: &[FileMount], dir: impl AsRef<Path>) -> Result<()> {
+    let copy_futures = files.iter().map(|f| copy(f, &dir));
     let errors = stream::iter(copy_futures)
         .buffer_unordered(crate::MAX_PARALLEL_ASSET_PROCESSING)
         .filter_map(|r| future::ready(r.err()))
-        .map(|e| log::error!("{:?}", e))
+        .map(|e| tracing::error!("{e:?}"))
         .count()
         .await;
     ensure!(
         errors == 0,
-        "Error copying assets: {} file(s) not copied",
-        errors
+        "Error copying assets: {errors} file(s) not copied",
     );
     Ok(())
 }
 
 /// Copy a single file to the mount directory, setting it as read-only.
-async fn copy(file: &FileMount, dir: impl AsRef<Path>, allow_transient_write: bool) -> Result<()> {
+async fn copy(file: &FileMount, dir: impl AsRef<Path>) -> Result<()> {
     let from = &file.src;
     let to = dir.as_ref().join(&file.relative_dst);
 
     ensure_under(&dir.as_ref(), &to.as_path())?;
 
-    log::trace!(
-        "Copying asset file '{}' -> '{}'",
-        from.display(),
-        to.display()
-    );
+    tracing::trace!("Copying asset file '{from:?}' -> '{to:?}'");
 
-    tokio::fs::create_dir_all(to.parent().expect("Cannot copy to file '/'")).await?;
-
-    // if destination file is read-only, set it to writable first
-    let metadata = tokio::fs::metadata(&to).await;
-    if metadata.is_ok() && metadata.unwrap().permissions().readonly() {
-        change_file_permission(&to, true).await?;
-    }
+    tokio::fs::create_dir_all(to.parent().context("Cannot copy to file '/'")?).await?;
 
     let _ = tokio::fs::copy(&from, &to)
         .await
         .with_context(|| anyhow!("Error copying asset file  '{}'", from.display()))?;
-
-    change_file_permission(&to, allow_transient_write).await?;
 
     Ok(())
 }

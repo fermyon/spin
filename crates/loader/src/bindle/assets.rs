@@ -12,7 +12,7 @@ use tracing::log;
 
 use crate::file_sha256_digest_string;
 use crate::{
-    assets::{change_file_permission, create_dir, ensure_under},
+    assets::{create_dir, ensure_under},
     bindle::utils::BindleReader,
 };
 
@@ -22,15 +22,12 @@ pub(crate) async fn prepare_component(
     parcels: &[Label],
     base_dst: impl AsRef<Path>,
     component: &str,
-    allow_transient_write: bool,
 ) -> Result<DirectoryMount> {
     let copier = Copier {
         reader: reader.clone(),
         id: bindle_id.clone(),
     };
-    copier
-        .prepare(parcels, base_dst, component, allow_transient_write)
-        .await
+    copier.prepare(parcels, base_dst, component).await
 }
 
 pub(crate) struct Copier {
@@ -44,7 +41,6 @@ impl Copier {
         parcels: &[Label],
         base_dst: impl AsRef<Path>,
         component: &str,
-        allow_transient_write: bool,
     ) -> Result<DirectoryMount> {
         log::info!(
             "Mounting files from '{}' to '{}'",
@@ -54,56 +50,34 @@ impl Copier {
 
         let host = create_dir(&base_dst, component).await?;
         let guest = "/".to_string();
-        self.copy_all(parcels, &host, allow_transient_write).await?;
+        self.copy_all(parcels, &host).await?;
 
         Ok(DirectoryMount { host, guest })
     }
 
-    async fn copy_all(
-        &self,
-        parcels: &[Label],
-        dir: impl AsRef<Path>,
-        allow_transient_write: bool,
-    ) -> Result<()> {
-        match stream::iter(
-            parcels
-                .iter()
-                .map(|p| self.copy(p, &dir, allow_transient_write)),
-        )
-        .buffer_unordered(crate::MAX_PARALLEL_ASSET_PROCESSING)
-        .filter_map(|r| future::ready(r.err()))
-        .map(|e| log::error!("{:?}", e))
-        .count()
-        .await
+    async fn copy_all(&self, parcels: &[Label], dir: impl AsRef<Path>) -> Result<()> {
+        match stream::iter(parcels.iter().map(|p| self.copy(p, &dir)))
+            .buffer_unordered(crate::MAX_PARALLEL_ASSET_PROCESSING)
+            .filter_map(|r| future::ready(r.err()))
+            .map(|e| log::error!("{:?}", e))
+            .count()
+            .await
         {
             0 => Ok(()),
             n => bail!("Error copying assets: {} file(s) not copied", n),
         }
     }
 
-    async fn copy(
-        &self,
-        p: &Label,
-        dir: impl AsRef<Path>,
-        allow_transient_write: bool,
-    ) -> Result<()> {
+    async fn copy(&self, p: &Label, dir: impl AsRef<Path>) -> Result<()> {
         let to = dir.as_ref().join(&p.name);
 
         ensure_under(&dir, &to)?;
 
         if to.exists() {
             match check_existing_file(to.clone(), p).await {
-                Ok(true) => {
-                    change_file_permission(&to, allow_transient_write).await?;
-                    return Ok(());
-                }
-                Ok(false) => {
-                    // file exists but digest doesn't match, set it to writable first for further writing
-                    let perms = tokio::fs::metadata(&to).await?.permissions();
-                    if perms.readonly() {
-                        change_file_permission(&to, true).await?;
-                    }
-                }
+                // Copy already exists
+                Ok(true) => return Ok(()),
+                Ok(false) => (),
                 Err(err) => tracing::error!("Error verifying existing parcel: {}", err),
             }
         }
@@ -143,8 +117,6 @@ impl Copier {
                 )
             })?;
         }
-
-        change_file_permission(&to, allow_transient_write).await?;
 
         Ok(())
     }

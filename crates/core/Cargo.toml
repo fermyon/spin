@@ -1,0 +1,17 @@
+[package]
+name = "spin-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+tracing = "0.1"
+async-trait = "0.1"
+wasi-cap-std-sync = "0.39"
+wasi-common = "0.39"
+wasmtime = "0.39"
+wasmtime-wasi = { version = "0.39", features = ["tokio"] }
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt"] }

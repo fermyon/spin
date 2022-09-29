@@ -1,17 +1,13 @@
-pub mod host_component;
+mod host_component;
 pub mod provider;
-
 mod template;
 
 use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
-pub use async_trait::async_trait;
+use spin_app::Variable;
 
-pub use provider::Provider;
-use spin_manifest::Variable;
+pub use crate::{host_component::ConfigHostComponent, provider::Provider};
 use template::{Part, Template};
-
-type Result<T> = std::result::Result<T, Error>;
 
 /// A configuration resolver.
 #[derive(Debug, Default)]
@@ -19,7 +15,7 @@ pub struct Resolver {
     // variable key -> variable
     variables: HashMap<String, Variable>,
     // component ID -> config key -> config value template
-    components_configs: HashMap<String, HashMap<String, Template>>,
+    component_configs: HashMap<String, HashMap<String, Template>>,
     providers: Vec<Box<dyn Provider>>,
 }
 
@@ -31,7 +27,7 @@ impl Resolver {
         variables.keys().try_for_each(|key| Key::validate(key))?;
         Ok(Self {
             variables,
-            components_configs: Default::default(),
+            component_configs: Default::default(),
             providers: Default::default(),
         })
     }
@@ -53,19 +49,19 @@ impl Resolver {
             })
             .collect::<Result<_>>()?;
 
-        self.components_configs.insert(component_id, templates);
+        self.component_configs.insert(component_id, templates);
 
         Ok(())
     }
 
     /// Adds a config Provider to the Resolver.
-    pub fn add_provider(&mut self, provider: impl Provider + 'static) {
-        self.providers.push(Box::new(provider));
+    pub fn add_provider(&mut self, provider: Box<dyn Provider>) {
+        self.providers.push(provider);
     }
 
     /// Resolves a config value for the given path.
     pub async fn resolve(&self, component_id: &str, key: Key<'_>) -> Result<String> {
-        let configs = self.components_configs.get(component_id).ok_or_else(|| {
+        let configs = self.component_configs.get(component_id).ok_or_else(|| {
             Error::UnknownPath(format!("no config for component {component_id:?}"))
         })?;
 
@@ -165,6 +161,8 @@ impl<'a> AsRef<str> for Key<'a> {
     }
 }
 
+type Result<T> = std::result::Result<T, Error>;
+
 /// A config resolution error.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -195,6 +193,8 @@ pub enum Error {
 
 #[cfg(test)]
 mod tests {
+    use async_trait::async_trait;
+
     use super::*;
 
     #[derive(Debug)]
@@ -235,7 +235,7 @@ mod tests {
                 [("test_key".into(), config_template.into())],
             )
             .unwrap();
-        resolver.add_provider(TestProvider);
+        resolver.add_provider(Box::new(TestProvider));
         resolver.resolve("test-component", Key("test_key")).await
     }
 

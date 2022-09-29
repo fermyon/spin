@@ -11,13 +11,12 @@ doctest = false
 anyhow = "1.0"
 async-trait = "0.1"
 futures = "0.3"
-log = { version = "0.4", default-features = false }
-spin-engine = { path = "../engine" }
-spin-manifest = { path = "../manifest" }
+serde = "1"
+spin-app = { path = "../app" }
+spin-core = { path = "../core" }
 spin-trigger = { path = "../trigger" }
 redis = { version = "0.21", features = [ "tokio-comp" ] }
 tracing = { version = "0.1", features = [ "log" ] }
-wasmtime = "0.39.1"
 
 [dependencies.wit-bindgen-wasmtime]
 git = "https://github.com/bytecodealliance/wit-bindgen"
@@ -26,4 +25,3 @@ features = ["async"]
 
 [dev-dependencies]
 spin-testing = { path = "../testing" }
-tokio = { version = "1", features = [ "full" ] }

@@ -1,6 +1,9 @@
 use anyhow::{anyhow, bail, Context, Result};
 use bindle::Id;
 use clap::Parser;
+use copypasta::{ClipboardContext, ClipboardProvider};
+use cloud::client::Client as CloudClient;
+use cloud::config::ConnectionConfig;
 use hippo::{Client, ConnectionInfo};
 use hippo_openapi::models::ChannelRevisionSelectionStrategy;
 use semver::BuildMetadata;
@@ -10,15 +13,20 @@ use spin_http::routes::RoutePattern;
 use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
 use spin_loader::local::{assets, config};
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
+
 use std::fs::File;
 use std::io::{copy, Write};
 use std::path::PathBuf;
+use std::time::Duration;
 use url::Url;
 use uuid::Uuid;
 
 use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response};
 
 const SPIN_DEPLOY_CHANNEL_NAME: &str = "spin-deploy";
+
+// this is the client ID registered in the Cloud's backend
+const SPIN_CLIENT_ID: &str = "583e63e9-461f-4fbe-a246-23e0fb1cad10";
 
 /// Package and upload Spin artifacts, notifying Hippo
 #[derive(Parser, Debug)]
@@ -38,8 +46,10 @@ pub struct DeployCommand {
         name = BINDLE_SERVER_URL_OPT,
         long = "bindle-server",
         env = BINDLE_URL_ENV,
+        requires = HIPPO_USERNAME,
+        requires = HIPPO_PASSWORD,
     )]
-    pub bindle_server_url: String,
+    pub bindle_server_url: Option<String>,
 
     /// Basic http auth username for the bindle server
     #[clap(
@@ -87,19 +97,23 @@ pub struct DeployCommand {
 
     /// Hippo username
     #[clap(
-        name = "HIPPO_USERNAME",
+        name = HIPPO_USERNAME,
         long = "hippo-username",
-        env = "HIPPO_USERNAME"
+        env = HIPPO_USERNAME,
+        requires = BINDLE_SERVER_URL_OPT,
+        requires = HIPPO_PASSWORD,
     )]
-    pub hippo_username: String,
+    pub hippo_username: Option<String>,
 
     /// Hippo password
     #[clap(
-        name = "HIPPO_PASSWORD",
+        name = HIPPO_PASSWORD,
         long = "hippo-password",
-        env = "HIPPO_PASSWORD"
+        env = HIPPO_PASSWORD,
+        requires = BINDLE_SERVER_URL_OPT,
+        requires = HIPPO_USERNAME,
     )]
-    pub hippo_password: String,
+    pub hippo_password: Option<String>,
 
     /// Disable attaching buildinfo
     #[clap(
@@ -130,6 +144,14 @@ pub struct DeployCommand {
 
 impl DeployCommand {
     pub async fn run(self) -> Result<()> {
+        if self.hippo_username.is_some() {
+            self.deploy_hippo().await
+        } else {
+            self.deploy_cloud().await
+        }
+    }
+
+    async fn deploy_hippo(self) -> Result<()> {
         let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
         let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
 
@@ -154,8 +176,8 @@ impl DeployCommand {
                 danger_accept_invalid_certs: self.insecure,
                 api_key: None,
             }),
-            self.hippo_username.clone(),
-            self.hippo_password.clone(),
+            self.hippo_username.as_deref().unwrap().to_string(),
+            self.hippo_password.as_deref().unwrap().to_string(),
         )
         .await
         {
@@ -256,6 +278,105 @@ impl DeployCommand {
         Ok(())
     }
 
+    async fn deploy_cloud(self) -> Result<()> {
+        let mut connection_config = ConnectionConfig {
+            url: self.hippo_server_url.clone(),
+            insecure: self.insecure,
+            token: Default::default(),
+        };
+
+        connection_config.token = self.github_token(connection_config.clone()).await?;
+
+        let client = CloudClient::new(connection_config.clone());
+
+        client
+            .create_application(None, self.app, self.buildinfo, connection_config)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn github_token(
+        &self,
+        connection_config: ConnectionConfig,
+    ) -> Result<cloud_openapi::models::TokenInfo> {
+        let client = CloudClient::new(connection_config);
+
+        // Generate a device code and a user code to activate it with
+        let device_code = client
+            .create_device_code(Uuid::parse_str(SPIN_CLIENT_ID)?)
+            .await?;
+
+        // Copy the user code to the clipboard.
+
+        // TODO(radu): should this interact with a user's clipboard?
+        // This was added purely for convenience, particularly because the token
+        // returned by our Platform is short lived, which means a user would have to
+        // perform the login process every 30 minutes by default, which sounds
+        // VERY aggressive.
+
+        // TODO(radu): this works on macOS, but might fail on other systems.
+        // Also, there should be a way to disable it.
+
+        // This works on Linux, but needs an extra library installed, which is not very easy to find.
+        let user_code = device_code.user_code.clone().unwrap();
+        let copied_to_clipboard = try_copy_to_clipboard(&user_code);
+
+        println!(
+            "Open the Cloud's device authorization URL in your browser: {} and enter the code: {}",
+            device_code.verification_url.clone().unwrap(),
+            user_code
+        );
+
+        if copied_to_clipboard {
+            println!("The code has been copied to your clipboard for convenience.")
+        }
+
+        // Open the default web browser to the device verification page, with
+        // the user code copied to the clipboard.
+
+        // TODO(radu): this works on macOS, but might fail on other systems (e.g. WSL2).
+        // Also, there should be a way to disable it.
+
+        // According to https://docs.rs/webbrowser/latest/webbrowser/ this should work on windows and Linux as well,
+        // Tested on my linux VM and it worked
+        let _ = webbrowser::open(&device_code.verification_url.clone().unwrap());
+
+        // The OAuth library should theoretically handle waiting for the device to be authorized, but
+        // testing revealed that it doesn't work. So we manually poll every 10 seconds for two minutes.
+        let mut count = 0;
+        let timeout = 12;
+
+        // Loop while waiting for the device code to be authorized by the user
+        loop {
+            if count > timeout {
+                bail!("Timed out waiting to authorize the device. Please execute the `fermyon login` command again and authorize the device with GitHub.");
+            }
+
+            match client.login(device_code.device_code.clone().unwrap()).await {
+                // The cloud returns a 500 when the code is not authorized with a specific message, but when testing I only saw the response coming
+                // back as Ok, but when the device code was not authorized the token was null
+                // Expected behaviour would be that 500 lands in the Err
+                Ok(response) => {
+                    if response.token != None {
+                        println!("Device authorized!");
+                        return Ok(response);
+                    }
+
+                    println!("Waiting for device authorization...");
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                    count += 1;
+                    continue;
+                }
+                Err(_) => {
+                    println!("There was an error while waiting for device authorization");
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                    count += 1;
+                }
+            };
+        }
+    }
+
     async fn compute_buildinfo(&self, cfg: &RawAppManifest) -> Result<BuildMetadata> {
         let mut sha256 = Sha256::new();
         let app_folder = self.app.parent().with_context(|| {
@@ -348,9 +469,10 @@ impl DeployCommand {
     }
 
     async fn create_and_push_bindle(&self, buildinfo: Option<BuildMetadata>) -> Result<Id> {
+        let bindle_url = self.bindle_server_url.as_deref().unwrap();
         let source_dir = crate::app_dir(&self.app)?;
         let bindle_connection_info = spin_publish::BindleConnectionInfo::new(
-            &self.bindle_server_url,
+            bindle_url,
             self.insecure,
             self.bindle_username.clone(),
             self.bindle_password.clone(),
@@ -371,7 +493,7 @@ impl DeployCommand {
             .await
             .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
 
-        let _sloth_warning = warn_if_slow_response(&self.bindle_server_url);
+        let _sloth_warning = warn_if_slow_response(bindle_url);
 
         let publish_result =
             spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info).await;
@@ -394,7 +516,7 @@ impl DeployCommand {
                 return Err(publish_err).with_context(|| {
                     format!(
                         "Failed to push bindle {} to server {}",
-                        bindle_id, self.bindle_server_url
+                        bindle_id, bindle_url
                     )
                 });
             }
@@ -522,5 +644,15 @@ fn format_login_error(err: &anyhow::Error) -> anyhow::Result<String> {
         ))
     } else {
         Ok(format!("Problem logging into Hippo: {}", error.detail))
+    }
+}
+
+fn try_copy_to_clipboard(text: &str) -> bool {
+    match ClipboardContext::new() {
+        Ok(mut ctx) => {
+            let result = ctx.set_contents(text.to_owned());
+            result.is_ok()
+        }
+        Err(_) => false,
     }
 }

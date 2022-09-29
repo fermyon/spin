@@ -11,7 +11,10 @@ atty = "0.2"
 bindle = { git = "https://github.com/fermyon/bindle", tag = "v0.8.1", default-features = false, features = ["client"] }
 bytes = "1.1"
 clap = { version = "3.1.15", features = ["derive", "env"] }
+cloud = { path = "crates/cloud" }
+cloud-openapi = { git = "https://github.com/fermyon/cloud-openapi" }
 comfy-table = "5.0"
+copypasta = "0.8.1"
 ctrlc = { version = "3.2", features = ["termination"] }
 dialoguer = "0.10"
 dirs = "4.0"
@@ -49,6 +52,7 @@ tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 url = "2.2.2"
 uuid = "^1.0"
 wasmtime = "0.39.1"
+webbrowser = "0.7.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # This needs to be an explicit dependency to enable

@@ -18,13 +18,10 @@ use wasi_outbound_http::*;
 pub struct OutboundHttp {
     /// List of hosts guest modules are allowed to make requests to.
     pub allowed_hosts: AllowedHttpHosts,
+    client: Option<Client>,
 }
 
 impl OutboundHttp {
-    pub fn new(allowed_hosts: AllowedHttpHosts) -> Self {
-        Self { allowed_hosts }
-    }
-
     /// Check if guest module is allowed to send request to URL, based on the list of
     /// allowed hosts defined by the runtime. If the list of allowed hosts contains
     /// `insecure:allow-all`, then all hosts are allowed.
@@ -52,7 +49,10 @@ impl wasi_outbound_http::WasiOutboundHttp for OutboundHttp {
             tracing::log::warn!("HTTP params field is deprecated");
         }
 
-        let client = Client::builder().build().unwrap();
+        // Allow reuse of Client's internal connection pool for multiple requests
+        // in a single component execution
+        let client = self.client.get_or_insert_with(Default::default);
+
         let resp = client
             .request(method, url)
             .headers(headers)

@@ -100,7 +100,7 @@ impl TestConfig {
                 "trigger_config": self.http_trigger_config,
             },
         ]);
-        let metadata = from_json!({"name": "test-app", "redis_address": "test-redis-host"});
+        let metadata = from_json!({"name": "test-app", "trigger": {"address": "test-redis-host", "type": "redis"}});
         let variables = Default::default();
         LockedApp {
             spin_lock_version: spin_app::locked::FixedVersion,

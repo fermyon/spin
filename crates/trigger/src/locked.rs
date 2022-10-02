@@ -92,9 +92,8 @@ impl LockedAppBuilder {
 
                 let trigger_type;
                 match (app_trigger, config) {
-                    (ApplicationTrigger::Http(HttpTriggerConfiguration{base}), TriggerConfig::Http(HttpConfig{ route, executor })) => {
+                    (ApplicationTrigger::Http(HttpTriggerConfiguration{base: _}), TriggerConfig::Http(HttpConfig{ route, executor })) => {
                         trigger_type = "http";
-                        let route = base.trim_end_matches('/').to_string() + &route;
                         builder.string("route", route);
                         builder.serializable("executor", executor)?;
                     },

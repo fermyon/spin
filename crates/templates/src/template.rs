@@ -6,7 +6,8 @@ use regex::Regex;
 
 use crate::{
     constraints::StringConstraints,
-    reader::{RawParameter, RawTemplateManifest},
+    custom_filters::CustomFilterParser,
+    reader::{RawCustomFilter, RawParameter, RawTemplateManifest},
     run::{Run, RunOptions},
     store::TemplateLayout,
 };
@@ -17,6 +18,7 @@ pub struct Template {
     id: String,
     description: Option<String>,
     parameters: Vec<TemplateParameter>,
+    custom_filters: Vec<CustomFilterParser>,
     content_dir: Option<PathBuf>, // TODO: maybe always need a spin.toml file in there?
 }
 
@@ -61,6 +63,7 @@ impl Template {
                 id: raw.id.clone(),
                 description: raw.description.clone(),
                 parameters: Self::parse_parameters(&raw.parameters)?,
+                custom_filters: Self::load_custom_filters(layout, &raw.custom_filters)?,
                 content_dir,
             },
         };
@@ -97,6 +100,10 @@ impl Template {
         self.parameters.iter().find(|p| p.id == name.as_ref())
     }
 
+    pub(crate) fn custom_filters(&self) -> Vec<CustomFilterParser> {
+        self.custom_filters.clone()
+    }
+
     pub(crate) fn content_dir(&self) -> &Option<PathBuf> {
         &self.content_dir
     }
@@ -119,6 +126,27 @@ impl Template {
                 .map(|(k, v)| TemplateParameter::from_raw(k, v))
                 .collect(),
         }
+    }
+
+    fn load_custom_filters(
+        layout: &TemplateLayout,
+        raw: &Option<Vec<RawCustomFilter>>,
+    ) -> anyhow::Result<Vec<CustomFilterParser>> {
+        match raw {
+            None => Ok(vec![]),
+            Some(filters) => filters
+                .iter()
+                .map(|f| Self::load_custom_filter(layout, f))
+                .collect(),
+        }
+    }
+
+    fn load_custom_filter(
+        layout: &TemplateLayout,
+        raw: &RawCustomFilter,
+    ) -> anyhow::Result<CustomFilterParser> {
+        let wasm_path = layout.filter_path(&raw.wasm);
+        CustomFilterParser::load(&raw.name, &wasm_path)
     }
 }
 

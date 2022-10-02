@@ -140,7 +140,7 @@ impl Run {
                 let template_content_files = Self::collect_all_content(&from)?;
                 // TODO: okay we do want to do *some* parsing here because we don't want
                 // to prompt if the template bodies are garbage
-                let template_contents = Self::read_all(template_content_files)?;
+                let template_contents = self.read_all(template_content_files)?;
                 Self::to_output_paths(&from, to, template_contents)
             }
         };
@@ -225,8 +225,8 @@ impl Run {
     }
 
     // TODO: async when we know where things sit
-    fn read_all(paths: Vec<PathBuf>) -> anyhow::Result<Vec<(PathBuf, TemplateContent)>> {
-        let template_parser = Self::template_parser();
+    fn read_all(&self, paths: Vec<PathBuf>) -> anyhow::Result<Vec<(PathBuf, TemplateContent)>> {
+        let template_parser = self.template_parser();
         let contents = paths
             .iter()
             .map(std::fs::read)
@@ -329,11 +329,15 @@ impl Run {
         pathdiff::diff_paths(source, src_dir).map(|rel| (dest_dir.join(rel), cont))
     }
 
-    fn template_parser() -> liquid::Parser {
-        liquid::ParserBuilder::with_stdlib()
+    fn template_parser(&self) -> liquid::Parser {
+        let mut builder = liquid::ParserBuilder::with_stdlib()
             .filter(crate::filters::KebabCaseFilterParser)
             .filter(crate::filters::PascalCaseFilterParser)
-            .filter(crate::filters::SnakeCaseFilterParser)
+            .filter(crate::filters::SnakeCaseFilterParser);
+        for filter in self.template.custom_filters() {
+            builder = builder.filter(filter);
+        }
+        builder
             .build()
             .expect("can't fail due to no partials support")
     }

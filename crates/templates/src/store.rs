@@ -71,6 +71,7 @@ pub(crate) struct TemplateLayout {
 }
 
 const METADATA_DIR_NAME: &str = "metadata";
+const FILTERS_DIR_NAME: &str = "filters";
 const CONTENT_DIR_NAME: &str = "content";
 
 const MANIFEST_FILE_NAME: &str = "spin-template.toml";
@@ -84,6 +85,14 @@ impl TemplateLayout {
 
     pub fn metadata_dir(&self) -> PathBuf {
         self.template_dir.join(METADATA_DIR_NAME)
+    }
+
+    pub fn filters_dir(&self) -> PathBuf {
+        self.metadata_dir().join(FILTERS_DIR_NAME)
+    }
+
+    pub fn filter_path(&self, filename: &str) -> PathBuf {
+        self.filters_dir().join(filename)
     }
 
     pub fn manifest_path(&self) -> PathBuf {

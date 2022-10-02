@@ -16,6 +16,7 @@ pub(crate) struct RawTemplateManifestV1 {
     pub id: String,
     pub description: Option<String>,
     pub parameters: Option<IndexMap<String, RawParameter>>,
+    pub custom_filters: Option<Vec<RawCustomFilter>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -27,6 +28,13 @@ pub(crate) struct RawParameter {
     #[serde(rename = "default")]
     pub default_value: Option<String>,
     pub pattern: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub(crate) struct RawCustomFilter {
+    pub name: String,
+    pub wasm: String,
 }
 
 pub(crate) fn parse_manifest_toml(text: impl AsRef<str>) -> anyhow::Result<RawTemplateManifest> {

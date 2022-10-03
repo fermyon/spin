@@ -10,6 +10,7 @@ use std::{
 use http::Response;
 use hyper::Body;
 use serde::de::DeserializeOwned;
+use serde_json::{json, Value};
 use spin_app::{
     async_trait,
     locked::{LockedApp, LockedComponentSource},
@@ -20,6 +21,9 @@ use spin_http::{HttpExecutorType, HttpTriggerConfig, WagiTriggerConfig};
 use spin_trigger::{TriggerExecutor, TriggerExecutorBuilder};
 
 pub use tokio;
+
+// Built by build.rs
+const TEST_PROGRAM_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../target/test-programs");
 
 /// Initialize a test writer for `tracing`, making its output compatible with libtest
 pub fn init_tracing() {
@@ -56,11 +60,7 @@ impl HttpTestConfig {
     }
 
     pub fn test_program(&mut self, name: impl AsRef<Path>) -> &mut Self {
-        self.module_path(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../../target/test-programs")
-                .join(name),
-        )
+        self.module_path(Path::new(TEST_PROGRAM_PATH).join(name))
     }
 
     pub fn http_spin_trigger(&mut self, route: impl Into<String>) -> &mut Self {
@@ -88,8 +88,10 @@ impl HttpTestConfig {
     pub fn build_loader(&self) -> impl Loader {
         init_tracing();
         TestLoader {
-            app: self.build_locked_app(),
             module_path: self.module_path.clone().expect("module path to be set"),
+            trigger_type: "http".into(),
+            app_trigger_metadata: json!({"base": "/"}),
+            trigger_config: serde_json::to_value(&self.http_trigger_config).unwrap(),
         }
     }
 
@@ -102,32 +104,6 @@ impl HttpTestConfig {
             .await
             .unwrap()
     }
-
-    pub fn build_locked_app(&self) -> LockedApp {
-        let components = from_json!([{
-            "id": "test-component",
-            "source": {
-                "content_type": "application/wasm",
-                "digest": "test-source",
-            },
-        }]);
-        let triggers = from_json!([
-            {
-                "id": "test-http-trigger",
-                "trigger_type": "http",
-                "trigger_config": self.http_trigger_config,
-            },
-        ]);
-        let metadata = from_json!({"name": "test-app", "trigger": {"type": "http", "base": "/"}});
-        let variables = Default::default();
-        LockedApp {
-            spin_lock_version: spin_app::locked::FixedVersion,
-            components,
-            triggers,
-            metadata,
-            variables,
-        }
-    }
 }
 
 impl RedisTestConfig {
@@ -138,18 +114,18 @@ impl RedisTestConfig {
     }
 
     pub fn test_program(&mut self, name: impl AsRef<Path>) -> &mut Self {
-        self.module_path(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../../target/test-programs")
-                .join(name),
-        )
+        self.module_path(Path::new(TEST_PROGRAM_PATH).join(name))
     }
 
     pub fn build_loader(&self) -> impl Loader {
-        init_tracing();
         TestLoader {
-            app: self.build_locked_app(),
             module_path: self.module_path.clone().expect("module path to be set"),
+            trigger_type: "redis".into(),
+            app_trigger_metadata: json!({"address": "test-redis-host"}),
+            trigger_config: json!({
+                "component": "test-component",
+                "channel": self.redis_channel,
+            }),
         }
     }
 
@@ -164,8 +140,21 @@ impl RedisTestConfig {
             .await
             .unwrap()
     }
+}
 
-    pub fn build_locked_app(&self) -> LockedApp {
+const TEST_APP_URI: &str = "spin-test:";
+
+struct TestLoader {
+    module_path: PathBuf,
+    trigger_type: String,
+    app_trigger_metadata: Value,
+    trigger_config: Value,
+}
+
+#[async_trait]
+impl Loader for TestLoader {
+    async fn load_app(&self, uri: &str) -> anyhow::Result<LockedApp> {
+        assert_eq!(uri, TEST_APP_URI);
         let components = from_json!([{
             "id": "test-component",
             "source": {
@@ -176,34 +165,24 @@ impl RedisTestConfig {
         let triggers = from_json!([
             {
                 "id": "trigger--test-app",
-                "trigger_type": "redis",
-                "trigger_config": {"channel": self.redis_channel, "component": "test-component"},
+                "trigger_type": self.trigger_type,
+                "trigger_config": self.trigger_config,
             },
         ]);
-        let metadata = from_json!({"name": "test-app", "trigger": {"address": "test-redis-host", "type": "redis"}});
+        let mut trigger_meta = self.app_trigger_metadata.clone();
+        trigger_meta
+            .as_object_mut()
+            .unwrap()
+            .insert("type".into(), self.trigger_type.clone().into());
+        let metadata = from_json!({"name": "test-app", "trigger": trigger_meta});
         let variables = Default::default();
-        LockedApp {
+        Ok(LockedApp {
             spin_lock_version: spin_app::locked::FixedVersion,
             components,
             triggers,
             metadata,
             variables,
-        }
-    }
-}
-
-const TEST_APP_URI: &str = "spin-test:";
-
-struct TestLoader {
-    app: LockedApp,
-    module_path: PathBuf,
-}
-
-#[async_trait]
-impl Loader for TestLoader {
-    async fn load_app(&self, uri: &str) -> anyhow::Result<LockedApp> {
-        assert_eq!(uri, TEST_APP_URI);
-        Ok(self.app.clone())
+        })
     }
 
     async fn load_module(

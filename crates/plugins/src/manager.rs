@@ -98,6 +98,7 @@ impl PluginManager {
         &self,
         plugin_manifest: &PluginManifest,
         spin_version: &str,
+        override_compatibility_check: bool,
         allow_downgrades: bool,
     ) -> Result<()> {
         // Disallow installing plugins with the same name as spin internal subcommands
@@ -129,7 +130,7 @@ impl PluginManager {
             }
         }
 
-        check_supported_version(plugin_manifest, spin_version)
+        check_supported_version(plugin_manifest, spin_version, override_compatibility_check)
     }
 
     /// Fetches a manifest from a local, remote, or repository location and returned the parsed

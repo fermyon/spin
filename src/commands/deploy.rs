@@ -11,7 +11,7 @@ use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
 use spin_loader::local::{assets, config};
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
 use std::fs::File;
-use std::io::copy;
+use std::io::{copy, Write};
 use std::path::PathBuf;
 use url::Url;
 use uuid::Uuid;
@@ -120,6 +120,12 @@ pub struct DeployCommand {
     /// Deploy existing bindle if it already exists on bindle server
     #[clap(short = 'e', long = "deploy-existing-bindle")]
     pub redeploy: bool,
+
+    /// How long in seconds to wait for a deployed HTTP application to become
+    /// ready. The default is 60 seconds. Set it to 0 to skip waiting
+    /// for readiness.
+    #[clap(long = "readiness-timeout", default_value = "60")]
+    pub readiness_timeout_secs: u16,
 }
 
 impl DeployCommand {
@@ -140,7 +146,7 @@ impl DeployCommand {
 
         let bindle_id = self.create_and_push_bindle(buildinfo).await?;
 
-        let _sloth_warning = warn_if_slow_response(&self.hippo_server_url);
+        let sloth_warning = warn_if_slow_response(&self.hippo_server_url);
 
         let token = match Client::login(
             &Client::new(ConnectionInfo {
@@ -218,6 +224,9 @@ impl DeployCommand {
             }
         };
 
+        // Hippo has responded - we don't want to keep the sloth timer running.
+        drop(sloth_warning);
+
         println!(
             "Deployed {} version {}",
             name.clone(),
@@ -227,6 +236,13 @@ impl DeployCommand {
             .await
             .context("Problem getting channel by id")?;
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
+            wait_for_ready(
+                &channel.domain,
+                &self.hippo_server_url,
+                &cfg,
+                self.readiness_timeout_secs,
+            )
+            .await;
             print_available_routes(
                 &channel.domain,
                 &http_config.base,
@@ -396,6 +412,71 @@ impl DeployCommand {
             .with_context(|| format!("Hippo server {} is unhealthy", hippo_base_url))?;
         Ok(())
     }
+}
+
+const READINESS_POLL_INTERVAL_SECS: u64 = 2;
+
+async fn wait_for_ready(
+    app_domain: &str,
+    hippo_url: &str,
+    cfg: &spin_loader::local::config::RawAppManifest,
+    readiness_timeout_secs: u16,
+) {
+    if readiness_timeout_secs == 0 {
+        return;
+    }
+
+    if cfg.components.is_empty() {
+        return;
+    }
+
+    let url_result = Url::parse(hippo_url);
+    let scheme = match &url_result {
+        Ok(url) => url.scheme(),
+        Err(_) => "http",
+    };
+
+    let route = "/healthz";
+    let healthz_url = format!("{}://{}{}", scheme, app_domain, route);
+
+    let start = std::time::Instant::now();
+    let readiness_timeout = std::time::Duration::from_secs(u64::from(readiness_timeout_secs));
+    let poll_interval = tokio::time::Duration::from_secs(READINESS_POLL_INTERVAL_SECS);
+
+    print!("Waiting for application to become ready");
+    std::io::stdout().flush().unwrap_or_default();
+    loop {
+        if is_ready(&healthz_url).await {
+            println!("... ready");
+            return;
+        }
+
+        print!(".");
+        std::io::stdout().flush().unwrap_or_default();
+
+        if start.elapsed() >= readiness_timeout {
+            println!();
+            println!("Application deployed, but Spin could not establish readiness");
+            return;
+        }
+        tokio::time::sleep(poll_interval).await;
+    }
+}
+
+async fn is_ready(healthz_url: &str) -> bool {
+    let resp = reqwest::get(healthz_url).await;
+    let (msg, ready) = match resp {
+        Err(e) => (format!("error {}", e), false),
+        Ok(r) => {
+            let status = r.status();
+            let ok = status.is_success();
+            let desc = if ok { "ready" } else { "not ready" };
+            (format!("{desc}, code {status}"), ok)
+        }
+    };
+
+    tracing::debug!("Polled {} for readiness: {}", healthz_url, msg);
+    ready
 }
 
 fn print_available_routes(

@@ -7,7 +7,7 @@ use futures::future::join_all;
 use http::uri::Scheme;
 use http::Request;
 use spin_http::HttpTrigger;
-use spin_testing::{assert_http_response_success, TestConfig};
+use spin_testing::{assert_http_response_success, HttpTestConfig};
 use tokio::runtime::Runtime;
 use tokio::task;
 
@@ -26,20 +26,20 @@ fn bench_startup(c: &mut Criterion) {
     let mut group = c.benchmark_group("startup");
     group.bench_function("spin-executor", |b| {
         b.to_async(&async_runtime).iter(|| async {
-            let trigger = TestConfig::default()
+            let trigger = HttpTestConfig::default()
                 .test_program("spin-http-benchmark.wasm")
                 .http_spin_trigger("/")
-                .build_http_trigger()
+                .build_trigger()
                 .await;
             run_concurrent_requests(Arc::new(trigger), 0, 1).await;
         });
     });
     group.bench_function("spin-wagi-executor", |b| {
         b.to_async(&async_runtime).iter(|| async {
-            let trigger = TestConfig::default()
+            let trigger = HttpTestConfig::default()
                 .test_program("wagi-benchmark.wasm")
                 .http_wagi_trigger("/", Default::default())
-                .build_http_trigger()
+                .build_trigger()
                 .await;
             run_concurrent_requests(Arc::new(trigger), 0, 1).await;
         });
@@ -50,12 +50,12 @@ fn bench_startup(c: &mut Criterion) {
 fn bench_spin_concurrency_minimal(c: &mut Criterion) {
     let async_runtime = Runtime::new().unwrap();
 
-    let spin_trigger = Arc::new(
+    let spin_trigger: Arc<HttpTrigger> = Arc::new(
         async_runtime.block_on(
-            TestConfig::default()
+            HttpTestConfig::default()
                 .test_program("spin-http-benchmark.wasm")
                 .http_spin_trigger("/")
-                .build_http_trigger(),
+                .build_trigger(),
         ),
     );
 
@@ -86,12 +86,12 @@ fn bench_spin_concurrency_minimal(c: &mut Criterion) {
 fn bench_wagi_concurrency_minimal(c: &mut Criterion) {
     let async_runtime = Runtime::new().unwrap();
 
-    let wagi_trigger = Arc::new(
+    let wagi_trigger: Arc<HttpTrigger> = Arc::new(
         async_runtime.block_on(
-            TestConfig::default()
+            HttpTestConfig::default()
                 .test_program("wagi-benchmark.wasm")
                 .http_wagi_trigger("/", Default::default())
-                .build_http_trigger(),
+                .build_trigger(),
         ),
     );
 

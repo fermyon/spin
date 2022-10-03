@@ -122,7 +122,7 @@ where
                 Ok(())
             }
             Ok(Err(err)) => {
-                tracing::error!("Trigger executor failed: {:?}", err);
+                tracing::error!("Trigger executor failed");
                 Err(err)
             }
             Err(_aborted) => {

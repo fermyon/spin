@@ -38,9 +38,6 @@ wit_bindgen_wasmtime::import!({paths: ["../../wit/ephemeral/spin-http.wit"], asy
 pub(crate) type RuntimeData = spin_http::SpinHttpData;
 pub(crate) type Store = spin_core::Store<RuntimeData>;
 
-/// App metadata key for storing HTTP trigger "base" value
-pub const HTTP_BASE_METADATA_KEY: &str = "http_base";
-
 /// The Spin HTTP trigger.
 pub struct HttpTrigger {
     engine: TriggerAppEngine<Self>,
@@ -107,6 +104,13 @@ pub enum HttpExecutorType {
     Wagi(WagiTriggerConfig),
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct TriggerMetadata {
+    r#type: String,
+    base: String,
+}
+
 #[async_trait]
 impl TriggerExecutor for HttpTrigger {
     const TRIGGER_TYPE: &'static str = "http";
@@ -117,9 +121,8 @@ impl TriggerExecutor for HttpTrigger {
     fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
         let base = engine
             .app()
-            .get_metadata(HTTP_BASE_METADATA_KEY)?
-            .unwrap_or("/")
-            .to_string();
+            .require_metadata::<TriggerMetadata>("trigger")?
+            .base;
 
         let component_routes = engine
             .trigger_configs()
@@ -533,10 +536,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_spin_http() -> Result<()> {
-        let trigger = spin_testing::TestConfig::default()
+        let trigger: HttpTrigger = spin_testing::HttpTestConfig::default()
             .test_program("rust-http-test.wasm")
             .http_spin_trigger("/test")
-            .build_http_trigger()
+            .build_trigger()
             .await;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());
@@ -558,10 +561,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_wagi_http() -> Result<()> {
-        let trigger = spin_testing::TestConfig::default()
+        let trigger: HttpTrigger = spin_testing::HttpTestConfig::default()
             .test_program("wagi-test.wasm")
             .http_wagi_trigger("/test", Default::default())
-            .build_http_trigger()
+            .build_trigger()
             .await;
 
         let body = Body::from("Fermyon".as_bytes().to_vec());

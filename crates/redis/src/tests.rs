@@ -1,7 +1,7 @@
 use super::*;
 use anyhow::Result;
 use redis::{Msg, Value};
-use spin_testing::{tokio, TestConfig};
+use spin_testing::{tokio, RedisTestConfig};
 
 fn create_trigger_event(channel: &str, payload: &str) -> redis::Msg {
     Msg::from_value(&redis::Value::Bulk(vec![
@@ -14,10 +14,9 @@ fn create_trigger_event(channel: &str, payload: &str) -> redis::Msg {
 
 #[tokio::test]
 async fn test_pubsub() -> Result<()> {
-    let trigger: RedisTrigger = TestConfig::default()
+    let trigger: RedisTrigger = RedisTestConfig::default()
         .test_program("redis-rust.wasm")
-        .redis_trigger("messages")
-        .build_trigger()
+        .build_trigger("messages")
         .await;
 
     let msg = create_trigger_event("messages", "hello");

@@ -16,7 +16,7 @@ use spin_app::{
     AppComponent, Loader,
 };
 use spin_core::{Module, StoreBuilder};
-use spin_http::{HttpExecutorType, HttpTrigger, HttpTriggerConfig, WagiTriggerConfig};
+use spin_http::{HttpExecutorType, HttpTriggerConfig, WagiTriggerConfig};
 use spin_trigger::{TriggerExecutor, TriggerExecutorBuilder};
 
 pub use tokio;
@@ -37,13 +37,18 @@ macro_rules! from_json {
 }
 
 #[derive(Default)]
-pub struct TestConfig {
+pub struct HttpTestConfig {
     module_path: Option<PathBuf>,
     http_trigger_config: HttpTriggerConfig,
+}
+
+#[derive(Default)]
+pub struct RedisTestConfig {
+    module_path: Option<PathBuf>,
     redis_channel: String,
 }
 
-impl TestConfig {
+impl HttpTestConfig {
     pub fn module_path(&mut self, path: impl Into<PathBuf>) -> &mut Self {
         init_tracing();
         self.module_path = Some(path.into());
@@ -80,37 +85,6 @@ impl TestConfig {
         self
     }
 
-    pub fn redis_trigger(&mut self, channel: impl Into<String>) -> &mut Self {
-        self.redis_channel = channel.into();
-        self
-    }
-
-    pub fn build_locked_app(&self) -> LockedApp {
-        let components = from_json!([{
-            "id": "test-component",
-            "source": {
-                "content_type": "application/wasm",
-                "digest": "test-source",
-            },
-        }]);
-        let triggers = from_json!([
-            {
-                "id": "test-http-trigger",
-                "trigger_type": "http",
-                "trigger_config": self.http_trigger_config,
-            },
-        ]);
-        let metadata = from_json!({"name": "test-app", "redis_address": "test-redis-host"});
-        let variables = Default::default();
-        LockedApp {
-            spin_lock_version: spin_app::locked::FixedVersion,
-            components,
-            triggers,
-            metadata,
-            variables,
-        }
-    }
-
     pub fn build_loader(&self) -> impl Loader {
         init_tracing();
         TestLoader {
@@ -129,8 +103,92 @@ impl TestConfig {
             .unwrap()
     }
 
-    pub async fn build_http_trigger(&self) -> HttpTrigger {
-        self.build_trigger().await
+    pub fn build_locked_app(&self) -> LockedApp {
+        let components = from_json!([{
+            "id": "test-component",
+            "source": {
+                "content_type": "application/wasm",
+                "digest": "test-source",
+            },
+        }]);
+        let triggers = from_json!([
+            {
+                "id": "test-http-trigger",
+                "trigger_type": "http",
+                "trigger_config": self.http_trigger_config,
+            },
+        ]);
+        let metadata = from_json!({"name": "test-app", "trigger": {"type": "http", "base": "/"}});
+        let variables = Default::default();
+        LockedApp {
+            spin_lock_version: spin_app::locked::FixedVersion,
+            components,
+            triggers,
+            metadata,
+            variables,
+        }
+    }
+}
+
+impl RedisTestConfig {
+    pub fn module_path(&mut self, path: impl Into<PathBuf>) -> &mut Self {
+        init_tracing();
+        self.module_path = Some(path.into());
+        self
+    }
+
+    pub fn test_program(&mut self, name: impl AsRef<Path>) -> &mut Self {
+        self.module_path(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../target/test-programs")
+                .join(name),
+        )
+    }
+
+    pub fn build_loader(&self) -> impl Loader {
+        init_tracing();
+        TestLoader {
+            app: self.build_locked_app(),
+            module_path: self.module_path.clone().expect("module path to be set"),
+        }
+    }
+
+    pub async fn build_trigger<Executor: TriggerExecutor>(&mut self, channel: &str) -> Executor
+    where
+        Executor::TriggerConfig: DeserializeOwned,
+    {
+        self.redis_channel = channel.into();
+
+        TriggerExecutorBuilder::new(self.build_loader())
+            .build(TEST_APP_URI.to_string())
+            .await
+            .unwrap()
+    }
+
+    pub fn build_locked_app(&self) -> LockedApp {
+        let components = from_json!([{
+            "id": "test-component",
+            "source": {
+                "content_type": "application/wasm",
+                "digest": "test-source",
+            },
+        }]);
+        let triggers = from_json!([
+            {
+                "id": "trigger--test-app",
+                "trigger_type": "redis",
+                "trigger_config": {"channel": self.redis_channel, "component": "test-component"},
+            },
+        ]);
+        let metadata = from_json!({"name": "test-app", "trigger": {"address": "test-redis-host", "type": "redis"}});
+        let variables = Default::default();
+        LockedApp {
+            spin_lock_version: spin_app::locked::FixedVersion,
+            components,
+            triggers,
+            metadata,
+            variables,
+        }
     }
 }
 

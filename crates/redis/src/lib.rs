@@ -4,7 +4,7 @@ mod spin;
 
 use std::collections::HashMap;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};
@@ -40,6 +40,13 @@ pub struct RedisTriggerConfig {
     pub executor: IgnoredAny,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct TriggerMetadata {
+    r#type: String,
+    address: String,
+}
+
 #[async_trait]
 impl TriggerExecutor for RedisTrigger {
     const TRIGGER_TYPE: &'static str = "redis";
@@ -50,8 +57,8 @@ impl TriggerExecutor for RedisTrigger {
     fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
         let address = engine
             .app()
-            .require_metadata("redis_address")
-            .context("Failed to configure Redis trigger")?;
+            .require_metadata::<TriggerMetadata>("trigger")?
+            .address;
 
         let channel_components = engine
             .trigger_configs()
@@ -71,7 +78,11 @@ impl TriggerExecutor for RedisTrigger {
 
         tracing::info!("Connecting to Redis server at {}", address);
         let mut client = Client::open(address.to_string())?;
-        let mut pubsub = client.get_async_connection().await?.into_pubsub();
+        let mut pubsub = client
+            .get_async_connection()
+            .await
+            .with_context(|| anyhow!("Redis trigger failed to connect to {}", address))?
+            .into_pubsub();
 
         // Subscribe to channels
         for (channel, component) in self.channel_components.iter() {

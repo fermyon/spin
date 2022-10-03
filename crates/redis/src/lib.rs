@@ -4,7 +4,7 @@ mod spin;
 
 use std::collections::HashMap;
 
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};
@@ -78,7 +78,11 @@ impl TriggerExecutor for RedisTrigger {
 
         tracing::info!("Connecting to Redis server at {}", address);
         let mut client = Client::open(address.to_string())?;
-        let mut pubsub = client.get_async_connection().await?.into_pubsub();
+        let mut pubsub = client
+            .get_async_connection()
+            .await
+            .with_context(|| anyhow!("Redis trigger failed to connect to {}", address))?
+            .into_pubsub();
 
         // Subscribe to channels
         for (channel, component) in self.channel_components.iter() {

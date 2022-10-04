@@ -93,6 +93,8 @@ pub struct LoginCommand {
 impl LoginCommand {
     pub async fn run(self) -> Result<()> {
 
+        let path = dirs::config_dir().context("Cannot find configuration directory")?.join("spin").join("config.json");
+
         if self.hippo_server_url.is_some() {
             // log in with username/password
             let token = match HippoClient::login(
@@ -106,42 +108,49 @@ impl LoginCommand {
             )
             .await
             {
-                Ok(token_info) => token_info.token.unwrap_or_default(),
+                Ok(token_info) => token_info,
                 Err(err) => bail!(format_login_error(&err)?),
             };
 
-            let connection_info = ConnectionInfoDef {
+            let login_connection = LoginConnection {
                 url: self.hippo_server_url.unwrap().clone(),
                 danger_accept_invalid_certs: self.insecure,
-                api_key: Some(token),
+                token: token.token.unwrap_or_default(),
+                expiration: token.expiration.unwrap_or_default(),
+                bindle_url: self.bindle_server_url,
+                bindle_username: self.bindle_username,
+                bindle_password: self.bindle_password,
             };
-
-            let path = dirs::config_dir().context("Cannot find configuration directory")?.join("spin").join("hippo.json");
 
             std::fs::write(
                 path,
-                serde_json::to_string_pretty(&connection_info)?,
+                serde_json::to_string_pretty(&login_connection)?,
             )?;
+        } else {
+            // log in to the cloud API
+            let connection_config = ConnectionConfig {
+                url: "http://localhost:5309".to_owned(),
+                insecure: self.insecure,
+                token: Default::default(),
+            };
 
-            return Ok(());
+            let token = github_token(connection_config).await?;
+
+            let login_connection = LoginConnection {
+                url: "http://localhost:5309".to_owned(),
+                danger_accept_invalid_certs: self.insecure,
+                token: token.token.unwrap_or_default(),
+                expiration: token.expiration.unwrap_or_default(),
+                bindle_url: None,
+                bindle_username: None,
+                bindle_password: None,
+            };
+
+            std::fs::write(
+                path,
+                serde_json::to_string_pretty(&login_connection)?,
+            )?;
         }
-
-        // log in to the cloud API
-        let mut connection_config = ConnectionConfig {
-            url: "http://localhost:5309".to_owned(),
-            insecure: self.insecure,
-            token: Default::default(),
-        };
-
-        connection_config.token = github_token(connection_config.clone()).await?;
-
-        // save token to file
-        let path = dirs::config_dir().context("Cannot find configuration directory")?.join("spin").join("cloud.json");
-
-        std::fs::write(
-            path,
-            serde_json::to_string_pretty(&connection_config)?,
-        )?;
         
         Ok(())
     }
@@ -199,10 +208,14 @@ async fn github_token(connection_config: ConnectionConfig) -> Result<cloud_opena
 }
 
 #[derive(Serialize, Deserialize)]
-struct ConnectionInfoDef {
+struct LoginConnection {
     url: String,
+    bindle_url: Option<String>,
+    bindle_username: Option<String>,
+    bindle_password: Option<String>,
     danger_accept_invalid_certs: bool,
-    api_key: Option<String>,
+    token: String,
+    expiration: String,
 }
 
 #[derive(Deserialize, Serialize)]

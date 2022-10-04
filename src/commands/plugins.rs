@@ -80,6 +80,10 @@ pub struct Install {
     #[clap(short = 'y', long = "yes", takes_value = false)]
     pub yes_to_all: bool,
 
+    /// Overrides a failed compatibility check of the plugin with the current version of Spin.
+    #[clap(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, takes_value = false)]
+    pub override_compatibility_check: bool,
+
     /// Specific version of a plugin to be install from the centralized plugins
     /// repository.
     #[clap(
@@ -104,7 +108,14 @@ impl Install {
         // Downgrades are only allowed via the `upgrade` subcommand
         let downgrade = false;
         let manifest = manager.get_manifest(&manifest_location).await?;
-        try_install(&manifest, &manager, self.yes_to_all, downgrade).await?;
+        try_install(
+            &manifest,
+            &manager,
+            self.yes_to_all,
+            self.override_compatibility_check,
+            downgrade,
+        )
+        .await?;
         Ok(())
     }
 }
@@ -176,6 +187,10 @@ pub struct Upgrade {
     #[clap(short = 'y', long = "yes", takes_value = false)]
     pub yes_to_all: bool,
 
+    /// Overrides a failed compatibility check of the plugin with the current version of Spin.
+    #[clap(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, takes_value = false)]
+    pub override_compatibility_check: bool,
+
     /// Specific version of a plugin to be install from the centralized plugins
     /// repository.
     #[clap(
@@ -239,7 +254,14 @@ impl Upgrade {
                 Err(e) => return Err(e.into()),
                 Ok(m) => m,
             };
-            try_install(&manifest, &manager, self.yes_to_all, self.downgrade).await?;
+            try_install(
+                &manifest,
+                &manager,
+                self.yes_to_all,
+                self.override_compatibility_check,
+                self.downgrade,
+            )
+            .await?;
         }
         Ok(())
     }
@@ -252,7 +274,14 @@ impl Upgrade {
             _ => ManifestLocation::PluginsRepository(PluginLookup::new(name, self.version)),
         };
         let manifest = manager.get_manifest(&manifest_location).await?;
-        try_install(&manifest, &manager, self.yes_to_all, self.downgrade).await?;
+        try_install(
+            &manifest,
+            &manager,
+            self.yes_to_all,
+            self.override_compatibility_check,
+            self.downgrade,
+        )
+        .await?;
         Ok(())
     }
 }
@@ -277,10 +306,16 @@ async fn try_install(
     manifest: &PluginManifest,
     manager: &PluginManager,
     yes_to_all: bool,
+    override_compatibility_check: bool,
     downgrade: bool,
 ) -> Result<bool> {
     let spin_version = env!("VERGEN_BUILD_SEMVER");
-    manager.check_manifest(manifest, spin_version, downgrade)?;
+    manager.check_manifest(
+        manifest,
+        spin_version,
+        override_compatibility_check,
+        downgrade,
+    )?;
     let package = manager::get_package(manifest)?;
     if continue_to_install(manifest, package, yes_to_all)? {
         let installed = manager.install(manifest, package).await?;

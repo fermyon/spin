@@ -207,15 +207,15 @@ async fn github_token(connection_config: ConnectionConfig) -> Result<cloud_opena
     }
 }
 
-#[derive(Serialize, Deserialize)]
-struct LoginConnection {
-    url: String,
-    bindle_url: Option<String>,
-    bindle_username: Option<String>,
-    bindle_password: Option<String>,
-    danger_accept_invalid_certs: bool,
-    token: String,
-    expiration: String,
+#[derive(Clone, Serialize, Deserialize)]
+pub struct LoginConnection {
+    pub url: String,
+    pub bindle_url: Option<String>,
+    pub bindle_username: Option<String>,
+    pub bindle_password: Option<String>,
+    pub danger_accept_invalid_certs: bool,
+    pub token: String,
+    pub expiration: String,
 }
 
 #[derive(Deserialize, Serialize)]

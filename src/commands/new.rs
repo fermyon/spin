@@ -9,17 +9,17 @@ use clap::Parser;
 use path_absolutize::Absolutize;
 use tokio::{fs::File, io::AsyncReadExt};
 
-use spin_templates::{RunOptions, TemplateManager};
+use spin_templates::{RunOptions, Template, TemplateManager};
 
 /// Scaffold a new application or component based on a template.
 #[derive(Parser, Debug)]
 pub struct NewCommand {
     /// The template from which to create the new application or component. Run `spin templates list` to see available options.
-    pub template_id: String,
+    pub template_id: Option<String>,
 
     /// The name of the new application or component.
     #[clap(value_parser = validate_name)]
-    pub name: String,
+    pub name: Option<String>,
 
     /// The directory in which to create the new application or component.
     /// The default is the name argument.
@@ -46,13 +46,30 @@ impl NewCommand {
     pub async fn run(&self) -> Result<()> {
         let template_manager =
             TemplateManager::default().context("Failed to construct template directory path")?;
-        let template = template_manager
-            .get(&self.template_id)
-            .with_context(|| format!("Error retrieving template {}", self.template_id))?;
-        let output_path = self
-            .output_path
-            .clone()
-            .unwrap_or_else(|| path_safe(&self.name));
+
+        let template = match &self.template_id {
+            Some(template_id) => match template_manager
+                .get(&template_id)
+                .with_context(|| format!("Error retrieving template {}", template_id))?
+            {
+                Some(template) => template,
+                None => {
+                    println!("Template {template_id} not found");
+                    return Ok(());
+                }
+            },
+            None => match prompt_template(&template_manager).await? {
+                Some(template) => template,
+                None => return Ok(()),
+            },
+        };
+
+        let name = match &self.name {
+            Some(name) => name.to_owned(),
+            None => prompt_name().await?,
+        };
+
+        let output_path = self.output_path.clone().unwrap_or_else(|| path_safe(&name));
         let values = {
             let mut values = match self.values_file.as_ref() {
                 Some(file) => values_from_file(file.as_path()).await?,
@@ -62,20 +79,13 @@ impl NewCommand {
             values
         };
         let options = RunOptions {
-            name: self.name.clone(),
+            name: name.clone(),
             output_path,
             values,
             accept_defaults: self.accept_defaults,
         };
 
-        match template {
-            Some(template) => template.run(options).interactive().await.execute().await,
-            None => {
-                // TODO: guidance experience
-                println!("Template {} not found", self.template_id);
-                Ok(())
-            }
-        }
+        template.run(options).interactive().await.execute().await
     }
 }
 
@@ -121,6 +131,85 @@ async fn values_from_file(file: impl AsRef<Path>) -> Result<HashMap<String, Stri
 fn merge_values(from_file: &mut HashMap<String, String>, from_cli: &[ParameterValue]) {
     for value in from_cli {
         from_file.insert(value.name.to_owned(), value.value.to_owned());
+    }
+}
+
+async fn prompt_template(template_manager: &TemplateManager) -> anyhow::Result<Option<Template>> {
+    let mut templates = match get_or_install_templates(template_manager).await? {
+        Some(t) => t,
+        None => return Ok(None),
+    };
+    let opts = templates
+        .iter()
+        .map(|t| format!("{} ({})", t.id(), t.description_or_empty()))
+        .collect::<Vec<_>>();
+    let index = match dialoguer::Select::new()
+        .with_prompt("Pick a template to start your project with")
+        .items(&opts)
+        .default(0)
+        .interact_opt()?
+    {
+        Some(i) => i,
+        None => return Ok(None),
+    };
+    let choice = templates.swap_remove(index);
+    Ok(Some(choice))
+}
+
+const DEFAULT_TEMPLATES_INSTALL_PROMPT: &str =
+    "You don't have any templates yet. Would you like to install the default set?";
+const DEFAULT_TEMPLATE_REPO: &str = "https://github.com/fermyon/spin";
+
+async fn get_or_install_templates(
+    template_manager: &TemplateManager,
+) -> anyhow::Result<Option<Vec<Template>>> {
+    let templates = template_manager.list().await?.templates;
+    if templates.is_empty() {
+        let should_install = dialoguer::Confirm::new()
+            .with_prompt(DEFAULT_TEMPLATES_INSTALL_PROMPT)
+            .default(true)
+            .interact_opt()?;
+        if should_install == Some(true) {
+            install_default_templates().await?;
+            Ok(Some(template_manager.list().await?.templates))
+        } else {
+            println!(
+                "You can install the default templates later with 'spin install --git {}'",
+                DEFAULT_TEMPLATE_REPO
+            );
+            Ok(None)
+        }
+    } else {
+        Ok(Some(templates))
+    }
+}
+
+async fn install_default_templates() -> Result<(), anyhow::Error> {
+    let install_cmd = super::templates::Install {
+        git: Some(DEFAULT_TEMPLATE_REPO.to_owned()),
+        branch: None,
+        dir: None,
+        update: false,
+    };
+    install_cmd
+        .run()
+        .await
+        .context("Failed to install the default templates")?;
+    Ok(())
+}
+
+async fn prompt_name() -> anyhow::Result<String> {
+    let mut prompt = "Enter a name for your new project";
+    loop {
+        let result = dialoguer::Input::<String>::new()
+            .with_prompt(prompt)
+            .interact_text()?;
+        if result.trim().is_empty() {
+            prompt = "Name is required. Try another project name (or Ctrl+C to exit)";
+            continue;
+        } else {
+            return Ok(result);
+        }
     }
 }
 

@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::{Result, bail, Context};
@@ -7,6 +8,7 @@ use hippo::Client as HippoClient;
 use hippo::ConnectionInfo;
 use serde::Deserialize;
 use serde::Serialize;
+use tracing::log;
 use uuid::Uuid;
 
 use crate::opts::{BINDLE_SERVER_URL_OPT, BINDLE_URL_ENV, HIPPO_USERNAME, HIPPO_PASSWORD, BINDLE_USERNAME, BINDLE_PASSWORD, INSECURE_OPT, HIPPO_SERVER_URL_OPT, HIPPO_URL_ENV};
@@ -93,7 +95,11 @@ pub struct LoginCommand {
 impl LoginCommand {
     pub async fn run(self) -> Result<()> {
 
-        let path = dirs::config_dir().context("Cannot find configuration directory")?.join("spin").join("config.json");
+        let root = dirs::config_dir().context("Cannot find configuration directory")?.join("spin");
+
+        ensure(&root)?;
+
+        let path = root.join("config.json");
 
         if self.hippo_server_url.is_some() {
             // log in with username/password
@@ -210,8 +216,14 @@ async fn github_token(connection_config: ConnectionConfig) -> Result<cloud_opena
 #[derive(Clone, Serialize, Deserialize)]
 pub struct LoginConnection {
     pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub bindle_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub bindle_username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub bindle_password: Option<String>,
     pub danger_accept_invalid_certs: bool,
     pub token: String,
@@ -234,4 +246,30 @@ fn format_login_error(err: &anyhow::Error) -> anyhow::Result<String> {
     } else {
         Ok(format!("Problem logging into Hippo: {}", error.detail))
     }
+}
+
+/// Ensure the root directory exists, or else create it.
+fn ensure(root: &PathBuf) -> Result<()> {
+    log::trace!("Ensuring root directory {:?}", root);
+    if !root.exists() {
+        log::trace!("Creating configuration root directory `{}`", root.display());
+        std::fs::create_dir_all(root).with_context(|| {
+            format!(
+                "Failed to create configuration root directory `{}`",
+                root.display()
+            )
+        })?;
+    } else if !root.is_dir() {
+        bail!(
+            "Configuration root `{}` already exists and is not a directory",
+            root.display()
+        );
+    } else {
+        log::trace!(
+            "Using existing configuration root directory `{}`",
+            root.display()
+        );
+    }
+
+    Ok(())
 }

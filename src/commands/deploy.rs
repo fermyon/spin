@@ -1,5 +1,6 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context, Result, bail};
 use bindle::Id;
+use chrono::{DateTime, Utc};
 use clap::Parser;
 use cloud_openapi::models::TokenInfo;
 use cloud::client::{Client as CloudClient, ConnectionConfig};
@@ -78,13 +79,20 @@ impl DeployCommand {
     pub async fn run(self) -> Result<()> {
 
         let path = dirs::config_dir().context("Cannot find configuration directory")?.join("spin").join("config.json");
-
         let data = fs::read_to_string(path).await?;
 
         // TODO: invoke LoginCommand::run() if the file cannot be found (not logged in)
 
         let login_connection: LoginConnection = serde_json::from_str(&data)?;
 
+        // ... or if the token has expired.
+        let expiration_date = DateTime::parse_from_rfc3339(&login_connection.expiration)?;
+        let now: DateTime<Utc> = Utc::now();
+        if now > expiration_date {
+            bail!("Your token has expired. Please log back in.")
+        }
+
+        // TODO: we should have a smarter check in place here to determine the difference between Hippo and the Cloud APIs
         if login_connection.bindle_url.is_some() {
             self.deploy_hippo(login_connection).await
         } else {
@@ -271,7 +279,7 @@ impl DeployCommand {
         let app = apps_vm.items.iter().find(|&x| x.name == name.clone());
         match app {
             Some(a) => Ok(a.id),
-            None => anyhow::bail!("No app with name: {}", name),
+            None => bail!("No app with name: {}", name),
         }
     }
 
@@ -288,7 +296,7 @@ impl DeployCommand {
             .find(|&x| x.revision_number == bindle_version && x.app_id == app_id);
         Ok(revision
             .ok_or_else(|| {
-                anyhow::anyhow!(
+                anyhow!(
                     "No revision with version {} and app id {}",
                     bindle_version,
                     app_id
@@ -310,7 +318,7 @@ impl DeployCommand {
             .find(|&x| x.app_id == app_id && x.name == name.clone());
         match channel {
             Some(c) => Ok(c.id),
-            None => anyhow::bail!("No channel with app_id {} and name {}", app_id, name),
+            None => bail!("No channel with app_id {} and name {}", app_id, name),
         }
     }
 

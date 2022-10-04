@@ -20,17 +20,22 @@ use cloud_openapi::{
 };
 use reqwest::header;
 use semver::BuildMetadata;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
 use tracing::log;
 use uuid::Uuid;
-
-use crate::config::ConnectionConfig;
 
 const JSON_MIME_TYPE: &str = "application/json";
 
 pub struct Client {
     configuration: Configuration,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct ConnectionConfig {
+    pub insecure: bool,
+    pub token: TokenInfo,
+    pub url: String,
 }
 
 impl Client {

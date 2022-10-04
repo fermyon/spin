@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use spin_cli::commands::{
     bindle::BindleCommands, build::BuildCommand, deploy::DeployCommand,
     external::execute_external_subcommand, new::NewCommand, plugins::PluginCommands,
-    templates::TemplateCommands, up::UpCommand,
+    templates::TemplateCommands, up::UpCommand, login::LoginCommand,
 };
 use spin_http::HttpTrigger;
 use spin_redis_engine::RedisTrigger;
@@ -44,6 +44,7 @@ enum SpinApp {
     Bindle(BindleCommands),
     Deploy(DeployCommand),
     Build(BuildCommand),
+    Login(LoginCommand),
     #[clap(subcommand)]
     Plugin(PluginCommands),
     #[clap(subcommand, hide = true)]
@@ -70,6 +71,7 @@ impl SpinApp {
             Self::Build(cmd) => cmd.run().await,
             Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run().await,
             Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run().await,
+            Self::Login(cmd) => cmd.run().await,
             Self::Plugin(cmd) => cmd.run().await,
             Self::External(cmd) => execute_external_subcommand(cmd, SpinApp::command()).await,
         }

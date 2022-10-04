@@ -21,7 +21,7 @@ use bindle::client::{
 use semver::BuildMetadata;
 use tracing::log;
 
-use crate::config::ConnectionConfig;
+use crate::client::ConnectionConfig;
 
 use self::bindle_pusher::push_all;
 

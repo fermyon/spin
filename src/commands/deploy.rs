@@ -78,11 +78,10 @@ pub struct DeployCommand {
 impl DeployCommand {
     pub async fn run(self) -> Result<()> {
 
-        let path = dirs::config_dir().context("Cannot find configuration directory")?.join("spin").join("config.json");
-        let data = fs::read_to_string(path).await?;
+        let path = dirs::config_dir().context("Cannot find config directory")?.join("spin").join("config.json");
 
         // TODO: invoke LoginCommand::run() if the file cannot be found (not logged in)
-
+        let data = fs::read_to_string(path.clone()).await.context(format!("Cannot find spin config at {}", path.to_string_lossy()))?;
         let login_connection: LoginConnection = serde_json::from_str(&data)?;
 
         // ... or if the token has expired.

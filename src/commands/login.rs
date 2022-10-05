@@ -19,6 +19,8 @@ use crate::opts::{BINDLE_SERVER_URL_OPT, BINDLE_URL_ENV, HIPPO_USERNAME, HIPPO_P
 // this is the client ID registered in the Cloud's backend
 const SPIN_CLIENT_ID: &str = "583e63e9-461f-4fbe-a246-23e0fb1cad10";
 
+const DEFAULT_CLOUD_URL: &str = "http://localhost:5309";
+
 /// Log into the server
 #[derive(Parser, Debug)]
 #[clap(about = "Log into the server")]
@@ -164,7 +166,7 @@ impl LoginCommand {
         } else {
             // log in to the cloud API
             let connection_config = ConnectionConfig {
-                url: "http://localhost:5309".to_owned(),
+                url: DEFAULT_CLOUD_URL.to_owned(),
                 insecure: self.insecure,
                 token: Default::default(),
             };
@@ -172,7 +174,7 @@ impl LoginCommand {
             let token = github_token(connection_config).await?;
 
             let login_connection = LoginConnection {
-                url: "http://localhost:5309".to_owned(),
+                url: DEFAULT_CLOUD_URL.to_owned(),
                 danger_accept_invalid_certs: self.insecure,
                 token: token.token.unwrap_or_default(),
                 expiration: token.expiration.unwrap_or_default(),

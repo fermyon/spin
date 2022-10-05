@@ -117,7 +117,7 @@ impl LoginCommand {
         if self.status {
             let data = fs::read_to_string(path.clone())
                 .await
-                .context(format!("Cannnot display login information"))?;
+                .context("Cannnot display login information")?;
             let login_connection: LoginConnection = serde_json::from_str(&data)?;
 
             println!("You are logged into {}", login_connection.url);
@@ -152,7 +152,7 @@ impl LoginCommand {
             };
 
             let login_connection = LoginConnection {
-                url: self.hippo_server_url.unwrap().clone(),
+                url: self.hippo_server_url.unwrap(),
                 danger_accept_invalid_certs: self.insecure,
                 token: token.token.unwrap_or_default(),
                 expiration: token.expiration.unwrap_or_default(),

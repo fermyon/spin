@@ -191,6 +191,7 @@ impl Client {
     }
 
     #[allow(dead_code)]
+    #[allow(clippy::too_many_arguments)]
     pub async fn patch_channel(
         &self,
         id: Uuid,
@@ -212,7 +213,7 @@ impl Client {
             active_revision_id: active_revision_id
                 .map(|r| Box::new(GuidNullableField { value: Some(r) })),
             certificate_id: certificate_id
-                .map((|c| Box::new(GuidNullableField { value: Some(c) }))),
+                .map(|c| Box::new(GuidNullableField { value: Some(c) })),
             environment_variables: environment_variables
                 .map(|e| Box::new(UpdateEnvironmentVariableDtoListField { value: Some(e) })),
         };
@@ -242,8 +243,8 @@ impl Client {
         api_revisions_post(
             &self.configuration,
             Some(RegisterRevisionCommand {
-                app_storage_id: app_storage_id,
-                revision_number: revision_number,
+                app_storage_id,
+                revision_number,
             }),
         )
         .await

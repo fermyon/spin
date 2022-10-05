@@ -11,7 +11,7 @@ pub use bindle_writer::write;
 pub use expander::expand_manifest;
 
 use bindle::client::{
-    tokens::{HttpBasic, NoToken, TokenManager},
+    tokens::{HttpBasic, NoToken, TokenManager, LongLivedToken},
     Client, ClientBuilder,
 };
 use std::sync::Arc;
@@ -50,12 +50,32 @@ impl BindleConnectionInfo {
         }
     }
 
+    /// Generates a new BindleConnectionInfo instance using the provided
+    /// base_url, allow_insecure setting and token.
+    pub fn from_token<I: Into<String>>(base_url: I, allow_insecure: bool, token: I) -> Self {
+        let token_manager: Box<dyn TokenManager + Send + Sync> =
+            Box::new(LongLivedToken::new(&token.into()));
+
+        Self {
+            base_url: base_url.into(),
+            allow_insecure,
+            token_manager: AnyAuth {
+                token_manager: Arc::new(token_manager),
+            },
+        }
+    }
+
     /// Returns a client based on this instance's configuration
     pub fn client(&self) -> bindle::client::Result<Client<AnyAuth>> {
         let builder = ClientBuilder::default()
             .http2_prior_knowledge(false)
             .danger_accept_invalid_certs(self.allow_insecure);
         builder.build(&self.base_url, self.token_manager.clone())
+    }
+
+    /// Returns the base url for this client.
+    pub fn base_url(&self) -> &str {
+        self.base_url.as_ref()
     }
 }
 

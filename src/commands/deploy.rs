@@ -5,13 +5,15 @@ use clap::Parser;
 use cloud_openapi::models::TokenInfo;
 use cloud::client::{Client as CloudClient, ConnectionConfig};
 use hippo::{Client, ConnectionInfo};
-use hippo_openapi::models::{ChannelRevisionSelectionStrategy};
+use hippo_openapi::models::ChannelRevisionSelectionStrategy;
+use cloud_openapi::models::ChannelRevisionSelectionStrategy as CloudChannelRevisionSelectionStrategy;
 use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
 use spin_http::routes::RoutePattern;
 use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
 use spin_loader::local::{assets, config};
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
+use spin_publish::BindleConnectionInfo;
 use tokio::fs;
 
 use std::fs::File;
@@ -25,6 +27,8 @@ use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response};
 use super::login::LoginConnection;
 
 const SPIN_DEPLOY_CHANNEL_NAME: &str = "spin-deploy";
+
+const BINDLE_REGISTRY_URL_PATH: &str = "api/registry";
 
 /// Package and upload Spin artifacts, notifying Hippo
 #[derive(Parser, Debug)]
@@ -91,6 +95,9 @@ impl DeployCommand {
             bail!("Your token has expired. Please log back in.")
         }
 
+        check_healthz(&login_connection.url).await?;
+        let _sloth_warning = warn_if_slow_response(&login_connection.url);
+
         // TODO: we should have a smarter check in place here to determine the difference between Hippo and the Cloud APIs
         if login_connection.bindle_url.is_some() {
             self.deploy_hippo(login_connection).await
@@ -112,11 +119,14 @@ impl DeployCommand {
             None
         };
 
-        check_hippo_healthz(&login_connection.url).await?;
+        let bindle_connection_info = BindleConnectionInfo::new(
+            login_connection.bindle_url.unwrap(),
+            login_connection.danger_accept_invalid_certs,
+            login_connection.bindle_username,
+            login_connection.bindle_password,
+        );
 
-        let bindle_id = self.create_and_push_bindle(buildinfo, login_connection.clone()).await?;
-
-        let _sloth_warning = warn_if_slow_response(&login_connection.url);
+        let bindle_id = self.create_and_push_bindle(buildinfo, bindle_connection_info).await?;
 
         let hippo_client = Client::new(ConnectionInfo {
             url: login_connection.url.clone(),
@@ -129,7 +139,7 @@ impl DeployCommand {
         // Create or update app
         // TODO: this process involves many calls to Hippo. Should be able to update the channel
         // via only `add_revision` if bindle naming schema is updated so bindles can be deterministically ordered by Hippo.
-        let channel_id = match self.get_app_id(&hippo_client, name.clone()).await {
+        let channel_id = match self.get_app_id_hippo(&hippo_client, name.clone()).await {
             Ok(app_id) => {
                 Client::add_revision(
                     &hippo_client,
@@ -138,10 +148,10 @@ impl DeployCommand {
                 )
                 .await?;
                 let existing_channel_id = self
-                    .get_channel_id(&hippo_client, SPIN_DEPLOY_CHANNEL_NAME.to_string(), app_id)
+                    .get_channel_id_hippo(&hippo_client, SPIN_DEPLOY_CHANNEL_NAME.to_string(), app_id)
                     .await?;
                 let active_revision_id = self
-                    .get_revision_id(&hippo_client, bindle_id.version_string().clone(), app_id)
+                    .get_revision_id_hippo(&hippo_client, bindle_id.version_string().clone(), app_id)
                     .await?;
                 Client::patch_channel(
                     &hippo_client,
@@ -213,19 +223,108 @@ impl DeployCommand {
 
     async fn deploy_cloud(self, login_connection: LoginConnection) -> Result<()> {
         let connection_config = ConnectionConfig {
-            url: login_connection.url,
+            url: login_connection.url.clone(),
             insecure: login_connection.danger_accept_invalid_certs,
             token: TokenInfo {
-                token: Some(login_connection.token),
-                expiration: Some(login_connection.expiration)
+                token: Some(login_connection.token.clone()),
+                expiration: Some(login_connection.expiration.clone())
             },
         };
 
         let client = CloudClient::new(connection_config.clone());
 
-        client
-            .create_application(None, self.app, self.buildinfo, connection_config)
-            .await?;
+        let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
+        let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
+
+        let buildinfo = if !self.no_buildinfo {
+            match &self.buildinfo {
+                Some(i) => Some(i.clone()),
+                None => self.compute_buildinfo(&cfg).await.map(Option::Some)?,
+            }
+        } else {
+            None
+        };
+
+        let bindle_connection_info = BindleConnectionInfo::from_token(
+            format!("{}/{}", login_connection.url, BINDLE_REGISTRY_URL_PATH),
+            login_connection.danger_accept_invalid_certs,
+            login_connection.token,
+        );
+
+        let bindle_id = self.create_and_push_bindle(buildinfo, bindle_connection_info).await?;
+        let name = bindle_id.name().to_string();
+
+        // Create or update app
+        // TODO: this process involves many calls to Hippo. Should be able to update the channel
+        // via only `add_revision` if bindle naming schema is updated so bindles can be deterministically ordered by Hippo.
+        let channel_id = match self.get_app_id_cloud(&client, name.clone()).await {
+            Ok(app_id) => {
+                CloudClient::add_revision(
+                    &client,
+                    name.clone(),
+                    bindle_id.version_string().clone(),
+                )
+                .await?;
+                let existing_channel_id = self
+                    .get_channel_id_cloud(&client, SPIN_DEPLOY_CHANNEL_NAME.to_string(), app_id)
+                    .await?;
+                let active_revision_id = self
+                    .get_revision_id_cloud(&client, bindle_id.version_string().clone(), app_id)
+                    .await?;
+                CloudClient::patch_channel(
+                    &client,
+                    existing_channel_id,
+                    None,
+                    None,
+                    Some(CloudChannelRevisionSelectionStrategy::UseSpecifiedRevision),
+                    None,
+                    Some(active_revision_id),
+                    None,
+                    None,
+                )
+                .await
+                .context("Problem patching a channel")?;
+
+                existing_channel_id
+            }
+            Err(_) => {
+                let range_rule = Some(bindle_id.version_string());
+                let app_id = CloudClient::add_app(&client, &name, &name)
+                    .await
+                    .context("Unable to create app")?;
+                CloudClient::add_channel(
+                    &client,
+                    app_id,
+                    String::from(SPIN_DEPLOY_CHANNEL_NAME),
+                    None,
+                    CloudChannelRevisionSelectionStrategy::UseRangeRule,
+                    range_rule,
+                    None,
+                    None,
+                )
+                .await
+                .context("Problem creating a channel")?
+            }
+        };
+
+        println!(
+            "Deployed {} version {}",
+            name.clone(),
+            bindle_id.version_string()
+        );
+        let channel = CloudClient::get_channel_by_id(&client, &channel_id.to_string())
+            .await
+            .context("Problem getting channel by id")?;
+        if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
+            print_available_routes(
+                &channel.domain,
+                &http_config.base,
+                &login_connection.url,
+                &cfg,
+            );
+        } else {
+            println!("Application is running at {}", channel.domain);
+        }
 
         Ok(())
     }
@@ -273,7 +372,7 @@ impl DeployCommand {
         Ok(buildinfo)
     }
 
-    async fn get_app_id(&self, hippo_client: &Client, name: String) -> Result<Uuid> {
+    async fn get_app_id_hippo(&self, hippo_client: &Client, name: String) -> Result<Uuid> {
         let apps_vm = Client::list_apps(hippo_client).await?;
         let app = apps_vm.items.iter().find(|&x| x.name == name.clone());
         match app {
@@ -282,7 +381,16 @@ impl DeployCommand {
         }
     }
 
-    async fn get_revision_id(
+    async fn get_app_id_cloud(&self, cloud_client: &CloudClient, name: String) -> Result<Uuid> {
+        let apps_vm = CloudClient::list_apps(cloud_client).await?;
+        let app = apps_vm.items.iter().find(|&x| x.name == name.clone());
+        match app {
+            Some(a) => Ok(a.id),
+            None => bail!("No app with name: {}", name),
+        }
+    }
+
+    async fn get_revision_id_hippo(
         &self,
         hippo_client: &Client,
         bindle_version: String,
@@ -304,7 +412,29 @@ impl DeployCommand {
             .id)
     }
 
-    async fn get_channel_id(
+    async fn get_revision_id_cloud(
+        &self,
+        cloud_client: &CloudClient,
+        bindle_version: String,
+        app_id: Uuid,
+    ) -> Result<Uuid> {
+        let revisions = CloudClient::list_revisions(cloud_client).await?;
+        let revision = revisions
+            .items
+            .iter()
+            .find(|&x| x.revision_number == bindle_version && x.app_id == app_id);
+        Ok(revision
+            .ok_or_else(|| {
+                anyhow!(
+                    "No revision with version {} and app id {}",
+                    bindle_version,
+                    app_id
+                )
+            })?
+            .id)
+    }
+
+    async fn get_channel_id_hippo(
         &self,
         hippo_client: &Client,
         name: String,
@@ -321,15 +451,25 @@ impl DeployCommand {
         }
     }
 
-    async fn create_and_push_bindle(&self, buildinfo: Option<BuildMetadata>, login_connection: LoginConnection) -> Result<Id> {
-        let bindle_url = login_connection.bindle_url.unwrap();
+    async fn get_channel_id_cloud(
+        &self,
+        cloud_client: &CloudClient,
+        name: String,
+        app_id: Uuid,
+    ) -> Result<Uuid> {
+        let channels_vm = CloudClient::list_channels(cloud_client).await?;
+        let channel = channels_vm
+            .items
+            .iter()
+            .find(|&x| x.app_id == app_id && x.name == name.clone());
+        match channel {
+            Some(c) => Ok(c.id),
+            None => bail!("No channel with app_id {} and name {}", app_id, name),
+        }
+    }
+
+    async fn create_and_push_bindle(&self, buildinfo: Option<BuildMetadata>, bindle_connection_info: BindleConnectionInfo) -> Result<Id> {
         let source_dir = crate::app_dir(&self.app)?;
-        let bindle_connection_info = spin_publish::BindleConnectionInfo::new(
-            bindle_url.clone(),
-            login_connection.danger_accept_invalid_certs,
-            login_connection.bindle_username,
-            login_connection.bindle_password,
-        );
 
         let temp_dir = tempfile::tempdir()?;
         let dest_dir = match &self.staging_dir {
@@ -346,10 +486,10 @@ impl DeployCommand {
             .await
             .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
 
-        let _sloth_warning = warn_if_slow_response(&bindle_url);
+        let _sloth_warning = warn_if_slow_response(bindle_connection_info.base_url());
 
         let publish_result =
-            spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info).await;
+            spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info.clone()).await;
 
         if let Err(publish_err) = publish_result {
             // TODO: maybe use `thiserror` to return type errors.
@@ -369,7 +509,7 @@ impl DeployCommand {
                 return Err(publish_err).with_context(|| {
                     format!(
                         "Failed to push bindle {} to server {}",
-                        bindle_id, bindle_url
+                        bindle_id, bindle_connection_info.base_url()
                     )
                 });
             }
@@ -379,13 +519,13 @@ impl DeployCommand {
     }
 }
 
-async fn check_hippo_healthz(url: &str) -> Result<()> {
-    let hippo_base_url = url::Url::parse(url)?;
-    let hippo_healthz_url = hippo_base_url.join("/healthz")?;
-    reqwest::get(hippo_healthz_url.to_string())
+async fn check_healthz(url: &str) -> Result<()> {
+    let base_url = url::Url::parse(url)?;
+    let healthz_url = base_url.join("/healthz")?;
+    reqwest::get(healthz_url.to_string())
         .await?
         .error_for_status()
-        .with_context(|| format!("Hippo server {} is unhealthy", hippo_base_url))?;
+        .with_context(|| format!("Server {} is unhealthy", base_url))?;
     Ok(())
 }
 

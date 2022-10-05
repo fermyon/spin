@@ -6,16 +6,16 @@ use cloud_openapi::{
         auth_tokens_api::api_auth_tokens_post,
         channels_api::{
             api_channels_get, api_channels_id_delete, api_channels_id_get,
-            api_channels_id_logs_get, api_channels_post,
+            api_channels_id_logs_get, api_channels_post, api_channels_id_patch,
         },
         configuration::{ApiKey, Configuration},
         device_codes_api::api_device_codes_post,
-        Error,
+        Error, revisions_api::{api_revisions_post, api_revisions_get},
     },
     models::{
         AppItemPage, ChannelItem, ChannelItemPage, ChannelRevisionSelectionStrategy,
         CreateAccountCommand, CreateAppCommand, CreateChannelCommand, CreateDeviceCodeCommand,
-        CreateTokenCommand, DeviceCodeItem, GetChannelLogsVm, TokenInfo,
+        CreateTokenCommand, DeviceCodeItem, GetChannelLogsVm, TokenInfo, RegisterRevisionCommand, RevisionItemPage, UpdateEnvironmentVariableDto, PatchChannelCommand, StringField, ChannelRevisionSelectionStrategyField, GuidNullableField, UpdateEnvironmentVariableDtoListField,
     },
 };
 use reqwest::header;
@@ -118,40 +118,7 @@ impl Client {
             .context("Failed to parse response")
     }
 
-    pub async fn create_application(
-        &self,
-        name: Option<String>,
-        path: impl AsRef<Path>,
-        buildinfo: Option<BuildMetadata>,
-        connection: ConnectionConfig,
-    ) -> Result<Uuid> {
-        let (storage_name, version) = super::registry::publish(path, buildinfo, connection).await?;
-        let name = match name {
-            Some(n) => n,
-            None => storage_name,
-        };
-
-        let app = self.add_app(&name, &name).await?;
-        let id = self
-            .add_channel(
-                app,
-                name.to_owned(),
-                None,
-                ChannelRevisionSelectionStrategy::UseRangeRule,
-                None,
-                None,
-                None,
-            )
-            .await?;
-
-        println!("Deployed {} version {}", name.clone(), version);
-        let channel = self.get_channel_by_id(&id.to_string()).await?;
-        println!("Application is running at {}", channel.domain);
-
-        Ok(app)
-    }
-
-    pub(crate) async fn add_app(&self, name: &str, storage_id: &str) -> Result<Uuid> {
+    pub async fn add_app(&self, name: &str, storage_id: &str) -> Result<Uuid> {
         api_apps_post(
             &self.configuration,
             Some(CreateAppCommand {
@@ -163,25 +130,25 @@ impl Client {
         .map_err(format_response_error)
     }
 
-    pub(crate) async fn remove_app(&self, id: String) -> Result<()> {
+    pub async fn remove_app(&self, id: String) -> Result<()> {
         api_apps_id_delete(&self.configuration, &id)
             .await
             .map_err(format_response_error)
     }
 
-    pub(crate) async fn list_apps(&self) -> Result<AppItemPage> {
+    pub async fn list_apps(&self) -> Result<AppItemPage> {
         api_apps_get(&self.configuration, None, None, None, None, None)
             .await
             .map_err(format_response_error)
     }
 
-    pub(crate) async fn get_channel_by_id(&self, id: &str) -> Result<ChannelItem> {
+    pub async fn get_channel_by_id(&self, id: &str) -> Result<ChannelItem> {
         api_channels_id_get(&self.configuration, id)
             .await
             .map_err(format_response_error)
     }
 
-    pub(crate) async fn list_channels(&self) -> Result<ChannelItemPage> {
+    pub async fn list_channels(&self) -> Result<ChannelItemPage> {
         api_channels_get(
             &self.configuration,
             Some(""),
@@ -219,14 +186,64 @@ impl Client {
             .map_err(format_response_error)
     }
 
-    pub(crate) async fn remove_channel(&self, id: String) -> Result<()> {
+    #[allow(dead_code)]
+    pub async fn patch_channel(
+        &self,
+        id: Uuid,
+        name: Option<String>,
+        domain: Option<String>,
+        revision_selection_strategy: Option<ChannelRevisionSelectionStrategy>,
+        range_rule: Option<String>,
+        active_revision_id: Option<Uuid>,
+        certificate_id: Option<Uuid>,
+        environment_variables: Option<Vec<UpdateEnvironmentVariableDto>>,
+    ) -> anyhow::Result<()> {
+        let command = PatchChannelCommand {
+            channel_id: Some(id),
+            name: name.map(|n| Box::new(StringField{ value: Some(n) })),
+            domain: domain.map(|d| Box::new(StringField{ value: Some(d) })),
+            revision_selection_strategy: revision_selection_strategy.map(|r| Box::new(ChannelRevisionSelectionStrategyField{ value: Some(r) })),
+            range_rule: range_rule.map(|r| Box::new(StringField{ value: Some(r) })),
+            active_revision_id: active_revision_id.map(|r| Box::new(GuidNullableField{ value: Some(r) })),
+            certificate_id: certificate_id.map((|c| Box::new(GuidNullableField{ value: Some(c) }))),
+            environment_variables: environment_variables.map(|e| Box::new(UpdateEnvironmentVariableDtoListField{ value: Some(e) })),
+        };
+
+        api_channels_id_patch(&self.configuration, &id.to_string(), Some(command))
+            .await
+            .map_err(format_response_error)
+    }
+
+    pub async fn remove_channel(&self, id: String) -> Result<()> {
         api_channels_id_delete(&self.configuration, &id)
             .await
             .map_err(format_response_error)
     }
 
-    pub(crate) async fn channel_logs(&self, id: String) -> Result<GetChannelLogsVm> {
+    pub async fn channel_logs(&self, id: String) -> Result<GetChannelLogsVm> {
         api_channels_id_logs_get(&self.configuration, &id)
+            .await
+            .map_err(format_response_error)
+    }
+
+    pub async fn add_revision(
+        &self,
+        app_storage_id: String,
+        revision_number: String,
+    ) -> anyhow::Result<()> {
+        api_revisions_post(
+            &self.configuration,
+            Some(RegisterRevisionCommand {
+                app_storage_id: app_storage_id,
+                revision_number: revision_number,
+            }),
+        )
+        .await
+        .map_err(format_response_error)
+    }
+
+    pub async fn list_revisions(&self) -> anyhow::Result<RevisionItemPage> {
+        api_revisions_get(&self.configuration, None, None)
             .await
             .map_err(format_response_error)
     }

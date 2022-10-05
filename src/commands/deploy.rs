@@ -24,6 +24,7 @@ use uuid::Uuid;
 
 use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response};
 
+use super::login::LoginCommand;
 use super::login::LoginConnection;
 
 const SPIN_DEPLOY_CHANNEL_NAME: &str = "spin-deploy";
@@ -91,13 +92,19 @@ impl DeployCommand {
             "Cannot find spin config at {}",
             path.to_string_lossy()
         ))?;
-        let login_connection: LoginConnection = serde_json::from_str(&data)?;
+        let mut login_connection: LoginConnection = serde_json::from_str(&data)?;
 
-        // ... or if the token has expired.
         let expiration_date = DateTime::parse_from_rfc3339(&login_connection.expiration)?;
         let now: DateTime<Utc> = Utc::now();
         if now > expiration_date {
-            bail!("Your session has expired. Please log back in.")
+            // session has expired - log back in
+            LoginCommand::parse_from(vec!["login"]).run().await?;
+
+            let new_data = fs::read_to_string(path.clone()).await.context(format!(
+                "Cannot find spin config at {}",
+                path.to_string_lossy()
+            ))?;
+            login_connection = serde_json::from_str(&new_data)?;
         }
 
         check_healthz(&login_connection.url).await?;

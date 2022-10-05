@@ -17,6 +17,7 @@ use spin_publish::BindleConnectionInfo;
 use tokio::fs;
 
 use std::fs::File;
+use std::io;
 use std::io::{copy, Write};
 use std::path::PathBuf;
 use url::Url;
@@ -87,11 +88,19 @@ impl DeployCommand {
             .join("spin")
             .join("config.json");
 
-        // TODO: invoke LoginCommand::run() if the file cannot be found (not logged in)
-        let data = fs::read_to_string(path.clone()).await.context(format!(
-            "Cannot find spin config at {}",
-            path.to_string_lossy()
-        ))?;
+        // log in if config.json does not exist or cannot be read
+        let data = match fs::read_to_string(path.clone()).await {
+            Ok(d) => d,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                // log in, then read config
+                LoginCommand::parse_from(vec!["login"]).run().await?;
+                fs::read_to_string(path.clone()).await?
+            }
+            Err(e) => {
+                bail!("Could not log in: {}", e);
+            }
+        };
+
         let mut login_connection: LoginConnection = serde_json::from_str(&data)?;
 
         let expiration_date = DateTime::parse_from_rfc3339(&login_connection.expiration)?;
@@ -211,9 +220,6 @@ impl DeployCommand {
             }
         };
 
-        // Hippo has responded - we don't want to keep the sloth timer running.
-        drop(sloth_warning);
-
         println!(
             "Deployed {} version {}",
             name.clone(),
@@ -225,7 +231,7 @@ impl DeployCommand {
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
             wait_for_ready(
                 &channel.domain,
-                &self.hippo_server_url,
+                &login_connection.url,
                 &cfg,
                 self.readiness_timeout_secs,
             )

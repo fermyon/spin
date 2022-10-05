@@ -92,7 +92,7 @@ impl DeployCommand {
         let expiration_date = DateTime::parse_from_rfc3339(&login_connection.expiration)?;
         let now: DateTime<Utc> = Utc::now();
         if now > expiration_date {
-            bail!("Your token has expired. Please log back in.")
+            bail!("Your session has expired. Please log back in.")
         }
 
         check_healthz(&login_connection.url).await?;

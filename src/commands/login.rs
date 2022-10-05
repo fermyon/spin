@@ -2,12 +2,15 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::{Result, bail, Context};
+use chrono::DateTime;
+use chrono::Utc;
 use clap::Parser;
 use cloud::client::{ConnectionConfig, Client};
 use hippo::Client as HippoClient;
 use hippo::ConnectionInfo;
 use serde::Deserialize;
 use serde::Serialize;
+use tokio::fs;
 use tracing::log;
 use uuid::Uuid;
 
@@ -90,6 +93,14 @@ pub struct LoginCommand {
         requires = HIPPO_USERNAME,
     )]
     pub hippo_password: Option<String>,
+
+    /// Display login status
+    #[clap(
+        name = "status",
+        long = "status",
+        takes_value = false,
+    )]
+    pub status: bool,
 }
 
 impl LoginCommand {
@@ -100,6 +111,24 @@ impl LoginCommand {
         ensure(&root)?;
 
         let path = root.join("config.json");
+
+        if self.status {
+            let data = fs::read_to_string(path.clone()).await.context(format!("Cannnot display login information"))?;
+            let login_connection: LoginConnection = serde_json::from_str(&data)?;
+
+            println!("You are logged into {}", login_connection.url);
+            if let Some(bindle_url) = login_connection.bindle_url {
+                println!("With a bindle URL of {}", bindle_url);
+            }
+            let expiration_date = DateTime::parse_from_rfc3339(&login_connection.expiration)?;
+            let now: DateTime<Utc> = Utc::now();
+            if now > expiration_date {
+                println!("Your session has expired.")
+            } else {
+                println!("Your session will expire on {}.", expiration_date);
+            }
+            return Ok(());
+        }
 
         if self.hippo_server_url.is_some() {
             // log in with username/password

@@ -212,8 +212,7 @@ impl Client {
             range_rule: range_rule.map(|r| Box::new(StringField { value: Some(r) })),
             active_revision_id: active_revision_id
                 .map(|r| Box::new(GuidNullableField { value: Some(r) })),
-            certificate_id: certificate_id
-                .map(|c| Box::new(GuidNullableField { value: Some(c) })),
+            certificate_id: certificate_id.map(|c| Box::new(GuidNullableField { value: Some(c) })),
             environment_variables: environment_variables
                 .map(|e| Box::new(UpdateEnvironmentVariableDtoListField { value: Some(e) })),
         };

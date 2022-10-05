@@ -11,7 +11,7 @@ pub use bindle_writer::write;
 pub use expander::expand_manifest;
 
 use bindle::client::{
-    tokens::{HttpBasic, NoToken, TokenManager, LongLivedToken},
+    tokens::{HttpBasic, LongLivedToken, NoToken, TokenManager},
     Client, ClientBuilder,
 };
 use std::sync::Arc;

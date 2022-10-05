@@ -6,16 +6,20 @@ use cloud_openapi::{
         auth_tokens_api::api_auth_tokens_post,
         channels_api::{
             api_channels_get, api_channels_id_delete, api_channels_id_get,
-            api_channels_id_logs_get, api_channels_post, api_channels_id_patch,
+            api_channels_id_logs_get, api_channels_id_patch, api_channels_post,
         },
         configuration::{ApiKey, Configuration},
         device_codes_api::api_device_codes_post,
-        Error, revisions_api::{api_revisions_post, api_revisions_get},
+        revisions_api::{api_revisions_get, api_revisions_post},
+        Error,
     },
     models::{
         AppItemPage, ChannelItem, ChannelItemPage, ChannelRevisionSelectionStrategy,
-        CreateAccountCommand, CreateAppCommand, CreateChannelCommand, CreateDeviceCodeCommand,
-        CreateTokenCommand, DeviceCodeItem, GetChannelLogsVm, TokenInfo, RegisterRevisionCommand, RevisionItemPage, UpdateEnvironmentVariableDto, PatchChannelCommand, StringField, ChannelRevisionSelectionStrategyField, GuidNullableField, UpdateEnvironmentVariableDtoListField,
+        ChannelRevisionSelectionStrategyField, CreateAccountCommand, CreateAppCommand,
+        CreateChannelCommand, CreateDeviceCodeCommand, CreateTokenCommand, DeviceCodeItem,
+        GetChannelLogsVm, GuidNullableField, PatchChannelCommand, RegisterRevisionCommand,
+        RevisionItemPage, StringField, TokenInfo, UpdateEnvironmentVariableDto,
+        UpdateEnvironmentVariableDtoListField,
     },
 };
 use reqwest::header;
@@ -200,13 +204,17 @@ impl Client {
     ) -> anyhow::Result<()> {
         let command = PatchChannelCommand {
             channel_id: Some(id),
-            name: name.map(|n| Box::new(StringField{ value: Some(n) })),
-            domain: domain.map(|d| Box::new(StringField{ value: Some(d) })),
-            revision_selection_strategy: revision_selection_strategy.map(|r| Box::new(ChannelRevisionSelectionStrategyField{ value: Some(r) })),
-            range_rule: range_rule.map(|r| Box::new(StringField{ value: Some(r) })),
-            active_revision_id: active_revision_id.map(|r| Box::new(GuidNullableField{ value: Some(r) })),
-            certificate_id: certificate_id.map((|c| Box::new(GuidNullableField{ value: Some(c) }))),
-            environment_variables: environment_variables.map(|e| Box::new(UpdateEnvironmentVariableDtoListField{ value: Some(e) })),
+            name: name.map(|n| Box::new(StringField { value: Some(n) })),
+            domain: domain.map(|d| Box::new(StringField { value: Some(d) })),
+            revision_selection_strategy: revision_selection_strategy
+                .map(|r| Box::new(ChannelRevisionSelectionStrategyField { value: Some(r) })),
+            range_rule: range_rule.map(|r| Box::new(StringField { value: Some(r) })),
+            active_revision_id: active_revision_id
+                .map(|r| Box::new(GuidNullableField { value: Some(r) })),
+            certificate_id: certificate_id
+                .map((|c| Box::new(GuidNullableField { value: Some(c) }))),
+            environment_variables: environment_variables
+                .map(|e| Box::new(UpdateEnvironmentVariableDtoListField { value: Some(e) })),
         };
 
         api_channels_id_patch(&self.configuration, &id.to_string(), Some(command))

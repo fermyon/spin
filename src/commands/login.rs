@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use anyhow::{Result, bail, Context};
+use anyhow::{bail, Context, Result};
 use chrono::DateTime;
 use chrono::Utc;
 use clap::Parser;
-use cloud::client::{ConnectionConfig, Client};
+use cloud::client::{Client, ConnectionConfig};
 use hippo::Client as HippoClient;
 use hippo::ConnectionInfo;
 use serde::Deserialize;
@@ -14,7 +14,10 @@ use tokio::fs;
 use tracing::log;
 use uuid::Uuid;
 
-use crate::opts::{BINDLE_SERVER_URL_OPT, BINDLE_URL_ENV, HIPPO_USERNAME, HIPPO_PASSWORD, BINDLE_USERNAME, BINDLE_PASSWORD, INSECURE_OPT, HIPPO_SERVER_URL_OPT, HIPPO_URL_ENV};
+use crate::opts::{
+    BINDLE_PASSWORD, BINDLE_SERVER_URL_OPT, BINDLE_URL_ENV, BINDLE_USERNAME, HIPPO_PASSWORD,
+    HIPPO_SERVER_URL_OPT, HIPPO_URL_ENV, HIPPO_USERNAME, INSECURE_OPT,
+};
 
 // this is the client ID registered in the Cloud's backend
 const SPIN_CLIENT_ID: &str = "583e63e9-461f-4fbe-a246-23e0fb1cad10";
@@ -97,25 +100,24 @@ pub struct LoginCommand {
     pub hippo_password: Option<String>,
 
     /// Display login status
-    #[clap(
-        name = "status",
-        long = "status",
-        takes_value = false,
-    )]
+    #[clap(name = "status", long = "status", takes_value = false)]
     pub status: bool,
 }
 
 impl LoginCommand {
     pub async fn run(self) -> Result<()> {
-
-        let root = dirs::config_dir().context("Cannot find configuration directory")?.join("spin");
+        let root = dirs::config_dir()
+            .context("Cannot find configuration directory")?
+            .join("spin");
 
         ensure(&root)?;
 
         let path = root.join("config.json");
 
         if self.status {
-            let data = fs::read_to_string(path.clone()).await.context(format!("Cannnot display login information"))?;
+            let data = fs::read_to_string(path.clone())
+                .await
+                .context(format!("Cannnot display login information"))?;
             let login_connection: LoginConnection = serde_json::from_str(&data)?;
 
             println!("You are logged into {}", login_connection.url);
@@ -159,10 +161,7 @@ impl LoginCommand {
                 bindle_password: self.bindle_password,
             };
 
-            std::fs::write(
-                path,
-                serde_json::to_string_pretty(&login_connection)?,
-            )?;
+            std::fs::write(path, serde_json::to_string_pretty(&login_connection)?)?;
         } else {
             // log in to the cloud API
             let connection_config = ConnectionConfig {
@@ -183,17 +182,16 @@ impl LoginCommand {
                 bindle_password: None,
             };
 
-            std::fs::write(
-                path,
-                serde_json::to_string_pretty(&login_connection)?,
-            )?;
+            std::fs::write(path, serde_json::to_string_pretty(&login_connection)?)?;
         }
-        
+
         Ok(())
     }
 }
 
-async fn github_token(connection_config: ConnectionConfig) -> Result<cloud_openapi::models::TokenInfo> {
+async fn github_token(
+    connection_config: ConnectionConfig,
+) -> Result<cloud_openapi::models::TokenInfo> {
     let client = Client::new(connection_config);
 
     // Generate a device code and a user code to activate it with

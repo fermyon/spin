@@ -3,8 +3,8 @@ use clap::{CommandFactory, Parser, Subcommand};
 use lazy_static::lazy_static;
 use spin_cli::commands::{
     bindle::BindleCommands, build::BuildCommand, deploy::DeployCommand,
-    external::execute_external_subcommand, new::NewCommand, plugins::PluginCommands,
-    templates::TemplateCommands, up::UpCommand, login::LoginCommand,
+    external::execute_external_subcommand, login::LoginCommand, new::NewCommand,
+    plugins::PluginCommands, templates::TemplateCommands, up::UpCommand,
 };
 use spin_http::HttpTrigger;
 use spin_redis_engine::RedisTrigger;

@@ -1,12 +1,12 @@
-use anyhow::{anyhow, Context, Result, bail};
+use anyhow::{anyhow, bail, Context, Result};
 use bindle::Id;
 use chrono::{DateTime, Utc};
 use clap::Parser;
-use cloud_openapi::models::TokenInfo;
 use cloud::client::{Client as CloudClient, ConnectionConfig};
+use cloud_openapi::models::ChannelRevisionSelectionStrategy as CloudChannelRevisionSelectionStrategy;
+use cloud_openapi::models::TokenInfo;
 use hippo::{Client, ConnectionInfo};
 use hippo_openapi::models::ChannelRevisionSelectionStrategy;
-use cloud_openapi::models::ChannelRevisionSelectionStrategy as CloudChannelRevisionSelectionStrategy;
 use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
 use spin_http::routes::RoutePattern;
@@ -81,11 +81,16 @@ pub struct DeployCommand {
 
 impl DeployCommand {
     pub async fn run(self) -> Result<()> {
-
-        let path = dirs::config_dir().context("Cannot find config directory")?.join("spin").join("config.json");
+        let path = dirs::config_dir()
+            .context("Cannot find config directory")?
+            .join("spin")
+            .join("config.json");
 
         // TODO: invoke LoginCommand::run() if the file cannot be found (not logged in)
-        let data = fs::read_to_string(path.clone()).await.context(format!("Cannot find spin config at {}", path.to_string_lossy()))?;
+        let data = fs::read_to_string(path.clone()).await.context(format!(
+            "Cannot find spin config at {}",
+            path.to_string_lossy()
+        ))?;
         let login_connection: LoginConnection = serde_json::from_str(&data)?;
 
         // ... or if the token has expired.
@@ -126,7 +131,9 @@ impl DeployCommand {
             login_connection.bindle_password,
         );
 
-        let bindle_id = self.create_and_push_bindle(buildinfo, bindle_connection_info).await?;
+        let bindle_id = self
+            .create_and_push_bindle(buildinfo, bindle_connection_info)
+            .await?;
 
         let hippo_client = Client::new(ConnectionInfo {
             url: login_connection.url.clone(),
@@ -148,10 +155,18 @@ impl DeployCommand {
                 )
                 .await?;
                 let existing_channel_id = self
-                    .get_channel_id_hippo(&hippo_client, SPIN_DEPLOY_CHANNEL_NAME.to_string(), app_id)
+                    .get_channel_id_hippo(
+                        &hippo_client,
+                        SPIN_DEPLOY_CHANNEL_NAME.to_string(),
+                        app_id,
+                    )
                     .await?;
                 let active_revision_id = self
-                    .get_revision_id_hippo(&hippo_client, bindle_id.version_string().clone(), app_id)
+                    .get_revision_id_hippo(
+                        &hippo_client,
+                        bindle_id.version_string().clone(),
+                        app_id,
+                    )
                     .await?;
                 Client::patch_channel(
                     &hippo_client,
@@ -227,7 +242,7 @@ impl DeployCommand {
             insecure: login_connection.danger_accept_invalid_certs,
             token: TokenInfo {
                 token: Some(login_connection.token.clone()),
-                expiration: Some(login_connection.expiration.clone())
+                expiration: Some(login_connection.expiration.clone()),
             },
         };
 
@@ -251,7 +266,9 @@ impl DeployCommand {
             login_connection.token,
         );
 
-        let bindle_id = self.create_and_push_bindle(buildinfo, bindle_connection_info).await?;
+        let bindle_id = self
+            .create_and_push_bindle(buildinfo, bindle_connection_info)
+            .await?;
         let name = bindle_id.name().to_string();
 
         // Create or update app
@@ -468,7 +485,11 @@ impl DeployCommand {
         }
     }
 
-    async fn create_and_push_bindle(&self, buildinfo: Option<BuildMetadata>, bindle_connection_info: BindleConnectionInfo) -> Result<Id> {
+    async fn create_and_push_bindle(
+        &self,
+        buildinfo: Option<BuildMetadata>,
+        bindle_connection_info: BindleConnectionInfo,
+    ) -> Result<Id> {
         let source_dir = crate::app_dir(&self.app)?;
 
         let temp_dir = tempfile::tempdir()?;
@@ -509,7 +530,8 @@ impl DeployCommand {
                 return Err(publish_err).with_context(|| {
                     format!(
                         "Failed to push bindle {} to server {}",
-                        bindle_id, bindle_connection_info.base_url()
+                        bindle_id,
+                        bindle_connection_info.base_url()
                     )
                 });
             }

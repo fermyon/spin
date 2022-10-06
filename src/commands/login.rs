@@ -6,6 +6,8 @@ use chrono::DateTime;
 use chrono::Utc;
 use clap::Parser;
 use cloud::client::{Client, ConnectionConfig};
+use cloud_openapi::models::DeviceCodeItem;
+use cloud_openapi::models::TokenInfo;
 use hippo::Client as HippoClient;
 use hippo::ConnectionInfo;
 use serde::Deserialize;
@@ -102,6 +104,22 @@ pub struct LoginCommand {
     /// Display login status
     #[clap(name = "status", long = "status", takes_value = false)]
     pub status: bool,
+
+    // fetch a device code
+    #[clap(
+        name = "get-device-code",
+        long = "get-device-code",
+        takes_value = false
+    )]
+    pub get_device_code: bool,
+
+    // check a device code
+    #[clap(
+        name = "check-device-code",
+        long = "check-device-code",
+        takes_value = false
+    )]
+    pub check_device_code: Option<String>,
 }
 
 impl LoginCommand {
@@ -170,6 +188,30 @@ impl LoginCommand {
                 token: Default::default(),
             };
 
+            if self.get_device_code {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(
+                        &create_device_code(&Client::new(connection_config)).await?
+                    )?
+                );
+                return Ok(());
+            }
+
+            if self.check_device_code.is_some() {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(
+                        &check_device_code(
+                            &Client::new(connection_config),
+                            self.check_device_code.unwrap()
+                        )
+                        .await?
+                    )?
+                );
+                return Ok(());
+            }
+
             let token = github_token(connection_config).await?;
 
             let login_connection = LoginConnection {
@@ -195,9 +237,7 @@ async fn github_token(
     let client = Client::new(connection_config);
 
     // Generate a device code and a user code to activate it with
-    let device_code = client
-        .create_device_code(Uuid::parse_str(SPIN_CLIENT_ID)?)
-        .await?;
+    let device_code = create_device_code(&client).await?;
 
     println!(
         "Open {} in your browser",
@@ -221,24 +261,35 @@ async fn github_token(
             bail!("Timed out waiting to authorize the device. Please execute `spin login` again and authorize the device with GitHub.");
         }
 
-        match client.login(device_code.device_code.clone().unwrap()).await {
+        match check_device_code(&client, device_code.device_code.clone().unwrap()).await {
             Ok(response) => {
-                if response.token != None {
-                    println!("Device authorized!");
-                    return Ok(response);
-                }
-
-                println!("Waiting for device authorization...");
-                tokio::time::sleep(Duration::from_secs(POLL_INTERVAL_SECS)).await;
-                seconds_elapsed += POLL_INTERVAL_SECS;
-                continue;
+                println!("Device authorized!");
+                return Ok(response);
             }
             Err(_) => {
-                println!("There was an error while waiting for device authorization");
+                println!("Waiting for device authorization...");
                 tokio::time::sleep(Duration::from_secs(POLL_INTERVAL_SECS)).await;
                 seconds_elapsed += POLL_INTERVAL_SECS;
             }
         };
+    }
+}
+
+async fn create_device_code(client: &Client) -> Result<DeviceCodeItem> {
+    client
+        .create_device_code(Uuid::parse_str(SPIN_CLIENT_ID)?)
+        .await
+}
+
+async fn check_device_code(client: &Client, device_code: String) -> Result<TokenInfo> {
+    match client.login(device_code).await {
+        Ok(response) => {
+            if response.token != None {
+                return Ok(response);
+            }
+            return Err(anyhow::anyhow!("no token info"));
+        }
+        Err(e) => Err(e),
     }
 }
 

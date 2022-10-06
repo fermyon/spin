@@ -136,19 +136,7 @@ impl LoginCommand {
             let data = fs::read_to_string(path.clone())
                 .await
                 .context("Cannnot display login information")?;
-            let login_connection: LoginConnection = serde_json::from_str(&data)?;
-
-            println!("You are logged into {}", login_connection.url);
-            if let Some(bindle_url) = login_connection.bindle_url {
-                println!("With a bindle URL of {}", bindle_url);
-            }
-            let expiration_date = DateTime::parse_from_rfc3339(&login_connection.expiration)?;
-            let now: DateTime<Utc> = Utc::now();
-            if now > expiration_date {
-                println!("Your session has expired.")
-            } else {
-                println!("Your session will expire on {}.", expiration_date);
-            }
+            println!("{}", data);
             return Ok(());
         }
 

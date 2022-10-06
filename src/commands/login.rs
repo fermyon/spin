@@ -10,6 +10,7 @@ use hippo::Client as HippoClient;
 use hippo::ConnectionInfo;
 use serde::Deserialize;
 use serde::Serialize;
+use serde_json::json;
 use tokio::fs;
 use tracing::log;
 use uuid::Uuid;
@@ -185,16 +186,16 @@ impl LoginCommand {
             }
 
             if self.check_device_code.is_some() {
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(
-                        &check_device_code(
-                            &Client::new(connection_config),
-                            self.check_device_code.unwrap()
-                        )
-                        .await?
-                    )?
-                );
+                let status = match &check_device_code(
+                    &Client::new(connection_config),
+                    self.check_device_code.unwrap(),
+                )
+                .await
+                {
+                    Ok(d) => serde_json::to_string_pretty(d)?,
+                    Err(_) => serde_json::to_string_pretty(&json!({ "status": "waiting" }))?,
+                };
+                println!("{}", status);
                 return Ok(());
             }
 

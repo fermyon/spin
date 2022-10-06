@@ -3225,6 +3225,7 @@ dependencies = [
  "clap 3.2.19",
  "comfy-table",
  "ctrlc",
+ "dialoguer 0.10.2",
  "dirs 4.0.0",
  "dunce",
  "env_logger",

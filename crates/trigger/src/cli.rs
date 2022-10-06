@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use clap::{Args, IntoApp, Parser};
 use serde::de::DeserializeOwned;
 
+use crate::stdio::StdioLoggingTriggerHooks;
 use crate::{loader::TriggerLoader, stdio::FollowComponents};
 use crate::{TriggerExecutor, TriggerExecutorBuilder};
 
@@ -105,10 +106,10 @@ where
         let executor: Executor = {
             let mut builder = TriggerExecutorBuilder::new(loader);
             self.update_wasmtime_config(builder.wasmtime_config_mut())?;
-            builder.follow_components(self.follow_components());
-            if let Some(log_dir) = self.log {
-                builder.log_dir(log_dir);
-            }
+
+            let logging_hooks = StdioLoggingTriggerHooks::new(self.follow_components(), self.log);
+            builder.hooks(logging_hooks);
+
             builder.build(locked_url).await?
         };
 

@@ -13,11 +13,9 @@ use anyhow::{anyhow, Context, Result};
 pub use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 
-use spin_app::{App, AppLoader, AppTrigger, Loader, OwnedApp};
+use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp};
 use spin_config::{provider::env::EnvProvider, Provider};
 use spin_core::{Config, Engine, EngineBuilder, Instance, InstancePre, Store, StoreBuilder};
-
-use stdio::{ComponentStdioWriter, FollowComponents};
 
 const SPIN_HOME: &str = ".spin";
 const SPIN_CONFIG_ENV_PREFIX: &str = "SPIN_APP";
@@ -44,8 +42,7 @@ pub trait TriggerExecutor: Sized {
 pub struct TriggerExecutorBuilder<Executor: TriggerExecutor> {
     loader: AppLoader,
     config: Config,
-    log_dir: Option<PathBuf>,
-    follow_components: FollowComponents,
+    hooks: Box<dyn TriggerHooks>,
     disable_default_host_components: bool,
     _phantom: PhantomData<Executor>,
 }
@@ -56,8 +53,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         Self {
             loader: AppLoader::new(loader),
             config: Default::default(),
-            log_dir: None,
-            follow_components: Default::default(),
+            hooks: Box::new(()),
             disable_default_host_components: false,
             _phantom: PhantomData,
         }
@@ -70,13 +66,8 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         self.config.wasmtime_config()
     }
 
-    pub fn log_dir(&mut self, log_dir: PathBuf) -> &mut Self {
-        self.log_dir = Some(log_dir);
-        self
-    }
-
-    pub fn follow_components(&mut self, follow_components: FollowComponents) -> &mut Self {
-        self.follow_components = follow_components;
+    pub fn hooks(&mut self, hooks: impl TriggerHooks + 'static) -> &mut Self {
+        self.hooks = Box::new(hooks);
         self
     }
 
@@ -112,20 +103,10 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         let app = self.loader.load_owned_app(app_uri).await?;
         let app_name = app.borrowed().require_metadata("name")?;
 
-        let log_dir = {
-            let sanitized_app = sanitize_filename::sanitize(&app_name);
-            let parent_dir = match dirs::home_dir() {
-                Some(home) => home.join(SPIN_HOME),
-                None => PathBuf::new(), // "./"
-            };
-            parent_dir.join(sanitized_app).join("logs")
-        };
-        std::fs::create_dir_all(&log_dir)?;
+        self.hooks.app_loaded(app.borrowed())?;
 
         // Run trigger executor
-        Executor::new(
-            TriggerAppEngine::new(engine, app_name, app, log_dir, self.follow_components).await?,
-        )
+        Executor::new(TriggerAppEngine::new(engine, app_name, app, self.hooks).await?)
     }
 
     pub fn default_config_providers(&self, app_uri: &str) -> Vec<Box<dyn Provider>> {
@@ -152,10 +133,8 @@ pub struct TriggerAppEngine<Executor: TriggerExecutor> {
     pub app_name: String,
     // An owned wrapper of the App.
     app: OwnedApp,
-    // Log directory
-    log_dir: PathBuf,
-    // Component stdio follow config
-    follow_components: FollowComponents,
+    // Trigger hooks
+    hooks: Box<dyn TriggerHooks>,
     // Trigger configs for this trigger type, with order matching `app.triggers_with_type(Executor::TRIGGER_TYPE)`
     trigger_configs: Vec<Executor::TriggerConfig>,
     // Map of {Component ID -> InstancePre} for each component.
@@ -169,8 +148,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         engine: Engine<Executor::RuntimeData>,
         app_name: String,
         app: OwnedApp,
-        log_dir: PathBuf,
-        follow_components: FollowComponents,
+        hooks: Box<dyn TriggerHooks>,
     ) -> Result<Self>
     where
         <Executor as TriggerExecutor>::TriggerConfig: DeserializeOwned,
@@ -196,8 +174,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
             engine,
             app_name,
             app,
-            log_dir,
-            follow_components,
+            hooks,
             trigger_configs,
             component_instance_pres,
         })
@@ -218,27 +195,10 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
     /// Returns a new StoreBuilder for the given component ID.
     pub fn store_builder(&self, component_id: &str) -> Result<StoreBuilder> {
         let mut builder = self.engine.store_builder();
-
-        // Set up stdio logging
-        builder.stdout_pipe(self.component_stdio_writer(component_id, "stdout")?);
-        builder.stderr_pipe(self.component_stdio_writer(component_id, "stderr")?);
-
+        let component = self.get_component(component_id)?;
+        self.hooks
+            .component_store_builder(component, &mut builder)?;
         Ok(builder)
-    }
-
-    fn component_stdio_writer(
-        &self,
-        component_id: &str,
-        log_suffix: &str,
-    ) -> Result<ComponentStdioWriter> {
-        let sanitized_component_id = sanitize_filename::sanitize(component_id);
-        // e.g.
-        let log_path = self
-            .log_dir
-            .join(format!("{sanitized_component_id}_{log_suffix}.txt"));
-        let follow = self.follow_components.should_follow(component_id);
-        ComponentStdioWriter::new(&log_path, follow)
-            .with_context(|| format!("Failed to open log file {log_path:?}"))
     }
 
     /// Returns a new Store and Instance for the given component ID.
@@ -257,20 +217,17 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         component_id: &str,
         mut store_builder: StoreBuilder,
     ) -> Result<(Instance, Store<Executor::RuntimeData>)> {
-        // Look up AppComponent
-        let component = self.app().get_component(component_id).with_context(|| {
-            format!(
-                "app {:?} has no component {:?}",
-                self.app_name, component_id
-            )
-        })?;
+        let component = self.get_component(component_id)?;
 
         // Build Store
         component.apply_store_config(&mut store_builder).await?;
         let mut store = store_builder.build()?;
 
         // Instantiate
-        let instance = self.component_instance_pres[component_id]
+        let instance = self
+            .component_instance_pres
+            .get(component_id)
+            .expect("component_instance_pres missing valid component_id")
             .instantiate_async(&mut store)
             .await
             .with_context(|| {
@@ -282,7 +239,40 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
 
         Ok((instance, store))
     }
+
+    fn get_component(&self, component_id: &str) -> Result<AppComponent> {
+        self.app().get_component(component_id).with_context(|| {
+            format!(
+                "app {:?} has no component {:?}",
+                self.app_name, component_id
+            )
+        })
+    }
 }
+
+/// TriggerHooks allows a Spin environment to hook into a TriggerAppEngine's
+/// configuration and execution processes.
+pub trait TriggerHooks: Send + Sync {
+    #![allow(unused_variables)]
+
+    /// Called once, immediately after an App is loaded.
+    fn app_loaded(&mut self, app: &App) -> Result<()> {
+        Ok(())
+    }
+
+    /// Called while an AppComponent is being prepared for execution.
+    /// Implementations may update the given StoreBuilder to change the
+    /// environment of the instance to be executed.
+    fn component_store_builder(
+        &self,
+        component: AppComponent,
+        store_builder: &mut StoreBuilder,
+    ) -> Result<()> {
+        Ok(())
+    }
+}
+
+impl TriggerHooks for () {}
 
 pub(crate) fn parse_file_url(url: &str) -> Result<PathBuf> {
     url::Url::parse(url)

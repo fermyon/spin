@@ -152,7 +152,7 @@ impl LoginCommand {
             return Ok(());
         }
 
-        if self.hippo_server_url.is_some() {
+        if self.hippo_username.is_some() {
             // log in with username/password
             let token = match HippoClient::login(
                 &HippoClient::new(ConnectionInfo {

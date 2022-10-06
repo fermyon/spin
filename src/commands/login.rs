@@ -186,23 +186,23 @@ impl LoginCommand {
             }
 
             let token: TokenInfo;
-            if self.check_device_code.is_some() {
-                match check_device_code(
-                    &Client::new(connection_config),
-                    self.check_device_code.unwrap(),
-                )
-                .await
-                {
+            if let Some(device_code) = self.check_device_code {
+                let client = Client::new(connection_config);
+                match client.login(device_code).await {
                     Ok(token_info) => {
-                        println!("{}", serde_json::to_string_pretty(&token_info)?);
-                        token = token_info;
+                        if token_info.token.is_some() {
+                            println!("{}", serde_json::to_string_pretty(&token_info)?);
+                            token = token_info;
+                        } else {
+                            println!(
+                                "{}",
+                                serde_json::to_string_pretty(&json!({ "status": "waiting" }))?
+                            );
+                            return Ok(());
+                        }
                     }
-                    Err(_) => {
-                        println!(
-                            "{}",
-                            serde_json::to_string_pretty(&json!({ "status": "waiting" }))?
-                        );
-                        return Ok(());
+                    Err(e) => {
+                        return Err(e);
                     }
                 };
             } else {
@@ -256,7 +256,7 @@ async fn github_token(
             bail!("Timed out waiting to authorize the device. Please execute `spin login` again and authorize the device with GitHub.");
         }
 
-        match check_device_code(&client, device_code.device_code.clone().unwrap()).await {
+        match client.login(device_code.device_code.clone().unwrap()).await {
             Ok(response) => {
                 println!("Device authorized!");
                 return Ok(response);
@@ -274,18 +274,6 @@ async fn create_device_code(client: &Client) -> Result<DeviceCodeItem> {
     client
         .create_device_code(Uuid::parse_str(SPIN_CLIENT_ID)?)
         .await
-}
-
-async fn check_device_code(client: &Client, device_code: String) -> Result<TokenInfo> {
-    match client.login(device_code).await {
-        Ok(response) => {
-            if response.token != None {
-                return Ok(response);
-            }
-            return Err(anyhow::anyhow!("no token info"));
-        }
-        Err(e) => Err(e),
-    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]

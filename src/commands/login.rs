@@ -185,21 +185,29 @@ impl LoginCommand {
                 return Ok(());
             }
 
+            let token: TokenInfo;
             if self.check_device_code.is_some() {
-                let status = match &check_device_code(
+                match check_device_code(
                     &Client::new(connection_config),
                     self.check_device_code.unwrap(),
                 )
                 .await
                 {
-                    Ok(d) => serde_json::to_string_pretty(d)?,
-                    Err(_) => serde_json::to_string_pretty(&json!({ "status": "waiting" }))?,
+                    Ok(token_info) => {
+                        println!("{}", serde_json::to_string_pretty(&token_info)?);
+                        token = token_info;
+                    }
+                    Err(_) => {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&json!({ "status": "waiting" }))?
+                        );
+                        return Ok(());
+                    }
                 };
-                println!("{}", status);
-                return Ok(());
+            } else {
+                token = github_token(connection_config).await?;
             }
-
-            let token = github_token(connection_config).await?;
 
             let login_connection = LoginConnection {
                 url: DEFAULT_CLOUD_URL.to_owned(),

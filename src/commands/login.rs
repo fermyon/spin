@@ -2,8 +2,6 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
-use chrono::DateTime;
-use chrono::Utc;
 use clap::Parser;
 use cloud::client::{Client, ConnectionConfig};
 use cloud_openapi::models::DeviceCodeItem;

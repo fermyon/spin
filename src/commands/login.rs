@@ -1,3 +1,4 @@
+use std::io::stdin;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -139,36 +140,91 @@ impl LoginCommand {
             return Ok(());
         }
 
-        if self.hippo_username.is_some() {
-            // log in with username/password
-            let token = match HippoClient::login(
-                &HippoClient::new(ConnectionInfo {
-                    url: self.hippo_server_url.as_deref().unwrap().to_string(),
+        if let Some(url) = self.hippo_server_url {
+            let login_connection: LoginConnection;
+            // prompt the user for the authentication method
+            let auth_method = prompt_for_auth_method();
+            if auth_method == AuthMethod::UsernameAndPassword {
+                // log in with username/password
+                let token = match HippoClient::login(
+                    &HippoClient::new(ConnectionInfo {
+                        url: url.clone(),
+                        danger_accept_invalid_certs: self.insecure,
+                        api_key: None,
+                    }),
+                    self.hippo_username.as_deref().unwrap().to_string(),
+                    self.hippo_password.as_deref().unwrap().to_string(),
+                )
+                .await
+                {
+                    Ok(token_info) => token_info,
+                    Err(err) => bail!(format_login_error(&err)?),
+                };
+
+                login_connection = LoginConnection {
+                    url,
                     danger_accept_invalid_certs: self.insecure,
-                    api_key: None,
-                }),
-                self.hippo_username.as_deref().unwrap().to_string(),
-                self.hippo_password.as_deref().unwrap().to_string(),
-            )
-            .await
-            {
-                Ok(token_info) => token_info,
-                Err(err) => bail!(format_login_error(&err)?),
-            };
+                    token: token.token.unwrap_or_default(),
+                    expiration: token.expiration.unwrap_or_default(),
+                    bindle_url: self.bindle_server_url,
+                    bindle_username: self.bindle_username,
+                    bindle_password: self.bindle_password,
+                };
+            } else {
+                // log in to the cloud API
+                let connection_config = ConnectionConfig {
+                    url,
+                    insecure: self.insecure,
+                    token: Default::default(),
+                };
 
-            let login_connection = LoginConnection {
-                url: self.hippo_server_url.unwrap(),
-                danger_accept_invalid_certs: self.insecure,
-                token: token.token.unwrap_or_default(),
-                expiration: token.expiration.unwrap_or_default(),
-                bindle_url: self.bindle_server_url,
-                bindle_username: self.bindle_username,
-                bindle_password: self.bindle_password,
-            };
+                if self.get_device_code {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(
+                            &create_device_code(&Client::new(connection_config)).await?
+                        )?
+                    );
+                    return Ok(());
+                }
 
+                let token: TokenInfo;
+                if let Some(device_code) = self.check_device_code {
+                    let client = Client::new(connection_config);
+                    match client.login(device_code).await {
+                        Ok(token_info) => {
+                            if token_info.token.is_some() {
+                                println!("{}", serde_json::to_string_pretty(&token_info)?);
+                                token = token_info;
+                            } else {
+                                println!(
+                                    "{}",
+                                    serde_json::to_string_pretty(&json!({ "status": "waiting" }))?
+                                );
+                                return Ok(());
+                            }
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    };
+                } else {
+                    token = github_token(connection_config).await?;
+                }
+
+                login_connection = LoginConnection {
+                    url: DEFAULT_CLOUD_URL.to_owned(),
+                    danger_accept_invalid_certs: self.insecure,
+                    token: token.token.unwrap_or_default(),
+                    expiration: token.expiration.unwrap_or_default(),
+                    bindle_url: None,
+                    bindle_username: None,
+                    bindle_password: None,
+                };
+            }
             std::fs::write(path, serde_json::to_string_pretty(&login_connection)?)?;
         } else {
-            // log in to the cloud API
+            // log in to the default cloud API
             let connection_config = ConnectionConfig {
                 url: DEFAULT_CLOUD_URL.to_owned(),
                 insecure: self.insecure,
@@ -218,7 +274,6 @@ impl LoginCommand {
                 bindle_username: None,
                 bindle_password: None,
             };
-
             std::fs::write(path, serde_json::to_string_pretty(&login_connection)?)?;
         }
 
@@ -335,4 +390,33 @@ fn ensure(root: &PathBuf) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[derive(PartialEq)]
+enum AuthMethod {
+    Github,
+    UsernameAndPassword,
+}
+
+fn prompt_for_auth_method() -> AuthMethod {
+    loop {
+        // prompt the user for the authentication method
+        print!("What authentication method does this server support?\n\n1. Sign in with GitHub\n2. Sign in with a username and password\n\nEnter a number: ");
+        let mut input = String::new();
+        stdin()
+            .read_line(&mut input)
+            .expect("unable to read user input");
+
+        match input.trim() {
+            "1" => {
+                return AuthMethod::Github;
+            }
+            "2" => {
+                return AuthMethod::UsernameAndPassword;
+            }
+            _ => {
+                println!("invalid input. Please enter either 1 or 2.");
+            }
+        }
+    }
 }

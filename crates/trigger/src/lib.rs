@@ -1,5 +1,5 @@
 pub mod cli;
-mod loader;
+pub mod loader;
 pub mod locked;
 mod stdio;
 

@@ -32,6 +32,7 @@ outbound-redis = { path = "crates/outbound-redis" }
 path-absolutize = "3.0.11"
 regex = "1.5.5"
 reqwest = { version = "0.11", features = ["stream"] }
+rpassword = "7.0"
 semver = "1.0"
 serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0.82"

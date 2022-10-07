@@ -145,6 +145,27 @@ impl LoginCommand {
             // prompt the user for the authentication method
             let auth_method = prompt_for_auth_method();
             if auth_method == AuthMethod::UsernameAndPassword {
+                let username = match self.hippo_username {
+                    Some(username) => username,
+                    None => {
+                        print!("Hippo username: ");
+                        let mut input = String::new();
+                        stdin()
+                            .read_line(&mut input)
+                            .expect("unable to read user input");
+                        input.trim().to_owned()
+                    }
+                };
+                let password = match self.hippo_password {
+                    Some(password) => password,
+                    None => {
+                        print!("Hippo pasword: ");
+                        rpassword::read_password()
+                            .expect("unable to read user input")
+                            .trim()
+                            .to_owned()
+                    }
+                };
                 // log in with username/password
                 let token = match HippoClient::login(
                     &HippoClient::new(ConnectionInfo {
@@ -152,8 +173,8 @@ impl LoginCommand {
                         danger_accept_invalid_certs: self.insecure,
                         api_key: None,
                     }),
-                    self.hippo_username.as_deref().unwrap().to_string(),
-                    self.hippo_password.as_deref().unwrap().to_string(),
+                    username,
+                    password,
                 )
                 .await
                 {

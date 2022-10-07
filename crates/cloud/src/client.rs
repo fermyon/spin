@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
 use cloud_openapi::{
     apis::{
-        accounts_api::api_accounts_post,
         apps_api::{api_apps_get, api_apps_id_delete, api_apps_post},
         auth_tokens_api::api_auth_tokens_post,
         channels_api::{
@@ -15,10 +14,10 @@ use cloud_openapi::{
     },
     models::{
         AppItemPage, ChannelItem, ChannelItemPage, ChannelRevisionSelectionStrategy,
-        ChannelRevisionSelectionStrategyField, CreateAccountCommand, CreateAppCommand,
-        CreateChannelCommand, CreateDeviceCodeCommand, CreateTokenCommand, DeviceCodeItem,
-        GetChannelLogsVm, GuidNullableField, PatchChannelCommand, RegisterRevisionCommand,
-        RevisionItemPage, StringField, TokenInfo, UpdateEnvironmentVariableDto,
+        ChannelRevisionSelectionStrategyField, CreateAppCommand, CreateChannelCommand,
+        CreateDeviceCodeCommand, CreateTokenCommand, DeviceCodeItem, GetChannelLogsVm,
+        GuidNullableField, PatchChannelCommand, RegisterRevisionCommand, RevisionItemPage,
+        StringField, TokenInfo, UpdateEnvironmentVariableDto,
         UpdateEnvironmentVariableDtoListField,
     },
 };
@@ -81,18 +80,6 @@ impl Client {
         api_device_codes_post(
             &self.configuration,
             Some(CreateDeviceCodeCommand { client_id }),
-        )
-        .await
-        .map_err(format_response_error)
-    }
-
-    pub async fn register(&self, username: String, password: String) -> Result<String> {
-        api_accounts_post(
-            &self.configuration,
-            Some(CreateAccountCommand {
-                user_name: username,
-                password,
-            }),
         )
         .await
         .map_err(format_response_error)
@@ -170,20 +157,16 @@ impl Client {
         &self,
         app_id: Uuid,
         name: String,
-        domain: Option<String>,
         revision_selection_strategy: ChannelRevisionSelectionStrategy,
         range_rule: Option<String>,
         active_revision_id: Option<Uuid>,
-        certificate_id: Option<Uuid>,
     ) -> anyhow::Result<Uuid> {
         let command = CreateChannelCommand {
             app_id,
             name,
-            domain,
             revision_selection_strategy,
             range_rule,
             active_revision_id,
-            certificate_id,
         };
         api_channels_post(&self.configuration, Some(command))
             .await
@@ -196,25 +179,20 @@ impl Client {
         &self,
         id: Uuid,
         name: Option<String>,
-        domain: Option<String>,
         revision_selection_strategy: Option<ChannelRevisionSelectionStrategy>,
         range_rule: Option<String>,
         active_revision_id: Option<Uuid>,
-        certificate_id: Option<Uuid>,
         environment_variables: Option<Vec<UpdateEnvironmentVariableDto>>,
     ) -> anyhow::Result<()> {
         let command = PatchChannelCommand {
             channel_id: Some(id),
             name: name.map(|n| Box::new(StringField { value: Some(n) })),
-            domain: domain.map(|d| Box::new(StringField { value: Some(d) })),
             revision_selection_strategy: revision_selection_strategy
                 .map(|r| Box::new(ChannelRevisionSelectionStrategyField { value: Some(r) })),
             range_rule: range_rule.map(|r| Box::new(StringField { value: Some(r) })),
             active_revision_id: active_revision_id
                 .map(|r| Box::new(GuidNullableField { value: Some(r) })),
-            certificate_id: certificate_id.map(|c| Box::new(GuidNullableField { value: Some(c) })),
-            environment_variables: environment_variables
-                .map(|e| Box::new(UpdateEnvironmentVariableDtoListField { value: Some(e) })),
+            environment_variables,
         };
 
         api_channels_id_patch(&self.configuration, &id.to_string(), Some(command))

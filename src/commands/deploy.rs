@@ -312,11 +312,9 @@ impl DeployCommand {
                     &client,
                     existing_channel_id,
                     None,
-                    None,
                     Some(CloudChannelRevisionSelectionStrategy::UseSpecifiedRevision),
                     None,
                     Some(active_revision_id),
-                    None,
                     None,
                 )
                 .await
@@ -333,10 +331,8 @@ impl DeployCommand {
                     &client,
                     app_id,
                     String::from(SPIN_DEPLOY_CHANNEL_NAME),
-                    None,
                     CloudChannelRevisionSelectionStrategy::UseRangeRule,
                     range_rule,
-                    None,
                     None,
                 )
                 .await

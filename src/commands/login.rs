@@ -376,15 +376,17 @@ struct LoginHippoError {
 }
 
 fn format_login_error(err: &anyhow::Error) -> anyhow::Result<String> {
-    let error: LoginHippoError = serde_json::from_str(err.to_string().as_str())?;
-    if error.detail.ends_with(": ") {
-        Ok(format!(
-            "Problem logging into Hippo: {}",
-            error.detail.replace(": ", ".")
-        ))
-    } else {
-        Ok(format!("Problem logging into Hippo: {}", error.detail))
-    }
+    let detail = match serde_json::from_str::<LoginHippoError>(err.to_string().as_str()) {
+        Ok(e) => {
+            if e.detail.ends_with(": ") {
+                e.detail.replace(": ", ".")
+            } else {
+                e.detail
+            }
+        }
+        Err(_) => err.to_string(),
+    };
+    Ok(format!("Problem logging into Hippo: {}", detail))
 }
 
 /// Ensure the root directory exists, or else create it.

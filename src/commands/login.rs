@@ -140,114 +140,69 @@ impl LoginCommand {
             return Ok(());
         }
 
-        if let Some(url) = self.hippo_server_url {
-            let login_connection: LoginConnection;
+        let login_connection: LoginConnection;
+        let mut url = DEFAULT_CLOUD_URL.to_owned();
+        let mut auth_method = AuthMethod::Github;
+
+        if let Some(u) = self.hippo_server_url {
+            url = u;
             // prompt the user for the authentication method
-            let auth_method = prompt_for_auth_method();
-            if auth_method == AuthMethod::UsernameAndPassword {
-                let username = match self.hippo_username {
-                    Some(username) => username,
-                    None => {
-                        print!("Hippo username: ");
-                        let mut input = String::new();
-                        stdin()
-                            .read_line(&mut input)
-                            .expect("unable to read user input");
-                        input.trim().to_owned()
-                    }
-                };
-                let password = match self.hippo_password {
-                    Some(password) => password,
-                    None => {
-                        print!("Hippo pasword: ");
-                        rpassword::read_password()
-                            .expect("unable to read user input")
-                            .trim()
-                            .to_owned()
-                    }
-                };
-                // log in with username/password
-                let token = match HippoClient::login(
-                    &HippoClient::new(ConnectionInfo {
-                        url: url.clone(),
-                        danger_accept_invalid_certs: self.insecure,
-                        api_key: None,
-                    }),
-                    username,
-                    password,
-                )
-                .await
-                {
-                    Ok(token_info) => token_info,
-                    Err(err) => bail!(format_login_error(&err)?),
-                };
+            // TODO: implement a server "feature" check that tells us what authentication methods it supports
+            auth_method = prompt_for_auth_method();
+        }
 
-                login_connection = LoginConnection {
-                    url,
-                    danger_accept_invalid_certs: self.insecure,
-                    token: token.token.unwrap_or_default(),
-                    expiration: token.expiration.unwrap_or_default(),
-                    bindle_url: self.bindle_server_url,
-                    bindle_username: self.bindle_username,
-                    bindle_password: self.bindle_password,
-                };
-            } else {
-                // log in to the cloud API
-                let connection_config = ConnectionConfig {
-                    url,
-                    insecure: self.insecure,
-                    token: Default::default(),
-                };
-
-                if self.get_device_code {
-                    println!(
-                        "{}",
-                        serde_json::to_string_pretty(
-                            &create_device_code(&Client::new(connection_config)).await?
-                        )?
-                    );
-                    return Ok(());
+        // login and populate login_connection based on the auth type
+        if auth_method == AuthMethod::UsernameAndPassword {
+            let username = match self.hippo_username {
+                Some(username) => username,
+                None => {
+                    print!("Hippo username: ");
+                    let mut input = String::new();
+                    stdin()
+                        .read_line(&mut input)
+                        .expect("unable to read user input");
+                    input.trim().to_owned()
                 }
-
-                let token: TokenInfo;
-                if let Some(device_code) = self.check_device_code {
-                    let client = Client::new(connection_config);
-                    match client.login(device_code).await {
-                        Ok(token_info) => {
-                            if token_info.token.is_some() {
-                                println!("{}", serde_json::to_string_pretty(&token_info)?);
-                                token = token_info;
-                            } else {
-                                println!(
-                                    "{}",
-                                    serde_json::to_string_pretty(&json!({ "status": "waiting" }))?
-                                );
-                                return Ok(());
-                            }
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    };
-                } else {
-                    token = github_token(connection_config).await?;
+            };
+            let password = match self.hippo_password {
+                Some(password) => password,
+                None => {
+                    print!("Hippo pasword: ");
+                    rpassword::read_password()
+                        .expect("unable to read user input")
+                        .trim()
+                        .to_owned()
                 }
-
-                login_connection = LoginConnection {
-                    url: DEFAULT_CLOUD_URL.to_owned(),
+            };
+            // log in with username/password
+            let token = match HippoClient::login(
+                &HippoClient::new(ConnectionInfo {
+                    url: url.clone(),
                     danger_accept_invalid_certs: self.insecure,
-                    token: token.token.unwrap_or_default(),
-                    expiration: token.expiration.unwrap_or_default(),
-                    bindle_url: None,
-                    bindle_username: None,
-                    bindle_password: None,
-                };
-            }
-            std::fs::write(path, serde_json::to_string_pretty(&login_connection)?)?;
+                    api_key: None,
+                }),
+                username,
+                password,
+            )
+            .await
+            {
+                Ok(token_info) => token_info,
+                Err(err) => bail!(format_login_error(&err)?),
+            };
+
+            login_connection = LoginConnection {
+                url: url.clone(),
+                danger_accept_invalid_certs: self.insecure,
+                token: token.token.unwrap_or_default(),
+                expiration: token.expiration.unwrap_or_default(),
+                bindle_url: self.bindle_server_url,
+                bindle_username: self.bindle_username,
+                bindle_password: self.bindle_password,
+            };
         } else {
-            // log in to the default cloud API
+            // log in to the cloud API
             let connection_config = ConnectionConfig {
-                url: DEFAULT_CLOUD_URL.to_owned(),
+                url: url.clone(),
                 insecure: self.insecure,
                 token: Default::default(),
             };
@@ -286,8 +241,8 @@ impl LoginCommand {
                 token = github_token(connection_config).await?;
             }
 
-            let login_connection = LoginConnection {
-                url: DEFAULT_CLOUD_URL.to_owned(),
+            login_connection = LoginConnection {
+                url,
                 danger_accept_invalid_certs: self.insecure,
                 token: token.token.unwrap_or_default(),
                 expiration: token.expiration.unwrap_or_default(),
@@ -295,9 +250,9 @@ impl LoginCommand {
                 bindle_username: None,
                 bindle_password: None,
             };
-            std::fs::write(path, serde_json::to_string_pretty(&login_connection)?)?;
         }
 
+        std::fs::write(path, serde_json::to_string_pretty(&login_connection)?)?;
         Ok(())
     }
 }

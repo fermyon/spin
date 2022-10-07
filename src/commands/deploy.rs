@@ -116,8 +116,10 @@ impl DeployCommand {
             login_connection = serde_json::from_str(&new_data)?;
         }
 
+        let sloth_warning = warn_if_slow_response(&login_connection.url);
         check_healthz(&login_connection.url).await?;
-        let _sloth_warning = warn_if_slow_response(&login_connection.url);
+        // Hippo has responded - we don't want to keep the sloth timer running.
+        drop(sloth_warning);
 
         // TODO: we should have a smarter check in place here to determine the difference between Hippo and the Cloud APIs
         if login_connection.bindle_url.is_some() {
@@ -140,6 +142,8 @@ impl DeployCommand {
             None
         };
 
+        let sloth_warning = warn_if_slow_response(login_connection.bindle_url.as_deref().unwrap());
+
         let bindle_connection_info = BindleConnectionInfo::new(
             login_connection.bindle_url.unwrap(),
             login_connection.danger_accept_invalid_certs,
@@ -150,6 +154,9 @@ impl DeployCommand {
         let bindle_id = self
             .create_and_push_bindle(buildinfo, bindle_connection_info)
             .await?;
+
+        // Bindle has responded - we don't want to keep the sloth timer running.
+        drop(sloth_warning);
 
         let hippo_client = Client::new(ConnectionInfo {
             url: login_connection.url.clone(),

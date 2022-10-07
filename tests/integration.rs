@@ -743,7 +743,13 @@ mod integration_tests {
 
     impl Drop for SpinTestController {
         fn drop(&mut self) {
+            #[cfg(windows)]
             let _ = self.spin_handle.kill();
+            #[cfg(not(windows))]
+            {
+                let pid = nix::unistd::Pid::from_raw(self.spin_handle.id() as i32);
+                let _ = nix::sys::signal::kill(pid, nix::sys::signal::SIGTERM);
+            }
         }
     }
 

@@ -120,6 +120,15 @@ pub struct LoginCommand {
         takes_value = false
     )]
     pub check_device_code: Option<String>,
+
+    // authentication method used for logging in (username|github)
+    #[clap(
+        name = "auth-method",
+        long = "auth-method",
+        env = "AUTH_METHOD",
+        default_value = "github"
+    )]
+    pub method: String,
 }
 
 impl LoginCommand {
@@ -141,14 +150,21 @@ impl LoginCommand {
         }
 
         let login_connection: LoginConnection;
-        let mut url = DEFAULT_CLOUD_URL.to_owned();
         let mut auth_method = AuthMethod::Github;
+        let mut url = DEFAULT_CLOUD_URL.to_owned();
 
         if let Some(u) = self.hippo_server_url {
             url = u;
-            // prompt the user for the authentication method
-            // TODO: implement a server "feature" check that tells us what authentication methods it supports
-            auth_method = prompt_for_auth_method();
+
+            if self.get_device_code || self.check_device_code.is_some() || self.method == "github" {
+                auth_method = AuthMethod::Github;
+            } else if self.method == "username" {
+                auth_method = AuthMethod::UsernameAndPassword;
+            } else {
+                // prompt the user for the authentication method
+                // TODO: implement a server "feature" check that tells us what authentication methods it supports
+                auth_method = prompt_for_auth_method();
+            }
         }
 
         // login and populate login_connection based on the auth type

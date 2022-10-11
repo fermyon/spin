@@ -122,11 +122,7 @@ pub struct LoginCommand {
     pub check_device_code: Option<String>,
 
     // authentication method used for logging in (username|github)
-    #[clap(
-        name = "auth-method",
-        long = "auth-method",
-        env = "AUTH_METHOD",
-    )]
+    #[clap(name = "auth-method", long = "auth-method", env = "AUTH_METHOD")]
     pub method: Option<String>,
 }
 
@@ -161,7 +157,10 @@ impl LoginCommand {
                 } else if method == "github" {
                     auth_method = AuthMethod::Github;
                 } else {
-                    bail!("invalid auth method: {}\nvalid options: [username, github]", method);
+                    bail!(
+                        "invalid auth method: {}\nvalid options: [username, github]",
+                        method
+                    );
                 }
             } else if !self.get_device_code && self.check_device_code.is_none() {
                 // prompt the user for the authentication method

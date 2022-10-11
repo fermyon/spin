@@ -1,24 +1,25 @@
 use anyhow::{Context, Result};
 use cloud_openapi::{
     apis::{
+        self,
         apps_api::{api_apps_get, api_apps_id_delete, api_apps_post},
         auth_tokens_api::api_auth_tokens_post,
         channels_api::{
             api_channels_get, api_channels_id_delete, api_channels_id_get,
-            api_channels_id_logs_get, api_channels_id_patch, api_channels_post, ApiChannelsIdPatchError,
+            api_channels_id_logs_get, api_channels_id_patch, api_channels_post,
+            ApiChannelsIdPatchError,
         },
         configuration::{ApiKey, Configuration},
         device_codes_api::api_device_codes_post,
         revisions_api::{api_revisions_get, api_revisions_post},
-        Error, self, ResponseContent,
+        Error, ResponseContent,
     },
     models::{
         AppItemPage, ChannelItem, ChannelItemPage, ChannelRevisionSelectionStrategy,
         ChannelRevisionSelectionStrategyField, CreateAppCommand, CreateChannelCommand,
         CreateDeviceCodeCommand, CreateTokenCommand, DeviceCodeItem, GetChannelLogsVm,
-        GuidNullableField, RegisterRevisionCommand, RevisionItemPage,
-        StringField, TokenInfo, UpdateEnvironmentVariableDto,
-        UpdateEnvironmentVariableDtoListField,
+        GuidNullableField, RegisterRevisionCommand, RevisionItemPage, StringField, TokenInfo,
+        UpdateEnvironmentVariableDto, UpdateEnvironmentVariableDtoListField,
     },
 };
 use reqwest::header;
@@ -197,11 +198,17 @@ impl Client {
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str = format!("{}/api/channels/{id}", local_var_configuration.base_path, id=apis::urlencode(id.to_string()));
-        let mut local_var_req_builder = local_var_client.request(reqwest::Method::PATCH, local_var_uri_str.as_str());
+        let local_var_uri_str = format!(
+            "{}/api/channels/{id}",
+            local_var_configuration.base_path,
+            id = apis::urlencode(id.to_string())
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PATCH, local_var_uri_str.as_str());
 
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+            local_var_req_builder = local_var_req_builder
+                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
         if let Some(ref local_var_apikey) = local_var_configuration.api_key {
             let local_var_key = local_var_apikey.key.clone();
@@ -222,8 +229,13 @@ impl Client {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<ApiChannelsIdPatchError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent { status: local_var_status, content: local_var_content, entity: local_var_entity };
+            let local_var_entity: Option<ApiChannelsIdPatchError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
             Err(format_response_error(Error::ResponseError(local_var_error)))
         }
     }
@@ -288,11 +300,17 @@ fn format_response_error<T>(e: Error<T>) -> anyhow::Error {
 pub struct PatchChannelCommand {
     #[serde(rename = "channelId", skip_serializing_if = "Option::is_none")]
     pub channel_id: Option<uuid::Uuid>,
-    #[serde(rename = "environmentVariables", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "environmentVariables",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub environment_variables: Option<Vec<UpdateEnvironmentVariableDto>>,
     #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    #[serde(rename = "revisionSelectionStrategy", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "revisionSelectionStrategy",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub revision_selection_strategy: Option<ChannelRevisionSelectionStrategy>,
     #[serde(rename = "rangeRule", skip_serializing_if = "Option::is_none")]
     pub range_rule: Option<String>,

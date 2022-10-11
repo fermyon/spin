@@ -126,9 +126,8 @@ pub struct LoginCommand {
         name = "auth-method",
         long = "auth-method",
         env = "AUTH_METHOD",
-        default_value = "github"
     )]
-    pub method: String,
+    pub method: Option<String>,
 }
 
 impl LoginCommand {
@@ -156,11 +155,15 @@ impl LoginCommand {
         if let Some(u) = self.hippo_server_url {
             url = u;
 
-            if self.get_device_code || self.check_device_code.is_some() || self.method == "github" {
-                auth_method = AuthMethod::Github;
-            } else if self.method == "username" {
-                auth_method = AuthMethod::UsernameAndPassword;
-            } else {
+            if let Some(method) = self.method {
+                if method == "username" {
+                    auth_method = AuthMethod::UsernameAndPassword;
+                } else if method == "github" {
+                    auth_method = AuthMethod::Github;
+                } else {
+                    bail!("invalid auth method: {}\nvalid options: [username, github]", method);
+                }
+            } else if !self.get_device_code && self.check_device_code.is_none() {
                 // prompt the user for the authentication method
                 // TODO: implement a server "feature" check that tells us what authentication methods it supports
                 auth_method = prompt_for_auth_method();

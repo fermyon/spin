@@ -67,9 +67,9 @@ fn test_read_types(_req: Request) -> Result<Response> {
     let mut response_lines = vec![];
 
     for row in rowset.rows {
-        let id = as_int(&row[0])?;
-        let rvarchar = as_owned_string(&row[1])?;
-        let rtext = as_owned_string(&row[2])?;
+        let id: i32 = (&row[0]).try_into()?;
+        let rvarchar: String = (&row[1]).try_into()?;
+        let rtext: String = (&row[2]).try_into()?;
 
         let row = Row {
             id,
@@ -101,7 +101,7 @@ fn pg_backend_pid(_req: Request) -> Result<Response> {
             .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
 
         let row = &rowset.rows[0];
-        as_int(&row[0])
+        i32::try_from(&row[0])
     };
 
     assert_eq!(get_pid()?, get_pid()?);
@@ -111,33 +111,6 @@ fn pg_backend_pid(_req: Request) -> Result<Response> {
     Ok(http::Response::builder()
         .status(200)
         .body(Some(response.into()))?)
-}
-
-fn as_owned_string(value: &pg::DbValue) -> anyhow::Result<String> {
-    match value {
-        pg::DbValue::Str(s) => Ok(s.to_owned()),
-        _ => Err(anyhow!("Expected string from database but got {:?}", value)),
-    }
-}
-
-fn as_int(value: &pg::DbValue) -> anyhow::Result<i32> {
-    match value {
-        pg::DbValue::Int32(n) => Ok(*n),
-        _ => Err(anyhow!(
-            "Expected integer from database but got {:?}",
-            value
-        )),
-    }
-}
-
-fn as_bigint(value: &pg::DbValue) -> anyhow::Result<i64> {
-    match value {
-        pg::DbValue::Int64(n) => Ok(*n),
-        _ => Err(anyhow!(
-            "Expected integer from database but got {:?}",
-            value
-        )),
-    }
 }
 
 fn format_col(column: &pg::Column) -> String {

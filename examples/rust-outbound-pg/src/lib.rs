@@ -2,7 +2,8 @@
 use anyhow::{anyhow, Result};
 use spin_sdk::{
     http::{Request, Response},
-    http_component, pg,
+    http_component,
+    pg,
 };
 
 // The environment variable set in `spin.toml` that points to the
@@ -15,6 +16,24 @@ struct Article {
     title: String,
     content: String,
     authorname: String,
+}
+
+impl TryFrom<&pg::Row> for Article {
+    type Error = anyhow::Error;
+
+    fn try_from(row: &pg::Row) -> Result<Self, Self::Error> {
+        let id: i32 = (&row[0]).try_into()?;
+        let title: String = (&row[1]).try_into()?;
+        let content: String = (&row[2]).try_into()?;
+        let authorname: String = (&row[3]).try_into()?;
+
+        Ok(Self {
+            id,
+            title,
+            content,
+            authorname,
+        })
+    }
 }
 
 #[http_component]
@@ -46,17 +65,7 @@ fn read(_req: Request) -> Result<Response> {
     let mut response_lines = vec![];
 
     for row in rowset.rows {
-        let id = as_int(&row[0])?;
-        let title = as_owned_string(&row[1])?;
-        let content = as_owned_string(&row[2])?;
-        let authorname = as_owned_string(&row[3])?;
-
-        let article = Article {
-            id,
-            title,
-            content,
-            authorname,
-        };
+        let article = Article::try_from(&row)?;
 
         println!("article: {:#?}", article);
         response_lines.push(format!("article: {:#?}", article));
@@ -89,7 +98,7 @@ fn write(_req: Request) -> Result<Response> {
     let rowset = pg::query(&address, sql, &[])
         .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
     let row = &rowset.rows[0];
-    let count = as_bigint(&row[0])?;
+    let count: i64 = (&row[0]).try_into()?;
     let response = format!("Count: {}\n", count);
 
     Ok(http::Response::builder()
@@ -106,7 +115,8 @@ fn pg_backend_pid(_req: Request) -> Result<Response> {
             .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
 
         let row = &rowset.rows[0];
-        as_int(&row[0])
+
+        i32::try_from(&row[0])
     };
 
     assert_eq!(get_pid()?, get_pid()?);
@@ -116,33 +126,6 @@ fn pg_backend_pid(_req: Request) -> Result<Response> {
     Ok(http::Response::builder()
         .status(200)
         .body(Some(response.into()))?)
-}
-
-fn as_owned_string(value: &pg::DbValue) -> anyhow::Result<String> {
-    match value {
-        pg::DbValue::Str(s) => Ok(s.to_owned()),
-        _ => Err(anyhow!("Expected string from database but got {:?}", value)),
-    }
-}
-
-fn as_int(value: &pg::DbValue) -> anyhow::Result<i32> {
-    match value {
-        pg::DbValue::Int32(n) => Ok(*n),
-        _ => Err(anyhow!(
-            "Expected integer from database but got {:?}",
-            value
-        )),
-    }
-}
-
-fn as_bigint(value: &pg::DbValue) -> anyhow::Result<i64> {
-    match value {
-        pg::DbValue::Int64(n) => Ok(*n),
-        _ => Err(anyhow!(
-            "Expected integer from database but got {:?}",
-            value
-        )),
-    }
 }
 
 fn format_col(column: &pg::Column) -> String {

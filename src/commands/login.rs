@@ -308,8 +308,14 @@ async fn github_token(
 
         match client.login(device_code.device_code.clone().unwrap()).await {
             Ok(response) => {
-                println!("Device authorized!");
-                return Ok(response);
+                if response.token.is_none() {
+                    println!("Waiting for device authorization...");
+                    tokio::time::sleep(Duration::from_secs(POLL_INTERVAL_SECS)).await;
+                    seconds_elapsed += POLL_INTERVAL_SECS;
+                } else {
+                    println!("Device authorized!");
+                    return Ok(response);
+                }
             }
             Err(_) => {
                 println!("Waiting for device authorization...");

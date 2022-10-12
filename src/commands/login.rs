@@ -35,9 +35,6 @@ pub struct LoginCommand {
         name = BINDLE_SERVER_URL_OPT,
         long = "bindle-server",
         env = BINDLE_URL_ENV,
-        requires = HIPPO_SERVER_URL_OPT,
-        requires = HIPPO_USERNAME,
-        requires = HIPPO_PASSWORD,
     )]
     pub bindle_server_url: Option<String>,
 
@@ -73,9 +70,6 @@ pub struct LoginCommand {
         name = HIPPO_SERVER_URL_OPT,
         long = "hippo-server",
         env = HIPPO_URL_ENV,
-        requires = BINDLE_SERVER_URL_OPT,
-        requires = HIPPO_USERNAME,
-        requires = HIPPO_PASSWORD,
     )]
     pub hippo_server_url: Option<String>,
 
@@ -84,8 +78,6 @@ pub struct LoginCommand {
         name = HIPPO_USERNAME,
         long = "hippo-username",
         env = HIPPO_USERNAME,
-        requires = BINDLE_SERVER_URL_OPT,
-        requires = HIPPO_SERVER_URL_OPT,
         requires = HIPPO_PASSWORD,
     )]
     pub hippo_username: Option<String>,
@@ -95,8 +87,6 @@ pub struct LoginCommand {
         name = HIPPO_PASSWORD,
         long = "hippo-password",
         env = HIPPO_PASSWORD,
-        requires = BINDLE_SERVER_URL_OPT,
-        requires = HIPPO_SERVER_URL_OPT,
         requires = HIPPO_USERNAME,
     )]
     pub hippo_password: Option<String>,
@@ -145,28 +135,32 @@ impl LoginCommand {
         }
 
         let login_connection: LoginConnection;
-        let mut auth_method = AuthMethod::Github;
-        let mut url = DEFAULT_CLOUD_URL.to_owned();
 
+        let mut url = DEFAULT_CLOUD_URL.to_owned();
         if let Some(u) = self.hippo_server_url {
             url = u;
+        }
 
-            if let Some(method) = self.method {
-                if method == "username" {
-                    auth_method = AuthMethod::UsernameAndPassword;
-                } else if method == "github" {
-                    auth_method = AuthMethod::Github;
-                } else {
-                    bail!(
-                        "invalid auth method: {}\nvalid options: [username, github]",
-                        method
-                    );
-                }
-            } else if !self.get_device_code && self.check_device_code.is_none() {
-                // prompt the user for the authentication method
-                // TODO: implement a server "feature" check that tells us what authentication methods it supports
-                auth_method = prompt_for_auth_method();
+        let auth_method: AuthMethod;
+        if let Some(method) = self.method {
+            if method == "username" {
+                auth_method = AuthMethod::UsernameAndPassword;
+            } else if method == "github" {
+                auth_method = AuthMethod::Github;
+            } else {
+                bail!(
+                    "invalid auth method: {}\nvalid options: [username, github]",
+                    method
+                );
             }
+        } else if self.get_device_code || self.check_device_code.is_some() {
+            auth_method = AuthMethod::Github;
+        } else if self.hippo_username.is_some() || self.hippo_password.is_some() {
+            auth_method = AuthMethod::UsernameAndPassword;
+        } else {
+            // prompt the user for the authentication method
+            // TODO: implement a server "feature" check that tells us what authentication methods it supports
+            auth_method = prompt_for_auth_method();
         }
 
         // login and populate login_connection based on the auth type

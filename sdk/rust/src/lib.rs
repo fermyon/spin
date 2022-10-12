@@ -47,7 +47,6 @@ pub mod redis {
 }
 
 /// Implementation of the spin postgres db interface.
-#[allow(missing_docs)]
 pub mod pg;
 
 /// Implementation of the spin config interface.

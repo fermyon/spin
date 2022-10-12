@@ -668,7 +668,9 @@ mod integration_tests {
             )
             .await?;
 
-            assert_status(&s, "/test_read_types", 200).await?;
+            assert_status(&s, "/test_numeric_types", 200).await?;
+            assert_status(&s, "/test_character_types", 200).await?;
+            assert_status(&s, "/test_general_types", 200).await?;
             assert_status(&s, "/pg_backend_pid", 200).await?;
 
             Ok(())

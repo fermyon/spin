@@ -1,9 +1,9 @@
 #![allow(dead_code)]
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use spin_sdk::{
     http::{Request, Response},
     http_component,
-    pg,
+    pg::{self, Decode},
 };
 
 // The environment variable set in `spin.toml` that points to the
@@ -16,22 +16,25 @@ struct Article {
     title: String,
     content: String,
     authorname: String,
+    coauthor: Option<String>,
 }
 
 impl TryFrom<&pg::Row> for Article {
     type Error = anyhow::Error;
 
     fn try_from(row: &pg::Row) -> Result<Self, Self::Error> {
-        let id: i32 = (&row[0]).try_into()?;
-        let title: String = (&row[1]).try_into()?;
-        let content: String = (&row[2]).try_into()?;
-        let authorname: String = (&row[3]).try_into()?;
+        let id = i32::decode(&row[0])?;
+        let title = String::decode(&row[1])?;
+        let content = String::decode(&row[2])?;
+        let authorname = String::decode(&row[3])?;
+        let coauthor = Option::<String>::decode(&row[4])?;
 
         Ok(Self {
             id,
             title,
             content,
             authorname,
+            coauthor,
         })
     }
 }
@@ -51,9 +54,8 @@ fn process(req: Request) -> Result<Response> {
 fn read(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
 
-    let sql = "SELECT id, title, content, authorname FROM articletest";
-    let rowset = pg::query(&address, sql, &[])
-        .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
+    let sql = "SELECT id, title, content, authorname, coauthor FROM articletest";
+    let rowset = pg::query(&address, sql, &[])?;
 
     let column_summary = rowset
         .columns
@@ -89,16 +91,14 @@ fn write(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "INSERT INTO articletest (title, content, authorname) VALUES ('aaa', 'bbb', 'ccc')";
-    let nrow_executed =
-        pg::execute(&address, sql, &[]).map_err(|_| anyhow!("Error execute pg command"))?;
+    let nrow_executed = pg::execute(&address, sql, &[])?;
 
     println!("nrow_executed: {}", nrow_executed);
 
     let sql = "SELECT COUNT(id) FROM articletest";
-    let rowset = pg::query(&address, sql, &[])
-        .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
+    let rowset = pg::query(&address, sql, &[])?;
     let row = &rowset.rows[0];
-    let count: i64 = (&row[0]).try_into()?;
+    let count = i64::decode(&row[0])?;
     let response = format!("Count: {}\n", count);
 
     Ok(http::Response::builder()
@@ -111,12 +111,10 @@ fn pg_backend_pid(_req: Request) -> Result<Response> {
     let sql = "SELECT pg_backend_pid()";
 
     let get_pid = || {
-        let rowset = pg::query(&address, sql, &[])
-            .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
-
+        let rowset = pg::query(&address, sql, &[])?;
         let row = &rowset.rows[0];
 
-        i32::try_from(&row[0])
+        i32::decode(&row[0])
     };
 
     assert_eq!(get_pid()?, get_pid()?);

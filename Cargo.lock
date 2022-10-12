@@ -4289,6 +4289,7 @@ dependencies = [
  "form_urlencoded",
  "http",
  "spin-macro",
+ "thiserror",
  "wit-bindgen-rust",
 ]
 

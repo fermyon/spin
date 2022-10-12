@@ -136,11 +136,6 @@ impl LoginCommand {
 
         let login_connection: LoginConnection;
 
-        let mut url = DEFAULT_CLOUD_URL.to_owned();
-        if let Some(u) = self.hippo_server_url {
-            url = u;
-        }
-
         let auth_method: AuthMethod;
         if let Some(method) = self.method {
             if method == "username" {
@@ -157,10 +152,17 @@ impl LoginCommand {
             auth_method = AuthMethod::Github;
         } else if self.hippo_username.is_some() || self.hippo_password.is_some() {
             auth_method = AuthMethod::UsernameAndPassword;
-        } else {
+        } else if self.hippo_server_url.is_some() {
             // prompt the user for the authentication method
             // TODO: implement a server "feature" check that tells us what authentication methods it supports
             auth_method = prompt_for_auth_method();
+        } else {
+            auth_method = AuthMethod::Github;
+        }
+
+        let mut url = DEFAULT_CLOUD_URL.to_owned();
+        if let Some(u) = self.hippo_server_url {
+            url = u;
         }
 
         // login and populate login_connection based on the auth type

@@ -18,7 +18,7 @@ pub struct TriggerLoader {
 }
 
 impl TriggerLoader {
-    pub(crate) fn new(working_dir: impl Into<PathBuf>, allow_transient_write: bool) -> Self {
+    pub fn new(working_dir: impl Into<PathBuf>, allow_transient_write: bool) -> Self {
         Self {
             working_dir: working_dir.into(),
             allow_transient_write,

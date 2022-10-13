@@ -329,13 +329,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     /// An error propagated from the [`spin_core`] crate.
     #[error("spin core error: {0:#}")]
-    CoreError(anyhow::Error),
+    CoreError(#[source] anyhow::Error),
     /// An error from a [`DynamicHostComponent`].
     #[error("host component error: {0:#}")]
-    HostComponentError(anyhow::Error),
+    HostComponentError(#[source] anyhow::Error),
     /// An error from a [`Loader`] implementation.
     #[error("loader error: {0:#}")]
-    LoaderError(anyhow::Error),
+    LoaderError(#[source] anyhow::Error),
     /// An error indicating missing or unexpected metadata.
     #[error("metadata error: {0}")]
     MetadataError(String),

@@ -8,6 +8,8 @@ pub mod build;
 pub mod deploy;
 /// Commands for external subcommands (i.e. plugins)
 pub mod external;
+// Command for logging into the server
+pub mod login;
 /// Command for creating a new application.
 pub mod new;
 /// Command for adding a plugin to Spin

@@ -304,12 +304,7 @@ mod integration_tests {
             run(
                 vec![
                     SPIN_BINARY,
-                    "deploy",
-                    "--file",
-                    &format!(
-                        "{}/{}",
-                        RUST_HTTP_HEADERS_ENV_ROUTES_TEST, DEFAULT_MANIFEST_LOCATION
-                    ),
+                    "login",
                     "--bindle-server",
                     &bindle.url,
                     "--hippo-server",
@@ -318,6 +313,19 @@ mod integration_tests {
                     HIPPO_BASIC_AUTH_USER,
                     "--hippo-password",
                     HIPPO_BASIC_AUTH_PASSWORD,
+                ],
+                None,
+                None,
+            )?;
+            run(
+                vec![
+                    SPIN_BINARY,
+                    "deploy",
+                    "--file",
+                    &format!(
+                        "{}/{}",
+                        RUST_HTTP_HEADERS_ENV_ROUTES_TEST, DEFAULT_MANIFEST_LOCATION
+                    ),
                 ],
                 None,
                 None,

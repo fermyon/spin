@@ -1,0 +1,42 @@
+[package]
+name = "cloud"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+clap = { version = "3.0", features = ["derive", "env"] }
+colored = "2.0.0"
+dialoguer = "0.9"
+dirs = "4.0"
+dunce = "1.0"
+env_logger = "0.9"
+futures = "0.3.14"
+glob = "0.3.0"
+cloud-openapi = { git = "https://github.com/fermyon/cloud-openapi" }
+itertools = "0.10.0"
+log = "0.4"
+mime_guess = { version = "2.0" }
+path-absolutize = "3.0.11"
+regex = "1.5"
+reqwest = { version = "0.11", features = ["stream"] }
+semver = "1.0"
+serde = {version = "1.0", features = ["derive"]}
+serde_json = "1.0"
+sha2 = "0.9"
+spin-loader = { path = "../loader" }
+spin-publish = { path = "../publish" }
+tempfile = "3.3.0"
+tokio = { version = "1.17", features = ["full"] }
+tokio-util = { version = "0.7.3", features = ["codec"] }
+tracing = { version = "0.1", features = [ "log" ] }
+toml = "0.5"
+uuid = "1"
+
+[dependencies.bindle]
+git = "https://github.com/fermyon/bindle"
+tag = "v0.8.1"
+default-features = false
+features = ["client"]

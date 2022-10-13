@@ -1,16 +1,23 @@
 use anyhow::{anyhow, bail, Context, Result};
 use bindle::Id;
+use chrono::{DateTime, Utc};
 use clap::Parser;
+use cloud::client::{Client as CloudClient, ConnectionConfig};
+use cloud_openapi::models::ChannelRevisionSelectionStrategy as CloudChannelRevisionSelectionStrategy;
+use cloud_openapi::models::TokenInfo;
 use hippo::{Client, ConnectionInfo};
 use hippo_openapi::models::ChannelRevisionSelectionStrategy;
 use semver::BuildMetadata;
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use spin_http::routes::RoutePattern;
 use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
 use spin_loader::local::{assets, config};
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
+use spin_publish::BindleConnectionInfo;
+use tokio::fs;
+
 use std::fs::File;
+use std::io;
 use std::io::{copy, Write};
 use std::path::PathBuf;
 use url::Url;
@@ -18,7 +25,12 @@ use uuid::Uuid;
 
 use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response};
 
+use super::login::LoginCommand;
+use super::login::LoginConnection;
+
 const SPIN_DEPLOY_CHANNEL_NAME: &str = "spin-deploy";
+
+const BINDLE_REGISTRY_URL_PATH: &str = "api/registry";
 
 /// Package and upload Spin artifacts, notifying Hippo
 #[derive(Parser, Debug)]
@@ -33,49 +45,6 @@ pub struct DeployCommand {
     )]
     pub app: PathBuf,
 
-    /// URL of bindle server
-    #[clap(
-        name = BINDLE_SERVER_URL_OPT,
-        long = "bindle-server",
-        env = BINDLE_URL_ENV,
-    )]
-    pub bindle_server_url: String,
-
-    /// Basic http auth username for the bindle server
-    #[clap(
-        name = BINDLE_USERNAME,
-        long = "bindle-username",
-        env = BINDLE_USERNAME,
-        requires = BINDLE_PASSWORD
-    )]
-    pub bindle_username: Option<String>,
-
-    /// Basic http auth password for the bindle server
-    #[clap(
-        name = BINDLE_PASSWORD,
-        long = "bindle-password",
-        env = BINDLE_PASSWORD,
-        requires = BINDLE_USERNAME
-    )]
-    pub bindle_password: Option<String>,
-
-    /// Ignore server certificate errors from bindle and hippo
-    #[clap(
-        name = INSECURE_OPT,
-        short = 'k',
-        long = "insecure",
-        takes_value = false,
-    )]
-    pub insecure: bool,
-
-    /// URL of hippo server
-    #[clap(
-        name = HIPPO_SERVER_URL_OPT,
-        long = "hippo-server",
-        env = HIPPO_URL_ENV,
-    )]
-    pub hippo_server_url: String,
-
     /// Path to assemble the bindle before pushing (defaults to
     /// a temporary directory)
     #[clap(
@@ -84,22 +53,6 @@ pub struct DeployCommand {
         short = 'd',
     )]
     pub staging_dir: Option<PathBuf>,
-
-    /// Hippo username
-    #[clap(
-        name = "HIPPO_USERNAME",
-        long = "hippo-username",
-        env = "HIPPO_USERNAME"
-    )]
-    pub hippo_username: String,
-
-    /// Hippo password
-    #[clap(
-        name = "HIPPO_PASSWORD",
-        long = "hippo-password",
-        env = "HIPPO_PASSWORD"
-    )]
-    pub hippo_password: String,
 
     /// Disable attaching buildinfo
     #[clap(
@@ -130,6 +83,53 @@ pub struct DeployCommand {
 
 impl DeployCommand {
     pub async fn run(self) -> Result<()> {
+        let path = dirs::config_dir()
+            .context("Cannot find config directory")?
+            .join("spin")
+            .join("config.json");
+
+        // log in if config.json does not exist or cannot be read
+        let data = match fs::read_to_string(path.clone()).await {
+            Ok(d) => d,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                // log in, then read config
+                LoginCommand::parse_from(vec!["login"]).run().await?;
+                fs::read_to_string(path.clone()).await?
+            }
+            Err(e) => {
+                bail!("Could not log in: {}", e);
+            }
+        };
+
+        let mut login_connection: LoginConnection = serde_json::from_str(&data)?;
+
+        let expiration_date = DateTime::parse_from_rfc3339(&login_connection.expiration)?;
+        let now: DateTime<Utc> = Utc::now();
+        if now > expiration_date {
+            // session has expired - log back in
+            LoginCommand::parse_from(vec!["login"]).run().await?;
+
+            let new_data = fs::read_to_string(path.clone()).await.context(format!(
+                "Cannot find spin config at {}",
+                path.to_string_lossy()
+            ))?;
+            login_connection = serde_json::from_str(&new_data)?;
+        }
+
+        let sloth_warning = warn_if_slow_response(&login_connection.url);
+        check_healthz(&login_connection.url).await?;
+        // Hippo has responded - we don't want to keep the sloth timer running.
+        drop(sloth_warning);
+
+        // TODO: we should have a smarter check in place here to determine the difference between Hippo and the Cloud APIs
+        if login_connection.bindle_url.is_some() {
+            self.deploy_hippo(login_connection).await
+        } else {
+            self.deploy_cloud(login_connection).await
+        }
+    }
+
+    async fn deploy_hippo(self, login_connection: LoginConnection) -> Result<()> {
         let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
         let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
 
@@ -142,31 +142,26 @@ impl DeployCommand {
             None
         };
 
-        self.check_hippo_healthz().await?;
+        let sloth_warning = warn_if_slow_response(login_connection.bindle_url.as_deref().unwrap());
 
-        let bindle_id = self.create_and_push_bindle(buildinfo).await?;
+        let bindle_connection_info = BindleConnectionInfo::new(
+            login_connection.bindle_url.unwrap(),
+            login_connection.danger_accept_invalid_certs,
+            login_connection.bindle_username,
+            login_connection.bindle_password,
+        );
 
-        let sloth_warning = warn_if_slow_response(&self.hippo_server_url);
+        let bindle_id = self
+            .create_and_push_bindle(buildinfo, bindle_connection_info)
+            .await?;
 
-        let token = match Client::login(
-            &Client::new(ConnectionInfo {
-                url: self.hippo_server_url.clone(),
-                danger_accept_invalid_certs: self.insecure,
-                api_key: None,
-            }),
-            self.hippo_username.clone(),
-            self.hippo_password.clone(),
-        )
-        .await
-        {
-            Ok(token_info) => token_info.token.unwrap_or_default(),
-            Err(err) => bail!(format_login_error(&err)?),
-        };
+        // Bindle has responded - we don't want to keep the sloth timer running.
+        drop(sloth_warning);
 
         let hippo_client = Client::new(ConnectionInfo {
-            url: self.hippo_server_url.clone(),
-            danger_accept_invalid_certs: self.insecure,
-            api_key: Some(token),
+            url: login_connection.url.clone(),
+            danger_accept_invalid_certs: login_connection.danger_accept_invalid_certs,
+            api_key: Some(login_connection.token),
         });
 
         let name = bindle_id.name().to_string();
@@ -174,7 +169,7 @@ impl DeployCommand {
         // Create or update app
         // TODO: this process involves many calls to Hippo. Should be able to update the channel
         // via only `add_revision` if bindle naming schema is updated so bindles can be deterministically ordered by Hippo.
-        let channel_id = match self.get_app_id(&hippo_client, name.clone()).await {
+        let channel_id = match self.get_app_id_hippo(&hippo_client, name.clone()).await {
             Ok(app_id) => {
                 Client::add_revision(
                     &hippo_client,
@@ -183,10 +178,18 @@ impl DeployCommand {
                 )
                 .await?;
                 let existing_channel_id = self
-                    .get_channel_id(&hippo_client, SPIN_DEPLOY_CHANNEL_NAME.to_string(), app_id)
+                    .get_channel_id_hippo(
+                        &hippo_client,
+                        SPIN_DEPLOY_CHANNEL_NAME.to_string(),
+                        app_id,
+                    )
                     .await?;
                 let active_revision_id = self
-                    .get_revision_id(&hippo_client, bindle_id.version_string().clone(), app_id)
+                    .get_revision_id_hippo(
+                        &hippo_client,
+                        bindle_id.version_string().clone(),
+                        app_id,
+                    )
                     .await?;
                 Client::patch_channel(
                     &hippo_client,
@@ -224,9 +227,6 @@ impl DeployCommand {
             }
         };
 
-        // Hippo has responded - we don't want to keep the sloth timer running.
-        drop(sloth_warning);
-
         println!(
             "Deployed {} version {}",
             name.clone(),
@@ -238,7 +238,7 @@ impl DeployCommand {
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
             wait_for_ready(
                 &channel.domain,
-                &self.hippo_server_url,
+                &login_connection.url,
                 &cfg,
                 self.readiness_timeout_secs,
             )
@@ -246,7 +246,113 @@ impl DeployCommand {
             print_available_routes(
                 &channel.domain,
                 &http_config.base,
-                &self.hippo_server_url,
+                &login_connection.url,
+                &cfg,
+            );
+        } else {
+            println!("Application is running at {}", channel.domain);
+        }
+
+        Ok(())
+    }
+
+    async fn deploy_cloud(self, login_connection: LoginConnection) -> Result<()> {
+        let connection_config = ConnectionConfig {
+            url: login_connection.url.clone(),
+            insecure: login_connection.danger_accept_invalid_certs,
+            token: TokenInfo {
+                token: Some(login_connection.token.clone()),
+                expiration: Some(login_connection.expiration.clone()),
+            },
+        };
+
+        let client = CloudClient::new(connection_config.clone());
+
+        let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
+        let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
+
+        let buildinfo = if !self.no_buildinfo {
+            match &self.buildinfo {
+                Some(i) => Some(i.clone()),
+                None => self.compute_buildinfo(&cfg).await.map(Option::Some)?,
+            }
+        } else {
+            None
+        };
+
+        let bindle_connection_info = BindleConnectionInfo::from_token(
+            format!("{}/{}", login_connection.url, BINDLE_REGISTRY_URL_PATH),
+            login_connection.danger_accept_invalid_certs,
+            login_connection.token,
+        );
+
+        let bindle_id = self
+            .create_and_push_bindle(buildinfo, bindle_connection_info)
+            .await?;
+        let name = bindle_id.name().to_string();
+
+        // Create or update app
+        // TODO: this process involves many calls to Hippo. Should be able to update the channel
+        // via only `add_revision` if bindle naming schema is updated so bindles can be deterministically ordered by Hippo.
+        let channel_id = match self.get_app_id_cloud(&client, name.clone()).await {
+            Ok(app_id) => {
+                CloudClient::add_revision(
+                    &client,
+                    name.clone(),
+                    bindle_id.version_string().clone(),
+                )
+                .await?;
+                let existing_channel_id = self
+                    .get_channel_id_cloud(&client, SPIN_DEPLOY_CHANNEL_NAME.to_string(), app_id)
+                    .await?;
+                let active_revision_id = self
+                    .get_revision_id_cloud(&client, bindle_id.version_string().clone(), app_id)
+                    .await?;
+                CloudClient::patch_channel(
+                    &client,
+                    existing_channel_id,
+                    None,
+                    Some(CloudChannelRevisionSelectionStrategy::UseSpecifiedRevision),
+                    None,
+                    Some(active_revision_id),
+                    None,
+                )
+                .await
+                .context("Problem patching a channel")?;
+
+                existing_channel_id
+            }
+            Err(_) => {
+                let range_rule = Some(bindle_id.version_string());
+                let app_id = CloudClient::add_app(&client, &name, &name)
+                    .await
+                    .context("Unable to create app")?;
+                CloudClient::add_channel(
+                    &client,
+                    app_id,
+                    String::from(SPIN_DEPLOY_CHANNEL_NAME),
+                    CloudChannelRevisionSelectionStrategy::UseRangeRule,
+                    range_rule,
+                    None,
+                )
+                .await
+                .context("Problem creating a channel")?
+            }
+        };
+
+        println!(
+            "Deployed {} version {}",
+            name.clone(),
+            bindle_id.version_string()
+        );
+        let channel = CloudClient::get_channel_by_id(&client, &channel_id.to_string())
+            .await
+            .context("Problem getting channel by id")?;
+        if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
+            print_available_routes(
+                &channel.domain,
+                &http_config.base,
+                &login_connection.url,
                 &cfg,
             );
         } else {
@@ -299,16 +405,25 @@ impl DeployCommand {
         Ok(buildinfo)
     }
 
-    async fn get_app_id(&self, hippo_client: &Client, name: String) -> Result<Uuid> {
+    async fn get_app_id_hippo(&self, hippo_client: &Client, name: String) -> Result<Uuid> {
         let apps_vm = Client::list_apps(hippo_client).await?;
         let app = apps_vm.items.iter().find(|&x| x.name == name.clone());
         match app {
             Some(a) => Ok(a.id),
-            None => anyhow::bail!("No app with name: {}", name),
+            None => bail!("No app with name: {}", name),
         }
     }
 
-    async fn get_revision_id(
+    async fn get_app_id_cloud(&self, cloud_client: &CloudClient, name: String) -> Result<Uuid> {
+        let apps_vm = CloudClient::list_apps(cloud_client).await?;
+        let app = apps_vm.items.iter().find(|&x| x.name == name.clone());
+        match app {
+            Some(a) => Ok(a.id),
+            None => bail!("No app with name: {}", name),
+        }
+    }
+
+    async fn get_revision_id_hippo(
         &self,
         hippo_client: &Client,
         bindle_version: String,
@@ -321,7 +436,7 @@ impl DeployCommand {
             .find(|&x| x.revision_number == bindle_version && x.app_id == app_id);
         Ok(revision
             .ok_or_else(|| {
-                anyhow::anyhow!(
+                anyhow!(
                     "No revision with version {} and app id {}",
                     bindle_version,
                     app_id
@@ -330,7 +445,29 @@ impl DeployCommand {
             .id)
     }
 
-    async fn get_channel_id(
+    async fn get_revision_id_cloud(
+        &self,
+        cloud_client: &CloudClient,
+        bindle_version: String,
+        app_id: Uuid,
+    ) -> Result<Uuid> {
+        let revisions = CloudClient::list_revisions(cloud_client).await?;
+        let revision = revisions
+            .items
+            .iter()
+            .find(|&x| x.revision_number == bindle_version && x.app_id == app_id);
+        Ok(revision
+            .ok_or_else(|| {
+                anyhow!(
+                    "No revision with version {} and app id {}",
+                    bindle_version,
+                    app_id
+                )
+            })?
+            .id)
+    }
+
+    async fn get_channel_id_hippo(
         &self,
         hippo_client: &Client,
         name: String,
@@ -343,18 +480,33 @@ impl DeployCommand {
             .find(|&x| x.app_id == app_id && x.name == name.clone());
         match channel {
             Some(c) => Ok(c.id),
-            None => anyhow::bail!("No channel with app_id {} and name {}", app_id, name),
+            None => bail!("No channel with app_id {} and name {}", app_id, name),
         }
     }
 
-    async fn create_and_push_bindle(&self, buildinfo: Option<BuildMetadata>) -> Result<Id> {
+    async fn get_channel_id_cloud(
+        &self,
+        cloud_client: &CloudClient,
+        name: String,
+        app_id: Uuid,
+    ) -> Result<Uuid> {
+        let channels_vm = CloudClient::list_channels(cloud_client).await?;
+        let channel = channels_vm
+            .items
+            .iter()
+            .find(|&x| x.app_id == app_id && x.name == name.clone());
+        match channel {
+            Some(c) => Ok(c.id),
+            None => bail!("No channel with app_id {} and name {}", app_id, name),
+        }
+    }
+
+    async fn create_and_push_bindle(
+        &self,
+        buildinfo: Option<BuildMetadata>,
+        bindle_connection_info: BindleConnectionInfo,
+    ) -> Result<Id> {
         let source_dir = crate::app_dir(&self.app)?;
-        let bindle_connection_info = spin_publish::BindleConnectionInfo::new(
-            &self.bindle_server_url,
-            self.insecure,
-            self.bindle_username.clone(),
-            self.bindle_password.clone(),
-        );
 
         let temp_dir = tempfile::tempdir()?;
         let dest_dir = match &self.staging_dir {
@@ -371,10 +523,10 @@ impl DeployCommand {
             .await
             .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
 
-        let _sloth_warning = warn_if_slow_response(&self.bindle_server_url);
+        let _sloth_warning = warn_if_slow_response(bindle_connection_info.base_url());
 
         let publish_result =
-            spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info).await;
+            spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info.clone()).await;
 
         if let Err(publish_err) = publish_result {
             // TODO: maybe use `thiserror` to return type errors.
@@ -394,7 +546,8 @@ impl DeployCommand {
                 return Err(publish_err).with_context(|| {
                     format!(
                         "Failed to push bindle {} to server {}",
-                        bindle_id, self.bindle_server_url
+                        bindle_id,
+                        bindle_connection_info.base_url()
                     )
                 });
             }
@@ -402,16 +555,16 @@ impl DeployCommand {
 
         Ok(bindle_id.clone())
     }
+}
 
-    async fn check_hippo_healthz(&self) -> Result<()> {
-        let hippo_base_url = url::Url::parse(&self.hippo_server_url)?;
-        let hippo_healthz_url = hippo_base_url.join("/healthz")?;
-        reqwest::get(hippo_healthz_url.to_string())
-            .await?
-            .error_for_status()
-            .with_context(|| format!("Hippo server {} is unhealthy", hippo_base_url))?;
-        Ok(())
-    }
+async fn check_healthz(url: &str) -> Result<()> {
+    let base_url = url::Url::parse(url)?;
+    let healthz_url = base_url.join("/healthz")?;
+    reqwest::get(healthz_url.to_string())
+        .await?
+        .error_for_status()
+        .with_context(|| format!("Server {} is unhealthy", base_url))?;
+    Ok(())
 }
 
 const READINESS_POLL_INTERVAL_SECS: u64 = 2;
@@ -504,23 +657,5 @@ fn print_available_routes(
                 println!("    {}", description);
             }
         }
-    }
-}
-
-#[derive(Deserialize, Serialize)]
-struct LoginHippoError {
-    title: String,
-    detail: String,
-}
-
-fn format_login_error(err: &anyhow::Error) -> anyhow::Result<String> {
-    let error: LoginHippoError = serde_json::from_str(err.to_string().as_str())?;
-    if error.detail.ends_with(": ") {
-        Ok(format!(
-            "Problem logging into Hippo: {}",
-            error.detail.replace(": ", ".")
-        ))
-    } else {
-        Ok(format!("Problem logging into Hippo: {}", error.detail))
     }
 }

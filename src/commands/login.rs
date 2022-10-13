@@ -112,8 +112,13 @@ pub struct LoginCommand {
     pub check_device_code: Option<String>,
 
     // authentication method used for logging in (username|github)
-    #[clap(name = "auth-method", long = "auth-method", env = "AUTH_METHOD")]
-    pub method: Option<String>,
+    #[clap(
+        name = "auth-method",
+        long = "auth-method",
+        env = "AUTH_METHOD",
+        arg_enum
+    )]
+    pub method: Option<AuthMethod>,
 }
 
 impl LoginCommand {
@@ -136,29 +141,7 @@ impl LoginCommand {
 
         let login_connection: LoginConnection;
 
-        let auth_method: AuthMethod;
-        if let Some(method) = self.method {
-            if method == "username" {
-                auth_method = AuthMethod::UsernameAndPassword;
-            } else if method == "github" {
-                auth_method = AuthMethod::Github;
-            } else {
-                bail!(
-                    "invalid auth method: {}\nvalid options: [username, github]",
-                    method
-                );
-            }
-        } else if self.get_device_code || self.check_device_code.is_some() {
-            auth_method = AuthMethod::Github;
-        } else if self.hippo_username.is_some() || self.hippo_password.is_some() {
-            auth_method = AuthMethod::UsernameAndPassword;
-        } else if self.hippo_server_url.is_some() {
-            // prompt the user for the authentication method
-            // TODO: implement a server "feature" check that tells us what authentication methods it supports
-            auth_method = prompt_for_auth_method();
-        } else {
-            auth_method = AuthMethod::Github;
-        }
+        let auth_method = self.auth_method();
 
         let mut url = DEFAULT_CLOUD_URL.to_owned();
         if let Some(u) = self.hippo_server_url {
@@ -268,6 +251,22 @@ impl LoginCommand {
 
         std::fs::write(path, serde_json::to_string_pretty(&login_connection)?)?;
         Ok(())
+    }
+
+    fn auth_method(&self) -> AuthMethod {
+        if let Some(method) = &self.method {
+            method.clone()
+        } else if self.get_device_code || self.check_device_code.is_some() {
+            AuthMethod::Github
+        } else if self.hippo_username.is_some() || self.hippo_password.is_some() {
+            AuthMethod::UsernameAndPassword
+        } else if self.hippo_server_url.is_some() {
+            // prompt the user for the authentication method
+            // TODO: implement a server "feature" check that tells us what authentication methods it supports
+            prompt_for_auth_method()
+        } else {
+            AuthMethod::Github
+        }
     }
 }
 
@@ -390,9 +389,12 @@ fn ensure(root: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-#[derive(PartialEq)]
-enum AuthMethod {
+/// The method by which to authenticate the login.
+#[derive(clap::ArgEnum, Clone, Debug, Eq, PartialEq)]
+pub enum AuthMethod {
+    #[clap(name = "github")]
     Github,
+    #[clap(name = "username")]
     UsernameAndPassword,
 }
 

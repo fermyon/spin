@@ -1,4 +1,4 @@
-use std::io::stdin;
+use std::io::{stdin, Write};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -206,6 +206,7 @@ impl LoginCommand {
             Some(username) => username.to_owned(),
             None => {
                 print!("Hippo username: ");
+                std::io::stdout().flush()?;
                 let mut input = String::new();
                 stdin()
                     .read_line(&mut input)
@@ -217,6 +218,7 @@ impl LoginCommand {
             Some(password) => password.to_owned(),
             None => {
                 print!("Hippo pasword: ");
+                std::io::stdout().flush()?;
                 rpassword::read_password()
                     .expect("unable to read user input")
                     .trim()
@@ -447,6 +449,7 @@ fn prompt_for_auth_method() -> AuthMethod {
     loop {
         // prompt the user for the authentication method
         print!("What authentication method does this server support?\n\n1. Sign in with GitHub\n2. Sign in with a username and password\n\nEnter a number: ");
+        std::io::stdout().flush().unwrap();
         let mut input = String::new();
         stdin()
             .read_line(&mut input)

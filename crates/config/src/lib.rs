@@ -184,7 +184,7 @@ pub enum Error {
 
     /// Config provider error.
     #[error("provider error: {0:?}")]
-    Provider(anyhow::Error),
+    Provider(#[source] anyhow::Error),
 
     /// Unknown config path.
     #[error("unknown config path: {0}")]

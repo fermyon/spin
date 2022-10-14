@@ -79,22 +79,39 @@ pub struct DeployCommand {
     /// for readiness.
     #[clap(long = "readiness-timeout", default_value = "60")]
     pub readiness_timeout_secs: u16,
+
+    /// Deploy to the Fermyon instance saved under the specified name.
+    /// If omitted, Spin deploys to the default unnamed instance.
+    #[clap(
+        name = "environment-name",
+        long = "environment-name",
+        env = DEPLOYMENT_ENV_NAME_ENV
+    )]
+    pub deployment_env_id: Option<String>,
 }
 
 impl DeployCommand {
     pub async fn run(self) -> Result<()> {
-        let path = dirs::config_dir()
-            .context("Cannot find config directory")?
-            .join("spin")
-            .join("config.json");
+        let path = self.config_file_path()?;
 
         // log in if config.json does not exist or cannot be read
         let data = match fs::read_to_string(path.clone()).await {
             Ok(d) => d,
             Err(e) if e.kind() == io::ErrorKind::NotFound => {
-                // log in, then read config
-                LoginCommand::parse_from(vec!["login"]).run().await?;
-                fs::read_to_string(path.clone()).await?
+                match self.deployment_env_id {
+                    Some(name) => {
+                        // TODO: allow auto redirect to login preserving the name
+                        eprintln!("You have no instance saved as '{}'", name);
+                        eprintln!("Run `spin login --environment-name {}` to log in", name);
+                        std::process::exit(1);
+                    }
+                    None => {
+                        // log in, then read config
+                        // TODO: propagate deployment id (or bail if nondefault?)
+                        LoginCommand::parse_from(vec!["login"]).run().await?;
+                        fs::read_to_string(path.clone()).await?
+                    }
+                }
             }
             Err(e) => {
                 bail!("Could not log in: {}", e);
@@ -107,13 +124,25 @@ impl DeployCommand {
         let now: DateTime<Utc> = Utc::now();
         if now > expiration_date {
             // session has expired - log back in
-            LoginCommand::parse_from(vec!["login"]).run().await?;
-
-            let new_data = fs::read_to_string(path.clone()).await.context(format!(
-                "Cannot find spin config at {}",
-                path.to_string_lossy()
-            ))?;
-            login_connection = serde_json::from_str(&new_data)?;
+            match self.deployment_env_id {
+                Some(name) => {
+                    // TODO: allow auto redirect to login preserving the name
+                    eprintln!("Your login to this environment has expired");
+                    eprintln!(
+                        "Run `spin login --environment-name {}` to log in again",
+                        name
+                    );
+                    std::process::exit(1);
+                }
+                None => {
+                    LoginCommand::parse_from(vec!["login"]).run().await?;
+                    let new_data = fs::read_to_string(path.clone()).await.context(format!(
+                        "Cannot find spin config at {}",
+                        path.to_string_lossy()
+                    ))?;
+                    login_connection = serde_json::from_str(&new_data)?;
+                }
+            }
         }
 
         let sloth_warning = warn_if_slow_response(&login_connection.url);
@@ -127,6 +156,23 @@ impl DeployCommand {
         } else {
             self.deploy_cloud(login_connection).await
         }
+    }
+
+    // TODO: unify with login
+    fn config_file_path(&self) -> Result<PathBuf> {
+        let root = dirs::config_dir()
+            .context("Cannot find configuration directory")?
+            .join("fermyon");
+
+        let file_stem = match &self.deployment_env_id {
+            None => "config",
+            Some(id) => id,
+        };
+        let file = format!("{}.json", file_stem);
+
+        let path = root.join(file);
+
+        Ok(path)
     }
 
     async fn deploy_hippo(self, login_connection: LoginConnection) -> Result<()> {

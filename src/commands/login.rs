@@ -17,8 +17,9 @@ use tracing::log;
 use uuid::Uuid;
 
 use crate::opts::{
-    BINDLE_PASSWORD, BINDLE_SERVER_URL_OPT, BINDLE_URL_ENV, BINDLE_USERNAME, HIPPO_PASSWORD,
-    HIPPO_SERVER_URL_OPT, HIPPO_URL_ENV, HIPPO_USERNAME, INSECURE_OPT,
+    BINDLE_PASSWORD, BINDLE_SERVER_URL_OPT, BINDLE_URL_ENV, BINDLE_USERNAME,
+    DEPLOYMENT_ENV_NAME_ENV, HIPPO_PASSWORD, HIPPO_SERVER_URL_OPT, HIPPO_URL_ENV, HIPPO_USERNAME,
+    INSECURE_OPT,
 };
 
 // this is the client ID registered in the Cloud's backend
@@ -106,6 +107,7 @@ pub struct LoginCommand {
         name = "get-device-code",
         long = "get-device-code",
         takes_value = false,
+        hide = true,
         conflicts_with = "status",
         conflicts_with = "check-device-code"
     )]
@@ -115,6 +117,7 @@ pub struct LoginCommand {
     #[clap(
         name = "check-device-code",
         long = "check-device-code",
+        hide = true,
         conflicts_with = "status",
         conflicts_with = "get-device-code"
     )]
@@ -128,6 +131,15 @@ pub struct LoginCommand {
         arg_enum
     )]
     pub method: Option<AuthMethod>,
+
+    /// Save the login details under the specified name instead of making them
+    /// the default. Use named environments with `spin deploy --environment-name <name>`.
+    #[clap(
+        name = "environment-name",
+        long = "environment-name",
+        env = DEPLOYMENT_ENV_NAME_ENV
+    )]
+    pub deployment_env_id: Option<String>,
 }
 
 impl LoginCommand {
@@ -288,11 +300,17 @@ impl LoginCommand {
     fn config_file_path(&self) -> Result<PathBuf> {
         let root = dirs::config_dir()
             .context("Cannot find configuration directory")?
-            .join("spin");
+            .join("fermyon");
 
         ensure(&root)?;
 
-        let path = root.join("config.json");
+        let file_stem = match &self.deployment_env_id {
+            None => "config",
+            Some(id) => id,
+        };
+        let file = format!("{}.json", file_stem);
+
+        let path = root.join(file);
 
         Ok(path)
     }

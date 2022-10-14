@@ -202,22 +202,11 @@ impl LoginCommand {
     }
 
     async fn run_interactive_basic_login(&self) -> Result<LoginConnection> {
-        let username = match &self.hippo_username {
-            Some(username) => username.to_owned(),
-            None => {
-                print!("Hippo username: ");
-                std::io::stdout().flush()?;
-                let mut input = String::new();
-                stdin()
-                    .read_line(&mut input)
-                    .expect("unable to read user input");
-                input.trim().to_owned()
-            }
-        };
+        let username = prompt_if_not_provided(&self.hippo_username, "Hippo username")?;
         let password = match &self.hippo_password {
             Some(password) => password.to_owned(),
             None => {
-                print!("Hippo pasword: ");
+                print!("Hippo password: ");
                 std::io::stdout().flush()?;
                 rpassword::read_password()
                     .expect("unable to read user input")
@@ -225,6 +214,36 @@ impl LoginCommand {
                     .to_owned()
             }
         };
+
+        let bindle_url = prompt_if_not_provided(&self.bindle_server_url, "Bindle URL")?;
+
+        // If Bindle URL was provided and Bindle username and password were not, assume Bindle
+        // is unauthenticated.  If Bindle URL was prompted for, or Bindle username or password
+        // is provided, ask the user.
+        let mut bindle_username = self.bindle_username.clone();
+        let mut bindle_password = self.bindle_password.clone();
+
+        let unauthenticated_bindle_server_provided = self.bindle_server_url.is_some()
+            && self.bindle_username.is_none()
+            && self.bindle_password.is_none();
+        if !unauthenticated_bindle_server_provided {
+            let bindle_username_text = prompt_if_not_provided(
+                &self.bindle_username,
+                "Bindle username (blank for unauthenticated)",
+            )?;
+            bindle_username = if bindle_username_text.is_empty() {
+                None
+            } else {
+                Some(bindle_username_text)
+            };
+            bindle_password = match bindle_username {
+                None => None,
+                Some(_) => Some(prompt_if_not_provided(
+                    &self.bindle_password,
+                    "Bindle password",
+                )?),
+            };
+        }
 
         // log in with username/password
         let token = match HippoClient::login(
@@ -247,9 +266,9 @@ impl LoginCommand {
             danger_accept_invalid_certs: self.insecure,
             token: token.token.unwrap_or_default(),
             expiration: token.expiration.unwrap_or_default(),
-            bindle_url: self.bindle_server_url.clone(),
-            bindle_username: self.bindle_username.clone(),
-            bindle_password: self.bindle_password.clone(),
+            bindle_url: Some(bindle_url),
+            bindle_username,
+            bindle_password,
         })
     }
 
@@ -314,6 +333,21 @@ impl LoginCommand {
         let path = self.config_file_path()?;
         std::fs::write(path, serde_json::to_string_pretty(login_connection)?)?;
         Ok(())
+    }
+}
+
+fn prompt_if_not_provided(provided: &Option<String>, prompt_text: &str) -> Result<String> {
+    match provided {
+        Some(value) => Ok(value.to_owned()),
+        None => {
+            print!("{}: ", prompt_text);
+            std::io::stdout().flush()?;
+            let mut input = String::new();
+            stdin()
+                .read_line(&mut input)
+                .expect("unable to read user input");
+            Ok(input.trim().to_owned())
+        }
     }
 }
 

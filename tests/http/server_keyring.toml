@@ -1,0 +1,7 @@
+version = "1.0"
+
+[[key]]
+label = "Test<test@fermyon.com>"
+roles = ["creator"]
+key = "HfXxdRvgUWEE0f36EIa8+njPJVoMvmF6/gO/T19aV90="
+labelSignature = "En2GtxiLbzAIoFu2zQ5HWXwck5lONq/ALYGt8RQYUDNpStk23JcaN/Gx9zh9oEJGnVeDwHLNj9/Cql6j23O1Cw=="

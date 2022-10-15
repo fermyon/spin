@@ -49,6 +49,10 @@ mod integration_tests {
         const BINDLE_SERVER_BASIC_AUTH_HTPASSWD_FILE: &str = "tests/http/htpasswd";
         const BINDLE_SERVER_BASIC_AUTH_USER: &str = "bindle-user";
         const BINDLE_SERVER_BASIC_AUTH_PASSWORD: &str = "topsecret";
+        const BINDLE_CLIENT_SECRET_FILE: &str = "tests/http/client_secret_keys.toml";
+        pub const BINDLE_CLIENT_KEYRING_FILE: &str = "tests/http/server_keyring.toml";
+        const BINDLE_SERVER_KEYRING_FILE: &str = "tests/http/client_keyring.toml";
+        const BINDLE_LABEL: &str = "\"Test<test@fermyon.com>\"";
 
         const HIPPO_BASIC_AUTH_USER: &str = "hippo-user";
         const HIPPO_BASIC_AUTH_PASSWORD: &str = "topsecret";
@@ -88,6 +92,12 @@ mod integration_tests {
                     ),
                     "--bindle-server",
                     &b.url,
+                    "--bindle-secret-file",
+                    BINDLE_CLIENT_SECRET_FILE,
+                    "--bindle-keyring-file",
+                    BINDLE_CLIENT_KEYRING_FILE,
+                    "--bindle-label",
+                    BINDLE_LABEL,
                 ],
                 None,
                 None,
@@ -129,6 +139,12 @@ mod integration_tests {
                     BINDLE_SERVER_BASIC_AUTH_USER,
                     "--bindle-password",
                     BINDLE_SERVER_BASIC_AUTH_PASSWORD,
+                    "--bindle-secret-file",
+                    BINDLE_CLIENT_SECRET_FILE,
+                    "--bindle-keyring-file",
+                    BINDLE_CLIENT_KEYRING_FILE,
+                    "--bindle-label",
+                    BINDLE_LABEL,
                 ],
                 None,
                 None,
@@ -166,6 +182,12 @@ mod integration_tests {
                     ),
                     "--bindle-server",
                     &b.url,
+                    "--bindle-secret-file",
+                    BINDLE_CLIENT_SECRET_FILE,
+                    "--bindle-keyring-file",
+                    BINDLE_CLIENT_KEYRING_FILE,
+                    "--bindle-label",
+                    BINDLE_LABEL,
                 ],
                 None,
                 None,
@@ -211,6 +233,12 @@ mod integration_tests {
                     ),
                     "--bindle-server",
                     &b.url,
+                    "--bindle-secret-file",
+                    BINDLE_CLIENT_SECRET_FILE,
+                    "--bindle-keyring-file",
+                    BINDLE_CLIENT_KEYRING_FILE,
+                    "--bindle-label",
+                    BINDLE_LABEL,
                 ],
                 None,
                 None,
@@ -266,6 +294,12 @@ mod integration_tests {
                     ),
                     "--bindle-server",
                     &b.url,
+                    "--bindle-secret-file",
+                    BINDLE_CLIENT_SECRET_FILE,
+                    "--bindle-keyring-file",
+                    BINDLE_CLIENT_KEYRING_FILE,
+                    "--bindle-label",
+                    BINDLE_LABEL,
                 ],
                 None,
                 None,
@@ -327,6 +361,12 @@ mod integration_tests {
                         "{}/{}",
                         RUST_HTTP_HEADERS_ENV_ROUTES_TEST, DEFAULT_MANIFEST_LOCATION
                     ),
+                    "--bindle-secret-file",
+                    BINDLE_CLIENT_SECRET_FILE,
+                    "--bindle-keyring-file",
+                    BINDLE_CLIENT_KEYRING_FILE,
+                    "--bindle-label",
+                    BINDLE_LABEL,
                 ],
                 None,
                 None,
@@ -406,6 +446,8 @@ mod integration_tests {
                                 server_cache.path().to_string_lossy().to_string().as_str(),
                                 "-i",
                                 address.as_str(),
+                                "--keyring",
+                                BINDLE_SERVER_KEYRING_FILE,
                             ],
                             auth_args.as_slice(),
                         ]
@@ -871,6 +913,8 @@ mod integration_tests {
                 bindle_url,
                 "--listen",
                 &url,
+                "--bindle-keyring-file",
+                e2e_tests::BINDLE_CLIENT_KEYRING_FILE,
             ];
             for v in env {
                 args.push("--env");

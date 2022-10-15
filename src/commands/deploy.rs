@@ -48,32 +48,6 @@ pub struct DeployCommand {
     )]
     pub app: PathBuf,
 
-    /// URL of bindle server
-    #[clap(
-        name = BINDLE_SERVER_URL_OPT,
-        long = "bindle-server",
-        env = BINDLE_URL_ENV,
-    )]
-    pub bindle_server_url: String,
-
-    /// Basic http auth username for the bindle server
-    #[clap(
-        name = BINDLE_USERNAME,
-        long = "bindle-username",
-        env = BINDLE_USERNAME,
-        requires = BINDLE_PASSWORD
-    )]
-    pub bindle_username: Option<String>,
-
-    /// Basic http auth password for the bindle server
-    #[clap(
-        name = BINDLE_PASSWORD,
-        long = "bindle-password",
-        env = BINDLE_PASSWORD,
-        requires = BINDLE_USERNAME
-    )]
-    pub bindle_password: Option<String>,
-
     /// Bindle secret file path to load key
     #[clap(
         name = BINDLE_SECRET_FILE,
@@ -122,14 +96,6 @@ pub struct DeployCommand {
         takes_value = false,
     )]
     pub insecure: bool,
-
-    /// URL of hippo server
-    #[clap(
-        name = HIPPO_SERVER_URL_OPT,
-        long = "hippo-server",
-        env = HIPPO_URL_ENV,
-    )]
-    pub hippo_server_url: String,
 
     /// Path to assemble the bindle before pushing (defaults to
     /// a temporary directory)

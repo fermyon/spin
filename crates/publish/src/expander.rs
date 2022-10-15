@@ -494,10 +494,9 @@ async fn get_bindle_first_matching_key(
     role: &SignatureRole,
     label_match: Option<&LabelMatch>,
 ) -> Result<SecretKeyEntry> {
-    let keys = SecretKeyFile::load_file(&fpath).await.context(format!(
-        "can't load bindle secret key from {}",
-        &fpath.display()
-    ))?;
+    let keys = SecretKeyFile::load_file(&fpath)
+        .await
+        .with_context(|| format!("can't read file {:?}", &fpath))?;
 
     keys.key
         .iter()

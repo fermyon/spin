@@ -604,7 +604,7 @@ mod integration_tests {
     }
 
     #[cfg(feature = "outbound-redis-tests")]
-    mod outbound_pg_tests {
+    mod outbound_redis_tests {
         use super::*;
 
         const RUST_OUTBOUND_REDIS_INTEGRATION_TEST: &str =
@@ -647,6 +647,32 @@ mod integration_tests {
         assert_status(&s, "/test/hello/test-placement", 200).await?;
 
         Ok(())
+    }
+
+    #[cfg(feature = "outbound-pg-tests")]
+    mod outbound_pg_tests {
+        use super::*;
+
+        const RUST_OUTBOUND_PG_INTEGRATION_TEST: &str = "tests/outbound-pg/http-rust-outbound-pg";
+
+        #[tokio::test]
+        async fn test_outbound_pg_rust_local() -> Result<()> {
+            let s = SpinTestController::with_manifest(
+                &format!(
+                    "{}/{}",
+                    RUST_OUTBOUND_PG_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
+                ),
+                &[],
+                &[],
+                None,
+            )
+            .await?;
+
+            assert_status(&s, "/test_read_types", 200).await?;
+            assert_status(&s, "/pg_backend_pid", 200).await?;
+
+            Ok(())
+        }
     }
 
     #[tokio::test]

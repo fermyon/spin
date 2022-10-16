@@ -69,7 +69,7 @@ pub struct LoginCommand {
     /// URL of hippo server
     #[clap(
         name = HIPPO_SERVER_URL_OPT,
-        long = "hippo-server",
+        long = "url",
         env = HIPPO_URL_ENV,
     )]
     pub hippo_server_url: Option<String>,
@@ -77,7 +77,7 @@ pub struct LoginCommand {
     /// Hippo username
     #[clap(
         name = HIPPO_USERNAME,
-        long = "hippo-username",
+        long = "username",
         env = HIPPO_USERNAME,
         requires = HIPPO_PASSWORD,
     )]
@@ -86,7 +86,7 @@ pub struct LoginCommand {
     /// Hippo password
     #[clap(
         name = HIPPO_PASSWORD,
-        long = "hippo-password",
+        long = "password",
         env = HIPPO_PASSWORD,
         requires = HIPPO_USERNAME,
     )]

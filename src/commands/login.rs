@@ -17,8 +17,9 @@ use tracing::log;
 use uuid::Uuid;
 
 use crate::opts::{
-    BINDLE_PASSWORD, BINDLE_SERVER_URL_OPT, BINDLE_URL_ENV, BINDLE_USERNAME, HIPPO_PASSWORD,
-    HIPPO_SERVER_URL_OPT, HIPPO_URL_ENV, HIPPO_USERNAME, INSECURE_OPT,
+    BINDLE_PASSWORD, BINDLE_SERVER_URL_OPT, BINDLE_URL_ENV, BINDLE_USERNAME,
+    DEPLOYMENT_ENV_NAME_ENV, HIPPO_PASSWORD, HIPPO_SERVER_URL_OPT, HIPPO_URL_ENV, HIPPO_USERNAME,
+    INSECURE_OPT,
 };
 
 // this is the client ID registered in the Cloud's backend
@@ -68,7 +69,7 @@ pub struct LoginCommand {
     /// URL of hippo server
     #[clap(
         name = HIPPO_SERVER_URL_OPT,
-        long = "hippo-server",
+        long = "url",
         env = HIPPO_URL_ENV,
     )]
     pub hippo_server_url: Option<String>,
@@ -76,7 +77,7 @@ pub struct LoginCommand {
     /// Hippo username
     #[clap(
         name = HIPPO_USERNAME,
-        long = "hippo-username",
+        long = "username",
         env = HIPPO_USERNAME,
         requires = HIPPO_PASSWORD,
     )]
@@ -85,7 +86,7 @@ pub struct LoginCommand {
     /// Hippo password
     #[clap(
         name = HIPPO_PASSWORD,
-        long = "hippo-password",
+        long = "password",
         env = HIPPO_PASSWORD,
         requires = HIPPO_USERNAME,
     )]
@@ -96,6 +97,7 @@ pub struct LoginCommand {
         name = "status",
         long = "status",
         takes_value = false,
+        conflicts_with = "list",
         conflicts_with = "get-device-code",
         conflicts_with = "check-device-code"
     )]
@@ -106,6 +108,7 @@ pub struct LoginCommand {
         name = "get-device-code",
         long = "get-device-code",
         takes_value = false,
+        hide = true,
         conflicts_with = "status",
         conflicts_with = "check-device-code"
     )]
@@ -115,6 +118,7 @@ pub struct LoginCommand {
     #[clap(
         name = "check-device-code",
         long = "check-device-code",
+        hide = true,
         conflicts_with = "status",
         conflicts_with = "get-device-code"
     )]
@@ -128,17 +132,63 @@ pub struct LoginCommand {
         arg_enum
     )]
     pub method: Option<AuthMethod>,
+
+    /// Save the login details under the specified name instead of making them
+    /// the default. Use named environments with `spin deploy --environment-name <name>`.
+    #[clap(
+        name = "environment-name",
+        long = "environment-name",
+        env = DEPLOYMENT_ENV_NAME_ENV
+    )]
+    pub deployment_env_id: Option<String>,
+
+    /// List saved logins.
+    #[clap(
+        name = "list",
+        long = "list",
+        takes_value = false,
+        conflicts_with = "environment-name",
+        conflicts_with = "status",
+        conflicts_with = "get-device-code",
+        conflicts_with = "check-device-code"
+    )]
+    pub list: bool,
 }
 
 impl LoginCommand {
     pub async fn run(&self) -> Result<()> {
-        match (self.status, self.get_device_code, &self.check_device_code) {
-            (true, false, None) => self.run_status().await,
-            (false, true, None) => self.run_get_device_code().await,
-            (false, false, Some(device_code)) => self.run_check_device_code(device_code).await,
-            (false, false, None) => self.run_interactive_login().await,
+        match (
+            self.list,
+            self.status,
+            self.get_device_code,
+            &self.check_device_code,
+        ) {
+            (true, false, false, None) => self.run_list().await,
+            (false, true, false, None) => self.run_status().await,
+            (false, false, true, None) => self.run_get_device_code().await,
+            (false, false, false, Some(device_code)) => {
+                self.run_check_device_code(device_code).await
+            }
+            (false, false, false, None) => self.run_interactive_login().await,
             _ => Err(anyhow::anyhow!("Invalid combination of options")), // Should never happen
         }
+    }
+
+    async fn run_list(&self) -> Result<()> {
+        let root = config_root_dir()?;
+
+        ensure(&root)?;
+
+        let json_file_stems = std::fs::read_dir(&root)
+            .with_context(|| format!("Failed to read config directory {}", root.display()))?
+            .filter_map(environment_name_from_path)
+            .collect::<Vec<_>>();
+
+        for s in json_file_stems {
+            println!("{}", s);
+        }
+
+        Ok(())
     }
 
     async fn run_status(&self) -> Result<()> {
@@ -286,13 +336,17 @@ impl LoginCommand {
     }
 
     fn config_file_path(&self) -> Result<PathBuf> {
-        let root = dirs::config_dir()
-            .context("Cannot find configuration directory")?
-            .join("spin");
+        let root = config_root_dir()?;
 
         ensure(&root)?;
 
-        let path = root.join("config.json");
+        let file_stem = match &self.deployment_env_id {
+            None => "config",
+            Some(id) => id,
+        };
+        let file = format!("{}.json", file_stem);
+
+        let path = root.join(file);
 
         Ok(path)
     }
@@ -334,6 +388,13 @@ impl LoginCommand {
         std::fs::write(path, serde_json::to_string_pretty(login_connection)?)?;
         Ok(())
     }
+}
+
+fn config_root_dir() -> Result<PathBuf, anyhow::Error> {
+    let root = dirs::config_dir()
+        .context("Cannot find configuration directory")?
+        .join("fermyon");
+    Ok(root)
 }
 
 fn prompt_if_not_provided(provided: &Option<String>, prompt_text: &str) -> Result<String> {
@@ -506,4 +567,39 @@ fn prompt_for_auth_method() -> AuthMethod {
 enum TokenReadiness {
     Ready(TokenInfo),
     Unready,
+}
+
+fn environment_name_from_path(dir_entry: std::io::Result<std::fs::DirEntry>) -> Option<String> {
+    let json_ext = std::ffi::OsString::from("json");
+    let default_name = "(default)";
+    match dir_entry {
+        Err(_) => None,
+        Ok(de) => {
+            if is_file_with_extension(&de, &json_ext) {
+                de.path().file_stem().map(|stem| {
+                    let s = stem.to_string_lossy().to_string();
+                    if s == "config" {
+                        default_name.to_owned()
+                    } else {
+                        s
+                    }
+                })
+            } else {
+                None
+            }
+        }
+    }
+}
+
+fn is_file_with_extension(de: &std::fs::DirEntry, extension: &std::ffi::OsString) -> bool {
+    match de.file_type() {
+        Err(_) => false,
+        Ok(t) => {
+            if t.is_file() {
+                de.path().extension() == Some(extension)
+            } else {
+                false
+            }
+        }
+    }
 }

@@ -361,7 +361,7 @@ impl LoginCommand {
 
     fn url(&self) -> &str {
         if let Some(u) = &self.hippo_server_url {
-            u
+            u.trim().trim_end_matches('/')
         } else {
             DEFAULT_CLOUD_URL
         }

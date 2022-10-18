@@ -201,7 +201,7 @@ impl DeployCommand {
             .await?;
 
         let hippo_client = Client::new(ConnectionInfo {
-            url: login_connection.url.clone(),
+            url: login_connection.url.to_string(),
             danger_accept_invalid_certs: login_connection.danger_accept_invalid_certs,
             api_key: Some(login_connection.token),
         });
@@ -277,20 +277,10 @@ impl DeployCommand {
         let channel = Client::get_channel_by_id(&hippo_client, &channel_id.to_string())
             .await
             .context("Problem getting channel by id")?;
+        let app_base_url = build_app_base_url(&channel.domain, &login_connection.url)?;
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
-            wait_for_ready(
-                &channel.domain,
-                &login_connection.url,
-                &cfg,
-                self.readiness_timeout_secs,
-            )
-            .await;
-            print_available_routes(
-                &channel.domain,
-                &http_config.base,
-                &login_connection.url,
-                &cfg,
-            );
+            wait_for_ready(&app_base_url, &cfg, self.readiness_timeout_secs).await;
+            print_available_routes(&app_base_url, &http_config.base, &cfg);
         } else {
             println!("Application is running at {}", channel.domain);
         }
@@ -300,7 +290,7 @@ impl DeployCommand {
 
     async fn deploy_cloud(self, login_connection: LoginConnection) -> Result<()> {
         let connection_config = ConnectionConfig {
-            url: login_connection.url.clone(),
+            url: login_connection.url.to_string(),
             insecure: login_connection.danger_accept_invalid_certs,
             token: TokenInfo {
                 token: Some(login_connection.token.clone()),
@@ -322,9 +312,12 @@ impl DeployCommand {
             None
         };
 
-        let su = Url::parse(login_connection.url.as_str())?;
+        let bindle_url = login_connection
+            .url
+            .join(BINDLE_REGISTRY_URL_PATH)?
+            .to_string();
         let bindle_connection_info = BindleConnectionInfo::from_token(
-            su.join(BINDLE_REGISTRY_URL_PATH)?.to_string(),
+            bindle_url,
             login_connection.danger_accept_invalid_certs,
             login_connection.token,
         );
@@ -382,29 +375,19 @@ impl DeployCommand {
                 .context("Problem creating a channel")?
             }
         };
-
         println!(
             "Deployed {} version {}",
             name.clone(),
             bindle_id.version_string()
         );
+
         let channel = CloudClient::get_channel_by_id(&client, &channel_id.to_string())
             .await
             .context("Problem getting channel by id")?;
+        let app_base_url = build_app_base_url(&channel.domain, &login_connection.url)?;
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
-            wait_for_ready(
-                &channel.domain,
-                &login_connection.url,
-                &cfg,
-                self.readiness_timeout_secs,
-            )
-            .await;
-            print_available_routes(
-                &channel.domain,
-                &http_config.base,
-                &login_connection.url,
-                &cfg,
-            );
+            wait_for_ready(&app_base_url, &cfg, self.readiness_timeout_secs).await;
+            print_available_routes(&app_base_url, &http_config.base, &cfg);
         } else {
             println!("Application is running at {}", channel.domain);
         }
@@ -610,10 +593,17 @@ impl DeployCommand {
     }
 }
 
-async fn check_healthz(url: &str) -> Result<()> {
-    let base_url = url::Url::parse(url)?;
-    let healthz_url = base_url.join("/healthz")?;
-    reqwest::get(healthz_url.to_string())
+fn build_app_base_url(app_domain: &str, hippo_url: &Url) -> Result<Url> {
+    // HACK: We assume that the scheme (https vs http) of apps will match that of Hippo...
+    let scheme = hippo_url.scheme();
+    Url::parse(&format!("{scheme}://{app_domain}/")).with_context(|| {
+        format!("Could not construct app base URL for {app_domain:?} (Hippo URL: {hippo_url:?})",)
+    })
+}
+
+async fn check_healthz(base_url: &Url) -> Result<()> {
+    let healthz_url = base_url.join("healthz")?;
+    reqwest::get(healthz_url)
         .await?
         .error_for_status()
         .with_context(|| format!("Server {} is unhealthy", base_url))?;
@@ -623,8 +613,7 @@ async fn check_healthz(url: &str) -> Result<()> {
 const READINESS_POLL_INTERVAL_SECS: u64 = 2;
 
 async fn wait_for_ready(
-    app_domain: &str,
-    hippo_url: &str,
+    app_base_url: &Url,
     cfg: &spin_loader::local::config::RawAppManifest,
     readiness_timeout_secs: u16,
 ) {
@@ -636,14 +625,7 @@ async fn wait_for_ready(
         return;
     }
 
-    let url_result = Url::parse(hippo_url);
-    let scheme = match &url_result {
-        Ok(url) => url.scheme(),
-        Err(_) => "http",
-    };
-
-    let route = "/healthz";
-    let healthz_url = format!("{}://{}{}", scheme, app_domain, route);
+    let healthz_url = app_base_url.join("healthz").unwrap();
 
     let start = std::time::Instant::now();
     let readiness_timeout = std::time::Duration::from_secs(u64::from(readiness_timeout_secs));
@@ -652,7 +634,7 @@ async fn wait_for_ready(
     print!("Waiting for application to become ready");
     std::io::stdout().flush().unwrap_or_default();
     loop {
-        if is_ready(&healthz_url).await {
+        if is_ready(healthz_url.as_str()).await {
             println!("... ready");
             return;
         }
@@ -686,9 +668,8 @@ async fn is_ready(healthz_url: &str) -> bool {
 }
 
 fn print_available_routes(
-    address: &str,
+    app_base_url: &Url,
     base: &str,
-    hippo_url: &str,
     cfg: &spin_loader::local::config::RawAppManifest,
 ) {
     if cfg.components.is_empty() {
@@ -698,14 +679,9 @@ fn print_available_routes(
     println!("Available Routes:");
     for component in &cfg.components {
         if let TriggerConfig::Http(http_cfg) = &component.trigger {
-            let url_result = Url::parse(hippo_url);
-            let scheme = match &url_result {
-                Ok(url) => url.scheme(),
-                Err(_) => "http",
-            };
-
             let route = RoutePattern::from(base, &http_cfg.route);
-            println!("  {}: {}://{}{}", component.id, scheme, address, route);
+            let route_url = app_base_url.join(&route.to_string()).unwrap();
+            println!("  {}: {}", component.id, route_url);
             if let Some(description) = &component.description {
                 println!("    {}", description);
             }

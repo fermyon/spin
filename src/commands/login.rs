@@ -158,9 +158,12 @@ pub struct LoginCommand {
     pub list: bool,
 }
 
-fn parse_url(arg: &str) -> Result<url::Url> {
-    let u = arg.trim().trim_end_matches('/');
-    Url::parse(u)
+fn parse_url(url: &str) -> Result<url::Url> {
+    let mut url = url.to_string();
+    if !url.ends_with('/') {
+        url.push('/');
+    }
+    Url::parse(&url)
         .map_err(|error| {
             anyhow::format_err!(
                 "URL should be fully qualified in the format \"https://my-hippo-instance.com\". Error: {}", error
@@ -325,7 +328,7 @@ impl LoginCommand {
         };
 
         Ok(LoginConnection {
-            url: self.hippo_server_url.to_string(),
+            url: self.hippo_server_url.clone(),
             danger_accept_invalid_certs: self.insecure,
             token: token.token.unwrap_or_default(),
             expiration: token.expiration.unwrap_or_default(),
@@ -337,7 +340,7 @@ impl LoginCommand {
 
     fn login_connection_for_token(&self, token_info: TokenInfo) -> LoginConnection {
         LoginConnection {
-            url: self.hippo_server_url.to_string(),
+            url: self.hippo_server_url.clone(),
             danger_accept_invalid_certs: self.insecure,
             token: token_info.token.unwrap_or_default(),
             expiration: token_info.expiration.unwrap_or_default(),
@@ -474,7 +477,7 @@ async fn create_device_code(client: &Client) -> Result<DeviceCodeItem> {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct LoginConnection {
-    pub url: String,
+    pub url: url::Url,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub bindle_url: Option<String>,

@@ -322,8 +322,9 @@ impl DeployCommand {
             None
         };
 
+        let su = Url::parse(login_connection.url.as_str())?;
         let bindle_connection_info = BindleConnectionInfo::from_token(
-            format!("{}/{}", login_connection.url, BINDLE_REGISTRY_URL_PATH),
+            su.join(BINDLE_REGISTRY_URL_PATH)?.to_string(),
             login_connection.danger_accept_invalid_certs,
             login_connection.token,
         );

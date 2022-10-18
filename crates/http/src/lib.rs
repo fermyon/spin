@@ -5,7 +5,13 @@ mod spin;
 mod tls;
 mod wagi;
 
-use std::{collections::HashMap, future::ready, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    future::ready,
+    net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use anyhow::{Context, Error, Result};
 use async_trait::async_trait;
@@ -51,8 +57,8 @@ pub struct HttpTrigger {
 #[derive(Args)]
 pub struct CliArgs {
     /// IP address and port to listen on
-    #[clap(long = "listen", default_value = "127.0.0.1:3000")]
-    pub address: String,
+    #[clap(long = "listen", default_value = "127.0.0.1:3000", value_parser = parse_listen_addr)]
+    pub address: SocketAddr,
 
     /// The path to the certificate to use for https, if this is not set, normal http will be used. The cert should be in PEM format
     #[clap(long, env = "SPIN_TLS_CERT", requires = "tls-key")]
@@ -150,7 +156,7 @@ impl TriggerExecutor for HttpTrigger {
     }
 
     async fn run(self, config: Self::RunConfig) -> Result<()> {
-        let listen_addr = config.address.parse()?;
+        let listen_addr = config.address;
         let tls = config.into_tls_config();
 
         // Print startup messages
@@ -328,6 +334,19 @@ impl HttpTrigger {
         Server::builder(incoming).serve(make_service).await?;
         Ok(())
     }
+}
+
+fn parse_listen_addr(addr: &str) -> anyhow::Result<SocketAddr> {
+    let addrs: Vec<SocketAddr> = addr.to_socket_addrs()?.collect();
+    // Prefer 127.0.0.1 over e.g. [::1] because CHANGE IS HARD
+    if let Some(addr) = addrs
+        .iter()
+        .find(|addr| addr.is_ipv4() && addr.ip() == Ipv4Addr::LOCALHOST)
+    {
+        return Ok(*addr);
+    }
+    // Otherwise, take the first addr (OS preference)
+    addrs.into_iter().next().context("couldn't resolve address")
 }
 
 fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> Result<()> {
@@ -594,5 +613,12 @@ mod tests {
         assert_eq!(env.vars["HTTP_X_CUSTOM_FOO"], "bar".to_string());
 
         Ok(())
+    }
+
+    #[test]
+    fn parse_listen_addr_prefers_ipv4() {
+        let addr = parse_listen_addr("localhost:12345").unwrap();
+        assert_eq!(addr.ip(), Ipv4Addr::LOCALHOST);
+        assert_eq!(addr.port(), 12345);
     }
 }

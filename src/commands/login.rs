@@ -14,6 +14,7 @@ use serde::Serialize;
 use serde_json::json;
 use tokio::fs;
 use tracing::log;
+use url::Url;
 use uuid::Uuid;
 
 use crate::opts::{
@@ -71,8 +72,10 @@ pub struct LoginCommand {
         name = HIPPO_SERVER_URL_OPT,
         long = "url",
         env = HIPPO_URL_ENV,
+        default_value = DEFAULT_CLOUD_URL,
+        value_parser = parse_url,
     )]
-    pub hippo_server_url: Option<String>,
+    pub hippo_server_url: url::Url,
 
     /// Hippo username
     #[clap(
@@ -153,6 +156,16 @@ pub struct LoginCommand {
         conflicts_with = "check-device-code"
     )]
     pub list: bool,
+}
+
+fn parse_url(arg: &str) -> Result<url::Url> {
+    let u = arg.trim().trim_end_matches('/');
+    Url::parse(u)
+        .map_err(|error| {
+            anyhow::format_err!(
+                "URL should be fully qualified in the format \"https://my-hippo-instance.com\". Error: {}", error
+            )
+        })
 }
 
 impl LoginCommand {
@@ -298,7 +311,7 @@ impl LoginCommand {
         // log in with username/password
         let token = match HippoClient::login(
             &HippoClient::new(ConnectionInfo {
-                url: self.url().to_owned(),
+                url: self.hippo_server_url.to_string(),
                 danger_accept_invalid_certs: self.insecure,
                 api_key: None,
             }),
@@ -312,7 +325,7 @@ impl LoginCommand {
         };
 
         Ok(LoginConnection {
-            url: self.url().to_owned(),
+            url: self.hippo_server_url.to_string(),
             danger_accept_invalid_certs: self.insecure,
             token: token.token.unwrap_or_default(),
             expiration: token.expiration.unwrap_or_default(),
@@ -323,16 +336,15 @@ impl LoginCommand {
     }
 
     fn login_connection_for_token(&self, token_info: TokenInfo) -> LoginConnection {
-        let login_connection = LoginConnection {
-            url: self.url().to_owned(),
+        LoginConnection {
+            url: self.hippo_server_url.to_string(),
             danger_accept_invalid_certs: self.insecure,
             token: token_info.token.unwrap_or_default(),
             expiration: token_info.expiration.unwrap_or_default(),
             bindle_url: None,
             bindle_username: None,
             bindle_password: None,
-        };
-        login_connection
+        }
     }
 
     fn config_file_path(&self) -> Result<PathBuf> {
@@ -353,17 +365,9 @@ impl LoginCommand {
 
     fn anon_connection_config(&self) -> ConnectionConfig {
         ConnectionConfig {
-            url: self.url().to_owned(),
+            url: self.hippo_server_url.to_string(),
             insecure: self.insecure,
             token: Default::default(),
-        }
-    }
-
-    fn url(&self) -> &str {
-        if let Some(u) = &self.hippo_server_url {
-            u.trim().trim_end_matches('/')
-        } else {
-            DEFAULT_CLOUD_URL
         }
     }
 
@@ -374,7 +378,7 @@ impl LoginCommand {
             AuthMethod::Github
         } else if self.hippo_username.is_some() || self.hippo_password.is_some() {
             AuthMethod::UsernameAndPassword
-        } else if self.hippo_server_url.is_some() {
+        } else if self.hippo_server_url.as_str() != DEFAULT_CLOUD_URL {
             // prompt the user for the authentication method
             // TODO: implement a server "feature" check that tells us what authentication methods it supports
             prompt_for_auth_method()
@@ -602,4 +606,10 @@ fn is_file_with_extension(de: &std::fs::DirEntry, extension: &std::ffi::OsString
             }
         }
     }
+}
+
+#[test]
+fn parse_url_trims_trailing_slash() {
+    let url = parse_url("https://localhost:12345/foo/bar/").unwrap();
+    assert_eq!(url.to_string(), "https://localhost:12345/foo/bar");
 }

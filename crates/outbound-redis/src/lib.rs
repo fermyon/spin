@@ -41,6 +41,12 @@ impl outbound_redis::OutboundRedis for OutboundRedis {
         let value = conn.incr(key, 1).await.map_err(log_error)?;
         Ok(value)
     }
+
+    async fn del(&mut self, address: &str, keys: Vec<&str>) -> Result<i64, Error> {
+        let conn = self.get_conn(address).await.map_err(log_error)?;
+        let value = conn.del(keys).await.map_err(log_error)?;
+        Ok(value)
+    }
 }
 
 impl OutboundRedis {

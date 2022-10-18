@@ -145,7 +145,7 @@ impl DeployCommand {
             }
         }
 
-        let sloth_warning = warn_if_slow_response(&login_connection.url);
+        let sloth_warning = warn_if_slow_response(format!("Checking status ({})", login_connection.url));
         check_healthz(&login_connection.url).await?;
         // Hippo has responded - we don't want to keep the sloth timer running.
         drop(sloth_warning);
@@ -188,8 +188,6 @@ impl DeployCommand {
             None
         };
 
-        let sloth_warning = warn_if_slow_response(login_connection.bindle_url.as_deref().unwrap());
-
         let bindle_connection_info = BindleConnectionInfo::new(
             login_connection.bindle_url.unwrap(),
             login_connection.danger_accept_invalid_certs,
@@ -200,9 +198,6 @@ impl DeployCommand {
         let bindle_id = self
             .create_and_push_bindle(buildinfo, bindle_connection_info)
             .await?;
-
-        // Bindle has responded - we don't want to keep the sloth timer running.
-        drop(sloth_warning);
 
         let hippo_client = Client::new(ConnectionInfo {
             url: login_connection.url.clone(),
@@ -569,7 +564,7 @@ impl DeployCommand {
             .await
             .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
 
-        let _sloth_warning = warn_if_slow_response(bindle_connection_info.base_url());
+        let _sloth_warning = warn_if_slow_response(format!("Uploading application to {}", bindle_connection_info.base_url()));
 
         let publish_result =
             spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info.clone()).await;

@@ -421,13 +421,13 @@ async fn github_token(
     let device_code = create_device_code(&client).await?;
 
     println!(
-        "Open {} in your browser",
-        device_code.verification_url.clone().unwrap(),
+        "\nCopy your one-time code:\n\n{}\n",
+        device_code.user_code.clone().unwrap(),
     );
 
     println!(
-        "! Copy your one-time code: {}",
-        device_code.user_code.clone().unwrap(),
+        "...and open the authorization page in your browser:\n\n{}\n",
+        device_code.verification_url.clone().unwrap(),
     );
 
     // The OAuth library should theoretically handle waiting for the device to be authorized, but

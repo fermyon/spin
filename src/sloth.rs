@@ -13,14 +13,14 @@ impl<T> Drop for SlothWarning<T> {
     }
 }
 
-pub(crate) fn warn_if_slow_response(url: &str) -> SlothWarning<()> {
-    let url = url.to_owned();
-    let warning = tokio::spawn(warn_slow_response(url));
+pub(crate) fn warn_if_slow_response(message: impl Into<String>) -> SlothWarning<()> {
+    let message = message.into();
+    let warning = tokio::spawn(warn_slow_response(message));
     SlothWarning { warning }
 }
 
-async fn warn_slow_response(url: String) {
+async fn warn_slow_response(message: String) {
     sleep(Duration::from_millis(SLOW_UPLOAD_WARNING_DELAY_MILLIS)).await;
-    eprintln!("{} is responding slowly or not responding...", url);
+    eprintln!("{}", message);
     eprintln!();
 }

@@ -193,7 +193,7 @@ dependencies = [
 [[package]]
 name = "bindle"
 version = "0.8.0"
-source = "git+https://github.com/fermyon/bindle?tag=v0.8.1#0dd1e7a7747d9f0ea8fda61d5f0f8cc3550f65dd"
+source = "git+https://github.com/fermyon/bindle?tag=v0.8.2#84ea1dd86fab6ffe27235e268f47f632421db8f9"
 dependencies = [
  "anyhow",
  "async-compression",

@@ -8,6 +8,7 @@ use cargo_target_dep::build_target_dep;
 
 const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
 const RUST_HTTP_INTEGRATION_ENV_TEST: &str = "tests/http/headers-env-routes-test";
+const RUST_OUTBOUND_REDIS_INTEGRATION_TEST: &str = "tests/outbound-redis/http-rust-outbound-redis";
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
@@ -53,6 +54,7 @@ error: the `wasm32-wasi` target is not installed
 
     cargo_build(RUST_HTTP_INTEGRATION_TEST);
     cargo_build(RUST_HTTP_INTEGRATION_ENV_TEST);
+    cargo_build(RUST_OUTBOUND_REDIS_INTEGRATION_TEST);
 
     let mut config = vergen::Config::default();
     *config.git_mut().sha_kind_mut() = vergen::ShaKind::Short;

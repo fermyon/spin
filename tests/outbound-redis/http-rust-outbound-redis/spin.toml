@@ -1,0 +1,15 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+name = "rust-outbound-redis-example"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[[component]]
+environment = { REDIS_ADDRESS = "redis://127.0.0.1:6379" }
+id = "outbound-redis"
+source = "target/wasm32-wasi/release/http_rust_outbound_redis.wasm"
+[component.trigger]
+route = "/test"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+

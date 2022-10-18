@@ -75,6 +75,7 @@ vergen = { version = "7", default-features = false, features = [ "build", "git" 
 [features]
 default = []
 e2e-tests = []
+outbound-redis-tests = []
 
 [workspace]
 members = [

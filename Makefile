@@ -9,7 +9,7 @@ build:
 .PHONY: test
 test: lint test-unit test-integration
 
-.PHONY: lint 
+.PHONY: lint
 lint:
 	cargo clippy --all-targets --all-features -- -D warnings
 	cargo fmt --all -- --check
@@ -30,8 +30,12 @@ test-integration:
 
 .PHONY: test-e2e
 test-e2e:
-	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features e2e-tests --no-fail-fast  -- integration_tests::test_dependencies --nocapture 
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features e2e-tests --no-fail-fast  -- integration_tests::test_dependencies --nocapture
 	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features e2e-tests --no-fail-fast -- --skip integration_tests::test_dependencies --nocapture
+
+.PHONY: test-outbound-redis
+test-outbound-redis:
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features outbound-redis-tests --no-fail-fast -- --nocapture
 
 .PHONY: test-sdk-go
 test-sdk-go:

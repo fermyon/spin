@@ -37,6 +37,6 @@ uuid = "1"
 
 [dependencies.bindle]
 git = "https://github.com/fermyon/bindle"
-tag = "v0.8.1"
+tag = "v0.8.2"
 default-features = false
 features = ["client"]

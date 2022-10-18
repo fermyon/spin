@@ -145,7 +145,8 @@ impl DeployCommand {
             }
         }
 
-        let sloth_warning = warn_if_slow_response(format!("Checking status ({})", login_connection.url));
+        let sloth_warning =
+            warn_if_slow_response(format!("Checking status ({})", login_connection.url));
         check_healthz(&login_connection.url).await?;
         // Hippo has responded - we don't want to keep the sloth timer running.
         drop(sloth_warning);
@@ -394,7 +395,8 @@ impl DeployCommand {
                 &channel.domain,
                 &login_connection.url,
                 &cfg,
-                self.readiness_timeout_secs)
+                self.readiness_timeout_secs,
+            )
             .await;
             print_available_routes(
                 &channel.domain,
@@ -570,7 +572,10 @@ impl DeployCommand {
             .await
             .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
 
-        let _sloth_warning = warn_if_slow_response(format!("Uploading application to {}", bindle_connection_info.base_url()));
+        let _sloth_warning = warn_if_slow_response(format!(
+            "Uploading application to {}",
+            bindle_connection_info.base_url()
+        ));
 
         let publish_result =
             spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info.clone()).await;

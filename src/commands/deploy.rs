@@ -390,6 +390,12 @@ impl DeployCommand {
             .await
             .context("Problem getting channel by id")?;
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
+            wait_for_ready(
+                &channel.domain,
+                &login_connection.url,
+                &cfg,
+                self.readiness_timeout_secs)
+            .await;
             print_available_routes(
                 &channel.domain,
                 &http_config.base,

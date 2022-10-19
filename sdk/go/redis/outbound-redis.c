@@ -56,9 +56,22 @@ typedef struct {
     outbound_redis_error_t err;
   } val;
 } outbound_redis_expected_payload_error_t;
+typedef struct {
+  bool is_err;
+  union {
+    int64_t ok;
+    outbound_redis_error_t err;
+  } val;
+} outbound_redis_expected_s64_error_t;
+void outbound_redis_list_string_free(outbound_redis_list_string_t *ptr) {
+  for (size_t i = 0; i < ptr->len; i++) {
+    outbound_redis_string_free(&ptr->ptr[i]);
+  }
+  canonical_abi_free(ptr->ptr, ptr->len * 8, 4);
+}
 
-__attribute__((aligned(4)))
-static uint8_t RET_AREA[12];
+__attribute__((aligned(8)))
+static uint8_t RET_AREA[16];
 __attribute__((import_module("outbound-redis"), import_name("publish")))
 void __wasm_import_outbound_redis_publish(int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t);
 outbound_redis_error_t outbound_redis_publish(outbound_redis_string_t *address, outbound_redis_string_t *channel, outbound_redis_payload_t *payload) {
@@ -122,4 +135,48 @@ outbound_redis_error_t outbound_redis_set(outbound_redis_string_t *address, outb
       break;
     }
   }return expected.is_err ? expected.val.err : -1;
+}
+__attribute__((import_module("outbound-redis"), import_name("incr")))
+void __wasm_import_outbound_redis_incr(int32_t, int32_t, int32_t, int32_t, int32_t);
+outbound_redis_error_t outbound_redis_incr(outbound_redis_string_t *address, outbound_redis_string_t *key, int64_t *ret0) {
+  int32_t ptr = (int32_t) &RET_AREA;
+  __wasm_import_outbound_redis_incr((int32_t) (*address).ptr, (int32_t) (*address).len, (int32_t) (*key).ptr, (int32_t) (*key).len, ptr);
+  outbound_redis_expected_s64_error_t expected;
+  switch ((int32_t) (*((uint8_t*) (ptr + 0)))) {
+    case 0: {
+      expected.is_err = false;
+      
+      expected.val.ok = *((int64_t*) (ptr + 8));
+      break;
+    }
+    case 1: {
+      expected.is_err = true;
+      
+      expected.val.err = (int32_t) (*((uint8_t*) (ptr + 8)));
+      break;
+    }
+  }*ret0 = expected.val.ok;
+  return expected.is_err ? expected.val.err : -1;
+}
+__attribute__((import_module("outbound-redis"), import_name("del")))
+void __wasm_import_outbound_redis_del(int32_t, int32_t, int32_t, int32_t, int32_t);
+outbound_redis_error_t outbound_redis_del(outbound_redis_string_t *address, outbound_redis_list_string_t *keys, int64_t *ret0) {
+  int32_t ptr = (int32_t) &RET_AREA;
+  __wasm_import_outbound_redis_del((int32_t) (*address).ptr, (int32_t) (*address).len, (int32_t) (*keys).ptr, (int32_t) (*keys).len, ptr);
+  outbound_redis_expected_s64_error_t expected;
+  switch ((int32_t) (*((uint8_t*) (ptr + 0)))) {
+    case 0: {
+      expected.is_err = false;
+      
+      expected.val.ok = *((int64_t*) (ptr + 8));
+      break;
+    }
+    case 1: {
+      expected.is_err = true;
+      
+      expected.val.err = (int32_t) (*((uint8_t*) (ptr + 8)));
+      break;
+    }
+  }*ret0 = expected.val.ok;
+  return expected.is_err ? expected.val.err : -1;
 }

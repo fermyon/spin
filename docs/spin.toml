@@ -6,13 +6,6 @@ authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 trigger = { type = "http", base = "/" }
 
 [[component]]
-source = "modules/bartholomew.wasm"
-id = "bartholomew"
-files = [ "content/**/*" , "templates/*", "scripts/*", "config/*"]
-[component.trigger]
-route = "/..."
-
-[[component]]
 source = "modules/spin_static_fs.wasm"
 id = "fileserver_static"
 files = [ { source = "static/", destination = "/" } ]

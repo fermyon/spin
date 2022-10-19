@@ -44,6 +44,8 @@ wit_bindgen_wasmtime::import!({paths: ["../../wit/ephemeral/spin-http.wit"], asy
 pub(crate) type RuntimeData = spin_http::SpinHttpData;
 pub(crate) type Store = spin_core::Store<RuntimeData>;
 
+pub const WELL_KNOWN_HEALTH_PATH: &str = "/.well-known/spin/health";
+
 /// The Spin HTTP trigger.
 pub struct HttpTrigger {
     engine: TriggerAppEngine<Self>,
@@ -200,7 +202,7 @@ impl HttpTrigger {
         );
 
         match req.uri().path() {
-            "/healthz" => Ok(Response::new(Body::from("OK"))),
+            "/healthz" | WELL_KNOWN_HEALTH_PATH => Ok(Response::new(Body::from("OK"))),
             route => match self.router.route(route) {
                 Ok(component_id) => {
                     let trigger = self.component_trigger_configs.get(component_id).unwrap();

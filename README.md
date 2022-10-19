@@ -24,7 +24,7 @@ applications and how to get started.
 
 ## Getting started
 
-See the [quickstart document](https://spin.fermyon.dev/quickstart/) for a detailed
+See the [quickstart document](https://developer.fermyon.com/spin/quickstart/) for a detailed
 guide on configuring Spin and writing your first Spin application, but in short:
 
 ```
@@ -33,12 +33,12 @@ $ tar xfv spin-<version>-<os-arch>.tar.gz
 $ ./spin --help
 ```
 
-> Alternatively, you could [build Spin from source](https://spin.fermyon.dev/contributing/).
+> Alternatively, you could [build Spin from source](https://developer.fermyon.com/spin/contributing/).
 
-After you follow the [quickstart document](https://spin.fermyon.dev/quickstart/),
+After you follow the [quickstart document](https://developer.fermyon.com/spin/quickstart/),
 you can follow the
-[Rust](https://spin.fermyon.dev/rust-components/) or [Go](https://spin.fermyon.dev/go-components/)
-language guides, and the [guide on configuring Spin applications](https://spin.fermyon.dev/configuration/).
+[Rust](https://developer.fermyon.com/spin/rust-components/) or [Go](https://developer.fermyon.com/spin/go-components/)
+language guides, and the [guide on configuring Spin applications](https://developer.fermyon.com/spin/configuration/).
 
 After you build your application, run it using Spin:
 

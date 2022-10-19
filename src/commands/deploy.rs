@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 use spin_http::routes::RoutePattern;
 use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
 use spin_loader::local::{assets, config};
+use spin_manifest::ApplicationTrigger;
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
 use spin_publish::BindleConnectionInfo;
 use tokio::fs;
@@ -312,6 +313,11 @@ impl DeployCommand {
 
         let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
         let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
+
+        match cfg.info.trigger {
+            ApplicationTrigger::Http(_) => {}
+            ApplicationTrigger::Redis(_) => bail!("Redis triggers are not supported"),
+        }
 
         let buildinfo = if !self.no_buildinfo {
             match &self.buildinfo {

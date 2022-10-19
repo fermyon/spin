@@ -10,6 +10,7 @@ use hippo_openapi::models::ChannelRevisionSelectionStrategy;
 use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
 use spin_http::routes::RoutePattern;
+use spin_http::WELL_KNOWN_HEALTH_PATH;
 use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
 use spin_loader::local::{assets, config};
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
@@ -392,6 +393,13 @@ impl DeployCommand {
             .await
             .context("Problem getting channel by id")?;
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
+            wait_for_ready(
+                &channel.domain,
+                &login_connection.url,
+                &cfg,
+                self.readiness_timeout_secs,
+            )
+            .await;
             print_available_routes(
                 &channel.domain,
                 &http_config.base,
@@ -635,8 +643,8 @@ async fn wait_for_ready(
         Err(_) => "http",
     };
 
-    let route = "/healthz";
-    let healthz_url = format!("{}://{}{}", scheme, app_domain, route);
+    let path = WELL_KNOWN_HEALTH_PATH;
+    let health_check_url = format!("{}://{}{}", scheme, app_domain, path);
 
     let start = std::time::Instant::now();
     let readiness_timeout = std::time::Duration::from_secs(u64::from(readiness_timeout_secs));
@@ -645,7 +653,7 @@ async fn wait_for_ready(
     print!("Waiting for application to become ready");
     std::io::stdout().flush().unwrap_or_default();
     loop {
-        if is_ready(&healthz_url).await {
+        if is_ready(&health_check_url).await {
             println!("... ready");
             return;
         }
@@ -662,8 +670,8 @@ async fn wait_for_ready(
     }
 }
 
-async fn is_ready(healthz_url: &str) -> bool {
-    let resp = reqwest::get(healthz_url).await;
+async fn is_ready(health_check_url: &str) -> bool {
+    let resp = reqwest::get(health_check_url).await;
     let (msg, ready) = match resp {
         Err(e) => (format!("error {}", e), false),
         Ok(r) => {
@@ -674,7 +682,7 @@ async fn is_ready(healthz_url: &str) -> bool {
         }
     };
 
-    tracing::debug!("Polled {} for readiness: {}", healthz_url, msg);
+    tracing::debug!("Polled {} for readiness: {}", health_check_url, msg);
     ready
 }
 

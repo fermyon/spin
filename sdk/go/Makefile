@@ -8,7 +8,7 @@ test: test-integration
 
 .PHONY: test-integration
 test-integration: http/testdata/http-tinygo/main.wasm
-	go test -v .
+	go test -v -count=1 .
 
 http/testdata/http-tinygo/main.wasm: generate
 http/testdata/http-tinygo/main.wasm: http/testdata/http-tinygo/main.go

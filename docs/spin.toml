@@ -29,15 +29,23 @@ route = "/downloads/..."
 [[component]]
 id = "redirect-site-index"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/index" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/index" }
 [component.trigger]
 route = "/"
 executor = { type = "wagi" }
 
 [[component]]
+id = "redirect-architecture"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/architecture" }
+[component.trigger]
+route = "/architecture"
+executor = { type = "wagi" }
+
+[[component]]
 id = "redirect-quickstart"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/quickstart" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/quickstart" }
 [component.trigger]
 route = "/quickstart"
 executor = { type = "wagi" }
@@ -45,7 +53,7 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-configuration"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/configuration" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/configuration" }
 [component.trigger]
 route = "/configuration"
 executor = { type = "wagi" }
@@ -53,7 +61,7 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-developing"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/developing" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/developing" }
 [component.trigger]
 route = "/developing"
 executor = { type = "wagi" }
@@ -61,7 +69,7 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-rust-components"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/rust-components" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/rust-components" }
 [component.trigger]
 route = "/rust-components"
 executor = { type = "wagi" }
@@ -69,7 +77,7 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-go-components"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/go-components" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/go-components" }
 [component.trigger]
 route = "/go-components"
 executor = { type = "wagi" }
@@ -77,7 +85,7 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-other-languages"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/other-languages" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/other-languages" }
 [component.trigger]
 route = "/other-languages"
 executor = { type = "wagi" }
@@ -85,7 +93,7 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-url-shortener"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/url-shortener" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/url-shortener" }
 [component.trigger]
 route = "/url-shortener"
 executor = { type = "wagi" }
@@ -93,7 +101,7 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-http-trigger"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/http-trigger" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/http-trigger" }
 [component.trigger]
 route = "/http-trigger"
 executor = { type = "wagi" }
@@ -101,7 +109,7 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-redis-trigger"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/redis-trigger" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/redis-trigger" }
 [component.trigger]
 route = "/redis-trigger"
 executor = { type = "wagi" }
@@ -109,7 +117,7 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-distributing-apps"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/distributing-apps" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/distributing-apps" }
 [component.trigger]
 route = "/distributing-apps"
 executor = { type = "wagi" }
@@ -117,7 +125,7 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-extending-and-embedding"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/extending-and-embedding" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/extending-and-embedding" }
 [component.trigger]
 route = "/extending-and-embedding"
 executor = { type = "wagi" }
@@ -125,9 +133,17 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-deploying-to-fermyon"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/deploying-to-fermyon" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/deploying-to-fermyon" }
 [component.trigger]
 route = "/deploying-to-fermyon"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-template-authoring"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/template-authoring" }
+[component.trigger]
+route = "/template-authoring"
 executor = { type = "wagi" }
 
 [[component]]
@@ -181,7 +197,7 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-sip-006"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/sips/006-spin-plugins.md" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/sips/006-spin-plugins.md" }
 [component.trigger]
 route = "/sips/006-spin-plugins.md"
 executor = { type = "wagi" }
@@ -189,7 +205,7 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-contributing"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://canary.developer.fermyon.com/spin/contributing" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/contributing" }
 [component.trigger]
 route = "/contributing"
 executor = { type = "wagi" }

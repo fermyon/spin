@@ -336,10 +336,18 @@ impl DeployCommand {
             login_connection.token,
         );
 
+        println!("Uploading...");
+
         let bindle_id = self
             .create_and_push_bindle(buildinfo, bindle_connection_info)
             .await?;
         let name = bindle_id.name().to_string();
+
+        println!(
+            "Deploying {} version {} ...",
+            &name,
+            bindle_id.version_string()
+        );
 
         // Create or update app
         // TODO: this process involves many calls to Hippo. Should be able to update the channel
@@ -390,11 +398,6 @@ impl DeployCommand {
             }
         };
 
-        println!(
-            "Deployed {} version {}",
-            name.clone(),
-            bindle_id.version_string()
-        );
         let channel = CloudClient::get_channel_by_id(&client, &channel_id.to_string())
             .await
             .context("Problem getting channel by id")?;

@@ -28,13 +28,13 @@ pub struct RawAppManifest {
     #[serde(flatten)]
     pub info: RawAppInformation,
 
-    /// Application-specific configuration schema.
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub variables: HashMap<String, RawVariable>,
-
     /// Configuration for the application components.
     #[serde(rename = "component")]
     pub components: Vec<RawComponentManifest>,
+
+    /// Application-specific configuration schema.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub variables: HashMap<String, RawVariable>,
 }
 
 /// General application information.
@@ -71,10 +71,10 @@ pub struct RawComponentManifest {
     pub wasm: RawWasmConfig,
     /// Trigger configuration.
     pub trigger: TriggerConfig,
-    /// Component-specific configuration values.
-    pub config: Option<HashMap<String, String>>,
     /// Build configuration for the component.
     pub build: Option<RawBuildConfig>,
+    /// Component-specific configuration values.
+    pub config: Option<HashMap<String, String>>,
 }
 
 /// Build configuration for the component.
@@ -92,8 +92,6 @@ pub struct RawBuildConfig {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct RawWasmConfig {
-    /// Environment variables to be mapped inside the Wasm module at runtime.
-    pub environment: Option<HashMap<String, String>>,
     /// Files to be mapped inside the Wasm module at runtime.
     ///
     /// In the local configuration file, this is a vector, each element of which
@@ -105,6 +103,8 @@ pub struct RawWasmConfig {
     pub exclude_files: Option<Vec<String>>,
     /// Optional list of HTTP hosts the component is allowed to connect.
     pub allowed_http_hosts: Option<Vec<String>>,
+    /// Environment variables to be mapped inside the Wasm module at runtime.
+    pub environment: Option<HashMap<String, String>>,
 }
 
 /// An entry in the `files` list mapping a source path to an absolute

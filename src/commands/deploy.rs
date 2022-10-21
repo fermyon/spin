@@ -7,6 +7,7 @@ use cloud_openapi::models::ChannelRevisionSelectionStrategy as CloudChannelRevis
 use cloud_openapi::models::TokenInfo;
 use hippo::{Client, ConnectionInfo};
 use hippo_openapi::models::ChannelRevisionSelectionStrategy;
+use rand::Rng;
 use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
 use spin_http::routes::RoutePattern;
@@ -323,7 +324,9 @@ impl DeployCommand {
         let buildinfo = if !self.no_buildinfo {
             match &self.buildinfo {
                 Some(i) => Some(i.clone()),
-                None => self.compute_buildinfo(&cfg).await.map(Option::Some)?,
+                // FIXME(lann): As a workaround for buggy partial bindle uploads,
+                // force a new bindle version on every upload.
+                None => Some(random_buildinfo()),
             }
         } else {
             None
@@ -618,6 +621,12 @@ impl DeployCommand {
 
         Ok(bindle_id.clone())
     }
+}
+
+fn random_buildinfo() -> BuildMetadata {
+    let random_bytes: [u8; 4] = rand::thread_rng().gen();
+    let random_hex: String = random_bytes.iter().map(|b| format!("{:x}", b)).collect();
+    BuildMetadata::new(&format!("r{random_hex}")).unwrap()
 }
 
 async fn check_healthz(url: &str) -> Result<()> {

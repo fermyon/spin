@@ -6,13 +6,6 @@ authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 trigger = { type = "http", base = "/" }
 
 [[component]]
-source = "modules/bartholomew.wasm"
-id = "bartholomew"
-files = [ "content/**/*" , "templates/*", "scripts/*", "config/*"]
-[component.trigger]
-route = "/..."
-
-[[component]]
 source = "modules/spin_static_fs.wasm"
 id = "fileserver_static"
 files = [ { source = "static/", destination = "/" } ]
@@ -20,8 +13,193 @@ files = [ { source = "static/", destination = "/" } ]
 route = "/static/..."
 
 [[component]]
-source = "modules/spin_static_fs.wasm"
-id = "fileserver_downloads"
-files = [ { source = "downloads/", destination = "/" } ]
+id = "redirect-download"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/downloads/install.sh" }
 [component.trigger]
-route = "/downloads/..."
+route = "/downloads/instsall.sh"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-site-index"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/index" }
+[component.trigger]
+route = "/"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-architecture"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/architecture" }
+[component.trigger]
+route = "/architecture"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-quickstart"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/quickstart" }
+[component.trigger]
+route = "/quickstart"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-configuration"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/configuration" }
+[component.trigger]
+route = "/configuration"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-developing"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/developing" }
+[component.trigger]
+route = "/developing"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-rust-components"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/rust-components" }
+[component.trigger]
+route = "/rust-components"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-go-components"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/go-components" }
+[component.trigger]
+route = "/go-components"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-other-languages"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/other-languages" }
+[component.trigger]
+route = "/other-languages"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-url-shortener"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/url-shortener" }
+[component.trigger]
+route = "/url-shortener"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-http-trigger"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/http-trigger" }
+[component.trigger]
+route = "/http-trigger"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-redis-trigger"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/redis-trigger" }
+[component.trigger]
+route = "/redis-trigger"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-distributing-apps"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/distributing-apps" }
+[component.trigger]
+route = "/distributing-apps"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-extending-and-embedding"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/extending-and-embedding" }
+[component.trigger]
+route = "/extending-and-embedding"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-deploying-to-fermyon"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/deploying-to-fermyon" }
+[component.trigger]
+route = "/deploying-to-fermyon"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-template-authoring"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/template-authoring" }
+[component.trigger]
+route = "/template-authoring"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-sips-index"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://github.com/fermyon/spin/blob/main/docs/content/sips/index.md" }
+[component.trigger]
+route = "/sips/index"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-sip-001"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://github.com/fermyon/spin/blob/main/docs/content/sips/001-spin-deploy.md" }
+[component.trigger]
+route = "/sips/001-spin-deploy.md"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-sip-002"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://github.com/fermyon/spin/blob/main/docs/content/sips/002-app-config.md" }
+[component.trigger]
+route = "/sips/002-app-config.md"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-sip-003"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://github.com/fermyon/spin/blob/main/docs/content/sips/003-trigger-executors.md" }
+[component.trigger]
+route = "/sips/003-trigger-executors.md"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-sip-004"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://github.com/fermyon/spin/blob/main/docs/content/sips/004-spin-build.md" }
+[component.trigger]
+route = "/sips/004-spin-build.md"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-sip-005"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://github.com/fermyon/spin/blob/main/docs/content/sips/005-manifest-redesign.md" }
+[component.trigger]
+route = "/sips/005-manifest-redesign.md"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-sip-006"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://github.com/fermyon/spin/blob/main/docs/content/sips/006-spin-plugins.md" }
+[component.trigger]
+route = "/sips/006-spin-plugins.md"
+executor = { type = "wagi" }
+
+[[component]]
+id = "redirect-contributing"
+source = "modules/redirect.wasm"
+environment = { DESTINATION = "https://developer.fermyon.com/spin/contributing" }
+[component.trigger]
+route = "/contributing"
+executor = { type = "wagi" }

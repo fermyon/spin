@@ -343,18 +343,12 @@ impl DeployCommand {
             login_connection.token,
         );
 
-        println!("Uploading...");
-
         let bindle_id = self
             .create_and_push_bindle(buildinfo, bindle_connection_info)
             .await?;
         let name = bindle_id.name().to_string();
 
-        println!(
-            "Deploying {} version {} ...",
-            &name,
-            bindle_id.version_string()
-        );
+        println!("Deploying...");
 
         // Create or update app
         // TODO: this process involves many calls to Hippo. Should be able to update the channel
@@ -590,10 +584,11 @@ impl DeployCommand {
             .await
             .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
 
-        let _sloth_warning = warn_if_slow_response(format!(
-            "Uploading application to {}",
-            bindle_connection_info.base_url()
-        ));
+        println!(
+            "Uploading {} version {}...",
+            bindle_id.name(),
+            bindle_id.version()
+        );
 
         let publish_result =
             spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info.clone()).await;

@@ -1,6 +1,6 @@
 <div align="center">
-  <h1>Spin</h1>
-  <img src="./docs/static/image/spin.png" width="300"/>
+  <h1>Fermyon Spin</h1>
+  <img src="./docs/static/image/logo.png" width="300"/>
   <p>Spin is a framework for building, deploying, and running fast, secure, and composable cloud microservices with WebAssembly.</p>
       <a href="https://github.com/fermyon/spin/actions/workflows/build.yml"><img src="https://github.com/fermyon/spin/actions/workflows/build.yml/badge.svg" alt="build status" /></a>
       <a href="https://discord.gg/eGN8saYqCk"><img alt="Discord" src="https://img.shields.io/discord/926888690310053918?label=Discord"></a>

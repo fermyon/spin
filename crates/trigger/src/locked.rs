@@ -177,7 +177,9 @@ impl LockedAppBuilder {
 
 fn content_ref_path(path: &Path) -> Result<ContentRef> {
     Ok(ContentRef {
-        source: Some(file_uri(path)?),
+        source: Some(
+            file_uri(path).with_context(|| format!("failed to resolve content at {path:?}"))?,
+        ),
         ..Default::default()
     })
 }

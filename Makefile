@@ -43,13 +43,3 @@ tls: ${CERT_NAME}.crt.pem
 
 $(CERT_NAME).crt.pem:
 	openssl req -newkey rsa:2048 -nodes -keyout $(CERT_NAME).key.pem -x509 -days 365 -out $(CERT_NAME).crt.pem
-
-.PHONY: doc
-doc:
-	DATE=$(shell date --utc +%Y-%m-%dT%TZ)
-	echo "title = \"<insert title here>\"\ntemplate = \"main\"\ndate = \"`date --utc +%Y-%m-%dT%TZ`\"\n" > docs/content/$(SPIN_DOC_NAME)
-	echo "[extra]\nurl = \"https://github.com/fermyon/spin/blob/main/docs/content/$(SPIN_DOC_NAME)\"\n\n---\n" >> docs/content/$(SPIN_DOC_NAME)
-
-.PHONY: check-content
-check-content:
-	cd docs && bart check content/* && bart check content/**/*

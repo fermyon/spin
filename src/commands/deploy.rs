@@ -158,7 +158,11 @@ impl DeployCommand {
         if login_connection.bindle_url.is_some() {
             self.deploy_hippo(login_connection).await
         } else {
-            self.deploy_cloud(login_connection).await
+            const DEVELOPER_CLOUD_FAQ: &str = "https://developer.fermyon.com/cloud/faq";
+
+            self.deploy_cloud(login_connection)
+                .await
+                .map_err(|e| anyhow!("{}\n\nLearn more at {}", e, DEVELOPER_CLOUD_FAQ))
         }
     }
 

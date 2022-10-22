@@ -54,4 +54,4 @@ And join our [Discord server](https://discord.gg/eGN8saYqCk).
 
 ## Developer Meetings
 
-Join the Spin monthly developer meetings. More info [here](https://hackmd.io/@radu/H1od0apSc).
+Join the Spin monthly developer meetings, which will be announced in our [Discord server](https://discord.gg/eGN8saYqCk).

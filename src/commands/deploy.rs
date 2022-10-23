@@ -162,7 +162,7 @@ impl DeployCommand {
 
             self.deploy_cloud(login_connection)
                 .await
-                .map_err(|e| anyhow!("{}\n\nLearn more at {}", e, DEVELOPER_CLOUD_FAQ))
+                .map_err(|e| anyhow!("{:?}\n\nLearn more at {}", e, DEVELOPER_CLOUD_FAQ))
         }
     }
 

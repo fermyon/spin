@@ -24,9 +24,16 @@ extern "C"
     size_t len;
   } outbound_redis_payload_t;
   void outbound_redis_payload_free(outbound_redis_payload_t *ptr);
+  typedef struct {
+    outbound_redis_string_t *ptr;
+    size_t len;
+  } outbound_redis_list_string_t;
+  void outbound_redis_list_string_free(outbound_redis_list_string_t *ptr);
   outbound_redis_error_t outbound_redis_publish(outbound_redis_string_t *address, outbound_redis_string_t *channel, outbound_redis_payload_t *payload);
   outbound_redis_error_t outbound_redis_get(outbound_redis_string_t *address, outbound_redis_string_t *key, outbound_redis_payload_t *ret0);
   outbound_redis_error_t outbound_redis_set(outbound_redis_string_t *address, outbound_redis_string_t *key, outbound_redis_payload_t *value);
+  outbound_redis_error_t outbound_redis_incr(outbound_redis_string_t *address, outbound_redis_string_t *key, int64_t *ret0);
+  outbound_redis_error_t outbound_redis_del(outbound_redis_string_t *address, outbound_redis_list_string_t *keys, int64_t *ret0);
   #ifdef __cplusplus
 }
 #endif

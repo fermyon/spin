@@ -66,6 +66,45 @@ func set(addr, key string, payload []byte) error {
 	return toErr(err)
 }
 
+func incr(addr, key string) (int64, error) {
+	caddr := redisStr(addr)
+	ckey := redisStr(key)
+
+	var cpayload C.int64_t
+
+	defer func() {
+		C.outbound_redis_string_free(&caddr)
+		C.outbound_redis_string_free(&ckey)
+	}()
+
+	err := C.outbound_redis_incr(&caddr, &ckey, &cpayload)
+	return int64(cpayload), toErr(err)
+}
+
+func del(addr string, keys []string) (int64, error) {
+	caddr := redisStr(addr)
+	ckeys := redisListStr(keys)
+
+	var cpayload C.int64_t
+
+	defer func() {
+		C.outbound_redis_string_free(&caddr)
+		C.outbound_redis_list_string_free(&ckeys)
+	}()
+
+	err := C.outbound_redis_del(&caddr, &ckeys, &cpayload)
+	return int64(cpayload), toErr(err)
+}
+
+func redisListStr(xs []string) C.outbound_redis_list_string_t {
+	var cxs []C.outbound_redis_string_t
+
+	for i := 0; i < len(xs); i++ {
+		cxs = append(cxs, redisStr(xs[i]))
+	}
+	return C.outbound_redis_list_string_t{ptr: &cxs[0], len: C.size_t(len(cxs))}
+}
+
 func redisStr(x string) C.outbound_redis_string_t {
 	return C.outbound_redis_string_t{ptr: C.CString(x), len: C.size_t(len(x))}
 }

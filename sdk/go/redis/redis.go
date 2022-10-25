@@ -36,3 +36,16 @@ func Get(addr, key string) ([]byte, error) {
 func Set(addr, key string, payload []byte) error {
 	return set(addr, key, payload)
 }
+
+// Increments the number stored at key by one. If the key does not exist,
+// it is set to 0 before performing the operation. An error is returned if
+// the key contains a value of the wrong type or contains a string that can not
+// be represented as integer.
+func Incr(addr, key string) (int64, error) {
+	return incr(addr, key)
+}
+
+// Removes the specified keys. A key is ignored if it does not exist.
+func Del(addr string, keys []string) (int64, error) {
+	return del(addr, keys)
+}

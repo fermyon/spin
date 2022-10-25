@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"strconv"
 
 	spin_http "github.com/fermyon/spin/sdk/go/http"
 	"github.com/fermyon/spin/sdk/go/redis"
@@ -41,6 +42,25 @@ func init() {
 		} else {
 			w.Write([]byte("mykey value was: "))
 			w.Write(payload)
+			w.Write([]byte("\n"))
+		}
+
+		// incr `spin-go-incr` by 1
+		if payload, err := redis.Incr(addr, "spin-go-incr"); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		} else {
+			w.Write([]byte("spin-go-incr value: "))
+			w.Write([]byte(strconv.FormatInt(payload, 10)))
+			w.Write([]byte("\n"))
+		}
+
+		// delete `spin-go-incr` and `mykey`
+		if payload, err := redis.Del(addr, []string{"spin-go-incr", "mykey", "non-existing-key"}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		} else {
+			w.Write([]byte("deleted keys num: "))
+			w.Write([]byte(strconv.FormatInt(payload, 10)))
+			w.Write([]byte("\n"))
 		}
 	})
 }

@@ -41,6 +41,14 @@ pub struct RedisReport {
     /// function with the arguments \["127.0.0.1", "foo"\] and expect `ok(42)` as the result.  The host will assert
     /// that said function is called exactly once with the specified arguments.
     pub incr: Result<(), String>,
+
+    /// Result of the Redis `DEL` test
+    ///
+    /// The guest module should expect a call according to [`super::InvocationStyle`] with \["outbound-redis-del",
+    /// "127.0.0.1", "foo"\] as arguments. The module should call the host-implemented `outbound-redis::del`
+    /// function with the arguments \["127.0.0.1", \["foo"\]\] and expect `ok(0)` as the result.  The host will assert
+    /// that said function is called exactly once with the specified arguments.
+    pub del: Result<(), String>,
 }
 
 wit_bindgen_wasmtime::export!("../../wit/ephemeral/outbound-redis.wit");
@@ -51,6 +59,7 @@ pub(super) struct OutboundRedis {
     set_set: HashSet<(String, String, Vec<u8>)>,
     get_map: HashMap<(String, String), Vec<u8>>,
     incr_map: HashMap<(String, String), i64>,
+    del_map: HashMap<(String, String), i64>,
 }
 
 impl outbound_redis::OutboundRedis for OutboundRedis {
@@ -91,6 +100,12 @@ impl outbound_redis::OutboundRedis for OutboundRedis {
         self.incr_map
             .remove(&(address.to_owned(), key.to_owned()))
             .map(|value| value + 1)
+            .ok_or(outbound_redis::Error::Error)
+    }
+
+    fn del(&mut self, address: &str, keys: Vec<&str>) -> Result<i64, outbound_redis::Error> {
+        self.del_map
+            .remove(&(address.into(), format!("{keys:?}")))
             .ok_or(outbound_redis::Error::Error)
     }
 }
@@ -177,6 +192,27 @@ pub(super) fn test(store: &mut Store<Context>, pre: &InstancePre<Context>) -> Re
                     ensure!(
                         store.data().outbound_redis.incr_map.is_empty(),
                         "expected module to call `outbound-redis::incr` exactly once"
+                    );
+
+                    Ok(())
+                },
+            )
+        },
+
+        del: {
+            store.data_mut().outbound_redis.del_map.insert(
+                ("127.0.0.1".into(), format!("{:?}", vec!["foo".to_owned()])),
+                0,
+            );
+
+            super::run_command(
+                store,
+                pre,
+                &["outbound-redis-del", "127.0.0.1", "foo"],
+                |store| {
+                    ensure!(
+                        store.data().outbound_redis.del_map.is_empty(),
+                        "expected module to call `outbound-redis::del` exactly once"
                     );
 
                     Ok(())

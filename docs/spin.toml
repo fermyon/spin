@@ -17,7 +17,7 @@ id = "redirect-download"
 source = "modules/redirect.wasm"
 environment = { DESTINATION = "https://developer.fermyon.com/downloads/install.sh" }
 [component.trigger]
-route = "/downloads/instsall.sh"
+route = "/downloads/install.sh"
 executor = { type = "wagi" }
 
 [[component]]

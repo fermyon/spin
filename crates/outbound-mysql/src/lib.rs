@@ -2,6 +2,7 @@ use mysql_async::consts::ColumnType;
 use mysql_async::{from_value_opt, prelude::*};
 pub use outbound_mysql::add_to_linker;
 use spin_core::HostComponent;
+use std::collections::HashMap;
 use std::sync::Arc;
 use wit_bindgen_wasmtime::async_trait;
 
@@ -9,8 +10,10 @@ wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/outbound-mysql.wit"]
 use outbound_mysql::*;
 
 /// A simple implementation to support outbound mysql connection
-#[derive(Default, Clone)]
-pub struct OutboundMysql;
+#[derive(Default)]
+pub struct OutboundMysql {
+    pub connections: HashMap<String, mysql_async::Conn>,
+}
 
 impl HostComponent for OutboundMysql {
     type Data = Self;
@@ -35,12 +38,6 @@ impl outbound_mysql::OutboundMysql for OutboundMysql {
         statement: &str,
         params: Vec<ParameterValue<'_>>,
     ) -> Result<(), MysqlError> {
-        let connection_pool = mysql_async::Pool::new(address);
-        let mut connection = connection_pool
-            .get_conn()
-            .await
-            .map_err(|e| MysqlError::ConnectionFailed(format!("{:?}", e)))?;
-
         let db_params = params
             .iter()
             .map(to_sql_parameter)
@@ -48,7 +45,10 @@ impl outbound_mysql::OutboundMysql for OutboundMysql {
             .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
 
         let parameters = mysql_async::Params::Positional(db_params);
-        connection
+
+        self.get_conn(address)
+            .await
+            .map_err(|e| MysqlError::ConnectionFailed(format!("{:?}", e)))?
             .exec_batch(statement, &[parameters])
             .await
             .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
@@ -62,12 +62,6 @@ impl outbound_mysql::OutboundMysql for OutboundMysql {
         statement: &str,
         params: Vec<ParameterValue<'_>>,
     ) -> Result<RowSet, MysqlError> {
-        let connection_pool = mysql_async::Pool::new(address);
-        let mut connection = connection_pool
-            .get_conn()
-            .await
-            .map_err(|e| MysqlError::ConnectionFailed(format!("{:?}", e)))?;
-
         let db_params = params
             .iter()
             .map(to_sql_parameter)
@@ -75,7 +69,11 @@ impl outbound_mysql::OutboundMysql for OutboundMysql {
             .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
 
         let parameters = mysql_async::Params::Positional(db_params);
-        let mut query_result = connection
+
+        let mut query_result = self
+            .get_conn(address)
+            .await
+            .map_err(|e| MysqlError::ConnectionFailed(format!("{:?}", e)))?
             .exec_iter(statement, parameters)
             .await
             .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
@@ -132,24 +130,45 @@ fn convert_column(column: &mysql_async::Column) -> Column {
 }
 
 fn convert_data_type(column: &mysql_async::Column) -> DbDataType {
-    match (column.column_type(), is_signed(column)) {
-        (ColumnType::MYSQL_TYPE_BIT, _) => DbDataType::Boolean,
+    let column_type = column.column_type();
+
+    if column_type.is_numeric_type() {
+        convert_numeric_type(column)
+    } else if column_type.is_character_type() {
+        convert_character_type(column)
+    } else {
+        DbDataType::Other
+    }
+}
+
+fn convert_character_type(column: &mysql_async::Column) -> DbDataType {
+    match (column.column_type(), is_binary(column)) {
+        (ColumnType::MYSQL_TYPE_BLOB, false) => DbDataType::Str, // TEXT type
         (ColumnType::MYSQL_TYPE_BLOB, _) => DbDataType::Binary,
+        (ColumnType::MYSQL_TYPE_LONG_BLOB, _) => DbDataType::Binary,
+        (ColumnType::MYSQL_TYPE_MEDIUM_BLOB, _) => DbDataType::Binary,
+        (ColumnType::MYSQL_TYPE_STRING, true) => DbDataType::Binary, // BINARY type
+        (ColumnType::MYSQL_TYPE_STRING, _) => DbDataType::Str,
+        (ColumnType::MYSQL_TYPE_VAR_STRING, true) => DbDataType::Binary, // VARBINARY type
+        (ColumnType::MYSQL_TYPE_VAR_STRING, _) => DbDataType::Str,
+        (_, _) => DbDataType::Other,
+    }
+}
+
+fn convert_numeric_type(column: &mysql_async::Column) -> DbDataType {
+    match (column.column_type(), is_signed(column)) {
         (ColumnType::MYSQL_TYPE_DOUBLE, _) => DbDataType::Floating64,
         (ColumnType::MYSQL_TYPE_FLOAT, _) => DbDataType::Floating32,
+        (ColumnType::MYSQL_TYPE_INT24, true) => DbDataType::Int32,
+        (ColumnType::MYSQL_TYPE_INT24, false) => DbDataType::Uint32,
         (ColumnType::MYSQL_TYPE_LONG, true) => DbDataType::Int32,
         (ColumnType::MYSQL_TYPE_LONG, false) => DbDataType::Uint32,
         (ColumnType::MYSQL_TYPE_LONGLONG, true) => DbDataType::Int64,
         (ColumnType::MYSQL_TYPE_LONGLONG, false) => DbDataType::Uint64,
-        (ColumnType::MYSQL_TYPE_LONG_BLOB, _) => DbDataType::Binary,
-        (ColumnType::MYSQL_TYPE_MEDIUM_BLOB, _) => DbDataType::Binary,
         (ColumnType::MYSQL_TYPE_SHORT, true) => DbDataType::Int16,
         (ColumnType::MYSQL_TYPE_SHORT, false) => DbDataType::Uint16,
-        (ColumnType::MYSQL_TYPE_STRING, _) => DbDataType::Str,
         (ColumnType::MYSQL_TYPE_TINY, true) => DbDataType::Int8,
         (ColumnType::MYSQL_TYPE_TINY, false) => DbDataType::Uint8,
-        (ColumnType::MYSQL_TYPE_VARCHAR, _) => DbDataType::Str,
-        (ColumnType::MYSQL_TYPE_VAR_STRING, _) => DbDataType::Str,
         (_, _) => DbDataType::Other,
     }
 }
@@ -158,6 +177,12 @@ fn is_signed(column: &mysql_async::Column) -> bool {
     !column
         .flags()
         .contains(mysql_async::consts::ColumnFlags::UNSIGNED_FLAG)
+}
+
+fn is_binary(column: &mysql_async::Column) -> bool {
+    column
+        .flags()
+        .contains(mysql_async::consts::ColumnFlags::BINARY_FLAG)
 }
 
 fn convert_row(mut row: mysql_async::Row, columns: &[Column]) -> Result<Vec<DbValue>, MysqlError> {
@@ -204,6 +229,24 @@ fn convert_value(value: mysql_async::Value, column: &Column) -> Result<DbValue, 
             value, column.name, column.data_type
         ))),
     }
+}
+
+impl OutboundMysql {
+    async fn get_conn(&mut self, address: &str) -> anyhow::Result<&mut mysql_async::Conn> {
+        let client = match self.connections.entry(address.to_owned()) {
+            std::collections::hash_map::Entry::Occupied(o) => o.into_mut(),
+            std::collections::hash_map::Entry::Vacant(v) => v.insert(build_conn(address).await?),
+        };
+        Ok(client)
+    }
+}
+
+async fn build_conn(address: &str) -> Result<mysql_async::Conn, mysql_async::Error> {
+    tracing::log::debug!("Build new connection: {}", address);
+
+    let connection_pool = mysql_async::Pool::new(address);
+
+    connection_pool.get_conn().await
 }
 
 fn convert_value_to<T: FromValue>(value: mysql_async::Value) -> Result<T, MysqlError> {

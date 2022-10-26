@@ -1,6 +1,5 @@
-use crate::convert::{as_i8_bool, as_int, as_owned_string, as_owned_string_opt};
 use anyhow::Result;
-use spin_sdk::mysql::{self};
+use spin_sdk::mysql::{self, Decode};
 
 // Such logic, very business
 
@@ -14,10 +13,10 @@ pub(crate) struct Pet {
 }
 
 pub(crate) fn as_pet(row: &mysql::Row) -> Result<Pet> {
-    let id = as_int(&row[0])?;
-    let name = as_owned_string(&row[1])?;
-    let prey = as_owned_string_opt(&row[2])?;
-    let is_finicky = as_i8_bool(&row[3])?;
+    let id = i32::decode(&row[0])?;
+    let name = String::decode(&row[1])?;
+    let prey = Option::<String>::decode(&row[2])?;
+    let is_finicky = bool::decode(&row[3])?;
 
     Ok(Pet {
         id,

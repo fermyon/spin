@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use convert::to_i8_bool;
 use http::{HeaderValue, Method};
 use spin_sdk::{
     http::{Request, Response},
@@ -10,11 +9,10 @@ use std::{collections::HashMap, str::FromStr};
 
 use crate::model::as_pet;
 
-mod convert;
 mod model;
 
 // The environment variable set in `spin.toml` that points to the
-// address of the Pg server that the component will write to
+// address of the MySQL server that the component will write to
 const DB_URL_ENV: &str = "DB_URL";
 
 enum RequestAction {
@@ -95,8 +93,7 @@ fn list() -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "SELECT id, name, prey, is_finicky FROM pets";
-    let rowset = mysql::query(&address, sql, &[])
-        .map_err(|e| anyhow!("Error executing MySQL query: {:?}", e))?;
+    let rowset = mysql::query(&address, sql, &[])?;
 
     let column_summary = rowset
         .columns
@@ -130,8 +127,7 @@ fn get(id: i32) -> Result<Response> {
 
     let sql = "SELECT id, name, prey, is_finicky FROM pets WHERE id = ?";
     let params = vec![ParameterValue::Int32(id)];
-    let rowset = mysql::query(&address, sql, &params)
-        .map_err(|e| anyhow!("Error executing MySQL query: {:?}", e))?;
+    let rowset = mysql::query(&address, sql, &params)?;
 
     match rowset.rows.first() {
         None => Ok(http::Response::builder().status(404).body(None)?),
@@ -164,8 +160,7 @@ fn create(name: &str, prey: &Option<String>, is_finicky: bool) -> Result<Respons
         prey_param,
         is_finicky_param,
     ];
-    mysql::execute(&address, sql, &params)
-        .map_err(|e| anyhow!("Error executing MySQL query: {:?}", e))?;
+    mysql::execute(&address, sql, &params)?;
 
     let location_url = format!("/{}", id);
 
@@ -185,8 +180,7 @@ fn format_col(column: &mysql::Column) -> String {
 
 fn max_pet_id(address: &str) -> Result<i32> {
     let sql = "SELECT MAX(id) FROM pets";
-    let rowset = mysql::query(address, sql, &[])
-        .map_err(|e| anyhow!("Error executing MySQL query for max id: {:?}", e))?;
+    let rowset = mysql::query(address, sql, &[])?;
 
     match rowset.rows.first() {
         None => Ok(0),
@@ -198,5 +192,13 @@ fn max_pet_id(address: &str) -> Result<i32> {
                 other
             )),
         },
+    }
+}
+
+fn to_i8_bool(value: bool) -> i8 {
+    if value {
+        1
+    } else {
+        0
     }
 }

@@ -244,7 +244,7 @@ mod integration_tests {
                 .join("target")
                 .join("wasm32-wasi")
                 .join("release")
-                .join("spinhelloworld.wasm");
+                .join("simple_spin_rust.wasm");
             let parcel_sha = file_digest_string(&wasm_path).expect("failed to get sha for parcel");
 
             // start the Bindle registry.

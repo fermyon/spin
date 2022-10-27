@@ -127,6 +127,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "simple-spin-rust"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "http",
+ "spin-sdk",
+ "wit-bindgen-rust",
+]
+
+[[package]]
 name = "spin-macro"
 version = "0.1.0"
 dependencies = [
@@ -150,17 +161,6 @@ dependencies = [
  "form_urlencoded",
  "http",
  "spin-macro",
- "wit-bindgen-rust",
-]
-
-[[package]]
-name = "spinhelloworld"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytes",
- "http",
- "spin-sdk",
  "wit-bindgen-rust",
 ]
 

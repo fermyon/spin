@@ -7,7 +7,7 @@ version = "1.0.0"
 
 [[component]]
 id = "hello"
-source = "target/wasm32-wasi/release/spinhelloworld.wasm"
+source = "target/wasm32-wasi/release/http_rust.wasm"
 description = "A simple component that returns hello."
 [component.trigger]
 route = "/hello"

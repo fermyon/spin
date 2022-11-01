@@ -44,7 +44,7 @@ wit_bindgen_wasmtime::import!({paths: ["../../wit/ephemeral/spin-http.wit"], asy
 pub(crate) type RuntimeData = spin_http::SpinHttpData;
 pub(crate) type Store = spin_core::Store<RuntimeData>;
 
-pub const WELL_KNOWN_HEALTH_PATH: &str = "/.well-known/spin/health";
+pub const WELL_KNOWN_PREFIX: &str = "/.well-known/spin/";
 
 /// The Spin HTTP trigger.
 pub struct HttpTrigger {
@@ -201,54 +201,62 @@ impl HttpTrigger {
             req.uri()
         );
 
-        match req.uri().path() {
-            "/healthz" | WELL_KNOWN_HEALTH_PATH => Ok(Response::new(Body::from("OK"))),
-            route => match self.router.route(route) {
-                Ok(component_id) => {
-                    let trigger = self.component_trigger_configs.get(component_id).unwrap();
+        let path = req.uri().path();
 
-                    let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Spin);
+        // Handle well-known spin paths
+        if let Some(well_known) = path.strip_prefix(WELL_KNOWN_PREFIX) {
+            return match well_known {
+                "health" => Ok(Response::new(Body::from("OK"))),
+                _ => Self::not_found(),
+            };
+        }
 
-                    let res = match executor {
-                        HttpExecutorType::Spin => {
-                            let executor = SpinHttpExecutor;
-                            executor
-                                .execute(
-                                    &self.engine,
-                                    component_id,
-                                    &self.base,
-                                    &trigger.route,
-                                    req,
-                                    addr,
-                                )
-                                .await
-                        }
-                        HttpExecutorType::Wagi(wagi_config) => {
-                            let executor = WagiHttpExecutor {
-                                wagi_config: wagi_config.clone(),
-                            };
-                            executor
-                                .execute(
-                                    &self.engine,
-                                    component_id,
-                                    &self.base,
-                                    &trigger.route,
-                                    req,
-                                    addr,
-                                )
-                                .await
-                        }
-                    };
-                    match res {
-                        Ok(res) => Ok(res),
-                        Err(e) => {
-                            log::error!("Error processing request: {:?}", e);
-                            Self::internal_error(None)
-                        }
+        // Route to app component
+        match self.router.route(path) {
+            Ok(component_id) => {
+                let trigger = self.component_trigger_configs.get(component_id).unwrap();
+
+                let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Spin);
+
+                let res = match executor {
+                    HttpExecutorType::Spin => {
+                        let executor = SpinHttpExecutor;
+                        executor
+                            .execute(
+                                &self.engine,
+                                component_id,
+                                &self.base,
+                                &trigger.route,
+                                req,
+                                addr,
+                            )
+                            .await
+                    }
+                    HttpExecutorType::Wagi(wagi_config) => {
+                        let executor = WagiHttpExecutor {
+                            wagi_config: wagi_config.clone(),
+                        };
+                        executor
+                            .execute(
+                                &self.engine,
+                                component_id,
+                                &self.base,
+                                &trigger.route,
+                                req,
+                                addr,
+                            )
+                            .await
+                    }
+                };
+                match res {
+                    Ok(res) => Ok(res),
+                    Err(e) => {
+                        log::error!("Error processing request: {:?}", e);
+                        Self::internal_error(None)
                     }
                 }
-                Err(_) => Self::not_found(),
-            },
+            }
+            Err(_) => Self::not_found(),
         }
     }
 

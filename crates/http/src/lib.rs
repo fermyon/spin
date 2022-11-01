@@ -265,11 +265,8 @@ impl HttpTrigger {
     fn app_info(&self) -> Result<Response<Body>> {
         let info = AppInfo {
             name: self.engine.app_name.clone(),
-            version: self
-                .engine
-                .app()
-                .get_metadata("version")?
-                .unwrap_or_default(),
+            version: self.engine.app().get_metadata("version")?,
+            bindle_version: self.engine.app().get_metadata("bindle_version")?,
         };
         let body = serde_json::to_vec_pretty(&info)?;
         Ok(Response::builder()
@@ -366,7 +363,10 @@ impl HttpTrigger {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AppInfo {
     name: String,
-    version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    bindle_version: Option<String>,
 }
 
 fn parse_listen_addr(addr: &str) -> anyhow::Result<SocketAddr> {

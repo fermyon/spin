@@ -11,7 +11,7 @@ use rand::Rng;
 use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
 use spin_http::routes::RoutePattern;
-use spin_http::WELL_KNOWN_HEALTH_PATH;
+use spin_http::WELL_KNOWN_PREFIX;
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
 use spin_loader::local::{assets, config, parent_dir};
@@ -636,7 +636,7 @@ async fn wait_for_ready(
         Err(_) => "http",
     };
 
-    let path = WELL_KNOWN_HEALTH_PATH;
+    let path = WELL_KNOWN_PREFIX.to_string() + "health";
     let health_check_url = format!("{}://{}{}", scheme, app_domain, path);
 
     let start = std::time::Instant::now();

@@ -207,6 +207,7 @@ impl HttpTrigger {
         if let Some(well_known) = path.strip_prefix(WELL_KNOWN_PREFIX) {
             return match well_known {
                 "health" => Ok(Response::new(Body::from("OK"))),
+                "info" => self.app_info(),
                 _ => Self::not_found(),
             };
         }
@@ -260,6 +261,22 @@ impl HttpTrigger {
         }
     }
 
+    /// Returns spin status information.
+    fn app_info(&self) -> Result<Response<Body>> {
+        let info = AppInfo {
+            name: self.engine.app_name.clone(),
+            version: self
+                .engine
+                .app()
+                .get_metadata("version")?
+                .unwrap_or_default(),
+        };
+        let body = serde_json::to_vec_pretty(&info)?;
+        Ok(Response::builder()
+            .header("content-type", "application/json")
+            .body(body.into())?)
+    }
+
     /// Creates an HTTP 500 response.
     fn internal_error(body: Option<&str>) -> Result<Response<Body>> {
         let body = match body {
@@ -274,9 +291,9 @@ impl HttpTrigger {
 
     /// Creates an HTTP 404 response.
     fn not_found() -> Result<Response<Body>> {
-        let mut not_found = Response::default();
-        *not_found.status_mut() = StatusCode::NOT_FOUND;
-        Ok(not_found)
+        Ok(Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::empty())?)
     }
 
     async fn serve(self, listen_addr: SocketAddr) -> Result<()> {
@@ -344,6 +361,12 @@ impl HttpTrigger {
         Server::builder(incoming).serve(make_service).await?;
         Ok(())
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AppInfo {
+    name: String,
+    version: String,
 }
 
 fn parse_listen_addr(addr: &str) -> anyhow::Result<SocketAddr> {

@@ -1,6 +1,6 @@
 #![deny(missing_docs)]
 
-use anyhow::{Context, Result};
+use crate::{PublishError, PublishResult};
 use bindle::{standalone::StandaloneRead, Id};
 use std::path::Path;
 
@@ -9,29 +9,15 @@ pub async fn push_all(
     path: impl AsRef<Path>,
     bindle_id: &Id,
     bindle_connection_info: spin_loader::bindle::BindleConnectionInfo,
-) -> Result<()> {
+) -> PublishResult<()> {
     let reader = StandaloneRead::new(&path, bindle_id).await?;
-    let client = &bindle_connection_info.client().with_context(|| {
-        format!(
-            "Failed to create a bindle client for server '{}'",
-            &bindle_connection_info.base_url()
-        )
-    })?;
+    let client = &bindle_connection_info.client()?;
 
     if client.get_yanked_invoice(bindle_id).await.is_ok() {
-        anyhow::bail!("Bindle {} already exists on the server", bindle_id);
+        return Err(PublishError::BindleAlreadyExists(bindle_id.to_string()));
     }
 
-    reader
-        .push(client)
-        .await
-        .with_context(|| push_failed_msg(path, bindle_connection_info.base_url()))
-}
+    reader.push(client).await?;
 
-fn push_failed_msg(path: impl AsRef<Path>, server_url: &str) -> String {
-    format!(
-        "Failed to push bindle from '{}' to server at '{}'",
-        path.as_ref().display(),
-        server_url
-    )
+    Ok(())
 }

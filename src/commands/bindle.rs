@@ -167,9 +167,11 @@ impl Push {
             self.bindle_server_url
         ));
 
-        spin_publish::push_all(&dest_dir, &bindle_id, bindle_connection_info)
+        spin_publish::push_all(&dest_dir, &bindle_id, bindle_connection_info.clone())
             .await
-            .context("Failed to push bindle to server")?;
+            .with_context(|| {
+                crate::push_all_failed_msg(dest_dir, bindle_connection_info.base_url())
+            })?;
 
         println!("pushed: {}", bindle_id);
         Ok(())

@@ -1,7 +1,7 @@
 #![deny(missing_docs)]
 
 use crate::bindle_writer::{self, ParcelSources};
-use anyhow::{Context, Result};
+use crate::{PublishError, PublishResult};
 use bindle::{BindleSpec, Condition, Group, Invoice, Label, Parcel};
 use semver::BuildMetadata;
 use spin_loader::{
@@ -16,7 +16,7 @@ pub(crate) async fn expand_manifest(
     app_file: impl AsRef<Path>,
     buildinfo: Option<BuildMetadata>,
     scratch_dir: impl AsRef<Path>,
-) -> Result<(Invoice, ParcelSources)> {
+) -> PublishResult<(Invoice, ParcelSources)> {
     let app_file = absolutize(app_file)?;
     let manifest = spin_loader::local::raw_manifest_from_file(&app_file).await?;
     validate_raw_app_manifest(&manifest)?;
@@ -26,7 +26,7 @@ pub(crate) async fn expand_manifest(
     // * create a new spin.toml-like document where
     //   - each component changes its `files` entry to a group name
     //   - each component changes its `source` entry to a parcel SHA
-    let dest_manifest = bindle_manifest(&manifest, &app_dir)?;
+    let dest_manifest = bindle_manifest(&manifest, &app_dir).await?;
 
     // * create an invoice where
     //   - the metadata is copied from the app manifest
@@ -38,14 +38,10 @@ pub(crate) async fn expand_manifest(
     //   - there is a parcel for the spin.toml-a-like and it has the magic media type
 
     // - n parcels for the Wasm modules at their locations
-    let wasm_parcels = wasm_parcels(&manifest, &app_dir, &scratch_dir)
-        .await
-        .context("Failed to collect Wasm modules")?;
+    let wasm_parcels = wasm_parcels(&manifest, &app_dir, &scratch_dir).await?;
     let wasm_parcels = consolidate_wasm_parcels(wasm_parcels);
     // - n parcels for the assets under the base directory
-    let asset_parcels = asset_parcels(&manifest, &app_dir)
-        .await
-        .context("Failed to collect asset files")?;
+    let asset_parcels = asset_parcels(&manifest, &app_dir).await?;
     let asset_parcels = consolidate_asset_parcels(asset_parcels);
     // - one parcel to rule them all, and in the Spin app bind them
     let manifest_parcel = manifest_parcel(&dest_manifest, &scratch_dir).await?;
@@ -74,16 +70,18 @@ pub(crate) async fn expand_manifest(
     Ok((invoice, sources))
 }
 
-fn bindle_manifest(
+async fn bindle_manifest(
     local: &local_schema::RawAppManifest,
     base_dir: &Path,
-) -> Result<bindle_schema::RawAppManifest> {
-    let components = local
+) -> PublishResult<bindle_schema::RawAppManifest> {
+    let futures = local
         .components
         .iter()
-        .map(|c| bindle_component_manifest(c, base_dir))
-        .collect::<Result<Vec<_>>>()
-        .context("Failed to convert components to Bindle format")?;
+        .map(|c| async { bindle_component_manifest(c, base_dir).await });
+    let components = futures::future::join_all(futures)
+        .await
+        .into_iter()
+        .collect::<PublishResult<Vec<_>>>()?;
     let trigger = local.info.trigger.clone();
     let variables = local.variables.clone();
 
@@ -94,24 +92,20 @@ fn bindle_manifest(
     })
 }
 
-fn bindle_component_manifest(
+async fn bindle_component_manifest(
     local: &local_schema::RawComponentManifest,
     base_dir: &Path,
-) -> Result<bindle_schema::RawComponentManifest> {
+) -> PublishResult<bindle_schema::RawComponentManifest> {
     let source_digest = match &local.source {
         local_schema::RawModuleSource::FileReference(path) => {
             let full_path = base_dir.join(path);
-            file_sha256_string(&full_path)
-                .with_context(|| format!("Failed to get parcel id for '{}'", full_path.display()))?
+            sha256_digest(&full_path)?
         }
         local_schema::RawModuleSource::Bindle(_) => {
-            anyhow::bail!(
-                "This version of Spin can't publish components whose sources are already bindles"
-            )
+            return Err(PublishError::BindlePushingNotImplemented);
         }
         local_schema::RawModuleSource::Url(us) => {
-            let source = UrlSource::new(us)
-                .with_context(|| format!("Can't use Web source in component {}", local.id))?;
+            let source = UrlSource::new(us)?;
             source.digest_str().to_owned()
         }
     };
@@ -134,7 +128,7 @@ async fn wasm_parcels(
     manifest: &local_schema::RawAppManifest,
     base_dir: &Path,
     scratch_dir: impl AsRef<Path>,
-) -> Result<Vec<SourcedParcel>> {
+) -> PublishResult<Vec<SourcedParcel>> {
     let parcel_futures = manifest
         .components
         .iter()
@@ -147,39 +141,19 @@ async fn wasm_parcel(
     component: &local_schema::RawComponentManifest,
     base_dir: &Path,
     scratch_dir: impl AsRef<Path>,
-) -> Result<SourcedParcel> {
+) -> PublishResult<SourcedParcel> {
     let (wasm_file, absolute_wasm_file) = match &component.source {
         local_schema::RawModuleSource::FileReference(path) => {
             (path.to_owned(), base_dir.join(path))
         }
         local_schema::RawModuleSource::Bindle(_) => {
-            anyhow::bail!(
-                "This version of Spin can't publish components whose sources are already bindles"
-            )
+            return Err(PublishError::BindlePushingNotImplemented);
         }
         local_schema::RawModuleSource::Url(us) => {
-            let id = &component.id;
-
-            let source = UrlSource::new(us)
-                .with_context(|| format!("Can't use Web source in component {}", id))?;
-
-            let bytes = source
-                .get()
-                .await
-                .with_context(|| format!("Can't use source {} for component {}", us.url, id))?;
-
+            let source = UrlSource::new(us)?;
+            let bytes = source.get().await?;
             let temp_dir = scratch_dir.as_ref().join("downloads");
-            let temp_file = temp_dir.join(us.digest.replace(':', "_"));
-
-            tokio::fs::create_dir_all(temp_dir)
-                .await
-                .context("Failed to save download to temporary file")?;
-            tokio::fs::write(&temp_file, &bytes)
-                .await
-                .context("Failed to save download to temporary file")?;
-
-            let absolute_path = dunce::canonicalize(&temp_file)
-                .context("Failed to acquire full path for app downloaded temporary file")?;
+            let absolute_path = write_file(&temp_dir, &us.digest.replace(':', "_"), &bytes).await?;
             let dest_relative_path = source.url_relative_path();
 
             (dest_relative_path, absolute_path)
@@ -192,29 +166,28 @@ async fn wasm_parcel(
 async fn asset_parcels(
     manifest: &local_schema::RawAppManifest,
     base_dir: impl AsRef<Path>,
-) -> Result<Vec<SourcedParcel>> {
+) -> PublishResult<Vec<SourcedParcel>> {
     let assets_by_component: Vec<Vec<_>> = manifest
         .components
         .iter()
         .map(|c| collect_assets(c, &base_dir))
-        .collect::<Result<_>>()?;
+        .collect::<PublishResult<_>>()?;
     let parcel_futures = assets_by_component
         .iter()
         .flatten()
         .map(|(fm, s)| file_parcel_from_mount(fm, s));
     let parcel_results = futures::future::join_all(parcel_futures).await;
-    let parcels = parcel_results.into_iter().collect::<Result<_>>()?;
+    let parcels = parcel_results.into_iter().collect::<PublishResult<_>>()?;
     Ok(parcels)
 }
 
 fn collect_assets(
     component: &local_schema::RawComponentManifest,
     base_dir: impl AsRef<Path>,
-) -> Result<Vec<(spin_loader::local::assets::FileMount, String)>> {
+) -> PublishResult<Vec<(spin_loader::local::assets::FileMount, String)>> {
     let patterns = component.wasm.files.clone().unwrap_or_default();
     let exclude_files = component.wasm.exclude_files.clone().unwrap_or_default();
-    let file_mounts = spin_loader::local::assets::collect(&patterns, &exclude_files, &base_dir)
-        .with_context(|| format!("Failed to get file mounts for component '{}'", component.id))?;
+    let file_mounts = spin_loader::local::assets::collect(&patterns, &exclude_files, &base_dir)?;
     let annotated = file_mounts
         .into_iter()
         .map(|v| (v, component.id.clone()))
@@ -225,7 +198,7 @@ fn collect_assets(
 async fn file_parcel_from_mount(
     file_mount: &spin_loader::local::assets::FileMount,
     component_id: &str,
-) -> Result<SourcedParcel> {
+) -> PublishResult<SourcedParcel> {
     let source_file = &file_mount.src;
 
     let media_type = mime_guess::from_path(source_file)
@@ -239,7 +212,6 @@ async fn file_parcel_from_mount(
         &media_type,
     )
     .await
-    .with_context(|| format!("Failed to assemble parcel from '{}'", source_file.display()))
 }
 
 async fn file_parcel(
@@ -247,25 +219,19 @@ async fn file_parcel(
     dest_relative_path: impl AsRef<Path>,
     component_id: Option<&str>,
     media_type: impl Into<String>,
-) -> Result<SourcedParcel> {
-    let digest = file_sha256_string(abs_src)
-        .with_context(|| format!("Failed to calculate digest for '{}'", abs_src.display()))?;
-    let size = tokio::fs::metadata(&abs_src).await?.len();
-
-    let member_of = component_id.map(|id| vec![group_name_for(id)]);
-
+) -> PublishResult<SourcedParcel> {
     let parcel = Parcel {
         label: Label {
-            sha256: digest,
+            sha256: sha256_digest(abs_src)?,
             name: dest_relative_path.as_ref().display().to_string(),
-            size,
+            size: file_metadata(&abs_src).await?.len(),
             media_type: media_type.into(),
             annotations: None,
             feature: None,
             origin: None,
         },
         conditions: Some(Condition {
-            member_of,
+            member_of: component_id.map(|id| vec![group_name_for(id)]),
             requires: None,
         }),
     };
@@ -279,30 +245,22 @@ async fn file_parcel(
 async fn manifest_parcel(
     manifest: &bindle_schema::RawAppManifest,
     scratch_dir: impl AsRef<Path>,
-) -> Result<SourcedParcel> {
-    let text = toml::to_string_pretty(&manifest).context("Failed to write app manifest to TOML")?;
+) -> PublishResult<SourcedParcel> {
+    let text = toml::to_string_pretty(&manifest).map_err(|e| PublishError::TomlSerialization {
+        source: e,
+        description: "App manifest serialization failure".to_string(),
+    })?;
     let bytes = text.as_bytes();
     let digest = bytes_sha256_string(bytes);
-
     let parcel_name = format!("spin.{}.toml", digest);
     let temp_dir = scratch_dir.as_ref().join("manifests");
-    let temp_file = temp_dir.join(&parcel_name);
-
-    tokio::fs::create_dir_all(temp_dir)
-        .await
-        .context("Failed to save app manifest to temporary file")?;
-    tokio::fs::write(&temp_file, &bytes)
-        .await
-        .context("Failed to save app manifest to temporary file")?;
-
-    let absolute_path = dunce::canonicalize(&temp_file)
-        .context("Failed to acquire full path for app manifest temporary file")?;
+    let absolute_path = write_file(&temp_dir, &parcel_name, bytes).await?;
 
     let parcel = Parcel {
         label: Label {
             sha256: digest.clone(),
             name: parcel_name,
-            size: u64::try_from(bytes.len())?,
+            size: file_metadata(&absolute_path).await?.len(),
             media_type: spin_loader::bindle::SPIN_MANIFEST_MEDIA_TYPE.to_owned(),
             annotations: Some(bindle_writer::delete_after_copy()),
             feature: None,
@@ -404,13 +362,12 @@ fn group_for(component_id: &str) -> Group {
 fn bindle_id(
     app_info: &local_schema::RawAppInformation,
     buildinfo: Option<BuildMetadata>,
-) -> Result<bindle::Id> {
+) -> PublishResult<bindle::Id> {
     let text = match buildinfo {
         None => format!("{}/{}", app_info.name, app_info.version),
         Some(buildinfo) => format!("{}/{}+{}", app_info.name, app_info.version, buildinfo),
     };
-    bindle::Id::try_from(&text)
-        .with_context(|| format!("App name and version '{}' do not form a bindle ID", text))
+    bindle::Id::try_from(&text).map_err(|_| PublishError::BindleId(text))
 }
 
 struct SourcedParcel {
@@ -426,4 +383,46 @@ fn split_sources(sourced_parcels: Vec<SourcedParcel>) -> (Vec<Parcel>, ParcelSou
     let parcels = sourced_parcels.into_iter().map(|sp| sp.parcel);
 
     (parcels.collect(), parcel_sources)
+}
+
+fn sha256_digest(file: impl AsRef<Path>) -> PublishResult<String> {
+    file_sha256_string(&file).map_err(|e| PublishError::Io {
+        source: e,
+        description: format!(
+            "Failed to calculate digest for '{}'",
+            file.as_ref().display()
+        ),
+    })
+}
+
+async fn write_file(dir: &PathBuf, filename: &String, data: &[u8]) -> PublishResult<PathBuf> {
+    let file = dir.join(filename);
+
+    tokio::fs::create_dir_all(&dir)
+        .await
+        .map_err(|e| PublishError::Io {
+            source: e,
+            description: format!("Failed to create directory: '{}'", dir.display()),
+        })?;
+
+    tokio::fs::write(&file, &data)
+        .await
+        .map_err(|e| PublishError::Io {
+            source: e,
+            description: format!("Failed to write file: '{}'", file.display()),
+        })?;
+
+    dunce::canonicalize(&file).map_err(|e| PublishError::Io {
+        source: e,
+        description: format!("Failed to get absolute path: '{}'", file.display()),
+    })
+}
+
+async fn file_metadata(file: impl AsRef<Path>) -> PublishResult<std::fs::Metadata> {
+    tokio::fs::metadata(&file)
+        .await
+        .map_err(|e| PublishError::Io {
+            source: e,
+            description: format!("Failed to get file metadata: '{}'", file.as_ref().display()),
+        })
 }

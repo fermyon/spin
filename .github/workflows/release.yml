@@ -14,7 +14,7 @@ jobs:
       matrix:
         config:
           - {
-              os: "ubuntu-18.04",
+              os: "ubuntu-22.04",
               arch: "amd64",
               extension: "",
               # Ubuntu 22.04 no longer ships libssl1.1, so we statically

@@ -5,13 +5,14 @@ use clap::{Args, IntoApp, Parser};
 use serde::de::DeserializeOwned;
 
 use crate::stdio::StdioLoggingTriggerHooks;
-use crate::{loader::TriggerLoader, stdio::FollowComponents};
+use crate::{config::TriggerExecutorBuilderConfig, loader::TriggerLoader, stdio::FollowComponents};
 use crate::{TriggerExecutor, TriggerExecutorBuilder};
 
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
 pub const DISABLE_WASMTIME_CACHE: &str = "DISABLE_WASMTIME_CACHE";
 pub const FOLLOW_LOG_OPT: &str = "FOLLOW_ID";
 pub const WASMTIME_CACHE_FILE: &str = "WASMTIME_CACHE_FILE";
+pub const RUNTIME_CONFIG_FILE: &str = "RUNTIME_CONFIG_FILE";
 
 // Set by `spin up`
 pub const SPIN_LOCKED_URL: &str = "SPIN_LOCKED_URL";
@@ -70,6 +71,14 @@ where
     #[clap(long = "allow-transient-write")]
     pub allow_transient_write: bool,
 
+    /// Configuration file for config providers and wasmtime config.
+    #[clap(
+        name = RUNTIME_CONFIG_FILE,
+        long = "runtime-config-file",
+        env = RUNTIME_CONFIG_FILE,
+    )]
+    pub runtime_config_file: Option<PathBuf>,
+
     #[clap(flatten)]
     pub run_config: Executor::RunConfig,
 
@@ -103,6 +112,9 @@ where
 
         let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
 
+        let trigger_config =
+            TriggerExecutorBuilderConfig::load_from_file(self.runtime_config_file.clone())?;
+
         let executor: Executor = {
             let mut builder = TriggerExecutorBuilder::new(loader);
             self.update_wasmtime_config(builder.wasmtime_config_mut())?;
@@ -110,7 +122,7 @@ where
             let logging_hooks = StdioLoggingTriggerHooks::new(self.follow_components(), self.log);
             builder.hooks(logging_hooks);
 
-            builder.build(locked_url).await?
+            builder.build(locked_url, trigger_config).await?
         };
 
         let run_fut = executor.run(self.run_config);

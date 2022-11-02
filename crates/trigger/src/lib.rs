@@ -1,4 +1,5 @@
 pub mod cli;
+pub mod config;
 pub mod loader;
 pub mod locked;
 mod stdio;
@@ -14,7 +15,10 @@ pub use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 
 use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp};
-use spin_config::{provider::env::EnvProvider, Provider};
+use spin_config::{
+    provider::{env::EnvProvider, vault::VaultProvider},
+    Provider,
+};
 use spin_core::{Config, Engine, EngineBuilder, Instance, InstancePre, Store, StoreBuilder};
 
 const SPIN_HOME: &str = ".spin";
@@ -76,7 +80,11 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         self
     }
 
-    pub async fn build(mut self, app_uri: String) -> Result<Executor>
+    pub async fn build(
+        mut self,
+        app_uri: String,
+        builder_config: config::TriggerExecutorBuilderConfig,
+    ) -> Result<Executor>
     where
         Executor::TriggerConfig: DeserializeOwned,
     {
@@ -92,7 +100,9 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    spin_config::ConfigHostComponent::new(self.default_config_providers(&app_uri)),
+                    spin_config::ConfigHostComponent::new(
+                        self.get_config_providers(&app_uri, &builder_config),
+                    ),
                 )?;
             }
 
@@ -107,6 +117,26 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 
         // Run trigger executor
         Executor::new(TriggerAppEngine::new(engine, app_name, app, self.hooks).await?)
+    }
+
+    pub fn get_config_providers(
+        &self,
+        app_uri: &str,
+        builder_config: &config::TriggerExecutorBuilderConfig,
+    ) -> Vec<Box<dyn Provider>> {
+        let mut providers = self.default_config_providers(app_uri);
+        for config_provider in &builder_config.config_providers {
+            let provider = match config_provider {
+                config::ConfigProvider::Vault(vault_config) => VaultProvider::new(
+                    &vault_config.url,
+                    &vault_config.token,
+                    &vault_config.mount,
+                    vault_config.prefix.clone(),
+                ),
+            };
+            providers.push(Box::new(provider));
+        }
+        providers
     }
 
     pub fn default_config_providers(&self, app_uri: &str) -> Vec<Box<dyn Provider>> {

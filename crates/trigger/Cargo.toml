@@ -22,6 +22,7 @@ spin-config = { path = "../config" }
 spin-core = { path = "../core" }
 spin-loader = { path = "../loader" }
 spin-manifest = { path = "../manifest" }
+toml = "0.5.9"
 tracing = { version = "0.1", features = [ "log" ] }
 url = "2"
 wasmtime = "0.39.1"

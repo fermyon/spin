@@ -6,6 +6,7 @@ use crate::Key;
 
 /// Environment variable based provider.
 pub mod env;
+pub mod vault;
 
 /// A config provider.
 #[async_trait]

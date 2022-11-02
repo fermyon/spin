@@ -11,6 +11,7 @@ use rand::Rng;
 use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
 use spin_http::routes::RoutePattern;
+use spin_http::AppInfo;
 use spin_http::WELL_KNOWN_PREFIX;
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
@@ -18,6 +19,7 @@ use spin_loader::local::{assets, config, parent_dir};
 use spin_manifest::ApplicationTrigger;
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
 use tokio::fs;
+use tracing::instrument;
 
 use std::fs::File;
 use std::io;
@@ -289,6 +291,7 @@ impl DeployCommand {
                 &channel.domain,
                 &login_connection.url,
                 &cfg,
+                &bindle_id.version_string(),
                 self.readiness_timeout_secs,
             )
             .await;
@@ -407,6 +410,7 @@ impl DeployCommand {
                 &channel.domain,
                 &login_connection.url,
                 &cfg,
+                &bindle_id.version_string(),
                 self.readiness_timeout_secs,
             )
             .await;
@@ -620,6 +624,7 @@ async fn wait_for_ready(
     app_domain: &str,
     hippo_url: &str,
     cfg: &spin_loader::local::config::RawAppManifest,
+    bindle_version: &str,
     readiness_timeout_secs: u16,
 ) {
     if readiness_timeout_secs == 0 {
@@ -646,9 +651,16 @@ async fn wait_for_ready(
     print!("Waiting for application to become ready");
     std::io::stdout().flush().unwrap_or_default();
     loop {
-        if is_ready(&health_check_url).await {
-            println!("... ready");
-            return;
+        match is_ready(&health_check_url, bindle_version).await {
+            Err(err) => {
+                println!("... readiness check failed: {err:?}");
+                return;
+            }
+            Ok(true) => {
+                println!("... ready");
+                return;
+            }
+            Ok(false) => {}
         }
 
         print!(".");
@@ -663,20 +675,26 @@ async fn wait_for_ready(
     }
 }
 
-async fn is_ready(health_check_url: &str) -> bool {
-    let resp = reqwest::get(health_check_url).await;
-    let (msg, ready) = match resp {
-        Err(e) => (format!("error {}", e), false),
-        Ok(r) => {
-            let status = r.status();
-            let ok = status.is_success();
-            let desc = if ok { "ready" } else { "not ready" };
-            (format!("{desc}, code {status}"), ok)
+#[instrument(level = "debug")]
+async fn is_ready(app_info_url: &str, bindle_version: &str) -> Result<bool> {
+    // If the request fails, the app isn't ready
+    let resp = reqwest::get(app_info_url).await?;
+    if !resp.status().is_success() {
+        tracing::debug!("App not ready: {}", resp.status());
+        return Ok(false);
+    }
+    if let Some(active_version) = resp
+        .json::<AppInfo>()
+        .await
+        .ok()
+        .and_then(|info| info.bindle_version)
+    {
+        if active_version != bindle_version {
+            tracing::debug!("Active version {active_version:?} != new version {bindle_version:?}");
+            return Ok(false);
         }
-    };
-
-    tracing::debug!("Polled {} for readiness: {}", health_check_url, msg);
-    ready
+    }
+    Ok(true)
 }
 
 fn print_available_routes(

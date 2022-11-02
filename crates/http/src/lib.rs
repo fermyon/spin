@@ -362,11 +362,11 @@ impl HttpTrigger {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AppInfo {
-    name: String,
+    pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    version: Option<String>,
+    pub version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    bindle_version: Option<String>,
+    pub bindle_version: Option<String>,
 }
 
 fn parse_listen_addr(addr: &str) -> anyhow::Result<SocketAddr> {

@@ -49,7 +49,7 @@ impl NewCommand {
 
         let template = match &self.template_id {
             Some(template_id) => match template_manager
-                .get(&template_id)
+                .get(template_id)
                 .with_context(|| format!("Error retrieving template {}", template_id))?
             {
                 Some(template) => template,

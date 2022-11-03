@@ -118,7 +118,7 @@ async fn clone_local(git_source: &GitTemplateSource) -> anyhow::Result<LocalTemp
         git.arg("--branch").arg(b);
     }
 
-    git.arg(&url_str).arg(&path);
+    git.arg(url_str).arg(&path);
 
     let clone_result = git.output().await?;
     match clone_result.status.success() {
@@ -141,7 +141,7 @@ async fn version_matched_tag(url: &str, spin_version: &str) -> Option<String> {
     let mut git = Command::new("git");
     git.arg("ls-remote");
     git.arg("--exit-code");
-    git.arg(&url);
+    git.arg(url);
     git.arg(&preferred_tag);
 
     git.output().await.ok().and_then(|output| {

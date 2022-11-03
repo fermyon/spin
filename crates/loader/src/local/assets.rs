@@ -202,7 +202,7 @@ async fn copy(file: &FileMount, dir: impl AsRef<Path>) -> Result<()> {
     let from = &file.src;
     let to = dir.as_ref().join(&file.relative_dst);
 
-    ensure_under(&dir.as_ref(), &to.as_path())?;
+    ensure_under(dir.as_ref(), to.as_path())?;
 
     tracing::trace!("Copying asset file '{from:?}' -> '{to:?}'");
 

@@ -229,7 +229,7 @@ fn verify_checksum(plugin_file: &Path, expected_sha256: &str) -> Result<()> {
 }
 
 fn file_digest_string(path: &Path) -> Result<String> {
-    let mut file = std::fs::File::open(&path)
+    let mut file = std::fs::File::open(path)
         .with_context(|| format!("Could not open file at {}", path.display()))?;
     let mut sha = Sha256::new();
     std::io::copy(&mut file, &mut sha)?;

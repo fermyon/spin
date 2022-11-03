@@ -96,7 +96,7 @@ impl PluginStore {
 
     pub(crate) fn untar_plugin(&self, plugin_file_name: &PathBuf, plugin_name: &str) -> Result<()> {
         // Get handle to file
-        let tar_gz = File::open(&plugin_file_name)?;
+        let tar_gz = File::open(plugin_file_name)?;
         // Unzip file
         let tar = GzDecoder::new(tar_gz);
         // Get plugin from tarball

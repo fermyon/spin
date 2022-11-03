@@ -168,7 +168,7 @@ impl TemplateManager {
         let message = format!("Installing template {}...", id);
         reporter.report(&message);
 
-        let dest_dir = self.store.get_directory(&id);
+        let dest_dir = self.store.get_directory(id);
 
         let template = if dest_dir.exists() {
             match options.exists_behaviour {
@@ -331,7 +331,7 @@ async fn copy_template_into(
             )
         })?;
 
-    fs_extra::dir::copy(source_dir, &dest_dir, &copy_content()).with_context(|| {
+    fs_extra::dir::copy(source_dir, dest_dir, &copy_content()).with_context(|| {
         format!(
             "Failed to copy template content from {} to {} for {}",
             source_dir.display(),
@@ -344,7 +344,7 @@ async fn copy_template_into(
 }
 
 fn load_template_from(id: &str, dest_dir: &Path) -> anyhow::Result<Template> {
-    let layout = TemplateLayout::new(&dest_dir);
+    let layout = TemplateLayout::new(dest_dir);
     Template::load_from(&layout).with_context(|| {
         format!(
             "Template {} was not copied correctly into {}",

@@ -34,7 +34,7 @@ pub(crate) struct CustomFilterParser {
 
 impl CustomFilterParser {
     pub(crate) fn load(name: &str, wasm_path: &Path) -> anyhow::Result<Self> {
-        let wasm = std::fs::read(&wasm_path).with_context(|| {
+        let wasm = std::fs::read(wasm_path).with_context(|| {
             format!("Failed loading custom filter from {}", wasm_path.display())
         })?;
 

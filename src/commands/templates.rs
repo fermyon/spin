@@ -80,7 +80,7 @@ impl Install {
             TemplateManager::default().context("Failed to construct template directory path")?;
         let source = match (&self.git, &self.dir) {
             (Some(git), None) => {
-                TemplateSource::try_from_git(&git, &self.branch, env!("VERGEN_BUILD_SEMVER"))?
+                TemplateSource::try_from_git(git, &self.branch, env!("VERGEN_BUILD_SEMVER"))?
             }
             (None, Some(dir)) => TemplateSource::File(dir.clone()),
             _ => anyhow::bail!("Exactly one of `git` and `dir` sources must be specified"),

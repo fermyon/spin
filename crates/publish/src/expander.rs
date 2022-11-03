@@ -194,7 +194,7 @@ async fn file_parcel_from_mount(
 ) -> Result<SourcedParcel> {
     let source_file = &file_mount.src;
 
-    let media_type = mime_guess::from_path(&source_file)
+    let media_type = mime_guess::from_path(source_file)
         .first_or_octet_stream()
         .to_string();
 
@@ -214,7 +214,7 @@ async fn file_parcel(
     component_id: Option<&str>,
     media_type: impl Into<String>,
 ) -> Result<SourcedParcel> {
-    let digest = file_digest_string(&abs_src)
+    let digest = file_digest_string(abs_src)
         .with_context(|| format!("Failed to calculate digest for '{}'", abs_src.display()))?;
     let size = tokio::fs::metadata(&abs_src).await?.len();
 

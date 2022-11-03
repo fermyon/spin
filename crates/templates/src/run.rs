@@ -207,7 +207,7 @@ impl Run {
     }
 
     fn collect_all_content(from: &Path) -> anyhow::Result<Vec<PathBuf>> {
-        let walker = WalkDir::new(&from);
+        let walker = WalkDir::new(from);
         let files = walker
             .into_iter()
             .filter_map(|entry| match entry {

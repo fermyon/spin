@@ -1,0 +1,19 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A simple application that returns query values from config providers"
+name = "vault-config-test"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[variables]
+password = { required = true }
+
+[[component]]
+id = "config-test"
+source = "target/wasm32-wasi/release/config_test.wasm"
+[component.trigger]
+route = "/..."
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+[component.config]
+password = "{{ password }}"

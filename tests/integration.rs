@@ -278,6 +278,7 @@ mod integration_tests {
             let s = SpinTestController::with_manifest(
                 &format!("{}", manifest.path.display()),
                 &[],
+                &[],
                 Some(&b.url),
             )
             .await?;
@@ -617,6 +618,7 @@ mod integration_tests {
                     RUST_OUTBOUND_REDIS_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
                 ),
                 &[],
+                &[],
                 None,
             )
             .await?;
@@ -633,6 +635,7 @@ mod integration_tests {
                 "{}/{}",
                 RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
             ),
+            &[],
             &[],
             None,
         )
@@ -654,6 +657,7 @@ mod integration_tests {
                 RUST_HTTP_STATIC_ASSETS_TEST, DEFAULT_MANIFEST_LOCATION
             ),
             &[],
+            &[],
             None,
         )
         .await?;
@@ -671,6 +675,120 @@ mod integration_tests {
         .await?;
 
         Ok(())
+    }
+
+    #[cfg(feature = "config-provider-tests")]
+    mod config_provider_tests {
+        use super::*;
+
+        const RUST_HTTP_VAULT_CONFIG_TEST: &str = "tests/http/vault-config-test";
+        const VAULT_BINARY: &str = "vault";
+        const VAULT_ROOT_TOKEN: &str = "root";
+
+        #[tokio::test]
+        async fn test_vault_config_provider() -> Result<()> {
+            let vault = VaultTestController::new().await?;
+            let http_client = reqwest::Client::new();
+            let data = r#"
+{
+    "data": {
+        "value": "test_password"
+    }
+}
+"#;
+            let body_map: HashMap<String, HashMap<String, String>> = serde_json::from_str(data)?;
+            let status = http_client
+                .post(format!("{}/v1/secret/data/password", &vault.url))
+                .header("X-Vault-Token", VAULT_ROOT_TOKEN)
+                .json(&body_map)
+                .send()
+                .await?
+                .status();
+            assert_eq!(status, 200);
+
+            let s = SpinTestController::with_manifest(
+                &format!(
+                    "{}/{}",
+                    RUST_HTTP_VAULT_CONFIG_TEST, DEFAULT_MANIFEST_LOCATION
+                ),
+                &[
+                    "--runtime-config-file",
+                    &format!("{}/{}", RUST_HTTP_VAULT_CONFIG_TEST, "runtime_config.toml"),
+                ],
+                &[],
+                None,
+            )
+            .await?;
+
+            assert_status(&s, "/", 200).await?;
+
+            Ok(())
+        }
+
+        /// Controller for running Vault.
+        pub struct VaultTestController {
+            pub url: String,
+            vault_handle: Child,
+        }
+
+        impl VaultTestController {
+            pub async fn new() -> Result<VaultTestController> {
+                let address = "127.0.0.1:8200";
+                let url = format!("http://{}", address);
+
+                let mut vault_handle = Command::new(get_process(VAULT_BINARY))
+                    .args(["server", "-dev", "-dev-root-token-id", VAULT_ROOT_TOKEN])
+                    .spawn()
+                    .with_context(|| "executing vault")?;
+
+                wait_vault(&url, &mut vault_handle, VAULT_BINARY).await?;
+
+                Ok(Self { url, vault_handle })
+            }
+        }
+
+        impl Drop for VaultTestController {
+            fn drop(&mut self) {
+                let _ = self.vault_handle.kill();
+            }
+        }
+
+        async fn wait_vault(url: &str, process: &mut Child, target: &str) -> Result<()> {
+            println!("vault url is {} and process is {:?}", url, process);
+            let mut wait_count = 0;
+            loop {
+                if wait_count >= 120 {
+                    panic!(
+                        "Ran out of retries waiting for {} to start on URL {}",
+                        target, url
+                    );
+                }
+
+                if let Ok(Some(_)) = process.try_wait() {
+                    panic!(
+                        "Process exited before starting to serve {} to start on URL {}",
+                        target, url
+                    );
+                }
+
+                let client = reqwest::Client::new();
+                if let Ok(rsp) = client
+                    .get(format!("{url}/v1/sys/health"))
+                    .header("X-Vault-Token", VAULT_ROOT_TOKEN)
+                    .send()
+                    .await
+                {
+                    if rsp.status().is_success() {
+                        break;
+                    }
+                }
+
+                wait_count += 1;
+                sleep(Duration::from_secs(1)).await;
+            }
+
+            Ok(())
+        }
     }
 
     async fn assert_status(
@@ -705,17 +823,19 @@ mod integration_tests {
     impl SpinTestController {
         pub async fn with_manifest(
             manifest_path: &str,
-            env: &[&str],
+            spin_args: &[&str],
+            spin_app_env: &[&str],
             bindle_url: Option<&str>,
         ) -> Result<SpinTestController> {
             // start Spin using the given application manifest and wait for the HTTP server to be available.
             let url = format!("127.0.0.1:{}", get_random_port()?);
             let mut args = vec!["up", "--file", manifest_path, "--listen", &url];
+            args.extend(spin_args);
             if let Some(b) = bindle_url {
                 args.push("--bindle-server");
                 args.push(b);
             }
-            for v in env {
+            for v in spin_app_env {
                 args.push("--env");
                 args.push(v);
             }

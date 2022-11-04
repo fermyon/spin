@@ -286,7 +286,7 @@ fn format_response_error<T>(e: Error<T>) -> anyhow::Error {
         Error::ResponseError(r) => {
             match serde_json::from_str::<ValidationExceptionMessage>(&r.content) {
                 Ok(m) => anyhow::anyhow!("{} {:?}", m.title, m.errors),
-                _ => anyhow::anyhow!(r.content),
+                _ => anyhow::anyhow!("response status code: {}", r.status),
             }
         }
         Error::Serde(err) => {

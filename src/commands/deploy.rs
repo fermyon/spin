@@ -425,12 +425,7 @@ impl DeployCommand {
 
     async fn compute_buildinfo(&self, cfg: &RawAppManifest) -> Result<BuildMetadata> {
         let mut sha256 = Sha256::new();
-        let app_folder = self.app.parent().with_context(|| {
-            anyhow!(
-                "Cannot get a parent directory of manifest file {}",
-                &self.app.display()
-            )
-        })?;
+        let app_folder = crate::app_dir(&self.app)?;
 
         for x in cfg.components.iter() {
             match &x.source {
@@ -444,9 +439,8 @@ impl DeployCommand {
                 config::RawModuleSource::Url(us) => sha256.update(us.digest.as_bytes()),
             }
             if let Some(files) = &x.wasm.files {
-                let source_dir = crate::app_dir(&self.app)?;
                 let exclude_files = x.wasm.exclude_files.clone().unwrap_or_default();
-                let fm = assets::collect(files, &exclude_files, &source_dir)?;
+                let fm = assets::collect(files, &exclude_files, &app_folder)?;
                 for f in fm.iter() {
                     let mut r = File::open(&f.src)
                         .with_context(|| anyhow!("Cannot open file {}", &f.src.display()))?;

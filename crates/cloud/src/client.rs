@@ -281,12 +281,21 @@ struct ValidationExceptionMessage {
     errors: HashMap<String, Vec<String>>,
 }
 
+#[derive(Deserialize, Debug)]
+struct CloudProblemDetails {
+    detail: String,
+}
+
 fn format_response_error<T>(e: Error<T>) -> anyhow::Error {
     match e {
         Error::ResponseError(r) => {
-            match serde_json::from_str::<ValidationExceptionMessage>(&r.content) {
-                Ok(m) => anyhow::anyhow!("{} {:?}", m.title, m.errors),
-                _ => anyhow::anyhow!("response status code: {}", r.status),
+            // Validation failures are distinguished by the presence of `errors` so try that first
+            if let Ok(m) = serde_json::from_str::<ValidationExceptionMessage>(&r.content) {
+                anyhow::anyhow!("{} {:?}", m.title, m.errors)
+            } else if let Ok(d) = serde_json::from_str::<CloudProblemDetails>(&r.content) {
+                anyhow::anyhow!("{}", d.detail)
+            } else {
+                anyhow::anyhow!("response status code: {}", r.status)
             }
         }
         Error::Serde(err) => {

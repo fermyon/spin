@@ -1,11 +1,43 @@
 #![deny(missing_docs)]
 
+use crate::expander::expand_manifest;
 use anyhow::{Context, Result};
 use bindle::{Invoice, Parcel};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
 };
+
+/// Expands a file-based application manifest to a Bindle invoice and writes it
+/// as a standalone bindle.
+pub async fn prepare_bindle(
+    app_file: impl AsRef<Path>,
+    buildinfo: Option<semver::BuildMetadata>,
+    dest_dir: impl AsRef<Path>,
+) -> Result<bindle::Id> {
+    let (invoice, sources) = expand_manifest(&app_file, buildinfo, &dest_dir)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to expand '{}' to a bindle",
+                app_file.as_ref().display()
+            )
+        })?;
+
+    let source_dir = crate::app_dir(&app_file)?;
+
+    write(&source_dir, &dest_dir, &invoice, &sources)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to write bindle '{}' to {}",
+                &invoice.bindle.id,
+                dest_dir.as_ref().display()
+            )
+        })?;
+
+    Ok(invoice.bindle.id)
+}
 
 struct BindleWriter {
     source_dir: PathBuf,
@@ -15,7 +47,7 @@ struct BindleWriter {
 }
 
 /// Writes an invoice and supporting parcels out as a standalone bindle.
-pub async fn write(
+async fn write(
     source_dir: impl AsRef<Path>,
     dest_dir: impl AsRef<Path>,
     invoice: &Invoice,
@@ -88,35 +120,25 @@ impl BindleWriter {
 }
 
 #[derive(Debug, Clone)]
-pub struct ParcelSource {
+pub(crate) struct ParcelSource {
     digest: String,
     source_path: PathBuf,
 }
 
 #[derive(Debug, Clone)]
-pub struct ParcelSources {
+pub(crate) struct ParcelSources {
     sources: Vec<ParcelSource>,
 }
 
 impl ParcelSources {
-    pub fn source(&self, digest: &str) -> Option<&PathBuf> {
+    pub(crate) fn source(&self, digest: &str) -> Option<&PathBuf> {
         self.sources
             .iter()
             .find(|s| s.digest == digest)
             .map(|s| &s.source_path)
     }
 
-    pub fn single(digest: &str, source: impl AsRef<Path>) -> Self {
-        let parcel_source = ParcelSource {
-            digest: digest.to_owned(),
-            source_path: source.as_ref().to_owned(),
-        };
-        Self {
-            sources: vec![parcel_source],
-        }
-    }
-
-    pub fn from_iter(paths: impl Iterator<Item = (String, impl AsRef<Path>)>) -> Self {
+    pub(crate) fn from_iter(paths: impl Iterator<Item = (String, impl AsRef<Path>)>) -> Self {
         let sources = paths
             .map(|(digest, path)| ParcelSource {
                 digest,

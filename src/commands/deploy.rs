@@ -562,22 +562,13 @@ impl DeployCommand {
         buildinfo: Option<BuildMetadata>,
         bindle_connection_info: BindleConnectionInfo,
     ) -> Result<Id> {
-        let source_dir = crate::app_dir(&self.app)?;
-
         let temp_dir = tempfile::tempdir()?;
         let dest_dir = match &self.staging_dir {
             None => temp_dir.path(),
             Some(path) => path.as_path(),
         };
-        let (invoice, sources) = spin_publish::expand_manifest(&self.app, buildinfo, &dest_dir)
-            .await
-            .with_context(|| format!("Failed to expand '{}' to a bindle", self.app.display()))?;
 
-        let bindle_id = &invoice.bindle.id;
-
-        spin_publish::write(&source_dir, &dest_dir, &invoice, &sources)
-            .await
-            .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
+        let bindle_id = spin_publish::prepare_bindle(&self.app, buildinfo, dest_dir).await?;
 
         println!(
             "Uploading {} version {}...",
@@ -586,7 +577,7 @@ impl DeployCommand {
         );
 
         let publish_result =
-            spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info.clone()).await;
+            spin_publish::push_all(&dest_dir, &bindle_id, bindle_connection_info.clone()).await;
 
         if let Err(publish_err) = publish_result {
             // TODO: maybe use `thiserror` to return type errors.

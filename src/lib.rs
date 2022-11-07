@@ -21,14 +21,6 @@ pub(crate) fn app_dir(app_file: impl AsRef<Path>) -> Result<PathBuf> {
     Ok(path_buf)
 }
 
-pub(crate) fn write_failed_msg(bindle_id: &bindle::Id, dest_dir: &Path) -> String {
-    format!(
-        "Failed to write bindle '{}' to {}",
-        bindle_id,
-        dest_dir.display()
-    )
-}
-
 pub(crate) fn parse_buildinfo(buildinfo: &str) -> Result<BuildMetadata> {
     Ok(BuildMetadata::new(buildinfo)?)
 }

@@ -13,7 +13,7 @@ use spin_loader::{
 use std::path::{Path, PathBuf};
 
 /// Expands a file-based application manifest to a Bindle invoice.
-pub async fn expand_manifest(
+pub(crate) async fn expand_manifest(
     app_file: impl AsRef<Path>,
     buildinfo: Option<BuildMetadata>,
     scratch_dir: impl AsRef<Path>,
@@ -25,7 +25,7 @@ pub async fn expand_manifest(
     let manifest = spin_loader::local::raw_manifest_from_file(&app_file).await?;
     validate_raw_app_manifest(&manifest)?;
     let local_schema::RawAppManifestAnyVersion::V1(manifest) = manifest;
-    let app_dir = app_dir(&app_file)?;
+    let app_dir = crate::app_dir(&app_file)?;
 
     // * create a new spin.toml-like document where
     //   - each component changes its `files` entry to a group name
@@ -415,20 +415,6 @@ fn bindle_id(
     };
     bindle::Id::try_from(&text)
         .with_context(|| format!("App name and version '{}' do not form a bindle ID", text))
-}
-
-fn app_dir(app_file: impl AsRef<Path>) -> Result<std::path::PathBuf> {
-    let path_buf = app_file
-        .as_ref()
-        .parent()
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Failed to get containing directory for app file '{}'",
-                app_file.as_ref().display()
-            )
-        })?
-        .to_owned();
-    Ok(path_buf)
 }
 
 struct SourcedParcel {

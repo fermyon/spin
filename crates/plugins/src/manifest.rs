@@ -21,7 +21,7 @@ pub struct PluginManifest {
     /// Versions of Spin that the plugin is compatible with.
     pub(crate) spin_compatibility: String,
     /// License of the plugin.
-    pub(crate) license: String,
+    license: String,
     /// Points to source package[s] of the plugin..
     pub(crate) packages: Vec<PluginPackage>,
 }
@@ -29,6 +29,9 @@ pub struct PluginManifest {
 impl PluginManifest {
     pub fn name(&self) -> String {
         self.name.to_lowercase()
+    }
+    pub fn license(&self) -> &str {
+        self.license.as_ref()
     }
 }
 
@@ -43,6 +46,12 @@ pub struct PluginPackage {
     pub(crate) url: String,
     /// Checksum to verify the plugin before installation.
     pub(crate) sha256: String,
+}
+
+impl PluginPackage {
+    pub fn url(&self) -> String {
+        self.url.clone()
+    }
 }
 
 /// Describes the compatible OS of a plugin

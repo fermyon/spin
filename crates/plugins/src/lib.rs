@@ -3,9 +3,7 @@ mod git;
 pub mod lookup;
 pub mod manager;
 pub mod manifest;
-mod prompt;
 mod store;
-pub use prompt::prompt_confirm_install;
 pub use store::PluginStore;
 
 /// List of Spin internal subcommands

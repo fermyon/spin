@@ -6,7 +6,6 @@ use spin_plugins::{
     lookup::{fetch_plugins_repo, plugins_repo_url, PluginLookup},
     manager::{self, ManifestLocation, PluginManager},
     manifest::{PluginManifest, PluginPackage},
-    prompt_confirm_install,
 };
 use std::path::{Path, PathBuf};
 use tracing::log;
@@ -300,6 +299,24 @@ fn continue_to_install(
     yes_to_all: bool,
 ) -> Result<bool> {
     Ok(yes_to_all || prompt_confirm_install(manifest, package)?)
+}
+
+fn prompt_confirm_install(manifest: &PluginManifest, package: &PluginPackage) -> Result<bool> {
+    let prompt = format!(
+        "Are you sure you want to install plugin '{}' with license {} from {}?",
+        manifest.name(),
+        manifest.license(),
+        package.url()
+    );
+    let install = dialoguer::Confirm::new()
+        .with_prompt(prompt)
+        .default(false)
+        .interact_opt()?
+        .unwrap_or(false);
+    if !install {
+        println!("Plugin '{}' will not be installed", manifest.name());
+    }
+    Ok(install)
 }
 
 async fn try_install(

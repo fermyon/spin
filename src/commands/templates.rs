@@ -1,12 +1,13 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use comfy_table::Table;
 
+use serde::Serialize;
 use spin_templates::{
     InstallOptions, InstallationResults, InstalledTemplateWarning, ListResults, ProgressReporter,
-    SkippedReason, TemplateManager, TemplateSource,
+    SkippedReason, Template, TemplateManager, TemplateSource,
 };
 
 const INSTALL_FROM_DIR_OPT: &str = "FROM_DIR";
@@ -154,7 +155,17 @@ impl Uninstall {
 
 /// List the installed templates.
 #[derive(Parser, Debug)]
-pub struct List {}
+pub struct List {
+    /// The format in which to list the templates.
+    #[clap(value_enum, long = "format", default_value = "table", hide = true)]
+    pub format: ListFormat,
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+pub enum ListFormat {
+    Table,
+    Json,
+}
 
 impl List {
     pub async fn run(self) -> Result<()> {
@@ -165,12 +176,15 @@ impl List {
             .await
             .context("Failed to list templates")?;
 
-        self.print_templates(&list_results);
+        match self.format {
+            ListFormat::Table => self.print_templates_table(&list_results),
+            ListFormat::Json => self.print_templates_json(&list_results)?,
+        };
 
         Ok(())
     }
 
-    fn print_templates(&self, list_results: &ListResults) {
+    fn print_templates_table(&self, list_results: &ListResults) {
         let templates = &list_results.templates;
         let warnings = &list_results.warnings;
         if templates.is_empty() {
@@ -204,6 +218,31 @@ impl List {
             }
         }
     }
+
+    fn print_templates_json(&self, list_results: &ListResults) -> anyhow::Result<()> {
+        let json_vals: Vec<_> = list_results
+            .templates
+            .iter()
+            .map(json_list_format)
+            .collect();
+        let json_text = serde_json::to_string_pretty(&json_vals)?;
+        println!("{}", json_text);
+        Ok(())
+    }
+}
+
+fn json_list_format(template: &Template) -> TemplateListJson {
+    TemplateListJson {
+        id: template.id().to_owned(),
+        description: template.description().as_ref().cloned(),
+    }
+}
+
+#[derive(Serialize)]
+struct TemplateListJson {
+    id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
 }
 
 struct ConsoleProgressReporter;

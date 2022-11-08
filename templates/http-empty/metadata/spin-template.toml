@@ -1,0 +1,7 @@
+manifest_version = "1"
+id = "http-empty"
+description = "HTTP application with no components"
+
+[parameters]
+project-description = { type = "string",  prompt = "Project description", default = "" }
+http-base = { type = "string", prompt = "HTTP base", default = "/", pattern = "^/\\S*$" }

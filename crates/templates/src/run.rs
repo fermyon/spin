@@ -8,7 +8,7 @@ use itertools::Itertools;
 use path_absolutize::Absolutize;
 use walkdir::WalkDir;
 
-use crate::template::{Template, TemplateParameter};
+use crate::template::{Template, TemplateParameter, TemplateVariantKind};
 
 /// Executes a template to the point where it is ready to generate
 /// artefacts.
@@ -19,6 +19,8 @@ pub struct Run {
 
 /// Options controlling the execution of a template.
 pub struct RunOptions {
+    /// The variant mode in which to run the template.
+    pub variant: TemplateVariantKind,
     /// The name of the generated item.
     pub name: String,
     /// The path at which to generate artefacts.
@@ -27,6 +29,10 @@ pub struct RunOptions {
     pub values: HashMap<String, String>,
     /// If true accept default values where available
     pub accept_defaults: bool,
+    // TODO: this would be better as part of the variant but I think I've
+    // messed that up for now
+    /// Path to the existing app manifest, if any
+    pub existing_manifest: Option<PathBuf>,
 }
 
 enum Cancellable<T, E> {
@@ -56,6 +62,7 @@ pub struct TemplatePreparationResult {
 
 struct PreparedTemplate {
     files: HashMap<PathBuf, TemplateContent>,
+    snippets: Vec<SnippetOperation>,
     special_values: HashMap<String, String>,
     parameter_values: HashMap<String, String>,
 }
@@ -65,8 +72,17 @@ enum TemplateContent {
     Binary(Vec<u8>),
 }
 
+enum SnippetOperation {
+    AppendToml(PathBuf, TemplateContent),
+}
+
 struct TemplateOutputs {
     files: HashMap<PathBuf, Vec<u8>>,
+    deltas: Vec<Delta>,
+}
+
+enum Delta {
+    AppendToml(PathBuf, String),
 }
 
 impl Run {
@@ -116,10 +132,12 @@ impl Run {
         allow_generate: impl Fn(&Path) -> Cancellable<(), anyhow::Error>,
         populate_parameters: impl Fn() -> anyhow::Result<Option<HashMap<String, String>>>,
     ) -> anyhow::Result<Option<PreparedTemplate>> {
-        // TODO: rationalise `path` and `dir`
-        let to = self.target_dir();
+        self.validate_trigger().await?;
 
-        match allow_generate(to) {
+        // TODO: rationalise `path` and `dir`
+        let to = self.generation_target_dir();
+
+        match allow_generate(&to) {
             Cancellable::Cancelled => return Ok(None),
             Cancellable::Ok(_) => (),
             Cancellable::Err(e) => return Err(e),
@@ -137,19 +155,30 @@ impl Run {
                     .absolutize()
                     .context("Failed to get absolute path of template directory")?
                     .into_owned();
-                let template_content_files = Self::collect_all_content(&from)?;
+                let all_content_files = Self::list_content_files(&from)?;
+                let included_files =
+                    self.template
+                        .included_files(&from, all_content_files, &self.options.variant);
                 // TODO: okay we do want to do *some* parsing here because we don't want
                 // to prompt if the template bodies are garbage
-                let template_contents = self.read_all(template_content_files)?;
-                Self::to_output_paths(&from, to, template_contents)
+                let template_contents = self.read_all(included_files)?;
+                Self::to_output_paths(&from, &to, template_contents)
             }
         };
+
+        let snippets = self
+            .template
+            .snippets(&self.options.variant)
+            .iter()
+            .map(|(id, path)| self.snippet_operation(id, path))
+            .collect::<anyhow::Result<Vec<_>>>()?;
 
         match populate_parameters()? {
             Some(parameter_values) => {
                 // let outputs = Self::render_all(output_templates, &parameter_values)?;
                 let prepared_template = PreparedTemplate {
                     files: outputs,
+                    snippets,
                     special_values: self.special_values().await,
                     parameter_values,
                 };
@@ -166,12 +195,23 @@ impl Run {
         values.insert("authors".into(), authors.author);
         values.insert("username".into(), authors.username);
         values.insert("project-name".into(), self.options.name.clone());
+        values.insert(
+            "output-path".into(),
+            self.relative_target_dir().to_string_lossy().to_string(),
+        );
 
         values
     }
 
-    fn target_dir(&self) -> &PathBuf {
+    fn relative_target_dir(&self) -> &Path {
         &self.options.output_path
+    }
+
+    fn generation_target_dir(&self) -> PathBuf {
+        match &self.options.existing_manifest {
+            None => self.options.output_path.clone(),
+            Some(f) => f.parent().unwrap().join(&self.options.output_path),
+        }
     }
 
     fn validate_provided_values(&self) -> anyhow::Result<()> {
@@ -206,7 +246,49 @@ impl Run {
         }
     }
 
-    fn collect_all_content(from: &Path) -> anyhow::Result<Vec<PathBuf>> {
+    async fn validate_trigger(&self) -> anyhow::Result<()> {
+        match self.options.variant {
+            TemplateVariantKind::NewApplication => Ok(()),
+            TemplateVariantKind::AddComponent => {
+                // TODO: again, restructure so we don't have to unwarp()
+                let manifest_path = self.options.existing_manifest.as_ref().unwrap();
+                match crate::app_info::AppInfo::from_file(manifest_path) {
+                    Some(Ok(app_info)) => self
+                        .template
+                        .check_compatible_trigger(app_info.trigger_type()),
+                    _ => Ok(()), // Fail forgiving - don't block the user if things are under construction
+                }
+            }
+        }
+    }
+
+    fn snippet_operation(&self, id: &str, snippet_file: &str) -> anyhow::Result<SnippetOperation> {
+        let snippets_dir = self
+            .template
+            .snippets_dir()
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Template snippets directory not found"))?;
+        let abs_snippet_file = snippets_dir.join(snippet_file);
+        let file_content = std::fs::read(abs_snippet_file)
+            .with_context(|| format!("Error reading snippet file {}", snippet_file))?;
+        let content = TemplateContent::infer_from_bytes(file_content, &self.template_parser());
+
+        match id {
+            "component" => Ok(SnippetOperation::AppendToml(
+                // TODO: We never process a `component` snippet without setting
+                // existing_manifest, but the Run data structure doesn't yet
+                // guarantee that.  It should.
+                self.options.existing_manifest.as_ref().unwrap().clone(),
+                content,
+            )),
+            _ => Err(anyhow::anyhow!(
+                "Spin doesn't know what to do with snippet {}",
+                id
+            )),
+        }
+    }
+
+    fn list_content_files(from: &Path) -> anyhow::Result<Vec<PathBuf>> {
         let walker = WalkDir::new(from);
         let files = walker
             .into_iter()
@@ -270,7 +352,7 @@ impl Run {
     // TODO: we can unify most of this with populate_parameters_silent
     fn populate_parameters_interactive(&self) -> anyhow::Result<Option<HashMap<String, String>>> {
         let mut values = HashMap::new();
-        for parameter in self.template.parameters() {
+        for parameter in self.template.parameters(&self.options.variant) {
             match self.populate_parameter_interactive(parameter) {
                 Some(v) => {
                     values.insert(parameter.id().to_owned(), v);
@@ -293,7 +375,7 @@ impl Run {
 
     fn populate_parameters_silent(&self) -> anyhow::Result<Option<HashMap<String, String>>> {
         let mut values = HashMap::new();
-        for parameter in self.template.parameters() {
+        for parameter in self.template.parameters(&self.options.variant) {
             let value = self.populate_parameter_silent(parameter)?;
             values.insert(parameter.id().to_owned(), value);
         }
@@ -382,13 +464,23 @@ impl TemplatePreparationResult {
 impl PreparedTemplate {
     fn render_all(self) -> anyhow::Result<TemplateOutputs> {
         let globals = self.renderer_globals();
+
         let rendered = self
             .files
             .into_iter()
             .map(|(path, content)| Self::render_one(path, content, &globals))
             .collect::<anyhow::Result<Vec<_>>>()?;
         let outputs = HashMap::from_iter(rendered);
-        Ok(TemplateOutputs { files: outputs })
+
+        let deltas = self
+            .snippets
+            .into_iter()
+            .map(|so| Self::render_snippet(so, &globals))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        Ok(TemplateOutputs {
+            files: outputs,
+            deltas,
+        })
     }
 
     fn render_one(
@@ -398,6 +490,19 @@ impl PreparedTemplate {
     ) -> anyhow::Result<(PathBuf, Vec<u8>)> {
         let rendered = content.render(globals)?;
         Ok((path, rendered))
+    }
+
+    fn render_snippet(
+        snippet_op: SnippetOperation,
+        globals: &liquid::Object,
+    ) -> anyhow::Result<Delta> {
+        match snippet_op {
+            SnippetOperation::AppendToml(path, content) => {
+                let rendered = content.render(globals)?;
+                let rendered_text = String::from_utf8(rendered)?;
+                Ok(Delta::AppendToml(path, rendered_text))
+            }
+        }
     }
 
     fn renderer_globals(&self) -> liquid::Object {
@@ -464,6 +569,19 @@ impl TemplateOutputs {
             tokio::fs::write(&path, &contents)
                 .await
                 .with_context(|| format!("Failed to write file {}", path.display()))?;
+        }
+        for delta in &self.deltas {
+            match delta {
+                Delta::AppendToml(path, text) => {
+                    let existing_toml = tokio::fs::read_to_string(path)
+                        .await
+                        .with_context(|| format!("Can't open {} to append", path.display()))?;
+                    let new_toml = format!("{}\n\n{}", existing_toml.trim_end(), text);
+                    tokio::fs::write(path, new_toml)
+                        .await
+                        .with_context(|| format!("Can't save changes to {}", path.display()))?;
+                }
+            }
         }
         Ok(())
     }

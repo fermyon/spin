@@ -1,7 +1,8 @@
 //! Package for working with Wasm component templates.
 
-#![deny(missing_docs)]
+#![allow(missing_docs)]
 
+mod app_info;
 mod constraints;
 mod custom_filters;
 mod directory;
@@ -18,4 +19,4 @@ mod template;
 pub use manager::*;
 pub use run::{Run, RunOptions, TemplatePreparationResult};
 pub use source::TemplateSource;
-pub use template::Template;
+pub use template::{Template, TemplateVariantKind};

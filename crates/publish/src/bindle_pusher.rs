@@ -8,13 +8,13 @@ use std::path::Path;
 pub async fn push_all(
     path: impl AsRef<Path>,
     bindle_id: &Id,
-    bindle_connection_info: crate::BindleConnectionInfo,
+    bindle_connection_info: spin_loader::bindle::BindleConnectionInfo,
 ) -> Result<()> {
     let reader = StandaloneRead::new(&path, bindle_id).await?;
     let client = &bindle_connection_info.client().with_context(|| {
         format!(
             "Failed to create a bindle client for server '{}'",
-            &bindle_connection_info.base_url
+            &bindle_connection_info.base_url()
         )
     })?;
 
@@ -25,7 +25,7 @@ pub async fn push_all(
     reader
         .push(client)
         .await
-        .with_context(|| push_failed_msg(path, &bindle_connection_info.base_url))
+        .with_context(|| push_failed_msg(path, bindle_connection_info.base_url()))
 }
 
 fn push_failed_msg(path: impl AsRef<Path>, server_url: &str) -> String {

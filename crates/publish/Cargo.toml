@@ -6,7 +6,6 @@ authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 
 [dependencies]
 anyhow = "1.0"
-async-trait = "0.1.52"
 bindle = { git = "https://github.com/fermyon/bindle", tag = "v0.8.2", default-features = false, features = ["client"] }
 dunce = "1.0"
 futures = "0.3.14"

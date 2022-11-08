@@ -12,11 +12,11 @@ use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
 use spin_http::routes::RoutePattern;
 use spin_http::WELL_KNOWN_HEALTH_PATH;
+use spin_loader::bindle::BindleConnectionInfo;
 use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
 use spin_loader::local::{assets, config};
 use spin_manifest::ApplicationTrigger;
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
-use spin_publish::BindleConnectionInfo;
 use tokio::fs;
 
 use std::fs::File;

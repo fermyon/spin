@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use semver::BuildMetadata;
+use spin_loader::bindle::BindleConnectionInfo;
 
 use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response};
 
@@ -155,7 +156,7 @@ impl Push {
             .as_deref()
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
         let source_dir = crate::app_dir(app_file)?;
-        let bindle_connection_info = spin_publish::BindleConnectionInfo::new(
+        let bindle_connection_info = BindleConnectionInfo::new(
             &self.bindle_server_url,
             self.insecure,
             self.bindle_username,

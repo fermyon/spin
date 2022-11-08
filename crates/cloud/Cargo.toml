@@ -25,9 +25,6 @@ reqwest = { version = "0.11", features = ["stream"] }
 semver = "1.0"
 serde = {version = "1.0", features = ["derive"]}
 serde_json = "1.0"
-spin-loader = { path = "../loader" }
-spin-publish = { path = "../publish" }
-tempfile = "3.3.0"
 tokio = { version = "1.17", features = ["full"] }
 tokio-util = { version = "0.7.3", features = ["codec"] }
 tracing = { version = "0.1", features = [ "log" ] }

@@ -68,6 +68,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "http-rust"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "http",
+ "spin-sdk",
+ "wit-bindgen-rust",
+]
+
+[[package]]
 name = "id-arena"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -150,17 +161,6 @@ dependencies = [
  "form_urlencoded",
  "http",
  "spin-macro",
- "wit-bindgen-rust",
-]
-
-[[package]]
-name = "spinhelloworld"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytes",
- "http",
- "spin-sdk",
  "wit-bindgen-rust",
 ]
 

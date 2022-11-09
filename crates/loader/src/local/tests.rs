@@ -216,3 +216,26 @@ async fn test_invalid_url_in_allowed_http_hosts_is_rejected() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_invalid_url_in_allowed_http_hosts_is_rejected_raw() -> Result<()> {
+    let app_file = Path::new("tests/invalid-url-in-allowed-http-hosts.toml");
+    let manifest = raw_manifest_from_file(&app_file).await;
+
+    assert!(
+        manifest.is_err(),
+        "Expected allowed_http_hosts parsing error"
+    );
+
+    let e = manifest.unwrap_err().to_string();
+    assert!(
+        e.contains("ftp://some-random-api.ml"),
+        "Expected allowed_http_hosts parse error to contain `ftp://some-random-api.ml`"
+    );
+    assert!(
+        e.contains("example.com/wib/wob"),
+        "Expected allowed_http_hosts parse error to contain `example.com/wib/wob`"
+    );
+
+    Ok(())
+}

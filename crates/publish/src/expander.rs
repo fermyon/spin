@@ -3,12 +3,11 @@
 use crate::bindle_writer::{self, ParcelSources};
 use anyhow::{Context, Result};
 use bindle::{BindleSpec, Condition, Group, Invoice, Label, Parcel};
-use path_absolutize::Absolutize;
 use semver::BuildMetadata;
 use spin_loader::{
     bindle::config as bindle_schema,
     digest::{bytes_sha256_string, file_sha256_string},
-    local::{config as local_schema, validate_raw_app_manifest},
+    local::config as local_schema,
 };
 use std::path::{Path, PathBuf};
 
@@ -18,13 +17,8 @@ pub async fn expand_manifest(
     buildinfo: Option<BuildMetadata>,
     scratch_dir: impl AsRef<Path>,
 ) -> Result<(Invoice, ParcelSources)> {
-    let app_file = app_file
-        .as_ref()
-        .absolutize()
-        .context("Failed to resolve absolute path to manifest file")?;
-    let manifest = spin_loader::local::raw_manifest_from_file(&app_file).await?;
-    validate_raw_app_manifest(&manifest)?;
-    let local_schema::RawAppManifestAnyVersion::V1(manifest) = manifest;
+    let local_schema::RawAppManifestAnyVersion::V1(manifest) =
+        spin_loader::local::raw_manifest_from_file(&app_file).await?;
     let app_dir = app_dir(&app_file)?;
 
     // * create a new spin.toml-like document where

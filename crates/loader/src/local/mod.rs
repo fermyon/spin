@@ -10,9 +10,11 @@ pub mod config;
 #[cfg(test)]
 mod tests;
 
-use std::{path::Path, str::FromStr};
+use std::{borrow::Cow, path::Path, str::FromStr};
 
+use crate::bindle::BindleConnectionInfo;
 use anyhow::{anyhow, bail, Context, Result};
+use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawComponentManifest};
 use futures::future;
 use outbound_http::allowed_http_hosts::validate_allowed_http_hosts;
 use path_absolutize::Absolutize;
@@ -20,10 +22,6 @@ use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
-use tokio::{fs::File, io::AsyncReadExt};
-
-use crate::bindle::BindleConnectionInfo;
-use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawComponentManifest};
 
 /// Given the path to a spin.toml manifest file, prepare its assets locally and
 /// get a prepared application configuration consumable by a Spin execution context.
@@ -34,28 +32,22 @@ pub async fn from_file(
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<Application> {
-    let app = app
-        .as_ref()
-        .absolutize()
-        .context("Failed to resolve absolute path to manifest file")?;
     let manifest = raw_manifest_from_file(&app).await?;
-    validate_raw_app_manifest(&manifest)?;
 
     prepare_any_version(manifest, app, base_dst, bindle_connection).await
 }
 
 /// Reads the spin.toml file as a raw manifest.
 pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppManifestAnyVersion> {
-    let mut buf = vec![];
-    File::open(app.as_ref())
-        .await
-        .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?
-        .read_to_end(&mut buf)
+    let app = absolutize(app)?;
+    let buf = tokio::fs::read(app.as_ref())
         .await
         .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
 
     let manifest: RawAppManifestAnyVersion = toml::from_slice(&buf)
         .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
+
+    validate_raw_app_manifest(&manifest)?;
 
     Ok(manifest)
 }
@@ -106,6 +98,7 @@ async fn prepare(
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<Application> {
+    let src = absolutize(&src)?;
     let info = info(raw.info, &src);
 
     error_on_duplicate_ids(raw.components.clone())?;
@@ -227,4 +220,10 @@ fn info(raw: RawAppInformation, src: impl AsRef<Path>) -> ApplicationInformation
         namespace: raw.namespace,
         origin: ApplicationOrigin::File(src.as_ref().to_path_buf()),
     }
+}
+
+fn absolutize(path: &impl AsRef<Path>) -> Result<Cow<'_, Path>> {
+    path.as_ref()
+        .absolutize()
+        .context("Failed to resolve absolute path to manifest file")
 }

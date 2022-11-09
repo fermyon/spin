@@ -4258,7 +4258,6 @@ dependencies = [
  "futures",
  "itertools",
  "mime_guess",
- "path-absolutize",
  "reqwest",
  "semver 1.0.14",
  "serde",

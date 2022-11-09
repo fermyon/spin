@@ -1,6 +1,6 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::{Args, IntoApp, Parser};
 use serde::de::DeserializeOwned;
 
@@ -9,9 +9,7 @@ use crate::{config::TriggerExecutorBuilderConfig, loader::TriggerLoader, stdio::
 use crate::{TriggerExecutor, TriggerExecutorBuilder};
 
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
-pub const DISABLE_WASMTIME_CACHE: &str = "DISABLE_WASMTIME_CACHE";
 pub const FOLLOW_LOG_OPT: &str = "FOLLOW_ID";
-pub const WASMTIME_CACHE_FILE: &str = "WASMTIME_CACHE_FILE";
 pub const RUNTIME_CONFIG_FILE: &str = "RUNTIME_CONFIG_FILE";
 
 // Set by `spin up`
@@ -32,25 +30,6 @@ where
             long = "log-dir",
             )]
     pub log: Option<PathBuf>,
-
-    /// Disable Wasmtime cache.
-    #[clap(
-        name = DISABLE_WASMTIME_CACHE,
-        long = "disable-cache",
-        env = DISABLE_WASMTIME_CACHE,
-        conflicts_with = WASMTIME_CACHE_FILE,
-        takes_value = false,
-    )]
-    pub disable_cache: bool,
-
-    /// Wasmtime cache configuration file.
-    #[clap(
-        name = WASMTIME_CACHE_FILE,
-        long = "cache",
-        env = WASMTIME_CACHE_FILE,
-        conflicts_with = DISABLE_WASMTIME_CACHE,
-    )]
-    pub cache: Option<PathBuf>,
 
     /// Print output for given component(s) to stdout/stderr
     #[clap(
@@ -110,19 +89,32 @@ where
         let working_dir = std::env::var(SPIN_WORKING_DIR).context(SPIN_WORKING_DIR)?;
         let locked_url = std::env::var(SPIN_LOCKED_URL).context(SPIN_LOCKED_URL)?;
 
-        let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
+        let loader = TriggerLoader::new(&working_dir, self.allow_transient_write);
 
+        let base_runtime_config_dir = match &self.runtime_config_file {
+            Some(p) => p.parent().ok_or_else(|| {
+                anyhow!(
+                    "Failed to get containing directory for runtime config file '{}'",
+                    &p.display()
+                )
+            })?,
+            None => Path::new(&working_dir),
+        };
         let trigger_config =
             TriggerExecutorBuilderConfig::load_from_file(self.runtime_config_file.clone())?;
 
         let executor: Executor = {
             let mut builder = TriggerExecutorBuilder::new(loader);
-            self.update_wasmtime_config(builder.wasmtime_config_mut())?;
+            self.update_wasmtime_config(
+                builder.wasmtime_config_mut(),
+                &trigger_config,
+                base_runtime_config_dir,
+            )?;
 
             let logging_hooks = StdioLoggingTriggerHooks::new(self.follow_components(), self.log);
             builder.hooks(logging_hooks);
 
-            builder.build(locked_url, trigger_config).await?
+            builder.build(locked_url, &trigger_config).await?
         };
 
         let run_fut = executor.run(self.run_config);
@@ -156,14 +148,27 @@ where
         }
     }
 
-    fn update_wasmtime_config(&self, config: &mut spin_core::wasmtime::Config) -> Result<()> {
-        // Apply --cache / --disable-cache
-        if !self.disable_cache {
-            match &self.cache {
-                Some(p) => config.cache_config_load(p)?,
-                None => config.cache_config_load_default()?,
+    fn update_wasmtime_config(
+        &self,
+        wasmtime_config: &mut spin_core::wasmtime::Config,
+        trigger_config: &TriggerExecutorBuilderConfig,
+        base_dir: impl AsRef<Path>,
+    ) -> Result<()> {
+        if let Some(p) = &trigger_config.wasmtime_config.cache_file {
+            let p = match Path::new(p).is_absolute() {
+                true => PathBuf::from(p),
+                false => base_dir.as_ref().join(p),
             };
+            wasmtime_config.cache_config_load(p)?;
         }
+
+        let wasm_backtrace_details = match &*trigger_config.wasmtime_config.wasm_backtrace_details {
+            "Enable" => wasmtime::WasmBacktraceDetails::Enable,
+            "Environment" => wasmtime::WasmBacktraceDetails::Environment,
+            _ => wasmtime::WasmBacktraceDetails::Disable,
+        };
+        tracing::trace!("wasm_backtrace_details {:?}", wasm_backtrace_details);
+        wasmtime_config.wasm_backtrace_details(wasm_backtrace_details);
         Ok(())
     }
 }

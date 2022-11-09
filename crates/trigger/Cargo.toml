@@ -26,6 +26,7 @@ toml = "0.5.9"
 tracing = { version = "0.1", features = [ "log" ] }
 url = "2"
 wasmtime = "0.39.1"
+wasmtime-cache = "0.39.1"
 
 [dev-dependencies]
 tempfile = "3.3.0"

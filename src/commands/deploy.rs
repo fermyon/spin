@@ -441,6 +441,7 @@ impl DeployCommand {
                     copy(&mut r, &mut sha256)?;
                 }
                 config::RawModuleSource::Bindle(_b) => {}
+                config::RawModuleSource::Url(us) => sha256.update(us.digest.as_bytes()),
             }
             if let Some(files) = &x.wasm.files {
                 let source_dir = crate::app_dir(&self.app)?;

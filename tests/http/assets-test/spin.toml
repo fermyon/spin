@@ -5,6 +5,13 @@ trigger = {type = "http", base = "/"}
 version = "1.0.0"
 
 [[component]]
+source = { url = "https://github.com/fermyon/bartholomew/releases/download/v0.6.0/bartholomew.wasm", digest = "sha256:b64bc17da4484ff7fee619ba543f077be69b3a1f037506e0eeee1fb020d42786" }
+id = "bartholomew"
+files = [ "content/**/*" , "templates/*", "config/*"]
+[component.trigger]
+route = "/..."
+
+[[component]]
 id = "fs"
 # should we just use git submodules to avoid having binary test files here?
 source = "spin_static_fs.wasm"

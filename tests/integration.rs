@@ -175,6 +175,9 @@ mod integration_tests {
             let s = SpinTestController::with_bindle(RUST_HTTP_STATIC_ASSETS_REST_REF, &b.url, &[])
                 .await?;
 
+            assert_status(&s, "/", 200).await?;
+            assert_response_contains(&s, "/", "<h1>Hello</h1>").await?;
+
             assert_status(&s, "/static/thisshouldbemounted/1", 200).await?;
             assert_status(&s, "/static/thisshouldbemounted/2", 200).await?;
             assert_status(&s, "/static/thisshouldbemounted/3", 200).await?;
@@ -662,6 +665,9 @@ mod integration_tests {
         )
         .await?;
 
+        assert_status(&s, "/", 200).await?;
+        assert_response_contains(&s, "/", "<h1>Hello</h1>").await?;
+
         assert_status(&s, "/static/thisshouldbemounted/1", 200).await?;
         assert_status(&s, "/static/thisshouldbemounted/2", 200).await?;
         assert_status(&s, "/static/thisshouldbemounted/3", 200).await?;
@@ -802,6 +808,27 @@ mod integration_tests {
             .await
             .expect("read body");
         assert_eq!(status, expected, "{}", String::from_utf8_lossy(&body));
+
+        Ok(())
+    }
+
+    async fn assert_response_contains(
+        s: &SpinTestController,
+        absolute_uri: &str,
+        expected: &str,
+    ) -> Result<()> {
+        let res = req(s, absolute_uri).await?;
+        let body = hyper::body::to_bytes(res.into_body())
+            .await
+            .expect("read body");
+        let body_text =
+            String::from_utf8(body.into_iter().collect()).expect("convert body to string");
+        assert!(
+            body_text.contains(expected),
+            "expected to contain {}, got {}",
+            expected,
+            body_text
+        );
 
         Ok(())
     }

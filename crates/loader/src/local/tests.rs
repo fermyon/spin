@@ -91,10 +91,62 @@ fn test_manifest() -> Result<()> {
     let b = match cfg.components[1].source.clone() {
         RawModuleSource::Bindle(b) => b,
         RawModuleSource::FileReference(_) => panic!("expected bindle source"),
+        RawModuleSource::Url(_) => panic!("expected bindle source"),
     };
 
     assert_eq!(b.reference, "bindle reference".to_string());
     assert_eq!(b.parcel, "parcel".to_string());
+
+    let u = match cfg.components[2].source.clone() {
+        RawModuleSource::Url(u) => u,
+        RawModuleSource::FileReference(_) => panic!("expected URL source"),
+        RawModuleSource::Bindle(_) => panic!("expected URL source"),
+    };
+
+    assert_eq!(u.url, "https://example.com/wasm.wasm.wasm".to_string());
+    assert_eq!(u.digest, "sha256:12345".to_string());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn can_parse_url_sources() -> Result<()> {
+    let fcs = FileComponentUrlSource {
+        url: "https://example.com/wasm.wasm.wasm".to_owned(),
+        digest: "sha256:12345".to_owned(),
+    };
+    let us = UrlSource::new(&fcs)?;
+    assert_eq!("https", us.url().scheme());
+    assert_eq!("/wasm.wasm.wasm", us.url().path());
+    assert_eq!(PathBuf::from("wasm.wasm.wasm"), us.url_relative_path());
+    Ok(())
+}
+
+#[tokio::test]
+async fn url_sources_are_validated() -> Result<()> {
+    let fcs1 = FileComponentUrlSource {
+        url: "ftp://example.com/wasm.wasm.wasm".to_owned(),
+        digest: "sha256:12345".to_owned(),
+    };
+    UrlSource::new(&fcs1).expect_err("fcs1 should fail on scheme");
+
+    let fcs2 = FileComponentUrlSource {
+        url: "SNORKBONGLY".to_owned(),
+        digest: "sha256:12345".to_owned(),
+    };
+    UrlSource::new(&fcs2).expect_err("fcs2 should fail because not a URL");
+
+    let fcs3 = FileComponentUrlSource {
+        url: "https://example.com/wasm.wasm.wasm".to_owned(),
+        digest: "sha123:12345".to_owned(),
+    };
+    UrlSource::new(&fcs3).expect_err("fcs3 should fail on digest fmt");
+
+    let fcs4 = FileComponentUrlSource {
+        url: "https://example.com/wasm.wasm.wasm".to_owned(),
+        digest: "sha256:".to_owned(),
+    };
+    UrlSource::new(&fcs4).expect_err("fcs4 should fail on empty digest");
 
     Ok(())
 }

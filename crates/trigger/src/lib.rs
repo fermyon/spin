@@ -83,7 +83,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     pub async fn build(
         mut self,
         app_uri: String,
-        builder_config: config::TriggerExecutorBuilderConfig,
+        builder_config: &config::TriggerExecutorBuilderConfig,
     ) -> Result<Executor>
     where
         Executor::TriggerConfig: DeserializeOwned,
@@ -101,7 +101,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 self.loader.add_dynamic_host_component(
                     &mut builder,
                     spin_config::ConfigHostComponent::new(
-                        self.get_config_providers(&app_uri, &builder_config),
+                        self.get_config_providers(&app_uri, builder_config),
                     ),
                 )?;
             }

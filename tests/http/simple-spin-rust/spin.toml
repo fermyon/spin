@@ -16,3 +16,5 @@ files = [ { source = "assets", destination = "/" } ]
 route = "/hello/..."
 [component.config]
 message = "I'm a {{object}}"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

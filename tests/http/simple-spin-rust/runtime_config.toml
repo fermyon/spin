@@ -1,0 +1,3 @@
+[wasmtime]
+cache_file = "wasmtime_config.toml"
+wasm_backtrace_details = "Enable"

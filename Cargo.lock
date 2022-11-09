@@ -256,7 +256,7 @@ dependencies = [
 [[package]]
 name = "bindle"
 version = "0.9.0-rc.1"
-source = "git+https://github.com/fermyon/bindle?tag=v0.9.0-rc.1#92a8daccaa298655cb87d4f979dc66840bf27792"
+source = "git+https://github.com/deislabs/bindle?branch=main#6a4775bcaca98e7a530954969f3dd0926c569167"
 dependencies = [
  "anyhow",
  "async-compression",
@@ -4288,6 +4288,7 @@ dependencies = [
  "path-absolutize",
  "regex",
  "reqwest",
+ "semver 1.0.14",
  "serde",
  "sha2 0.10.6",
  "spin-config",
@@ -4297,6 +4298,7 @@ dependencies = [
  "tokio-util 0.7.4",
  "toml",
  "tracing",
+ "url",
  "walkdir",
 ]
 

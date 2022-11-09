@@ -1,13 +1,17 @@
 use std::{path::PathBuf, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 use bindle::{
     client::{
         tokens::{HttpBasic, LongLivedToken, NoToken, TokenManager},
         Client, ClientBuilder,
     },
-    invoice::signature::{KeyEntry, KeyRing},
+    invoice::{
+        signature::{KeyEntry, KeyRing},
+        HealthResponse,
+    },
 };
+use semver::{Version, VersionReq};
 use tracing::log;
 
 /// BindleConnectionInfo holds the details of a connection to a
@@ -32,6 +36,9 @@ impl BindleConnectionInfo {
         password: Option<String>,
         keyring_file: Option<PathBuf>,
     ) -> Result<Self> {
+        let base_url: String = base_url.into();
+        check_bindle_healthz(&base_url).await?;
+
         let token_manager: Box<dyn TokenManager + Send + Sync> = match (username, password) {
             (Some(u), Some(p)) => Box::new(HttpBasic::new(&u, &p)),
             _ => Box::new(NoToken::default()),
@@ -46,7 +53,7 @@ impl BindleConnectionInfo {
         };
 
         Ok(Self {
-            base_url: base_url.into(),
+            base_url,
             allow_insecure,
             token_manager: AnyAuth {
                 token_manager: Arc::new(token_manager),
@@ -63,6 +70,9 @@ impl BindleConnectionInfo {
         token: I,
         keyring_file: Option<PathBuf>,
     ) -> Result<Self> {
+        let base_url: String = base_url.into();
+        check_bindle_healthz(&base_url).await?;
+
         let token_manager: Box<dyn TokenManager + Send + Sync> =
             Box::new(LongLivedToken::new(&token.into()));
 
@@ -75,7 +85,7 @@ impl BindleConnectionInfo {
         };
 
         Ok(Self {
-            base_url: base_url.into(),
+            base_url,
             allow_insecure,
             token_manager: AnyAuth {
                 token_manager: Arc::new(token_manager),
@@ -161,4 +171,26 @@ async fn ensure_config_dir() -> Result<PathBuf> {
         .unwrap_or_else(|| "./bindle".into());
     tokio::fs::create_dir_all(&dir).await?;
     Ok(dir)
+}
+
+async fn check_bindle_healthz(url: &str) -> Result<()> {
+    let base_url = url::Url::parse(url)?;
+    let healthz_url = base_url.join("/healthz")?;
+    let result = reqwest::get(healthz_url.to_string())
+        .await?
+        .error_for_status()
+        .with_context(|| format!("Bindle server {} is unhealthy", base_url))?
+        .json::<HealthResponse>()
+        .await.with_context(|| "Can't parse bindle server /healthz response as json, please run bindle-server with version >=0.9.0-rc.1")?;
+
+    let server_version = Version::parse(&result.version)
+        .with_context(|| format!("can't parse version {}", &result.version))?;
+    let min_version_req = VersionReq::parse(">=0.9.0-rc.1")?;
+    if !min_version_req.matches(&server_version) {
+        return Err(anyhow!(
+            "bindle-server version is {}, please run bindle-server with version >= 0.9.0-rc.1",
+            &result.version
+        ));
+    }
+    Ok(())
 }

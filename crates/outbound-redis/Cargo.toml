@@ -1,7 +1,8 @@
 [package]
 name = "outbound-redis"
-version = "0.2.0"
-edition = "2021"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
 
 [lib]
 doctest = false
@@ -12,8 +13,4 @@ redis = { version = "0.21", features = ["tokio-comp"] }
 spin-core = { path = "../core" }
 tokio = { version = "1", features = ["sync"] }
 tracing = { version = "0.1", features = ["log"] }
-
-[dependencies.wit-bindgen-wasmtime]
-git = "https://github.com/bytecodealliance/wit-bindgen"
-rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
-features = ["async"]
+wit-bindgen-wasmtime = { workspace = true }

@@ -1,8 +1,8 @@
 [package]
 name = "outbound-http"
-version = "0.2.0"
-edition = "2021"
-authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
 
 [lib]
 doctest = false
@@ -15,9 +15,4 @@ spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 tracing = { version = "0.1", features = [ "log" ] }
 url = "2.2.1"
-
-[dependencies.wit-bindgen-wasmtime]
-git = "https://github.com/bytecodealliance/wit-bindgen"
-rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
-features = ["async"]
-
+wit-bindgen-wasmtime = { workspace = true }

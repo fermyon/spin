@@ -10,7 +10,7 @@ use spin_manifest::DirectoryMount;
 use tokio::{fs, io::AsyncWriteExt};
 use tracing::log;
 
-use crate::file_sha256_digest_string;
+use crate::digest::file_sha256_string;
 use crate::{
     assets::{create_dir, ensure_under},
     bindle::utils::BindleReader,
@@ -123,7 +123,6 @@ impl Copier {
 }
 
 async fn check_existing_file(path: PathBuf, label: &Label) -> Result<bool> {
-    let sha256_digest =
-        tokio::task::spawn_blocking(move || file_sha256_digest_string(path)).await??;
+    let sha256_digest = tokio::task::spawn_blocking(move || file_sha256_string(path)).await??;
     Ok(sha256_digest == label.sha256)
 }

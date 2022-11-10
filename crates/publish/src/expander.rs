@@ -5,9 +5,9 @@ use anyhow::{Context, Result};
 use bindle::{BindleSpec, Condition, Group, Invoice, Label, Parcel};
 use path_absolutize::Absolutize;
 use semver::BuildMetadata;
-use sha2::{Digest, Sha256};
 use spin_loader::{
     bindle::config as bindle_schema,
+    digest::{bytes_sha256_string, file_sha256_string},
     local::{config as local_schema, validate_raw_app_manifest},
 };
 use std::path::{Path, PathBuf};
@@ -105,7 +105,7 @@ fn bindle_component_manifest(
     let source_digest = match &local.source {
         local_schema::RawModuleSource::FileReference(path) => {
             let full_path = base_dir.join(path);
-            file_digest_string(&full_path)
+            file_sha256_string(&full_path)
                 .with_context(|| format!("Failed to get parcel id for '{}'", full_path.display()))?
         }
         local_schema::RawModuleSource::Bindle(_) => {
@@ -214,7 +214,7 @@ async fn file_parcel(
     component_id: Option<&str>,
     media_type: impl Into<String>,
 ) -> Result<SourcedParcel> {
-    let digest = file_digest_string(abs_src)
+    let digest = file_sha256_string(abs_src)
         .with_context(|| format!("Failed to calculate digest for '{}'", abs_src.display()))?;
     let size = tokio::fs::metadata(&abs_src).await?.len();
 
@@ -248,7 +248,7 @@ async fn manifest_parcel(
 ) -> Result<SourcedParcel> {
     let text = toml::to_string_pretty(&manifest).context("Failed to write app manifest to TOML")?;
     let bytes = text.as_bytes();
-    let digest = bytes_digest_string(bytes);
+    let digest = bytes_sha256_string(bytes);
 
     let parcel_name = format!("spin.{}.toml", digest);
     let temp_dir = scratch_dir.as_ref().join("manifests");
@@ -365,21 +365,6 @@ fn group_for(component_id: &str) -> Group {
         required: None,
         satisfied_by: None,
     }
-}
-
-fn file_digest_string(path: impl AsRef<Path>) -> Result<String> {
-    let mut file = std::fs::File::open(&path)?;
-    let mut sha = Sha256::new();
-    std::io::copy(&mut file, &mut sha)?;
-    let digest_value = sha.finalize();
-    let digest_string = format!("{:x}", digest_value);
-    Ok(digest_string)
-}
-
-fn bytes_digest_string(bytes: &[u8]) -> String {
-    let digest_value = Sha256::digest(bytes);
-    let digest_string = format!("{:x}", digest_value);
-    digest_string
 }
 
 fn bindle_id(

@@ -1,7 +1,6 @@
 #![deny(missing_docs)]
 
 use anyhow::{anyhow, bail, Context, Result};
-use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
@@ -76,18 +75,8 @@ pub(crate) fn component_dir(id: &str) -> String {
     // if the asset paths are also long. Longer term, consider an alternative approach where
     // we use an index or something for disambiguation, and/or disambiguating only if a clash is
     // detected, etc.
-    let id_sha256 = format!("{:x}", Sha256::digest(id));
+    let id_sha256 = crate::digest::bytes_sha256_string(id.as_bytes());
     format!("{}_{}", UNSAFE_CHARACTERS.replace_all(id, "_"), id_sha256)
-}
-
-/// Return the hex-encoded SHA256 digest of the given file.
-pub fn file_sha256_digest_string(path: impl AsRef<Path>) -> std::io::Result<String> {
-    let mut file = std::fs::File::open(path)?;
-    let mut sha = sha2::Sha256::new();
-    std::io::copy(&mut file, &mut sha)?;
-    let digest_value = sha.finalize();
-    let digest_string = format!("{:x}", digest_value);
-    Ok(digest_string)
 }
 
 #[cfg(test)]

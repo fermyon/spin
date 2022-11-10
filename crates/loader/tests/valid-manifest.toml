@@ -23,3 +23,11 @@ parcel = "parcel"
 reference = "bindle reference"
 [component.trigger]
 route = "/test"
+
+[[component]]
+id = "web"
+[component.source]
+url = "https://example.com/wasm.wasm.wasm"
+digest = "sha256:12345"
+[component.trigger]
+route = "/dont/test"

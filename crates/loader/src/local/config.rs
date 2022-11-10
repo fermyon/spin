@@ -137,6 +137,8 @@ pub enum RawModuleSource {
     FileReference(PathBuf),
     /// Reference to a remote bindle
     Bindle(FileComponentBindleSource),
+    /// Reference to a Wasm file at a URL
+    Url(FileComponentUrlSource),
 }
 
 /// A component source from Bindle.
@@ -150,4 +152,14 @@ pub struct FileComponentBindleSource {
     pub reference: String,
     /// Parcel to use from the bindle.
     pub parcel: String,
+}
+/// A component source from a URL.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub struct FileComponentUrlSource {
+    /// The URL of the Wasm binary.
+    pub url: String,
+    /// The digest of the Wasm binary, used for integrity checking. This must be a
+    /// SHA256 digest, in the form `sha256:...`
+    pub digest: String,
 }

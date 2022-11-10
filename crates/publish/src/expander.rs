@@ -8,7 +8,7 @@ use semver::BuildMetadata;
 use spin_loader::{
     bindle::config as bindle_schema,
     digest::{bytes_sha256_string, file_sha256_string},
-    local::{config as local_schema, validate_raw_app_manifest},
+    local::{config as local_schema, validate_raw_app_manifest, UrlSource},
 };
 use std::path::{Path, PathBuf};
 
@@ -42,7 +42,7 @@ pub async fn expand_manifest(
     //   - there is a parcel for the spin.toml-a-like and it has the magic media type
 
     // - n parcels for the Wasm modules at their locations
-    let wasm_parcels = wasm_parcels(&manifest, &app_dir)
+    let wasm_parcels = wasm_parcels(&manifest, &app_dir, &scratch_dir)
         .await
         .context("Failed to collect Wasm modules")?;
     let wasm_parcels = consolidate_wasm_parcels(wasm_parcels);
@@ -113,6 +113,11 @@ fn bindle_component_manifest(
                 "This version of Spin can't publish components whose sources are already bindles"
             )
         }
+        local_schema::RawModuleSource::Url(us) => {
+            let source = UrlSource::new(us)
+                .with_context(|| format!("Can't use Web source in component {}", local.id))?;
+            source.digest_str().to_owned()
+        }
     };
     let asset_group = local.wasm.files.as_ref().map(|_| group_name_for(&local.id));
     Ok(bindle_schema::RawComponentManifest {
@@ -132,8 +137,12 @@ fn bindle_component_manifest(
 async fn wasm_parcels(
     manifest: &local_schema::RawAppManifest,
     base_dir: &Path,
+    scratch_dir: impl AsRef<Path>,
 ) -> Result<Vec<SourcedParcel>> {
-    let parcel_futures = manifest.components.iter().map(|c| wasm_parcel(c, base_dir));
+    let parcel_futures = manifest
+        .components
+        .iter()
+        .map(|c| wasm_parcel(c, base_dir, scratch_dir.as_ref()));
     let parcels = futures::future::join_all(parcel_futures).await;
     parcels.into_iter().collect()
 }
@@ -141,16 +150,45 @@ async fn wasm_parcels(
 async fn wasm_parcel(
     component: &local_schema::RawComponentManifest,
     base_dir: &Path,
+    scratch_dir: impl AsRef<Path>,
 ) -> Result<SourcedParcel> {
-    let wasm_file = match &component.source {
-        local_schema::RawModuleSource::FileReference(path) => path,
+    let (wasm_file, absolute_wasm_file) = match &component.source {
+        local_schema::RawModuleSource::FileReference(path) => {
+            (path.to_owned(), base_dir.join(path))
+        }
         local_schema::RawModuleSource::Bindle(_) => {
             anyhow::bail!(
                 "This version of Spin can't publish components whose sources are already bindles"
             )
         }
+        local_schema::RawModuleSource::Url(us) => {
+            let id = &component.id;
+
+            let source = UrlSource::new(us)
+                .with_context(|| format!("Can't use Web source in component {}", id))?;
+
+            let bytes = source
+                .get()
+                .await
+                .with_context(|| format!("Can't use source {} for component {}", us.url, id))?;
+
+            let temp_dir = scratch_dir.as_ref().join("downloads");
+            let temp_file = temp_dir.join(us.digest.replace(':', "_"));
+
+            tokio::fs::create_dir_all(temp_dir)
+                .await
+                .context("Failed to save download to temporary file")?;
+            tokio::fs::write(&temp_file, &bytes)
+                .await
+                .context("Failed to save download to temporary file")?;
+
+            let absolute_path = dunce::canonicalize(&temp_file)
+                .context("Failed to acquire full path for app downloaded temporary file")?;
+            let dest_relative_path = source.url_relative_path();
+
+            (dest_relative_path, absolute_path)
+        }
     };
-    let absolute_wasm_file = base_dir.join(wasm_file);
 
     file_parcel(&absolute_wasm_file, wasm_file, None, "application/wasm").await
 }

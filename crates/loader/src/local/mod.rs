@@ -10,20 +10,27 @@ pub mod config;
 #[cfg(test)]
 mod tests;
 
-use std::{path::Path, str::FromStr};
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use anyhow::{anyhow, bail, Context, Result};
 use futures::future;
+use itertools::Itertools;
 use outbound_http::allowed_http_hosts::validate_allowed_http_hosts;
 use path_absolutize::Absolutize;
+use reqwest::Url;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
     SpinVersion, WasmConfig,
 };
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::bindle::BindleConnectionInfo;
+use crate::{bindle::BindleConnectionInfo, digest::bytes_sha256_string};
 use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawComponentManifest};
+
+use self::config::FileComponentUrlSource;
 
 /// Given the path to a spin.toml manifest file, prepare its assets locally and
 /// get a prepared application configuration consumable by a Spin execution context.
@@ -188,6 +195,17 @@ async fn core(
             let name = format!("{}@{}", bindle_id, parcel_sha);
             ModuleSource::Buffer(bytes, name)
         }
+        config::RawModuleSource::Url(us) => {
+            let source = UrlSource::new(&us)
+                .with_context(|| format!("Can't use Web source in component {}", id))?;
+
+            let bytes = source
+                .get()
+                .await
+                .with_context(|| format!("Can't use source {} for component {}", us.url, id))?;
+
+            ModuleSource::Buffer(bytes, us.url)
+        }
     };
 
     let description = raw.description;
@@ -213,6 +231,119 @@ async fn core(
         wasm,
         config,
     })
+}
+
+/// A parsed URL source for a component module.
+#[derive(Debug)]
+pub struct UrlSource {
+    url: Url,
+    digest: ComponentDigest,
+}
+
+impl UrlSource {
+    /// Parses a URL source from a raw component manifest.
+    pub fn new(us: &FileComponentUrlSource) -> anyhow::Result<UrlSource> {
+        let url = reqwest::Url::parse(&us.url)
+            .with_context(|| format!("Invalid source URL {}", us.url))?;
+        if url.scheme() != "https" {
+            anyhow::bail!("Invalid URL scheme {}: must be HTTPS", url.scheme(),);
+        }
+
+        let digest = ComponentDigest::try_from(&us.digest)?;
+
+        Ok(Self { url, digest })
+    }
+
+    /// The URL of the source.
+    pub fn url(&self) -> &Url {
+        &self.url
+    }
+
+    /// A relative path URL derived from the URL.
+    pub fn url_relative_path(&self) -> PathBuf {
+        let path = self.url.path();
+        let rel_path = path.trim_start_matches('/');
+        PathBuf::from(rel_path)
+    }
+
+    /// The digest string (omitting the format).
+    pub fn digest_str(&self) -> &str {
+        match &self.digest {
+            ComponentDigest::Sha256(s) => s,
+        }
+    }
+
+    /// Gets the data from the source as a byte buffer.
+    pub async fn get(&self) -> anyhow::Result<Vec<u8>> {
+        let response = reqwest::get(self.url.clone())
+            .await
+            .with_context(|| format!("Error fetching source URL {}", self.url))?;
+        // TODO: handle redirects
+        let status = response.status();
+        if status != reqwest::StatusCode::OK {
+            let reason = status.canonical_reason().unwrap_or("(no reason provided)");
+            anyhow::bail!(
+                "Error fetching source URL {}: {} {}",
+                self.url,
+                status.as_u16(),
+                reason
+            );
+        }
+        let body = response
+            .bytes()
+            .await
+            .with_context(|| format!("Error loading source URL {}", self.url))?;
+        let bytes = body.into_iter().collect_vec();
+
+        self.digest.verify(&bytes).context("Incorrect digest")?;
+
+        Ok(bytes)
+    }
+}
+
+#[derive(Debug)]
+enum ComponentDigest {
+    Sha256(String),
+}
+
+impl TryFrom<&String> for ComponentDigest {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        if let Some((format, text)) = value.split_once(':') {
+            match format {
+                "sha256" => {
+                    if text.is_empty() {
+                        Err(anyhow!("Invalid digest string '{value}': no digest"))
+                    } else {
+                        Ok(Self::Sha256(text.to_owned()))
+                    }
+                }
+                _ => Err(anyhow!(
+                    "Invalid digest string '{value}': format must be sha256"
+                )),
+            }
+        } else {
+            Err(anyhow!(
+                "Invalid digest string '{value}': format must be 'sha256:...'"
+            ))
+        }
+    }
+}
+
+impl ComponentDigest {
+    fn verify(&self, bytes: &[u8]) -> anyhow::Result<()> {
+        match self {
+            Self::Sha256(expected) => {
+                let actual = &bytes_sha256_string(bytes);
+                if expected == actual {
+                    Ok(())
+                } else {
+                    Err(anyhow!("Downloaded file does not match specified digest: expected {expected}, actual {actual}"))
+                }
+            }
+        }
+    }
 }
 
 /// Converts the raw application information from the spin.toml manifest to the standard configuration.

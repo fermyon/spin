@@ -1,0 +1,9 @@
+title = "Test"
+base_url = "http://localhost:3000"
+about = "This site is generated with Bartholomew, the Spin micro-CMS. And this message is in site.toml."
+theme = "fermyon"
+index_site_pages = ["main"]
+enable_shortcodes = false
+
+[extra]
+copyright = "The Site Authors"

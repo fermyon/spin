@@ -1,8 +1,8 @@
 [package]
 name = "spin-trigger"
-version = "0.2.0"
-edition = "2021"
-authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
 
 [dependencies]
 anyhow = "1.0"
@@ -25,7 +25,7 @@ spin-manifest = { path = "../manifest" }
 toml = "0.5.9"
 tracing = { version = "0.1", features = [ "log" ] }
 url = "2"
-wasmtime = "0.39.1"
+wasmtime = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3.3.0"

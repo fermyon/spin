@@ -1,16 +1,17 @@
 [package]
 name = "spin-core"
-version = "0.1.0"
-edition = "2021"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
 
 [dependencies]
 anyhow = "1.0"
 tracing = "0.1"
 async-trait = "0.1"
-wasi-cap-std-sync = "0.39"
-wasi-common = "0.39"
-wasmtime = "0.39"
-wasmtime-wasi = { version = "0.39", features = ["tokio"] }
+wasi-cap-std-sync = { workspace = true }
+wasi-common = { workspace = true }
+wasmtime = { workspace = true }
+wasmtime-wasi = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"

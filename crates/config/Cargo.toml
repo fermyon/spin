@@ -1,8 +1,8 @@
 [package]
 name = "spin-config"
-version = "0.2.0"
-edition = "2021"
-authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
 
 [dependencies]
 anyhow = "1.0"
@@ -15,11 +15,7 @@ thiserror = "1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
 vaultrs = "0.6.2"
 serde = "1.0.145"
-
-[dependencies.wit-bindgen-wasmtime]
-git = "https://github.com/bytecodealliance/wit-bindgen"
-rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
-features = ["async"]
+wit-bindgen-wasmtime = { workspace = true }
 
 [dev-dependencies]
 toml = "0.5"

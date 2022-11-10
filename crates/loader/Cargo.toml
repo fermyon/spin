@@ -1,13 +1,13 @@
 [package]
 name = "spin-loader"
-version = "0.2.0"
-edition = "2021"
-authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
 
 [dependencies]
 anyhow = "1"
 async-trait = "0.1.52"
-bindle = { git = "https://github.com/fermyon/bindle", tag = "v0.8.2", default-features = false, features = ["client"] }
+bindle = { workspace = true }
 bytes = "1.1.0"
 futures = "0.3.17"
 glob = "0.3.0"

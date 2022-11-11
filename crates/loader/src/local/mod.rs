@@ -41,10 +41,7 @@ pub async fn from_file(
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<Application> {
-    let app = app
-        .as_ref()
-        .absolutize()
-        .context("Failed to resolve absolute path to manifest file")?;
+    let app = absolutize(app)?;
     let manifest = raw_manifest_from_file(&app).await?;
     validate_raw_app_manifest(&manifest)?;
 
@@ -65,6 +62,28 @@ pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppMani
         .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
 
     Ok(manifest)
+}
+
+/// Returns the absolute path to directory containing the file
+pub fn parent_dir(file: impl AsRef<Path>) -> Result<PathBuf> {
+    let path_buf = file.as_ref().parent().ok_or_else(|| {
+        anyhow::anyhow!(
+            "Failed to get containing directory for file '{}'",
+            file.as_ref().display()
+        )
+    })?;
+
+    absolutize(path_buf)
+}
+
+/// Returns absolute path to the file
+pub fn absolutize(path: impl AsRef<Path>) -> Result<PathBuf> {
+    let path = path.as_ref();
+
+    Ok(path
+        .absolutize()
+        .with_context(|| format!("Failed to resolve absolute path to: {}", path.display()))?
+        .to_path_buf())
 }
 
 /// Converts a raw application manifest into Spin configuration while handling
@@ -156,11 +175,7 @@ async fn core(
     bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<CoreComponent> {
     let id = raw.id;
-
-    let src = src
-        .as_ref()
-        .parent()
-        .expect("The application file did not have a parent directory.");
+    let src = parent_dir(src)?;
     let source = match raw.source {
         config::RawModuleSource::FileReference(p) => {
             let p = match p.is_absolute() {

@@ -14,6 +14,7 @@ use crate::digest::file_sha256_string;
 use crate::{
     assets::{create_dir, ensure_under},
     bindle::utils::BindleReader,
+    local::parent_dir,
 };
 
 pub(crate) async fn prepare_component(
@@ -88,7 +89,7 @@ impl Copier {
             p.sha256,
             to.display()
         );
-        fs::create_dir_all(to.parent().expect("Cannot copy to file '/'")).await?;
+        fs::create_dir_all(parent_dir(&to).expect("Cannot copy to file '/'")).await?;
         let mut stream = self
             .reader
             .get_parcel_stream(&p.sha256)

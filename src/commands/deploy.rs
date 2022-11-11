@@ -14,7 +14,7 @@ use spin_http::routes::RoutePattern;
 use spin_http::WELL_KNOWN_HEALTH_PATH;
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
-use spin_loader::local::{assets, config};
+use spin_loader::local::{assets, config, parent_dir};
 use spin_manifest::ApplicationTrigger;
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
 use tokio::fs;
@@ -425,7 +425,7 @@ impl DeployCommand {
 
     async fn compute_buildinfo(&self, cfg: &RawAppManifest) -> Result<BuildMetadata> {
         let mut sha256 = Sha256::new();
-        let app_folder = crate::app_dir(&self.app)?;
+        let app_folder = parent_dir(&self.app)?;
 
         for x in cfg.components.iter() {
             match &x.source {

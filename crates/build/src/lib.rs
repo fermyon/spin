@@ -3,15 +3,18 @@
 //! A library for building Spin components.
 
 use anyhow::{bail, Context, Result};
-use path_absolutize::Absolutize;
-use spin_loader::local::config::{RawAppManifest, RawComponentManifest};
+use spin_loader::local::{
+    absolutize,
+    config::{RawAppManifest, RawComponentManifest},
+    parent_dir,
+};
 use std::path::{Path, PathBuf};
 use subprocess::{Exec, Redirection};
 use tracing::log;
 
 /// If present, run the build command of each component.
 pub async fn build(app: RawAppManifest, src: &Path) -> Result<()> {
-    let src = src.absolutize()?;
+    let src = absolutize(src)?;
 
     if app.components.iter().all(|c| c.build.is_none()) {
         println!("No build command found!");
@@ -81,11 +84,7 @@ async fn build_component(raw: RawComponentManifest, src: impl AsRef<Path>) -> Re
 
 /// Constructs the absolute working directory in which to run the build command.
 fn construct_workdir(src: impl AsRef<Path>, workdir: Option<impl AsRef<Path>>) -> Result<PathBuf> {
-    let mut cwd = src
-        .as_ref()
-        .parent()
-        .context("The application file did not have a parent directory.")?
-        .to_path_buf();
+    let mut cwd = parent_dir(src)?;
 
     if let Some(workdir) = workdir {
         // Using `Path::has_root` as `is_relative` and `is_absolute` have
@@ -95,7 +94,7 @@ fn construct_workdir(src: impl AsRef<Path>, workdir: Option<impl AsRef<Path>>) -
             bail!("The workdir specified in the application file must be relative.");
         }
         cwd.push(workdir);
-        cwd = cwd.absolutize()?.to_path_buf();
+        cwd = absolutize(cwd)?;
     }
 
     Ok(cwd)

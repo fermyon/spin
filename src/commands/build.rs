@@ -3,8 +3,6 @@ use std::{ffi::OsString, path::PathBuf};
 use anyhow::Result;
 use clap::Parser;
 
-use spin_loader::local::{config::RawAppManifestAnyVersion, raw_manifest_from_file};
-
 use crate::opts::{APP_CONFIG_FILE_OPT, BUILD_UP_OPT, DEFAULT_MANIFEST_FILE};
 
 use super::up::UpCommand;
@@ -35,9 +33,8 @@ impl BuildCommand {
             .app
             .as_deref()
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-        let RawAppManifestAnyVersion::V1(app) = raw_manifest_from_file(&manifest_file).await?;
 
-        spin_build::build(app, manifest_file).await?;
+        spin_build::build(manifest_file).await?;
 
         if self.up {
             let mut cmd = UpCommand::parse_from(

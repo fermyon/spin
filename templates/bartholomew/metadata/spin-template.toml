@@ -1,0 +1,7 @@
+manifest_version = "1"
+id = "bartholomew"
+description = "Web site using Bartholomew micro-CMS"
+
+[parameters]
+site-title = { type = "string",  prompt = "Title for the site", default = "Unnamed Site" }
+http-base = { type = "string", prompt = "HTTP base", default = "/", pattern = "^/\\S*$" }

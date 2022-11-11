@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    {{! Use the formatter.title and formatter.description in the head }}
+    <title>{{page.head.title}} | {{site.info.title}}</title>
+    {{#if page.head.description}}
+    {{! Only render the description if it exists }}
+    <meta name="description" content="{{page.head.description}}">
+    {{/if}}
+    <!-- Twitter Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous">
+    <!-- JavaScript Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-U1DAWAznBHeqEIlVSCgzq+c9gqGAJn5c/t99JyeKa9xxaYpSvHU5awsuZVVFIhvj"
+        crossorigin="anonymous"></script>
+
+    <style>
+        /* pretend we have some style */
+        body {
+            margin-top: 1em;
+            margin-left: 5em;
+        }
+
+        nav {
+            margin-bottom: 1em;
+        }
+
+        .learn-more-card-group {
+            margin-top: 2em;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container" id="main-container">
+        {{> navbar }}
+        <main>
+            <div class="row">

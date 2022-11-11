@@ -1,0 +1,21 @@
+{{> content_top }}
+
+<div class="col-md-8">
+
+    {{#each (blogs site.pages)}}
+    <article class="blog-post">
+        <h1 class="blog-post-title border-bottom">{{page.head.title}}</h1>
+            <p class="blog-post-meta">
+                {{#if page.head.date }}{{date_format ../site.info.extra.date_style page.head.date}} {{/if}}
+                {{#if page.head.extra.author}} by <a
+                    href="{{page.head.extra.author_page}}">{{page.head.extra.author}}</a>{{/if}}
+            </p>
+            {{! Since this is HTML, we use the triple-curly }}
+            {{{page.body}}}
+            <p><a href="{{this.uri}}">View the Post</a></p>
+    </article>
+    {{/each}}
+
+</div><!-- end col -->
+{{> content_sidebar }}
+{{> content_bottom }}

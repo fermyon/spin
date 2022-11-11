@@ -1,0 +1,21 @@
+spin_version = "1"
+authors = ["{{authors}}"]
+description = "{{site-title}}"
+name = "{{project-name}}"
+trigger = { type = "http", base = "{{http-base}}" }
+version = "0.1.0"
+
+[[component]]
+source = { url = "https://github.com/fermyon/bartholomew/releases/download/v0.6.0/bartholomew.wasm", digest = "sha256:b64bc17da4484ff7fee619ba543f077be69b3a1f037506e0eeee1fb020d42786" }
+id = "bartholomew"
+files = [ "content/**/*" , "templates/*", "scripts/*", "config/*"]
+[component.trigger]
+route = "/..."
+
+[[component]]
+# TODO: proper release
+source = { url = "https://github.com/itowlson/spin-fileserver/releases/download/v0.0.1-test2/spin_static_fs.wasm", digest = "sha256:731c95d2e80ab898da2fe7efabb3f2115a540f62df730223cdae194874b7d9cf" }
+id = "fileserver"
+files = [ { source = "static/", destination = "/" } ]
+[component.trigger]
+route = "/static/..."

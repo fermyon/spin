@@ -1,0 +1,4 @@
+This is an example of a static text file.
+
+If you can see this in your browser at `http://localhost:3000/static/example.txt`, then you have
+correctly configured the fileserver.

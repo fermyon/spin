@@ -1,0 +1,13 @@
+title = "{{ site-title }}"
+# logo = "URL to logo"
+base_url = "http://localhost:3000{{ http-base }}"
+about = "This site is generated with Bartholomew, the WebAssembly micro-CMS. And this message is in site.toml."
+index_site_pages = ["blog"]
+
+[extra]
+copyright = "{{ authors }}"
+# Add or edit site metadata
+# github = "https://github.com/fermyon"
+# twitter = "https://twitter.com/fermyontech"
+
+date_style = "%B %e, %Y"

@@ -99,6 +99,13 @@ async fn bindle_component_manifest(
     let source_digest = match &local.source {
         local_schema::RawModuleSource::FileReference(path) => {
             let full_path = base_dir.join(path);
+
+            if let Ok(false) = Path::try_exists(&full_path) {
+                return Err(PublishError::MissingBuildArtifact(
+                    full_path.display().to_string(),
+                ));
+            }
+
             sha256_digest(&full_path)?
         }
         local_schema::RawModuleSource::Bindle(_) => {

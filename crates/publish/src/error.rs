@@ -24,6 +24,9 @@ pub enum PublishError {
         /// Underlying lower level error that caused your error
         source: std::io::Error,
     },
+    /// Build artifact is missing
+    #[error("Missing build artifact: '{0}'")]
+    MissingBuildArtifact(String),
     /// Invalid TOML serialization that can occur when serializing an object to a request
     #[error("{description}")]
     TomlSerialization {

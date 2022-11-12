@@ -569,7 +569,9 @@ impl DeployCommand {
             Some(path) => path.as_path(),
         };
 
-        let bindle_id = spin_publish::prepare_bindle(&self.app, buildinfo, dest_dir).await?;
+        let bindle_id = spin_publish::prepare_bindle(&self.app, buildinfo, dest_dir)
+            .await
+            .map_err(crate::wrap_prepare_bindle_error)?;
 
         println!(
             "Uploading {} version {}...",

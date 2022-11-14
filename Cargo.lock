@@ -529,7 +529,6 @@ dependencies = [
  "itertools",
  "log",
  "mime_guess",
- "path-absolutize",
  "regex",
  "reqwest",
  "semver 1.0.14",
@@ -4039,7 +4038,6 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "futures",
- "path-absolutize",
  "spin-loader",
  "subprocess",
  "tracing",
@@ -4255,7 +4253,6 @@ dependencies = [
  "futures",
  "itertools",
  "mime_guess",
- "path-absolutize",
  "reqwest",
  "semver 1.0.14",
  "serde",

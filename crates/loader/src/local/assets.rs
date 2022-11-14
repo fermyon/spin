@@ -1,6 +1,9 @@
 #![deny(missing_docs)]
 
-use crate::assets::{create_dir, ensure_all_under, ensure_under, to_relative};
+use crate::{
+    assets::{create_dir, ensure_all_under, ensure_under, to_relative},
+    local::parent_dir,
+};
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use futures::{future, stream, StreamExt};
 use spin_manifest::DirectoryMount;
@@ -206,7 +209,7 @@ async fn copy(file: &FileMount, dir: impl AsRef<Path>) -> Result<()> {
 
     tracing::trace!("Copying asset file '{from:?}' -> '{to:?}'");
 
-    tokio::fs::create_dir_all(to.parent().context("Cannot copy to file '/'")?).await?;
+    tokio::fs::create_dir_all(parent_dir(&to).context("Cannot copy to file '/'")?).await?;
 
     let _ = tokio::fs::copy(&from, &to)
         .await

@@ -19,7 +19,6 @@ cloud-openapi = { git = "https://github.com/fermyon/cloud-openapi" }
 itertools = "0.10.0"
 log = "0.4"
 mime_guess = { version = "2.0" }
-path-absolutize = "3.0.11"
 regex = "1.5"
 reqwest = { version = "0.11", features = ["stream"] }
 semver = "1.0"

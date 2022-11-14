@@ -3,6 +3,7 @@
 use crate::expander::expand_manifest;
 use anyhow::{Context, Result};
 use bindle::{Invoice, Parcel};
+use spin_loader::local::parent_dir;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -24,7 +25,7 @@ pub async fn prepare_bindle(
             )
         })?;
 
-    let source_dir = crate::app_dir(&app_file)?;
+    let source_dir = parent_dir(&app_file)?;
 
     write(&source_dir, &dest_dir, &invoice, &sources)
         .await

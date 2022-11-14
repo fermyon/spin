@@ -1,6 +1,10 @@
-use std::{io::Cursor, path::PathBuf};
+use std::{
+    io::Cursor,
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
-use spin_core::{Config, Engine, HostComponent, Module, StoreBuilder, Trap};
+use spin_core::{Config, Engine, HostComponent, Module, Store, StoreBuilder, Trap};
 use tempfile::TempDir;
 use wasmtime::TrapCode;
 
@@ -89,6 +93,36 @@ async fn test_max_memory_size_violated() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn test_set_deadline_obeyed() {
+    run_core_wasi_test_engine(
+        &test_engine(),
+        ["sleep", "20"],
+        |_| {},
+        |store| {
+            store.set_deadline(Instant::now() + Duration::from_millis(1000));
+        },
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_set_deadline_violated() {
+    let err = run_core_wasi_test_engine(
+        &test_engine(),
+        ["sleep", "100"],
+        |_| {},
+        |store| {
+            store.set_deadline(Instant::now() + Duration::from_millis(10));
+        },
+    )
+    .await
+    .unwrap_err();
+    let trap = err.downcast::<Trap>().expect("trap");
+    assert_eq!(trap.trap_code(), Some(TrapCode::Interrupt));
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn test_host_component() {
     let stdout = run_core_wasi_test(["multiply", "5"], |_| {}).await.unwrap();
     assert_eq!(stdout, "10");
@@ -103,11 +137,16 @@ async fn test_host_component_data_update() {
         .unwrap();
     let engine: Engine<()> = engine_builder.build();
 
-    let stdout = run_core_wasi_test_engine(&engine, ["multiply", "5"], |store_builder| {
-        store_builder
-            .host_components_data()
-            .set(factor_data_handle, 100);
-    })
+    let stdout = run_core_wasi_test_engine(
+        &engine,
+        ["multiply", "5"],
+        |store_builder| {
+            store_builder
+                .host_components_data()
+                .set(factor_data_handle, 100);
+        },
+        |_| {},
+    )
     .await
     .unwrap();
     assert_eq!(stdout, "500");
@@ -129,29 +168,31 @@ fn test_config() -> Config {
     config
 }
 
+fn test_engine() -> Engine<()> {
+    let mut builder = Engine::builder(&test_config()).unwrap();
+    builder.add_host_component(MultiplierHostComponent).unwrap();
+    builder.build()
+}
+
 async fn run_core_wasi_test<'a>(
     args: impl IntoIterator<Item = &'a str>,
     f: impl FnOnce(&mut StoreBuilder),
 ) -> anyhow::Result<String> {
-    let mut engine_builder = Engine::builder(&test_config()).unwrap();
-    engine_builder
-        .add_host_component(MultiplierHostComponent)
-        .unwrap();
-    let engine: Engine<()> = engine_builder.build();
-    run_core_wasi_test_engine(&engine, args, f).await
+    run_core_wasi_test_engine(&test_engine(), args, f, |_| {}).await
 }
 
 async fn run_core_wasi_test_engine<'a>(
     engine: &Engine<()>,
     args: impl IntoIterator<Item = &'a str>,
-    f: impl FnOnce(&mut StoreBuilder),
+    update_store_builder: impl FnOnce(&mut StoreBuilder),
+    update_store: impl FnOnce(&mut Store<()>),
 ) -> anyhow::Result<String> {
     let mut store_builder: StoreBuilder = engine.store_builder();
     let mut stdout_buf = store_builder.stdout_buffered();
     store_builder.stderr_pipe(TestWriter);
     store_builder.args(args).unwrap();
 
-    f(&mut store_builder);
+    update_store_builder(&mut store_builder);
 
     let mut store = store_builder.build().unwrap();
     let module_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -160,6 +201,8 @@ async fn run_core_wasi_test_engine<'a>(
     let instance_pre = engine.instantiate_pre(&module).unwrap();
     let instance = instance_pre.instantiate_async(&mut store).await.unwrap();
     let func = instance.get_func(&mut store, "_start").unwrap();
+
+    update_store(&mut store);
 
     func.call_async(&mut store, &[], &mut []).await?;
 

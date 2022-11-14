@@ -3,6 +3,8 @@
 //! failure (which is sometimes expected in a test), and some other code on
 //! invalid argument(s).
 
+use std::time::Duration;
+
 #[link(wasm_import_module = "multiplier")]
 extern "C" {
     fn multiply(n: i32) -> i32;
@@ -47,6 +49,12 @@ fn main() -> Result {
             eprintln!("multiply {input}");
             let output = unsafe { multiply(input) };
             println!("{output}");
+        }
+        "sleep" => {
+            let duration =
+                Duration::from_millis(args.next().expect("duration_ms").parse().expect("u64"));
+            eprintln!("sleep {duration:?}");
+            std::thread::sleep(duration);
         }
         "panic" => {
             eprintln!("panic");

@@ -12,19 +12,25 @@ mod io;
 mod limits;
 mod store;
 
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use anyhow::Result;
+use crossbeam_channel::Sender;
 use tracing::instrument;
-use wasmtime_wasi::WasiCtx;
-
 pub use wasmtime::{self, Instance, Module, Trap};
+use wasmtime_wasi::WasiCtx;
 
 use self::host_component::{HostComponents, HostComponentsBuilder};
 
 pub use host_component::{HostComponent, HostComponentDataHandle, HostComponentsData};
 pub use io::OutputBuffer;
 pub use store::{Store, StoreBuilder};
+
+/// The default [`Config::epoch_tick_interval`].
+pub const DEFAULT_EPOCH_TICK_INTERVAL: Duration = Duration::from_millis(10);
 
 /// Global configuration for `EngineBuilder`.
 ///
@@ -46,6 +52,7 @@ impl Default for Config {
     fn default() -> Self {
         let mut inner = wasmtime::Config::new();
         inner.async_support(true);
+        inner.epoch_interruption(true);
         Self { inner }
     }
 }
@@ -80,6 +87,8 @@ pub struct EngineBuilder<T> {
     engine: wasmtime::Engine,
     linker: Linker<T>,
     host_components_builder: HostComponentsBuilder,
+    epoch_tick_interval: Duration,
+    epoch_ticker_thread: bool,
 }
 
 impl<T: Send + Sync> EngineBuilder<T> {
@@ -93,6 +102,8 @@ impl<T: Send + Sync> EngineBuilder<T> {
             engine,
             linker,
             host_components_builder: HostComponents::builder(),
+            epoch_tick_interval: DEFAULT_EPOCH_TICK_INTERVAL,
+            epoch_ticker_thread: true,
         })
     }
 
@@ -128,16 +139,58 @@ impl<T: Send + Sync> EngineBuilder<T> {
             .add_host_component(&mut self.linker, host_component)
     }
 
+    /// Sets the epoch tick internal for the built [`Engine`].
+    ///
+    /// This is used by [`Store::set_deadline`] to calculate the number of
+    /// "ticks" for epoch interruption, and by the default epoch ticker thread.
+    /// The default is [`DEFAULT_EPOCH_TICK_INTERVAL`].
+    ///
+    /// See [`EngineBuilder::epoch_ticker_thread`] and
+    /// [`wasmtime::Config::epoch_interruption`](https://docs.rs/wasmtime/latest/wasmtime/struct.Config.html#method.epoch_interruption).
+    pub fn epoch_tick_interval(&mut self, interval: Duration) {
+        self.epoch_tick_interval = interval;
+    }
+
+    /// Configures whether the epoch ticker thread will be spawned when this
+    /// [`Engine`] is built.
+    ///
+    /// Enabled by default; if disabled, the user must arrange to call
+    /// `engine.as_ref().increment_epoch()` every `epoch_tick_interval` or
+    /// interrupt-based features like `Store::set_deadline` will not work.
+    pub fn epoch_ticker_thread(&mut self, enable: bool) {
+        self.epoch_ticker_thread = enable;
+    }
+
+    fn maybe_spawn_epoch_ticker(&self) -> Option<Sender<()>> {
+        if !self.epoch_ticker_thread {
+            return None;
+        }
+        let engine = self.engine.clone();
+        let interval = self.epoch_tick_interval;
+        let (send, recv) = crossbeam_channel::bounded(0);
+        std::thread::spawn(move || loop {
+            match recv.recv_timeout(interval) {
+                Err(crossbeam_channel::RecvTimeoutError::Timeout) => (),
+                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
+                res => panic!("unexpected epoch_ticker_signal: {res:?}"),
+            }
+            engine.increment_epoch();
+        });
+        Some(send)
+    }
+
     /// Builds an [`Engine`] from this builder with the given host state data.
     ///
     /// Note that this data will generally go entirely unused, but is needed
     /// by the implementation of [`Engine::instantiate_pre`]. If `T: Default`,
     /// it is probably preferable to use [`EngineBuilder::build`].
     pub fn build_with_data(self, instance_pre_data: T) -> Engine<T> {
+        let epoch_ticker_signal = self.maybe_spawn_epoch_ticker();
+
         let host_components = self.host_components_builder.build();
 
         let instance_pre_store = Arc::new(Mutex::new(
-            StoreBuilder::new(self.engine.clone(), &host_components)
+            StoreBuilder::new(self.engine.clone(), Duration::ZERO, &host_components)
                 .build_with_data(instance_pre_data)
                 .expect("instance_pre_store build should not fail"),
         ));
@@ -147,6 +200,8 @@ impl<T: Send + Sync> EngineBuilder<T> {
             linker: self.linker,
             host_components,
             instance_pre_store,
+            epoch_tick_interval: self.epoch_tick_interval,
+            _epoch_ticker_signal: epoch_ticker_signal,
         }
     }
 }
@@ -165,6 +220,9 @@ pub struct Engine<T> {
     linker: Linker<T>,
     host_components: HostComponents,
     instance_pre_store: Arc<Mutex<Store<T>>>,
+    epoch_tick_interval: Duration,
+    // Matching receiver closes on drop
+    _epoch_ticker_signal: Option<Sender<()>>,
 }
 
 impl<T: Send + Sync> Engine<T> {
@@ -175,7 +233,11 @@ impl<T: Send + Sync> Engine<T> {
 
     /// Creates a new [`StoreBuilder`].
     pub fn store_builder(&self) -> StoreBuilder {
-        StoreBuilder::new(self.inner.clone(), &self.host_components)
+        StoreBuilder::new(
+            self.inner.clone(),
+            self.epoch_tick_interval,
+            &self.host_components,
+        )
     }
 
     /// Creates a new [`InstancePre`] for the given [`Module`].

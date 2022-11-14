@@ -6,8 +6,9 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = "1.0"
-tracing = "0.1"
 async-trait = "0.1"
+crossbeam-channel = "0.5"
+tracing = "0.1"
 wasi-cap-std-sync = { workspace = true }
 wasi-common = { workspace = true }
 wasmtime = { workspace = true }

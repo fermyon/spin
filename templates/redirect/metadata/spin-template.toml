@@ -1,0 +1,12 @@
+manifest_version = "1"
+id = "redirect"
+description = "Redirects a HTTP route"
+trigger_type = "http"
+
+[add_component]
+[add_component.snippets]
+component = "component.txt"
+
+[parameters]
+redirect-from = { type = "string", prompt = "Redirect from", pattern = "^/\\S*$" }
+redirect-to = { type = "string", prompt = "Redirect to", pattern = "^/\\S*$" }

@@ -535,9 +535,6 @@ dependencies = [
  "semver 1.0.14",
  "serde",
  "serde_json",
- "spin-loader",
- "spin-publish",
- "tempfile",
  "tokio",
  "tokio-util 0.7.4",
  "toml",
@@ -4263,7 +4260,6 @@ dependencies = [
  "semver 1.0.14",
  "serde",
  "spin-loader",
- "tempfile",
  "tokio",
  "toml",
 ]

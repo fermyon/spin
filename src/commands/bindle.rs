@@ -124,19 +124,9 @@ impl Prepare {
             .app
             .as_deref()
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-        let source_dir = crate::app_dir(app_file)?;
 
         let dest_dir = &self.staging_dir;
-
-        let (invoice, sources) = spin_publish::expand_manifest(app_file, self.buildinfo, &dest_dir)
-            .await
-            .with_context(|| format!("Failed to expand '{}' to a bindle", app_file.display()))?;
-
-        let bindle_id = &invoice.bindle.id;
-
-        spin_publish::write(&source_dir, &dest_dir, &invoice, &sources)
-            .await
-            .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
+        let bindle_id = spin_publish::prepare_bindle(app_file, self.buildinfo, dest_dir).await?;
 
         // We can't try to canonicalize it until the directory has been created
         let full_dest_dir =
@@ -155,7 +145,6 @@ impl Push {
             .app
             .as_deref()
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-        let source_dir = crate::app_dir(app_file)?;
         let bindle_connection_info = BindleConnectionInfo::new(
             &self.bindle_server_url,
             self.insecure,
@@ -171,22 +160,14 @@ impl Push {
             Some(path) => path.as_path(),
         };
 
-        let (invoice, sources) = spin_publish::expand_manifest(app_file, self.buildinfo, &dest_dir)
-            .await
-            .with_context(|| format!("Failed to expand '{}' to a bindle", app_file.display()))?;
-
-        let bindle_id = &invoice.bindle.id;
-
-        spin_publish::write(&source_dir, &dest_dir, &invoice, &sources)
-            .await
-            .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
+        let bindle_id = spin_publish::prepare_bindle(app_file, self.buildinfo, dest_dir).await?;
 
         let _sloth_warning = warn_if_slow_response(format!(
             "Uploading application to {}",
             self.bindle_server_url
         ));
 
-        spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info)
+        spin_publish::push_all(&dest_dir, &bindle_id, bindle_connection_info)
             .await
             .context("Failed to push bindle to server")?;
 

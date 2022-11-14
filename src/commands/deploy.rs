@@ -425,12 +425,7 @@ impl DeployCommand {
 
     async fn compute_buildinfo(&self, cfg: &RawAppManifest) -> Result<BuildMetadata> {
         let mut sha256 = Sha256::new();
-        let app_folder = self.app.parent().with_context(|| {
-            anyhow!(
-                "Cannot get a parent directory of manifest file {}",
-                &self.app.display()
-            )
-        })?;
+        let app_folder = crate::app_dir(&self.app)?;
 
         for x in cfg.components.iter() {
             match &x.source {
@@ -444,9 +439,8 @@ impl DeployCommand {
                 config::RawModuleSource::Url(us) => sha256.update(us.digest.as_bytes()),
             }
             if let Some(files) = &x.wasm.files {
-                let source_dir = crate::app_dir(&self.app)?;
                 let exclude_files = x.wasm.exclude_files.clone().unwrap_or_default();
-                let fm = assets::collect(files, &exclude_files, &source_dir)?;
+                let fm = assets::collect(files, &exclude_files, &app_folder)?;
                 for f in fm.iter() {
                     let mut r = File::open(&f.src)
                         .with_context(|| anyhow!("Cannot open file {}", &f.src.display()))?;
@@ -568,22 +562,13 @@ impl DeployCommand {
         buildinfo: Option<BuildMetadata>,
         bindle_connection_info: BindleConnectionInfo,
     ) -> Result<Id> {
-        let source_dir = crate::app_dir(&self.app)?;
-
         let temp_dir = tempfile::tempdir()?;
         let dest_dir = match &self.staging_dir {
             None => temp_dir.path(),
             Some(path) => path.as_path(),
         };
-        let (invoice, sources) = spin_publish::expand_manifest(&self.app, buildinfo, &dest_dir)
-            .await
-            .with_context(|| format!("Failed to expand '{}' to a bindle", self.app.display()))?;
 
-        let bindle_id = &invoice.bindle.id;
-
-        spin_publish::write(&source_dir, &dest_dir, &invoice, &sources)
-            .await
-            .with_context(|| crate::write_failed_msg(bindle_id, dest_dir))?;
+        let bindle_id = spin_publish::prepare_bindle(&self.app, buildinfo, dest_dir).await?;
 
         println!(
             "Uploading {} version {}...",
@@ -592,7 +577,7 @@ impl DeployCommand {
         );
 
         let publish_result =
-            spin_publish::push_all(&dest_dir, bindle_id, bindle_connection_info.clone()).await;
+            spin_publish::push_all(&dest_dir, &bindle_id, bindle_connection_info.clone()).await;
 
         if let Err(publish_err) = publish_result {
             // TODO: maybe use `thiserror` to return type errors.

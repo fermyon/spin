@@ -1,0 +1,12 @@
+manifest_version = "1"
+id = "static-fileserver"
+description = "Serves static files from an asset directory"
+trigger_type = "http"
+
+[add_component]
+[add_component.snippets]
+component = "component.txt"
+
+[parameters]
+http-path = { type = "string", prompt = "HTTP path", default = "/static/...", pattern = "^/\\S*$" }
+files-path = { type = "string", prompt = "Directory containing the files to serve", default = "assets", pattern = "^\\S+$" }

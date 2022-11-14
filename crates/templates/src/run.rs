@@ -415,7 +415,8 @@ impl Run {
         let mut builder = liquid::ParserBuilder::with_stdlib()
             .filter(crate::filters::KebabCaseFilterParser)
             .filter(crate::filters::PascalCaseFilterParser)
-            .filter(crate::filters::SnakeCaseFilterParser);
+            .filter(crate::filters::SnakeCaseFilterParser)
+            .filter(crate::filters::HttpWildcardFilterParser);
         for filter in self.template.custom_filters() {
             builder = builder.filter(filter);
         }

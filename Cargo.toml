@@ -102,16 +102,15 @@ members = [
     "crates/templates",
     "crates/testing",
     "crates/trigger",
-    "examples/spin-timer",
     "sdk/rust",
     "sdk/rust/macro"
 ]
 
 [workspace.dependencies]
-wasi-cap-std-sync = "0.39.1"
-wasi-common = "0.39.1"
-wasmtime = "0.39.1"
-wasmtime-wasi = { version = "0.39.1", features = ["tokio"] }
+wasi-cap-std-sync = "2.0.2"
+wasi-common = "2.0.2"
+wasmtime = "2.0.2"
+wasmtime-wasi = { version = "2.0.2", features = ["tokio"] }
 
 [workspace.dependencies.bindle]
 git = "https://github.com/fermyon/bindle"
@@ -120,8 +119,8 @@ default-features = false
 features = ["client"]
 
 [workspace.dependencies.wit-bindgen-wasmtime]
-git = "https://github.com/bytecodealliance/wit-bindgen"
-rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
+git = "https://github.com/fermyon/wit-bindgen-backport"
+rev = "9bddd4f9b4140bd0723342bcfe3b83067208519b"
 features = ["async"]
 
 [[bin]]

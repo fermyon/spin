@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
+    time::{Duration, Instant},
 };
 use wasi_cap_std_sync::{ambient_authority, Dir};
 use wasi_common::{dir::DirCaps, pipe::WritePipe, WasiFile};
@@ -24,12 +25,34 @@ use super::{
 /// A `Store` can be built with a [`StoreBuilder`].
 pub struct Store<T> {
     inner: wasmtime::Store<Data<T>>,
+    epoch_tick_interval: Duration,
 }
 
 impl<T> Store<T> {
     /// Returns a mutable reference to the [`HostComponentsData`] of this [`Store`].
     pub fn host_components_data(&mut self) -> &mut HostComponentsData {
         &mut self.inner.data_mut().host_components_data
+    }
+
+    /// Sets the execution deadline.
+    ///
+    /// This is a rough deadline; an instance will trap some time after this
+    /// deadline, determined by [`EngineBuilder::epoch_tick_interval`] and
+    /// details of the system's thread scheduler.
+    ///
+    /// See [`wasmtime::Store::set_epoch_deadline`](https://docs.rs/wasmtime/latest/wasmtime/struct.Store.html#method.set_epoch_deadline).
+    pub fn set_deadline(&mut self, deadline: Instant) {
+        let now = Instant::now();
+        let duration = deadline - now;
+        let ticks = if duration.is_zero() {
+            tracing::warn!("Execution deadline set in past: {deadline:?} < {now:?}");
+            0
+        } else {
+            let ticks = duration.as_micros() / self.epoch_tick_interval.as_micros();
+            let ticks = ticks.min(u64::MAX as u128) as u64;
+            ticks + 1 // Add one to allow for current partially-completed tick
+        };
+        self.inner.set_epoch_deadline(ticks);
     }
 }
 
@@ -82,6 +105,7 @@ const READ_ONLY_FILE_CAPS: FileCaps = FileCaps::from_bits_truncate(
 /// A new [`StoreBuilder`] can be obtained with [`crate::Engine::store_builder`].
 pub struct StoreBuilder {
     engine: wasmtime::Engine,
+    epoch_tick_interval: Duration,
     wasi: std::result::Result<Option<WasiCtxBuilder>, String>,
     read_only_preopened_dirs: Vec<(Dir, PathBuf)>,
     host_components_data: HostComponentsData,
@@ -90,9 +114,14 @@ pub struct StoreBuilder {
 
 impl StoreBuilder {
     // Called by Engine::store_builder.
-    pub(crate) fn new(engine: wasmtime::Engine, host_components: &HostComponents) -> Self {
+    pub(crate) fn new(
+        engine: wasmtime::Engine,
+        epoch_tick_interval: Duration,
+        host_components: &HostComponents,
+    ) -> Self {
         Self {
             engine,
+            epoch_tick_interval,
             wasi: Ok(Some(WasiCtxBuilder::new())),
             read_only_preopened_dirs: Vec::new(),
             host_components_data: host_components.new_data(),
@@ -243,8 +272,19 @@ impl StoreBuilder {
                 store_limits: self.store_limits,
             },
         );
+
         inner.limiter_async(move |data| &mut data.store_limits);
-        Ok(Store { inner })
+
+        // With epoch interruption enabled, there must be _some_ deadline set
+        // or execution will trap immediately. Since this is a delta, we need
+        // to avoid overflow so we'll use 2^63 which is still "practically
+        // forever" for any plausible tick interval.
+        inner.set_epoch_deadline(u64::MAX / 2);
+
+        Ok(Store {
+            inner,
+            epoch_tick_interval: self.epoch_tick_interval,
+        })
     }
 
     /// Builds a [`Store`] from this builder with `Default` host state data.

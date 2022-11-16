@@ -234,7 +234,7 @@ mod tests {
         std::fs::write("spin.toml", TEST_MANIFEST).expect("write manifest");
         std::fs::write("test-source.wasm", "not actual wasm").expect("write source");
         std::fs::write("static.txt", "content").expect("write static");
-        let app = spin_loader::local::from_file("spin.toml", &tempdir, &None)
+        let app = spin_loader::local::from_file("spin.toml", &tempdir, &None, vec![])
             .await
             .expect("load app");
         (app, tempdir)

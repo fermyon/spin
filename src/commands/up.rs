@@ -90,6 +90,10 @@ pub struct UpCommand {
     /// All other args, to be passed through to the trigger
     #[clap(hide = true)]
     pub trigger_args: Vec<OsString>,
+
+    /// Only run a subset of the components
+    #[clap(long = "component", short = 'c')]
+    pub include_components: Vec<String>,
 }
 
 impl UpCommand {
@@ -127,7 +131,13 @@ impl UpCommand {
                     .as_deref()
                     .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
                 let bindle_connection = self.bindle_connection();
-                spin_loader::from_file(manifest_file, &working_dir, &bindle_connection).await?
+                spin_loader::from_file(
+                    manifest_file,
+                    &working_dir,
+                    &bindle_connection,
+                    self.include_components,
+                )
+                .await?
             }
             (None, Some(bindle)) => match &self.server {
                 Some(server) => spin_loader::from_bindle(bindle, server, &working_dir).await?,

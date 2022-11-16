@@ -40,12 +40,20 @@ pub async fn from_file(
     app: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
+    include_components: Vec<String>,
 ) -> Result<Application> {
     let app = absolutize(app)?;
     let manifest = raw_manifest_from_file(&app).await?;
     validate_raw_app_manifest(&manifest)?;
 
-    prepare_any_version(manifest, app, base_dst, bindle_connection).await
+    prepare_any_version(
+        manifest,
+        app,
+        base_dst,
+        bindle_connection,
+        include_components,
+    )
+    .await
 }
 
 /// Reads the spin.toml file as a raw manifest.
@@ -93,9 +101,12 @@ async fn prepare_any_version(
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
+    include_components: Vec<String>,
 ) -> Result<Application> {
     match raw {
-        RawAppManifestAnyVersion::V1(raw) => prepare(raw, src, base_dst, bindle_connection).await,
+        RawAppManifestAnyVersion::V1(raw) => {
+            prepare(raw, src, base_dst, bindle_connection, include_components).await
+        }
     }
 }
 
@@ -125,12 +136,21 @@ pub fn validate_raw_app_manifest(raw: &RawAppManifestAnyVersion) -> Result<()> {
     Ok(())
 }
 
+fn include_component(components: &Vec<String>, component_id: &String) -> bool {
+    if components.is_empty() {
+        true
+    } else {
+        components.contains(component_id)
+    }
+}
+
 /// Converts a raw application manifest into Spin configuration.
 async fn prepare(
     raw: RawAppManifest,
     src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     bindle_connection: &Option<BindleConnectionInfo>,
+    include_components: Vec<String>,
 ) -> Result<Application> {
     let info = info(raw.info, &src);
 
@@ -138,13 +158,16 @@ async fn prepare(
 
     let component_triggers = raw
         .components
-        .iter()
-        .map(|c| (c.id.clone(), c.trigger.clone()))
+        .clone()
+        .into_iter()
+        .filter(|c| include_component(&include_components, &c.id))
+        .map(|c| (c.id.clone(), c.trigger))
         .collect();
 
     let components = future::join_all(
         raw.components
             .into_iter()
+            .filter(|c| include_component(&include_components, &c.id))
             .map(|c| async { core(c, &src, &base_dst, bindle_connection).await })
             .collect::<Vec<_>>(),
     )
@@ -152,6 +175,16 @@ async fn prepare(
     .into_iter()
     .collect::<Result<Vec<_>>>()
     .context("Failed to prepare configuration")?;
+
+    if components.is_empty() {
+        match include_components.is_empty() {
+            true => bail!("No components found in manifest"),
+            false => bail!(
+                "No components found in manifest matching '{}'",
+                include_components.join(", "),
+            ),
+        }
+    }
 
     let variables = raw
         .variables

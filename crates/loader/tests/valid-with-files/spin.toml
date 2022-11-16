@@ -1,7 +1,7 @@
 spin_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 name = "spin-local-source-test"
-trigger = {type = "http", base = "/"}
+trigger = { type = "http", base = "/" }
 version = "1.0.0"
 
 [[component]]
@@ -10,5 +10,14 @@ id = "fs"
 source = "spin-fs.wasm"
 
 [component.trigger]
-executor = {type = "spin"}
+executor = { type = "spin" }
 route = "/..."
+
+[[component]]
+files = ["**/*"]
+id = "fs2"
+source = "spin-fs.wasm"
+
+[component.trigger]
+executor = { type = "spin" }
+route = "/fs2"

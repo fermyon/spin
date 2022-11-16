@@ -11,7 +11,7 @@ async fn test_from_local_source() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, dir, &None).await?;
+    let app = from_file(MANIFEST, dir, &None, vec![]).await?;
 
     assert_eq!(app.info.name, "spin-local-source-test");
     assert_eq!(app.info.version, "1.0.0");
@@ -157,7 +157,7 @@ async fn test_invalid_manifest() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, dir, &None).await;
+    let app = from_file(MANIFEST, dir, &None, vec![]).await;
 
     let e = app.unwrap_err().to_string();
     assert!(
@@ -214,7 +214,7 @@ async fn test_duplicate_component_id_is_rejected() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, dir, &None).await;
+    let app = from_file(MANIFEST, dir, &None, vec![]).await;
 
     assert!(
         app.is_err(),
@@ -236,7 +236,7 @@ async fn test_insecure_allow_all_with_invalid_url() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, dir, &None).await;
+    let app = from_file(MANIFEST, dir, &None, vec![]).await;
 
     assert!(
         app.is_ok(),
@@ -252,7 +252,7 @@ async fn test_invalid_url_in_allowed_http_hosts_is_rejected() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, dir, &None).await;
+    let app = from_file(MANIFEST, dir, &None, vec![]).await;
 
     assert!(app.is_err(), "Expected allowed_http_hosts parsing error");
 
@@ -264,6 +264,51 @@ async fn test_invalid_url_in_allowed_http_hosts_is_rejected() -> Result<()> {
     assert!(
         e.contains("example.com/wib/wob"),
         "Expected allowed_http_hosts parse error to contain `example.com/wib/wob`"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_can_include_specific_components() -> Result<()> {
+    const MANIFEST: &str = "tests/valid-with-files/spin.toml";
+
+    let temp_dir = tempfile::tempdir()?;
+    let dir = temp_dir.path();
+    let app = from_file(MANIFEST, dir, &None, vec!["fs2".to_string()]).await;
+
+    let _ = app.unwrap().components.len() == 1;
+
+    let app = from_file(
+        MANIFEST,
+        dir,
+        &None,
+        vec!["fs".to_string(), "fs2".to_string()],
+    )
+    .await;
+
+    let _ = app.unwrap().components.len() == 2;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_handles_unknown_include_component() -> Result<()> {
+    const MANIFEST: &str = "tests/valid-with-files/spin.toml";
+
+    let temp_dir = tempfile::tempdir()?;
+    let dir = temp_dir.path();
+    let app = from_file(
+        MANIFEST,
+        dir,
+        &None,
+        vec!["random_fake_component".to_string()],
+    )
+    .await;
+
+    assert!(
+        app.is_err(),
+        "No components found in manifest matching 'random_fake_component'"
     );
 
     Ok(())

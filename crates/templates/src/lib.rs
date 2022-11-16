@@ -1,6 +1,6 @@
 //! Package for working with Wasm component templates.
 
-#![allow(missing_docs)]
+#![deny(missing_docs)]
 
 mod app_info;
 mod constraints;

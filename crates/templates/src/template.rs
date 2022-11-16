@@ -25,13 +25,17 @@ pub struct Template {
     content_dir: Option<PathBuf>, // TODO: maybe always need a spin.toml file in there?
 }
 
+/// The variant mode in which a template should be run.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum TemplateVariantKind {
+    /// Create a new application from the template.
     NewApplication,
+    /// Create a new component in an existing application from the template.
     AddComponent,
 }
 
 impl TemplateVariantKind {
+    /// A human-readable description of the variant.
     pub fn description(&self) -> &'static str {
         match self {
             Self::NewApplication => "new application",
@@ -158,6 +162,7 @@ impl Template {
         &self.snippets_dir
     }
 
+    /// Checks if the template supports the specified variant mode.
     pub fn supports_variant(&self, variant: &TemplateVariantKind) -> bool {
         self.variants.contains_key(variant)
     }

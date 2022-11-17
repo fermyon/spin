@@ -391,7 +391,7 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use crate::RunOptions;
+    use crate::{RunOptions, TemplateVariantKind};
 
     use super::*;
 
@@ -944,5 +944,30 @@ mod tests {
                 .await
                 .expect_err("Expected to fail to add component, but it succeeded");
         }
+    }
+
+    #[tokio::test]
+    async fn cannot_new_a_component_only_template() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let redirect = manager.get("redirect").unwrap().unwrap();
+        assert!(!redirect.supports_variant(&TemplateVariantKind::NewApplication));
+        assert!(redirect.supports_variant(&TemplateVariantKind::AddComponent));
+
+        let http_rust = manager.get("http-rust").unwrap().unwrap();
+        assert!(http_rust.supports_variant(&TemplateVariantKind::NewApplication));
+        assert!(http_rust.supports_variant(&TemplateVariantKind::AddComponent));
+
+        let http_empty = manager.get("http-empty").unwrap().unwrap();
+        assert!(http_empty.supports_variant(&TemplateVariantKind::NewApplication));
+        assert!(!http_empty.supports_variant(&TemplateVariantKind::AddComponent));
     }
 }

@@ -471,13 +471,18 @@ impl PreparedTemplate {
             .into_iter()
             .map(|(path, content)| Self::render_one(path, content, &globals))
             .collect::<anyhow::Result<Vec<_>>>()?;
-        let outputs = HashMap::from_iter(rendered);
 
         let deltas = self
             .snippets
             .into_iter()
             .map(|so| Self::render_snippet(so, &globals))
             .collect::<anyhow::Result<Vec<_>>>()?;
+
+        if rendered.is_empty() && deltas.is_empty() {
+            return Err(anyhow!("Nothing to create"));
+        }
+
+        let outputs = HashMap::from_iter(rendered);
         Ok(TemplateOutputs {
             files: outputs,
             deltas,

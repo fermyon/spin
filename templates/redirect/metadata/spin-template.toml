@@ -3,6 +3,9 @@ id = "redirect"
 description = "Redirects a HTTP route"
 trigger_type = "http"
 
+[new_application]
+supported = false
+
 [add_component]
 [add_component.snippets]
 component = "component.txt"

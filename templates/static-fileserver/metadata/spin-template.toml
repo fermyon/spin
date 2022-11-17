@@ -3,6 +3,9 @@ id = "static-fileserver"
 description = "Serves static files from an asset directory"
 trigger_type = "http"
 
+[new_application]
+supported = false
+
 [add_component]
 [add_component.snippets]
 component = "component.txt"

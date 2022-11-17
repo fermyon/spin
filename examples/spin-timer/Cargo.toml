@@ -13,6 +13,6 @@ tracing = { version = "0.1", features = [ "log" ] }
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 
 [dependencies.wit-bindgen-wasmtime]
-git = "https://github.com/bytecodealliance/wit-bindgen"
-rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
+git = "https://github.com/fermyon/wit-bindgen-backport"
+rev = "9bddd4f9b4140bd0723342bcfe3b83067208519b"
 features = ["async"]

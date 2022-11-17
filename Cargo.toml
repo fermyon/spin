@@ -84,6 +84,7 @@ default = []
 e2e-tests = []
 outbound-redis-tests = []
 config-provider-tests = []
+outbound-pg-tests = []
 
 [workspace]
 members = [

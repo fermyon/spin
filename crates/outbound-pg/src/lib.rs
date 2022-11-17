@@ -139,8 +139,7 @@ fn convert_data_type(pg_type: &Type) -> DbDataType {
         Type::INT2 => DbDataType::Int16,
         Type::INT4 => DbDataType::Int32,
         Type::INT8 => DbDataType::Int64,
-        Type::TEXT => DbDataType::Str,
-        Type::VARCHAR => DbDataType::Str,
+        Type::TEXT | Type::VARCHAR | Type::BPCHAR => DbDataType::Str,
         _ => {
             tracing::debug!("Couldn't convert Postgres type {} to WIT", pg_type.name(),);
             DbDataType::Other
@@ -208,17 +207,10 @@ fn convert_entry(row: &Row, index: usize) -> Result<DbValue, tokio_postgres::Err
                 None => DbValue::DbNull,
             }
         }
-        &Type::TEXT => {
-            let value: Option<&str> = row.try_get(index)?;
+        &Type::TEXT | &Type::VARCHAR | &Type::BPCHAR => {
+            let value: Option<String> = row.try_get(index)?;
             match value {
-                Some(v) => DbValue::Str(v.to_owned()),
-                None => DbValue::DbNull,
-            }
-        }
-        &Type::VARCHAR => {
-            let value: Option<&str> = row.try_get(index)?;
-            match value {
-                Some(v) => DbValue::Str(v.to_owned()),
+                Some(v) => DbValue::Str(v),
                 None => DbValue::DbNull,
             }
         }

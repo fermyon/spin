@@ -438,6 +438,7 @@ impl DeployCommand {
                 config::RawModuleSource::Bindle(_b) => {}
                 config::RawModuleSource::Url(us) => sha256.update(us.digest.as_bytes()),
             }
+
             if let Some(files) = &x.wasm.files {
                 let exclude_files = x.wasm.exclude_files.clone().unwrap_or_default();
                 let fm = assets::collect(files, &exclude_files, &app_folder)?;
@@ -568,7 +569,9 @@ impl DeployCommand {
             Some(path) => path.as_path(),
         };
 
-        let bindle_id = spin_publish::prepare_bindle(&self.app, buildinfo, dest_dir).await?;
+        let bindle_id = spin_publish::prepare_bindle(&self.app, buildinfo, dest_dir)
+            .await
+            .map_err(crate::wrap_prepare_bindle_error)?;
 
         println!(
             "Uploading {} version {}...",
@@ -576,35 +579,22 @@ impl DeployCommand {
             bindle_id.version()
         );
 
-        let publish_result =
-            spin_publish::push_all(&dest_dir, &bindle_id, bindle_connection_info.clone()).await;
-
-        if let Err(publish_err) = publish_result {
-            // TODO: maybe use `thiserror` to return type errors.
-            let already_exists = publish_err
-                .to_string()
-                .contains("already exists on the server");
-            if already_exists {
+        match spin_publish::push_all(dest_dir, &bindle_id, bindle_connection_info.clone()).await {
+            Err(spin_publish::PublishError::BindleAlreadyExists(err_msg)) => {
                 if self.redeploy {
-                    return Ok(bindle_id.clone());
+                    Ok(bindle_id.clone())
                 } else {
-                    return Err(anyhow!(
+                    Err(anyhow!(
                         "Failed to push bindle to server.\n{}\nTry using the --deploy-existing-bindle flag",
-                        publish_err
-                    ));
+                        err_msg
+                    ))
                 }
-            } else {
-                return Err(publish_err).with_context(|| {
-                    format!(
-                        "Failed to push bindle {} to server {}",
-                        bindle_id,
-                        bindle_connection_info.base_url()
-                    )
-                });
             }
+            Err(err) => Err(err).with_context(|| {
+                crate::push_all_failed_msg(dest_dir, bindle_connection_info.base_url())
+            }),
+            Ok(()) => Ok(bindle_id.clone()),
         }
-
-        Ok(bindle_id.clone())
     }
 }
 

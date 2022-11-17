@@ -4258,6 +4258,7 @@ dependencies = [
  "semver 1.0.14",
  "serde",
  "spin-loader",
+ "thiserror",
  "tokio",
  "toml",
 ]

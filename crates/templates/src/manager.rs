@@ -928,4 +928,50 @@ mod tests {
         assert!(http_empty.supports_variant(&TemplateVariantInfo::NewApplication));
         assert!(!http_empty.supports_variant(&add_component));
     }
+
+    #[tokio::test]
+    async fn fails_on_unknown_filter() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(test_data_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let template = manager.get("bad-non-existent-filter").unwrap().unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let output_dir = dest_temp_dir.path().join("myproj");
+        let values = [("p1".to_owned(), "biscuits".to_owned())]
+            .into_iter()
+            .collect();
+        let options = RunOptions {
+            variant: crate::template::TemplateVariantInfo::NewApplication,
+            output_path: output_dir.clone(),
+            name: "bad-filter-should-fail ".to_owned(),
+            values,
+            accept_defaults: false,
+        };
+
+        let err = template
+            .run(options)
+            .silent()
+            .await
+            .expect_err("Expected template to fail but it passed");
+
+        let err_str = err.to_string();
+
+        assert_contains(&err_str, "internal error");
+        assert_contains(&err_str, "unknown filter 'lol_snort'");
+    }
+
+    fn assert_contains(actual: &str, expected: &str) {
+        assert!(
+            actual.contains(expected),
+            "expected string containing '{expected}' but got '{actual}'"
+        );
+    }
 }

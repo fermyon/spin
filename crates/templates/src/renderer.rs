@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use lazy_static::lazy_static;
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::writer::{TemplateOutput, TemplateOutputs};
@@ -68,13 +69,24 @@ impl RenderOperation {
 }
 
 impl TemplateContent {
-    pub(crate) fn infer_from_bytes(raw: Vec<u8>, parser: &liquid::Parser) -> TemplateContent {
+    pub(crate) fn infer_from_bytes(
+        raw: Vec<u8>,
+        parser: &liquid::Parser,
+    ) -> anyhow::Result<TemplateContent> {
         match string_from_bytes(&raw) {
-            None => TemplateContent::Binary(raw),
+            None => Ok(TemplateContent::Binary(raw)),
             Some(s) => {
                 match parser.parse(&s) {
-                    Ok(t) => TemplateContent::Template(t),
-                    Err(_) => TemplateContent::Binary(raw), // TODO: detect legit broken templates and error on them
+                    Ok(t) => Ok(TemplateContent::Template(t)),
+                    Err(e) => match understand_liquid_error(e) {
+                        TemplateParseFailure::Other(_e) => {
+                            // TODO: emit a warning?
+                            Ok(TemplateContent::Binary(raw))
+                        }
+                        TemplateParseFailure::UnknownFilter(id) => {
+                            Err(anyhow!("internal error in template: unknown filter '{id}'"))
+                        }
+                    },
                 }
             }
         }
@@ -97,5 +109,32 @@ fn string_from_bytes(bytes: &[u8]) -> Option<String> {
     match std::str::from_utf8(bytes) {
         Ok(s) => Some(s.to_owned()),
         Err(_) => None, // TODO: try other encodings!
+    }
+}
+
+enum TemplateParseFailure {
+    UnknownFilter(String),
+    Other(liquid::Error),
+}
+
+lazy_static! {
+    static ref UNKNOWN_FILTER: regex::Regex =
+        regex::Regex::new("requested filter=(\\S+)").expect("Invalid unknown filter regex");
+}
+
+fn understand_liquid_error(e: liquid::Error) -> TemplateParseFailure {
+    let err_str = e.to_string();
+
+    // They should use typed errors like we, er, don't
+    match err_str.lines().next() {
+        None => TemplateParseFailure::Other(e),
+        Some("liquid: Unknown filter") => match UNKNOWN_FILTER.captures(&err_str) {
+            None => TemplateParseFailure::Other(e),
+            Some(captures) => match captures.get(1) {
+                None => TemplateParseFailure::Other(e),
+                Some(id) => TemplateParseFailure::UnknownFilter(id.as_str().to_owned()),
+            },
+        },
+        _ => TemplateParseFailure::Other(e),
     }
 }

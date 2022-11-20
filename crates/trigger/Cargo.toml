@@ -22,6 +22,7 @@ spin-config = { path = "../config" }
 spin-core = { path = "../core" }
 spin-loader = { path = "../loader" }
 spin-manifest = { path = "../manifest" }
+tokio = { version = "1.11", features = [ "full" ] }
 toml = "0.5.9"
 tracing = { version = "0.1", features = [ "log" ] }
 url = "2"

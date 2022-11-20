@@ -3,6 +3,10 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Args, IntoApp, Parser};
 use serde::de::DeserializeOwned;
+use tokio::{
+    task::JoinHandle,
+    time::{sleep, Duration},
+};
 
 use crate::stdio::StdioLoggingTriggerHooks;
 use crate::{config::TriggerExecutorBuilderConfig, loader::TriggerLoader, stdio::FollowComponents};
@@ -116,6 +120,8 @@ where
             TriggerExecutorBuilderConfig::load_from_file(self.runtime_config_file.clone())?;
 
         let executor: Executor = {
+            let _sloth_warning = warn_if_wasm_build_slothful();
+
             let mut builder = TriggerExecutorBuilder::new(loader);
             self.update_wasmtime_config(builder.wasmtime_config_mut())?;
 
@@ -166,4 +172,36 @@ where
         }
         Ok(())
     }
+}
+
+const SLOTH_WARNING_DELAY_MILLIS: u64 = 1250;
+
+struct WasmBuildSlothWarning<T> {
+    warning: JoinHandle<T>,
+}
+
+impl<T> Drop for WasmBuildSlothWarning<T> {
+    fn drop(&mut self) {
+        self.warning.abort()
+    }
+}
+
+fn warn_if_wasm_build_slothful() -> WasmBuildSlothWarning<()> {
+    let warning = tokio::spawn(warn_slow_wasm_build());
+    WasmBuildSlothWarning { warning }
+}
+
+#[cfg(debug_assertions)]
+async fn warn_slow_wasm_build() {
+    sleep(Duration::from_millis(SLOTH_WARNING_DELAY_MILLIS)).await;
+    println!("This is a debug build - preparing Wasm modules might take a few seconds");
+    println!("If you're experiencing long startup times please switch to the release build");
+    println!();
+}
+
+#[cfg(not(debug_assertions))]
+async fn warn_slow_wasm_build() {
+    sleep(Duration::from_millis(SLOTH_WARNING_DELAY_MILLIS)).await;
+    println!("Preparing Wasm modules is taking a few seconds...");
+    println!();
 }

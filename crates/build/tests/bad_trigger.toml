@@ -1,0 +1,13 @@
+spin_version = "1"
+name = "bad_trigger"
+# The trigger is missing the `base` field
+trigger = { type = "http" }
+version = "0.1.0"
+
+[[component]]
+id = "test"
+source = "does-not-exist"
+[component.trigger]
+route = "/test"
+[component.build]
+command = "echo done"

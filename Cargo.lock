@@ -4006,8 +4006,11 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "futures",
+ "serde",
  "spin-loader",
  "subprocess",
+ "tokio",
+ "toml",
  "tracing",
 ]
 

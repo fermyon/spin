@@ -49,6 +49,33 @@ pub struct RedisReport {
     /// function with the arguments \["127.0.0.1", \["foo"\]\] and expect `ok(0)` as the result.  The host will assert
     /// that said function is called exactly once with the specified arguments.
     pub del: Result<(), String>,
+
+    /// Result of the Redis `SADD` test
+    ///
+    /// The guest module should expect a call according to [`super::InvocationStyle`] with \["outbound-redis-sadd",
+    /// "127.0.0.1", "foo", "bar", "baz"\] as arguments. The module should call the host-implemented
+    /// `outbound-redis::sadd` function with the arguments \["127.0.0.1", "foo", \["bar", "baz"\]\] and expect
+    /// `ok(2)` as the result.  The host will assert that said function is called exactly once with the specified
+    /// arguments.
+    pub sadd: Result<(), String>,
+
+    /// Result of the Redis `SREM` test
+    ///
+    /// The guest module should expect a call according to [`super::InvocationStyle`] with \["outbound-redis-srem",
+    /// "127.0.0.1", "foo", "bar", "baz"\] as arguments. The module should call the host-implemented
+    /// `outbound-redis::srem` function with the arguments \["127.0.0.1", "foo", \["bar", "baz"\]\] and expect
+    /// `ok(2)` as the result.  The host will assert that said function is called exactly once with the specified
+    /// arguments.
+    pub srem: Result<(), String>,
+
+    /// Result of the Redis `SMEMBERS` test
+    ///
+    /// The guest module should expect a call according to [`super::InvocationStyle`] with
+    /// \["outbound-redis-smembers", "127.0.0.1", "foo"\] as arguments. The module should call the host-implemented
+    /// `outbound-redis::smembers` function with the arguments \["127.0.0.1", "foo"\] and expect `ok(list("bar",
+    /// "baz"))` as the result.  The host will assert that said function is called exactly once with the specified
+    /// arguments.
+    pub smembers: Result<(), String>,
 }
 
 wit_bindgen_wasmtime::export!("../../wit/ephemeral/outbound-redis.wit");
@@ -59,7 +86,10 @@ pub(super) struct OutboundRedis {
     set_set: HashSet<(String, String, Vec<u8>)>,
     get_map: HashMap<(String, String), Vec<u8>>,
     incr_map: HashMap<(String, String), i64>,
-    del_map: HashMap<(String, String), i64>,
+    del_map: HashMap<(String, Vec<String>), i64>,
+    sadd_map: HashMap<(String, String, Vec<String>), i64>,
+    srem_map: HashMap<(String, String, Vec<String>), i64>,
+    smembers_map: HashMap<(String, String), Vec<String>>,
 }
 
 impl outbound_redis::OutboundRedis for OutboundRedis {
@@ -105,7 +135,46 @@ impl outbound_redis::OutboundRedis for OutboundRedis {
 
     fn del(&mut self, address: &str, keys: Vec<&str>) -> Result<i64, outbound_redis::Error> {
         self.del_map
-            .remove(&(address.into(), format!("{keys:?}")))
+            .remove(&(
+                address.into(),
+                keys.into_iter().map(|s| s.to_owned()).collect(),
+            ))
+            .ok_or(outbound_redis::Error::Error)
+    }
+
+    fn sadd(
+        &mut self,
+        address: &str,
+        key: &str,
+        values: Vec<&str>,
+    ) -> Result<i64, outbound_redis::Error> {
+        self.sadd_map
+            .remove(&(
+                address.into(),
+                key.to_owned(),
+                values.into_iter().map(|s| s.to_owned()).collect(),
+            ))
+            .ok_or(outbound_redis::Error::Error)
+    }
+
+    fn srem(
+        &mut self,
+        address: &str,
+        key: &str,
+        values: Vec<&str>,
+    ) -> Result<i64, outbound_redis::Error> {
+        self.srem_map
+            .remove(&(
+                address.into(),
+                key.to_owned(),
+                values.into_iter().map(|s| s.to_owned()).collect(),
+            ))
+            .ok_or(outbound_redis::Error::Error)
+    }
+
+    fn smembers(&mut self, address: &str, key: &str) -> Result<Vec<String>, outbound_redis::Error> {
+        self.smembers_map
+            .remove(&(address.into(), key.to_owned()))
             .ok_or(outbound_redis::Error::Error)
     }
 }
@@ -200,10 +269,11 @@ pub(super) fn test(store: &mut Store<Context>, pre: &InstancePre<Context>) -> Re
         },
 
         del: {
-            store.data_mut().outbound_redis.del_map.insert(
-                ("127.0.0.1".into(), format!("{:?}", vec!["foo".to_owned()])),
-                0,
-            );
+            store
+                .data_mut()
+                .outbound_redis
+                .del_map
+                .insert(("127.0.0.1".into(), vec!["foo".to_owned()]), 0);
 
             super::run_command(
                 store,
@@ -213,6 +283,77 @@ pub(super) fn test(store: &mut Store<Context>, pre: &InstancePre<Context>) -> Re
                     ensure!(
                         store.data().outbound_redis.del_map.is_empty(),
                         "expected module to call `outbound-redis::del` exactly once"
+                    );
+
+                    Ok(())
+                },
+            )
+        },
+
+        sadd: {
+            store.data_mut().outbound_redis.sadd_map.insert(
+                (
+                    "127.0.0.1".into(),
+                    "foo".to_owned(),
+                    vec!["bar".to_owned(), "baz".to_owned()],
+                ),
+                0,
+            );
+
+            super::run_command(
+                store,
+                pre,
+                &["outbound-redis-del", "127.0.0.1", "foo", "bar", "baz"],
+                |store| {
+                    ensure!(
+                        store.data().outbound_redis.sadd_map.is_empty(),
+                        "expected module to call `outbound-redis::sadd` exactly once"
+                    );
+
+                    Ok(())
+                },
+            )
+        },
+
+        srem: {
+            store.data_mut().outbound_redis.srem_map.insert(
+                (
+                    "127.0.0.1".into(),
+                    "foo".to_owned(),
+                    vec!["bar".to_owned(), "baz".to_owned()],
+                ),
+                0,
+            );
+
+            super::run_command(
+                store,
+                pre,
+                &["outbound-redis-del", "127.0.0.1", "foo", "bar", "baz"],
+                |store| {
+                    ensure!(
+                        store.data().outbound_redis.srem_map.is_empty(),
+                        "expected module to call `outbound-redis::srem` exactly once"
+                    );
+
+                    Ok(())
+                },
+            )
+        },
+
+        smembers: {
+            store.data_mut().outbound_redis.smembers_map.insert(
+                ("127.0.0.1".into(), "foo".to_owned()),
+                vec!["bar".to_owned(), "baz".to_owned()],
+            );
+
+            super::run_command(
+                store,
+                pre,
+                &["outbound-redis-del", "127.0.0.1", "foo"],
+                |store| {
+                    ensure!(
+                        store.data().outbound_redis.smembers_map.is_empty(),
+                        "expected module to call `outbound-redis::smembers` exactly once"
                     );
 
                     Ok(())

@@ -414,7 +414,7 @@ mod tests {
         PathBuf::from(crate_dir).join("tests")
     }
 
-    const TPLS_IN_THIS: usize = 8;
+    const TPLS_IN_THIS: usize = 9;
 
     #[tokio::test]
     async fn can_install_into_new_directory() {
@@ -631,10 +631,12 @@ mod tests {
         .into_iter()
         .collect();
         let options = RunOptions {
+            variant: crate::template::TemplateVariantKind::NewApplication,
             output_path: output_dir.clone(),
             name: "my project".to_owned(),
             values,
             accept_defaults: false,
+            existing_manifest: None,
         };
 
         template
@@ -669,10 +671,12 @@ mod tests {
         let output_dir = dest_temp_dir.path().join("myproj");
         let values = HashMap::new();
         let options = RunOptions {
+            variant: crate::template::TemplateVariantKind::NewApplication,
             output_path: output_dir.clone(),
             name: "my project".to_owned(),
             values,
             accept_defaults: true,
+            existing_manifest: None,
         };
 
         template
@@ -716,10 +720,12 @@ mod tests {
         .into_iter()
         .collect();
         let options = RunOptions {
+            variant: crate::template::TemplateVariantKind::NewApplication,
             output_path: output_dir.clone(),
             name: "custom-filter-test".to_owned(),
             values,
             accept_defaults: false,
+            existing_manifest: None,
         };
 
         template
@@ -736,5 +742,207 @@ mod tests {
         assert!(message.contains("p1/studly = bIsCuItS"));
         assert!(message.contains("p2/studly = nOmNoMnOm"));
         assert!(message.contains("p1/clappy = b👏i👏s👏c👏u👏i👏t👏s"));
+    }
+
+    #[tokio::test]
+    async fn can_add_component_from_template() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let application_dir = dest_temp_dir.path().join("multi");
+
+        // Set up the containing app
+        {
+            let template = manager.get("http-empty").unwrap().unwrap();
+
+            let values = [
+                ("project-description".to_owned(), "my desc".to_owned()),
+                ("http-base".to_owned(), "/".to_owned()),
+            ]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantKind::NewApplication,
+                output_path: application_dir.clone(),
+                name: "my multi project".to_owned(),
+                values,
+                accept_defaults: false,
+                existing_manifest: None,
+            };
+
+            template
+                .run(options)
+                .silent()
+                .await
+                .execute()
+                .await
+                .unwrap();
+        }
+
+        let spin_toml_path = application_dir.join("spin.toml");
+        assert!(spin_toml_path.exists(), "expected spin.toml to be created");
+
+        // Now add a component
+        {
+            let template = manager.get("http-rust").unwrap().unwrap();
+
+            let output_dir = "hello";
+            let values = [
+                ("project-description".to_owned(), "hello".to_owned()),
+                ("http-path".to_owned(), "/hello".to_owned()),
+            ]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantKind::AddComponent,
+                output_path: PathBuf::from(output_dir),
+                name: "hello".to_owned(),
+                values,
+                accept_defaults: false,
+                existing_manifest: Some(spin_toml_path.clone()),
+            };
+
+            template
+                .run(options)
+                .silent()
+                .await
+                .execute()
+                .await
+                .unwrap();
+        }
+
+        // And another
+        {
+            let template = manager.get("http-rust").unwrap().unwrap();
+
+            let output_dir = "encore";
+            let values = [
+                ("project-description".to_owned(), "hello 2".to_owned()),
+                ("http-path".to_owned(), "/hello-2".to_owned()),
+            ]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantKind::AddComponent,
+                output_path: PathBuf::from(output_dir),
+                name: "hello 2".to_owned(),
+                values,
+                accept_defaults: false,
+                existing_manifest: Some(spin_toml_path.clone()),
+            };
+
+            template
+                .run(options)
+                .silent()
+                .await
+                .execute()
+                .await
+                .unwrap();
+        }
+
+        let cargo1 = tokio::fs::read_to_string(application_dir.join("hello/Cargo.toml"))
+            .await
+            .unwrap();
+        assert!(cargo1.contains("name = \"hello\""));
+
+        let cargo2 = tokio::fs::read_to_string(application_dir.join("encore/Cargo.toml"))
+            .await
+            .unwrap();
+        assert!(cargo2.contains("name = \"hello-2\""));
+
+        let spin_toml = tokio::fs::read_to_string(&spin_toml_path).await.unwrap();
+        assert!(spin_toml.contains("source = \"hello/target/wasm32-wasi/release/hello.wasm\""));
+        assert!(spin_toml.contains("source = \"encore/target/wasm32-wasi/release/hello_2.wasm\""));
+    }
+
+    #[tokio::test]
+    async fn cannot_add_component_that_does_not_match_trigger() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let application_dir = dest_temp_dir.path().join("multi");
+
+        // Set up the containing app
+        {
+            let template = manager.get("redis-rust").unwrap().unwrap();
+
+            let values = [
+                ("project-description".to_owned(), "my desc".to_owned()),
+                (
+                    "redis-address".to_owned(),
+                    "redis://localhost:6379".to_owned(),
+                ),
+                (
+                    "redis-channel".to_owned(),
+                    "the-horrible-knuckles".to_owned(),
+                ),
+            ]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantKind::NewApplication,
+                output_path: application_dir.clone(),
+                name: "my multi project".to_owned(),
+                values,
+                accept_defaults: false,
+                existing_manifest: None,
+            };
+
+            template
+                .run(options)
+                .silent()
+                .await
+                .execute()
+                .await
+                .unwrap();
+        }
+
+        let spin_toml_path = application_dir.join("spin.toml");
+        assert!(spin_toml_path.exists(), "expected spin.toml to be created");
+
+        // Now add a component
+        {
+            let template = manager.get("http-rust").unwrap().unwrap();
+
+            let output_dir = "hello";
+            let values = [
+                ("project-description".to_owned(), "hello".to_owned()),
+                ("http-path".to_owned(), "/hello".to_owned()),
+            ]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantKind::AddComponent,
+                output_path: PathBuf::from(output_dir),
+                name: "hello".to_owned(),
+                values,
+                accept_defaults: false,
+                existing_manifest: Some(spin_toml_path.clone()),
+            };
+
+            template
+                .run(options)
+                .silent()
+                .await
+                .execute()
+                .await
+                .expect_err("Expected to fail to add component, but it succeeded");
+        }
     }
 }

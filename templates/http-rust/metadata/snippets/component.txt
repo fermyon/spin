@@ -1,0 +1,8 @@
+[[component]]
+id = "{{project-name | kebab_case}}"
+source = "{{ output-path }}/target/wasm32-wasi/release/{{project-name | snake_case}}.wasm"
+[component.trigger]
+route = "{{http-path}}"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+workdir = "{{ output-path }}"

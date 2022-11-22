@@ -2,9 +2,15 @@ use anyhow::Error;
 use clap::{CommandFactory, Parser, Subcommand};
 use lazy_static::lazy_static;
 use spin_cli::commands::{
-    bindle::BindleCommands, build::BuildCommand, deploy::DeployCommand,
-    external::execute_external_subcommand, login::LoginCommand, new::NewCommand,
-    plugins::PluginCommands, templates::TemplateCommands, up::UpCommand,
+    bindle::BindleCommands,
+    build::BuildCommand,
+    deploy::DeployCommand,
+    external::execute_external_subcommand,
+    login::LoginCommand,
+    new::{AddCommand, NewCommand},
+    plugins::PluginCommands,
+    templates::TemplateCommands,
+    up::UpCommand,
 };
 use spin_http::HttpTrigger;
 use spin_redis_engine::RedisTrigger;
@@ -39,6 +45,7 @@ enum SpinApp {
     #[clap(subcommand)]
     Templates(TemplateCommands),
     New(NewCommand),
+    Add(AddCommand),
     Up(UpCommand),
     #[clap(subcommand)]
     Bindle(BindleCommands),
@@ -66,6 +73,7 @@ impl SpinApp {
             Self::Templates(cmd) => cmd.run().await,
             Self::Up(cmd) => cmd.run().await,
             Self::New(cmd) => cmd.run().await,
+            Self::Add(cmd) => cmd.run().await,
             Self::Bindle(cmd) => cmd.run().await,
             Self::Deploy(cmd) => cmd.run().await,
             Self::Build(cmd) => cmd.run().await,

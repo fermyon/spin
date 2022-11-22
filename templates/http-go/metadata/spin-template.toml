@@ -2,6 +2,12 @@ manifest_version = "1"
 id = "http-go"
 description = "HTTP request handler using (Tiny)Go"
 
+[add_component]
+skip_files = ["spin.toml"]
+skip_parameters = ["http-base"]
+[add_component.snippets]
+component = "component.txt"
+
 [parameters]
 project-description = { type = "string",  prompt = "Project description", default = "" }
 http-base = { type = "string", prompt = "HTTP base", default = "/", pattern = "^/\\S*$" }

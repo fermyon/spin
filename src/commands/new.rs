@@ -6,14 +6,17 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+use path_absolutize::Absolutize;
 use tokio::{fs::File, io::AsyncReadExt};
 
 use spin_loader::local::absolutize;
-use spin_templates::{RunOptions, Template, TemplateManager};
+use spin_templates::{RunOptions, Template, TemplateManager, TemplateVariantKind};
 
-/// Scaffold a new application or component based on a template.
+use crate::opts::{APP_CONFIG_FILE_OPT, DEFAULT_MANIFEST_FILE};
+
+/// Scaffold a new application based on a template.
 #[derive(Parser, Debug)]
-pub struct NewCommand {
+pub struct TemplateNewCommandCore {
     /// The template from which to create the new application or component. Run `spin templates list` to see available options.
     pub template_id: Option<String>,
 
@@ -42,8 +45,69 @@ pub struct NewCommand {
     pub accept_defaults: bool,
 }
 
+/// Scaffold a new application based on a template.
+#[derive(Parser, Debug)]
+pub struct NewCommand {
+    #[clap(flatten)]
+    options: TemplateNewCommandCore,
+}
+
+/// Scaffold a new component into an existing application.
+#[derive(Parser, Debug)]
+pub struct AddCommand {
+    #[clap(flatten)]
+    options: TemplateNewCommandCore,
+
+    /// Path to spin.toml.
+    #[clap(
+        name = APP_CONFIG_FILE_OPT,
+        short = 'f',
+        long = "file",
+    )]
+    pub app: Option<PathBuf>,
+}
+
 impl NewCommand {
     pub async fn run(&self) -> Result<()> {
+        self.options
+            .run(TemplateVariantKind::NewApplication, None)
+            .await
+    }
+}
+
+impl AddCommand {
+    pub async fn run(&self) -> Result<()> {
+        let app_file = self
+            .app
+            .as_deref()
+            .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
+        let app_file = app_file
+            .absolutize()
+            .with_context(|| {
+                format!(
+                    "Can't get absolute path for manifest file '{}'",
+                    app_file.display()
+                )
+            })?
+            .into_owned();
+        if !app_file.exists() {
+            anyhow::bail!(
+                "Can't add component to {}: file does not exist",
+                app_file.display()
+            );
+        }
+        self.options
+            .run(TemplateVariantKind::AddComponent, Some(app_file))
+            .await
+    }
+}
+
+impl TemplateNewCommandCore {
+    pub async fn run(
+        &self,
+        variant: TemplateVariantKind,
+        existing_manifest: Option<PathBuf>,
+    ) -> Result<()> {
         let template_manager =
             TemplateManager::default().context("Failed to construct template directory path")?;
 
@@ -64,6 +128,15 @@ impl NewCommand {
             },
         };
 
+        if !template.supports_variant(&variant) {
+            println!(
+                "Template {} doesn't support the '{}' operation",
+                template.id(),
+                variant.description()
+            );
+            return Ok(());
+        }
+
         let name = match &self.name {
             Some(name) => name.to_owned(),
             None => prompt_name().await?,
@@ -79,10 +152,12 @@ impl NewCommand {
             values
         };
         let options = RunOptions {
+            variant,
             name: name.clone(),
             output_path,
             values,
             accept_defaults: self.accept_defaults,
+            existing_manifest,
         };
 
         template.run(options).interactive().await.execute().await

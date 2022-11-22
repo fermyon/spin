@@ -415,7 +415,8 @@ impl Run {
         let mut builder = liquid::ParserBuilder::with_stdlib()
             .filter(crate::filters::KebabCaseFilterParser)
             .filter(crate::filters::PascalCaseFilterParser)
-            .filter(crate::filters::SnakeCaseFilterParser);
+            .filter(crate::filters::SnakeCaseFilterParser)
+            .filter(crate::filters::HttpWildcardFilterParser);
         for filter in self.template.custom_filters() {
             builder = builder.filter(filter);
         }
@@ -470,13 +471,18 @@ impl PreparedTemplate {
             .into_iter()
             .map(|(path, content)| Self::render_one(path, content, &globals))
             .collect::<anyhow::Result<Vec<_>>>()?;
-        let outputs = HashMap::from_iter(rendered);
 
         let deltas = self
             .snippets
             .into_iter()
             .map(|so| Self::render_snippet(so, &globals))
             .collect::<anyhow::Result<Vec<_>>>()?;
+
+        if rendered.is_empty() && deltas.is_empty() {
+            return Err(anyhow!("Nothing to create"));
+        }
+
+        let outputs = HashMap::from_iter(rendered);
         Ok(TemplateOutputs {
             files: outputs,
             deltas,

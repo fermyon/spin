@@ -18,6 +18,7 @@ pub(crate) struct RawTemplateManifestV1 {
     pub id: String,
     pub description: Option<String>,
     pub trigger_type: Option<String>,
+    pub new_application: Option<RawTemplateVariant>,
     pub add_component: Option<RawTemplateVariant>,
     pub parameters: Option<IndexMap<String, RawParameter>>,
     pub custom_filters: Option<Vec<RawCustomFilter>>,
@@ -26,6 +27,7 @@ pub(crate) struct RawTemplateManifestV1 {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub(crate) struct RawTemplateVariant {
+    pub supported: Option<bool>,
     pub skip_files: Option<Vec<String>>,
     pub skip_parameters: Option<Vec<String>>,
     pub snippets: Option<HashMap<String, String>>,

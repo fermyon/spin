@@ -104,7 +104,7 @@ impl Template {
                 id: raw.id.clone(),
                 description: raw.description.clone(),
                 trigger: Self::parse_trigger_type(raw.trigger_type, layout),
-                variants: Self::parse_template_variants(raw.add_component),
+                variants: Self::parse_template_variants(raw.new_application, raw.add_component),
                 parameters: Self::parse_parameters(&raw.parameters)?,
                 custom_filters: Self::load_custom_filters(layout, &raw.custom_filters)?,
                 snippets_dir,
@@ -200,19 +200,39 @@ impl Template {
     }
 
     fn parse_template_variants(
+        new_application: Option<RawTemplateVariant>,
         add_component: Option<RawTemplateVariant>,
     ) -> HashMap<TemplateVariantKind, TemplateVariant> {
         let mut variants = HashMap::default();
-        // TODO: in future we might have component-only templates
-        variants.insert(
-            TemplateVariantKind::NewApplication,
-            TemplateVariant::default(),
-        );
-        if let Some(ac) = add_component {
-            let vt = Self::parse_template_variant(ac);
+        if let Some(vt) = Self::get_variant(new_application, true) {
+            variants.insert(TemplateVariantKind::NewApplication, vt);
+        }
+        if let Some(vt) = Self::get_variant(add_component, false) {
             variants.insert(TemplateVariantKind::AddComponent, vt);
         }
         variants
+    }
+
+    fn get_variant(
+        raw: Option<RawTemplateVariant>,
+        default_supported: bool,
+    ) -> Option<TemplateVariant> {
+        match raw {
+            None => {
+                if default_supported {
+                    Some(Default::default())
+                } else {
+                    None
+                }
+            }
+            Some(rv) => {
+                if rv.supported.unwrap_or(true) {
+                    Some(Self::parse_template_variant(rv))
+                } else {
+                    None
+                }
+            }
+        }
     }
 
     fn parse_template_variant(raw: RawTemplateVariant) -> TemplateVariant {

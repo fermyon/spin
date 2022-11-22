@@ -8,19 +8,27 @@ use itertools::Itertools;
 use path_absolutize::Absolutize;
 use walkdir::WalkDir;
 
-use crate::template::{Template, TemplateParameter, TemplateVariantKind};
+use crate::{
+    cancellable::Cancellable,
+    interaction::{InteractionStrategy, Interactive, Silent},
+    template::TemplateVariantInfo,
+};
+use crate::{
+    renderer::{RenderOperation, TemplateContent, TemplateRenderer},
+    template::Template,
+};
 
 /// Executes a template to the point where it is ready to generate
 /// artefacts.
 pub struct Run {
-    template: Template,
-    options: RunOptions,
+    pub(crate) template: Template,
+    pub(crate) options: RunOptions,
 }
 
 /// Options controlling the execution of a template.
 pub struct RunOptions {
     /// The variant mode in which to run the template.
-    pub variant: TemplateVariantKind,
+    pub variant: TemplateVariantInfo,
     /// The name of the generated item.
     pub name: String,
     /// The path at which to generate artefacts.
@@ -29,60 +37,6 @@ pub struct RunOptions {
     pub values: HashMap<String, String>,
     /// If true accept default values where available
     pub accept_defaults: bool,
-    // TODO: this would be better as part of the variant but I think I've
-    // messed that up for now
-    /// Path to the existing app manifest, if any
-    pub existing_manifest: Option<PathBuf>,
-}
-
-enum Cancellable<T, E> {
-    Cancelled,
-    Err(E),
-    Ok(T),
-}
-
-impl<T, E> Cancellable<T, E> {
-    fn from_result_option(ro: Result<Option<T>, E>) -> Self {
-        match ro {
-            Ok(Some(t)) => Self::Ok(t),
-            Ok(None) => Self::Cancelled,
-            Err(e) => Self::Err(e),
-        }
-    }
-}
-
-/// The result of running a template to the point where it
-/// is ready to write its outputs.
-pub struct TemplatePreparationResult {
-    // Ok(None) means the run was cancelled - TODO: consider a Cancellable
-    // enum to be more self-documenting
-    // inner: anyhow::Result<Option<(HashMap<PathBuf, Vec<u8>>, HashMap<String, String>)>>,
-    inner: Cancellable<PreparedTemplate, anyhow::Error>,
-}
-
-struct PreparedTemplate {
-    files: HashMap<PathBuf, TemplateContent>,
-    snippets: Vec<SnippetOperation>,
-    special_values: HashMap<String, String>,
-    parameter_values: HashMap<String, String>,
-}
-
-enum TemplateContent {
-    Template(liquid::Template),
-    Binary(Vec<u8>),
-}
-
-enum SnippetOperation {
-    AppendToml(PathBuf, TemplateContent),
-}
-
-struct TemplateOutputs {
-    files: HashMap<PathBuf, Vec<u8>>,
-    deltas: Vec<Delta>,
-}
-
-enum Delta {
-    AppendToml(PathBuf, String),
 }
 
 impl Run {
@@ -93,76 +47,63 @@ impl Run {
     /// Runs the template interactively. The user will be prompted for any
     /// information or input the template needs, such as parameter values.
     /// Execution will block while waiting on user responses.
-    ///
-    /// This function runs the template to the point where it is ready to
-    /// write artefacts to the output. You must still call `execute` on the
-    /// result to perform the write.
-    pub async fn interactive(&self) -> TemplatePreparationResult {
-        let raw_prepared = self
-            .run_inner(
-                |path| self.check_allow_generate_interactive(path),
-                || self.populate_parameters_interactive(),
-            )
-            .await;
-        let inner = Cancellable::from_result_option(raw_prepared);
-        TemplatePreparationResult { inner }
+    pub async fn interactive(&self) -> anyhow::Result<()> {
+        self.run(Interactive).await
     }
 
     /// Runs the template silently. The template will be executed without
     /// user interaction, and will not wait on the user. If the template needs
     /// any information or input that was not provided in the `RunOptions`,
     /// execution will fail and result in an error.
-    ///
-    /// This function runs the template to the point where it is ready to
-    /// write artefacts to the output. You must still call `execute` on the
-    /// result to perform the write.
-    pub async fn silent(&self) -> TemplatePreparationResult {
-        let raw_prepared = self
-            .run_inner(
-                |path| self.check_allow_generate_silent(path),
-                || self.populate_parameters_silent(),
-            )
-            .await;
-        let inner = Cancellable::from_result_option(raw_prepared);
-        TemplatePreparationResult { inner }
+    pub async fn silent(&self) -> anyhow::Result<()> {
+        self.run(Silent).await
     }
 
-    async fn run_inner(
+    async fn run(&self, interaction: impl InteractionStrategy) -> anyhow::Result<()> {
+        self.build_renderer(interaction)
+            .await
+            .and_then(|t| t.render())
+            .and_then_async(|o| async move { o.write().await })
+            .await
+            .err()
+    }
+
+    async fn build_renderer(
         &self,
-        allow_generate: impl Fn(&Path) -> Cancellable<(), anyhow::Error>,
-        populate_parameters: impl Fn() -> anyhow::Result<Option<HashMap<String, String>>>,
-    ) -> anyhow::Result<Option<PreparedTemplate>> {
+        interaction: impl InteractionStrategy,
+    ) -> Cancellable<TemplateRenderer, anyhow::Error> {
+        self.build_renderer_raw(interaction).await.into()
+    }
+
+    // The 'raw' in this refers to the output type, which is an ugly representation
+    // of cancellation: Ok(Some(...)) means a result, Ok(None) means cancelled, Err
+    // means error. Why have this ugly representation? Because it makes it terser to
+    // write using the Rust `?` operator to early-return. It would be lovely to find
+    // a better way but I don't see one yet...
+    async fn build_renderer_raw(
+        &self,
+        interaction: impl InteractionStrategy,
+    ) -> anyhow::Result<Option<TemplateRenderer>> {
         self.validate_trigger().await?;
 
         // TODO: rationalise `path` and `dir`
         let to = self.generation_target_dir();
 
-        match allow_generate(&to) {
+        match interaction.allow_generate_into(&to) {
             Cancellable::Cancelled => return Ok(None),
             Cancellable::Ok(_) => (),
             Cancellable::Err(e) => return Err(e),
         };
 
-        // TODO: Ok(None) means the run was cancelled - this is hard to follow but plays
-        // nicely with the Rust ? operator - is there a better way?
-
         self.validate_provided_values()?;
 
-        let outputs = match self.template.content_dir() {
-            None => HashMap::new(),
+        let files = match self.template.content_dir() {
+            None => vec![],
             Some(path) => {
                 let from = path
                     .absolutize()
-                    .context("Failed to get absolute path of template directory")?
-                    .into_owned();
-                let all_content_files = Self::list_content_files(&from)?;
-                let included_files =
-                    self.template
-                        .included_files(&from, all_content_files, &self.options.variant);
-                // TODO: okay we do want to do *some* parsing here because we don't want
-                // to prompt if the template bodies are garbage
-                let template_contents = self.read_all(included_files)?;
-                Self::to_output_paths(&from, &to, template_contents)
+                    .context("Failed to get absolute path of template directory")?;
+                self.included_files(&from, &to)?
             }
         };
 
@@ -173,19 +114,39 @@ impl Run {
             .map(|(id, path)| self.snippet_operation(id, path))
             .collect::<anyhow::Result<Vec<_>>>()?;
 
-        match populate_parameters()? {
-            Some(parameter_values) => {
-                // let outputs = Self::render_all(output_templates, &parameter_values)?;
-                let prepared_template = PreparedTemplate {
-                    files: outputs,
-                    snippets,
-                    special_values: self.special_values().await,
-                    parameter_values,
+        let render_operations = files.into_iter().chain(snippets).collect();
+
+        match interaction.populate_parameters(self) {
+            Cancellable::Ok(parameter_values) => {
+                let values = self
+                    .special_values()
+                    .await
+                    .into_iter()
+                    .chain(parameter_values)
+                    .collect();
+                let prepared_template = TemplateRenderer {
+                    render_operations,
+                    parameter_values: values,
                 };
                 Ok(Some(prepared_template))
             }
-            None => Ok(None),
+            Cancellable::Cancelled => Ok(None),
+            Cancellable::Err(e) => Err(e),
         }
+    }
+
+    fn included_files(&self, from: &Path, to: &Path) -> anyhow::Result<Vec<RenderOperation>> {
+        let all_content_files = Self::list_content_files(from)?;
+        let included_files =
+            self.template
+                .included_files(from, all_content_files, &self.options.variant);
+        let template_contents = self.read_all(included_files)?;
+        let outputs = Self::to_output_paths(from, to, template_contents);
+        let file_ops = outputs
+            .into_iter()
+            .map(|(path, content)| RenderOperation::WriteFile(path, content))
+            .collect();
+        Ok(file_ops)
     }
 
     async fn special_values(&self) -> HashMap<String, String> {
@@ -208,9 +169,12 @@ impl Run {
     }
 
     fn generation_target_dir(&self) -> PathBuf {
-        match &self.options.existing_manifest {
-            None => self.options.output_path.clone(),
-            Some(f) => f.parent().unwrap().join(&self.options.output_path),
+        match &self.options.variant {
+            TemplateVariantInfo::NewApplication => self.options.output_path.clone(),
+            TemplateVariantInfo::AddComponent { manifest_path } => manifest_path
+                .parent()
+                .unwrap()
+                .join(&self.options.output_path),
         }
     }
 
@@ -247,11 +211,9 @@ impl Run {
     }
 
     async fn validate_trigger(&self) -> anyhow::Result<()> {
-        match self.options.variant {
-            TemplateVariantKind::NewApplication => Ok(()),
-            TemplateVariantKind::AddComponent => {
-                // TODO: again, restructure so we don't have to unwarp()
-                let manifest_path = self.options.existing_manifest.as_ref().unwrap();
+        match &self.options.variant {
+            TemplateVariantInfo::NewApplication => Ok(()),
+            TemplateVariantInfo::AddComponent { manifest_path } => {
                 match crate::app_info::AppInfo::from_file(manifest_path) {
                     Some(Ok(app_info)) => self
                         .template
@@ -262,7 +224,7 @@ impl Run {
         }
     }
 
-    fn snippet_operation(&self, id: &str, snippet_file: &str) -> anyhow::Result<SnippetOperation> {
+    fn snippet_operation(&self, id: &str, snippet_file: &str) -> anyhow::Result<RenderOperation> {
         let snippets_dir = self
             .template
             .snippets_dir()
@@ -274,13 +236,17 @@ impl Run {
         let content = TemplateContent::infer_from_bytes(file_content, &self.template_parser());
 
         match id {
-            "component" => Ok(SnippetOperation::AppendToml(
-                // TODO: We never process a `component` snippet without setting
-                // existing_manifest, but the Run data structure doesn't yet
-                // guarantee that.  It should.
-                self.options.existing_manifest.as_ref().unwrap().clone(),
-                content,
-            )),
+            "component" => {
+                match &self.options.variant {
+                    TemplateVariantInfo::AddComponent { manifest_path } =>
+                        Ok(RenderOperation::AppendToml(
+                            manifest_path.clone(),
+                            content,
+                        )),
+                    TemplateVariantInfo::NewApplication =>
+                        Err(anyhow::anyhow!("Spin doesn't know what to do with a 'component' snippet outside an 'add component' operation")),
+                }
+            },
             _ => Err(anyhow::anyhow!(
                 "Spin doesn't know what to do with snippet {}",
                 id
@@ -318,89 +284,15 @@ impl Run {
         Ok(pairs)
     }
 
-    fn check_allow_generate_interactive(
-        &self,
-        target_dir: &Path,
-    ) -> Cancellable<(), anyhow::Error> {
-        if !is_directory_empty(target_dir) {
-            let prompt = format!(
-                "{} already contains other files. Generate into it anyway?",
-                target_dir.display()
-            );
-            match crate::interaction::confirm(&prompt) {
-                Ok(true) => Cancellable::Ok(()),
-                Ok(false) => Cancellable::Cancelled,
-                Err(e) => Cancellable::Err(anyhow::Error::from(e)),
-            }
-        } else {
-            Cancellable::Ok(())
-        }
-    }
-
-    fn check_allow_generate_silent(&self, target_dir: &Path) -> Cancellable<(), anyhow::Error> {
-        if is_directory_empty(target_dir) {
-            Cancellable::Ok(())
-        } else {
-            let err = anyhow!(
-                "Can't generate into {} as it already contains other files",
-                target_dir.display()
-            );
-            Cancellable::Err(err)
-        }
-    }
-
-    // TODO: we can unify most of this with populate_parameters_silent
-    fn populate_parameters_interactive(&self) -> anyhow::Result<Option<HashMap<String, String>>> {
-        let mut values = HashMap::new();
-        for parameter in self.template.parameters(&self.options.variant) {
-            match self.populate_parameter_interactive(parameter) {
-                Some(v) => {
-                    values.insert(parameter.id().to_owned(), v);
-                }
-                None => return Ok(None),
-            }
-        }
-        Ok(Some(values))
-    }
-
-    fn populate_parameter_interactive(&self, parameter: &TemplateParameter) -> Option<String> {
-        match self.options.values.get(parameter.id()) {
-            Some(s) => Some(s.clone()),
-            None => match (self.options.accept_defaults, parameter.default_value()) {
-                (true, Some(v)) => Some(v.to_string()),
-                _ => crate::interaction::prompt_parameter(parameter),
-            },
-        }
-    }
-
-    fn populate_parameters_silent(&self) -> anyhow::Result<Option<HashMap<String, String>>> {
-        let mut values = HashMap::new();
-        for parameter in self.template.parameters(&self.options.variant) {
-            let value = self.populate_parameter_silent(parameter)?;
-            values.insert(parameter.id().to_owned(), value);
-        }
-        Ok(Some(values))
-    }
-
-    fn populate_parameter_silent(&self, parameter: &TemplateParameter) -> anyhow::Result<String> {
-        match self.options.values.get(parameter.id()) {
-            Some(s) => Ok(s.clone()),
-            None => match (self.options.accept_defaults, parameter.default_value()) {
-                (true, Some(v)) => Ok(v.to_string()),
-                _ => Err(anyhow!("Parameter '{}' not provided", parameter.id())),
-            },
-        }
-    }
-
     fn to_output_paths<T>(
         src_dir: &Path,
         dest_dir: &Path,
         contents: Vec<(PathBuf, T)>,
-    ) -> HashMap<PathBuf, T> {
-        let outputs_iter = contents
+    ) -> Vec<(PathBuf, T)> {
+        contents
             .into_iter()
-            .filter_map(|f| Self::to_output_path(src_dir, dest_dir, f));
-        HashMap::from_iter(outputs_iter)
+            .filter_map(|f| Self::to_output_path(src_dir, dest_dir, f))
+            .collect()
     }
 
     fn to_output_path<T>(
@@ -423,172 +315,5 @@ impl Run {
         builder
             .build()
             .expect("can't fail due to no partials support")
-    }
-}
-
-fn is_directory_empty(path: &Path) -> bool {
-    if !path.exists() {
-        return true;
-    }
-    if !path.is_dir() {
-        return false;
-    }
-    match path.read_dir() {
-        Err(_) => false,
-        Ok(mut read_dir) => read_dir.next().is_none(),
-    }
-}
-
-impl TemplatePreparationResult {
-    /// Writes out the artefacts generated by successful template execution,
-    /// or reports an execution error.
-    pub async fn execute(self) -> anyhow::Result<()> {
-        match self.render() {
-            Cancellable::Err(e) => Err(e),
-            Cancellable::Cancelled => Ok(()),
-            Cancellable::Ok(outputs) => outputs.write().await,
-        }
-    }
-
-    fn render(self) -> Cancellable<TemplateOutputs, anyhow::Error> {
-        match self.inner {
-            Cancellable::Err(e) => Cancellable::Err(e),
-            Cancellable::Cancelled => Cancellable::Cancelled,
-            Cancellable::Ok(prepared_template) => match prepared_template.render_all() {
-                Ok(rendered) => Cancellable::Ok(rendered),
-                Err(e) => Cancellable::Err(e),
-            },
-        }
-    }
-}
-
-impl PreparedTemplate {
-    fn render_all(self) -> anyhow::Result<TemplateOutputs> {
-        let globals = self.renderer_globals();
-
-        let rendered = self
-            .files
-            .into_iter()
-            .map(|(path, content)| Self::render_one(path, content, &globals))
-            .collect::<anyhow::Result<Vec<_>>>()?;
-
-        let deltas = self
-            .snippets
-            .into_iter()
-            .map(|so| Self::render_snippet(so, &globals))
-            .collect::<anyhow::Result<Vec<_>>>()?;
-
-        if rendered.is_empty() && deltas.is_empty() {
-            return Err(anyhow!("Nothing to create"));
-        }
-
-        let outputs = HashMap::from_iter(rendered);
-        Ok(TemplateOutputs {
-            files: outputs,
-            deltas,
-        })
-    }
-
-    fn render_one(
-        path: PathBuf,
-        content: TemplateContent,
-        globals: &liquid::Object,
-    ) -> anyhow::Result<(PathBuf, Vec<u8>)> {
-        let rendered = content.render(globals)?;
-        Ok((path, rendered))
-    }
-
-    fn render_snippet(
-        snippet_op: SnippetOperation,
-        globals: &liquid::Object,
-    ) -> anyhow::Result<Delta> {
-        match snippet_op {
-            SnippetOperation::AppendToml(path, content) => {
-                let rendered = content.render(globals)?;
-                let rendered_text = String::from_utf8(rendered)?;
-                Ok(Delta::AppendToml(path, rendered_text))
-            }
-        }
-    }
-
-    fn renderer_globals(&self) -> liquid::Object {
-        let mut object = liquid::Object::new();
-
-        for (k, v) in &self.special_values {
-            object.insert(
-                k.to_owned().into(),
-                liquid_core::Value::Scalar(v.to_owned().into()),
-            );
-        }
-
-        for (k, v) in &self.parameter_values {
-            object.insert(
-                k.to_owned().into(),
-                liquid_core::Value::Scalar(v.to_owned().into()),
-            );
-        }
-
-        object
-    }
-}
-
-impl TemplateContent {
-    fn infer_from_bytes(raw: Vec<u8>, parser: &liquid::Parser) -> TemplateContent {
-        match string_from_bytes(&raw) {
-            None => TemplateContent::Binary(raw),
-            Some(s) => {
-                match parser.parse(&s) {
-                    Ok(t) => TemplateContent::Template(t),
-                    Err(_) => TemplateContent::Binary(raw), // TODO: detect legit broken templates and error on them
-                }
-            }
-        }
-    }
-
-    fn render(self, globals: &liquid::Object) -> anyhow::Result<Vec<u8>> {
-        match self {
-            Self::Template(t) => {
-                let text = t.render(globals)?;
-                Ok(text.bytes().collect())
-            }
-            Self::Binary(v) => Ok(v),
-        }
-    }
-}
-
-fn string_from_bytes(bytes: &[u8]) -> Option<String> {
-    match std::str::from_utf8(bytes) {
-        Ok(s) => Some(s.to_owned()),
-        Err(_) => None, // TODO: try other encodings!
-    }
-}
-
-impl TemplateOutputs {
-    pub async fn write(&self) -> anyhow::Result<()> {
-        for (path, contents) in &self.files {
-            let dir = path
-                .parent()
-                .with_context(|| format!("Can't get directory containing {}", path.display()))?;
-            tokio::fs::create_dir_all(&dir)
-                .await
-                .with_context(|| format!("Failed to create directory {}", dir.display()))?;
-            tokio::fs::write(&path, &contents)
-                .await
-                .with_context(|| format!("Failed to write file {}", path.display()))?;
-        }
-        for delta in &self.deltas {
-            match delta {
-                Delta::AppendToml(path, text) => {
-                    let existing_toml = tokio::fs::read_to_string(path)
-                        .await
-                        .with_context(|| format!("Can't open {} to append", path.display()))?;
-                    let new_toml = format!("{}\n\n{}", existing_toml.trim_end(), text);
-                    tokio::fs::write(path, new_toml)
-                        .await
-                        .with_context(|| format!("Can't save changes to {}", path.display()))?;
-                }
-            }
-        }
-        Ok(())
     }
 }

@@ -391,7 +391,7 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use crate::{RunOptions, TemplateVariantKind};
+    use crate::{RunOptions, TemplateVariantInfo};
 
     use super::*;
 
@@ -631,21 +631,14 @@ mod tests {
         .into_iter()
         .collect();
         let options = RunOptions {
-            variant: crate::template::TemplateVariantKind::NewApplication,
+            variant: crate::template::TemplateVariantInfo::NewApplication,
             output_path: output_dir.clone(),
             name: "my project".to_owned(),
             values,
             accept_defaults: false,
-            existing_manifest: None,
         };
 
-        template
-            .run(options)
-            .silent()
-            .await
-            .execute()
-            .await
-            .unwrap();
+        template.run(options).silent().await.unwrap();
 
         let cargo = tokio::fs::read_to_string(output_dir.join("Cargo.toml"))
             .await
@@ -671,21 +664,14 @@ mod tests {
         let output_dir = dest_temp_dir.path().join("myproj");
         let values = HashMap::new();
         let options = RunOptions {
-            variant: crate::template::TemplateVariantKind::NewApplication,
+            variant: crate::template::TemplateVariantInfo::NewApplication,
             output_path: output_dir.clone(),
             name: "my project".to_owned(),
             values,
             accept_defaults: true,
-            existing_manifest: None,
         };
 
-        template
-            .run(options)
-            .silent()
-            .await
-            .execute()
-            .await
-            .unwrap();
+        template.run(options).silent().await.unwrap();
 
         let cargo = tokio::fs::read_to_string(output_dir.join("Cargo.toml"))
             .await
@@ -720,21 +706,14 @@ mod tests {
         .into_iter()
         .collect();
         let options = RunOptions {
-            variant: crate::template::TemplateVariantKind::NewApplication,
+            variant: crate::template::TemplateVariantInfo::NewApplication,
             output_path: output_dir.clone(),
             name: "custom-filter-test".to_owned(),
             values,
             accept_defaults: false,
-            existing_manifest: None,
         };
 
-        template
-            .run(options)
-            .silent()
-            .await
-            .execute()
-            .await
-            .unwrap();
+        template.run(options).silent().await.unwrap();
 
         let message = tokio::fs::read_to_string(output_dir.join("test.txt"))
             .await
@@ -770,21 +749,14 @@ mod tests {
             .into_iter()
             .collect();
             let options = RunOptions {
-                variant: crate::template::TemplateVariantKind::NewApplication,
+                variant: crate::template::TemplateVariantInfo::NewApplication,
                 output_path: application_dir.clone(),
                 name: "my multi project".to_owned(),
                 values,
                 accept_defaults: false,
-                existing_manifest: None,
             };
 
-            template
-                .run(options)
-                .silent()
-                .await
-                .execute()
-                .await
-                .unwrap();
+            template.run(options).silent().await.unwrap();
         }
 
         let spin_toml_path = application_dir.join("spin.toml");
@@ -802,21 +774,16 @@ mod tests {
             .into_iter()
             .collect();
             let options = RunOptions {
-                variant: crate::template::TemplateVariantKind::AddComponent,
+                variant: crate::template::TemplateVariantInfo::AddComponent {
+                    manifest_path: spin_toml_path.clone(),
+                },
                 output_path: PathBuf::from(output_dir),
                 name: "hello".to_owned(),
                 values,
                 accept_defaults: false,
-                existing_manifest: Some(spin_toml_path.clone()),
             };
 
-            template
-                .run(options)
-                .silent()
-                .await
-                .execute()
-                .await
-                .unwrap();
+            template.run(options).silent().await.unwrap();
         }
 
         // And another
@@ -831,21 +798,16 @@ mod tests {
             .into_iter()
             .collect();
             let options = RunOptions {
-                variant: crate::template::TemplateVariantKind::AddComponent,
+                variant: crate::template::TemplateVariantInfo::AddComponent {
+                    manifest_path: spin_toml_path.clone(),
+                },
                 output_path: PathBuf::from(output_dir),
                 name: "hello 2".to_owned(),
                 values,
                 accept_defaults: false,
-                existing_manifest: Some(spin_toml_path.clone()),
             };
 
-            template
-                .run(options)
-                .silent()
-                .await
-                .execute()
-                .await
-                .unwrap();
+            template.run(options).silent().await.unwrap();
         }
 
         let cargo1 = tokio::fs::read_to_string(application_dir.join("hello/Cargo.toml"))
@@ -896,21 +858,14 @@ mod tests {
             .into_iter()
             .collect();
             let options = RunOptions {
-                variant: crate::template::TemplateVariantKind::NewApplication,
+                variant: crate::template::TemplateVariantInfo::NewApplication,
                 output_path: application_dir.clone(),
                 name: "my multi project".to_owned(),
                 values,
                 accept_defaults: false,
-                existing_manifest: None,
             };
 
-            template
-                .run(options)
-                .silent()
-                .await
-                .execute()
-                .await
-                .unwrap();
+            template.run(options).silent().await.unwrap();
         }
 
         let spin_toml_path = application_dir.join("spin.toml");
@@ -928,19 +883,18 @@ mod tests {
             .into_iter()
             .collect();
             let options = RunOptions {
-                variant: crate::template::TemplateVariantKind::AddComponent,
+                variant: crate::template::TemplateVariantInfo::AddComponent {
+                    manifest_path: spin_toml_path.clone(),
+                },
                 output_path: PathBuf::from(output_dir),
                 name: "hello".to_owned(),
                 values,
                 accept_defaults: false,
-                existing_manifest: Some(spin_toml_path.clone()),
             };
 
             template
                 .run(options)
                 .silent()
-                .await
-                .execute()
                 .await
                 .expect_err("Expected to fail to add component, but it succeeded");
         }
@@ -958,16 +912,20 @@ mod tests {
             .await
             .unwrap();
 
+        let dummy_dir = temp_dir.path().join("dummy");
+        let manifest_path = dummy_dir.join("ignored_spin.toml");
+        let add_component = TemplateVariantInfo::AddComponent { manifest_path };
+
         let redirect = manager.get("redirect").unwrap().unwrap();
-        assert!(!redirect.supports_variant(&TemplateVariantKind::NewApplication));
-        assert!(redirect.supports_variant(&TemplateVariantKind::AddComponent));
+        assert!(!redirect.supports_variant(&TemplateVariantInfo::NewApplication));
+        assert!(redirect.supports_variant(&add_component));
 
         let http_rust = manager.get("http-rust").unwrap().unwrap();
-        assert!(http_rust.supports_variant(&TemplateVariantKind::NewApplication));
-        assert!(http_rust.supports_variant(&TemplateVariantKind::AddComponent));
+        assert!(http_rust.supports_variant(&TemplateVariantInfo::NewApplication));
+        assert!(http_rust.supports_variant(&add_component));
 
         let http_empty = manager.get("http-empty").unwrap().unwrap();
-        assert!(http_empty.supports_variant(&TemplateVariantKind::NewApplication));
-        assert!(!http_empty.supports_variant(&TemplateVariantKind::AddComponent));
+        assert!(http_empty.supports_variant(&TemplateVariantInfo::NewApplication));
+        assert!(!http_empty.supports_variant(&add_component));
     }
 }

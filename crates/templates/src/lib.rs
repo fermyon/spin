@@ -3,6 +3,7 @@
 #![deny(missing_docs)]
 
 mod app_info;
+mod cancellable;
 mod constraints;
 mod custom_filters;
 mod directory;
@@ -11,12 +12,14 @@ mod filters;
 mod interaction;
 mod manager;
 mod reader;
+mod renderer;
 mod run;
 mod source;
 mod store;
 mod template;
+mod writer;
 
 pub use manager::*;
-pub use run::{Run, RunOptions, TemplatePreparationResult};
+pub use run::{Run, RunOptions};
 pub use source::TemplateSource;
-pub use template::{Template, TemplateVariantKind};
+pub use template::{Template, TemplateVariantInfo};

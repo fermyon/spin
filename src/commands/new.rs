@@ -10,7 +10,7 @@ use path_absolutize::Absolutize;
 use tokio::{fs::File, io::AsyncReadExt};
 
 use spin_loader::local::absolutize;
-use spin_templates::{RunOptions, Template, TemplateManager, TemplateVariantKind};
+use spin_templates::{RunOptions, Template, TemplateManager, TemplateVariantInfo};
 
 use crate::opts::{APP_CONFIG_FILE_OPT, DEFAULT_MANIFEST_FILE};
 
@@ -69,9 +69,7 @@ pub struct AddCommand {
 
 impl NewCommand {
     pub async fn run(&self) -> Result<()> {
-        self.options
-            .run(TemplateVariantKind::NewApplication, None)
-            .await
+        self.options.run(TemplateVariantInfo::NewApplication).await
     }
 }
 
@@ -81,7 +79,7 @@ impl AddCommand {
             .app
             .as_deref()
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-        let app_file = app_file
+        let manifest_path = app_file
             .absolutize()
             .with_context(|| {
                 format!(
@@ -90,24 +88,20 @@ impl AddCommand {
                 )
             })?
             .into_owned();
-        if !app_file.exists() {
+        if !manifest_path.exists() {
             anyhow::bail!(
                 "Can't add component to {}: file does not exist",
-                app_file.display()
+                manifest_path.display()
             );
         }
         self.options
-            .run(TemplateVariantKind::AddComponent, Some(app_file))
+            .run(TemplateVariantInfo::AddComponent { manifest_path })
             .await
     }
 }
 
 impl TemplateNewCommandCore {
-    pub async fn run(
-        &self,
-        variant: TemplateVariantKind,
-        existing_manifest: Option<PathBuf>,
-    ) -> Result<()> {
+    pub async fn run(&self, variant: TemplateVariantInfo) -> Result<()> {
         let template_manager =
             TemplateManager::default().context("Failed to construct template directory path")?;
 
@@ -157,10 +151,9 @@ impl TemplateNewCommandCore {
             output_path,
             values,
             accept_defaults: self.accept_defaults,
-            existing_manifest,
         };
 
-        template.run(options).interactive().await.execute().await
+        template.run(options).interactive().await
     }
 }
 

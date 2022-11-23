@@ -22,7 +22,6 @@ clap = { version = "3.1.15", features = ["derive", "env"] }
 cloud = { path = "crates/cloud" }
 cloud-openapi = { git = "https://github.com/fermyon/cloud-openapi" }
 comfy-table = "5.0"
-copypasta = "0.8.1"
 ctrlc = { version = "3.2", features = ["termination"] }
 dialoguer = "0.10"
 dirs = "4.0"
@@ -31,7 +30,6 @@ env_logger = "0.9"
 futures = "0.3"
 hippo-openapi = "0.10"
 hippo = { git = "https://github.com/deislabs/hippo-cli", tag = "v0.16.1" }
-keyring = "1"
 lazy_static = "1.4.0"
 nix = { version = "0.24", features = ["signal"] }
 outbound-http = { path = "crates/outbound-http" }
@@ -63,7 +61,6 @@ tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 url = "2.2.2"
 uuid = "^1.0"
 wasmtime = { workspace = true }
-webbrowser = "0.7.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # This needs to be an explicit dependency to enable

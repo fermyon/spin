@@ -14,7 +14,7 @@ tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 
 [dependencies.wit-bindgen-wasmtime]
 git = "https://github.com/fermyon/wit-bindgen-backport"
-rev = "9bddd4f9b4140bd0723342bcfe3b83067208519b"
+rev = "b84eb01c20d9ed7964cb8f296ccdc44e639019ce"
 features = ["async"]
 
 [workspace]

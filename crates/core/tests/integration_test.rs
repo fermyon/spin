@@ -4,9 +4,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use spin_core::{Config, Engine, HostComponent, Module, Store, StoreBuilder, Trap};
+use spin_core::{Config, Engine, HostComponent, I32Exit, Module, Store, StoreBuilder, Trap};
 use tempfile::TempDir;
-use wasmtime::TrapCode;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_stdio() {
@@ -47,8 +46,8 @@ async fn test_read_only_preopened_dir_write_fails() {
     })
     .await
     .unwrap_err();
-    let trap = err.downcast::<Trap>().expect("trap");
-    assert_eq!(trap.i32_exit_status(), Some(1));
+    let trap = err.downcast::<I32Exit>().expect("trap");
+    assert_eq!(trap.0, 1);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -88,8 +87,8 @@ async fn test_max_memory_size_violated() {
     })
     .await
     .unwrap_err();
-    let trap = err.downcast::<Trap>().expect("trap");
-    assert_eq!(trap.i32_exit_status(), Some(1));
+    let trap = err.downcast::<I32Exit>().expect("trap");
+    assert_eq!(trap.0, 1);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -119,7 +118,7 @@ async fn test_set_deadline_violated() {
     .await
     .unwrap_err();
     let trap = err.downcast::<Trap>().expect("trap");
-    assert_eq!(trap.trap_code(), Some(TrapCode::Interrupt));
+    assert_eq!(trap, Trap::Interrupt);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -157,7 +156,7 @@ async fn test_host_component_data_update() {
 async fn test_panic() {
     let err = run_core_wasi_test(["panic"], |_| {}).await.unwrap_err();
     let trap = err.downcast::<Trap>().expect("trap");
-    assert_eq!(trap.trap_code(), Some(TrapCode::UnreachableCodeReached));
+    assert_eq!(trap, Trap::UnreachableCodeReached);
 }
 
 fn test_config() -> Config {

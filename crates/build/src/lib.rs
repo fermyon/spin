@@ -2,18 +2,22 @@
 
 //! A library for building Spin components.
 
+mod manifest;
+
 use anyhow::{bail, Context, Result};
-use spin_loader::local::{
-    config::{RawAppManifestAnyVersion, RawComponentManifest},
-    parent_dir, raw_manifest_from_file,
-};
+use spin_loader::local::parent_dir;
 use std::path::{Path, PathBuf};
 use subprocess::{Exec, Redirection};
 use tracing::log;
 
+use crate::manifest::{BuildAppInfoAnyVersion, RawComponentManifest};
+
 /// If present, run the build command of each component.
 pub async fn build(manifest_file: &Path) -> Result<()> {
-    let RawAppManifestAnyVersion::V1(app) = raw_manifest_from_file(&manifest_file).await?;
+    let manifest_text = tokio::fs::read_to_string(manifest_file)
+        .await
+        .with_context(|| format!("Cannot read manifest file from {}", manifest_file.display()))?;
+    let BuildAppInfoAnyVersion::V1(app) = toml::from_str(&manifest_text)?;
     let app_dir = parent_dir(manifest_file)?;
 
     if app.components.iter().all(|c| c.build.is_none()) {
@@ -97,4 +101,20 @@ fn construct_workdir(app_dir: &Path, workdir: Option<impl AsRef<Path>>) -> Resul
     }
 
     Ok(cwd)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_data_root() -> PathBuf {
+        let crate_dir = env!("CARGO_MANIFEST_DIR");
+        PathBuf::from(crate_dir).join("tests")
+    }
+
+    #[tokio::test]
+    async fn can_load_even_if_trigger_invalid() {
+        let bad_trigger_file = test_data_root().join("bad_trigger.toml");
+        build(&bad_trigger_file).await.unwrap();
+    }
 }

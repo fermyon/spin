@@ -370,11 +370,28 @@ fn bindle_id(
     app_info: &local_schema::RawAppInformation,
     buildinfo: Option<BuildMetadata>,
 ) -> PublishResult<bindle::Id> {
+    check_safe_bindle_name(&app_info.name)?;
     let text = match buildinfo {
         None => format!("{}/{}", app_info.name, app_info.version),
         Some(buildinfo) => format!("{}/{}+{}", app_info.name, app_info.version, buildinfo),
     };
     bindle::Id::try_from(&text).map_err(|_| PublishError::BindleId(text))
+}
+
+// This is both slightly conservative and slightly loose. According to the spec,
+// the / character should also be allowed, but currently that is not supported
+// by Hippo (Spin issue 504). And the - character should not be allowed, but lots of
+// our tests use it...!
+lazy_static::lazy_static! {
+    static ref SAFE_BINDLE_NAME: regex::Regex = regex::Regex::new("^[-_\\p{L}\\p{N}]+$").expect("Invalid name regex");
+}
+
+fn check_safe_bindle_name(name: &str) -> PublishResult<()> {
+    if SAFE_BINDLE_NAME.is_match(name) {
+        Ok(())
+    } else {
+        Err(PublishError::BindleNameInvalidChars(name.to_owned()))
+    }
 }
 
 struct SourcedParcel {
@@ -432,4 +449,49 @@ async fn file_metadata(file: impl AsRef<Path>) -> PublishResult<std::fs::Metadat
             source: e,
             description: format!("Failed to get file metadata: '{}'", file.as_ref().display()),
         })
+}
+
+#[cfg(test)]
+mod test {
+    use spin_loader::local::config::RawAppInformation;
+
+    use super::*;
+
+    fn app_info(name: &str) -> RawAppInformation {
+        app_info_v(name, "0.0.1")
+    }
+
+    fn app_info_v(name: &str, version: &str) -> RawAppInformation {
+        RawAppInformation {
+            name: name.to_owned(),
+            version: version.to_owned(),
+            description: None,
+            authors: None,
+            trigger: spin_manifest::ApplicationTrigger::Http(
+                spin_manifest::HttpTriggerConfiguration {
+                    base: "/".to_owned(),
+                },
+            ),
+            namespace: None,
+        }
+    }
+
+    #[test]
+    fn accepts_only_valid_bindle_names() {
+        bindle_id(&app_info("hello"), None).expect("should have accepted 'hello'");
+        bindle_id(&app_info("hello-world"), None).expect("should have accepted 'hello-world'");
+        bindle_id(&app_info("hello_world"), None).expect("should have accepted 'hello_world'");
+
+        let err = bindle_id(&app_info("hello/world"), None)
+            .expect_err("should not have accepted 'hello/world'");
+        assert!(matches!(err, PublishError::BindleNameInvalidChars(_)));
+
+        let err = bindle_id(&app_info("hello world"), None)
+            .expect_err("should not have accepted 'hello world'");
+        assert!(matches!(err, PublishError::BindleNameInvalidChars(_)));
+
+        let err = bindle_id(&app_info_v("hello", "lolsnort"), None)
+            .expect_err("should not have accepted version 'lolsnort'");
+        assert!(matches!(err, PublishError::BindleId(_)));
+    }
 }

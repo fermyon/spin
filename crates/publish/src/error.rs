@@ -13,6 +13,9 @@ pub enum PublishError {
     /// Malformed bindle id
     #[error("App name and version '{0}' do not form a bindle ID")]
     BindleId(String),
+    /// Malformed bindle id
+    #[error("App name '{0}' contains characters not allowed in a bindle name. A bindle name may contain only letters, numbers, and underscores")]
+    BindleNameInvalidChars(String),
     /// Publishing of components whose sources are already bindles is not supported
     #[error("This version of Spin can't publish components whose sources are already bindles")]
     BindlePushingNotImplemented,

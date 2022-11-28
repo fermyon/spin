@@ -25,21 +25,37 @@ pub struct Template {
     content_dir: Option<PathBuf>, // TODO: maybe always need a spin.toml file in there?
 }
 
-/// The variant mode in which a template should be run.
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum TemplateVariantKind {
-    /// Create a new application from the template.
+#[derive(Debug, Eq, PartialEq, Hash)]
+enum TemplateVariantKind {
     NewApplication,
-    /// Create a new component in an existing application from the template.
     AddComponent,
 }
 
-impl TemplateVariantKind {
+/// The variant mode in which a template should be run.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TemplateVariantInfo {
+    /// Create a new application from the template.
+    NewApplication,
+    /// Create a new component in an existing application from the template.
+    AddComponent {
+        /// The manifest to which the component will be added.
+        manifest_path: PathBuf,
+    },
+}
+
+impl TemplateVariantInfo {
+    fn kind(&self) -> TemplateVariantKind {
+        match self {
+            Self::NewApplication => TemplateVariantKind::NewApplication,
+            Self::AddComponent { .. } => TemplateVariantKind::AddComponent,
+        }
+    }
+
     /// A human-readable description of the variant.
     pub fn description(&self) -> &'static str {
         match self {
             Self::NewApplication => "new application",
-            Self::AddComponent => "add component",
+            Self::AddComponent { .. } => "add component",
         }
     }
 }
@@ -136,11 +152,16 @@ impl Template {
         }
     }
 
+    fn variant(&self, variant_info: &TemplateVariantInfo) -> Option<&TemplateVariant> {
+        let kind = variant_info.kind();
+        self.variants.get(&kind)
+    }
+
     pub(crate) fn parameters(
         &self,
-        variant_kind: &TemplateVariantKind,
+        variant_kind: &TemplateVariantInfo,
     ) -> impl Iterator<Item = &TemplateParameter> {
-        let variant = self.variants.get(variant_kind).unwrap(); // TODO: for now
+        let variant = self.variant(variant_kind).unwrap(); // TODO: for now
         self.parameters
             .iter()
             .filter(|p| !variant.skip_parameter(p))
@@ -163,12 +184,12 @@ impl Template {
     }
 
     /// Checks if the template supports the specified variant mode.
-    pub fn supports_variant(&self, variant: &TemplateVariantKind) -> bool {
-        self.variants.contains_key(variant)
+    pub fn supports_variant(&self, variant: &TemplateVariantInfo) -> bool {
+        self.variants.contains_key(&variant.kind())
     }
 
-    pub(crate) fn snippets(&self, variant_kind: &TemplateVariantKind) -> &HashMap<String, String> {
-        let variant = self.variants.get(variant_kind).unwrap(); // TODO: for now
+    pub(crate) fn snippets(&self, variant_kind: &TemplateVariantInfo) -> &HashMap<String, String> {
+        let variant = self.variant(variant_kind).unwrap(); // TODO: for now
         &variant.snippets
     }
 
@@ -280,9 +301,9 @@ impl Template {
         &self,
         base: &std::path::Path,
         all_files: Vec<PathBuf>,
-        variant_kind: &TemplateVariantKind,
+        variant_kind: &TemplateVariantInfo,
     ) -> Vec<PathBuf> {
-        let variant = self.variants.get(variant_kind).unwrap(); // TODO: for now
+        let variant = self.variant(variant_kind).unwrap(); // TODO: for now
         all_files
             .into_iter()
             .filter(|path| !variant.skip_file(base, path))

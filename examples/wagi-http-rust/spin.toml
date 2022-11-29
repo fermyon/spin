@@ -11,3 +11,5 @@ source = "target/wasm32-wasi/release/wagihelloworld.wasm"
 [component.trigger]
 route = "/env"
 executor =  { type = "wagi" } # _start (the default entrypoint) is automatically mapped to main()
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

@@ -1,4 +1,4 @@
-# Spin HTTP components in (Tiny)Go
+# Spin HTTP components in TinyGo
 
 This example showcases how to build Spin HTTP components using TinyGo.
 
@@ -30,8 +30,9 @@ func main() {}
 Building this as a WebAssembly module can be done using the `tinygo` compiler:
 
 ```shell
-$ make build
-tinygo build -wasm-abi=generic -target=wasi -no-debug -o main.wasm main.go
+$ spin build
+Executing the build command for component tinygo-hello: tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go
+Successfully ran the build command for the Spin components.
 ```
 
 Finally, we can create a Spin application configuration to execute this
@@ -50,13 +51,14 @@ id = "hello"
 source = "main.wasm"
 [component.trigger]
 route = "/hello"
+[component.build]
+command = "tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go"
 ```
 
 At this point, we can execute the application with the `spin` CLI:
 
 ```shell
-$ make serve
-RUST_LOG=spin=trace spin up --file spin.toml
+$ RUST_LOG=spin=trace spin up
 ```
 
 The application can now receive requests on `http://localhost:3000/hello`:

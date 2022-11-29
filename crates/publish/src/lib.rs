@@ -10,3 +10,4 @@ mod expander;
 pub use bindle_pusher::push_all;
 pub use bindle_writer::prepare_bindle;
 pub use error::{PublishError, PublishResult};
+pub use expander::expand_manifest;

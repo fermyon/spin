@@ -233,7 +233,8 @@ impl Run {
         let abs_snippet_file = snippets_dir.join(snippet_file);
         let file_content = std::fs::read(abs_snippet_file)
             .with_context(|| format!("Error reading snippet file {}", snippet_file))?;
-        let content = TemplateContent::infer_from_bytes(file_content, &self.template_parser());
+        let content = TemplateContent::infer_from_bytes(file_content, &self.template_parser())
+            .with_context(|| format!("Error parsing snippet file {}", snippet_file))?;
 
         match id {
             "component" => {
@@ -278,7 +279,10 @@ impl Run {
         let contents = paths
             .iter()
             .map(std::fs::read)
-            .map(|c| c.map(|cc| TemplateContent::infer_from_bytes(cc, &template_parser)))
+            .map(|c| {
+                c.map_err(|e| e.into())
+                    .and_then(|cc| TemplateContent::infer_from_bytes(cc, &template_parser))
+            })
             .collect::<Result<Vec<_>, _>>()?;
         let pairs = paths.into_iter().zip(contents).collect();
         Ok(pairs)

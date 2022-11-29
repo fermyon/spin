@@ -9,7 +9,7 @@ use hyper::{
     Body, Request, Response,
 };
 use serde::{Deserialize, Serialize};
-use spin_core::Trap;
+use spin_core::I32Exit;
 use spin_trigger::TriggerAppEngine;
 
 use crate::{routes::RoutePattern, HttpExecutor, HttpTrigger};
@@ -148,9 +148,9 @@ impl HttpExecutor for WagiHttpExecutor {
 }
 
 fn ignore_successful_proc_exit_trap(guest_err: anyhow::Error) -> Result<()> {
-    match guest_err.root_cause().downcast_ref::<Trap>() {
-        Some(trap) => match trap.i32_exit_status() {
-            Some(0) => Ok(()),
+    match guest_err.root_cause().downcast_ref::<I32Exit>() {
+        Some(trap) => match trap.0 {
+            0 => Ok(()),
             _ => Err(guest_err),
         },
         None => Err(guest_err),

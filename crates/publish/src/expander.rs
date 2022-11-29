@@ -12,7 +12,7 @@ use spin_loader::{
 use std::path::{Path, PathBuf};
 
 /// Expands a file-based application manifest to a Bindle invoice.
-pub(crate) async fn expand_manifest(
+pub async fn expand_manifest(
     app_file: impl AsRef<Path>,
     buildinfo: Option<BuildMetadata>,
     scratch_dir: impl AsRef<Path>,

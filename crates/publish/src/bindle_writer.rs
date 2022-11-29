@@ -132,7 +132,7 @@ pub(crate) struct ParcelSource {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct ParcelSources {
+pub struct ParcelSources {
     sources: Vec<ParcelSource>,
 }
 

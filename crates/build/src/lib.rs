@@ -25,13 +25,10 @@ pub async fn build(manifest_file: &Path) -> Result<()> {
         return Ok(());
     }
 
-    let results = futures::future::join_all(
-        app.components
-            .into_iter()
-            .map(|c| build_component(c, &app_dir))
-            .collect::<Vec<_>>(),
-    )
-    .await;
+    let results = app
+        .components
+        .into_iter()
+        .map(|c| build_component(c, &app_dir));
 
     for r in results {
         if r.is_err() {
@@ -44,7 +41,7 @@ pub async fn build(manifest_file: &Path) -> Result<()> {
 }
 
 /// Run the build command of the component.
-async fn build_component(raw: RawComponentManifest, app_dir: &Path) -> Result<()> {
+fn build_component(raw: RawComponentManifest, app_dir: &Path) -> Result<()> {
     match raw.build {
         Some(b) => {
             println!(

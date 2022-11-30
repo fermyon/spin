@@ -31,7 +31,7 @@ struct BindleWriter {
 }
 
 /// Writes an invoice and supporting parcels out as a standalone bindle.
-async fn write(
+pub async fn write(
     source_dir: impl AsRef<Path>,
     dest_dir: impl AsRef<Path>,
     invoice: &Invoice,

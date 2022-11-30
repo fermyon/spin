@@ -23,16 +23,14 @@ jobs:
               target: "",
               targetDir: "target/release",
             }
-          # TODO: openssl is still a nested dep here.
-          # Re-enable when updated to use vendored openssl or cross-compile setup is updated
-          # - {
-          #     os: "ubuntu-latest",
-          #     arch: "aarch64",
-          #     extension: "",
-          #     extraArgs: "--target aarch64-unknown-linux-gnu",
-          #     target: "aarch64-unknown-linux-gnu",
-          #     targetDir: "target/aarch64-unknown-linux-gnu/release",
-          #   }
+          - {
+              os: "ubuntu-latest",
+              arch: "aarch64",
+              extension: "",
+              extraArgs: "--features openssl/vendored --target aarch64-unknown-linux-gnu",
+              target: "aarch64-unknown-linux-gnu",
+              targetDir: "target/aarch64-unknown-linux-gnu/release",
+            }
           - {
               os: "macos-latest",
               arch: "amd64",
@@ -86,13 +84,13 @@ jobs:
           default: true
           target: ${{ matrix.config.target }}
 
-      # - name: setup for cross-compiled linux aarch64 build
-      #   if: matrix.config.target == 'aarch64-unknown-linux-gnu'
-      #   run: |
-      #     sudo apt update
-      #     sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-      #     echo '[target.aarch64-unknown-linux-gnu]' >> ${HOME}/.cargo/config.toml
-      #     echo 'linker = "aarch64-linux-gnu-gcc"' >> ${HOME}/.cargo/config.toml
+      - name: setup for cross-compiled linux aarch64 build
+        if: matrix.config.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt update
+          sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          echo '[target.aarch64-unknown-linux-gnu]' >> ${HOME}/.cargo/config.toml
+          echo 'linker = "aarch64-linux-gnu-gcc"' >> ${HOME}/.cargo/config.toml
 
       - name: build release
         uses: actions-rs/cargo@v1

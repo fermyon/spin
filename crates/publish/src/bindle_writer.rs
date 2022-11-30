@@ -137,7 +137,7 @@ pub struct ParcelSources {
 }
 
 impl ParcelSources {
-    pub(crate) fn source(&self, digest: &str) -> Option<&PathBuf> {
+    pub fn source(&self, digest: &str) -> Option<&PathBuf> {
         self.sources
             .iter()
             .find(|s| s.digest == digest)

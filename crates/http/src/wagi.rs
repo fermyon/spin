@@ -2,7 +2,7 @@ mod util;
 
 use std::{io::Cursor, net::SocketAddr};
 
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use async_trait::async_trait;
 use hyper::{
     body::{self},
@@ -143,7 +143,14 @@ impl HttpExecutor for WagiHttpExecutor {
             .or_else(ignore_successful_proc_exit_trap)?;
         tracing::info!("Module execution complete");
 
-        util::compose_response(&stdout_buffer.take())
+        let stdout = stdout_buffer.take();
+        ensure!(
+            !stdout.is_empty(),
+            "The {component:?} component is configured to use the WAGI executor \
+             but did not write to stdout. Check the `executor` in spin.toml."
+        );
+
+        util::compose_response(&stdout)
     }
 }
 

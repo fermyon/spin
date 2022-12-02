@@ -1,0 +1,58 @@
+{
+    "build": {
+        "dockerfile": "./Dockerfile",
+        "context": "."
+    },
+    "runArgs": [
+        "--cap-add=SYS_PTRACE",
+        "--security-opt",
+        "seccomp=unconfined"
+    ],
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils:1": {
+            "installZsh": "true",
+            "username": "vscode",
+            "uid": "1000",
+            "gid": "1000",
+            "upgradePackages": "true"
+        },
+        "ghcr.io/devcontainers/features/rust:1": "latest",
+        "ghcr.io/devcontainers/features/git:1": {
+            "version": "latest",
+            "ppa": "false"
+        },
+        "./spin": "latest"
+    },
+
+    "customizations": {
+        // Configure properties specific to VS Code.
+        "vscode": {
+            // Set *default* container specific settings.json values on container create.
+            "settings": {
+                "lldb.executable": "/usr/bin/lldb",
+                "files.watcherExclude": {
+                    "**/target/**": true
+                }
+            },
+            // Add the IDs of extensions you want installed when the container is created.
+            "extensions": [
+                "vadimcn.vscode-lldb",
+                "rust-lang.rust-analyzer"
+            ]
+        }
+    },
+
+    // Use 'forwardPorts' to make a list of ports inside the container available locally.
+    "portsAttributes": {
+        "3000": {
+            "label": "Application",
+            "onAutoForward": "openPreview"
+        }
+    },
+    "forwardPorts": [
+        3000
+    ],
+
+    // Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+    "remoteUser": "vscode"
+}

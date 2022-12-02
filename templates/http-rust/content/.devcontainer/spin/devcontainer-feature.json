@@ -1,0 +1,14 @@
+{
+    "id": "spin",
+    "name": "spin",
+    "options": {
+        "version": {
+            "type": "string",
+            "proposals": [
+                "latest"
+            ],
+            "default": "latest",
+            "description": "Select or enter a version."
+        }
+    }
+}

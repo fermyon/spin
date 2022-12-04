@@ -1078,6 +1078,43 @@ mod integration_tests {
         Ok(())
     }
 
+    #[test]
+    fn spin_up_gives_help_on_new_app() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let dir = temp_dir.path();
+        let manifest_file = dir.join("spin.toml");
+
+        // We still don't see full help if there are no components.
+        let toml_text = r#"spin_version = "1"
+name = "unbuilt"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+[[component]]
+id = "unbuilt"
+source = "DOES-NOT-EXIST.wasm"
+[component.trigger]
+route = "/..."
+"#;
+
+        std::fs::write(&manifest_file, toml_text)?;
+
+        let up_help_args = vec![
+            SPIN_BINARY,
+            "up",
+            "--file",
+            manifest_file.to_str().unwrap(),
+            "--help",
+        ];
+
+        let output = run(up_help_args, None, None)?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("--follow-all"));
+        assert!(stdout.contains("--listen"));
+
+        Ok(())
+    }
+
     // TODO: Test on Windows
     #[cfg(not(target_os = "windows"))]
     #[test]

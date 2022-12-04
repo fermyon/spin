@@ -65,23 +65,27 @@ impl StdioLoggingTriggerHooks {
         ComponentStdioWriter::new(&log_path, follow)
             .with_context(|| format!("Failed to open log file {log_path:?}"))
     }
+
+    fn create_log_dir(&mut self, app: &spin_app::App) -> anyhow::Result<()> {
+        let app_name: &str = app.require_metadata("name")?;
+
+        // Set default log_dir (if not explicitly passed)
+        let log_dir = self
+            .log_dir
+            .get_or_insert_with(|| default_log_dir(app_name));
+
+        // Ensure log dir exists
+        std::fs::create_dir_all(&log_dir)
+            .with_context(|| format!("Failed to create log dir {log_dir:?}"))?;
+
+        Ok(())
+    }
 }
 
 impl TriggerHooks for StdioLoggingTriggerHooks {
     fn app_loaded(&mut self, app: &spin_app::App) -> anyhow::Result<()> {
-        let app_name: &str = app.require_metadata("name")?;
-        // Set default log_dir (if not explicitly passed)
-        let log_dir = self.log_dir.get_or_insert_with(|| {
-            let parent_dir = match dirs::home_dir() {
-                Some(home) => home.join(SPIN_HOME),
-                None => PathBuf::new(), // "./"
-            };
-            let sanitized_app = sanitize_filename::sanitize(app_name);
-            parent_dir.join(sanitized_app).join("logs")
-        });
-        // Ensure log dir exists
-        std::fs::create_dir_all(&log_dir)
-            .with_context(|| format!("Failed to create log dir {log_dir:?}"))?;
+        self.create_log_dir(app)?;
+
         Ok(())
     }
 
@@ -125,4 +129,14 @@ impl std::io::Write for ComponentStdioWriter {
         }
         Ok(())
     }
+}
+
+fn default_log_dir(app_name: &str) -> PathBuf {
+    let parent_dir = match dirs::home_dir() {
+        Some(home) => home.join(SPIN_HOME),
+        None => PathBuf::new(), // "./"
+    };
+    let sanitized_app = sanitize_filename::sanitize(app_name);
+
+    parent_dir.join(sanitized_app).join("logs")
 }

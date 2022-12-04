@@ -9,7 +9,11 @@ use tokio::{
 };
 
 use crate::stdio::StdioLoggingTriggerHooks;
-use crate::{config::TriggerExecutorBuilderConfig, loader::TriggerLoader, stdio::FollowComponents};
+use crate::{
+    config::TriggerExecutorBuilderConfig,
+    loader::TriggerLoader,
+    stdio::{FollowComponents, LogDestination},
+};
 use crate::{TriggerExecutor, TriggerExecutorBuilder};
 
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
@@ -30,12 +34,13 @@ where
     Executor::RunConfig: Args,
 {
     /// Log directory for the stdout and stderr of components.
+    /// Default location: ${HOME}/.spin/<APP_NAME>/logs
     #[clap(
             name = APP_LOG_DIR,
             short = 'L',
             long = "log-dir",
             )]
-    pub log: Option<PathBuf>,
+    pub log: Option<Option<PathBuf>>,
 
     /// Disable Wasmtime cache.
     #[clap(
@@ -56,20 +61,15 @@ where
     )]
     pub cache: Option<PathBuf>,
 
-    /// Print output for given component(s) to stdout/stderr
+    /// Print output for given component. Can be provided multiple times to
+    /// follow several components.
     #[clap(
         name = FOLLOW_LOG_OPT,
         long = "follow",
         multiple_occurrences = true,
+        value_name = "COMPONENT_ID",
         )]
     pub follow_components: Vec<String>,
-
-    /// Print all component output to stdout/stderr
-    #[clap(
-        long = "follow-all",
-        conflicts_with = FOLLOW_LOG_OPT,
-        )]
-    pub follow_all_components: bool,
 
     /// Set the static assets of the components in the temporary directory as writable.
     #[clap(long = "allow-transient-write")]
@@ -125,7 +125,8 @@ where
             let mut builder = TriggerExecutorBuilder::new(loader);
             self.update_wasmtime_config(builder.wasmtime_config_mut())?;
 
-            let logging_hooks = StdioLoggingTriggerHooks::new(self.follow_components(), self.log);
+            let logging_hooks =
+                StdioLoggingTriggerHooks::new(self.follow_components(), self.log_dest());
             builder.hooks(logging_hooks);
 
             builder.build(locked_url, trigger_config).await?
@@ -152,13 +153,18 @@ where
     }
 
     pub fn follow_components(&self) -> FollowComponents {
-        if self.follow_all_components {
-            FollowComponents::All
-        } else if self.follow_components.is_empty() {
-            FollowComponents::None
-        } else {
+        if !self.follow_components.is_empty() {
             let followed = self.follow_components.clone().into_iter().collect();
             FollowComponents::Named(followed)
+        } else {
+            FollowComponents::All
+        }
+    }
+
+    fn log_dest(&self) -> LogDestination {
+        match &self.log {
+            None => LogDestination::Std,
+            Some(log_dir) => LogDestination::Dir(log_dir.as_ref().cloned()),
         }
     }
 

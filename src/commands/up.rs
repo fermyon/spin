@@ -148,32 +148,20 @@ impl UpCommand {
             ApplicationTrigger::Redis(_) => "redis",
         };
 
-        // Build and write app lock file
-        let locked_app = spin_trigger::locked::build_locked_app(app, &working_dir)?;
-        let locked_path = working_dir.join("spin.lock");
-        let locked_app_contents =
-            serde_json::to_vec_pretty(&locked_app).context("failed to serialize locked app")?;
-        std::fs::write(&locked_path, locked_app_contents)
-            .with_context(|| format!("failed to write {:?}", locked_path))?;
-        let locked_url = Url::from_file_path(&locked_path)
-            .map_err(|_| anyhow!("cannot convert to file URL: {locked_path:?}"))?
-            .to_string();
-
-        // For `spin up --help`, we just want the executor to dump its own argument usage info
-        let trigger_args = if self.help {
-            vec![OsString::from("--help-args-only")]
-        } else {
-            self.trigger_args
-        };
-
         // The docs for `current_exe` warn that this may be insecure because it could be executed
         // via hard-link. I think it should be fine as long as we aren't `setuid`ing this binary.
         let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
         cmd.arg("trigger")
-            .env(SPIN_WORKING_DIR, working_dir)
-            .env(SPIN_LOCKED_URL, locked_url)
             .arg(trigger_type)
-            .args(trigger_args);
+            .env(SPIN_WORKING_DIR, &working_dir);
+
+        if self.help {
+            cmd.arg("--help-args-only");
+        } else {
+            let locked_url = self.write_locked_app(app, &working_dir)?;
+            cmd.env(SPIN_LOCKED_URL, locked_url)
+                .args(&self.trigger_args);
+        };
 
         tracing::trace!("Running trigger executor: {:?}", cmd);
 
@@ -197,6 +185,25 @@ impl UpCommand {
         } else {
             bail!(status);
         }
+    }
+
+    fn write_locked_app(
+        &self,
+        app: spin_manifest::Application,
+        working_dir: &Path,
+    ) -> Result<String, anyhow::Error> {
+        // Build and write app lock file
+        let locked_app = spin_trigger::locked::build_locked_app(app, working_dir)?;
+        let locked_path = working_dir.join("spin.lock");
+        let locked_app_contents =
+            serde_json::to_vec_pretty(&locked_app).context("failed to serialize locked app")?;
+        std::fs::write(&locked_path, locked_app_contents)
+            .with_context(|| format!("failed to write {:?}", locked_path))?;
+        let locked_url = Url::from_file_path(&locked_path)
+            .map_err(|_| anyhow!("cannot convert to file URL: {locked_path:?}"))?
+            .to_string();
+
+        Ok(locked_url)
     }
 
     fn bindle_connection(&self) -> Option<BindleConnectionInfo> {

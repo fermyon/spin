@@ -14,6 +14,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use tempfile::{tempdir, TempDir};
+use tracing::log;
 use url::Url;
 
 // Url scheme prefix of a plugin that is installed from a local source

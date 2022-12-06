@@ -8,7 +8,7 @@ edition = { workspace = true }
 anyhow = "1.0"
 async-trait = "0.1"
 crossbeam-channel = "0.5"
-tracing = "0.1"
+tracing = { workspace = true }
 wasi-cap-std-sync = { workspace = true }
 wasi-common = { workspace = true }
 wasmtime = { workspace = true }

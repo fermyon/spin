@@ -431,7 +431,6 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "cloud-openapi",
- "log",
  "mime_guess",
  "reqwest",
  "semver 1.0.14",
@@ -3438,7 +3437,6 @@ dependencies = [
  "dialoguer 0.10.2",
  "dirs 4.0.0",
  "dunce",
- "env_logger",
  "futures",
  "hippo",
  "hippo-openapi",
@@ -3601,7 +3599,6 @@ dependencies = [
  "bytes",
  "dirs 4.0.0",
  "flate2",
- "log",
  "reqwest",
  "semver 1.0.14",
  "serde",
@@ -3611,6 +3608,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "tracing",
  "url",
 ]
 
@@ -3676,7 +3674,6 @@ dependencies = [
  "console",
  "dialoguer 0.10.2",
  "dirs 3.0.2",
- "env_logger",
  "fs_extra",
  "heck 0.4.0",
  "indexmap",
@@ -3686,7 +3683,6 @@ dependencies = [
  "liquid-core",
  "liquid-derive",
  "liquid-lib",
- "log",
  "path-absolutize",
  "pathdiff",
  "regex",

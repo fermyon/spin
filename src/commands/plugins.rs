@@ -3,9 +3,9 @@ use clap::{Parser, Subcommand};
 use semver::Version;
 use spin_plugins::{
     error::Error,
-    lookup::{fetch_plugins_repo, plugins_repo_url, PluginLookup},
     manager::{self, ManifestLocation, PluginManager},
     manifest::{PluginManifest, PluginPackage},
+    PluginLookup,
 };
 use std::path::{Path, PathBuf};
 use tracing::log;
@@ -27,9 +27,6 @@ pub enum PluginCommands {
 
     /// Upgrade one or all plugins.
     Upgrade(Upgrade),
-
-    /// Fetch the latest Spin plugins from the spin-plugins repository.
-    Update,
 }
 
 impl PluginCommands {
@@ -38,7 +35,6 @@ impl PluginCommands {
             PluginCommands::Install(cmd) => cmd.run().await,
             PluginCommands::Uninstall(cmd) => cmd.run().await,
             PluginCommands::Upgrade(cmd) => cmd.run().await,
-            PluginCommands::Update => update().await,
         }
     }
 }
@@ -283,14 +279,6 @@ impl Upgrade {
         .await?;
         Ok(())
     }
-}
-
-/// Updates the locally cached spin-plugins repository, fetching the latest plugins.
-async fn update() -> Result<()> {
-    let manager = PluginManager::default()?;
-    let plugins_dir = manager.store().get_plugins_directory();
-    let url = plugins_repo_url()?;
-    fetch_plugins_repo(&url, plugins_dir, true).await
 }
 
 fn continue_to_install(

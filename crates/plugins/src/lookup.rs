@@ -35,7 +35,7 @@ impl PluginLookup {
     ) -> PluginLookupResult<PluginManifest> {
         let url = plugins_repo_url()?;
         log::info!("Pulling manifest for plugin {} from {url}", self.name);
-        fetch_plugins_repo(&url, plugins_dir, false)
+        fetch_plugins_repo(&url, plugins_dir, true)
             .await
             .map_err(|e| {
                 Error::ConnectionFailed(ConnectionFailedError::new(url.to_string(), e.to_string()))
@@ -59,11 +59,11 @@ impl PluginLookup {
     }
 }
 
-pub fn plugins_repo_url() -> Result<Url, url::ParseError> {
+fn plugins_repo_url() -> Result<Url, url::ParseError> {
     Url::parse(SPIN_PLUGINS_REPO)
 }
 
-pub async fn fetch_plugins_repo(
+async fn fetch_plugins_repo(
     repo_url: &Url,
     plugins_dir: &Path,
     update: bool,

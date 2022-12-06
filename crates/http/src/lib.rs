@@ -44,7 +44,7 @@ wit_bindgen_wasmtime::import!({paths: ["../../wit/ephemeral/spin-http.wit"], asy
 pub(crate) type RuntimeData = spin_http::SpinHttpData;
 pub(crate) type Store = spin_core::Store<RuntimeData>;
 
-pub const WELL_KNOWN_HEALTH_PATH: &str = "/.well-known/spin/health";
+pub const WELL_KNOWN_PREFIX: &str = "/.well-known/spin/";
 
 /// The Spin HTTP trigger.
 pub struct HttpTrigger {
@@ -201,55 +201,77 @@ impl HttpTrigger {
             req.uri()
         );
 
-        match req.uri().path() {
-            "/healthz" | WELL_KNOWN_HEALTH_PATH => Ok(Response::new(Body::from("OK"))),
-            route => match self.router.route(route) {
-                Ok(component_id) => {
-                    let trigger = self.component_trigger_configs.get(component_id).unwrap();
+        let path = req.uri().path();
 
-                    let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Spin);
+        // Handle well-known spin paths
+        if let Some(well_known) = path.strip_prefix(WELL_KNOWN_PREFIX) {
+            return match well_known {
+                "health" => Ok(Response::new(Body::from("OK"))),
+                "info" => self.app_info(),
+                _ => Self::not_found(),
+            };
+        }
 
-                    let res = match executor {
-                        HttpExecutorType::Spin => {
-                            let executor = SpinHttpExecutor;
-                            executor
-                                .execute(
-                                    &self.engine,
-                                    component_id,
-                                    &self.base,
-                                    &trigger.route,
-                                    req,
-                                    addr,
-                                )
-                                .await
-                        }
-                        HttpExecutorType::Wagi(wagi_config) => {
-                            let executor = WagiHttpExecutor {
-                                wagi_config: wagi_config.clone(),
-                            };
-                            executor
-                                .execute(
-                                    &self.engine,
-                                    component_id,
-                                    &self.base,
-                                    &trigger.route,
-                                    req,
-                                    addr,
-                                )
-                                .await
-                        }
-                    };
-                    match res {
-                        Ok(res) => Ok(res),
-                        Err(e) => {
-                            log::error!("Error processing request: {:?}", e);
-                            Self::internal_error(None)
-                        }
+        // Route to app component
+        match self.router.route(path) {
+            Ok(component_id) => {
+                let trigger = self.component_trigger_configs.get(component_id).unwrap();
+
+                let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Spin);
+
+                let res = match executor {
+                    HttpExecutorType::Spin => {
+                        let executor = SpinHttpExecutor;
+                        executor
+                            .execute(
+                                &self.engine,
+                                component_id,
+                                &self.base,
+                                &trigger.route,
+                                req,
+                                addr,
+                            )
+                            .await
+                    }
+                    HttpExecutorType::Wagi(wagi_config) => {
+                        let executor = WagiHttpExecutor {
+                            wagi_config: wagi_config.clone(),
+                        };
+                        executor
+                            .execute(
+                                &self.engine,
+                                component_id,
+                                &self.base,
+                                &trigger.route,
+                                req,
+                                addr,
+                            )
+                            .await
+                    }
+                };
+                match res {
+                    Ok(res) => Ok(res),
+                    Err(e) => {
+                        log::error!("Error processing request: {:?}", e);
+                        Self::internal_error(None)
                     }
                 }
-                Err(_) => Self::not_found(),
-            },
+            }
+            Err(_) => Self::not_found(),
         }
+    }
+
+    /// Returns spin status information.
+    fn app_info(&self) -> Result<Response<Body>> {
+        let info = AppInfo {
+            name: self.engine.app_name.clone(),
+            version: self.engine.app().get_metadata("version")?,
+            bindle_version: self.engine.app().get_metadata("bindle_version")?,
+        };
+        let body = serde_json::to_vec_pretty(&info)?;
+        Ok(Response::builder()
+            .header("content-type", "application/json")
+            .body(body.into())?)
     }
 
     /// Creates an HTTP 500 response.
@@ -266,9 +288,9 @@ impl HttpTrigger {
 
     /// Creates an HTTP 404 response.
     fn not_found() -> Result<Response<Body>> {
-        let mut not_found = Response::default();
-        *not_found.status_mut() = StatusCode::NOT_FOUND;
-        Ok(not_found)
+        Ok(Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::empty())?)
     }
 
     async fn serve(self, listen_addr: SocketAddr) -> Result<()> {
@@ -336,6 +358,15 @@ impl HttpTrigger {
         Server::builder(incoming).serve(make_service).await?;
         Ok(())
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AppInfo {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bindle_version: Option<String>,
 }
 
 fn parse_listen_addr(addr: &str) -> anyhow::Result<SocketAddr> {

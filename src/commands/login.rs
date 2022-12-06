@@ -158,14 +158,18 @@ pub struct LoginCommand {
     pub list: bool,
 }
 
-fn parse_url(arg: &str) -> Result<url::Url> {
-    let u = arg.trim().trim_end_matches('/');
-    Url::parse(u)
+fn parse_url(url: &str) -> Result<url::Url> {
+    let mut url = Url::parse(url)
         .map_err(|error| {
             anyhow::format_err!(
                 "URL should be fully qualified in the format \"https://my-hippo-instance.com\". Error: {}", error
             )
-        })
+        })?;
+    // Ensure path ends with '/' so join works properly
+    if !url.path().ends_with('/') {
+        url.set_path(&(url.path().to_string() + "/"));
+    }
+    Ok(url)
 }
 
 impl LoginCommand {
@@ -325,7 +329,7 @@ impl LoginCommand {
         };
 
         Ok(LoginConnection {
-            url: self.hippo_server_url.to_string(),
+            url: self.hippo_server_url.clone(),
             danger_accept_invalid_certs: self.insecure,
             token: token.token.unwrap_or_default(),
             expiration: token.expiration.unwrap_or_default(),
@@ -337,7 +341,7 @@ impl LoginCommand {
 
     fn login_connection_for_token(&self, token_info: TokenInfo) -> LoginConnection {
         LoginConnection {
-            url: self.hippo_server_url.to_string(),
+            url: self.hippo_server_url.clone(),
             danger_accept_invalid_certs: self.insecure,
             token: token_info.token.unwrap_or_default(),
             expiration: token_info.expiration.unwrap_or_default(),
@@ -474,7 +478,7 @@ async fn create_device_code(client: &Client) -> Result<DeviceCodeItem> {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct LoginConnection {
-    pub url: String,
+    pub url: Url,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub bindle_url: Option<String>,
@@ -609,7 +613,7 @@ fn is_file_with_extension(de: &std::fs::DirEntry, extension: &std::ffi::OsString
 }
 
 #[test]
-fn parse_url_trims_trailing_slash() {
-    let url = parse_url("https://localhost:12345/foo/bar/").unwrap();
-    assert_eq!(url.to_string(), "https://localhost:12345/foo/bar");
+fn parse_url_ensures_trailing_slash() {
+    let url = parse_url("https://localhost:12345/foo/bar").unwrap();
+    assert_eq!(url.to_string(), "https://localhost:12345/foo/bar/");
 }

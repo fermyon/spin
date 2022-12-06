@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use anyhow::{anyhow, bail, Context, Result};
 use bindle::Id;
 use chrono::{DateTime, Utc};
@@ -11,13 +12,15 @@ use rand::Rng;
 use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
 use spin_http::routes::RoutePattern;
-use spin_http::WELL_KNOWN_HEALTH_PATH;
+use spin_http::AppInfo;
+use spin_http::WELL_KNOWN_PREFIX;
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
 use spin_loader::local::{assets, config, parent_dir};
 use spin_manifest::ApplicationTrigger;
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
 use tokio::fs;
+use tracing::instrument;
 
 use std::fs::File;
 use std::io;
@@ -187,6 +190,8 @@ impl DeployCommand {
         let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
         let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
 
+        ensure!(!cfg.components.is_empty(), "No components in spin.toml!");
+
         let buildinfo = if !self.no_buildinfo {
             match &self.buildinfo {
                 Some(i) => Some(i.clone()),
@@ -208,7 +213,7 @@ impl DeployCommand {
             .await?;
 
         let hippo_client = Client::new(ConnectionInfo {
-            url: login_connection.url.clone(),
+            url: login_connection.url.to_string(),
             danger_accept_invalid_certs: login_connection.danger_accept_invalid_certs,
             api_key: Some(login_connection.token),
         });
@@ -284,20 +289,15 @@ impl DeployCommand {
         let channel = Client::get_channel_by_id(&hippo_client, &channel_id.to_string())
             .await
             .context("Problem getting channel by id")?;
+        let app_base_url = build_app_base_url(&channel.domain, &login_connection.url)?;
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
             wait_for_ready(
-                &channel.domain,
-                &login_connection.url,
-                &cfg,
+                &app_base_url,
+                &bindle_id.version_string(),
                 self.readiness_timeout_secs,
             )
             .await;
-            print_available_routes(
-                &channel.domain,
-                &http_config.base,
-                &login_connection.url,
-                &cfg,
-            );
+            print_available_routes(&app_base_url, &http_config.base, &cfg);
         } else {
             println!("Application is running at {}", channel.domain);
         }
@@ -307,7 +307,7 @@ impl DeployCommand {
 
     async fn deploy_cloud(self, login_connection: LoginConnection) -> Result<()> {
         let connection_config = ConnectionConfig {
-            url: login_connection.url.clone(),
+            url: login_connection.url.to_string(),
             insecure: login_connection.danger_accept_invalid_certs,
             token: TokenInfo {
                 token: Some(login_connection.token.clone()),
@@ -319,6 +319,8 @@ impl DeployCommand {
 
         let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
         let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
+
+        ensure!(!cfg.components.is_empty(), "No components in spin.toml!");
 
         match cfg.info.trigger {
             ApplicationTrigger::Http(_) => {}
@@ -402,20 +404,15 @@ impl DeployCommand {
         let channel = CloudClient::get_channel_by_id(&client, &channel_id.to_string())
             .await
             .context("Problem getting channel by id")?;
+        let app_base_url = build_app_base_url(&channel.domain, &login_connection.url)?;
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
             wait_for_ready(
-                &channel.domain,
-                &login_connection.url,
-                &cfg,
+                &app_base_url,
+                &bindle_id.version_string(),
                 self.readiness_timeout_secs,
             )
             .await;
-            print_available_routes(
-                &channel.domain,
-                &http_config.base,
-                &login_connection.url,
-                &cfg,
-            );
+            print_available_routes(&app_base_url, &http_config.base, &cfg);
         } else {
             println!("Application is running at {}", channel.domain);
         }
@@ -604,10 +601,17 @@ fn random_buildinfo() -> BuildMetadata {
     BuildMetadata::new(&format!("r{random_hex}")).unwrap()
 }
 
-async fn check_healthz(url: &str) -> Result<()> {
-    let base_url = url::Url::parse(url)?;
-    let healthz_url = base_url.join("/healthz")?;
-    reqwest::get(healthz_url.to_string())
+fn build_app_base_url(app_domain: &str, hippo_url: &Url) -> Result<Url> {
+    // HACK: We assume that the scheme (https vs http) of apps will match that of Hippo...
+    let scheme = hippo_url.scheme();
+    Url::parse(&format!("{scheme}://{app_domain}/")).with_context(|| {
+        format!("Could not construct app base URL for {app_domain:?} (Hippo URL: {hippo_url:?})",)
+    })
+}
+
+async fn check_healthz(base_url: &Url) -> Result<()> {
+    let healthz_url = base_url.join("healthz")?;
+    reqwest::get(healthz_url)
         .await?
         .error_for_status()
         .with_context(|| format!("Server {} is unhealthy", base_url))?;
@@ -616,43 +620,39 @@ async fn check_healthz(url: &str) -> Result<()> {
 
 const READINESS_POLL_INTERVAL_SECS: u64 = 2;
 
-async fn wait_for_ready(
-    app_domain: &str,
-    hippo_url: &str,
-    cfg: &spin_loader::local::config::RawAppManifest,
-    readiness_timeout_secs: u16,
-) {
+async fn wait_for_ready(app_base_url: &Url, bindle_version: &str, readiness_timeout_secs: u16) {
     if readiness_timeout_secs == 0 {
         return;
     }
 
-    if cfg.components.is_empty() {
-        return;
-    }
-
-    let url_result = Url::parse(hippo_url);
-    let scheme = match &url_result {
-        Ok(url) => url.scheme(),
-        Err(_) => "http",
-    };
-
-    let path = WELL_KNOWN_HEALTH_PATH;
-    let health_check_url = format!("{}://{}{}", scheme, app_domain, path);
+    let app_info_url = app_base_url
+        .join(WELL_KNOWN_PREFIX.trim_start_matches('/'))
+        .unwrap()
+        .join("info")
+        .unwrap()
+        .to_string();
 
     let start = std::time::Instant::now();
     let readiness_timeout = std::time::Duration::from_secs(u64::from(readiness_timeout_secs));
     let poll_interval = tokio::time::Duration::from_secs(READINESS_POLL_INTERVAL_SECS);
 
     print!("Waiting for application to become ready");
-    std::io::stdout().flush().unwrap_or_default();
+    let _ = std::io::stdout().flush();
     loop {
-        if is_ready(&health_check_url).await {
-            println!("... ready");
-            return;
+        match is_ready(&app_info_url, bindle_version).await {
+            Err(err) => {
+                println!("... readiness check failed: {err:?}");
+                return;
+            }
+            Ok(true) => {
+                println!("... ready");
+                return;
+            }
+            Ok(false) => {}
         }
 
         print!(".");
-        std::io::stdout().flush().unwrap_or_default();
+        let _ = std::io::stdout().flush();
 
         if start.elapsed() >= readiness_timeout {
             println!();
@@ -663,26 +663,36 @@ async fn wait_for_ready(
     }
 }
 
-async fn is_ready(health_check_url: &str) -> bool {
-    let resp = reqwest::get(health_check_url).await;
-    let (msg, ready) = match resp {
-        Err(e) => (format!("error {}", e), false),
-        Ok(r) => {
-            let status = r.status();
-            let ok = status.is_success();
-            let desc = if ok { "ready" } else { "not ready" };
-            (format!("{desc}, code {status}"), ok)
+#[instrument(level = "debug")]
+async fn is_ready(app_info_url: &str, expected_version: &str) -> Result<bool> {
+    // If the request fails, we assume the app isn't ready
+    let resp = match reqwest::get(app_info_url).await {
+        Ok(resp) => resp,
+        Err(err) => {
+            tracing::warn!("Readiness check failed: {err:?}");
+            return Ok(false);
         }
     };
-
-    tracing::debug!("Polled {} for readiness: {}", health_check_url, msg);
-    ready
+    // If the response status isn't success, the app isn't ready
+    if !resp.status().is_success() {
+        tracing::debug!("App not ready: {}", resp.status());
+        return Ok(false);
+    }
+    // If the app was previously deployed then it will have an outdated bindle
+    // version, in which case the app isn't ready
+    if let Ok(app_info) = resp.json::<AppInfo>().await {
+        let active_version = app_info.bindle_version;
+        if active_version.as_deref() != Some(expected_version) {
+            tracing::debug!("Active version {active_version:?} != expected {expected_version:?}");
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 fn print_available_routes(
-    address: &str,
+    app_base_url: &Url,
     base: &str,
-    hippo_url: &str,
     cfg: &spin_loader::local::config::RawAppManifest,
 ) {
     if cfg.components.is_empty() {
@@ -692,14 +702,9 @@ fn print_available_routes(
     println!("Available Routes:");
     for component in &cfg.components {
         if let TriggerConfig::Http(http_cfg) = &component.trigger {
-            let url_result = Url::parse(hippo_url);
-            let scheme = match &url_result {
-                Ok(url) => url.scheme(),
-                Err(_) => "http",
-            };
-
             let route = RoutePattern::from(base, &http_cfg.route);
-            println!("  {}: {}://{}{}", component.id, scheme, address, route);
+            let route_url = app_base_url.join(&route.to_string()).unwrap();
+            println!("  {}: {}", component.id, route_url);
             if let Some(description) = &component.description {
                 println!("    {}", description);
             }

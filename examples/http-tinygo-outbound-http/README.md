@@ -16,16 +16,17 @@ Creating and sending HTTP requests from Spin components closely follows the Go
  r1, err := spin_http.Get("https://some-random-api.ml/facts/dog")
  r2, err := spin_http.Post("https://postman-echo.com/post", "text/plain", bytes.NewBufferString("Hello there!"))
 
-  req, err := http.NewRequest("PUT", "https://postman-echo.com/put", bytes NewBufferString("General Kenobi!"))
-  req.Header.Add("foo", "bar")
-  r3, err := spin_http.Send(req)
+req, err := http.NewRequest("PUT", "https://postman-echo.com/put", bytes NewBufferString("General Kenobi!"))
+req.Header.Add("foo", "bar")
+r3, err := spin_http.Send(req)
 ```
 
 Building this as a WebAssembly module can be done using the `tinygo` compiler:
 
 ```shell
-$ make build
-tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go
+$ spin build
+Executing the build command for component tinygo-hello: tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go
+Successfully ran the build command for the Spin components.
 ```
 
 The component configuration must contain a list of all hosts allowed to send
@@ -42,13 +43,14 @@ source = "main.wasm"
 allowed_http_hosts = [ "https://some-random-api.ml", "https://postman-echo.com" ]
 [component.trigger]
 route = "/hello"
+[component.build]
+command = "tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go"
 ```
 
 At this point, we can execute the application with the `spin` CLI:
 
 ```shell
-$ make serve
-RUST_LOG=spin=trace,wasi_outbound_http=trace spin up --file spin.toml
+$ RUST_LOG=spin=trace,wasi_outbound_http=trace spin up
 ```
 
 The application can now receive requests on `http://localhost:3000/hello`:

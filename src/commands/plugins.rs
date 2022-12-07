@@ -89,6 +89,10 @@ pub struct Install {
         requires(PLUGIN_NAME_OPT)
     )]
     pub version: Option<Version>,
+
+    /// Fetches the latest plugins available to install
+    #[clap(long = "update", takes_value = false)]
+    pub update: bool,
 }
 
 impl Install {
@@ -102,7 +106,9 @@ impl Install {
         let manager = PluginManager::default()?;
         // Downgrades are only allowed via the `upgrade` subcommand
         let downgrade = false;
-        let manifest = manager.get_manifest(&manifest_location).await?;
+        let manifest = manager
+            .get_manifest(&manifest_location, self.update)
+            .await?;
         try_install(
             &manifest,
             &manager,
@@ -201,6 +207,10 @@ pub struct Upgrade {
     /// Allow downgrading a plugin's version.
     #[clap(short = 'd', long = "downgrade", takes_value = false)]
     pub downgrade: bool,
+
+    /// Avoid fetching the latest plugins available to install
+    #[clap(long = "no-update", takes_value = false)]
+    pub no_update: bool,
 }
 
 impl Upgrade {
@@ -216,21 +226,22 @@ impl Upgrade {
             println!("No currently installed plugins to upgrade.");
             return Ok(());
         }
-
+        let update = !self.no_update;
         if self.all {
-            self.upgrade_all(manifests_dir).await
+            self.upgrade_all(manifests_dir, update).await
         } else {
             let plugin_name = self
                 .name
                 .clone()
                 .context("plugin name is required for upgrades")?;
-            self.upgrade_one(&plugin_name).await
+            self.upgrade_one(&plugin_name, update).await
         }
     }
 
     // Install the latest of all currently installed plugins
-    async fn upgrade_all(&self, manifests_dir: impl AsRef<Path>) -> Result<()> {
+    async fn upgrade_all(&self, manifests_dir: impl AsRef<Path>, update: bool) -> Result<()> {
         let manager = PluginManager::default()?;
+        let mut first_plugin = true;
         for plugin in std::fs::read_dir(manifests_dir)? {
             let path = plugin?.path();
             let name = path
@@ -241,7 +252,12 @@ impl Upgrade {
                 .to_string();
             let manifest_location =
                 ManifestLocation::PluginsRepository(PluginLookup::new(&name, None));
-            let manifest = match manager.get_manifest(&manifest_location).await {
+            // Only need to fetch latest plugins (update) on first upgrade
+            let do_update = first_plugin && update;
+            if first_plugin {
+                first_plugin = false;
+            }
+            let manifest = match manager.get_manifest(&manifest_location, do_update).await {
                 Err(Error::NotFound(e)) => {
                     log::info!("Could not upgrade plugin '{name}': {e:?}");
                     continue;
@@ -261,14 +277,14 @@ impl Upgrade {
         Ok(())
     }
 
-    async fn upgrade_one(self, name: &str) -> Result<()> {
+    async fn upgrade_one(self, name: &str, update: bool) -> Result<()> {
         let manager = PluginManager::default()?;
         let manifest_location = match (self.local_manifest_src, self.remote_manifest_src) {
             (Some(path), None) => ManifestLocation::Local(path),
             (None, Some(url)) => ManifestLocation::Remote(url),
             _ => ManifestLocation::PluginsRepository(PluginLookup::new(name, self.version)),
         };
-        let manifest = manager.get_manifest(&manifest_location).await?;
+        let manifest = manager.get_manifest(&manifest_location, update).await?;
         try_install(
             &manifest,
             &manager,

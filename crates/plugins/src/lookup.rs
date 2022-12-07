@@ -32,10 +32,11 @@ impl PluginLookup {
     pub async fn get_manifest_from_repository(
         &self,
         plugins_dir: &Path,
+        update: bool,
     ) -> PluginLookupResult<PluginManifest> {
         let url = plugins_repo_url()?;
-        log::info!("Pulling manifest for plugin {} from {url}", self.name);
-        fetch_plugins_repo(&url, plugins_dir, true)
+        log::info!("Using manifest for plugin {} from {url}", self.name);
+        fetch_plugins_repo(&url, plugins_dir, update)
             .await
             .map_err(|e| {
                 Error::ConnectionFailed(ConnectionFailedError::new(url.to_string(), e.to_string()))
@@ -72,9 +73,11 @@ async fn fetch_plugins_repo(
     let git_source = GitSource::new(repo_url, None, &git_root);
     if git_root.join(".git").exists() {
         if update {
+            log::trace!("Pulling latest plugins from {repo_url} repository");
             git_source.pull().await?;
         }
     } else {
+        log::trace!("Cloning {repo_url} repository");
         git_source.clone_repo().await?;
     }
     Ok(())

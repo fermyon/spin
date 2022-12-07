@@ -138,6 +138,7 @@ impl PluginManager {
     pub async fn get_manifest(
         &self,
         manifest_location: &ManifestLocation,
+        update: bool,
     ) -> PluginLookupResult<PluginManifest> {
         let plugin_manifest = match manifest_location {
             ManifestLocation::Remote(url) => {
@@ -186,7 +187,7 @@ impl PluginManager {
             }
             ManifestLocation::PluginsRepository(lookup) => {
                 lookup
-                    .get_manifest_from_repository(self.store().get_plugins_directory())
+                    .get_manifest_from_repository(self.store().get_plugins_directory(), update)
                     .await?
             }
         };

@@ -65,11 +65,33 @@ impl StdioLoggingTriggerHooks {
         ComponentStdioWriter::new(&log_path, follow)
             .with_context(|| format!("Failed to open log file {log_path:?}"))
     }
+
+    fn validate_follows(&self, app: &spin_app::App) -> anyhow::Result<()> {
+        match &self.follow_components {
+            FollowComponents::Named(names) => {
+                let component_ids: HashSet<_> =
+                    app.components().map(|c| c.id().to_owned()).collect();
+                let unknown_names: Vec<_> = names.difference(&component_ids).collect();
+                if unknown_names.is_empty() {
+                    Ok(())
+                } else {
+                    let unknown_list = bullet_list(&unknown_names);
+                    let actual_list = bullet_list(&component_ids);
+                    let message = anyhow::anyhow!("The following component(s) specified in --follow do not exist in the application:\n{unknown_list}\nThe following components exist:\n{actual_list}");
+                    Err(message)
+                }
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
 impl TriggerHooks for StdioLoggingTriggerHooks {
     fn app_loaded(&mut self, app: &spin_app::App) -> anyhow::Result<()> {
         let app_name: &str = app.require_metadata("name")?;
+
+        self.validate_follows(app)?;
+
         // Set default log_dir (if not explicitly passed)
         let log_dir = self.log_dir.get_or_insert_with(|| {
             let parent_dir = match dirs::home_dir() {
@@ -125,4 +147,12 @@ impl std::io::Write for ComponentStdioWriter {
         }
         Ok(())
     }
+}
+
+fn bullet_list<S: std::fmt::Display>(items: impl IntoIterator<Item = S>) -> String {
+    items
+        .into_iter()
+        .map(|item| format!("  - {item}"))
+        .collect::<Vec<_>>()
+        .join("\n")
 }

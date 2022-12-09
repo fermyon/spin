@@ -18,3 +18,4 @@ Here is a list of accepted SIPs:
 - [Application Manifest Redesign](../sips/005-manifest-redesign.md)
 - [Spin Plugins](../sips/006-spin-plugins.md)
 - [Deployment Authentication and Authorisation](../sips/007-deployment-auth.md)
+- [Logging](../sips/008-logging.md)

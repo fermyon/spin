@@ -196,7 +196,9 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         let mut component_instance_pres = HashMap::default();
         for component in app.borrowed().components() {
             let module = component.load_module(&engine).await?;
-            let instance_pre = engine.instantiate_pre(&module)?;
+            let instance_pre = engine
+                .instantiate_pre(&module)
+                .with_context(|| format!("Failed to instantiate component '{}'", component.id()))?;
             component_instance_pres.insert(component.id().to_string(), instance_pre);
         }
 

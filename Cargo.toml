@@ -14,7 +14,6 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-atty = "0.2"
 bindle = { workspace = true }
 bytes = "1.1"
 chrono = "0.4"
@@ -30,6 +29,7 @@ env_logger = "0.9"
 futures = "0.3"
 hippo-openapi = "0.10"
 hippo = { git = "https://github.com/deislabs/hippo-cli", tag = "v0.16.1" }
+is-terminal = "0.4"
 lazy_static = "1.4.0"
 nix = { version = "0.24", features = ["signal"] }
 outbound-http = { path = "crates/outbound-http" }

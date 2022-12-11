@@ -100,7 +100,7 @@ impl PluginManager {
         spin_version: &str,
         override_compatibility_check: bool,
         allow_downgrades: bool,
-    ) -> Result<()> {
+    ) -> Result<InstallAction> {
         // Disallow installing plugins with the same name as spin internal subcommands
         if SPIN_INTERNAL_COMMANDS
             .iter()
@@ -115,11 +115,10 @@ impl PluginManager {
         // Disallow reinstalling identical plugins and downgrading unless permitted.
         if let Ok(installed) = self.store.read_plugin_manifest(&plugin_manifest.name()) {
             if &installed == plugin_manifest {
-                bail!(
-                    "Plugin '{}' is already installed with version {}.",
-                    plugin_manifest.name(),
-                    installed.version,
-                );
+                return Ok(InstallAction::NoAction {
+                    name: plugin_manifest.name(),
+                    version: installed.version,
+                });
             } else if installed.version > plugin_manifest.version && !allow_downgrades {
                 bail!(
                     "Newer version {} of plugin '{}' is already installed. To downgrade to version {} set the `--downgrade` flag.",
@@ -130,7 +129,9 @@ impl PluginManager {
             }
         }
 
-        check_supported_version(plugin_manifest, spin_version, override_compatibility_check)
+        check_supported_version(plugin_manifest, spin_version, override_compatibility_check)?;
+
+        Ok(InstallAction::Continue)
     }
 
     /// Fetches a manifest from a local, remote, or repository location and returned the parsed
@@ -192,6 +193,14 @@ impl PluginManager {
         };
         Ok(plugin_manifest)
     }
+}
+
+/// The action required to install a plugin to the desired version.
+pub enum InstallAction {
+    /// The installation needs to continue.
+    Continue,
+    /// No further action is required. This occurs when the plugin is already at the desired version.
+    NoAction { name: String, version: String },
 }
 
 /// Gets the appropriate package for the running OS and Arch if exists

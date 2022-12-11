@@ -4,7 +4,7 @@ use semver::Version;
 use spin_plugins::{
     error::Error,
     lookup::{fetch_plugins_repo, plugins_repo_url, PluginLookup},
-    manager::{self, ManifestLocation, PluginManager},
+    manager::{self, InstallAction, ManifestLocation, PluginManager},
     manifest::{PluginManifest, PluginPackage},
 };
 use std::path::{Path, PathBuf};
@@ -327,12 +327,18 @@ async fn try_install(
     downgrade: bool,
 ) -> Result<bool> {
     let spin_version = env!("VERGEN_BUILD_SEMVER");
-    manager.check_manifest(
+    let install_action = manager.check_manifest(
         manifest,
         spin_version,
         override_compatibility_check,
         downgrade,
     )?;
+
+    if let InstallAction::NoAction { name, version } = install_action {
+        eprintln!("Plugin '{name}' is already installed with version {version}.");
+        return Ok(false);
+    }
+
     let package = manager::get_package(manifest)?;
     if continue_to_install(manifest, package, yes_to_all)? {
         let installed = manager.install(manifest, package).await?;

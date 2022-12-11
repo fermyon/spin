@@ -9,6 +9,7 @@ mod custom_filters;
 mod directory;
 mod environment;
 mod filters;
+mod git;
 mod interaction;
 mod manager;
 mod reader;

@@ -4,6 +4,7 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
 };
+use tracing::log;
 use url::Url;
 
 // Name of directory that contains the cloned centralized Spin plugins

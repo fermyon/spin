@@ -26,7 +26,6 @@ ctrlc = { version = "3.2", features = ["termination"] }
 dialoguer = "0.10"
 dirs = "4.0"
 dunce = "1.0"
-env_logger = "0.9"
 futures = "0.3"
 hippo-openapi = "0.10"
 hippo = { git = "https://github.com/deislabs/hippo-cli", tag = "v0.16.1" }
@@ -56,7 +55,7 @@ spin-trigger = { path = "crates/trigger" }
 tempfile = "3.3.0"
 tokio = { version = "1.11", features = [ "full" ] }
 toml = "0.5"
-tracing = { version = "0.1", features = [ "log" ] }
+tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 url = "2.2.2"
 uuid = "^1.0"
@@ -105,6 +104,7 @@ members = [
 ]
 
 [workspace.dependencies]
+tracing = { version = "0.1", features = ["log"] }
 wasi-cap-std-sync = "3.0.0"
 wasi-common = "3.0.0"
 wasmtime = "3.0.0"

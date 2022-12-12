@@ -16,7 +16,7 @@ spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 spin-trigger = { path = "../trigger" }
 redis = { version = "0.21", features = [ "tokio-comp" ] }
-tracing = { version = "0.1", features = [ "log" ] }
+tracing = { workspace = true }
 wit-bindgen-wasmtime = { workspace = true }
 
 [dev-dependencies]

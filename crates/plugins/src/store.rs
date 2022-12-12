@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use tar::Archive;
+use tracing::log;
 
 use crate::{error::*, manifest::PluginManifest};
 

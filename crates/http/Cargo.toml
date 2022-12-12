@@ -30,7 +30,7 @@ tls-listener = { version = "0.4.0", features = [
 ] }
 tokio = { version = "1.10", features = ["full"] }
 tokio-rustls = { version = "0.23.2" }
-tracing = { version = "0.1", features = ["log"] }
+tracing = { workspace = true }
 wit-bindgen-wasmtime = { workspace = true }
 
 [dev-dependencies]

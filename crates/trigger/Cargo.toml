@@ -11,7 +11,7 @@ clap = { version = "3.1.15", features = ["derive", "env"] }
 ctrlc = { version = "3.2", features = ["termination"] }
 dirs = "4"
 futures = "0.3"
-outbound-http = { path = "../outbound-http" } 
+outbound-http = { path = "../outbound-http" }
 outbound-redis = { path = "../outbound-redis" }
 outbound-pg = { path = "../outbound-pg" }
 sanitize-filename = "0.4"
@@ -24,7 +24,7 @@ spin-loader = { path = "../loader" }
 spin-manifest = { path = "../manifest" }
 tokio = { version = "1.11", features = [ "full" ] }
 toml = "0.5.9"
-tracing = { version = "0.1", features = [ "log" ] }
+tracing = { workspace = true }
 url = "2"
 wasmtime = { workspace = true }
 

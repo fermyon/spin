@@ -12,4 +12,4 @@ spin-loader = { path = "../loader" }
 subprocess = "0.2.8"
 tokio = { version = "1.11", features = [ "full" ] }
 toml = "0.5"
-tracing = { version = "0.1", features = [ "log" ] }
+tracing = { workspace = true }

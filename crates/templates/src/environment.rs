@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use anyhow::Result;
 use tokio::process::Command;
 
+use crate::git::UnderstandGitResult;
+
 #[derive(Debug, Default)]
 pub(crate) struct Authors {
     pub author: String,
@@ -67,13 +69,14 @@ pub(crate) async fn get_authors() -> Result<Authors> {
     }
 
     async fn find_real_git_config_inner() -> Option<GitConfig> {
-        let mut git = Command::new("git");
-
-        let config_result = git.arg("config").arg("--list").output().await.ok()?;
-        match config_result.status.success() {
-            true => try_parse_git_config(&config_result.stdout),
-            false => None,
-        }
+        Command::new("git")
+            .arg("config")
+            .arg("--list")
+            .output()
+            .await
+            .understand_git_result()
+            .ok()
+            .and_then(|stdout| try_parse_git_config(&stdout))
     }
 
     let author = match discover_author().await? {

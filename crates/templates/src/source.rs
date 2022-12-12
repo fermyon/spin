@@ -5,7 +5,7 @@ use tempfile::{tempdir, TempDir};
 use tokio::process::Command;
 use url::Url;
 
-use crate::directory::subdirectories;
+use crate::{directory::subdirectories, git::UnderstandGitResult};
 
 const TEMPLATE_SOURCE_DIR: &str = "templates";
 const TEMPLATE_VERSION_TAG_PREFIX: &str = "spin/templates/v";
@@ -120,18 +120,13 @@ async fn clone_local(git_source: &GitTemplateSource) -> anyhow::Result<LocalTemp
 
     git.arg(url_str).arg(&path);
 
-    let clone_result = git.output().await?;
-    match clone_result.status.success() {
-        true => Ok(LocalTemplateSource {
+    let clone_result = git.output().await.understand_git_result();
+    match clone_result {
+        Ok(_) => Ok(LocalTemplateSource {
             root: path,
             _temp_dir: Some(temp_dir),
         }),
-        false => Err(anyhow!(
-            "Error cloning Git repo {}: {}",
-            url_str,
-            String::from_utf8(clone_result.stderr)
-                .unwrap_or_else(|_| "(cannot get error)".to_owned())
-        )),
+        Err(e) => Err(anyhow!("Error cloning Git repo {}: {}", url_str, e)),
     }
 }
 
@@ -144,13 +139,10 @@ async fn version_matched_tag(url: &str, spin_version: &str) -> Option<String> {
     git.arg(url);
     git.arg(&preferred_tag);
 
-    git.output().await.ok().and_then(|output| {
-        if output.status.success() {
-            Some(preferred_tag)
-        } else {
-            None
-        }
-    })
+    match git.output().await.understand_git_result() {
+        Ok(_) => Some(preferred_tag),
+        Err(_) => None,
+    }
 }
 
 fn version_preferred_tag(text: &str) -> String {

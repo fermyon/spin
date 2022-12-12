@@ -87,6 +87,14 @@ pub struct UpCommand {
     #[clap(long = "temp")]
     pub tmp: Option<PathBuf>,
 
+    /// For local apps with directory mounts and no excluded files, mount them directly instead of using a temporary
+    /// directory.
+    ///
+    /// This allows you to update the assets on the host filesystem such that the updates are visible to the guest
+    /// without a restart.  This will raise an error if used with bindle apps or apps using file patterns.
+    #[clap(long, takes_value = false)]
+    pub direct_mounts: bool,
+
     /// All other args, to be passed through to the trigger
     #[clap(hide = true)]
     pub trigger_args: Vec<OsString>,
@@ -127,10 +135,25 @@ impl UpCommand {
                     .as_deref()
                     .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
                 let bindle_connection = self.bindle_connection();
-                spin_loader::from_file(manifest_file, &working_dir, &bindle_connection).await?
+                spin_loader::from_file(
+                    manifest_file,
+                    if self.direct_mounts {
+                        None
+                    } else {
+                        Some(&working_dir)
+                    },
+                    &bindle_connection,
+                )
+                .await?
             }
             (None, Some(bindle)) => match &self.server {
-                Some(server) => spin_loader::from_bindle(bindle, server, &working_dir).await?,
+                Some(server) => {
+                    if self.direct_mounts {
+                        bail!("direct mounts not supported for apps loaded from bindles")
+                    } else {
+                        spin_loader::from_bindle(bindle, server, &working_dir).await?
+                    }
+                }
                 _ => bail!("Loading from a bindle requires a Bindle server URL"),
             },
             (Some(_), Some(_)) => bail!("Specify only one of app file or bindle ID"),

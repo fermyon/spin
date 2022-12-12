@@ -20,22 +20,49 @@ use super::config::{RawDirectoryPlacement, RawFileMount};
 pub(crate) async fn prepare_component(
     raw_mounts: &[RawFileMount],
     src: impl AsRef<Path>,
-    base_dst: impl AsRef<Path>,
+    base_dst: Option<impl AsRef<Path>>,
     id: &str,
     exclude_files: &[String],
 ) -> Result<Vec<DirectoryMount>> {
-    tracing::info!(
-        "Mounting files from '{}' to '{}'",
-        src.as_ref().display(),
-        base_dst.as_ref().display()
-    );
+    if let Some(base_dst) = base_dst {
+        tracing::info!(
+            "Mounting files from '{}' to '{}'",
+            src.as_ref().display(),
+            base_dst.as_ref().display()
+        );
 
-    let files = collect(raw_mounts, exclude_files, src)?;
-    let host = create_dir(&base_dst, id).await?;
-    let guest = "/".to_string();
-    copy_all(&files, &host).await?;
+        let files = collect(raw_mounts, exclude_files, src)?;
+        let host = create_dir(&base_dst, id).await?;
+        let guest = "/".to_string();
+        copy_all(&files, &host).await?;
 
-    Ok(vec![DirectoryMount { guest, host }])
+        Ok(vec![DirectoryMount { guest, host }])
+    } else {
+        tracing::info!("directly mounting local asset directories into guest");
+
+        if !exclude_files.is_empty() {
+            bail!("exclusions not permitted when mounting directories directly")
+        }
+
+        raw_mounts
+            .iter()
+            .map(|mount| match mount {
+                RawFileMount::Placement(RawDirectoryPlacement {
+                    source,
+                    destination,
+                }) => Ok(DirectoryMount {
+                    guest: destination
+                        .to_str()
+                        .context("unable to parse mount destination as UTF-8")?
+                        .to_owned(),
+                    host: source.clone(),
+                }),
+                RawFileMount::Pattern(_) => Err(anyhow!(
+                    "patterns not permitted when mounting directories directly"
+                )),
+            })
+            .collect()
+    }
 }
 
 /// A file that a component requires to be present at runtime.

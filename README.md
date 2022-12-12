@@ -49,7 +49,7 @@ $ spin up
 ## Contributing
 
 We are delighted that you are interested in making Spin better! Thank you!
-Please follow the [contributing guide](./docs/content/contributing.md).
+Please follow the [contributing guide](https://developer.fermyon.com/spin/contributing).
 And join our [Discord server](https://discord.gg/eGN8saYqCk).
 
 ## Developer Meetings

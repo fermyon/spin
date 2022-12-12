@@ -290,7 +290,9 @@ async fn update() -> Result<()> {
     let manager = PluginManager::default()?;
     let plugins_dir = manager.store().get_plugins_directory();
     let url = plugins_repo_url()?;
-    fetch_plugins_repo(&url, plugins_dir, true).await
+    fetch_plugins_repo(&url, plugins_dir, true).await?;
+    println!("Plugin information updated successfully");
+    Ok(())
 }
 
 fn continue_to_install(

@@ -49,6 +49,9 @@ pub mod redis {
 /// Implementation of the spin postgres db interface.
 pub mod pg;
 
+/// Implementation of the Spin MySQL database interface.
+pub mod mysql;
+
 /// Implementation of the spin config interface.
 #[allow(missing_docs)]
 pub mod config {

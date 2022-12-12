@@ -677,6 +677,33 @@ mod integration_tests {
         }
     }
 
+    #[cfg(feature = "outbound-mysql-tests")]
+    mod outbound_mysql_tests {
+        use super::*;
+
+        const RUST_OUTBOUND_MYSQL_INTEGRATION_TEST: &str =
+            "tests/outbound-mysql/http-rust-outbound-mysql";
+
+        #[tokio::test]
+        async fn test_outbound_mysql_rust_local() -> Result<()> {
+            let s = SpinTestController::with_manifest(
+                &format!(
+                    "{}/{}",
+                    RUST_OUTBOUND_MYSQL_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
+                ),
+                &[],
+                &[],
+                None,
+            )
+            .await?;
+
+            assert_status(&s, "/test_numeric_types", 200).await?;
+            assert_status(&s, "/test_character_types", 200).await?;
+
+            Ok(())
+        }
+    }
+
     #[tokio::test]
     async fn test_static_assets_without_bindle() -> Result<()> {
         let s = SpinTestController::with_manifest(

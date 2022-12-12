@@ -45,6 +45,10 @@ test-config-provider:
 test-outbound-pg:
 	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features outbound-pg-tests --no-fail-fast -- --nocapture
 
+.PHONY: test-outbound-mysql
+test-outbound-mysql:
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features outbound-mysql-tests --no-fail-fast -- --nocapture
+
 .PHONY: test-sdk-go
 test-sdk-go:
 	$(MAKE) -C sdk/go test

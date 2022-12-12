@@ -1,5 +1,6 @@
 use anyhow::Error;
 use clap::{CommandFactory, Parser, Subcommand};
+use is_terminal::IsTerminal;
 use lazy_static::lazy_static;
 use spin_cli::commands::{
     bindle::BindleCommands,
@@ -21,7 +22,7 @@ async fn main() -> Result<(), Error> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .with_ansi(atty::is(atty::Stream::Stderr))
+        .with_ansi(std::io::stderr().is_terminal())
         .init();
     SpinApp::parse().run().await
 }

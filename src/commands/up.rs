@@ -91,8 +91,8 @@ pub struct UpCommand {
     /// directory.
     ///
     /// This allows you to update the assets on the host filesystem such that the updates are visible to the guest
-    /// without a restart.  This will raise an error if used with bindle apps or apps using file patterns.
-    #[clap(long, takes_value = false)]
+    /// without a restart.  This cannot be used with bindle apps or apps which use file patterns and/or exclusions.
+    #[clap(long, takes_value = false, conflicts_with = BINDLE_ID_OPT)]
     pub direct_mounts: bool,
 
     /// All other args, to be passed through to the trigger

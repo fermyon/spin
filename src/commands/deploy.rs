@@ -384,17 +384,24 @@ impl DeployCommand {
                 existing_channel_id
             }
             Err(_) => {
-                let range_rule = Some(bindle_id.version_string());
                 let app_id = CloudClient::add_app(&client, &name, &name)
                     .await
                     .context("Unable to create app")?;
+
+                // When creating the new app, InitialRevisionImport command is triggered
+                // which automatically imports all revisions from bindle into db
+                // therefore we do not need to call add_revision api explicitly here
+                let active_revision_id = self
+                    .get_revision_id_cloud(&client, bindle_id.version_string().clone(), app_id)
+                    .await?;
+
                 CloudClient::add_channel(
                     &client,
                     app_id,
                     String::from(SPIN_DEPLOY_CHANNEL_NAME),
-                    CloudChannelRevisionSelectionStrategy::UseRangeRule,
-                    range_rule,
+                    CloudChannelRevisionSelectionStrategy::UseSpecifiedRevision,
                     None,
+                    Some(active_revision_id),
                 )
                 .await
                 .context("Problem creating a channel")?

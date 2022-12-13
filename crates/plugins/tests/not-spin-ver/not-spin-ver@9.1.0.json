@@ -1,0 +1,15 @@
+{
+    "name": "not-spin-ver",
+    "description": "A plugin which doesn't work with your current version of Spin - Mac only build.",
+    "version": "9.1.0",
+    "spinCompatibility": "=999.999.999",
+    "license": "Apache-2.0",
+    "packages": [
+        {
+            "os": "macos",
+            "arch": "aarch64",
+            "url": "https://example.com/doesnt-exist",
+            "sha256": "11111111"
+        }
+    ]
+}

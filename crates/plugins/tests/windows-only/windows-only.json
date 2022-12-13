@@ -1,0 +1,15 @@
+{
+    "name": "windows-only",
+    "description": "A plugin which only works on Windows.",
+    "version": "0.1.0",
+    "spinCompatibility": ">=0.4",
+    "license": "Apache-2.0",
+    "packages": [
+        {
+            "os": "windows",
+            "arch": "amd64",
+            "url": "https://example.com/doesnt-exist",
+            "sha256": "11111111"
+        }
+    ]
+}

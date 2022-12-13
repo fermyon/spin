@@ -2,6 +2,8 @@ use anyhow::{anyhow, Context, Result};
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 
+use crate::PluginStore;
+
 /// Expected schema of a plugin manifest. Should match the latest Spin plugin
 /// manifest JSON schema:
 /// https://github.com/fermyon/spin-plugins/tree/main/json-schema
@@ -30,8 +32,23 @@ impl PluginManifest {
     pub fn name(&self) -> String {
         self.name.to_lowercase()
     }
+    pub fn version(&self) -> &str {
+        &self.version
+    }
     pub fn license(&self) -> &str {
         self.license.as_ref()
+    }
+    pub fn has_compatible_package(&self) -> bool {
+        self.packages.iter().any(|p| p.matches_current_os_arch())
+    }
+    pub fn is_compatible_spin_version(&self, spin_version: &str) -> bool {
+        check_supported_version(self, spin_version, false).is_ok()
+    }
+    pub fn is_installed_in(&self, store: &PluginStore) -> bool {
+        match store.read_plugin_manifest(&self.name) {
+            Ok(m) => m.version == self.version,
+            Err(_) => false,
+        }
     }
 }
 
@@ -51,6 +68,10 @@ pub struct PluginPackage {
 impl PluginPackage {
     pub fn url(&self) -> String {
         self.url.clone()
+    }
+    pub fn matches_current_os_arch(&self) -> bool {
+        self.os.rust_name() == std::env::consts::OS
+            && self.arch.rust_name() == std::env::consts::ARCH
     }
 }
 

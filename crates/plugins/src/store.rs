@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use flate2::read::GzDecoder;
 use std::{
+    ffi::OsStr,
     fs::{self, File},
     path::{Path, PathBuf},
 };
@@ -60,6 +61,57 @@ impl PluginStore {
             binary.set_extension("exe");
         }
         binary
+    }
+
+    pub fn installed_manifests(&self) -> Result<Vec<PluginManifest>> {
+        let manifests_dir = self.installed_manifests_directory();
+        let manifest_paths = Self::json_files_in(&manifests_dir);
+        let manifests = manifest_paths
+            .iter()
+            .filter_map(|path| Self::try_read_manifest_from(path))
+            .collect();
+        Ok(manifests)
+    }
+
+    // TODO: report errors on individuals
+    pub fn catalogue_manifests(&self) -> Result<Vec<PluginManifest>> {
+        // Structure:
+        // CATALOGUE_DIR (spin/plugins/.spin-plugins/manifests)
+        // |- foo
+        // |  |- foo@0.1.2.json
+        // |  |- foo@1.2.3.json
+        // |  |- foo.json
+        // |- bar
+        //    |- bar.json
+        let catalogue_dir =
+            crate::lookup::spin_plugins_repo_manifest_dir(self.get_plugins_directory());
+        let plugin_dirs = catalogue_dir
+            .read_dir()?
+            .filter_map(|d| d.ok())
+            .map(|d| d.path())
+            .filter(|p| p.is_dir());
+        let manifest_paths = plugin_dirs.flat_map(|path| Self::json_files_in(&path));
+        let manifests: Vec<_> = manifest_paths
+            .filter_map(|path| Self::try_read_manifest_from(&path))
+            .collect();
+        Ok(manifests)
+    }
+
+    fn try_read_manifest_from(manifest_path: &Path) -> Option<PluginManifest> {
+        let manifest_file = File::open(manifest_path).ok()?;
+        serde_json::from_reader(manifest_file).ok()
+    }
+
+    fn json_files_in(dir: &Path) -> Vec<PathBuf> {
+        let json_ext = Some(OsStr::new("json"));
+        match dir.read_dir() {
+            Err(_) => vec![],
+            Ok(rd) => rd
+                .filter_map(|de| de.ok())
+                .map(|de| de.path())
+                .filter(|p| p.is_file() && p.extension() == json_ext)
+                .collect(),
+        }
     }
 
     /// Returns the PluginManifest for an installed plugin with a given name.

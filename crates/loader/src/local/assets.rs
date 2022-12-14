@@ -25,44 +25,60 @@ pub(crate) async fn prepare_component(
     exclude_files: &[String],
 ) -> Result<Vec<DirectoryMount>> {
     if let Some(base_dst) = base_dst {
-        tracing::info!(
-            "Mounting files from '{}' to '{}'",
-            src.as_ref().display(),
-            base_dst.as_ref().display()
-        );
-
-        let files = collect(raw_mounts, exclude_files, src)?;
-        let host = create_dir(&base_dst, id).await?;
-        let guest = "/".to_string();
-        copy_all(&files, &host).await?;
-
-        Ok(vec![DirectoryMount { guest, host }])
+        prepare_component_with_temp_dir(raw_mounts, src, base_dst, id, exclude_files).await
     } else {
         tracing::info!("directly mounting local asset directories into guest");
 
         if !exclude_files.is_empty() {
-            bail!("exclusions not permitted when mounting directories directly")
+            bail!("this component cannot be run with `--direct-mount` because some files are excluded from mounting")
         }
 
-        raw_mounts
-            .iter()
-            .map(|mount| match mount {
-                RawFileMount::Placement(RawDirectoryPlacement {
-                    source,
-                    destination,
-                }) => Ok(DirectoryMount {
-                    guest: destination
-                        .to_str()
-                        .context("unable to parse mount destination as UTF-8")?
-                        .to_owned(),
-                    host: source.clone(),
-                }),
-                RawFileMount::Pattern(_) => Err(anyhow!(
-                    "patterns not permitted when mounting directories directly"
-                )),
-            })
-            .collect()
+        prepare_component_with_direct_mounts(raw_mounts)
     }
+}
+
+async fn prepare_component_with_temp_dir(
+    raw_mounts: &[RawFileMount],
+    src: impl AsRef<Path>,
+    base_dst: impl AsRef<Path>,
+    id: &str,
+    exclude_files: &[String],
+) -> Result<Vec<DirectoryMount>> {
+    tracing::info!(
+        "Mounting files from '{}' to '{}'",
+        src.as_ref().display(),
+        base_dst.as_ref().display()
+    );
+
+    let files = collect(raw_mounts, exclude_files, src)?;
+    let host = create_dir(&base_dst, id).await?;
+    let guest = "/".to_string();
+    copy_all(&files, &host).await?;
+
+    Ok(vec![DirectoryMount { guest, host }])
+}
+
+fn prepare_component_with_direct_mounts(
+    raw_mounts: &[RawFileMount],
+) -> Result<Vec<DirectoryMount>> {
+    tracing::info!("directly mounting local asset directories into guest");
+
+    raw_mounts
+        .iter()
+        .map(|mount| match mount {
+            RawFileMount::Placement(placement) => Ok(DirectoryMount {
+                guest: placement
+                    .destination
+                    .to_str()
+                    .context("unable to parse mount destination as UTF-8")?
+                    .to_owned(),
+                host: placement.source.clone(),
+            }),
+            RawFileMount::Pattern(_) => Err(anyhow!(
+                "this component cannot be run with `--direct-mount` because it uses file patterns"
+            )),
+        })
+        .collect()
 }
 
 /// A file that a component requires to be present at runtime.

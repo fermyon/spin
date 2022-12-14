@@ -135,24 +135,18 @@ impl UpCommand {
                     .as_deref()
                     .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
                 let bindle_connection = self.bindle_connection();
-                spin_loader::from_file(
-                    manifest_file,
-                    if self.direct_mounts {
-                        None
-                    } else {
-                        Some(&working_dir)
-                    },
-                    &bindle_connection,
-                )
-                .await?
+                let asset_dst = if self.direct_mounts {
+                    None
+                } else {
+                    Some(&working_dir)
+                };
+                spin_loader::from_file(manifest_file, asset_dst, &bindle_connection).await?
             }
             (None, Some(bindle)) => match &self.server {
                 Some(server) => {
-                    if self.direct_mounts {
-                        bail!("direct mounts not supported for apps loaded from bindles")
-                    } else {
-                        spin_loader::from_bindle(bindle, server, &working_dir).await?
-                    }
+                    assert!(!self.direct_mounts);
+
+                    spin_loader::from_bindle(bindle, server, &working_dir).await?
                 }
                 _ => bail!("Loading from a bindle requires a Bindle server URL"),
             },

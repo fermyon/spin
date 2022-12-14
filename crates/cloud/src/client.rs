@@ -273,6 +273,19 @@ impl Client {
             .await
             .map_err(format_response_error)
     }
+
+    pub async fn list_revisions_next(
+        &self,
+        previous: &RevisionItemPage,
+    ) -> anyhow::Result<RevisionItemPage> {
+        api_revisions_get(
+            &self.configuration,
+            Some(previous.page_index + 1),
+            Some(previous.page_size),
+        )
+        .await
+        .map_err(format_response_error)
+    }
 }
 
 #[derive(Deserialize, Debug)]

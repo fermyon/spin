@@ -153,6 +153,19 @@ impl Client {
         .map_err(format_response_error)
     }
 
+    pub async fn list_channels_next(&self, previous: &ChannelItemPage) -> Result<ChannelItemPage> {
+        api_channels_get(
+            &self.configuration,
+            Some(""),
+            Some(previous.page_index + 1),
+            Some(previous.page_size),
+            Some("Name"),
+            None,
+        )
+        .await
+        .map_err(format_response_error)
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub async fn add_channel(
         &self,

@@ -505,20 +505,29 @@ impl DeployCommand {
         bindle_version: String,
         app_id: Uuid,
     ) -> Result<Uuid> {
-        let revisions = CloudClient::list_revisions(cloud_client).await?;
-        let revision = revisions
-            .items
-            .iter()
-            .find(|&x| x.revision_number == bindle_version && x.app_id == app_id);
-        Ok(revision
-            .ok_or_else(|| {
-                anyhow!(
-                    "No revision with version {} and app id {}",
-                    bindle_version,
-                    app_id
-                )
-            })?
-            .id)
+        let mut revisions = cloud_client.list_revisions().await?;
+
+        loop {
+            if let Some(revision) = revisions
+                .items
+                .iter()
+                .find(|&x| x.revision_number == bindle_version && x.app_id == app_id)
+            {
+                return Ok(revision.id);
+            }
+
+            if revisions.is_last_page {
+                break;
+            }
+
+            revisions = cloud_client.list_revisions_next(&revisions).await?;
+        }
+
+        Err(anyhow!(
+            "No revision with version {} and app id {}",
+            bindle_version,
+            app_id
+        ))
     }
 
     async fn get_channel_id_hippo(
@@ -544,15 +553,29 @@ impl DeployCommand {
         name: String,
         app_id: Uuid,
     ) -> Result<Uuid> {
-        let channels_vm = CloudClient::list_channels(cloud_client).await?;
-        let channel = channels_vm
-            .items
-            .iter()
-            .find(|&x| x.app_id == app_id && x.name == name.clone());
-        match channel {
-            Some(c) => Ok(c.id),
-            None => bail!("No channel with app_id {} and name {}", app_id, name),
+        let mut channels_vm = cloud_client.list_channels().await?;
+
+        loop {
+            if let Some(channel) = channels_vm
+                .items
+                .iter()
+                .find(|&x| x.app_id == app_id && x.name == name.clone())
+            {
+                return Ok(channel.id);
+            }
+
+            if channels_vm.is_last_page {
+                break;
+            }
+
+            channels_vm = cloud_client.list_channels_next(&channels_vm).await?;
         }
+
+        Err(anyhow!(
+            "No channel with app_id {} and name {}",
+            app_id,
+            name
+        ))
     }
 
     async fn create_and_push_bindle(

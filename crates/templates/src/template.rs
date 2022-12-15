@@ -96,7 +96,7 @@ impl Template {
                 manifest_path.display()
             )
         })?;
-        let raw = crate::reader::parse_manifest_toml(&manifest_text).with_context(|| {
+        let raw = crate::reader::parse_manifest_toml(manifest_text).with_context(|| {
             format!(
                 "Manifest file {} is not a valid manifest",
                 manifest_path.display()

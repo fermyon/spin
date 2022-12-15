@@ -95,8 +95,8 @@ pub enum InstalledTemplateWarning {
 
 impl TemplateManager {
     /// Creates a `TemplateManager` for the default install location.
-    pub fn default() -> anyhow::Result<Self> {
-        let store = TemplateStore::default()?;
+    pub fn try_default() -> anyhow::Result<Self> {
+        let store = TemplateStore::try_default()?;
         Ok(Self { store })
     }
 

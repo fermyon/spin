@@ -37,8 +37,8 @@ pub struct PluginManager {
 
 impl PluginManager {
     /// Creates a `PluginManager` with the default install location.
-    pub fn default() -> anyhow::Result<Self> {
-        let store = PluginStore::default()?;
+    pub fn try_default() -> anyhow::Result<Self> {
+        let store = PluginStore::try_default()?;
         Ok(Self { store })
     }
 

@@ -102,8 +102,8 @@ impl AddCommand {
 
 impl TemplateNewCommandCore {
     pub async fn run(&self, variant: TemplateVariantInfo) -> Result<()> {
-        let template_manager =
-            TemplateManager::default().context("Failed to construct template directory path")?;
+        let template_manager = TemplateManager::try_default()
+            .context("Failed to construct template directory path")?;
 
         let template = match &self.template_id {
             Some(template_id) => match template_manager

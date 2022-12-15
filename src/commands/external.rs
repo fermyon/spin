@@ -35,7 +35,7 @@ fn parse_subcommand(mut cmd: Vec<String>) -> anyhow::Result<(String, Vec<String>
 /// subprocess.
 pub async fn execute_external_subcommand(cmd: Vec<String>, app: App<'_>) -> anyhow::Result<()> {
     let (plugin_name, args, override_compatibility_check) = parse_subcommand(cmd)?;
-    let plugin_store = PluginStore::default()?;
+    let plugin_store = PluginStore::try_default()?;
     match plugin_store.read_plugin_manifest(&plugin_name) {
         Ok(manifest) => {
             let spin_version = env!("VERGEN_BUILD_SEMVER");

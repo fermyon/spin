@@ -20,7 +20,7 @@ impl TemplateStore {
         }
     }
 
-    pub(crate) fn default() -> anyhow::Result<Self> {
+    pub(crate) fn try_default() -> anyhow::Result<Self> {
         let data_dir = dirs::data_local_dir()
             .or_else(|| dirs::home_dir().map(|p| p.join(".spin")))
             .ok_or_else(|| anyhow!("Unable to get local data directory or home directory"))?;

@@ -103,7 +103,7 @@ impl Install {
             (None, None, Some(name)) => ManifestLocation::PluginsRepository(PluginLookup::new(&name, self.version)),
             _ => return Err(anyhow::anyhow!("For plugin lookup, must provide exactly one of: plugin name, url to manifest, local path to manifest")),
         };
-        let manager = PluginManager::default()?;
+        let manager = PluginManager::try_default()?;
         // Downgrades are only allowed via the `upgrade` subcommand
         let downgrade = false;
         let manifest = manager.get_manifest(&manifest_location).await?;
@@ -128,7 +128,7 @@ pub struct Uninstall {
 
 impl Uninstall {
     pub async fn run(self) -> Result<()> {
-        let manager = PluginManager::default()?;
+        let manager = PluginManager::try_default()?;
         let uninstalled = manager.uninstall(&self.name)?;
         if uninstalled {
             println!("Plugin {} was successfully uninstalled", self.name);
@@ -212,7 +212,7 @@ impl Upgrade {
     /// version of a plugin. If downgrade is specified, first uninstalls the
     /// plugin.
     pub async fn run(self) -> Result<()> {
-        let manager = PluginManager::default()?;
+        let manager = PluginManager::try_default()?;
         let manifests_dir = manager.store().installed_manifests_directory();
 
         // Check if no plugins are currently installed
@@ -234,7 +234,7 @@ impl Upgrade {
 
     // Install the latest of all currently installed plugins
     async fn upgrade_all(&self, manifests_dir: impl AsRef<Path>) -> Result<()> {
-        let manager = PluginManager::default()?;
+        let manager = PluginManager::try_default()?;
         for plugin in std::fs::read_dir(manifests_dir)? {
             let path = plugin?.path();
             let name = path
@@ -266,7 +266,7 @@ impl Upgrade {
     }
 
     async fn upgrade_one(self, name: &str) -> Result<()> {
-        let manager = PluginManager::default()?;
+        let manager = PluginManager::try_default()?;
         let manifest_location = match (self.local_manifest_src, self.remote_manifest_src) {
             (Some(path), None) => ManifestLocation::Local(path),
             (None, Some(url)) => ManifestLocation::Remote(url),
@@ -287,7 +287,7 @@ impl Upgrade {
 
 /// Updates the locally cached spin-plugins repository, fetching the latest plugins.
 async fn update() -> Result<()> {
-    let manager = PluginManager::default()?;
+    let manager = PluginManager::try_default()?;
     let plugins_dir = manager.store().get_plugins_directory();
     let url = plugins_repo_url()?;
     fetch_plugins_repo(&url, plugins_dir, true).await?;

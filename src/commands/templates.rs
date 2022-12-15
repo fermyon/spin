@@ -77,8 +77,8 @@ pub struct Uninstall {
 
 impl Install {
     pub async fn run(self) -> Result<()> {
-        let template_manager =
-            TemplateManager::default().context("Failed to construct template directory path")?;
+        let template_manager = TemplateManager::try_default()
+            .context("Failed to construct template directory path")?;
         let source = match (&self.git, &self.dir) {
             (Some(git), None) => {
                 TemplateSource::try_from_git(git, &self.branch, env!("VERGEN_BUILD_SEMVER"))?
@@ -141,8 +141,8 @@ impl Install {
 
 impl Uninstall {
     pub async fn run(self) -> Result<()> {
-        let template_manager =
-            TemplateManager::default().context("Failed to construct template directory path")?;
+        let template_manager = TemplateManager::try_default()
+            .context("Failed to construct template directory path")?;
 
         template_manager
             .uninstall(&self.template_id)
@@ -169,8 +169,8 @@ pub enum ListFormat {
 
 impl List {
     pub async fn run(self) -> Result<()> {
-        let template_manager =
-            TemplateManager::default().context("Failed to construct template directory path")?;
+        let template_manager = TemplateManager::try_default()
+            .context("Failed to construct template directory path")?;
         let list_results = template_manager
             .list()
             .await

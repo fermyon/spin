@@ -22,7 +22,7 @@ impl PluginStore {
         Self { root: root.into() }
     }
 
-    pub fn default() -> Result<Self> {
+    pub fn try_default() -> Result<Self> {
         let data_dir = match std::env::var("TEST_PLUGINS_DIRECTORY") {
             Ok(test_dir) => PathBuf::from(test_dir),
             Err(_) => dirs::data_local_dir()
@@ -86,7 +86,7 @@ impl PluginStore {
 
     pub(crate) fn add_manifest(&self, plugin_manifest: &PluginManifest) -> Result<()> {
         let manifests_dir = self.installed_manifests_directory();
-        std::fs::create_dir_all(&manifests_dir)?;
+        std::fs::create_dir_all(manifests_dir)?;
         serde_json::to_writer(
             &File::create(self.installed_manifest_path(&plugin_manifest.name()))?,
             plugin_manifest,

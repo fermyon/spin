@@ -8,6 +8,7 @@
 //! and any implementation that produces a `Application` is compatible
 //! with the Spin execution context.
 
+#![allow(clippy::box_default)]
 #![deny(missing_docs)]
 
 mod assets;

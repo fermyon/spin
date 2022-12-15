@@ -1,6 +1,7 @@
 //! Package for working with Wasm component templates.
 
 #![deny(missing_docs)]
+#![allow(clippy::box_default)]
 
 mod app_info;
 mod cancellable;

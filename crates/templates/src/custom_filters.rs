@@ -44,7 +44,7 @@ impl CustomFilterParser {
         let mut linker = Linker::new(&engine);
         wasmtime_wasi::add_to_linker(&mut linker, |ctx: &mut CustomFilterContext| &mut ctx.wasi)
             .with_context(|| format!("Setting up WASI for custom filter {}", name))?;
-        let module = Module::new(&engine, &wasm)
+        let module = Module::new(&engine, wasm)
             .with_context(|| format!("Creating Wasm module for custom filter {}", name))?;
         let instance = linker
             .instantiate(&mut store, &module)

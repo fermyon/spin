@@ -190,7 +190,7 @@ fn collect_placement(
                     match to_relative(match_path, &abs) {
                         Ok(relative_to_match_root_dst) => {
                             let guest_dst = relative_guest_path.join(relative_to_match_root_dst);
-                            Some(FileMount::from_exact(match_path, &guest_dst))
+                            Some(FileMount::from_exact(match_path, guest_dst))
                         }
                         Err(e) => {
                             let err = Err(e).with_context(|| {

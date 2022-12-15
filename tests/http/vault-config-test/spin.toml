@@ -7,13 +7,15 @@ version = "0.1.0"
 
 [variables]
 password = { required = true }
+greeting = { default = "Hello!" }
 
 [[component]]
 id = "config-test"
-source = "target/wasm32-wasi/release/config_test.wasm"
+source = "target/wasm32-wasi/release/vault_config_test.wasm"
 [component.trigger]
 route = "/..."
 [component.build]
 command = "cargo build --target wasm32-wasi --release"
 [component.config]
 password = "{{ password }}"
+greeting = "{{ greeting }}"

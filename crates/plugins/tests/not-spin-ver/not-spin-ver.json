@@ -1,0 +1,21 @@
+{
+    "name": "not-spin-ver",
+    "description": "A plugin which doesn't work with your current version of Spin.",
+    "version": "10.2.0",
+    "spinCompatibility": "=999.999.999",
+    "license": "Apache-2.0",
+    "packages": [
+        {
+            "os": "linux",
+            "arch": "amd64",
+            "url": "https://example.com/doesnt-exist",
+            "sha256": "11111111"
+        },
+        {
+            "os": "macos",
+            "arch": "aarch64",
+            "url": "https://example.com/doesnt-exist",
+            "sha256": "11111111"
+        }
+    ]
+}

@@ -22,6 +22,9 @@ pub enum PluginCommands {
     /// plugins directory.
     Install(Install),
 
+    /// List available or installed plugins.
+    List(List),
+
     /// Remove a plugin from your installation.
     Uninstall(Uninstall),
 
@@ -36,6 +39,7 @@ impl PluginCommands {
     pub async fn run(self) -> Result<()> {
         match self {
             PluginCommands::Install(cmd) => cmd.run().await,
+            PluginCommands::List(cmd) => cmd.run().await,
             PluginCommands::Uninstall(cmd) => cmd.run().await,
             PluginCommands::Upgrade(cmd) => cmd.run().await,
             PluginCommands::Update => update().await,
@@ -282,6 +286,121 @@ impl Upgrade {
         )
         .await?;
         Ok(())
+    }
+}
+
+/// Install plugins from remote source
+#[derive(Parser, Debug)]
+pub struct List {
+    /// List only installed plugins.
+    #[clap(long = "installed", takes_value = false)]
+    pub installed: bool,
+}
+
+impl List {
+    pub async fn run(self) -> Result<()> {
+        let mut plugins = if self.installed {
+            Self::list_installed_plugins()
+        } else {
+            Self::list_catalogue_plugins()
+        }?;
+
+        plugins.sort_by(|p, q| p.cmp(q));
+
+        Self::print(&plugins);
+        Ok(())
+    }
+
+    fn list_installed_plugins() -> Result<Vec<PluginDescriptor>> {
+        let manager = PluginManager::try_default()?;
+        let store = manager.store();
+        let manifests = store.installed_manifests()?;
+        let descriptors = manifests
+            .iter()
+            .map(|m| PluginDescriptor {
+                name: m.name(),
+                version: m.version().to_owned(),
+                installed: true,
+                compatibility: PluginCompatibility::for_current(m),
+            })
+            .collect();
+        Ok(descriptors)
+    }
+
+    fn list_catalogue_plugins() -> Result<Vec<PluginDescriptor>> {
+        let manager = PluginManager::try_default()?;
+        let store = manager.store();
+        let manifests = store.catalogue_manifests();
+        let descriptors = manifests?
+            .iter()
+            .map(|m| PluginDescriptor {
+                name: m.name(),
+                version: m.version().to_owned(),
+                installed: m.is_installed_in(store),
+                compatibility: PluginCompatibility::for_current(m),
+            })
+            .collect();
+        Ok(descriptors)
+    }
+
+    fn print(plugins: &[PluginDescriptor]) {
+        if plugins.is_empty() {
+            println!("No plugins found");
+        } else {
+            for p in plugins {
+                let installed = if p.installed { " [installed]" } else { "" };
+                let compat = match p.compatibility {
+                    PluginCompatibility::Compatible => "",
+                    PluginCompatibility::IncompatibleSpin => " [requires other Spin version]",
+                    PluginCompatibility::Incompatible => " [incompatible]",
+                };
+                println!("{} {}{}{}", p.name, p.version, installed, compat);
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+enum PluginCompatibility {
+    Compatible,
+    IncompatibleSpin,
+    Incompatible,
+}
+
+impl PluginCompatibility {
+    fn for_current(manifest: &PluginManifest) -> Self {
+        if manifest.has_compatible_package() {
+            let spin_version = env!("VERGEN_BUILD_SEMVER");
+            if manifest.is_compatible_spin_version(spin_version) {
+                Self::Compatible
+            } else {
+                Self::IncompatibleSpin
+            }
+        } else {
+            Self::Incompatible
+        }
+    }
+}
+
+#[derive(Debug)]
+struct PluginDescriptor {
+    name: String,
+    version: String,
+    compatibility: PluginCompatibility,
+    installed: bool,
+}
+
+impl PluginDescriptor {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let version_cmp = match (
+            semver::Version::parse(&self.version),
+            semver::Version::parse(&other.version),
+        ) {
+            (Ok(v1), Ok(v2)) => v1.cmp(&v2),
+            _ => self.version.cmp(&other.version),
+        };
+
+        self.name.cmp(&other.name).then(version_cmp)
     }
 }
 

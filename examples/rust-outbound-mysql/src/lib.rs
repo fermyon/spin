@@ -151,7 +151,7 @@ fn create(name: &str, prey: &Option<String>, is_finicky: bool) -> Result<Respons
         Some(str) => ParameterValue::Str(str),
     };
 
-    let is_finicky_param = ParameterValue::Int8(to_i8_bool(is_finicky));
+    let is_finicky_param = ParameterValue::Int8(i8::from(is_finicky));
 
     let sql = "INSERT INTO pets (id, name, prey, is_finicky) VALUES (?, ?, ?, ?)";
     let params = vec![
@@ -192,13 +192,5 @@ fn max_pet_id(address: &str) -> Result<i32> {
                 other
             )),
         },
-    }
-}
-
-fn to_i8_bool(value: bool) -> i8 {
-    if value {
-        1
-    } else {
-        0
     }
 }

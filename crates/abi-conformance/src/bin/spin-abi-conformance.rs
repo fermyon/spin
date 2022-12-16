@@ -31,7 +31,7 @@ fn main() -> Result<()> {
     let module = &if let Some(input) = &options.input {
         Module::from_file(engine, input)
     } else {
-        Module::new(engine, &{
+        Module::new(engine, {
             let mut buffer = Vec::new();
             io::stdin().read_to_end(&mut buffer)?;
             buffer

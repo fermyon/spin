@@ -20,6 +20,26 @@ use super::config::{RawDirectoryPlacement, RawFileMount};
 pub(crate) async fn prepare_component(
     raw_mounts: &[RawFileMount],
     src: impl AsRef<Path>,
+    base_dst: Option<impl AsRef<Path>>,
+    id: &str,
+    exclude_files: &[String],
+) -> Result<Vec<DirectoryMount>> {
+    if let Some(base_dst) = base_dst {
+        prepare_component_with_temp_dir(raw_mounts, src, base_dst, id, exclude_files).await
+    } else {
+        tracing::info!("directly mounting local asset directories into guest");
+
+        if !exclude_files.is_empty() {
+            bail!("this component cannot be run with `--direct-mount` because some files are excluded from mounting")
+        }
+
+        prepare_component_with_direct_mounts(raw_mounts)
+    }
+}
+
+async fn prepare_component_with_temp_dir(
+    raw_mounts: &[RawFileMount],
+    src: impl AsRef<Path>,
     base_dst: impl AsRef<Path>,
     id: &str,
     exclude_files: &[String],
@@ -36,6 +56,29 @@ pub(crate) async fn prepare_component(
     copy_all(&files, &host).await?;
 
     Ok(vec![DirectoryMount { guest, host }])
+}
+
+fn prepare_component_with_direct_mounts(
+    raw_mounts: &[RawFileMount],
+) -> Result<Vec<DirectoryMount>> {
+    tracing::info!("directly mounting local asset directories into guest");
+
+    raw_mounts
+        .iter()
+        .map(|mount| match mount {
+            RawFileMount::Placement(placement) => Ok(DirectoryMount {
+                guest: placement
+                    .destination
+                    .to_str()
+                    .context("unable to parse mount destination as UTF-8")?
+                    .to_owned(),
+                host: placement.source.clone(),
+            }),
+            RawFileMount::Pattern(_) => Err(anyhow!(
+                "this component cannot be run with `--direct-mount` because it uses file patterns"
+            )),
+        })
+        .collect()
 }
 
 /// A file that a component requires to be present at runtime.
@@ -147,7 +190,7 @@ fn collect_placement(
                     match to_relative(match_path, &abs) {
                         Ok(relative_to_match_root_dst) => {
                             let guest_dst = relative_guest_path.join(relative_to_match_root_dst);
-                            Some(FileMount::from_exact(match_path, &guest_dst))
+                            Some(FileMount::from_exact(match_path, guest_dst))
                         }
                         Err(e) => {
                             let err = Err(e).with_context(|| {

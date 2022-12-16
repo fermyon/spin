@@ -126,7 +126,9 @@ impl Prepare {
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
 
         let dest_dir = &self.staging_dir;
-        let bindle_id = spin_publish::prepare_bindle(app_file, self.buildinfo, dest_dir).await?;
+        let bindle_id = spin_publish::prepare_bindle(app_file, self.buildinfo, dest_dir)
+            .await
+            .map_err(crate::wrap_prepare_bindle_error)?;
 
         // We can't try to canonicalize it until the directory has been created
         let full_dest_dir =
@@ -160,16 +162,20 @@ impl Push {
             Some(path) => path.as_path(),
         };
 
-        let bindle_id = spin_publish::prepare_bindle(app_file, self.buildinfo, dest_dir).await?;
+        let bindle_id = spin_publish::prepare_bindle(app_file, self.buildinfo, dest_dir)
+            .await
+            .map_err(crate::wrap_prepare_bindle_error)?;
 
         let _sloth_warning = warn_if_slow_response(format!(
             "Uploading application to {}",
             self.bindle_server_url
         ));
 
-        spin_publish::push_all(&dest_dir, &bindle_id, bindle_connection_info)
+        spin_publish::push_all(&dest_dir, &bindle_id, bindle_connection_info.clone())
             .await
-            .context("Failed to push bindle to server")?;
+            .with_context(|| {
+                crate::push_all_failed_msg(dest_dir, bindle_connection_info.base_url())
+            })?;
 
         println!("pushed: {}", bindle_id);
         Ok(())

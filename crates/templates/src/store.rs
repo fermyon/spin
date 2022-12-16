@@ -20,7 +20,7 @@ impl TemplateStore {
         }
     }
 
-    pub(crate) fn default() -> anyhow::Result<Self> {
+    pub(crate) fn try_default() -> anyhow::Result<Self> {
         let data_dir = dirs::data_local_dir()
             .or_else(|| dirs::home_dir().map(|p| p.join(".spin")))
             .ok_or_else(|| anyhow!("Unable to get local data directory or home directory"))?;
@@ -73,6 +73,7 @@ pub(crate) struct TemplateLayout {
 const METADATA_DIR_NAME: &str = "metadata";
 const FILTERS_DIR_NAME: &str = "filters";
 const CONTENT_DIR_NAME: &str = "content";
+const SNIPPETS_DIR_NAME: &str = "snippets";
 
 const MANIFEST_FILE_NAME: &str = "spin-template.toml";
 
@@ -101,5 +102,9 @@ impl TemplateLayout {
 
     pub fn content_dir(&self) -> PathBuf {
         self.template_dir.join(CONTENT_DIR_NAME)
+    }
+
+    pub fn snippets_dir(&self) -> PathBuf {
+        self.metadata_dir().join(SNIPPETS_DIR_NAME)
     }
 }

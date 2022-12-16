@@ -21,6 +21,7 @@ use anyhow::Result;
 use crossbeam_channel::Sender;
 use tracing::instrument;
 pub use wasmtime::{self, Instance, Module, Trap};
+pub use wasmtime_wasi::I32Exit;
 use wasmtime_wasi::WasiCtx;
 
 use self::host_component::{HostComponents, HostComponentsBuilder};

@@ -38,7 +38,7 @@ use self::config::FileComponentUrlSource;
 /// otherwise create a new temporary directory.
 pub async fn from_file(
     app: impl AsRef<Path>,
-    base_dst: impl AsRef<Path>,
+    base_dst: Option<impl AsRef<Path>>,
     bindle_connection: &Option<BindleConnectionInfo>,
     include_components: Vec<String>,
 ) -> Result<Application> {
@@ -99,7 +99,7 @@ pub fn absolutize(path: impl AsRef<Path>) -> Result<PathBuf> {
 async fn prepare_any_version(
     raw: RawAppManifestAnyVersion,
     src: impl AsRef<Path>,
-    base_dst: impl AsRef<Path>,
+    base_dst: Option<impl AsRef<Path>>,
     bindle_connection: &Option<BindleConnectionInfo>,
     include_components: Vec<String>,
 ) -> Result<Application> {
@@ -148,7 +148,7 @@ fn include_component(components: &Vec<String>, component_id: &String) -> bool {
 async fn prepare(
     raw: RawAppManifest,
     src: impl AsRef<Path>,
-    base_dst: impl AsRef<Path>,
+    base_dst: Option<impl AsRef<Path>>,
     bindle_connection: &Option<BindleConnectionInfo>,
     include_components: Vec<String>,
 ) -> Result<Application> {
@@ -168,7 +168,7 @@ async fn prepare(
         raw.components
             .into_iter()
             .filter(|c| include_component(&include_components, &c.id))
-            .map(|c| async { core(c, &src, &base_dst, bindle_connection).await })
+            .map(|c| async { core(c, &src, base_dst.as_ref(), bindle_connection).await })
             .collect::<Vec<_>>(),
     )
     .await
@@ -204,7 +204,7 @@ async fn prepare(
 async fn core(
     raw: RawComponentManifest,
     src: impl AsRef<Path>,
-    base_dst: impl AsRef<Path>,
+    base_dst: Option<impl AsRef<Path>>,
     bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<CoreComponent> {
     let id = raw.id;
@@ -260,7 +260,7 @@ async fn core(
     let mounts = match raw.wasm.files {
         Some(f) => {
             let exclude_files = raw.wasm.exclude_files.unwrap_or_default();
-            assets::prepare_component(&f, src, &base_dst, &id, &exclude_files).await?
+            assets::prepare_component(&f, src, base_dst, &id, &exclude_files).await?
         }
         None => vec![],
     };

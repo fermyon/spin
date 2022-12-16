@@ -47,13 +47,10 @@ pub mod redis {
 }
 
 /// Implementation of the spin postgres db interface.
-#[allow(missing_docs)]
-pub mod pg {
-    wit_bindgen_rust::import!("../../wit/ephemeral/outbound-pg.wit");
+pub mod pg;
 
-    /// Exports the generated outbound Pg items.
-    pub use outbound_pg::*;
-}
+/// Implementation of the Spin MySQL database interface.
+pub mod mysql;
 
 /// Implementation of the spin config interface.
 #[allow(missing_docs)]

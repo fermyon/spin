@@ -1,0 +1,14 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+name = "rust-outbound-mysql-example"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[[component]]
+environment = { DB_URL = "mysql://spin:spin@127.0.0.1/spin_dev" }
+id = "outbound-mysql"
+source = "target/wasm32-wasi/release/http_rust_outbound_mysql.wasm"
+[component.trigger]
+route = "/..."
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

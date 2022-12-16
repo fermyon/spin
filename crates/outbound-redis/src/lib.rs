@@ -47,6 +47,24 @@ impl outbound_redis::OutboundRedis for OutboundRedis {
         let value = conn.del(keys).await.map_err(log_error)?;
         Ok(value)
     }
+
+    async fn sadd(&mut self, address: &str, key: &str, values: Vec<&str>) -> Result<i64, Error> {
+        let conn = self.get_conn(address).await.map_err(log_error)?;
+        let value = conn.sadd(key, values).await.map_err(log_error)?;
+        Ok(value)
+    }
+
+    async fn smembers(&mut self, address: &str, key: &str) -> Result<Vec<String>, Error> {
+        let conn = self.get_conn(address).await.map_err(log_error)?;
+        let value = conn.smembers(key).await.map_err(log_error)?;
+        Ok(value)
+    }
+
+    async fn srem(&mut self, address: &str, key: &str, values: Vec<&str>) -> Result<i64, Error> {
+        let conn = self.get_conn(address).await.map_err(log_error)?;
+        let value = conn.srem(key, values).await.map_err(log_error)?;
+        Ok(value)
+    }
 }
 
 impl OutboundRedis {

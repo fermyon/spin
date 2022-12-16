@@ -6,7 +6,7 @@ use std::str::from_utf8;
 /// A simple Spin Redis component.
 #[redis_component]
 fn on_message(message: Bytes) -> Result<()> {
-    log::info!("{}", from_utf8(&message)?);
+    println!("{}", from_utf8(&message)?);
     // Implement me ...
     Ok(())
 }

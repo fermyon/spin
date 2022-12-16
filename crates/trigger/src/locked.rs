@@ -11,8 +11,8 @@ use spin_app::{
     values::{ValuesMap, ValuesMapBuilder},
 };
 use spin_manifest::{
-    Application, ApplicationInformation, ApplicationTrigger, CoreComponent, HttpConfig,
-    HttpTriggerConfiguration, RedisConfig, TriggerConfig,
+    Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
+    HttpConfig, HttpTriggerConfiguration, RedisConfig, TriggerConfig,
 };
 
 const WASM_CONTENT_TYPE: &str = "application/wasm";
@@ -48,15 +48,16 @@ impl LockedAppBuilder {
             .string_option("description", info.description.as_deref())
             .serializable("trigger", info.trigger)?;
         // Convert ApplicationOrigin to a URL
-        builder.string(
-            "origin",
-            match info.origin {
-                spin_manifest::ApplicationOrigin::File(path) => file_uri(&path)?,
-                spin_manifest::ApplicationOrigin::Bindle { id, server } => {
-                    format!("bindle+{server}?id={id}")
+        let origin = match info.origin {
+            ApplicationOrigin::File(path) => file_uri(&path)?,
+            ApplicationOrigin::Bindle { id, server } => {
+                if let Some((_, version)) = id.split_once('/') {
+                    builder.string("bindle_version", version);
                 }
-            },
-        );
+                format!("bindle+{server}?id={id}")
+            }
+        };
+        builder.string("origin", origin);
         Ok(builder.build())
     }
 
@@ -234,7 +235,7 @@ mod tests {
         std::fs::write("spin.toml", TEST_MANIFEST).expect("write manifest");
         std::fs::write("test-source.wasm", "not actual wasm").expect("write source");
         std::fs::write("static.txt", "content").expect("write static");
-        let app = spin_loader::local::from_file("spin.toml", &tempdir, &None, vec![])
+        let app = spin_loader::local::from_file("spin.toml", Some(&tempdir), &None, vec![])
             .await
             .expect("load app");
         (app, tempdir)

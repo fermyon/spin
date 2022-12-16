@@ -4,6 +4,7 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
 };
+use tracing::log;
 use url::Url;
 
 // Name of directory that contains the cloned centralized Spin plugins
@@ -99,9 +100,13 @@ fn spin_plugins_repo_manifest_path(
     plugin_version: &Option<Version>,
     plugins_dir: &Path,
 ) -> PathBuf {
+    spin_plugins_repo_manifest_dir(plugins_dir)
+        .join(plugin_name)
+        .join(manifest_file_name_version(plugin_name, plugin_version))
+}
+
+pub fn spin_plugins_repo_manifest_dir(plugins_dir: &Path) -> PathBuf {
     plugins_dir
         .join(PLUGINS_REPO_LOCAL_DIRECTORY)
         .join(PLUGINS_REPO_MANIFESTS_DIRECTORY)
-        .join(plugin_name)
-        .join(manifest_file_name_version(plugin_name, plugin_version))
 }

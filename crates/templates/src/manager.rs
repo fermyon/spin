@@ -95,8 +95,8 @@ pub enum InstalledTemplateWarning {
 
 impl TemplateManager {
     /// Creates a `TemplateManager` for the default install location.
-    pub fn default() -> anyhow::Result<Self> {
-        let store = TemplateStore::default()?;
+    pub fn try_default() -> anyhow::Result<Self> {
+        let store = TemplateStore::try_default()?;
         Ok(Self { store })
     }
 
@@ -391,7 +391,7 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use crate::RunOptions;
+    use crate::{RunOptions, TemplateVariantInfo};
 
     use super::*;
 
@@ -414,7 +414,7 @@ mod tests {
         PathBuf::from(crate_dir).join("tests")
     }
 
-    const TPLS_IN_THIS: usize = 8;
+    const TPLS_IN_THIS: usize = 11;
 
     #[tokio::test]
     async fn can_install_into_new_directory() {
@@ -631,19 +631,14 @@ mod tests {
         .into_iter()
         .collect();
         let options = RunOptions {
+            variant: crate::template::TemplateVariantInfo::NewApplication,
             output_path: output_dir.clone(),
             name: "my project".to_owned(),
             values,
             accept_defaults: false,
         };
 
-        template
-            .run(options)
-            .silent()
-            .await
-            .execute()
-            .await
-            .unwrap();
+        template.run(options).silent().await.unwrap();
 
         let cargo = tokio::fs::read_to_string(output_dir.join("Cargo.toml"))
             .await
@@ -669,19 +664,14 @@ mod tests {
         let output_dir = dest_temp_dir.path().join("myproj");
         let values = HashMap::new();
         let options = RunOptions {
+            variant: crate::template::TemplateVariantInfo::NewApplication,
             output_path: output_dir.clone(),
             name: "my project".to_owned(),
             values,
             accept_defaults: true,
         };
 
-        template
-            .run(options)
-            .silent()
-            .await
-            .execute()
-            .await
-            .unwrap();
+        template.run(options).silent().await.unwrap();
 
         let cargo = tokio::fs::read_to_string(output_dir.join("Cargo.toml"))
             .await
@@ -716,19 +706,14 @@ mod tests {
         .into_iter()
         .collect();
         let options = RunOptions {
+            variant: crate::template::TemplateVariantInfo::NewApplication,
             output_path: output_dir.clone(),
             name: "custom-filter-test".to_owned(),
             values,
             accept_defaults: false,
         };
 
-        template
-            .run(options)
-            .silent()
-            .await
-            .execute()
-            .await
-            .unwrap();
+        template.run(options).silent().await.unwrap();
 
         let message = tokio::fs::read_to_string(output_dir.join("test.txt"))
             .await
@@ -736,5 +721,257 @@ mod tests {
         assert!(message.contains("p1/studly = bIsCuItS"));
         assert!(message.contains("p2/studly = nOmNoMnOm"));
         assert!(message.contains("p1/clappy = b👏i👏s👏c👏u👏i👏t👏s"));
+    }
+
+    #[tokio::test]
+    async fn can_add_component_from_template() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let application_dir = dest_temp_dir.path().join("multi");
+
+        // Set up the containing app
+        {
+            let template = manager.get("http-empty").unwrap().unwrap();
+
+            let values = [
+                ("project-description".to_owned(), "my desc".to_owned()),
+                ("http-base".to_owned(), "/".to_owned()),
+            ]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantInfo::NewApplication,
+                output_path: application_dir.clone(),
+                name: "my multi project".to_owned(),
+                values,
+                accept_defaults: false,
+            };
+
+            template.run(options).silent().await.unwrap();
+        }
+
+        let spin_toml_path = application_dir.join("spin.toml");
+        assert!(spin_toml_path.exists(), "expected spin.toml to be created");
+
+        // Now add a component
+        {
+            let template = manager.get("http-rust").unwrap().unwrap();
+
+            let output_dir = "hello";
+            let values = [
+                ("project-description".to_owned(), "hello".to_owned()),
+                ("http-path".to_owned(), "/hello".to_owned()),
+            ]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantInfo::AddComponent {
+                    manifest_path: spin_toml_path.clone(),
+                },
+                output_path: PathBuf::from(output_dir),
+                name: "hello".to_owned(),
+                values,
+                accept_defaults: false,
+            };
+
+            template.run(options).silent().await.unwrap();
+        }
+
+        // And another
+        {
+            let template = manager.get("http-rust").unwrap().unwrap();
+
+            let output_dir = "encore";
+            let values = [
+                ("project-description".to_owned(), "hello 2".to_owned()),
+                ("http-path".to_owned(), "/hello-2".to_owned()),
+            ]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantInfo::AddComponent {
+                    manifest_path: spin_toml_path.clone(),
+                },
+                output_path: PathBuf::from(output_dir),
+                name: "hello 2".to_owned(),
+                values,
+                accept_defaults: false,
+            };
+
+            template.run(options).silent().await.unwrap();
+        }
+
+        let cargo1 = tokio::fs::read_to_string(application_dir.join("hello/Cargo.toml"))
+            .await
+            .unwrap();
+        assert!(cargo1.contains("name = \"hello\""));
+
+        let cargo2 = tokio::fs::read_to_string(application_dir.join("encore/Cargo.toml"))
+            .await
+            .unwrap();
+        assert!(cargo2.contains("name = \"hello-2\""));
+
+        let spin_toml = tokio::fs::read_to_string(&spin_toml_path).await.unwrap();
+        assert!(spin_toml.contains("source = \"hello/target/wasm32-wasi/release/hello.wasm\""));
+        assert!(spin_toml.contains("source = \"encore/target/wasm32-wasi/release/hello_2.wasm\""));
+    }
+
+    #[tokio::test]
+    async fn cannot_add_component_that_does_not_match_trigger() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let application_dir = dest_temp_dir.path().join("multi");
+
+        // Set up the containing app
+        {
+            let template = manager.get("redis-rust").unwrap().unwrap();
+
+            let values = [
+                ("project-description".to_owned(), "my desc".to_owned()),
+                (
+                    "redis-address".to_owned(),
+                    "redis://localhost:6379".to_owned(),
+                ),
+                (
+                    "redis-channel".to_owned(),
+                    "the-horrible-knuckles".to_owned(),
+                ),
+            ]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantInfo::NewApplication,
+                output_path: application_dir.clone(),
+                name: "my multi project".to_owned(),
+                values,
+                accept_defaults: false,
+            };
+
+            template.run(options).silent().await.unwrap();
+        }
+
+        let spin_toml_path = application_dir.join("spin.toml");
+        assert!(spin_toml_path.exists(), "expected spin.toml to be created");
+
+        // Now add a component
+        {
+            let template = manager.get("http-rust").unwrap().unwrap();
+
+            let output_dir = "hello";
+            let values = [
+                ("project-description".to_owned(), "hello".to_owned()),
+                ("http-path".to_owned(), "/hello".to_owned()),
+            ]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantInfo::AddComponent {
+                    manifest_path: spin_toml_path.clone(),
+                },
+                output_path: PathBuf::from(output_dir),
+                name: "hello".to_owned(),
+                values,
+                accept_defaults: false,
+            };
+
+            template
+                .run(options)
+                .silent()
+                .await
+                .expect_err("Expected to fail to add component, but it succeeded");
+        }
+    }
+
+    #[tokio::test]
+    async fn cannot_new_a_component_only_template() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let dummy_dir = temp_dir.path().join("dummy");
+        let manifest_path = dummy_dir.join("ignored_spin.toml");
+        let add_component = TemplateVariantInfo::AddComponent { manifest_path };
+
+        let redirect = manager.get("redirect").unwrap().unwrap();
+        assert!(!redirect.supports_variant(&TemplateVariantInfo::NewApplication));
+        assert!(redirect.supports_variant(&add_component));
+
+        let http_rust = manager.get("http-rust").unwrap().unwrap();
+        assert!(http_rust.supports_variant(&TemplateVariantInfo::NewApplication));
+        assert!(http_rust.supports_variant(&add_component));
+
+        let http_empty = manager.get("http-empty").unwrap().unwrap();
+        assert!(http_empty.supports_variant(&TemplateVariantInfo::NewApplication));
+        assert!(!http_empty.supports_variant(&add_component));
+    }
+
+    #[tokio::test]
+    async fn fails_on_unknown_filter() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(test_data_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let template = manager.get("bad-non-existent-filter").unwrap().unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let output_dir = dest_temp_dir.path().join("myproj");
+        let values = [("p1".to_owned(), "biscuits".to_owned())]
+            .into_iter()
+            .collect();
+        let options = RunOptions {
+            variant: crate::template::TemplateVariantInfo::NewApplication,
+            output_path: output_dir.clone(),
+            name: "bad-filter-should-fail ".to_owned(),
+            values,
+            accept_defaults: false,
+        };
+
+        let err = template
+            .run(options)
+            .silent()
+            .await
+            .expect_err("Expected template to fail but it passed");
+
+        let err_str = err.to_string();
+
+        assert_contains(&err_str, "internal error");
+        assert_contains(&err_str, "unknown filter 'lol_snort'");
+    }
+
+    fn assert_contains(actual: &str, expected: &str) {
+        assert!(
+            actual.contains(expected),
+            "expected string containing '{expected}' but got '{actual}'"
+        );
     }
 }

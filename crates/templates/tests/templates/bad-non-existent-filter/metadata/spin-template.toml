@@ -1,0 +1,6 @@
+manifest_version = "1"
+id = "bad-non-existent-filter"
+description = "TEST - INTENTIONALLY FAILS - do not use"
+
+[parameters]
+p1 = { type = "string", prompt = "P1" }

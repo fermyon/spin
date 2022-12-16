@@ -1,0 +1,15 @@
+spin_version = "1"
+authors = ["itowlson <ivan.towlson@fermyon.com>"]
+description = "Demo of calling MySQL from a Spin application"
+name = "rust-outbound-mysql"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[[component]]
+environment = { DB_URL = "mysql://spin:spin@127.0.0.1/spin_dev" }
+id = "rust-outbound-mysql"
+source = "target/wasm32-wasi/release/rust_outbound_mysql.wasm"
+[component.trigger]
+route = "/..."
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

@@ -19,11 +19,10 @@ regex = "1.5.4"
 reqwest = "0.11.9"
 sha2 = "0.10.1"
 serde = { version = "1.0", features = [ "derive" ] }
-spin-config = { path = "../config" }
 spin-manifest = { path = "../manifest" }
 tempfile = "3.3.0"
 tokio = { version = "1.11", features = [ "full" ] }
 tokio-util = "0.6"
 toml = "0.5"
-tracing = { version = "0.1", features = [ "log" ] }
+tracing = { workspace = true }
 walkdir = "2.3.2"

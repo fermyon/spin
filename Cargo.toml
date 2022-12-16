@@ -7,14 +7,13 @@ license = "Apache-2.0 WITH LLVM-exception"
 rust-version = "1.64"
 
 [workspace.package]
-version = "0.6.0"
+version = "0.7.0"
 authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-atty = "0.2"
 bindle = { workspace = true }
 bytes = "1.1"
 chrono = "0.4"
@@ -22,16 +21,14 @@ clap = { version = "3.1.15", features = ["derive", "env"] }
 cloud = { path = "crates/cloud" }
 cloud-openapi = { git = "https://github.com/fermyon/cloud-openapi" }
 comfy-table = "5.0"
-copypasta = "0.8.1"
 ctrlc = { version = "3.2", features = ["termination"] }
 dialoguer = "0.10"
 dirs = "4.0"
 dunce = "1.0"
-env_logger = "0.9"
 futures = "0.3"
 hippo-openapi = "0.10"
 hippo = { git = "https://github.com/deislabs/hippo-cli", tag = "v0.16.1" }
-keyring = "1"
+is-terminal = "0.4"
 lazy_static = "1.4.0"
 nix = { version = "0.24", features = ["signal"] }
 outbound-http = { path = "crates/outbound-http" }
@@ -58,12 +55,11 @@ spin-trigger = { path = "crates/trigger" }
 tempfile = "3.3.0"
 tokio = { version = "1.11", features = [ "full" ] }
 toml = "0.5"
-tracing = { version = "0.1", features = [ "log" ] }
+tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
 url = "2.2.2"
 uuid = "^1.0"
 wasmtime = { workspace = true }
-webbrowser = "0.7.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # This needs to be an explicit dependency to enable
@@ -84,6 +80,8 @@ default = []
 e2e-tests = []
 outbound-redis-tests = []
 config-provider-tests = []
+outbound-pg-tests = []
+outbound-mysql-tests = []
 
 [workspace]
 members = [
@@ -102,16 +100,16 @@ members = [
     "crates/templates",
     "crates/testing",
     "crates/trigger",
-    "examples/spin-timer",
     "sdk/rust",
     "sdk/rust/macro"
 ]
 
 [workspace.dependencies]
-wasi-cap-std-sync = "0.39.1"
-wasi-common = "0.39.1"
-wasmtime = "0.39.1"
-wasmtime-wasi = { version = "0.39.1", features = ["tokio"] }
+tracing = { version = "0.1", features = ["log"] }
+wasi-cap-std-sync = "3.0.0"
+wasi-common = "3.0.0"
+wasmtime = "3.0.0"
+wasmtime-wasi = { version = "3.0.0", features = ["tokio"] }
 
 [workspace.dependencies.bindle]
 git = "https://github.com/fermyon/bindle"
@@ -120,8 +118,8 @@ default-features = false
 features = ["client"]
 
 [workspace.dependencies.wit-bindgen-wasmtime]
-git = "https://github.com/bytecodealliance/wit-bindgen"
-rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
+git = "https://github.com/fermyon/wit-bindgen-backport"
+rev = "b84eb01c20d9ed7964cb8f296ccdc44e639019ce"
 features = ["async"]
 
 [[bin]]

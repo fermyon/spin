@@ -94,6 +94,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
             if !self.disable_default_host_components {
                 builder.add_host_component(outbound_redis::OutboundRedisComponent)?;
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
+                builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
                     outbound_http::OutboundHttpComponent,
@@ -196,7 +197,10 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         let mut component_instance_pres = HashMap::default();
         for component in app.borrowed().components() {
             let module = component.load_module(&engine).await?;
-            let instance_pre = engine.instantiate_pre(&module)?;
+            let instance_pre = engine
+                .instantiate_pre(&module)
+                .map_err(decode_preinstantiation_error)
+                .with_context(|| format!("Failed to instantiate component '{}'", component.id()))?;
             component_instance_pres.insert(component.id().to_string(), instance_pre);
         }
 
@@ -309,4 +313,31 @@ pub(crate) fn parse_file_url(url: &str) -> Result<PathBuf> {
         .with_context(|| format!("Invalid URL: {url:?}"))?
         .to_file_path()
         .map_err(|_| anyhow!("Invalid file URL path: {url:?}"))
+}
+
+fn decode_preinstantiation_error(e: anyhow::Error) -> anyhow::Error {
+    let err_text = e.to_string();
+
+    if err_text.contains("unknown import") && err_text.contains("has not been defined") {
+        // TODO: how to maintain this list?
+        let sdk_imported_interfaces = &[
+            "outbound-pg",
+            "outbound-redis",
+            "spin-config",
+            "wasi_experimental_http",
+            "wasi-outbound-http",
+        ];
+
+        if sdk_imported_interfaces
+            .iter()
+            .map(|s| format!("{s}::"))
+            .any(|s| err_text.contains(&s))
+        {
+            return anyhow!(
+                "{e}. Check that the component uses a SDK version that matches the Spin runtime."
+            );
+        }
+    }
+
+    e
 }

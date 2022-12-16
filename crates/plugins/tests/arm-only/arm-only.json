@@ -1,0 +1,15 @@
+{
+    "name": "arm-only",
+    "description": "A plugin which only works on ARM Linux.",
+    "version": "0.1.0",
+    "spinCompatibility": ">=0.4",
+    "license": "Apache-2.0",
+    "packages": [
+        {
+            "os": "linux",
+            "arch": "arm",
+            "url": "https://example.com/doesnt-exist",
+            "sha256": "11111111"
+        }
+    ]
+}

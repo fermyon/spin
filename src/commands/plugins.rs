@@ -4,7 +4,7 @@ use semver::Version;
 use spin_plugins::{
     error::Error,
     lookup::{fetch_plugins_repo, plugins_repo_url, PluginLookup},
-    manager::{self, ManifestLocation, PluginManager},
+    manager::{self, InstallAction, ManifestLocation, PluginManager},
     manifest::{PluginManifest, PluginPackage},
 };
 use std::path::{Path, PathBuf};
@@ -22,6 +22,9 @@ pub enum PluginCommands {
     /// plugins directory.
     Install(Install),
 
+    /// List available or installed plugins.
+    List(List),
+
     /// Remove a plugin from your installation.
     Uninstall(Uninstall),
 
@@ -36,6 +39,7 @@ impl PluginCommands {
     pub async fn run(self) -> Result<()> {
         match self {
             PluginCommands::Install(cmd) => cmd.run().await,
+            PluginCommands::List(cmd) => cmd.run().await,
             PluginCommands::Uninstall(cmd) => cmd.run().await,
             PluginCommands::Upgrade(cmd) => cmd.run().await,
             PluginCommands::Update => update().await,
@@ -103,7 +107,7 @@ impl Install {
             (None, None, Some(name)) => ManifestLocation::PluginsRepository(PluginLookup::new(&name, self.version)),
             _ => return Err(anyhow::anyhow!("For plugin lookup, must provide exactly one of: plugin name, url to manifest, local path to manifest")),
         };
-        let manager = PluginManager::default()?;
+        let manager = PluginManager::try_default()?;
         // Downgrades are only allowed via the `upgrade` subcommand
         let downgrade = false;
         let manifest = manager.get_manifest(&manifest_location).await?;
@@ -128,7 +132,7 @@ pub struct Uninstall {
 
 impl Uninstall {
     pub async fn run(self) -> Result<()> {
-        let manager = PluginManager::default()?;
+        let manager = PluginManager::try_default()?;
         let uninstalled = manager.uninstall(&self.name)?;
         if uninstalled {
             println!("Plugin {} was successfully uninstalled", self.name);
@@ -212,7 +216,7 @@ impl Upgrade {
     /// version of a plugin. If downgrade is specified, first uninstalls the
     /// plugin.
     pub async fn run(self) -> Result<()> {
-        let manager = PluginManager::default()?;
+        let manager = PluginManager::try_default()?;
         let manifests_dir = manager.store().installed_manifests_directory();
 
         // Check if no plugins are currently installed
@@ -234,7 +238,7 @@ impl Upgrade {
 
     // Install the latest of all currently installed plugins
     async fn upgrade_all(&self, manifests_dir: impl AsRef<Path>) -> Result<()> {
-        let manager = PluginManager::default()?;
+        let manager = PluginManager::try_default()?;
         for plugin in std::fs::read_dir(manifests_dir)? {
             let path = plugin?.path();
             let name = path
@@ -266,7 +270,7 @@ impl Upgrade {
     }
 
     async fn upgrade_one(self, name: &str) -> Result<()> {
-        let manager = PluginManager::default()?;
+        let manager = PluginManager::try_default()?;
         let manifest_location = match (self.local_manifest_src, self.remote_manifest_src) {
             (Some(path), None) => ManifestLocation::Local(path),
             (None, Some(url)) => ManifestLocation::Remote(url),
@@ -285,12 +289,129 @@ impl Upgrade {
     }
 }
 
+/// Install plugins from remote source
+#[derive(Parser, Debug)]
+pub struct List {
+    /// List only installed plugins.
+    #[clap(long = "installed", takes_value = false)]
+    pub installed: bool,
+}
+
+impl List {
+    pub async fn run(self) -> Result<()> {
+        let mut plugins = if self.installed {
+            Self::list_installed_plugins()
+        } else {
+            Self::list_catalogue_plugins()
+        }?;
+
+        plugins.sort_by(|p, q| p.cmp(q));
+
+        Self::print(&plugins);
+        Ok(())
+    }
+
+    fn list_installed_plugins() -> Result<Vec<PluginDescriptor>> {
+        let manager = PluginManager::try_default()?;
+        let store = manager.store();
+        let manifests = store.installed_manifests()?;
+        let descriptors = manifests
+            .iter()
+            .map(|m| PluginDescriptor {
+                name: m.name(),
+                version: m.version().to_owned(),
+                installed: true,
+                compatibility: PluginCompatibility::for_current(m),
+            })
+            .collect();
+        Ok(descriptors)
+    }
+
+    fn list_catalogue_plugins() -> Result<Vec<PluginDescriptor>> {
+        let manager = PluginManager::try_default()?;
+        let store = manager.store();
+        let manifests = store.catalogue_manifests();
+        let descriptors = manifests?
+            .iter()
+            .map(|m| PluginDescriptor {
+                name: m.name(),
+                version: m.version().to_owned(),
+                installed: m.is_installed_in(store),
+                compatibility: PluginCompatibility::for_current(m),
+            })
+            .collect();
+        Ok(descriptors)
+    }
+
+    fn print(plugins: &[PluginDescriptor]) {
+        if plugins.is_empty() {
+            println!("No plugins found");
+        } else {
+            for p in plugins {
+                let installed = if p.installed { " [installed]" } else { "" };
+                let compat = match p.compatibility {
+                    PluginCompatibility::Compatible => "",
+                    PluginCompatibility::IncompatibleSpin => " [requires other Spin version]",
+                    PluginCompatibility::Incompatible => " [incompatible]",
+                };
+                println!("{} {}{}{}", p.name, p.version, installed, compat);
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+enum PluginCompatibility {
+    Compatible,
+    IncompatibleSpin,
+    Incompatible,
+}
+
+impl PluginCompatibility {
+    fn for_current(manifest: &PluginManifest) -> Self {
+        if manifest.has_compatible_package() {
+            let spin_version = env!("VERGEN_BUILD_SEMVER");
+            if manifest.is_compatible_spin_version(spin_version) {
+                Self::Compatible
+            } else {
+                Self::IncompatibleSpin
+            }
+        } else {
+            Self::Incompatible
+        }
+    }
+}
+
+#[derive(Debug)]
+struct PluginDescriptor {
+    name: String,
+    version: String,
+    compatibility: PluginCompatibility,
+    installed: bool,
+}
+
+impl PluginDescriptor {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let version_cmp = match (
+            semver::Version::parse(&self.version),
+            semver::Version::parse(&other.version),
+        ) {
+            (Ok(v1), Ok(v2)) => v1.cmp(&v2),
+            _ => self.version.cmp(&other.version),
+        };
+
+        self.name.cmp(&other.name).then(version_cmp)
+    }
+}
+
 /// Updates the locally cached spin-plugins repository, fetching the latest plugins.
 async fn update() -> Result<()> {
-    let manager = PluginManager::default()?;
+    let manager = PluginManager::try_default()?;
     let plugins_dir = manager.store().get_plugins_directory();
     let url = plugins_repo_url()?;
-    fetch_plugins_repo(&url, plugins_dir, true).await
+    fetch_plugins_repo(&url, plugins_dir, true).await?;
+    println!("Plugin information updated successfully");
+    Ok(())
 }
 
 fn continue_to_install(
@@ -327,12 +448,18 @@ async fn try_install(
     downgrade: bool,
 ) -> Result<bool> {
     let spin_version = env!("VERGEN_BUILD_SEMVER");
-    manager.check_manifest(
+    let install_action = manager.check_manifest(
         manifest,
         spin_version,
         override_compatibility_check,
         downgrade,
     )?;
+
+    if let InstallAction::NoAction { name, version } = install_action {
+        eprintln!("Plugin '{name}' is already installed with version {version}.");
+        return Ok(false);
+    }
+
     let package = manager::get_package(manifest)?;
     if continue_to_install(manifest, package, yes_to_all)? {
         let installed = manager.install(manifest, package).await?;

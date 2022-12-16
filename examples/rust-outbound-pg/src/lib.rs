@@ -1,8 +1,9 @@
 #![allow(dead_code)]
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use spin_sdk::{
     http::{Request, Response},
-    http_component, pg,
+    http_component,
+    pg::{self, Decode},
 };
 
 // The environment variable set in `spin.toml` that points to the
@@ -15,6 +16,27 @@ struct Article {
     title: String,
     content: String,
     authorname: String,
+    coauthor: Option<String>,
+}
+
+impl TryFrom<&pg::Row> for Article {
+    type Error = anyhow::Error;
+
+    fn try_from(row: &pg::Row) -> Result<Self, Self::Error> {
+        let id = i32::decode(&row[0])?;
+        let title = String::decode(&row[1])?;
+        let content = String::decode(&row[2])?;
+        let authorname = String::decode(&row[3])?;
+        let coauthor = Option::<String>::decode(&row[4])?;
+
+        Ok(Self {
+            id,
+            title,
+            content,
+            authorname,
+            coauthor,
+        })
+    }
 }
 
 #[http_component]
@@ -32,9 +54,8 @@ fn process(req: Request) -> Result<Response> {
 fn read(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
 
-    let sql = "SELECT id, title, content, authorname FROM articletest";
-    let rowset = pg::query(&address, sql, &[])
-        .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
+    let sql = "SELECT id, title, content, authorname, coauthor FROM articletest";
+    let rowset = pg::query(&address, sql, &[])?;
 
     let column_summary = rowset
         .columns
@@ -46,17 +67,7 @@ fn read(_req: Request) -> Result<Response> {
     let mut response_lines = vec![];
 
     for row in rowset.rows {
-        let id = as_int(&row[0])?;
-        let title = as_owned_string(&row[1])?;
-        let content = as_owned_string(&row[2])?;
-        let authorname = as_owned_string(&row[3])?;
-
-        let article = Article {
-            id,
-            title,
-            content,
-            authorname,
-        };
+        let article = Article::try_from(&row)?;
 
         println!("article: {:#?}", article);
         response_lines.push(format!("article: {:#?}", article));
@@ -80,16 +91,14 @@ fn write(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "INSERT INTO articletest (title, content, authorname) VALUES ('aaa', 'bbb', 'ccc')";
-    let nrow_executed =
-        pg::execute(&address, sql, &[]).map_err(|_| anyhow!("Error execute pg command"))?;
+    let nrow_executed = pg::execute(&address, sql, &[])?;
 
     println!("nrow_executed: {}", nrow_executed);
 
     let sql = "SELECT COUNT(id) FROM articletest";
-    let rowset = pg::query(&address, sql, &[])
-        .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
+    let rowset = pg::query(&address, sql, &[])?;
     let row = &rowset.rows[0];
-    let count = as_bigint(&row[0])?;
+    let count = i64::decode(&row[0])?;
     let response = format!("Count: {}\n", count);
 
     Ok(http::Response::builder()
@@ -102,11 +111,10 @@ fn pg_backend_pid(_req: Request) -> Result<Response> {
     let sql = "SELECT pg_backend_pid()";
 
     let get_pid = || {
-        let rowset = pg::query(&address, sql, &[])
-            .map_err(|e| anyhow!("Error executing Postgres query: {:?}", e))?;
-
+        let rowset = pg::query(&address, sql, &[])?;
         let row = &rowset.rows[0];
-        as_int(&row[0])
+
+        i32::decode(&row[0])
     };
 
     assert_eq!(get_pid()?, get_pid()?);
@@ -116,33 +124,6 @@ fn pg_backend_pid(_req: Request) -> Result<Response> {
     Ok(http::Response::builder()
         .status(200)
         .body(Some(response.into()))?)
-}
-
-fn as_owned_string(value: &pg::DbValue) -> anyhow::Result<String> {
-    match value {
-        pg::DbValue::Str(s) => Ok(s.to_owned()),
-        _ => Err(anyhow!("Expected string from database but got {:?}", value)),
-    }
-}
-
-fn as_int(value: &pg::DbValue) -> anyhow::Result<i32> {
-    match value {
-        pg::DbValue::Int32(n) => Ok(*n),
-        _ => Err(anyhow!(
-            "Expected integer from database but got {:?}",
-            value
-        )),
-    }
-}
-
-fn as_bigint(value: &pg::DbValue) -> anyhow::Result<i64> {
-    match value {
-        pg::DbValue::Int64(n) => Ok(*n),
-        _ => Err(anyhow!(
-            "Expected integer from database but got {:?}",
-            value
-        )),
-    }
 }
 
 fn format_col(column: &pg::Column) -> String {

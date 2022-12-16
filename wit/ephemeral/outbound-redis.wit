@@ -15,3 +15,12 @@ incr: func(address: string, key: string) -> expected<s64, error>
 
 // Removes the specified keys. A key is ignored if it does not exist.
 del: func(address: string, keys: list<string>) -> expected<s64, error>
+
+// Add the specified `values` to the set named `key`, returning the number of newly-added values.
+sadd: func(address: string, key: string, values: list<string>) -> expected<s64, error>
+
+// Retrieve the contents of the set named `key`.
+smembers: func(address: string, key: string) -> expected<list<string>, error>
+
+// Remove the specified `values` from the set named `key`, returning the number of newly-removed values.
+srem: func(address: string, key: string, values: list<string>) -> expected<s64, error>

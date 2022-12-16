@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    env,
     path::Path,
     process::{self, Command},
 };
@@ -10,8 +11,23 @@ const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
 const RUST_HTTP_INTEGRATION_ENV_TEST: &str = "tests/http/headers-env-routes-test";
 const RUST_HTTP_VAULT_CONFIG_TEST: &str = "tests/http/vault-config-test";
 const RUST_OUTBOUND_REDIS_INTEGRATION_TEST: &str = "tests/outbound-redis/http-rust-outbound-redis";
+const RUST_OUTBOUND_PG_INTEGRATION_TEST: &str = "tests/outbound-pg/http-rust-outbound-pg";
 
 fn main() {
+    let mut config = vergen::Config::default();
+    *config.git_mut().sha_kind_mut() = vergen::ShaKind::Short;
+    *config.git_mut().commit_timestamp_kind_mut() = vergen::TimestampKind::DateOnly;
+    vergen::vergen(config).expect("failed to extract build information");
+
+    let build_spin_tests = env::var("BUILD_SPIN_EXAMPLES")
+        .map(|v| v == "1")
+        .unwrap_or(true);
+
+    if !build_spin_tests {
+        println!("cargo:rerun-if-env-changed=BUILD_SPIN_EXAMPLES");
+        return;
+    }
+
     println!("cargo:rerun-if-changed=build.rs");
 
     if !has_wasm32_wasi_target() {
@@ -57,11 +73,7 @@ error: the `wasm32-wasi` target is not installed
     cargo_build(RUST_HTTP_INTEGRATION_ENV_TEST);
     cargo_build(RUST_HTTP_VAULT_CONFIG_TEST);
     cargo_build(RUST_OUTBOUND_REDIS_INTEGRATION_TEST);
-
-    let mut config = vergen::Config::default();
-    *config.git_mut().sha_kind_mut() = vergen::ShaKind::Short;
-    *config.git_mut().commit_timestamp_kind_mut() = vergen::TimestampKind::DateOnly;
-    vergen::vergen(config).expect("failed to extract build information");
+    cargo_build(RUST_OUTBOUND_PG_INTEGRATION_TEST);
 }
 
 fn build_wasm_test_program(name: &'static str, root: &'static str) {

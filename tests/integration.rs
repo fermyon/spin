@@ -175,9 +175,6 @@ mod integration_tests {
             let s = SpinTestController::with_bindle(RUST_HTTP_STATIC_ASSETS_REST_REF, &b.url, &[])
                 .await?;
 
-            assert_status(&s, "/", 200).await?;
-            assert_response_contains(&s, "/", "<h1>Hello</h1>").await?;
-
             assert_status(&s, "/static/thisshouldbemounted/1", 200).await?;
             assert_status(&s, "/static/thisshouldbemounted/2", 200).await?;
             assert_status(&s, "/static/thisshouldbemounted/3", 200).await?;
@@ -607,7 +604,7 @@ mod integration_tests {
     }
 
     #[cfg(feature = "outbound-redis-tests")]
-    mod outbound_pg_tests {
+    mod outbound_redis_tests {
         use super::*;
 
         const RUST_OUTBOUND_REDIS_INTEGRATION_TEST: &str =
@@ -652,6 +649,61 @@ mod integration_tests {
         Ok(())
     }
 
+    #[cfg(feature = "outbound-pg-tests")]
+    mod outbound_pg_tests {
+        use super::*;
+
+        const RUST_OUTBOUND_PG_INTEGRATION_TEST: &str = "tests/outbound-pg/http-rust-outbound-pg";
+
+        #[tokio::test]
+        async fn test_outbound_pg_rust_local() -> Result<()> {
+            let s = SpinTestController::with_manifest(
+                &format!(
+                    "{}/{}",
+                    RUST_OUTBOUND_PG_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
+                ),
+                &[],
+                &[],
+                None,
+            )
+            .await?;
+
+            assert_status(&s, "/test_numeric_types", 200).await?;
+            assert_status(&s, "/test_character_types", 200).await?;
+            assert_status(&s, "/test_general_types", 200).await?;
+            assert_status(&s, "/pg_backend_pid", 200).await?;
+
+            Ok(())
+        }
+    }
+
+    #[cfg(feature = "outbound-mysql-tests")]
+    mod outbound_mysql_tests {
+        use super::*;
+
+        const RUST_OUTBOUND_MYSQL_INTEGRATION_TEST: &str =
+            "tests/outbound-mysql/http-rust-outbound-mysql";
+
+        #[tokio::test]
+        async fn test_outbound_mysql_rust_local() -> Result<()> {
+            let s = SpinTestController::with_manifest(
+                &format!(
+                    "{}/{}",
+                    RUST_OUTBOUND_MYSQL_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
+                ),
+                &[],
+                &[],
+                None,
+            )
+            .await?;
+
+            assert_status(&s, "/test_numeric_types", 200).await?;
+            assert_status(&s, "/test_character_types", 200).await?;
+
+            Ok(())
+        }
+    }
+
     #[tokio::test]
     async fn test_static_assets_without_bindle() -> Result<()> {
         let s = SpinTestController::with_manifest(
@@ -664,9 +716,6 @@ mod integration_tests {
             None,
         )
         .await?;
-
-        assert_status(&s, "/", 200).await?;
-        assert_response_contains(&s, "/", "<h1>Hello</h1>").await?;
 
         assert_status(&s, "/static/thisshouldbemounted/1", 200).await?;
         assert_status(&s, "/static/thisshouldbemounted/2", 200).await?;
@@ -808,27 +857,6 @@ mod integration_tests {
             .await
             .expect("read body");
         assert_eq!(status, expected, "{}", String::from_utf8_lossy(&body));
-
-        Ok(())
-    }
-
-    async fn assert_response_contains(
-        s: &SpinTestController,
-        absolute_uri: &str,
-        expected: &str,
-    ) -> Result<()> {
-        let res = req(s, absolute_uri).await?;
-        let body = hyper::body::to_bytes(res.into_body())
-            .await
-            .expect("read body");
-        let body_text =
-            String::from_utf8(body.into_iter().collect()).expect("convert body to string");
-        assert!(
-            body_text.contains(expected),
-            "expected to contain {}, got {}",
-            expected,
-            body_text
-        );
 
         Ok(())
     }
@@ -1073,6 +1101,43 @@ mod integration_tests {
             }
         }
         assert_eq!(missing_sources_count, 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn spin_up_gives_help_on_new_app() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let dir = temp_dir.path();
+        let manifest_file = dir.join("spin.toml");
+
+        // We still don't see full help if there are no components.
+        let toml_text = r#"spin_version = "1"
+name = "unbuilt"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+[[component]]
+id = "unbuilt"
+source = "DOES-NOT-EXIST.wasm"
+[component.trigger]
+route = "/..."
+"#;
+
+        std::fs::write(&manifest_file, toml_text)?;
+
+        let up_help_args = vec![
+            SPIN_BINARY,
+            "up",
+            "--file",
+            manifest_file.to_str().unwrap(),
+            "--help",
+        ];
+
+        let output = run(up_help_args, None, None)?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("--follow-all"));
+        assert!(stdout.contains("--listen"));
 
         Ok(())
     }

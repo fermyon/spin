@@ -1,3 +1,6 @@
+// liquid_derive::FilterReflection violates this lint
+#![allow(clippy::box_default)]
+
 use heck::{ToKebabCase, ToSnakeCase, ToUpperCamelCase};
 use liquid_core::{Filter, ParseFilter, Runtime, ValueView};
 use liquid_derive::FilterReflection;

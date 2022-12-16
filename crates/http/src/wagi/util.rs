@@ -22,7 +22,6 @@ pub const WAGI_VERSION: &str = "CGI/1.1";
 /// The CGI-defined "server software version".
 pub const SERVER_SOFTWARE_VERSION: &str = "WAGI/1";
 
-#[allow(clippy::too_many_arguments)]
 pub fn build_headers(
     route: &RoutePattern,
     req: &Parts,

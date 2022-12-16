@@ -1,6 +1,3 @@
-// The wit_bindgen_wasmtime::import below is triggering this lint.
-#![allow(clippy::needless_question_mark)]
-
 use std::time::Duration;
 
 use anyhow::Result;

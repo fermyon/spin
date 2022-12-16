@@ -3,11 +3,9 @@ use cloud_openapi::{
     apis::{
         self,
         apps_api::{api_apps_get, api_apps_id_delete, api_apps_post},
-        auth_tokens_api::api_auth_tokens_post,
         channels_api::{
             api_channels_get, api_channels_id_delete, api_channels_id_get,
-            api_channels_id_logs_get, api_channels_id_patch, api_channels_post,
-            ApiChannelsIdPatchError,
+            api_channels_id_logs_get, api_channels_post, ApiChannelsIdPatchError,
         },
         configuration::{ApiKey, Configuration},
         device_codes_api::api_device_codes_post,
@@ -16,17 +14,14 @@ use cloud_openapi::{
     },
     models::{
         AppItemPage, ChannelItem, ChannelItemPage, ChannelRevisionSelectionStrategy,
-        ChannelRevisionSelectionStrategyField, CreateAppCommand, CreateChannelCommand,
-        CreateDeviceCodeCommand, CreateTokenCommand, DeviceCodeItem, GetChannelLogsVm,
-        GuidNullableField, RegisterRevisionCommand, RevisionItemPage, StringField, TokenInfo,
-        UpdateEnvironmentVariableDto, UpdateEnvironmentVariableDtoListField,
+        CreateAppCommand, CreateChannelCommand, CreateDeviceCodeCommand, DeviceCodeItem,
+        GetChannelLogsVm, RegisterRevisionCommand, RevisionItemPage, TokenInfo,
+        UpdateEnvironmentVariableDto,
     },
 };
 use reqwest::header;
-use semver::BuildMetadata;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::Path};
-use tracing::log;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 const JSON_MIME_TYPE: &str = "application/json";
@@ -166,7 +161,6 @@ impl Client {
         .map_err(format_response_error)
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub async fn add_channel(
         &self,
         app_id: Uuid,
@@ -187,8 +181,6 @@ impl Client {
             .map_err(format_response_error)
     }
 
-    #[allow(dead_code)]
-    #[allow(clippy::too_many_arguments)]
     pub async fn patch_channel(
         &self,
         id: Uuid,

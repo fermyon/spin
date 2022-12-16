@@ -455,7 +455,6 @@ pub(crate) fn compute_default_headers<'a>(
 pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
     // TODO: allowing this lint because I want to gather feedback before
     // investing time in reorganizing this
-    #[allow(clippy::too_many_arguments)]
     async fn execute(
         &self,
         engine: &TriggerAppEngine<HttpTrigger>,

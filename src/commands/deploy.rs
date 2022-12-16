@@ -729,12 +729,15 @@ fn print_available_routes(
         return;
     }
 
+    // Strip any trailing slash from base URL
+    let app_base_url = app_base_url.to_string();
+    let route_prefix = app_base_url.strip_suffix('/').unwrap_or(&app_base_url);
+
     println!("Available Routes:");
     for component in &cfg.components {
         if let TriggerConfig::Http(http_cfg) = &component.trigger {
             let route = RoutePattern::from(base, &http_cfg.route);
-            let route_url = app_base_url.join(&route.to_string()).unwrap();
-            println!("  {}: {}", component.id, route_url);
+            println!("  {}: {}{}", component.id, route_prefix, route);
             if let Some(description) = &component.description {
                 println!("    {}", description);
             }

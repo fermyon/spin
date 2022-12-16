@@ -118,7 +118,6 @@ pub struct Variable {
 }
 
 /// FixedVersion represents a schema version field with a const value.
-#[allow(unused)]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(into = "usize", try_from = "usize")]
 pub struct FixedVersion<const V: usize>;

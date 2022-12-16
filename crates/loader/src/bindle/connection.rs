@@ -27,7 +27,7 @@ impl BindleConnectionInfo {
     ) -> Self {
         let token_manager: Box<dyn TokenManager + Send + Sync> = match (username, password) {
             (Some(u), Some(p)) => Box::new(HttpBasic::new(&u, &p)),
-            _ => Box::new(NoToken::default()),
+            _ => Box::<NoToken>::default(),
         };
 
         Self {

@@ -42,7 +42,6 @@ pub(crate) fn find_manifest(inv: &Invoice) -> Result<String> {
 
 // This isn't currently transitive - I don't think we have a need for that
 // but could add it if we did (WAGI has code for this but it's a huge faff)
-#[allow(dead_code)]
 pub(crate) fn parcels_in_group(inv: &Invoice, group: &str) -> Vec<Label> {
     inv.parcel
         .as_ref()

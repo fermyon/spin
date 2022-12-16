@@ -139,13 +139,13 @@ impl UpCommand {
                     .as_deref()
                     .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
                 let bindle_connection = self.bindle_connection();
-                
+
                 let asset_dst = if self.direct_mounts {
                     None
                 } else {
                     Some(&working_dir)
                 };
-                
+
                 spin_loader::from_file(
                     manifest_file,
                     asset_dst,
@@ -153,7 +153,6 @@ impl UpCommand {
                     self.include_components,
                 )
                 .await?
-
             }
             (None, Some(bindle)) => match &self.server {
                 Some(server) => {

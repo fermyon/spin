@@ -236,7 +236,7 @@ async fn test_insecure_allow_all_with_invalid_url() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, Soem(dir), &None, vec![]).await;
+    let app = from_file(MANIFEST, Some(dir), &None, vec![]).await;
 
     assert!(
         app.is_ok(),
@@ -275,13 +275,13 @@ async fn test_can_include_specific_components() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, dir, &None, vec!["fs2".to_string()]).await;
+    let app = from_file(MANIFEST, Some(dir), &None, vec!["fs2".to_string()]).await;
 
     let _ = app.unwrap().components.len() == 1;
 
     let app = from_file(
         MANIFEST,
-        dir,
+        Some(dir),
         &None,
         vec!["fs".to_string(), "fs2".to_string()],
     )
@@ -300,7 +300,7 @@ async fn test_handles_unknown_include_component() -> Result<()> {
     let dir = temp_dir.path();
     let app = from_file(
         MANIFEST,
-        dir,
+        Some(dir),
         &None,
         vec!["random_fake_component".to_string()],
     )

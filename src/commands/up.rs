@@ -100,7 +100,7 @@ pub struct UpCommand {
     pub trigger_args: Vec<OsString>,
 
     /// Only run a subset of the components
-    #[clap(long = "component", short = 'c')]
+    #[clap(long = "include_components", short = 'c')]
     pub include_components: Vec<String>,
 }
 
@@ -150,7 +150,7 @@ impl UpCommand {
                     manifest_file,
                     asset_dst,
                     &bindle_connection,
-                    self.include_components,
+                    self.include_components.clone(),
                 )
                 .await?
             }

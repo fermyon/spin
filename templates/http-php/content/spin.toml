@@ -1,0 +1,16 @@
+spin_version = "1"
+authors = ["{{authors}}"]
+description = "{{project-description}}"
+name = "{{project-name}}"
+trigger = { type = "http", base = "{{http-base}}" }
+version = "0.1.0"
+
+[[component]]
+id = "{{project-name | kebab_case}}"
+files = [ { source = "./src", destination = "/" } ]
+[component.source]
+url = "https://github.com/vmware-labs/webassembly-language-runtimes/releases/download/php%2F7.4.32%2B20221124-2159d1c/php-cgi-7.4.32.speed-optimized.wasm"
+digest = "sha256:511720698dee56134ed8a08a87131d33c3ea8a64b6726cd6710d624bca4ceb6c"
+[component.trigger]
+executor = { type = "wagi"}
+route = "{{http-path}}"

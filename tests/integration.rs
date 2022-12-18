@@ -1260,12 +1260,14 @@ route = "/..."
 
     /// Build an app whose component `workdir` is a subdirectory.
     #[tokio::test]
+    #[cfg(not(tarpaulin))]
     async fn test_build_command_nested_workdir() -> Result<()> {
         do_test_build_command("tests/build/nested").await
     }
 
     /// Build an app whose component `workdir` is a sibling.
     #[tokio::test]
+    #[cfg(not(tarpaulin))]
     async fn test_build_command_sibling_workdir() -> Result<()> {
         do_test_build_command("tests/build/sibling").await
     }

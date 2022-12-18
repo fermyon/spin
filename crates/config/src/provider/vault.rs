@@ -1,8 +1,9 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use vaultrs::{
     client::{VaultClient, VaultClientSettingsBuilder},
+    error::ClientError,
     kv2,
 };
 
@@ -51,7 +52,12 @@ impl Provider for VaultProvider {
             Some(prefix) => format!("{}/{}", prefix, key.0),
             None => key.0.to_string(),
         };
-        let secret: Secret = kv2::read(&client, &self.mount, &path).await?;
-        Ok(Some(secret.value))
+        match kv2::read::<Secret>(&client, &self.mount, &path).await {
+            Ok(secret) => Ok(Some(secret.value)),
+            // Vault doesn't have this entry so pass along the chain
+            Err(ClientError::APIError { code: 404, .. }) => Ok(None),
+            // Other Vault error so bail rather than looking elsewhere
+            Err(e) => Err(e).context("Failed to check Vault for config"),
+        }
     }
 }

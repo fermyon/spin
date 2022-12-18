@@ -414,7 +414,7 @@ mod tests {
         PathBuf::from(crate_dir).join("tests")
     }
 
-    const TPLS_IN_THIS: usize = 11;
+    const TPLS_IN_THIS: usize = 12;
 
     #[tokio::test]
     async fn can_install_into_new_directory() {

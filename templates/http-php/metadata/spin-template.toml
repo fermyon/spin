@@ -1,6 +1,6 @@
 manifest_version = "1"
 id = "http-php"
-description = "HTTP PHP environment"
+description = "HTTP request handler using PHP"
 
 [parameters]
 project-description = { type = "string",  prompt = "Project description", default = "" }

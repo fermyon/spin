@@ -28,7 +28,7 @@ print_help() {
     fancy_print 2 "This script installs Spin in the current directory."
     fancy_print 2 ""
     fancy_print 2 "Comand line arguments"
-    fancy_print 2 "--version or -v  : Provide what version to install e.g. \"v0.7.0\" or \"canary\"."
+    fancy_print 2 "--version or -v  : Provide what version to install e.g. \"v0.7.1\" or \"canary\"."
     fancy_print 2 "--help    or -h  : Shows this help message"
 }
 
@@ -48,7 +48,7 @@ while [[ $# -gt 0 ]]; do
         if [[ $# -ne 0 ]]; then
             VERSION="${1}"
         else
-            fancy_print 1 "Please provide the desired version. e.g. --version v0.7.0 or -v canary"
+            fancy_print 1 "Please provide the desired version. e.g. --version v0.7.1 or -v canary"
             exit 0
         fi
         ;;

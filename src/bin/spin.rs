@@ -43,7 +43,7 @@ fn version() -> &'static str {
     version = version(),
 )]
 enum SpinApp {
-    #[clap(subcommand)]
+    #[clap(subcommand, alias="template")]
     Templates(TemplateCommands),
     New(NewCommand),
     Add(AddCommand),
@@ -53,7 +53,7 @@ enum SpinApp {
     Deploy(DeployCommand),
     Build(BuildCommand),
     Login(LoginCommand),
-    #[clap(subcommand)]
+    #[clap(subcommand, alias="plugins")]
     Plugin(PluginCommands),
     #[clap(subcommand, hide = true)]
     Trigger(TriggerCommands),

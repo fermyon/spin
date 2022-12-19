@@ -100,7 +100,11 @@ pub struct UpCommand {
     pub trigger_args: Vec<OsString>,
 
     /// Only run a subset of the components
-    #[clap(long = "include_components", short = 'c')]
+    #[clap(
+        long = "include_components",
+        short = 'c',
+        conflicts_with = "BINDLE_ID_OPT"
+    )]
     pub include_components: Vec<String>,
 }
 

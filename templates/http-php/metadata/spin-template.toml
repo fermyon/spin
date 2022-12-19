@@ -1,0 +1,8 @@
+manifest_version = "1"
+id = "http-php"
+description = "HTTP request handler using PHP"
+
+[parameters]
+project-description = { type = "string",  prompt = "Project description", default = "" }
+http-base = { type = "string", prompt = "HTTP base", default = "/", pattern = "^/\\S*$" }
+http-path = { type = "string", prompt = "HTTP path", default = "/...", pattern = "^/\\S*$" }

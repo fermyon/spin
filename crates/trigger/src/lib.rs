@@ -66,8 +66,8 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     /// !!!Warning!!! Using a custom Wasmtime Config is entirely unsupported;
     /// many configurations are likely to cause errors or unexpected behavior.
     #[doc(hidden)]
-    pub fn wasmtime_config_mut(&mut self) -> &mut spin_core::wasmtime::Config {
-        self.config.wasmtime_config()
+    pub fn config_mut(&mut self) -> &mut spin_core::Config {
+        &mut self.config
     }
 
     pub fn hooks(&mut self, hooks: impl TriggerHooks + 'static) -> &mut Self {

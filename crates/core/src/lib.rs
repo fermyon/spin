@@ -14,7 +14,7 @@ mod store;
 
 use std::{
     sync::{Arc, Mutex},
-    time::Duration,
+    time::Duration, path::PathBuf,
 };
 
 use anyhow::Result;
@@ -33,6 +33,21 @@ pub use store::{Store, StoreBuilder};
 /// The default [`EngineBuilder::epoch_tick_interval`].
 pub const DEFAULT_EPOCH_TICK_INTERVAL: Duration = Duration::from_millis(10);
 
+/// The default number of memories an instance can have when using the pooling instance allocator.
+pub const DEFAULT_INSTANCE_MEMORIES: u32 = 1;
+
+const MB: u64 = 1 << 20;
+const WASM_PAGE_SIZE: u64 = 64 * 1024;
+
+/// The default maximum size of an instance's memories, in 64kb WebAssembly pages.
+pub const DEFAULT_INSTANCE_MEMORY_PAGES: u64 = 128 * MB / WASM_PAGE_SIZE;
+
+/// The default number of tables an instance can have when using the pooling instance allocator.
+pub const DEFAULT_INSTANCE_TABLES: u32 = 1;
+
+/// The default number of elements an instance's tables can contain when using the pooling instance allocator.
+pub const DEFAULT_INSTANCE_TABLE_ELEMENTS: u32 = 100_000;
+
 /// Global configuration for `EngineBuilder`.
 ///
 /// This is currently only used for advanced (undocumented) use cases.
@@ -47,6 +62,45 @@ impl Config {
     pub fn wasmtime_config(&mut self) -> &mut wasmtime::Config {
         &mut self.inner
     }
+
+    /// Enable the Wasmtime compilation cache with the given path, if any, to load configuration from.
+    pub fn configure_cache(&mut self, config_path: &Option<PathBuf>) -> Result<()> {
+        match config_path {
+            Some(p) => self.inner.cache_config_load(p)?,
+            None => self.inner.cache_config_load_default()?,
+        };
+
+        Ok(())
+    }
+
+    /// Enable or update parameters for the pooling instance allocator.
+    pub fn enable_pooling(
+        &mut self,
+        max_memories: u32,
+        max_memory_pages: u64,
+        max_tables: u32,
+        max_table_entries: u32,
+    ) -> &mut Self {
+        use wasmtime::{InstanceAllocationStrategy, PoolingAllocationConfig};
+
+        let mut pooling_config = PoolingAllocationConfig::default();
+        pooling_config
+            .instance_memories(max_memories)
+            .instance_memory_pages(max_memory_pages)
+            .instance_tables(max_tables)
+            // Some wasm modules tend to have very large tables, in particular in non-optimized builds.
+            .instance_table_elements(max_table_entries);
+
+            self.inner.allocation_strategy(InstanceAllocationStrategy::Pooling(pooling_config));
+
+            self
+    }
+
+    /// Disable the pooling instance allocator.
+    pub fn disable_pooling(&mut self) -> &mut Self {
+        self.inner.allocation_strategy(wasmtime::InstanceAllocationStrategy::OnDemand);
+        self
+    }
 }
 
 impl Default for Config {
@@ -54,7 +108,16 @@ impl Default for Config {
         let mut inner = wasmtime::Config::new();
         inner.async_support(true);
         inner.epoch_interruption(true);
-        Self { inner }
+
+        let mut config = Self { inner };
+        config.enable_pooling(
+            DEFAULT_INSTANCE_MEMORIES,
+            DEFAULT_INSTANCE_MEMORY_PAGES,
+            DEFAULT_INSTANCE_TABLES,
+            DEFAULT_INSTANCE_TABLE_ELEMENTS,
+        );
+
+        config
     }
 }
 

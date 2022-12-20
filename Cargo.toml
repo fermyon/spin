@@ -108,7 +108,7 @@ members = [
 tracing = { version = "0.1", features = ["log"] }
 wasi-cap-std-sync = "3.0.0"
 wasi-common = "3.0.0"
-wasmtime = "3.0.0"
+wasmtime = { version = "3.0.0", features = ["pooling-allocator"] }
 wasmtime-wasi = { version = "3.0.0", features = ["tokio"] }
 
 [workspace.dependencies.bindle]

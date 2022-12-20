@@ -18,6 +18,10 @@ pub const FOLLOW_LOG_OPT: &str = "FOLLOW_ID";
 pub const WASMTIME_CACHE_FILE: &str = "WASMTIME_CACHE_FILE";
 pub const RUNTIME_CONFIG_FILE: &str = "RUNTIME_CONFIG_FILE";
 
+// pub const DISABLE_POOLING_ALLOCATOR: &str = "DISABLE_POOLING_ALLOCATOR";
+// pub const POOLING_SLOTS: &str = "POOLING_SLOTS";
+// pub const POOLING_: &str = "POOLING_";
+
 // Set by `spin up`
 pub const SPIN_LOCKED_URL: &str = "SPIN_LOCKED_URL";
 pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
@@ -55,6 +59,42 @@ where
         conflicts_with = DISABLE_WASMTIME_CACHE,
     )]
     pub cache: Option<PathBuf>,
+
+    /// Disable Wasmtime's pooling instance allocator.
+    #[clap(long = "disable-pooling")]
+    pub disable_pooling: bool,
+
+    /// Maximum number of memories each instance can use.
+    #[clap(
+        long = "pooling-max-memories",
+        conflicts_with = "disable-pooling",
+        default_value_t = spin_core::DEFAULT_INSTANCE_MEMORIES,
+    )]
+    pub max_memories: u32,
+
+    /// Maximum size for each instance memory, in 64kb pages.
+    #[clap(
+        long = "pooling-max-memory-pages",
+        conflicts_with = "disable-pooling",
+        default_value_t = spin_core::DEFAULT_INSTANCE_MEMORY_PAGES,
+    )]
+    pub max_memory_pages: u64,
+
+    /// Maximum number of tables each instance can use.
+    #[clap(
+        long = "pooling-max-tables",
+        conflicts_with = "disable-pooling",
+        default_value_t = spin_core::DEFAULT_INSTANCE_TABLES,
+    )]
+    pub max_tables: u32,
+
+    /// Maximum number of entries each table can contain.
+    #[clap(
+        long = "pooling-max-table-entries",
+        conflicts_with = "disable-pooling",
+        default_value_t = spin_core::DEFAULT_INSTANCE_TABLE_ELEMENTS,
+    )]
+    pub max_table_entries: u32,
 
     /// Print output for given component(s) to stdout/stderr
     #[clap(
@@ -123,7 +163,7 @@ where
             let _sloth_warning = warn_if_wasm_build_slothful();
 
             let mut builder = TriggerExecutorBuilder::new(loader);
-            self.update_wasmtime_config(builder.wasmtime_config_mut())?;
+            self.update_config(builder.config_mut())?;
 
             let logging_hooks = StdioLoggingTriggerHooks::new(self.follow_components(), self.log);
             builder.hooks(logging_hooks);
@@ -162,14 +202,18 @@ where
         }
     }
 
-    fn update_wasmtime_config(&self, config: &mut spin_core::wasmtime::Config) -> Result<()> {
+    fn update_config(&self, config: &mut spin_core::Config) -> Result<()> {
         // Apply --cache / --disable-cache
         if !self.disable_cache {
-            match &self.cache {
-                Some(p) => config.cache_config_load(p)?,
-                None => config.cache_config_load_default()?,
-            };
+            config.configure_cache(&self.cache)?;
         }
+
+        if self.disable_pooling {
+            config.disable_pooling();
+        } else {
+            config.enable_pooling(self.max_memories, self.max_memory_pages, self.max_tables, self.max_table_entries);
+        }
+
         Ok(())
     }
 }

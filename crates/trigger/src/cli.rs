@@ -211,7 +211,12 @@ where
         if self.disable_pooling {
             config.disable_pooling();
         } else {
-            config.enable_pooling(self.max_memories, self.max_memory_pages, self.max_tables, self.max_table_entries);
+            config.enable_pooling(
+                self.max_memories,
+                self.max_memory_pages,
+                self.max_tables,
+                self.max_table_entries,
+            );
         }
 
         Ok(())

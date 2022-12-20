@@ -13,8 +13,9 @@ mod limits;
 mod store;
 
 use std::{
+    path::PathBuf,
     sync::{Arc, Mutex},
-    time::Duration, path::PathBuf,
+    time::Duration,
 };
 
 use anyhow::Result;
@@ -91,14 +92,16 @@ impl Config {
             // Some wasm modules tend to have very large tables, in particular in non-optimized builds.
             .instance_table_elements(max_table_entries);
 
-            self.inner.allocation_strategy(InstanceAllocationStrategy::Pooling(pooling_config));
+        self.inner
+            .allocation_strategy(InstanceAllocationStrategy::Pooling(pooling_config));
 
-            self
+        self
     }
 
     /// Disable the pooling instance allocator.
     pub fn disable_pooling(&mut self) -> &mut Self {
-        self.inner.allocation_strategy(wasmtime::InstanceAllocationStrategy::OnDemand);
+        self.inner
+            .allocation_strategy(wasmtime::InstanceAllocationStrategy::OnDemand);
         self
     }
 }

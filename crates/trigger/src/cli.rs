@@ -61,10 +61,12 @@ where
     pub cache: Option<PathBuf>,
 
     /// Disable Wasmtime's pooling instance allocator.
+    #[cfg(not(target_os = "windows"))]
     #[clap(long = "disable-pooling")]
     pub disable_pooling: bool,
 
     /// Maximum number of memories each instance can use.
+    #[cfg(not(target_os = "windows"))]
     #[clap(
         long = "pooling-max-memories",
         conflicts_with = "disable-pooling",
@@ -73,6 +75,7 @@ where
     pub max_memories: u32,
 
     /// Maximum size for each instance memory, in 64kb pages.
+    #[cfg(not(target_os = "windows"))]
     #[clap(
         long = "pooling-max-memory-pages",
         conflicts_with = "disable-pooling",
@@ -81,6 +84,7 @@ where
     pub max_memory_pages: u64,
 
     /// Maximum number of tables each instance can use.
+    #[cfg(not(target_os = "windows"))]
     #[clap(
         long = "pooling-max-tables",
         conflicts_with = "disable-pooling",
@@ -89,6 +93,7 @@ where
     pub max_tables: u32,
 
     /// Maximum number of entries each table can contain.
+    #[cfg(not(target_os = "windows"))]
     #[clap(
         long = "pooling-max-table-entries",
         conflicts_with = "disable-pooling",
@@ -208,6 +213,7 @@ where
             config.configure_cache(&self.cache)?;
         }
 
+        #[cfg(not(target_os = "windows"))]
         if self.disable_pooling {
             config.disable_pooling();
         } else {

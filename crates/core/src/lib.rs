@@ -75,6 +75,7 @@ impl Config {
     }
 
     /// Enable or update parameters for the pooling instance allocator.
+    #[cfg(not(target_os = "windows"))]
     pub fn enable_pooling(
         &mut self,
         max_memories: u32,
@@ -99,6 +100,7 @@ impl Config {
     }
 
     /// Disable the pooling instance allocator.
+    #[cfg(not(target_os = "windows"))]
     pub fn disable_pooling(&mut self) -> &mut Self {
         self.inner
             .allocation_strategy(wasmtime::InstanceAllocationStrategy::OnDemand);
@@ -113,6 +115,7 @@ impl Default for Config {
         inner.epoch_interruption(true);
 
         let mut config = Self { inner };
+        #[cfg(not(target_os = "windows"))]
         config.enable_pooling(
             DEFAULT_INSTANCE_MEMORIES,
             DEFAULT_INSTANCE_MEMORY_PAGES,

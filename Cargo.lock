@@ -2468,7 +2468,7 @@ version = "0.29.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "522f2f30f72de409fc04f88df25a031f98cfc5c398a94e0b892cabb33a1464cb"
 dependencies = [
- "base64",
+ "base64 0.13.0",
  "bigdecimal",
  "bindgen",
  "bitflags",
@@ -3286,11 +3286,13 @@ dependencies = [
  "combine",
  "futures-util",
  "itoa 1.0.4",
+ "native-tls",
  "percent-encoding",
  "pin-project-lite",
  "ryu",
  "sha1 0.6.1",
  "tokio",
+ "tokio-native-tls",
  "tokio-util 0.7.4",
  "url",
 ]

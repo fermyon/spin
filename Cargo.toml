@@ -8,7 +8,7 @@ rust-version = "1.64"
 
 [workspace.package]
 version = "0.7.1"
-authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 edition = "2021"
 
 [dependencies]
@@ -39,9 +39,10 @@ regex = "1.5.5"
 reqwest = { version = "0.11", features = ["stream"] }
 rpassword = "7.0"
 semver = "1.0"
-serde = { version = "1.0", features = [ "derive" ] }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.82"
 sha2 = "0.10.2"
+spin-app = { path = "crates/app" }
 spin-build = { path = "crates/build" }
 spin-config = { path = "crates/config" }
 spin-http = { path = "crates/http" }
@@ -53,10 +54,10 @@ spin-redis-engine = { path = "crates/redis" }
 spin-templates = { path = "crates/templates" }
 spin-trigger = { path = "crates/trigger" }
 tempfile = "3.3.0"
-tokio = { version = "1.23", features = [ "full" ] }
+tokio = { version = "1.23", features = ["full"] }
 toml = "0.6"
 tracing = { workspace = true }
-tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
+tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 url = "2.2.2"
 uuid = "^1.0"
 wasmtime = { workspace = true }
@@ -67,13 +68,16 @@ wasmtime = { workspace = true }
 openssl = { version = "0.10" }
 
 [dev-dependencies]
-hyper = { version = "0.14", features = [ "full" ] }
+hyper = { version = "0.14", features = ["full"] }
 sha2 = "0.10.1"
 which = "4.2.5"
 
 [build-dependencies]
 cargo-target-dep = { git = "https://github.com/fermyon/cargo-target-dep", rev = "b7b1989fe0984c0f7c4966398304c6538e52fe49" }
-vergen = { version = "7", default-features = false, features = [ "build", "git" ] }
+vergen = { version = "7", default-features = false, features = [
+  "build",
+  "git",
+] }
 
 [features]
 default = []
@@ -85,23 +89,23 @@ outbound-mysql-tests = []
 
 [workspace]
 members = [
-    "crates/abi-conformance",
-    "crates/app",
-    "crates/build",
-    "crates/config",
-    "crates/core",
-    "crates/http",
-    "crates/loader",
-    "crates/manifest",
-    "crates/outbound-http",
-    "crates/outbound-redis",
-    "crates/plugins",
-    "crates/redis",
-    "crates/templates",
-    "crates/testing",
-    "crates/trigger",
-    "sdk/rust",
-    "sdk/rust/macro"
+  "crates/abi-conformance",
+  "crates/app",
+  "crates/build",
+  "crates/config",
+  "crates/core",
+  "crates/http",
+  "crates/loader",
+  "crates/manifest",
+  "crates/outbound-http",
+  "crates/outbound-redis",
+  "crates/plugins",
+  "crates/redis",
+  "crates/templates",
+  "crates/testing",
+  "crates/trigger",
+  "sdk/rust",
+  "sdk/rust/macro",
 ]
 
 [workspace.dependencies]

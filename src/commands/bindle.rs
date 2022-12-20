@@ -126,7 +126,7 @@ impl Prepare {
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
 
         let dest_dir = &self.staging_dir;
-        let bindle_id = spin_publish::prepare_bindle(app_file, self.buildinfo, dest_dir)
+        let bindle_id = spin_publish::bindle::prepare_bindle(app_file, self.buildinfo, dest_dir)
             .await
             .map_err(crate::wrap_prepare_bindle_error)?;
 
@@ -162,7 +162,7 @@ impl Push {
             Some(path) => path.as_path(),
         };
 
-        let bindle_id = spin_publish::prepare_bindle(app_file, self.buildinfo, dest_dir)
+        let bindle_id = spin_publish::bindle::prepare_bindle(app_file, self.buildinfo, dest_dir)
             .await
             .map_err(crate::wrap_prepare_bindle_error)?;
 
@@ -171,7 +171,7 @@ impl Push {
             self.bindle_server_url
         ));
 
-        spin_publish::push_all(&dest_dir, &bindle_id, bindle_connection_info.clone())
+        spin_publish::bindle::push_all(&dest_dir, &bindle_id, bindle_connection_info.clone())
             .await
             .with_context(|| {
                 crate::push_all_failed_msg(dest_dir, bindle_connection_info.base_url())

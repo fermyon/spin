@@ -12,6 +12,8 @@ pub mod external;
 pub mod login;
 /// Command for creating a new application.
 pub mod new;
+/// Commands for working with OCI registries.
+pub mod oci;
 /// Command for adding a plugin to Spin
 pub mod plugins;
 /// Commands for working with templates.

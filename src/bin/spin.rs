@@ -9,6 +9,7 @@ use spin_cli::commands::{
     external::execute_external_subcommand,
     login::LoginCommand,
     new::{AddCommand, NewCommand},
+    oci::OciCommands,
     plugins::PluginCommands,
     templates::TemplateCommands,
     up::UpCommand,
@@ -50,6 +51,8 @@ enum SpinApp {
     Up(UpCommand),
     #[clap(subcommand)]
     Bindle(BindleCommands),
+    #[clap(subcommand)]
+    Oci(OciCommands),
     Deploy(DeployCommand),
     Build(BuildCommand),
     Login(LoginCommand),
@@ -76,6 +79,7 @@ impl SpinApp {
             Self::New(cmd) => cmd.run().await,
             Self::Add(cmd) => cmd.run().await,
             Self::Bindle(cmd) => cmd.run().await,
+            Self::Oci(cmd) => cmd.run().await,
             Self::Deploy(cmd) => cmd.run().await,
             Self::Build(cmd) => cmd.run().await,
             Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run().await,

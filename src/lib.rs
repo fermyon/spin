@@ -4,7 +4,7 @@ mod sloth;
 
 use anyhow::{anyhow, Result};
 use semver::BuildMetadata;
-use spin_publish::PublishError;
+use spin_publish::bindle::PublishError;
 use std::path::Path;
 
 pub(crate) fn push_all_failed_msg(path: &Path, server_url: &str) -> String {

@@ -242,7 +242,7 @@ impl OutboundPg {
 async fn build_client(address: &str) -> anyhow::Result<Client> {
     let config = address.parse::<tokio_postgres::Config>()?;
 
-    tracing::log::debug!("Build new connection: {}", address);
+    tracing::debug!("Build new connection: {}", address);
 
     if config.get_ssl_mode() == SslMode::Disable {
         connect(config).await
@@ -275,7 +275,7 @@ where
 {
     tokio::spawn(async move {
         if let Err(e) = connection.await {
-            tracing::warn!("Postgres connection error: {}", e);
+            tracing::error!("Postgres connection error: {}", e);
         }
     });
 }

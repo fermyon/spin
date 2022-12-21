@@ -1,9 +1,12 @@
 use anyhow::anyhow;
+use native_tls::TlsConnector;
+use postgres_native_tls::MakeTlsConnector;
 use spin_core::HostComponent;
 use std::collections::HashMap;
 use tokio_postgres::{
+    config::SslMode,
     types::{ToSql, Type},
-    Client, NoTls, Row,
+    Client, NoTls, Row, Socket,
 };
 use wit_bindgen_wasmtime::async_trait;
 
@@ -237,15 +240,42 @@ impl OutboundPg {
 }
 
 async fn build_client(address: &str) -> anyhow::Result<Client> {
+    let config = address.parse::<tokio_postgres::Config>()?;
+
     tracing::log::debug!("Build new connection: {}", address);
 
-    let (client, connection) = tokio_postgres::connect(address, NoTls).await?;
+    if config.get_ssl_mode() == SslMode::Disable {
+        connect(config).await
+    } else {
+        connect_tls(config).await
+    }
+}
 
+async fn connect(config: tokio_postgres::Config) -> anyhow::Result<Client> {
+    let (client, connection) = config.connect(NoTls).await?;
+
+    spawn(connection);
+
+    Ok(client)
+}
+
+async fn connect_tls(config: tokio_postgres::Config) -> anyhow::Result<Client> {
+    let builder = TlsConnector::builder();
+    let connector = MakeTlsConnector::new(builder.build()?);
+    let (client, connection) = config.connect(connector).await?;
+
+    spawn(connection);
+
+    Ok(client)
+}
+
+fn spawn<T>(connection: tokio_postgres::Connection<Socket, T>)
+where
+    T: tokio_postgres::tls::TlsStream + std::marker::Unpin + std::marker::Send + 'static,
+{
     tokio::spawn(async move {
         if let Err(e) = connection.await {
             tracing::warn!("Postgres connection error: {}", e);
         }
     });
-
-    Ok(client)
 }

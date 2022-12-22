@@ -317,9 +317,12 @@ jobs:
         env:
           RUST_LOG: spin=trace
 
+      # Only attempt to upload to codecov.io if the repo owner is fermyon.
+      # This allows forks to run CI on their own main branches as usual,
+      # without needing to have a codecov token for uploading.
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v3
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/main' && github.repository_owner == 'fermyon' }}
         with:
           fail_ci_if_error: true
           verbose: true

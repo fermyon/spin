@@ -7,3 +7,10 @@ main.wasm
 .parcel-cache
 .vscode/*.log
 Cargo.lock
+http-go-test*
+http-c-test*
+http-rust-test*
+http-zig-test*
+http-grain-test*
+http-ts-test*
+http-js-test*

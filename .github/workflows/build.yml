@@ -333,3 +333,143 @@ jobs:
         with:
           name: code-coverage-report
           path: cobertura.xml
+
+  e2e-tests:
+    env:
+      GH_USERNAME: ${{ secrets.GH_USERNAME }}
+      GH_PASSWORD: ${{ secrets.GH_PASSWORD }}
+      GH_TOTP_SECRET: ${{ secrets.GH_TOTP_SECRET }}
+    runs-on: ${{ matrix.config.os }}
+    needs: build-rust
+    strategy:
+      matrix:
+        config:
+          - {
+              os: "ubuntu-22.04",
+              tinygo: "https://github.com/tinygo-org/tinygo/releases/download/v0.25.0/tinygo_0.25.0_amd64.deb",
+              clang: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-14/wasi-sdk-14.0-linux.tar.gz",
+              zig: "https://ziglang.org/download/0.10.0/zig-linux-x86_64-0.10.0.tar.xz",
+              grain: "https://github.com/grain-lang/grain/releases/download/grain-v0.5.4/grain-linux-x64",
+              zigpath: "zig-linux-x86_64-0.10.0"
+            }
+    services:
+      selenium:
+        image: selenium/standalone-chrome:4.1.2
+        options: --shm-size=2gb
+        ports:
+          - 4444:4444
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Retrieve saved Spin Binary
+        uses: actions/download-artifact@v3
+        with:
+          name: spin-ubuntu-latest
+          path: target/debug/
+
+      - name: Fix Spin Binary permissions
+        run: |
+          ls -lah target/
+          ls -lah target/debug
+          chmod +x target/debug/spin
+          echo `pwd`/target/debug >> $GITHUB_PATH
+
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.19"
+          check-latest: true
+
+      - name: Spin version
+        run: |
+          spin --version
+
+      - name: Install fermyon cli
+        env:
+          AWS_REGION: us-west-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          FERMYON_CLI_S3_BUCKET: ${{ secrets.FERMYON_CLI_S3_BUCKET }}
+        run: |
+          aws s3 cp s3://${FERMYON_CLI_S3_BUCKET}/fermyon-cli-dev-linux-amd64.tar.gz fermyon-cli-dev-linux-amd64.tar.gz
+          tar -xvf fermyon-cli-dev-linux-amd64.tar.gz
+          cp fermyon /home/runner/configurator/bin/fermyon
+
+      - name: Install grain
+        uses: engineerd/configurator@v0.0.8
+        with:
+          name: "grain"
+          url: ${{ matrix.config.grain }}
+
+      - name: Install Tinygo
+        run: |
+          wget ${{ matrix.config.tinygo }}
+          sudo dpkg -i tinygo_0.25.0_amd64.deb
+          tinygo env
+
+      - name: Install zig
+        run: |
+          wget ${{ matrix.config.zig }}
+          tar -xf ${{ matrix.config.zigpath }}.tar.xz
+          echo `pwd`/${{ matrix.config.zigpath }} >> $GITHUB_PATH
+
+      - name: Install latest Rust stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+          components: clippy, rustfmt
+
+      - name: "Install Wasm Rust target"
+        run: rustup target add wasm32-wasi
+
+      - name: Setup gotestsum
+        uses: autero1/action-gotestsum@v1.0.0
+        with:
+          gotestsum_version: "1.8.2"
+
+      - name: "Test Spin Examples"
+        working-directory: e2e-tests
+        run: |
+          set -o pipefail
+          export RUST_LOG=spin=trace
+          mkdir .results
+          gotestsum \
+            --jsonfile .results/results.json \
+            --format testname \
+            -- ./... -parallel 5
+
+      - name: Create html report
+        uses: rajatjindal/gotest-to-html@v0.0.17
+        if: always()
+        with:
+          title_primary: spin
+          title_secondary: e2e test report
+          tags: "env=prod branch=${{ github.ref }} os=ubuntu-latest spin= golang=1.19 tinygo=v0.0.25 zig=0.10.0 grain=v0.5.4"
+          gotest_output_file: e2e-tests/.results/results.json
+          html_output_file: e2e-tests/.results/test-report.html
+          json_output_file: e2e-tests/.results/raw.json
+          archive: false
+          run_id: ${{ github.run_id }}
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: screenshots
+          path: e2e-tests/tests/screenshot.png
+
+      - name: Upload gotest output
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: results.json
+          path: e2e-tests/.results/results.json
+
+      - name: Upload html output
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-report.html
+          path: e2e-tests/.results/test-report.html

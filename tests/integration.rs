@@ -19,7 +19,6 @@ mod integration_tests {
     use tokio::{net::TcpStream, time::sleep};
 
     const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
-    const RUST_HTTP_STATIC_ASSETS_TEST: &str = "tests/http/assets-test";
 
     const DEFAULT_MANIFEST_LOCATION: &str = "spin.toml";
 
@@ -35,8 +34,6 @@ mod integration_tests {
         use which::which;
 
         const RUST_HTTP_INTEGRATION_TEST_REF: &str = "spin-hello-world/1.0.0";
-
-        const RUST_HTTP_STATIC_ASSETS_REST_REF: &str = "spin-assets-test/1.0.0";
 
         const RUST_HTTP_HEADERS_ENV_ROUTES_TEST: &str = "tests/http/headers-env-routes-test";
         const RUST_HTTP_HEADERS_ENV_ROUTES_TEST_REF: &str = "spin-headers-env-routes-test/1.0.0";
@@ -141,51 +138,6 @@ mod integration_tests {
             assert_status(&s, "/test/hello", 200).await?;
             assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
             assert_status(&s, "/thisshouldfail", 404).await?;
-
-            Ok(())
-        }
-
-        #[tokio::test]
-        async fn test_bindle_static_assets() -> Result<()> {
-            // start the Bindle registry.
-            let config = BindleTestControllerConfig {
-                basic_auth_enabled: false,
-            };
-            let b = BindleTestController::new(config).await?;
-
-            // push the application to the registry using the Spin CLI.
-            run(
-                vec![
-                    SPIN_BINARY,
-                    "bindle",
-                    "push",
-                    "--file",
-                    &format!(
-                        "{}/{}",
-                        RUST_HTTP_STATIC_ASSETS_TEST, DEFAULT_MANIFEST_LOCATION
-                    ),
-                    "--bindle-server",
-                    &b.url,
-                ],
-                None,
-                None,
-            )?;
-
-            // start Spin using the bindle reference of the application that was just pushed.
-            let s = SpinTestController::with_bindle(RUST_HTTP_STATIC_ASSETS_REST_REF, &b.url, &[])
-                .await?;
-
-            assert_status(&s, "/static/thisshouldbemounted/1", 200).await?;
-            assert_status(&s, "/static/thisshouldbemounted/2", 200).await?;
-            assert_status(&s, "/static/thisshouldbemounted/3", 200).await?;
-
-            assert_status(&s, "/static/donotmount/a", 404).await?;
-            assert_status(
-                &s,
-                "/static/thisshouldbemounted/thisshouldbeexcluded/4",
-                404,
-            )
-            .await?;
 
             Ok(())
         }
@@ -702,34 +654,6 @@ mod integration_tests {
 
             Ok(())
         }
-    }
-
-    #[tokio::test]
-    async fn test_static_assets_without_bindle() -> Result<()> {
-        let s = SpinTestController::with_manifest(
-            &format!(
-                "{}/{}",
-                RUST_HTTP_STATIC_ASSETS_TEST, DEFAULT_MANIFEST_LOCATION
-            ),
-            &[],
-            &[],
-            None,
-        )
-        .await?;
-
-        assert_status(&s, "/static/thisshouldbemounted/1", 200).await?;
-        assert_status(&s, "/static/thisshouldbemounted/2", 200).await?;
-        assert_status(&s, "/static/thisshouldbemounted/3", 200).await?;
-
-        assert_status(&s, "/static/donotmount/a", 404).await?;
-        assert_status(
-            &s,
-            "/static/thisshouldbemounted/thisshouldbeexcluded/4",
-            404,
-        )
-        .await?;
-
-        Ok(())
     }
 
     #[cfg(feature = "config-provider-tests")]

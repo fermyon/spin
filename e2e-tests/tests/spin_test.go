@@ -43,6 +43,7 @@ func testSpinTemplates(t *testing.T, controller spin.Controller) {
 		httpGrainTestcase(),
 		httpTSTestcase(),
 		httpJSTestcase(),
+		assetsTestcase(),
 	} {
 		func(testcase framework.Testcase, t *testing.T) {
 			t.Run(testcase.Name, func(t *testing.T) {

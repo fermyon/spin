@@ -44,6 +44,7 @@ func testSpinTemplates(t *testing.T, controller spin.Controller) {
 		httpTSTestcase(),
 		httpJSTestcase(),
 		assetsTestcase(),
+		simpleSpinRustTestcase(),
 	} {
 		func(testcase framework.Testcase, t *testing.T) {
 			t.Run(testcase.Name, func(t *testing.T) {

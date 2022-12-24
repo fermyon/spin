@@ -1,7 +1,7 @@
 spin_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A simple application that returns hello and goodbye."
-name = "spin-hello-world"
+name = "simple-spin-rust-test"
 trigger = {type = "http", base = "/test"}
 version = "1.0.0"
 
@@ -16,3 +16,5 @@ files = [ { source = "assets", destination = "/" } ]
 route = "/hello/..."
 [component.config]
 message = "I'm a {{object}}"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

@@ -18,8 +18,6 @@ mod integration_tests {
     use tempfile::tempdir;
     use tokio::{net::TcpStream, time::sleep};
 
-    const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
-
     const DEFAULT_MANIFEST_LOCATION: &str = "spin.toml";
 
     const SPIN_BINARY: &str = "./target/debug/spin";
@@ -29,11 +27,8 @@ mod integration_tests {
     mod e2e_tests {
         use super::*;
         use hyper::header::HeaderName;
-        use std::path::PathBuf;
         use tempfile::TempDir;
         use which::which;
-
-        const RUST_HTTP_INTEGRATION_TEST_REF: &str = "spin-hello-world/1.0.0";
 
         const RUST_HTTP_HEADERS_ENV_ROUTES_TEST: &str = "tests/http/headers-env-routes-test";
         const RUST_HTTP_HEADERS_ENV_ROUTES_TEST_REF: &str = "spin-headers-env-routes-test/1.0.0";
@@ -44,8 +39,6 @@ mod integration_tests {
 
         const BINDLE_SERVER_PATH_ENV: &str = "SPIN_TEST_BINDLE_SERVER_PATH";
         const BINDLE_SERVER_BASIC_AUTH_HTPASSWD_FILE: &str = "tests/http/htpasswd";
-        const BINDLE_SERVER_BASIC_AUTH_USER: &str = "bindle-user";
-        const BINDLE_SERVER_BASIC_AUTH_PASSWORD: &str = "topsecret";
 
         const HIPPO_BASIC_AUTH_USER: &str = "hippo-user";
         const HIPPO_BASIC_AUTH_PASSWORD: &str = "topsecret";
@@ -60,84 +53,6 @@ mod integration_tests {
                 .with_context(|| format!("Can't find {}", get_process(NOMAD_BINARY)))?;
             which(get_process(HIPPO_BINARY))
                 .with_context(|| format!("Can't find {}", get_process(HIPPO_BINARY)))?;
-
-            Ok(())
-        }
-
-        #[tokio::test]
-        async fn test_bindle_roundtrip_no_auth() -> Result<()> {
-            // start the Bindle registry.
-            let config = BindleTestControllerConfig {
-                basic_auth_enabled: false,
-            };
-            let b = BindleTestController::new(config).await?;
-
-            // push the application to the registry using the Spin CLI.
-            run(
-                vec![
-                    SPIN_BINARY,
-                    "bindle",
-                    "push",
-                    "--file",
-                    &format!(
-                        "{}/{}",
-                        RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
-                    ),
-                    "--bindle-server",
-                    &b.url,
-                ],
-                None,
-                None,
-            )?;
-
-            // start Spin using the bindle reference of the application that was just pushed.
-            let s = SpinTestController::with_bindle(RUST_HTTP_INTEGRATION_TEST_REF, &b.url, &[])
-                .await?;
-
-            assert_status(&s, "/test/hello", 200).await?;
-            assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
-            assert_status(&s, "/thisshouldfail", 404).await?;
-
-            Ok(())
-        }
-
-        #[tokio::test]
-        async fn test_bindle_roundtrip_basic_auth() -> Result<()> {
-            // start the Bindle registry.
-            let config = BindleTestControllerConfig {
-                basic_auth_enabled: true,
-            };
-            let b = BindleTestController::new(config).await?;
-
-            // push the application to the registry using the Spin CLI.
-            run(
-                vec![
-                    SPIN_BINARY,
-                    "bindle",
-                    "push",
-                    "--file",
-                    &format!(
-                        "{}/{}",
-                        RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
-                    ),
-                    "--bindle-server",
-                    &b.url,
-                    "--bindle-username",
-                    BINDLE_SERVER_BASIC_AUTH_USER,
-                    "--bindle-password",
-                    BINDLE_SERVER_BASIC_AUTH_PASSWORD,
-                ],
-                None,
-                None,
-            )?;
-
-            // start Spin using the bindle reference of the application that was just pushed.
-            let s = SpinTestController::with_bindle(RUST_HTTP_INTEGRATION_TEST_REF, &b.url, &[])
-                .await?;
-
-            assert_status(&s, "/test/hello", 200).await?;
-            assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
-            assert_status(&s, "/thisshouldfail", 404).await?;
 
             Ok(())
         }
@@ -186,59 +101,6 @@ mod integration_tests {
                 "/foo",
             )
             .await?;
-
-            Ok(())
-        }
-
-        #[tokio::test]
-        async fn test_using_parcel_as_module_source() -> Result<()> {
-            let wasm_path = PathBuf::from(RUST_HTTP_INTEGRATION_TEST)
-                .join("target")
-                .join("wasm32-wasi")
-                .join("release")
-                .join("simple_spin_rust.wasm");
-            let parcel_sha = file_digest_string(&wasm_path).expect("failed to get sha for parcel");
-
-            // start the Bindle registry.
-            let config = BindleTestControllerConfig {
-                basic_auth_enabled: false,
-            };
-            let b = BindleTestController::new(config).await?;
-
-            // push the application to the registry using the Spin CLI.
-            run(
-                vec![
-                    SPIN_BINARY,
-                    "bindle",
-                    "push",
-                    "--file",
-                    &format!(
-                        "{}/{}",
-                        RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
-                    ),
-                    "--bindle-server",
-                    &b.url,
-                ],
-                None,
-                None,
-            )?;
-
-            let manifest_template =
-                format!("{}/{}", RUST_HTTP_INTEGRATION_TEST, "spin-from-parcel.toml");
-            let manifest = replace_text(&manifest_template, "AWAITING_PARCEL_SHA", &parcel_sha);
-
-            let s = SpinTestController::with_manifest(
-                &format!("{}", manifest.path.display()),
-                &[],
-                &[],
-                Some(&b.url),
-            )
-            .await?;
-
-            assert_status(&s, "/test/hello", 200).await?;
-            assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
-            assert_status(&s, "/thisshouldfail", 404).await?;
-            assert_status(&s, "/test/hello/test-placement", 200).await?;
 
             Ok(())
         }
@@ -524,35 +386,6 @@ mod integration_tests {
 
             Ok(())
         }
-
-        fn file_digest_string(path: impl AsRef<Path>) -> Result<String> {
-            use sha2::{Digest, Sha256};
-            let mut file = std::fs::File::open(&path)?;
-            let mut sha = Sha256::new();
-            std::io::copy(&mut file, &mut sha)?;
-            let digest_value = sha.finalize();
-            let digest_string = format!("{:x}", digest_value);
-            Ok(digest_string)
-        }
-
-        struct AutoDeleteFile {
-            pub path: PathBuf,
-        }
-
-        fn replace_text(template_path: impl AsRef<Path>, from: &str, to: &str) -> AutoDeleteFile {
-            let dest = template_path.as_ref().with_extension("temp");
-            let source_text =
-                std::fs::read_to_string(template_path).expect("failed to read manifest template");
-            let result_text = source_text.replace(from, to);
-            std::fs::write(&dest, result_text).expect("failed to write temp manifest");
-            AutoDeleteFile { path: dest }
-        }
-
-        impl Drop for AutoDeleteFile {
-            fn drop(&mut self) {
-                std::fs::remove_file(&self.path).unwrap();
-            }
-        }
     }
 
     #[cfg(feature = "outbound-redis-tests")]
@@ -578,27 +411,6 @@ mod integration_tests {
             assert_status(&s, "/test", 204).await?;
             Ok(())
         }
-    }
-
-    #[tokio::test]
-    async fn test_simple_rust_local() -> Result<()> {
-        let s = SpinTestController::with_manifest(
-            &format!(
-                "{}/{}",
-                RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
-            ),
-            &[],
-            &[],
-            None,
-        )
-        .await?;
-
-        assert_status(&s, "/test/hello", 200).await?;
-        assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
-        assert_status(&s, "/thisshouldfail", 404).await?;
-        assert_status(&s, "/test/hello/test-placement", 200).await?;
-
-        Ok(())
     }
 
     #[cfg(feature = "outbound-pg-tests")]

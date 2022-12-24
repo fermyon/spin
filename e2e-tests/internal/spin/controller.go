@@ -9,7 +9,7 @@ type Controller interface {
 	New(template, appName string) error
 	Build(name string) error
 	InstallPlugins(plugins []string) error
-	Deploy(name string, metadataFetcher func(appname, logs string) (*Metadata, error)) (*Metadata, error)
+	Deploy(name string, args []string, metadataFetcher func(appname, logs string) (*Metadata, error)) (*Metadata, error)
 	PollForLatestVersion(ctx context.Context, metadata *Metadata) error
 	StopApp(appname string) error
 }

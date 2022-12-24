@@ -20,6 +20,7 @@ type Testcase struct {
 	Template            string
 	TemplateInstallArgs []string
 	PreBuildHooks       []*exec.Cmd
+	DeployArgs          []string
 	SkipConditions      []SkipCondition
 	MetadataFetcher     func(appname, logs string) (*spin.Metadata, error)
 	SubTestsExecutor    func(t *testing.T, metadata *spin.Metadata)

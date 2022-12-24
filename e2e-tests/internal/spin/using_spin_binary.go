@@ -45,13 +45,16 @@ func (o *usespinup) Build(appName string) error {
 	return build(appName)
 }
 
-func (o *usespinup) Deploy(name string, metadataFetcher func(appname, logs string) (*Metadata, error)) (*Metadata, error) {
+func (o *usespinup) Deploy(name string, additionalArgs []string, metadataFetcher func(appname, logs string) (*Metadata, error)) (*Metadata, error) {
 	port, err := getFreePort()
 	if err != nil {
 		return nil, err
 	}
 
-	cmd := exec.Command("spin", "up", "--listen", fmt.Sprintf("127.0.0.1:%d", port))
+	args := []string{"up", "--listen", fmt.Sprintf("127.0.0.1:%d", port)}
+	args = append(args, additionalArgs...)
+
+	cmd := exec.Command("spin", args...)
 	cmd.Dir = name
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

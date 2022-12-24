@@ -59,7 +59,7 @@ func (testcase *Testcase) Run(t *testing.T, controller spin.Controller) {
 			fmt.Printf("failed to stop app %s. err: %v\n", appName, err)
 		}
 	}(appName)
-	metadata, err := controller.Deploy(appName, fetcher)
+	metadata, err := controller.Deploy(appName, testcase.DeployArgs, fetcher)
 	require.NoError(t, err)
 	require.NotNil(t, metadata)
 

@@ -646,7 +646,6 @@ mod integration_tests {
             Ok(SpinTestController { url, spin_handle })
         }
 
-        // Unfortunately, this is a lot of duplicated code.
         #[cfg(feature = "e2e-tests")]
         pub async fn with_bindle(
             id: &str,

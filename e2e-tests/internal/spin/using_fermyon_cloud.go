@@ -38,9 +38,12 @@ func (o *onFermyonCloud) Build(appName string) error {
 	return build(appName)
 }
 
-func (o *onFermyonCloud) Deploy(name string, metadataFetcher func(appname, logs string) (*Metadata, error)) (*Metadata, error) {
+func (o *onFermyonCloud) Deploy(name string, additionalArgs []string, metadataFetcher func(appname, logs string) (*Metadata, error)) (*Metadata, error) {
+	args := []string{"deploy"}
+	args = append(args, additionalArgs...)
+
 	var stdout, stderr bytes.Buffer
-	cmd := exec.Command("spin", "deploy")
+	cmd := exec.Command("spin", args...)
 	cmd.Dir = name
 	cmd.Env = os.Environ()
 	cmd.Stdout = &stdout
@@ -90,19 +93,20 @@ func (o *onFermyonCloud) PollForLatestVersion(ctx context.Context, metadata *Met
 	pollTicker := time.NewTicker(2 * time.Second)
 	defer pollTicker.Stop()
 
+	var lastError error
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timedout waiting for latest version")
+			return fmt.Errorf("timedout waiting for latest version %w", lastError)
 		case <-pollTicker.C:
 			currentMeta, err := GetMetadata(metadata.Base)
 			if err != nil {
-				logrus.Debugf("error fetching metadata %v", err)
+				lastError = fmt.Errorf("fetching metadata %w", err)
 				continue
 			}
 
 			if metadata.Version != currentMeta.Version {
-				logrus.Debugf("expected version: %s, got version: %s", metadata.Version, currentMeta.Version)
+				lastError = fmt.Errorf("expected version: %s, got version: %s from %s", metadata.Version, currentMeta.Version, metadata.Base)
 				continue
 			}
 

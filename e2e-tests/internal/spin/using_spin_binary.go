@@ -51,7 +51,8 @@ func (o *usespinup) Deploy(name string, additionalArgs []string, metadataFetcher
 		return nil, err
 	}
 
-	args := []string{"up", "--listen", fmt.Sprintf("127.0.0.1:%d", port)}
+	address := fmt.Sprintf("127.0.0.1:%d", port)
+	args := []string{"up", "--listen", address}
 	args = append(args, additionalArgs...)
 
 	cmd := exec.Command("spin", args...)
@@ -69,8 +70,14 @@ func (o *usespinup) Deploy(name string, additionalArgs []string, metadataFetcher
 	o.cmds[name] = cmd
 	o.Unlock()
 
-	// TODO(rajat): make this dynamic instead of static sleep
-	time.Sleep(10 * time.Second)
+	ctx, cancelFunc := context.WithTimeout(context.TODO(), 150*time.Second)
+	defer cancelFunc()
+
+	err = waitForPortListening(ctx, address)
+	if err != nil {
+		return nil, err
+	}
+
 	return metadataFetcher(name, stdout.String())
 }
 
@@ -128,4 +135,44 @@ func getFreePort() (int, error) {
 
 func (o *usespinup) InstallPlugins(plugins []string) error {
 	return installPlugins(plugins...)
+}
+
+func isPortListening(ctx context.Context, address string) (bool, error) {
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "tcp", address)
+	if err != nil {
+		return false, err
+	}
+	defer conn.Close()
+
+	if conn != nil {
+		return true, nil
+	}
+
+	return false, fmt.Errorf("port not listening yet")
+}
+
+func waitForPortListening(ctx context.Context, address string) error {
+	pollTicker := time.NewTicker(2 * time.Second)
+	defer pollTicker.Stop()
+
+	var lastError error
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timedout waiting for port %w", lastError)
+		case <-pollTicker.C:
+			listening, err := isPortListening(ctx, address)
+			if err != nil {
+				lastError = err
+				continue
+			}
+
+			if !listening {
+				continue
+			}
+
+			return nil
+		}
+	}
 }

@@ -385,16 +385,16 @@ jobs:
         run: |
           spin --version
 
-      - name: Install fermyon cli
-        env:
-          AWS_REGION: us-west-1
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          FERMYON_CLI_S3_BUCKET: ${{ secrets.FERMYON_CLI_S3_BUCKET }}
-        run: |
-          aws s3 cp s3://${FERMYON_CLI_S3_BUCKET}/fermyon-cli-dev-linux-amd64.tar.gz fermyon-cli-dev-linux-amd64.tar.gz
-          tar -xvf fermyon-cli-dev-linux-amd64.tar.gz
-          cp fermyon /home/runner/configurator/bin/fermyon
+      # - name: Install fermyon cli
+      #   env:
+      #     AWS_REGION: us-west-1
+      #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     FERMYON_CLI_S3_BUCKET: ${{ secrets.FERMYON_CLI_S3_BUCKET }}
+      #   run: |
+      #     aws s3 cp s3://${FERMYON_CLI_S3_BUCKET}/fermyon-cli-dev-linux-amd64.tar.gz fermyon-cli-dev-linux-amd64.tar.gz
+      #     tar -xvf fermyon-cli-dev-linux-amd64.tar.gz
+      #     cp fermyon /home/runner/configurator/bin/fermyon
 
       - name: Install grain
         uses: engineerd/configurator@v0.0.8

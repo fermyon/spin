@@ -244,7 +244,7 @@ impl StoreBuilder {
         guest_path: PathBuf,
     ) -> Result<()> {
         let dir = wasmtime_wasi::Dir::open_ambient_dir(host_path, ambient_authority())?;
-        self.try_with_wasi(|wasi| wasi.preopened_dir(dir, guest_path))
+        self.try_with_wasi(|wasi| wasi.preopened_dir(dir, guest_path).map_err(|e| anyhow!(e)))
     }
 
     /// Returns a mutable reference to the built

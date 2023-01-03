@@ -220,7 +220,7 @@ fn run_command(
                 }
 
                 instance
-                    .get_typed_func::<(), (), _>(&mut *store, "_start")?
+                    .get_typed_func::<(), ()>(&mut *store, "_start")?
                     .call(&mut *store, ())
             }
         };

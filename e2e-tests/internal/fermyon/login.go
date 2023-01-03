@@ -120,7 +120,7 @@ func handle2FA(ui *uidriver.Driver) error {
 		return err
 	}
 
-	otp := gotp.NewDefaultTOTP(os.Getenv("GH_TOTP_SECRET")).Now()
+	otp := gotp.NewDefaultTOTP(os.Getenv("E2E_GH_TOTP_SECRET")).Now()
 	err = el.SendKeys(otp)
 	if err != nil {
 		return err

@@ -16,14 +16,17 @@ func TestSpinTemplatesUsingSpinUp(t *testing.T) {
 	testSpinTemplates(t, controller)
 }
 
-// func TestSpinTemplatesUsingCloud(t *testing.T) {
-// 	withcloud := spin.WithFermyonCloud()
+func TestSpinTemplatesUsingCloud(t *testing.T) {
+	withcloud := spin.WithFermyonCloud()
 
-// 	err := withcloud.Login()
-// 	require.NoError(t, err)
+	err := withcloud.Login()
+	require.NoError(t, err)
 
-// 	testSpinTemplates(t, withcloud)
-// }
+	err = withcloud.StopApp("all")
+	require.NoError(t, err)
+
+	testSpinTemplates(t, withcloud)
+}
 
 func testSpinTemplates(t *testing.T, controller spin.Controller) {
 	tmpPluginsDir, err := os.MkdirTemp("", "spin-plugins-tmpdir")

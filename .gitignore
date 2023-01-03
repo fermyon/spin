@@ -14,3 +14,4 @@ http-zig-test*
 http-grain-test*
 http-ts-test*
 http-js-test*
+spin-plugin-update.lock

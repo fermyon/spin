@@ -16,7 +16,9 @@ import (
 const FermyonCloud = "fermyon-cloud"
 
 // Run on Fermyon cloud
-type onFermyonCloud struct{}
+type onFermyonCloud struct {
+	apiToken string
+}
 
 func WithFermyonCloud() Controller {
 	return &onFermyonCloud{}
@@ -65,10 +67,11 @@ func (o *onFermyonCloud) Login() error {
 		return fmt.Errorf("generating device code %w", err)
 	}
 
-	apiToken, err := fermyon.LoginWithGithub(cloudLink, os.Getenv("GH_USERNAME"), os.Getenv("GH_PASSWORD"))
+	apiToken, err := fermyon.LoginWithGithub(cloudLink, os.Getenv("E2E_GH_USERNAME"), os.Getenv("E2E_GH_PASSWORD"))
 	if err != nil {
 		return fmt.Errorf("login with Github to Fermyon cloud: %w", err)
 	}
+	o.apiToken = apiToken
 
 	err = fermyon.ActivateDeviceCode(cloudLink, apiToken, code.UserCode)
 	if err != nil {
@@ -85,7 +88,13 @@ func (o *onFermyonCloud) Login() error {
 }
 
 func (o *onFermyonCloud) StopApp(appname string) error {
-	return runCmd(exec.Command("fermyon", "apps", "delete", appname))
+	cloudLink := fermyon.GetCloudLink(os.Getenv("environment"))
+
+	if appname == "all" {
+		return fermyon.DeleteAllApps(cloudLink, o.apiToken)
+	}
+
+	return fermyon.DeleteAppByName(cloudLink, o.apiToken, appname)
 }
 
 // TODO(rjindal): verify with https://github.com/fermyon/spin/pull/870

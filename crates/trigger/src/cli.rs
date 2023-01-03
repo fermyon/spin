@@ -18,10 +18,6 @@ pub const FOLLOW_LOG_OPT: &str = "FOLLOW_ID";
 pub const WASMTIME_CACHE_FILE: &str = "WASMTIME_CACHE_FILE";
 pub const RUNTIME_CONFIG_FILE: &str = "RUNTIME_CONFIG_FILE";
 
-// pub const DISABLE_POOLING_ALLOCATOR: &str = "DISABLE_POOLING_ALLOCATOR";
-// pub const POOLING_SLOTS: &str = "POOLING_SLOTS";
-// pub const POOLING_: &str = "POOLING_";
-
 // Set by `spin up`
 pub const SPIN_LOCKED_URL: &str = "SPIN_LOCKED_URL";
 pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";

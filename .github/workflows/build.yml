@@ -77,13 +77,13 @@ jobs:
           shared-key: "${{ runner.os }}-full-${{ hashFiles('./Cargo.lock') }}"
 
       - name: Cargo Build
-        run: cargo build --workspace --all-targets --all-features ${{ matrix.config.extraArgs }}
+        run: cargo build --workspace --release --all-targets --all-features ${{ matrix.config.extraArgs }}
 
       - name: "Archive executable artifact"
         uses: actions/upload-artifact@v3
         with:
           name: spin-${{ matrix.config.os }}
-          path: target/debug/spin${{ matrix.config.extension }}
+          path: target/release/spin${{ matrix.config.extension }}
 
 
   test-rust:

@@ -49,7 +49,7 @@ pub trait Loader {
 }
 
 /// An `AppLoader` holds an implementation of [`Loader`] along with
-/// [`DynamicHostComponents`] configuration.
+/// [`DynamicHostComponent`]s configuration.
 pub struct AppLoader {
     inner: Box<dyn Loader + Send + Sync>,
     dynamic_host_components: DynamicHostComponents,

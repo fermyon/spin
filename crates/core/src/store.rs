@@ -9,13 +9,15 @@ use wasi_common::{dir::DirCaps, pipe::WritePipe, WasiFile};
 use wasi_common::{file::FileCaps, pipe::ReadPipe};
 use wasmtime_wasi::tokio::WasiCtxBuilder;
 
-use crate::io::OutputBuffer;
-
-use super::{
+use crate::{
     host_component::{HostComponents, HostComponentsData},
+    io::OutputBuffer,
     limits::StoreLimitsAsync,
     Data,
 };
+
+#[cfg(doc)]
+use crate::EngineBuilder;
 
 /// A `Store` holds the runtime state of a Spin instance.
 ///

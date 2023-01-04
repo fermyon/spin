@@ -10,7 +10,7 @@ password = { required = true }
 
 [[component]]
 id = "config-test"
-source = "target/wasm32-wasi/release/config_test.wasm"
+source = "target/wasm32-wasi/release/vault_config_test.wasm"
 [component.trigger]
 route = "/..."
 [component.build]

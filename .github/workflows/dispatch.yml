@@ -21,7 +21,7 @@ jobs:
             docs:
               - 'docs/**'
 
-  dispatch:
+  dispatch-spin-docs:
     name: Dispatch spin-docs-updated event
     needs: changes
     if: ${{ needs.changes.outputs.docs == 'true' }}
@@ -34,3 +34,16 @@ jobs:
           repository: ${{ secrets.DEST_REPO }}
           event-type: spin-docs-updated
           client-payload: '{"event_type": "spin-docs-updated", "ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
+
+  dispatch-rust-docs:
+    name: Dispatch rust-docs spin-update event
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'fermyon' }}
+    steps:
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.DEST_REPO_ACCESS_TOKEN }}
+          repository: fermyon/rust-docs
+          event-type: spin-update
+          client-payload: '{"ref": "${{ github.ref_name }}"}'

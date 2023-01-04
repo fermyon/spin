@@ -5,6 +5,10 @@ use anyhow::Result;
 use spin_manifest::{HttpConfig, HttpExecutor, HttpTriggerConfiguration};
 use std::path::PathBuf;
 
+fn raw_manifest_from_str(toml: &str) -> Result<RawAppManifestAnyVersion> {
+    raw_manifest_from_slice(toml.as_bytes())
+}
+
 #[tokio::test]
 async fn test_from_local_source() -> Result<()> {
     const MANIFEST: &str = "tests/valid-with-files/spin.toml";
@@ -47,7 +51,7 @@ async fn test_from_local_source() -> Result<()> {
 fn test_manifest() -> Result<()> {
     const MANIFEST: &str = include_str!("../../tests/valid-manifest.toml");
 
-    let cfg_any: RawAppManifestAnyVersion = toml::from_str(MANIFEST)?;
+    let cfg_any: RawAppManifestAnyVersion = raw_manifest_from_str(MANIFEST)?;
     let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
 
     assert_eq!(cfg.info.name, "chain-of-command");
@@ -172,7 +176,7 @@ async fn test_invalid_manifest() -> Result<()> {
 fn test_unknown_version_is_rejected() {
     const MANIFEST: &str = include_str!("../../tests/invalid-version.toml");
 
-    let cfg = toml::from_str::<RawAppManifestAnyVersion>(MANIFEST);
+    let cfg = raw_manifest_from_str(MANIFEST);
     assert!(
         cfg.is_err(),
         "Expected version to be validated but it wasn't"
@@ -192,7 +196,7 @@ fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
     const EXPECTED_CUSTOM_ENTRYPOINT: &str = "custom-entrypoint";
     const EXPECTED_DEFAULT_ARGV: &str = "${SCRIPT_NAME} ${ARGS}";
 
-    let cfg_any: RawAppManifestAnyVersion = toml::from_str(MANIFEST)?;
+    let cfg_any: RawAppManifestAnyVersion = raw_manifest_from_str(MANIFEST)?;
     let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
 
     let http_config: HttpConfig = cfg.components[0].trigger.clone().try_into()?;

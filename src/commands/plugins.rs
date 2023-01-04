@@ -361,14 +361,14 @@ impl List {
 }
 
 #[derive(Debug)]
-enum PluginCompatibility {
+pub(crate) enum PluginCompatibility {
     Compatible,
     IncompatibleSpin,
     Incompatible,
 }
 
 impl PluginCompatibility {
-    fn for_current(manifest: &PluginManifest) -> Self {
+    pub(crate) fn for_current(manifest: &PluginManifest) -> Self {
         if manifest.has_compatible_package() {
             let spin_version = env!("VERGEN_BUILD_SEMVER");
             if manifest.is_compatible_spin_version(spin_version) {

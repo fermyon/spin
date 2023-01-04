@@ -160,17 +160,16 @@ impl UpCommand {
             }
         }
 
-        let trigger_type = match app.info.trigger {
-            ApplicationTrigger::Http(_) => "http",
-            ApplicationTrigger::Redis(_) => "redis",
+        let trigger_type = match &app.info.trigger {
+            ApplicationTrigger::Http(_) => vec!["trigger".to_owned(), "http".to_owned()],
+            ApplicationTrigger::Redis(_) => vec!["trigger".to_owned(), "redis".to_owned()],
+            ApplicationTrigger::External(cfg) => vec![resolve_trigger_plugin(cfg.trigger_type())?],
         };
 
         // The docs for `current_exe` warn that this may be insecure because it could be executed
         // via hard-link. I think it should be fine as long as we aren't `setuid`ing this binary.
         let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
-        cmd.arg("trigger")
-            .arg(trigger_type)
-            .env(SPIN_WORKING_DIR, &working_dir);
+        cmd.args(&trigger_type).env(SPIN_WORKING_DIR, &working_dir);
 
         if self.help {
             cmd.arg("--help-args-only");
@@ -256,4 +255,37 @@ fn parse_env_var(s: &str) -> Result<(String, String)> {
         bail!("Environment variable must be of the form `key=value`");
     }
     Ok((parts[0].to_owned(), parts[1].to_owned()))
+}
+
+fn resolve_trigger_plugin(trigger_type: &str) -> Result<String> {
+    use crate::commands::plugins::PluginCompatibility;
+    use spin_plugins::manager::PluginManager;
+
+    let subcommand = format!("trigger-{trigger_type}");
+    let plugin_manager = PluginManager::try_default()
+        .with_context(|| format!("Failed to access plugins looking for '{subcommand}'"))?;
+    let plugin_store = plugin_manager.store();
+    let is_installed = plugin_store
+        .installed_manifests()
+        .unwrap_or_default()
+        .iter()
+        .any(|m| m.name() == subcommand);
+
+    if is_installed {
+        return Ok(subcommand);
+    }
+
+    if let Some(known) = plugin_store
+        .catalogue_manifests()
+        .unwrap_or_default()
+        .iter()
+        .find(|m| m.name() == subcommand)
+    {
+        match PluginCompatibility::for_current(known) {
+            PluginCompatibility::Compatible => Err(anyhow!("No built-in trigger named '{trigger_type}', but plugin '{subcommand}' is available to install")),
+            _ => Err(anyhow!("No built-in trigger named '{trigger_type}', and plugin '{subcommand}' is not compatible"))
+        }
+    } else {
+        Err(anyhow!("No built-in trigger named '{trigger_type}', and no plugin named '{subcommand}' was found"))
+    }
 }

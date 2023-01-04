@@ -4204,6 +4204,7 @@ dependencies = [
  "indexmap",
  "serde",
  "thiserror",
+ "toml",
 ]
 
 [[package]]

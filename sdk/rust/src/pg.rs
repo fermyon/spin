@@ -11,7 +11,7 @@
 //! | `f32`      | floating32(float32) | REAL, FLOAT4                 |
 //! | `f64`      | floating64(float64) | DOUBLE PRECISION, FLOAT8     |
 //! | `String`   | str(string)         | VARCHAR, CHAR(N), TEXT       |
-//! | `Vec<u8>`  | binary(list<u8>)    | BYTEA                        |
+//! | `Vec<u8>`  | binary(list\<u8\>)  | BYTEA                        |
 
 #![allow(missing_docs)]
 wit_bindgen_rust::import!("../../wit/ephemeral/outbound-pg.wit");

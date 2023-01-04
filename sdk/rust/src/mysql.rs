@@ -16,7 +16,7 @@
 //! | `f32`     | floating32(float32) | FLOAT                   |
 //! | `f64`     | floating64(float64) | DOUBLE                  |
 //! | `String`  | str(string)         | VARCHAR, CHAR, TEXT     |
-//! | `Vec<u8>` | binary(list<u8>)    | VARBINARY, BINARY, BLOB |
+//! | `Vec<u8>` | binary(list\<u8\>)  | VARBINARY, BINARY, BLOB |
 
 #![allow(missing_docs)]
 wit_bindgen_rust::import!("../../wit/ephemeral/outbound-mysql.wit");

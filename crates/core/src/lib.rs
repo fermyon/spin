@@ -30,7 +30,7 @@ pub use host_component::{HostComponent, HostComponentDataHandle, HostComponentsD
 pub use io::OutputBuffer;
 pub use store::{Store, StoreBuilder};
 
-/// The default [`Config::epoch_tick_interval`].
+/// The default [`EngineBuilder::epoch_tick_interval`].
 pub const DEFAULT_EPOCH_TICK_INTERVAL: Duration = Duration::from_millis(10);
 
 /// Global configuration for `EngineBuilder`.

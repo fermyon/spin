@@ -17,6 +17,6 @@ sha2 = "0.10.2"
 tar = "0.4.38"
 tempfile = "3.3.0"
 thiserror = "1"
-tokio = { version = "1.10", features = [ "fs", "process", "rt", "macros" ] }
+tokio = { version = "1.23", features = [ "fs", "process", "rt", "macros" ] }
 tracing = { workspace = true }
 url = "2.2.2"

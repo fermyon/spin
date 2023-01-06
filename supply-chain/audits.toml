@@ -1,0 +1,14 @@
+
+# cargo-vet audits file
+
+[[audits.anyhow]]
+who = "Radu Matei <radu.matei@fermyon.com>"
+criteria = "safe-to-deploy"
+version = "1.0.65"
+
+[[audits.regalloc2]]
+who = "Radu Matei <radu.matei@fermyon.com>"
+criteria = "safe-to-deploy"
+version = "0.3.1"
+notes = "The Bytecode Alliance is the author of this crate."
+

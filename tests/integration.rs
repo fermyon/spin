@@ -1009,7 +1009,7 @@ mod integration_tests {
         if cfg!(target_os = "windows") {
             String::from("powershell.exe")
         } else {
-            String::from("/bin/bash")
+            String::from("bash")
         }
     }
 

@@ -421,6 +421,7 @@ jobs:
           echo "TINYGO_VERSION=`tinygo version | awk '{print $3}'`" >> $GITHUB_ENV
           echo "RUST_VERSION=`rustc --version | awk '{print $2}'`" >> $GITHUB_ENV
           echo "ZIG_VERSION=`zig version`" >> $GITHUB_ENV 
+          echo "SPIN_VERSION=`spin --version`" >> $GITHUB_ENV 
 
       - name: "Test Spin Examples with Spin Up"
         working-directory: e2e-tests

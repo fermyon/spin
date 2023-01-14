@@ -4,13 +4,12 @@
 
 To build and run the Spin documentation website:
 
-1. Build Spin using the [contributing guide](./content/contributing.md).
+1. Build Spin using the [contributing guide](https://developer.fermyon.com/spin/contributing).
 
-2. Run the following npm commands:
+2. Run the website from this directory via Spin:
 
 ```
-$ npm install
-$ npm run spin
+$ spin up
 ```
 
 3. View documentation website at http://localhost:3000

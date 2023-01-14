@@ -6,13 +6,6 @@ authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
 trigger = { type = "http", base = "/" }
 
 [[component]]
-source = "modules/spin_static_fs.wasm"
-id = "fileserver_static"
-files = [ { source = "static/", destination = "/" } ]
-[component.trigger]
-route = "/static/..."
-
-[[component]]
 id = "redirect-download"
 source = "modules/redirect.wasm"
 environment = { DESTINATION = "https://developer.fermyon.com/downloads/install.sh" }

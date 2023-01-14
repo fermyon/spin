@@ -451,12 +451,12 @@ jobs:
             -- ./... -parallel 5 -run ^TestSpinTemplatesUsingCloud$
 
       - name: Create html report for spin up tests
-        uses: rajatjindal/gotest-to-html@v0.0.17
+        uses: rajatjindal/gotest-to-html@v0.0.18
         if: always()
         with:
           title_primary: spin up
           title_secondary: e2e test report
-          tags: "env=prod branch=${{ github.ref }} os=ubuntu-latest spin=${{ env.SPIN_VERSION }} golang=${{ env.GO_VERSION }} tinygo=${{ env.TINYGO_VERSION }} zig=${{ env.ZIG_VERSION }} grain=${{ env.GRAIN_VERSION }}"
+          tags: "env=prod;branch=${{ github.ref }};os=ubuntu-latest;spin=${{ env.SPIN_VERSION }};golang=${{ env.GO_VERSION }};tinygo=${{ env.TINYGO_VERSION }};zig=${{ env.ZIG_VERSION }};grain=${{ env.GRAIN_VERSION }}"
           gotest_output_file: e2e-tests/.results/results.json
           html_output_file: e2e-tests/.results/test-report.html
           json_output_file: e2e-tests/.results/raw.json
@@ -465,11 +465,11 @@ jobs:
 
       - name: Create html report for Fermyon Cloud tests
         if: ${{ always() && (github.event_name != 'pull_request' || (github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork)) }}
-        uses: rajatjindal/gotest-to-html@v0.0.17
+        uses: rajatjindal/gotest-to-html@v0.0.18
         with:
           title_primary: Spin with Fermyon Cloud
           title_secondary: e2e test report
-          tags: "env=prod branch=${{ github.ref }} os=ubuntu-latest spin=${{ env.SPIN_VERSION }} golang=${{ env.GO_VERSION }} tinygo=${{ env.TINYGO_VERSION }} zig=${{ env.ZIG_VERSION }} grain=${{ env.GRAIN_VERSION }}"
+          tags: "env=prod;branch=${{ github.ref }};os=ubuntu-latest;spin=${{ env.SPIN_VERSION }};golang=${{ env.GO_VERSION }};tinygo=${{ env.TINYGO_VERSION }};zig=${{ env.ZIG_VERSION }};grain=${{ env.GRAIN_VERSION }}"
           gotest_output_file: e2e-tests/.results/results-cloud.json
           html_output_file: e2e-tests/.results/test-report-cloud.html
           json_output_file: e2e-tests/.results/raw-cloud.json

@@ -479,4 +479,4 @@ jobs:
         if: always()
         with:
           name: html
-          path: e2e-tests/.results/test-report*.html
+          path: e2e-tests/.results/.*-report.html

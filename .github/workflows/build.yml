@@ -366,24 +366,20 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: spin-ubuntu-latest
-          path: target/debug/
+          path: target/release/
 
-      - name: Fix Spin Binary permissions
+      - name: Add Spin Binary to path
         run: |
           ls -lah target/
-          ls -lah target/debug
-          chmod +x target/debug/spin
-          echo `pwd`/target/debug >> $GITHUB_PATH
+          ls -lah target/release
+          chmod +x target/release/spin
+          echo `pwd`/target/release >> $GITHUB_PATH
 
       - name: Install Go
         uses: actions/setup-go@v3
         with:
           go-version: "1.19"
-          check-latest: true
-
-      - name: Spin version
-        run: |
-          spin --version
+          check-latest: true 
 
       - name: Install grain
         uses: engineerd/configurator@v0.0.8
@@ -418,6 +414,14 @@ jobs:
         with:
           gotestsum_version: "1.8.2"
 
+      - name: Versions
+        run: |
+          echo "GRAIN_VERSION=`grain --version`" >> $GITHUB_ENV
+          echo "GO_VERSION=`go version | awk '{print $3}'`" >> $GITHUB_ENV 
+          echo "TINYGO_VERSION=`tinygo version | awk '{print $3}'`" >> $GITHUB_ENV
+          echo "RUST_VERSION=`rustc --version | awk '{print $2}'`" >> $GITHUB_ENV
+          echo "ZIG_VERSION=`zig version`" >> $GITHUB_ENV 
+
       - name: "Test Spin Examples with Spin Up"
         working-directory: e2e-tests
         run: |
@@ -445,26 +449,26 @@ jobs:
             --format testname \
             -- ./... -parallel 5 -run ^TestSpinTemplatesUsingCloud$
 
-      - name: Create html report
+      - name: Create html report for spin up tests
         uses: rajatjindal/gotest-to-html@v0.0.17
         if: always()
         with:
-          title_primary: spin
+          title_primary: spin up
           title_secondary: e2e test report
-          tags: "env=prod branch=${{ github.ref }} os=ubuntu-latest spin= golang=1.19 tinygo=v0.0.25 zig=0.10.0 grain=v0.5.4"
+          tags: "env=prod branch=${{ github.ref }} os=ubuntu-latest spin=${{ env.SPIN_VERSION }} golang=${{ env.GO_VERSION }} tinygo=${{ env.TINYGO_VERSION }} zig=${{ env.ZIG_VERSION }} grain=${{ env.GRAIN_VERSION }}"
           gotest_output_file: e2e-tests/.results/results.json
           html_output_file: e2e-tests/.results/test-report.html
           json_output_file: e2e-tests/.results/raw.json
           archive: false
           run_id: ${{ github.run_id }}
 
-      - name: Create html report
+      - name: Create html report for Fermyon Cloud tests
         if: ${{ always() && (github.event_name != 'pull_request' || (github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork)) }}
         uses: rajatjindal/gotest-to-html@v0.0.17
         with:
-          title_primary: spin
+          title_primary: Spin with Fermyon Cloud
           title_secondary: e2e test report
-          tags: "env=prod branch=${{ github.ref }} os=ubuntu-latest spin= golang=1.19 tinygo=v0.0.25 zig=0.10.0 grain=v0.5.4"
+          tags: "env=prod branch=${{ github.ref }} os=ubuntu-latest spin=${{ env.SPIN_VERSION }} golang=${{ env.GO_VERSION }} tinygo=${{ env.TINYGO_VERSION }} zig=${{ env.ZIG_VERSION }} grain=${{ env.GRAIN_VERSION }}"
           gotest_output_file: e2e-tests/.results/results-cloud.json
           html_output_file: e2e-tests/.results/test-report-cloud.html
           json_output_file: e2e-tests/.results/raw-cloud.json

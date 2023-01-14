@@ -480,3 +480,9 @@ jobs:
         with:
           name: html
           path: e2e-tests/.results/.*-report.html
+
+      - name: "list files and dir"
+        if: always()
+        working-directory: e2e-tests
+        run: |
+          find . -name '*.*'

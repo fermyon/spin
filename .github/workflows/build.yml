@@ -472,14 +472,14 @@ jobs:
         if: always()
         with:
           name: gotest_output
-          path: e2e-tests/.results/results*.json
+          path: e2e-tests/.results/*.json
 
       - name: Upload html output
         uses: actions/upload-artifact@v3
         if: always()
         with:
           name: html
-          path: e2e-tests/.results/.*-report.html
+          path: e2e-tests/.results/*-report.html
 
       - name: "list files and dir"
         if: always()

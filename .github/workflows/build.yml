@@ -430,7 +430,7 @@ jobs:
           export RUST_LOG=spin=trace
           mkdir -p .results
           gotestsum \
-            --jsonfile .results/results.json \
+            --jsonfile .results/spin-up.json \
             --format testname \
             -- ./... -run ^TestSpinTemplatesUsingSpinUp$
 
@@ -446,20 +446,17 @@ jobs:
           export RUST_LOG=spin=trace
           mkdir -p .results
           gotestsum \
-            --jsonfile .results/results-cloud.json \
+            --jsonfile .results/fermyon-cloud.json \
             --format testname \
             -- ./... -parallel 5 -run ^TestSpinTemplatesUsingCloud$
 
       - name: Create html report for spin up tests
-        uses: rajatjindal/gotest-to-html@v0.0.18
+        uses: rajatjindal/gotest-to-html@v0.0.22
         if: always()
         with:
-          title_primary: spin up
           title_secondary: e2e test report
           tags: "env=prod;branch=${{ github.ref }};os=ubuntu-latest;spin=${{ env.SPIN_VERSION }};golang=${{ env.GO_VERSION }};tinygo=${{ env.TINYGO_VERSION }};zig=${{ env.ZIG_VERSION }};grain=${{ env.GRAIN_VERSION }}"
-          gotest_output_file: e2e-tests/.results/results.json
-          html_output_file: e2e-tests/.results/test-report.html
-          json_output_file: e2e-tests/.results/raw.json
+          gotest_output_file: e2e-tests/.results/spin-up.json,e2e-tests/.results/fermyon-cloud.json
           archive: false
           run_id: ${{ github.run_id }}
 

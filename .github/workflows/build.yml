@@ -344,6 +344,7 @@ jobs:
 
   e2e-tests:
     runs-on: ${{ matrix.config.os }}
+    if: always()
     needs: [spin-login]
     ##  we can't run e2e tests consecutively due to 5 apps limit on cloud and the fact that we use same account for deploying and testing
     concurrency:

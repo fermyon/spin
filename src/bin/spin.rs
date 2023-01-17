@@ -129,6 +129,8 @@ enum SpinApp {
     Plugins(PluginCommands),
     #[clap(subcommand, hide = true)]
     Trigger(TriggerCommands),
+    #[clap(hide = true, name = "generate-bash-completions")]
+    GenerateBashCompletions,
     #[clap(external_subcommand)]
     External(Vec<String>),
     Watch(WatchCommand),
@@ -162,6 +164,11 @@ impl SpinApp {
             Self::External(cmd) => execute_external_subcommand(cmd, app).await,
             Self::Watch(cmd) => cmd.run().await,
             Self::Doctor(cmd) => cmd.run().await,
+            Self::GenerateBashCompletions => {
+                let mut cmd: clap::Command = SpinApp::into_app();
+                print_completions(clap_complete::Shell::Bash, &mut cmd);
+                Ok(())
+            }
         }
     }
 }
@@ -219,4 +226,8 @@ fn installed_plugin_help_entries() -> Vec<PluginHelpEntry> {
 
 fn hide_plugin_in_help(plugin: &spin_plugins::manifest::PluginManifest) -> bool {
     plugin.name().starts_with("trigger-")
+}
+
+fn print_completions<G: clap_complete::Generator>(gen: G, cmd: &mut clap::Command) {
+    clap_complete::generate(gen, cmd, cmd.get_name().to_string(), &mut std::io::stdout())
 }

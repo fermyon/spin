@@ -352,14 +352,14 @@ jobs:
     strategy:
       matrix:
         config:
-          # - {
-          #     os: "ubuntu-22.04",
-          #     tinygo: "https://github.com/tinygo-org/tinygo/releases/download/v0.25.0/tinygo_0.25.0_amd64.deb",
-          #     clang: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-14/wasi-sdk-14.0-linux.tar.gz",
-          #     zig: "https://ziglang.org/download/0.10.0/zig-linux-x86_64-0.10.0.tar.xz",
-          #     grain: "https://github.com/grain-lang/grain/releases/download/grain-v0.5.4/grain-linux-x64",
-          #     zigpath: "zig-linux-x86_64-0.10.0"
-          #   }
+          - {
+              os: "ubuntu-22.04",
+              tinygo: "https://github.com/tinygo-org/tinygo/releases/download/v0.25.0/tinygo_0.25.0_amd64.deb",
+              clang: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-14/wasi-sdk-14.0-linux.tar.gz",
+              zig: "https://ziglang.org/download/0.10.0/zig-linux-x86_64-0.10.0.tar.xz",
+              grain: "https://github.com/grain-lang/grain/releases/download/grain-v0.5.4/grain-linux-x64",
+              zigpath: "zig-linux-x86_64-0.10.0"
+            }
           - {
               os: "windows-latest",
               tinygo: "https://github.com/tinygo-org/tinygo/releases/download/v0.25.0/tinygo0.25.0.windows-amd64.zip",

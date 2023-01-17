@@ -54,7 +54,7 @@ and [Mozilla](https://hg.mozilla.org/mozilla-central/raw-file/tip/supply-chain/a
 ### What is the initial state of the `supply-chain` directory?
 
 Initially, all dependencies that are not already audited by a trusted organization
-will be added as a exemptions - which effectively marks the starting point of the
+will be added as exemptions - which effectively marks the starting point of the
 auditing process as trusted. This is to avoid the potentially massive initial effort
 required to validate _all_ transitive dependencies. However, the first time a dependency
 would get updated, `cargo vet` will require explicitly auditing the new version,

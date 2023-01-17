@@ -390,7 +390,7 @@ jobs:
       #   uses: actions/download-artifact@v3
       #   with:
       #     name: spin-fermyon-cloud-config.json
-      #     path: C:/Users/runner/AppData/Roaming/
+      #     path: C:\Users\runneradmin\AppData\Roaming\
 
       - name: Install Go
         uses: actions/setup-go@v3
@@ -399,7 +399,7 @@ jobs:
           check-latest: true 
 
       - name: Install grain
-        uses: engineerd/configurator@v0.0.8
+        uses: rajatjindal/configurator@fix-mv
         with:
           name: "grain"
           url: ${{ matrix.config.grain }}

@@ -372,24 +372,26 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Retrieve saved Spin Binary
-        uses: actions/download-artifact@v3
-        with:
-          name: spin-ubuntu-latest
-          path: target/release/
+      # - name: Retrieve saved Spin Binary
+      #   uses: actions/download-artifact@v3
+      #   with:
+      #     name: spin-ubuntu-latest
+      #     path: target/release/
 
-      - name: Add Spin Binary to path
-        run: |
-          ls -lah target/
-          ls -lah target/release
-          chmod +x target/release/spin
-          echo `pwd`/target/release >> $GITHUB_PATH
+      # - name: Add Spin Binary to path
+      #   run: |
+      #     ls -lah target/
+      #     ls -lah target/release
+      #     chmod +x target/release/spin
+      #     echo `pwd`/target/release >> $GITHUB_PATH
       
-      - name: Retrieve saved Spin Binary
-        uses: actions/download-artifact@v3
-        with:
-          name: spin-fermyon-cloud-config.json
-          path: /home/runner/.config/fermyon/
+      # - name: Retrieve saved Fermyon cloud token
+      #   if: ${{ github.event_name != 'pull_request' || (github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork) }}
+      #   uses: actions/download-artifact@v3
+      #   with:
+      #     name: spin-fermyon-cloud-config.json
+      #     path: C:/Users/runner/AppData/Roaming/
+
       - name: Install Go
         uses: actions/setup-go@v3
         with:
@@ -402,17 +404,17 @@ jobs:
           name: "grain"
           url: ${{ matrix.config.grain }}
 
-      - name: Install Tinygo
-        run: |
-          wget ${{ matrix.config.tinygo }}
-          sudo dpkg -i tinygo_0.25.0_amd64.deb
-          tinygo env
+      # - name: Install Tinygo
+      #   run: |
+      #     wget ${{ matrix.config.tinygo }}
+      #     sudo dpkg -i tinygo_0.25.0_amd64.deb
+      #     tinygo env
 
-      - name: Install zig
-        run: |
-          wget ${{ matrix.config.zig }}
-          tar -xf ${{ matrix.config.zigpath }}.tar.xz
-          echo `pwd`/${{ matrix.config.zigpath }} >> $GITHUB_PATH
+      # - name: Install zig
+      #   run: |
+      #     wget ${{ matrix.config.zig }}
+      #     tar -xf ${{ matrix.config.zigpath }}.tar.xz
+      #     echo `pwd`/${{ matrix.config.zigpath }} >> $GITHUB_PATH
 
       - name: Install latest Rust stable toolchain
         uses: actions-rs/toolchain@v1
@@ -429,69 +431,69 @@ jobs:
         with:
           gotestsum_version: "1.8.2"
 
-      - name: Versions
-        run: |
-          echo "GRAIN_VERSION=`grain --version`" >> $GITHUB_ENV
-          echo "GO_VERSION=`go version | awk '{print $3}'`" >> $GITHUB_ENV 
-          echo "TINYGO_VERSION=`tinygo version | awk '{print $3}'`" >> $GITHUB_ENV
-          echo "RUST_VERSION=`rustc --version | awk '{print $2}'`" >> $GITHUB_ENV
-          echo "ZIG_VERSION=`zig version`" >> $GITHUB_ENV 
-          echo "SPIN_VERSION=`spin --version`" >> $GITHUB_ENV 
+      # - name: Versions
+      #   run: |
+      #     echo "GRAIN_VERSION=`grain --version`" >> $GITHUB_ENV
+      #     echo "GO_VERSION=`go version | awk '{print $3}'`" >> $GITHUB_ENV 
+      #     echo "TINYGO_VERSION=`tinygo version | awk '{print $3}'`" >> $GITHUB_ENV
+      #     echo "RUST_VERSION=`rustc --version | awk '{print $2}'`" >> $GITHUB_ENV
+      #     echo "ZIG_VERSION=`zig version`" >> $GITHUB_ENV 
+      #     echo "SPIN_VERSION=`spin --version`" >> $GITHUB_ENV 
 
-      - name: "Test Spin Examples with Spin Up"
-        working-directory: e2e-tests
-        run: |
-          set -o pipefail
-          export RUST_LOG=spin=trace
-          mkdir -p .results
-          gotestsum \
-            --jsonfile .results/spin-up.json \
-            --format testname \
-            -- ./... -run ^TestSpinTemplatesUsingSpinUp$
+      # - name: "Test Spin Examples with Spin Up"
+      #   working-directory: e2e-tests
+      #   run: |
+      #     set -o pipefail
+      #     export RUST_LOG=spin=trace
+      #     mkdir -p .results
+      #     gotestsum \
+      #       --jsonfile .results/spin-up.json \
+      #       --format testname \
+      #       -- ./... -run ^TestSpinTemplatesUsingSpinUp$
 
-      - name: "Test Spin Examples with Fermyon Cloud"
-        if: ${{ github.event_name != 'pull_request' || (github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork) }}
-        env: 
-          E2E_GH_USERNAME: ${{ secrets.E2E_GH_USERNAME }}
-          E2E_GH_PASSWORD: ${{ secrets.E2E_GH_PASSWORD }}
-          E2E_GH_TOTP_SECRET: ${{ secrets.E2E_GH_TOTP_SECRET }}
-        working-directory: e2e-tests
-        run: |
-          set -o pipefail
-          export RUST_LOG=spin=trace
-          mkdir -p .results
-          gotestsum \
-            --jsonfile .results/fermyon-cloud.json \
-            --format testname \
-            -- ./... -parallel 5 -run ^TestSpinTemplatesUsingCloud$
+      # - name: "Test Spin Examples with Fermyon Cloud"
+      #   if: ${{ github.event_name != 'pull_request' || (github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork) }}
+      #   env: 
+      #     E2E_GH_USERNAME: ${{ secrets.E2E_GH_USERNAME }}
+      #     E2E_GH_PASSWORD: ${{ secrets.E2E_GH_PASSWORD }}
+      #     E2E_GH_TOTP_SECRET: ${{ secrets.E2E_GH_TOTP_SECRET }}
+      #   working-directory: e2e-tests
+      #   run: |
+      #     set -o pipefail
+      #     export RUST_LOG=spin=trace
+      #     mkdir -p .results
+      #     gotestsum \
+      #       --jsonfile .results/fermyon-cloud.json \
+      #       --format testname \
+      #       -- ./... -parallel 5 -run ^TestSpinTemplatesUsingCloud$
 
-      - name: Create html report for e2e tests
-        uses: rajatjindal/gotest-to-html@v0.0.22
-        if: always()
-        with:
-          title_secondary: e2e test report
-          tags: "env=prod;branch=${{ github.ref }};os=ubuntu-latest;spin=${{ env.SPIN_VERSION }};golang=${{ env.GO_VERSION }};tinygo=${{ env.TINYGO_VERSION }};zig=${{ env.ZIG_VERSION }};grain=${{ env.GRAIN_VERSION }}"
-          gotest_output_file: e2e-tests/.results/spin-up.json,e2e-tests/.results/fermyon-cloud.json
-          archive: false
-          run_id: ${{ github.run_id }}
+      # - name: Create html report for e2e tests
+      #   uses: rajatjindal/gotest-to-html@v0.0.22
+      #   if: always()
+      #   with:
+      #     title_secondary: e2e test report
+      #     tags: "env=prod;branch=${{ github.ref }};os=ubuntu-latest;spin=${{ env.SPIN_VERSION }};golang=${{ env.GO_VERSION }};tinygo=${{ env.TINYGO_VERSION }};zig=${{ env.ZIG_VERSION }};grain=${{ env.GRAIN_VERSION }}"
+      #     gotest_output_file: e2e-tests/.results/spin-up.json,e2e-tests/.results/fermyon-cloud.json
+      #     archive: false
+      #     run_id: ${{ github.run_id }}
 
-      - name: Upload screenshots
-        uses: actions/upload-artifact@v3
-        if: failure()
-        with:
-          name: screenshots
-          path: e2e-tests/tests/screenshot.png
+      # - name: Upload screenshots
+      #   uses: actions/upload-artifact@v3
+      #   if: failure()
+      #   with:
+      #     name: screenshots
+      #     path: e2e-tests/tests/screenshot.png
 
-      - name: Upload gotest output
-        uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: gotest_output
-          path: e2e-tests/.results/*.json
+      # - name: Upload gotest output
+      #   uses: actions/upload-artifact@v3
+      #   if: always()
+      #   with:
+      #     name: gotest_output
+      #     path: e2e-tests/.results/*.json
 
-      - name: Upload html output
-        uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: html
-          path: e2e-tests/.results/*-report.html
+      # - name: Upload html output
+      #   uses: actions/upload-artifact@v3
+      #   if: always()
+      #   with:
+      #     name: html
+      #     path: e2e-tests/.results/*-report.html

@@ -399,7 +399,7 @@ jobs:
       #     check-latest: true 
 
       - name: Install grain
-        uses: rajatjindal/configurator@v0.0.3
+        uses: rajatjindal/configurator@v0.0.4
         with:
           name: "grain"
           url: ${{ matrix.config.grain }}

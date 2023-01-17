@@ -392,11 +392,11 @@ jobs:
       #     name: spin-fermyon-cloud-config.json
       #     path: C:\Users\runneradmin\AppData\Roaming\
 
-      - name: Install Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: "1.19"
-          check-latest: true 
+      # - name: Install Go
+      #   uses: actions/setup-go@v3
+      #   with:
+      #     go-version: "1.19"
+      #     check-latest: true 
 
       - name: Install grain
         uses: rajatjindal/configurator@fix-mv

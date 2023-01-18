@@ -343,9 +343,9 @@ updating the default behavior.
 ### Implementation status
 
 The `spin oci push`, `spin oci pull`, and `spin oci run` commands are currently
-implemented in this prototype. The implementation uses the
-[`oci-distribution`](https://github.com/krustlet/oci-distribution) crate from
-Krustlet to interact with a container registry (and currently uses a fork that
+implemented in [the prototype](https://github.com/fermyon/spin/pull/1014). 
+The implementation uses the[`oci-distribution`](https://github.com/krustlet/oci-distribution) 
+crate from Krustlet to interact with a container registry (and currently uses a fork that
 should be patched upstream).
 
 The internals of the loaders need additional work before being merged, and the

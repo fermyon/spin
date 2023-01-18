@@ -8,6 +8,8 @@ pub mod cloud;
 pub mod doctor;
 /// Commands for external subcommands (i.e. plugins)
 pub mod external;
+/// Command to generate shell completions
+pub mod generate_completions;
 /// Command for creating a new application.
 pub mod new;
 /// Command for adding a plugin to Spin

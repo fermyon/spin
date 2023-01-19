@@ -27,7 +27,7 @@ semver = "1.0"
 serde = { version = "1.0", features = [ "derive" ] }
 sha2 = "0.10.1"
 tempfile = "3.3.0"
-tokio = { version = "1.10", features = [ "fs", "process", "rt", "macros" ] }
+tokio = { version = "1.23", features = [ "fs", "process", "rt", "macros" ] }
 toml = "0.5"
 url = "2.2.2"
 walkdir = "2"

@@ -28,7 +28,7 @@ tls-listener = { version = "0.4.0", features = [
     "hyper-h1",
     "hyper-h2",
 ] }
-tokio = { version = "1.10", features = ["full"] }
+tokio = { version = "1.23", features = ["full"] }
 tokio-rustls = { version = "0.23.2" }
 tracing = { workspace = true }
 wit-bindgen-wasmtime = { workspace = true }

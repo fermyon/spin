@@ -23,7 +23,7 @@ spin-config = { path = "../config" }
 spin-core = { path = "../core" }
 spin-loader = { path = "../loader" }
 spin-manifest = { path = "../manifest" }
-tokio = { version = "1.11", features = [ "full" ] }
+tokio = { version = "1.23", features = [ "full" ] }
 toml = "0.5.9"
 tracing = { workspace = true }
 url = "2"
@@ -32,4 +32,4 @@ wasmtime = { workspace = true }
 [dev-dependencies]
 tempfile = "3.3.0"
 toml = "0.5"
-tokio = { version = "1.0", features = ["rt", "macros"] }
+tokio = { version = "1.23", features = ["rt", "macros"] }

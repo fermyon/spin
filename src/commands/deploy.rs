@@ -617,6 +617,11 @@ impl DeployCommand {
                     ))
                 }
             }
+            Err(spin_publish::PublishError::BindleClient(bindle::client::ClientError::Other(
+                e,
+            ))) if e.to_string().contains("application exceeds") => {
+                Err(anyhow!(e.trim_start_matches("Unknown error: ").to_owned()))
+            }
             Err(err) => Err(err).with_context(|| {
                 crate::push_all_failed_msg(dest_dir, bindle_connection_info.base_url())
             }),

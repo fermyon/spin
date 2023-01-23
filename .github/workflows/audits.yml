@@ -2,6 +2,7 @@ name: Run Rust audits
 on:
   schedule:
     - cron: '0 0 * * *'
+jobs:
   cargo-vet:
     name: Vet Dependencies
     runs-on: ubuntu-latest

@@ -114,16 +114,7 @@ impl Default for Config {
         inner.async_support(true);
         inner.epoch_interruption(true);
 
-        let mut config = Self { inner };
-        #[cfg(not(target_os = "windows"))]
-        config.enable_pooling(
-            DEFAULT_INSTANCE_MEMORIES,
-            DEFAULT_INSTANCE_MEMORY_PAGES,
-            DEFAULT_INSTANCE_TABLES,
-            DEFAULT_INSTANCE_TABLE_ELEMENTS,
-        );
-
-        config
+        Self { inner }
     }
 }
 

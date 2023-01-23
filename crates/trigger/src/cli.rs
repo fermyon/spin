@@ -56,16 +56,16 @@ where
     )]
     pub cache: Option<PathBuf>,
 
-    /// Disable Wasmtime's pooling instance allocator.
+    /// Enable Wasmtime's pooling instance allocator.
     #[cfg(not(target_os = "windows"))]
-    #[clap(long = "disable-pooling")]
-    pub disable_pooling: bool,
+    #[clap(long = "enable-pooling")]
+    pub enable_pooling: bool,
 
     /// Maximum number of memories each instance can use.
     #[cfg(not(target_os = "windows"))]
     #[clap(
         long = "pooling-max-memories",
-        conflicts_with = "disable-pooling",
+        requires = "enable-pooling",
         default_value_t = spin_core::DEFAULT_INSTANCE_MEMORIES,
     )]
     pub max_memories: u32,
@@ -74,7 +74,7 @@ where
     #[cfg(not(target_os = "windows"))]
     #[clap(
         long = "pooling-max-memory-pages",
-        conflicts_with = "disable-pooling",
+        requires = "enable-pooling",
         default_value_t = spin_core::DEFAULT_INSTANCE_MEMORY_PAGES,
     )]
     pub max_memory_pages: u64,
@@ -83,7 +83,7 @@ where
     #[cfg(not(target_os = "windows"))]
     #[clap(
         long = "pooling-max-tables",
-        conflicts_with = "disable-pooling",
+        requires = "enable-pooling",
         default_value_t = spin_core::DEFAULT_INSTANCE_TABLES,
     )]
     pub max_tables: u32,
@@ -92,7 +92,7 @@ where
     #[cfg(not(target_os = "windows"))]
     #[clap(
         long = "pooling-max-table-entries",
-        conflicts_with = "disable-pooling",
+        requires = "enable-pooling",
         default_value_t = spin_core::DEFAULT_INSTANCE_TABLE_ELEMENTS,
     )]
     pub max_table_entries: u32,
@@ -210,15 +210,15 @@ where
         }
 
         #[cfg(not(target_os = "windows"))]
-        if self.disable_pooling {
-            config.disable_pooling();
-        } else {
+        if self.enable_pooling {
             config.enable_pooling(
                 self.max_memories,
                 self.max_memory_pages,
                 self.max_tables,
                 self.max_table_entries,
             );
+        } else {
+            config.disable_pooling();
         }
 
         Ok(())

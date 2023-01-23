@@ -141,7 +141,7 @@ fn inner_check_supported_version(
             eprintln!("Plugin is not compatible with this version of Spin (supported: {supported_on}, actual: {spin_version}). Check overridden ... continuing to install or execute plugin.");
         } else {
             return Err(anyhow!(
-            "Plugin is not compatible with this version of Spin (supported: {supported_on}, actual: {spin_version}). Try running `spin plugin update && spin plugin upgrade --all` to install latest or override with `--override-compatibility-check`."
+            "Plugin is not compatible with this version of Spin (supported: {supported_on}, actual: {spin_version}). Try running `spin plugins update && spin plugins upgrade --all` to install latest or override with `--override-compatibility-check`."
         ));
         }
     }

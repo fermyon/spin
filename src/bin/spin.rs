@@ -53,8 +53,8 @@ enum SpinApp {
     Deploy(DeployCommand),
     Build(BuildCommand),
     Login(LoginCommand),
-    #[clap(subcommand, alias = "plugins")]
-    Plugin(PluginCommands),
+    #[clap(subcommand, alias = "plugin")]
+    Plugins(PluginCommands),
     #[clap(subcommand, hide = true)]
     Trigger(TriggerCommands),
     #[clap(external_subcommand)]
@@ -81,7 +81,7 @@ impl SpinApp {
             Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run().await,
             Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run().await,
             Self::Login(cmd) => cmd.run().await,
-            Self::Plugin(cmd) => cmd.run().await,
+            Self::Plugins(cmd) => cmd.run().await,
             Self::External(cmd) => execute_external_subcommand(cmd, SpinApp::command()).await,
         }
     }

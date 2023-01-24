@@ -1,0 +1,17 @@
+[package]
+name = "timer-app-example"
+authors = ["itowlson <ivan.towlson@fermyon.com>"]
+description = ""
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = [ "cdylib" ]
+
+[dependencies]
+anyhow = "1"
+bytes = "1"
+spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v0.7.0" }
+wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }
+
+[workspace]

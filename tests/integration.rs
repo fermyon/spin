@@ -1201,7 +1201,7 @@ route = "/..."
         // Install plugin
         let install_args = vec![
             SPIN_BINARY,
-            "plugin",
+            "plugins",
             "install",
             "--file",
             manifest_file_path.to_str().unwrap(),
@@ -1227,7 +1227,7 @@ route = "/..."
         )?;
         let upgrade_args = vec![
             SPIN_BINARY,
-            "plugin",
+            "plugins",
             "upgrade",
             "example",
             "--file",
@@ -1248,7 +1248,7 @@ route = "/..."
         assert!(manifest.contains("0.2.1"));
 
         // Uninstall plugin
-        let uninstall_args = vec![SPIN_BINARY, "plugin", "uninstall", "example"];
+        let uninstall_args = vec![SPIN_BINARY, "plugins", "uninstall", "example"];
         run(uninstall_args, None, None)?;
         Ok(())
     }

@@ -63,17 +63,15 @@ func toSpinHeaders(hm http.Header) C.spin_http_headers_t {
 
 	if headersLen > 0 {
 		reqHeaders.len = C.ulong(headersLen)
-		var x C.spin_http_string_t
-		headersPtr := C.malloc(C.size_t(headersLen) * C.size_t(unsafe.Sizeof(x)))
-		ptr := (*[1 << 30]C.spin_http_tuple2_string_string_t)(unsafe.Pointer(&headersPtr))[:headersLen:headersLen]
+		var x C.spin_http_tuple2_string_string_t
+		reqHeaders.ptr = (*C.spin_http_tuple2_string_string_t)(C.malloc(C.size_t(headersLen) * C.size_t(unsafe.Sizeof(x))))
+		headers := unsafe.Slice(reqHeaders.ptr, headersLen)
 
 		idx := 0
 		for k, v := range hm {
-			ptr[idx] = newSpinHeader(k, v[0])
+			headers[idx] = newSpinHeader(k, v[0])
 			idx++
 		}
-
-		reqHeaders.ptr = &ptr[0]
 	}
 	return reqHeaders
 }
@@ -93,9 +91,12 @@ func toSpinBody(body io.Reader) (C.spin_http_option_body_t, error) {
 	}
 
 	if len > 0 {
+		bodyPtr := (*C.uint8_t)(C.malloc(C.size_t(len)))
+		copy(unsafe.Slice(bodyPtr, len), buf.Bytes())
+
 		spinBody.is_some = true
 		spinBody.val = C.spin_http_body_t{
-			ptr: &buf.Bytes()[0],
+			ptr: bodyPtr,
 			len: C.size_t(len),
 		}
 	}

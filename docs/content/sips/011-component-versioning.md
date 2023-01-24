@@ -17,7 +17,7 @@ Note that when we say "SDK" in this document, we mean either one of the official
 
 ## Proposal
 
-Although `WIT` does not yet have a way to express API versions, we can emulate it by introducing a new interface called `spin-version.wit` containing a single function to be exported by the guest component:
+Although `WIT` does not yet have a way to express API versions, we can emulate it by introducing a new interface called `spin-sdk-version.wit` containing a single function to be exported by the guest component:
 
 ```
 record version-details {
@@ -25,7 +25,7 @@ record version-details {
   sdk-language: string
 }
 
-spin-version-$MAJOR-$MINOR: func() -> version-details
+spin-sdk-version-$MAJOR-$MINOR: func() -> version-details
 ```
 
 where `$MAJOR` and `$MINOR` are the Spin major and minor version numbers the SDK targets. The intention behind embedding these numbers in the name of the function is that it can be checked statically without instantiating or running the component, and it is immune to ABI changes.  The `version-details` record provides additional details about the SDK used to build the component.  Getting that information requires actually running the component, which may not be possible if the host does not support the ABI for that version, so it won't be useful in all scenarios.  (TODO: should we just encode everything in the name?)

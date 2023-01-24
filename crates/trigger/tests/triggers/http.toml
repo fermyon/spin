@@ -1,0 +1,26 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A dummy manifest for testing parsing."
+name = "spin-hello-world"
+trigger = {type = "http", base = "/test"}
+version = "1.0.0"
+
+[variables]
+object = { default = "teapot" }
+
+[[component]]
+id = "http-spin"
+source = "dummy.wasm.txt"
+[component.trigger]
+route = "/hello/..."
+[component.config]
+message = "I'm a {{object}}"
+
+[[component]]
+id = "http-wagi"
+source = "dummy.wasm.txt"
+[component.trigger]
+route = "/waggy/..."
+executor =  { type = "wagi" }
+[component.config]
+message = "I'm a {{object}}"

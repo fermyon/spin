@@ -102,6 +102,12 @@ impl LockedAppBuilder {
                         trigger_type = "redis";
                         builder.string("channel", channel);
                     },
+                    (ApplicationTrigger::External(c), TriggerConfig::External(t)) => {
+                        trigger_type = c.trigger_type();
+                        for (key, value) in &t {
+                            builder.serializable(key, value)?;
+                        }
+                    },
                     (app_config, trigger_config) => bail!("Mismatched app and component trigger configs: {app_config:?} vs {trigger_config:?}")
                 }
 
@@ -231,11 +237,12 @@ mod tests {
 
     async fn test_app() -> (Application, TempDir) {
         let tempdir = TempDir::new().expect("tempdir");
-        std::env::set_current_dir(tempdir.path()).unwrap();
-        std::fs::write("spin.toml", TEST_MANIFEST).expect("write manifest");
-        std::fs::write("test-source.wasm", "not actual wasm").expect("write source");
-        std::fs::write("static.txt", "content").expect("write static");
-        let app = spin_loader::local::from_file("spin.toml", Some(&tempdir), &None)
+        let dir = tempdir.path();
+
+        std::fs::write(dir.join("spin.toml"), TEST_MANIFEST).expect("write manifest");
+        std::fs::write(dir.join("test-source.wasm"), "not actual wasm").expect("write source");
+        std::fs::write(dir.join("static.txt"), "content").expect("write static");
+        let app = spin_loader::local::from_file(dir.join("spin.toml"), Some(&tempdir), &None)
             .await
             .expect("load app");
         (app, tempdir)
@@ -254,5 +261,78 @@ mod tests {
         assert!(source.ends_with("test-source.wasm"));
         let mount = component.files[0].content.source.as_deref().unwrap();
         assert!(mount.ends_with('/'));
+    }
+
+    #[tokio::test]
+    async fn lock_preserves_built_in_trigger_settings() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dir = temp_dir.path();
+
+        let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/triggers");
+        let app = spin_loader::from_file(base_dir.join("http.toml"), Some(dir), &None)
+            .await
+            .unwrap();
+        let locked = build_locked_app(app, dir).unwrap();
+
+        assert_eq!("http", locked.metadata["trigger"]["type"]);
+        assert_eq!("/test", locked.metadata["trigger"]["base"]);
+
+        let tspin = locked
+            .triggers
+            .iter()
+            .find(|t| t.id == "trigger--http-spin")
+            .unwrap();
+        assert_eq!("http", tspin.trigger_type);
+        assert_eq!("http-spin", tspin.trigger_config["component"]);
+        assert_eq!("/hello/...", tspin.trigger_config["route"]);
+
+        let twagi = locked
+            .triggers
+            .iter()
+            .find(|t| t.id == "trigger--http-wagi")
+            .unwrap();
+        assert_eq!("http", twagi.trigger_type);
+        assert_eq!("http-wagi", twagi.trigger_config["component"]);
+        assert_eq!("/waggy/...", twagi.trigger_config["route"]);
+    }
+
+    #[tokio::test]
+    async fn lock_preserves_unknown_trigger_settings() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dir = temp_dir.path();
+
+        let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/triggers");
+        let app = spin_loader::from_file(base_dir.join("pounce.toml"), Some(dir), &None)
+            .await
+            .unwrap();
+        let locked = build_locked_app(app, dir).unwrap();
+
+        assert_eq!("pounce", locked.metadata["trigger"]["type"]);
+        assert_eq!("hobbes", locked.metadata["trigger"]["attacker"]);
+        assert_eq!(1, locked.metadata["trigger"]["attackers-age"]);
+
+        // Distinct settings make it across okay
+        let t1 = locked
+            .triggers
+            .iter()
+            .find(|t| t.id == "trigger--conf1")
+            .unwrap();
+        assert_eq!("pounce", t1.trigger_type);
+        assert_eq!("conf1", t1.trigger_config["component"]);
+        assert_eq!("MY KNEES", t1.trigger_config["on"]);
+        assert_eq!(7, t1.trigger_config["sharpness"]);
+
+        // Settings that could be mistaken for built-in make is across okay
+        let t2 = locked
+            .triggers
+            .iter()
+            .find(|t| t.id == "trigger--conf2")
+            .unwrap();
+        assert_eq!("pounce", t2.trigger_type);
+        assert_eq!("conf2", t2.trigger_config["component"]);
+        assert_eq!(
+            "over the cat tree and out of the sun",
+            t2.trigger_config["route"]
+        );
     }
 }

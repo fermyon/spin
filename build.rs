@@ -67,7 +67,7 @@ error: the `wasm32-wasi` target is not installed
         "crates/http/benches/spin-http-benchmark",
     );
     build_wasm_test_program("wagi-benchmark.wasm", "crates/http/benches/wagi-benchmark");
-    build_wasm_test_program("echo.wasm", "examples/spin-timer/example");
+    build_wasm_test_program("timer_app_example.wasm", "examples/spin-timer/app-example");
 
     cargo_build(RUST_HTTP_INTEGRATION_TEST);
     cargo_build(RUST_HTTP_INTEGRATION_ENV_TEST);

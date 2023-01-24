@@ -11,26 +11,37 @@ use std::{collections::HashMap, path::PathBuf};
 use crate::common::RawVariable;
 
 /// Container for any version of the manifest.
+pub type RawAppManifestAnyVersion = RawAppManifestAnyVersionImpl<TriggerConfig>;
+/// Application configuration local file format.
+/// This is the main structure spin.toml deserializes into.
+pub type RawAppManifest = RawAppManifestImpl<TriggerConfig>;
+/// Core component configuration.
+pub type RawComponentManifest = RawComponentManifestImpl<TriggerConfig>;
+
+pub(crate) type RawAppManifestAnyVersionPartial = RawAppManifestAnyVersionImpl<toml::Value>;
+pub(crate) type RawComponentManifestPartial = RawComponentManifestImpl<toml::Value>;
+
+/// Container for any version of the manifest.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "spin_version")]
-pub enum RawAppManifestAnyVersion {
+pub enum RawAppManifestAnyVersionImpl<C> {
     /// A manifest with API version 1.
     #[serde(rename = "1")]
-    V1(RawAppManifest),
+    V1(RawAppManifestImpl<C>),
 }
 
 /// Application configuration local file format.
 /// This is the main structure spin.toml deserializes into.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
-pub struct RawAppManifest {
+pub struct RawAppManifestImpl<C> {
     /// General application information.
     #[serde(flatten)]
     pub info: RawAppInformation,
 
     /// Configuration for the application components.
     #[serde(rename = "component")]
-    pub components: Vec<RawComponentManifest>,
+    pub components: Vec<RawComponentManifestImpl<C>>,
 
     /// Application-specific configuration schema.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
@@ -58,7 +69,7 @@ pub struct RawAppInformation {
 /// Core component configuration.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
-pub struct RawComponentManifest {
+pub struct RawComponentManifestImpl<C> {
     /// The module source.
     pub source: RawModuleSource,
     /// ID of the component. Used at runtime to select between
@@ -70,7 +81,7 @@ pub struct RawComponentManifest {
     #[serde(flatten)]
     pub wasm: RawWasmConfig,
     /// Trigger configuration.
-    pub trigger: TriggerConfig,
+    pub trigger: C,
     /// Build configuration for the component.
     pub build: Option<RawBuildConfig>,
     /// Component-specific configuration values.

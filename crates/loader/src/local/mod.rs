@@ -11,6 +11,7 @@ pub mod config;
 mod tests;
 
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -22,15 +23,16 @@ use outbound_http::allowed_http_hosts::validate_allowed_http_hosts;
 use path_absolutize::Absolutize;
 use reqwest::Url;
 use spin_manifest::{
-    Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
-    SpinVersion, WasmConfig,
+    Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
+    HttpConfig, ModuleSource, RedisConfig, SpinVersion, TriggerConfig, WasmConfig,
 };
 use tokio::{fs::File, io::AsyncReadExt};
 
 use crate::{bindle::BindleConnectionInfo, digest::bytes_sha256_string};
-use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawComponentManifest};
-
-use self::config::FileComponentUrlSource;
+use config::{
+    FileComponentUrlSource, RawAppInformation, RawAppManifest, RawAppManifestAnyVersion,
+    RawAppManifestAnyVersionPartial, RawComponentManifest, RawComponentManifestPartial,
+};
 
 /// Given the path to a spin.toml manifest file, prepare its assets locally and
 /// get a prepared application configuration consumable by a Spin execution context.
@@ -58,10 +60,15 @@ pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppMani
         .await
         .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
 
-    let manifest: RawAppManifestAnyVersion = toml::from_slice(&buf)
+    let manifest: RawAppManifestAnyVersion = raw_manifest_from_slice(&buf)
         .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
 
     Ok(manifest)
+}
+
+fn raw_manifest_from_slice(buf: &[u8]) -> Result<RawAppManifestAnyVersion> {
+    let partially_parsed = toml::from_slice(buf)?;
+    resolve_partials(partially_parsed)
 }
 
 /// Returns the absolute path to directory containing the file
@@ -361,6 +368,70 @@ impl ComponentDigest {
     }
 }
 
+/// The parsing of a `component.trigger` table depends on the application trigger type.
+/// But serde doesn't allow us to express that dependency through attributes.  In lieu
+/// of writing a custom Deserialize implementation for the whole manifest, we instead
+/// leave `component.trigger` initially unparsed, then once we have the rest of the
+/// manifest loaded, we go back and parse it into the correct enum case - we basically
+/// clone the partially-parsed manifest but changing the type of `component.trigger`
+/// (which is why this can't be a straight clone).  The next few functions accomplish
+/// this.
+///
+/// (The reason we can't continue using an untagged enum is that an external trigger
+/// might have a setting called `route` which would make serde parse it as a
+/// TriggerConfig::Http.  There are other ways around this, e.g. the trigger match
+/// checker could see External/Http and transform the typed config back to a HashMap -
+/// I went this way to avoid having to know about individual types but it has its
+/// own downsides for sure.)
+fn resolve_partials(
+    partially_parsed: RawAppManifestAnyVersionPartial,
+) -> Result<RawAppManifestAnyVersion> {
+    let RawAppManifestAnyVersionPartial::V1(manifest) = partially_parsed;
+
+    let app_trigger = &manifest.info.trigger;
+    let components = manifest
+        .components
+        .into_iter()
+        .map(|c| resolve_partial_component(app_trigger, c))
+        .collect::<Result<_>>()?;
+
+    Ok(RawAppManifestAnyVersion::V1(RawAppManifest {
+        info: manifest.info,
+        components,
+        variables: manifest.variables,
+    }))
+}
+
+fn resolve_partial_component(
+    app_trigger: &ApplicationTrigger,
+    partial: RawComponentManifestPartial,
+) -> Result<RawComponentManifest> {
+    let trigger = resolve_trigger(app_trigger, partial.trigger)?;
+
+    Ok(RawComponentManifest {
+        id: partial.id,
+        source: partial.source,
+        description: partial.description,
+        wasm: partial.wasm,
+        trigger,
+        build: partial.build,
+        config: partial.config,
+    })
+}
+
+fn resolve_trigger(
+    app_trigger: &ApplicationTrigger,
+    partial: toml::Value,
+) -> Result<TriggerConfig> {
+    use serde::Deserialize;
+    let tc = match app_trigger {
+        ApplicationTrigger::Http(_) => TriggerConfig::Http(HttpConfig::deserialize(partial)?),
+        ApplicationTrigger::Redis(_) => TriggerConfig::Redis(RedisConfig::deserialize(partial)?),
+        ApplicationTrigger::External(_) => TriggerConfig::External(HashMap::deserialize(partial)?),
+    };
+    Ok(tc)
+}
+
 /// Converts the raw application information from the spin.toml manifest to the standard configuration.
 fn info(raw: RawAppInformation, src: impl AsRef<Path>) -> ApplicationInformation {
     ApplicationInformation {
@@ -372,5 +443,82 @@ fn info(raw: RawAppInformation, src: impl AsRef<Path>) -> ApplicationInformation
         trigger: raw.trigger,
         namespace: raw.namespace,
         origin: ApplicationOrigin::File(src.as_ref().to_path_buf()),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn load_test_manifest(app_trigger: &str, comp_trigger: &str) -> RawAppManifestAnyVersion {
+        let manifest_toml = format!(
+            r#"
+spin_version = "1"
+name = "test"
+trigger = {app_trigger}
+version = "0.0.1"
+
+[[component]]
+id = "test"
+source = "nonexistent.wasm"
+[component.trigger]
+{comp_trigger}
+"#
+        );
+
+        let manifest = raw_manifest_from_slice(manifest_toml.as_bytes()).unwrap();
+        validate_raw_app_manifest(&manifest).unwrap();
+
+        manifest
+    }
+
+    #[test]
+    fn can_parse_http_trigger() {
+        let m = load_test_manifest(r#"{ type = "http", base = "/" }"#, r#"route = "/...""#);
+
+        let RawAppManifestAnyVersion::V1(m1) = m;
+        let t = &m1.info.trigger;
+        let ct = &m1.components[0].trigger;
+        assert!(matches!(t, ApplicationTrigger::Http(_)));
+        assert!(matches!(ct, TriggerConfig::Http(_)));
+    }
+
+    #[test]
+    fn can_parse_redis_trigger() {
+        let m = load_test_manifest(
+            r#"{ type = "redis", address = "dummy" }"#,
+            r#"channel = "chan""#,
+        );
+
+        let RawAppManifestAnyVersion::V1(m1) = m;
+        let t = m1.info.trigger;
+        let ct = &m1.components[0].trigger;
+        assert!(matches!(t, ApplicationTrigger::Redis(_)));
+        assert!(matches!(ct, TriggerConfig::Redis(_)));
+    }
+
+    #[test]
+    fn can_parse_unknown_trigger() {
+        let m = load_test_manifest(r#"{ type = "pounce" }"#, r#"on = "MY KNEES""#);
+
+        let RawAppManifestAnyVersion::V1(m1) = m;
+        let t = m1.info.trigger;
+        let ct = &m1.components[0].trigger;
+        assert!(matches!(t, ApplicationTrigger::External(_)));
+        assert!(matches!(ct, TriggerConfig::External(_)));
+    }
+
+    #[test]
+    fn external_triggers_can_have_same_config_keys_as_builtins() {
+        let m = load_test_manifest(
+            r#"{ type = "pounce" }"#,
+            r#"route = "over the cat tree and out of the sun""#,
+        );
+
+        let RawAppManifestAnyVersion::V1(m1) = m;
+        let t = m1.info.trigger;
+        let ct = &m1.components[0].trigger;
+        assert!(matches!(t, ApplicationTrigger::External(_)));
+        assert!(matches!(ct, TriggerConfig::External(_)));
     }
 }

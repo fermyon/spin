@@ -1,0 +1,19 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A dummy manifest for testing parsing."
+name = "spin-hello-world"
+trigger = {type = "pounce", attacker = "hobbes", attackers-age = 1}
+version = "1.0.0"
+
+[[component]]
+id = "conf1"
+source = "dummy.wasm.txt"
+[component.trigger]
+on = "MY KNEES"
+sharpness = 7
+
+[[component]]
+id = "conf2"
+source = "dummy.wasm.txt"
+[component.trigger]
+route = "over the cat tree and out of the sun"

@@ -1,0 +1,16 @@
+{
+    "name": "trigger-timer",
+    "description": "IT IS I THE GREAT OZ",
+    "homepage": "www.example.com",
+    "version": "0.1.0",
+    "spinCompatibility": ">=0.7",
+    "license": "Apache-2.0",
+    "packages": [
+        {
+            "os": "linux",
+            "arch": "amd64",
+            "url": "file:///path/to/spin/examples/spin-timer/trigger-timer.tar.gz",
+            "sha256": "d69b31a8a91a9abb5f152899d23439e8ea072df30f487f895eefb4df7821dd9e"
+        }
+    ]
+}

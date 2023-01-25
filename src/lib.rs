@@ -1,6 +1,8 @@
+pub mod args;
 pub mod commands;
 pub(crate) mod opts;
 mod sloth;
+pub mod dispatch;
 
 use anyhow::{anyhow, Result};
 use semver::BuildMetadata;
@@ -8,7 +10,7 @@ use spin_publish::bindle::PublishError;
 use std::path::Path;
 
 pub use crate::opts::HELP_ARGS_ONLY_TRIGGER_TYPE;
-
+pub use crate::dispatch::macros;
 pub(crate) fn push_all_failed_msg(path: &Path, server_url: &str) -> String {
     format!(
         "Failed to push bindle from '{}' to the server at '{}'",

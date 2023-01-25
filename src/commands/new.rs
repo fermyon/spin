@@ -12,7 +12,10 @@ use tokio;
 use spin_loader::local::absolutize;
 use spin_templates::{RunOptions, Template, TemplateManager, TemplateVariantInfo};
 
-use crate::opts::{APP_CONFIG_FILE_OPT, DEFAULT_MANIFEST_FILE};
+use crate::{opts::{APP_CONFIG_FILE_OPT, DEFAULT_MANIFEST_FILE}, dispatch::Dispatch};
+
+use crate::dispatch::Runner;
+use async_trait::async_trait;
 
 /// Scaffold a new application based on a template.
 #[derive(Parser, Debug)]
@@ -21,62 +24,65 @@ pub struct TemplateNewCommandCore {
     pub template_id: Option<String>,
 
     /// The name of the new application or component.
-    #[clap(value_parser = validate_name)]
+    #[arg(value_parser = validate_name)]
     pub name: Option<String>,
 
     /// The directory in which to create the new application or component.
     /// The default is the name argument.
-    #[clap(short = 'o', long = "output")]
+    #[arg(short, long = "output")]
     pub output_path: Option<PathBuf>,
 
     /// Parameter values to be passed to the template (in name=value format).
-    #[clap(short = 'v', long = "value", multiple_occurrences = true)]
+    #[arg(short, long = "value")]
     pub values: Vec<ParameterValue>,
 
     /// A TOML file which contains parameter values in name = "value" format.
     /// Parameters passed as CLI option overwrite parameters specified in the
     /// file.
-    #[clap(long = "values-file")]
+    #[arg(long)]
     pub values_file: Option<PathBuf>,
 
     /// An optional argument that allows to skip prompts for the manifest file
     /// by accepting the defaults if available on the template
-    #[clap(long = "accept-defaults", takes_value = false)]
+    #[arg(long)]
     pub accept_defaults: bool,
 }
 
 /// Scaffold a new application based on a template.
 #[derive(Parser, Debug)]
 pub struct NewCommand {
-    #[clap(flatten)]
+    #[command(flatten)]
     options: TemplateNewCommandCore,
 }
 
 /// Scaffold a new component into an existing application.
 #[derive(Parser, Debug)]
 pub struct AddCommand {
-    #[clap(flatten)]
+    #[command(flatten)]
     options: TemplateNewCommandCore,
 
     /// Path to spin.toml.
-    #[clap(
-        name = APP_CONFIG_FILE_OPT,
+    #[arg(
         short = 'f',
         long = "file",
+        id = APP_CONFIG_FILE_OPT,
     )]
     pub app: Option<PathBuf>,
 }
 
-impl NewCommand {
-    pub async fn run(&self) -> Result<()> {
+#[async_trait(?Send)]
+impl Dispatch for NewCommand {
+    async fn run(&self) -> Result<()> {
         self.options.run(TemplateVariantInfo::NewApplication).await
     }
 }
 
-impl AddCommand {
-    pub async fn run(&self) -> Result<()> {
-        let app_file = self
-            .app
+#[async_trait(?Send)]
+impl Dispatch for AddCommand {
+    async fn run(&self) -> Result<()> {
+        let Self { app, options } = self;
+
+        let app_file = app
             .as_deref()
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
         let manifest_path = app_file
@@ -94,9 +100,7 @@ impl AddCommand {
                 manifest_path.display()
             );
         }
-        self.options
-            .run(TemplateVariantInfo::AddComponent { manifest_path })
-            .await
+        options.run(TemplateVariantInfo::AddComponent { manifest_path }).await
     }
 }
 
@@ -157,7 +161,7 @@ impl TemplateNewCommandCore {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParameterValue {
     pub name: String,
     pub value: String,

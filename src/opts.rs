@@ -1,6 +1,5 @@
 pub const DEFAULT_MANIFEST_FILE: &str = "spin.toml";
 pub const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
-pub const BINDLE_ID_OPT: &str = "BINDLE_ID";
 pub const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
 pub const BINDLE_URL_ENV: &str = "BINDLE_URL";
 pub const BINDLE_USERNAME: &str = "BINDLE_USERNAME";
@@ -13,7 +12,6 @@ pub const HIPPO_URL_ENV: &str = "HIPPO_URL";
 pub const HIPPO_USERNAME: &str = "HIPPO_USERNAME";
 pub const HIPPO_PASSWORD: &str = "HIPPO_PASSWORD";
 pub const DEPLOYMENT_ENV_NAME_ENV: &str = "FERMYON_DEPLOYMENT_ENVIRONMENT";
-pub const BUILD_UP_OPT: &str = "UP";
 pub const PLUGIN_NAME_OPT: &str = "PLUGIN_NAME";
 pub const PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT: &str = "REMOTE_PLUGIN_MANIFEST";
 pub const PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT: &str = "LOCAL_PLUGIN_MANIFEST";

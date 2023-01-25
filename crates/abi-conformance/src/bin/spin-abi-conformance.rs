@@ -8,18 +8,18 @@ use std::{
 use wasmtime::{Config, Engine, Module};
 
 #[derive(Parser)]
-#[clap(author, version, about)]
+#[command(author, version, about)]
 pub struct Options {
     /// Name of Wasm file to test (or stdin if not specified)
-    #[clap(short, long)]
+    #[arg(short, long)]
     pub input: Option<PathBuf>,
 
     /// Name of JSON file to write report to (or stdout if not specified)
-    #[clap(short, long)]
+    #[arg(short, long)]
     pub output: Option<PathBuf>,
 
     /// Name of TOML configuration file to use
-    #[clap(short, long)]
+    #[arg(short, long)]
     pub config: Option<PathBuf>,
 }
 

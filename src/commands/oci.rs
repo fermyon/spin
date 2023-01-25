@@ -1,15 +1,17 @@
 use anyhow::{bail, Context, Result};
+use async_trait::async_trait;
 use clap::{Parser, Subcommand};
 use reqwest::Url;
 use spin_app::locked::LockedApp;
 use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_WORKING_DIR};
-
 use std::{
     ffi::OsString,
     path::{Path, PathBuf},
 };
 
-use crate::opts::*;
+use crate::{opts::*, dispatch::Dispatch};
+
+use crate::dispatch::Runner;
 
 /// Commands for working with OCI registries to distribute applications.
 /// The set of commands for OCI is EXPERIMENTAL, and may change in future versions of Spin.
@@ -25,8 +27,9 @@ pub enum OciCommands {
     Run(Run),
 }
 
-impl OciCommands {
-    pub async fn run(self) -> Result<()> {
+#[async_trait(?Send)]
+impl Dispatch for OciCommands {
+    async fn run(&self) -> Result<()> {
         match self {
             OciCommands::Push(cmd) => cmd.run().await,
             OciCommands::Pull(cmd) => cmd.run().await,
@@ -49,8 +52,7 @@ pub struct Push {
     #[clap(
         name = INSECURE_OPT,
         short = 'k',
-        long = "insecure",
-        takes_value = false,
+        long = "insecure"
     )]
     pub insecure: bool,
 
@@ -59,8 +61,9 @@ pub struct Push {
     pub reference: String,
 }
 
-impl Push {
-    pub async fn run(self) -> Result<()> {
+#[async_trait(?Send)]
+impl Dispatch for Push {
+    async fn run(&self) -> Result<()> {
         let app_file = self
             .app
             .as_deref()
@@ -78,11 +81,10 @@ impl Push {
 #[derive(Parser, Debug)]
 pub struct Pull {
     /// Ignore server certificate errors
-    #[clap(
-        name = INSECURE_OPT,
+    #[arg(
+        id = INSECURE_OPT,
         short = 'k',
-        long = "insecure",
-        takes_value = false,
+        long = "insecure"
     )]
     pub insecure: bool,
 
@@ -91,9 +93,10 @@ pub struct Pull {
     pub reference: String,
 }
 
-impl Pull {
+#[async_trait(?Send)]
+impl Dispatch for Pull {
     /// Pull a Spin application from an OCI registry
-    pub async fn run(self) -> Result<()> {
+    async fn run(&self) -> Result<()> {
         let mut client = spin_publish::oci::client::Client::new(self.insecure, None).await?;
         client.pull(&self.reference).await?;
 
@@ -104,31 +107,31 @@ impl Pull {
 #[derive(Parser, Debug)]
 pub struct Run {
     /// Connect to the registry endpoint over HTTP, not HTTPS.
-    #[clap(
+    #[arg(
         name = INSECURE_OPT,
         short = 'k',
-        long = "insecure",
-        takes_value = false,
+        long = "insecure"
     )]
     pub insecure: bool,
 
     /// Pass an environment variable (key=value) to all components of the application.
-    #[clap(short = 'e', long = "env", parse(try_from_str = parse_env_var))]
+    #[arg(value_parser = parse_env_var)]
     pub env: Vec<(String, String)>,
 
     /// Reference of the Spin application
-    #[clap()]
+    #[arg()]
     pub reference: String,
 
     /// All other args, to be passed through to the trigger
     ///  TODO: The arguments have to be passed like `-- --follow-all` for now.
-    #[clap(hide = true)]
+    #[arg(hide = true)]
     pub trigger_args: Vec<OsString>,
 }
 
-impl Run {
+#[async_trait(?Send)]
+impl Dispatch for Run {
     /// Run a Spin application from an OCI registry
-    pub async fn run(self) -> Result<()> {
+    async fn run(&self) -> Result<()> {
         let mut client = spin_publish::oci::client::Client::new(self.insecure, None).await?;
         client.pull(&self.reference).await?;
 
@@ -191,7 +194,9 @@ impl Run {
             bail!(status);
         }
     }
+}
 
+impl Run {
     async fn write_locked_app(app: &LockedApp, working_dir: &Path) -> Result<PathBuf> {
         let path = working_dir.join("spin.lock");
         let contents = serde_json::to_vec(&app)?;

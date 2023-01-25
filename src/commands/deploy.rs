@@ -1,5 +1,6 @@
 use anyhow::ensure;
 use anyhow::{anyhow, bail, Context, Result};
+use async_trait::async_trait;
 use bindle::Id;
 use chrono::{DateTime, Utc};
 use clap::Parser;
@@ -29,10 +30,11 @@ use std::path::PathBuf;
 use url::Url;
 use uuid::Uuid;
 
-use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response};
+use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response, dispatch::Dispatch};
 
-use super::login::LoginCommand;
 use super::login::LoginConnection;
+use super::login::LoginCommand;
+use crate::dispatch::Runner;
 
 const SPIN_DEPLOY_CHANNEL_NAME: &str = "spin-deploy";
 
@@ -40,71 +42,72 @@ const BINDLE_REGISTRY_URL_PATH: &str = "api/registry";
 
 /// Package and upload Spin artifacts, notifying Hippo
 #[derive(Parser, Debug)]
-#[clap(about = "Deploy a Spin application")]
+#[command(about = "Deploy a Spin application")]
 pub struct DeployCommand {
     /// Path to spin.toml
-    #[clap(
-        name = APP_CONFIG_FILE_OPT,
+    #[arg(
         short = 'f',
         long = "file",
-        default_value = "spin.toml"
+        default_value = "spin.toml",
+        id = APP_CONFIG_FILE_OPT
     )]
     pub app: PathBuf,
 
     /// Path to assemble the bindle before pushing (defaults to
     /// a temporary directory)
-    #[clap(
-        name = STAGING_DIR_OPT,
-        long = "staging-dir",
+    #[arg(
         short = 'd',
+        long,
+        id = STAGING_DIR_OPT,
     )]
     pub staging_dir: Option<PathBuf>,
 
     /// Disable attaching buildinfo
-    #[clap(
-        long = "no-buildinfo",
+    #[arg(
+        long,
         conflicts_with = BUILDINFO_OPT,
         env = "SPIN_DEPLOY_NO_BUILDINFO"
     )]
     pub no_buildinfo: bool,
 
     /// Build metadata to append to the bindle version
-    #[clap(
-        name = BUILDINFO_OPT,
-        long = "buildinfo",
-        parse(try_from_str = parse_buildinfo),
+    #[arg(
+        long,
+        id = BUILDINFO_OPT,
+        value_parser = parse_buildinfo,
     )]
     pub buildinfo: Option<BuildMetadata>,
 
     /// Deploy existing bindle if it already exists on bindle server
-    #[clap(short = 'e', long = "deploy-existing-bindle")]
+    #[arg(short = 'e', long = "deploy-existing-bindle")]
     pub redeploy: bool,
 
     /// How long in seconds to wait for a deployed HTTP application to become
     /// ready. The default is 60 seconds. Set it to 0 to skip waiting
     /// for readiness.
-    #[clap(long = "readiness-timeout", default_value = "60")]
+    #[arg(long = "readiness-timeout", default_value = "60")]
     pub readiness_timeout_secs: u16,
 
     /// Deploy to the Fermyon instance saved under the specified name.
     /// If omitted, Spin deploys to the default unnamed instance.
-    #[clap(
-        name = "environment-name",
+    #[arg(
+        id = "environment-name",
         long = "environment-name",
         env = DEPLOYMENT_ENV_NAME_ENV
     )]
     pub deployment_env_id: Option<String>,
 }
 
-impl DeployCommand {
-    pub async fn run(self) -> Result<()> {
+#[async_trait(?Send)]
+impl Dispatch for DeployCommand {
+    async fn run(&self) -> Result<()> {
         let path = self.config_file_path()?;
 
         // log in if config.json does not exist or cannot be read
         let data = match fs::read_to_string(path.clone()).await {
             Ok(d) => d,
             Err(e) if e.kind() == io::ErrorKind::NotFound => {
-                match self.deployment_env_id {
+                match &self.deployment_env_id {
                     Some(name) => {
                         // TODO: allow auto redirect to login preserving the name
                         eprintln!("You have no instance saved as '{}'", name);
@@ -130,7 +133,7 @@ impl DeployCommand {
         let now: DateTime<Utc> = Utc::now();
         if now > expiration_date {
             // session has expired - log back in
-            match self.deployment_env_id {
+            match &self.deployment_env_id {
                 Some(name) => {
                     // TODO: allow auto redirect to login preserving the name
                     eprintln!("Your login to this environment has expired");
@@ -168,7 +171,8 @@ impl DeployCommand {
                 .map_err(|e| anyhow!("{:?}\n\nLearn more at {}", e, DEVELOPER_CLOUD_FAQ))
         }
     }
-
+}
+impl DeployCommand {
     // TODO: unify with login
     fn config_file_path(&self) -> Result<PathBuf> {
         let root = dirs::config_dir()
@@ -186,7 +190,7 @@ impl DeployCommand {
         Ok(path)
     }
 
-    async fn deploy_hippo(self, login_connection: LoginConnection) -> Result<()> {
+    async fn deploy_hippo(&self, login_connection: LoginConnection) -> Result<()> {
         let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
         let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
 
@@ -305,7 +309,7 @@ impl DeployCommand {
         Ok(())
     }
 
-    async fn deploy_cloud(self, login_connection: LoginConnection) -> Result<()> {
+    async fn deploy_cloud(&self, login_connection: LoginConnection) -> Result<()> {
         let connection_config = ConnectionConfig {
             url: login_connection.url.to_string(),
             insecure: login_connection.danger_accept_invalid_certs,
@@ -632,7 +636,6 @@ impl DeployCommand {
         }
     }
 }
-
 fn random_buildinfo() -> BuildMetadata {
     let random_bytes: [u8; 4] = rand::thread_rng().gen();
     let random_hex: String = random_bytes.iter().map(|b| format!("{:x}", b)).collect();

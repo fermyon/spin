@@ -9,6 +9,9 @@ pub mod deploy;
 /// Commands for external subcommands (i.e. plugins)
 pub mod external;
 // Command for logging into the server
+#[cfg(feature = "generate-completions")]
+/// Command for generating completions.
+pub mod generate_completions;
 pub mod login;
 /// Command for creating a new application.
 pub mod new;

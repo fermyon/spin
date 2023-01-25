@@ -1,11 +1,14 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use clap::{Parser, Subcommand};
 use semver::BuildMetadata;
 use spin_loader::bindle::BindleConnectionInfo;
 
-use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response};
+use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response, args::manifest_file::ManifestFile, dispatch::Dispatch};
+
+use crate::dispatch::Runner;
 
 /// Commands for publishing applications as bindles.
 #[derive(Subcommand, Debug)]
@@ -17,8 +20,9 @@ pub enum BindleCommands {
     Push(Push),
 }
 
-impl BindleCommands {
-    pub async fn run(self) -> Result<()> {
+#[async_trait(?Send)]
+impl Dispatch for BindleCommands {
+    async fn run(&self) -> Result<()> {
         match self {
             Self::Prepare(cmd) => cmd.run().await,
             Self::Push(cmd) => cmd.run().await,
@@ -30,26 +34,26 @@ impl BindleCommands {
 #[derive(Parser, Debug)]
 pub struct Prepare {
     /// Path to spin.toml
-    #[clap(
-        name = APP_CONFIG_FILE_OPT,
+    #[arg(
         short = 'f',
         long = "file",
+        id = APP_CONFIG_FILE_OPT
     )]
     pub app: Option<PathBuf>,
 
     /// Build metadata to append to the bindle version
-    #[clap(
-        name = BUILDINFO_OPT,
+    #[arg(
         long = "buildinfo",
-        parse(try_from_str = parse_buildinfo),
+        id = BUILDINFO_OPT,
+        value_parser = parse_buildinfo,
     )]
     pub buildinfo: Option<BuildMetadata>,
 
     /// Path to create standalone bindle.
-    #[clap(
-        name = STAGING_DIR_OPT,
-        long = "staging-dir",
+    #[arg(
         short = 'd',
+        long = "staging-dir",
+        id = STAGING_DIR_OPT
     )]
     pub staging_dir: PathBuf,
 }
@@ -58,75 +62,72 @@ pub struct Prepare {
 #[derive(Parser, Debug)]
 pub struct Push {
     /// Path to spin.toml
-    #[clap(
-        name = APP_CONFIG_FILE_OPT,
-        short = 'f',
-        long = "file",
-    )]
-    pub app: Option<PathBuf>,
+    #[arg(long, short, default_value_t = Default::default())]
+    pub file: ManifestFile,
 
     /// Build metadata to append to the bindle version
-    #[clap(
-        name = BUILDINFO_OPT,
+    #[arg(
         long = "buildinfo",
-        parse(try_from_str = parse_buildinfo),
+        id = BUILDINFO_OPT,
+        value_parser = parse_buildinfo,
     )]
     pub buildinfo: Option<BuildMetadata>,
 
     /// Path to assemble the bindle before pushing (defaults to
     /// temporary directory).
-    #[clap(
-        name = STAGING_DIR_OPT,
-        long = "staging-dir",
+    #[arg(
         short = 'd',
+        long = "staging-dir",
+        id = STAGING_DIR_OPT
     )]
     pub staging_dir: Option<PathBuf>,
 
     /// URL of bindle server
-    #[clap(
-        name = BINDLE_SERVER_URL_OPT,
+    #[arg(
         long = "bindle-server",
+        id = BINDLE_SERVER_URL_OPT,
         env = BINDLE_URL_ENV,
     )]
     pub bindle_server_url: String,
 
     /// Basic http auth username for the bindle server
-    #[clap(
-        name = BINDLE_USERNAME,
+    #[arg(
         long = "bindle-username",
+        id = BINDLE_USERNAME,
         env = BINDLE_USERNAME,
         requires = BINDLE_PASSWORD
     )]
     pub bindle_username: Option<String>,
 
     /// Basic http auth password for the bindle server
-    #[clap(
-        name = BINDLE_PASSWORD,
+    #[arg(
         long = "bindle-password",
+        id = BINDLE_PASSWORD,
         env = BINDLE_PASSWORD,
         requires = BINDLE_USERNAME
     )]
     pub bindle_password: Option<String>,
 
     /// Ignore server certificate errors
-    #[clap(
-        name = INSECURE_OPT,
+    #[arg(
         short = 'k',
         long = "insecure",
-        takes_value = false,
+        id = INSECURE_OPT,
     )]
     pub insecure: bool,
 }
 
-impl Prepare {
-    pub async fn run(self) -> Result<()> {
+#[async_trait(?Send)]
+impl Dispatch for Prepare {
+    async fn run(&self) -> Result<()> {
         let app_file = self
             .app
             .as_deref()
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
 
         let dest_dir = &self.staging_dir;
-        let bindle_id = spin_publish::bindle::prepare_bindle(app_file, self.buildinfo, dest_dir)
+        let buildinfo = &self.buildinfo;
+        let bindle_id = spin_publish::bindle::prepare_bindle(app_file, buildinfo.clone(), dest_dir)
             .await
             .map_err(crate::wrap_prepare_bindle_error)?;
 
@@ -141,17 +142,15 @@ impl Prepare {
     }
 }
 
-impl Push {
-    pub async fn run(self) -> Result<()> {
-        let app_file = self
-            .app
-            .as_deref()
-            .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
+#[async_trait(?Send)]
+impl Dispatch for Push {
+    async fn run(&self) -> Result<()> {
+        let app_file = self.file.canonicalize()?;
         let bindle_connection_info = BindleConnectionInfo::new(
             &self.bindle_server_url,
             self.insecure,
-            self.bindle_username,
-            self.bindle_password,
+            self.bindle_username.clone(),
+            self.bindle_password.clone(),
         );
 
         // TODO: only create this if not given a staging dir
@@ -162,9 +161,10 @@ impl Push {
             Some(path) => path.as_path(),
         };
 
-        let bindle_id = spin_publish::bindle::prepare_bindle(app_file, self.buildinfo, dest_dir)
-            .await
-            .map_err(crate::wrap_prepare_bindle_error)?;
+        let bindle_id =
+            spin_publish::bindle::prepare_bindle(app_file, self.buildinfo.clone(), dest_dir)
+                .await
+                .map_err(crate::wrap_prepare_bindle_error)?;
 
         let _sloth_warning = warn_if_slow_response(format!(
             "Uploading application to {}",

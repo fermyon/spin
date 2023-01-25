@@ -8,9 +8,9 @@ mod wagi;
 use std::{
     collections::HashMap,
     future::ready,
-    net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs},
     path::PathBuf,
-    sync::Arc,
+    sync::Arc, str::FromStr, fmt::Display,
 };
 
 use anyhow::{Context, Error, Result};
@@ -56,18 +56,71 @@ pub struct HttpTrigger {
     component_trigger_configs: HashMap<String, HttpTriggerConfig>,
 }
 
-#[derive(Args)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+pub struct SocketAddress(SocketAddr);
+
+impl SocketAddress {
+    pub fn new(v4: Ipv4Addr, port: u16) -> Self {
+        Self(SocketAddr::V4(SocketAddrV4::new(v4, port)))
+    }
+}
+
+impl Into<SocketAddr> for SocketAddress {
+    fn into(self) -> SocketAddr {
+        return self.0
+    }
+}
+
+impl ToSocketAddrs for SocketAddress {
+    type Iter = <SocketAddr as ToSocketAddrs>::Iter;
+
+    fn to_socket_addrs(&self) -> std::io::Result<Self::Iter> {
+        self.0.to_socket_addrs()
+    }
+}
+
+
+
+impl Display for SocketAddress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl Default for SocketAddress {
+    fn default() -> Self {
+        Self::new(Ipv4Addr::LOCALHOST, 3000)
+    }
+}
+
+impl FromStr for SocketAddress {
+    type Err = anyhow::Error;
+    fn from_str(addr: &str) -> Result<SocketAddress> {
+        let addrs: Vec<SocketAddr> = addr.to_socket_addrs()?.collect();
+        // Prefer 127.0.0.1 over e.g. [::1] because CHANGE IS HARD
+        if let Some(addr) = addrs
+            .iter()
+            .find(|addr| addr.is_ipv4() && addr.ip() == Ipv4Addr::LOCALHOST)
+        {
+            return Ok(Self(*addr));
+        }
+        // Otherwise, take the first addr (OS preference)
+        addrs.into_iter().next().context("couldn't resolve address").map(Self)
+    }
+}
+
+#[derive(Args, Clone)]
 pub struct CliArgs {
     /// IP address and port to listen on
-    #[clap(long = "listen", default_value = "127.0.0.1:3000", value_parser = parse_listen_addr)]
-    pub address: SocketAddr,
+    #[arg(long = "listen", default_value_t = SocketAddress::default())]
+    pub address: SocketAddress,
 
     /// The path to the certificate to use for https, if this is not set, normal http will be used. The cert should be in PEM format
-    #[clap(long, env = "SPIN_TLS_CERT", requires = "tls-key")]
+    #[arg(long, env = "SPIN_TLS_CERT", requires = "tls_key")]
     pub tls_cert: Option<PathBuf>,
 
     /// The path to the certificate key to use for https, if this is not set, normal http will be used. The key should be in PKCS#8 format
-    #[clap(long, env = "SPIN_TLS_KEY", requires = "tls-cert")]
+    #[arg(long, env = "SPIN_TLS_KEY", requires = "tls_cert")]
     pub tls_key: Option<PathBuf>,
 }
 
@@ -177,11 +230,10 @@ impl TriggerExecutor for HttpTrigger {
         }
 
         if let Some(tls) = tls {
-            self.serve_tls(listen_addr, tls).await?
+            self.serve_tls(listen_addr, tls).await
         } else {
-            self.serve(listen_addr).await?
-        };
-        Ok(())
+            self.serve(listen_addr).await
+        }
     }
 }
 
@@ -293,7 +345,7 @@ impl HttpTrigger {
             .body(Body::empty())?)
     }
 
-    async fn serve(self, listen_addr: SocketAddr) -> Result<()> {
+    async fn serve(self, listen_addr: SocketAddress) -> Result<()> {
         let self_ = Arc::new(self);
         let make_service = make_service_fn(|conn: &AddrStream| {
             let self_ = self_.clone();
@@ -307,14 +359,14 @@ impl HttpTrigger {
             }
         });
 
-        Server::try_bind(&listen_addr)
+        Server::try_bind(&listen_addr.into())
             .with_context(|| format!("Unable to listen on {}", listen_addr))?
             .serve(make_service)
             .await?;
         Ok(())
     }
 
-    async fn serve_tls(self, listen_addr: SocketAddr, tls: TlsConfig) -> Result<()> {
+    async fn serve_tls(self, listen_addr: SocketAddress, tls: TlsConfig) -> Result<()> {
         let self_ = Arc::new(self);
         let make_service = make_service_fn(|conn: &TlsStream<TcpStream>| {
             let self_ = self_.clone();
@@ -340,7 +392,7 @@ impl HttpTrigger {
             }
         });
 
-        let listener = TcpListener::bind(&listen_addr)
+        let listener = TcpListener::bind::<SocketAddr>(listen_addr.into())
             .await
             .with_context(|| format!("Unable to listen on {}", listen_addr))?;
 
@@ -367,19 +419,6 @@ pub struct AppInfo {
     pub version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bindle_version: Option<String>,
-}
-
-fn parse_listen_addr(addr: &str) -> anyhow::Result<SocketAddr> {
-    let addrs: Vec<SocketAddr> = addr.to_socket_addrs()?.collect();
-    // Prefer 127.0.0.1 over e.g. [::1] because CHANGE IS HARD
-    if let Some(addr) = addrs
-        .iter()
-        .find(|addr| addr.is_ipv4() && addr.ip() == Ipv4Addr::LOCALHOST)
-    {
-        return Ok(*addr);
-    }
-    // Otherwise, take the first addr (OS preference)
-    addrs.into_iter().next().context("couldn't resolve address")
 }
 
 fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> Result<()> {
@@ -649,7 +688,7 @@ mod tests {
 
     #[test]
     fn parse_listen_addr_prefers_ipv4() {
-        let addr = parse_listen_addr("localhost:12345").unwrap();
+        let addr = SocketAddr::from_str("localhost:12345").unwrap();
         assert_eq!(addr.ip(), Ipv4Addr::LOCALHOST);
         assert_eq!(addr.port(), 12345);
     }

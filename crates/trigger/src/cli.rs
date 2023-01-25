@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use clap::{Args, IntoApp, Parser};
+use clap::{Args, CommandFactory, Parser};
 use serde::de::DeserializeOwned;
 use tokio::{
     task::JoinHandle,
@@ -11,6 +11,7 @@ use tokio::{
 use crate::{config::TriggerExecutorBuilderConfig, loader::TriggerLoader, stdio::FollowComponents};
 use crate::{loader::OciTriggerLoader, stdio::StdioLoggingTriggerHooks};
 use crate::{TriggerExecutor, TriggerExecutorBuilder};
+use async_trait::async_trait;
 
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
 pub const DISABLE_WASMTIME_CACHE: &str = "DISABLE_WASMTIME_CACHE";
@@ -24,87 +25,91 @@ pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
 
 /// A command that runs a TriggerExecutor.
 #[derive(Parser, Debug)]
-#[clap(next_help_heading = "TRIGGER OPTIONS")]
+#[command(next_help_heading = "TRIGGER OPTIONS")]
 pub struct TriggerExecutorCommand<Executor: TriggerExecutor>
 where
     Executor::RunConfig: Args,
 {
     /// Log directory for the stdout and stderr of components.
-    #[clap(
-            name = APP_LOG_DIR,
-            short = 'L',
-            long = "log-dir",
-            )]
+    #[arg(
+        short = 'L',
+        long = "log-dir",
+        id = APP_LOG_DIR,
+    )]
     pub log: Option<PathBuf>,
 
     /// Disable Wasmtime cache.
-    #[clap(
-        name = DISABLE_WASMTIME_CACHE,
+    #[arg(
         long = "disable-cache",
+        id = DISABLE_WASMTIME_CACHE,
         env = DISABLE_WASMTIME_CACHE,
-        conflicts_with = WASMTIME_CACHE_FILE,
-        takes_value = false,
+        conflicts_with = WASMTIME_CACHE_FILE
     )]
     pub disable_cache: bool,
 
     /// Wasmtime cache configuration file.
-    #[clap(
-        name = WASMTIME_CACHE_FILE,
+    #[arg(
         long = "cache",
+        id = WASMTIME_CACHE_FILE,
         env = WASMTIME_CACHE_FILE,
         conflicts_with = DISABLE_WASMTIME_CACHE,
     )]
     pub cache: Option<PathBuf>,
 
     /// Print output for given component(s) to stdout/stderr
-    #[clap(
-        name = FOLLOW_LOG_OPT,
+    #[arg(
         long = "follow",
-        multiple_occurrences = true,
-        )]
+        id = FOLLOW_LOG_OPT
+    )]
     pub follow_components: Vec<String>,
 
     /// Print all component output to stdout/stderr
-    #[clap(
+    #[arg(
         long = "follow-all",
-        conflicts_with = FOLLOW_LOG_OPT,
-        )]
+        conflicts_with = FOLLOW_LOG_OPT
+    )]
     pub follow_all_components: bool,
 
     /// Set the static assets of the components in the temporary directory as writable.
-    #[clap(long = "allow-transient-write")]
+    #[arg(long)]
     pub allow_transient_write: bool,
 
     /// Configuration file for config providers and wasmtime config.
-    #[clap(
-        name = RUNTIME_CONFIG_FILE,
+    #[arg(
         long = "runtime-config-file",
+        id = RUNTIME_CONFIG_FILE,
         env = RUNTIME_CONFIG_FILE,
     )]
     pub runtime_config_file: Option<PathBuf>,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub run_config: Executor::RunConfig,
 
-    #[clap(long = "help-args-only", hide = true)]
+    #[arg(long, hide = true)]
     pub help_args_only: bool,
 
-    #[clap(long = "oci")]
+    #[arg(long = "oci")]
     pub oci: bool,
 }
 
 /// An empty implementation of clap::Args to be used as TriggerExecutor::RunConfig
 /// for executors that do not need additional CLI args.
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct NoArgs;
 
 impl<Executor: TriggerExecutor> TriggerExecutorCommand<Executor>
 where
-    Executor::RunConfig: Args,
+    Executor::RunConfig: Args + Clone,
     Executor::TriggerConfig: DeserializeOwned,
 {
+    pub async fn help(&self) -> Result<()> {
+        Ok(Self::command()
+                .disable_help_flag(true)
+                .help_template("{all-args}")
+                .print_long_help()?)
+    }
     /// Create a new TriggerExecutorBuilder from this TriggerExecutorCommand.
-    pub async fn run(self) -> Result<()> {
+    pub async fn run(&self) -> Result<()> {
         if self.help_args_only {
             Self::command()
                 .disable_help_flag(true)
@@ -133,7 +138,7 @@ where
                 self.update_wasmtime_config(builder.wasmtime_config_mut())?;
 
                 let logging_hooks =
-                    StdioLoggingTriggerHooks::new(self.follow_components(), self.log);
+                    StdioLoggingTriggerHooks::new(self.follow_components(), self.log.clone());
                 builder.hooks(logging_hooks);
 
                 builder.build(locked_url, trigger_config).await?
@@ -150,14 +155,14 @@ where
                 self.update_wasmtime_config(builder.wasmtime_config_mut())?;
 
                 let logging_hooks =
-                    StdioLoggingTriggerHooks::new(self.follow_components(), self.log);
+                    StdioLoggingTriggerHooks::new(self.follow_components(), self.log.clone());
                 builder.hooks(logging_hooks);
 
                 builder.build(locked_url, trigger_config).await?
             }
         };
 
-        let run_fut = executor.run(self.run_config);
+        let run_fut = executor.run(self.run_config.clone());
 
         let (abortable, abort_handle) = futures::future::abortable(run_fut);
         ctrlc::set_handler(move || abort_handle.abort())?;

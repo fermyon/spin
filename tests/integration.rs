@@ -885,16 +885,24 @@ mod integration_tests {
         ) -> Result<SpinTestController> {
             // start Spin using the given application manifest and wait for the HTTP server to be available.
             let url = format!("127.0.0.1:{}", get_random_port()?);
-            let mut args = vec!["up", "--file", manifest_path, "--listen", &url];
-            args.extend(spin_args);
-            if let Some(b) = bindle_url {
-                args.push("--bindle-server");
-                args.push(b);
-            }
-            for v in spin_app_env {
-                args.push("--env");
-                args.push(v);
-            }
+            let env_args = spin_app_env.iter().flat_map(|e| ["--env", e]).collect();
+
+            let trigger_args = vec!["--file", manifest_path, "--listen", &url];
+
+            let bindle_args = match bindle_url {
+                Some(url) => vec!["--bindle-server", url],
+                None => vec![],
+            };
+
+            let args = vec![
+                vec!["up"],
+                spin_args.to_vec(),
+                bindle_args,
+                env_args,
+                trigger_args,
+            ]
+            .into_iter()
+            .flatten();
 
             let mut spin_handle = Command::new(get_process(SPIN_BINARY))
                 .args(args)
@@ -919,8 +927,8 @@ mod integration_tests {
             env: &[&str],
         ) -> Result<SpinTestController> {
             let url = format!("127.0.0.1:{}", get_random_port()?);
-            let mut args = vec![
-                "up",
+            let env_args = env.iter().flat_map(|e| ["--env", e]).collect();
+            let trigger_args = vec![
                 "--bindle",
                 id,
                 "--bindle-server",
@@ -928,10 +936,10 @@ mod integration_tests {
                 "--listen",
                 &url,
             ];
-            for v in env {
-                args.push("--env");
-                args.push(v);
-            }
+
+            let args = vec![vec!["up"], env_args, trigger_args]
+                .into_iter()
+                .flatten();
 
             let mut spin_handle = Command::new(get_process(SPIN_BINARY))
                 .args(args)

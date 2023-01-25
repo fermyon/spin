@@ -16,12 +16,15 @@ use tokio::fs;
 use tracing::log;
 use url::Url;
 use uuid::Uuid;
+use::async_trait::async_trait;
 
-use crate::opts::{
+use crate::{opts::{
     BINDLE_PASSWORD, BINDLE_SERVER_URL_OPT, BINDLE_URL_ENV, BINDLE_USERNAME,
     DEPLOYMENT_ENV_NAME_ENV, HIPPO_PASSWORD, HIPPO_SERVER_URL_OPT, HIPPO_URL_ENV, HIPPO_USERNAME,
     INSECURE_OPT,
-};
+}, dispatch::Dispatch};
+
+use crate::dispatch::Runner;
 
 // this is the client ID registered in the Cloud's backend
 const SPIN_CLIENT_ID: &str = "583e63e9-461f-4fbe-a246-23e0fb1cad10";
@@ -30,47 +33,46 @@ const DEFAULT_CLOUD_URL: &str = "https://cloud.fermyon.com/";
 
 /// Log into the server
 #[derive(Parser, Debug)]
-#[clap(about = "Log into the server")]
+#[command(about = "Log into the server")]
 pub struct LoginCommand {
     /// URL of bindle server
-    #[clap(
-        name = BINDLE_SERVER_URL_OPT,
+    #[arg(
         long = "bindle-server",
+        id = BINDLE_SERVER_URL_OPT,
         env = BINDLE_URL_ENV,
     )]
     pub bindle_server_url: Option<String>,
 
     /// Basic http auth username for the bindle server
-    #[clap(
-        name = BINDLE_USERNAME,
+    #[arg(
         long = "bindle-username",
+        id = BINDLE_USERNAME,
         env = BINDLE_USERNAME,
         requires = BINDLE_PASSWORD
     )]
     pub bindle_username: Option<String>,
 
     /// Basic http auth password for the bindle server
-    #[clap(
-        name = BINDLE_PASSWORD,
+    #[arg(
         long = "bindle-password",
+        id = BINDLE_PASSWORD,
         env = BINDLE_PASSWORD,
         requires = BINDLE_USERNAME
     )]
     pub bindle_password: Option<String>,
 
     /// Ignore server certificate errors from bindle and hippo
-    #[clap(
-        name = INSECURE_OPT,
+    #[arg(
         short = 'k',
         long = "insecure",
-        takes_value = false,
+        id = INSECURE_OPT
     )]
     pub insecure: bool,
 
     /// URL of hippo server
-    #[clap(
-        name = HIPPO_SERVER_URL_OPT,
+    #[arg(
         long = "url",
+        id = HIPPO_SERVER_URL_OPT,
         env = HIPPO_URL_ENV,
         default_value = DEFAULT_CLOUD_URL,
         value_parser = parse_url,
@@ -78,82 +80,69 @@ pub struct LoginCommand {
     pub hippo_server_url: url::Url,
 
     /// Hippo username
-    #[clap(
-        name = HIPPO_USERNAME,
+    #[arg(
         long = "username",
+        id = HIPPO_USERNAME,
         env = HIPPO_USERNAME,
         requires = HIPPO_PASSWORD,
     )]
     pub hippo_username: Option<String>,
 
     /// Hippo password
-    #[clap(
-        name = HIPPO_PASSWORD,
+    #[arg(
         long = "password",
+        id = HIPPO_PASSWORD,
         env = HIPPO_PASSWORD,
         requires = HIPPO_USERNAME,
     )]
     pub hippo_password: Option<String>,
 
     /// Display login status
-    #[clap(
-        name = "status",
-        long = "status",
-        takes_value = false,
+    #[arg(
+        long,
         conflicts_with = "list",
-        conflicts_with = "get-device-code",
-        conflicts_with = "check-device-code"
+        conflicts_with = "get_device_code",
+        conflicts_with = "check_device_code"
     )]
     pub status: bool,
 
     // fetch a device code
-    #[clap(
-        name = "get-device-code",
-        long = "get-device-code",
-        takes_value = false,
+    #[arg(
+        long,
         hide = true,
         conflicts_with = "status",
-        conflicts_with = "check-device-code"
+        conflicts_with = "check_device_code"
     )]
     pub get_device_code: bool,
 
     // check a device code
-    #[clap(
-        name = "check-device-code",
-        long = "check-device-code",
+    #[arg(
+        long,
         hide = true,
         conflicts_with = "status",
-        conflicts_with = "get-device-code"
+        conflicts_with = "get_device_code"
     )]
     pub check_device_code: Option<String>,
 
     // authentication method used for logging in (username|github)
-    #[clap(
-        name = "auth-method",
-        long = "auth-method",
-        env = "AUTH_METHOD",
-        arg_enum
-    )]
+    #[arg(long = "auth-method", env = "AUTH_METHOD", value_enum)]
     pub method: Option<AuthMethod>,
 
     /// Save the login details under the specified name instead of making them
     /// the default. Use named environments with `spin deploy --environment-name <name>`.
-    #[clap(
-        name = "environment-name",
+    #[arg(
         long = "environment-name",
         env = DEPLOYMENT_ENV_NAME_ENV
     )]
     pub deployment_env_id: Option<String>,
 
     /// List saved logins.
-    #[clap(
-        name = "list",
-        long = "list",
-        takes_value = false,
-        conflicts_with = "environment-name",
+    #[arg(
+        long,
+        conflicts_with = "deployment_env_id",
         conflicts_with = "status",
-        conflicts_with = "get-device-code",
-        conflicts_with = "check-device-code"
+        conflicts_with = "get_device_code",
+        conflicts_with = "check_device_code"
     )]
     pub list: bool,
 }
@@ -172,24 +161,23 @@ fn parse_url(url: &str) -> Result<url::Url> {
     Ok(url)
 }
 
-impl LoginCommand {
-    pub async fn run(&self) -> Result<()> {
-        match (
-            self.list,
-            self.status,
-            self.get_device_code,
-            &self.check_device_code,
-        ) {
+#[async_trait(?Send)]
+impl Dispatch for LoginCommand {
+    async fn run(&self) -> Result<()> {
+        let Self { list, status, get_device_code, ref check_device_code, .. } = self;
+
+        match (list, status, get_device_code, check_device_code) {
             (true, false, false, None) => self.run_list().await,
             (false, true, false, None) => self.run_status().await,
             (false, false, true, None) => self.run_get_device_code().await,
-            (false, false, false, Some(device_code)) => {
-                self.run_check_device_code(device_code).await
-            }
+            (false, false, false, Some(device_code)) => self.run_check_device_code(device_code).await,
             (false, false, false, None) => self.run_interactive_login().await,
             _ => Err(anyhow::anyhow!("Invalid combination of options")), // Should never happen
         }
     }
+}
+
+impl LoginCommand {
 
     async fn run_list(&self) -> Result<()> {
         let root = config_root_dir()?;
@@ -540,11 +528,11 @@ fn ensure(root: &PathBuf) -> Result<()> {
 }
 
 /// The method by which to authenticate the login.
-#[derive(clap::ArgEnum, Clone, Debug, Eq, PartialEq)]
+#[derive(clap::ValueEnum, Clone, Debug, Eq, PartialEq)]
 pub enum AuthMethod {
-    #[clap(name = "github")]
+    #[value(name = "github")]
     Github,
-    #[clap(name = "username")]
+    #[value(name = "username")]
     UsernameAndPassword,
 }
 

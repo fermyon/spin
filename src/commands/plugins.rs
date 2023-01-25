@@ -1,5 +1,7 @@
+use crate::dispatch::Action;
 use anyhow::{anyhow, Context, Result};
-use clap::{Parser, Subcommand};
+use async_trait::async_trait;
+use clap::{Args, Parser, Subcommand};
 use semver::Version;
 use spin_plugins::{
     error::Error,
@@ -11,7 +13,9 @@ use std::path::{Path, PathBuf};
 use tracing::log;
 use url::Url;
 
-use crate::opts::*;
+use crate::{opts::*, dispatch::Dispatch};
+
+use crate::dispatch::Runner;
 
 /// Install/uninstall Spin plugins.
 #[derive(Subcommand, Debug)]
@@ -35,82 +39,86 @@ pub enum PluginCommands {
     Update,
 }
 
-impl PluginCommands {
-    pub async fn run(self) -> Result<()> {
+#[async_trait(?Send)]
+impl Dispatch for PluginCommands {
+    async fn dispatch(&self, action: &Action) -> Result<()> {
         match self {
-            PluginCommands::Install(cmd) => cmd.run().await,
-            PluginCommands::List(cmd) => cmd.run().await,
-            PluginCommands::Uninstall(cmd) => cmd.run().await,
-            PluginCommands::Upgrade(cmd) => cmd.run().await,
+            PluginCommands::Install(cmd) => cmd.dispatch(action).await,
+            PluginCommands::List(cmd) => cmd.dispatch(action).await,
+            PluginCommands::Uninstall(cmd) => cmd.dispatch(action).await,
+            PluginCommands::Upgrade(cmd) => cmd.dispatch(action).await,
             PluginCommands::Update => update().await,
         }
+    }
+}
+
+#[derive(Args, Debug)]
+pub struct ManifestSource {
+    /// Name of Spin plugin.
+    pub name: Option<String>,
+
+    /// Specific version of a plugin to be install from the centralized plugins
+    /// repository.
+    #[arg(
+            short,
+            long,
+            requires = PLUGIN_NAME_OPT
+        )]
+    pub version: Option<Version>,
+
+    /// Path to local plugin manifest.
+    #[arg(short = 'f', long = "file")]
+    pub local_manifest_src: Option<PathBuf>,
+
+    /// URL of remote plugin manifest to install.
+    #[arg(short = 'u', long = "url")]
+    pub remote_manifest_src: Option<Url>,
+}
+
+impl ManifestSource {
+    fn location(&self) -> ManifestLocation {
+        if let Some(path) = &self.local_manifest_src {
+            return ManifestLocation::Local(path.to_path_buf());
+        }
+
+        if let Some(url) = &self.remote_manifest_src {
+            return ManifestLocation::Remote(url.clone());
+        }
+
+        if let Some(name) = &self.name {
+            return ManifestLocation::PluginsRepository(PluginLookup::new(
+                &name,
+                self.version.clone(),
+            ));
+        }
+
+        unreachable!()
     }
 }
 
 /// Install plugins from remote source
 #[derive(Parser, Debug)]
 pub struct Install {
-    /// Name of Spin plugin.
-    #[clap(
-        name = PLUGIN_NAME_OPT,
-        conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
-        conflicts_with = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
-        required_unless_present_any = [PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT, PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT],
-    )]
-    pub name: Option<String>,
-
-    /// Path to local plugin manifest.
-    #[clap(
-        name = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
-        short = 'f',
-        long = "file",
-        conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
-        conflicts_with = PLUGIN_NAME_OPT,
-    )]
-    pub local_manifest_src: Option<PathBuf>,
-
     /// URL of remote plugin manifest to install.
-    #[clap(
-        name = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
-        short = 'u',
-        long = "url",
-        conflicts_with = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
-        conflicts_with = PLUGIN_NAME_OPT,
-    )]
-    pub remote_manifest_src: Option<Url>,
+    #[command(flatten)]
+    pub source: ManifestSource,
 
     /// Skips prompt to accept the installation of the plugin.
-    #[clap(short = 'y', long = "yes", takes_value = false)]
+    #[arg(short, long = "yes")]
     pub yes_to_all: bool,
 
     /// Overrides a failed compatibility check of the plugin with the current version of Spin.
-    #[clap(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, takes_value = false)]
+    #[arg(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG)]
     pub override_compatibility_check: bool,
-
-    /// Specific version of a plugin to be install from the centralized plugins
-    /// repository.
-    #[clap(
-        long = "version",
-        short = 'v',
-        conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
-        conflicts_with = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
-        requires(PLUGIN_NAME_OPT)
-    )]
-    pub version: Option<Version>,
 }
 
-impl Install {
-    pub async fn run(self) -> Result<()> {
-        let manifest_location = match (self.local_manifest_src, self.remote_manifest_src, self.name) {
-            (Some(path), None, None) => ManifestLocation::Local(path),
-            (None, Some(url), None) => ManifestLocation::Remote(url),
-            (None, None, Some(name)) => ManifestLocation::PluginsRepository(PluginLookup::new(&name, self.version)),
-            _ => return Err(anyhow::anyhow!("For plugin lookup, must provide exactly one of: plugin name, url to manifest, local path to manifest")),
-        };
+#[async_trait(?Send)]
+impl Dispatch for Install {
+    async fn run(&self) -> Result<()> {
         let manager = PluginManager::try_default()?;
         // Downgrades are only allowed via the `upgrade` subcommand
         let downgrade = false;
-        let manifest = manager.get_manifest(&manifest_location).await?;
+        let manifest = manager.get_manifest(&self.source.location()).await?;
         try_install(
             &manifest,
             &manager,
@@ -130,8 +138,9 @@ pub struct Uninstall {
     pub name: String,
 }
 
-impl Uninstall {
-    pub async fn run(self) -> Result<()> {
+#[async_trait(?Send)]
+impl Dispatch for Uninstall {
+    async fn run(&self) -> Result<()> {
         let manager = PluginManager::try_default()?;
         let uninstalled = manager.uninstall(&self.name)?;
         if uninstalled {
@@ -149,56 +158,55 @@ impl Uninstall {
 #[derive(Parser, Debug)]
 pub struct Upgrade {
     /// Name of Spin plugin to upgrade.
-    #[clap(
-        name = PLUGIN_NAME_OPT,
+    #[arg(
+        id = PLUGIN_NAME_OPT,
         conflicts_with = PLUGIN_ALL_OPT,
         required_unless_present_any = [PLUGIN_ALL_OPT],
     )]
     pub name: Option<String>,
 
     /// Upgrade all plugins.
-    #[clap(
+    #[arg(
         short = 'a',
         long = "all",
-        name = PLUGIN_ALL_OPT,
+        id = PLUGIN_ALL_OPT,
         conflicts_with = PLUGIN_NAME_OPT,
         conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
-        conflicts_with = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
-        takes_value = false,
+        conflicts_with = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT
     )]
     pub all: bool,
 
     /// Path to local plugin manifest.
-    #[clap(
-        name = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
+    #[arg(
         short = 'f',
         long = "file",
+        id = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
         conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
     )]
     pub local_manifest_src: Option<PathBuf>,
 
     /// Path to remote plugin manifest.
-    #[clap(
-        name = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
+    #[arg(
         short = 'u',
         long = "url",
+        id = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
         conflicts_with = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
     )]
     pub remote_manifest_src: Option<Url>,
 
     /// Skips prompt to accept the installation of the plugin[s].
-    #[clap(short = 'y', long = "yes", takes_value = false)]
+    #[arg(short, long = "yes")]
     pub yes_to_all: bool,
 
     /// Overrides a failed compatibility check of the plugin with the current version of Spin.
-    #[clap(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, takes_value = false)]
+    #[arg(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG)]
     pub override_compatibility_check: bool,
 
     /// Specific version of a plugin to be install from the centralized plugins
     /// repository.
-    #[clap(
-        long = "version",
-        short = 'v',
+    #[arg(
+        short,
+        long,
         conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
         conflicts_with = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
         conflicts_with = PLUGIN_ALL_OPT,
@@ -207,15 +215,16 @@ pub struct Upgrade {
     pub version: Option<Version>,
 
     /// Allow downgrading a plugin's version.
-    #[clap(short = 'd', long = "downgrade", takes_value = false)]
+    #[arg(short, long)]
     pub downgrade: bool,
 }
 
-impl Upgrade {
+#[async_trait(?Send)]
+impl Dispatch for Upgrade {
     /// Upgrades one or all plugins by reinstalling the latest or a specified
     /// version of a plugin. If downgrade is specified, first uninstalls the
     /// plugin.
-    pub async fn run(self) -> Result<()> {
+    async fn run(&self) -> Result<()> {
         let manager = PluginManager::try_default()?;
         let manifests_dir = manager.store().installed_manifests_directory();
 
@@ -235,7 +244,9 @@ impl Upgrade {
             self.upgrade_one(&plugin_name).await
         }
     }
+}
 
+impl Upgrade {
     // Install the latest of all currently installed plugins
     async fn upgrade_all(&self, manifests_dir: impl AsRef<Path>) -> Result<()> {
         let manager = PluginManager::try_default()?;
@@ -269,12 +280,12 @@ impl Upgrade {
         Ok(())
     }
 
-    async fn upgrade_one(self, name: &str) -> Result<()> {
+    async fn upgrade_one(&self, name: &str) -> Result<()> {
         let manager = PluginManager::try_default()?;
-        let manifest_location = match (self.local_manifest_src, self.remote_manifest_src) {
-            (Some(path), None) => ManifestLocation::Local(path),
-            (None, Some(url)) => ManifestLocation::Remote(url),
-            _ => ManifestLocation::PluginsRepository(PluginLookup::new(name, self.version)),
+        let manifest_location = match (&self.local_manifest_src, &self.remote_manifest_src) {
+            (Some(path), None) => ManifestLocation::Local(path.to_path_buf()),
+            (None, Some(url)) => ManifestLocation::Remote(url.clone()),
+            _ => ManifestLocation::PluginsRepository(PluginLookup::new(name, self.version.clone())),
         };
         let manifest = manager.get_manifest(&manifest_location).await?;
         try_install(
@@ -293,12 +304,13 @@ impl Upgrade {
 #[derive(Parser, Debug)]
 pub struct List {
     /// List only installed plugins.
-    #[clap(long = "installed", takes_value = false)]
+    #[arg(long)]
     pub installed: bool,
 }
 
-impl List {
-    pub async fn run(self) -> Result<()> {
+#[async_trait(?Send)]
+impl Dispatch for List {
+    async fn run(&self) -> Result<()> {
         let mut plugins = if self.installed {
             Self::list_installed_plugins()
         } else {
@@ -310,7 +322,9 @@ impl List {
         Self::print(&plugins);
         Ok(())
     }
+}
 
+impl List {
     fn list_installed_plugins() -> Result<Vec<PluginDescriptor>> {
         let manager = PluginManager::try_default()?;
         let store = manager.store();

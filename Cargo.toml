@@ -17,7 +17,9 @@ async-trait = "0.1"
 bindle = { workspace = true }
 bytes = "1.1"
 chrono = "0.4"
-clap = { version = "3.1.15", features = ["derive", "env"] }
+clap = { version = "4.1", features = ["derive", "env"] }
+clap_complete = { version = "4.1", optional = true }
+clap_complete_fig = { version = "4.1", optional = true }
 cloud = { path = "crates/cloud" }
 cloud-openapi = { git = "https://github.com/fermyon/cloud-openapi" }
 comfy-table = "5.0"
@@ -80,12 +82,13 @@ vergen = { version = "7", default-features = false, features = [
 ] }
 
 [features]
-default = []
+default = ["generate-completions"]
 e2e-tests = []
 outbound-redis-tests = []
 config-provider-tests = []
 outbound-pg-tests = []
 outbound-mysql-tests = []
+generate-completions = ["dep:clap_complete", "dep:clap_complete_fig"]
 
 [workspace]
 members = [

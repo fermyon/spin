@@ -1,10 +1,29 @@
-use crate::opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG;
+use crate::{opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, dispatch::Dispatch};
 use anyhow::{anyhow, Result};
-use clap::App;
+use async_trait::async_trait;
+use clap;
 use spin_plugins::{error::Error, manifest::check_supported_version, PluginStore};
 use std::{collections::HashMap, env, process};
 use tokio::process::Command;
 use tracing::log;
+
+pub struct ExternalCommands {
+    cmd: Vec<String>,
+    app: clap::Command,
+}
+
+impl ExternalCommands {
+    pub fn new(cmd: Vec<String>, app: clap::Command) -> Self {
+        Self { cmd, app }
+    }
+}
+
+#[async_trait(?Send)]
+impl Dispatch for ExternalCommands {
+    async fn run(&self) -> Result<()> {
+        execute_external_subcommand(self.cmd.to_owned(), &self.app).await
+    }
+}
 
 fn override_flag() -> String {
     format!("--{}", PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG)
@@ -33,7 +52,7 @@ fn parse_subcommand(mut cmd: Vec<String>) -> anyhow::Result<(String, Vec<String>
 /// Executes a Spin plugin as a subprocess, expecting the first argument to
 /// indicate the plugin to execute. Passes all subsequent arguments on to the
 /// subprocess.
-pub async fn execute_external_subcommand(cmd: Vec<String>, app: App<'_>) -> anyhow::Result<()> {
+pub async fn execute_external_subcommand(cmd: Vec<String>, app: &clap::Command) -> Result<()> {
     let (plugin_name, args, override_compatibility_check) = parse_subcommand(cmd)?;
     let plugin_store = PluginStore::try_default()?;
     match plugin_store.read_plugin_manifest(&plugin_name) {

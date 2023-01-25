@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use clap::{Parser, Subcommand, ValueEnum};
 use comfy_table::Table;
 use path_absolutize::Absolutize;
@@ -10,6 +11,7 @@ use spin_templates::{
     InstallOptions, InstallationResults, InstalledTemplateWarning, ListResults, ProgressReporter,
     SkippedReason, Template, TemplateManager, TemplateSource,
 };
+use crate::dispatch::{Dispatch, Action};
 
 const INSTALL_FROM_DIR_OPT: &str = "FROM_DIR";
 const INSTALL_FROM_GIT_OPT: &str = "FROM_GIT";
@@ -34,12 +36,13 @@ pub enum TemplateCommands {
     List(List),
 }
 
-impl TemplateCommands {
-    pub async fn run(self) -> Result<()> {
+#[async_trait(?Send)]
+impl Dispatch for TemplateCommands {
+    async fn dispatch(&self, action: &Action) -> Result<()> {
         match self {
-            TemplateCommands::Install(cmd) => cmd.run().await,
-            TemplateCommands::Uninstall(cmd) => cmd.run().await,
-            TemplateCommands::List(cmd) => cmd.run().await,
+            Self::Install(cmd) => cmd.dispatch(action).await,
+            Self::Uninstall(cmd) => cmd.dispatch(action).await,
+            Self::List(cmd) => cmd.dispatch(action).await,
         }
     }
 }
@@ -49,27 +52,27 @@ impl TemplateCommands {
 pub struct Install {
     /// The URL of the templates git repository.
     /// The templates must be in a git repository in a "templates" directory.
-    #[clap(
-        name = INSTALL_FROM_GIT_OPT,
+    #[arg(
+        id = INSTALL_FROM_GIT_OPT,
         long = "git",
         conflicts_with = INSTALL_FROM_DIR_OPT,
     )]
     pub git: Option<String>,
 
     /// The optional branch of the git repository.
-    #[clap(long = "branch", requires = INSTALL_FROM_GIT_OPT)]
+    #[arg(long, requires = INSTALL_FROM_GIT_OPT)]
     pub branch: Option<String>,
 
     /// Local directory containing the template(s) to install.
-    #[clap(
-        name = INSTALL_FROM_DIR_OPT,
+    #[arg(
+        id = INSTALL_FROM_DIR_OPT,
         long = "dir",
         conflicts_with = INSTALL_FROM_GIT_OPT,
     )]
     pub dir: Option<PathBuf>,
 
     /// If present, updates existing templates instead of skipping.
-    #[structopt(long = "update")]
+    #[arg(long)]
     pub update: bool,
 }
 
@@ -80,8 +83,9 @@ pub struct Uninstall {
     pub template_id: String,
 }
 
-impl Install {
-    pub async fn run(self) -> Result<()> {
+#[async_trait(?Send)]
+impl Dispatch for Install {
+    async fn run(&self) -> Result<()> {
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
         let source = match (&self.git, &self.dir) {
@@ -107,7 +111,9 @@ impl Install {
 
         Ok(())
     }
+}
 
+impl Install {
     fn print_installed_templates(&self, installation_results: &InstallationResults) {
         let templates = &installation_results.installed;
         let skipped = &installation_results.skipped;
@@ -147,8 +153,9 @@ impl Install {
     }
 }
 
-impl Uninstall {
-    pub async fn run(self) -> Result<()> {
+#[async_trait(?Send)]
+impl Dispatch for Uninstall {
+    async fn run(&self) -> Result<()> {
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
 
@@ -165,11 +172,11 @@ impl Uninstall {
 #[derive(Parser, Debug)]
 pub struct List {
     /// The format in which to list the templates.
-    #[clap(value_enum, long = "format", default_value = "table", hide = true)]
+    #[arg(value_enum, long, default_value = "table", hide = true)]
     pub format: ListFormat,
 
     /// Whether to show additional template details in the list.
-    #[clap(long = "verbose", takes_value = false)]
+    #[arg(long)]
     pub verbose: bool,
 }
 
@@ -179,8 +186,9 @@ pub enum ListFormat {
     Json,
 }
 
-impl List {
-    pub async fn run(self) -> Result<()> {
+#[async_trait(?Send)]
+impl Dispatch for List {
+    async fn run(&self) -> Result<()> {
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
         let list_results = template_manager
@@ -198,7 +206,9 @@ impl List {
 
         Ok(())
     }
+}
 
+impl List {
     fn print_templates_table(&self, list_results: &ListResults) {
         let templates = &list_results.templates;
         let warnings = &list_results.warnings;

@@ -10,7 +10,7 @@ doctest = false
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-clap = "3"
+clap = "4.1"
 futures = "0.3"
 futures-util = "0.3.8"
 http = "0.2"

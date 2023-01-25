@@ -1,175 +1,119 @@
-use std::{
-    ffi::OsString,
-    fmt::Debug,
-    path::{Path, PathBuf},
-};
+use std::{fmt::Debug, path::{Path, PathBuf}};
 
 use anyhow::{anyhow, bail, Context, Result};
-use clap::{CommandFactory, Parser};
+use clap::{Parser, Subcommand, ArgGroup, ArgAction, Arg, FromArgMatches};
 use reqwest::Url;
-use spin_loader::bindle::BindleConnectionInfo;
-use spin_manifest::ApplicationTrigger;
+use spin_manifest::{Application, ApplicationTrigger};
 use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_WORKING_DIR};
-use tempfile::TempDir;
 
-use crate::opts::*;
+use crate::{args::{component::ComponentOptions, app_source::AppSource}, dispatch::{Dispatch, Action}};
+use async_trait::async_trait;
+use crate::dispatch::Runner;
 
-/// Start the Fermyon runtime.
-#[derive(Parser, Debug, Default)]
-#[clap(
-    about = "Start the Spin application",
-    allow_hyphen_values = true,
-    disable_help_flag = true
-)]
-pub struct UpCommand {
-    #[clap(short = 'h', long = "help")]
-    pub help: bool,
-
-    /// Path to spin.toml.
-    #[clap(
-            name = APP_CONFIG_FILE_OPT,
-            short = 'f',
-            long = "file",
-            conflicts_with = BINDLE_ID_OPT,
-        )]
-    pub app: Option<PathBuf>,
-
-    /// ID of application bindle.
-    #[clap(
-            name = BINDLE_ID_OPT,
-            short = 'b',
-            long = "bindle",
-            conflicts_with = APP_CONFIG_FILE_OPT,
-            requires = BINDLE_SERVER_URL_OPT,
-        )]
-    pub bindle: Option<String>,
-
-    /// URL of bindle server.
-    #[clap(
-            name = BINDLE_SERVER_URL_OPT,
-            long = "bindle-server",
-            env = BINDLE_URL_ENV,
-        )]
-    pub server: Option<String>,
-
-    /// Basic http auth username for the bindle server
-    #[clap(
-        name = BINDLE_USERNAME,
-        long = "bindle-username",
-        env = BINDLE_USERNAME,
-        requires = BINDLE_PASSWORD
-    )]
-    pub bindle_username: Option<String>,
-
-    /// Basic http auth password for the bindle server
-    #[clap(
-        name = BINDLE_PASSWORD,
-        long = "bindle-password",
-        env = BINDLE_PASSWORD,
-        requires = BINDLE_USERNAME
-    )]
-    pub bindle_password: Option<String>,
-
-    /// Ignore server certificate errors from bindle server
-    #[clap(
-        name = INSECURE_OPT,
-        short = 'k',
-        long = "insecure",
-        takes_value = false,
-    )]
-    pub insecure: bool,
-
-    /// Pass an environment variable (key=value) to all components of the application.
-    #[clap(short = 'e', long = "env", parse(try_from_str = parse_env_var))]
-    pub env: Vec<(String, String)>,
-
-    /// Temporary directory for the static assets of the components.
-    #[clap(long = "temp")]
-    pub tmp: Option<PathBuf>,
-
-    /// For local apps with directory mounts and no excluded files, mount them directly instead of using a temporary
-    /// directory.
-    ///
-    /// This allows you to update the assets on the host filesystem such that the updates are visible to the guest
-    /// without a restart.  This cannot be used with bindle apps or apps which use file patterns and/or exclusions.
-    #[clap(long, takes_value = false, conflicts_with = BINDLE_ID_OPT)]
-    pub direct_mounts: bool,
-
-    /// All other args, to be passed through to the trigger
-    #[clap(hide = true)]
-    pub trigger_args: Vec<OsString>,
-}
 
 impl UpCommand {
-    pub async fn run(self) -> Result<()> {
-        // For displaying help, first print `spin up`'s own usage text, then
-        // attempt to load an app and print trigger-type-specific usage.
-        let help = self.help;
-        if help {
-            Self::command()
-                .name("spin-up")
-                .bin_name("spin up")
-                .print_help()?;
-            println!();
-        }
-        self.run_inner().await.or_else(|err| {
-            if help {
-                tracing::warn!("Error resolving trigger-specific help: {}", err);
-                Ok(())
-            } else {
-                Err(err)
+    pub async fn load(&self) -> Result<Application> {
+        let Self { source, components, trigger } = self;
+        let mut app = source.load(&components.working_dir()?).await?;
+        if !components.env.is_empty() {
+            for c in app.components.iter_mut() {
+                c.wasm.environment.extend(components.env.iter().cloned());
             }
-        })
+        }
+        Ok(app)
+    }
+}
+
+/// Start the Fermyon runtime.
+#[derive(Parser, Debug, Clone, Default)]
+#[command(about = "Start the Spin application")]
+#[command(allow_hyphen_values = true)]
+pub struct UpCommand {
+    /// The app location to start ()
+    #[command(flatten, next_help_heading = "App Source")]
+    #[group(skip)]
+    pub source: AppSource,
+    // Options to pass through to the app's components
+    #[command(flatten, next_help_heading = "Component Options")]
+    pub components: ComponentOptions,
+    // Options to pass through to the trigger
+    #[arg(hide = true, trailing_var_arg = true, help_heading = "Trigger Options")]
+    pub trigger: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Flag<T>(Option<T>);
+
+impl<T> Flag<T> {
+    fn get(&self) -> Result<&T> {
+        self.0.as_ref().ok_or(anyhow!("flag disabled"))
+    }
+}
+
+pub trait FlagShortcut: FromArgMatches + Parser + Clone + Send + Sync + Sized + Debug {
+    const GROUP: &'static str;
+    const LONG: &'static str;
+    const SHORT: char;
+    const ACTION: ArgAction;
+}
+
+impl<T> FromArgMatches for Flag<T> where T: FlagShortcut {
+    fn from_arg_matches(matches: &clap::ArgMatches) -> std::result::Result<Self, clap::Error> {
+        match matches.try_get_one::<bool>(T::LONG) {
+            Ok(flag) => if let Some(flag) = flag {
+                match T::from_arg_matches(matches) {
+                Ok(inner) if *flag => Ok(Self(Some(inner))),
+                Ok(inner) => unreachable!("{flag} {inner:?}"),
+                Err(error) => Err(error),
+            }
+            } else { Ok(Self(None)) },
+            Err(e) => unreachable!("{e}"),
+        }
     }
 
-    async fn run_inner(self) -> Result<()> {
-        if self.help
-            && self.app.is_none()
-            && self.bindle.is_none()
-            && !PathBuf::from(DEFAULT_MANIFEST_FILE).exists()
-        {
-            return self.run_trigger(
-                trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE),
-                TriggerExecOpts::NoApp,
-            );
-        }
+    fn update_from_arg_matches(&mut self, matches: &clap::ArgMatches) -> std::result::Result<(), clap::Error> {
+        Ok(*self = Self::from_arg_matches(matches)?)
+    }
+}
 
-        let working_dir_holder = match &self.tmp {
-            None => WorkingDirectory::Temporary(tempfile::tempdir()?),
-            Some(d) => WorkingDirectory::Given(d.to_owned()),
-        };
-        let working_dir = working_dir_holder.path().canonicalize()?;
+impl<T> Subcommand for Flag<T> where T: FlagShortcut {
+  
+    fn augment_subcommands(cmd: clap::Command) -> clap::Command {
+        let upcmd = T::command_for_update();
+        let upargs = upcmd.get_arguments();
+        let newargs = upargs.map(|arg| arg.clone().group(T::GROUP));
+        cmd.arg(
+            Arg::new(T::LONG).long(T::LONG).short(T::SHORT).action(T::ACTION)
+        ).group(ArgGroup::new(T::GROUP).requires(T::LONG)).args(newargs)
+    }
 
-        let mut app = match (&self.app, &self.bindle) {
-            (app, None) => {
-                let manifest_file = app
-                    .as_deref()
-                    .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-                let bindle_connection = self.bindle_connection();
-                let asset_dst = if self.direct_mounts {
-                    None
-                } else {
-                    Some(&working_dir)
-                };
-                spin_loader::from_file(manifest_file, asset_dst, &bindle_connection).await?
-            }
-            (None, Some(bindle)) => match &self.server {
-                Some(server) => {
-                    assert!(!self.direct_mounts);
+    fn augment_subcommands_for_update(cmd: clap::Command) -> clap::Command {
+        Self::augment_subcommands(cmd)
+    }
 
-                    spin_loader::from_bindle(bindle, server, &working_dir).await?
-                }
-                _ => bail!("Loading from a bindle requires a Bindle server URL"),
-            },
-            (Some(_), Some(_)) => bail!("Specify only one of app file or bindle ID"),
-        };
+    fn has_subcommand(_name: &str) -> bool {
+        false
+    }
+}
 
-        // Apply --env to component environments
-        if !self.env.is_empty() {
-            for component in app.components.iter_mut() {
-                component.wasm.environment.extend(self.env.iter().cloned());
-            }
-        }
+impl FlagShortcut for UpCommand {
+    const GROUP: &'static str = "up_args";
+    const LONG: &'static str = "up";
+    const SHORT: char = 'u';
+    const ACTION: ArgAction = ArgAction::SetTrue;
+}
+
+#[async_trait(?Send)]
+impl<T> Dispatch for Flag<T> where T: Dispatch {
+    async fn dispatch(&self, action: &Action) -> Result<()> {
+        self.get()?.dispatch(action).await
+    }
+}
+
+#[async_trait(?Send)]
+impl Dispatch for UpCommand {
+    async fn run(&self) -> Result<()> {
+        let app = self.load().await?;
 
         let trigger_type = match &app.info.trigger {
             ApplicationTrigger::Http(_) => trigger_command("http"),
@@ -177,36 +121,32 @@ impl UpCommand {
             ApplicationTrigger::External(cfg) => vec![resolve_trigger_plugin(cfg.trigger_type())?],
         };
 
-        let exec_opts = if self.help {
-            TriggerExecOpts::NoApp
-        } else {
-            TriggerExecOpts::App { app, working_dir }
-        };
+        let working_dir = self.components.working_dir()?;
 
-        self.run_trigger(trigger_type, exec_opts)
+        self.run_trigger(trigger_type, app, working_dir, false)
     }
+}
+
+impl UpCommand {
 
     fn run_trigger(
-        self,
+        &self,
         trigger_type: Vec<String>,
-        exec_opts: TriggerExecOpts,
+        app: Application,
+        working_dir: PathBuf,
+        help: bool
     ) -> Result<(), anyhow::Error> {
         // The docs for `current_exe` warn that this may be insecure because it could be executed
         // via hard-link. I think it should be fine as long as we aren't `setuid`ing this binary.
         let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
         cmd.args(&trigger_type);
+        if help { cmd.arg("--help-args-only"); }
 
-        match exec_opts {
-            TriggerExecOpts::NoApp => {
-                cmd.arg("--help-args-only");
-            }
-            TriggerExecOpts::App { app, working_dir } => {
-                let locked_url = self.write_locked_app(app, &working_dir)?;
-                cmd.env(SPIN_LOCKED_URL, locked_url)
-                    .env(SPIN_WORKING_DIR, &working_dir)
-                    .args(&self.trigger_args);
-            }
-        }
+        let locked_url = self.write_locked_app(app, &working_dir)?;
+        cmd.env(SPIN_LOCKED_URL, locked_url)
+            .env(SPIN_WORKING_DIR, &working_dir)
+            .args(&self.trigger);
+            
 
         tracing::trace!("Running trigger executor: {:?}", cmd);
 
@@ -251,40 +191,31 @@ impl UpCommand {
         Ok(locked_url)
     }
 
-    fn bindle_connection(&self) -> Option<BindleConnectionInfo> {
-        self.server.as_ref().map(|url| {
-            BindleConnectionInfo::new(
-                url,
-                self.insecure,
-                self.bindle_username.clone(),
-                self.bindle_password.clone(),
-            )
-        })
-    }
+    // fn bindle_connection(&self) -> Option<BindleConnectionInfo> {
+    //     self.server.as_ref().map(|url| {
+    //         BindleConnectionInfo::new(
+    //             url,
+    //             self.insecure,
+    //             self.bindle_username.clone(),
+    //             self.bindle_password.clone(),
+    //         )
+    //     })
+    // }
 }
 
-enum WorkingDirectory {
-    Given(PathBuf),
-    Temporary(TempDir),
-}
+// enum WorkingDirectory {
+//     Given(PathBuf),
+//     Temporary(TempDir),
+// }
 
-impl WorkingDirectory {
-    fn path(&self) -> &Path {
-        match self {
-            Self::Given(p) => p,
-            Self::Temporary(t) => t.path(),
-        }
-    }
-}
-
-// Parse the environment variables passed in `key=value` pairs.
-fn parse_env_var(s: &str) -> Result<(String, String)> {
-    let parts: Vec<_> = s.splitn(2, '=').collect();
-    if parts.len() != 2 {
-        bail!("Environment variable must be of the form `key=value`");
-    }
-    Ok((parts[0].to_owned(), parts[1].to_owned()))
-}
+// impl WorkingDirectory {
+//     fn path(&self) -> &Path {
+//         match self {
+//             Self::Given(p) => p,
+//             Self::Temporary(t) => t.path(),
+//         }
+//     }
+// }
 
 fn resolve_trigger_plugin(trigger_type: &str) -> Result<String> {
     use crate::commands::plugins::PluginCompatibility;
@@ -317,15 +248,6 @@ fn resolve_trigger_plugin(trigger_type: &str) -> Result<String> {
     } else {
         Err(anyhow!("No built-in trigger named '{trigger_type}', and no plugin named '{subcommand}' was found"))
     }
-}
-
-#[allow(clippy::large_enum_variant)] // The large variant is the common case and really this is equivalent to an Option
-enum TriggerExecOpts {
-    NoApp,
-    App {
-        app: spin_manifest::Application,
-        working_dir: PathBuf,
-    },
 }
 
 fn trigger_command(trigger_type: &str) -> Vec<String> {

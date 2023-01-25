@@ -6,6 +6,7 @@ jobs:
   cargo-vet:
     name: Vet Dependencies
     runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'fermyon' }}
     env:
       CARGO_VET_VERSION: 0.3.0
     steps:

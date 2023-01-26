@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0.22
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: spin
+      MYSQL_DATABASE: spin_dev
+      MYSQL_USER: spin
+      MYSQL_PASSWORD: spin
+
+  e2e-tests:
+    depends_on:
+      - mysql
+    image: spin-e2e-tests
+
+volumes:
+  db_data: {}

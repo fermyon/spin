@@ -1,0 +1,11 @@
+**/target
+**/node_modules
+**/http-go-test
+**/http-c-test
+**/http-rust-test
+**/http-zig-test
+**/http-grain-test
+**/http-ts-test
+**/http-js-test
+**/spin-plugin-update.lock
+**/package-lock.json

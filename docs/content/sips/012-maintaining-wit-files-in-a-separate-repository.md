@@ -1,6 +1,6 @@
 # title = "SIP 012 - Maintaining WIT files in a separate repository" template = "main" date = "2023-01-25T01:01:01Z"
 
-Summary: This SIP outlines how to maintain WIT files that Spin (and Spin SDKs consume) outside of the Spin repository.
+Summary: This SIP outlines how to maintain WIT files that Spin (and Spin SDKs) consume outside of the Spin repository.
 
 Owners: michelle@fermyon.com
 
@@ -8,7 +8,7 @@ Created: January 25, 2023
 
 ## Background
 
-The WIT files in the `wit/` directory of the current Spin repository define the interfaces that are imported and exported by the Spin SDKs. More specifically, they are referenced by path by the `wit-bindgen` tooling to generate language specific bindings for the SDKs. Example below.
+The WIT files in the `wit/` directory of the current Spin repository define the interfaces that are imported and exported by the Spin SDKs. More specifically, they are referenced by path by the [`wit-bindgen`](https://github.com/bytecodealliance/wit-bindgen) tooling to generate language specific bindings for the SDKs. Example below.
 
 ```
 // sdk/rust/src/lib.rs

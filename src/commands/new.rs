@@ -202,7 +202,7 @@ fn merge_values(from_file: &mut HashMap<String, String>, from_cli: &[ParameterVa
 }
 
 async fn prompt_template(template_manager: &TemplateManager) -> anyhow::Result<Option<Template>> {
-    let mut templates = match get_or_install_templates(template_manager).await? {
+    let mut templates = match list_or_install_templates(template_manager).await? {
         Some(t) => t,
         None => return Ok(None),
     };
@@ -223,46 +223,15 @@ async fn prompt_template(template_manager: &TemplateManager) -> anyhow::Result<O
     Ok(Some(choice))
 }
 
-const DEFAULT_TEMPLATES_INSTALL_PROMPT: &str =
-    "You don't have any templates yet. Would you like to install the default set?";
-const DEFAULT_TEMPLATE_REPO: &str = "https://github.com/fermyon/spin";
-
-async fn get_or_install_templates(
+async fn list_or_install_templates(
     template_manager: &TemplateManager,
 ) -> anyhow::Result<Option<Vec<Template>>> {
     let templates = template_manager.list().await?.templates;
     if templates.is_empty() {
-        let should_install = dialoguer::Confirm::new()
-            .with_prompt(DEFAULT_TEMPLATES_INSTALL_PROMPT)
-            .default(true)
-            .interact_opt()?;
-        if should_install == Some(true) {
-            install_default_templates().await?;
-            Ok(Some(template_manager.list().await?.templates))
-        } else {
-            println!(
-                "You can install the default templates later with 'spin install --git {}'",
-                DEFAULT_TEMPLATE_REPO
-            );
-            Ok(None)
-        }
+        super::templates::prompt_install_default_templates(template_manager).await
     } else {
         Ok(Some(templates))
     }
-}
-
-async fn install_default_templates() -> Result<(), anyhow::Error> {
-    let install_cmd = super::templates::Install {
-        git: Some(DEFAULT_TEMPLATE_REPO.to_owned()),
-        branch: None,
-        dir: None,
-        update: false,
-    };
-    install_cmd
-        .run()
-        .await
-        .context("Failed to install the default templates")?;
-    Ok(())
 }
 
 async fn prompt_name() -> anyhow::Result<String> {

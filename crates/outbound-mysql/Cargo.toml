@@ -14,4 +14,5 @@ mysql_common = "0.29.1"
 spin-core = { path = "../core" }
 tokio = { version = "1", features = [ "rt-multi-thread" ] }
 tracing = { version = "0.1", features = [ "log" ] }
+url = "2.3.1"
 wit-bindgen-wasmtime = { workspace = true }

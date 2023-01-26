@@ -1,9 +1,10 @@
 use mysql_async::consts::ColumnType;
-use mysql_async::{from_value_opt, prelude::*};
+use mysql_async::{from_value_opt, prelude::*, Opts, OptsBuilder, SslOpts};
 pub use outbound_mysql::add_to_linker;
 use spin_core::HostComponent;
 use std::collections::HashMap;
 use std::sync::Arc;
+use url::Url;
 use wit_bindgen_wasmtime::async_trait;
 
 wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/outbound-mysql.wit"], async: *});
@@ -244,11 +245,93 @@ impl OutboundMysql {
 async fn build_conn(address: &str) -> Result<mysql_async::Conn, mysql_async::Error> {
     tracing::log::debug!("Build new connection: {}", address);
 
-    let connection_pool = mysql_async::Pool::new(address);
+    let opts = build_opts(address)?;
+
+    let connection_pool = mysql_async::Pool::new(opts);
 
     connection_pool.get_conn().await
 }
 
+fn is_ssl_param(s: &str) -> bool {
+    ["ssl-mode", "sslmode"].contains(&s.to_lowercase().as_str())
+}
+
+/// The mysql_async crate blows up if you pass it an SSL parameter and doesn't support SSL opts properly. This function
+/// is a workaround to manually set SSL opts if the user requests them.
+///
+/// We only support ssl-mode in the query as per
+/// https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-connp-props-security.html#cj-conn-prop_sslMode.
+///
+/// An issue has been filed in the upstream repository https://github.com/blackbeam/mysql_async/issues/225.
+fn build_opts(address: &str) -> Result<Opts, mysql_async::Error> {
+    let url = Url::parse(address)?;
+
+    let use_ssl = url
+        .query_pairs()
+        .any(|(k, v)| is_ssl_param(&k) && v.to_lowercase() != "disabled");
+
+    let query_without_ssl: Vec<(_, _)> = url
+        .query_pairs()
+        .filter(|(k, _v)| !is_ssl_param(k))
+        .collect();
+    let mut cleaned_url = url.clone();
+    cleaned_url.set_query(None);
+    cleaned_url
+        .query_pairs_mut()
+        .extend_pairs(query_without_ssl);
+
+    Ok(OptsBuilder::from_opts(cleaned_url.as_str())
+        .ssl_opts(if use_ssl {
+            Some(SslOpts::default())
+        } else {
+            None
+        })
+        .into())
+}
+
 fn convert_value_to<T: FromValue>(value: mysql_async::Value) -> Result<T, MysqlError> {
     from_value_opt::<T>(value).map_err(|e| MysqlError::ValueConversionFailed(format!("{}", e)))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_mysql_address_without_ssl_mode() {
+        assert!(build_opts("mysql://myuser:password@127.0.0.1/db")
+            .unwrap()
+            .ssl_opts()
+            .is_none())
+    }
+
+    #[test]
+    fn test_mysql_address_with_ssl_mode_disabled() {
+        assert!(
+            build_opts("mysql://myuser:password@127.0.0.1/db?ssl-mode=DISABLED")
+                .unwrap()
+                .ssl_opts()
+                .is_none()
+        )
+    }
+
+    #[test]
+    fn test_mysql_address_with_ssl_mode_verify_ca() {
+        assert!(
+            build_opts("mysql://myuser:password@127.0.0.1/db?sslMode=VERIFY_CA")
+                .unwrap()
+                .ssl_opts()
+                .is_some()
+        )
+    }
+
+    #[test]
+    fn test_mysql_address_with_more_to_query() {
+        let address = "mysql://myuser:password@127.0.0.1/db?SsLmOdE=VERIFY_CA&pool_max=10";
+        assert!(build_opts(address).unwrap().ssl_opts().is_some());
+        assert_eq!(
+            build_opts(address).unwrap().pool_opts().constraints().max(),
+            10
+        )
+    }
 }

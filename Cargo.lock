@@ -215,7 +215,7 @@ dependencies = [
  "tokio-stream",
  "tokio-tar",
  "tokio-util 0.6.10",
- "toml",
+ "toml 0.5.9",
  "tracing",
  "tracing-futures",
  "url",
@@ -1767,7 +1767,7 @@ dependencies = [
  "serde_json",
  "sha2 0.9.9",
  "tokio",
- "toml",
+ "toml 0.5.9",
  "uuid",
 ]
 
@@ -2552,6 +2552,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nom8"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae01545c9c7fc4486ab7debaf2aad7003ac19431791868fb2e8066df97fad2f8"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.46.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3074,7 +3083,7 @@ version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d6ea3c4595b96363c13943497db34af4460fb474a95c43f4446ad341b8c9785"
 dependencies = [
- "toml",
+ "toml 0.5.9",
 ]
 
 [[package]]
@@ -3783,6 +3792,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_spanned"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c68e921cef53841b8925c2abadd27c9b891d9613bdc43d6b823062866df38e8"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_urlencoded"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3999,7 +4017,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "toml",
+ "toml 0.5.9",
  "wasi-common",
  "wasmtime",
  "wasmtime-wasi",
@@ -4029,7 +4047,7 @@ dependencies = [
  "spin-loader",
  "subprocess",
  "tokio",
- "toml",
+ "toml 0.5.9",
  "tracing",
 ]
 
@@ -4082,7 +4100,7 @@ dependencies = [
  "spin-trigger",
  "tempfile",
  "tokio",
- "toml",
+ "toml 0.6.0",
  "tracing",
  "tracing-subscriber",
  "url",
@@ -4105,7 +4123,7 @@ dependencies = [
  "spin-core",
  "thiserror",
  "tokio",
- "toml",
+ "toml 0.5.9",
  "vaultrs",
  "wit-bindgen-wasmtime",
 ]
@@ -4177,7 +4195,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-util 0.6.10",
- "toml",
+ "toml 0.5.9",
  "tracing",
  "walkdir",
 ]
@@ -4204,7 +4222,7 @@ dependencies = [
  "indexmap",
  "serde",
  "thiserror",
- "toml",
+ "toml 0.5.9",
 ]
 
 [[package]]
@@ -4247,7 +4265,7 @@ dependencies = [
  "spin-manifest",
  "thiserror",
  "tokio",
- "toml",
+ "toml 0.5.9",
 ]
 
 [[package]]
@@ -4307,7 +4325,7 @@ dependencies = [
  "sha2 0.10.6",
  "tempfile",
  "tokio",
- "toml",
+ "toml 0.5.9",
  "url",
  "walkdir",
  "wasmtime",
@@ -4356,7 +4374,7 @@ dependencies = [
  "spin-manifest",
  "tempfile",
  "tokio",
- "toml",
+ "toml 0.5.9",
  "tracing",
  "url",
  "wasmtime",
@@ -4770,6 +4788,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d82e1a7758622a465f8cee077614c73484dac5b836c02ff6a40d5d1010324d7"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "toml"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fb9d890e4dc9298b70f740f615f2e05b9db37dce531f6b24fb77ac993f9f217"
+dependencies = [
+ "serde",
+ "serde_spanned",
+ "toml_datetime",
+ "toml_edit",
+]
+
+[[package]]
+name = "toml_datetime"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4553f467ac8e3d374bc9a177a26801e5d0f9b211aa1673fb137a403afd1c9cf5"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "toml_edit"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "729bfd096e40da9c001f778f5cdecbd2957929a24e10e5883d9392220a751581"
+dependencies = [
+ "indexmap",
+ "nom8",
+ "serde",
+ "serde_spanned",
+ "toml_datetime",
 ]
 
 [[package]]
@@ -5247,7 +5299,7 @@ dependencies = [
  "rustix 0.35.11",
  "serde",
  "sha2 0.10.6",
- "toml",
+ "toml 0.5.9",
  "windows-sys 0.36.1",
  "zstd",
 ]

@@ -7,7 +7,7 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use path_absolutize::Absolutize;
-use tokio::{fs::File, io::AsyncReadExt};
+use tokio;
 
 use spin_loader::local::absolutize;
 use spin_templates::{RunOptions, Template, TemplateManager, TemplateVariantInfo};
@@ -178,17 +178,19 @@ impl FromStr for ParameterValue {
     }
 }
 
-async fn values_from_file(file: impl AsRef<Path>) -> Result<HashMap<String, String>> {
-    let file = absolutize(file)?;
+/// This function reads a file and parses it as TOML, then
+/// returns the resulting hashmap of key-value pairs.
+async fn values_from_file(path: impl AsRef<Path>) -> Result<HashMap<String, String>> {
+    // Get the absolute path of the file we're reading.
+    let path = absolutize(path)?;
 
-    let mut buf = vec![];
-    File::open(&file)
-        .await?
-        .read_to_end(&mut buf)
+    // Open the file.
+    let text = tokio::fs::read_to_string(&path)
         .await
-        .with_context(|| anyhow!("Cannot read values file from {:?}", file))?;
+        .with_context(|| format!("Failed to read text from values file {}", path.display()))?;
 
-    toml::from_slice(&buf).context("Failed to deserialize values file")
+    // Parse the TOML file into a hashmap of values.
+    toml::from_str(&text).context("Failed to deserialize values file")
 }
 
 /// Merges values from file and values passed as command line options. CLI

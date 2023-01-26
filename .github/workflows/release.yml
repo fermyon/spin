@@ -77,10 +77,10 @@ jobs:
       - name: "Install Wasm Rust target"
         run: rustup target add wasm32-wasi
 
-      - name: Install latest Rust stable toolchain
+      - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.66
           default: true
           target: ${{ matrix.config.target }}
 

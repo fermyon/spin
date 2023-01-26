@@ -20,10 +20,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install latest Rust stable toolchain
+      - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.66
           default: true
 
       - name: "Install Wasm Rust target"
@@ -66,10 +66,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install latest Rust stable toolchain
+      - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.66
           default: true
 
       - name: "Install Wasm Rust target"

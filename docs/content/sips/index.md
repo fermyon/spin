@@ -19,3 +19,4 @@ Here is a list of accepted SIPs:
 - [Spin Plugins](../sips/006-spin-plugins.md)
 - [Deployment Authentication and Authorisation](../sips/007-deployment-auth.md)
 - [Distributing Spin applications using OCI registries](../sips/008-using-oci-registries.md)
+- [Maintaining WIT files in a separate repository](../sips/012-maintaining-wit-files-in-a-separate-repository.md)

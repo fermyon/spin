@@ -146,6 +146,7 @@ mod integration_tests {
         }
 
         #[tokio::test]
+        #[cfg(not(tarpaulin))] // Flaky under `cargo tarpaulin`, was blocking CI
         async fn test_bindle_static_assets() -> Result<()> {
             // start the Bindle registry.
             let config = BindleTestControllerConfig {

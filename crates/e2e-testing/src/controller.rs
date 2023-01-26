@@ -6,7 +6,7 @@ use nix::unistd::Pid;
 use std::process::Output;
 
 /// defines crate::controller::Controller trait
-/// this is to enable running same set of tests 
+/// this is to enable running same set of tests
 /// using `spin up` or `Deploying to Fermyon Cloud`
 #[async_trait]
 pub trait Controller {

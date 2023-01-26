@@ -20,14 +20,14 @@ impl SkipCondition {
 pub struct TestCase {
     /// name of the testcase
     pub name: String,
-    
+
     /// name of the app under test
     pub appname: String,
-   
+
     /// optional
     /// template to use to create new app
     pub template: Option<String>,
-    
+
     /// optional
     /// template install args. appended to `spin install templates <template_install_args>
     /// defaults to `--git https://github.com/fermyon/spin`

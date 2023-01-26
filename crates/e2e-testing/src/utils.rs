@@ -134,7 +134,7 @@ pub fn run_async<S: Into<String> + AsRef<OsStr>>(
 
 /// gets the stdout of the tokio::process::Child spawned in the background
 ///
-/// it blocks for the first line of logs and then 
+/// it blocks for the first line of logs and then
 /// reads all the remaining lines of logs from stdout
 /// if no new logs are received in 5 seconds, it returns
 /// the logs collected so far

@@ -51,9 +51,8 @@ impl Drop for AppInstance {
                 let pid = process.id().unwrap();
                 println!("stopping app with pid {}", pid);
                 let pid = Pid::from_raw(pid as i32);
-                match kill(pid, Signal::SIGINT) {
-                    Err(e) => panic!("error when stopping app with pid {}. {:?}", pid, e),
-                    Ok(_) => (),
+                if let Err(e) = kill(pid, Signal::SIGINT) {
+                    panic!("error when stopping app with pid {}. {:?}", pid, e)
                 }
             }
         }

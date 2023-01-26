@@ -40,5 +40,5 @@ pub fn assert_http_request(
 
 fn req(url: &str) -> reqwest::Result<reqwest::blocking::Response> {
     println!("{}", url);
-    return reqwest::blocking::get(url);
+    reqwest::blocking::get(url)
 }

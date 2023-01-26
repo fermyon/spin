@@ -5,7 +5,7 @@ use e2e_testing::controller::{AppInstance, Controller};
 use e2e_testing::testcase::{SkipCondition, TestCase};
 
 fn get_url(base: &str, path: &str) -> String {
-    return format!("{}{}", base, path);
+    format!("{}{}", base, path)
 }
 
 pub async fn http_go_works(controller: &dyn Controller) {

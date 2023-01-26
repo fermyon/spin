@@ -23,7 +23,7 @@ impl AppMetadata {
             }
         }
 
-        return Err("").map_err(anyhow::Error::msg);
+        Err("requested route not found").map_err(anyhow::Error::msg)
     }
 }
 
@@ -41,14 +41,14 @@ pub fn extract_version_from_logs(appname: &str, logs: &str) -> String {
         Some(v) => v.as_str(),
     };
 
-    return v.to_string();
+    v.to_string()
 }
 
 /// Extracts routes of app being deployed by parsing logs
 pub fn extract_routes_from_logs(logs: &str) -> Vec<AppRoute> {
     let re: Regex = Regex::new(r##"^\s*(.*): (https?://[^\s^\\(]+)(.*)$"##).unwrap();
     let mut route_start = false;
-    let lines = logs.split("\n");
+    let lines = logs.split('\n');
     println!("{:?}", lines);
     let mut routes: Vec<AppRoute> = vec![];
     for line in lines {
@@ -73,13 +73,13 @@ pub fn extract_routes_from_logs(logs: &str) -> Vec<AppRoute> {
         let route = AppRoute {
             name: captures.get(1).unwrap().as_str().to_string(),
             route_url: captures.get(2).unwrap().as_str().to_string(),
-            wildcard: captures.get(3).unwrap().as_str().to_string() == "(wildcard)",
+            wildcard: captures.get(3).unwrap().as_str() == "(wildcard)",
         };
 
         routes.push(route)
     }
 
-    return routes;
+    routes
 }
 
 /// Extract metadata of app being deployed
@@ -89,16 +89,17 @@ pub fn extract_app_metadata_from_logs(appname: &str, logs: &str) -> AppMetadata 
     let version = extract_version_from_logs(appname, logs);
     let app_routes = extract_routes_from_logs(logs);
     let mut base = "".to_string();
-    if app_routes.len() > 0 {
+    if !app_routes.is_empty() {
         base = match Url::parse(&app_routes.first().unwrap().route_url) {
             Err(err) => panic!("{}", err),
-            Ok(url) => format!("{}://{}", url.scheme(), url.host().unwrap().to_string()),
+            Ok(url) => format!("{}://{}", url.scheme(), url.host().unwrap()),
         }
     }
-    return AppMetadata {
+
+    AppMetadata {
         name: appname.to_string(),
         base,
         version,
         app_routes,
-    };
+    }
 }

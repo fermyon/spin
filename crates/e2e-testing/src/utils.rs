@@ -129,7 +129,7 @@ pub fn run_async<S: Into<String> + AsRef<OsStr>>(
         }
     }
 
-    return cmd.spawn().expect("failed to spawn command");
+    cmd.spawn().expect("failed to spawn command")
 }
 
 /// gets the stdout of the tokio::process::Child spawned in the background

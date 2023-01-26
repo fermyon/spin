@@ -25,19 +25,19 @@ impl Controller for FermyonCloud {
     }
 
     fn template_install(&self, args: Vec<&str>) -> Result<Output> {
-        return spin::template_install(args);
+        spin::template_install(args)
     }
 
     fn new_app(&self, template_name: &str, app_name: &str) -> Result<Output> {
-        return spin::new_app(template_name, app_name);
+        spin::new_app(template_name, app_name)
     }
 
     fn install_plugins(&self, plugins: Vec<&str>) -> Result<Output> {
-        return spin::install_plugins(plugins);
+        spin::install_plugins(plugins)
     }
 
     fn build_app(&self, app_name: &str) -> Result<Output> {
-        return spin::build_app(app_name);
+        spin::build_app(app_name)
     }
 
     async fn run_app(&self, app_name: &str) -> Result<AppInstance> {

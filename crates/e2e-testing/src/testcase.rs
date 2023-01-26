@@ -12,7 +12,7 @@ pub struct SkipCondition {
 
 impl SkipCondition {
     pub fn skip(&self, controller: &dyn Controller) -> bool {
-        return controller.name() == self.env;
+        controller.name() == self.env
     }
 }
 
@@ -91,14 +91,11 @@ impl TestCase {
         let appdir = spin::appdir(&self.appname);
 
         // cleanup existing dir for testcase project code. cleaned up only if testcase is a template based test
-        if let Some(_) = &self.template {
-            match fs::remove_dir_all(&appdir.to_string()) {
-                Err(_) => (),
-                Ok(_) => (),
-            }
+        if self.template.is_some() {
+            if fs::remove_dir_all(&appdir).is_err() {};
 
             controller
-                .new_app(&self.template.as_ref().unwrap(), &self.appname)
+                .new_app(self.template.as_ref().unwrap(), &self.appname)
                 .context("creating new app")?;
         }
 
@@ -123,10 +120,8 @@ impl TestCase {
         // run test specific assertions
         let assert_fn = self.assertions;
 
-        return task::spawn_blocking(move || {
-            return assert_fn(&app);
-        })
-        .await
-        .context("running testcase specific assertions")?;
+        return task::spawn_blocking(move || assert_fn(&app))
+            .await
+            .context("running testcase specific assertions")?;
     }
 }

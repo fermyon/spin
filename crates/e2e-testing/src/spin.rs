@@ -11,7 +11,7 @@ const INSTALLING_PLUGINS_LOCK: &str = "/tmp/installing-plugins.lock";
 pub fn template_install(mut args: Vec<&str>) -> Result<Output> {
     let mut cmd = vec!["spin", "templates", "install"];
     cmd.append(&mut args);
-    return utils::run(cmd, None, None);
+    utils::run(cmd, None, None)
 }
 
 pub fn new_app(template_name: &str, app_name: &str) -> Result<Output> {
@@ -31,7 +31,7 @@ pub fn install_plugins(plugins: Vec<&str>) -> Result<Output> {
     // https://github.com/fermyon/spin/issues/997
     wait_for::<_, _, ()>(Duration::from_secs(30), Duration::from_secs(1), || {
         if Path::new(INSTALLING_PLUGINS_LOCK).exists() {
-            return Ok(None);
+            Ok(None)
         } else {
             Ok(Some("install plugins not running"))
         }
@@ -55,10 +55,10 @@ pub fn install_plugins(plugins: Vec<&str>) -> Result<Output> {
 
 pub fn build_app(appname: &str) -> Result<Output> {
     let appdir = appdir(appname);
-    return utils::run(vec!["spin", "build"], Some(&appdir), None);
+    utils::run(vec!["spin", "build"], Some(&appdir), None)
 }
 
 pub fn appdir(appname: &str) -> String {
-    let dir = Path::new(utils::testcases_base_dir().as_str()).join(appname.to_string());
-    return dir.into_os_string().into_string().unwrap();
+    let dir = Path::new(utils::testcases_base_dir().as_str()).join(appname);
+    dir.into_os_string().into_string().unwrap()
 }

@@ -13,6 +13,10 @@ use spin_templates::{
 const INSTALL_FROM_DIR_OPT: &str = "FROM_DIR";
 const INSTALL_FROM_GIT_OPT: &str = "FROM_GIT";
 
+const DEFAULT_TEMPLATES_INSTALL_PROMPT: &str =
+    "You don't have any templates yet. Would you like to install the default set?";
+const DEFAULT_TEMPLATE_REPO: &str = "https://github.com/fermyon/spin";
+
 /// Commands for working with WebAssembly component templates.
 #[derive(Subcommand, Debug)]
 pub enum TemplateCommands {
@@ -176,9 +180,12 @@ impl List {
             .await
             .context("Failed to list templates")?;
 
-        match self.format {
-            ListFormat::Table => self.print_templates_table(&list_results),
-            ListFormat::Json => self.print_templates_json(&list_results)?,
+        match (&self.format, list_results.templates.is_empty()) {
+            (ListFormat::Table, false) => self.print_templates_table(&list_results),
+            (ListFormat::Table, true) => {
+                prompt_install_default_templates(&template_manager).await?;
+            }
+            (ListFormat::Json, _) => self.print_templates_json(&list_results)?,
         };
 
         Ok(())
@@ -188,9 +195,6 @@ impl List {
         let templates = &list_results.templates;
         let warnings = &list_results.warnings;
         if templates.is_empty() {
-            println!("You have no templates installed. Run");
-            println!("spin templates install --git https://github.com/fermyon/spin");
-            println!("to install a starter set.");
             println!();
         } else {
             let mut table = Table::new();
@@ -264,4 +268,37 @@ fn list_warn_reason_text(reason: &InstalledTemplateWarning) -> String {
     match reason {
         InstalledTemplateWarning::InvalidManifest(msg) => format!("Template load error: {}", msg),
     }
+}
+
+pub(crate) async fn prompt_install_default_templates(
+    template_manager: &TemplateManager,
+) -> anyhow::Result<Option<Vec<Template>>> {
+    let should_install = dialoguer::Confirm::new()
+        .with_prompt(DEFAULT_TEMPLATES_INSTALL_PROMPT)
+        .default(true)
+        .interact_opt()?;
+    if should_install == Some(true) {
+        install_default_templates().await?;
+        Ok(Some(template_manager.list().await?.templates))
+    } else {
+        println!(
+            "You can install the default templates later with 'spin templates install --git {}'",
+            DEFAULT_TEMPLATE_REPO
+        );
+        Ok(None)
+    }
+}
+
+async fn install_default_templates() -> anyhow::Result<()> {
+    let install_cmd = Install {
+        git: Some(DEFAULT_TEMPLATE_REPO.to_owned()),
+        branch: None,
+        dir: None,
+        update: false,
+    };
+    install_cmd
+        .run()
+        .await
+        .context("Failed to install the default templates")?;
+    Ok(())
 }

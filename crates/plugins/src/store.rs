@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use flate2::read::GzDecoder;
 use std::{
     ffi::OsStr,
@@ -85,8 +85,15 @@ impl PluginStore {
         //    |- bar.json
         let catalogue_dir =
             crate::lookup::spin_plugins_repo_manifest_dir(self.get_plugins_directory());
+
+        // Catalogue directory doesn't exist so likely nothing has been installed.
+        if !catalogue_dir.exists() {
+            return Ok(Vec::new());
+        }
+
         let plugin_dirs = catalogue_dir
-            .read_dir()?
+            .read_dir()
+            .context("reading manifest catalogue at {catalogue_dir:?}")?
             .filter_map(|d| d.ok())
             .map(|d| d.path())
             .filter(|p| p.is_dir());

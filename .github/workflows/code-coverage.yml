@@ -76,14 +76,14 @@ jobs:
         run: rustup target add wasm32-wasi
 
       - name: Install bindle
-        uses: engineerd/configurator@v0.0.8
+        uses: engineerd/configurator@v0.0.9
         with:
           name: ${{ matrix.config.bindleBinary }}
           url: ${{ matrix.config.bindleUrl }}
           pathInArchive: ${{ matrix.config.pathInBindleArchive }}
 
       - name: Install nomad
-        uses: engineerd/configurator@v0.0.8
+        uses: engineerd/configurator@v0.0.9
         with:
           name: ${{ matrix.config.nomadBinary }}
           url: ${{ matrix.config.nomadUrl }}

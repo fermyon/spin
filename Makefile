@@ -30,8 +30,8 @@ test-integration:
 
 .PHONY: test-e2e
 test-e2e:
-	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features e2e-tests --no-fail-fast  -- integration_tests::test_dependencies --nocapture
-	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features e2e-tests --no-fail-fast -- --skip integration_tests::test_dependencies --nocapture
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features e2e-tests --no-fail-fast  -- integration_tests::test_dependencies --skip spinup_tests --skip cloud_tests --nocapture
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features e2e-tests --no-fail-fast -- --skip integration_tests::test_dependencies --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-outbound-redis
 test-outbound-redis:

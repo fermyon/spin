@@ -18,7 +18,7 @@ jobs:
     name: Lint Rust
     runs-on: "ubuntu-latest"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -61,7 +61,7 @@ jobs:
               extraArgs: "",
             }
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -135,7 +135,7 @@ jobs:
               hippoUrl: "https://github.com/deislabs/hippo/releases/download/v0.19.0/hippo-server-win-x64.zip",
             }
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -209,7 +209,7 @@ jobs:
               pathInWasmtimeArchive: "wasmtime-v0.36.0-x86_64-linux/wasmtime",
             }
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Retrieve saved Spin Binary
         uses: actions/download-artifact@v3

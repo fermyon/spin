@@ -87,6 +87,7 @@ outbound-redis-tests = []
 config-provider-tests = []
 outbound-pg-tests = []
 outbound-mysql-tests = []
+new-e2e-tests = []
 
 [workspace]
 members = [

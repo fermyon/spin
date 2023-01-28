@@ -1,8 +1,6 @@
 use crate::metadata_extractor::AppMetadata;
 use anyhow::Result;
 use async_trait::async_trait;
-use nix::sys::signal::{kill, Signal};
-use nix::unistd::Pid;
 use std::process::Output;
 
 /// defines crate::controller::Controller trait
@@ -23,7 +21,7 @@ pub trait Controller {
 /// with handle to the `spin up` process
 pub struct AppInstance {
     pub metadata: AppMetadata,
-    process: Option<tokio::process::Child>,
+    pub process: Option<tokio::process::Child>,
 }
 
 impl AppInstance {
@@ -39,22 +37,5 @@ impl AppInstance {
         process: Option<tokio::process::Child>,
     ) -> AppInstance {
         AppInstance { metadata, process }
-    }
-}
-
-/// if the app is running using `spin up`, we stop the process when test completes
-impl Drop for AppInstance {
-    fn drop(&mut self) {
-        match &self.process {
-            None => (),
-            Some(process) => {
-                let pid = process.id().unwrap();
-                println!("stopping app with pid {}", pid);
-                let pid = Pid::from_raw(pid as i32);
-                if let Err(e) = kill(pid, Signal::SIGINT) {
-                    panic!("error when stopping app with pid {}. {:?}", pid, e)
-                }
-            }
-        }
     }
 }

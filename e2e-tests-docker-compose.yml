@@ -18,6 +18,8 @@ services:
     depends_on:
       - mysql
     image: spin-e2e-tests
+    volumes:
+      - ./target/release/spin:/usr/local/bin/spin
 
 volumes:
   db_data: {}

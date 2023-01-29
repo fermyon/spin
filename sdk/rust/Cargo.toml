@@ -3,6 +3,7 @@ name = "spin-sdk"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
+rust-version = "1.64"
 
 [lib]
 name = "spin_sdk"

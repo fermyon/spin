@@ -205,3 +205,25 @@ async fn warn_slow_wasm_build() {
     println!("Preparing Wasm modules is taking a few seconds...");
     println!();
 }
+
+pub mod help {
+    use super::*;
+
+    /// Null object to support --help-args-only in the absence of
+    /// a `spin.toml` file.
+    pub struct HelpArgsOnlyTrigger;
+
+    #[async_trait::async_trait]
+    impl TriggerExecutor for HelpArgsOnlyTrigger {
+        const TRIGGER_TYPE: &'static str = "help-args-only";
+        type RuntimeData = ();
+        type TriggerConfig = ();
+        type RunConfig = NoArgs;
+        fn new(_: crate::TriggerAppEngine<Self>) -> Result<Self> {
+            Ok(Self)
+        }
+        async fn run(self, _: Self::RunConfig) -> Result<()> {
+            Ok(())
+        }
+    }
+}

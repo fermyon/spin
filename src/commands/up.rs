@@ -123,6 +123,17 @@ impl UpCommand {
     }
 
     async fn run_inner(self) -> Result<()> {
+        if self.help
+            && self.app.is_none()
+            && self.bindle.is_none()
+            && !PathBuf::from(DEFAULT_MANIFEST_FILE).exists()
+        {
+            return self.run_trigger(
+                trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE),
+                TriggerExecOpts::NoApp,
+            );
+        }
+
         let working_dir_holder = match &self.tmp {
             None => WorkingDirectory::Temporary(tempfile::tempdir()?),
             Some(d) => WorkingDirectory::Given(d.to_owned()),
@@ -161,23 +172,41 @@ impl UpCommand {
         }
 
         let trigger_type = match &app.info.trigger {
-            ApplicationTrigger::Http(_) => vec!["trigger".to_owned(), "http".to_owned()],
-            ApplicationTrigger::Redis(_) => vec!["trigger".to_owned(), "redis".to_owned()],
+            ApplicationTrigger::Http(_) => trigger_command("http"),
+            ApplicationTrigger::Redis(_) => trigger_command("redis"),
             ApplicationTrigger::External(cfg) => vec![resolve_trigger_plugin(cfg.trigger_type())?],
         };
 
+        let exec_opts = if self.help {
+            TriggerExecOpts::NoApp
+        } else {
+            TriggerExecOpts::App { app, working_dir }
+        };
+
+        self.run_trigger(trigger_type, exec_opts)
+    }
+
+    fn run_trigger(
+        self,
+        trigger_type: Vec<String>,
+        exec_opts: TriggerExecOpts,
+    ) -> Result<(), anyhow::Error> {
         // The docs for `current_exe` warn that this may be insecure because it could be executed
         // via hard-link. I think it should be fine as long as we aren't `setuid`ing this binary.
         let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
-        cmd.args(&trigger_type).env(SPIN_WORKING_DIR, &working_dir);
+        cmd.args(&trigger_type);
 
-        if self.help {
-            cmd.arg("--help-args-only");
-        } else {
-            let locked_url = self.write_locked_app(app, &working_dir)?;
-            cmd.env(SPIN_LOCKED_URL, locked_url)
-                .args(&self.trigger_args);
-        };
+        match exec_opts {
+            TriggerExecOpts::NoApp => {
+                cmd.arg("--help-args-only");
+            }
+            TriggerExecOpts::App { app, working_dir } => {
+                let locked_url = self.write_locked_app(app, &working_dir)?;
+                cmd.env(SPIN_LOCKED_URL, locked_url)
+                    .env(SPIN_WORKING_DIR, &working_dir)
+                    .args(&self.trigger_args);
+            }
+        }
 
         tracing::trace!("Running trigger executor: {:?}", cmd);
 
@@ -288,4 +317,17 @@ fn resolve_trigger_plugin(trigger_type: &str) -> Result<String> {
     } else {
         Err(anyhow!("No built-in trigger named '{trigger_type}', and no plugin named '{subcommand}' was found"))
     }
+}
+
+#[allow(clippy::large_enum_variant)] // The large variant is the common case and really this is equivalent to an Option
+enum TriggerExecOpts {
+    NoApp,
+    App {
+        app: spin_manifest::Application,
+        working_dir: PathBuf,
+    },
+}
+
+fn trigger_command(trigger_type: &str) -> Vec<String> {
+    vec!["trigger".to_owned(), trigger_type.to_owned()]
 }

@@ -7,6 +7,8 @@ use semver::BuildMetadata;
 use spin_publish::PublishError;
 use std::path::Path;
 
+pub use crate::opts::HELP_ARGS_ONLY_TRIGGER_TYPE;
+
 pub(crate) fn push_all_failed_msg(path: &Path, server_url: &str) -> String {
     format!(
         "Failed to push bindle from '{}' to the server at '{}'",

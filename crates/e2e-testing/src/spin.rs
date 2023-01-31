@@ -17,11 +17,11 @@ pub fn template_install(mut args: Vec<&str>) -> Result<Output> {
     let mut cmd = vec!["spin", "templates", "install"];
     cmd.append(&mut args);
 
-    let mut x = INSTALLING_TEMPLATES_MUTEX.lock().unwrap();
+    let x = INSTALLING_TEMPLATES_MUTEX.lock().unwrap();
     let result = utils::run(cmd, None, None);
 
     //this ensure we have mutex lock until here
-    *x += 1;
+    drop(x);
 
     result
 }
@@ -38,7 +38,7 @@ pub fn new_app(template_name: &str, app_name: &str) -> Result<Output> {
 
 pub fn install_plugins(plugins: Vec<&str>) -> Result<Output> {
     // lock mutex to ensure one install_plugins runs at a time
-    let mut x = INSTALLING_PLUGINS_MUTEX.lock().unwrap();
+    let x = INSTALLING_PLUGINS_MUTEX.lock().unwrap();
 
     let mut output = utils::run(vec!["spin", "plugin", "update"], None, None)?;
 
@@ -51,7 +51,7 @@ pub fn install_plugins(plugins: Vec<&str>) -> Result<Output> {
     }
 
     //this ensure we have mutex lock until here
-    *x += 1;
+    drop(x);
 
     Ok(output)
 }

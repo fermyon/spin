@@ -116,7 +116,7 @@ impl TestCase {
         }
 
         // run spin build
-        controller.build_app(&appname).context("builing app")?;
+        controller.build_app(&appname).context("building app")?;
 
         // run `spin up` (or `spin deploy` for cloud).
         // `AppInstance` has some basic info about the running app like base url, routes (only for cloud) etc.

@@ -163,6 +163,17 @@ impl Template {
         }
     }
 
+    /// The Git repository from which the template was installed, if
+    /// it was installed from Git; otherwise None.
+    pub fn source_repo(&self) -> Option<&str> {
+        // TODO: this is kind of specialised - should we do the discarding of
+        // non-Git sources at the application layer?
+        match &self.installed_from {
+            InstalledFrom::Git(url) => Some(url),
+            _ => None,
+        }
+    }
+
     /// A human-readable description of where the template was installed
     /// from.
     pub fn installed_from_or_empty(&self) -> &str {

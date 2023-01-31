@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::HashSet, path::PathBuf};
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -13,6 +13,7 @@ use spin_templates::{
 
 const INSTALL_FROM_DIR_OPT: &str = "FROM_DIR";
 const INSTALL_FROM_GIT_OPT: &str = "FROM_GIT";
+const UPGRADE_ONLY: &str = "GIT_URL";
 
 const DEFAULT_TEMPLATES_INSTALL_PROMPT: &str =
     "You don't have any templates yet. Would you like to install the default set?";
@@ -27,6 +28,12 @@ pub enum TemplateCommands {
     /// directory in your data or home directory.
     Install(Install),
 
+    /// Upgrade templates to match your current version of Spin.
+    ///
+    /// The files of the templates are copied to the local template store: a
+    /// directory in your data or home directory.
+    Upgrade(Upgrade),
+
     /// Remove a template from your installation.
     Uninstall(Uninstall),
 
@@ -38,6 +45,7 @@ impl TemplateCommands {
     pub async fn run(self) -> Result<()> {
         match self {
             TemplateCommands::Install(cmd) => cmd.run().await,
+            TemplateCommands::Upgrade(cmd) => cmd.run().await,
             TemplateCommands::Uninstall(cmd) => cmd.run().await,
             TemplateCommands::List(cmd) => cmd.run().await,
         }
@@ -69,8 +77,32 @@ pub struct Install {
     pub dir: Option<PathBuf>,
 
     /// If present, updates existing templates instead of skipping.
-    #[structopt(long = "update")]
+    #[clap(long = "upgrade", alias = "update")]
     pub update: bool,
+}
+
+/// Upgrade existing template repositories from their source.
+#[derive(Parser, Debug)]
+pub struct Upgrade {
+    /// By default, Spin displays the list of installed repositories and
+    /// prompts you to choose which to upgrade.  Pass this flag to
+    /// upgrade only the specified repository without prompting.
+    #[clap(
+        name = UPGRADE_ONLY,
+        long = "repo",
+    )]
+    pub git: Option<String>,
+
+    /// The optional branch of the git repository, if a specific
+    /// repository is given.
+    #[clap(long = "branch", requires = UPGRADE_ONLY)]
+    pub branch: Option<String>,
+
+    /// By default, Spin displays the list of installed repositories and
+    /// prompts you to choose which to upgrade.  Pass this flag to
+    /// upgrade all repositories without prompting.
+    #[clap(long = "all", conflicts_with = UPGRADE_ONLY)]
+    pub all: bool,
 }
 
 /// Remove a template from your installation.
@@ -143,6 +175,200 @@ impl Install {
                 println!();
                 println!("{}", table);
             }
+        }
+    }
+}
+
+impl Upgrade {
+    pub async fn run(&self) -> Result<()> {
+        if self.git.is_some() {
+            // This is equivalent to `install --update`
+            let install = Install {
+                git: self.git.clone(),
+                branch: self.branch.clone(),
+                dir: None,
+                update: true,
+            };
+
+            install.run().await
+        } else {
+            let template_manager = TemplateManager::try_default()?;
+            let reporter = ConsoleProgressReporter;
+            let options = InstallOptions::default().update(true);
+
+            let selected_sources = match self.repos_to_upgrade(&template_manager).await? {
+                Some(sources) => sources,
+                None => return Ok(()),
+            };
+
+            let mut summary = UpgradeSummary::new();
+
+            for source in selected_sources {
+                println!("Upgrading templates from {}...", source.repo);
+
+                let installation_results = template_manager
+                    .install(&source.template_source, &options, &reporter)
+                    .await;
+
+                summary.extend_with(&source.repo, installation_results);
+
+                println!();
+            }
+
+            self.print_upgrade_summary(&summary);
+
+            Ok(())
+        }
+    }
+
+    async fn repos_to_upgrade(
+        &self,
+        template_manager: &TemplateManager,
+    ) -> anyhow::Result<Option<Vec<RepoSelection>>> {
+        let existing_templates = template_manager.list().await?.templates;
+        let repos = existing_templates
+            .iter()
+            .filter_map(|t| t.source_repo())
+            .collect::<HashSet<_>>();
+
+        let mut sources = vec![];
+        for repo in repos {
+            if let Some(source) = RepoSelection::from_repo(repo).await {
+                sources.push(source);
+            }
+        }
+
+        if sources.is_empty() {
+            eprintln!("No template repositories found to upgrade");
+            return Ok(None);
+        }
+
+        let selected_sources = if self.all {
+            sources
+        } else {
+            let selected_indexes = match dialoguer::MultiSelect::new()
+                .items(&sources)
+                .interact_opt()?
+            {
+                Some(indexes) => indexes,
+                None => return Ok(None),
+            };
+            elements_at(sources, selected_indexes)
+        };
+
+        if selected_sources.is_empty() {
+            eprintln!("No template repositories selected");
+            return Ok(None);
+        }
+        Ok(Some(selected_sources))
+    }
+
+    fn print_upgrade_summary(&self, summary: &UpgradeSummary) {
+        let templates = &summary.upgraded;
+        let errors = &summary.errored_repos;
+
+        if templates.is_empty() {
+            println!("No templates were installed");
+        } else {
+            println!("Upgraded {} template(s)", templates.len());
+
+            let mut table = Table::new();
+            table.set_header(vec!["Name", "Description"]);
+            table.load_preset(comfy_table::presets::ASCII_BORDERS_ONLY_CONDENSED);
+
+            for template in templates {
+                table.add_row(vec![template.id(), template.description_or_empty()]);
+            }
+
+            println!();
+            println!("{}", table);
+        }
+
+        println!();
+
+        if !errors.is_empty() {
+            // Thanks English
+            println!("Errors upgrading {} repository/ies", errors.len());
+
+            let mut table = Table::new();
+            table.set_header(vec!["URL", "Error"]);
+            table.load_preset(comfy_table::presets::ASCII_BORDERS_ONLY_CONDENSED);
+
+            for (url, error) in errors {
+                table.add_row(vec![url, error]);
+            }
+
+            println!();
+            println!("{}", table);
+            println!();
+        }
+    }
+}
+
+struct RepoSelection {
+    repo: String,
+    template_source: TemplateSource,
+    resolved_tag: Option<String>,
+}
+
+impl RepoSelection {
+    async fn from_repo(repo: &str) -> Option<Self> {
+        let template_source =
+            TemplateSource::try_from_git(repo, &None, env!("VERGEN_BUILD_SEMVER")).ok()?;
+        let resolved_tag = template_source.resolved_tag().await;
+        Some(Self {
+            repo: repo.to_owned(),
+            template_source,
+            resolved_tag,
+        })
+    }
+}
+
+impl std::fmt::Display for RepoSelection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.repo))?;
+        if let Some(tag) = &self.resolved_tag {
+            f.write_fmt(format_args!(" (at {tag})"))?;
+        };
+        Ok(())
+    }
+}
+
+fn elements_at<T>(source: Vec<T>, indexes: Vec<usize>) -> Vec<T> {
+    source
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, s)| {
+            if indexes.contains(&index) {
+                Some(s)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+struct UpgradeSummary {
+    upgraded: Vec<Template>,
+    errored_repos: Vec<(String, String)>,
+}
+
+impl UpgradeSummary {
+    fn new() -> Self {
+        Self {
+            upgraded: vec![],
+            errored_repos: vec![],
+        }
+    }
+
+    fn extend_with(
+        &mut self,
+        url: &str,
+        installation_results: anyhow::Result<InstallationResults>,
+    ) {
+        match installation_results {
+            Ok(list) => self.upgraded.extend(list.installed),
+            Err(e) => self.errored_repos.push((url.to_owned(), e.to_string())),
         }
     }
 }

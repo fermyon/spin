@@ -74,6 +74,16 @@ impl TemplateSource {
             }
         }
     }
+
+    // Sorry I know this is a bit ugly
+    /// For a Git source, resolves the tag to use as the source.
+    /// For other sources, returns None.
+    pub async fn resolved_tag(&self) -> Option<String> {
+        match self {
+            Self::Git(g) => version_matched_tag(g.url.as_str(), &g.spin_version).await,
+            _ => None,
+        }
+    }
 }
 
 pub(crate) struct LocalTemplateSource {

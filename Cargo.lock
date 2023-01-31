@@ -2767,6 +2767,7 @@ dependencies = [
  "spin-core",
  "tokio",
  "tracing",
+ "url",
  "wit-bindgen-wasmtime",
 ]
 

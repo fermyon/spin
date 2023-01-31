@@ -1,6 +1,6 @@
 use crate::utils;
 use anyhow::Result;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Output;
 use std::sync::Mutex;
 
@@ -27,13 +27,11 @@ pub fn template_install(mut args: Vec<&str>) -> Result<Output> {
 }
 
 pub fn new_app(template_name: &str, app_name: &str) -> Result<Output> {
-    let basedir: PathBuf = [env!("CARGO_MANIFEST_DIR"), "..", "..", "tests", "testcases"]
-        .iter()
-        .collect();
+    let basedir = utils::testcases_base_dir();
 
     return utils::run(
         vec!["spin", "new", template_name, app_name, "--accept-defaults"],
-        basedir.to_str(),
+        Some(basedir.as_str()),
         None,
     );
 }

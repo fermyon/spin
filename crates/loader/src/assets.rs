@@ -16,7 +16,7 @@ pub(crate) async fn create_dir(base: impl AsRef<Path>, id: &str) -> Result<PathB
 }
 
 /// Get the path of a file relative to a given directory.
-pub(crate) fn to_relative(path: impl AsRef<Path>, relative_to: impl AsRef<Path>) -> Result<String> {
+pub fn to_relative(path: impl AsRef<Path>, relative_to: impl AsRef<Path>) -> Result<String> {
     let rel = path.as_ref().strip_prefix(&relative_to).with_context(|| {
         format!(
             "Copied path '{}' did not belong with expected prefix '{}'",

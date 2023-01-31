@@ -308,7 +308,7 @@ pub trait TriggerHooks: Send + Sync {
 
 impl TriggerHooks for () {}
 
-pub(crate) fn parse_file_url(url: &str) -> Result<PathBuf> {
+pub fn parse_file_url(url: &str) -> Result<PathBuf> {
     url::Url::parse(url)
         .with_context(|| format!("Invalid URL: {url:?}"))?
         .to_file_path()

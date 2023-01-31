@@ -1,6 +1,6 @@
 target
 .husky
-cache
+# cache
 node_modules
 ignored-assets
 main.wasm

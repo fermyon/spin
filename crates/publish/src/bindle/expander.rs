@@ -1,7 +1,9 @@
 #![deny(missing_docs)]
 
-use crate::bindle_writer::{self, ParcelSources};
-use crate::{PublishError, PublishResult};
+use super::{
+    bindle_writer::{self, ParcelSources},
+    PublishError, PublishResult,
+};
 use bindle::{BindleSpec, Condition, Group, Invoice, Label, Parcel};
 use semver::BuildMetadata;
 use spin_loader::{

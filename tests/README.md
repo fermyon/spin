@@ -53,7 +53,7 @@ pub async fn foo_env_works(controller: &dyn Controller) {
     let tc = TestCase {
         name: "foo-env-test".to_string(),
         //the appname should be same as dir where this app exists
-        appname: "foo-env-test".to_string(),
+        appname: Some("foo-env-test".to_string()),
         template: None,
         template_install_args: None,
         assertions: checks,
@@ -81,7 +81,8 @@ async fn foo_env_works() {
 4. Run the tests locally to verify
 
 ```
-docker build -t spin-e2e-tests .
+## go to root dir of the project, e2e-tests.Dockerfile is located there
+docker build -t spin-e2e-tests -f e2e-tests.Dockerfile .
 docker run --rm -it docker.io/library/spin-e2e-tests 
 ```
 
@@ -105,7 +106,8 @@ pub async fn foo_bar_works(controller: &dyn Controller) {
 
     let tc = TestCase {
         name: "foo-bar template".to_string(),
-        appname: "foo-bar-test".to_string(),
+        // for template based tests, appname is generated on the fly
+        appname: None,
         // this should be the name of the template used to 
         // create new app using `spin new <template-name> <app-name>
         template: Some("foo-bar".to_string()),
@@ -135,7 +137,8 @@ async fn foo_bar_works() {
 3. Run the tests locally to verify
 
 ```
-docker build -t spin-e2e-tests .
+## go to root dir of the project, e2e-tests.Dockerfile is located there
+docker build -t spin-e2e-tests -f e2e-tests.Dockerfile .
 docker run --rm -it docker.io/library/spin-e2e-tests 
 ```
 

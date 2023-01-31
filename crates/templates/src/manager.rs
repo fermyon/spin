@@ -125,7 +125,7 @@ impl TemplateManager {
 
         for template_dir in template_dirs {
             let install_result = self
-                .install_one(&template_dir, options, reporter)
+                .install_one(&template_dir, options, source, reporter)
                 .await
                 .with_context(|| {
                     format!("Failed to install template from {}", template_dir.display())
@@ -146,6 +146,7 @@ impl TemplateManager {
         &self,
         source_dir: &Path,
         options: &InstallOptions,
+        source: &TemplateSource,
         reporter: &impl ProgressReporter,
     ) -> anyhow::Result<InstallationResult> {
         let layout = TemplateLayout::new(source_dir);
@@ -179,11 +180,11 @@ impl TemplateManager {
                     ))
                 }
                 ExistsBehaviour::Update => {
-                    copy_template_over_existing(id, source_dir, &dest_dir).await?
+                    copy_template_over_existing(id, source_dir, &dest_dir, source).await?
                 }
             }
         } else {
-            copy_template_into(id, source_dir, &dest_dir).await?
+            copy_template_into(id, source_dir, &dest_dir, source).await?
         };
 
         Ok(InstallationResult::Installed(template))
@@ -237,6 +238,7 @@ async fn copy_template_over_existing(
     id: &str,
     source_dir: &Path,
     dest_dir: &Path,
+    source: &TemplateSource,
 ) -> anyhow::Result<Template> {
     // The nearby directory to which we initially copy the source
     let stage_dir = dest_dir.with_extension(".stage");
@@ -270,7 +272,9 @@ async fn copy_template_over_existing(
 
     // Copy template source into stage directory, and do best effort
     // cleanup if it goes wrong.
-    let copy_to_stage_err = copy_template_into(id, source_dir, &stage_dir).await.err();
+    let copy_to_stage_err = copy_template_into(id, source_dir, &stage_dir, source)
+        .await
+        .err();
     if let Some(e) = copy_to_stage_err {
         let _ = tokio::fs::remove_dir_all(&stage_dir).await;
         return Err(e);
@@ -320,6 +324,7 @@ async fn copy_template_into(
     id: &str,
     source_dir: &Path,
     dest_dir: &Path,
+    source: &TemplateSource,
 ) -> anyhow::Result<Template> {
     tokio::fs::create_dir_all(&dest_dir)
         .await
@@ -340,7 +345,20 @@ async fn copy_template_into(
         )
     })?;
 
+    write_install_record(dest_dir, source);
+
     load_template_from(id, dest_dir)
+}
+
+fn write_install_record(dest_dir: &Path, source: &TemplateSource) {
+    let layout = TemplateLayout::new(dest_dir);
+    let install_record_path = layout.install_record_file();
+
+    // A failure here shouldn't fail the install
+    let install_record = source.to_install_record();
+    if let Ok(record_text) = toml::to_string_pretty(&install_record) {
+        _ = std::fs::write(install_record_path, record_text);
+    }
 }
 
 fn load_template_from(id: &str, dest_dir: &Path) -> anyhow::Result<Template> {

@@ -17,12 +17,20 @@ use crate::{
 pub struct Template {
     id: String,
     description: Option<String>,
+    installed_from: InstalledFrom,
     trigger: TemplateTriggerCompatibility,
     variants: HashMap<TemplateVariantKind, TemplateVariant>,
     parameters: Vec<TemplateParameter>,
     custom_filters: Vec<CustomFilterParser>,
     snippets_dir: Option<PathBuf>,
     content_dir: Option<PathBuf>, // TODO: maybe always need a spin.toml file in there?
+}
+
+#[derive(Debug)]
+enum InstalledFrom {
+    Git(String),
+    Directory(String),
+    Unknown,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
@@ -115,10 +123,13 @@ impl Template {
             None
         };
 
+        let installed_from = read_install_record(layout);
+
         let template = match raw {
             RawTemplateManifest::V1(raw) => Self {
                 id: raw.id.clone(),
                 description: raw.description.clone(),
+                installed_from,
                 trigger: Self::parse_trigger_type(raw.trigger_type, layout),
                 variants: Self::parse_template_variants(raw.new_application, raw.add_component),
                 parameters: Self::parse_parameters(&raw.parameters)?,
@@ -149,6 +160,16 @@ impl Template {
         match &self.description {
             Some(s) => s,
             None => "",
+        }
+    }
+
+    /// A human-readable description of where the template was installed
+    /// from.
+    pub fn installed_from_or_empty(&self) -> &str {
+        match &self.installed_from {
+            InstalledFrom::Git(repo) => repo,
+            InstalledFrom::Directory(path) => path,
+            InstalledFrom::Unknown => "",
         }
     }
 
@@ -389,4 +410,15 @@ fn parse_string_constraints(raw: &RawParameter) -> anyhow::Result<StringConstrai
     let regex = raw.pattern.as_ref().map(|re| Regex::new(re)).transpose()?;
 
     Ok(StringConstraints { regex })
+}
+
+fn read_install_record(layout: &TemplateLayout) -> InstalledFrom {
+    use crate::reader::{parse_installed_from, RawInstalledFrom};
+
+    let installed_from_text = std::fs::read_to_string(layout.install_record_file()).ok();
+    match installed_from_text.and_then(parse_installed_from) {
+        Some(RawInstalledFrom::Git { git }) => InstalledFrom::Git(git),
+        Some(RawInstalledFrom::File { dir }) => InstalledFrom::Directory(dir),
+        None => InstalledFrom::Unknown,
+    }
 }

@@ -77,6 +77,8 @@ const SNIPPETS_DIR_NAME: &str = "snippets";
 
 const MANIFEST_FILE_NAME: &str = "spin-template.toml";
 
+const INSTALLATION_RECORD_FILE_NAME: &str = ".install.toml";
+
 impl TemplateLayout {
     pub fn new(template_dir: impl AsRef<Path>) -> Self {
         Self {
@@ -106,5 +108,9 @@ impl TemplateLayout {
 
     pub fn snippets_dir(&self) -> PathBuf {
         self.metadata_dir().join(SNIPPETS_DIR_NAME)
+    }
+
+    pub fn install_record_file(&self) -> PathBuf {
+        self.template_dir.join(INSTALLATION_RECORD_FILE_NAME)
     }
 }

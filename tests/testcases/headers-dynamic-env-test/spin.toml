@@ -9,7 +9,7 @@ trigger = {type = "http", base = "/"}
 id = "env"
 source = "target/wasm32-wasi/release/env.wasm"
 environment = { some_key = "some_value" }
-[component.trigger]
-route = "/env/..."
 [component.build]
 command = "cargo build --target wasm32-wasi --release"
+[component.trigger]
+route = "/env/..."

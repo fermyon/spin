@@ -53,7 +53,7 @@ impl Controller for SpinUp {
 
         match utils::get_output(&mut child).await {
             Ok(output) => print!("this output is {:?} until here", output),
-            Err(error) => panic!("problem deploying app {:?}", error),
+            Err(error) => panic!("problem running app {:?}", error),
         };
 
         Ok(AppInstance::new_with_process(

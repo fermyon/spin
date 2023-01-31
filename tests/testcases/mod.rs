@@ -18,7 +18,7 @@ pub mod all {
 
         let tc = TestCase {
             name: "http-go template".to_string(),
-            appname: "http-go-test".to_string(),
+            appname: None,
             template: Some("http-go".to_string()),
             template_install_args: None,
             assertions: checks,
@@ -43,7 +43,7 @@ pub mod all {
 
         let tc = TestCase {
             name: "http-c template".to_string(),
-            appname: "http-c-test".to_string(),
+            appname: None,
             template: Some("http-c".to_string()),
             template_install_args: None,
             assertions: checks,
@@ -63,7 +63,7 @@ pub mod all {
 
         let tc = TestCase {
             name: "http-rust-template".to_string(),
-            appname: "http-rust-test".to_string(),
+            appname: None,
             template: Some("http-rust".to_string()),
             template_install_args: None,
             assertions: checks,
@@ -83,7 +83,7 @@ pub mod all {
 
         let tc = TestCase {
             name: "http-zig-template".to_string(),
-            appname: "http-zig-test".to_string(),
+            appname: None,
             template: Some("http-zig".to_string()),
             template_install_args: None,
             assertions: checks,
@@ -103,7 +103,7 @@ pub mod all {
 
         let tc = TestCase {
             name: "http-grain-template".to_string(),
-            appname: "http-grain-test".to_string(),
+            appname: None,
             template: Some("http-grain".to_string()),
             template_install_args: None,
             assertions: checks,
@@ -128,7 +128,7 @@ pub mod all {
 
         let tc = TestCase {
             name: "http-ts-template".to_string(),
-            appname: "http-ts-test".to_string(),
+            appname: None,
             template: Some("http-ts".to_string()),
             template_install_args: Some(vec![
                 "--git".to_string(),
@@ -157,7 +157,7 @@ pub mod all {
 
         let tc = TestCase {
             name: "http-js-template".to_string(),
-            appname: "http-js-test".to_string(),
+            appname: None,
             template: Some("http-js".to_string()),
             template_install_args: Some(vec![
                 "--git".to_string(),
@@ -220,7 +220,7 @@ pub mod all {
 
         let tc = TestCase {
             name: "assets-test".to_string(),
-            appname: "assets-test".to_string(),
+            appname: Some("assets-test".to_string()),
             template: None,
             template_install_args: None,
             assertions: checks,
@@ -272,7 +272,7 @@ pub mod all {
 
         let tc = TestCase {
             name: "simple-spin-rust-test".to_string(),
-            appname: "simple-spin-rust-test".to_string(),
+            appname: Some("simple-spin-rust-test".to_string()),
             template: None,
             template_install_args: None,
             assertions: checks,
@@ -306,7 +306,7 @@ pub mod all {
 
         let tc = TestCase {
             name: "headers-env-routes-test".to_string(),
-            appname: "headers-env-routes-test".to_string(),
+            appname: Some("headers-env-routes-test".to_string()),
             template: None,
             template_install_args: None,
             assertions: checks,
@@ -340,7 +340,7 @@ pub mod all {
 
         let tc = TestCase {
             name: "headers-dynamic-env-test".to_string(),
-            appname: "headers-dynamic-env-test".to_string(),
+            appname: Some("headers-dynamic-env-test".to_string()),
             template: None,
             template_install_args: None,
             assertions: checks,
@@ -377,7 +377,7 @@ pub mod all {
 
         let tc = TestCase {
             name: "http-rust-outbound-mysql".to_string(),
-            appname: "http-rust-outbound-mysql".to_string(),
+            appname: Some("http-rust-outbound-mysql".to_string()),
             template: None,
             template_install_args: None,
             assertions: checks,

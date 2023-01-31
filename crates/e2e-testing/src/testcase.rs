@@ -23,7 +23,7 @@ pub struct TestCase {
     pub name: String,
 
     /// name of the app under test
-    pub appname: String,
+    pub appname: Option<String>,
 
     /// optional
     /// template to use to create new app
@@ -70,18 +70,6 @@ impl TestCase {
             }
         }
 
-        // install spin templates from git repo.
-        // if template_install_args is provided uses that
-        // defaults to spin repo
-        let template_install_args = match &self.template_install_args {
-            Some(args) => args.iter().map(|s| s as &str).collect(),
-            None => vec!["--git", "https://github.com/fermyon/spin"],
-        };
-
-        controller
-            .template_install(template_install_args)
-            .context("installing templates")?;
-
         // install spin plugins if requested in testcase config
         if let Some(plugins) = &self.plugins {
             controller
@@ -89,14 +77,33 @@ impl TestCase {
                 .context("installing plugins")?;
         }
 
-        let appdir = spin::appdir(&self.appname);
+        let appname = match &self.appname {
+            Some(appname) => appname.to_owned(),
+            None => format!("{}-generated", self.template.as_ref().unwrap()),
+        };
+
+        let appdir = spin::appdir(appname.as_str());
 
         // cleanup existing dir for testcase project code. cleaned up only if testcase is a template based test
         if self.template.is_some() {
+            // appname = format!("{}-generated", &self.template.unwrap()).as_mut();
+            // appdir = spin::appdir(appname.as_str());
+
+            // install spin templates from git repo. if template_install_args is provided uses that
+            // defaults to spin repo
+            let template_install_args = match &self.template_install_args {
+                Some(args) => args.iter().map(|s| s as &str).collect(),
+                None => vec!["--git", "https://github.com/fermyon/spin"],
+            };
+
+            controller
+                .template_install(template_install_args)
+                .context("installing templates")?;
+
             if fs::remove_dir_all(&appdir).is_err() {};
 
             controller
-                .new_app(self.template.as_ref().unwrap(), &self.appname)
+                .new_app(self.template.as_ref().unwrap(), &appname)
                 .context("creating new app")?;
         }
 
@@ -109,14 +116,11 @@ impl TestCase {
         }
 
         // run spin build
-        controller.build_app(&self.appname).context("builing app")?;
+        controller.build_app(&appname).context("builing app")?;
 
         // run `spin up` (or `spin deploy` for cloud).
         // `AppInstance` has some basic info about the running app like base url, routes (only for cloud) etc.
-        let app = controller
-            .run_app(&self.appname)
-            .await
-            .context("deploying app")?;
+        let app = controller.run_app(&appname).await.context("running app")?;
 
         // run test specific assertions
         let metadata = app.metadata;

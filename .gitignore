@@ -6,4 +6,5 @@ ignored-assets
 main.wasm
 .parcel-cache
 .vscode/*.log
-Cargo.lock
+tests/**/Cargo.lock
+crates/**/Cargo.lock

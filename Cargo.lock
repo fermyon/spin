@@ -570,7 +570,7 @@ dependencies = [
 
 [[package]]
 name = "cloud"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "cloud-openapi",
@@ -2838,7 +2838,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-http"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "http",
@@ -2852,7 +2852,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-mysql"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "mysql_async",
@@ -2866,7 +2866,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-pg"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "native-tls",
@@ -2880,7 +2880,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-redis"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "redis",
@@ -4104,7 +4104,7 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "spin-abi-conformance"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "cap-std",
@@ -4124,7 +4124,7 @@ dependencies = [
 
 [[package]]
 name = "spin-app"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4137,7 +4137,7 @@ dependencies = [
 
 [[package]]
 name = "spin-build"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "futures",
@@ -4151,7 +4151,7 @@ dependencies = [
 
 [[package]]
 name = "spin-cli"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4211,7 +4211,7 @@ dependencies = [
 
 [[package]]
 name = "spin-config"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4229,7 +4229,7 @@ dependencies = [
 
 [[package]]
 name = "spin-core"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4245,7 +4245,7 @@ dependencies = [
 
 [[package]]
 name = "spin-http"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4274,7 +4274,7 @@ dependencies = [
 
 [[package]]
 name = "spin-loader"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4322,7 +4322,7 @@ dependencies = [
 
 [[package]]
 name = "spin-manifest"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "indexmap",
  "serde",
@@ -4332,7 +4332,7 @@ dependencies = [
 
 [[package]]
 name = "spin-plugins"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -4353,7 +4353,7 @@ dependencies = [
 
 [[package]]
 name = "spin-publish"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "bindle",
@@ -4384,7 +4384,7 @@ dependencies = [
 
 [[package]]
 name = "spin-redis-engine"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4401,7 +4401,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sdk"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -4414,7 +4414,7 @@ dependencies = [
 
 [[package]]
 name = "spin-templates"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4449,7 +4449,7 @@ dependencies = [
 
 [[package]]
 name = "spin-testing"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "http",
@@ -4466,7 +4466,7 @@ dependencies = [
 
 [[package]]
 name = "spin-trigger"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",

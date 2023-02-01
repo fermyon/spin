@@ -6,35 +6,6 @@ on:
     tags: ["v*"]
 
 jobs:
-  changes:
-    name: Detect files changed
-    runs-on: ubuntu-latest
-    if: ${{ github.repository_owner == 'fermyon' }}
-    outputs:
-      docs: ${{ steps.filter.outputs.docs }}
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dorny/paths-filter@v2
-        id: filter
-        with:
-          filters: |
-            docs:
-              - 'docs/**'
-
-  dispatch-spin-docs:
-    name: Dispatch spin-docs-updated event
-    needs: changes
-    if: ${{ needs.changes.outputs.docs == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Repository Dispatch
-        uses: peter-evans/repository-dispatch@v2
-        with:
-          token: ${{ secrets.DEST_REPO_ACCESS_TOKEN }}
-          repository: ${{ secrets.DEST_REPO }}
-          event-type: spin-docs-updated
-          client-payload: '{"event_type": "spin-docs-updated", "ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
-
   dispatch-rust-docs:
     name: Dispatch rust-docs spin-update event
     runs-on: ubuntu-latest

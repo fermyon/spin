@@ -136,7 +136,19 @@ impl TriggerExecutor for HttpTrigger {
             .trigger_configs()
             .map(|(_, config)| (config.component.as_str(), config.route.as_str()));
 
-        let router = Router::build(&base, component_routes)?;
+        let (router, duplicate_routes) = Router::build(&base, component_routes)?;
+
+        if !duplicate_routes.is_empty() {
+            log::error!("The following component routes are duplicates and will never be used:");
+            for dup in &duplicate_routes {
+                log::error!(
+                    "  {}: {} (duplicate of {})",
+                    dup.replaced_id,
+                    dup.route.full_pattern_non_empty(),
+                    dup.effective_id,
+                );
+            }
+        }
 
         log::trace!(
             "Constructed router for application {}: {:?}",
@@ -166,6 +178,7 @@ impl TriggerExecutor for HttpTrigger {
         let base_url = format!("{}://{:?}", scheme, listen_addr);
         println!("Serving {}", base_url);
         log::info!("Serving {}", base_url);
+
         println!("Available Routes:");
         for (route, component_id) in &self.router.routes {
             println!("  {}: {}{}", component_id, base_url, route);

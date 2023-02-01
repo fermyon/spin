@@ -56,6 +56,24 @@ impl TemplateSource {
             spin_version: spin_version.to_owned(),
         }))
     }
+
+    pub(crate) fn to_install_record(&self) -> Option<crate::reader::RawInstalledFrom> {
+        match self {
+            Self::Git(g) => Some(crate::reader::RawInstalledFrom::Git {
+                git: g.url.to_string(),
+            }),
+            Self::File(p) => {
+                // Saving a relative path would be meaningless (but should never happen)
+                if p.is_absolute() {
+                    Some(crate::reader::RawInstalledFrom::File {
+                        dir: format!("{}", p.display()),
+                    })
+                } else {
+                    None
+                }
+            }
+        }
+    }
 }
 
 pub(crate) struct LocalTemplateSource {

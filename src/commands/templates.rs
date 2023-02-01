@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use comfy_table::Table;
+use path_absolutize::Absolutize;
 
 use serde::Serialize;
 use spin_templates::{
@@ -87,7 +88,10 @@ impl Install {
             (Some(git), None) => {
                 TemplateSource::try_from_git(git, &self.branch, env!("VERGEN_BUILD_SEMVER"))?
             }
-            (None, Some(dir)) => TemplateSource::File(dir.clone()),
+            (None, Some(dir)) => {
+                let abs_dir = dir.absolutize().map(|d| d.to_path_buf());
+                TemplateSource::File(abs_dir.unwrap_or_else(|_| dir.clone()))
+            }
             _ => anyhow::bail!("Exactly one of `git` and `dir` sources must be specified"),
         };
 
@@ -163,6 +167,10 @@ pub struct List {
     /// The format in which to list the templates.
     #[clap(value_enum, long = "format", default_value = "table", hide = true)]
     pub format: ListFormat,
+
+    /// Whether to show additional template details in the list.
+    #[clap(long = "verbose", takes_value = false)]
+    pub verbose: bool,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -198,11 +206,21 @@ impl List {
             println!();
         } else {
             let mut table = Table::new();
-            table.set_header(vec!["Name", "Description"]);
+
+            let mut header = vec!["Name", "Description"];
+            if self.verbose {
+                header.push("Installed from");
+            }
+
+            table.set_header(header);
             table.load_preset(comfy_table::presets::ASCII_BORDERS_ONLY_CONDENSED);
 
             for template in templates {
-                table.add_row(vec![template.id(), template.description_or_empty()]);
+                let mut row = vec![template.id(), template.description_or_empty()];
+                if self.verbose {
+                    row.push(template.installed_from_or_empty());
+                }
+                table.add_row(row);
             }
 
             println!("{}", table);

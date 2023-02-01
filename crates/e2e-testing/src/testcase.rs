@@ -86,9 +86,6 @@ impl TestCase {
 
         // cleanup existing dir for testcase project code. cleaned up only if testcase is a template based test
         if self.template.is_some() {
-            // appname = format!("{}-generated", &self.template.unwrap()).as_mut();
-            // appdir = spin::appdir(appname.as_str());
-
             // install spin templates from git repo. if template_install_args is provided uses that
             // defaults to spin repo
             let template_install_args = match &self.template_install_args {

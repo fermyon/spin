@@ -8,7 +8,7 @@ pub fn assert_status(url: &str, expected: u16) -> Result<()> {
     Ok(())
 }
 
-pub fn assert_http_request(
+pub fn assert_http_response(
     url: &str,
     expected: u16,
     expected_headers: &[(&str, &str)],

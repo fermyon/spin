@@ -1,7 +1,7 @@
 #[cfg(feature = "new-e2e-tests")]
 pub mod all {
     use anyhow::Result;
-    use e2e_testing::asserts::assert_http_request;
+    use e2e_testing::asserts::assert_http_response;
     use e2e_testing::cloud_controller;
     use e2e_testing::controller::Controller;
     use e2e_testing::metadata_extractor::AppMetadata;
@@ -13,7 +13,12 @@ pub mod all {
 
     pub async fn http_go_works(controller: &dyn Controller) {
         fn checks(metadata: &AppMetadata) -> Result<()> {
-            return assert_http_request(metadata.base.as_str(), 200, &[], Some("Hello Fermyon!\n"));
+            return assert_http_response(
+                metadata.base.as_str(),
+                200,
+                &[],
+                Some("Hello Fermyon!\n"),
+            );
         }
 
         let tc = TestCase {
@@ -33,7 +38,7 @@ pub mod all {
 
     pub async fn http_c_works(controller: &dyn Controller) {
         fn checks(metadata: &AppMetadata) -> Result<()> {
-            return assert_http_request(
+            return assert_http_response(
                 metadata.base.as_str(),
                 200,
                 &[],
@@ -58,7 +63,7 @@ pub mod all {
 
     pub async fn http_rust_works(controller: &dyn Controller) {
         fn checks(metadata: &AppMetadata) -> Result<()> {
-            return assert_http_request(metadata.base.as_str(), 200, &[], Some("Hello, Fermyon"));
+            return assert_http_response(metadata.base.as_str(), 200, &[], Some("Hello, Fermyon"));
         }
 
         let tc = TestCase {
@@ -78,7 +83,7 @@ pub mod all {
 
     pub async fn http_zig_works(controller: &dyn Controller) {
         fn checks(metadata: &AppMetadata) -> Result<()> {
-            return assert_http_request(metadata.base.as_str(), 200, &[], Some("Hello World!\n"));
+            return assert_http_response(metadata.base.as_str(), 200, &[], Some("Hello World!\n"));
         }
 
         let tc = TestCase {
@@ -98,7 +103,7 @@ pub mod all {
 
     pub async fn http_grain_works(controller: &dyn Controller) {
         fn checks(metadata: &AppMetadata) -> Result<()> {
-            return assert_http_request(metadata.base.as_str(), 200, &[], Some("Hello, World\n"));
+            return assert_http_response(metadata.base.as_str(), 200, &[], Some("Hello, World\n"));
         }
 
         let tc = TestCase {
@@ -118,7 +123,7 @@ pub mod all {
 
     pub async fn http_ts_works(controller: &dyn Controller) {
         fn checks(metadata: &AppMetadata) -> Result<()> {
-            return assert_http_request(
+            return assert_http_response(
                 metadata.base.as_str(),
                 200,
                 &[],
@@ -147,7 +152,7 @@ pub mod all {
 
     pub async fn http_js_works(controller: &dyn Controller) {
         fn checks(metadata: &AppMetadata) -> Result<()> {
-            return assert_http_request(
+            return assert_http_response(
                 metadata.base.as_str(),
                 200,
                 &[],
@@ -176,35 +181,35 @@ pub mod all {
 
     pub async fn assets_routing_works(controller: &dyn Controller) {
         fn checks(metadata: &AppMetadata) -> Result<()> {
-            assert_http_request(
+            assert_http_response(
                 get_url(metadata.base.as_str(), "/static/thisshouldbemounted/1").as_str(),
                 200,
                 &[],
                 Some("1\n"),
             )?;
 
-            assert_http_request(
+            assert_http_response(
                 get_url(metadata.base.as_str(), "/static/thisshouldbemounted/2").as_str(),
                 200,
                 &[],
                 Some("2\n"),
             )?;
 
-            assert_http_request(
+            assert_http_response(
                 get_url(metadata.base.as_str(), "/static/thisshouldbemounted/3").as_str(),
                 200,
                 &[],
                 Some("3\n"),
             )?;
 
-            assert_http_request(
+            assert_http_response(
                 get_url(metadata.base.as_str(), "/static/donotmount/a").as_str(),
                 404,
                 &[],
                 Some("Not Found"),
             )?;
 
-            assert_http_request(
+            assert_http_response(
                 get_url(
                     metadata.base.as_str(),
                     "/static/thisshouldbemounted/thisshouldbeexcluded/4",
@@ -235,14 +240,14 @@ pub mod all {
 
     pub async fn simple_spin_rust_works(controller: &dyn Controller) {
         fn checks(metadata: &AppMetadata) -> Result<()> {
-            assert_http_request(
+            assert_http_response(
                 get_url(metadata.base.as_str(), "/test/hello").as_str(),
                 200,
                 &[],
                 Some("I'm a teapot"),
             )?;
 
-            assert_http_request(
+            assert_http_response(
                 get_url(
                     metadata.base.as_str(),
                     "/test/hello/wildcards/should/be/handled",
@@ -253,14 +258,14 @@ pub mod all {
                 Some("I'm a teapot"),
             )?;
 
-            assert_http_request(
+            assert_http_response(
                 get_url(metadata.base.as_str(), "/thisshouldfail").as_str(),
                 404,
                 &[],
                 None,
             )?;
 
-            assert_http_request(
+            assert_http_response(
                 get_url(metadata.base.as_str(), "/test/hello/test-placement").as_str(),
                 200,
                 &[],
@@ -287,14 +292,14 @@ pub mod all {
 
     pub async fn header_env_routes_works(controller: &dyn Controller) {
         fn checks(metadata: &AppMetadata) -> Result<()> {
-            assert_http_request(
+            assert_http_response(
                 get_url(metadata.base.as_str(), "/env").as_str(),
                 200,
                 &[],
                 Some("I'm a teapot"),
             )?;
 
-            assert_http_request(
+            assert_http_response(
                 get_url(metadata.base.as_str(), "/env/foo").as_str(),
                 200,
                 &[("env_some_key", "some_value")],
@@ -321,14 +326,14 @@ pub mod all {
 
     pub async fn header_dynamic_env_works(controller: &dyn Controller) {
         fn checks(metadata: &AppMetadata) -> Result<()> {
-            assert_http_request(
+            assert_http_response(
                 get_url(metadata.base.as_str(), "/env").as_str(),
                 200,
                 &[],
                 Some("I'm a teapot"),
             )?;
 
-            assert_http_request(
+            assert_http_response(
                 get_url(metadata.base.as_str(), "/env/foo").as_str(),
                 200,
                 &[("env_some_key", "some_value")],
@@ -358,14 +363,14 @@ pub mod all {
 
     pub async fn http_rust_outbound_mysql_works(controller: &dyn Controller) {
         fn checks(metadata: &AppMetadata) -> Result<()> {
-            assert_http_request(
+            assert_http_response(
                 get_url(metadata.base.as_str(), "/test_numeric_types").as_str(),
                 200,
                 &[],
                 None,
             )?;
 
-            assert_http_request(
+            assert_http_response(
                 get_url(metadata.base.as_str(), "/test_character_types").as_str(),
                 200,
                 &[],

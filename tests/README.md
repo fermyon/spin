@@ -40,7 +40,7 @@ Let us say we want to add a testcase `foo-env-test` for a specific scenario for 
 
 pub async fn foo_env_works(controller: &dyn Controller) {
     fn checks(metadata: &AppMetadata) -> Result<()> {
-        assert_http_request(
+        assert_http_response(
             get_url(metadata.base.as_str(), "/echo").as_str(),
             200,
             &[],
@@ -96,7 +96,7 @@ Let us say we want to add a testcase for a new template `foo-bar`. Following ste
 ```rust
 pub async fn foo_bar_works(controller: &dyn Controller) {
     fn checks(metadata: &AppMetadata) -> Result<()> {
-        return assert_http_request(
+        return assert_http_response(
             metadata.base.as_str(),
             200,
             &[],

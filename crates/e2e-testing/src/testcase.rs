@@ -128,7 +128,9 @@ impl TestCase {
             .context("running testcase specific assertions")
             .unwrap()?;
 
-        let mut process = app.process.unwrap();
-        spin::stop_app(&mut process).await
+        match app.process {
+            None => Ok(()),
+            Some(mut process) => spin::stop_app(&mut process).await
+        }
     }
 }

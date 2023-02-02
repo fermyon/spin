@@ -4,7 +4,6 @@ use crate::spin;
 use crate::utils;
 use anyhow::Result;
 use async_trait::async_trait;
-use std::path::PathBuf;
 use std::process::Output;
 use std::str;
 
@@ -41,11 +40,9 @@ impl Controller for FermyonCloud {
     }
 
     async fn run_app(&self, app_name: &str) -> Result<AppInstance> {
-        let appdir: PathBuf = [env!("CARGO_MANIFEST_DIR"), "tests", "testcases", app_name]
-            .iter()
-            .collect();
+        let appdir = spin::appdir(app_name);
 
-        match utils::run(vec!["spin", "deploy"], appdir.to_str(), None) {
+        match utils::run(vec!["spin", "deploy"], Some(&appdir), None) {
             Err(error) => panic!("problem deploying app {:?}", error),
             Ok(result) => {
                 let logs = match str::from_utf8(&result.stdout) {

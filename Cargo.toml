@@ -113,10 +113,10 @@ members = [
 
 [workspace.dependencies]
 tracing = { version = "0.1", features = ["log"] }
-wasi-cap-std-sync = "4.0.0"
-wasi-common = "4.0.0"
-wasmtime = "4.0.0"
-wasmtime-wasi = { version = "4.0.0", features = ["tokio"] }
+wasi-cap-std-sync = "5.0.0"
+wasi-common = "5.0.0"
+wasmtime = "5.0.0"
+wasmtime-wasi = { version = "5.0.0", features = ["tokio"] }
 
 [workspace.dependencies.bindle]
 git = "https://github.com/fermyon/bindle"
@@ -126,7 +126,7 @@ features = ["client"]
 
 [workspace.dependencies.wit-bindgen-wasmtime]
 git = "https://github.com/fermyon/wit-bindgen-backport"
-rev = "a0194c11e5fee7b9ea5bf108bbefd6288d08b9ab"
+rev = "a39003fadce6c7a8654e3e044fc39fc80d81ec7b"
 features = ["async"]
 
 [[bin]]

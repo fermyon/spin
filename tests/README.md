@@ -18,6 +18,14 @@ These tests work with following deployments models:
 - Fermyon Cloud
 - Local platform (WIP)
 
+## How to run e2e tests
+
+```
+## go to root dir of the project, e2e-tests.Dockerfile is located there
+docker build -t spin-e2e-tests -f e2e-tests.Dockerfile .
+docker compose -f e2e-tests-docker-compose.yml run e2e-tests
+```
+
 ## Important files and their function
 
 `crates/e2e-testing`     - All the test framework/utilities that are required for `e2e-tests`
@@ -83,7 +91,7 @@ async fn foo_env_works() {
 ```
 ## go to root dir of the project, e2e-tests.Dockerfile is located there
 docker build -t spin-e2e-tests -f e2e-tests.Dockerfile .
-docker run --rm -it docker.io/library/spin-e2e-tests 
+docker compose -f e2e-tests-docker-compose.yml run e2e-tests
 ```
 
 ### using a template
@@ -139,7 +147,7 @@ async fn foo_bar_works() {
 ```
 ## go to root dir of the project, e2e-tests.Dockerfile is located there
 docker build -t spin-e2e-tests -f e2e-tests.Dockerfile .
-docker run --rm -it docker.io/library/spin-e2e-tests 
+docker compose -f e2e-tests-docker-compose.yml run e2e-tests
 ```
 
 ## Configure test to skip on `Fermyon cloud`

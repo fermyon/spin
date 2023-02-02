@@ -130,7 +130,7 @@ impl TestCase {
 
         match app.process {
             None => Ok(()),
-            Some(mut process) => spin::stop_app(&mut process).await
+            Some(mut process) => spin::stop_app(&mut process).await,
         }
     }
 }

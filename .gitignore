@@ -8,3 +8,7 @@ main.wasm
 .vscode/*.log
 tests/**/Cargo.lock
 crates/**/Cargo.lock
+Cargo.lock
+tests/testcases/*-generated
+spin-plugin-update.lock
+package-lock.json

@@ -71,6 +71,7 @@ openssl = { version = "0.10" }
 hyper = { version = "0.14", features = ["full"] }
 sha2 = "0.10.1"
 which = "4.2.5"
+e2e-testing = { path = "crates/e2e-testing" }
 
 [build-dependencies]
 cargo-target-dep = { git = "https://github.com/fermyon/cargo-target-dep", rev = "b7b1989fe0984c0f7c4966398304c6538e52fe49" }
@@ -86,6 +87,7 @@ outbound-redis-tests = []
 config-provider-tests = []
 outbound-pg-tests = []
 outbound-mysql-tests = []
+new-e2e-tests = []
 
 [workspace]
 members = [
@@ -106,6 +108,7 @@ members = [
   "crates/trigger",
   "sdk/rust",
   "sdk/rust/macro",
+  "crates/e2e-testing"
 ]
 
 [workspace.dependencies]

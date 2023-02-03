@@ -22,16 +22,16 @@ check-rust-examples:
 
 .PHONY: test-unit
 test-unit:
-	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --skip integration_tests --nocapture
+	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --skip integration_tests --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-integration
 test-integration:
-	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast -- --nocapture
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast -- --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-e2e
 test-e2e:
-	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features e2e-tests --no-fail-fast  -- integration_tests::test_dependencies --nocapture
-	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features e2e-tests --no-fail-fast -- --skip integration_tests::test_dependencies --nocapture
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features e2e-tests --no-fail-fast  -- integration_tests::test_dependencies --skip spinup_tests --skip cloud_tests --nocapture
+	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features e2e-tests --no-fail-fast -- --skip integration_tests::test_dependencies --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-outbound-redis
 test-outbound-redis:

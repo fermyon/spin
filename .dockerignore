@@ -1,0 +1,5 @@
+**/target
+**/node_modules
+tests/testcases/*-generated
+**/spin-plugin-update.lock
+**/package-lock.json

@@ -3,7 +3,6 @@ name: Deploy Spin Docs Website
 on:
   push:
     branches:
-      - 'vdice/website-deployment' # TODO: remove after testing
       - 'main'
 
   workflow_dispatch:
@@ -110,9 +109,8 @@ jobs:
           echo "GIT_REF=${{ github.ref }}" >> $GITHUB_ENV
           echo "GIT_SHA=${{ github.sha }}" >> $GITHUB_ENV
 
-          # TODO: update to deploy to prod
-          echo "PRODUCTION=false" >> $GITHUB_ENV
-          echo "NOMAD_NAMESPACE=staging" >> $GITHUB_ENV
+          echo "PRODUCTION=true" >> $GITHUB_ENV
+          echo "NOMAD_NAMESPACE=prod" >> $GITHUB_ENV
 
       - name: Deploy
         shell: bash

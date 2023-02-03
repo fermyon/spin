@@ -31,6 +31,7 @@ mod spinup_tests {
     }
 
     #[tokio::test]
+    #[cfg(target_arch = "x86_64")]
     async fn http_grain_works() {
         testcases::all::http_grain_works(CONTROLLER).await
     }

@@ -32,7 +32,6 @@ RUN wget https://github.com/fermyon/spin/releases/download/canary/spin-canary-li
     ls -ltr && \
     mv spin /usr/local/bin/spin
 
-
 # # rust
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \

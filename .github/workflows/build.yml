@@ -272,3 +272,23 @@ jobs:
         run: |
           chmod +x `pwd`/target/release/spin
           docker compose -f e2e-tests-docker-compose.yml run e2e-tests
+
+  cargo-vet:
+    name: Vet Dependencies
+    runs-on: ubuntu-latest
+    env:
+      CARGO_VET_VERSION: 0.3.1
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        run: rustup update stable && rustup default stable
+      - uses: actions/cache@v3
+        with:
+          path: ${{ runner.tool_cache }}/cargo-vet
+          key: cargo-vet-bin-${{ env.CARGO_VET_VERSION }}
+      - name: Add the tool cache directory to the search path
+        run: echo "${{ runner.tool_cache }}/cargo-vet/bin" >> $GITHUB_PATH
+      - name: Ensure that the tool cache is populated with the cargo-vet binary
+        run: cargo install --root ${{ runner.tool_cache }}/cargo-vet --version ${{ env.CARGO_VET_VERSION }} cargo-vet
+      - name: Invoke cargo-vet
+        run: cargo vet --locked

@@ -66,6 +66,14 @@ impl TemplateVariantInfo {
             Self::AddComponent { .. } => "add component",
         }
     }
+
+    /// The noun that should be used for the variant in a prompt
+    pub fn prompt_noun(&self) -> &'static str {
+        match self {
+            Self::NewApplication => "application",
+            Self::AddComponent { .. } => "component",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]

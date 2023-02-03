@@ -116,7 +116,7 @@ impl TemplateNewCommandCore {
                     return Ok(());
                 }
             },
-            None => match prompt_template(&template_manager).await? {
+            None => match prompt_template(&template_manager, &variant).await? {
                 Some(template) => template,
                 None => return Ok(()),
             },
@@ -133,7 +133,7 @@ impl TemplateNewCommandCore {
 
         let name = match &self.name {
             Some(name) => name.to_owned(),
-            None => prompt_name().await?,
+            None => prompt_name(&variant).await?,
         };
 
         let output_path = self.output_path.clone().unwrap_or_else(|| path_safe(&name));
@@ -201,7 +201,10 @@ fn merge_values(from_file: &mut HashMap<String, String>, from_cli: &[ParameterVa
     }
 }
 
-async fn prompt_template(template_manager: &TemplateManager) -> anyhow::Result<Option<Template>> {
+async fn prompt_template(
+    template_manager: &TemplateManager,
+    variant: &TemplateVariantInfo,
+) -> anyhow::Result<Option<Template>> {
     let mut templates = match list_or_install_templates(template_manager).await? {
         Some(t) => t,
         None => return Ok(None),
@@ -210,8 +213,10 @@ async fn prompt_template(template_manager: &TemplateManager) -> anyhow::Result<O
         .iter()
         .map(|t| format!("{} ({})", t.id(), t.description_or_empty()))
         .collect::<Vec<_>>();
+    let noun = variant.prompt_noun();
+    let prompt = format!("Pick a template to start your {noun} with");
     let index = match dialoguer::Select::new()
-        .with_prompt("Pick a template to start your project with")
+        .with_prompt(prompt)
         .items(&opts)
         .default(0)
         .interact_opt()?
@@ -234,14 +239,15 @@ async fn list_or_install_templates(
     }
 }
 
-async fn prompt_name() -> anyhow::Result<String> {
-    let mut prompt = "Enter a name for your new project";
+async fn prompt_name(variant: &TemplateVariantInfo) -> anyhow::Result<String> {
+    let noun = variant.prompt_noun();
+    let mut prompt = format!("Enter a name for your new {noun}");
     loop {
         let result = dialoguer::Input::<String>::new()
             .with_prompt(prompt)
             .interact_text()?;
         if result.trim().is_empty() {
-            prompt = "Name is required. Try another project name (or Ctrl+C to exit)";
+            prompt = format!("Name is required. Try another {noun} name (or Crl+C to exit)");
             continue;
         } else {
             return Ok(result);
@@ -251,7 +257,7 @@ async fn prompt_name() -> anyhow::Result<String> {
 
 lazy_static::lazy_static! {
     static ref PATH_UNSAFE_CHARACTERS: regex::Regex = regex::Regex::new("[^-_.a-zA-Z0-9]").expect("Invalid path safety regex");
-    static ref PROJECT_NAME: regex::Regex = regex::Regex::new("^[a-zA-Z].*").expect("Invalid project name regex");
+    static ref NAME: regex::Regex = regex::Regex::new("^[a-zA-Z].*").expect("Invalid name regex");
 }
 
 fn path_safe(text: &str) -> PathBuf {
@@ -260,7 +266,7 @@ fn path_safe(text: &str) -> PathBuf {
 }
 
 fn validate_name(name: &str) -> Result<String, String> {
-    if PROJECT_NAME.is_match(name) {
+    if NAME.is_match(name) {
         Ok(name.to_owned())
     } else {
         Err("Name must start with a letter".to_owned())

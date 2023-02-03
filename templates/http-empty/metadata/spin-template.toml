@@ -3,5 +3,5 @@ id = "http-empty"
 description = "HTTP application with no components"
 
 [parameters]
-project-description = { type = "string",  prompt = "Project description", default = "" }
+project-description = { type = "string",  prompt = "Description", default = "" }
 http-base = { type = "string", prompt = "HTTP base", default = "/", pattern = "^/\\S*$" }

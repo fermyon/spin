@@ -15,6 +15,11 @@ pub trait Controller {
     fn build_app(&self, app_name: &str) -> Result<Output>;
     fn install_plugins(&self, plugins: Vec<&str>) -> Result<Output>;
     async fn run_app(&self, app_name: &str) -> Result<AppInstance>;
+    async fn stop_app(
+        &self,
+        app_name: Option<&str>,
+        process: Option<tokio::process::Child>,
+    ) -> Result<()>;
 }
 /// This represents a running spin app.
 /// If it is running using `spin up`, it also has `process` field populated

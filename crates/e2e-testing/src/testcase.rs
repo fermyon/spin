@@ -120,7 +120,7 @@ impl TestCase {
         let app = controller.run_app(&appname).await.context("running app")?;
 
         // run test specific assertions
-        let metadata = app.metadata;
+        let metadata = app.metadata.clone();
         let assert_fn = self.assertions;
 
         task::spawn_blocking(move || assert_fn(&metadata))
@@ -128,9 +128,10 @@ impl TestCase {
             .context("running testcase specific assertions")
             .unwrap()?;
 
-        match app.process {
-            None => Ok(()),
-            Some(mut process) => spin::stop_app(&mut process).await,
-        }
+        controller
+            .stop_app(Some(app.metadata.clone().name.as_str()), None)
+            .await?;
+
+        Ok(())
     }
 }

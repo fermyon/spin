@@ -98,15 +98,23 @@ impl TestCase {
         let metadata = app.metadata.clone();
         let assert_fn = self.assertions;
 
-        task::spawn_blocking(move || assert_fn(&metadata))
+        let result = task::spawn_blocking(move || assert_fn(&metadata))
             .await
             .context("running testcase specific assertions")
-            .unwrap()?;
+            .unwrap();
 
-        controller
+        match controller
             .stop_app(Some(app.metadata.clone().name.as_str()), None)
-            .await?;
+            .await
+        {
+            Ok(_) => (),
+            Err(e) => println!(
+                "warn: failed to stop app {} with error {:?}",
+                app.metadata.clone().name.as_str(),
+                e
+            ),
+        }
 
-        Ok(())
+        result
     }
 }

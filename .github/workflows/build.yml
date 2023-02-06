@@ -78,6 +78,8 @@ jobs:
 
       - name: Cargo Build
         run: cargo build --workspace --release --all-targets --all-features ${{ matrix.config.extraArgs }}
+        env:
+          CARGO_INCREMENTAL: 0
 
       - name: "Archive executable artifact"
         uses: actions/upload-artifact@v3
@@ -185,12 +187,15 @@ jobs:
       - name: Cargo Unit Tests
         run: |
           make test-unit
+        env:
+          CARGO_INCREMENTAL: 0
 
       - name: Cargo E2E Tests
         run: |
           make test-e2e
         env:
           RUST_LOG: spin=trace
+          CARGO_INCREMENTAL: 0
 
   test-go:
     name: Test Spin SDK - Go

@@ -66,4 +66,15 @@ impl Controller for SpinUp {
             Some(child),
         ))
     }
+
+    async fn stop_app(
+        &self,
+        _: Option<&str>,
+        process: Option<tokio::process::Child>,
+    ) -> Result<()> {
+        match process {
+            None => Ok(()),
+            Some(mut process) => spin::stop_app_process(&mut process).await,
+        }
+    }
 }

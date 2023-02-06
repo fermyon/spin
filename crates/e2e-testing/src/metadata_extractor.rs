@@ -2,12 +2,14 @@ use anyhow::Result;
 use regex::Regex;
 use url::Url;
 
+#[derive(Clone)]
 pub struct AppRoute {
     pub name: String,
     pub route_url: String,
     pub wildcard: bool,
 }
 
+#[derive(Clone)]
 pub struct AppMetadata {
     pub name: String,
     pub base: String,
@@ -24,12 +26,6 @@ impl AppMetadata {
         }
 
         Err("requested route not found").map_err(anyhow::Error::msg)
-    }
-}
-
-impl Drop for AppMetadata {
-    fn drop(&mut self) {
-        print!("dropping app for {}", self.name)
     }
 }
 

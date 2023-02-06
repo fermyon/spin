@@ -67,7 +67,7 @@ pub fn appdir(appname: &str) -> String {
 }
 
 #[cfg(target_family = "unix")]
-pub async fn stop_app(process: &mut tokio::process::Child) -> Result<(), anyhow::Error> {
+pub async fn stop_app_process(process: &mut tokio::process::Child) -> Result<(), anyhow::Error> {
     let pid = process.id().unwrap();
     println!("stopping app with pid {}", pid);
     let pid = Pid::from_raw(pid as i32);
@@ -75,7 +75,7 @@ pub async fn stop_app(process: &mut tokio::process::Child) -> Result<(), anyhow:
 }
 
 #[cfg(target_family = "windows")]
-pub async fn stop_app(process: &mut tokio::process::Child) -> Result<(), anyhow::Error> {
+pub async fn stop_app_process(process: &mut tokio::process::Child) -> Result<(), anyhow::Error> {
     // stop the app at the end of testcase
     let _ = &mut process.kill().await.map_err(anyhow::Error::msg);
 

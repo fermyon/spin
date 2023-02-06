@@ -12,12 +12,6 @@ Please add following dependencies to your PATH before running `make test-integra
 
 The goal of these tests is to ensure that spin continues to work with existing apps/examples/templates and there are no regressions introduced as we add more functionality or refactor existing code.
 
-These tests work with following deployments models:
-
-- spin up
-- Fermyon Cloud
-- Local platform (WIP)
-
 ## How to run e2e tests
 
 ```
@@ -31,7 +25,6 @@ docker compose -f e2e-tests-docker-compose.yml run e2e-tests
 `crates/e2e-testing`     - All the test framework/utilities that are required for `e2e-tests`
 `tests/testcases/mod.rs` - All the testcase definitions should be added here.
 `tests/spinup_tests.rs`  - All tests that we want to run with `Spin Up` should be added here
-`tests/cloud_tests.rs`   - All tests that we want to run with `Fermyon Cloud` should be added here
 `tests/testcases/<dirs>` - The testcases which require corresponding `spin app` pre-created should be added here
 
 
@@ -67,7 +60,6 @@ pub async fn foo_env_works(controller: &dyn Controller) {
         assertions: checks,
         plugins: None,
         deploy_args: None,
-        skip_conditions: None,
         pre_build_hooks: None,
     };
 
@@ -76,7 +68,7 @@ pub async fn foo_env_works(controller: &dyn Controller) {
 
 ```
 
-3. Add the testcase to `tests/spinup_tests.rs` (and to `tests/cloud_tests.rs` if want to run with `Fermyon Cloud` also) as follows:
+3. Add the testcase to `tests/spinup_tests.rs` as follows:
 
 
 ```rust
@@ -123,7 +115,6 @@ pub async fn foo_bar_works(controller: &dyn Controller) {
         assertions: checks,
         plugins: None,
         deploy_args: None,
-        skip_conditions: None,
         pre_build_hooks: None,
     };
 
@@ -133,7 +124,7 @@ pub async fn foo_bar_works(controller: &dyn Controller) {
 ```
 
 
-2. Add the testcase to `tests/spinup_tests.rs` (and to `tests/cloud_tests.rs` if want to run with `Fermyon Cloud` also) as follows:
+2. Add the testcase to `tests/spinup_tests.rs` as follows:
 
 ```rust
 #[tokio::test]
@@ -148,22 +139,4 @@ async fn foo_bar_works() {
 ## go to root dir of the project, e2e-tests.Dockerfile is located there
 docker build -t spin-e2e-tests -f e2e-tests.Dockerfile .
 docker compose -f e2e-tests-docker-compose.yml run e2e-tests
-```
-
-## Configure test to skip on `Fermyon cloud`
----------------------------------------------
-
-Sometime there may be a functionality which works with `spin up` but not available yet on `Fermyon cloud`, we can skip such tests from running on `Fermyon cloud` by adding `skip_conditions` to `Testcase` as follows
-
-
-```
-framework.Testcase{
-    name:       "headers-dynamic-env-test".to_string(),
-    .
-    .
-    skip_conditions: Some(vec![SkipCondition {
-        env: cloud_controller::NAME.to_string(),
-        reason: "--env is not available on Fermyon cloud".to_string(),
-    }]),
-}
 ```

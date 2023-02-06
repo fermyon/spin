@@ -2,10 +2,9 @@
 pub mod all {
     use anyhow::Result;
     use e2e_testing::asserts::assert_http_response;
-    use e2e_testing::cloud_controller;
     use e2e_testing::controller::Controller;
     use e2e_testing::metadata_extractor::AppMetadata;
-    use e2e_testing::testcase::{SkipCondition, TestCase};
+    use e2e_testing::testcase::TestCase;
 
     fn get_url(base: &str, path: &str) -> String {
         format!("{}{}", base, path)
@@ -29,7 +28,6 @@ pub mod all {
             assertions: checks,
             plugins: None,
             deploy_args: None,
-            skip_conditions: None,
             pre_build_hooks: None,
         };
 
@@ -54,7 +52,6 @@ pub mod all {
             assertions: checks,
             plugins: None,
             deploy_args: None,
-            skip_conditions: None,
             pre_build_hooks: None,
         };
 
@@ -74,7 +71,6 @@ pub mod all {
             assertions: checks,
             plugins: None,
             deploy_args: None,
-            skip_conditions: None,
             pre_build_hooks: None,
         };
 
@@ -94,7 +90,6 @@ pub mod all {
             assertions: checks,
             plugins: None,
             deploy_args: None,
-            skip_conditions: None,
             pre_build_hooks: None,
         };
 
@@ -114,7 +109,6 @@ pub mod all {
             assertions: checks,
             plugins: None,
             deploy_args: None,
-            skip_conditions: None,
             pre_build_hooks: None,
         };
 
@@ -143,7 +137,6 @@ pub mod all {
             assertions: checks,
             plugins: Some(vec!["js2wasm".to_string()]),
             deploy_args: None,
-            skip_conditions: None,
             pre_build_hooks: Some(vec![vec!["npm".to_string(), "install".to_string()]]),
         };
 
@@ -172,7 +165,6 @@ pub mod all {
             assertions: checks,
             plugins: Some(vec!["js2wasm".to_string()]),
             deploy_args: None,
-            skip_conditions: None,
             pre_build_hooks: Some(vec![vec!["npm".to_string(), "install".to_string()]]),
         };
 
@@ -231,7 +223,6 @@ pub mod all {
             assertions: checks,
             plugins: None,
             deploy_args: None,
-            skip_conditions: None,
             pre_build_hooks: None,
         };
 
@@ -283,7 +274,6 @@ pub mod all {
             assertions: checks,
             plugins: None,
             deploy_args: None,
-            skip_conditions: None,
             pre_build_hooks: None,
         };
 
@@ -317,7 +307,6 @@ pub mod all {
             assertions: checks,
             plugins: None,
             deploy_args: None,
-            skip_conditions: None,
             pre_build_hooks: None,
         };
 
@@ -351,10 +340,6 @@ pub mod all {
             assertions: checks,
             plugins: None,
             deploy_args: Some(vec!["--env".to_string(), "foo=bar".to_string()]),
-            skip_conditions: Some(vec![SkipCondition {
-                env: cloud_controller::NAME.to_string(),
-                reason: "--env is not supported with Fermyon cloud".to_string(),
-            }]),
             pre_build_hooks: None,
         };
 
@@ -388,7 +373,6 @@ pub mod all {
             assertions: checks,
             plugins: None,
             deploy_args: None,
-            skip_conditions: None,
             pre_build_hooks: None,
         };
 

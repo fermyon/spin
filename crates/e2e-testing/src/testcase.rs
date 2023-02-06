@@ -6,17 +6,6 @@ use anyhow::{Context, Result};
 use std::fs;
 use tokio::task;
 
-pub struct SkipCondition {
-    pub env: String,
-    pub reason: String,
-}
-
-impl SkipCondition {
-    pub fn skip(&self, controller: &dyn Controller) -> bool {
-        controller.name() == self.env
-    }
-}
-
 /// Represents a testcase
 pub struct TestCase {
     /// name of the testcase
@@ -39,11 +28,6 @@ pub struct TestCase {
     pub plugins: Option<Vec<String>>,
 
     /// optional
-    /// conditions where this testcase should be skipped
-    /// currently only supports skipping based on controller name
-    pub skip_conditions: Option<Vec<SkipCondition>>,
-
-    /// optional
     /// if provided, appended to `spin deploy` command
     pub deploy_args: Option<Vec<String>>,
 
@@ -60,15 +44,6 @@ pub struct TestCase {
 impl TestCase {
     pub async fn run(&self, controller: &dyn Controller) -> Result<()> {
         controller.name();
-
-        // evaluate the skip conditions specified in testcase config.
-        if let Some(skip_conditions) = &self.skip_conditions {
-            for skip_condition in skip_conditions {
-                if skip_condition.skip(controller) {
-                    return Ok(());
-                }
-            }
-        }
 
         // install spin plugins if requested in testcase config
         if let Some(plugins) = &self.plugins {
@@ -120,17 +95,26 @@ impl TestCase {
         let app = controller.run_app(&appname).await.context("running app")?;
 
         // run test specific assertions
-        let metadata = app.metadata;
+        let metadata = app.metadata.clone();
         let assert_fn = self.assertions;
 
-        task::spawn_blocking(move || assert_fn(&metadata))
+        let result = task::spawn_blocking(move || assert_fn(&metadata))
             .await
             .context("running testcase specific assertions")
-            .unwrap()?;
+            .unwrap();
 
-        match app.process {
-            None => Ok(()),
-            Some(mut process) => spin::stop_app(&mut process).await,
+        match controller
+            .stop_app(Some(app.metadata.clone().name.as_str()), None)
+            .await
+        {
+            Ok(_) => (),
+            Err(e) => println!(
+                "warn: failed to stop app {} with error {:?}",
+                app.metadata.clone().name.as_str(),
+                e
+            ),
         }
+
+        result
     }
 }

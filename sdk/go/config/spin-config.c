@@ -5,9 +5,11 @@ __attribute__((weak, export_name("canonical_abi_realloc")))
 void *canonical_abi_realloc(
 void *ptr,
 size_t orig_size,
-size_t org_align,
+size_t align,
 size_t new_size
 ) {
+  if (new_size == 0)
+  return (void*) align;
   void *ret = realloc(ptr, new_size);
   if (!ret)
   abort();
@@ -20,6 +22,8 @@ void *ptr,
 size_t size,
 size_t align
 ) {
+  if (size == 0)
+  return;
   free(ptr);
 }
 #include <string.h>

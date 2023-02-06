@@ -2,7 +2,7 @@
 
 #![deny(missing_docs)]
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Result};
 use http::Uri;
 use indexmap::IndexMap;
 use std::{borrow::Cow, fmt};
@@ -38,11 +38,29 @@ impl Router {
     /// If there are multiple possible components registered for the same route or
     /// wildcard, this returns the last entry in the component map.
     pub(crate) fn route(&self, p: &str) -> Result<&str> {
-        self.routes
-            .iter()
-            .rfind(|(rp, _)| rp.matches(p))
-            .map(|(_, c)| c.as_ref())
-            .with_context(|| format!("Cannot match route for path {}", p))
+        let matches = self.routes.iter().filter(|(rp, _)| rp.matches(p));
+
+        let mut best_match: (Option<&str>, usize) = (None, 0); // matched id and pattern length
+
+        for (rp, id) in matches {
+            match rp {
+                RoutePattern::Exact(_m) => {
+                    // Exact matching routes take precedence over wildcard matches.
+                    return Ok(id);
+                }
+                RoutePattern::Wildcard(m) => {
+                    // Check and find longest matching prefix of wildcard pattern.
+                    let (_id_opt, len) = best_match;
+                    if m.len() >= len {
+                        best_match = (Some(id), m.len());
+                    }
+                }
+            }
+        }
+
+        best_match
+            .0
+            .ok_or_else(|| anyhow!("Cannot match route for path {p}"))
     }
 }
 
@@ -314,7 +332,21 @@ mod route_tests {
 
         let r = Router { routes };
 
-        assert_eq!(r.route("/one/two/three/four")?, "one_wildcard".to_string());
+        assert_eq!(
+            r.route("/one/two/three/four")?,
+            "onetwothree_wildcard".to_string()
+        );
+
+        // Test routing rule "exact beats wildcard" ...
+        let mut routes = IndexMap::new();
+
+        routes.insert(RoutePattern::from("/", "/one"), "one_exact".to_string());
+
+        routes.insert(RoutePattern::from("/", "/..."), "wildcard".to_string());
+
+        let r = Router { routes };
+
+        assert_eq!(r.route("/one")?, "one_exact".to_string(),);
 
         Ok(())
     }

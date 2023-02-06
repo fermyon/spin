@@ -91,7 +91,6 @@ jobs:
   test-rust:
     name: Test Spin SDK - Rust
     runs-on: ${{ matrix.config.os }}
-    needs: build-rust
     strategy:
       matrix:
         config:

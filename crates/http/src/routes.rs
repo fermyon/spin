@@ -14,20 +14,37 @@ pub struct Router {
     pub(crate) routes: IndexMap<RoutePattern, String>,
 }
 
+pub(crate) struct DuplicateRoute {
+    pub route: RoutePattern,
+    pub replaced_id: String,
+    pub effective_id: String,
+}
+
 impl Router {
     /// Builds a router based on application configuration.
     pub(crate) fn build<'a>(
         base: &str,
         component_routes: impl IntoIterator<Item = (&'a str, &'a str)>,
-    ) -> Result<Self> {
-        let routes = component_routes
-            .into_iter()
-            .map(|(component_id, route)| {
-                (RoutePattern::from(base, route), component_id.to_string())
-            })
-            .collect();
+    ) -> Result<(Self, Vec<DuplicateRoute>)> {
+        let mut routes = IndexMap::new();
+        let mut duplicates = vec![];
 
-        Ok(Self { routes })
+        let routes_iter = component_routes.into_iter().map(|(component_id, route)| {
+            (RoutePattern::from(base, route), component_id.to_string())
+        });
+
+        for (route, component_id) in routes_iter {
+            let replaced = routes.insert(route.clone(), component_id.clone());
+            if let Some(replaced) = replaced {
+                duplicates.push(DuplicateRoute {
+                    route: route.clone(),
+                    replaced_id: replaced,
+                    effective_id: component_id.clone(),
+                });
+            }
+        }
+
+        Ok((Self { routes }, duplicates))
     }
 
     // This assumes the order of the components in the manifest has been
@@ -122,6 +139,14 @@ impl RoutePattern {
         match self {
             Self::Exact(path) => path.into(),
             Self::Wildcard(prefix) => format!("{}/...", prefix).into(),
+        }
+    }
+
+    /// The full pattern, with trailing "/..." for Wildcard and "/" for root.
+    pub(crate) fn full_pattern_non_empty(&self) -> Cow<str> {
+        match self {
+            Self::Exact(path) if path.is_empty() => "/".into(),
+            _ => self.full_pattern(),
         }
     }
 
@@ -349,5 +374,76 @@ mod route_tests {
         assert_eq!(r.route("/one")?, "one_exact".to_string(),);
 
         Ok(())
+    }
+
+    #[test]
+    fn sensible_routes_are_reachable() {
+        let (routes, duplicates) = Router::build(
+            "/",
+            vec![
+                ("/", "/"),
+                ("/foo", "/foo"),
+                ("/bar", "/bar"),
+                ("/whee/...", "/whee/..."),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(4, routes.routes.len());
+        assert_eq!(0, duplicates.len());
+    }
+
+    #[test]
+    fn order_of_reachable_routes_is_preserved() {
+        let (routes, _) = Router::build(
+            "/",
+            vec![
+                ("/", "/"),
+                ("/foo", "/foo"),
+                ("/bar", "/bar"),
+                ("/whee/...", "/whee/..."),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!("/", routes.routes[0]);
+        assert_eq!("/foo", routes.routes[1]);
+        assert_eq!("/bar", routes.routes[2]);
+        assert_eq!("/whee/...", routes.routes[3]);
+    }
+
+    #[test]
+    fn duplicate_routes_are_unreachable() {
+        let (routes, duplicates) = Router::build(
+            "/",
+            vec![
+                ("/", "/"),
+                ("first /foo", "/foo"),
+                ("second /foo", "/foo"),
+                ("/whee/...", "/whee/..."),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(3, routes.routes.len());
+        assert_eq!(1, duplicates.len());
+    }
+
+    #[test]
+    fn duplicate_routes_last_one_wins() {
+        let (routes, duplicates) = Router::build(
+            "/",
+            vec![
+                ("/", "/"),
+                ("first /foo", "/foo"),
+                ("second /foo", "/foo"),
+                ("/whee/...", "/whee/..."),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!("second /foo", routes.routes[1]);
+        assert_eq!("first /foo", duplicates[0].replaced_id);
+        assert_eq!("second /foo", duplicates[0].effective_id);
     }
 }

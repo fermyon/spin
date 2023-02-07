@@ -18,6 +18,7 @@ services:
     depends_on:
       - mysql
     image: spin-e2e-tests
+    entrypoint: cargo test spinup_tests --features new-e2e-tests --no-fail-fast -- --nocapture
     volumes:
       - ./target/release/spin:/usr/local/bin/spin
 

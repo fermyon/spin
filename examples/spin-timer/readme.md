@@ -10,4 +10,4 @@ To test:
   * Update the URL too, to reflect the directory where the tar file is
 * `spin plugin install --file ./trigger-timer.json --yes`
 
-Then you should be able to `spin build --up --follow-all` the guest.
+Then you should be able to `spin build --up` the guest.

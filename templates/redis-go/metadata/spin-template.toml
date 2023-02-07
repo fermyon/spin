@@ -1,6 +1,7 @@
 manifest_version = "1"
 id = "redis-go"
 description = "Redis message handler using (Tiny)Go"
+tags = ["redis", "go"]
 
 [parameters]
 project-description = { type = "string",  prompt = "Description", default = "" }

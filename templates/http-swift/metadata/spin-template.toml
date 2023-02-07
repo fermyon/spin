@@ -1,6 +1,7 @@
 manifest_version = "1"
 id = "http-swift"
 description = "HTTP request handler using SwiftWasm"
+tags = ["http", "swift"]
 
 [parameters]
 project-description = { type = "string",  prompt = "Description", default = "" }

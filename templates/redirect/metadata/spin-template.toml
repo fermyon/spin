@@ -2,6 +2,7 @@ manifest_version = "1"
 id = "redirect"
 description = "Redirects a HTTP route"
 trigger_type = "http"
+tags = ["redirect"]
 
 [new_application]
 supported = false

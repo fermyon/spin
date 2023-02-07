@@ -24,6 +24,14 @@ pub struct TemplateNewCommandCore {
     #[clap(value_parser = validate_name)]
     pub name: Option<String>,
 
+    /// Filter templates to select by tags.
+    #[clap(
+        long = "tag",
+        multiple_occurrences = true,
+        conflicts_with = "template-id"
+    )]
+    pub tags: Vec<String>,
+
     /// The directory in which to create the new application or component.
     /// The default is the name argument.
     #[clap(short = 'o', long = "output")]
@@ -116,7 +124,7 @@ impl TemplateNewCommandCore {
                     return Ok(());
                 }
             },
-            None => match prompt_template(&template_manager, &variant).await? {
+            None => match prompt_template(&template_manager, &variant, &self.tags).await? {
                 Some(template) => template,
                 None => return Ok(()),
             },
@@ -204,8 +212,9 @@ fn merge_values(from_file: &mut HashMap<String, String>, from_cli: &[ParameterVa
 async fn prompt_template(
     template_manager: &TemplateManager,
     variant: &TemplateVariantInfo,
+    tags: &[String],
 ) -> anyhow::Result<Option<Template>> {
-    let mut templates = match list_or_install_templates(template_manager).await? {
+    let mut templates = match list_or_install_templates(template_manager, tags).await? {
         Some(t) => t,
         None => return Ok(None),
     };
@@ -230,12 +239,13 @@ async fn prompt_template(
 
 async fn list_or_install_templates(
     template_manager: &TemplateManager,
+    tags: &[String],
 ) -> anyhow::Result<Option<Vec<Template>>> {
-    let templates = template_manager.list().await?.templates;
-    if templates.is_empty() {
+    let list_results = template_manager.list_with_tags(tags).await?;
+    if list_results.needs_install() {
         super::templates::prompt_install_default_templates(template_manager).await
     } else {
-        Ok(Some(templates))
+        Ok(Some(list_results.templates))
     }
 }
 

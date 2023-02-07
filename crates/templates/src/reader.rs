@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::Context;
 use indexmap::IndexMap;
@@ -18,6 +18,7 @@ pub(crate) struct RawTemplateManifestV1 {
     pub id: String,
     pub description: Option<String>,
     pub trigger_type: Option<String>,
+    pub tags: Option<HashSet<String>>,
     pub new_application: Option<RawTemplateVariant>,
     pub add_component: Option<RawTemplateVariant>,
     pub parameters: Option<IndexMap<String, RawParameter>>,

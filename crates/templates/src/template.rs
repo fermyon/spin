@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use anyhow::{anyhow, Context};
 use indexmap::IndexMap;
@@ -16,6 +19,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Template {
     id: String,
+    tags: HashSet<String>,
     description: Option<String>,
     installed_from: InstalledFrom,
     trigger: TemplateTriggerCompatibility,
@@ -136,6 +140,7 @@ impl Template {
         let template = match raw {
             RawTemplateManifest::V1(raw) => Self {
                 id: raw.id.clone(),
+                tags: raw.tags.map(Self::normalize_tags).unwrap_or_default(),
                 description: raw.description.clone(),
                 installed_from,
                 trigger: Self::parse_trigger_type(raw.trigger_type, layout),
@@ -153,6 +158,19 @@ impl Template {
     /// on the Spin command line.
     pub fn id(&self) -> &str {
         &self.id
+    }
+
+    /// Returns true if the templates matches the provided set of tags.
+    pub fn matches_all_tags(&self, match_set: &[String]) -> bool {
+        match_set
+            .iter()
+            .all(|tag| self.tags().contains(&tag.to_lowercase()))
+    }
+
+    /// The set of tags associated with the template, provided by the
+    /// template author.
+    pub fn tags(&self) -> &HashSet<String> {
+        &self.tags
     }
 
     /// A human-readable description of the template, provided by the
@@ -239,6 +257,10 @@ impl Template {
     /// for values and interact with the user at the console).
     pub fn run(self, options: RunOptions) -> Run {
         Run::new(self, options)
+    }
+
+    fn normalize_tags(tags: HashSet<String>) -> HashSet<String> {
+        tags.into_iter().map(|tag| tag.to_lowercase()).collect()
     }
 
     fn parse_trigger_type(

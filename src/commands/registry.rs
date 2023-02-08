@@ -16,7 +16,7 @@ use crate::opts::*;
 /// Currently, the OCI commands are reusing the credentials from ~/.docker/config.json to
 /// authenticate to registries.
 #[derive(Subcommand, Debug)]
-pub enum OciCommands {
+pub enum RegistryCommands {
     /// Push a Spin application to an OCI registry.
     Push(Push),
     /// Pull a Spin application from an OCI registry.
@@ -25,12 +25,12 @@ pub enum OciCommands {
     Run(Run),
 }
 
-impl OciCommands {
+impl RegistryCommands {
     pub async fn run(self) -> Result<()> {
         match self {
-            OciCommands::Push(cmd) => cmd.run().await,
-            OciCommands::Pull(cmd) => cmd.run().await,
-            OciCommands::Run(cmd) => cmd.run().await,
+            RegistryCommands::Push(cmd) => cmd.run().await,
+            RegistryCommands::Pull(cmd) => cmd.run().await,
+            RegistryCommands::Run(cmd) => cmd.run().await,
         }
     }
 }

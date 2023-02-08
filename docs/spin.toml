@@ -192,7 +192,7 @@ executor = { type = "wagi" }
 [[component]]
 id = "redirect-contributing"
 source = "modules/redirect.wasm"
-environment = { DESTINATION = "https://developer.fermyon.com/spin/contributing" }
+environment = { DESTINATION = "https://developer.fermyon.com/spin/contributing-spin" }
 [component.trigger]
 route = "/contributing"
 executor = { type = "wagi" }

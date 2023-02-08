@@ -47,13 +47,12 @@ impl Router {
         Ok((Self { routes }, duplicates))
     }
 
-    // This assumes the order of the components in the manifest has been
-    // preserved, so the routing algorithm, which takes the order into account,
-    // is correct.
-    /// Returns the component ID that should handle the given path, or an error
+    /// This returns the component ID that should handle the given path, or an error
     /// if no component matches.
-    /// If there are multiple possible components registered for the same route or
-    /// wildcard, this returns the last entry in the component map.
+    ///
+    /// If multiple components could potentially handle the same request based on their
+    /// defined routes, components with matching exact routes take precedence followed
+    /// by matching wildcard patterns with the longest matching prefix.
     pub(crate) fn route(&self, p: &str) -> Result<&str> {
         let matches = self.routes.iter().filter(|(rp, _)| rp.matches(p));
 

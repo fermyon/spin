@@ -4,11 +4,10 @@
 
 mod manifest;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use spin_loader::local::parent_dir;
 use std::path::{Path, PathBuf};
 use subprocess::{Exec, Redirection};
-use tracing::log;
 
 use crate::manifest::{BuildAppInfoAnyVersion, RawComponentManifest};
 
@@ -25,16 +24,10 @@ pub async fn build(manifest_file: &Path) -> Result<()> {
         return Ok(());
     }
 
-    let results = app
-        .components
+    app.components
         .into_iter()
-        .map(|c| build_component(c, &app_dir));
-
-    for r in results {
-        if r.is_err() {
-            bail!(r.err().unwrap());
-        }
-    }
+        .map(|c| build_component(c, &app_dir))
+        .collect::<Result<Vec<_>, _>>()?;
 
     println!("Successfully ran the build command for the Spin components.");
     Ok(())
@@ -53,27 +46,27 @@ fn build_component(raw: RawComponentManifest, app_dir: &Path) -> Result<()> {
                 println!("Working directory: {:?}", workdir);
             }
 
-            let res = Exec::shell(&b.command)
+            let exit_status = Exec::shell(&b.command)
                 .cwd(workdir)
-                .stdout(Redirection::Pipe)
-                .capture()
-                .with_context(|| {
-                    format!(
-                        "Cannot spawn build process '{:?}' for component {}.",
-                        &b.command, raw.id
+                .stdout(Redirection::None)
+                .stderr(Redirection::None)
+                .stdin(Redirection::None)
+                .popen()
+                .map_err(|err| {
+                    anyhow!(
+                        "Cannot spawn build process '{:?}' for component {}: {}",
+                        &b.command,
+                        raw.id,
+                        err
                     )
-                })?;
+                })?
+                .wait()?;
 
-            if !res.stdout_str().is_empty() {
-                log::info!("Standard output for component {}", raw.id);
-                print!("{}", res.stdout_str());
-            }
-
-            if !res.success() {
+            if !exit_status.success() {
                 bail!(
-                    "Build command for component {} failed with status {:?}.",
+                    "Build command for component {} failed with status {:?}",
                     raw.id,
-                    res.exit_status
+                    exit_status,
                 );
             }
 

@@ -6,6 +6,12 @@ who = "Radu Matei <radu.matei@fermyon.com>"
 criteria = "safe-to-deploy"
 version = "1.0.65"
 
+[[audits.anyhow]]
+who = "Vaughn Dice <vaughn.dice@fermyon.com>"
+criteria = "safe-to-deploy"
+delta = "1.0.65 -> 1.0.68"
+notes = "CI and test updates plus minor Rust efficiency improvements."
+
 [[audits.regalloc2]]
 who = "Radu Matei <radu.matei@fermyon.com>"
 criteria = "safe-to-deploy"

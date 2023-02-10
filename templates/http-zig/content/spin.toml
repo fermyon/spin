@@ -14,3 +14,4 @@ route = "{{http-path}}"
 executor = { type = "wagi" }
 [component.build]
 command = "zig build-exe -O ReleaseSmall -target wasm32-wasi src/main.zig"
+watch = ["src/**/*.zig", "spin.toml"]

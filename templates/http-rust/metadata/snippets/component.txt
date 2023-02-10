@@ -7,3 +7,4 @@ route = "{{http-path}}"
 [component.build]
 command = "cargo build --target wasm32-wasi --release"
 workdir = "{{ output-path }}"
+watch = ["src/**/*.rs", "Cargo.toml", "spin.toml"]

@@ -22,3 +22,7 @@ pub const HELP_ARGS_ONLY_TRIGGER_TYPE: &str = "provide-help-args-no-app";
 pub const FROM_REGISTRY_OPT: &str = "REGISTRY_REFERENCE";
 pub const TOKEN: &str = "TOKEN";
 pub const SPIN_AUTH_TOKEN: &str = "SPIN_AUTH_TOKEN";
+pub const WATCH_CLEAR_OPT: &str = "CLEAR";
+pub const WATCH_DEBOUNCE_OPT: &str = "DEBOUNCE";
+pub const WATCH_SKIP_BUILD_OPT: &str = "SKIP_BUILD";
+pub const WATCH_WATCH_ASSETS_OPT: &str = "WATCH_ASSETS";

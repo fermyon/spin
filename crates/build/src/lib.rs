@@ -2,7 +2,8 @@
 
 //! A library for building Spin components.
 
-mod manifest;
+/// TODO: Docs
+pub mod manifest;
 
 use anyhow::{anyhow, bail, Context, Result};
 use spin_loader::local::parent_dir;

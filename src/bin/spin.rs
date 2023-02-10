@@ -14,6 +14,7 @@ use spin_cli::commands::{
     registry::RegistryCommands,
     templates::TemplateCommands,
     up::UpCommand,
+    watch::WatchCommand,
 };
 use spin_http::HttpTrigger;
 use spin_redis_engine::RedisTrigger;
@@ -70,6 +71,7 @@ enum SpinApp {
     Trigger(TriggerCommands),
     #[clap(external_subcommand)]
     External(Vec<String>),
+    Watch(WatchCommand),
 }
 
 #[derive(Subcommand)]
@@ -99,6 +101,7 @@ impl SpinApp {
             Self::Trigger(TriggerCommands::HelpArgsOnly(cmd)) => cmd.run().await,
             Self::Plugins(cmd) => cmd.run().await,
             Self::External(cmd) => execute_external_subcommand(cmd, SpinApp::command()).await,
+            Self::Watch(cmd) => cmd.run().await,
         }
     }
 }

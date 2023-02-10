@@ -26,6 +26,7 @@ dialoguer = "0.10"
 dirs = "4.0"
 dunce = "1.0"
 futures = "0.3"
+glob = "0.3.1"
 hippo-openapi = "0.10"
 hippo = { git = "https://github.com/deislabs/hippo-cli", tag = "v0.16.1" }
 is-terminal = "0.4"
@@ -63,6 +64,9 @@ tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 url = "2.2.2"
 uuid = "^1.0"
 wasmtime = { workspace = true }
+subprocess = "0.2.9"
+notify = "5.1.0"
+notify-debouncer-mini = "0.2.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # This needs to be an explicit dependency to enable

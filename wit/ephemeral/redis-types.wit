@@ -6,3 +6,11 @@ enum error {
 
 // The message payload.
 type payload = list<u8>
+
+// An argument and return type for the general-purpose `execute` function.
+variant value {
+    nil,
+    %string(string),
+    int(s64),
+    data(payload)
+}

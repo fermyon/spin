@@ -43,7 +43,38 @@ pub mod http {
 /// Implementation of the spin redis interface.
 #[allow(missing_docs)]
 pub mod redis {
+    use std::hash::{Hash, Hasher};
+
     wit_bindgen_rust::import!("../../wit/ephemeral/outbound-redis.wit");
+
+    impl PartialEq for outbound_redis::ValueResult {
+        fn eq(&self, other: &Self) -> bool {
+            use outbound_redis::ValueResult::*;
+
+            match (self, other) {
+                (Nil, Nil) => true,
+                (String(a), String(b)) => a == b,
+                (Int(a), Int(b)) => a == b,
+                (Data(a), Data(b)) => a == b,
+                _ => false,
+            }
+        }
+    }
+
+    impl Eq for outbound_redis::ValueResult {}
+
+    impl Hash for outbound_redis::ValueResult {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            use outbound_redis::ValueResult::*;
+
+            match self {
+                Nil => (),
+                String(s) => s.hash(state),
+                Int(v) => v.hash(state),
+                Data(v) => v.hash(state),
+            }
+        }
+    }
 
     /// Exports the generated outbound Redis items.
     pub use outbound_redis::*;

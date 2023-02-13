@@ -9,7 +9,6 @@ mod integration_tests {
     use std::{
         collections::HashMap,
         ffi::OsStr,
-        fs,
         net::{Ipv4Addr, SocketAddrV4, TcpListener},
         path::Path,
         process::{self, Child, Command, Output},
@@ -1133,7 +1132,7 @@ route = "/..."
             ]
         });
         let manifest_file_path = dir.join("example-plugin-manifest.json");
-        fs::write(
+        std::fs::write(
             &manifest_file_path,
             serde_json::to_string(&plugin_manifest_json).unwrap(),
         )?;
@@ -1161,7 +1160,7 @@ route = "/..."
 
         // Upgrade plugin to newer version
         *plugin_manifest_json.get_mut("version").unwrap() = serde_json::json!("0.2.1");
-        fs::write(
+        std::fs::write(
             dir.join("example-plugin-manifest.json"),
             serde_json::to_string(&plugin_manifest_json).unwrap(),
         )?;
@@ -1184,7 +1183,7 @@ route = "/..."
             .join("plugins")
             .join("manifests")
             .join("example.json");
-        let manifest = fs::read_to_string(installed_manifest)?;
+        let manifest = std::fs::read_to_string(installed_manifest)?;
         assert!(manifest.contains("0.2.1"));
 
         // Uninstall plugin

@@ -240,6 +240,15 @@ impl Upgrade {
 
         if sources.is_empty() {
             eprintln!("No template repositories found to upgrade");
+            eprintln!();
+            if existing_templates.is_empty() {
+                prompt_install_default_templates(template_manager).await?;
+            } else {
+                eprintln!("Your template repositories were either:");
+                eprintln!("* Installed from a directory; or");
+                eprintln!("* Installed using an older version of Spin");
+                eprintln!("To upgrade them, run `spin templates install --upgrade` with the --git or --dir option");
+            }
             return Ok(None);
         }
 

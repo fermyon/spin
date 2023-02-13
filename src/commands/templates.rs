@@ -390,6 +390,10 @@ impl Uninstall {
 /// List the installed templates.
 #[derive(Parser, Debug)]
 pub struct List {
+    /// Filter templates matching all provided tags.
+    #[clap(long = "tag", multiple_occurrences = true)]
+    pub tags: Vec<String>,
+
     /// The format in which to list the templates.
     #[clap(value_enum, long = "format", default_value = "table", hide = true)]
     pub format: ListFormat,
@@ -409,27 +413,37 @@ impl List {
     pub async fn run(self) -> Result<()> {
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
+
         let list_results = template_manager
-            .list()
+            .list_with_tags(&self.tags)
             .await
             .context("Failed to list templates")?;
 
-        match (&self.format, list_results.templates.is_empty()) {
-            (ListFormat::Table, false) => self.print_templates_table(&list_results),
-            (ListFormat::Table, true) => {
+        match self.format {
+            ListFormat::Table if list_results.needs_install() => {
                 prompt_install_default_templates(&template_manager).await?;
             }
-            (ListFormat::Json, _) => self.print_templates_json(&list_results)?,
+            ListFormat::Table => self.print_templates_table(&list_results),
+            ListFormat::Json => self.print_templates_json(&list_results)?,
         };
 
         Ok(())
     }
 
     fn print_templates_table(&self, list_results: &ListResults) {
-        let templates = &list_results.templates;
-        let warnings = &list_results.warnings;
+        let ListResults {
+            templates,
+            warnings,
+            skipped,
+        } = list_results;
+
         if templates.is_empty() {
-            println!();
+            if skipped.is_empty() {
+                println!();
+            } else {
+                let num_skipped = skipped.len();
+                println!("No templates matched tags ({num_skipped} templates skipped)");
+            }
         } else {
             let mut table = Table::new();
 
@@ -473,6 +487,7 @@ impl List {
             .iter()
             .map(json_list_format)
             .collect();
+
         let json_text = serde_json::to_string_pretty(&json_vals)?;
         println!("{}", json_text);
         Ok(())

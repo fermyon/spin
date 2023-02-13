@@ -1,6 +1,7 @@
 manifest_version = "1"
 id = "redis-rust"
 description = "Redis message handler using Rust"
+tags = ["redis", "rust"]
 
 [parameters]
 project-description = { type = "string",  prompt = "Description", default = "" }

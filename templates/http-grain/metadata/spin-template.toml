@@ -1,6 +1,7 @@
 manifest_version = "1"
 id = "http-grain"
 description = "HTTP request handler using Grain"
+tags = ["http", "grain"]
 
 [parameters]
 project-description = { type = "string",  prompt = "Description", default = "" }

@@ -1,6 +1,7 @@
 manifest_version = "1"
 id = "http-zig"
 description = "HTTP request handler using Zig"
+tags = ["http", "zig"]
 
 [parameters]
 project-description = { type = "string",  prompt = "Description", default = "" }

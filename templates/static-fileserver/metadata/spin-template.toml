@@ -2,6 +2,7 @@ manifest_version = "1"
 id = "static-fileserver"
 description = "Serves static files from an asset directory"
 trigger_type = "http"
+tags = ["http", "file", "static", "asset"]
 
 [add_component]
 skip_files = ["spin.toml"]

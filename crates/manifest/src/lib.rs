@@ -262,6 +262,8 @@ pub struct WasmConfig {
     pub mounts: Vec<DirectoryMount>,
     /// Optional list of HTTP hosts the component is allowed to connect.
     pub allowed_http_hosts: Vec<String>,
+    /// Optional list of key-value stores the component is allowed to use.
+    pub key_value_stores: Vec<String>,
 }
 
 /// Directory mount for the assets of a component.

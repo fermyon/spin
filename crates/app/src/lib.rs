@@ -92,6 +92,15 @@ impl AppLoader {
         })
     }
 
+    /// Consumes `self` and `parts`, producing an [`OwnedApp`].
+    pub fn into_owned(self, parts: AppParts) -> OwnedApp {
+        OwnedApp::new(self, move |loader| App {
+            loader,
+            uri: parts.uri,
+            locked: parts.locked,
+        })
+    }
+
     /// Loads an [`OwnedApp`] from the given `Loader`-implementation-specific
     /// `uri`; the [`OwnedApp`] takes ownership of this [`AppLoader`].
     pub async fn load_owned_app(self, uri: String) -> Result<OwnedApp> {
@@ -130,7 +139,21 @@ pub struct App<'a> {
     locked: LockedApp,
 }
 
+/// The parts of an app exclusive of the [`AppLoader`]
+pub struct AppParts {
+    uri: String,
+    locked: LockedApp,
+}
+
 impl<'a> App<'a> {
+    /// Consume `self`, producing an [`AppParts`]
+    pub fn into_parts(self) -> AppParts {
+        AppParts {
+            uri: self.uri,
+            locked: self.locked,
+        }
+    }
+
     /// Returns a [`Loader`]-implementation-specific URI for this app.
     pub fn uri(&self) -> &str {
         &self.uri

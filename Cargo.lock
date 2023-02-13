@@ -1358,6 +1358,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 
 [[package]]
+name = "fallible-streaming-iterator"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
+
+[[package]]
 name = "fastrand"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1755,6 +1761,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashlink"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69fe1fcf8b4278d860ad0548329f892a3631fb63f82574df68275f34cdbe0ffa"
+dependencies = [
+ "hashbrown 0.12.3",
+]
+
+[[package]]
 name = "heck"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2132,6 +2147,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "key-value"
+version = "0.8.0"
+dependencies = [
+ "anyhow",
+ "spin-app",
+ "spin-core",
+ "tokio",
+ "tracing",
+ "wit-bindgen-wasmtime",
+]
+
+[[package]]
+name = "key-value-sqlite"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "key-value",
+ "once_cell",
+ "rusqlite",
+ "tokio",
+ "wit-bindgen-wasmtime",
+]
+
+[[package]]
 name = "kstring"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2257,6 +2296,17 @@ checksum = "b67380fd3b2fbe7527a606e18729d21c6f3951633d0500574c4dc22d2d638b9f"
 dependencies = [
  "cfg-if",
  "winapi",
+]
+
+[[package]]
+name = "libsqlite3-sys"
+version = "0.25.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29f835d03d717946d28b1d1ed632eb6f0e24a299388ee623d0c23118d3e8a7fa"
+dependencies = [
+ "cc",
+ "pkg-config",
+ "vcpkg",
 ]
 
 [[package]]
@@ -3580,6 +3630,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusqlite"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01e213bc3ecb39ac32e81e51ebe31fd888a940515173e3a18a35f8c6e896422a"
+dependencies = [
+ "bitflags",
+ "fallible-iterator",
+ "fallible-streaming-iterator",
+ "hashlink",
+ "libsqlite3-sys",
+ "smallvec",
+]
+
+[[package]]
 name = "rust_decimal"
 version = "1.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4143,6 +4207,8 @@ dependencies = [
  "hippo-openapi",
  "hyper",
  "is-terminal",
+ "key-value",
+ "key-value-sqlite",
  "lazy_static",
  "nix 0.24.3",
  "openssl",
@@ -4445,6 +4511,8 @@ dependencies = [
  "ctrlc",
  "dirs 4.0.0",
  "futures",
+ "key-value",
+ "key-value-sqlite",
  "oci-distribution",
  "outbound-http",
  "outbound-mysql",

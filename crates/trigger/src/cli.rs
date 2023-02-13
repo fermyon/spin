@@ -31,10 +31,10 @@ where
 {
     /// Log directory for the stdout and stderr of components.
     #[clap(
-            name = APP_LOG_DIR,
-            short = 'L',
-            long = "log-dir",
-            )]
+        name = APP_LOG_DIR,
+        short = 'L',
+        long = "log-dir",
+    )]
     pub log: Option<PathBuf>,
 
     /// Disable Wasmtime cache.
@@ -61,14 +61,14 @@ where
         name = FOLLOW_LOG_OPT,
         long = "follow",
         multiple_occurrences = true,
-        )]
+    )]
     pub follow_components: Vec<String>,
 
     /// Print all component output to stdout/stderr
     #[clap(
         long = "follow-all",
         conflicts_with = FOLLOW_LOG_OPT,
-        )]
+    )]
     pub follow_all_components: bool,
 
     /// Set the static assets of the components in the temporary directory as writable.

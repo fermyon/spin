@@ -96,6 +96,7 @@ pub mod all {
         tc.run(controller).await.unwrap()
     }
 
+    #[allow(unused)]
     pub async fn http_grain_works(controller: &dyn Controller) {
         fn checks(metadata: &AppMetadata) -> Result<()> {
             return assert_http_response(metadata.base.as_str(), 200, &[], Some("Hello, World\n"));

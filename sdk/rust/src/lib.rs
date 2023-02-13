@@ -5,6 +5,9 @@
 /// Outbound HTTP request functionality.
 pub mod outbound_http;
 
+/// Key/Value storage.
+pub mod key_value;
+
 /// Exports the procedural macros for writing handlers for Spin components.
 pub use spin_macro::*;
 

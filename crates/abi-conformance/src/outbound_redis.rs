@@ -1,5 +1,6 @@
 use super::Context;
 use anyhow::{ensure, Result};
+use outbound_redis::{Error, RedisParameter, RedisResult};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use wasmtime::{InstancePre, Store};
@@ -76,6 +77,15 @@ pub struct RedisReport {
     /// "baz"))` as the result.  The host will assert that said function is called exactly once with the specified
     /// arguments.
     pub smembers: Result<(), String>,
+
+    /// Result of the Redis `execute` test
+    ///
+    /// The guest module should expect a call according to [`super::InvocationStyle`] with
+    /// \["outbound-redis-execute", "127.0.0.1", "append", "foo", "baz"\] as arguments. The module should call the
+    /// host-implemented `outbound-redis::execute` function with the arguments \["127.0.0.1", "append", "foo",
+    /// "baz"\] and expect `ok(list(value::int(3)))` as the result.  The host will assert that said function is
+    /// called exactly once with the specified arguments.
+    pub execute: Result<(), String>,
 }
 
 wit_bindgen_wasmtime::export!("../../wit/ephemeral/outbound-redis.wit");
@@ -90,92 +100,93 @@ pub(super) struct OutboundRedis {
     sadd_map: HashMap<(String, String, Vec<String>), i64>,
     srem_map: HashMap<(String, String, Vec<String>), i64>,
     smembers_map: HashMap<(String, String), Vec<String>>,
+    execute_map: HashMap<(String, String, Vec<String>), Vec<RedisResult>>,
 }
 
 impl outbound_redis::OutboundRedis for OutboundRedis {
-    fn publish(
-        &mut self,
-        address: &str,
-        channel: &str,
-        payload: &[u8],
-    ) -> Result<(), outbound_redis::Error> {
+    fn publish(&mut self, address: &str, channel: &str, payload: &[u8]) -> Result<(), Error> {
         if self
             .publish_set
             .remove(&(address.to_owned(), channel.to_owned(), payload.to_vec()))
         {
             Ok(())
         } else {
-            Err(outbound_redis::Error::Error)
+            Err(Error::Error)
         }
     }
 
-    fn get(&mut self, address: &str, key: &str) -> Result<Vec<u8>, outbound_redis::Error> {
+    fn get(&mut self, address: &str, key: &str) -> Result<Vec<u8>, Error> {
         self.get_map
             .remove(&(address.to_owned(), key.to_owned()))
-            .ok_or(outbound_redis::Error::Error)
+            .ok_or(Error::Error)
     }
 
-    fn set(&mut self, address: &str, key: &str, value: &[u8]) -> Result<(), outbound_redis::Error> {
+    fn set(&mut self, address: &str, key: &str, value: &[u8]) -> Result<(), Error> {
         if self
             .set_set
             .remove(&(address.to_owned(), key.to_owned(), value.to_vec()))
         {
             Ok(())
         } else {
-            Err(outbound_redis::Error::Error)
+            Err(Error::Error)
         }
     }
 
-    fn incr(&mut self, address: &str, key: &str) -> Result<i64, outbound_redis::Error> {
+    fn incr(&mut self, address: &str, key: &str) -> Result<i64, Error> {
         self.incr_map
             .remove(&(address.to_owned(), key.to_owned()))
             .map(|value| value + 1)
-            .ok_or(outbound_redis::Error::Error)
+            .ok_or(Error::Error)
     }
 
-    fn del(&mut self, address: &str, keys: Vec<&str>) -> Result<i64, outbound_redis::Error> {
+    fn del(&mut self, address: &str, keys: Vec<&str>) -> Result<i64, Error> {
         self.del_map
             .remove(&(
                 address.into(),
                 keys.into_iter().map(|s| s.to_owned()).collect(),
             ))
-            .ok_or(outbound_redis::Error::Error)
+            .ok_or(Error::Error)
     }
 
-    fn sadd(
-        &mut self,
-        address: &str,
-        key: &str,
-        values: Vec<&str>,
-    ) -> Result<i64, outbound_redis::Error> {
+    fn sadd(&mut self, address: &str, key: &str, values: Vec<&str>) -> Result<i64, Error> {
         self.sadd_map
             .remove(&(
                 address.into(),
                 key.to_owned(),
                 values.into_iter().map(|s| s.to_owned()).collect(),
             ))
-            .ok_or(outbound_redis::Error::Error)
+            .ok_or(Error::Error)
     }
 
-    fn srem(
-        &mut self,
-        address: &str,
-        key: &str,
-        values: Vec<&str>,
-    ) -> Result<i64, outbound_redis::Error> {
+    fn srem(&mut self, address: &str, key: &str, values: Vec<&str>) -> Result<i64, Error> {
         self.srem_map
             .remove(&(
                 address.into(),
                 key.to_owned(),
                 values.into_iter().map(|s| s.to_owned()).collect(),
             ))
-            .ok_or(outbound_redis::Error::Error)
+            .ok_or(Error::Error)
     }
 
-    fn smembers(&mut self, address: &str, key: &str) -> Result<Vec<String>, outbound_redis::Error> {
+    fn smembers(&mut self, address: &str, key: &str) -> Result<Vec<String>, Error> {
         self.smembers_map
             .remove(&(address.into(), key.to_owned()))
-            .ok_or(outbound_redis::Error::Error)
+            .ok_or(Error::Error)
+    }
+
+    fn execute(
+        &mut self,
+        address: &str,
+        command: &str,
+        arguments: Vec<RedisParameter<'_>>,
+    ) -> Result<Vec<RedisResult>, Error> {
+        self.execute_map
+            .remove(&(
+                address.into(),
+                command.to_owned(),
+                arguments.iter().map(|v| format!("{v:?}")).collect(),
+            ))
+            .ok_or(Error::Error)
     }
 }
 
@@ -354,6 +365,37 @@ pub(super) fn test(store: &mut Store<Context>, pre: &InstancePre<Context>) -> Re
                     ensure!(
                         store.data().outbound_redis.smembers_map.is_empty(),
                         "expected module to call `outbound-redis::smembers` exactly once"
+                    );
+
+                    Ok(())
+                },
+            )
+        },
+
+        execute: {
+            store.data_mut().outbound_redis.execute_map.insert(
+                (
+                    "127.0.0.1".into(),
+                    "append".to_owned(),
+                    vec!["foo".to_owned(), "baz".to_owned()],
+                ),
+                vec![RedisResult::Int64(3)],
+            );
+
+            super::run_command(
+                store,
+                pre,
+                &[
+                    "outbound-redis-execute",
+                    "127.0.0.1",
+                    "append",
+                    "foo",
+                    "baz",
+                ],
+                |store| {
+                    ensure!(
+                        store.data().outbound_redis.execute_map.is_empty(),
+                        "expected module to call `outbound-redis::execute` exactly once"
                     );
 
                     Ok(())

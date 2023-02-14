@@ -7,10 +7,17 @@ enum error {
 // The message payload.
 type payload = list<u8>
 
-// An argument and return type for the general-purpose `execute` function.
-variant value {
+// A parameter type for the general-purpose `execute` function.
+variant redis-parameter {
+    str(string),
+    int64(s64),
+    binary(payload)
+}
+
+// A return type for the general-purpose `execute` function.
+variant redis-result {
     nil,
-    %string(string),
-    int(s64),
-    data(payload)
+    status(string),
+    int64(s64),
+    binary(payload)
 }

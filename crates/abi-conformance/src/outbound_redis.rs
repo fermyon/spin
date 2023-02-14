@@ -1,6 +1,6 @@
 use super::Context;
 use anyhow::{ensure, Result};
-use outbound_redis::{Error, ValueParam, ValueResult};
+use outbound_redis::{Error, RedisParameter, RedisResult};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use wasmtime::{InstancePre, Store};
@@ -100,7 +100,7 @@ pub(super) struct OutboundRedis {
     sadd_map: HashMap<(String, String, Vec<String>), i64>,
     srem_map: HashMap<(String, String, Vec<String>), i64>,
     smembers_map: HashMap<(String, String), Vec<String>>,
-    execute_map: HashMap<(String, String, Vec<String>), Vec<ValueResult>>,
+    execute_map: HashMap<(String, String, Vec<String>), Vec<RedisResult>>,
 }
 
 impl outbound_redis::OutboundRedis for OutboundRedis {
@@ -178,8 +178,8 @@ impl outbound_redis::OutboundRedis for OutboundRedis {
         &mut self,
         address: &str,
         command: &str,
-        arguments: Vec<ValueParam<'_>>,
-    ) -> Result<Vec<ValueResult>, Error> {
+        arguments: Vec<RedisParameter<'_>>,
+    ) -> Result<Vec<RedisResult>, Error> {
         self.execute_map
             .remove(&(
                 address.into(),
@@ -379,7 +379,7 @@ pub(super) fn test(store: &mut Store<Context>, pre: &InstancePre<Context>) -> Re
                     "append".to_owned(),
                     vec!["foo".to_owned(), "baz".to_owned()],
                 ),
-                vec![ValueResult::Int(3)],
+                vec![RedisResult::Int64(3)],
             );
 
             super::run_command(

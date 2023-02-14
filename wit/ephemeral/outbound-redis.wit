@@ -26,4 +26,4 @@ smembers: func(address: string, key: string) -> expected<list<string>, error>
 srem: func(address: string, key: string, values: list<string>) -> expected<s64, error>
 
 // Execute an arbitrary Redis command and receive the result.
-execute: func(address: string, command: string, arguments: list<value>) -> expected<list<value>, error>
+execute: func(address: string, command: string, arguments: list<redis-parameter>) -> expected<list<redis-result>, error>

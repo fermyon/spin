@@ -47,37 +47,37 @@ pub mod redis {
 
     wit_bindgen_rust::import!("../../wit/ephemeral/outbound-redis.wit");
 
-    impl PartialEq for outbound_redis::ValueResult {
+    /// Exports the generated outbound Redis items.
+    pub use outbound_redis::*;
+
+    impl PartialEq for RedisResult {
         fn eq(&self, other: &Self) -> bool {
-            use outbound_redis::ValueResult::*;
+            use RedisResult::*;
 
             match (self, other) {
                 (Nil, Nil) => true,
-                (String(a), String(b)) => a == b,
-                (Int(a), Int(b)) => a == b,
-                (Data(a), Data(b)) => a == b,
+                (Status(a), Status(b)) => a == b,
+                (Int64(a), Int64(b)) => a == b,
+                (Binary(a), Binary(b)) => a == b,
                 _ => false,
             }
         }
     }
 
-    impl Eq for outbound_redis::ValueResult {}
+    impl Eq for RedisResult {}
 
-    impl Hash for outbound_redis::ValueResult {
+    impl Hash for RedisResult {
         fn hash<H: Hasher>(&self, state: &mut H) {
-            use outbound_redis::ValueResult::*;
+            use RedisResult::*;
 
             match self {
                 Nil => (),
-                String(s) => s.hash(state),
-                Int(v) => v.hash(state),
-                Data(v) => v.hash(state),
+                Status(s) => s.hash(state),
+                Int64(v) => v.hash(state),
+                Binary(v) => v.hash(state),
             }
         }
     }
-
-    /// Exports the generated outbound Redis items.
-    pub use outbound_redis::*;
 }
 
 /// Implementation of the spin postgres db interface.

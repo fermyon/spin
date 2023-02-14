@@ -3,31 +3,31 @@ mod host_component;
 use std::collections::{hash_map::Entry, HashMap};
 
 use anyhow::Result;
-use redis::{aio::Connection, AsyncCommands, FromRedisValue, RedisResult, Value};
+use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
 use wit_bindgen_wasmtime::async_trait;
 
 pub use host_component::OutboundRedisComponent;
 
 wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/outbound-redis.wit"], async: *});
-use outbound_redis::{Error, ValueParam, ValueResult};
+use outbound_redis::{Error, RedisParameter, RedisResult};
 
-struct Values(Vec<ValueResult>);
+struct RedisResults(Vec<RedisResult>);
 
-impl FromRedisValue for Values {
-    fn from_redis_value(value: &Value) -> RedisResult<Self> {
-        fn append(values: &mut Vec<ValueResult>, value: &Value) {
+impl FromRedisValue for RedisResults {
+    fn from_redis_value(value: &Value) -> redis::RedisResult<Self> {
+        fn append(values: &mut Vec<RedisResult>, value: &Value) {
             match value {
                 Value::Nil | Value::Okay => (),
-                Value::Int(v) => values.push(ValueResult::Int(*v)),
-                Value::Data(bytes) => values.push(ValueResult::Data(bytes.to_owned())),
+                Value::Int(v) => values.push(RedisResult::Int64(*v)),
+                Value::Data(bytes) => values.push(RedisResult::Binary(bytes.to_owned())),
                 Value::Bulk(bulk) => bulk.iter().for_each(|value| append(values, value)),
-                Value::Status(message) => values.push(ValueResult::String(message.to_owned())),
+                Value::Status(message) => values.push(RedisResult::Status(message.to_owned())),
             }
         }
 
         let mut values = Vec::new();
         append(&mut values, value);
-        Ok(Values(values))
+        Ok(RedisResults(values))
     }
 }
 
@@ -90,24 +90,23 @@ impl outbound_redis::OutboundRedis for OutboundRedis {
         &mut self,
         address: &str,
         command: &str,
-        arguments: Vec<ValueParam<'_>>,
-    ) -> Result<Vec<ValueResult>, Error> {
+        arguments: Vec<RedisParameter<'_>>,
+    ) -> Result<Vec<RedisResult>, Error> {
         let conn = self.get_conn(address).await.map_err(log_error)?;
         let mut cmd = redis::cmd(command);
         arguments.iter().for_each(|value| match value {
-            ValueParam::Nil => (),
-            ValueParam::String(s) => {
+            RedisParameter::Str(s) => {
                 cmd.arg(s);
             }
-            ValueParam::Int(v) => {
+            RedisParameter::Int64(v) => {
                 cmd.arg(v);
             }
-            ValueParam::Data(v) => {
+            RedisParameter::Binary(v) => {
                 cmd.arg(v);
             }
         });
 
-        cmd.query_async::<_, Values>(conn)
+        cmd.query_async::<_, RedisResults>(conn)
             .await
             .map(|values| values.0)
             .map_err(log_error)

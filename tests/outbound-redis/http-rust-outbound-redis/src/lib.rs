@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use spin_sdk::{
     http::{Request, Response},
     http_component,
-    redis::{self, ValueParam, ValueResult},
+    redis::{self, RedisParameter, RedisResult},
 };
 use std::collections::HashSet;
 
@@ -39,8 +39,8 @@ fn test(_req: Request) -> Result<Response> {
         &address,
         "set",
         &[
-            ValueParam::String("spin-example"),
-            ValueParam::Data(b"Eureka!"),
+            RedisParameter::Str("spin-example"),
+            RedisParameter::Binary(b"Eureka!"),
         ],
     )
     .map_err(|_| anyhow!("Error executing Redis set command"))?;
@@ -49,59 +49,59 @@ fn test(_req: Request) -> Result<Response> {
         &address,
         "append",
         &[
-            ValueParam::String("spin-example"),
-            ValueParam::Data(b" I've got it!"),
+            RedisParameter::Str("spin-example"),
+            RedisParameter::Binary(b" I've got it!"),
         ],
     )
-    .map_err(|_| anyhow!("Error executing Redis append command"))?;
+    .map_err(|_| anyhow!("Error executing Redis append command via `execute`"))?;
 
-    let values = redis::execute(&address, "get", &[ValueParam::String("spin-example")])
-        .map_err(|_| anyhow!("Error executing Redis get command"))?;
+    let values = redis::execute(&address, "get", &[RedisParameter::Str("spin-example")])
+        .map_err(|_| anyhow!("Error executing Redis get command via `execute`"))?;
 
     assert_eq!(
         values,
-        &[ValueResult::Data(b"Eureka! I've got it!".to_vec())]
+        &[RedisResult::Binary(b"Eureka! I've got it!".to_vec())]
     );
 
     redis::execute(
         &address,
         "set",
-        &[ValueParam::String("int-key"), ValueParam::Int(0)],
+        &[RedisParameter::Str("int-key"), RedisParameter::Int64(0)],
     )
-    .map_err(|_| anyhow!("Error executing Redis set command"))?;
+    .map_err(|_| anyhow!("Error executing Redis set command via `execute`"))?;
 
-    let values = redis::execute(&address, "incr", &[ValueParam::String("int-key")])
-        .map_err(|_| anyhow!("Error executing Redis incr command"))?;
+    let values = redis::execute(&address, "incr", &[RedisParameter::Str("int-key")])
+        .map_err(|_| anyhow!("Error executing Redis incr command via `execute`"))?;
 
-    assert_eq!(values, &[ValueResult::Int(1)]);
+    assert_eq!(values, &[RedisResult::Int64(1)]);
 
-    let values = redis::execute(&address, "get", &[ValueParam::String("int-key")])
-        .map_err(|_| anyhow!("Error executing Redis get command"))?;
+    let values = redis::execute(&address, "get", &[RedisParameter::Str("int-key")])
+        .map_err(|_| anyhow!("Error executing Redis get command via `execute`"))?;
 
-    assert_eq!(values, &[ValueResult::Data(b"1".to_vec())]);
+    assert_eq!(values, &[RedisResult::Binary(b"1".to_vec())]);
 
-    redis::execute(&address, "del", &[ValueParam::String("foo")])
-        .map_err(|_| anyhow!("Error executing Redis del command"))?;
+    redis::execute(&address, "del", &[RedisParameter::Str("foo")])
+        .map_err(|_| anyhow!("Error executing Redis del command via `execute`"))?;
 
     redis::execute(
         &address,
         "sadd",
         &[
-            ValueParam::String("foo"),
-            ValueParam::String("bar"),
-            ValueParam::String("baz"),
+            RedisParameter::Str("foo"),
+            RedisParameter::Str("bar"),
+            RedisParameter::Str("baz"),
         ],
     )
-    .map_err(|_| anyhow!("Error executing Redis sadd command"))?;
+    .map_err(|_| anyhow!("Error executing Redis sadd command via `execute`"))?;
 
-    let values = redis::execute(&address, "smembers", &[ValueParam::String("foo")])
-        .map_err(|_| anyhow!("Error executing Redis smembers command"))?;
+    let values = redis::execute(&address, "smembers", &[RedisParameter::Str("foo")])
+        .map_err(|_| anyhow!("Error executing Redis smembers command via `execute`"))?;
 
     assert_eq!(
         values.into_iter().collect::<HashSet<_>>(),
         [
-            ValueResult::Data(b"bar".to_vec()),
-            ValueResult::Data(b"baz".to_vec())
+            RedisResult::Binary(b"bar".to_vec()),
+            RedisResult::Binary(b"baz".to_vec())
         ]
         .into_iter()
         .collect::<HashSet<_>>()
@@ -110,16 +110,16 @@ fn test(_req: Request) -> Result<Response> {
     redis::execute(
         &address,
         "srem",
-        &[ValueParam::String("foo"), ValueParam::String("baz")],
+        &[RedisParameter::Str("foo"), RedisParameter::Str("baz")],
     )
-    .map_err(|_| anyhow!("Error executing Redis srem command"))?;
+    .map_err(|_| anyhow!("Error executing Redis srem command via `execute`"))?;
 
-    let values = redis::execute(&address, "smembers", &[ValueParam::String("foo")])
-        .map_err(|_| anyhow!("Error executing Redis smembers command"))?;
+    let values = redis::execute(&address, "smembers", &[RedisParameter::Str("foo")])
+        .map_err(|_| anyhow!("Error executing Redis smembers command via `execute`"))?;
 
     assert_eq!(
         values.into_iter().collect::<HashSet<_>>(),
-        [ValueResult::Data(b"bar".to_vec()),]
+        [RedisResult::Binary(b"bar".to_vec()),]
             .into_iter()
             .collect::<HashSet<_>>()
     );

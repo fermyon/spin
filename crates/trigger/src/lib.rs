@@ -6,7 +6,6 @@ mod stdio;
 
 use std::{
     collections::HashMap,
-    fs,
     marker::PhantomData,
     path::{Path, PathBuf},
     sync::Arc,
@@ -16,7 +15,6 @@ use anyhow::{anyhow, Context, Result};
 pub use async_trait::async_trait;
 use once_cell::sync::OnceCell;
 use serde::de::DeserializeOwned;
-use url::Url;
 
 use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp};
 use spin_config::{
@@ -27,8 +25,6 @@ use spin_core::{Config, Engine, EngineBuilder, Instance, InstancePre, Store, Sto
 
 const SPIN_HOME: &str = ".spin";
 const SPIN_CONFIG_ENV_PREFIX: &str = "SPIN_APP";
-const DEFAULT_SQLITE_DB_DIRECTORY: &str = ".spin";
-const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_key_value.db";
 
 #[async_trait]
 pub trait TriggerExecutor: Sized {
@@ -101,9 +97,9 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 builder.add_host_component(outbound_redis::OutboundRedisComponent)?;
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
-
+                #[cfg(feature = "key-value-sqlite")]
                 let manager = OnceCell::new();
-
+                #[cfg(feature = "key-value-sqlite")]
                 self.loader.add_dynamic_host_component(
                     &mut builder,
                     spin_key_value::KeyValueComponent::new(spin_key_value::manager(
@@ -387,8 +383,11 @@ fn decode_preinstantiation_error(e: anyhow::Error) -> anyhow::Error {
     e
 }
 
+#[cfg(feature = "key-value-sqlite")]
 fn key_value_file_location(app: &App) -> Option<PathBuf> {
-    let url = Url::parse(&app.get_metadata::<String>("origin").ok()??).ok()?;
+    const DEFAULT_SQLITE_DB_DIRECTORY: &str = ".spin";
+    const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_key_value.db";
+    let url = url::Url::parse(&app.get_metadata::<String>("origin").ok()??).ok()?;
     let local_spin_toml = if url.scheme() == "file" {
         url.path()
     } else {
@@ -402,7 +401,7 @@ fn key_value_file_location(app: &App) -> Option<PathBuf> {
         .parent()?
         .join(DEFAULT_SQLITE_DB_DIRECTORY);
 
-    fs::create_dir_all(&directory).ok()?;
+    std::fs::create_dir_all(&directory).ok()?;
 
     Some(directory.join(DEFAULT_SQLITE_DB_FILENAME))
 }

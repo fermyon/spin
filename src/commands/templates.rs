@@ -226,7 +226,10 @@ impl Upgrade {
         template_manager: &TemplateManager,
     ) -> anyhow::Result<Option<Vec<RepoSelection>>> {
         let existing_templates = template_manager.list().await?.templates;
-        let repos = existing_templates
+        let (origin, no_origin): (Vec<_>, Vec<_>) = existing_templates
+            .iter()
+            .partition(|t| t.source_repo().is_some());
+        let repos = origin
             .iter()
             .filter_map(|t| t.source_repo())
             .collect::<HashSet<_>>();
@@ -250,6 +253,20 @@ impl Upgrade {
                 eprintln!("To upgrade them, run `spin templates install --upgrade` with the --git or --dir option");
             }
             return Ok(None);
+        }
+
+        if !no_origin.is_empty() {
+            eprintln!(
+                "Spin could not determine where the following templates were installed from:"
+            );
+            for template in no_origin {
+                eprintln!("- {}", template.id());
+            }
+            eprintln!("To upgrade them, run `spin templates install --upgrade` with the --git or --dir option");
+            eprintln!();
+            if !self.all {
+                eprintln!("The following template repositories can be automatically upgraded:");
+            }
         }
 
         let selected_sources = if self.all {

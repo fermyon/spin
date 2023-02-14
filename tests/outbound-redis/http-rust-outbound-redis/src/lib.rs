@@ -53,7 +53,7 @@ fn test(_req: Request) -> Result<Response> {
             ValueParam::Data(b" I've got it!"),
         ],
     )
-    .map_err(|_| anyhow!("Error executing Redis set command"))?;
+    .map_err(|_| anyhow!("Error executing Redis append command"))?;
 
     let values = redis::execute(&address, "get", &[ValueParam::String("spin-example")])
         .map_err(|_| anyhow!("Error executing Redis get command"))?;

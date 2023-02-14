@@ -5,6 +5,7 @@ use lazy_static::lazy_static;
 use spin_cli::commands::{
     bindle::BindleCommands,
     build::BuildCommand,
+    cloud::CloudCommands,
     deploy::DeployCommand,
     external::execute_external_subcommand,
     login::LoginCommand,
@@ -52,11 +53,17 @@ enum SpinApp {
     Up(UpCommand),
     #[clap(subcommand)]
     Bindle(BindleCommands),
+    #[clap(subcommand)]
+    Cloud(CloudCommands),
+    // hidden to "work" as a cross-level subcommand alias -> `spin cloud deploy`
+    #[clap(hide = true)]
+    Deploy(DeployCommand),
+    // hidden to "work" as a cross-level subcommand alias -> `spin cloud login`
+    #[clap(hide = true)]
+    Login(LoginCommand),
     #[clap(subcommand, alias = "oci")]
     Registry(RegistryCommands),
-    Deploy(DeployCommand),
     Build(BuildCommand),
-    Login(LoginCommand),
     #[clap(subcommand, alias = "plugin")]
     Plugins(PluginCommands),
     #[clap(subcommand, hide = true)]
@@ -82,13 +89,14 @@ impl SpinApp {
             Self::New(cmd) => cmd.run().await,
             Self::Add(cmd) => cmd.run().await,
             Self::Bindle(cmd) => cmd.run().await,
-            Self::Registry(cmd) => cmd.run().await,
+            Self::Cloud(cmd) => cmd.run().await,
             Self::Deploy(cmd) => cmd.run().await,
+            Self::Login(cmd) => cmd.run().await,
+            Self::Registry(cmd) => cmd.run().await,
             Self::Build(cmd) => cmd.run().await,
             Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run().await,
             Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run().await,
             Self::Trigger(TriggerCommands::HelpArgsOnly(cmd)) => cmd.run().await,
-            Self::Login(cmd) => cmd.run().await,
             Self::Plugins(cmd) => cmd.run().await,
             Self::External(cmd) => execute_external_subcommand(cmd, SpinApp::command()).await,
         }

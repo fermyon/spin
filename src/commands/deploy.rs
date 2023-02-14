@@ -38,7 +38,7 @@ const SPIN_DEPLOY_CHANNEL_NAME: &str = "spin-deploy";
 
 const BINDLE_REGISTRY_URL_PATH: &str = "api/registry";
 
-/// Package and upload Spin artifacts, notifying Hippo
+/// Package and upload an application to the Fermyon Platform.
 #[derive(Parser, Debug)]
 #[clap(about = "Deploy a Spin application")]
 pub struct DeployCommand {

@@ -121,7 +121,7 @@ pub struct Run {
     pub reference: String,
 
     /// All other args, to be passed through to the trigger
-    ///  TODO: The arguments have to be passed like `-- --follow-all` for now.
+    ///  TODO: The arguments have to be passed like `-- --quiet` for now.
     #[clap(hide = true)]
     pub trigger_args: Vec<OsString>,
 }
@@ -156,8 +156,8 @@ impl Run {
             .arg(trigger_type)
             // TODO: This should be inferred from the lockfile.
             .arg("--oci")
-            // TODO: Once we figure out how to handle the flags for triggers, i.e. `-- --follow-all`, remove this.
-            .arg("--follow-all")
+            // TODO: Once we figure out how to handle the flags for triggers, i.e. `-- --quiet`, remove this.
+            .arg("--quiet")
             .args(&self.trigger_args)
             .env(SPIN_WORKING_DIR, working_dir.path());
 

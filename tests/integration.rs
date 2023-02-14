@@ -1076,7 +1076,7 @@ route = "/..."
         let output = run(up_help_args, None, None)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("--follow-all"));
+        assert!(stdout.contains("--quiet"));
         assert!(stdout.contains("--listen"));
 
         Ok(())

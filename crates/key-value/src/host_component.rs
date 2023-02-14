@@ -1,17 +1,17 @@
 use crate::{KeyValueDispatch, StoreManager};
-use spin_app::{App, AppComponent, DynamicHostComponent};
+use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::HostComponent;
 use std::sync::Arc;
 
 pub const KEY_VALUE_STORES_METADATA_KEY: &str = "key_value_stores";
 
 pub trait StoreManagerManager: Sync + Send {
-    fn get(&self, app: &App) -> Arc<dyn StoreManager>;
+    fn get(&self, component: &AppComponent) -> Arc<dyn StoreManager>;
 }
 
-impl<F: (Fn(&App) -> Arc<dyn StoreManager>) + Sync + Send> StoreManagerManager for F {
-    fn get(&self, app: &App) -> Arc<dyn StoreManager> {
-        self(app)
+impl<F: (Fn(&AppComponent) -> Arc<dyn StoreManager>) + Sync + Send> StoreManagerManager for F {
+    fn get(&self, component: &AppComponent) -> Arc<dyn StoreManager> {
+        self(component)
     }
 }
 
@@ -19,7 +19,7 @@ impl<F: (Fn(&App) -> Arc<dyn StoreManager>) + Sync + Send> StoreManagerManager f
 /// be used as a [`StoreManagerManager`].
 ///
 /// See https://stackoverflow.com/a/46198877 for details.
-pub fn manager<F: for<'a> Fn(&'a App) -> Arc<dyn StoreManager>>(f: F) -> F {
+pub fn manager<F: for<'a> Fn(&'a AppComponent) -> Arc<dyn StoreManager>>(f: F) -> F {
     f
 }
 
@@ -58,7 +58,7 @@ impl DynamicHostComponent for KeyValueComponent {
                 .unwrap_or_default()
                 .into_iter()
                 .collect(),
-            self.manager.get(component.app),
+            self.manager.get(component),
         );
 
         Ok(())

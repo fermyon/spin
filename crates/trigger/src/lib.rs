@@ -103,7 +103,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    spin_key_value::KeyValueComponent::new(spin_key_value::manager(|app| {
+                    spin_key_value::KeyValueComponent::new(spin_key_value::manager(|component| {
                         // TODO: Once we have runtime configuration for key-value stores, the user will be able to
                         // both change the default store configuration (e.g. use Redis, or an SQLite in-memory
                         // database, or use a different path) and add other named stores with their own
@@ -113,7 +113,9 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                             [(
                                 "default".to_owned(),
                                 Arc::new(spin_key_value_sqlite::KeyValueSqlite::new(
-                                    if let Some(key_value_file) = key_value_file_location(app) {
+                                    if let Some(key_value_file) =
+                                        key_value_file_location(component.app)
+                                    {
                                         spin_key_value_sqlite::DatabaseLocation::Path(
                                             key_value_file,
                                         )

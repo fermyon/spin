@@ -54,7 +54,7 @@ impl Impl for KeyValueSqlite {
 
                            PRIMARY KEY (store, key)
                         )",
-                        (),
+                        [],
                     )
                     .map_err(log_error)?;
 

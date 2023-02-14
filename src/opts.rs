@@ -20,3 +20,4 @@ pub const PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT: &str = "LOCAL_PLUGIN_MANIFEST";
 pub const PLUGIN_ALL_OPT: &str = "ALL";
 pub const PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG: &str = "override-compatibility-check";
 pub const HELP_ARGS_ONLY_TRIGGER_TYPE: &str = "provide-help-args-no-app";
+pub const FROM_REGISTRY_OPT: &str = "REGISTRY_REFERENCE";

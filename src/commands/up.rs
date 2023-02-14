@@ -7,6 +7,7 @@ use std::{
 use anyhow::{anyhow, bail, Context, Result};
 use clap::{CommandFactory, Parser};
 use reqwest::Url;
+use spin_app::locked::LockedApp;
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_manifest::ApplicationTrigger;
 use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_WORKING_DIR};
@@ -27,29 +28,31 @@ pub struct UpCommand {
 
     /// Path to spin.toml.
     #[clap(
-            name = APP_CONFIG_FILE_OPT,
-            short = 'f',
-            long = "file",
-            conflicts_with = BINDLE_ID_OPT,
-        )]
+        name = APP_CONFIG_FILE_OPT,
+        short = 'f',
+        long = "file",
+        conflicts_with = BINDLE_ID_OPT,
+        conflicts_with = FROM_REGISTRY_OPT,
+    )]
     pub app: Option<PathBuf>,
 
     /// ID of application bindle.
     #[clap(
-            name = BINDLE_ID_OPT,
-            short = 'b',
-            long = "bindle",
-            conflicts_with = APP_CONFIG_FILE_OPT,
-            requires = BINDLE_SERVER_URL_OPT,
-        )]
+        name = BINDLE_ID_OPT,
+        short = 'b',
+        long = "bindle",
+        conflicts_with = APP_CONFIG_FILE_OPT,
+        conflicts_with = FROM_REGISTRY_OPT,
+        requires = BINDLE_SERVER_URL_OPT,
+    )]
     pub bindle: Option<String>,
 
     /// URL of bindle server.
     #[clap(
-            name = BINDLE_SERVER_URL_OPT,
-            long = "bindle-server",
-            env = BINDLE_URL_ENV,
-        )]
+        name = BINDLE_SERVER_URL_OPT,
+        long = "bindle-server",
+        env = BINDLE_URL_ENV,
+    )]
     pub server: Option<String>,
 
     /// Basic http auth username for the bindle server
@@ -57,7 +60,7 @@ pub struct UpCommand {
         name = BINDLE_USERNAME,
         long = "bindle-username",
         env = BINDLE_USERNAME,
-        requires = BINDLE_PASSWORD
+        requires = BINDLE_PASSWORD,
     )]
     pub bindle_username: Option<String>,
 
@@ -66,11 +69,20 @@ pub struct UpCommand {
         name = BINDLE_PASSWORD,
         long = "bindle-password",
         env = BINDLE_PASSWORD,
-        requires = BINDLE_USERNAME
+        requires = BINDLE_USERNAME,
     )]
     pub bindle_password: Option<String>,
 
-    /// Ignore server certificate errors from bindle server
+    /// Reference to run the application from a registry.
+    #[clap(
+        name = FROM_REGISTRY_OPT,
+        long = "from-registry",
+        conflicts_with = BINDLE_ID_OPT,
+        conflicts_with = APP_CONFIG_FILE_OPT,
+    )]
+    pub reference: Option<String>,
+
+    /// Ignore server certificate errors from bindle server or registry
     #[clap(
         name = INSECURE_OPT,
         short = 'k',
@@ -126,6 +138,7 @@ impl UpCommand {
         if self.help
             && self.app.is_none()
             && self.bindle.is_none()
+            && self.reference.is_none()
             && !PathBuf::from(DEFAULT_MANIFEST_FILE).exists()
         {
             return self.run_trigger(
@@ -140,50 +153,36 @@ impl UpCommand {
         };
         let working_dir = working_dir_holder.path().canonicalize()?;
 
-        let mut app = match (&self.app, &self.bindle) {
-            (app, None) => {
-                let manifest_file = app
-                    .as_deref()
-                    .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-                let bindle_connection = self.bindle_connection();
-                let asset_dst = if self.direct_mounts {
-                    None
-                } else {
-                    Some(&working_dir)
-                };
-                spin_loader::from_file(manifest_file, asset_dst, &bindle_connection).await?
+        let (trigger_cmd, locked_app_url) = match (&self.app, &self.bindle, &self.reference) {
+            (app, None, None) => {
+                self.prepare_locked_app_from_file(app.as_deref(), &working_dir)
+                    .await?
             }
-            (None, Some(bindle)) => match &self.server {
-                Some(server) => {
-                    assert!(!self.direct_mounts);
-
-                    spin_loader::from_bindle(bindle, server, &working_dir).await?
-                }
-                _ => bail!("Loading from a bindle requires a Bindle server URL"),
-            },
-            (Some(_), Some(_)) => bail!("Specify only one of app file or bindle ID"),
-        };
-
-        // Apply --env to component environments
-        if !self.env.is_empty() {
-            for component in app.components.iter_mut() {
-                component.wasm.environment.extend(self.env.iter().cloned());
+            (None, Some(bindle), None) => {
+                self.prepare_locked_app_from_bindle(bindle, &working_dir)
+                    .await?
             }
-        }
-
-        let trigger_type = match &app.info.trigger {
-            ApplicationTrigger::Http(_) => trigger_command("http"),
-            ApplicationTrigger::Redis(_) => trigger_command("redis"),
-            ApplicationTrigger::External(cfg) => vec![resolve_trigger_plugin(cfg.trigger_type())?],
+            (None, None, Some(reference)) => {
+                self.prepare_app_from_oci(reference, &working_dir).await?
+            }
+            (_, _, _) => {
+                bail!("Specify only one of app file, bindle ID, or container registry reference");
+            }
         };
 
         let exec_opts = if self.help {
             TriggerExecOpts::NoApp
         } else {
-            TriggerExecOpts::App { app, working_dir }
+            let from_registry = self.reference.is_some();
+
+            TriggerExecOpts::App {
+                locked_app_url,
+                working_dir,
+                from_registry,
+            }
         };
 
-        self.run_trigger(trigger_type, exec_opts)
+        self.run_trigger(trigger_cmd, exec_opts)
     }
 
     fn run_trigger(
@@ -200,11 +199,17 @@ impl UpCommand {
             TriggerExecOpts::NoApp => {
                 cmd.arg("--help-args-only");
             }
-            TriggerExecOpts::App { app, working_dir } => {
-                let locked_url = self.write_locked_app(app, &working_dir)?;
-                cmd.env(SPIN_LOCKED_URL, locked_url)
+            TriggerExecOpts::App {
+                locked_app_url,
+                working_dir,
+                from_registry,
+            } => {
+                cmd.env(SPIN_LOCKED_URL, locked_app_url)
                     .env(SPIN_WORKING_DIR, &working_dir)
                     .args(&self.trigger_args);
+                if from_registry {
+                    cmd.arg("--from-registry");
+                }
             }
         }
 
@@ -232,17 +237,16 @@ impl UpCommand {
         }
     }
 
-    fn write_locked_app(
+    async fn write_locked_app(
         &self,
-        app: spin_manifest::Application,
+        locked_app: &LockedApp,
         working_dir: &Path,
     ) -> Result<String, anyhow::Error> {
-        // Build and write app lock file
-        let locked_app = spin_trigger::locked::build_locked_app(app, working_dir)?;
         let locked_path = working_dir.join("spin.lock");
         let locked_app_contents =
             serde_json::to_vec_pretty(&locked_app).context("failed to serialize locked app")?;
-        std::fs::write(&locked_path, locked_app_contents)
+        tokio::fs::write(&locked_path, locked_app_contents)
+            .await
             .with_context(|| format!("failed to write {:?}", locked_path))?;
         let locked_url = Url::from_file_path(&locked_path)
             .map_err(|_| anyhow!("cannot convert to file URL: {locked_path:?}"))?
@@ -260,6 +264,85 @@ impl UpCommand {
                 self.bindle_password.clone(),
             )
         })
+    }
+
+    // Prepares the application for trigger execution returning the trigger command
+    // to execute and the URL of the locked application.
+    async fn prepare_locked_app(
+        &self,
+        mut locked_app: LockedApp,
+        working_dir: &Path,
+    ) -> Result<(Vec<String>, String)> {
+        // Apply --env to component environments
+        if !self.env.is_empty() {
+            for component in locked_app.components.iter_mut() {
+                component.env.extend(self.env.iter().cloned());
+            }
+        }
+
+        let trigger_command = trigger_command_from_locked_app(&locked_app)?;
+        let locked_app_url = self.write_locked_app(&locked_app, working_dir).await?;
+        Ok((trigger_command, locked_app_url))
+    }
+
+    async fn prepare_app_from_oci(
+        &self,
+        reference: &str,
+        working_dir: &Path,
+    ) -> Result<(Vec<String>, String)> {
+        let mut client = spin_publish::oci::client::Client::new(self.insecure, None)
+            .await
+            .context("cannot create registry client")?;
+
+        client
+            .pull(reference)
+            .await
+            .context("cannot pull Spin application from registry")?;
+
+        let app_path = client
+            .cache
+            .lockfile_path(&reference)
+            .await
+            .context("cannot get path to spin.lock")?;
+
+        let locked_app: LockedApp = serde_json::from_slice(&tokio::fs::read(&app_path).await?)?;
+        self.prepare_locked_app(locked_app, working_dir).await
+    }
+
+    async fn prepare_locked_app_from_file(
+        &self,
+        path: Option<&Path>,
+        working_dir: &Path,
+    ) -> Result<(Vec<String>, String)> {
+        let manifest_file = path.unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
+        let bindle_connection = self.bindle_connection();
+
+        let asset_dst = if self.direct_mounts {
+            None
+        } else {
+            Some(&working_dir)
+        };
+
+        let app = spin_loader::from_file(manifest_file, asset_dst, &bindle_connection).await?;
+        let locked_app = spin_trigger::locked::build_locked_app(app, working_dir)?;
+        self.prepare_locked_app(locked_app, working_dir).await
+    }
+
+    async fn prepare_locked_app_from_bindle(
+        &self,
+        bindle_id: &str,
+        working_dir: &Path,
+    ) -> Result<(Vec<String>, String)> {
+        let app = match &self.server {
+            Some(server) => {
+                assert!(!self.direct_mounts);
+                spin_loader::from_bindle(bindle_id, server, &working_dir).await?
+            }
+            None => bail!("Loading from a bindle requires a Bindle server URL"),
+        };
+
+        let locked_app = spin_trigger::locked::build_locked_app(app, working_dir)?;
+        self.prepare_locked_app(locked_app, working_dir).await
     }
 }
 
@@ -323,11 +406,31 @@ fn resolve_trigger_plugin(trigger_type: &str) -> Result<String> {
 enum TriggerExecOpts {
     NoApp,
     App {
-        app: spin_manifest::Application,
+        locked_app_url: String,
         working_dir: PathBuf,
+        from_registry: bool,
     },
 }
 
 fn trigger_command(trigger_type: &str) -> Vec<String> {
     vec!["trigger".to_owned(), trigger_type.to_owned()]
+}
+
+fn trigger_command_from_locked_app(locked_app: &LockedApp) -> Result<Vec<String>> {
+    let trigger_metadata = locked_app
+        .metadata
+        .get("trigger")
+        .cloned()
+        .ok_or_else(|| anyhow!("missing trigger metadata in locked application"))?;
+
+    let trigger_info: ApplicationTrigger = serde_json::from_value(trigger_metadata)
+        .context("deserializing trigger type from locked application")?;
+
+    match trigger_info {
+        ApplicationTrigger::Http(_) => Ok(trigger_command("http")),
+        ApplicationTrigger::Redis(_) => Ok(trigger_command("redis")),
+        ApplicationTrigger::External(cfg) => {
+            resolve_trigger_plugin(cfg.trigger_type()).map(|p| vec![p])
+        }
+    }
 }

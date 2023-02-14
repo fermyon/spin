@@ -8,6 +8,8 @@ use tokio::{
     time::{sleep, Duration},
 };
 
+use spin_app::Loader;
+
 use crate::{config::TriggerExecutorBuilderConfig, loader::TriggerLoader, stdio::FollowComponents};
 use crate::{loader::OciTriggerLoader, stdio::StdioLoggingTriggerHooks};
 use crate::{TriggerExecutor, TriggerExecutorBuilder};
@@ -89,8 +91,9 @@ where
     #[clap(long = "help-args-only", hide = true)]
     pub help_args_only: bool,
 
-    #[clap(long = "oci")]
-    pub oci: bool,
+    /// Load the application from the registry.
+    #[clap(long = "from-registry")]
+    pub from_registry: bool,
 }
 
 /// An empty implementation of clap::Args to be used as TriggerExecutor::RunConfig
@@ -117,44 +120,13 @@ where
         let working_dir = std::env::var(SPIN_WORKING_DIR).context(SPIN_WORKING_DIR)?;
         let locked_url = std::env::var(SPIN_LOCKED_URL).context(SPIN_LOCKED_URL)?;
 
-        // TODO: I assume there is a way to do this with a single let mut loader: Box<dyn Loader>
-        // variable instead of the entire executor.
-        let executor: Executor = match self.oci {
-            true => {
-                let loader =
-                    OciTriggerLoader::new(working_dir, self.allow_transient_write, None).await?;
-
-                let trigger_config =
-                    TriggerExecutorBuilderConfig::load_from_file(self.runtime_config_file.clone())?;
-
-                let _sloth_warning = warn_if_wasm_build_slothful();
-
-                let mut builder = TriggerExecutorBuilder::new(loader);
-                self.update_wasmtime_config(builder.wasmtime_config_mut())?;
-
-                let logging_hooks =
-                    StdioLoggingTriggerHooks::new(self.follow_components(), self.log);
-                builder.hooks(logging_hooks);
-
-                builder.build(locked_url, trigger_config).await?
-            }
-            false => {
-                let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
-
-                let trigger_config =
-                    TriggerExecutorBuilderConfig::load_from_file(self.runtime_config_file.clone())?;
-
-                let _sloth_warning = warn_if_wasm_build_slothful();
-
-                let mut builder = TriggerExecutorBuilder::new(loader);
-                self.update_wasmtime_config(builder.wasmtime_config_mut())?;
-
-                let logging_hooks =
-                    StdioLoggingTriggerHooks::new(self.follow_components(), self.log);
-                builder.hooks(logging_hooks);
-
-                builder.build(locked_url, trigger_config).await?
-            }
+        let executor = if self.from_registry {
+            let loader =
+                OciTriggerLoader::new(working_dir, self.allow_transient_write, None).await?;
+            self.build_executor(loader, locked_url).await?
+        } else {
+            let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
+            self.build_executor(loader, locked_url).await?
         };
 
         let run_fut = executor.run(self.run_config);
@@ -175,6 +147,26 @@ where
                 Ok(())
             }
         }
+    }
+
+    async fn build_executor(
+        &self,
+        loader: impl Loader + Send + Sync + 'static,
+        locked_url: String,
+    ) -> Result<Executor> {
+        let trigger_config =
+            TriggerExecutorBuilderConfig::load_from_file(self.runtime_config_file.clone())?;
+
+        let _sloth_warning = warn_if_wasm_build_slothful();
+
+        let mut builder = TriggerExecutorBuilder::new(loader);
+        self.update_wasmtime_config(builder.wasmtime_config_mut())?;
+
+        let logging_hooks =
+            StdioLoggingTriggerHooks::new(self.follow_components(), self.log.clone());
+        builder.hooks(logging_hooks);
+
+        builder.build(locked_url, trigger_config).await
     }
 
     pub fn follow_components(&self) -> FollowComponents {

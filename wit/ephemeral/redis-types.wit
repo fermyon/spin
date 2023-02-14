@@ -9,7 +9,6 @@ type payload = list<u8>
 
 // A parameter type for the general-purpose `execute` function.
 variant redis-parameter {
-    str(string),
     int64(s64),
     binary(payload)
 }

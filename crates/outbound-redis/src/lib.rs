@@ -95,9 +95,6 @@ impl outbound_redis::OutboundRedis for OutboundRedis {
         let conn = self.get_conn(address).await.map_err(log_error)?;
         let mut cmd = redis::cmd(command);
         arguments.iter().for_each(|value| match value {
-            RedisParameter::Str(s) => {
-                cmd.arg(s);
-            }
             RedisParameter::Int64(v) => {
                 cmd.arg(v);
             }

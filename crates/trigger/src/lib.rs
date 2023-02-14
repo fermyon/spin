@@ -93,16 +93,6 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     where
         Executor::TriggerConfig: DeserializeOwned,
     {
-        let key_value_file;
-        let app_parts;
-        {
-            let app = self.loader.load_app(app_uri.clone()).await?;
-
-            key_value_file = key_value_file_location(&app);
-
-            app_parts = app.into_parts();
-        }
-
         let engine = {
             let mut builder = Engine::builder(&self.config)?;
 
@@ -113,26 +103,30 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    key_value::KeyValueComponent::new(
+                    spin_key_value::KeyValueComponent::new(spin_key_value::manager(|app| {
                         // TODO: Once we have runtime configuration for key-value stores, the user will be able to
                         // both change the default store configuration (e.g. use Redis, or an SQLite in-memory
                         // database, or use a different path) and add other named stores with their own
                         // configurations.
-                        Arc::new(
+
+                        Arc::new(spin_key_value::DelegatingStoreManager::new(
                             [(
                                 "default".to_owned(),
-                                Box::new(key_value_sqlite::KeyValueSqlite::new(
-                                    if let Some(key_value_file) = key_value_file {
-                                        key_value_sqlite::DatabaseLocation::Path(key_value_file)
+                                Arc::new(spin_key_value_sqlite::KeyValueSqlite::new(
+                                    if let Some(key_value_file) = key_value_file_location(app) {
+                                        spin_key_value_sqlite::DatabaseLocation::Path(
+                                            key_value_file,
+                                        )
                                     } else {
-                                        key_value_sqlite::DatabaseLocation::InMemory
+                                        spin_key_value_sqlite::DatabaseLocation::InMemory
                                     },
-                                )) as Box<dyn key_value::Impl>,
+                                ))
+                                    as Arc<dyn spin_key_value::StoreManager>,
                             )]
                             .into_iter()
                             .collect(),
-                        ),
-                    ),
+                        ))
+                    })),
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
@@ -150,7 +144,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
             builder.build()
         };
 
-        let app = self.loader.into_owned(app_parts);
+        let app = self.loader.load_owned_app(app_uri).await?;
 
         let app_name = app.borrowed().require_metadata("name")?;
 

@@ -1,7 +1,7 @@
 use anyhow::Result;
-use key_value::{key_value::Error, log_error, Impl, ImplStore};
 use once_cell::sync::OnceCell;
 use rusqlite::Connection;
+use spin_key_value::{key_value::Error, log_error, Store, StoreManager};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -29,8 +29,8 @@ impl KeyValueSqlite {
 }
 
 #[async_trait]
-impl Impl for KeyValueSqlite {
-    async fn open(&self, name: &str) -> Result<Box<dyn ImplStore>, Error> {
+impl StoreManager for KeyValueSqlite {
+    async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {
         let connection = task::block_in_place(|| {
             self.connection.get_or_try_init(|| {
                 let connection = match &self.location {
@@ -62,7 +62,7 @@ impl Impl for KeyValueSqlite {
             })
         })?;
 
-        Ok(Box::new(SqliteStore {
+        Ok(Arc::new(SqliteStore {
             name: name.to_owned(),
             connection: connection.clone(),
         }))
@@ -75,7 +75,7 @@ struct SqliteStore {
 }
 
 #[async_trait]
-impl ImplStore for SqliteStore {
+impl Store for SqliteStore {
     async fn get(&self, key: &str) -> Result<Vec<u8>, Error> {
         task::block_in_place(|| {
             self.connection
@@ -146,23 +146,26 @@ impl ImplStore for SqliteStore {
 #[cfg(test)]
 mod test {
     use super::*;
-    use key_value::{KeyValue, KeyValueDispatch};
+    use spin_key_value::{DelegatingStoreManager, KeyValue, KeyValueDispatch};
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn all() -> Result<()> {
-        let mut kv = KeyValueDispatch::new(Arc::new(
-            [(
-                "default".to_owned(),
-                Box::new(KeyValueSqlite::new(DatabaseLocation::InMemory)) as Box<dyn Impl>,
-            )]
-            .into_iter()
-            .collect(),
-        ));
-
-        kv.allowed_stores = ["default", "foo"]
-            .into_iter()
-            .map(ToOwned::to_owned)
-            .collect();
+        let mut kv = KeyValueDispatch::new();
+        kv.init(
+            ["default", "foo"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect(),
+            Arc::new(DelegatingStoreManager::new(
+                [(
+                    "default".to_owned(),
+                    Arc::new(KeyValueSqlite::new(DatabaseLocation::InMemory))
+                        as Arc<dyn StoreManager>,
+                )]
+                .into_iter()
+                .collect(),
+            )),
+        );
 
         assert!(matches!(
             kv.exists(42, "bar").await,

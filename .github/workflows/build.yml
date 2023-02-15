@@ -41,6 +41,7 @@ jobs:
   build-rust:
     name: Build Spin
     runs-on: ${{ matrix.config.os }}
+    needs: [lint-rust]
     strategy:
       matrix:
         config:
@@ -91,6 +92,7 @@ jobs:
   test-rust:
     name: Test Spin SDK - Rust
     runs-on: ${{ matrix.config.os }}
+    needs: [lint-rust]
     strategy:
       matrix:
         config:

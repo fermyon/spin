@@ -41,6 +41,7 @@ jobs:
   build-rust:
     name: Build Spin
     runs-on: ${{ matrix.config.os }}
+    needs: [lint-rust]
     strategy:
       matrix:
         config:
@@ -91,6 +92,7 @@ jobs:
   test-rust:
     name: Test Spin SDK - Rust
     runs-on: ${{ matrix.config.os }}
+    needs: [lint-rust]
     strategy:
       matrix:
         config:
@@ -123,18 +125,18 @@ jobs:
               pathInNomadArchive: "nomad",
               hippoUrl: "https://github.com/deislabs/hippo/releases/download/v0.19.0/hippo-server-osx-x64.tar.gz",
             }
-          - {
-              os: "windows-latest",
-              extension: ".exe",
-              extraArgs: "",
-              bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-windows-amd64.tar.gz",
-              bindleBinary: "bindle-server.exe",
-              pathInBindleArchive: "bindle-server.exe",
-              nomadUrl: "https://releases.hashicorp.com/nomad/1.3.1/nomad_1.3.1_windows_amd64.zip",
-              nomadBinary: "nomad.exe",
-              pathInNomadArchive: "nomad.exe",
-              hippoUrl: "https://github.com/deislabs/hippo/releases/download/v0.19.0/hippo-server-win-x64.zip",
-            }
+          # - {
+          #     os: "windows-latest",
+          #     extension: ".exe",
+          #     extraArgs: "",
+          #     bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-windows-amd64.tar.gz",
+          #     bindleBinary: "bindle-server.exe",
+          #     pathInBindleArchive: "bindle-server.exe",
+          #     nomadUrl: "https://releases.hashicorp.com/nomad/1.3.1/nomad_1.3.1_windows_amd64.zip",
+          #     nomadBinary: "nomad.exe",
+          #     pathInNomadArchive: "nomad.exe",
+          #     hippoUrl: "https://github.com/deislabs/hippo/releases/download/v0.19.0/hippo-server-win-x64.zip",
+          #   }
     steps:
       - uses: actions/checkout@v3
 

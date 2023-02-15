@@ -33,10 +33,10 @@ where
 {
     /// Log directory for the stdout and stderr of components.
     #[clap(
-            name = APP_LOG_DIR,
-            short = 'L',
-            long = "log-dir",
-            )]
+        name = APP_LOG_DIR,
+        short = 'L',
+        long = "log-dir",
+    )]
     pub log: Option<PathBuf>,
 
     /// Disable Wasmtime cache.
@@ -63,15 +63,22 @@ where
         name = FOLLOW_LOG_OPT,
         long = "follow",
         multiple_occurrences = true,
-        )]
+    )]
     pub follow_components: Vec<String>,
 
     /// Print all component output to stdout/stderr
+    /// Deprecated
+    #[clap(long = "follow-all")]
+    pub follow_all_components: bool,
+
+    /// Silence all component output to stdout/stderr
     #[clap(
-        long = "follow-all",
+        long = "quiet",
+        short = 'q',
+        aliases = &["sh", "shush"],
         conflicts_with = FOLLOW_LOG_OPT,
         )]
-    pub follow_all_components: bool,
+    pub silence_component_logs: bool,
 
     /// Set the static assets of the components in the temporary directory as writable.
     #[clap(long = "allow-transient-write")]
@@ -171,9 +178,12 @@ where
 
     pub fn follow_components(&self) -> FollowComponents {
         if self.follow_all_components {
-            FollowComponents::All
-        } else if self.follow_components.is_empty() {
+            eprintln!("NOTE: --follow-all has been deprecated. All component ouput is now printed to stdout by default.")
+        }
+        if self.silence_component_logs {
             FollowComponents::None
+        } else if self.follow_components.is_empty() {
+            FollowComponents::All
         } else {
             let followed = self.follow_components.clone().into_iter().collect();
             FollowComponents::Named(followed)

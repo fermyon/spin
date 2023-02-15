@@ -9,7 +9,6 @@ mod integration_tests {
     use std::{
         collections::HashMap,
         ffi::OsStr,
-        fs,
         net::{Ipv4Addr, SocketAddrV4, TcpListener},
         path::Path,
         process::{self, Child, Command, Output},
@@ -19,6 +18,7 @@ mod integration_tests {
     use tokio::{net::TcpStream, time::sleep};
 
     const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
+    const RUST_HTTP_KEY_VALUE_TEST: &str = "tests/http/key-value";
 
     const DEFAULT_MANIFEST_LOCATION: &str = "spin.toml";
 
@@ -601,6 +601,21 @@ mod integration_tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn test_key_value_local() -> Result<()> {
+        let s = SpinTestController::with_manifest(
+            &format!("{}/{}", RUST_HTTP_KEY_VALUE_TEST, DEFAULT_MANIFEST_LOCATION),
+            &[],
+            &[],
+            None,
+        )
+        .await?;
+
+        assert_status(&s, "/test", 200).await?;
+
+        Ok(())
+    }
+
     #[cfg(feature = "outbound-pg-tests")]
     mod outbound_pg_tests {
         use super::*;
@@ -1060,7 +1075,7 @@ route = "/..."
         let output = run(up_help_args, None, None)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("--follow-all"));
+        assert!(stdout.contains("--quiet"));
         assert!(stdout.contains("--listen"));
 
         Ok(())
@@ -1117,7 +1132,7 @@ route = "/..."
             ]
         });
         let manifest_file_path = dir.join("example-plugin-manifest.json");
-        fs::write(
+        std::fs::write(
             &manifest_file_path,
             serde_json::to_string(&plugin_manifest_json).unwrap(),
         )?;
@@ -1145,7 +1160,7 @@ route = "/..."
 
         // Upgrade plugin to newer version
         *plugin_manifest_json.get_mut("version").unwrap() = serde_json::json!("0.2.1");
-        fs::write(
+        std::fs::write(
             dir.join("example-plugin-manifest.json"),
             serde_json::to_string(&plugin_manifest_json).unwrap(),
         )?;
@@ -1168,7 +1183,7 @@ route = "/..."
             .join("plugins")
             .join("manifests")
             .join("example.json");
-        let manifest = fs::read_to_string(installed_manifest)?;
+        let manifest = std::fs::read_to_string(installed_manifest)?;
         assert!(manifest.contains("0.2.1"));
 
         // Uninstall plugin

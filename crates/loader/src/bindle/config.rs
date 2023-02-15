@@ -47,6 +47,8 @@ pub struct RawWasmConfig {
     pub files: Option<String>,
     /// Optional list of HTTP hosts the component is allowed to connect.
     pub allowed_http_hosts: Option<Vec<String>>,
+    /// Optional list of key-value stores the component is allowed to use.
+    pub key_value_stores: Option<Vec<String>>,
     /// Environment variables to be mapped inside the Wasm module at runtime.
     pub environment: Option<HashMap<String, String>>,
 }

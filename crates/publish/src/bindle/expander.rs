@@ -127,6 +127,7 @@ async fn bindle_component_manifest(
             environment: local.wasm.environment.clone(),
             files: asset_group,
             allowed_http_hosts: local.wasm.allowed_http_hosts.clone(),
+            key_value_stores: local.wasm.key_value_stores.clone(),
         },
         trigger: local.trigger.clone(),
         config: local.config.clone(),

@@ -1,0 +1,16 @@
+[package]
+name = "spin-key-value"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0"
+tokio = { version = "1", features = [ "macros" ] }
+spin-core = { path = "../core" }
+spin-app = { path = "../app" }
+tracing = { workspace = true }
+wit-bindgen-wasmtime = { workspace = true }

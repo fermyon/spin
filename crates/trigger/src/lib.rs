@@ -6,13 +6,16 @@ mod stdio;
 
 use std::{
     collections::HashMap,
+    fs,
     marker::PhantomData,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use anyhow::{anyhow, Context, Result};
 pub use async_trait::async_trait;
 use serde::de::DeserializeOwned;
+use url::Url;
 
 use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp};
 use spin_config::{
@@ -23,6 +26,8 @@ use spin_core::{Config, Engine, EngineBuilder, Instance, InstancePre, Store, Sto
 
 const SPIN_HOME: &str = ".spin";
 const SPIN_CONFIG_ENV_PREFIX: &str = "SPIN_APP";
+const DEFAULT_SQLITE_DB_DIRECTORY: &str = ".spin";
+const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_key_value.db";
 
 #[async_trait]
 pub trait TriggerExecutor: Sized {
@@ -95,6 +100,36 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 builder.add_host_component(outbound_redis::OutboundRedisComponent)?;
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
+
+                self.loader.add_dynamic_host_component(
+                    &mut builder,
+                    spin_key_value::KeyValueComponent::new(spin_key_value::manager(|component| {
+                        // TODO: Once we have runtime configuration for key-value stores, the user will be able to
+                        // both change the default store configuration (e.g. use Redis, or an SQLite in-memory
+                        // database, or use a different path) and add other named stores with their own
+                        // configurations.
+
+                        Arc::new(spin_key_value::DelegatingStoreManager::new(
+                            [(
+                                "default".to_owned(),
+                                Arc::new(spin_key_value_sqlite::KeyValueSqlite::new(
+                                    if let Some(key_value_file) =
+                                        key_value_file_location(component.app)
+                                    {
+                                        spin_key_value_sqlite::DatabaseLocation::Path(
+                                            key_value_file,
+                                        )
+                                    } else {
+                                        spin_key_value_sqlite::DatabaseLocation::InMemory
+                                    },
+                                ))
+                                    as Arc<dyn spin_key_value::StoreManager>,
+                            )]
+                            .into_iter()
+                            .collect(),
+                        ))
+                    })),
+                )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
                     outbound_http::OutboundHttpComponent,
@@ -112,6 +147,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         };
 
         let app = self.loader.load_owned_app(app_uri).await?;
+
         let app_name = app.borrowed().require_metadata("name")?;
 
         self.hooks.app_loaded(app.borrowed())?;
@@ -340,4 +376,24 @@ fn decode_preinstantiation_error(e: anyhow::Error) -> anyhow::Error {
     }
 
     e
+}
+
+fn key_value_file_location(app: &App) -> Option<PathBuf> {
+    let url = Url::parse(&app.get_metadata::<String>("origin").ok()??).ok()?;
+    let local_spin_toml = if url.scheme() == "file" {
+        url.path()
+    } else {
+        // Use in-memory store for remote apps.
+        return None;
+    };
+
+    // Attempt to create or reuse a database file inside the app directory.  If that's not successful, we'll use an
+    // in-memory database.
+    let directory = Path::new(&local_spin_toml)
+        .parent()?
+        .join(DEFAULT_SQLITE_DB_DIRECTORY);
+
+    fs::create_dir_all(&directory).ok()?;
+
+    Some(directory.join(DEFAULT_SQLITE_DB_FILENAME))
 }

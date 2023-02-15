@@ -28,7 +28,7 @@ use spin_manifest::{
 };
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::{bindle::BindleConnectionInfo, digest::bytes_sha256_string};
+use crate::{bindle::BindleConnectionInfo, digest::bytes_sha256_string, oci::cache::Cache};
 use config::{
     FileComponentUrlSource, RawAppInformation, RawAppManifest, RawAppManifestAnyVersion,
     RawAppManifestAnyVersionPartial, RawComponentManifest, RawComponentManifestPartial,
@@ -240,10 +240,12 @@ async fn core(
     };
     let environment = raw.wasm.environment.unwrap_or_default();
     let allowed_http_hosts = raw.wasm.allowed_http_hosts.unwrap_or_default();
+    let key_value_stores = raw.wasm.key_value_stores.unwrap_or_default();
     let wasm = WasmConfig {
         environment,
         mounts,
         allowed_http_hosts,
+        key_value_stores,
     };
     let config = raw.config.unwrap_or_default();
     Ok(CoreComponent {
@@ -297,29 +299,46 @@ impl UrlSource {
 
     /// Gets the data from the source as a byte buffer.
     pub async fn get(&self) -> anyhow::Result<Vec<u8>> {
-        let response = reqwest::get(self.url.clone())
-            .await
-            .with_context(|| format!("Error fetching source URL {}", self.url))?;
-        // TODO: handle redirects
-        let status = response.status();
-        if status != reqwest::StatusCode::OK {
-            let reason = status.canonical_reason().unwrap_or("(no reason provided)");
-            anyhow::bail!(
-                "Error fetching source URL {}: {} {}",
-                self.url,
-                status.as_u16(),
-                reason
-            );
+        // TODO: when `spin up` integrates running an app from OCI, pass the configured
+        // cache root to this function. For now, use the default cache directory.
+        let cache = Cache::new(None).await?;
+        match cache.wasm_file(self.digest_str()) {
+            Ok(p) => {
+                tracing::debug!(
+                    "Using local cache for module source {} with digest {}",
+                    &self.url,
+                    &self.digest_str()
+                );
+                Ok(tokio::fs::read(p).await?)
+            }
+            Err(_) => {
+                tracing::debug!("Pulling module from URL {}", &self.url);
+                let response = reqwest::get(self.url.clone())
+                    .await
+                    .with_context(|| format!("Error fetching source URL {}", self.url))?;
+                // TODO: handle redirects
+                let status = response.status();
+                if status != reqwest::StatusCode::OK {
+                    let reason = status.canonical_reason().unwrap_or("(no reason provided)");
+                    anyhow::bail!(
+                        "Error fetching source URL {}: {} {}",
+                        self.url,
+                        status.as_u16(),
+                        reason
+                    );
+                }
+                let body = response
+                    .bytes()
+                    .await
+                    .with_context(|| format!("Error loading source URL {}", self.url))?;
+                let bytes = body.into_iter().collect_vec();
+
+                self.digest.verify(&bytes).context("Incorrect digest")?;
+                cache.write_wasm(&bytes, self.digest_str()).await?;
+
+                Ok(bytes)
+            }
         }
-        let body = response
-            .bytes()
-            .await
-            .with_context(|| format!("Error loading source URL {}", self.url))?;
-        let bytes = body.into_iter().collect_vec();
-
-        self.digest.verify(&bytes).context("Incorrect digest")?;
-
-        Ok(bytes)
     }
 }
 

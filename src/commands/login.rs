@@ -28,9 +28,9 @@ const SPIN_CLIENT_ID: &str = "583e63e9-461f-4fbe-a246-23e0fb1cad10";
 
 const DEFAULT_CLOUD_URL: &str = "https://cloud.fermyon.com/";
 
-/// Log into the server
+/// Log into the Fermyon Platform.
 #[derive(Parser, Debug)]
-#[clap(about = "Log into the server")]
+#[clap(about = "Log into the Fermyon Platform")]
 pub struct LoginCommand {
     /// URL of bindle server
     #[clap(

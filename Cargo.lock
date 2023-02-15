@@ -2147,30 +2147,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "key-value"
-version = "0.8.0"
-dependencies = [
- "anyhow",
- "spin-app",
- "spin-core",
- "tokio",
- "tracing",
- "wit-bindgen-wasmtime",
-]
-
-[[package]]
-name = "key-value-sqlite"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "key-value",
- "once_cell",
- "rusqlite",
- "tokio",
- "wit-bindgen-wasmtime",
-]
-
-[[package]]
 name = "kstring"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4208,8 +4184,6 @@ dependencies = [
  "hippo-openapi",
  "hyper",
  "is-terminal",
- "key-value",
- "key-value-sqlite",
  "lazy_static",
  "nix 0.24.3",
  "openssl",
@@ -4228,6 +4202,8 @@ dependencies = [
  "spin-build",
  "spin-config",
  "spin-http",
+ "spin-key-value",
+ "spin-key-value-sqlite",
  "spin-loader",
  "spin-manifest",
  "spin-plugins",
@@ -4307,6 +4283,30 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tracing",
+ "wit-bindgen-wasmtime",
+]
+
+[[package]]
+name = "spin-key-value"
+version = "0.8.0"
+dependencies = [
+ "anyhow",
+ "spin-app",
+ "spin-core",
+ "tokio",
+ "tracing",
+ "wit-bindgen-wasmtime",
+]
+
+[[package]]
+name = "spin-key-value-sqlite"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "once_cell",
+ "rusqlite",
+ "spin-key-value",
+ "tokio",
  "wit-bindgen-wasmtime",
 ]
 
@@ -4512,8 +4512,6 @@ dependencies = [
  "ctrlc",
  "dirs 4.0.0",
  "futures",
- "key-value",
- "key-value-sqlite",
  "oci-distribution",
  "outbound-http",
  "outbound-mysql",
@@ -4525,6 +4523,8 @@ dependencies = [
  "spin-app",
  "spin-config",
  "spin-core",
+ "spin-key-value",
+ "spin-key-value-sqlite",
  "spin-loader",
  "spin-manifest",
  "tempfile",

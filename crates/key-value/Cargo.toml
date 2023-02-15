@@ -1,5 +1,5 @@
 [package]
-name = "key-value"
+name = "spin-key-value"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }

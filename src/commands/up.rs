@@ -9,7 +9,7 @@ use clap::{CommandFactory, Parser};
 use reqwest::Url;
 use spin_app::locked::LockedApp;
 use spin_loader::bindle::BindleConnectionInfo;
-use spin_manifest::ApplicationTrigger;
+use spin_manifest::{Application, ApplicationTrigger};
 use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_WORKING_DIR};
 use tempfile::TempDir;
 
@@ -141,10 +141,12 @@ impl UpCommand {
             && self.reference.is_none()
             && !PathBuf::from(DEFAULT_MANIFEST_FILE).exists()
         {
-            return self.run_trigger(
-                trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE),
-                TriggerExecOpts::NoApp,
-            );
+            return self
+                .run_trigger(
+                    trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE),
+                    TriggerExecOpts::NoApp,
+                )
+                .await;
         }
 
         let working_dir_holder = match &self.tmp {
@@ -153,39 +155,24 @@ impl UpCommand {
         };
         let working_dir = working_dir_holder.path().canonicalize()?;
 
-        let (trigger_cmd, locked_app_url) = match (&self.app, &self.bindle, &self.reference) {
+        let (trigger_cmd, exec_opts) = match (&self.app, &self.bindle, &self.reference) {
             (app, None, None) => {
-                self.prepare_locked_app_from_file(app.as_deref(), &working_dir)
+                self.prepare_app_from_file(app.as_deref(), working_dir)
                     .await?
             }
-            (None, Some(bindle), None) => {
-                self.prepare_locked_app_from_bindle(bindle, &working_dir)
-                    .await?
-            }
+            (None, Some(bindle), None) => self.prepare_app_from_bindle(bindle, working_dir).await?,
             (None, None, Some(reference)) => {
-                self.prepare_app_from_oci(reference, &working_dir).await?
+                self.prepare_app_from_oci(reference, working_dir).await?
             }
             (_, _, _) => {
                 bail!("Specify only one of app file, bindle ID, or container registry reference");
             }
         };
 
-        let exec_opts = if self.help {
-            TriggerExecOpts::NoApp
-        } else {
-            let from_registry = self.reference.is_some();
-
-            TriggerExecOpts::App {
-                locked_app_url,
-                working_dir,
-                from_registry,
-            }
-        };
-
-        self.run_trigger(trigger_cmd, exec_opts)
+        self.run_trigger(trigger_cmd, exec_opts).await
     }
 
-    fn run_trigger(
+    async fn run_trigger(
         self,
         trigger_type: Vec<String>,
         exec_opts: TriggerExecOpts,
@@ -199,12 +186,19 @@ impl UpCommand {
             TriggerExecOpts::NoApp => {
                 cmd.arg("--help-args-only");
             }
-            TriggerExecOpts::App {
-                locked_app_url,
+            TriggerExecOpts::Local { app, working_dir } => {
+                let locked_app = spin_trigger::locked::build_locked_app(app, &working_dir)?;
+                let locked_url = self.write_locked_app(&locked_app, &working_dir).await?;
+                cmd.env(SPIN_LOCKED_URL, locked_url)
+                    .env(SPIN_WORKING_DIR, &working_dir)
+                    .args(&self.trigger_args);
+            }
+            TriggerExecOpts::Remote {
+                locked_url,
                 working_dir,
                 from_registry,
             } => {
-                cmd.env(SPIN_LOCKED_URL, locked_app_url)
+                cmd.env(SPIN_LOCKED_URL, locked_url)
                     .env(SPIN_WORKING_DIR, &working_dir)
                     .args(&self.trigger_args);
                 if from_registry {
@@ -271,8 +265,8 @@ impl UpCommand {
     async fn prepare_locked_app(
         &self,
         mut locked_app: LockedApp,
-        working_dir: &Path,
-    ) -> Result<(Vec<String>, String)> {
+        working_dir: PathBuf,
+    ) -> Result<(Vec<String>, TriggerExecOpts)> {
         // Apply --env to component environments
         if !self.env.is_empty() {
             for component in locked_app.components.iter_mut() {
@@ -281,15 +275,61 @@ impl UpCommand {
         }
 
         let trigger_command = trigger_command_from_locked_app(&locked_app)?;
-        let locked_app_url = self.write_locked_app(&locked_app, working_dir).await?;
-        Ok((trigger_command, locked_app_url))
+        let locked_url = self.write_locked_app(&locked_app, &working_dir).await?;
+
+        let exec_opts = if self.help {
+            TriggerExecOpts::NoApp
+        } else {
+            let from_registry = self.reference.is_some();
+            TriggerExecOpts::Remote {
+                locked_url,
+                working_dir,
+                from_registry,
+            }
+        };
+
+        Ok((trigger_command, exec_opts))
+    }
+
+    async fn prepare_app_from_file(
+        &self,
+        path: Option<&Path>,
+        working_dir: PathBuf,
+    ) -> Result<(Vec<String>, TriggerExecOpts)> {
+        let manifest_file = path.unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
+        let bindle_connection = self.bindle_connection();
+
+        let asset_dst = if self.direct_mounts {
+            None
+        } else {
+            Some(&working_dir)
+        };
+
+        let mut app = spin_loader::from_file(manifest_file, asset_dst, &bindle_connection).await?;
+
+        // Apply --env to component environments
+        if !self.env.is_empty() {
+            for component in app.components.iter_mut() {
+                component.wasm.environment.extend(self.env.iter().cloned());
+            }
+        }
+
+        let command = trigger_command_from_app(&app)?;
+
+        let exec_opts = if self.help {
+            TriggerExecOpts::NoApp
+        } else {
+            TriggerExecOpts::Local { app, working_dir }
+        };
+
+        Ok((command, exec_opts))
     }
 
     async fn prepare_app_from_oci(
         &self,
         reference: &str,
-        working_dir: &Path,
-    ) -> Result<(Vec<String>, String)> {
+        working_dir: PathBuf,
+    ) -> Result<(Vec<String>, TriggerExecOpts)> {
         let mut client = spin_publish::oci::client::Client::new(self.insecure, None)
             .await
             .context("cannot create registry client")?;
@@ -309,30 +349,11 @@ impl UpCommand {
         self.prepare_locked_app(locked_app, working_dir).await
     }
 
-    async fn prepare_locked_app_from_file(
-        &self,
-        path: Option<&Path>,
-        working_dir: &Path,
-    ) -> Result<(Vec<String>, String)> {
-        let manifest_file = path.unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-        let bindle_connection = self.bindle_connection();
-
-        let asset_dst = if self.direct_mounts {
-            None
-        } else {
-            Some(&working_dir)
-        };
-
-        let app = spin_loader::from_file(manifest_file, asset_dst, &bindle_connection).await?;
-        let locked_app = spin_trigger::locked::build_locked_app(app, working_dir)?;
-        self.prepare_locked_app(locked_app, working_dir).await
-    }
-
-    async fn prepare_locked_app_from_bindle(
+    async fn prepare_app_from_bindle(
         &self,
         bindle_id: &str,
-        working_dir: &Path,
-    ) -> Result<(Vec<String>, String)> {
+        working_dir: PathBuf,
+    ) -> Result<(Vec<String>, TriggerExecOpts)> {
         let app = match &self.server {
             Some(server) => {
                 assert!(!self.direct_mounts);
@@ -341,7 +362,7 @@ impl UpCommand {
             None => bail!("Loading from a bindle requires a Bindle server URL"),
         };
 
-        let locked_app = spin_trigger::locked::build_locked_app(app, working_dir)?;
+        let locked_app = spin_trigger::locked::build_locked_app(app, &working_dir)?;
         self.prepare_locked_app(locked_app, working_dir).await
     }
 }
@@ -405,8 +426,12 @@ fn resolve_trigger_plugin(trigger_type: &str) -> Result<String> {
 #[allow(clippy::large_enum_variant)] // The large variant is the common case and really this is equivalent to an Option
 enum TriggerExecOpts {
     NoApp,
-    App {
-        locked_app_url: String,
+    Local {
+        app: Application,
+        working_dir: PathBuf,
+    },
+    Remote {
+        locked_url: String,
         working_dir: PathBuf,
         from_registry: bool,
     },
@@ -414,6 +439,16 @@ enum TriggerExecOpts {
 
 fn trigger_command(trigger_type: &str) -> Vec<String> {
     vec!["trigger".to_owned(), trigger_type.to_owned()]
+}
+
+fn trigger_command_from_app(app: &Application) -> Result<Vec<String>> {
+    match &app.info.trigger {
+        ApplicationTrigger::Http(_) => Ok(trigger_command("http")),
+        ApplicationTrigger::Redis(_) => Ok(trigger_command("redis")),
+        ApplicationTrigger::External(cfg) => {
+            resolve_trigger_plugin(cfg.trigger_type()).map(|p| vec![p])
+        }
+    }
 }
 
 fn trigger_command_from_locked_app(locked_app: &LockedApp) -> Result<Vec<String>> {

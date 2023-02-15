@@ -99,7 +99,7 @@ where
     pub help_args_only: bool,
 
     /// Load the application from the registry.
-    #[clap(long = "from-registry")]
+    #[clap(long = "from-registry", hide = true)]
     pub from_registry: bool,
 }
 

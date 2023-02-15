@@ -30,7 +30,7 @@ const DEFAULT_CLOUD_URL: &str = "https://cloud.fermyon.com/";
 
 /// Log into the Fermyon Platform.
 #[derive(Parser, Debug)]
-#[clap(about = "Log into the server")]
+#[clap(about = "Log into the Fermyon Platform")]
 pub struct LoginCommand {
     /// URL of bindle server
     #[clap(

@@ -7,6 +7,8 @@ edition = { workspace = true }
 [dependencies]
 anyhow = "1.0"
 bindle = { workspace = true }
+base64 = "0.21.0"
+dkregistry = { git = "https://github.com/camallo/dkregistry-rs", rev = "37acecb4b8139dd1b1cc83795442f94f90e1ffc5" }
 docker_credential = "1.0"
 dirs = "4.0"
 dunce = "1.0"

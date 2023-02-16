@@ -39,7 +39,7 @@ GENERATED_OUTBOUND_HTTP  = http/wasi-outbound-http.c http/wasi-outbound-http.h
 GENERATED_SPIN_HTTP      = http/spin-http.c http/spin-http.h
 GENERATED_OUTBOUND_REDIS = redis/outbound-redis.c redis/outbound-redis.h
 GENERATED_SPIN_REDIS     = redis/spin-redis.c redis/spin-redis.h
-GENERATED_KEY_VALUE      = key-value/key-value.c key-value/key-value.h
+GENERATED_KEY_VALUE      = key_value/key-value.c key_value/key-value.h
 
 .PHONY: generate
 generate: $(GENERATED_OUTBOUND_HTTP) $(GENERATED_SPIN_HTTP)
@@ -62,7 +62,7 @@ $(GENERATED_SPIN_REDIS):
 	wit-bindgen c --export ../../wit/ephemeral/spin-redis.wit --out-dir ./redis
 
 $(GENERATED_KEY_VALUE):
-	wit-bindgen c --import ../../wit/ephemeral/key-value.wit --out-dir ./key-value
+	wit-bindgen c --import ../../wit/ephemeral/key-value.wit --out-dir ./key_value
 
 # ----------------------------------------------------------------------
 # Cleanup

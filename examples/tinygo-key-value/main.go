@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	spin_http "github.com/fermyon/spin/sdk/go/http"
-	"github.com/fermyon/spin/sdk/go/key-value"
+	"github.com/fermyon/spin/sdk/go/key_value"
 )
 
 func init() {

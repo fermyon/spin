@@ -1,6 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 
 use crate::opts::{APP_CONFIG_FILE_OPT, BUILD_UP_OPT, DEFAULT_MANIFEST_FILE};
@@ -11,13 +11,19 @@ use super::up::UpCommand;
 #[derive(Parser, Debug)]
 #[clap(about = "Build the Spin application", allow_hyphen_values = true)]
 pub struct BuildCommand {
+    /// Path to application manifest. The default is "spin.toml".
+    #[clap(name = "APPLICATION")]
+    pub app_source: Option<PathBuf>,
+
     /// Path to spin.toml.
     #[clap(
-            name = APP_CONFIG_FILE_OPT,
-            short = 'f',
-            long = "file",
-        )]
-    pub app: Option<PathBuf>,
+        hide = true,
+        name = APP_CONFIG_FILE_OPT,
+        short = 'f',
+        long = "file",
+        conflicts_with = "APPLICATION"
+    )]
+    pub file_source: Option<PathBuf>,
 
     /// Run the application after building.
     #[clap(name = BUILD_UP_OPT, short = 'u', long = "up")]
@@ -29,10 +35,12 @@ pub struct BuildCommand {
 
 impl BuildCommand {
     pub async fn run(self) -> Result<()> {
-        let manifest_file = self
-            .app
-            .as_deref()
-            .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
+        let manifest_file = match (self.app_source.as_deref(), self.file_source.as_deref()) {
+            (None, None) => DEFAULT_MANIFEST_FILE.as_ref(),
+            (Some(p), None) => p,
+            (None, Some(p)) => p,
+            (Some(_), Some(_)) => bail!("Cannot specify more than one application"),
+        };
 
         spin_build::build(manifest_file).await?;
 

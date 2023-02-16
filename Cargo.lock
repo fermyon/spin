@@ -4513,6 +4513,7 @@ dependencies = [
  "dirs 4.0.0",
  "futures",
  "oci-distribution",
+ "once_cell",
  "outbound-http",
  "outbound-mysql",
  "outbound-pg",

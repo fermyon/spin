@@ -11,3 +11,5 @@ key_value_stores = ["default", "foo"]
 source = "target/wasm32-wasi/release/spin_key_value.wasm"
 [component.trigger]
 route = "/..."
+[component.build]
+command = "cargo build --release --target wasm32-wasi"

@@ -289,13 +289,14 @@ impl Upgrade {
             eprintln!("To upgrade them, run `spin templates install --upgrade` with the --git or --dir option");
             eprintln!();
             if !self.all {
-                eprintln!("The following template repositories can be automatically upgraded:");
+                eprintln!("The following template repositories can be automatically upgraded.");
             }
         }
 
         let selected_sources = if self.all {
             sources
         } else {
+            eprintln!("Select repos to upgrade. Use Space to select/deselect and Enter to confirm selection.");
             let selected_indexes = match dialoguer::MultiSelect::new()
                 .items(&sources)
                 .interact_opt()?

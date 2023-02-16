@@ -4186,6 +4186,7 @@ dependencies = [
  "is-terminal",
  "lazy_static",
  "nix 0.24.3",
+ "oci-distribution",
  "openssl",
  "outbound-http",
  "outbound-redis",

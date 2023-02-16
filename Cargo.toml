@@ -31,6 +31,7 @@ hippo = { git = "https://github.com/deislabs/hippo-cli", tag = "v0.16.1" }
 is-terminal = "0.4"
 lazy_static = "1.4.0"
 nix = { version = "0.24", features = ["signal"] }
+oci-distribution = { git = "https://github.com/radu-matei/oci-distribution", branch = "update-dockerhub-default-registry" }
 outbound-http = { path = "crates/outbound-http" }
 outbound-redis = { path = "crates/outbound-redis" }
 spin-key-value = { path = "crates/key-value" }

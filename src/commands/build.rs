@@ -44,7 +44,7 @@ impl BuildCommand {
                 )))
                 .chain(self.up_args),
             );
-            cmd.app = Some(manifest_file.into());
+            cmd.file_source = Some(manifest_file.into());
             cmd.run().await
         } else {
             Ok(())

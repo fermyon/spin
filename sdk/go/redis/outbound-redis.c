@@ -47,6 +47,26 @@ void outbound_redis_string_free(outbound_redis_string_t *ret) {
 void outbound_redis_payload_free(outbound_redis_payload_t *ptr) {
   canonical_abi_free(ptr->ptr, ptr->len * 1, 1);
 }
+void outbound_redis_redis_parameter_free(outbound_redis_redis_parameter_t *ptr) {
+  switch ((int32_t) ptr->tag) {
+    case 1: {
+      outbound_redis_payload_free(&ptr->val.binary);
+      break;
+    }
+  }
+}
+void outbound_redis_redis_result_free(outbound_redis_redis_result_t *ptr) {
+  switch ((int32_t) ptr->tag) {
+    case 1: {
+      outbound_redis_string_free(&ptr->val.status);
+      break;
+    }
+    case 3: {
+      outbound_redis_payload_free(&ptr->val.binary);
+      break;
+    }
+  }
+}
 typedef struct {
   bool is_err;
   union {
@@ -73,6 +93,32 @@ void outbound_redis_list_string_free(outbound_redis_list_string_t *ptr) {
   }
   canonical_abi_free(ptr->ptr, ptr->len * 8, 4);
 }
+typedef struct {
+  bool is_err;
+  union {
+    outbound_redis_list_string_t ok;
+    outbound_redis_error_t err;
+  } val;
+} outbound_redis_expected_list_string_error_t;
+void outbound_redis_list_redis_parameter_free(outbound_redis_list_redis_parameter_t *ptr) {
+  for (size_t i = 0; i < ptr->len; i++) {
+    outbound_redis_redis_parameter_free(&ptr->ptr[i]);
+  }
+  canonical_abi_free(ptr->ptr, ptr->len * 16, 8);
+}
+void outbound_redis_list_redis_result_free(outbound_redis_list_redis_result_t *ptr) {
+  for (size_t i = 0; i < ptr->len; i++) {
+    outbound_redis_redis_result_free(&ptr->ptr[i]);
+  }
+  canonical_abi_free(ptr->ptr, ptr->len * 16, 8);
+}
+typedef struct {
+  bool is_err;
+  union {
+    outbound_redis_list_redis_result_t ok;
+    outbound_redis_error_t err;
+  } val;
+} outbound_redis_expected_list_redis_result_error_t;
 
 __attribute__((aligned(8)))
 static uint8_t RET_AREA[16];
@@ -179,6 +225,94 @@ outbound_redis_error_t outbound_redis_del(outbound_redis_string_t *address, outb
       expected.is_err = true;
       
       expected.val.err = (int32_t) (*((uint8_t*) (ptr + 8)));
+      break;
+    }
+  }*ret0 = expected.val.ok;
+  return expected.is_err ? expected.val.err : -1;
+}
+__attribute__((import_module("outbound-redis"), import_name("sadd")))
+void __wasm_import_outbound_redis_sadd(int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t);
+outbound_redis_error_t outbound_redis_sadd(outbound_redis_string_t *address, outbound_redis_string_t *key, outbound_redis_list_string_t *values, int64_t *ret0) {
+  int32_t ptr = (int32_t) &RET_AREA;
+  __wasm_import_outbound_redis_sadd((int32_t) (*address).ptr, (int32_t) (*address).len, (int32_t) (*key).ptr, (int32_t) (*key).len, (int32_t) (*values).ptr, (int32_t) (*values).len, ptr);
+  outbound_redis_expected_s64_error_t expected;
+  switch ((int32_t) (*((uint8_t*) (ptr + 0)))) {
+    case 0: {
+      expected.is_err = false;
+      
+      expected.val.ok = *((int64_t*) (ptr + 8));
+      break;
+    }
+    case 1: {
+      expected.is_err = true;
+      
+      expected.val.err = (int32_t) (*((uint8_t*) (ptr + 8)));
+      break;
+    }
+  }*ret0 = expected.val.ok;
+  return expected.is_err ? expected.val.err : -1;
+}
+__attribute__((import_module("outbound-redis"), import_name("smembers")))
+void __wasm_import_outbound_redis_smembers(int32_t, int32_t, int32_t, int32_t, int32_t);
+outbound_redis_error_t outbound_redis_smembers(outbound_redis_string_t *address, outbound_redis_string_t *key, outbound_redis_list_string_t *ret0) {
+  int32_t ptr = (int32_t) &RET_AREA;
+  __wasm_import_outbound_redis_smembers((int32_t) (*address).ptr, (int32_t) (*address).len, (int32_t) (*key).ptr, (int32_t) (*key).len, ptr);
+  outbound_redis_expected_list_string_error_t expected;
+  switch ((int32_t) (*((uint8_t*) (ptr + 0)))) {
+    case 0: {
+      expected.is_err = false;
+      
+      expected.val.ok = (outbound_redis_list_string_t) { (outbound_redis_string_t*)(*((int32_t*) (ptr + 4))), (size_t)(*((int32_t*) (ptr + 8))) };
+      break;
+    }
+    case 1: {
+      expected.is_err = true;
+      
+      expected.val.err = (int32_t) (*((uint8_t*) (ptr + 4)));
+      break;
+    }
+  }*ret0 = expected.val.ok;
+  return expected.is_err ? expected.val.err : -1;
+}
+__attribute__((import_module("outbound-redis"), import_name("srem")))
+void __wasm_import_outbound_redis_srem(int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t);
+outbound_redis_error_t outbound_redis_srem(outbound_redis_string_t *address, outbound_redis_string_t *key, outbound_redis_list_string_t *values, int64_t *ret0) {
+  int32_t ptr = (int32_t) &RET_AREA;
+  __wasm_import_outbound_redis_srem((int32_t) (*address).ptr, (int32_t) (*address).len, (int32_t) (*key).ptr, (int32_t) (*key).len, (int32_t) (*values).ptr, (int32_t) (*values).len, ptr);
+  outbound_redis_expected_s64_error_t expected;
+  switch ((int32_t) (*((uint8_t*) (ptr + 0)))) {
+    case 0: {
+      expected.is_err = false;
+      
+      expected.val.ok = *((int64_t*) (ptr + 8));
+      break;
+    }
+    case 1: {
+      expected.is_err = true;
+      
+      expected.val.err = (int32_t) (*((uint8_t*) (ptr + 8)));
+      break;
+    }
+  }*ret0 = expected.val.ok;
+  return expected.is_err ? expected.val.err : -1;
+}
+__attribute__((import_module("outbound-redis"), import_name("execute")))
+void __wasm_import_outbound_redis_execute(int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t);
+outbound_redis_error_t outbound_redis_execute(outbound_redis_string_t *address, outbound_redis_string_t *command, outbound_redis_list_redis_parameter_t *arguments, outbound_redis_list_redis_result_t *ret0) {
+  int32_t ptr = (int32_t) &RET_AREA;
+  __wasm_import_outbound_redis_execute((int32_t) (*address).ptr, (int32_t) (*address).len, (int32_t) (*command).ptr, (int32_t) (*command).len, (int32_t) (*arguments).ptr, (int32_t) (*arguments).len, ptr);
+  outbound_redis_expected_list_redis_result_error_t expected;
+  switch ((int32_t) (*((uint8_t*) (ptr + 0)))) {
+    case 0: {
+      expected.is_err = false;
+      
+      expected.val.ok = (outbound_redis_list_redis_result_t) { (outbound_redis_redis_result_t*)(*((int32_t*) (ptr + 4))), (size_t)(*((int32_t*) (ptr + 8))) };
+      break;
+    }
+    case 1: {
+      expected.is_err = true;
+      
+      expected.val.err = (int32_t) (*((uint8_t*) (ptr + 4)));
       break;
     }
   }*ret0 = expected.val.ok;

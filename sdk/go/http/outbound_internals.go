@@ -43,10 +43,6 @@ func post(url string, contentType string, body io.Reader) (*http.Response, error
 func send(req *http.Request) (*http.Response, error) {
 	var spinReq C.wasi_outbound_http_request_t
 	var spinRes C.wasi_outbound_http_response_t
-	defer func() {
-		C.wasi_outbound_http_request_free(&spinReq)
-		C.wasi_outbound_http_response_free(&spinRes)
-	}()
 
 	m, err := method(req.Method)
 	if err != nil {

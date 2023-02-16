@@ -4,7 +4,10 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"reflect"
+	"fmt"
 
+	"golang.org/x/exp/slices"
 	spin_http "github.com/fermyon/spin/sdk/go/http"
 	"github.com/fermyon/spin/sdk/go/redis"
 )
@@ -39,6 +42,7 @@ func init() {
 		// get redis payload for `mykey`
 		if payload, err := redis.Get(addr, "mykey"); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		} else {
 			w.Write([]byte("mykey value was: "))
 			w.Write(payload)
@@ -48,6 +52,7 @@ func init() {
 		// incr `spin-go-incr` by 1
 		if payload, err := redis.Incr(addr, "spin-go-incr"); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		} else {
 			w.Write([]byte("spin-go-incr value: "))
 			w.Write([]byte(strconv.FormatInt(payload, 10)))
@@ -61,6 +66,83 @@ func init() {
 			w.Write([]byte("deleted keys num: "))
 			w.Write([]byte(strconv.FormatInt(payload, 10)))
 			w.Write([]byte("\n"))
+		}
+
+		if _, err := redis.Sadd(addr, "myset", []string{"foo", "bar"}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		{
+			expected := []string{"bar", "foo"}
+			payload, err := redis.Smembers(addr, "myset")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			slices.Sort(payload)
+			if !reflect.DeepEqual(payload, expected) {
+				http.Error(
+					w,
+					fmt.Sprintf(
+						"unexpected SMEMBERS result: expected %v, got %v",
+						expected,
+						payload,
+					),
+					http.StatusInternalServerError,
+				)
+				return
+			}
+		}
+
+		if _, err := redis.Srem(addr, "myset", []string{"bar"}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		{
+			expected := []string{"foo"}
+			if payload, err := redis.Smembers(addr, "myset"); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			} else if !reflect.DeepEqual(payload, expected) {
+				http.Error(
+					w,
+					fmt.Sprintf(
+						"unexpected SMEMBERS result: expected %v, got %v",
+						expected,
+						payload,
+					),
+					http.StatusInternalServerError,
+				)
+				return
+			}
+		}
+
+		message := redis.RedisParameter{Kind: redis.RedisParameterKindBinary, Val: []byte("message")}
+		hello := redis.RedisParameter{Kind: redis.RedisParameterKindBinary, Val: []byte("hello")}
+		if _, err := redis.Execute(addr, "set", []redis.RedisParameter{message, hello}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		world := redis.RedisParameter{Kind: redis.RedisParameterKindBinary, Val: []byte(" world")}
+		if _, err := redis.Execute(addr, "append", []redis.RedisParameter{message, world}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if payload, err := redis.Execute(addr, "get", []redis.RedisParameter{message}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		} else if !reflect.DeepEqual(
+			payload,
+			[]redis.RedisResult{redis.RedisResult{
+				Kind: redis.RedisResultKindBinary,
+				Val: []byte("hello world"),
+			}}) {
+			http.Error(w, "unexpected GET result", http.StatusInternalServerError)
+			return
 		}
 	})
 }

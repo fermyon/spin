@@ -37,6 +37,7 @@ extern "C"
   #define SPIN_HTTP_HTTP_ERROR_INVALID_URL 2
   #define SPIN_HTTP_HTTP_ERROR_REQUEST_ERROR 3
   #define SPIN_HTTP_HTTP_ERROR_RUNTIME_ERROR 4
+  #define SPIN_HTTP_HTTP_ERROR_TOO_MANY_REQUESTS 5
   typedef uint16_t spin_http_http_status_t;
   typedef uint8_t spin_http_method_t;
   #define SPIN_HTTP_METHOD_GET 0

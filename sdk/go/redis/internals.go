@@ -109,7 +109,7 @@ const (
 
 type RedisParameter struct {
 	Kind RedisParameterKind
-	Val any
+	Val interface{}
 }
 
 type RedisResultKind C.uint8_t
@@ -123,7 +123,7 @@ const (
 
 type RedisResult struct {
 	Kind RedisResultKind
-	Val any
+	Val interface{}
 }
 
 func execute(addr string, command string, arguments []RedisParameter) ([]RedisResult, error) {
@@ -186,7 +186,7 @@ func redisListParameter(xs []RedisParameter) C.outbound_redis_list_redis_paramet
 }
 
 func fromRedisResult(result *C.outbound_redis_redis_result_t) RedisResult {
-	var val any
+	var val interface{}
 	switch result.tag {
 	case 0: val = nil
 	case 1: {

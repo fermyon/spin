@@ -23,7 +23,7 @@ const (
 
 type Error struct {
 	Kind ErrorKind
-	Val any
+	Val interface{}
 }
 
 func Open(name string) (Store, error) {

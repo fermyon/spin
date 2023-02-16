@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"fmt"
 
+	"golang.org/x/exp/slices"
 	spin_http "github.com/fermyon/spin/sdk/go/http"
 	"github.com/fermyon/spin/sdk/go/redis"
 )
@@ -74,10 +75,13 @@ func init() {
 
 		{
 			expected := []string{"bar", "foo"}
-			if payload, err := redis.Smembers(addr, "myset"); err != nil {
+			payload, err := redis.Smembers(addr, "myset")
+			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
-			} else if !reflect.DeepEqual(payload, expected) {
+			}
+			slices.Sort(payload)
+			if !reflect.DeepEqual(payload, expected) {
 				http.Error(
 					w,
 					fmt.Sprintf(

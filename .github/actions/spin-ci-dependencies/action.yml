@@ -63,7 +63,7 @@ inputs:
     type: bool
   golang-version:
     description: 'golang version to setup'
-    default: '1.17'
+    default: '1.20'
     required: false
     type: string
 
@@ -82,10 +82,10 @@ inputs:
     description: 'setup tinygo'
     required: false
     default: 'false'
-    type: bool    
+    type: bool
   tinygo-version:
     description: 'tinygo version to setup'
-    default: 'v0.22.0'
+    default: 'v0.27.0'
     required: false
     type: string
 

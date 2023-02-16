@@ -15,8 +15,6 @@ import (
 
 //export spin_http_handle_http_request
 func handle_http_request(req *C.spin_http_request_t, res *C.spin_http_response_t) {
-	defer C.spin_http_request_free(req)
-
 	var body []byte
 	if req.body.is_some {
 		body = C.GoBytes(unsafe.Pointer(req.body.val.ptr), C.int(req.body.val.len))

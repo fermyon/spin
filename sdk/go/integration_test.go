@@ -61,7 +61,7 @@ func buildTinyGo(t *testing.T, dir string) {
 
 	t.Log("building example: ", dir)
 
-	cmd := exec.Command("tinygo", "build", "-wasm-abi=generic", "-target=wasi", "-gc=leaking", "-o", "main.wasm", "main.go")
+	cmd := exec.Command("tinygo", "build", "-target=wasi", "-gc=leaking", "-o", "main.wasm", "main.go")
 	cmd.Dir = dir
 
 	stderr := new(bytes.Buffer)
@@ -110,6 +110,7 @@ func TestBuildExamples(t *testing.T) {
 		"../../examples/http-tinygo-outbound-http",
 		"../../examples/tinygo-outbound-redis",
 		"../../examples/tinygo-redis",
+		"../../examples/tinygo-key-value",
 	} {
 		buildTinyGo(t, example)
 	}

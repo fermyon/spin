@@ -14,6 +14,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 pub use async_trait::async_trait;
+use once_cell::sync::OnceCell;
 use serde::de::DeserializeOwned;
 use url::Url;
 
@@ -101,34 +102,42 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
 
+                let manager = OnceCell::new();
+
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    spin_key_value::KeyValueComponent::new(spin_key_value::manager(|component| {
-                        // TODO: Once we have runtime configuration for key-value stores, the user will be able to
-                        // both change the default store configuration (e.g. use Redis, or an SQLite in-memory
-                        // database, or use a different path) and add other named stores with their own
-                        // configurations.
+                    spin_key_value::KeyValueComponent::new(spin_key_value::manager(
+                        move |component| {
+                            // TODO: Once we have runtime configuration for key-value stores, the user will be able
+                            // to both change the default store configuration (e.g. use Redis, or an SQLite
+                            // in-memory database, or use a different path) and add other named stores with their
+                            // own configurations.
 
-                        Arc::new(spin_key_value::DelegatingStoreManager::new(
-                            [(
-                                "default".to_owned(),
-                                Arc::new(spin_key_value_sqlite::KeyValueSqlite::new(
-                                    if let Some(key_value_file) =
-                                        key_value_file_location(component.app)
-                                    {
-                                        spin_key_value_sqlite::DatabaseLocation::Path(
-                                            key_value_file,
-                                        )
-                                    } else {
-                                        spin_key_value_sqlite::DatabaseLocation::InMemory
-                                    },
+                            let init = || {
+                                Arc::new(spin_key_value::DelegatingStoreManager::new(
+                                    [(
+                                        "default".to_owned(),
+                                        Arc::new(spin_key_value_sqlite::KeyValueSqlite::new(
+                                            if let Some(key_value_file) =
+                                                key_value_file_location(component.app)
+                                            {
+                                                spin_key_value_sqlite::DatabaseLocation::Path(
+                                                    key_value_file,
+                                                )
+                                            } else {
+                                                spin_key_value_sqlite::DatabaseLocation::InMemory
+                                            },
+                                        ))
+                                            as Arc<dyn spin_key_value::StoreManager>,
+                                    )]
+                                    .into_iter()
+                                    .collect(),
                                 ))
-                                    as Arc<dyn spin_key_value::StoreManager>,
-                            )]
-                            .into_iter()
-                            .collect(),
-                        ))
-                    })),
+                            };
+
+                            manager.get_or_init(init).clone()
+                        },
+                    )),
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,

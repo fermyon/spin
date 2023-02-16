@@ -1,5 +1,3 @@
-#![deny(missing_docs)]
-
 use super::{PublishError, PublishResult};
 use bindle::{standalone::StandaloneRead, Id};
 use std::path::Path;

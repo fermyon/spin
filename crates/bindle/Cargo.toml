@@ -1,5 +1,5 @@
 [package]
-name = "spin-publish"
+name = "spin-bindle"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }

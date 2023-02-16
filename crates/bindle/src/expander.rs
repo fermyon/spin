@@ -1,7 +1,5 @@
-#![deny(missing_docs)]
-
 use super::{
-    bindle_writer::{self, ParcelSources},
+    writer::{self, ParcelSources},
     PublishError, PublishResult,
 };
 use bindle::{BindleSpec, Condition, Group, Invoice, Label, Parcel};
@@ -272,7 +270,7 @@ async fn manifest_parcel(
             name: parcel_name,
             size: file_metadata(&absolute_path).await?.len(),
             media_type: spin_loader::bindle::SPIN_MANIFEST_MEDIA_TYPE.to_owned(),
-            annotations: Some(bindle_writer::delete_after_copy()),
+            annotations: Some(writer::delete_after_copy()),
             feature: None,
             origin: None,
         },

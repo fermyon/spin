@@ -597,7 +597,7 @@ impl DeployCommand {
             Some(path) => path.as_path(),
         };
 
-        let bindle_id = spin_publish::bindle::prepare_bindle(&self.app, buildinfo, dest_dir)
+        let bindle_id = spin_bindle::prepare_bindle(&self.app, buildinfo, dest_dir)
             .await
             .map_err(crate::wrap_prepare_bindle_error)?;
 
@@ -607,10 +607,8 @@ impl DeployCommand {
             bindle_id.version()
         );
 
-        match spin_publish::bindle::push_all(dest_dir, &bindle_id, bindle_connection_info.clone())
-            .await
-        {
-            Err(spin_publish::bindle::PublishError::BindleAlreadyExists(err_msg)) => {
+        match spin_bindle::push_all(dest_dir, &bindle_id, bindle_connection_info.clone()).await {
+            Err(spin_bindle::PublishError::BindleAlreadyExists(err_msg)) => {
                 if self.redeploy {
                     Ok(bindle_id.clone())
                 } else {
@@ -620,9 +618,9 @@ impl DeployCommand {
                     ))
                 }
             }
-            Err(spin_publish::bindle::PublishError::BindleClient(
-                bindle::client::ClientError::Other(e),
-            )) if e.to_string().contains("application exceeds") => {
+            Err(spin_bindle::PublishError::BindleClient(bindle::client::ClientError::Other(e)))
+                if e.to_string().contains("application exceeds") =>
+            {
                 Err(anyhow!(e.trim_start_matches("Unknown error: ").to_owned()))
             }
             Err(err) => Err(err).with_context(|| {

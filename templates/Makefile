@@ -1,4 +1,4 @@
-SDK_VERSION ?= v0.8.0
+SDK_VERSION ?= v0.9.0
 
 bump-versions: bump-go-versions bump-rust-versions
 

@@ -50,6 +50,7 @@ spin-config = { path = "crates/config" }
 spin-http = { path = "crates/http" }
 spin-loader = { path = "crates/loader" }
 spin-manifest = { path = "crates/manifest" }
+spin-oci = { path = "crates/oci" }
 spin-plugins = { path = "crates/plugins" }
 spin-publish = { path = "crates/publish" }
 spin-redis-engine = { path = "crates/redis" }
@@ -101,6 +102,7 @@ members = [
   "crates/http",
   "crates/loader",
   "crates/manifest",
+  "crates/oci",
   "crates/outbound-http",
   "crates/outbound-redis",
   "crates/key-value",

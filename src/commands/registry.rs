@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use spin_publish::oci::client::Client;
+use spin_oci::Client;
 use std::{io::Read, path::PathBuf};
 
 use crate::opts::*;
@@ -63,7 +63,7 @@ impl Push {
         let dir = tempfile::tempdir()?;
         let app = spin_loader::local::from_file(&app_file, Some(dir.path()), &None).await?;
 
-        let mut client = spin_publish::oci::client::Client::new(self.insecure, None).await?;
+        let mut client = spin_oci::Client::new(self.insecure, None).await?;
         client.push(&app, &self.reference).await?;
         Ok(())
     }
@@ -88,7 +88,7 @@ pub struct Pull {
 impl Pull {
     /// Pull a Spin application from an OCI registry
     pub async fn run(self) -> Result<()> {
-        let mut client = spin_publish::oci::client::Client::new(self.insecure, None).await?;
+        let mut client = spin_oci::Client::new(self.insecure, None).await?;
         client.pull(&self.reference).await?;
 
         Ok(())

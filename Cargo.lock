@@ -4296,6 +4296,7 @@ dependencies = [
  "spin-key-value-sqlite",
  "spin-loader",
  "spin-manifest",
+ "spin-oci",
  "spin-plugins",
  "spin-publish",
  "spin-redis-engine",
@@ -4459,6 +4460,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-oci"
+version = "0.8.0"
+dependencies = [
+ "anyhow",
+ "base64 0.21.0",
+ "dirs 4.0.0",
+ "dkregistry",
+ "docker_credential",
+ "oci-distribution",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "spin-app",
+ "spin-loader",
+ "spin-manifest",
+ "spin-trigger",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "walkdir",
+]
+
+[[package]]
 name = "spin-plugins"
 version = "0.9.0"
 dependencies = [
@@ -4484,17 +4508,13 @@ name = "spin-publish"
 version = "0.9.0"
 dependencies = [
  "anyhow",
- "base64 0.21.0",
  "bindle",
  "dirs 4.0.0",
- "dkregistry",
- "docker_credential",
  "dunce",
  "futures",
  "itertools",
  "lazy_static",
  "mime_guess",
- "oci-distribution",
  "regex",
  "reqwest",
  "semver 1.0.16",
@@ -4503,7 +4523,6 @@ dependencies = [
  "spin-app",
  "spin-loader",
  "spin-manifest",
- "spin-trigger",
  "tempfile",
  "thiserror",
  "tokio",

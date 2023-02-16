@@ -1,4 +1,5 @@
-//! Client for distributing Spin applications using OCI registries.
+//! OCI registries integration.
+#![deny(missing_docs)]
 
 use anyhow::{bail, Context, Result};
 use docker_credential::DockerCredential;

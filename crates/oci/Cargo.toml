@@ -1,0 +1,24 @@
+[package]
+name = "spin-oci"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+anyhow = "1.0"
+base64 = "0.21"
+dkregistry = { git = "https://github.com/camallo/dkregistry-rs", rev = "37acecb4b8139dd1b1cc83795442f94f90e1ffc5" }
+docker_credential = "1.0"
+dirs = "4.0"
+oci-distribution = { git = "https://github.com/radu-matei/oci-distribution", branch = "update-dockerhub-default-registry" }
+reqwest = "0.11"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+spin-app = { path = "../app" }
+spin-loader = { path = "../loader" }
+spin-manifest = { path = "../manifest" }
+spin-trigger = { path = "../trigger" }
+tempfile = "3.3"
+tokio = { version = "1", features = ["fs"] }
+tracing = { workspace = true }
+walkdir = "2.3"

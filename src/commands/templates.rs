@@ -229,10 +229,22 @@ impl Upgrade {
         let (origin, no_origin): (Vec<_>, Vec<_>) = existing_templates
             .iter()
             .partition(|t| t.source_repo().is_some());
-        let repos = origin
+
+        let mut repos = origin
             .iter()
             .filter_map(|t| t.source_repo())
             .collect::<HashSet<_>>();
+
+        // Try to detect two repos that are likely to have been installed before
+        // we started recording upgrade info.
+        let has_unorigined_default_templates = no_origin.iter().any(|t| t.id() == "http-rust");
+        let has_unorigined_js_templates = no_origin.iter().any(|t| t.id() == "http-js");
+        if has_unorigined_default_templates {
+            repos.insert("https://github.com/fermyon/spin");
+        }
+        if has_unorigined_js_templates {
+            repos.insert("https://github.com/fermyon/spin-js-sdk");
+        }
 
         let mut sources = vec![];
         for repo in repos {
@@ -255,7 +267,19 @@ impl Upgrade {
             return Ok(None);
         }
 
-        if !no_origin.is_empty() {
+        // The logic here is that if there are unorigined templates, then *probably*
+        // they are the most popular ones, which we will sub in anyway.  So we only
+        // warn if we've already established that there are unorigined templates and
+        // the most popular ones are *not* among them.  This will result in a missed
+        // warning if the user has other unorigined templates too, but that's probably
+        // better than printing over a dozen templates saying we won't upgrade them
+        // and then offering to upgrade them all the same!  (The trouble being that we
+        // can't readily exclude all the popular templates from printing without building in a
+        // LOT of knowledge here. Or looking in the Git repos, or something.  But I think
+        // the heuristic will cover 99% of cases.)
+        let can_offer_all =
+            no_origin.is_empty() || has_unorigined_default_templates || has_unorigined_js_templates;
+        if !can_offer_all {
             eprintln!(
                 "Spin could not determine where the following templates were installed from:"
             );
@@ -265,13 +289,14 @@ impl Upgrade {
             eprintln!("To upgrade them, run `spin templates install --upgrade` with the --git or --dir option");
             eprintln!();
             if !self.all {
-                eprintln!("The following template repositories can be automatically upgraded:");
+                eprintln!("The following template repositories can be automatically upgraded.");
             }
         }
 
         let selected_sources = if self.all {
             sources
         } else {
+            eprintln!("Select repos to upgrade. Use Space to select/deselect and Enter to confirm selection.");
             let selected_indexes = match dialoguer::MultiSelect::new()
                 .items(&sources)
                 .interact_opt()?

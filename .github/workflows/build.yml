@@ -34,29 +34,11 @@ jobs:
         run:
           BUILD_SPIN_EXAMPLES=0 cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-  build-rust:
-    name: Build Spin
-    runs-on: ${{ matrix.config.os }}
+  ## This is separated out to remove e2e-tests dependency on windows/mac builds
+  build-rust-ubuntu:
+    name: Build Spin Ubuntu
+    runs-on: ubuntu-latest
     needs: [lint-rust]
-    strategy:
-      matrix:
-        config:
-          - {
-              os: "ubuntu-latest",
-              extension: "",
-              # We have this enabled for releases, so we should test it.
-              extraArgs: "--features openssl/vendored",
-            }
-          - {
-              os: "macos-latest",
-              extension: "",
-              extraArgs: "",
-            }
-          - {
-              os: "windows-latest",
-              extension: ".exe",
-              extraArgs: "",
-            }
     steps:
       - uses: actions/checkout@v3
 
@@ -68,15 +50,43 @@ jobs:
           rust-cache: true
 
       - name: Cargo Build
-        run: cargo build --workspace --release --all-targets --all-features ${{ matrix.config.extraArgs }}
+        run: cargo build --workspace --release --all-targets --all-features --features openssl/vendored
         env:
           CARGO_INCREMENTAL: 0
 
       - name: "Archive executable artifact"
         uses: actions/upload-artifact@v3
         with:
-          name: spin-${{ matrix.config.os }}
-          path: target/release/spin${{ matrix.config.extension }}
+          name: spin-ubuntu-latest
+          path: target/release/spin
+
+  build-rust:
+    name: Build Spin
+    runs-on: ${{ matrix.os }}
+    needs: [lint-rust]
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
+        with:
+          rust: true
+          rust-wasm: true
+          rust-cache: true
+
+      - name: Cargo Build
+        run: cargo build --workspace --release --all-targets --all-features
+        env:
+          CARGO_INCREMENTAL: 0
+
+      - name: "Archive executable artifact"
+        uses: actions/upload-artifact@v3
+        with:
+          name: spin-${{ matrix.os }}
+          path: target/release/spin${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
 
   test-rust:
@@ -115,7 +125,7 @@ jobs:
   test-go:
     name: Test Spin SDK - Go
     runs-on: ubuntu-latest
-    needs: build-rust
+    needs: build-rust-ubuntu
     steps:
       - uses: actions/checkout@v3
 
@@ -144,7 +154,7 @@ jobs:
 
   e2e-tests:
     runs-on: ubuntu-22.04
-    needs: build-rust
+    needs: build-rust-ubuntu
     concurrency:
       group: e2e-tests
     steps:

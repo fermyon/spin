@@ -28,7 +28,7 @@ use spin_manifest::{
 };
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::{bindle::BindleConnectionInfo, digest::bytes_sha256_string, oci::cache::Cache};
+use crate::{bindle::BindleConnectionInfo, cache::Cache, digest::bytes_sha256_string};
 use config::{
     FileComponentUrlSource, RawAppInformation, RawAppManifest, RawAppManifestAnyVersion,
     RawAppManifestAnyVersionPartial, RawComponentManifest, RawComponentManifestPartial,

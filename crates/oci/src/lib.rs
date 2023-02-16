@@ -12,7 +12,7 @@ use oci_distribution::{
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use spin_app::locked::{ContentPath, ContentRef};
-use spin_loader::oci::cache::Cache;
+use spin_loader::cache::Cache;
 use spin_manifest::Application;
 use tokio::fs;
 use walkdir::WalkDir;

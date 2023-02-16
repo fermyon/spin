@@ -46,6 +46,7 @@ pub struct UpCommand {
 
     /// Path to spin.toml.
     #[clap(
+        hide = true,
         name = APP_CONFIG_FILE_OPT,
         short = 'f',
         long = "file",
@@ -58,6 +59,7 @@ pub struct UpCommand {
 
     /// ID of application bindle.
     #[clap(
+        hide = true,
         name = BINDLE_ID_OPT,
         short = 'b',
         long = "bindle",
@@ -71,6 +73,7 @@ pub struct UpCommand {
 
     /// URL of bindle server.
     #[clap(
+        hide = true,
         name = BINDLE_SERVER_URL_OPT,
         long = "bindle-server",
         env = BINDLE_URL_ENV,
@@ -79,6 +82,7 @@ pub struct UpCommand {
 
     /// Basic http auth username for the bindle server
     #[clap(
+        hide = true,
         name = BINDLE_USERNAME,
         long = "bindle-username",
         env = BINDLE_USERNAME,
@@ -88,6 +92,7 @@ pub struct UpCommand {
 
     /// Basic http auth password for the bindle server
     #[clap(
+        hide = true,
         name = BINDLE_PASSWORD,
         long = "bindle-password",
         env = BINDLE_PASSWORD,
@@ -97,6 +102,7 @@ pub struct UpCommand {
 
     /// Reference to run the application from a registry.
     #[clap(
+        hide = true,
         name = FROM_REGISTRY_OPT,
         long = "from-registry",
         conflicts_with = BINDLE_ID_OPT,

@@ -26,14 +26,18 @@ pub fn template_install(mut args: Vec<&str>) -> Result<Output> {
     result
 }
 
-pub fn new_app(template_name: &str, app_name: &str) -> Result<Output> {
+pub fn new_app<'a>(
+    template_name: &'a str,
+    app_name: &'a str,
+    mut args: Vec<&'a str>,
+) -> Result<Output> {
     let basedir = utils::testcases_base_dir();
+    let mut cmd = vec!["spin", "new", template_name, app_name, "--accept-defaults"];
+    if !args.is_empty() {
+        cmd.append(&mut args);
+    }
 
-    return utils::run(
-        vec!["spin", "new", template_name, app_name, "--accept-defaults"],
-        Some(basedir.as_str()),
-        None,
-    );
+    return utils::run(cmd, Some(basedir.as_str()), None);
 }
 
 pub fn install_plugins(plugins: Vec<&str>) -> Result<Output> {
@@ -69,7 +73,7 @@ pub fn appdir(appname: &str) -> String {
 #[cfg(target_family = "unix")]
 pub async fn stop_app_process(process: &mut tokio::process::Child) -> Result<(), anyhow::Error> {
     let pid = process.id().unwrap();
-    println!("stopping app with pid {}", pid);
+    // println!("stopping app with pid {}", pid);
     let pid = Pid::from_raw(pid as i32);
     kill(pid, Signal::SIGINT).map_err(anyhow::Error::msg)
 }

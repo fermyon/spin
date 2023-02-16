@@ -5,6 +5,7 @@ use crate::utils;
 use anyhow::Result;
 use async_trait::async_trait;
 use std::process::Output;
+use tokio::io::BufReader;
 
 pub struct SpinUp {}
 
@@ -24,8 +25,8 @@ impl Controller for SpinUp {
         spin::template_install(args)
     }
 
-    fn new_app(&self, template_name: &str, app_name: &str) -> Result<Output> {
-        spin::new_app(template_name, app_name)
+    fn new_app(&self, template_name: &str, app_name: &str, args: Vec<&str>) -> Result<Output> {
+        spin::new_app(template_name, app_name, args)
     }
 
     fn install_plugins(&self, plugins: Vec<&str>) -> Result<Output> {
@@ -36,27 +37,46 @@ impl Controller for SpinUp {
         spin::build_app(app_name)
     }
 
-    async fn run_app(&self, app_name: &str) -> Result<AppInstance> {
+    async fn run_app(
+        &self,
+        app_name: &str,
+        trigger_type: &str,
+        mut xargs: Vec<&str>,
+    ) -> Result<AppInstance> {
         let appdir = spin::appdir(app_name);
 
-        let port = utils::get_random_port()?;
-        let address = format!("127.0.0.1:{}", port);
+        let mut cmd = vec!["spin", "up"];
+        if !xargs.is_empty() {
+            cmd.append(&mut xargs);
+        }
 
-        let mut child = utils::run_async(
-            vec!["spin", "up", "--listen", &address],
-            Some(&appdir),
-            None,
-        );
+        let mut address = "".to_string();
+        if trigger_type == "http" {
+            let port = utils::get_random_port()?;
+            address = format!("127.0.0.1:{}", port);
+            cmd.append(&mut vec!["--listen", address.as_str()]);
+        }
 
-        // ensure the server is accepting requests before continuing.
-        utils::wait_tcp(&address, &mut child, "spin").await?;
+        let mut child = utils::run_async(cmd, Some(&appdir), None);
 
-        match utils::get_output(&mut child).await {
-            Ok(output) => print!("this output is {:?} until here", output),
-            Err(error) => panic!("problem running app {:?}", error),
-        };
+        if trigger_type == "http" {
+            // ensure the server is accepting requests before continuing.
+            utils::wait_tcp(&address, &mut child, "spin").await?;
+        }
 
-        Ok(AppInstance::new_with_process(
+        let stdout = child
+            .stdout
+            .take()
+            .expect("child did not have a handle to stdout");
+        let stdout_stream = BufReader::new(stdout);
+
+        let stderr = child
+            .stderr
+            .take()
+            .expect("child did not have a handle to stderr");
+        let stderr_stream = BufReader::new(stderr);
+
+        Ok(AppInstance::new_with_process_and_logs_stream(
             AppMetadata {
                 name: app_name.to_string(),
                 base: format!("http://{}", address),
@@ -64,6 +84,8 @@ impl Controller for SpinUp {
                 version: "".to_string(),
             },
             Some(child),
+            Some(stdout_stream),
+            Some(stderr_stream),
         ))
     }
 

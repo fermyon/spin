@@ -14,9 +14,16 @@ services:
       MYSQL_USER: spin
       MYSQL_PASSWORD: spin
 
+  redis:
+    image: ${REDIS_IMAGE:-redis:7.0.8-alpine3.17}
+    ports:
+      - "6379:6379"
+    restart: always
+
   e2e-tests:
     depends_on:
       - mysql
+      - redis
     image: spin-e2e-tests
     entrypoint: cargo test spinup_tests --features new-e2e-tests --no-fail-fast -- --nocapture
 

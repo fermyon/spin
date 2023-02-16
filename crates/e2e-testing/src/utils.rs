@@ -11,6 +11,7 @@ use std::{
 
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command as TokioCommand;
+use tokio::process::{ChildStderr, ChildStdout};
 use tokio::time::timeout;
 use tokio::{net::TcpStream, time::sleep};
 
@@ -174,4 +175,56 @@ pub fn testcases_base_dir() -> String {
         .collect();
 
     basedir.to_str().unwrap().to_string()
+}
+
+pub async fn get_output_from_stdout(
+    reader: Option<BufReader<ChildStdout>>,
+    max_wait: Duration,
+) -> Result<Vec<String>> {
+    if reader.is_none() {
+        let output: Result<Vec<String>, anyhow::Error> = Ok(vec![]);
+        return output;
+    }
+
+    let mut output: Vec<String> = vec![];
+    let mut lines = reader.unwrap().lines();
+
+    loop {
+        let nextline = lines.next_line();
+        match timeout(max_wait, nextline).await {
+            Err(_) => break,
+            Ok(result) => match result {
+                Err(_) => break,
+                Ok(line) => output.push(line.unwrap()),
+            },
+        }
+    }
+
+    Ok(output)
+}
+
+pub async fn get_output_from_stderr(
+    reader: Option<BufReader<ChildStderr>>,
+    max_wait: Duration,
+) -> Result<Vec<String>> {
+    if reader.is_none() {
+        let output: Result<Vec<String>, anyhow::Error> = Ok(vec![]);
+        return output;
+    }
+
+    let mut output: Vec<String> = vec![];
+    let mut lines = reader.unwrap().lines();
+
+    loop {
+        let nextline = lines.next_line();
+        match timeout(max_wait, nextline).await {
+            Err(_) => break,
+            Ok(result) => match result {
+                Err(_) => break,
+                Ok(line) => output.push(line.unwrap()),
+            },
+        }
+    }
+
+    Ok(output)
 }

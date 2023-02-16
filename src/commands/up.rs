@@ -15,6 +15,8 @@ use tempfile::TempDir;
 
 use crate::opts::*;
 
+const APPLICATION_OPT: &str = "APPLICATION";
+
 /// Start the Fermyon runtime.
 #[derive(Parser, Debug, Default)]
 #[clap(
@@ -26,29 +28,47 @@ pub struct UpCommand {
     #[clap(short = 'h', long = "help")]
     pub help: bool,
 
-    /// Path to spin.toml.
+    /// The application to run. This may be a manifest (spin.toml) file, a
+    /// directory containing a spin.toml file, or a remote registry reference.
+    /// If omitted, it defaults to "spin.toml".
     #[clap(
-        name = APP_CONFIG_FILE_OPT,
+        name = APPLICATION_OPT,
         short = 'f',
-        long = "file",
+        long = "from",
+    )]
+    pub app_source: Option<String>,
+
+    /// The application to run. This is the same as `--from` but forces the
+    /// application to be interpreted as a file or directory path.
+    #[clap(
+        hide = true,
+        name = APP_CONFIG_FILE_OPT,
+        long = "from-file",
+        alias = "file",
         conflicts_with = BINDLE_ID_OPT,
         conflicts_with = FROM_REGISTRY_OPT,
+        conflicts_with = APPLICATION_OPT,
     )]
-    pub app: Option<PathBuf>,
+    pub file_source: Option<PathBuf>,
 
-    /// ID of application bindle.
+    /// The application to run. This interprets the applicaiton as a bindle ID.
+    /// This option is deprecated; use OCI registries and `--from` where possible.
     #[clap(
+        hide = true,
         name = BINDLE_ID_OPT,
         short = 'b',
         long = "bindle",
+        alias = "from-bindle",
         conflicts_with = APP_CONFIG_FILE_OPT,
         conflicts_with = FROM_REGISTRY_OPT,
+        conflicts_with = APPLICATION_OPT,
         requires = BINDLE_SERVER_URL_OPT,
     )]
-    pub bindle: Option<String>,
+    pub bindle_source: Option<String>,
 
     /// URL of bindle server.
     #[clap(
+        hide = true,
         name = BINDLE_SERVER_URL_OPT,
         long = "bindle-server",
         env = BINDLE_URL_ENV,
@@ -57,6 +77,7 @@ pub struct UpCommand {
 
     /// Basic http auth username for the bindle server
     #[clap(
+        hide = true,
         name = BINDLE_USERNAME,
         long = "bindle-username",
         env = BINDLE_USERNAME,
@@ -66,6 +87,7 @@ pub struct UpCommand {
 
     /// Basic http auth password for the bindle server
     #[clap(
+        hide = true,
         name = BINDLE_PASSWORD,
         long = "bindle-password",
         env = BINDLE_PASSWORD,
@@ -73,14 +95,17 @@ pub struct UpCommand {
     )]
     pub bindle_password: Option<String>,
 
-    /// Reference to run the application from a registry.
+    /// The application to run. This is the same as `--from` but forces the
+    /// application to be interpreted as an OCI registry reference.
     #[clap(
+        hide = true,
         name = FROM_REGISTRY_OPT,
         long = "from-registry",
         conflicts_with = BINDLE_ID_OPT,
         conflicts_with = APP_CONFIG_FILE_OPT,
+        conflicts_with = APPLICATION_OPT,
     )]
-    pub reference: Option<String>,
+    pub registry_source: Option<String>,
 
     /// Ignore server certificate errors from bindle server or registry
     #[clap(
@@ -134,13 +159,89 @@ impl UpCommand {
         })
     }
 
+    fn resolve_app_source(&self) -> AppSource {
+        match (
+            &self.app_source,
+            &self.file_source,
+            &self.bindle_source,
+            &self.registry_source,
+        ) {
+            (None, None, None, None) => Self::default_manifest_or_none(),
+            (Some(source), None, None, None) => Self::infer_source(source),
+            (None, Some(file), None, None) => Self::infer_file_source(file.to_owned()),
+            (None, None, Some(id), None) => AppSource::Bindle(id.to_owned()),
+            (None, None, None, Some(reference)) => AppSource::OciRegistry(reference.to_owned()),
+            (_, _, _, _) => AppSource::unresolvable("More than one application was specified"),
+        }
+    }
+
+    fn default_manifest_or_none() -> AppSource {
+        let default_manifest = PathBuf::from(DEFAULT_MANIFEST_FILE);
+        if default_manifest.exists() {
+            AppSource::File(default_manifest)
+        } else {
+            AppSource::None
+        }
+    }
+
+    fn infer_file_source(path: PathBuf) -> AppSource {
+        if path.is_file() {
+            AppSource::File(path)
+        } else if path.is_dir() {
+            let file_path = path.join(DEFAULT_MANIFEST_FILE);
+            if file_path.exists() && file_path.is_file() {
+                AppSource::File(file_path)
+            } else {
+                AppSource::unresolvable(format!(
+                    "Directory {} does not contain a file named 'spin.toml'",
+                    path.display()
+                ))
+            }
+        } else {
+            AppSource::unresolvable(format!(
+                "Path {} is neither a file nor a directory",
+                path.display()
+            ))
+        }
+    }
+
+    fn is_oci_like(source: &str) -> bool {
+        match oci_distribution::Reference::try_from(source) {
+            Err(_) => false,
+            Ok(r) => {
+                // A relative file path such as foo/spin.toml will successfully
+                // parse as an OCI reference, because the parser infers the Docker
+                // registry and the `latest` version.  So if the registry resolves
+                // to Docker, but the source *doesn't* contain the string 'docker',
+                // we can guess this is likely a false positive.
+                //
+                // This could be fooled by, e.g., dockerdemo/spin.toml.  But we only
+                // go down this path if the file does not exist, and the chances of
+                // a user choosing a filename containing 'docker' THAT ALSO does not
+                // exist are A MILLION TO ONE...
+                let spurious = r.registry().contains("docker")
+                    && !source.contains("docker")
+                    && r.tag() == Some("latest");
+                !spurious
+            }
+        }
+    }
+
+    fn infer_source(source: &str) -> AppSource {
+        let path = PathBuf::from(source);
+        if path.exists() {
+            Self::infer_file_source(path)
+        } else if Self::is_oci_like(source) {
+            AppSource::OciRegistry(source.to_owned())
+        } else {
+            AppSource::Unresolvable(format!("File or directory '{source}' not found. If you meant to load from a registry, use the `--from-registry` option."))
+        }
+    }
+
     async fn run_inner(self) -> Result<()> {
-        if self.help
-            && self.app.is_none()
-            && self.bindle.is_none()
-            && self.reference.is_none()
-            && !PathBuf::from(DEFAULT_MANIFEST_FILE).exists()
-        {
+        let app_source = self.resolve_app_source();
+
+        if app_source == AppSource::None {
             return self
                 .run_trigger(
                     trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE),
@@ -155,18 +256,12 @@ impl UpCommand {
         };
         let working_dir = working_dir_holder.path().canonicalize()?;
 
-        let (trigger_cmd, exec_opts) = match (&self.app, &self.bindle, &self.reference) {
-            (app, None, None) => {
-                self.prepare_app_from_file(app.as_deref(), working_dir)
-                    .await?
-            }
-            (None, Some(bindle), None) => self.prepare_app_from_bindle(bindle, working_dir).await?,
-            (None, None, Some(reference)) => {
-                self.prepare_app_from_oci(reference, working_dir).await?
-            }
-            (_, _, _) => {
-                bail!("Specify only one of app file, bindle ID, or container registry reference");
-            }
+        let (trigger_cmd, exec_opts) = match app_source {
+            AppSource::None => bail!("Internal error - should have shown help"),
+            AppSource::File(app) => self.prepare_app_from_file(&app, working_dir).await?,
+            AppSource::Bindle(bindle) => self.prepare_app_from_bindle(&bindle, working_dir).await?,
+            AppSource::OciRegistry(oci) => self.prepare_app_from_oci(&oci, working_dir).await?,
+            AppSource::Unresolvable(err) => bail!(err),
         };
 
         self.run_trigger(trigger_cmd, exec_opts).await
@@ -280,7 +375,7 @@ impl UpCommand {
         let exec_opts = if self.help {
             TriggerExecOpts::NoApp
         } else {
-            let from_registry = self.reference.is_some();
+            let from_registry = self.registry_source.is_some();
             TriggerExecOpts::Remote {
                 locked_url,
                 working_dir,
@@ -293,10 +388,9 @@ impl UpCommand {
 
     async fn prepare_app_from_file(
         &self,
-        path: Option<&Path>,
+        manifest_file: &Path,
         working_dir: PathBuf,
     ) -> Result<(Vec<String>, TriggerExecOpts)> {
-        let manifest_file = path.unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
         let bindle_connection = self.bindle_connection();
 
         let asset_dst = if self.direct_mounts {
@@ -467,5 +561,199 @@ fn trigger_command_from_locked_app(locked_app: &LockedApp) -> Result<Vec<String>
         ApplicationTrigger::External(cfg) => {
             resolve_trigger_plugin(cfg.trigger_type()).map(|p| vec![p])
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum AppSource {
+    None,
+    File(PathBuf),
+    OciRegistry(String),
+    Bindle(String),
+    Unresolvable(String),
+}
+
+impl AppSource {
+    fn unresolvable(message: impl AsRef<str>) -> Self {
+        Self::Unresolvable(message.as_ref().to_owned())
+    }
+}
+
+#[derive(Clone, Debug, clap::ValueEnum)]
+enum AppSourceType {
+    Auto,
+    File,
+    Oci,
+}
+
+impl Default for AppSourceType {
+    fn default() -> Self {
+        Self::Auto
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn repo_path(path: &str) -> String {
+        // This is all strings and format because app_source is a string not a PathBuf
+        let repo_base = env!("CARGO_MANIFEST_DIR");
+        format!("{repo_base}/{path}")
+    }
+
+    #[test]
+    fn can_infer_files() {
+        let file = repo_path("examples/http-rust/spin.toml");
+
+        let source = UpCommand {
+            app_source: Some(file.clone()),
+            ..Default::default()
+        }
+        .resolve_app_source();
+
+        assert_eq!(AppSource::File(PathBuf::from(file)), source);
+    }
+
+    #[test]
+    fn can_infer_directories() {
+        let dir = repo_path("examples/http-rust");
+
+        let source = UpCommand {
+            app_source: Some(dir.clone()),
+            ..Default::default()
+        }
+        .resolve_app_source();
+
+        assert_eq!(
+            AppSource::File(PathBuf::from(dir).join("spin.toml")),
+            source
+        );
+    }
+
+    #[test]
+    fn reject_nonexistent_files() {
+        let file = repo_path("src/commands/biscuits.toml");
+
+        let source = UpCommand {
+            app_source: Some(file),
+            ..Default::default()
+        }
+        .resolve_app_source();
+
+        assert!(matches!(source, AppSource::Unresolvable(_)));
+    }
+
+    #[test]
+    fn reject_nonexistent_files_relative_path() {
+        let file = "zoink/honk/biscuits.toml".to_owned(); // NOBODY CREATE THIS OKAY
+
+        let source = UpCommand {
+            app_source: Some(file),
+            ..Default::default()
+        }
+        .resolve_app_source();
+
+        assert!(matches!(source, AppSource::Unresolvable(_)));
+    }
+
+    #[test]
+    fn reject_unsuitable_directories() {
+        let dir = repo_path("src/commands");
+
+        let source = UpCommand {
+            app_source: Some(dir),
+            ..Default::default()
+        }
+        .resolve_app_source();
+
+        assert!(matches!(source, AppSource::Unresolvable(_)));
+    }
+
+    #[test]
+    fn can_infer_oci_registry_reference() {
+        let reference = "ghcr.io/fermyon/noodles:v1".to_owned();
+
+        let source = UpCommand {
+            app_source: Some(reference.clone()),
+            ..Default::default()
+        }
+        .resolve_app_source();
+
+        assert_eq!(AppSource::OciRegistry(reference), source);
+    }
+
+    #[test]
+    fn can_infer_docker_registry_reference() {
+        // Testing that the magic docker heuristic doesn't misfire here.
+        let reference = "docker.io/fermyon/noodles".to_owned();
+
+        let source = UpCommand {
+            app_source: Some(reference.clone()),
+            ..Default::default()
+        }
+        .resolve_app_source();
+
+        assert_eq!(AppSource::OciRegistry(reference), source);
+    }
+
+    #[test]
+    fn can_reject_complete_gibberish() {
+        let garbage = repo_path("ftp://🤡***🤡 HELLO MR CLOWN?!");
+
+        let source = UpCommand {
+            app_source: Some(garbage),
+            ..Default::default()
+        }
+        .resolve_app_source();
+
+        // Honestly I feel Unresolvable might be a bit weak sauce for this case
+        assert!(matches!(source, AppSource::Unresolvable(_)));
+    }
+
+    #[test]
+    fn parses_untyped_source() {
+        UpCommand::try_parse_from(["up", "-f", "ghcr.io/example/test:v1"])
+            .expect("Failed to parse --from with option");
+        UpCommand::try_parse_from(["up", "-f", "ghcr.io/example/test:v1", "--direct-mounts"])
+            .expect("Failed to parse --from with option");
+        UpCommand::try_parse_from([
+            "up",
+            "-f",
+            "ghcr.io/example/test:v1",
+            "--listen",
+            "127.0.0.1:39453",
+        ])
+        .expect("Failed to parse --from with trigger option");
+    }
+
+    #[test]
+    fn parses_typed_source() {
+        UpCommand::try_parse_from(["up", "--from-registry", "ghcr.io/example/test:v1"])
+            .expect("Failed to parse --from-registry with option");
+        UpCommand::try_parse_from([
+            "up",
+            "--from-registry",
+            "ghcr.io/example/test:v1",
+            "--direct-mounts",
+        ])
+        .expect("Failed to parse --from-registry with option");
+        UpCommand::try_parse_from([
+            "up",
+            "--from-registry",
+            "ghcr.io/example/test:v1",
+            "--listen",
+            "127.0.0.1:39453",
+        ])
+        .expect("Failed to parse --from-registry with trigger option");
+    }
+
+    #[test]
+    fn parses_implicit_source() {
+        UpCommand::try_parse_from(["up"]).expect("Failed to parse implicit source with option");
+        UpCommand::try_parse_from(["up", "--direct-mounts"])
+            .expect("Failed to parse implicit source with option");
+        UpCommand::try_parse_from(["up", "--listen", "127.0.0.1:39453"])
+            .expect("Failed to parse implicit source with trigger option");
     }
 }

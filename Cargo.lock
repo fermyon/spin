@@ -4312,6 +4312,7 @@ dependencies = [
  "lazy_static",
  "levenshtein",
  "nix 0.24.3",
+ "oci-distribution",
  "openssl",
  "outbound-http",
  "outbound-redis",

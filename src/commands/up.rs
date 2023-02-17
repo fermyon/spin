@@ -330,7 +330,7 @@ impl UpCommand {
         reference: &str,
         working_dir: PathBuf,
     ) -> Result<(Vec<String>, TriggerExecOpts)> {
-        let mut client = spin_publish::oci::client::Client::new(self.insecure, None)
+        let mut client = spin_oci::Client::new(self.insecure, None)
             .await
             .context("cannot create registry client")?;
 

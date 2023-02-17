@@ -4237,6 +4237,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-bindle"
+version = "0.9.0"
+dependencies = [
+ "anyhow",
+ "bindle",
+ "dirs 4.0.0",
+ "dunce",
+ "futures",
+ "itertools",
+ "lazy_static",
+ "mime_guess",
+ "regex",
+ "reqwest",
+ "semver 1.0.16",
+ "serde",
+ "serde_json",
+ "spin-app",
+ "spin-loader",
+ "spin-manifest",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "toml 0.5.11",
+ "tracing",
+ "walkdir",
+]
+
+[[package]]
 name = "spin-build"
 version = "0.9.0"
 dependencies = [
@@ -4289,6 +4317,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.6",
  "spin-app",
+ "spin-bindle",
  "spin-build",
  "spin-config",
  "spin-http",
@@ -4296,8 +4325,8 @@ dependencies = [
  "spin-key-value-sqlite",
  "spin-loader",
  "spin-manifest",
+ "spin-oci",
  "spin-plugins",
- "spin-publish",
  "spin-redis-engine",
  "spin-templates",
  "spin-trigger",
@@ -4459,6 +4488,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-oci"
+version = "0.9.0"
+dependencies = [
+ "anyhow",
+ "base64 0.21.0",
+ "dirs 4.0.0",
+ "dkregistry",
+ "docker_credential",
+ "oci-distribution",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "spin-app",
+ "spin-loader",
+ "spin-manifest",
+ "spin-trigger",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "walkdir",
+]
+
+[[package]]
 name = "spin-plugins"
 version = "0.9.0"
 dependencies = [
@@ -4477,39 +4529,6 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
-]
-
-[[package]]
-name = "spin-publish"
-version = "0.9.0"
-dependencies = [
- "anyhow",
- "base64 0.21.0",
- "bindle",
- "dirs 4.0.0",
- "dkregistry",
- "docker_credential",
- "dunce",
- "futures",
- "itertools",
- "lazy_static",
- "mime_guess",
- "oci-distribution",
- "regex",
- "reqwest",
- "semver 1.0.16",
- "serde",
- "serde_json",
- "spin-app",
- "spin-loader",
- "spin-manifest",
- "spin-trigger",
- "tempfile",
- "thiserror",
- "tokio",
- "toml 0.5.11",
- "tracing",
- "walkdir",
 ]
 
 [[package]]

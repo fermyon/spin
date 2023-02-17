@@ -4,7 +4,7 @@ mod sloth;
 
 use anyhow::{anyhow, Result};
 use semver::BuildMetadata;
-use spin_publish::bindle::PublishError;
+use spin_bindle::PublishError;
 use std::path::Path;
 
 pub use crate::opts::HELP_ARGS_ONLY_TRIGGER_TYPE;

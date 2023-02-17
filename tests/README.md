@@ -20,6 +20,26 @@ docker build -t spin-e2e-tests -f e2e-tests.Dockerfile .
 docker compose -f e2e-tests-docker-compose.yml run e2e-tests
 ```
 
+## How to run e2e tests on aarch64
+```
+## go to root dir of the project, e2e-tests-aarch64.Dockerfile is located there
+docker build -t spin-e2e-tests -f e2e-tests-aarch64.Dockerfile .
+MYSQL_IMAGE=arm64v8/mysql:8.0.32 docker compose         \
+    -f e2e-tests-docker-compose.yml run                 \
+    e2e-tests
+```
+
+## How to use `spin` binary with your local changes
+
+By default tests use the canary build of `spin` downloaded at docker image creation time. If you want to test it with your changes, you can use `--build-arg BUILD_SPIN=true`
+
+```
+docker build --build-arg BUILD_SPIN=true -t spin-e2e-tests -f e2e-tests.Dockerfile .
+docker compose                                          \
+    -f e2e-tests-docker-compose.yml run                 \
+    e2e-tests
+```
+
 ## Important files and their function
 
 `crates/e2e-testing`     - All the test framework/utilities that are required for `e2e-tests`

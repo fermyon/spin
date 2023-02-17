@@ -170,4 +170,4 @@ jobs:
       - name: Run e2e tests
         run: |
           chmod +x `pwd`/target/release/spin
-          docker compose -f e2e-tests-docker-compose.yml run e2e-tests
+          docker compose -f e2e-tests-docker-compose.yml run -v `pwd`/target/release/spin:/usr/local/bin/spin e2e-tests 

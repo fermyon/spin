@@ -155,8 +155,6 @@ jobs:
   e2e-tests:
     runs-on: ubuntu-22.04
     needs: build-rust-ubuntu
-    concurrency:
-      group: e2e-tests
     steps:
       - uses: actions/checkout@v3
 

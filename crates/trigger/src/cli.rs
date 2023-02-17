@@ -178,7 +178,7 @@ where
 
     pub fn follow_components(&self) -> FollowComponents {
         if self.follow_all_components {
-            eprintln!("NOTE: --follow-all has been deprecated. All component ouput is now printed to stdout by default.")
+            eprintln!("NOTE: --follow-all has been deprecated. All component output is now printed to stdout by default.")
         }
         if self.silence_component_logs {
             FollowComponents::None

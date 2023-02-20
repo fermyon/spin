@@ -58,18 +58,13 @@ where
     )]
     pub cache: Option<PathBuf>,
 
-    /// Print output for given component(s) to stdout/stderr
+    /// Print output to stdout/stderr only for given component(s)
     #[clap(
         name = FOLLOW_LOG_OPT,
         long = "follow",
         multiple_occurrences = true,
     )]
     pub follow_components: Vec<String>,
-
-    /// Print all component output to stdout/stderr
-    /// Deprecated
-    #[clap(long = "follow-all")]
-    pub follow_all_components: bool,
 
     /// Silence all component output to stdout/stderr
     #[clap(
@@ -177,9 +172,6 @@ where
     }
 
     pub fn follow_components(&self) -> FollowComponents {
-        if self.follow_all_components {
-            eprintln!("NOTE: --follow-all has been deprecated. All component output is now printed to stdout by default.")
-        }
         if self.silence_component_logs {
             FollowComponents::None
         } else if self.follow_components.is_empty() {

@@ -166,22 +166,35 @@ impl UpCommand {
             &self.bindle_source,
             &self.registry_source,
         ) {
-            (None, None, None, None) => Self::default_manifest_or_none(),
+            (None, None, None, None) => self.default_manifest_or_none(),
             (Some(source), None, None, None) => Self::infer_source(source),
             (None, Some(file), None, None) => Self::infer_file_source(file.to_owned()),
             (None, None, Some(id), None) => AppSource::Bindle(id.to_owned()),
             (None, None, None, Some(reference)) => AppSource::OciRegistry(reference.to_owned()),
-            (_, _, _, _) => AppSource::unresolvable("More than one application was specified"),
+            _ => AppSource::unresolvable("More than one application was specified"),
         }
     }
 
-    fn default_manifest_or_none() -> AppSource {
+    fn default_manifest_or_none(&self) -> AppSource {
         let default_manifest = PathBuf::from(DEFAULT_MANIFEST_FILE);
         if default_manifest.exists() {
             AppSource::File(default_manifest)
+        } else if self.trigger_args_look_file_like() {
+            let msg = format!(
+                "Default file 'spin.toml' found. Did you mean `spin up -f {}`?`",
+                self.trigger_args[0].to_string_lossy()
+            );
+            AppSource::Unresolvable(msg)
         } else {
             AppSource::None
         }
+    }
+
+    fn trigger_args_look_file_like(&self) -> bool {
+        // Heuristic for the user typing `spin up foo` instead of `spin up -f foo` - in the
+        // first case `foo` gets interpreted as a trigger arg which is probably not what the
+        // user intended.
+        !self.trigger_args.is_empty() && !self.trigger_args[0].to_string_lossy().starts_with('-')
     }
 
     fn infer_file_source(path: PathBuf) -> AppSource {
@@ -361,6 +374,7 @@ impl UpCommand {
         &self,
         mut locked_app: LockedApp,
         working_dir: PathBuf,
+        needs_registry_flag: bool,
     ) -> Result<(Vec<String>, TriggerExecOpts)> {
         // Apply --env to component environments
         if !self.env.is_empty() {
@@ -375,11 +389,10 @@ impl UpCommand {
         let exec_opts = if self.help {
             TriggerExecOpts::NoApp
         } else {
-            let from_registry = self.registry_source.is_some();
             TriggerExecOpts::Remote {
                 locked_url,
                 working_dir,
-                from_registry,
+                from_registry: needs_registry_flag,
             }
         };
 
@@ -440,7 +453,7 @@ impl UpCommand {
             .context("cannot get path to spin.lock")?;
 
         let locked_app: LockedApp = serde_json::from_slice(&tokio::fs::read(&app_path).await?)?;
-        self.prepare_locked_app(locked_app, working_dir).await
+        self.prepare_locked_app(locked_app, working_dir, true).await
     }
 
     async fn prepare_app_from_bindle(
@@ -457,7 +470,8 @@ impl UpCommand {
         };
 
         let locked_app = spin_trigger::locked::build_locked_app(app, &working_dir)?;
-        self.prepare_locked_app(locked_app, working_dir).await
+        self.prepare_locked_app(locked_app, working_dir, false)
+            .await
     }
 }
 
@@ -576,19 +590,6 @@ enum AppSource {
 impl AppSource {
     fn unresolvable(message: impl AsRef<str>) -> Self {
         Self::Unresolvable(message.as_ref().to_owned())
-    }
-}
-
-#[derive(Clone, Debug, clap::ValueEnum)]
-enum AppSourceType {
-    Auto,
-    File,
-    Oci,
-}
-
-impl Default for AppSourceType {
-    fn default() -> Self {
-        Self::Auto
     }
 }
 

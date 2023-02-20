@@ -55,11 +55,9 @@ enum SpinApp {
     Bindle(BindleCommands),
     #[clap(subcommand)]
     Cloud(CloudCommands),
-    // hidden to "work" as a cross-level subcommand alias -> `spin cloud deploy`
-    #[clap(hide = true)]
+    // acts as a cross-level subcommand shortcut -> `spin cloud deploy`
     Deploy(DeployCommand),
-    // hidden to "work" as a cross-level subcommand alias -> `spin cloud login`
-    #[clap(hide = true)]
+    // acts as a cross-level subcommand shortcut -> `spin cloud login`
     Login(LoginCommand),
     #[clap(subcommand, alias = "oci")]
     Registry(RegistryCommands),

@@ -14,10 +14,9 @@ jobs:
       - name: setup dependencies
         uses: ./.github/actions/spin-ci-dependencies
         with:
-          bindle: true
-          golang: true
-          tinygo: true
-          wasmtime: true
+          rust: true
+          rust-wasm: true
+          rust-cache: true
 
       - name: Cargo Build
         run: cargo build --workspace --all-targets --all-features --features openssl/vendored

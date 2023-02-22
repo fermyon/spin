@@ -2,10 +2,7 @@
 mod integration_tests {
     use anyhow::{Context, Result};
     use hyper::{Body, Client, Response};
-    use spin_loader::local::{
-        config::{RawAppManifestAnyVersion, RawModuleSource},
-        raw_manifest_from_file,
-    };
+    use spin_loader::local::{config::RawModuleSource, raw_manifest_from_file};
     use std::{
         collections::HashMap,
         ffi::OsStr,
@@ -994,7 +991,7 @@ mod integration_tests {
     /// in `spin.toml` inside `dir`.
     async fn do_test_build_command(dir: impl AsRef<Path>) -> Result<()> {
         let manifest_file = dir.as_ref().join("spin.toml");
-        let RawAppManifestAnyVersion::V1(manifest) = raw_manifest_from_file(&manifest_file).await?;
+        let manifest = raw_manifest_from_file(&manifest_file).await?.into_v1();
 
         let mut sources = vec![];
         for component_manifest in manifest.components.iter() {

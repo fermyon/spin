@@ -101,9 +101,8 @@ async fn prepare_any_version(
     base_dst: Option<impl AsRef<Path>>,
     bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<Application> {
-    match raw {
-        RawAppManifestAnyVersion::V1(raw) => prepare(raw, src, base_dst, bindle_connection).await,
-    }
+    let manifest = raw.into_v1();
+    prepare(manifest, src, base_dst, bindle_connection).await
 }
 
 /// Iterates over a vector of RawComponentManifest structs and throws an error if any component ids are duplicated
@@ -122,13 +121,11 @@ fn error_on_duplicate_ids(components: Vec<RawComponentManifest>) -> Result<()> {
 
 /// Validate fields in raw app manifest
 pub fn validate_raw_app_manifest(raw: &RawAppManifestAnyVersion) -> Result<()> {
-    match raw {
-        RawAppManifestAnyVersion::V1(raw) => {
-            raw.components
-                .iter()
-                .try_for_each(|c| validate_allowed_http_hosts(&c.wasm.allowed_http_hosts))?;
-        }
-    }
+    let manifest = raw.as_v1();
+    manifest
+        .components
+        .iter()
+        .try_for_each(|c| validate_allowed_http_hosts(&c.wasm.allowed_http_hosts))?;
     Ok(())
 }
 
@@ -405,7 +402,7 @@ impl ComponentDigest {
 fn resolve_partials(
     partially_parsed: RawAppManifestAnyVersionPartial,
 ) -> Result<RawAppManifestAnyVersion> {
-    let RawAppManifestAnyVersionPartial::V1(manifest) = partially_parsed;
+    let manifest = partially_parsed.into_v1();
 
     let app_trigger = &manifest.info.trigger;
     let components = manifest
@@ -414,11 +411,15 @@ fn resolve_partials(
         .map(|c| resolve_partial_component(app_trigger, c))
         .collect::<Result<_>>()?;
 
-    Ok(RawAppManifestAnyVersion::V1(RawAppManifest {
-        info: manifest.info,
-        components,
-        variables: manifest.variables,
-    }))
+    // Only concerned with preserving manifest.
+    Ok(RawAppManifestAnyVersion::V1New {
+        manifest: RawAppManifest {
+            info: manifest.info,
+            components,
+            variables: manifest.variables,
+        },
+        spin_manifest_version: config::FixedStringVersion::default(),
+    })
 }
 
 fn resolve_partial_component(
@@ -494,8 +495,7 @@ source = "nonexistent.wasm"
     #[test]
     fn can_parse_http_trigger() {
         let m = load_test_manifest(r#"{ type = "http", base = "/" }"#, r#"route = "/...""#);
-
-        let RawAppManifestAnyVersion::V1(m1) = m;
+        let m1 = m.into_v1();
         let t = &m1.info.trigger;
         let ct = &m1.components[0].trigger;
         assert!(matches!(t, ApplicationTrigger::Http(_)));
@@ -509,7 +509,7 @@ source = "nonexistent.wasm"
             r#"channel = "chan""#,
         );
 
-        let RawAppManifestAnyVersion::V1(m1) = m;
+        let m1 = m.into_v1();
         let t = m1.info.trigger;
         let ct = &m1.components[0].trigger;
         assert!(matches!(t, ApplicationTrigger::Redis(_)));
@@ -520,7 +520,7 @@ source = "nonexistent.wasm"
     fn can_parse_unknown_trigger() {
         let m = load_test_manifest(r#"{ type = "pounce" }"#, r#"on = "MY KNEES""#);
 
-        let RawAppManifestAnyVersion::V1(m1) = m;
+        let m1 = m.into_v1();
         let t = m1.info.trigger;
         let ct = &m1.components[0].trigger;
         assert!(matches!(t, ApplicationTrigger::External(_)));
@@ -534,7 +534,7 @@ source = "nonexistent.wasm"
             r#"route = "over the cat tree and out of the sun""#,
         );
 
-        let RawAppManifestAnyVersion::V1(m1) = m;
+        let m1 = m.into_v1();
         let t = m1.info.trigger;
         let ct = &m1.components[0].trigger;
         assert!(matches!(t, ApplicationTrigger::External(_)));

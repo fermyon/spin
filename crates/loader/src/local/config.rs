@@ -22,12 +22,43 @@ pub(crate) type RawAppManifestAnyVersionPartial = RawAppManifestAnyVersionImpl<t
 pub(crate) type RawComponentManifestPartial = RawComponentManifestImpl<toml::Value>;
 
 /// Container for any version of the manifest.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(tag = "spin_version")]
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
 pub enum RawAppManifestAnyVersionImpl<C> {
-    /// A manifest with API version 1.
-    #[serde(rename = "1")]
-    V1(RawAppManifestImpl<C>),
+    /// Old Spin manifest versioned with `spin_version` key
+    V1Old {
+        /// Version key name
+        spin_version: FixedStringVersion<1>,
+        /// Manifest
+        #[serde(flatten)]
+        manifest: RawAppManifestImpl<C>,
+    },
+    /// New Spin manifest versioned with `spin_manifest_version` key
+    V1New {
+        /// Version key name
+        spin_manifest_version: FixedStringVersion<1>,
+        /// Manifest
+        #[serde(flatten)]
+        manifest: RawAppManifestImpl<C>,
+    },
+}
+
+impl<C> RawAppManifestAnyVersionImpl<C> {
+    /// Converts `RawAppManifestAnyVersionImpl` into underlying V1 manifest
+    pub fn into_v1(self) -> RawAppManifestImpl<C> {
+        match self {
+            RawAppManifestAnyVersionImpl::V1New { manifest, .. } => manifest,
+            RawAppManifestAnyVersionImpl::V1Old { manifest, .. } => manifest,
+        }
+    }
+
+    /// Returns a reference to the underlying V1 manifest
+    pub fn as_v1(&self) -> &RawAppManifestImpl<C> {
+        match self {
+            RawAppManifestAnyVersionImpl::V1New { manifest, .. } => manifest,
+            RawAppManifestAnyVersionImpl::V1Old { manifest, .. } => manifest,
+        }
+    }
 }
 
 /// Application configuration local file format.
@@ -175,4 +206,28 @@ pub struct FileComponentUrlSource {
     /// The digest of the Wasm binary, used for integrity checking. This must be a
     /// SHA256 digest, in the form `sha256:...`
     pub digest: String,
+}
+
+/// FixedStringVersion represents a schema version field with a const value.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(into = "String", try_from = "String")]
+pub struct FixedStringVersion<const V: usize>;
+
+impl<const V: usize> From<FixedStringVersion<V>> for String {
+    fn from(_: FixedStringVersion<V>) -> String {
+        V.to_string()
+    }
+}
+
+impl<const V: usize> TryFrom<String> for FixedStringVersion<V> {
+    type Error = String;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let value: usize = value
+            .parse()
+            .map_err(|err| format!("invalid version: {}", err))?;
+        if value != V {
+            return Err(format!("invalid version {} != {}", value, V));
+        }
+        Ok(Self)
+    }
 }

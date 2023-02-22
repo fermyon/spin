@@ -32,7 +32,10 @@ fn parse_subcommand(mut cmd: Vec<String>) -> anyhow::Result<(String, Vec<String>
 /// Executes a Spin plugin as a subprocess, expecting the first argument to
 /// indicate the plugin to execute. Passes all subsequent arguments on to the
 /// subprocess.
-pub async fn execute_external_subcommand(cmd: Vec<String>) -> anyhow::Result<()> {
+pub async fn execute_external_subcommand(
+    cmd: Vec<String>,
+    app: clap::App<'_>,
+) -> anyhow::Result<()> {
     let (plugin_name, args, override_compatibility_check) = parse_subcommand(cmd)?;
     let plugin_store = PluginStore::try_default()?;
     match plugin_store.read_plugin_manifest(&plugin_name) {
@@ -48,6 +51,7 @@ pub async fn execute_external_subcommand(cmd: Vec<String>) -> anyhow::Result<()>
         Err(Error::NotFound(e)) => {
             tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
             eprintln!("Error: '{plugin_name}' is not a known Spin command. See spin --help.\n");
+            print_similar_commands(app, &plugin_name);
             process::exit(2);
         }
         Err(e) => return Err(e.into()),
@@ -67,6 +71,33 @@ pub async fn execute_external_subcommand(cmd: Vec<String>) -> anyhow::Result<()>
         }
     }
     Ok(())
+}
+
+fn print_similar_commands(app: clap::App, plugin_name: &str) {
+    let similar = similar_commands(app, plugin_name);
+    match similar.len() {
+        0 => (),
+        1 => eprintln!("The most similar command is:"),
+        _ => eprintln!("The most similar commands are:"),
+    }
+    for cmd in &similar {
+        eprintln!("    {cmd}");
+    }
+    if !similar.is_empty() {
+        eprintln!();
+    }
+}
+
+fn similar_commands(app: clap::App, target: &str) -> Vec<String> {
+    app.get_subcommands()
+        .filter_map(|sc| {
+            if levenshtein::levenshtein(sc.get_name(), target) <= 2 {
+                Some(sc.get_name().to_owned())
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 fn get_env_vars_map() -> Result<HashMap<String, String>> {

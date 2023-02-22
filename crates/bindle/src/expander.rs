@@ -20,7 +20,7 @@ pub async fn expand_manifest(
     let app_file = absolutize(app_file)?;
     let manifest = spin_loader::local::raw_manifest_from_file(&app_file).await?;
     validate_raw_app_manifest(&manifest)?;
-    let local_schema::RawAppManifestAnyVersion::V1(manifest) = manifest;
+    let manifest = manifest.into_v1();
     let app_dir = parent_dir(&app_file)?;
 
     // * create a new spin.toml-like document where

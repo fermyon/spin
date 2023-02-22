@@ -16,7 +16,7 @@ pub async fn build(manifest_file: &Path) -> Result<()> {
     let manifest_text = tokio::fs::read_to_string(manifest_file)
         .await
         .with_context(|| format!("Cannot read manifest file from {}", manifest_file.display()))?;
-    let BuildAppInfoAnyVersion::V1(app) = toml::from_str(&manifest_text)?;
+    let app = toml::from_str(&manifest_text).map(BuildAppInfoAnyVersion::into_v1)?;
     let app_dir = parent_dir(manifest_file)?;
 
     if app.components.iter().all(|c| c.build.is_none()) {

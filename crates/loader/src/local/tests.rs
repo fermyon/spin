@@ -48,11 +48,33 @@ async fn test_from_local_source() -> Result<()> {
 }
 
 #[test]
+fn test_manifest_v1_signatures() -> Result<()> {
+    const MANIFEST: &str = include_str!("../../tests/valid-manifest.toml");
+    let ageless = MANIFEST
+        .replace("spin_version", "temp")
+        .replace("spin_manifest_version", "temp");
+    let v1_old = ageless.replace("temp", "spin_version");
+    let v1_new = ageless.replace("temp", "spin_manifest_version");
+    into_v1_manifest(&v1_old, "chain-of-command")?;
+    into_v1_manifest(&v1_new, "chain-of-command")?;
+    Ok(())
+}
+
+fn into_v1_manifest(spin_versioned_manifest: &str, app_name: &str) -> Result<()> {
+    use config::RawAppManifestAnyVersionImpl;
+    let raw: RawAppManifestAnyVersionImpl<toml::Value> =
+        toml::from_slice(spin_versioned_manifest.as_bytes())?;
+    let manifest = raw.into_v1();
+    assert_eq!(manifest.info.name, app_name);
+    Ok(())
+}
+
+#[test]
 fn test_manifest() -> Result<()> {
     const MANIFEST: &str = include_str!("../../tests/valid-manifest.toml");
 
     let cfg_any: RawAppManifestAnyVersion = raw_manifest_from_str(MANIFEST)?;
-    let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
+    let cfg = cfg_any.into_v1();
 
     assert_eq!(cfg.info.name, "chain-of-command");
     assert_eq!(cfg.info.version, "6.11.2");
@@ -184,8 +206,8 @@ fn test_unknown_version_is_rejected() {
 
     let e = cfg.unwrap_err().to_string();
     assert!(
-        e.contains("spin_version"),
-        "Expected error to mention `spin_version`"
+        e.contains("RawAppManifestAnyVersionImpl"),
+        "Expected error to mention `RawAppManifestAnyVersionImpl`"
     );
 }
 
@@ -197,7 +219,7 @@ fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
     const EXPECTED_DEFAULT_ARGV: &str = "${SCRIPT_NAME} ${ARGS}";
 
     let cfg_any: RawAppManifestAnyVersion = raw_manifest_from_str(MANIFEST)?;
-    let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
+    let cfg = cfg_any.into_v1();
 
     let http_config: HttpConfig = cfg.components[0].trigger.clone().try_into()?;
 

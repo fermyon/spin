@@ -15,7 +15,7 @@ use spin_http::routes::RoutePattern;
 use spin_http::AppInfo;
 use spin_http::WELL_KNOWN_PREFIX;
 use spin_loader::bindle::BindleConnectionInfo;
-use spin_loader::local::config::{RawAppManifest, RawAppManifestAnyVersion};
+use spin_loader::local::config::RawAppManifest;
 use spin_loader::local::{assets, config, parent_dir};
 use spin_manifest::ApplicationTrigger;
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
@@ -188,7 +188,7 @@ impl DeployCommand {
 
     async fn deploy_hippo(self, login_connection: LoginConnection) -> Result<()> {
         let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
-        let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
+        let cfg = cfg_any.into_v1();
 
         ensure!(!cfg.components.is_empty(), "No components in spin.toml!");
 
@@ -318,7 +318,7 @@ impl DeployCommand {
         let client = CloudClient::new(connection_config.clone());
 
         let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
-        let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
+        let cfg = cfg_any.into_v1();
 
         ensure!(!cfg.components.is_empty(), "No components in spin.toml!");
 

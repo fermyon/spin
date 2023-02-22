@@ -64,6 +64,7 @@ tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 url = "2.2.2"
 uuid = "^1.0"
 wasmtime = { workspace = true }
+levenshtein = "1.0.5"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # This needs to be an explicit dependency to enable

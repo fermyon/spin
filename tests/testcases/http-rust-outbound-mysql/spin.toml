@@ -7,7 +7,7 @@ version = "0.1.0"
 [[component]]
 environment = { DB_URL = "mysql://spin:spin@mysql/spin_dev" }
 id = "outbound-mysql"
-source = "target/wasm32-wasi/release/http_rust_outbound_mysql.wasm"
+source = "target/wasm32-wasi/release/http_rust_outbound_mysql_test.wasm"
 [component.trigger]
 route = "/..."
 [component.build]

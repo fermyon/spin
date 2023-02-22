@@ -8,13 +8,13 @@ RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
 RUN apt-get install -y nodejs npm
 
 # golang
-RUN wget https://go.dev/dl/go1.19.5.linux-arm64.tar.gz && \
-    rm -rf /usr/local/go && tar -C /usr/local -xzf go1.19.5.linux-arm64.tar.gz
+RUN wget https://go.dev/dl/go1.20.1.linux-arm64.tar.gz && \
+    rm -rf /usr/local/go && tar -C /usr/local -xzf go1.20.1.linux-arm64.tar.gz
 ENV PATH="$PATH:/usr/local/go/bin"
 
 # tinygo
-RUN wget https://github.com/tinygo-org/tinygo/releases/download/v0.25.0/tinygo_0.25.0_arm64.deb && \
-    sudo dpkg -i tinygo_0.25.0_arm64.deb && \
+RUN wget https://github.com/tinygo-org/tinygo/releases/download/v0.27.0/tinygo_0.27.0_arm64.deb && \
+    sudo dpkg -i tinygo_0.27.0_arm64.deb && \
     tinygo env
 
 RUN wget https://ziglang.org/download/0.10.0/zig-linux-aarch64-0.10.0.tar.xz && \

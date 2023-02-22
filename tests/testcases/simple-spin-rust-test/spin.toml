@@ -10,7 +10,7 @@ object = { default = "teapot" }
 
 [[component]]
 id = "hello"
-source = "target/wasm32-wasi/release/simple_spin_rust.wasm"
+source = "target/wasm32-wasi/release/simple_spin_rust_test.wasm"
 files = [ { source = "assets", destination = "/" } ]
 [component.trigger]
 route = "/hello/..."

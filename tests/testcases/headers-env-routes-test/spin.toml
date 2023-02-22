@@ -7,7 +7,7 @@ trigger = {type = "http", base = "/"}
 
 [[component]]
 id = "env"
-source = "target/wasm32-wasi/release/env.wasm"
+source = "target/wasm32-wasi/release/headers_env_routes_test.wasm"
 environment = { some_key = "some_value" }
 [component.trigger]
 route = "/env/..."

@@ -1,5 +1,5 @@
 [package]
-name    = "simple-spin-rust"
+name    = "simple-spin-rust-test"
 version = "0.1.0"
 edition = "2021"
 

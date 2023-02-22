@@ -7,7 +7,7 @@ version = "1.0.0"
 
 [[component]]
 id = "hello"
-source = "target/wasm32-wasi/release/spin_key_value.wasm"
+source = "target/wasm32-wasi/release/rust_key_value.wasm"
 key_value_stores = ["default"]
 [component.trigger]
 route = "/..."

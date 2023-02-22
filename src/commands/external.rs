@@ -1,6 +1,5 @@
 use crate::opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG;
 use anyhow::{anyhow, Result};
-use clap::App;
 use spin_plugins::{error::Error, manifest::check_supported_version, PluginStore};
 use std::{collections::HashMap, env, process};
 use tokio::process::Command;
@@ -33,7 +32,7 @@ fn parse_subcommand(mut cmd: Vec<String>) -> anyhow::Result<(String, Vec<String>
 /// Executes a Spin plugin as a subprocess, expecting the first argument to
 /// indicate the plugin to execute. Passes all subsequent arguments on to the
 /// subprocess.
-pub async fn execute_external_subcommand(cmd: Vec<String>, app: App<'_>) -> anyhow::Result<()> {
+pub async fn execute_external_subcommand(cmd: Vec<String>) -> anyhow::Result<()> {
     let (plugin_name, args, override_compatibility_check) = parse_subcommand(cmd)?;
     let plugin_store = PluginStore::try_default()?;
     match plugin_store.read_plugin_manifest(&plugin_name) {
@@ -47,9 +46,8 @@ pub async fn execute_external_subcommand(cmd: Vec<String>, app: App<'_>) -> anyh
             }
         }
         Err(Error::NotFound(e)) => {
-            // Manifest file cannot be found for a plugin with the given name.
-            eprintln!("Unknown command: {e}\n");
-            app.clone().print_help()?;
+            tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
+            eprintln!("Error: '{plugin_name}' is not a known Spin command. See spin --help.\n");
             process::exit(2);
         }
         Err(e) => return Err(e.into()),

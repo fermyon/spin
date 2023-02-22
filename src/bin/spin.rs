@@ -1,5 +1,5 @@
 use anyhow::Error;
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use is_terminal::IsTerminal;
 use lazy_static::lazy_static;
 use spin_cli::commands::{
@@ -96,7 +96,7 @@ impl SpinApp {
             Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run().await,
             Self::Trigger(TriggerCommands::HelpArgsOnly(cmd)) => cmd.run().await,
             Self::Plugins(cmd) => cmd.run().await,
-            Self::External(cmd) => execute_external_subcommand(cmd, SpinApp::command()).await,
+            Self::External(cmd) => execute_external_subcommand(cmd).await,
         }
     }
 }

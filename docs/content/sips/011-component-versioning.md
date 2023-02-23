@@ -27,7 +27,7 @@ where `$MAJOR` and `$MINOR` are the Spin major and minor version numbers the SDK
 
 For languages which don't yet have a version-enabled Spin SDK (or developers who wish to use `wit-bindgen` directly, or even implement bindings by hand), the component may itself export any or all of the above functions.
 
-### Targetting unreleased Spin versions
+### Targeting unreleased Spin versions
 
 The above works fine for Spin releases, but we might also want to build components that target pre-release builds of Spin, which may include an ABI and/or API that's different from what ends up in the next release, and yet also different from what was in the previous release.  To handle this case, we propose adding a step to the Spin release process such that the version stored in the `workspace.package.version` field of Spin's Cargo.toml file is changed to `$MAJOR.$MINOR.0-pre0`, where `$MAJOR.$MINOR.0` is the anticipated next Spin release.  Then, each time an ABI or API change is made, the `-pre$N` suffix is incremented.  For example, when Spin 0.9 is released, the version on the main branch is updated to `0.10.0-pre0`, and if an API change is made a few days later, it's updated again to `0.10.0-pre1`.
 

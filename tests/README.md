@@ -24,7 +24,7 @@ docker compose -f e2e-tests-docker-compose.yml run e2e-tests
 ```
 ## go to root dir of the project, e2e-tests-aarch64.Dockerfile is located there
 docker build -t spin-e2e-tests -f e2e-tests-aarch64.Dockerfile .
-MYSQL_IMAGE=arm64v8/mysql:8.0.32 docker compose         \
+MYSQL_IMAGE=arm64v8/mysql:8.0.32 REDIS_IMAGE=arm64v8/redis:6.0-alpine3.17 docker compose         \
     -f e2e-tests-docker-compose.yml run                 \
     e2e-tests
 ```

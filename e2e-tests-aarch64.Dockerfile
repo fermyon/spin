@@ -4,7 +4,7 @@ ARG BUILD_SPIN=false
 ARG SPIN_VERSION=canary
 
 WORKDIR /root
-RUN apt-get update && apt-get install -y wget sudo xz-utils gcc git pkg-config
+RUN apt-get update && apt-get install -y wget sudo xz-utils gcc git pkg-config redis
 
 # nodejs
 RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
@@ -56,13 +56,13 @@ COPY . .
 
 # spin
 RUN if [ "${BUILD_SPIN}" != "true" ]; then                                                                                      \
-        wget https://github.com/fermyon/spin/releases/download/${SPIN_VERSION}/spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&     \
-        tar -xvf spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&                                                                   \
-        ls -ltr &&                                                                                                              \
-        mv spin /usr/local/bin/spin;                                                                                            \
+    wget https://github.com/fermyon/spin/releases/download/${SPIN_VERSION}/spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&     \
+    tar -xvf spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&                                                                   \
+    ls -ltr &&                                                                                                              \
+    mv spin /usr/local/bin/spin;                                                                                            \
     else                                                                                                                        \
-        cargo build --release &&                                                                                                \
-        cp target/release/spin /usr/local/bin/spin;                                                                             \
+    cargo build --release &&                                                                                                \
+    cp target/release/spin /usr/local/bin/spin;                                                                             \
     fi
 
 RUN spin --version

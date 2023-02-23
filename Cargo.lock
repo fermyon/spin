@@ -1105,7 +1105,16 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d07adf7be193b71cc36b193d0f5fe60b918a3a9db4dad0449f57bcfd519704a3"
 dependencies = [
- "derive_builder_macro",
+ "derive_builder_macro 0.11.2",
+]
+
+[[package]]
+name = "derive_builder"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d67778784b508018359cbc8696edb3db78160bab2c2a28ba7f56ef6932997f8"
+dependencies = [
+ "derive_builder_macro 0.12.0",
 ]
 
 [[package]]
@@ -1121,12 +1130,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_builder_core"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c11bdc11a0c47bc7d37d582b5285da6849c96681023680b906673c5707af7b0f"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "derive_builder_macro"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f0314b72bed045f3a68671b3c86328386762c93f82d98c65c3cb5e5f573dd68"
 dependencies = [
- "derive_builder_core",
+ "derive_builder_core 0.11.2",
+ "syn",
+]
+
+[[package]]
+name = "derive_builder_macro"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebcda35c7a396850a55ffeac740804b40ffec779b98fffbb1738f4033f0ee79e"
+dependencies = [
+ "derive_builder_core 0.12.0",
  "syn",
 ]
 
@@ -1287,7 +1318,9 @@ version = "0.9.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "derive_builder 0.12.0",
  "hyper",
+ "hyper-tls",
  "nix 0.26.2",
  "regex",
  "reqwest",
@@ -5294,7 +5327,7 @@ checksum = "267f958930e08323a44c12e6c5461f3eaaa16d88785e9ec8550215b8aafc3d0b"
 dependencies = [
  "async-trait",
  "bytes",
- "derive_builder",
+ "derive_builder 0.11.2",
  "http",
  "reqwest",
  "rustify",

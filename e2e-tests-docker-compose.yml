@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   mysql:
-    image: mysql:8.0.22
+    image: ${MYSQL_IMAGE:-mysql:8.0.22}
     ports:
       - "3306:3306"
     volumes:
@@ -19,8 +19,6 @@ services:
       - mysql
     image: spin-e2e-tests
     entrypoint: cargo test spinup_tests --features new-e2e-tests --no-fail-fast -- --nocapture
-    volumes:
-      - ./target/release/spin:/usr/local/bin/spin
 
 volumes:
   db_data: {}

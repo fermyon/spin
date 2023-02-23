@@ -23,6 +23,7 @@ pub const RUNTIME_CONFIG_FILE: &str = "RUNTIME_CONFIG_FILE";
 // Set by `spin up`
 pub const SPIN_LOCKED_URL: &str = "SPIN_LOCKED_URL";
 pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
+pub const SPIN_STATE_DIR: &str = "SPIN_STATE_DIR";
 
 /// A command that runs a TriggerExecutor.
 #[derive(Parser, Debug)]
@@ -164,11 +165,28 @@ where
         let mut builder = TriggerExecutorBuilder::new(loader);
         self.update_wasmtime_config(builder.wasmtime_config_mut())?;
 
-        let logging_hooks =
-            StdioLoggingTriggerHooks::new(self.follow_components(), self.log.clone());
+        let logging_hooks = StdioLoggingTriggerHooks::new(self.follow_components(), self.log_dir());
         builder.hooks(logging_hooks);
 
         builder.build(locked_url, trigger_config).await
+    }
+
+    pub fn log_dir(&self) -> Option<PathBuf> {
+        match &self.log {
+            Some(l) => Some(l),
+            None => {
+                if !self.from_registry {
+                    if let Ok(dir) = std::env::var(SPIN_STATE_DIR) {
+                        let s = PathBuf::from(dir).join("logs");
+                        return Some(s);
+                    } else {
+                        tracing::info!("Unable to retrieve SPIN_STATE_DIR environment variable to persist logs",);
+                    };
+                }
+                return None;
+            }
+        };
+        None
     }
 
     pub fn follow_components(&self) -> FollowComponents {

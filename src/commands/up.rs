@@ -9,8 +9,8 @@ use clap::{CommandFactory, Parser};
 use reqwest::Url;
 use spin_app::locked::LockedApp;
 use spin_loader::bindle::{deprecation::print_bindle_deprecation, BindleConnectionInfo};
-use spin_manifest::{Application, ApplicationTrigger};
-use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_WORKING_DIR};
+use spin_manifest::{Application, ApplicationOrigin, ApplicationTrigger};
+use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_STATE_DIR, SPIN_WORKING_DIR};
 use tempfile::TempDir;
 
 use crate::opts::*;
@@ -272,10 +272,17 @@ impl UpCommand {
                 cmd.arg("--help-args-only");
             }
             TriggerExecOpts::Local { app, working_dir } => {
-                let locked_app = spin_trigger::locked::build_locked_app(app, &working_dir)?;
+                let locked_app = spin_trigger::locked::build_locked_app(app.clone(), &working_dir)?;
+
+                let state_dir = match app.info.origin {
+                    ApplicationOrigin::File(f) => f.parent().unwrap().join(".spin"),
+                    _ => panic!("Expected application origin file for local app"),
+                };
+
                 let locked_url = self.write_locked_app(&locked_app, &working_dir).await?;
                 cmd.env(SPIN_LOCKED_URL, locked_url)
                     .env(SPIN_WORKING_DIR, &working_dir)
+                    .env(SPIN_STATE_DIR, state_dir)
                     .args(&self.trigger_args);
             }
             TriggerExecOpts::Remote {

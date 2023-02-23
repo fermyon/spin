@@ -25,7 +25,7 @@ spin-sdk-commit-$HASH
 
 where `$MAJOR` and `$MINOR` are the Spin major and minor version numbers the SDK targets, `$LANGUAGE` is the programming language the SDK supports, and `$HASH` is the Git commit hash the SDK was built from. The intention behind embedding this information in the name of the function is that it can be checked statically without instantiating or running the component, and it is immune to component model ABI changes.
 
-For languages which don't yet have an version-enabled Spin SDK (or developers who wish to use `wit-bindgen` directly, or even implement bindings by hand), the component may itself export any or all of the above functions.
+For languages which don't yet have a version-enabled Spin SDK (or developers who wish to use `wit-bindgen` directly, or even implement bindings by hand), the component may itself export any or all of the above functions.
 
 ### Targetting unreleased Spin versions
 

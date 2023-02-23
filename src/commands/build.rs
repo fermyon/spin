@@ -11,12 +11,13 @@ use super::up::UpCommand;
 #[derive(Parser, Debug)]
 #[clap(about = "Build the Spin application", allow_hyphen_values = true)]
 pub struct BuildCommand {
-    /// Path to spin.toml.
+    /// Path to application manifest. The default is "spin.toml".
     #[clap(
-            name = APP_CONFIG_FILE_OPT,
-            short = 'f',
-            long = "file",
-        )]
+        name = APP_CONFIG_FILE_OPT,
+        short = 'f',
+        long = "from",
+        alias = "file",
+    )]
     pub app: Option<PathBuf>,
 
     /// Run the application after building.
@@ -33,7 +34,6 @@ impl BuildCommand {
             .app
             .as_deref()
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-
         spin_build::build(manifest_file).await?;
 
         if self.up {
@@ -44,7 +44,7 @@ impl BuildCommand {
                 )))
                 .chain(self.up_args),
             );
-            cmd.app = Some(manifest_file.into());
+            cmd.file_source = Some(manifest_file.into());
             cmd.run().await
         } else {
             Ok(())

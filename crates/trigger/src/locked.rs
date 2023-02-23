@@ -243,9 +243,14 @@ mod tests {
         std::fs::write(dir.join("spin.toml"), TEST_MANIFEST).expect("write manifest");
         std::fs::write(dir.join("test-source.wasm"), "not actual wasm").expect("write source");
         std::fs::write(dir.join("static.txt"), "content").expect("write static");
-        let app = spin_loader::local::from_file(dir.join("spin.toml"), Some(&tempdir), &None)
-            .await
-            .expect("load app");
+        let app = spin_loader::local::from_file(
+            dir.join("spin.toml"),
+            Some(&tempdir),
+            &None,
+            Option::<PathBuf>::None,
+        )
+        .await
+        .expect("load app");
         (app, tempdir)
     }
 
@@ -270,9 +275,14 @@ mod tests {
         let dir = temp_dir.path();
 
         let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/triggers");
-        let app = spin_loader::from_file(base_dir.join("http.toml"), Some(dir), &None)
-            .await
-            .unwrap();
+        let app = spin_loader::from_file(
+            base_dir.join("http.toml"),
+            Some(dir),
+            &None,
+            Option::<PathBuf>::None,
+        )
+        .await
+        .unwrap();
         let locked = build_locked_app(app, dir).unwrap();
 
         assert_eq!("http", locked.metadata["trigger"]["type"]);
@@ -303,9 +313,14 @@ mod tests {
         let dir = temp_dir.path();
 
         let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/triggers");
-        let app = spin_loader::from_file(base_dir.join("pounce.toml"), Some(dir), &None)
-            .await
-            .unwrap();
+        let app = spin_loader::from_file(
+            base_dir.join("pounce.toml"),
+            Some(dir),
+            &None,
+            Option::<PathBuf>::None,
+        )
+        .await
+        .unwrap();
         let locked = build_locked_app(app, dir).unwrap();
 
         assert_eq!("pounce", locked.metadata["trigger"]["type"]);

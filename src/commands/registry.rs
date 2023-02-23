@@ -61,7 +61,13 @@ impl Push {
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
 
         let dir = tempfile::tempdir()?;
-        let app = spin_loader::local::from_file(&app_file, Some(dir.path()), &None).await?;
+        let app = spin_loader::local::from_file(
+            &app_file,
+            Some(dir.path()),
+            &None,
+            Option::<PathBuf>::None,
+        )
+        .await?;
 
         let mut client = spin_oci::Client::new(self.insecure, None).await?;
         client.push(&app, &self.reference).await?;
@@ -71,6 +77,13 @@ impl Push {
 
 #[derive(Parser, Debug)]
 pub struct Pull {
+    /// Directory containing the registry cache
+    #[clap(
+        name = REGISTRY_CACHE_OPT,
+        long = "registry-cache-dir",
+    )]
+    pub cache_dir: Option<PathBuf>,
+
     /// Ignore server certificate errors
     #[clap(
         name = INSECURE_OPT,
@@ -88,7 +101,7 @@ pub struct Pull {
 impl Pull {
     /// Pull a Spin application from an OCI registry
     pub async fn run(self) -> Result<()> {
-        let mut client = spin_oci::Client::new(self.insecure, None).await?;
+        let mut client = spin_oci::Client::new(self.insecure, self.cache_dir).await?;
         client.pull(&self.reference).await?;
 
         Ok(())

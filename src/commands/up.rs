@@ -10,7 +10,7 @@ use reqwest::Url;
 use spin_app::locked::LockedApp;
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_manifest::{Application, ApplicationTrigger};
-use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_WORKING_DIR};
+use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_REGISTRY_CACHE_DIR, SPIN_WORKING_DIR};
 use tempfile::TempDir;
 
 use crate::opts::*;
@@ -101,6 +101,16 @@ pub struct UpCommand {
         group = "source",
     )]
     pub registry_source: Option<String>,
+
+    /// Path to directory containing registry cache.
+    #[clap(
+        name = REGISTRY_CACHE_OPT,
+        long = "registry-cache-dir",
+        env = SPIN_REGISTRY_CACHE_DIR,
+        conflicts_with = BINDLE_ID_OPT,
+        conflicts_with = APP_MANIFEST_FILE_OPT,
+    )]
+    pub registry_cache_dir: Option<PathBuf>,
 
     /// Ignore server certificate errors from bindle server or registry
     #[clap(
@@ -306,6 +316,9 @@ impl UpCommand {
                     .args(&self.trigger_args);
                 if from_registry {
                     cmd.arg("--from-registry");
+                    if let Some(registry_cache_dir) = self.registry_cache_dir {
+                        cmd.env(SPIN_REGISTRY_CACHE_DIR, &registry_cache_dir);
+                    }
                 }
             }
         }
@@ -407,7 +420,14 @@ impl UpCommand {
             Some(&working_dir)
         };
 
-        let mut app = spin_loader::from_file(manifest_file, asset_dst, &bindle_connection).await?;
+        let registry_cache_dir = self.registry_cache_dir.clone();
+        let mut app = spin_loader::from_file(
+            manifest_file,
+            asset_dst,
+            &bindle_connection,
+            registry_cache_dir,
+        )
+        .await?;
 
         // Apply --env to component environments
         if !self.env.is_empty() {

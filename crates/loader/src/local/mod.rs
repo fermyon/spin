@@ -42,12 +42,13 @@ pub async fn from_file(
     app: impl AsRef<Path>,
     base_dst: Option<impl AsRef<Path>>,
     bindle_connection: &Option<BindleConnectionInfo>,
+    cache_root_dir: Option<impl AsRef<Path>>,
 ) -> Result<Application> {
     let app = absolutize(app)?;
     let manifest = raw_manifest_from_file(&app).await?;
     validate_raw_app_manifest(&manifest)?;
 
-    prepare_any_version(manifest, app, base_dst, bindle_connection).await
+    prepare_any_version(manifest, app, base_dst, bindle_connection, cache_root_dir).await
 }
 
 /// Reads the spin.toml file as a raw manifest.
@@ -100,9 +101,10 @@ async fn prepare_any_version(
     src: impl AsRef<Path>,
     base_dst: Option<impl AsRef<Path>>,
     bindle_connection: &Option<BindleConnectionInfo>,
+    cache_root_dir: Option<impl AsRef<Path>>,
 ) -> Result<Application> {
     let manifest = raw.into_v1();
-    prepare(manifest, src, base_dst, bindle_connection).await
+    prepare(manifest, src, base_dst, bindle_connection, cache_root_dir).await
 }
 
 /// Iterates over a vector of RawComponentManifest structs and throws an error if any component ids are duplicated
@@ -135,6 +137,7 @@ async fn prepare(
     src: impl AsRef<Path>,
     base_dst: Option<impl AsRef<Path>>,
     bindle_connection: &Option<BindleConnectionInfo>,
+    cache_root_dir: Option<impl AsRef<Path>>,
 ) -> Result<Application> {
     let info = info(raw.info, &src);
 
@@ -149,7 +152,16 @@ async fn prepare(
     let components = future::join_all(
         raw.components
             .into_iter()
-            .map(|c| async { core(c, &src, base_dst.as_ref(), bindle_connection).await })
+            .map(|c| async {
+                core(
+                    c,
+                    &src,
+                    base_dst.as_ref(),
+                    bindle_connection,
+                    cache_root_dir.as_ref(),
+                )
+                .await
+            })
             .collect::<Vec<_>>(),
     )
     .await
@@ -177,6 +189,7 @@ async fn core(
     src: impl AsRef<Path>,
     base_dst: Option<impl AsRef<Path>>,
     bindle_connection: &Option<BindleConnectionInfo>,
+    cache_root_dir: Option<impl AsRef<Path>>,
 ) -> Result<CoreComponent> {
     let id = raw.id;
     let src = parent_dir(src)?;
@@ -218,8 +231,10 @@ async fn core(
             let source = UrlSource::new(&us)
                 .with_context(|| format!("Can't use Web source in component {}", id))?;
 
+            let cache_dir = cache_root_dir.map(|p| p.as_ref().to_path_buf());
+
             let bytes = source
-                .get()
+                .get(cache_dir)
                 .await
                 .with_context(|| format!("Can't use source {} for component {}", us.url, id))?;
 
@@ -295,10 +310,8 @@ impl UrlSource {
     }
 
     /// Gets the data from the source as a byte buffer.
-    pub async fn get(&self) -> anyhow::Result<Vec<u8>> {
-        // TODO: when `spin up` integrates running an app from OCI, pass the configured
-        // cache root to this function. For now, use the default cache directory.
-        let cache = Cache::new(None).await?;
+    pub async fn get(&self, cache_dir: Option<PathBuf>) -> anyhow::Result<Vec<u8>> {
+        let cache = Cache::new(cache_dir).await?;
         match cache.wasm_file(self.digest_str()) {
             Ok(p) => {
                 tracing::debug!(

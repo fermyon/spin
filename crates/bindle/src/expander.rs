@@ -159,7 +159,7 @@ async fn wasm_parcel(
         }
         local_schema::RawModuleSource::Url(us) => {
             let source = UrlSource::new(us)?;
-            let bytes = source.get().await?;
+            let bytes = source.get(None).await?;
             let temp_dir = scratch_dir.as_ref().join("downloads");
             let absolute_path = write_file(&temp_dir, &us.digest.replace(':', "_"), &bytes).await?;
             let dest_relative_path = source.url_relative_path();

@@ -23,6 +23,7 @@ pub const RUNTIME_CONFIG_FILE: &str = "RUNTIME_CONFIG_FILE";
 // Set by `spin up`
 pub const SPIN_LOCKED_URL: &str = "SPIN_LOCKED_URL";
 pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
+pub const SPIN_REGISTRY_CACHE_DIR: &str = "SPIN_REGISTRY_CACHE_DIR";
 
 /// A command that runs a TriggerExecutor.
 #[derive(Parser, Debug)]
@@ -123,8 +124,13 @@ where
         let locked_url = std::env::var(SPIN_LOCKED_URL).context(SPIN_LOCKED_URL)?;
 
         let executor = if self.from_registry {
+            let registry_cache_root = std::env::var(SPIN_REGISTRY_CACHE_DIR)
+                .ok()
+                .map(PathBuf::from);
+
             let loader =
-                OciTriggerLoader::new(working_dir, self.allow_transient_write, None).await?;
+                OciTriggerLoader::new(working_dir, self.allow_transient_write, registry_cache_root)
+                    .await?;
             self.build_executor(loader, locked_url).await?
         } else {
             let loader = TriggerLoader::new(working_dir, self.allow_transient_write);

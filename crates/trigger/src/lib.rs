@@ -108,34 +108,9 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                     &mut builder,
                     spin_key_value::KeyValueComponent::new(spin_key_value::manager(
                         move |component| {
-                            // TODO: Once we have runtime configuration for key-value stores, the user will be able
-                            // to both change the default store configuration (e.g. use Redis, or an SQLite
-                            // in-memory database, or use a different path) and add other named stores with their
-                            // own configurations.
-
-                            let init = || {
-                                Arc::new(spin_key_value::DelegatingStoreManager::new(
-                                    [(
-                                        "default".to_owned(),
-                                        Arc::new(spin_key_value_sqlite::KeyValueSqlite::new(
-                                            if let Some(key_value_file) =
-                                                key_value_file_location(component.app)
-                                            {
-                                                spin_key_value_sqlite::DatabaseLocation::Path(
-                                                    key_value_file,
-                                                )
-                                            } else {
-                                                spin_key_value_sqlite::DatabaseLocation::InMemory
-                                            },
-                                        ))
-                                            as Arc<dyn spin_key_value::StoreManager>,
-                                    )]
-                                    .into_iter()
-                                    .collect(),
-                                ))
-                            };
-
-                            manager.get_or_init(init).clone()
+                            manager
+                                .get_or_init(|| make_store_manager(component))
+                                .clone()
                         },
                     )),
                 )?;
@@ -405,4 +380,28 @@ fn key_value_file_location(app: &App) -> Option<PathBuf> {
     fs::create_dir_all(&directory).ok()?;
 
     Some(directory.join(DEFAULT_SQLITE_DB_FILENAME))
+}
+
+fn make_store_manager(component: &AppComponent) -> Arc<dyn spin_key_value::StoreManager> {
+    // TODO: Once we have runtime configuration for key-value stores, the user will be able
+    // to both change the default store configuration (e.g. use Redis, or an SQLite
+    // in-memory database, or use a different path) and add other named stores with their
+    // own configurations.
+
+    Arc::new(spin_key_value::CachingStoreManager::new(
+        spin_key_value::DelegatingStoreManager::new(
+            [(
+                "default".to_owned(),
+                Arc::new(spin_key_value_sqlite::KeyValueSqlite::new(
+                    if let Some(key_value_file) = key_value_file_location(component.app) {
+                        spin_key_value_sqlite::DatabaseLocation::Path(key_value_file)
+                    } else {
+                        spin_key_value_sqlite::DatabaseLocation::InMemory
+                    },
+                )) as Arc<dyn spin_key_value::StoreManager>,
+            )]
+            .into_iter()
+            .collect(),
+        ),
+    ))
 }

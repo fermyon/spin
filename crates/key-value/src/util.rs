@@ -63,8 +63,7 @@ impl StoreManager for DelegatingStoreManager {
 /// Note that, because writes are asynchronous and return immediately, durability is _not_ guaranteed.  I/O errors
 /// may occur asyncronously after the write operation has returned control to the guest, which may result in the
 /// write being lost without the guest knowing.  In the future, a separate `write-durable` function could be added
-/// to key-value.wit to provide provide either synchronous or asynchronous feedback on durability for guests which
-/// need it.
+/// to key-value.wit to provide either synchronous or asynchronous feedback on durability for guests which need it.
 pub struct CachingStoreManager<T> {
     inner: T,
 }

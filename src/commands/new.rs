@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use path_absolutize::Absolutize;
 use tokio;
 
@@ -16,58 +16,59 @@ use crate::opts::{APP_CONFIG_FILE_OPT, DEFAULT_MANIFEST_FILE};
 
 /// Scaffold a new application based on a template.
 #[derive(Parser, Debug)]
+#[command(next_display_order = None)]
 pub struct TemplateNewCommandCore {
     /// The template from which to create the new application or component. Run `spin templates list` to see available options.
     pub template_id: Option<String>,
 
     /// The name of the new application or component.
-    #[clap(value_parser = validate_name)]
+    #[arg(value_parser = validate_name)]
     pub name: Option<String>,
 
     /// Filter templates to select by tags.
-    #[clap(
+    #[arg(
         long = "tag",
-        multiple_occurrences = true,
-        conflicts_with = "template-id"
+        action = ArgAction::Append,
+        conflicts_with = "template_id"
     )]
     pub tags: Vec<String>,
 
     /// The directory in which to create the new application or component.
     /// The default is the name argument.
-    #[clap(short = 'o', long = "output")]
+    #[arg(short = 'o', long = "output")]
     pub output_path: Option<PathBuf>,
 
     /// Parameter values to be passed to the template (in name=value format).
-    #[clap(short = 'v', long = "value", multiple_occurrences = true)]
+    #[arg(short = 'v', long = "value", action = ArgAction::Append)]
     pub values: Vec<ParameterValue>,
 
     /// A TOML file which contains parameter values in name = "value" format.
     /// Parameters passed as CLI option overwrite parameters specified in the
     /// file.
-    #[clap(long = "values-file")]
+    #[arg(long = "values-file")]
     pub values_file: Option<PathBuf>,
 
     /// An optional argument that allows to skip prompts for the manifest file
     /// by accepting the defaults if available on the template
-    #[clap(long = "accept-defaults", takes_value = false)]
+    #[arg(long = "accept-defaults", num_args = 0)]
     pub accept_defaults: bool,
 }
 
 /// Scaffold a new application based on a template.
 #[derive(Parser, Debug)]
 pub struct NewCommand {
-    #[clap(flatten)]
+    #[command(flatten)]
     options: TemplateNewCommandCore,
 }
 
 /// Scaffold a new component into an existing application.
 #[derive(Parser, Debug)]
 pub struct AddCommand {
-    #[clap(flatten)]
+    #[command(flatten)]
     options: TemplateNewCommandCore,
 
     /// Path to spin.toml.
-    #[clap(
+    #[arg(
         name = APP_CONFIG_FILE_OPT,
         short = 'f',
         long = "file",
@@ -165,7 +166,7 @@ impl TemplateNewCommandCore {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ParameterValue {
     pub name: String,
     pub value: String,

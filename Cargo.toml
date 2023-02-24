@@ -17,7 +17,7 @@ async-trait = "0.1"
 bindle = { workspace = true }
 bytes = "1.1"
 chrono = "0.4"
-clap = { version = "3.1.15", features = ["derive", "env"] }
+clap = { version = "4.1.6", features = ["derive", "env"] }
 cloud = { path = "crates/cloud" }
 cloud-openapi = { git = "https://github.com/fermyon/cloud-openapi" }
 comfy-table = "5.0"

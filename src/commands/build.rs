@@ -9,10 +9,10 @@ use super::up::UpCommand;
 
 /// Run the build command for each component.
 #[derive(Parser, Debug)]
-#[clap(about = "Build the Spin application", allow_hyphen_values = true)]
+#[command(about = "Build the Spin application", allow_hyphen_values = true)]
 pub struct BuildCommand {
     /// Path to application manifest. The default is "spin.toml".
-    #[clap(
+    #[arg(
         name = APP_CONFIG_FILE_OPT,
         short = 'f',
         long = "from",
@@ -21,10 +21,10 @@ pub struct BuildCommand {
     pub app: Option<PathBuf>,
 
     /// Run the application after building.
-    #[clap(name = BUILD_UP_OPT, short = 'u', long = "up")]
+    #[arg(name = BUILD_UP_OPT, short = 'u', long = "up")]
     pub up: bool,
 
-    #[clap(requires = BUILD_UP_OPT)]
+    #[arg(requires = BUILD_UP_OPT)]
     pub up_args: Vec<OsString>,
 }
 

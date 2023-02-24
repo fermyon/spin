@@ -10,6 +10,7 @@ use crate::opts::*;
 /// Currently, the OCI commands are reusing the credentials from ~/.docker/config.json to
 /// authenticate to registries.
 #[derive(Subcommand, Debug)]
+#[command(next_display_order = None)]
 pub enum RegistryCommands {
     /// Push a Spin application to a registry.
     Push(Push),
@@ -32,7 +33,7 @@ impl RegistryCommands {
 #[derive(Parser, Debug)]
 pub struct Push {
     /// Path to spin.toml
-    #[clap(
+    #[arg(
         name = APP_CONFIG_FILE_OPT,
         short = 'f',
         long = "file",
@@ -40,16 +41,16 @@ pub struct Push {
     pub app: Option<PathBuf>,
 
     /// Ignore server certificate errors
-    #[clap(
+    #[arg(
         name = INSECURE_OPT,
         short = 'k',
         long = "insecure",
-        takes_value = false,
+        num_args = 0,
     )]
     pub insecure: bool,
 
     /// Reference of the Spin application
-    #[clap()]
+    #[arg()]
     pub reference: String,
 }
 
@@ -72,16 +73,16 @@ impl Push {
 #[derive(Parser, Debug)]
 pub struct Pull {
     /// Ignore server certificate errors
-    #[clap(
+    #[arg(
         name = INSECURE_OPT,
         short = 'k',
         long = "insecure",
-        takes_value = false,
+        num_args = 0,
     )]
     pub insecure: bool,
 
     /// Reference of the Spin application
-    #[clap()]
+    #[arg()]
     pub reference: String,
 }
 
@@ -98,22 +99,18 @@ impl Pull {
 #[derive(Parser, Debug)]
 pub struct Login {
     /// Username for the registry
-    #[clap(long = "username", short = 'u')]
+    #[arg(long = "username", short = 'u')]
     pub username: Option<String>,
 
     /// Password for the registry
-    #[clap(long = "password", short = 'p')]
+    #[arg(long = "password", short = 'p')]
     pub password: Option<String>,
 
     /// Take the password from stdin
-    #[clap(
-        long = "password-stdin",
-        takes_value = false,
-        conflicts_with = "password"
-    )]
+    #[arg(long = "password-stdin", num_args = 0, conflicts_with = "password")]
     pub password_stdin: bool,
 
-    #[clap()]
+    #[arg()]
     pub server: String,
 }
 

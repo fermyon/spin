@@ -19,19 +19,21 @@ const APPLICATION_OPT: &str = "APPLICATION";
 
 /// Start the Fermyon runtime.
 #[derive(Parser, Debug, Default)]
-#[clap(
+#[command(
     about = "Start the Spin application",
     allow_hyphen_values = true,
-    disable_help_flag = true
+    disable_help_flag = true,
+    external_subcommand = true,
+    ignore_errors = true
 )]
 pub struct UpCommand {
-    #[clap(short = 'h', long = "help")]
+    #[arg(short = 'h', long = "help")]
     pub help: bool,
 
     /// The application to run. This may be a manifest (spin.toml) file, a
     /// directory containing a spin.toml file, or a remote registry reference.
     /// If omitted, it defaults to "spin.toml".
-    #[clap(
+    #[arg(
         name = APPLICATION_OPT,
         short = 'f',
         long = "from",
@@ -40,7 +42,7 @@ pub struct UpCommand {
 
     /// The application to run. This is the same as `--from` but forces the
     /// application to be interpreted as a file or directory path.
-    #[clap(
+    #[arg(
         hide = true,
         name = APP_CONFIG_FILE_OPT,
         long = "from-file",
@@ -53,7 +55,7 @@ pub struct UpCommand {
 
     /// The application to run. This interprets the applicaiton as a bindle ID.
     /// This option is deprecated; use OCI registries and `--from` where possible.
-    #[clap(
+    #[arg(
         hide = true,
         name = BINDLE_ID_OPT,
         short = 'b',
@@ -67,7 +69,7 @@ pub struct UpCommand {
     pub bindle_source: Option<String>,
 
     /// URL of bindle server.
-    #[clap(
+    #[arg(
         hide = true,
         name = BINDLE_SERVER_URL_OPT,
         long = "bindle-server",
@@ -76,7 +78,7 @@ pub struct UpCommand {
     pub server: Option<String>,
 
     /// Basic http auth username for the bindle server
-    #[clap(
+    #[arg(
         hide = true,
         name = BINDLE_USERNAME,
         long = "bindle-username",
@@ -86,7 +88,7 @@ pub struct UpCommand {
     pub bindle_username: Option<String>,
 
     /// Basic http auth password for the bindle server
-    #[clap(
+    #[arg(
         hide = true,
         name = BINDLE_PASSWORD,
         long = "bindle-password",
@@ -97,7 +99,7 @@ pub struct UpCommand {
 
     /// The application to run. This is the same as `--from` but forces the
     /// application to be interpreted as an OCI registry reference.
-    #[clap(
+    #[arg(
         hide = true,
         name = FROM_REGISTRY_OPT,
         long = "from-registry",
@@ -108,20 +110,20 @@ pub struct UpCommand {
     pub registry_source: Option<String>,
 
     /// Ignore server certificate errors from bindle server or registry
-    #[clap(
+    #[arg(
         name = INSECURE_OPT,
         short = 'k',
         long = "insecure",
-        takes_value = false,
+        num_args = 0,
     )]
     pub insecure: bool,
 
     /// Pass an environment variable (key=value) to all components of the application.
-    #[clap(short = 'e', long = "env", parse(try_from_str = parse_env_var))]
+    #[arg(short = 'e', long = "env", value_parser = parse_env_var)]
     pub env: Vec<(String, String)>,
 
     /// Temporary directory for the static assets of the components.
-    #[clap(long = "temp")]
+    #[arg(long = "temp")]
     pub tmp: Option<PathBuf>,
 
     /// For local apps with directory mounts and no excluded files, mount them directly instead of using a temporary
@@ -129,12 +131,12 @@ pub struct UpCommand {
     ///
     /// This allows you to update the assets on the host filesystem such that the updates are visible to the guest
     /// without a restart.  This cannot be used with bindle apps or apps which use file patterns and/or exclusions.
-    #[clap(long, takes_value = false, conflicts_with = BINDLE_ID_OPT)]
+    #[arg(long, num_args = 0, conflicts_with = BINDLE_ID_OPT)]
     pub direct_mounts: bool,
 
     /// All other args, to be passed through to the trigger
-    #[clap(hide = true)]
-    pub trigger_args: Vec<OsString>,
+    #[arg(hide = true, allow_hyphen_values = true)]
+    pub trigger_args: Option<Vec<OsString>>,
 }
 
 impl UpCommand {
@@ -157,6 +159,10 @@ impl UpCommand {
                 Err(err)
             }
         })
+    }
+
+    fn trigger_args(&self) -> Vec<OsString> {
+        self.trigger_args.clone().unwrap_or_default()
     }
 
     fn resolve_app_source(&self) -> AppSource {
@@ -182,7 +188,7 @@ impl UpCommand {
         } else if self.trigger_args_look_file_like() {
             let msg = format!(
                 "Default file 'spin.toml' found. Did you mean `spin up -f {}`?`",
-                self.trigger_args[0].to_string_lossy()
+                self.trigger_args()[0].to_string_lossy()
             );
             AppSource::Unresolvable(msg)
         } else {
@@ -194,7 +200,8 @@ impl UpCommand {
         // Heuristic for the user typing `spin up foo` instead of `spin up -f foo` - in the
         // first case `foo` gets interpreted as a trigger arg which is probably not what the
         // user intended.
-        !self.trigger_args.is_empty() && !self.trigger_args[0].to_string_lossy().starts_with('-')
+        !self.trigger_args().is_empty()
+            && !self.trigger_args()[0].to_string_lossy().starts_with('-')
     }
 
     fn infer_file_source(path: PathBuf) -> AppSource {
@@ -299,7 +306,7 @@ impl UpCommand {
                 let locked_url = self.write_locked_app(&locked_app, &working_dir).await?;
                 cmd.env(SPIN_LOCKED_URL, locked_url)
                     .env(SPIN_WORKING_DIR, &working_dir)
-                    .args(&self.trigger_args);
+                    .args(&self.trigger_args());
             }
             TriggerExecOpts::Remote {
                 locked_url,
@@ -308,7 +315,7 @@ impl UpCommand {
             } => {
                 cmd.env(SPIN_LOCKED_URL, locked_url)
                     .env(SPIN_WORKING_DIR, &working_dir)
-                    .args(&self.trigger_args);
+                    .args(&self.trigger_args());
                 if from_registry {
                     cmd.arg("--from-registry");
                 }

@@ -34,7 +34,7 @@ fn parse_subcommand(mut cmd: Vec<String>) -> anyhow::Result<(String, Vec<String>
 /// subprocess.
 pub async fn execute_external_subcommand(
     cmd: Vec<String>,
-    app: clap::App<'_>,
+    app: clap::Command,
 ) -> anyhow::Result<()> {
     let (plugin_name, args, override_compatibility_check) = parse_subcommand(cmd)?;
     let plugin_store = PluginStore::try_default()?;
@@ -73,7 +73,7 @@ pub async fn execute_external_subcommand(
     Ok(())
 }
 
-fn print_similar_commands(app: clap::App, plugin_name: &str) {
+fn print_similar_commands(app: clap::Command, plugin_name: &str) {
     let similar = similar_commands(app, plugin_name);
     match similar.len() {
         0 => (),
@@ -88,7 +88,7 @@ fn print_similar_commands(app: clap::App, plugin_name: &str) {
     }
 }
 
-fn similar_commands(app: clap::App, target: &str) -> Vec<String> {
+fn similar_commands(app: clap::Command, target: &str) -> Vec<String> {
     app.get_subcommands()
         .filter_map(|sc| {
             if levenshtein::levenshtein(sc.get_name(), target) <= 2 {

@@ -1,7 +1,7 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 use comfy_table::Table;
 use path_absolutize::Absolutize;
 
@@ -21,6 +21,7 @@ const DEFAULT_TEMPLATE_REPO: &str = "https://github.com/fermyon/spin";
 
 /// Commands for working with WebAssembly component templates.
 #[derive(Subcommand, Debug)]
+#[command(next_display_order = None)]
 pub enum TemplateCommands {
     /// Install templates from a Git repository or local directory.
     ///
@@ -57,7 +58,7 @@ impl TemplateCommands {
 pub struct Install {
     /// The URL of the templates git repository.
     /// The templates must be in a git repository in a "templates" directory.
-    #[clap(
+    #[arg(
         name = INSTALL_FROM_GIT_OPT,
         long = "git",
         conflicts_with = INSTALL_FROM_DIR_OPT,
@@ -65,11 +66,11 @@ pub struct Install {
     pub git: Option<String>,
 
     /// The optional branch of the git repository.
-    #[clap(long = "branch", requires = INSTALL_FROM_GIT_OPT)]
+    #[arg(long = "branch", requires = INSTALL_FROM_GIT_OPT)]
     pub branch: Option<String>,
 
     /// Local directory containing the template(s) to install.
-    #[clap(
+    #[arg(
         name = INSTALL_FROM_DIR_OPT,
         long = "dir",
         conflicts_with = INSTALL_FROM_GIT_OPT,
@@ -77,7 +78,7 @@ pub struct Install {
     pub dir: Option<PathBuf>,
 
     /// If present, updates existing templates instead of skipping.
-    #[clap(long = "upgrade", alias = "update")]
+    #[arg(long = "upgrade", alias = "update")]
     pub update: bool,
 }
 
@@ -87,7 +88,7 @@ pub struct Upgrade {
     /// By default, Spin displays the list of installed repositories and
     /// prompts you to choose which to upgrade.  Pass this flag to
     /// upgrade only the specified repository without prompting.
-    #[clap(
+    #[arg(
         name = UPGRADE_ONLY,
         long = "repo",
     )]
@@ -95,13 +96,13 @@ pub struct Upgrade {
 
     /// The optional branch of the git repository, if a specific
     /// repository is given.
-    #[clap(long = "branch", requires = UPGRADE_ONLY)]
+    #[arg(long = "branch", requires = UPGRADE_ONLY)]
     pub branch: Option<String>,
 
     /// By default, Spin displays the list of installed repositories and
     /// prompts you to choose which to upgrade.  Pass this flag to
     /// upgrade all repositories without prompting.
-    #[clap(long = "all", conflicts_with = UPGRADE_ONLY)]
+    #[arg(long = "all", conflicts_with = UPGRADE_ONLY)]
     pub all: bool,
 }
 
@@ -442,15 +443,15 @@ impl Uninstall {
 #[derive(Parser, Debug)]
 pub struct List {
     /// Filter templates matching all provided tags.
-    #[clap(long = "tag", multiple_occurrences = true)]
+    #[arg(long = "tag", action = ArgAction::Append)]
     pub tags: Vec<String>,
 
     /// The format in which to list the templates.
-    #[clap(value_enum, long = "format", default_value = "table", hide = true)]
+    #[arg(value_enum, long = "format", default_value = "table", hide = true)]
     pub format: ListFormat,
 
     /// Whether to show additional template details in the list.
-    #[clap(long = "verbose", takes_value = false)]
+    #[arg(long = "verbose", num_args = 0)]
     pub verbose: bool,
 }
 

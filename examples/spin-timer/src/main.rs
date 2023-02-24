@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::Error;
-use clap::{Parser};
 use serde::{Deserialize, Serialize};
 use spin_trigger::{cli::TriggerExecutorCommand, TriggerExecutor, TriggerAppEngine};
 

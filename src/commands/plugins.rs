@@ -15,6 +15,7 @@ use crate::opts::*;
 
 /// Install/uninstall Spin plugins.
 #[derive(Subcommand, Debug)]
+#[command(next_display_order = None)]
 pub enum PluginCommands {
     /// Install plugin from a manifest.
     ///
@@ -51,7 +52,7 @@ impl PluginCommands {
 #[derive(Parser, Debug)]
 pub struct Install {
     /// Name of Spin plugin.
-    #[clap(
+    #[arg(
         name = PLUGIN_NAME_OPT,
         conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
         conflicts_with = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
@@ -60,7 +61,7 @@ pub struct Install {
     pub name: Option<String>,
 
     /// Path to local plugin manifest.
-    #[clap(
+    #[arg(
         name = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
         short = 'f',
         long = "file",
@@ -70,7 +71,7 @@ pub struct Install {
     pub local_manifest_src: Option<PathBuf>,
 
     /// URL of remote plugin manifest to install.
-    #[clap(
+    #[arg(
         name = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
         short = 'u',
         long = "url",
@@ -80,21 +81,21 @@ pub struct Install {
     pub remote_manifest_src: Option<Url>,
 
     /// Skips prompt to accept the installation of the plugin.
-    #[clap(short = 'y', long = "yes", takes_value = false)]
+    #[arg(short = 'y', long = "yes", num_args = 0)]
     pub yes_to_all: bool,
 
     /// Overrides a failed compatibility check of the plugin with the current version of Spin.
-    #[clap(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, takes_value = false)]
+    #[arg(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, num_args = 0)]
     pub override_compatibility_check: bool,
 
     /// Specific version of a plugin to be install from the centralized plugins
     /// repository.
-    #[clap(
+    #[arg(
         long = "version",
         short = 'v',
         conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
         conflicts_with = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
-        requires(PLUGIN_NAME_OPT)
+        requires = PLUGIN_NAME_OPT
     )]
     pub version: Option<Version>,
 }
@@ -149,7 +150,7 @@ impl Uninstall {
 #[derive(Parser, Debug)]
 pub struct Upgrade {
     /// Name of Spin plugin to upgrade.
-    #[clap(
+    #[arg(
         name = PLUGIN_NAME_OPT,
         conflicts_with = PLUGIN_ALL_OPT,
         required_unless_present_any = [PLUGIN_ALL_OPT],
@@ -157,19 +158,19 @@ pub struct Upgrade {
     pub name: Option<String>,
 
     /// Upgrade all plugins.
-    #[clap(
+    #[arg(
         short = 'a',
         long = "all",
         name = PLUGIN_ALL_OPT,
         conflicts_with = PLUGIN_NAME_OPT,
         conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
         conflicts_with = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
-        takes_value = false,
+        num_args = 0,
     )]
     pub all: bool,
 
     /// Path to local plugin manifest.
-    #[clap(
+    #[arg(
         name = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
         short = 'f',
         long = "file",
@@ -178,7 +179,7 @@ pub struct Upgrade {
     pub local_manifest_src: Option<PathBuf>,
 
     /// Path to remote plugin manifest.
-    #[clap(
+    #[arg(
         name = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
         short = 'u',
         long = "url",
@@ -187,16 +188,16 @@ pub struct Upgrade {
     pub remote_manifest_src: Option<Url>,
 
     /// Skips prompt to accept the installation of the plugin[s].
-    #[clap(short = 'y', long = "yes", takes_value = false)]
+    #[arg(short = 'y', long = "yes", num_args = 0)]
     pub yes_to_all: bool,
 
     /// Overrides a failed compatibility check of the plugin with the current version of Spin.
-    #[clap(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, takes_value = false)]
+    #[arg(long = PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG, num_args = 0)]
     pub override_compatibility_check: bool,
 
     /// Specific version of a plugin to be install from the centralized plugins
     /// repository.
-    #[clap(
+    #[arg(
         long = "version",
         short = 'v',
         conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
@@ -207,7 +208,7 @@ pub struct Upgrade {
     pub version: Option<Version>,
 
     /// Allow downgrading a plugin's version.
-    #[clap(short = 'd', long = "downgrade", takes_value = false)]
+    #[arg(short = 'd', long = "downgrade", num_args = 0)]
     pub downgrade: bool,
 }
 
@@ -293,7 +294,7 @@ impl Upgrade {
 #[derive(Parser, Debug)]
 pub struct List {
     /// List only installed plugins.
-    #[clap(long = "installed", takes_value = false)]
+    #[arg(long = "installed", num_args = 0)]
     pub installed: bool,
 }
 

@@ -41,40 +41,42 @@ fn version() -> &'static str {
 
 /// The Spin CLI
 #[derive(Parser)]
-#[clap(
+#[command(
     name = "spin",
     version = version(),
+    next_display_order = None
 )]
 enum SpinApp {
-    #[clap(subcommand, alias = "template")]
+    #[command(subcommand, alias = "template")]
     Templates(TemplateCommands),
     New(NewCommand),
     Add(AddCommand),
     Up(UpCommand),
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Bindle(BindleCommands),
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Cloud(CloudCommands),
     // acts as a cross-level subcommand shortcut -> `spin cloud deploy`
     Deploy(DeployCommand),
     // acts as a cross-level subcommand shortcut -> `spin cloud login`
     Login(LoginCommand),
-    #[clap(subcommand, alias = "oci")]
+    #[command(subcommand, alias = "oci")]
     Registry(RegistryCommands),
     Build(BuildCommand),
-    #[clap(subcommand, alias = "plugin")]
+    #[command(subcommand, alias = "plugin")]
     Plugins(PluginCommands),
-    #[clap(subcommand, hide = true)]
+    #[command(subcommand, hide = true)]
     Trigger(TriggerCommands),
-    #[clap(external_subcommand)]
+    #[command(external_subcommand)]
     External(Vec<String>),
 }
 
 #[derive(Subcommand)]
+#[command(next_display_order = None, ignore_errors=true)]
 enum TriggerCommands {
     Http(TriggerExecutorCommand<HttpTrigger>),
     Redis(TriggerExecutorCommand<RedisTrigger>),
-    #[clap(name = spin_cli::HELP_ARGS_ONLY_TRIGGER_TYPE, hide = true)]
+    #[command(name = spin_cli::HELP_ARGS_ONLY_TRIGGER_TYPE, hide = true)]
     HelpArgsOnly(TriggerExecutorCommand<HelpArgsOnlyTrigger>),
 }
 

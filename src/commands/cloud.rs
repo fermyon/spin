@@ -6,6 +6,7 @@ use super::login::LoginCommand;
 
 /// Commands for publishing applications to the Fermyon Platform.
 #[derive(Subcommand, Debug)]
+#[command(next_display_order = None)]
 pub enum CloudCommands {
     /// Package and upload an application to the Fermyon Platform.
     Deploy(DeployCommand),

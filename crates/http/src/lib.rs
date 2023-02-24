@@ -59,15 +59,15 @@ pub struct HttpTrigger {
 #[derive(Args)]
 pub struct CliArgs {
     /// IP address and port to listen on
-    #[clap(long = "listen", default_value = "127.0.0.1:3000", value_parser = parse_listen_addr)]
+    #[arg(long = "listen", default_value = "127.0.0.1:3000", value_parser = parse_listen_addr)]
     pub address: SocketAddr,
 
     /// The path to the certificate to use for https, if this is not set, normal http will be used. The cert should be in PEM format
-    #[clap(long, env = "SPIN_TLS_CERT", requires = "tls-key")]
+    #[arg(long, env = "SPIN_TLS_CERT", requires = "tls_key")]
     pub tls_cert: Option<PathBuf>,
 
     /// The path to the certificate key to use for https, if this is not set, normal http will be used. The key should be in PKCS#8 format
-    #[clap(long, env = "SPIN_TLS_KEY", requires = "tls-cert")]
+    #[arg(long, env = "SPIN_TLS_KEY", requires = "tls_cert")]
     pub tls_key: Option<PathBuf>,
 }
 

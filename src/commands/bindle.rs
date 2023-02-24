@@ -9,6 +9,7 @@ use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response};
 
 /// Commands for publishing applications as bindles.
 #[derive(Subcommand, Debug)]
+#[command(next_display_order = None)]
 pub enum BindleCommands {
     /// Create a standalone bindle for subsequent publication.
     Prepare(Prepare),
@@ -30,7 +31,7 @@ impl BindleCommands {
 #[derive(Parser, Debug)]
 pub struct Prepare {
     /// Path to spin.toml
-    #[clap(
+    #[arg(
         name = APP_CONFIG_FILE_OPT,
         short = 'f',
         long = "file",
@@ -38,15 +39,15 @@ pub struct Prepare {
     pub app: Option<PathBuf>,
 
     /// Build metadata to append to the bindle version
-    #[clap(
+    #[arg(
         name = BUILDINFO_OPT,
         long = "buildinfo",
-        parse(try_from_str = parse_buildinfo),
+        value_parser = parse_buildinfo,
     )]
     pub buildinfo: Option<BuildMetadata>,
 
     /// Path to create standalone bindle.
-    #[clap(
+    #[arg(
         name = STAGING_DIR_OPT,
         long = "staging-dir",
         short = 'd',
@@ -58,7 +59,7 @@ pub struct Prepare {
 #[derive(Parser, Debug)]
 pub struct Push {
     /// Path to spin.toml
-    #[clap(
+    #[arg(
         name = APP_CONFIG_FILE_OPT,
         short = 'f',
         long = "file",
@@ -66,16 +67,16 @@ pub struct Push {
     pub app: Option<PathBuf>,
 
     /// Build metadata to append to the bindle version
-    #[clap(
+    #[arg(
         name = BUILDINFO_OPT,
         long = "buildinfo",
-        parse(try_from_str = parse_buildinfo),
+        value_parser = parse_buildinfo,
     )]
     pub buildinfo: Option<BuildMetadata>,
 
     /// Path to assemble the bindle before pushing (defaults to
     /// temporary directory).
-    #[clap(
+    #[arg(
         name = STAGING_DIR_OPT,
         long = "staging-dir",
         short = 'd',
@@ -83,7 +84,7 @@ pub struct Push {
     pub staging_dir: Option<PathBuf>,
 
     /// URL of bindle server
-    #[clap(
+    #[arg(
         name = BINDLE_SERVER_URL_OPT,
         long = "bindle-server",
         env = BINDLE_URL_ENV,
@@ -91,7 +92,7 @@ pub struct Push {
     pub bindle_server_url: String,
 
     /// Basic http auth username for the bindle server
-    #[clap(
+    #[arg(
         name = BINDLE_USERNAME,
         long = "bindle-username",
         env = BINDLE_USERNAME,
@@ -100,7 +101,7 @@ pub struct Push {
     pub bindle_username: Option<String>,
 
     /// Basic http auth password for the bindle server
-    #[clap(
+    #[arg(
         name = BINDLE_PASSWORD,
         long = "bindle-password",
         env = BINDLE_PASSWORD,
@@ -109,11 +110,11 @@ pub struct Push {
     pub bindle_password: Option<String>,
 
     /// Ignore server certificate errors
-    #[clap(
+    #[arg(
         name = INSECURE_OPT,
         short = 'k',
         long = "insecure",
-        takes_value = false,
+        num_args = 0,
     )]
     pub insecure: bool,
 }

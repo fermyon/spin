@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use clap::{Args, IntoApp, Parser};
+use clap::{ArgAction, Args, CommandFactory, Parser};
 use serde::de::DeserializeOwned;
 use tokio::{
     task::JoinHandle,
@@ -26,13 +26,13 @@ pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
 
 /// A command that runs a TriggerExecutor.
 #[derive(Parser, Debug)]
-#[clap(next_help_heading = "TRIGGER OPTIONS")]
+#[command(next_help_heading = "TRIGGER OPTIONS", ignore_errors = true)]
 pub struct TriggerExecutorCommand<Executor: TriggerExecutor>
 where
     Executor::RunConfig: Args,
 {
     /// Log directory for the stdout and stderr of components.
-    #[clap(
+    #[arg(
         name = APP_LOG_DIR,
         short = 'L',
         long = "log-dir",
@@ -40,17 +40,17 @@ where
     pub log: Option<PathBuf>,
 
     /// Disable Wasmtime cache.
-    #[clap(
+    #[arg(
         name = DISABLE_WASMTIME_CACHE,
         long = "disable-cache",
         env = DISABLE_WASMTIME_CACHE,
         conflicts_with = WASMTIME_CACHE_FILE,
-        takes_value = false,
+        action = ArgAction::SetTrue,
     )]
     pub disable_cache: bool,
 
     /// Wasmtime cache configuration file.
-    #[clap(
+    #[arg(
         name = WASMTIME_CACHE_FILE,
         long = "cache",
         env = WASMTIME_CACHE_FILE,
@@ -59,15 +59,15 @@ where
     pub cache: Option<PathBuf>,
 
     /// Print output to stdout/stderr only for given component(s)
-    #[clap(
+    #[arg(
         name = FOLLOW_LOG_OPT,
         long = "follow",
-        multiple_occurrences = true,
+        action = ArgAction::Append,
     )]
     pub follow_components: Vec<String>,
 
     /// Silence all component output to stdout/stderr
-    #[clap(
+    #[arg(
         long = "quiet",
         short = 'q',
         aliases = &["sh", "shush"],
@@ -76,25 +76,25 @@ where
     pub silence_component_logs: bool,
 
     /// Set the static assets of the components in the temporary directory as writable.
-    #[clap(long = "allow-transient-write")]
+    #[arg(long = "allow-transient-write")]
     pub allow_transient_write: bool,
 
     /// Configuration file for config providers and wasmtime config.
-    #[clap(
+    #[arg(
         name = RUNTIME_CONFIG_FILE,
         long = "runtime-config-file",
         env = RUNTIME_CONFIG_FILE,
     )]
     pub runtime_config_file: Option<PathBuf>,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     pub run_config: Executor::RunConfig,
 
-    #[clap(long = "help-args-only", hide = true)]
+    #[arg(long = "help-args-only", hide = true)]
     pub help_args_only: bool,
 
     /// Load the application from the registry.
-    #[clap(long = "from-registry", hide = true)]
+    #[arg(long = "from-registry", hide = true)]
     pub from_registry: bool,
 }
 

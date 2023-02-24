@@ -30,10 +30,10 @@ const DEFAULT_CLOUD_URL: &str = "https://cloud.fermyon.com/";
 
 /// Log into the Fermyon Platform.
 #[derive(Parser, Debug)]
-#[clap(about = "Log into the Fermyon Platform")]
+#[command(about = "Log into the Fermyon Platform")]
 pub struct LoginCommand {
     /// URL of bindle server
-    #[clap(
+    #[arg(
         name = BINDLE_SERVER_URL_OPT,
         long = "bindle-server",
         env = BINDLE_URL_ENV,
@@ -41,7 +41,7 @@ pub struct LoginCommand {
     pub bindle_server_url: Option<String>,
 
     /// Basic http auth username for the bindle server
-    #[clap(
+    #[arg(
         name = BINDLE_USERNAME,
         long = "bindle-username",
         env = BINDLE_USERNAME,
@@ -50,7 +50,7 @@ pub struct LoginCommand {
     pub bindle_username: Option<String>,
 
     /// Basic http auth password for the bindle server
-    #[clap(
+    #[arg(
         name = BINDLE_PASSWORD,
         long = "bindle-password",
         env = BINDLE_PASSWORD,
@@ -59,16 +59,16 @@ pub struct LoginCommand {
     pub bindle_password: Option<String>,
 
     /// Ignore server certificate errors from bindle and hippo
-    #[clap(
+    #[arg(
         name = INSECURE_OPT,
         short = 'k',
         long = "insecure",
-        takes_value = false,
+        num_args = 0,
     )]
     pub insecure: bool,
 
     /// URL of hippo server
-    #[clap(
+    #[arg(
         name = HIPPO_SERVER_URL_OPT,
         long = "url",
         env = HIPPO_URL_ENV,
@@ -78,7 +78,7 @@ pub struct LoginCommand {
     pub hippo_server_url: url::Url,
 
     /// Hippo username
-    #[clap(
+    #[arg(
         name = HIPPO_USERNAME,
         long = "username",
         env = HIPPO_USERNAME,
@@ -87,7 +87,7 @@ pub struct LoginCommand {
     pub hippo_username: Option<String>,
 
     /// Hippo password
-    #[clap(
+    #[arg(
         name = HIPPO_PASSWORD,
         long = "password",
         env = HIPPO_PASSWORD,
@@ -96,64 +96,56 @@ pub struct LoginCommand {
     pub hippo_password: Option<String>,
 
     /// Display login status
-    #[clap(
+    #[arg(
         name = "status",
         long = "status",
-        takes_value = false,
+        num_args = 0,
         conflicts_with = "list",
-        conflicts_with = "get-device-code",
-        conflicts_with = "check-device-code"
+        conflicts_with = "get_device_code",
+        conflicts_with = "check_device_code"
     )]
     pub status: bool,
 
     // fetch a device code
-    #[clap(
-        name = "get-device-code",
+    #[arg(
         long = "get-device-code",
-        takes_value = false,
+        num_args = 0,
         hide = true,
         conflicts_with = "status",
-        conflicts_with = "check-device-code"
+        conflicts_with = "check_device_code"
     )]
     pub get_device_code: bool,
 
     // check a device code
-    #[clap(
-        name = "check-device-code",
+    #[arg(
         long = "check-device-code",
         hide = true,
         conflicts_with = "status",
-        conflicts_with = "get-device-code"
+        conflicts_with = "get_device_code"
     )]
     pub check_device_code: Option<String>,
 
     // authentication method used for logging in (username|github)
-    #[clap(
-        name = "auth-method",
-        long = "auth-method",
-        env = "AUTH_METHOD",
-        arg_enum
-    )]
+    #[arg(long = "auth-method", env = "AUTH_METHOD", value_enum)]
     pub method: Option<AuthMethod>,
 
     /// Save the login details under the specified name instead of making them
     /// the default. Use named environments with `spin deploy --environment-name <name>`.
-    #[clap(
-        name = "environment-name",
+    #[arg(
         long = "environment-name",
         env = DEPLOYMENT_ENV_NAME_ENV
     )]
     pub deployment_env_id: Option<String>,
 
     /// List saved logins.
-    #[clap(
+    #[arg(
         name = "list",
         long = "list",
-        takes_value = false,
-        conflicts_with = "environment-name",
+        num_args = 0,
+        conflicts_with = "deployment_env_id",
         conflicts_with = "status",
-        conflicts_with = "get-device-code",
-        conflicts_with = "check-device-code"
+        conflicts_with = "get_device_code",
+        conflicts_with = "check_device_code"
     )]
     pub list: bool,
 }
@@ -540,11 +532,11 @@ fn ensure(root: &PathBuf) -> Result<()> {
 }
 
 /// The method by which to authenticate the login.
-#[derive(clap::ArgEnum, Clone, Debug, Eq, PartialEq)]
+#[derive(clap::ValueEnum, Clone, Debug, Eq, PartialEq)]
 pub enum AuthMethod {
-    #[clap(name = "github")]
+    #[value(name = "github")]
     Github,
-    #[clap(name = "username")]
+    #[value(name = "username")]
     UsernameAndPassword,
 }
 

@@ -40,10 +40,10 @@ const BINDLE_REGISTRY_URL_PATH: &str = "api/registry";
 
 /// Package and upload an application to the Fermyon Platform.
 #[derive(Parser, Debug)]
-#[clap(about = "Package and upload an application to the Fermyon Platform")]
+#[command(about = "Package and upload an application to the Fermyon Platform")]
 pub struct DeployCommand {
     /// Path to spin.toml
-    #[clap(
+    #[arg(
         name = APP_CONFIG_FILE_OPT,
         short = 'f',
         long = "file",
@@ -53,7 +53,7 @@ pub struct DeployCommand {
 
     /// Path to assemble the bindle before pushing (defaults to
     /// a temporary directory)
-    #[clap(
+    #[arg(
         name = STAGING_DIR_OPT,
         long = "staging-dir",
         short = 'd',
@@ -61,7 +61,7 @@ pub struct DeployCommand {
     pub staging_dir: Option<PathBuf>,
 
     /// Disable attaching buildinfo
-    #[clap(
+    #[arg(
         long = "no-buildinfo",
         conflicts_with = BUILDINFO_OPT,
         env = "SPIN_DEPLOY_NO_BUILDINFO"
@@ -69,26 +69,26 @@ pub struct DeployCommand {
     pub no_buildinfo: bool,
 
     /// Build metadata to append to the bindle version
-    #[clap(
+    #[arg(
         name = BUILDINFO_OPT,
         long = "buildinfo",
-        parse(try_from_str = parse_buildinfo),
+        value_parser = parse_buildinfo,
     )]
     pub buildinfo: Option<BuildMetadata>,
 
     /// Deploy existing bindle if it already exists on bindle server
-    #[clap(short = 'e', long = "deploy-existing-bindle")]
+    #[arg(short = 'e', long = "deploy-existing-bindle")]
     pub redeploy: bool,
 
     /// How long in seconds to wait for a deployed HTTP application to become
     /// ready. The default is 60 seconds. Set it to 0 to skip waiting
     /// for readiness.
-    #[clap(long = "readiness-timeout", default_value = "60")]
+    #[arg(long = "readiness-timeout", default_value = "60")]
     pub readiness_timeout_secs: u16,
 
     /// Deploy to the Fermyon instance saved under the specified name.
     /// If omitted, Spin deploys to the default unnamed instance.
-    #[clap(
+    #[arg(
         name = "environment-name",
         long = "environment-name",
         env = DEPLOYMENT_ENV_NAME_ENV

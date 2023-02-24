@@ -12,7 +12,7 @@ use key_value::Store as RawStore;
 pub type Error = key_value::Error;
 
 /// Represents a store in which key value tuples may be placed
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Store(RawStore);
 
 impl Store {

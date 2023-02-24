@@ -8,7 +8,7 @@ mod table;
 mod util;
 
 pub use host_component::{manager, KeyValueComponent};
-pub use util::{DelegatingStoreManager, EmptyStoreManager};
+pub use util::{CachingStoreManager, DelegatingStoreManager, EmptyStoreManager};
 
 wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/key-value.wit"], async: *});
 

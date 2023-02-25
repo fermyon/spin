@@ -1,72 +1,70 @@
 package main
 
 import (
+	"io"
 	"net/http"
-	"reflect"
-	"fmt"
 
 	spin_http "github.com/fermyon/spin/sdk/go/http"
 	"github.com/fermyon/spin/sdk/go/key_value"
 )
 
 func init() {
-
 	// handler for the http trigger
 	spin_http.Handle(func(w http.ResponseWriter, r *http.Request) {
-		store, err := key_value.Open("default");
+		store, err := key_value.Open("default")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer key_value.Close(store)
+
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		defer key_value.Close(store)
-
-		if err := key_value.Set(store, "foo", []byte("bar")); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		{
-			expected := []byte("bar")
-			if value, err := key_value.Get(store, "foo"); err != nil {
+		switch r.Method {
+		case http.MethodPost:
+			err := key_value.Set(store, r.URL.Path, body)
+			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
-			} else if !reflect.DeepEqual(value, expected) {
-				http.Error(
-					w,
-					fmt.Sprintf("expected %v, got %v", expected, value),
-					http.StatusInternalServerError,
-				)
-				return
 			}
-		}
 
-		{
-			expected := []string{"foo"}
-			if value, err := key_value.GetKeys(store); err != nil {
+			w.WriteHeader(http.StatusOK)
+		case http.MethodGet:
+			value, err := key_value.Get(store, r.URL.Path)
+			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
-			} else if !reflect.DeepEqual(value, expected) {
-				http.Error(
-					w,
-					fmt.Sprintf("expected %v, got %v", expected, value),
-					http.StatusInternalServerError,
-				)
+			}
+
+			w.WriteHeader(http.StatusOK)
+			w.Write(value)
+		case http.MethodDelete:
+			err := key_value.Delete(store, r.URL.Path)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-		}
 
-		if err := key_value.Delete(store, "foo"); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+			w.WriteHeader(http.StatusOK)
+		case http.MethodHead:
+			exists, err := key_value.Exists(store, r.URL.Path)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 
-		if exists, err := key_value.Exists(store, "foo"); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		} else if exists {
-			http.Error(w, "key was not deleted as expected", http.StatusInternalServerError)
-			return
+			if exists {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
 }

@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::path::PathBuf;
 use std::str;
 use std::{
@@ -75,17 +75,19 @@ pub async fn wait_tcp(url: &str, process: &mut tokio::process::Child, target: &s
     let mut wait_count = 0;
     loop {
         if wait_count >= 240 {
-            panic!(
+            return Err(anyhow!(
                 "Ran out of retries waiting for {} to start on URL {}",
-                target, url
-            );
+                target,
+                url
+            ));
         }
 
         if let Ok(Some(_)) = process.try_wait() {
-            panic!(
+            return Err(anyhow!(
                 "Process exited before starting to serve {} to start on URL {}",
-                target, url
-            );
+                target,
+                url
+            ));
         }
 
         match TcpStream::connect(&url).await {
@@ -195,7 +197,13 @@ pub async fn get_output_from_stdout(
             Err(_) => break,
             Ok(result) => match result {
                 Err(_) => break,
-                Ok(line) => output.push(line.unwrap()),
+                Ok(line) => {
+                    if line.is_none() {
+                        break;
+                    }
+
+                    output.push(line.unwrap())
+                }
             },
         }
     }
@@ -221,7 +229,13 @@ pub async fn get_output_from_stderr(
             Err(_) => break,
             Ok(result) => match result {
                 Err(_) => break,
-                Ok(line) => output.push(line.unwrap()),
+                Ok(line) => {
+                    if line.is_none() {
+                        break;
+                    }
+
+                    output.push(line.unwrap())
+                }
             },
         }
     }

@@ -56,16 +56,15 @@ COPY . .
 
 # spin
 RUN if [ "${BUILD_SPIN}" != "true" ]; then                                                                                      \
-    wget https://github.com/fermyon/spin/releases/download/${SPIN_VERSION}/spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&     \
-    tar -xvf spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&                                                                   \
-    ls -ltr &&                                                                                                              \
-    mv spin /usr/local/bin/spin;                                                                                            \
+        wget https://github.com/fermyon/spin/releases/download/${SPIN_VERSION}/spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&     \
+        tar -xvf spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&                                                                   \
+        ls -ltr &&                                                                                                              \
+        mv spin /usr/local/bin/spin;                                                                                            \
     else                                                                                                                        \
-    cargo build --release &&                                                                                                \
-    cp target/release/spin /usr/local/bin/spin;                                                                             \
+        cargo build --release &&                                                                                                \
+        cp target/release/spin /usr/local/bin/spin;                                                                             \
     fi
 
 RUN spin --version
-
 
 CMD cargo test spinup_tests --features new-e2e-tests --no-fail-fast -- --nocapture

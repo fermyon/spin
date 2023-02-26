@@ -14,6 +14,18 @@ services:
       MYSQL_USER: spin
       MYSQL_PASSWORD: spin
 
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:14.7-alpine}
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=spin_dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   redis:
     image: ${REDIS_IMAGE:-redis:7.0.8-alpine3.17}
     ports:
@@ -24,8 +36,17 @@ services:
     depends_on:
       - mysql
       - redis
+      - postgres
     image: spin-e2e-tests
-    entrypoint: cargo test spinup_tests --features new-e2e-tests --no-fail-fast -- --nocapture
+    entrypoint: cargo test spinup_tests --features e2e-tests --no-fail-fast -- --nocapture
+    volumes:
+      - target_cache:/e2e-tests/target
+      - cargo_registry_cache:/usr/local/cargo/registry
+      - cargo_git_cache:/usr/local/cargo/git
 
 volumes:
   db_data: {}
+  postgres_data: {}
+  cargo_registry_cache: {}
+  cargo_git_cache: {}
+  target_cache: {}

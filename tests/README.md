@@ -16,28 +16,15 @@ The goal of these tests is to ensure that spin continues to work with existing a
 
 ```
 ## go to root dir of the project, e2e-tests.Dockerfile is located there
-docker build -t spin-e2e-tests -f e2e-tests.Dockerfile .
-docker compose -f e2e-tests-docker-compose.yml run e2e-tests
-```
-
-## How to run e2e tests on aarch64
-```
-## go to root dir of the project, e2e-tests-aarch64.Dockerfile is located there
-docker build -t spin-e2e-tests -f e2e-tests-aarch64.Dockerfile .
-MYSQL_IMAGE=arm64v8/mysql:8.0.32 REDIS_IMAGE=arm64v8/redis:6.0-alpine3.17 docker compose         \
-    -f e2e-tests-docker-compose.yml run                 \
-    e2e-tests
+make test-spin-up
 ```
 
 ## How to use `spin` binary with your local changes
 
-By default tests use the canary build of `spin` downloaded at docker image creation time. If you want to test it with your changes, you can use `--build-arg BUILD_SPIN=true`
+By default, tests use the canary build of `spin` downloaded at the docker image creation time. If you want to test it with your changes, you can use the environment variable E2E_BUILD_SPIN=true
 
 ```
-docker build --build-arg BUILD_SPIN=true -t spin-e2e-tests -f e2e-tests.Dockerfile .
-docker compose                                          \
-    -f e2e-tests-docker-compose.yml run                 \
-    e2e-tests
+E2E_BUILD_SPIN=true make test-spin-up
 ```
 
 ## Important files and their function

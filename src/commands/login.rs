@@ -20,7 +20,7 @@ use uuid::Uuid;
 use crate::opts::{
     BINDLE_PASSWORD, BINDLE_SERVER_URL_OPT, BINDLE_URL_ENV, BINDLE_USERNAME,
     DEPLOYMENT_ENV_NAME_ENV, HIPPO_PASSWORD, HIPPO_SERVER_URL_OPT, HIPPO_URL_ENV, HIPPO_USERNAME,
-    INSECURE_OPT,
+    INSECURE_OPT, SPIN_AUTH_TOKEN, TOKEN,
 };
 
 // this is the client ID registered in the Cloud's backend
@@ -94,6 +94,14 @@ pub struct LoginCommand {
         requires = HIPPO_USERNAME,
     )]
     pub hippo_password: Option<String>,
+
+    /// Auth Token
+    #[clap(
+        name = TOKEN,
+        long = "token",
+        env = SPIN_AUTH_TOKEN,
+    )]
+    pub token: Option<String>,
 
     /// Display login status
     #[clap(
@@ -256,8 +264,28 @@ impl LoginCommand {
         let login_connection = match self.auth_method() {
             AuthMethod::Github => self.run_interactive_gh_login().await?,
             AuthMethod::UsernameAndPassword => self.run_interactive_basic_login().await?,
+            AuthMethod::Token => self.login_using_token().await?,
         };
         self.save_login_info(&login_connection)
+    }
+
+    async fn login_using_token(&self) -> Result<LoginConnection> {
+        // Validate the token by calling list_apps API until we have a user info API
+        HippoClient::new(ConnectionInfo {
+            url: self.hippo_server_url.to_string(),
+            danger_accept_invalid_certs: self.insecure,
+            api_key: self.token.clone(),
+        })
+        .list_apps()
+        .await
+        .context("Login using the provided token failed. Run `spin login` or create a new token using the Fermyon Cloud user interface.")?;
+
+        let token_info = TokenInfo {
+            token: self.token.clone(),
+            expiration: None,
+        };
+
+        Ok(self.login_connection_for_token(token_info))
     }
 
     async fn run_interactive_gh_login(&self) -> Result<LoginConnection> {
@@ -332,7 +360,7 @@ impl LoginCommand {
             url: self.hippo_server_url.clone(),
             danger_accept_invalid_certs: self.insecure,
             token: token.token.unwrap_or_default(),
-            expiration: token.expiration.unwrap_or_default(),
+            expiration: token.expiration,
             bindle_url: Some(bindle_url),
             bindle_username,
             bindle_password,
@@ -344,7 +372,7 @@ impl LoginCommand {
             url: self.hippo_server_url.clone(),
             danger_accept_invalid_certs: self.insecure,
             token: token_info.token.unwrap_or_default(),
-            expiration: token_info.expiration.unwrap_or_default(),
+            expiration: token_info.expiration,
             bindle_url: None,
             bindle_username: None,
             bindle_password: None,
@@ -386,6 +414,8 @@ impl LoginCommand {
             // prompt the user for the authentication method
             // TODO: implement a server "feature" check that tells us what authentication methods it supports
             prompt_for_auth_method()
+        } else if self.token.is_some() {
+            AuthMethod::Token
         } else {
             AuthMethod::Github
         }
@@ -490,7 +520,8 @@ pub struct LoginConnection {
     pub bindle_password: Option<String>,
     pub danger_accept_invalid_certs: bool,
     pub token: String,
-    pub expiration: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expiration: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -546,6 +577,8 @@ pub enum AuthMethod {
     Github,
     #[clap(name = "username")]
     UsernameAndPassword,
+    #[clap(name = "token")]
+    Token,
 }
 
 fn prompt_for_auth_method() -> AuthMethod {

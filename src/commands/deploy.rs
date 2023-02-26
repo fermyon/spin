@@ -125,10 +125,16 @@ impl DeployCommand {
         };
 
         let mut login_connection: LoginConnection = serde_json::from_str(&data)?;
+        let expired = match has_expired(&login_connection) {
+            Ok(val) => val,
+            Err(err) => {
+                eprintln!("{}\n", err);
+                eprintln!("Run `spin login` to log in again");
+                std::process::exit(1);
+            }
+        };
 
-        let expiration_date = DateTime::parse_from_rfc3339(&login_connection.expiration)?;
-        let now: DateTime<Utc> = Utc::now();
-        if now > expiration_date {
+        if expired {
             // session has expired - log back in
             match self.deployment_env_id {
                 Some(name) => {
@@ -312,7 +318,7 @@ impl DeployCommand {
             insecure: login_connection.danger_accept_invalid_certs,
             token: TokenInfo {
                 token: Some(login_connection.token.clone()),
-                expiration: Some(login_connection.expiration.clone()),
+                expiration: login_connection.expiration,
             },
         };
 
@@ -763,5 +769,21 @@ fn print_available_routes(
                 println!("    {}", description);
             }
         }
+    }
+}
+
+// Check if the token has expired.
+// If the expiration is None, assume the token has not expired
+fn has_expired(login_connection: &LoginConnection) -> Result<bool> {
+    match &login_connection.expiration {
+        Some(expiration) => match DateTime::parse_from_rfc3339(expiration) {
+            Ok(time) => Ok(Utc::now() > time),
+            Err(err) => Err(anyhow!(
+                "Failed to parse token expiration time '{}'. Error: {}",
+                expiration,
+                err
+            )),
+        },
+        None => Ok(false),
     }
 }

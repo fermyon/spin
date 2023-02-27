@@ -24,12 +24,18 @@ pub fn manager<F: for<'a> Fn(&'a AppComponent) -> Arc<dyn StoreManager>>(f: F) -
 }
 
 pub struct KeyValueComponent {
+    capacity: u32,
     manager: Box<dyn StoreManagerManager>,
 }
 
 impl KeyValueComponent {
     pub fn new(manager: impl StoreManagerManager + 'static) -> Self {
+        Self::new_with_capacity(u32::MAX, manager)
+    }
+
+    pub fn new_with_capacity(capacity: u32, manager: impl StoreManagerManager + 'static) -> Self {
         Self {
+            capacity,
             manager: Box::new(manager),
         }
     }
@@ -46,7 +52,7 @@ impl HostComponent for KeyValueComponent {
     }
 
     fn build_data(&self) -> Self::Data {
-        KeyValueDispatch::new()
+        KeyValueDispatch::new_with_capacity(self.capacity)
     }
 }
 

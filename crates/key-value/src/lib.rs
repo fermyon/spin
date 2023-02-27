@@ -10,6 +10,8 @@ mod util;
 pub use host_component::{manager, KeyValueComponent};
 pub use util::{CachingStoreManager, DelegatingStoreManager, EmptyStoreManager};
 
+const DEFAULT_STORE_TABLE_CAPACITY: u32 = 256;
+
 wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/key-value.wit"], async: *});
 
 pub use key_value::{Error, KeyValue, Store as StoreHandle};
@@ -48,10 +50,14 @@ pub struct KeyValueDispatch {
 
 impl KeyValueDispatch {
     pub fn new() -> Self {
+        Self::new_with_capacity(DEFAULT_STORE_TABLE_CAPACITY)
+    }
+
+    pub fn new_with_capacity(capacity: u32) -> Self {
         Self {
             allowed_stores: HashSet::new(),
             manager: Arc::new(EmptyStoreManager),
-            stores: Table::new(),
+            stores: Table::new(capacity),
         }
     }
 

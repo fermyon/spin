@@ -1,7 +1,9 @@
 use crate::{Error, Store, StoreManager};
+use lru::LruCache;
 use std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     future::Future,
+    num::NonZeroUsize,
     sync::Arc,
 };
 use tokio::{
@@ -9,6 +11,8 @@ use tokio::{
     task::{self, JoinHandle},
 };
 use wit_bindgen_wasmtime::async_trait;
+
+const DEFAULT_CACHE_SIZE: usize = 256;
 
 pub struct EmptyStoreManager;
 
@@ -65,12 +69,17 @@ impl StoreManager for DelegatingStoreManager {
 /// write being lost without the guest knowing.  In the future, a separate `write-durable` function could be added
 /// to key-value.wit to provide either synchronous or asynchronous feedback on durability for guests which need it.
 pub struct CachingStoreManager<T> {
+    capacity: NonZeroUsize,
     inner: T,
 }
 
 impl<T> CachingStoreManager<T> {
     pub fn new(inner: T) -> Self {
-        Self { inner }
+        Self::new_with_capacity(NonZeroUsize::new(DEFAULT_CACHE_SIZE).unwrap(), inner)
+    }
+
+    pub fn new_with_capacity(capacity: NonZeroUsize, inner: T) -> Self {
+        Self { capacity, inner }
     }
 }
 
@@ -79,14 +88,16 @@ impl<T: StoreManager> StoreManager for CachingStoreManager<T> {
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {
         Ok(Arc::new(CachingStore {
             inner: self.inner.get(name).await?,
-            state: AsyncMutex::new(CachingStoreState::default()),
+            state: AsyncMutex::new(CachingStoreState {
+                cache: LruCache::new(self.capacity),
+                previous_task: None,
+            }),
         }))
     }
 }
 
-#[derive(Default)]
 struct CachingStoreState {
-    cache: HashMap<String, Option<Vec<u8>>>,
+    cache: LruCache<String, Option<Vec<u8>>>,
     previous_task: Option<JoinHandle<Result<(), Error>>>,
 }
 
@@ -105,6 +116,16 @@ impl CachingStoreState {
             task.await
         }))
     }
+
+    async fn flush(&mut self) -> Result<(), Error> {
+        if let Some(previous_task) = self.previous_task.take() {
+            previous_task
+                .await
+                .map_err(|e| Error::Io(format!("{e:?}")))??
+        }
+
+        Ok(())
+    }
 }
 
 struct CachingStore {
@@ -117,19 +138,25 @@ impl Store for CachingStore {
     async fn get(&self, key: &str) -> Result<Vec<u8>, Error> {
         // Retrieve the specified value from the cache, lazily populating the cache as necessary.
 
-        match self.state.lock().await.cache.entry(key.to_owned()) {
-            Entry::Vacant(e) => {
-                let value = match self.inner.get(key).await {
-                    Ok(value) => Some(value),
-                    Err(Error::NoSuchKey) => None,
-                    e => return e,
-                };
+        let mut state = self.state.lock().await;
 
-                e.insert(value.clone());
+        if let Some(value) = state.cache.get(key).cloned() {
+            value
+        } else {
+            // Flush any outstanding writes prior to reading from store.  This is necessary because we need to
+            // guarantee the guest will read its own writes even if entries have been popped off the end of the LRU
+            // cache prior to their corresponding writes reaching the backing store.
+            state.flush().await?;
 
-                value
-            }
-            Entry::Occupied(e) => e.get().clone(),
+            let value = match self.inner.get(key).await {
+                Ok(value) => Some(value),
+                Err(Error::NoSuchKey) => None,
+                e => return e,
+            };
+
+            state.cache.put(key.to_owned(), value.clone());
+
+            value
         }
         .ok_or(Error::NoSuchKey)
     }
@@ -139,7 +166,7 @@ impl Store for CachingStore {
 
         let mut state = self.state.lock().await;
 
-        state.cache.insert(key.to_owned(), Some(value.to_owned()));
+        state.cache.put(key.to_owned(), Some(value.to_owned()));
 
         let inner = self.inner.clone();
         let key = key.to_owned();
@@ -154,7 +181,7 @@ impl Store for CachingStore {
 
         let mut state = self.state.lock().await;
 
-        state.cache.insert(key.to_owned(), None);
+        state.cache.put(key.to_owned(), None);
 
         let inner = self.inner.clone();
         let key = key.to_owned();
@@ -178,7 +205,11 @@ impl Store for CachingStore {
         // Note that we don't bother caching the result, since we expect this function won't be called more than
         // once for a given store in normal usage, and maintaining consistency would be complicated.
 
-        let state = self.state.lock().await;
+        let mut state = self.state.lock().await;
+
+        // Flush any outstanding writes first in case entries have been popped off the end of the LRU cache prior
+        // to their corresponding writes reaching the backing store.
+        state.flush().await?;
 
         Ok(self
             .inner
@@ -188,7 +219,7 @@ impl Store for CachingStore {
             .filter(|k| {
                 state
                     .cache
-                    .get(k)
+                    .peek(k)
                     .map(|v| v.as_ref().is_some())
                     .unwrap_or(true)
             })

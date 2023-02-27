@@ -41,10 +41,22 @@ GENERATED_OUTBOUND_REDIS = redis/outbound-redis.c redis/outbound-redis.h
 GENERATED_SPIN_REDIS     = redis/spin-redis.c redis/spin-redis.h
 GENERATED_KEY_VALUE      = key_value/key-value.c key_value/key-value.h
 
+SDK_VERSION_SOURCE_FILE  = sdk_version/sdk-version-go-template.c
+
+# NOTE: Please update this list if you add a new directory to the SDK:
+SDK_VERSION_DEST_FILES   = config/sdk-version-go.c http/sdk-version-go.c \
+			   key_value/sdk-version-go.c redis/sdk-version-go.c
+
 .PHONY: generate
 generate: $(GENERATED_OUTBOUND_HTTP) $(GENERATED_SPIN_HTTP)
 generate: $(GENERATED_OUTBOUND_REDIS) $(GENERATED_SPIN_REDIS)
 generate: $(GENERATED_SPIN_CONFIG) $(GENERATED_KEY_VALUE)
+generate: $(SDK_VERSION_DEST_FILES)
+
+$(SDK_VERSION_DEST_FILES): $(SDK_VERSION_SOURCE_FILE)
+	export version="$$(cd ../rust && cargo run)"; \
+	export commit="$$(git rev-parse HEAD)"; \
+	sed -e "s/{{VERSION}}/$${version}/" -e "s/{{COMMIT}}/$${commit}/" < $< > $@
 
 $(GENERATED_SPIN_CONFIG):
 	wit-bindgen c --import ../../wit/ephemeral/spin-config.wit --out-dir ./config
@@ -72,10 +84,11 @@ clean:
 	rm -f $(GENERATED_SPIN_CONFIG)
 	rm -f $(GENERATED_OUTBOUND_HTTP) $(GENERATED_SPIN_HTTP)
 	rm -f $(GENERATED_OUTBOUND_REDIS) $(GENERATED_SPIN_REDIS)
-	rm -f $(GENERATED_KEY_VALUE)
+	rm -f $(GENERATED_KEY_VALUE) $(GENERATED_SDK_VERSION)
 	rm -f http/testdata/http-tinygo/main.wasm
 	rm -f $(EXAMPLES_DIR)/http-tinygo/main.wasm
 	rm -f $(EXAMPLES_DIR)/http-tinygo-outbound-http/main.wasm
 	rm -f $(EXAMPLES_DIR)/tinygo-outbound-redis/main.wasm
 	rm -f $(EXAMPLES_DIR)/tinygo-redis/main.wasm
 	rm -f $(EXAMPLES_DIR)/tinygo-key-value/main.wasm
+	rm -f $(SDK_VERSION_DEST_FILES)

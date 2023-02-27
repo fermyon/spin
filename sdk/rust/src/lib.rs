@@ -11,6 +11,16 @@ pub mod key_value;
 /// Exports the procedural macros for writing handlers for Spin components.
 pub use spin_macro::*;
 
+#[export_name = concat!("spin-sdk-version-", env!("SDK_VERSION"))]
+extern "C" fn __spin_sdk_version() {}
+
+#[cfg(feature = "export-sdk-language")]
+#[export_name = "spin-sdk-language-rust"]
+extern "C" fn __spin_sdk_language() {}
+
+#[export_name = concat!("spin-sdk-commit-", env!("SDK_COMMIT"))]
+extern "C" fn __spin_sdk_hash() {}
+
 /// Helpers for building Spin HTTP components.
 /// These are convenience helpers, and the types in this module are
 /// based on the [`http`](https://crates.io/crates) crate.

@@ -44,7 +44,7 @@ const BINDLE_REGISTRY_URL_PATH: &str = "api/registry";
 pub struct DeployCommand {
     /// Path to spin.toml
     #[clap(
-        name = APP_CONFIG_FILE_OPT,
+        name = APP_MANIFEST_FILE_OPT,
         short = 'f',
         long = "file",
         default_value = "spin.toml"

@@ -3,7 +3,7 @@ use std::{ffi::OsString, path::PathBuf};
 use anyhow::Result;
 use clap::Parser;
 
-use crate::opts::{APP_CONFIG_FILE_OPT, BUILD_UP_OPT, DEFAULT_MANIFEST_FILE};
+use crate::opts::{APP_MANIFEST_FILE_OPT, BUILD_UP_OPT, DEFAULT_MANIFEST_FILE};
 
 use super::up::UpCommand;
 
@@ -13,7 +13,7 @@ use super::up::UpCommand;
 pub struct BuildCommand {
     /// Path to application manifest. The default is "spin.toml".
     #[clap(
-        name = APP_CONFIG_FILE_OPT,
+        name = APP_MANIFEST_FILE_OPT,
         short = 'f',
         long = "from",
         alias = "file",

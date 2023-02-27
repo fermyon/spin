@@ -1,5 +1,5 @@
 pub const DEFAULT_MANIFEST_FILE: &str = "spin.toml";
-pub const APP_CONFIG_FILE_OPT: &str = "APP_CONFIG_FILE";
+pub const APP_MANIFEST_FILE_OPT: &str = "APP_MANIFEST_FILE";
 pub const BINDLE_ID_OPT: &str = "BINDLE_ID";
 pub const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
 pub const BINDLE_URL_ENV: &str = "BINDLE_URL";

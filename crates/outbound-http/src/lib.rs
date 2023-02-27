@@ -35,6 +35,7 @@ impl OutboundHttp {
 #[async_trait]
 impl wasi_outbound_http::WasiOutboundHttp for OutboundHttp {
     async fn request(&mut self, req: Request<'_>) -> Result<Response, HttpError> {
+        tracing::log::trace!("Attempting to send outbound HTTP request to {}", req.uri);
         if !self.is_allowed(req.uri)? {
             tracing::log::info!("Destination not allowed: {}", req.uri);
             return Err(HttpError::DestinationNotAllowed);
@@ -60,6 +61,7 @@ impl wasi_outbound_http::WasiOutboundHttp for OutboundHttp {
             .send()
             .await
             .map_err(log_reqwest_error)?;
+        tracing::log::trace!("Returning response from outbound request to {}", req.uri);
         Response::from_reqwest(resp).await
     }
 }

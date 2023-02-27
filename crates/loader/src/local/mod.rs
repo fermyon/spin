@@ -126,6 +126,16 @@ pub fn validate_raw_app_manifest(raw: &RawAppManifestAnyVersion) -> Result<()> {
         .components
         .iter()
         .try_for_each(|c| validate_allowed_http_hosts(&c.wasm.allowed_http_hosts))?;
+
+    if raw
+        .as_v1()
+        .components
+        .iter()
+        .any(|c| matches!(c.source, config::RawModuleSource::Bindle(_)))
+    {
+        crate::bindle::deprecation::print_bindle_deprecation();
+    }
+
     Ok(())
 }
 

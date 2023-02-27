@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use semver::BuildMetadata;
-use spin_loader::bindle::BindleConnectionInfo;
+use spin_loader::bindle::{deprecation::print_bindle_deprecation, BindleConnectionInfo};
 
 use crate::{opts::*, parse_buildinfo, sloth::warn_if_slow_response};
 
@@ -120,6 +120,8 @@ pub struct Push {
 
 impl Prepare {
     pub async fn run(self) -> Result<()> {
+        print_bindle_deprecation();
+
         let app_file = self
             .app
             .as_deref()
@@ -143,6 +145,8 @@ impl Prepare {
 
 impl Push {
     pub async fn run(self) -> Result<()> {
+        print_bindle_deprecation();
+
         let app_file = self
             .app
             .as_deref()

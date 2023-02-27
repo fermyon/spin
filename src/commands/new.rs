@@ -12,7 +12,7 @@ use tokio;
 use spin_loader::local::absolutize;
 use spin_templates::{RunOptions, Template, TemplateManager, TemplateVariantInfo};
 
-use crate::opts::{APP_CONFIG_FILE_OPT, DEFAULT_MANIFEST_FILE};
+use crate::opts::{APP_MANIFEST_FILE_OPT, DEFAULT_MANIFEST_FILE};
 
 /// Scaffold a new application based on a template.
 #[derive(Parser, Debug)]
@@ -68,7 +68,7 @@ pub struct AddCommand {
 
     /// Path to spin.toml.
     #[clap(
-        name = APP_CONFIG_FILE_OPT,
+        name = APP_MANIFEST_FILE_OPT,
         short = 'f',
         long = "file",
     )]

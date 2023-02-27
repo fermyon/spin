@@ -35,6 +35,7 @@ pub struct UpCommand {
         name = APPLICATION_OPT,
         short = 'f',
         long = "from",
+        group = "source",
     )]
     pub app_source: Option<String>,
 
@@ -42,12 +43,10 @@ pub struct UpCommand {
     /// application to be interpreted as a file or directory path.
     #[clap(
         hide = true,
-        name = APP_CONFIG_FILE_OPT,
+        name = APP_MANIFEST_FILE_OPT,
         long = "from-file",
         alias = "file",
-        conflicts_with = BINDLE_ID_OPT,
-        conflicts_with = FROM_REGISTRY_OPT,
-        conflicts_with = APPLICATION_OPT,
+        group = "source",
     )]
     pub file_source: Option<PathBuf>,
 
@@ -59,9 +58,7 @@ pub struct UpCommand {
         short = 'b',
         long = "bindle",
         alias = "from-bindle",
-        conflicts_with = APP_CONFIG_FILE_OPT,
-        conflicts_with = FROM_REGISTRY_OPT,
-        conflicts_with = APPLICATION_OPT,
+        group = "source",
         requires = BINDLE_SERVER_URL_OPT,
     )]
     pub bindle_source: Option<String>,
@@ -101,9 +98,7 @@ pub struct UpCommand {
         hide = true,
         name = FROM_REGISTRY_OPT,
         long = "from-registry",
-        conflicts_with = BINDLE_ID_OPT,
-        conflicts_with = APP_CONFIG_FILE_OPT,
-        conflicts_with = APPLICATION_OPT,
+        group = "source",
     )]
     pub registry_source: Option<String>,
 

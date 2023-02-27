@@ -31,7 +31,7 @@ impl BindleCommands {
 pub struct Prepare {
     /// Path to spin.toml
     #[clap(
-        name = APP_CONFIG_FILE_OPT,
+        name = APP_MANIFEST_FILE_OPT,
         short = 'f',
         long = "file",
     )]
@@ -59,7 +59,7 @@ pub struct Prepare {
 pub struct Push {
     /// Path to spin.toml
     #[clap(
-        name = APP_CONFIG_FILE_OPT,
+        name = APP_MANIFEST_FILE_OPT,
         short = 'f',
         long = "file",
     )]

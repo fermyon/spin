@@ -12,14 +12,16 @@ use std::collections::HashMap;
 /// how file handles work across the user-kernel boundary.
 ///
 pub struct Table<V> {
+    capacity: u32,
     next_key: u32,
     tuples: HashMap<u32, V>,
 }
 
 impl<V> Table<V> {
-    /// Create a new, empty table.
-    pub fn new() -> Self {
+    /// Create a new, empty table with the specified capacity.
+    pub fn new(capacity: u32) -> Self {
         Self {
+            capacity,
             next_key: 0,
             tuples: HashMap::new(),
         }
@@ -27,13 +29,13 @@ impl<V> Table<V> {
 
     /// Add the specified resource to this table.
     ///
-    /// If the table is full (i.e. there already are 2^32 resources inside), this returns `Err(())`.  Otherwise, a
-    /// new, unique identifier is allocated for the resource and returned.
+    /// If the table is full (i.e. there already are `self.capacity` resources inside), this returns `Err(())`.
+    /// Otherwise, a new, unique identifier is allocated for the resource and returned.
     ///
     /// This function will attempt to avoid reusing recently closed identifiers, but after 2^32 calls to this
     /// function they will start repeating.
     pub fn push(&mut self, value: V) -> Result<u32, ()> {
-        if self.tuples.len() == u32::MAX as usize {
+        if self.tuples.len() == self.capacity as usize {
             Err(())
         } else {
             loop {

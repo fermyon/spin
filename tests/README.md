@@ -42,11 +42,63 @@ docker compose                                          \
 
 ## Important files and their function
 
-`crates/e2e-testing`     - All the test framework/utilities that are required for `e2e-tests`
-`tests/testcases/mod.rs` - All the testcase definitions should be added here.
-`tests/spinup_tests.rs`  - All tests that we want to run with `Spin Up` should be added here
-`tests/testcases/<dirs>` - The testcases which require corresponding `spin app` pre-created should be added here
+`crates/e2e-testing`     - All the test framework/utilities that are required for `e2e-tests`<br/>
+`tests/testcases/mod.rs` - All the testcase definitions should be added here.<br/>
+`tests/spinup_tests.rs`  - All tests that we want to run with `Spin Up` should be added here<br/>
+`tests/testcases/<dirs>` - The testcases which require corresponding `spin app` pre-created should be added here<br/>
 
+## Key concepts and types
+
+### [trait Controller](../crates/e2e-testing/src/controller.rs#L12)
+
+This defines a trait which can be implemented by different deployment models (e.g. [`spin up`](../crates/e2e-testing/src/spin_controller.rs#L15) or `Fermyon Cloud`). Using this we can reuse the same testcases, which can be executed against these different deployment models (e.g. they may choose to have different way to start/stop the spin apps.)
+
+### [TestCase](../crates/e2e-testing/src/testcase.rs#L22)
+
+This helps us configure the different scenarios/steps which are required for running a specific test app. For example, [TestCase.trigger_type](../crates/e2e-testing/src/testcase.rs#L42) indicates the `trigger` a particular test app uses and [TestCase.plugins](../crates/e2e-testing/src/testcase.rs#L53) indicates which prerequisite [`plugins`](https://developer.fermyon.com/spin/plugin-authoring) are required to run this test app.
+
+Additionally, [TestCase.assertions](../crates/e2e-testing/src/testcase.rs#L68) is a dynamic function to run testcase-specific assertions. During execution, the assertions function is called with the input parameters of `AppMetadata` as well as handles to the `stdlog/stderr` logs streams. The idea is that inside this function you would trigger your app (`http` or `redis` etc) and then verify if the trigger was successful by verifying either `http response` or `stdout/stderr`.
+
+A basic assertion function for `http-trigger`
+
+```rust
+async fn checks(
+        metadata: AppMetadata,
+        _: Option<BufReader<ChildStdout>>,
+        _: Option<BufReader<ChildStderr>>,
+    ) -> Result<()> {
+        assert_http_response(metadata.base.as_str(), 200, &[], Some("Hello Fermyon!\n")).await
+}   
+```
+
+and for `redis-trigger`
+
+```rust
+async fn checks(
+    _: AppMetadata,
+    _: Option<BufReader<ChildStdout>>,
+    stderr_stream: Option<BufReader<ChildStderr>>,
+) -> Result<()> {
+    //TODO: wait for spin up to be ready dynamically
+    sleep(Duration::from_secs(10)).await;
+
+    utils::run(vec!["redis-cli", "-u", "redis://redis:6379", "PUBLISH", "redis-go-works-channel", "msg-from-go-channel",], None, None)?;
+
+    let stderr = utils::get_output_from_stderr(stderr_stream, Duration::from_secs(5)).await?;
+    let expected_logs = vec!["Payload::::", "msg-from-go-channel"];
+
+    assert!(expected_logs.iter().all(|item| stderr.contains(&item.to_string())));
+
+    Ok(())
+}
+
+```
+
+### [AppInstance](../crates/e2e-testing/src/controller.rs#L34)
+
+This object holds the information about the app running as part of the testcase, e.g. it has details of routes for verifying `http trigger`-based apps and has handles to `stdout/stderr` log streams to assert the log messages printed by `redis trigger` templates.
+
+It also holds a handle to the OS process which was started during the testcase execution. The testcase stops the process after the execution completes using the `controller.stop` method. This gives the control of how an app is run/stopped to the implementer of the specific deployment models.
 
 ## Writing new testcase
 

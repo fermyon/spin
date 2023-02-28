@@ -4516,7 +4516,6 @@ dependencies = [
  "itertools",
  "lazy_static",
  "mime_guess",
- "oci-distribution",
  "outbound-http",
  "path-absolutize",
  "regex",

@@ -16,7 +16,6 @@ glob = "0.3.0"
 itertools = "0.10.3"
 lazy_static = "1.4.0"
 mime_guess = { version = "2.0" }
-oci-distribution = { git = "https://github.com/radu-matei/oci-distribution", branch = "update-dockerhub-default-registry" }
 outbound-http = { path = "../outbound-http" }
 path-absolutize = "3.0.11"
 regex = "1.5.4"

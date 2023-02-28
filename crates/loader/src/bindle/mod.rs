@@ -7,6 +7,8 @@ mod assets;
 /// Configuration representation for a Spin application in Bindle.
 pub mod config;
 mod connection;
+/// Functions relating to Bindle deprecation.
+pub mod deprecation;
 /// Bindle helper functions.
 mod utils;
 

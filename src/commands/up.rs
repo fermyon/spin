@@ -8,7 +8,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use clap::{CommandFactory, Parser};
 use reqwest::Url;
 use spin_app::locked::LockedApp;
-use spin_loader::bindle::BindleConnectionInfo;
+use spin_loader::bindle::{deprecation::print_bindle_deprecation, BindleConnectionInfo};
 use spin_manifest::{Application, ApplicationTrigger};
 use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_WORKING_DIR};
 use tempfile::TempDir;
@@ -256,6 +256,10 @@ impl UpCommand {
                     TriggerExecOpts::NoApp,
                 )
                 .await;
+        }
+
+        if matches!(app_source, AppSource::Bindle(_)) {
+            print_bindle_deprecation();
         }
 
         let working_dir_holder = match &self.tmp {

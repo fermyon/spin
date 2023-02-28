@@ -9,7 +9,7 @@ use spin_app::{
     AppComponent, Loader,
 };
 use spin_core::StoreBuilder;
-use spin_loader::oci::cache::Cache;
+use spin_loader::cache::Cache;
 use url::Url;
 
 use crate::parse_file_url;

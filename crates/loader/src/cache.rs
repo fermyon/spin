@@ -1,7 +1,6 @@
 //! Cache for OCI registry entities.
 
 use anyhow::{bail, Context, Result};
-use oci_distribution::Reference;
 use tokio::fs;
 
 use std::path::{Path, PathBuf};
@@ -12,14 +11,10 @@ const MANIFESTS_DIR: &str = "manifests";
 const WASM_DIR: &str = "wasm";
 const DATA_DIR: &str = "data";
 
-const MANIFEST_FILE: &str = "manifest.json";
-const CONFIG_FILE: &str = "config.json";
-const LATEST_TAG: &str = "latest";
-
 /// Cache for registry entities.
 pub struct Cache {
     /// Root directory for the cache instance.
-    pub root: PathBuf,
+    root: PathBuf,
 }
 
 impl Cache {
@@ -38,7 +33,7 @@ impl Cache {
     }
 
     /// The manifests directory for the current cache.
-    fn manifests_dir(&self) -> PathBuf {
+    pub fn manifests_dir(&self) -> PathBuf {
         self.root.join(MANIFESTS_DIR)
     }
 
@@ -74,49 +69,6 @@ impl Cache {
                 digest.as_ref()
             )),
         }
-    }
-
-    /// Get the file path to an OCI manifest given a reference.
-    /// If the directory for the manifest does not exist, this will create it.
-    pub async fn oci_manifest_path(&self, reference: impl AsRef<str>) -> Result<PathBuf> {
-        let reference: Reference = reference
-            .as_ref()
-            .parse()
-            .context("cannot parse OCI reference")?;
-        let p = self
-            .manifests_dir()
-            .join(reference.registry())
-            .join(reference.repository())
-            .join(reference.tag().unwrap_or(LATEST_TAG));
-
-        if !p.is_dir() {
-            fs::create_dir_all(&p)
-                .await
-                .context("cannot find directory for OCI manifest")?;
-        }
-
-        Ok(p.join(MANIFEST_FILE))
-    }
-
-    /// Get the file path to the OCI configuration object given a reference.
-    pub async fn lockfile_path(&self, reference: impl AsRef<str>) -> Result<PathBuf> {
-        let reference: Reference = reference
-            .as_ref()
-            .parse()
-            .context("cannot parse reference")?;
-        let p = self
-            .manifests_dir()
-            .join(reference.registry())
-            .join(reference.repository())
-            .join(reference.tag().unwrap_or(LATEST_TAG));
-
-        if !p.is_dir() {
-            fs::create_dir_all(&p)
-                .await
-                .context("cannot find configuration object for reference")?;
-        }
-
-        Ok(p.join(CONFIG_FILE))
     }
 
     /// Write the contents in the cache's wasm directory.

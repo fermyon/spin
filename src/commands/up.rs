@@ -442,7 +442,6 @@ impl UpCommand {
             .context("cannot pull Spin application from registry")?;
 
         let app_path = client
-            .cache
             .lockfile_path(&reference)
             .await
             .context("cannot get path to spin.lock")?;

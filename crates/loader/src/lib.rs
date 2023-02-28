@@ -12,10 +12,10 @@
 
 mod assets;
 pub mod bindle;
+pub mod cache;
 mod common;
 pub mod digest;
 pub mod local;
-pub mod oci;
 
 /// Load a Spin application configuration from a spin.toml manifest file.
 pub use local::from_file;

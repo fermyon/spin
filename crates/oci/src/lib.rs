@@ -12,7 +12,7 @@ use oci_distribution::{
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use spin_app::locked::{ContentPath, ContentRef};
-use spin_loader::oci::cache::Cache;
+use spin_loader::cache::Cache;
 use spin_manifest::Application;
 use tokio::fs;
 use walkdir::WalkDir;
@@ -26,6 +26,10 @@ use std::{
 const SPIN_APPLICATION_MEDIA_TYPE: &str = "application/vnd.fermyon.spin.application.v1+config";
 const WASM_LAYER_MEDIA_TYPE: &str = "application/vnd.wasm.content.layer.v1+wasm";
 const DATA_MEDIATYPE: &str = "application/vnd.wasm.content.layer.v1+data";
+
+const CONFIG_FILE: &str = "config.json";
+const LATEST_TAG: &str = "latest";
+const MANIFEST_FILE: &str = "manifest.json";
 
 /// Client for interacting with an OCI registry for Spin applications.
 pub struct Client {
@@ -154,7 +158,7 @@ impl Client {
         tracing::debug!("Pulled manifest: {}", manifest_json);
 
         // Write the manifest in `<cache_root>/registry/oci/manifests/repository:<tag_or_latest>/manifest.json`
-        let m = self.cache.oci_manifest_path(&reference.to_string()).await?;
+        let m = self.manifest_path(&reference.to_string()).await?;
         fs::write(&m, &manifest_json).await?;
 
         let mut cfg_bytes = Vec::new();
@@ -165,7 +169,7 @@ impl Client {
         tracing::debug!("Pulled config: {}", cfg);
 
         // Write the config object in `<cache_root>/registry/oci/manifests/repository:<tag_or_latest>/config.json`
-        let c = self.cache.lockfile_path(&reference.to_string()).await?;
+        let c = self.lockfile_path(&reference.to_string()).await?;
         fs::write(&c, &cfg).await?;
 
         // If a layer is a Wasm module, write it in the Wasm directory.
@@ -203,6 +207,51 @@ impl Client {
             WASM_LAYER_MEDIA_TYPE.to_string(),
             None,
         ))
+    }
+
+    /// Get the file path to an OCI manifest given a reference.
+    /// If the directory for the manifest does not exist, this will create it.
+    async fn manifest_path(&self, reference: impl AsRef<str>) -> Result<PathBuf> {
+        let reference: Reference = reference
+            .as_ref()
+            .parse()
+            .context("cannot parse OCI reference")?;
+        let p = self
+            .cache
+            .manifests_dir()
+            .join(reference.registry())
+            .join(reference.repository())
+            .join(reference.tag().unwrap_or(LATEST_TAG));
+
+        if !p.is_dir() {
+            fs::create_dir_all(&p)
+                .await
+                .context("cannot find directory for OCI manifest")?;
+        }
+
+        Ok(p.join(MANIFEST_FILE))
+    }
+
+    /// Get the file path to the OCI configuration object given a reference.
+    pub async fn lockfile_path(&self, reference: impl AsRef<str>) -> Result<PathBuf> {
+        let reference: Reference = reference
+            .as_ref()
+            .parse()
+            .context("cannot parse reference")?;
+        let p = self
+            .cache
+            .manifests_dir()
+            .join(reference.registry())
+            .join(reference.repository())
+            .join(reference.tag().unwrap_or(LATEST_TAG));
+
+        if !p.is_dir() {
+            fs::create_dir_all(&p)
+                .await
+                .context("cannot find configuration object for reference")?;
+        }
+
+        Ok(p.join(CONFIG_FILE))
     }
 
     /// Create a new data layer based on a file.

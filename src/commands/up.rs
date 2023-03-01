@@ -213,33 +213,11 @@ impl UpCommand {
         }
     }
 
-    fn is_oci_like(source: &str) -> bool {
-        match oci_distribution::Reference::try_from(source) {
-            Err(_) => false,
-            Ok(r) => {
-                // A relative file path such as foo/spin.toml will successfully
-                // parse as an OCI reference, because the parser infers the Docker
-                // registry and the `latest` version.  So if the registry resolves
-                // to Docker, but the source *doesn't* contain the string 'docker',
-                // we can guess this is likely a false positive.
-                //
-                // This could be fooled by, e.g., dockerdemo/spin.toml.  But we only
-                // go down this path if the file does not exist, and the chances of
-                // a user choosing a filename containing 'docker' THAT ALSO does not
-                // exist are A MILLION TO ONE...
-                let spurious = r.registry().contains("docker")
-                    && !source.contains("docker")
-                    && r.tag() == Some("latest");
-                !spurious
-            }
-        }
-    }
-
     fn infer_source(source: &str) -> AppSource {
         let path = PathBuf::from(source);
         if path.exists() {
             Self::infer_file_source(path)
-        } else if Self::is_oci_like(source) {
+        } else if spin_oci::is_probably_oci_reference(source) {
             AppSource::OciRegistry(source.to_owned())
         } else {
             AppSource::Unresolvable(format!("File or directory '{source}' not found. If you meant to load from a registry, use the `--from-registry` option."))

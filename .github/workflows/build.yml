@@ -146,6 +146,7 @@ jobs:
       - name: setup dependencies
         uses: ./.github/actions/spin-ci-dependencies
         with:
+          rust: true
           bindle: true
           golang: true
           tinygo: true

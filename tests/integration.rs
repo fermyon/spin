@@ -22,8 +22,8 @@ mod integration_tests {
     const SPIN_BINARY: &str = "./target/debug/spin";
 
     // This module consist of all integration tests that require dependencies such as bindle-server, nomad, and Hippo.Web to be installed.
-    #[cfg(feature = "e2e-tests")]
-    mod e2e_tests {
+    #[cfg(feature = "fermyon-platform")]
+    mod fermyon_platform {
         use super::*;
         use hyper::header::HeaderName;
         use std::path::PathBuf;
@@ -613,61 +613,6 @@ mod integration_tests {
         Ok(())
     }
 
-    #[cfg(feature = "outbound-pg-tests")]
-    mod outbound_pg_tests {
-        use super::*;
-
-        const RUST_OUTBOUND_PG_INTEGRATION_TEST: &str = "tests/outbound-pg/http-rust-outbound-pg";
-
-        #[tokio::test]
-        async fn test_outbound_pg_rust_local() -> Result<()> {
-            let s = SpinTestController::with_manifest(
-                &format!(
-                    "{}/{}",
-                    RUST_OUTBOUND_PG_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
-                ),
-                &[],
-                &[],
-                None,
-            )
-            .await?;
-
-            assert_status(&s, "/test_numeric_types", 200).await?;
-            assert_status(&s, "/test_character_types", 200).await?;
-            assert_status(&s, "/test_general_types", 200).await?;
-            assert_status(&s, "/pg_backend_pid", 200).await?;
-
-            Ok(())
-        }
-    }
-
-    #[cfg(feature = "outbound-mysql-tests")]
-    mod outbound_mysql_tests {
-        use super::*;
-
-        const RUST_OUTBOUND_MYSQL_INTEGRATION_TEST: &str =
-            "tests/outbound-mysql/http-rust-outbound-mysql";
-
-        #[tokio::test]
-        async fn test_outbound_mysql_rust_local() -> Result<()> {
-            let s = SpinTestController::with_manifest(
-                &format!(
-                    "{}/{}",
-                    RUST_OUTBOUND_MYSQL_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
-                ),
-                &[],
-                &[],
-                None,
-            )
-            .await?;
-
-            assert_status(&s, "/test_numeric_types", 200).await?;
-            assert_status(&s, "/test_character_types", 200).await?;
-
-            Ok(())
-        }
-    }
-
     #[cfg(feature = "config-provider-tests")]
     mod config_provider_tests {
         use super::*;
@@ -847,7 +792,7 @@ mod integration_tests {
         }
 
         // Unfortunately, this is a lot of duplicated code.
-        #[cfg(feature = "e2e-tests")]
+        #[cfg(feature = "fermyon-platform")]
         pub async fn with_bindle(
             id: &str,
             bindle_url: &str,

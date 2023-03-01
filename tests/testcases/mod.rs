@@ -1,4 +1,4 @@
-#[cfg(feature = "new-e2e-tests")]
+#[cfg(feature = "e2e-tests")]
 pub mod all {
     use anyhow::Result;
     use e2e_testing::asserts::assert_http_response;
@@ -566,6 +566,63 @@ pub mod all {
                 "redis-address=redis://redis:6379".to_string(),
             ])
             .trigger_type("redis".to_string())
+            .assertions(
+                |metadata: AppMetadata,
+                 stdout_stream: Option<BufReader<ChildStdout>>,
+                 stderr_stream: Option<BufReader<ChildStderr>>| {
+                    Box::pin(checks(metadata, stdout_stream, stderr_stream))
+                },
+            )
+            .build()
+            .unwrap();
+
+        tc.run(controller).await.unwrap()
+    }
+
+    pub async fn http_rust_outbound_pg_works(controller: &dyn Controller) {
+        async fn checks(
+            metadata: AppMetadata,
+            _: Option<BufReader<ChildStdout>>,
+            _: Option<BufReader<ChildStderr>>,
+        ) -> Result<()> {
+            assert_http_response(
+                get_url(metadata.base.as_str(), "/test_numeric_types").as_str(),
+                200,
+                &[],
+                None,
+            )
+            .await?;
+
+            assert_http_response(
+                get_url(metadata.base.as_str(), "/test_character_types").as_str(),
+                200,
+                &[],
+                None,
+            )
+            .await?;
+
+            assert_http_response(
+                get_url(metadata.base.as_str(), "/test_general_types").as_str(),
+                200,
+                &[],
+                None,
+            )
+            .await?;
+
+            assert_http_response(
+                get_url(metadata.base.as_str(), "/pg_backend_pid").as_str(),
+                200,
+                &[],
+                None,
+            )
+            .await?;
+
+            Ok(())
+        }
+
+        let tc = TestCaseBuilder::default()
+            .name("http-rust-outbound-pg".to_string())
+            .appname(Some("http-rust-outbound-pg".to_string()))
             .assertions(
                 |metadata: AppMetadata,
                  stdout_stream: Option<BufReader<ChildStdout>>,

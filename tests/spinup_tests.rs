@@ -1,11 +1,11 @@
 mod testcases;
-#[cfg(feature = "new-e2e-tests")]
+#[cfg(feature = "e2e-tests")]
 use {e2e_testing::controller::Controller, e2e_testing::spin_controller::SpinUp};
 
-#[cfg(feature = "new-e2e-tests")]
+#[cfg(feature = "e2e-tests")]
 const CONTROLLER: &dyn Controller = &SpinUp {};
 
-#[cfg(feature = "new-e2e-tests")]
+#[cfg(feature = "e2e-tests")]
 mod spinup_tests {
     use super::testcases;
     use super::CONTROLLER;
@@ -69,6 +69,11 @@ mod spinup_tests {
     #[tokio::test]
     async fn http_rust_outbound_mysql_works() {
         testcases::all::http_rust_outbound_mysql_works(CONTROLLER).await
+    }
+
+    #[tokio::test]
+    async fn http_rust_outbound_pg_works() {
+        testcases::all::http_rust_outbound_pg_works(CONTROLLER).await
     }
 
     #[tokio::test]

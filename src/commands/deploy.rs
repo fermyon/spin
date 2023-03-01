@@ -295,6 +295,7 @@ impl DeployCommand {
                 &app_base_url,
                 &bindle_id.version_string(),
                 self.readiness_timeout_secs,
+                Destination::Platform,
             )
             .await;
             print_available_routes(&app_base_url, &http_config.base, &cfg);
@@ -418,6 +419,7 @@ impl DeployCommand {
                 &app_base_url,
                 &bindle_id.version_string(),
                 self.readiness_timeout_secs,
+                Destination::Cloud(connection_config.url),
             )
             .await;
             print_available_routes(&app_base_url, &http_config.base, &cfg);
@@ -656,7 +658,17 @@ async fn check_healthz(base_url: &Url) -> Result<()> {
 
 const READINESS_POLL_INTERVAL_SECS: u64 = 2;
 
-async fn wait_for_ready(app_base_url: &Url, bindle_version: &str, readiness_timeout_secs: u16) {
+enum Destination {
+    Cloud(String),
+    Platform,
+}
+
+async fn wait_for_ready(
+    app_base_url: &Url,
+    bindle_version: &str,
+    readiness_timeout_secs: u16,
+    destination: Destination,
+) {
     if readiness_timeout_secs == 0 {
         return;
     }
@@ -693,6 +705,9 @@ async fn wait_for_ready(app_base_url: &Url, bindle_version: &str, readiness_time
         if start.elapsed() >= readiness_timeout {
             println!();
             println!("Application deployed, but Spin could not establish readiness");
+            if let Destination::Cloud(url) = destination {
+                println!("Check the Fermyon Cloud dashboard to see the application status: {url}");
+            }
             return;
         }
         tokio::time::sleep(poll_interval).await;

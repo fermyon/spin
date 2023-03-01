@@ -138,7 +138,7 @@ fn inner_check_supported_version(
     let version = Version::parse(spin_version)?;
     if !comparator.matches(&version) {
         if !version.pre.is_empty() {
-            eprintln!("You're using a pre-release version of Spin ({spin_version}). This plugin might not be compatible (supported: {supported_on}).  Continuing anyway.");
+            eprintln!("You're using a pre-release version of Spin ({spin_version}). This plugin might not be compatible (supported: {supported_on}). Continuing anyway.");
         } else if override_compatibility_check {
             eprintln!("Plugin is not compatible with this version of Spin (supported: {supported_on}, actual: {spin_version}). Check overridden ... continuing to install or execute plugin.");
         } else {

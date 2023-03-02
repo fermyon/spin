@@ -1,0 +1,15 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "Spin application that tests the Spin key-value SDK"
+name = "key-value-test"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[[component]]
+id = "key-value-test"
+source = "target/wasm32-wasi/release/key_value_test.wasm"
+key_value_stores = ["default"]
+[component.trigger]
+route = "/..."
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

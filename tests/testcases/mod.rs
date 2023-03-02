@@ -6,6 +6,7 @@ pub mod all {
     use e2e_testing::metadata_extractor::AppMetadata;
     use e2e_testing::testcase::TestCaseBuilder;
     use e2e_testing::utils;
+    use hyper::Method;
     use std::time::Duration;
     use tokio::io::BufReader;
     use tokio::process::{ChildStderr, ChildStdout};
@@ -15,13 +16,106 @@ pub mod all {
         format!("{}{}", base, path)
     }
 
+    pub async fn key_value_works(controller: &dyn Controller) {
+        async fn checks(
+            metadata: AppMetadata,
+            // TODO: investigate why omitting these two next parameters does not
+            // cause a compile time error but causes a runtime one
+            _: Option<BufReader<ChildStdout>>,
+            _: Option<BufReader<ChildStderr>>,
+        ) -> Result<()> {
+            assert_http_response(
+                get_url(metadata.base.as_str(), "/test").as_str(),
+                Method::GET,
+                "",
+                200,
+                &[],
+                None,
+            )
+            .await?;
+            assert_http_response(
+                get_url(metadata.base.as_str(), "/key").as_str(),
+                Method::POST,
+                "value",
+                200,
+                &[],
+                None,
+            )
+            .await?;
+
+            // NOT_FOUND error should occur on unset key
+            assert_http_response(
+                get_url(metadata.base.as_str(), "/other").as_str(),
+                Method::GET,
+                "",
+                404,
+                &[],
+                None,
+            )
+            .await?;
+
+            // Set, Get, and Delete key/value across requests
+            assert_http_response(
+                get_url(metadata.base.as_str(), "/key").as_str(),
+                Method::GET,
+                "",
+                200,
+                &[],
+                Some("value"),
+            )
+            .await?;
+            assert_http_response(
+                get_url(metadata.base.as_str(), "/key").as_str(),
+                Method::DELETE,
+                "",
+                200,
+                &[],
+                None,
+            )
+            .await?;
+            assert_http_response(
+                get_url(metadata.base.as_str(), "/key").as_str(),
+                Method::GET,
+                "",
+                404,
+                &[],
+                None,
+            )
+            .await
+        }
+
+        let tc = TestCaseBuilder::default()
+            .name("key-value-test".to_string())
+            .appname(Some("key-value-test".to_string()))
+            .template(None)
+            .assertions(
+                |metadata: AppMetadata,
+                 stdout_stream: Option<BufReader<ChildStdout>>,
+                 stderr_stream: Option<BufReader<ChildStderr>>| {
+                    Box::pin(checks(metadata, stdout_stream, stderr_stream))
+                },
+            )
+            .build()
+            .unwrap();
+
+        tc.run(controller).await.unwrap()
+    }
+
     pub async fn http_go_works(controller: &dyn Controller) {
         async fn checks(
             metadata: AppMetadata,
             _: Option<BufReader<ChildStdout>>,
             _: Option<BufReader<ChildStderr>>,
         ) -> Result<()> {
-            assert_http_response(metadata.base.as_str(), 200, &[], Some("Hello Fermyon!\n")).await
+            assert_http_response(
+                metadata.base.as_str(),
+                Method::GET,
+                "",
+                200,
+                &[],
+                Some("Hello Fermyon!\n"),
+            )
+            .await
         }
 
         let tc = TestCaseBuilder::default()
@@ -48,6 +142,8 @@ pub mod all {
         ) -> Result<()> {
             assert_http_response(
                 metadata.base.as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 Some("Hello from WAGI/1\n"),
@@ -77,7 +173,15 @@ pub mod all {
             _: Option<BufReader<ChildStdout>>,
             _: Option<BufReader<ChildStderr>>,
         ) -> Result<()> {
-            assert_http_response(metadata.base.as_str(), 200, &[], Some("Hello, Fermyon")).await
+            assert_http_response(
+                metadata.base.as_str(),
+                Method::GET,
+                "",
+                200,
+                &[],
+                Some("Hello, Fermyon"),
+            )
+            .await
         }
 
         let tc = TestCaseBuilder::default()
@@ -102,7 +206,15 @@ pub mod all {
             _: Option<BufReader<ChildStdout>>,
             _: Option<BufReader<ChildStderr>>,
         ) -> Result<()> {
-            assert_http_response(metadata.base.as_str(), 200, &[], Some("Hello World!\n")).await
+            assert_http_response(
+                metadata.base.as_str(),
+                Method::GET,
+                "",
+                200,
+                &[],
+                Some("Hello World!\n"),
+            )
+            .await
         }
 
         let tc = TestCaseBuilder::default()
@@ -128,7 +240,15 @@ pub mod all {
             _: Option<BufReader<ChildStdout>>,
             _: Option<BufReader<ChildStderr>>,
         ) -> Result<()> {
-            assert_http_response(metadata.base.as_str(), 200, &[], Some("Hello, World\n")).await
+            assert_http_response(
+                metadata.base.as_str(),
+                Method::GET,
+                "",
+                200,
+                &[],
+                Some("Hello, World\n"),
+            )
+            .await
         }
 
         let tc = TestCaseBuilder::default()
@@ -153,7 +273,15 @@ pub mod all {
             _: Option<BufReader<ChildStdout>>,
             _: Option<BufReader<ChildStderr>>,
         ) -> Result<()> {
-            assert_http_response(metadata.base.as_str(), 200, &[], Some("Hello from TS-SDK")).await
+            assert_http_response(
+                metadata.base.as_str(),
+                Method::GET,
+                "",
+                200,
+                &[],
+                Some("Hello from TS-SDK"),
+            )
+            .await
         }
 
         let tc = TestCaseBuilder::default()
@@ -185,7 +313,15 @@ pub mod all {
             _: Option<BufReader<ChildStdout>>,
             _: Option<BufReader<ChildStderr>>,
         ) -> Result<()> {
-            assert_http_response(metadata.base.as_str(), 200, &[], Some("Hello from JS-SDK")).await
+            assert_http_response(
+                metadata.base.as_str(),
+                Method::GET,
+                "",
+                200,
+                &[],
+                Some("Hello from JS-SDK"),
+            )
+            .await
         }
 
         let tc = TestCaseBuilder::default()
@@ -219,6 +355,8 @@ pub mod all {
         ) -> Result<()> {
             assert_http_response(
                 get_url(metadata.base.as_str(), "/static/thisshouldbemounted/1").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 Some("1\n"),
@@ -227,6 +365,8 @@ pub mod all {
 
             assert_http_response(
                 get_url(metadata.base.as_str(), "/static/thisshouldbemounted/2").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 Some("2\n"),
@@ -235,6 +375,8 @@ pub mod all {
 
             assert_http_response(
                 get_url(metadata.base.as_str(), "/static/thisshouldbemounted/3").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 Some("3\n"),
@@ -243,6 +385,8 @@ pub mod all {
 
             assert_http_response(
                 get_url(metadata.base.as_str(), "/static/donotmount/a").as_str(),
+                Method::GET,
+                "",
                 404,
                 &[],
                 Some("Not Found"),
@@ -255,6 +399,8 @@ pub mod all {
                     "/static/thisshouldbemounted/thisshouldbeexcluded/4",
                 )
                 .as_str(),
+                Method::GET,
+                "",
                 404,
                 &[],
                 Some("Not Found"),
@@ -288,6 +434,8 @@ pub mod all {
         ) -> Result<()> {
             assert_http_response(
                 get_url(metadata.base.as_str(), "/test/hello").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 Some("I'm a teapot"),
@@ -300,6 +448,8 @@ pub mod all {
                     "/test/hello/wildcards/should/be/handled",
                 )
                 .as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 Some("I'm a teapot"),
@@ -308,6 +458,8 @@ pub mod all {
 
             assert_http_response(
                 get_url(metadata.base.as_str(), "/thisshouldfail").as_str(),
+                Method::GET,
+                "",
                 404,
                 &[],
                 None,
@@ -316,6 +468,8 @@ pub mod all {
 
             assert_http_response(
                 get_url(metadata.base.as_str(), "/test/hello/test-placement").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 Some("text for test"),
@@ -349,6 +503,8 @@ pub mod all {
         ) -> Result<()> {
             assert_http_response(
                 get_url(metadata.base.as_str(), "/env").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 Some("I'm a teapot"),
@@ -357,6 +513,8 @@ pub mod all {
 
             assert_http_response(
                 get_url(metadata.base.as_str(), "/env/foo").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[("env_some_key", "some_value")],
                 Some("I'm a teapot"),
@@ -390,6 +548,8 @@ pub mod all {
         ) -> Result<()> {
             assert_http_response(
                 get_url(metadata.base.as_str(), "/env").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 Some("I'm a teapot"),
@@ -398,6 +558,8 @@ pub mod all {
 
             assert_http_response(
                 get_url(metadata.base.as_str(), "/env/foo").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[("env_some_key", "some_value")],
                 Some("I'm a teapot"),
@@ -432,6 +594,8 @@ pub mod all {
         ) -> Result<()> {
             assert_http_response(
                 get_url(metadata.base.as_str(), "/test_numeric_types").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 None,
@@ -440,6 +604,8 @@ pub mod all {
 
             assert_http_response(
                 get_url(metadata.base.as_str(), "/test_character_types").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 None,
@@ -587,6 +753,8 @@ pub mod all {
         ) -> Result<()> {
             assert_http_response(
                 get_url(metadata.base.as_str(), "/test_numeric_types").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 None,
@@ -595,6 +763,8 @@ pub mod all {
 
             assert_http_response(
                 get_url(metadata.base.as_str(), "/test_character_types").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 None,
@@ -603,6 +773,8 @@ pub mod all {
 
             assert_http_response(
                 get_url(metadata.base.as_str(), "/test_general_types").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 None,
@@ -611,6 +783,8 @@ pub mod all {
 
             assert_http_response(
                 get_url(metadata.base.as_str(), "/pg_backend_pid").as_str(),
+                Method::GET,
+                "",
                 200,
                 &[],
                 None,

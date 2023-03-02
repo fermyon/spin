@@ -14,7 +14,7 @@ The goal of these tests is to ensure that spin continues to work with existing a
 
 ## How to run e2e tests
 
-```
+```sh
 ## go to root dir of the project, e2e-tests.Dockerfile is located there
 make test-spin-up
 ```
@@ -23,16 +23,16 @@ make test-spin-up
 
 By default, tests use the canary build of `spin` downloaded at the docker image creation time. If you want to test it with your changes, you can use the environment variable E2E_BUILD_SPIN=true
 
-```
+```sh
 E2E_BUILD_SPIN=true make test-spin-up
 ```
 
 ## Important files and their function
 
-`crates/e2e-testing`     - All the test framework/utilities that are required for `e2e-tests`<br/>
-`tests/testcases/mod.rs` - All the testcase definitions should be added here.<br/>
-`tests/spinup_tests.rs`  - All tests that we want to run with `Spin Up` should be added here<br/>
-`tests/testcases/<dirs>` - The testcases which require corresponding `spin app` pre-created should be added here<br/>
+* `crates/e2e-testing`     - All the test framework/utilities that are required for `e2e-tests`
+* `tests/testcases/mod.rs` - All the testcase definitions should be added here.
+* `tests/spinup_tests.rs`  - All tests that we want to run with `Spin Up` should be added here
+* `tests/testcases/<dirs>` - The testcases which require corresponding `spin app` pre-created should be added here
 
 ## Key concepts and types
 
@@ -99,7 +99,10 @@ Let us say we want to add a testcase `foo-env-test` for a specific scenario for 
 ```rust
 
 pub async fn foo_env_works(controller: &dyn Controller) {
-    fn checks(metadata: &AppMetadata) -> Result<()> {
+    async fn checks(
+            metadata: AppMetadata,
+            _: Option<BufReader<ChildStdout>>,
+            _: Option<BufReader<ChildStderr>>,) -> Result<()> {
         assert_http_response(
             get_url(metadata.base.as_str(), "/echo").as_str(),
             200,
@@ -110,17 +113,20 @@ pub async fn foo_env_works(controller: &dyn Controller) {
         Ok(())
     }
 
-    let tc = TestCase {
-        name: "foo-env-test".to_string(),
+        let tc = TestCaseBuilder::default()
+        .name("foo-env-test".to_string())
         //the appname should be same as dir where this app exists
-        appname: Some("foo-env-test".to_string()),
-        template: None,
-        template_install_args: None,
-        assertions: checks,
-        plugins: None,
-        deploy_args: None,
-        pre_build_hooks: None,
-    };
+        .appname(Some("foo-env-test".to_string()))
+        .template(None)
+        .assertions(
+            |metadata: AppMetadata,
+                stdout_stream: Option<BufReader<ChildStdout>>,
+                stderr_stream: Option<BufReader<ChildStderr>>| {
+                Box::pin(checks(metadata, stdout_stream, stderr_stream))
+            },
+        )
+        .build()
+        .unwrap();
 
     tc.run(controller).await.unwrap()
 }
@@ -133,7 +139,7 @@ pub async fn foo_env_works(controller: &dyn Controller) {
 ```rust
 #[tokio::test]
 async fn foo_env_works() {
-    testcases::foo_env_works(CONTROLLER).await
+    testcases::all::foo_env_works(CONTROLLER).await
 }
 ```
 
@@ -154,7 +160,9 @@ Let us say we want to add a testcase for a new template `foo-bar`. Following ste
 
 ```rust
 pub async fn foo_bar_works(controller: &dyn Controller) {
-    fn checks(metadata: &AppMetadata) -> Result<()> {
+    async fn checks(metadata: AppMetadata,
+            _: Option<BufReader<ChildStdout>>,
+            _: Option<BufReader<ChildStderr>>,) -> Result<()> {
         return assert_http_response(
             metadata.base.as_str(),
             200,
@@ -163,19 +171,22 @@ pub async fn foo_bar_works(controller: &dyn Controller) {
         );
     }
 
-    let tc = TestCase {
-        name: "foo-bar template".to_string(),
+        let tc = TestCaseBuilder::default()
+        .name("foo-bar template".to_string())
         // for template based tests, appname is generated on the fly
-        appname: None,
+        .appname(None)
         // this should be the name of the template used to 
         // create new app using `spin new <template-name> <app-name>
-        template: Some("foo-bar".to_string()),
-        template_install_args: None,
-        assertions: checks,
-        plugins: None,
-        deploy_args: None,
-        pre_build_hooks: None,
-    };
+        .template("foo-bar".to_string())
+        .assertions(
+            |metadata: AppMetadata,
+                stdout_stream: Option<BufReader<ChildStdout>>,
+                stderr_stream: Option<BufReader<ChildStderr>>| {
+                Box::pin(checks(metadata, stdout_stream, stderr_stream))
+            },
+        )
+        .build()
+        .unwrap();
 
     tc.run(controller).await.unwrap();
 }
@@ -194,7 +205,7 @@ async fn foo_bar_works() {
 
 3. Run the tests locally to verify
 
-```
+```sh
 ## go to root dir of the project, e2e-tests.Dockerfile is located there
 docker build -t spin-e2e-tests -f e2e-tests.Dockerfile .
 docker compose -f e2e-tests-docker-compose.yml run e2e-tests

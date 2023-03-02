@@ -1,6 +1,7 @@
 package postgres
 
 // #include "outbound-pg.h"
+// #include<stdlib.h>
 import "C"
 
 import "unsafe"

@@ -34,13 +34,13 @@ $(EXAMPLES_DIR)/%/main.wasm: $(EXAMPLES_DIR)/%/main.go
 # ----------------------------------------------------------------------
 # Generate C bindings
 # ----------------------------------------------------------------------
-GENERATED_SPIN_CONFIG       = config/spin-config.c config/spin-config.h
-GENERATED_OUTBOUND_HTTP     = http/wasi-outbound-http.c http/wasi-outbound-http.h
-GENERATED_SPIN_HTTP         = http/spin-http.c http/spin-http.h
-GENERATED_OUTBOUND_REDIS    = redis/outbound-redis.c redis/outbound-redis.h
-GENERATED_SPIN_REDIS        = redis/spin-redis.c redis/spin-redis.h
-GENERATED_KEY_VALUE         = key_value/key-value.c key_value/key-value.h
-GENERATED_OUTBOUND_POSTGRES = outbound_postgres/outbound_postgres.c outbound_postgres/outbound_postgres.h
+GENERATED_SPIN_CONFIG     = config/spin-config.c config/spin-config.h
+GENERATED_OUTBOUND_HTTP   = http/wasi-outbound-http.c http/wasi-outbound-http.h
+GENERATED_SPIN_HTTP       = http/spin-http.c http/spin-http.h
+GENERATED_OUTBOUND_REDIS  = redis/outbound-redis.c redis/outbound-redis.h
+GENERATED_SPIN_REDIS      = redis/spin-redis.c redis/spin-redis.h
+GENERATED_KEY_VALUE       = key_value/key-value.c key_value/key-value.h
+GENERATED_OUTBOUND_PG     = postgres/outbound-pg.c postgres/outbound-pg.h
 
 SDK_VERSION_SOURCE_FILE  = sdk_version/sdk-version-go-template.c
 
@@ -53,7 +53,7 @@ generate: $(GENERATED_OUTBOUND_HTTP) $(GENERATED_SPIN_HTTP)
 generate: $(GENERATED_OUTBOUND_REDIS) $(GENERATED_SPIN_REDIS)
 generate: $(GENERATED_SPIN_CONFIG) $(GENERATED_KEY_VALUE)
 generate: $(SDK_VERSION_DEST_FILES)
-generate: $(GENERATED_OUTBOUND_POSTGRES)
+generate: $(GENERATED_OUTBOUND_PG)
 
 $(SDK_VERSION_DEST_FILES): $(SDK_VERSION_SOURCE_FILE)
 	export version="$$(cd ../rust && cargo run)"; \
@@ -78,8 +78,8 @@ $(GENERATED_SPIN_REDIS):
 $(GENERATED_KEY_VALUE):
 	wit-bindgen c --import ../../wit/ephemeral/key-value.wit --out-dir ./key_value
 
-$(GENERATED_OUTBOUND_POSTGRES):
-	wit-bindgen c --import ../../wit/ephemeral/outbound-pg.wit --out-dir ./outbound_postgres
+$(GENERATED_OUTBOUND_PG):
+	wit-bindgen c --import ../../wit/ephemeral/outbound-pg.wit --out-dir ./postgres
 
 # ----------------------------------------------------------------------
 # Cleanup
@@ -90,7 +90,7 @@ clean:
 	rm -f $(GENERATED_OUTBOUND_HTTP) $(GENERATED_SPIN_HTTP)
 	rm -f $(GENERATED_OUTBOUND_REDIS) $(GENERATED_SPIN_REDIS)
 	rm -f $(GENERATED_KEY_VALUE) $(GENERATED_SDK_VERSION)
-	rm -f $(GENERATED_OUTBOUND_POSTGRES)
+	rm -f $(GENERATED_OUTBOUND_PG)
 	rm -f http/testdata/http-tinygo/main.wasm
 	rm -f $(EXAMPLES_DIR)/http-tinygo/main.wasm
 	rm -f $(EXAMPLES_DIR)/http-tinygo-outbound-http/main.wasm

@@ -25,7 +25,6 @@ use spin_config::{
 };
 use spin_core::{Config, Engine, EngineBuilder, Instance, InstancePre, Store, StoreBuilder};
 
-const SPIN_HOME: &str = ".spin";
 const SPIN_CONFIG_ENV_PREFIX: &str = "SPIN_APP";
 const DEFAULT_SQLITE_DB_DIRECTORY: &str = ".spin";
 const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_key_value.db";

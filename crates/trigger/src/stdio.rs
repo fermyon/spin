@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Context, Result};
 
-use crate::{TriggerHooks, SPIN_HOME};
+use crate::TriggerHooks;
 
 /// Which components should have their logs followed on stdout/stderr.
 #[derive(Clone, Debug)]
@@ -54,13 +54,10 @@ impl StdioLoggingTriggerHooks {
         &self,
         component_id: &str,
         log_suffix: &str,
+        log_dir: &Path,
     ) -> Result<ComponentStdioWriter> {
         let sanitized_component_id = sanitize_filename::sanitize(component_id);
-        let log_path = self
-            .log_dir
-            .as_deref()
-            .expect("log_dir should have been initialized in app_loaded")
-            .join(format!("{sanitized_component_id}_{log_suffix}.txt"));
+        let log_path = log_dir.join(format!("{sanitized_component_id}_{log_suffix}.txt"));
         let follow = self.follow_components.should_follow(component_id);
         ComponentStdioWriter::new(&log_path, follow)
             .with_context(|| format!("Failed to open log file {log_path:?}"))
@@ -88,22 +85,14 @@ impl StdioLoggingTriggerHooks {
 
 impl TriggerHooks for StdioLoggingTriggerHooks {
     fn app_loaded(&mut self, app: &spin_app::App) -> anyhow::Result<()> {
-        let app_name: &str = app.require_metadata("name")?;
-
         self.validate_follows(app)?;
 
-        // Set default log_dir (if not explicitly passed)
-        let log_dir = self.log_dir.get_or_insert_with(|| {
-            let parent_dir = match dirs::home_dir() {
-                Some(home) => home.join(SPIN_HOME),
-                None => PathBuf::new(), // "./"
-            };
-            let sanitized_app = sanitize_filename::sanitize(app_name);
-            parent_dir.join(sanitized_app).join("logs")
-        });
-        // Ensure log dir exists
-        std::fs::create_dir_all(&log_dir)
-            .with_context(|| format!("Failed to create log dir {log_dir:?}"))?;
+        // Ensure log dir exists if set
+        if let Some(l) = &self.log_dir {
+            std::fs::create_dir_all(l)
+                .with_context(|| format!("Failed to create log dir {l:?}"))?;
+        }
+
         Ok(())
     }
 
@@ -112,8 +101,17 @@ impl TriggerHooks for StdioLoggingTriggerHooks {
         component: spin_app::AppComponent,
         builder: &mut spin_core::StoreBuilder,
     ) -> anyhow::Result<()> {
-        builder.stdout_pipe(self.component_stdio_writer(component.id(), "stdout")?);
-        builder.stderr_pipe(self.component_stdio_writer(component.id(), "stderr")?);
+        match &self.log_dir {
+            Some(l) => {
+                builder.stdout_pipe(self.component_stdio_writer(component.id(), "stdout", l)?);
+                builder.stderr_pipe(self.component_stdio_writer(component.id(), "stderr", l)?);
+            }
+            None => {
+                builder.inherit_stdout();
+                builder.inherit_stderr();
+            }
+        }
+
         Ok(())
     }
 }

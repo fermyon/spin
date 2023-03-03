@@ -52,7 +52,7 @@ jobs:
           use-tool-cache: true
 
       - name: Cargo Tarpaulin
-        run: cargo tarpaulin --follow-exec --skip-clean -t 6000 --out xml --features openssl/vendored,default,e2e-tests
+        run: cargo tarpaulin --follow-exec --skip-clean -t 6000 --out xml --features openssl/vendored,default,fermyon-platform
         env:
           RUST_LOG: spin=trace
 

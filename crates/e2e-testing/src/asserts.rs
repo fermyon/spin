@@ -1,11 +1,11 @@
 use anyhow::Result;
 use hyper::client::HttpConnector;
-use hyper::{body, Body, Client, Request, Response};
+use hyper::{body, Body, Client, Method, Request, Response};
 use hyper_tls::HttpsConnector;
 use std::str;
 
 pub async fn assert_status(url: &str, expected: u16) -> Result<()> {
-    let resp = make_request("GET", url, "").await?;
+    let resp = make_request(Method::GET, url, "").await?;
     let status = resp.status();
 
     let response = body::to_bytes(resp.into_body()).await.unwrap().to_vec();
@@ -18,11 +18,13 @@ pub async fn assert_status(url: &str, expected: u16) -> Result<()> {
 
 pub async fn assert_http_response(
     url: &str,
+    method: Method,
+    body: &str,
     expected: u16,
     expected_headers: &[(&str, &str)],
     expected_body: Option<&str>,
 ) -> Result<()> {
-    let res = make_request("GET", url, "").await?;
+    let res = make_request(method, url, body).await?;
 
     let status = res.status();
     assert_eq!(expected, status.as_u16());
@@ -47,7 +49,7 @@ pub async fn assert_http_response(
     Ok(())
 }
 
-pub async fn create_request(method: &str, url: &str, body: &str) -> Result<Request<Body>> {
+pub async fn create_request(method: Method, url: &str, body: &str) -> Result<Request<Body>> {
     let req = Request::builder()
         .method(method)
         .uri(url)
@@ -62,10 +64,9 @@ pub fn create_client() -> Client<HttpsConnector<HttpConnector>> {
     Client::builder().build::<_, hyper::Body>(connector)
 }
 
-pub async fn make_request(method: &str, path: &str, body: &str) -> Result<Response<Body>> {
+pub async fn make_request(method: Method, path: &str, body: &str) -> Result<Response<Body>> {
     let c = create_client();
     let req = create_request(method, path, body);
-
     let resp = c.request(req.await?).await.unwrap();
     Ok(resp)
 }

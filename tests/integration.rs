@@ -15,7 +15,7 @@ mod integration_tests {
     use tokio::{net::TcpStream, time::sleep};
 
     const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
-    const RUST_HTTP_KEY_VALUE_TEST: &str = "tests/http/key-value";
+    const RUST_HTTP_KEY_VALUE_TEST: &str = "tests/testcases/key-value";
 
     const DEFAULT_MANIFEST_LOCATION: &str = "spin.toml";
 

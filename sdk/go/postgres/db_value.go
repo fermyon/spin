@@ -23,6 +23,26 @@ const (
 	DbValueKindUnsupported
 )
 
+func (k DbValueKind) String() string {
+	return [...]string{
+		"DbValueKindBoolean",
+		"DbValueKindInt8",
+		"DbValueKindInt16",
+		"DbValueKindInt32",
+		"DbValueKindInt64",
+		"DbValueKindUint8",
+		"DbValueKindUint16",
+		"DbValueKindUint32",
+		"DbValueKindUint64",
+		"DbValueKindFloating32",
+		"DbValueKindFloating64",
+		"DbValueKindStr",
+		"DbValueKindBinary",
+		"DbValueKindDbNull",
+		"DbValueKindUnsupported",
+	}[k]
+}
+
 type DbValue struct {
 	kind DbValueKind
 	val  interface{}
@@ -38,7 +58,7 @@ func DbValueBoolean(v bool) DbValue {
 
 func (n DbValue) GetBoolean() bool {
 	if g, w := n.Kind(), DbValueKindBoolean; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(bool)
 }
@@ -54,7 +74,7 @@ func DbValueInt8(v int8) DbValue {
 
 func (n DbValue) GetInt8() int8 {
 	if g, w := n.Kind(), DbValueKindInt8; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(int8)
 }
@@ -70,7 +90,7 @@ func DbValueInt16(v int16) DbValue {
 
 func (n DbValue) GetInt16() int16 {
 	if g, w := n.Kind(), DbValueKindInt16; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(int16)
 }
@@ -86,7 +106,7 @@ func DbValueInt32(v int32) DbValue {
 
 func (n DbValue) GetInt32() int32 {
 	if g, w := n.Kind(), DbValueKindInt32; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(int32)
 }
@@ -102,7 +122,7 @@ func DbValueInt64(v int64) DbValue {
 
 func (n DbValue) GetInt64() int64 {
 	if g, w := n.Kind(), DbValueKindInt64; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(int64)
 }
@@ -118,7 +138,7 @@ func DbValueUint8(v uint8) DbValue {
 
 func (n DbValue) GetUint8() uint8 {
 	if g, w := n.Kind(), DbValueKindUint8; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(uint8)
 }
@@ -134,7 +154,7 @@ func DbValueUint16(v uint16) DbValue {
 
 func (n DbValue) GetUint16() uint16 {
 	if g, w := n.Kind(), DbValueKindUint16; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(uint16)
 }
@@ -150,7 +170,7 @@ func DbValueUint32(v uint32) DbValue {
 
 func (n DbValue) GetUint32() uint32 {
 	if g, w := n.Kind(), DbValueKindUint32; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(uint32)
 }
@@ -166,7 +186,7 @@ func DbValueUint64(v uint64) DbValue {
 
 func (n DbValue) GetUint64() uint64 {
 	if g, w := n.Kind(), DbValueKindUint64; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(uint64)
 }
@@ -182,7 +202,7 @@ func DbValueFloating32(v float32) DbValue {
 
 func (n DbValue) GetFloating32() float32 {
 	if g, w := n.Kind(), DbValueKindFloating32; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(float32)
 }
@@ -198,7 +218,7 @@ func DbValueFloating64(v float64) DbValue {
 
 func (n DbValue) GetFloating64() float64 {
 	if g, w := n.Kind(), DbValueKindFloating64; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(float64)
 }
@@ -214,7 +234,7 @@ func DbValueStr(v string) DbValue {
 
 func (n DbValue) GetStr() string {
 	if g, w := n.Kind(), DbValueKindStr; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(string)
 }
@@ -230,7 +250,7 @@ func DbValueBinary(v []uint8) DbValue {
 
 func (n DbValue) GetBinary() []uint8 {
 	if g, w := n.Kind(), DbValueKindBinary; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.([]uint8)
 }

@@ -14,6 +14,17 @@ const (
 	PgErrorKindOtherError
 )
 
+func (k PgErrorKind) String() string {
+	return [...]string{
+		"PgErrorKindSuccess",
+		"PgErrorKindConnectionFailed",
+		"PgErrorKindBadParameter",
+		"PgErrorKindQueryFailed",
+		"PgErrorKindValueConversionFailed",
+		"PgErrorKindOtherError",
+	}[k]
+}
+
 type PgError struct {
 	kind PgErrorKind
 	val  interface{}
@@ -33,7 +44,7 @@ func PgErrorConnectionFailed(v string) PgError {
 
 func (n PgError) GetConnectionFailed() string {
 	if g, w := n.Kind(), PgErrorKindConnectionFailed; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(string)
 }
@@ -49,7 +60,7 @@ func PgErrorBadParameter(v string) PgError {
 
 func (n PgError) GetBadParameter() string {
 	if g, w := n.Kind(), PgErrorKindBadParameter; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(string)
 }
@@ -65,7 +76,7 @@ func PgErrorQueryFailed(v string) PgError {
 
 func (n PgError) GetQueryFailed() string {
 	if g, w := n.Kind(), PgErrorKindQueryFailed; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(string)
 }
@@ -81,7 +92,7 @@ func PgErrorValueConversionFailed(v string) PgError {
 
 func (n PgError) GetValueConversionFailed() string {
 	if g, w := n.Kind(), PgErrorKindValueConversionFailed; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(string)
 }
@@ -97,7 +108,7 @@ func PgErrorOtherError(v string) PgError {
 
 func (n PgError) GetOtherError() string {
 	if g, w := n.Kind(), PgErrorKindOtherError; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(string)
 }

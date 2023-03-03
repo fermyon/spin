@@ -22,6 +22,25 @@ const (
 	ParameterValueKindDbNull
 )
 
+func (k ParameterValueKind) String() string {
+	return [...]string{
+		"ParameterValueKindBoolean",
+		"ParameterValueKindInt8",
+		"ParameterValueKindInt16",
+		"ParameterValueKindInt32",
+		"ParameterValueKindInt64",
+		"ParameterValueKindUint8",
+		"ParameterValueKindUint16",
+		"ParameterValueKindUint32",
+		"ParameterValueKindUint64",
+		"ParameterValueKindFloating32",
+		"ParameterValueKindFloating64",
+		"ParameterValueKindStr",
+		"ParameterValueKindBinary",
+		"ParameterValueKindDbNull",
+	}[k]
+}
+
 type ParameterValue struct {
 	kind ParameterValueKind
 	val  interface{}
@@ -37,7 +56,7 @@ func ParameterValueBoolean(v bool) ParameterValue {
 
 func (n ParameterValue) GetBoolean() bool {
 	if g, w := n.Kind(), ParameterValueKindBoolean; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(bool)
 }
@@ -53,7 +72,7 @@ func ParameterValueInt8(v int8) ParameterValue {
 
 func (n ParameterValue) GetInt8() int8 {
 	if g, w := n.Kind(), ParameterValueKindInt8; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(int8)
 }
@@ -69,7 +88,7 @@ func ParameterValueInt16(v int16) ParameterValue {
 
 func (n ParameterValue) GetInt16() int16 {
 	if g, w := n.Kind(), ParameterValueKindInt16; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(int16)
 }
@@ -85,7 +104,7 @@ func ParameterValueInt32(v int32) ParameterValue {
 
 func (n ParameterValue) GetInt32() int32 {
 	if g, w := n.Kind(), ParameterValueKindInt32; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(int32)
 }
@@ -101,7 +120,7 @@ func ParameterValueInt64(v int64) ParameterValue {
 
 func (n ParameterValue) GetInt64() int64 {
 	if g, w := n.Kind(), ParameterValueKindInt64; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(int64)
 }
@@ -117,7 +136,7 @@ func ParameterValueUint8(v uint8) ParameterValue {
 
 func (n ParameterValue) GetUint8() uint8 {
 	if g, w := n.Kind(), ParameterValueKindUint8; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(uint8)
 }
@@ -133,7 +152,7 @@ func ParameterValueUint16(v uint16) ParameterValue {
 
 func (n ParameterValue) GetUint16() uint16 {
 	if g, w := n.Kind(), ParameterValueKindUint16; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(uint16)
 }
@@ -149,7 +168,7 @@ func ParameterValueUint32(v uint32) ParameterValue {
 
 func (n ParameterValue) GetUint32() uint32 {
 	if g, w := n.Kind(), ParameterValueKindUint32; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(uint32)
 }
@@ -165,7 +184,7 @@ func ParameterValueUint64(v uint64) ParameterValue {
 
 func (n ParameterValue) GetUint64() uint64 {
 	if g, w := n.Kind(), ParameterValueKindUint64; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(uint64)
 }
@@ -181,7 +200,7 @@ func ParameterValueFloating32(v float32) ParameterValue {
 
 func (n ParameterValue) GetFloating32() float32 {
 	if g, w := n.Kind(), ParameterValueKindFloating32; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(float32)
 }
@@ -197,7 +216,7 @@ func ParameterValueFloating64(v float64) ParameterValue {
 
 func (n ParameterValue) GetFloating64() float64 {
 	if g, w := n.Kind(), ParameterValueKindFloating64; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(float64)
 }
@@ -213,7 +232,7 @@ func ParameterValueStr(v string) ParameterValue {
 
 func (n ParameterValue) GetStr() string {
 	if g, w := n.Kind(), ParameterValueKindStr; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.(string)
 }
@@ -229,7 +248,7 @@ func ParameterValueBinary(v []uint8) ParameterValue {
 
 func (n ParameterValue) GetBinary() []uint8 {
 	if g, w := n.Kind(), ParameterValueKindBinary; g != w {
-		panic(fmt.Sprintf("Attr kind is %v, not %v", g, w))
+		panic(fmt.Sprintf("Attr kind is %v, not %v", g.String(), w.String()))
 	}
 	return n.val.([]uint8)
 }

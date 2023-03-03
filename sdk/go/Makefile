@@ -27,6 +27,7 @@ build-examples: $(EXAMPLES_DIR)/http-tinygo/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-outbound-redis/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-redis/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-key-value/main.wasm
+build-examples: $(EXAMPLES_DIR)/tinygo-outbound-pg/main.wasm
 
 $(EXAMPLES_DIR)/%/main.wasm: $(EXAMPLES_DIR)/%/main.go
 	tinygo build -target=wasi -gc=leaking -no-debug -o $@ $<
@@ -97,4 +98,5 @@ clean:
 	rm -f $(EXAMPLES_DIR)/tinygo-outbound-redis/main.wasm
 	rm -f $(EXAMPLES_DIR)/tinygo-redis/main.wasm
 	rm -f $(EXAMPLES_DIR)/tinygo-key-value/main.wasm
+	rm -f $(EXAMPLES_DIR)/tinygo-outbound-pg/main.wasm
 	rm -f $(SDK_VERSION_DEST_FILES)

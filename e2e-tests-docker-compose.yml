@@ -32,11 +32,20 @@ services:
       - "6379:6379"
     restart: always
 
+  registry:
+    image: ${REGISTRY_IMAGE:-registry:2}
+    ports:
+      - "5000:5000"
+    restart: always
+    environment:
+      - REGISTRY_HTTP_SECRET=secret
+
   e2e-tests:
     depends_on:
       - mysql
       - redis
       - postgres
+      - registry
     image: spin-e2e-tests
     entrypoint: cargo test spinup_tests --features e2e-tests --no-fail-fast -- --nocapture
     volumes:

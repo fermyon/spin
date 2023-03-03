@@ -92,8 +92,7 @@ pub async fn wait_tcp(url: &str, process: &mut tokio::process::Child, target: &s
 
         match TcpStream::connect(&url).await {
             Ok(_) => break,
-            Err(e) => {
-                println!("connect {} error {}, retry {}", &url, e, wait_count);
+            Err(_) => {
                 wait_count += 1;
                 sleep(Duration::from_secs(1)).await;
             }

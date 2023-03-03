@@ -1,0 +1,30 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A longevity test for verifying backward compatible runtime"
+name = "longevity-test"
+trigger = {type = "http", base = "/"}
+version = "1.0.0"
+
+[[component]]
+id = "go"
+source = "longevity-go.wasm"
+[component.trigger]
+route = "/golang/..."
+
+[[component]]
+id = "rust"
+source = "longevity-rust.wasm"
+[component.trigger]
+route = "/rust/..."
+
+[[component]]
+id = "typescript"
+source = "longevity-typescript.wasm"
+[component.trigger]
+route = "/typescript/..."
+
+[[component]]
+id = "javascript"
+source = "longevity-javascript.wasm"
+[component.trigger]
+route = "/javascript/..."

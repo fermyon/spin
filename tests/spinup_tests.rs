@@ -52,6 +52,22 @@ mod spinup_tests {
     }
 
     #[tokio::test]
+    async fn http_python_works() {
+        testcases::all::http_python_works(CONTROLLER).await
+    }
+
+    #[tokio::test]
+    #[ignore] // https://github.com/fermyon/spin/issues/1210
+    async fn http_php_works() {
+        testcases::all::http_php_works(CONTROLLER).await
+    }
+
+    #[tokio::test]
+    async fn http_swift_works() {
+        testcases::all::http_swift_works(CONTROLLER).await
+    }
+
+    #[tokio::test]
     async fn assets_routing_works() {
         testcases::all::assets_routing_works(CONTROLLER).await
     }
@@ -89,5 +105,15 @@ mod spinup_tests {
     #[tokio::test]
     async fn redis_rust_works() {
         testcases::all::redis_rust_works(CONTROLLER).await
+    }
+
+    #[tokio::test]
+    async fn registry_works() {
+        testcases::all::registry_works(CONTROLLER).await
+    }
+
+    #[tokio::test]
+    async fn longevity_apps_works() {
+        testcases::all::longevity_apps_works(CONTROLLER).await
     }
 }

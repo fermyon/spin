@@ -43,7 +43,7 @@ test-unit:
 	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --skip integration_tests --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-integration
-test-integration:
+test-integration: test-kv
 	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast -- --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-fermyon-platform
@@ -56,6 +56,10 @@ test-spin-up:
 	docker build -t spin-e2e-tests --build-arg BUILD_SPIN=$(E2E_BUILD_SPIN) -f $(E2E_TESTS_DOCKERFILE) .
 	REDIS_IMAGE=$(REDIS_IMAGE) MYSQL_IMAGE=$(MYSQL_IMAGE) POSTGRES_IMAGE=$(POSTGRES_IMAGE) \
 	docker compose -f e2e-tests-docker-compose.yml run $(E2E_VOLUME_MOUNT) e2e-tests 
+
+.PHONY: test-kv
+test-kv:
+	RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::key_value_works --nocapture
 
 .PHONY: test-outbound-redis
 test-outbound-redis:

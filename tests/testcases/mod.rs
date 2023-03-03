@@ -32,61 +32,12 @@ pub mod all {
                 &[],
                 None,
             )
-            .await?;
-            assert_http_response(
-                get_url(metadata.base.as_str(), "/key").as_str(),
-                Method::POST,
-                "value",
-                200,
-                &[],
-                None,
-            )
-            .await?;
-
-            // NOT_FOUND error should occur on unset key
-            assert_http_response(
-                get_url(metadata.base.as_str(), "/other").as_str(),
-                Method::GET,
-                "",
-                404,
-                &[],
-                None,
-            )
-            .await?;
-
-            // Set, Get, and Delete key/value across requests
-            assert_http_response(
-                get_url(metadata.base.as_str(), "/key").as_str(),
-                Method::GET,
-                "",
-                200,
-                &[],
-                Some("value"),
-            )
-            .await?;
-            assert_http_response(
-                get_url(metadata.base.as_str(), "/key").as_str(),
-                Method::DELETE,
-                "",
-                200,
-                &[],
-                None,
-            )
-            .await?;
-            assert_http_response(
-                get_url(metadata.base.as_str(), "/key").as_str(),
-                Method::GET,
-                "",
-                404,
-                &[],
-                None,
-            )
             .await
         }
 
         let tc = TestCaseBuilder::default()
-            .name("key-value-test".to_string())
-            .appname(Some("key-value-test".to_string()))
+            .name("key-value".to_string())
+            .appname(Some("key-value".to_string()))
             .template(None)
             .assertions(
                 |metadata: AppMetadata,

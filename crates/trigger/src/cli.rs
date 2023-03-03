@@ -10,8 +10,8 @@ use tokio::{
 
 use spin_app::Loader;
 
+use crate::stdio::StdioLoggingTriggerHooks;
 use crate::{config::TriggerExecutorBuilderConfig, loader::TriggerLoader, stdio::FollowComponents};
-use crate::{loader::OciTriggerLoader, stdio::StdioLoggingTriggerHooks};
 use crate::{TriggerExecutor, TriggerExecutorBuilder};
 
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
@@ -93,10 +93,6 @@ where
 
     #[clap(long = "help-args-only", hide = true)]
     pub help_args_only: bool,
-
-    /// Load the application from the registry.
-    #[clap(long = "from-registry", hide = true)]
-    pub from_registry: bool,
 }
 
 /// An empty implementation of clap::Args to be used as TriggerExecutor::RunConfig
@@ -123,14 +119,8 @@ where
         let working_dir = std::env::var(SPIN_WORKING_DIR).context(SPIN_WORKING_DIR)?;
         let locked_url = std::env::var(SPIN_LOCKED_URL).context(SPIN_LOCKED_URL)?;
 
-        let executor = if self.from_registry {
-            let loader =
-                OciTriggerLoader::new(working_dir, self.allow_transient_write, None).await?;
-            self.build_executor(loader, locked_url).await?
-        } else {
-            let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
-            self.build_executor(loader, locked_url).await?
-        };
+        let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
+        let executor = self.build_executor(loader, locked_url).await?;
 
         let run_fut = executor.run(self.run_config);
 
@@ -172,21 +162,11 @@ where
     }
 
     pub fn log_dir(&self) -> Option<PathBuf> {
-        match &self.log {
-            Some(l) => Some(l),
-            None => {
-                if !self.from_registry {
-                    if let Ok(dir) = std::env::var(SPIN_STATE_DIR) {
-                        let s = PathBuf::from(dir).join("logs");
-                        return Some(s);
-                    } else {
-                        tracing::info!("Unable to retrieve SPIN_STATE_DIR environment variable to persist logs",);
-                    };
-                }
-                return None;
-            }
-        };
-        None
+        self.log.clone().or_else(|| {
+            std::env::var(SPIN_STATE_DIR)
+                .ok()
+                .map(|dir| PathBuf::from(dir).join("logs"))
+        })
     }
 
     pub fn follow_components(&self) -> FollowComponents {

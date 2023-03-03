@@ -10,6 +10,7 @@ use reqwest::Url;
 use spin_app::locked::LockedApp;
 use spin_loader::bindle::{deprecation::print_bindle_deprecation, BindleConnectionInfo};
 use spin_manifest::{Application, ApplicationOrigin, ApplicationTrigger};
+use spin_oci::OciLoader;
 use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_STATE_DIR, SPIN_WORKING_DIR};
 use tempfile::TempDir;
 
@@ -288,14 +289,10 @@ impl UpCommand {
             TriggerExecOpts::Remote {
                 locked_url,
                 working_dir,
-                from_registry,
             } => {
                 cmd.env(SPIN_LOCKED_URL, locked_url)
                     .env(SPIN_WORKING_DIR, &working_dir)
                     .args(&self.trigger_args);
-                if from_registry {
-                    cmd.arg("--from-registry");
-                }
             }
         }
 
@@ -358,7 +355,6 @@ impl UpCommand {
         &self,
         mut locked_app: LockedApp,
         working_dir: PathBuf,
-        needs_registry_flag: bool,
     ) -> Result<(Vec<String>, TriggerExecOpts)> {
         // Apply --env to component environments
         if !self.env.is_empty() {
@@ -376,7 +372,6 @@ impl UpCommand {
             TriggerExecOpts::Remote {
                 locked_url,
                 working_dir,
-                from_registry: needs_registry_flag,
             }
         };
 
@@ -425,18 +420,10 @@ impl UpCommand {
             .await
             .context("cannot create registry client")?;
 
-        client
-            .pull(reference)
-            .await
-            .context("cannot pull Spin application from registry")?;
-
-        let app_path = client
-            .lockfile_path(&reference)
-            .await
-            .context("cannot get path to spin.lock")?;
-
-        let locked_app: LockedApp = serde_json::from_slice(&tokio::fs::read(&app_path).await?)?;
-        self.prepare_locked_app(locked_app, working_dir, true).await
+        let locked_app = OciLoader::new(&working_dir)
+            .load_app(&mut client, reference)
+            .await?;
+        self.prepare_locked_app(locked_app, working_dir).await
     }
 
     async fn prepare_app_from_bindle(
@@ -453,8 +440,7 @@ impl UpCommand {
         };
 
         let locked_app = spin_trigger::locked::build_locked_app(app, &working_dir)?;
-        self.prepare_locked_app(locked_app, working_dir, false)
-            .await
+        self.prepare_locked_app(locked_app, working_dir).await
     }
 }
 
@@ -524,7 +510,6 @@ enum TriggerExecOpts {
     Remote {
         locked_url: String,
         working_dir: PathBuf,
-        from_registry: bool,
     },
 }
 

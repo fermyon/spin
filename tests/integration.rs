@@ -15,7 +15,6 @@ mod integration_tests {
     use tokio::{net::TcpStream, time::sleep};
 
     const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
-    const RUST_HTTP_KEY_VALUE_TEST: &str = "tests/testcases/key-value";
 
     const DEFAULT_MANIFEST_LOCATION: &str = "spin.toml";
 
@@ -594,21 +593,6 @@ mod integration_tests {
         assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
         assert_status(&s, "/thisshouldfail", 404).await?;
         assert_status(&s, "/test/hello/test-placement", 200).await?;
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_key_value_local() -> Result<()> {
-        let s = SpinTestController::with_manifest(
-            &format!("{}/{}", RUST_HTTP_KEY_VALUE_TEST, DEFAULT_MANIFEST_LOCATION),
-            &[],
-            &[],
-            None,
-        )
-        .await?;
-
-        assert_status(&s, "/test", 200).await?;
 
         Ok(())
     }

@@ -1,72 +1,78 @@
-use anyhow::Result;
-use hyper::client::HttpConnector;
-use hyper::{body, Body, Client, Method, Request, Response};
-use hyper_tls::HttpsConnector;
-use std::str;
+use std::fmt;
 
-pub async fn assert_status(url: &str, expected: u16) -> Result<()> {
-    let resp = make_request(Method::GET, url, "").await?;
-    let status = resp.status();
-
-    let response = body::to_bytes(resp.into_body()).await.unwrap().to_vec();
-    let actual_body = str::from_utf8(&response).unwrap().to_string();
-
-    assert_eq!(status, expected, "{}", actual_body);
-
-    Ok(())
+#[macro_export]
+macro_rules! ensure {
+    ($cond:expr $(,)?) => {{
+        use anyhow::ensure;
+        ensure!($cond, None);
+    }};
+    ($cond:expr, $($arg:tt)+) => {{
+        use anyhow::ensure;
+        ensure!($cond, None);
+    }};
 }
 
-pub async fn assert_http_response(
-    url: &str,
-    method: Method,
-    body: &str,
-    expected: u16,
-    expected_headers: &[(&str, &str)],
-    expected_body: Option<&str>,
-) -> Result<()> {
-    let res = make_request(method, url, body).await?;
+#[macro_export]
+macro_rules! ensure_eq {
+    ($left:expr, $right:expr $(,)?) => {{
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                use anyhow::ensure;
+                use $crate::asserts::error_msg;
+                ensure!(*left_val == *right_val, error_msg("==", &*left_val, &*right_val, None));
+            }
+        }
+    }};
+    ($left:expr, $right:expr, $($arg:tt)+) => {{
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                use anyhow::ensure;
+                use $crate::asserts::error_msg;
+                ensure!(*left_val == *right_val, error_msg("==", &*left_val, &*right_val, Some(format_args!($($arg)+))))
+            }
+        }
+    }};
+}
 
-    let status = res.status();
-    assert_eq!(expected, status.as_u16());
+#[macro_export]
+macro_rules! ensure_ne {
+    ($left:expr, $right:expr $(,)?) => {{
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                use anyhow::ensure;
+                use $crate::asserts::error_msg;
+                ensure!(*left_val != *right_val, error_msg("!=", &*left_val, &*right_val, None));
+            }
+        }
+    }};
+    ($left:expr, $right:expr, $($arg:tt)+) => {{
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                use anyhow::ensure;
+                use $crate::asserts::error_msg;
+                ensure!(*left_val != *right_val, error_msg("!=", &*left_val, &*right_val, Some(format_args!($($arg)+))))
+            }
+        }
+    }};
+}
 
-    let headers = res.headers();
-    for (k, v) in expected_headers {
-        assert_eq!(
-            &headers
-                .get(k.to_string())
-                .unwrap_or_else(|| panic!("cannot find header {}", k))
-                .to_str()?,
-            v
-        )
+pub fn error_msg<T, U>(op: &str, left: &T, right: &U, args: Option<fmt::Arguments<'_>>) -> String
+where
+    T: fmt::Debug + ?Sized,
+    U: fmt::Debug + ?Sized,
+{
+    match args {
+        Some(args) => format!(
+            r#"assertion failed: `(left {} right)`
+  left: `{:?}`,
+ right: `{:?}`: {}"#,
+            op, left, right, args
+        ),
+        None => format!(
+            r#"assertion failed: `(left {} right)`
+  left: `{:?}`,
+ right: `{:?}`"#,
+            op, left, right,
+        ),
     }
-
-    if let Some(expected_body_str) = expected_body {
-        let response = body::to_bytes(res.into_body()).await.unwrap().to_vec();
-        let actual_body = str::from_utf8(&response).unwrap().to_string();
-        assert_eq!(expected_body_str, actual_body);
-    }
-
-    Ok(())
-}
-
-pub async fn create_request(method: Method, url: &str, body: &str) -> Result<Request<Body>> {
-    let req = Request::builder()
-        .method(method)
-        .uri(url)
-        .body(Body::from(body.to_string()))
-        .expect("request builder");
-
-    Ok(req)
-}
-
-pub fn create_client() -> Client<HttpsConnector<HttpConnector>> {
-    let connector = HttpsConnector::new();
-    Client::builder().build::<_, hyper::Body>(connector)
-}
-
-pub async fn make_request(method: Method, path: &str, body: &str) -> Result<Response<Body>> {
-    let c = create_client();
-    let req = create_request(method, path, body);
-    let resp = c.request(req.await?).await.unwrap();
-    Ok(resp)
 }

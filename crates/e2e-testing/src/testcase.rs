@@ -66,6 +66,10 @@ pub struct TestCase {
 
     /// assertions to run once the app is running
     pub assertions: ChecksFunc,
+
+    /// registry app url where app is pushed and run from
+    #[builder(default)]
+    pub push_to_registry: Option<String>,
 }
 
 impl TestCase {
@@ -117,6 +121,11 @@ impl TestCase {
 
         // run spin build
         controller.build_app(&appname).context("building app")?;
+
+        //push to registry if url provided
+        if let Some(registry_app_url) = &self.push_to_registry {
+            spin::registry_push(&appname, registry_app_url.as_str())?;
+        }
 
         // run `spin up` (or `spin deploy` for cloud).
         // `AppInstance` has some basic info about the running app like base url, routes (only for cloud) etc.

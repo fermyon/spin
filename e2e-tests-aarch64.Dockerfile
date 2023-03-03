@@ -4,7 +4,7 @@ ARG BUILD_SPIN=false
 ARG SPIN_VERSION=canary
 
 WORKDIR /root
-RUN apt-get update && apt-get install -y wget sudo xz-utils gcc git pkg-config redis
+RUN apt-get update && apt-get install -y wget sudo xz-utils gcc git pkg-config redis clang libicu-dev docker.io
 
 # nodejs
 RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
@@ -44,27 +44,33 @@ RUN url="https://static.rust-lang.org/rustup/dist/aarch64-unknown-linux-gnu/rust
     rustc --version;                                                                                            \
     rustup target add wasm32-wasi;
 
+# swift
+RUN wget https://github.com/swiftwasm/swift/releases/download/swift-wasm-5.8-SNAPSHOT-2023-02-24-a/swift-wasm-5.8-SNAPSHOT-2023-02-24-a-ubuntu20.04_aarch64.tar.gz && \
+    tar -xf swift-wasm-5.8-SNAPSHOT-2023-02-24-a-ubuntu20.04_aarch64.tar.gz
+ENV PATH="$PATH:/root/swift-wasm-5.8-SNAPSHOT-2023-02-24-a/usr/bin"
+
 ## check versions
 RUN tinygo version;   \
     go version;       \
     zig version;      \
     rustc --version;  \
-    node --version;
+    node --version;   \
+    swift --version;
+
+## spin
+RUN wget https://github.com/fermyon/spin/releases/download/${SPIN_VERSION}/spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&         \
+    tar -xvf spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&                                                                       \
+    ls -ltr &&                                                                                                                  \
+    mv spin /usr/local/bin/spin;     
 
 WORKDIR /e2e-tests
 COPY . .
 
-# spin
-RUN if [ "${BUILD_SPIN}" != "true" ]; then                                                                                      \
-        wget https://github.com/fermyon/spin/releases/download/${SPIN_VERSION}/spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&     \
-        tar -xvf spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&                                                                   \
-        ls -ltr &&                                                                                                              \
-        mv spin /usr/local/bin/spin;                                                                                            \
-    else                                                                                                                        \
-        cargo build --release &&                                                                                                \
-        cp target/release/spin /usr/local/bin/spin;                                                                             \
+RUN if [ "${BUILD_SPIN}" == "true" ]; then                                                                                      \
+    cargo build --release &&                                                                                                    \
+    cp target/release/spin /usr/local/bin/spin;                                                                                 \
     fi
 
 RUN spin --version
 
-CMD cargo test spinup_tests --features new-e2e-tests --no-fail-fast -- --nocapture
+CMD cargo test spinup_tests --features e2e-tests --no-fail-fast -- --nocapture

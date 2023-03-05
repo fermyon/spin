@@ -88,6 +88,11 @@ impl AuthConfig {
     }
 
     async fn save(&self, p: &Path) -> Result<()> {
+        if let Some(parent_dir) = p.parent() {
+            tokio::fs::create_dir_all(parent_dir)
+                .await
+                .with_context(|| format!("Failed to create config dir {}", parent_dir.display()))?;
+        }
         tokio::fs::write(&p, &serde_json::to_vec_pretty(&self)?)
             .await
             .with_context(|| format!("cannot save authentication file {:?}", p))

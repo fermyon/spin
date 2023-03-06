@@ -121,7 +121,7 @@ impl Client {
             components.push(c);
         }
         locked.components = components;
-        locked.metadata.remove(&"origin".to_string());
+        locked.metadata.remove("origin");
 
         let oci_config = Config {
             data: serde_json::to_vec(&locked)?,

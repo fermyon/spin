@@ -164,29 +164,29 @@ impl UpCommand {
                 .await;
         }
 
-        if matches!(app_source, AppSource::Bindle(_)) {
-            print_bindle_deprecation();
-        }
-
         let working_dir_holder = match &self.tmp {
             None => WorkingDirectory::Temporary(tempfile::tempdir()?),
             Some(d) => WorkingDirectory::Given(d.to_owned()),
         };
         let working_dir = working_dir_holder.path().canonicalize()?;
 
-        let state_dir = self.prepare_state_dir(&app_source);
-
-        let mut locked_app = match app_source {
+        let mut locked_app = match &app_source {
             AppSource::None => bail!("Internal error - should have shown help"),
-            AppSource::File(path) => self.prepare_app_from_file(&path, &working_dir).await?,
-            AppSource::Bindle(id) => self.prepare_app_from_bindle(&id, &working_dir).await?,
-            AppSource::OciRegistry(oci) => self.prepare_app_from_oci(&oci, &working_dir).await?,
-            AppSource::Unresolvable(err) => bail!(err),
+            AppSource::File(path) => self.prepare_app_from_file(path, &working_dir).await?,
+            AppSource::Bindle(id) => self.prepare_app_from_bindle(id, &working_dir).await?,
+            AppSource::OciRegistry(oci) => self.prepare_app_from_oci(oci, &working_dir).await?,
+            AppSource::Unresolvable(err) => bail!("{err}"),
         };
+
+        let trigger_cmd = trigger_command_from_locked_app(&locked_app)?;
+
+        if self.help {
+            return self.run_trigger(trigger_cmd, None).await;
+        }
 
         self.update_locked_app(&mut locked_app);
 
-        let trigger_cmd = trigger_command_from_locked_app(&locked_app)?;
+        let state_dir = self.prepare_state_dir(&app_source);
 
         let run_opts = RunTriggerOpts {
             locked_app,
@@ -383,6 +383,7 @@ impl UpCommand {
         bindle_id: &str,
         working_dir: &Path,
     ) -> Result<LockedApp> {
+        print_bindle_deprecation();
         assert!(!self.direct_mounts);
 
         let Some(server) = &self.server else {

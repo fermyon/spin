@@ -193,13 +193,8 @@ fn content_ref_path(path: &Path) -> Result<ContentRef> {
 }
 
 fn file_uri(path: &Path) -> Result<String> {
-    let path = path.canonicalize()?;
-    let url = if path.is_dir() {
-        url::Url::from_directory_path(&path)
-    } else {
-        url::Url::from_file_path(&path)
-    }
-    .map_err(|_| anyhow!("Could not construct file URL for {path:?}"))?;
+    let url = url::Url::from_file_path(path)
+        .map_err(|_| anyhow!("Could not construct file URL for {path:?}"))?;
     Ok(url.to_string())
 }
 
@@ -258,10 +253,13 @@ mod tests {
         assert_eq!(locked.triggers[0].trigger_config["route"], "/");
 
         let component = &locked.components[0];
+
         let source = component.source.content.source.as_deref().unwrap();
         assert!(source.ends_with("test-source.wasm"));
+
         let mount = component.files[0].content.source.as_deref().unwrap();
-        assert!(mount.ends_with('/'));
+        let mount_path = url::Url::try_from(mount).unwrap().to_file_path().unwrap();
+        assert!(mount_path.is_dir(), "{mount:?} is not a dir");
     }
 
     #[tokio::test]

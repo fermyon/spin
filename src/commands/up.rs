@@ -9,7 +9,7 @@ use clap::{CommandFactory, Parser};
 use reqwest::Url;
 use spin_app::locked::LockedApp;
 use spin_loader::bindle::{deprecation::print_bindle_deprecation, BindleConnectionInfo};
-use spin_manifest::{Application, ApplicationOrigin, ApplicationTrigger};
+use spin_manifest::ApplicationTrigger;
 use spin_oci::OciLoader;
 use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_STATE_DIR, SPIN_WORKING_DIR};
 use tempfile::TempDir;
@@ -51,7 +51,7 @@ pub struct UpCommand {
     )]
     pub file_source: Option<PathBuf>,
 
-    /// The application to run. This interprets the applicaiton as a bindle ID.
+    /// The application to run. This interprets the application as a bindle ID.
     /// This option is deprecated; use OCI registries and `--from` where possible.
     #[clap(
         hide = true,
@@ -155,90 +155,13 @@ impl UpCommand {
         })
     }
 
-    fn resolve_app_source(&self) -> AppSource {
-        match (
-            &self.app_source,
-            &self.file_source,
-            &self.bindle_source,
-            &self.registry_source,
-        ) {
-            (None, None, None, None) => self.default_manifest_or_none(),
-            (Some(source), None, None, None) => Self::infer_source(source),
-            (None, Some(file), None, None) => Self::infer_file_source(file.to_owned()),
-            (None, None, Some(id), None) => AppSource::Bindle(id.to_owned()),
-            (None, None, None, Some(reference)) => AppSource::OciRegistry(reference.to_owned()),
-            _ => AppSource::unresolvable("More than one application was specified"),
-        }
-    }
-
-    fn default_manifest_or_none(&self) -> AppSource {
-        let default_manifest = PathBuf::from(DEFAULT_MANIFEST_FILE);
-        if default_manifest.exists() {
-            AppSource::File(default_manifest)
-        } else if self.trigger_args_look_file_like() {
-            let msg = format!(
-                "Default file 'spin.toml' found. Did you mean `spin up -f {}`?`",
-                self.trigger_args[0].to_string_lossy()
-            );
-            AppSource::Unresolvable(msg)
-        } else {
-            AppSource::None
-        }
-    }
-
-    fn trigger_args_look_file_like(&self) -> bool {
-        // Heuristic for the user typing `spin up foo` instead of `spin up -f foo` - in the
-        // first case `foo` gets interpreted as a trigger arg which is probably not what the
-        // user intended.
-        !self.trigger_args.is_empty() && !self.trigger_args[0].to_string_lossy().starts_with('-')
-    }
-
-    fn infer_file_source(path: PathBuf) -> AppSource {
-        if path.is_file() {
-            AppSource::File(path)
-        } else if path.is_dir() {
-            let file_path = path.join(DEFAULT_MANIFEST_FILE);
-            if file_path.exists() && file_path.is_file() {
-                AppSource::File(file_path)
-            } else {
-                AppSource::unresolvable(format!(
-                    "Directory {} does not contain a file named 'spin.toml'",
-                    path.display()
-                ))
-            }
-        } else {
-            AppSource::unresolvable(format!(
-                "Path {} is neither a file nor a directory",
-                path.display()
-            ))
-        }
-    }
-
-    fn infer_source(source: &str) -> AppSource {
-        let path = PathBuf::from(source);
-        if path.exists() {
-            Self::infer_file_source(path)
-        } else if spin_oci::is_probably_oci_reference(source) {
-            AppSource::OciRegistry(source.to_owned())
-        } else {
-            AppSource::Unresolvable(format!("File or directory '{source}' not found. If you meant to load from a registry, use the `--from-registry` option."))
-        }
-    }
-
     async fn run_inner(self) -> Result<()> {
         let app_source = self.resolve_app_source();
 
         if app_source == AppSource::None {
             return self
-                .run_trigger(
-                    trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE),
-                    TriggerExecOpts::NoApp,
-                )
+                .run_trigger(trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE), None)
                 .await;
-        }
-
-        if matches!(app_source, AppSource::Bindle(_)) {
-            print_bindle_deprecation();
         }
 
         let working_dir_holder = match &self.tmp {
@@ -247,53 +170,60 @@ impl UpCommand {
         };
         let working_dir = working_dir_holder.path().canonicalize()?;
 
-        let (trigger_cmd, exec_opts) = match app_source {
+        let mut locked_app = match &app_source {
             AppSource::None => bail!("Internal error - should have shown help"),
-            AppSource::File(app) => self.prepare_app_from_file(&app, working_dir).await?,
-            AppSource::Bindle(bindle) => self.prepare_app_from_bindle(&bindle, working_dir).await?,
-            AppSource::OciRegistry(oci) => self.prepare_app_from_oci(&oci, working_dir).await?,
-            AppSource::Unresolvable(err) => bail!(err),
+            AppSource::File(path) => self.prepare_app_from_file(path, &working_dir).await?,
+            AppSource::Bindle(id) => self.prepare_app_from_bindle(id, &working_dir).await?,
+            AppSource::OciRegistry(oci) => self.prepare_app_from_oci(oci, &working_dir).await?,
+            AppSource::Unresolvable(err) => bail!("{err}"),
         };
 
-        self.run_trigger(trigger_cmd, exec_opts).await
+        let trigger_cmd = trigger_command_from_locked_app(&locked_app)?;
+
+        if self.help {
+            return self.run_trigger(trigger_cmd, None).await;
+        }
+
+        self.update_locked_app(&mut locked_app);
+
+        let state_dir = self.prepare_state_dir(&app_source);
+
+        let run_opts = RunTriggerOpts {
+            locked_app,
+            working_dir,
+            state_dir,
+        };
+
+        self.run_trigger(trigger_cmd, Some(run_opts)).await
     }
 
     async fn run_trigger(
         self,
-        trigger_type: Vec<String>,
-        exec_opts: TriggerExecOpts,
+        trigger_cmd: Vec<String>,
+        opts: Option<RunTriggerOpts>,
     ) -> Result<(), anyhow::Error> {
         // The docs for `current_exe` warn that this may be insecure because it could be executed
         // via hard-link. I think it should be fine as long as we aren't `setuid`ing this binary.
         let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
-        cmd.args(&trigger_type);
+        cmd.args(&trigger_cmd);
 
-        match exec_opts {
-            TriggerExecOpts::NoApp => {
-                cmd.arg("--help-args-only");
-            }
-            TriggerExecOpts::Local { app, working_dir } => {
-                let locked_app = spin_trigger::locked::build_locked_app(app.clone(), &working_dir)?;
+        if let Some(RunTriggerOpts {
+            locked_app,
+            working_dir,
+            state_dir,
+        }) = opts
+        {
+            let locked_url = self.write_locked_app(&locked_app, &working_dir).await?;
 
-                let state_dir = match app.info.origin {
-                    ApplicationOrigin::File(f) => f.parent().unwrap().join(".spin"),
-                    _ => panic!("Expected application origin file for local app"),
-                };
+            cmd.env(SPIN_LOCKED_URL, locked_url)
+                .env(SPIN_WORKING_DIR, &working_dir)
+                .args(&self.trigger_args);
 
-                let locked_url = self.write_locked_app(&locked_app, &working_dir).await?;
-                cmd.env(SPIN_LOCKED_URL, locked_url)
-                    .env(SPIN_WORKING_DIR, &working_dir)
-                    .env(SPIN_STATE_DIR, state_dir)
-                    .args(&self.trigger_args);
+            if let Some(state_dir) = state_dir {
+                cmd.env(SPIN_STATE_DIR, state_dir);
             }
-            TriggerExecOpts::Remote {
-                locked_url,
-                working_dir,
-            } => {
-                cmd.env(SPIN_LOCKED_URL, locked_url)
-                    .env(SPIN_WORKING_DIR, &working_dir)
-                    .args(&self.trigger_args);
-            }
+        } else {
+            cmd.arg("--help-args-only");
         }
 
         tracing::trace!("Running trigger executor: {:?}", cmd);
@@ -318,6 +248,77 @@ impl UpCommand {
         } else {
             bail!(status);
         }
+    }
+
+    fn resolve_app_source(&self) -> AppSource {
+        match (
+            &self.app_source,
+            &self.file_source,
+            &self.bindle_source,
+            &self.registry_source,
+        ) {
+            (None, None, None, None) => self.default_manifest_or_none(),
+            (Some(source), None, None, None) => Self::infer_source(source),
+            (None, Some(file), None, None) => Self::infer_file_source(file.to_owned()),
+            (None, None, Some(id), None) => AppSource::Bindle(id.to_owned()),
+            (None, None, None, Some(reference)) => AppSource::OciRegistry(reference.to_owned()),
+            _ => AppSource::unresolvable("More than one application source was specified"),
+        }
+    }
+
+    fn default_manifest_or_none(&self) -> AppSource {
+        let default_manifest = PathBuf::from(DEFAULT_MANIFEST_FILE);
+        if default_manifest.exists() {
+            AppSource::File(default_manifest)
+        } else if self.trigger_args_look_file_like() {
+            let msg = format!(
+                "Default file 'spin.toml' found. Did you mean `spin up -f {}`?`",
+                self.trigger_args[0].to_string_lossy()
+            );
+            AppSource::Unresolvable(msg)
+        } else {
+            AppSource::None
+        }
+    }
+
+    fn infer_source(source: &str) -> AppSource {
+        let path = PathBuf::from(source);
+        if path.exists() {
+            Self::infer_file_source(path)
+        } else if spin_oci::is_probably_oci_reference(source) {
+            AppSource::OciRegistry(source.to_owned())
+        } else {
+            AppSource::Unresolvable(format!("File or directory '{source}' not found. If you meant to load from a registry, use the `--from-registry` option."))
+        }
+    }
+
+    fn infer_file_source(path: impl Into<PathBuf>) -> AppSource {
+        let path = path.into();
+        if path.is_file() {
+            AppSource::File(path)
+        } else if path.is_dir() {
+            let file_path = path.join(DEFAULT_MANIFEST_FILE);
+            if file_path.exists() && file_path.is_file() {
+                AppSource::File(file_path)
+            } else {
+                AppSource::unresolvable(format!(
+                    "Directory {} does not contain a file named 'spin.toml'",
+                    path.display()
+                ))
+            }
+        } else {
+            AppSource::unresolvable(format!(
+                "Path {} is neither a file nor a directory",
+                path.display()
+            ))
+        }
+    }
+
+    fn trigger_args_look_file_like(&self) -> bool {
+        // Heuristic for the user typing `spin up foo` instead of `spin up -f foo` - in the
+        // first case `foo` gets interpreted as a trigger arg which is probably not what the
+        // user intended.
+        !self.trigger_args.is_empty() && !self.trigger_args[0].to_string_lossy().starts_with('-')
     }
 
     async fn write_locked_app(
@@ -349,99 +350,72 @@ impl UpCommand {
         })
     }
 
-    // Prepares the application for trigger execution returning the trigger command
-    // to execute and the URL of the locked application.
-    async fn prepare_locked_app(
+    async fn prepare_app_from_file(
         &self,
-        mut locked_app: LockedApp,
-        working_dir: PathBuf,
-    ) -> Result<(Vec<String>, TriggerExecOpts)> {
+        manifest_path: &Path,
+        working_dir: &Path,
+    ) -> Result<LockedApp> {
+        let bindle_connection = self.bindle_connection();
+
+        let asset_dst = if self.direct_mounts {
+            None
+        } else {
+            Some(working_dir)
+        };
+
+        let app = spin_loader::from_file(manifest_path, asset_dst, &bindle_connection).await?;
+
+        spin_trigger::locked::build_locked_app(app, working_dir)
+    }
+
+    async fn prepare_app_from_oci(&self, reference: &str, working_dir: &Path) -> Result<LockedApp> {
+        let mut client = spin_oci::Client::new(self.insecure, None)
+            .await
+            .context("cannot create registry client")?;
+
+        OciLoader::new(working_dir)
+            .load_app(&mut client, reference)
+            .await
+    }
+
+    async fn prepare_app_from_bindle(
+        &self,
+        bindle_id: &str,
+        working_dir: &Path,
+    ) -> Result<LockedApp> {
+        print_bindle_deprecation();
+        assert!(!self.direct_mounts);
+
+        let Some(server) = &self.server else {
+            bail!("Loading from a bindle requires a Bindle server URL");
+        };
+
+        let app = spin_loader::from_bindle(bindle_id, server, working_dir).await?;
+
+        spin_trigger::locked::build_locked_app(app, working_dir)
+    }
+
+    fn prepare_state_dir(&self, source: &AppSource) -> Option<PathBuf> {
+        match source {
+            AppSource::File(path) => Some(path.parent().unwrap().join(".spin")),
+            _ => None,
+        }
+    }
+
+    fn update_locked_app(&self, locked_app: &mut LockedApp) {
         // Apply --env to component environments
         if !self.env.is_empty() {
             for component in locked_app.components.iter_mut() {
                 component.env.extend(self.env.iter().cloned());
             }
         }
-
-        let trigger_command = trigger_command_from_locked_app(&locked_app)?;
-        let locked_url = self.write_locked_app(&locked_app, &working_dir).await?;
-
-        let exec_opts = if self.help {
-            TriggerExecOpts::NoApp
-        } else {
-            TriggerExecOpts::Remote {
-                locked_url,
-                working_dir,
-            }
-        };
-
-        Ok((trigger_command, exec_opts))
     }
+}
 
-    async fn prepare_app_from_file(
-        &self,
-        manifest_file: &Path,
-        working_dir: PathBuf,
-    ) -> Result<(Vec<String>, TriggerExecOpts)> {
-        let bindle_connection = self.bindle_connection();
-
-        let asset_dst = if self.direct_mounts {
-            None
-        } else {
-            Some(&working_dir)
-        };
-
-        let mut app = spin_loader::from_file(manifest_file, asset_dst, &bindle_connection).await?;
-
-        // Apply --env to component environments
-        if !self.env.is_empty() {
-            for component in app.components.iter_mut() {
-                component.wasm.environment.extend(self.env.iter().cloned());
-            }
-        }
-
-        let command = trigger_command_from_app(&app)?;
-
-        let exec_opts = if self.help {
-            TriggerExecOpts::NoApp
-        } else {
-            TriggerExecOpts::Local { app, working_dir }
-        };
-
-        Ok((command, exec_opts))
-    }
-
-    async fn prepare_app_from_oci(
-        &self,
-        reference: &str,
-        working_dir: PathBuf,
-    ) -> Result<(Vec<String>, TriggerExecOpts)> {
-        let mut client = spin_oci::Client::new(self.insecure, None)
-            .await
-            .context("cannot create registry client")?;
-
-        let locked_app = OciLoader::new(&working_dir)
-            .load_app(&mut client, reference)
-            .await?;
-        self.prepare_locked_app(locked_app, working_dir).await
-    }
-
-    async fn prepare_app_from_bindle(
-        &self,
-        bindle_id: &str,
-        working_dir: PathBuf,
-    ) -> Result<(Vec<String>, TriggerExecOpts)> {
-        let app = match &self.server {
-            Some(server) => {
-                assert!(!self.direct_mounts);
-                spin_loader::from_bindle(bindle_id, server, &working_dir).await?
-            }
-            None => bail!("Loading from a bindle requires a Bindle server URL"),
-        };
-
-        let locked_app = spin_trigger::locked::build_locked_app(app, &working_dir)?;
-        self.prepare_locked_app(locked_app, working_dir).await
-    }
+struct RunTriggerOpts {
+    locked_app: LockedApp,
+    working_dir: PathBuf,
+    state_dir: Option<PathBuf>,
 }
 
 enum WorkingDirectory {
@@ -500,31 +474,8 @@ fn resolve_trigger_plugin(trigger_type: &str) -> Result<String> {
     }
 }
 
-#[allow(clippy::large_enum_variant)] // The large variant is the common case and really this is equivalent to an Option
-enum TriggerExecOpts {
-    NoApp,
-    Local {
-        app: Application,
-        working_dir: PathBuf,
-    },
-    Remote {
-        locked_url: String,
-        working_dir: PathBuf,
-    },
-}
-
 fn trigger_command(trigger_type: &str) -> Vec<String> {
     vec!["trigger".to_owned(), trigger_type.to_owned()]
-}
-
-fn trigger_command_from_app(app: &Application) -> Result<Vec<String>> {
-    match &app.info.trigger {
-        ApplicationTrigger::Http(_) => Ok(trigger_command("http")),
-        ApplicationTrigger::Redis(_) => Ok(trigger_command("redis")),
-        ApplicationTrigger::External(cfg) => {
-            resolve_trigger_plugin(cfg.trigger_type()).map(|p| vec![p])
-        }
-    }
 }
 
 fn trigger_command_from_locked_app(locked_app: &LockedApp) -> Result<Vec<String>> {
@@ -556,8 +507,8 @@ enum AppSource {
 }
 
 impl AppSource {
-    fn unresolvable(message: impl AsRef<str>) -> Self {
-        Self::Unresolvable(message.as_ref().to_owned())
+    fn unresolvable(message: impl Into<String>) -> Self {
+        Self::Unresolvable(message.into())
     }
 }
 

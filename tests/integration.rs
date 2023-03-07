@@ -845,6 +845,8 @@ mod integration_tests {
                 .collect::<Vec<String>>()
                 .join(" "),
         );
+
+        cmd.env("RUST_LOG", "spin_cli=warn");
         if let Some(envs) = envs {
             for (k, v) in envs {
                 cmd.env(k, v);
@@ -852,10 +854,11 @@ mod integration_tests {
         }
 
         let output = cmd.output()?;
+        println!("STDOUT:\n{}", String::from_utf8_lossy(&output.stdout));
+        println!("STDERR:\n{}", String::from_utf8_lossy(&output.stderr));
+
         let code = output.status.code().expect("should have status code");
         if code != 0 {
-            println!("{:#?}", std::str::from_utf8(&output.stderr)?);
-            println!("{:#?}", std::str::from_utf8(&output.stdout)?);
             panic!("command `{:?}` exited with code {}", cmd, code);
         }
 

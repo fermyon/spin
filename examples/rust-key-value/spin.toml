@@ -2,7 +2,7 @@ spin_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A simple application that exercises key-value storage."
 name = "spin-key-value"
-trigger = {type = "http", base = "/test"}
+trigger = { type = "http", base = "/" }
 version = "1.0.0"
 
 [[component]]

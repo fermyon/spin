@@ -2,18 +2,36 @@
 // interest to the template system.  spin_loader does too
 // much processing to fit our needs here.
 
-use std::path::{Path, PathBuf};
-
 use anyhow::Context;
+use spin_loader::local::config::FixedStringVersion;
+use std::path::{Path, PathBuf};
 
 use crate::store::TemplateLayout;
 
 #[derive(Debug, serde::Deserialize)]
-#[serde(tag = "spin_version")]
+#[serde(untagged)]
 pub(crate) enum AppInfo {
-    /// A manifest with API version 1.
-    #[serde(rename = "1")]
-    V1(AppInfoV1),
+    V1Old {
+        #[allow(dead_code)]
+        spin_version: FixedStringVersion<1>,
+        #[serde(flatten)]
+        manifest: AppInfoV1,
+    },
+    V1New {
+        #[allow(dead_code)]
+        spin_manifest_version: FixedStringVersion<1>,
+        #[serde(flatten)]
+        manifest: AppInfoV1,
+    },
+}
+
+impl AppInfo {
+    pub fn as_v1(&self) -> &AppInfoV1 {
+        match self {
+            AppInfo::V1New { manifest, .. } => manifest,
+            AppInfo::V1Old { manifest, .. } => manifest,
+        }
+    }
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -28,12 +46,12 @@ pub(crate) struct TriggerInfo {
 }
 
 impl AppInfo {
-    pub(crate) fn from_layout(layout: &TemplateLayout) -> Option<anyhow::Result<AppInfo>> {
+    pub fn from_layout(layout: &TemplateLayout) -> Option<anyhow::Result<AppInfo>> {
         Self::layout_manifest_path(layout)
             .map(|manifest_path| Self::from_existent_file(&manifest_path))
     }
 
-    pub(crate) fn from_file(manifest_path: &Path) -> Option<anyhow::Result<AppInfo>> {
+    pub fn from_file(manifest_path: &Path) -> Option<anyhow::Result<AppInfo>> {
         if manifest_path.exists() {
             Some(Self::from_existent_file(manifest_path))
         } else {
@@ -56,9 +74,7 @@ impl AppInfo {
         toml::from_str(&manifest_text).context("Can't parse manifest file")
     }
 
-    pub(crate) fn trigger_type(&self) -> &str {
-        match self {
-            Self::V1(info) => &info.trigger.trigger_type,
-        }
+    pub fn trigger_type(&self) -> &str {
+        &self.as_v1().trigger.trigger_type
     }
 }

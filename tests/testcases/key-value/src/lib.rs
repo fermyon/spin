@@ -7,7 +7,8 @@ use spin_sdk::{
 
 #[http_component]
 fn handle_request(_req: Request) -> Result<Response> {
-    ensure!(matches!(Store::open("foo"), Err(Error::NoSuchStore)));
+    // TODO: once we allow users to pass non-default stores, test that opening
+    // an allowed-but-non-existent one returns Error::NoSuchStore
     ensure!(matches!(Store::open("forbidden"), Err(Error::AccessDenied)));
 
     let store = Store::open_default()?;

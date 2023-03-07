@@ -7,7 +7,7 @@ version = "1.0.0"
 
 [[component]]
 id = "hello"
-key_value_stores = ["default", "foo"]
+key_value_stores = ["default"]
 source = "target/wasm32-wasi/release/key_value.wasm"
 [component.trigger]
 route = "/..."

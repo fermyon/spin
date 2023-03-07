@@ -28,7 +28,10 @@ use spin_manifest::{
 };
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::{bindle::BindleConnectionInfo, cache::Cache, digest::bytes_sha256_string};
+use crate::{
+    bindle::BindleConnectionInfo, cache::Cache, digest::bytes_sha256_string,
+    validation::validate_key_value_stores,
+};
 use config::{
     FileComponentUrlSource, RawAppInformation, RawAppManifest, RawAppManifestAnyVersion,
     RawAppManifestAnyVersionPartial, RawComponentManifest, RawComponentManifestPartial,
@@ -126,6 +129,10 @@ pub fn validate_raw_app_manifest(raw: &RawAppManifestAnyVersion) -> Result<()> {
         .components
         .iter()
         .try_for_each(|c| validate_allowed_http_hosts(&c.wasm.allowed_http_hosts))?;
+    manifest
+        .components
+        .iter()
+        .try_for_each(|c| validate_key_value_stores(&c.wasm.key_value_stores))?;
 
     if raw
         .as_v1()

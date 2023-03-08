@@ -17,4 +17,3 @@ who = "Radu Matei <radu.matei@fermyon.com>"
 criteria = "safe-to-deploy"
 version = "0.3.1"
 notes = "The Bytecode Alliance is the author of this crate."
-

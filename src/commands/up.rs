@@ -11,7 +11,7 @@ use spin_app::locked::LockedApp;
 use spin_loader::bindle::{deprecation::print_bindle_deprecation, BindleConnectionInfo};
 use spin_manifest::ApplicationTrigger;
 use spin_oci::OciLoader;
-use spin_trigger::cli::{SPIN_LOCKED_URL, SPIN_STATE_DIR, SPIN_WORKING_DIR};
+use spin_trigger::cli::{SPIN_LOCAL_APP_DIR, SPIN_LOCKED_URL, SPIN_WORKING_DIR};
 use tempfile::TempDir;
 
 use crate::opts::*;
@@ -186,12 +186,12 @@ impl UpCommand {
 
         self.update_locked_app(&mut locked_app);
 
-        let state_dir = self.prepare_state_dir(&app_source);
+        let local_app_dir = app_source.local_app_dir().map(Into::into);
 
         let run_opts = RunTriggerOpts {
             locked_app,
             working_dir,
-            state_dir,
+            local_app_dir,
         };
 
         self.run_trigger(trigger_cmd, Some(run_opts)).await
@@ -210,7 +210,7 @@ impl UpCommand {
         if let Some(RunTriggerOpts {
             locked_app,
             working_dir,
-            state_dir,
+            local_app_dir,
         }) = opts
         {
             let locked_url = self.write_locked_app(&locked_app, &working_dir).await?;
@@ -219,8 +219,8 @@ impl UpCommand {
                 .env(SPIN_WORKING_DIR, &working_dir)
                 .args(&self.trigger_args);
 
-            if let Some(state_dir) = state_dir {
-                cmd.env(SPIN_STATE_DIR, state_dir);
+            if let Some(local_app_dir) = local_app_dir {
+                cmd.env(SPIN_LOCAL_APP_DIR, local_app_dir);
             }
         } else {
             cmd.arg("--help-args-only");
@@ -395,13 +395,6 @@ impl UpCommand {
         spin_trigger::locked::build_locked_app(app, working_dir)
     }
 
-    fn prepare_state_dir(&self, source: &AppSource) -> Option<PathBuf> {
-        match source {
-            AppSource::File(path) => Some(path.parent().unwrap().join(".spin")),
-            _ => None,
-        }
-    }
-
     fn update_locked_app(&self, locked_app: &mut LockedApp) {
         // Apply --env to component environments
         if !self.env.is_empty() {
@@ -415,7 +408,7 @@ impl UpCommand {
 struct RunTriggerOpts {
     locked_app: LockedApp,
     working_dir: PathBuf,
-    state_dir: Option<PathBuf>,
+    local_app_dir: Option<PathBuf>,
 }
 
 enum WorkingDirectory {
@@ -509,6 +502,16 @@ enum AppSource {
 impl AppSource {
     fn unresolvable(message: impl Into<String>) -> Self {
         Self::Unresolvable(message.into())
+    }
+
+    fn local_app_dir(&self) -> Option<&Path> {
+        match self {
+            Self::File(path) => path.parent().or_else(|| {
+                tracing::warn!("Error finding local app dir from source {path:?}");
+                None
+            }),
+            _ => None,
+        }
     }
 }
 

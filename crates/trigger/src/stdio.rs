@@ -43,10 +43,10 @@ pub struct StdioLoggingTriggerHooks {
 }
 
 impl StdioLoggingTriggerHooks {
-    pub fn new(follow_components: FollowComponents, log_dir: Option<PathBuf>) -> Self {
+    pub fn new(follow_components: FollowComponents, log_dir: Option<impl Into<PathBuf>>) -> Self {
         Self {
             follow_components,
-            log_dir,
+            log_dir: log_dir.map(Into::into),
         }
     }
 

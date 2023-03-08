@@ -156,15 +156,10 @@ mod test {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect(),
-            Arc::new(DelegatingStoreManager::new(
-                [(
-                    "default".to_owned(),
-                    Arc::new(KeyValueSqlite::new(DatabaseLocation::InMemory))
-                        as Arc<dyn StoreManager>,
-                )]
-                .into_iter()
-                .collect(),
-            )),
+            Arc::new(DelegatingStoreManager::new([(
+                "default".to_owned(),
+                Arc::new(KeyValueSqlite::new(DatabaseLocation::InMemory)) as _,
+            )])),
         );
 
         assert!(matches!(

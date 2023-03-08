@@ -1,4 +1,4 @@
-spin_version = "1"
+spin_manifest_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A hello world application that serves content from a C++ program and a Rust program"
 name = "spin-wagi-hello"

@@ -4656,6 +4656,7 @@ dependencies = [
  "semver 1.0.16",
  "serde",
  "sha2 0.10.6",
+ "spin-loader",
  "tempfile",
  "tokio",
  "toml 0.5.11",

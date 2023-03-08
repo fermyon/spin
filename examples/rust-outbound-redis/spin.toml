@@ -1,4 +1,4 @@
-spin_version = "1"
+spin_manifest_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 name = "rust-outbound-redis-example"
 trigger = { type = "http", base = "/" }

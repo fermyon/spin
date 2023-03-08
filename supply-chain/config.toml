@@ -5,7 +5,7 @@
 url = "https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml"
 
 [imports.mozilla]
-url = "https://hg.mozilla.org/mozilla-central/raw-file/tip/supply-chain/audits.toml"
+url = "https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml"
 
 [policy.bindle]
 audit-as-crates-io = false
@@ -408,10 +408,6 @@ criteria = "safe-to-deploy"
 version = "0.1.2"
 criteria = "safe-to-deploy"
 
-[[exemptions.doc-comment]]
-version = "0.3.3"
-criteria = "safe-to-deploy"
-
 [[exemptions.docker_credential]]
 version = "1.1.0"
 criteria = "safe-to-deploy"
@@ -430,10 +426,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.ed25519-dalek]]
 version = "1.0.1"
-criteria = "safe-to-deploy"
-
-[[exemptions.either]]
-version = "1.8.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.encode_unicode]]
@@ -730,10 +722,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.kstring]]
 version = "1.0.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.lazy_static]]
-version = "1.4.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.lazycell]]

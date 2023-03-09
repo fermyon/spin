@@ -62,7 +62,13 @@ impl SpinHttpExecutor {
         let (parts, bytes) = req.into_parts();
         let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
 
-        let method = Self::method(&parts.method);
+        let method = if let Some(method) = Self::method(&parts.method) {
+            method
+        } else {
+            return Ok(Response::builder()
+                .status(http::StatusCode::METHOD_NOT_ALLOWED)
+                .body(Body::empty())?);
+        };
 
         let headers: Vec<(&str, &str)> = headers
             .iter()
@@ -110,8 +116,8 @@ impl SpinHttpExecutor {
         Ok(response.body(body)?)
     }
 
-    fn method(m: &http::Method) -> Method {
-        match *m {
+    fn method(m: &http::Method) -> Option<Method> {
+        Some(match *m {
             http::Method::GET => Method::Get,
             http::Method::POST => Method::Post,
             http::Method::PUT => Method::Put,
@@ -119,8 +125,8 @@ impl SpinHttpExecutor {
             http::Method::PATCH => Method::Patch,
             http::Method::HEAD => Method::Head,
             http::Method::OPTIONS => Method::Options,
-            _ => todo!(),
-        }
+            _ => return None,
+        })
     }
 
     fn headers(req: &mut Request<Body>, raw: &str, base: &str) -> Result<Vec<(String, String)>> {

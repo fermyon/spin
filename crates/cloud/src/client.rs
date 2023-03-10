@@ -9,13 +9,14 @@ use cloud_openapi::{
         },
         configuration::{ApiKey, Configuration},
         device_codes_api::api_device_codes_post,
+        key_value_pairs_api::api_key_value_pairs_post,
         revisions_api::{api_revisions_get, api_revisions_post},
         Error, ResponseContent,
     },
     models::{
         AppItemPage, ChannelItem, ChannelItemPage, ChannelRevisionSelectionStrategy,
-        CreateAppCommand, CreateChannelCommand, CreateDeviceCodeCommand, DeviceCodeItem,
-        GetChannelLogsVm, RegisterRevisionCommand, RevisionItemPage, TokenInfo,
+        CreateAppCommand, CreateChannelCommand, CreateDeviceCodeCommand, CreateKeyValuePairCommand,
+        DeviceCodeItem, GetChannelLogsVm, RegisterRevisionCommand, RevisionItemPage, TokenInfo,
         UpdateEnvironmentVariableDto,
     },
 };
@@ -33,7 +34,7 @@ pub struct Client {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ConnectionConfig {
     pub insecure: bool,
-    pub token: TokenInfo,
+    pub token: String,
     pub url: String,
 }
 
@@ -63,9 +64,9 @@ impl Client {
             basic_auth: None,
             oauth_access_token: None,
             bearer_access_token: None,
-            api_key: conn_info.token.token.map(|t| ApiKey {
+            api_key: Some(ApiKey {
                 prefix: Some("Bearer".to_owned()),
-                key: t,
+                key: conn_info.token,
             }),
         };
 
@@ -75,7 +76,8 @@ impl Client {
     pub async fn create_device_code(&self, client_id: Uuid) -> Result<DeviceCodeItem> {
         api_device_codes_post(
             &self.configuration,
-            Some(CreateDeviceCodeCommand { client_id }),
+            CreateDeviceCodeCommand { client_id },
+            None,
         )
         .await
         .map_err(format_response_error)
@@ -108,29 +110,30 @@ impl Client {
     pub async fn add_app(&self, name: &str, storage_id: &str) -> Result<Uuid> {
         api_apps_post(
             &self.configuration,
-            Some(CreateAppCommand {
+            CreateAppCommand {
                 name: name.to_string(),
                 storage_id: storage_id.to_string(),
-            }),
+            },
+            None,
         )
         .await
         .map_err(format_response_error)
     }
 
     pub async fn remove_app(&self, id: String) -> Result<()> {
-        api_apps_id_delete(&self.configuration, &id)
+        api_apps_id_delete(&self.configuration, &id, None)
             .await
             .map_err(format_response_error)
     }
 
     pub async fn list_apps(&self) -> Result<AppItemPage> {
-        api_apps_get(&self.configuration, None, None, None, None, None)
+        api_apps_get(&self.configuration, None, None, None, None, None, None)
             .await
             .map_err(format_response_error)
     }
 
     pub async fn get_channel_by_id(&self, id: &str) -> Result<ChannelItem> {
-        api_channels_id_get(&self.configuration, id)
+        api_channels_id_get(&self.configuration, id, None)
             .await
             .map_err(format_response_error)
     }
@@ -142,6 +145,7 @@ impl Client {
             None,
             None,
             Some("Name"),
+            None,
             None,
         )
         .await
@@ -155,6 +159,7 @@ impl Client {
             Some(previous.page_index + 1),
             Some(previous.page_size),
             Some("Name"),
+            None,
             None,
         )
         .await
@@ -173,10 +178,10 @@ impl Client {
             app_id,
             name,
             revision_selection_strategy,
-            range_rule,
-            active_revision_id,
+            range_rule: Some(range_rule),
+            active_revision_id: Some(active_revision_id),
         };
-        api_channels_post(&self.configuration, Some(command))
+        api_channels_post(&self.configuration, command, None)
             .await
             .map_err(format_response_error)
     }
@@ -246,13 +251,13 @@ impl Client {
     }
 
     pub async fn remove_channel(&self, id: String) -> Result<()> {
-        api_channels_id_delete(&self.configuration, &id)
+        api_channels_id_delete(&self.configuration, &id, None)
             .await
             .map_err(format_response_error)
     }
 
     pub async fn channel_logs(&self, id: String) -> Result<GetChannelLogsVm> {
-        api_channels_id_logs_get(&self.configuration, &id)
+        api_channels_id_logs_get(&self.configuration, &id, None, None)
             .await
             .map_err(format_response_error)
     }
@@ -264,17 +269,18 @@ impl Client {
     ) -> anyhow::Result<()> {
         api_revisions_post(
             &self.configuration,
-            Some(RegisterRevisionCommand {
+            RegisterRevisionCommand {
                 app_storage_id,
                 revision_number,
-            }),
+            },
+            None,
         )
         .await
         .map_err(format_response_error)
     }
 
     pub async fn list_revisions(&self) -> anyhow::Result<RevisionItemPage> {
-        api_revisions_get(&self.configuration, None, None)
+        api_revisions_get(&self.configuration, None, None, None)
             .await
             .map_err(format_response_error)
     }
@@ -287,6 +293,28 @@ impl Client {
             &self.configuration,
             Some(previous.page_index + 1),
             Some(previous.page_size),
+            None,
+        )
+        .await
+        .map_err(format_response_error)
+    }
+
+    pub async fn add_key_value_pair(
+        &self,
+        app_id: Uuid,
+        store_name: String,
+        key: String,
+        value: String,
+    ) -> anyhow::Result<()> {
+        api_key_value_pairs_post(
+            &self.configuration,
+            CreateKeyValuePairCommand {
+                app_id,
+                store_name,
+                key,
+                value,
+            },
+            None,
         )
         .await
         .map_err(format_response_error)

@@ -5,7 +5,6 @@ use chrono::{DateTime, Utc};
 use clap::Parser;
 use cloud::client::{Client as CloudClient, ConnectionConfig};
 use cloud_openapi::models::ChannelRevisionSelectionStrategy as CloudChannelRevisionSelectionStrategy;
-use cloud_openapi::models::TokenInfo;
 use hippo::{Client, ConnectionInfo};
 use hippo_openapi::models::ChannelRevisionSelectionStrategy;
 use rand::Rng;
@@ -316,10 +315,7 @@ impl DeployCommand {
         let connection_config = ConnectionConfig {
             url: login_connection.url.to_string(),
             insecure: login_connection.danger_accept_invalid_certs,
-            token: TokenInfo {
-                token: Some(login_connection.token.clone()),
-                expiration: login_connection.expiration,
-            },
+            token: login_connection.token.clone(),
         };
 
         let client = CloudClient::new(connection_config.clone());

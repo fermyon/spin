@@ -18,6 +18,11 @@ To cut a release of Spin, you will need to do the following:
    make sure you get signoff on the PR)
 1. Before proceeding, verify that the merge commit on `main` intended to be
    tagged is green, i.e. CI is successful
+1. If this is the first release for this major/minor version, create a release
+   branch, e.g. `v2.0`. With our branch protection rules this is easiest from
+   the Github UI with the
+   [New Branch button here](https://github.com/fermyon/spin/branches).
+1. Switch to the release branch locally
 1. Create a new tag with a `v` and then the version number (`v0.9.1`)
 1. Update the `Cargo.toml` and `templates/Makefile` versions again, this
    time to e.g. `0.11.0-pre0` if `0.11.0` is the next anticipated release.

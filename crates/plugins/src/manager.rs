@@ -1,7 +1,7 @@
 use crate::{
     error::*,
     lookup::PluginLookup,
-    manifest::{check_supported_version, PluginManifest, PluginPackage},
+    manifest::{warn_unsupported_version, PluginManifest, PluginPackage},
     store::PluginStore,
     SPIN_INTERNAL_COMMANDS,
 };
@@ -130,7 +130,7 @@ impl PluginManager {
             }
         }
 
-        check_supported_version(plugin_manifest, spin_version, override_compatibility_check)?;
+        warn_unsupported_version(plugin_manifest, spin_version, override_compatibility_check)?;
 
         Ok(InstallAction::Continue)
     }

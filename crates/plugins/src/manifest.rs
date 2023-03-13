@@ -42,7 +42,7 @@ impl PluginManifest {
         self.packages.iter().any(|p| p.matches_current_os_arch())
     }
     pub fn is_compatible_spin_version(&self, spin_version: &str) -> bool {
-        check_supported_version(self, spin_version, false).is_ok()
+        is_version_compatible_enough(&self.spin_compatibility, spin_version).unwrap_or(false)
     }
     pub fn is_installed_in(&self, store: &PluginStore) -> bool {
         match store.read_plugin_manifest(&self.name) {
@@ -117,26 +117,51 @@ impl Architecture {
     }
 }
 
-/// Checks whether the plugin supports the currently running version of Spin.
-pub fn check_supported_version(
+/// Checks whether the plugin supports the currently running version of Spin
+/// and prints a warning if not (or if uncertain).
+pub fn warn_unsupported_version(
     manifest: &PluginManifest,
     spin_version: &str,
     override_compatibility_check: bool,
 ) -> Result<()> {
     let supported_on = &manifest.spin_compatibility;
-    inner_check_supported_version(supported_on, spin_version, override_compatibility_check)
+    inner_warn_unsupported_version(supported_on, spin_version, override_compatibility_check)
 }
 
-fn inner_check_supported_version(
-    supported_on: &str,
-    spin_version: &str,
-    override_compatibility_check: bool,
-) -> Result<()> {
+/// Does the manifest compatibility pattern match this version of Spin?  This is a
+/// strict semver check.
+fn is_version_fully_compatible(supported_on: &str, spin_version: &str) -> Result<bool> {
     let comparator = VersionReq::parse(supported_on).with_context(|| {
         format!("Could not parse manifest compatibility version {supported_on} as valid semver")
     })?;
     let version = Version::parse(spin_version)?;
-    if !comparator.matches(&version) {
+    Ok(comparator.matches(&version))
+}
+
+/// This is more liberal than `is_version_fully_compatible`; it relaxes the semver requirement
+/// for Spin pre-releases, so that you don't get *every* plugin showing as incompatible when
+/// you run a pre-release.  This is intended for listing; when executing, we use the interactive
+/// `warn_unsupported_version`, which provides the full nuanced feedback.
+fn is_version_compatible_enough(supported_on: &str, spin_version: &str) -> Result<bool> {
+    if is_version_fully_compatible(supported_on, spin_version)? {
+        Ok(true)
+    } else {
+        // We allow things to run on pre-release versions, because otherwise EVERYTHING would
+        // show as incompatible!
+        let is_spin_prerelease = Version::parse(spin_version)
+            .map(|v| !v.pre.is_empty())
+            .unwrap_or_default();
+        Ok(is_spin_prerelease)
+    }
+}
+
+fn inner_warn_unsupported_version(
+    supported_on: &str,
+    spin_version: &str,
+    override_compatibility_check: bool,
+) -> Result<()> {
+    if !is_version_fully_compatible(supported_on, spin_version)? {
+        let version = Version::parse(spin_version)?;
         if !version.pre.is_empty() {
             eprintln!("You're using a pre-release version of Spin ({spin_version}). This plugin might not be compatible (supported: {supported_on}). Continuing anyway.");
         } else if override_compatibility_check {
@@ -215,7 +240,7 @@ mod test {
         ];
         input_output.into_iter().for_each(|(i, o)| {
             assert_eq!(
-                inner_check_supported_version(test_case, i, false).is_ok(),
+                inner_warn_unsupported_version(test_case, i, false).is_ok(),
                 o
             )
         });

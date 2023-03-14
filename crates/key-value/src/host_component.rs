@@ -58,15 +58,18 @@ impl HostComponent for KeyValueComponent {
 
 impl DynamicHostComponent for KeyValueComponent {
     fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> anyhow::Result<()> {
+        let key_value_stores = component_key_value_stores(component)?;
         data.init(
-            component
-                .get_metadata::<Vec<String>>(KEY_VALUE_STORES_METADATA_KEY)?
-                .unwrap_or_default()
-                .into_iter()
-                .collect(),
+            key_value_stores.into_iter().collect(),
             self.manager.get(component),
         );
 
         Ok(())
     }
+}
+
+pub fn component_key_value_stores(component: &AppComponent) -> anyhow::Result<Vec<String>> {
+    Ok(component
+        .get_metadata(KEY_VALUE_STORES_METADATA_KEY)?
+        .unwrap_or_default())
 }

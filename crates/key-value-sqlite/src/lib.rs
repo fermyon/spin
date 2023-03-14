@@ -34,14 +34,8 @@ impl StoreManager for KeyValueSqlite {
         let connection = task::block_in_place(|| {
             self.connection.get_or_try_init(|| {
                 let connection = match &self.location {
-                    DatabaseLocation::InMemory => {
-                        println!("Using in-memory key-value store");
-                        Connection::open_in_memory()
-                    }
-                    DatabaseLocation::Path(path) => {
-                        println!("Using {} for key-value store", path.display());
-                        Connection::open(path)
-                    }
+                    DatabaseLocation::InMemory => Connection::open_in_memory(),
+                    DatabaseLocation::Path(path) => Connection::open(path),
                 }
                 .map_err(log_error)?;
 

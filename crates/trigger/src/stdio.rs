@@ -98,7 +98,7 @@ impl TriggerHooks for StdioLoggingTriggerHooks {
             std::fs::create_dir_all(dir)
                 .with_context(|| format!("Failed to create log dir {dir:?}"))?;
 
-            println!("Logging component stdio to {:?}\n", dir.join(""))
+            println!("Logging component stdio to {:?}", dir.join(""))
         }
 
         Ok(())

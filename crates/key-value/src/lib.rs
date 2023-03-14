@@ -7,7 +7,7 @@ mod host_component;
 mod table;
 mod util;
 
-pub use host_component::{manager, KeyValueComponent};
+pub use host_component::{component_key_value_stores, manager, KeyValueComponent};
 pub use util::{CachingStoreManager, DelegatingStoreManager, EmptyStoreManager};
 
 const DEFAULT_STORE_TABLE_CAPACITY: u32 = 256;

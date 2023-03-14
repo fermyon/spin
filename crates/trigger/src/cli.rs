@@ -11,7 +11,10 @@ use tokio::{
 use spin_app::Loader;
 
 use crate::stdio::StdioLoggingTriggerHooks;
-use crate::{loader::TriggerLoader, runtime_config::RuntimeConfig, stdio::FollowComponents};
+use crate::{
+    key_value::KeyValuePersistenceMessageHook, loader::TriggerLoader,
+    runtime_config::RuntimeConfig, stdio::FollowComponents,
+};
 use crate::{TriggerExecutor, TriggerExecutorBuilder};
 
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
@@ -164,6 +167,7 @@ where
         self.update_wasmtime_config(builder.wasmtime_config_mut())?;
 
         builder.hooks(StdioLoggingTriggerHooks::new(self.follow_components()));
+        builder.hooks(KeyValuePersistenceMessageHook);
 
         builder.build(locked_url, runtime_config).await
     }

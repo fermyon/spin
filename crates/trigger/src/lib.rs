@@ -9,6 +9,7 @@ use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 pub use async_trait::async_trait;
+use runtime_config::RuntimeConfig;
 use serde::de::DeserializeOwned;
 
 use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp};
@@ -36,7 +37,7 @@ pub trait TriggerExecutor: Sized {
 pub struct TriggerExecutorBuilder<Executor: TriggerExecutor> {
     loader: AppLoader,
     config: Config,
-    hooks: Box<dyn TriggerHooks>,
+    hooks: Vec<Box<dyn TriggerHooks>>,
     disable_default_host_components: bool,
     _phantom: PhantomData<Executor>,
 }
@@ -47,7 +48,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         Self {
             loader: AppLoader::new(loader),
             config: Default::default(),
-            hooks: Box::new(()),
+            hooks: Default::default(),
             disable_default_host_components: false,
             _phantom: PhantomData,
         }
@@ -61,7 +62,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     }
 
     pub fn hooks(&mut self, hooks: impl TriggerHooks + 'static) -> &mut Self {
-        self.hooks = Box::new(hooks);
+        self.hooks.push(Box::new(hooks));
         self
     }
 
@@ -107,7 +108,9 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 
         let app_name = app.borrowed().require_metadata("name")?;
 
-        self.hooks.app_loaded(app.borrowed())?;
+        self.hooks
+            .iter_mut()
+            .try_for_each(|h| h.app_loaded(app.borrowed(), &runtime_config))?;
 
         // Run trigger executor
         Executor::new(TriggerAppEngine::new(engine, app_name, app, self.hooks).await?)
@@ -123,7 +126,7 @@ pub struct TriggerAppEngine<Executor: TriggerExecutor> {
     // An owned wrapper of the App.
     app: OwnedApp,
     // Trigger hooks
-    hooks: Box<dyn TriggerHooks>,
+    hooks: Vec<Box<dyn TriggerHooks>>,
     // Trigger configs for this trigger type, with order matching `app.triggers_with_type(Executor::TRIGGER_TYPE)`
     trigger_configs: Vec<Executor::TriggerConfig>,
     // Map of {Component ID -> InstancePre} for each component.
@@ -137,7 +140,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         engine: Engine<Executor::RuntimeData>,
         app_name: String,
         app: OwnedApp,
-        hooks: Box<dyn TriggerHooks>,
+        hooks: Vec<Box<dyn TriggerHooks>>,
     ) -> Result<Self>
     where
         <Executor as TriggerExecutor>::TriggerConfig: DeserializeOwned,
@@ -189,7 +192,8 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         let mut builder = self.engine.store_builder();
         let component = self.get_component(component_id)?;
         self.hooks
-            .component_store_builder(component, &mut builder)?;
+            .iter()
+            .try_for_each(|h| h.component_store_builder(&component, &mut builder))?;
         Ok(builder)
     }
 
@@ -248,7 +252,7 @@ pub trait TriggerHooks: Send + Sync {
     #![allow(unused_variables)]
 
     /// Called once, immediately after an App is loaded.
-    fn app_loaded(&mut self, app: &App) -> Result<()> {
+    fn app_loaded(&mut self, app: &App, runtime_config: &RuntimeConfig) -> Result<()> {
         Ok(())
     }
 
@@ -257,7 +261,7 @@ pub trait TriggerHooks: Send + Sync {
     /// environment of the instance to be executed.
     fn component_store_builder(
         &self,
-        component: AppComponent,
+        component: &AppComponent,
         store_builder: &mut StoreBuilder,
     ) -> Result<()> {
         Ok(())

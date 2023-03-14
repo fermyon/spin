@@ -35,7 +35,7 @@ use super::login::LoginCommand;
 use super::login::LoginConnection;
 
 const SPIN_DEPLOY_CHANNEL_NAME: &str = "spin-deploy";
-
+const SPIN_DEFAULT_KV_STORE: &str = "default";
 const BINDLE_REGISTRY_URL_PATH: &str = "api/registry";
 
 /// Package and upload an application to the Fermyon Platform.
@@ -94,6 +94,10 @@ pub struct DeployCommand {
         env = DEPLOYMENT_ENV_NAME_ENV
     )]
     pub deployment_env_id: Option<String>,
+
+    /// Pass a key/value (key=value) to all components of the application.
+    #[clap(long, parse(try_from_str = parse_kv))]
+    pub key_values: Vec<(String, String)>,
 }
 
 impl DeployCommand {
@@ -389,6 +393,18 @@ impl DeployCommand {
                 .await
                 .context("Problem patching a channel")?;
 
+                for kv in self.key_values {
+                    CloudClient::add_key_value_pair(
+                        &client,
+                        app_id,
+                        SPIN_DEFAULT_KV_STORE.to_string(),
+                        kv.0,
+                        kv.1,
+                    )
+                    .await
+                    .context("Problem creating key/value")?;
+                }
+
                 existing_channel_id
             }
             Err(_) => {
@@ -403,7 +419,7 @@ impl DeployCommand {
                     .get_revision_id_cloud(&client, bindle_id.version_string().clone(), app_id)
                     .await?;
 
-                CloudClient::add_channel(
+                let channel_id = CloudClient::add_channel(
                     &client,
                     app_id,
                     String::from(SPIN_DEPLOY_CHANNEL_NAME),
@@ -412,7 +428,21 @@ impl DeployCommand {
                     Some(active_revision_id),
                 )
                 .await
-                .context("Problem creating a channel")?
+                .context("Problem creating a channel")?;
+
+                for kv in self.key_values {
+                    CloudClient::add_key_value_pair(
+                        &client,
+                        app_id,
+                        SPIN_DEFAULT_KV_STORE.to_string(),
+                        kv.0,
+                        kv.1,
+                    )
+                    .await
+                    .context("Problem creating key/value")?;
+                }
+
+                channel_id
             }
         };
 
@@ -786,4 +816,13 @@ fn has_expired(login_connection: &LoginConnection) -> Result<bool> {
         },
         None => Ok(false),
     }
+}
+
+// Parse the key/values passed in as `key=value` pairs.
+fn parse_kv(s: &str) -> Result<(String, String)> {
+    let parts: Vec<_> = s.splitn(2, '=').collect();
+    if parts.len() != 2 {
+        bail!("Key/Values must be of the form `key=value`");
+    }
+    Ok((parts[0].to_owned(), parts[1].to_owned()))
 }

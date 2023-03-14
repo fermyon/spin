@@ -6,6 +6,7 @@ use crate::{
 };
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use futures::{future, stream, StreamExt};
+use path_absolutize::Absolutize;
 use spin_manifest::DirectoryMount;
 use std::{
     path::{Path, PathBuf},
@@ -72,7 +73,7 @@ fn prepare_component_with_direct_mounts(
                     .to_str()
                     .context("unable to parse mount destination as UTF-8")?
                     .to_owned(),
-                host: placement.source.clone(),
+                host: placement.source.absolutize()?.into(),
             }),
             RawFileMount::Pattern(_) => Err(anyhow!(
                 "this component cannot be run with `--direct-mount` because it uses file patterns"

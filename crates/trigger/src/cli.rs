@@ -163,12 +163,7 @@ where
         let mut builder = TriggerExecutorBuilder::new(loader);
         self.update_wasmtime_config(builder.wasmtime_config_mut())?;
 
-        let log_dir = runtime_config.log_dir();
-        if let Some(log_dir) = &log_dir {
-            println!("Logging component stdio to {:?}\n", log_dir.join(""))
-        }
-        let logging_hooks = StdioLoggingTriggerHooks::new(self.follow_components(), log_dir);
-        builder.hooks(logging_hooks);
+        builder.hooks(StdioLoggingTriggerHooks::new(self.follow_components()));
 
         builder.build(locked_url, runtime_config).await
     }

@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Context, Result};
 
-use crate::TriggerHooks;
+use crate::{runtime_config::RuntimeConfig, TriggerHooks};
 
 /// Which components should have their logs followed on stdout/stderr.
 #[derive(Clone, Debug)]
@@ -43,10 +43,10 @@ pub struct StdioLoggingTriggerHooks {
 }
 
 impl StdioLoggingTriggerHooks {
-    pub fn new(follow_components: FollowComponents, log_dir: Option<impl Into<PathBuf>>) -> Self {
+    pub fn new(follow_components: FollowComponents) -> Self {
         Self {
             follow_components,
-            log_dir: log_dir.map(Into::into),
+            log_dir: None,
         }
     }
 
@@ -84,13 +84,21 @@ impl StdioLoggingTriggerHooks {
 }
 
 impl TriggerHooks for StdioLoggingTriggerHooks {
-    fn app_loaded(&mut self, app: &spin_app::App) -> anyhow::Result<()> {
+    fn app_loaded(
+        &mut self,
+        app: &spin_app::App,
+        runtime_config: &RuntimeConfig,
+    ) -> anyhow::Result<()> {
+        self.log_dir = runtime_config.log_dir();
+
         self.validate_follows(app)?;
 
-        // Ensure log dir exists if set
-        if let Some(l) = &self.log_dir {
-            std::fs::create_dir_all(l)
-                .with_context(|| format!("Failed to create log dir {l:?}"))?;
+        if let Some(dir) = &self.log_dir {
+            // Ensure log dir exists if set
+            std::fs::create_dir_all(dir)
+                .with_context(|| format!("Failed to create log dir {dir:?}"))?;
+
+            println!("Logging component stdio to {:?}\n", dir.join(""))
         }
 
         Ok(())
@@ -98,7 +106,7 @@ impl TriggerHooks for StdioLoggingTriggerHooks {
 
     fn component_store_builder(
         &self,
-        component: spin_app::AppComponent,
+        component: &spin_app::AppComponent,
         builder: &mut spin_core::StoreBuilder,
     ) -> anyhow::Result<()> {
         match &self.log_dir {

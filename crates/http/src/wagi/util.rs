@@ -242,6 +242,7 @@ pub fn compose_response(stdout: &[u8]) -> Result<Response<Body>, Error> {
     });
     let mut res = Response::new(Body::from(buffer));
     let mut sufficient_response = false;
+    let mut explicit_status_code = false;
     parse_cgi_headers(String::from_utf8(out_headers)?)
         .iter()
         .for_each(|h| {
@@ -258,8 +259,12 @@ pub fn compose_response(stdout: &[u8]) -> Result<Response<Body>, Error> {
                     // do not set content type correctly if a status is an error.
                     // See https://datatracker.ietf.org/doc/html/rfc3875#section-6.2
                     sufficient_response = true;
+                    explicit_status_code = true;
                     // Status can be `Status CODE [STRING]`, and we just want the CODE.
-                    let status_code = h.1.split_once(' ').map(|(code, _)| code).unwrap_or(h.1);
+                    let status_code =
+                        h.1.split_once(' ')
+                            .map(|(code, _)| code)
+                            .unwrap_or(h.1.as_str());
                     tracing::debug!(status_code, "Raw status code");
                     match status_code.parse::<StatusCode>() {
                         Ok(code) => *res.status_mut() = code,
@@ -272,8 +277,10 @@ pub fn compose_response(stdout: &[u8]) -> Result<Response<Body>, Error> {
                 "location" => {
                     sufficient_response = true;
                     res.headers_mut()
-                        .insert(LOCATION, HeaderValue::from_str(h.1).unwrap());
-                    *res.status_mut() = StatusCode::from_u16(302).unwrap();
+                        .insert(LOCATION, HeaderValue::from_str(h.1.as_str()).unwrap());
+                    if !explicit_status_code {
+                        *res.status_mut() = StatusCode::from_u16(302).unwrap();
+                    }
                 }
                 _ => {
                     // If the header can be parsed into a valid HTTP header, it is
@@ -281,7 +288,7 @@ pub fn compose_response(stdout: &[u8]) -> Result<Response<Body>, Error> {
                     match HeaderName::from_lowercase(h.0.as_str().to_lowercase().as_bytes()) {
                         Ok(hdr) => {
                             res.headers_mut()
-                                .insert(hdr, HeaderValue::from_str(h.1).unwrap());
+                                .insert(hdr, HeaderValue::from_str(h.1.as_str()).unwrap());
                         }
                         Err(e) => {
                             tracing::error!(error = %e, header_name = %h.0, "Invalid header name")
@@ -301,17 +308,17 @@ pub fn compose_response(stdout: &[u8]) -> Result<Response<Body>, Error> {
     Ok(res)
 }
 
-fn parse_cgi_headers(headers: String) -> HashMap<String, String> {
-    let mut map = HashMap::new();
+fn parse_cgi_headers(headers: String) -> Vec<(String, String)> {
+    let mut ret: Vec<(String, String)> = vec![];
     headers.trim().split('\n').for_each(|h| {
         let parts: Vec<&str> = h.splitn(2, ':').collect();
         if parts.len() != 2 {
             tracing::warn!(header = h, "corrupt header");
             return;
         }
-        map.insert(parts[0].trim().to_owned(), parts[1].trim().to_owned());
+        ret.push((parts[0].trim().to_owned(), parts[1].trim().to_owned()));
     });
-    map
+    ret
 }
 
 /// Create an HTTP 500 response

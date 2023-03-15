@@ -15,7 +15,7 @@ async fn test_from_local_source() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, Some(dir), &None).await?;
+    let app = from_file(MANIFEST, Some(dir)).await?;
 
     assert_eq!(app.info.name, "spin-local-source-test");
     assert_eq!(app.info.version, "1.0.0");
@@ -114,19 +114,9 @@ fn test_manifest() -> Result<()> {
         RawFileMount::Pattern("subdir/another.txt".to_owned())
     );
 
-    let b = match cfg.components[1].source.clone() {
-        RawModuleSource::Bindle(b) => b,
-        RawModuleSource::FileReference(_) => panic!("expected bindle source"),
-        RawModuleSource::Url(_) => panic!("expected bindle source"),
-    };
-
-    assert_eq!(b.reference, "bindle reference".to_string());
-    assert_eq!(b.parcel, "parcel".to_string());
-
     let u = match cfg.components[2].source.clone() {
         RawModuleSource::Url(u) => u,
         RawModuleSource::FileReference(_) => panic!("expected URL source"),
-        RawModuleSource::Bindle(_) => panic!("expected URL source"),
     };
 
     assert_eq!(u.url, "https://example.com/wasm.wasm.wasm".to_string());
@@ -183,7 +173,7 @@ async fn test_invalid_manifest() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, Some(dir), &None).await;
+    let app = from_file(MANIFEST, Some(dir)).await;
 
     let e = app.unwrap_err().to_string();
     assert!(
@@ -240,7 +230,7 @@ async fn test_duplicate_component_id_is_rejected() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, Some(dir), &None).await;
+    let app = from_file(MANIFEST, Some(dir)).await;
 
     assert!(
         app.is_err(),
@@ -262,7 +252,7 @@ async fn test_insecure_allow_all_with_invalid_url() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, Some(dir), &None).await;
+    let app = from_file(MANIFEST, Some(dir)).await;
 
     assert!(
         app.is_ok(),
@@ -278,7 +268,7 @@ async fn test_invalid_url_in_allowed_http_hosts_is_rejected() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, Some(dir), &None).await;
+    let app = from_file(MANIFEST, Some(dir)).await;
 
     assert!(app.is_err(), "Expected allowed_http_hosts parsing error");
 

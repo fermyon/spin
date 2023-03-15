@@ -13,7 +13,6 @@ mod tests;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    str::FromStr,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -28,10 +27,7 @@ use spin_manifest::{
 };
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::{
-    bindle::BindleConnectionInfo, cache::Cache, digest::bytes_sha256_string,
-    validation::validate_key_value_stores,
-};
+use crate::{cache::Cache, digest::bytes_sha256_string, validation::validate_key_value_stores};
 use config::{
     FileComponentUrlSource, RawAppInformation, RawAppManifest, RawAppManifestAnyVersion,
     RawAppManifestAnyVersionPartial, RawComponentManifest, RawComponentManifestPartial,
@@ -44,13 +40,12 @@ use config::{
 pub async fn from_file(
     app: impl AsRef<Path>,
     base_dst: Option<impl AsRef<Path>>,
-    bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<Application> {
     let app = absolutize(app)?;
     let manifest = raw_manifest_from_file(&app).await?;
     validate_raw_app_manifest(&manifest)?;
 
-    prepare_any_version(manifest, app, base_dst, bindle_connection).await
+    prepare_any_version(manifest, app, base_dst).await
 }
 
 /// Reads the spin.toml file as a raw manifest.
@@ -102,10 +97,9 @@ async fn prepare_any_version(
     raw: RawAppManifestAnyVersion,
     src: impl AsRef<Path>,
     base_dst: Option<impl AsRef<Path>>,
-    bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<Application> {
     let manifest = raw.into_v1();
-    prepare(manifest, src, base_dst, bindle_connection).await
+    prepare(manifest, src, base_dst).await
 }
 
 /// Iterates over a vector of RawComponentManifest structs and throws an error if any component ids are duplicated
@@ -134,15 +128,6 @@ pub fn validate_raw_app_manifest(raw: &RawAppManifestAnyVersion) -> Result<()> {
         .iter()
         .try_for_each(|c| validate_key_value_stores(&c.wasm.key_value_stores))?;
 
-    if raw
-        .as_v1()
-        .components
-        .iter()
-        .any(|c| matches!(c.source, config::RawModuleSource::Bindle(_)))
-    {
-        crate::bindle::deprecation::print_bindle_deprecation();
-    }
-
     Ok(())
 }
 
@@ -151,7 +136,6 @@ async fn prepare(
     raw: RawAppManifest,
     src: impl AsRef<Path>,
     base_dst: Option<impl AsRef<Path>>,
-    bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<Application> {
     let info = info(raw.info, &src);
 
@@ -166,7 +150,7 @@ async fn prepare(
     let components = future::join_all(
         raw.components
             .into_iter()
-            .map(|c| async { core(c, &src, base_dst.as_ref(), bindle_connection).await })
+            .map(|c| async { core(c, &src, base_dst.as_ref()).await })
             .collect::<Vec<_>>(),
     )
     .await
@@ -193,7 +177,6 @@ async fn core(
     raw: RawComponentManifest,
     src: impl AsRef<Path>,
     base_dst: Option<impl AsRef<Path>>,
-    bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<CoreComponent> {
     let id = raw.id;
     let src = parent_dir(src)?;
@@ -205,31 +188,6 @@ async fn core(
             };
 
             ModuleSource::FileReference(p)
-        }
-        config::RawModuleSource::Bindle(b) => {
-            let bindle_id = bindle::Id::from_str(&b.reference).with_context(|| {
-                format!("Invalid bindle ID {} in component {}", b.reference, id)
-            })?;
-            let parcel_sha = &b.parcel;
-            let client = match bindle_connection {
-                None => anyhow::bail!(
-                    "Component {} requires a Bindle connection but none was specified",
-                    id
-                ),
-                Some(c) => c.client()?,
-            };
-            let bindle_reader = crate::bindle::BindleReader::remote(&client, &bindle_id);
-            let bytes = bindle_reader
-                .get_parcel(parcel_sha)
-                .await
-                .with_context(|| {
-                    format!(
-                        "Failed to download parcel {}@{} for component {}",
-                        bindle_id, parcel_sha, id
-                    )
-                })?;
-            let name = format!("{}@{}", bindle_id, parcel_sha);
-            ModuleSource::Buffer(bytes, name)
         }
         config::RawModuleSource::Url(us) => {
             let source = UrlSource::new(&us)

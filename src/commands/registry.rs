@@ -58,7 +58,7 @@ impl Push {
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
 
         let dir = tempfile::tempdir()?;
-        let app = spin_loader::local::from_file(&app_file, Some(dir.path()), &None).await?;
+        let app = spin_loader::local::from_file(&app_file, Some(dir.path())).await?;
 
         let mut client = spin_oci::Client::new(self.insecure, None).await?;
         let digest = client.push(&app, &self.reference).await?;

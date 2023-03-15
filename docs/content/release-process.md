@@ -34,6 +34,10 @@ To cut a release of Spin, you will need to do the following:
    that this tag may be force-pushed for all patch releases of a given minor release.)
 1. Go to the GitHub [tags page](https://github.com/fermyon/spin/releases),
    edit a release, add the release notes.
+1. Be sure to include instructions for
+   [verifying the signed Spin binary](./sips/012-signing-spin-releases.md). The
+   `--certificate-identity` value should match this release, e.g.
+   `https://github.com/fermyon/spin/.github/workflows/release.yml@refs/tags/0.11.0`.
 
 At this point, you can verify in the GitHub UI that the release was successful.
 

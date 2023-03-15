@@ -7,9 +7,14 @@ on:
       - "v*"
 
 jobs:
-  build:
-    name: build release assets
+  build-and-sign:
+    name: build and sign release assets
     runs-on: ${{ matrix.config.os }}
+    permissions:
+      # cosign uses the GitHub OIDC token
+      id-token: write
+      # needed to upload artifacts to a GH release
+      contents: write
     strategy:
       matrix:
         config:
@@ -74,6 +79,11 @@ jobs:
           OS=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
           echo "RUNNER_OS=$OS" >> $GITHUB_ENV
 
+      - name: Install Cosign for signing Spin binary
+        uses: sigstore/cosign-installer@v3.0.1
+        with:
+          cosign-release: v2.0.0
+
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -98,22 +108,36 @@ jobs:
           command: build
           args: "--all-features --release ${{ matrix.config.extraArgs }}"
 
+      - name: Sign the binary with GitHub OIDC token
+        shell: bash
+        run: |
+          cosign sign-blob \
+            --yes \
+            --output-certificate crt.pem \
+            --output-signature spin.sig \
+            ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }}
+
       - name: package release assets
         if: runner.os != 'Windows'
+        shell: bash
         run: |
           mkdir _dist
-          cp README.md LICENSE ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} _dist/
+          cp crt.pem spin.sig README.md LICENSE ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} _dist/
           cd _dist
-          tar czf spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz README.md LICENSE spin${{ matrix.config.extension }}
+          tar czf \
+            spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz \
+            crt.pem spin.sig README.md LICENSE spin${{ matrix.config.extension }}
 
       - name: package release assets
         if: runner.os == 'Windows'
         shell: bash
         run: |
           mkdir _dist
-          cp README.md LICENSE ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} _dist/
+          cp crt.pem spin.sig README.md LICENSE ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} _dist/
           cd _dist
-          7z a -tzip spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip README.md LICENSE spin${{ matrix.config.extension }}
+          7z a -tzip \
+            spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip \
+            crt.pem spin.sig README.md LICENSE spin${{ matrix.config.extension }}
 
       - name: upload binary as GitHub artifact
         if: runner.os != 'Windows'
@@ -148,7 +172,7 @@ jobs:
   checksums:
     name: generate release checksums
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-and-sign
     steps:
       - name: set the release version (tag)
         if: startsWith(github.ref, 'refs/tags/v')
@@ -214,7 +238,7 @@ jobs:
   create-go-sdk-tag:
     name: create tag sdk/go/v*
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-and-sign
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v3
@@ -273,7 +297,7 @@ jobs:
   # This will run when the PR above is approved and merged into main via a merge commit
   push-templates-tag:
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-and-sign
     if: github.event.commits[0].author.name == 'fermybot' && contains(github.event.commits[0].message, 'update sdk')
     steps:
       - uses: actions/checkout@v3

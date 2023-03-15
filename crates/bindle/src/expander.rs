@@ -108,9 +108,6 @@ async fn bindle_component_manifest(
 
             sha256_digest(&full_path)?
         }
-        local_schema::RawModuleSource::Bindle(_) => {
-            return Err(PublishError::BindlePushingNotImplemented);
-        }
         local_schema::RawModuleSource::Url(us) => {
             let source = UrlSource::new(us)?;
             source.digest_str().to_owned()
@@ -153,9 +150,6 @@ async fn wasm_parcel(
     let (wasm_file, absolute_wasm_file) = match &component.source {
         local_schema::RawModuleSource::FileReference(path) => {
             (path.to_owned(), base_dir.join(path))
-        }
-        local_schema::RawModuleSource::Bindle(_) => {
-            return Err(PublishError::BindlePushingNotImplemented);
         }
         local_schema::RawModuleSource::Url(us) => {
             let source = UrlSource::new(us)?;

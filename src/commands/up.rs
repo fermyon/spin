@@ -8,7 +8,6 @@ use anyhow::{anyhow, bail, Context, Result};
 use clap::{CommandFactory, Parser};
 use reqwest::Url;
 use spin_app::locked::LockedApp;
-use spin_loader::bindle::{deprecation::print_bindle_deprecation, BindleConnectionInfo};
 use spin_manifest::ApplicationTrigger;
 use spin_oci::OciLoader;
 use spin_trigger::cli::{SPIN_LOCAL_APP_DIR, SPIN_LOCKED_URL, SPIN_WORKING_DIR};
@@ -51,48 +50,6 @@ pub struct UpCommand {
     )]
     pub file_source: Option<PathBuf>,
 
-    /// The application to run. This interprets the application as a bindle ID.
-    /// This option is deprecated; use OCI registries and `--from` where possible.
-    #[clap(
-        hide = true,
-        name = BINDLE_ID_OPT,
-        short = 'b',
-        long = "bindle",
-        alias = "from-bindle",
-        group = "source",
-        requires = BINDLE_SERVER_URL_OPT,
-    )]
-    pub bindle_source: Option<String>,
-
-    /// URL of bindle server.
-    #[clap(
-        hide = true,
-        name = BINDLE_SERVER_URL_OPT,
-        long = "bindle-server",
-        env = BINDLE_URL_ENV,
-    )]
-    pub server: Option<String>,
-
-    /// Basic http auth username for the bindle server
-    #[clap(
-        hide = true,
-        name = BINDLE_USERNAME,
-        long = "bindle-username",
-        env = BINDLE_USERNAME,
-        requires = BINDLE_PASSWORD,
-    )]
-    pub bindle_username: Option<String>,
-
-    /// Basic http auth password for the bindle server
-    #[clap(
-        hide = true,
-        name = BINDLE_PASSWORD,
-        long = "bindle-password",
-        env = BINDLE_PASSWORD,
-        requires = BINDLE_USERNAME,
-    )]
-    pub bindle_password: Option<String>,
-
     /// The application to run. This is the same as `--from` but forces the
     /// application to be interpreted as an OCI registry reference.
     #[clap(
@@ -125,7 +82,7 @@ pub struct UpCommand {
     ///
     /// This allows you to update the assets on the host filesystem such that the updates are visible to the guest
     /// without a restart.  This cannot be used with bindle apps or apps which use file patterns and/or exclusions.
-    #[clap(long, takes_value = false, conflicts_with = BINDLE_ID_OPT)]
+    #[clap(long, takes_value = false)]
     pub direct_mounts: bool,
 
     /// All other args, to be passed through to the trigger
@@ -173,7 +130,6 @@ impl UpCommand {
         let mut locked_app = match &app_source {
             AppSource::None => bail!("Internal error - should have shown help"),
             AppSource::File(path) => self.prepare_app_from_file(path, &working_dir).await?,
-            AppSource::Bindle(id) => self.prepare_app_from_bindle(id, &working_dir).await?,
             AppSource::OciRegistry(oci) => self.prepare_app_from_oci(oci, &working_dir).await?,
             AppSource::Unresolvable(err) => bail!("{err}"),
         };
@@ -251,17 +207,11 @@ impl UpCommand {
     }
 
     fn resolve_app_source(&self) -> AppSource {
-        match (
-            &self.app_source,
-            &self.file_source,
-            &self.bindle_source,
-            &self.registry_source,
-        ) {
-            (None, None, None, None) => self.default_manifest_or_none(),
-            (Some(source), None, None, None) => Self::infer_source(source),
-            (None, Some(file), None, None) => Self::infer_file_source(file.to_owned()),
-            (None, None, Some(id), None) => AppSource::Bindle(id.to_owned()),
-            (None, None, None, Some(reference)) => AppSource::OciRegistry(reference.to_owned()),
+        match (&self.app_source, &self.file_source, &self.registry_source) {
+            (None, None, None) => self.default_manifest_or_none(),
+            (Some(source), None, None) => Self::infer_source(source),
+            (None, Some(file), None) => Self::infer_file_source(file.to_owned()),
+            (None, None, Some(reference)) => AppSource::OciRegistry(reference.to_owned()),
             _ => AppSource::unresolvable("More than one application source was specified"),
         }
     }
@@ -339,31 +289,18 @@ impl UpCommand {
         Ok(locked_url)
     }
 
-    fn bindle_connection(&self) -> Option<BindleConnectionInfo> {
-        self.server.as_ref().map(|url| {
-            BindleConnectionInfo::new(
-                url,
-                self.insecure,
-                self.bindle_username.clone(),
-                self.bindle_password.clone(),
-            )
-        })
-    }
-
     async fn prepare_app_from_file(
         &self,
         manifest_path: &Path,
         working_dir: &Path,
     ) -> Result<LockedApp> {
-        let bindle_connection = self.bindle_connection();
-
         let asset_dst = if self.direct_mounts {
             None
         } else {
             Some(working_dir)
         };
 
-        let app = spin_loader::from_file(manifest_path, asset_dst, &bindle_connection).await?;
+        let app = spin_loader::from_file(manifest_path, asset_dst).await?;
 
         spin_trigger::locked::build_locked_app(app, working_dir)
     }
@@ -376,23 +313,6 @@ impl UpCommand {
         OciLoader::new(working_dir)
             .load_app(&mut client, reference)
             .await
-    }
-
-    async fn prepare_app_from_bindle(
-        &self,
-        bindle_id: &str,
-        working_dir: &Path,
-    ) -> Result<LockedApp> {
-        print_bindle_deprecation();
-        assert!(!self.direct_mounts);
-
-        let Some(server) = &self.server else {
-            bail!("Loading from a bindle requires a Bindle server URL");
-        };
-
-        let app = spin_loader::from_bindle(bindle_id, server, working_dir).await?;
-
-        spin_trigger::locked::build_locked_app(app, working_dir)
     }
 
     fn update_locked_app(&self, locked_app: &mut LockedApp) {
@@ -495,7 +415,6 @@ enum AppSource {
     None,
     File(PathBuf),
     OciRegistry(String),
-    Bindle(String),
     Unresolvable(String),
 }
 

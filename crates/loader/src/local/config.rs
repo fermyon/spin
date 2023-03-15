@@ -179,8 +179,6 @@ pub enum RawFileMount {
 pub enum RawModuleSource {
     /// Local path or parcel reference to a module that needs to be linked.
     FileReference(PathBuf),
-    /// Reference to a remote bindle
-    Bindle(FileComponentBindleSource),
     /// Reference to a Wasm file at a URL
     Url(FileComponentUrlSource),
 }

@@ -1,33 +1,19 @@
 pub mod cli;
-pub mod config;
+mod key_value;
 pub mod loader;
 pub mod locked;
+pub mod runtime_config;
 mod stdio;
 
-use std::{
-    collections::HashMap,
-    fs,
-    marker::PhantomData,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 pub use async_trait::async_trait;
-use once_cell::sync::OnceCell;
+use runtime_config::RuntimeConfig;
 use serde::de::DeserializeOwned;
-use url::Url;
 
 use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp};
-use spin_config::{
-    provider::{env::EnvProvider, vault::VaultProvider},
-    Provider,
-};
 use spin_core::{Config, Engine, EngineBuilder, Instance, InstancePre, Store, StoreBuilder};
-
-const SPIN_CONFIG_ENV_PREFIX: &str = "SPIN_CONFIG";
-const DEFAULT_SQLITE_DB_DIRECTORY: &str = ".spin";
-const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_key_value.db";
 
 #[async_trait]
 pub trait TriggerExecutor: Sized {
@@ -51,7 +37,7 @@ pub trait TriggerExecutor: Sized {
 pub struct TriggerExecutorBuilder<Executor: TriggerExecutor> {
     loader: AppLoader,
     config: Config,
-    hooks: Box<dyn TriggerHooks>,
+    hooks: Vec<Box<dyn TriggerHooks>>,
     disable_default_host_components: bool,
     _phantom: PhantomData<Executor>,
 }
@@ -62,7 +48,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         Self {
             loader: AppLoader::new(loader),
             config: Default::default(),
-            hooks: Box::new(()),
+            hooks: Default::default(),
             disable_default_host_components: false,
             _phantom: PhantomData,
         }
@@ -76,7 +62,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     }
 
     pub fn hooks(&mut self, hooks: impl TriggerHooks + 'static) -> &mut Self {
-        self.hooks = Box::new(hooks);
+        self.hooks.push(Box::new(hooks));
         self
     }
 
@@ -88,7 +74,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     pub async fn build(
         mut self,
         app_uri: String,
-        builder_config: config::TriggerExecutorBuilderConfig,
+        runtime_config: runtime_config::RuntimeConfig,
     ) -> Result<Executor>
     where
         Executor::TriggerConfig: DeserializeOwned,
@@ -100,18 +86,9 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 builder.add_host_component(outbound_redis::OutboundRedisComponent)?;
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
-
-                let manager = OnceCell::new();
-
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    spin_key_value::KeyValueComponent::new(spin_key_value::manager(
-                        move |component| {
-                            manager
-                                .get_or_init(|| make_store_manager(component))
-                                .clone()
-                        },
-                    )),
+                    crate::key_value::build_key_value_component(&runtime_config)?,
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
@@ -119,9 +96,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    spin_config::ConfigHostComponent::new(
-                        self.get_config_providers(&app_uri, &builder_config),
-                    ),
+                    spin_config::ConfigHostComponent::new(runtime_config.config_providers()),
                 )?;
             }
 
@@ -133,45 +108,12 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 
         let app_name = app.borrowed().require_metadata("name")?;
 
-        self.hooks.app_loaded(app.borrowed())?;
+        self.hooks
+            .iter_mut()
+            .try_for_each(|h| h.app_loaded(app.borrowed(), &runtime_config))?;
 
         // Run trigger executor
         Executor::new(TriggerAppEngine::new(engine, app_name, app, self.hooks).await?)
-    }
-
-    pub fn get_config_providers(
-        &self,
-        app_uri: &str,
-        builder_config: &config::TriggerExecutorBuilderConfig,
-    ) -> Vec<Box<dyn Provider>> {
-        let mut providers = self.default_config_providers(app_uri);
-        for config_provider in &builder_config.config_providers {
-            let provider = match config_provider {
-                config::ConfigProvider::Vault(vault_config) => VaultProvider::new(
-                    &vault_config.url,
-                    &vault_config.token,
-                    &vault_config.mount,
-                    vault_config.prefix.clone(),
-                ),
-            };
-            providers.push(Box::new(provider));
-        }
-        providers
-    }
-
-    pub fn default_config_providers(&self, app_uri: &str) -> Vec<Box<dyn Provider>> {
-        // EnvProvider
-        // Look for a .env file in either the manifest parent directory for local apps
-        // or the current directory for remote (e.g. bindle) apps.
-        let dotenv_path = parse_file_url(app_uri)
-            .as_deref()
-            .ok()
-            .unwrap_or_else(|| Path::new("."))
-            .join(".env");
-        vec![Box::new(EnvProvider::new(
-            SPIN_CONFIG_ENV_PREFIX,
-            Some(dotenv_path),
-        ))]
     }
 }
 
@@ -184,7 +126,7 @@ pub struct TriggerAppEngine<Executor: TriggerExecutor> {
     // An owned wrapper of the App.
     app: OwnedApp,
     // Trigger hooks
-    hooks: Box<dyn TriggerHooks>,
+    hooks: Vec<Box<dyn TriggerHooks>>,
     // Trigger configs for this trigger type, with order matching `app.triggers_with_type(Executor::TRIGGER_TYPE)`
     trigger_configs: Vec<Executor::TriggerConfig>,
     // Map of {Component ID -> InstancePre} for each component.
@@ -198,7 +140,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         engine: Engine<Executor::RuntimeData>,
         app_name: String,
         app: OwnedApp,
-        hooks: Box<dyn TriggerHooks>,
+        hooks: Vec<Box<dyn TriggerHooks>>,
     ) -> Result<Self>
     where
         <Executor as TriggerExecutor>::TriggerConfig: DeserializeOwned,
@@ -250,7 +192,8 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         let mut builder = self.engine.store_builder();
         let component = self.get_component(component_id)?;
         self.hooks
-            .component_store_builder(component, &mut builder)?;
+            .iter()
+            .try_for_each(|h| h.component_store_builder(&component, &mut builder))?;
         Ok(builder)
     }
 
@@ -309,7 +252,7 @@ pub trait TriggerHooks: Send + Sync {
     #![allow(unused_variables)]
 
     /// Called once, immediately after an App is loaded.
-    fn app_loaded(&mut self, app: &App) -> Result<()> {
+    fn app_loaded(&mut self, app: &App, runtime_config: &RuntimeConfig) -> Result<()> {
         Ok(())
     }
 
@@ -318,7 +261,7 @@ pub trait TriggerHooks: Send + Sync {
     /// environment of the instance to be executed.
     fn component_store_builder(
         &self,
-        component: AppComponent,
+        component: &AppComponent,
         store_builder: &mut StoreBuilder,
     ) -> Result<()> {
         Ok(())
@@ -359,48 +302,4 @@ fn decode_preinstantiation_error(e: anyhow::Error) -> anyhow::Error {
     }
 
     e
-}
-
-fn key_value_file_location(app: &App) -> Option<PathBuf> {
-    let url = Url::parse(&app.get_metadata::<String>("origin").ok()??).ok()?;
-    let local_spin_toml = if url.scheme() == "file" {
-        url.path()
-    } else {
-        // Use in-memory store for remote apps.
-        return None;
-    };
-
-    // Attempt to create or reuse a database file inside the app directory.  If that's not successful, we'll use an
-    // in-memory database.
-    let directory = Path::new(&local_spin_toml)
-        .parent()?
-        .join(DEFAULT_SQLITE_DB_DIRECTORY);
-
-    fs::create_dir_all(&directory).ok()?;
-
-    Some(directory.join(DEFAULT_SQLITE_DB_FILENAME))
-}
-
-fn make_store_manager(component: &AppComponent) -> Arc<dyn spin_key_value::StoreManager> {
-    // TODO: Once we have runtime configuration for key-value stores, the user will be able
-    // to both change the default store configuration (e.g. use Redis, or an SQLite
-    // in-memory database, or use a different path) and add other named stores with their
-    // own configurations.
-
-    Arc::new(spin_key_value::CachingStoreManager::new(
-        spin_key_value::DelegatingStoreManager::new(
-            [(
-                "default".to_owned(),
-                Arc::new(spin_key_value_sqlite::KeyValueSqlite::new(
-                    if let Some(key_value_file) = key_value_file_location(component.app) {
-                        spin_key_value_sqlite::DatabaseLocation::Path(key_value_file)
-                    } else {
-                        spin_key_value_sqlite::DatabaseLocation::InMemory
-                    },
-                )) as Arc<dyn spin_key_value::StoreManager>,
-            )]
-            .into_iter()
-            .collect(),
-        ),
-    ))
 }

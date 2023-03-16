@@ -28,7 +28,8 @@ pub struct DelegatingStoreManager {
 }
 
 impl DelegatingStoreManager {
-    pub fn new(delegates: HashMap<String, Arc<dyn StoreManager>>) -> Self {
+    pub fn new(delegates: impl IntoIterator<Item = (String, Arc<dyn StoreManager>)>) -> Self {
+        let delegates = delegates.into_iter().collect();
         Self { delegates }
     }
 }

@@ -38,6 +38,7 @@ record request {
     uri: uri,
     headers: headers,
     params: params,
+    client-addr: string,
     body: option<body>,
 }
 

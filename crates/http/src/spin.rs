@@ -23,7 +23,7 @@ impl HttpExecutor for SpinHttpExecutor {
         base: &str,
         raw_route: &str,
         req: Request<Body>,
-        _client_addr: SocketAddr,
+        client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
         tracing::trace!(
             "Executing request using the Spin executor for component {}",
@@ -32,7 +32,7 @@ impl HttpExecutor for SpinHttpExecutor {
 
         let (instance, store) = engine.prepare_instance(component_id).await?;
 
-        let resp = Self::execute_impl(store, instance, base, raw_route, req)
+        let resp = Self::execute_impl(store, instance, base, raw_route, req, client_addr)
             .await
             .map_err(contextualise_err)?;
 
@@ -51,6 +51,7 @@ impl SpinHttpExecutor {
         base: &str,
         raw_route: &str,
         req: Request<Body>,
+        client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
         let headers;
         let mut req = req;
@@ -91,6 +92,7 @@ impl SpinHttpExecutor {
             uri: &uri,
             headers: &headers,
             params: &params,
+            client_addr: &client_addr.to_string(),
             body,
         };
 

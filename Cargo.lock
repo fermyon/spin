@@ -4724,7 +4724,6 @@ dependencies = [
  "ctrlc",
  "dirs 4.0.0",
  "futures",
- "once_cell",
  "outbound-http",
  "outbound-mysql",
  "outbound-pg",

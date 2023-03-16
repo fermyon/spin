@@ -55,6 +55,11 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     .method(spin_req.method)
                     .uri(&spin_req.uri);
 
+                let client_addr = spin_req.client_addr.parse::<std::net::SocketAddr>().ok();
+                if let Some(extensions) = http_req.extensions_mut() {
+                    extensions.insert(client_addr);
+                }
+
                 append_request_headers(&mut http_req, &spin_req)?;
 
                 let body = match spin_req.body {

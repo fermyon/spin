@@ -26,12 +26,19 @@ pub fn send_request(req: Request) -> Result<Response> {
         .map(try_header_to_strs)
         .collect::<Result<Vec<_>>>()?;
 
+    let client_addr = req
+        .extensions
+        .get::<std::net::SocketAddr>()
+        .map(|a| a.to_string())
+        .unwrap_or_default();
+
     let body = body.as_ref().map(|bytes| bytes.as_ref());
 
     let out_req = OutboundRequest {
         method,
         uri: &uri,
         params: &params,
+        client_addr: &client_addr,
         headers,
         body,
     };

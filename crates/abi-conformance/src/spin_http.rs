@@ -17,6 +17,7 @@ pub(super) fn test(store: &mut Store<Context>, pre: &InstancePre<Context>) -> Re
                 uri: "/foo",
                 headers: &[("foo", "bar")],
                 params: &[],
+                client_addr: "",
                 body: Some(b"Hello, SpinHttp!"),
             },
         )?;

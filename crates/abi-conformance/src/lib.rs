@@ -207,6 +207,7 @@ fn run_command(
                             uri: "/",
                             headers: &[],
                             params: &[],
+                            client_addr: "",
                             body: Some(&serde_json::to_vec(arguments)?),
                         },
                     )

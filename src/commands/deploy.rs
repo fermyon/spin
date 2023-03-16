@@ -475,7 +475,6 @@ impl DeployCommand {
                         .with_context(|| anyhow!("Cannot open file {}", &full_path.display()))?;
                     copy(&mut r, &mut sha256)?;
                 }
-                config::RawModuleSource::Bindle(_b) => {}
                 config::RawModuleSource::Url(us) => sha256.update(us.digest.as_bytes()),
             }
 

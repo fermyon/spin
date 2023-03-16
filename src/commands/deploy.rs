@@ -95,7 +95,8 @@ pub struct DeployCommand {
     pub deployment_env_id: Option<String>,
 
     /// Pass a key/value (key=value) to all components of the application.
-    #[clap(long, parse(try_from_str = parse_kv))]
+    /// Can be used multiple times.
+    #[clap(long = "key-value", parse(try_from_str = parse_kv))]
     pub key_values: Vec<(String, String)>,
 }
 

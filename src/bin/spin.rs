@@ -3,7 +3,6 @@ use clap::{CommandFactory, Parser, Subcommand};
 use is_terminal::IsTerminal;
 use lazy_static::lazy_static;
 use spin_cli::commands::{
-    bindle::BindleCommands,
     build::BuildCommand,
     cloud::CloudCommands,
     deploy::DeployCommand,
@@ -52,8 +51,6 @@ enum SpinApp {
     Add(AddCommand),
     Up(UpCommand),
     #[clap(subcommand)]
-    Bindle(BindleCommands),
-    #[clap(subcommand)]
     Cloud(CloudCommands),
     // acts as a cross-level subcommand shortcut -> `spin cloud deploy`
     Deploy(DeployCommand),
@@ -86,7 +83,6 @@ impl SpinApp {
             Self::Up(cmd) => cmd.run().await,
             Self::New(cmd) => cmd.run().await,
             Self::Add(cmd) => cmd.run().await,
-            Self::Bindle(cmd) => cmd.run().await,
             Self::Cloud(cmd) => cmd.run().await,
             Self::Deploy(cmd) => cmd.run().await,
             Self::Login(cmd) => cmd.run().await,

@@ -1,7 +1,5 @@
 //! Commands for the Spin CLI.
 
-/// Command for creating bindles.
-pub mod bindle;
 /// Commands for building Spin applications.
 pub mod build;
 /// Commands for publishing applications to the Fermyon Platform.

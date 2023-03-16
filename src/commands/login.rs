@@ -237,18 +237,16 @@ impl LoginCommand {
     async fn run_check_device_code(&self, device_code: &str) -> Result<()> {
         let connection_config = self.anon_connection_config();
         let client = Client::new(connection_config);
-        let token_info = client.login(device_code.to_owned()).await?;
 
-        let token_readiness = if token_info.token.is_some() {
-            TokenReadiness::Ready(token_info)
-        } else {
-            TokenReadiness::Unready
+        let token_readiness = match client.login(device_code.to_owned()).await {
+            Ok(token_info) => TokenReadiness::Ready(token_info),
+            Err(_) => TokenReadiness::Unready,
         };
 
         match token_readiness {
             TokenReadiness::Ready(token_info) => {
                 println!("{}", serde_json::to_string_pretty(&token_info)?);
-                let login_connection = self.login_connection_for_token(token_info);
+                let login_connection = self.login_connection_for_token_info(token_info);
                 self.save_login_info(&login_connection)?;
             }
             TokenReadiness::Unready => {
@@ -270,22 +268,23 @@ impl LoginCommand {
     }
 
     async fn login_using_token(&self) -> Result<LoginConnection> {
+        // check that the user passed in a token
+        let token = match self.token.clone() {
+            Some(t) => t,
+            None => return Err(anyhow::anyhow!(format!("No personal access token was provided. Please provide one using either ${} or --{}.", SPIN_AUTH_TOKEN, TOKEN.to_lowercase()))),
+        };
+
         // Validate the token by calling list_apps API until we have a user info API
-        HippoClient::new(ConnectionInfo {
+        Client::new(ConnectionConfig {
             url: self.hippo_server_url.to_string(),
-            danger_accept_invalid_certs: self.insecure,
-            api_key: self.token.clone(),
+            insecure: self.insecure,
+            token: token.clone(),
         })
         .list_apps()
         .await
-        .context("Login using the provided token failed. Run `spin login` or create a new token using the Fermyon Cloud user interface.")?;
+        .context("Login using the provided personal access token failed. Run `spin login` or create a new token using the Fermyon Cloud user interface.")?;
 
-        let token_info = TokenInfo {
-            token: self.token.clone(),
-            expiration: None,
-        };
-
-        Ok(self.login_connection_for_token(token_info))
+        Ok(self.login_connection_for_token(token))
     }
 
     async fn run_interactive_gh_login(&self) -> Result<LoginConnection> {
@@ -293,7 +292,7 @@ impl LoginCommand {
         let connection_config = self.anon_connection_config();
         let token_info = github_token(connection_config).await?;
 
-        Ok(self.login_connection_for_token(token_info))
+        Ok(self.login_connection_for_token_info(token_info))
     }
 
     async fn run_interactive_basic_login(&self) -> Result<LoginConnection> {
@@ -367,12 +366,24 @@ impl LoginCommand {
         })
     }
 
-    fn login_connection_for_token(&self, token_info: TokenInfo) -> LoginConnection {
+    fn login_connection_for_token(&self, token: String) -> LoginConnection {
         LoginConnection {
             url: self.hippo_server_url.clone(),
             danger_accept_invalid_certs: self.insecure,
-            token: token_info.token.unwrap_or_default(),
-            expiration: token_info.expiration,
+            token,
+            expiration: None,
+            bindle_url: None,
+            bindle_username: None,
+            bindle_password: None,
+        }
+    }
+
+    fn login_connection_for_token_info(&self, token_info: TokenInfo) -> LoginConnection {
+        LoginConnection {
+            url: self.hippo_server_url.clone(),
+            danger_accept_invalid_certs: self.insecure,
+            token: token_info.token,
+            expiration: Some(token_info.expiration),
             bindle_url: None,
             bindle_username: None,
             bindle_password: None,
@@ -460,12 +471,12 @@ async fn github_token(
 
     println!(
         "\nCopy your one-time code:\n\n{}\n",
-        device_code.user_code.clone().unwrap(),
+        device_code.user_code.clone(),
     );
 
     println!(
         "...and open the authorization page in your browser:\n\n{}\n",
-        device_code.verification_url.clone().unwrap(),
+        device_code.verification_url.clone(),
     );
 
     // The OAuth library should theoretically handle waiting for the device to be authorized, but
@@ -480,16 +491,10 @@ async fn github_token(
             bail!("Timed out waiting to authorize the device. Please execute `spin login` again and authorize the device with GitHub.");
         }
 
-        match client.login(device_code.device_code.clone().unwrap()).await {
+        match client.login(device_code.device_code.clone()).await {
             Ok(response) => {
-                if response.token.is_none() {
-                    println!("Waiting for device authorization...");
-                    tokio::time::sleep(Duration::from_secs(POLL_INTERVAL_SECS)).await;
-                    seconds_elapsed += POLL_INTERVAL_SECS;
-                } else {
-                    println!("Device authorized!");
-                    return Ok(response);
-                }
+                println!("Device authorized!");
+                return Ok(response);
             }
             Err(_) => {
                 println!("Waiting for device authorization...");
@@ -521,6 +526,7 @@ pub struct LoginConnection {
     pub danger_accept_invalid_certs: bool,
     pub token: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub expiration: Option<String>,
 }
 

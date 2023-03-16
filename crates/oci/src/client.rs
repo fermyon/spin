@@ -2,6 +2,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use docker_credential::DockerCredential;
+use futures_util::future;
+use futures_util::stream::{self, StreamExt, TryStreamExt};
 use oci_distribution::{
     client::{Config, ImageLayer},
     manifest::OciImageManifest,
@@ -25,6 +27,8 @@ const DATA_MEDIATYPE: &str = "application/vnd.wasm.content.layer.v1+data";
 const CONFIG_FILE: &str = "config.json";
 const LATEST_TAG: &str = "latest";
 const MANIFEST_FILE: &str = "manifest.json";
+
+const MAX_PARALLEL_PULL: usize = 16;
 
 /// Client for interacting with an OCI registry for Spin applications.
 pub struct Client {
@@ -175,26 +179,41 @@ impl Client {
 
         // If a layer is a Wasm module, write it in the Wasm directory.
         // Otherwise, write it in the data directory.
-        for layer in manifest.layers {
-            // Skip pulling if the digest already exists in the wasm or data directories.
-            if self.cache.wasm_file(&layer.digest).is_ok()
-                || self.cache.data_file(&layer.digest).is_ok()
-            {
-                tracing::debug!("Layer {} already exists in cache", &layer.digest);
-                continue;
-            }
-            tracing::debug!("Pulling layer {}", &layer.digest);
-            let mut bytes = Vec::new();
-            self.oci
-                .pull_blob(&reference, &layer.digest, &mut bytes)
-                .await?;
-
-            match layer.media_type.as_str() {
-                WASM_LAYER_MEDIA_TYPE => self.cache.write_wasm(&bytes, &layer.digest).await?,
-                _ => self.cache.write_data(&bytes, &layer.digest).await?,
-            }
-        }
-
+        stream::iter(manifest.layers)
+            .map(|layer| {
+                let this = &self;
+                let reference = reference.clone();
+                async move {
+                    // Skip pulling if the digest already exists in the wasm or data directories.
+                    if this.cache.wasm_file(&layer.digest).is_ok()
+                        || this.cache.data_file(&layer.digest).is_ok()
+                    {
+                        tracing::debug!("Layer {} already exists in cache", &layer.digest);
+                    } else {
+                        tracing::debug!("Pulling layer {}", &layer.digest);
+                        let mut bytes = Vec::new();
+                        match this
+                            .oci
+                            .pull_blob(&reference, &layer.digest, &mut bytes)
+                            .await
+                        {
+                            Err(e) => return Err(e),
+                            _ => match layer.media_type.as_str() {
+                                WASM_LAYER_MEDIA_TYPE => {
+                                    let _ = this.cache.write_wasm(&bytes, &layer.digest).await;
+                                }
+                                _ => {
+                                    let _ = this.cache.write_data(&bytes, &layer.digest).await;
+                                }
+                            },
+                        }
+                    }
+                    Ok(())
+                }
+            })
+            .buffer_unordered(MAX_PARALLEL_PULL)
+            .try_for_each(future::ok)
+            .await?;
         tracing::info!("Pulled {}@{}", reference, digest);
 
         Ok(())

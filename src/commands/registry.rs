@@ -6,9 +6,6 @@ use std::{io::Read, path::PathBuf};
 use crate::opts::*;
 
 /// Commands for working with OCI registries to distribute applications.
-/// The set of commands for OCI is EXPERIMENTAL, and may change in future versions of Spin.
-/// Currently, the OCI commands are reusing the credentials from ~/.docker/config.json to
-/// authenticate to registries.
 #[derive(Subcommand, Debug)]
 pub enum RegistryCommands {
     /// Push a Spin application to a registry.

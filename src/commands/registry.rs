@@ -61,7 +61,13 @@ impl Push {
         let app = spin_loader::local::from_file(&app_file, Some(dir.path()), &None).await?;
 
         let mut client = spin_oci::Client::new(self.insecure, None).await?;
-        client.push(&app, &self.reference).await?;
+        let digest = client.push(&app, &self.reference).await?;
+
+        match digest {
+            Some(digest) => println!("Pushed with digest {digest}"),
+            None => println!("Pushed; the registry did not return the digest"),
+        };
+
         Ok(())
     }
 }

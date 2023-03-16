@@ -425,12 +425,14 @@ const MATCHED_ROUTE: &[&str] = &["SPIN_MATCHED_ROUTE", "X_MATCHED_ROUTE"];
 const COMPONENT_ROUTE: &[&str] = &["SPIN_COMPONENT_ROUTE", "X_COMPONENT_ROUTE"];
 const RAW_COMPONENT_ROUTE: &[&str] = &["SPIN_RAW_COMPONENT_ROUTE", "X_RAW_COMPONENT_ROUTE"];
 const BASE_PATH: &[&str] = &["SPIN_BASE_PATH", "X_BASE_PATH"];
+const CLIENT_ADDR: &[&str] = &["SPIN_CLIENT_ADDR", "X_CLIENT_ADDR"];
 
 pub(crate) fn compute_default_headers<'a>(
     uri: &Uri,
     raw: &str,
     base: &str,
     host: &str,
+    client_addr: SocketAddr,
 ) -> Result<Vec<(&'a [&'a str], String)>> {
     let mut res = vec![];
     let abs_path = uri
@@ -458,6 +460,7 @@ pub(crate) fn compute_default_headers<'a>(
             .unwrap_or(raw)
             .to_string(),
     ));
+    res.push((CLIENT_ADDR, client_addr.to_string()));
 
     Ok(res)
 }
@@ -496,6 +499,7 @@ mod tests {
         let trigger_route = "/foo/...";
         let component_path = "/foo";
         let path_info = "/bar";
+        let client_addr: SocketAddr = "127.0.0.1:8777".parse().unwrap();
 
         let req_uri = format!(
             "{}://{}{}{}{}?key1=value1&key2=value2",
@@ -507,7 +511,8 @@ mod tests {
             .uri(req_uri)
             .body("")?;
 
-        let default_headers = crate::compute_default_headers(req.uri(), trigger_route, base, host)?;
+        let default_headers =
+            crate::compute_default_headers(req.uri(), trigger_route, base, host, client_addr)?;
 
         assert_eq!(
             search(FULL_URL, &default_headers).unwrap(),
@@ -533,6 +538,10 @@ mod tests {
             search(COMPONENT_ROUTE, &default_headers).unwrap(),
             "/foo".to_string()
         );
+        assert_eq!(
+            search(CLIENT_ADDR, &default_headers).unwrap(),
+            "127.0.0.1:8777".to_string()
+        );
 
         Ok(())
     }
@@ -545,6 +554,7 @@ mod tests {
         let trigger_route = "/foo/...";
         let component_path = "/foo";
         let path_info = "/bar";
+        let client_addr: SocketAddr = "127.0.0.1:8777".parse().unwrap();
 
         let req_uri = format!(
             "{}://{}{}{}?key1=value1&key2=value2",
@@ -556,7 +566,8 @@ mod tests {
             .uri(req_uri)
             .body("")?;
 
-        let default_headers = crate::compute_default_headers(req.uri(), trigger_route, base, host)?;
+        let default_headers =
+            crate::compute_default_headers(req.uri(), trigger_route, base, host, client_addr)?;
 
         // TODO: we currently replace the scheme with HTTP. When TLS is supported, this should be fixed.
         assert_eq!(
@@ -582,6 +593,10 @@ mod tests {
         assert_eq!(
             search(COMPONENT_ROUTE, &default_headers).unwrap(),
             "/foo".to_string()
+        );
+        assert_eq!(
+            search(CLIENT_ADDR, &default_headers).unwrap(),
+            "127.0.0.1:8777".to_string()
         );
 
         Ok(())

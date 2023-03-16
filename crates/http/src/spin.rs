@@ -23,7 +23,7 @@ impl HttpExecutor for SpinHttpExecutor {
         base: &str,
         raw_route: &str,
         req: Request<Body>,
-        _client_addr: SocketAddr,
+        client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
         tracing::trace!(
             "Executing request using the Spin executor for component {}",
@@ -32,7 +32,7 @@ impl HttpExecutor for SpinHttpExecutor {
 
         let (instance, store) = engine.prepare_instance(component_id).await?;
 
-        let resp = Self::execute_impl(store, instance, base, raw_route, req)
+        let resp = Self::execute_impl(store, instance, base, raw_route, req, client_addr)
             .await
             .map_err(contextualise_err)?;
 
@@ -51,11 +51,12 @@ impl SpinHttpExecutor {
         base: &str,
         raw_route: &str,
         req: Request<Body>,
+        client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
         let headers;
         let mut req = req;
         {
-            headers = Self::headers(&mut req, raw_route, base)?;
+            headers = Self::headers(&mut req, raw_route, base, client_addr)?;
         }
 
         let http_instance = SpinHttp::new(&mut store, &instance, |data| data.as_mut())?;
@@ -129,7 +130,12 @@ impl SpinHttpExecutor {
         })
     }
 
-    fn headers(req: &mut Request<Body>, raw: &str, base: &str) -> Result<Vec<(String, String)>> {
+    fn headers(
+        req: &mut Request<Body>,
+        raw: &str,
+        base: &str,
+        client_addr: SocketAddr,
+    ) -> Result<Vec<(String, String)>> {
         let mut res = Vec::new();
         for (name, value) in req
             .headers()
@@ -151,7 +157,8 @@ impl SpinHttpExecutor {
         // Set the environment information (path info, base path, etc) as headers.
         // In the future, we might want to have this information in a context
         // object as opposed to headers.
-        for (keys, val) in crate::compute_default_headers(req.uri(), raw, base, host)? {
+        for (keys, val) in crate::compute_default_headers(req.uri(), raw, base, host, client_addr)?
+        {
             res.push((Self::prepare_header_key(keys[0]), val));
         }
 

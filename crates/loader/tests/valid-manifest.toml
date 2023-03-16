@@ -17,10 +17,8 @@ env1 = "first"
 env2 = "second"
 
 [[component]]
-id = "abc"
-[component.source]
-parcel = "parcel"
-reference = "bindle reference"
+id = "this used to test Bindle but is no longer used; kept around because some tests index into the component array"
+source = "nope/nope/nope"
 [component.trigger]
 route = "/test"
 

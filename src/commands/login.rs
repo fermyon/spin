@@ -220,7 +220,7 @@ impl LoginCommand {
         let path = self.config_file_path()?;
         let data = fs::read_to_string(&path)
             .await
-            .context("Cannnot display login information")?;
+            .context("Cannot display login information")?;
         println!("{}", data);
         Ok(())
     }

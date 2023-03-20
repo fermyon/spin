@@ -16,3 +16,4 @@ spin-trigger-http = { path = "../trigger-http" }
 spin-trigger = { path = "../trigger" }
 tokio = { version = "1", features = ["macros", "rt"] }
 tracing-subscriber = "0.3"
+spin-componentize = { workspace = true }

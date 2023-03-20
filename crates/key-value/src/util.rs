@@ -1,5 +1,6 @@
 use crate::{Error, Store, StoreManager};
 use lru::LruCache;
+use spin_core::async_trait;
 use std::{
     collections::{HashMap, HashSet},
     future::Future,
@@ -10,7 +11,6 @@ use tokio::{
     sync::Mutex as AsyncMutex,
     task::{self, JoinHandle},
 };
-use wit_bindgen_wasmtime::async_trait;
 
 const DEFAULT_CACHE_SIZE: usize = 256;
 

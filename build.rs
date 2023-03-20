@@ -85,6 +85,7 @@ fn build_wasm_test_program(name: &'static str, root: &'static str) {
         .release()
         .target("wasm32-wasi")
         .build();
+    println!("cargo:rerun-if-changed={root}");
 }
 
 fn has_wasm32_wasi_target() -> bool {

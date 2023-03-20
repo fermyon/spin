@@ -4,8 +4,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use spin_core::{Config, Engine, HostComponent, I32Exit, Module, Store, StoreBuilder, Trap};
+use spin_core::{Component, Config, Engine, HostComponent, I32Exit, Store, StoreBuilder, Trap};
 use tempfile::TempDir;
+use tokio::fs;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_stdio() {
@@ -189,21 +190,36 @@ async fn run_core_wasi_test_engine<'a>(
     let mut store_builder: StoreBuilder = engine.store_builder();
     let mut stdout_buf = store_builder.stdout_buffered();
     store_builder.stderr_pipe(TestWriter);
-    store_builder.args(args).unwrap();
 
     update_store_builder(&mut store_builder);
 
-    let mut store = store_builder.build().unwrap();
+    let mut store = store_builder.build()?;
     let module_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../target/test-programs/core-wasi-test.wasm");
-    let module = Module::from_file(engine.as_ref(), module_path).unwrap();
-    let instance_pre = engine.instantiate_pre(&module).unwrap();
-    let instance = instance_pre.instantiate_async(&mut store).await.unwrap();
-    let func = instance.get_func(&mut store, "_start").unwrap();
+    let component = spin_componentize::componentize_command(&fs::read(module_path).await?)?;
+    let component = Component::new(engine.as_ref(), &component)?;
+    let instance_pre = engine.instantiate_pre(&component)?;
+    let instance = instance_pre.instantiate_async(&mut store).await?;
+    let func = instance
+        .get_typed_func::<(u32, u32, u32, Vec<String>, Vec<(u32, String)>), (Result<(), ()>,)>(
+            &mut store, "main",
+        )?;
 
     update_store(&mut store);
 
-    func.call_async(&mut store, &[], &mut []).await?;
+    func.call_async(
+        &mut store,
+        (
+            0,
+            1,
+            2,
+            args.into_iter().map(|s| s.to_owned()).collect(),
+            Vec::new(),
+        ),
+    )
+    .await?
+    .0
+    .map_err(|()| anyhow::anyhow!("command failed"))?;
 
     let stdout = String::from_utf8(stdout_buf.take())?.trim_end().into();
     Ok(stdout)
@@ -222,13 +238,16 @@ impl HostComponent for MultiplierHostComponent {
     ) -> anyhow::Result<()> {
         // NOTE: we're trying to avoid wit-bindgen because a git dependency
         // would make this crate unpublishable on crates.io
-        linker.func_wrap1_async("multiplier", "multiply", move |mut caller, input: i32| {
-            Box::new(async move {
-                let &mut factor = get(caller.data_mut());
-                let output = factor * input;
-                Ok(output)
-            })
-        })?;
+        linker.instance("imports")?.func_wrap_async(
+            "multiply",
+            move |mut caller, (input,): (i32,)| {
+                Box::new(async move {
+                    let &mut factor = get(caller.data_mut());
+                    let output = factor * input;
+                    Ok((output,))
+                })
+            },
+        )?;
         Ok(())
     }
 
@@ -238,6 +257,7 @@ impl HostComponent for MultiplierHostComponent {
 }
 
 // Write with `print!`, required for test output capture
+#[derive(Copy, Clone)]
 struct TestWriter;
 
 impl std::io::Write for TestWriter {

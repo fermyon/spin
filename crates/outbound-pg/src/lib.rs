@@ -1,17 +1,18 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Result};
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
-use spin_core::HostComponent;
+use spin_core::{
+    async_trait,
+    postgres::{self, PgError},
+    rdbms_types::{Column, DbDataType, DbValue, ParameterValue, RowSet},
+    HostComponent,
+};
 use std::collections::HashMap;
 use tokio_postgres::{
     config::SslMode,
     types::{ToSql, Type},
     Client, NoTls, Row, Socket,
 };
-use wit_bindgen_wasmtime::async_trait;
-
-wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/outbound-pg.wit"], async: *});
-use outbound_pg::{Column, DbDataType, DbValue, ParameterValue, PgError, RowSet};
 
 /// A simple implementation to support outbound pg connection
 #[derive(Default)]
@@ -26,7 +27,7 @@ impl HostComponent for OutboundPg {
         linker: &mut spin_core::Linker<T>,
         get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
     ) -> anyhow::Result<()> {
-        outbound_pg::add_to_linker(linker, get)
+        postgres::add_to_linker(linker, get)
     }
 
     fn build_data(&self) -> Self::Data {
@@ -35,71 +36,77 @@ impl HostComponent for OutboundPg {
 }
 
 #[async_trait]
-impl outbound_pg::OutboundPg for OutboundPg {
+impl postgres::Host for OutboundPg {
     async fn execute(
         &mut self,
-        address: &str,
-        statement: &str,
-        params: Vec<ParameterValue<'_>>,
-    ) -> Result<u64, PgError> {
-        let params: Vec<&(dyn ToSql + Sync)> = params
-            .iter()
-            .map(to_sql_parameter)
-            .collect::<anyhow::Result<Vec<_>>>()
-            .map_err(|e| PgError::ValueConversionFailed(format!("{:?}", e)))?;
+        address: String,
+        statement: String,
+        params: Vec<ParameterValue>,
+    ) -> Result<Result<u64, PgError>> {
+        Ok(async {
+            let params: Vec<&(dyn ToSql + Sync)> = params
+                .iter()
+                .map(to_sql_parameter)
+                .collect::<anyhow::Result<Vec<_>>>()
+                .map_err(|e| PgError::ValueConversionFailed(format!("{:?}", e)))?;
 
-        let nrow = self
-            .get_client(address)
-            .await
-            .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?
-            .execute(statement, params.as_slice())
-            .await
-            .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
+            let nrow = self
+                .get_client(&address)
+                .await
+                .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?
+                .execute(&statement, params.as_slice())
+                .await
+                .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
 
-        Ok(nrow)
+            Ok(nrow)
+        }
+        .await)
     }
 
     async fn query(
         &mut self,
-        address: &str,
-        statement: &str,
-        params: Vec<ParameterValue<'_>>,
-    ) -> Result<RowSet, PgError> {
-        let params: Vec<&(dyn ToSql + Sync)> = params
-            .iter()
-            .map(to_sql_parameter)
-            .collect::<anyhow::Result<Vec<_>>>()
-            .map_err(|e| PgError::BadParameter(format!("{:?}", e)))?;
+        address: String,
+        statement: String,
+        params: Vec<ParameterValue>,
+    ) -> Result<Result<RowSet, PgError>> {
+        Ok(async {
+            let params: Vec<&(dyn ToSql + Sync)> = params
+                .iter()
+                .map(to_sql_parameter)
+                .collect::<anyhow::Result<Vec<_>>>()
+                .map_err(|e| PgError::BadParameter(format!("{:?}", e)))?;
 
-        let results = self
-            .get_client(address)
-            .await
-            .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?
-            .query(statement, params.as_slice())
-            .await
-            .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
+            let results = self
+                .get_client(&address)
+                .await
+                .map_err(|e| PgError::ConnectionFailed(format!("{:?}", e)))?
+                .query(&statement, params.as_slice())
+                .await
+                .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
 
-        if results.is_empty() {
-            return Ok(RowSet {
-                columns: vec![],
-                rows: vec![],
-            });
+            if results.is_empty() {
+                return Ok(RowSet {
+                    columns: vec![],
+                    rows: vec![],
+                });
+            }
+
+            let columns = infer_columns(&results[0]);
+            let rows = results
+                .iter()
+                .map(convert_row)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
+
+            Ok(RowSet { columns, rows })
         }
-
-        let columns = infer_columns(&results[0]);
-        let rows = results
-            .iter()
-            .map(convert_row)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| PgError::QueryFailed(format!("{:?}", e)))?;
-
-        Ok(RowSet { columns, rows })
+        .await)
     }
 }
 
 const DB_NULL: Option<i32> = None;
 
-fn to_sql_parameter<'a>(value: &'a ParameterValue) -> anyhow::Result<&'a (dyn ToSql + Sync)> {
+fn to_sql_parameter(value: &ParameterValue) -> anyhow::Result<&(dyn ToSql + Sync)> {
     match value {
         ParameterValue::Boolean(v) => Ok(v),
         ParameterValue::Int32(v) => Ok(v),

@@ -26,6 +26,7 @@ jobs:
         uses: ./.github/actions/spin-ci-dependencies
         with:
           rust: true
+          rust-wasm: true
           rust-cache: true
 
       - name: Cargo Format

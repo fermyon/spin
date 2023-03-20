@@ -12,6 +12,7 @@ use std::{
     sync::Arc,
 };
 
+use crate::{spin::SpinHttpExecutor, wagi::WagiHttpExecutor};
 use anyhow::{Context, Error, Result};
 use async_trait::async_trait;
 use clap::Args;
@@ -24,27 +25,23 @@ use hyper::{
     Body, Request, Response, Server,
 };
 use serde::{Deserialize, Serialize};
-use spin_app::MetadataKey;
+use spin_app::{AppComponent, MetadataKey};
+use spin_core::Engine;
+use spin_http::routes::{RoutePattern, Router};
 use spin_trigger::{
     locked::{BINDLE_VERSION_KEY, DESCRIPTION_KEY, VERSION_KEY},
-    TriggerAppEngine, TriggerExecutor,
+    EitherInstancePre, TriggerAppEngine, TriggerExecutor,
 };
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
 use tracing::log;
 
-use crate::{spin::SpinHttpExecutor, wagi::WagiHttpExecutor};
 pub use spin_http::routes;
-use spin_http::routes::{RoutePattern, Router};
 pub use tls::TlsConfig;
 pub use wagi::WagiTriggerConfig;
 
-mod bindings {
-    wit_bindgen_wasmtime::import!({paths: ["../../wit/ephemeral/spin-http.wit"], async: *});
-}
-
-pub(crate) type RuntimeData = bindings::spin_http::SpinHttpData;
+pub(crate) type RuntimeData = ();
 pub(crate) type Store = spin_core::Store<RuntimeData>;
 
 pub const WELL_KNOWN_PREFIX: &str = "/.well-known/spin/";
@@ -131,7 +128,7 @@ impl TriggerExecutor for HttpTrigger {
     type TriggerConfig = HttpTriggerConfig;
     type RunConfig = CliArgs;
 
-    fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
+    async fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
         let base = engine.app().require_metadata(TRIGGER_METADATA_KEY)?.base;
 
         let component_routes = engine
@@ -155,7 +152,7 @@ impl TriggerExecutor for HttpTrigger {
         log::trace!(
             "Constructed router for application {}: {:?}",
             engine.app_name,
-            router.routes().collect::<Vec<_>>(),
+            router.routes().collect::<Vec<_>>()
         );
 
         let component_trigger_configs = engine
@@ -197,6 +194,28 @@ impl TriggerExecutor for HttpTrigger {
             self.serve(listen_addr).await?
         };
         Ok(())
+    }
+
+    async fn instantiate_pre(
+        engine: &Engine<Self::RuntimeData>,
+        component: &AppComponent,
+        config: &Self::TriggerConfig,
+    ) -> Result<EitherInstancePre<Self::RuntimeData>> {
+        if let Some(HttpExecutorType::Wagi(_)) = &config.executor {
+            let module = component.load_module(engine).await?;
+            Ok(EitherInstancePre::Module(
+                engine
+                    .module_instantiate_pre(&module)
+                    .map_err(spin_trigger::decode_preinstantiation_error)?,
+            ))
+        } else {
+            let comp = component.load_component(engine).await?;
+            Ok(EitherInstancePre::Component(
+                engine
+                    .instantiate_pre(&comp)
+                    .map_err(spin_trigger::decode_preinstantiation_error)?,
+            ))
+        }
     }
 }
 

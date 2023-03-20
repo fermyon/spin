@@ -1,9 +1,12 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use spin_core::Instance;
-use spin_trigger::TriggerAppEngine;
+use spin_core::{
+    redis_types::{Error, PayloadParam},
+    Instance,
+};
+use spin_trigger::{EitherInstance, TriggerAppEngine};
 
-use crate::{spin_redis::SpinRedis, RedisExecutor, RedisTrigger, Store};
+use crate::{RedisExecutor, RedisTrigger, Store};
 
 #[derive(Clone)]
 pub struct SpinRedisExecutor;
@@ -20,6 +23,11 @@ impl RedisExecutor for SpinRedisExecutor {
         tracing::trace!("Executing request using the Spin executor for component {component_id}");
 
         let (instance, store) = engine.prepare_instance(component_id).await?;
+        let instance = if let EitherInstance::Component(instance) = instance {
+            instance
+        } else {
+            unreachable!()
+        };
 
         match Self::execute_impl(store, instance, channel, payload.to_vec()).await {
             Ok(()) => {
@@ -41,11 +49,15 @@ impl SpinRedisExecutor {
         _channel: &str,
         payload: Vec<u8>,
     ) -> Result<()> {
-        let engine = SpinRedis::new(&mut store, &instance, |data| data.as_mut())?;
+        let func = instance
+            .exports(&mut store)
+            .instance("inbound-redis")
+            .ok_or_else(|| anyhow!("no inbound-redis instance found"))?
+            .typed_func::<(PayloadParam,), (Result<(), Error>,)>("handle-message")?;
 
-        engine
-            .handle_redis_message(&mut store, &payload)
-            .await?
-            .map_err(|err| anyhow!("{err:?}"))
+        match func.call_async(store, (&payload,)).await? {
+            (Ok(()) | Err(Error::Success),) => Ok(()),
+            _ => Err(anyhow!("`handle-message` returned an error")),
+        }
     }
 }

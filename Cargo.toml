@@ -98,7 +98,6 @@ fermyon-platform = []
 
 [workspace]
 members = [
-  "crates/abi-conformance",
   "crates/app",
   "crates/bindle",
   "crates/build",
@@ -125,10 +124,13 @@ members = [
 
 [workspace.dependencies]
 tracing = { version = "0.1", features = ["log"] }
-wasi-cap-std-sync = "5.0.1"
-wasi-common = "5.0.1"
-wasmtime = "5.0.1"
-wasmtime-wasi = { version = "5.0.1", features = ["tokio"] }
+wasmtime-wasi = { version = "7.0.0", features = ["tokio"] }
+wasi-common-preview1 = { package = "wasi-common", version = "7.0.0" }
+wasmtime = { version = "7.0.0", features = ["component-model"] }
+spin-componentize = { git = "https://github.com/fermyon/spin-componentize" }
+wasi-host = { package = "host", git = "https://github.com/fermyon/spin-componentize" }
+wasi-common = { git = "https://github.com/fermyon/spin-componentize" }
+wasi-cap-std-sync = { git = "https://github.com/fermyon/spin-componentize" }
 
 [workspace.dependencies.bindle]
 git = "https://github.com/fermyon/bindle"
@@ -138,7 +140,7 @@ features = ["client"]
 
 [workspace.dependencies.wit-bindgen-wasmtime]
 git = "https://github.com/fermyon/wit-bindgen-backport"
-rev = "a39003fadce6c7a8654e3e044fc39fc80d81ec7b"
+rev = "e1e2525bbbc8430c4ebe57e9f4b3f63b6facff98"
 features = ["async"]
 
 [[bin]]

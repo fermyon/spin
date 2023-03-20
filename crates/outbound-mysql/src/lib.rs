@@ -1,14 +1,15 @@
-use mysql_async::consts::ColumnType;
-use mysql_async::{from_value_opt, prelude::*, Opts, OptsBuilder, SslOpts};
-pub use outbound_mysql::add_to_linker;
-use spin_core::HostComponent;
+use anyhow::Result;
+pub use mysql::add_to_linker;
+use mysql_async::{consts::ColumnType, from_value_opt, prelude::*, Opts, OptsBuilder, SslOpts};
+use spin_core::{
+    async_trait,
+    mysql::{self, MysqlError},
+    rdbms_types::{Column, DbDataType, DbValue, ParameterValue, RowSet},
+    HostComponent,
+};
 use std::collections::HashMap;
 use std::sync::Arc;
 use url::Url;
-use wit_bindgen_wasmtime::async_trait;
-
-wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/outbound-mysql.wit"], async: *});
-use outbound_mysql::*;
 
 /// A simple implementation to support outbound mysql connection
 #[derive(Default)]
@@ -23,7 +24,7 @@ impl HostComponent for OutboundMysql {
         linker: &mut spin_core::Linker<T>,
         get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
     ) -> anyhow::Result<()> {
-        outbound_mysql::add_to_linker(linker, get)
+        mysql::add_to_linker(linker, get)
     }
 
     fn build_data(&self) -> Self::Data {
@@ -32,68 +33,74 @@ impl HostComponent for OutboundMysql {
 }
 
 #[async_trait]
-impl outbound_mysql::OutboundMysql for OutboundMysql {
+impl mysql::Host for OutboundMysql {
     async fn execute(
         &mut self,
-        address: &str,
-        statement: &str,
-        params: Vec<ParameterValue<'_>>,
-    ) -> Result<(), MysqlError> {
-        let db_params = params
-            .iter()
-            .map(to_sql_parameter)
-            .collect::<anyhow::Result<Vec<_>>>()
-            .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
+        address: String,
+        statement: String,
+        params: Vec<ParameterValue>,
+    ) -> Result<Result<(), MysqlError>> {
+        Ok(async {
+            let db_params = params
+                .iter()
+                .map(to_sql_parameter)
+                .collect::<anyhow::Result<Vec<_>>>()
+                .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
 
-        let parameters = mysql_async::Params::Positional(db_params);
+            let parameters = mysql_async::Params::Positional(db_params);
 
-        self.get_conn(address)
-            .await
-            .map_err(|e| MysqlError::ConnectionFailed(format!("{:?}", e)))?
-            .exec_batch(statement, &[parameters])
-            .await
-            .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
+            self.get_conn(&address)
+                .await
+                .map_err(|e| MysqlError::ConnectionFailed(format!("{:?}", e)))?
+                .exec_batch(&statement, &[parameters])
+                .await
+                .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
 
-        Ok(())
+            Ok(())
+        }
+        .await)
     }
 
     async fn query(
         &mut self,
-        address: &str,
-        statement: &str,
-        params: Vec<ParameterValue<'_>>,
-    ) -> Result<RowSet, MysqlError> {
-        let db_params = params
-            .iter()
-            .map(to_sql_parameter)
-            .collect::<anyhow::Result<Vec<_>>>()
-            .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
+        address: String,
+        statement: String,
+        params: Vec<ParameterValue>,
+    ) -> Result<Result<RowSet, MysqlError>> {
+        Ok(async {
+            let db_params = params
+                .iter()
+                .map(to_sql_parameter)
+                .collect::<anyhow::Result<Vec<_>>>()
+                .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
 
-        let parameters = mysql_async::Params::Positional(db_params);
+            let parameters = mysql_async::Params::Positional(db_params);
 
-        let mut query_result = self
-            .get_conn(address)
-            .await
-            .map_err(|e| MysqlError::ConnectionFailed(format!("{:?}", e)))?
-            .exec_iter(statement, parameters)
-            .await
-            .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
+            let mut query_result = self
+                .get_conn(&address)
+                .await
+                .map_err(|e| MysqlError::ConnectionFailed(format!("{:?}", e)))?
+                .exec_iter(&statement, parameters)
+                .await
+                .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
 
-        // We have to get these before collect() destroys them
-        let columns = convert_columns(query_result.columns());
+            // We have to get these before collect() destroys them
+            let columns = convert_columns(query_result.columns());
 
-        match query_result.collect::<mysql_async::Row>().await {
-            Err(e) => Err(MysqlError::OtherError(format!("{:?}", e))),
-            Ok(result_set) => {
-                let rows = result_set
-                    .into_iter()
-                    .map(|row| convert_row(row, &columns))
-                    .collect::<Result<Vec<_>, _>>()
-                    .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
+            match query_result.collect::<mysql_async::Row>().await {
+                Err(e) => Err(MysqlError::OtherError(format!("{:?}", e))),
+                Ok(result_set) => {
+                    let rows = result_set
+                        .into_iter()
+                        .map(|row| convert_row(row, &columns))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
 
-                Ok(RowSet { columns, rows })
+                    Ok(RowSet { columns, rows })
+                }
             }
         }
+        .await)
     }
 }
 

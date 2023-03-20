@@ -3,16 +3,16 @@ mod util;
 use std::{io::Cursor, net::SocketAddr};
 
 use crate::{HttpExecutor, HttpTrigger};
-use anyhow::{ensure, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 use async_trait::async_trait;
 use hyper::{
     body::{self},
     Body, Request, Response,
 };
 use serde::{Deserialize, Serialize};
-use spin_core::I32Exit;
 use spin_http::routes::RoutePattern;
-use spin_trigger::TriggerAppEngine;
+use spin_trigger::{EitherInstance, TriggerAppEngine};
+use wasi_common_preview1::{pipe::WritePipe, I32Exit};
 
 /// Wagi specific configuration for the http executor.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -117,17 +117,23 @@ impl HttpExecutor for WagiHttpExecutor {
             headers.insert(keys[1].to_string(), val);
         }
 
-        let mut store_builder = engine.store_builder(component)?;
+        let stdout = WritePipe::new_in_memory();
 
+        let mut store_builder = engine.store_builder(component)?;
         // Set up Wagi environment
         store_builder.args(argv.split(' '))?;
         store_builder.env(headers)?;
         store_builder.stdin_pipe(Cursor::new(body));
-        let mut stdout_buffer = store_builder.stdout_buffered();
+        store_builder.stdout(Box::new(stdout.clone()));
 
         let (instance, mut store) = engine
             .prepare_instance_with_store(component, store_builder)
             .await?;
+        let instance = if let EitherInstance::Module(instance) = instance {
+            instance
+        } else {
+            unreachable!()
+        };
 
         let start = instance
             .get_func(&mut store, &self.wagi_config.entrypoint)
@@ -142,10 +148,19 @@ impl HttpExecutor for WagiHttpExecutor {
         start
             .call_async(&mut store, &[], &mut [])
             .await
-            .or_else(ignore_successful_proc_exit_trap)?;
+            .or_else(ignore_successful_proc_exit_trap)
+            .with_context(|| {
+                anyhow!(
+                    "invoking {} for component {component}",
+                    self.wagi_config.entrypoint
+                )
+            })?;
         tracing::info!("Module execution complete");
 
-        let stdout = stdout_buffer.take();
+        // Drop the store so we're left with a unique reference to `stdout`:
+        drop(store);
+
+        let stdout = stdout.try_into_inner().unwrap().into_inner();
         ensure!(
             !stdout.is_empty(),
             "The {component:?} component is configured to use the WAGI executor \

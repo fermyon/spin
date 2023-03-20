@@ -36,13 +36,14 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 RUN url="https://static.rust-lang.org/rustup/dist/aarch64-unknown-linux-gnu/rustup-init";                       \
     wget "$url";                                                                                                \
     chmod +x rustup-init;                                                                                       \
-    ./rustup-init -y --no-modify-path --default-toolchain 1.66 --default-host aarch64-unknown-linux-gnu;        \
+    ./rustup-init -y --no-modify-path --default-toolchain 1.68 --default-host aarch64-unknown-linux-gnu;        \
     rm rustup-init;                                                                                             \
     chmod -R a+w $RUSTUP_HOME $CARGO_HOME;                                                                      \
     rustup --version;                                                                                           \
     cargo --version;                                                                                            \
     rustc --version;                                                                                            \
-    rustup target add wasm32-wasi;
+    rustup target add wasm32-wasi;                                                                              \
+    rustup target add wasm32-unknown-unknown;
 
 # swift
 RUN wget https://github.com/swiftwasm/swift/releases/download/swift-wasm-5.8-SNAPSHOT-2023-02-24-a/swift-wasm-5.8-SNAPSHOT-2023-02-24-a-ubuntu20.04_aarch64.tar.gz && \
@@ -61,7 +62,7 @@ RUN tinygo version;   \
 RUN wget https://github.com/fermyon/spin/releases/download/${SPIN_VERSION}/spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&         \
     tar -xvf spin-${SPIN_VERSION}-linux-aarch64.tar.gz &&                                                                       \
     ls -ltr &&                                                                                                                  \
-    mv spin /usr/local/bin/spin;     
+    mv spin /usr/local/bin/spin;
 
 WORKDIR /e2e-tests
 COPY . .

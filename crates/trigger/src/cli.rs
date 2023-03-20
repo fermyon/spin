@@ -255,7 +255,7 @@ pub mod help {
         type RuntimeData = ();
         type TriggerConfig = ();
         type RunConfig = NoArgs;
-        fn new(_: crate::TriggerAppEngine<Self>) -> Result<Self> {
+        async fn new(_: crate::TriggerAppEngine<Self>) -> Result<Self> {
             Ok(Self)
         }
         async fn run(self, _: Self::RunConfig) -> Result<()> {

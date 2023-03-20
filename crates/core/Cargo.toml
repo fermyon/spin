@@ -9,11 +9,16 @@ anyhow = "1.0"
 async-trait = "0.1"
 crossbeam-channel = "0.5"
 tracing = { workspace = true }
-wasi-cap-std-sync = { workspace = true }
+wasi-host = { workspace = true }
 wasi-common = { workspace = true }
+wasi-common-preview1 = { workspace = true }
+wasi-cap-std-sync = { workspace = true }
 wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
+system-interface = { version = "0.25.1", features = ["cap_std_impls"] }
+cap-std = "1.0.5"
 
 [dev-dependencies]
 tempfile = "3"
-tokio = { version = "1", features = ["macros", "rt"] }
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+spin-componentize = { workspace = true }

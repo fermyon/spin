@@ -10,7 +10,7 @@ To cut a release of Spin, you will need to do the following:
 
 1. Create a pull request that changes the version number for your new version
    (e.g. `1.1.0-pre0` could become either `1.0.1` for a patch release or
-   `1.1.0` for a "major" release)
+   `1.1.0` for a minor release)
    - Bump the version in Spin's `Cargo.toml`
    - Update SDK_VERSION in `templates/Makefile`
    - Run `make build` so that `Cargo.lock` and other associated files are updated

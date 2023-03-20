@@ -62,11 +62,10 @@ To cut a release of Spin, you will need to do the following:
    automatically uploaded to the GitHub release.
 
 1. A Pull Request will also be created by `fermybot` containing changes to the
-   templates per the updated SDK version. Once CI completes, approve this PR and
-   merge via a merge commit (rather than squash or rebase).
-
-   If this is a pre-release for a major/minor version, be sure to
-   [backport this PR](../../.github/gh-backport.sh) into the release branch.
+   templates per the updated SDK version. If this is a pre-release for a
+   major/minor version, be sure to change the base of the PR from `main` to the
+   release branch, e.g. `v1.1`. Once CI completes, approve this PR and merge
+   via a merge commit (rather than squash or rebase).
    
    This will trigger the `push-templates-tag` job in the [release action],
    pushing the `spin/templates/v0.9` tag. (Note that this tag may be

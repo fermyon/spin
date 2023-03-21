@@ -25,7 +25,11 @@ use hyper::{
     Body, Request, Response, Server,
 };
 use serde::{Deserialize, Serialize};
-use spin_trigger::{TriggerAppEngine, TriggerExecutor};
+use spin_app::MetadataKey;
+use spin_trigger::{
+    locked::{BINDLE_VERSION_KEY, DESCRIPTION_KEY, VERSION_KEY},
+    TriggerAppEngine, TriggerExecutor,
+};
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
@@ -45,6 +49,8 @@ pub(crate) type RuntimeData = spin_http::SpinHttpData;
 pub(crate) type Store = spin_core::Store<RuntimeData>;
 
 pub const WELL_KNOWN_PREFIX: &str = "/.well-known/spin/";
+
+const TRIGGER_METADATA_KEY: MetadataKey<TriggerMetadata> = MetadataKey::new("trigger");
 
 /// The Spin HTTP trigger.
 pub struct HttpTrigger {
@@ -127,10 +133,7 @@ impl TriggerExecutor for HttpTrigger {
     type RunConfig = CliArgs;
 
     fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
-        let base = engine
-            .app()
-            .require_metadata::<TriggerMetadata>("trigger")?
-            .base;
+        let base = engine.app().require_metadata(TRIGGER_METADATA_KEY)?.base;
 
         let component_routes = engine
             .trigger_configs()
@@ -183,7 +186,7 @@ impl TriggerExecutor for HttpTrigger {
         for (route, component_id) in &self.router.routes {
             println!("  {}: {}{}", component_id, base_url, route);
             if let Some(component) = self.engine.app().get_component(component_id) {
-                if let Some(description) = component.get_metadata::<&str>("description")? {
+                if let Some(description) = component.get_metadata(DESCRIPTION_KEY)? {
                     println!("    {}", description);
                 }
             }
@@ -278,8 +281,8 @@ impl HttpTrigger {
     fn app_info(&self) -> Result<Response<Body>> {
         let info = AppInfo {
             name: self.engine.app_name.clone(),
-            version: self.engine.app().get_metadata("version")?,
-            bindle_version: self.engine.app().get_metadata("bindle_version")?,
+            version: self.engine.app().get_metadata(VERSION_KEY)?,
+            bindle_version: self.engine.app().get_metadata(BINDLE_VERSION_KEY)?,
         };
         let body = serde_json::to_vec_pretty(&info)?;
         Ok(Response::builder()

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use spin_app::MetadataKey;
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
 use wit_bindgen_wasmtime::async_trait;
@@ -7,8 +8,10 @@ mod host_component;
 mod table;
 mod util;
 
-pub use host_component::{component_key_value_stores, manager, KeyValueComponent};
+pub use host_component::{manager, KeyValueComponent};
 pub use util::{CachingStoreManager, DelegatingStoreManager, EmptyStoreManager};
+
+pub const KEY_VALUE_STORES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("key_value_stores");
 
 const DEFAULT_STORE_TABLE_CAPACITY: u32 = 256;
 

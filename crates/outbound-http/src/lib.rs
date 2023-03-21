@@ -5,13 +5,15 @@ use std::str::FromStr;
 
 use http::HeaderMap;
 use reqwest::{Client, Url};
-use spin_app::async_trait;
+use spin_app::{async_trait, MetadataKey};
 
 use allowed_http_hosts::AllowedHttpHosts;
 pub use host_component::OutboundHttpComponent;
 
 wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/wasi-outbound-http.wit"], async: *});
 use wasi_outbound_http::*;
+
+pub const ALLOWED_HTTP_HOSTS_KEY: MetadataKey<Vec<String>> = MetadataKey::new("allowed_http_hosts");
 
 /// A very simple implementation for outbound HTTP requests.
 #[derive(Default, Clone)]

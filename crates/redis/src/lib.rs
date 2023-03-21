@@ -9,11 +9,14 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use redis::{Client, ConnectionLike};
 use serde::{de::IgnoredAny, Deserialize, Serialize};
+use spin_app::MetadataKey;
 use spin_trigger::{cli::NoArgs, TriggerAppEngine, TriggerExecutor};
 
 use crate::spin::SpinRedisExecutor;
 
 wit_bindgen_wasmtime::import!({paths: ["../../wit/ephemeral/spin-redis.wit"], async: *});
+
+const TRIGGER_METADATA_KEY: MetadataKey<TriggerMetadata> = MetadataKey::new("trigger");
 
 pub(crate) type RuntimeData = spin_redis::SpinRedisData;
 pub(crate) type Store = spin_core::Store<RuntimeData>;
@@ -55,10 +58,7 @@ impl TriggerExecutor for RedisTrigger {
     type RunConfig = NoArgs;
 
     fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
-        let address = engine
-            .app()
-            .require_metadata::<TriggerMetadata>("trigger")?
-            .address;
+        let address = engine.app().require_metadata(TRIGGER_METADATA_KEY)?.address;
 
         let channel_components = engine
             .trigger_configs()

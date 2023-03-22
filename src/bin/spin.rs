@@ -14,10 +14,10 @@ use spin_cli::commands::{
     templates::TemplateCommands,
     up::UpCommand,
 };
-use spin_http::HttpTrigger;
 use spin_redis_engine::RedisTrigger;
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
 use spin_trigger::cli::TriggerExecutorCommand;
+use spin_trigger_http::HttpTrigger;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {

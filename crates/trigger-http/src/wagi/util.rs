@@ -11,7 +11,7 @@ use http::{
 };
 use hyper::Body;
 
-use crate::routes::RoutePattern;
+use spin_http::routes::RoutePattern;
 
 /// This sets the version of CGI that WAGI adheres to.
 ///

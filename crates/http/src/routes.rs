@@ -14,15 +14,19 @@ pub struct Router {
     pub(crate) routes: IndexMap<RoutePattern, String>,
 }
 
-pub(crate) struct DuplicateRoute {
+/// A detected duplicate route.
+pub struct DuplicateRoute {
+    /// The duplicated route pattern.
     pub route: RoutePattern,
+    /// The raw route that was duplicated.
     pub replaced_id: String,
+    /// The component ID corresponding to the duplicated route.
     pub effective_id: String,
 }
 
 impl Router {
     /// Builds a router based on application configuration.
-    pub(crate) fn build<'a>(
+    pub fn build<'a>(
         base: &str,
         component_routes: impl IntoIterator<Item = (&'a str, &'a str)>,
     ) -> Result<(Self, Vec<DuplicateRoute>)> {
@@ -47,36 +51,46 @@ impl Router {
         Ok((Self { routes }, duplicates))
     }
 
+    /// Returns the constructed routes.
+    pub fn routes(&self) -> impl Iterator<Item = (&RoutePattern, &String)> {
+        self.routes.iter()
+    }
+
+    /// This returns the component id and route pattern for a matched route.
+    pub fn route_full(&self, p: &str) -> Result<(&str, &RoutePattern)> {
+        let matches = self.routes.iter().filter(|(rp, _)| rp.matches(p));
+
+        let mut best_match: (Option<&str>, Option<&RoutePattern>, usize) = (None, None, 0); // matched id, pattern and length
+
+        for (rp, id) in matches {
+            match rp {
+                RoutePattern::Exact(_m) => {
+                    // Exact matching routes take precedence over wildcard matches.
+                    return Ok((id, rp));
+                }
+                RoutePattern::Wildcard(m) => {
+                    // Check and find longest matching prefix of wildcard pattern.
+                    let (_id_opt, _rp_opt, len) = best_match;
+                    if m.len() >= len {
+                        best_match = (Some(id), Some(rp), m.len());
+                    }
+                }
+            }
+        }
+
+        let (id, rp, _) = best_match;
+        id.zip(rp)
+            .ok_or_else(|| anyhow!("Cannot match route for path {p}"))
+    }
+
     /// This returns the component ID that should handle the given path, or an error
     /// if no component matches.
     ///
     /// If multiple components could potentially handle the same request based on their
     /// defined routes, components with matching exact routes take precedence followed
     /// by matching wildcard patterns with the longest matching prefix.
-    pub(crate) fn route(&self, p: &str) -> Result<&str> {
-        let matches = self.routes.iter().filter(|(rp, _)| rp.matches(p));
-
-        let mut best_match: (Option<&str>, usize) = (None, 0); // matched id and pattern length
-
-        for (rp, id) in matches {
-            match rp {
-                RoutePattern::Exact(_m) => {
-                    // Exact matching routes take precedence over wildcard matches.
-                    return Ok(id);
-                }
-                RoutePattern::Wildcard(m) => {
-                    // Check and find longest matching prefix of wildcard pattern.
-                    let (_id_opt, len) = best_match;
-                    if m.len() >= len {
-                        best_match = (Some(id), m.len());
-                    }
-                }
-            }
-        }
-
-        best_match
-            .0
-            .ok_or_else(|| anyhow!("Cannot match route for path {p}"))
+    pub fn route(&self, p: &str) -> Result<&str> {
+        self.route_full(p).map(|(r, _)| r)
     }
 }
 
@@ -101,7 +115,7 @@ impl RoutePattern {
 
     /// Returns true if the given path fragment can be handled
     /// by the route pattern.
-    pub(crate) fn matches<S: Into<String>>(&self, p: S) -> bool {
+    pub fn matches<S: Into<String>>(&self, p: S) -> bool {
         let p = Self::sanitize(p);
         match self {
             RoutePattern::Exact(path) => &p == path,
@@ -112,7 +126,7 @@ impl RoutePattern {
     }
 
     /// Resolves a relative path from the end of the matched path to the end of the string.
-    pub(crate) fn relative(&self, uri: &str) -> Result<String> {
+    pub fn relative(&self, uri: &str) -> Result<String> {
         let base = match self {
             Self::Exact(path) => path,
             Self::Wildcard(prefix) => prefix,
@@ -126,7 +140,7 @@ impl RoutePattern {
     }
 
     /// The full path (for Exact) or prefix (for Wildcard).
-    pub(crate) fn path_or_prefix(&self) -> &str {
+    pub fn path_or_prefix(&self) -> &str {
         match self {
             RoutePattern::Exact(s) => s,
             RoutePattern::Wildcard(s) => s,
@@ -134,7 +148,7 @@ impl RoutePattern {
     }
 
     /// The full pattern, with trailing "/..." for Wildcard.
-    pub(crate) fn full_pattern(&self) -> Cow<str> {
+    pub fn full_pattern(&self) -> Cow<str> {
         match self {
             Self::Exact(path) => path.into(),
             Self::Wildcard(prefix) => format!("{}/...", prefix).into(),
@@ -142,7 +156,7 @@ impl RoutePattern {
     }
 
     /// The full pattern, with trailing "/..." for Wildcard and "/" for root.
-    pub(crate) fn full_pattern_non_empty(&self) -> Cow<str> {
+    pub fn full_pattern_non_empty(&self) -> Cow<str> {
         match self {
             Self::Exact(path) if path.is_empty() => "/".into(),
             _ => self.full_pattern(),
@@ -150,7 +164,7 @@ impl RoutePattern {
     }
 
     /// Sanitizes the base and path and return a formed path.
-    pub(crate) fn sanitize_with_base<S: Into<String>>(base: S, path: S) -> String {
+    pub fn sanitize_with_base<S: Into<String>>(base: S, path: S) -> String {
         format!(
             "{}{}",
             Self::sanitize(base.into()),

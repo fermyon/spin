@@ -4420,7 +4420,6 @@ dependencies = [
  "spin-bindle",
  "spin-build",
  "spin-config",
- "spin-http",
  "spin-key-value",
  "spin-key-value-sqlite",
  "spin-loader",
@@ -4430,6 +4429,7 @@ dependencies = [
  "spin-redis-engine",
  "spin-templates",
  "spin-trigger",
+ "spin-trigger-http",
  "tempfile",
  "tokio",
  "toml 0.6.0",
@@ -4481,28 +4481,11 @@ name = "spin-http"
 version = "1.1.0-pre0"
 dependencies = [
  "anyhow",
- "async-trait",
- "clap 3.2.23",
  "criterion",
- "futures",
- "futures-util",
  "http",
- "hyper",
  "indexmap",
  "num_cpus",
- "percent-encoding",
- "rustls-pemfile 0.3.0",
- "serde",
- "serde_json",
- "spin-app",
- "spin-core",
  "spin-testing",
- "spin-trigger",
- "tls-listener",
- "tokio",
- "tokio-rustls",
- "tracing",
- "wit-bindgen-wasmtime",
 ]
 
 [[package]]
@@ -4708,8 +4691,8 @@ dependencies = [
  "serde_json",
  "spin-app",
  "spin-core",
- "spin-http",
  "spin-trigger",
+ "spin-trigger-http",
  "tokio",
  "tracing-subscriber",
 ]
@@ -4744,6 +4727,36 @@ dependencies = [
  "tracing",
  "url",
  "wasmtime",
+]
+
+[[package]]
+name = "spin-trigger-http"
+version = "1.1.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap 3.2.23",
+ "criterion",
+ "futures",
+ "futures-util",
+ "http",
+ "hyper",
+ "indexmap",
+ "num_cpus",
+ "percent-encoding",
+ "rustls-pemfile 0.3.0",
+ "serde",
+ "serde_json",
+ "spin-app",
+ "spin-core",
+ "spin-http",
+ "spin-testing",
+ "spin-trigger",
+ "tls-listener",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+ "wit-bindgen-wasmtime",
 ]
 
 [[package]]

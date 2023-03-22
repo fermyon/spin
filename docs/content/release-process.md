@@ -51,6 +51,7 @@ To cut a release of Spin, you will need to do the following:
 1. Unless this is a pre-release, switch back to `main` and update the
    `Cargo.toml` and `templates/Makefile` versions again, this time to
    e.g. `1.2.0-pre0` if `1.2.0` is the next anticipated release.
+   - Run `make build` so that `Cargo.lock` and other associated files are updated
    - PR this to `main`
    - See [sips/011-component-versioning.md](sips/011-component-versioning.md)
      for details

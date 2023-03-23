@@ -3,8 +3,6 @@ use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::HostComponent;
 use std::sync::Arc;
 
-pub const KEY_VALUE_STORES_METADATA_KEY: &str = "key_value_stores";
-
 pub trait StoreManagerManager: Sync + Send {
     fn get(&self, component: &AppComponent) -> Arc<dyn StoreManager>;
 }
@@ -58,7 +56,9 @@ impl HostComponent for KeyValueComponent {
 
 impl DynamicHostComponent for KeyValueComponent {
     fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> anyhow::Result<()> {
-        let key_value_stores = component_key_value_stores(component)?;
+        let key_value_stores = component
+            .get_metadata(crate::KEY_VALUE_STORES_KEY)?
+            .unwrap_or_default();
         data.init(
             key_value_stores.into_iter().collect(),
             self.manager.get(component),
@@ -66,10 +66,4 @@ impl DynamicHostComponent for KeyValueComponent {
 
         Ok(())
     }
-}
-
-pub fn component_key_value_stores(component: &AppComponent) -> anyhow::Result<Vec<String>> {
-    Ok(component
-        .get_metadata(KEY_VALUE_STORES_METADATA_KEY)?
-        .unwrap_or_default())
 }

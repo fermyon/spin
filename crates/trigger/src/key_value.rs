@@ -2,7 +2,7 @@ use std::{path::Path, sync::Arc};
 
 use anyhow::{Context, Result};
 use spin_key_value::{
-    component_key_value_stores, CachingStoreManager, DelegatingStoreManager, KeyValueComponent,
+    CachingStoreManager, DelegatingStoreManager, KeyValueComponent, KEY_VALUE_STORES_KEY,
 };
 use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
 
@@ -48,7 +48,8 @@ impl TriggerHooks for KeyValuePersistenceMessageHook {
     fn app_loaded(&mut self, app: &spin_app::App, runtime_config: &RuntimeConfig) -> Result<()> {
         // Don't print anything if the app doesn't use KV
         if app.components().all(|c| {
-            component_key_value_stores(&c)
+            c.get_metadata(KEY_VALUE_STORES_KEY)
+                .unwrap_or_default()
                 .unwrap_or_default()
                 .is_empty()
         }) {

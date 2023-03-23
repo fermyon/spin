@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use anyhow::Error;
-use clap::{Parser};
+use clap::Parser;
 use serde::{Deserialize, Serialize};
-use spin_trigger::{cli::TriggerExecutorCommand, TriggerExecutor, TriggerAppEngine};
+use spin_app::MetadataKey;
+use spin_trigger::{cli::TriggerExecutorCommand, TriggerAppEngine, TriggerExecutor};
 
 wit_bindgen_wasmtime::import!({paths: ["spin-timer.wit"], async: *});
 
@@ -25,7 +26,7 @@ struct TimerTrigger {
     component_timings: HashMap<String, u64>,
 }
 
-// Application settings (raw serialisation format)
+// Application settings (raw serialization format)
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct TriggerMetadata {
@@ -33,13 +34,15 @@ struct TriggerMetadata {
     speedup: Option<u64>,
 }
 
-// Per-component settings (raw serialisation format)
+// Per-component settings (raw serialization format)
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TimerTriggerConfig {
     component: String,
     interval_secs: u64,
 }
+
+const TRIGGER_METADATA_KEY: MetadataKey<TriggerMetadata> = MetadataKey::new("trigger");
 
 #[async_trait::async_trait]
 impl TriggerExecutor for TimerTrigger {
@@ -51,10 +54,10 @@ impl TriggerExecutor for TimerTrigger {
 
     type RunConfig = spin_trigger::cli::NoArgs;
 
-    fn new(engine: spin_trigger::TriggerAppEngine<Self>) -> anyhow::Result<Self>  {
+    fn new(engine: spin_trigger::TriggerAppEngine<Self>) -> anyhow::Result<Self> {
         let speedup = engine
             .app()
-            .require_metadata::<TriggerMetadata>("trigger")?
+            .require_metadata(TRIGGER_METADATA_KEY)?
             .speedup
             .unwrap_or(1);
 
@@ -63,7 +66,11 @@ impl TriggerExecutor for TimerTrigger {
             .map(|(_, config)| (config.component.clone(), config.interval_secs))
             .collect();
 
-        Ok(Self { engine, speedup, component_timings })
+        Ok(Self {
+            engine,
+            speedup,
+            component_timings,
+        })
     }
 
     async fn run(self, _config: Self::RunConfig) -> anyhow::Result<()> {
@@ -98,9 +105,7 @@ impl TimerTrigger {
         let (instance, mut store) = self.engine.prepare_instance(component_id).await?;
         let engine = spin_timer::SpinTimer::new(&mut store, &instance, |data| data.as_mut())?;
         // ...and call the entry point
-        engine
-            .handle_timer_request(&mut store)
-            .await?;
+        engine.handle_timer_request(&mut store).await?;
         Ok(())
     }
 }

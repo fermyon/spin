@@ -106,7 +106,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 
         let app = self.loader.load_owned_app(app_uri).await?;
 
-        let app_name = app.borrowed().require_metadata("name")?;
+        let app_name = app.borrowed().require_metadata(locked::NAME_KEY)?;
 
         self.hooks
             .iter_mut()

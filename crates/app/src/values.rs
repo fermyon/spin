@@ -1,9 +1,7 @@
 //! Dynamically-typed value helpers.
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
-
-use crate::Error;
 
 /// A String-keyed map with dynamically-typed values.
 pub type ValuesMap = serde_json::Map<String, Value>;
@@ -69,32 +67,5 @@ impl ValuesMapBuilder {
     /// Returns the build ValuesMap and resets the builder to empty.
     pub fn take(&mut self) -> ValuesMap {
         std::mem::take(&mut self.0)
-    }
-}
-
-pub(crate) trait MetadataExt {
-    fn get_value(&self, key: impl AsRef<str>) -> Option<&Value>;
-
-    fn get_typed<'a, T: Deserialize<'a>>(
-        &'a self,
-        key: impl AsRef<str>,
-    ) -> Result<Option<T>, Error> {
-        let key = key.as_ref();
-        self.get_value(key)
-            .map(|value| T::deserialize(value))
-            .transpose()
-            .map_err(|err| Error::MetadataError(format!("invalid value for {key:?}: {err:?}")))
-    }
-
-    fn require_typed<'a, T: Deserialize<'a>>(&'a self, key: impl AsRef<str>) -> Result<T, Error> {
-        let key = key.as_ref();
-        self.get_typed(key)?
-            .ok_or_else(|| Error::MetadataError(format!("missing required {key:?}")))
-    }
-}
-
-impl MetadataExt for ValuesMap {
-    fn get_value(&self, key: impl AsRef<str>) -> Option<&Value> {
-        self.get(key.as_ref())
     }
 }

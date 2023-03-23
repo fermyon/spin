@@ -8,6 +8,7 @@
 
 mod host_component;
 pub mod locked;
+mod metadata;
 pub mod values;
 
 use ouroboros::self_referencing;
@@ -16,11 +17,12 @@ use spin_core::{wasmtime, Engine, EngineBuilder, StoreBuilder};
 
 use host_component::DynamicHostComponents;
 use locked::{ContentPath, LockedApp, LockedComponent, LockedComponentSource, LockedTrigger};
-use values::MetadataExt;
+use metadata::MetadataExt;
 
 pub use async_trait::async_trait;
 pub use host_component::DynamicHostComponent;
 pub use locked::Variable;
+pub use metadata::MetadataKey;
 
 /// A trait for implementing the low-level operations needed to load an [`App`].
 // TODO(lann): Should this migrate to spin-loader?
@@ -141,7 +143,10 @@ impl<'a> App<'a> {
     /// Returns `Ok(None)` if there is no metadata for the given `key` and an
     /// `Err` only if there _is_ a value for the `key` but the typed
     /// deserialization failed.
-    pub fn get_metadata<'this, T: Deserialize<'this>>(&'this self, key: &str) -> Result<Option<T>> {
+    pub fn get_metadata<'this, T: Deserialize<'this>>(
+        &'this self,
+        key: MetadataKey<T>,
+    ) -> Result<Option<T>> {
         self.locked.metadata.get_typed(key)
     }
 
@@ -149,7 +154,10 @@ impl<'a> App<'a> {
     ///
     /// Like [`App::get_metadata`], but returns an error if there is
     /// no metadata for the given `key`.
-    pub fn require_metadata<'this, T: Deserialize<'this>>(&'this self, key: &str) -> Result<T> {
+    pub fn require_metadata<'this, T: Deserialize<'this>>(
+        &'this self,
+        key: MetadataKey<T>,
+    ) -> Result<T> {
         self.locked.metadata.require_typed(key)
     }
 
@@ -218,7 +226,7 @@ impl<'a> AppComponent<'a> {
     /// Returns `Ok(None)` if there is no metadata for the given `key` and an
     /// `Err` only if there _is_ a value for the `key` but the typed
     /// deserialization failed.
-    pub fn get_metadata<T: Deserialize<'a>>(&self, key: &str) -> Result<Option<T>> {
+    pub fn get_metadata<T: Deserialize<'a>>(&self, key: MetadataKey<T>) -> Result<Option<T>> {
         self.locked.metadata.get_typed(key)
     }
 
@@ -226,7 +234,10 @@ impl<'a> AppComponent<'a> {
     ///
     /// Like [`AppComponent::get_metadata`], but returns an error if there is
     /// no metadata for the given `key`.
-    pub fn require_metadata<'this, T: Deserialize<'this>>(&'this self, key: &str) -> Result<T> {
+    pub fn require_metadata<'this, T: Deserialize<'this>>(
+        &'this self,
+        key: MetadataKey<T>,
+    ) -> Result<T> {
         self.locked.metadata.require_typed(key)
     }
 

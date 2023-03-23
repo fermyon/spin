@@ -57,15 +57,21 @@ error: the `wasm32-wasi` target is not installed
     std::fs::create_dir_all("target/test-programs").unwrap();
 
     build_wasm_test_program("core-wasi-test.wasm", "crates/core/tests/core-wasi-test");
-    build_wasm_test_program("rust-http-test.wasm", "crates/http/tests/rust-http-test");
+    build_wasm_test_program(
+        "rust-http-test.wasm",
+        "crates/trigger-http/tests/rust-http-test",
+    );
     build_wasm_test_program("redis-rust.wasm", "crates/redis/tests/rust");
-    build_wasm_test_program("wagi-test.wasm", "crates/http/tests/wagi-test");
+    build_wasm_test_program("wagi-test.wasm", "crates/trigger-http/tests/wagi-test");
 
     build_wasm_test_program(
         "spin-http-benchmark.wasm",
-        "crates/http/benches/spin-http-benchmark",
+        "crates/trigger-http/benches/spin-http-benchmark",
     );
-    build_wasm_test_program("wagi-benchmark.wasm", "crates/http/benches/wagi-benchmark");
+    build_wasm_test_program(
+        "wagi-benchmark.wasm",
+        "crates/trigger-http/benches/wagi-benchmark",
+    );
     build_wasm_test_program("timer_app_example.wasm", "examples/spin-timer/app-example");
 
     cargo_build(RUST_HTTP_INTEGRATION_TEST);

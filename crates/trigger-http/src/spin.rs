@@ -7,7 +7,7 @@ use spin_core::Instance;
 use spin_trigger::TriggerAppEngine;
 
 use crate::{
-    spin_http::{Method, SpinHttp},
+    bindings::spin_http::{Method, SpinHttp},
     HttpExecutor, HttpTrigger, Store,
 };
 
@@ -87,7 +87,7 @@ impl SpinHttpExecutor {
             None => parts.uri.to_string(),
         };
 
-        let req = crate::spin_http::Request {
+        let req = crate::bindings::spin_http::Request {
             method,
             uri: &uri,
             headers: &headers,

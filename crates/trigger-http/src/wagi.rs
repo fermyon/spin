@@ -2,6 +2,7 @@ mod util;
 
 use std::{io::Cursor, net::SocketAddr};
 
+use crate::{HttpExecutor, HttpTrigger};
 use anyhow::{ensure, Result};
 use async_trait::async_trait;
 use hyper::{
@@ -10,9 +11,8 @@ use hyper::{
 };
 use serde::{Deserialize, Serialize};
 use spin_core::I32Exit;
+use spin_http::routes::RoutePattern;
 use spin_trigger::TriggerAppEngine;
-
-use crate::{routes::RoutePattern, HttpExecutor, HttpTrigger};
 
 /// Wagi specific configuration for the http executor.
 #[derive(Clone, Debug, Deserialize, Serialize)]

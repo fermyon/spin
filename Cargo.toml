@@ -48,7 +48,7 @@ spin-app = { path = "crates/app" }
 spin-bindle = { path = "crates/bindle" }
 spin-build = { path = "crates/build" }
 spin-config = { path = "crates/config" }
-spin-http = { path = "crates/http" }
+spin-trigger-http = { path = "crates/trigger-http" }
 spin-loader = { path = "crates/loader" }
 spin-manifest = { path = "crates/manifest" }
 spin-oci = { path = "crates/oci" }
@@ -114,6 +114,7 @@ members = [
   "crates/templates",
   "crates/testing",
   "crates/trigger",
+  "crates/trigger-http",
   "sdk/rust",
   "sdk/rust/macro",
   "crates/e2e-testing"

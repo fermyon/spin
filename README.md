@@ -2,7 +2,7 @@
   <h1>Fermyon Spin</h1>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./docs/static/image/logo-dark.png">
-    <img alt="spin logo" src="./docs/static/image/logo.png" width="300">
+    <img alt="spin logo" src="./docs/static/image/logo.png" width="300" height="128">
   </picture>
   <p>Spin is a framework for building, deploying, and running fast, secure, and composable cloud microservices with WebAssembly.</p>
       <a href="https://github.com/fermyon/spin/actions/workflows/build.yml"><img src="https://github.com/fermyon/spin/actions/workflows/build.yml/badge.svg" alt="build status" /></a>

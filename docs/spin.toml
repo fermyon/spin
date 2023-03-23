@@ -1,5 +1,5 @@
+spin_manifest_version = "1"
 name = "spin-docs"
-spin_version = "1"
 version = "0.1.0"
 description = "The Spin documentation website running on... Spin."
 authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]

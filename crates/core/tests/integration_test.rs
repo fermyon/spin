@@ -4,7 +4,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use spin_core::{Component, Config, Engine, HostComponent, I32Exit, Store, StoreBuilder, Trap};
+use spin_core::{
+    Component, Config, Engine, HostComponent, I32Exit, Store, StoreBuilder, Trap, Wasi,
+};
 use tempfile::TempDir;
 use tokio::fs;
 
@@ -187,8 +189,8 @@ async fn run_core_wasi_test_engine<'a>(
     update_store_builder: impl FnOnce(&mut StoreBuilder),
     update_store: impl FnOnce(&mut Store<()>),
 ) -> anyhow::Result<String> {
-    let mut store_builder: StoreBuilder = engine.store_builder();
-    let mut stdout_buf = store_builder.stdout_buffered();
+    let mut store_builder: StoreBuilder = engine.store_builder(Wasi::new_preview2());
+    let mut stdout_buf = store_builder.stdout_buffered()?;
     store_builder.stderr_pipe(TestWriter);
 
     update_store_builder(&mut store_builder);

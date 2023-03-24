@@ -114,10 +114,16 @@ impl<T: Send + Sync> EngineBuilder<T> {
         let engine = wasmtime::Engine::new(&config.inner)?;
 
         let mut linker: Linker<T> = Linker::new(&engine);
-        wasi_host::command::add_to_linker(&mut linker, |data| &mut data.wasi.preview2)?;
+        wasi_host::command::add_to_linker(&mut linker, |data| match &mut data.wasi {
+            Wasi::Preview1(_) => panic!("using WASI Preview 1 functions with Preview 2 store"),
+            Wasi::Preview2(ctx) => ctx,
+        })?;
 
         let mut module_linker = ModuleLinker::new(&engine);
-        wasmtime_wasi::tokio::add_to_linker(&mut module_linker, |data| &mut data.wasi.preview1)?;
+        wasmtime_wasi::tokio::add_to_linker(&mut module_linker, |data| match &mut data.wasi {
+            Wasi::Preview1(ctx) => ctx,
+            Wasi::Preview2(_) => panic!("using WASI Preview 2 functions with Preview 1 store"),
+        })?;
 
         Ok(Self {
             engine,
@@ -237,11 +243,12 @@ impl<T: Send + Sync> Engine<T> {
     }
 
     /// Creates a new [`StoreBuilder`].
-    pub fn store_builder(&self) -> StoreBuilder {
+    pub fn store_builder(&self, wasi: Wasi) -> StoreBuilder {
         StoreBuilder::new(
             self.inner.clone(),
             self.epoch_tick_interval,
             &self.host_components,
+            wasi,
         )
     }
 

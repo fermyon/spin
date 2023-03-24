@@ -10,6 +10,7 @@ use hyper::{
     Body, Request, Response,
 };
 use serde::{Deserialize, Serialize};
+use spin_core::Wasi;
 use spin_http::routes::RoutePattern;
 use spin_trigger::{EitherInstance, TriggerAppEngine};
 use wasi_common_preview1::{pipe::WritePipe, I32Exit};
@@ -119,12 +120,12 @@ impl HttpExecutor for WagiHttpExecutor {
 
         let stdout = WritePipe::new_in_memory();
 
-        let mut store_builder = engine.store_builder(component)?;
+        let mut store_builder = engine.store_builder(component, Wasi::new_preview1())?;
         // Set up Wagi environment
         store_builder.args(argv.split(' '))?;
         store_builder.env(headers)?;
         store_builder.stdin_pipe(Cursor::new(body));
-        store_builder.stdout(Box::new(stdout.clone()));
+        store_builder.stdout(Box::new(stdout.clone()))?;
 
         let (instance, mut store) = engine
             .prepare_instance_with_store(component, store_builder)

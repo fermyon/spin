@@ -2,7 +2,6 @@ use std::{
     collections::HashSet,
     fs::File,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
 };
 
 use anyhow::{Context, Result};
@@ -126,24 +125,21 @@ impl TriggerHooks for StdioLoggingTriggerHooks {
 }
 
 /// ComponentStdioWriter forwards output to a log file and (optionally) stderr
-#[derive(Clone)]
 pub struct ComponentStdioWriter {
-    log_file: Arc<Mutex<File>>,
+    log_file: File,
     follow: bool,
 }
 
 impl ComponentStdioWriter {
     pub fn new(log_path: &Path, follow: bool) -> anyhow::Result<Self> {
-        let log_file = Arc::new(Mutex::new(
-            File::options().create(true).append(true).open(log_path)?,
-        ));
+        let log_file = File::options().create(true).append(true).open(log_path)?;
         Ok(Self { log_file, follow })
     }
 }
 
 impl std::io::Write for ComponentStdioWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let written = self.log_file.lock().unwrap().write(buf)?;
+        let written = self.log_file.write(buf)?;
         if self.follow {
             std::io::stderr().write_all(&buf[..written])?;
         }
@@ -151,7 +147,7 @@ impl std::io::Write for ComponentStdioWriter {
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        self.log_file.lock().unwrap().flush()?;
+        self.log_file.flush()?;
         if self.follow {
             std::io::stderr().flush()?;
         }

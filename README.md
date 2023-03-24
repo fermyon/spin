@@ -37,14 +37,148 @@ $ ./spin --help
 
 After you follow the [quickstart document](https://developer.fermyon.com/spin/quickstart/),
 you can follow the
-[Rust](https://developer.fermyon.com/spin/rust-components/) or [Go](https://developer.fermyon.com/spin/go-components/)
+[Rust](https://developer.fermyon.com/spin/rust-components/), [JavaScript](https://developer.fermyon.com/spin/javascript-components), [Python](https://developer.fermyon.com/spin/python-components), or [Go](https://developer.fermyon.com/spin/go-components/)
 language guides, and the [guide on configuring Spin applications](https://developer.fermyon.com/spin/configuration/).
 
-After you build your application, run it using Spin:
+Below is an example of using the `spin` CLI to create a new Spin Python application, then adding a JavaScript component:
 
+```bash
+# Create a new Spin application based on the Python language template.
+$ spin new http-py hello-python
+# Add a new JavaScript component based on the language template.
+$ spin add http-js goodbye-javascript
 ```
+
+Running the `spin add` command will generate the proper configuration for our component and add it to the [`spin.toml` manifest file](https://developer.fermyon.com/spin/manifest-reference). For example, here is the `spin.toml` section for our Python component:
+
+```toml
+[[component]]
+# The ID of the component.
+id = "hello-python"
+# The Wasm module to instantiate and execute when receiving a request.
+source = "hello-python/app.wasm"
+[component.trigger]
+# The route for this component.
+route = "/hello"
+[component.build]
+# The command to execute for this component with `spin build`.
+command = "spin py2wasm app -o app.wasm"
+# The working directory for the component.
+workdir = "hello-python"
+```
+
+We can now build our application with `spin build`, then run it locally with `spin up`:
+
+```bash
+# Compile all components to Wasm by executing their `build` commands.
+$ spin build
+Executing the build command for component hello-python: spin py2wasm app -o app.wasm
+Executing the build command for component goodbye-javascript: npm run build
+Successfully ran the build command for the Spin components.
+# Run the application locally.
 $ spin up
+Logging component stdio to ".spin/logs/"
+Serving http://127.0.0.1:3000
+Available Routes:
+  hello-python: http://127.0.0.1:3000/hello
+  goodbye-javascript: http://127.0.0.1:3000/goodbye
 ```
+
+Once the application is running, we can start testing it by sending requests to its components:
+
+```bash
+# Send a request to the Python component.
+$ curl localhost:3000/hello
+Hello, Python!
+# Send a request to the JavaScript component.
+$ curl localhost:3000/goodbye
+Goodbye, JavaScript!
+```
+
+When handling a request, Spin will create a new isolated Wasm instance corresponding to the Wasm module for the matching component, execute the handler function, then terminate the instance. Each new request will get a fresh Wasm instance.
+
+## Language Support for Spin Features
+
+### Rust
+
+| Feature | SDK Supported? |
+|-----|-----|
+| **Triggers** |
+| [HTTP](https://developer.fermyon.com/spin/http-trigger) | Supported |
+| [Redis](https://developer.fermyon.com/spin/redis-trigger) | Supported |
+| **APIs** |
+| [Outbound HTTP](https://developer.fermyon.com/spin/rust-components.md#sending-outbound-http-requests) | Supported |
+| [Key Value Storage](https://developer.fermyon.com/spin/kv-store.md) | Supported |
+| [MySQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported |
+| [PostgreSQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported |
+| [Outbound Redis](https://developer.fermyon.com/spin/rust-components.md#storing-data-in-redis-from-rust-components) | Supported |
+| **Extensibility** |
+| [Authoring Custom Triggers](https://developer.fermyon.com/spin/extending-and-embedding) | Supported |
+
+### TypeScript
+
+| Feature | SDK Supported? |
+|-----|-----|
+| **Triggers** |
+| [HTTP](https://developer.fermyon.com/spin/javascript-components#http-components) | Supported |
+| Redis | Not Supported |
+| **APIs** |
+| [Outbound HTTP](https://developer.fermyon.com/spin/javascript-components#sending-outbound-http-requests) | Supported |
+| [Key Value Storage](https://developer.fermyon.com/spin/kv-store.md) | Supported |
+| MySQL | Not Supported |
+| PostgreSQL| Not Supported |
+| [Outbound Redis](https://developer.fermyon.com/spin/javascript-components#storing-data-in-redis-from-jsts-components) | Supported |
+| **Extensibility** |
+| Authoring Custom Triggers | Not Supported |
+
+### Python
+
+| Feature | SDK Supported? |
+|-----|-----|
+| **Triggers** |
+| [HTTP](https://developer.fermyon.com/spin/python-components#a-simple-http-components-example) | Supported |
+| Redis | Not Supported |
+| **APIs** |
+| [Outbound HTTP](https://developer.fermyon.com/spin/python-components#an-outbound-http-example) | Supported |
+| [Key Value Storage](https://developer.fermyon.com/spin/kv-store.md) | Supported |
+| MySQL | Not Supported |
+| PostgreSQL | Not Supported |
+| [Outbound Redis](https://developer.fermyon.com/spin/python-components#an-outbound-redis-example) | Supported |
+| **Extensibility** |
+| Authoring Custom Triggers | Not Supported |
+
+### Tiny Go
+
+| Feature | SDK Supported? |
+|-----|-----|
+| **Triggers** |
+| [HTTP](https://developer.fermyon.com/spin/go-components#http-components) | Supported |
+| [Redis](https://developer.fermyon.com/spin/go-components#redis-components) | Supported |
+| **APIs** |
+| [Outbound HTTP](https://developer.fermyon.com/spin/go-components#sending-outbound-http-requests) | Supported |
+| [Key Value Storage](https://developer.fermyon.com/spin/kv-store.md) | Supported |
+| MySQL | Not Supported |
+| PostgreSQL | Not Supported |
+| [Outbound Redis](https://developer.fermyon.com/spin/go-components#storing-data-in-redis-from-go-components) | Supported |
+| **Extensibility** |
+| Authoring Custom Triggers | Not Supported |
+
+### C#
+
+| Feature | SDK Supported? |
+|-----|-----|
+| **Triggers** |
+| [HTTP](https://github.com/fermyon/spin-dotnet-sdk#handling-http-requests) | Supported |
+| Redis | Not Supported |
+| **APIs** |
+| [Outbound HTTP](https://github.com/fermyon/spin-dotnet-sdk#making-outbound-http-requests) | Supported |
+| Key Value Storage | Not Supported |
+| MySQL | Not Supported |
+| [PostgreSQL](https://github.com/fermyon/spin-dotnet-sdk#working-with-postgres) | Supported |
+| [Outbound Redis](https://github.com/fermyon/spin-dotnet-sdk#making-redis-requests) | Supported |
+| **Extensibility** |
+| Authoring Custom Triggers | Not Supported |
+
 
 ## Contributing
 
@@ -52,6 +186,6 @@ We are delighted that you are interested in making Spin better! Thank you!
 Please follow the [contributing guide](https://developer.fermyon.com/spin/contributing).
 And join our [Discord server](https://discord.gg/eGN8saYqCk).
 
-## Developer Meetings
+## Stay in Touch
 
-Join the Spin monthly developer meetings, which will be announced in our [Discord server](https://discord.gg/eGN8saYqCk).
+Join the Spin community in our [Discord server](https://discord.gg/eGN8saYqCk).

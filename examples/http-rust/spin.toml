@@ -13,3 +13,4 @@ description = "A simple component that returns hello."
 route = "/hello"
 [component.build]
 command = "cargo build --target wasm32-wasi --release"
+watch = ["src/**/*.rs", "Cargo.toml", "spin.toml"]

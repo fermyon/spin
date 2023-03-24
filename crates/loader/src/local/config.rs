@@ -128,6 +128,9 @@ pub struct RawBuildConfig {
     /// Working directory in which the build command is executed. It must be
     /// relative to the directory in which `spin.toml` is located.
     pub workdir: Option<PathBuf>,
+    /// List of glob patterns to watch for changes. Used by spin watch to
+    /// re-execute spin build and spin up when your source changes.
+    pub watch: Option<Vec<String>>,
 }
 
 /// WebAssembly configuration.

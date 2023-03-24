@@ -20,3 +20,5 @@ pub mod registry;
 pub mod templates;
 /// Commands for starting the runtime.
 pub mod up;
+/// Command for rebuilding and restarting a Spin app when files change.
+pub mod watch;

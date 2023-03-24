@@ -1,6 +1,7 @@
 pub mod commands;
 pub(crate) mod opts;
 mod sloth;
+mod watch_filter;
 
 use anyhow::{anyhow, Result};
 use semver::BuildMetadata;

@@ -5000,9 +5000,13 @@ dependencies = [
  "anyhow",
  "criterion",
  "http",
+ "hyper",
  "indexmap",
  "num_cpus",
+ "percent-encoding",
+ "serde",
  "spin-testing",
+ "tracing",
 ]
 
 [[package]]

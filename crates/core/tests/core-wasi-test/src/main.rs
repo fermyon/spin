@@ -5,10 +5,10 @@
 
 use std::time::Duration;
 
-#[link(wasm_import_module = "multiplier")]
-extern "C" {
-    fn multiply(n: i32) -> i32;
-}
+wit_bindgen::generate!({
+    world: "multiplier",
+    path: "wit/multiplier.wit"
+});
 
 type Result = std::result::Result<(), Box<dyn std::error::Error>>;
 
@@ -47,7 +47,7 @@ fn main() -> Result {
         "multiply" => {
             let input: i32 = args.next().expect("input").parse().expect("i32");
             eprintln!("multiply {input}");
-            let output = unsafe { multiply(input) };
+            let output = imports::multiply(input);
             println!("{output}");
         }
         "sleep" => {

@@ -9,6 +9,7 @@ use spin_app::{
     AppComponent, Loader,
 };
 use spin_core::StoreBuilder;
+use tokio::fs;
 
 use crate::parse_file_url;
 
@@ -35,6 +36,24 @@ impl Loader for TriggerLoader {
         let app =
             serde_json::from_slice(&contents).context("failed to parse app lock file JSON")?;
         Ok(app)
+    }
+
+    async fn load_component(
+        &self,
+        engine: &spin_core::wasmtime::Engine,
+        source: &LockedComponentSource,
+    ) -> Result<spin_core::Component> {
+        let source = source
+            .content
+            .source
+            .as_ref()
+            .context("LockedComponentSource missing source field")?;
+        let path = parse_file_url(source)?;
+        spin_core::Component::new(
+            engine,
+            spin_componentize::componentize_if_necessary(&fs::read(&path).await?)?,
+        )
+        .with_context(|| format!("loading module {path:?}"))
     }
 
     async fn load_module(

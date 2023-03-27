@@ -8,13 +8,13 @@ use super::{Data, Linker};
 ///
 /// A Spin host component is an interface provided to Spin components that is
 /// implemented by the host. This trait is designed to be compatible with
-/// [`wit-bindgen`](https://github.com/bytecodealliance/wit-bindgen)'s
+/// [`wit-bindgen`](https://github.com/bytecodealliance/wasmtime/tree/main/crates/wit-bindgen)'s
 /// generated bindings.
 ///
 /// # Example
 ///
 /// ```ignore
-/// wit_bindgen_wasmtime::export!({paths: ["my-interface.wit"], async: *});
+/// use spin_core::my_interface;
 ///
 /// #[derive(Default)]
 /// struct MyHostComponent {
@@ -22,7 +22,7 @@ use super::{Data, Linker};
 /// }
 ///
 /// #[async_trait]
-/// impl my_interface::MyInterface for MyHostComponent {
+/// impl my_interface::Host for MyHostComponent {
 ///     // ...
 /// }
 ///

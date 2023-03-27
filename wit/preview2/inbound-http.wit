@@ -1,0 +1,5 @@
+default interface inbound-http {
+    use pkg.http-types.{request, response}
+
+    handle-request: func(req: request) -> response
+}

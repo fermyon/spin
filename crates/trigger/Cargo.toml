@@ -30,6 +30,7 @@ toml = "0.5.9"
 tracing = { workspace = true }
 url = "2"
 wasmtime = { workspace = true }
+spin-componentize = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3.3.0"

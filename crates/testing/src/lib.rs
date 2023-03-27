@@ -16,9 +16,10 @@ use spin_app::{
     locked::{LockedApp, LockedComponentSource},
     AppComponent, Loader,
 };
-use spin_core::{Module, StoreBuilder};
+use spin_core::{Component, StoreBuilder};
 use spin_trigger::{runtime_config::RuntimeConfig, TriggerExecutor, TriggerExecutorBuilder};
 use spin_trigger_http::{HttpExecutorType, HttpTriggerConfig, WagiTriggerConfig};
+use tokio::fs;
 
 pub use tokio;
 
@@ -29,7 +30,11 @@ const TEST_PROGRAM_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../targ
 pub fn init_tracing() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
-        tracing_subscriber::fmt().with_test_writer().init();
+        tracing_subscriber::fmt()
+            // Cranelift is very verbose at INFO, so let's tone that down:
+            .with_max_level(tracing_subscriber::filter::LevelFilter::WARN)
+            .with_test_writer()
+            .init();
     })
 }
 
@@ -185,13 +190,25 @@ impl Loader for TestLoader {
         })
     }
 
+    async fn load_component(
+        &self,
+        engine: &spin_core::wasmtime::Engine,
+        source: &LockedComponentSource,
+    ) -> anyhow::Result<spin_core::Component> {
+        assert_eq!(source.content.digest.as_deref(), Some("test-source"));
+        Component::new(
+            engine,
+            spin_componentize::componentize_if_necessary(&fs::read(&self.module_path).await?)?,
+        )
+    }
+
     async fn load_module(
         &self,
         engine: &spin_core::wasmtime::Engine,
         source: &LockedComponentSource,
     ) -> anyhow::Result<spin_core::Module> {
-        assert_eq!(source.content.digest.as_deref(), Some("test-source"),);
-        Module::from_file(engine, &self.module_path)
+        assert_eq!(source.content.digest.as_deref(), Some("test-source"));
+        spin_core::Module::from_file(engine, &self.module_path)
     }
 
     async fn mount_files(

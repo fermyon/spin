@@ -1,13 +1,13 @@
 use anyhow::Result;
 use once_cell::sync::OnceCell;
 use rusqlite::Connection;
-use spin_key_value::{key_value::Error, log_error, Store, StoreManager};
+use spin_core::{async_trait, key_value::Error};
+use spin_key_value::{log_error, Store, StoreManager};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
 use tokio::task;
-use wit_bindgen_wasmtime::async_trait;
 
 pub enum DatabaseLocation {
     InMemory,
@@ -140,7 +140,8 @@ impl Store for SqliteStore {
 #[cfg(test)]
 mod test {
     use super::*;
-    use spin_key_value::{DelegatingStoreManager, KeyValue, KeyValueDispatch};
+    use spin_core::key_value::Host;
+    use spin_key_value::{DelegatingStoreManager, KeyValueDispatch};
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn all() -> Result<()> {
@@ -157,46 +158,55 @@ mod test {
         );
 
         assert!(matches!(
-            kv.exists(42, "bar").await,
+            kv.exists(42, "bar".to_owned()).await?,
             Err(Error::InvalidStore)
         ));
 
-        assert!(matches!(kv.open("foo").await, Err(Error::NoSuchStore)));
         assert!(matches!(
-            kv.open("forbidden").await,
+            kv.open("foo".to_owned()).await?,
+            Err(Error::NoSuchStore)
+        ));
+        assert!(matches!(
+            kv.open("forbidden".to_owned()).await?,
             Err(Error::AccessDenied)
         ));
 
-        let store = kv.open("default").await?;
+        let store = kv.open("default".to_owned()).await??;
 
-        assert!(!kv.exists(store, "bar").await?);
-
-        assert!(matches!(kv.get(store, "bar").await, Err(Error::NoSuchKey)));
-
-        kv.set(store, "bar", b"baz").await?;
-
-        assert!(kv.exists(store, "bar").await?);
-
-        assert_eq!(b"baz" as &[_], &kv.get(store, "bar").await?);
-
-        kv.set(store, "bar", b"wow").await?;
-
-        assert_eq!(b"wow" as &[_], &kv.get(store, "bar").await?);
-
-        assert_eq!(&["bar".to_owned()] as &[_], &kv.get_keys(store).await?);
-
-        kv.delete(store, "bar").await?;
-
-        assert!(!kv.exists(store, "bar").await?);
-
-        assert_eq!(&[] as &[String], &kv.get_keys(store).await?);
-
-        assert!(matches!(kv.get(store, "bar").await, Err(Error::NoSuchKey)));
-
-        kv.close(store).await;
+        assert!(!kv.exists(store, "bar".to_owned()).await??);
 
         assert!(matches!(
-            kv.exists(store, "bar").await,
+            kv.get(store, "bar".to_owned()).await?,
+            Err(Error::NoSuchKey)
+        ));
+
+        kv.set(store, "bar".to_owned(), b"baz".to_vec()).await??;
+
+        assert!(kv.exists(store, "bar".to_owned()).await??);
+
+        assert_eq!(b"baz" as &[_], &kv.get(store, "bar".to_owned()).await??);
+
+        kv.set(store, "bar".to_owned(), b"wow".to_vec()).await??;
+
+        assert_eq!(b"wow" as &[_], &kv.get(store, "bar".to_owned()).await??);
+
+        assert_eq!(&["bar".to_owned()] as &[_], &kv.get_keys(store).await??);
+
+        kv.delete(store, "bar".to_owned()).await??;
+
+        assert!(!kv.exists(store, "bar".to_owned()).await??);
+
+        assert_eq!(&[] as &[String], &kv.get_keys(store).await??);
+
+        assert!(matches!(
+            kv.get(store, "bar".to_owned()).await?,
+            Err(Error::NoSuchKey)
+        ));
+
+        kv.close(store).await?;
+
+        assert!(matches!(
+            kv.exists(store, "bar".to_owned()).await?,
             Err(Error::InvalidStore)
         ));
 

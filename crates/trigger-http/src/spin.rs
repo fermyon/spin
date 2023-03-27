@@ -1,15 +1,14 @@
 use std::{net::SocketAddr, str, str::FromStr};
 
-use anyhow::Result;
+use crate::{HttpExecutor, HttpTrigger, Store};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use hyper::{Body, Request, Response};
-use spin_core::Instance;
-use spin_trigger::TriggerAppEngine;
-
-use crate::{
-    bindings::spin_http::{Method, SpinHttp},
-    HttpExecutor, HttpTrigger, Store,
+use spin_core::{
+    http_types::{self, Method, RequestParam},
+    Instance,
 };
+use spin_trigger::{EitherInstance, TriggerAppEngine};
 
 #[derive(Clone)]
 pub struct SpinHttpExecutor;
@@ -31,6 +30,9 @@ impl HttpExecutor for SpinHttpExecutor {
         );
 
         let (instance, store) = engine.prepare_instance(component_id).await?;
+        let EitherInstance::Component(instance) = instance else {
+            unreachable!()
+        };
 
         let resp = Self::execute_impl(store, instance, base, raw_route, req, client_addr)
             .await
@@ -59,7 +61,12 @@ impl SpinHttpExecutor {
             headers = Self::headers(&mut req, raw_route, base, client_addr)?;
         }
 
-        let http_instance = SpinHttp::new(&mut store, &instance, |data| data.as_mut())?;
+        let func = instance
+            .exports(&mut store)
+            .instance("inbound-http")
+            .ok_or_else(|| anyhow!("no inbound-http instance found"))?
+            .typed_func::<(RequestParam,), (http_types::Response,)>("handle-request")?;
+
         let (parts, bytes) = req.into_parts();
         let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
 
@@ -87,7 +94,7 @@ impl SpinHttpExecutor {
             None => parts.uri.to_string(),
         };
 
-        let req = crate::bindings::spin_http::Request {
+        let req = RequestParam {
             method,
             uri: &uri,
             headers: &headers,
@@ -95,7 +102,7 @@ impl SpinHttpExecutor {
             body,
         };
 
-        let resp = http_instance.handle_http_request(&mut store, req).await?;
+        let (resp,) = func.call_async(&mut store, (req,)).await?;
 
         if resp.status < 100 || resp.status > 600 {
             tracing::error!("malformed HTTP status code");

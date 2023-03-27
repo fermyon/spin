@@ -15,9 +15,9 @@ REGISTRY_IMAGE       ?= registry:2
 
 ## overrides for aarch64
 ifneq ($(ARCH),x86_64)
-	MYSQL_IMAGE 		 = arm64v8/mysql:8.0.32
-	REDIS_IMAGE 		 = arm64v8/redis:6.0-alpine3.17
-	POSTGRES_IMAGE 		 = arm64v8/postgres:14.7
+	MYSQL_IMAGE		 = arm64v8/mysql:8.0.32
+	REDIS_IMAGE		 = arm64v8/redis:6.0-alpine3.17
+	POSTGRES_IMAGE		 = arm64v8/postgres:14.7
 	REGISTRY_IMAGE		 = arm64v8/registry:2
 	E2E_TESTS_DOCKERFILE = e2e-tests-aarch64.Dockerfile
 endif
@@ -57,7 +57,7 @@ test-fermyon-platform:
 test-spin-up:
 	docker build -t spin-e2e-tests --build-arg BUILD_SPIN=$(E2E_BUILD_SPIN) -f $(E2E_TESTS_DOCKERFILE) .
 	REDIS_IMAGE=$(REDIS_IMAGE) MYSQL_IMAGE=$(MYSQL_IMAGE) POSTGRES_IMAGE=$(POSTGRES_IMAGE) \
-	docker compose -f e2e-tests-docker-compose.yml run $(E2E_VOLUME_MOUNT) e2e-tests 
+	docker compose -f e2e-tests-docker-compose.yml run $(E2E_VOLUME_MOUNT) e2e-tests
 
 .PHONY: test-kv
 test-kv:

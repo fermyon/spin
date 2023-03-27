@@ -32,6 +32,14 @@ pub trait Loader {
     /// representation of a [`LockedApp`], which will be loaded.
     async fn load_app(&self, uri: &str) -> anyhow::Result<LockedApp>;
 
+    /// Called with a [`LockedComponentSource`] pointing to a Wasm component
+    /// binary, which will be loaded.
+    async fn load_component(
+        &self,
+        engine: &wasmtime::Engine,
+        source: &LockedComponentSource,
+    ) -> anyhow::Result<spin_core::Component>;
+
     /// Called with a [`LockedComponentSource`] pointing to a Wasm module
     /// binary, which will be loaded.
     async fn load_module(
@@ -210,7 +218,7 @@ impl<'a> AppComponent<'a> {
         &self.locked.id
     }
 
-    /// Returns this component's Wasm module source.
+    /// Returns this component's Wasm component or module source.
     pub fn source(&self) -> &LockedComponentSource {
         &self.locked.source
     }
@@ -244,6 +252,19 @@ impl<'a> AppComponent<'a> {
     /// Returns an iterator of custom config values for this component.
     pub fn config(&self) -> impl Iterator<Item = (&String, &String)> {
         self.locked.config.iter()
+    }
+
+    /// Loads and returns the [`spin_core::Component`] for this component.
+    pub async fn load_component<T: Send + Sync>(
+        &self,
+        engine: &Engine<T>,
+    ) -> Result<spin_core::Component> {
+        self.app
+            .loader
+            .inner
+            .load_component(engine.as_ref(), &self.locked.source)
+            .await
+            .map_err(Error::LoaderError)
     }
 
     /// Loads and returns the [`spin_core::Module`] for this component.

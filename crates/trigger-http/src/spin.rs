@@ -30,9 +30,7 @@ impl HttpExecutor for SpinHttpExecutor {
         );
 
         let (instance, store) = engine.prepare_instance(component_id).await?;
-        let instance = if let EitherInstance::Component(instance) = instance {
-            instance
-        } else {
+        let EitherInstance::Component(instance) = instance else {
             unreachable!()
         };
 

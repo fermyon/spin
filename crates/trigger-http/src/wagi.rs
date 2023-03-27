@@ -130,9 +130,8 @@ impl HttpExecutor for WagiHttpExecutor {
         let (instance, mut store) = engine
             .prepare_instance_with_store(component, store_builder)
             .await?;
-        let instance = if let EitherInstance::Module(instance) = instance {
-            instance
-        } else {
+
+        let EitherInstance::Module(instance) = instance else {
             unreachable!()
         };
 

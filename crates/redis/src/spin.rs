@@ -23,9 +23,7 @@ impl RedisExecutor for SpinRedisExecutor {
         tracing::trace!("Executing request using the Spin executor for component {component_id}");
 
         let (instance, store) = engine.prepare_instance(component_id).await?;
-        let instance = if let EitherInstance::Component(instance) = instance {
-            instance
-        } else {
+        let EitherInstance::Component(instance) = instance else {
             unreachable!()
         };
 

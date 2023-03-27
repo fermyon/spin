@@ -9,9 +9,6 @@
       <a href="https://discord.gg/eGN8saYqCk"><img alt="Discord" src="https://img.shields.io/discord/926888690310053918?label=Discord"></a>
 </div>
 
-> This is an early preview of the Spin project. It is still experimental code,
-> and you should expect breaking changes before the first stable release.
-
 ## What is Spin?
 
 Spin is an open source framework for building and running fast, secure, and

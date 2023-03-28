@@ -99,6 +99,8 @@ When handling a request, Spin will create a new isolated Wasm instance correspon
 
 ## Language Support for Spin Features
 
+The table below shows [feature support](https://developer.fermyon.com/spin/language-support-overview) in each of the language SDKs.
+
 | Feature | Rust SDK Supported? | TypeScript SDK Supported? | Python SDK Supported? | Tiny Go SDK Supported? | C# SDK Supported? |
 |-----|-----|-----|-----|-----|-----|
 | **Triggers** |

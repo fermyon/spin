@@ -6,19 +6,14 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.68"
-async-trait = "0.1"
 clap = { version = "3.1.15", features = ["derive", "env"] }
 futures = "0.3.25"
 serde = "1.0"
-spin-app = { version = "1.0.0-pre0", path = "../../crates/app" }
-spin-core = { version = "1.0.0-pre0", path = "../../crates/core" }
-spin-trigger = { version = "1.0.0-pre0", path = "../../crates/trigger" }
+spin-app = { path = "../../crates/app" }
+spin-core = { path = "../../crates/core" }
+spin-trigger = { path = "../../crates/trigger" }
 tokio = { version = "1.11", features = [ "full" ] }
 tokio-scoped = "0.2.0"
-
-[dependencies.wit-bindgen-wasmtime]
-git = "https://github.com/fermyon/wit-bindgen-backport"
-rev = "a39003fadce6c7a8654e3e044fc39fc80d81ec7b"
-features = ["async"]
+wasmtime = { version = "7.0.0", features = ["component-model"] }
 
 [workspace]

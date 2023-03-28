@@ -1,10 +1,15 @@
-wit_bindgen_rust::export!("../spin-timer.wit");
+wit_bindgen::generate!({
+    world: "spin-timer",
+    path: "../spin-timer.wit"
+});
 
-struct SpinTimer;
+struct MySpinTimer;
 
-impl spin_timer::SpinTimer for SpinTimer {
+impl SpinTimer for MySpinTimer {
     fn handle_timer_request() {
         let text = spin_sdk::config::get("message").unwrap();
         println!("{text}");
     }
 }
+
+export_spin_timer!(MySpinTimer);

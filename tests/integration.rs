@@ -386,22 +386,20 @@ mod integration_tests {
         let plugins_dir = plugin_store_dir.join("spin/plugins");
 
         let plugin_dir = plugins_dir.join("trigger-timer");
-        fs::create_dir_all(&plugin_dir).unwrap();
+        fs::create_dir_all(&plugin_dir)?;
         fs::copy(
             trigger_dir.join("target/release/trigger-timer"),
             plugin_dir.join("trigger-timer"),
-        )
-        .unwrap();
+        )?;
 
         let manifests_dir = plugins_dir.join("manifests");
-        fs::create_dir_all(&manifests_dir).unwrap();
+        fs::create_dir_all(&manifests_dir)?;
         // Note that the hash and path in the manifest aren't accurate, but they won't be used anyway for this
         // test.  We just need something that parses without throwing errors here.
         fs::copy(
             Path::new(TIMER_TRIGGER_DIRECTORY).join("trigger-timer.json"),
             manifests_dir.join("trigger-timer.json"),
-        )
-        .unwrap();
+        )?;
 
         assert!(Command::new(get_process(SPIN_BINARY))
             .args([

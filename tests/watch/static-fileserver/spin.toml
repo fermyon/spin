@@ -11,3 +11,9 @@ id = "static-fileserver"
 files = [ { source = "assets", destination = "/" } ]
 [component.trigger]
 route = "/static/..."
+[[component]]
+source = "spin_static_fs.wasm"
+id = "static-fileserver-2"
+files = [ { source = "assets2", destination = "/" } ]
+[component.trigger]
+route = "/static2/..."

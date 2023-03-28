@@ -14,4 +14,4 @@ route = "{{http-path}}"
 executor = { type = "wagi" }
 [component.build]
 command = "grain compile --release -o main.wasm main.gr"
-watch = ["**/*.gr", "spin.toml"]
+watch = ["**/*.gr"]

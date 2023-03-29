@@ -3436,8 +3436,8 @@ dependencies = [
 
 [[package]]
 name = "oci-distribution"
-version = "0.10.0"
-source = "git+https://github.com/krustlet/oci-distribution?rev=64986855ef0d692df3b270d23c4bee8c41d97c27#64986855ef0d692df3b270d23c4bee8c41d97c27"
+version = "0.9.4"
+source = "git+https://github.com/fermyon/oci-distribution?branch=access-token-cache#e0a52aeacd827396f120673e7a969c8742167d7e"
 dependencies = [
  "chrono",
  "futures",
@@ -5088,6 +5088,7 @@ dependencies = [
  "lazy_static",
  "levenshtein",
  "nix 0.24.3",
+ "oci-distribution",
  "openssl",
  "outbound-http",
  "outbound-redis",

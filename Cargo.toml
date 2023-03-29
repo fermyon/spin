@@ -34,6 +34,7 @@ is-terminal = "0.4"
 lazy_static = "1.4.0"
 levenshtein = "1.0.5"
 nix = { version = "0.24", features = ["signal"] }
+oci-distribution = { git = "https://github.com/fermyon/oci-distribution", branch = "access-token-cache" }
 outbound-http = { path = "crates/outbound-http" }
 outbound-redis = { path = "crates/outbound-redis" }
 spin-key-value = { path = "crates/key-value" }

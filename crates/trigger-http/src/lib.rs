@@ -37,9 +37,8 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
 use tracing::log;
 
-pub use spin_http::routes;
+pub use spin_http::{routes, wagi::WagiTriggerConfig};
 pub use tls::TlsConfig;
-pub use wagi::WagiTriggerConfig;
 
 pub(crate) type RuntimeData = ();
 pub(crate) type Store = spin_core::Store<RuntimeData>;

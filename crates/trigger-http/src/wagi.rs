@@ -1,5 +1,3 @@
-mod util;
-
 use std::{io::Cursor, net::SocketAddr};
 
 use crate::{HttpExecutor, HttpTrigger};
@@ -9,45 +7,13 @@ use hyper::{
     body::{self},
     Body, Request, Response,
 };
-use serde::{Deserialize, Serialize};
 use spin_core::Wasi;
-use spin_http::routes::RoutePattern;
+use spin_http::{
+    routes::RoutePattern,
+    wagi::{self, WagiTriggerConfig},
+};
 use spin_trigger::{EitherInstance, TriggerAppEngine};
 use wasi_common_preview1::{pipe::WritePipe, I32Exit};
-
-/// Wagi specific configuration for the http executor.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct WagiTriggerConfig {
-    /// The name of the entrypoint.
-    #[serde(default)]
-    pub entrypoint: String,
-
-    /// A string representation of the argv array.
-    ///
-    /// This should be a space-separate list of strings. The value
-    /// ${SCRIPT_NAME} will be replaced with the Wagi SCRIPT_NAME,
-    /// and the value ${ARGS} will be replaced with the query parameter
-    /// name/value pairs presented as args. For example,
-    /// `param1=val1&param2=val2` will become `param1=val1 param2=val2`,
-    /// which will then be presented to the program as two arguments
-    /// in argv.
-    #[serde(default)]
-    pub argv: String,
-}
-
-impl Default for WagiTriggerConfig {
-    fn default() -> Self {
-        /// This is the default Wagi entrypoint.
-        const WAGI_DEFAULT_ENTRYPOINT: &str = "_start";
-        const WAGI_DEFAULT_ARGV: &str = "${SCRIPT_NAME} ${ARGS}";
-
-        Self {
-            entrypoint: WAGI_DEFAULT_ENTRYPOINT.to_owned(),
-            argv: WAGI_DEFAULT_ARGV.to_owned(),
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct WagiHttpExecutor {
@@ -90,7 +56,7 @@ impl HttpExecutor for WagiHttpExecutor {
 
         // TODO
         // The default host and TLS fields are currently hard-coded.
-        let mut headers = util::build_headers(
+        let mut headers = wagi::build_headers(
             &RoutePattern::from(base, raw_route),
             &parts,
             len,
@@ -167,7 +133,7 @@ impl HttpExecutor for WagiHttpExecutor {
              but did not write to stdout. Check the `executor` in spin.toml."
         );
 
-        util::compose_response(&stdout)
+        wagi::compose_response(&stdout)
     }
 }
 

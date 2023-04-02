@@ -323,13 +323,8 @@ pub fn decode_preinstantiation_error(e: anyhow::Error) -> anyhow::Error {
 
     if err_text.contains("unknown import") && err_text.contains("has not been defined") {
         // TODO: how to maintain this list?
-        let sdk_imported_interfaces = &[
-            "outbound-pg",
-            "outbound-redis",
-            "spin-config",
-            "wasi_experimental_http",
-            "wasi-outbound-http",
-        ];
+        let sdk_imported_interfaces =
+            &["config", "http", "key-value", "mysql", "postgres", "redis"];
 
         if sdk_imported_interfaces
             .iter()
@@ -337,7 +332,7 @@ pub fn decode_preinstantiation_error(e: anyhow::Error) -> anyhow::Error {
             .any(|s| err_text.contains(&s))
         {
             return anyhow!(
-                "{e}. Check that the component uses a SDK version that matches the Spin runtime."
+                "{e}. Check that the component uses a SDK or plugin version that matches the Spin runtime."
             );
         }
     }

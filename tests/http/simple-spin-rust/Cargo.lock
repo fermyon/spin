@@ -147,8 +147,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
- "wit-bindgen-gen-core",
- "wit-bindgen-gen-rust-wasm",
  "wit-bindgen-rust",
 ]
 

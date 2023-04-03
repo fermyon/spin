@@ -14,6 +14,4 @@ http = "0.2"
 proc-macro2 = "1"
 quote = "1.0"
 syn = { version = "1.0", features = [ "full" ]}
-wit-bindgen-gen-rust-wasm = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }
-wit-bindgen-gen-core = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }
 wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }

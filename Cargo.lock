@@ -5076,8 +5076,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
- "wit-bindgen-gen-core 0.2.0 (git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba)",
- "wit-bindgen-gen-rust-wasm",
  "wit-bindgen-rust",
 ]
 

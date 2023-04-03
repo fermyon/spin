@@ -1,6 +1,7 @@
 use std::{
     ffi::OsString,
     fmt::Debug,
+    fs,
     path::{Path, PathBuf},
 };
 
@@ -84,6 +85,10 @@ pub struct UpCommand {
     /// without a restart.  This cannot be used with bindle apps or apps which use file patterns and/or exclusions.
     #[clap(long, takes_value = false)]
     pub direct_mounts: bool,
+
+    /// Writes the "locked app" JSON to the given file path.
+    #[clap(long)]
+    pub dump_locked: Option<PathBuf>,
 
     /// All other args, to be passed through to the trigger
     #[clap(hide = true)]
@@ -169,7 +174,17 @@ impl UpCommand {
             local_app_dir,
         }) = opts
         {
-            let locked_url = self.write_locked_app(&locked_app, &working_dir).await?;
+            let locked_path = self.write_locked_app(&locked_app, &working_dir).await?;
+
+            if let Some(path) = self.dump_locked {
+                if let Err(err) = fs::copy(&locked_path, &path) {
+                    eprintln!("Failed to dump locked app to {path:?}: {err:?}");
+                }
+            }
+
+            let locked_url = Url::from_file_path(&locked_path)
+                .map_err(|_| anyhow!("cannot convert to file URL: {locked_path:?}"))?
+                .to_string();
 
             cmd.env(SPIN_LOCKED_URL, locked_url)
                 .env(SPIN_WORKING_DIR, &working_dir)
@@ -275,18 +290,14 @@ impl UpCommand {
         &self,
         locked_app: &LockedApp,
         working_dir: &Path,
-    ) -> Result<String, anyhow::Error> {
+    ) -> Result<PathBuf, anyhow::Error> {
         let locked_path = working_dir.join("spin.lock");
         let locked_app_contents =
             serde_json::to_vec_pretty(&locked_app).context("failed to serialize locked app")?;
         tokio::fs::write(&locked_path, locked_app_contents)
             .await
             .with_context(|| format!("failed to write {:?}", locked_path))?;
-        let locked_url = Url::from_file_path(&locked_path)
-            .map_err(|_| anyhow!("cannot convert to file URL: {locked_path:?}"))?
-            .to_string();
-
-        Ok(locked_url)
+        Ok(locked_path)
     }
 
     async fn prepare_app_from_file(

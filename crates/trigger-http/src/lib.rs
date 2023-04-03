@@ -241,6 +241,7 @@ impl HttpTrigger {
             return match well_known {
                 "health" => Ok(Response::new(Body::from("OK"))),
                 "info" => self.app_info(),
+                "locked" => self.locked(),
                 _ => Self::not_found(),
             };
         }
@@ -302,6 +303,15 @@ impl HttpTrigger {
             bindle_version: self.engine.app().get_metadata(BINDLE_VERSION_KEY)?,
         };
         let body = serde_json::to_vec_pretty(&info)?;
+        Ok(Response::builder()
+            .header("content-type", "application/json")
+            .body(body.into())?)
+    }
+
+    /// Returns the locked app contents.
+    fn locked(&self) -> Result<Response<Body>> {
+        let locked = self.engine.app().debug_locked();
+        let body = serde_json::to_vec_pretty(&locked)?;
         Ok(Response::builder()
             .header("content-type", "application/json")
             .body(body.into())?)

@@ -12,7 +12,7 @@ mod metadata;
 pub mod values;
 
 use ouroboros::self_referencing;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use spin_core::{wasmtime, Engine, EngineBuilder, StoreBuilder};
 
 use host_component::DynamicHostComponents;
@@ -202,6 +202,11 @@ impl<'a> App<'a> {
     pub fn triggers_with_type(&'a self, trigger_type: &'a str) -> impl Iterator<Item = AppTrigger> {
         self.triggers()
             .filter(move |trigger| trigger.locked.trigger_type == trigger_type)
+    }
+
+    /// Returns a [`Serialize`]able representation of this App for debugging.
+    pub fn debug_locked(&self) -> impl Serialize + '_ {
+        &self.locked
     }
 }
 

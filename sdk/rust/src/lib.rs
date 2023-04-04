@@ -28,23 +28,27 @@ pub mod http {
     use anyhow::Result;
 
     /// The Spin HTTP request.
-    pub type Request = http::Request<Option<bytes::Bytes>>;
+    pub type Request = http_types::Request<Option<bytes::Bytes>>;
 
     /// The Spin HTTP response.
-    pub type Response = http::Response<Option<bytes::Bytes>>;
+    pub type Response = http_types::Response<Option<bytes::Bytes>>;
 
     pub use crate::outbound_http::send_request as send;
 
+    /// Exports HTTP Router items.
+    pub use router::*;
+    mod router;
+
     /// Helper function to return a 404 Not Found response.
     pub fn not_found() -> Result<Response> {
-        Ok(http::Response::builder()
+        Ok(http_types::Response::builder()
             .status(404)
             .body(Some("Not Found".into()))?)
     }
 
     /// Helper function to return a 500 Internal Server Error response.
     pub fn internal_server_error() -> Result<Response> {
-        Ok(http::Response::builder()
+        Ok(http_types::Response::builder()
             .status(500)
             .body(Some("Internal Server Error".into()))?)
     }

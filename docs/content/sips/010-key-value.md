@@ -9,6 +9,8 @@ Owner(s): joel.dice@fermyon.com
 
 Created: Jan 23, 2023
 
+Updated: Apr 5, 2023
+
 ## Background
 
 Spin should have native support for using a variety of key-value (KV) datastores.
@@ -140,9 +142,25 @@ key_value_stores = ["<store 1>", "<store 2>", ...]
 
 For example, a component could be given access to the default store using `key_value_stores = ["default"]`.
 
+### Runtime Config
+
+Key value stores may be configured with `[key_value_store.<store name>]` sections in the runtime config file:
+
+```toml
+# The `default` config can be overridden
+[key_value_store.default]
+type = "spin"
+path = ".spin/sqlite_key_value.db"
+
+# Example of a possible Redis-backed KV store type
+[key_value_store.user_data]
+type = "redis"
+url = "redis://localhost"
+```
+
 ## Future work
 
-In addition to the built-in, SQLite-based implementation described above, we expect to add a number of other implementations backed by e.g. Redis, other relational databases, eventually consistent distributed stores, etc.  Each of these implementations will have its own performance, consistency, and durability characteristics, and some applications may use a combination of them to handle different types of data.  As mentioned above, this will require defining and configuring named stores in a runtime configuration file, and possibly also via the Spin CLI.
+In addition to the built-in, SQLite-based implementation described above, we expect to add a number of other implementations backed by e.g. Redis, other relational databases, eventually consistent distributed stores, etc.  Each of these implementations will have its own performance, consistency, and durability characteristics, and some applications may use a combination of them to handle different types of data.
 
 We also expect to add additional interfaces for e.g. atomic, bulk, and asynchronous operations, key expiration, etc., following [`wasi-keyvalue`](https://github.com/WebAssembly/wasi-keyvalue) as much as possible.
 

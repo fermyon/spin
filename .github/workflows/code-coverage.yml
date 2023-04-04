@@ -1,7 +1,10 @@
 name: Code coverage
 on:
-  schedule:
-    - cron: '0 0 * * *'
+  # Currently disabled due to cargo-tarpaulin timing out on the GH Ubuntu hosts.
+  # Ref: https://github.com/fermyon/spin/issues/1350
+  # Will need to investigate and tune usage/invocation to get passing before re-enabling.
+  # schedule:
+  #   - cron: '0 0 * * *'
   workflow_dispatch:
 jobs:
   build-rust:

@@ -192,6 +192,7 @@ async fn run_core_wasi_test_engine<'a>(
     let mut store_builder: StoreBuilder = engine.store_builder(Wasi::new_preview2());
     let mut stdout_buf = store_builder.stdout_buffered()?;
     store_builder.stderr_pipe(TestWriter);
+    store_builder.args(args)?;
 
     update_store_builder(&mut store_builder);
 
@@ -202,26 +203,14 @@ async fn run_core_wasi_test_engine<'a>(
     let component = Component::new(engine.as_ref(), &component)?;
     let instance_pre = engine.instantiate_pre(&component)?;
     let instance = instance_pre.instantiate_async(&mut store).await?;
-    let func = instance
-        .get_typed_func::<(u32, u32, u32, Vec<String>, Vec<(u32, String)>), (Result<(), ()>,)>(
-            &mut store, "main",
-        )?;
+    let func = instance.get_typed_func::<(), (Result<(), ()>,)>(&mut store, "run")?;
 
     update_store(&mut store);
 
-    func.call_async(
-        &mut store,
-        (
-            0,
-            1,
-            2,
-            args.into_iter().map(|s| s.to_owned()).collect(),
-            Vec::new(),
-        ),
-    )
-    .await?
-    .0
-    .map_err(|()| anyhow::anyhow!("command failed"))?;
+    func.call_async(&mut store, ())
+        .await?
+        .0
+        .map_err(|()| anyhow::anyhow!("command failed"))?;
 
     let stdout = String::from_utf8(stdout_buf.take())?.trim_end().into();
     Ok(stdout)

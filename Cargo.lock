@@ -355,7 +355,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40f9ca3698b2e4cb7c15571db0abc5551dca417a21ae8140460b50309bb2cc62"
 dependencies = [
  "borsh-derive",
- "hashbrown 0.13.2",
+ "hashbrown 0.11.2",
 ]
 
 [[package]]
@@ -521,7 +521,7 @@ dependencies = [
 [[package]]
 name = "cargo-target-dep"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/cargo-target-dep?rev=b7b1989fe0984c0f7c4966398304c6538e52fe49#b7b1989fe0984c0f7c4966398304c6538e52fe49"
+source = "git+https://github.com/fermyon/cargo-target-dep?rev=07b31d7d370f1c5d6db4765f358d13b5ea1d5e60#07b31d7d370f1c5d6db4765f358d13b5ea1d5e60"
 dependencies = [
  "glob",
 ]
@@ -2289,7 +2289,7 @@ dependencies = [
 [[package]]
 name = "host"
 version = "0.0.0"
-source = "git+https://github.com/fermyon/spin-componentize#8ec627539b1410acc92ce6de18fc8cd36b7dfcb5"
+source = "git+https://github.com/fermyon/spin-componentize#e9e9561e3170d0405222372c70da12a28c97582e"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4976,7 +4976,7 @@ dependencies = [
 [[package]]
 name = "spin-componentize"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/spin-componentize#8ec627539b1410acc92ce6de18fc8cd36b7dfcb5"
+source = "git+https://github.com/fermyon/spin-componentize#e9e9561e3170d0405222372c70da12a28c97582e"
 dependencies = [
  "anyhow",
  "wasm-encoder 0.25.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -5874,7 +5874,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 
@@ -6067,7 +6067,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 [[package]]
 name = "wasi-cap-std-sync"
 version = "0.0.0"
-source = "git+https://github.com/fermyon/spin-componentize#8ec627539b1410acc92ce6de18fc8cd36b7dfcb5"
+source = "git+https://github.com/fermyon/spin-componentize#e9e9561e3170d0405222372c70da12a28c97582e"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6115,7 +6115,7 @@ dependencies = [
 [[package]]
 name = "wasi-common"
 version = "0.0.0"
-source = "git+https://github.com/fermyon/spin-componentize#8ec627539b1410acc92ce6de18fc8cd36b7dfcb5"
+source = "git+https://github.com/fermyon/spin-componentize#e9e9561e3170d0405222372c70da12a28c97582e"
 dependencies = [
  "anyhow",
  "async-trait",

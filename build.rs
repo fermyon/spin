@@ -116,6 +116,7 @@ fn run<S: Into<String> + AsRef<std::ffi::OsStr>>(
     env: Option<HashMap<S, S>>,
 ) -> process::Output {
     let mut cmd = Command::new(get_os_process());
+    cmd.env_clear().env("PATH", env::var_os("PATH").unwrap());
     cmd.stdout(process::Stdio::piped());
     cmd.stderr(process::Stdio::piped());
 

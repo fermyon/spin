@@ -5,7 +5,11 @@
 mod manifest;
 
 use anyhow::{anyhow, bail, Context, Result};
-use spin_loader::local::parent_dir;
+use manifest::BuildAppInfoV1;
+use spin_loader::local::{
+    config::{is_missing_tag_error, VersionTagLoader},
+    parent_dir,
+};
 use std::path::{Path, PathBuf};
 use subprocess::{Exec, Redirection};
 
@@ -16,7 +20,7 @@ pub async fn build(manifest_file: &Path) -> Result<()> {
     let manifest_text = tokio::fs::read_to_string(manifest_file)
         .await
         .with_context(|| format!("Cannot read manifest file from {}", manifest_file.display()))?;
-    let app = toml::from_str(&manifest_text).map(BuildAppInfoAnyVersion::into_v1)?;
+    let app = raw_manifest_from_str(&manifest_text).map(BuildAppInfoAnyVersion::into_v1)?;
     let app_dir = parent_dir(manifest_file)?;
 
     if app.components.iter().all(|c| c.build.is_none()) {
@@ -91,6 +95,27 @@ fn construct_workdir(app_dir: &Path, workdir: Option<impl AsRef<Path>>) -> Resul
     }
 
     Ok(cwd)
+}
+
+fn raw_manifest_from_str(buf: &str) -> Result<BuildAppInfoAnyVersion> {
+    use serde::Deserialize;
+    let tl = toml::from_str(buf);
+    let tl = if is_missing_tag_error(&tl) {
+        tl.context("Manifest must contain spin_manifest_version with a value of \"1\"")?
+    } else {
+        tl?
+    };
+
+    match tl {
+        VersionTagLoader::OldV1 { rest, .. } => {
+            let raw = BuildAppInfoV1::deserialize(rest)?;
+            Ok(BuildAppInfoAnyVersion::V1(raw))
+        }
+        VersionTagLoader::NewV1 { rest, .. } => {
+            let raw = BuildAppInfoV1::deserialize(rest)?;
+            Ok(BuildAppInfoAnyVersion::V1(raw))
+        }
+    }
 }
 
 #[cfg(test)]

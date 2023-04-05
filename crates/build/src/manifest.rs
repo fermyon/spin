@@ -1,28 +1,15 @@
 use serde::{Deserialize, Serialize};
-use spin_loader::local::config::FixedStringVersion;
 use std::path::PathBuf;
 
-#[derive(Clone, Debug, Deserialize)]
-#[serde(untagged)]
+#[derive(Clone, Debug)]
 pub(crate) enum BuildAppInfoAnyVersion {
-    V1Old {
-        #[allow(dead_code)]
-        spin_version: FixedStringVersion<1>,
-        #[serde(flatten)]
-        manifest: BuildAppInfoV1,
-    },
-    V1New {
-        #[allow(dead_code)]
-        spin_manifest_version: FixedStringVersion<1>,
-        #[serde(flatten)]
-        manifest: BuildAppInfoV1,
-    },
+    V1(BuildAppInfoV1),
 }
+
 impl BuildAppInfoAnyVersion {
     pub fn into_v1(self) -> BuildAppInfoV1 {
         match self {
-            BuildAppInfoAnyVersion::V1New { manifest, .. } => manifest,
-            BuildAppInfoAnyVersion::V1Old { manifest, .. } => manifest,
+            BuildAppInfoAnyVersion::V1(manifest) => manifest,
         }
     }
 }

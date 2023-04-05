@@ -61,9 +61,8 @@ fn test_manifest_v1_signatures() -> Result<()> {
 }
 
 fn into_v1_manifest(spin_versioned_manifest: &str, app_name: &str) -> Result<()> {
-    use config::RawAppManifestAnyVersionImpl;
-    let raw: RawAppManifestAnyVersionImpl<toml::Value> =
-        toml::from_slice(spin_versioned_manifest.as_bytes())?;
+    let raw: RawAppManifestAnyVersion =
+        raw_manifest_from_slice(spin_versioned_manifest.as_bytes())?;
     let manifest = raw.into_v1();
     assert_eq!(manifest.info.name, app_name);
     Ok(())
@@ -196,8 +195,8 @@ fn test_unknown_version_is_rejected() {
 
     let e = cfg.unwrap_err().to_string();
     assert!(
-        e.contains("RawAppManifestAnyVersionImpl"),
-        "Expected error to mention `RawAppManifestAnyVersionImpl`"
+        e.contains("must contain spin_manifest_version"),
+        "Expected error to mention `must contain spin_manifest_version` but was {e:?}"
     );
 }
 

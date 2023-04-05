@@ -27,11 +27,16 @@ use spin_manifest::{
 };
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::{cache::Cache, digest::bytes_sha256_string, validation::validate_key_value_stores};
+use crate::{
+    cache::Cache, digest::bytes_sha256_string, local::config::is_missing_tag_error,
+    validation::validate_key_value_stores,
+};
 use config::{
     FileComponentUrlSource, RawAppInformation, RawAppManifest, RawAppManifestAnyVersion,
-    RawAppManifestAnyVersionPartial, RawComponentManifest, RawComponentManifestPartial,
+    RawComponentManifest,
 };
+
+use self::config::VersionTagLoader;
 
 /// Given the path to a spin.toml manifest file, prepare its assets locally and
 /// get a prepared application configuration consumable by a Spin execution context.
@@ -65,8 +70,26 @@ pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppMani
 }
 
 fn raw_manifest_from_slice(buf: &[u8]) -> Result<RawAppManifestAnyVersion> {
-    let partially_parsed = toml::from_slice(buf)?;
-    resolve_partials(partially_parsed)
+    use serde::Deserialize;
+    let tl = toml::from_slice(buf);
+    let tl = if is_missing_tag_error(&tl) {
+        tl.context("Manifest must contain spin_manifest_version with a value of \"1\"")?
+    } else {
+        tl?
+    };
+
+    match tl {
+        VersionTagLoader::OldV1 { rest, .. } => {
+            // let rest_text = toml::to_string_pretty(&rest)?;
+            // println!("{rest_text}");
+            let raw = RawAppManifest::deserialize(rest)?;
+            Ok(RawAppManifestAnyVersion::V1(raw))
+        }
+        VersionTagLoader::NewV1 { rest, .. } => {
+            let raw = RawAppManifest::deserialize(rest)?;
+            Ok(RawAppManifestAnyVersion::V1(raw))
+        }
+    }
 }
 
 /// Returns the absolute path to directory containing the file
@@ -144,8 +167,12 @@ async fn prepare(
     let component_triggers = raw
         .components
         .iter()
-        .map(|c| (c.id.clone(), c.trigger.clone()))
-        .collect();
+        .map(|c| {
+            resolve_trigger(&info.trigger, c.trigger.clone())
+                .map(|t| (c.id.clone(), t))
+                .map_err(|e| anyhow!("{e} in component trigger '{}'", c.id))
+        })
+        .collect::<Result<_, _>>()?;
 
     let components = future::join_all(
         raw.components
@@ -359,62 +386,9 @@ impl ComponentDigest {
     }
 }
 
-/// The parsing of a `component.trigger` table depends on the application trigger type.
-/// But serde doesn't allow us to express that dependency through attributes.  In lieu
-/// of writing a custom Deserialize implementation for the whole manifest, we instead
-/// leave `component.trigger` initially unparsed, then once we have the rest of the
-/// manifest loaded, we go back and parse it into the correct enum case - we basically
-/// clone the partially-parsed manifest but changing the type of `component.trigger`
-/// (which is why this can't be a straight clone).  The next few functions accomplish
-/// this.
-///
-/// (The reason we can't continue using an untagged enum is that an external trigger
-/// might have a setting called `route` which would make serde parse it as a
-/// TriggerConfig::Http.  There are other ways around this, e.g. the trigger match
-/// checker could see External/Http and transform the typed config back to a HashMap -
-/// I went this way to avoid having to know about individual types but it has its
-/// own downsides for sure.)
-fn resolve_partials(
-    partially_parsed: RawAppManifestAnyVersionPartial,
-) -> Result<RawAppManifestAnyVersion> {
-    let manifest = partially_parsed.into_v1();
-
-    let app_trigger = &manifest.info.trigger;
-    let components = manifest
-        .components
-        .into_iter()
-        .map(|c| resolve_partial_component(app_trigger, c))
-        .collect::<Result<_>>()?;
-
-    // Only concerned with preserving manifest.
-    Ok(RawAppManifestAnyVersion::V1New {
-        manifest: RawAppManifest {
-            info: manifest.info,
-            components,
-            variables: manifest.variables,
-        },
-        spin_manifest_version: config::FixedStringVersion::default(),
-    })
-}
-
-fn resolve_partial_component(
-    app_trigger: &ApplicationTrigger,
-    partial: RawComponentManifestPartial,
-) -> Result<RawComponentManifest> {
-    let trigger = resolve_trigger(app_trigger, partial.trigger)?;
-
-    Ok(RawComponentManifest {
-        id: partial.id,
-        source: partial.source,
-        description: partial.description,
-        wasm: partial.wasm,
-        trigger,
-        build: partial.build,
-        config: partial.config,
-    })
-}
-
-fn resolve_trigger(
+/// Resolves the raw map of a component trigger settings into a
+/// typed component trigger config object.
+pub fn resolve_trigger(
     app_trigger: &ApplicationTrigger,
     partial: toml::Value,
 ) -> Result<TriggerConfig> {
@@ -466,12 +440,33 @@ source = "nonexistent.wasm"
         manifest
     }
 
+    fn try_load_generic_manifest(
+        app_insert: &str,
+        comp_insert: &str,
+    ) -> anyhow::Result<RawAppManifestAnyVersion> {
+        let manifest_toml = format!(
+            r#"
+spin_manifest_version = "1"
+name = "test"
+version = "0.0.1"
+{app_insert}
+
+[[component]]
+id = "test"
+{comp_insert}
+"#
+        );
+
+        raw_manifest_from_slice(manifest_toml.as_bytes())
+    }
+
     #[test]
     fn can_parse_http_trigger() {
         let m = load_test_manifest(r#"{ type = "http", base = "/" }"#, r#"route = "/...""#);
         let m1 = m.into_v1();
         let t = &m1.info.trigger;
-        let ct = &m1.components[0].trigger;
+        let ct = resolve_trigger(t, m1.components[0].trigger.clone())
+            .expect("Should have resolved trigger");
         assert!(matches!(t, ApplicationTrigger::Http(_)));
         assert!(matches!(ct, TriggerConfig::Http(_)));
     }
@@ -485,7 +480,8 @@ source = "nonexistent.wasm"
 
         let m1 = m.into_v1();
         let t = m1.info.trigger;
-        let ct = &m1.components[0].trigger;
+        let ct = resolve_trigger(&t, m1.components[0].trigger.clone())
+            .expect("Should have resolved trigger");
         assert!(matches!(t, ApplicationTrigger::Redis(_)));
         assert!(matches!(ct, TriggerConfig::Redis(_)));
     }
@@ -496,7 +492,8 @@ source = "nonexistent.wasm"
 
         let m1 = m.into_v1();
         let t = m1.info.trigger;
-        let ct = &m1.components[0].trigger;
+        let ct = resolve_trigger(&t, m1.components[0].trigger.clone())
+            .expect("Should have resolved trigger");
         assert!(matches!(t, ApplicationTrigger::External(_)));
         assert!(matches!(ct, TriggerConfig::External(_)));
     }
@@ -510,8 +507,78 @@ source = "nonexistent.wasm"
 
         let m1 = m.into_v1();
         let t = m1.info.trigger;
-        let ct = &m1.components[0].trigger;
+        let ct = resolve_trigger(&t, m1.components[0].trigger.clone())
+            .expect("Should have resolved trigger");
         assert!(matches!(t, ApplicationTrigger::External(_)));
         assert!(matches!(ct, TriggerConfig::External(_)));
+    }
+
+    #[test]
+    fn bad_app_trigger_gives_good_error() {
+        let e = try_load_generic_manifest(
+            r#"trigger = { type = "http", bass = "all about that" }"#,
+            r#"source = "nonexistent.wasm"
+            [component.trigger]
+            route = "/...""#,
+        )
+        .expect_err("Should not, in fact, have been all about that bass");
+
+        assert!(
+            e.to_string()
+                .contains("incorrect or missing required settings for trigger type"),
+            "{e}"
+        );
+    }
+
+    #[test]
+    fn bad_app_field_gives_good_error() {
+        let e = try_load_generic_manifest(
+            r#"trigger = { type = "http", base = "/" }
+            deZZZcription = "so descriptive""#,
+            r#"source = "nonexistent.wasm"
+            [component.trigger]
+            route = "/...""#,
+        )
+        .expect_err("expected bad app field to not load");
+
+        assert!(
+            e.to_string().contains("unknown field `deZZZcription`"),
+            "{e}"
+        );
+    }
+
+    #[tokio::test]
+    async fn bad_component_trigger_gives_good_error() {
+        // Component trigger errors aren't detected until the
+        // 'prepare' stage of the load sequence.
+        let m = try_load_generic_manifest(
+            r#"trigger = { type = "http", base = "/" }"#,
+            r#"source = "nonexistent.wasm"
+            [component.trigger]
+            root = "/...""#,
+        )
+        .unwrap();
+        let e = prepare_any_version(m, ".", None::<PathBuf>)
+            .await
+            .expect_err("expected bad component trigger to not load");
+
+        assert!(
+            e.to_string()
+                .contains("missing field `route` in component trigger 'test'"),
+            "{e}"
+        );
+    }
+
+    #[test]
+    fn bad_component_field_gives_good_error() {
+        let e = try_load_generic_manifest(
+            r#"trigger = { type = "http", base = "/" }"#,
+            r#"sauce = "nonexistent.wasm"
+            [component.trigger]
+            route = "/...""#,
+        )
+        .expect_err("expected bad component field to not load");
+
+        assert!(e.to_string().contains("missing field `source`"), "{e}");
     }
 }

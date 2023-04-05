@@ -7,8 +7,12 @@ use semver::BuildMetadata;
 use spin_loader::{
     bindle::config as bindle_schema,
     digest::{bytes_sha256_string, file_sha256_string},
-    local::{absolutize, config as local_schema, parent_dir, validate_raw_app_manifest, UrlSource},
+    local::{
+        absolutize, config as local_schema, parent_dir, resolve_trigger, validate_raw_app_manifest,
+        UrlSource,
+    },
 };
+use spin_manifest::ApplicationTrigger;
 use std::path::{Path, PathBuf};
 
 /// Expands a file-based application manifest to a Bindle invoice.
@@ -77,7 +81,7 @@ async fn bindle_manifest(
     let futures = local
         .components
         .iter()
-        .map(|c| async { bindle_component_manifest(c, base_dir).await });
+        .map(|c| async { bindle_component_manifest(c, base_dir, &local.info.trigger).await });
     let components = futures::future::join_all(futures)
         .await
         .into_iter()
@@ -95,6 +99,7 @@ async fn bindle_manifest(
 async fn bindle_component_manifest(
     local: &local_schema::RawComponentManifest,
     base_dir: &Path,
+    app_trigger: &ApplicationTrigger,
 ) -> PublishResult<bindle_schema::RawComponentManifest> {
     let source_digest = match &local.source {
         local_schema::RawModuleSource::FileReference(path) => {
@@ -124,7 +129,7 @@ async fn bindle_component_manifest(
             allowed_http_hosts: local.wasm.allowed_http_hosts.clone(),
             key_value_stores: local.wasm.key_value_stores.clone(),
         },
-        trigger: local.trigger.clone(),
+        trigger: resolve_trigger(app_trigger, local.trigger.clone()).unwrap(),
         config: local.config.clone(),
     })
 }

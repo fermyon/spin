@@ -5,58 +5,78 @@
 #![deny(missing_docs)]
 
 use serde::{Deserialize, Serialize};
-use spin_manifest::{ApplicationTrigger, TriggerConfig};
+use spin_manifest::ApplicationTrigger;
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::common::RawVariable;
 
-/// Container for any version of the manifest.
-pub type RawAppManifestAnyVersion = RawAppManifestAnyVersionImpl<TriggerConfig>;
-/// Application configuration local file format.
-/// This is the main structure spin.toml deserializes into.
-pub type RawAppManifest = RawAppManifestImpl<TriggerConfig>;
-/// Core component configuration.
-pub type RawComponentManifest = RawComponentManifestImpl<TriggerConfig>;
+// TODO: this is still not ideal.  If someone typos the version tag
+// they will still get the awful "did not match any variant of untagged enum"
+// error.  Plus pulling `rest` via the low-fidelity toml::Value type means we lose
+// line info and stuff.  Ultimately the only way to get good errors is going to
+// be to bin serde and put in the hard yards mapping it manually.  But that's
+// pretty profoundly unappealing.
 
-pub(crate) type RawAppManifestAnyVersionPartial = RawAppManifestAnyVersionImpl<toml::Value>;
-pub(crate) type RawComponentManifestPartial = RawComponentManifestImpl<toml::Value>;
-
-/// Container for any version of the manifest.
+/// Pre-loads just the version tag.  This is required because
+/// trying to process the different version tag fields as part of
+/// the application load was losing error fidelity.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
-pub enum RawAppManifestAnyVersionImpl<C> {
-    /// Old Spin manifest versioned with `spin_version` key
-    V1Old {
-        /// Version key name
+pub enum VersionTagLoader {
+    /// It has the old version tag.
+    OldV1 {
+        /// The old version tag.
         spin_version: FixedStringVersion<1>,
-        /// Manifest
+        /// The actual good stuff.
         #[serde(flatten)]
-        manifest: RawAppManifestImpl<C>,
+        rest: toml::Value,
     },
-    /// New Spin manifest versioned with `spin_manifest_version` key
-    V1New {
-        /// Version key name
+    /// It has the new version tag.
+    NewV1 {
+        /// The new version tag.
         spin_manifest_version: FixedStringVersion<1>,
-        /// Manifest
+        /// The actual good stuff.
         #[serde(flatten)]
-        manifest: RawAppManifestImpl<C>,
+        rest: toml::Value,
     },
 }
 
-impl<C> RawAppManifestAnyVersionImpl<C> {
+/// Determines if a VersionTagLoader load error was down to a missing
+/// version tag or some more fundamental TOML error.  This allows us
+/// to provide a better error than "did not match any variant of untagged enum"
+/// where appropriate (but only where appropriate).
+pub fn is_missing_tag_error(tl: &Result<VersionTagLoader, toml::de::Error>) -> bool {
+    if let Err(e) = tl {
+        let message = e.to_string();
+        message.contains("data did not match any variant of untagged enum VersionTagLoader")
+    } else {
+        false
+    }
+}
+
+// NOTE: This is NOT Deserialize.  Always go through VersionTagLoader
+// (see raw_manifest_from_slice).  This two-step is to get meaningful
+// errors which serde was not giving us on the new-old untagged enum.
+
+/// Container for any version of the manifest.
+#[derive(Clone, Debug)]
+pub enum RawAppManifestAnyVersion {
+    /// V1 manifest schema
+    V1(RawAppManifest),
+}
+
+impl RawAppManifestAnyVersion {
     /// Converts `RawAppManifestAnyVersionImpl` into underlying V1 manifest
-    pub fn into_v1(self) -> RawAppManifestImpl<C> {
+    pub fn into_v1(self) -> RawAppManifest {
         match self {
-            RawAppManifestAnyVersionImpl::V1New { manifest, .. } => manifest,
-            RawAppManifestAnyVersionImpl::V1Old { manifest, .. } => manifest,
+            RawAppManifestAnyVersion::V1(manifest) => manifest,
         }
     }
 
     /// Returns a reference to the underlying V1 manifest
-    pub fn as_v1(&self) -> &RawAppManifestImpl<C> {
+    pub fn as_v1(&self) -> &RawAppManifest {
         match self {
-            RawAppManifestAnyVersionImpl::V1New { manifest, .. } => manifest,
-            RawAppManifestAnyVersionImpl::V1Old { manifest, .. } => manifest,
+            RawAppManifestAnyVersion::V1(manifest) => manifest,
         }
     }
 }
@@ -65,14 +85,14 @@ impl<C> RawAppManifestAnyVersionImpl<C> {
 /// This is the main structure spin.toml deserializes into.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
-pub struct RawAppManifestImpl<C> {
+pub struct RawAppManifest {
     /// General application information.
     #[serde(flatten)]
     pub info: RawAppInformation,
 
     /// Configuration for the application components.
     #[serde(rename = "component")]
-    pub components: Vec<RawComponentManifestImpl<C>>,
+    pub components: Vec<RawComponentManifest>,
 
     /// Application-specific configuration schema.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
@@ -100,7 +120,7 @@ pub struct RawAppInformation {
 /// Core component configuration.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
-pub struct RawComponentManifestImpl<C> {
+pub struct RawComponentManifest {
     /// The module source.
     pub source: RawModuleSource,
     /// ID of the component. Used at runtime to select between
@@ -112,7 +132,7 @@ pub struct RawComponentManifestImpl<C> {
     #[serde(flatten)]
     pub wasm: RawWasmConfig,
     /// Trigger configuration.
-    pub trigger: C,
+    pub trigger: toml::Value,
     /// Build configuration for the component.
     pub build: Option<RawBuildConfig>,
     /// Component-specific configuration values.

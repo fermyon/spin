@@ -12,7 +12,7 @@ use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_loader::local::config::RawAppManifest;
-use spin_loader::local::{assets, config, parent_dir};
+use spin_loader::local::{assets, config, parent_dir, resolve_trigger};
 use spin_manifest::ApplicationTrigger;
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
 use spin_trigger_http::routes::RoutePattern;
@@ -788,7 +788,8 @@ fn print_available_routes(
 
     println!("Available Routes:");
     for component in &cfg.components {
-        if let TriggerConfig::Http(http_cfg) = &component.trigger {
+        let tc = resolve_trigger(&cfg.info.trigger, component.trigger.clone()).unwrap();
+        if let TriggerConfig::Http(http_cfg) = tc {
             let route = RoutePattern::from(base, &http_cfg.route);
             println!("  {}: {}{}", component.id, route_prefix, route);
             if let Some(description) = &component.description {

@@ -23,6 +23,9 @@ pub enum Error {
     /// Non-string 'type' key in trigger declaration.
     #[error("the trigger type must be a string")]
     NonStringTriggerType,
+    /// Type has defined schema and this doesn't meet it.
+    #[error("incorrect or missing required settings for trigger type")]
+    InvalidSettingsForTriggerType,
 }
 
 /// An ordered map of component IDs to some value.
@@ -116,8 +119,8 @@ pub enum ApplicationOrigin {
 #[serde(
     deny_unknown_fields,
     rename_all = "camelCase",
-    try_from = "ApplicationTriggerSerialised",
-    into = "ApplicationTriggerSerialised"
+    try_from = "ApplicationTriggerDeserialise",
+    into = "ApplicationTriggerSerialise"
 )]
 pub enum ApplicationTrigger {
     /// HTTP trigger type.
@@ -133,57 +136,66 @@ pub enum ApplicationTrigger {
 /// only be applied to unit types.  The following types cause recognised
 /// tags to map to the Internal case and unrecognised ones to the
 /// External case.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase", untagged)]
-enum ApplicationTriggerSerialised {
-    Internal(InternalApplicationTriggerSerialised),
+enum ApplicationTriggerSerialise {
+    Internal(InternalApplicationTriggerSerialise),
     /// A trigger type that is not built in.
     External(HashMap<String, toml::Value>),
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct ApplicationTriggerDeserialise {
+    #[serde(rename = "type")]
+    trigger_type: String,
+    #[serde(flatten)]
+    rest: toml::Value,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Eq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase", tag = "type")]
-enum InternalApplicationTriggerSerialised {
+enum InternalApplicationTriggerSerialise {
     /// HTTP trigger type.
     Http(HttpTriggerConfiguration),
     /// Redis trigger type.
     Redis(RedisTriggerConfiguration),
 }
 
-impl TryFrom<ApplicationTriggerSerialised> for ApplicationTrigger {
+impl TryFrom<ApplicationTriggerDeserialise> for ApplicationTrigger {
     type Error = Error;
 
-    fn try_from(value: ApplicationTriggerSerialised) -> Result<Self, Self::Error> {
-        match value {
-            ApplicationTriggerSerialised::Internal(InternalApplicationTriggerSerialised::Http(
-                h,
-            )) => Ok(Self::Http(h)),
-            ApplicationTriggerSerialised::Internal(
-                InternalApplicationTriggerSerialised::Redis(r),
-            ) => Ok(Self::Redis(r)),
-            ApplicationTriggerSerialised::External(mut map) => match map.remove("type") {
-                Some(toml::Value::String(ty)) => {
-                    let ext_config = ExternalTriggerConfiguration {
-                        trigger_type: ty,
-                        parameters: map,
-                    };
-                    Ok(Self::External(ext_config))
-                }
-                Some(_) => Err(Error::NonStringTriggerType),
-                None => Err(Error::MissingTriggerType),
-            },
+    fn try_from(value: ApplicationTriggerDeserialise) -> Result<Self, Self::Error> {
+        match &value.trigger_type[..] {
+            "http" => Ok(ApplicationTrigger::Http(
+                HttpTriggerConfiguration::deserialize(value.rest)
+                    .map_err(|_| Error::InvalidSettingsForTriggerType)?,
+            )),
+            "redis" => Ok(ApplicationTrigger::Redis(
+                RedisTriggerConfiguration::deserialize(value.rest)
+                    .map_err(|_| Error::InvalidSettingsForTriggerType)?,
+            )),
+            _ => {
+                let parameters = HashMap::deserialize(value.rest)
+                    .map_err(|_| Error::InvalidSettingsForTriggerType)?;
+                let tc = ExternalTriggerConfiguration {
+                    trigger_type: value.trigger_type,
+                    parameters,
+                };
+                Ok(ApplicationTrigger::External(tc))
+            }
         }
     }
 }
 
-impl From<ApplicationTrigger> for ApplicationTriggerSerialised {
+impl From<ApplicationTrigger> for ApplicationTriggerSerialise {
     fn from(value: ApplicationTrigger) -> Self {
         match value {
             ApplicationTrigger::Http(h) => {
-                Self::Internal(InternalApplicationTriggerSerialised::Http(h))
+                Self::Internal(InternalApplicationTriggerSerialise::Http(h))
             }
             ApplicationTrigger::Redis(r) => {
-                Self::Internal(InternalApplicationTriggerSerialised::Redis(r))
+                Self::Internal(InternalApplicationTriggerSerialise::Redis(r))
             }
             ApplicationTrigger::External(e) => {
                 let ty = e.trigger_type;

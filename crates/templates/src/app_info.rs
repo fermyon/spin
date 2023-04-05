@@ -3,33 +3,20 @@
 // much processing to fit our needs here.
 
 use anyhow::Context;
-use spin_loader::local::config::FixedStringVersion;
+use spin_loader::local::config::{is_missing_tag_error, VersionTagLoader};
 use std::path::{Path, PathBuf};
 
 use crate::store::TemplateLayout;
 
-#[derive(Debug, serde::Deserialize)]
-#[serde(untagged)]
+#[derive(Debug)]
 pub(crate) enum AppInfo {
-    V1Old {
-        #[allow(dead_code)]
-        spin_version: FixedStringVersion<1>,
-        #[serde(flatten)]
-        manifest: AppInfoV1,
-    },
-    V1New {
-        #[allow(dead_code)]
-        spin_manifest_version: FixedStringVersion<1>,
-        #[serde(flatten)]
-        manifest: AppInfoV1,
-    },
+    V1(AppInfoV1),
 }
 
 impl AppInfo {
     pub fn as_v1(&self) -> &AppInfoV1 {
         match self {
-            AppInfo::V1New { manifest, .. } => manifest,
-            AppInfo::V1Old { manifest, .. } => manifest,
+            AppInfo::V1(manifest) => manifest,
         }
     }
 }
@@ -71,10 +58,31 @@ impl AppInfo {
     fn from_existent_file(manifest_path: &Path) -> anyhow::Result<AppInfo> {
         let manifest_text =
             std::fs::read_to_string(manifest_path).context("Can't read manifest file")?;
-        toml::from_str(&manifest_text).context("Can't parse manifest file")
+        raw_manifest_from_str(&manifest_text).context("Can't parse manifest file")
     }
 
     pub fn trigger_type(&self) -> &str {
         &self.as_v1().trigger.trigger_type
+    }
+}
+
+fn raw_manifest_from_str(buf: &str) -> anyhow::Result<AppInfo> {
+    use serde::Deserialize;
+    let tl = toml::from_str(buf);
+    let tl = if is_missing_tag_error(&tl) {
+        tl.context("Manifest must contain spin_manifest_version with a value of \"1\"")?
+    } else {
+        tl?
+    };
+
+    match tl {
+        VersionTagLoader::OldV1 { rest, .. } => {
+            let raw = AppInfoV1::deserialize(rest)?;
+            Ok(AppInfo::V1(raw))
+        }
+        VersionTagLoader::NewV1 { rest, .. } => {
+            let raw = AppInfoV1::deserialize(rest)?;
+            Ok(AppInfo::V1(raw))
+        }
     }
 }

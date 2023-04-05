@@ -145,22 +145,29 @@ func lowerParameterValues(params []ParameterValue) C.outbound_pg_list_parameter_
 	return lower_params
 }
 
-func liftPgError(err *C.outbound_pg_pg_error_t) error {
-	var gstr string
-	switch int(err.tag) {
-	case int(PgErrorKindSuccess):
-		gstr = "success"
-	case int(PgErrorKindConnectionFailed):
-	case int(PgErrorKindBadParameter):
-	case int(PgErrorKindQueryFailed):
-	case int(PgErrorKindValueConversionFailed):
-	case int(PgErrorKindOtherError):
-		cstr := (*C.outbound_pg_string_t)(unsafe.Pointer(&err.val))
-		gstr = C.GoStringN(cstr.ptr, C.int(cstr.len))
-	default:
-		gstr = fmt.Sprintf("unrecognized error: %v", err.tag)
+func liftPgError(err *C.outbound_pg_pg_error_t) PgError {
+	var lift_val PgError
+	if err.tag == 0 {
+		return PgErrorSuccess()
 	}
-	return fmt.Errorf(gstr)
+	lift_val_ptr := *(*C.outbound_pg_string_t)(unsafe.Pointer(&err.val))
+	lift_ret_val_val_val := C.GoStringN(lift_val_ptr.ptr, C.int(lift_val_ptr.len))
+	if err.tag == 1 {
+		lift_val = PgErrorConnectionFailed(lift_ret_val_val_val)
+	}
+	if err.tag == 2 {
+		lift_val = PgErrorBadParameter(lift_ret_val_val_val)
+	}
+	if err.tag == 3 {
+		lift_val = PgErrorQueryFailed(lift_ret_val_val_val)
+	}
+	if err.tag == 4 {
+		lift_val = PgErrorValueConversionFailed(lift_ret_val_val_val)
+	}
+	if err.tag == 5 {
+		lift_val = PgErrorOtherError(lift_ret_val_val_val)
+	}
+	return lift_val
 }
 
 func liftRowSet(rowset *C.outbound_pg_row_set_t) RowSet {
@@ -325,6 +332,24 @@ func liftRowSet(rowset *C.outbound_pg_row_set_t) RowSet {
 	return lift_rowset
 }
 
+func toGoError(err PgError) error {
+	switch err.Kind() {
+	case PgErrorKindBadParameter:
+		return fmt.Errorf(err.GetBadParameter())
+	case PgErrorKindConnectionFailed:
+		return fmt.Errorf(err.GetConnectionFailed())
+	case PgErrorKindOtherError:
+		return fmt.Errorf(err.GetOtherError())
+	case PgErrorKindQueryFailed:
+		return fmt.Errorf(err.GetQueryFailed())
+	case PgErrorKindValueConversionFailed:
+		return fmt.Errorf(err.GetValueConversionFailed())
+	case PgErrorKindSuccess:
+		return nil
+	}
+	return fmt.Errorf("Unknown error: %v", err.Kind())
+}
+
 func Query(address string, statement string, params []ParameterValue) (RowSet, error) {
 	lower_address := lowerPgStr(address)
 	defer C.outbound_pg_string_free(&lower_address)
@@ -339,7 +364,8 @@ func Query(address string, statement string, params []ParameterValue) (RowSet, e
 	C.outbound_pg_query(&lower_address, &lower_statement, &lower_params, &result)
 
 	if result.is_err {
-		err := liftPgError((*C.outbound_pg_pg_error_t)(unsafe.Pointer(&result.val)))
+		pg_err := liftPgError((*C.outbound_pg_pg_error_t)(unsafe.Pointer(&result.val)))
+		err := toGoError(pg_err)
 		return RowSet{}, err
 	} else {
 		rowset := liftRowSet((*C.outbound_pg_row_set_t)(unsafe.Pointer(&result.val)))
@@ -361,7 +387,8 @@ func Execute(address string, statement string, params []ParameterValue) (uint64,
 	C.outbound_pg_execute(&lower_address, &lower_statement, &lower_params, &result)
 
 	if result.is_err {
-		err := liftPgError((*C.outbound_pg_pg_error_t)(unsafe.Pointer(&result.val)))
+		pg_err := liftPgError((*C.outbound_pg_pg_error_t)(unsafe.Pointer(&result.val)))
+		err := toGoError(pg_err)
 		return 0, err
 	} else {
 		//TODO: ask how to convert the value to uint64

@@ -436,7 +436,6 @@ fn info(raw: RawAppInformation, src: impl AsRef<Path>) -> ApplicationInformation
         description: raw.description,
         authors: raw.authors.unwrap_or_default(),
         trigger: raw.trigger,
-        namespace: raw.namespace,
         origin: ApplicationOrigin::File(src.as_ref().to_path_buf()),
     }
 }

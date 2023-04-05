@@ -1,6 +1,7 @@
 # Spin component in TinyGo
 
 ```shell
+$ go mod tidy
 $ RUST_LOG=spin=trace spin build --up
 ```
 

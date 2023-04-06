@@ -40,7 +40,6 @@ use super::login::LoginConnection;
 
 const SPIN_DEPLOY_CHANNEL_NAME: &str = "spin-deploy";
 const SPIN_DEFAULT_KV_STORE: &str = "default";
-const BINDLE_REGISTRY_URL_PATH: &str = "api/registry";
 
 /// Package and upload an application to the Fermyon Platform.
 #[derive(Parser, Debug)]
@@ -107,13 +106,6 @@ pub struct DeployCommand {
     /// Can be used multiple times.
     #[clap(long = "key-value", parse(try_from_str = parse_kv))]
     pub key_values: Vec<(String, String)>,
-
-    /// Temporary flag: Package app as OCI artifact
-    #[clap(
-        name = "use-oci",
-        long = "use-oci",
-    )]
-    pub use_oci: bool,
 }
 
 impl DeployCommand {
@@ -230,12 +222,6 @@ impl DeployCommand {
         // TODO: we should have a smarter check in place here to determine the difference between Hippo and the Cloud APIs
         if login_connection.bindle_url.is_some() {
             self.deploy_hippo(login_connection).await
-        } else if self.use_oci {
-            const DEVELOPER_CLOUD_FAQ: &str = "https://developer.fermyon.com/cloud/faq";
-
-            self.deploy_cloud_oci(login_connection)
-                .await
-                .map_err(|e| anyhow!("{:?}\n\nLearn more at {}", e, DEVELOPER_CLOUD_FAQ))
         } else {
             const DEVELOPER_CLOUD_FAQ: &str = "https://developer.fermyon.com/cloud/faq";
 
@@ -386,151 +372,6 @@ impl DeployCommand {
         Ok(())
     }
 
-    async fn deploy_cloud_oci(self, login_connection: LoginConnection) -> Result<()> {
-        let connection_config = ConnectionConfig {
-            url: login_connection.url.to_string(),
-            insecure: login_connection.danger_accept_invalid_certs,
-            token: login_connection.token.clone(),
-        };
-
-        // let client = CloudClient::new(connection_config.clone());
-
-        let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
-        let cfg = cfg_any.into_v1();
-
-        ensure!(!cfg.components.is_empty(), "No components in spin.toml!");
-
-        match cfg.info.trigger {
-            ApplicationTrigger::Http(_) => {}
-            ApplicationTrigger::Redis(_) => bail!("Redis triggers are not supported"),
-            ApplicationTrigger::External(_) => bail!("External triggers are not supported"),
-        }
-
-        // TODO: will we want any/all of 'no-buildinfo' 'buildinfo' for oci?
-        // Cloud can do what it likes on its backend, but when/if the Fermyon Platform/Hippo
-        // has OCI support, I can see control over the image tag being handy for some users.
-        let buildinfo = if !self.no_buildinfo {
-            match &self.buildinfo {
-                Some(i) => Some(i.clone()),
-                // FIXME(lann): As a workaround for buggy partial bindle uploads,
-                // force a new bindle version on every upload.
-                None => Some(random_buildinfo()),
-            }
-        } else {
-            None
-        };
-
-        let _digest = self
-            .push_oci(buildinfo, connection_config)
-            .await?;
-
-        println!("Deploying...");
-
-        // TODO: unlock the rest of the deploy flow once Hippo (Cloud) can use its OCI registry
-        // for app storage API concerns
-
-        // // Create or update app
-        // // TODO: this process involves many calls to Hippo. Should be able to update the channel
-        // // via only `add_revision` if bindle naming schema is updated so bindles can be deterministically ordered by Hippo.
-        // let channel_id = match self.get_app_id_cloud(&client, name.clone()).await {
-        //     Ok(app_id) => {
-        //         CloudClient::add_revision(
-        //             &client,
-        //             name.clone(),
-        //             bindle_id.version_string().clone(),
-        //         )
-        //         .await?;
-        //         let existing_channel_id = self
-        //             .get_channel_id_cloud(&client, SPIN_DEPLOY_CHANNEL_NAME.to_string(), app_id)
-        //             .await?;
-        //         let active_revision_id = self
-        //             .get_revision_id_cloud(&client, bindle_id.version_string().clone(), app_id)
-        //             .await?;
-        //         CloudClient::patch_channel(
-        //             &client,
-        //             existing_channel_id,
-        //             None,
-        //             Some(CloudChannelRevisionSelectionStrategy::UseSpecifiedRevision),
-        //             None,
-        //             Some(active_revision_id),
-        //             None,
-        //         )
-        //         .await
-        //         .context("Problem patching a channel")?;
-
-        //         for kv in self.key_values {
-        //             CloudClient::add_key_value_pair(
-        //                 &client,
-        //                 app_id,
-        //                 SPIN_DEFAULT_KV_STORE.to_string(),
-        //                 kv.0,
-        //                 kv.1,
-        //             )
-        //             .await
-        //             .context("Problem creating key/value")?;
-        //         }
-
-        //         existing_channel_id
-        //     }
-        //     Err(_) => {
-        //         let app_id = CloudClient::add_app(&client, &name, &name)
-        //             .await
-        //             .context("Unable to create app")?;
-
-        //         // When creating the new app, InitialRevisionImport command is triggered
-        //         // which automatically imports all revisions from bindle into db
-        //         // therefore we do not need to call add_revision api explicitly here
-        //         let active_revision_id = self
-        //             .get_revision_id_cloud(&client, bindle_id.version_string().clone(), app_id)
-        //             .await?;
-
-        //         let channel_id = CloudClient::add_channel(
-        //             &client,
-        //             app_id,
-        //             String::from(SPIN_DEPLOY_CHANNEL_NAME),
-        //             CloudChannelRevisionSelectionStrategy::UseSpecifiedRevision,
-        //             None,
-        //             Some(active_revision_id),
-        //         )
-        //         .await
-        //         .context("Problem creating a channel")?;
-
-        //         for kv in self.key_values {
-        //             CloudClient::add_key_value_pair(
-        //                 &client,
-        //                 app_id,
-        //                 SPIN_DEFAULT_KV_STORE.to_string(),
-        //                 kv.0,
-        //                 kv.1,
-        //             )
-        //             .await
-        //             .context("Problem creating key/value")?;
-        //         }
-
-        //         channel_id
-        //     }
-        // };
-
-        // let channel = CloudClient::get_channel_by_id(&client, &channel_id.to_string())
-        //     .await
-        //     .context("Problem getting channel by id")?;
-        // let app_base_url = build_app_base_url(&channel.domain, &login_connection.url)?;
-        // if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
-        //     wait_for_ready(
-        //         &app_base_url,
-        //         &bindle_id.version_string(),
-        //         self.readiness_timeout_secs,
-        //         Destination::Cloud(connection_config.url),
-        //     )
-        //     .await;
-        //     print_available_routes(&app_base_url, &http_config.base, &cfg);
-        // } else {
-        //     println!("Application is running at {}", channel.domain);
-        // }
-
-        Ok(())
-    }
-
     async fn deploy_cloud(self, login_connection: LoginConnection) -> Result<()> {
         let connection_config = ConnectionConfig {
             url: login_connection.url.to_string(),
@@ -551,28 +392,35 @@ impl DeployCommand {
             ApplicationTrigger::External(_) => bail!("External triggers are not supported"),
         }
 
+        // TODO: will we want any/all of 'no-buildinfo' 'buildinfo' for oci?
+        // Cloud can do what it likes on its backend, but when/if the Fermyon Platform/Hippo
+        // has OCI support, I can see control over the image tag being handy for some users.
         let buildinfo = if !self.no_buildinfo {
             match &self.buildinfo {
                 Some(i) => Some(i.clone()),
-                // FIXME(lann): As a workaround for buggy partial bindle uploads,
-                // force a new bindle version on every upload.
+                // TODO: We're still in the habit of defaulting to random/unique buildinfo
+                // Still desired?
                 None => Some(random_buildinfo()),
             }
         } else {
             None
         };
 
-        let su = Url::parse(login_connection.url.as_str())?;
-        let bindle_connection_info = BindleConnectionInfo::from_token(
-            su.join(BINDLE_REGISTRY_URL_PATH)?.to_string(),
-            login_connection.danger_accept_invalid_certs,
-            login_connection.token,
-        );
+        let app_file = &self.app;
+        let dir = tempfile::tempdir()?;
+        let application = spin_loader::local::from_file(&app_file, Some(dir.path())).await?;
 
-        let bindle_id = self
-            .create_and_push_bindle(buildinfo, bindle_connection_info)
+        // TODO: Is there a more helpful value (oci ref) that we could return here to inform version
+        // or is buildinfo already appropriate?
+        let _digest = self
+            .push_oci(application.clone(), buildinfo.clone(), connection_config.clone())
             .await?;
-        let name = bindle_id.name().to_string();
+
+        let name = application.info.name;
+        // FYI: From https://docs.docker.com/engine/reference/commandline/tag
+        // A tag name must be valid ASCII and may contain lowercase and uppercase letters, digits, underscores, periods and hyphens.
+        // A tag name may not start with a period or a hyphen and may contain a maximum of 128 characters.
+        let version = buildinfo.clone().context("Cannot parse build info")?.to_string();
 
         println!("Deploying...");
 
@@ -584,14 +432,14 @@ impl DeployCommand {
                 CloudClient::add_revision(
                     &client,
                     name.clone(),
-                    bindle_id.version_string().clone(),
+                    version.clone()
                 )
                 .await?;
                 let existing_channel_id = self
                     .get_channel_id_cloud(&client, SPIN_DEPLOY_CHANNEL_NAME.to_string(), app_id)
                     .await?;
                 let active_revision_id = self
-                    .get_revision_id_cloud(&client, bindle_id.version_string().clone(), app_id)
+                    .get_revision_id_cloud(&client, version.clone(), app_id)
                     .await?;
                 CloudClient::patch_channel(
                     &client,
@@ -628,7 +476,7 @@ impl DeployCommand {
                 // which automatically imports all revisions from bindle into db
                 // therefore we do not need to call add_revision api explicitly here
                 let active_revision_id = self
-                    .get_revision_id_cloud(&client, bindle_id.version_string().clone(), app_id)
+                    .get_revision_id_cloud(&client, version.clone(), app_id)
                     .await?;
 
                 let channel_id = CloudClient::add_channel(
@@ -665,9 +513,9 @@ impl DeployCommand {
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
             wait_for_ready(
                 &app_base_url,
-                &bindle_id.version_string(),
+                &version,
                 self.readiness_timeout_secs,
-                Destination::Cloud(connection_config.url),
+                Destination::Cloud(connection_config.clone().url),
             )
             .await;
             print_available_routes(&app_base_url, &http_config.base, &cfg);
@@ -760,7 +608,7 @@ impl DeployCommand {
     async fn get_revision_id_cloud(
         &self,
         cloud_client: &CloudClient,
-        bindle_version: String,
+        version: String,
         app_id: Uuid,
     ) -> Result<Uuid> {
         let mut revisions = cloud_client.list_revisions().await?;
@@ -769,7 +617,7 @@ impl DeployCommand {
             if let Some(revision) = revisions
                 .items
                 .iter()
-                .find(|&x| x.revision_number == bindle_version && x.app_id == app_id)
+                .find(|&x| x.revision_number == version && x.app_id == app_id)
             {
                 return Ok(revision.id);
             }
@@ -783,7 +631,7 @@ impl DeployCommand {
 
         Err(anyhow!(
             "No revision with version {} and app id {}",
-            bindle_version,
+            version,
             app_id
         ))
     }
@@ -882,13 +730,10 @@ impl DeployCommand {
 
     async fn push_oci(
         &self,
+        application: spin_manifest::Application,
         buildinfo: Option<BuildMetadata>,
         connection_config: ConnectionConfig
     ) -> Result<Option<String>> {
-        let app_file = &self.app;
-        let dir = tempfile::tempdir()?;
-        let application = spin_loader::local::from_file(&app_file, Some(dir.path())).await?;
-
         let mut client = spin_oci::Client::new(connection_config.insecure, None).await?;
 
         // Currently the registry is the cloud domain

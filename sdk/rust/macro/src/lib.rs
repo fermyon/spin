@@ -25,10 +25,10 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     Err(error) => {
                         let body = error.to_string();
                         eprintln!("Handler returned an error: {}", body);
-                        let mut error: &(dyn std::error::Error + 'static) = &*error;
-                        while let Some(source) = error.source() {
-                            eprintln!("  caused by: {}", source);
-                            error = source;
+                        let mut source = error.source();
+                        while let Some(s) = source {
+                            eprintln!("  caused by: {}", s);
+                            source = s.source();
                         }
                         spin_http::Response {
                             status: 500,

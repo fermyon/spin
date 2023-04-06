@@ -78,6 +78,31 @@ func buildTinyGo(t *testing.T, dir string) {
 	}
 }
 
+func TestSpinRoundTrip(t *testing.T) {
+	buildTinyGo(t, "http/testdata/spin-roundtrip")
+	spin := startSpin(t, "http/testdata/spin-roundtrip/spin.toml")
+	defer spin.cancel()
+
+	resp := retryGet(t, spin.url+"/hello")
+	spin.cancel()
+	if resp.Body == nil {
+		t.Fatal("body is nil")
+	}
+	t.Log(resp.Status)
+	b, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// assert response body
+	want := "Hello world!\n"
+	got := string(b)
+	if want != got {
+		t.Fatalf("body is not equal: want = %q got = %q", want, got)
+	}
+}
+
 func TestHTTPTriger(t *testing.T) {
 	buildTinyGo(t, "http/testdata/http-tinygo")
 	spin := startSpin(t, "http/testdata/http-tinygo/spin.toml")

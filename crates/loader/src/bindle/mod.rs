@@ -152,14 +152,13 @@ async fn core(
 fn info(raw: &RawAppManifest, invoice: &Invoice, url: &str) -> ApplicationInformation {
     ApplicationInformation {
         // TODO
-        // Handle API version and namespace.
+        // Handle API version
         spin_version: SpinVersion::V1,
         name: invoice.bindle.id.name().to_string(),
         version: invoice.bindle.id.version_string(),
         description: invoice.bindle.description.clone(),
         authors: invoice.bindle.authors.clone().unwrap_or_default(),
         trigger: raw.trigger.clone(),
-        namespace: None,
         origin: ApplicationOrigin::Bindle {
             id: invoice.bindle.id.to_string(),
             server: url.to_string(),

@@ -93,7 +93,7 @@ pub struct RawAppInformation {
     pub authors: Option<Vec<String>>,
     /// Trigger for the application.
     pub trigger: ApplicationTrigger,
-    /// Namespace for the application.
+    /// Namespace for the application. (deprecated)
     pub namespace: Option<String>,
 }
 

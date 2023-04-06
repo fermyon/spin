@@ -22,9 +22,14 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 match #func_name(req.try_into().expect("cannot convert from Spin HTTP request")) {
                     Ok(resp) => resp.try_into().expect("cannot convert to Spin HTTP response"),
-                    Err(e) => {
-                        let body = e.to_string();
+                    Err(error) => {
+                        let body = error.to_string();
                         eprintln!("Handler returned an error: {}", body);
+                        let mut error: &(dyn std::error::Error + 'static) = &*error;
+                        while let Some(source) = error.source() {
+                            eprintln!("  caused by: {}", source);
+                            error = source;
+                        }
                         spin_http::Response {
                             status: 500,
                             headers: None,

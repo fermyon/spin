@@ -7,7 +7,32 @@ import (
 	"io"
 	"net/http"
 	"os"
+
+	"github.com/julienschmidt/httprouter"
 )
+
+// Router is a http.Handler which can be used to dispatch requests to different
+// handler functions via configurable routes
+type Router = httprouter.Router
+
+// Params is a Param-slice, as returned by the router.
+// The slice is ordered, the first URL parameter is also the first slice value.
+// It is therefore safe to read values by the index.
+type Params = httprouter.Params
+
+// Param is a single URL parameter, consisting of a key and a value.
+type Param = httprouter.Param
+
+// RouterHandle is a function that can be registered to a route to handle HTTP
+// requests. Like http.HandlerFunc, but has a third parameter for the values of
+// wildcards (variables).
+type RouterHandle = httprouter.Handle
+
+// New returns a new initialized Router.
+// Path auto-correction, including trailing slashes, is enabled by default.
+func NewRouter() *Router {
+	return httprouter.New()
+}
 
 // handler is the function that will be called by the http trigger in Spin.
 var handler = defaultHandler

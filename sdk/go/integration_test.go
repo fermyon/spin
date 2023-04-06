@@ -61,6 +61,12 @@ func buildTinyGo(t *testing.T, dir string) {
 
 	t.Log("building example: ", dir)
 
+	getCmd := exec.Command("go", "mod", "tidy")
+	getCmd.Dir = dir
+	if err := getCmd.Run(); err != nil {
+		t.Errorf("Failed to go mod tidy %q, %v", dir, err)
+	}
+
 	cmd := exec.Command("tinygo", "build", "-target=wasi", "-gc=leaking", "-o", "main.wasm", "main.go")
 	cmd.Dir = dir
 

@@ -1,0 +1,13 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A simple Spin application written in (Tiny)Go."
+name = "spin-roundtrip-test"
+trigger = { type = "http", base = "/" }
+version = "1.0.0"
+
+[[component]]
+id = "http-roundtrip-test"
+source = "main.wasm"
+allowed_http_hosts = ["example.com"]
+[component.trigger]
+route = "/hello/..."

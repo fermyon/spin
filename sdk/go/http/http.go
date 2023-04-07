@@ -34,6 +34,26 @@ func NewRouter() *Router {
 	return httprouter.New()
 }
 
+// NewTransport returns http.RoundTripper backed by Spin SDK
+func NewTransport() http.RoundTripper {
+	return &Transport{}
+}
+
+// Transport implements http.RoundTripper
+type Transport struct{}
+
+// RoundTrip makes roundtrip using Spin SDK
+func (r *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return Send(req)
+}
+
+// NewClient returns a new HTTP client compatible with the Spin SDK
+func NewClient() *http.Client {
+	return &http.Client{
+		Transport: &Transport{},
+	}
+}
+
 // handler is the function that will be called by the http trigger in Spin.
 var handler = defaultHandler
 

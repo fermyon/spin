@@ -11,6 +11,11 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+// Override the default HTTP client to be compatible with the Spin SDK.
+func init() {
+	http.DefaultClient = NewClient()
+}
+
 // Router is a http.Handler which can be used to dispatch requests to different
 // handler functions via configurable routes
 type Router = httprouter.Router

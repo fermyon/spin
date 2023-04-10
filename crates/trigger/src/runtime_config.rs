@@ -1,16 +1,22 @@
-use std::path::{Path, PathBuf};
+pub mod config_provider;
+pub mod key_value;
+
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use spin_config::provider::{env::EnvProvider, vault::VaultProvider};
-use toml;
+
+use self::{
+    config_provider::{ConfigProvider, ConfigProviderOpts},
+    key_value::{KeyValueStore, KeyValueStoreOpts},
+};
 
 pub const DEFAULT_STATE_DIR: &str = ".spin";
 const DEFAULT_LOGS_DIR: &str = "logs";
-
-const SPIN_CONFIG_ENV_PREFIX: &str = "SPIN_CONFIG";
-
-const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_key_value.db";
 
 /// RuntimeConfig allows multiple sources of runtime configuration to be
 /// queried uniformly.
@@ -27,47 +33,63 @@ impl RuntimeConfig {
 
     pub fn new(local_app_dir: Option<PathBuf>) -> Self {
         Self {
-            local_app_dir: local_app_dir.map(Into::into),
+            local_app_dir,
             ..Default::default()
         }
     }
 
     /// Load a runtime config file from the given path. Options specified in a
     /// later-loaded file take precedence over any earlier-loaded files.
-    pub fn merge_config_from(&mut self, path: impl AsRef<Path>) -> Result<()> {
-        let path = path.as_ref();
-        let bytes = std::fs::read(path)
+    pub fn merge_config_file(&mut self, path: impl Into<PathBuf>) -> Result<()> {
+        let path = path.into();
+        let bytes = fs::read(&path)
             .with_context(|| format!("Failed to load runtime config file {path:?}"))?;
-        let opts = toml::from_slice(&bytes)
+        let mut opts: RuntimeConfigOpts = toml::from_slice(&bytes)
             .with_context(|| format!("Failed to parse runtime config file {path:?}"))?;
+        opts.file_path = Some(path);
         self.files.push(opts);
         Ok(())
     }
 
-    /// Return an iterator of configured spin_config::Providers.
-    pub fn config_providers(&self) -> Vec<BoxedConfigProvider> {
-        // Default EnvProvider
-        let dotenv_path = self.local_app_dir.as_deref().map(|path| path.join(".env"));
-        let env_provider = EnvProvider::new(SPIN_CONFIG_ENV_PREFIX, dotenv_path);
-
-        let mut providers: Vec<BoxedConfigProvider> = vec![Box::new(env_provider)];
+    /// Return a Vec of configured [`spin_config::Provider`]s.
+    pub fn config_providers(&self) -> Vec<ConfigProvider> {
+        let default_provider = ConfigProviderOpts::default_provider_opts(self).build_provider();
+        let mut providers: Vec<ConfigProvider> = vec![default_provider];
         providers.extend(self.opts_layers().flat_map(|opts| {
             opts.config_providers
                 .iter()
-                .map(Self::build_config_provider)
+                .map(|opts| opts.build_provider())
         }));
         providers
     }
 
-    fn build_config_provider(provider_config: &ConfigProvider) -> BoxedConfigProvider {
-        match provider_config {
-            ConfigProvider::Vault(VaultConfig {
-                url,
-                token,
-                mount,
-                prefix,
-            }) => Box::new(VaultProvider::new(url, token, mount, prefix.as_deref())),
+    /// Return an iterator of named configured [`KeyValueStore`]s.
+    pub fn key_value_stores(&self) -> Result<impl IntoIterator<Item = (String, KeyValueStore)>> {
+        let mut stores = HashMap::new();
+        // Insert explicitly-configured stores
+        for opts in self.opts_layers() {
+            for (name, store) in &opts.key_value_stores {
+                if !stores.contains_key(name) {
+                    let store = store.build_store(opts)?;
+                    stores.insert(name.to_owned(), store);
+                }
+            }
         }
+        // Upsert default store
+        if !stores.contains_key("default") {
+            let store = KeyValueStoreOpts::default_store_opts(self)
+                .build_store(&RuntimeConfigOpts::default())?;
+            stores.insert("default".into(), store);
+        }
+        Ok(stores.into_iter())
+    }
+
+    // Return the "default" key value store config.
+    fn default_key_value_opts(&self) -> KeyValueStoreOpts {
+        self.opts_layers()
+            .find_map(|opts| opts.key_value_stores.get("default"))
+            .cloned()
+            .unwrap_or_else(|| KeyValueStoreOpts::default_store_opts(self))
     }
 
     /// Set the state dir, overriding any other runtime config source.
@@ -109,16 +131,6 @@ impl RuntimeConfig {
         }
     }
 
-    /// Return a path to the sqlite DB if set.
-    pub fn sqlite_db_path(&self) -> Option<PathBuf> {
-        if let Some(state_dir) = self.state_dir() {
-            // If the state dir is set, build the default path
-            Some(state_dir.join(DEFAULT_SQLITE_DB_FILENAME))
-        } else {
-            None
-        }
-    }
-
     /// Returns an iterator of RuntimeConfigOpts in order of decreasing precedence
     fn opts_layers(&self) -> impl Iterator<Item = &RuntimeConfigOpts> {
         std::iter::once(&self.overrides).chain(self.files.iter().rev())
@@ -132,7 +144,7 @@ impl RuntimeConfig {
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RuntimeConfigOpts {
+pub struct RuntimeConfigOpts {
     #[serde(default)]
     pub state_dir: Option<String>,
 
@@ -140,26 +152,30 @@ struct RuntimeConfigOpts {
     pub log_dir: Option<PathBuf>,
 
     #[serde(rename = "config_provider", default)]
-    pub config_providers: Vec<ConfigProvider>,
+    pub config_providers: Vec<ConfigProviderOpts>,
+
+    #[serde(rename = "key_value_store", default)]
+    pub key_value_stores: HashMap<String, KeyValueStoreOpts>,
+
+    #[serde(skip)]
+    pub file_path: Option<PathBuf>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case", tag = "type")]
-pub enum ConfigProvider {
-    Vault(VaultConfig),
+fn resolve_config_path(path: &Path, config_opts: &RuntimeConfigOpts) -> Result<PathBuf> {
+    if path.is_absolute() {
+        return Ok(path.to_owned());
+    }
+    let base_path = match &config_opts.file_path {
+        Some(file_path) => file_path
+            .parent()
+            .with_context(|| {
+                format!("failed to get parent of runtime config file path {file_path:?}")
+            })?
+            .to_owned(),
+        None => std::env::current_dir().context("failed to get current directory")?,
+    };
+    Ok(base_path.join(path))
 }
-
-// Vault config to initialize vault provider
-#[derive(Debug, Default, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct VaultConfig {
-    pub url: String,
-    pub token: String,
-    pub mount: String,
-    pub prefix: Option<String>,
-}
-
-type BoxedConfigProvider = Box<dyn spin_config::Provider>;
 
 #[cfg(test)]
 mod tests {
@@ -176,7 +192,7 @@ mod tests {
 
         assert_eq!(config.state_dir(), None);
         assert_eq!(config.log_dir(), None);
-        assert_eq!(config.sqlite_db_path(), None);
+        assert_eq!(default_spin_store_path(&config), None);
 
         Ok(())
     }
@@ -192,8 +208,8 @@ mod tests {
         let log_dir = config.log_dir().unwrap();
         assert!(log_dir.starts_with(&state_dir));
 
-        let sqlite_db_path = config.sqlite_db_path().unwrap();
-        assert!(sqlite_db_path.starts_with(&state_dir));
+        let default_db_path = default_spin_store_path(&config).unwrap();
+        assert!(default_db_path.starts_with(&state_dir));
 
         Ok(())
     }
@@ -214,10 +230,13 @@ mod tests {
     fn opts_layers_precedence() -> Result<()> {
         let mut config = RuntimeConfig::new(None);
 
-        config.merge_config_from(toml_tempfile(toml! {
-            state_dir = "file-state-dir"
-            log_dir = "file-log-dir"
-        })?)?;
+        merge_config_toml(
+            &mut config,
+            toml! {
+                state_dir = "file-state-dir"
+                log_dir = "file-log-dir"
+            },
+        );
 
         let state_dir = config.state_dir().unwrap();
         assert_eq!(state_dir.as_os_str(), "file-state-dir");
@@ -244,22 +263,56 @@ mod tests {
         // One default provider
         assert_eq!(config.config_providers().len(), 1);
 
-        config.merge_config_from(toml_tempfile(toml! {
-            [[config_provider]]
-            type = "vault"
-            url = "http://vault"
-            token = "secret"
-            mount = "root"
-        })?)?;
+        merge_config_toml(
+            &mut config,
+            toml! {
+                [[config_provider]]
+                type = "vault"
+                url = "http://vault"
+                token = "secret"
+                mount = "root"
+            },
+        );
         assert_eq!(config.config_providers().len(), 2);
 
         Ok(())
     }
 
-    fn toml_tempfile(value: toml::Value) -> Result<NamedTempFile> {
-        let data = toml::to_vec(&value)?;
-        let mut file = NamedTempFile::new()?;
-        file.write_all(&data)?;
-        Ok(file)
+    #[test]
+    fn key_value_stores_from_file() -> Result<()> {
+        let mut config = RuntimeConfig::new(None);
+
+        // One default store
+        assert_eq!(config.key_value_stores().unwrap().into_iter().count(), 1);
+
+        merge_config_toml(
+            &mut config,
+            toml! {
+                [key_value_store.default]
+                type = "spin"
+                path = "override.db"
+
+                [key_value_store.other]
+                type = "spin"
+                path = "other.db"
+            },
+        );
+        assert_eq!(config.key_value_stores().unwrap().into_iter().count(), 2);
+
+        Ok(())
+    }
+
+    fn merge_config_toml(config: &mut RuntimeConfig, value: toml::Value) {
+        let data = toml::to_vec(&value).expect("encode toml");
+        let mut file = NamedTempFile::new().expect("temp file");
+        file.write_all(&data).expect("write toml");
+        config.merge_config_file(file.path()).expect("merge config");
+    }
+
+    fn default_spin_store_path(config: &RuntimeConfig) -> Option<PathBuf> {
+        match config.default_key_value_opts() {
+            KeyValueStoreOpts::Spin(opts) => opts.path,
+            other => panic!("unexpected default store opts {other:?}"),
+        }
     }
 }

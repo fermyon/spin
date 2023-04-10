@@ -17,7 +17,7 @@ use spin_app::{
     AppComponent, Loader,
 };
 use spin_core::{Component, StoreBuilder};
-use spin_trigger::{runtime_config::RuntimeConfig, TriggerExecutor, TriggerExecutorBuilder};
+use spin_trigger::{RuntimeConfig, TriggerExecutor, TriggerExecutorBuilder};
 use spin_trigger_http::{HttpExecutorType, HttpTriggerConfig, WagiTriggerConfig};
 use tokio::fs;
 

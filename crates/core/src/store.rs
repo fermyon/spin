@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
@@ -267,9 +267,7 @@ impl StoreBuilder {
             for arg in args {
                 match wasi {
                     Wasi::Preview1(ctx) => ctx.push_arg(arg)?,
-                    Wasi::Preview2(_) => {
-                        bail!("`Store::args` only supported with WASI Preview 1")
-                    }
+                    Wasi::Preview2(ctx) => ctx.push_arg(arg),
                 }
             }
             Ok(())

@@ -16,4 +16,4 @@ digest = "sha256:511720698dee56134ed8a08a87131d33c3ea8a64b6726cd6710d624bca4ceb6
 executor = { type = "wagi"}
 route = "{{http-path}}"
 [component.build]
-watch = ["src/**/*.php", "spin.toml"]
+watch = ["src/**/*.php"]

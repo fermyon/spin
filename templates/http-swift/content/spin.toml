@@ -14,4 +14,4 @@ route = "{{http-path}}"
 executor = { type = "wagi" }
 [component.build]
 command = "swiftc -target wasm32-unknown-wasi main.swift -o main.wasm"
-watch = ["**/*.swift", "spin.toml"]
+watch = ["**/*.swift"]

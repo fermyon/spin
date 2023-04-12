@@ -19,19 +19,15 @@ use watchexec::{
 use crate::{
     opts::{
         APP_MANIFEST_FILE_OPT, DEFAULT_MANIFEST_FILE, WATCH_CLEAR_OPT, WATCH_DEBOUNCE_OPT,
-        WATCH_SKIP_BUILD_OPT, WATCH_WATCH_ASSETS_OPT,
+        WATCH_SKIP_BUILD_OPT,
     },
     watch_filter::WatchFilter,
 };
 
-// TODO: Add a --component <COMPONENT> flag
-// TODO: Add a --watch <WATCH_CONFIG> flag
-// TODO: Add a --ignore <IGNORE_CONFIG> flag
-
-/// Execute spin build and spin up when watched files change.
+/// Build and run the Spin application, rebuilding and restarting it when files change.
 #[derive(Parser, Debug)]
 #[clap(
-    about = "Rebuild and restart the Spin application when files changes",
+    about = "Build and run the Spin application, rebuilding and restarting it when files change",
     allow_hyphen_values = true
 )]
 pub struct WatchCommand {
@@ -61,13 +57,9 @@ pub struct WatchCommand {
     )]
     pub debounce: u64,
 
-    /// Skip running spin build and only run spin up.
+    /// Only run the Spin application, restarting it when build artifacts change.
     #[clap(name = WATCH_SKIP_BUILD_OPT, long = "skip-build")]
     pub skip_build: bool,
-
-    /// Only watch component source and files ignoring watch configuration in spin.toml.
-    #[clap(name = WATCH_WATCH_ASSETS_OPT, long = "watch-assets", requires = WATCH_SKIP_BUILD_OPT)]
-    pub watch_assets: bool,
 
     /// Arguments to be passed through to spin up.
     #[clap()]
@@ -111,33 +103,38 @@ impl WatchCommand {
         runtime_config.command_grouped(true);
         runtime_config.filterer(Arc::new(filter));
         runtime_config.action_throttle(Duration::from_millis(self.debounce));
-        runtime_config.on_action(move |action: Action| async move {
-            for event in action.events.iter() {
-                // Exit if interrupt signal sent
-                if event.signals().any(|s| s.eq(&Interrupt)) {
-                    action.outcome(Outcome::both(Outcome::Stop, Outcome::Exit));
-                    return Ok::<(), Infallible>(());
+        runtime_config.on_action(move |action: Action| {
+            let app_manifest_path = self.app.clone();
+            async move {
+                for event in action.events.iter() {
+                    // Exit if interrupt signal sent
+                    if event.signals().any(|s| s.eq(&Interrupt)) {
+                        action.outcome(Outcome::both(Outcome::Stop, Outcome::Exit));
+                        return Ok::<(), Infallible>(());
+                    }
+
+                    if event.paths().any(|(p, _)| p.ends_with(app_manifest_path.clone())) {
+                        // TODO: Reconfigure the watcher
+                        eprintln!("Application manifest has changed. If this included changes to the watch configuration, please restart Spin.");
+                    }
                 }
 
-                // TODO: Check if spin.toml changed and reconfigure
-            }
-
-            action.outcome(Outcome::if_running(
-                Outcome::both(
+                action.outcome(Outcome::if_running(
                     Outcome::both(
-                        Outcome::Stop,
-                        match self.clear {
-                            true => Outcome::Clear,
-                            false => Outcome::DoNothing,
-                        },
+                        Outcome::both(
+                            Outcome::Stop,
+                            match self.clear {
+                                true => Outcome::Clear,
+                                false => Outcome::DoNothing,
+                            },
+                        ),
+                        Outcome::Start,
                     ),
                     Outcome::Start,
-                ),
-                Outcome::Start,
-            ));
+                ));
 
             Ok::<(), Infallible>(())
-        });
+        }});
 
         // Start watching
         let runtime = Watchexec::new(init_config, runtime_config.clone())?;
@@ -181,51 +178,66 @@ impl WatchCommand {
     }
 
     async fn generate_path_patterns(&self) -> Result<Vec<String>> {
+        // TODO: Spend some time cleaning up this function
         let app_manifest = spin_loader::local::raw_manifest_from_file(&self.app)
             .await?
             .into_v1();
 
-        let path_patterns: Vec<String> = match self.watch_assets {
-            // Watch patterns
-            false => app_manifest
-                .components
-                .iter()
-                .filter_map(|c| c.build.as_ref())
-                .filter_map(|b| b.watch.clone())
-                .flatten()
-                .collect(),
-            // Asset patterns
-            true => {
-                let component_source_patterns = app_manifest
-                    .components
-                    .iter()
-                    .filter_map(|c| {
-                        if let RawModuleSource::FileReference(path) = &c.source {
-                            return path.to_str();
+        let watch_patterns = app_manifest
+            .components
+            .iter()
+            .filter_map(|c| {
+                if let Some(build) = c.build.as_ref() {
+                    if build.watch.is_none() {
+                        // TODO: Make sure that documentation link is pointing specifically to spin watch docs
+                        eprintln!("You haven't configured what to watch for the component: '{}'. Learn how to configure Spin watch at https://developer.fermyon.com", c.id);
+                    }
+                    build.watch.clone()
+                } else {
+                    // No build config for this component so lets watch the source instead
+                    if let RawModuleSource::FileReference(path) = &c.source {
+                        if let Some(string_path) = path.to_str() {
+                            return Some(vec![String::from(string_path)]);
                         }
-                        None
-                    })
-                    .map(String::from);
-                let component_file_patterns = app_manifest
-                    .components
-                    .iter()
-                    .filter_map(|c| c.wasm.files.as_ref())
-                    .flatten()
-                    .map(|raw_file_mount| match raw_file_mount {
-                        RawFileMount::Placement(raw_directory_placement) => String::from(
-                            raw_directory_placement
-                                .source
-                                .join("**/*")
-                                .to_str()
-                                .expect("conversion to str not to fail"),
-                        ),
-                        RawFileMount::Pattern(pattern) => pattern.to_string(),
-                    });
-                component_source_patterns
-                    .chain(component_file_patterns)
-                    .collect()
-            }
+                    }
+                    None
+                }
+            })
+            .flatten();
+        let component_source_patterns = app_manifest
+            .components
+            .iter()
+            .filter_map(|c| {
+                if let RawModuleSource::FileReference(path) = &c.source {
+                    return path.to_str();
+                }
+                None
+            })
+            .map(String::from);
+        let component_file_patterns = app_manifest
+            .components
+            .iter()
+            .filter_map(|c| c.wasm.files.as_ref())
+            .flatten()
+            .filter_map(|raw_file_mount| match raw_file_mount {
+                RawFileMount::Placement(raw_directory_placement) => raw_directory_placement
+                    .source
+                    .join("**/*")
+                    .to_str()
+                    .map(String::from),
+                RawFileMount::Pattern(pattern) => Some(pattern.to_string()),
+            });
+
+        let mut path_patterns: Vec<String> = match self.skip_build {
+            false => watch_patterns.chain(component_file_patterns).collect(),
+            true => component_source_patterns
+                .chain(component_file_patterns)
+                .collect(),
         };
+        // Always watch spin.toml
+        path_patterns.push(String::from(
+            self.app.to_str().expect("conversion to str not to fail"),
+        ));
 
         Ok(path_patterns)
     }
@@ -243,7 +255,6 @@ mod tests {
             clear: false,
             debounce: 100,
             skip_build: false,
-            watch_assets: false,
             up_args: vec!["--quiet".into()],
         };
         let (_, args) = watch_command.generate_command();
@@ -258,42 +269,99 @@ mod tests {
             clear: false,
             debounce: 100,
             skip_build: true,
-            watch_assets: false,
-            up_args: vec!["--quiet".into()],
+            up_args: vec![],
         };
         let (_, args) = watch_command.generate_command();
-        assert_eq!(args, vec!["up", "-f", app_path, "--quiet"]);
+        assert_eq!(args, vec!["up", "-f", app_path]);
     }
 
     #[tokio::test]
     async fn test_standard_path_patterns() {
-        let app_path = "examples/http-rust/spin.toml";
+        let app_path = "tests/watch/http-rust/spin.toml";
         let watch_command = WatchCommand {
             app: app_path.into(),
             clear: false,
             debounce: 100,
             skip_build: false,
-            watch_assets: false,
-            up_args: vec!["--quiet".into()],
+            up_args: vec![],
         };
         let path_patterns = watch_command.generate_path_patterns().await.unwrap();
+        assert_eq!(path_patterns.len(), 3);
         assert_eq!(path_patterns.get(0), Some(&String::from("src/**/*.rs")));
         assert_eq!(path_patterns.get(1), Some(&String::from("Cargo.toml")));
-        assert_eq!(path_patterns.get(2), Some(&String::from("spin.toml")));
+        assert_eq!(
+            path_patterns.get(2),
+            Some(&String::from("tests/watch/http-rust/spin.toml"))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_standard_path_patterns_skipping_build() {
+        let app_path = "tests/watch/http-rust/spin.toml";
+        let watch_command = WatchCommand {
+            app: app_path.into(),
+            clear: false,
+            debounce: 100,
+            skip_build: true,
+            up_args: vec![],
+        };
+        let path_patterns = watch_command.generate_path_patterns().await.unwrap();
+        assert_eq!(path_patterns.len(), 2);
+        assert_eq!(
+            path_patterns.get(0),
+            Some(&String::from("target/wasm32-wasi/release/http_rust.wasm"))
+        );
+        assert_eq!(
+            path_patterns.get(1),
+            Some(&String::from("tests/watch/http-rust/spin.toml"))
+        );
     }
 
     #[tokio::test]
     async fn test_asset_path_patterns() {
-        let app_path = "examples/static-fileserver/spin.toml";
+        let app_path = "tests/watch/static-fileserver/spin.toml";
         let watch_command = WatchCommand {
             app: app_path.into(),
             clear: false,
             debounce: 100,
             skip_build: false,
-            watch_assets: true,
             up_args: vec!["--quiet".into()],
         };
         let path_patterns = watch_command.generate_path_patterns().await.unwrap();
-        assert_eq!(path_patterns.get(0), Some(&String::from("assets/**/*")));
+        assert_eq!(path_patterns.len(), 4);
+        assert_eq!(
+            path_patterns.get(0),
+            Some(&String::from("spin_static_fs.wasm"))
+        );
+        assert_eq!(path_patterns.get(1), Some(&String::from("assets/**/*")));
+        assert_eq!(path_patterns.get(2), Some(&String::from("assets2/**/*")));
+        assert_eq!(
+            path_patterns.get(3),
+            Some(&String::from("tests/watch/static-fileserver/spin.toml"))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_asset_path_patterns_skipping_build() {
+        let app_path = "tests/watch/static-fileserver/spin.toml";
+        let watch_command = WatchCommand {
+            app: app_path.into(),
+            clear: false,
+            debounce: 100,
+            skip_build: true,
+            up_args: vec!["--quiet".into()],
+        };
+        let path_patterns = watch_command.generate_path_patterns().await.unwrap();
+        assert_eq!(path_patterns.len(), 4);
+        assert_eq!(
+            path_patterns.get(0),
+            Some(&String::from("spin_static_fs.wasm"))
+        );
+        assert_eq!(path_patterns.get(1), Some(&String::from("assets/**/*")));
+        assert_eq!(path_patterns.get(2), Some(&String::from("assets2/**/*")));
+        assert_eq!(
+            path_patterns.get(3),
+            Some(&String::from("tests/watch/static-fileserver/spin.toml"))
+        );
     }
 }

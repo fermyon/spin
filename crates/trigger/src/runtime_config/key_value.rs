@@ -17,7 +17,9 @@ pub type KeyValueStore = Arc<dyn StoreManager>;
 
 /// Builds a [`KeyValueComponent`] from the given [`RuntimeConfig`].
 pub fn build_key_value_component(runtime_config: &RuntimeConfig) -> Result<KeyValueComponent> {
-    let stores = runtime_config.key_value_stores()?;
+    let stores = runtime_config
+        .key_value_stores()
+        .context("Failed to build key-value component")?;
     let delegating_manager = DelegatingStoreManager::new(stores);
     let caching_manager = Arc::new(CachingStoreManager::new(delegating_manager));
     Ok(KeyValueComponent::new(spin_key_value::manager(move |_| {
@@ -30,12 +32,7 @@ pub fn build_key_value_component(runtime_config: &RuntimeConfig) -> Result<KeyVa
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum KeyValueStoreOpts {
     Spin(SpinKeyValueStoreOpts),
-
-    // Temporary placeholder to prevent "irrefutable match" lints
-    // TODO: Remove when adding second enum variant
-    #[serde(skip)]
-    #[allow(dead_code)]
-    IrrefutableMatchSuppressionSystemDeleteMePlease,
+    Redis(RedisKeyValueStoreOpts),
 }
 
 impl KeyValueStoreOpts {
@@ -46,7 +43,7 @@ impl KeyValueStoreOpts {
     pub fn build_store(&self, config_opts: &RuntimeConfigOpts) -> Result<KeyValueStore> {
         match self {
             Self::Spin(opts) => opts.build_store(config_opts),
-            Self::IrrefutableMatchSuppressionSystemDeleteMePlease => unreachable!(),
+            Self::Redis(opts) => opts.build_store(),
         }
     }
 }
@@ -78,6 +75,18 @@ impl SpinKeyValueStoreOpts {
             None => DatabaseLocation::InMemory,
         };
         Ok(Arc::new(KeyValueSqlite::new(location)))
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct RedisKeyValueStoreOpts {
+    pub url: String,
+}
+
+impl RedisKeyValueStoreOpts {
+    fn build_store(&self) -> Result<KeyValueStore> {
+        let kv_redis = spin_key_value_redis::KeyValueRedis::new(self.url.clone())?;
+        Ok(Arc::new(kv_redis))
     }
 }
 

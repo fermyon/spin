@@ -29,6 +29,7 @@ impl Host for SqliteImpl {
         &mut self,
         name: String,
     ) -> anyhow::Result<Result<spin_core::sqlite::Connection, spin_core::sqlite::Error>> {
+        println!("Opening..");
         let conn = rusqlite::Connection::open_in_memory()?;
         let mut rng = rand::thread_rng();
         let c: sqlite::Connection = rng.gen();
@@ -43,6 +44,9 @@ impl Host for SqliteImpl {
     ) -> anyhow::Result<Result<(), sqlite::Error>> {
         if let Some(c) = self.connections.get(&connection) {
             c.execute(&query, []);
+            let s: Result<u32, _> =
+                c.query_row("SELECT COUNT(name) FROM person;", [], |row| row.get(0));
+            println!("{s:?}");
         }
         Ok(Ok(()))
     }

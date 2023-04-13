@@ -1,15 +1,13 @@
 pub mod cli;
-mod key_value;
 pub mod loader;
 pub mod locked;
-pub mod runtime_config;
+mod runtime_config;
 mod stdio;
 
 use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 pub use async_trait::async_trait;
-use runtime_config::RuntimeConfig;
 use serde::de::DeserializeOwned;
 
 use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp};
@@ -17,6 +15,8 @@ use spin_core::{
     Config, Engine, EngineBuilder, Instance, InstancePre, ModuleInstance, ModuleInstancePre, Store,
     StoreBuilder, Wasi,
 };
+
+pub use crate::runtime_config::RuntimeConfig;
 
 pub enum EitherInstancePre<T> {
     Component(InstancePre<T>),
@@ -115,7 +115,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    crate::key_value::build_key_value_component(&runtime_config)?,
+                    runtime_config::key_value::build_key_value_component(&runtime_config)?,
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,

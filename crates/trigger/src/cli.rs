@@ -12,8 +12,9 @@ use spin_app::Loader;
 
 use crate::stdio::StdioLoggingTriggerHooks;
 use crate::{
-    key_value::KeyValuePersistenceMessageHook, loader::TriggerLoader,
-    runtime_config::RuntimeConfig, stdio::FollowComponents,
+    loader::TriggerLoader,
+    runtime_config::{key_value::KeyValuePersistenceMessageHook, RuntimeConfig},
+    stdio::FollowComponents,
 };
 use crate::{TriggerExecutor, TriggerExecutorBuilder};
 
@@ -182,7 +183,7 @@ where
             config.set_log_dir(log_dir);
         }
         if let Some(config_file) = &self.runtime_config_file {
-            config.merge_config_from(config_file)?;
+            config.merge_config_file(config_file)?;
         }
         Ok(config)
     }

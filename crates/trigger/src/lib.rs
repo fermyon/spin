@@ -340,8 +340,15 @@ pub fn decode_preinstantiation_error(e: anyhow::Error) -> anyhow::Error {
 
     if err_text.contains("unknown import") && err_text.contains("has not been defined") {
         // TODO: how to maintain this list?
-        let sdk_imported_interfaces =
-            &["config", "http", "key-value", "mysql", "postgres", "redis"];
+        let sdk_imported_interfaces = &[
+            "config",
+            "http",
+            "key-value",
+            "mysql",
+            "postgres",
+            "redis",
+            "sqlite",
+        ];
 
         if sdk_imported_interfaces
             .iter()

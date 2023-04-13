@@ -24,82 +24,69 @@ applications and how to get started.
 
 ## Getting started
 
-See the [quickstart document](https://developer.fermyon.com/spin/quickstart/) for a detailed
-guide on configuring Spin and writing your first Spin application, but in short:
-
-```
-$ wget https://github.com/fermyon/spin/releases/download/<version>/spin-<version>-<os-arch>.tar.gz
-$ tar xfv spin-<version>-<os-arch>.tar.gz
-$ ./spin --help
+See the [Install Spin](https://developer.fermyon.com/spin/install) page of the [Spin documentation](https://developer.fermyon.com/spin/index) for a detailed
+guide on installing and configuring Spin, but in short run the following commands:
+```bash
+curl -fsSL https://developer.fermyon.com/downloads/install.sh | bash
+sudo mv ./spin /usr/local/bin/spin
 ```
 
-> Alternatively, you could [build Spin from source](https://developer.fermyon.com/spin/contributing/).
+Alternatively, you could [build Spin from source](https://developer.fermyon.com/spin/contributing/).
 
-After you follow the [quickstart document](https://developer.fermyon.com/spin/quickstart/),
-you can follow the
+To get started writing apps, follow the [quickstart guide](https://developer.fermyon.com/spin/quickstart/),
+and then follow the
 [Rust](https://developer.fermyon.com/spin/rust-components/), [JavaScript](https://developer.fermyon.com/spin/javascript-components), [Python](https://developer.fermyon.com/spin/python-components), or [Go](https://developer.fermyon.com/spin/go-components/)
-language guides, and the [guide on configuring Spin applications](https://developer.fermyon.com/spin/configuration/).
+language guides, and the [guide on writing Spin applications](https://developer.fermyon.com/spin/configuration/).
 
-Below is an example of using the `spin` CLI to create a new Spin Python application, then adding a JavaScript component:
-
-```bash
-# Create a new Spin application based on the Python language template.
-$ spin new http-py hello-python
-# Add a new JavaScript component based on the language template.
-$ spin add http-js goodbye-javascript
-```
-
-Running the `spin add` command will generate the proper configuration for our component and add it to the [`spin.toml` manifest file](https://developer.fermyon.com/spin/manifest-reference). For example, here is the `spin.toml` section for our Python component:
-
-```toml
-[[component]]
-# The ID of the component.
-id = "hello-python"
-# The Wasm module to instantiate and execute when receiving a request.
-source = "hello-python/app.wasm"
-[component.trigger]
-# The route for this component.
-route = "/hello"
-[component.build]
-# The command to execute for this component with `spin build`.
-command = "spin py2wasm app -o app.wasm"
-# The working directory for the component.
-workdir = "hello-python"
-```
-
-We can now build our application with `spin build`, then run it locally with `spin up`:
+## Usage
+Below is an example of using the `spin` CLI to create a new Spin application.  To run the example you will need to install the `wasm-wasi` target for Rust.
 
 ```bash
-# Compile all components to Wasm by executing their `build` commands.
+$ rustup target add wasm32-wasi
+```
+
+First, run the `spin new` command to create a Spin application from a template.
+```bash
+# Create a new Spin application named 'hello-rust' based on the Rust http template, accepting all defaults
+$ spin new --accept-defaults http-rust hello-rust
+```
+Running the `spin new` command created a `hello-rust` directory with all the necessary files for your application. Change to the `hello-rust` directory and build the application with `spin build`, then run it locally with `spin up`:
+
+```bash
+# Compile to Wasm by executing the `build` command.
 $ spin build
-Executing the build command for component hello-python: spin py2wasm app -o app.wasm
-Executing the build command for component goodbye-javascript: npm run build
+Executing the build command for component hello-rust: cargo build --target wasm32-wasi --release
+    Finished release [optimized] target(s) in 0.03s
 Successfully ran the build command for the Spin components.
+
 # Run the application locally.
 $ spin up
 Logging component stdio to ".spin/logs/"
+
 Serving http://127.0.0.1:3000
 Available Routes:
-  hello-python: http://127.0.0.1:3000/hello
-  goodbye-javascript: http://127.0.0.1:3000/goodbye
+  hello-rust: http://127.0.0.1:3000 (wildcard)
 ```
 
-Once the application is running, we can start testing it by sending requests to its components:
+That's it! Now that the application is running, use your browser or cURL in another shell to try it out:
 
 ```bash
-# Send a request to the Python component.
-$ curl localhost:3000/hello
-Hello, Python!
-# Send a request to the JavaScript component.
-$ curl localhost:3000/goodbye
-Goodbye, JavaScript!
-```
+# Send a request to the application.
+$ curl -i 127.0.0.1:3000
+HTTP/1.1 200 OK
+foo: bar
+content-length: 14
+date: Thu, 13 Apr 2023 17:47:24 GMT
 
-When handling a request, Spin will create a new isolated Wasm instance corresponding to the Wasm module for the matching component, execute the handler function, then terminate the instance. Each new request will get a fresh Wasm instance.
+Hello, Fermyon         
+```
+You can make the app do more by editting the `src/lib.rs` file in the `hello-rust` directory using your favorite editor or IDE. To learn more about writing Spin applications see [Writing Applications](https://developer.fermyon.com/spin/writing-apps) in the Spin documentation.  To learn how to publish and distribute your application see the [Publishing and Distribution](https://developer.fermyon.com/spin/distributing-apps) guide in the Spin documentation.
+
+For more information on the cli commands and subcommands see the [CLI Reference](https://developer.fermyon.com/common/cli-reference).
 
 ## Language Support for Spin Features
 
-The table below shows [feature support](https://developer.fermyon.com/spin/language-support-overview) in each of the language SDKs.
+The table below summarizes the [feature support](https://developer.fermyon.com/spin/language-support-overview) in each of the language SDKs.
 
 | Feature | Rust SDK Supported? | TypeScript SDK Supported? | Python SDK Supported? | Tiny Go SDK Supported? | C# SDK Supported? |
 |-----|-----|-----|-----|-----|-----|
@@ -115,9 +102,6 @@ The table below shows [feature support](https://developer.fermyon.com/spin/langu
 | **Extensibility** |
 | [Authoring Custom Triggers](https://developer.fermyon.com/spin/extending-and-embedding) | Supported | Not Supported | Not Supported | Not Supported | Not Supported |
 
-
-
-
 ## Contributing
 
 We are delighted that you are interested in making Spin better! Thank you!
@@ -125,5 +109,7 @@ Please follow the [contributing guide](https://developer.fermyon.com/spin/contri
 And join our [Discord server](https://discord.gg/eGN8saYqCk).
 
 ## Stay in Touch
+Follow us on Twitter: [@spinframework](https://twitter.com/spinframework)
 
-Join the Spin community in our [Discord server](https://discord.gg/eGN8saYqCk).
+You can join the Spin community in our [Discord server](https://discord.gg/eGN8saYqCk) where you can ask questions, get help, and show off the cool things you are doing with Spin!
+

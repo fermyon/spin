@@ -302,6 +302,28 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn default_redis_key_value_store_from_file() -> Result<()> {
+        let mut config = RuntimeConfig::new(None);
+
+        merge_config_toml(
+            &mut config,
+            toml! {
+                [key_value_store.default]
+                type = "redis"
+                url = "redis://127.0.0.1/"
+            },
+        );
+        assert_eq!(config.key_value_stores().unwrap().into_iter().count(), 1);
+
+        assert!(
+            matches!(config.default_key_value_opts(), KeyValueStoreOpts::Redis(_)),
+            "expected default Redis store",
+        );
+
+        Ok(())
+    }
+
     fn merge_config_toml(config: &mut RuntimeConfig, value: toml::Value) {
         let data = toml::to_vec(&value).expect("encode toml");
         let mut file = NamedTempFile::new().expect("temp file");

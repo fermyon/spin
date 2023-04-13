@@ -1,21 +1,24 @@
-use anyhow::Result;
-use redis::{aio::Connection, AsyncCommands};
+use anyhow::{Context, Result};
+use redis::{aio::Connection, parse_redis_url, AsyncCommands};
 use spin_core::{async_trait, key_value::Error};
 use spin_key_value::{log_error, Store, StoreManager};
 use std::sync::Arc;
 use tokio::sync::{Mutex, OnceCell};
+use url::Url;
 
 pub struct KeyValueRedis {
-    database_url: String,
+    database_url: Url,
     connection: OnceCell<Arc<Mutex<Connection>>>,
 }
 
 impl KeyValueRedis {
-    pub fn new(database_url: String) -> Self {
-        Self {
+    pub fn new(address: String) -> Result<Self> {
+        let database_url = parse_redis_url(&address).context("Invalid Redis URL")?;
+
+        Ok(Self {
             database_url,
             connection: OnceCell::new(),
-        }
+        })
     }
 }
 

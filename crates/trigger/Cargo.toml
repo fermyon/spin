@@ -16,6 +16,7 @@ outbound-redis = { path = "../outbound-redis" }
 outbound-pg = { path = "../outbound-pg" }
 outbound-mysql = { path = "../outbound-mysql" }
 spin-key-value = { path = "../key-value" }
+spin-key-value-redis = { path = "../key-value-redis" }
 spin-key-value-sqlite = { path = "../key-value-sqlite" }
 sanitize-filename = "0.4"
 serde = "1.0"

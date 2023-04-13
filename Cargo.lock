@@ -5061,6 +5061,7 @@ dependencies = [
  "spin-core",
  "spin-key-value",
  "tokio",
+ "url",
 ]
 
 [[package]]

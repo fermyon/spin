@@ -1,0 +1,11 @@
+[package]
+name = "spin-key-value-redis"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+redis = { version = "0.21", features = ["tokio-comp", "tokio-native-tls-comp"] }
+spin-key-value = { path = "../key-value" }
+spin-core = { path = "../core" }
+tokio = "1"

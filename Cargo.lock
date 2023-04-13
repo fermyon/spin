@@ -5053,6 +5053,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-key-value-redis"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "redis",
+ "spin-core",
+ "spin-key-value",
+ "tokio",
+]
+
+[[package]]
 name = "spin-key-value-sqlite"
 version = "0.1.0"
 dependencies = [
@@ -5270,6 +5281,7 @@ dependencies = [
  "spin-config",
  "spin-core",
  "spin-key-value",
+ "spin-key-value-redis",
  "spin-key-value-sqlite",
  "spin-loader",
  "spin-manifest",

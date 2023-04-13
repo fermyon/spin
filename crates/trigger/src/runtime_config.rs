@@ -18,6 +18,8 @@ use self::{
 pub const DEFAULT_STATE_DIR: &str = ".spin";
 const DEFAULT_LOGS_DIR: &str = "logs";
 
+const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite.db";
+
 /// RuntimeConfig allows multiple sources of runtime configuration to be
 /// queried uniformly.
 #[derive(Debug, Default)]
@@ -131,6 +133,16 @@ impl RuntimeConfig {
         }
     }
 
+    /// Return a path to the sqlite DB used for key value storage if set.
+    pub fn sqlite_db_path(&self) -> Option<PathBuf> {
+        if let Some(state_dir) = self.state_dir() {
+            // If the state dir is set, build the default path
+            Some(state_dir.join(DEFAULT_SQLITE_DB_FILENAME))
+        } else {
+            None
+        }
+    }
+
     /// Returns an iterator of RuntimeConfigOpts in order of decreasing precedence
     fn opts_layers(&self) -> impl Iterator<Item = &RuntimeConfigOpts> {
         std::iter::once(&self.overrides).chain(self.files.iter().rev())
@@ -193,6 +205,7 @@ mod tests {
         assert_eq!(config.state_dir(), None);
         assert_eq!(config.log_dir(), None);
         assert_eq!(default_spin_store_path(&config), None);
+        assert_eq!(config.key_value_sqlite_db_path(), None);
 
         Ok(())
     }
@@ -210,6 +223,8 @@ mod tests {
 
         let default_db_path = default_spin_store_path(&config).unwrap();
         assert!(default_db_path.starts_with(&state_dir));
+        let sqlite_db_path = config.key_value_sqlite_db_path().unwrap();
+        assert!(sqlite_db_path.starts_with(&state_dir));
 
         Ok(())
     }

@@ -203,7 +203,7 @@ async fn run_core_wasi_test_engine<'a>(
     let component = Component::new(engine.as_ref(), &component)?;
     let instance_pre = engine.instantiate_pre(&component)?;
     let instance = instance_pre.instantiate_async(&mut store).await?;
-    let func = instance.get_typed_func::<(), (Result<(), ()>,)>(&mut store, "run")?;
+    let func = instance.get_typed_func::<(), (Result<(), ()>,)>(&mut store, "main")?;
 
     update_store(&mut store);
 

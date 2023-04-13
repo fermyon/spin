@@ -52,6 +52,7 @@ spin-bindle = { path = "crates/bindle" }
 spin-build = { path = "crates/build" }
 spin-common = { path = "crates/common" }
 spin-config = { path = "crates/config" }
+spin-doctor = { path = "crates/doctor" }
 spin-http = { path = "crates/http" }
 spin-trigger-http = { path = "crates/trigger-http" }
 spin-loader = { path = "crates/loader" }

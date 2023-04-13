@@ -23,8 +23,12 @@ pub struct BuildCommand {
     )]
     pub app_source: PathBuf,
 
+    /// Component ID to build. The default is all components.
+    #[clap(short = 'c', long)]
+    pub component_id: Option<String>,
+
     /// Run the application after building.
-    #[clap(name = BUILD_UP_OPT, short = 'u', long = "up")]
+    #[clap(name = BUILD_UP_OPT, short = 'u', long)]
     pub up: bool,
 
     #[clap(requires = BUILD_UP_OPT)]

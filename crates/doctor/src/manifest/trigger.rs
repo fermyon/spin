@@ -1,0 +1,236 @@
+use anyhow::{bail, ensure, Context, Result};
+use async_trait::async_trait;
+use toml::Value;
+use toml_edit::{Document, InlineTable, Item, Table};
+
+use crate::{Diagnose, Diagnosis, PatientApp, Treatment};
+
+use super::ManifestTreatment;
+
+/// TriggerDiagnosis detects problems with app trigger config.
+#[derive(Debug)]
+pub enum TriggerDiagnosis {
+    /// Missing app trigger section
+    MissingAppTrigger,
+    /// Invalid app trigger config
+    InvalidAppTrigger(&'static str),
+    /// HTTP trigger missing base field
+    HttpAppTriggerMissingBase,
+    /// HTTP component trigger missing route field
+    HttpComponentTriggerMissingRoute(String, bool),
+    /// Invalid HTTP component trigger config
+    InvalidHttpComponentTrigger(String, &'static str),
+}
+
+impl TriggerDiagnosis {
+    fn diagnose_app_trigger(trigger: Option<&Value>) -> Option<Self> {
+        let Some(trigger) = trigger else {
+            return Some(Self::MissingAppTrigger);
+        };
+        let Some(trigger) = trigger.as_table() else {
+            return Some(Self::InvalidAppTrigger("not a table"));
+        };
+        let Some(trigger_type) = trigger.get("type") else {
+            return Some(Self::InvalidAppTrigger("trigger table missing type"));
+        };
+        let Some(trigger_type) = trigger_type.as_str() else {
+            return Some(Self::InvalidAppTrigger("type must be a string"));
+        };
+        if trigger_type == "http" && trigger.get("base").is_none() {
+            return Some(Self::HttpAppTriggerMissingBase);
+        }
+        None
+    }
+
+    fn diagnose_http_component_trigger(
+        id: String,
+        trigger: Option<&Value>,
+        single_component: bool,
+    ) -> Option<Self> {
+        let Some(trigger) = trigger else {
+            return Some(Self::HttpComponentTriggerMissingRoute(id, single_component));
+        };
+        let Some(trigger) = trigger.as_table() else {
+            return Some(Self::InvalidHttpComponentTrigger(id, "not a table"));
+        };
+        let Some(route) = trigger.get("route") else {
+            return Some(Self::HttpComponentTriggerMissingRoute(id, single_component));
+        };
+        if route.as_str().is_none() {
+            return Some(Self::InvalidHttpComponentTrigger(
+                id,
+                "route is not a string",
+            ));
+        }
+        None
+    }
+}
+
+#[async_trait]
+impl Diagnose for TriggerDiagnosis {
+    async fn diagnose(patient: &PatientApp) -> Result<Vec<Self>> {
+        let manifest: toml::Value = toml_edit::de::from_document(patient.manifest_doc.clone())?;
+
+        let mut diags = vec![];
+
+        // Top-level trigger config
+        diags.extend(Self::diagnose_app_trigger(manifest.get("trigger")));
+
+        // Component-level HTTP trigger config
+        let trigger_type = manifest
+            .get("trigger")
+            .and_then(|item| item.get("type"))
+            .and_then(|item| item.as_str());
+        if let Some("http") = trigger_type {
+            if let Some(Value::Array(components)) = manifest.get("component") {
+                let single_component = components.len() == 1;
+                for component in components {
+                    let id = component
+                        .get("id")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("<missing ID>")
+                        .to_string();
+                    diags.extend(Self::diagnose_http_component_trigger(
+                        id,
+                        component.get("trigger"),
+                        single_component,
+                    ));
+                }
+            }
+        }
+
+        Ok(diags)
+    }
+}
+
+impl Diagnosis for TriggerDiagnosis {
+    fn description(&self) -> String {
+        match self {
+            Self::MissingAppTrigger => "missing top-level trigger config".into(),
+            Self::InvalidAppTrigger(msg) => {
+                format!("Invalid app trigger config: {msg}")
+            }
+            Self::HttpAppTriggerMissingBase => "http trigger config missing base".into(),
+            Self::HttpComponentTriggerMissingRoute(id, _) => {
+                format!("HTTP component {id:?} missing trigger.route")
+            }
+            Self::InvalidHttpComponentTrigger(id, msg) => {
+                format!("Invalid trigger config for http component {id:?}: {msg}")
+            }
+        }
+    }
+
+    fn treatment(&self) -> Option<&dyn Treatment> {
+        match self {
+            Self::MissingAppTrigger | Self::HttpAppTriggerMissingBase => Some(self),
+            // We can reasonably fill in default "route" iff there is only one component
+            Self::HttpComponentTriggerMissingRoute(_, single_component) if *single_component => {
+                Some(self)
+            }
+            _ => None,
+        }
+    }
+}
+
+#[async_trait]
+impl ManifestTreatment for TriggerDiagnosis {
+    async fn treat_manifest(&self, doc: &mut Document) -> anyhow::Result<()> {
+        match self {
+            Self::MissingAppTrigger | Self::HttpAppTriggerMissingBase => {
+                // Get or insert missing trigger config
+                if doc.get("trigger").is_none() {
+                    doc.insert("trigger", Item::Value(InlineTable::new().into()));
+                }
+                let trigger = doc
+                    .get_mut("trigger")
+                    .unwrap()
+                    .as_table_like_mut()
+                    .context("existing trigger value is not a table")?;
+
+                // Get trigger type or insert default "http"
+                let trigger_type = trigger.entry("type").or_insert(Item::Value("http".into()));
+                if let Some("http") = trigger_type.as_str() {
+                    // Strip "type" trailing space
+                    if let Some(decor) = trigger_type.as_value_mut().map(|v| v.decor_mut()) {
+                        if let Some(suffix) = decor.suffix().and_then(|s| s.as_str()) {
+                            decor.set_suffix(suffix.to_string().trim());
+                        }
+                    }
+                    // Set missing "base"
+                    trigger.entry("base").or_insert(Item::Value("/".into()));
+                }
+            }
+            Self::HttpComponentTriggerMissingRoute(_, true) => {
+                // Get the only component
+                let components = doc
+                    .get_mut("component")
+                    .context("missing components")?
+                    .as_array_of_tables_mut()
+                    .context("component sections aren't an 'array of tables'")?;
+                ensure!(
+                    components.len() == 1,
+                    "can only set default trigger route if there is exactly one component; found {}",
+                    components.len()
+                );
+                let component = components.get_mut(0).unwrap();
+
+                // Get or insert missing trigger config
+                if component.get("trigger").is_none() {
+                    component.insert("trigger", Item::Table(Table::new()));
+                }
+                let trigger = component
+                    .get_mut("trigger")
+                    .unwrap()
+                    .as_table_like_mut()
+                    .context("existing trigger value is not a table")?;
+
+                // Set missing "route"
+                trigger.entry("route").or_insert(Item::Value("/...".into()));
+            }
+            _ => bail!("cannot be fixed"),
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test::{run_broken_test, run_correct_test};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_correct() {
+        run_correct_test::<TriggerDiagnosis>("manifest_trigger").await;
+    }
+
+    #[tokio::test]
+    async fn test_missing_app_trigger() {
+        let diag =
+            run_broken_test::<TriggerDiagnosis>("manifest_trigger", "missing_app_trigger").await;
+        assert!(matches!(diag, TriggerDiagnosis::MissingAppTrigger));
+    }
+
+    #[tokio::test]
+    async fn test_http_app_trigger_missing_base() {
+        let diag = run_broken_test::<TriggerDiagnosis>(
+            "manifest_trigger",
+            "http_app_trigger_missing_base",
+        )
+        .await;
+        assert!(matches!(diag, TriggerDiagnosis::HttpAppTriggerMissingBase));
+    }
+
+    #[tokio::test]
+    async fn test_http_component_trigger_missing_route() {
+        let diag = run_broken_test::<TriggerDiagnosis>(
+            "manifest_trigger",
+            "http_component_trigger_missing_route",
+        )
+        .await;
+        assert!(matches!(
+            diag,
+            TriggerDiagnosis::HttpComponentTriggerMissingRoute(_, _)
+        ));
+    }
+}

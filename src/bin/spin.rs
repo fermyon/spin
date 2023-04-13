@@ -6,6 +6,7 @@ use spin_cli::commands::{
     build::BuildCommand,
     cloud::CloudCommands,
     deploy::DeployCommand,
+    doctor::DoctorCommand,
     external::execute_external_subcommand,
     login::LoginCommand,
     new::{AddCommand, NewCommand},
@@ -70,6 +71,7 @@ enum SpinApp {
     #[clap(external_subcommand)]
     External(Vec<String>),
     Watch(WatchCommand),
+    Doctor(DoctorCommand),
 }
 
 #[derive(Subcommand)]
@@ -99,6 +101,7 @@ impl SpinApp {
             Self::Plugins(cmd) => cmd.run().await,
             Self::External(cmd) => execute_external_subcommand(cmd, SpinApp::command()).await,
             Self::Watch(cmd) => cmd.run().await,
+            Self::Doctor(cmd) => cmd.run().await,
         }
     }
 }

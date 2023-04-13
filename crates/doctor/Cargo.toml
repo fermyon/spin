@@ -1,0 +1,18 @@
+[package]
+name = "spin-doctor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+similar = "2"
+spin-loader = { path = "../loader" }
+tokio = "1"
+toml = "0.7"
+toml_edit = "0.19"
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,12 @@
+[package]
+name = "spin-sqlite"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+spin-core = { path = "../core" }
+spin-app = { path = "../app" }
+anyhow = "1.0"
+wit-bindgen-wasmtime = { workspace = true }
+rusqlite = { version = "0.27.0", features = [ "bundled" ] }
+rand = "0.8"

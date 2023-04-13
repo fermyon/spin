@@ -22,6 +22,7 @@ default world reactor {
   import config: pkg.config
   import postgres: pkg.postgres
   import mysql: pkg.mysql
+  import sqlite: pkg.sqlite
   import redis: pkg.redis
   import key-value: pkg.key-value
   import http: pkg.http

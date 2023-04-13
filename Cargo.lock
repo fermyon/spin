@@ -5288,6 +5288,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-sqlite"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rand 0.8.5",
+ "rusqlite",
+ "spin-app",
+ "spin-core",
+ "wit-bindgen-wasmtime",
+]
+
+[[package]]
 name = "spin-templates"
 version = "1.2.0-pre0"
 dependencies = [
@@ -5369,6 +5381,7 @@ dependencies = [
  "spin-key-value-sqlite",
  "spin-loader",
  "spin-manifest",
+ "spin-sqlite",
  "tempfile",
  "tokio",
  "toml 0.5.11",

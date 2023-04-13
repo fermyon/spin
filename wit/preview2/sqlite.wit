@@ -1,0 +1,23 @@
+
+default interface sqlite {
+  // A handle to an open sqlite instance
+  type connection = u32
+
+  // The set of errors which may be raised by functions in this interface
+  variant error {
+    // Some implementation-specific error has occurred (e.g. I/O)
+    io(string)
+  }
+
+  // Open a connection to a named instance.
+  //
+  // If `name` is "default", the default instance is opened.
+  //
+  // `error::no-such-store` will be raised if the `name` is not recognized.
+  open: func(name: string) -> result<connection, error>
+
+  execute: func(conn: connection, query: string) -> result<_, error>
+
+  // Close the specified `connection`.
+  close: func(conn: connection)
+}

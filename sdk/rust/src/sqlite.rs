@@ -15,9 +15,15 @@ impl Connection {
         Ok(Self(sqlite::open("foo")?))
     }
 
-    ///
-    pub fn execute(&self, query: &str) -> Result<(), Error> {
-        sqlite::execute(self.0, query)?;
+    /// Make a query against the database
+    pub fn query(&self, statement: &Statement) -> Result<Vec<sqlite::Row>, Error> {
+        sqlite::query(self.0, statement.0)
+    }
+
+    /// Execute a statement against the database
+    pub fn execute(&self, statement: &str) -> Result<(), Error> {
+        let statement = Statement::prepare(statement, &[])?;
+        sqlite::execute(self.0, statement.0)?;
         Ok(())
     }
 }
@@ -29,3 +35,20 @@ impl std::fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+/// A prepared statement
+pub struct Statement(sqlite::Statement);
+
+impl Statement {
+    /// Prepare a statement
+    pub fn prepare(query: &str, params: &[&str]) -> Result<Statement, sqlite::Error> {
+        let statement = sqlite::prepare_statement(query, params)?;
+        Ok(Statement(statement))
+    }
+}
+
+impl Drop for Statement {
+    fn drop(&mut self) {
+        sqlite::drop_statement(self.0);
+    }
+}

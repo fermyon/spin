@@ -14,7 +14,38 @@ variant error {
 // `error::no-such-store` will be raised if the `name` is not recognized.
 open: func(name: string) -> expected<connection, error>
 
-execute: func(conn: connection, query: string) -> expected<unit, error>
+// allows parameterized queries
+type statement = u32
+drop-statement: func(statement: statement)
+prepare-statement: func(query: string, params: list<string>) -> expected<statement, error>
+
+// Execute a statement
+execute: func(conn: connection, statement: statement) -> expected<unit, error>
+
+// Query data
+query: func(conn: connection, q: statement) -> expected<list<row>, error>
 
 // Close the specified `connection`.
 close: func(conn: connection)
+
+// A database row
+record row {
+  values: list<data-type>,
+}
+
+// Common data types
+variant data-type {
+  int32(s32),
+  int64(s64),
+  uint32(u32),
+  uint64(u64),
+  float(float64),
+  double(float64),
+  str(string),
+  boolean(bool),
+  date(string),
+  time(string),
+  timestamp(string),
+  binary(list<u8>),
+  null
+}

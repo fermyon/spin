@@ -104,12 +104,16 @@ impl TriggerHooks for KeyValuePersistenceMessageHook {
         }) {
             return Ok(());
         }
-        // Only print if the 'default' store has type 'spin'.
-        if let KeyValueStoreOpts::Spin(store_opts) = runtime_config.default_key_value_opts() {
-            if let Some(path) = &store_opts.path {
-                println!("Storing default key-value data to {path:?}");
-            } else {
-                println!("Using in-memory default key-value store; data will not be saved!");
+        match runtime_config.default_key_value_opts() {
+            KeyValueStoreOpts::Redis(_store_opts) => {
+                println!("Storing default key-value data to Redis");
+            }
+            KeyValueStoreOpts::Spin(store_opts) => {
+                if let Some(path) = &store_opts.path {
+                    println!("Storing default key-value data to {path:?}");
+                } else {
+                    println!("Using in-memory default key-value store; data will not be saved!");
+                }
             }
         }
         Ok(())

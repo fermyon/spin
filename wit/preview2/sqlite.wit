@@ -1,4 +1,3 @@
-
 default interface sqlite {
   // A handle to an open sqlite instance
   type connection = u32
@@ -16,8 +15,39 @@ default interface sqlite {
   // `error::no-such-store` will be raised if the `name` is not recognized.
   open: func(name: string) -> result<connection, error>
 
-  execute: func(conn: connection, query: string) -> result<_, error>
+  // Execute a statement
+  execute: func(conn: connection, statement: statement) -> result<_, error>
+
+  // Query data
+  query: func(conn: connection, query: statement) -> result<list<row>, error>
 
   // Close the specified `connection`.
   close: func(conn: connection)
+
+  // allows parameterized queries
+  type statement = u32
+  prepare-statement: func(query: string, params: list<string>) -> result<statement, error>
+  drop-statement: func(s: statement)
+
+  // A database row
+  record row {
+    values: list<data-type>,
+  }
+
+  // Common data types
+  variant data-type {
+    int32(s32),
+    int64(s64),
+    uint32(u32),
+    uint64(u64),
+    float(float64),
+    double(float64),
+    str(string),
+    boolean(bool),
+    date(string),
+    time(string),
+    timestamp(string),
+    binary(list<u8>),
+    null
+  }
 }

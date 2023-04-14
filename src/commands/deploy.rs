@@ -328,7 +328,7 @@ impl DeployCommand {
         let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
         let cfg = cfg_any.into_v1();
 
-        ensure!(!cfg.components.is_empty(), "No components in spin.toml!");
+        validate_cloud_app(&cfg)?;
 
         match cfg.info.trigger {
             ApplicationTrigger::Http(_) => {}
@@ -663,6 +663,22 @@ impl DeployCommand {
             Ok(()) => Ok(bindle_id.clone()),
         }
     }
+}
+
+fn validate_cloud_app(app: &RawAppManifest) -> Result<()> {
+    ensure!(!app.components.is_empty(), "No components in spin.toml!");
+    for component in &app.components {
+        if let Some(invalid_store) = component
+            .wasm
+            .key_value_stores
+            .iter()
+            .flatten()
+            .find(|store| *store != "default")
+        {
+            bail!("Invalid store {invalid_store:?} for component {:?}. Cloud currently supports only the 'default' store.", component.id);
+        }
+    }
+    Ok(())
 }
 
 fn random_buildinfo() -> BuildMetadata {

@@ -5,6 +5,14 @@ use sqlite::Connection as RawConnection;
 /// Errors which may be raised by the methods of `Store`
 pub type Error = sqlite::Error;
 
+///
+pub type Row = sqlite::Row;
+
+///
+pub type DataTypeParam<'a> = sqlite::DataTypeParam<'a>;
+///
+pub type DataTypeResult = sqlite::DataTypeResult;
+
 /// Represents a store in which key value tuples may be placed
 #[derive(Debug)]
 pub struct Connection(RawConnection);
@@ -41,7 +49,7 @@ pub struct Statement(sqlite::Statement);
 
 impl Statement {
     /// Prepare a statement
-    pub fn prepare(query: &str, params: &[&str]) -> Result<Statement, sqlite::Error> {
+    pub fn prepare(query: &str, params: &[DataTypeParam]) -> Result<Statement, sqlite::Error> {
         let statement = sqlite::prepare_statement(query, params)?;
         Ok(Statement(statement))
     }

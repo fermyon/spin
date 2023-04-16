@@ -1,6 +1,6 @@
 use super::{Request, Response, Result};
 use routefinder::{Captures, Router as MethodRouter};
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 type Handler = dyn Fn(Request, Params) -> Result<Response>;
 
@@ -16,6 +16,18 @@ pub struct Router {
 impl Default for Router {
     fn default() -> Router {
         Router::new()
+    }
+}
+
+impl Display for Router {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Registered routes:\n")?;
+        for (method, router) in &self.methods_map {
+            router.iter().for_each(|route| {
+                f.write_fmt(format_args!("- {}: {}\n", method, route.0)).unwrap();
+            });
+        }
+        Ok(())
     }
 }
 
@@ -321,6 +333,15 @@ mod tests {
         assert_eq!(res.into_body().unwrap(), "foo".to_string());
     }
 
+    #[test]
+    fn test_router_display() {
+        let mut router = Router::default();
+        router.get("/:x", echo_param);
+        
+        let expected = "Registered routes:\n- GET: /:x\n";
+        let actual = format!("{}", router);
+        assert_eq!(actual, expected.to_string());
+    }
     #[test]
     fn test_ambiguous_wildcard_vs_star() {
         fn h1(_req: Request, _params: Params) -> Result<Response> {

@@ -219,6 +219,9 @@ macro_rules! http_router {
     (@build $r:ident DELETE $path:literal => $h:expr) => {
         $r.delete($path, $h);
     };
+    (@build $r:ident OPTIONS $path:literal => $h:expr) => {
+        $r.options($path, $h);
+    };
     (@build $r:ident _ $path:literal => $h:expr) => {
         $r.any($path, $h);
     };

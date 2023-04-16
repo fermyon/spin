@@ -50,17 +50,15 @@ pub async fn from_file(
 
 /// Reads the spin.toml file as a raw manifest.
 pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppManifestAnyVersion> {
-    let mut buf = vec![];
-    File::open(app.as_ref())
-        .await
-        .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?
-        .read_to_end(&mut buf)
+    async fn from_file(app: &Path) -> anyhow::Result<RawAppManifestAnyVersion> {
+        let mut buf = vec![];
+        File::open(app).await?.read_to_end(&mut buf).await?;
+        raw_manifest_from_slice(&buf)
+    }
+
+    let manifest = from_file(app.as_ref())
         .await
         .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
-
-    let manifest: RawAppManifestAnyVersion = raw_manifest_from_slice(&buf)
-        .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
-
     Ok(manifest)
 }
 
@@ -387,14 +385,11 @@ fn resolve_partials(
         .collect::<Result<_>>()?;
 
     // Only concerned with preserving manifest.
-    Ok(RawAppManifestAnyVersion::V1New {
-        manifest: RawAppManifest {
-            info: manifest.info,
-            components,
-            variables: manifest.variables,
-        },
-        spin_manifest_version: config::FixedStringVersion::default(),
-    })
+    Ok(RawAppManifestAnyVersion::from_manifest(RawAppManifest {
+        info: manifest.info,
+        components,
+        variables: manifest.variables,
+    }))
 }
 
 fn resolve_partial_component(

@@ -158,6 +158,14 @@ impl Router {
         self.add(path, http_types::Method::PATCH, handler)
     }
 
+    /// Register a handler at the path for the HTTP OPTIONS method.
+    pub fn options<F>(&mut self, path: &str, handler: F)
+    where
+        F: Fn(Request, Params) -> Result<Response> + 'static,
+    {
+        self.add(path, http_types::Method::OPTIONS, handler)
+    }
+
     /// Construct a new Router.
     pub fn new() -> Self {
         Router {

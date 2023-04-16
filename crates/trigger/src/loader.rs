@@ -51,7 +51,14 @@ impl Loader for TriggerLoader {
         let path = parse_file_url(source)?;
         spin_core::Component::new(
             engine,
-            spin_componentize::componentize_if_necessary(&fs::read(&path).await?)?,
+            spin_componentize::componentize_if_necessary(&fs::read(&path).await.with_context(
+                || {
+                    format!(
+                        "failed to read component source from disk at path '{}'",
+                        path.display()
+                    )
+                },
+            )?)?,
         )
         .with_context(|| format!("loading module {path:?}"))
     }

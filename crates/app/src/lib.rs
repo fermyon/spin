@@ -366,8 +366,8 @@ pub enum Error {
     #[error("host component error: {0:#}")]
     HostComponentError(#[source] anyhow::Error),
     /// An error from a [`Loader`] implementation.
-    #[error("loader error: {0:#}")]
-    LoaderError(#[source] anyhow::Error),
+    #[error(transparent)]
+    LoaderError(anyhow::Error),
     /// An error indicating missing or unexpected metadata.
     #[error("metadata error: {0}")]
     MetadataError(String),

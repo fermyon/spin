@@ -2,21 +2,25 @@ mod host_component;
 
 use std::collections::HashMap;
 
-pub use host_component::SqliteComponent;
 use rand::Rng;
 use spin_core::{
     async_trait,
     sqlite::{self, Host},
 };
 
+pub use host_component::DatabaseLocation;
+pub use host_component::SqliteComponent;
+
 pub struct SqliteImpl {
+    location: DatabaseLocation,
     connections: HashMap<sqlite::Connection, rusqlite::Connection>,
     statements: HashMap<sqlite::Statement, (String, Vec<String>)>,
 }
 
 impl SqliteImpl {
-    pub fn new() -> Self {
+    pub fn new(location: DatabaseLocation) -> Self {
         Self {
+            location,
             connections: HashMap::default(),
             statements: HashMap::default(),
         }
@@ -47,7 +51,12 @@ impl Host for SqliteImpl {
         name: String,
     ) -> anyhow::Result<Result<spin_core::sqlite::Connection, spin_core::sqlite::Error>> {
         println!("Opening..");
-        let conn = rusqlite::Connection::open_in_memory()?;
+        let conn = match &self.location {
+            DatabaseLocation::InMemory => rusqlite::Connection::open_in_memory()?,
+            DatabaseLocation::Path(p) => rusqlite::Connection::open(p)?,
+        };
+
+        // TODO: this is not the best way to do this...
         let mut rng = rand::thread_rng();
         let c: sqlite::Connection = rng.gen();
         self.connections.insert(c, conn);

@@ -21,11 +21,11 @@ impl Default for Router {
 
 impl Display for Router {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Registered routes:\n")?;
+        writeln!(f, "Registered routes:")?;
         for (method, router) in &self.methods_map {
-            router.iter().for_each(|route| {
-                f.write_fmt(format_args!("- {}: {}\n", method, route.0)).unwrap();
-            });
+            for route in router.iter() {
+                writeln!(f, "- {}: {}", method, route.0)?;
+            }
         }
         Ok(())
     }
@@ -327,7 +327,7 @@ mod tests {
     fn test_wildcard_last_segment() {
         let mut router = Router::default();
         router.get("/:x/*", echo_param);
-
+        
         let req = make_request(http_types::Method::GET, "/foo/bar");
         let res = router.handle(req).unwrap();
         assert_eq!(res.into_body().unwrap(), "foo".to_string());
@@ -340,8 +340,10 @@ mod tests {
         
         let expected = "Registered routes:\n- GET: /:x\n";
         let actual = format!("{}", router);
-        assert_eq!(actual, expected.to_string());
+        
+        assert_eq!(actual.as_str(), expected);
     }
+    
     #[test]
     fn test_ambiguous_wildcard_vs_star() {
         fn h1(_req: Request, _params: Params) -> Result<Response> {

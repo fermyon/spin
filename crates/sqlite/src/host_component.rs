@@ -1,13 +1,23 @@
+use std::path::PathBuf;
+
 use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::{sqlite, HostComponent};
 
 use crate::SqliteImpl;
 
-pub struct SqliteComponent;
+#[derive(Debug, Clone)]
+pub enum DatabaseLocation {
+    InMemory,
+    Path(PathBuf),
+}
+
+pub struct SqliteComponent {
+    location: DatabaseLocation,
+}
 
 impl SqliteComponent {
-    pub fn new() -> Self {
-        Self
+    pub fn new(location: DatabaseLocation) -> Self {
+        Self { location }
     }
 }
 
@@ -22,7 +32,7 @@ impl HostComponent for SqliteComponent {
     }
 
     fn build_data(&self) -> Self::Data {
-        SqliteImpl::new()
+        SqliteImpl::new(self.location.clone())
     }
 }
 

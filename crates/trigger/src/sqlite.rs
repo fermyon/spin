@@ -2,10 +2,9 @@ use std::path::Path;
 
 use crate::runtime_config::RuntimeConfig;
 use anyhow::Context;
-use spin_key_value_sqlite::DatabaseLocation;
-use spin_sqlite::SqliteComponent;
+use spin_sqlite::{DatabaseLocation, SqliteComponent};
 
-// TODO: debup with the stuff in key_value
+// TODO: dedup with the stuff in key_value
 pub(crate) fn build_component(runtime_config: &RuntimeConfig) -> anyhow::Result<SqliteComponent> {
     let location = match runtime_config.sqlite_db_path() {
         Some(path) => {
@@ -16,7 +15,7 @@ pub(crate) fn build_component(runtime_config: &RuntimeConfig) -> anyhow::Result<
         None => DatabaseLocation::InMemory,
     };
 
-    Ok(SqliteComponent::new())
+    Ok(SqliteComponent::new(location))
 }
 
 fn create_parent_dir(path: &Path) -> anyhow::Result<()> {

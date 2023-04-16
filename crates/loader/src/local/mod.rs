@@ -58,7 +58,7 @@ pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppMani
 
     let manifest = from_file(app.as_ref())
         .await
-        .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
+        .with_context(|| anyhow!("Cannot read spin.toml manifest from {:?}", app.as_ref()))?;
     Ok(manifest)
 }
 

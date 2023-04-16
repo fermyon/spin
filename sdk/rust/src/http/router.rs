@@ -327,7 +327,7 @@ mod tests {
     fn test_wildcard_last_segment() {
         let mut router = Router::default();
         router.get("/:x/*", echo_param);
-        
+
         let req = make_request(http_types::Method::GET, "/foo/bar");
         let res = router.handle(req).unwrap();
         assert_eq!(res.into_body().unwrap(), "foo".to_string());
@@ -337,13 +337,13 @@ mod tests {
     fn test_router_display() {
         let mut router = Router::default();
         router.get("/:x", echo_param);
-        
+
         let expected = "Registered routes:\n- GET: /:x\n";
         let actual = format!("{}", router);
-        
+
         assert_eq!(actual.as_str(), expected);
     }
-    
+
     #[test]
     fn test_ambiguous_wildcard_vs_star() {
         fn h1(_req: Request, _params: Params) -> Result<Response> {

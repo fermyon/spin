@@ -1,6 +1,6 @@
 use crate::opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG;
 use anyhow::{anyhow, Result};
-use spin_plugins::{error::Error, manifest::check_supported_version, PluginStore};
+use spin_plugins::{error::Error, manifest::warn_unsupported_version, PluginStore};
 use std::{collections::HashMap, env, process};
 use tokio::process::Command;
 use tracing::log;
@@ -42,7 +42,7 @@ pub async fn execute_external_subcommand(
         Ok(manifest) => {
             let spin_version = env!("VERGEN_BUILD_SEMVER");
             if let Err(e) =
-                check_supported_version(&manifest, spin_version, override_compatibility_check)
+                warn_unsupported_version(&manifest, spin_version, override_compatibility_check)
             {
                 eprintln!("{e}");
                 process::exit(1);
@@ -136,7 +136,6 @@ mod test {
 
         let cmd_with_args = "example arg1 arg2"
             .split(' ')
-            .into_iter()
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
         assert_eq!(
@@ -150,7 +149,6 @@ mod test {
 
         let cmd_with_args_override = format!("example arg1 arg2 {}", override_flag)
             .split(' ')
-            .into_iter()
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
         assert_eq!(
@@ -164,7 +162,6 @@ mod test {
 
         let cmd_with_args_override = format!("example {} arg1 arg2", override_flag)
             .split(' ')
-            .into_iter()
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
         assert_eq!(
@@ -178,7 +175,6 @@ mod test {
 
         let cmd_with_args_override = format!("{} example arg1 arg2", override_flag)
             .split(' ')
-            .into_iter()
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
         assert_eq!(

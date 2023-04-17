@@ -68,8 +68,6 @@ pub struct ApplicationInformation {
     /// but for now, a component with a different trigger must be part of
     /// a separate application.
     pub trigger: ApplicationTrigger,
-    /// Namespace for grouping applications.
-    pub namespace: Option<String>,
     /// The location from which the application is loaded.
     pub origin: ApplicationOrigin,
 }

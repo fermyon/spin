@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.repository_owner == 'fermyon' }}
     env:
-      CARGO_VET_VERSION: 0.3.0
+      CARGO_VET_VERSION: 0.4.0
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust

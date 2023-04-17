@@ -1,1 +1,3 @@
-handle-timer-request: func()
+default world spin-timer {
+  export handle-timer-request: func()
+}

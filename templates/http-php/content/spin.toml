@@ -1,4 +1,4 @@
-spin_version = "1"
+spin_manifest_version = "1"
 authors = ["{{authors}}"]
 description = "{{project-description}}"
 name = "{{project-name}}"
@@ -15,3 +15,5 @@ digest = "sha256:511720698dee56134ed8a08a87131d33c3ea8a64b6726cd6710d624bca4ceb6
 [component.trigger]
 executor = { type = "wagi"}
 route = "{{http-path}}"
+[component.build]
+watch = ["src/**/*.php"]

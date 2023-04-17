@@ -1,4 +1,4 @@
-spin_version = "1"
+spin_manifest_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 name = "tinygo-key-value-example"
 trigger = { type = "http", base = "/" }
@@ -9,6 +9,6 @@ id = "key-value"
 source = "main.wasm"
 key_value_stores = ["default"]
 [component.trigger]
-route = "/test"
+route = "/..."
 [component.build]
 command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"

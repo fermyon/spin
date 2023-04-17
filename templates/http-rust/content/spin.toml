@@ -1,4 +1,4 @@
-spin_version = "1"
+spin_manifest_version = "1"
 authors = ["{{authors}}"]
 description = "{{project-description}}"
 name = "{{project-name}}"
@@ -13,3 +13,4 @@ allowed_http_hosts = []
 route = "{{http-path}}"
 [component.build]
 command = "cargo build --target wasm32-wasi --release"
+watch = ["src/**/*.rs", "Cargo.toml"]

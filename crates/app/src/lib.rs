@@ -8,6 +8,7 @@
 
 mod host_component;
 pub mod locked;
+mod metadata;
 pub mod values;
 
 use ouroboros::self_referencing;
@@ -16,11 +17,12 @@ use spin_core::{wasmtime, Engine, EngineBuilder, StoreBuilder};
 
 use host_component::DynamicHostComponents;
 use locked::{ContentPath, LockedApp, LockedComponent, LockedComponentSource, LockedTrigger};
-use values::MetadataExt;
+use metadata::MetadataExt;
 
 pub use async_trait::async_trait;
 pub use host_component::DynamicHostComponent;
 pub use locked::Variable;
+pub use metadata::MetadataKey;
 
 /// A trait for implementing the low-level operations needed to load an [`App`].
 // TODO(lann): Should this migrate to spin-loader?
@@ -29,6 +31,14 @@ pub trait Loader {
     /// Called with an implementation-defined `uri` pointing to some
     /// representation of a [`LockedApp`], which will be loaded.
     async fn load_app(&self, uri: &str) -> anyhow::Result<LockedApp>;
+
+    /// Called with a [`LockedComponentSource`] pointing to a Wasm component
+    /// binary, which will be loaded.
+    async fn load_component(
+        &self,
+        engine: &wasmtime::Engine,
+        source: &LockedComponentSource,
+    ) -> anyhow::Result<spin_core::Component>;
 
     /// Called with a [`LockedComponentSource`] pointing to a Wasm module
     /// binary, which will be loaded.
@@ -141,7 +151,10 @@ impl<'a> App<'a> {
     /// Returns `Ok(None)` if there is no metadata for the given `key` and an
     /// `Err` only if there _is_ a value for the `key` but the typed
     /// deserialization failed.
-    pub fn get_metadata<'this, T: Deserialize<'this>>(&'this self, key: &str) -> Result<Option<T>> {
+    pub fn get_metadata<'this, T: Deserialize<'this>>(
+        &'this self,
+        key: MetadataKey<T>,
+    ) -> Result<Option<T>> {
         self.locked.metadata.get_typed(key)
     }
 
@@ -149,7 +162,10 @@ impl<'a> App<'a> {
     ///
     /// Like [`App::get_metadata`], but returns an error if there is
     /// no metadata for the given `key`.
-    pub fn require_metadata<'this, T: Deserialize<'this>>(&'this self, key: &str) -> Result<T> {
+    pub fn require_metadata<'this, T: Deserialize<'this>>(
+        &'this self,
+        key: MetadataKey<T>,
+    ) -> Result<T> {
         self.locked.metadata.require_typed(key)
     }
 
@@ -202,7 +218,7 @@ impl<'a> AppComponent<'a> {
         &self.locked.id
     }
 
-    /// Returns this component's Wasm module source.
+    /// Returns this component's Wasm component or module source.
     pub fn source(&self) -> &LockedComponentSource {
         &self.locked.source
     }
@@ -218,7 +234,7 @@ impl<'a> AppComponent<'a> {
     /// Returns `Ok(None)` if there is no metadata for the given `key` and an
     /// `Err` only if there _is_ a value for the `key` but the typed
     /// deserialization failed.
-    pub fn get_metadata<T: Deserialize<'a>>(&self, key: &str) -> Result<Option<T>> {
+    pub fn get_metadata<T: Deserialize<'a>>(&self, key: MetadataKey<T>) -> Result<Option<T>> {
         self.locked.metadata.get_typed(key)
     }
 
@@ -226,13 +242,29 @@ impl<'a> AppComponent<'a> {
     ///
     /// Like [`AppComponent::get_metadata`], but returns an error if there is
     /// no metadata for the given `key`.
-    pub fn require_metadata<'this, T: Deserialize<'this>>(&'this self, key: &str) -> Result<T> {
+    pub fn require_metadata<'this, T: Deserialize<'this>>(
+        &'this self,
+        key: MetadataKey<T>,
+    ) -> Result<T> {
         self.locked.metadata.require_typed(key)
     }
 
     /// Returns an iterator of custom config values for this component.
     pub fn config(&self) -> impl Iterator<Item = (&String, &String)> {
         self.locked.config.iter()
+    }
+
+    /// Loads and returns the [`spin_core::Component`] for this component.
+    pub async fn load_component<T: Send + Sync>(
+        &self,
+        engine: &Engine<T>,
+    ) -> Result<spin_core::Component> {
+        self.app
+            .loader
+            .inner
+            .load_component(engine.as_ref(), &self.locked.source)
+            .await
+            .map_err(Error::LoaderError)
     }
 
     /// Loads and returns the [`spin_core::Module`] for this component.
@@ -334,8 +366,8 @@ pub enum Error {
     #[error("host component error: {0:#}")]
     HostComponentError(#[source] anyhow::Error),
     /// An error from a [`Loader`] implementation.
-    #[error("loader error: {0:#}")]
-    LoaderError(#[source] anyhow::Error),
+    #[error(transparent)]
+    LoaderError(anyhow::Error),
     /// An error indicating missing or unexpected metadata.
     #[error("metadata error: {0}")]
     MetadataError(String),

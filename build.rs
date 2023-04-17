@@ -11,6 +11,7 @@ const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
 const RUST_HTTP_INTEGRATION_ENV_TEST: &str = "tests/http/headers-env-routes-test";
 const RUST_HTTP_VAULT_CONFIG_TEST: &str = "tests/http/vault-config-test";
 const RUST_OUTBOUND_REDIS_INTEGRATION_TEST: &str = "tests/outbound-redis/http-rust-outbound-redis";
+const TIMER_TRIGGER_INTEGRATION_TEST: &str = "examples/spin-timer/app-example";
 
 fn main() {
     let mut config = vergen::Config::default();
@@ -57,21 +58,28 @@ error: the `wasm32-wasi` target is not installed
     std::fs::create_dir_all("target/test-programs").unwrap();
 
     build_wasm_test_program("core-wasi-test.wasm", "crates/core/tests/core-wasi-test");
-    build_wasm_test_program("rust-http-test.wasm", "crates/http/tests/rust-http-test");
+    build_wasm_test_program(
+        "rust-http-test.wasm",
+        "crates/trigger-http/tests/rust-http-test",
+    );
     build_wasm_test_program("redis-rust.wasm", "crates/redis/tests/rust");
-    build_wasm_test_program("wagi-test.wasm", "crates/http/tests/wagi-test");
+    build_wasm_test_program("wagi-test.wasm", "crates/trigger-http/tests/wagi-test");
 
     build_wasm_test_program(
         "spin-http-benchmark.wasm",
-        "crates/http/benches/spin-http-benchmark",
+        "crates/trigger-http/benches/spin-http-benchmark",
     );
-    build_wasm_test_program("wagi-benchmark.wasm", "crates/http/benches/wagi-benchmark");
+    build_wasm_test_program(
+        "wagi-benchmark.wasm",
+        "crates/trigger-http/benches/wagi-benchmark",
+    );
     build_wasm_test_program("timer_app_example.wasm", "examples/spin-timer/app-example");
 
     cargo_build(RUST_HTTP_INTEGRATION_TEST);
     cargo_build(RUST_HTTP_INTEGRATION_ENV_TEST);
     cargo_build(RUST_HTTP_VAULT_CONFIG_TEST);
     cargo_build(RUST_OUTBOUND_REDIS_INTEGRATION_TEST);
+    cargo_build(TIMER_TRIGGER_INTEGRATION_TEST);
 }
 
 fn build_wasm_test_program(name: &'static str, root: &'static str) {
@@ -79,6 +87,7 @@ fn build_wasm_test_program(name: &'static str, root: &'static str) {
         .release()
         .target("wasm32-wasi")
         .build();
+    println!("cargo:rerun-if-changed={root}");
 }
 
 fn has_wasm32_wasi_target() -> bool {

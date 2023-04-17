@@ -4,10 +4,10 @@ version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
 license = "Apache-2.0 WITH LLVM-exception"
-rust-version = "1.64"
+rust-version = "1.67"
 
 [workspace.package]
-version = "0.11.0-pre0"
+version = "1.2.0-pre0"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 edition = "2021"
 
@@ -26,10 +26,12 @@ dialoguer = "0.10"
 dirs = "4.0"
 dunce = "1.0"
 futures = "0.3"
+glob = "0.3.1"
 hippo-openapi = "0.10"
 hippo = { git = "https://github.com/deislabs/hippo-cli", tag = "v0.16.1" }
 is-terminal = "0.4"
 lazy_static = "1.4.0"
+levenshtein = "1.0.5"
 nix = { version = "0.24", features = ["signal"] }
 outbound-http = { path = "crates/outbound-http" }
 outbound-redis = { path = "crates/outbound-redis" }
@@ -48,7 +50,7 @@ spin-app = { path = "crates/app" }
 spin-bindle = { path = "crates/bindle" }
 spin-build = { path = "crates/build" }
 spin-config = { path = "crates/config" }
-spin-http = { path = "crates/http" }
+spin-trigger-http = { path = "crates/trigger-http" }
 spin-loader = { path = "crates/loader" }
 spin-manifest = { path = "crates/manifest" }
 spin-oci = { path = "crates/oci" }
@@ -64,7 +66,8 @@ tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 url = "2.2.2"
 uuid = "^1.0"
 wasmtime = { workspace = true }
-levenshtein = "1.0.5"
+watchexec = "2.2.0"
+subprocess = "0.2.9"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # This needs to be an explicit dependency to enable
@@ -95,7 +98,6 @@ fermyon-platform = []
 
 [workspace]
 members = [
-  "crates/abi-conformance",
   "crates/app",
   "crates/bindle",
   "crates/build",
@@ -109,11 +111,13 @@ members = [
   "crates/outbound-redis",
   "crates/key-value",
   "crates/key-value-sqlite",
+  "crates/key-value-redis",
   "crates/plugins",
   "crates/redis",
   "crates/templates",
   "crates/testing",
   "crates/trigger",
+  "crates/trigger-http",
   "sdk/rust",
   "sdk/rust/macro",
   "crates/e2e-testing"
@@ -121,10 +125,13 @@ members = [
 
 [workspace.dependencies]
 tracing = { version = "0.1", features = ["log"] }
-wasi-cap-std-sync = "5.0.0"
-wasi-common = "5.0.0"
-wasmtime = "5.0.0"
-wasmtime-wasi = { version = "5.0.0", features = ["tokio"] }
+wasmtime-wasi = { version = "7.0.0", features = ["tokio"] }
+wasi-common-preview1 = { package = "wasi-common", version = "7.0.0" }
+wasmtime = { version = "7.0.0", features = ["component-model"] }
+spin-componentize = { git = "https://github.com/fermyon/spin-componentize" }
+wasi-host = { package = "host", git = "https://github.com/fermyon/spin-componentize" }
+wasi-common = { git = "https://github.com/fermyon/spin-componentize" }
+wasi-cap-std-sync = { git = "https://github.com/fermyon/spin-componentize" }
 
 [workspace.dependencies.bindle]
 git = "https://github.com/fermyon/bindle"
@@ -134,7 +141,7 @@ features = ["client"]
 
 [workspace.dependencies.wit-bindgen-wasmtime]
 git = "https://github.com/fermyon/wit-bindgen-backport"
-rev = "a39003fadce6c7a8654e3e044fc39fc80d81ec7b"
+rev = "e1e2525bbbc8430c4ebe57e9f4b3f63b6facff98"
 features = ["async"]
 
 [[bin]]

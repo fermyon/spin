@@ -1,7 +1,5 @@
 //! Commands for the Spin CLI.
 
-/// Command for creating bindles.
-pub mod bindle;
 /// Commands for building Spin applications.
 pub mod build;
 /// Commands for publishing applications to the Fermyon Platform.
@@ -22,3 +20,5 @@ pub mod registry;
 pub mod templates;
 /// Commands for starting the runtime.
 pub mod up;
+/// Command for rebuilding and restarting a Spin app when files change.
+pub mod watch;

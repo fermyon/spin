@@ -19,19 +19,14 @@ impl OutputBuffer {
 
 #[cfg(test)]
 mod tests {
-    use std::io::IoSlice;
-
-    use wasi_common::WasiFile;
+    use wasi_common::OutputStream;
 
     use super::*;
 
     #[tokio::test]
     async fn take_what_you_write() {
         let mut buf = OutputBuffer::default();
-        buf.writer()
-            .write_vectored(&[IoSlice::new(b"foo")])
-            .await
-            .unwrap();
+        buf.writer().write(b"foo").await.unwrap();
         assert_eq!(buf.take(), b"foo");
     }
 }

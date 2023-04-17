@@ -16,6 +16,7 @@ pub mod cache;
 mod common;
 pub mod digest;
 pub mod local;
+mod validation;
 
 /// Load a Spin application configuration from a spin.toml manifest file.
 pub use local::from_file;

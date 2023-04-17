@@ -93,7 +93,7 @@ pub struct RawAppInformation {
     pub authors: Option<Vec<String>>,
     /// Trigger for the application.
     pub trigger: ApplicationTrigger,
-    /// Namespace for the application.
+    /// Namespace for the application. (deprecated)
     pub namespace: Option<String>,
 }
 
@@ -128,6 +128,9 @@ pub struct RawBuildConfig {
     /// Working directory in which the build command is executed. It must be
     /// relative to the directory in which `spin.toml` is located.
     pub workdir: Option<PathBuf>,
+    /// List of glob patterns to watch for changes. Used by spin watch to
+    /// re-execute spin build and spin up when your source changes.
+    pub watch: Option<Vec<String>>,
 }
 
 /// WebAssembly configuration.
@@ -179,8 +182,6 @@ pub enum RawFileMount {
 pub enum RawModuleSource {
     /// Local path or parcel reference to a module that needs to be linked.
     FileReference(PathBuf),
-    /// Reference to a remote bindle
-    Bindle(FileComponentBindleSource),
     /// Reference to a Wasm file at a URL
     Url(FileComponentUrlSource),
 }

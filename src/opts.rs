@@ -1,6 +1,5 @@
 pub const DEFAULT_MANIFEST_FILE: &str = "spin.toml";
 pub const APP_MANIFEST_FILE_OPT: &str = "APP_MANIFEST_FILE";
-pub const BINDLE_ID_OPT: &str = "BINDLE_ID";
 pub const BINDLE_SERVER_URL_OPT: &str = "BINDLE_SERVER_URL";
 pub const BINDLE_URL_ENV: &str = "BINDLE_URL";
 pub const BINDLE_USERNAME: &str = "BINDLE_USERNAME";
@@ -21,3 +20,8 @@ pub const PLUGIN_ALL_OPT: &str = "ALL";
 pub const PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG: &str = "override-compatibility-check";
 pub const HELP_ARGS_ONLY_TRIGGER_TYPE: &str = "provide-help-args-no-app";
 pub const FROM_REGISTRY_OPT: &str = "REGISTRY_REFERENCE";
+pub const TOKEN: &str = "TOKEN";
+pub const SPIN_AUTH_TOKEN: &str = "SPIN_AUTH_TOKEN";
+pub const WATCH_CLEAR_OPT: &str = "CLEAR";
+pub const WATCH_DEBOUNCE_OPT: &str = "DEBOUNCE";
+pub const WATCH_SKIP_BUILD_OPT: &str = "SKIP_BUILD";

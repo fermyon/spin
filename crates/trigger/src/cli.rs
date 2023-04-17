@@ -10,8 +10,12 @@ use tokio::{
 
 use spin_app::Loader;
 
-use crate::{config::TriggerExecutorBuilderConfig, loader::TriggerLoader, stdio::FollowComponents};
-use crate::{loader::OciTriggerLoader, stdio::StdioLoggingTriggerHooks};
+use crate::stdio::StdioLoggingTriggerHooks;
+use crate::{
+    loader::TriggerLoader,
+    runtime_config::{key_value::KeyValuePersistenceMessageHook, RuntimeConfig},
+    stdio::FollowComponents,
+};
 use crate::{TriggerExecutor, TriggerExecutorBuilder};
 
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
@@ -22,8 +26,8 @@ pub const RUNTIME_CONFIG_FILE: &str = "RUNTIME_CONFIG_FILE";
 
 // Set by `spin up`
 pub const SPIN_LOCKED_URL: &str = "SPIN_LOCKED_URL";
+pub const SPIN_LOCAL_APP_DIR: &str = "SPIN_LOCAL_APP_DIR";
 pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
-pub const SPIN_STATE_DIR: &str = "SPIN_STATE_DIR";
 
 /// A command that runs a TriggerExecutor.
 #[derive(Parser, Debug)]
@@ -88,15 +92,20 @@ where
     )]
     pub runtime_config_file: Option<PathBuf>,
 
+    /// Set the application state directory path. This is used in the default
+    /// locations for logs, key value stores, etc.
+    ///
+    /// For local apps, this defaults to `.spin/` relative to the `spin.toml` file.
+    /// For remote apps, this has no default (unset).
+    /// Passing an empty value forces the value to be unset.
+    #[clap(long)]
+    pub state_dir: Option<String>,
+
     #[clap(flatten)]
     pub run_config: Executor::RunConfig,
 
     #[clap(long = "help-args-only", hide = true)]
     pub help_args_only: bool,
-
-    /// Load the application from the registry.
-    #[clap(long = "from-registry", hide = true)]
-    pub from_registry: bool,
 }
 
 /// An empty implementation of clap::Args to be used as TriggerExecutor::RunConfig
@@ -123,14 +132,8 @@ where
         let working_dir = std::env::var(SPIN_WORKING_DIR).context(SPIN_WORKING_DIR)?;
         let locked_url = std::env::var(SPIN_LOCKED_URL).context(SPIN_LOCKED_URL)?;
 
-        let executor = if self.from_registry {
-            let loader =
-                OciTriggerLoader::new(working_dir, self.allow_transient_write, None).await?;
-            self.build_executor(loader, locked_url).await?
-        } else {
-            let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
-            self.build_executor(loader, locked_url).await?
-        };
+        let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
+        let executor = self.build_executor(loader, locked_url).await?;
 
         let run_fut = executor.run(self.run_config);
 
@@ -157,39 +160,35 @@ where
         loader: impl Loader + Send + Sync + 'static,
         locked_url: String,
     ) -> Result<Executor> {
-        let trigger_config =
-            TriggerExecutorBuilderConfig::load_from_file(self.runtime_config_file.clone())?;
+        let runtime_config = self.build_runtime_config()?;
 
         let _sloth_warning = warn_if_wasm_build_slothful();
 
         let mut builder = TriggerExecutorBuilder::new(loader);
         self.update_wasmtime_config(builder.wasmtime_config_mut())?;
 
-        let logging_hooks = StdioLoggingTriggerHooks::new(self.follow_components(), self.log_dir());
-        builder.hooks(logging_hooks);
+        builder.hooks(StdioLoggingTriggerHooks::new(self.follow_components()));
+        builder.hooks(KeyValuePersistenceMessageHook);
 
-        builder.build(locked_url, trigger_config).await
+        builder.build(locked_url, runtime_config).await
     }
 
-    pub fn log_dir(&self) -> Option<PathBuf> {
-        match &self.log {
-            Some(l) => Some(l),
-            None => {
-                if !self.from_registry {
-                    if let Ok(dir) = std::env::var(SPIN_STATE_DIR) {
-                        let s = PathBuf::from(dir).join("logs");
-                        return Some(s);
-                    } else {
-                        tracing::info!("Unable to retrieve SPIN_STATE_DIR environment variable to persist logs",);
-                    };
-                }
-                return None;
-            }
-        };
-        None
+    fn build_runtime_config(&self) -> Result<RuntimeConfig> {
+        let local_app_dir = std::env::var_os(SPIN_LOCAL_APP_DIR);
+        let mut config = RuntimeConfig::new(local_app_dir.map(Into::into));
+        if let Some(state_dir) = &self.state_dir {
+            config.set_state_dir(state_dir);
+        }
+        if let Some(log_dir) = &self.log {
+            config.set_log_dir(log_dir);
+        }
+        if let Some(config_file) = &self.runtime_config_file {
+            config.merge_config_file(config_file)?;
+        }
+        Ok(config)
     }
 
-    pub fn follow_components(&self) -> FollowComponents {
+    fn follow_components(&self) -> FollowComponents {
         if self.silence_component_logs {
             FollowComponents::None
         } else if self.follow_components.is_empty() {
@@ -257,7 +256,7 @@ pub mod help {
         type RuntimeData = ();
         type TriggerConfig = ();
         type RunConfig = NoArgs;
-        fn new(_: crate::TriggerAppEngine<Self>) -> Result<Self> {
+        async fn new(_: crate::TriggerAppEngine<Self>) -> Result<Self> {
             Ok(Self)
         }
         async fn run(self, _: Self::RunConfig) -> Result<()> {

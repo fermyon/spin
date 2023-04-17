@@ -5,20 +5,19 @@ use chrono::{DateTime, Utc};
 use clap::Parser;
 use cloud::client::{Client as CloudClient, ConnectionConfig};
 use cloud_openapi::models::ChannelRevisionSelectionStrategy as CloudChannelRevisionSelectionStrategy;
-use cloud_openapi::models::TokenInfo;
 use hippo::{Client, ConnectionInfo};
 use hippo_openapi::models::ChannelRevisionSelectionStrategy;
 use rand::Rng;
 use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
-use spin_http::routes::RoutePattern;
-use spin_http::AppInfo;
-use spin_http::WELL_KNOWN_PREFIX;
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_loader::local::config::RawAppManifest;
 use spin_loader::local::{assets, config, parent_dir};
 use spin_manifest::ApplicationTrigger;
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
+use spin_trigger_http::routes::RoutePattern;
+use spin_trigger_http::AppInfo;
+use spin_trigger_http::WELL_KNOWN_PREFIX;
 use tokio::fs;
 use tracing::instrument;
 
@@ -35,7 +34,7 @@ use super::login::LoginCommand;
 use super::login::LoginConnection;
 
 const SPIN_DEPLOY_CHANNEL_NAME: &str = "spin-deploy";
-
+const SPIN_DEFAULT_KV_STORE: &str = "default";
 const BINDLE_REGISTRY_URL_PATH: &str = "api/registry";
 
 /// Package and upload an application to the Fermyon Platform.
@@ -94,6 +93,11 @@ pub struct DeployCommand {
         env = DEPLOYMENT_ENV_NAME_ENV
     )]
     pub deployment_env_id: Option<String>,
+
+    /// Pass a key/value (key=value) to all components of the application.
+    /// Can be used multiple times.
+    #[clap(long = "key-value", parse(try_from_str = parse_kv))]
+    pub key_values: Vec<(String, String)>,
 }
 
 impl DeployCommand {
@@ -125,10 +129,16 @@ impl DeployCommand {
         };
 
         let mut login_connection: LoginConnection = serde_json::from_str(&data)?;
+        let expired = match has_expired(&login_connection) {
+            Ok(val) => val,
+            Err(err) => {
+                eprintln!("{}\n", err);
+                eprintln!("Run `spin login` to log in again");
+                std::process::exit(1);
+            }
+        };
 
-        let expiration_date = DateTime::parse_from_rfc3339(&login_connection.expiration)?;
-        let now: DateTime<Utc> = Utc::now();
-        if now > expiration_date {
+        if expired {
             // session has expired - log back in
             match self.deployment_env_id {
                 Some(name) => {
@@ -310,10 +320,7 @@ impl DeployCommand {
         let connection_config = ConnectionConfig {
             url: login_connection.url.to_string(),
             insecure: login_connection.danger_accept_invalid_certs,
-            token: TokenInfo {
-                token: Some(login_connection.token.clone()),
-                expiration: Some(login_connection.expiration.clone()),
-            },
+            token: login_connection.token.clone(),
         };
 
         let client = CloudClient::new(connection_config.clone());
@@ -321,7 +328,7 @@ impl DeployCommand {
         let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
         let cfg = cfg_any.into_v1();
 
-        ensure!(!cfg.components.is_empty(), "No components in spin.toml!");
+        validate_cloud_app(&cfg)?;
 
         match cfg.info.trigger {
             ApplicationTrigger::Http(_) => {}
@@ -383,6 +390,18 @@ impl DeployCommand {
                 .await
                 .context("Problem patching a channel")?;
 
+                for kv in self.key_values {
+                    CloudClient::add_key_value_pair(
+                        &client,
+                        app_id,
+                        SPIN_DEFAULT_KV_STORE.to_string(),
+                        kv.0,
+                        kv.1,
+                    )
+                    .await
+                    .context("Problem creating key/value")?;
+                }
+
                 existing_channel_id
             }
             Err(_) => {
@@ -397,7 +416,7 @@ impl DeployCommand {
                     .get_revision_id_cloud(&client, bindle_id.version_string().clone(), app_id)
                     .await?;
 
-                CloudClient::add_channel(
+                let channel_id = CloudClient::add_channel(
                     &client,
                     app_id,
                     String::from(SPIN_DEPLOY_CHANNEL_NAME),
@@ -406,7 +425,21 @@ impl DeployCommand {
                     Some(active_revision_id),
                 )
                 .await
-                .context("Problem creating a channel")?
+                .context("Problem creating a channel")?;
+
+                for kv in self.key_values {
+                    CloudClient::add_key_value_pair(
+                        &client,
+                        app_id,
+                        SPIN_DEFAULT_KV_STORE.to_string(),
+                        kv.0,
+                        kv.1,
+                    )
+                    .await
+                    .context("Problem creating key/value")?;
+                }
+
+                channel_id
             }
         };
 
@@ -442,7 +475,6 @@ impl DeployCommand {
                         .with_context(|| anyhow!("Cannot open file {}", &full_path.display()))?;
                     copy(&mut r, &mut sha256)?;
                 }
-                config::RawModuleSource::Bindle(_b) => {}
                 config::RawModuleSource::Url(us) => sha256.update(us.digest.as_bytes()),
             }
 
@@ -633,6 +665,22 @@ impl DeployCommand {
     }
 }
 
+fn validate_cloud_app(app: &RawAppManifest) -> Result<()> {
+    ensure!(!app.components.is_empty(), "No components in spin.toml!");
+    for component in &app.components {
+        if let Some(invalid_store) = component
+            .wasm
+            .key_value_stores
+            .iter()
+            .flatten()
+            .find(|store| *store != "default")
+        {
+            bail!("Invalid store {invalid_store:?} for component {:?}. Cloud currently supports only the 'default' store.", component.id);
+        }
+    }
+    Ok(())
+}
+
 fn random_buildinfo() -> BuildMetadata {
     let random_bytes: [u8; 4] = rand::thread_rng().gen();
     let random_hex: String = random_bytes.iter().map(|b| format!("{:x}", b)).collect();
@@ -764,4 +812,29 @@ fn print_available_routes(
             }
         }
     }
+}
+
+// Check if the token has expired.
+// If the expiration is None, assume the token has not expired
+fn has_expired(login_connection: &LoginConnection) -> Result<bool> {
+    match &login_connection.expiration {
+        Some(expiration) => match DateTime::parse_from_rfc3339(expiration) {
+            Ok(time) => Ok(Utc::now() > time),
+            Err(err) => Err(anyhow!(
+                "Failed to parse token expiration time '{}'. Error: {}",
+                expiration,
+                err
+            )),
+        },
+        None => Ok(false),
+    }
+}
+
+// Parse the key/values passed in as `key=value` pairs.
+fn parse_kv(s: &str) -> Result<(String, String)> {
+    let parts: Vec<_> = s.splitn(2, '=').collect();
+    if parts.len() != 2 {
+        bail!("Key/Values must be of the form `key=value`");
+    }
+    Ok((parts[0].to_owned(), parts[1].to_owned()))
 }

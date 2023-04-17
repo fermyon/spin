@@ -1,7 +1,8 @@
 use anyhow::Result;
+use spin_app::MetadataKey;
+use spin_core::{async_trait, key_value};
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
-use wit_bindgen_wasmtime::async_trait;
 
 mod host_component;
 mod table;
@@ -10,19 +11,11 @@ mod util;
 pub use host_component::{manager, KeyValueComponent};
 pub use util::{CachingStoreManager, DelegatingStoreManager, EmptyStoreManager};
 
+pub const KEY_VALUE_STORES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("key_value_stores");
+
 const DEFAULT_STORE_TABLE_CAPACITY: u32 = 256;
 
-wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/key-value.wit"], async: *});
-
-pub use key_value::{Error, KeyValue, Store as StoreHandle};
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl std::error::Error for Error {}
+pub use key_value::{Error, Store as StoreHandle};
 
 #[async_trait]
 pub trait StoreManager: Sync + Send {
@@ -74,59 +67,83 @@ impl Default for KeyValueDispatch {
 }
 
 #[async_trait]
-impl KeyValue for KeyValueDispatch {
-    async fn open(&mut self, name: &str) -> Result<StoreHandle, Error> {
-        if self.allowed_stores.contains(name) {
-            self.stores
-                .push(self.manager.get(name).await?)
-                .map_err(|()| Error::StoreTableFull)
-        } else {
-            Err(Error::AccessDenied)
+impl key_value::Host for KeyValueDispatch {
+    async fn open(&mut self, name: String) -> Result<Result<StoreHandle, Error>> {
+        Ok(async {
+            if self.allowed_stores.contains(&name) {
+                self.stores
+                    .push(self.manager.get(&name).await?)
+                    .map_err(|()| Error::StoreTableFull)
+            } else {
+                Err(Error::AccessDenied)
+            }
         }
+        .await)
     }
 
-    async fn get(&mut self, store: StoreHandle, key: &str) -> Result<Vec<u8>, Error> {
-        self.stores
-            .get(store)
-            .ok_or(Error::InvalidStore)?
-            .get(key)
-            .await
+    async fn get(&mut self, store: StoreHandle, key: String) -> Result<Result<Vec<u8>, Error>> {
+        Ok(async {
+            self.stores
+                .get(store)
+                .ok_or(Error::InvalidStore)?
+                .get(&key)
+                .await
+        }
+        .await)
     }
 
-    async fn set(&mut self, store: StoreHandle, key: &str, value: &[u8]) -> Result<(), Error> {
-        self.stores
-            .get(store)
-            .ok_or(Error::InvalidStore)?
-            .set(key, value)
-            .await
+    async fn set(
+        &mut self,
+        store: StoreHandle,
+        key: String,
+        value: Vec<u8>,
+    ) -> Result<Result<(), Error>> {
+        Ok(async {
+            self.stores
+                .get(store)
+                .ok_or(Error::InvalidStore)?
+                .set(&key, &value)
+                .await
+        }
+        .await)
     }
 
-    async fn delete(&mut self, store: StoreHandle, key: &str) -> Result<(), Error> {
-        self.stores
-            .get(store)
-            .ok_or(Error::InvalidStore)?
-            .delete(key)
-            .await
+    async fn delete(&mut self, store: StoreHandle, key: String) -> Result<Result<(), Error>> {
+        Ok(async {
+            self.stores
+                .get(store)
+                .ok_or(Error::InvalidStore)?
+                .delete(&key)
+                .await
+        }
+        .await)
     }
 
-    async fn exists(&mut self, store: StoreHandle, key: &str) -> Result<bool, Error> {
-        self.stores
-            .get(store)
-            .ok_or(Error::InvalidStore)?
-            .exists(key)
-            .await
+    async fn exists(&mut self, store: StoreHandle, key: String) -> Result<Result<bool, Error>> {
+        Ok(async {
+            self.stores
+                .get(store)
+                .ok_or(Error::InvalidStore)?
+                .exists(&key)
+                .await
+        }
+        .await)
     }
 
-    async fn get_keys(&mut self, store: StoreHandle) -> Result<Vec<String>, Error> {
-        self.stores
-            .get(store)
-            .ok_or(Error::InvalidStore)?
-            .get_keys()
-            .await
+    async fn get_keys(&mut self, store: StoreHandle) -> Result<Result<Vec<String>, Error>> {
+        Ok(async {
+            self.stores
+                .get(store)
+                .ok_or(Error::InvalidStore)?
+                .get_keys()
+                .await
+        }
+        .await)
     }
 
-    async fn close(&mut self, store: StoreHandle) {
+    async fn close(&mut self, store: StoreHandle) -> Result<()> {
         self.stores.remove(store);
+        Ok(())
     }
 }
 

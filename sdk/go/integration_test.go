@@ -61,6 +61,12 @@ func buildTinyGo(t *testing.T, dir string) {
 
 	t.Log("building example: ", dir)
 
+	getCmd := exec.Command("go", "mod", "tidy")
+	getCmd.Dir = dir
+	if err := getCmd.Run(); err != nil {
+		t.Errorf("Failed to go mod tidy %q, %v", dir, err)
+	}
+
 	cmd := exec.Command("tinygo", "build", "-target=wasi", "-gc=leaking", "-o", "main.wasm", "main.go")
 	cmd.Dir = dir
 
@@ -69,6 +75,31 @@ func buildTinyGo(t *testing.T, dir string) {
 	if err := cmd.Run(); err != nil {
 		t.Log(stderr.String())
 		t.Errorf("Failed to build %q, %v", dir, err)
+	}
+}
+
+func TestSpinRoundTrip(t *testing.T) {
+	buildTinyGo(t, "http/testdata/spin-roundtrip")
+	spin := startSpin(t, "http/testdata/spin-roundtrip/spin.toml")
+	defer spin.cancel()
+
+	resp := retryGet(t, spin.url+"/hello")
+	spin.cancel()
+	if resp.Body == nil {
+		t.Fatal("body is nil")
+	}
+	t.Log(resp.Status)
+	b, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// assert response body
+	want := "Hello world!\n"
+	got := string(b)
+	if want != got {
+		t.Fatalf("body is not equal: want = %q got = %q", want, got)
 	}
 }
 

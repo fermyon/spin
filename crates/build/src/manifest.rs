@@ -46,4 +46,5 @@ pub(crate) struct RawComponentManifest {
 pub(crate) struct RawBuildConfig {
     pub command: String,
     pub workdir: Option<PathBuf>,
+    pub watch: Option<Vec<String>>,
 }

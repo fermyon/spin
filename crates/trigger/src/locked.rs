@@ -3,17 +3,26 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context, Result};
+use outbound_http::ALLOWED_HTTP_HOSTS_KEY;
 use spin_app::{
     locked::{
         self, ContentPath, ContentRef, LockedApp, LockedComponent, LockedComponentSource,
         LockedTrigger,
     },
     values::{ValuesMap, ValuesMapBuilder},
+    MetadataKey,
 };
+use spin_key_value::KEY_VALUE_STORES_KEY;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
     HttpConfig, HttpTriggerConfiguration, RedisConfig, TriggerConfig,
 };
+
+pub const NAME_KEY: MetadataKey = MetadataKey::new("name");
+pub const VERSION_KEY: MetadataKey = MetadataKey::new("version");
+pub const DESCRIPTION_KEY: MetadataKey = MetadataKey::new("description");
+pub const BINDLE_VERSION_KEY: MetadataKey = MetadataKey::new("bindle_version");
+pub const ORIGIN_KEY: MetadataKey = MetadataKey::new("origin");
 
 const WASM_CONTENT_TYPE: &str = "application/wasm";
 
@@ -43,21 +52,21 @@ impl LockedAppBuilder {
     fn build_metadata(&self, info: ApplicationInformation) -> Result<ValuesMap> {
         let mut builder = ValuesMapBuilder::new();
         builder
-            .string("name", &info.name)
-            .string("version", &info.version)
-            .string_option("description", info.description.as_deref())
+            .string(NAME_KEY, &info.name)
+            .string(VERSION_KEY, &info.version)
+            .string_option(DESCRIPTION_KEY, info.description.as_deref())
             .serializable("trigger", info.trigger)?;
         // Convert ApplicationOrigin to a URL
         let origin = match info.origin {
             ApplicationOrigin::File(path) => file_uri(&path)?,
             ApplicationOrigin::Bindle { id, server } => {
                 if let Some((_, version)) = id.split_once('/') {
-                    builder.string("bindle_version", version);
+                    builder.string(BINDLE_VERSION_KEY, version);
                 }
                 format!("bindle+{server}?id={id}")
             }
         };
-        builder.string("origin", origin);
+        builder.string(ORIGIN_KEY, origin);
         Ok(builder.build())
     }
 
@@ -134,9 +143,9 @@ impl LockedAppBuilder {
         let id = component.id;
 
         let metadata = ValuesMapBuilder::new()
-            .string_option("description", component.description)
-            .string_array("allowed_http_hosts", component.wasm.allowed_http_hosts)
-            .string_array("key_value_stores", component.wasm.key_value_stores)
+            .string_option(DESCRIPTION_KEY, component.description)
+            .string_array(ALLOWED_HTTP_HOSTS_KEY, component.wasm.allowed_http_hosts)
+            .string_array(KEY_VALUE_STORES_KEY, component.wasm.key_value_stores)
             .take();
 
         let source = {
@@ -193,13 +202,8 @@ fn content_ref_path(path: &Path) -> Result<ContentRef> {
 }
 
 fn file_uri(path: &Path) -> Result<String> {
-    let path = path.canonicalize()?;
-    let url = if path.is_dir() {
-        url::Url::from_directory_path(&path)
-    } else {
-        url::Url::from_file_path(&path)
-    }
-    .map_err(|_| anyhow!("Could not construct file URL for {path:?}"))?;
+    let url = url::Url::from_file_path(path)
+        .map_err(|_| anyhow!("Could not construct file URL for {path:?}"))?;
     Ok(url.to_string())
 }
 
@@ -243,7 +247,7 @@ mod tests {
         std::fs::write(dir.join("spin.toml"), TEST_MANIFEST).expect("write manifest");
         std::fs::write(dir.join("test-source.wasm"), "not actual wasm").expect("write source");
         std::fs::write(dir.join("static.txt"), "content").expect("write static");
-        let app = spin_loader::local::from_file(dir.join("spin.toml"), Some(&tempdir), &None)
+        let app = spin_loader::local::from_file(dir.join("spin.toml"), Some(&tempdir))
             .await
             .expect("load app");
         (app, tempdir)
@@ -258,10 +262,13 @@ mod tests {
         assert_eq!(locked.triggers[0].trigger_config["route"], "/");
 
         let component = &locked.components[0];
+
         let source = component.source.content.source.as_deref().unwrap();
         assert!(source.ends_with("test-source.wasm"));
+
         let mount = component.files[0].content.source.as_deref().unwrap();
-        assert!(mount.ends_with('/'));
+        let mount_path = url::Url::try_from(mount).unwrap().to_file_path().unwrap();
+        assert!(mount_path.is_dir(), "{mount:?} is not a dir");
     }
 
     #[tokio::test]
@@ -270,7 +277,7 @@ mod tests {
         let dir = temp_dir.path();
 
         let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/triggers");
-        let app = spin_loader::from_file(base_dir.join("http.toml"), Some(dir), &None)
+        let app = spin_loader::from_file(base_dir.join("http.toml"), Some(dir))
             .await
             .unwrap();
         let locked = build_locked_app(app, dir).unwrap();
@@ -303,7 +310,7 @@ mod tests {
         let dir = temp_dir.path();
 
         let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/triggers");
-        let app = spin_loader::from_file(base_dir.join("pounce.toml"), Some(dir), &None)
+        let app = spin_loader::from_file(base_dir.join("pounce.toml"), Some(dir))
             .await
             .unwrap();
         let locked = build_locked_app(app, dir).unwrap();

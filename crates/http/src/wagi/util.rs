@@ -242,6 +242,7 @@ pub fn compose_response(stdout: &[u8]) -> Result<Response<Body>, Error> {
     });
     let mut res = Response::new(Body::from(buffer));
     let mut sufficient_response = false;
+    let mut explicit_status_code = false;
     parse_cgi_headers(String::from_utf8(out_headers)?)
         .iter()
         .for_each(|h| {
@@ -258,6 +259,7 @@ pub fn compose_response(stdout: &[u8]) -> Result<Response<Body>, Error> {
                     // do not set content type correctly if a status is an error.
                     // See https://datatracker.ietf.org/doc/html/rfc3875#section-6.2
                     sufficient_response = true;
+                    explicit_status_code = true;
                     // Status can be `Status CODE [STRING]`, and we just want the CODE.
                     let status_code = h.1.split_once(' ').map(|(code, _)| code).unwrap_or(h.1);
                     tracing::debug!(status_code, "Raw status code");
@@ -273,7 +275,9 @@ pub fn compose_response(stdout: &[u8]) -> Result<Response<Body>, Error> {
                     sufficient_response = true;
                     res.headers_mut()
                         .insert(LOCATION, HeaderValue::from_str(h.1).unwrap());
-                    *res.status_mut() = StatusCode::from_u16(302).unwrap();
+                    if !explicit_status_code {
+                        *res.status_mut() = StatusCode::from_u16(302).unwrap();
+                    }
                 }
                 _ => {
                     // If the header can be parsed into a valid HTTP header, it is

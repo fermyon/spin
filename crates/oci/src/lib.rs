@@ -3,8 +3,13 @@
 
 mod auth;
 mod client;
+mod loader;
 
 pub use client::Client;
+pub use loader::OciLoader;
+
+/// URL scheme used for the locked app "origin" metadata field for OCI-sourced apps.
+pub const ORIGIN_URL_SCHEME: &str = "vnd.fermyon.origin-oci";
 
 /// Applies heuristics to check if the given string "looks like" it may be
 /// an OCI reference.

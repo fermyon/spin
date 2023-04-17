@@ -6,6 +6,7 @@ ignored-assets
 main.wasm
 .parcel-cache
 .vscode/*.log
+go.sum
 tests/**/Cargo.lock
 crates/**/Cargo.lock
 examples/**/Cargo.lock

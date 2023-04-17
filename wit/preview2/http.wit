@@ -1,0 +1,5 @@
+default interface http {
+    use pkg.http-types.{request, response, http-error}
+
+    send-request: func(req: request) -> result<response, http-error>
+}

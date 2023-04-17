@@ -1,0 +1,5 @@
+/// A simple infalible debugging facility.
+default interface stderr {
+    /// Print a string to stderr.
+    print: func(message: string)
+}

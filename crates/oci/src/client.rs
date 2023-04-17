@@ -42,8 +42,13 @@ impl Client {
         Ok(Self { oci: client, cache })
     }
 
-    /// Push a Spin application to an OCI registry.
-    pub async fn push(&mut self, app: &Application, reference: impl AsRef<str>) -> Result<()> {
+    /// Push a Spin application to an OCI registry and return the digest (or None
+    /// if the digest cannot be determined).
+    pub async fn push(
+        &mut self,
+        app: &Application,
+        reference: impl AsRef<str>,
+    ) -> Result<Option<String>> {
         let reference: Reference = reference
             .as_ref()
             .parse()
@@ -121,7 +126,7 @@ impl Client {
             components.push(c);
         }
         locked.components = components;
-        locked.metadata.remove(&"origin".to_string());
+        locked.metadata.remove("origin");
 
         let oci_config = Config {
             data: serde_json::to_vec(&locked)?,
@@ -138,7 +143,8 @@ impl Client {
 
         tracing::info!("Pushed {:?}", response);
 
-        Ok(())
+        let digest = digest_from_url(&response);
+        Ok(digest)
     }
 
     /// Pull a Spin application from an OCI registry.
@@ -352,5 +358,32 @@ impl Client {
             protocol,
             ..Default::default()
         }
+    }
+}
+
+fn digest_from_url(manifest_url: &str) -> Option<String> {
+    // The URL is in the form "https://host/v2/refname/manifests/sha256:..."
+    let manifest_url = Url::parse(manifest_url).ok()?;
+    let segments = manifest_url.path_segments()?;
+    let last = segments.last()?;
+    if last.contains(':') {
+        Some(last.to_owned())
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn can_parse_digest_from_manifest_url() {
+        let manifest_url = "https://ghcr.io/v2/itowlson/osf/manifests/sha256:0a867093096e0ef01ef749b12b6e7a90e4952eda107f89a676eeedce63a8361f";
+        let digest = digest_from_url(manifest_url).unwrap();
+        assert_eq!(
+            "sha256:0a867093096e0ef01ef749b12b6e7a90e4952eda107f89a676eeedce63a8361f",
+            digest
+        );
     }
 }

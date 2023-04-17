@@ -1,32 +1,20 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use wit_bindgen_gen_core::{wit_parser::Interface, Direction, Files, Generator};
-use wit_bindgen_gen_rust_wasm::RustWasm;
 
 /// The entrypoint to a Spin HTTP component written in Rust.
 #[proc_macro_attribute]
 pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    const HTTP_COMPONENT_WIT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/wit/spin-http.wit");
+    const HTTP_COMPONENT_WIT: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/wit/spin-http.wit"));
 
     let func = syn::parse_macro_input!(item as syn::ItemFn);
     let func_name = &func.sig.ident;
 
-    let iface = Interface::parse_file(HTTP_COMPONENT_WIT_PATH)
-        .expect("cannot parse Spin HTTP interface file");
-
-    let mut files = Files::default();
-    RustWasm::new().generate_one(&iface, Direction::Export, &mut files);
-    let (_, contents) = files.iter().next().unwrap();
-    let iface_tokens: TokenStream = std::str::from_utf8(contents)
-        .expect("cannot parse UTF-8 from Spin HTTP interface file")
-        .parse()
-        .expect("cannot parse Spin HTTP interface file");
-    let iface = syn::parse_macro_input!(iface_tokens as syn::ItemMod);
-
     quote!(
-        #iface
+        wit_bindgen_rust::export!({src["spin_http"]: #HTTP_COMPONENT_WIT});
 
         struct SpinHttp;
+
         impl spin_http::SpinHttp for SpinHttp {
             // Implement the `handler` entrypoint for Spin HTTP components.
             fn handle_http_request(req: spin_http::Request) -> spin_http::Response {
@@ -34,9 +22,14 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 match #func_name(req.try_into().expect("cannot convert from Spin HTTP request")) {
                     Ok(resp) => resp.try_into().expect("cannot convert to Spin HTTP response"),
-                    Err(e) => {
-                        let body = e.to_string();
+                    Err(error) => {
+                        let body = error.to_string();
                         eprintln!("Handler returned an error: {}", body);
+                        let mut source = error.source();
+                        while let Some(s) = source {
+                            eprintln!("  caused by: {}", s);
+                            source = s.source();
+                        }
                         spin_http::Response {
                             status: 500,
                             headers: None,

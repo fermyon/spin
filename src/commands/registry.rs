@@ -6,9 +6,6 @@ use std::{io::Read, path::PathBuf};
 use crate::opts::*;
 
 /// Commands for working with OCI registries to distribute applications.
-/// The set of commands for OCI is EXPERIMENTAL, and may change in future versions of Spin.
-/// Currently, the OCI commands are reusing the credentials from ~/.docker/config.json to
-/// authenticate to registries.
 #[derive(Subcommand, Debug)]
 pub enum RegistryCommands {
     /// Push a Spin application to a registry.
@@ -61,10 +58,16 @@ impl Push {
             .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
 
         let dir = tempfile::tempdir()?;
-        let app = spin_loader::local::from_file(&app_file, Some(dir.path()), &None).await?;
+        let app = spin_loader::local::from_file(&app_file, Some(dir.path())).await?;
 
         let mut client = spin_oci::Client::new(self.insecure, None).await?;
-        client.push(&app, &self.reference).await?;
+        let digest = client.push(&app, &self.reference).await?;
+
+        match digest {
+            Some(digest) => println!("Pushed with digest {digest}"),
+            None => println!("Pushed; the registry did not return the digest"),
+        };
+
         Ok(())
     }
 }

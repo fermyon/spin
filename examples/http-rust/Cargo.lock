@@ -147,14 +147,12 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
- "wit-bindgen-gen-core",
- "wit-bindgen-gen-rust-wasm",
  "wit-bindgen-rust",
 ]
 
 [[package]]
 name = "spin-sdk"
-version = "0.10.0-pre0"
+version = "1.1.0-pre0"
 dependencies = [
  "anyhow",
  "bytes",

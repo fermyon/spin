@@ -3,7 +3,6 @@ use clap::{CommandFactory, Parser, Subcommand};
 use is_terminal::IsTerminal;
 use lazy_static::lazy_static;
 use spin_cli::commands::{
-    bindle::BindleCommands,
     build::BuildCommand,
     cloud::CloudCommands,
     deploy::DeployCommand,
@@ -14,17 +13,21 @@ use spin_cli::commands::{
     registry::RegistryCommands,
     templates::TemplateCommands,
     up::UpCommand,
+    watch::WatchCommand,
 };
-use spin_http::HttpTrigger;
 use spin_redis_engine::RedisTrigger;
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
 use spin_trigger::cli::TriggerExecutorCommand;
+use spin_trigger_http::HttpTrigger;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive("watchexec=off".parse()?),
+        )
         .with_ansi(std::io::stderr().is_terminal())
         .init();
     SpinApp::parse().run().await
@@ -52,8 +55,6 @@ enum SpinApp {
     Add(AddCommand),
     Up(UpCommand),
     #[clap(subcommand)]
-    Bindle(BindleCommands),
-    #[clap(subcommand)]
     Cloud(CloudCommands),
     // acts as a cross-level subcommand shortcut -> `spin cloud deploy`
     Deploy(DeployCommand),
@@ -68,6 +69,7 @@ enum SpinApp {
     Trigger(TriggerCommands),
     #[clap(external_subcommand)]
     External(Vec<String>),
+    Watch(WatchCommand),
 }
 
 #[derive(Subcommand)]
@@ -86,7 +88,6 @@ impl SpinApp {
             Self::Up(cmd) => cmd.run().await,
             Self::New(cmd) => cmd.run().await,
             Self::Add(cmd) => cmd.run().await,
-            Self::Bindle(cmd) => cmd.run().await,
             Self::Cloud(cmd) => cmd.run().await,
             Self::Deploy(cmd) => cmd.run().await,
             Self::Login(cmd) => cmd.run().await,
@@ -97,6 +98,7 @@ impl SpinApp {
             Self::Trigger(TriggerCommands::HelpArgsOnly(cmd)) => cmd.run().await,
             Self::Plugins(cmd) => cmd.run().await,
             Self::External(cmd) => execute_external_subcommand(cmd, SpinApp::command()).await,
+            Self::Watch(cmd) => cmd.run().await,
         }
     }
 }

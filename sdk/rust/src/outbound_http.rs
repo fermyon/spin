@@ -1,4 +1,4 @@
-use http::{header::HeaderName, HeaderValue};
+use http_types::{header::HeaderName, HeaderValue};
 
 use super::http::{Request, Response};
 
@@ -42,7 +42,7 @@ pub fn send_request(req: Request) -> Result<Response> {
         body,
     } = wasi_outbound_http::request(out_req)?;
 
-    let resp_builder = http::response::Builder::new().status(status);
+    let resp_builder = http_types::response::Builder::new().status(status);
     let resp_builder = headers
         .into_iter()
         .flatten()
@@ -64,11 +64,11 @@ fn try_header_to_strs<'k, 'v>(
     ))
 }
 
-impl TryFrom<http::Method> for wasi_outbound_http::Method {
+impl TryFrom<http_types::Method> for wasi_outbound_http::Method {
     type Error = OutboundHttpError;
 
-    fn try_from(method: http::Method) -> Result<Self> {
-        use http::Method;
+    fn try_from(method: http_types::Method) -> Result<Self> {
+        use http_types::Method;
         use wasi_outbound_http::Method::*;
         Ok(match method {
             Method::GET => Get,

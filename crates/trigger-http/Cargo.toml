@@ -1,0 +1,47 @@
+[package]
+name = "spin-trigger-http"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+clap = "3"
+futures = "0.3"
+futures-util = "0.3.8"
+http = "0.2"
+hyper = { version = "0.14", features = ["full"] }
+indexmap = "1"
+percent-encoding = "2"
+rustls-pemfile = "0.3.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1"
+spin-app = { path = "../app" }
+spin-core = { path = "../core" }
+spin-trigger = { path = "../trigger" }
+spin-http = { path = "../http" }
+tls-listener = { version = "0.4.0", features = [
+    "rustls",
+    "hyper-h1",
+    "hyper-h2",
+] }
+tokio = { version = "1.23", features = ["full"] }
+tokio-rustls = { version = "0.23.2" }
+tracing = { workspace = true }
+wit-bindgen-wasmtime = { workspace = true }
+wasmtime = { workspace = true }
+wasmtime-wasi = { workspace = true }
+wasi-common-preview1 = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.3.5", features = ["async_tokio"] }
+num_cpus = "1"
+spin-testing = { path = "../testing" }
+
+[[bench]]
+name = "baseline"
+harness = false

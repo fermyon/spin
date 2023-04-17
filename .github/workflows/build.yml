@@ -3,11 +3,11 @@
 name: Rust
 on:
   push:
-    branches: [main]
+    branches: ["main", "v*"]
     # Also run on tag pushes, as the release.yml doesn't currently run tests
     tags: ["v*"]
   pull_request:
-    branches: [main]
+    branches: ["main", "v*"]
     paths-ignore:
       - "docs/**"
       - "README.md"
@@ -26,6 +26,7 @@ jobs:
         uses: ./.github/actions/spin-ci-dependencies
         with:
           rust: true
+          rust-wasm: true
           rust-cache: true
 
       - name: Cargo Format

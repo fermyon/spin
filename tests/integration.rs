@@ -14,6 +14,9 @@ mod integration_tests {
     use tempfile::tempdir;
     use tokio::{net::TcpStream, time::sleep};
 
+    const TIMER_TRIGGER_INTEGRATION_TEST: &str = "examples/spin-timer/app-example";
+    const TIMER_TRIGGER_DIRECTORY: &str = "examples/spin-timer";
+
     const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
 
     const DEFAULT_MANIFEST_LOCATION: &str = "spin.toml";
@@ -24,15 +27,11 @@ mod integration_tests {
     #[cfg(feature = "fermyon-platform")]
     mod fermyon_platform {
         use super::*;
-        use hyper::header::HeaderName;
         use std::path::PathBuf;
         use tempfile::TempDir;
         use which::which;
 
-        const RUST_HTTP_INTEGRATION_TEST_REF: &str = "spin-hello-world/1.0.0";
-
         const RUST_HTTP_HEADERS_ENV_ROUTES_TEST: &str = "tests/http/headers-env-routes-test";
-        const RUST_HTTP_HEADERS_ENV_ROUTES_TEST_REF: &str = "spin-headers-env-routes-test/1.0.0";
 
         const BINDLE_SERVER_BINARY: &str = "bindle-server";
         const NOMAD_BINARY: &str = "nomad";
@@ -40,8 +39,6 @@ mod integration_tests {
 
         const BINDLE_SERVER_PATH_ENV: &str = "SPIN_TEST_BINDLE_SERVER_PATH";
         const BINDLE_SERVER_BASIC_AUTH_HTPASSWD_FILE: &str = "tests/http/htpasswd";
-        const BINDLE_SERVER_BASIC_AUTH_USER: &str = "bindle-user";
-        const BINDLE_SERVER_BASIC_AUTH_PASSWORD: &str = "topsecret";
 
         const HIPPO_BASIC_AUTH_USER: &str = "hippo-user";
         const HIPPO_BASIC_AUTH_PASSWORD: &str = "topsecret";
@@ -56,185 +53,6 @@ mod integration_tests {
                 .with_context(|| format!("Can't find {}", get_process(NOMAD_BINARY)))?;
             which(get_process(HIPPO_BINARY))
                 .with_context(|| format!("Can't find {}", get_process(HIPPO_BINARY)))?;
-
-            Ok(())
-        }
-
-        #[tokio::test]
-        async fn test_bindle_roundtrip_no_auth() -> Result<()> {
-            // start the Bindle registry.
-            let config = BindleTestControllerConfig {
-                basic_auth_enabled: false,
-            };
-            let b = BindleTestController::new(config).await?;
-
-            // push the application to the registry using the Spin CLI.
-            run(
-                vec![
-                    SPIN_BINARY,
-                    "bindle",
-                    "push",
-                    "--file",
-                    &format!(
-                        "{}/{}",
-                        RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
-                    ),
-                    "--bindle-server",
-                    &b.url,
-                ],
-                None,
-                None,
-            )?;
-
-            // start Spin using the bindle reference of the application that was just pushed.
-            let s = SpinTestController::with_bindle(RUST_HTTP_INTEGRATION_TEST_REF, &b.url, &[])
-                .await?;
-
-            assert_status(&s, "/test/hello", 200).await?;
-            assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
-            assert_status(&s, "/thisshouldfail", 404).await?;
-
-            Ok(())
-        }
-
-        #[tokio::test]
-        async fn test_bindle_roundtrip_basic_auth() -> Result<()> {
-            // start the Bindle registry.
-            let config = BindleTestControllerConfig {
-                basic_auth_enabled: true,
-            };
-            let b = BindleTestController::new(config).await?;
-
-            // push the application to the registry using the Spin CLI.
-            run(
-                vec![
-                    SPIN_BINARY,
-                    "bindle",
-                    "push",
-                    "--file",
-                    &format!(
-                        "{}/{}",
-                        RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
-                    ),
-                    "--bindle-server",
-                    &b.url,
-                    "--bindle-username",
-                    BINDLE_SERVER_BASIC_AUTH_USER,
-                    "--bindle-password",
-                    BINDLE_SERVER_BASIC_AUTH_PASSWORD,
-                ],
-                None,
-                None,
-            )?;
-
-            // start Spin using the bindle reference of the application that was just pushed.
-            let s = SpinTestController::with_bindle(RUST_HTTP_INTEGRATION_TEST_REF, &b.url, &[])
-                .await?;
-
-            assert_status(&s, "/test/hello", 200).await?;
-            assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
-            assert_status(&s, "/thisshouldfail", 404).await?;
-
-            Ok(())
-        }
-
-        #[tokio::test]
-        async fn test_headers_env_routes() -> Result<()> {
-            // start the Bindle registry.
-            let config = BindleTestControllerConfig {
-                basic_auth_enabled: false,
-            };
-            let b = BindleTestController::new(config).await?;
-
-            // push the application to the registry using the Spin CLI.
-            run(
-                vec![
-                    SPIN_BINARY,
-                    "bindle",
-                    "push",
-                    "--file",
-                    &format!(
-                        "{}/{}",
-                        RUST_HTTP_HEADERS_ENV_ROUTES_TEST, DEFAULT_MANIFEST_LOCATION
-                    ),
-                    "--bindle-server",
-                    &b.url,
-                ],
-                None,
-                None,
-            )?;
-
-            // start Spin using the bindle reference of the application that was just pushed.
-            let s = SpinTestController::with_bindle(
-                RUST_HTTP_HEADERS_ENV_ROUTES_TEST_REF,
-                &b.url,
-                &["foo=bar"],
-            )
-            .await?;
-
-            assert_status(&s, "/env", 200).await?;
-
-            verify_headers(
-                &s,
-                "/env/foo",
-                200,
-                &[("env_foo", "bar"), ("env_some_key", "some_value")],
-                "/foo",
-            )
-            .await?;
-
-            Ok(())
-        }
-
-        #[tokio::test]
-        async fn test_using_parcel_as_module_source() -> Result<()> {
-            let wasm_path = PathBuf::from(RUST_HTTP_INTEGRATION_TEST)
-                .join("target")
-                .join("wasm32-wasi")
-                .join("release")
-                .join("simple_spin_rust.wasm");
-            let parcel_sha = file_digest_string(&wasm_path).expect("failed to get sha for parcel");
-
-            // start the Bindle registry.
-            let config = BindleTestControllerConfig {
-                basic_auth_enabled: false,
-            };
-            let b = BindleTestController::new(config).await?;
-
-            // push the application to the registry using the Spin CLI.
-            run(
-                vec![
-                    SPIN_BINARY,
-                    "bindle",
-                    "push",
-                    "--file",
-                    &format!(
-                        "{}/{}",
-                        RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
-                    ),
-                    "--bindle-server",
-                    &b.url,
-                ],
-                None,
-                None,
-            )?;
-
-            let manifest_template =
-                format!("{}/{}", RUST_HTTP_INTEGRATION_TEST, "spin-from-parcel.toml");
-            let manifest = replace_text(&manifest_template, "AWAITING_PARCEL_SHA", &parcel_sha);
-
-            let s = SpinTestController::with_manifest(
-                &format!("{}", manifest.path.display()),
-                &[],
-                &[],
-                Some(&b.url),
-            )
-            .await?;
-
-            assert_status(&s, "/test/hello", 200).await?;
-            assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
-            assert_status(&s, "/thisshouldfail", 404).await?;
-            assert_status(&s, "/test/hello/test-placement", 200).await?;
 
             Ok(())
         }
@@ -282,38 +100,6 @@ mod integration_tests {
 
             let apps_vm = hippo.client.list_apps().await?;
             assert_eq!(apps_vm.items.len(), 1, "hippo apps: {apps_vm:?}");
-
-            Ok(())
-        }
-
-        async fn verify_headers(
-            s: &SpinTestController,
-            absolute_uri: &str,
-            expected: u16,
-            expected_env_as_headers: &[(&str, &str)],
-            expected_path_info: &str,
-        ) -> Result<()> {
-            let res = req(s, absolute_uri).await?;
-            assert_eq!(res.status(), expected);
-
-            // check the environment variables sent back as headers:
-            for (k, v) in expected_env_as_headers {
-                assert_eq!(
-                    &res.headers()
-                        .get(HeaderName::from_bytes(k.as_bytes())?)
-                        .unwrap_or_else(|| panic!("cannot find header {}", k))
-                        .to_str()?,
-                    v
-                );
-            }
-
-            assert_eq!(
-                res.headers()
-                    .get(HeaderName::from_bytes("spin-path-info".as_bytes())?)
-                    .unwrap_or_else(|| panic!("cannot find spin-path-info header"))
-                    .to_str()?,
-                expected_path_info
-            );
 
             Ok(())
         }
@@ -521,27 +307,8 @@ mod integration_tests {
             Ok(())
         }
 
-        fn file_digest_string(path: impl AsRef<Path>) -> Result<String> {
-            use sha2::{Digest, Sha256};
-            let mut file = std::fs::File::open(&path)?;
-            let mut sha = Sha256::new();
-            std::io::copy(&mut file, &mut sha)?;
-            let digest_value = sha.finalize();
-            let digest_string = format!("{:x}", digest_value);
-            Ok(digest_string)
-        }
-
         struct AutoDeleteFile {
             pub path: PathBuf,
-        }
-
-        fn replace_text(template_path: impl AsRef<Path>, from: &str, to: &str) -> AutoDeleteFile {
-            let dest = template_path.as_ref().with_extension("temp");
-            let source_text =
-                std::fs::read_to_string(template_path).expect("failed to read manifest template");
-            let result_text = source_text.replace(from, to);
-            std::fs::write(&dest, result_text).expect("failed to write temp manifest");
-            AutoDeleteFile { path: dest }
         }
 
         impl Drop for AutoDeleteFile {
@@ -593,6 +360,57 @@ mod integration_tests {
         assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
         assert_status(&s, "/thisshouldfail", 404).await?;
         assert_status(&s, "/test/hello/test-placement", 200).await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_timer_trigger() -> Result<()> {
+        use std::fs;
+
+        let trigger_dir = Path::new(TIMER_TRIGGER_DIRECTORY);
+
+        // Conventionally, we would do all Cargo builds of test code in build.rs, but this one can take a lot
+        // longer than the tiny tests we normally build there (and it's pointless if the user just wants to build
+        // Spin without running any tests) so we do it here instead.  Subsequent builds after the first one should
+        // be very fast.
+        assert!(Command::new("cargo")
+            .arg("build")
+            .arg("--release")
+            .current_dir(trigger_dir)
+            .status()?
+            .success());
+
+        // Create a test plugin store so we don't modify the user's real one.
+        let plugin_store_dir = Path::new(concat!(env!("OUT_DIR"), "/plugin-store"));
+        let plugins_dir = plugin_store_dir.join("spin/plugins");
+
+        let plugin_dir = plugins_dir.join("trigger-timer");
+        fs::create_dir_all(&plugin_dir)?;
+        fs::copy(
+            trigger_dir.join("target/release/trigger-timer"),
+            plugin_dir.join("trigger-timer"),
+        )?;
+
+        let manifests_dir = plugins_dir.join("manifests");
+        fs::create_dir_all(&manifests_dir)?;
+        // Note that the hash and path in the manifest aren't accurate, but they won't be used anyway for this
+        // test.  We just need something that parses without throwing errors here.
+        fs::copy(
+            Path::new(TIMER_TRIGGER_DIRECTORY).join("trigger-timer.json"),
+            manifests_dir.join("trigger-timer.json"),
+        )?;
+
+        assert!(Command::new(get_process(SPIN_BINARY))
+            .args([
+                "up",
+                "--file",
+                &format!("{TIMER_TRIGGER_INTEGRATION_TEST}/{DEFAULT_MANIFEST_LOCATION}"),
+                "--test",
+            ])
+            .env("TEST_PLUGINS_DIRECTORY", plugin_store_dir)
+            .status()?
+            .success());
 
         Ok(())
     }
@@ -774,43 +592,6 @@ mod integration_tests {
 
             Ok(SpinTestController { url, spin_handle })
         }
-
-        // Unfortunately, this is a lot of duplicated code.
-        #[cfg(feature = "fermyon-platform")]
-        pub async fn with_bindle(
-            id: &str,
-            bindle_url: &str,
-            env: &[&str],
-        ) -> Result<SpinTestController> {
-            let url = format!("127.0.0.1:{}", get_random_port()?);
-            let mut args = vec![
-                "up",
-                "--bindle",
-                id,
-                "--bindle-server",
-                bindle_url,
-                "--listen",
-                &url,
-            ];
-            for v in env {
-                args.push("--env");
-                args.push(v);
-            }
-
-            let mut spin_handle = Command::new(get_process(SPIN_BINARY))
-                .args(args)
-                .env(
-                    "RUST_LOG",
-                    "spin=trace,spin_loader=trace,spin_core=trace,spin_http=trace",
-                )
-                .spawn()
-                .with_context(|| "executing Spin")?;
-
-            // ensure the server is accepting requests before continuing.
-            wait_tcp(&url, &mut spin_handle, SPIN_BINARY).await?;
-
-            Ok(SpinTestController { url, spin_handle })
-        }
     }
 
     impl Drop for SpinTestController {
@@ -845,6 +626,8 @@ mod integration_tests {
                 .collect::<Vec<String>>()
                 .join(" "),
         );
+
+        cmd.env("RUST_LOG", "spin_cli=warn");
         if let Some(envs) = envs {
             for (k, v) in envs {
                 cmd.env(k, v);
@@ -852,10 +635,11 @@ mod integration_tests {
         }
 
         let output = cmd.output()?;
+        println!("STDOUT:\n{}", String::from_utf8_lossy(&output.stdout));
+        println!("STDERR:\n{}", String::from_utf8_lossy(&output.stderr));
+
         let code = output.status.code().expect("should have status code");
         if code != 0 {
-            println!("{:#?}", std::str::from_utf8(&output.stderr)?);
-            println!("{:#?}", std::str::from_utf8(&output.stdout)?);
             panic!("command `{:?}` exited with code {}", cmd, code);
         }
 

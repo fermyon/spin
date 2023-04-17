@@ -20,7 +20,7 @@ use uuid::Uuid;
 use crate::opts::{
     BINDLE_PASSWORD, BINDLE_SERVER_URL_OPT, BINDLE_URL_ENV, BINDLE_USERNAME,
     DEPLOYMENT_ENV_NAME_ENV, HIPPO_PASSWORD, HIPPO_SERVER_URL_OPT, HIPPO_URL_ENV, HIPPO_USERNAME,
-    INSECURE_OPT,
+    INSECURE_OPT, SPIN_AUTH_TOKEN, TOKEN,
 };
 
 // this is the client ID registered in the Cloud's backend
@@ -94,6 +94,14 @@ pub struct LoginCommand {
         requires = HIPPO_USERNAME,
     )]
     pub hippo_password: Option<String>,
+
+    /// Auth Token
+    #[clap(
+        name = TOKEN,
+        long = "token",
+        env = SPIN_AUTH_TOKEN,
+    )]
+    pub token: Option<String>,
 
     /// Display login status
     #[clap(
@@ -212,7 +220,7 @@ impl LoginCommand {
         let path = self.config_file_path()?;
         let data = fs::read_to_string(&path)
             .await
-            .context("Cannnot display login information")?;
+            .context("Cannot display login information")?;
         println!("{}", data);
         Ok(())
     }
@@ -229,18 +237,16 @@ impl LoginCommand {
     async fn run_check_device_code(&self, device_code: &str) -> Result<()> {
         let connection_config = self.anon_connection_config();
         let client = Client::new(connection_config);
-        let token_info = client.login(device_code.to_owned()).await?;
 
-        let token_readiness = if token_info.token.is_some() {
-            TokenReadiness::Ready(token_info)
-        } else {
-            TokenReadiness::Unready
+        let token_readiness = match client.login(device_code.to_owned()).await {
+            Ok(token_info) => TokenReadiness::Ready(token_info),
+            Err(_) => TokenReadiness::Unready,
         };
 
         match token_readiness {
             TokenReadiness::Ready(token_info) => {
                 println!("{}", serde_json::to_string_pretty(&token_info)?);
-                let login_connection = self.login_connection_for_token(token_info);
+                let login_connection = self.login_connection_for_token_info(token_info);
                 self.save_login_info(&login_connection)?;
             }
             TokenReadiness::Unready => {
@@ -256,8 +262,29 @@ impl LoginCommand {
         let login_connection = match self.auth_method() {
             AuthMethod::Github => self.run_interactive_gh_login().await?,
             AuthMethod::UsernameAndPassword => self.run_interactive_basic_login().await?,
+            AuthMethod::Token => self.login_using_token().await?,
         };
         self.save_login_info(&login_connection)
+    }
+
+    async fn login_using_token(&self) -> Result<LoginConnection> {
+        // check that the user passed in a token
+        let token = match self.token.clone() {
+            Some(t) => t,
+            None => return Err(anyhow::anyhow!(format!("No personal access token was provided. Please provide one using either ${} or --{}.", SPIN_AUTH_TOKEN, TOKEN.to_lowercase()))),
+        };
+
+        // Validate the token by calling list_apps API until we have a user info API
+        Client::new(ConnectionConfig {
+            url: self.hippo_server_url.to_string(),
+            insecure: self.insecure,
+            token: token.clone(),
+        })
+        .list_apps()
+        .await
+        .context("Login using the provided personal access token failed. Run `spin login` or create a new token using the Fermyon Cloud user interface.")?;
+
+        Ok(self.login_connection_for_token(token))
     }
 
     async fn run_interactive_gh_login(&self) -> Result<LoginConnection> {
@@ -265,7 +292,7 @@ impl LoginCommand {
         let connection_config = self.anon_connection_config();
         let token_info = github_token(connection_config).await?;
 
-        Ok(self.login_connection_for_token(token_info))
+        Ok(self.login_connection_for_token_info(token_info))
     }
 
     async fn run_interactive_basic_login(&self) -> Result<LoginConnection> {
@@ -332,19 +359,31 @@ impl LoginCommand {
             url: self.hippo_server_url.clone(),
             danger_accept_invalid_certs: self.insecure,
             token: token.token.unwrap_or_default(),
-            expiration: token.expiration.unwrap_or_default(),
+            expiration: token.expiration,
             bindle_url: Some(bindle_url),
             bindle_username,
             bindle_password,
         })
     }
 
-    fn login_connection_for_token(&self, token_info: TokenInfo) -> LoginConnection {
+    fn login_connection_for_token(&self, token: String) -> LoginConnection {
         LoginConnection {
             url: self.hippo_server_url.clone(),
             danger_accept_invalid_certs: self.insecure,
-            token: token_info.token.unwrap_or_default(),
-            expiration: token_info.expiration.unwrap_or_default(),
+            token,
+            expiration: None,
+            bindle_url: None,
+            bindle_username: None,
+            bindle_password: None,
+        }
+    }
+
+    fn login_connection_for_token_info(&self, token_info: TokenInfo) -> LoginConnection {
+        LoginConnection {
+            url: self.hippo_server_url.clone(),
+            danger_accept_invalid_certs: self.insecure,
+            token: token_info.token,
+            expiration: Some(token_info.expiration),
             bindle_url: None,
             bindle_username: None,
             bindle_password: None,
@@ -386,6 +425,8 @@ impl LoginCommand {
             // prompt the user for the authentication method
             // TODO: implement a server "feature" check that tells us what authentication methods it supports
             prompt_for_auth_method()
+        } else if self.token.is_some() {
+            AuthMethod::Token
         } else {
             AuthMethod::Github
         }
@@ -430,12 +471,12 @@ async fn github_token(
 
     println!(
         "\nCopy your one-time code:\n\n{}\n",
-        device_code.user_code.clone().unwrap(),
+        device_code.user_code.clone(),
     );
 
     println!(
         "...and open the authorization page in your browser:\n\n{}\n",
-        device_code.verification_url.clone().unwrap(),
+        device_code.verification_url.clone(),
     );
 
     // The OAuth library should theoretically handle waiting for the device to be authorized, but
@@ -450,16 +491,10 @@ async fn github_token(
             bail!("Timed out waiting to authorize the device. Please execute `spin login` again and authorize the device with GitHub.");
         }
 
-        match client.login(device_code.device_code.clone().unwrap()).await {
+        match client.login(device_code.device_code.clone()).await {
             Ok(response) => {
-                if response.token.is_none() {
-                    println!("Waiting for device authorization...");
-                    tokio::time::sleep(Duration::from_secs(POLL_INTERVAL_SECS)).await;
-                    seconds_elapsed += POLL_INTERVAL_SECS;
-                } else {
-                    println!("Device authorized!");
-                    return Ok(response);
-                }
+                println!("Device authorized!");
+                return Ok(response);
             }
             Err(_) => {
                 println!("Waiting for device authorization...");
@@ -490,7 +525,9 @@ pub struct LoginConnection {
     pub bindle_password: Option<String>,
     pub danger_accept_invalid_certs: bool,
     pub token: String,
-    pub expiration: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub expiration: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -546,6 +583,8 @@ pub enum AuthMethod {
     Github,
     #[clap(name = "username")]
     UsernameAndPassword,
+    #[clap(name = "token")]
+    Token,
 }
 
 fn prompt_for_auth_method() -> AuthMethod {

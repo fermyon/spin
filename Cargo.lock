@@ -547,7 +547,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fac387a98bb7c37292057cffc56d62ecb629900026402633ae9160df93a8766"
 dependencies = [
- "nom 7.1.3",
+ "nom",
 ]
 
 [[package]]
@@ -680,9 +680,9 @@ dependencies = [
 
 [[package]]
 name = "clearscreen"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41aa24cc5e1d6b3fc49ad4cd540b522fedcbe88bc6f259ff16e20e7010b6f8c7"
+checksum = "72f3f22f1a586604e62efd23f78218f3ccdecf7a33c4500db2d37d85a24fe994"
 dependencies = [
  "nix 0.26.2",
  "terminfo",
@@ -1932,7 +1932,7 @@ dependencies = [
  "btoi",
  "gix-date",
  "itoa",
- "nom 7.1.3",
+ "nom",
  "thiserror",
 ]
 
@@ -1950,7 +1950,7 @@ dependencies = [
  "gix-ref",
  "gix-sec",
  "memchr",
- "nom 7.1.3",
+ "nom",
  "once_cell",
  "smallvec",
  "thiserror",
@@ -2039,7 +2039,7 @@ dependencies = [
  "gix-validate",
  "hex",
  "itoa",
- "nom 7.1.3",
+ "nom",
  "smallvec",
  "thiserror",
 ]
@@ -2069,7 +2069,7 @@ dependencies = [
  "gix-tempfile",
  "gix-validate",
  "memmap2",
- "nom 7.1.3",
+ "nom",
  "thiserror",
 ]
 
@@ -2469,8 +2469,7 @@ dependencies = [
 [[package]]
 name = "ignore-files"
 version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd03122ad769f36d57fdedd1e60bded885a8d277a38b0d1b5ea0e11ef642f593"
+source = "git+https://github.com/watchexec/watchexec.git?rev=8e91d26ef6400c1e60b32a8314cbb144fa33f288#8e91d26ef6400c1e60b32a8314cbb144fa33f288"
 dependencies = [
  "futures",
  "gix-config",
@@ -3214,16 +3213,6 @@ dependencies = [
 
 [[package]]
 name = "nom"
-version = "5.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffb4262d26ed83a1c0a33a38fe2bb15797329c85770da05e6b828ddb782627af"
-dependencies = [
- "memchr",
- "version_check",
-]
-
-[[package]]
-name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
@@ -3911,8 +3900,7 @@ dependencies = [
 [[package]]
 name = "project-origins"
 version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "629e0d57f265ca8238345cb616eea8847b8ecb86b5d97d155be2c8963a314379"
+source = "git+https://github.com/watchexec/watchexec.git?rev=8e91d26ef6400c1e60b32a8314cbb144fa33f288#8e91d26ef6400c1e60b32a8314cbb144fa33f288"
 dependencies = [
  "futures",
  "tokio",
@@ -5487,13 +5475,13 @@ dependencies = [
 
 [[package]]
 name = "terminfo"
-version = "0.7.5"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da31aef70da0f6352dbcb462683eb4dd2bfad01cf3fc96cf204547b9a839a585"
+checksum = "666cd3a6681775d22b200409aad3b089c5b99fb11ecdd8a204d9d62f8148498f"
 dependencies = [
  "dirs 4.0.0",
  "fnv",
- "nom 5.1.2",
+ "nom",
  "phf",
  "phf_codegen",
 ]
@@ -6622,8 +6610,7 @@ dependencies = [
 [[package]]
 name = "watchexec"
 version = "2.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8b97d05a9305a9aa6a7bedef64cd012ebc9b6f1f5ed0368fb48f0fe58f96988"
+source = "git+https://github.com/watchexec/watchexec.git?rev=8e91d26ef6400c1e60b32a8314cbb144fa33f288#8e91d26ef6400c1e60b32a8314cbb144fa33f288"
 dependencies = [
  "async-priority-channel",
  "async-recursion",
@@ -6648,8 +6635,7 @@ dependencies = [
 [[package]]
 name = "watchexec-events"
 version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01603bbe02fd75918f010dadad456d47eda14fb8fdcab276b0b4b8362f142ae3"
+source = "git+https://github.com/watchexec/watchexec.git?rev=8e91d26ef6400c1e60b32a8314cbb144fa33f288#8e91d26ef6400c1e60b32a8314cbb144fa33f288"
 dependencies = [
  "nix 0.26.2",
  "notify",
@@ -6659,8 +6645,7 @@ dependencies = [
 [[package]]
 name = "watchexec-signals"
 version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc2a5df96c388901c94ca04055fcd51d4196ca3e971c5e805bd4a4b61dd6a7e5"
+source = "git+https://github.com/watchexec/watchexec.git?rev=8e91d26ef6400c1e60b32a8314cbb144fa33f288#8e91d26ef6400c1e60b32a8314cbb144fa33f288"
 dependencies = [
  "miette",
  "nix 0.26.2",

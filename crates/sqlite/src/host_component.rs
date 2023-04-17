@@ -1,9 +1,11 @@
-use std::path::PathBuf;
+use std::{collections::HashSet, path::PathBuf};
 
-use spin_app::{AppComponent, DynamicHostComponent};
+use spin_app::{AppComponent, DynamicHostComponent, MetadataKey};
 use spin_core::{sqlite, HostComponent};
 
 use crate::SqliteImpl;
+
+pub const DATABASES_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("databases");
 
 #[derive(Debug, Clone)]
 pub enum DatabaseLocation {
@@ -37,7 +39,9 @@ impl HostComponent for SqliteComponent {
 }
 
 impl DynamicHostComponent for SqliteComponent {
-    fn update_data(&self, _data: &mut Self::Data, _component: &AppComponent) -> anyhow::Result<()> {
+    fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> anyhow::Result<()> {
+        let allowed_databases = component.get_metadata(DATABASES_KEY)?.unwrap_or_default();
+        data.component_init(allowed_databases);
         Ok(())
     }
 }

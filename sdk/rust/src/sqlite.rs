@@ -9,9 +9,9 @@ pub type Error = sqlite::Error;
 pub type Row = sqlite::Row;
 
 ///
-pub type DataTypeParam<'a> = sqlite::DataTypeParam<'a>;
+pub type DataTypeParam<'a> = sqlite::ValueParam<'a>;
 ///
-pub type DataTypeResult = sqlite::DataTypeResult;
+pub type DataTypeResult = sqlite::ValueResult;
 
 /// Represents a store in which key value tuples may be placed
 #[derive(Debug)]
@@ -23,16 +23,72 @@ impl Connection {
         Ok(Self(sqlite::open("foo")?))
     }
 
-    /// Make a query against the database
-    pub fn query(&self, statement: &Statement) -> Result<Vec<sqlite::Row>, Error> {
-        sqlite::query(self.0, statement.0)
+    /// Execute a statement against the database
+    pub fn execute<'a>(
+        &self,
+        statement: &str,
+        parameters: &[sqlite::ValueParam<'a>],
+    ) -> Result<(), Error> {
+        sqlite::execute(self.0, statement, parameters)?;
+        Ok(())
     }
 
-    /// Execute a statement against the database
-    pub fn execute(&self, statement: &str) -> Result<(), Error> {
-        let statement = Statement::prepare(statement, &[])?;
-        sqlite::execute(self.0, statement.0)?;
-        Ok(())
+    /// Make a query against the database
+    pub fn query<'a>(
+        &self,
+        query: &str,
+        parameters: &[DataTypeParam<'a>],
+    ) -> Result<Vec<sqlite::Row>, Error> {
+        sqlite::query(self.0, query, parameters)
+    }
+}
+
+impl Row {
+    pub fn get<'a, T: TryFrom<&'a sqlite::ValueResult>>(&'a self, name: &str) -> Option<T> {
+        self.values
+            .iter()
+            .find_map(|c| (c.name == name).then(|| (&c.value).try_into().ok()))
+            .flatten()
+    }
+
+    pub fn geti<'a, T: TryFrom<&'a sqlite::ValueResult>>(&'a self, index: usize) -> Option<T> {
+        self.values
+            .get(index)
+            .map(|c| (&c.value).try_into().ok())
+            .flatten()
+    }
+}
+
+impl<'a> TryFrom<&'a sqlite::ValueResult> for bool {
+    type Error = ();
+
+    fn try_from(value: &'a sqlite::ValueResult) -> Result<Self, Self::Error> {
+        match value {
+            sqlite::ValueResult::Integer(i) => Ok(*i != 0),
+            _ => Err(()),
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a sqlite::ValueResult> for u32 {
+    type Error = ();
+
+    fn try_from(value: &'a sqlite::ValueResult) -> Result<Self, Self::Error> {
+        match value {
+            sqlite::ValueResult::Integer(i) => Ok(*i as u32),
+            _ => Err(()),
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a sqlite::ValueResult> for &'a str {
+    type Error = ();
+
+    fn try_from(value: &'a sqlite::ValueResult) -> Result<Self, Self::Error> {
+        match value {
+            sqlite::ValueResult::Text(s) => Ok(s.as_str()),
+            _ => Err(()),
+        }
     }
 }
 
@@ -43,20 +99,3 @@ impl std::fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
-
-/// A prepared statement
-pub struct Statement(sqlite::Statement);
-
-impl Statement {
-    /// Prepare a statement
-    pub fn prepare(query: &str, params: &[DataTypeParam]) -> Result<Statement, sqlite::Error> {
-        let statement = sqlite::prepare_statement(query, params)?;
-        Ok(Statement(statement))
-    }
-}
-
-impl Drop for Statement {
-    fn drop(&mut self) {
-        sqlite::drop_statement(self.0);
-    }
-}

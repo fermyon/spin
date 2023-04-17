@@ -205,7 +205,6 @@ mod tests {
         assert_eq!(config.state_dir(), None);
         assert_eq!(config.log_dir(), None);
         assert_eq!(default_spin_store_path(&config), None);
-        assert_eq!(config.key_value_sqlite_db_path(), None);
 
         Ok(())
     }
@@ -223,8 +222,6 @@ mod tests {
 
         let default_db_path = default_spin_store_path(&config).unwrap();
         assert!(default_db_path.starts_with(&state_dir));
-        let sqlite_db_path = config.key_value_sqlite_db_path().unwrap();
-        assert!(sqlite_db_path.starts_with(&state_dir));
 
         Ok(())
     }

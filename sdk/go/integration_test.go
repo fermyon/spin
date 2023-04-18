@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -57,14 +56,6 @@ func startSpin(t *testing.T, spinfile string) *testSpin {
 	}
 }
 
-// kill spin and subprocesses.
-func (s *testSpin) kill() error {
-	if pgid, err := syscall.Getpgid(s.cmd.Process.Pid); err == nil {
-		syscall.Kill(-pgid, syscall.SIGKILL)
-	}
-	return nil
-}
-
 func buildTinyGo(t *testing.T, dir string) {
 	t.Helper()
 
@@ -90,9 +81,10 @@ func buildTinyGo(t *testing.T, dir string) {
 func TestSpinRoundTrip(t *testing.T) {
 	buildTinyGo(t, "http/testdata/spin-roundtrip")
 	spin := startSpin(t, "http/testdata/spin-roundtrip/spin.toml")
-	defer spin.kill()
+	defer spin.cancel()
 
 	resp := retryGet(t, spin.url+"/hello")
+	spin.cancel()
 	if resp.Body == nil {
 		t.Fatal("body is nil")
 	}
@@ -114,9 +106,10 @@ func TestSpinRoundTrip(t *testing.T) {
 func TestHTTPTriger(t *testing.T) {
 	buildTinyGo(t, "http/testdata/http-tinygo")
 	spin := startSpin(t, "http/testdata/http-tinygo/spin.toml")
-	defer spin.kill()
+	defer spin.cancel()
 
 	resp := retryGet(t, spin.url+"/hello")
+	spin.cancel()
 	if resp.Body == nil {
 		t.Fatal("body is nil")
 	}

@@ -2,13 +2,14 @@ name: Run Rust audits
 on:
   schedule:
     - cron: '0 0 * * *'
+  workflow_dispatch:
 jobs:
   cargo-vet:
     name: Vet Dependencies
     runs-on: ubuntu-latest
     if: ${{ github.repository_owner == 'fermyon' }}
     env:
-      CARGO_VET_VERSION: 0.4.0
+      CARGO_VET_VERSION: 0.5.0
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust

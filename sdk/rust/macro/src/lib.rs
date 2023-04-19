@@ -81,7 +81,7 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
         ) -> anyhow::Result<()> {
             let headers = http_req.headers_mut().unwrap();
             for (k, v) in &spin_req.headers {
-                headers.insert(
+                headers.append(
                     <http::header::HeaderName as std::str::FromStr>::from_str(k)?,
                     http::header::HeaderValue::from_str(v)?,
                 );
@@ -113,7 +113,7 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
         ) -> anyhow::Result<()> {
             let headers = http_res.headers_mut().unwrap();
             for (k, v) in spin_res.headers.unwrap() {
-                headers.insert(
+                headers.append(
                     <http::header::HeaderName as std::str::FromStr>::from_str(&k)?,
                     http::header::HeaderValue::from_str(&v)?,
                 );

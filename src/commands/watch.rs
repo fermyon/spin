@@ -188,11 +188,26 @@ impl WatchCommand {
             .iter()
             .filter_map(|c| {
                 if let Some(build) = c.build.as_ref() {
-                    if build.watch.is_none() {
-                        // TODO: Make sure that documentation link is pointing specifically to spin watch docs
-                        eprintln!("You haven't configured what to watch for the component: '{}'. Learn how to configure Spin watch at https://developer.fermyon.com", c.id);
+                    match build.watch.clone() {
+                        Some(watch) => {
+                            let Some(workdir) = build.workdir.clone() else {
+                                return Some(watch);
+                            };
+                            Some(
+                                watch
+                                    .iter()
+                                    .filter_map(|ws| workdir.join(ws).to_str().map(String::from))
+                                    .collect::<Vec<String>>(),
+                            )
+                        }
+                        None => {
+                            eprintln!(
+                                "You haven't configured what to watch for the component: '{}'. Learn how to configure Spin watch at https://developer.fermyon.com/common/cli-reference#watch",
+                                c.id
+                            );
+                            None
+                        }
                     }
-                    build.watch.clone()
                 } else {
                     // No build config for this component so lets watch the source instead
                     if let RawModuleSource::FileReference(path) = &c.source {
@@ -286,11 +301,19 @@ mod tests {
             up_args: vec![],
         };
         let path_patterns = watch_command.generate_path_patterns().await.unwrap();
-        assert_eq!(path_patterns.len(), 3);
+        assert_eq!(path_patterns.len(), 5);
         assert_eq!(path_patterns.get(0), Some(&String::from("src/**/*.rs")));
         assert_eq!(path_patterns.get(1), Some(&String::from("Cargo.toml")));
         assert_eq!(
             path_patterns.get(2),
+            Some(&String::from("subcomponent/**/*.go"))
+        );
+        assert_eq!(
+            path_patterns.get(3),
+            Some(&String::from("subcomponent/go.mod"))
+        );
+        assert_eq!(
+            path_patterns.get(4),
             Some(&String::from("tests/watch/http-rust/spin.toml"))
         );
     }
@@ -306,13 +329,17 @@ mod tests {
             up_args: vec![],
         };
         let path_patterns = watch_command.generate_path_patterns().await.unwrap();
-        assert_eq!(path_patterns.len(), 2);
+        assert_eq!(path_patterns.len(), 3);
         assert_eq!(
             path_patterns.get(0),
             Some(&String::from("target/wasm32-wasi/release/http_rust.wasm"))
         );
         assert_eq!(
             path_patterns.get(1),
+            Some(&String::from("subcomponent/main.wasm"))
+        );
+        assert_eq!(
+            path_patterns.get(2),
             Some(&String::from("tests/watch/http-rust/spin.toml"))
         );
     }

@@ -1,16 +1,22 @@
-use std::{convert::Infallible, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    convert::Infallible,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use spin_loader::local::{
-    config::{RawFileMount, RawModuleSource},
+    config::{RawComponentManifestImpl, RawFileMount, RawModuleSource},
     parent_dir,
 };
+use spin_manifest::TriggerConfig;
 use watchexec::{
-    action::{Action, Outcome},
+    action::{Action, PreSpawn},
     config::{InitConfig, RuntimeConfig},
     error::RuntimeError,
-    event::{Event, Priority},
+    event::{Event, Priority, ProcessEnd, Tag},
     handler::SyncFnHandler,
     signal::source::MainSignal::Interrupt,
     ErrorHook, Watchexec,
@@ -21,7 +27,8 @@ use crate::{
         APP_MANIFEST_FILE_OPT, DEFAULT_MANIFEST_FILE, WATCH_CLEAR_OPT, WATCH_DEBOUNCE_OPT,
         WATCH_SKIP_BUILD_OPT,
     },
-    watch_filter::WatchFilter,
+    watch_filter::{Filter, WatchPattern},
+    watch_state::{Effect, Effects, State, WatchState},
 };
 
 /// Build and run the Spin application, rebuilding and restarting it when files change.
@@ -87,54 +94,80 @@ impl WatchCommand {
         ));
 
         // Prepare RuntimeConfig for Watchexec
-        let mut runtime_config = RuntimeConfig::default();
-        let (spin_cmd, spin_args) = self.generate_command();
-        runtime_config.commands(vec![watchexec::command::Command::Exec {
-            prog: spin_cmd,
-            args: spin_args,
-        }]);
         let app_dir = parent_dir(&self.app)?;
-        runtime_config.pathset([app_dir.clone()]);
-        let filter = WatchFilter::new(
-            app_dir.clone(),
-            self.generate_path_patterns().await?,
-            WatchFilter::default_ignore_patterns(),
-        )?;
+        let filter = Arc::new(Filter::new(self.generate_filter_config().await?)?);
+        let watch_state = WatchState::new(self.skip_build, self.clear);
+        let watch_state_clone = watch_state.clone();
+        let mut runtime_config = RuntimeConfig::default();
+        runtime_config.pathset([app_dir]);
         runtime_config.command_grouped(true);
-        runtime_config.filterer(Arc::new(filter));
+        runtime_config.filterer(filter.clone());
         runtime_config.action_throttle(Duration::from_millis(self.debounce));
-        runtime_config.on_action(move |action: Action| {
-            let app_manifest_path = self.app.clone();
+        runtime_config.commands(vec![watchexec::command::Command::Exec {
+            prog: self.generate_command(),
+            args: vec![],
+        }]);
+        runtime_config.on_pre_spawn(move |prespawn: PreSpawn| {
+            let up_args = self.up_args.clone();
+            let manifest_path = self.app.clone().to_str().unwrap().to_owned();
+            let watch_state = watch_state.clone();
             async move {
+                // Dynamically modify the command we're running based on the watch state
+                let state = watch_state.get_state();
+                let spin_args = WatchCommand::generate_arguments(state, up_args, manifest_path);
+                let mut cmd = prespawn.command().await.unwrap();
+                cmd.args(spin_args);
+                tracing::debug!("modifying command to: {cmd:?}");
+                Ok::<(), Infallible>(())
+            }
+        });
+        runtime_config.on_action(move |action: Action| {
+            tracing::debug!("handling action: {action:?}");
+            let filter = filter.clone();
+            let watch_state = watch_state_clone.clone();
+            async move {
+                // Map all the events of this action to an effect
+                let mut effects = Effects::new();
                 for event in action.events.iter() {
-                    // Exit if interrupt signal sent
                     if event.signals().any(|s| s.eq(&Interrupt)) {
-                        action.outcome(Outcome::both(Outcome::Stop, Outcome::Exit));
-                        return Ok::<(), Infallible>(());
+                        effects.add(Effect::Exit);
                     }
-
-                    if event.paths().any(|(p, _)| p.ends_with(app_manifest_path.clone())) {
+                    if event
+                        .tags
+                        .iter()
+                        .any(|t| matches!(t, Tag::ProcessCompletion(Some(ProcessEnd::Success))))
+                    {
+                        effects.add(Effect::ChildProcessCompleted);
+                    }
+                    if event.tags.iter().any(|t| {
+                        matches!(
+                            t,
+                            Tag::ProcessCompletion(None)
+                                | Tag::ProcessCompletion(Some(
+                                    ProcessEnd::Exception(_)
+                                        | ProcessEnd::ExitError(_)
+                                        | ProcessEnd::ExitStop(_)
+                                ))
+                        )
+                    }) {
+                        effects.add(Effect::ChildProcessFailed);
+                    }
+                    if filter.matches_manifest_pattern(event) {
                         // TODO: Reconfigure the watcher
                         eprintln!("Application manifest has changed. If this included changes to the watch configuration, please restart Spin.");
+                        effects.add(Effect::ManifestChange);
+                    }
+                    if filter.matches_source_pattern(event) {
+                        effects.add(Effect::SourceChange);
+                    }
+                    if filter.matches_artifact_pattern(event) {
+                        effects.add(Effect::ArtifactChange);
                     }
                 }
-
-                action.outcome(Outcome::if_running(
-                    Outcome::both(
-                        Outcome::both(
-                            Outcome::Stop,
-                            match self.clear {
-                                true => Outcome::Clear,
-                                false => Outcome::DoNothing,
-                            },
-                        ),
-                        Outcome::Start,
-                    ),
-                    Outcome::Start,
-                ));
-
-            Ok::<(), Infallible>(())
-        }});
+                action.outcome(watch_state.handle(effects.reduce()));
+                Ok::<(), Infallible>(())
+            }
+        });
 
         // Start watching
         let runtime = Watchexec::new(init_config, runtime_config.clone())?;
@@ -145,91 +178,77 @@ impl WatchCommand {
         Ok(())
     }
 
-    fn generate_command(&self) -> (String, Vec<String>) {
+    fn generate_command(&self) -> String {
         // The docs for `current_exe` warn that this may be insecure because it could be executed
         // via hard-link. I think it should be fine as long as we aren't `setuid`ing this binary.
-        let spin_cmd = String::from(
+        String::from(
             std::env::current_exe()
                 .unwrap()
                 .to_str()
                 .expect("to find exe path"),
-        );
-        let mut spin_args = match self.skip_build {
-            false => vec![String::from("build"), String::from("--up")],
-            true => vec![String::from("up")],
-        };
-        spin_args.append(&mut vec![
-            String::from("-f"),
-            self.app.clone().to_str().unwrap().to_owned(),
-        ]);
-        spin_args.append(
-            self.up_args
-                .clone()
-                .into_iter()
-                .collect::<Vec<String>>()
-                .as_mut(),
-        );
-        tracing::info!(
-            "proceeding with command: {} {}",
-            spin_cmd,
-            spin_args.join(" ")
-        );
-        (spin_cmd, spin_args)
+        )
     }
 
-    async fn generate_path_patterns(&self) -> Result<Vec<String>> {
-        // TODO: Spend some time cleaning up this function
+    fn generate_arguments(
+        state: State,
+        up_args: Vec<String>,
+        manifest_path: String,
+    ) -> Vec<String> {
+        let mut spin_args = match state {
+            State::Building => vec![String::from("build")],
+            State::Running => vec![String::from("up")],
+        };
+        spin_args.append(&mut vec![String::from("-f"), manifest_path]);
+        if matches!(state, State::Running) {
+            spin_args.extend(up_args);
+        }
+        spin_args
+    }
+
+    async fn generate_filter_config(&self) -> Result<crate::watch_filter::Config> {
+        let app_dir = parent_dir(&self.app)?;
         let app_manifest = spin_loader::local::raw_manifest_from_file(&self.app)
             .await?
             .into_v1();
 
-        let watch_patterns = app_manifest
-            .components
-            .iter()
-            .filter_map(|c| {
-                if let Some(build) = c.build.as_ref() {
-                    match build.watch.clone() {
-                        Some(watch) => {
-                            let Some(workdir) = build.workdir.clone() else {
-                                return Some(watch);
-                            };
-                            Some(
-                                watch
-                                    .iter()
-                                    .filter_map(|ws| workdir.join(ws).to_str().map(String::from))
-                                    .collect::<Vec<String>>(),
-                            )
-                        }
-                        None => {
-                            eprintln!(
-                                "You haven't configured what to watch for the component: '{}'. Learn how to configure Spin watch at https://developer.fermyon.com/common/cli-reference#watch",
-                                c.id
-                            );
-                            None
-                        }
-                    }
-                } else {
-                    // No build config for this component so lets watch the source instead
-                    if let RawModuleSource::FileReference(path) = &c.source {
-                        if let Some(string_path) = path.to_str() {
-                            return Some(vec![String::from(string_path)]);
-                        }
-                    }
-                    None
-                }
-            })
-            .flatten();
+        // We always want to watch the application manifest
+        let manifest_pattern = WatchPattern::new(
+            self.app
+                .to_str()
+                .with_context(|| format!("non-unicode manifest path {:?}", self.app))?
+                .to_owned(),
+            app_dir.as_path(),
+        )?;
+
+        // We want to watch the source code if we aren't skipping the build step
+        let source_patterns = match !self.skip_build {
+            false => vec![],
+            true => app_manifest
+                .components
+                .iter()
+                .filter_map(|c| WatchCommand::create_source_pattern(c, &app_dir))
+                .flatten()
+                .collect::<Result<Vec<WatchPattern>>>()?,
+        };
+
+        // We want to watch a component's source if it has no build step. If we're skipping
+        // building then we'll watch all component sources.
         let component_source_patterns = app_manifest
             .components
             .iter()
             .filter_map(|c| {
-                if let RawModuleSource::FileReference(path) = &c.source {
-                    return path.to_str();
-                }
-                None
+                let RawModuleSource::FileReference(path) = &c.source else {
+                    return None;
+                };
+                let path_str = path.to_str()?;
+                let watch_this_source = self.skip_build || c.build.is_none();
+                watch_this_source
+                    .then_some(WatchPattern::new(path_str.to_owned(), app_dir.as_path()))
             })
-            .map(String::from);
-        let component_file_patterns = app_manifest
+            .collect::<Result<Vec<WatchPattern>>>()?;
+
+        // We always want to watch component files
+        let files_patterns = app_manifest
             .components
             .iter()
             .filter_map(|c| c.wasm.files.as_ref())
@@ -241,20 +260,51 @@ impl WatchCommand {
                     .to_str()
                     .map(String::from),
                 RawFileMount::Pattern(pattern) => Some(pattern.to_string()),
-            });
+            })
+            .map(|p| WatchPattern::new(p, app_dir.as_path()))
+            .collect::<Result<Vec<WatchPattern>>>()?;
 
-        let mut path_patterns: Vec<String> = match self.skip_build {
-            false => watch_patterns.chain(component_file_patterns).collect(),
-            true => component_source_patterns
-                .chain(component_file_patterns)
-                .collect(),
+        let artifact_patterns = component_source_patterns
+            .into_iter()
+            .chain(files_patterns.into_iter())
+            .collect();
+
+        Ok(crate::watch_filter::Config {
+            manifest_pattern,
+            source_patterns,
+            artifact_patterns,
+            ignore_patterns: Filter::default_ignore_patterns(),
+        })
+    }
+
+    fn create_source_pattern(
+        c: &RawComponentManifestImpl<TriggerConfig>,
+        app_dir: &Path,
+    ) -> Option<Vec<Result<WatchPattern>>> {
+        let build = c.build.as_ref()?;
+        let Some(watch) = build.watch.clone() else {
+            eprintln!(
+                "You haven't configured what to watch for the component: '{}'. Learn how to configure Spin watch at https://developer.fermyon.com/common/cli-reference#watch",
+                c.id
+            );
+            return None;
         };
-        // Always watch spin.toml
-        path_patterns.push(String::from(
-            self.app.to_str().expect("conversion to str not to fail"),
-        ));
-
-        Ok(path_patterns)
+        let sources = build
+            .workdir
+            .clone()
+            .map(|workdir| {
+                watch
+                    .iter()
+                    .filter_map(|w| workdir.join(w).to_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or(watch);
+        Some(
+            sources
+                .into_iter()
+                .map(|s| WatchPattern::new(s, app_dir))
+                .collect::<Vec<Result<WatchPattern>>>(),
+        )
     }
 }
 
@@ -263,35 +313,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_run_build_arguments() {
-        let app_path = "a/path/to/my/app/spin.toml";
-        let watch_command = WatchCommand {
-            app: app_path.into(),
-            clear: false,
-            debounce: 100,
-            skip_build: false,
-            up_args: vec!["--quiet".into()],
-        };
-        let (_, args) = watch_command.generate_command();
-        assert_eq!(args, vec!["build", "--up", "-f", app_path, "--quiet"]);
-    }
-
-    #[test]
-    fn test_skip_build_arguments() {
-        let app_path = "a/path/to/my/app/spin.toml";
-        let watch_command = WatchCommand {
-            app: app_path.into(),
-            clear: false,
-            debounce: 100,
-            skip_build: true,
-            up_args: vec![],
-        };
-        let (_, args) = watch_command.generate_command();
-        assert_eq!(args, vec!["up", "-f", app_path]);
+    fn test_up_args_are_passed_through() {
+        let args = WatchCommand::generate_arguments(
+            State::Running,
+            vec![String::from("--quiet")],
+            String::from("spin.toml"),
+        );
+        assert_eq!(4, args.len());
+        assert_eq!(String::from("up"), *args.get(0).unwrap());
+        assert_eq!(String::from("-f"), *args.get(1).unwrap());
+        assert_eq!(String::from("spin.toml"), *args.get(2).unwrap());
+        assert_eq!(String::from("--quiet"), *args.get(3).unwrap());
     }
 
     #[tokio::test]
-    async fn test_standard_path_patterns() {
+    async fn test_standard_config_proj1() {
         let app_path = "tests/watch/http-rust/spin.toml";
         let watch_command = WatchCommand {
             app: app_path.into(),
@@ -300,26 +336,49 @@ mod tests {
             skip_build: false,
             up_args: vec![],
         };
-        let path_patterns = watch_command.generate_path_patterns().await.unwrap();
-        assert_eq!(path_patterns.len(), 5);
-        assert_eq!(path_patterns.get(0), Some(&String::from("src/**/*.rs")));
-        assert_eq!(path_patterns.get(1), Some(&String::from("Cargo.toml")));
-        assert_eq!(
-            path_patterns.get(2),
-            Some(&String::from("subcomponent/**/*.go"))
-        );
-        assert_eq!(
-            path_patterns.get(3),
-            Some(&String::from("subcomponent/go.mod"))
-        );
-        assert_eq!(
-            path_patterns.get(4),
-            Some(&String::from("tests/watch/http-rust/spin.toml"))
-        );
+        let config = watch_command.generate_filter_config().await.unwrap();
+
+        assert!(config.manifest_pattern.glob.ends_with("spin.toml"));
+
+        assert_eq!(config.source_patterns.len(), 4);
+        assert!(config
+            .source_patterns
+            .get(0)
+            .unwrap()
+            .glob
+            .ends_with("http-rust/src/**/*.rs"));
+        assert!(config
+            .source_patterns
+            .get(1)
+            .unwrap()
+            .glob
+            .ends_with("http-rust/Cargo.toml"));
+        assert!(config
+            .source_patterns
+            .get(2)
+            .unwrap()
+            .glob
+            .ends_with("http-rust/subcomponent/**/*.go"));
+        assert!(config
+            .source_patterns
+            .get(3)
+            .unwrap()
+            .glob
+            .ends_with("http-rust/subcomponent/go.mod"));
+
+        assert_eq!(config.artifact_patterns.len(), 0);
+
+        assert_eq!(config.ignore_patterns.len(), 1);
+        assert!(config
+            .ignore_patterns
+            .get(0)
+            .unwrap()
+            .glob
+            .ends_with("*.swp"));
     }
 
     #[tokio::test]
-    async fn test_standard_path_patterns_skipping_build() {
+    async fn test_skip_build_config_proj1() {
         let app_path = "tests/watch/http-rust/spin.toml";
         let watch_command = WatchCommand {
             app: app_path.into(),
@@ -328,69 +387,80 @@ mod tests {
             skip_build: true,
             up_args: vec![],
         };
-        let path_patterns = watch_command.generate_path_patterns().await.unwrap();
-        assert_eq!(path_patterns.len(), 3);
-        assert_eq!(
-            path_patterns.get(0),
-            Some(&String::from(
-                "target/wasm32-wasi/release/http_rust_watch_test.wasm"
-            ))
-        );
-        assert_eq!(
-            path_patterns.get(1),
-            Some(&String::from("subcomponent/main.wasm"))
-        );
-        assert_eq!(
-            path_patterns.get(2),
-            Some(&String::from("tests/watch/http-rust/spin.toml"))
-        );
+        let config = watch_command.generate_filter_config().await.unwrap();
+
+        assert_eq!(config.source_patterns.len(), 0);
+
+        assert_eq!(config.artifact_patterns.len(), 2);
     }
 
     #[tokio::test]
-    async fn test_asset_path_patterns() {
+    async fn test_standard_config_proj2() {
         let app_path = "tests/watch/static-fileserver/spin.toml";
         let watch_command = WatchCommand {
             app: app_path.into(),
             clear: false,
             debounce: 100,
             skip_build: false,
-            up_args: vec!["--quiet".into()],
+            up_args: vec![],
         };
-        let path_patterns = watch_command.generate_path_patterns().await.unwrap();
-        assert_eq!(path_patterns.len(), 4);
-        assert_eq!(
-            path_patterns.get(0),
-            Some(&String::from("spin_static_fs.wasm"))
-        );
-        assert_eq!(path_patterns.get(1), Some(&String::from("assets/**/*")));
-        assert_eq!(path_patterns.get(2), Some(&String::from("assets2/**/*")));
-        assert_eq!(
-            path_patterns.get(3),
-            Some(&String::from("tests/watch/static-fileserver/spin.toml"))
-        );
+        let config = watch_command.generate_filter_config().await.unwrap();
+
+        assert_eq!(config.source_patterns.len(), 0);
+
+        assert_eq!(config.artifact_patterns.len(), 3);
+        assert!(config
+            .artifact_patterns
+            .get(0)
+            .unwrap()
+            .glob
+            .ends_with("static-fileserver/spin_static_fs.wasm"));
+        assert!(config
+            .artifact_patterns
+            .get(1)
+            .unwrap()
+            .glob
+            .ends_with("static-fileserver/assets/**/*"));
+        assert!(config
+            .artifact_patterns
+            .get(2)
+            .unwrap()
+            .glob
+            .ends_with("static-fileserver/assets2/**/*"));
     }
 
     #[tokio::test]
-    async fn test_asset_path_patterns_skipping_build() {
+    async fn test_skip_build_config_proj2() {
         let app_path = "tests/watch/static-fileserver/spin.toml";
         let watch_command = WatchCommand {
             app: app_path.into(),
             clear: false,
             debounce: 100,
             skip_build: true,
-            up_args: vec!["--quiet".into()],
+            up_args: vec![],
         };
-        let path_patterns = watch_command.generate_path_patterns().await.unwrap();
-        assert_eq!(path_patterns.len(), 4);
-        assert_eq!(
-            path_patterns.get(0),
-            Some(&String::from("spin_static_fs.wasm"))
-        );
-        assert_eq!(path_patterns.get(1), Some(&String::from("assets/**/*")));
-        assert_eq!(path_patterns.get(2), Some(&String::from("assets2/**/*")));
-        assert_eq!(
-            path_patterns.get(3),
-            Some(&String::from("tests/watch/static-fileserver/spin.toml"))
-        );
+        let config = watch_command.generate_filter_config().await.unwrap();
+
+        assert_eq!(config.source_patterns.len(), 0);
+
+        assert_eq!(config.artifact_patterns.len(), 3);
+        assert!(config
+            .artifact_patterns
+            .get(0)
+            .unwrap()
+            .glob
+            .ends_with("static-fileserver/spin_static_fs.wasm"));
+        assert!(config
+            .artifact_patterns
+            .get(1)
+            .unwrap()
+            .glob
+            .ends_with("static-fileserver/assets/**/*"));
+        assert!(config
+            .artifact_patterns
+            .get(2)
+            .unwrap()
+            .glob
+            .ends_with("static-fileserver/assets2/**/*"));
     }
 }

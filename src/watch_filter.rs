@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    sync::{Arc, Mutex},
-    time::SystemTime,
-};
+use std::{collections::HashMap, fmt, path::Path, sync::Mutex, time::SystemTime};
 
 use anyhow::{Context, Result};
 use glob::Pattern;
@@ -17,49 +12,63 @@ use watchexec::{
     signal::source::MainSignal::Interrupt,
 };
 
+/// Filters Watchexec events.
+///
+/// Also enables checking whether an application manifest, source, or artifact was modified.
 #[derive(Debug)]
-pub struct WatchFilter {
-    path_patterns: Vec<Pattern>,
-    ignore_patterns: Vec<Pattern>,
+pub struct Filter {
+    config: Config,
     process_start_time: SystemTime,
-    files_modified_at: Arc<Mutex<HashMap<String, SystemTime>>>,
+    files_modified_at: Mutex<HashMap<String, SystemTime>>,
 }
 
-impl WatchFilter {
-    pub fn new(
-        app_dir: PathBuf,
-        path_patterns: Vec<String>,
-        ignore_patterns: Vec<String>,
-    ) -> Result<Self> {
-        tracing::info!("watching relative to app dir: {app_dir:?}");
-        tracing::info!("watching path patterns: {path_patterns:?}");
-        tracing::info!("ignoring path patterns: {ignore_patterns:?}");
+impl Filter {
+    pub fn new(config: Config) -> Result<Self> {
+        tracing::debug!("watching: {:?}", config);
 
-        Ok(WatchFilter {
-            path_patterns: path_patterns
-                .iter()
-                .map(|path| WatchFilter::app_dir_pattern(&app_dir, path))
-                .collect::<Result<_>>()?,
-            ignore_patterns: ignore_patterns
-                .iter()
-                .map(|path| WatchFilter::app_dir_pattern(&app_dir, path))
-                .collect::<Result<_>>()?,
+        Ok(Filter {
+            config,
             process_start_time: SystemTime::now(),
-            files_modified_at: Arc::new(Mutex::new(HashMap::new())),
+            files_modified_at: Mutex::new(HashMap::new()),
         })
     }
 
-    /// A default set of ignore patterns that can be used by the consumer of WatchFilter.
-    pub fn default_ignore_patterns() -> Vec<String> {
-        vec![String::from("*.swp")]
+    /// A default set of ignore patterns that can be used by the consumer of Filter.
+    pub fn default_ignore_patterns() -> Vec<WatchPattern> {
+        vec!["*.swp"]
+            .iter()
+            .map(|i| WatchPattern {
+                glob: i.to_string(),
+                pattern: Pattern::new(i).unwrap(),
+            })
+            .collect()
     }
 
-    fn app_dir_pattern(app_dir: &Path, path: &str) -> anyhow::Result<Pattern> {
-        let pat = app_dir.join(path);
-        let pat_str = pat
-            .to_str()
-            .with_context(|| format!("non-unicode pattern {path:?}"))?;
-        Pattern::new(pat_str).with_context(|| format!("invalid glob pattern {path:?}"))
+    /// Determine if an event has any paths matching the manifest pattern
+    pub fn matches_manifest_pattern(&self, event: &Event) -> bool {
+        event
+            .paths()
+            .any(|(path, _)| self.config.manifest_pattern.pattern.matches_path(path))
+    }
+
+    /// Determine if an event has any paths matching the source patterns
+    pub fn matches_source_pattern(&self, event: &Event) -> bool {
+        event.paths().any(|(path, _)| {
+            self.config
+                .source_patterns
+                .iter()
+                .any(|wp| wp.pattern.matches_path(path))
+        })
+    }
+
+    /// Determine if an event has any paths matching the artifact patterns
+    pub fn matches_artifact_pattern(&self, event: &Event) -> bool {
+        event.paths().any(|(path, _)| {
+            self.config
+                .artifact_patterns
+                .iter()
+                .any(|wp| wp.pattern.matches_path(path))
+        })
     }
 
     fn has_valid_event_kind(&self, event: &Event) -> bool {
@@ -76,19 +85,20 @@ impl WatchFilter {
         })
     }
 
-    fn matches_one_of_ignore_patterns(&self, event: &Event) -> bool {
-        event.paths().any(|(path, _)| {
-            self.ignore_patterns
-                .iter()
-                .any(|pattern| pattern.matches_path(path))
-        })
+    /// Used by `check_event` to see if the event matches any patterns that we should watch.
+    fn matches_one_of_watched_patterns(&self, event: &Event) -> bool {
+        self.matches_manifest_pattern(event)
+            || self.matches_source_pattern(event)
+            || self.matches_artifact_pattern(event)
     }
 
-    fn matches_one_of_path_patterns(&self, event: &Event) -> bool {
+    /// Used by `check_event` to see if the event matches any ignore patterns that we should watch.
+    fn matches_one_of_ignore_patterns(&self, event: &Event) -> bool {
         event.paths().any(|(path, _)| {
-            self.path_patterns
+            self.config
+                .ignore_patterns
                 .iter()
-                .any(|pattern| pattern.matches_path(path))
+                .any(|wp| wp.pattern.matches_path(path))
         })
     }
 
@@ -127,31 +137,43 @@ impl WatchFilter {
     }
 }
 
-impl Filterer for WatchFilter {
+impl Filterer for Filter {
     fn check_event(&self, event: &Event, _: Priority) -> std::result::Result<bool, RuntimeError> {
         // All interrupt signals are allowed through
         for signal in event.signals() {
             if let Interrupt = signal {
-                tracing::trace!("passing event b/c of interrupt signal: {event:?}");
+                tracing::debug!("passing event (interrupt signal): {event:?}");
                 return Ok(true);
             }
         }
 
+        // All process completion events are allowed through
+        if event
+            .tags
+            .iter()
+            .any(|t| matches!(t, Tag::ProcessCompletion(_)))
+        {
+            tracing::debug!("passing event (process completion): {event:?}");
+            return Ok(true);
+        }
+
         // Fail if the event kind wasn't creation, modification, or deletion
         if !self.has_valid_event_kind(event) {
-            tracing::trace!("failing event b/c of event kind: {event:?}");
+            tracing::trace!("failing event (irrelevant event kind): {event:?}");
             return Ok(false);
         }
 
         // Fail if a path matches the ignored patterns
         if self.matches_one_of_ignore_patterns(event) {
-            tracing::trace!("failing event b/c it matches ignore pattern: {event:?}");
+            tracing::trace!("failing event (matches ignore pattern): {event:?}");
             return Ok(false);
         }
 
         // Fail if a path doesn't match one of the given path patterns
-        if !self.matches_one_of_path_patterns(event) {
-            tracing::trace!("failing event b/c it doesn't match path pattern: {event:?}");
+        if !self.matches_one_of_watched_patterns(event) {
+            tracing::trace!(
+                "failing event (doesn't match source/artifact/manifest pattern): {event:?}"
+            );
             return Ok(false);
         }
 
@@ -160,7 +182,7 @@ impl Filterer for WatchFilter {
             match self.path_has_been_actually_modified(event) {
                 Ok(true) => {}
                 Ok(false) => {
-                    tracing::trace!("failing event b/c it wasn't actually modified: {event:?}");
+                    tracing::trace!("failing event (wasn't actually modified): {event:?}");
                     return Ok(false);
                 }
                 Err(err) => {
@@ -173,8 +195,47 @@ impl Filterer for WatchFilter {
         }
 
         // By process of elimination the event is valid
-        tracing::trace!("passing event: {event:?}");
+        tracing::debug!("passing event: {event:?}");
         Ok(true)
+    }
+}
+
+/// Configuration for the watch filter.
+#[derive(Debug)]
+pub struct Config {
+    pub manifest_pattern: WatchPattern,
+    pub source_patterns: Vec<WatchPattern>,
+    pub artifact_patterns: Vec<WatchPattern>,
+    pub ignore_patterns: Vec<WatchPattern>,
+}
+
+/// Describes a glob file pattern that should be watched.
+pub struct WatchPattern {
+    /// String version of the absolute glob pattern.
+    pub glob: String,
+    /// Absolute glob pattern.
+    pub pattern: Pattern,
+}
+
+impl WatchPattern {
+    pub fn new(glob: String, app_dir: &Path) -> Result<Self> {
+        let new_glob = app_dir.join(glob.clone());
+        let new_glob_str = new_glob
+            .to_str()
+            .with_context(|| format!("non-unicode pattern {glob:?}"))?;
+        Ok(WatchPattern {
+            glob: new_glob_str.to_owned(),
+            pattern: Pattern::new(new_glob_str)
+                .with_context(|| format!("invalid glob pattern {glob:?}"))?,
+        })
+    }
+}
+
+impl fmt::Debug for WatchPattern {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("WatchPattern")
+            .field("glob", &self.glob)
+            .finish()
     }
 }
 
@@ -182,6 +243,7 @@ impl Filterer for WatchFilter {
 mod tests {
     use std::fs;
     use std::io::Write;
+    use std::path::PathBuf;
 
     use watchexec::event::filekind::{CreateKind, DataChange, MetadataKind, RemoveKind};
     use watchexec::event::{FileType, Source};
@@ -196,8 +258,17 @@ mod tests {
         (root, file_path, file)
     }
 
-    fn make_filter(root: PathBuf, path_patterns: Vec<String>) -> WatchFilter {
-        WatchFilter::new(root, path_patterns, WatchFilter::default_ignore_patterns()).unwrap()
+    fn make_filter(root: PathBuf, source_patterns: Vec<String>) -> Result<Filter> {
+        // Not particularly relevant whether globs are sources or artifacts
+        Filter::new(Config {
+            manifest_pattern: WatchPattern::new("spin.toml".to_owned(), root.as_path())?,
+            source_patterns: source_patterns
+                .iter()
+                .map(|p| WatchPattern::new(p.to_owned(), root.as_path()))
+                .collect::<Result<Vec<WatchPattern>>>()?,
+            artifact_patterns: vec![],
+            ignore_patterns: Filter::default_ignore_patterns(),
+        })
     }
 
     fn make_event(file_path: PathBuf, file_event_kind: FileEventKind) -> Event {
@@ -217,7 +288,7 @@ mod tests {
     #[test]
     fn test_modify_watched_file() {
         let (root, file_path, mut file) = make_directory_and_file("rs");
-        let filter = make_filter(root.path().to_path_buf(), vec![String::from("**/*.rs")]);
+        let filter = make_filter(root.path().to_path_buf(), vec![String::from("**/*.rs")]).unwrap();
 
         file.write_all(b"hello world!").unwrap();
 
@@ -233,7 +304,7 @@ mod tests {
     #[test]
     fn test_modify_ignored_file() {
         let (root, file_path, mut file) = make_directory_and_file("swp");
-        let filter = make_filter(root.path().to_path_buf(), vec![String::from("**/*.rs")]);
+        let filter = make_filter(root.path().to_path_buf(), vec![String::from("**/*.rs")]).unwrap();
 
         file.write_all(b"hello world!").unwrap();
 
@@ -250,7 +321,7 @@ mod tests {
     fn test_create_watched_file() {
         let root = tempfile::tempdir().unwrap();
 
-        let filter = make_filter(root.path().to_path_buf(), vec![String::from("**/*.rs")]);
+        let filter = make_filter(root.path().to_path_buf(), vec![String::from("**/*.rs")]).unwrap();
 
         let mut file_path = root.path().join("a");
         file_path.set_extension("rs");
@@ -265,7 +336,7 @@ mod tests {
     #[test]
     fn test_remove_watched_file() {
         let (root, file_path, _file) = make_directory_and_file("rs");
-        let filter = make_filter(root.path().to_path_buf(), vec![String::from("**/*.rs")]);
+        let filter = make_filter(root.path().to_path_buf(), vec![String::from("**/*.rs")]).unwrap();
 
         fs::remove_file(file_path.clone()).unwrap();
 
@@ -278,7 +349,7 @@ mod tests {
     #[test]
     fn test_modify_metadata_watched_file() {
         let (root, file_path, file) = make_directory_and_file("rs");
-        let filter = make_filter(root.path().to_path_buf(), vec![String::from("**/*.rs")]);
+        let filter = make_filter(root.path().to_path_buf(), vec![String::from("**/*.rs")]).unwrap();
 
         let mut perms = file.metadata().unwrap().permissions();
         perms.set_readonly(true);
@@ -297,7 +368,7 @@ mod tests {
     #[cfg(target_os = "macos")]
     fn test_erroneously_modify_watched_file() {
         let (root, file_path, _file) = make_directory_and_file("rs");
-        let filter = make_filter(root.path().to_path_buf(), vec![String::from("**/*.rs")]);
+        let filter = make_filter(root.path().to_path_buf(), vec![String::from("**/*.rs")]).unwrap();
 
         let event = make_event(
             file_path,

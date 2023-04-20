@@ -5,6 +5,10 @@ type connection = u32
 variant error {
   // The host does not recognize the database name requested.
   no-such-database,
+  // The requesting component does not have access to the specified database (which may or may not exist).
+  access-denied,
+  // The provided connection is not valid
+  invalid-connection,
   // Some implementation-specific error has occurred (e.g. I/O)
   io(string)
 }

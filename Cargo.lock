@@ -5426,10 +5426,12 @@ name = "spin-sqlite"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "once_cell",
  "rand 0.8.5",
  "rusqlite",
  "spin-app",
  "spin-core",
+ "spin-key-value",
  "wit-bindgen-wasmtime",
 ]
 

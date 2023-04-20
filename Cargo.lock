@@ -2297,7 +2297,7 @@ dependencies = [
 [[package]]
 name = "host"
 version = "0.0.0"
-source = "git+https://github.com/fermyon/spin-componentize?rev=51c3fade751c4e364142719e42130943fd8b0a76#51c3fade751c4e364142719e42130943fd8b0a76"
+source = "git+https://github.com/fermyon/spin-componentize?branch=sqlite#ee10c193f985aed705003c7af1d9bb8c5a735d8e"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5054,7 +5054,7 @@ dependencies = [
 [[package]]
 name = "spin-componentize"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/spin-componentize?rev=51c3fade751c4e364142719e42130943fd8b0a76#51c3fade751c4e364142719e42130943fd8b0a76"
+source = "git+https://github.com/fermyon/spin-componentize?branch=sqlite#ee10c193f985aed705003c7af1d9bb8c5a735d8e"
 dependencies = [
  "anyhow",
  "wasm-encoder 0.26.0",
@@ -5994,7 +5994,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 
@@ -6187,7 +6187,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 [[package]]
 name = "wasi-cap-std-sync"
 version = "0.0.0"
-source = "git+https://github.com/fermyon/spin-componentize?rev=51c3fade751c4e364142719e42130943fd8b0a76#51c3fade751c4e364142719e42130943fd8b0a76"
+source = "git+https://github.com/fermyon/spin-componentize?branch=sqlite#ee10c193f985aed705003c7af1d9bb8c5a735d8e"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6235,7 +6235,7 @@ dependencies = [
 [[package]]
 name = "wasi-common"
 version = "0.0.0"
-source = "git+https://github.com/fermyon/spin-componentize?rev=51c3fade751c4e364142719e42130943fd8b0a76#51c3fade751c4e364142719e42130943fd8b0a76"
+source = "git+https://github.com/fermyon/spin-componentize?branch=sqlite#ee10c193f985aed705003c7af1d9bb8c5a735d8e"
 dependencies = [
  "anyhow",
  "async-trait",

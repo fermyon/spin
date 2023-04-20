@@ -46,8 +46,14 @@ type connection = u32
 
 // The set of errors which may be raised by functions in this interface
 variant error {
-  // The host does not recognize the database name requested.
+  // A database with the supplied name does not exist
   no-such-database,
+  // The requesting component does not have access to the specified database (which may or may not exist).
+  access-denied,
+  // The provided connection is not valid
+  invalid-connection,
+  // The database no longer has reached its capacity
+  database-full,
   // Some implementation-specific error has occurred (e.g. I/O)
   io(string)
 }
@@ -63,22 +69,25 @@ open: func(name: string) -> expected<connection, error>
 execute: func(conn: connection, statement: string, parameters: list<value>) -> expected<unit, error>
 
 // Query data
-query: func(conn: connection, query: string, parameters: list<value>) -> expected<list<row>, error>
+query: func(conn: connection, query: string, parameters: list<value>) -> expected<query-result, error>
 
 // Close the specified `connection`.
 close: func(conn: connection)
 
-// A database row
-record row {
-  values: list<column-value>,
+// A result of a query
+record query-result {
+  // The names of the columns retrieved in the query
+  columns: list<string>,
+  // the row results each containing the values for all the columns for a given row
+  rows: list<row-result>,
 }
 
-// A single column's value
-record column-value {
-  name: string,
-  value: value
+// A set of values for each of the columns in a query-result
+record row-result {
+  values: list<value>
 }
 
+// The values used in statements/queries and returned in query results
 variant value {
   integer(s64),
   real(float64),
@@ -89,6 +98,12 @@ variant value {
 ```
 
 *Note: the pseudo-resource design was inspired by the interface of similar functions in [WASI preview 2](https://github.com/bytecodealliance/preview2-prototyping/blob/d56b8977a2b700432d1f7f84656d542f1d8854b0/wit/wasi.wit#L772-L794).*
+
+#### Interface open questions
+
+* `row-result` can be very large. Should we provide some paging mechanism or a different API that allows for reading subsets of the returned data?
+  * Crossing the wit boundary could potentially be expensive if the results are large enough. Giving the user control of how they read that data could be helpful.
+* Is there really a need for query *and* execute functions since at the end of the day, they are basically equivalent?
 
 #### Database migrations
 
@@ -105,13 +120,17 @@ There are several possible ways to address this issue such as:
 
 It should be noted that many of these options are not mutually exclusive and we could introduce more than one (perhaps starting with one option that will mostly be replaced later with a more generalized approach).
 
-TODO: decide which of these (or another mechanism) to use
+**TODO**: decide which of these (or another mechanism) to use
 
 #### Implementation requirements
 
-TODO: Open questions:
-* Assumed sqlite version
-* Capacity limits
+**TODO**: Open questions:
+* Assumed sqlite version?
+  * Semantics may change slightly depending on the sqlite version. It's unlikely that we'll be able to match the exact versions between whatever sqlite implementation spin users, Fermyon Cloud, and the user (if the decide to create their own databases manually). Having some guidance on which versions are expected to work might make it easier to guide the user down the right path.
+* Capacity limits? The following are different capacities we might want to control:
+  * The number of databases in total
+  * The number of rows in a database
+  * The size of certain row values (**question**: does sqlite or libsql impose any restrictions and do we just pass those on to the user?)
 
 #### Built-in local database
 
@@ -134,9 +153,12 @@ Sqlite databases may be configured with `[sqlite_database.<database_name>]` sect
 ```toml
 # The `default` config can be overridden
 [sqlite_database.default]
-path = ".spin/sqlite_key_value.db"
+path = ".spin/some-other-database.db"
+
+[sqlite_database.other]
+path = ".spin/yet-another-database.db"
 ```
 
 ## Future work
 
-TODO
+**TODO**

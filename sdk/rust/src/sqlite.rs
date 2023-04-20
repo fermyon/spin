@@ -19,8 +19,8 @@ pub struct Connection(RawConnection);
 
 impl Connection {
     /// Open a connection
-    pub fn open() -> Result<Self, Error> {
-        Ok(Self(sqlite::open("foo")?))
+    pub fn open(database: &str) -> Result<Self, Error> {
+        Ok(Self(sqlite::open(database)?))
     }
 
     /// Execute a statement against the database

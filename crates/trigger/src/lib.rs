@@ -2,7 +2,6 @@ pub mod cli;
 pub mod loader;
 pub mod locked;
 mod runtime_config;
-mod sqlite;
 mod stdio;
 
 use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
@@ -125,7 +124,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    crate::sqlite::build_component(&runtime_config)?,
+                    runtime_config::sqlite::build_component(&runtime_config)?,
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,

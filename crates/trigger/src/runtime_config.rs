@@ -1,5 +1,6 @@
 pub mod config_provider;
 pub mod key_value;
+pub mod sqlite;
 
 use std::{
     collections::HashMap,
@@ -13,6 +14,7 @@ use serde::Deserialize;
 use self::{
     config_provider::{ConfigProvider, ConfigProviderOpts},
     key_value::{KeyValueStore, KeyValueStoreOpts},
+    sqlite::SqliteDatabaseOpts,
 };
 
 pub const DEFAULT_STATE_DIR: &str = ".spin";
@@ -94,6 +96,29 @@ impl RuntimeConfig {
             .unwrap_or_else(|| KeyValueStoreOpts::default_store_opts(self))
     }
 
+    /// Return an iterator of named configured [`SqliteDatabase`]s.
+    pub fn sqlite_databases(
+        &self,
+    ) -> Result<impl IntoIterator<Item = (String, sqlite::SqliteDatabase)>> {
+        let mut databases = HashMap::new();
+        // Insert explicitly-configured databases
+        for opts in self.opts_layers() {
+            for (name, database) in &opts.sqlite_databases {
+                if !databases.contains_key(name) {
+                    let store = database.build(name, opts)?;
+                    databases.insert(name.to_owned(), store);
+                }
+            }
+        }
+        // Upsert default store
+        if !databases.contains_key("default") {
+            let store = SqliteDatabaseOpts::default(self)
+                .build("default", &RuntimeConfigOpts::default())?;
+            databases.insert("default".into(), store);
+        }
+        Ok(databases.into_iter())
+    }
+
     /// Set the state dir, overriding any other runtime config source.
     pub fn set_state_dir(&mut self, state_dir: impl Into<String>) {
         self.overrides.state_dir = Some(state_dir.into());
@@ -168,6 +193,9 @@ pub struct RuntimeConfigOpts {
 
     #[serde(rename = "key_value_store", default)]
     pub key_value_stores: HashMap<String, KeyValueStoreOpts>,
+
+    #[serde(rename = "sqlite_database", default)]
+    pub sqlite_databases: HashMap<String, SqliteDatabaseOpts>,
 
     #[serde(skip)]
     pub file_path: Option<PathBuf>,

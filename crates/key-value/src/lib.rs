@@ -6,7 +6,7 @@ use std::{collections::HashSet, sync::Arc};
 use table::Table;
 
 mod host_component;
-mod table;
+pub mod table;
 mod util;
 
 pub use host_component::{manager, KeyValueComponent};

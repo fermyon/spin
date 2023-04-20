@@ -1,3 +1,5 @@
+// Package key_value provides access to key value stores within Spin
+// components.
 package key_value
 
 // #include "key-value.h"

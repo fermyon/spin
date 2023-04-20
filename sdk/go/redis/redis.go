@@ -1,3 +1,5 @@
+// Package redis provides the handler function for the Redis trigger, as well
+// as access to Redis within Spin components.
 package redis
 
 import (

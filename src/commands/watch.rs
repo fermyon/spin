@@ -332,7 +332,9 @@ mod tests {
         assert_eq!(path_patterns.len(), 3);
         assert_eq!(
             path_patterns.get(0),
-            Some(&String::from("target/wasm32-wasi/release/http_rust.wasm"))
+            Some(&String::from(
+                "target/wasm32-wasi/release/http_rust_watch_test.wasm"
+            ))
         );
         assert_eq!(
             path_patterns.get(1),

@@ -1,5 +1,5 @@
 [package]
-name = "http-rust"
+name = "http-rust-watch-test"
 version = "0.1.0"
 edition = "2021"
 

@@ -24,3 +24,4 @@ serde = {version = "1.0.163", optional = true}
 default = ["export-sdk-language"]
 export-sdk-language = []
 json = ["dep:serde", "dep:serde_json"]
+experimental-sqlite = []

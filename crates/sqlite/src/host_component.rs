@@ -7,7 +7,8 @@ use std::{
 use once_cell::sync::OnceCell;
 use rusqlite::Connection;
 use spin_app::{AppComponent, DynamicHostComponent};
-use spin_core::{sqlite, HostComponent};
+use spin_core::HostComponent;
+use spin_world::sqlite;
 
 use crate::SqliteImpl;
 

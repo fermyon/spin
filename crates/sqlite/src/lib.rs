@@ -7,10 +7,8 @@ use std::{
 
 use rusqlite::Connection;
 use spin_app::MetadataKey;
-use spin_core::{
-    async_trait,
-    sqlite::{self, Host},
-};
+use spin_core::async_trait;
+use spin_world::sqlite::{self, Host};
 
 pub use host_component::{ConnectionManager, DatabaseLocation, SqliteComponent, SqliteConnection};
 use spin_key_value::table;
@@ -36,14 +34,14 @@ impl SqliteImpl {
         self.allowed_databases = allowed_databases
     }
 
-    fn get_connection<'a>(
-        &'a self,
+    fn get_connection(
+        &self,
         connection: sqlite::Connection,
-    ) -> Result<MutexGuard<'a, Connection>, sqlite::Error> {
+    ) -> Result<MutexGuard<'_, Connection>, sqlite::Error> {
         Ok(self
             .connections
             .get(connection)
-            .ok_or_else(|| sqlite::Error::InvalidConnection)?
+            .ok_or(sqlite::Error::InvalidConnection)?
             .lock()
             .unwrap())
     }
@@ -54,9 +52,8 @@ impl Host for SqliteImpl {
     async fn open(
         &mut self,
         database: String,
-    ) -> anyhow::Result<Result<spin_core::sqlite::Connection, spin_core::sqlite::Error>> {
+    ) -> anyhow::Result<Result<sqlite::Connection, sqlite::Error>> {
         Ok(async {
-            println!("{database}");
             if !self.allowed_databases.contains(&database) {
                 return Err(sqlite::Error::AccessDenied);
             }
@@ -67,9 +64,7 @@ impl Host for SqliteImpl {
                         .ok_or(sqlite::Error::NoSuchDatabase)?
                         .get_connection()?,
                 )
-                .map_err(|()| {
-                    todo!("Create an error for when we reach capacity on number of databases")
-                })
+                .map_err(|()| sqlite::Error::DatabaseFull)
         }
         .await)
     }
@@ -100,47 +95,49 @@ impl Host for SqliteImpl {
         connection: sqlite::Connection,
         query: String,
         parameters: Vec<sqlite::Value>,
-    ) -> anyhow::Result<Result<Vec<sqlite::Row>, sqlite::Error>> {
+    ) -> anyhow::Result<Result<sqlite::QueryResult, sqlite::Error>> {
         Ok(async move {
             let conn = self.get_connection(connection)?;
             let mut statement = conn
                 .prepare_cached(&query)
                 .map_err(|e| sqlite::Error::Io(e.to_string()))?;
+            let columns = statement
+                .column_names()
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect();
             let rows = statement
                 .query_map(
                     rusqlite::params_from_iter(convert_data(parameters.into_iter())),
                     |row| {
                         let mut values = vec![];
                         for column in 0.. {
-                            let name = row.as_ref().column_name(column);
-                            if let Err(rusqlite::Error::InvalidColumnIndex(_)) = name {
-                                break;
-                            }
-                            let name = name?.to_string();
                             let value = row.get::<usize, ValueWrapper>(column);
                             if let Err(rusqlite::Error::InvalidColumnIndex(_)) = value {
                                 break;
                             }
                             let value = value?.0;
-                            values.push(sqlite::ColumnValue { name, value });
+                            values.push(value);
                         }
-                        Ok(sqlite::Row { values })
+                        Ok(sqlite::RowResult { values })
                     },
                 )
                 .map_err(|e| sqlite::Error::Io(e.to_string()))?;
-            Ok(rows
+            let rows = rows
                 .into_iter()
                 .map(|r| r.map_err(|e| sqlite::Error::Io(e.to_string())))
-                .collect::<Result<_, sqlite::Error>>()?)
+                .collect::<Result<_, sqlite::Error>>()?;
+            Ok(sqlite::QueryResult { columns, rows })
         }
         .await)
     }
 
-    async fn close(&mut self, connection: spin_core::sqlite::Connection) -> anyhow::Result<()> {
-        Ok(async {
+    async fn close(&mut self, connection: sqlite::Connection) -> anyhow::Result<()> {
+        async {
             let _ = self.connections.remove(connection);
         }
-        .await)
+        .await;
+        Ok(())
     }
 }
 

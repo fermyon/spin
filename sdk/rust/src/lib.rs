@@ -9,6 +9,7 @@ pub mod outbound_http;
 pub mod key_value;
 
 /// Sqlite
+#[cfg(feature = "experimental-sqlite")]
 pub mod sqlite;
 
 /// Exports the procedural macros for writing handlers for Spin components.

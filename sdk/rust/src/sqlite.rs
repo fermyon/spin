@@ -5,12 +5,9 @@ use sqlite::Connection as RawConnection;
 /// Errors which may be raised by the methods of `Store`
 pub type Error = sqlite::Error;
 
-///
-pub type Row = sqlite::Row;
-
-///
+/// A parameter used when executing a sqlite statement
 pub type DataTypeParam<'a> = sqlite::ValueParam<'a>;
-///
+/// A single column's result from a database query
 pub type DataTypeResult = sqlite::ValueResult;
 
 /// Represents a store in which key value tuples may be placed
@@ -24,38 +21,52 @@ impl Connection {
     }
 
     /// Execute a statement against the database
-    pub fn execute<'a>(
+    pub fn execute(
         &self,
         statement: &str,
-        parameters: &[sqlite::ValueParam<'a>],
+        parameters: &[sqlite::ValueParam<'_>],
     ) -> Result<(), Error> {
         sqlite::execute(self.0, statement, parameters)?;
         Ok(())
     }
 
     /// Make a query against the database
-    pub fn query<'a>(
+    pub fn query(
         &self,
         query: &str,
-        parameters: &[DataTypeParam<'a>],
-    ) -> Result<Vec<sqlite::Row>, Error> {
+        parameters: &[DataTypeParam<'_>],
+    ) -> Result<sqlite::QueryResult, Error> {
         sqlite::query(self.0, query, parameters)
     }
 }
 
-impl Row {
-    pub fn get<'a, T: TryFrom<&'a sqlite::ValueResult>>(&'a self, name: &str) -> Option<T> {
-        self.values
-            .iter()
-            .find_map(|c| (c.name == name).then(|| (&c.value).try_into().ok()))
-            .flatten()
+impl sqlite::QueryResult {
+    /// Get all the rows for this query result
+    pub fn rows<'a>(&'a self) -> impl Iterator<Item = Row<'a>> {
+        self.rows.iter().map(|r| Row {
+            columns: self.columns.as_slice(),
+            result: r,
+        })
     }
+}
 
-    pub fn geti<'a, T: TryFrom<&'a sqlite::ValueResult>>(&'a self, index: usize) -> Option<T> {
-        self.values
-            .get(index)
-            .map(|c| (&c.value).try_into().ok())
-            .flatten()
+/// A database row result
+pub struct Row<'a> {
+    columns: &'a [String],
+    result: &'a sqlite::RowResult,
+}
+
+impl<'a> Row<'a> {
+    /// Get a value by its column name
+    pub fn get<T: TryFrom<&'a sqlite::ValueResult>>(&self, column: &str) -> Option<T> {
+        let i = self.columns.iter().position(|c| c == column)?;
+        self.result.get(i)
+    }
+}
+
+impl sqlite::RowResult {
+    pub fn get<'a, T: TryFrom<&'a sqlite::ValueResult>>(&'a self, index: usize) -> Option<T> {
+        self.values.get(index).and_then(|c| c.try_into().ok())
     }
 }
 

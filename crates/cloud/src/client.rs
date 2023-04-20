@@ -3,6 +3,7 @@ use cloud_openapi::{
     apis::{
         self,
         apps_api::{api_apps_get, api_apps_id_delete, api_apps_post},
+        auth_tokens_api::api_auth_tokens_refresh_post,
         channels_api::{
             api_channels_get, api_channels_id_delete, api_channels_id_get,
             api_channels_id_logs_get, api_channels_post, ApiChannelsIdPatchError,
@@ -16,8 +17,8 @@ use cloud_openapi::{
     models::{
         AppItemPage, ChannelItem, ChannelItemPage, ChannelRevisionSelectionStrategy,
         CreateAppCommand, CreateChannelCommand, CreateDeviceCodeCommand, CreateKeyValuePairCommand,
-        DeviceCodeItem, GetChannelLogsVm, RegisterRevisionCommand, RevisionItemPage, TokenInfo,
-        UpdateEnvironmentVariableDto,
+        DeviceCodeItem, GetChannelLogsVm, RefreshTokenCommand, RegisterRevisionCommand,
+        RevisionItemPage, TokenInfo, UpdateEnvironmentVariableDto,
     },
 };
 use reqwest::header;
@@ -105,6 +106,19 @@ impl Client {
 
         serde_json::from_reader(response.bytes().await?.as_ref())
             .context("Failed to parse response")
+    }
+
+    pub async fn refresh_token(&self, token: String, refresh_token: String) -> Result<TokenInfo> {
+        api_auth_tokens_refresh_post(
+            &self.configuration,
+            RefreshTokenCommand {
+                token,
+                refresh_token,
+            },
+            None,
+        )
+        .await
+        .map_err(format_response_error)
     }
 
     pub async fn add_app(&self, name: &str, storage_id: &str) -> Result<Uuid> {

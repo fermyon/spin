@@ -139,24 +139,66 @@ impl DeployCommand {
         };
 
         if expired {
-            // session has expired - log back in
-            match self.deployment_env_id {
-                Some(name) => {
-                    // TODO: allow auto redirect to login preserving the name
-                    eprintln!("Your login to this environment has expired");
-                    eprintln!(
-                        "Run `spin login --environment-name {}` to log in again",
-                        name
-                    );
-                    std::process::exit(1);
+            // if we have a refresh token available, let's try to refresh the token
+            match login_connection.refresh_token {
+                Some(refresh_token) => {
+                    // Only Cloud has support for refresh tokens
+                    let connection_config = ConnectionConfig {
+                        url: login_connection.url.to_string(),
+                        insecure: login_connection.danger_accept_invalid_certs,
+                        token: login_connection.token.clone(),
+                    };
+                    let client = CloudClient::new(connection_config.clone());
+
+                    match client
+                        .refresh_token(login_connection.token, refresh_token)
+                        .await
+                    {
+                        Ok(token_info) => {
+                            login_connection.token = token_info.token;
+                            login_connection.refresh_token = Some(token_info.refresh_token);
+                            login_connection.expiration = Some(token_info.expiration);
+                            // save new token info
+                            let path = self.config_file_path()?;
+                            std::fs::write(path, serde_json::to_string_pretty(&login_connection)?)?;
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to refresh token: {}", e);
+                            match self.deployment_env_id {
+                                Some(name) => {
+                                    eprintln!(
+                                        "Run `spin login --environment-name {}` to log in again",
+                                        name
+                                    );
+                                }
+                                None => {
+                                    eprintln!("Run `spin login` to log in again");
+                                }
+                            }
+                            std::process::exit(1);
+                        }
+                    }
                 }
                 None => {
-                    LoginCommand::parse_from(vec!["login"]).run().await?;
-                    let new_data = fs::read_to_string(path.clone()).await.context(format!(
-                        "Cannot find spin config at {}",
-                        path.to_string_lossy()
-                    ))?;
-                    login_connection = serde_json::from_str(&new_data)?;
+                    // session has expired and we have no way to refresh the token - log back in
+                    match self.deployment_env_id {
+                        Some(name) => {
+                            // TODO: allow auto redirect to login preserving the name
+                            eprintln!("Your login to this environment has expired");
+                            eprintln!(
+                                "Run `spin login --environment-name {}` to log in again",
+                                name
+                            );
+                            std::process::exit(1);
+                        }
+                        None => {
+                            LoginCommand::parse_from(vec!["login"]).run().await?;
+                            let new_data = fs::read_to_string(path.clone()).await.context(
+                                format!("Cannot find spin config at {}", path.to_string_lossy()),
+                            )?;
+                            login_connection = serde_json::from_str(&new_data)?;
+                        }
+                    }
                 }
             }
         }

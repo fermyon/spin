@@ -359,6 +359,7 @@ impl LoginCommand {
             url: self.hippo_server_url.clone(),
             danger_accept_invalid_certs: self.insecure,
             token: token.token.unwrap_or_default(),
+            refresh_token: None,
             expiration: token.expiration,
             bindle_url: Some(bindle_url),
             bindle_username,
@@ -371,6 +372,7 @@ impl LoginCommand {
             url: self.hippo_server_url.clone(),
             danger_accept_invalid_certs: self.insecure,
             token,
+            refresh_token: None,
             expiration: None,
             bindle_url: None,
             bindle_username: None,
@@ -383,6 +385,7 @@ impl LoginCommand {
             url: self.hippo_server_url.clone(),
             danger_accept_invalid_certs: self.insecure,
             token: token_info.token,
+            refresh_token: Some(token_info.refresh_token),
             expiration: Some(token_info.expiration),
             bindle_url: None,
             bindle_username: None,
@@ -525,6 +528,9 @@ pub struct LoginConnection {
     pub bindle_password: Option<String>,
     pub danger_accept_invalid_certs: bool,
     pub token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub refresh_token: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub expiration: Option<String>,

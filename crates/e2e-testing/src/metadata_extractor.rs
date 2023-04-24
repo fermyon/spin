@@ -45,11 +45,8 @@ pub fn extract_routes_from_logs(logs: &str) -> Vec<AppRoute> {
     let re: Regex = Regex::new(r##"^\s*(.*): (https?://[^\s^\\(]+)(.*)$"##).unwrap();
     let mut route_start = false;
     let lines = logs.split('\n');
-    println!("{:?}", lines);
     let mut routes: Vec<AppRoute> = vec![];
     for line in lines {
-        println!("line is {:?}", line);
-
         if line.trim() == "" {
             continue;
         }
@@ -63,7 +60,6 @@ pub fn extract_routes_from_logs(logs: &str) -> Vec<AppRoute> {
             continue;
         }
 
-        println!("line is before capturing {:?}", line);
         let captures = re.captures(line).unwrap();
 
         let route = AppRoute {

@@ -14,3 +14,4 @@ tests/testcases/*-generated
 spin-plugin-update.lock
 package-lock.json
 .spin
+.DS_Store

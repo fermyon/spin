@@ -1,3 +1,10 @@
 default world spin-timer {
-  export handle-timer-request: func()
+  // Timer execution loop exit variant
+  variant continue-timer {      
+      true,
+      false
+  }
+
+  // Get the value of a key.
+  export handle-timer-request: func() -> continue-timer
 }

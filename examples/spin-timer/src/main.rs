@@ -109,7 +109,15 @@ impl TriggerExecutor for TimerTrigger {
                         let duration = tokio::time::Duration::from_millis(*d * 1000 / speedup);
                         loop {
                             tokio::time::sleep(duration).await;
-                            self.handle_timer_event(c).await.unwrap();
+
+                            // Inverse the control of breaking out of loop, let the component decide this by returning ContinueTimer enum.
+                            let exit_condition = self.handle_timer_event(c).await.unwrap();
+
+                            // Exit the loop if the component asks for it.
+                            match exit_condition {
+                                ContinueTimer::True => continue,
+                                ContinueTimer::False => break,
+                            }
                         }
                     });
                 }
@@ -120,7 +128,7 @@ impl TriggerExecutor for TimerTrigger {
 }
 
 impl TimerTrigger {
-    async fn handle_timer_event(&self, component_id: &str) -> anyhow::Result<()> {
+    async fn handle_timer_event(&self, component_id: &str) -> anyhow::Result<ContinueTimer> {
         // Load the guest...
         let (instance, mut store) = self.engine.prepare_instance(component_id).await?;
         let EitherInstance::Component(instance) = instance else {

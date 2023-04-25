@@ -4,7 +4,7 @@
 //! ways (e.g. via an in-memory table, a local file, or a remote database). Details such as consistency model and
 //! durability will depend on the implementation and may vary from one to store to the next.
 
-wit_bindgen_rust::import!("../../wit/ephemeral/key-value.wit");
+use super::wit::key_value;
 
 use key_value::Store as RawStore;
 
@@ -68,11 +68,3 @@ impl Drop for Store {
         key_value::close(self.0)
     }
 }
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
-    }
-}
-
-impl std::error::Error for Error {}

@@ -1,12 +1,10 @@
+use super::http::{Request, Response};
 use http_types::{header::HeaderName, HeaderValue};
 
-use super::http::{Request, Response};
-
-wit_bindgen_rust::import!("../../wit/ephemeral/wasi-outbound-http.wit");
-
-use wasi_outbound_http::{
-    HttpError as OutboundHttpError, Request as OutboundRequest, Response as OutboundResponse,
+use super::wit::http_types::{
+    HttpError as OutboundHttpError, Method, Request as Req, Response as Resp,
 };
+use super::wit::outbound_http;
 
 type Result<T> = std::result::Result<T, OutboundHttpError>;
 
@@ -26,21 +24,21 @@ pub fn send_request(req: Request) -> Result<Response> {
         .map(try_header_to_strs)
         .collect::<Result<Vec<_>>>()?;
 
-    let body = body.as_ref().map(|bytes| bytes.as_ref());
+    let body = body.map(|bytes| bytes.to_vec());
 
-    let out_req = OutboundRequest {
+    let out_req = Req {
         method,
         uri: &uri,
         params: &params,
         headers,
-        body,
+        body: body.as_deref(),
     };
 
-    let OutboundResponse {
+    let Resp {
         status,
         headers,
         body,
-    } = wasi_outbound_http::request(out_req)?;
+    } = outbound_http::request(out_req)?;
 
     let resp_builder = http_types::response::Builder::new().status(status);
     let resp_builder = headers
@@ -64,21 +62,20 @@ fn try_header_to_strs<'k, 'v>(
     ))
 }
 
-impl TryFrom<http_types::Method> for wasi_outbound_http::Method {
+impl TryFrom<http_types::Method> for Method {
     type Error = OutboundHttpError;
 
     fn try_from(method: http_types::Method) -> Result<Self> {
         use http_types::Method;
-        use wasi_outbound_http::Method::*;
         Ok(match method {
-            Method::GET => Get,
-            Method::POST => Post,
-            Method::PUT => Put,
-            Method::DELETE => Delete,
-            Method::PATCH => Patch,
-            Method::HEAD => Head,
-            Method::OPTIONS => Options,
-            _ => return Err(wasi_outbound_http::HttpError::RequestError),
+            Method::GET => Self::Get,
+            Method::POST => Self::Post,
+            Method::PUT => Self::Put,
+            Method::DELETE => Self::Delete,
+            Method::PATCH => Self::Patch,
+            Method::HEAD => Self::Head,
+            Method::OPTIONS => Self::Options,
+            _ => return Err(OutboundHttpError::RequestError),
         })
     }
 }

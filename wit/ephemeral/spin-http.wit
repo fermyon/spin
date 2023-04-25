@@ -1,4 +1,0 @@
-use * from http-types
-
-// The entrypoint for an HTTP handler.
-handle-http-request: func(req: request) -> response

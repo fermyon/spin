@@ -18,11 +18,10 @@
 //! | `String`  | str(string)         | VARCHAR, CHAR, TEXT     |
 //! | `Vec<u8>` | binary(list\<u8\>)  | VARBINARY, BINARY, BLOB |
 
-#![allow(missing_docs)]
-wit_bindgen_rust::import!("../../wit/ephemeral/outbound-mysql.wit");
-
 /// Exports the generated outbound MySQL items.
-pub use outbound_mysql::*;
+pub use super::wit::mysql_types::*;
+pub use super::wit::outbound_mysql::{execute, query};
+pub use super::wit::rsbms_types::*;
 
 impl std::error::Error for MysqlError {}
 

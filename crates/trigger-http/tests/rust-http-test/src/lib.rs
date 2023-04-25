@@ -1,11 +1,16 @@
-use spin_http::{Request, Response};
+wit_bindgen::generate!("spin-http" in "../../../../sdk/rust/macro/wit");
 
-wit_bindgen_rust::export!("../../../../wit/ephemeral/spin-http.wit");
+use inbound_http::{Request, Response};
 
-struct SpinHttp {}
+struct SpinHttp;
 
-impl spin_http::SpinHttp for SpinHttp {
-    fn handle_http_request(req: Request) -> Response {
+export_spin_http!(SpinHttp);
+
+#[export_name = "spin-sdk-version-1-2-pre0"]
+extern "C" fn __spin_sdk_version() {}
+
+impl inbound_http::InboundHttp for SpinHttp {
+    fn handle_request(req: Request) -> Response {
         assert!(req.params.is_empty());
         assert!(req.uri.contains("?abc=def"));
 

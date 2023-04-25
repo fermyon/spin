@@ -83,9 +83,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.69"
+version = "1.0.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "224afbd727c3d6e4b90103ece64b8d1b67fbb1973b1046c2281eed3f3803f800"
+checksum = "7de8ce5e0f9f8d88245311066a578d72b7af3e7088f32783804676302df237e4"
 
 [[package]]
 name = "anymap2"
@@ -2210,6 +2210,9 @@ name = "heck"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
+dependencies = [
+ "unicode-segmentation",
+]
 
 [[package]]
 name = "hermit-abi"
@@ -5284,7 +5287,7 @@ dependencies = [
  "routefinder",
  "spin-macro",
  "thiserror",
- "wit-bindgen-rust",
+ "wit-bindgen",
 ]
 
 [[package]]
@@ -7054,21 +7057,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "wit-bindgen-gen-core"
-version = "0.2.0"
-source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=ba1636af0338623b54db84e2224be9a124e231f6#ba1636af0338623b54db84e2224be9a124e231f6"
+name = "wit-bindgen"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad22d93d3f55847ac4b3df31607a26f35231754ef472382319de032770d8b5bf"
+dependencies = [
+ "bitflags 2.2.1",
+ "wit-bindgen-rust-macro",
+]
+
+[[package]]
+name = "wit-bindgen-core"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5bc1b5a6e87f16491f2297f75312dc0fb354f8c88c8bece53ea0d3167fc98867"
 dependencies = [
  "anyhow",
- "wit-parser 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=ba1636af0338623b54db84e2224be9a124e231f6)",
+ "wit-component",
+ "wit-parser 0.7.1",
 ]
 
 [[package]]
 name = "wit-bindgen-gen-core"
 version = "0.2.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba#cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
+source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=ba1636af0338623b54db84e2224be9a124e231f6#ba1636af0338623b54db84e2224be9a124e231f6"
 dependencies = [
  "anyhow",
- "wit-parser 0.2.0 (git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba)",
+ "wit-parser 0.2.0",
 ]
 
 [[package]]
@@ -7077,26 +7092,7 @@ version = "0.2.0"
 source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=ba1636af0338623b54db84e2224be9a124e231f6#ba1636af0338623b54db84e2224be9a124e231f6"
 dependencies = [
  "heck 0.3.3",
- "wit-bindgen-gen-core 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=ba1636af0338623b54db84e2224be9a124e231f6)",
-]
-
-[[package]]
-name = "wit-bindgen-gen-rust"
-version = "0.2.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba#cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
-dependencies = [
- "heck 0.3.3",
- "wit-bindgen-gen-core 0.2.0 (git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba)",
-]
-
-[[package]]
-name = "wit-bindgen-gen-rust-wasm"
-version = "0.2.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba#cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
-dependencies = [
- "heck 0.3.3",
- "wit-bindgen-gen-core 0.2.0 (git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba)",
- "wit-bindgen-gen-rust 0.2.0 (git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba)",
+ "wit-bindgen-gen-core",
 ]
 
 [[package]]
@@ -7105,29 +7101,45 @@ version = "0.2.0"
 source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=ba1636af0338623b54db84e2224be9a124e231f6#ba1636af0338623b54db84e2224be9a124e231f6"
 dependencies = [
  "heck 0.3.3",
- "wit-bindgen-gen-core 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=ba1636af0338623b54db84e2224be9a124e231f6)",
- "wit-bindgen-gen-rust 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=ba1636af0338623b54db84e2224be9a124e231f6)",
+ "wit-bindgen-gen-core",
+ "wit-bindgen-gen-rust",
 ]
 
 [[package]]
 name = "wit-bindgen-rust"
-version = "0.2.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba#cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7946a66f1132d3322c29de9d28097bd263f67e1e0909054f91253aa103cdf8be"
 dependencies = [
- "async-trait",
- "bitflags 1.3.2",
- "wit-bindgen-rust-impl",
+ "heck 0.4.1",
+ "wasm-metadata",
+ "wit-bindgen-core",
+ "wit-bindgen-rust-lib",
+ "wit-component",
 ]
 
 [[package]]
-name = "wit-bindgen-rust-impl"
-version = "0.2.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba#cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
+name = "wit-bindgen-rust-lib"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0baf7325748c5d363ab6ed3ddbd155c241cfe385410c61f2505ec978a61a2d2c"
 dependencies = [
+ "heck 0.4.1",
+ "wit-bindgen-core",
+]
+
+[[package]]
+name = "wit-bindgen-rust-macro"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42c131da5d2ba7746908e1401d474640371c31ad05281528c2a9e945a87d19be"
+dependencies = [
+ "anyhow",
  "proc-macro2",
- "syn 1.0.109",
- "wit-bindgen-gen-core 0.2.0 (git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba)",
- "wit-bindgen-gen-rust-wasm",
+ "syn 2.0.8",
+ "wit-bindgen-core",
+ "wit-bindgen-rust",
+ "wit-component",
 ]
 
 [[package]]
@@ -7150,7 +7162,7 @@ source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=ba1636af033862
 dependencies = [
  "proc-macro2",
  "syn 1.0.109",
- "wit-bindgen-gen-core 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=ba1636af0338623b54db84e2224be9a124e231f6)",
+ "wit-bindgen-gen-core",
  "wit-bindgen-gen-wasmtime",
 ]
 
@@ -7175,18 +7187,6 @@ dependencies = [
 name = "wit-parser"
 version = "0.2.0"
 source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=ba1636af0338623b54db84e2224be9a124e231f6#ba1636af0338623b54db84e2224be9a124e231f6"
-dependencies = [
- "anyhow",
- "id-arena",
- "pulldown-cmark",
- "unicode-normalization",
- "unicode-xid",
-]
-
-[[package]]
-name = "wit-parser"
-version = "0.2.0"
-source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=cb871cfa1ee460b51eb1d144b175b9aab9c50aba#cb871cfa1ee460b51eb1d144b175b9aab9c50aba"
 dependencies = [
  "anyhow",
  "id-arena",

@@ -13,11 +13,10 @@
 //! | `String`   | str(string)         | VARCHAR, CHAR(N), TEXT       |
 //! | `Vec<u8>`  | binary(list\<u8\>)  | BYTEA                        |
 
-#![allow(missing_docs)]
-wit_bindgen_rust::import!("../../wit/ephemeral/outbound-pg.wit");
-
+pub use super::wit::outbound_pg::{execute, query};
 /// Exports the generated outbound Pg items.
-pub use outbound_pg::*;
+pub use super::wit::pg_types::*;
+pub use super::wit::rsbms_types::*;
 
 impl std::error::Error for PgError {}
 

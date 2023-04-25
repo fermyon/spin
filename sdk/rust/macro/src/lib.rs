@@ -11,13 +11,16 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func_name = &func.sig.ident;
 
     quote!(
-        wit_bindgen_rust::export!({src["spin_http"]: #HTTP_COMPONENT_WIT});
+        mod wit {
+            wit_bindgen::generate!({inline: #HTTP_COMPONENT_WIT});
+            pub(crate) struct Handler;
+            export_spin_http!(Handler);
+        }
+        use wit::inbound_http as spin_http;
 
-        struct SpinHttp;
-
-        impl spin_http::SpinHttp for SpinHttp {
+        impl spin_http::InboundHttp for wit::Handler {
             // Implement the `handler` entrypoint for Spin HTTP components.
-            fn handle_http_request(req: spin_http::Request) -> spin_http::Response {
+            fn handle_request(req: spin_http::Request) -> spin_http::Response {
                 #func
 
                 match #func_name(req.try_into().expect("cannot convert from Spin HTTP request")) {
@@ -40,11 +43,11 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        impl TryFrom<spin_http::Request> for http::Request<Option<bytes::Bytes>> {
+        impl TryFrom<spin_http::Request> for ::http::Request<Option<bytes::Bytes>> {
             type Error = anyhow::Error;
 
             fn try_from(spin_req: spin_http::Request) -> Result<Self, Self::Error> {
-                let mut http_req = http::Request::builder()
+                let mut http_req = ::http::Request::builder()
                     .method(spin_req.method)
                     .uri(&spin_req.uri);
 
@@ -61,71 +64,71 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        impl From<spin_http::Method> for http::Method {
+        impl From<spin_http::Method> for ::http::Method {
             fn from(spin_method: spin_http::Method) -> Self {
                 match spin_method {
-                    spin_http::Method::Get => http::Method::GET,
-                    spin_http::Method::Post => http::Method::POST,
-                    spin_http::Method::Put => http::Method::PUT,
-                    spin_http::Method::Delete => http::Method::DELETE,
-                    spin_http::Method::Patch => http::Method::PATCH,
-                    spin_http::Method::Head => http::Method::HEAD,
-                    spin_http::Method::Options => http::Method::OPTIONS,
+                    spin_http::Method::Get => ::http::Method::GET,
+                    spin_http::Method::Post => ::http::Method::POST,
+                    spin_http::Method::Put => ::http::Method::PUT,
+                    spin_http::Method::Delete => ::http::Method::DELETE,
+                    spin_http::Method::Patch => ::http::Method::PATCH,
+                    spin_http::Method::Head => ::http::Method::HEAD,
+                    spin_http::Method::Options => ::http::Method::OPTIONS,
                 }
             }
         }
 
         fn append_request_headers(
-            http_req: &mut http::request::Builder,
+            http_req: &mut ::http::request::Builder,
             spin_req: &spin_http::Request,
         ) -> anyhow::Result<()> {
             let headers = http_req.headers_mut().unwrap();
             for (k, v) in &spin_req.headers {
                 headers.append(
-                    <http::header::HeaderName as std::str::FromStr>::from_str(k)?,
-                    http::header::HeaderValue::from_str(v)?,
+                    <::http::header::HeaderName as std::str::FromStr>::from_str(k)?,
+                    ::http::header::HeaderValue::from_str(v)?,
                 );
             }
 
             Ok(())
         }
 
-        impl TryFrom<spin_http::Response> for http::Response<Option<bytes::Bytes>> {
+        impl TryFrom<spin_http::Response> for http::Response<Option<::bytes::Bytes>> {
             type Error = anyhow::Error;
 
             fn try_from(spin_res: spin_http::Response) -> Result<Self, Self::Error> {
-                let mut http_res = http::Response::builder().status(spin_res.status);
+                let mut http_res = ::http::Response::builder().status(spin_res.status);
                 append_response_headers(&mut http_res, spin_res.clone())?;
 
                 let body = match spin_res.body {
                     Some(b) => b.to_vec(),
                     None => Vec::new(),
                 };
-                let body = Some(bytes::Bytes::from(body));
+                let body = Some(::bytes::Bytes::from(body));
 
                 Ok(http_res.body(body)?)
             }
         }
 
         fn append_response_headers(
-            http_res: &mut http::response::Builder,
+            http_res: &mut ::http::response::Builder,
             spin_res: spin_http::Response,
         ) -> anyhow::Result<()> {
             let headers = http_res.headers_mut().unwrap();
             for (k, v) in spin_res.headers.unwrap() {
                 headers.append(
-                    <http::header::HeaderName as std::str::FromStr>::from_str(&k)?,
-                    http::header::HeaderValue::from_str(&v)?,
+                    <::http::header::HeaderName as ::std::str::FromStr>::from_str(&k)?,
+                    ::http::header::HeaderValue::from_str(&v)?,
                 );
             }
 
             Ok(())
         }
 
-        impl TryFrom<http::Response<Option<bytes::Bytes>>> for spin_http::Response {
+        impl TryFrom<::http::Response<Option<bytes::Bytes>>> for spin_http::Response {
             type Error = anyhow::Error;
 
-            fn try_from(http_res: http::Response<Option<bytes::Bytes>>) -> Result<Self, Self::Error> {
+            fn try_from(http_res: ::http::Response<Option<bytes::Bytes>>) -> Result<Self, Self::Error> {
                 let status = http_res.status().as_u16();
                 let headers = Some(outbound_headers(http_res.headers())?);
                 let body = http_res.body().as_ref().map(|b| b.to_vec());
@@ -138,13 +141,13 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        fn outbound_headers(hm: &http::HeaderMap) -> anyhow::Result<Vec<(String, String)>> {
+        fn outbound_headers(hm: &::http::HeaderMap) -> anyhow::Result<Vec<(String, String)>> {
             let mut res = Vec::new();
 
             for (k, v) in hm {
                 res.push((
                     k.as_str().to_string(),
-                    std::str::from_utf8(v.as_bytes())?.to_string(),
+                    ::std::str::from_utf8(v.as_bytes())?.to_string(),
                 ));
             }
 
@@ -164,12 +167,14 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func_name = &func.sig.ident;
 
     quote!(
-        wit_bindgen_rust::export!({src["spin_redis"]: #REDIS_COMPONENT_WIT});
+        mod spin_redis {
+            wit_bindgen::generate!({inline: #REDIS_COMPONENT_WIT});
+        }
 
         struct SpinRedis;
 
         impl spin_redis::SpinRedis for SpinRedis {
-            fn handle_redis_message(message: spin_redis::Payload) -> Result<(), spin_redis::Error> {
+            fn handle_message(message: spin_redis::Payload) -> Result<(), spin_redis::Error> {
                 #func
 
                 match #func_name(message.try_into().expect("cannot convert from Spin Redis payload")) {

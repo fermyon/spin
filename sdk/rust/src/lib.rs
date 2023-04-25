@@ -21,6 +21,15 @@ extern "C" fn __spin_sdk_language() {}
 #[export_name = concat!("spin-sdk-commit-", env!("SDK_COMMIT"))]
 extern "C" fn __spin_sdk_hash() {}
 
+mod wit {
+    #![allow(missing_docs)]
+    wit_bindgen::generate!({
+        world: "spin",
+        path: "../../wit/ephemeral",
+        duplicate_if_necessary,
+    });
+}
+
 /// Helpers for building Spin HTTP components.
 /// These are convenience helpers, and the types in this module are
 /// based on the [`http`](https://crates.io/crates) crate.
@@ -57,17 +66,18 @@ pub mod http {
 /// Implementation of the spin redis interface.
 #[allow(missing_docs)]
 pub mod redis {
+    use super::wit::redis_types;
     use std::hash::{Hash, Hasher};
 
-    wit_bindgen_rust::import!("../../wit/ephemeral/outbound-redis.wit");
+    // Exports the generated outbound Redis items.
+    pub use super::wit::outbound_redis::{
+        del, execute, get, incr, publish, sadd, set, smembers, srem,
+    };
+    pub use redis_types::*;
 
-    /// Exports the generated outbound Redis items.
-    pub use outbound_redis::*;
-
-    impl PartialEq for RedisResult {
+    impl PartialEq for redis_types::RedisResult {
         fn eq(&self, other: &Self) -> bool {
-            use RedisResult::*;
-
+            use redis_types::RedisResult::*;
             match (self, other) {
                 (Nil, Nil) => true,
                 (Status(a), Status(b)) => a == b,
@@ -82,7 +92,7 @@ pub mod redis {
 
     impl Hash for RedisResult {
         fn hash<H: Hasher>(&self, state: &mut H) {
-            use RedisResult::*;
+            use redis_types::RedisResult::*;
 
             match self {
                 Nil => (),
@@ -103,23 +113,6 @@ pub mod mysql;
 /// Implementation of the spin config interface.
 #[allow(missing_docs)]
 pub mod config {
-    wit_bindgen_rust::import!("../../wit/ephemeral/spin-config.wit");
-
     /// Exports the generated Spin config items.
-    pub use spin_config::{get_config as get, Error};
-
-    impl ::std::fmt::Display for Error {
-        fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-            match self {
-                Error::Provider(provider_err) => write!(f, "provider error: {}", provider_err),
-                Error::InvalidKey(invalid_key) => write!(f, "invalid key: {}", invalid_key),
-                Error::InvalidSchema(invalid_schema) => {
-                    write!(f, "invalid schema: {}", invalid_schema)
-                }
-                Error::Other(other) => write!(f, "other: {}", other),
-            }
-        }
-    }
-
-    impl ::std::error::Error for Error {}
+    pub use super::wit::spin_config::{get_config as get, Error};
 }

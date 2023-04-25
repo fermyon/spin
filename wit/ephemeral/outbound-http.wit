@@ -1,0 +1,6 @@
+default interface outbound-http {
+    use pkg.http-types.{request as req, response, http-error}
+
+    // Send an HTTP request and return a response or a potential error.
+    request: func(req: req) -> result<response, http-error>
+}

@@ -7,15 +7,11 @@ edition = "2021"
 crate-type = [ "cdylib" ]
 
 [dependencies]
-# Useful crate to handle errors.
 anyhow = "1"
-# Crate to simplify working with bytes.
 bytes = "1"
-# General-purpose crate with common HTTP types.
 http = "0.2"
 spin-sdk = { path = "../../../sdk/rust"}
-# The wit-bindgen-rust dependency generates bindings for interfaces.
-wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }
+wit-bindgen = "0.6"
 
 [workspace]
 

@@ -1,0 +1,8 @@
+default world spin {
+    import outbound-http: pkg.outbound-http
+    import outbound-redis: pkg.outbound-redis
+    import outbound-pg: pkg.outbound-pg
+    import outbound-mysql: pkg.outbound-mysql
+    import key-value: pkg.key-value
+    import spin-config: pkg.spin-config
+}

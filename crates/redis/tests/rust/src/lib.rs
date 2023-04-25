@@ -1,12 +1,16 @@
-use spin_redis::{Error, Payload};
 use std::str::{from_utf8, Utf8Error};
 
-wit_bindgen_rust::export!("../../../../wit/ephemeral/spin-redis.wit");
+wit_bindgen::generate!("spin-redis" in "../../../../sdk/rust/macro/wit");
 
-struct SpinRedis {}
+use inbound_redis::{Error, Payload};
 
-impl spin_redis::SpinRedis for SpinRedis {
-    fn handle_redis_message(message: Payload) -> Result<(), Error> {
+struct SpinRedis;
+export_spin_redis!(SpinRedis);
+#[export_name = "spin-sdk-version-1-2-pre0"]
+extern "C" fn __spin_sdk_version() {}
+
+impl inbound_redis::InboundRedis for SpinRedis {
+    fn handle_message(message: Payload) -> Result<(), Error> {
         println!("Message: {:?}", from_utf8(&message));
         Ok(())
     }

@@ -1,9 +1,11 @@
-wit_bindgen_rust::export!("../../../../wit/ephemeral/spin-http.wit");
+wit_bindgen::generate!("spin-http" in "../../../../sdk/rust/macro/wit");
 
-struct SpinHttp {}
+struct SpinHttp;
 
-impl spin_http::SpinHttp for SpinHttp {
-    fn handle_http_request(req: spin_http::Request) -> spin_http::Response {
+export_spin_http!(SpinHttp);
+
+impl inbound_http::InboundHttp for SpinHttp {
+    fn handle_request(req: inbound_http::Request) -> inbound_http::Response {
         for param in req.params {
             #[allow(clippy::single_match)]
             match (param.0.as_str(), param.1) {
@@ -15,7 +17,7 @@ impl spin_http::SpinHttp for SpinHttp {
                 _ => (),
             }
         }
-        spin_http::Response {
+        inbound_http::Response {
             status: 200,
             headers: None,
             body: None,

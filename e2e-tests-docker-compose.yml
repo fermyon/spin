@@ -47,7 +47,7 @@ services:
       - postgres
       - registry
     image: spin-e2e-tests
-    entrypoint: cargo test spinup_tests --features e2e-tests --no-fail-fast -- --nocapture
+    entrypoint: /usr/local/bin/entrypoint.sh
     volumes:
       - target_cache:/e2e-tests/target
       - cargo_registry_cache:/usr/local/cargo/registry

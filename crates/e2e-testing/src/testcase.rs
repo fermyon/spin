@@ -109,6 +109,8 @@ impl TestCase {
     ///
     /// The output from running `spin build` is returned.
     async fn do_run(&self, controller: &dyn Controller, bail_on_run_failure: bool) -> Result<()> {
+        print_version_info(&self.name);
+
         // install spin plugins if requested in testcase config
         if let Some(plugins) = &self.plugins {
             controller
@@ -217,4 +219,15 @@ impl TestCase {
             }
         }
     }
+}
+
+fn print_version_info(testcase_name: &str) {
+    let version = spin::version();
+    let which_spin = spin::which_spin();
+    println!(
+        r###"[testcase::run] Running testcase "{}" using spin ({}) with version {}"###,
+        testcase_name,
+        which_spin.as_deref().unwrap_or("unknown"),
+        version.as_deref().unwrap_or("unknown")
+    );
 }

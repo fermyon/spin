@@ -117,5 +117,11 @@ pub fn registry_login(registry_url: &str, username: &str, password: &str) -> Res
 pub fn version() -> Result<String> {
     let output = utils::run(&["spin", "--version"], None, None)?;
     utils::assert_success(&output);
-    Ok(format!("{:#?}", std::str::from_utf8(&output.stdout)?))
+    Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+}
+
+pub fn which_spin() -> Result<String> {
+    let output = utils::run(&["which", "spin"], None, None)?;
+    utils::assert_success(&output);
+    Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
 }

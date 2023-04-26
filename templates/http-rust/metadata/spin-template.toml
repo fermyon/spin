@@ -3,6 +3,10 @@ id = "http-rust"
 description = "HTTP request handler using Rust"
 tags = ["http", "rust"]
 
+# TODO: maybe the separate name is pointless
+[scripts]
+after_instantiate = "after_instantiate.rhai"
+
 [add_component]
 skip_files = ["spin.toml"]
 skip_parameters = ["http-base"]

@@ -6,7 +6,10 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = "1.0.57"
+dialoguer = "0.10"
 futures = "0.3.21"
+is-terminal = "0.4"
+rhai = "1.13.0"
 serde = { version = "1.0", features = [ "derive" ] }
 spin-loader = { path = "../loader" }
 subprocess = "0.2.8"

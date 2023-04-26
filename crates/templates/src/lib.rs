@@ -15,6 +15,7 @@ mod manager;
 mod reader;
 mod renderer;
 mod run;
+mod scripting;
 mod source;
 mod store;
 mod template;

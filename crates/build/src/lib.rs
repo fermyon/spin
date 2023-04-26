@@ -2,7 +2,9 @@
 
 //! A library for building Spin components.
 
+mod interaction;
 mod manifest;
+mod scripting;
 
 use anyhow::{anyhow, bail, Context, Result};
 use spin_loader::local::parent_dir;
@@ -24,18 +26,64 @@ pub async fn build(manifest_file: &Path) -> Result<()> {
         return Ok(());
     }
 
-    app.components
+    let results = app
+        .components
         .into_iter()
-        .map(|c| build_component(c, &app_dir))
-        .collect::<Result<Vec<_>, _>>()?;
+        .map(|c| (c.clone(), build_component(&c, &app_dir)))
+        .collect::<Vec<_>>();
+
+    let mut fail_count = 0;
+    let mut checks = vec![];
+
+    for (c, br) in results {
+        if let Err(e) = br {
+            fail_count += 1;
+            if fail_count == 1 {
+                // Blank line before first summary line, others kept together
+                eprintln!();
+            }
+            eprintln!("{e:#}");
+
+            let build_dir = ".spinbuild";
+            if let Some(build) = &c.build {
+                if let Some(check) = &build.check {
+                    let check = match &build.workdir {
+                        None => app_dir.join(build_dir).join(check),
+                        Some(wd) => app_dir.join(wd).join(build_dir).join(check),
+                    };
+                    if check.exists() {
+                        checks.push(check);
+                    }
+                }
+            }
+        }
+    }
+
+    if !checks.is_empty() {
+        let mut engine = rhai::Engine::new();
+        scripting::register_functions(&mut engine);
+        for check in checks {
+            // Because we have to pipe output directly to the console, we can't pass it to the script.
+            // The script will have to assume the worst.
+            let check_result = engine.run_file(check.clone());
+            if let Err(e) = check_result {
+                tracing::warn!("Check script error in {check:?}: {e:?}");
+            }
+        }
+        eprintln!(); // Because one of the checks might have printed something and we want to keep it apart from the Rust termination message
+    }
+
+    if fail_count > 0 {
+        bail!("Build failed for {fail_count} component(s)")
+    }
 
     println!("Successfully ran the build command for the Spin components.");
     Ok(())
 }
 
 /// Run the build command of the component.
-fn build_component(raw: RawComponentManifest, app_dir: &Path) -> Result<()> {
-    match raw.build {
+fn build_component(raw: &RawComponentManifest, app_dir: &Path) -> Result<()> {
+    match raw.build.as_ref() {
         Some(b) => {
             println!(
                 "Executing the build command for component {}: {}",

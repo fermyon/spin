@@ -74,6 +74,7 @@ const METADATA_DIR_NAME: &str = "metadata";
 const FILTERS_DIR_NAME: &str = "filters";
 const CONTENT_DIR_NAME: &str = "content";
 const SNIPPETS_DIR_NAME: &str = "snippets";
+const SCRIPTS_DIR_NAME: &str = "scripts";
 
 const MANIFEST_FILE_NAME: &str = "spin-template.toml";
 
@@ -108,6 +109,10 @@ impl TemplateLayout {
 
     pub fn snippets_dir(&self) -> PathBuf {
         self.metadata_dir().join(SNIPPETS_DIR_NAME)
+    }
+
+    pub fn scripts_dir(&self) -> PathBuf {
+        self.metadata_dir().join(SCRIPTS_DIR_NAME)
     }
 
     pub fn install_record_file(&self) -> PathBuf {

@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use anyhow::Context;
 use indexmap::IndexMap;
@@ -23,6 +26,7 @@ pub(crate) struct RawTemplateManifestV1 {
     pub add_component: Option<RawTemplateVariant>,
     pub parameters: Option<IndexMap<String, RawParameter>>,
     pub custom_filters: Option<Vec<RawCustomFilter>>,
+    pub scripts: Option<IndexMap<String, PathBuf>>,
 }
 
 #[derive(Debug, Deserialize)]

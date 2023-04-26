@@ -12,6 +12,7 @@ use crate::{
     custom_filters::CustomFilterParser,
     reader::{RawCustomFilter, RawParameter, RawTemplateManifest, RawTemplateVariant},
     run::{Run, RunOptions},
+    scripting::{Script, Scripts},
     store::TemplateLayout,
 };
 
@@ -25,6 +26,7 @@ pub struct Template {
     trigger: TemplateTriggerCompatibility,
     variants: HashMap<TemplateVariantKind, TemplateVariant>,
     parameters: Vec<TemplateParameter>,
+    scripts: Scripts,
     custom_filters: Vec<CustomFilterParser>,
     snippets_dir: Option<PathBuf>,
     content_dir: Option<PathBuf>, // TODO: maybe always need a spin.toml file in there?
@@ -146,6 +148,7 @@ impl Template {
                 trigger: Self::parse_trigger_type(raw.trigger_type, layout),
                 variants: Self::parse_template_variants(raw.new_application, raw.add_component),
                 parameters: Self::parse_parameters(&raw.parameters)?,
+                scripts: crate::scripting::load_scripts(layout, &raw.scripts)?,
                 custom_filters: Self::load_custom_filters(layout, &raw.custom_filters)?,
                 snippets_dir,
                 content_dir,
@@ -383,6 +386,10 @@ impl Template {
                 }
             }
         }
+    }
+
+    pub(crate) async fn after_instantiate(&self) -> anyhow::Result<()> {
+        self.scripts.run(Script::AfterInstantiate).await
     }
 }
 

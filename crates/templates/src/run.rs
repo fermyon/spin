@@ -65,6 +65,8 @@ impl Run {
             .and_then(|t| t.render())
             .and_then_async(|o| async move { o.write().await })
             .await
+            .and_then_async(|_| self.template.after_instantiate())
+            .await
             .err()
     }
 

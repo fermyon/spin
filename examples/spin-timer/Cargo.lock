@@ -177,7 +177,7 @@ version = "0.59.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2bd2a9a458e8f4304c52c43ebb0cfbd520289f8379a52e329a38afda99bf8eb8"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "cexpr",
  "clang-sys",
  "lazy_static",
@@ -237,6 +237,12 @@ name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
+
+[[package]]
+name = "bitflags"
+version = "2.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24a6904aef64d73cf10ab17ebace7befb918b82164785cb89907993be7f83813"
 
 [[package]]
 name = "bitvec"
@@ -491,7 +497,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71655c45cb9845d3270c9d6df84ebe72b4dad3c2ba3f7023ad47c144e4e473a5"
 dependencies = [
  "atty",
- "bitflags",
+ "bitflags 1.3.2",
  "clap_derive 3.2.18",
  "clap_lex 0.2.4",
  "indexmap",
@@ -518,7 +524,7 @@ version = "4.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "351f9ad9688141ed83dfd8f5fb998a06225ef444b48ff4dc43de6d409b7fd10b"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "clap_lex 0.4.0",
  "is-terminal",
  "strsim",
@@ -1483,11 +1489,11 @@ dependencies = [
 
 [[package]]
 name = "hashlink"
-version = "0.7.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7249a3129cbc1ffccd74857f81464a323a152173cdb134e0fd81bc803b29facf"
+checksum = "69fe1fcf8b4278d860ad0548329f892a3631fb63f82574df68275f34cdbe0ffa"
 dependencies = [
- "hashbrown 0.11.2",
+ "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -1920,9 +1926,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.24.2"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "898745e570c7d0453cc1fbc4a701eb6c662ed54e8fec8b7d14be137ebeeb9d14"
+checksum = "afc22eff61b133b115c6e8c74e818c628d6d5e7a502afea6f64dee076dd94326"
 dependencies = [
  "cc",
  "pkg-config",
@@ -2133,7 +2139,7 @@ dependencies = [
  "base64 0.13.1",
  "bigdecimal",
  "bindgen",
- "bitflags",
+ "bitflags 1.3.2",
  "bitvec",
  "byteorder",
  "bytes",
@@ -2185,7 +2191,7 @@ version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfdda3d196821d6af13126e40375cdf7da646a96114af134d5f417a9a1dc8e1a"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "cfg-if",
  "libc",
  "static_assertions",
@@ -2291,7 +2297,7 @@ version = "0.10.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b102428fd03bc5edf97f62620f7298614c45cedf287c271e7ed450bbaf83f2e1"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "cfg-if",
  "foreign-types",
  "libc",
@@ -2361,7 +2367,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-http"
-version = "1.1.0-pre0"
+version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
  "http",
@@ -2375,7 +2381,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-mysql"
-version = "1.1.0-pre0"
+version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
  "mysql_async",
@@ -2389,7 +2395,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-pg"
-version = "1.1.0-pre0"
+version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
  "native-tls",
@@ -2403,7 +2409,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-redis"
-version = "1.1.0-pre0"
+version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
  "redis",
@@ -2693,7 +2699,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffade02495f22453cd593159ea2f59827aae7f53fa8323f756799b670881dcf8"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "memchr",
  "unicase",
 ]
@@ -2834,7 +2840,7 @@ version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
 ]
 
 [[package]]
@@ -2982,16 +2988,15 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.27.0"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85127183a999f7db96d1a976a309eebbfb6ea3b0b400ddd8340190129de6eb7a"
+checksum = "549b9d036d571d42e6e85d1c1425e2ac83491075078ca9a15be021c56b1641f2"
 dependencies = [
- "bitflags",
+ "bitflags 2.2.1",
  "fallible-iterator",
  "fallible-streaming-iterator",
  "hashlink",
  "libsqlite3-sys",
- "memchr",
  "smallvec",
 ]
 
@@ -3065,7 +3070,7 @@ version = "0.36.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fdebc4b395b7fbb9ab11e462e20ed9051e7b16e42d24042c776eca0ac81b03"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "errno",
  "io-lifetimes",
  "itoa",
@@ -3170,7 +3175,7 @@ version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "645926f31b250a2dca3c232496c2d898d91036e45ca0e97e0e2390c54e11be36"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "core-foundation",
  "core-foundation-sys",
  "libc",
@@ -3411,7 +3416,7 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "spin-app"
-version = "1.1.0-pre0"
+version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3435,7 +3440,7 @@ dependencies = [
 
 [[package]]
 name = "spin-config"
-version = "1.1.0-pre0"
+version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3452,7 +3457,7 @@ dependencies = [
 
 [[package]]
 name = "spin-core"
-version = "1.1.0-pre0"
+version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3470,7 +3475,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value"
-version = "1.1.0-pre0"
+version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
  "lru 0.9.0",
@@ -3479,6 +3484,18 @@ dependencies = [
  "tokio",
  "tracing",
  "wit-bindgen-wasmtime",
+]
+
+[[package]]
+name = "spin-key-value-redis"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "redis",
+ "spin-core",
+ "spin-key-value",
+ "tokio",
+ "url",
 ]
 
 [[package]]
@@ -3495,7 +3512,7 @@ dependencies = [
 
 [[package]]
 name = "spin-loader"
-version = "1.1.0-pre0"
+version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3527,7 +3544,7 @@ dependencies = [
 
 [[package]]
 name = "spin-manifest"
-version = "1.1.0-pre0"
+version = "1.2.0-pre0"
 dependencies = [
  "indexmap",
  "serde",
@@ -3537,7 +3554,7 @@ dependencies = [
 
 [[package]]
 name = "spin-trigger"
-version = "1.1.0-pre0"
+version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3557,6 +3574,7 @@ dependencies = [
  "spin-config",
  "spin-core",
  "spin-key-value",
+ "spin-key-value-redis",
  "spin-key-value-sqlite",
  "spin-loader",
  "spin-manifest",
@@ -3651,7 +3669,7 @@ version = "0.25.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f355df185d945435f24c51fda9bf01bea6acb6c0b753e1241e5cc05413a659d4"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "cap-fs-ext",
  "cap-std",
  "fd-lock",
@@ -3991,7 +4009,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
- "rand 0.7.3",
+ "rand 0.8.5",
  "static_assertions",
 ]
 
@@ -4193,7 +4211,7 @@ source = "git+https://github.com/fermyon/spin-componentize#df2c3ef7dc518cae7d0da
 dependencies = [
  "anyhow",
  "async-trait",
- "bitflags",
+ "bitflags 1.3.2",
  "cap-fs-ext",
  "cap-rand",
  "cap-std",
@@ -4213,7 +4231,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be54f652e97bf4ffd98368386785ef80a70daf045ee307ec321be51b3ad7370c"
 dependencies = [
  "anyhow",
- "bitflags",
+ "bitflags 1.3.2",
  "cap-rand",
  "cap-std",
  "io-extras",
@@ -4717,7 +4735,7 @@ checksum = "43991a6d0a435642831e40de3e412eb96950f1c9c72289e486db469ff7c4e53c"
 dependencies = [
  "anyhow",
  "async-trait",
- "bitflags",
+ "bitflags 1.3.2",
  "thiserror",
  "tracing",
  "wasmtime",
@@ -4878,7 +4896,7 @@ version = "0.35.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "129cd8ee937d535e1a239d9d3c9c0525af0454bc0967d9211a251be062513520"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "io-lifetimes",
  "windows-sys 0.45.0",
 ]
@@ -4918,7 +4936,7 @@ source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=e1e2525bbbc843
 dependencies = [
  "anyhow",
  "async-trait",
- "bitflags",
+ "bitflags 1.3.2",
  "thiserror",
  "wasmtime",
  "wit-bindgen-wasmtime-impl",
@@ -4941,7 +4959,7 @@ version = "0.7.4"
 source = "git+https://github.com/bytecodealliance/wasm-tools?rev=1e0052974277b3cce6c3703386e4e90291da2b24#1e0052974277b3cce6c3703386e4e90291da2b24"
 dependencies = [
  "anyhow",
- "bitflags",
+ "bitflags 1.3.2",
  "indexmap",
  "log",
  "url",

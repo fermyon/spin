@@ -39,7 +39,7 @@ and then follow the
 language guides, and the [guide on writing Spin applications](https://developer.fermyon.com/spin/configuration/).
 
 ## Usage
-Below is an example of using the `spin` CLI to create a new Spin application.  To run the example you will need to install the `wasm-wasi` target for Rust.
+Below is an example of using the `spin` CLI to create a new Spin application.  To run the example you will need to install the `wasm32-wasi` target for Rust.
 
 ```bash
 $ rustup target add wasm32-wasi

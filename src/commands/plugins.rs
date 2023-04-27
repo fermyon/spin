@@ -1,3 +1,6 @@
+// Needed for clap derive: https://github.com/clap-rs/clap/issues/4857
+#![allow(clippy::almost_swapped)]
+
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 use semver::Version;

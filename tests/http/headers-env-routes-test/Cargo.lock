@@ -176,7 +176,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
- "wit-bindgen-rust",
 ]
 
 [[package]]

@@ -611,13 +611,13 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.2.23"
+version = "3.2.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71655c45cb9845d3270c9d6df84ebe72b4dad3c2ba3f7023ad47c144e4e473a5"
+checksum = "eef2b3ded6a26dfaec672a742c93c8cf6b689220324da509ec5caa20de55dc83"
 dependencies = [
  "atty",
  "bitflags 1.3.2",
- "clap_derive 3.2.18",
+ "clap_derive 3.2.24",
  "clap_lex 0.2.4",
  "indexmap",
  "once_cell",
@@ -643,9 +643,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "3.2.18"
+version = "3.2.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea0c8bce528c4be4da13ea6fead8965e95b6073585a2f05204bd8f4119f82a65"
+checksum = "d756c5824fc5c0c1ee8e36000f576968dbcb2081def956c83fad6f40acd46f96"
 dependencies = [
  "heck 0.4.1",
  "proc-macro-error",
@@ -2237,7 +2237,7 @@ source = "git+https://github.com/deislabs/hippo-cli?tag=v0.16.1#73315f55fadd2bb0
 dependencies = [
  "anyhow",
  "async-trait",
- "clap 3.2.23",
+ "clap 3.2.24",
  "colored",
  "dialoguer 0.9.0",
  "dirs 4.0.0",
@@ -4899,7 +4899,7 @@ dependencies = [
  "bytes",
  "cargo-target-dep",
  "chrono",
- "clap 3.2.23",
+ "clap 3.2.24",
  "cloud",
  "cloud-openapi",
  "comfy-table",
@@ -5250,7 +5250,7 @@ version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
- "clap 3.2.23",
+ "clap 3.2.24",
  "ctrlc",
  "dirs 4.0.0",
  "futures",
@@ -5284,7 +5284,7 @@ version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
- "clap 3.2.23",
+ "clap 3.2.24",
  "criterion",
  "futures",
  "futures-util",

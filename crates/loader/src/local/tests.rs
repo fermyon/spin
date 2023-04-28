@@ -196,8 +196,8 @@ fn test_unknown_version_is_rejected() {
 
     let e = cfg.unwrap_err().to_string();
     assert!(
-        e.contains("RawAppManifestAnyVersionImpl"),
-        "Expected error to mention `RawAppManifestAnyVersionImpl`"
+        e.contains("spin_version"),
+        "Expected error to mention `spin_version`"
     );
 }
 

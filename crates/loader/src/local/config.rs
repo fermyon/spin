@@ -23,41 +23,33 @@ pub(crate) type RawComponentManifestPartial = RawComponentManifestImpl<toml::Val
 
 /// Container for any version of the manifest.
 #[derive(Clone, Debug, Deserialize)]
-#[serde(untagged)]
-pub enum RawAppManifestAnyVersionImpl<C> {
-    /// Old Spin manifest versioned with `spin_version` key
-    V1Old {
-        /// Version key name
-        spin_version: FixedStringVersion<1>,
-        /// Manifest
-        #[serde(flatten)]
-        manifest: RawAppManifestImpl<C>,
-    },
-    /// New Spin manifest versioned with `spin_manifest_version` key
-    V1New {
-        /// Version key name
-        spin_manifest_version: FixedStringVersion<1>,
-        /// Manifest
-        #[serde(flatten)]
-        manifest: RawAppManifestImpl<C>,
-    },
+pub struct RawAppManifestAnyVersionImpl<C> {
+    #[serde(alias = "spin_version")]
+    //We don't actually use the version yet
+    #[allow(dead_code)]
+    /// Version key name
+    spin_manifest_version: FixedStringVersion<1>,
+    /// Manifest
+    #[serde(flatten)]
+    manifest: RawAppManifestImpl<C>,
 }
 
 impl<C> RawAppManifestAnyVersionImpl<C> {
+    /// Creates a `RawAppManifestAnyVersionImpl` from `RawAppManifestImpl`
+    pub fn from_manifest(manifest: RawAppManifestImpl<C>) -> Self {
+        Self {
+            manifest,
+            spin_manifest_version: FixedStringVersion::default(),
+        }
+    }
     /// Converts `RawAppManifestAnyVersionImpl` into underlying V1 manifest
     pub fn into_v1(self) -> RawAppManifestImpl<C> {
-        match self {
-            RawAppManifestAnyVersionImpl::V1New { manifest, .. } => manifest,
-            RawAppManifestAnyVersionImpl::V1Old { manifest, .. } => manifest,
-        }
+        self.manifest
     }
 
     /// Returns a reference to the underlying V1 manifest
     pub fn as_v1(&self) -> &RawAppManifestImpl<C> {
-        match self {
-            RawAppManifestAnyVersionImpl::V1New { manifest, .. } => manifest,
-            RawAppManifestAnyVersionImpl::V1Old { manifest, .. } => manifest,
-        }
+        &self.manifest
     }
 }
 

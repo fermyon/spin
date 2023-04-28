@@ -3,27 +3,16 @@ use spin_loader::local::config::FixedStringVersion;
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(untagged)]
-pub(crate) enum BuildAppInfoAnyVersion {
-    V1Old {
-        #[allow(dead_code)]
-        spin_version: FixedStringVersion<1>,
-        #[serde(flatten)]
-        manifest: BuildAppInfoV1,
-    },
-    V1New {
-        #[allow(dead_code)]
-        spin_manifest_version: FixedStringVersion<1>,
-        #[serde(flatten)]
-        manifest: BuildAppInfoV1,
-    },
+pub(crate) struct BuildAppInfoAnyVersion {
+    #[allow(dead_code)]
+    #[serde(alias = "spin_version")]
+    spin_manifest_version: FixedStringVersion<1>,
+    #[serde(flatten)]
+    manifest: BuildAppInfoV1,
 }
 impl BuildAppInfoAnyVersion {
     pub fn into_v1(self) -> BuildAppInfoV1 {
-        match self {
-            BuildAppInfoAnyVersion::V1New { manifest, .. } => manifest,
-            BuildAppInfoAnyVersion::V1Old { manifest, .. } => manifest,
-        }
+        self.manifest
     }
 }
 

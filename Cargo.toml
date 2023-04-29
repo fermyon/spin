@@ -128,10 +128,10 @@ tracing = { version = "0.1", features = ["log"] }
 wasmtime-wasi = { version = "7.0.0", features = ["tokio"] }
 wasi-common-preview1 = { package = "wasi-common", version = "7.0.0" }
 wasmtime = { version = "7.0.1", features = ["component-model"] }
-spin-componentize = { git = "https://github.com/fermyon/spin-componentize" }
-wasi-host = { package = "host", git = "https://github.com/fermyon/spin-componentize" }
-wasi-common = { git = "https://github.com/fermyon/spin-componentize" }
-wasi-cap-std-sync = { git = "https://github.com/fermyon/spin-componentize" }
+spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "9e7ec95ccaf490c9b96c03af1c818e8197ccf855" }
+wasi-host = { package = "host", git = "https://github.com/fermyon/spin-componentize", rev = "9e7ec95ccaf490c9b96c03af1c818e8197ccf855" }
+wasi-common = { git = "https://github.com/fermyon/spin-componentize", rev = "9e7ec95ccaf490c9b96c03af1c818e8197ccf855" }
+wasi-cap-std-sync = { git = "https://github.com/fermyon/spin-componentize", rev = "9e7ec95ccaf490c9b96c03af1c818e8197ccf855" }
 
 [workspace.dependencies.bindle]
 git = "https://github.com/fermyon/bindle"

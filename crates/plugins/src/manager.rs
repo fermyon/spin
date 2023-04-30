@@ -219,6 +219,13 @@ pub fn get_package(plugin_manifest: &PluginManifest) -> Result<&PluginPackage> {
 async fn download_plugin(name: &str, temp_dir: &TempDir, target_url: &str) -> Result<PathBuf> {
     log::trace!("Trying to get tar file for plugin '{name}' from {target_url}");
     let plugin_bin = reqwest::get(target_url).await?;
+    if !plugin_bin.status().is_success() {
+        match plugin_bin.status() {
+            reqwest::StatusCode::NOT_FOUND => bail!("The download URL specified in the plugin manifest was not found ({target_url} returned HTTP error 404). Please contact the plugin author."),
+            _ => bail!("HTTP error {} when downloading plugin from {target_url}", plugin_bin.status()),
+        }
+    }
+
     let mut content = Cursor::new(plugin_bin.bytes().await?);
     let dir = temp_dir.path();
     let mut plugin_file = dir.join(name);
@@ -246,4 +253,32 @@ fn file_digest_string(path: &Path) -> Result<String> {
     let digest_value = sha.finalize();
     let digest_string = format!("{:x}", digest_value);
     Ok(digest_string)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn good_error_when_tarball_404s() -> anyhow::Result<()> {
+        let temp_dir = tempdir()?;
+        let store = PluginStore::new(temp_dir.path());
+        let manager = PluginManager { store };
+
+        let bad_manifest: PluginManifest = serde_json::from_str(include_str!(
+            "../tests/nonexistent-url/nonexistent-url.json"
+        ))?;
+
+        let install_result = manager
+            .install(&bad_manifest, &bad_manifest.packages[0])
+            .await;
+
+        let err = format!("{:#}", install_result.unwrap_err());
+        assert!(
+            err.contains("not found"),
+            "Expected error to contain 'not found' but was '{err}'"
+        );
+
+        Ok(())
+    }
 }

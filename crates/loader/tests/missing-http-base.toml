@@ -1,0 +1,12 @@
+spin_version = "1"
+authors = ["Gul Madred", "Edward Jellico", "JL"]
+description = "A HTTP application without a base"
+name = "missing-http-base"
+trigger = {type = "http"}
+version = "6.11.2"
+
+[[component]]
+id = "test"
+source = "nope/nope/nope"
+[component.trigger]
+route = "/test"

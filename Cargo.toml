@@ -125,13 +125,13 @@ members = [
 
 [workspace.dependencies]
 tracing = { version = "0.1", features = ["log"] }
-wasmtime-wasi = { version = "7.0.0", features = ["tokio"] }
-wasi-common-preview1 = { package = "wasi-common", version = "7.0.0" }
-wasmtime = { version = "7.0.1", features = ["component-model"] }
-spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "9e7ec95ccaf490c9b96c03af1c818e8197ccf855" }
-wasi-host = { package = "host", git = "https://github.com/fermyon/spin-componentize", rev = "9e7ec95ccaf490c9b96c03af1c818e8197ccf855" }
-wasi-common = { git = "https://github.com/fermyon/spin-componentize", rev = "9e7ec95ccaf490c9b96c03af1c818e8197ccf855" }
-wasi-cap-std-sync = { git = "https://github.com/fermyon/spin-componentize", rev = "9e7ec95ccaf490c9b96c03af1c818e8197ccf855" }
+wasmtime-wasi = { version = "8.0.1", features = ["tokio"] }
+wasi-common-preview1 = { package = "wasi-common", version = "8.0.1" }
+wasmtime = { version = "8.0.1", features = ["component-model"] }
+spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "51c3fade751c4e364142719e42130943fd8b0a76" }
+wasi-host = { package = "host", git = "https://github.com/fermyon/spin-componentize", rev = "51c3fade751c4e364142719e42130943fd8b0a76" }
+wasi-common = { git = "https://github.com/fermyon/spin-componentize", rev = "51c3fade751c4e364142719e42130943fd8b0a76" }
+wasi-cap-std-sync = { git = "https://github.com/fermyon/spin-componentize", rev = "51c3fade751c4e364142719e42130943fd8b0a76" }
 
 [workspace.dependencies.bindle]
 git = "https://github.com/fermyon/bindle"
@@ -141,7 +141,7 @@ features = ["client"]
 
 [workspace.dependencies.wit-bindgen-wasmtime]
 git = "https://github.com/fermyon/wit-bindgen-backport"
-rev = "e1e2525bbbc8430c4ebe57e9f4b3f63b6facff98"
+rev = "ba1636af0338623b54db84e2224be9a124e231f6"
 features = ["async"]
 
 [[bin]]

@@ -20,6 +20,9 @@ pub enum Error {
     /// No 'type' key in trigger declaration.
     #[error("the application did not specify a trigger type")]
     MissingTriggerType,
+    /// No 'type' key in trigger declaration.
+    #[error("could not load application trigger parameters: {0}")]
+    InvalidTriggerTypeParameters(String),
     /// Non-string 'type' key in trigger declaration.
     #[error("the trigger type must be a string")]
     NonStringTriggerType,
@@ -116,7 +119,7 @@ pub enum ApplicationOrigin {
 #[serde(
     deny_unknown_fields,
     rename_all = "camelCase",
-    try_from = "ApplicationTriggerSerialised",
+    try_from = "ApplicationTriggerDeserialised",
     into = "ApplicationTriggerSerialised"
 )]
 pub enum ApplicationTrigger {
@@ -128,17 +131,25 @@ pub enum ApplicationTrigger {
     External(ExternalTriggerConfiguration),
 }
 
-/// Serialisation helper - we need all unmatched `trigger.type` values to
-/// map to `ApplicationTrigger::External`, but `#[serde(other)]` can
-/// only be applied to unit types.  The following types cause recognised
-/// tags to map to the Internal case and unrecognised ones to the
-/// External case.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase", untagged)]
 enum ApplicationTriggerSerialised {
     Internal(InternalApplicationTriggerSerialised),
     /// A trigger type that is not built in.
     External(HashMap<String, toml::Value>),
+}
+
+/// Deserialisation helper - we need all unmatched `trigger.type` values to
+/// map to `ApplicationTrigger::External`, but `#[serde(other)]` can
+/// only be applied to unit types.  The following types cause recognised
+/// tags to map to the Internal case and unrecognised ones to the
+/// External case.
+#[derive(Deserialize)]
+struct ApplicationTriggerDeserialised {
+    #[serde(rename = "type")]
+    trigger_type: String,
+    #[serde(flatten)]
+    parameters: toml::Value,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, Eq)]
@@ -150,29 +161,26 @@ enum InternalApplicationTriggerSerialised {
     Redis(RedisTriggerConfiguration),
 }
 
-impl TryFrom<ApplicationTriggerSerialised> for ApplicationTrigger {
+impl TryFrom<ApplicationTriggerDeserialised> for ApplicationTrigger {
     type Error = Error;
 
-    fn try_from(value: ApplicationTriggerSerialised) -> Result<Self, Self::Error> {
-        match value {
-            ApplicationTriggerSerialised::Internal(InternalApplicationTriggerSerialised::Http(
-                h,
-            )) => Ok(Self::Http(h)),
-            ApplicationTriggerSerialised::Internal(
-                InternalApplicationTriggerSerialised::Redis(r),
-            ) => Ok(Self::Redis(r)),
-            ApplicationTriggerSerialised::External(mut map) => match map.remove("type") {
-                Some(toml::Value::String(ty)) => {
-                    let ext_config = ExternalTriggerConfiguration {
-                        trigger_type: ty,
-                        parameters: map,
-                    };
-                    Ok(Self::External(ext_config))
-                }
-                Some(_) => Err(Error::NonStringTriggerType),
-                None => Err(Error::MissingTriggerType),
-            },
-        }
+    fn try_from(value: ApplicationTriggerDeserialised) -> Result<Self, Self::Error> {
+        let trigger = match value.trigger_type.as_str() {
+            "http" => ApplicationTrigger::Http(
+                HttpTriggerConfiguration::deserialize(value.parameters)
+                    .map_err(|e| Error::InvalidTriggerTypeParameters(e.to_string()))?,
+            ),
+            "redis" => ApplicationTrigger::Redis(
+                RedisTriggerConfiguration::deserialize(value.parameters)
+                    .map_err(|e| Error::InvalidTriggerTypeParameters(e.to_string()))?,
+            ),
+            _ => ApplicationTrigger::External(ExternalTriggerConfiguration {
+                trigger_type: value.trigger_type,
+                parameters: HashMap::deserialize(value.parameters)
+                    .map_err(|e| Error::InvalidTriggerTypeParameters(e.to_string()))?,
+            }),
+        };
+        Ok(trigger)
     }
 }
 

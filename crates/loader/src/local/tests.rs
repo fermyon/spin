@@ -201,6 +201,21 @@ fn test_unknown_version_is_rejected() {
     );
 }
 
+#[tokio::test]
+async fn gives_correct_error_when_missing_app_trigger_field() -> Result<()> {
+    const MANIFEST: &str = "tests/missing-http-base.toml";
+
+    let app = raw_manifest_from_file(&PathBuf::from(MANIFEST)).await;
+
+    let e = format!("{:#}", app.unwrap_err());
+    assert!(
+        e.contains("missing field `base`"),
+        "Expected error to contain trigger field information but was '{e}'"
+    );
+
+    Ok(())
+}
+
 #[test]
 fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
     const MANIFEST: &str = include_str!("../../tests/wagi-custom-entrypoint.toml");

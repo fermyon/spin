@@ -3,11 +3,54 @@ use async_trait::async_trait;
 use toml::Value;
 use toml_edit::{Document, InlineTable, Item, Table};
 
-use crate::{Diagnose, Diagnosis, PatientApp, Treatment};
+use crate::{Diagnosis, Diagnostic, PatientApp, Treatment};
 
 use super::ManifestTreatment;
 
-/// TriggerDiagnosis detects problems with app trigger config.
+/// TriggerDiagnostic detects problems with app trigger config.
+#[derive(Default)]
+pub struct TriggerDiagnostic;
+
+#[async_trait]
+impl Diagnostic for TriggerDiagnostic {
+    type Diagnosis = TriggerDiagnosis;
+
+    async fn diagnose(&self, patient: &PatientApp) -> Result<Vec<Self::Diagnosis>> {
+        let manifest: toml::Value = toml_edit::de::from_document(patient.manifest_doc.clone())?;
+
+        let mut diags = vec![];
+
+        // Top-level trigger config
+        diags.extend(TriggerDiagnosis::for_app_trigger(manifest.get("trigger")));
+
+        // Component-level HTTP trigger config
+        let trigger_type = manifest
+            .get("trigger")
+            .and_then(|item| item.get("type"))
+            .and_then(|item| item.as_str());
+        if let Some("http") = trigger_type {
+            if let Some(Value::Array(components)) = manifest.get("component") {
+                let single_component = components.len() == 1;
+                for component in components {
+                    let id = component
+                        .get("id")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("<missing ID>")
+                        .to_string();
+                    diags.extend(TriggerDiagnosis::for_http_component_trigger(
+                        id,
+                        component.get("trigger"),
+                        single_component,
+                    ));
+                }
+            }
+        }
+
+        Ok(diags)
+    }
+}
+
+/// TriggerDiagnosis represents a problem with app trigger config.
 #[derive(Debug)]
 pub enum TriggerDiagnosis {
     /// Missing app trigger section
@@ -23,7 +66,7 @@ pub enum TriggerDiagnosis {
 }
 
 impl TriggerDiagnosis {
-    fn diagnose_app_trigger(trigger: Option<&Value>) -> Option<Self> {
+    fn for_app_trigger(trigger: Option<&Value>) -> Option<Self> {
         let Some(trigger) = trigger else {
             return Some(Self::MissingAppTrigger);
         };
@@ -42,7 +85,7 @@ impl TriggerDiagnosis {
         None
     }
 
-    fn diagnose_http_component_trigger(
+    fn for_http_component_trigger(
         id: String,
         trigger: Option<&Value>,
         single_component: bool,
@@ -63,43 +106,6 @@ impl TriggerDiagnosis {
             ));
         }
         None
-    }
-}
-
-#[async_trait]
-impl Diagnose for TriggerDiagnosis {
-    async fn diagnose(patient: &PatientApp) -> Result<Vec<Self>> {
-        let manifest: toml::Value = toml_edit::de::from_document(patient.manifest_doc.clone())?;
-
-        let mut diags = vec![];
-
-        // Top-level trigger config
-        diags.extend(Self::diagnose_app_trigger(manifest.get("trigger")));
-
-        // Component-level HTTP trigger config
-        let trigger_type = manifest
-            .get("trigger")
-            .and_then(|item| item.get("type"))
-            .and_then(|item| item.as_str());
-        if let Some("http") = trigger_type {
-            if let Some(Value::Array(components)) = manifest.get("component") {
-                let single_component = components.len() == 1;
-                for component in components {
-                    let id = component
-                        .get("id")
-                        .and_then(|value| value.as_str())
-                        .unwrap_or("<missing ID>")
-                        .to_string();
-                    diags.extend(Self::diagnose_http_component_trigger(
-                        id,
-                        component.get("trigger"),
-                        single_component,
-                    ));
-                }
-            }
-        }
-
-        Ok(diags)
     }
 }
 
@@ -201,19 +207,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_correct() {
-        run_correct_test::<TriggerDiagnosis>("manifest_trigger").await;
+        run_correct_test::<TriggerDiagnostic>("manifest_trigger").await;
     }
 
     #[tokio::test]
     async fn test_missing_app_trigger() {
         let diag =
-            run_broken_test::<TriggerDiagnosis>("manifest_trigger", "missing_app_trigger").await;
+            run_broken_test::<TriggerDiagnostic>("manifest_trigger", "missing_app_trigger").await;
         assert!(matches!(diag, TriggerDiagnosis::MissingAppTrigger));
     }
 
     #[tokio::test]
     async fn test_http_app_trigger_missing_base() {
-        let diag = run_broken_test::<TriggerDiagnosis>(
+        let diag = run_broken_test::<TriggerDiagnostic>(
             "manifest_trigger",
             "http_app_trigger_missing_base",
         )
@@ -223,7 +229,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_http_component_trigger_missing_route() {
-        let diag = run_broken_test::<TriggerDiagnosis>(
+        let diag = run_broken_test::<TriggerDiagnostic>(
             "manifest_trigger",
             "http_component_trigger_missing_route",
         )

@@ -4,22 +4,37 @@ use serde::Deserialize;
 use toml::Value;
 use toml_edit::{de::from_document, Document, Item};
 
-use crate::{Diagnose, Diagnosis, PatientApp, Treatment};
+use crate::{Diagnosis, Diagnostic, PatientApp, Treatment};
 
 use super::ManifestTreatment;
 
 const SPIN_MANIFEST_VERSION: &str = "spin_manifest_version";
 const SPIN_VERSION: &str = "spin_version";
 
-/// VersionDiagnosis detects problems with the app manifest version field.
-#[derive(Debug)]
-pub enum VersionDiagnosis {
-    /// Missing any known version key
-    MissingVersion,
-    /// Using old spin_version key
-    OldVersionKey,
-    /// Wrong version value
-    WrongValue(Value),
+/// VersionDiagnostic detects problems with the app manifest version field.
+#[derive(Default)]
+pub struct VersionDiagnostic;
+
+#[async_trait]
+impl Diagnostic for VersionDiagnostic {
+    type Diagnosis = VersionDiagnosis;
+
+    async fn diagnose(&self, patient: &PatientApp) -> Result<Vec<Self::Diagnosis>> {
+        let doc = &patient.manifest_doc;
+        let test: VersionProbe =
+            from_document(doc.clone()).context("failed to decode VersionProbe")?;
+
+        if let Some(value) = test.spin_manifest_version.or(test.spin_version.clone()) {
+            if value.as_str() != Some("1") {
+                return Ok(vec![VersionDiagnosis::WrongValue(value)]);
+            } else if test.spin_version.is_some() {
+                return Ok(vec![VersionDiagnosis::OldVersionKey]);
+            }
+        } else {
+            return Ok(vec![VersionDiagnosis::MissingVersion]);
+        }
+        Ok(vec![])
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -28,24 +43,15 @@ struct VersionProbe {
     spin_version: Option<Value>,
 }
 
-#[async_trait]
-impl Diagnose for VersionDiagnosis {
-    async fn diagnose(patient: &PatientApp) -> Result<Vec<Self>> {
-        let doc = &patient.manifest_doc;
-        let test: VersionProbe =
-            from_document(doc.clone()).context("failed to decode VersionProbe")?;
-
-        if let Some(value) = test.spin_manifest_version.or(test.spin_version.clone()) {
-            if value.as_str() != Some("1") {
-                return Ok(vec![Self::WrongValue(value)]);
-            } else if test.spin_version.is_some() {
-                return Ok(vec![Self::OldVersionKey]);
-            }
-        } else {
-            return Ok(vec![Self::MissingVersion]);
-        }
-        Ok(vec![])
-    }
+/// VersionDiagnosis represents a problem with the app manifest version field.
+#[derive(Debug)]
+pub enum VersionDiagnosis {
+    /// Missing any known version key
+    MissingVersion,
+    /// Using old spin_version key
+    OldVersionKey,
+    /// Wrong version value
+    WrongValue(Value),
 }
 
 impl Diagnosis for VersionDiagnosis {
@@ -97,24 +103,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_correct() {
-        run_correct_test::<VersionDiagnosis>("manifest_version").await;
+        run_correct_test::<VersionDiagnostic>("manifest_version").await;
     }
 
     #[tokio::test]
     async fn test_missing() {
-        let diag = run_broken_test::<VersionDiagnosis>("manifest_version", "missing_key").await;
+        let diag = run_broken_test::<VersionDiagnostic>("manifest_version", "missing_key").await;
         assert!(matches!(diag, VersionDiagnosis::MissingVersion));
     }
 
     #[tokio::test]
     async fn test_old_key() {
-        let diag = run_broken_test::<VersionDiagnosis>("manifest_version", "old_key").await;
+        let diag = run_broken_test::<VersionDiagnostic>("manifest_version", "old_key").await;
         assert!(matches!(diag, VersionDiagnosis::OldVersionKey));
     }
 
     #[tokio::test]
     async fn test_wrong_value() {
-        let diag = run_broken_test::<VersionDiagnosis>("manifest_version", "wrong_value").await;
+        let diag = run_broken_test::<VersionDiagnostic>("manifest_version", "wrong_value").await;
         assert!(matches!(diag, VersionDiagnosis::WrongValue(_)));
     }
 }

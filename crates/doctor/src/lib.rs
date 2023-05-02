@@ -18,34 +18,25 @@ pub mod wasm;
 /// Configuration for an app to be checked for problems.
 pub struct Checkup {
     manifest_path: PathBuf,
-    diagnose_fns: Vec<DiagnoseFn>,
+    diagnostics: Vec<Box<dyn BoxingDiagnostic>>,
 }
-
-type DiagnoseFut<'a> =
-    Pin<Box<dyn Future<Output = Result<Vec<Box<dyn Diagnosis + 'static>>>> + 'a>>;
-type DiagnoseFn = for<'a> fn(&'a PatientApp) -> DiagnoseFut<'a>;
 
 impl Checkup {
     /// Return a new checkup for the app manifest at the given path.
     pub fn new(manifest_path: impl Into<PathBuf>) -> Self {
         let mut checkup = Self {
             manifest_path: manifest_path.into(),
-            diagnose_fns: vec![],
+            diagnostics: vec![],
         };
-        checkup.add_diagnose::<manifest::version::VersionDiagnosis>();
-        checkup.add_diagnose::<manifest::trigger::TriggerDiagnosis>();
-        checkup.add_diagnose::<wasm::missing::WasmMissing>();
+        checkup.add_diagnostic::<manifest::version::VersionDiagnostic>();
+        checkup.add_diagnostic::<manifest::trigger::TriggerDiagnostic>();
+        checkup.add_diagnostic::<wasm::missing::WasmMissingDiagnostic>();
         checkup
     }
 
     /// Add a detectable problem to this checkup.
-    pub fn add_diagnose<D: Diagnose + 'static>(&mut self) -> &mut Self {
-        self.diagnose_fns.push(|patient| {
-            Box::pin(async {
-                let diags = D::diagnose(patient).await?;
-                Ok(diags.into_iter().map(|diag| Box::new(diag) as _).collect())
-            })
-        });
+    pub fn add_diagnostic<D: Diagnostic + Default + 'static>(&mut self) -> &mut Self {
+        self.diagnostics.push(Box::<D>::default());
         self
     }
 
@@ -80,9 +71,10 @@ impl Checkup {
     {
         let patient = Arc::new(Mutex::new(self.patient()?));
         let mut count = 0;
-        for diagnose in &self.diagnose_fns {
+        for diagnostic in &self.diagnostics {
             let patient = patient.clone();
-            let diags = diagnose(&*patient.lock().await)
+            let diags = diagnostic
+                .diagnose_boxed(&*patient.lock().await)
                 .await
                 .unwrap_or_else(|err| {
                     tracing::debug!("Diagnose failed: {err:?}");
@@ -109,13 +101,20 @@ pub struct PatientApp {
 
 /// The Diagnose trait implements the detection of a particular Spin app problem.
 #[async_trait]
-pub trait Diagnose: Diagnosis + Send + Sized + 'static {
+pub trait Diagnostic: Send + Sync {
+    /// A [`Diagnosis`] representing the problem(s) this can detect.
+    type Diagnosis: Diagnosis;
+
     /// Check the given [`Patient`], returning any problem(s) found.
-    async fn diagnose(patient: &PatientApp) -> Result<Vec<Self>>;
+    ///
+    /// If multiple _independently addressable_ problems are found, this may
+    /// return multiple instances. If two "logically separate" problems would
+    /// have the same fix, they should be represented with the same instance.
+    async fn diagnose(&self, patient: &PatientApp) -> Result<Vec<Self::Diagnosis>>;
 }
 
 /// The Diagnosis trait represents a detected problem with a Spin app.
-pub trait Diagnosis: Debug + Send + Sync {
+pub trait Diagnosis: Debug + Send + Sync + 'static {
     /// Return a human-friendly description of this problem.
     fn description(&self) -> String;
 
@@ -158,4 +157,21 @@ pub fn spin_command() -> Command {
         .or_else(|| std::env::current_exe().ok())
         .unwrap_or("spin".into());
     Command::new(spin_path)
+}
+
+#[async_trait]
+trait BoxingDiagnostic {
+    async fn diagnose_boxed(&self, patient: &PatientApp) -> Result<Vec<Box<dyn Diagnosis>>>;
+}
+
+#[async_trait]
+impl<Factory: Diagnostic> BoxingDiagnostic for Factory {
+    async fn diagnose_boxed(&self, patient: &PatientApp) -> Result<Vec<Box<dyn Diagnosis>>> {
+        Ok(self
+            .diagnose(patient)
+            .await?
+            .into_iter()
+            .map(|diag| Box::new(diag) as Box<dyn Diagnosis>)
+            .collect())
+    }
 }

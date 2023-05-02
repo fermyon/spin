@@ -7,7 +7,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use spin_loader::{local::config::RawComponentManifest, local::config::RawModuleSource};
 
-use crate::{Diagnose, Diagnosis, PatientApp};
+use crate::{Diagnosis, Diagnostic, PatientApp};
 
 /// PatientWasm represents a Wasm source to be checked for problems.
 #[derive(Debug)]
@@ -43,14 +43,23 @@ pub enum WasmSource<'a> {
 
 /// WasmDiagnose helps implement [`Diagnose`] for Wasm source problems.
 #[async_trait]
-pub trait WasmDiagnose: Diagnosis + Sized {
+pub trait WasmDiagnostic {
+    /// A [`Diagnosis`] representing the problem(s) this can detect.
+    type Diagnosis: Diagnosis;
+
     /// Check the given [`PatientWasm`], returning any problem(s) found.
-    async fn diagnose_wasm(app: &PatientApp, wasm: PatientWasm) -> Result<Vec<Self>>;
+    async fn diagnose_wasm(
+        &self,
+        app: &PatientApp,
+        wasm: PatientWasm,
+    ) -> Result<Vec<Self::Diagnosis>>;
 }
 
 #[async_trait]
-impl<T: WasmDiagnose + Send + 'static> Diagnose for T {
-    async fn diagnose(patient: &PatientApp) -> Result<Vec<Self>> {
+impl<T: WasmDiagnostic + Send + Sync> Diagnostic for T {
+    type Diagnosis = <Self as WasmDiagnostic>::Diagnosis;
+
+    async fn diagnose(&self, patient: &PatientApp) -> Result<Vec<Self::Diagnosis>> {
         let path = &patient.manifest_path;
         let manifest = spin_loader::local::raw_manifest_from_file(&path)
             .await?
@@ -58,7 +67,7 @@ impl<T: WasmDiagnose + Send + 'static> Diagnose for T {
         let mut diagnoses = vec![];
         for component in manifest.components {
             let wasm = PatientWasm(component);
-            diagnoses.extend(T::diagnose_wasm(patient, wasm).await?);
+            diagnoses.extend(self.diagnose_wasm(patient, wasm).await?);
         }
         Ok(diagnoses)
     }

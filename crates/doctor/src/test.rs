@@ -10,19 +10,22 @@ use super::*;
 
 /// Asserts that the manifest at "tests/data/<prefix>_correct.toml" does
 /// not have the given [`ManifestCondition`].
-pub async fn run_correct_test<D: Diagnose>(prefix: &str) {
+pub async fn run_correct_test<D: Diagnostic + Default>(prefix: &str) {
     let patient = TestPatient::from_file(test_file_path(prefix, "correct"));
-    let diags = D::diagnose(&patient).await.expect("diagnose failed");
+    let diags = D::default()
+        .diagnose(&patient)
+        .await
+        .expect("diagnose failed");
     assert!(diags.is_empty(), "expected correct file; got {diags:?}");
 }
 
 /// Asserts that the manifest at "tests/data/<prefix>_broken.toml" has
 /// the given [`ManifestCondition`]. Also asserts that after fixing the
 /// problem the manifest matches "tests/data/<prefix>_fixed.toml".
-pub async fn run_broken_test<D: Diagnose>(prefix: &str, suffix: &str) -> D {
+pub async fn run_broken_test<D: Diagnostic + Default>(prefix: &str, suffix: &str) -> D::Diagnosis {
     let mut patient = TestPatient::from_file(test_file_path(prefix, suffix));
 
-    let diag: D = assert_single_diagnosis(&patient).await;
+    let diag = assert_single_diagnosis::<D>(&patient).await;
     let treatment = diag
         .treatment()
         .expect(&format!("{diag:?} should be treatable"));
@@ -43,8 +46,13 @@ pub async fn run_broken_test<D: Diagnose>(prefix: &str, suffix: &str) -> D {
     diag
 }
 
-pub async fn assert_single_diagnosis<D: Diagnose>(patient: &PatientApp) -> D {
-    let diags = D::diagnose(patient).await.expect("diagnose should succeed");
+pub async fn assert_single_diagnosis<D: Diagnostic + Default>(
+    patient: &PatientApp,
+) -> D::Diagnosis {
+    let diags = D::default()
+        .diagnose(patient)
+        .await
+        .expect("diagnose should succeed");
     assert!(diags.len() == 1, "expected one diagnosis, got {diags:?}");
     diags.into_iter().next().unwrap()
 }

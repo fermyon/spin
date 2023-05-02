@@ -5,9 +5,31 @@ use async_trait::async_trait;
 
 use crate::{spin_command, Diagnosis, PatientApp, Treatment};
 
-use super::{PatientWasm, WasmDiagnose, WasmSource};
+use super::{PatientWasm, WasmDiagnostic, WasmSource};
 
-/// WasmMissing detects missing Wasm sources.
+/// WasmMissingDiagnostic detects missing Wasm sources.
+#[derive(Default)]
+pub struct WasmMissingDiagnostic;
+
+#[async_trait]
+impl WasmDiagnostic for WasmMissingDiagnostic {
+    type Diagnosis = WasmMissing;
+
+    async fn diagnose_wasm(
+        &self,
+        _app: &PatientApp,
+        wasm: PatientWasm,
+    ) -> anyhow::Result<Vec<Self::Diagnosis>> {
+        if let WasmSource::Local(path) = wasm.source() {
+            if !path.exists() {
+                return Ok(vec![WasmMissing(wasm)]);
+            }
+        }
+        Ok(vec![])
+    }
+}
+
+/// WasmMissing represents a missing Wasm source.
 #[derive(Debug)]
 pub struct WasmMissing(PatientWasm);
 
@@ -20,18 +42,6 @@ impl WasmMissing {
             .arg("--component-id")
             .arg(self.0.component_id());
         Ok(cmd)
-    }
-}
-
-#[async_trait]
-impl WasmDiagnose for WasmMissing {
-    async fn diagnose_wasm(_app: &PatientApp, wasm: PatientWasm) -> anyhow::Result<Vec<Self>> {
-        if let WasmSource::Local(path) = wasm.source() {
-            if !path.exists() {
-                return Ok(vec![Self(wasm)]);
-            }
-        }
-        Ok(vec![])
     }
 }
 
@@ -89,7 +99,7 @@ mod tests {
     #[tokio::test]
     async fn test_without_build() {
         let patient = TestPatient::from_toml_str(MINIMUM_VIABLE_MANIFEST);
-        let diag = assert_single_diagnosis::<WasmMissing>(&patient).await;
+        let diag = assert_single_diagnosis::<WasmMissingDiagnostic>(&patient).await;
         assert!(diag.treatment().is_none());
     }
 
@@ -97,7 +107,7 @@ mod tests {
     async fn test_with_build() {
         let manifest = format!("{MINIMUM_VIABLE_MANIFEST}\nbuild.command = 'true'");
         let patient = TestPatient::from_toml_str(manifest);
-        let diag = assert_single_diagnosis::<WasmMissing>(&patient).await;
+        let diag = assert_single_diagnosis::<WasmMissingDiagnostic>(&patient).await;
         assert!(diag.treatment().is_some());
         assert!(diag
             .build_cmd(&patient)

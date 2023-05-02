@@ -5,4 +5,6 @@ default world spin {
     import outbound-mysql: pkg.outbound-mysql
     import key-value: pkg.key-value
     import spin-config: pkg.spin-config
+    export inbound-http: pkg.inbound-http
+    export inbound-redis: pkg.inbound-redis
 }

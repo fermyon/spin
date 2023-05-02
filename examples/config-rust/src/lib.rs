@@ -1,4 +1,3 @@
-use anyhow::Result;
 use spin_sdk::{
     config,
     http::{Request, Response},
@@ -7,7 +6,7 @@ use spin_sdk::{
 
 /// This endpoint returns the config value specified by key.
 #[http_component]
-fn get(req: Request) -> Result<Response> {
+fn get(req: Request) -> anyhow::Result<Response> {
     let path = req.uri().path();
 
     if path.contains("dotenv") {

@@ -1,8 +1,8 @@
-wit_bindgen::generate!("spin-http" in "../../../../sdk/rust/macro/wit");
+wit_bindgen::generate!("spin" in "../../../../wit/ephemeral");
 
 struct SpinHttp;
 
-export_spin_http!(SpinHttp);
+export_spin!(SpinHttp);
 
 impl inbound_http::InboundHttp for SpinHttp {
     fn handle_request(req: inbound_http::Request) -> inbound_http::Response {
@@ -22,5 +22,11 @@ impl inbound_http::InboundHttp for SpinHttp {
             headers: None,
             body: None,
         }
+    }
+}
+
+impl inbound_redis::InboundRedis for SpinHttp {
+    fn handle_message(message: inbound_redis::Payload) -> Result<(), inbound_redis::Error> {
+        unimplemented!()
     }
 }

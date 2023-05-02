@@ -1,4 +1,3 @@
-use anyhow::Result;
 use spin_sdk::{
     http::{Request, Response},
     http_component,
@@ -6,7 +5,7 @@ use spin_sdk::{
 
 /// Send an HTTP request and return the response.
 #[http_component]
-fn send_outbound(_req: Request) -> Result<Response> {
+fn send_outbound(_req: Request) -> anyhow::Result<Response> {
     let mut res = spin_sdk::outbound_http::send_request(
         http::Request::builder()
             .method("GET")

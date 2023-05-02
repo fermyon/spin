@@ -102,6 +102,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         mut self,
         app_uri: String,
         runtime_config: runtime_config::RuntimeConfig,
+        init_data: HostComponentInitData,
     ) -> Result<Executor>
     where
         Executor::TriggerConfig: DeserializeOwned,
@@ -115,7 +116,11 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    runtime_config::key_value::build_key_value_component(&runtime_config)?,
+                    runtime_config::key_value::build_key_value_component(
+                        &runtime_config,
+                        &init_data.kv,
+                    )
+                    .await?,
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
@@ -142,6 +147,12 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         // Run trigger executor
         Executor::new(TriggerAppEngine::new(engine, app_name, app, self.hooks).await?).await
     }
+}
+
+/// Initialisation data for host components.
+#[derive(Default)] // TODO: this is only for tests, would like to get rid of
+pub struct HostComponentInitData {
+    kv: Vec<(String, String)>,
 }
 
 /// Execution context for a TriggerExecutor executing a particular App.

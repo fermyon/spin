@@ -1,7 +1,7 @@
-use std::{fs, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
 
 use crate::{runtime_config::RuntimeConfig, TriggerHooks};
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use spin_key_value::{
     CachingStoreManager, DelegatingStoreManager, KeyValueComponent, StoreManager,
@@ -16,10 +16,36 @@ const DEFAULT_SPIN_STORE_FILENAME: &str = "sqlite_key_value.db";
 pub type KeyValueStore = Arc<dyn StoreManager>;
 
 /// Builds a [`KeyValueComponent`] from the given [`RuntimeConfig`].
-pub fn build_key_value_component(runtime_config: &RuntimeConfig) -> Result<KeyValueComponent> {
-    let stores = runtime_config
+pub async fn build_key_value_component(
+    runtime_config: &RuntimeConfig,
+    init_data: &[(String, String)],
+) -> Result<KeyValueComponent> {
+    let stores: HashMap<_, _> = runtime_config
         .key_value_stores()
-        .context("Failed to build key-value component")?;
+        .context("Failed to build key-value component")?
+        .into_iter()
+        .collect();
+
+    // Avoid creating a database as a side-effect if one is not needed.
+    if !init_data.is_empty() {
+        if let Some(manager) = stores.get("default") {
+            let default_store = manager
+                .get("default")
+                .await
+                .context("Failed to access key-value store to set requested entries")?;
+            for (key, value) in init_data {
+                default_store
+                    .set(key, value.as_bytes())
+                    .await
+                    .with_context(|| {
+                        format!("Failed to set requested entry {key} in key-value store")
+                    })?;
+            }
+        } else {
+            bail!("Failed to access key-value store to set requested entries");
+        }
+    }
+
     let delegating_manager = DelegatingStoreManager::new(stores);
     let caching_manager = Arc::new(CachingStoreManager::new(delegating_manager));
     Ok(KeyValueComponent::new(spin_key_value::manager(move |_| {

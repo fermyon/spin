@@ -10,6 +10,7 @@ use hippo_openapi::models::ChannelRevisionSelectionStrategy;
 use rand::Rng;
 use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
+use spin_common::arg_parser::parse_kv;
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_loader::local::config::RawAppManifest;
 use spin_loader::local::{assets, config, parent_dir};
@@ -94,7 +95,8 @@ pub struct DeployCommand {
     )]
     pub deployment_env_id: Option<String>,
 
-    /// Pass a key/value (key=value) to all components of the application.
+    /// Set a key/value pair (key=value) in the deployed application's
+    /// default store. Any existing value will be overwritten.
     /// Can be used multiple times.
     #[clap(long = "key-value", parse(try_from_str = parse_kv))]
     pub key_values: Vec<(String, String)>,
@@ -870,13 +872,4 @@ fn has_expired(login_connection: &LoginConnection) -> Result<bool> {
         },
         None => Ok(false),
     }
-}
-
-// Parse the key/values passed in as `key=value` pairs.
-fn parse_kv(s: &str) -> Result<(String, String)> {
-    let parts: Vec<_> = s.splitn(2, '=').collect();
-    if parts.len() != 2 {
-        bail!("Key/Values must be of the form `key=value`");
-    }
-    Ok((parts[0].to_owned(), parts[1].to_owned()))
 }

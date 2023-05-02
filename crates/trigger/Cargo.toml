@@ -15,6 +15,7 @@ outbound-http = { path = "../outbound-http" }
 outbound-redis = { path = "../outbound-redis" }
 outbound-pg = { path = "../outbound-pg" }
 outbound-mysql = { path = "../outbound-mysql" }
+spin-common = { path = "../common" }
 spin-key-value = { path = "../key-value" }
 spin-key-value-redis = { path = "../key-value-redis" }
 spin-key-value-sqlite = { path = "../key-value-sqlite" }

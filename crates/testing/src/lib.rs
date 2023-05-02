@@ -17,7 +17,7 @@ use spin_app::{
     AppComponent, Loader,
 };
 use spin_core::{Component, StoreBuilder};
-use spin_trigger::{RuntimeConfig, TriggerExecutor, TriggerExecutorBuilder};
+use spin_trigger::{HostComponentInitData, RuntimeConfig, TriggerExecutor, TriggerExecutorBuilder};
 use spin_trigger_http::{HttpExecutorType, HttpTriggerConfig, WagiTriggerConfig};
 use tokio::fs;
 
@@ -105,7 +105,11 @@ impl HttpTestConfig {
         Executor::TriggerConfig: DeserializeOwned,
     {
         TriggerExecutorBuilder::new(self.build_loader())
-            .build(TEST_APP_URI.to_string(), RuntimeConfig::default())
+            .build(
+                TEST_APP_URI.to_string(),
+                RuntimeConfig::default(),
+                HostComponentInitData::default(),
+            )
             .await
             .unwrap()
     }
@@ -141,7 +145,11 @@ impl RedisTestConfig {
         self.redis_channel = channel.into();
 
         TriggerExecutorBuilder::new(self.build_loader())
-            .build(TEST_APP_URI.to_string(), RuntimeConfig::default())
+            .build(
+                TEST_APP_URI.to_string(),
+                RuntimeConfig::default(),
+                HostComponentInitData::default(),
+            )
             .await
             .unwrap()
     }

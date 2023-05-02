@@ -9,6 +9,7 @@ use tokio::{
 };
 
 use spin_app::Loader;
+use spin_common::arg_parser::parse_kv;
 
 use crate::stdio::StdioLoggingTriggerHooks;
 use crate::{
@@ -104,6 +105,12 @@ where
     #[clap(flatten)]
     pub run_config: Executor::RunConfig,
 
+    /// Set a key/value pair (key=value) in the application's
+    /// default store. Any existing value will be overwritten.
+    /// Can be used multiple times.
+    #[clap(long = "key-value", parse(try_from_str = parse_kv))]
+    key_values: Vec<(String, String)>,
+
     #[clap(long = "help-args-only", hide = true)]
     pub help_args_only: bool,
 }
@@ -132,8 +139,12 @@ where
         let working_dir = std::env::var(SPIN_WORKING_DIR).context(SPIN_WORKING_DIR)?;
         let locked_url = std::env::var(SPIN_LOCKED_URL).context(SPIN_LOCKED_URL)?;
 
+        let init_data = crate::HostComponentInitData {
+            kv: self.key_values.clone(),
+        };
+
         let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
-        let executor = self.build_executor(loader, locked_url).await?;
+        let executor = self.build_executor(loader, locked_url, init_data).await?;
 
         let run_fut = executor.run(self.run_config);
 
@@ -159,6 +170,7 @@ where
         &self,
         loader: impl Loader + Send + Sync + 'static,
         locked_url: String,
+        init_data: crate::HostComponentInitData,
     ) -> Result<Executor> {
         let runtime_config = self.build_runtime_config()?;
 
@@ -170,7 +182,7 @@ where
         builder.hooks(StdioLoggingTriggerHooks::new(self.follow_components()));
         builder.hooks(KeyValuePersistenceMessageHook);
 
-        builder.build(locked_url, runtime_config).await
+        builder.build(locked_url, runtime_config, init_data).await
     }
 
     fn build_runtime_config(&self) -> Result<RuntimeConfig> {

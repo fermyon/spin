@@ -7,7 +7,7 @@ struct MySpinTimer;
 
 impl SpinTimer for MySpinTimer {
     fn handle_timer_request() {
-        let text = spin_sdk::config::get("message").unwrap();
+        let text = config::get_config("message").unwrap();
         println!("{text}");
     }
 }

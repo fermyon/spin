@@ -35,18 +35,16 @@ impl Diagnose for VersionDiagnosis {
         let test: VersionProbe =
             from_document(doc.clone()).context("failed to decode VersionProbe")?;
 
-        let mut diags = vec![];
-        if test.spin_version.is_some() {
-            diags.push(Self::OldVersionKey);
-        }
-        if let Some(value) = test.spin_manifest_version.or(test.spin_version) {
+        if let Some(value) = test.spin_manifest_version.or(test.spin_version.clone()) {
             if value.as_str() != Some("1") {
-                diags.push(Self::WrongValue(value))
+                return Ok(vec![Self::WrongValue(value)]);
+            } else if test.spin_version.is_some() {
+                return Ok(vec![Self::OldVersionKey]);
             }
         } else {
-            diags.push(Self::MissingVersion);
+            return Ok(vec![Self::MissingVersion]);
         }
-        Ok(diags)
+        Ok(vec![])
     }
 }
 

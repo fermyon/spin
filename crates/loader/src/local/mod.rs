@@ -27,7 +27,7 @@ use spin_manifest::{
 };
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::{cache::Cache, digest::bytes_sha256_string, validation::validate_key_value_stores};
+use crate::{cache::Cache, validation::validate_key_value_stores};
 use config::{
     FileComponentUrlSource, RawAppInformation, RawAppManifest, RawAppManifestAnyVersion,
     RawAppManifestAnyVersionPartial, RawComponentManifest, RawComponentManifestPartial,
@@ -346,7 +346,7 @@ impl ComponentDigest {
     fn verify(&self, bytes: &[u8]) -> anyhow::Result<()> {
         match self {
             Self::Sha256(expected) => {
-                let actual = &bytes_sha256_string(bytes);
+                let actual = &spin_common::sha256::hex_digest_from_bytes(bytes);
                 if expected == actual {
                     Ok(())
                 } else {

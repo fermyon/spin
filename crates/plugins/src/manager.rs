@@ -6,8 +6,8 @@ use crate::{
     SPIN_INTERNAL_COMMANDS,
 };
 
-use anyhow::{anyhow, bail, Context, Result};
-use sha2::{Digest, Sha256};
+use anyhow::{anyhow, bail, Result};
+use spin_common::sha256;
 use std::{
     fs::{self, File},
     io::{copy, Cursor},
@@ -236,23 +236,13 @@ async fn download_plugin(name: &str, temp_dir: &TempDir, target_url: &str) -> Re
 }
 
 fn verify_checksum(plugin_file: &Path, expected_sha256: &str) -> Result<()> {
-    let actual_sha256 = file_digest_string(plugin_file)?;
+    let actual_sha256 = sha256::hex_digest_from_file(plugin_file)?;
     if actual_sha256 == expected_sha256 {
         log::info!("Package checksum verified successfully");
         Ok(())
     } else {
         Err(anyhow!("Checksum did not match, aborting installation."))
     }
-}
-
-fn file_digest_string(path: &Path) -> Result<String> {
-    let mut file = std::fs::File::open(path)
-        .with_context(|| format!("Could not open file at {}", path.display()))?;
-    let mut sha = Sha256::new();
-    std::io::copy(&mut file, &mut sha)?;
-    let digest_value = sha.finalize();
-    let digest_string = format!("{:x}", digest_value);
-    Ok(digest_string)
 }
 
 #[cfg(test)]

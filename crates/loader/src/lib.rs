@@ -14,7 +14,6 @@ mod assets;
 pub mod bindle;
 pub mod cache;
 mod common;
-pub mod digest;
 pub mod local;
 mod validation;
 

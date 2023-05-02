@@ -57,7 +57,6 @@ mod spinup_tests {
     }
 
     #[tokio::test]
-    #[ignore] // https://github.com/fermyon/spin/issues/1210
     async fn http_php_works() {
         testcases::all::http_php_works(CONTROLLER).await
     }

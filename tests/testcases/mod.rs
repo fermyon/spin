@@ -99,12 +99,12 @@ pub mod all {
             _: Option<BufReader<ChildStderr>>,
         ) -> Result<()> {
             assert_http_response(
-                metadata.base.as_str(),
+                get_url(metadata.base.as_str(), "/index.php").as_str(),
                 Method::GET,
                 "",
                 200,
                 &[],
-                Some("Hello Fermyon Spin\n"),
+                Some("Hello Fermyon Spin"),
             )
             .await
         }

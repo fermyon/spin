@@ -2,9 +2,9 @@ use std::{fmt::Debug, path::PathBuf};
 
 use anyhow::Result;
 use clap::Parser;
-use dialoguer::{console::Emoji, Select};
+use dialoguer::{console::Emoji, Confirm, Select};
 use futures::FutureExt;
-use spin_doctor::Diagnosis;
+use spin_doctor::{Diagnosis, DryRunNotSupported};
 
 #[derive(Parser, Debug)]
 #[clap(hide = true, about = "Detect and fix problems with Spin applications")]
@@ -28,18 +28,21 @@ impl DoctorCommand {
                     show_diagnosis(&*diagnosis);
 
                     if let Some(treatment) = diagnosis.treatment() {
-                        let desc = match treatment.description(patient).await {
-                            Ok(desc) => desc,
+                        let dry_run = match treatment.dry_run(patient).await {
+                            Ok(desc) => Some(desc),
                             Err(err) => {
-                                show_error("Couldn't prepare treatment: ", err);
+                                if !err.is::<DryRunNotSupported>() {
+                                    show_error("Treatment dry run failed: ", err);
+                                }
                                 return Ok(());
                             }
                         };
 
-                        let should_treat = prompt_treatment(desc).unwrap_or_else(|err| {
-                            show_error("Prompt error: ", err);
-                            false
-                        });
+                        let should_treat = prompt_treatment(treatment.summary(), dry_run)
+                            .unwrap_or_else(|err| {
+                                show_error("Prompt error: ", err);
+                                false
+                            });
 
                         if should_treat {
                             match treatment.treat(patient).await {
@@ -73,25 +76,37 @@ fn show_diagnosis(diagnosis: &dyn Diagnosis) {
     println!("\n{icon}Diagnosis: {}", diagnosis.description());
 }
 
-fn prompt_treatment(desc: String) -> Result<bool> {
+fn prompt_treatment(summary: String, dry_run: Option<String>) -> Result<bool> {
     let prompt = format!(
-        "{icon}Treatment available! Would you like to apply it?",
+        "{icon}The Spin Doctor can help! Would you like to",
         icon = Emoji("🩹 ", "")
     );
-    let mut selection = Select::new()
+    let mut items = vec![summary.as_str(), "Do nothing"];
+    if dry_run.is_some() {
+        items.push("See more details about the recommended changes");
+    }
+    let selection = Select::new()
         .with_prompt(prompt)
-        .items(&["Yes", "No", "Describe treatment"])
+        .items(&items)
         .default(0)
         .interact_opt()?;
-    if selection == Some(2) {
-        println!("\n{icon}{}\n", desc.trim_end(), icon = Emoji("📋 ", ""));
-        selection = Select::new()
-            .with_prompt("Would you like to apply this treatment?")
-            .items(&["Yes", "No"])
-            .default(0)
-            .interact_opt()?
+
+    match selection {
+        Some(2) => {
+            println!(
+                "\n{icon}{}\n",
+                dry_run.unwrap_or_default().trim_end(),
+                icon = Emoji("📋 ", "")
+            );
+            Ok(Confirm::new()
+                .with_prompt("Would you like to apply this fix?")
+                .default(true)
+                .interact_opt()?
+                .unwrap_or_default())
+        }
+        Some(0) => Ok(true),
+        _ => Ok(false),
     }
-    Ok(selection == Some(0))
 }
 
 fn show_error(prefix: &str, err: impl Debug) {

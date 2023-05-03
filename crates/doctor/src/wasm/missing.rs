@@ -1,9 +1,9 @@
 use std::process::Command;
 
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
 
-use crate::{spin_command, Diagnosis, PatientApp, Treatment};
+use crate::{Diagnosis, PatientApp, Treatment};
 
 use super::{PatientWasm, WasmDiagnostic, WasmSource};
 
@@ -35,7 +35,8 @@ pub struct WasmMissing(PatientWasm);
 
 impl WasmMissing {
     fn build_cmd(&self, patient: &PatientApp) -> Result<Command> {
-        let mut cmd = spin_command();
+        let spin_bin = std::env::current_exe().context("Couldn't find spin executable")?;
+        let mut cmd = Command::new(spin_bin);
         cmd.arg("build")
             .arg("-f")
             .arg(&patient.manifest_path)
@@ -61,7 +62,11 @@ impl Diagnosis for WasmMissing {
 
 #[async_trait]
 impl Treatment for WasmMissing {
-    async fn description(&self, patient: &PatientApp) -> anyhow::Result<String> {
+    fn summary(&self) -> String {
+        "Run `spin build`".into()
+    }
+
+    async fn dry_run(&self, patient: &PatientApp) -> anyhow::Result<String> {
         let args = self
             .build_cmd(patient)?
             .get_args()

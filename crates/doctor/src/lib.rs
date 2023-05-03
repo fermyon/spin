@@ -1,7 +1,7 @@
 //! Spin doctor: check and automatically fix problems with Spin apps.
 #![deny(missing_docs)]
 
-use std::{fmt::Debug, fs, future::Future, path::PathBuf, pin::Pin, process::Command, sync::Arc};
+use std::{fmt::Debug, fs, future::Future, path::PathBuf, pin::Pin, sync::Arc};
 
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
@@ -135,29 +135,36 @@ pub trait Diagnosis: Debug + Send + Sync + 'static {
 /// The Treatment trait represents a (potential) fix for a detected problem.
 #[async_trait]
 pub trait Treatment: Sync {
-    /// Return a human-readable description of what this treatment will do to
-    /// fix the problem, such as a file diff.
-    async fn description(&self, patient: &PatientApp) -> Result<String>;
+    /// Return a short (single line) description of what this fix will do, as
+    /// an imperative, e.g. "Upgrade the library".
+    fn summary(&self) -> String;
+
+    /// Return a detailed description of what this fix will do, such as a file
+    /// diff or list of commands to be executed.
+    ///
+    /// May return `Err(DryRunNotSupported.into())` if no such description is
+    /// available, which is the default implementation.
+    async fn dry_run(&self, patient: &PatientApp) -> Result<String> {
+        let _ = patient;
+        Err(DryRunNotSupported.into())
+    }
 
     /// Attempt to fix this problem. Return Ok only if the problem is
     /// successfully fixed.
     async fn treat(&self, patient: &mut PatientApp) -> Result<()>;
 }
 
-const SPIN_BIN_PATH: &str = "SPIN_BIN_PATH";
+/// Error returned by [`Treatment::dry_run`] if dry run isn't supported.
+#[derive(Debug)]
+pub struct DryRunNotSupported;
 
-/// Return a [`Command`] targeting the `spin` binary. The `spin` path is
-/// resolved to the first of these that is available:
-/// - the `SPIN_BIN_PATH` environment variable
-/// - the current executable ([`std::env::current_exe`])
-/// - the constant `"spin"` (resolved by e.g. `$PATH`)
-pub fn spin_command() -> Command {
-    let spin_path = std::env::var_os(SPIN_BIN_PATH)
-        .map(PathBuf::from)
-        .or_else(|| std::env::current_exe().ok())
-        .unwrap_or("spin".into());
-    Command::new(spin_path)
+impl std::fmt::Display for DryRunNotSupported {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "dry run not implemented for this treatment")
+    }
 }
+
+impl std::error::Error for DryRunNotSupported {}
 
 #[async_trait]
 trait BoxingDiagnostic {

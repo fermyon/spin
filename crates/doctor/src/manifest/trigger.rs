@@ -140,6 +140,19 @@ impl Diagnosis for TriggerDiagnosis {
 
 #[async_trait]
 impl ManifestTreatment for TriggerDiagnosis {
+    fn summary(&self) -> String {
+        match self {
+            TriggerDiagnosis::MissingAppTrigger => "Add default HTTP trigger config".into(),
+            TriggerDiagnosis::HttpAppTriggerMissingBase => {
+                "Set default HTTP trigger base '/'".into()
+            }
+            TriggerDiagnosis::HttpComponentTriggerMissingRoute(id, _) => {
+                format!("Set trigger.route '/...' for component {id:?}")
+            }
+            _ => "[invalid treatment]".into(),
+        }
+    }
+
     async fn treat_manifest(&self, doc: &mut Document) -> anyhow::Result<()> {
         match self {
             Self::MissingAppTrigger | Self::HttpAppTriggerMissingBase => {

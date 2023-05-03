@@ -76,6 +76,15 @@ impl Diagnosis for VersionDiagnosis {
 
 #[async_trait]
 impl ManifestTreatment for VersionDiagnosis {
+    fn summary(&self) -> String {
+        match self {
+            Self::MissingVersion => "Add spin_manifest_version to manifest",
+            Self::OldVersionKey => "Replace 'spin_version' with 'spin_manifest_version'",
+            Self::WrongValue(_) => r#"Set manifest version to "1""#,
+        }
+        .into()
+    }
+
     async fn treat_manifest(&self, doc: &mut Document) -> anyhow::Result<()> {
         doc.remove(SPIN_VERSION);
         let item = Item::Value("1".into());

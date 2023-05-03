@@ -14,13 +14,21 @@ pub mod version;
 /// ManifestTreatment helps implement [`Treatment`]s for app manifest problems.
 #[async_trait]
 pub trait ManifestTreatment {
+    /// Return a short (single line) description of what this fix will do, as
+    /// an imperative, e.g. "Add default trigger config".
+    fn summary(&self) -> String;
+
     /// Attempt to fix this problem. See [`Treatment::treat`].
     async fn treat_manifest(&self, doc: &mut Document) -> Result<()>;
 }
 
 #[async_trait]
 impl<T: ManifestTreatment + Sync> Treatment for T {
-    async fn description(&self, patient: &crate::PatientApp) -> Result<String> {
+    fn summary(&self) -> String {
+        ManifestTreatment::summary(self)
+    }
+
+    async fn dry_run(&self, patient: &crate::PatientApp) -> Result<String> {
         let mut after_doc = patient.manifest_doc.clone();
         self.treat_manifest(&mut after_doc).await?;
         let before = patient.manifest_doc.to_string();

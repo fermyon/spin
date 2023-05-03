@@ -7,6 +7,7 @@ use spin_cli::commands::external::predefined_externals;
 use spin_cli::commands::{
     build::BuildCommand,
     cloud::{DeployCommand, LoginCommand},
+    crater::CraterCommand,
     doctor::DoctorCommand,
     external::execute_external_subcommand,
     new::{AddCommand, NewCommand},
@@ -118,6 +119,8 @@ enum SpinApp {
     Plugins(PluginCommands),
     #[clap(subcommand, hide = true)]
     Trigger(TriggerCommands),
+    #[clap(hide = true)]
+    Crater(CraterCommand),
     #[clap(external_subcommand)]
     External(Vec<String>),
     Watch(WatchCommand),
@@ -147,6 +150,7 @@ impl SpinApp {
             Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run().await,
             Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run().await,
             Self::Trigger(TriggerCommands::HelpArgsOnly(cmd)) => cmd.run().await,
+            Self::Crater(cmd) => cmd.run().await,
             Self::Plugins(cmd) => cmd.run().await,
             Self::External(cmd) => execute_external_subcommand(cmd, app).await,
             Self::Watch(cmd) => cmd.run().await,

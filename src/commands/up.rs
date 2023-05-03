@@ -173,7 +173,7 @@ impl UpCommand {
             local_app_dir,
         }) = opts
         {
-            let locked_url = self.write_locked_app(&locked_app, &working_dir).await?;
+            let locked_url = write_locked_app(&locked_app, &working_dir).await?;
 
             cmd.env(SPIN_LOCKED_URL, locked_url)
                 .env(SPIN_WORKING_DIR, &working_dir)
@@ -258,24 +258,6 @@ impl UpCommand {
         // first case `foo` gets interpreted as a trigger arg which is probably not what the
         // user intended.
         !self.trigger_args.is_empty() && !self.trigger_args[0].to_string_lossy().starts_with('-')
-    }
-
-    async fn write_locked_app(
-        &self,
-        locked_app: &LockedApp,
-        working_dir: &Path,
-    ) -> Result<String, anyhow::Error> {
-        let locked_path = working_dir.join("spin.lock");
-        let locked_app_contents =
-            serde_json::to_vec_pretty(&locked_app).context("failed to serialize locked app")?;
-        tokio::fs::write(&locked_path, locked_app_contents)
-            .await
-            .with_context(|| format!("failed to write {:?}", locked_path))?;
-        let locked_url = Url::from_file_path(&locked_path)
-            .map_err(|_| anyhow!("cannot convert to file URL: {locked_path:?}"))?
-            .to_string();
-
-        Ok(locked_url)
     }
 
     async fn prepare_app_from_file(
@@ -421,6 +403,23 @@ impl AppSource {
             _ => None,
         }
     }
+}
+
+pub async fn write_locked_app(
+    locked_app: &LockedApp,
+    working_dir: &Path,
+) -> Result<String, anyhow::Error> {
+    let locked_path = working_dir.join("spin.lock");
+    let locked_app_contents =
+        serde_json::to_vec_pretty(&locked_app).context("failed to serialize locked app")?;
+    tokio::fs::write(&locked_path, locked_app_contents)
+        .await
+        .with_context(|| format!("failed to write locked app {:?}", locked_path))?;
+    let locked_url = Url::from_file_path(&locked_path)
+        .map_err(|_| anyhow!("cannot convert locked app path to file URL: {locked_path:?}"))?
+        .to_string();
+
+    Ok(locked_url)
 }
 
 #[cfg(test)]

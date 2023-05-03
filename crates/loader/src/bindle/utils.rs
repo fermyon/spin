@@ -18,7 +18,9 @@ static EMPTY: &Vec<bindle::Parcel> = &vec![];
 /// The media type of a `spin.toml` parcel as part of a bindle.
 pub const SPIN_MANIFEST_MEDIA_TYPE: &str = "application/vnd.fermyon.spin+toml";
 
-pub(crate) fn find_manifest(inv: &Invoice) -> Result<String> {
+/// Find the first parcel in the specified invoice matching [SPIN_MANIFEST_MEDIA_TYPE] and return its SHA-256
+/// content hash.
+pub fn find_manifest(inv: &Invoice) -> Result<String> {
     let parcels = inv
         .parcel
         .as_ref()

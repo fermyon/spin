@@ -4,6 +4,8 @@
 pub mod build;
 /// Commands for publishing applications to the Fermyon Platform.
 pub mod cloud;
+/// Hidden command for instantiating all the apps in a repository.
+pub mod crater;
 /// Command for running the Spin Doctor.
 pub mod doctor;
 /// Commands for external subcommands (i.e. plugins)

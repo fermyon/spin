@@ -12,7 +12,8 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Context, Error, Result};
+use crate::{spin::SpinHttpExecutor, wagi::WagiHttpExecutor};
+use anyhow::{anyhow, Context, Error, Result};
 use async_trait::async_trait;
 use clap::Args;
 use futures_util::stream::StreamExt;
@@ -32,14 +33,13 @@ use spin_http::{
 };
 use spin_trigger::{
     locked::{BINDLE_VERSION_KEY, DESCRIPTION_KEY, VERSION_KEY},
-    EitherInstancePre, TriggerAppEngine, TriggerExecutor,
+    EitherInstance, EitherInstancePre, TriggerAppEngine, TriggerExecutor,
 };
+use spin_world::http_types;
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
 use tracing::log;
-
-use crate::{spin::SpinHttpExecutor, wagi::WagiHttpExecutor};
 
 pub use tls::TlsConfig;
 
@@ -188,6 +188,47 @@ impl TriggerExecutor for HttpTrigger {
                     .map_err(spin_trigger::decode_preinstantiation_error)?,
             ))
         }
+    }
+
+    /// Instantiate all components and verify that they export the expected trigger function(s).
+    async fn check(&self) -> Result<()> {
+        for (_, component_id) in self.router.routes() {
+            let trigger = self.component_trigger_configs.get(component_id).unwrap();
+            let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Spin);
+            let (instance, mut store) = self.engine.prepare_instance(component_id).await?;
+            match executor {
+                HttpExecutorType::Spin => {
+                    let EitherInstance::Component(instance) = instance else {
+                        unreachable!()
+                    };
+
+                    instance
+                        .exports(&mut store)
+                        .instance("fermyon:spin/inbound-http")
+                        .ok_or_else(|| anyhow!("no inbound-http instance found"))?
+                        .typed_func::<(http_types::Request,), (http_types::Response,)>(
+                            "handle-request",
+                        )?;
+                }
+                HttpExecutorType::Wagi(wagi_config) => {
+                    let EitherInstance::Module(instance) = instance else {
+                        unreachable!()
+                    };
+
+                    instance
+                        .get_func(&mut store, &wagi_config.entrypoint)
+                        .ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "No such function '{}' in {}",
+                                wagi_config.entrypoint,
+                                component_id
+                            )
+                        })?;
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

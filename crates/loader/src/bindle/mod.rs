@@ -25,11 +25,11 @@ use spin_manifest::{
 
 use crate::bindle::{
     config::{RawAppManifest, RawComponentManifest},
-    utils::{find_manifest, parcels_in_group},
+    utils::parcels_in_group,
 };
 pub use connection::BindleConnectionInfo;
 pub(crate) use utils::BindleReader;
-pub use utils::SPIN_MANIFEST_MEDIA_TYPE;
+pub use utils::{find_manifest, SPIN_MANIFEST_MEDIA_TYPE};
 
 /// Given a Bindle server URL and reference, pull it, expand its assets locally, and get a
 /// prepared application configuration consumable by a Spin execution context.
@@ -80,8 +80,7 @@ async fn prepare(
     )
     .await
     .into_iter()
-    .map(|x| x.expect("Cannot prepare component"))
-    .collect::<Vec<_>>();
+    .collect::<Result<Vec<_>>>()?;
 
     let variables = raw
         .variables

@@ -60,6 +60,11 @@ pub trait TriggerExecutor: Sized + Send + Sync {
                 .with_context(|| format!("Failed to instantiate component '{}'", component.id()))?,
         ))
     }
+
+    /// Instantiate all components and verify that they export the expected trigger function(s).
+    async fn check(&self) -> Result<()> {
+        todo!()
+    }
 }
 
 pub struct TriggerExecutorBuilder<Executor: TriggerExecutor> {

@@ -4,9 +4,9 @@ use super::{
 };
 use bindle::{BindleSpec, Condition, Group, Invoice, Label, Parcel};
 use semver::BuildMetadata;
+use spin_common::sha256;
 use spin_loader::{
     bindle::config as bindle_schema,
-    digest::{bytes_sha256_string, file_sha256_string},
     local::{absolutize, config as local_schema, parent_dir, validate_raw_app_manifest, UrlSource},
 };
 use std::path::{Path, PathBuf};
@@ -253,7 +253,7 @@ async fn manifest_parcel(
         description: "App manifest serialization failure".to_string(),
     })?;
     let bytes = text.as_bytes();
-    let digest = bytes_sha256_string(bytes);
+    let digest = sha256::hex_digest_from_bytes(bytes);
     let parcel_name = format!("spin.{}.toml", digest);
     let temp_dir = scratch_dir.as_ref().join("manifests");
     let absolute_path = write_file(&temp_dir, &parcel_name, bytes).await?;
@@ -405,7 +405,7 @@ fn split_sources(sourced_parcels: Vec<SourcedParcel>) -> (Vec<Parcel>, ParcelSou
 }
 
 fn sha256_digest(file: impl AsRef<Path>) -> PublishResult<String> {
-    file_sha256_string(&file).map_err(|e| PublishError::Io {
+    sha256::hex_digest_from_file(&file).map_err(|e| PublishError::Io {
         source: e,
         description: format!(
             "Failed to calculate digest for '{}'",

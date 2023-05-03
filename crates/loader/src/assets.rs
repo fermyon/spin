@@ -75,7 +75,7 @@ pub(crate) fn component_dir(id: &str) -> String {
     // if the asset paths are also long. Longer term, consider an alternative approach where
     // we use an index or something for disambiguation, and/or disambiguating only if a clash is
     // detected, etc.
-    let id_sha256 = crate::digest::bytes_sha256_string(id.as_bytes());
+    let id_sha256 = spin_common::sha256::hex_digest_from_bytes(id);
     format!("{}_{}", UNSAFE_CHARACTERS.replace_all(id, "_"), id_sha256)
 }
 

@@ -1,0 +1,11 @@
+[package]
+name = "spin-common"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+sha2 = "0.10"
+
+[dev-dependencies]
+tempfile = "3.5"

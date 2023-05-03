@@ -98,29 +98,9 @@ fermyon-platform = []
 
 [workspace]
 members = [
-  "crates/app",
-  "crates/bindle",
-  "crates/build",
-  "crates/config",
-  "crates/core",
-  "crates/http",
-  "crates/loader",
-  "crates/manifest",
-  "crates/oci",
-  "crates/outbound-http",
-  "crates/outbound-redis",
-  "crates/key-value",
-  "crates/key-value-sqlite",
-  "crates/key-value-redis",
-  "crates/plugins",
-  "crates/redis",
-  "crates/templates",
-  "crates/testing",
-  "crates/trigger",
-  "crates/trigger-http",
+  "crates/*",
   "sdk/rust",
   "sdk/rust/macro",
-  "crates/e2e-testing"
 ]
 
 [workspace.dependencies]

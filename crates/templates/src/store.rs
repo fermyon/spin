@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context};
-use sha2::{Digest, Sha256};
 
 use crate::directory::subdirectories;
 
@@ -61,7 +60,7 @@ impl TemplateStore {
         // if the template filenames are also long. Longer term, consider an alternative approach where
         // we use an index or something for disambiguation, and/or disambiguating only if a clash is
         // detected, etc.
-        let id_sha256 = format!("{:x}", Sha256::digest(id));
+        let id_sha256 = spin_common::sha256::hex_digest_from_bytes(id);
         format!("{}_{}", UNSAFE_CHARACTERS.replace_all(id, "_"), id_sha256)
     }
 }

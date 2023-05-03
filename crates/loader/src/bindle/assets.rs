@@ -6,11 +6,11 @@ use std::path::PathBuf;
 use anyhow::{anyhow, bail, Context, Result};
 use bindle::{Id, Label};
 use futures::{future, stream, StreamExt, TryStreamExt};
+use spin_common::sha256;
 use spin_manifest::DirectoryMount;
 use tokio::{fs, io::AsyncWriteExt};
 use tracing::log;
 
-use crate::digest::file_sha256_string;
 use crate::{
     assets::{create_dir, ensure_under},
     bindle::utils::BindleReader,
@@ -124,6 +124,7 @@ impl Copier {
 }
 
 async fn check_existing_file(path: PathBuf, label: &Label) -> Result<bool> {
-    let sha256_digest = tokio::task::spawn_blocking(move || file_sha256_string(path)).await??;
+    let sha256_digest =
+        tokio::task::spawn_blocking(move || sha256::hex_digest_from_file(path)).await??;
     Ok(sha256_digest == label.sha256)
 }

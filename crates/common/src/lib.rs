@@ -8,4 +8,5 @@
 // - No dependencies on other Spin crates
 // - Code should have at least 2 dependents
 
+pub mod arg_parser;
 pub mod sha256;

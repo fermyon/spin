@@ -4976,6 +4976,7 @@ dependencies = [
  "spin-app",
  "spin-bindle",
  "spin-build",
+ "spin-common",
  "spin-config",
  "spin-key-value",
  "spin-key-value-sqlite",
@@ -5005,6 +5006,7 @@ dependencies = [
 name = "spin-common"
 version = "1.2.0-pre0"
 dependencies = [
+ "anyhow",
  "sha2 0.10.6",
  "tempfile",
 ]
@@ -5314,6 +5316,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spin-app",
+ "spin-common",
  "spin-componentize",
  "spin-config",
  "spin-core",

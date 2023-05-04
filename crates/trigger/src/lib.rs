@@ -114,14 +114,15 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 builder.add_host_component(outbound_redis::OutboundRedisComponent)?;
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
-                self.loader.add_dynamic_host_component(
-                    &mut builder,
+                let (kv_component, kv_hooks) =
                     runtime_config::key_value::build_key_value_component(
                         &runtime_config,
                         &init_data.kv,
                     )
-                    .await?,
-                )?;
+                    .await?;
+                self.loader
+                    .add_dynamic_host_component(&mut builder, kv_component)?;
+                self.hooks(kv_hooks);
                 self.loader.add_dynamic_host_component(
                     &mut builder,
                     outbound_http::OutboundHttpComponent,

@@ -1,7 +1,12 @@
-use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+    path::PathBuf,
+    sync::Arc,
+};
 
 use crate::{runtime_config::RuntimeConfig, TriggerHooks};
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use serde::Deserialize;
 use spin_key_value::{
     CachingStoreManager, DelegatingStoreManager, KeyValueComponent, StoreManager,
@@ -19,7 +24,7 @@ pub type KeyValueStore = Arc<dyn StoreManager>;
 pub async fn build_key_value_component(
     runtime_config: &RuntimeConfig,
     init_data: &[(String, String)],
-) -> Result<KeyValueComponent> {
+) -> Result<(KeyValueComponent, impl TriggerHooks)> {
     let stores: HashMap<_, _> = runtime_config
         .key_value_stores()
         .context("Failed to build key-value component")?
@@ -47,10 +52,49 @@ pub async fn build_key_value_component(
     }
 
     let delegating_manager = DelegatingStoreManager::new(stores);
+
+    let store_names = delegating_manager.store_names().into_iter();
+    let kv_hooks = KeyValueValidationHook::new(store_names);
+
     let caching_manager = Arc::new(CachingStoreManager::new(delegating_manager));
-    Ok(KeyValueComponent::new(spin_key_value::manager(move |_| {
-        caching_manager.clone()
-    })))
+    let kv_component =
+        KeyValueComponent::new(spin_key_value::manager(move |_| caching_manager.clone()));
+
+    Ok((kv_component, kv_hooks))
+}
+
+struct KeyValueValidationHook {
+    store_names: HashSet<String>,
+}
+
+impl KeyValueValidationHook {
+    fn new(store_names: impl IntoIterator<Item = String>) -> Self {
+        Self {
+            store_names: store_names.into_iter().collect(),
+        }
+    }
+}
+
+impl TriggerHooks for KeyValueValidationHook {
+    fn app_loaded(&mut self, app: &spin_app::App, _runtime_config: &RuntimeConfig) -> Result<()> {
+        let errors  = app.components().flat_map(|c| {
+            let allowed_stores = c.get_metadata(KEY_VALUE_STORES_KEY).unwrap_or_default().unwrap_or_default();
+            allowed_stores.iter().filter_map(|allowed_store|
+                if self.store_names.contains(allowed_store) {
+                    None
+                } else {
+                    let err = format!("Component {} is granted access to key-value store '{allowed_store}', which is not defined", c.id());
+                    Some(err)
+                }
+            ).collect::<Vec<String>>()
+        }).collect::<Vec<String>>();
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(anyhow!(errors.join("\n")))
+        }
+    }
 }
 
 // Holds deserialized options from a `[key_value_store.<name>]` runtime config section.

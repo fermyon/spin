@@ -34,6 +34,12 @@ impl DelegatingStoreManager {
     }
 }
 
+impl DelegatingStoreManager {
+    pub fn store_names(&self) -> Vec<String> {
+        self.delegates.keys().cloned().collect()
+    }
+}
+
 #[async_trait]
 impl StoreManager for DelegatingStoreManager {
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {

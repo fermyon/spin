@@ -3361,9 +3361,11 @@ dependencies = [
 
 [[package]]
 name = "oci-distribution"
-version = "0.9.3"
-source = "git+https://github.com/radu-matei/oci-distribution?branch=update-dockerhub-default-registry#f2cdd28637609009ee565b9410fc0b6eaa83e822"
+version = "0.10.0"
+source = "git+https://github.com/krustlet/oci-distribution?rev=64986855ef0d692df3b270d23c4bee8c41d97c27#64986855ef0d692df3b270d23c4bee8c41d97c27"
 dependencies = [
+ "chrono",
+ "futures",
  "futures-util",
  "http",
  "http-auth",
@@ -3377,6 +3379,7 @@ dependencies = [
  "sha2 0.10.6",
  "thiserror",
  "tokio",
+ "tokio-util 0.7.7",
  "tracing",
  "unicase",
 ]
@@ -5172,6 +5175,7 @@ dependencies = [
  "dirs 4.0.0",
  "dkregistry",
  "docker_credential",
+ "futures-util",
  "oci-distribution",
  "reqwest",
  "serde",
@@ -5778,6 +5782,7 @@ checksum = "5427d89453009325de0d8f342c9490009f76e999cb7672d77e46267448f7e6b2"
 dependencies = [
  "bytes",
  "futures-core",
+ "futures-io",
  "futures-sink",
  "pin-project-lite",
  "tokio",

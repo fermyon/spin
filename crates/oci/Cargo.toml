@@ -10,7 +10,8 @@ base64 = "0.21"
 dkregistry = { git = "https://github.com/camallo/dkregistry-rs", rev = "37acecb4b8139dd1b1cc83795442f94f90e1ffc5" }
 docker_credential = "1.0"
 dirs = "4.0"
-oci-distribution = { git = "https://github.com/radu-matei/oci-distribution", branch = "update-dockerhub-default-registry" }
+futures-util = "0.3"
+oci-distribution = { git = "https://github.com/krustlet/oci-distribution", rev = "64986855ef0d692df3b270d23c4bee8c41d97c27" }
 reqwest = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

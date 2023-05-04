@@ -3436,8 +3436,8 @@ dependencies = [
 
 [[package]]
 name = "oci-distribution"
-version = "0.9.4"
-source = "git+https://github.com/fermyon/oci-distribution?branch=access-token-cache#e0a52aeacd827396f120673e7a969c8742167d7e"
+version = "0.10.0"
+source = "git+https://github.com/fermyon/oci-distribution?branch=access-token-cache#05022618d78feef9b99f20b5da8fd6def6bb80d2"
 dependencies = [
  "chrono",
  "futures",

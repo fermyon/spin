@@ -8,5 +8,6 @@ anyhow = "1"
 redis = { version = "0.21", features = ["tokio-comp", "tokio-native-tls-comp"] }
 spin-key-value = { path = "../key-value" }
 spin-core = { path = "../core" }
+spin-world = { path = "../world" }
 tokio = "1"
 url = "2"

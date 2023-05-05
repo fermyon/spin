@@ -31,17 +31,6 @@ pub use host_component::{HostComponent, HostComponentDataHandle, HostComponentsD
 pub use io::OutputBuffer;
 pub use store::{Store, StoreBuilder, Wasi};
 
-#[allow(missing_docs)]
-mod bindgen {
-    wasmtime::component::bindgen!({
-        path: "../../wit/preview2",
-        world: "reactor",
-        async: true
-    });
-}
-
-pub use bindgen::*;
-
 /// The default [`EngineBuilder::epoch_tick_interval`].
 pub const DEFAULT_EPOCH_TICK_INTERVAL: Duration = Duration::from_millis(10);
 

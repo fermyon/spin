@@ -3496,6 +3496,7 @@ dependencies = [
  "reqwest",
  "spin-app",
  "spin-core",
+ "spin-world",
  "tracing",
  "url",
  "wit-bindgen-wasmtime",
@@ -3509,6 +3510,7 @@ dependencies = [
  "mysql_async",
  "mysql_common",
  "spin-core",
+ "spin-world",
  "tokio",
  "tracing",
  "url",
@@ -3523,6 +3525,7 @@ dependencies = [
  "native-tls",
  "postgres-native-tls",
  "spin-core",
+ "spin-world",
  "tokio",
  "tokio-postgres",
  "tracing",
@@ -3536,6 +3539,7 @@ dependencies = [
  "anyhow",
  "redis",
  "spin-core",
+ "spin-world",
  "tokio",
  "tracing",
  "wit-bindgen-wasmtime",
@@ -5034,6 +5038,7 @@ dependencies = [
  "serde",
  "spin-app",
  "spin-core",
+ "spin-world",
  "thiserror",
  "tokio",
  "toml 0.5.11",
@@ -5086,6 +5091,7 @@ dependencies = [
  "lru 0.9.0",
  "spin-app",
  "spin-core",
+ "spin-world",
  "tokio",
  "tracing",
  "wit-bindgen-wasmtime",
@@ -5099,6 +5105,7 @@ dependencies = [
  "redis",
  "spin-core",
  "spin-key-value",
+ "spin-world",
  "tokio",
  "url",
 ]
@@ -5112,6 +5119,7 @@ dependencies = [
  "rusqlite",
  "spin-core",
  "spin-key-value",
+ "spin-world",
  "tokio",
 ]
 
@@ -5227,6 +5235,7 @@ dependencies = [
  "spin-core",
  "spin-testing",
  "spin-trigger",
+ "spin-world",
  "tracing",
  "wit-bindgen-wasmtime",
 ]
@@ -5357,6 +5366,7 @@ dependencies = [
  "spin-http",
  "spin-testing",
  "spin-trigger",
+ "spin-world",
  "tls-listener",
  "tokio",
  "tokio-rustls",
@@ -5365,6 +5375,13 @@ dependencies = [
  "wasmtime",
  "wasmtime-wasi",
  "wit-bindgen-wasmtime",
+]
+
+[[package]]
+name = "spin-world"
+version = "1.2.0-pre0"
+dependencies = [
+ "wasmtime",
 ]
 
 [[package]]

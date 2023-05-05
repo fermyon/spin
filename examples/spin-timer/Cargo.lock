@@ -2374,6 +2374,7 @@ dependencies = [
  "reqwest",
  "spin-app",
  "spin-core",
+ "spin-world",
  "tracing",
  "url",
  "wit-bindgen-wasmtime",
@@ -2387,6 +2388,7 @@ dependencies = [
  "mysql_async",
  "mysql_common",
  "spin-core",
+ "spin-world",
  "tokio",
  "tracing",
  "url",
@@ -2401,6 +2403,7 @@ dependencies = [
  "native-tls",
  "postgres-native-tls",
  "spin-core",
+ "spin-world",
  "tokio",
  "tokio-postgres",
  "tracing",
@@ -2414,6 +2417,7 @@ dependencies = [
  "anyhow",
  "redis",
  "spin-core",
+ "spin-world",
  "tokio",
  "tracing",
  "wit-bindgen-wasmtime",
@@ -3428,6 +3432,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-common"
+version = "1.2.0-pre0"
+dependencies = [
+ "anyhow",
+ "sha2 0.10.6",
+]
+
+[[package]]
 name = "spin-componentize"
 version = "0.1.0"
 source = "git+https://github.com/fermyon/spin-componentize?rev=51c3fade751c4e364142719e42130943fd8b0a76#51c3fade751c4e364142719e42130943fd8b0a76"
@@ -3449,6 +3461,7 @@ dependencies = [
  "serde",
  "spin-app",
  "spin-core",
+ "spin-world",
  "thiserror",
  "tokio",
  "vaultrs",
@@ -3481,6 +3494,7 @@ dependencies = [
  "lru 0.9.0",
  "spin-app",
  "spin-core",
+ "spin-world",
  "tokio",
  "tracing",
  "wit-bindgen-wasmtime",
@@ -3494,6 +3508,7 @@ dependencies = [
  "redis",
  "spin-core",
  "spin-key-value",
+ "spin-world",
  "tokio",
  "url",
 ]
@@ -3507,6 +3522,7 @@ dependencies = [
  "rusqlite",
  "spin-core",
  "spin-key-value",
+ "spin-world",
  "tokio",
 ]
 
@@ -3532,7 +3548,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "sha2 0.10.6",
+ "spin-common",
  "spin-manifest",
  "tempfile",
  "tokio",
@@ -3570,6 +3586,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spin-app",
+ "spin-common",
  "spin-componentize",
  "spin-config",
  "spin-core",
@@ -3582,6 +3599,13 @@ dependencies = [
  "toml",
  "tracing",
  "url",
+ "wasmtime",
+]
+
+[[package]]
+name = "spin-world"
+version = "1.2.0-pre0"
+dependencies = [
  "wasmtime",
 ]
 

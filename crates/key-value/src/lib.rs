@@ -1,6 +1,7 @@
 use anyhow::Result;
 use spin_app::MetadataKey;
-use spin_core::{async_trait, key_value};
+use spin_core::async_trait;
+use spin_world::key_value;
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
 

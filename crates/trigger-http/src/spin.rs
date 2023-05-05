@@ -4,11 +4,9 @@ use crate::{HttpExecutor, HttpTrigger, Store};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use hyper::{Body, Request, Response};
-use spin_core::{
-    http_types::{self, Method, RequestParam},
-    Instance,
-};
+use spin_core::Instance;
 use spin_trigger::{EitherInstance, TriggerAppEngine};
+use spin_world::http_types::{self, Method, RequestParam};
 
 #[derive(Clone)]
 pub struct SpinHttpExecutor;

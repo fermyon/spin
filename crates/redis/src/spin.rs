@@ -1,10 +1,8 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use spin_core::{
-    redis_types::{Error, PayloadParam},
-    Instance,
-};
+use spin_core::Instance;
 use spin_trigger::{EitherInstance, TriggerAppEngine};
+use spin_world::redis_types::{Error, PayloadParam};
 
 use crate::{RedisExecutor, RedisTrigger, Store};
 

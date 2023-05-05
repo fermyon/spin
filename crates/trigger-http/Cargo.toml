@@ -22,8 +22,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
-spin-trigger = { path = "../trigger" }
 spin-http = { path = "../http" }
+spin-trigger = { path = "../trigger" }
+spin-world = { path = "../world" }
 tls-listener = { version = "0.4.0", features = [
     "rustls",
     "hyper-h1",

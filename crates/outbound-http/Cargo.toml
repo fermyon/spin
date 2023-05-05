@@ -13,6 +13,7 @@ http = "0.2"
 reqwest = { version = "0.11", features = ["gzip"] }
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
+spin-world = { path = "../world" }
 tracing = { workspace = true }
 url = "2.2.1"
 wit-bindgen-wasmtime = { workspace = true }

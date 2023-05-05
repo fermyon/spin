@@ -3,13 +3,8 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Args, IntoApp, Parser};
 use serde::de::DeserializeOwned;
-use tokio::{
-    task::JoinHandle,
-    time::{sleep, Duration},
-};
-
 use spin_app::Loader;
-use spin_common::arg_parser::parse_kv;
+use spin_common::{arg_parser::parse_kv, sloth};
 
 use crate::stdio::StdioLoggingTriggerHooks;
 use crate::{
@@ -174,7 +169,7 @@ where
     ) -> Result<Executor> {
         let runtime_config = self.build_runtime_config()?;
 
-        let _sloth_warning = warn_if_wasm_build_slothful();
+        let _sloth_guard = warn_if_wasm_build_slothful();
 
         let mut builder = TriggerExecutorBuilder::new(loader);
         self.update_wasmtime_config(builder.wasmtime_config_mut())?;
@@ -225,34 +220,16 @@ where
 
 const SLOTH_WARNING_DELAY_MILLIS: u64 = 1250;
 
-struct WasmBuildSlothWarning<T> {
-    warning: JoinHandle<T>,
-}
+fn warn_if_wasm_build_slothful() -> sloth::SlothGuard {
+    #[cfg(debug_assertions)]
+    let message = "\
+        This is a debug build - preparing Wasm modules might take a few seconds\n\
+        If you're experiencing long startup times please switch to the release build";
 
-impl<T> Drop for WasmBuildSlothWarning<T> {
-    fn drop(&mut self) {
-        self.warning.abort()
-    }
-}
+    #[cfg(not(debug_assertions))]
+    let message = "Preparing Wasm modules is taking a few seconds...";
 
-fn warn_if_wasm_build_slothful() -> WasmBuildSlothWarning<()> {
-    let warning = tokio::spawn(warn_slow_wasm_build());
-    WasmBuildSlothWarning { warning }
-}
-
-#[cfg(debug_assertions)]
-async fn warn_slow_wasm_build() {
-    sleep(Duration::from_millis(SLOTH_WARNING_DELAY_MILLIS)).await;
-    println!("This is a debug build - preparing Wasm modules might take a few seconds");
-    println!("If you're experiencing long startup times please switch to the release build");
-    println!();
-}
-
-#[cfg(not(debug_assertions))]
-async fn warn_slow_wasm_build() {
-    sleep(Duration::from_millis(SLOTH_WARNING_DELAY_MILLIS)).await;
-    println!("Preparing Wasm modules is taking a few seconds...");
-    println!();
+    sloth::warn_if_slothful(SLOTH_WARNING_DELAY_MILLIS, format!("{message}\n"))
 }
 
 pub mod help {

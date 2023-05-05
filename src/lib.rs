@@ -1,6 +1,5 @@
 pub mod commands;
 pub(crate) mod opts;
-mod sloth;
 mod watch_filter;
 mod watch_state;
 

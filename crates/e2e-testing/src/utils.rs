@@ -45,9 +45,16 @@ pub fn run<S: Into<String> + AsRef<OsStr>>(
     let output = cmd.output()?;
     let code = output.status.code().expect("should have status code");
     if code != 0 {
-        println!("{:#?}", std::str::from_utf8(&output.stderr)?);
-        println!("{:#?}", std::str::from_utf8(&output.stdout)?);
-        panic!("command `{:?}` exited with code {}", cmd, code);
+        let stdout = std::str::from_utf8(&output.stdout)?
+            .lines()
+            .collect::<Vec<&str>>();
+        let stderr = std::str::from_utf8(&output.stderr)?
+            .lines()
+            .collect::<Vec<&str>>();
+        panic!(
+            "command `{:?}` exited with code {}.\n\nstdout:\n{:#?}\n\nstderr:\n{:#?}\n",
+            cmd, code, stdout, stderr
+        );
     }
 
     Ok(output)

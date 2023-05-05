@@ -27,7 +27,9 @@ pub use wasmtime::{
 
 use self::host_component::{HostComponents, HostComponentsBuilder};
 
-pub use host_component::{HostComponent, HostComponentDataHandle, HostComponentsData};
+pub use host_component::{
+    AnyHostComponentDataHandle, HostComponent, HostComponentDataHandle, HostComponentsData,
+};
 pub use io::OutputBuffer;
 pub use store::{Store, StoreBuilder, Wasi};
 

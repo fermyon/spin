@@ -1,6 +1,7 @@
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 
-use spin_core::{EngineBuilder, HostComponent, HostComponentsData};
+use anyhow::{Context, Result};
+use spin_core::{AnyHostComponentDataHandle, EngineBuilder, HostComponent, HostComponentsData};
 
 use crate::AppComponent;
 
@@ -13,21 +14,39 @@ pub trait DynamicHostComponent: HostComponent {
     ///
     /// The `data` returned by [`HostComponent::build_data`] is passed, along
     /// with a reference to the `component` being instantiated.
-    fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> anyhow::Result<()>;
+    fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> Result<()>;
 }
 
 impl<DHC: DynamicHostComponent> DynamicHostComponent for Arc<DHC> {
-    fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> anyhow::Result<()> {
+    fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> Result<()> {
         (**self).update_data(data, component)
     }
 }
 
-type DataUpdater =
-    Box<dyn Fn(&mut HostComponentsData, &AppComponent) -> anyhow::Result<()> + Send + Sync>;
+trait DynSafeDynamicHostComponent {
+    fn update_data_any(&self, data: &mut dyn Any, component: &AppComponent) -> Result<()>;
+}
+
+impl<T: DynamicHostComponent> DynSafeDynamicHostComponent for T
+where
+    T::Data: Any,
+{
+    fn update_data_any(&self, data: &mut dyn Any, component: &AppComponent) -> Result<()> {
+        let data = data.downcast_mut().context("wrong data type")?;
+        self.update_data(data, component)
+    }
+}
+
+type ArcDynamicHostComponent = Arc<dyn DynSafeDynamicHostComponent + Send + Sync>;
+
+struct DynamicHostComponentWithHandle {
+    host_component: ArcDynamicHostComponent,
+    handle: AnyHostComponentDataHandle,
+}
 
 #[derive(Default)]
 pub struct DynamicHostComponents {
-    data_updaters: Vec<DataUpdater>,
+    host_components: Vec<DynamicHostComponentWithHandle>,
 }
 
 impl DynamicHostComponents {
@@ -35,14 +54,15 @@ impl DynamicHostComponents {
         &mut self,
         engine_builder: &mut EngineBuilder<T>,
         host_component: DHC,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let host_component = Arc::new(host_component);
-        let handle = engine_builder.add_host_component(host_component.clone())?;
-        self.data_updaters
-            .push(Box::new(move |host_components_data, component| {
-                let data = host_components_data.get_or_insert(handle);
-                host_component.update_data(data, component)
-            }));
+        let handle = engine_builder
+            .add_host_component(host_component.clone())?
+            .into();
+        self.host_components.push(DynamicHostComponentWithHandle {
+            host_component,
+            handle,
+        });
         Ok(())
     }
 
@@ -50,9 +70,14 @@ impl DynamicHostComponents {
         &self,
         host_components_data: &mut HostComponentsData,
         component: &AppComponent,
-    ) -> anyhow::Result<()> {
-        for data_updater in &self.data_updaters {
-            data_updater(host_components_data, component)?;
+    ) -> Result<()> {
+        for DynamicHostComponentWithHandle {
+            host_component,
+            handle,
+        } in &self.host_components
+        {
+            let data = host_components_data.get_or_insert_any(*handle);
+            host_component.update_data_any(data, component)?;
         }
         Ok(())
     }

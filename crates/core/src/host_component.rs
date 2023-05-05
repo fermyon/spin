@@ -91,21 +91,46 @@ impl<HC: HostComponent> Clone for HostComponentDataHandle<HC> {
     }
 }
 
-type DataBuilder = Box<dyn Fn() -> Box<dyn Any + Send> + Send + Sync>;
+/// An opaque handle which can be passed to [`HostComponentsData`] to access or
+/// set associated [`HostComponent::Data`].
+#[derive(Clone, Copy)]
+pub struct AnyHostComponentDataHandle(usize);
 
+impl<T: HostComponent> From<HostComponentDataHandle<T>> for AnyHostComponentDataHandle {
+    fn from(value: HostComponentDataHandle<T>) -> Self {
+        Self(value.idx)
+    }
+}
+
+#[doc(hidden)]
+pub trait DynSafeHostComponent {
+    fn build_data_box(&self) -> Box<dyn Any + Send>;
+}
+
+impl<T: HostComponent> DynSafeHostComponent for T
+where
+    T::Data: Any + Send,
+{
+    fn build_data_box(&self) -> Box<dyn Any + Send> {
+        Box::new(self.build_data())
+    }
+}
+
+type BoxHostComponent = Box<dyn DynSafeHostComponent + Send + Sync>;
+
+#[derive(Default)]
 pub struct HostComponentsBuilder {
-    data_builders: Vec<DataBuilder>,
+    host_components: Vec<BoxHostComponent>,
 }
 
 impl HostComponentsBuilder {
-    pub fn add_host_component<T: Send, HC: HostComponent + 'static>(
+    pub fn add_host_component<T: Send, HC: HostComponent>(
         &mut self,
         linker: &mut Linker<T>,
         host_component: HC,
     ) -> Result<HostComponentDataHandle<HC>> {
-        let idx = self.data_builders.len();
-        self.data_builders
-            .push(Box::new(move || Box::new(host_component.build_data())));
+        let idx = self.host_components.len();
+        self.host_components.push(Box::new(host_component));
         HC::add_to_linker(linker, move |data| {
             data.host_components_data
                 .get_or_insert_idx(idx)
@@ -119,30 +144,29 @@ impl HostComponentsBuilder {
     }
 
     pub fn build(self) -> HostComponents {
-        let data_builders = Arc::new(self.data_builders);
-        HostComponents { data_builders }
+        HostComponents {
+            host_components: Arc::new(self.host_components),
+        }
     }
 }
 
 pub struct HostComponents {
-    data_builders: Arc<Vec<DataBuilder>>,
+    host_components: Arc<Vec<BoxHostComponent>>,
 }
 
 impl HostComponents {
     pub fn builder() -> HostComponentsBuilder {
-        HostComponentsBuilder {
-            data_builders: Default::default(),
-        }
+        Default::default()
     }
 
     pub fn new_data(&self) -> HostComponentsData {
         // Fill with `None`
         let data = std::iter::repeat_with(Default::default)
-            .take(self.data_builders.len())
+            .take(self.host_components.len())
             .collect();
         HostComponentsData {
             data,
-            data_builders: self.data_builders.clone(),
+            host_components: self.host_components.clone(),
         }
     }
 }
@@ -150,7 +174,7 @@ impl HostComponents {
 /// Holds a heterogenous set of [`HostComponent::Data`]s.
 pub struct HostComponentsData {
     data: Vec<Option<Box<dyn Any + Send>>>,
-    data_builders: Arc<Vec<DataBuilder>>,
+    host_components: Arc<Vec<BoxHostComponent>>,
 }
 
 impl HostComponentsData {
@@ -170,8 +194,15 @@ impl HostComponentsData {
         x.downcast_mut().unwrap()
     }
 
+    /// Retrieves a mutable reference to [`HostComponent::Data`] for the given `handle`.
+    ///
+    /// If unset, the data will be initialized with [`HostComponent::build_data`].
+    pub fn get_or_insert_any(&mut self, handle: AnyHostComponentDataHandle) -> &mut dyn Any {
+        self.get_or_insert_idx(handle.0)
+    }
+
     fn get_or_insert_idx(&mut self, idx: usize) -> &mut Box<dyn Any + Send> {
-        self.data[idx].get_or_insert_with(|| self.data_builders[idx]())
+        self.data[idx].get_or_insert_with(|| self.host_components[idx].build_data_box())
     }
 }
 

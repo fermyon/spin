@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use redis::{aio::Connection, parse_redis_url, AsyncCommands};
-use spin_core::{async_trait, key_value::Error};
-use spin_key_value::{log_error, Store, StoreManager};
+use spin_core::async_trait;
+use spin_key_value::{log_error, Error, Store, StoreManager};
 use std::sync::Arc;
 use tokio::sync::{Mutex, OnceCell};
 use url::Url;

@@ -3,7 +3,8 @@ use std::sync::{Arc, Mutex};
 use anyhow::Result;
 use once_cell::sync::OnceCell;
 use spin_app::{AppComponent, DynamicHostComponent};
-use spin_core::{async_trait, config, HostComponent};
+use spin_core::{async_trait, HostComponent};
+use spin_world::config;
 
 use crate::{Error, Key, Provider, Resolver};
 

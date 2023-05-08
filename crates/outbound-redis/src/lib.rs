@@ -4,8 +4,9 @@ use std::collections::{hash_map::Entry, HashMap};
 
 use anyhow::Result;
 use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
-use spin_core::{
-    async_trait, redis as outbound_redis,
+use spin_core::async_trait;
+use spin_world::{
+    redis as outbound_redis,
     redis_types::{Error, RedisParameter, RedisResult},
 };
 

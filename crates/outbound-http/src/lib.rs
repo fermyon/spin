@@ -7,8 +7,9 @@ use anyhow::Result;
 use http::HeaderMap;
 use reqwest::{Client, Url};
 use spin_app::MetadataKey;
-use spin_core::{
-    async_trait, http as outbound_http,
+use spin_core::async_trait;
+use spin_world::{
+    http as outbound_http,
     http_types::{HeadersParam, HttpError, Method, RequestResult, Response},
 };
 

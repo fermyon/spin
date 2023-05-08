@@ -243,24 +243,9 @@ impl UpCommand {
     }
 
     fn infer_file_source(path: impl Into<PathBuf>) -> AppSource {
-        let path = path.into();
-        if path.is_file() {
-            AppSource::File(path)
-        } else if path.is_dir() {
-            let file_path = path.join(DEFAULT_MANIFEST_FILE);
-            if file_path.exists() && file_path.is_file() {
-                AppSource::File(file_path)
-            } else {
-                AppSource::unresolvable(format!(
-                    "Directory {} does not contain a file named 'spin.toml'",
-                    path.display()
-                ))
-            }
-        } else {
-            AppSource::unresolvable(format!(
-                "Path {} is neither a file nor a directory",
-                path.display()
-            ))
+        match crate::manifest::resolve_file_path(path.into()) {
+            Ok(file) => AppSource::File(file),
+            Err(e) => AppSource::Unresolvable(e.to_string()),
         }
     }
 

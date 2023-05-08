@@ -28,13 +28,17 @@ impl RegistryCommands {
 
 #[derive(Parser, Debug)]
 pub struct Push {
-    /// Path to spin.toml
+    /// The application to push. This may be a manifest (spin.toml) file, or a
+    /// directory containing a spin.toml file.
+    /// If omitted, it defaults to "spin.toml".
     #[clap(
         name = APP_MANIFEST_FILE_OPT,
         short = 'f',
-        long = "file",
+        long = "from",
+        alias = "file",
+        default_value = DEFAULT_MANIFEST_FILE
     )]
-    pub app: Option<PathBuf>,
+    pub app_source: PathBuf,
 
     /// Ignore server certificate errors
     #[clap(
@@ -52,10 +56,7 @@ pub struct Push {
 
 impl Push {
     pub async fn run(self) -> Result<()> {
-        let app_file = self
-            .app
-            .as_deref()
-            .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
+        let app_file = crate::manifest::resolve_file_path(&self.app_source)?;
 
         let dir = tempfile::tempdir()?;
         let app = spin_loader::local::from_file(&app_file, Some(dir.path())).await?;

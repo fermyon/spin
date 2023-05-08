@@ -38,14 +38,17 @@ use crate::{
     allow_hyphen_values = true
 )]
 pub struct WatchCommand {
-    /// Path to spin.toml.
+    /// The application to watch. This may be a manifest (spin.toml) file, or a
+    /// directory containing a spin.toml file.
+    /// If omitted, it defaults to "spin.toml".
     #[clap(
-            name = APP_MANIFEST_FILE_OPT,
-            short = 'f',
-            long = "file",
-            default_value = DEFAULT_MANIFEST_FILE,
-        )]
-    pub app: PathBuf,
+        name = APP_MANIFEST_FILE_OPT,
+        short = 'f',
+        long = "from",
+        alias = "file",
+        default_value = DEFAULT_MANIFEST_FILE
+    )]
+    pub app_source: PathBuf,
 
     /// Clear the screen before each run.
     #[clap(
@@ -93,8 +96,10 @@ impl WatchCommand {
             },
         ));
 
+        let app = crate::manifest::resolve_file_path(&self.app_source)?;
+
         // Prepare RuntimeConfig for Watchexec
-        let app_dir = parent_dir(&self.app)?;
+        let app_dir = parent_dir(&app)?;
         let filter = Arc::new(Filter::new(self.generate_filter_config().await?)?);
         let watch_state = WatchState::new(self.skip_build, self.clear);
         let watch_state_clone = watch_state.clone();
@@ -109,7 +114,7 @@ impl WatchCommand {
         }]);
         runtime_config.on_pre_spawn(move |prespawn: PreSpawn| {
             let up_args = self.up_args.clone();
-            let manifest_path = self.app.clone().to_str().unwrap().to_owned();
+            let manifest_path = app.to_str().unwrap().to_owned();
             let watch_state = watch_state.clone();
             async move {
                 // Dynamically modify the command we're running based on the watch state
@@ -206,16 +211,16 @@ impl WatchCommand {
     }
 
     async fn generate_filter_config(&self) -> Result<crate::watch_filter::Config> {
-        let app_dir = parent_dir(&self.app)?;
-        let app_manifest = spin_loader::local::raw_manifest_from_file(&self.app)
+        let app = crate::manifest::resolve_file_path(&self.app_source)?;
+        let app_dir = parent_dir(&app)?;
+        let app_manifest = spin_loader::local::raw_manifest_from_file(&app)
             .await?
             .into_v1();
 
         // We always want to watch the application manifest
         let manifest_pattern = WatchPattern::new(
-            self.app
-                .to_str()
-                .with_context(|| format!("non-unicode manifest path {:?}", self.app))?
+            app.to_str()
+                .with_context(|| format!("non-unicode manifest path {:?}", app))?
                 .to_owned(),
             app_dir.as_path(),
         )?;
@@ -330,7 +335,7 @@ mod tests {
     async fn test_standard_config_proj1() {
         let app_path = "tests/watch/http-rust/spin.toml";
         let watch_command = WatchCommand {
-            app: app_path.into(),
+            app_source: app_path.into(),
             clear: false,
             debounce: 100,
             skip_build: false,
@@ -381,7 +386,7 @@ mod tests {
     async fn test_skip_build_config_proj1() {
         let app_path = "tests/watch/http-rust/spin.toml";
         let watch_command = WatchCommand {
-            app: app_path.into(),
+            app_source: app_path.into(),
             clear: false,
             debounce: 100,
             skip_build: true,
@@ -398,7 +403,42 @@ mod tests {
     async fn test_standard_config_proj2() {
         let app_path = "tests/watch/static-fileserver/spin.toml";
         let watch_command = WatchCommand {
-            app: app_path.into(),
+            app_source: app_path.into(),
+            clear: false,
+            debounce: 100,
+            skip_build: false,
+            up_args: vec![],
+        };
+        let config = watch_command.generate_filter_config().await.unwrap();
+
+        assert_eq!(config.source_patterns.len(), 0);
+
+        assert_eq!(config.artifact_patterns.len(), 3);
+        assert!(config
+            .artifact_patterns
+            .get(0)
+            .unwrap()
+            .glob
+            .ends_with("static-fileserver/spin_static_fs.wasm"));
+        assert!(config
+            .artifact_patterns
+            .get(1)
+            .unwrap()
+            .glob
+            .ends_with("static-fileserver/assets/**/*"));
+        assert!(config
+            .artifact_patterns
+            .get(2)
+            .unwrap()
+            .glob
+            .ends_with("static-fileserver/assets2/**/*"));
+    }
+
+    #[tokio::test]
+    async fn test_accepts_directory() {
+        let app_path = "tests/watch/static-fileserver";
+        let watch_command = WatchCommand {
+            app_source: app_path.into(),
             clear: false,
             debounce: 100,
             skip_build: false,
@@ -433,7 +473,7 @@ mod tests {
     async fn test_skip_build_config_proj2() {
         let app_path = "tests/watch/static-fileserver/spin.toml";
         let watch_command = WatchCommand {
-            app: app_path.into(),
+            app_source: app_path.into(),
             clear: false,
             debounce: 100,
             skip_build: true,

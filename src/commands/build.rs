@@ -11,14 +11,17 @@ use super::up::UpCommand;
 #[derive(Parser, Debug)]
 #[clap(about = "Build the Spin application", allow_hyphen_values = true)]
 pub struct BuildCommand {
-    /// Path to application manifest. The default is "spin.toml".
+    /// The application to build. This may be a manifest (spin.toml) file, or a
+    /// directory containing a spin.toml file.
+    /// If omitted, it defaults to "spin.toml".
     #[clap(
         name = APP_MANIFEST_FILE_OPT,
         short = 'f',
         long = "from",
         alias = "file",
+        default_value = DEFAULT_MANIFEST_FILE
     )]
-    pub app: Option<PathBuf>,
+    pub app_source: PathBuf,
 
     /// Run the application after building.
     #[clap(name = BUILD_UP_OPT, short = 'u', long = "up")]
@@ -30,11 +33,8 @@ pub struct BuildCommand {
 
 impl BuildCommand {
     pub async fn run(self) -> Result<()> {
-        let manifest_file = self
-            .app
-            .as_deref()
-            .unwrap_or_else(|| DEFAULT_MANIFEST_FILE.as_ref());
-        spin_build::build(manifest_file).await?;
+        let manifest_file = crate::manifest::resolve_file_path(&self.app_source)?;
+        spin_build::build(&manifest_file).await?;
 
         if self.up {
             let mut cmd = UpCommand::parse_from(
@@ -44,7 +44,7 @@ impl BuildCommand {
                 )))
                 .chain(self.up_args),
             );
-            cmd.file_source = Some(manifest_file.into());
+            cmd.file_source = Some(manifest_file);
             cmd.run().await
         } else {
             Ok(())

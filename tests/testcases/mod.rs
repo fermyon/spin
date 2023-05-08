@@ -40,6 +40,10 @@ pub mod all {
             .name("key-value".to_string())
             .appname(Some("key-value".to_string()))
             .template(None)
+            .deploy_args(vec![
+                "--key-value".to_string(),
+                "initkey=initval".to_string(),
+            ])
             .assertions(
                 |metadata: AppMetadata,
                  stdout_stream: Option<BufReader<ChildStdout>>,

@@ -1,4 +1,5 @@
 use anyhow::{ensure, Result};
+use itertools::sorted;
 use spin_sdk::{
     http::{Request, Response},
     http_component,
@@ -29,9 +30,16 @@ fn handle_request(_req: Request) -> Result<Response> {
 
     ensure!(b"wow" as &[_] == &store.get("bar")?);
 
-    ensure!(&["bar".to_owned()] as &[_] == &store.get_keys()?);
+    ensure!(b"initval" as &[_] == &store.get("initkey")?);
+
+    ensure!(
+        vec!["bar".to_owned(), "initkey".to_owned()] == sorted(store.get_keys()?).collect::<Vec<_>>(),
+        "Expected exectly keys 'bar' and 'initkey' but got '{:?}'",
+        &store.get_keys()?
+    );
 
     store.delete("bar")?;
+    store.delete("initkey")?;
 
     ensure!(&[] as &[String] == &store.get_keys()?);
 

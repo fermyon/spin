@@ -47,7 +47,7 @@ impl DoctorCommand {
                         if should_treat {
                             match treatment.treat(patient).await {
                                 Ok(()) => {
-                                    println!("{icon}Treatment applied!", icon = Emoji("❤️ ", ""));
+                                    println!("{icon}Treatment applied!", icon = Emoji("❤  ", ""));
                                 }
                                 Err(err) => {
                                     show_error("Treatment failed: ", err);
@@ -61,7 +61,7 @@ impl DoctorCommand {
             })
             .await?;
         if count == 0 {
-            println!("{icon}No problems found.", icon = Emoji("❤️ ", ""));
+            println!("{icon}No problems found.", icon = Emoji("❤  ", ""));
         }
         Ok(())
     }
@@ -71,7 +71,7 @@ fn show_diagnosis(diagnosis: &dyn Diagnosis) {
     let icon = if diagnosis.is_critical() {
         Emoji("❗ ", "")
     } else {
-        Emoji("⚠️ ", "")
+        Emoji("⚠  ", "")
     };
     println!("\n{icon}Diagnosis: {}", diagnosis.description());
 }

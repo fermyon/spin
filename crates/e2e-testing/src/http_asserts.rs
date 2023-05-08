@@ -28,9 +28,16 @@ pub async fn assert_http_response(
     let res = make_request(method, url, body).await?;
 
     let status = res.status();
-    ensure_eq!(expected, status.as_u16());
+    let headers = res.headers().clone();
+    let response = body::to_bytes(res.into_body()).await.unwrap().to_vec();
+    let actual_body = str::from_utf8(&response).unwrap().to_string();
 
-    let headers = res.headers();
+    ensure_eq!(
+        expected,
+        status.as_u16(),
+        "Expected status {expected} but got {status}. Response body: '{actual_body}'"
+    );
+
     for (k, v) in expected_headers {
         ensure_eq!(
             &headers
@@ -42,8 +49,6 @@ pub async fn assert_http_response(
     }
 
     if let Some(expected_body_str) = expected_body {
-        let response = body::to_bytes(res.into_body()).await.unwrap().to_vec();
-        let actual_body = str::from_utf8(&response).unwrap().to_string();
         ensure_eq!(expected_body_str, actual_body);
     }
 

@@ -127,8 +127,7 @@ impl<T: Send + Sync> EngineBuilder<T> {
     /// Adds definition(s) to the built [`Engine`].
     ///
     /// This method's signature is meant to be used with
-    /// [`wit-bindgen`](https://github.com/bytecodealliance/wasmtime/tree/main/crates/wit-bindgen)'s
-    /// generated `add_to_linker` functions, e.g.:
+    /// [`wasmtime::component::bindgen`]'s generated `add_to_linker` functions, e.g.:
     ///
     /// ```ignore
     /// use spin_core::my_interface;

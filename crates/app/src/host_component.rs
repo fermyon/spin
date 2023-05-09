@@ -1,8 +1,9 @@
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 
-use spin_core::{EngineBuilder, HostComponent, HostComponentsData};
+use anyhow::Context;
+use spin_core::{AnyHostComponentDataHandle, EngineBuilder, HostComponent, HostComponentsData};
 
-use crate::AppComponent;
+use crate::{App, AppComponent};
 
 /// A trait for "dynamic" Spin host components.
 ///
@@ -14,6 +15,16 @@ pub trait DynamicHostComponent: HostComponent {
     /// The `data` returned by [`HostComponent::build_data`] is passed, along
     /// with a reference to the `component` being instantiated.
     fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> anyhow::Result<()>;
+
+    /// Called on [`App`] load to validate any configuration needed by this
+    /// host component.
+    ///
+    /// Note that the _absence_ of configuration should not be treated as an
+    /// error here, as the app may not use this host component at all.
+    #[allow(unused_variables)]
+    fn validate_app(&self, app: &App) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 impl<DHC: DynamicHostComponent> DynamicHostComponent for Arc<DHC> {
@@ -22,12 +33,37 @@ impl<DHC: DynamicHostComponent> DynamicHostComponent for Arc<DHC> {
     }
 }
 
-type DataUpdater =
-    Box<dyn Fn(&mut HostComponentsData, &AppComponent) -> anyhow::Result<()> + Send + Sync>;
+type AnyData = Box<dyn Any + Send>;
+
+trait DynSafeDynamicHostComponent {
+    fn update_data_any(&self, data: &mut AnyData, component: &AppComponent) -> anyhow::Result<()>;
+    fn validate_app(&self, app: &App) -> anyhow::Result<()>;
+}
+
+impl<T: DynamicHostComponent> DynSafeDynamicHostComponent for T
+where
+    T::Data: Any,
+{
+    fn update_data_any(&self, data: &mut AnyData, component: &AppComponent) -> anyhow::Result<()> {
+        let data = data.downcast_mut().context("wrong data type")?;
+        self.update_data(data, component)
+    }
+
+    fn validate_app(&self, app: &App) -> anyhow::Result<()> {
+        T::validate_app(self, app)
+    }
+}
+
+type ArcDynamicHostComponent = Arc<dyn DynSafeDynamicHostComponent + Send + Sync>;
+
+struct DynamicHostComponentWithHandle {
+    host_component: ArcDynamicHostComponent,
+    handle: AnyHostComponentDataHandle,
+}
 
 #[derive(Default)]
 pub struct DynamicHostComponents {
-    data_updaters: Vec<DataUpdater>,
+    host_components: Vec<DynamicHostComponentWithHandle>,
 }
 
 impl DynamicHostComponents {
@@ -37,12 +73,13 @@ impl DynamicHostComponents {
         host_component: DHC,
     ) -> anyhow::Result<()> {
         let host_component = Arc::new(host_component);
-        let handle = engine_builder.add_host_component(host_component.clone())?;
-        self.data_updaters
-            .push(Box::new(move |host_components_data, component| {
-                let data = host_components_data.get_or_insert(handle);
-                host_component.update_data(data, component)
-            }));
+        let handle = engine_builder
+            .add_host_component(host_component.clone())?
+            .into();
+        self.host_components.push(DynamicHostComponentWithHandle {
+            host_component,
+            handle,
+        });
         Ok(())
     }
 
@@ -51,8 +88,20 @@ impl DynamicHostComponents {
         host_components_data: &mut HostComponentsData,
         component: &AppComponent,
     ) -> anyhow::Result<()> {
-        for data_updater in &self.data_updaters {
-            data_updater(host_components_data, component)?;
+        for DynamicHostComponentWithHandle {
+            host_component,
+            handle,
+        } in &self.host_components
+        {
+            let data = host_components_data.get_or_insert_any(*handle);
+            host_component.update_data_any(data, component)?;
+        }
+        Ok(())
+    }
+
+    pub fn validate_app(&self, app: &App) -> anyhow::Result<()> {
+        for DynamicHostComponentWithHandle { host_component, .. } in &self.host_components {
+            host_component.validate_app(app)?;
         }
         Ok(())
     }

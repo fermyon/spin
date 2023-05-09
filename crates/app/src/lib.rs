@@ -95,11 +95,15 @@ impl AppLoader {
             .load_app(&uri)
             .await
             .map_err(Error::LoaderError)?;
-        Ok(App {
+        let app = App {
             loader: self,
             uri,
             locked,
-        })
+        };
+        self.dynamic_host_components
+            .validate_app(&app)
+            .map_err(Error::HostComponentError)?;
+        Ok(app)
     }
 
     /// Loads an [`OwnedApp`] from the given `Loader`-implementation-specific

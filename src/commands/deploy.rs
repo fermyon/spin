@@ -11,14 +11,13 @@ use rand::Rng;
 use semver::BuildMetadata;
 use sha2::{Digest, Sha256};
 use spin_common::{arg_parser::parse_kv, sloth};
+use spin_http::routes::RoutePattern;
 use spin_loader::bindle::BindleConnectionInfo;
 use spin_loader::local::config::RawAppManifest;
 use spin_loader::local::{assets, config, parent_dir};
 use spin_manifest::ApplicationTrigger;
 use spin_manifest::{HttpTriggerConfiguration, TriggerConfig};
-use spin_trigger_http::routes::RoutePattern;
 use spin_trigger_http::AppInfo;
-use spin_trigger_http::WELL_KNOWN_PREFIX;
 use tokio::fs;
 use tracing::instrument;
 
@@ -768,7 +767,7 @@ async fn wait_for_ready(
     }
 
     let app_info_url = app_base_url
-        .join(WELL_KNOWN_PREFIX.trim_start_matches('/'))
+        .join(spin_http::WELL_KNOWN_PREFIX.trim_start_matches('/'))
         .unwrap()
         .join("info")
         .unwrap()

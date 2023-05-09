@@ -4982,6 +4982,7 @@ dependencies = [
  "spin-build",
  "spin-common",
  "spin-config",
+ "spin-http",
  "spin-key-value",
  "spin-key-value-sqlite",
  "spin-loader",
@@ -5072,11 +5073,9 @@ name = "spin-http"
 version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
- "criterion",
  "http",
  "hyper",
  "indexmap",
- "num_cpus",
  "percent-encoding",
  "serde",
  "spin-testing",
@@ -5302,6 +5301,7 @@ dependencies = [
  "spin-app",
  "spin-componentize",
  "spin-core",
+ "spin-http",
  "spin-trigger",
  "spin-trigger-http",
  "tokio",

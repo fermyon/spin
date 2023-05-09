@@ -77,7 +77,7 @@ impl Controller for SpinUp {
                         utils::get_output_from_stderr(Some(stderr_stream), Duration::from_secs(2))
                             .await?;
                     return Err(anyhow!(
-                        "error running spin up.\nstdout {:?}\nstderr: {:?}\n",
+                        "error running spin up.\nstdout {:#?}\nstderr: {:#?}\n",
                         stdout_logs,
                         stderr_logs
                     ));

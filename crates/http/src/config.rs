@@ -1,7 +1,32 @@
-pub use util::*;
-mod util;
-
 use serde::{Deserialize, Serialize};
+
+/// Configuration for the HTTP trigger
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct HttpTriggerConfig {
+    /// Component ID to invoke
+    pub component: String,
+    /// HTTP route the component will be invoked for
+    pub route: String,
+    /// The HTTP executor the component requires
+    #[serde(default)]
+    pub executor: Option<HttpExecutorType>,
+}
+
+/// The executor for the HTTP component.
+/// The component can either implement the Spin HTTP interface,
+/// or the Wagi CGI interface.
+///
+/// If an executor is not specified, the inferred default is `HttpExecutor::Spin`.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "lowercase", tag = "type")]
+pub enum HttpExecutorType {
+    /// The component implements the Spin HTTP interface.
+    #[default]
+    Spin,
+    /// The component implements the Wagi CGI interface.
+    Wagi(WagiTriggerConfig),
+}
 
 /// Wagi specific configuration for the http executor.
 #[derive(Clone, Debug, Deserialize, Serialize)]

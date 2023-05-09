@@ -1,6 +1,5 @@
 use std::{io::Cursor, net::SocketAddr};
 
-use crate::{HttpExecutor, HttpTrigger};
 use anyhow::{anyhow, ensure, Context, Result};
 use async_trait::async_trait;
 use hyper::{
@@ -8,12 +7,11 @@ use hyper::{
     Body, Request, Response,
 };
 use spin_core::Wasi;
-use spin_http::{
-    routes::RoutePattern,
-    wagi::{self, WagiTriggerConfig},
-};
+use spin_http::{config::WagiTriggerConfig, routes::RoutePattern, wagi};
 use spin_trigger::{EitherInstance, TriggerAppEngine};
 use wasi_common_preview1::{pipe::WritePipe, I32Exit};
+
+use crate::{HttpExecutor, HttpTrigger};
 
 #[derive(Clone)]
 pub struct WagiHttpExecutor {

@@ -1,9 +1,9 @@
+use crate::opts::*;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use indicatif::{ProgressBar, ProgressStyle};
 use spin_oci::Client;
-use std::{io::Read, path::PathBuf};
-
-use crate::opts::*;
+use std::{io::Read, path::PathBuf, time::Duration};
 
 /// Commands for working with OCI registries to distribute applications.
 #[derive(Subcommand, Debug)]
@@ -61,8 +61,10 @@ impl Push {
         let app = spin_loader::local::from_file(&app_file, Some(dir.path())).await?;
 
         let mut client = spin_oci::Client::new(self.insecure, None).await?;
-        let digest = client.push(&app, &self.reference).await?;
 
+        let _spinner = create_dotted_spinner(2000, "Pushing app to the Registry".to_owned());
+
+        let digest = client.push(&app, &self.reference).await?;
         match digest {
             Some(digest) => println!("Pushed with digest {digest}"),
             None => println!("Pushed; the registry did not return the digest"),
@@ -92,8 +94,11 @@ impl Pull {
     /// Pull a Spin application from an OCI registry
     pub async fn run(self) -> Result<()> {
         let mut client = spin_oci::Client::new(self.insecure, None).await?;
-        client.pull(&self.reference).await?;
 
+        let _spinner = create_dotted_spinner(2000, "Pulling app from the Registry".to_owned());
+
+        client.pull(&self.reference).await?;
+        println!("Successfully pulled the app from the registry");
         Ok(())
     }
 }
@@ -164,4 +169,16 @@ impl Login {
         );
         Ok(())
     }
+}
+
+fn create_dotted_spinner(interval: u64, message: String) -> ProgressBar {
+    let spinner = ProgressBar::new_spinner();
+    spinner.enable_steady_tick(Duration::from_millis(interval));
+    spinner.set_style(
+        ProgressStyle::with_template("{msg}{spinner}\n")
+            .unwrap()
+            .tick_strings(&[".", "..", "...", "....", "....."]),
+    );
+    spinner.set_message(message);
+    spinner
 }

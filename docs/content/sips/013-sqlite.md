@@ -1,4 +1,4 @@
-title = "SIP 000 - sqlite"
+title = "SIP 013 - sqlite"
 template = "main"
 date = "2023-04-17:00:00Z"
 ---
@@ -107,7 +107,9 @@ variant value {
 
 #### Database migrations
 
-Database tables typically require some sort of configuration in the form of database migrations to get table schemas into the correct state. While we could require the user to ensure that the database is in the correct state each time the trigger handler function is run, there are a few issues with this:
+Database tables typically require some sort of configuration in the form of database migrations to get table schemas into the correct state. To begin with a command line option supplied to `spin up` will be available for running SQL statements on start up (i.e., `--sqlite-migration "CREATE TABLE users..."`). It will be up to the user to provide itempotent statements such that running them multiple times does not produce unexpected results.
+
+However, such an approach (while useful) is likely to not be sufficient for more advanced use cases. We could require the user to ensure that the database is in the correct state each time the trigger handler function is run. However, there are a few issues with this:
 * Schema tracking schemes (e.g., a "migrations" table) themselves require some sort of bootstrap step.
 * This goes against the design principle of keeping components handler functions simple and single purpose.
 
@@ -116,11 +118,10 @@ There are several possible ways to address this issue such as:
 * The spin component could expose a current schema version as an exported value type so that an exported function would not need to called. If the exported schema version does not match the current schema version, an exported migrate function then gets called.
 * A spin component that gets called just after pre-initialization finishes. Similarly, this component would expose a schema version and have an exported migration function called when the exported schema version does not match the current schema version.
 * Configuration option in spin.toml manifest for running arbitrary SQL instructions on start up (e.g., `sqlite.migration = "CREATE TABLE users..."`)
-* Command line supplied option for running SQL instructions on start up (e.g., `--sqlite-migration "CREATE TABLE users..."`)
 
 It should be noted that many of these options are not mutually exclusive and we could introduce more than one (perhaps starting with one option that will mostly be replaced later with a more generalized approach).
 
-**TODO**: decide which of these (or another mechanism) to use
+For now, we punt on this question and only provide a mechanism for running SQL statements on start up.
 
 #### Implementation requirements
 
@@ -134,7 +135,7 @@ It should be noted that many of these options are not mutually exclusive and we 
 
 #### Built-in local database
 
-By default, each app will have its own default database which is independent of all other apps. For local apps, the database will be stored by default in a hidden `.spin` directory adjacent to the app's `spin.toml`. For remote apps: TODO
+By default, each app will have its own default database which is independent of all other apps. For local apps, the database will be stored by default in a hidden `.spin` directory adjacent to the app's `spin.toml`. For remote apps, the user should be able to rely on a default database as well. It is up to the implementor how this remote database is exposed (i.e., by having a sqlite database on disk or by using a third party network enabled database like [Turso](https://turso.tech)).
 
 #### Granting access to components
 
@@ -161,4 +162,4 @@ path = ".spin/yet-another-database.db"
 
 ## Future work
 
-**TODO**
+In the future we may want to try to unify the three SQL flavors we currently have support for (sqlite, mysql, and postgres). This may not be desirable if it becomes clear that unifying these three (fairly different) SQL flavors actually causes more confusion than is worthwhile.

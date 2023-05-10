@@ -53,7 +53,7 @@ impl Host for SqliteImpl {
         &mut self,
         database: String,
     ) -> anyhow::Result<Result<sqlite::Connection, sqlite::Error>> {
-        Ok(async {
+        Ok(tokio::task::block_in_place(|| {
             if !self.allowed_databases.contains(&database) {
                 return Err(sqlite::Error::AccessDenied);
             }
@@ -65,8 +65,7 @@ impl Host for SqliteImpl {
                         .get_connection()?,
                 )
                 .map_err(|()| sqlite::Error::DatabaseFull)
-        }
-        .await)
+        }))
     }
 
     async fn execute(
@@ -75,7 +74,7 @@ impl Host for SqliteImpl {
         statement: String,
         parameters: Vec<sqlite::Value>,
     ) -> anyhow::Result<Result<(), sqlite::Error>> {
-        Ok(async move {
+        Ok(tokio::task::block_in_place(|| {
             let conn = self.get_connection(connection)?;
             let mut statement = conn
                 .prepare_cached(&statement)
@@ -86,8 +85,7 @@ impl Host for SqliteImpl {
                 )))
                 .map_err(|e| sqlite::Error::Io(e.to_string()))?;
             Ok(())
-        }
-        .await)
+        }))
     }
 
     async fn query(
@@ -96,7 +94,7 @@ impl Host for SqliteImpl {
         query: String,
         parameters: Vec<sqlite::Value>,
     ) -> anyhow::Result<Result<sqlite::QueryResult, sqlite::Error>> {
-        Ok(async move {
+        Ok(tokio::task::block_in_place(|| {
             let conn = self.get_connection(connection)?;
             let mut statement = conn
                 .prepare_cached(&query)
@@ -128,15 +126,11 @@ impl Host for SqliteImpl {
                 .map(|r| r.map_err(|e| sqlite::Error::Io(e.to_string())))
                 .collect::<Result<_, sqlite::Error>>()?;
             Ok(sqlite::QueryResult { columns, rows })
-        }
-        .await)
+        }))
     }
 
     async fn close(&mut self, connection: sqlite::Connection) -> anyhow::Result<()> {
-        async {
-            let _ = self.connections.remove(connection);
-        }
-        .await;
+        let _ = self.connections.remove(connection);
         Ok(())
     }
 }

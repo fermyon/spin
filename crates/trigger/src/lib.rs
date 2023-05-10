@@ -125,10 +125,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    runtime_config::sqlite::build_component(
-                        &runtime_config,
-                        &init_data.migrations,
-                    )?,
+                    runtime_config::sqlite::build_component(&runtime_config, &init_data.sqlite)?,
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
@@ -161,7 +158,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 #[derive(Default)] // TODO: the implementation of Default is only for tests - would like to get rid of
 pub struct HostComponentInitData {
     kv: Vec<(String, String)>,
-    migrations: Vec<String>,
+    sqlite: Vec<String>,
 }
 
 /// Execution context for a TriggerExecutor executing a particular App.

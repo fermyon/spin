@@ -6,15 +6,20 @@ use sqlite::Connection as RawConnection;
 pub type Error = sqlite::Error;
 
 /// A parameter used when executing a sqlite statement
-pub type DataTypeParam<'a> = sqlite::ValueParam<'a>;
+pub type ValueParam<'a> = sqlite::ValueParam<'a>;
 /// A single column's result from a database query
-pub type DataTypeResult = sqlite::ValueResult;
+pub type ValueResult = sqlite::ValueResult;
 
 /// Represents a store in which key value tuples may be placed
 #[derive(Debug)]
 pub struct Connection(RawConnection);
 
 impl Connection {
+    /// Open a connection to the default database
+    pub fn open_default() -> Result<Self, Error> {
+        Ok(Self(sqlite::open("default")?))
+    }
+
     /// Open a connection
     pub fn open(database: &str) -> Result<Self, Error> {
         Ok(Self(sqlite::open(database)?))
@@ -34,7 +39,7 @@ impl Connection {
     pub fn query(
         &self,
         query: &str,
-        parameters: &[DataTypeParam<'_>],
+        parameters: &[ValueParam<'_>],
     ) -> Result<sqlite::QueryResult, Error> {
         sqlite::query(self.0, query, parameters)
     }
@@ -58,46 +63,46 @@ pub struct Row<'a> {
 
 impl<'a> Row<'a> {
     /// Get a value by its column name
-    pub fn get<T: TryFrom<&'a sqlite::ValueResult>>(&self, column: &str) -> Option<T> {
+    pub fn get<T: TryFrom<&'a ValueResult>>(&self, column: &str) -> Option<T> {
         let i = self.columns.iter().position(|c| c == column)?;
         self.result.get(i)
     }
 }
 
 impl sqlite::RowResult {
-    pub fn get<'a, T: TryFrom<&'a sqlite::ValueResult>>(&'a self, index: usize) -> Option<T> {
+    pub fn get<'a, T: TryFrom<&'a ValueResult>>(&'a self, index: usize) -> Option<T> {
         self.values.get(index).and_then(|c| c.try_into().ok())
     }
 }
 
-impl<'a> TryFrom<&'a sqlite::ValueResult> for bool {
+impl<'a> TryFrom<&'a ValueResult> for bool {
     type Error = ();
 
-    fn try_from(value: &'a sqlite::ValueResult) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a ValueResult) -> Result<Self, Self::Error> {
         match value {
-            sqlite::ValueResult::Integer(i) => Ok(*i != 0),
+            ValueResult::Integer(i) => Ok(*i != 0),
             _ => Err(()),
         }
     }
 }
 
-impl<'a> TryFrom<&'a sqlite::ValueResult> for u32 {
+impl<'a> TryFrom<&'a ValueResult> for u32 {
     type Error = ();
 
-    fn try_from(value: &'a sqlite::ValueResult) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a ValueResult) -> Result<Self, Self::Error> {
         match value {
-            sqlite::ValueResult::Integer(i) => Ok(*i as u32),
+            ValueResult::Integer(i) => Ok(*i as u32),
             _ => Err(()),
         }
     }
 }
 
-impl<'a> TryFrom<&'a sqlite::ValueResult> for &'a str {
+impl<'a> TryFrom<&'a ValueResult> for &'a str {
     type Error = ();
 
-    fn try_from(value: &'a sqlite::ValueResult) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a ValueResult) -> Result<Self, Self::Error> {
         match value {
-            sqlite::ValueResult::Text(s) => Ok(s.as_str()),
+            ValueResult::Text(s) => Ok(s.as_str()),
             _ => Err(()),
         }
     }

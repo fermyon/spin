@@ -10,30 +10,30 @@ pub type SqliteDatabase = Arc<dyn spin_sqlite::ConnectionManager>;
 
 pub(crate) fn build_component(
     runtime_config: &RuntimeConfig,
-    init_migrations: &[String],
+    sqlite_statements: &[String],
 ) -> anyhow::Result<SqliteComponent> {
     let databases: HashMap<_, _> = runtime_config
         .sqlite_databases()
         .context("Failed to build sqlite component")?
         .into_iter()
         .collect();
-    perform_migrations(init_migrations, &databases)?;
+    execute_statements(sqlite_statements, &databases)?;
     Ok(SqliteComponent::new(databases))
 }
 
-fn perform_migrations(
-    init_migrations: &[String],
+fn execute_statements(
+    statements: &[String],
     databases: &HashMap<String, Arc<dyn spin_sqlite::ConnectionManager>>,
 ) -> anyhow::Result<()> {
-    if !init_migrations.is_empty() {
+    if !statements.is_empty() {
         if let Some(default) = databases.get("default") {
             let c = default.get_connection().context(
-                "could not get connection to default database in order to perform migrations",
+                "could not get connection to default database in order to execute statements",
             )?;
             let c = c.lock().unwrap();
-            for m in init_migrations {
+            for m in statements {
                 c.execute(m, [])
-                    .with_context(|| format!("failed to execute migration: '{m}'"))?;
+                    .with_context(|| format!("failed to execute statement: '{m}'"))?;
             }
         }
     }

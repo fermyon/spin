@@ -5433,6 +5433,7 @@ dependencies = [
  "spin-core",
  "spin-key-value",
  "spin-world",
+ "tokio",
  "wit-bindgen-wasmtime",
 ]
 

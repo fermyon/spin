@@ -107,8 +107,8 @@ where
     key_values: Vec<(String, String)>,
 
     /// Run a sqlite migration against the default database
-    #[clap(long = "sqlite-migration")]
-    sqlite_migrations: Vec<String>,
+    #[clap(long = "sqlite")]
+    sqlite_statements: Vec<String>,
 
     #[clap(long = "help-args-only", hide = true)]
     pub help_args_only: bool,
@@ -140,7 +140,7 @@ where
 
         let init_data = crate::HostComponentInitData {
             kv: self.key_values.clone(),
-            migrations: self.sqlite_migrations.clone(),
+            sqlite: self.sqlite_statements.clone(),
         };
 
         let loader = TriggerLoader::new(working_dir, self.allow_transient_write);

@@ -1,4 +1,4 @@
-title = "SIP 000 - sqlite"
+title = "SIP 013 - sqlite"
 template = "main"
 date = "2023-04-17:00:00Z"
 ---
@@ -101,26 +101,32 @@ variant value {
 
 #### Interface open questions
 
+**TODO**: answer these questions
 * `row-result` can be very large. Should we provide some paging mechanism or a different API that allows for reading subsets of the returned data?
   * Crossing the wit boundary could potentially be expensive if the results are large enough. Giving the user control of how they read that data could be helpful.
 * Is there really a need for query *and* execute functions since at the end of the day, they are basically equivalent?
 
 #### Database migrations
 
-Database tables typically require some sort of configuration in the form of database migrations to get table schemas into the correct state. While we could require the user to ensure that the database is in the correct state each time the trigger handler function is run, there are a few issues with this:
-* Schema tracking schemes (e.g., a "migrations" table) themselves require some sort of bootstrap step.
-* This goes against the design principle of keeping components handler functions simple and single purpose.
+Database tables typically require some sort of configuration in the form of database migrations to get table schemas into the correct state. To begin with a command line option supplied to `spin up` will be available for running any arbitrary SQL statements on start up and thus will be a place for users to run their migrations (i.e., `--sqlite "CREATE TABLE users..."`). It will be up to the user to provide idempotent statements such that running them multiple times does not produce unexpected results.
 
-There are several possible ways to address this issue such as:
+##### Future approaches
+
+This CLI approach (while useful) is likely to not be sufficient for more advanced use cases. There are several alternative ways to address the need for migrations:
 * Some mechanism for running spin components before others where the component receives the current schema version and decides whether or not to perform migrations. 
 * The spin component could expose a current schema version as an exported value type so that an exported function would not need to called. If the exported schema version does not match the current schema version, an exported migrate function then gets called.
 * A spin component that gets called just after pre-initialization finishes. Similarly, this component would expose a schema version and have an exported migration function called when the exported schema version does not match the current schema version.
-* Configuration option in spin.toml manifest for running arbitrary SQL instructions on start up (e.g., `sqlite.migration = "CREATE TABLE users..."`)
-* Command line supplied option for running SQL instructions on start up (e.g., `--sqlite-migration "CREATE TABLE users..."`)
+* Configuration option in spin.toml manifest for running arbitrary SQL instructions on start up (e.g., `sqlite.execute = "CREATE TABLE users..."`)
 
 It should be noted that many of these options are not mutually exclusive and we could introduce more than one (perhaps starting with one option that will mostly be replaced later with a more generalized approach).
 
-**TODO**: decide which of these (or another mechanism) to use
+For now, we punt on this question and only provide a mechanism for running SQL statements on start up through the CLI.
+
+##### Alternatives
+
+An alternative approach that was considered but ultimately reject was to require the user to ensure that the database is in the correct state each time their trigger handler function is run (i.e., provide no bespoke mechanism for migrations - the user only has access to the database when their component runs). There are a few issues with taking such an approach:
+* Schema tracking schemes (e.g., a "migrations" table) themselves require some sort of bootstrap step.
+* This goes against the design principle of keeping components handler functions simple and single purpose.
 
 #### Implementation requirements
 
@@ -134,7 +140,7 @@ It should be noted that many of these options are not mutually exclusive and we 
 
 #### Built-in local database
 
-By default, each app will have its own default database which is independent of all other apps. For local apps, the database will be stored by default in a hidden `.spin` directory adjacent to the app's `spin.toml`. For remote apps: TODO
+By default, each app will have its own default database which is independent of all other apps. For local apps, the database will be stored by default in a hidden `.spin` directory adjacent to the app's `spin.toml`. For remote apps, the user should be able to rely on a default database as well. It is up to the implementor how this remote database is exposed (i.e., by having a sqlite database on disk or by using a third party network enabled database like [Turso](https://turso.tech)).
 
 #### Granting access to components
 
@@ -161,4 +167,4 @@ path = ".spin/yet-another-database.db"
 
 ## Future work
 
-**TODO**
+In the future we may want to try to unify the three SQL flavors we currently have support for (sqlite, mysql, and postgres). This may not be desirable if it becomes clear that unifying these three (fairly different) SQL flavors actually causes more confusion than is worthwhile.

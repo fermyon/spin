@@ -164,8 +164,8 @@ impl TriggerHooks for KeyValuePersistenceMessageHook {
                     println!("Using in-memory default key-value store; data will not be saved!");
                 }
             }
-            KeyValueStoreOpts::AzureCosmos(_store_opts) => {
-                println!("Storing default key-value data to Azure CosmosDB");
+            KeyValueStoreOpts::AzureCosmos(store_opts) => {
+                println!("Storing default key-value data to Azure CosmosDB: account: {}, database: {}, container: {}", store_opts.account, store_opts.database, store_opts.container);
             }
         }
         Ok(())

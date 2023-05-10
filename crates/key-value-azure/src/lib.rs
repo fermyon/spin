@@ -9,56 +9,35 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use spin_core::async_trait;
 use spin_key_value::{log_error, Error, Store, StoreManager};
-use tokio::sync::{Mutex, OnceCell};
 
 pub struct KeyValueAzureCosmos {
-    key: String,
-    account: String,
-    database: String,
-    container: String,
-
-    client: OnceCell<Arc<Mutex<CollectionClient>>>,
+    client: CollectionClient,
 }
 
 impl KeyValueAzureCosmos {
     pub fn new(key: String, account: String, database: String, container: String) -> Result<Self> {
-        Ok(Self {
-            key,
-            account,
-            database,
-            container,
-            client: OnceCell::new(),
-        })
+        let token = AuthorizationToken::primary_from_base64(&key).map_err(log_error)?;
+        let cosmos_client = CosmosClient::new(account, token);
+        let database_client = cosmos_client.database_client(database);
+        let client = database_client.collection_client(container);
+
+        Ok(Self { client })
     }
 }
 
 #[async_trait]
 impl StoreManager for KeyValueAzureCosmos {
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {
-        let client = self
-            .client
-            .get_or_try_init(|| async {
-                let token =
-                    AuthorizationToken::primary_from_base64(&self.key).map_err(log_error)?;
-
-                let cosmos_client = CosmosClient::new(self.account.clone(), token);
-                let database_client = cosmos_client.database_client(self.database.clone());
-
-                let collection_client = database_client.collection_client(self.container.clone());
-                Ok(Arc::new(Mutex::new(collection_client)))
-            })
-            .await?;
-
         Ok(Arc::new(AzureCosmosStore {
             _name: name.to_owned(),
-            client: client.clone(),
+            client: self.client.clone(),
         }))
     }
 }
 
 struct AzureCosmosStore {
     _name: String,
-    client: Arc<Mutex<CollectionClient>>,
+    client: CollectionClient,
 }
 
 #[async_trait]
@@ -74,8 +53,6 @@ impl Store for AzureCosmosStore {
             value: value.to_vec(),
         };
         self.client
-            .lock()
-            .await
             .create_document(pair)
             .is_upsert(true)
             .await
@@ -87,8 +64,6 @@ impl Store for AzureCosmosStore {
         let pair = self.get_pair(key).await?;
         let document_client = self
             .client
-            .lock()
-            .await
             .document_client(&pair.id, &pair.id)
             .map_err(log_error)?;
         document_client.delete_document().await.map_err(log_error)?;
@@ -110,8 +85,8 @@ impl Store for AzureCosmosStore {
 
 impl AzureCosmosStore {
     async fn get_pair(&self, key: &str) -> Result<Pair, Error> {
-        let client = self.client.lock().await;
-        let query = client
+        let query = self
+            .client
             .query_documents(Query::new(format!("SELECT * FROM c WHERE c.id='{}'", key)))
             .query_cross_partition(true)
             .max_item_count(1);
@@ -122,8 +97,8 @@ impl AzureCosmosStore {
         match res {
             Some(r) => {
                 let r = r.map_err(log_error)?;
-                match r.results.first() {
-                    Some(p) => Ok(p.0.clone()),
+                match r.results.first().cloned() {
+                    Some((p, _)) => Ok(p),
                     None => Err(Error::NoSuchKey),
                 }
             }
@@ -132,8 +107,8 @@ impl AzureCosmosStore {
     }
 
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
-        let client = self.client.lock().await;
-        let query = client
+        let query = self
+            .client
             .query_documents(Query::new("SELECT * FROM c".to_string()))
             .query_cross_partition(true);
         let mut res = Vec::new();
@@ -142,7 +117,7 @@ impl AzureCosmosStore {
         while let Some(resp) = stream.next().await {
             let resp = resp.map_err(log_error)?;
             for (pair, _) in resp.results {
-                res.push(pair.id.clone());
+                res.push(pair.id);
             }
         }
 

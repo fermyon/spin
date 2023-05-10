@@ -5238,7 +5238,6 @@ dependencies = [
  "anyhow",
  "azure_data_cosmos",
  "futures",
- "once_cell",
  "serde",
  "spin-core",
  "spin-key-value",

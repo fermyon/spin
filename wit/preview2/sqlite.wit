@@ -10,7 +10,7 @@ default interface sqlite {
     access-denied,
     // The provided connection is not valid
     invalid-connection,
-    // The database no longer has reached its capacity
+    // The database has reached its capacity
     database-full,
     // Some implementation-specific error has occurred (e.g. I/O)
     io(string)

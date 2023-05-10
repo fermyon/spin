@@ -52,7 +52,7 @@ variant error {
   access-denied,
   // The provided connection is not valid
   invalid-connection,
-  // The database no longer has reached its capacity
+  // The database has reached its capacity
   database-full,
   // Some implementation-specific error has occurred (e.g. I/O)
   io(string)
@@ -78,7 +78,7 @@ close: func(conn: connection)
 record query-result {
   // The names of the columns retrieved in the query
   columns: list<string>,
-  // the row results each containing the values for all the columns for a given row
+  // The row results each containing the values for all the columns for a given row
   rows: list<row-result>,
 }
 
@@ -126,7 +126,7 @@ It should be noted that many of these options are not mutually exclusive and we 
 
 **TODO**: Open questions:
 * Assumed sqlite version?
-  * Semantics may change slightly depending on the sqlite version. It's unlikely that we'll be able to match the exact versions between whatever sqlite implementation spin users, Fermyon Cloud, and the user (if the decide to create their own databases manually). Having some guidance on which versions are expected to work might make it easier to guide the user down the right path.
+  * Semantics may change slightly depending on the sqlite version. It's unlikely that we'll be able to match the exact versions between whatever sqlite implementation spin users, Fermyon Cloud, and the user (if they decide to create their own databases manually). Having some guidance on which versions are expected to work might make it easier to guide the user down the right path.
 * Capacity limits? The following are different capacities we might want to control:
   * The number of databases in total
   * The number of rows in a database

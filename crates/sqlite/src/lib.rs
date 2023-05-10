@@ -7,10 +7,8 @@ use std::{
 
 use rusqlite::Connection;
 use spin_app::MetadataKey;
-use spin_core::{
-    async_trait,
-    sqlite::{self, Host},
-};
+use spin_core::async_trait;
+use spin_world::sqlite::{self, Host};
 
 pub use host_component::{ConnectionManager, DatabaseLocation, SqliteComponent, SqliteConnection};
 use spin_key_value::table;
@@ -66,9 +64,7 @@ impl Host for SqliteImpl {
                         .ok_or(sqlite::Error::NoSuchDatabase)?
                         .get_connection()?,
                 )
-                .map_err(|()| {
-                    todo!("Create an error for when we reach capacity on number of databases")
-                })
+                .map_err(|()| sqlite::Error::DatabaseFull)
         }
         .await)
     }

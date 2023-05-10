@@ -5298,6 +5298,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-key-value",
+ "spin-world",
  "wit-bindgen-wasmtime",
 ]
 

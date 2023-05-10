@@ -3437,6 +3437,7 @@ version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
  "sha2 0.10.6",
+ "tokio",
 ]
 
 [[package]]
@@ -3578,6 +3579,7 @@ dependencies = [
  "ctrlc",
  "dirs",
  "futures",
+ "indexmap",
  "outbound-http",
  "outbound-mysql",
  "outbound-pg",

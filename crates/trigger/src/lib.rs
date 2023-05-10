@@ -8,6 +8,7 @@ use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 pub use async_trait::async_trait;
+use indexmap::IndexMap;
 use serde::de::DeserializeOwned;
 
 use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp};
@@ -194,7 +195,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
                     })?,
                 ))
             })
-            .collect::<Result<HashMap<_, _>>>()?;
+            .collect::<Result<IndexMap<_, _>>>()?;
 
         let mut component_instance_pres = HashMap::default();
         for component in app.borrowed().components() {

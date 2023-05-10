@@ -5,9 +5,9 @@ use sqlite::Connection as RawConnection;
 /// Errors which may be raised by the methods of `Store`
 pub type Error = sqlite::Error;
 
-///
+/// A parameter used when executing a sqlite statement
 pub type DataTypeParam<'a> = sqlite::ValueParam<'a>;
-///
+/// A single column's result from a database query
 pub type DataTypeResult = sqlite::ValueResult;
 
 /// Represents a store in which key value tuples may be placed

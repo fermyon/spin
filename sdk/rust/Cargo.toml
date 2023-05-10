@@ -21,3 +21,4 @@ routefinder = "0.5.3"
 [features]
 default = [ "export-sdk-language" ]
 export-sdk-language = []
+experimental-sqlite = []

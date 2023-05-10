@@ -10,11 +10,13 @@ use std::future::Future;
 use tokio::io::BufReader;
 use tokio::process::{ChildStderr, ChildStdout};
 
-type ChecksFunc = fn(
-    AppMetadata,
-    Option<BufReader<ChildStdout>>,
-    Option<BufReader<ChildStderr>>,
-) -> Pin<Box<dyn Future<Output = Result<()>>>>;
+type ChecksFunc = Box<
+    dyn Fn(
+        AppMetadata,
+        Option<BufReader<ChildStdout>>,
+        Option<BufReader<ChildStderr>>,
+    ) -> Pin<Box<dyn Future<Output = Result<()>>>>,
+>;
 
 /// Represents a testcase
 #[derive(Builder)]
@@ -65,11 +67,28 @@ pub struct TestCase {
     pub pre_build_hooks: Option<Vec<Vec<String>>>,
 
     /// assertions to run once the app is running
+    #[builder(setter(custom))]
     pub assertions: ChecksFunc,
 
     /// registry app url where app is pushed and run from
     #[builder(default)]
     pub push_to_registry: Option<String>,
+}
+
+impl TestCaseBuilder {
+    pub fn assertions(
+        self,
+        value: impl Fn(
+                AppMetadata,
+                Option<BufReader<ChildStdout>>,
+                Option<BufReader<ChildStderr>>,
+            ) -> Pin<Box<dyn Future<Output = Result<()>>>>
+            + 'static,
+    ) -> Self {
+        let mut this = self;
+        this.assertions = Some(Box::new(value));
+        this
+    }
 }
 
 impl TestCase {

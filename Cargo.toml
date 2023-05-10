@@ -67,7 +67,7 @@ toml = "0.6"
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 url = "2.2.2"
-uuid = "^1.0"
+uuid = { version = "^1.0", features = ["v4"] }
 wasmtime = { workspace = true }
 watchexec = { git = "https://github.com/watchexec/watchexec.git", rev = "8e91d26ef6400c1e60b32a8314cbb144fa33f288" }
 subprocess = "0.2.9"

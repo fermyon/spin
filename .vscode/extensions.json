@@ -2,6 +2,5 @@
     "recommendations": [
         "rust-lang.rust-analyzer",
         "serayuzgur.crates",
-        "fermyon.autobindle",
     ]
 }

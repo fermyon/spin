@@ -13,3 +13,4 @@ wit-bindgen-wasmtime = { workspace = true }
 rusqlite = { version = "0.29.0", features = [ "bundled" ] }
 rand = "0.8"
 once_cell = "1"
+tokio = "1"

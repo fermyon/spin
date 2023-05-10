@@ -4,10 +4,7 @@ use is_terminal::IsTerminal;
 use lazy_static::lazy_static;
 use spin_cli::commands::{
     build::BuildCommand,
-    cloud::CloudCommands,
-    deploy::DeployCommand,
     external::execute_external_subcommand,
-    login::LoginCommand,
     new::{AddCommand, NewCommand},
     plugins::PluginCommands,
     registry::RegistryCommands,
@@ -54,12 +51,6 @@ enum SpinApp {
     New(NewCommand),
     Add(AddCommand),
     Up(UpCommand),
-    #[clap(subcommand)]
-    Cloud(CloudCommands),
-    // acts as a cross-level subcommand shortcut -> `spin cloud deploy`
-    Deploy(DeployCommand),
-    // acts as a cross-level subcommand shortcut -> `spin cloud login`
-    Login(LoginCommand),
     #[clap(subcommand, alias = "oci")]
     Registry(RegistryCommands),
     Build(BuildCommand),
@@ -88,9 +79,6 @@ impl SpinApp {
             Self::Up(cmd) => cmd.run().await,
             Self::New(cmd) => cmd.run().await,
             Self::Add(cmd) => cmd.run().await,
-            Self::Cloud(cmd) => cmd.run().await,
-            Self::Deploy(cmd) => cmd.run().await,
-            Self::Login(cmd) => cmd.run().await,
             Self::Registry(cmd) => cmd.run().await,
             Self::Build(cmd) => cmd.run().await,
             Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run().await,

@@ -29,6 +29,7 @@ futures = "0.3"
 glob = "0.3.1"
 hippo-openapi = "0.10"
 hippo = { git = "https://github.com/deislabs/hippo-cli", tag = "v0.16.1" }
+indicatif = "0.17.3"
 is-terminal = "0.4"
 lazy_static = "1.4.0"
 levenshtein = "1.0.5"
@@ -51,6 +52,7 @@ spin-bindle = { path = "crates/bindle" }
 spin-build = { path = "crates/build" }
 spin-common = { path = "crates/common" }
 spin-config = { path = "crates/config" }
+spin-http = { path = "crates/http" }
 spin-trigger-http = { path = "crates/trigger-http" }
 spin-loader = { path = "crates/loader" }
 spin-manifest = { path = "crates/manifest" }

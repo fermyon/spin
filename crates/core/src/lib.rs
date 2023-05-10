@@ -27,20 +27,11 @@ pub use wasmtime::{
 
 use self::host_component::{HostComponents, HostComponentsBuilder};
 
-pub use host_component::{HostComponent, HostComponentDataHandle, HostComponentsData};
+pub use host_component::{
+    AnyHostComponentDataHandle, HostComponent, HostComponentDataHandle, HostComponentsData,
+};
 pub use io::OutputBuffer;
 pub use store::{Store, StoreBuilder, Wasi};
-
-#[allow(missing_docs)]
-mod bindgen {
-    wasmtime::component::bindgen!({
-        path: "../../wit/preview2",
-        world: "reactor",
-        async: true
-    });
-}
-
-pub use bindgen::*;
 
 /// The default [`EngineBuilder::epoch_tick_interval`].
 pub const DEFAULT_EPOCH_TICK_INTERVAL: Duration = Duration::from_millis(10);
@@ -138,8 +129,7 @@ impl<T: Send + Sync> EngineBuilder<T> {
     /// Adds definition(s) to the built [`Engine`].
     ///
     /// This method's signature is meant to be used with
-    /// [`wit-bindgen`](https://github.com/bytecodealliance/wasmtime/tree/main/crates/wit-bindgen)'s
-    /// generated `add_to_linker` functions, e.g.:
+    /// [`wasmtime::component::bindgen`]'s generated `add_to_linker` functions, e.g.:
     ///
     /// ```ignore
     /// use spin_core::my_interface;

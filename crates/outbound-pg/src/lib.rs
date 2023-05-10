@@ -1,11 +1,10 @@
 use anyhow::{anyhow, Result};
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
-use spin_core::{
-    async_trait,
+use spin_core::{async_trait, HostComponent};
+use spin_world::{
     postgres::{self, PgError},
     rdbms_types::{Column, DbDataType, DbValue, ParameterValue, RowSet},
-    HostComponent,
 };
 use std::collections::HashMap;
 use tokio_postgres::{

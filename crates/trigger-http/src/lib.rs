@@ -12,7 +12,6 @@ use std::{
     sync::Arc,
 };
 
-use crate::{spin::SpinHttpExecutor, wagi::WagiHttpExecutor};
 use anyhow::{Context, Error, Result};
 use async_trait::async_trait;
 use clap::Args;
@@ -27,7 +26,10 @@ use hyper::{
 use serde::{Deserialize, Serialize};
 use spin_app::{AppComponent, MetadataKey};
 use spin_core::Engine;
-use spin_http::routes::{RoutePattern, Router};
+use spin_http::{
+    config::{HttpExecutorType, HttpTriggerConfig},
+    routes::{RoutePattern, Router},
+};
 use spin_trigger::{
     locked::{BINDLE_VERSION_KEY, DESCRIPTION_KEY, VERSION_KEY},
     EitherInstancePre, TriggerAppEngine, TriggerExecutor,
@@ -37,13 +39,12 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
 use tracing::log;
 
-pub use spin_http::{routes, wagi::WagiTriggerConfig};
+use crate::{spin::SpinHttpExecutor, wagi::WagiHttpExecutor};
+
 pub use tls::TlsConfig;
 
 pub(crate) type RuntimeData = ();
 pub(crate) type Store = spin_core::Store<RuntimeData>;
-
-pub const WELL_KNOWN_PREFIX: &str = "/.well-known/spin/";
 
 const TRIGGER_METADATA_KEY: MetadataKey<TriggerMetadata> = MetadataKey::new("trigger");
 
@@ -83,34 +84,6 @@ impl CliArgs {
             _ => unreachable!(),
         }
     }
-}
-
-/// Configuration for the HTTP trigger
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct HttpTriggerConfig {
-    /// Component ID to invoke
-    pub component: String,
-    /// HTTP route the component will be invoked for
-    pub route: String,
-    /// The HTTP executor the component requires
-    #[serde(default)]
-    pub executor: Option<HttpExecutorType>,
-}
-
-/// The executor for the HTTP component.
-/// The component can either implement the Spin HTTP interface,
-/// or the Wagi CGI interface.
-///
-/// If an executor is not specified, the inferred default is `HttpExecutor::Spin`.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "lowercase", tag = "type")]
-pub enum HttpExecutorType {
-    /// The component implements the Spin HTTP interface.
-    #[default]
-    Spin,
-    /// The component implements the Wagi CGI interface.
-    Wagi(WagiTriggerConfig),
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -237,7 +210,7 @@ impl HttpTrigger {
         let path = req.uri().path();
 
         // Handle well-known spin paths
-        if let Some(well_known) = path.strip_prefix(WELL_KNOWN_PREFIX) {
+        if let Some(well_known) = path.strip_prefix(spin_http::WELL_KNOWN_PREFIX) {
             return match well_known {
                 "health" => Ok(Response::new(Body::from("OK"))),
                 "info" => self.app_info(),

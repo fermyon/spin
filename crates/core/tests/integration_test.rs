@@ -145,7 +145,7 @@ async fn test_host_component_data_update() {
         |store_builder| {
             store_builder
                 .host_components_data()
-                .set(factor_data_handle, 100);
+                .set(factor_data_handle, Multiplier(100));
         },
         |_| {},
     )
@@ -220,30 +220,30 @@ async fn run_core_wasi_test_engine<'a>(
 #[derive(Clone)]
 struct MultiplierHostComponent;
 
+mod multiplier {
+    wasmtime::component::bindgen!("multiplier" in "tests/core-wasi-test/wit");
+}
+
 impl HostComponent for MultiplierHostComponent {
-    type Data = i32;
+    type Data = Multiplier;
 
     fn add_to_linker<T: Send>(
         linker: &mut spin_core::Linker<T>,
         get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
     ) -> anyhow::Result<()> {
-        // NOTE: we're trying to avoid wit-bindgen because a git dependency
-        // would make this crate unpublishable on crates.io
-        linker.instance("imports")?.func_wrap_async(
-            "multiply",
-            move |mut caller, (input,): (i32,)| {
-                Box::new(async move {
-                    let &mut factor = get(caller.data_mut());
-                    let output = factor * input;
-                    Ok((output,))
-                })
-            },
-        )?;
-        Ok(())
+        multiplier::imports::add_to_linker(linker, get)
     }
 
     fn build_data(&self) -> Self::Data {
-        2
+        Multiplier(2)
+    }
+}
+
+struct Multiplier(i32);
+
+impl multiplier::imports::Host for Multiplier {
+    fn multiply(&mut self, a: i32) -> wasmtime::Result<i32> {
+        Ok(self.0 * a)
     }
 }
 

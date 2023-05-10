@@ -1,11 +1,10 @@
 use anyhow::Result;
 pub use mysql::add_to_linker;
 use mysql_async::{consts::ColumnType, from_value_opt, prelude::*, Opts, OptsBuilder, SslOpts};
-use spin_core::{
-    async_trait,
+use spin_core::{async_trait, HostComponent};
+use spin_world::{
     mysql::{self, MysqlError},
     rdbms_types::{Column, DbDataType, DbValue, ParameterValue, RowSet},
-    HostComponent,
 };
 use std::collections::HashMap;
 use std::sync::Arc;

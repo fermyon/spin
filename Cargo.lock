@@ -2615,6 +2615,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "64e9829a50b42bb782c1df523f78d332fe371b10c661e78b7a3c34b0198e9fac"
 
 [[package]]
+name = "indicatif"
+version = "0.17.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cef509aa9bc73864d6756f0d34d35504af3cf0844373afe9b8669a5b8005a729"
+dependencies = [
+ "console",
+ "number_prefix",
+ "portable-atomic 0.3.20",
+ "unicode-width",
+]
+
+[[package]]
 name = "inotify"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3442,6 +3454,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "number_prefix"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
+
+[[package]]
 name = "oauth2"
 version = "4.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3610,6 +3628,7 @@ dependencies = [
  "reqwest",
  "spin-app",
  "spin-core",
+ "spin-world",
  "tracing",
  "url",
  "wit-bindgen-wasmtime",
@@ -3623,6 +3642,7 @@ dependencies = [
  "mysql_async",
  "mysql_common",
  "spin-core",
+ "spin-world",
  "tokio",
  "tracing",
  "url",
@@ -3637,6 +3657,7 @@ dependencies = [
  "native-tls",
  "postgres-native-tls",
  "spin-core",
+ "spin-world",
  "tokio",
  "tokio-postgres",
  "tracing",
@@ -3650,6 +3671,7 @@ dependencies = [
  "anyhow",
  "redis",
  "spin-core",
+ "spin-world",
  "tokio",
  "tracing",
  "wit-bindgen-wasmtime",
@@ -3913,6 +3935,21 @@ checksum = "f9a81d2759aae1dae668f783c308bc5c8ebd191ff4184aaa1b37f65a6ae5a56f"
 dependencies = [
  "plotters-backend",
 ]
+
+[[package]]
+name = "portable-atomic"
+version = "0.3.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e30165d31df606f5726b090ec7592c308a0eaf61721ff64c9a3018e344a8753e"
+dependencies = [
+ "portable-atomic 1.3.1",
+]
+
+[[package]]
+name = "portable-atomic"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bbda379e6e462c97ea6afe9f6233619b202bbc4968d7caa6917788d2070a044"
 
 [[package]]
 name = "postgres-native-tls"
@@ -5097,6 +5134,7 @@ dependencies = [
  "hippo",
  "hippo-openapi",
  "hyper",
+ "indicatif",
  "is-terminal",
  "lazy_static",
  "levenshtein",
@@ -5118,6 +5156,7 @@ dependencies = [
  "spin-build",
  "spin-common",
  "spin-config",
+ "spin-http",
  "spin-key-value",
  "spin-key-value-sqlite",
  "spin-loader",
@@ -5174,6 +5213,7 @@ dependencies = [
  "serde",
  "spin-app",
  "spin-core",
+ "spin-world",
  "thiserror",
  "tokio",
  "toml 0.5.11",
@@ -5207,11 +5247,9 @@ name = "spin-http"
 version = "1.2.0-pre0"
 dependencies = [
  "anyhow",
- "criterion",
  "http",
  "hyper",
  "indexmap",
- "num_cpus",
  "percent-encoding",
  "serde",
  "spin-testing",
@@ -5226,6 +5264,7 @@ dependencies = [
  "lru 0.9.0",
  "spin-app",
  "spin-core",
+ "spin-world",
  "tokio",
  "tracing",
  "wit-bindgen-wasmtime",
@@ -5253,6 +5292,7 @@ dependencies = [
  "redis",
  "spin-core",
  "spin-key-value",
+ "spin-world",
  "tokio",
  "url",
 ]
@@ -5266,6 +5306,7 @@ dependencies = [
  "rusqlite",
  "spin-core",
  "spin-key-value",
+ "spin-world",
  "tokio",
 ]
 
@@ -5381,6 +5422,7 @@ dependencies = [
  "spin-core",
  "spin-testing",
  "spin-trigger",
+ "spin-world",
  "tracing",
  "wit-bindgen-wasmtime",
 ]
@@ -5447,6 +5489,7 @@ dependencies = [
  "spin-app",
  "spin-componentize",
  "spin-core",
+ "spin-http",
  "spin-trigger",
  "spin-trigger-http",
  "tokio",
@@ -5512,6 +5555,7 @@ dependencies = [
  "spin-http",
  "spin-testing",
  "spin-trigger",
+ "spin-world",
  "tls-listener",
  "tokio",
  "tokio-rustls",
@@ -5520,6 +5564,13 @@ dependencies = [
  "wasmtime",
  "wasmtime-wasi",
  "wit-bindgen-wasmtime",
+]
+
+[[package]]
+name = "spin-world"
+version = "1.2.0-pre0"
+dependencies = [
+ "wasmtime",
 ]
 
 [[package]]

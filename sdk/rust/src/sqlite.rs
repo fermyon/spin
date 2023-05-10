@@ -42,7 +42,7 @@ impl Connection {
 
 impl sqlite::QueryResult {
     /// Get all the rows for this query result
-    pub fn rows<'a>(&'a self) -> impl Iterator<Item = Row<'a>> {
+    pub fn rows(&self) -> impl Iterator<Item = Row<'_>> {
         self.rows.iter().map(|r| Row {
             columns: self.columns.as_slice(),
             result: r,

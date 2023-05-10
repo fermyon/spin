@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use crate::runtime_config::RuntimeConfig;
 use anyhow::Context;
@@ -8,13 +8,36 @@ use super::RuntimeConfigOpts;
 
 pub type SqliteDatabase = Arc<dyn spin_sqlite::ConnectionManager>;
 
-pub(crate) fn build_component(runtime_config: &RuntimeConfig) -> anyhow::Result<SqliteComponent> {
-    let databases = runtime_config
+pub(crate) fn build_component(
+    runtime_config: &RuntimeConfig,
+    init_migrations: &[String],
+) -> anyhow::Result<SqliteComponent> {
+    let databases: HashMap<_, _> = runtime_config
         .sqlite_databases()
         .context("Failed to build sqlite component")?
         .into_iter()
         .collect();
+    perform_migrations(init_migrations, &databases)?;
     Ok(SqliteComponent::new(databases))
+}
+
+fn perform_migrations(
+    init_migrations: &[String],
+    databases: &HashMap<String, Arc<dyn spin_sqlite::ConnectionManager>>,
+) -> anyhow::Result<()> {
+    if !init_migrations.is_empty() {
+        if let Some(default) = databases.get("default") {
+            let c = default.get_connection().context(
+                "could not get connection to default database in order to perform migrations",
+            )?;
+            let c = c.lock().unwrap();
+            for m in init_migrations {
+                c.execute(m, [])
+                    .with_context(|| format!("failed to execute migration: '{m}'"))?;
+            }
+        }
+    }
+    Ok(())
 }
 
 // Holds deserialized options from a `[sqlite_database.<name>]` runtime config section.

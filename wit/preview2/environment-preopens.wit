@@ -1,6 +1,0 @@
-default interface environment-preopens {
-  use filesystem.filesystem.{descriptor}
-
-  /// Return a list of preopens for use in interpreting environment variables.
-  preopens: func() -> list<tuple<descriptor, string>>
-}

@@ -5352,6 +5352,7 @@ dependencies = [
  "ctrlc",
  "dirs 4.0.0",
  "futures",
+ "indexmap",
  "outbound-http",
  "outbound-mysql",
  "outbound-pg",

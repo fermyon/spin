@@ -70,6 +70,13 @@ pub struct Data<T> {
     store_limits: limits::StoreLimitsAsync,
 }
 
+impl<T> Data<T> {
+    /// Get the amount of memory in bytes consumed by instances in the store
+    pub fn memory_consumed(&self) -> u64 {
+        self.store_limits.memory_consumed()
+    }
+}
+
 impl<T> AsRef<T> for Data<T> {
     fn as_ref(&self) -> &T {
         &self.inner

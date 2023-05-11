@@ -41,14 +41,17 @@ const BINDLE_REGISTRY_URL_PATH: &str = "api/registry";
 #[derive(Parser, Debug)]
 #[clap(about = "Package and upload an application to the Fermyon Platform")]
 pub struct DeployCommand {
-    /// Path to spin.toml
+    /// The application to deploy. This may be a manifest (spin.toml) file, or a
+    /// directory containing a spin.toml file.
+    /// If omitted, it defaults to "spin.toml".
     #[clap(
         name = APP_MANIFEST_FILE_OPT,
         short = 'f',
-        long = "file",
-        default_value = "spin.toml"
+        long = "from",
+        alias = "file",
+        default_value = DEFAULT_MANIFEST_FILE
     )]
-    pub app: PathBuf,
+    pub app_source: PathBuf,
 
     /// Path to assemble the bindle before pushing (defaults to
     /// a temporary directory)
@@ -224,6 +227,10 @@ impl DeployCommand {
         }
     }
 
+    fn app(&self) -> anyhow::Result<PathBuf> {
+        crate::manifest::resolve_file_path(&self.app_source)
+    }
+
     // TODO: unify with login
     fn config_file_path(&self) -> Result<PathBuf> {
         let root = dirs::config_dir()
@@ -242,7 +249,7 @@ impl DeployCommand {
     }
 
     async fn deploy_hippo(self, login_connection: LoginConnection) -> Result<()> {
-        let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
+        let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app()?).await?;
         let cfg = cfg_any.into_v1();
 
         ensure!(!cfg.components.is_empty(), "No components in spin.toml!");
@@ -370,7 +377,7 @@ impl DeployCommand {
 
         let client = CloudClient::new(connection_config.clone());
 
-        let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app).await?;
+        let cfg_any = spin_loader::local::raw_manifest_from_file(&self.app()?).await?;
         let cfg = cfg_any.into_v1();
 
         validate_cloud_app(&cfg)?;
@@ -509,8 +516,9 @@ impl DeployCommand {
     }
 
     async fn compute_buildinfo(&self, cfg: &RawAppManifest) -> Result<BuildMetadata> {
+        let app_file = self.app()?;
         let mut sha256 = Sha256::new();
-        let app_folder = parent_dir(&self.app)?;
+        let app_folder = parent_dir(&app_file)?;
 
         for x in cfg.components.iter() {
             match &x.source {
@@ -534,7 +542,7 @@ impl DeployCommand {
             }
         }
 
-        let mut r = File::open(&self.app)?;
+        let mut r = File::open(&app_file)?;
         copy(&mut r, &mut sha256)?;
 
         let mut final_digest = format!("q{:x}", sha256.finalize());
@@ -676,7 +684,7 @@ impl DeployCommand {
             Some(path) => path.as_path(),
         };
 
-        let bindle_id = spin_bindle::prepare_bindle(&self.app, buildinfo, dest_dir)
+        let bindle_id = spin_bindle::prepare_bindle(&self.app()?, buildinfo, dest_dir)
             .await
             .map_err(crate::wrap_prepare_bindle_error)?;
 

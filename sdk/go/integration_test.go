@@ -17,14 +17,14 @@ const spinBinary = "../../target/debug/spin"
 func retryGet(t *testing.T, url string) *http.Response {
 	t.Helper()
 
-	const maxTries = 24
+	const maxTries = 120 // (10min/5sec)
 	for i := 1; i < maxTries; i++ {
 		if res, err := http.Get(url); err != nil {
 			t.Log(err)
 		} else {
 			return res
 		}
-		time.Sleep(4 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 	t.Fatal("Get request timeout: ", url)
 	return nil
@@ -37,7 +37,8 @@ type testSpin struct {
 }
 
 func startSpin(t *testing.T, spinfile string) *testSpin {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	// long timeout because... ci
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 
 	url := getFreePort(t)
 

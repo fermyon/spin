@@ -3,6 +3,7 @@
 /// Commands for building Spin applications.
 pub mod build;
 /// Commands for publishing applications to the Fermyon Platform.
+pub mod cloud;
 /// Commands for external subcommands (i.e. plugins)
 pub mod external;
 /// Command for creating a new application.

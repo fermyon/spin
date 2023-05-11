@@ -1,41 +1,9 @@
 use crate::opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG;
 use anyhow::{anyhow, Result};
 use spin_plugins::{error::Error, manifest::warn_unsupported_version, PluginStore};
-use std::{collections::HashMap, env, process, str::FromStr};
+use std::{collections::HashMap, env, process};
 use tokio::process::Command;
 use tracing::log;
-
-enum CloudCommand {
-    Login,
-    Deploy,
-    Cloud,
-}
-
-impl FromStr for CloudCommand {
-    type Err = ();
-
-    fn from_str(input: &str) -> Result<CloudCommand, Self::Err> {
-        match input {
-            "login" => Ok(CloudCommand::Login),
-            "deploy" => Ok(CloudCommand::Deploy),
-            "cloud" => Ok(CloudCommand::Cloud),
-            _ => Err(()),
-        }
-    }
-}
-
-impl CloudCommand {
-    // Converts a cloud command to be a subcommand of the `cloud` plugin
-    fn make_cloud_subcommand(self, cmd: &mut String, args: &mut Vec<String>) {
-        match self {
-            Self::Deploy | Self::Login => {
-                args.insert(0, cmd.to_string());
-                *cmd = "cloud".to_string();
-            }
-            Self::Cloud => (),
-        }
-    }
-}
 
 fn override_flag() -> String {
     format!("--{}", PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG)
@@ -52,13 +20,13 @@ fn remove_arg(arg: &str, args: &mut Vec<String>) -> bool {
 fn parse_subcommand(mut cmd: Vec<String>) -> anyhow::Result<(String, Vec<String>, bool)> {
     let override_compatibility_check = remove_arg(&override_flag(), &mut cmd);
     let (plugin_name, args) = cmd
-        .split_first_mut()
+        .split_first()
         .ok_or_else(|| anyhow!("Expected subcommand"))?;
-    let mut args = args.to_vec();
-    if let Ok(known_plugin) = CloudCommand::from_str(plugin_name) {
-        known_plugin.make_cloud_subcommand(plugin_name, &mut args);
-    }
-    Ok((plugin_name.to_owned(), args, override_compatibility_check))
+    Ok((
+        plugin_name.into(),
+        args.to_vec(),
+        override_compatibility_check,
+    ))
 }
 
 /// Executes a Spin plugin as a subprocess, expecting the first argument to
@@ -81,19 +49,10 @@ pub async fn execute_external_subcommand(
             }
         }
         Err(Error::NotFound(e)) => {
-            if let Ok(CloudCommand::Cloud) = CloudCommand::from_str(&plugin_name) {
-                println!("The `cloud` plugin is required. Installing now.");
-                let plugin_installer = crate::commands::plugins::Install {
-                    name: Some("cloud".to_string()),
-                    ..Default::default()
-                };
-                plugin_installer.run().await?;
-            } else {
-                tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
-                eprintln!("Error: '{plugin_name}' is not a known Spin command. See spin --help.\n");
-                print_similar_commands(app, &plugin_name);
-                process::exit(2);
-            }
+            tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
+            eprintln!("Error: '{plugin_name}' is not a known Spin command. See spin --help.\n");
+            print_similar_commands(app, &plugin_name);
+            process::exit(2);
         }
         Err(e) => return Err(e.into()),
     }
@@ -163,22 +122,6 @@ fn get_env_vars_map() -> Result<HashMap<String, String>> {
 #[cfg(test)]
 mod test {
     use super::{override_flag, parse_subcommand};
-
-    #[test]
-    fn test_cloud_cmds() {
-        assert_eq!(
-            parse_subcommand(vec!["deploy".to_string()]).unwrap(),
-            ("cloud".to_string(), vec!["deploy".to_string()], false)
-        );
-        assert_eq!(
-            parse_subcommand(vec!["login".to_string()]).unwrap(),
-            ("cloud".to_string(), vec!["login".to_string()], false)
-        );
-        assert_eq!(
-            parse_subcommand(vec!["cloud".to_string()]).unwrap(),
-            ("cloud".to_string(), vec![], false)
-        );
-    }
 
     #[test]
     fn test_remove_arg() {

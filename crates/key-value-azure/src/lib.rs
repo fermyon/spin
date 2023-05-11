@@ -61,13 +61,17 @@ impl Store for AzureCosmosStore {
     }
 
     async fn delete(&self, key: &str) -> Result<(), Error> {
-        let pair = self.get_pair(key).await?;
-        let document_client = self
-            .client
-            .document_client(&pair.id, &pair.id)
-            .map_err(log_error)?;
-        document_client.delete_document().await.map_err(log_error)?;
-        Ok(())
+        match self.exists(key).await {
+            Ok(true) => {
+                let document_client = self.client.document_client(key, &key).map_err(log_error)?;
+                document_client.delete_document().await.map_err(log_error)?;
+                Ok(())
+            }
+            // The Spin key-value interface mandates that no error should be raised if the pair did
+            // not exist.
+            Ok(false) => Ok(()),
+            Err(e) => Err(e),
+        }
     }
 
     async fn exists(&self, key: &str) -> Result<bool, Error> {

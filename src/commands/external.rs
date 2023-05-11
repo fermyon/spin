@@ -1,3 +1,4 @@
+use crate::commands::plugins::Install;
 use crate::opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG;
 use anyhow::{anyhow, Result};
 use spin_plugins::{error::Error, manifest::warn_unsupported_version, PluginStore};
@@ -49,10 +50,19 @@ pub async fn execute_external_subcommand(
             }
         }
         Err(Error::NotFound(e)) => {
-            tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
-            eprintln!("Error: '{plugin_name}' is not a known Spin command. See spin --help.\n");
-            print_similar_commands(app, &plugin_name);
-            process::exit(2);
+            if plugin_name == "cloud" {
+                println!("The `cloud` plugin is required. Installing now.");
+                let plugin_installer = Install {
+                    name: Some("cloud".to_string()),
+                    ..Default::default()
+                };
+                plugin_installer.run().await?;
+            } else {
+                tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
+                eprintln!("Error: '{plugin_name}' is not a known Spin command. See spin --help.\n");
+                print_similar_commands(app, &plugin_name);
+                process::exit(2);
+            }
         }
         Err(e) => return Err(e.into()),
     }

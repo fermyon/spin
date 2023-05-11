@@ -10,3 +10,5 @@ id = "http-tinygo-test"
 source = "main.wasm"
 [component.trigger]
 route = "/hello/..."
+[component.build]
+command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"

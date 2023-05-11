@@ -12,19 +12,19 @@ import (
 	"time"
 )
 
-const spin_binary = "../../target/debug/spin"
+const spinBinary = "../../target/debug/spin"
 
 func retryGet(t *testing.T, url string) *http.Response {
 	t.Helper()
 
-	const tries = 10
-	for i := 1; i < tries; i++ {
+	const maxTries = 24
+	for i := 1; i < maxTries; i++ {
 		if res, err := http.Get(url); err != nil {
 			t.Log(err)
 		} else {
 			return res
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(4 * time.Second)
 	}
 	t.Fatal("Get request timeout: ", url)
 	return nil
@@ -37,11 +37,11 @@ type testSpin struct {
 }
 
 func startSpin(t *testing.T, spinfile string) *testSpin {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 
 	url := getFreePort(t)
 
-	cmd := exec.CommandContext(ctx, spin_binary, "up", "--file", spinfile, "--listen", url)
+	cmd := exec.CommandContext(ctx, spinBinary, "build", "--up", "--file", spinfile, "--listen", url)
 	stderr := new(bytes.Buffer)
 	cmd.Stderr = stderr
 	if err := cmd.Start(); err != nil {
@@ -56,18 +56,12 @@ func startSpin(t *testing.T, spinfile string) *testSpin {
 	}
 }
 
-func buildTinyGo(t *testing.T, dir string) {
+func build(t *testing.T, dir string) {
 	t.Helper()
 
 	t.Log("building example: ", dir)
 
-	getCmd := exec.Command("go", "mod", "tidy")
-	getCmd.Dir = dir
-	if err := getCmd.Run(); err != nil {
-		t.Errorf("Failed to go mod tidy %q, %v", dir, err)
-	}
-
-	cmd := exec.Command("tinygo", "build", "-target=wasi", "-gc=leaking", "-o", "main.wasm", "main.go")
+	cmd := exec.Command(spinBinary, "build")
 	cmd.Dir = dir
 
 	stderr := new(bytes.Buffer)
@@ -79,7 +73,6 @@ func buildTinyGo(t *testing.T, dir string) {
 }
 
 func TestSpinRoundTrip(t *testing.T) {
-	buildTinyGo(t, "http/testdata/spin-roundtrip")
 	spin := startSpin(t, "http/testdata/spin-roundtrip/spin.toml")
 	defer spin.cancel()
 
@@ -104,7 +97,6 @@ func TestSpinRoundTrip(t *testing.T) {
 }
 
 func TestHTTPTriger(t *testing.T) {
-	buildTinyGo(t, "http/testdata/http-tinygo")
 	spin := startSpin(t, "http/testdata/http-tinygo/spin.toml")
 	defer spin.cancel()
 
@@ -143,7 +135,7 @@ func TestBuildExamples(t *testing.T) {
 		"../../examples/tinygo-redis",
 		"../../examples/tinygo-key-value",
 	} {
-		buildTinyGo(t, example)
+		build(t, example)
 	}
 }
 

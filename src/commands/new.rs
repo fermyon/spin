@@ -49,7 +49,7 @@ pub struct TemplateNewCommandCore {
 
     /// An optional argument that allows to skip prompts for the manifest file
     /// by accepting the defaults if available on the template
-    #[clap(long = "accept-defaults", takes_value = false)]
+    #[clap(short = 'a', long = "accept-defaults", takes_value = false)]
     pub accept_defaults: bool,
 }
 

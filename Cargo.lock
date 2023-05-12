@@ -2609,12 +2609,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "infer"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64e9829a50b42bb782c1df523f78d332fe371b10c661e78b7a3c34b0198e9fac"
-
-[[package]]
 name = "indicatif"
 version = "0.17.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2625,6 +2619,12 @@ dependencies = [
  "portable-atomic 0.3.20",
  "unicode-width",
 ]
+
+[[package]]
+name = "infer"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64e9829a50b42bb782c1df523f78d332fe371b10c661e78b7a3c34b0198e9fac"
 
 [[package]]
 name = "inotify"

@@ -25,7 +25,7 @@ RUST_LOG=spin=trace spin up -f spin.toml
 Curl the hello route:
 
 ```
-$ curl -i localhost:3000/goodbye
+$ curl -i localhost:3000/hello
 HTTP/1.1 200 OK
 content-type: application/text
 content-length: 7

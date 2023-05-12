@@ -1,4 +1,5 @@
 use crate::build_info::*;
+use crate::colors::error;
 use crate::opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG;
 use anyhow::{anyhow, Result};
 use spin_plugins::{error::Error, manifest::warn_unsupported_version, PluginStore};
@@ -50,7 +51,7 @@ pub async fn execute_external_subcommand(
         }
         Err(Error::NotFound(e)) => {
             tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
-            eprintln!("Error: '{plugin_name}' is not a known Spin command. See spin --help.\n");
+            error!("'{plugin_name}' is not a known Spin command. See spin --help.\n");
             print_similar_commands(app, &plugin_name);
             process::exit(2);
         }

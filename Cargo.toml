@@ -31,6 +31,9 @@ hippo-openapi = "0.10"
 hippo = { git = "https://github.com/deislabs/hippo-cli", tag = "v0.16.1" }
 indicatif = "0.17.3"
 is-terminal = "0.4"
+termcolor = "1.2"
+once_cell = "1.0"
+atty = "0.2"
 lazy_static = "1.4.0"
 levenshtein = "1.0.5"
 nix = { version = "0.24", features = ["signal"] }

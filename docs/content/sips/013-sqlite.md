@@ -130,13 +130,16 @@ An alternative approach that was considered but ultimately reject was to require
 
 #### Implementation requirements
 
+### Minimum capacity limits
+
+In addition to the above interface, we specify a few additional implementation requirements which guest components may rely on.  At minimum, an conforming implementation must support:
+* At least 10,000 rows
+* Text and blob sizes of at least 1 megabyte
+* Maximum number of columns of at least 32
+
 **TODO**: Open questions:
 * Assumed sqlite version?
   * Semantics may change slightly depending on the sqlite version. It's unlikely that we'll be able to match the exact versions between whatever sqlite implementation spin users, Fermyon Cloud, and the user (if they decide to create their own databases manually). Having some guidance on which versions are expected to work might make it easier to guide the user down the right path.
-* Capacity limits? The following are different capacities we might want to control:
-  * The number of databases in total
-  * The number of rows in a database
-  * The size of certain row values (**question**: does sqlite or libsql impose any restrictions and do we just pass those on to the user?)
 
 #### Built-in local database
 

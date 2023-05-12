@@ -136,20 +136,26 @@ impl OwnedApp {
     }
 }
 
+// Implementation detail of [`App::inert`]; "sealed" to prevent external impls.
+mod private {
+    pub trait MaybeLoader {}
+}
+use private::MaybeLoader;
+
+impl MaybeLoader for AppLoader {}
+
 /// An `App` holds loaded configuration for a Spin application.
+///
+/// Note: The `L: MaybeLoader` param is an implementation detail to support the
+/// [`App::inert`] constructor.
 #[derive(Debug)]
-pub struct App<'a> {
-    loader: &'a AppLoader,
+pub struct App<'a, L: MaybeLoader = AppLoader> {
+    loader: &'a L,
     uri: String,
     locked: LockedApp,
 }
 
-impl<'a> App<'a> {
-    /// Returns a [`Loader`]-implementation-specific URI for this app.
-    pub fn uri(&self) -> &str {
-        &self.uri
-    }
-
+impl<'a, L: MaybeLoader> App<'a, L> {
     /// Deserializes typed metadata for this app.
     ///
     /// Returns `Ok(None)` if there is no metadata for the given `key` and an
@@ -179,7 +185,7 @@ impl<'a> App<'a> {
     }
 
     /// Returns an iterator of [`AppComponent`]s defined for this app.
-    pub fn components(&self) -> impl Iterator<Item = AppComponent> {
+    pub fn components(&self) -> impl Iterator<Item = AppComponent<'_, L>> {
         self.locked
             .components
             .iter()
@@ -188,13 +194,13 @@ impl<'a> App<'a> {
 
     /// Returns the [`AppComponent`] with the given `component_id`, or `None`
     /// if it doesn't exist.
-    pub fn get_component(&self, component_id: &str) -> Option<AppComponent> {
+    pub fn get_component(&self, component_id: &str) -> Option<AppComponent<'_, L>> {
         self.components()
             .find(|component| component.locked.id == component_id)
     }
 
     /// Returns an iterator of [`AppTrigger`]s defined for this app.
-    pub fn triggers(&self) -> impl Iterator<Item = AppTrigger> {
+    pub fn triggers(&self) -> impl Iterator<Item = AppTrigger<'_, L>> {
         self.locked
             .triggers
             .iter()
@@ -203,20 +209,47 @@ impl<'a> App<'a> {
 
     /// Returns an iterator of [`AppTrigger`]s defined for this app with
     /// the given `trigger_type`.
-    pub fn triggers_with_type(&'a self, trigger_type: &'a str) -> impl Iterator<Item = AppTrigger> {
+    pub fn triggers_with_type(
+        &'a self,
+        trigger_type: &'a str,
+    ) -> impl Iterator<Item = AppTrigger<'_, L>> {
         self.triggers()
             .filter(move |trigger| trigger.locked.trigger_type == trigger_type)
     }
 }
 
+impl<'a> App<'a> {
+    /// Returns a [`Loader`]-implementation-specific URI for this app.
+    pub fn uri(&self) -> &str {
+        &self.uri
+    }
+}
+
+/// Used in the return type of [`App::inert`] to prevent the use of methods
+/// that require an [`AppLoader`].
+pub struct InertLoader;
+impl MaybeLoader for InertLoader {}
+
+impl App<'static, InertLoader> {
+    /// Return an "inert" App which does not have an associated [`AppLoader`]
+    /// and cannot be used to instantiate components.
+    pub fn inert(locked: LockedApp) -> App<'static, InertLoader> {
+        App {
+            loader: &InertLoader,
+            uri: "".into(),
+            locked,
+        }
+    }
+}
+
 /// An `AppComponent` holds configuration for a Spin application component.
-pub struct AppComponent<'a> {
+pub struct AppComponent<'a, L: MaybeLoader = AppLoader> {
     /// The app this component belongs to.
-    pub app: &'a App<'a>,
+    pub app: &'a App<'a, L>,
     locked: &'a LockedComponent,
 }
 
-impl<'a> AppComponent<'a> {
+impl<'a, L: MaybeLoader> AppComponent<'a, L> {
     /// Returns this component's app-unique ID.
     pub fn id(&self) -> &str {
         &self.locked.id
@@ -257,7 +290,9 @@ impl<'a> AppComponent<'a> {
     pub fn config(&self) -> impl Iterator<Item = (&String, &String)> {
         self.locked.config.iter()
     }
+}
 
+impl<'a> AppComponent<'a> {
     /// Loads and returns the [`spin_core::Component`] for this component.
     pub async fn load_component<T: Send + Sync>(
         &self,
@@ -309,13 +344,13 @@ impl<'a> AppComponent<'a> {
 }
 
 /// An `AppTrigger` holds configuration for a Spin application trigger.
-pub struct AppTrigger<'a> {
+pub struct AppTrigger<'a, L: MaybeLoader = AppLoader> {
     /// The app this trigger belongs to.
-    pub app: &'a App<'a>,
+    pub app: &'a App<'a, L>,
     locked: &'a LockedTrigger,
 }
 
-impl<'a> AppTrigger<'a> {
+impl<'a, L: MaybeLoader> AppTrigger<'a, L> {
     /// Returns this trigger's app-unique ID.
     pub fn id(&self) -> &str {
         &self.locked.id
@@ -330,7 +365,7 @@ impl<'a> AppTrigger<'a> {
     ///
     /// This is a convenience wrapper that looks up the component based on the
     /// 'component' metadata value which is conventionally a component ID.
-    pub fn component(&self) -> Result<AppComponent<'a>> {
+    pub fn component(&self) -> Result<AppComponent<'a, L>> {
         let component_id = self.locked.trigger_config.get("component").ok_or_else(|| {
             Error::MetadataError(format!(
                 "trigger {:?} missing 'component' config field",

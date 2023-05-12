@@ -32,8 +32,16 @@ fn execute_statements(
             )?;
             let c = c.lock().unwrap();
             for m in statements {
-                c.execute(m, [])
-                    .with_context(|| format!("failed to execute statement: '{m}'"))?;
+                if let Some(file) = m.strip_prefix('@') {
+                    let sql = std::fs::read_to_string(file).with_context(|| {
+                        format!("could not read file '{file}' containing sql statements")
+                    })?;
+                    c.execute_batch(&sql)
+                        .with_context(|| format!("failed to execute sql from file '{file}'"))?;
+                } else {
+                    c.execute(m, [])
+                        .with_context(|| format!("failed to execute statement: '{m}'"))?;
+                }
             }
         }
     }

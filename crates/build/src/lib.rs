@@ -29,7 +29,7 @@ pub async fn build(manifest_file: &Path) -> Result<()> {
         .map(|c| build_component(c, &app_dir))
         .collect::<Result<Vec<_>, _>>()?;
 
-    println!("Successfully ran the build command for the Spin components.");
+    colors::step!("Finished", "the build command for the Spin components.");
     Ok(())
 }
 
@@ -37,9 +37,11 @@ pub async fn build(manifest_file: &Path) -> Result<()> {
 fn build_component(raw: RawComponentManifest, app_dir: &Path) -> Result<()> {
     match raw.build {
         Some(b) => {
-            println!(
-                "Executing the build command for component {}: {}",
-                raw.id, b.command
+            colors::step!(
+                "Executing",
+                "build command for component {}: {}",
+                raw.id,
+                b.command
             );
             let workdir = construct_workdir(app_dir, b.workdir.as_ref())?;
             if b.workdir.is_some() {

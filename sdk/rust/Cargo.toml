@@ -17,7 +17,10 @@ spin-macro = { path = "macro" }
 thiserror = "1.0.37"
 wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }
 routefinder = "0.5.3"
+serde_json = {version = "1.0.96", optional = true}
+serde = {version = "1.0.163", optional = true}
 
 [features]
-default = [ "export-sdk-language" ]
+default = ["export-sdk-language"]
 export-sdk-language = []
+json = ["dep:serde", "dep:serde_json"]

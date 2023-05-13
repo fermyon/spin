@@ -467,6 +467,17 @@ async fn try_install(
     if continue_to_install(manifest, package, yes_to_all)? {
         let installed = manager.install(manifest, package).await?;
         println!("Plugin '{installed}' was installed successfully!");
+
+        if let Some(description) = manifest.description() {
+            println!("\nDescription:");
+            println!("\t{description}");
+        }
+
+        if let Some(homepage) = manifest.homepage_url().filter(|h| h.scheme() == "https") {
+            println!("\nHomepage:");
+            println!("\t{homepage}");
+        }
+
         Ok(true)
     } else {
         Ok(false)

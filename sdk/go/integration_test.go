@@ -1,3 +1,5 @@
+//go:build !wasi
+
 package http
 
 import (

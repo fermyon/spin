@@ -3,6 +3,7 @@
 package redis
 
 import (
+	"errors"
 	"fmt"
 	"os"
 )
@@ -35,6 +36,9 @@ func NewClient(address string) *Client {
 
 // Publish a Redis message to the specificed channel.
 func (c *Client) Publish(channel string, payload []byte) error {
+	if len(payload) == 0 {
+		return errors.New("payload is empty")
+	}
 	return publish(c.addr, channel, payload)
 }
 
@@ -46,6 +50,9 @@ func (c *Client) Get(key string) ([]byte, error) {
 
 // Set key to value. If key alreads holds a value, it is overwritten.
 func (c *Client) Set(key string, payload []byte) error {
+	if len(payload) == 0 {
+		return errors.New("payload is empty")
+	}
 	return set(c.addr, key, payload)
 }
 

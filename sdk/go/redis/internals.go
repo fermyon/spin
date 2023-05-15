@@ -151,8 +151,10 @@ func redisStr(x string) C.outbound_redis_string_t {
 }
 
 func redisListStr(xs []string) C.outbound_redis_list_string_t {
+	if len(xs) == 0 {
+		return C.outbound_redis_list_string_t{}
+	}
 	cxs := make([]C.outbound_redis_string_t, 0, len(xs))
-
 	for i := 0; i < len(xs); i++ {
 		cxs = append(cxs, redisStr(xs[i]))
 	}
@@ -186,7 +188,7 @@ func redisParameter(x *argument) C.outbound_redis_redis_parameter_t {
 }
 
 func redisListParameter(xs []*argument) C.outbound_redis_list_redis_parameter_t {
-	if len(xs) < 1 {
+	if len(xs) == 0 {
 		return C.outbound_redis_list_redis_parameter_t{}
 	}
 

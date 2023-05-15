@@ -736,15 +736,11 @@ impl DeployCommand {
     ) -> Result<Option<String>> {
         let mut client = spin_oci::Client::new(connection_config.insecure, None).await?;
 
+        // Currently the registry is the cloud domain
         let cloud_url = Url::parse(connection_config.url.as_str())?;
-        let mut cloud_registry_url = cloud_url;
-        let _result = match cloud_registry_url.set_host(Some(&("registry.".to_owned() + &cloud_registry_url.host_str().unwrap().to_owned()))) {
-            Err(err) => Err(anyhow!("Unable to construct cloud registry URL: {err:?}")),
-            Ok(()) => Ok(())
-        };
         let reference = match buildinfo {
-            Some(buildinfo) => cloud_registry_url.domain().unwrap().to_owned() + "/" + &application.info.name + ":" + &buildinfo,
-            None => cloud_registry_url.domain().unwrap().to_owned() + "/" + &application.info.name,
+            Some(buildinfo) => cloud_url.domain().unwrap().to_owned() + "/" + &application.info.name + ":" + &buildinfo,
+            None => cloud_url.domain().unwrap().to_owned() + "/" + &application.info.name,
         };
         let oci_ref = Reference::try_from(reference.as_ref()).expect(&format!("Could not parse reference '{reference}'"));
 

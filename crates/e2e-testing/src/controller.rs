@@ -21,6 +21,7 @@ pub trait Controller {
         app_name: &str,
         trigger_type: &str,
         mut args: Vec<&str>,
+        state_dir: &str,
     ) -> Result<AppInstance>;
     async fn stop_app(
         &self,
@@ -28,6 +29,7 @@ pub trait Controller {
         process: Option<tokio::process::Child>,
     ) -> Result<()>;
 }
+
 /// This represents a running spin app.
 /// If it is running using `spin up`, it also has `process` field populated
 /// with handle to the `spin up` process

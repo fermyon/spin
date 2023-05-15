@@ -75,9 +75,29 @@ fn prepare_component_with_direct_mounts(
                     .to_owned(),
                 host: placement.source.absolutize()?.into(),
             }),
-            RawFileMount::Pattern(_) => Err(anyhow!(
-                "this component cannot be run with `--direct-mount` because it uses file patterns"
-            )),
+            RawFileMount::Pattern(p) => {
+                let path = Path::new(p);
+                if path.is_dir() {
+                    Ok(DirectoryMount {
+                        guest: p.to_owned(),
+                        host: path.absolutize()?.into(),
+                    })
+                } else {
+                    let typ = if p.contains('*') {
+                        "glob pattern"
+                    } else if path.exists() {
+                        "file path"
+                    } else {
+                        "non-existing path"
+                    };
+
+                    Err(anyhow!(
+                        "only directories can be directly mounted but \
+                        attempted to mount the {typ} '{p}'"
+                    )
+                    .context("`--direct-mount` flag cannot be used for this spin application"))
+                }
+            }
         })
         .collect()
 }

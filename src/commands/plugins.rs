@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use tracing::log;
 use url::Url;
 
+use crate::build_info::*;
 use crate::opts::*;
 
 /// Install/uninstall Spin plugins.
@@ -373,7 +374,7 @@ pub(crate) enum PluginCompatibility {
 impl PluginCompatibility {
     pub(crate) fn for_current(manifest: &PluginManifest) -> Self {
         if manifest.has_compatible_package() {
-            let spin_version = env!("VERGEN_BUILD_SEMVER");
+            let spin_version = SPIN_VERSION;
             if manifest.is_compatible_spin_version(spin_version) {
                 Self::Compatible
             } else {
@@ -450,10 +451,9 @@ async fn try_install(
     override_compatibility_check: bool,
     downgrade: bool,
 ) -> Result<bool> {
-    let spin_version = env!("VERGEN_BUILD_SEMVER");
     let install_action = manager.check_manifest(
         manifest,
-        spin_version,
+        SPIN_VERSION,
         override_compatibility_check,
         downgrade,
     )?;

@@ -2,6 +2,7 @@ use anyhow::Error;
 use clap::{CommandFactory, Parser, Subcommand};
 use is_terminal::IsTerminal;
 use lazy_static::lazy_static;
+use spin_cli::build_info::*;
 use spin_cli::commands::{
     build::BuildCommand,
     cloud::CloudCommands,
@@ -46,7 +47,7 @@ fn version() -> &'static str {
 #[derive(Parser)]
 #[clap(
     name = "spin",
-    version = version(),
+    version = version()
 )]
 enum SpinApp {
     #[clap(subcommand, alias = "template")]
@@ -105,10 +106,5 @@ impl SpinApp {
 
 /// Returns build information, similar to: 0.1.0 (2be4034 2022-03-31).
 fn build_info() -> String {
-    format!(
-        "{} ({} {})",
-        env!("VERGEN_BUILD_SEMVER"),
-        env!("VERGEN_GIT_SHA_SHORT"),
-        env!("VERGEN_GIT_COMMIT_DATE")
-    )
+    format!("{SPIN_VERSION} ({SPIN_COMMIT_SHA} {SPIN_COMMIT_DATE})")
 }

@@ -20,6 +20,18 @@ impl TemplateStore {
     }
 
     pub(crate) fn try_default() -> anyhow::Result<Self> {
+        if let Ok(brew_prefix) = std::env::var("HOMEBREW_PREFIX") {
+            let templates_dir = Path::new(&brew_prefix)
+                .join("var")
+                .join("spin")
+                .join("templates");
+
+            if templates_dir.is_dir() {
+                return Ok(Self::new(templates_dir));
+                // TODO: check if they also have templates in non-brew default dir and warn
+            }
+        }
+
         let data_dir = dirs::data_local_dir()
             .or_else(|| dirs::home_dir().map(|p| p.join(".spin")))
             .ok_or_else(|| anyhow!("Unable to get local data directory or home directory"))?;

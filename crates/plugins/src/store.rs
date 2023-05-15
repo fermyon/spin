@@ -24,6 +24,17 @@ impl PluginStore {
     }
 
     pub fn try_default() -> Result<Self> {
+        if let Ok(brew_prefix) = std::env::var("HOMEBREW_PREFIX") {
+            let plugins_dir = Path::new(&brew_prefix)
+                .join("var")
+                .join("spin")
+                .join("plugins");
+
+            if plugins_dir.is_dir() {
+                return Ok(Self::new(plugins_dir));
+                // TODO: check if they also have plugins in non-brew default dir and warn
+            }
+        }
         let data_dir = match std::env::var("TEST_PLUGINS_DIRECTORY") {
             Ok(test_dir) => PathBuf::from(test_dir),
             Err(_) => dirs::data_local_dir()

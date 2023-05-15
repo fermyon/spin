@@ -45,7 +45,7 @@ impl PluginManifest {
     }
 
     pub fn homepage_url(&self) -> Option<Url> {
-        Url::parse(&self.homepage).ok()
+        Url::parse(self.homepage.as_deref()?).ok()
     }
 
     pub fn has_compatible_package(&self) -> bool {

@@ -54,6 +54,7 @@ pub async fn execute_external_subcommand(
                 println!("The `cloud` plugin is required. Installing now.");
                 let plugin_installer = Install {
                     name: Some("cloud".to_string()),
+                    yes_to_all: true,
                     ..Default::default()
                 };
                 plugin_installer.run().await?;

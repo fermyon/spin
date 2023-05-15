@@ -21,6 +21,7 @@ pub use key_value::{Error, Store as StoreHandle};
 #[async_trait]
 pub trait StoreManager: Sync + Send {
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error>;
+    fn is_defined(&self, store_name: &str) -> bool;
 }
 
 #[async_trait]

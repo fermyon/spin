@@ -6,23 +6,27 @@ use dialoguer::{console::Emoji, Confirm, Select};
 use futures::FutureExt;
 use spin_doctor::{Diagnosis, DryRunNotSupported};
 
+use crate::opts::DEFAULT_MANIFEST_FILE;
+
 #[derive(Parser, Debug)]
 #[clap(hide = true, about = "Detect and fix problems with Spin applications")]
 pub struct DoctorCommand {
-    #[clap(short = 'f', long, default_value = "spin.toml")]
-    file: PathBuf,
+    #[clap(short = 'f', long = "file", default_value = DEFAULT_MANIFEST_FILE)]
+    manifest_file: PathBuf,
 }
 
 impl DoctorCommand {
     pub async fn run(self) -> Result<()> {
+        let manifest_file = crate::manifest::resolve_file_path(&self.manifest_file)?;
+
         println!("{icon}The Spin Doctor is in.", icon = Emoji("📟 ", ""));
         println!(
             "{icon}Checking {}...",
-            self.file.display(),
+            manifest_file.display(),
             icon = Emoji("🩺 ", "")
         );
 
-        let count = spin_doctor::Checkup::new(self.file)
+        let count = spin_doctor::Checkup::new(manifest_file)
             .for_each_diagnosis(move |diagnosis, patient| {
                 async move {
                     show_diagnosis(&*diagnosis);

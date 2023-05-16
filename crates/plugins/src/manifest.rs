@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 use crate::PluginStore;
 
@@ -38,6 +39,15 @@ impl PluginManifest {
     pub fn license(&self) -> &str {
         self.license.as_ref()
     }
+
+    pub fn description(&self) -> Option<&str> {
+        self.description.as_deref()
+    }
+
+    pub fn homepage_url(&self) -> Option<Url> {
+        Url::parse(self.homepage.as_deref()?).ok()
+    }
+
     pub fn has_compatible_package(&self) -> bool {
         self.packages.iter().any(|p| p.matches_current_os_arch())
     }

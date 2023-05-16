@@ -74,11 +74,13 @@ cloud` counterparts to retain backwards compatibility.
 
 When a user executes `spin login` or `spin deploy` and the cloud plugin is not
 installed on their system, Spin will inform the user that the `spin cloud`
-plugin has not been installed.
+plugin has not been installed, then prompt the user to install the plugin.
 
 ```
 $ spin login
-Error: plugin `cloud` is not installed. Try running `spin plugin install cloud`.
+The `cloud` plugin is required. Installing now.
+Are you sure you want to install plugin 'cloud' [...]? yes
+Plugin 'cloud' was installed successfully!
 ```
 
 ## Future design considerations

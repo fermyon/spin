@@ -64,42 +64,45 @@ fn prepare_component_with_direct_mounts(
 ) -> Result<Vec<DirectoryMount>> {
     tracing::info!("directly mounting local asset directories into guest");
 
-    raw_mounts
-        .iter()
-        .map(|mount| match mount {
-            RawFileMount::Placement(placement) => Ok(DirectoryMount {
-                guest: placement
-                    .destination
-                    .to_str()
-                    .context("unable to parse mount destination as UTF-8")?
-                    .to_owned(),
-                host: placement.source.absolutize()?.into(),
-            }),
-            RawFileMount::Pattern(p) => {
-                let path = Path::new(p);
-                if path.is_dir() {
-                    Ok(DirectoryMount {
-                        guest: p.to_owned(),
-                        host: path.absolutize()?.into(),
-                    })
-                } else {
-                    let typ = if p.contains('*') {
-                        "glob pattern"
-                    } else if path.exists() {
-                        "file path"
-                    } else {
-                        "non-existing path"
-                    };
+    raw_mounts.iter().map(directory_mount).collect()
+}
 
-                    Err(anyhow!(
-                        "only directories can be directly mounted but \
-                        attempted to mount the {typ} '{p}'"
-                    )
-                    .context("`--direct-mount` flag cannot be used for this spin application"))
-                }
+/// Turn a raw file mount into a direct directory mount
+fn directory_mount(mount: &RawFileMount) -> anyhow::Result<DirectoryMount> {
+    match mount {
+        RawFileMount::Placement(placement) => Ok(DirectoryMount {
+            guest: placement
+                .destination
+                .to_str()
+                .context("unable to parse mount destination as UTF-8")?
+                .to_owned(),
+            host: placement.source.absolutize()?.into(),
+        }),
+        RawFileMount::Pattern(pattern) => {
+            let as_path = Path::new(pattern);
+            if as_path.is_dir() {
+                Ok(DirectoryMount {
+                    guest: pattern.to_owned(),
+                    host: as_path.absolutize()?.into(),
+                })
+            } else {
+                const PATTERN_CHARS: &[char] = &['*', '?', '['];
+                let typ = if PATTERN_CHARS.iter().any(|c| pattern.contains(*c)) {
+                    "glob pattern"
+                } else if as_path.exists() {
+                    "file path"
+                } else {
+                    "non-existing path"
+                };
+
+                Err(anyhow!(
+                    "only directories can be directly mounted but \
+                        attempted to mount the {typ} '{pattern}'"
+                )
+                .context("`--direct-mount` flag cannot be used for this application"))
             }
-        })
-        .collect()
+        }
+    }
 }
 
 /// A file that a component requires to be present at runtime.

@@ -94,8 +94,6 @@ impl TestCaseBuilder {
 
 impl TestCase {
     pub async fn run(&self, controller: &dyn Controller) -> Result<()> {
-        controller.name();
-
         // install spin plugins if requested in testcase config
         if let Some(plugins) = &self.plugins {
             controller
@@ -103,15 +101,15 @@ impl TestCase {
                 .context("installing plugins")?;
         }
 
-        let appname = match &self.appname {
-            Some(appname) => appname.to_owned(),
-            None => format!("{}-generated", self.template.as_ref().unwrap()),
-        };
+        let appname = self
+            .appname
+            .clone()
+            .unwrap_or_else(|| format!("{}-generated", self.template.as_ref().unwrap()));
 
-        let appdir = spin::appdir(appname.as_str());
+        let appdir = spin::appdir(&appname);
 
         // cleanup existing dir for testcase project code. cleaned up only if testcase is a template based test
-        if self.template.is_some() {
+        if let Some(template) = &self.template {
             // install spin templates from git repo. if template_install_args is provided uses that
             // defaults to spin repo
             let template_install_args = match &self.template_install_args {
@@ -123,11 +121,11 @@ impl TestCase {
                 .template_install(template_install_args)
                 .context("installing templates")?;
 
-            if fs::remove_dir_all(&appdir).is_err() {};
+            let _ = fs::remove_dir_all(&appdir);
 
             let new_app_args = self.new_app_args.iter().map(|s| s as &str).collect();
             controller
-                .new_app(self.template.as_ref().unwrap(), &appname, new_app_args)
+                .new_app(template, &appname, new_app_args)
                 .context("creating new app")?;
         }
 
@@ -176,16 +174,11 @@ impl TestCase {
         let assertions_result =
             (self.assertions)(deployed_app_metadata, app.stdout_stream, app.stderr_stream).await;
 
-        match controller
+        if let Err(e) = controller
             .stop_app(Some(deployed_app_name.as_str()), app.process)
             .await
         {
-            Ok(_) => (),
-            Err(e) => println!(
-                "warn: failed to stop app {} with error {:?}",
-                deployed_app_name.as_str(),
-                e
-            ),
+            println!("warn: failed to stop app {deployed_app_name} with error {e:?}");
         }
 
         // this ensure tempdir cleans up after running test

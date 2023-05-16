@@ -1,3 +1,8 @@
+//! A helper library for printing text with a certain color scheme.
+//!
+//! This library is used by Spin to print out messages in an appropriate color
+//! that is easy for users to read. This is not meant as a general purpose library.
+
 use once_cell::sync::OnceCell;
 use termcolor::{ColorSpec, StandardStream, StandardStreamLock, WriteColor};
 
@@ -8,12 +13,14 @@ static COLOR_ERR: OnceCell<StandardStream> = OnceCell::new();
 pub struct ColorText(StandardStreamLock<'static>);
 
 impl ColorText {
+    /// Create a `ColorText` tied to stdout
     pub fn stdout(spec: ColorSpec) -> ColorText {
         let stream =
             COLOR_OUT.get_or_init(|| StandardStream::stdout(color_choice(atty::Stream::Stdout)));
         set_color(stream, spec)
     }
 
+    /// Create a `ColorText` tied to stderr
     pub fn stderr(spec: ColorSpec) -> ColorText {
         let stream =
             COLOR_ERR.get_or_init(|| StandardStream::stderr(color_choice(atty::Stream::Stderr)));

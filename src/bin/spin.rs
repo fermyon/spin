@@ -23,7 +23,15 @@ use spin_trigger::cli::TriggerExecutorCommand;
 use spin_trigger_http::HttpTrigger;
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() {
+    if let Err(err) = _main().await {
+        colors::error!("{err}");
+        print_error_chain(err);
+        std::process::exit(1)
+    }
+}
+
+async fn _main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(
@@ -33,6 +41,20 @@ async fn main() -> Result<(), Error> {
         .with_ansi(std::io::stderr().is_terminal())
         .init();
     SpinApp::parse().run().await
+}
+
+fn print_error_chain(err: anyhow::Error) {
+    if let Some(cause) = err.source() {
+        let is_multiple = cause.source().is_some();
+        eprintln!("\nCaused by:");
+        for (i, err) in err.chain().skip(1).enumerate() {
+            if is_multiple {
+                eprintln!("{i:>5}: {}", err)
+            } else {
+                eprintln!("      {}", err)
+            }
+        }
+    }
 }
 
 lazy_static! {

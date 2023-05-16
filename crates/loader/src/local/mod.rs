@@ -148,13 +148,11 @@ async fn prepare(
     let components = future::join_all(
         raw.components
             .into_iter()
-            .map(|c| async { core(c, &src, base_dst.as_ref()).await })
-            .collect::<Vec<_>>(),
+            .map(|c| async { core(c, &src, base_dst.as_ref()).await }),
     )
     .await
     .into_iter()
-    .collect::<Result<Vec<_>>>()
-    .context("Failed to prepare configuration")?;
+    .collect::<Result<Vec<_>>>()?;
 
     let variables = raw
         .variables

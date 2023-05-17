@@ -1,0 +1,3 @@
+default world spin-orchestrator-module1 {    
+  export handle-init: func(start-input: string) -> string
+}

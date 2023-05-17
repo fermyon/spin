@@ -4006,13 +4006,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "trigger-timer"
+name = "trigger-orchestrator"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap 3.2.23",
  "futures",
  "serde",
+ "serde_json",
  "spin-app",
  "spin-core",
  "spin-trigger",

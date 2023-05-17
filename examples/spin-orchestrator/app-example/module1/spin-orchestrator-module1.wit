@@ -1,0 +1,17 @@
+default interface config {
+  // Get a configuration value for the current component.
+  // The config key must match one defined in the component manifest.
+  get-config: func(key: string) -> result<string, error>
+
+  variant error {
+      provider(string),
+      invalid-key(string),
+      invalid-schema(string),
+      other(string),
+  }
+}
+
+default world spin-orchestrator-module1 {
+  import config: self.config  
+  export handle-init: func(start-input: string) -> string  
+}

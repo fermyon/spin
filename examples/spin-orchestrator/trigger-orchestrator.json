@@ -1,0 +1,16 @@
+{
+    "name": "trigger-orchestrator",
+    "description": "Orchestrator plugin example.",
+    "homepage": "www.example.com",
+    "version": "0.1.0",
+    "spinCompatibility": ">=0.7",
+    "license": "Apache-2.0",
+    "packages": [
+        {
+            "os": "linux",
+            "arch": "amd64",
+            "url": "file:///workspaces/spin-suneet-orchestrator/examples/spin-orchestrator/trigger-orchestrator.tar.gz",
+            "sha256": "7c42b8f9e9f1fdd699403cfc7d48bf2e783d780e8e4360ab229ad3570fb37d25"
+        }
+    ]
+}

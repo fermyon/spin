@@ -28,20 +28,10 @@ impl Connection {
     /// Execute a statement against the database
     pub fn execute(
         &self,
-        statement: &str,
-        parameters: &[sqlite::ValueParam<'_>],
-    ) -> Result<(), Error> {
-        sqlite::execute(self.0, statement, parameters)?;
-        Ok(())
-    }
-
-    /// Make a query against the database
-    pub fn query(
-        &self,
         query: &str,
         parameters: &[ValueParam<'_>],
     ) -> Result<sqlite::QueryResult, Error> {
-        sqlite::query(self.0, query, parameters)
+        sqlite::execute(self.0, query, parameters)
     }
 }
 

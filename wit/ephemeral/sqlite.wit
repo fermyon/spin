@@ -23,10 +23,7 @@ variant error {
 open: func(name: string) -> expected<connection, error>
 
 // Execute a statement
-execute: func(conn: connection, statement: string, parameters: list<value>) -> expected<unit, error>
-
-// Query data
-query: func(conn: connection, query: string, parameters: list<value>) -> expected<query-result, error>
+execute: func(conn: connection, statement: string, parameters: list<value>) -> expected<query-result, error>
 
 // Close the specified `connection`.
 close: func(conn: connection)

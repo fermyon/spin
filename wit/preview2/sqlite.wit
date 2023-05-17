@@ -23,11 +23,8 @@ default interface sqlite {
   // `error::no-such-database` will be raised if the `name` is not recognized.
   open: func(database: string) -> result<connection, error>
 
-  // Execute a statement
-  execute: func(conn: connection, statement: string, parameters: list<value>) -> result<_, error>
-
-  // Query data
-  query: func(conn: connection, query: string, parameters: list<value>) -> result<query-result, error>
+  // Execute a statement returning back data if there is any
+  execute: func(conn: connection, statement: string, parameters: list<value>) -> result<query-result, error>
 
   // Close the specified `connection`.
   close: func(conn: connection)

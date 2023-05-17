@@ -71,26 +71,6 @@ impl Host for SqliteImpl {
     async fn execute(
         &mut self,
         connection: sqlite::Connection,
-        statement: String,
-        parameters: Vec<sqlite::Value>,
-    ) -> anyhow::Result<Result<(), sqlite::Error>> {
-        Ok(tokio::task::block_in_place(|| {
-            let conn = self.get_connection(connection)?;
-            let mut statement = conn
-                .prepare_cached(&statement)
-                .map_err(|e| sqlite::Error::Io(e.to_string()))?;
-            statement
-                .execute(rusqlite::params_from_iter(convert_data(
-                    parameters.into_iter(),
-                )))
-                .map_err(|e| sqlite::Error::Io(e.to_string()))?;
-            Ok(())
-        }))
-    }
-
-    async fn query(
-        &mut self,
-        connection: sqlite::Connection,
         query: String,
         parameters: Vec<sqlite::Value>,
     ) -> anyhow::Result<Result<sqlite::QueryResult, sqlite::Error>> {

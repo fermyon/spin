@@ -417,6 +417,7 @@ impl DeployCommand {
             .await?;
 
         let name = application.info.name;
+        let storage_id = format!("oci://{}", name);
         // FYI: From https://docs.docker.com/engine/reference/commandline/tag
         // A tag name must be valid ASCII and may contain lowercase and uppercase letters, digits, underscores, periods and hyphens.
         // A tag name may not start with a period or a hyphen and may contain a maximum of 128 characters.
@@ -431,7 +432,7 @@ impl DeployCommand {
             Ok(app_id) => {
                 CloudClient::add_revision(
                     &client,
-                    name.clone(),
+                    storage_id.clone(),
                     version.clone()
                 )
                 .await?;
@@ -468,13 +469,17 @@ impl DeployCommand {
                 existing_channel_id
             }
             Err(_) => {
-                let app_id = CloudClient::add_app(&client, &name, &name)
+                let app_id = CloudClient::add_app(&client, &name, &storage_id)
                     .await
                     .context("Unable to create app")?;
 
-                // When creating the new app, InitialRevisionImport command is triggered
-                // which automatically imports all revisions from bindle into db
-                // therefore we do not need to call add_revision api explicitly here
+                CloudClient::add_revision(
+                    &client,
+                    storage_id.clone(),
+                    version.clone()
+                )
+                .await?;
+
                 let active_revision_id = self
                     .get_revision_id_cloud(&client, version.clone(), app_id)
                     .await?;

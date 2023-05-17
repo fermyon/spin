@@ -1,3 +1,4 @@
+use crate::build_info::*;
 use crate::opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG;
 use anyhow::{anyhow, Result};
 use spin_plugins::{error::Error, manifest::warn_unsupported_version, PluginStore};
@@ -40,9 +41,8 @@ pub async fn execute_external_subcommand(
     let plugin_store = PluginStore::try_default()?;
     match plugin_store.read_plugin_manifest(&plugin_name) {
         Ok(manifest) => {
-            let spin_version = env!("VERGEN_BUILD_SEMVER");
             if let Err(e) =
-                warn_unsupported_version(&manifest, spin_version, override_compatibility_check)
+                warn_unsupported_version(&manifest, SPIN_VERSION, override_compatibility_check)
             {
                 eprintln!("{e}");
                 process::exit(1);
@@ -102,19 +102,26 @@ fn similar_commands(app: clap::App, target: &str) -> Vec<String> {
 
 fn get_env_vars_map() -> Result<HashMap<String, String>> {
     let map: HashMap<String, String> = vec![
+        ("SPIN_VERSION", SPIN_VERSION),
+        ("SPIN_VERSION_MAJOR", SPIN_VERSION_MAJOR),
+        ("SPIN_VERSION_MINOR", SPIN_VERSION_MINOR),
+        ("SPIN_VERSION_PATCH", SPIN_VERSION_PATCH),
+        ("SPIN_VERSION_PRE", SPIN_VERSION_PRE),
+        ("SPIN_COMMIT_SHA", SPIN_COMMIT_SHA),
+        ("SPIN_COMMIT_DATE", SPIN_COMMIT_DATE),
+        ("SPIN_BRANCH", SPIN_BRANCH),
+        ("SPIN_BUILD_DATE", SPIN_BUILD_DATE),
+        ("SPIN_TARGET_TRIPLE", SPIN_TARGET_TRIPLE),
+        ("SPIN_DEBUG", SPIN_DEBUG),
         (
-            "SPIN_VERSION".to_string(),
-            env!("VERGEN_BUILD_SEMVER").to_owned(),
-        ),
-        (
-            "SPIN_BIN_PATH".to_string(),
+            "SPIN_BIN_PATH",
             env::current_exe()?
                 .to_str()
-                .ok_or_else(|| anyhow!("Could not convert binary path to string"))?
-                .to_string(),
+                .ok_or_else(|| anyhow!("Could not convert binary path to string"))?,
         ),
     ]
     .into_iter()
+    .map(|(k, v)| (k.to_string(), v.to_string()))
     .collect();
     Ok(map)
 }

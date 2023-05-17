@@ -14,10 +14,18 @@ const RUST_OUTBOUND_REDIS_INTEGRATION_TEST: &str = "tests/outbound-redis/http-ru
 const TIMER_TRIGGER_INTEGRATION_TEST: &str = "examples/spin-timer/app-example";
 
 fn main() {
-    let mut config = vergen::Config::default();
-    *config.git_mut().sha_kind_mut() = vergen::ShaKind::Short;
-    *config.git_mut().commit_timestamp_kind_mut() = vergen::TimestampKind::DateOnly;
-    vergen::vergen(config).expect("failed to extract build information");
+    vergen::EmitBuilder::builder()
+        .build_date()
+        .build_timestamp()
+        .cargo_target_triple()
+        .cargo_debug()
+        .git_branch()
+        .git_commit_date()
+        .git_commit_timestamp()
+        .git_sha(true)
+        .fail_on_error()
+        .emit()
+        .expect("failed to extract build information");
 
     let build_spin_tests = env::var("BUILD_SPIN_EXAMPLES")
         .map(|v| v == "1")

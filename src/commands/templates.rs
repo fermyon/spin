@@ -11,6 +11,8 @@ use spin_templates::{
     SkippedReason, Template, TemplateManager, TemplateSource,
 };
 
+use crate::build_info::*;
+
 const INSTALL_FROM_DIR_OPT: &str = "FROM_DIR";
 const INSTALL_FROM_GIT_OPT: &str = "FROM_GIT";
 const UPGRADE_ONLY: &str = "GIT_URL";
@@ -117,9 +119,7 @@ impl Install {
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
         let source = match (&self.git, &self.dir) {
-            (Some(git), None) => {
-                TemplateSource::try_from_git(git, &self.branch, env!("VERGEN_BUILD_SEMVER"))?
-            }
+            (Some(git), None) => TemplateSource::try_from_git(git, &self.branch, SPIN_VERSION)?,
             (None, Some(dir)) => {
                 let abs_dir = dir.absolutize().map(|d| d.to_path_buf());
                 TemplateSource::File(abs_dir.unwrap_or_else(|_| dir.clone()))
@@ -364,8 +364,7 @@ struct RepoSelection {
 
 impl RepoSelection {
     async fn from_repo(repo: &str) -> Option<Self> {
-        let template_source =
-            TemplateSource::try_from_git(repo, &None, env!("VERGEN_BUILD_SEMVER")).ok()?;
+        let template_source = TemplateSource::try_from_git(repo, &None, SPIN_VERSION).ok()?;
         let resolved_tag = template_source.resolved_tag().await;
         Some(Self {
             repo: repo.to_owned(),

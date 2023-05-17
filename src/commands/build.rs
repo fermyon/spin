@@ -28,7 +28,7 @@ pub struct BuildCommand {
     pub component_id: Option<String>,
 
     /// Run the application after building.
-    #[clap(name = BUILD_UP_OPT, short = 'u', long)]
+    #[clap(name = BUILD_UP_OPT, short = 'u', long = "up")]
     pub up: bool,
 
     #[clap(requires = BUILD_UP_OPT)]

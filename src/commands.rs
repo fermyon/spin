@@ -6,6 +6,8 @@ pub mod build;
 pub mod cloud;
 /// Command to package and upload an application to the Fermyon Platform.
 pub mod deploy;
+/// Command for running the Spin Doctor.
+pub mod doctor;
 /// Commands for external subcommands (i.e. plugins)
 pub mod external;
 /// Command for logging into the Fermyon Platform.

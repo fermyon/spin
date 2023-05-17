@@ -1,7 +1,6 @@
 use crate::build_info::*;
 use crate::opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG;
 use anyhow::{anyhow, Result};
-use colors::error;
 use spin_plugins::{error::Error, manifest::warn_unsupported_version, PluginStore};
 use std::{collections::HashMap, env, process};
 use tokio::process::Command;
@@ -51,7 +50,7 @@ pub async fn execute_external_subcommand(
         }
         Err(Error::NotFound(e)) => {
             tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
-            error!("'{plugin_name}' is not a known Spin command. See spin --help.\n");
+            colors::error!("'{plugin_name}' is not a known Spin command. See spin --help.\n");
             print_similar_commands(app, &plugin_name);
             process::exit(2);
         }

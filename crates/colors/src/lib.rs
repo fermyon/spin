@@ -75,7 +75,7 @@ fn color_choice(stream: atty::Stream) -> termcolor::ColorChoice {
 #[macro_export]
 macro_rules! step {
     ($step:expr, $($arg:tt)*) => {
-        $crate::cprint!($crate::colors::green(), $step);
+        $crate::cprint!($crate::colors::bold_green(), $step);
         print!(" ");
         println!($($arg)*);
     };
@@ -84,7 +84,7 @@ macro_rules! step {
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)*) => {
-        $crate::ceprint!($crate::colors::red(), "Error");
+        $crate::ceprint!($crate::colors::bold_red(), "Error");
         eprint!(": ");
         eprintln!($($arg)*);
     };
@@ -113,11 +113,11 @@ macro_rules! ceprint {
 pub mod colors {
     use termcolor::{Color, ColorSpec};
 
-    pub fn red() -> ColorSpec {
+    pub fn bold_red() -> ColorSpec {
         new(Color::Red, true)
     }
 
-    pub fn green() -> ColorSpec {
+    pub fn bold_green() -> ColorSpec {
         new(Color::Green, true)
     }
 

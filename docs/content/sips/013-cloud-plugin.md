@@ -76,7 +76,7 @@ When a user executes `spin login` or `spin deploy` and the cloud plugin is not
 installed on their system, Spin will inform the user that the `spin cloud`
 plugin has not been installed, then install the plugin.
 
-```
+```console
 $ spin deploy
 The `cloud` plugin is required. Installing now.
 Plugin 'cloud' was installed successfully!
@@ -98,7 +98,7 @@ interactive prompt. This command would be optional, and calling `spin cloud
 deploy` on an application that was not yet configured would invoke `spin cloud
 configure` in the background. The experience looked something like this:
 
-```
+```console
 $ spin cloud deploy
 The current Spin app hasn't been set up for deployment yet.
 Pick a new or existing deployment config:

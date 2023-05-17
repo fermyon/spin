@@ -74,13 +74,17 @@ cloud` counterparts to retain backwards compatibility.
 
 When a user executes `spin login` or `spin deploy` and the cloud plugin is not
 installed on their system, Spin will inform the user that the `spin cloud`
-plugin has not been installed, then prompt the user to install the plugin.
+plugin has not been installed, then install the plugin.
 
 ```
-$ spin login
+$ spin deploy
 The `cloud` plugin is required. Installing now.
-Are you sure you want to install plugin 'cloud' [...]? yes
 Plugin 'cloud' was installed successfully!
+Uploading cloud_start version 0.1.0+XXXXXXXX...
+Deploying...
+Waiting for application to become ready... ready
+Available Routes:
+  cloud-start: https://cloud-start-xxxxxxxx.fermyon.app/ (wildcard)
 ```
 
 ## Future design considerations

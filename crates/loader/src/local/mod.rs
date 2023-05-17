@@ -178,12 +178,7 @@ async fn core(
     let src = parent_dir(src)?;
     let source = match raw.source {
         config::RawModuleSource::FileReference(p) => {
-            let p = match p.is_absolute() {
-                true => p,
-                false => src.join(p),
-            };
-
-            ModuleSource::FileReference(p)
+            ModuleSource::FileReference(canonicalize_and_absolutize(p, &src))
         }
         config::RawModuleSource::Url(us) => {
             let source = UrlSource::new(&us)
@@ -223,6 +218,21 @@ async fn core(
         wasm,
         config,
     })
+}
+
+/// Ensures that the path is canonicalized and absolutized base on the `src` path
+fn canonicalize_and_absolutize(mut path: PathBuf, src: &Path) -> PathBuf {
+    path = path.canonicalize().unwrap_or(path);
+    if let Ok(suffix) = path.strip_prefix("~") {
+        if let Some(home) = dirs::home_dir() {
+            path = home.join(suffix)
+        }
+    }
+    if path.is_absolute() {
+        path
+    } else {
+        src.join(path)
+    }
 }
 
 /// A parsed URL source for a component module.

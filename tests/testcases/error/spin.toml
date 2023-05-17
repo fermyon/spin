@@ -1,0 +1,4 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+name = "error"
+trigger = {type = "http", base = "/"}

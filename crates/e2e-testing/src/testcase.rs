@@ -7,15 +7,15 @@ use core::pin::Pin;
 use derive_builder::Builder;
 use std::fs;
 use std::future::Future;
+use std::io::Cursor;
 use tempfile::TempDir;
-use tokio::io::BufReader;
-use tokio::process::{ChildStderr, ChildStdout};
+use tokio::io::AsyncBufRead;
 
 type ChecksFunc = Box<
     dyn Fn(
         AppMetadata,
-        Option<BufReader<ChildStdout>>,
-        Option<BufReader<ChildStderr>>,
+        Option<Pin<Box<dyn AsyncBufRead>>>,
+        Option<Pin<Box<dyn AsyncBufRead>>>,
     ) -> Pin<Box<dyn Future<Output = Result<()>>>>,
 >;
 
@@ -81,8 +81,8 @@ impl TestCaseBuilder {
         self,
         value: impl Fn(
                 AppMetadata,
-                Option<BufReader<ChildStdout>>,
-                Option<BufReader<ChildStderr>>,
+                Option<Pin<Box<dyn AsyncBufRead>>>,
+                Option<Pin<Box<dyn AsyncBufRead>>>,
             ) -> Pin<Box<dyn Future<Output = Result<()>>>>
             + 'static,
     ) -> Self {
@@ -93,7 +93,22 @@ impl TestCaseBuilder {
 }
 
 impl TestCase {
+    /// Run the test case.
+    ///
+    /// This panics if `spin build` fails. Use `TestCase::try_run` if failure is expected.
     pub async fn run(&self, controller: &dyn Controller) -> Result<()> {
+        self.do_run(controller, true).await
+    }
+
+    /// Run the test case and return the output of `spin build`.
+    pub async fn try_run(&self, controller: &dyn Controller) -> Result<()> {
+        self.do_run(controller, false).await
+    }
+
+    /// Utility for running the `TestCase` allows panicking or not on `spin build` failure.
+    ///
+    /// The output from running `spin build` is returned.
+    async fn do_run(&self, controller: &dyn Controller, bail_on_run_failure: bool) -> Result<()> {
         // install spin plugins if requested in testcase config
         if let Some(plugins) = &self.plugins {
             controller
@@ -133,12 +148,15 @@ impl TestCase {
         // e.g. for js/ts tests, we need to run `npm install` before running `spin build`
         if let Some(pre_build_hooks) = &self.pre_build_hooks {
             for pre_build_hook in pre_build_hooks {
-                utils::run(pre_build_hook.to_vec(), Some(appdir.to_string()), None)?;
+                utils::assert_success(&utils::run(pre_build_hook, Some(&appdir), None)?);
             }
         }
 
         // run spin build
-        controller.build_app(&appname).context("building app")?;
+        let build_output = controller.build_app(&appname).context("building app")?;
+        if bail_on_run_failure {
+            utils::assert_success(&build_output);
+        }
 
         //push to registry if url provided
         if let Some(registry_app_url) = &self.push_to_registry {
@@ -157,33 +175,44 @@ impl TestCase {
         // run `spin up` (or `spin deploy` for cloud).
         // `AppInstance` has some basic info about the running app like base url, routes (only for cloud) etc.
         let deploy_args = self.deploy_args.iter().map(|s| s as &str).collect();
-        let app = controller
-            .run_app(
-                &appname,
-                &self.trigger_type,
-                deploy_args,
-                state_dir.as_str(),
-            )
+        let run_result = controller
+            .run_app(&appname, &self.trigger_type, deploy_args, &state_dir)
             .await
             .context("running app")?;
+        match run_result {
+            Ok(app) => {
+                // run test specific assertions
+                let deployed_app_metadata = app.metadata;
+                let deployed_app_name = deployed_app_metadata.name.clone();
 
-        // run test specific assertions
-        let deployed_app_metadata = app.metadata;
-        let deployed_app_name = deployed_app_metadata.name.clone();
+                let assertions_result = (self.assertions)(
+                    deployed_app_metadata,
+                    app.stdout_stream.map(|s| Box::pin(s) as _),
+                    app.stderr_stream.map(|s| Box::pin(s) as _),
+                )
+                .await;
 
-        let assertions_result =
-            (self.assertions)(deployed_app_metadata, app.stdout_stream, app.stderr_stream).await;
+                if let Err(e) = controller
+                    .stop_app(Some(deployed_app_name.as_str()), app.process)
+                    .await
+                {
+                    println!("warn: failed to stop app {deployed_app_name} with error {e:?}");
+                }
 
-        if let Err(e) = controller
-            .stop_app(Some(deployed_app_name.as_str()), app.process)
-            .await
-        {
-            println!("warn: failed to stop app {deployed_app_name} with error {e:?}");
+                assertions_result
+            }
+            Err(instance) if bail_on_run_failure => {
+                utils::assert_success(&instance.output);
+                Ok(())
+            }
+            Err(instance) => {
+                (self.assertions)(
+                    instance.metadata,
+                    Some(Box::pin(Cursor::new(instance.output.stdout))),
+                    Some(Box::pin(Cursor::new(instance.output.stderr))),
+                )
+                .await
+            }
         }
-
-        // this ensure tempdir cleans up after running test
-        drop(tempdir);
-
-        assertions_result
     }
 }

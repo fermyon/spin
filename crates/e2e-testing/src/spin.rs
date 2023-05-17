@@ -1,6 +1,6 @@
 use crate::utils;
 use anyhow::Result;
-use std::path::Path;
+use std::path::PathBuf;
 use std::process::Output;
 use std::sync::Mutex;
 
@@ -17,13 +17,11 @@ pub fn template_install(mut args: Vec<&str>) -> Result<Output> {
     let mut cmd = vec!["spin", "templates", "install"];
     cmd.append(&mut args);
 
-    let x = INSTALLING_TEMPLATES_MUTEX.lock().unwrap();
-    let result = utils::run(cmd, None, None);
+    let _lock = INSTALLING_TEMPLATES_MUTEX.lock().unwrap();
+    let result = utils::run(&cmd, None, None)?;
+    utils::assert_success(&result);
 
-    //this ensure we have mutex lock until here
-    drop(x);
-
-    result
+    Ok(result)
 }
 
 pub fn new_app<'a>(
@@ -37,37 +35,33 @@ pub fn new_app<'a>(
         cmd.append(&mut args);
     }
 
-    return utils::run(cmd, Some(basedir.as_str()), None);
+    let output = utils::run(&cmd, Some(&basedir), None)?;
+    utils::assert_success(&output);
+    Ok(output)
 }
 
 pub fn install_plugins(plugins: Vec<&str>) -> Result<Output> {
     // lock mutex to ensure one install_plugins runs at a time
-    let x = INSTALLING_PLUGINS_MUTEX.lock().unwrap();
+    let _lock = INSTALLING_PLUGINS_MUTEX.lock().unwrap();
 
-    let mut output = utils::run(vec!["spin", "plugin", "update"], None, None)?;
+    let mut output = utils::run(&["spin", "plugin", "update"], None, None)?;
+    utils::assert_success(&output);
 
     for plugin in plugins {
-        output = utils::run(
-            vec!["spin", "plugin", "install", plugin, "--yes"],
-            None,
-            None,
-        )?;
+        output = utils::run(&["spin", "plugin", "install", plugin, "--yes"], None, None)?;
+        utils::assert_success(&output);
     }
-
-    //this ensure we have mutex lock until here
-    drop(x);
 
     Ok(output)
 }
 
 pub fn build_app(appname: &str) -> Result<Output> {
     let appdir = appdir(appname);
-    utils::run(vec!["spin", "build"], Some(&appdir), None)
+    utils::run(&["spin", "build"], Some(&appdir), None)
 }
 
-pub fn appdir(appname: &str) -> String {
-    let dir = Path::new(utils::testcases_base_dir().as_str()).join(appname);
-    dir.into_os_string().into_string().unwrap()
+pub fn appdir(appname: &str) -> PathBuf {
+    utils::testcases_base_dir().join(appname)
 }
 
 #[cfg(target_family = "unix")]
@@ -91,17 +85,19 @@ pub async fn stop_app_process(process: &mut tokio::process::Child) -> Result<(),
 
 pub fn registry_push(appname: &str, registry_app_url: &str) -> Result<Output> {
     let appdir = appdir(appname);
-    utils::run(
-        vec!["spin", "registry", "push", registry_app_url, "--insecure"],
+    let output = utils::run(
+        &["spin", "registry", "push", registry_app_url, "--insecure"],
         Some(&appdir),
         None,
-    )
+    )?;
+    utils::assert_success(&output);
+    Ok(output)
 }
 
 // use docker login until https://github.com/fermyon/spin/issues/1211
 pub fn registry_login(registry_url: &str, username: &str, password: &str) -> Result<Output> {
-    utils::run(
-        vec![
+    let output = utils::run(
+        &[
             "spin",
             "registry",
             "login",
@@ -113,12 +109,13 @@ pub fn registry_login(registry_url: &str, username: &str, password: &str) -> Res
         ],
         None,
         None,
-    )
+    )?;
+    utils::assert_success(&output);
+    Ok(output)
 }
 
 pub fn version() -> Result<String> {
-    match utils::run(vec!["spin", "--version"], None, None) {
-        Ok(output) => Ok(format!("{:#?}", std::str::from_utf8(&output.stdout)?)),
-        Err(err) => Err(err),
-    }
+    let output = utils::run(&["spin", "--version"], None, None)?;
+    utils::assert_success(&output);
+    Ok(format!("{:#?}", std::str::from_utf8(&output.stdout)?))
 }

@@ -117,4 +117,9 @@ mod spinup_tests {
     async fn longevity_apps_works() {
         testcases::longevity_apps_works(CONTROLLER).await
     }
+
+    #[tokio::test]
+    async fn error_messages() {
+        testcases::error_messages(CONTROLLER).await
+    }
 }

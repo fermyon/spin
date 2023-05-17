@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-use tokio::io::{AsyncBufRead, AsyncBufReadExt};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt};
 use tokio::process::Command as TokioCommand;
 use tokio::time::timeout;
 use tokio::{net::TcpStream, time::sleep};
@@ -71,35 +71,45 @@ pub fn get_random_port() -> Result<u16> {
 }
 
 /// wait for tcp to work on a given port
-pub async fn wait_tcp(url: &str, process: &mut tokio::process::Child, target: &str) -> Result<()> {
+///
+/// Return `Ok(true)` if the tcp port can be connected and
+/// `Ok(false)` if the process exited early
+pub async fn wait_tcp(
+    url: &str,
+    process: &mut tokio::process::Child,
+    target: &str,
+) -> Result<bool> {
     let mut wait_count = 0;
-    loop {
-        if wait_count >= 240 {
-            return Err(anyhow!(
-                "Ran out of retries waiting for {} to start on URL {}",
-                target,
-                url
-            ));
-        }
-
-        if let Ok(Some(_)) = process.try_wait() {
-            return Err(anyhow!(
-                "Process exited before starting to serve {} to start on URL {}",
-                target,
-                url
-            ));
-        }
-
-        match TcpStream::connect(&url).await {
-            Ok(_) => break,
-            Err(_) => {
-                wait_count += 1;
-                sleep(Duration::from_secs(1)).await;
+    while wait_count < 240 {
+        if let Ok(Some(s)) = process.try_wait() {
+            if s.success() {
+                return Ok(false);
+            } else {
+                let stderr = if let Some(s) = &mut process.stderr {
+                    let mut buf = String::new();
+                    let _ = s.read_to_string(&mut buf).await;
+                    buf
+                } else {
+                    String::new()
+                };
+                return Err(anyhow!(
+                    "`{target}` exited with error instead of listening on {url}:\nstderr:\n{stderr}",
+                ));
             }
         }
+        if TcpStream::connect(&url).await.is_ok() {
+            return Ok(true);
+        }
+
+        wait_count += 1;
+        sleep(Duration::from_secs(1)).await;
     }
 
-    Ok(())
+    Err(anyhow!(
+        "Ran out of retries waiting for {} to start on URL {}",
+        target,
+        url
+    ))
 }
 
 /// run the process in background and returns a tokio::process::Child

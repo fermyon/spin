@@ -56,7 +56,7 @@ impl Controller for SpinUp {
             cmd.push(state_dir);
         }
 
-        let mut address = "".to_string();
+        let mut address = String::new();
         if trigger_type == "http" {
             let port = utils::get_random_port()?;
             address = format!("127.0.0.1:{}", port);
@@ -71,18 +71,13 @@ impl Controller for SpinUp {
         };
         let mut child = utils::run_async(&cmd, Some(&appdir), None);
 
-        if trigger_type == "http" {
-            // ensure the server is accepting requests before continuing.
-            match utils::wait_tcp(&address, &mut child, "spin").await {
-                Ok(_) => {}
-                Err(_) => {
-                    let output = child
-                        .wait_with_output()
-                        .await
-                        .context("could not get output from running `spin up`")?;
-                    return Ok(Err(ExitedInstance { output, metadata }));
-                }
-            }
+        // if http ensure the server is accepting requests before continuing.
+        if trigger_type == "http" && !utils::wait_tcp(&address, &mut child, "spin").await? {
+            let output = child
+                .wait_with_output()
+                .await
+                .context("could not get output from running `spin up`")?;
+            return Ok(Err(ExitedInstance { output, metadata }));
         }
 
         let stdout = child

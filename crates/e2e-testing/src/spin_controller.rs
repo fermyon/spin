@@ -43,12 +43,18 @@ impl Controller for SpinUp {
         app_name: &str,
         trigger_type: &str,
         mut xargs: Vec<&str>,
+        state_dir: &str,
     ) -> Result<AppInstance> {
         let appdir = spin::appdir(app_name);
 
         let mut cmd = vec!["spin", "up"];
         if !xargs.is_empty() {
             cmd.append(&mut xargs);
+        }
+
+        if !xargs.contains(&"--state_dir") {
+            cmd.push("--state-dir");
+            cmd.push(state_dir);
         }
 
         let mut address = "".to_string();

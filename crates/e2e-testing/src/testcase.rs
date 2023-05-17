@@ -7,6 +7,7 @@ use core::pin::Pin;
 use derive_builder::Builder;
 use std::fs;
 use std::future::Future;
+use tempfile::TempDir;
 use tokio::io::BufReader;
 use tokio::process::{ChildStderr, ChildStdout};
 
@@ -146,11 +147,25 @@ impl TestCase {
             spin::registry_push(&appname, registry_app_url.as_str())?;
         }
 
+        // create temp dir as state dir
+        let tempdir = TempDir::new()?;
+        let state_dir: String = tempdir
+            .path()
+            .join(".spin")
+            .into_os_string()
+            .into_string()
+            .unwrap();
+
         // run `spin up` (or `spin deploy` for cloud).
         // `AppInstance` has some basic info about the running app like base url, routes (only for cloud) etc.
         let deploy_args = self.deploy_args.iter().map(|s| s as &str).collect();
         let app = controller
-            .run_app(&appname, &self.trigger_type, deploy_args)
+            .run_app(
+                &appname,
+                &self.trigger_type,
+                deploy_args,
+                state_dir.as_str(),
+            )
             .await
             .context("running app")?;
 
@@ -172,6 +187,9 @@ impl TestCase {
                 e
             ),
         }
+
+        // this ensure tempdir cleans up after running test
+        drop(tempdir);
 
         assertions_result
     }

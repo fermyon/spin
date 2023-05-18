@@ -223,7 +223,7 @@ async fn core(
 }
 
 /// Ensures that the path is canonicalized and absolutized base on the `src` path
-fn canonicalize_and_absolutize(mut path: PathBuf, src: &Path) -> anyhow::Result<PathBuf> {
+pub fn canonicalize_and_absolutize(mut path: PathBuf, src: &Path) -> anyhow::Result<PathBuf> {
     path = path.canonicalize().unwrap_or(path);
     // If path is UTF-8 and we can successfully perform tilde and environment expansion, do so.
     if let Some(p) = path.as_os_str().to_str() {

@@ -5160,10 +5160,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "reqwest",
  "serde",
  "similar",
  "spin-loader",
  "tempfile",
+ "terminal",
  "tokio",
  "toml 0.7.3",
  "toml_edit 0.19.8",

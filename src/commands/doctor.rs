@@ -6,18 +6,27 @@ use dialoguer::{console::Emoji, Confirm, Select};
 use futures::FutureExt;
 use spin_doctor::{Diagnosis, DryRunNotSupported};
 
-use crate::opts::DEFAULT_MANIFEST_FILE;
+use crate::opts::{APP_MANIFEST_FILE_OPT, DEFAULT_MANIFEST_FILE};
 
 #[derive(Parser, Debug)]
 #[clap(hide = true, about = "Detect and fix problems with Spin applications")]
 pub struct DoctorCommand {
-    #[clap(short = 'f', long = "file", default_value = DEFAULT_MANIFEST_FILE)]
-    manifest_file: PathBuf,
+    /// The application to check. This may be a manifest (spin.toml) file, or a
+    /// directory containing a spin.toml file.
+    /// If omitted, it defaults to "spin.toml".
+    #[clap(
+        name = APP_MANIFEST_FILE_OPT,
+        short = 'f',
+        long = "from",
+        alias = "file",
+        default_value = DEFAULT_MANIFEST_FILE
+    )]
+    pub app_source: PathBuf,
 }
 
 impl DoctorCommand {
     pub async fn run(self) -> Result<()> {
-        let manifest_file = crate::manifest::resolve_file_path(&self.manifest_file)?;
+        let manifest_file = crate::manifest::resolve_file_path(&self.app_source)?;
 
         println!("{icon}The Spin Doctor is in.", icon = Emoji("📟 ", ""));
         println!(

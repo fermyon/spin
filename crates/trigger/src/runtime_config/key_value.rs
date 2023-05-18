@@ -7,6 +7,7 @@ use spin_key_value::{
     CachingStoreManager, DelegatingStoreManager, KeyValueComponent, StoreManager,
     KEY_VALUE_STORES_KEY,
 };
+use spin_key_value_azure::KeyValueAzureCosmos;
 use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
 
 use super::{resolve_config_path, RuntimeConfigOpts};
@@ -59,6 +60,7 @@ pub async fn build_key_value_component(
 pub enum KeyValueStoreOpts {
     Spin(SpinKeyValueStoreOpts),
     Redis(RedisKeyValueStoreOpts),
+    AzureCosmos(AzureCosmosConfig),
 }
 
 impl KeyValueStoreOpts {
@@ -70,6 +72,7 @@ impl KeyValueStoreOpts {
         match self {
             Self::Spin(opts) => opts.build_store(config_opts),
             Self::Redis(opts) => opts.build_store(),
+            Self::AzureCosmos(opts) => opts.build_store(),
         }
     }
 }
@@ -116,6 +119,26 @@ impl RedisKeyValueStoreOpts {
     }
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct AzureCosmosConfig {
+    key: String,
+    account: String,
+    database: String,
+    container: String,
+}
+
+impl AzureCosmosConfig {
+    pub fn build_store(&self) -> Result<Arc<dyn StoreManager>> {
+        let kv_azure_cosmos = KeyValueAzureCosmos::new(
+            self.key.clone(),
+            self.account.clone(),
+            self.database.clone(),
+            self.container.clone(),
+        )?;
+        Ok(Arc::new(kv_azure_cosmos))
+    }
+}
+
 // Prints startup messages about the default key value store config.
 pub struct KeyValuePersistenceMessageHook;
 
@@ -140,6 +163,9 @@ impl TriggerHooks for KeyValuePersistenceMessageHook {
                 } else {
                     println!("Using in-memory default key-value store; data will not be saved!");
                 }
+            }
+            KeyValueStoreOpts::AzureCosmos(store_opts) => {
+                println!("Storing default key-value data to Azure CosmosDB: account: {}, database: {}, container: {}", store_opts.account, store_opts.database, store_opts.container);
             }
         }
         Ok(())

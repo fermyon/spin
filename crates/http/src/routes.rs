@@ -165,11 +165,18 @@ impl RoutePattern {
 
     /// Sanitizes the base and path and return a formed path.
     pub fn sanitize_with_base<S: Into<String>>(base: S, path: S) -> String {
-        format!(
-            "{}{}",
-            Self::sanitize(base.into()),
-            Self::sanitize(path.into())
-        )
+        let path = Self::absolutize(path);
+
+        format!("{}{}", Self::sanitize(base.into()), Self::sanitize(path))
+    }
+
+    fn absolutize<S: Into<String>>(s: S) -> String {
+        let s = s.into();
+        if s.starts_with('/') {
+            s
+        } else {
+            format!("/{s}")
+        }
     }
 
     /// Strips the trailing slash from a string.
@@ -252,6 +259,22 @@ mod route_tests {
         assert!(rp.matches("/base/foo/bar/baz"));
         assert!(rp.matches("/base/this/should/really/match/everything/"));
         assert!(rp.matches("/base"));
+    }
+
+    #[test]
+    fn handles_missing_leading_slash() {
+        let rp = RoutePattern::from("/", "foo/bar");
+        assert!(rp.matches("/foo/bar"));
+        assert!(rp.matches("/foo/bar/"));
+        assert!(!rp.matches("/foo"));
+        assert!(!rp.matches("/foo/bar/thisshouldbefalse"));
+        assert!(!rp.matches("/abc"));
+
+        let rp = RoutePattern::from("/base", "foo");
+        assert!(rp.matches("/base/foo"));
+        assert!(rp.matches("/base/foo/"));
+        assert!(!rp.matches("/base/foo/bar"));
+        assert!(!rp.matches("/thishouldbefalse"));
     }
 
     #[test]

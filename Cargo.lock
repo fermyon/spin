@@ -5527,6 +5527,7 @@ dependencies = [
  "spin-testing",
  "spin-trigger",
  "spin-world",
+ "terminal",
  "tls-listener",
  "tokio",
  "tokio-rustls",

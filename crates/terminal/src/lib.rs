@@ -74,20 +74,21 @@ fn color_choice(stream: atty::Stream) -> termcolor::ColorChoice {
 
 #[macro_export]
 macro_rules! step {
-    ($step:expr, $($arg:tt)*) => {
+    ($step:expr, $($arg:tt)*) => {{
+
         $crate::cprint!($crate::colors::bold_green(), $step);
         print!(" ");
         println!($($arg)*);
-    };
+    }};
 }
 
 #[macro_export]
 macro_rules! error {
-    ($($arg:tt)*) => {
+    ($($arg:tt)*) => {{
         $crate::ceprint!($crate::colors::bold_red(), "Error");
         eprint!(": ");
         eprintln!($($arg)*);
-    };
+    }};
 }
 
 #[macro_export]

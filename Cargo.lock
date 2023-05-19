@@ -5054,6 +5054,7 @@ dependencies = [
  "serde",
  "spin-loader",
  "subprocess",
+ "terminal",
  "tokio",
  "toml 0.5.11",
  "tracing",
@@ -5119,6 +5120,7 @@ dependencies = [
  "spin-trigger-http",
  "subprocess",
  "tempfile",
+ "terminal",
  "tokio",
  "toml 0.6.0",
  "tracing",
@@ -5698,6 +5700,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be55cf8942feac5c765c2c993422806843c9a9a45d4d5c407ad6dd2ea95eb9b6"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "terminal"
+version = "0.1.0"
+dependencies = [
+ "atty",
+ "once_cell",
+ "termcolor",
 ]
 
 [[package]]

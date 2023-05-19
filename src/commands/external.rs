@@ -50,7 +50,7 @@ pub async fn execute_external_subcommand(
         }
         Err(Error::NotFound(e)) => {
             tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
-            colors::error!("'{plugin_name}' is not a known Spin command. See spin --help.\n");
+            terminal::error!("'{plugin_name}' is not a known Spin command. See spin --help.\n");
             print_similar_commands(app, &plugin_name);
             process::exit(2);
         }

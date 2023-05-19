@@ -1,6 +1,6 @@
-//! A helper library for printing text with a certain color scheme.
+//! A helper library for terminal output.
 //!
-//! This library is used by Spin to print out messages in an appropriate color
+//! This library is used by Spin to print out messages in an appropriate format
 //! that is easy for users to read. This is not meant as a general purpose library.
 
 use once_cell::sync::OnceCell;

@@ -25,7 +25,7 @@ use spin_trigger_http::HttpTrigger;
 #[tokio::main]
 async fn main() {
     if let Err(err) = _main().await {
-        colors::error!("{err}");
+        terminal::error!("{err}");
         print_error_chain(err);
         std::process::exit(1)
     }

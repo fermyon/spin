@@ -47,7 +47,7 @@ semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.82"
 sha2 = "0.10.2"
-colors = { path = "crates/colors" }
+terminal = { path = "crates/terminal" }
 spin-app = { path = "crates/app" }
 spin-bindle = { path = "crates/bindle" }
 spin-build = { path = "crates/build" }

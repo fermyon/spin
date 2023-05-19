@@ -14,7 +14,7 @@ mod spinup_tests {
 
     #[tokio::test]
     async fn key_value_validation_works() {
-        testcases::all::key_value_validation_works(CONTROLLER).await
+        testcases::key_value_validation_works(CONTROLLER).await
     }
 
     #[tokio::test]

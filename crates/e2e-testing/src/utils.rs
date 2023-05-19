@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 use tokio::process::Command as TokioCommand;
 use tokio::time::timeout;
 use tokio::{net::TcpStream, time::sleep};
@@ -81,21 +81,8 @@ pub async fn wait_tcp(
 ) -> Result<bool> {
     let mut wait_count = 0;
     while wait_count < 240 {
-        if let Ok(Some(s)) = process.try_wait() {
-            if s.success() {
-                return Ok(false);
-            } else {
-                let stderr = if let Some(s) = &mut process.stderr {
-                    let mut buf = String::new();
-                    let _ = s.read_to_string(&mut buf).await;
-                    buf
-                } else {
-                    String::new()
-                };
-                return Err(anyhow!(
-                    "`{target}` exited with error instead of listening on {url}:\nstderr:\n{stderr}",
-                ));
-            }
+        if let Ok(Some(_)) = process.try_wait() {
+            return Ok(false);
         }
         if TcpStream::connect(&url).await.is_ok() {
             return Ok(true);

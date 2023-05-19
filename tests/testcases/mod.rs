@@ -68,8 +68,8 @@ pub async fn key_value_works(controller: &dyn Controller) {
 pub async fn key_value_validation_works(controller: &dyn Controller) {
     async fn checks(
         _: AppMetadata,
-        _: Option<BufReader<ChildStdout>>,
-        _: Option<BufReader<ChildStderr>>,
+        _: Option<Pin<Box<dyn AsyncBufRead>>>,
+        _: Option<Pin<Box<dyn AsyncBufRead>>>,
     ) -> Result<()> {
         Ok(())
     }
@@ -80,8 +80,8 @@ pub async fn key_value_validation_works(controller: &dyn Controller) {
         .template(None)
         .assertions(
             |metadata: AppMetadata,
-             stdout_stream: Option<BufReader<ChildStdout>>,
-             stderr_stream: Option<BufReader<ChildStderr>>| {
+             stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
+             stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
                 Box::pin(checks(metadata, stdout_stream, stderr_stream))
             },
         )

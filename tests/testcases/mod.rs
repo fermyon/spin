@@ -69,8 +69,20 @@ pub async fn key_value_validation_works(controller: &dyn Controller) {
     async fn checks(
         _: AppMetadata,
         _: Option<Pin<Box<dyn AsyncBufRead>>>,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
+        stderr: Option<Pin<Box<dyn AsyncBufRead>>>,
     ) -> Result<()> {
+        let err_text = utils::get_output(stderr).await.unwrap();
+        let expected1 = "Component hello uses store 'anaspeptic'";
+        let expected2 = "Component hello uses store 'pericombobulations'";
+
+        assert!(
+            err_text.contains(expected1),
+            "Expected error containing '{expected1}' but got '{err_text}'"
+        );
+        assert!(
+            err_text.contains(expected2),
+            "Expected error containing '{expected2}' but got '{err_text}'"
+        );
         Ok(())
     }
 
@@ -88,20 +100,7 @@ pub async fn key_value_validation_works(controller: &dyn Controller) {
         .build()
         .unwrap();
 
-    let e = tc.run(controller).await.unwrap_err();
-    let err_text = format!("{e:#}");
-
-    let expected1 = "Component hello uses store 'anaspeptic'";
-    let expected2 = "Component hello uses store 'pericombobulations'";
-
-    assert!(
-        err_text.contains(expected1),
-        "Expected error containing '{expected1}' but got '{err_text}'"
-    );
-    assert!(
-        err_text.contains(expected2),
-        "Expected error containing '{expected2}' but got '{err_text}'"
-    );
+    tc.try_run(controller).await.unwrap();
 }
 
 pub async fn http_python_works(controller: &dyn Controller) {

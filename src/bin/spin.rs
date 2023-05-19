@@ -49,7 +49,7 @@ fn print_error_chain(err: anyhow::Error) {
         eprintln!("\nCaused by:");
         for (i, err) in err.chain().skip(1).enumerate() {
             if is_multiple {
-                eprintln!("{i:>5}: {}", err)
+                eprintln!("{i:>4}: {}", err)
             } else {
                 eprintln!("      {}", err)
             }

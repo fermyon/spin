@@ -102,7 +102,7 @@ impl AppLoader {
         };
         self.dynamic_host_components
             .validate_app(&app)
-            .map_err(Error::HostComponentError)?;
+            .map_err(Error::ValidationError)?;
         Ok(app)
     }
 
@@ -413,4 +413,7 @@ pub enum Error {
     /// An error indicating failed JSON (de)serialization.
     #[error("json error: {0}")]
     JsonError(#[from] serde_json::Error),
+    /// A validation error that can be presented directly to the user.
+    #[error(transparent)]
+    ValidationError(anyhow::Error),
 }

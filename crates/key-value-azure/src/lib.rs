@@ -33,6 +33,10 @@ impl StoreManager for KeyValueAzureCosmos {
             client: self.client.clone(),
         }))
     }
+
+    fn is_defined(&self, _store_name: &str) -> bool {
+        true
+    }
 }
 
 struct AzureCosmosStore {

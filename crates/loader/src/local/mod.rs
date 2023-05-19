@@ -235,11 +235,7 @@ fn canonicalize_and_absolutize(mut path: PathBuf, src: &Path) -> anyhow::Result<
             }
         }
     }
-    Ok(if path.is_absolute() {
-        path
-    } else {
-        src.join(path)
-    })
+    Ok(src.join(path))
 }
 
 /// A parsed URL source for a component module.

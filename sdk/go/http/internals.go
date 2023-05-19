@@ -20,18 +20,20 @@ func handle_http_request(req *C.spin_http_request_t, res *C.spin_http_response_t
 		body = C.GoBytes(unsafe.Pointer(req.body.val.ptr), C.int(req.body.val.len))
 	}
 	method := methods[req.method]
-	uri := C.GoStringN(req.uri.ptr, C.int(req.uri.len))
+	header := fromSpinHeaders(&req.headers)
+	url := header.Get(HeaderFullUrl)
 
-	// NOTE Host is not included in the URL
-	r, err := http.NewRequest(method, uri, bytes.NewReader(body))
+	r, err := http.NewRequest(method, url, bytes.NewReader(body))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		res.status = C.uint16_t(http.StatusInternalServerError)
 		return
 	}
 
-	r.Header = fromSpinHeaders(&req.headers)
+	r.Header = header
 	r.Host = r.Header.Get("Host")
+	r.RequestURI = C.GoStringN(req.uri.ptr, C.int(req.uri.len))
+	r.RemoteAddr = r.Header.Get(HeaderClientAddr)
 
 	w := newResponse()
 

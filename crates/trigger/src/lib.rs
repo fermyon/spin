@@ -151,7 +151,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 }
 
 /// Initialisation data for host components.
-#[derive(Default)] // TODO: this is only for tests, would like to get rid of
+#[derive(Default)] // TODO: the implementation of Default is only for tests - would like to get rid of
 pub struct HostComponentInitData {
     kv: Vec<(String, String)>,
 }

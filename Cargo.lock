@@ -2341,7 +2341,7 @@ dependencies = [
 [[package]]
 name = "host"
 version = "0.0.0"
-source = "git+https://github.com/fermyon/spin-componentize?branch=sqlite#75c34a53a429861e1e933933b844e55051356e56"
+source = "git+https://github.com/fermyon/spin-componentize?rev=b6d42fe41e5690844a661deb631d996a2b49debc#b6d42fe41e5690844a661deb631d996a2b49debc"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5155,7 +5155,7 @@ dependencies = [
 [[package]]
 name = "spin-componentize"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/spin-componentize?branch=sqlite#75c34a53a429861e1e933933b844e55051356e56"
+source = "git+https://github.com/fermyon/spin-componentize?rev=b6d42fe41e5690844a661deb631d996a2b49debc#b6d42fe41e5690844a661deb631d996a2b49debc"
 dependencies = [
  "anyhow",
  "wasm-encoder 0.26.0",
@@ -6371,7 +6371,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 [[package]]
 name = "wasi-cap-std-sync"
 version = "0.0.0"
-source = "git+https://github.com/fermyon/spin-componentize?branch=sqlite#75c34a53a429861e1e933933b844e55051356e56"
+source = "git+https://github.com/fermyon/spin-componentize?rev=b6d42fe41e5690844a661deb631d996a2b49debc#b6d42fe41e5690844a661deb631d996a2b49debc"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6419,7 +6419,7 @@ dependencies = [
 [[package]]
 name = "wasi-common"
 version = "0.0.0"
-source = "git+https://github.com/fermyon/spin-componentize?branch=sqlite#75c34a53a429861e1e933933b844e55051356e56"
+source = "git+https://github.com/fermyon/spin-componentize?rev=b6d42fe41e5690844a661deb631d996a2b49debc#b6d42fe41e5690844a661deb631d996a2b49debc"
 dependencies = [
  "anyhow",
  "async-trait",

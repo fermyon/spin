@@ -17,7 +17,8 @@ pub const DATABASES_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("databa
 
 pub struct SqliteImpl {
     allowed_databases: HashSet<String>,
-    connections: table::Table<Arc<Mutex<Connection>>>,
+    connections: table::Table<Arc<Mutex<rusqlite::Connection>>>,
+    results: table::Table<Mutex<(Vec<String>, Vec<sqlite::RowResult>)>>,
     client_manager: HashMap<String, Arc<dyn ConnectionManager>>,
 }
 
@@ -25,6 +26,7 @@ impl SqliteImpl {
     pub fn new(client_manager: HashMap<String, Arc<dyn ConnectionManager>>) -> Self {
         Self {
             connections: table::Table::new(256),
+            results: table::Table::new(u32::MAX),
             allowed_databases: HashSet::new(),
             client_manager,
         }
@@ -75,42 +77,77 @@ impl Host for SqliteImpl {
         parameters: Vec<sqlite::Value>,
     ) -> anyhow::Result<Result<sqlite::QueryResult, sqlite::Error>> {
         Ok(tokio::task::block_in_place(|| {
-            let conn = self.get_connection(connection)?;
-            let mut statement = conn
-                .prepare_cached(&query)
-                .map_err(|e| sqlite::Error::Io(e.to_string()))?;
-            let columns = statement
-                .column_names()
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect();
-            let rows = statement
-                .query_map(
-                    rusqlite::params_from_iter(convert_data(parameters.into_iter())),
-                    |row| {
-                        let mut values = vec![];
-                        for column in 0.. {
-                            let value = row.get::<usize, ValueWrapper>(column);
-                            if let Err(rusqlite::Error::InvalidColumnIndex(_)) = value {
-                                break;
+            let (columns, rows) = {
+                let conn = self.get_connection(connection)?;
+                let mut statement = conn
+                    .prepare_cached(&query)
+                    .map_err(|e| sqlite::Error::Io(e.to_string()))?;
+                let columns = statement
+                    .column_names()
+                    .into_iter()
+                    .map(ToOwned::to_owned)
+                    .collect();
+                let rows = statement
+                    .query_map(
+                        rusqlite::params_from_iter(convert_data(parameters.into_iter())),
+                        |row| {
+                            let mut values = vec![];
+                            for column in 0.. {
+                                let value = row.get::<usize, ValueWrapper>(column);
+                                if let Err(rusqlite::Error::InvalidColumnIndex(_)) = value {
+                                    break;
+                                }
+                                let value = value?.0;
+                                values.push(value);
                             }
-                            let value = value?.0;
-                            values.push(value);
-                        }
-                        Ok(sqlite::RowResult { values })
-                    },
-                )
-                .map_err(|e| sqlite::Error::Io(e.to_string()))?;
-            let rows = rows
-                .into_iter()
-                .map(|r| r.map_err(|e| sqlite::Error::Io(e.to_string())))
-                .collect::<Result<_, sqlite::Error>>()?;
-            Ok(sqlite::QueryResult { columns, rows })
+                            Ok(sqlite::RowResult { values })
+                        },
+                    )
+                    .map_err(|e| sqlite::Error::Io(e.to_string()))?;
+                let rows = rows
+                    .into_iter()
+                    .map(|r| r.map_err(|e| sqlite::Error::Io(e.to_string())))
+                    .collect::<Result<_, sqlite::Error>>()?;
+                (columns, rows)
+            };
+            let handle = self
+                .results
+                .push(Mutex::new((columns, rows)))
+                .expect("TODO: handle out of space");
+            Ok(handle)
         }))
     }
 
     async fn close(&mut self, connection: sqlite::Connection) -> anyhow::Result<()> {
         let _ = self.connections.remove(connection);
+        Ok(())
+    }
+
+    async fn get_columns(
+        &mut self,
+        query_result: sqlite::QueryResult,
+    ) -> anyhow::Result<Result<Vec<String>, sqlite::Error>> {
+        Ok(self
+            .results
+            .get(query_result)
+            .map(|r| r.lock().unwrap().0.clone())
+            .ok_or_else(|| sqlite::Error::InvalidQueryResult))
+    }
+
+    async fn get_row_result(
+        &mut self,
+        query_result: sqlite::QueryResult,
+        index: u32,
+    ) -> anyhow::Result<Result<Option<sqlite::RowResult>, sqlite::Error>> {
+        Ok(self
+            .results
+            .get(query_result)
+            .map(|r| r.lock().unwrap().1.get(index as usize).cloned())
+            .ok_or_else(|| sqlite::Error::InvalidQueryResult))
+    }
+
+    async fn free_query_result(&mut self, query_result: sqlite::QueryResult) -> anyhow::Result<()> {
+        self.results.remove(query_result);
         Ok(())
     }
 }

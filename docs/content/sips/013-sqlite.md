@@ -52,6 +52,8 @@ variant error {
   access-denied,
   // The provided connection is not valid
   invalid-connection,
+  // The provided query result is not valid
+  invalid-query-result,
   // The database has reached its capacity
   database-full,
   // Some implementation-specific error has occurred (e.g. I/O)
@@ -74,13 +76,17 @@ query: func(conn: connection, query: string, parameters: list<value>) -> expecte
 // Close the specified `connection`.
 close: func(conn: connection)
 
-// A result of a query
-record query-result {
-  // The names of the columns retrieved in the query
-  columns: list<string>,
-  // The row results each containing the values for all the columns for a given row
-  rows: list<row-result>,
-}
+// A result of making a query
+type query-result = u32
+
+// Get columns for a given `query-result`
+get-columns: func(query-result: query-result) -> expected<list<string>, error>
+
+// Get a `row-result` at a given index for a given `query-result`
+get-row-result: func(query-result: query-result, index: u32) -> expected<option<row-result>, error>
+
+// Free the query result resource
+free-query-result: func(query-result: query-result)
 
 // A set of values for each of the columns in a query-result
 record row-result {
@@ -98,13 +104,6 @@ variant value {
 ```
 
 *Note: the pseudo-resource design was inspired by the interface of similar functions in [WASI preview 2](https://github.com/bytecodealliance/preview2-prototyping/blob/d56b8977a2b700432d1f7f84656d542f1d8854b0/wit/wasi.wit#L772-L794).*
-
-#### Interface open questions
-
-**TODO**: answer these questions
-* `row-result` can be very large. Should we provide some paging mechanism or a different API that allows for reading subsets of the returned data?
-  * Crossing the wit boundary could potentially be expensive if the results are large enough. Giving the user control of how they read that data could be helpful.
-* Is there really a need for query *and* execute functions since at the end of the day, they are basically equivalent?
 
 #### Database migrations
 

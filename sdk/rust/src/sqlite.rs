@@ -30,37 +30,67 @@ impl Connection {
         &self,
         query: &str,
         parameters: &[ValueParam<'_>],
-    ) -> Result<sqlite::QueryResult, Error> {
-        sqlite::execute(self.0, query, parameters)
+    ) -> Result<QueryResult, Error> {
+        let inner = sqlite::execute(self.0, query, parameters)?;
+        let columns = sqlite::get_columns(inner)?;
+        Ok(QueryResult { inner, columns })
     }
 }
 
-impl sqlite::QueryResult {
-    /// Get all the rows for this query result
-    pub fn rows(&self) -> impl Iterator<Item = Row<'_>> {
-        self.rows.iter().map(|r| Row {
+/// The data returned from querying the database
+pub struct QueryResult {
+    inner: sqlite::QueryResult,
+    columns: Vec<String>,
+}
+
+impl QueryResult {
+    /// Get a specific row for this query result
+    pub fn row(&self, index: usize) -> Result<Option<RowResult<'_>>, sqlite::Error> {
+        let row_result = sqlite::get_row_result(self.inner, index as u32)?;
+        Ok(row_result.map(|r| RowResult {
             columns: self.columns.as_slice(),
             result: r,
+        }))
+    }
+
+    /// Get all the rows for this query result
+    pub fn rows(&self) -> impl Iterator<Item = Result<RowResult<'_>, sqlite::Error>> {
+        let mut index = 0;
+        std::iter::from_fn(move || {
+            let r = self.row(index).transpose()?;
+            index += 1;
+            Some(r)
         })
     }
 }
 
-/// A database row result
-pub struct Row<'a> {
-    columns: &'a [String],
-    result: &'a sqlite::RowResult,
+impl Drop for QueryResult {
+    fn drop(&mut self) {
+        sqlite::free_query_result(self.inner);
+    }
 }
 
-impl<'a> Row<'a> {
+/// A database row result
+pub struct RowResult<'a> {
+    columns: &'a [String],
+    result: sqlite::RowResult,
+}
+
+impl<'a> RowResult<'a> {
     /// Get a value by its column name
-    pub fn get<T: TryFrom<&'a ValueResult>>(&self, column: &str) -> Option<T> {
+    pub fn get<T: TryFrom<&'a ValueResult>>(&'a self, column: &str) -> Option<T> {
         let i = self.columns.iter().position(|c| c == column)?;
         self.result.get(i)
+    }
+
+    /// Get all the values for this row result
+    pub fn get_at<T: TryFrom<&'a ValueResult>>(&'a self, index: usize) -> Option<T> {
+        self.result.get(index)
     }
 }
 
 impl sqlite::RowResult {
-    pub fn get<'a, T: TryFrom<&'a ValueResult>>(&'a self, index: usize) -> Option<T> {
+    fn get<'a, T: TryFrom<&'a ValueResult>>(&'a self, index: usize) -> Option<T> {
         self.values.get(index).and_then(|c| c.try_into().ok())
     }
 }

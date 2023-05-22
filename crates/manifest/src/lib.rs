@@ -270,6 +270,8 @@ pub struct WasmConfig {
     pub allowed_http_hosts: Vec<String>,
     /// Optional list of key-value stores the component is allowed to use.
     pub key_value_stores: Vec<String>,
+    /// Optional list of sqlite databases the component is allowed to use.
+    pub sqlite_databases: Vec<String>,
 }
 
 /// Directory mount for the assets of a component.

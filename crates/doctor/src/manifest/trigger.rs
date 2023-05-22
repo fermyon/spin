@@ -15,6 +15,8 @@ pub struct TriggerDiagnostic;
 impl Diagnostic for TriggerDiagnostic {
     type Diagnosis = TriggerDiagnosis;
 
+    const ID: &'static str = "manifest:trigger";
+
     async fn diagnose(&self, patient: &PatientApp) -> Result<Vec<Self::Diagnosis>> {
         let manifest: toml::Value = toml_edit::de::from_document(patient.manifest_doc.clone())?;
 

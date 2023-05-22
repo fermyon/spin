@@ -23,21 +23,12 @@ pub struct Checkup {
 
 impl Checkup {
     /// Return a new checkup for the app manifest at the given path.
-    pub fn new(manifest_path: impl Into<PathBuf>) -> Self {
-        let mut checkup = Self {
-            manifest_path: manifest_path.into(),
-            diagnostics: vec![],
-        };
-        checkup.add_diagnostic::<manifest::version::VersionDiagnostic>();
-        checkup.add_diagnostic::<manifest::trigger::TriggerDiagnostic>();
-        checkup.add_diagnostic::<wasm::missing::WasmMissingDiagnostic>();
-        checkup
-    }
-
-    /// Add a detectable problem to this checkup.
-    pub fn add_diagnostic<D: Diagnostic + Default + 'static>(&mut self) -> &mut Self {
-        self.diagnostics.push(Box::<D>::default());
-        self
+    pub fn new(manifest_path: impl Into<PathBuf>, checks: &[String]) -> Self {
+        let mut builder = CheckupBuilder::new(manifest_path, checks);
+        builder.add_diagnostic::<manifest::version::VersionDiagnostic>();
+        builder.add_diagnostic::<manifest::trigger::TriggerDiagnostic>();
+        builder.add_diagnostic::<wasm::missing::WasmMissingDiagnostic>();
+        builder.build()
     }
 
     fn patient(&self) -> Result<PatientApp> {
@@ -90,6 +81,57 @@ impl Checkup {
     }
 }
 
+struct CheckupBuilder {
+    manifest_path: PathBuf,
+    checks: Checks,
+    diagnostics: Vec<Box<dyn BoxingDiagnostic>>,
+}
+
+struct Checks {
+    checks: Vec<String>,
+}
+
+impl Checks {
+    fn new(checks: &[String]) -> Self {
+        Self {
+            checks: checks.to_vec(),
+        }
+    }
+
+    fn matches(&self, id: &str) -> bool {
+        self.checks.is_empty() || self.checks.iter().any(|c| Self::is_match(c, id))
+    }
+
+    fn is_match(check: &str, id: &str) -> bool {
+        id == check || id.starts_with(&format!("{check}:"))
+    }
+}
+
+impl CheckupBuilder {
+    fn new(manifest_path: impl Into<PathBuf>, checks: &[String]) -> Self {
+        let checks = Checks::new(checks);
+        Self {
+            manifest_path: manifest_path.into(),
+            checks,
+            diagnostics: vec![],
+        }
+    }
+
+    fn build(self) -> Checkup {
+        Checkup {
+            manifest_path: self.manifest_path,
+            diagnostics: self.diagnostics,
+        }
+    }
+
+    fn add_diagnostic<D: Diagnostic + Default + 'static>(&mut self) -> &mut Self {
+        if self.checks.matches(D::ID) {
+            self.diagnostics.push(Box::<D>::default());
+        }
+        self
+    }
+}
+
 /// An app "patient" to be checked for problems.
 #[derive(Clone)]
 pub struct PatientApp {
@@ -104,6 +146,9 @@ pub struct PatientApp {
 pub trait Diagnostic: Send + Sync {
     /// A [`Diagnosis`] representing the problem(s) this can detect.
     type Diagnosis: Diagnosis;
+
+    /// The id of the diagnostic.
+    const ID: &'static str;
 
     /// Check the given [`Patient`], returning any problem(s) found.
     ///

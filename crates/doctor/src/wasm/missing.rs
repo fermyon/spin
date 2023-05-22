@@ -15,6 +15,8 @@ pub struct WasmMissingDiagnostic;
 impl WasmDiagnostic for WasmMissingDiagnostic {
     type Diagnosis = WasmMissing;
 
+    const ID: &'static str = "wasm:missing";
+
     async fn diagnose_wasm(
         &self,
         _app: &PatientApp,

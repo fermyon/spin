@@ -47,6 +47,9 @@ pub trait WasmDiagnostic {
     /// A [`Diagnosis`] representing the problem(s) this can detect.
     type Diagnosis: Diagnosis;
 
+    /// The id of the diagnostic.
+    const ID: &'static str;
+
     /// Check the given [`PatientWasm`], returning any problem(s) found.
     async fn diagnose_wasm(
         &self,
@@ -58,6 +61,8 @@ pub trait WasmDiagnostic {
 #[async_trait]
 impl<T: WasmDiagnostic + Send + Sync> Diagnostic for T {
     type Diagnosis = <Self as WasmDiagnostic>::Diagnosis;
+
+    const ID: &'static str = T::ID;
 
     async fn diagnose(&self, patient: &PatientApp) -> Result<Vec<Self::Diagnosis>> {
         let path = &patient.manifest_path;

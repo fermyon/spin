@@ -19,6 +19,8 @@ pub struct VersionDiagnostic;
 impl Diagnostic for VersionDiagnostic {
     type Diagnosis = VersionDiagnosis;
 
+    const ID: &'static str = "manifest:version";
+
     async fn diagnose(&self, patient: &PatientApp) -> Result<Vec<Self::Diagnosis>> {
         let doc = &patient.manifest_doc;
         let test: VersionProbe =

@@ -23,13 +23,12 @@ pub async fn build(manifest_file: &Path) -> Result<()> {
         println!("No build command found!");
         return Ok(());
     }
-
     app.components
         .into_iter()
         .map(|c| build_component(c, &app_dir))
         .collect::<Result<Vec<_>, _>>()?;
 
-    println!("Successfully ran the build command for the Spin components.");
+    terminal::step!("Finished", "building all Spin components");
     Ok(())
 }
 
@@ -37,10 +36,7 @@ pub async fn build(manifest_file: &Path) -> Result<()> {
 fn build_component(raw: RawComponentManifest, app_dir: &Path) -> Result<()> {
     match raw.build {
         Some(b) => {
-            println!(
-                "Executing the build command for component {}: {}",
-                raw.id, b.command
-            );
+            terminal::step!("Building", "component {} with `{}`", raw.id, b.command);
             let workdir = construct_workdir(app_dir, b.workdir.as_ref())?;
             if b.workdir.is_some() {
                 println!("Working directory: {:?}", workdir);

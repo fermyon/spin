@@ -410,7 +410,7 @@ impl DeployCommand {
 
         // TODO: Is there a more helpful value (oci ref) that we could return here to inform version
         // or is buildinfo already appropriate?
-        let _digest = self
+        let digest = self
             .push_oci(application.clone(), buildinfo.clone(), connection_config.clone())
             .await?;
 
@@ -516,7 +516,7 @@ impl DeployCommand {
         if let Ok(http_config) = HttpTriggerConfiguration::try_from(cfg.info.trigger.clone()) {
             wait_for_ready(
                 &app_base_url,
-                &version,
+                &digest.unwrap_or_default(),
                 self.readiness_timeout_secs,
                 Destination::Cloud(connection_config.clone().url),
             )
@@ -880,7 +880,7 @@ async fn is_ready(app_info_url: &str, expected_version: &str) -> Result<bool> {
     // If the app was previously deployed then it will have an outdated bindle
     // version, in which case the app isn't ready
     if let Ok(app_info) = resp.json::<AppInfo>().await {
-        let active_version = app_info.bindle_version;
+        let active_version = app_info.oci_image_digest;
         if active_version.as_deref() != Some(expected_version) {
             tracing::debug!("Active version {active_version:?} != expected {expected_version:?}");
             return Ok(false);

@@ -31,7 +31,7 @@ use spin_http::{
     routes::{RoutePattern, Router},
 };
 use spin_trigger::{
-    locked::{BINDLE_VERSION_KEY, DESCRIPTION_KEY, VERSION_KEY},
+    locked::{BINDLE_VERSION_KEY, DESCRIPTION_KEY, VERSION_KEY, OCI_IMAGE_DIGEST_KEY},
     EitherInstancePre, TriggerAppEngine, TriggerExecutor,
 };
 use tls_listener::TlsListener;
@@ -273,6 +273,7 @@ impl HttpTrigger {
             name: self.engine.app_name.clone(),
             version: self.engine.app().get_metadata(VERSION_KEY)?,
             bindle_version: self.engine.app().get_metadata(BINDLE_VERSION_KEY)?,
+            oci_image_digest: self.engine.app().get_metadata(OCI_IMAGE_DIGEST_KEY)?
         };
         let body = serde_json::to_vec_pretty(&info)?;
         Ok(Response::builder()
@@ -373,6 +374,8 @@ pub struct AppInfo {
     pub version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bindle_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oci_image_digest: Option<String>
 }
 
 fn parse_listen_addr(addr: &str) -> anyhow::Result<SocketAddr> {

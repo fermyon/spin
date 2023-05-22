@@ -4859,6 +4859,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "shellexpand"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da03fa3b94cc19e3ebfc88c4229c49d8f08cdbd1228870a45f0ffdf84988e14b"
+dependencies = [
+ "dirs 4.0.0",
+]
+
+[[package]]
 name = "shlex"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5300,6 +5309,7 @@ dependencies = [
  "semver 1.0.16",
  "serde",
  "serde_json",
+ "shellexpand 3.1.0",
  "spin-common",
  "spin-manifest",
  "tempfile",
@@ -6992,7 +7002,7 @@ dependencies = [
  "heck 0.4.1",
  "proc-macro2",
  "quote",
- "shellexpand",
+ "shellexpand 2.1.2",
  "syn 1.0.109",
  "witx",
 ]

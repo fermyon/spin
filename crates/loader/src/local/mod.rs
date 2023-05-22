@@ -178,12 +178,7 @@ async fn core(
     let src = parent_dir(src)?;
     let source = match raw.source {
         config::RawModuleSource::FileReference(p) => {
-            let p = match p.is_absolute() {
-                true => p,
-                false => src.join(p),
-            };
-
-            ModuleSource::FileReference(p)
+            ModuleSource::FileReference(canonicalize_and_absolutize(p, &src)?)
         }
         config::RawModuleSource::Url(us) => {
             let source = UrlSource::new(&us)
@@ -223,6 +218,24 @@ async fn core(
         wasm,
         config,
     })
+}
+
+/// Ensures that the path is canonicalized and absolutized base on the `src` path
+fn canonicalize_and_absolutize(mut path: PathBuf, src: &Path) -> anyhow::Result<PathBuf> {
+    path = path.canonicalize().unwrap_or(path);
+    // If path is UTF-8 and we can successfully perform tilde and environment expansion, do so.
+    if let Some(p) = path.as_os_str().to_str() {
+        match shellexpand::full(p) {
+            Ok(p) => path = Path::new(&*p).to_owned(),
+            Err(e) => {
+                return Err(e.cause).context(anyhow!(
+                    "failed to expand `source` path: `${}` could not be expanded",
+                    e.var_name
+                ))
+            }
+        }
+    }
+    Ok(src.join(path))
 }
 
 /// A parsed URL source for a component module.

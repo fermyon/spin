@@ -1,44 +1,60 @@
 /// Diagnose missing Wasm sources.
 pub mod missing;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use spin_loader::{local::config::RawComponentManifest, local::config::RawModuleSource};
+use spin_loader::{
+    local::config::RawComponentManifest,
+    local::{canonicalize_and_absolutize, config::RawModuleSource},
+};
 
 use crate::{Diagnosis, Diagnostic, PatientApp};
 
 /// PatientWasm represents a Wasm source to be checked for problems.
 #[derive(Debug)]
-pub struct PatientWasm(RawComponentManifest);
+pub struct PatientWasm {
+    app_dir: PathBuf,
+    component: RawComponentManifest,
+}
 
 #[allow(missing_docs)] // WIP
 impl PatientWasm {
-    pub fn component_id(&self) -> &str {
-        &self.0.id
+    fn new(app_dir: impl AsRef<Path>, component: RawComponentManifest) -> Self {
+        Self {
+            app_dir: app_dir.as_ref().to_owned(),
+            component,
+        }
     }
 
-    pub fn source(&self) -> WasmSource {
-        match &self.0.source {
-            RawModuleSource::FileReference(path) => WasmSource::Local(path),
-            _ => WasmSource::Other,
+    pub fn component_id(&self) -> &str {
+        &self.component.id
+    }
+
+    pub fn source_path(&self) -> Option<&Path> {
+        match &self.component.source {
+            RawModuleSource::FileReference(path) => Some(path),
+            _ => None,
+        }
+    }
+
+    pub fn abs_source_path(&self) -> Option<PathBuf> {
+        match &self.component.source {
+            RawModuleSource::FileReference(path) => {
+                // TODO: We probably need a doctor check to see if the path can be expanded!
+                // For now, fall back to the literal path.
+                let can_path = canonicalize_and_absolutize(path.clone(), &self.app_dir)
+                    .unwrap_or(self.app_dir.join(path));
+                Some(can_path)
+            }
+            _ => None,
         }
     }
 
     pub fn has_build(&self) -> bool {
-        self.0.build.is_some()
+        self.component.build.is_some()
     }
-}
-
-/// WasmSource is a source (e.g. file path) of a Wasm binary.
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum WasmSource<'a> {
-    /// Local file source path.
-    Local(&'a Path),
-    /// Other source (currently unsupported)
-    Other,
 }
 
 /// WasmDiagnose helps implement [`Diagnose`] for Wasm source problems.
@@ -64,9 +80,10 @@ impl<T: WasmDiagnostic + Send + Sync> Diagnostic for T {
         let manifest = spin_loader::local::raw_manifest_from_file(&path)
             .await?
             .into_v1();
+        let app_dir = path.parent().unwrap();
         let mut diagnoses = vec![];
         for component in manifest.components {
-            let wasm = PatientWasm(component);
+            let wasm = PatientWasm::new(app_dir, component);
             diagnoses.extend(self.diagnose_wasm(patient, wasm).await?);
         }
         Ok(diagnoses)

@@ -90,6 +90,20 @@ pub struct HostComponentDataHandle<HC: HostComponent> {
     _phantom: PhantomData<fn() -> HC::Data>,
 }
 
+impl<HC: HostComponent> HostComponentDataHandle<HC> {
+    /// Return a typed handle to some [`HostComponent::Data`].
+    ///
+    /// # Safety
+    /// Caller must ensure that the handle is associated with the
+    /// given type or use of the handle will panic.
+    pub unsafe fn from_any(handle: AnyHostComponentDataHandle) -> Self {
+        Self {
+            inner: handle,
+            _phantom: PhantomData,
+        }
+    }
+}
+
 impl<HC: HostComponent> Clone for HostComponentDataHandle<HC> {
     fn clone(&self) -> Self {
         Self {

@@ -1,6 +1,8 @@
 FROM ubuntu:22.04
 
-ARG BUILD_SPIN=false
+# Whether to build spin from the local source
+# When set to false, the `SPIN_VERSION` build is used instead.
+ARG BUILD_SPIN=true
 ARG SPIN_VERSION=canary
 
 WORKDIR /root
@@ -67,9 +69,10 @@ RUN wget https://github.com/fermyon/spin/releases/download/${SPIN_VERSION}/spin-
 WORKDIR /e2e-tests
 COPY . .
 
-RUN if [ "${BUILD_SPIN}" == "true" ]; then                                                                                      \
-    cargo build --release &&                                                                                                    \
-    cp target/release/spin /usr/local/bin/spin;                                                                                 \
+RUN if [ "${BUILD_SPIN}" = "true" ]; then                                                                                      \
+    git config --global http.proxy "" &&                                                                                       \
+    CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo build --release &&                                                        \
+    cp target/release/spin /usr/local/bin/spin;                                                                                \
     fi
 
 RUN spin --version

@@ -6,7 +6,8 @@ ARCH = $(shell uname -p)
 
 ## dependencies for e2e-tests
 E2E_VOLUME_MOUNT     ?=
-E2E_BUILD_SPIN       ?= false
+E2E_USE_CANARY       ?= false ## Whether to use the canary build instead of the local build
+E2E_BUILD_SPIN 	     =  $(if $E2E_USE_CANARY == "false",true,false)
 E2E_TESTS_DOCKERFILE ?= e2e-tests.Dockerfile
 MYSQL_IMAGE          ?= mysql:8.0.22
 REDIS_IMAGE          ?= redis:7.0.8-alpine3.17

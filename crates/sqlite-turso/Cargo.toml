@@ -1,0 +1,10 @@
+[package]
+name = "spin-sqlite-turso"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+spin-sqlite = { path = "../sqlite" }
+spin-world = { path = "../world" }
+libsql-client = { version = "0.24", features = ["reqwest_backend"], default_features = false }
+tokio = { version = "1", features = ["full"] }

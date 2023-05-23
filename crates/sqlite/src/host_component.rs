@@ -4,8 +4,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use super::Connection;
 use once_cell::sync::OnceCell;
-use rusqlite::Connection;
 use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::HostComponent;
 use spin_world::sqlite;
@@ -21,7 +21,7 @@ pub enum DatabaseLocation {
 /// A connection to a sqlite database
 pub struct SqliteConnection {
     location: DatabaseLocation,
-    connection: OnceCell<Arc<Mutex<Connection>>>,
+    connection: OnceCell<Arc<dyn Connection>>,
 }
 
 impl SqliteConnection {
@@ -34,13 +34,13 @@ impl SqliteConnection {
 }
 
 impl ConnectionManager for SqliteConnection {
-    fn get_connection(&self) -> Result<Arc<Mutex<Connection>>, sqlite::Error> {
+    fn get_connection(&self) -> Result<Arc<dyn Connection>, sqlite::Error> {
         let connection = self
             .connection
             .get_or_try_init(|| -> Result<_, sqlite::Error> {
                 let c = match &self.location {
-                    DatabaseLocation::InMemory => Connection::open_in_memory(),
-                    DatabaseLocation::Path(path) => Connection::open(path),
+                    DatabaseLocation::InMemory => rusqlite::Connection::open_in_memory(),
+                    DatabaseLocation::Path(path) => rusqlite::Connection::open(path),
                 }
                 .map_err(|e| sqlite::Error::Io(e.to_string()))?;
                 Ok(Arc::new(Mutex::new(c)))
@@ -51,7 +51,7 @@ impl ConnectionManager for SqliteConnection {
 }
 
 pub trait ConnectionManager: Send + Sync {
-    fn get_connection(&self) -> Result<Arc<Mutex<Connection>>, sqlite::Error>;
+    fn get_connection(&self) -> Result<Arc<dyn Connection + 'static>, sqlite::Error>;
 }
 
 pub struct SqliteComponent {

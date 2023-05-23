@@ -1,7 +1,10 @@
 use std::{any::Any, sync::Arc};
 
 use anyhow::Context;
-use spin_core::{AnyHostComponentDataHandle, EngineBuilder, HostComponent, HostComponentsData};
+use spin_core::{
+    AnyHostComponentDataHandle, EngineBuilder, HostComponent, HostComponentDataHandle,
+    HostComponentsData,
+};
 
 use crate::{App, AppComponent};
 
@@ -71,7 +74,7 @@ impl DynamicHostComponents {
         &mut self,
         engine_builder: &mut EngineBuilder<T>,
         host_component: DHC,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<HostComponentDataHandle<DHC>> {
         let host_component = Arc::new(host_component);
         let handle = engine_builder
             .add_host_component(host_component.clone())?
@@ -80,7 +83,10 @@ impl DynamicHostComponents {
             host_component,
             handle,
         });
-        Ok(())
+        unsafe {
+            // Safe because `EngineBuilder::add_host_component` must have correct type.
+            Ok(HostComponentDataHandle::from_any(handle))
+        }
     }
 
     pub fn update_data(

@@ -10,7 +10,7 @@
             "os": "linux",
             "arch": "amd64",
             "url": "file:///workspaces/spin-suneet-orchestrator/examples/spin-orchestrator/trigger-orchestrator.tar.gz",
-            "sha256": "7c42b8f9e9f1fdd699403cfc7d48bf2e783d780e8e4360ab229ad3570fb37d25"
+            "sha256": "e8f24c43bf53183d5389e8aaa5e8577212469503ecf955daf5bcfdedb439561f"
         }
     ]
 }

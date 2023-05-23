@@ -13,15 +13,15 @@ use spin_trigger::{
 
 // Module 1 WIT bindings
 wasmtime::component::bindgen!({
-    path: "spin-orchestrator-module1.wit",
-    world: "spin-orchestrator-module1",
+    path: "spin-orchestrator-modules.wit",
+    world: "spin-orchestrator-modules.spin-orchestrator-module1",
     async: true
 });
 
 // Module 2 WIT bindings
 wasmtime::component::bindgen!({
-    path: "spin-orchestrator-module2.wit",
-    world: "spin-orchestrator-module2",
+    path: "spin-orchestrator-modules.wit",
+    world: "spin-orchestrator-modules.spin-orchestrator-module2",
     async: true
 });
 
@@ -122,8 +122,8 @@ impl TriggerExecutor for OrchestratorTrigger {
     async fn run(self, config: Self::RunConfig) -> anyhow::Result<()> {
         if config.test {
             for component in self.component_timings.keys() {
-                self.handle_module1_init_event(component).await?;
-                self.handle_module2_init_event(component).await?;
+                let moudle1_output = self.handle_module1_init_event(component, "init_message").await?;
+                self.handle_module2_init_event(component, &moudle1_output).await?;
             }
         } else {
             // This trigger spawns threads, which Ctrl+C does not kill.  So
@@ -138,29 +138,29 @@ impl TriggerExecutor for OrchestratorTrigger {
             let _retry_policy_enabled = self.retry_policy_enabled;
 
             tokio_scoped::scope(|scope| {
+                // Orchestrate components here e.g. module1 sends it's output to module2                
+                // Validate if only the required modules are present in the config.
+                if self.component_timings.len() == 2 &&
+                    self.component_timings.contains_key("module1") 
+                    && self.component_timings.contains_key("module2")
+                {
+                    let module1_config = &self.component_timings["module1"];
+                    let config: Module1TriggerConfig = serde_json::from_str(module1_config).unwrap();
+                    println!("module1: Config: {:?}", config);
+                    let module2_config = &self.component_timings["module2"];
+                    let config: Module2TriggerConfig = serde_json::from_str(module2_config).unwrap();
+                    println!("module2: Config: {:?}", config);
 
-                // For each component, run its own timer loop
-                for (c, d) in &self.component_timings {
-                    match c.as_str() {
-                        "module1" => {
-                            let config: Module1TriggerConfig = serde_json::from_str(d).unwrap();
-                            println!("{}: Config: {:?}", c, config);
-                            scope.spawn(async {
-                                self.handle_module1_init_event(c).await.unwrap();
-                            });
-                        },
-                        "module2" => {
-                            let config: Module2TriggerConfig = serde_json::from_str(d).unwrap();
-                            println!("{}: Config: {:?}", c, config);
-                            scope.spawn(async {
-                                self.handle_module2_init_event(c).await.unwrap();
-                            });
-                        },
-                        _ => {
-                            panic!("Unknown module Id {}: Config: {:?}", c, d);
-                        }
-                    }                                        
+                    scope.spawn(async {
+                        let module1_output = self.handle_module1_init_event("module1", "Init Message").await.unwrap();
+                        println!("module1 output: {:?}", module1_output);
+                        let module2_output = self.handle_module2_init_event("module2", &module1_output).await.unwrap();
+                        println!("module2 output: {:?}", module2_output);
+                    });
                 }
+                else {
+                    panic!("Unknown modules confiugured in application: {:?}", &self.component_timings.keys());
+                }              
             });
         }
         Ok(())
@@ -168,7 +168,7 @@ impl TriggerExecutor for OrchestratorTrigger {
 }
 
 impl OrchestratorTrigger {
-    async fn handle_module1_init_event(&self, component_id: &str) -> anyhow::Result<String> {
+    async fn handle_module1_init_event(&self, component_id: &str, init_message: &str) -> anyhow::Result<String> {
         // Load the guest...
         let (instance, mut store) = self.engine.prepare_instance(component_id).await?;
         let EitherInstance::Component(instance) = instance else {
@@ -176,11 +176,12 @@ impl OrchestratorTrigger {
         };
 
         let instance = SpinOrchestratorModule1::new(&mut store, &instance)?;
+
         // ...and call the entry point
-        instance.call_handle_init(&mut store, "").await
+        instance.call_handle_init(&mut store, init_message).await
     }
 
-    async fn handle_module2_init_event(&self, component_id: &str) -> anyhow::Result<String> {
+    async fn handle_module2_init_event(&self, component_id: &str, module1_output: &str) -> anyhow::Result<String> {
         // Load the guest...
         let (instance, mut store) = self.engine.prepare_instance(component_id).await?;
         let EitherInstance::Component(instance) = instance else {
@@ -189,6 +190,6 @@ impl OrchestratorTrigger {
         let instance = SpinOrchestratorModule2::new(&mut store, &instance)?;
 
         // ...and call the entry point
-        instance.call_handle_init(&mut store, "").await
+        instance.call_handle_init(&mut store, module1_output).await
     }
 }

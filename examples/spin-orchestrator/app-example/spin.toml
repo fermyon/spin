@@ -24,4 +24,4 @@ config = "{\"batch_size\": 6}"
 command = "cargo build --manifest-path module2/Cargo.toml --target wasm32-wasi --release"
 [component.config]
 timeout = "2"
-retries = "1"
+retries = "5"

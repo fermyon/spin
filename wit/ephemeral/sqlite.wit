@@ -37,7 +37,7 @@ type query-result = u32
 get-columns: func(query-result: query-result) -> expected<list<string>, error>
 
 // Get a `row-result` at a given index for a given `query-result`
-get-row-result: func(query-result: query-result, index: u32) -> expected<option<row-result>, error>
+next-row-result: func(query-result: query-result) -> expected<option<row-result>, error>
 
 // Free the query result resource
 free-query-result: func(query-result: query-result)

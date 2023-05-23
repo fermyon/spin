@@ -18,7 +18,7 @@ pub const DATABASES_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("databa
 pub struct SqliteImpl {
     allowed_databases: HashSet<String>,
     connections: table::Table<Arc<Mutex<rusqlite::Connection>>>,
-    results: table::Table<Mutex<(Vec<String>, Vec<sqlite::RowResult>)>>,
+    results: table::Table<Mutex<(Vec<String>, std::vec::IntoIter<sqlite::RowResult>)>>,
     client_manager: HashMap<String, Arc<dyn ConnectionManager>>,
 }
 
@@ -107,12 +107,12 @@ impl Host for SqliteImpl {
                 let rows = rows
                     .into_iter()
                     .map(|r| r.map_err(|e| sqlite::Error::Io(e.to_string())))
-                    .collect::<Result<_, sqlite::Error>>()?;
+                    .collect::<Result<Vec<_>, sqlite::Error>>()?;
                 (columns, rows)
             };
             let handle = self
                 .results
-                .push(Mutex::new((columns, rows)))
+                .push(Mutex::new((columns, rows.into_iter())))
                 .expect("TODO: handle out of space");
             Ok(handle)
         }))
@@ -134,15 +134,14 @@ impl Host for SqliteImpl {
             .ok_or_else(|| sqlite::Error::InvalidQueryResult))
     }
 
-    async fn get_row_result(
+    async fn next_row_result(
         &mut self,
         query_result: sqlite::QueryResult,
-        index: u32,
     ) -> anyhow::Result<Result<Option<sqlite::RowResult>, sqlite::Error>> {
         Ok(self
             .results
             .get(query_result)
-            .map(|r| r.lock().unwrap().1.get(index as usize).cloned())
+            .map(|r| r.lock().unwrap().1.next())
             .ok_or_else(|| sqlite::Error::InvalidQueryResult))
     }
 

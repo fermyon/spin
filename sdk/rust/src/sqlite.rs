@@ -44,22 +44,13 @@ pub struct QueryResult {
 }
 
 impl QueryResult {
-    /// Get a specific row for this query result
-    pub fn row(&self, index: usize) -> Result<Option<RowResult<'_>>, sqlite::Error> {
-        let row_result = sqlite::get_row_result(self.inner, index as u32)?;
-        Ok(row_result.map(|r| RowResult {
-            columns: self.columns.as_slice(),
-            result: r,
-        }))
-    }
-
     /// Get all the rows for this query result
     pub fn rows(&self) -> impl Iterator<Item = Result<RowResult<'_>, sqlite::Error>> {
-        let mut index = 0;
-        std::iter::from_fn(move || {
-            let r = self.row(index).transpose()?;
-            index += 1;
-            Some(r)
+        std::iter::from_fn(move || sqlite::next_row_result(self.inner).transpose()).map(|r| {
+            Ok(RowResult {
+                columns: &self.columns,
+                result: r?,
+            })
         })
     }
 }

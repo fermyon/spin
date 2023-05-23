@@ -38,7 +38,7 @@ default interface sqlite {
   get-columns: func(query-result: query-result) -> result<list<string>, error>
 
   // Get a `row-result` at a given index for a given `query-result`
-  get-row-result: func(query-result: query-result, index: u32) -> result<option<row-result>, error>
+  next-row-result: func(query-result: query-result) -> result<option<row-result>, error>
 
   // Free the query result resource
   free-query-result: func(query-result: query-result)

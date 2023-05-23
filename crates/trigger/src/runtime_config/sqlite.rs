@@ -30,7 +30,6 @@ fn execute_statements(
             let c = default.get_connection().context(
                 "could not get connection to default database in order to execute statements",
             )?;
-            let c = c.lock().unwrap();
             for m in statements {
                 if let Some(file) = m.strip_prefix('@') {
                     let sql = std::fs::read_to_string(file).with_context(|| {
@@ -39,7 +38,7 @@ fn execute_statements(
                     c.execute_batch(&sql)
                         .with_context(|| format!("failed to execute sql from file '{file}'"))?;
                 } else {
-                    c.execute(m, [])
+                    c.query(m, Vec::new())
                         .with_context(|| format!("failed to execute statement: '{m}'"))?;
                 }
             }
@@ -53,6 +52,7 @@ fn execute_statements(
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum SqliteDatabaseOpts {
     Spin(SpinSqliteDatabaseOpts),
+    Turso(TursoOpts),
 }
 
 impl SqliteDatabaseOpts {
@@ -67,6 +67,7 @@ impl SqliteDatabaseOpts {
     ) -> anyhow::Result<SqliteDatabase> {
         match self {
             Self::Spin(opts) => opts.build(name, config_opts),
+            Self::Turso(opts) => opts.build(name, config_opts),
         }
     }
 }
@@ -96,5 +97,25 @@ impl SpinSqliteDatabaseOpts {
             None => DatabaseLocation::InMemory,
         };
         Ok(Arc::new(SqliteConnection::new(location)))
+    }
+}
+
+#[derive(Clone, Debug, Default, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TursoOpts {
+    url: String,
+    token: String,
+}
+
+impl TursoOpts {
+    fn build(
+        &self,
+        _name: &str,
+        _config_opts: &RuntimeConfigOpts,
+    ) -> anyhow::Result<SqliteDatabase> {
+        Ok(Arc::new(spin_sqlite_turso::TursoClient::new(
+            self.url.clone(),
+            self.token.clone(),
+        )))
     }
 }

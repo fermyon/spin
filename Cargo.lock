@@ -2357,6 +2357,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "hrana-client-proto"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26f15d50a607f7f2cb8cb97cad7ae746f861139e8ebc425a8545195a556d6102"
+dependencies = [
+ "anyhow",
+ "base64 0.21.0",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "http"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2891,6 +2903,24 @@ checksum = "b67380fd3b2fbe7527a606e18729d21c6f3951633d0500574c4dc22d2d638b9f"
 dependencies = [
  "cfg-if",
  "winapi",
+]
+
+[[package]]
+name = "libsql-client"
+version = "0.24.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8861153820a4228a1261ee92138345f7e08c71e64a75c95217247427172f2ce8"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.21.0",
+ "hrana-client-proto",
+ "num-traits",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -5438,6 +5468,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-sqlite-turso"
+version = "0.1.0"
+dependencies = [
+ "libsql-client",
+ "spin-sqlite",
+ "spin-world",
+ "tokio",
+]
+
+[[package]]
 name = "spin-templates"
 version = "1.3.0-pre0"
 dependencies = [
@@ -5522,6 +5562,7 @@ dependencies = [
  "spin-loader",
  "spin-manifest",
  "spin-sqlite",
+ "spin-sqlite-turso",
  "tempfile",
  "tokio",
  "toml 0.5.11",

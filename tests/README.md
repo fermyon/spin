@@ -139,7 +139,7 @@ pub async fn foo_env_works(controller: &dyn Controller) {
 ```rust
 #[tokio::test]
 async fn foo_env_works() {
-    testcases::all::foo_env_works(CONTROLLER).await
+    testcases::foo_env_works(CONTROLLER).await
 }
 ```
 

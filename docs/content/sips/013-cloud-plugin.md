@@ -127,14 +127,14 @@ changes to the `spin cloud` plugin without waiting for a new release of Spin.
 
 One recommendation was to design `spin cloud` in a generic fashion. In this
 manner, "cloud providers" (including Fermyon Cloud) would integrate with `spin
-cloud` . Customers would use `spin cloud login` and `spin cloud deploy` to
+cloud`. Customers would use `spin cloud login` and `spin cloud deploy` to
 deploy Spin applications to their hosting platform of choice.
 
-We hope to one day be in a position where partners are coming to us to design
-such a system. We hope that might happen in the future (and we are open to the
-idea of collaborating on such a project!). For the initial launch, the goal of
-this SIP is to make the least invasive change to the existing `spin login` and
-`spin deploy` experience.
+Rather than a generic plugin that prescribes a command flow for all clouds, we
+hope partners come to us to add their own plugin for deploying Spin applications
+to their cloud (and we are open to the idea of collaborating on such a
+project!). For the initial launch, the goal of this SIP is to make the least
+invasive change to the existing `spin login` and `spin deploy` experience.
 
 ### Will users be able to run CRUD operations on Cloud specific objects (like a KV store)?
 

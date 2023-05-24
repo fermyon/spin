@@ -18,8 +18,6 @@ bindle = { workspace = true }
 bytes = "1.1"
 chrono = "0.4"
 clap = { version = "3.2.24", features = ["derive", "env"] }
-cloud = { path = "crates/cloud" }
-cloud-openapi = { git = "https://github.com/fermyon/cloud-openapi", rev = "1a7bc0316d2dd863d9090f201543215b36db7017" }
 comfy-table = "5.0"
 ctrlc = { version = "3.2", features = ["termination"] }
 dialoguer = "0.10"

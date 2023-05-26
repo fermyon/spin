@@ -1,7 +1,8 @@
 [package]
-name = "spin-sqlite-turso"
-version = "0.1.0"
-edition = "2021"
+name = "spin-sqlite-libsql"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
 
 [dependencies]
 spin-sqlite = { path = "../sqlite" }

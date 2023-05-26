@@ -5453,12 +5453,9 @@ dependencies = [
 
 [[package]]
 name = "spin-sqlite"
-version = "0.1.0"
+version = "1.3.0-pre0"
 dependencies = [
  "anyhow",
- "once_cell",
- "rand 0.8.5",
- "rusqlite",
  "spin-app",
  "spin-core",
  "spin-key-value",
@@ -5468,8 +5465,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-sqlite-turso"
-version = "0.1.0"
+name = "spin-sqlite-inproc"
+version = "1.3.0-pre0"
+dependencies = [
+ "anyhow",
+ "once_cell",
+ "rand 0.8.5",
+ "rusqlite",
+ "spin-sqlite",
+ "spin-world",
+ "tokio",
+]
+
+[[package]]
+name = "spin-sqlite-libsql"
+version = "1.3.0-pre0"
 dependencies = [
  "libsql-client",
  "spin-sqlite",
@@ -5562,7 +5572,8 @@ dependencies = [
  "spin-loader",
  "spin-manifest",
  "spin-sqlite",
- "spin-sqlite-turso",
+ "spin-sqlite-inproc",
+ "spin-sqlite-libsql",
  "tempfile",
  "tokio",
  "toml 0.5.11",

@@ -96,6 +96,14 @@ impl RuntimeConfig {
             .unwrap_or_else(|| KeyValueStoreOpts::default_store_opts(self))
     }
 
+    // Return the "default" key value store config.
+    fn default_sqlite_opts(&self) -> SqliteDatabaseOpts {
+        self.opts_layers()
+            .find_map(|opts| opts.sqlite_databases.get("default"))
+            .cloned()
+            .unwrap_or_else(|| SqliteDatabaseOpts::default(self))
+    }
+
     /// Return an iterator of named configured [`SqliteDatabase`]s.
     pub fn sqlite_databases(
         &self,

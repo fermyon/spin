@@ -1,13 +1,19 @@
 mod host_component;
-mod implementation;
 
-use spin_app::MetadataKey;
-use std::{collections::HashSet, sync::Mutex};
+use spin_app::{async_trait, MetadataKey};
+use spin_key_value::table;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
-pub use host_component::{ConnectionManager, DatabaseLocation, SqliteComponent, SqliteConnection};
-pub use implementation::SqliteImpl;
+pub use host_component::SqliteComponent;
 
 pub const DATABASES_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("databases");
+
+pub trait ConnectionManager: Send + Sync {
+    fn get_connection(&self) -> Result<Arc<dyn Connection + 'static>, spin_world::sqlite::Error>;
+}
 
 /// A trait abstracting over operations to a SQLite database
 pub trait Connection: Send + Sync {
@@ -25,72 +31,71 @@ pub trait Connection: Send + Sync {
     }
 }
 
-impl Connection for Mutex<rusqlite::Connection> {
-    fn query(
+/// An implementation of the SQLite host
+pub struct SqliteDispatch {
+    allowed_databases: HashSet<String>,
+    connections: table::Table<Arc<dyn Connection>>,
+    client_manager: HashMap<String, Arc<dyn ConnectionManager>>,
+}
+
+impl SqliteDispatch {
+    pub fn new(client_manager: HashMap<String, Arc<dyn ConnectionManager>>) -> Self {
+        Self {
+            connections: table::Table::new(256),
+            allowed_databases: HashSet::new(),
+            client_manager,
+        }
+    }
+
+    pub fn component_init(&mut self, allowed_databases: HashSet<String>) {
+        self.allowed_databases = allowed_databases
+    }
+
+    fn get_connection(
         &self,
-        query: &str,
-        parameters: Vec<spin_world::sqlite::Value>,
-    ) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error> {
-        let conn = self.lock().unwrap();
-        let mut statement = conn
-            .prepare_cached(&query)
-            .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))?;
-        let columns = statement
-            .column_names()
-            .into_iter()
-            .map(ToOwned::to_owned)
-            .collect();
-        let rows = statement
-            .query_map(
-                rusqlite::params_from_iter(convert_data(parameters.into_iter())),
-                |row| {
-                    let mut values = vec![];
-                    for column in 0.. {
-                        let value = row.get::<usize, ValueWrapper>(column);
-                        if let Err(rusqlite::Error::InvalidColumnIndex(_)) = value {
-                            break;
-                        }
-                        let value = value?.0;
-                        values.push(value);
-                    }
-                    Ok(spin_world::sqlite::RowResult { values })
-                },
-            )
-            .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))?;
-        let rows = rows
-            .into_iter()
-            .map(|r| r.map_err(|e| spin_world::sqlite::Error::Io(e.to_string())))
-            .collect::<Result<_, spin_world::sqlite::Error>>()?;
-        Ok(spin_world::sqlite::QueryResult { columns, rows })
+        connection: spin_world::sqlite::Connection,
+    ) -> Result<&Arc<dyn Connection>, spin_world::sqlite::Error> {
+        self.connections
+            .get(connection)
+            .ok_or(spin_world::sqlite::Error::InvalidConnection)
     }
 }
 
-fn convert_data(
-    arguments: impl Iterator<Item = spin_world::sqlite::Value>,
-) -> impl Iterator<Item = rusqlite::types::Value> {
-    arguments.map(|a| match a {
-        spin_world::sqlite::Value::Null => rusqlite::types::Value::Null,
-        spin_world::sqlite::Value::Integer(i) => rusqlite::types::Value::Integer(i),
-        spin_world::sqlite::Value::Real(r) => rusqlite::types::Value::Real(r),
-        spin_world::sqlite::Value::Text(t) => rusqlite::types::Value::Text(t),
-        spin_world::sqlite::Value::Blob(b) => rusqlite::types::Value::Blob(b),
-    })
-}
-
-// A wrapper around sqlite::Value so that we can convert from rusqlite ValueRef
-struct ValueWrapper(spin_world::sqlite::Value);
-
-impl rusqlite::types::FromSql for ValueWrapper {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let value = match value {
-            rusqlite::types::ValueRef::Null => spin_world::sqlite::Value::Null,
-            rusqlite::types::ValueRef::Integer(i) => spin_world::sqlite::Value::Integer(i),
-            rusqlite::types::ValueRef::Real(f) => spin_world::sqlite::Value::Real(f),
-            rusqlite::types::ValueRef::Text(t) => {
-                spin_world::sqlite::Value::Text(String::from_utf8(t.to_vec()).unwrap())
+#[async_trait]
+impl spin_world::sqlite::Host for SqliteDispatch {
+    async fn open(
+        &mut self,
+        database: String,
+    ) -> anyhow::Result<Result<spin_world::sqlite::Connection, spin_world::sqlite::Error>> {
+        Ok(tokio::task::block_in_place(|| {
+            if !self.allowed_databases.contains(&database) {
+                return Err(spin_world::sqlite::Error::AccessDenied);
             }
-            rusqlite::types::ValueRef::Blob(b) => spin_world::sqlite::Value::Blob(b.to_vec()),
-        };
-        Ok(ValueWrapper(value))
+            self.connections
+                .push(
+                    self.client_manager
+                        .get(&database)
+                        .ok_or(spin_world::sqlite::Error::NoSuchDatabase)?
+                        .get_connection()?,
+                )
+                .map_err(|()| spin_world::sqlite::Error::DatabaseFull)
+        }))
+    }
+
+    async fn execute(
+        &mut self,
+        connection: spin_world::sqlite::Connection,
+        query: String,
+        parameters: Vec<spin_world::sqlite::Value>,
+    ) -> anyhow::Result<Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error>> {
+        Ok(tokio::task::block_in_place(|| {
+            let conn = self.get_connection(connection)?;
+            conn.query(&query, parameters)
+        }))
+    }
+
+    async fn close(&mut self, connection: spin_world::sqlite::Connection) -> anyhow::Result<()> {
+        let _ = self.connections.remove(connection);
+        Ok(())
     }
 }

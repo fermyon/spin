@@ -4,11 +4,11 @@ use libsql_client::DatabaseClient;
 use spin_world::sqlite::{self, RowResult};
 
 #[derive(Clone)]
-pub struct TursoClient {
+pub struct LibsqlClient {
     client: libsql_client::reqwest::Client,
 }
 
-impl TursoClient {
+impl LibsqlClient {
     pub fn new(url: String, token: String) -> Self {
         Self {
             client: libsql_client::reqwest::Client::new(url, token),
@@ -16,13 +16,13 @@ impl TursoClient {
     }
 }
 
-impl spin_sqlite::ConnectionManager for TursoClient {
+impl spin_sqlite::ConnectionManager for LibsqlClient {
     fn get_connection(&self) -> Result<Arc<dyn spin_sqlite::Connection>, sqlite::Error> {
         Ok(Arc::new(self.clone()))
     }
 }
 
-impl spin_sqlite::Connection for TursoClient {
+impl spin_sqlite::Connection for LibsqlClient {
     fn query(
         &self,
         query: &str,
@@ -72,7 +72,7 @@ fn convert_parameters(parameters: &[spin_world::sqlite::Value]) -> Vec<libsql_cl
             sqlite::Value::Integer(value) => libsql_client::Value::Integer { value: *value },
             sqlite::Value::Real(value) => libsql_client::Value::Float { value: *value },
             sqlite::Value::Text(t) => libsql_client::Value::Text { value: t.clone() },
-            sqlite::Value::Blob(_) => todo!(),
+            sqlite::Value::Blob(b) => libsql_client::Value::Blob { value: b.clone() },
             sqlite::Value::Null => libsql_client::Value::Null,
         })
         .collect()

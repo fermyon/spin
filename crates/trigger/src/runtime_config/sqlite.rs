@@ -1,8 +1,8 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use crate::runtime_config::RuntimeConfig;
+use crate::{runtime_config::RuntimeConfig, TriggerHooks};
 use anyhow::Context;
-use spin_sqlite::{DatabaseLocation, SqliteComponent, SqliteConnection};
+use spin_sqlite::{SqliteComponent, DATABASES_KEY};
 
 use super::RuntimeConfigOpts;
 
@@ -52,7 +52,7 @@ fn execute_statements(
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum SqliteDatabaseOpts {
     Spin(SpinSqliteDatabaseOpts),
-    Turso(TursoOpts),
+    Libsql(LibsqlOpts),
 }
 
 impl SqliteDatabaseOpts {
@@ -67,7 +67,7 @@ impl SqliteDatabaseOpts {
     ) -> anyhow::Result<SqliteDatabase> {
         match self {
             Self::Spin(opts) => opts.build(name, config_opts),
-            Self::Turso(opts) => opts.build(name, config_opts),
+            Self::Libsql(opts) => opts.build(name, config_opts),
         }
     }
 }
@@ -86,36 +86,74 @@ impl SpinSqliteDatabaseOpts {
     }
 
     fn build(&self, name: &str, config_opts: &RuntimeConfigOpts) -> anyhow::Result<SqliteDatabase> {
+        use spin_sqlite_inproc::{InProcConnectionManager, InProcDatabaseLocation};
+
         let location = match self.path.as_ref() {
             Some(path) => {
                 let path = super::resolve_config_path(path, config_opts)?;
                 // Create the store's parent directory if necessary
                 std::fs::create_dir_all(path.parent().unwrap())
                     .context("Failed to create sqlite database directory")?;
-                DatabaseLocation::Path(path.join(format!("{name}.db")))
+                InProcDatabaseLocation::Path(path.join(format!("{name}.db")))
             }
-            None => DatabaseLocation::InMemory,
+            None => InProcDatabaseLocation::InMemory,
         };
-        Ok(Arc::new(SqliteConnection::new(location)))
+        Ok(Arc::new(InProcConnectionManager::new(location)))
     }
 }
 
 #[derive(Clone, Debug, Default, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct TursoOpts {
+pub struct LibsqlOpts {
     url: String,
     token: String,
 }
 
-impl TursoOpts {
+impl LibsqlOpts {
     fn build(
         &self,
         _name: &str,
         _config_opts: &RuntimeConfigOpts,
     ) -> anyhow::Result<SqliteDatabase> {
-        Ok(Arc::new(spin_sqlite_turso::TursoClient::new(
+        Ok(Arc::new(spin_sqlite_libsql::LibsqlClient::new(
             self.url.clone(),
             self.token.clone(),
         )))
+    }
+}
+
+pub struct SqlitePersistenceMessageHook;
+
+impl TriggerHooks for SqlitePersistenceMessageHook {
+    fn app_loaded(
+        &mut self,
+        app: &spin_app::App,
+        runtime_config: &RuntimeConfig,
+    ) -> anyhow::Result<()> {
+        if app.components().all(|c| {
+            c.get_metadata(DATABASES_KEY)
+                .unwrap_or_default()
+                .unwrap_or_default()
+                .is_empty()
+        }) {
+            return Ok(());
+        }
+
+        match runtime_config.default_sqlite_opts() {
+            SqliteDatabaseOpts::Spin(s) => {
+                if let Some(path) = &s.path {
+                    println!("Storing default SQLite data to local SQLite database at {path:?}.");
+                } else {
+                    println!("Using in-memory default SQLite database.");
+                }
+            }
+            SqliteDatabaseOpts::Libsql(l) => {
+                println!(
+                    "Storing default SQLite data to a remote LibSQL database at {}",
+                    l.url
+                );
+            }
+        }
+        Ok(())
     }
 }

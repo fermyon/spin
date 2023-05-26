@@ -1,5 +1,5 @@
-default interface postgres {
-  use pkg.rdbms-types.{parameter-value, row-set}
+interface postgres {
+  use rdbms-types.{parameter-value, row-set}
 
   // General purpose error.
   variant pg-error {

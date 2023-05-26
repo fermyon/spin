@@ -1,5 +1,5 @@
-default interface redis {
-  use pkg.redis-types.{payload, redis-parameter, redis-result, error}
+interface redis {
+  use redis-types.{payload, redis-parameter, redis-result, error}
 
   // Publish a Redis message to the specificed channel and return an error, if any.
   publish: func(address: string, channel: string, payload: payload) -> result<_, error>

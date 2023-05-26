@@ -47,6 +47,7 @@ semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.82"
 sha2 = "0.10.2"
+terminal = { path = "crates/terminal" }
 spin-app = { path = "crates/app" }
 spin-bindle = { path = "crates/bindle" }
 spin-build = { path = "crates/build" }
@@ -86,7 +87,7 @@ e2e-testing = { path = "crates/e2e-testing" }
 
 [build-dependencies]
 cargo-target-dep = { git = "https://github.com/fermyon/cargo-target-dep", rev = "b7b1989fe0984c0f7c4966398304c6538e52fe49" }
-vergen = { version = "8", default-features = false, features = [
+vergen = { version = "^8.2.1", default-features = false, features = [
   "build",
   "git",
   "gitcl",
@@ -114,10 +115,10 @@ tracing = { version = "0.1", features = ["log"] }
 wasmtime-wasi = { version = "8.0.1", features = ["tokio"] }
 wasi-common-preview1 = { package = "wasi-common", version = "8.0.1" }
 wasmtime = { version = "8.0.1", features = ["component-model"] }
-spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "51c3fade751c4e364142719e42130943fd8b0a76" }
-wasi-host = { package = "host", git = "https://github.com/fermyon/spin-componentize", rev = "51c3fade751c4e364142719e42130943fd8b0a76" }
-wasi-common = { git = "https://github.com/fermyon/spin-componentize", rev = "51c3fade751c4e364142719e42130943fd8b0a76" }
-wasi-cap-std-sync = { git = "https://github.com/fermyon/spin-componentize", rev = "51c3fade751c4e364142719e42130943fd8b0a76" }
+spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "b6d42fe41e5690844a661deb631d996a2b49debc" }
+wasi-host = { package = "host", git = "https://github.com/fermyon/spin-componentize", rev = "b6d42fe41e5690844a661deb631d996a2b49debc" }
+wasi-common = { git = "https://github.com/fermyon/spin-componentize", rev = "b6d42fe41e5690844a661deb631d996a2b49debc" }
+wasi-cap-std-sync = { git = "https://github.com/fermyon/spin-componentize", rev = "b6d42fe41e5690844a661deb631d996a2b49debc" }
 
 [workspace.dependencies.bindle]
 git = "https://github.com/fermyon/bindle"

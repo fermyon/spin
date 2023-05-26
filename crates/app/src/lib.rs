@@ -13,7 +13,7 @@ pub mod values;
 
 use ouroboros::self_referencing;
 use serde::Deserialize;
-use spin_core::{wasmtime, Engine, EngineBuilder, StoreBuilder};
+use spin_core::{wasmtime, Engine, EngineBuilder, HostComponentDataHandle, StoreBuilder};
 
 use host_component::DynamicHostComponents;
 use locked::{ContentPath, LockedApp, LockedComponent, LockedComponentSource, LockedTrigger};
@@ -83,7 +83,7 @@ impl AppLoader {
         &mut self,
         engine_builder: &mut EngineBuilder<T>,
         host_component: DHC,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<HostComponentDataHandle<DHC>> {
         self.dynamic_host_components
             .add_dynamic_host_component(engine_builder, host_component)
     }
@@ -102,7 +102,7 @@ impl AppLoader {
         };
         self.dynamic_host_components
             .validate_app(&app)
-            .map_err(Error::HostComponentError)?;
+            .map_err(Error::ValidationError)?;
         Ok(app)
     }
 
@@ -361,35 +361,32 @@ impl<'a, L: MaybeLoader> AppTrigger<'a, L> {
         &self.locked.trigger_type
     }
 
+    /// Deserializes this trigger's configuration into a typed value.
+    pub fn typed_config<Config: Deserialize<'a>>(&self) -> Result<Config> {
+        Ok(Config::deserialize(&self.locked.trigger_config)?)
+    }
+
     /// Returns a reference to the [`AppComponent`] configured for this trigger.
     ///
     /// This is a convenience wrapper that looks up the component based on the
     /// 'component' metadata value which is conventionally a component ID.
     pub fn component(&self) -> Result<AppComponent<'a, L>> {
-        let component_id = self.locked.trigger_config.get("component").ok_or_else(|| {
-            Error::MetadataError(format!(
-                "trigger {:?} missing 'component' config field",
-                self.locked.id
-            ))
+        let id = &self.locked.id;
+        let common_config: CommonTriggerConfig = self.typed_config()?;
+        let component_id = common_config.component.ok_or_else(|| {
+            Error::MetadataError(format!("trigger {id:?} missing 'component' config field"))
         })?;
-        let component_id = component_id.as_str().ok_or_else(|| {
+        self.app.get_component(&component_id).ok_or_else(|| {
             Error::MetadataError(format!(
-                "trigger {:?} 'component' field has unexpected value {:?}",
-                self.locked.id, component_id
-            ))
-        })?;
-        self.app.get_component(component_id).ok_or_else(|| {
-            Error::MetadataError(format!(
-                "missing component {:?} configured for trigger {:?}",
-                component_id, self.locked.id
+                "missing component {component_id:?} configured for trigger {id:?}"
             ))
         })
     }
+}
 
-    /// Deserializes this trigger's configuration into a typed value.
-    pub fn typed_config<Config: Deserialize<'a>>(&self) -> Result<Config> {
-        Ok(Config::deserialize(&self.locked.trigger_config)?)
-    }
+#[derive(Deserialize)]
+struct CommonTriggerConfig {
+    component: Option<String>,
 }
 
 /// Type alias for a [`Result`]s with [`Error`].
@@ -413,4 +410,7 @@ pub enum Error {
     /// An error indicating failed JSON (de)serialization.
     #[error("json error: {0}")]
     JsonError(#[from] serde_json::Error),
+    /// A validation error that can be presented directly to the user.
+    #[error(transparent)]
+    ValidationError(anyhow::Error),
 }

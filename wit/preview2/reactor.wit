@@ -4,6 +4,7 @@ world reactor {
   import config
   import postgres
   import mysql
+  import sqlite
   import redis
   import key-value
   import http

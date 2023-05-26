@@ -8,6 +8,9 @@ pub mod outbound_http;
 /// Key/Value storage.
 pub mod key_value;
 
+/// Sqlite
+pub mod sqlite;
+
 /// Exports the procedural macros for writing handlers for Spin components.
 pub use spin_macro::*;
 

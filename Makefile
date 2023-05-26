@@ -61,7 +61,7 @@ test-spin-up:
 
 .PHONY: test-kv
 test-kv:
-	RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::key_value_works --nocapture
+	RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::key_value --nocapture
 
 .PHONY: test-outbound-redis
 test-outbound-redis:

@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use crate::{Diagnosis, PatientApp, Treatment};
 
-use super::{PatientWasm, WasmDiagnostic, WasmSource};
+use super::{PatientWasm, WasmDiagnostic};
 
 /// WasmMissingDiagnostic detects missing Wasm sources.
 #[derive(Default)]
@@ -20,8 +20,8 @@ impl WasmDiagnostic for WasmMissingDiagnostic {
         _app: &PatientApp,
         wasm: PatientWasm,
     ) -> anyhow::Result<Vec<Self::Diagnosis>> {
-        if let WasmSource::Local(path) = wasm.source() {
-            if !path.exists() {
+        if let Some(abs_path) = wasm.abs_source_path() {
+            if !abs_path.exists() {
                 return Ok(vec![WasmMissing(wasm)]);
             }
         }
@@ -49,10 +49,10 @@ impl WasmMissing {
 impl Diagnosis for WasmMissing {
     fn description(&self) -> String {
         let id = self.0.component_id();
-        let WasmSource::Local(path) = self.0.source() else {
+        let Some(rel_path) = self.0.source_path() else {
             unreachable!("unsupported source");
         };
-        format!("Component {id:?} source {path:?} is missing")
+        format!("Component {id:?} source {rel_path:?} is missing")
     }
 
     fn treatment(&self) -> Option<&dyn Treatment> {

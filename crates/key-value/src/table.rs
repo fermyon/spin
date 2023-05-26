@@ -34,6 +34,7 @@ impl<V> Table<V> {
     ///
     /// This function will attempt to avoid reusing recently closed identifiers, but after 2^32 calls to this
     /// function they will start repeating.
+    #[allow(clippy::result_unit_err)]
     pub fn push(&mut self, value: V) -> Result<u32, ()> {
         if self.tuples.len() == self.capacity as usize {
             Err(())

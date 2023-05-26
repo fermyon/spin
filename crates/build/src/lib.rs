@@ -6,30 +6,54 @@ mod manifest;
 
 use anyhow::{anyhow, bail, Context, Result};
 use spin_loader::local::parent_dir;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 use subprocess::{Exec, Redirection};
 
 use crate::manifest::{BuildAppInfoAnyVersion, RawComponentManifest};
 
 /// If present, run the build command of each component.
-pub async fn build(manifest_file: &Path) -> Result<()> {
+pub async fn build(manifest_file: &Path, component_ids: &[String]) -> Result<()> {
     let manifest_text = tokio::fs::read_to_string(manifest_file)
         .await
         .with_context(|| format!("Cannot read manifest file from {}", manifest_file.display()))?;
     let app = toml::from_str(&manifest_text).map(BuildAppInfoAnyVersion::into_v1)?;
     let app_dir = parent_dir(manifest_file)?;
 
-    if app.components.iter().all(|c| c.build.is_none()) {
-        println!("No build command found!");
+    let components_to_build = if component_ids.is_empty() {
+        app.components
+    } else {
+        let all_ids: HashSet<_> = app.components.iter().map(|c| &c.id).collect();
+        let unknown_component_ids: Vec<_> = component_ids
+            .iter()
+            .filter(|id| !all_ids.contains(id))
+            .map(|s| s.as_str())
+            .collect();
+
+        if !unknown_component_ids.is_empty() {
+            bail!("Unknown component(s) {}", unknown_component_ids.join(", "));
+        }
+
+        app.components
+            .into_iter()
+            .filter(|c| component_ids.contains(&c.id))
+            .collect()
+    };
+
+    if components_to_build.iter().all(|c| c.build.is_none()) {
+        println!("None of the components have a build command.");
+        println!("For information on specifying a build command, see https://developer.fermyon.com/spin/build#setting-up-for-spin-build.");
         return Ok(());
     }
 
-    app.components
+    components_to_build
         .into_iter()
         .map(|c| build_component(c, &app_dir))
         .collect::<Result<Vec<_>, _>>()?;
 
-    println!("Successfully ran the build command for the Spin components.");
+    terminal::step!("Finished", "building all Spin components");
     Ok(())
 }
 
@@ -37,10 +61,7 @@ pub async fn build(manifest_file: &Path) -> Result<()> {
 fn build_component(raw: RawComponentManifest, app_dir: &Path) -> Result<()> {
     match raw.build {
         Some(b) => {
-            println!(
-                "Executing the build command for component {}: {}",
-                raw.id, b.command
-            );
+            terminal::step!("Building", "component {} with `{}`", raw.id, b.command);
             let workdir = construct_workdir(app_dir, b.workdir.as_ref())?;
             if b.workdir.is_some() {
                 println!("Working directory: {:?}", workdir);
@@ -105,6 +126,6 @@ mod tests {
     #[tokio::test]
     async fn can_load_even_if_trigger_invalid() {
         let bad_trigger_file = test_data_root().join("bad_trigger.toml");
-        build(&bad_trigger_file).await.unwrap();
+        build(&bad_trigger_file, &[]).await.unwrap();
     }
 }

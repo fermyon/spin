@@ -123,6 +123,7 @@ async fn bindle_component_manifest(
             files: asset_group,
             allowed_http_hosts: local.wasm.allowed_http_hosts.clone(),
             key_value_stores: local.wasm.key_value_stores.clone(),
+            sqlite_databases: local.wasm.sqlite_databases.clone(),
         },
         trigger: local.trigger.clone(),
         config: local.config.clone(),

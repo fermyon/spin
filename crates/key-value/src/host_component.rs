@@ -1,4 +1,5 @@
-use crate::{KeyValueDispatch, StoreManager};
+use crate::{KeyValueDispatch, StoreManager, KEY_VALUE_STORES_KEY};
+use anyhow::anyhow;
 use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::HostComponent;
 use std::sync::Arc;
@@ -65,5 +66,39 @@ impl DynamicHostComponent for KeyValueComponent {
         );
 
         Ok(())
+    }
+
+    fn validate_app(&self, app: &spin_app::App) -> anyhow::Result<()> {
+        let mut errors = vec![];
+
+        for component in app.components() {
+            let store_manager = self.manager.get(&component);
+            for allowed in component
+                .get_metadata(KEY_VALUE_STORES_KEY)?
+                .unwrap_or_default()
+            {
+                if !store_manager.is_defined(&allowed) {
+                    let err = format!("- Component {} uses store '{allowed}'", component.id());
+                    errors.push(err);
+                }
+            }
+        }
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            let prologue = vec![
+                "One or more components use key-value stores which are not defined.",
+                "Check the spelling, or pass a runtime configuration file that defines these stores.",
+                "See https://developer.fermyon.com/spin/dynamic-configuration#key-value-store-runtime-configuration",
+                "Details:",
+            ];
+            let lines: Vec<_> = prologue
+                .into_iter()
+                .map(|s| s.to_owned())
+                .chain(errors)
+                .collect();
+            Err(anyhow!(lines.join("\n")))
+        }
     }
 }

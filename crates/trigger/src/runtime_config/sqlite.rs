@@ -72,7 +72,7 @@ impl SqliteDatabaseOpts {
     }
 }
 
-#[derive(Clone, Debug, Default, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SpinSqliteDatabaseOpts {
     pub path: Option<PathBuf>,
@@ -102,7 +102,7 @@ impl SpinSqliteDatabaseOpts {
     }
 }
 
-#[derive(Clone, Debug, Default, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LibsqlOpts {
     url: String,
@@ -142,14 +142,14 @@ impl TriggerHooks for SqlitePersistenceMessageHook {
         match runtime_config.default_sqlite_opts() {
             SqliteDatabaseOpts::Spin(s) => {
                 if let Some(path) = &s.path {
-                    println!("Storing default SQLite data to local SQLite database at {path:?}.");
+                    println!("Storing default SQLite data to {path:?}");
                 } else {
-                    println!("Using in-memory default SQLite database.");
+                    println!("Using in-memory default SQLite database; data will not be saved!");
                 }
             }
             SqliteDatabaseOpts::Libsql(l) => {
                 println!(
-                    "Storing default SQLite data to a remote LibSQL database at {}",
+                    "Storing default SQLite data to a libsql database at {}",
                     l.url
                 );
             }

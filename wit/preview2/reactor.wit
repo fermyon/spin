@@ -1,4 +1,4 @@
-package spin:reactor
+package fermyon:spin
 
 world reactor {
   import config

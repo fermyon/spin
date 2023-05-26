@@ -5,6 +5,7 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
+anyhow = "1.0"
 spin-sqlite = { path = "../sqlite" }
 spin-world = { path = "../world" }
 libsql-client = { version = "0.24", features = ["reqwest_backend"], default_features = false }

@@ -30,38 +30,44 @@ impl spin_sqlite::Connection for LibsqlClient {
     ) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error> {
         let stmt =
             libsql_client::statement::Statement::with_args(query, &convert_parameters(&parameters));
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            let result = self
-                .client
-                .execute(stmt)
-                .await
-                .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))?;
-            let rows = result
-                .rows
-                .into_iter()
-                .map(|r| {
-                    let values = r
-                        .values
-                        .into_iter()
-                        .map(|v| match v {
-                            libsql_client::Value::Null => sqlite::Value::Null,
-                            libsql_client::Value::Integer { value } => {
-                                sqlite::Value::Integer(value as _)
-                            }
-                            libsql_client::Value::Float { value } => sqlite::Value::Real(value),
-                            libsql_client::Value::Text { value } => sqlite::Value::Text(value),
-                            libsql_client::Value::Blob { value } => sqlite::Value::Blob(value),
-                        })
-                        .collect();
-                    RowResult { values }
-                })
-                .collect();
-            Ok(spin_world::sqlite::QueryResult {
-                columns: result.columns,
-                rows,
-            })
+        let client = self.client.clone();
+
+        // It's a bit buried under thread and async shenanigans, but this stanza
+        // just calls libsql's `Client::execute(Statement)` function (and maps the
+        // error case). (It is tricky to make a function to name it, though, because
+        // of Send constraints.)
+        let result = std::thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(client.execute(stmt))
         })
+        .join()
+        .unwrap_or_else(|_| Err(anyhow::anyhow!("internal thread error")))
+        .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))?;
+
+        let rows = result
+            .rows
+            .into_iter()
+            .map(|r| {
+                let values = r.values.into_iter().map(convert_result).collect();
+                RowResult { values }
+            })
+            .collect();
+        Ok(spin_world::sqlite::QueryResult {
+            columns: result.columns,
+            rows,
+        })
+    }
+}
+
+fn convert_result(v: libsql_client::Value) -> sqlite::Value {
+    use libsql_client::Value;
+
+    match v {
+        Value::Null => sqlite::Value::Null,
+        Value::Integer { value } => sqlite::Value::Integer(value),
+        Value::Float { value } => sqlite::Value::Real(value),
+        Value::Text { value } => sqlite::Value::Text(value),
+        Value::Blob { value } => sqlite::Value::Blob(value),
     }
 }
 

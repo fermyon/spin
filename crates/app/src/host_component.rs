@@ -76,17 +76,12 @@ impl DynamicHostComponents {
         host_component: DHC,
     ) -> anyhow::Result<HostComponentDataHandle<DHC>> {
         let host_component = Arc::new(host_component);
-        let handle = engine_builder
-            .add_host_component(host_component.clone())?
-            .into();
+        let handle = engine_builder.add_host_component(host_component.clone())?;
         self.host_components.push(DynamicHostComponentWithHandle {
             host_component,
-            handle,
+            handle: handle.into(),
         });
-        unsafe {
-            // Safe because `EngineBuilder::add_host_component` must have correct type.
-            Ok(HostComponentDataHandle::from_any(handle))
-        }
+        Ok(handle.into())
     }
 
     pub fn update_data(

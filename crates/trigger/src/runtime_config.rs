@@ -96,6 +96,14 @@ impl RuntimeConfig {
             .unwrap_or_else(|| KeyValueStoreOpts::default_store_opts(self))
     }
 
+    // Return the "default" key value store config.
+    fn default_sqlite_opts(&self) -> SqliteDatabaseOpts {
+        self.opts_layers()
+            .find_map(|opts| opts.sqlite_databases.get("default"))
+            .cloned()
+            .unwrap_or_else(|| SqliteDatabaseOpts::default(self))
+    }
+
     /// Return an iterator of named configured [`SqliteDatabase`]s.
     pub fn sqlite_databases(
         &self,
@@ -105,15 +113,14 @@ impl RuntimeConfig {
         for opts in self.opts_layers() {
             for (name, database) in &opts.sqlite_databases {
                 if !databases.contains_key(name) {
-                    let store = database.build(name, opts)?;
+                    let store = database.build(opts)?;
                     databases.insert(name.to_owned(), store);
                 }
             }
         }
         // Upsert default store
         if !databases.contains_key("default") {
-            let store = SqliteDatabaseOpts::default(self)
-                .build("default", &RuntimeConfigOpts::default())?;
+            let store = SqliteDatabaseOpts::default(self).build(&RuntimeConfigOpts::default())?;
             databases.insert("default".into(), store);
         }
         Ok(databases.into_iter())

@@ -1,6 +1,6 @@
+use anyhow::Context;
+use spin_common::data_dir::default_data_dir;
 use std::path::{Path, PathBuf};
-
-use anyhow::{anyhow, Context};
 
 use crate::directory::subdirectories;
 
@@ -20,23 +20,7 @@ impl TemplateStore {
     }
 
     pub(crate) fn try_default() -> anyhow::Result<Self> {
-        if let Ok(brew_prefix) = std::env::var("HOMEBREW_PREFIX") {
-            let templates_dir = Path::new(&brew_prefix)
-                .join("var")
-                .join("spin")
-                .join("templates");
-
-            if templates_dir.is_dir() {
-                return Ok(Self::new(templates_dir));
-                // TODO: check if they also have templates in non-brew default dir and warn
-            }
-        }
-
-        let data_dir = dirs::data_local_dir()
-            .or_else(|| dirs::home_dir().map(|p| p.join(".spin")))
-            .ok_or_else(|| anyhow!("Unable to get local data directory or home directory"))?;
-        let templates_dir = data_dir.join("spin").join("templates");
-        Ok(Self::new(templates_dir))
+        Ok(Self::new(default_data_dir()?.join("templates")))
     }
 
     pub(crate) fn get_directory(&self, id: impl AsRef<str>) -> PathBuf {

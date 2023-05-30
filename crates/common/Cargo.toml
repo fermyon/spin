@@ -6,6 +6,7 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = "1.0"
+dirs = "4.0"
 sha2 = "0.10"
 tokio = { version = "1", features = ["rt", "time"] }
 

@@ -1,5 +1,6 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use flate2::read::GzDecoder;
+use spin_common::data_dir::default_data_dir;
 use std::{
     ffi::OsStr,
     fs::{self, File},
@@ -24,25 +25,10 @@ impl PluginStore {
     }
 
     pub fn try_default() -> Result<Self> {
-        if let Ok(brew_prefix) = std::env::var("HOMEBREW_PREFIX") {
-            let plugins_dir = Path::new(&brew_prefix)
-                .join("var")
-                .join("spin")
-                .join("plugins");
-
-            if plugins_dir.is_dir() {
-                return Ok(Self::new(plugins_dir));
-                // TODO: check if they also have plugins in non-brew default dir and warn
-            }
+        if let Ok(test_dir) = std::env::var("TEST_PLUGINS_DIRECTORY") {
+            return Ok(Self::new(PathBuf::from(test_dir)));
         }
-        let data_dir = match std::env::var("TEST_PLUGINS_DIRECTORY") {
-            Ok(test_dir) => PathBuf::from(test_dir),
-            Err(_) => dirs::data_local_dir()
-                .or_else(|| dirs::home_dir().map(|p| p.join(".spin")))
-                .ok_or_else(|| anyhow!("Unable to get local data directory or home directory"))?,
-        };
-        let plugins_dir = data_dir.join("spin").join("plugins");
-        Ok(Self::new(plugins_dir))
+        Ok(Self::new(default_data_dir()?.join("plugins")))
     }
 
     /// Gets the path to where Spin plugin are installed.

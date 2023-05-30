@@ -27,6 +27,8 @@ const (
 	// manifest (that is, _excluding_ the base, but including the wildcard
 	// indicator if present).
 	HeaderRawComponentRoot = "spin-raw-component-route"
+	// The client address for the request.
+	HeaderClientAddr = "spin-client-addr"
 )
 
 // Override the default HTTP client to be compatible with the Spin SDK.

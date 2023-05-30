@@ -99,7 +99,6 @@ outbound-redis-tests = []
 config-provider-tests = []
 outbound-pg-tests = []
 outbound-mysql-tests = []
-fermyon-platform = []
 
 [workspace]
 members = [

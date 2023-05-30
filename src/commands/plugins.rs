@@ -52,7 +52,7 @@ impl PluginCommands {
 }
 
 /// Install plugins from remote source
-#[derive(Parser, Debug, Default)]
+#[derive(Parser, Debug)]
 pub struct Install {
     /// Name of Spin plugin.
     #[clap(

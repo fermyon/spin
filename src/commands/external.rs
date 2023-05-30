@@ -55,7 +55,10 @@ pub async fn execute_external_subcommand(
                 let plugin_installer = Install {
                     name: Some("cloud".to_string()),
                     yes_to_all: true,
-                    ..Default::default()
+                    local_manifest_src: None,
+                    remote_manifest_src: None,
+                    override_compatibility_check: false,
+                    version: None,
                 };
                 plugin_installer.run().await?;
             } else {

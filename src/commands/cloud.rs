@@ -16,7 +16,7 @@ pub struct DeployCommand {
 
 #[derive(Debug, Args, PartialEq)]
 #[clap(
-    about = "Login to the Fermyon Platform.",
+    about = "Log into to the Fermyon Cloud.",
     allow_hyphen_values = true,
     disable_help_flag = true
 )]
@@ -28,7 +28,7 @@ pub struct LoginCommand {
 
 #[derive(Debug, Args, PartialEq)]
 #[clap(
-    about = "Commands for publishing applications to the Fermyon Platform.",
+    about = "Commands for publishing applications to the Fermyon Cloud.",
     allow_hyphen_values = true,
     disable_help_flag = true
 )]

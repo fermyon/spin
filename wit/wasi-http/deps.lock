@@ -1,0 +1,34 @@
+[cli]
+url = "https://github.com/WebAssembly/wasi-cli/archive/main.tar.gz"
+sha256 = "f21b7722b9225b7ff4f040a67daacd4e412fe2c53c982568a2c25b97fc85d2a2"
+sha512 = "ceec4b906f94ba53731dd9428e7e62b964de2284d6aa7cb3436cb856ca89405b0ca8b02e8a8d4575204b9e72dac0e3b29690221ca438324b89e0084117f1700f"
+
+[clocks]
+url = "https://github.com/WebAssembly/wasi-clocks/archive/main.tar.gz"
+sha256 = "1ed7e35b3f9738663854f0dd92a95bfadc410ea07170501f5c2fec0cc24e3d57"
+sha512 = "ef1e23704a8a8436fd3718593d4c4d8b6d1c64dad3595b7496c0888ca14b725046f2900109800faca1bc8c14f237cdcaca791dba8284e1ad50105ab2d036825b"
+
+[filesystem]
+url = "https://github.com/WebAssembly/wasi-filesystem/archive/main.tar.gz"
+sha256 = "dc170645d8aa52f2f94ab8f71093fa0c101e509ed1a07318995dc0395e9d6cf2"
+sha512 = "3195a3e0f9ec52c3a91c4b4fde0547694236c7b29bceecb7f38634894fafd809c69ed1c1c9acbf225b2d5d00f5036d70371c9fed121d85028162b202035cabef"
+
+[io]
+url = "https://github.com/WebAssembly/wasi-io/archive/main.tar.gz"
+sha256 = "6e18239b0e20d1a3e6343cb961ebfd2c663ba7feb4c1aa3744b756fbdd1fb5b8"
+sha512 = "53169b6e4fba0b2cf5fcf808f76e7fbb7cabb6ed66ab53f77d0966e7448312ccbe8571880ef4fc2ee86fbd6ba19bc48d46e10d22dcac6c51d217e8d7127c32db"
+
+[poll]
+url = "https://github.com/WebAssembly/wasi-poll/archive/main.tar.gz"
+sha256 = "d4c27124f4c137eb538b5c92ba5858ed9042e11b24a2eef85d14becd0b7f55de"
+sha512 = "422c01b273b4b1377ece6f2e4ba0dfc609ca8ef30a3e0be0e172e1303fcf7b3ca4c470f4dea6c51bdf114b0f5c871ebc4934dfe3bf217d66ea689748df2b1e55"
+
+[random]
+url = "https://github.com/WebAssembly/wasi-random/archive/main.tar.gz"
+sha256 = "9b622463e597b9ca94f41e4eaae589a77be38f71b4723142b60246ffed8eaae4"
+sha512 = "21f03ca1e595b80d7ced522de1a47446526b49b900e2fb26fcbf410ce6aa267dbf247aebf3fbfa8123b46fc1a828e2fd64fb1e0198b40161a3257e8d86fd4546"
+
+[sockets]
+url = "https://github.com/WebAssembly/wasi-sockets/archive/main.tar.gz"
+sha256 = "871c211b12d87a5da87c42353338b652260840897efcd37e2afba3b9290058fc"
+sha512 = "e436a5ff3145ca85d702a086499c03488523483dd3addc8d71e4946e9c186355291551bb6d38b157173836fcc318182403e6dba970de4512f6cfb3374ccad6b9"

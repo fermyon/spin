@@ -1,0 +1,16 @@
+[package]
+name = "wasi-cloud"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+anyhow = "1.0.71"
+futures = "0.3.28"
+hyper = { version = "0.14.26", features = ["stream"] }
+spin-core = { path = "../core" }
+spin-common = { path = "../common" }
+wasmtime = { workspace = true }
+tokio = { version = "1.28.2", features = ["sync"] }
+http-crate = { package = "http", version = "0.2.9" }
+reqwest = { version = "0.11.18", features = ["stream"] }

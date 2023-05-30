@@ -3,6 +3,7 @@
 mod spin;
 mod tls;
 mod wagi;
+mod wasi;
 
 use std::{
     collections::HashMap,
@@ -37,7 +38,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
 use tracing::log;
 
-use crate::{spin::SpinHttpExecutor, wagi::WagiHttpExecutor};
+use crate::{spin::SpinHttpExecutor, wagi::WagiHttpExecutor, wasi::WasiHttpExecutor};
 
 pub use tls::TlsConfig;
 
@@ -242,6 +243,18 @@ impl HttpTrigger {
                             wagi_config: wagi_config.clone(),
                         };
                         executor
+                            .execute(
+                                &self.engine,
+                                component_id,
+                                &self.base,
+                                &trigger.route,
+                                req,
+                                addr,
+                            )
+                            .await
+                    }
+                    HttpExecutorType::Wasi => {
+                        WasiHttpExecutor
                             .execute(
                                 &self.engine,
                                 component_id,

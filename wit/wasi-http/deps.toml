@@ -1,0 +1,8 @@
+io = "https://github.com/WebAssembly/wasi-io/archive/main.tar.gz"
+cli = "https://github.com/WebAssembly/wasi-cli/archive/main.tar.gz"
+poll = "https://github.com/WebAssembly/wasi-poll/archive/main.tar.gz"
+random = "https://github.com/WebAssembly/wasi-random/archive/main.tar.gz"
+clocks = "https://github.com/WebAssembly/wasi-clocks/archive/main.tar.gz"
+# not used by http/proxy, but included to allow full contents of wasi-cli to validate
+filesystem = "https://github.com/WebAssembly/wasi-filesystem/archive/main.tar.gz"
+sockets = "https://github.com/WebAssembly/wasi-sockets/archive/main.tar.gz"

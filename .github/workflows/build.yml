@@ -34,8 +34,7 @@ jobs:
           BUILD_SPIN_EXAMPLES=0 cargo fmt --all -- --check
 
       - name: Cargo Clippy
-        run:
-          BUILD_SPIN_EXAMPLES=0 cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: BUILD_SPIN_EXAMPLES=0 cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   ## This is separated out to remove e2e-tests dependency on windows/mac builds
   build-rust-ubuntu:
@@ -167,3 +166,19 @@ jobs:
           export E2E_VOLUME_MOUNT="-v `pwd`/target/release/spin:/usr/local/bin/spin"
           export E2E_FETCH_SPIN=false
           make test-spin-up
+
+  lint-examples:
+    name: Lint Examples
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
+        with:
+          rust: true
+          rust-wasm: true
+          rust-cache: true
+
+      - name: Cargo Clippy
+        run: make check-rust-examples

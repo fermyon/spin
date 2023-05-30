@@ -1,0 +1,5 @@
+package wasi:poll
+
+world example-world {
+    import poll2
+}

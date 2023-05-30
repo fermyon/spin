@@ -38,7 +38,9 @@ lint:
 .PHONY: check-rust-examples
 check-rust-examples:
 	for manifest_path in examples/*/Cargo.toml; do \
-		cargo clippy --manifest-path "$${manifest_path}" -- -D warnings || exit 1 ; \
+		cargo clippy --manifest-path "$${manifest_path}" -- -D warnings \
+		&& cargo fmt --manifest-path "$${manifest_path}" -- --check \
+		|| exit 1 ; \
 	done
 
 .PHONY: test-unit
@@ -56,8 +58,8 @@ test-spin-up:
 	docker compose -f e2e-tests-docker-compose.yml run $(E2E_VOLUME_MOUNT) e2e-tests
 
 .PHONY: test-kv
-test-kv:
-	RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::key_value --nocapture
+test-kv: build
+	PATH=$$(pwd)/target/release:$$PATH RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::key_value --nocapture
 
 .PHONY: test-sqlite
 test-sqlite:

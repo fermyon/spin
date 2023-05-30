@@ -1,0 +1,17 @@
+[package]
+name = "wasi-http-rust"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = [ "cdylib" ]
+
+[dependencies]
+anyhow = "1"
+# General-purpose crate with common HTTP types.
+http = "0.2"
+url = "2.3.1"
+# Crate that generates Rust Wasm bindings from a WebAssembly interface.
+wit-bindgen = "0.8"
+
+[workspace]

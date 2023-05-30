@@ -1,12 +1,11 @@
 use anyhow::Result;
 use spin_app::MetadataKey;
+use spin_common::table::Table;
 use spin_core::async_trait;
 use spin_world::key_value;
 use std::{collections::HashSet, sync::Arc};
-use table::Table;
 
 mod host_component;
-pub mod table;
 mod util;
 
 pub use host_component::{manager, KeyValueComponent};

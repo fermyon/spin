@@ -10,5 +10,7 @@ spin-core = { path = "../core" }
 spin-app = { path = "../app" }
 spin-key-value = { path = "../key-value" }
 spin-world = { path = "../world" }
+spin-common = { path = "../common" }
 anyhow = "1.0"
 tokio = "1"
+

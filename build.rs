@@ -12,6 +12,7 @@ const RUST_HTTP_INTEGRATION_ENV_TEST: &str = "tests/http/headers-env-routes-test
 const RUST_HTTP_VAULT_CONFIG_TEST: &str = "tests/http/vault-config-test";
 const RUST_OUTBOUND_REDIS_INTEGRATION_TEST: &str = "tests/outbound-redis/http-rust-outbound-redis";
 const TIMER_TRIGGER_INTEGRATION_TEST: &str = "examples/spin-timer/app-example";
+const WASI_HTTP_INTEGRATION_TEST: &str = "examples/wasi-http-rust-async";
 
 fn main() {
     // Extract environment information to be passed to plugins.
@@ -90,6 +91,7 @@ error: the `wasm32-wasi` target is not installed
     cargo_build(RUST_HTTP_VAULT_CONFIG_TEST);
     cargo_build(RUST_OUTBOUND_REDIS_INTEGRATION_TEST);
     cargo_build(TIMER_TRIGGER_INTEGRATION_TEST);
+    cargo_build(WASI_HTTP_INTEGRATION_TEST);
 }
 
 fn build_wasm_test_program(name: &'static str, root: &'static str) {
@@ -99,6 +101,7 @@ fn build_wasm_test_program(name: &'static str, root: &'static str) {
         .build();
     println!("cargo:rerun-if-changed={root}/Cargo.toml");
     println!("cargo:rerun-if-changed={root}/Cargo.lock");
+    println!("cargo:rerun-if-changed={root}/src");
 }
 
 fn has_wasm32_wasi_target() -> bool {
@@ -119,6 +122,8 @@ fn cargo_build(dir: &str) {
         Some(dir),
         None,
     );
+    println!("cargo:rerun-if-changed={dir}/Cargo.toml");
+    println!("cargo:rerun-if-changed={dir}/src");
 }
 
 fn run<S: Into<String> + AsRef<std::ffi::OsStr>>(

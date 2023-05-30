@@ -13,9 +13,10 @@ use serde::de::DeserializeOwned;
 
 use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp};
 use spin_core::{
-    Config, Engine, EngineBuilder, Instance, InstancePre, ModuleInstance, ModuleInstancePre, Store,
-    StoreBuilder, WasiVersion,
+    Config, Engine, EngineBuilder, HostComponentDataHandle, Instance, InstancePre, ModuleInstance,
+    ModuleInstancePre, Store, StoreBuilder, WasiVersion,
 };
+use wasi_cloud::WasiCloudComponent;
 
 pub use crate::runtime_config::RuntimeConfig;
 
@@ -108,10 +109,12 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     where
         Executor::TriggerConfig: DeserializeOwned,
     {
-        let engine = {
+        let (engine, wasi_cloud) = {
             let mut builder = Engine::builder(&self.config)?;
 
-            if !self.disable_default_host_components {
+            let wasi_cloud = if self.disable_default_host_components {
+                None
+            } else {
                 builder.add_host_component(outbound_redis::OutboundRedisComponent)?;
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
@@ -136,10 +139,11 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                     &mut builder,
                     spin_config::ConfigHostComponent::new(runtime_config.config_providers()),
                 )?;
-            }
+                Some(builder.add_host_component(wasi_cloud::WasiCloudComponent)?)
+            };
 
             Executor::configure_engine(&mut builder)?;
-            builder.build()
+            (builder.build(), wasi_cloud)
         };
 
         let app = self.loader.load_owned_app(app_uri).await?;
@@ -151,7 +155,8 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
             .try_for_each(|h| h.app_loaded(app.borrowed(), &runtime_config))?;
 
         // Run trigger executor
-        Executor::new(TriggerAppEngine::new(engine, app_name, app, self.hooks).await?).await
+        Executor::new(TriggerAppEngine::new(engine, app_name, app, self.hooks, wasi_cloud).await?)
+            .await
     }
 }
 
@@ -191,6 +196,7 @@ pub struct TriggerAppEngine<Executor: TriggerExecutor> {
     trigger_configs: Vec<Executor::TriggerConfig>,
     // Map of {Component ID -> InstancePre} for each component.
     component_instance_pres: HashMap<String, EitherInstancePre<Executor::RuntimeData>>,
+    wasi_cloud: Option<HostComponentDataHandle<WasiCloudComponent>>,
 }
 
 impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
@@ -201,6 +207,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         app_name: String,
         app: OwnedApp,
         hooks: Vec<Box<dyn TriggerHooks>>,
+        wasi_cloud: Option<HostComponentDataHandle<WasiCloudComponent>>,
     ) -> Result<Self>
     where
         <Executor as TriggerExecutor>::TriggerConfig: DeserializeOwned,
@@ -236,6 +243,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
             hooks,
             trigger_configs: trigger_configs.into_values().collect(),
             component_instance_pres,
+            wasi_cloud,
         })
     }
 
@@ -321,6 +329,10 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
                 self.app_name, component_id
             )
         })
+    }
+
+    pub fn wasi_cloud(&self) -> Option<HostComponentDataHandle<WasiCloudComponent>> {
+        self.wasi_cloud
     }
 }
 

@@ -229,7 +229,7 @@ fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
     let http_config: HttpConfig = cfg.components[0].trigger.clone().try_into()?;
 
     match http_config.executor.as_ref().unwrap() {
-        HttpExecutor::Spin => panic!("expected wagi http executor"),
+        HttpExecutor::Spin | HttpExecutor::Wasi => panic!("expected wagi http executor"),
         HttpExecutor::Wagi(spin_manifest::WagiConfig { entrypoint, argv }) => {
             assert_eq!(entrypoint, EXPECTED_CUSTOM_ENTRYPOINT);
             assert_eq!(argv, EXPECTED_DEFAULT_ARGV);

@@ -1,10 +1,9 @@
 mod host_component;
 
-use spin_app::{async_trait, MetadataKey};
-use spin_key_value::table;
-use std::{collections::HashSet, sync::Arc};
-
 pub use host_component::SqliteComponent;
+use spin_app::{async_trait, MetadataKey};
+use spin_common::table;
+use std::{collections::HashSet, sync::Arc};
 
 pub const DATABASES_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("databases");
 

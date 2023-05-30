@@ -328,7 +328,7 @@ impl Default for HttpConfig {
 
 /// The executor for the HTTP component.
 /// The component can either implement the Spin HTTP interface,
-/// or the Wagi CGI interface.
+/// the `wasi-http` interface, or the Wagi CGI interface.
 ///
 /// If an executor is not specified, the inferred default is `HttpExecutor::Spin`.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -338,6 +338,9 @@ pub enum HttpExecutor {
     Spin,
     /// The component implements the Wagi CGI interface.
     Wagi(WagiConfig),
+    /// The component implements [`wasi-http`](https://github.com/WebAssembly/wasi-http)
+    /// interface (experimental, subject to change)
+    Wasi,
 }
 
 impl Default for HttpExecutor {

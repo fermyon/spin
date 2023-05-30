@@ -1,12 +1,7 @@
 use anyhow::Result;
 use spin_sdk::{
+    http::{Params, Request, Response, Router},
     http_component,
-    http::{
-        Request, 
-        Response, 
-        Router, 
-        Params,
-    },
 };
 
 /// A Spin HTTP component that internally routes requests.
@@ -27,7 +22,7 @@ mod api {
 
         Ok(http::Response::builder()
             .status(http::StatusCode::OK)
-            .body(Some(format!("{planet}").into()))?)
+            .body(Some(planet.to_string().into()))?)
     }
 
     // /*
@@ -35,6 +30,6 @@ mod api {
         let capture = params.wildcard().unwrap_or_default();
         Ok(http::Response::builder()
             .status(http::StatusCode::OK)
-            .body(Some(format!("{capture}").into()))?)
+            .body(Some(capture.to_string().into()))?)
     }
 }

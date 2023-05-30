@@ -1,0 +1,16 @@
+spin_manifest_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "An application that demonstrates streaming request and response bodies."
+name = "spin-wasi-http"
+trigger = { type = "http", base = "/" }
+version = "1.0.0"
+
+[[component]]
+id = "hello"
+source = "target/wasm32-wasi/release/wasi_http_rust.wasm"
+[component.trigger]
+route = "/..."
+executor =  { type = "wasi" }
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+watch = ["src/**/*.rs", "Cargo.toml"]

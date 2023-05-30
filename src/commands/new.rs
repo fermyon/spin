@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use path_absolutize::Absolutize;
 use tokio;
@@ -49,7 +49,7 @@ pub struct TemplateNewCommandCore {
 
     /// An optional argument that allows to skip prompts for the manifest file
     /// by accepting the defaults if available on the template
-    #[clap(long = "accept-defaults", takes_value = false)]
+    #[clap(short = 'a', long = "accept-defaults", takes_value = false)]
     pub accept_defaults: bool,
 }
 
@@ -119,10 +119,12 @@ impl TemplateNewCommandCore {
                 .with_context(|| format!("Error retrieving template {}", template_id))?
             {
                 Some(template) => template,
-                None => {
-                    println!("Template {template_id} not found");
-                    return Ok(());
-                }
+                None => match prompt_template(&template_manager, &variant, &[template_id.clone()])
+                    .await?
+                {
+                    Some(template) => template,
+                    None => return Ok(()),
+                },
             },
             None => match prompt_template(&template_manager, &variant, &self.tags).await? {
                 Some(template) => template,
@@ -218,6 +220,14 @@ async fn prompt_template(
         Some(t) => t,
         None => return Ok(None),
     };
+    if templates.is_empty() {
+        if tags.len() == 1 {
+            bail!("No templates matched '{}'", tags[0]);
+        } else {
+            bail!("No templates matched all tags");
+        }
+    }
+
     let opts = templates
         .iter()
         .map(|t| format!("{} ({})", t.id(), t.description_or_empty()))

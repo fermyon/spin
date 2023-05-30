@@ -16,19 +16,22 @@ pub trait Controller {
     fn new_app(&self, template_name: &str, app_name: &str, args: Vec<&str>) -> Result<Output>;
     fn build_app(&self, app_name: &str) -> Result<Output>;
     fn install_plugins(&self, plugins: Vec<&str>) -> Result<Output>;
+    /// Run the app and either return a running `AppInstance` or the `Output` from an exited invocation
     async fn run_app(
         &self,
         app_name: &str,
         trigger_type: &str,
         mut args: Vec<&str>,
-    ) -> Result<AppInstance>;
+        state_dir: &str,
+    ) -> Result<Result<AppInstance, ExitedInstance>>;
     async fn stop_app(
         &self,
         app_name: Option<&str>,
         process: Option<tokio::process::Child>,
     ) -> Result<()>;
 }
-/// This represents a running spin app.
+/// A running spin app.
+///
 /// If it is running using `spin up`, it also has `process` field populated
 /// with handle to the `spin up` process
 pub struct AppInstance {
@@ -73,4 +76,10 @@ impl AppInstance {
             stderr_stream,
         }
     }
+}
+
+/// An invocation of `spin up` that has exited
+pub struct ExitedInstance {
+    pub metadata: AppMetadata,
+    pub output: Output,
 }

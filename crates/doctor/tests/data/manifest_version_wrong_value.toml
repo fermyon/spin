@@ -1,0 +1,4 @@
+spin_manifest_version = 2
+
+# comment preserved
+name = "app-name"

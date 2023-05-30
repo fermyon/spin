@@ -6,6 +6,7 @@ use serde::de::DeserializeOwned;
 use spin_app::Loader;
 use spin_common::{arg_parser::parse_kv, sloth};
 
+use crate::runtime_config::sqlite::SqlitePersistenceMessageHook;
 use crate::stdio::StdioLoggingTriggerHooks;
 use crate::{
     loader::TriggerLoader,
@@ -106,6 +107,10 @@ where
     #[clap(long = "key-value", parse(try_from_str = parse_kv))]
     key_values: Vec<(String, String)>,
 
+    /// Run a sqlite migration against the default database
+    #[clap(long = "sqlite")]
+    sqlite_statements: Vec<String>,
+
     #[clap(long = "help-args-only", hide = true)]
     pub help_args_only: bool,
 }
@@ -136,6 +141,7 @@ where
 
         let init_data = crate::HostComponentInitData {
             kv: self.key_values.clone(),
+            sqlite: self.sqlite_statements.clone(),
         };
 
         let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
@@ -176,6 +182,7 @@ where
 
         builder.hooks(StdioLoggingTriggerHooks::new(self.follow_components()));
         builder.hooks(KeyValuePersistenceMessageHook);
+        builder.hooks(SqlitePersistenceMessageHook);
 
         builder.build(locked_url, runtime_config, init_data).await
     }

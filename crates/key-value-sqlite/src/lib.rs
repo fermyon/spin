@@ -61,6 +61,10 @@ impl StoreManager for KeyValueSqlite {
             connection: connection.clone(),
         }))
     }
+
+    fn is_defined(&self, _store_name: &str) -> bool {
+        true
+    }
 }
 
 struct SqliteStore {

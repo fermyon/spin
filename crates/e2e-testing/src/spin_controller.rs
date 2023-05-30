@@ -1,11 +1,10 @@
-use crate::controller::{AppInstance, Controller};
+use crate::controller::{AppInstance, Controller, ExitedInstance};
 use crate::metadata_extractor::AppMetadata;
 use crate::spin;
 use crate::utils;
-use anyhow::{anyhow, Result};
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use std::process::Output;
-use std::time::Duration;
 use tokio::io::BufReader;
 
 pub struct SpinUp {}
@@ -43,7 +42,8 @@ impl Controller for SpinUp {
         app_name: &str,
         trigger_type: &str,
         mut xargs: Vec<&str>,
-    ) -> Result<AppInstance> {
+        state_dir: &str,
+    ) -> Result<Result<AppInstance, ExitedInstance>> {
         let appdir = spin::appdir(app_name);
 
         let mut cmd = vec!["spin", "up"];
@@ -51,38 +51,33 @@ impl Controller for SpinUp {
             cmd.append(&mut xargs);
         }
 
-        let mut address = "".to_string();
+        if !xargs.contains(&"--state_dir") {
+            cmd.push("--state-dir");
+            cmd.push(state_dir);
+        }
+
+        let mut address = String::new();
         if trigger_type == "http" {
             let port = utils::get_random_port()?;
             address = format!("127.0.0.1:{}", port);
             cmd.append(&mut vec!["--listen", address.as_str()]);
         }
 
-        let mut child = utils::run_async(cmd, Some(&appdir), None);
+        let metadata = AppMetadata {
+            name: app_name.to_string(),
+            base: format!("http://{}", address),
+            app_routes: vec![],
+            version: "".to_string(),
+        };
+        let mut child = utils::run_async(&cmd, Some(&appdir), None);
 
-        if trigger_type == "http" {
-            // ensure the server is accepting requests before continuing.
-            match utils::wait_tcp(&address, &mut child, "spin").await {
-                Ok(_) => {}
-                Err(_) => {
-                    let stdout = child.stdout.take().expect("stdout handle not found");
-                    let stdout_stream = BufReader::new(stdout);
-                    let stdout_logs =
-                        utils::get_output_from_stdout(Some(stdout_stream), Duration::from_secs(2))
-                            .await?;
-
-                    let stderr = child.stderr.take().expect("stderr handle not found");
-                    let stderr_stream = BufReader::new(stderr);
-                    let stderr_logs =
-                        utils::get_output_from_stderr(Some(stderr_stream), Duration::from_secs(2))
-                            .await?;
-                    return Err(anyhow!(
-                        "error running spin up.\nstdout {:#?}\nstderr: {:#?}\n",
-                        stdout_logs,
-                        stderr_logs
-                    ));
-                }
-            }
+        // if http ensure the server is accepting requests before continuing.
+        if trigger_type == "http" && !utils::wait_tcp(&address, &mut child, "spin").await? {
+            let output = child
+                .wait_with_output()
+                .await
+                .context("could not get output from running `spin up`")?;
+            return Ok(Err(ExitedInstance { output, metadata }));
         }
 
         let stdout = child
@@ -97,17 +92,12 @@ impl Controller for SpinUp {
             .expect("child did not have a handle to stderr");
         let stderr_stream = BufReader::new(stderr);
 
-        Ok(AppInstance::new_with_process_and_logs_stream(
-            AppMetadata {
-                name: app_name.to_string(),
-                base: format!("http://{}", address),
-                app_routes: vec![],
-                version: "".to_string(),
-            },
+        Ok(Ok(AppInstance::new_with_process_and_logs_stream(
+            metadata,
             Some(child),
             Some(stdout_stream),
             Some(stderr_stream),
-        ))
+        )))
     }
 
     async fn stop_app(

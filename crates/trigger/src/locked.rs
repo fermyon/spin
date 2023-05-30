@@ -17,6 +17,7 @@ use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
     HttpConfig, HttpTriggerConfiguration, RedisConfig, TriggerConfig,
 };
+use spin_sqlite::DATABASES_KEY;
 
 pub const NAME_KEY: MetadataKey = MetadataKey::new("name");
 pub const VERSION_KEY: MetadataKey = MetadataKey::new("version");
@@ -146,6 +147,7 @@ impl LockedAppBuilder {
             .string_option(DESCRIPTION_KEY, component.description)
             .string_array(ALLOWED_HTTP_HOSTS_KEY, component.wasm.allowed_http_hosts)
             .string_array(KEY_VALUE_STORES_KEY, component.wasm.key_value_stores)
+            .string_array(DATABASES_KEY, component.wasm.sqlite_databases)
             .take();
 
         let source = {

@@ -125,6 +125,10 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
+                    runtime_config::sqlite::build_component(&runtime_config, &init_data.sqlite)?,
+                )?;
+                self.loader.add_dynamic_host_component(
+                    &mut builder,
                     outbound_http::OutboundHttpComponent,
                 )?;
                 self.loader.add_dynamic_host_component(
@@ -151,9 +155,10 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 }
 
 /// Initialisation data for host components.
-#[derive(Default)] // TODO: this is only for tests, would like to get rid of
+#[derive(Default)] // TODO: the implementation of Default is only for tests - would like to get rid of
 pub struct HostComponentInitData {
     kv: Vec<(String, String)>,
+    sqlite: Vec<String>,
 }
 
 /// Execution context for a TriggerExecutor executing a particular App.
@@ -335,8 +340,15 @@ pub fn decode_preinstantiation_error(e: anyhow::Error) -> anyhow::Error {
 
     if err_text.contains("unknown import") && err_text.contains("has not been defined") {
         // TODO: how to maintain this list?
-        let sdk_imported_interfaces =
-            &["config", "http", "key-value", "mysql", "postgres", "redis"];
+        let sdk_imported_interfaces = &[
+            "config",
+            "http",
+            "key-value",
+            "mysql",
+            "postgres",
+            "redis",
+            "sqlite",
+        ];
 
         if sdk_imported_interfaces
             .iter()

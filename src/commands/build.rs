@@ -23,6 +23,10 @@ pub struct BuildCommand {
     )]
     pub app_source: PathBuf,
 
+    /// Component ID to build. This can be specified multiple times. The default is all components.
+    #[clap(short = 'c', long, multiple = true)]
+    pub component_id: Vec<String>,
+
     /// Run the application after building.
     #[clap(name = BUILD_UP_OPT, short = 'u', long = "up")]
     pub up: bool,
@@ -34,7 +38,7 @@ pub struct BuildCommand {
 impl BuildCommand {
     pub async fn run(self) -> Result<()> {
         let manifest_file = crate::manifest::resolve_file_path(&self.app_source)?;
-        spin_build::build(&manifest_file).await?;
+        spin_build::build(&manifest_file, &self.component_id).await?;
 
         if self.up {
             let mut cmd = UpCommand::parse_from(

@@ -1,0 +1,14 @@
+[package]
+name = "spin-sqlite-inproc"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+spin-sqlite = { path = "../sqlite" }
+spin-world = { path = "../world" }
+anyhow = "1.0"
+rusqlite = { version = "0.29.0", features = [ "bundled" ] }
+rand = "0.8"
+once_cell = "1"
+tokio = "1"

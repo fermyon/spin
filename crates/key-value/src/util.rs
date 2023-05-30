@@ -21,6 +21,10 @@ impl StoreManager for EmptyStoreManager {
     async fn get(&self, _name: &str) -> Result<Arc<dyn Store>, Error> {
         Err(Error::NoSuchStore)
     }
+
+    fn is_defined(&self, _store_name: &str) -> bool {
+        false
+    }
 }
 
 pub struct DelegatingStoreManager {
@@ -42,6 +46,10 @@ impl StoreManager for DelegatingStoreManager {
             .ok_or(Error::NoSuchStore)?
             .get(name)
             .await
+    }
+
+    fn is_defined(&self, store_name: &str) -> bool {
+        self.delegates.contains_key(store_name)
     }
 }
 
@@ -94,6 +102,10 @@ impl<T: StoreManager> StoreManager for CachingStoreManager<T> {
                 previous_task: None,
             }),
         }))
+    }
+
+    fn is_defined(&self, store_name: &str) -> bool {
+        self.inner.is_defined(store_name)
     }
 }
 

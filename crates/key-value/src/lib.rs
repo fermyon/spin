@@ -6,7 +6,7 @@ use std::{collections::HashSet, sync::Arc};
 use table::Table;
 
 mod host_component;
-mod table;
+pub mod table;
 mod util;
 
 pub use host_component::{manager, KeyValueComponent};
@@ -21,6 +21,7 @@ pub use key_value::{Error, Store as StoreHandle};
 #[async_trait]
 pub trait StoreManager: Sync + Send {
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error>;
+    fn is_defined(&self, store_name: &str) -> bool;
 }
 
 #[async_trait]

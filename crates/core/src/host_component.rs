@@ -90,16 +90,28 @@ pub struct HostComponentDataHandle<HC: HostComponent> {
     _phantom: PhantomData<fn() -> HC::Data>,
 }
 
-impl<HC: HostComponent> Clone for HostComponentDataHandle<HC> {
-    fn clone(&self) -> Self {
+impl<HC: HostComponent> HostComponentDataHandle<HC> {
+    fn from_any(handle: AnyHostComponentDataHandle) -> Self {
         Self {
-            inner: self.inner,
+            inner: handle,
             _phantom: PhantomData,
         }
     }
 }
 
+impl<HC: HostComponent> Clone for HostComponentDataHandle<HC> {
+    fn clone(&self) -> Self {
+        Self::from_any(self.inner)
+    }
+}
+
 impl<HC: HostComponent> Copy for HostComponentDataHandle<HC> {}
+
+impl<HC: HostComponent> From<HostComponentDataHandle<Arc<HC>>> for HostComponentDataHandle<HC> {
+    fn from(value: HostComponentDataHandle<Arc<HC>>) -> Self {
+        Self::from_any(value.inner)
+    }
+}
 
 #[doc(hidden)]
 pub trait DynSafeHostComponent {
@@ -187,6 +199,11 @@ impl HostComponentsData {
     /// Retrieves a mutable reference to [`HostComponent::Data`] for the given `handle`.
     ///
     /// If unset, the data will be initialized with [`HostComponent::build_data`].
+    ///
+    /// # Panics
+    ///
+    /// If the given handle was not obtained from the same [`HostComponentsBuilder`] that
+    /// was the source of this [`HostComponentsData`], this function may panic.
     pub fn get_or_insert<HC: HostComponent>(
         &mut self,
         handle: HostComponentDataHandle<HC>,
@@ -198,6 +215,11 @@ impl HostComponentsData {
     /// Retrieves a mutable reference to [`HostComponent::Data`] for the given `handle`.
     ///
     /// If unset, the data will be initialized with [`HostComponent::build_data`].
+    ///
+    /// # Panics
+    ///
+    /// If the given handle was not obtained from the same [`HostComponentsBuilder`] that
+    /// was the source of this [`HostComponentsData`], this function may panic.
     pub fn get_or_insert_any(&mut self, handle: AnyHostComponentDataHandle) -> &mut AnyData {
         let idx = handle.0;
         self.data[idx].get_or_insert_with(|| self.host_components[idx].build_data_box())

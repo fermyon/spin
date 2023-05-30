@@ -8,6 +8,9 @@ wit_bindgen_rust::import!("../../wit/ephemeral/key-value.wit");
 
 use key_value::Store as RawStore;
 
+#[cfg(feature = "json")]
+use serde::{de::DeserializeOwned, Serialize};
+
 /// Errors which may be raised by the methods of `Store`
 pub type Error = key_value::Error;
 
@@ -60,6 +63,29 @@ impl Store {
     /// Get the set of keys in this store.
     pub fn get_keys(&self) -> Result<Vec<String>, Error> {
         key_value::get_keys(self.0)
+    }
+
+    #[cfg(feature = "json")]
+    /// Serialize the given data to JSON, then set it as the value for the specified `key`.
+    pub fn set_json<T: Serialize>(
+        &self,
+        key: impl AsRef<str>,
+        value: &T,
+    ) -> Result<(), anyhow::Error> {
+        Ok(key_value::set(
+            self.0,
+            key.as_ref(),
+            &serde_json::to_vec(value)?,
+        )?)
+    }
+
+    #[cfg(feature = "json")]
+    /// Deserialize an instance of type `T` from the value of `key`.
+    pub fn get_json<T: DeserializeOwned>(&self, key: impl AsRef<str>) -> Result<T, anyhow::Error> {
+        Ok(serde_json::from_slice(&key_value::get(
+            self.0,
+            key.as_ref(),
+        )?)?)
     }
 }
 

@@ -147,7 +147,7 @@ impl TriggerExecutor for HttpTrigger {
         // Print startup messages
         let scheme = if tls.is_some() { "https" } else { "http" };
         let base_url = format!("{}://{:?}", scheme, listen_addr);
-        println!("\nServing {}", base_url);
+        terminal::step!("\nServing", "{}", base_url);
         log::info!("Serving {}", base_url);
 
         println!("Available Routes:");

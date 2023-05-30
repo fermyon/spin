@@ -148,13 +148,11 @@ async fn prepare(
     let components = future::join_all(
         raw.components
             .into_iter()
-            .map(|c| async { core(c, &src, base_dst.as_ref()).await })
-            .collect::<Vec<_>>(),
+            .map(|c| async { core(c, &src, base_dst.as_ref()).await }),
     )
     .await
     .into_iter()
-    .collect::<Result<Vec<_>>>()
-    .context("Failed to prepare configuration")?;
+    .collect::<Result<Vec<_>>>()?;
 
     let variables = raw
         .variables
@@ -180,12 +178,7 @@ async fn core(
     let src = parent_dir(src)?;
     let source = match raw.source {
         config::RawModuleSource::FileReference(p) => {
-            let p = match p.is_absolute() {
-                true => p,
-                false => src.join(p),
-            };
-
-            ModuleSource::FileReference(p)
+            ModuleSource::FileReference(canonicalize_and_absolutize(p, &src)?)
         }
         config::RawModuleSource::Url(us) => {
             let source = UrlSource::new(&us)
@@ -211,11 +204,13 @@ async fn core(
     let environment = raw.wasm.environment.unwrap_or_default();
     let allowed_http_hosts = raw.wasm.allowed_http_hosts.unwrap_or_default();
     let key_value_stores = raw.wasm.key_value_stores.unwrap_or_default();
+    let sqlite_databases = raw.wasm.sqlite_databases.unwrap_or_default();
     let wasm = WasmConfig {
         environment,
         mounts,
         allowed_http_hosts,
         key_value_stores,
+        sqlite_databases,
     };
     let config = raw.config.unwrap_or_default();
     Ok(CoreComponent {
@@ -225,6 +220,24 @@ async fn core(
         wasm,
         config,
     })
+}
+
+/// Ensures that the path is canonicalized and absolutized base on the `src` path
+pub fn canonicalize_and_absolutize(mut path: PathBuf, src: &Path) -> anyhow::Result<PathBuf> {
+    path = path.canonicalize().unwrap_or(path);
+    // If path is UTF-8 and we can successfully perform tilde and environment expansion, do so.
+    if let Some(p) = path.as_os_str().to_str() {
+        match shellexpand::full(p) {
+            Ok(p) => path = Path::new(&*p).to_owned(),
+            Err(e) => {
+                return Err(e.cause).context(anyhow!(
+                    "failed to expand `source` path: `${}` could not be expanded",
+                    e.var_name
+                ))
+            }
+        }
+    }
+    Ok(src.join(path))
 }
 
 /// A parsed URL source for a component module.

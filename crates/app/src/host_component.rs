@@ -1,7 +1,10 @@
 use std::{any::Any, sync::Arc};
 
 use anyhow::Context;
-use spin_core::{AnyHostComponentDataHandle, EngineBuilder, HostComponent, HostComponentsData};
+use spin_core::{
+    AnyHostComponentDataHandle, EngineBuilder, HostComponent, HostComponentDataHandle,
+    HostComponentsData,
+};
 
 use crate::{App, AppComponent};
 
@@ -71,16 +74,14 @@ impl DynamicHostComponents {
         &mut self,
         engine_builder: &mut EngineBuilder<T>,
         host_component: DHC,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<HostComponentDataHandle<DHC>> {
         let host_component = Arc::new(host_component);
-        let handle = engine_builder
-            .add_host_component(host_component.clone())?
-            .into();
+        let handle = engine_builder.add_host_component(host_component.clone())?;
         self.host_components.push(DynamicHostComponentWithHandle {
             host_component,
-            handle,
+            handle: handle.into(),
         });
-        Ok(())
+        Ok(handle.into())
     }
 
     pub fn update_data(

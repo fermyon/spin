@@ -2,9 +2,11 @@ use anyhow::Error;
 use clap::{CommandFactory, Parser, Subcommand};
 use is_terminal::IsTerminal;
 use lazy_static::lazy_static;
+use spin_cli::build_info::*;
 use spin_cli::commands::{
     build::BuildCommand,
     cloud::{CloudCommand, DeployCommand, LoginCommand},
+    doctor::DoctorCommand,
     external::execute_external_subcommand,
     new::{AddCommand, NewCommand},
     plugins::PluginCommands,
@@ -19,7 +21,15 @@ use spin_trigger::cli::TriggerExecutorCommand;
 use spin_trigger_http::HttpTrigger;
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() {
+    if let Err(err) = _main().await {
+        terminal::error!("{err}");
+        print_error_chain(err);
+        std::process::exit(1)
+    }
+}
+
+async fn _main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(
@@ -29,6 +39,20 @@ async fn main() -> Result<(), Error> {
         .with_ansi(std::io::stderr().is_terminal())
         .init();
     SpinApp::parse().run().await
+}
+
+fn print_error_chain(err: anyhow::Error) {
+    if let Some(cause) = err.source() {
+        let is_multiple = cause.source().is_some();
+        eprintln!("\nCaused by:");
+        for (i, err) in err.chain().skip(1).enumerate() {
+            if is_multiple {
+                eprintln!("{i:>4}: {}", err)
+            } else {
+                eprintln!("      {}", err)
+            }
+        }
+    }
 }
 
 lazy_static! {
@@ -44,7 +68,7 @@ fn version() -> &'static str {
 #[derive(Parser)]
 #[clap(
     name = "spin",
-    version = version(),
+    version = version()
 )]
 enum SpinApp {
     #[clap(subcommand, alias = "template")]
@@ -67,6 +91,7 @@ enum SpinApp {
     #[clap(external_subcommand)]
     External(Vec<String>),
     Watch(WatchCommand),
+    Doctor(DoctorCommand),
 }
 
 #[derive(Subcommand)]
@@ -96,16 +121,12 @@ impl SpinApp {
             Self::Plugins(cmd) => cmd.run().await,
             Self::External(cmd) => execute_external_subcommand(cmd, SpinApp::command()).await,
             Self::Watch(cmd) => cmd.run().await,
+            Self::Doctor(cmd) => cmd.run().await,
         }
     }
 }
 
 /// Returns build information, similar to: 0.1.0 (2be4034 2022-03-31).
 fn build_info() -> String {
-    format!(
-        "{} ({} {})",
-        env!("VERGEN_BUILD_SEMVER"),
-        env!("VERGEN_GIT_SHA_SHORT"),
-        env!("VERGEN_GIT_COMMIT_DATE")
-    )
+    format!("{SPIN_VERSION} ({SPIN_COMMIT_SHA} {SPIN_COMMIT_DATE})")
 }

@@ -26,9 +26,7 @@ pub trait Connection: Send + Sync {
     fn execute_batch(
         &self,
         _statements: &str,
-    ) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error> {
-        todo!("Implementing batching which is needed for migrations")
-    }
+    ) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error>;
 }
 
 /// An implementation of the SQLite host

@@ -57,6 +57,56 @@ impl spin_sqlite::Connection for LibsqlClient {
             rows,
         })
     }
+
+    fn execute_batch(
+        &self,
+        statements: &str,
+    ) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error> {
+        let client = self.client.clone();
+
+        // SURELY THIS IS NOT SOMETHING WE HAVE TO DO SURELY
+        let stmts: Vec<_> =
+            sqlparser::parser::Parser::parse_sql(&sqlparser::dialect::SQLiteDialect {}, statements)
+                .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))? // TODO: Io is a non-ideal error here
+                .iter()
+                .map(|st| st.to_string())
+                .map(libsql_client::Statement::from)
+                .collect();
+
+        // As in `query`, the shenanigans just wrap a call to libsql's `Client::batch()`.
+        let results = std::thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(client.batch(stmts))
+        })
+        .join()
+        .unwrap_or_else(|_| Err(anyhow::anyhow!("internal thread error")))
+        .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))?;
+
+        // .into_iter() is needed so that last() is owned
+        let result = match results.into_iter().last() {
+            Some(rs) => rs,
+            None => {
+                return Ok(spin_world::sqlite::QueryResult {
+                    columns: vec![],
+                    rows: vec![],
+                })
+            }
+        };
+
+        // TODO: Well this all looks eerily familiar
+        let rows = result
+            .rows
+            .into_iter()
+            .map(|r| {
+                let values = r.values.into_iter().map(convert_result).collect();
+                RowResult { values }
+            })
+            .collect();
+        Ok(spin_world::sqlite::QueryResult {
+            columns: result.columns,
+            rows,
+        })
+    }
 }
 
 fn convert_result(v: libsql_client::Value) -> sqlite::Value {

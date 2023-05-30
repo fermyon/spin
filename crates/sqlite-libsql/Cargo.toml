@@ -8,5 +8,6 @@ edition = { workspace = true }
 anyhow = "1.0"
 spin-sqlite = { path = "../sqlite" }
 spin-world = { path = "../world" }
+sqlparser = "0.34"
 libsql-client = { version = "0.24", features = ["reqwest_backend"], default_features = false }
 tokio = { version = "1", features = ["full"] }

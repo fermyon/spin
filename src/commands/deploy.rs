@@ -406,7 +406,9 @@ impl DeployCommand {
             None
         };
 
-        let application = spin_loader::local::from_file(&self.app()?, Some(tempfile::tempdir()?.path())).await?;
+        let app_file = crate::manifest::resolve_file_path(&self.app_source)?;
+        let dir = tempfile::tempdir()?;
+        let application = spin_loader::local::from_file(&app_file, Some(dir.path())).await?;
 
         // TODO: Is there a more helpful value (oci ref) that we could return here to inform version
         // or is buildinfo already appropriate?

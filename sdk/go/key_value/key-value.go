@@ -87,7 +87,7 @@ func Close(store Store) {
 }
 
 func toCBytes(x []byte) C.key_value_list_u8_t {
-	return C.key_value_list_u8_t{ptr: &x[0], len: C.size_t(len(x))}
+	return C.key_value_list_u8_t{ptr: (*C.uint8_t)(unsafe.Pointer(&x[0])), len: C.size_t(len(x))}
 }
 
 func toCStr(x string) C.key_value_string_t {

@@ -1,0 +1,3 @@
+default world example-world {
+    import streams: pkg.streams
+}

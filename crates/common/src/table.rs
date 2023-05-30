@@ -1,5 +1,5 @@
-// TODO: there's nothing key-value-specific about this utility, so it could be moved elsewhere, e.g. to a utility
-// crate of some kind.
+//! Provides a table for generating unique u32 identifiers for each element in a dynamically-changing set of
+//! resources.
 
 use std::collections::HashMap;
 
@@ -15,6 +15,12 @@ pub struct Table<V> {
     capacity: u32,
     next_key: u32,
     tuples: HashMap<u32, V>,
+}
+
+impl<V> Default for Table<V> {
+    fn default() -> Self {
+        Self::new(u32::MAX)
+    }
 }
 
 impl<V> Table<V> {

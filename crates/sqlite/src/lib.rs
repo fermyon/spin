@@ -11,7 +11,7 @@ use spin_core::async_trait;
 use spin_world::sqlite::{self, Host};
 
 pub use host_component::{ConnectionManager, DatabaseLocation, SqliteComponent, SqliteConnection};
-use spin_key_value::table;
+use spin_common::table;
 
 pub const DATABASES_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("databases");
 

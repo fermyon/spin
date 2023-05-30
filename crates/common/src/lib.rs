@@ -11,3 +11,4 @@
 pub mod arg_parser;
 pub mod sha256;
 pub mod sloth;
+pub mod table;

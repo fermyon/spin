@@ -1,0 +1,5 @@
+default world example-world {
+    import random: pkg.random
+    import insecure: pkg.insecure
+    import insecure-seed: pkg.insecure-seed
+}

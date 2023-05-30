@@ -1,0 +1,10 @@
+
+default world example-world {
+    import instance-network: pkg.instance-network
+    import network: pkg.network
+    import udp: pkg.udp
+    import udp-create-socket: pkg.udp-create-socket
+    import tcp: pkg.tcp
+    import tcp-create-socket: pkg.tcp-create-socket
+    import ip-name-lookup: pkg.ip-name-lookup
+}

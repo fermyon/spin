@@ -1,0 +1,13 @@
+[package]
+name = "wasi-cloud"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+anyhow = "1.0.71"
+futures = "0.3.28"
+hyper = "0.14.26"
+spin-core = { path = "../core" }
+spin-common = { path = "../common" }
+wasmtime = { workspace = true }

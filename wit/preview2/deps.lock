@@ -1,0 +1,34 @@
+[cli]
+url = "https://github.com/WebAssembly/wasi-cli/archive/main.tar.gz"
+sha256 = "4ee7653b8d712808a129b8dedb24f8af09fe13c177c08fb017ba1726c0756147"
+sha512 = "a7b43ab7dd1765ff6fc676ebd1fb28d1f24f20870deb1743485409ede90cdb7843358d6bfd3fcc0684d92d7bacc7dbf8c56f48156bae1c429e23e9c0a1567652"
+deps = ["filesystem"]
+
+[clocks]
+url = "https://github.com/WebAssembly/wasi-clocks/archive/main.tar.gz"
+sha256 = "3fb1c6a5541b6288fe9b22210b610b89ebd97a4318bdc174fe256f5635b1c0ad"
+sha512 = "e89cbfd4988f4299d1a9c7da484362df22e29550ee2d559cf82e20e0925e581f0df420818c6bae984df54e336b8eb747fc5171ddeccfe91ca25f48566a258ff6"
+
+[filesystem]
+sha256 = "4c92964370d25209f1efb8273360070fce0901834c992bdfb32310587a00dfd7"
+sha512 = "0152b5f5b1ab667fa422735b6296bbd5be699b5c526159ae43b7465b8ac69cf0cda8b6ca8773c352718de6d9a1b485a08be6f995b3ce3a8bf729fce5dcb4daac"
+
+[io]
+url = "https://github.com/WebAssembly/wasi-io/archive/main.tar.gz"
+sha256 = "7450142aeb3f1688ee2b12853344e262caf6aee0718dc0296316f7f6b3afd91f"
+sha512 = "5cc0f60d190e16d6dd52a4ca2fc862f007465e7642e98061b41c90778e1f2b00aeb2543b6fadbb6a137dd548d86e9e55edcfb30388adcc6a160b4cdc29d378ec"
+
+[poll]
+url = "https://github.com/WebAssembly/wasi-poll/archive/main.tar.gz"
+sha256 = "065422b0ea6ccb2a9facc6b87b902eef110c53d76fc31f341a6bc8d0b0285b6a"
+sha512 = "19a55cd3072a19ae6a1774723a4962e7a155a5ce89a27175e8c76020efb4d00bc92ebb78427d92bcb8effd4f0d03ebf0a0daa747ecd981b8d31d5abc2ad86423"
+
+[random]
+url = "https://github.com/WebAssembly/wasi-random/archive/main.tar.gz"
+sha256 = "29ae189cd5b3fc4d16b955bd7c7bb158a75e8329363ea5ae141a32bee743ab19"
+sha512 = "884d7c7dd167a93217166309d9e3e8befce9cff359cf8ff989b046dbaf15bb765b43c7746ceabdf64ea595873a588e4a6d1a3533f94732ab613e7ed3ee11a119"
+
+[sockets]
+url = "https://github.com/WebAssembly/wasi-sockets/archive/main.tar.gz"
+sha256 = "2a6158a0d7d6ac4d912f272c108d19b741a44566639191defaf8838e232417db"
+sha512 = "d2ae6f7b9e1a33c1f3ca840f5a8f1c0f757c139569cee62027def2bbe43350795461e2fd6bae09ada1c6c94237eb03da65330169762121b036dad8cd430ba462"

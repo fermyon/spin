@@ -1,0 +1,5 @@
+default world example-world {
+    import monotonic-clock: pkg.monotonic-clock
+    import wall-clock: pkg.wall-clock
+    import timezone: pkg.timezone
+}

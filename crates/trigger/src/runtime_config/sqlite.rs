@@ -6,6 +6,8 @@ use spin_sqlite::{SqliteComponent, DATABASES_KEY};
 
 use super::RuntimeConfigOpts;
 
+const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_db.db";
+
 pub type SqliteDatabase = Arc<dyn spin_sqlite::ConnectionManager>;
 
 pub(crate) fn build_component(
@@ -60,14 +62,10 @@ impl SqliteDatabaseOpts {
         Self::Spin(SpinSqliteDatabaseOpts::default(runtime_config))
     }
 
-    pub fn build(
-        &self,
-        name: &str,
-        config_opts: &RuntimeConfigOpts,
-    ) -> anyhow::Result<SqliteDatabase> {
+    pub fn build(&self, config_opts: &RuntimeConfigOpts) -> anyhow::Result<SqliteDatabase> {
         match self {
-            Self::Spin(opts) => opts.build(name, config_opts),
-            Self::Libsql(opts) => opts.build(name, config_opts),
+            Self::Spin(opts) => opts.build(config_opts),
+            Self::Libsql(opts) => opts.build(),
         }
     }
 }
@@ -80,12 +78,13 @@ pub struct SpinSqliteDatabaseOpts {
 
 impl SpinSqliteDatabaseOpts {
     pub fn default(runtime_config: &RuntimeConfig) -> Self {
-        // If the state dir is set, build the default path
-        let path = runtime_config.state_dir();
+        let path = runtime_config
+            .state_dir()
+            .map(|dir| dir.join(DEFAULT_SQLITE_DB_FILENAME));
         Self { path }
     }
 
-    fn build(&self, name: &str, config_opts: &RuntimeConfigOpts) -> anyhow::Result<SqliteDatabase> {
+    fn build(&self, config_opts: &RuntimeConfigOpts) -> anyhow::Result<SqliteDatabase> {
         use spin_sqlite_inproc::{InProcConnectionManager, InProcDatabaseLocation};
 
         let location = match self.path.as_ref() {
@@ -94,7 +93,7 @@ impl SpinSqliteDatabaseOpts {
                 // Create the store's parent directory if necessary
                 std::fs::create_dir_all(path.parent().unwrap())
                     .context("Failed to create sqlite database directory")?;
-                InProcDatabaseLocation::Path(path.join(format!("{name}.db")))
+                InProcDatabaseLocation::Path(path)
             }
             None => InProcDatabaseLocation::InMemory,
         };
@@ -110,11 +109,7 @@ pub struct LibsqlOpts {
 }
 
 impl LibsqlOpts {
-    fn build(
-        &self,
-        _name: &str,
-        _config_opts: &RuntimeConfigOpts,
-    ) -> anyhow::Result<SqliteDatabase> {
+    fn build(&self) -> anyhow::Result<SqliteDatabase> {
         Ok(Arc::new(spin_sqlite_libsql::LibsqlClient::new(
             self.url.clone(),
             self.token.clone(),

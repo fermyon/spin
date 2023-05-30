@@ -113,15 +113,14 @@ impl RuntimeConfig {
         for opts in self.opts_layers() {
             for (name, database) in &opts.sqlite_databases {
                 if !databases.contains_key(name) {
-                    let store = database.build(name, opts)?;
+                    let store = database.build(opts)?;
                     databases.insert(name.to_owned(), store);
                 }
             }
         }
         // Upsert default store
         if !databases.contains_key("default") {
-            let store = SqliteDatabaseOpts::default(self)
-                .build("default", &RuntimeConfigOpts::default())?;
+            let store = SqliteDatabaseOpts::default(self).build(&RuntimeConfigOpts::default())?;
             databases.insert("default".into(), store);
         }
         Ok(databases.into_iter())

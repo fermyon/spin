@@ -5342,8 +5342,10 @@ version = "1.4.0-pre0"
 dependencies = [
  "anyhow",
  "bytes",
+ "chrono",
  "dirs 4.0.0",
  "flate2",
+ "is-terminal",
  "reqwest",
  "semver 1.0.16",
  "serde",

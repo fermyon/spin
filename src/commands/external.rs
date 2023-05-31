@@ -2,10 +2,15 @@ use crate::build_info::*;
 use crate::commands::plugins::{update, Install};
 use crate::opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG;
 use anyhow::{anyhow, Result};
-use spin_plugins::{error::Error as PluginError, manifest::warn_unsupported_version, PluginStore};
+use spin_plugins::{
+    badger::BadgerChecker, error::Error as PluginError, manifest::warn_unsupported_version,
+    PluginStore,
+};
 use std::{collections::HashMap, env, process};
 use tokio::process::Command;
 use tracing::log;
+
+const BADGER_GRACE_PERIOD_MILLIS: u64 = 50;
 
 fn override_flag() -> String {
     format!("--{}", PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG)
@@ -40,14 +45,16 @@ pub async fn execute_external_subcommand(
 ) -> anyhow::Result<()> {
     let (plugin_name, args, override_compatibility_check) = parse_subcommand(cmd)?;
     let plugin_store = PluginStore::try_default()?;
-    match plugin_store.read_plugin_manifest(&plugin_name) {
+    let plugin_version = match plugin_store.read_plugin_manifest(&plugin_name) {
         Ok(manifest) => {
             if let Err(e) =
                 warn_unsupported_version(&manifest, SPIN_VERSION, override_compatibility_check)
             {
                 eprintln!("{e}");
+                // TODO: consider running the update checked?
                 process::exit(1);
             }
+            Some(manifest.version().to_owned())
         }
         Err(PluginError::NotFound(e)) => {
             if plugin_name == "cloud" {
@@ -68,6 +75,7 @@ pub async fn execute_external_subcommand(
                     }
                     plugin_installer.run().await?;
                 }
+                None // No update badgering needed if we just installed it!
             } else {
                 tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
                 terminal::error!("'{plugin_name}' is not a known Spin command. See spin --help.\n");
@@ -76,15 +84,21 @@ pub async fn execute_external_subcommand(
             }
         }
         Err(e) => return Err(e.into()),
-    }
+    };
 
     let mut command = Command::new(plugin_store.installed_binary_path(&plugin_name));
     command.args(args);
     command.envs(get_env_vars_map()?);
+
+    let badger = BadgerChecker::start(&plugin_name, plugin_version, SPIN_VERSION);
+
     log::info!("Executing command {:?}", command);
     // Allow user to interact with stdio/stdout of child process
     let status = command.status().await?;
     log::info!("Exiting process with {}", status);
+
+    report_badger_result(badger).await;
+
     if !status.success() {
         match status.code() {
             Some(code) => process::exit(code),
@@ -92,6 +106,58 @@ pub async fn execute_external_subcommand(
         }
     }
     Ok(())
+}
+
+async fn report_badger_result(badger: tokio::task::JoinHandle<BadgerChecker>) {
+    // This seems very unlikely to happen but just in case
+    let grace_period = tokio::time::sleep(tokio::time::Duration::from_millis(
+        BADGER_GRACE_PERIOD_MILLIS,
+    ));
+
+    let badger = tokio::select! {
+        _ = grace_period => { return; }
+        b = badger => match b {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::info!("Badger update thread error {e:#}");
+                return;
+            }
+        }
+    };
+
+    let ui = badger.check().await;
+    match ui {
+        Ok(spin_plugins::badger::BadgerUI::None) => (),
+        Ok(spin_plugins::badger::BadgerUI::Eligible(to)) => {
+            eprintln!();
+            terminal::info!(
+                "This plugin can be upgraded.",
+                "Version {to} is available and compatible."
+            );
+            eprintln!("To upgrade, run `{}`.", to.upgrade_command());
+        }
+        Ok(spin_plugins::badger::BadgerUI::Questionable(to)) => {
+            eprintln!();
+            terminal::info!("This plugin can be upgraded.", "Version {to} is available,");
+            eprintln!("but may not be backward compatible with your current plugin.");
+            eprintln!("To upgrade, run `{}`.", to.upgrade_command());
+        }
+        Ok(spin_plugins::badger::BadgerUI::Both {
+            eligible,
+            questionable,
+        }) => {
+            eprintln!();
+            terminal::info!(
+                "This plugin can be upgraded.",
+                "Version {eligible} is available and compatible."
+            );
+            eprintln!("Version {questionable} is also available, but may not be backward compatible with your current plugin.");
+            eprintln!("To upgrade, run `{}`.", eligible.upgrade_command());
+        }
+        Err(e) => {
+            tracing::info!("Error running update badger: {e:#}");
+        }
+    }
 }
 
 fn print_similar_commands(app: clap::App, plugin_name: &str) {

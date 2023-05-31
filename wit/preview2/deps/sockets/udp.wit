@@ -1,6 +1,6 @@
 
 default interface udp {
-	use poll.poll.{pollable}
+	use poll.poll2.{pollable}
 	use pkg.network.{network, error-code, ip-socket-address, ip-address-family}
 
 

@@ -1,7 +1,7 @@
 
 default interface tcp {
-	use io.streams.{input-stream, output-stream}
-	use poll.poll.{pollable}
+	use io.streams2.{input-stream, output-stream}
+	use poll.poll2.{pollable}
 	use pkg.network.{network, error-code, ip-socket-address, ip-address-family}
 
 	/// A TCP socket handle.

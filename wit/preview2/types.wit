@@ -2,8 +2,8 @@
 // define the HTTP resource types and operations used by the component's
 // imported and exported interfaces.
 default interface types {
-  use io.streams.{input-stream, output-stream}
-  use poll.poll.{pollable}
+  use io.streams2.{input-stream, output-stream}
+  use poll.poll2.{pollable}
 
   // This type corresponds to HTTP standard Methods.
   variant method {

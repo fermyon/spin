@@ -338,6 +338,8 @@ pub enum HttpExecutor {
     Spin,
     /// The component implements the Wagi CGI interface.
     Wagi(WagiConfig),
+    /// The component implements [`wasi-http`](https://github.com/WebAssembly/wasi-http) interface (experimental, subject to change)
+    Wasi,
 }
 
 impl Default for HttpExecutor {

@@ -4,25 +4,27 @@
 // outgoing HTTP requests.
 default world proxy {
   // HTTP proxies have access to time and randomness.
-  import wall-clock: clocks.wall-clock
-  import monotonic-clock: clocks.monotonic-clock
-  import timezone: clocks.timezone
-  import random: random.random
+  //import wall-clock: clocks.wall-clock
+  //import monotonic-clock: clocks.monotonic-clock2
+  //import timezone: clocks.timezone
+  //import random: random.random
 
   // Proxies have standard output and error streams which are expected to
   // terminate in a developer-facing console provided by the host.
-  import stdout: cli.stdio.stdout
-  import stderr: cli.stdio.stderr
+  //import stdout: cli.stdio.stdout
+  //import stderr: cli.stdio.stderr
+  import streams2: io.streams2
+  import types2: pkg.types
 
   // TODO: this is a temporary workaround until component tooling is able to
   // gracefully handle the absence of stdin. Hosts must return an eof stream
   // for this import, which is what wasi-libc + tooling will do automatically
   // when this import is properly removed.
-  import stdin: cli.stdio.stdin
+  //import stdin: cli.stdio.stdin
 
   // This is the default handler to use when user code simply wants to make an
   // HTTP request (e.g., via `fetch()`).
-  import default-outgoing-HTTP: pkg.outgoing-handler
+  import default-outgoing-HTTP2: pkg.outgoing-handler
 
   // The host delivers incoming HTTP requests to a component by calling the
   // `handle` function of this exported interface. A host may arbitrarily reuse

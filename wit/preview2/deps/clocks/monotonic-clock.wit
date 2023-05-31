@@ -9,7 +9,7 @@
 ///
 /// It is intended for measuring elapsed time.
 default interface monotonic-clock {
-    use poll.poll.{pollable}
+    use poll.poll2.{pollable}
 
     /// A timestamp in nanoseconds.
     type instant = u64

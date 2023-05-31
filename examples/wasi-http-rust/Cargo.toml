@@ -1,0 +1,15 @@
+[package]
+name = "wasi-http-rust"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = [ "cdylib" ]
+
+[dependencies]
+# General-purpose crate with common HTTP types.
+http = "0.2"
+# Crate that generates Rust Wasm bindings from a WebAssembly interface.
+wit-bindgen = { git = "https://github.com/bytecodealliance/wit-bindgen", tag = "wit-bindgen-rust-0.6.0" }
+
+[workspace]

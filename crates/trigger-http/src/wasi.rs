@@ -7,7 +7,7 @@ use spin_trigger::{EitherInstance, TriggerAppEngine};
 use std::{net::SocketAddr, str, sync::Mutex};
 use tokio::task;
 use wasi_cloud::{
-    types::{Method, Scheme},
+    types2::{Method, Scheme},
     Fields, IncomingRequest, Proxy, ResponseOutparam,
 };
 

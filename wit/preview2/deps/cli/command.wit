@@ -11,8 +11,8 @@ default world command {
   import udp-create-socket: sockets.udp-create-socket
   import udp: sockets.udp
   import random: random.random
-  import poll: poll.poll
-  import streams: io.streams
+  import poll: poll.poll2
+  import streams: io.streams2
   import environment: pkg.environment
   import environment-preopens: pkg.environment-preopens
   import exit: pkg.exit

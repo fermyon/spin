@@ -62,6 +62,11 @@ impl<V> Table<V> {
         self.tuples.get(&key)
     }
 
+    /// Get a reference to the resource identified by the specified `key`, if it exists.
+    pub fn get_mut(&mut self, key: u32) -> Option<&mut V> {
+        self.tuples.get_mut(&key)
+    }
+
     /// Remove the resource identified by the specified `key`, if present.
     ///
     /// This makes the key eligible for eventual reuse (i.e. for a newly-pushed resource).

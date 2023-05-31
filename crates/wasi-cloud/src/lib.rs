@@ -1,18 +1,49 @@
 #![allow(unused)] // temporary, until `todo!()`s are filled in
 
-use anyhow::{anyhow, Result};
-use futures::channel::oneshot;
-use hyper::Body;
+use anyhow::{anyhow, Error, Result};
+use cooked_waker::{IntoWaker, WakeRef};
+use default_outgoing_http2 as default_outgoing_http;
+use futures::{channel::oneshot, Stream, TryStreamExt};
+use http_crate::header::{HeaderName, HeaderValue};
+use hyper::{
+    body::{self, Bytes, HttpBody},
+    Body,
+};
+use poll2 as poll;
 use spin_common::table::Table;
 use spin_core::{async_trait, HostComponent};
-use std::sync::Mutex;
-use types2::{Method, Scheme};
+use std::{
+    error, fmt,
+    pin::Pin,
+    str::FromStr,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    task::{Context, Poll},
+};
+use streams2 as streams;
+use tokio::sync::Notify;
+use types2::{self as types, Method, Scheme};
 
 wasmtime::component::bindgen!({
     path: "../../wit/preview2",
     world: "proxy",
     async: true
 });
+
+impl fmt::Display for types::Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidUrl(s) => write!(f, "InvalidUrl: {s}"),
+            Self::TimeoutError(s) => write!(f, "TimeoutError: {s}"),
+            Self::ProtocolError(s) => write!(f, "ProtocolError: {s}"),
+            Self::UnexpectedError(s) => write!(f, "UnexpectedError: {s}"),
+        }
+    }
+}
+
+impl error::Error for types::Error {}
 
 pub struct WasiCloudComponent;
 
@@ -36,25 +67,178 @@ pub struct IncomingRequest {
     pub path_with_query: Option<String>,
     pub scheme: Option<Scheme>,
     pub authority: Option<String>,
-    pub headers: types2::Fields,
-    pub body: Mutex<Option<Body>>,
+    pub headers: Fields,
+    pub body: Option<Body>,
 }
 
-pub struct Fields(pub Vec<(String, Vec<u8>)>);
+type FieldEntries = Vec<(String, Vec<u8>)>;
 
-pub struct ResponseOutparam(pub Mutex<Option<oneshot::Sender<OutboundResponse>>>);
+#[derive(Clone)]
+pub struct Fields(pub Arc<Mutex<FieldEntries>>);
 
-pub struct OutboundResponse {
-    pub status: u16,
-    pub headers: Vec<(String, Vec<u8>)>,
+#[derive(Clone)]
+pub struct Pollable(pub Arc<AtomicBool>);
+
+struct PollWaker {
+    pollable: Pollable,
+    notify: Arc<Notify>,
+}
+
+impl WakeRef for PollWaker {
+    fn wake_by_ref(&self) {
+        self.pollable.0.store(true, Ordering::SeqCst);
+        self.notify.notify_one();
+    }
+}
+
+pub struct ResponseOutparam(
+    pub Option<oneshot::Sender<Result<OutgoingResponseReceiver, types::Error>>>,
+);
+
+pub struct OutgoingResponse {
+    pub status: types::StatusCode,
+    pub headers: FieldEntries,
+    pub sender: Option<body::Sender>,
+    pub body: Option<Body>,
+}
+
+impl OutgoingResponse {
+    fn receiver(&mut self) -> Option<OutgoingResponseReceiver> {
+        Some(OutgoingResponseReceiver {
+            status: self.status,
+            headers: self.headers.clone(),
+            body: self.body.take()?,
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct OutgoingResponseReceiver {
+    pub status: types::StatusCode,
+    pub headers: FieldEntries,
     pub body: Body,
+}
+
+pub struct InputStream {
+    pub chunk: Option<Bytes>,
+    pub pollable: Pollable,
+    pub body: Body,
+}
+
+impl InputStream {
+    async fn read(
+        &mut self,
+        len: u64,
+        notify: Option<Arc<Notify>>,
+    ) -> Result<(Vec<u8>, bool), streams::StreamError> {
+        let len = usize::try_from(len).map_err(|_| streams::StreamError {})?;
+
+        loop {
+            let (result, chunk) = if let Some(mut chunk) = self.chunk.take() {
+                let remainder = chunk.split_off(len.min(chunk.len()));
+                (
+                    Some(chunk.to_vec()),
+                    if remainder.is_empty() {
+                        None
+                    } else {
+                        Some(remainder)
+                    },
+                )
+            } else {
+                (None, None)
+            };
+
+            self.chunk = chunk;
+
+            let result = if let Some(result) = result {
+                Some((result, false))
+            } else if let Some(notify) = notify.as_ref() {
+                self.pollable.0.store(false, Ordering::SeqCst);
+
+                match Pin::new(&mut self.body).poll_next(&mut Context::from_waker(
+                    &Arc::new(PollWaker {
+                        pollable: self.pollable.clone(),
+                        notify: notify.clone(),
+                    })
+                    .into_waker(),
+                )) {
+                    Poll::Pending => Some((Vec::new(), false)),
+                    Poll::Ready(Some(chunk)) => {
+                        let chunk = chunk.map_err(|_| streams::StreamError {})?;
+                        self.chunk = if chunk.is_empty() { None } else { Some(chunk) };
+                        None
+                    }
+                    Poll::Ready(None) => Some((Vec::new(), true)),
+                }
+            } else if let Some(chunk) = self
+                .body
+                .try_next()
+                .await
+                .map_err(|_| streams::StreamError {})?
+            {
+                self.chunk = if chunk.is_empty() { None } else { Some(chunk) };
+                None
+            } else {
+                Some((Vec::new(), true))
+            };
+
+            if let Some(result) = result {
+                break Ok(result);
+            }
+        }
+    }
+}
+
+pub struct OutputStream {
+    pub pollable: Pollable,
+    pub sender: body::Sender,
+}
+
+impl OutputStream {
+    async fn write(
+        &mut self,
+        buf: Vec<u8>,
+        notify: Option<Arc<Notify>>,
+    ) -> Result<u64, streams::StreamError> {
+        let len = u64::try_from(buf.len()).unwrap();
+
+        if let Some(notify) = notify {
+            self.pollable.0.store(false, Ordering::SeqCst);
+
+            match self.sender.poll_ready(&mut Context::from_waker(
+                &Arc::new(PollWaker {
+                    pollable: self.pollable.clone(),
+                    notify,
+                })
+                .into_waker(),
+            )) {
+                Poll::Pending => Ok(0),
+                Poll::Ready(Err(_)) => Err(streams::StreamError {}),
+                Poll::Ready(Ok(())) => match self.sender.try_send_data(buf.into()) {
+                    Ok(()) => Ok(len),
+                    Err(_) => Ok(0),
+                },
+            }
+        } else {
+            self.sender
+                .send_data(buf.into())
+                .await
+                .map(|()| len)
+                .map_err(|_| streams::StreamError {})
+        }
+    }
 }
 
 #[derive(Default)]
 pub struct WasiCloud {
     pub incoming_requests: Table<IncomingRequest>,
+    pub outgoing_responses: Table<OutgoingResponse>,
     pub fields: Table<Fields>,
     pub response_outparams: Table<ResponseOutparam>,
+    pub pollables: Table<Pollable>,
+    pub input_streams: Table<InputStream>,
+    pub output_streams: Table<OutputStream>,
+    notify: Arc<Notify>,
 }
 
 // #[async_trait]
@@ -111,13 +295,42 @@ pub struct WasiCloud {
 // }
 
 #[async_trait]
-impl poll2::Host for WasiCloud {
-    async fn drop_pollable(&mut self, this: poll2::Pollable) -> Result<()> {
-        todo!()
+impl poll::Host for WasiCloud {
+    async fn drop_pollable(&mut self, this: poll::Pollable) -> Result<()> {
+        self.pollables.remove(this);
+        Ok(())
     }
 
-    async fn poll_oneoff(&mut self, pollables: Vec<poll2::Pollable>) -> Result<Vec<u8>> {
-        todo!()
+    async fn poll_oneoff(&mut self, pollables: Vec<poll::Pollable>) -> Result<Vec<u8>> {
+        let pollables = pollables
+            .iter()
+            .map(|handle| {
+                self.pollables
+                    .get(*handle)
+                    .ok_or_else(|| anyhow!("unknown handle: {handle}"))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        loop {
+            let mut ready = false;
+            let result = pollables
+                .iter()
+                .map(|pollable| {
+                    if pollable.0.load(Ordering::SeqCst) {
+                        ready = true;
+                        1
+                    } else {
+                        0
+                    }
+                })
+                .collect();
+
+            if ready {
+                break Ok(result);
+            } else {
+                self.notify.notified().await;
+            }
+        }
     }
 }
 
@@ -133,117 +346,159 @@ impl poll2::Host for WasiCloud {
 // }
 
 #[async_trait]
-impl streams2::Host for WasiCloud {
+impl streams::Host for WasiCloud {
     async fn read(
         &mut self,
-        this: streams2::InputStream,
+        this: streams::InputStream,
         len: u64,
-    ) -> Result<Result<(Vec<u8>, bool), streams2::StreamError>> {
-        todo!()
+    ) -> Result<Result<(Vec<u8>, bool), streams::StreamError>> {
+        Ok(self
+            .input_streams
+            .get_mut(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .read(len, Some(self.notify.clone()))
+            .await)
     }
 
     async fn blocking_read(
         &mut self,
-        this: streams2::InputStream,
+        this: streams::InputStream,
         len: u64,
-    ) -> Result<Result<(Vec<u8>, bool), streams2::StreamError>> {
-        todo!()
+    ) -> Result<Result<(Vec<u8>, bool), streams::StreamError>> {
+        Ok(self
+            .input_streams
+            .get_mut(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .read(len, None)
+            .await)
     }
 
     async fn skip(
         &mut self,
-        this: streams2::InputStream,
+        this: streams::InputStream,
         len: u64,
-    ) -> Result<Result<(u64, bool), streams2::StreamError>> {
+    ) -> Result<Result<(u64, bool), streams::StreamError>> {
         todo!()
     }
 
     async fn blocking_skip(
         &mut self,
-        this: streams2::InputStream,
+        this: streams::InputStream,
         len: u64,
-    ) -> Result<Result<(u64, bool), streams2::StreamError>> {
+    ) -> Result<Result<(u64, bool), streams::StreamError>> {
         todo!()
     }
 
     async fn subscribe_to_input_stream(
         &mut self,
-        this: streams2::InputStream,
-    ) -> Result<streams2::Pollable> {
-        todo!()
+        this: streams::InputStream,
+    ) -> Result<streams::Pollable> {
+        self.pollables
+            .push(
+                self.input_streams
+                    .get_mut(this)
+                    .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+                    .pollable
+                    .clone(),
+            )
+            .map_err(|()| anyhow!("table overflow"))
     }
 
-    async fn drop_input_stream(&mut self, this: streams2::InputStream) -> Result<()> {
-        todo!()
+    async fn drop_input_stream(&mut self, this: streams::InputStream) -> Result<()> {
+        self.input_streams
+            .remove(this)
+            .map(drop)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))
     }
 
     async fn write(
         &mut self,
-        this: streams2::OutputStream,
+        this: streams::OutputStream,
         buf: Vec<u8>,
-    ) -> Result<Result<u64, streams2::StreamError>> {
-        todo!()
+    ) -> Result<Result<u64, streams::StreamError>> {
+        Ok(self
+            .output_streams
+            .get_mut(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .write(buf, Some(self.notify.clone()))
+            .await)
     }
 
     async fn blocking_write(
         &mut self,
-        this: streams2::OutputStream,
+        this: streams::OutputStream,
         buf: Vec<u8>,
-    ) -> Result<Result<u64, streams2::StreamError>> {
-        todo!()
+    ) -> Result<Result<u64, streams::StreamError>> {
+        Ok(self
+            .output_streams
+            .get_mut(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .write(buf, None)
+            .await)
     }
 
     async fn write_zeroes(
         &mut self,
-        this: streams2::OutputStream,
+        this: streams::OutputStream,
         len: u64,
-    ) -> Result<Result<u64, streams2::StreamError>> {
+    ) -> Result<Result<u64, streams::StreamError>> {
         todo!()
     }
 
     async fn blocking_write_zeroes(
         &mut self,
-        this: streams2::OutputStream,
+        this: streams::OutputStream,
         len: u64,
-    ) -> Result<Result<u64, streams2::StreamError>> {
+    ) -> Result<Result<u64, streams::StreamError>> {
         todo!()
     }
 
     async fn splice(
         &mut self,
-        this: streams2::OutputStream,
-        src: streams2::InputStream,
+        this: streams::OutputStream,
+        src: streams::InputStream,
         len: u64,
-    ) -> Result<Result<(u64, bool), streams2::StreamError>> {
+    ) -> Result<Result<(u64, bool), streams::StreamError>> {
         todo!()
     }
 
     async fn blocking_splice(
         &mut self,
-        this: streams2::OutputStream,
-        src: streams2::InputStream,
+        this: streams::OutputStream,
+        src: streams::InputStream,
         len: u64,
-    ) -> Result<Result<(u64, bool), streams2::StreamError>> {
+    ) -> Result<Result<(u64, bool), streams::StreamError>> {
         todo!()
     }
 
     async fn forward(
         &mut self,
-        this: streams2::OutputStream,
-        src: streams2::InputStream,
-    ) -> Result<Result<u64, streams2::StreamError>> {
+        this: streams::OutputStream,
+        src: streams::InputStream,
+    ) -> Result<Result<u64, streams::StreamError>> {
         todo!()
     }
 
     async fn subscribe_to_output_stream(
         &mut self,
-        this: streams2::OutputStream,
-    ) -> Result<streams2::Pollable> {
-        todo!()
+        this: streams::OutputStream,
+    ) -> Result<streams::Pollable> {
+        self.pollables
+            .push(
+                self.output_streams
+                    .get_mut(this)
+                    .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+                    .pollable
+                    .clone(),
+            )
+            .map_err(|()| anyhow!("table overflow"))
     }
 
-    async fn drop_output_stream(&mut self, this: streams2::OutputStream) -> Result<()> {
-        todo!()
+    async fn drop_output_stream(&mut self, this: streams::OutputStream) -> Result<()> {
+        self.output_streams
+            .remove(this)
+            .map(drop)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))
     }
 }
 
@@ -269,114 +524,259 @@ impl streams2::Host for WasiCloud {
 // }
 
 #[async_trait]
-impl types2::Host for WasiCloud {
-    async fn drop_fields(&mut self, fields: types2::Fields) -> Result<()> {
-        todo!()
+impl types::Host for WasiCloud {
+    async fn drop_fields(&mut self, this: types::Fields) -> Result<()> {
+        self.fields
+            .remove(this)
+            .map(drop)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))
     }
 
-    async fn new_fields(&mut self, entries: Vec<(String, Vec<u8>)>) -> Result<types2::Fields> {
-        todo!()
+    async fn new_fields(&mut self, entries: FieldEntries) -> Result<types::Fields> {
+        self.fields
+            .push(Fields(Arc::new(Mutex::new(entries))))
+            .map_err(|()| anyhow!("table overflow"))
     }
 
-    async fn fields_get(&mut self, fields: types2::Fields, name: String) -> Result<Vec<Vec<u8>>> {
-        todo!()
+    async fn fields_get(&mut self, this: types::Fields, name: String) -> Result<Vec<Vec<u8>>> {
+        Ok(self
+            .fields
+            .get(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .0
+            .lock()
+            .unwrap()
+            .iter()
+            .filter_map(|(k, v)| (k == &name).then(|| v.clone()))
+            .collect())
     }
 
     async fn fields_set(
         &mut self,
-        fields: types2::Fields,
+        this: types::Fields,
         name: String,
         values: Vec<Vec<u8>>,
     ) -> Result<()> {
-        todo!()
+        let mut vec = self
+            .fields
+            .get(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .0
+            .lock()
+            .unwrap();
+
+        vec.retain(|(k, _)| k != &name);
+
+        for value in values {
+            vec.push((name.clone(), value));
+        }
+
+        Ok(())
     }
 
-    async fn fields_delete(&mut self, fields: types2::Fields, name: String) -> Result<()> {
-        todo!()
+    async fn fields_delete(&mut self, this: types::Fields, name: String) -> Result<()> {
+        self.fields
+            .get(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .0
+            .lock()
+            .unwrap()
+            .retain(|(k, _)| k != &name);
+
+        Ok(())
     }
 
     async fn fields_append(
         &mut self,
-        fields: types2::Fields,
+        this: types::Fields,
         name: String,
         value: Vec<u8>,
     ) -> Result<()> {
-        todo!()
+        let mut vec = self
+            .fields
+            .get(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .0
+            .lock()
+            .unwrap()
+            .push((name, value));
+
+        Ok(())
     }
 
-    async fn fields_entries(&mut self, fields: types2::Fields) -> Result<Vec<(String, Vec<u8>)>> {
-        todo!()
+    async fn fields_entries(&mut self, this: types::Fields) -> Result<FieldEntries> {
+        Ok(self
+            .fields
+            .get(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .0
+            .lock()
+            .unwrap()
+            .clone())
     }
 
-    async fn fields_clone(&mut self, fields: types2::Fields) -> Result<types2::Fields> {
-        todo!()
+    async fn fields_clone(&mut self, this: types::Fields) -> Result<types::Fields> {
+        let entries = self.fields_entries(this).await?;
+
+        self.fields
+            .push(Fields(Arc::new(Mutex::new(entries))))
+            .map_err(|()| anyhow!("table overflow"))
     }
 
     async fn finish_incoming_stream(
         &mut self,
-        s: types2::IncomingStream,
-    ) -> Result<Option<types2::Trailers>> {
-        todo!()
+        this: types::IncomingStream,
+    ) -> Result<Option<types::Trailers>> {
+        // TODO: We should change the WIT file so this can return a `types::Error` on I/O error instead of trapping
+        // TODO #2: Should there be a non-blocking version of this?
+        self.input_streams
+            .get_mut(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .body
+            .trailers()
+            .await?
+            .map(|trailers| {
+                self.fields
+                    .push(Fields(Arc::new(Mutex::new(
+                        trailers
+                            .iter()
+                            .map(|(k, v)| (k.to_string(), v.as_bytes().to_vec()))
+                            .collect(),
+                    ))))
+                    .map_err(|()| anyhow!("table overflow"))
+            })
+            .transpose()
     }
 
     async fn finish_outgoing_stream(
         &mut self,
-        s: types2::OutgoingStream,
-        trailers: Option<types2::Trailers>,
+        this: types::OutgoingStream,
+        trailers: Option<types::Trailers>,
     ) -> Result<()> {
+        // See TODOs in `finish_incoming_stream`, which also apply here
+
+        let trailers = trailers
+            .map(|trailers| {
+                self.fields
+                    .get(trailers)
+                    .ok_or_else(|| anyhow!("unknown handle: {trailers}"))?
+                    .0
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .map(|(k, v)| Ok((HeaderName::from_str(k)?, HeaderValue::from_bytes(v)?)))
+                    .collect::<Result<_>>()
+            })
+            .transpose()?;
+
+        let sender = &mut self
+            .output_streams
+            .get_mut(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .sender;
+
+        if let Some(trailers) = trailers {
+            sender.send_trailers(trailers).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn drop_incoming_request(&mut self, this: types::IncomingRequest) -> Result<()> {
+        self.incoming_requests
+            .remove(this)
+            .map(drop)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))
+    }
+
+    async fn drop_outgoing_request(&mut self, this: types::OutgoingRequest) -> Result<()> {
         todo!()
     }
 
-    async fn drop_incoming_request(&mut self, request: types2::IncomingRequest) -> Result<()> {
-        todo!()
-    }
-
-    async fn drop_outgoing_request(&mut self, request: types2::OutgoingRequest) -> Result<()> {
-        todo!()
-    }
-
-    async fn incoming_request_method(&mut self, request: types2::IncomingRequest) -> Result<Method> {
-        let incoming = self
+    async fn incoming_request_method(&mut self, this: types::IncomingRequest) -> Result<Method> {
+        Ok(self
             .incoming_requests
-            .get(request)
-            .ok_or_else(|| anyhow!("unknown request handle"))?;
-
-        Ok(incoming.method.clone())
+            .get(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .method
+            .clone())
     }
 
     async fn incoming_request_path_with_query(
         &mut self,
-        request: types2::IncomingRequest,
+        this: types::IncomingRequest,
     ) -> Result<Option<String>> {
-        todo!()
+        Ok(self
+            .incoming_requests
+            .get(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .path_with_query
+            .clone())
     }
 
     async fn incoming_request_scheme(
         &mut self,
-        request: types2::IncomingRequest,
+        this: types::IncomingRequest,
     ) -> Result<Option<Scheme>> {
-        todo!()
+        Ok(self
+            .incoming_requests
+            .get(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .scheme
+            .clone())
     }
 
     async fn incoming_request_authority(
         &mut self,
-        request: types2::IncomingRequest,
+        this: types::IncomingRequest,
     ) -> Result<Option<String>> {
-        todo!()
+        Ok(self
+            .incoming_requests
+            .get(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .authority
+            .clone())
     }
 
     async fn incoming_request_headers(
         &mut self,
-        request: types2::IncomingRequest,
-    ) -> Result<types2::Headers> {
-        todo!()
+        this: types::IncomingRequest,
+    ) -> Result<types::Headers> {
+        Ok(self
+            .fields
+            .push(
+                self.incoming_requests
+                    .get(this)
+                    .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+                    .headers
+                    .clone(),
+            )
+            .map_err(|()| anyhow!("table overflow"))?)
     }
 
     async fn incoming_request_consume(
         &mut self,
-        request: types2::IncomingRequest,
-    ) -> Result<Result<types2::IncomingStream, ()>> {
-        todo!()
+        this: types::IncomingRequest,
+    ) -> Result<Result<types::IncomingStream, ()>> {
+        let body = self
+            .incoming_requests
+            .get_mut(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .body
+            .take();
+
+        Ok(if let Some(body) = body {
+            Ok(self
+                .input_streams
+                .push(InputStream {
+                    chunk: None,
+                    pollable: Pollable(Arc::new(AtomicBool::new(true))),
+                    body,
+                })
+                .map_err(|()| anyhow!("table overflow"))?)
+        } else {
+            Err(())
+        })
     }
 
     async fn new_outgoing_request(
@@ -385,103 +785,164 @@ impl types2::Host for WasiCloud {
         path_with_query: Option<String>,
         scheme: Option<Scheme>,
         authority: Option<String>,
-        headers: types2::Headers,
-    ) -> Result<types2::OutgoingRequest> {
+        headers: types::Headers,
+    ) -> Result<types::OutgoingRequest> {
         todo!()
     }
 
     async fn outgoing_request_write(
         &mut self,
-        request: types2::OutgoingRequest,
-    ) -> Result<Result<types2::OutgoingStream, ()>> {
+        request: types::OutgoingRequest,
+    ) -> Result<Result<types::OutgoingStream, ()>> {
         todo!()
     }
 
-    async fn drop_response_outparam(&mut self, response: types2::ResponseOutparam) -> Result<()> {
-        todo!()
+    async fn drop_response_outparam(&mut self, this: types::ResponseOutparam) -> Result<()> {
+        self.response_outparams
+            .remove(this)
+            .map(drop)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))
     }
 
     async fn set_response_outparam(
         &mut self,
-        param: types2::ResponseOutparam,
-        response: Result<types2::OutgoingResponse, types2::Error>,
+        this: types::ResponseOutparam,
+        response: Result<types::OutgoingResponse, types::Error>,
     ) -> Result<Result<(), ()>> {
+        let sender = self
+            .response_outparams
+            .get_mut(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .0
+            .take();
+
+        Ok(if let Some(sender) = sender {
+            sender
+                .send(match response {
+                    Ok(response) => Ok(self
+                        .outgoing_responses
+                        .get_mut(response)
+                        .ok_or_else(|| anyhow!("unknown handle: {response}"))?
+                        .receiver()
+                        .expect("response body should not yet have been taken")),
+
+                    Err(error) => Err(error),
+                })
+                .expect("host should be listening for response");
+            Ok(())
+        } else {
+            Err(())
+        })
+    }
+
+    async fn drop_incoming_response(&mut self, response: types::IncomingResponse) -> Result<()> {
         todo!()
     }
 
-    async fn drop_incoming_response(&mut self, response: types2::IncomingResponse) -> Result<()> {
-        todo!()
-    }
-
-    async fn drop_outgoing_response(&mut self, response: types2::OutgoingResponse) -> Result<()> {
-        todo!()
+    async fn drop_outgoing_response(&mut self, this: types::OutgoingResponse) -> Result<()> {
+        self.outgoing_responses
+            .remove(this)
+            .map(drop)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))
     }
 
     async fn incoming_response_status(
         &mut self,
-        response: types2::IncomingResponse,
-    ) -> Result<types2::StatusCode> {
+        response: types::IncomingResponse,
+    ) -> Result<types::StatusCode> {
         todo!()
     }
 
     async fn incoming_response_headers(
         &mut self,
-        response: types2::IncomingResponse,
-    ) -> Result<types2::Headers> {
+        response: types::IncomingResponse,
+    ) -> Result<types::Headers> {
         todo!()
     }
 
     async fn incoming_response_consume(
         &mut self,
-        response: types2::IncomingResponse,
-    ) -> Result<Result<types2::IncomingStream, ()>> {
+        response: types::IncomingResponse,
+    ) -> Result<Result<types::IncomingStream, ()>> {
         todo!()
     }
 
     async fn new_outgoing_response(
         &mut self,
-        status_code: types2::StatusCode,
-        headers: types2::Headers,
-    ) -> Result<types2::OutgoingResponse> {
-        todo!()
+        status: types::StatusCode,
+        headers: types::Headers,
+    ) -> Result<types::OutgoingResponse> {
+        // TODO: What is supposed to happen if you create a new outgoing response with some headers and then edit
+        // the headers?  Should the response reflect those changes?  Does the answer change depending on whether
+        // they change before or after `outgoing_response_write` is called?  Here, we copy the headers, but I'm not
+        // sure that's what is indended by the WIT interface.
+        let (sender, body) = Body::channel();
+
+        let headers = self.fields_entries(headers).await?;
+
+        self.outgoing_responses
+            .push(OutgoingResponse {
+                status,
+                headers,
+                sender: Some(sender),
+                body: Some(body),
+            })
+            .map_err(|()| anyhow!("table overflow"))
     }
 
     async fn outgoing_response_write(
         &mut self,
-        response: types2::OutgoingResponse,
-    ) -> Result<Result<types2::OutgoingStream, ()>> {
-        todo!()
+        this: types::OutgoingResponse,
+    ) -> Result<Result<types::OutgoingStream, ()>> {
+        let sender = self
+            .outgoing_responses
+            .get_mut(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .sender
+            .take();
+
+        Ok(if let Some(sender) = sender {
+            Ok(self
+                .output_streams
+                .push(OutputStream {
+                    pollable: Pollable(Arc::new(AtomicBool::new(true))),
+                    sender,
+                })
+                .map_err(|()| anyhow!("table overflow"))?)
+        } else {
+            Err(())
+        })
     }
 
     async fn drop_future_incoming_response(
         &mut self,
-        f: types2::FutureIncomingResponse,
+        f: types::FutureIncomingResponse,
     ) -> Result<()> {
         todo!()
     }
 
     async fn future_incoming_response_get(
         &mut self,
-        f: types2::FutureIncomingResponse,
-    ) -> Result<Option<Result<types2::IncomingResponse, types2::Error>>> {
+        f: types::FutureIncomingResponse,
+    ) -> Result<Option<Result<types::IncomingResponse, types::Error>>> {
         todo!()
     }
 
     async fn listen_to_future_incoming_response(
         &mut self,
-        f: types2::FutureIncomingResponse,
-    ) -> Result<types2::Pollable> {
+        f: types::FutureIncomingResponse,
+    ) -> Result<types::Pollable> {
         todo!()
     }
 }
 
 #[async_trait]
-impl default_outgoing_http2::Host for WasiCloud {
+impl default_outgoing_http::Host for WasiCloud {
     async fn handle(
         &mut self,
-        request: default_outgoing_http2::OutgoingRequest,
-        options: Option<default_outgoing_http2::RequestOptions>,
-    ) -> Result<default_outgoing_http2::FutureIncomingResponse> {
+        request: default_outgoing_http::OutgoingRequest,
+        options: Option<default_outgoing_http::RequestOptions>,
+    ) -> Result<default_outgoing_http::FutureIncomingResponse> {
         todo!()
     }
 }

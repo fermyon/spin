@@ -4,7 +4,11 @@ use futures::channel::oneshot;
 use hyper::{Body, Request, Response};
 use spin_core::async_trait;
 use spin_trigger::{EitherInstance, TriggerAppEngine};
-use std::{net::SocketAddr, str, sync::Mutex};
+use std::{
+    net::SocketAddr,
+    str,
+    sync::{Arc, Mutex},
+};
 use tokio::task;
 use wasi_cloud::{
     types2::{Method, Scheme},
@@ -47,16 +51,6 @@ impl HttpExecutor for WasiHttpExecutor {
                         anyhow!("WasiHttpExecutor needs access to `wasi-cloud` host component")
                     })?);
 
-            let headers = cloud
-                .fields
-                .push(Fields(
-                    req.headers()
-                        .iter()
-                        .map(|(name, value)| (name.to_string(), value.as_bytes().to_vec()))
-                        .collect(),
-                ))
-                .map_err(|()| anyhow!("table overflow"))?;
-
             request = cloud
                 .incoming_requests
                 .push(IncomingRequest {
@@ -82,14 +76,19 @@ impl HttpExecutor for WasiHttpExecutor {
                         }
                     }),
                     authority: req.uri().authority().map(|a| a.as_str().into()),
-                    headers,
-                    body: Mutex::new(Some(req.into_body())),
+                    headers: Fields(Arc::new(Mutex::new(
+                        req.headers()
+                            .iter()
+                            .map(|(name, value)| (name.to_string(), value.as_bytes().to_vec()))
+                            .collect(),
+                    ))),
+                    body: Some(req.into_body()),
                 })
                 .map_err(|()| anyhow!("table overflow"))?;
 
             response = cloud
                 .response_outparams
-                .push(ResponseOutparam(Mutex::new(Some(response_tx))))
+                .push(ResponseOutparam(Some(response_tx)))
                 .map_err(|()| anyhow!("table overflow"))?;
         }
 
@@ -102,6 +101,7 @@ impl HttpExecutor for WasiHttpExecutor {
 
         match response_rx.await {
             Ok(response) => {
+                let response = response.context("guest failed to produce a response")?;
                 let mut builder = Response::builder().status(response.status);
                 for (key, value) in response.headers {
                     builder = builder.header(key, value);

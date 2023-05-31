@@ -11,3 +11,6 @@ hyper = "0.14.26"
 spin-core = { path = "../core" }
 spin-common = { path = "../common" }
 wasmtime = { workspace = true }
+tokio = { version = "1.28.2", features = ["sync"] }
+cooked-waker = "5.0.0"
+http-crate = { package = "http", version = "0.2.9" }

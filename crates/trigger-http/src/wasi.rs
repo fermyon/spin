@@ -51,45 +51,39 @@ impl HttpExecutor for WasiHttpExecutor {
                         anyhow!("WasiHttpExecutor needs access to `wasi-cloud` host component")
                     })?);
 
-            request = cloud
-                .incoming_requests
-                .push(IncomingRequest {
-                    method: match *req.method() {
-                        http::Method::GET => Method::Get,
-                        http::Method::POST => Method::Post,
-                        http::Method::PUT => Method::Put,
-                        http::Method::DELETE => Method::Delete,
-                        http::Method::PATCH => Method::Patch,
-                        http::Method::HEAD => Method::Head,
-                        http::Method::OPTIONS => Method::Options,
-                        http::Method::TRACE => Method::Trace,
-                        ref method => Method::Other(method.as_str().into()),
-                    },
-                    path_with_query: req.uri().path_and_query().map(|s| s.as_str().into()),
-                    scheme: req.uri().scheme().map(|scheme| {
-                        if scheme == &http::uri::Scheme::HTTP {
-                            Scheme::Http
-                        } else if scheme == &http::uri::Scheme::HTTPS {
-                            Scheme::Https
-                        } else {
-                            Scheme::Other(scheme.as_str().into())
-                        }
-                    }),
-                    authority: req.uri().authority().map(|a| a.as_str().into()),
-                    headers: Fields(Arc::new(Mutex::new(
-                        req.headers()
-                            .iter()
-                            .map(|(name, value)| (name.to_string(), value.as_bytes().to_vec()))
-                            .collect(),
-                    ))),
-                    body: Some(req.into_body()),
-                })
-                .map_err(|()| anyhow!("table overflow"))?;
+            request = cloud.push_incoming_request(IncomingRequest {
+                method: match *req.method() {
+                    http::Method::GET => Method::Get,
+                    http::Method::POST => Method::Post,
+                    http::Method::PUT => Method::Put,
+                    http::Method::DELETE => Method::Delete,
+                    http::Method::PATCH => Method::Patch,
+                    http::Method::HEAD => Method::Head,
+                    http::Method::OPTIONS => Method::Options,
+                    http::Method::TRACE => Method::Trace,
+                    ref method => Method::Other(method.as_str().into()),
+                },
+                path_with_query: req.uri().path_and_query().map(|s| s.as_str().into()),
+                scheme: req.uri().scheme().map(|scheme| {
+                    if scheme == &http::uri::Scheme::HTTP {
+                        Scheme::Http
+                    } else if scheme == &http::uri::Scheme::HTTPS {
+                        Scheme::Https
+                    } else {
+                        Scheme::Other(scheme.as_str().into())
+                    }
+                }),
+                authority: req.uri().authority().map(|a| a.as_str().into()),
+                headers: Fields(Arc::new(Mutex::new(
+                    req.headers()
+                        .iter()
+                        .map(|(name, value)| (name.to_string(), value.as_bytes().to_vec()))
+                        .collect(),
+                ))),
+                body: Some(req.into_body()),
+            })?;
 
-            response = cloud
-                .response_outparams
-                .push(ResponseOutparam(Some(response_tx)))
-                .map_err(|()| anyhow!("table overflow"))?;
+            response = cloud.push_response_outparam(ResponseOutparam(Some(response_tx)))?;
         }
 
         let handle = task::spawn(async move {

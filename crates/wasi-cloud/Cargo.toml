@@ -14,3 +14,4 @@ wasmtime = { workspace = true }
 tokio = { version = "1.28.2", features = ["sync"] }
 cooked-waker = "5.0.0"
 http-crate = { package = "http", version = "0.2.9" }
+reqwest = { version = "0.11.18", features = ["stream"] }

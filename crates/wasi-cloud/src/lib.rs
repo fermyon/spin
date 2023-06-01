@@ -1,15 +1,20 @@
 #![allow(unused)] // temporary, until `todo!()`s are filled in
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, bail, Error, Result};
 use cooked_waker::{IntoWaker, WakeRef};
 use default_outgoing_http2 as default_outgoing_http;
-use futures::{channel::oneshot, Stream, TryStreamExt};
+use futures::{
+    channel::{mpsc, oneshot},
+    future::{self, BoxFuture},
+    Future, FutureExt, Sink, SinkExt, Stream, StreamExt, TryFutureExt, TryStreamExt,
+};
 use http_crate::header::{HeaderName, HeaderValue};
 use hyper::{
     body::{self, Bytes, HttpBody},
     Body,
 };
 use poll2 as poll;
+use reqwest::Client;
 use spin_common::table::Table;
 use spin_core::{async_trait, HostComponent};
 use std::{
@@ -77,7 +82,7 @@ type FieldEntries = Vec<(String, Vec<u8>)>;
 pub struct Fields(pub Arc<Mutex<FieldEntries>>);
 
 #[derive(Clone)]
-pub struct Pollable(pub Arc<AtomicBool>);
+struct Pollable(Arc<AtomicBool>);
 
 struct PollWaker {
     pollable: Pollable,
@@ -95,11 +100,11 @@ pub struct ResponseOutparam(
     pub Option<oneshot::Sender<Result<OutgoingResponseReceiver, types::Error>>>,
 );
 
-pub struct OutgoingResponse {
-    pub status: types::StatusCode,
-    pub headers: FieldEntries,
-    pub sender: Option<body::Sender>,
-    pub body: Option<Body>,
+struct OutgoingResponse {
+    status: types::StatusCode,
+    headers: FieldEntries,
+    sender: Option<body::Sender>,
+    body: Option<Body>,
 }
 
 impl OutgoingResponse {
@@ -119,10 +124,31 @@ pub struct OutgoingResponseReceiver {
     pub body: Body,
 }
 
-pub struct InputStream {
-    pub chunk: Option<Bytes>,
-    pub pollable: Pollable,
-    pub body: Body,
+struct OutgoingRequest {
+    method: Method,
+    path_with_query: Option<String>,
+    scheme: Option<Scheme>,
+    authority: Option<String>,
+    headers: FieldEntries,
+    sender: Option<mpsc::Sender<Result<Bytes>>>,
+    receiver: Option<mpsc::Receiver<Result<Bytes>>>,
+}
+
+struct IncomingResponse {
+    status: types::StatusCode,
+    headers: Fields,
+    body: Option<Body>,
+}
+
+struct FutureIncomingResponse {
+    pollable: Pollable,
+    response: BoxFuture<'static, Result<IncomingResponse, types::Error>>,
+}
+
+struct InputStream {
+    chunk: Option<Bytes>,
+    pollable: Pollable,
+    body: Body,
 }
 
 impl InputStream {
@@ -189,9 +215,14 @@ impl InputStream {
     }
 }
 
-pub struct OutputStream {
-    pub pollable: Pollable,
-    pub sender: body::Sender,
+enum Sender {
+    Hyper(body::Sender),
+    Reqwest(mpsc::Sender<Result<Bytes>>),
+}
+
+struct OutputStream {
+    pollable: Pollable,
+    sender: Sender,
 }
 
 impl OutputStream {
@@ -202,43 +233,83 @@ impl OutputStream {
     ) -> Result<u64, streams::StreamError> {
         let len = u64::try_from(buf.len()).unwrap();
 
+        let chunk = buf.into();
+
         if let Some(notify) = notify {
             self.pollable.0.store(false, Ordering::SeqCst);
 
-            match self.sender.poll_ready(&mut Context::from_waker(
-                &Arc::new(PollWaker {
-                    pollable: self.pollable.clone(),
-                    notify,
-                })
-                .into_waker(),
-            )) {
+            let waker = Arc::new(PollWaker {
+                pollable: self.pollable.clone(),
+                notify,
+            })
+            .into_waker();
+
+            let mut context = Context::from_waker(&waker);
+
+            let poll = match &mut self.sender {
+                Sender::Hyper(sender) => Pin::new(sender).poll_ready(&mut context).map_err(drop),
+                Sender::Reqwest(sender) => Pin::new(sender).poll_ready(&mut context).map_err(drop),
+            };
+
+            match poll {
                 Poll::Pending => Ok(0),
-                Poll::Ready(Err(_)) => Err(streams::StreamError {}),
-                Poll::Ready(Ok(())) => match self.sender.try_send_data(buf.into()) {
-                    Ok(()) => Ok(len),
-                    Err(_) => Ok(0),
-                },
+                Poll::Ready(Err(())) => Err(streams::StreamError {}),
+                Poll::Ready(Ok(())) => {
+                    match &mut self.sender {
+                        Sender::Hyper(sender) => sender.try_send_data(chunk).map_err(drop),
+                        Sender::Reqwest(sender) => {
+                            Pin::new(sender).start_send(Ok(chunk)).map_err(drop)
+                        }
+                    }
+                    .expect("`start_send` should succeed after `poll_ready` indicates readiness");
+                    Ok(len)
+                }
             }
         } else {
-            self.sender
-                .send_data(buf.into())
-                .await
-                .map(|()| len)
-                .map_err(|_| streams::StreamError {})
+            match &mut self.sender {
+                Sender::Hyper(sender) => sender.send_data(chunk).await.map_err(drop),
+                Sender::Reqwest(sender) => sender.send(Ok(chunk)).await.map_err(drop),
+            }
+            .map(|()| len)
+            .map_err(|_| streams::StreamError {})
         }
     }
 }
 
 #[derive(Default)]
 pub struct WasiCloud {
-    pub incoming_requests: Table<IncomingRequest>,
-    pub outgoing_responses: Table<OutgoingResponse>,
-    pub fields: Table<Fields>,
-    pub response_outparams: Table<ResponseOutparam>,
-    pub pollables: Table<Pollable>,
-    pub input_streams: Table<InputStream>,
-    pub output_streams: Table<OutputStream>,
+    incoming_requests: Table<IncomingRequest>,
+    outgoing_responses: Table<OutgoingResponse>,
+    outgoing_requests: Table<OutgoingRequest>,
+    incoming_responses: Table<IncomingResponse>,
+    future_incoming_responses: Table<FutureIncomingResponse>,
+    fields: Table<Fields>,
+    response_outparams: Table<ResponseOutparam>,
+    pollables: Table<Pollable>,
+    input_streams: Table<InputStream>,
+    output_streams: Table<OutputStream>,
     notify: Arc<Notify>,
+    client: Client,
+}
+
+impl WasiCloud {
+    pub fn push_incoming_request(
+        &mut self,
+        request: IncomingRequest,
+    ) -> Result<types::IncomingRequest> {
+        self.incoming_requests
+            .push(request)
+            .map_err(|()| anyhow!("table overflow"))
+    }
+
+    pub fn push_response_outparam(
+        &mut self,
+        outparam: ResponseOutparam,
+    ) -> Result<types::ResponseOutparam> {
+        self.response_outparams
+            .push(outparam)
+            .map_err(|()| anyhow!("table overflow"))
+    }
 }
 
 // #[async_trait]
@@ -676,7 +747,10 @@ impl types::Host for WasiCloud {
             .sender;
 
         if let Some(trailers) = trailers {
-            sender.send_trailers(trailers).await?;
+            match sender {
+                Sender::Hyper(sender) => sender.send_trailers(trailers).await?,
+                Sender::Reqwest(_) => bail!("trailers not yet supported for outgoing requests"),
+            }
         }
 
         Ok(())
@@ -690,7 +764,10 @@ impl types::Host for WasiCloud {
     }
 
     async fn drop_outgoing_request(&mut self, this: types::OutgoingRequest) -> Result<()> {
-        todo!()
+        self.outgoing_requests
+            .remove(this)
+            .map(drop)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))
     }
 
     async fn incoming_request_method(&mut self, this: types::IncomingRequest) -> Result<Method> {
@@ -787,14 +864,46 @@ impl types::Host for WasiCloud {
         authority: Option<String>,
         headers: types::Headers,
     ) -> Result<types::OutgoingRequest> {
-        todo!()
+        let headers = self.fields_entries(headers).await?;
+
+        let (sender, receiver) = mpsc::channel(1);
+
+        Ok(self
+            .outgoing_requests
+            .push(OutgoingRequest {
+                method,
+                path_with_query,
+                scheme,
+                authority,
+                headers,
+                sender: Some(sender),
+                receiver: Some(receiver),
+            })
+            .map_err(|()| anyhow!("table overflow"))?)
     }
 
     async fn outgoing_request_write(
         &mut self,
-        request: types::OutgoingRequest,
+        this: types::OutgoingRequest,
     ) -> Result<Result<types::OutgoingStream, ()>> {
-        todo!()
+        let sender = self
+            .outgoing_requests
+            .get_mut(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .sender
+            .take();
+
+        Ok(if let Some(sender) = sender {
+            Ok(self
+                .output_streams
+                .push(OutputStream {
+                    pollable: Pollable(Arc::new(AtomicBool::new(true))),
+                    sender: Sender::Reqwest(sender),
+                })
+                .map_err(|()| anyhow!("table overflow"))?)
+        } else {
+            Err(())
+        })
     }
 
     async fn drop_response_outparam(&mut self, this: types::ResponseOutparam) -> Result<()> {
@@ -835,8 +944,11 @@ impl types::Host for WasiCloud {
         })
     }
 
-    async fn drop_incoming_response(&mut self, response: types::IncomingResponse) -> Result<()> {
-        todo!()
+    async fn drop_incoming_response(&mut self, this: types::IncomingResponse) -> Result<()> {
+        self.incoming_responses
+            .remove(this)
+            .map(drop)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))
     }
 
     async fn drop_outgoing_response(&mut self, this: types::OutgoingResponse) -> Result<()> {
@@ -848,23 +960,54 @@ impl types::Host for WasiCloud {
 
     async fn incoming_response_status(
         &mut self,
-        response: types::IncomingResponse,
+        this: types::IncomingResponse,
     ) -> Result<types::StatusCode> {
-        todo!()
+        Ok(self
+            .incoming_responses
+            .get(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .status)
     }
 
     async fn incoming_response_headers(
         &mut self,
-        response: types::IncomingResponse,
+        this: types::IncomingResponse,
     ) -> Result<types::Headers> {
-        todo!()
+        Ok(self
+            .fields
+            .push(
+                self.incoming_responses
+                    .get(this)
+                    .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+                    .headers
+                    .clone(),
+            )
+            .map_err(|()| anyhow!("table overflow"))?)
     }
 
     async fn incoming_response_consume(
         &mut self,
-        response: types::IncomingResponse,
+        this: types::IncomingResponse,
     ) -> Result<Result<types::IncomingStream, ()>> {
-        todo!()
+        let body = self
+            .incoming_responses
+            .get_mut(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+            .body
+            .take();
+
+        Ok(if let Some(body) = body {
+            Ok(self
+                .input_streams
+                .push(InputStream {
+                    chunk: None,
+                    pollable: Pollable(Arc::new(AtomicBool::new(true))),
+                    body,
+                })
+                .map_err(|()| anyhow!("table overflow"))?)
+        } else {
+            Err(())
+        })
     }
 
     async fn new_outgoing_response(
@@ -906,7 +1049,7 @@ impl types::Host for WasiCloud {
                 .output_streams
                 .push(OutputStream {
                     pollable: Pollable(Arc::new(AtomicBool::new(true))),
-                    sender,
+                    sender: Sender::Hyper(sender),
                 })
                 .map_err(|()| anyhow!("table overflow"))?)
         } else {
@@ -916,23 +1059,58 @@ impl types::Host for WasiCloud {
 
     async fn drop_future_incoming_response(
         &mut self,
-        f: types::FutureIncomingResponse,
+        this: types::FutureIncomingResponse,
     ) -> Result<()> {
-        todo!()
+        self.future_incoming_responses
+            .remove(this)
+            .map(drop)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))
     }
 
     async fn future_incoming_response_get(
         &mut self,
-        f: types::FutureIncomingResponse,
+        this: types::FutureIncomingResponse,
     ) -> Result<Option<Result<types::IncomingResponse, types::Error>>> {
-        todo!()
+        let this = self
+            .future_incoming_responses
+            .get_mut(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?;
+
+        this.pollable.0.store(false, Ordering::SeqCst);
+
+        Ok(
+            match Pin::new(&mut this.response).poll(&mut Context::from_waker(
+                &Arc::new(PollWaker {
+                    pollable: this.pollable.clone(),
+                    notify: self.notify.clone(),
+                })
+                .into_waker(),
+            )) {
+                Poll::Pending => None,
+                Poll::Ready(response) => Some(match response {
+                    Ok(response) => Ok(self
+                        .incoming_responses
+                        .push(response)
+                        .map_err(|()| anyhow!("table overflow"))?),
+                    Err(error) => Err(error),
+                }),
+            },
+        )
     }
 
     async fn listen_to_future_incoming_response(
         &mut self,
-        f: types::FutureIncomingResponse,
+        this: types::FutureIncomingResponse,
     ) -> Result<types::Pollable> {
-        todo!()
+        self.pollables
+            .push(
+                self.future_incoming_responses
+                    .get_mut(this)
+                    .ok_or_else(|| anyhow!("unknown handle: {this}"))?
+                    .pollable
+                    .clone(),
+            )
+            .map_err(|()| anyhow!("table overflow"))
     }
 }
 
@@ -940,9 +1118,87 @@ impl types::Host for WasiCloud {
 impl default_outgoing_http::Host for WasiCloud {
     async fn handle(
         &mut self,
-        request: default_outgoing_http::OutgoingRequest,
+        this: default_outgoing_http::OutgoingRequest,
         options: Option<default_outgoing_http::RequestOptions>,
     ) -> Result<default_outgoing_http::FutureIncomingResponse> {
-        todo!()
+        let request = self
+            .outgoing_requests
+            .get_mut(this)
+            .ok_or_else(|| anyhow!("unknown handle: {this}"))?;
+
+        if options.is_some() {
+            todo!("support outgoing request options")
+        }
+
+        Ok(self
+            .future_incoming_responses
+            .push(FutureIncomingResponse {
+                pollable: Pollable(Arc::new(AtomicBool::new(true))),
+                response: if let Some(receiver) = request.receiver.take() {
+                    self.client
+                        .request(
+                            match &request.method {
+                                Method::Get => reqwest::Method::GET,
+                                Method::Post => reqwest::Method::POST,
+                                Method::Put => reqwest::Method::PUT,
+                                Method::Delete => reqwest::Method::DELETE,
+                                Method::Patch => reqwest::Method::PATCH,
+                                Method::Head => reqwest::Method::HEAD,
+                                Method::Options => reqwest::Method::OPTIONS,
+                                Method::Trace => reqwest::Method::TRACE,
+                                Method::Connect => reqwest::Method::CONNECT,
+                                Method::Other(s) => reqwest::Method::from_bytes(s.as_bytes())?,
+                            },
+                            format!(
+                                "{}://{}{}",
+                                request
+                                    .scheme
+                                    .as_ref()
+                                    .map(|scheme| match scheme {
+                                        Scheme::Http => "http",
+                                        Scheme::Https => "https",
+                                        Scheme::Other(s) => s,
+                                    })
+                                    .unwrap_or("http"),
+                                request.authority.as_deref().unwrap_or(""),
+                                request.path_with_query.as_deref().unwrap_or(""),
+                            ),
+                        )
+                        .headers(
+                            request
+                                .headers
+                                .iter()
+                                .map(|(k, v)| {
+                                    Ok((HeaderName::from_str(k)?, HeaderValue::from_bytes(v)?))
+                                })
+                                .collect::<Result<_>>()?,
+                        )
+                        .body(reqwest::Body::wrap_stream(receiver))
+                        .send()
+                        // TODO: Use a more specific error case where appropriate:
+                        .map_err(|e| types::Error::UnexpectedError(e.to_string()))
+                        .and_then(|response| {
+                            future::ready(Ok(IncomingResponse {
+                                status: response.status().as_u16(),
+                                headers: Fields(Arc::new(Mutex::new(
+                                    response
+                                        .headers()
+                                        .iter()
+                                        .map(|(k, v)| (k.to_string(), v.as_bytes().to_vec()))
+                                        .collect(),
+                                ))),
+                                body: Some(Body::wrap_stream(response.bytes_stream().boxed())),
+                            }))
+                        })
+                        .boxed()
+                } else {
+                    // TODO: is this something we need to support?
+                    future::ready(Err(types::Error::UnexpectedError(
+                        "unable to send the same request twice".into(),
+                    )))
+                    .boxed()
+                },
+            })
+            .map_err(|()| anyhow!("table overflow"))?)
     }
 }

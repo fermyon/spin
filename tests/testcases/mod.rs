@@ -103,6 +103,95 @@ pub async fn key_value_validation_works(controller: &dyn Controller) {
     tc.try_run(controller).await.unwrap();
 }
 
+pub async fn sqlite_works(controller: &dyn Controller) {
+    async fn checks(
+        metadata: AppMetadata,
+        test_init_key: String,
+        test_init_value: String,
+        _: Option<Pin<Box<dyn AsyncBufRead>>>,
+        _: Option<Pin<Box<dyn AsyncBufRead>>>,
+    ) -> Result<()> {
+        assert_http_response(
+            get_url(
+                metadata.base.as_str(),
+                &format!("/test?testkey={test_init_key}&testval={test_init_value}"),
+            )
+            .as_str(),
+            Method::GET,
+            "",
+            200,
+            &[],
+            None,
+        )
+        .await
+    }
+
+    let init_key = uuid::Uuid::new_v4().to_string();
+    let init_value = uuid::Uuid::new_v4().to_string();
+
+    let tc = TestCaseBuilder::default()
+        .name("sqlite".to_string())
+        .appname(Some("sqlite".to_string()))
+        .template(None)
+        .deploy_args(vec![
+            "--sqlite".to_string(),
+            "\"CREATE TABLE testdata(key TEXT, value TEXT)\"".to_string(),
+            "--sqlite".to_string(),
+            format!("\"INSERT INTO testdata(key, value) VALUES ('{init_key}', '{init_value}')\""),
+        ])
+        .assertions(
+            move |metadata: AppMetadata,
+                  stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
+                  stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
+                let ik = init_key.clone();
+                let iv = init_value.clone();
+                Box::pin(checks(metadata, ik, iv, stdout_stream, stderr_stream))
+            },
+        )
+        .build()
+        .unwrap();
+
+    tc.run(controller).await.unwrap()
+}
+
+pub async fn sqlite_validation_works(controller: &dyn Controller) {
+    async fn checks(
+        _: AppMetadata,
+        _: Option<Pin<Box<dyn AsyncBufRead>>>,
+        stderr: Option<Pin<Box<dyn AsyncBufRead>>>,
+    ) -> Result<()> {
+        let err_text = utils::get_output(stderr).await.unwrap();
+        let expected1 = "Component hello uses database 'anaspeptic'";
+        let expected2 = "Component hello uses database 'pericombobulations'";
+
+        assert!(
+            err_text.contains(expected1),
+            "Expected error containing '{expected1}' but got '{err_text}'"
+        );
+        assert!(
+            err_text.contains(expected2),
+            "Expected error containing '{expected2}' but got '{err_text}'"
+        );
+        Ok(())
+    }
+
+    let tc = TestCaseBuilder::default()
+        .name("sqlite-undefined-db".to_string())
+        .appname(Some("sqlite-undefined-db".to_string()))
+        .template(None)
+        .assertions(
+            |metadata: AppMetadata,
+             stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
+             stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
+                Box::pin(checks(metadata, stdout_stream, stderr_stream))
+            },
+        )
+        .build()
+        .unwrap();
+
+    tc.try_run(controller).await.unwrap();
+}
+
 pub async fn http_python_works(controller: &dyn Controller) {
     async fn checks(
         metadata: AppMetadata,

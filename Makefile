@@ -63,6 +63,10 @@ test-spin-up:
 test-kv:
 	RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::key_value --nocapture
 
+.PHONY: test-sqlite
+test-sqlite:
+	RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::sqlite --nocapture
+
 .PHONY: test-outbound-redis
 test-outbound-redis:
 	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features outbound-redis-tests --no-fail-fast -- --nocapture

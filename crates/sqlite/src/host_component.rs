@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{ConnectionManager, SqliteDispatch};
+use crate::{ConnectionManager, SqliteDispatch, DATABASES_KEY};
+use anyhow::anyhow;
 use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::HostComponent;
 use spin_world::sqlite;
@@ -40,5 +41,36 @@ impl DynamicHostComponent for SqliteComponent {
         data.component_init(allowed_databases);
         // TODO: allow dynamically updating connection manager
         Ok(())
+    }
+
+    fn validate_app(&self, app: &spin_app::App) -> anyhow::Result<()> {
+        let mut errors = vec![];
+
+        for component in app.components() {
+            let connection_managers = &self.connection_managers;
+            for allowed in component.get_metadata(DATABASES_KEY)?.unwrap_or_default() {
+                if !connection_managers.contains_key(&allowed) {
+                    let err = format!("- Component {} uses database '{allowed}'", component.id());
+                    errors.push(err);
+                }
+            }
+        }
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            let prologue = vec![
+                "One or more components use SQLite databases which are not defined.",
+                "Check the spelling, or pass a runtime configuration file that defines these stores.",
+                "See https://developer.fermyon.com/spin/dynamic-configuration#sqlite-storage-runtime-configuration",
+                "Details:",
+            ];
+            let lines: Vec<_> = prologue
+                .into_iter()
+                .map(|s| s.to_owned())
+                .chain(errors)
+                .collect();
+            Err(anyhow!(lines.join("\n")))
+        }
     }
 }

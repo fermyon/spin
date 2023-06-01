@@ -108,7 +108,7 @@ where
     key_values: Vec<(String, String)>,
 
     /// Run a sqlite migration against the default database
-    #[clap(long = "sqlite")]
+    #[clap(long = "sqlite", hide = true)]
     sqlite_statements: Vec<String>,
 
     #[clap(long = "help-args-only", hide = true)]

@@ -93,10 +93,17 @@ impl HttpExecutor for WasiHttpExecutor {
         }
 
         let handle = task::spawn(async move {
-            proxy
+            let result = proxy
                 .http()
                 .call_handle(&mut store, request, response)
-                .await
+                .await;
+
+            tracing::trace!(
+                "memory consumed: {}",
+                store.as_ref().data().memory_consumed()
+            );
+
+            result
         });
 
         match response_rx.await {

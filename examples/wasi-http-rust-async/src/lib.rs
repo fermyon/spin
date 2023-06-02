@@ -2,10 +2,10 @@ wit_bindgen::generate!("proxy" in "../../wit/preview2");
 
 use {
     self::http::{Http, IncomingRequest, ResponseOutparam},
-    anyhow::{anyhow, bail, Result},
+    anyhow::{anyhow, bail, Error, Result},
     cooked_waker::{IntoWaker, WakeRef},
     default_outgoing_http2 as default_outgoing_http,
-    futures::{future, sink, stream, FutureExt, SinkExt, StreamExt, TryStreamExt},
+    futures::{future, sink, stream, FutureExt, Sink, SinkExt, Stream, StreamExt, TryStreamExt},
     poll2 as poll,
     sha2::{Digest, Sha256},
     std::{
@@ -59,104 +59,9 @@ async fn handle_async(
                     .and_then(|v| Url::parse(v).ok())
             });
 
-            let results = urls.map(|url| {
-                {
-                    let url = url.clone();
-                    let wakers = wakers.clone();
-
-                    async move {
-                        let request = types::new_outgoing_request(
-                            &Method::Get,
-                            Some(url.path()),
-                            Some(&match url.scheme() {
-                                "http" => Scheme::Http,
-                                "https" => Scheme::Https,
-                                scheme => Scheme::Other(scheme.into()),
-                            }),
-                            url.host().map(|host| host.to_string()).as_deref(),
-                            types::new_fields(&[]),
-                        );
-
-                        let response = future::poll_fn({
-                            let response = default_outgoing_http::handle(request, None);
-                            let pollable = types::listen_to_future_incoming_response(response);
-                            let wakers = wakers.clone();
-                            let url = url.clone();
-
-                            move |context| {
-                                if let Some(response) =
-                                    types::future_incoming_response_get(response)
-                                {
-                                    println!("{url} {pollable} ready");
-                                    Poll::Ready(response)
-                                } else {
-                                    wakers
-                                        .borrow_mut()
-                                        .entry(pollable)
-                                        .or_default()
-                                        .push(context.waker().clone());
-                                    Poll::Pending
-                                }
-                            }
-                        })
-                        .await?;
-
-                        let status = types::incoming_response_status(response);
-
-                        if !(200..300).contains(&status) {
-                            bail!("unexpected status: {status}");
-                        }
-
-                        let mut body = stream::poll_fn({
-                            let body = types::incoming_response_consume(response)
-                                .expect("response should be consumable");
-                            let pollable = streams::subscribe_to_input_stream(body);
-                            let mut saw_end = false;
-
-                            move |context| {
-                                if saw_end {
-                                    println!("{url} got end");
-                                    Poll::Ready(None)
-                                } else {
-                                    match streams::read(body, READ_SIZE) {
-                                        Ok((buffer, end)) => {
-                                            if end {
-                                                types::finish_incoming_stream(body);
-                                                saw_end = true;
-                                            }
-
-                                            if buffer.is_empty() {
-                                                if end {
-                                                    println!("{url} got end");
-                                                    Poll::Ready(None)
-                                                } else {
-                                                    wakers
-                                                        .borrow_mut()
-                                                        .entry(pollable)
-                                                        .or_default()
-                                                        .push(context.waker().clone());
-                                                    Poll::Pending
-                                                }
-                                            } else {
-                                                println!("{url} got chunk");
-                                                Poll::Ready(Some(Ok(buffer)))
-                                            }
-                                        }
-                                        Err(_) => Poll::Ready(Some(Err(anyhow!("I/O error")))),
-                                    }
-                                }
-                            }
-                        });
-
-                        let mut hasher = Sha256::new();
-                        while let Some(chunk) = body.try_next().await? {
-                            hasher.update(&chunk);
-                        }
-
-                        Ok(hasher.finalize())
-                    }
-                }
-                .map(move |result| (url, result))
+            let results = urls.map({
+                let wakers = wakers.clone();
+                move |url| hash(wakers.clone(), url.clone()).map(move |result| (url, result))
             });
 
             let response = types::new_outgoing_response(
@@ -170,46 +75,14 @@ async fn handle_async(
             let body =
                 types::outgoing_response_write(response).expect("response should be writable");
 
-            let mut sink = sink::unfold((), {
-                let pollable = streams::subscribe_to_output_stream(body);
-                let wakers = wakers.clone();
-
-                move |(), chunk: Vec<u8>| {
-                    future::poll_fn({
-                        let mut offset = 0;
-                        let wakers = wakers.clone();
-
-                        move |context| {
-                            assert!(!chunk[offset..].is_empty());
-
-                            match streams::write(body, &chunk[offset..]) {
-                                Ok(count) => {
-                                    let count = usize::try_from(count).unwrap();
-                                    offset += count;
-                                    if offset == chunk.len() {
-                                        Poll::Ready(Ok(()))
-                                    } else {
-                                        wakers
-                                            .borrow_mut()
-                                            .entry(pollable)
-                                            .or_default()
-                                            .push(context.waker().clone());
-                                        Poll::Pending
-                                    }
-                                }
-                                Err(_) => Poll::Ready(Err(anyhow!("I/O error"))),
-                            }
-                        }
-                    })
-                }
-            });
+            let mut sink = output_stream_sink(wakers, body);
 
             let mut results = stream::iter(results).buffer_unordered(MAX_CONCURRENCY);
 
             while let Some((url, result)) = results.next().await {
                 sink.send(
                     match result {
-                        Ok(hash) => format!("{url}: {}\n", hex::encode(hash)),
+                        Ok(hash) => format!("{url}: {hash}\n"),
                         Err(e) => format!("{url}: {e:?}\n"),
                     }
                     .into_bytes(),
@@ -234,6 +107,150 @@ async fn handle_async(
     }
 
     Ok(())
+}
+
+async fn hash(
+    wakers: Rc<RefCell<HashMap<poll::Pollable, Vec<Waker>>>>,
+    url: Url,
+) -> Result<String> {
+    let request = types::new_outgoing_request(
+        &Method::Get,
+        Some(url.path()),
+        Some(&match url.scheme() {
+            "http" => Scheme::Http,
+            "https" => Scheme::Https,
+            scheme => Scheme::Other(scheme.into()),
+        }),
+        url.host().map(|host| host.to_string()).as_deref(),
+        types::new_fields(&[]),
+    );
+
+    let response = outgoing_request_send(wakers.clone(), request, url.clone()).await?;
+
+    let status = types::incoming_response_status(response);
+
+    if !(200..300).contains(&status) {
+        bail!("unexpected status: {status}");
+    }
+
+    let mut body = incoming_response_body(wakers, response, url);
+
+    let mut hasher = Sha256::new();
+    while let Some(chunk) = body.try_next().await? {
+        hasher.update(&chunk);
+    }
+
+    Ok(hex::encode(hasher.finalize()))
+}
+
+fn output_stream_sink(
+    wakers: Rc<RefCell<HashMap<poll::Pollable, Vec<Waker>>>>,
+    stream: streams::OutputStream,
+) -> impl Sink<Vec<u8>, Error = Error> {
+    sink::unfold((), {
+        let pollable = streams::subscribe_to_output_stream(stream);
+
+        move |(), chunk: Vec<u8>| {
+            future::poll_fn({
+                let mut offset = 0;
+                let wakers = wakers.clone();
+
+                move |context| {
+                    assert!(!chunk[offset..].is_empty());
+
+                    match streams::write(stream, &chunk[offset..]) {
+                        Ok(count) => {
+                            let count = usize::try_from(count).unwrap();
+                            offset += count;
+                            if offset == chunk.len() {
+                                Poll::Ready(Ok(()))
+                            } else {
+                                wakers
+                                    .borrow_mut()
+                                    .entry(pollable)
+                                    .or_default()
+                                    .push(context.waker().clone());
+                                Poll::Pending
+                            }
+                        }
+                        Err(_) => Poll::Ready(Err(anyhow!("I/O error"))),
+                    }
+                }
+            })
+        }
+    })
+}
+
+fn outgoing_request_send(
+    wakers: Rc<RefCell<HashMap<poll::Pollable, Vec<Waker>>>>,
+    request: types::OutgoingRequest,
+    url: Url,
+) -> impl Future<Output = Result<types::IncomingResponse, types::Error>> {
+    future::poll_fn({
+        let response = default_outgoing_http::handle(request, None);
+        let pollable = types::listen_to_future_incoming_response(response);
+
+        move |context| {
+            if let Some(response) = types::future_incoming_response_get(response) {
+                println!("{url} {pollable} ready");
+                Poll::Ready(response)
+            } else {
+                wakers
+                    .borrow_mut()
+                    .entry(pollable)
+                    .or_default()
+                    .push(context.waker().clone());
+                Poll::Pending
+            }
+        }
+    })
+}
+
+fn incoming_response_body(
+    wakers: Rc<RefCell<HashMap<poll::Pollable, Vec<Waker>>>>,
+    response: types::IncomingResponse,
+    url: Url,
+) -> impl Stream<Item = Result<Vec<u8>>> {
+    stream::poll_fn({
+        let body =
+            types::incoming_response_consume(response).expect("response should be consumable");
+        let pollable = streams::subscribe_to_input_stream(body);
+        let mut saw_end = false;
+
+        move |context| {
+            if saw_end {
+                println!("{url} got end");
+                Poll::Ready(None)
+            } else {
+                match streams::read(body, READ_SIZE) {
+                    Ok((buffer, end)) => {
+                        if end {
+                            types::finish_incoming_stream(body);
+                            saw_end = true;
+                        }
+
+                        if buffer.is_empty() {
+                            if end {
+                                println!("{url} got end");
+                                Poll::Ready(None)
+                            } else {
+                                wakers
+                                    .borrow_mut()
+                                    .entry(pollable)
+                                    .or_default()
+                                    .push(context.waker().clone());
+                                Poll::Pending
+                            }
+                        } else {
+                            println!("{url} got chunk");
+                            Poll::Ready(Some(Ok(buffer)))
+                        }
+                    }
+                    Err(_) => Poll::Ready(Some(Err(anyhow!("I/O error")))),
+                }
+            }
+        }
+    })
 }
 
 fn run(

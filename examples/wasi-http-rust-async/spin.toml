@@ -1,16 +1,15 @@
 spin_manifest_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
-description = "A simple application that returns hello."
+description = "An application makes concurrent outbound HTTP requests."
 name = "spin-wasi-http-async"
 trigger = { type = "http", base = "/" }
 version = "1.0.0"
 
 [[component]]
-id = "hello"
+id = "hash-all"
 source = "target/wasm32-wasi/release/wasi_http_rust_async.wasm"
-description = "A simple component that returns hello."
 [component.trigger]
-route = "/..."
+route = "/hash-all"
 executor =  { type = "wasi" }
 [component.build]
 command = "cargo build --target wasm32-wasi --release"

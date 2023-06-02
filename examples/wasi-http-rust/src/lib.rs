@@ -1,9 +1,12 @@
 wit_bindgen::generate!("proxy" in "../../wit/preview2");
 
 use self::http::{Http, IncomingRequest, ResponseOutparam};
+use default_outgoing_http2 as default_outgoing_http;
 use poll2 as poll;
+use std::str;
 use streams2 as streams;
-use types2 as types;
+use types2::{self as types, Method, Scheme};
+use url::Url;
 
 const READ_SIZE: u64 = 16 * 1024;
 
@@ -22,29 +25,118 @@ impl Http for Component {
                 .collect::<Vec<_>>()
         );
 
-        let poll = headers.iter().any(|(k, v)| k == "poll" && v == b"true");
-        let response =
-            types::new_outgoing_response(200, types::new_fields(&[("foo", "bar".as_bytes())]));
+        match (method, path.as_deref()) {
+            (Method::Post, Some("/echo")) => {
+                let poll = headers.iter().any(|(k, v)| k == "poll" && v == b"true");
+                let response = types::new_outgoing_response(
+                    200,
+                    types::new_fields(&[("foo", "bar".as_bytes())]),
+                );
 
-        types::set_response_outparam(response_out, Ok(response))
-            .expect("response outparam should be settable");
+                types::set_response_outparam(response_out, Ok(response))
+                    .expect("response outparam should be settable");
 
-        let request_body =
-            types::incoming_request_consume(request).expect("request should be consumable");
-        let response_body =
-            types::outgoing_response_write(response).expect("response should be writable");
+                let request_body =
+                    types::incoming_request_consume(request).expect("request should be consumable");
+                let response_body =
+                    types::outgoing_response_write(response).expect("response should be writable");
 
-        let total = if poll {
-            println!("using polling API");
-            pipe_polling(request_body, response_body)
-        } else {
-            println!("using blocking API");
-            pipe_blocking(request_body, response_body)
-        };
+                let total = if poll {
+                    println!("using polling API");
+                    pipe_polling(request_body, response_body)
+                } else {
+                    println!("using blocking API");
+                    pipe_blocking(request_body, response_body)
+                };
 
-        println!("echoed {total} bytes");
-        types::finish_incoming_stream(request_body);
-        types::finish_outgoing_stream(response_body, None);
+                println!("echoed {total} bytes");
+                types::finish_incoming_stream(request_body);
+                types::finish_outgoing_stream(response_body, None);
+            }
+
+            (Method::Get, Some("/proxy")) => {
+                let url = headers
+                    .iter()
+                    .find_map(|(k, v)| (k == "url").then_some(v))
+                    .and_then(|v| str::from_utf8(v).ok())
+                    .and_then(|v| Url::parse(v).ok());
+
+                if let Some(url) = url {
+                    let outgoing_request = types::new_outgoing_request(
+                        &Method::Get,
+                        Some(url.path()),
+                        Some(&match url.scheme() {
+                            "http" => Scheme::Http,
+                            "https" => Scheme::Https,
+                            scheme => Scheme::Other(scheme.into()),
+                        }),
+                        url.host().map(|host| host.to_string()).as_deref(),
+                        types::new_fields(&[]),
+                    );
+
+                    let incoming_response = default_outgoing_http::handle(outgoing_request, None);
+
+                    types::outgoing_request_write(outgoing_request)
+                        .expect("request should be writable");
+
+                    let incoming_response_pollable =
+                        types::listen_to_future_incoming_response(incoming_response);
+
+                    let incoming_response = loop {
+                        if let Some(incoming_response) =
+                            types::future_incoming_response_get(incoming_response)
+                        {
+                            break incoming_response;
+                        } else {
+                            poll::poll_oneoff(&[incoming_response_pollable]);
+                        }
+                    };
+
+                    match incoming_response {
+                        Ok(incoming_response) => {
+                            let response = types::new_outgoing_response(
+                                types::incoming_response_status(incoming_response),
+                                types::incoming_response_headers(incoming_response),
+                            );
+
+                            types::set_response_outparam(response_out, Ok(response))
+                                .expect("response outparam should be settable");
+
+                            let incoming_response_body =
+                                types::incoming_response_consume(incoming_response)
+                                    .expect("response should be consumable");
+
+                            let response_body = types::outgoing_response_write(response)
+                                .expect("response should be writable");
+
+                            pipe_blocking(incoming_response_body, response_body);
+
+                            types::finish_incoming_stream(incoming_response_body);
+
+                            types::finish_outgoing_stream(response_body, None);
+                        }
+
+                        Err(_error) => {
+                            todo!()
+                        }
+                    }
+                } else {
+                    todo!()
+                }
+            }
+
+            _ => {
+                let response = types::new_outgoing_response(405, types::new_fields(&[]));
+
+                types::set_response_outparam(response_out, Ok(response))
+                    .expect("response outparam should be settable");
+
+                types::finish_outgoing_stream(
+                    types::outgoing_response_write(response).expect("response should be writable"),
+                    None,
+                );
+            }
+        }
     }
 }
 

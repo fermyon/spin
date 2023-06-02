@@ -8,7 +8,7 @@ use futures::{
     future::{self, BoxFuture},
     Future, FutureExt, Sink, SinkExt, Stream, StreamExt, TryFutureExt, TryStreamExt,
 };
-use http_crate::header::{HeaderName, HeaderValue};
+use http_crate::header::{HeaderMap, HeaderName, HeaderValue};
 use hyper::{
     body::{self, Bytes, HttpBody},
     Body,
@@ -28,7 +28,7 @@ use std::{
     task::{Context, Poll},
 };
 use streams2 as streams;
-use tokio::sync::Notify;
+use tokio::{sync::Notify, task};
 use types2::{self as types, Method, Scheme};
 
 wasmtime::component::bindgen!({
@@ -149,6 +149,8 @@ struct InputStream {
     chunk: Option<Bytes>,
     pollable: Pollable,
     body: Body,
+    end_of_stream: bool,
+    trailers: Option<HeaderMap<HeaderValue>>,
 }
 
 impl InputStream {
@@ -160,63 +162,100 @@ impl InputStream {
         let len = usize::try_from(len).map_err(|_| streams::StreamError {})?;
 
         loop {
-            let (result, chunk) = if let Some(mut chunk) = self.chunk.take() {
-                let remainder = chunk.split_off(len.min(chunk.len()));
-                (
-                    Some(chunk.to_vec()),
-                    if remainder.is_empty() {
-                        None
-                    } else {
-                        Some(remainder)
-                    },
-                )
-            } else {
-                (None, None)
-            };
+            if self.end_of_stream {
+                let ended = if let Some(notify) = notify {
+                    self.pollable.0.store(false, Ordering::SeqCst);
 
-            self.chunk = chunk;
-
-            let result = if let Some(result) = result {
-                Some((result, false))
-            } else if let Some(notify) = notify.as_ref() {
-                self.pollable.0.store(false, Ordering::SeqCst);
-
-                match Pin::new(&mut self.body).poll_next(&mut Context::from_waker(
-                    &Arc::new(PollWaker {
-                        pollable: self.pollable.clone(),
-                        notify: notify.clone(),
-                    })
-                    .into_waker(),
-                )) {
-                    Poll::Pending => Some((Vec::new(), false)),
-                    Poll::Ready(Some(chunk)) => {
-                        let chunk = chunk.map_err(|_| streams::StreamError {})?;
-                        self.chunk = if chunk.is_empty() { None } else { Some(chunk) };
-                        None
+                    match Pin::new(&mut self.body.trailers()).poll(&mut Context::from_waker(
+                        &Arc::new(PollWaker {
+                            pollable: self.pollable.clone(),
+                            notify,
+                        })
+                        .into_waker(),
+                    )) {
+                        Poll::Pending => false,
+                        Poll::Ready(trailers) => {
+                            self.pollable.0.store(true, Ordering::SeqCst);
+                            self.trailers = trailers.map_err(|_| streams::StreamError {})?;
+                            true
+                        }
                     }
-                    Poll::Ready(None) => Some((Vec::new(), true)),
-                }
-            } else if let Some(chunk) = self
-                .body
-                .try_next()
-                .await
-                .map_err(|_| streams::StreamError {})?
-            {
-                self.chunk = if chunk.is_empty() { None } else { Some(chunk) };
-                None
-            } else {
-                Some((Vec::new(), true))
-            };
+                } else {
+                    self.trailers = self
+                        .body
+                        .trailers()
+                        .await
+                        .map_err(|_| streams::StreamError {})?;
+                    true
+                };
 
-            if let Some(result) = result {
-                break Ok(result);
+                break Ok((Vec::new(), ended));
+            } else {
+                let (result, chunk) = if let Some(mut chunk) = self.chunk.take() {
+                    let remainder = chunk.split_off(len.min(chunk.len()));
+                    (
+                        Some(chunk.to_vec()),
+                        if remainder.is_empty() {
+                            None
+                        } else {
+                            Some(remainder)
+                        },
+                    )
+                } else {
+                    (None, None)
+                };
+
+                self.chunk = chunk;
+
+                let result = if let Some(result) = result {
+                    Some((result, false))
+                } else if let Some(notify) = notify.as_ref() {
+                    self.pollable.0.store(false, Ordering::SeqCst);
+
+                    match Pin::new(&mut self.body).poll_next(&mut Context::from_waker(
+                        &Arc::new(PollWaker {
+                            pollable: self.pollable.clone(),
+                            notify: notify.clone(),
+                        })
+                        .into_waker(),
+                    )) {
+                        Poll::Pending => Some((Vec::new(), false)),
+                        Poll::Ready(chunk) => {
+                            self.pollable.0.store(true, Ordering::SeqCst);
+
+                            if let Some(chunk) = chunk {
+                                let chunk = chunk.map_err(|_| streams::StreamError {})?;
+                                self.chunk = if chunk.is_empty() { None } else { Some(chunk) };
+                                None
+                            } else {
+                                self.end_of_stream = true;
+                                None
+                            }
+                        }
+                    }
+                } else if let Some(chunk) = self
+                    .body
+                    .try_next()
+                    .await
+                    .map_err(|_| streams::StreamError {})?
+                {
+                    self.chunk = if chunk.is_empty() { None } else { Some(chunk) };
+                    None
+                } else {
+                    self.end_of_stream = true;
+                    None
+                };
+
+                if let Some(result) = result {
+                    break Ok(result);
+                }
             }
         }
     }
 }
 
 enum Sender {
-    Hyper(body::Sender),
+    Hyper(Option<body::Sender>),
     Reqwest(mpsc::Sender<Result<Bytes>>),
 }
 
@@ -235,6 +274,10 @@ impl OutputStream {
 
         let chunk = buf.into();
 
+        if let Sender::Hyper(None) = &self.sender {
+            return Err(streams::StreamError {});
+        }
+
         if let Some(notify) = notify {
             self.pollable.0.store(false, Ordering::SeqCst);
 
@@ -247,28 +290,45 @@ impl OutputStream {
             let mut context = Context::from_waker(&waker);
 
             let poll = match &mut self.sender {
-                Sender::Hyper(sender) => Pin::new(sender).poll_ready(&mut context).map_err(drop),
+                Sender::Hyper(Some(sender)) => {
+                    Pin::new(sender).poll_ready(&mut context).map_err(drop)
+                }
                 Sender::Reqwest(sender) => Pin::new(sender).poll_ready(&mut context).map_err(drop),
+                Sender::Hyper(None) => unreachable!(),
             };
 
             match poll {
                 Poll::Pending => Ok(0),
-                Poll::Ready(Err(())) => Err(streams::StreamError {}),
-                Poll::Ready(Ok(())) => {
-                    match &mut self.sender {
-                        Sender::Hyper(sender) => sender.try_send_data(chunk).map_err(drop),
-                        Sender::Reqwest(sender) => {
-                            Pin::new(sender).start_send(Ok(chunk)).map_err(drop)
+                Poll::Ready(result) => {
+                    self.pollable.0.store(true, Ordering::SeqCst);
+
+                    match result {
+                        Ok(()) => {
+                            let result = match &mut self.sender {
+                                Sender::Hyper(Some(sender)) => {
+                                    sender.try_send_data(chunk).map_err(drop)
+                                }
+                                Sender::Reqwest(sender) => {
+                                    Pin::new(sender).start_send(Ok(chunk)).map_err(drop)
+                                }
+                                Sender::Hyper(None) => unreachable!(),
+                            };
+                            result.expect(
+                                "`start_send` should succeed after \
+                                 `poll_ready` indicates readiness",
+                            );
+
+                            Ok(len)
                         }
+                        Err(()) => Err(streams::StreamError {}),
                     }
-                    .expect("`start_send` should succeed after `poll_ready` indicates readiness");
-                    Ok(len)
                 }
             }
         } else {
             match &mut self.sender {
-                Sender::Hyper(sender) => sender.send_data(chunk).await.map_err(drop),
+                Sender::Hyper(Some(sender)) => sender.send_data(chunk).await.map_err(drop),
                 Sender::Reqwest(sender) => sender.send(Ok(chunk)).await.map_err(drop),
+                Sender::Hyper(None) => unreachable!(),
             }
             .map(|()| len)
             .map_err(|_| streams::StreamError {})
@@ -698,14 +758,14 @@ impl types::Host for WasiCloud {
         &mut self,
         this: types::IncomingStream,
     ) -> Result<Option<types::Trailers>> {
-        // TODO: We should change the WIT file so this can return a `types::Error` on I/O error instead of trapping
-        // TODO #2: Should there be a non-blocking version of this?
-        self.input_streams
+        let trailers = self
+            .input_streams
             .get_mut(this)
             .ok_or_else(|| anyhow!("unknown handle: {this}"))?
-            .body
-            .trailers()
-            .await?
+            .trailers
+            .take();
+
+        trailers
             .map(|trailers| {
                 self.fields
                     .push(Fields(Arc::new(Mutex::new(
@@ -724,7 +784,7 @@ impl types::Host for WasiCloud {
         this: types::OutgoingStream,
         trailers: Option<types::Trailers>,
     ) -> Result<()> {
-        // See TODOs in `finish_incoming_stream`, which also apply here
+        // TODO: We should change the WIT file so this can return an I/O error instead of trapping
 
         let trailers = trailers
             .map(|trailers| {
@@ -748,7 +808,17 @@ impl types::Host for WasiCloud {
 
         if let Some(trailers) = trailers {
             match sender {
-                Sender::Hyper(sender) => sender.send_trailers(trailers).await?,
+                Sender::Hyper(sender) => {
+                    if let Some(mut sender) = sender.take() {
+                        // TODO: this is the only way we can avoid blocking; should we change the WIT to return a
+                        // future instead?
+                        task::spawn(async move { sender.send_trailers(trailers).await });
+                    } else {
+                        bail!("stream already finished");
+                    }
+                }
+                // TODO: will probably need to contribute trailer support upstream to `reqwest` or else use `hyper`
+                // directly:
                 Sender::Reqwest(_) => bail!("trailers not yet supported for outgoing requests"),
             }
         }
@@ -849,6 +919,8 @@ impl types::Host for WasiCloud {
                     chunk: None,
                     pollable: Pollable(Arc::new(AtomicBool::new(true))),
                     body,
+                    end_of_stream: false,
+                    trailers: None,
                 })
                 .map_err(|()| anyhow!("table overflow"))?)
         } else {
@@ -1003,6 +1075,8 @@ impl types::Host for WasiCloud {
                     chunk: None,
                     pollable: Pollable(Arc::new(AtomicBool::new(true))),
                     body,
+                    end_of_stream: false,
+                    trailers: None,
                 })
                 .map_err(|()| anyhow!("table overflow"))?)
         } else {
@@ -1049,7 +1123,7 @@ impl types::Host for WasiCloud {
                 .output_streams
                 .push(OutputStream {
                     pollable: Pollable(Arc::new(AtomicBool::new(true))),
-                    sender: Sender::Hyper(sender),
+                    sender: Sender::Hyper(Some(sender)),
                 })
                 .map_err(|()| anyhow!("table overflow"))?)
         } else {
@@ -1130,75 +1204,74 @@ impl default_outgoing_http::Host for WasiCloud {
             todo!("support outgoing request options")
         }
 
+        let pollable = Pollable(Arc::new(AtomicBool::new(true)));
+
+        let response = if let Some(receiver) = request.receiver.take() {
+            self.client
+                .request(
+                    match &request.method {
+                        Method::Get => reqwest::Method::GET,
+                        Method::Post => reqwest::Method::POST,
+                        Method::Put => reqwest::Method::PUT,
+                        Method::Delete => reqwest::Method::DELETE,
+                        Method::Patch => reqwest::Method::PATCH,
+                        Method::Head => reqwest::Method::HEAD,
+                        Method::Options => reqwest::Method::OPTIONS,
+                        Method::Trace => reqwest::Method::TRACE,
+                        Method::Connect => reqwest::Method::CONNECT,
+                        Method::Other(s) => reqwest::Method::from_bytes(s.as_bytes())?,
+                    },
+                    format!(
+                        "{}://{}{}",
+                        request
+                            .scheme
+                            .as_ref()
+                            .map(|scheme| match scheme {
+                                Scheme::Http => "http",
+                                Scheme::Https => "https",
+                                Scheme::Other(s) => s,
+                            })
+                            .unwrap_or("http"),
+                        request.authority.as_deref().unwrap_or(""),
+                        request.path_with_query.as_deref().unwrap_or(""),
+                    ),
+                )
+                .headers(
+                    request
+                        .headers
+                        .iter()
+                        .map(|(k, v)| Ok((HeaderName::from_str(k)?, HeaderValue::from_bytes(v)?)))
+                        .collect::<Result<_>>()?,
+                )
+                .body(reqwest::Body::wrap_stream(receiver))
+                .send()
+                // TODO: Use a more specific error case where appropriate:
+                .map_err(|e| types::Error::UnexpectedError(e.to_string()))
+                .and_then(|response| {
+                    future::ready(Ok(IncomingResponse {
+                        status: response.status().as_u16(),
+                        headers: Fields(Arc::new(Mutex::new(
+                            response
+                                .headers()
+                                .iter()
+                                .map(|(k, v)| (k.to_string(), v.as_bytes().to_vec()))
+                                .collect(),
+                        ))),
+                        body: Some(Body::wrap_stream(response.bytes_stream().boxed())),
+                    }))
+                })
+                .boxed()
+        } else {
+            // TODO: is this something we need to allow?
+            future::ready(Err(types::Error::UnexpectedError(
+                "unable to send the same request twice".into(),
+            )))
+            .boxed()
+        };
+
         Ok(self
             .future_incoming_responses
-            .push(FutureIncomingResponse {
-                pollable: Pollable(Arc::new(AtomicBool::new(true))),
-                response: if let Some(receiver) = request.receiver.take() {
-                    self.client
-                        .request(
-                            match &request.method {
-                                Method::Get => reqwest::Method::GET,
-                                Method::Post => reqwest::Method::POST,
-                                Method::Put => reqwest::Method::PUT,
-                                Method::Delete => reqwest::Method::DELETE,
-                                Method::Patch => reqwest::Method::PATCH,
-                                Method::Head => reqwest::Method::HEAD,
-                                Method::Options => reqwest::Method::OPTIONS,
-                                Method::Trace => reqwest::Method::TRACE,
-                                Method::Connect => reqwest::Method::CONNECT,
-                                Method::Other(s) => reqwest::Method::from_bytes(s.as_bytes())?,
-                            },
-                            format!(
-                                "{}://{}{}",
-                                request
-                                    .scheme
-                                    .as_ref()
-                                    .map(|scheme| match scheme {
-                                        Scheme::Http => "http",
-                                        Scheme::Https => "https",
-                                        Scheme::Other(s) => s,
-                                    })
-                                    .unwrap_or("http"),
-                                request.authority.as_deref().unwrap_or(""),
-                                request.path_with_query.as_deref().unwrap_or(""),
-                            ),
-                        )
-                        .headers(
-                            request
-                                .headers
-                                .iter()
-                                .map(|(k, v)| {
-                                    Ok((HeaderName::from_str(k)?, HeaderValue::from_bytes(v)?))
-                                })
-                                .collect::<Result<_>>()?,
-                        )
-                        .body(reqwest::Body::wrap_stream(receiver))
-                        .send()
-                        // TODO: Use a more specific error case where appropriate:
-                        .map_err(|e| types::Error::UnexpectedError(e.to_string()))
-                        .and_then(|response| {
-                            future::ready(Ok(IncomingResponse {
-                                status: response.status().as_u16(),
-                                headers: Fields(Arc::new(Mutex::new(
-                                    response
-                                        .headers()
-                                        .iter()
-                                        .map(|(k, v)| (k.to_string(), v.as_bytes().to_vec()))
-                                        .collect(),
-                                ))),
-                                body: Some(Body::wrap_stream(response.bytes_stream().boxed())),
-                            }))
-                        })
-                        .boxed()
-                } else {
-                    // TODO: is this something we need to support?
-                    future::ready(Err(types::Error::UnexpectedError(
-                        "unable to send the same request twice".into(),
-                    )))
-                    .boxed()
-                },
-            })
+            .push(FutureIncomingResponse { pollable, response })
             .map_err(|()| anyhow!("table overflow"))?)
     }
 }

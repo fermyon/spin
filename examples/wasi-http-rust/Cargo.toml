@@ -9,6 +9,7 @@ crate-type = [ "cdylib" ]
 [dependencies]
 # General-purpose crate with common HTTP types.
 http = "0.2"
+url = "2.3.1"
 # Crate that generates Rust Wasm bindings from a WebAssembly interface.
 wit-bindgen = { git = "https://github.com/bytecodealliance/wit-bindgen", tag = "wit-bindgen-rust-0.6.0" }
 

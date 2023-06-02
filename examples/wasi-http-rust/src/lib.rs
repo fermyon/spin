@@ -105,14 +105,12 @@ impl Http for Component {
                             let incoming_response_body =
                                 types::incoming_response_consume(incoming_response)
                                     .expect("response should be consumable");
-
                             let response_body = types::outgoing_response_write(response)
                                 .expect("response should be writable");
 
                             pipe_blocking(incoming_response_body, response_body);
 
                             types::finish_incoming_stream(incoming_response_body);
-
                             types::finish_outgoing_stream(response_body, None);
                         }
 

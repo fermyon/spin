@@ -13,7 +13,7 @@ Creating and sending HTTP requests from Spin components closely follows the Go
 `net/http` API:
 
 ```go
- r1, err := spin_http.Get("https://some-random-api.ml/facts/dog")
+ r1, err := spin_http.Get("https://random-data-api.fermyon.app/animals/json")
  r2, err := spin_http.Post("https://postman-echo.com/post", "text/plain", bytes.NewBufferString("Hello there!"))
 
 req, err := http.NewRequest("PUT", "https://postman-echo.com/put", bytes NewBufferString("General Kenobi!"))
@@ -41,7 +41,7 @@ Cannot send HTTP request: Destination not allowed: <URL>
 [[component]]
 id = "tinygo-hello"
 source = "main.wasm"
-allowed_http_hosts = [ "https://some-random-api.ml", "https://postman-echo.com" ]
+allowed_http_hosts = [ "https://random-data-api.fermyon.app", "https://postman-echo.com" ]
 [component.trigger]
 route = "/hello"
 [component.build]

@@ -8,7 +8,7 @@ version = "1.0.0"
 [[component]]
 id = "rust-outbound-http"
 source = "target/wasm32-wasi/release/http_rust_outbound_http.wasm"
-allowed_http_hosts = ["https://some-random-api.ml"]
+allowed_http_hosts = ["https://random-data-api.fermyon.app"]
 [component.trigger]
 route = "/outbound"
 [component.build]

@@ -289,8 +289,8 @@ async fn test_invalid_url_in_allowed_http_hosts_is_rejected() -> Result<()> {
 
     let e = app.unwrap_err().to_string();
     assert!(
-        e.contains("ftp://some-random-api.ml"),
-        "Expected allowed_http_hosts parse error to contain `ftp://some-random-api.ml`"
+        e.contains("ftp://random-data-api.fermyon.app"),
+        "Expected allowed_http_hosts parse error to contain `ftp://random-data-api.fermyon.app`"
     );
     assert!(
         e.contains("example.com/wib/wob"),

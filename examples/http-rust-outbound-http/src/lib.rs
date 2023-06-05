@@ -10,7 +10,7 @@ fn send_outbound(_req: Request) -> Result<Response> {
     let mut res = spin_sdk::outbound_http::send_request(
         http::Request::builder()
             .method("GET")
-            .uri("https://some-random-api.ml/facts/dog")
+            .uri("https://random-data-api.fermyon.app/animals/json")
             .body(None)?,
     )?;
     res.headers_mut()

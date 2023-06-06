@@ -22,6 +22,12 @@ pub struct DoctorCommand {
         default_value = DEFAULT_MANIFEST_FILE
     )]
     pub app_source: PathBuf,
+
+    /// Run only the specified check.  You may specify this
+    /// several times to run multiple checks.  The default is
+    /// to run all checks.
+    #[clap(long = "check", multiple = true)]
+    checks: Vec<String>,
 }
 
 impl DoctorCommand {
@@ -35,7 +41,7 @@ impl DoctorCommand {
             icon = Emoji("🩺 ", "")
         );
 
-        let count = spin_doctor::Checkup::new(manifest_file)
+        let count = spin_doctor::Checkup::new(manifest_file, &self.checks)
             .for_each_diagnosis(move |diagnosis, patient| {
                 async move {
                     show_diagnosis(&*diagnosis);

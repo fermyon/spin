@@ -30,7 +30,10 @@ use spin_http::{
     config::{HttpExecutorType, HttpTriggerConfig},
     routes::{RoutePattern, Router},
 };
-use spin_trigger::{locked::DESCRIPTION_KEY, EitherInstancePre, TriggerAppEngine, TriggerExecutor};
+use spin_trigger::{
+    locked::{BINDLE_VERSION_KEY, DESCRIPTION_KEY, OCI_IMAGE_DIGEST_KEY, VERSION_KEY},
+    EitherInstancePre, TriggerAppEngine, TriggerExecutor,
+};
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
@@ -254,7 +257,12 @@ impl HttpTrigger {
 
     /// Returns spin status information.
     fn app_info(&self) -> Result<Response<Body>> {
-        let info = AppInfo::new(self.engine.app());
+        let info = AppInfo {
+            name: self.engine.app_name.clone(),
+            version: self.engine.app().get_metadata(VERSION_KEY)?,
+            bindle_version: self.engine.app().get_metadata(BINDLE_VERSION_KEY)?,
+            oci_image_digest: self.engine.app().get_metadata(OCI_IMAGE_DIGEST_KEY)?,
+        };
         let body = serde_json::to_vec_pretty(&info)?;
         Ok(Response::builder()
             .header("content-type", "application/json")

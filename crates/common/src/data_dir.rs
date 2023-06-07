@@ -18,11 +18,12 @@ pub fn default_data_dir() -> Result<PathBuf> {
 /// Get the package manager specific data directory
 fn package_manager_data_dir() -> Option<PathBuf> {
     if let Ok(brew_prefix) = std::env::var("HOMEBREW_PREFIX") {
-        let data_dir = Path::new(&brew_prefix).join("var").join("spin");
-
-        if data_dir.is_dir() {
+        if std::env::current_exe()
+            .map(|p| p.starts_with(&brew_prefix))
+            .unwrap_or(false)
+        {
+            let data_dir = Path::new(&brew_prefix).join("etc").join("fermyon-spin");
             return Some(data_dir);
-            // TODO: check if they also have plugins in non-brew default dir and warn
         }
     }
     None

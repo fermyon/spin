@@ -25,10 +25,12 @@ impl PluginStore {
     }
 
     pub fn try_default() -> Result<Self> {
-        if let Ok(test_dir) = std::env::var("TEST_PLUGINS_DIRECTORY") {
-            return Ok(Self::new(PathBuf::from(test_dir)));
-        }
-        Ok(Self::new(default_data_dir()?.join("plugins")))
+        let data_dir = if let Ok(test_dir) = std::env::var("TEST_PLUGINS_DIRECTORY") {
+            PathBuf::from(test_dir).join("spin")
+        } else {
+            default_data_dir()?
+        };
+        Ok(Self::new(data_dir.join("plugins")))
     }
 
     /// Gets the path to where Spin plugin are installed.

@@ -48,11 +48,6 @@ test-unit:
 test-integration: test-kv
 	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast -- --skip spinup_tests --skip cloud_tests --nocapture
 
-.PHONY: test-fermyon-platform
-test-fermyon-platform:
-	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features fermyon-platform --no-fail-fast -- integration_tests::test_dependencies --skip spinup_tests --nocapture
-	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features fermyon-platform --no-fail-fast -- --skip integration_tests::test_dependencies --skip spinup_tests --nocapture
-
 .PHONY: test-spin-up
 test-spin-up:
 	docker build -t spin-e2e-tests --build-arg BUILD_SPIN=$(E2E_BUILD_SPIN) -f $(E2E_TESTS_DOCKERFILE) .

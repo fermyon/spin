@@ -118,13 +118,6 @@ jobs:
         env:
           CARGO_INCREMENTAL: 0
 
-      - name: Fermyon Platform Integration Tests
-        run: |
-          make test-fermyon-platform
-        env:
-          RUST_LOG: spin=trace
-          CARGO_INCREMENTAL: 0
-
   test-go:
     name: Test Spin SDK - Go
     runs-on: ubuntu-latest

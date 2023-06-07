@@ -1,24 +1,63 @@
+use crate::commands::external::execute_external_subcommand;
 use anyhow::Result;
-use clap::Subcommand;
+use clap::Args;
 
-use super::deploy::DeployCommand;
-use super::login::LoginCommand;
-
-/// Commands for publishing applications to the Fermyon Platform.
-#[derive(Subcommand, Debug)]
-pub enum CloudCommands {
-    /// Package and upload an application to the Fermyon Platform.
-    Deploy(DeployCommand),
-
-    /// Log into the Fermyon Platform.
-    Login(LoginCommand),
+#[derive(Debug, Args, PartialEq)]
+#[clap(
+    about = "Package and upload an application to the Fermyon Platform",
+    allow_hyphen_values = true,
+    disable_help_flag = true
+)]
+pub struct DeployCommand {
+    /// All args to be passed through to the plugin
+    #[clap(hide = true)]
+    args: Vec<String>,
 }
 
-impl CloudCommands {
-    pub async fn run(self) -> Result<()> {
-        match self {
-            Self::Deploy(cmd) => cmd.run().await,
-            Self::Login(cmd) => cmd.run().await,
-        }
+#[derive(Debug, Args, PartialEq)]
+#[clap(
+    about = "Log into to the Fermyon Cloud.",
+    allow_hyphen_values = true,
+    disable_help_flag = true
+)]
+pub struct LoginCommand {
+    /// All args to be passed through to the plugin
+    #[clap(hide = true)]
+    args: Vec<String>,
+}
+
+#[derive(Debug, Args, PartialEq)]
+#[clap(
+    about = "Commands for publishing applications to the Fermyon Cloud.",
+    allow_hyphen_values = true,
+    disable_help_flag = true
+)]
+pub struct CloudCommand {
+    /// All args to be passed through to the plugin
+    #[clap(hide = true)]
+    args: Vec<String>,
+}
+
+impl CloudCommand {
+    pub async fn run(self, app: clap::App<'_>) -> Result<()> {
+        let mut cmd = vec!["cloud".to_string()];
+        cmd.append(&mut self.args.clone());
+        execute_external_subcommand(cmd, app).await
+    }
+}
+
+impl DeployCommand {
+    pub async fn run(self, app: clap::App<'_>) -> Result<()> {
+        let mut cmd = vec!["cloud".to_string(), "deploy".to_string()];
+        cmd.append(&mut self.args.clone());
+        execute_external_subcommand(cmd, app).await
+    }
+}
+
+impl LoginCommand {
+    pub async fn run(self, app: clap::App<'_>) -> Result<()> {
+        let mut cmd = vec!["cloud".to_string(), "login".to_string()];
+        cmd.append(&mut self.args.clone());
+        execute_external_subcommand(cmd, app).await
     }
 }

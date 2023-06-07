@@ -1,7 +1,8 @@
 use crate::build_info::*;
+use crate::commands::plugins::{update, Install};
 use crate::opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG;
 use anyhow::{anyhow, Result};
-use spin_plugins::{error::Error, manifest::warn_unsupported_version, PluginStore};
+use spin_plugins::{error::Error as PluginError, manifest::warn_unsupported_version, PluginStore};
 use std::{collections::HashMap, env, process};
 use tokio::process::Command;
 use tracing::log;
@@ -48,11 +49,31 @@ pub async fn execute_external_subcommand(
                 process::exit(1);
             }
         }
-        Err(Error::NotFound(e)) => {
-            tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
-            terminal::error!("'{plugin_name}' is not a known Spin command. See spin --help.\n");
-            print_similar_commands(app, &plugin_name);
-            process::exit(2);
+        Err(PluginError::NotFound(e)) => {
+            if plugin_name == "cloud" {
+                println!("The `cloud` plugin is required. Installing now.");
+                let plugin_installer = Install {
+                    name: Some("cloud".to_string()),
+                    yes_to_all: true,
+                    local_manifest_src: None,
+                    remote_manifest_src: None,
+                    override_compatibility_check: false,
+                    version: None,
+                };
+                // Automatically update plugins if the cloud plugin manifest does not exist
+                // TODO: remove this eventually once very unlikely to not have updated
+                if let Err(e) = plugin_installer.run().await {
+                    if let Some(PluginError::NotFound(_)) = e.downcast_ref::<PluginError>() {
+                        update().await?;
+                    }
+                    plugin_installer.run().await?;
+                }
+            } else {
+                tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
+                terminal::error!("'{plugin_name}' is not a known Spin command. See spin --help.\n");
+                print_similar_commands(app, &plugin_name);
+                process::exit(2);
+            }
         }
         Err(e) => return Err(e.into()),
     }

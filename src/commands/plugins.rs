@@ -104,11 +104,11 @@ pub struct Install {
 }
 
 impl Install {
-    pub async fn run(self) -> Result<()> {
-        let manifest_location = match (self.local_manifest_src, self.remote_manifest_src, self.name) {
-            (Some(path), None, None) => ManifestLocation::Local(path),
-            (None, Some(url), None) => ManifestLocation::Remote(url),
-            (None, None, Some(name)) => ManifestLocation::PluginsRepository(PluginLookup::new(&name, self.version)),
+    pub async fn run(&self) -> Result<()> {
+        let manifest_location = match (&self.local_manifest_src, &self.remote_manifest_src, &self.name) {
+            (Some(path), None, None) => ManifestLocation::Local(path.to_path_buf()),
+            (None, Some(url), None) => ManifestLocation::Remote(url.clone()),
+            (None, None, Some(name)) => ManifestLocation::PluginsRepository(PluginLookup::new(name, self.version.clone())),
             _ => return Err(anyhow::anyhow!("For plugin lookup, must provide exactly one of: plugin name, url to manifest, local path to manifest")),
         };
         let manager = PluginManager::try_default()?;
@@ -409,7 +409,7 @@ impl PluginDescriptor {
 }
 
 /// Updates the locally cached spin-plugins repository, fetching the latest plugins.
-async fn update() -> Result<()> {
+pub(crate) async fn update() -> Result<()> {
     let manager = PluginManager::try_default()?;
     let plugins_dir = manager.store().get_plugins_directory();
     let url = plugins_repo_url()?;

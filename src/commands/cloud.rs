@@ -26,26 +26,6 @@ pub struct LoginCommand {
     args: Vec<String>,
 }
 
-#[derive(Debug, Args, PartialEq)]
-#[clap(
-    about = "Commands for publishing applications to the Fermyon Cloud.",
-    allow_hyphen_values = true,
-    disable_help_flag = true
-)]
-pub struct CloudCommand {
-    /// All args to be passed through to the plugin
-    #[clap(hide = true)]
-    args: Vec<String>,
-}
-
-impl CloudCommand {
-    pub async fn run(self, app: clap::App<'_>) -> Result<()> {
-        let mut cmd = vec!["cloud".to_string()];
-        cmd.append(&mut self.args.clone());
-        execute_external_subcommand(cmd, app).await
-    }
-}
-
 impl DeployCommand {
     pub async fn run(self, app: clap::App<'_>) -> Result<()> {
         let mut cmd = vec!["cloud".to_string(), "deploy".to_string()];

@@ -2,7 +2,7 @@
 # cargo-vet config file
 
 [cargo-vet]
-version = "0.5"
+version = "0.7"
 
 [imports.bytecodealliance]
 url = "https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml"
@@ -22,8 +22,36 @@ url = "https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml"
 [policy.bindle]
 audit-as-crates-io = false
 
+[policy.dkregistry]
+audit-as-crates-io = false
+
+[policy.ignore-files]
+audit-as-crates-io = true
+
 [policy.oci-distribution]
 audit-as-crates-io = false
+
+[policy.project-origins]
+audit-as-crates-io = true
+
+[policy."wasi-cap-std-sync:0.0.0@git:b6d42fe41e5690844a661deb631d996a2b49debc"]
+audit-as-crates-io = false
+
+[policy."wasi-cap-std-sync:8.0.1"]
+
+[policy."wasi-common:0.0.0@git:b6d42fe41e5690844a661deb631d996a2b49debc"]
+audit-as-crates-io = true
+
+[policy."wasi-common:8.0.1"]
+
+[policy.watchexec]
+audit-as-crates-io = true
+
+[policy.watchexec-events]
+audit-as-crates-io = true
+
+[policy.watchexec-signals]
+audit-as-crates-io = true
 
 [policy.wit-parser]
 audit-as-crates-io = false

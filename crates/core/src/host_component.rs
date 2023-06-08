@@ -1,6 +1,11 @@
-use std::{any::Any, marker::PhantomData, sync::Arc};
+use std::{
+    any::{type_name, Any, TypeId},
+    collections::HashMap,
+    marker::PhantomData,
+    sync::Arc,
+};
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 
 use super::{Data, Linker};
 
@@ -131,6 +136,7 @@ type BoxHostComponent = Box<dyn DynSafeHostComponent + Send + Sync>;
 
 #[derive(Default)]
 pub struct HostComponentsBuilder {
+    handles: HashMap<TypeId, AnyHostComponentDataHandle>,
     host_components: Vec<BoxHostComponent>,
 }
 
@@ -140,7 +146,17 @@ impl HostComponentsBuilder {
         linker: &mut Linker<T>,
         host_component: HC,
     ) -> Result<HostComponentDataHandle<HC>> {
+        let type_id = TypeId::of::<HC>();
+        if self.handles.contains_key(&type_id) {
+            bail!(
+                "already have a host component of type {}",
+                type_name::<HC>()
+            )
+        }
+
         let handle = AnyHostComponentDataHandle(self.host_components.len());
+        self.handles.insert(type_id, handle);
+
         self.host_components.push(Box::new(host_component));
         HC::add_to_linker(linker, move |data| {
             data.host_components_data
@@ -156,12 +172,14 @@ impl HostComponentsBuilder {
 
     pub fn build(self) -> HostComponents {
         HostComponents {
+            handles: self.handles,
             host_components: Arc::new(self.host_components),
         }
     }
 }
 
 pub struct HostComponents {
+    handles: HashMap<TypeId, AnyHostComponentDataHandle>,
     host_components: Arc<Vec<BoxHostComponent>>,
 }
 
@@ -179,6 +197,12 @@ impl HostComponents {
             data,
             host_components: self.host_components.clone(),
         }
+    }
+
+    pub fn find_handle<HC: HostComponent>(&self) -> Option<HostComponentDataHandle<HC>> {
+        self.handles
+            .get(&TypeId::of::<HC>())
+            .map(|handle| HostComponentDataHandle::from_any(*handle))
     }
 }
 
@@ -264,5 +288,18 @@ mod tests {
 
         hc_data.set(handle2, 1);
         assert_eq!(hc_data.get_or_insert(handle2), &1);
+    }
+
+    #[test]
+    fn find_handle() {
+        let engine = wasmtime::Engine::default();
+        let mut linker: crate::Linker<()> = crate::Linker::new(&engine);
+
+        let mut builder = HostComponents::builder();
+        builder.add_host_component(&mut linker, TestHC).unwrap();
+        let host_components = builder.build();
+        let handle = host_components.find_handle::<TestHC>().unwrap();
+        let mut hc_data = host_components.new_data();
+        assert_eq!(hc_data.get_or_insert(handle), &0);
     }
 }

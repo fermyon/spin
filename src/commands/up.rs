@@ -116,9 +116,13 @@ impl UpCommand {
         let app_source = self.resolve_app_source();
 
         if app_source == AppSource::None {
-            return self
-                .run_trigger(trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE), None)
-                .await;
+            if self.help {
+                return self
+                    .run_trigger(trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE), None)
+                    .await;
+            } else {
+                bail!("Default file '{DEFAULT_MANIFEST_FILE}' not found. Run `spin up --from <APPLICATION>`, or `spin up --help` for usage.");
+            }
         }
 
         let working_dir_holder = match &self.tmp {
@@ -222,7 +226,7 @@ impl UpCommand {
             AppSource::File(default_manifest)
         } else if self.trigger_args_look_file_like() {
             let msg = format!(
-                "Default file 'spin.toml' found. Did you mean `spin up -f {}`?`",
+                "Default file 'spin.toml' not found. Did you mean `spin up -f {}`?`",
                 self.trigger_args[0].to_string_lossy()
             );
             AppSource::Unresolvable(msg)

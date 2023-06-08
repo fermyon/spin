@@ -21,7 +21,8 @@ pub trait Controller {
         &self,
         app_name: &str,
         trigger_type: &str,
-        mut args: Vec<&str>,
+        mut deploy_args: Vec<&str>,
+        mut up_args: Vec<&str>,
         state_dir: &str,
     ) -> Result<Result<AppInstance, ExitedInstance>>;
     async fn stop_app(

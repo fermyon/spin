@@ -46,6 +46,10 @@ pub async fn key_value_works(controller: &dyn Controller) {
         .name("key-value".to_string())
         .appname(Some("key-value".to_string()))
         .template(None)
+        .up_args(vec![
+            "--key-value".to_string(),
+            format!("{init_key}={init_value}"),
+        ])
         .deploy_args(vec![
             "--key-value".to_string(),
             format!("{init_key}={init_value}"),
@@ -133,7 +137,7 @@ pub async fn sqlite_works(controller: &dyn Controller) {
         .name("sqlite".to_string())
         .appname(Some("sqlite".to_string()))
         .template(None)
-        .deploy_args(vec![
+        .up_args(vec![
             "--sqlite".to_string(),
             "\"CREATE TABLE testdata(key TEXT, value TEXT)\"".to_string(),
             "--sqlite".to_string(),
@@ -768,7 +772,7 @@ pub async fn header_dynamic_env_works(controller: &dyn Controller) {
     let tc = TestCaseBuilder::default()
         .name("headers-dynamic-env-test".to_string())
         .appname(Some("headers-dynamic-env-test".to_string()))
-        .deploy_args(vec!["--env".to_string(), "foo=bar".to_string()])
+        .up_args(vec!["--env".to_string(), "foo=bar".to_string()])
         .assertions(
             |metadata: AppMetadata,
              stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
@@ -814,7 +818,7 @@ pub async fn http_rust_outbound_mysql_works(controller: &dyn Controller) {
     let tc = TestCaseBuilder::default()
         .name("http-rust-outbound-mysql".to_string())
         .appname(Some("http-rust-outbound-mysql".to_string()))
-        .deploy_args(vec!["--env".to_string(), "foo=bar".to_string()])
+        .up_args(vec!["--env".to_string(), "foo=bar".to_string()])
         .assertions(
             |metadata: AppMetadata,
              stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
@@ -1033,6 +1037,11 @@ pub async fn registry_works(controller: &dyn Controller) {
         .appname(Some("http-go-registry-generated".to_string()))
         .push_to_registry(Some(registry_app_url.clone()))
         .deploy_args(vec![
+            "--from-registry".to_string(),
+            registry_app_url.clone(),
+            "--insecure".to_string(),
+        ])
+        .up_args(vec![
             "--from-registry".to_string(),
             registry_app_url.clone(),
             "--insecure".to_string(),

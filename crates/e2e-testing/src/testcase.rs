@@ -56,9 +56,14 @@ pub struct TestCase {
     pub plugins: Option<Vec<String>>,
 
     /// optional
-    /// if provided, appended to `spin up/deploy` command
+    /// if provided, appended to `spin deploy` command
     #[builder(default = "vec![]")]
     pub deploy_args: Vec<String>,
+
+    /// optional
+    /// if provided, appended to `spin up` command
+    #[builder(default = "vec![]")]
+    pub up_args: Vec<String>,
 
     /// optional
     /// if provided, executed as command line before running `spin build`
@@ -175,8 +180,15 @@ impl TestCase {
         // run `spin up` (or `spin deploy` for cloud).
         // `AppInstance` has some basic info about the running app like base url, routes (only for cloud) etc.
         let deploy_args = self.deploy_args.iter().map(|s| s as &str).collect();
+        let up_args = self.up_args.iter().map(|s| s as &str).collect();
         let run_result = controller
-            .run_app(&appname, &self.trigger_type, deploy_args, &state_dir)
+            .run_app(
+                &appname,
+                &self.trigger_type,
+                deploy_args,
+                up_args,
+                &state_dir,
+            )
             .await
             .context("running app")?;
         match run_result {

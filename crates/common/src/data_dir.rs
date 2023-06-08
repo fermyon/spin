@@ -1,0 +1,30 @@
+//! Resolves Spin's default data directory paths
+
+use anyhow::{anyhow, Result};
+use std::path::{Path, PathBuf};
+
+/// Return the default data directory for Spin
+pub fn default_data_dir() -> Result<PathBuf> {
+    if let Some(pkg_mgr_dir) = package_manager_data_dir() {
+        return Ok(pkg_mgr_dir);
+    }
+
+    let data_dir = dirs::data_local_dir()
+        .or_else(|| dirs::home_dir().map(|p| p.join(".spin")))
+        .ok_or_else(|| anyhow!("Unable to get local data directory or home directory"))?;
+    Ok(data_dir.join("spin"))
+}
+
+/// Get the package manager specific data directory
+fn package_manager_data_dir() -> Option<PathBuf> {
+    if let Ok(brew_prefix) = std::env::var("HOMEBREW_PREFIX") {
+        if std::env::current_exe()
+            .map(|p| p.starts_with(&brew_prefix))
+            .unwrap_or(false)
+        {
+            let data_dir = Path::new(&brew_prefix).join("etc").join("fermyon-spin");
+            return Some(data_dir);
+        }
+    }
+    None
+}

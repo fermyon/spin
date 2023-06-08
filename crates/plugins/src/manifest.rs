@@ -40,6 +40,10 @@ impl PluginManifest {
         self.license.as_ref()
     }
 
+    pub fn spin_compatibility(&self) -> String {
+        self.spin_compatibility.clone()
+    }
+
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref()
     }

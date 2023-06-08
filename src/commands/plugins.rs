@@ -353,10 +353,10 @@ impl List {
         } else {
             for p in plugins {
                 let installed = if p.installed { " [installed]" } else { "" };
-                let compat = match p.compatibility {
-                    PluginCompatibility::Compatible => "",
-                    PluginCompatibility::IncompatibleSpin => " [requires other Spin version]",
-                    PluginCompatibility::Incompatible => " [incompatible]",
+                let compat = match &p.compatibility {
+                    PluginCompatibility::Compatible => String::new(),
+                    PluginCompatibility::IncompatibleSpin(v) => format!(" [requires Spin {v}]"),
+                    PluginCompatibility::Incompatible => String::from(" [incompatible]"),
                 };
                 println!("{} {}{}{}", p.name, p.version, installed, compat);
             }
@@ -367,7 +367,7 @@ impl List {
 #[derive(Debug)]
 pub(crate) enum PluginCompatibility {
     Compatible,
-    IncompatibleSpin,
+    IncompatibleSpin(String),
     Incompatible,
 }
 
@@ -378,7 +378,7 @@ impl PluginCompatibility {
             if manifest.is_compatible_spin_version(spin_version) {
                 Self::Compatible
             } else {
-                Self::IncompatibleSpin
+                Self::IncompatibleSpin(manifest.spin_compatibility())
             }
         } else {
             Self::Incompatible

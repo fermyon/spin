@@ -23,10 +23,7 @@ pub trait Connection: Send + Sync {
         parameters: Vec<spin_world::sqlite::Value>,
     ) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error>;
 
-    fn execute_batch(
-        &self,
-        _statements: &str,
-    ) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error>;
+    fn execute_batch(&self, statements: &str) -> anyhow::Result<()>;
 }
 
 /// An implementation of the SQLite host

@@ -86,17 +86,10 @@ impl Connection for InProcConnection {
         Ok(spin_world::sqlite::QueryResult { columns, rows })
     }
 
-    fn execute_batch(
-        &self,
-        statements: &str,
-    ) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error> {
+    fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
         let conn = self.0.lock().unwrap();
-        conn.execute_batch(statements)
-            .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))?;
-        Ok(spin_world::sqlite::QueryResult {
-            rows: vec![],
-            columns: vec![],
-        })
+        conn.execute_batch(statements)?;
+        Ok(())
     }
 }
 

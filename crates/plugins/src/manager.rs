@@ -194,6 +194,65 @@ impl PluginManager {
         };
         Ok(plugin_manifest)
     }
+
+    pub async fn update_lock(&self) -> PluginManagerUpdateLock {
+        let lock = self.update_lock_impl().await;
+        PluginManagerUpdateLock::from(lock)
+    }
+
+    async fn update_lock_impl(&self) -> anyhow::Result<fd_lock::RwLock<tokio::fs::File>> {
+        let plugins_dir = self.store().get_plugins_directory();
+        tokio::fs::create_dir_all(plugins_dir).await?;
+        let file = tokio::fs::File::create(plugins_dir.join(".updatelock")).await?;
+        let locker = fd_lock::RwLock::new(file);
+        Ok(locker)
+    }
+}
+
+// We permit the "locking failed" state rather than erroring so that we don't prevent the user
+// from doing updates just because something is amiss in the lock system. (This is basically
+// falling back to the previous, never-lock, behaviour.) Put another way, we prevent updates
+// only if we can _positively confirm_ that another update is in progress.
+pub enum PluginManagerUpdateLock {
+    Lock(fd_lock::RwLock<tokio::fs::File>),
+    Failed,
+}
+
+impl From<anyhow::Result<fd_lock::RwLock<tokio::fs::File>>> for PluginManagerUpdateLock {
+    fn from(value: anyhow::Result<fd_lock::RwLock<tokio::fs::File>>) -> Self {
+        match value {
+            Ok(lock) => Self::Lock(lock),
+            Err(_) => Self::Failed,
+        }
+    }
+}
+
+impl PluginManagerUpdateLock {
+    pub fn lock_updates(&mut self) -> PluginManagerUpdateGuard<'_> {
+        match self {
+            Self::Lock(lock) => match lock.try_write() {
+                Ok(guard) => PluginManagerUpdateGuard::Acquired(guard),
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    PluginManagerUpdateGuard::Denied
+                }
+                _ => PluginManagerUpdateGuard::Failed,
+            },
+            Self::Failed => PluginManagerUpdateGuard::Failed,
+        }
+    }
+}
+
+#[must_use]
+pub enum PluginManagerUpdateGuard<'lock> {
+    Acquired(fd_lock::RwLockWriteGuard<'lock, tokio::fs::File>),
+    Denied,
+    Failed, // See comment on PluginManagerUpdateLock
+}
+
+impl<'lock> PluginManagerUpdateGuard<'lock> {
+    pub fn denied(&self) -> bool {
+        matches!(self, Self::Denied)
+    }
 }
 
 /// The action required to install a plugin to the desired version.

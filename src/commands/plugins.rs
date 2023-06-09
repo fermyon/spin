@@ -411,6 +411,13 @@ impl PluginDescriptor {
 /// Updates the locally cached spin-plugins repository, fetching the latest plugins.
 pub(crate) async fn update() -> Result<()> {
     let manager = PluginManager::try_default()?;
+
+    let mut locker = manager.update_lock().await;
+    let guard = locker.lock_updates();
+    if guard.denied() {
+        anyhow::bail!("Another plugin update operation is already in progress");
+    }
+
     let plugins_dir = manager.store().get_plugins_directory();
     let url = plugins_repo_url()?;
     fetch_plugins_repo(&url, plugins_dir, true).await?;

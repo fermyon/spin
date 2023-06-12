@@ -1,4 +1,4 @@
-github.com/fermyon/spin/sdk/go v1.2.0 h1:eVTzxFHLgp1fB/N+PZ7hI369RTSWg8wNdtuLueF4Eqk=
-github.com/fermyon/spin/sdk/go v1.2.0/go.mod h1:yb8lGesopgj/GwPzLPATxcOeqWZT/HjrzEFfwbztAXE=
+github.com/fermyon/spin/sdk/go v1.3.0 h1:RQ2SKPhe7w/cwIS2wbVhJfqFRZDcZnKq3Oiqs5Lgqvg=
+github.com/fermyon/spin/sdk/go v1.3.0/go.mod h1:yb8lGesopgj/GwPzLPATxcOeqWZT/HjrzEFfwbztAXE=
 github.com/julienschmidt/httprouter v1.3.0 h1:U0609e9tgbseu3rBINet9P48AI/D3oJs4dN7jwJOQ1U=
 github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=

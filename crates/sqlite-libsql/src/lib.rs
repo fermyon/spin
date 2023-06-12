@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use libsql_client::DatabaseClient;
 use spin_world::sqlite::{self, RowResult};
 
@@ -13,12 +11,6 @@ impl LibsqlClient {
         Self {
             client: libsql_client::reqwest::Client::new(url, token),
         }
-    }
-}
-
-impl spin_sqlite::ConnectionManager for LibsqlClient {
-    fn get_connection(&self) -> Result<Arc<dyn spin_sqlite::Connection>, sqlite::Error> {
-        Ok(Arc::new(self.clone()))
     }
 }
 

@@ -6,11 +6,12 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use spin_sqlite::ConnectionManager;
+use spin_sqlite::Connection;
 
 use self::{
     config_provider::{ConfigProvider, ConfigProviderOpts},
@@ -108,7 +109,7 @@ impl RuntimeConfig {
     /// Return an iterator of named configured [`SqliteDatabase`]s.
     pub fn sqlite_databases(
         &self,
-    ) -> Result<impl IntoIterator<Item = (String, Box<dyn ConnectionManager>)>> {
+    ) -> Result<impl IntoIterator<Item = (String, Arc<dyn Connection>)>> {
         let mut databases = HashMap::new();
         // Insert explicitly-configured databases
         for opts in self.opts_layers() {

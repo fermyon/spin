@@ -40,10 +40,10 @@ impl HostComponent for SqliteComponent {
         // The Noop implementation will never get called.
         struct Noop;
         impl ConnectionsStore for Noop {
-            fn get_connection_manager(
+            fn get_connection(
                 &self,
                 _database: &str,
-            ) -> Option<&(dyn crate::ConnectionManager + 'static)> {
+            ) -> Option<Arc<dyn crate::Connection + 'static>> {
                 debug_assert!(false, "`Noop` `ConnectionsStore` was called");
                 None
             }
@@ -67,7 +67,7 @@ impl DynamicHostComponent for SqliteComponent {
         for component in app.components() {
             let connections_store = (self.init_connections_store)(&component);
             for allowed in component.get_metadata(DATABASES_KEY)?.unwrap_or_default() {
-                if connections_store.get_connection_manager(&allowed).is_none() {
+                if connections_store.get_connection(&allowed).is_none() {
                     let err = format!("- Component {} uses database '{allowed}'", component.id());
                     errors.push(err);
                 }

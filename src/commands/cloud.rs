@@ -4,7 +4,7 @@ use clap::Args;
 
 #[derive(Debug, Args, PartialEq)]
 #[clap(
-    about = "Package and upload an application to the Fermyon Platform",
+    about = "Package and upload an application to the Fermyon Cloud.",
     allow_hyphen_values = true,
     disable_help_flag = true
 )]
@@ -16,7 +16,7 @@ pub struct DeployCommand {
 
 #[derive(Debug, Args, PartialEq)]
 #[clap(
-    about = "Log into to the Fermyon Cloud.",
+    about = "Log into the Fermyon Cloud.",
     allow_hyphen_values = true,
     disable_help_flag = true
 )]

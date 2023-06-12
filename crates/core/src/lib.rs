@@ -262,6 +262,13 @@ impl<T: Send + Sync> Engine<T> {
         let inner = Arc::new(self.module_linker.instantiate_pre(module)?);
         Ok(ModuleInstancePre { inner })
     }
+
+    /// Find the [`HostComponentDataHandle`] for a [`HostComponent`] if configured for this engine.
+    pub fn find_host_component_handle<HC: HostComponent>(
+        &self,
+    ) -> Option<HostComponentDataHandle<HC>> {
+        self.host_components.find_handle()
+    }
 }
 
 impl<T> AsRef<wasmtime::Engine> for Engine<T> {

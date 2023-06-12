@@ -132,12 +132,10 @@ async fn test_host_component() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_host_component_data_update() {
-    // Need to build Engine separately to get the HostComponentDataHandle
-    let mut engine_builder = Engine::builder(&test_config()).unwrap();
-    let factor_data_handle = engine_builder
-        .add_host_component(MultiplierHostComponent)
+    let engine = test_engine();
+    let multiplier_handle = engine
+        .find_host_component_handle::<MultiplierHostComponent>()
         .unwrap();
-    let engine: Engine<()> = engine_builder.build();
 
     let stdout = run_core_wasi_test_engine(
         &engine,
@@ -145,7 +143,7 @@ async fn test_host_component_data_update() {
         |store_builder| {
             store_builder
                 .host_components_data()
-                .set(factor_data_handle, Multiplier(100));
+                .set(multiplier_handle, Multiplier(100));
         },
         |_| {},
     )

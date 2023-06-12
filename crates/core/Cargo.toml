@@ -8,6 +8,7 @@ edition = { workspace = true }
 anyhow = "1.0"
 async-trait = "0.1"
 crossbeam-channel = "0.5"
+rustix = "0.37.19"
 tracing = { workspace = true }
 wasi-host = { workspace = true }
 wasi-common = { workspace = true }

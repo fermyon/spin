@@ -43,9 +43,15 @@ impl HostComponent for SqliteComponent {
             fn get_connection(
                 &self,
                 _database: &str,
-            ) -> Option<Arc<dyn crate::Connection + 'static>> {
+            ) -> Result<Option<Arc<(dyn crate::Connection + 'static)>>, spin_world::sqlite::Error>
+            {
                 debug_assert!(false, "`Noop` `ConnectionsStore` was called");
-                None
+                Ok(None)
+            }
+
+            fn has_connection_for(&self, _database: &str) -> bool {
+                debug_assert!(false, "`Noop` `ConnectionsStore` was called");
+                false
             }
         }
         SqliteDispatch::new(Arc::new(Noop))
@@ -67,7 +73,7 @@ impl DynamicHostComponent for SqliteComponent {
         for component in app.components() {
             let connections_store = (self.init_connections_store)(&component);
             for allowed in component.get_metadata(DATABASES_KEY)?.unwrap_or_default() {
-                if connections_store.get_connection(&allowed).is_none() {
+                if !connections_store.has_connection_for(&allowed) {
                     let err = format!("- Component {} uses database '{allowed}'", component.id());
                     errors.push(err);
                 }

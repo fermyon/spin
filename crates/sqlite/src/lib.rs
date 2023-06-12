@@ -11,7 +11,12 @@ pub const DATABASES_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("databa
 /// A store of connections for all accessible databases for an application
 pub trait ConnectionsStore: Send + Sync {
     /// Get a `Connection` for a specific database
-    fn get_connection(&self, database: &str) -> Option<Arc<dyn Connection + 'static>>;
+    fn get_connection(
+        &self,
+        database: &str,
+    ) -> Result<Option<Arc<dyn Connection + 'static>>, spin_world::sqlite::Error>;
+
+    fn has_connection_for(&self, database: &str) -> bool;
 }
 
 /// A trait abstracting over operations to a SQLite database
@@ -74,7 +79,7 @@ impl spin_world::sqlite::Host for SqliteDispatch {
             self.connections
                 .push(
                     self.connections_store
-                        .get_connection(&database)
+                        .get_connection(&database)?
                         .ok_or(spin_world::sqlite::Error::NoSuchDatabase)?,
                 )
                 .map_err(|()| spin_world::sqlite::Error::DatabaseFull)

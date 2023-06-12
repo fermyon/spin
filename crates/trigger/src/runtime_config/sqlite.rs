@@ -27,8 +27,15 @@ pub(crate) fn build_component(
 struct SimpleConnectionsStore(HashMap<String, Arc<dyn Connection>>);
 
 impl ConnectionsStore for SimpleConnectionsStore {
-    fn get_connection(&self, database: &str) -> Option<Arc<(dyn Connection + 'static)>> {
-        self.0.get(database).cloned()
+    fn get_connection(
+        &self,
+        database: &str,
+    ) -> Result<Option<Arc<(dyn Connection + 'static)>>, spin_world::sqlite::Error> {
+        Ok(self.0.get(database).cloned())
+    }
+
+    fn has_connection_for(&self, database: &str) -> bool {
+        self.0.contains_key(database)
     }
 }
 

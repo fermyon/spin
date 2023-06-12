@@ -2,16 +2,21 @@ mod host_component;
 
 use spin_app::{async_trait, MetadataKey};
 use spin_key_value::table;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashSet, sync::Arc};
 
 pub use host_component::SqliteComponent;
 
 pub const DATABASES_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("databases");
 
+/// A store of connections for all accessible databases for an application
+pub trait ConnectionsStore: Send + Sync {
+    /// Get a `ConnectionManager` for a specific database
+    fn get_connection_manager(&self, database: &str) -> Option<&(dyn ConnectionManager + 'static)>;
+}
+
+/// A manager of connections for a specific database
 pub trait ConnectionManager: Send + Sync {
+    /// Get a `Connection` from the manager
     fn get_connection(&self) -> Result<Arc<dyn Connection + 'static>, spin_world::sqlite::Error>;
 }
 
@@ -30,20 +35,26 @@ pub trait Connection: Send + Sync {
 pub struct SqliteDispatch {
     allowed_databases: HashSet<String>,
     connections: table::Table<Arc<dyn Connection>>,
-    client_manager: HashMap<String, Arc<dyn ConnectionManager>>,
+    connections_store: Arc<dyn ConnectionsStore>,
 }
 
 impl SqliteDispatch {
-    pub fn new(client_manager: HashMap<String, Arc<dyn ConnectionManager>>) -> Self {
+    pub fn new(connections_store: Arc<dyn ConnectionsStore>) -> Self {
         Self {
             connections: table::Table::new(256),
             allowed_databases: HashSet::new(),
-            client_manager,
+            connections_store,
         }
     }
 
-    pub fn component_init(&mut self, allowed_databases: HashSet<String>) {
-        self.allowed_databases = allowed_databases
+    /// (Re-)initialize dispatch for a give app
+    pub fn component_init(
+        &mut self,
+        allowed_databases: HashSet<String>,
+        connections_store: Arc<dyn ConnectionsStore>,
+    ) {
+        self.allowed_databases = allowed_databases;
+        self.connections_store = connections_store;
     }
 
     fn get_connection(
@@ -68,8 +79,8 @@ impl spin_world::sqlite::Host for SqliteDispatch {
             }
             self.connections
                 .push(
-                    self.client_manager
-                        .get(&database)
+                    self.connections_store
+                        .get_connection_manager(&database)
                         .ok_or(spin_world::sqlite::Error::NoSuchDatabase)?
                         .get_connection()?,
                 )

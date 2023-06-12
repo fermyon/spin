@@ -1,19 +1,25 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
-use crate::{ConnectionManager, SqliteDispatch, DATABASES_KEY};
+use crate::{ConnectionsStore, SqliteDispatch, DATABASES_KEY};
 use anyhow::anyhow;
 use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::HostComponent;
 use spin_world::sqlite;
 
+type InitConnectionsStore = dyn (Fn(&AppComponent) -> Arc<dyn ConnectionsStore>) + Sync + Send;
+
 pub struct SqliteComponent {
-    connection_managers: HashMap<String, Arc<dyn ConnectionManager>>,
+    /// Function that can be called when a `ConnectionsStore` is needed
+    init_connections_store: Box<InitConnectionsStore>,
 }
 
 impl SqliteComponent {
-    pub fn new(connection_managers: HashMap<String, Arc<dyn ConnectionManager>>) -> Self {
+    pub fn new<F>(init_connections_store: F) -> Self
+    where
+        F: (Fn(&AppComponent) -> Arc<dyn ConnectionsStore>) + Sync + Send + 'static,
+    {
         Self {
-            connection_managers,
+            init_connections_store: Box::new(init_connections_store),
         }
     }
 }
@@ -29,7 +35,20 @@ impl HostComponent for SqliteComponent {
     }
 
     fn build_data(&self) -> Self::Data {
-        SqliteDispatch::new(self.connection_managers.clone())
+        // To initialize `SqliteDispatch` we need a `ConnectionsStore`, but we can't build one
+        // until we have a `ComponentApp`. That's fine though as we'll have one `DynamicHostComponent::update_data`.
+        // The Noop implementation will never get called.
+        struct Noop;
+        impl ConnectionsStore for Noop {
+            fn get_connection_manager(
+                &self,
+                _database: &str,
+            ) -> Option<&(dyn crate::ConnectionManager + 'static)> {
+                debug_assert!(false, "`Noop` `ConnectionsStore` was called");
+                None
+            }
+        }
+        SqliteDispatch::new(Arc::new(Noop))
     }
 }
 
@@ -38,8 +57,7 @@ impl DynamicHostComponent for SqliteComponent {
         let allowed_databases = component
             .get_metadata(crate::DATABASES_KEY)?
             .unwrap_or_default();
-        data.component_init(allowed_databases);
-        // TODO: allow dynamically updating connection manager
+        data.component_init(allowed_databases, (self.init_connections_store)(component));
         Ok(())
     }
 
@@ -47,9 +65,9 @@ impl DynamicHostComponent for SqliteComponent {
         let mut errors = vec![];
 
         for component in app.components() {
-            let connection_managers = &self.connection_managers;
+            let connections_store = (self.init_connections_store)(&component);
             for allowed in component.get_metadata(DATABASES_KEY)?.unwrap_or_default() {
-                if !connection_managers.contains_key(&allowed) {
+                if connections_store.get_connection_manager(&allowed).is_none() {
                     let err = format!("- Component {} uses database '{allowed}'", component.id());
                     errors.push(err);
                 }

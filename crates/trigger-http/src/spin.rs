@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use hyper::{Body, Request, Response};
 use spin_core::Instance;
 use spin_trigger::{EitherInstance, TriggerAppEngine};
-use spin_world::http_types::{self, Method, RequestParam};
+use spin_world::http_types;
 
 #[derive(Clone)]
 pub struct SpinHttpExecutor;
@@ -63,7 +63,7 @@ impl SpinHttpExecutor {
             .exports(&mut store)
             .instance("inbound-http")
             .ok_or_else(|| anyhow!("no inbound-http instance found"))?
-            .typed_func::<(RequestParam,), (http_types::Response,)>("handle-request")?;
+            .typed_func::<(http_types::Request,), (http_types::Response,)>("handle-request")?;
 
         let (parts, bytes) = req.into_parts();
         let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
@@ -76,28 +76,22 @@ impl SpinHttpExecutor {
                 .body(Body::empty())?);
         };
 
-        let headers: Vec<(&str, &str)> = headers
-            .iter()
-            .map(|(k, v)| (k.as_str(), v.as_str()))
-            .collect();
-
         // Preparing to remove the params field. We are leaving it in place for now
         // to avoid breaking the ABI, but no longer pass or accept values in it.
         // https://github.com/fermyon/spin/issues/663
         let params = vec![];
 
-        let body = Some(&bytes[..]);
         let uri = match parts.uri.path_and_query() {
             Some(u) => u.to_string(),
             None => parts.uri.to_string(),
         };
 
-        let req = RequestParam {
+        let req = http_types::Request {
             method,
-            uri: &uri,
-            headers: &headers,
-            params: &params,
-            body,
+            uri,
+            headers,
+            params,
+            body: Some(bytes),
         };
 
         let (resp,) = func.call_async(&mut store, (req,)).await?;
@@ -122,15 +116,15 @@ impl SpinHttpExecutor {
         Ok(response.body(body)?)
     }
 
-    fn method(m: &http::Method) -> Option<Method> {
+    fn method(m: &http::Method) -> Option<http_types::Method> {
         Some(match *m {
-            http::Method::GET => Method::Get,
-            http::Method::POST => Method::Post,
-            http::Method::PUT => Method::Put,
-            http::Method::DELETE => Method::Delete,
-            http::Method::PATCH => Method::Patch,
-            http::Method::HEAD => Method::Head,
-            http::Method::OPTIONS => Method::Options,
+            http::Method::GET => http_types::Method::Get,
+            http::Method::POST => http_types::Method::Post,
+            http::Method::PUT => http_types::Method::Put,
+            http::Method::DELETE => http_types::Method::Delete,
+            http::Method::PATCH => http_types::Method::Patch,
+            http::Method::HEAD => http_types::Method::Head,
+            http::Method::OPTIONS => http_types::Method::Options,
             _ => return None,
         })
     }

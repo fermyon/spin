@@ -14,4 +14,3 @@ spin-core = { path = "../core" }
 spin-world = { path = "../world" }
 tokio = { version = "1", features = ["sync"] }
 tracing = { workspace = true }
-wit-bindgen-wasmtime = { workspace = true }

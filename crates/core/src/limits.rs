@@ -1,3 +1,4 @@
+use anyhow::Result;
 use async_trait::async_trait;
 use wasmtime::ResourceLimiterAsync;
 
@@ -17,17 +18,31 @@ impl ResourceLimiterAsync for StoreLimitsAsync {
         current: usize,
         desired: usize,
         _maximum: Option<usize>,
-    ) -> bool {
-        let can_grow = !matches!(self.max_memory_size, Some(limit) if desired > limit);
+    ) -> Result<bool> {
+        let can_grow = if let Some(limit) = self.max_memory_size {
+            desired <= limit
+        } else {
+            true
+        };
         if can_grow {
             self.memory_consumed =
                 (self.memory_consumed as i64 + (desired as i64 - current as i64)) as u64;
         }
-        can_grow
+        Ok(can_grow)
     }
 
-    async fn table_growing(&mut self, _current: u32, desired: u32, _maximum: Option<u32>) -> bool {
-        !matches!(self.max_table_elements, Some(limit) if desired > limit)
+    async fn table_growing(
+        &mut self,
+        _current: u32,
+        desired: u32,
+        _maximum: Option<u32>,
+    ) -> Result<bool> {
+        let can_grow = if let Some(limit) = self.max_table_elements {
+            desired <= limit
+        } else {
+            true
+        };
+        Ok(can_grow)
     }
 }
 

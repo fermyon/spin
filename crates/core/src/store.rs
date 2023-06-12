@@ -7,14 +7,14 @@ use std::{
 use system_interface::io::ReadReady;
 use wasi_cap_std_sync as wasmtime_wasi_preview2;
 use wasi_common as wasi_preview2;
-use wasi_common_preview1::{self as wasi_preview1, dir::DirCaps, file::FileCaps};
+use wasi_common_preview1 as wasi_preview1;
 use wasmtime_wasi as wasmtime_wasi_preview1;
 
 use crate::{
     host_component::{HostComponents, HostComponentsData},
     io::OutputBuffer,
     limits::StoreLimitsAsync,
-    Data,
+    preview1, Data,
 };
 
 #[cfg(doc)]
@@ -119,24 +119,6 @@ impl<T> wasmtime::AsContextMut for Store<T> {
     }
 }
 
-// WASI expects preopened dirs in FDs starting at 3 (0-2 are stdio).
-const WASI_FIRST_PREOPENED_DIR_FD: u32 = 3;
-
-const READ_ONLY_DIR_CAPS: DirCaps = DirCaps::from_bits_truncate(
-    DirCaps::OPEN.bits()
-        | DirCaps::READDIR.bits()
-        | DirCaps::READLINK.bits()
-        | DirCaps::PATH_FILESTAT_GET.bits()
-        | DirCaps::FILESTAT_GET.bits(),
-);
-const READ_ONLY_FILE_CAPS: FileCaps = FileCaps::from_bits_truncate(
-    FileCaps::READ.bits()
-        | FileCaps::SEEK.bits()
-        | FileCaps::TELL.bits()
-        | FileCaps::FILESTAT_GET.bits()
-        | FileCaps::POLL_READWRITE.bits(),
-);
-
 /// A builder interface for configuring a new [`Store`].
 ///
 /// A new [`StoreBuilder`] can be obtained with [`crate::Engine::store_builder`].
@@ -146,7 +128,6 @@ pub struct StoreBuilder {
     wasi: std::result::Result<Wasi, String>,
     host_components_data: HostComponentsData,
     store_limits: StoreLimitsAsync,
-    next_preopen_index: u32,
 }
 
 impl StoreBuilder {
@@ -163,7 +144,6 @@ impl StoreBuilder {
             wasi: Ok(wasi),
             host_components_data: host_components.new_data(),
             store_limits: StoreLimitsAsync::default(),
-            next_preopen_index: WASI_FIRST_PREOPENED_DIR_FD,
         }
     }
 
@@ -298,35 +278,7 @@ impl StoreBuilder {
         host_path: impl AsRef<Path>,
         guest_path: PathBuf,
     ) -> Result<()> {
-        let dir =
-            || cap_std::fs::Dir::open_ambient_dir(host_path.as_ref(), cap_std::ambient_authority());
-        let path = guest_path
-            .to_str()
-            .ok_or_else(|| anyhow!("non-utf8 path: {}", guest_path.display()))?;
-        let index = self.next_preopen_index;
-
-        self.try_with_wasi(|wasi| {
-            match wasi {
-                Wasi::Preview1(ctx) => ctx.insert_dir(
-                    index,
-                    Box::new(wasmtime_wasi_preview1::dir::Dir::from_cap_std(dir()?)),
-                    READ_ONLY_DIR_CAPS,
-                    READ_ONLY_FILE_CAPS,
-                    path.into(),
-                ),
-                Wasi::Preview2(ctx) => ctx.push_preopened_dir(
-                    Box::new(wasi_preview2::dir::ReadOnlyDir(Box::new(
-                        wasmtime_wasi_preview2::dir::Dir::from_cap_std(dir()?),
-                    ))),
-                    path,
-                )?,
-            }
-            Ok(())
-        })?;
-
-        self.next_preopen_index += 1;
-
-        Ok(())
+        self.preopened_dir_impl(host_path, guest_path, false)
     }
 
     /// "Mounts" the given `host_path` into the WASI filesystem at the given
@@ -336,29 +288,42 @@ impl StoreBuilder {
         host_path: impl AsRef<Path>,
         guest_path: PathBuf,
     ) -> Result<()> {
-        let dir =
-            || cap_std::fs::Dir::open_ambient_dir(host_path.as_ref(), cap_std::ambient_authority());
+        self.preopened_dir_impl(host_path, guest_path, true)
+    }
+
+    fn preopened_dir_impl(
+        &mut self,
+        host_path: impl AsRef<Path>,
+        guest_path: PathBuf,
+        writable: bool,
+    ) -> Result<()> {
+        let cap_std_dir =
+            cap_std::fs::Dir::open_ambient_dir(host_path.as_ref(), cap_std::ambient_authority())?;
         let path = guest_path
             .to_str()
             .ok_or_else(|| anyhow!("non-utf8 path: {}", guest_path.display()))?;
 
         self.try_with_wasi(|wasi| {
             match wasi {
-                Wasi::Preview1(ctx) => ctx.push_preopened_dir(
-                    Box::new(wasmtime_wasi_preview1::dir::Dir::from_cap_std(dir()?)),
-                    path,
-                )?,
-                Wasi::Preview2(ctx) => ctx.push_preopened_dir(
-                    Box::new(wasmtime_wasi_preview2::dir::Dir::from_cap_std(dir()?)),
-                    path,
-                )?,
+                Wasi::Preview1(ctx) => {
+                    let mut dir =
+                        Box::new(wasmtime_wasi_preview1::dir::Dir::from_cap_std(cap_std_dir)) as _;
+                    if !writable {
+                        dir = Box::new(preview1::ReadOnlyDir(dir));
+                    }
+                    ctx.push_preopened_dir(dir, path)?;
+                }
+                Wasi::Preview2(ctx) => {
+                    let mut dir =
+                        Box::new(wasmtime_wasi_preview2::dir::Dir::from_cap_std(cap_std_dir)) as _;
+                    if !writable {
+                        dir = Box::new(wasi_preview2::dir::ReadOnlyDir(dir));
+                    }
+                    ctx.push_preopened_dir(dir, path)?;
+                }
             }
             Ok(())
-        })?;
-
-        self.next_preopen_index += 1;
-
-        Ok(())
+        })
     }
 
     /// Returns a mutable reference to the built

@@ -14,5 +14,4 @@ spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 spin-world = { path = "../world" }
 tracing = { workspace = true }
-wit-bindgen-wasmtime = { workspace = true }
 lru = "0.9.0"

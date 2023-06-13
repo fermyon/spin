@@ -34,6 +34,6 @@ tracing = { workspace = true }
 walkdir = "2.3.2"
 
 [features]
-default = ["local"]
+default = ["bindle", "local"]
 bindle = ["dep:bindle"]
 local = []

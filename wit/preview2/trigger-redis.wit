@@ -1,4 +1,4 @@
-default world reactor {
+default world trigger-redis {
   import config: spin.config
   import postgres: spin.postgres
   import mysql: spin.mysql
@@ -6,6 +6,5 @@ default world reactor {
   import redis: spin.redis
   import key-value: spin.key-value
   import http: spin.http
-  export inbound-http: spin.inbound-http
   export inbound-redis: spin.inbound-redis
 }

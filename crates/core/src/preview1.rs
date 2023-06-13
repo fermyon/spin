@@ -1,3 +1,6 @@
+//! Ports of `ReadOnlyDir` and `ReadOnlyFile` to Preview 1 API.
+//! Adapted from https://github.com/bytecodealliance/preview2-prototyping/pull/121
+
 use std::{any::Any, path::PathBuf};
 
 use wasi_common_preview1::{

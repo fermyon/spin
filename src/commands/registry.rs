@@ -56,7 +56,7 @@ pub struct Push {
 
 impl Push {
     pub async fn run(self) -> Result<()> {
-        let app_file = crate::manifest::resolve_file_path(&self.app_source)?;
+        let app_file = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
 
         let dir = tempfile::tempdir()?;
         let app = spin_loader::local::from_file(&app_file, Some(dir.path())).await?;

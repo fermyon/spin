@@ -1,6 +1,5 @@
 pub mod build_info;
 pub mod commands;
-pub mod manifest;
 pub(crate) mod opts;
 mod watch_filter;
 mod watch_state;

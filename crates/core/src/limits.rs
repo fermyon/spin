@@ -60,3 +60,29 @@ impl StoreLimitsAsync {
         self.memory_consumed
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_store_limits_memory() {
+        let mut limits = StoreLimitsAsync {
+            max_memory_size: Some(65536),
+            ..Default::default()
+        };
+        assert!(limits.memory_growing(0, 65536, None).await.unwrap());
+        assert_eq!(limits.memory_consumed, 65536);
+        assert!(!limits.memory_growing(65536, 131072, None).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_store_limits_table() {
+        let mut limits = StoreLimitsAsync {
+            max_table_elements: Some(10),
+            ..Default::default()
+        };
+        assert!(limits.table_growing(9, 10, None).await.unwrap());
+        assert!(!limits.table_growing(10, 11, None).await.unwrap());
+    }
+}

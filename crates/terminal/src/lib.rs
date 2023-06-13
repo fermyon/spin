@@ -92,7 +92,7 @@ macro_rules! error {
 }
 
 #[macro_export]
-macro_rules! info {
+macro_rules! einfo {
     ($highlight:expr, $($arg:tt)*) => {{
         $crate::ceprint!($crate::colors::bold_cyan(), $highlight);
         eprint!(" ");

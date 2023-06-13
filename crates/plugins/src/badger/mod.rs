@@ -6,6 +6,33 @@ use is_terminal::IsTerminal;
 
 const BADGER_TIMEOUT_DAYS: i64 = 14;
 
+// How the checker works:
+//
+// * The consumer calls BadgerChecker::start().  This immediately returns a task handle to
+//   the checker.  It's important that this be immediate, because it's called on _every_
+//   plugin invocation and we don't want to slow that down.
+// * In the background task, the checker determines if it needs to update the local copy
+//   of the plugins registry.  If so, it kicks that off as a background process.
+//   * The checker may determine while running the task that the user should not be prompted,
+//     or hit an error trying to kick things off the check.  In this case, it returns
+//     BadgerChecker::Precomputed from the task, ready to be picked up.
+//   * Otherwise, the checker wants to wait as long as possible before determining whether
+//     an upgrade is possible.  In this case it returns BadgerChecker::Deferred from the task.
+//     This captures the information needed for the upgrade check.
+// * When the consumer is ready to find out if it needs to notify the user, it awaits
+//   the task handle.  This should still be quick.
+// * The consumer then calls BadgerChecker::check().
+//   * If the task returned Precomputed (i.e. the task reached a decision before exiting),
+//     check() returns that precomputed value.
+//   * If the task returned Deferred (i.e. the task was holding off to let the background registry
+//     update do its work), it now loads the local copy of the registry, and compares the
+//     available versions to the current version.
+//
+// The reason for the Precomputed/Deferred dance is to handle the two cases of:
+// 1. There's no point waiting and doing the calculations because we _know_ we have a decision (or an error).
+// 2. There's a point to waiting because there _might_ be an upgrade, so we want to give the background
+//    process as much time as possible to complete, so we can offer the latest upgrade.
+
 pub enum BadgerChecker {
     Precomputed(anyhow::Result<BadgerUI>),
     Deferred(BadgerEvaluator),
@@ -41,13 +68,23 @@ impl BadgerChecker {
             match BadgerEvaluator::new(&name, &current_version, spin_version).await {
                 Ok(b) => {
                     if b.should_check() {
+                        // We want to offer the user an upgrade if one is available. Kick off a
+                        // background process to update the local copy of the registry, and
+                        // return the case that causes Self::check() to consult the registry.
                         BadgerEvaluator::fire_and_forget_update();
                         Self::Deferred(b)
                     } else {
+                        // We do not want to offer the user an upgrade, e.g. because we have
+                        // badgered them quite recently. Stash this decision for Self::check()
+                        // to return.
                         Self::Precomputed(Ok(BadgerUI::None))
                     }
                 }
-                Err(e) => Self::Precomputed(Err(e)),
+                Err(e) => {
+                    // We hit a problem determining if we wanted to offer an upgrade or not.
+                    // Stash the error for Self::check() to return.
+                    Self::Precomputed(Err(e))
+                }
             }
         })
     }
@@ -259,14 +296,21 @@ impl PluginVersion {
 
 impl std::fmt::Display for PluginVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}", self.version))
+        write!(f, "{}", self.version)
     }
 }
 
 pub enum BadgerUI {
+    // Do not badger the user. There is no available upgrade, or we have already badgered
+    // them recently about this plugin.
     None,
+    // There is an available upgrade which is compatible (same non-zero major version).
     Eligible(PluginVersion),
+    // There is an available upgrade but it may not be compatible (different major version
+    // or major version is zero).
     Questionable(PluginVersion),
+    // There is an available upgrade which is compatible, but there is also an even more
+    // recent upgrade which may not be compatible.
     Both {
         eligible: PluginVersion,
         questionable: PluginVersion,

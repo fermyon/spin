@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 const DEFAULT_STORE_DIR: &str = "spin";
-const DEFAULT_STORE_FILE: &str = "plugins-badger.json";
+const DEFAULT_STORE_FILE: &str = "plugins-notifications.json";
 
 pub struct BadgerRecordManager {
     db_path: PathBuf,
@@ -51,7 +51,7 @@ impl BadgerRecordManager {
     fn load(&self) -> Vec<BadgerRecord> {
         match std::fs::read(&self.db_path) {
             Ok(v) => serde_json::from_slice(&v).unwrap_or_default(),
-            Err(_) => vec![],
+            Err(_) => vec![], // There's no meaningful action or recovery, so swallow the error and treat the situation as fresh badger.
         }
     }
 

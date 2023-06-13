@@ -75,7 +75,7 @@ pub async fn execute_external_subcommand(
                     }
                     plugin_installer.run().await?;
                 }
-                None // No update badgering needed if we just installed it!
+                None // No update badgering needed if we just updated/installed it!
             } else {
                 tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
                 terminal::error!("'{plugin_name}' is not a known Spin command. See spin --help.\n");
@@ -109,7 +109,10 @@ pub async fn execute_external_subcommand(
 }
 
 async fn report_badger_result(badger: tokio::task::JoinHandle<BadgerChecker>) {
-    // This seems very unlikely to happen but just in case
+    // The badger task should be short-running, and has likely already finished by
+    // the time we get here (after the plugin has completed). But we don't want
+    // the user to have to wait if something goes amiss and it takes a long time.
+    // Therefore, allow it only a short grace period before killing it.
     let grace_period = tokio::time::sleep(tokio::time::Duration::from_millis(
         BADGER_GRACE_PERIOD_MILLIS,
     ));
@@ -130,7 +133,7 @@ async fn report_badger_result(badger: tokio::task::JoinHandle<BadgerChecker>) {
         Ok(spin_plugins::badger::BadgerUI::None) => (),
         Ok(spin_plugins::badger::BadgerUI::Eligible(to)) => {
             eprintln!();
-            terminal::info!(
+            terminal::einfo!(
                 "This plugin can be upgraded.",
                 "Version {to} is available and compatible."
             );
@@ -138,7 +141,7 @@ async fn report_badger_result(badger: tokio::task::JoinHandle<BadgerChecker>) {
         }
         Ok(spin_plugins::badger::BadgerUI::Questionable(to)) => {
             eprintln!();
-            terminal::info!("This plugin can be upgraded.", "Version {to} is available,");
+            terminal::einfo!("This plugin can be upgraded.", "Version {to} is available,");
             eprintln!("but may not be backward compatible with your current plugin.");
             eprintln!("To upgrade, run `{}`.", to.upgrade_command());
         }
@@ -147,7 +150,7 @@ async fn report_badger_result(badger: tokio::task::JoinHandle<BadgerChecker>) {
             questionable,
         }) => {
             eprintln!();
-            terminal::info!(
+            terminal::einfo!(
                 "This plugin can be upgraded.",
                 "Version {eligible} is available and compatible."
             );

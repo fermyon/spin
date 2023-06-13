@@ -14,9 +14,7 @@ use crate::{App, AppComponent};
 /// runtime configuration.
 ///
 /// Dynamic host components differ from regular host components in that they can be
-/// reference and thus (re-)configured dynamically (on a per trigger instance basis)
-/// where as regular host components are static and do not change over the
-/// runtime of a Spin instance.
+/// configured on a per-component basis.
 pub trait DynamicHostComponent: HostComponent {
     /// Called on [`AppComponent`] instance initialization.
     ///

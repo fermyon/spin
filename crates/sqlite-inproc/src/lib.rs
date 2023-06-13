@@ -3,8 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use once_cell::sync::OnceCell;
-use spin_sqlite::{Connection, ConnectionManager};
+use spin_sqlite::Connection;
 use spin_world::sqlite;
 
 #[derive(Debug, Clone)]
@@ -14,38 +13,23 @@ pub enum InProcDatabaseLocation {
 }
 
 /// A connection to a sqlite database
-pub struct InProcConnectionManager {
-    location: InProcDatabaseLocation,
-    connection: OnceCell<Arc<dyn Connection>>,
+pub struct InProcConnection {
+    connection: Arc<Mutex<rusqlite::Connection>>,
 }
 
-impl InProcConnectionManager {
-    pub fn new(location: InProcDatabaseLocation) -> Self {
-        Self {
-            location,
-            connection: OnceCell::new(),
-        }
+impl InProcConnection {
+    pub fn new(location: InProcDatabaseLocation) -> Result<Self, sqlite::Error> {
+        let connection = {
+            let c = match &location {
+                InProcDatabaseLocation::InMemory => rusqlite::Connection::open_in_memory(),
+                InProcDatabaseLocation::Path(path) => rusqlite::Connection::open(path),
+            }
+            .map_err(|e| sqlite::Error::Io(e.to_string()))?;
+            Arc::new(Mutex::new(c))
+        };
+        Ok(Self { connection })
     }
 }
-
-impl ConnectionManager for InProcConnectionManager {
-    fn get_connection(&self) -> Result<Arc<dyn Connection>, spin_world::sqlite::Error> {
-        let connection = self
-            .connection
-            .get_or_try_init(|| -> Result<_, sqlite::Error> {
-                let c = match &self.location {
-                    InProcDatabaseLocation::InMemory => rusqlite::Connection::open_in_memory(),
-                    InProcDatabaseLocation::Path(path) => rusqlite::Connection::open(path),
-                }
-                .map_err(|e| sqlite::Error::Io(e.to_string()))?;
-                Ok(Arc::new(InProcConnection(Mutex::new(c))))
-            })?
-            .clone();
-        Ok(connection)
-    }
-}
-
-struct InProcConnection(Mutex<rusqlite::Connection>);
 
 impl Connection for InProcConnection {
     fn query(
@@ -53,7 +37,7 @@ impl Connection for InProcConnection {
         query: &str,
         parameters: Vec<spin_world::sqlite::Value>,
     ) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error> {
-        let conn = self.0.lock().unwrap();
+        let conn = self.connection.lock().unwrap();
         let mut statement = conn
             .prepare_cached(query)
             .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))?;
@@ -87,7 +71,7 @@ impl Connection for InProcConnection {
     }
 
     fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
-        let conn = self.0.lock().unwrap();
+        let conn = self.connection.lock().unwrap();
         conn.execute_batch(statements)?;
         Ok(())
     }

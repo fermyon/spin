@@ -2,13 +2,11 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use crate::{runtime_config::RuntimeConfig, TriggerHooks};
 use anyhow::Context;
-use spin_sqlite::{SqliteComponent, DATABASES_KEY};
+use spin_sqlite::{Connection, ConnectionsStore, SqliteComponent, DATABASES_KEY};
 
 use super::RuntimeConfigOpts;
 
 const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_db.db";
-
-pub type SqliteDatabase = Arc<dyn spin_sqlite::ConnectionManager>;
 
 pub(crate) fn build_component(
     runtime_config: &RuntimeConfig,
@@ -20,30 +18,48 @@ pub(crate) fn build_component(
         .into_iter()
         .collect();
     execute_statements(sqlite_statements, &databases)?;
-    Ok(SqliteComponent::new(databases))
+    let connections_store =
+        Arc::new(SimpleConnectionsStore(databases)) as Arc<dyn ConnectionsStore>;
+    Ok(SqliteComponent::new(move |_| connections_store.clone()))
+}
+
+/// A `ConnectionStore` based on a `HashMap`
+struct SimpleConnectionsStore(HashMap<String, Arc<dyn Connection>>);
+
+impl ConnectionsStore for SimpleConnectionsStore {
+    fn get_connection(
+        &self,
+        database: &str,
+    ) -> Result<Option<Arc<(dyn Connection + 'static)>>, spin_world::sqlite::Error> {
+        Ok(self.0.get(database).cloned())
+    }
+
+    fn has_connection_for(&self, database: &str) -> bool {
+        self.0.contains_key(database)
+    }
 }
 
 fn execute_statements(
     statements: &[String],
-    databases: &HashMap<String, Arc<dyn spin_sqlite::ConnectionManager>>,
+    databases: &HashMap<String, Arc<dyn spin_sqlite::Connection>>,
 ) -> anyhow::Result<()> {
-    if !statements.is_empty() {
-        if let Some(default) = databases.get("default") {
-            let c = default.get_connection().context(
-                "could not get connection to default database in order to execute statements",
-            )?;
-            for m in statements {
-                if let Some(file) = m.strip_prefix('@') {
-                    let sql = std::fs::read_to_string(file).with_context(|| {
-                        format!("could not read file '{file}' containing sql statements")
-                    })?;
-                    c.execute_batch(&sql)
-                        .with_context(|| format!("failed to execute sql from file '{file}'"))?;
-                } else {
-                    c.query(m, Vec::new())
-                        .with_context(|| format!("failed to execute statement: '{m}'"))?;
-                }
-            }
+    if statements.is_empty() {
+        return Ok(());
+    }
+    let Some(default) = databases.get("default") else { return Ok(()) };
+
+    for m in statements {
+        if let Some(file) = m.strip_prefix('@') {
+            let sql = std::fs::read_to_string(file).with_context(|| {
+                format!("could not read file '{file}' containing sql statements")
+            })?;
+            default
+                .execute_batch(&sql)
+                .with_context(|| format!("failed to execute sql from file '{file}'"))?;
+        } else {
+            default
+                .query(m, Vec::new())
+                .with_context(|| format!("failed to execute statement: '{m}'"))?;
         }
     }
     Ok(())
@@ -62,7 +78,7 @@ impl SqliteDatabaseOpts {
         Self::Spin(SpinSqliteDatabaseOpts::default(runtime_config))
     }
 
-    pub fn build(&self, config_opts: &RuntimeConfigOpts) -> anyhow::Result<SqliteDatabase> {
+    pub fn build(&self, config_opts: &RuntimeConfigOpts) -> anyhow::Result<Arc<dyn Connection>> {
         match self {
             Self::Spin(opts) => opts.build(config_opts),
             Self::Libsql(opts) => opts.build(),
@@ -84,8 +100,8 @@ impl SpinSqliteDatabaseOpts {
         Self { path }
     }
 
-    fn build(&self, config_opts: &RuntimeConfigOpts) -> anyhow::Result<SqliteDatabase> {
-        use spin_sqlite_inproc::{InProcConnectionManager, InProcDatabaseLocation};
+    fn build(&self, config_opts: &RuntimeConfigOpts) -> anyhow::Result<Arc<dyn Connection>> {
+        use spin_sqlite_inproc::{InProcConnection, InProcDatabaseLocation};
 
         let location = match self.path.as_ref() {
             Some(path) => {
@@ -97,7 +113,7 @@ impl SpinSqliteDatabaseOpts {
             }
             None => InProcDatabaseLocation::InMemory,
         };
-        Ok(Arc::new(InProcConnectionManager::new(location)))
+        Ok(Arc::new(InProcConnection::new(location)?))
     }
 }
 
@@ -109,7 +125,7 @@ pub struct LibsqlOpts {
 }
 
 impl LibsqlOpts {
-    fn build(&self) -> anyhow::Result<SqliteDatabase> {
+    fn build(&self) -> anyhow::Result<Arc<dyn Connection>> {
         Ok(Arc::new(spin_sqlite_libsql::LibsqlClient::new(
             self.url.clone(),
             self.token.clone(),

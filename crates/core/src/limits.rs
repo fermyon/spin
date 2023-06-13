@@ -74,6 +74,7 @@ mod tests {
         assert!(limits.memory_growing(0, 65536, None).await.unwrap());
         assert_eq!(limits.memory_consumed, 65536);
         assert!(!limits.memory_growing(65536, 131072, None).await.unwrap());
+        assert_eq!(limits.memory_consumed, 65536);
     }
 
     #[tokio::test]

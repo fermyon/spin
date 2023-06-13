@@ -30,9 +30,9 @@ fn main() {
     let build_spin_tests = env::var("BUILD_SPIN_EXAMPLES")
         .map(|v| v == "1")
         .unwrap_or(true);
+    println!("cargo:rerun-if-env-changed=BUILD_SPIN_EXAMPLES");
 
     if !build_spin_tests {
-        println!("cargo:rerun-if-env-changed=BUILD_SPIN_EXAMPLES");
         return;
     }
 
@@ -95,7 +95,8 @@ fn build_wasm_test_program(name: &'static str, root: &'static str) {
         .release()
         .target("wasm32-wasi")
         .build();
-    println!("cargo:rerun-if-changed={root}");
+    println!("cargo:rerun-if-changed={root}/Cargo.toml");
+    println!("cargo:rerun-if-changed={root}/Cargo.lock");
 }
 
 fn has_wasm32_wasi_target() -> bool {

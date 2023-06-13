@@ -12,6 +12,11 @@ use crate::{App, AppComponent};
 ///
 /// This extends [`HostComponent`] to support per-[`AppComponent`] dynamic
 /// runtime configuration.
+///
+/// Dynamic host components differ from regular host components in that they can be
+/// reference and thus (re-)configured dynamically (on a per trigger instance basis)
+/// where as regular host components are static and do not change over the
+/// runtime of a Spin instance.
 pub trait DynamicHostComponent: HostComponent {
     /// Called on [`AppComponent`] instance initialization.
     ///
@@ -36,10 +41,17 @@ impl<DHC: DynamicHostComponent> DynamicHostComponent for Arc<DHC> {
     }
 }
 
-type AnyData = Box<dyn Any + Send>;
-
+/// A version of `DynamicHostComponent` which can be made into a trait object.
+///
+/// This is only implemented for `T: DynamicHostComponent`. We want to make `DynamicHostComponent`
+/// into a trait object so that we can store them into a heterogeneous collection in `DynamicHostComponents`.
+///
+/// `DynamicHostComponent` can't be made into a trait object itself since `HostComponent::add_to_linker`
+/// does not have a `self` parameter (and thus cannot be add to the object's vtable).
 trait DynSafeDynamicHostComponent {
-    fn update_data_any(&self, data: &mut AnyData, component: &AppComponent) -> anyhow::Result<()>;
+    /// The moral equivalent to `DynamicHostComponent::update_data`
+    fn update_data_any(&self, data: &mut dyn Any, component: &AppComponent) -> anyhow::Result<()>;
+    /// The moral equivalent to `DynamicHostComponent::validate_app`
     fn validate_app(&self, app: &App) -> anyhow::Result<()>;
 }
 
@@ -47,7 +59,7 @@ impl<T: DynamicHostComponent> DynSafeDynamicHostComponent for T
 where
     T::Data: Any,
 {
-    fn update_data_any(&self, data: &mut AnyData, component: &AppComponent) -> anyhow::Result<()> {
+    fn update_data_any(&self, data: &mut dyn Any, component: &AppComponent) -> anyhow::Result<()> {
         let data = data.downcast_mut().context("wrong data type")?;
         self.update_data(data, component)
     }
@@ -57,15 +69,19 @@ where
     }
 }
 
-type ArcDynamicHostComponent = Arc<dyn DynSafeDynamicHostComponent + Send + Sync>;
-
 struct DynamicHostComponentWithHandle {
-    host_component: ArcDynamicHostComponent,
+    host_component: Arc<dyn DynSafeDynamicHostComponent + Send + Sync>,
     handle: AnyHostComponentDataHandle,
 }
 
+/// A heterogeneous collection of dynamic host components.
+///
+/// This is stored in an `AppLoader` so that the host components
+/// can be referenced and updated at a later point. This is effectively
+/// what makes a `DynamicHostComponent` "dynamic" and differentiates it from
+/// a regular `HostComponent`.
 #[derive(Default)]
-pub struct DynamicHostComponents {
+pub(crate) struct DynamicHostComponents {
     host_components: Vec<DynamicHostComponentWithHandle>,
 }
 
@@ -95,7 +111,7 @@ impl DynamicHostComponents {
         } in &self.host_components
         {
             let data = host_components_data.get_or_insert_any(*handle);
-            host_component.update_data_any(data, component)?;
+            host_component.update_data_any(data.as_mut(), component)?;
         }
         Ok(())
     }

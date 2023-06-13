@@ -11,16 +11,20 @@
 #![deny(missing_docs)]
 
 mod assets;
+#[cfg(feature = "bindle")]
 pub mod bindle;
 pub mod cache;
 mod common;
+#[cfg(feature = "local")]
 pub mod local;
 mod validation;
 
 /// Load a Spin application configuration from a spin.toml manifest file.
+#[cfg(feature = "local")]
 pub use local::from_file;
 
 /// Load a Spin application configuration from Bindle.
+#[cfg(feature = "bindle")]
 pub use crate::bindle::from_bindle;
 
 /// Maximum number of assets to process in parallel

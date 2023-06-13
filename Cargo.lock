@@ -7380,10 +7380,10 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-gen-core"
 version = "0.2.0"
-source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=c1797e930c1dc056aa7dd85760fe461d169f485d#c1797e930c1dc056aa7dd85760fe461d169f485d"
+source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=634687fde664ed0016179d9427562ac57c2af639#634687fde664ed0016179d9427562ac57c2af639"
 dependencies = [
  "anyhow",
- "wit-parser 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=c1797e930c1dc056aa7dd85760fe461d169f485d)",
+ "wit-parser 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=634687fde664ed0016179d9427562ac57c2af639)",
 ]
 
 [[package]]
@@ -7398,10 +7398,10 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-gen-rust"
 version = "0.2.0"
-source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=c1797e930c1dc056aa7dd85760fe461d169f485d#c1797e930c1dc056aa7dd85760fe461d169f485d"
+source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=634687fde664ed0016179d9427562ac57c2af639#634687fde664ed0016179d9427562ac57c2af639"
 dependencies = [
  "heck 0.3.3",
- "wit-bindgen-gen-core 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=c1797e930c1dc056aa7dd85760fe461d169f485d)",
+ "wit-bindgen-gen-core 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=634687fde664ed0016179d9427562ac57c2af639)",
 ]
 
 [[package]]
@@ -7426,11 +7426,11 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-gen-wasmtime"
 version = "0.2.0"
-source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=c1797e930c1dc056aa7dd85760fe461d169f485d#c1797e930c1dc056aa7dd85760fe461d169f485d"
+source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=634687fde664ed0016179d9427562ac57c2af639#634687fde664ed0016179d9427562ac57c2af639"
 dependencies = [
  "heck 0.3.3",
- "wit-bindgen-gen-core 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=c1797e930c1dc056aa7dd85760fe461d169f485d)",
- "wit-bindgen-gen-rust 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=c1797e930c1dc056aa7dd85760fe461d169f485d)",
+ "wit-bindgen-gen-core 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=634687fde664ed0016179d9427562ac57c2af639)",
+ "wit-bindgen-gen-rust 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=634687fde664ed0016179d9427562ac57c2af639)",
 ]
 
 [[package]]
@@ -7457,7 +7457,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-wasmtime"
 version = "0.2.0"
-source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=c1797e930c1dc056aa7dd85760fe461d169f485d#c1797e930c1dc056aa7dd85760fe461d169f485d"
+source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=634687fde664ed0016179d9427562ac57c2af639#634687fde664ed0016179d9427562ac57c2af639"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7470,11 +7470,11 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-wasmtime-impl"
 version = "0.2.0"
-source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=c1797e930c1dc056aa7dd85760fe461d169f485d#c1797e930c1dc056aa7dd85760fe461d169f485d"
+source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=634687fde664ed0016179d9427562ac57c2af639#634687fde664ed0016179d9427562ac57c2af639"
 dependencies = [
  "proc-macro2",
  "syn 1.0.109",
- "wit-bindgen-gen-core 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=c1797e930c1dc056aa7dd85760fe461d169f485d)",
+ "wit-bindgen-gen-core 0.2.0 (git+https://github.com/fermyon/wit-bindgen-backport?rev=634687fde664ed0016179d9427562ac57c2af639)",
  "wit-bindgen-gen-wasmtime",
 ]
 
@@ -7498,7 +7498,7 @@ dependencies = [
 [[package]]
 name = "wit-parser"
 version = "0.2.0"
-source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=c1797e930c1dc056aa7dd85760fe461d169f485d#c1797e930c1dc056aa7dd85760fe461d169f485d"
+source = "git+https://github.com/fermyon/wit-bindgen-backport?rev=634687fde664ed0016179d9427562ac57c2af639#634687fde664ed0016179d9427562ac57c2af639"
 dependencies = [
  "anyhow",
  "id-arena",

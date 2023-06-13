@@ -31,6 +31,18 @@ fn parse_subcommand(mut cmd: Vec<String>) -> anyhow::Result<(String, Vec<String>
     ))
 }
 
+const PREDEFINED_EXTERNALS: &[(&str, &str)] = &[(
+    "cloud",
+    "Commands for publishing applications to the Fermyon Cloud.",
+)];
+
+pub fn predefined_externals() -> Vec<(String, String)> {
+    PREDEFINED_EXTERNALS
+        .iter()
+        .map(|(name, desc)| (name.to_string(), desc.to_string()))
+        .collect()
+}
+
 /// Executes a Spin plugin as a subprocess, expecting the first argument to
 /// indicate the plugin to execute. Passes all subsequent arguments on to the
 /// subprocess.
@@ -50,10 +62,13 @@ pub async fn execute_external_subcommand(
             }
         }
         Err(PluginError::NotFound(e)) => {
-            if plugin_name == "cloud" {
-                println!("The `cloud` plugin is required. Installing now.");
+            if predefined_externals()
+                .iter()
+                .any(|(name, _)| name == &plugin_name)
+            {
+                println!("The `{plugin_name}` plugin is required. Installing now.");
                 let plugin_installer = Install {
-                    name: Some("cloud".to_string()),
+                    name: Some(plugin_name.clone()),
                     yes_to_all: true,
                     local_manifest_src: None,
                     remote_manifest_src: None,
@@ -112,13 +127,21 @@ fn print_similar_commands(app: clap::App, plugin_name: &str) {
 fn similar_commands(app: clap::App, target: &str) -> Vec<String> {
     app.get_subcommands()
         .filter_map(|sc| {
-            if levenshtein::levenshtein(sc.get_name(), target) <= 2 {
-                Some(sc.get_name().to_owned())
+            let actual_name = undecorate(sc.get_name());
+            if levenshtein::levenshtein(&actual_name, target) <= 2 {
+                Some(actual_name)
             } else {
                 None
             }
         })
         .collect()
+}
+
+fn undecorate(decorated_name: &str) -> String {
+    match decorated_name.strip_suffix('*') {
+        Some(name) => name.to_owned(),
+        None => decorated_name.to_owned(),
+    }
 }
 
 fn get_env_vars_map() -> Result<HashMap<String, String>> {

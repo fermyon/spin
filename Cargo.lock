@@ -5207,6 +5207,7 @@ dependencies = [
  "cap-std",
  "crossbeam-channel",
  "host",
+ "io-extras",
  "rustix 0.37.20",
  "spin-componentize",
  "system-interface",

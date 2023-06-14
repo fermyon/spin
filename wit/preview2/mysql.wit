@@ -1,5 +1,5 @@
-default interface mysql {
-  use pkg.rdbms-types.{parameter-value, row-set}
+interface mysql {
+  use rdbms-types.{parameter-value, row-set}
 
   // General purpose error.
   variant mysql-error {

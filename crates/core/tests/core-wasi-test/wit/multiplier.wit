@@ -1,4 +1,6 @@
-default world multiplier {
+package test:test
+
+world multiplier {
   import imports: interface {
      multiply: func(n: s32) -> s32
   }

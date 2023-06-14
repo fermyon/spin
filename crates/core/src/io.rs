@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use wasi_common::pipe::WritePipe;
+use wasmtime_wasi::preview2::pipe::WritePipe;
 
 /// An in-memory stdio output buffer.
 #[derive(Default)]
@@ -19,7 +19,7 @@ impl OutputBuffer {
 
 #[cfg(test)]
 mod tests {
-    use wasi_common::OutputStream;
+    use wasmtime_wasi::preview2::OutputStream;
 
     use super::*;
 

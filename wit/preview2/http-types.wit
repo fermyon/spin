@@ -1,4 +1,4 @@
-default interface http-types {
+interface http-types {
    type http-status = u16
 
    type body = list<u8>

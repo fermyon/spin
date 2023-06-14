@@ -6,7 +6,7 @@ use hyper::{
     body::{self},
     Body, Request, Response,
 };
-use spin_core::Wasi;
+use spin_core::WasiVersion;
 use spin_http::{config::WagiTriggerConfig, routes::RoutePattern, wagi};
 use spin_trigger::{EitherInstance, TriggerAppEngine};
 use wasi_common_preview1::{pipe::WritePipe, I32Exit};
@@ -84,7 +84,7 @@ impl HttpExecutor for WagiHttpExecutor {
 
         let stdout = WritePipe::new_in_memory();
 
-        let mut store_builder = engine.store_builder(component, Wasi::new_preview1())?;
+        let mut store_builder = engine.store_builder(component, WasiVersion::Preview1)?;
         // Set up Wagi environment
         store_builder.args(argv.split(' '))?;
         store_builder.env(headers)?;

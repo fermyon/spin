@@ -109,13 +109,16 @@ members = [
 
 [workspace.dependencies]
 tracing = { version = "0.1", features = ["log"] }
-wasmtime-wasi = { version = "9.0.4", features = ["tokio"] }
-wasi-common-preview1 = { package = "wasi-common", version = "9.0.4" }
-wasmtime = { version = "9.0.4", features = ["component-model"] }
-spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "8a596f722556d17cc1dc9b3ae8a7e7a77d3e90ae" }
-wasi-host = { package = "host", git = "https://github.com/fermyon/spin-componentize", rev = "8a596f722556d17cc1dc9b3ae8a7e7a77d3e90ae" }
-wasi-common = { git = "https://github.com/fermyon/spin-componentize", rev = "8a596f722556d17cc1dc9b3ae8a7e7a77d3e90ae" }
-wasi-cap-std-sync = { git = "https://github.com/fermyon/spin-componentize", rev = "8a596f722556d17cc1dc9b3ae8a7e7a77d3e90ae" }
+wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", branch = "release-10.0.0", features = ["tokio"] }
+wasi-common-preview1 = { package = "wasi-common", git = "https://github.com/bytecodealliance/wasmtime", branch = "release-10.0.0" }
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", branch = "release-10.0.0", features = ["component-model"] }
+# spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "8a596f722556d17cc1dc9b3ae8a7e7a77d3e90ae" }
+# wasi-host = { package = "host", git = "https://github.com/fermyon/spin-componentize", rev = "8a596f722556d17cc1dc9b3ae8a7e7a77d3e90ae" }
+# wasi-common = { git = "https://github.com/fermyon/spin-componentize", rev = "8a596f722556d17cc1dc9b3ae8a7e7a77d3e90ae" }
+# wasi-cap-std-sync = { git = "https://github.com/fermyon/spin-componentize", rev = "8a596f722556d17cc1dc9b3ae8a7e7a77d3e90ae" }
+spin-componentize = { path = "../spin-componentize" }
+wasi-common = { path = "../spin-componentize/adapter/wasi-common" }
+wasi-cap-std-sync = { path = "../spin-componentize/adapter/wasi-common/cap-std-sync" }
 
 [workspace.dependencies.bindle]
 git = "https://github.com/fermyon/bindle"

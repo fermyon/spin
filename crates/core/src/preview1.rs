@@ -126,7 +126,7 @@ impl WasiFile for ReadOnlyFile {
     }
 
     #[cfg(windows)]
-    fn pollable(&self) -> Option<io_extras::os::windows::BorrowedHandleOrSocket> {
+    fn pollable(&self) -> Option<io_extras::os::windows::RawHandleOrSocket> {
         self.0.pollable()
     }
 

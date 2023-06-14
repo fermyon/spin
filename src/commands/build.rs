@@ -37,7 +37,7 @@ pub struct BuildCommand {
 
 impl BuildCommand {
     pub async fn run(self) -> Result<()> {
-        let manifest_file = crate::manifest::resolve_file_path(&self.app_source)?;
+        let manifest_file = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
         spin_build::build(&manifest_file, &self.component_id).await?;
 
         if self.up {

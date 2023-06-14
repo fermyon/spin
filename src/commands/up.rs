@@ -247,7 +247,7 @@ impl UpCommand {
     }
 
     fn infer_file_source(path: impl Into<PathBuf>) -> AppSource {
-        match crate::manifest::resolve_file_path(path.into()) {
+        match spin_common::paths::resolve_manifest_file_path(path.into()) {
             Ok(file) => AppSource::File(file),
             Err(e) => AppSource::Unresolvable(e.to_string()),
         }

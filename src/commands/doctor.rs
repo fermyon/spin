@@ -26,7 +26,7 @@ pub struct DoctorCommand {
 
 impl DoctorCommand {
     pub async fn run(self) -> Result<()> {
-        let manifest_file = crate::manifest::resolve_file_path(&self.app_source)?;
+        let manifest_file = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
 
         println!("{icon}The Spin Doctor is in.", icon = Emoji("📟 ", ""));
         println!(

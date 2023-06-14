@@ -96,7 +96,7 @@ impl WatchCommand {
             },
         ));
 
-        let app = crate::manifest::resolve_file_path(&self.app_source)?;
+        let app = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
 
         // Prepare RuntimeConfig for Watchexec
         let app_dir = parent_dir(&app)?;
@@ -211,7 +211,7 @@ impl WatchCommand {
     }
 
     async fn generate_filter_config(&self) -> Result<crate::watch_filter::Config> {
-        let app = crate::manifest::resolve_file_path(&self.app_source)?;
+        let app = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
         let app_dir = parent_dir(&app)?;
         let app_manifest = spin_loader::local::raw_manifest_from_file(&app)
             .await?

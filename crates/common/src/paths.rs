@@ -1,11 +1,14 @@
-use anyhow::anyhow;
+//! Resolves a file path to a manifest file
+
+use anyhow::{anyhow, Result};
 use std::path::{Path, PathBuf};
 
-use crate::opts::DEFAULT_MANIFEST_FILE;
+/// The name given to the default manifest file.
+pub const DEFAULT_MANIFEST_FILE: &str = "spin.toml";
 
 /// Resolves a manifest path provided by a user, which may be a file or
 /// directory, to a path to a manifest file.
-pub(crate) fn resolve_file_path(provided_path: impl AsRef<Path>) -> anyhow::Result<PathBuf> {
+pub fn resolve_manifest_file_path(provided_path: impl AsRef<Path>) -> Result<PathBuf> {
     let path = provided_path.as_ref();
 
     if path.is_file() {

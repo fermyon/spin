@@ -182,8 +182,7 @@ impl StoreBuilder {
                 ctx.set_stdout(Box::new(wasmtime_wasi_preview1::stdio::stdout()))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx)
-                    .set_stdout(wasmtime_wasi_preview1::preview2::stdio::stdout())
+                *ctx = std::mem::take(ctx).set_stdout(wasmtime_wasi_preview2::stdio::stdout())
             }
         });
     }

@@ -413,6 +413,7 @@ impl StoreBuilder {
 }
 
 /// A builder of a `WasiCtx` for all versions of Wasi
+#[allow(clippy::large_enum_variant)]
 enum WasiCtxBuilder {
     Preview1(wasi_preview1::WasiCtx),
     Preview2(wasi_preview2::WasiCtxBuilder),

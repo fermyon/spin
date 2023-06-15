@@ -16,4 +16,3 @@ spin-world = { path = "../world" }
 tokio = { version = "1", features = [ "rt-multi-thread" ] }
 tokio-postgres = { version = "0.7.7" }
 tracing = { workspace = true }
-wit-bindgen-wasmtime = { workspace = true }

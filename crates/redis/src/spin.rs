@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use spin_core::Instance;
 use spin_trigger::{EitherInstance, TriggerAppEngine};
-use spin_world::redis_types::{Error, PayloadParam};
+use spin_world::redis_types::{Error, Payload};
 
 use crate::{RedisExecutor, RedisTrigger, Store};
 
@@ -49,9 +49,9 @@ impl SpinRedisExecutor {
             .exports(&mut store)
             .instance("inbound-redis")
             .ok_or_else(|| anyhow!("no inbound-redis instance found"))?
-            .typed_func::<(PayloadParam,), (Result<(), Error>,)>("handle-message")?;
+            .typed_func::<(Payload,), (Result<(), Error>,)>("handle-message")?;
 
-        match func.call_async(store, (&payload,)).await? {
+        match func.call_async(store, (payload,)).await? {
             (Ok(()) | Err(Error::Success),) => Ok(()),
             _ => Err(anyhow!("`handle-message` returned an error")),
         }

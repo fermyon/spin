@@ -10,5 +10,4 @@ spin-app = { path = "../app" }
 spin-key-value = { path = "../key-value" }
 spin-world = { path = "../world" }
 anyhow = "1.0"
-wit-bindgen-wasmtime = { workspace = true }
 tokio = "1"

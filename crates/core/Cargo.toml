@@ -18,6 +18,12 @@ wasmtime-wasi = { workspace = true }
 system-interface = { version = "0.25.1", features = ["cap_std_impls"] }
 cap-std = "1.0.5"
 
+[target.'cfg(unix)'.dependencies]
+rustix = "0.37.19"
+
+[target.'cfg(windows)'.dependencies]
+io-extras = "0.17.1"
+
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }

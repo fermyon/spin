@@ -34,4 +34,8 @@ url = "2.2.2"
 walkdir = "2"
 wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
-wit-bindgen-wasmtime = { workspace = true }
+
+[dependencies.wit-bindgen-wasmtime]
+git = "https://github.com/fermyon/wit-bindgen-backport"
+rev = "634687fde664ed0016179d9427562ac57c2af639"
+features = ["async"]

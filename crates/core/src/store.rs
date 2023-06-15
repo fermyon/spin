@@ -356,7 +356,8 @@ impl StoreBuilder {
     ///
     /// If `T: Default`, it may be preferable to use [`Store::build`].
     pub fn build_with_data<T>(self, inner_data: T) -> Result<Store<T>> {
-        let wasi = self.wasi.map_err(anyhow::Error::msg)?.try_into()?;
+        let mut table = Table::new();
+        let wasi = self.wasi.map_err(anyhow::Error::msg)?.build(&mut table)?;
 
         let mut inner = wasmtime::Store::new(
             &self.engine,
@@ -365,7 +366,7 @@ impl StoreBuilder {
                 wasi,
                 host_components_data: self.host_components_data,
                 store_limits: self.store_limits,
-                table: Table::new(),
+                table,
             },
         );
 
@@ -428,17 +429,11 @@ impl From<WasiVersion> for WasiCtxBuilder {
     }
 }
 
-impl TryFrom<WasiCtxBuilder> for Wasi {
-    type Error = anyhow::Error;
-
-    fn try_from(value: WasiCtxBuilder) -> std::result::Result<Self, Self::Error> {
-        match value {
-            WasiCtxBuilder::Preview1(ctx) => Ok(Self::Preview1(ctx)),
-            WasiCtxBuilder::Preview2(b) => {
-                // We don't support resources yet so for now we can just use an empty table
-                let mut table = wasmtime_wasi_preview2::Table::new();
-                b.build(&mut table).map(Wasi::Preview2)
-            }
+impl WasiCtxBuilder {
+    fn build(self, table: &mut Table) -> anyhow::Result<Wasi> {
+        match self {
+            WasiCtxBuilder::Preview1(ctx) => Ok(Wasi::Preview1(ctx)),
+            WasiCtxBuilder::Preview2(b) => b.build(table).map(Wasi::Preview2),
         }
     }
 }

@@ -1,3 +1,4 @@
+pub mod badger;
 pub mod error;
 mod git;
 pub mod lookup;

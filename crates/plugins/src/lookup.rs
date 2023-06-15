@@ -12,9 +12,9 @@ use url::Url;
 const PLUGINS_REPO_LOCAL_DIRECTORY: &str = ".spin-plugins";
 
 // Name of directory containing the installed manifests
-const PLUGINS_REPO_MANIFESTS_DIRECTORY: &str = "manifests";
+pub(crate) const PLUGINS_REPO_MANIFESTS_DIRECTORY: &str = "manifests";
 
-const SPIN_PLUGINS_REPO: &str = "https://github.com/fermyon/spin-plugins/";
+pub(crate) const SPIN_PLUGINS_REPO: &str = "https://github.com/fermyon/spin-plugins/";
 
 /// Looks up plugin manifests in centralized spin plugin repository.
 pub struct PluginLookup {

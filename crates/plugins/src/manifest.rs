@@ -156,7 +156,7 @@ fn is_version_fully_compatible(supported_on: &str, spin_version: &str) -> Result
 /// for Spin pre-releases, so that you don't get *every* plugin showing as incompatible when
 /// you run a pre-release.  This is intended for listing; when executing, we use the interactive
 /// `warn_unsupported_version`, which provides the full nuanced feedback.
-fn is_version_compatible_enough(supported_on: &str, spin_version: &str) -> Result<bool> {
+pub(crate) fn is_version_compatible_enough(supported_on: &str, spin_version: &str) -> Result<bool> {
     if is_version_fully_compatible(supported_on, spin_version)? {
         Ok(true)
     } else {

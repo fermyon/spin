@@ -7,9 +7,11 @@ edition = { workspace = true }
 [dependencies]
 anyhow = "1.0"
 bytes = "1.1"
+chrono = "0.4"
 dirs = "4.0"
 fd-lock = "3.0.12"
 flate2 = "1.0"
+is-terminal = "0.4"
 reqwest = { version = "0.11", features = ["json"] }
 semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }

@@ -135,11 +135,11 @@ impl WasiFile for ReadOnlyFile {
     }
 
     async fn datasync(&self) -> Result<(), Error> {
-        Ok(())
+        self.0.datasync().await
     }
 
     async fn sync(&self) -> Result<(), Error> {
-        Ok(())
+        self.0.sync().await
     }
 
     async fn get_fdflags(&self) -> Result<FdFlags, Error> {
@@ -170,6 +170,10 @@ impl WasiFile for ReadOnlyFile {
         Err(Error::perm())
     }
 
+    async fn read_vectored<'a>(&self, bufs: &mut [std::io::IoSliceMut<'a>]) -> Result<u64, Error> {
+        self.0.read_vectored(bufs).await
+    }
+
     async fn read_vectored_at<'a>(
         &self,
         bufs: &mut [std::io::IoSliceMut<'a>],
@@ -184,6 +188,18 @@ impl WasiFile for ReadOnlyFile {
         _offset: u64,
     ) -> Result<u64, Error> {
         Err(Error::perm())
+    }
+
+    async fn seek(&self, pos: std::io::SeekFrom) -> Result<u64, Error> {
+        self.0.seek(pos).await
+    }
+
+    async fn peek(&self, buf: &mut [u8]) -> Result<u64, Error> {
+        self.0.peek(buf).await
+    }
+
+    fn num_ready_bytes(&self) -> Result<u64, Error> {
+        self.0.num_ready_bytes()
     }
 
     async fn readable(&self) -> Result<(), Error> {

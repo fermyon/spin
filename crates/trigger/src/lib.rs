@@ -161,6 +161,21 @@ pub struct HostComponentInitData {
     sqlite: Vec<String>,
 }
 
+impl HostComponentInitData {
+    /// Create an instance of `HostComponentInitData`.  `key_value_init_values`
+    /// will be added to the default key-value store; `sqlite_init_statements`
+    /// will be run against the default SQLite database.
+    pub fn new(
+        key_value_init_values: impl Into<Vec<(String, String)>>,
+        sqlite_init_statements: impl Into<Vec<String>>,
+    ) -> Self {
+        Self {
+            kv: key_value_init_values.into(),
+            sqlite: sqlite_init_statements.into(),
+        }
+    }
+}
+
 /// Execution context for a TriggerExecutor executing a particular App.
 pub struct TriggerAppEngine<Executor: TriggerExecutor> {
     /// Engine to be used with this executor.

@@ -59,8 +59,8 @@ impl Loader for TriggerLoader {
         let was_already_component = matches!(component, std::borrow::Cow::Borrowed(_));
         if was_already_component {
             println!(
-                "Warning: spin component at path {} is already a WebAssembly component. \
-                Directly using WebAssembly components is an experimental feature.",
+                "Warning: Spin component at path {} is a WebAssembly component instead of a \
+                WebAssembly module. Use of the WebAssembly component model is an experimental feature.",
                 path.display()
             )
         }

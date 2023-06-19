@@ -49,18 +49,23 @@ impl Loader for TriggerLoader {
             .as_ref()
             .context("LockedComponentSource missing source field")?;
         let path = parse_file_url(source)?;
-        spin_core::Component::new(
-            engine,
-            spin_componentize::componentize_if_necessary(&fs::read(&path).await.with_context(
-                || {
-                    format!(
-                        "failed to read component source from disk at path '{}'",
-                        path.display()
-                    )
-                },
-            )?)?,
-        )
-        .with_context(|| format!("loading module {path:?}"))
+        let bytes = fs::read(&path).await.with_context(|| {
+            format!(
+                "failed to read component source from disk at path '{}'",
+                path.display()
+            )
+        })?;
+        let component = spin_componentize::componentize_if_necessary(&bytes)?;
+        let was_already_component = matches!(component, std::borrow::Cow::Borrowed(_));
+        if was_already_component {
+            println!(
+                "Warning: Spin component at path {} is a WebAssembly component instead of a \
+                WebAssembly module. Use of the WebAssembly component model is an experimental feature.",
+                path.display()
+            )
+        }
+        spin_core::Component::new(engine, component)
+            .with_context(|| format!("loading module {path:?}"))
     }
 
     async fn load_module(

@@ -16,18 +16,19 @@ mod store;
 use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
-pub use async_trait::async_trait;
 use crossbeam_channel::Sender;
 use tracing::instrument;
+use wasmtime_wasi::preview2::Table;
+
+use self::host_component::{HostComponents, HostComponentsBuilder};
+
+pub use async_trait::async_trait;
 pub use wasmtime::{
     self,
     component::{Component, Instance},
     Instance as ModuleInstance, Module, Trap,
 };
-use wasmtime_wasi::preview2::Table;
-pub use wasmtime_wasi::I32Exit;
-
-use self::host_component::{HostComponents, HostComponentsBuilder};
+pub use wasmtime_wasi::preview2::I32Exit;
 
 pub use host_component::{
     AnyHostComponentDataHandle, HostComponent, HostComponentDataHandle, HostComponentsData,

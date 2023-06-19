@@ -49,7 +49,10 @@ async fn test_read_only_preopened_dir_write_fails() {
     })
     .await
     .unwrap_err();
-    let trap = err.downcast::<I32Exit>().expect("trap");
+    let trap = err
+        .root_cause() // The error returned is a backtrace. We need the root cause.
+        .downcast_ref::<I32Exit>()
+        .expect("trap error was not an I32Exit");
     assert_eq!(trap.0, 1);
 }
 
@@ -90,7 +93,10 @@ async fn test_max_memory_size_violated() {
     })
     .await
     .unwrap_err();
-    let trap = err.downcast::<I32Exit>().expect("trap");
+    let trap = err
+        .root_cause() // The error returned is a backtrace. We need the root cause.
+        .downcast_ref::<I32Exit>()
+        .expect("trap error was not an I32Exit");
     assert_eq!(trap.0, 1);
 }
 
@@ -201,7 +207,7 @@ async fn run_core_wasi_test_engine<'a>(
     let component = Component::new(engine.as_ref(), &component)?;
     let instance_pre = engine.instantiate_pre(&component)?;
     let instance = instance_pre.instantiate_async(&mut store).await?;
-    let func = instance.get_typed_func::<(), (Result<(), ()>,)>(&mut store, "main")?;
+    let func = instance.get_typed_func::<(), (Result<(), ()>,)>(&mut store, "run")?;
 
     update_store(&mut store);
 

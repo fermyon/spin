@@ -177,9 +177,9 @@ fn inner_warn_unsupported_version(
     if !is_version_fully_compatible(supported_on, spin_version)? {
         let version = Version::parse(spin_version)?;
         if !version.pre.is_empty() {
-            eprintln!("You're using a pre-release version of Spin ({spin_version}). This plugin might not be compatible (supported: {supported_on}). Continuing anyway.");
+            terminal::warn!("You're using a pre-release version of Spin ({spin_version}). This plugin might not be compatible (supported: {supported_on}). Continuing anyway.");
         } else if override_compatibility_check {
-            eprintln!("Plugin is not compatible with this version of Spin (supported: {supported_on}, actual: {spin_version}). Check overridden ... continuing to install or execute plugin.");
+            terminal::warn!("Plugin is not compatible with this version of Spin (supported: {supported_on}, actual: {spin_version}). Check overridden ... continuing to install or execute plugin.");
         } else {
             return Err(anyhow!(
             "Plugin is not compatible with this version of Spin (supported: {supported_on}, actual: {spin_version}). Try running `spin plugins update && spin plugins upgrade --all` to install latest or override with `--override-compatibility-check`."

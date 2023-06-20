@@ -8,8 +8,6 @@ use system_interface::io::ReadReady;
 use wasi_common_preview1 as wasi_preview1;
 use wasmtime_wasi as wasmtime_wasi_preview1;
 use wasmtime_wasi::preview2 as wasi_preview2;
-use wasmtime_wasi::preview2 as wasmtime_wasi_preview2;
-use wasmtime_wasi_preview1::preview2::Table;
 
 use crate::{
     host_component::{HostComponents, HostComponentsData},
@@ -158,7 +156,7 @@ impl StoreBuilder {
                 ctx.set_stdin(Box::new(wasmtime_wasi_preview1::stdio::stdin()))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stdin(wasmtime_wasi_preview2::stdio::stdin())
+                *ctx = std::mem::take(ctx).set_stdin(wasi_preview2::stdio::stdin())
             }
         });
     }
@@ -182,7 +180,7 @@ impl StoreBuilder {
                 ctx.set_stdout(Box::new(wasmtime_wasi_preview1::stdio::stdout()))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stdout(wasmtime_wasi_preview2::stdio::stdout())
+                *ctx = std::mem::take(ctx).set_stdout(wasi_preview2::stdio::stdout())
             }
         });
     }
@@ -236,7 +234,7 @@ impl StoreBuilder {
                 ctx.set_stderr(Box::new(wasmtime_wasi_preview1::stdio::stderr()))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stderr(wasmtime_wasi_preview2::stdio::stderr())
+                *ctx = std::mem::take(ctx).set_stderr(wasi_preview2::stdio::stderr())
             }
         });
     }
@@ -356,7 +354,7 @@ impl StoreBuilder {
     ///
     /// If `T: Default`, it may be preferable to use [`Store::build`].
     pub fn build_with_data<T>(self, inner_data: T) -> Result<Store<T>> {
-        let mut table = Table::new();
+        let mut table = wasi_preview2::Table::new();
         let wasi = self.wasi.map_err(anyhow::Error::msg)?.build(&mut table)?;
 
         let mut inner = wasmtime::Store::new(
@@ -431,7 +429,7 @@ impl From<WasiVersion> for WasiCtxBuilder {
 }
 
 impl WasiCtxBuilder {
-    fn build(self, table: &mut Table) -> anyhow::Result<Wasi> {
+    fn build(self, table: &mut wasi_preview2::Table) -> anyhow::Result<Wasi> {
         match self {
             WasiCtxBuilder::Preview1(ctx) => Ok(Wasi::Preview1(ctx)),
             WasiCtxBuilder::Preview2(b) => b.build(table).map(Wasi::Preview2),

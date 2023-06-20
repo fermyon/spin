@@ -1,11 +1,12 @@
-use spin_http::{Request, Response};
+wit_bindgen::generate!("http-trigger" in "../../../../wit/preview2");
 
-wit_bindgen_rust::export!("../../../../wit/ephemeral/spin-http.wit");
+use exports::fermyon::spin::inbound_http::{self, Request, Response};
 
-struct SpinHttp {}
+struct SpinHttp;
+export_http_trigger!(SpinHttp);
 
-impl spin_http::SpinHttp for SpinHttp {
-    fn handle_http_request(req: Request) -> Response {
+impl inbound_http::InboundHttp for SpinHttp {
+    fn handle_request(req: Request) -> Response {
         assert!(req.params.is_empty());
         assert!(req.uri.contains("?abc=def"));
 

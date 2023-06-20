@@ -2,16 +2,13 @@ use http_types::{header::HeaderName, HeaderValue};
 
 use super::http::{Request, Response};
 
-#[allow(missing_docs)]
-pub(crate) mod wit {
-    wit_bindgen_rust::import!("../../wit/ephemeral/wasi-outbound-http.wit");
-    pub use wasi_outbound_http::*;
-}
-
-use wit::{Request as OutboundRequest, Response as OutboundResponse};
+use super::wit::fermyon::spin::http::{
+    self as spin_http, Request as OutboundRequest, Response as OutboundResponse,
+};
+use super::wit::fermyon::spin::http_types as spin_http_types;
 
 /// Error type returned by [`send_request`]
-pub use wit::HttpError as OutboundHttpError;
+pub use super::wit::fermyon::spin::http::HttpError as OutboundHttpError;
 
 type Result<T> = std::result::Result<T, OutboundHttpError>;
 
@@ -45,7 +42,7 @@ pub fn send_request(req: Request) -> Result<Response> {
         status,
         headers,
         body,
-    } = wit::request(out_req)?;
+    } = spin_http::send_request(out_req)?;
 
     let resp_builder = http_types::response::Builder::new().status(status);
     let resp_builder = headers
@@ -69,12 +66,12 @@ fn try_header_to_strs<'k, 'v>(
     ))
 }
 
-impl TryFrom<http_types::Method> for wit::Method {
+impl TryFrom<http_types::Method> for spin_http_types::Method {
     type Error = OutboundHttpError;
 
     fn try_from(method: http_types::Method) -> Result<Self> {
         use http_types::Method;
-        use wit::Method::*;
+        use spin_http_types::Method::*;
         Ok(match method {
             Method::GET => Get,
             Method::POST => Post,
@@ -83,15 +80,7 @@ impl TryFrom<http_types::Method> for wit::Method {
             Method::PATCH => Patch,
             Method::HEAD => Head,
             Method::OPTIONS => Options,
-            _ => return Err(wit::HttpError::RequestError),
+            _ => return Err(spin_http::HttpError::RequestError),
         })
     }
 }
-
-impl std::fmt::Display for OutboundHttpError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl std::error::Error for OutboundHttpError {}

@@ -18,26 +18,9 @@
 //! | `String`  | str(string)         | VARCHAR, CHAR, TEXT     |
 //! | `Vec<u8>` | binary(list\<u8\>)  | VARBINARY, BINARY, BLOB |
 
-#![allow(missing_docs)]
-wit_bindgen_rust::import!("../../wit/ephemeral/outbound-mysql.wit");
-
 /// Exports the generated outbound MySQL items.
-pub use outbound_mysql::*;
-
-impl std::error::Error for MysqlError {}
-
-impl ::std::fmt::Display for MysqlError {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match self {
-            MysqlError::ConnectionFailed(err_msg)
-            | MysqlError::BadParameter(err_msg)
-            | MysqlError::QueryFailed(err_msg)
-            | MysqlError::ValueConversionFailed(err_msg)
-            | MysqlError::OtherError(err_msg) => write!(f, "MySQL error: {}", err_msg),
-            MysqlError::Success => panic!("Unexpected error: Success isn't supposed to be used"),
-        }
-    }
-}
+pub use super::wit::fermyon::spin::mysql::*;
+use super::wit::fermyon::spin::rdbms_types::*;
 
 /// A MySQL error
 #[derive(Debug, thiserror::Error)]

@@ -13,26 +13,9 @@
 //! | `String`   | str(string)         | VARCHAR, CHAR(N), TEXT       |
 //! | `Vec<u8>`  | binary(list\<u8\>)  | BYTEA                        |
 
-#![allow(missing_docs)]
-wit_bindgen_rust::import!("../../wit/ephemeral/outbound-pg.wit");
-
 /// Exports the generated outbound Pg items.
-pub use outbound_pg::*;
-
-impl std::error::Error for PgError {}
-
-impl ::std::fmt::Display for PgError {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match self {
-            PgError::ConnectionFailed(err_msg)
-            | PgError::BadParameter(err_msg)
-            | PgError::QueryFailed(err_msg)
-            | PgError::ValueConversionFailed(err_msg)
-            | PgError::OtherError(err_msg) => write!(f, "Postgres error: {}", err_msg),
-            PgError::Success => panic!("Unexpected error: Success isn't supposed to be used"),
-        }
-    }
-}
+pub use super::wit::fermyon::spin::postgres::*;
+use super::wit::fermyon::spin::rdbms_types::*;
 
 /// A pg error
 #[derive(Debug, thiserror::Error)]

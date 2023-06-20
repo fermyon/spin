@@ -83,6 +83,15 @@ macro_rules! step {
 }
 
 #[macro_export]
+macro_rules! warn {
+    ($($arg:tt)*) => {{
+        $crate::ceprint!($crate::colors::bold_yellow(), "Warning");
+        eprint!(": ");
+        eprintln!($($arg)*);
+    }};
+}
+
+#[macro_export]
 macro_rules! error {
     ($($arg:tt)*) => {{
         $crate::ceprint!($crate::colors::bold_red(), "Error");
@@ -133,6 +142,10 @@ pub mod colors {
 
     pub fn bold_cyan() -> ColorSpec {
         new(Color::Cyan, true)
+    }
+
+    pub fn bold_yellow() -> ColorSpec {
+        new(Color::Yellow, true)
     }
 
     fn new(color: Color, bold: bool) -> ColorSpec {

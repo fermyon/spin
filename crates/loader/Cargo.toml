@@ -27,6 +27,7 @@ shellexpand = "3.1"
 spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }
 tempfile = "3.3.0"
+terminal = { path = "../terminal" }
 tokio = { version = "1.23", features = [ "full" ] }
 tokio-util = "0.6"
 toml = "0.5"

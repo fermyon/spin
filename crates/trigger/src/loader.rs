@@ -58,8 +58,8 @@ impl Loader for TriggerLoader {
         let component = spin_componentize::componentize_if_necessary(&bytes)?;
         let was_already_component = matches!(component, std::borrow::Cow::Borrowed(_));
         if was_already_component {
-            println!(
-                "Warning: Spin component at path {} is a WebAssembly component instead of a \
+            terminal::warn!(
+                "Spin component at path {} is a WebAssembly component instead of a \
                 WebAssembly module. Use of the WebAssembly component model is an experimental feature.",
                 path.display()
             )

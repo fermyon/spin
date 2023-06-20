@@ -33,6 +33,7 @@ spin-config = { path = "../config" }
 spin-core = { path = "../core" }
 spin-loader = { path = "../loader" }
 spin-manifest = { path = "../manifest" }
+terminal = { path = "../terminal" }
 tokio = { version = "1.23", features = ["fs"] }
 toml = "0.5.9"
 tracing = { workspace = true }

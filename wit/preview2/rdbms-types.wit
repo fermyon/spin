@@ -1,4 +1,4 @@
-default interface rdbms-types {
+interface rdbms-types {
   enum db-data-type {
       boolean,
       int8,

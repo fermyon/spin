@@ -1,4 +1,4 @@
-default interface sqlite {
+interface sqlite {
   // A handle to an open sqlite instance
   type connection = u32
 

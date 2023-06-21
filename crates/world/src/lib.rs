@@ -5,3 +5,5 @@ wasmtime::component::bindgen!({
     world: "reactor",
     async: true
 });
+
+pub use fermyon::spin::*;

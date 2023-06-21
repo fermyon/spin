@@ -16,23 +16,25 @@ mod store;
 use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
-pub use async_trait::async_trait;
 use crossbeam_channel::Sender;
 use tracing::instrument;
-pub use wasi_common::I32Exit;
+use wasmtime_wasi::preview2::Table;
+
+use self::host_component::{HostComponents, HostComponentsBuilder};
+
+pub use async_trait::async_trait;
 pub use wasmtime::{
     self,
     component::{Component, Instance},
     Instance as ModuleInstance, Module, Trap,
 };
-
-use self::host_component::{HostComponents, HostComponentsBuilder};
+pub use wasmtime_wasi::preview2::I32Exit;
 
 pub use host_component::{
     AnyHostComponentDataHandle, HostComponent, HostComponentDataHandle, HostComponentsData,
 };
 pub use io::OutputBuffer;
-pub use store::{Store, StoreBuilder, Wasi};
+pub use store::{Store, StoreBuilder, Wasi, WasiVersion};
 
 /// The default [`EngineBuilder::epoch_tick_interval`].
 pub const DEFAULT_EPOCH_TICK_INTERVAL: Duration = Duration::from_millis(10);
@@ -69,6 +71,7 @@ pub struct Data<T> {
     wasi: Wasi,
     host_components_data: HostComponentsData,
     store_limits: limits::StoreLimitsAsync,
+    table: Table,
 }
 
 impl<T> Data<T> {
@@ -87,6 +90,30 @@ impl<T> AsRef<T> for Data<T> {
 impl<T> AsMut<T> for Data<T> {
     fn as_mut(&mut self) -> &mut T {
         &mut self.inner
+    }
+}
+
+impl<T: Send> wasmtime_wasi::preview2::WasiView for Data<T> {
+    fn table(&self) -> &wasmtime_wasi::preview2::Table {
+        &self.table
+    }
+
+    fn table_mut(&mut self) -> &mut wasmtime_wasi::preview2::Table {
+        &mut self.table
+    }
+
+    fn ctx(&self) -> &wasmtime_wasi::preview2::WasiCtx {
+        match &self.wasi {
+            Wasi::Preview1(_) => panic!("using WASI Preview 1 functions with Preview 2 store"),
+            Wasi::Preview2(ctx) => ctx,
+        }
+    }
+
+    fn ctx_mut(&mut self) -> &mut wasmtime_wasi::preview2::WasiCtx {
+        match &mut self.wasi {
+            Wasi::Preview1(_) => panic!("using WASI Preview 1 functions with Preview 2 store"),
+            Wasi::Preview2(ctx) => ctx,
+        }
     }
 }
 
@@ -113,10 +140,7 @@ impl<T: Send + Sync> EngineBuilder<T> {
         let engine = wasmtime::Engine::new(&config.inner)?;
 
         let mut linker: Linker<T> = Linker::new(&engine);
-        wasi_host::command::add_to_linker(&mut linker, |data| match &mut data.wasi {
-            Wasi::Preview1(_) => panic!("using WASI Preview 1 functions with Preview 2 store"),
-            Wasi::Preview2(ctx) => ctx,
-        })?;
+        wasmtime_wasi::preview2::wasi::command::add_to_linker(&mut linker)?;
 
         let mut module_linker = ModuleLinker::new(&engine);
         wasmtime_wasi::tokio::add_to_linker(&mut module_linker, |data| match &mut data.wasi {
@@ -241,12 +265,12 @@ impl<T: Send + Sync> Engine<T> {
     }
 
     /// Creates a new [`StoreBuilder`].
-    pub fn store_builder(&self, wasi: Wasi) -> StoreBuilder {
+    pub fn store_builder(&self, wasi_version: WasiVersion) -> StoreBuilder {
         StoreBuilder::new(
             self.inner.clone(),
             self.epoch_tick_interval,
             &self.host_components,
-            wasi,
+            wasi_version,
         )
     }
 

@@ -14,7 +14,7 @@ use serde::de::DeserializeOwned;
 use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp};
 use spin_core::{
     Config, Engine, EngineBuilder, Instance, InstancePre, ModuleInstance, ModuleInstancePre, Store,
-    StoreBuilder, Wasi,
+    StoreBuilder, WasiVersion,
 };
 
 pub use crate::runtime_config::RuntimeConfig;
@@ -251,8 +251,12 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
     }
 
     /// Returns a new StoreBuilder for the given component ID.
-    pub fn store_builder(&self, component_id: &str, wasi: Wasi) -> Result<StoreBuilder> {
-        let mut builder = self.engine.store_builder(wasi);
+    pub fn store_builder(
+        &self,
+        component_id: &str,
+        wasi_version: WasiVersion,
+    ) -> Result<StoreBuilder> {
+        let mut builder = self.engine.store_builder(wasi_version);
         let component = self.get_component(component_id)?;
         self.hooks
             .iter()
@@ -265,7 +269,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         &self,
         component_id: &str,
     ) -> Result<(EitherInstance, Store<Executor::RuntimeData>)> {
-        let store_builder = self.store_builder(component_id, Wasi::new_preview2())?;
+        let store_builder = self.store_builder(component_id, WasiVersion::Preview2)?;
         self.prepare_instance_with_store(component_id, store_builder)
             .await
     }

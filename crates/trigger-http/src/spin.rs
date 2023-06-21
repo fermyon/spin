@@ -61,7 +61,7 @@ impl SpinHttpExecutor {
 
         let func = instance
             .exports(&mut store)
-            .instance("inbound-http")
+            .instance("fermyon:spin/inbound-http")
             .ok_or_else(|| anyhow!("no inbound-http instance found"))?
             .typed_func::<(http_types::Request,), (http_types::Response,)>("handle-request")?;
 

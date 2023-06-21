@@ -1,4 +1,4 @@
-default interface config {
+interface config {
   // Get a configuration value for the current component.
   // The config key must match one defined in in the component manifest.
   get-config: func(key: string) -> result<string, error>

@@ -7,8 +7,8 @@ use super::wit::fermyon::spin::http::{
 };
 use super::wit::fermyon::spin::http_types as spin_http_types;
 
-/// Error type returned by [`send_request`]
-pub use super::wit::fermyon::spin::http::HttpError as OutboundHttpError;
+/// Error type returned by [`send_request`][crate::outbound_http::send_request]
+pub use super::wit::fermyon::spin::http_types::HttpError as OutboundHttpError;
 
 type Result<T> = std::result::Result<T, OutboundHttpError>;
 

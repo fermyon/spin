@@ -84,13 +84,14 @@ pub mod http {
 pub mod redis {
     use std::hash::{Hash, Hasher};
 
-    /// Exports the generated outbound Redis items.
-    pub use super::wit::fermyon::spin::redis::*;
+    pub use super::wit::fermyon::spin::redis::{
+        del, execute, get, incr, publish, sadd, set, smembers, srem,
+    };
+    pub use super::wit::fermyon::spin::redis_types::*;
 
     impl PartialEq for RedisResult {
         fn eq(&self, other: &Self) -> bool {
             use super::wit::fermyon::spin::redis_types::RedisResult::*;
-
             match (self, other) {
                 (Nil, Nil) => true,
                 (Status(a), Status(b)) => a == b,
@@ -131,6 +132,8 @@ pub mod config {
 }
 
 /// Inbound http trigger functionality
+// Hide the docs since this is only needed for the macro
+#[doc(hidden)]
 pub mod inbound_http {
     use super::wit::exports::fermyon::spin::inbound_http;
     use super::wit::fermyon::spin::http_types as spin_http_types;
@@ -251,6 +254,8 @@ pub mod inbound_http {
 }
 
 /// Inbound redis trigger functionality
+// Hide the docs since this is only needed for the macro
+#[doc(hidden)]
 pub mod inbound_redis {
     pub use super::wit::exports::fermyon::spin::inbound_redis::*;
 }

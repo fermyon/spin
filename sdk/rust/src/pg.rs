@@ -13,9 +13,8 @@
 //! | `String`   | str(string)         | VARCHAR, CHAR(N), TEXT       |
 //! | `Vec<u8>`  | binary(list\<u8\>)  | BYTEA                        |
 
-/// Exports the generated outbound Pg items.
-pub use super::wit::fermyon::spin::postgres::*;
-use super::wit::fermyon::spin::rdbms_types::*;
+pub use super::wit::fermyon::spin::postgres::{execute, query, PgError};
+pub use super::wit::fermyon::spin::rdbms_types::*;
 
 /// A pg error
 #[derive(Debug, thiserror::Error)]

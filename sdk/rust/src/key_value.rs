@@ -11,7 +11,7 @@ use key_value::Store as RawStore;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Errors which may be raised by the methods of `Store`
-pub type Error = key_value::Error;
+pub use key_value::Error;
 
 /// Represents a store in which key value tuples may be placed
 #[derive(Debug)]

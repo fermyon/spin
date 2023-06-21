@@ -18,9 +18,8 @@
 //! | `String`  | str(string)         | VARCHAR, CHAR, TEXT     |
 //! | `Vec<u8>` | binary(list\<u8\>)  | VARBINARY, BINARY, BLOB |
 
-/// Exports the generated outbound MySQL items.
-pub use super::wit::fermyon::spin::mysql::*;
-use super::wit::fermyon::spin::rdbms_types::*;
+pub use super::wit::fermyon::spin::mysql::{execute, query, MysqlError};
+pub use super::wit::fermyon::spin::rdbms_types::*;
 
 /// A MySQL error
 #[derive(Debug, thiserror::Error)]

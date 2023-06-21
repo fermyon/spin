@@ -37,6 +37,5 @@ wasmtime-wasi = { workspace = true }
 
 [dependencies.wit-bindgen-wasmtime]
 git = "https://github.com/fermyon/wit-bindgen-backport"
-# TODO: update to merge commit when merged
-rev = "b46f69ef2150d65d8a223d49d106457efdb7cdb3"
+rev = "b89d5079ba5b07b319631a1b191d2139f126c976"
 features = ["async"]

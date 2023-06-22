@@ -57,21 +57,25 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #func
 
         mod __spin_redis {
-            struct SpinRedis;
+            struct Spin;
 
             impl ::spin_sdk::inbound_redis::InboundRedis for Spin {
-                fn handle_message(msg: ::spin_sdk::inbound_redis::Payload) -> Result<(), ::spin_sdk::inbound_redis::Error> {
-                    match super::#func_name(message.try_into().expect("cannot convert from Spin Redis payload")) {
+                fn handle_message(msg: ::spin_sdk::inbound_redis::Payload) -> Result<(), ::spin_sdk::redis::Error> {
+                    match super::#func_name(msg.try_into().expect("cannot convert from Spin Redis payload")) {
                         Ok(()) => Ok(()),
                         Err(e) => {
                             eprintln!("{}", e);
-                            Err(::spin_sdk::inbound_redis::Error)
+                            Err(::spin_sdk::redis::Error::Error)
                         },
                     }
                 }
             }
+            impl ::spin_sdk::inbound_http::InboundHttp for Spin {
+                fn handle_request(req: ::spin_sdk::inbound_http::Request) -> ::spin_sdk::inbound_http::Response {
+                    unimplemented!("No implementation for inbound-http#handle-request");
+                }
+            }
         }
-
     )
     .into()
 }

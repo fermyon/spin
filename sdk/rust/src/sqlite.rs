@@ -1,14 +1,19 @@
+#![allow(missing_docs)]
+
 wit_bindgen_rust::import!("../../wit/ephemeral/sqlite.wit");
 
 use sqlite::Connection as RawConnection;
 
 /// Errors which may be raised by the methods of `Store`
-pub type Error = sqlite::Error;
-
+pub use sqlite::Error;
+/// The result of making a query
+pub use sqlite::QueryResult;
+/// A row in a QueryResult
+pub use sqlite::RowResult;
 /// A parameter used when executing a sqlite statement
-pub type ValueParam<'a> = sqlite::ValueParam<'a>;
+pub use sqlite::ValueParam;
 /// A single column's result from a database query
-pub type ValueResult = sqlite::ValueResult;
+pub use sqlite::ValueResult;
 
 /// Represents a store in which key value tuples may be placed
 #[derive(Debug)]
@@ -60,6 +65,7 @@ impl<'a> Row<'a> {
 }
 
 impl sqlite::RowResult {
+    /// Get a value by its index
     pub fn get<'a, T: TryFrom<&'a ValueResult>>(&'a self, index: usize) -> Option<T> {
         self.values.get(index).and_then(|c| c.try_into().ok())
     }

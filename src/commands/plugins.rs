@@ -156,7 +156,7 @@ pub struct Upgrade {
     #[clap(
         name = PLUGIN_NAME_OPT,
         conflicts_with = PLUGIN_ALL_OPT,
-        required_unless_present_any = [PLUGIN_ALL_OPT],
+        required_unless_present_any = [PLUGIN_ALL_OPT, PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT, PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT],
     )]
     pub name: Option<String>,
 
@@ -232,11 +232,7 @@ impl Upgrade {
         if self.all {
             self.upgrade_all(manifests_dir).await
         } else {
-            let plugin_name = self
-                .name
-                .clone()
-                .context("plugin name is required for upgrades")?;
-            self.upgrade_one(&plugin_name).await
+            self.upgrade_one().await
         }
     }
 
@@ -273,12 +269,17 @@ impl Upgrade {
         Ok(())
     }
 
-    async fn upgrade_one(self, name: &str) -> Result<()> {
+    async fn upgrade_one(self) -> Result<()> {
         let manager = PluginManager::try_default()?;
         let manifest_location = match (self.local_manifest_src, self.remote_manifest_src) {
             (Some(path), None) => ManifestLocation::Local(path),
             (None, Some(url)) => ManifestLocation::Remote(url),
-            _ => ManifestLocation::PluginsRepository(PluginLookup::new(name, self.version)),
+            _ => ManifestLocation::PluginsRepository(PluginLookup::new(
+                self.name
+                    .as_ref()
+                    .context("plugin name is required for upgrades")?,
+                self.version,
+            )),
         };
         let manifest = manager.get_manifest(&manifest_location).await?;
         try_install(

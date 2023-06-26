@@ -13,6 +13,7 @@ use crate::{error::*, manifest::PluginManifest};
 
 /// Directory where the manifests of installed plugins are stored.
 pub const PLUGIN_MANIFESTS_DIRECTORY_NAME: &str = "manifests";
+const INSTALLATION_RECORD_FILE_NAME: &str = ".install.json";
 
 /// Houses utilities for getting the path to Spin plugin directories.
 pub struct PluginStore {
@@ -60,6 +61,12 @@ impl PluginStore {
             binary.set_extension("exe");
         }
         binary
+    }
+
+    pub fn install_record_file(&self, plugin_name: &str) -> PathBuf {
+        self.root
+            .join(plugin_name)
+            .join(INSTALLATION_RECORD_FILE_NAME)
     }
 
     pub fn installed_manifests(&self) -> Result<Vec<PluginManifest>> {

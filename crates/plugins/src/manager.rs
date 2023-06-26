@@ -7,6 +7,8 @@ use crate::{
 };
 
 use anyhow::{anyhow, bail, Result};
+use path_absolutize::Absolutize;
+use serde::Serialize;
 use spin_common::sha256;
 use std::{
     fs::{self, File},
@@ -28,6 +30,34 @@ pub enum ManifestLocation {
     Remote(Url),
     /// Plugin manifest lives in the centralized plugins repository
     PluginsRepository(PluginLookup),
+}
+
+impl ManifestLocation {
+    pub(crate) fn to_install_record(&self) -> RawInstallRecord {
+        match self {
+            Self::Local(path) => {
+                // Plugin commands don't absolutise on the way in, so do it now.
+                use std::borrow::Cow;
+                let abs = path
+                    .absolutize()
+                    .unwrap_or(Cow::Borrowed(path))
+                    .to_path_buf();
+                RawInstallRecord::Local { file: abs }
+            }
+            Self::Remote(url) => RawInstallRecord::Remote {
+                url: url.to_owned(),
+            },
+            Self::PluginsRepository(_) => RawInstallRecord::PluginsRepository,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename = "snake_case", tag = "source")]
+pub(crate) enum RawInstallRecord {
+    PluginsRepository,
+    Remote { url: Url },
+    Local { file: PathBuf },
 }
 
 /// Provides accesses to functionality to inspect and manage the installation of plugins.
@@ -57,6 +87,7 @@ impl PluginManager {
         &self,
         plugin_manifest: &PluginManifest,
         plugin_package: &PluginPackage,
+        source: &ManifestLocation,
     ) -> Result<String> {
         let target = plugin_package.url.to_owned();
         let target_url = Url::parse(&target)?;
@@ -74,6 +105,8 @@ impl PluginManager {
 
         // Save manifest to installed plugins directory
         self.store.add_manifest(plugin_manifest)?;
+        self.write_install_record(&plugin_manifest.name(), source);
+
         Ok(plugin_manifest.name())
     }
 
@@ -207,6 +240,16 @@ impl PluginManager {
         let locker = fd_lock::RwLock::new(file);
         Ok(locker)
     }
+
+    fn write_install_record(&self, plugin_name: &str, source: &ManifestLocation) {
+        let install_record_path = self.store.install_record_file(plugin_name);
+
+        // A failure here shouldn't fail the install
+        let install_record = source.to_install_record();
+        if let Ok(record_text) = serde_json::to_string_pretty(&install_record) {
+            _ = std::fs::write(install_record_path, record_text);
+        }
+    }
 }
 
 // We permit the "locking failed" state rather than erroring so that we don't prevent the user
@@ -319,7 +362,13 @@ mod tests {
         ))?;
 
         let install_result = manager
-            .install(&bad_manifest, &bad_manifest.packages[0])
+            .install(
+                &bad_manifest,
+                &bad_manifest.packages[0],
+                &ManifestLocation::Local(PathBuf::from(
+                    "../tests/nonexistent-url/nonexistent-url.json",
+                )),
+            )
             .await;
 
         let err = format!("{:#}", install_result.unwrap_err());

@@ -121,6 +121,7 @@ impl Install {
             self.yes_to_all,
             self.override_compatibility_check,
             downgrade,
+            &manifest_location,
         )
         .await?;
         Ok(())
@@ -263,6 +264,7 @@ impl Upgrade {
                 self.yes_to_all,
                 self.override_compatibility_check,
                 self.downgrade,
+                &manifest_location,
             )
             .await?;
         }
@@ -288,6 +290,7 @@ impl Upgrade {
             self.yes_to_all,
             self.override_compatibility_check,
             self.downgrade,
+            &manifest_location,
         )
         .await?;
         Ok(())
@@ -458,6 +461,7 @@ async fn try_install(
     yes_to_all: bool,
     override_compatibility_check: bool,
     downgrade: bool,
+    source: &ManifestLocation,
 ) -> Result<bool> {
     let install_action = manager.check_manifest(
         manifest,
@@ -473,7 +477,7 @@ async fn try_install(
 
     let package = manager::get_package(manifest)?;
     if continue_to_install(manifest, package, yes_to_all)? {
-        let installed = manager.install(manifest, package).await?;
+        let installed = manager.install(manifest, package, source).await?;
         println!("Plugin '{installed}' was installed successfully!");
 
         if let Some(description) = manifest.description() {

@@ -14,6 +14,6 @@ spin-core = { path = "../../crates/core" }
 spin-trigger = { path = "../../crates/trigger" }
 tokio = { version = "1.11", features = [ "full" ] }
 tokio-scoped = "0.2.0"
-wasmtime = { version = "9.0.4", features = ["component-model"] }
+wasmtime = { version = "10.0.1", features = ["component-model"] }
 
 [workspace]

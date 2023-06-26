@@ -3,6 +3,8 @@ wit_bindgen::generate!({
     path: "../spin-timer.wit"
 });
 
+use fermyon::example::config;
+
 struct MySpinTimer;
 
 impl SpinTimer for MySpinTimer {

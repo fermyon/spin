@@ -122,7 +122,7 @@ impl PluginManager {
                 });
             } else if installed.version > plugin_manifest.version && !allow_downgrades {
                 bail!(
-                    "Newer version {} of plugin '{}' is already installed. To downgrade to version {} set the `--downgrade` flag.",
+                    "Newer version {} of plugin '{}' is already installed. To downgrade to version {}, run `spin plugins upgrade` with the `--downgrade` flag.",
                     installed.version,
                     plugin_manifest.name(),
                     plugin_manifest.version,

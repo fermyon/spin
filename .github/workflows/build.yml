@@ -165,4 +165,5 @@ jobs:
         run: |
           chmod +x `pwd`/target/release/spin
           export E2E_VOLUME_MOUNT="-v `pwd`/target/release/spin:/usr/local/bin/spin"
+          export E2E_FETCH_SPIN=false
           make test-spin-up

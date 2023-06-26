@@ -1,3 +1,5 @@
+package fermyon:example
+
 interface config {
   // Get a configuration value for the current component.
   // The config key must match one defined in in the component manifest.
@@ -11,7 +13,7 @@ interface config {
   }
 }
 
-default world spin-timer {
-  import config: self.config
+world spin-timer {
+  import config
   export handle-timer-request: func()
 }

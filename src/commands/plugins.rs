@@ -307,7 +307,7 @@ impl List {
         let mut plugins = if self.installed {
             Self::list_installed_plugins()
         } else {
-            Self::list_catalogue_plugins()
+            Self::list_catalogue_and_installed_plugins()
         }?;
 
         plugins.sort_by(|p, q| p.cmp(q));
@@ -321,12 +321,13 @@ impl List {
         let store = manager.store();
         let manifests = store.installed_manifests()?;
         let descriptors = manifests
-            .iter()
+            .into_iter()
             .map(|m| PluginDescriptor {
                 name: m.name(),
                 version: m.version().to_owned(),
                 installed: true,
-                compatibility: PluginCompatibility::for_current(m),
+                compatibility: PluginCompatibility::for_current(&m),
+                manifest: m,
             })
             .collect();
         Ok(descriptors)
@@ -337,15 +338,22 @@ impl List {
         let store = manager.store();
         let manifests = store.catalogue_manifests();
         let descriptors = manifests?
-            .iter()
+            .into_iter()
             .map(|m| PluginDescriptor {
                 name: m.name(),
                 version: m.version().to_owned(),
                 installed: m.is_installed_in(store),
-                compatibility: PluginCompatibility::for_current(m),
+                compatibility: PluginCompatibility::for_current(&m),
+                manifest: m,
             })
             .collect();
         Ok(descriptors)
+    }
+
+    fn list_catalogue_and_installed_plugins() -> Result<Vec<PluginDescriptor>> {
+        let catalogue = Self::list_catalogue_plugins()?;
+        let installed = Self::list_installed_plugins()?;
+        Ok(merge_plugin_lists(catalogue, installed))
     }
 
     fn print(plugins: &[PluginDescriptor]) {
@@ -393,6 +401,7 @@ struct PluginDescriptor {
     version: String,
     compatibility: PluginCompatibility,
     installed: bool,
+    manifest: PluginManifest,
 }
 
 impl PluginDescriptor {
@@ -407,6 +416,24 @@ impl PluginDescriptor {
 
         self.name.cmp(&other.name).then(version_cmp)
     }
+}
+
+fn merge_plugin_lists(a: Vec<PluginDescriptor>, b: Vec<PluginDescriptor>) -> Vec<PluginDescriptor> {
+    let mut result = a;
+
+    for descriptor in b {
+        // Use the manifest for sameness checking, because an installed local build could have the same name
+        // and version as a registry package, yet be a different binary. It could even have different
+        // compatibility characteristics!
+        let already_got = result
+            .iter()
+            .any(|desc| desc.manifest == descriptor.manifest);
+        if !already_got {
+            result.push(descriptor);
+        }
+    }
+
+    result
 }
 
 /// Updates the locally cached spin-plugins repository, fetching the latest plugins.

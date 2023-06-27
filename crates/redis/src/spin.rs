@@ -48,7 +48,7 @@ impl SpinRedisExecutor {
         let func = instance
             .exports(&mut store)
             .instance("fermyon:spin/inbound-redis")
-            .ok_or_else(|| anyhow!("no inbound-redis instance found"))?
+            .ok_or_else(|| anyhow!("no fermyon:spin/inbound-redis instance found"))?
             .typed_func::<(Payload,), (Result<(), Error>,)>("handle-message")?;
 
         match func.call_async(store, (payload,)).await? {

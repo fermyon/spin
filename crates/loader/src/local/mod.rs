@@ -27,7 +27,10 @@ use spin_manifest::{
 };
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::{cache::Cache, validation::validate_key_value_stores};
+use crate::{
+    cache::Cache,
+    validation::{validate_config_keys, validate_key_value_stores, validate_variable_names},
+};
 use config::{
     FileComponentUrlSource, RawAppInformation, RawAppManifest, RawAppManifestAnyVersion,
     RawAppManifestAnyVersionPartial, RawComponentManifest, RawComponentManifestPartial,
@@ -117,6 +120,9 @@ fn error_on_duplicate_ids(components: Vec<RawComponentManifest>) -> Result<()> {
 /// Validate fields in raw app manifest
 pub fn validate_raw_app_manifest(raw: &RawAppManifestAnyVersion) -> Result<()> {
     let manifest = raw.as_v1();
+
+    validate_variable_names(&manifest.variables)?;
+
     manifest
         .components
         .iter()
@@ -125,6 +131,10 @@ pub fn validate_raw_app_manifest(raw: &RawAppManifestAnyVersion) -> Result<()> {
         .components
         .iter()
         .try_for_each(|c| validate_key_value_stores(&c.wasm.key_value_stores))?;
+    manifest
+        .components
+        .iter()
+        .try_for_each(|c| validate_config_keys(&c.config))?;
 
     Ok(())
 }
@@ -474,6 +484,33 @@ source = "nonexistent.wasm"
         manifest
     }
 
+    fn load_config_test_manifest(var_name: &str) -> anyhow::Result<RawAppManifestAnyVersion> {
+        let manifest_toml = format!(
+            r#"
+spin_version = "1"
+name = "test"
+trigger = {{ type = "http", base = "/" }}
+version = "0.0.1"
+
+[variables]
+{var_name} = {{ required = true }}
+
+[[component]]
+id = "test"
+source = "nonexistent.wasm"
+[component.trigger]
+route = "/"
+[component.config]
+{var_name} = "hello"
+"#
+        );
+
+        let manifest = raw_manifest_from_slice(manifest_toml.as_bytes()).unwrap();
+        validate_raw_app_manifest(&manifest)?;
+
+        Ok(manifest)
+    }
+
     #[test]
     fn can_parse_http_trigger() {
         let m = load_test_manifest(r#"{ type = "http", base = "/" }"#, r#"route = "/...""#);
@@ -521,5 +558,16 @@ source = "nonexistent.wasm"
         let ct = &m1.components[0].trigger;
         assert!(matches!(t, ApplicationTrigger::External(_)));
         assert!(matches!(ct, TriggerConfig::External(_)));
+    }
+
+    #[test]
+    fn rejects_bad_variable_names() {
+        load_config_test_manifest("hello").expect("hello should validate");
+
+        load_config_test_manifest("hello_123").expect("hello_123 should validate");
+
+        load_config_test_manifest("HELLO").expect_err("HELLO should not validate");
+
+        load_config_test_manifest("hell-o").expect_err("hell-o should not validate");
     }
 }

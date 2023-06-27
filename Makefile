@@ -7,6 +7,7 @@ ARCH = $(shell uname -p)
 ## dependencies for e2e-tests
 E2E_VOLUME_MOUNT     ?=
 E2E_BUILD_SPIN       ?= false
+E2E_FETCH_SPIN       ?= true
 E2E_TESTS_DOCKERFILE ?= e2e-tests.Dockerfile
 MYSQL_IMAGE          ?= mysql:8.0.22
 REDIS_IMAGE          ?= redis:7.0.8-alpine3.17
@@ -50,7 +51,7 @@ test-integration: test-kv
 
 .PHONY: test-spin-up
 test-spin-up:
-	docker build -t spin-e2e-tests --build-arg BUILD_SPIN=$(E2E_BUILD_SPIN) -f $(E2E_TESTS_DOCKERFILE) .
+	docker build -t spin-e2e-tests --build-arg FETCH_SPIN=$(E2E_FETCH_SPIN) --build-arg BUILD_SPIN=$(E2E_BUILD_SPIN) -f $(E2E_TESTS_DOCKERFILE) .
 	REDIS_IMAGE=$(REDIS_IMAGE) MYSQL_IMAGE=$(MYSQL_IMAGE) POSTGRES_IMAGE=$(POSTGRES_IMAGE) \
 	docker compose -f e2e-tests-docker-compose.yml run $(E2E_VOLUME_MOUNT) e2e-tests
 

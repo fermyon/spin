@@ -226,12 +226,13 @@ jobs:
           delete_release: true
 
       - name: Recreate canary tag and release
-        uses: ncipollo/release-action@v1.10.0
+        uses: rajatjindal/release-action@v0.0.1
         with:
           tag: canary
           allowUpdates: true
           prerelease: true
           artifacts: "checksums-canary.txt,spin-canary*"
+          commit: ${{ github.sha }}
           body: |
             This is a "canary" release of the most recent commits on our main branch. Canary is **not stable**.
             It is only intended for developers wishing to try out the latest features in Spin, some of which may not be fully implemented.

@@ -129,10 +129,9 @@ pub struct LibsqlOpts {
 
 impl LibsqlOpts {
     fn build(&self) -> anyhow::Result<Arc<dyn Connection>> {
-        Ok(Arc::new(spin_sqlite_libsql::LibsqlClient::new(
-            self.url.clone(),
-            self.token.clone(),
-        )))
+        let client = spin_sqlite_libsql::LibsqlClient::create(&self.url, self.token.clone())
+            .context("failed to create SQLite client")?;
+        Ok(Arc::new(client))
     }
 }
 

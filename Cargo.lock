@@ -2310,9 +2310,9 @@ dependencies = [
 
 [[package]]
 name = "hrana-client-proto"
-version = "0.1.2"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26f15d50a607f7f2cb8cb97cad7ae746f861139e8ebc425a8545195a556d6102"
+checksum = "f16b4e41e289da3fd60e64f245246a97e78fab7b3788c6d8147b3ae7d9f5e533"
 dependencies = [
  "anyhow",
  "base64 0.21.0",
@@ -2860,13 +2860,13 @@ dependencies = [
 
 [[package]]
 name = "libsql-client"
-version = "0.24.5"
+version = "0.31.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8861153820a4228a1261ee92138345f7e08c71e64a75c95217247427172f2ce8"
+checksum = "19eb636edc7f6da0a1306e5258440c94b630993a2b5e4a93e69fd2bfc00287af"
 dependencies = [
  "anyhow",
- "async-trait",
  "base64 0.21.0",
+ "futures",
  "hrana-client-proto",
  "num-traits",
  "reqwest",

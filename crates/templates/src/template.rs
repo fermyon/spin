@@ -456,7 +456,7 @@ fn parse_string_constraints(raw: &RawParameter) -> anyhow::Result<StringConstrai
 fn read_install_record(layout: &TemplateLayout) -> InstalledFrom {
     use crate::reader::{parse_installed_from, RawInstalledFrom};
 
-    let installed_from_text = std::fs::read_to_string(layout.install_record_file()).ok();
+    let installed_from_text = std::fs::read_to_string(layout.installation_record_file()).ok();
     match installed_from_text.and_then(parse_installed_from) {
         Some(RawInstalledFrom::Git { git }) => InstalledFrom::Git(git),
         Some(RawInstalledFrom::File { dir }) => InstalledFrom::Directory(dir),

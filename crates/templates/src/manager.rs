@@ -382,7 +382,7 @@ async fn copy_template_into(
 
 fn write_install_record(dest_dir: &Path, source: &TemplateSource) {
     let layout = TemplateLayout::new(dest_dir);
-    let install_record_path = layout.install_record_file();
+    let install_record_path = layout.installation_record_file();
 
     // A failure here shouldn't fail the install
     let install_record = source.to_install_record();

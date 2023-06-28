@@ -242,7 +242,7 @@ impl PluginManager {
     }
 
     fn write_install_record(&self, plugin_name: &str, source: &ManifestLocation) {
-        let install_record_path = self.store.install_record_file(plugin_name);
+        let install_record_path = self.store.installation_record_file(plugin_name);
 
         // A failure here shouldn't fail the install
         let install_record = source.to_install_record();

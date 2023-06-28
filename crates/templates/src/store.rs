@@ -105,7 +105,7 @@ impl TemplateLayout {
         self.metadata_dir().join(SNIPPETS_DIR_NAME)
     }
 
-    pub fn install_record_file(&self) -> PathBuf {
+    pub fn installation_record_file(&self) -> PathBuf {
         self.template_dir.join(INSTALLATION_RECORD_FILE_NAME)
     }
 }

@@ -63,7 +63,7 @@ impl PluginStore {
         binary
     }
 
-    pub fn install_record_file(&self, plugin_name: &str) -> PathBuf {
+    pub fn installation_record_file(&self, plugin_name: &str) -> PathBuf {
         self.root
             .join(plugin_name)
             .join(INSTALLATION_RECORD_FILE_NAME)

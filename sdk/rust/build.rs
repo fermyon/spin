@@ -8,17 +8,14 @@ fn main() {
         format!("-{pre}")
     };
 
-    let output = Command::new("git")
+    let commit = Command::new("git")
         .arg("rev-parse")
         .arg("HEAD")
         .output()
-        .expect("failed to execute `git`");
-
-    let commit = if output.status.success() {
-        String::from_utf8(output.stdout).unwrap()
-    } else {
-        panic!("`git` failed: {}", String::from_utf8_lossy(&output.stderr));
-    };
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or(String::from("unknown"));
 
     let commit = commit.trim();
 

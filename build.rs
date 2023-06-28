@@ -14,6 +14,9 @@ const RUST_OUTBOUND_REDIS_INTEGRATION_TEST: &str = "tests/outbound-redis/http-ru
 const TIMER_TRIGGER_INTEGRATION_TEST: &str = "examples/spin-timer/app-example";
 
 fn main() {
+    // Extract environment information to be passed to plugins.
+    // Git information will be set to defaults if Spin is not
+    // built within a Git worktree.
     vergen::EmitBuilder::builder()
         .build_date()
         .build_timestamp()
@@ -23,7 +26,6 @@ fn main() {
         .git_commit_date()
         .git_commit_timestamp()
         .git_sha(true)
-        .fail_on_error()
         .emit()
         .expect("failed to extract build information");
 

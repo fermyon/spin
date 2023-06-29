@@ -2,6 +2,8 @@ name: Deploy Spin Docs Website
 
 on:
   push:
+    paths:
+      - docs/**
     branches:
       - 'main'
 

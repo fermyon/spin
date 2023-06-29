@@ -1,4 +1,26 @@
+use std::collections::HashMap;
+
 use anyhow::{ensure, Context, Result};
+
+use crate::common::RawVariable;
+
+pub(crate) fn validate_variable_names(variables: &HashMap<String, RawVariable>) -> Result<()> {
+    for name in variables.keys() {
+        if let Err(spin_config::Error::InvalidKey(m)) = spin_config::Key::new(name) {
+            anyhow::bail!("Invalid variable name {name}: {m}. Variable names and config keys may contain only lower-case letters, numbers, and underscores.");
+        };
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_config_keys(config: &Option<HashMap<String, String>>) -> Result<()> {
+    for name in config.iter().flat_map(|c| c.keys()) {
+        if let Err(spin_config::Error::InvalidKey(m)) = spin_config::Key::new(name) {
+            anyhow::bail!("Invalid config key {name}: {m}. Variable names and config keys may contain only lower-case letters, numbers, and underscores.");
+        };
+    }
+    Ok(())
+}
 
 pub(crate) fn validate_key_value_stores(key_value_stores: &Option<Vec<String>>) -> Result<()> {
     for store in key_value_stores.iter().flatten() {

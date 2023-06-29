@@ -5260,6 +5260,7 @@ dependencies = [
  "serde_json",
  "shellexpand 3.1.0",
  "spin-common",
+ "spin-config",
  "spin-manifest",
  "tempfile",
  "terminal",

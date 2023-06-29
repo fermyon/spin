@@ -63,7 +63,7 @@ pub trait TriggerExecutor: Sized + Send + Sync {
 
     /// Instantiate all components and verify that they export the expected trigger function(s).
     async fn check(&self) -> Result<()> {
-        todo!()
+        Err(anyhow!("TriggerExecutor::check not yet implemented"))
     }
 }
 

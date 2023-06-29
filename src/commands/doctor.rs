@@ -9,7 +9,7 @@ use spin_doctor::{Diagnosis, DryRunNotSupported};
 use crate::opts::{APP_MANIFEST_FILE_OPT, DEFAULT_MANIFEST_FILE};
 
 #[derive(Parser, Debug)]
-#[clap(hide = true, about = "Detect and fix problems with Spin applications")]
+#[clap(about = "Detect and fix problems with Spin applications")]
 pub struct DoctorCommand {
     /// The application to check. This may be a manifest (spin.toml) file, or a
     /// directory containing a spin.toml file.

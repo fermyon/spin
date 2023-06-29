@@ -107,8 +107,9 @@ where
     #[clap(long = "key-value", parse(try_from_str = parse_kv))]
     key_values: Vec<(String, String)>,
 
-    /// Run a sqlite migration against the default database
-    #[clap(long = "sqlite", hide = true)]
+    /// Run a SQLite statement such as a migration against the default database.
+    /// To run from a file, prefix the filename with @ e.g. spin up --sqlite @migration.sql
+    #[clap(long = "sqlite")]
     sqlite_statements: Vec<String>,
 
     #[clap(long = "help-args-only", hide = true)]

@@ -43,8 +43,9 @@ impl Connection for InProcConnection {
         let connection = self.connection.clone();
         let query = query.to_owned();
         // Tell the tokio runtime that we're going to block while making the query
-        tokio::task::spawn_blocking(move || make_query(&*connection, &query, parameters))
+        tokio::task::spawn_blocking(move || make_query(&connection, &query, parameters))
             .await
+            .context("internal runtime error")
             .map_err(|e| sqlite::Error::Io(e.to_string()))?
     }
 
@@ -69,7 +70,7 @@ fn make_query(
 ) -> Result<sqlite::QueryResult, sqlite::Error> {
     let conn = connection.lock().unwrap();
     let mut statement = conn
-        .prepare_cached(&query)
+        .prepare_cached(query)
         .map_err(|e| sqlite::Error::Io(e.to_string()))?;
     let columns = statement
         .column_names()

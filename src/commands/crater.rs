@@ -139,7 +139,7 @@ impl CraterCommand {
             }
         }
         if let Some(failures) = self.failures.as_ref() {
-            if let Err(e) = std::fs::write(&failures, failed_ids) {
+            if let Err(e) = std::fs::write(failures, failed_ids) {
                 eprintln!(
                     "failed to write failed app ids to file at '{}': {e}",
                     failures.display()

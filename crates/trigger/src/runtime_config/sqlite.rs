@@ -26,8 +26,9 @@ pub(crate) async fn build_component(
 /// A `ConnectionStore` based on a `HashMap`
 struct SimpleConnectionsStore(HashMap<String, Arc<dyn Connection>>);
 
+#[async_trait::async_trait]
 impl ConnectionsStore for SimpleConnectionsStore {
-    fn get_connection(
+    async fn get_connection(
         &self,
         database: &str,
     ) -> Result<Option<Arc<(dyn Connection + 'static)>>, spin_world::sqlite::Error> {

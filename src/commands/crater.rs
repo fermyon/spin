@@ -37,6 +37,14 @@ pub struct CraterCommand {
     /// Path to file containing newline-delimited list of app IDs indicating which apps to test.
     #[clap(long)]
     pub filter: Option<PathBuf>,
+
+    /// Path to file containing newline-delimited list of app IDs indicating which apps *not* to test.
+    #[clap(long)]
+    pub exclude: Option<PathBuf>,
+
+    /// Path to file which will be populated with a newline-delimited list of failed app IDs
+    #[clap(long)]
+    pub failures: Option<PathBuf>,
 }
 
 impl CraterCommand {
@@ -48,19 +56,14 @@ impl CraterCommand {
         // in `spin-loader`, unfortunately, but it also allows us to skip copying static assets, etc. since they're
         // not relevant.
 
-        let filter = if let Some(filter) = &self.filter {
-            Some(
-                tokio::fs::read_to_string(filter)
-                    .await
-                    .with_context(|| filter.display().to_string())?
-                    .lines()
-                    .map(|s| s.to_owned())
-                    .collect::<HashSet<_>>(),
-            )
-        } else {
-            None
+        let filter = read_id_list(&self.filter).await?;
+        let exclude = read_id_list(&self.exclude).await?;
+        let directory = match std::fs::canonicalize(self.directory) {
+            Ok(d) => Rc::from(d.as_ref()),
+            Err(e) => {
+                return Err(e).context("could not canonicalize the bindle repository directory")
+            }
         };
-        let directory = Rc::from(self.directory.as_ref());
         let index = StrictEngine::default();
 
         println!("loading index...");
@@ -95,12 +98,19 @@ impl CraterCommand {
 
         let total = invoices.len();
         println!("got {total} invoices");
+        if let Some(filter) = filter.as_ref() {
+            println!("filtering to {} apps", filter.len());
+        }
 
         let mut stream = stream::iter(invoices.into_iter().enumerate().filter(|(_, invoice)| {
             filter
                 .as_ref()
                 .map(|filter| filter.contains(&invoice.bindle.id.to_string()))
                 .unwrap_or(true)
+                && exclude
+                    .as_ref()
+                    .map(|exclude| !exclude.contains(&invoice.bindle.id.to_string()))
+                    .unwrap_or(true)
         }))
         .map(|(index, invoice)| {
             let directory = directory.clone();
@@ -118,17 +128,39 @@ impl CraterCommand {
         // Note that these will print somewhat out-of-order with respect to `index` due to the `buffer_unordered`
         // call above.  If that becomes annoying, we can either stop using `buffer_unordered` or accumulate the
         // results and sort them before printing.
+        let mut failed_ids = String::new();
         while let Some((index, result, id)) = stream.next().await {
             print!("({index:>5} of {total}) app {id} ({}): ", id.sha());
             if let Err(e) = result {
+                failed_ids.push_str(&format!("{id}\n"));
                 println!("failed: {e:?}");
             } else {
                 println!("success!");
             }
         }
+        if let Some(failures) = self.failures.as_ref() {
+            if let Err(e) = std::fs::write(&failures, failed_ids) {
+                eprintln!(
+                    "failed to write failed app ids to file at '{}': {e}",
+                    failures.display()
+                )
+            }
+        }
 
         Ok(())
     }
+}
+
+async fn read_id_list(path: &Option<PathBuf>) -> Result<Option<HashSet<String>>, Error> {
+    let Some(path) = path else { return Ok(None) };
+    Ok(Some(
+        tokio::fs::read_to_string(path)
+            .await
+            .with_context(|| path.display().to_string())?
+            .lines()
+            .map(|s| s.to_owned())
+            .collect::<HashSet<_>>(),
+    ))
 }
 
 async fn instantiate(bindle_path: &Path, invoice: &Invoice) -> Result<()> {

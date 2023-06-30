@@ -20,14 +20,15 @@ pub trait ConnectionsStore: Send + Sync {
 }
 
 /// A trait abstracting over operations to a SQLite database
+#[async_trait]
 pub trait Connection: Send + Sync {
-    fn query(
+    async fn query(
         &self,
         query: &str,
         parameters: Vec<spin_world::sqlite::Value>,
     ) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error>;
 
-    fn execute_batch(&self, statements: &str) -> anyhow::Result<()>;
+    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()>;
 }
 
 /// An implementation of the SQLite host
@@ -92,10 +93,12 @@ impl spin_world::sqlite::Host for SqliteDispatch {
         query: String,
         parameters: Vec<spin_world::sqlite::Value>,
     ) -> anyhow::Result<Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error>> {
-        Ok(tokio::task::block_in_place(|| {
-            let conn = self.get_connection(connection)?;
-            conn.query(&query, parameters)
-        }))
+        Ok(async {
+            self.get_connection(connection)?
+                .query(&query, parameters)
+                .await
+        }
+        .await)
     }
 
     async fn close(&mut self, connection: spin_world::sqlite::Connection) -> anyhow::Result<()> {

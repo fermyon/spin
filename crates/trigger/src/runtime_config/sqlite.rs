@@ -8,7 +8,7 @@ use super::RuntimeConfigOpts;
 
 const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_db.db";
 
-pub(crate) fn build_component(
+pub(crate) async fn build_component(
     runtime_config: &RuntimeConfig,
     sqlite_statements: &[String],
 ) -> anyhow::Result<SqliteComponent> {
@@ -17,7 +17,7 @@ pub(crate) fn build_component(
         .context("Failed to build sqlite component")?
         .into_iter()
         .collect();
-    execute_statements(sqlite_statements, &databases)?;
+    execute_statements(sqlite_statements, &databases).await?;
     let connections_store =
         Arc::new(SimpleConnectionsStore(databases)) as Arc<dyn ConnectionsStore>;
     Ok(SqliteComponent::new(move |_| connections_store.clone()))
@@ -39,7 +39,7 @@ impl ConnectionsStore for SimpleConnectionsStore {
     }
 }
 
-fn execute_statements(
+async fn execute_statements(
     statements: &[String],
     databases: &HashMap<String, Arc<dyn spin_sqlite::Connection>>,
 ) -> anyhow::Result<()> {
@@ -58,10 +58,12 @@ fn execute_statements(
             })?;
             default
                 .execute_batch(&sql)
+                .await
                 .with_context(|| format!("failed to execute sql from file '{file}'"))?;
         } else {
             default
                 .query(m, Vec::new())
+                .await
                 .with_context(|| format!("failed to execute statement: '{m}'"))?;
         }
     }

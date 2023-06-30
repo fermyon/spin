@@ -16,8 +16,9 @@ impl LibsqlClient {
     }
 }
 
+#[async_trait::async_trait]
 impl spin_sqlite::Connection for LibsqlClient {
-    fn query(
+    async fn query(
         &self,
         query: &str,
         parameters: Vec<sqlite::Value>,
@@ -26,17 +27,10 @@ impl spin_sqlite::Connection for LibsqlClient {
             libsql_client::statement::Statement::with_args(query, &convert_parameters(&parameters));
         let client = self.inner.clone();
 
-        // It's a bit buried under thread and async shenanigans, but this stanza
-        // just calls libsql's `Client::execute(Statement)` function (and maps the
-        // error case). (It is tricky to make a function to name it, though, because
-        // of Send constraints.)
-        let result = std::thread::spawn(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(client.execute(stmt))
-        })
-        .join()
-        .unwrap_or_else(|_| Err(anyhow::anyhow!("internal thread error")))
-        .map_err(|e| sqlite::Error::Io(e.to_string()))?;
+        let result = client
+            .execute(stmt)
+            .await
+            .map_err(|e| sqlite::Error::Io(e.to_string()))?;
 
         Ok(sqlite::QueryResult {
             columns: result.columns,
@@ -44,27 +38,20 @@ impl spin_sqlite::Connection for LibsqlClient {
         })
     }
 
-    fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
-        let client = self.inner.clone();
+    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
+        let client = libsql_client::Client::Http(self.inner.clone());
 
         // Unfortunately, the libsql library requires that the statements are already split
         // into individual statement strings which requires us to parse the supplied SQL string.
-        let stmts: Vec<_> = sqlparser::parser::Parser::parse_sql(
+        let stmts = sqlparser::parser::Parser::parse_sql(
             &sqlparser::dialect::SQLiteDialect {},
             statements,
         )?
-        .iter()
+        .into_iter()
         .map(|st| st.to_string())
-        .map(libsql_client::Statement::from)
-        .collect();
+        .map(libsql_client::Statement::from);
 
-        // As in `query`, the shenanigans just wrap a call to libsql's `Client::batch()`.
-        std::thread::spawn(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(client.raw_batch(stmts))
-        })
-        .join()
-        .unwrap_or_else(|_| Err(anyhow::anyhow!("internal thread error")))?;
+        let _ = client.batch(stmts).await?;
 
         Ok(())
     }

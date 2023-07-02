@@ -16,7 +16,7 @@ pub(crate) fn validate_variable_names(variables: &HashMap<String, RawVariable>) 
 pub(crate) fn validate_config_keys(config: &Option<HashMap<String, String>>) -> Result<()> {
     for name in config.iter().flat_map(|c| c.keys()) {
         if let Err(spin_config::Error::InvalidKey(m)) = spin_config::Key::new(name) {
-            anyhow::bail!("Invalid config key {name}: {m}. Variable names and config keys may contain only lower-case letters, numbers, and underscores.");
+            anyhow::bail!("Invalid config key {m}"); // No need to give name as it's already in the message
         };
     }
     Ok(())

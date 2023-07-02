@@ -63,7 +63,17 @@ impl DoctorCommand {
                                     println!("{icon}Treatment applied!", icon = Emoji("❤  ", ""));
                                 }
                                 Err(err) => {
-                                    show_error("Treatment failed: ", err);
+                                    match err.downcast_ref::<spin_doctor::StopDiagnosing>() {
+                                        Some(stop) => {
+                                            terminal::einfo!(
+                                                "Action required!",
+                                                "{}",
+                                                stop.message()
+                                            );
+                                            return Ok(());
+                                        }
+                                        None => show_error("Treatment failed: ", err),
+                                    };
                                 }
                             }
                         }

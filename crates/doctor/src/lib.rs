@@ -10,6 +10,8 @@ use toml_edit::Document;
 
 /// Diagnoses for app manifest format problems.
 pub mod manifest;
+/// Diagnose for Rust-specific problems.
+pub mod rustlang;
 /// Test helpers.
 pub mod test;
 /// Diagnoses for Wasm source problems.
@@ -30,6 +32,7 @@ impl Checkup {
         };
         checkup.add_diagnostic::<manifest::version::VersionDiagnostic>();
         checkup.add_diagnostic::<manifest::trigger::TriggerDiagnostic>();
+        checkup.add_diagnostic::<rustlang::target::TargetDiagnostic>(); // Do toolchain checks _before_ build checks
         checkup.add_diagnostic::<wasm::missing::WasmMissingDiagnostic>();
         checkup
     }
@@ -180,5 +183,33 @@ impl<Factory: Diagnostic> BoxingDiagnostic for Factory {
             .into_iter()
             .map(|diag| Box::new(diag) as Box<dyn Diagnosis>)
             .collect())
+    }
+}
+
+/// Return this as an error from a treatment to stop further diagnoses when
+/// the user needs to intervene before the doctor can proceed.
+#[derive(Debug)]
+pub struct StopDiagnosing {
+    message: String,
+}
+
+impl std::fmt::Display for StopDiagnosing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl StopDiagnosing {
+    /// Creates a new instance.
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+
+    /// The message to be displayed to the user indicating what they must do
+    /// before resuming diagnosing.
+    pub fn message(&self) -> &str {
+        &self.message
     }
 }

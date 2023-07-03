@@ -12,6 +12,7 @@ func init() {
 	// handler for the http trigger
 	spin_http.Handle(func(w http.ResponseWriter, r *http.Request) {
 		store := kv.NewStore("default")
+		store.Open()
 		defer store.Close()
 
 		body, err := io.ReadAll(r.Body)

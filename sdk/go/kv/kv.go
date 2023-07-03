@@ -12,7 +12,7 @@ import (
 // Store is the Key/Value backend storage.
 type Store struct {
 	name   string
-	active bool // for lazy loading connection
+	active bool
 	ptr    C.key_value_store_t
 }
 
@@ -36,10 +36,6 @@ func (s *Store) Close() {
 
 // Get retrieves a value from Store.
 func (s *Store) Get(key string) ([]byte, error) {
-	if err := s.open(); err != nil {
-		return nil, err
-	}
-
 	ckey := toCStr(key)
 	var ret C.key_value_expected_list_u8_error_t
 	C.key_value_get(C.uint32_t(s.ptr), &ckey, &ret)
@@ -52,10 +48,6 @@ func (s *Store) Get(key string) ([]byte, error) {
 
 // Delete removes a value from Store.
 func (s *Store) Delete(key string) error {
-	if err := s.open(); err != nil {
-		return err
-	}
-
 	ckey := toCStr(key)
 	var ret C.key_value_expected_unit_error_t
 	C.key_value_delete(C.uint32_t(s.ptr), &ckey, &ret)
@@ -67,10 +59,6 @@ func (s *Store) Delete(key string) error {
 
 // Set creates a new key/value in Store.
 func (s *Store) Set(key string, value []byte) error {
-	if err := s.open(); err != nil {
-		return err
-	}
-
 	ckey := toCStr(key)
 	cbytes := toCBytes(value)
 	var ret C.key_value_expected_unit_error_t
@@ -83,10 +71,6 @@ func (s *Store) Set(key string, value []byte) error {
 
 // Exists checks if a key exists within Store.
 func (s *Store) Exists(key string) (bool, error) {
-	if err := s.open(); err != nil {
-		return false, err
-	}
-
 	ckey := toCStr(key)
 	var ret C.key_value_expected_bool_error_t
 	C.key_value_exists(C.uint32_t(s.ptr), &ckey, &ret)
@@ -112,7 +96,7 @@ func (s *Store) open() error {
 }
 
 func toCBytes(x []byte) C.key_value_list_u8_t {
-	return C.key_value_list_u8_t{ptr: &x[0], len: C.size_t(len(x))}
+	return C.key_value_list_u8_t{ptr: (*C.uint8_t)(unsafe.Pointer(&x[0])), len: C.size_t(len(x))}
 }
 
 func toCStr(x string) C.key_value_string_t {

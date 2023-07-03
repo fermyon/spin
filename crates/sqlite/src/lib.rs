@@ -9,9 +9,10 @@ pub use host_component::SqliteComponent;
 pub const DATABASES_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("databases");
 
 /// A store of connections for all accessible databases for an application
+#[async_trait]
 pub trait ConnectionsStore: Send + Sync {
     /// Get a `Connection` for a specific database
-    fn get_connection(
+    async fn get_connection(
         &self,
         database: &str,
     ) -> Result<Option<Arc<dyn Connection + 'static>>, spin_world::sqlite::Error>;
@@ -20,14 +21,15 @@ pub trait ConnectionsStore: Send + Sync {
 }
 
 /// A trait abstracting over operations to a SQLite database
+#[async_trait]
 pub trait Connection: Send + Sync {
-    fn query(
+    async fn query(
         &self,
         query: &str,
         parameters: Vec<spin_world::sqlite::Value>,
     ) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error>;
 
-    fn execute_batch(&self, statements: &str) -> anyhow::Result<()>;
+    async fn execute_batch(&self, statements: &str) -> anyhow::Result<()>;
 }
 
 /// An implementation of the SQLite host
@@ -72,18 +74,19 @@ impl spin_world::sqlite::Host for SqliteDispatch {
         &mut self,
         database: String,
     ) -> anyhow::Result<Result<spin_world::sqlite::Connection, spin_world::sqlite::Error>> {
-        Ok(tokio::task::block_in_place(|| {
-            if !self.allowed_databases.contains(&database) {
-                return Err(spin_world::sqlite::Error::AccessDenied);
-            }
-            self.connections
-                .push(
-                    self.connections_store
-                        .get_connection(&database)?
-                        .ok_or(spin_world::sqlite::Error::NoSuchDatabase)?,
-                )
-                .map_err(|()| spin_world::sqlite::Error::DatabaseFull)
-        }))
+        if !self.allowed_databases.contains(&database) {
+            return Ok(Err(spin_world::sqlite::Error::AccessDenied));
+        }
+        Ok(self
+            .connections_store
+            .get_connection(&database)
+            .await
+            .and_then(|conn| conn.ok_or(spin_world::sqlite::Error::NoSuchDatabase))
+            .and_then(|conn| {
+                self.connections
+                    .push(conn)
+                    .map_err(|()| spin_world::sqlite::Error::DatabaseFull)
+            }))
     }
 
     async fn execute(
@@ -92,10 +95,11 @@ impl spin_world::sqlite::Host for SqliteDispatch {
         query: String,
         parameters: Vec<spin_world::sqlite::Value>,
     ) -> anyhow::Result<Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error>> {
-        Ok(tokio::task::block_in_place(|| {
-            let conn = self.get_connection(connection)?;
-            conn.query(&query, parameters)
-        }))
+        let conn = match self.get_connection(connection) {
+            Ok(c) => c,
+            Err(err) => return Ok(Err(err)),
+        };
+        Ok(conn.query(&query, parameters).await)
     }
 
     async fn close(&mut self, connection: spin_world::sqlite::Connection) -> anyhow::Result<()> {

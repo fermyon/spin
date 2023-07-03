@@ -39,8 +39,9 @@ impl HostComponent for SqliteComponent {
         // until we have a `ComponentApp`. That's fine though as we'll have one `DynamicHostComponent::update_data`.
         // The Noop implementation will never get called.
         struct Noop;
+        #[async_trait::async_trait]
         impl ConnectionsStore for Noop {
-            fn get_connection(
+            async fn get_connection(
                 &self,
                 _database: &str,
             ) -> Result<Option<Arc<(dyn crate::Connection + 'static)>>, spin_world::sqlite::Error>

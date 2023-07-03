@@ -146,7 +146,7 @@ checksum = "0e97ce7de6cf12de5d7226c73f5ba9811622f4db3a5b91b55c53e987e5f91cba"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.8",
+ "syn 2.0.12",
 ]
 
 [[package]]
@@ -173,13 +173,13 @@ dependencies = [
 
 [[package]]
 name = "async-trait"
-version = "0.1.66"
+version = "0.1.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b84f9ebcc6c1f5b8cb160f6990096a5c127f423fcb6e1ccc46c370cbdfb75dfc"
+checksum = "b9ccdd8f2a161be9bd5c023df56f1b2a0bd1d83872ae53b71a84a12c9bf6e842"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.12",
 ]
 
 [[package]]
@@ -1853,7 +1853,7 @@ checksum = "89ca545a94061b6365f2c7355b4b32bd20df3ff95f02da9329b34ccc3bd6ee72"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.8",
+ "syn 2.0.12",
 ]
 
 [[package]]
@@ -2310,9 +2310,9 @@ dependencies = [
 
 [[package]]
 name = "hrana-client-proto"
-version = "0.1.2"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26f15d50a607f7f2cb8cb97cad7ae746f861139e8ebc425a8545195a556d6102"
+checksum = "f16b4e41e289da3fd60e64f245246a97e78fab7b3788c6d8147b3ae7d9f5e533"
 dependencies = [
  "anyhow",
  "base64 0.21.0",
@@ -2860,13 +2860,13 @@ dependencies = [
 
 [[package]]
 name = "libsql-client"
-version = "0.24.5"
+version = "0.31.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8861153820a4228a1261ee92138345f7e08c71e64a75c95217247427172f2ce8"
+checksum = "19eb636edc7f6da0a1306e5258440c94b630993a2b5e4a93e69fd2bfc00287af"
 dependencies = [
  "anyhow",
- "async-trait",
  "base64 0.21.0",
+ "futures",
  "hrana-client-proto",
  "num-traits",
  "reqwest",
@@ -4672,7 +4672,7 @@ checksum = "8c805777e3930c8883389c602315a24224bcc738b63905ef87cd1420353ea93e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.8",
+ "syn 2.0.12",
 ]
 
 [[package]]
@@ -5383,6 +5383,7 @@ name = "spin-sqlite"
 version = "1.4.0-pre0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "spin-app",
  "spin-core",
  "spin-key-value",
@@ -5395,6 +5396,7 @@ name = "spin-sqlite-inproc"
 version = "1.4.0-pre0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "once_cell",
  "rand 0.8.5",
  "rusqlite",
@@ -5408,6 +5410,7 @@ name = "spin-sqlite-libsql"
 version = "1.4.0-pre0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "libsql-client",
  "spin-sqlite",
  "spin-world",
@@ -5644,9 +5647,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.8"
+version = "2.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcc02725fd69ab9f26eab07fad303e2497fad6fb9eba4f96c4d1687bdf704ad9"
+checksum = "79d9531f94112cfc3e4c8f5f02cb2b58f72c97b7efd85f70203cc6d8efda5927"
 dependencies = [
  "proc-macro2",
  "quote",

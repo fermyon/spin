@@ -8,7 +8,7 @@ use super::RuntimeConfigOpts;
 
 const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite_db.db";
 
-pub(crate) fn build_component(
+pub(crate) async fn build_component(
     runtime_config: &RuntimeConfig,
     sqlite_statements: &[String],
 ) -> anyhow::Result<SqliteComponent> {
@@ -17,7 +17,7 @@ pub(crate) fn build_component(
         .context("Failed to build sqlite component")?
         .into_iter()
         .collect();
-    execute_statements(sqlite_statements, &databases)?;
+    execute_statements(sqlite_statements, &databases).await?;
     let connections_store =
         Arc::new(SimpleConnectionsStore(databases)) as Arc<dyn ConnectionsStore>;
     Ok(SqliteComponent::new(move |_| connections_store.clone()))
@@ -26,8 +26,9 @@ pub(crate) fn build_component(
 /// A `ConnectionStore` based on a `HashMap`
 struct SimpleConnectionsStore(HashMap<String, Arc<dyn Connection>>);
 
+#[async_trait::async_trait]
 impl ConnectionsStore for SimpleConnectionsStore {
-    fn get_connection(
+    async fn get_connection(
         &self,
         database: &str,
     ) -> Result<Option<Arc<(dyn Connection + 'static)>>, spin_world::sqlite::Error> {
@@ -39,7 +40,7 @@ impl ConnectionsStore for SimpleConnectionsStore {
     }
 }
 
-fn execute_statements(
+async fn execute_statements(
     statements: &[String],
     databases: &HashMap<String, Arc<dyn spin_sqlite::Connection>>,
 ) -> anyhow::Result<()> {
@@ -58,10 +59,12 @@ fn execute_statements(
             })?;
             default
                 .execute_batch(&sql)
+                .await
                 .with_context(|| format!("failed to execute sql from file '{file}'"))?;
         } else {
             default
                 .query(m, Vec::new())
+                .await
                 .with_context(|| format!("failed to execute statement: '{m}'"))?;
         }
     }
@@ -129,10 +132,9 @@ pub struct LibsqlOpts {
 
 impl LibsqlOpts {
     fn build(&self) -> anyhow::Result<Arc<dyn Connection>> {
-        Ok(Arc::new(spin_sqlite_libsql::LibsqlClient::new(
-            self.url.clone(),
-            self.token.clone(),
-        )))
+        let client = spin_sqlite_libsql::LibsqlClient::create(&self.url, self.token.clone())
+            .context("failed to create SQLite client")?;
+        Ok(Arc::new(client))
     }
 }
 

@@ -135,23 +135,23 @@ impl<'a> Key<'a> {
     fn validate(key: &str) -> Result<()> {
         {
             if key.is_empty() {
-                Err("may not be empty".to_string())
-            } else if !key.bytes().next().unwrap().is_ascii_lowercase() {
-                Err("must start with an ASCII letter".to_string())
-            } else if !key.bytes().last().unwrap().is_ascii_alphanumeric() {
-                Err("must end with an ASCII alphanumeric char".to_string())
-            } else if key.contains("__") {
-                Err("may not contain multiple consecutive underscores".to_string())
+                Err("must not be empty".to_string())
             } else if let Some(invalid) = key
                 .chars()
                 .find(|c| !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == &'_'))
             {
-                Err(format!("invalid character {:?}", invalid))
+                Err(format!("invalid character {:?}. Variable names and config keys may contain only lower-case letters, numbers, and underscores.", invalid))
+            } else if !key.bytes().next().unwrap().is_ascii_lowercase() {
+                Err("must start with a lowercase ASCII letter".to_string())
+            } else if !key.bytes().last().unwrap().is_ascii_alphanumeric() {
+                Err("must end with a lowercase ASCII letter or digit".to_string())
+            } else if key.contains("__") {
+                Err("must not contain multiple consecutive underscores".to_string())
             } else {
                 Ok(())
             }
         }
-        .map_err(|reason| Error::InvalidKey(format!("{key:?} {reason}")))
+        .map_err(|reason| Error::InvalidKey(format!("{key:?}: {reason}")))
     }
 }
 

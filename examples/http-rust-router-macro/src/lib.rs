@@ -1,12 +1,6 @@
-use anyhow::Result;
 use spin_sdk::{
-    http_component,
-    http_router,
-    http::{
-        Request, 
-        Response, 
-        Params,
-    },
+    http::{Params, Request, Response},
+    http_component, http_router,
 };
 
 #[http_component]

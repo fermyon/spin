@@ -1,12 +1,13 @@
-use spin_redis::{Error, Payload};
 use std::str::{from_utf8, Utf8Error};
 
-wit_bindgen_rust::export!("../../../../wit/ephemeral/spin-redis.wit");
+wit_bindgen::generate!("redis-trigger" in "../../../../wit/preview2");
+use exports::fermyon::spin::inbound_redis::{self, Error, Payload};
 
-struct SpinRedis {}
+struct SpinRedis;
+export_redis_trigger!(SpinRedis);
 
-impl spin_redis::SpinRedis for SpinRedis {
-    fn handle_redis_message(message: Payload) -> Result<(), Error> {
+impl inbound_redis::InboundRedis for SpinRedis {
+    fn handle_message(message: Payload) -> Result<(), Error> {
         println!("Message: {:?}", from_utf8(&message));
         Ok(())
     }

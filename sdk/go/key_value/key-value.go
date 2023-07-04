@@ -2,15 +2,14 @@
 // components.
 package key_value
 
-// #include "key-value.h"
-import "C"
 import (
 	"errors"
 	"fmt"
-	"unsafe"
+
+	"github.com/fermyon/spin/sdk/go/generated"
 )
 
-type Store C.key_value_store_t
+type Store uint32
 
 const (
 	errorKindStoreTableFull = iota
@@ -22,107 +21,73 @@ const (
 )
 
 func Open(name string) (Store, error) {
-	cname := toCStr(name)
-	var ret C.key_value_expected_store_error_t
-	C.key_value_open(&cname, &ret)
-	if ret.is_err {
-		return 0xFFFF_FFFF, toErr((*C.key_value_error_t)(unsafe.Pointer(&ret.val)))
+	res := http_trigger.FermyonSpinKeyValueOpen(name)
+	if res.IsOk() {
+		return Store(res.Unwrap()), nil
 	}
-	return *(*Store)(unsafe.Pointer(&ret.val)), nil
+
+	return Store(0), toErr(res.UnwrapErr())
 }
 
 func Get(store Store, key string) ([]byte, error) {
-	ckey := toCStr(key)
-	var ret C.key_value_expected_list_u8_error_t
-	C.key_value_get(C.uint32_t(store), &ckey, &ret)
-	if ret.is_err {
-		return []byte{}, toErr((*C.key_value_error_t)(unsafe.Pointer(&ret.val)))
+	res := http_trigger.FermyonSpinKeyValueGet(uint32(store), key)
+	if res.IsOk() {
+		return res.Unwrap(), nil
 	}
-	list := (*C.key_value_list_u8_t)(unsafe.Pointer(&ret.val))
-	return C.GoBytes(unsafe.Pointer(list.ptr), C.int(list.len)), nil
+	return nil, toErr(res.UnwrapErr())
 }
 
 func Set(store Store, key string, value []byte) error {
-	ckey := toCStr(key)
-	cbytes := toCBytes(value)
-	var ret C.key_value_expected_unit_error_t
-	C.key_value_set(C.uint32_t(store), &ckey, &cbytes, &ret)
-	if ret.is_err {
-		return toErr((*C.key_value_error_t)(unsafe.Pointer(&ret.val)))
+	res := http_trigger.FermyonSpinKeyValueSet(uint32(store), key, value)
+	if res.IsOk() {
+		return nil
 	}
-	return nil
+	return toErr(res.UnwrapErr())
 }
 
 func Delete(store Store, key string) error {
-	ckey := toCStr(key)
-	var ret C.key_value_expected_unit_error_t
-	C.key_value_delete(C.uint32_t(store), &ckey, &ret)
-	if ret.is_err {
-		return toErr((*C.key_value_error_t)(unsafe.Pointer(&ret.val)))
+	res := http_trigger.FermyonSpinKeyValueDelete(uint32(store), key)
+	if res.IsOk() {
+		return nil
 	}
-	return nil
+	return toErr(res.UnwrapErr())
 }
 
 func Exists(store Store, key string) (bool, error) {
-	ckey := toCStr(key)
-	var ret C.key_value_expected_bool_error_t
-	C.key_value_exists(C.uint32_t(store), &ckey, &ret)
-	if ret.is_err {
-		return false, toErr((*C.key_value_error_t)(unsafe.Pointer(&ret.val)))
+	res := http_trigger.FermyonSpinKeyValueExists(uint32(store), key)
+	if res.IsOk() {
+		return res.Unwrap(), nil
 	}
-	return *(*bool)(unsafe.Pointer(&ret.val)), nil
+	return false, toErr(res.UnwrapErr())
 }
 
 func GetKeys(store Store) ([]string, error) {
-	var ret C.key_value_expected_list_string_error_t
-	C.key_value_get_keys(C.uint32_t(store), &ret)
-	if ret.is_err {
-		return []string{}, toErr((*C.key_value_error_t)(unsafe.Pointer(&ret.val)))
+	res := http_trigger.FermyonSpinKeyValueGetKeys(uint32(store))
+	if res.IsOk() {
+		return res.Unwrap(), nil
 	}
-	return fromCStrList((*C.key_value_list_string_t)(unsafe.Pointer(&ret.val))), nil
+	return nil, toErr(res.UnwrapErr())
 }
 
 func Close(store Store) {
-	C.key_value_close(C.uint32_t(store))
+	http_trigger.FermyonSpinKeyValueClose(uint32(store))
 }
 
-func toCBytes(x []byte) C.key_value_list_u8_t {
-	return C.key_value_list_u8_t{ptr: (*C.uint8_t)(unsafe.Pointer(&x[0])), len: C.size_t(len(x))}
-}
-
-func toCStr(x string) C.key_value_string_t {
-	return C.key_value_string_t{ptr: C.CString(x), len: C.size_t(len(x))}
-}
-
-func fromCStrList(list *C.key_value_list_string_t) []string {
-	listLen := int(list.len)
-	var result []string
-
-	slice := unsafe.Slice(list.ptr, listLen)
-	for i := 0; i < listLen; i++ {
-		str := slice[i]
-		result = append(result, C.GoStringN(str.ptr, C.int(str.len)))
-	}
-
-	return result
-}
-
-func toErr(error *C.key_value_error_t) error {
-	switch error.tag {
-	case errorKindStoreTableFull:
+func toErr(err http_trigger.FermyonSpinKeyValueError) error {
+	switch err.Kind() {
+	case http_trigger.FermyonSpinKeyValueErrorKindStoreTableFull:
 		return errors.New("store table full")
-	case errorKindNoSuchStore:
+	case http_trigger.FermyonSpinKeyValueErrorKindNoSuchStore:
 		return errors.New("no such store")
-	case errorKindAccessDenied:
+	case http_trigger.FermyonSpinKeyValueErrorKindAccessDenied:
 		return errors.New("access denied")
-	case errorKindInvalidStore:
+	case http_trigger.FermyonSpinKeyValueErrorKindInvalidStore:
 		return errors.New("invalid store")
-	case errorKindNoSuchKey:
+	case http_trigger.FermyonSpinKeyValueErrorKindNoSuchKey:
 		return errors.New("no such key")
-	case errorKindIo:
-		str := (*C.key_value_string_t)(unsafe.Pointer(&error.val))
-		return errors.New(fmt.Sprintf("io error: %s", C.GoStringN(str.ptr, C.int(str.len))))
+	case http_trigger.FermyonSpinKeyValueErrorKindIo:
+		return errors.New(fmt.Sprintf("io error: %s", err.GetIo()))
 	default:
-		return errors.New(fmt.Sprintf("unrecognized error: %v", error.tag))
+		return errors.New(fmt.Sprintf("unrecognized error: %v", err.Kind()))
 	}
 }

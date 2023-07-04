@@ -1,9 +1,0 @@
-// General purpose error.
-variant pg-error {
-    success,
-    connection-failed(string),
-    bad-parameter(string),
-    query-failed(string),
-    value-conversion-failed(string),
-    other-error(string)
-}

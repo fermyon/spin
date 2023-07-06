@@ -12,14 +12,16 @@ fn handle_request(req: Request) -> Result<Response> {
         .query()
         .expect("Should have a password query string");
     let query: std::collections::HashMap<String, String> = serde_qs::from_str(query)?;
-    let provided_password = query
+    let expected_password_value = query
         .get("password")
         .expect("Should have a password query string");
-    let expected_password = config::get("password")?;
+    let actual_password_value = config::get("password")?;
 
     ensure!(
-        provided_password == &expected_password,
-        "password must match expected"
+        expected_password_value == &actual_password_value,
+        "actual password value from config store '{}' must match expected password value '{}'",
+        &actual_password_value,
+        expected_password_value
     );
 
     Ok(http::Response::builder().status(200).body(None)?)

@@ -27,13 +27,11 @@ use serde::{Deserialize, Serialize};
 use spin_app::{AppComponent, MetadataKey};
 use spin_core::Engine;
 use spin_http::{
+    app_info::AppInfo,
     config::{HttpExecutorType, HttpTriggerConfig},
     routes::{RoutePattern, Router},
 };
-use spin_trigger::{
-    locked::{BINDLE_VERSION_KEY, DESCRIPTION_KEY, VERSION_KEY},
-    EitherInstancePre, TriggerAppEngine, TriggerExecutor,
-};
+use spin_trigger::{locked::DESCRIPTION_KEY, EitherInstancePre, TriggerAppEngine, TriggerExecutor};
 use tls_listener::TlsListener;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::server::TlsStream;
@@ -269,11 +267,7 @@ impl HttpTrigger {
 
     /// Returns spin status information.
     fn app_info(&self) -> Result<Response<Body>> {
-        let info = AppInfo {
-            name: self.engine.app_name.clone(),
-            version: self.engine.app().get_metadata(VERSION_KEY)?,
-            bindle_version: self.engine.app().get_metadata(BINDLE_VERSION_KEY)?,
-        };
+        let info = AppInfo::new(self.engine.app());
         let body = serde_json::to_vec_pretty(&info)?;
         Ok(Response::builder()
             .header("content-type", "application/json")
@@ -364,15 +358,6 @@ impl HttpTrigger {
         Server::builder(incoming).serve(make_service).await?;
         Ok(())
     }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AppInfo {
-    pub name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub version: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bindle_version: Option<String>,
 }
 
 fn parse_listen_addr(addr: &str) -> anyhow::Result<SocketAddr> {

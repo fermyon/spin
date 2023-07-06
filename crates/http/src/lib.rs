@@ -1,3 +1,4 @@
+pub mod app_info;
 pub mod config;
 pub mod routes;
 pub mod wagi;

@@ -5184,6 +5184,7 @@ dependencies = [
  "indexmap",
  "percent-encoding",
  "serde",
+ "spin-app",
  "spin-testing",
  "tracing",
 ]

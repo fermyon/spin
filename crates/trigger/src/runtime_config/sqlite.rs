@@ -132,9 +132,26 @@ pub struct LibsqlOpts {
 
 impl LibsqlOpts {
     fn build(&self) -> anyhow::Result<Arc<dyn Connection>> {
-        let client = spin_sqlite_libsql::LibsqlClient::create(&self.url, self.token.clone())
+        let url = &check_url(&self.url).with_context(|| {
+            format!(
+                "unexpected libsql url '{}' in runtime config file ",
+                self.url
+            )
+        })?;
+        let client = spin_sqlite_libsql::LibsqlClient::create(url, self.token.clone())
             .context("failed to create SQLite client")?;
         Ok(Arc::new(client))
+    }
+}
+
+// Checks an incoming url is in the shape we expect
+fn check_url(url: &str) -> anyhow::Result<&str> {
+    if url.starts_with("https://") || url.starts_with("http://") {
+        Ok(url)
+    } else {
+        Err(anyhow::anyhow!(
+            "url does not start with 'https://' or 'http://'. Spin currently only supports talking to libsql databases over http(s)"
+        ))
     }
 }
 

@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 use std::fs;
 
 use anyhow::{Context, Result};
@@ -6,6 +7,8 @@ use toml_edit::Document;
 
 use crate::Treatment;
 
+/// Diagnose component dynamic config problems.
+pub mod component_config;
 /// Diagnose app manifest trigger config problems.
 pub mod trigger;
 /// Diagnose app manifest version problems.

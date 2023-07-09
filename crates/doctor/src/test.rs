@@ -46,6 +46,21 @@ pub async fn run_broken_test<D: Diagnostic + Default>(prefix: &str, suffix: &str
     diag
 }
 
+pub async fn run_untreatable_test<D: Diagnostic + Default>(
+    prefix: &str,
+    suffix: &str,
+) -> D::Diagnosis {
+    let patient = TestPatient::from_file(test_file_path(prefix, suffix));
+
+    let diag = assert_single_diagnosis::<D>(&patient).await;
+    assert!(
+        diag.treatment().is_none(),
+        "expected untreatable but was treatable"
+    );
+
+    diag
+}
+
 pub async fn assert_single_diagnosis<D: Diagnostic + Default>(
     patient: &PatientApp,
 ) -> D::Diagnosis {

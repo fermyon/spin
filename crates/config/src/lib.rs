@@ -89,7 +89,7 @@ impl Resolver {
             .variables
             .get(key)
             // This should have been caught by validate_template
-            .ok_or_else(|| Error::InvalidKey(key.to_string()))?;
+            .ok_or_else(|| Error::InvalidKey(key.to_string(), "not found".to_string()))?;
 
         for provider in &self.providers {
             if let Some(value) = provider.get(&Key(key)).await.map_err(Error::Provider)? {
@@ -151,7 +151,7 @@ impl<'a> Key<'a> {
                 Ok(())
             }
         }
-        .map_err(|reason| Error::InvalidKey(format!("{key:?}: {reason}")))
+        .map_err(|reason| Error::InvalidKey(key.to_owned(), reason))
     }
 }
 
@@ -167,8 +167,8 @@ type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// Invalid config key.
-    #[error("invalid config key: {0}")]
-    InvalidKey(String),
+    #[error("invalid config key: {0:?}: {1}")]
+    InvalidKey(String, String),
 
     /// Invalid config path.
     #[error("invalid config path: {0}")]

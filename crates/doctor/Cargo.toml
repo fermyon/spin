@@ -9,6 +9,8 @@ async-trait = "0.1"
 reqwest = { version = "0.11", features = ["stream"] }
 serde = { version = "1", features = ["derive"] }
 similar = "2"
+spin-app = { path = "../app" }
+spin-config = { path = "../config" }
 spin-loader = { path = "../loader" }
 tempfile = "3.3.0"
 terminal = { path = "../terminal" }

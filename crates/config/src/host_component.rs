@@ -92,7 +92,7 @@ impl config::Host for ComponentConfig {
 impl From<Error> for config::Error {
     fn from(err: Error) -> Self {
         match err {
-            Error::InvalidKey(msg) => Self::InvalidKey(msg),
+            Error::InvalidKey(key, reason) => Self::InvalidKey(format!("{key:?}: {reason}")),
             Error::InvalidSchema(msg) => Self::InvalidSchema(msg),
             Error::Provider(msg) => Self::Provider(msg.to_string()),
             other => Self::Other(format!("{}", other)),

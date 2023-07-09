@@ -32,6 +32,7 @@ impl Checkup {
         };
         checkup.add_diagnostic::<manifest::version::VersionDiagnostic>();
         checkup.add_diagnostic::<manifest::trigger::TriggerDiagnostic>();
+        checkup.add_diagnostic::<manifest::component_config::ComponentConfigDiagnostic>();
         checkup.add_diagnostic::<rustlang::target::TargetDiagnostic>(); // Do toolchain checks _before_ build checks
         checkup.add_diagnostic::<wasm::missing::WasmMissingDiagnostic>();
         checkup

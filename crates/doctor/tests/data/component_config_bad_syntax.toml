@@ -1,0 +1,8 @@
+[variables]
+var = { required = true }
+
+[[component]]
+id = "test"
+
+[component.config]
+my_key = "hello {{ var"

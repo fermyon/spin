@@ -5165,6 +5165,8 @@ dependencies = [
  "reqwest",
  "serde",
  "similar",
+ "spin-app",
+ "spin-config",
  "spin-loader",
  "tempfile",
  "terminal",

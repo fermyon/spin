@@ -6,7 +6,7 @@ use crate::common::RawVariable;
 
 pub(crate) fn validate_variable_names(variables: &HashMap<String, RawVariable>) -> Result<()> {
     for name in variables.keys() {
-        if let Err(spin_config::Error::InvalidKey(m)) = spin_config::Key::new(name) {
+        if let Err(spin_config::Error::InvalidKey(_, m)) = spin_config::Key::new(name) {
             anyhow::bail!("Invalid variable name {name}: {m}. Variable names and config keys may contain only lower-case letters, numbers, and underscores.");
         };
     }
@@ -15,8 +15,8 @@ pub(crate) fn validate_variable_names(variables: &HashMap<String, RawVariable>) 
 
 pub(crate) fn validate_config_keys(config: &Option<HashMap<String, String>>) -> Result<()> {
     for name in config.iter().flat_map(|c| c.keys()) {
-        if let Err(spin_config::Error::InvalidKey(m)) = spin_config::Key::new(name) {
-            anyhow::bail!("Invalid config key {m}"); // No need to give name as it's already in the message
+        if let Err(spin_config::Error::InvalidKey(_, m)) = spin_config::Key::new(name) {
+            anyhow::bail!("Invalid config key {name}: {m}");
         };
     }
     Ok(())

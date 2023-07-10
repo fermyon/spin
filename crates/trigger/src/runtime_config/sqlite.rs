@@ -134,7 +134,7 @@ impl LibsqlOpts {
     fn build(&self) -> anyhow::Result<Arc<dyn Connection>> {
         let url = &check_url(&self.url).with_context(|| {
             format!(
-                "unexpected libsql url '{}' in runtime config file ",
+                "unexpected libSQL URL '{}' in runtime config file ",
                 self.url
             )
         })?;
@@ -150,7 +150,7 @@ fn check_url(url: &str) -> anyhow::Result<&str> {
         Ok(url)
     } else {
         Err(anyhow::anyhow!(
-            "url does not start with 'https://' or 'http://'. Spin currently only supports talking to libsql databases over http(s)"
+            "URL does not start with 'https://' or 'http://'. Spin currently only supports talking to libSQL databases over HTTP(S)"
         ))
     }
 }

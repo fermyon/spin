@@ -30,6 +30,7 @@ impl Checkup {
             manifest_path: manifest_path.into(),
             diagnostics: vec![],
         };
+        checkup.add_diagnostic::<manifest::validation::ValidationDiagnostic>();
         checkup.add_diagnostic::<manifest::version::VersionDiagnostic>();
         checkup.add_diagnostic::<manifest::trigger::TriggerDiagnostic>();
         checkup.add_diagnostic::<rustlang::target::TargetDiagnostic>(); // Do toolchain checks _before_ build checks

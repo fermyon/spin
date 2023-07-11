@@ -10,6 +10,8 @@ use crate::Treatment;
 pub mod trigger;
 /// Diagnose app manifest version problems.
 pub mod version;
+/// Diagnose app manifest validation problems.
+pub mod validation;
 
 /// ManifestTreatment helps implement [`Treatment`]s for app manifest problems.
 #[async_trait]

@@ -1374,7 +1374,7 @@ checksum = "68b0cf012f1230e43cd00ebb729c6bb58707ecfa8ad08b52ef3a4ccd2697fc30"
 
 [[package]]
 name = "e2e-testing"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3396,7 +3396,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-http"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "http",
@@ -3410,7 +3410,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-mysql"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "flate2",
@@ -3425,7 +3425,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-pg"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "native-tls",
@@ -3439,7 +3439,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-redis"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "redis",
@@ -4723,7 +4723,7 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "spin-app"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4736,7 +4736,7 @@ dependencies = [
 
 [[package]]
 name = "spin-bindle"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "bindle",
@@ -4765,7 +4765,7 @@ dependencies = [
 
 [[package]]
 name = "spin-build"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "futures",
@@ -4780,7 +4780,7 @@ dependencies = [
 
 [[package]]
 name = "spin-cli"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4851,7 +4851,7 @@ dependencies = [
 
 [[package]]
 name = "spin-common"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "dirs 4.0.0",
@@ -4874,7 +4874,7 @@ dependencies = [
 
 [[package]]
 name = "spin-config"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4892,7 +4892,7 @@ dependencies = [
 
 [[package]]
 name = "spin-core"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4930,7 +4930,7 @@ dependencies = [
 
 [[package]]
 name = "spin-http"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "http",
@@ -4945,7 +4945,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "lru 0.9.0",
@@ -4998,7 +4998,7 @@ dependencies = [
 
 [[package]]
 name = "spin-loader"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5045,7 +5045,7 @@ dependencies = [
 
 [[package]]
 name = "spin-manifest"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "indexmap",
  "serde",
@@ -5055,7 +5055,7 @@ dependencies = [
 
 [[package]]
 name = "spin-oci"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "base64 0.21.0",
@@ -5079,7 +5079,7 @@ dependencies = [
 
 [[package]]
 name = "spin-plugins"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5105,7 +5105,7 @@ dependencies = [
 
 [[package]]
 name = "spin-redis-engine"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5122,7 +5122,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sdk"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5138,7 +5138,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sqlite"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5151,7 +5151,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sqlite-inproc"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5165,7 +5165,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sqlite-libsql"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5178,7 +5178,7 @@ dependencies = [
 
 [[package]]
 name = "spin-templates"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5214,7 +5214,7 @@ dependencies = [
 
 [[package]]
 name = "spin-testing"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "http",
@@ -5233,7 +5233,7 @@ dependencies = [
 
 [[package]]
 name = "spin-trigger"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5275,7 +5275,7 @@ dependencies = [
 
 [[package]]
 name = "spin-trigger-http"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5309,7 +5309,7 @@ dependencies = [
 
 [[package]]
 name = "spin-world"
-version = "1.5.0-pre0"
+version = "1.4.0"
 dependencies = [
  "wasmtime",
 ]

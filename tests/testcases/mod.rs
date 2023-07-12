@@ -734,6 +734,38 @@ pub async fn simple_spin_rust_works(controller: &dyn Controller) {
     tc.run(controller).await.unwrap()
 }
 
+pub async fn simple_redis_rust_works(controller: &dyn Controller) {
+    async fn checks(
+        _: AppMetadata,
+        _: Option<Pin<Box<dyn AsyncBufRead>>>,
+        stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
+    ) -> Result<()> {
+        let stderr = utils::get_output_stream(stderr_stream, Duration::from_secs(5)).await?;
+        anyhow::ensure!(
+            stderr.is_empty(),
+            "expected stderr to be empty, but it was not: {}",
+            stderr.join("\n")
+        );
+        Ok(())
+    }
+
+    let tc = TestCaseBuilder::default()
+        .name("simple-redis-rust".to_string())
+        .appname(Some("simple-redis-rust".to_string()))
+        .trigger_type("redis".to_string())
+        .assertions(
+            |metadata: AppMetadata,
+             stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
+             stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
+                Box::pin(checks(metadata, stdout_stream, stderr_stream))
+            },
+        )
+        .build()
+        .unwrap();
+
+    tc.run(controller).await.unwrap()
+}
+
 pub async fn header_env_routes_works(controller: &dyn Controller) {
     async fn checks(
         metadata: AppMetadata,

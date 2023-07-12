@@ -1,0 +1,14 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A simple application"
+name = "spin-hello-world"
+trigger = {type = "redis", address = "redis://redis:6379"}
+version = "1.0.0"
+
+[[component]]
+id = "hello"
+source = "target/wasm32-wasi/release/simple_redis.wasm"
+[component.trigger]
+channel = "my-channel"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

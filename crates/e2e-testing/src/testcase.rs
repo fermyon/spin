@@ -153,7 +153,9 @@ impl TestCase {
         }
 
         // run spin build
-        let build_output = controller.build_app(&appname).context("building app")?;
+        let build_output = controller
+            .build_app(&appname)
+            .context("failed building app")?;
         if bail_on_run_failure {
             utils::assert_success(&build_output);
         }

@@ -130,8 +130,9 @@ fn run<S: Into<String> + AsRef<std::ffi::OsStr>>(
     cmd.stdout(process::Stdio::piped());
     cmd.stderr(process::Stdio::piped());
 
-    if let Some(dir) = dir {
-        cmd.current_dir(dir.into());
+    let dir = dir.map(Into::into);
+    if let Some(dir) = &dir {
+        cmd.current_dir(dir);
     };
 
     if let Some(env) = env {
@@ -141,20 +142,20 @@ fn run<S: Into<String> + AsRef<std::ffi::OsStr>>(
     };
 
     cmd.arg("-c");
-    cmd.arg(
-        args.into_iter()
-            .map(Into::into)
-            .collect::<Vec<String>>()
-            .join(" "),
-    );
+    let c = args
+        .into_iter()
+        .map(Into::into)
+        .collect::<Vec<String>>()
+        .join(" ");
+    cmd.arg(&c);
 
     let output = cmd.output().unwrap();
-    let code = output.status.code().unwrap();
-    if code != 0 {
-        println!("{:#?}", std::str::from_utf8(&output.stderr).unwrap());
-        println!("{:#?}", std::str::from_utf8(&output.stdout).unwrap());
-        // just fail
-        assert_eq!(0, code);
+    let exit = output.status;
+    if !exit.success() {
+        println!("{}", std::str::from_utf8(&output.stderr).unwrap());
+        println!("{}", std::str::from_utf8(&output.stdout).unwrap());
+        let dir = dir.unwrap_or_else(current_dir);
+        panic!("while running the build script, the command '{c}' failed to run in '{dir}'")
     }
 
     output
@@ -166,4 +167,10 @@ fn get_os_process() -> String {
     } else {
         String::from("bash")
     }
+}
+
+fn current_dir() -> String {
+    std::env::current_dir()
+        .map(|d| d.display().to_string())
+        .unwrap_or_else(|_| String::from("<CURRENT DIR>"))
 }

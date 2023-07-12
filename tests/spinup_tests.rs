@@ -94,6 +94,11 @@ mod spinup_tests {
     }
 
     #[tokio::test]
+    async fn simple_redis_rust_works() {
+        testcases::simple_redis_rust_works(CONTROLLER).await
+    }
+
+    #[tokio::test]
     async fn header_env_routes_works() {
         testcases::header_env_routes_works(CONTROLLER).await
     }

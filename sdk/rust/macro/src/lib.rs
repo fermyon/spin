@@ -58,6 +58,7 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
         mod __spin_redis {
             struct Spin;
+            ::spin_sdk::export_reactor!(Spin);
 
             impl ::spin_sdk::inbound_redis::InboundRedis for Spin {
                 fn handle_message(msg: ::spin_sdk::inbound_redis::Payload) -> Result<(), ::spin_sdk::redis::Error> {

@@ -899,7 +899,8 @@ pub async fn redis_go_works(controller: &dyn Controller) {
 
         assert!(expected_logs
             .iter()
-            .all(|item| stderr.contains(&item.to_string())));
+            .all(|item| stderr.contains(&item.to_string())),
+        "Expected log lines to contain all of {expected_logs:?} but actual lines were '{stderr:?}'");
 
         Ok(())
     }
@@ -955,7 +956,8 @@ pub async fn redis_rust_works(controller: &dyn Controller) {
 
         assert!(expected_logs
             .iter()
-            .all(|item| stderr.contains(&item.to_string())));
+            .all(|item| stderr.contains(&item.to_string())),
+        "Expected log lines to contain all of {expected_logs:?} but actual lines were '{stderr:?}'");
 
         Ok(())
     }

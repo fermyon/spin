@@ -29,7 +29,7 @@ jobs:
               targetDir: "target/release",
             }
           - {
-              os: "ubuntu-latest",
+              os: "ubuntu-20.04",
               arch: "aarch64",
               extension: "",
               extraArgs: "--features openssl/vendored --target aarch64-unknown-linux-gnu",

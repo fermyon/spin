@@ -665,7 +665,8 @@ pub async fn assets_routing_works(controller: &dyn Controller) {
     tc.run(controller).await.unwrap()
 }
 
-pub async fn simple_spin_rust_works(controller: &dyn Controller) {
+/// Test an http app using the current branch's version of the Rust SDK
+pub async fn head_rust_sdk_http(controller: &dyn Controller) {
     async fn checks(
         metadata: AppMetadata,
         _: Option<Pin<Box<dyn AsyncBufRead>>>,
@@ -719,8 +720,8 @@ pub async fn simple_spin_rust_works(controller: &dyn Controller) {
     }
 
     let tc = TestCaseBuilder::default()
-        .name("simple-spin-rust-test".to_string())
-        .appname(Some("simple-spin-rust-test".to_string()))
+        .name("head-rust-sdk-http".to_string())
+        .appname(Some("head-rust-sdk-http".to_string()))
         .assertions(
             |metadata: AppMetadata,
              stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
@@ -734,13 +735,15 @@ pub async fn simple_spin_rust_works(controller: &dyn Controller) {
     tc.run(controller).await.unwrap()
 }
 
-pub async fn simple_redis_rust_works(controller: &dyn Controller) {
+/// Test a redis app using the current branch's version of the Rust SDK
+pub async fn head_rust_sdk_redis(controller: &dyn Controller) {
     async fn checks(
         _: AppMetadata,
         _: Option<Pin<Box<dyn AsyncBufRead>>>,
         stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
     ) -> Result<()> {
-        let stderr = utils::get_output_stream(stderr_stream, Duration::from_secs(5)).await?;
+        wait_for_spin().await;
+        let stderr = get_output_stream(stderr_stream).await?;
         anyhow::ensure!(
             stderr.is_empty(),
             "expected stderr to be empty, but it was not: {}",
@@ -750,8 +753,8 @@ pub async fn simple_redis_rust_works(controller: &dyn Controller) {
     }
 
     let tc = TestCaseBuilder::default()
-        .name("simple-redis-rust".to_string())
-        .appname(Some("simple-redis-rust".to_string()))
+        .name("head-rust-sdk-redis".to_string())
+        .appname(Some("head-rust-sdk-redis".to_string()))
         .trigger_type("redis".to_string())
         .assertions(
             |metadata: AppMetadata,
@@ -909,8 +912,7 @@ pub async fn redis_go_works(controller: &dyn Controller) {
         _: Option<Pin<Box<dyn AsyncBufRead>>>,
         stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
     ) -> Result<()> {
-        //TODO: wait for spin up to be ready dynamically
-        sleep(Duration::from_secs(10)).await;
+        wait_for_spin().await;
 
         let output = utils::run(
             &[
@@ -926,7 +928,7 @@ pub async fn redis_go_works(controller: &dyn Controller) {
         )?;
         utils::assert_success(&output);
 
-        let stderr = utils::get_output_stream(stderr_stream, Duration::from_secs(5)).await?;
+        let stderr = get_output_stream(stderr_stream).await?;
         let expected_logs = vec!["Payload::::", "msg-from-go-channel"];
 
         assert!(expected_logs
@@ -965,8 +967,7 @@ pub async fn redis_rust_works(controller: &dyn Controller) {
         _: Option<Pin<Box<dyn AsyncBufRead>>>,
         stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
     ) -> Result<()> {
-        //TODO: wait for spin up to be ready dynamically
-        sleep(Duration::from_secs(20)).await;
+        wait_for_spin().await;
 
         utils::run(
             &[
@@ -981,7 +982,7 @@ pub async fn redis_rust_works(controller: &dyn Controller) {
             None,
         )?;
 
-        let stderr = utils::get_output_stream(stderr_stream, Duration::from_secs(5)).await?;
+        let stderr = get_output_stream(stderr_stream).await?;
 
         let expected_logs = vec!["msg-from-rust-channel"];
 
@@ -1236,4 +1237,15 @@ pub async fn error_messages(controller: &dyn Controller) {
         .unwrap();
 
     tc.try_run(controller).await.unwrap();
+}
+
+async fn get_output_stream(
+    stream: Option<Pin<Box<dyn AsyncBufRead>>>,
+) -> anyhow::Result<Vec<String>> {
+    utils::get_output_stream(stream, Duration::from_secs(5)).await
+}
+
+async fn wait_for_spin() {
+    //TODO: wait for spin up to be ready dynamically
+    sleep(Duration::from_secs(10)).await;
 }

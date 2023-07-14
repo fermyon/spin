@@ -1,13 +1,13 @@
 spin_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
-description = "A simple application"
-name = "spin-hello-world"
+description = "A simple redis application that exercises the Rust SDK in the current branch"
+name = "head-rust-sdk-redis"
 trigger = {type = "redis", address = "redis://redis:6379"}
 version = "1.0.0"
 
 [[component]]
 id = "hello"
-source = "target/wasm32-wasi/release/simple_redis.wasm"
+source = "target/wasm32-wasi/release/head_rust_sdk_redis.wasm"
 [component.trigger]
 channel = "my-channel"
 [component.build]

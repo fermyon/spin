@@ -1,9 +1,9 @@
 wit_bindgen::generate!({
     world: "spin-timer",
-    path: "../spin-timer.wit"
+    path: ".."
 });
 
-use fermyon::example::config;
+use fermyon::spin::config;
 
 struct MySpinTimer;
 

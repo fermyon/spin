@@ -10,7 +10,7 @@ use spin_trigger::{
 };
 
 wasmtime::component::bindgen!({
-    path: "spin-timer.wit",
+    path: ".",
     world: "spin-timer",
     async: true
 });

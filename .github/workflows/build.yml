@@ -62,6 +62,9 @@ jobs:
         with:
           name: spin-ubuntu-latest
           path: target/release/spin
+        
+      - name: After built-rust-ubuntu
+        run: du -h -d 3
 
   build-rust:
     name: Build Spin
@@ -153,6 +156,9 @@ jobs:
     runs-on: ubuntu-22.04
     needs: build-rust-ubuntu
     steps:
+      - name: Before e2e-tests
+        run: du -h -d 3
+
       - uses: actions/checkout@v3
 
       - name: Retrieve saved Spin Binary
@@ -161,9 +167,17 @@ jobs:
           name: spin-ubuntu-latest
           path: target/release/
 
+      - name: Before e2e-tests really this time
+        run: du -h -d 3
+
       - name: Run e2e tests
         run: |
           chmod +x `pwd`/target/release/spin
           export E2E_VOLUME_MOUNT="-v `pwd`/target/release/spin:/usr/local/bin/spin"
           export E2E_FETCH_SPIN=false
           make test-spin-up
+
+      - name: After e2e-tests 1
+        run: du -h -d 3
+      - name: After e2e-tests 2
+        run: du /e2e-tests -h -d 3

@@ -8,17 +8,17 @@ import (
 	"net/http"
 	"os"
 
-	http_trigger "github.com/fermyon/spin/sdk/go/generated"
+	reactor "github.com/fermyon/spin/sdk/go/generated"
 )
 
 func SetHandler() {
-	http_trigger.SetExportsFermyonSpinInboundHttp(Handler{})
+	reactor.SetExportsFermyonSpinInboundHttp(Handler{})
 }
 
 type Handler struct{}
 
-func (Handler) HandleRequest(req http_trigger.FermyonSpinHttpTypesRequest) http_trigger.FermyonSpinHttpTypesResponse {
-	var resp http_trigger.FermyonSpinHttpTypesResponse
+func (Handler) HandleRequest(req reactor.FermyonSpinHttpTypesRequest) reactor.FermyonSpinHttpTypesResponse {
+	var resp reactor.FermyonSpinHttpTypesResponse
 	var body []byte
 	if req.Body.IsSome() {
 		body = req.Body.Unwrap()
@@ -45,7 +45,7 @@ func (Handler) HandleRequest(req http_trigger.FermyonSpinHttpTypesRequest) http_
 	handler(w, r)
 
 	resp.Status = uint16(w.status)
-	headers := http_trigger.Option[[]http_trigger.FermyonSpinInboundHttpTuple2StringStringT]{}
+	headers := reactor.Option[[]reactor.FermyonSpinInboundHttpTuple2StringStringT]{}
 	headers.Set(toSpinHeaders(w.Header()))
 	resp.Headers = headers
 
@@ -56,11 +56,11 @@ func (Handler) HandleRequest(req http_trigger.FermyonSpinHttpTypesRequest) http_
 	return resp
 }
 
-func toSpinHeaders(hm http.Header) []http_trigger.FermyonSpinInboundHttpTuple2StringStringT {
-	result := make([]http_trigger.FermyonSpinInboundHttpTuple2StringStringT, len(hm))
+func toSpinHeaders(hm http.Header) []reactor.FermyonSpinInboundHttpTuple2StringStringT {
+	result := make([]reactor.FermyonSpinInboundHttpTuple2StringStringT, len(hm))
 	idx := 0
 	for k, v := range hm {
-		result[idx] = http_trigger.FermyonSpinInboundHttpTuple2StringStringT{
+		result[idx] = reactor.FermyonSpinInboundHttpTuple2StringStringT{
 			F0: k,
 			F1: v[0],
 		}
@@ -69,8 +69,8 @@ func toSpinHeaders(hm http.Header) []http_trigger.FermyonSpinInboundHttpTuple2St
 	return result
 }
 
-func toSpinBody(body io.Reader) (http_trigger.Option[[]uint8], error) {
-	result := http_trigger.Option[[]uint8]{}
+func toSpinBody(body io.Reader) (reactor.Option[[]uint8], error) {
+	result := reactor.Option[[]uint8]{}
 	b, err := ioutil.ReadAll(body)
 	if err != nil {
 		return result, err
@@ -89,7 +89,7 @@ var methods = [...]string{
 	"OPTIONS",
 }
 
-func fromSpinHeaders(hm []http_trigger.FermyonSpinInboundHttpTuple2StringStringT) http.Header {
+func fromSpinHeaders(hm []reactor.FermyonSpinInboundHttpTuple2StringStringT) http.Header {
 	headers := make(http.Header, len(hm))
 
 	for _, pair := range hm {

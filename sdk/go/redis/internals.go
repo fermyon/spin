@@ -1,7 +1,9 @@
 package redis
 
 import (
-	"github.com/fermyon/spin/sdk/go/generated"
+	"errors"
+
+	reactor "github.com/fermyon/spin/sdk/go/generated"
 )
 
 // //export spin_redis_handle_redis_message
@@ -15,7 +17,7 @@ import (
 // }
 
 func publish(addr, channel string, payload []byte) error {
-	res := http_trigger.FermyonSpinRedisPublish(addr, channel, payload)
+	res := reactor.FermyonSpinRedisPublish(addr, channel, payload)
 	if res.IsErr() {
 		return toErr(res.UnwrapErr())
 	}
@@ -23,7 +25,7 @@ func publish(addr, channel string, payload []byte) error {
 }
 
 func get(addr, key string) ([]byte, error) {
-	res := http_trigger.FermyonSpinRedisGet(addr, key)
+	res := reactor.FermyonSpinRedisGet(addr, key)
 	if res.IsOk() {
 		return res.Unwrap(), nil
 	}
@@ -31,7 +33,7 @@ func get(addr, key string) ([]byte, error) {
 }
 
 func set(addr, key string, payload []byte) error {
-	res := http_trigger.FermyonSpinRedisSet(addr, key, payload)
+	res := reactor.FermyonSpinRedisSet(addr, key, payload)
 	if res.IsErr() {
 		return toErr(res.UnwrapErr())
 	}
@@ -39,7 +41,7 @@ func set(addr, key string, payload []byte) error {
 }
 
 func incr(addr, key string) (int64, error) {
-	res := http_trigger.FermyonSpinRedisIncr(addr, key)
+	res := reactor.FermyonSpinRedisIncr(addr, key)
 	if res.IsOk() {
 		return res.Unwrap(), nil
 	}
@@ -47,7 +49,7 @@ func incr(addr, key string) (int64, error) {
 }
 
 func del(addr string, keys []string) (int64, error) {
-	res := http_trigger.FermyonSpinRedisDel(addr, keys)
+	res := reactor.FermyonSpinRedisDel(addr, keys)
 	if res.IsOk() {
 		return res.Unwrap(), nil
 	}
@@ -55,7 +57,7 @@ func del(addr string, keys []string) (int64, error) {
 }
 
 func sadd(addr string, key string, values []string) (int64, error) {
-	res := http_trigger.FermyonSpinRedisSadd(addr, key, values)
+	res := reactor.FermyonSpinRedisSadd(addr, key, values)
 	if res.IsOk() {
 		return res.Unwrap(), nil
 	}
@@ -63,7 +65,7 @@ func sadd(addr string, key string, values []string) (int64, error) {
 }
 
 func smembers(addr string, key string) ([]string, error) {
-	res := http_trigger.FermyonSpinRedisSmembers(addr, key)
+	res := reactor.FermyonSpinRedisSmembers(addr, key)
 	if res.IsOk() {
 		return res.Unwrap(), nil
 	}
@@ -71,7 +73,7 @@ func smembers(addr string, key string) ([]string, error) {
 }
 
 func srem(addr string, key string, values []string) (int64, error) {
-	res := http_trigger.FermyonSpinRedisSrem(addr, key, values)
+	res := reactor.FermyonSpinRedisSrem(addr, key, values)
 	if res.IsOk() {
 		return res.Unwrap(), nil
 	}
@@ -105,40 +107,46 @@ type RedisResult struct {
 }
 
 func execute(addr string, command string, arguments []RedisParameter) ([]RedisResult, error) {
-	res := http_trigger.FermyonSpinRedisExecute(addr, command, mapParameters(arguments))
+	res := reactor.FermyonSpinRedisExecute(addr, command, mapParameters(arguments))
 	if res.IsOk() {
 		return mapResults(res.Unwrap()), nil
 	}
 	return nil, toErr(res.UnwrapErr())
 }
 
-func toErr(err http_trigger.FermyonSpinRedisError) error {
-	// TODO: map error
-	return nil
+func toErr(err reactor.FermyonSpinRedisError) error {
+	switch err.Kind() {
+	case reactor.FermyonSpinRedisTypesErrorKindSuccess:
+		return nil
+	case reactor.FermyonSpinRedisTypesErrorKindError:
+		return errors.New("error")
+	default:
+		return nil
+	}
 }
 
-func mapParameters(parameters []RedisParameter) []http_trigger.FermyonSpinRedisTypesRedisParameter {
-	r := make([]http_trigger.FermyonSpinRedisTypesRedisParameter, len(parameters))
+func mapParameters(parameters []RedisParameter) []reactor.FermyonSpinRedisTypesRedisParameter {
+	r := make([]reactor.FermyonSpinRedisTypesRedisParameter, len(parameters))
 	for _, res := range parameters {
 		switch res.Kind {
 		case RedisParameterKindInt64:
-			r = append(r, http_trigger.FermyonSpinRedisTypesRedisParameterInt64(res.Val.(int64)))
+			r = append(r, reactor.FermyonSpinRedisTypesRedisParameterInt64(res.Val.(int64)))
 		case RedisParameterKindBinary:
-			r = append(r, http_trigger.FermyonSpinRedisTypesRedisParameterBinary(res.Val.([]uint8)))
+			r = append(r, reactor.FermyonSpinRedisTypesRedisParameterBinary(res.Val.([]uint8)))
 		}
 	}
 	return r
 
 }
-func mapResults(results []http_trigger.FermyonSpinRedisTypesRedisResult) []RedisResult {
+func mapResults(results []reactor.FermyonSpinRedisTypesRedisResult) []RedisResult {
 	r := make([]RedisResult, len(results))
 	for _, res := range results {
 		switch res.Kind() {
-		case http_trigger.FermyonSpinRedisTypesRedisResultKindNil:
+		case reactor.FermyonSpinRedisTypesRedisResultKindNil:
 			r = append(r, RedisResult{Kind: RedisResultKindNil})
-		case http_trigger.FermyonSpinRedisTypesRedisResultKindInt64:
+		case reactor.FermyonSpinRedisTypesRedisResultKindInt64:
 			r = append(r, RedisResult{Kind: RedisResultKindInt64, Val: res.GetInt64()})
-		case http_trigger.FermyonSpinRedisTypesRedisResultKindBinary:
+		case reactor.FermyonSpinRedisTypesRedisResultKindBinary:
 			r = append(r, RedisResult{Kind: RedisResultKindBinary, Val: res.GetBinary()})
 		}
 	}

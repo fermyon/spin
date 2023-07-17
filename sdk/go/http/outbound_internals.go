@@ -13,7 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	http_trigger "github.com/fermyon/spin/sdk/go/generated"
+	reactor "github.com/fermyon/spin/sdk/go/generated"
 )
 
 func get(url string) (*http.Response, error) {
@@ -36,10 +36,10 @@ func post(url string, contentType string, body io.Reader) (*http.Response, error
 }
 
 func send(req *http.Request) (*http.Response, error) {
-	r := http_trigger.FermyonSpinHttpTypesRequest{
-		Method: http_trigger.FermyonSpinHttpTypesMethodGet(),
+	r := reactor.FermyonSpinHttpTypesRequest{
+		Method: reactor.FermyonSpinHttpTypesMethodGet(),
 	}
-	res := http_trigger.FermyonSpinHttpSendRequest(r)
+	res := reactor.FermyonSpinHttpSendRequest(r)
 	if res.IsErr() {
 		return nil, toErr(res.UnwrapErr())
 	}
@@ -47,7 +47,7 @@ func send(req *http.Request) (*http.Response, error) {
 }
 
 // Transform a C outbound HTTP response to a Go *http.Response.
-func toResponse(res http_trigger.FermyonSpinHttpTypesResponse) (*http.Response, error) {
+func toResponse(res reactor.FermyonSpinHttpTypesResponse) (*http.Response, error) {
 	var body []byte
 	if res.Body.IsSome() {
 		body = res.Body.Unwrap()
@@ -67,7 +67,7 @@ func toResponse(res http_trigger.FermyonSpinHttpTypesResponse) (*http.Response, 
 	return t, nil
 }
 
-func toHeaders(h *http_trigger.Option[[]http_trigger.FermyonSpinHttpTypesTuple2StringStringT]) http.Header {
+func toHeaders(h *reactor.Option[[]reactor.FermyonSpinHttpTypesTuple2StringStringT]) http.Header {
 	if !h.IsNone() {
 		return make(map[string][]string, 0)
 	}
@@ -82,11 +82,20 @@ func toHeaders(h *http_trigger.Option[[]http_trigger.FermyonSpinHttpTypesTuple2S
 	return headers
 }
 
-func toErr(err http_trigger.FermyonSpinHttpTypesHttpError) error {
-	switch err {
-	case http_trigger.FermyonSpinHttpTypesHttpErrorRequestError():
-		return fmt.Errorf("")
-	// TODO: other errors
+func toErr(err reactor.FermyonSpinHttpTypesHttpError) error {
+	switch err.Kind() {
+	case reactor.FermyonSpinHttpTypesHttpErrorKindSuccess:
+		return fmt.Errorf("success")
+	case reactor.FermyonSpinHttpTypesHttpErrorKindDestinationNotAllowed:
+		return fmt.Errorf("destination not allowed")
+	case reactor.FermyonSpinHttpTypesHttpErrorKindInvalidUrl:
+		return fmt.Errorf("invalid url")
+	case reactor.FermyonSpinHttpTypesHttpErrorKindRequestError:
+		return fmt.Errorf("request error")
+	case reactor.FermyonSpinHttpTypesHttpErrorKindRuntimeError:
+		return fmt.Errorf("runtime error")
+	case reactor.FermyonSpinHttpTypesHttpErrorKindTooManyRequests:
+		return fmt.Errorf("too many requests")
 	default:
 		return nil
 	}

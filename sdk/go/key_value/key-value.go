@@ -21,7 +21,7 @@ const (
 )
 
 func Open(name string) (Store, error) {
-	res := http_trigger.FermyonSpinKeyValueOpen(name)
+	res := reactor.FermyonSpinKeyValueOpen(name)
 	if res.IsOk() {
 		return Store(res.Unwrap()), nil
 	}
@@ -30,7 +30,7 @@ func Open(name string) (Store, error) {
 }
 
 func Get(store Store, key string) ([]byte, error) {
-	res := http_trigger.FermyonSpinKeyValueGet(uint32(store), key)
+	res := reactor.FermyonSpinKeyValueGet(uint32(store), key)
 	if res.IsOk() {
 		return res.Unwrap(), nil
 	}
@@ -38,7 +38,7 @@ func Get(store Store, key string) ([]byte, error) {
 }
 
 func Set(store Store, key string, value []byte) error {
-	res := http_trigger.FermyonSpinKeyValueSet(uint32(store), key, value)
+	res := reactor.FermyonSpinKeyValueSet(uint32(store), key, value)
 	if res.IsOk() {
 		return nil
 	}
@@ -46,7 +46,7 @@ func Set(store Store, key string, value []byte) error {
 }
 
 func Delete(store Store, key string) error {
-	res := http_trigger.FermyonSpinKeyValueDelete(uint32(store), key)
+	res := reactor.FermyonSpinKeyValueDelete(uint32(store), key)
 	if res.IsOk() {
 		return nil
 	}
@@ -54,7 +54,7 @@ func Delete(store Store, key string) error {
 }
 
 func Exists(store Store, key string) (bool, error) {
-	res := http_trigger.FermyonSpinKeyValueExists(uint32(store), key)
+	res := reactor.FermyonSpinKeyValueExists(uint32(store), key)
 	if res.IsOk() {
 		return res.Unwrap(), nil
 	}
@@ -62,7 +62,7 @@ func Exists(store Store, key string) (bool, error) {
 }
 
 func GetKeys(store Store) ([]string, error) {
-	res := http_trigger.FermyonSpinKeyValueGetKeys(uint32(store))
+	res := reactor.FermyonSpinKeyValueGetKeys(uint32(store))
 	if res.IsOk() {
 		return res.Unwrap(), nil
 	}
@@ -70,22 +70,22 @@ func GetKeys(store Store) ([]string, error) {
 }
 
 func Close(store Store) {
-	http_trigger.FermyonSpinKeyValueClose(uint32(store))
+	reactor.FermyonSpinKeyValueClose(uint32(store))
 }
 
-func toErr(err http_trigger.FermyonSpinKeyValueError) error {
+func toErr(err reactor.FermyonSpinKeyValueError) error {
 	switch err.Kind() {
-	case http_trigger.FermyonSpinKeyValueErrorKindStoreTableFull:
+	case reactor.FermyonSpinKeyValueErrorKindStoreTableFull:
 		return errors.New("store table full")
-	case http_trigger.FermyonSpinKeyValueErrorKindNoSuchStore:
+	case reactor.FermyonSpinKeyValueErrorKindNoSuchStore:
 		return errors.New("no such store")
-	case http_trigger.FermyonSpinKeyValueErrorKindAccessDenied:
+	case reactor.FermyonSpinKeyValueErrorKindAccessDenied:
 		return errors.New("access denied")
-	case http_trigger.FermyonSpinKeyValueErrorKindInvalidStore:
+	case reactor.FermyonSpinKeyValueErrorKindInvalidStore:
 		return errors.New("invalid store")
-	case http_trigger.FermyonSpinKeyValueErrorKindNoSuchKey:
+	case reactor.FermyonSpinKeyValueErrorKindNoSuchKey:
 		return errors.New("no such key")
-	case http_trigger.FermyonSpinKeyValueErrorKindIo:
+	case reactor.FermyonSpinKeyValueErrorKindIo:
 		return errors.New(fmt.Sprintf("io error: %s", err.GetIo()))
 	default:
 		return errors.New(fmt.Sprintf("unrecognized error: %v", err.Kind()))

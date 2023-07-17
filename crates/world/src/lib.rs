@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 
 wasmtime::component::bindgen!({
-    path: "../../wit/preview2",
+    path: "../../wit",
     world: "reactor",
     async: true
 });

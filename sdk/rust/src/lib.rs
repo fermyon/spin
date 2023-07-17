@@ -22,7 +22,7 @@ pub mod wit {
     #![allow(missing_docs)]
     wit_bindgen::generate!({
         world: "reactor",
-        path: "../../wit/preview2",
+        path: "../../wit",
         macro_call_prefix: "::spin_sdk::wit::",
         duplicate_if_necessary,
         macro_export

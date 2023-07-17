@@ -1,4 +1,4 @@
-wit_bindgen::generate!("http-trigger" in "../../../../wit/preview2");
+wit_bindgen::generate!("http-trigger" in "../../../../wit");
 
 use exports::fermyon::spin::inbound_http::{self, Request, Response};
 

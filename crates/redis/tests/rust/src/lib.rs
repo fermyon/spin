@@ -1,6 +1,6 @@
 use std::str::{from_utf8, Utf8Error};
 
-wit_bindgen::generate!("redis-trigger" in "../../../../wit/preview2");
+wit_bindgen::generate!("redis-trigger" in "../../../../wit");
 use exports::fermyon::spin::inbound_redis::{self, Error, Payload};
 
 struct SpinRedis;

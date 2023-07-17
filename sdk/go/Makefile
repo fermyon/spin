@@ -51,7 +51,7 @@ generate: $(GENERATED_SDK)
 generate: $(SDK_VERSION_DEST_FILE)
 
 $(GENERATED_SDK):
-	wit-bindgen tiny-go ../../wit/preview2 --world reactor --out-dir generated
+	wit-bindgen tiny-go ../../wit --world reactor --out-dir generated
 
 $(SDK_VERSION_DEST_FILE): $(SDK_VERSION_SOURCE_FILE)
 	export version="$$(cd ../rust && cargo run)"; \

@@ -13,7 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/fermyon/spin/sdk/go/generated"
+	http_trigger "github.com/fermyon/spin/sdk/go/generated"
 )
 
 func get(url string) (*http.Response, error) {

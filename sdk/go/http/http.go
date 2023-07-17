@@ -92,6 +92,7 @@ var defaultHandler = func(http.ResponseWriter, *http.Request) {
 // It must be set in an init() function.
 func Handle(fn func(http.ResponseWriter, *http.Request)) {
 	handler = fn
+	SetHandler()
 }
 
 // Get creates a GET HTTP request to a given URL and returns the HTTP response.

@@ -89,8 +89,13 @@ mod spinup_tests {
     }
 
     #[tokio::test]
-    async fn simple_spin_rust_works() {
-        testcases::simple_spin_rust_works(CONTROLLER).await
+    async fn head_rust_sdk_http() {
+        testcases::head_rust_sdk_http(CONTROLLER).await
+    }
+
+    #[tokio::test]
+    async fn head_rust_sdk_redis() {
+        testcases::head_rust_sdk_redis(CONTROLLER).await
     }
 
     #[tokio::test]

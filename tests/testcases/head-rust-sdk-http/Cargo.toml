@@ -1,5 +1,5 @@
 [package]
-name    = "simple-spin-rust-test"
+name    = "head-rust-sdk-http"
 version = "0.1.0"
 edition = "2021"
 
@@ -17,7 +17,3 @@ http = "0.2"
 spin-sdk = { path = "../../../sdk/rust" }
 
 [workspace]
-
-# Metadata about this component.
-[package.metadata.component]
-name = "spinhelloworld"

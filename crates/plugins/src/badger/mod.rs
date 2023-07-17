@@ -170,7 +170,7 @@ impl BadgerEvaluator {
         let latest_version = {
             let latest_lookup = crate::lookup::PluginLookup::new(&self.plugin_name, None);
             let latest_manifest = latest_lookup
-                .get_manifest_from_repository(store.get_plugins_directory())
+                .resolve_manifest_exact(store.get_plugins_directory())
                 .await
                 .ok();
             latest_manifest.and_then(|m| semver::Version::parse(m.version()).ok())

@@ -14,6 +14,9 @@ pub enum Error {
 
     #[error("URL parse error {0}")]
     UrlParseError(#[from] url::ParseError),
+
+    #[error("{0}")]
+    Other(#[from] anyhow::Error),
 }
 
 /// Contains error details for when a plugin resource cannot be found at expected location

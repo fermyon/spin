@@ -114,7 +114,13 @@ impl Install {
         let manager = PluginManager::try_default()?;
         // Downgrades are only allowed via the `upgrade` subcommand
         let downgrade = false;
-        let manifest = manager.get_manifest(&manifest_location).await?;
+        let manifest = manager
+            .get_manifest(
+                &manifest_location,
+                self.override_compatibility_check,
+                SPIN_VERSION,
+            )
+            .await?;
         try_install(
             &manifest,
             &manager,
@@ -250,7 +256,14 @@ impl Upgrade {
                 .to_string();
             let manifest_location =
                 ManifestLocation::PluginsRepository(PluginLookup::new(&name, None));
-            let manifest = match manager.get_manifest(&manifest_location).await {
+            let manifest = match manager
+                .get_manifest(
+                    &manifest_location,
+                    self.override_compatibility_check,
+                    SPIN_VERSION,
+                )
+                .await
+            {
                 Err(Error::NotFound(e)) => {
                     log::info!("Could not upgrade plugin '{name}': {e:?}");
                     continue;
@@ -283,7 +296,13 @@ impl Upgrade {
                 self.version,
             )),
         };
-        let manifest = manager.get_manifest(&manifest_location).await?;
+        let manifest = manager
+            .get_manifest(
+                &manifest_location,
+                self.override_compatibility_check,
+                SPIN_VERSION,
+            )
+            .await?;
         try_install(
             &manifest,
             &manager,

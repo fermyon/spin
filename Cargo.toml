@@ -101,18 +101,27 @@ outbound-pg-tests = []
 outbound-mysql-tests = []
 
 [workspace]
-members = [
-  "crates/*",
-  "sdk/rust",
-  "sdk/rust/macro",
-]
+members = ["crates/*", "sdk/rust", "sdk/rust/macro"]
 
 [workspace.dependencies]
 tracing = { version = "0.1", features = ["log"] }
-wasmtime-wasi = { version = "10.0.1", features = ["tokio"] }
-wasi-common-preview1 = { package = "wasi-common", version = "10.0.1" }
-wasmtime = { version = "10.0.1", features = ["component-model"] }
-spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "3653d24ee95b4efcc39de52b5c988b435f87712a" }
+# wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", features = [
+#   "tokio",
+#   "preview2",
+# ], branch = "main" }
+# wasi-common-preview1 = { package = "wasi-common", git = "https://github.com/bytecodealliance/wasmtime", branch = "main" }
+# wasmtime = { path = "https://github.com/bytecodealliance/wasmtime", features = [
+#   "component-model",
+# ], branch = "main" }
+wasmtime-wasi = { path = "../wasmtime/crates/wasi", features = [
+  "tokio",
+  "preview2",
+] }
+wasi-common-preview1 = { package = "wasi-common", path = "../wasmtime/crates/wasi-common" }
+wasmtime = { path = "../wasmtime/crates/wasmtime", features = [
+  "component-model",
+] }
+spin-componentize = { path = "../spin-componentize" }
 
 [workspace.dependencies.bindle]
 git = "https://github.com/fermyon/bindle"

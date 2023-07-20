@@ -79,6 +79,11 @@ impl<T> Data<T> {
     pub fn memory_consumed(&self) -> u64 {
         self.store_limits.memory_consumed()
     }
+
+    /// Ensure all Wasi output has been flushed
+    pub async fn flush_output(&mut self) {
+        self.wasi.flush_output(&mut self.table).await;
+    }
 }
 
 impl<T> AsRef<T> for Data<T> {
@@ -140,7 +145,7 @@ impl<T: Send + Sync> EngineBuilder<T> {
         let engine = wasmtime::Engine::new(&config.inner)?;
 
         let mut linker: Linker<T> = Linker::new(&engine);
-        wasmtime_wasi::preview2::wasi::command::add_to_linker(&mut linker)?;
+        wasmtime_wasi::preview2::command::add_to_linker(&mut linker)?;
 
         let mut module_linker = ModuleLinker::new(&engine);
         wasmtime_wasi::tokio::add_to_linker(&mut module_linker, |data| match &mut data.wasi {

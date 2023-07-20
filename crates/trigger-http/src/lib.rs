@@ -150,7 +150,10 @@ impl TriggerExecutor for HttpTrigger {
 
         println!("Available Routes:");
         for (route, component_id) in self.router.routes() {
-            println!("  {}: {}{}", component_id, base_url, route);
+            let (url, wild) = route.urlify(&base_url);
+            print!("  {component_id}: ");
+            terminal::print_link(&url);
+            println!("{wild}");
             if let Some(component) = self.engine.app().get_component(component_id) {
                 if let Some(description) = component.get_metadata(DESCRIPTION_KEY)? {
                     println!("    {}", description);

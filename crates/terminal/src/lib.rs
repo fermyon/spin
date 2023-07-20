@@ -129,6 +129,24 @@ macro_rules! ceprint {
     };
 }
 
+pub fn print_link(url: &str) {
+    if atty::is(atty::Stream::Stdout) {
+        print!("{}", link(url));
+    } else {
+        print!("{url}");
+    }
+}
+
+#[cfg(unix)]
+fn link(url: &str) -> String {
+    format!("\x1B]8;;{url}\x1B\\{url}\x1B]8;;\x1B\\")
+}
+
+#[cfg(not(unix))]
+fn link(url: &str) -> String {
+    url.to_owned()
+}
+
 pub mod colors {
     use termcolor::{Color, ColorSpec};
 

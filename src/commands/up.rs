@@ -206,7 +206,7 @@ impl UpCommand {
         if status.success() {
             Ok(())
         } else {
-            bail!(status);
+            std::process::exit(status.code().unwrap_or(1))
         }
     }
 

@@ -107,7 +107,11 @@ impl TemplateManager {
     /// Creates a `TemplateManager` for the default install location.
     pub fn try_default() -> anyhow::Result<Self> {
         let store = TemplateStore::try_default()?;
-        Ok(Self { store })
+        Ok(Self::new(store))
+    }
+
+    pub(crate) fn new(store: TemplateStore) -> Self {
+        Self { store }
     }
 
     /// Installs templates from the specified source.

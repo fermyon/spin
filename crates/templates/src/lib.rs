@@ -24,3 +24,6 @@ pub use manager::*;
 pub use run::{Run, RunOptions};
 pub use source::TemplateSource;
 pub use template::{Template, TemplateVariantInfo};
+
+#[cfg(test)]
+mod test_built_ins;

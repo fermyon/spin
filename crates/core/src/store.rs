@@ -120,6 +120,7 @@ pub struct StoreBuilder {
     engine: wasmtime::Engine,
     epoch_tick_interval: Duration,
     wasi: std::result::Result<WasiCtxBuilder, String>,
+    preview2_dummy_ctx: Option<wasi_preview2::WasiCtxBuilder>,
     host_components_data: HostComponentsData,
     store_limits: StoreLimitsAsync,
 }
@@ -136,6 +137,7 @@ impl StoreBuilder {
             engine,
             epoch_tick_interval,
             wasi: Ok(wasi.into()),
+            preview2_dummy_ctx: Some(wasi_preview2::WasiCtxBuilder::new()),
             host_components_data: host_components.new_data(),
             store_limits: StoreLimitsAsync::default(),
         }
@@ -151,46 +153,49 @@ impl StoreBuilder {
 
     /// Inherit stdin from the host process.
     pub fn inherit_stdin(&mut self) {
-        self.with_wasi(|wasi| match wasi {
+        self.with_wasi(|wasi, dummy| match wasi {
             WasiCtxBuilder::Preview1(ctx) => {
-                ctx.set_stdin(Box::new(wasmtime_wasi_preview1::stdio::stdin()))
+                ctx.set_stdin(Box::new(wasmtime_wasi_preview1::stdio::stdin()));
+                dummy
             }
-            WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stdin(wasi_preview2::stdio::stdin())
-            }
+            WasiCtxBuilder::Preview2(ctx) => with_preview2_ctx(ctx, dummy, |ctx| {
+                ctx.set_stdin(wasi_preview2::stdio::stdin())
+            }),
         });
     }
 
     /// Sets the WASI `stdin` descriptor to the given [`Read`]er.
     pub fn stdin_pipe(&mut self, r: impl Read + ReadReady + Send + Sync + 'static) {
-        self.with_wasi(|wasi| match wasi {
+        self.with_wasi(|wasi, dummy| match wasi {
             WasiCtxBuilder::Preview1(ctx) => {
-                ctx.set_stdin(Box::new(wasi_preview1::pipe::ReadPipe::new(r)))
+                ctx.set_stdin(Box::new(wasi_preview1::pipe::ReadPipe::new(r)));
+                dummy
             }
-            WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stdin(wasi_preview2::pipe::ReadPipe::new(r))
-            }
-        })
+            WasiCtxBuilder::Preview2(ctx) => with_preview2_ctx(ctx, dummy, |ctx| {
+                ctx.set_stdin(wasi_preview2::pipe::ReadPipe::new(r))
+            }),
+        });
     }
 
     /// Inherit stdin from the host process.
     pub fn inherit_stdout(&mut self) {
-        self.with_wasi(|wasi| match wasi {
+        self.with_wasi(|wasi, dummy| match wasi {
             WasiCtxBuilder::Preview1(ctx) => {
-                ctx.set_stdout(Box::new(wasmtime_wasi_preview1::stdio::stdout()))
+                ctx.set_stdout(Box::new(wasmtime_wasi_preview1::stdio::stdout()));
+                dummy
             }
-            WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stdout(wasi_preview2::stdio::stdout())
-            }
+            WasiCtxBuilder::Preview2(ctx) => with_preview2_ctx(ctx, dummy, |ctx| {
+                ctx.set_stdout(wasi_preview2::stdio::stdout())
+            }),
         });
     }
 
     /// Sets the WASI `stdout` descriptor to the given [`Write`]er.
     pub fn stdout(&mut self, w: Box<dyn wasi_preview1::WasiFile>) -> Result<()> {
-        self.try_with_wasi(|wasi| match wasi {
+        self.try_with_wasi(|wasi, dummy| match wasi {
             WasiCtxBuilder::Preview1(ctx) => {
                 ctx.set_stdout(w);
-                Ok(())
+                Ok(dummy)
             }
             WasiCtxBuilder::Preview2(_) => Err(anyhow!(
                 "`Store::stdout` only supported with WASI Preview 1"
@@ -200,13 +205,14 @@ impl StoreBuilder {
 
     /// Sets the WASI `stdout` descriptor to the given [`Write`]er.
     pub fn stdout_pipe(&mut self, w: impl Write + Send + Sync + 'static) {
-        self.with_wasi(|wasi| match wasi {
+        self.with_wasi(|wasi, dummy| match wasi {
             WasiCtxBuilder::Preview1(ctx) => {
-                ctx.set_stdout(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
+                ctx.set_stdout(Box::new(wasi_preview1::pipe::WritePipe::new(w)));
+                dummy
             }
-            WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stdout(wasi_preview2::pipe::WritePipe::new(w))
-            }
+            WasiCtxBuilder::Preview2(ctx) => with_preview2_ctx(ctx, dummy, |ctx| {
+                ctx.set_stdout(wasi_preview2::pipe::WritePipe::new(w))
+            }),
         })
     }
 
@@ -215,52 +221,58 @@ impl StoreBuilder {
     pub fn stdout_buffered(&mut self) -> Result<OutputBuffer> {
         let buffer = OutputBuffer::default();
         // This only needs to work with Preview 2 since WAGI does its own thing with Preview 1:
-        self.try_with_wasi(|wasi| match wasi {
+        self.try_with_wasi(|wasi, dummy| match wasi {
             WasiCtxBuilder::Preview1(_) => Err(anyhow!(
                 "`Store::stdout_buffered` only supported with WASI Preview 2"
             )),
-            WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stdout(buffer.writer());
-                Ok(())
-            }
+            WasiCtxBuilder::Preview2(ctx) => Ok(with_preview2_ctx(ctx, dummy, |ctx| {
+                ctx.set_stdout(buffer.writer())
+            })),
         })?;
         Ok(buffer)
     }
 
     /// Inherit stdin from the host process.
     pub fn inherit_stderr(&mut self) {
-        self.with_wasi(|wasi| match wasi {
+        self.with_wasi(|wasi, dummy| match wasi {
             WasiCtxBuilder::Preview1(ctx) => {
-                ctx.set_stderr(Box::new(wasmtime_wasi_preview1::stdio::stderr()))
+                ctx.set_stderr(Box::new(wasmtime_wasi_preview1::stdio::stderr()));
+                dummy
             }
-            WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stderr(wasi_preview2::stdio::stderr())
-            }
+            WasiCtxBuilder::Preview2(ctx) => with_preview2_ctx(ctx, dummy, |ctx| {
+                ctx.set_stderr(wasi_preview2::stdio::stderr())
+            }),
         });
     }
 
     /// Sets the WASI `stderr` descriptor to the given [`Write`]er.
     pub fn stderr_pipe(&mut self, w: impl Write + Send + Sync + 'static) {
-        self.with_wasi(|wasi| match wasi {
+        self.with_wasi(|wasi, dummy| match wasi {
             WasiCtxBuilder::Preview1(ctx) => {
-                ctx.set_stderr(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
+                ctx.set_stderr(Box::new(wasi_preview1::pipe::WritePipe::new(w)));
+                dummy
             }
-            WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stderr(wasi_preview2::pipe::WritePipe::new(w))
-            }
+            WasiCtxBuilder::Preview2(ctx) => with_preview2_ctx(ctx, dummy, |ctx| {
+                ctx.set_stderr(wasi_preview2::pipe::WritePipe::new(w))
+            }),
         })
     }
 
     /// Appends the given strings to the the WASI 'args'.
     pub fn args<'b>(&mut self, args: impl IntoIterator<Item = &'b str>) -> Result<()> {
-        self.try_with_wasi(|wasi| {
+        self.try_with_wasi(|wasi, dummy| {
+            let mut dummy = dummy;
             for arg in args {
                 match wasi {
-                    WasiCtxBuilder::Preview1(ctx) => ctx.push_arg(arg)?,
-                    WasiCtxBuilder::Preview2(ctx) => *ctx = std::mem::take(ctx).push_arg(arg),
+                    WasiCtxBuilder::Preview1(ctx) => {
+                        ctx.push_arg(arg)?;
+                    }
+                    WasiCtxBuilder::Preview2(ctx) => {
+                        dummy = with_preview2_ctx(ctx, dummy, |ctx| ctx.push_arg(arg));
+                    }
                 }
             }
-            Ok(())
+            Ok(dummy)
         })
     }
 
@@ -269,17 +281,18 @@ impl StoreBuilder {
         &mut self,
         vars: impl IntoIterator<Item = (impl AsRef<str>, impl AsRef<str>)>,
     ) -> Result<()> {
-        self.try_with_wasi(|wasi| {
+        self.try_with_wasi(|wasi, dummy| {
+            let mut dummy = dummy;
             for (k, v) in vars {
                 match wasi {
                     WasiCtxBuilder::Preview1(ctx) => ctx.push_env(k.as_ref(), v.as_ref())?,
                     WasiCtxBuilder::Preview2(ctx) => {
-                        *ctx = std::mem::take(ctx).push_env(k, v);
+                        dummy = with_preview2_ctx(ctx, dummy, |ctx| ctx.push_env(k, v));
                     }
                 }
             }
 
-            Ok(())
+            Ok(dummy)
         })
     }
 
@@ -315,33 +328,28 @@ impl StoreBuilder {
             .to_str()
             .ok_or_else(|| anyhow!("non-utf8 path: {}", guest_path.display()))?;
 
-        self.try_with_wasi(|wasi| {
-            match wasi {
-                WasiCtxBuilder::Preview1(ctx) => {
-                    let mut dir =
-                        Box::new(wasmtime_wasi_preview1::dir::Dir::from_cap_std(cap_std_dir)) as _;
-                    if !writable {
-                        dir = Box::new(preview1::ReadOnlyDir(dir));
-                    }
-                    ctx.push_preopened_dir(dir, path)?;
+        self.try_with_wasi(|wasi, dummy| match wasi {
+            WasiCtxBuilder::Preview1(ctx) => {
+                let mut dir =
+                    Box::new(wasmtime_wasi_preview1::dir::Dir::from_cap_std(cap_std_dir)) as _;
+                if !writable {
+                    dir = Box::new(preview1::ReadOnlyDir(dir));
                 }
-                WasiCtxBuilder::Preview2(ctx) => {
-                    let dir_perms = if writable {
-                        wasi_preview2::DirPerms::all()
-                    } else {
-                        wasi_preview2::DirPerms::READ
-                    };
-                    let file_perms = wasi_preview2::FilePerms::all();
-
-                    *ctx = std::mem::take(ctx).push_preopened_dir(
-                        cap_std_dir,
-                        dir_perms,
-                        file_perms,
-                        path,
-                    );
-                }
+                ctx.push_preopened_dir(dir, path)?;
+                Ok(dummy)
             }
-            Ok(())
+            WasiCtxBuilder::Preview2(ctx) => {
+                let dir_perms = if writable {
+                    wasi_preview2::DirPerms::all()
+                } else {
+                    wasi_preview2::DirPerms::READ
+                };
+                let file_perms = wasi_preview2::FilePerms::all();
+
+                Ok(with_preview2_ctx(ctx, dummy, |ctx| {
+                    ctx.push_preopened_dir(cap_std_dir, dir_perms, file_perms, path)
+                }))
+            }
         })
     }
 
@@ -387,27 +395,54 @@ impl StoreBuilder {
         self.build_with_data(T::default())
     }
 
-    fn with_wasi(&mut self, f: impl FnOnce(&mut WasiCtxBuilder)) {
-        let _ = self.try_with_wasi(|wasi| {
-            f(wasi);
-            Ok(())
-        });
+    fn with_wasi(
+        &mut self,
+        f: impl FnOnce(
+            &mut WasiCtxBuilder,
+            wasi_preview2::WasiCtxBuilder,
+        ) -> wasi_preview2::WasiCtxBuilder,
+    ) {
+        let _ = self.try_with_wasi(|wasi, dummy| Ok(f(wasi, dummy)));
     }
 
-    fn try_with_wasi(&mut self, f: impl FnOnce(&mut WasiCtxBuilder) -> Result<()>) -> Result<()> {
+    fn try_with_wasi(
+        &mut self,
+        f: impl FnOnce(
+            &mut WasiCtxBuilder,
+            wasi_preview2::WasiCtxBuilder,
+        ) -> Result<wasi_preview2::WasiCtxBuilder>,
+    ) -> Result<()> {
         let wasi = self
             .wasi
             .as_mut()
             .map_err(|err| anyhow!("StoreBuilder already failed: {}", err))?;
 
-        match f(wasi) {
-            Ok(()) => Ok(()),
+        let dummy = self.preview2_dummy_ctx.take().unwrap();
+
+        match f(wasi, dummy) {
+            Ok(dummy) => {
+                self.preview2_dummy_ctx = Some(dummy);
+                Ok(())
+            }
             Err(err) => {
                 self.wasi = Err(err.to_string());
                 Err(err)
             }
         }
     }
+}
+
+fn with_preview2_ctx(
+    ctx: &mut wasi_preview2::WasiCtxBuilder,
+    dummy: wasi_preview2::WasiCtxBuilder,
+    f: impl FnOnce(wasi_preview2::WasiCtxBuilder) -> wasi_preview2::WasiCtxBuilder,
+) -> wasi_preview2::WasiCtxBuilder {
+    let ctx_addr = std::ptr::addr_of!(*ctx);
+    let owned = std::mem::replace(ctx, dummy);
+    let owned = f(owned);
+    let dummy = std::mem::replace(ctx, owned);
+    assert_eq!(ctx_addr, std::ptr::addr_of!(*ctx));
+    dummy
 }
 
 /// A builder of a `WasiCtx` for all versions of Wasi

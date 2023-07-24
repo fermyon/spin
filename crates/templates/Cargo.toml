@@ -37,5 +37,5 @@ wasmtime-wasi = { workspace = true }
 
 [dependencies.wit-bindgen-wasmtime]
 git = "https://github.com/fermyon/wit-bindgen-backport"
-rev = "b89d5079ba5b07b319631a1b191d2139f126c976"
+rev = "3923d6a21120105fe7583a33552067b938eb9f38"
 features = ["async"]

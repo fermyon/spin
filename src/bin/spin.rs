@@ -24,13 +24,20 @@ use spin_trigger_http::HttpTrigger;
 #[tokio::main]
 async fn main() {
     if let Err(err) = _main().await {
-        if let Some(e) = err.downcast_ref::<ExitStatusError>() {
-            std::process::exit(e.code())
-        }
+        let code = match err.downcast_ref::<ExitStatusError>() {
+            // If we encounter an `ExitStatusError` it means a subprocess has already
+            // exited unsuccessfully and thus already printed error messages. No need
+            // to print anything additional.
+            Some(e) => e.code(),
+            // Otherwise we print the error chain.
+            None => {
+                terminal::error!("{err}");
+                print_error_chain(err);
+                1
+            }
+        };
 
-        terminal::error!("{err}");
-        print_error_chain(err);
-        std::process::exit(1)
+        std::process::exit(code)
     }
 }
 

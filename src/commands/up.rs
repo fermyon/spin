@@ -206,7 +206,7 @@ impl UpCommand {
         if status.success() {
             Ok(())
         } else {
-            bail!(status);
+            Err(crate::subprocess::ExitStatusError::new(status).into())
         }
     }
 

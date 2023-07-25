@@ -206,7 +206,7 @@ impl UpCommand {
         if status.success() {
             Ok(())
         } else {
-            std::process::exit(status.code().unwrap_or(1))
+            Err(crate::subprocess::ExitStatusError::new(status).into())
         }
     }
 

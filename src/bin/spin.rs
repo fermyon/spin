@@ -2,7 +2,6 @@ use anyhow::Error;
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use is_terminal::IsTerminal;
 use lazy_static::lazy_static;
-use spin_cli::build_info::*;
 use spin_cli::commands::external::predefined_externals;
 use spin_cli::commands::{
     build::BuildCommand,
@@ -16,6 +15,7 @@ use spin_cli::commands::{
     up::UpCommand,
     watch::WatchCommand,
 };
+use spin_cli::{build_info::*, subprocess::ExitStatusError};
 use spin_redis_engine::RedisTrigger;
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
 use spin_trigger::cli::TriggerExecutorCommand;
@@ -24,6 +24,10 @@ use spin_trigger_http::HttpTrigger;
 #[tokio::main]
 async fn main() {
     if let Err(err) = _main().await {
+        if let Some(e) = err.downcast_ref::<ExitStatusError>() {
+            std::process::exit(e.code())
+        }
+
         terminal::error!("{err}");
         print_error_chain(err);
         std::process::exit(1)

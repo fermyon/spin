@@ -109,10 +109,10 @@ members = [
 
 [workspace.dependencies]
 tracing = { version = "0.1", features = ["log"] }
-wasmtime-wasi = { version = "11.0.0", features = ["tokio"] }
-wasi-common-preview1 = { package = "wasi-common", version = "11.0.0" }
-wasmtime = { version = "11.0.0", features = ["component-model"] }
-spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "3653d24ee95b4efcc39de52b5c988b435f87712a" }
+wasmtime-wasi = { version = "11.0.1", features = ["tokio", "preview2"] }
+wasi-common-preview1 = { package = "wasi-common", version = "11.0.1" }
+wasmtime = { version = "11.0.1", features = ["component-model"] }
+spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "48b60ea5d328db179d525c98085d9fc9bc7e5f5c" }
 
 [workspace.dependencies.bindle]
 git = "https://github.com/fermyon/bindle"

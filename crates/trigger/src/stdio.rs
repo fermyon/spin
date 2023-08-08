@@ -178,6 +178,7 @@ impl AsyncWrite for ComponentStdioWriter {
                     this.state = ComponentStdioWriterState::Follow(0..written);
                 }
                 ComponentStdioWriterState::Follow(range) => {
+                    let range = range.clone();
                     let written = futures::ready!(std::pin::Pin::new(&mut tokio::io::stdout())
                         .poll_write(cx, &buf[range.clone()]));
                     let written = match written {
@@ -185,6 +186,7 @@ impl AsyncWrite for ComponentStdioWriter {
                         Err(e) => return Poll::Ready(Err(e)),
                     };
                     if range.start + written >= range.end {
+                        this.state = ComponentStdioWriterState::File;
                         return Poll::Ready(Ok(range.end));
                     } else {
                         this.state =

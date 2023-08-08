@@ -95,7 +95,6 @@ impl SpinHttpExecutor {
         };
 
         let (resp,) = func.call_async(&mut store, (req,)).await?;
-        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
 
         if resp.status < 100 || resp.status > 600 {
             tracing::error!("malformed HTTP status code");

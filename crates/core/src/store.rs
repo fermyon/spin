@@ -157,7 +157,7 @@ impl StoreBuilder {
                 ctx.set_stdin(Box::new(wasmtime_wasi_preview1::stdio::stdin()))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::replace(ctx, wasi_preview2::WasiCtxBuilder::new()).inherit_stdin()
+                ctx.inherit_stdin();
             }
         });
     }
@@ -172,8 +172,7 @@ impl StoreBuilder {
                 ctx.set_stdin(Box::new(wasi_preview1::pipe::ReadPipe::new(r)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::replace(ctx, wasi_preview2::WasiCtxBuilder::new())
-                    .set_stdin(wasi_preview2::pipe::AsyncReadStream::new(r))
+                ctx.stdin(wasi_preview2::pipe::AsyncReadStream::new(r));
             }
         })
     }
@@ -185,7 +184,7 @@ impl StoreBuilder {
                 ctx.set_stdout(Box::new(wasmtime_wasi_preview1::stdio::stdout()))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::replace(ctx, wasi_preview2::WasiCtxBuilder::new()).inherit_stdout()
+                ctx.inherit_stdout();
             }
         });
     }
@@ -210,8 +209,7 @@ impl StoreBuilder {
                 ctx.set_stdout(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::replace(ctx, wasi_preview2::WasiCtxBuilder::new())
-                    .set_stdout(wasi_preview2::pipe::AsyncWriteStream::new(w))
+                ctx.stdout(wasi_preview2::pipe::AsyncWriteStream::new(w));
             }
         })
     }
@@ -226,8 +224,7 @@ impl StoreBuilder {
                 "`Store::stdout_buffered` only supported with WASI Preview 2"
             )),
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::replace(ctx, wasi_preview2::WasiCtxBuilder::new())
-                    .set_stdout(buffer.writer());
+                ctx.stdout(buffer.writer());
                 Ok(())
             }
         })?;
@@ -241,7 +238,7 @@ impl StoreBuilder {
                 ctx.set_stderr(Box::new(wasmtime_wasi_preview1::stdio::stderr()))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::replace(ctx, wasi_preview2::WasiCtxBuilder::new()).inherit_stderr()
+                ctx.inherit_stderr();
             }
         });
     }
@@ -253,8 +250,7 @@ impl StoreBuilder {
                 ctx.set_stderr(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::replace(ctx, wasi_preview2::WasiCtxBuilder::new())
-                    .set_stderr(wasi_preview2::pipe::AsyncWriteStream::new(w))
+                ctx.stderr(wasi_preview2::pipe::AsyncWriteStream::new(w));
             }
         })
     }
@@ -266,8 +262,7 @@ impl StoreBuilder {
                 match wasi {
                     WasiCtxBuilder::Preview1(ctx) => ctx.push_arg(arg)?,
                     WasiCtxBuilder::Preview2(ctx) => {
-                        *ctx = std::mem::replace(ctx, wasi_preview2::WasiCtxBuilder::new())
-                            .push_arg(arg)
+                        ctx.arg(arg);
                     }
                 }
             }
@@ -285,8 +280,7 @@ impl StoreBuilder {
                 match wasi {
                     WasiCtxBuilder::Preview1(ctx) => ctx.push_env(k.as_ref(), v.as_ref())?,
                     WasiCtxBuilder::Preview2(ctx) => {
-                        *ctx = std::mem::replace(ctx, wasi_preview2::WasiCtxBuilder::new())
-                            .push_env(k, v);
+                        ctx.env(k, v);
                     }
                 }
             }
@@ -345,8 +339,7 @@ impl StoreBuilder {
                     };
                     let file_perms = wasi_preview2::FilePerms::all();
 
-                    *ctx = std::mem::replace(ctx, wasi_preview2::WasiCtxBuilder::new())
-                        .push_preopened_dir(cap_std_dir, dir_perms, file_perms, path);
+                    ctx.preopened_dir(cap_std_dir, dir_perms, file_perms, path);
                 }
             }
             Ok(())
@@ -440,7 +433,7 @@ impl WasiCtxBuilder {
     fn build(self, table: &mut wasi_preview2::Table) -> anyhow::Result<Wasi> {
         match self {
             WasiCtxBuilder::Preview1(ctx) => Ok(Wasi::Preview1(ctx)),
-            WasiCtxBuilder::Preview2(b) => b.build(table).map(Wasi::Preview2),
+            WasiCtxBuilder::Preview2(mut b) => b.build(table).map(Wasi::Preview2),
         }
     }
 }

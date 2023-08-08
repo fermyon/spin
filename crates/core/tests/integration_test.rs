@@ -8,7 +8,7 @@ use spin_core::{
     Component, Config, Engine, HostComponent, I32Exit, Store, StoreBuilder, Trap, WasiVersion,
 };
 use tempfile::TempDir;
-use tokio::fs;
+use tokio::{fs, io::AsyncWrite};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_stdio() {
@@ -263,5 +263,30 @@ impl std::io::Write for TestWriter {
 
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
+    }
+}
+
+impl AsyncWrite for TestWriter {
+    fn poll_write(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<Result<usize, std::io::Error>> {
+        print!("{}", String::from_utf8_lossy(buf));
+        std::task::Poll::Ready(Ok(buf.len()))
+    }
+
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), std::io::Error>> {
+        std::task::Poll::Ready(Ok(()))
+    }
+
+    fn poll_shutdown(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), std::io::Error>> {
+        std::task::Poll::Ready(Ok(()))
     }
 }

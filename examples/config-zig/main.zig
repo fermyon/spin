@@ -1,9 +1,9 @@
 const std = @import("std");
 const config = @import("spin").config;
 
-const Error = error{
-    HttpStatusInternalServerError,
-} || std.os.WriteError;
+const log = std.log.scoped(.config);
+
+const Error = std.os.WriteError;
 
 pub fn main() Error!void {
     const std_out = std.io.getStdOut();
@@ -16,7 +16,12 @@ pub fn main() Error!void {
 
     switch (res) {
         .ok => |str| try writer.print("message: {s}\n", .{str}),
-        .err => return error.HttpStatusInternalServerError,
+        .err => |err| switch (err) {
+            .invalid_schema => log.err("Invalid schema: {s}", .{err.invalid_schema}),
+            .invalid_key => log.err("Invalid key: {s}", .{err.invalid_key}),
+            .provider => log.err("Provider: {s}", .{err.provider}),
+            .other => log.err("Other: {s}", .{err.other}),
+        },
     }
 
     try buf_writer.flush();

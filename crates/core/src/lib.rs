@@ -39,7 +39,7 @@ pub use io::OutputBuffer;
 pub use store::{Store, StoreBuilder, Wasi, WasiVersion};
 
 /// The default [`EngineBuilder::epoch_tick_interval`].
-pub const DEFAULT_EPOCH_TICK_INTERVAL: Duration = Duration::from_millis(10);
+pub const DEFAULT_EPOCH_TICK_INTERVAL: Duration = Duration::from_millis(1);
 
 const MB: u64 = 1 << 20;
 const GB: u64 = 1 << 30;
@@ -276,10 +276,11 @@ impl<T: Send + Sync> EngineBuilder<T> {
             .add_host_component(&mut self.linker, host_component)
     }
 
-    /// Sets the epoch tick internal for the built [`Engine`].
+    /// Sets the epoch tick interval for the built [`Engine`].
     ///
-    /// This is used by [`Store::set_deadline`] to calculate the number of
-    /// "ticks" for epoch interruption, and by the default epoch ticker thread.
+    /// This determines how often the engine's "epoch" will be incremented,
+    /// which determines the resolution of interrupt-based features like
+    /// [`Store::yield_interval`].
     /// The default is [`DEFAULT_EPOCH_TICK_INTERVAL`].
     ///
     /// See [`EngineBuilder::epoch_ticker_thread`] and
@@ -292,8 +293,8 @@ impl<T: Send + Sync> EngineBuilder<T> {
     /// [`Engine`] is built.
     ///
     /// Enabled by default; if disabled, the user must arrange to call
-    /// `engine.as_ref().increment_epoch()` every `epoch_tick_interval` or
-    /// interrupt-based features like `Store::set_deadline` will not work.
+    /// `engine.as_ref().increment_epoch()` periodically or interrupt-based
+    /// yielding will not work.
     pub fn epoch_ticker_thread(&mut self, enable: bool) {
         self.epoch_ticker_thread = enable;
     }

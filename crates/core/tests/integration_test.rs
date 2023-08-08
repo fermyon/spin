@@ -1,8 +1,4 @@
-use std::{
-    io::Cursor,
-    path::PathBuf,
-    time::{Duration, Instant},
-};
+use std::{io::Cursor, path::PathBuf, time::Duration};
 
 use anyhow::Context;
 use spin_core::{
@@ -102,33 +98,11 @@ async fn test_max_memory_size_violated() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_set_deadline_obeyed() {
-    run_core_wasi_test_engine(
-        &test_engine(),
-        ["sleep", "20"],
-        |_| {},
-        |store| {
-            store.set_deadline(Instant::now() + Duration::from_millis(1000));
-        },
-    )
-    .await
-    .unwrap();
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_set_deadline_violated() {
-    let err = run_core_wasi_test_engine(
-        &test_engine(),
-        ["sleep", "100"],
-        |_| {},
-        |store| {
-            store.set_deadline(Instant::now() + Duration::from_millis(10));
-        },
-    )
-    .await
-    .unwrap_err();
-    let trap = err.downcast::<Trap>().expect("trap");
-    assert_eq!(trap, Trap::Interrupt);
+async fn test_yield_interval_timeout() {
+    let forever = u64::MAX.to_string();
+    let fut = run_core_wasi_test(["sleep", &forever], |_| {});
+    let res = tokio::time::timeout(Duration::from_micros(1), fut).await;
+    assert!(res.is_err());
 }
 
 #[tokio::test(flavor = "multi_thread")]

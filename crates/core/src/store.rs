@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, ensure, Result};
 use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
     sync::Mutex,
-    time::{Duration, Instant},
+    time::Duration,
 };
 use system_interface::io::ReadReady;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -67,34 +67,12 @@ pub enum WasiVersion {
 /// A `Store` can be built with a [`StoreBuilder`].
 pub struct Store<T> {
     inner: wasmtime::Store<Data<T>>,
-    epoch_tick_interval: Duration,
 }
 
 impl<T> Store<T> {
     /// Returns a mutable reference to the [`HostComponentsData`] of this [`Store`].
     pub fn host_components_data(&mut self) -> &mut HostComponentsData {
         &mut self.inner.data_mut().host_components_data
-    }
-
-    /// Sets the execution deadline.
-    ///
-    /// This is a rough deadline; an instance will trap some time after this
-    /// deadline, determined by [`EngineBuilder::epoch_tick_interval`] and
-    /// details of the system's thread scheduler.
-    ///
-    /// See [`wasmtime::Store::set_epoch_deadline`](https://docs.rs/wasmtime/latest/wasmtime/struct.Store.html#method.set_epoch_deadline).
-    pub fn set_deadline(&mut self, deadline: Instant) {
-        let now = Instant::now();
-        let duration = deadline - now;
-        let ticks = if duration.is_zero() {
-            tracing::warn!("Execution deadline set in past: {deadline:?} < {now:?}");
-            0
-        } else {
-            let ticks = duration.as_micros() / self.epoch_tick_interval.as_micros();
-            let ticks = ticks.min(u64::MAX as u128) as u64;
-            ticks + 1 // Add one to allow for current partially-completed tick
-        };
-        self.inner.set_epoch_deadline(ticks);
     }
 }
 
@@ -130,6 +108,7 @@ impl<T> wasmtime::AsContextMut for Store<T> {
 pub struct StoreBuilder {
     engine: wasmtime::Engine,
     epoch_tick_interval: Duration,
+    yield_interval: Duration,
     wasi: std::result::Result<WasiCtxBuilder, String>,
     host_components_data: HostComponentsData,
     store_limits: StoreLimitsAsync,
@@ -146,6 +125,7 @@ impl StoreBuilder {
         Self {
             engine,
             epoch_tick_interval,
+            yield_interval: epoch_tick_interval,
             wasi: Ok(wasi.into()),
             host_components_data: host_components.new_data(),
             store_limits: StoreLimitsAsync::default(),
@@ -158,6 +138,20 @@ impl StoreBuilder {
     /// details on how this limit is enforced.
     pub fn max_memory_size(&mut self, max_memory_size: usize) {
         self.store_limits = StoreLimitsAsync::new(Some(max_memory_size), None);
+    }
+
+    /// Sets the execution yield interval.
+    ///
+    /// A CPU-bound running instance will be forced to yield approximately
+    /// every interval, which gives the host thread an opportunity to cancel
+    /// the instance or schedule other work on the thread.
+    ///
+    /// The exact interval of yielding is determined by [`EngineBuilder::epoch_tick_interval`]
+    /// and details of the task scheduler.
+    ///
+    /// The interval defaults to the epoch tick interval.
+    pub fn yield_interval(&mut self, interval: Duration) {
+        self.yield_interval = interval;
     }
 
     /// Inherit stdin from the host process.
@@ -386,16 +380,26 @@ impl StoreBuilder {
 
         inner.limiter_async(move |data| &mut data.store_limits);
 
-        // With epoch interruption enabled, there must be _some_ deadline set
-        // or execution will trap immediately. Since this is a delta, we need
-        // to avoid overflow so we'll use 2^63 which is still "practically
-        // forever" for any plausible tick interval.
-        inner.set_epoch_deadline(u64::MAX / 2);
+        ensure!(
+            !self.epoch_tick_interval.is_zero(),
+            "epoch_tick_interval may not be zero"
+        );
+        let delta = self.yield_interval.as_nanos() / self.epoch_tick_interval.as_nanos();
+        let delta = if delta == 0 {
+            tracing::warn!(
+                "Yield interval {interval:?} too small to resolve; clamping to tick interval {tick:?}",
+                interval = self.yield_interval,
+                tick = self.epoch_tick_interval);
+            1
+        } else if delta > u64::MAX as u128 {
+            tracing::warn!("Yield interval too large; yielding effectively disabled");
+            u64::MAX
+        } else {
+            delta as u64
+        };
+        inner.epoch_deadline_async_yield_and_update(delta);
 
-        Ok(Store {
-            inner,
-            epoch_tick_interval: self.epoch_tick_interval,
-        })
+        Ok(Store { inner })
     }
 
     /// Builds a [`Store`] from this builder with `Default` host state data.

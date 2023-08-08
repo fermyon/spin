@@ -1,0 +1,22 @@
+version = "1.0.0"
+name = "spin-config-zig"
+spin_manifest_version = "1"
+trigger = { type = "http", base = "/" }
+authors = ["Georgii Troosh <tensorush@gmail.com>"]
+description = "A simple Spin application written in Zig."
+
+[variables]
+object = { default = "teapot" }
+
+[[component]]
+id = "spin_config_zig"
+source = "zig-out/bin/main.wasm"
+
+[component.build]
+command = "zig build "
+
+[component.config]
+message = "I'm a {{object}}"
+
+[component.trigger]
+route = "/..."

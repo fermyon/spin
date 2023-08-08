@@ -14,3 +14,6 @@ spin-plugin-update.lock
 package-lock.json
 .spin
 .DS_Store
+*sdk-version-zig.c
+zig-cache/
+zig-out/

@@ -42,6 +42,15 @@ pub enum Wasi {
     Preview2(wasi_preview2::WasiCtx),
 }
 
+impl Wasi {
+    /// Ensure all output has been flushed
+    pub async fn flush_output(&mut self, table: &mut wasi_preview2::Table) {
+        if let Wasi::Preview2(ctx) = self {
+            ctx.flush_output(table).await;
+        }
+    }
+}
+
 /// The version of Wasi being used
 #[allow(missing_docs)]
 pub enum WasiVersion {
@@ -85,6 +94,11 @@ impl<T> Store<T> {
             ticks + 1 // Add one to allow for current partially-completed tick
         };
         self.inner.set_epoch_deadline(ticks);
+    }
+
+    /// Ensure all Wasi output has been flushed
+    pub async fn flush_output(&mut self) {
+        self.as_mut().data_mut().flush_output().await;
     }
 }
 

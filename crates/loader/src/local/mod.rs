@@ -167,7 +167,13 @@ async fn prepare(
     let variables = raw
         .variables
         .into_iter()
-        .map(|(key, var)| Ok((key, var.try_into()?)))
+        .map(|(key, var)| {
+            Ok((
+                key.clone(),
+                var.try_into()
+                    .map_err(|err| anyhow!("variable '{}': {}", key, err))?,
+            ))
+        })
         .collect::<Result<_>>()?;
 
     Ok(Application {

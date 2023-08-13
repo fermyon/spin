@@ -64,6 +64,10 @@ impl PluginManifest {
             Err(_) => false,
         }
     }
+
+    pub fn try_version(&self) -> Result<semver::Version, semver::Error> {
+        semver::Version::parse(&self.version)
+    }
 }
 
 /// Describes compatibility and location of a plugin source.

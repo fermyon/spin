@@ -1,0 +1,27 @@
+{
+    "name": "some-spin-ver-some-not",
+    "description": "A plugin where only some versions work with the test harness version of Spin.",
+    "version": "99.0.1",
+    "spinCompatibility": ">=99.0",
+    "license": "Apache-2.0",
+    "packages": [
+        {
+            "os": "linux",
+            "arch": "amd64",
+            "url": "https://example.com/doesnt-exist",
+            "sha256": "11111111"
+        },
+        {
+            "os": "macos",
+            "arch": "aarch64",
+            "url": "https://example.com/doesnt-exist",
+            "sha256": "11111111"
+        },
+        {
+            "os": "macos",
+            "arch": "amd64",
+            "url": "https://example.com/doesnt-exist",
+            "sha256": "11111111"
+        }
+    ]
+}

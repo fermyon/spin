@@ -164,7 +164,7 @@ jobs:
       - name: Run e2e tests
         run: |
           df -h
-          du -k
+          du -k -d 2
 
       - name: Run e2e tests
         run: |

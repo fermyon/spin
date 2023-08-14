@@ -184,6 +184,8 @@ impl PluginManager {
     pub async fn get_manifest(
         &self,
         manifest_location: &ManifestLocation,
+        skip_compatibility_check: bool,
+        spin_version: &str,
     ) -> PluginLookupResult<PluginManifest> {
         let plugin_manifest = match manifest_location {
             ManifestLocation::Remote(url) => {
@@ -232,7 +234,11 @@ impl PluginManager {
             }
             ManifestLocation::PluginsRepository(lookup) => {
                 lookup
-                    .get_manifest_from_repository(self.store().get_plugins_directory())
+                    .resolve_manifest(
+                        self.store().get_plugins_directory(),
+                        skip_compatibility_check,
+                        spin_version,
+                    )
                     .await?
             }
         };

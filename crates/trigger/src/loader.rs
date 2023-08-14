@@ -56,7 +56,12 @@ impl Loader for TriggerLoader {
             )
         })?;
         let component = spin_componentize::componentize_if_necessary(&bytes)?;
-        if let Err(e) = std::fs::write(self.working_dir.join("component.wasm"), &component) {
+
+        let file_name = path
+            .file_name()
+            .unwrap_or_else(|| std::ffi::OsStr::new("component.wasm"));
+        let component_dump_path = self.working_dir.join(file_name);
+        if let Err(e) = std::fs::write(component_dump_path, &component) {
             tracing::warn!("Could not write component bytes to working directory: {e}")
         }
         let was_already_component = matches!(component, std::borrow::Cow::Borrowed(_));

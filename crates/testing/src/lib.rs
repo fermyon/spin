@@ -57,6 +57,12 @@ pub struct RedisTestConfig {
     redis_channel: String,
 }
 
+#[derive(Default)]
+pub struct MqttTestConfig {
+    module_path: Option<PathBuf>,
+    mqtt_topic: String,
+}
+
 impl HttpTestConfig {
     pub fn module_path(&mut self, path: impl Into<PathBuf>) -> &mut Self {
         init_tracing();
@@ -143,6 +149,46 @@ impl RedisTestConfig {
         Executor::TriggerConfig: DeserializeOwned,
     {
         self.redis_channel = channel.into();
+
+        TriggerExecutorBuilder::new(self.build_loader())
+            .build(
+                TEST_APP_URI.to_string(),
+                RuntimeConfig::default(),
+                HostComponentInitData::default(),
+            )
+            .await
+            .unwrap()
+    }
+}
+
+impl MqttTestConfig {
+    pub fn module_path(&mut self, path: impl Into<PathBuf>) -> &mut Self {
+        init_tracing();
+        self.module_path = Some(path.into());
+        self
+    }
+
+    pub fn test_program(&mut self, name: impl AsRef<Path>) -> &mut Self {
+        self.module_path(Path::new(TEST_PROGRAM_PATH).join(name))
+    }
+
+    pub fn build_loader(&self) -> impl Loader {
+        TestLoader {
+            module_path: self.module_path.clone().expect("module path to be set"),
+            trigger_type: "mqtt".into(),
+            app_trigger_metadata: json!({"address": "test-mqtt-host"}),
+            trigger_config: json!({
+                "component": "test-component",
+                "topic": self.mqtt_topic,
+            }),
+        }
+    }
+
+    pub async fn build_trigger<Executor: TriggerExecutor>(&mut self, topic: &str) -> Executor
+    where
+        Executor::TriggerConfig: DeserializeOwned,
+    {
+        self.mqtt_topic = topic.into();
 
         TriggerExecutorBuilder::new(self.build_loader())
             .build(

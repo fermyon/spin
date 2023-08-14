@@ -1,0 +1,6 @@
+interface inbound-mqtt {
+  use mqtt-types.{payload, error}
+
+  // The entrypoint for a Mqtt handler.
+  handle-message: func(message: payload) -> result<_, error>
+}

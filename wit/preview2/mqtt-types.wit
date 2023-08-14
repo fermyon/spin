@@ -1,0 +1,10 @@
+interface mqtt-types {
+  // General purpose error.
+  enum error {
+      success,
+      error,
+  }
+
+  // The message payload.
+  type payload = list<u8>
+}

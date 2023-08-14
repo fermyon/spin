@@ -1,0 +1,16 @@
+[package]
+name = "outbound-mqtt"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0"
+paho-mqtt = { version = "0.12" }
+spin-core = { path = "../core" }
+spin-world = { path = "../world" }
+tokio = { version = "1", features = ["sync"] }
+tracing = { workspace = true }

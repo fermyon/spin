@@ -1,0 +1,15 @@
+spin_manifest_version = "1"
+authors = ["{{authors}}"]
+description = "{{project-description}}"
+name = "{{project-name}}"
+trigger = { type = "mqtt", address = "{{mqtt-address}}" }
+version = "0.1.0"
+
+[[component]]
+id = "{{project-name | kebab_case}}"
+source = "target/wasm32-wasi/release/{{project-name | snake_case}}.wasm"
+allowed_http_hosts = []
+[component.trigger]
+topic = "{{mqtt-topic}}"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

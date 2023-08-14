@@ -36,10 +36,14 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     }
                 }
             }
-
             impl ::spin_sdk::inbound_redis::InboundRedis for Spin {
                 fn handle_message(msg: ::spin_sdk::inbound_redis::Payload) -> Result<(), ::spin_sdk::inbound_redis::Error> {
                     unimplemented!("No implementation for inbound-redis#handle-message");
+                }
+            }
+            impl ::spin_sdk::inbound_mqtt::InboundMqtt for Spin {
+                fn handle_message(req: ::spin_sdk::inbound_mqtt::Payload) -> Result<(), ::spin_sdk::inbound_mqtt::Error> {
+                    unimplemented!("No implementation for inbound-mqtt#handle-request");
                 }
             }
         }
@@ -69,6 +73,50 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                             Err(::spin_sdk::redis::Error::Error)
                         },
                     }
+                }
+            }
+            impl ::spin_sdk::inbound_http::InboundHttp for Spin {
+                fn handle_request(req: ::spin_sdk::inbound_http::Request) -> ::spin_sdk::inbound_http::Response {
+                    unimplemented!("No implementation for inbound-http#handle-request");
+                }
+            }
+            impl ::spin_sdk::inbound_mqtt::InboundMqtt for Spin {
+                fn handle_message(req: ::spin_sdk::inbound_mqtt::Payload) -> Result<(), ::spin_sdk::inbound_mqtt::Error> {
+                    unimplemented!("No implementation for inbound-mqtt#handle-request");
+                }
+            }
+        }
+    )
+    .into()
+}
+
+/// Generates the entrypoint to a Spin Mqtt component written in Rust.
+#[proc_macro_attribute]
+pub fn mqtt_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let func = syn::parse_macro_input!(item as syn::ItemFn);
+    let func_name = &func.sig.ident;
+
+    quote!(
+        #func
+
+        mod __spin_mqtt {
+            struct Spin;
+            ::spin_sdk::export_reactor!(Spin);
+
+            impl ::spin_sdk::inbound_mqtt::InboundMqtt for Spin {
+                fn handle_message(msg: ::spin_sdk::inbound_mqtt::Payload) -> Result<(), ::spin_sdk::inbound_mqtt::Error> {
+                    match super::#func_name(msg.try_into().expect("cannot convert from Spin Mqtt payload")) {
+                        Ok(()) => Ok(()),
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            Err(::spin_sdk::mqtt::Error::Error)
+                        },
+                    }
+                }
+            }
+            impl ::spin_sdk::inbound_redis::InboundRedis for Spin {
+                fn handle_message(msg: ::spin_sdk::inbound_redis::Payload) -> Result<(), ::spin_sdk::inbound_redis::Error> {
+                    unimplemented!("No implementation for inbound-redis#handle-message");
                 }
             }
             impl ::spin_sdk::inbound_http::InboundHttp for Spin {

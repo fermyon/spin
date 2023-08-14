@@ -118,6 +118,13 @@ pub mod redis {
     }
 }
 
+// Implementation of the spin mqtt interface.
+#[allow(missing_docs)]
+pub mod mqtt {
+    pub use super::wit::fermyon::spin::mqtt::publish;
+    pub use super::wit::fermyon::spin::mqtt_types::*;
+}
+
 /// Implementation of the spin postgres db interface.
 pub mod pg;
 
@@ -258,4 +265,11 @@ pub mod inbound_http {
 #[doc(hidden)]
 pub mod inbound_redis {
     pub use super::wit::exports::fermyon::spin::inbound_redis::*;
+}
+
+/// Inbound mqtt trigger functionality
+// Hide the docs since this is only needed for the macro
+#[doc(hidden)]
+pub mod inbound_mqtt {
+    pub use super::wit::exports::fermyon::spin::inbound_mqtt::*;
 }

@@ -15,7 +15,7 @@ use spin_app::{
 use spin_key_value::KEY_VALUE_STORES_KEY;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
-    HttpConfig, HttpTriggerConfiguration, RedisConfig, TriggerConfig,
+    HttpConfig, HttpTriggerConfiguration, MqttConfig, RedisConfig, TriggerConfig,
 };
 use spin_sqlite::DATABASES_KEY;
 
@@ -111,6 +111,10 @@ impl LockedAppBuilder {
                     (ApplicationTrigger::Redis(_), TriggerConfig::Redis(RedisConfig{ channel, executor: _ })) => {
                         trigger_type = "redis";
                         builder.string("channel", channel);
+                    },
+                    (ApplicationTrigger::Mqtt(_), TriggerConfig::Mqtt(MqttConfig{ topic, executor: _ })) => {
+                        trigger_type = "mqtt";
+                        builder.string("topic", topic);
                     },
                     (ApplicationTrigger::External(c), TriggerConfig::External(t)) => {
                         trigger_type = c.trigger_type();

@@ -59,6 +59,7 @@ spin-manifest = { path = "crates/manifest" }
 spin-oci = { path = "crates/oci" }
 spin-plugins = { path = "crates/plugins" }
 spin-redis-engine = { path = "crates/redis" }
+spin-mqtt-engine = { path = "crates/mqtt" }
 spin-templates = { path = "crates/templates" }
 spin-trigger = { path = "crates/trigger" }
 tempfile = "3.3.0"

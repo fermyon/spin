@@ -1,0 +1,13 @@
+[package]
+name    = "rust"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Suneet Nangia <suneetnangia@gmail.com>" ]
+
+[lib]
+crate-type = [ "cdylib" ]
+
+[dependencies]
+wit-bindgen = "0.8"
+
+[workspace]

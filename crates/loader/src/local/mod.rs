@@ -23,7 +23,7 @@ use path_absolutize::Absolutize;
 use reqwest::Url;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
-    HttpConfig, ModuleSource, RedisConfig, SpinVersion, TriggerConfig, WasmConfig,
+    HttpConfig, ModuleSource, MqttConfig, RedisConfig, SpinVersion, TriggerConfig, WasmConfig,
 };
 use tokio::{fs::File, io::AsyncReadExt};
 
@@ -440,6 +440,7 @@ fn resolve_trigger(
     let tc = match app_trigger {
         ApplicationTrigger::Http(_) => TriggerConfig::Http(HttpConfig::deserialize(partial)?),
         ApplicationTrigger::Redis(_) => TriggerConfig::Redis(RedisConfig::deserialize(partial)?),
+        ApplicationTrigger::Mqtt(_) => TriggerConfig::Mqtt(MqttConfig::deserialize(partial)?),
         ApplicationTrigger::External(_) => TriggerConfig::External(HashMap::deserialize(partial)?),
     };
     Ok(tc)
@@ -533,6 +534,20 @@ route = "/"
         let ct = &m1.components[0].trigger;
         assert!(matches!(t, ApplicationTrigger::Redis(_)));
         assert!(matches!(ct, TriggerConfig::Redis(_)));
+    }
+
+    #[test]
+    fn can_parse_mqtt_trigger() {
+        let m = load_test_manifest(
+            r#"{ type = "mqtt", address = "dummy" }"#,
+            r#"topic = "topi""#,
+        );
+
+        let m1 = m.into_v1();
+        let t = m1.info.trigger;
+        let ct = &m1.components[0].trigger;
+        assert!(matches!(t, ApplicationTrigger::Mqtt(_)));
+        assert!(matches!(ct, TriggerConfig::Mqtt(_)));
     }
 
     #[test]

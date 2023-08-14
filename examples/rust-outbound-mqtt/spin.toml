@@ -1,0 +1,15 @@
+spin_manifest_version = "1"
+authors = ["Suneet Nangia <suneetnangia@gmail.com>"]
+name = "rust-outbound-mqtt-example"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[[component]]
+environment = { MQTT_ADDRESS = "localhost", MQTT_TOPIC = "messages" }
+id = "outbound-mqtt"
+source = "target/wasm32-wasi/release/rust_outbound_mqtt.wasm"
+[component.trigger]
+route = "/publish"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+

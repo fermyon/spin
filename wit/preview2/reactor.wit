@@ -1,17 +1,22 @@
 package fermyon:spin
 
 world reactor {
+  // interfaces imported in to spin wasm module as sdk for making outbound calls.
   import config
   import postgres
   import mysql
   import sqlite
   import redis
+  import mqtt
   import key-value
   import http
+  // interfaces exported from spin wasm module to allow pushing triggers' events.
   export inbound-http
   export inbound-redis
+  export inbound-mqtt
 }
 
+// Redis world with all outbound sdks and redis inbound
 world redis-trigger {
   import config
   import postgres
@@ -20,9 +25,11 @@ world redis-trigger {
   import redis
   import key-value
   import http
+  import mqtt
   export inbound-redis
 }
 
+// Http world with all outbound sdks and http inbound
 world http-trigger {
   import config
   import postgres
@@ -31,5 +38,19 @@ world http-trigger {
   import redis
   import key-value
   import http
+  import mqtt
   export inbound-http
+}
+
+// Mqtt world with all outbound sdks and mqtt inbound
+world mqtt-trigger {
+  import config
+  import postgres
+  import mysql
+  import sqlite
+  import redis
+  import key-value
+  import http
+  import mqtt
+  export inbound-mqtt
 }

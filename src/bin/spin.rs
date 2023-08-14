@@ -16,6 +16,7 @@ use spin_cli::commands::{
     watch::WatchCommand,
 };
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
+use spin_mqtt_engine::MqttTrigger;
 use spin_redis_engine::RedisTrigger;
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
 use spin_trigger::cli::TriggerExecutorCommand;
@@ -139,6 +140,7 @@ enum SpinApp {
 enum TriggerCommands {
     Http(TriggerExecutorCommand<HttpTrigger>),
     Redis(TriggerExecutorCommand<RedisTrigger>),
+    Mqtt(TriggerExecutorCommand<MqttTrigger>),
     #[clap(name = spin_cli::HELP_ARGS_ONLY_TRIGGER_TYPE, hide = true)]
     HelpArgsOnly(TriggerExecutorCommand<HelpArgsOnlyTrigger>),
 }
@@ -157,6 +159,7 @@ impl SpinApp {
             Self::Build(cmd) => cmd.run().await,
             Self::Trigger(TriggerCommands::Http(cmd)) => cmd.run().await,
             Self::Trigger(TriggerCommands::Redis(cmd)) => cmd.run().await,
+            Self::Trigger(TriggerCommands::Mqtt(cmd)) => cmd.run().await,
             Self::Trigger(TriggerCommands::HelpArgsOnly(cmd)) => cmd.run().await,
             Self::Plugins(cmd) => cmd.run().await,
             Self::External(cmd) => execute_external_subcommand(cmd, app).await,

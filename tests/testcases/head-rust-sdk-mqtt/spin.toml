@@ -1,0 +1,14 @@
+spin_version = "1"
+authors = ["Suneet Nangia <suneetnangia@gmail.com>"]
+description = "A simple mqtt application that exercises the Rust SDK in the current branch"
+name = "head-rust-sdk-mqtt"
+trigger = {type = "mqtt", address = "localhost"}
+version = "1.0.0"
+
+[[component]]
+id = "hello"
+source = "target/wasm32-wasi/release/head_rust_sdk_mqtt.wasm"
+[component.trigger]
+topic = "my-topic"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

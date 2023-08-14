@@ -1721,6 +1721,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76d3d132be6c0e6aa1534069c705a74a5997a356c0dc2f86a47765e5617c5b65"
 
 [[package]]
+name = "futures-timer"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e64b03909df88034c26dc1547e8970b91f98bdb65165d6a4e9110d94263dbb2c"
+
+[[package]]
 name = "futures-util"
 version = "0.3.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3408,6 +3414,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "outbound-mqtt"
+version = "1.5.0-pre0"
+dependencies = [
+ "anyhow",
+ "paho-mqtt",
+ "spin-core",
+ "spin-world",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "outbound-mysql"
 version = "1.5.0-pre0"
 dependencies = [
@@ -3453,6 +3471,32 @@ name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
+
+[[package]]
+name = "paho-mqtt"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6a19171f5b405f350373e32b6c2c4b47c225afccc837c11d2e7e22ba1749c62"
+dependencies = [
+ "async-channel",
+ "crossbeam-channel",
+ "futures",
+ "futures-timer",
+ "libc",
+ "log",
+ "paho-mqtt-sys",
+ "thiserror",
+]
+
+[[package]]
+name = "paho-mqtt-sys"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1782b5e75d712f951a2a4c7d3175a2ef37d93ddb3ad8656b37092f3f05464bc9"
+dependencies = [
+ "cmake",
+ "openssl-sys",
+]
 
 [[package]]
 name = "parking"
@@ -4827,6 +4871,7 @@ dependencies = [
  "spin-key-value-sqlite",
  "spin-loader",
  "spin-manifest",
+ "spin-mqtt-engine",
  "spin-oci",
  "spin-plugins",
  "spin-redis-engine",
@@ -5053,6 +5098,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-mqtt-engine"
+version = "1.5.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "futures",
+ "paho-mqtt",
+ "serde",
+ "spin-app",
+ "spin-core",
+ "spin-testing",
+ "spin-trigger",
+ "spin-world",
+ "tracing",
+]
+
+[[package]]
 name = "spin-oci"
 version = "1.5.0-pre0"
 dependencies = [
@@ -5242,6 +5304,7 @@ dependencies = [
  "futures",
  "indexmap",
  "outbound-http",
+ "outbound-mqtt",
  "outbound-mysql",
  "outbound-pg",
  "outbound-redis",

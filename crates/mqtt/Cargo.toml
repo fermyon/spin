@@ -1,0 +1,23 @@
+[package]
+name = "spin-mqtt-engine"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+futures = "0.3"
+serde = "1"
+spin-app = { path = "../app" }
+spin-core = { path = "../core" }
+spin-trigger = { path = "../trigger" }
+spin-world = { path = "../world" }
+paho-mqtt = { version = "0.12" }
+tracing = { workspace = true }
+
+[dev-dependencies]
+spin-testing = { path = "../testing" }

@@ -1,0 +1,14 @@
+spin_manifest_version = "1"
+authors = ["Suneet Nangia <suneetnangia@gmail.com>"]
+description = "An MQTT application."
+name = "spin-mqtt"
+trigger = {type = "mqtt", address = "localhost"}
+version = "0.1.0"
+
+[[component]]
+id = "echo-message"
+source = "target/wasm32-wasi/release/spinmqtt.wasm"
+[component.trigger]
+topic="messages"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

@@ -113,6 +113,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 
             if !self.disable_default_host_components {
                 builder.add_host_component(outbound_redis::OutboundRedisComponent)?;
+                builder.add_host_component(outbound_mqtt::OutboundMqttComponent)?;
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
                 self.loader.add_dynamic_host_component(

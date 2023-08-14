@@ -14,6 +14,7 @@ futures = "0.3"
 indexmap = "1"
 outbound-http = { path = "../outbound-http" }
 outbound-redis = { path = "../outbound-redis" }
+outbound-mqtt = { path = "../outbound-mqtt" }
 outbound-pg = { path = "../outbound-pg" }
 outbound-mysql = { path = "../outbound-mysql" }
 spin-common = { path = "../common" }

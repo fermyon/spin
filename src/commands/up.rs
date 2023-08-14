@@ -393,6 +393,7 @@ fn trigger_command_from_locked_app(locked_app: &LockedApp) -> Result<Vec<String>
     match trigger_info {
         ApplicationTrigger::Http(_) => Ok(trigger_command("http")),
         ApplicationTrigger::Redis(_) => Ok(trigger_command("redis")),
+        ApplicationTrigger::Mqtt(_) => Ok(trigger_command("mqtt")),
         ApplicationTrigger::External(cfg) => {
             resolve_trigger_plugin(cfg.trigger_type()).map(|p| vec![p])
         }

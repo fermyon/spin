@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::values::ValuesMap;
+use crate::{metadata::MetadataExt, values::ValuesMap};
 
 /// A String-keyed map with deterministic serialization order.
 pub type LockedMap<T> = std::collections::BTreeMap<String, T>;
@@ -36,6 +36,29 @@ impl LockedApp {
     /// Serializes the [`LockedApp`] into JSON data.
     pub fn to_json(&self) -> serde_json::Result<Vec<u8>> {
         serde_json::to_vec_pretty(&self)
+    }
+
+    /// Deserializes typed metadata for this app.
+    ///
+    /// Returns `Ok(None)` if there is no metadata for the given `key` and an
+    /// `Err` only if there _is_ a value for the `key` but the typed
+    /// deserialization failed.
+    pub fn get_metadata<'this, T: Deserialize<'this>>(
+        &'this self,
+        key: crate::MetadataKey<T>,
+    ) -> crate::Result<Option<T>> {
+        self.metadata.get_typed(key)
+    }
+
+    /// Deserializes typed metadata for this app.
+    ///
+    /// Like [`LockedApp::get_metadata`], but returns an error if there is
+    /// no metadata for the given `key`.
+    pub fn require_metadata<'this, T: Deserialize<'this>>(
+        &'this self,
+        key: crate::MetadataKey<T>,
+    ) -> crate::Result<T> {
+        self.metadata.require_typed(key)
     }
 }
 

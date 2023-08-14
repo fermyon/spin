@@ -125,11 +125,7 @@ impl UpCommand {
             }
         }
 
-        let working_dir_holder = match &self.tmp {
-            None => WorkingDirectory::Temporary(TempDir::with_prefix("spinup-")?),
-            Some(d) => WorkingDirectory::Given(d.to_owned()),
-        };
-        let working_dir = working_dir_holder.path().canonicalize()?;
+        let working_dir = self.get_canonical_working_dir()?;
 
         let mut locked_app = match &app_source {
             AppSource::None => bail!("Internal error - should have shown help"),
@@ -155,6 +151,22 @@ impl UpCommand {
         };
 
         self.run_trigger(trigger_cmd, Some(run_opts)).await
+    }
+
+    fn get_canonical_working_dir(&self) -> Result<PathBuf, anyhow::Error> {
+        let working_dir_holder = match &self.tmp {
+            None => WorkingDirectory::Temporary(TempDir::with_prefix("spinup-")?),
+            Some(d) => WorkingDirectory::Given(d.to_owned()),
+        };
+        if !working_dir_holder.path().exists() {
+            std::fs::create_dir_all(working_dir_holder.path())
+                .context("Could not create working directory")?;
+        }
+        let working_dir = working_dir_holder
+            .path()
+            .canonicalize()
+            .context("Could not canonicalize working directory")?;
+        Ok(working_dir)
     }
 
     async fn run_trigger(

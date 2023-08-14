@@ -155,11 +155,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Retrieve saved Spin Binary
-        uses: actions/download-artifact@v3
-        with:
-          name: spin-ubuntu-latest
-          path: target/release/
+      # - name: Retrieve saved Spin Binary
+      #   uses: actions/download-artifact@v3
+      #   with:
+      #     name: spin-ubuntu-latest
+      #     path: target/release/
 
       - name: Run e2e tests
         run: |

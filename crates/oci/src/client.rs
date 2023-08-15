@@ -106,7 +106,10 @@ impl Client {
                 // locked application file with the file digest.
                 for entry in WalkDir::new(&source) {
                     let entry = entry?;
-                    if entry.file_type().is_file() && !entry.file_type().is_dir() {
+                    if entry.file_type().is_file()
+                        && !entry.file_type().is_dir()
+                        && entry.metadata()?.len() > 0
+                    {
                         tracing::trace!(
                             "Adding new layer for asset {:?}",
                             spin_loader::to_relative(entry.path(), &source)?

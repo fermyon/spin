@@ -110,10 +110,8 @@ jobs:
           echo 'linker = "aarch64-linux-gnu-gcc"' >> ${HOME}/.cargo/config.toml
 
       - name: build release
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: "--all-features --release ${{ matrix.config.extraArgs }}"
+        shell: bash
+        run: cargo build --all-features --release ${{ matrix.config.extraArgs }}
 
       - name: Sign the binary with GitHub OIDC token
         shell: bash

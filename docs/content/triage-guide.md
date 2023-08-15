@@ -24,8 +24,10 @@ To do this:
 
 To do this:
 
-- Determine if the issue is a `bug` or an `enhancement` and label as such. Please bubble up and help resolve any critical bugs as you come across them.
-- Add an `area/<area>` label to the issue to indicate the relevant area of the codebase.
+- Determine if the issue is a `bug`, `enhancement`, or `question` and label as such.
+  - If the issue does not clearly fall into one of these buckets, please ask more questions to determine what labels make sense.
+  - Please bubble up and help resolve any critical bugs as you come across them.
+  - If a `question` exposes a need for an improvement in the docs, please open up an issue in the [developer docs repo](https://github.com/fermyon/developer/issues).
 - If the issue is being currently investigated, move the issue to the `Investigating / Open for Comment` column and assign the issue an owner (the person who is investigating).
 - If the issue is an enhancement and we do not know yet whether we want to address it or it needs more input and discussion, move the issue to the `Investigating / Open for Comment` column. Please also bring this up in the next Spin maintainer or community meeting.
 - If the issue is well scoped, we want to resolve it, and it is ready to be picked up, move it to the `Backlog` column.
@@ -33,5 +35,7 @@ To do this:
 - If the issue requires no further action or it is a suggestion we don't plan on working on, add an explanation, link to other relevant issues/comments, add the appropriate labels (`duplicate`, `wontfix`) and then close the issue.
 
 3. Visit the [Security Vulnerability tab](https://github.com/fermyon/spin/security/dependabot) to see if there are any outstanding dependabot PRs to review or if any vulnerabilities need to be addressed.
+
+If merging a dependabot PR turns out to be a complicated endevaor and there are reasons for not being able to merge it immediately, leave a comment explaining the situation and where application, link to relevant upstream issues/PRs to watch for progress.
 
 4. Time permitting, review and help move along issues in the `Investigating / Open for Comment` column.

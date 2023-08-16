@@ -174,17 +174,11 @@ impl TriggerExecutor for HttpTrigger {
         if let Some(HttpExecutorType::Wagi(_)) = &config.executor {
             let module = component.load_module(engine).await?;
             Ok(EitherInstancePre::Module(
-                engine
-                    .module_instantiate_pre(&module)
-                    .map_err(spin_trigger::decode_preinstantiation_error)?,
+                engine.module_instantiate_pre(&module)?,
             ))
         } else {
             let comp = component.load_component(engine).await?;
-            Ok(EitherInstancePre::Component(
-                engine
-                    .instantiate_pre(&comp)
-                    .map_err(spin_trigger::decode_preinstantiation_error)?,
-            ))
+            Ok(EitherInstancePre::Component(engine.instantiate_pre(&comp)?))
         }
     }
 }

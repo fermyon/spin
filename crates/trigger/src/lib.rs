@@ -56,7 +56,6 @@ pub trait TriggerExecutor: Sized + Send + Sync {
         Ok(EitherInstancePre::Component(
             engine
                 .instantiate_pre(&comp)
-                .map_err(decode_preinstantiation_error)
                 .with_context(|| format!("Failed to instantiate component '{}'", component.id()))?,
         ))
     }
@@ -353,33 +352,4 @@ pub fn parse_file_url(url: &str) -> Result<PathBuf> {
         .with_context(|| format!("Invalid URL: {url:?}"))?
         .to_file_path()
         .map_err(|_| anyhow!("Invalid file URL path: {url:?}"))
-}
-
-pub fn decode_preinstantiation_error(e: anyhow::Error) -> anyhow::Error {
-    let err_text = e.to_string();
-
-    if err_text.contains("unknown import") && err_text.contains("has not been defined") {
-        // TODO: how to maintain this list?
-        let sdk_imported_interfaces = &[
-            "config",
-            "http",
-            "key-value",
-            "mysql",
-            "postgres",
-            "redis",
-            "sqlite",
-        ];
-
-        if sdk_imported_interfaces
-            .iter()
-            .map(|s| format!("{s}::"))
-            .any(|s| err_text.contains(&s))
-        {
-            return anyhow!(
-                "{e}. Check that the component uses a SDK or plugin version that matches the Spin runtime."
-            );
-        }
-    }
-
-    e
 }

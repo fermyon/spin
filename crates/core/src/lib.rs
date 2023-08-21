@@ -79,11 +79,6 @@ impl<T> Data<T> {
     pub fn memory_consumed(&self) -> u64 {
         self.store_limits.memory_consumed()
     }
-
-    /// Ensure all Wasi output has been flushed
-    pub async fn flush_output(&mut self) {
-        self.wasi.flush_output(&mut self.table).await;
-    }
 }
 
 impl<T> AsRef<T> for Data<T> {

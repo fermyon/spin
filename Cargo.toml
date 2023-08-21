@@ -105,23 +105,15 @@ members = ["crates/*", "sdk/rust", "sdk/rust/macro"]
 
 [workspace.dependencies]
 tracing = { version = "0.1", features = ["log"] }
-# wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", features = [
-#   "tokio",
-#   "preview2",
-# ], branch = "main" }
-# wasi-common-preview1 = { package = "wasi-common", git = "https://github.com/bytecodealliance/wasmtime", branch = "main" }
-# wasmtime = { path = "https://github.com/bytecodealliance/wasmtime", features = [
-#   "component-model",
-# ], branch = "main" }
-wasmtime-wasi = { path = "../wasmtime/crates/wasi", features = [
+wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", features = [
   "tokio",
   "preview2",
-] }
-wasi-common-preview1 = { package = "wasi-common", path = "../wasmtime/crates/wasi-common" }
-wasmtime = { path = "../wasmtime/crates/wasmtime", features = [
+], rev = "592ddc52" }
+wasi-common-preview1 = { package = "wasi-common", git = "https://github.com/bytecodealliance/wasmtime", rev = "592ddc52" }
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", features = [
   "component-model",
-] }
-spin-componentize = { path = "../spin-componentize" }
+], rev = "592ddc52" }
+spin-componentize = { git = "https://github.com/fermyon/spin-componentize", branch = "wasmtime-592ddc52" }
 
 [workspace.dependencies.bindle]
 git = "https://github.com/fermyon/bindle"

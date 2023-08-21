@@ -8,7 +8,7 @@ use system_interface::io::ReadReady;
 use tokio::io::{AsyncRead, AsyncWrite};
 use wasi_common_preview1 as wasi_preview1;
 use wasmtime_wasi as wasmtime_wasi_preview1;
-use wasmtime_wasi::preview2 as wasi_preview2;
+use wasmtime_wasi::preview2::{self as wasi_preview2, IsATTY};
 
 use crate::{
     host_component::{HostComponents, HostComponentsData},
@@ -40,15 +40,6 @@ pub enum Wasi {
     Preview1(wasi_preview1::WasiCtx),
     /// Preview 2 `WasiCtx`
     Preview2(wasi_preview2::WasiCtx),
-}
-
-impl Wasi {
-    /// Ensure all output has been flushed
-    pub async fn flush_output(&mut self, table: &mut wasi_preview2::Table) {
-        if let Wasi::Preview2(ctx) = self {
-            ctx.flush_output(table).await;
-        }
-    }
 }
 
 /// The version of Wasi being used
@@ -94,11 +85,6 @@ impl<T> Store<T> {
             ticks + 1 // Add one to allow for current partially-completed tick
         };
         self.inner.set_epoch_deadline(ticks);
-    }
-
-    /// Ensure all Wasi output has been flushed
-    pub async fn flush_output(&mut self) {
-        self.as_mut().data_mut().flush_output().await;
     }
 }
 
@@ -186,7 +172,7 @@ impl StoreBuilder {
                 ctx.set_stdin(Box::new(wasi_preview1::pipe::ReadPipe::new(r)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                ctx.stdin(wasi_preview2::pipe::AsyncReadStream::new(r));
+                ctx.stdin(wasi_preview2::pipe::AsyncReadStream::new(r), IsATTY::No);
             }
         })
     }
@@ -223,7 +209,7 @@ impl StoreBuilder {
                 ctx.set_stdout(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                ctx.stdout(wasi_preview2::pipe::AsyncWriteStream::new(w));
+                ctx.stdout(wasi_preview2::pipe::AsyncWriteStream::new(w), IsATTY::No);
             }
         })
     }
@@ -238,7 +224,7 @@ impl StoreBuilder {
                 "`Store::stdout_buffered` only supported with WASI Preview 2"
             )),
             WasiCtxBuilder::Preview2(ctx) => {
-                ctx.stdout(buffer.writer());
+                ctx.stdout(buffer.writer(), IsATTY::No);
                 Ok(())
             }
         })?;
@@ -264,7 +250,7 @@ impl StoreBuilder {
                 ctx.set_stderr(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                ctx.stderr(wasi_preview2::pipe::AsyncWriteStream::new(w));
+                ctx.stderr(wasi_preview2::pipe::AsyncWriteStream::new(w), IsATTY::No);
             }
         })
     }

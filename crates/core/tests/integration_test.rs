@@ -207,7 +207,11 @@ async fn run_core_wasi_test_engine<'a>(
     let component = Component::new(engine.as_ref(), &component)?;
     let instance_pre = engine.instantiate_pre(&component)?;
     let instance = instance_pre.instantiate_async(&mut store).await?;
-    let func = instance.get_typed_func::<(), (Result<(), ()>,)>(&mut store, "run")?;
+    let func = instance
+        .exports(&mut store)
+        .instance("wasi:cli/run")
+        .ok_or_else(|| anyhow::anyhow!("instance `wasi:cli/run` not found in component exports"))?
+        .typed_func::<(), (Result<(), ()>,)>("run")?;
 
     update_store(&mut store);
 

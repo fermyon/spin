@@ -113,10 +113,6 @@ impl SpinHttpExecutor {
             None => Body::empty(),
         };
         let response = response.body(body)?;
-        // Ensure all output has been flushed.
-        // A bad I/O write that hangs would cause this to hang too,
-        // but we rely on timeouts higher up in the stack to catch this.
-        store.flush_output().await;
 
         Ok(response)
     }

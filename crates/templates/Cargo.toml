@@ -36,5 +36,6 @@ wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
 
 [dependencies.wit-bindgen-wasmtime]
-path = "../../../wit-bindgen-backport/crates/wasmtime"
+git = "https://github.com/fermyon/wit-bindgen-backport"
+branch = "wasmtime-592ddc52"
 features = ["async"]

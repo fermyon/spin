@@ -150,7 +150,8 @@ jobs:
         run: make test-sdk-go
 
   e2e-tests:
-    runs-on: ubuntu-22.04
+    # run on a larger runner for more SSD/resource access
+    runs-on: ubuntu-22.04-4core-spin
     needs: build-rust-ubuntu
     steps:
       - uses: actions/checkout@v3

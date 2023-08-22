@@ -1,6 +1,6 @@
 interface llm {
 	/// A Large Language Model.
-	variant model {
+	variant inferencing-model {
 		llama2-v70b-chat,
 		llama2-v13b-chat,
 		llama2-v7b-chat,
@@ -20,24 +20,27 @@ interface llm {
 		top-p: float32
 	}
 
-	// The set of errors which may be raised by functions in this interface
+	/// The set of errors which may be raised by functions in this interface
 	variant error {
 		model-not-supported,
 		runtime-error(string),
 		invalid-input(string)
 	}
 
-	// An inferencing result
+	/// An inferencing result
 	// TODO: this should be a stream
 	type inferencing-result = string
 
-	// One-shot inferencing operation
-	infer: func(model: model, prompt: string, params: option<inferencing-params>) -> result<inferencing-result, error>
+	/// Perform inferencing using the provided model and prompt with the given optional params
+	infer: func(model: inferencing-model, prompt: string, params: option<inferencing-params>) -> result<inferencing-result, error>
 
+	/// The model used for generating embeddings
 	variant embedding-model {
-		all-mini-lm-l6-v2
+		all-mini-lm-l6-v2,
+		other(string)
 	}
 
-	generate-embeddings: func(model: embedding-model, data: list<string>) -> result<list<list<float32>>, error>
+	/// Generate embeddings for the supplied list of text
+	generate-embeddings: func(model: embedding-model, text: list<string>) -> result<list<list<float32>>, error>
 }
 

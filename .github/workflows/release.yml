@@ -6,6 +6,9 @@ on:
     tags:
       - "v*"
 
+# Serialize workflow runs
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
 env:
   RUST_VERSION: 1.68
 

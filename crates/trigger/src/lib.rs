@@ -114,6 +114,10 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 builder.add_host_component(outbound_redis::OutboundRedisComponent)?;
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
+                builder.add_host_component(spin_llm::LlmComponent::new(
+                    init_data.llm.model_registry,
+                    init_data.llm.use_gpu,
+                ))?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
                     runtime_config::key_value::build_key_value_component(
@@ -154,11 +158,12 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     }
 }
 
-/// Initialisation data for host components.
+/// Initialization data for host components.
 #[derive(Default)] // TODO: the implementation of Default is only for tests - would like to get rid of
 pub struct HostComponentInitData {
     kv: Vec<(String, String)>,
     sqlite: Vec<String>,
+    llm: spin_llm::LLmOptions,
 }
 
 impl HostComponentInitData {
@@ -168,10 +173,12 @@ impl HostComponentInitData {
     pub fn new(
         key_value_init_values: impl Into<Vec<(String, String)>>,
         sqlite_init_statements: impl Into<Vec<String>>,
+        llm: spin_llm::LLmOptions,
     ) -> Self {
         Self {
             kv: key_value_init_values.into(),
             sqlite: sqlite_init_statements.into(),
+            llm,
         }
     }
 }

@@ -143,8 +143,14 @@ where
         let working_dir = std::env::var(SPIN_WORKING_DIR).context(SPIN_WORKING_DIR)?;
         let locked_url = std::env::var(SPIN_LOCKED_URL).context(SPIN_LOCKED_URL)?;
 
-        let init_data =
-            crate::HostComponentInitData::new(&*self.key_values, &*self.sqlite_statements);
+        let init_data = crate::HostComponentInitData::new(
+            &*self.key_values,
+            &*self.sqlite_statements,
+            spin_llm::LLmOptions {
+                model_registry: PathBuf::from(".spin"),
+                use_gpu: true,
+            },
+        );
 
         let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
         let executor = self.build_executor(loader, locked_url, init_data).await?;

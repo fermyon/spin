@@ -1,18 +1,16 @@
+use anyhow::{Context, Result};
+use llm::{
+    InferenceFeedback, InferenceParameters, InferenceResponse, InferenceSessionConfig, Model,
+    ModelArchitecture, ModelKVMemoryType, ModelParameters,
+};
+use rand::SeedableRng;
+use spin_core::{async_trait, HostComponent};
+use spin_world::llm::{self as wasi_llm};
 use std::{
     convert::Infallible,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-
-use anyhow::Result;
-use llm::{
-    InferenceFeedback, InferenceParameters, InferenceResponse, InferenceSessionConfig, Model,
-    ModelArchitecture, ModelKVMemoryType, ModelParameters,
-};
-
-use rand::SeedableRng;
-use spin_core::{async_trait, HostComponent};
-use spin_world::llm::{self as wasi_llm};
 
 #[derive(Default)]
 pub struct LLmOptions {
@@ -77,12 +75,13 @@ impl LlmEngine {
             llm::TokenizerSource::Embedded,
             params,
             progress_fn,
-        )?;
+        )
+        .context("Failed to load model from model registry")?;
         let cfg = InferenceSessionConfig {
             memory_k_type: ModelKVMemoryType::Float16,
             memory_v_type: ModelKVMemoryType::Float16,
             n_batch: 8,
-            n_threads: 8,
+            n_threads: num_cpus::get(),
         };
 
         let mut session = Model::start_session(model.as_ref(), cfg);
@@ -92,6 +91,14 @@ impl LlmEngine {
         let mut rng = rand::rngs::StdRng::from_entropy();
         let mut response = String::new();
 
+        #[cfg(debug_assertions)]
+        {
+            terminal::warn!(
+                "\
+                This is a debug build - running inference might be prohibitively slow\n\
+                You may want to consider switching to the release build"
+            )
+        }
         let res = session.infer::<Infallible>(
             model.as_ref(),
             &mut rng,
@@ -101,7 +108,6 @@ impl LlmEngine {
                 play_back_previous_tokens: false,
                 maximum_token_count: Some(75),
             },
-            // OutputRequest
             &mut Default::default(),
             |r| {
                 if let InferenceResponse::InferredToken(t) = r {
@@ -110,7 +116,7 @@ impl LlmEngine {
                 Ok(InferenceFeedback::Continue)
             },
         );
-        let _ = res?;
+        let _ = res.context("Failure ocurred during inferencing")?;
         Ok(response)
     }
 }

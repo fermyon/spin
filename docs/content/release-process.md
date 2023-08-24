@@ -80,6 +80,10 @@ To cut a release of Spin, you will need to do the following:
    `--certificate-identity` value should match this release, e.g.
    `https://github.com/fermyon/spin/.github/workflows/release.yml@refs/tags/v1.1.0`.
 
+1. Create a Pull Request into Fermyon's Hombrew tap repository updating the [Spin
+   formula](https://github.com/fermyon/homebrew-tap/blob/main/Formula/spin.rb). In the formula,
+   update the version, point to the latest release artifacts, and set their correct sha256 digests.
+
 The release is now complete!
 
 [release action]: https://github.com/fermyon/spin/actions/workflows/release.yml

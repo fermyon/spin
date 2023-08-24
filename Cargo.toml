@@ -61,7 +61,7 @@ spin-plugins = { path = "crates/plugins" }
 spin-redis-engine = { path = "crates/redis" }
 spin-templates = { path = "crates/templates" }
 spin-trigger = { path = "crates/trigger" }
-tempfile = "3.3.0"
+tempfile = "3.8.0"
 tokio = { version = "1.23", features = ["full"] }
 toml = "0.6"
 tracing = { workspace = true }

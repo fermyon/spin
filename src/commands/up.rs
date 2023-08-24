@@ -126,7 +126,7 @@ impl UpCommand {
         }
 
         let working_dir_holder = match &self.tmp {
-            None => WorkingDirectory::Temporary(tempfile::tempdir()?),
+            None => WorkingDirectory::Temporary(TempDir::with_prefix("spinup-")?),
             Some(d) => WorkingDirectory::Given(d.to_owned()),
         };
         let working_dir = working_dir_holder.path().canonicalize()?;

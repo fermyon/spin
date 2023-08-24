@@ -1,4 +1,3 @@
-use anyhow::{Context, Result};
 use llm::{
     InferenceFeedback, InferenceParameters, InferenceResponse, InferenceSessionConfig, Model,
     ModelArchitecture, ModelKVMemoryType, ModelParameters,
@@ -56,7 +55,11 @@ impl LlmEngine {
         Self { registry, use_gpu }
     }
 
-    async fn run(&mut self, model: wasi_llm::InferencingModel, prompt: String) -> Result<String> {
+    async fn run(
+        &mut self,
+        model: wasi_llm::InferencingModel,
+        prompt: String,
+    ) -> Result<String, wasi_llm::Error> {
         let params = ModelParameters {
             prefer_mmap: true,
             context_size: 2048,
@@ -70,13 +73,15 @@ impl LlmEngine {
         let progress_fn = |_| {};
 
         let model = llm::load_dynamic(
-            Some(model_arch(&model)),
-            &self.registry.join(&model_name(model)),
+            Some(model_arch(&model)?),
+            &self.registry.join(&model_name(model)?),
             llm::TokenizerSource::Embedded,
             params,
             progress_fn,
         )
-        .context("Failed to load model from model registry")?;
+        .map_err(|e| {
+            wasi_llm::Error::RuntimeError(format!("Failed to load model from model registry: {e}"))
+        })?;
         let cfg = InferenceSessionConfig {
             memory_k_type: ModelKVMemoryType::Float16,
             memory_v_type: ModelKVMemoryType::Float16,
@@ -116,8 +121,18 @@ impl LlmEngine {
                 Ok(InferenceFeedback::Continue)
             },
         );
-        let _ = res.context("Failure ocurred during inferencing")?;
+        let _ = res.map_err(|e| {
+            wasi_llm::Error::RuntimeError(format!("Failure ocurred during inferencing: {e}"))
+        })?;
         Ok(response)
+    }
+
+    async fn generate_embeddings(
+        &mut self,
+        _model: wasi_llm::EmbeddingModel,
+        _data: Vec<String>,
+    ) -> Result<Vec<Vec<f32>>, wasi_llm::Error> {
+        Err(wasi_llm::Error::ModelNotSupported)
     }
 }
 
@@ -128,7 +143,7 @@ impl wasi_llm::Host for LlmEngine {
         m: wasi_llm::InferencingModel,
         p: String,
         _params: Option<wasi_llm::InferencingParams>,
-    ) -> Result<Result<wasi_llm::InferencingResult, wasi_llm::Error>> {
+    ) -> anyhow::Result<Result<wasi_llm::InferencingResult, wasi_llm::Error>> {
         let res = self.run(m, p).await.unwrap();
         Ok(Ok(res))
     }
@@ -137,24 +152,25 @@ impl wasi_llm::Host for LlmEngine {
         &mut self,
         m: wasi_llm::EmbeddingModel,
         data: Vec<String>,
-    ) -> Result<Result<Vec<Vec<f32>>, wasi_llm::Error>> {
-        let res = self.generate_embeddings(m, data).await?.unwrap();
-        Ok(Ok(res))
+    ) -> anyhow::Result<Result<Vec<Vec<f32>>, wasi_llm::Error>> {
+        Ok(self.generate_embeddings(m, data).await)
     }
 }
 
-// TODO: Fix these two functions
-fn model_name(model: wasi_llm::InferencingModel) -> &'static str {
+fn model_name(model: wasi_llm::InferencingModel) -> Result<&'static str, wasi_llm::Error> {
     match model {
-        wasi_llm::InferencingModel::Llama2V70bChat => todo!(),
-        wasi_llm::InferencingModel::Llama2V13bChat => "llama2-13b-chat",
-        wasi_llm::InferencingModel::Llama2V7bChat => todo!(),
-        wasi_llm::InferencingModel::Other(_) => todo!(),
+        wasi_llm::InferencingModel::Llama2V13bChat => Ok("llama2-13b-chat"),
+        _ => Err(wasi_llm::Error::ModelNotSupported),
     }
 }
 
-fn model_arch(_model: &wasi_llm::InferencingModel) -> ModelArchitecture {
-    ModelArchitecture::Llama
+fn model_arch(model: &wasi_llm::InferencingModel) -> Result<ModelArchitecture, wasi_llm::Error> {
+    match model {
+        wasi_llm::InferencingModel::Llama2V70bChat
+        | wasi_llm::InferencingModel::Llama2V13bChat
+        | wasi_llm::InferencingModel::Llama2V7bChat => Ok(ModelArchitecture::Llama),
+        wasi_llm::InferencingModel::Other(_) => Err(wasi_llm::Error::ModelNotSupported),
+    }
 }
 
 // Sampling options for picking the next token in the sequence.

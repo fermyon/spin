@@ -4,9 +4,11 @@ use crate::{HttpExecutor, HttpTrigger, Store};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use hyper::{Body, Request, Response};
+use outbound_http::OutboundHttpComponent;
 use spin_core::Instance;
 use spin_trigger::{EitherInstance, TriggerAppEngine};
 use spin_world::http_types;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct SpinHttpExecutor;
@@ -27,10 +29,12 @@ impl HttpExecutor for SpinHttpExecutor {
             component_id
         );
 
-        let (instance, store) = engine.prepare_instance(component_id).await?;
+        let (instance, mut store) = engine.prepare_instance(component_id).await?;
         let EitherInstance::Component(instance) = instance else {
             unreachable!()
         };
+
+        set_http_origin_from_request(&mut store, engine, &req);
 
         let resp = Self::execute_impl(store, instance, base, raw_route, req, client_addr)
             .await
@@ -179,6 +183,27 @@ impl SpinHttpExecutor {
         };
 
         Ok(())
+    }
+}
+
+fn set_http_origin_from_request(
+    store: &mut Store,
+    engine: &TriggerAppEngine<HttpTrigger>,
+    req: &Request<Body>,
+) {
+    if let Some(authority) = req.uri().authority() {
+        if let Some(scheme) = req.uri().scheme_str() {
+            if let Some(outbound_http_handle) = engine
+                .engine
+                .find_host_component_handle::<Arc<OutboundHttpComponent>>()
+            {
+                let mut outbound_http_data = store
+                    .host_components_data()
+                    .get_or_insert(outbound_http_handle);
+
+                outbound_http_data.origin = format!("{}://{}", scheme, authority);
+            }
+        }
     }
 }
 

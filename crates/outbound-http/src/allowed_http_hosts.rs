@@ -26,6 +26,13 @@ impl AllowedHttpHosts {
             Self::AllowSpecific(hosts) => hosts.iter().any(|h| h.allow(url)),
         }
     }
+
+    pub fn allow_relative_url(&self) -> bool {
+        match self {
+            Self::AllowAll => true,
+            Self::AllowSpecific(hosts) => hosts.contains(&AllowedHttpHost::host("self")),
+        }
+    }
 }
 
 /// An HTTP host allow-list entry.
@@ -215,6 +222,14 @@ mod test {
     }
 
     #[test]
+    fn test_allowed_hosts_accepts_self() {
+        assert_eq!(
+            AllowedHttpHost::host("self"),
+            parse_allowed_http_host("self").unwrap()
+        );
+    }
+
+    #[test]
     fn test_allowed_hosts_accepts_localhost_addresses() {
         assert_eq!(
             AllowedHttpHost::host("localhost"),
@@ -302,5 +317,19 @@ mod test {
         assert!(allowed.allow(&Url::parse("https://spin.fermyon.dev/").unwrap()));
         assert!(!allowed.allow(&Url::parse("http://example.com/").unwrap()));
         assert!(!allowed.allow(&Url::parse("http://google.com/").unwrap()));
+    }
+
+    #[test]
+    fn test_allowed_hosts_allow_relative_url() {
+        let allowed =
+            parse_allowed_http_hosts(&to_vec_owned(&["self", "http://example.com:8383"])).unwrap();
+        assert!(allowed.allow_relative_url());
+
+        let not_allowed =
+            parse_allowed_http_hosts(&to_vec_owned(&["http://example.com:8383"])).unwrap();
+        assert!(!not_allowed.allow_relative_url());
+
+        let allow_all = parse_allowed_http_hosts(&to_vec_owned(&["insecure:allow-all"])).unwrap();
+        assert!(allow_all.allow_relative_url());
     }
 }

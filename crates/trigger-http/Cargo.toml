@@ -16,6 +16,7 @@ futures-util = "0.3.8"
 http = "0.2"
 hyper = { version = "0.14", features = ["full"] }
 indexmap = "1"
+outbound-http = { path = "../outbound-http" }
 percent-encoding = "2"
 rustls-pemfile = "0.3.0"
 serde = { version = "1.0", features = ["derive"] }

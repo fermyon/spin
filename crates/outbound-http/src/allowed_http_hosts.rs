@@ -26,6 +26,13 @@ impl AllowedHttpHosts {
             Self::AllowSpecific(hosts) => hosts.iter().any(|h| h.allow(url)),
         }
     }
+
+    pub fn includes(&self, host: AllowedHttpHost) -> bool {
+        match self {
+            Self::AllowAll => true,
+            Self::AllowSpecific(hosts) => hosts.contains(&host),
+        }
+    }
 }
 
 /// An HTTP host allow-list entry.
@@ -215,6 +222,14 @@ mod test {
     }
 
     #[test]
+    fn test_allowed_hosts_accepts_self() {
+        assert_eq!(
+            AllowedHttpHost::host("self"),
+            parse_allowed_http_host("self").unwrap()
+        );
+    }
+
+    #[test]
     fn test_allowed_hosts_accepts_localhost_addresses() {
         assert_eq!(
             AllowedHttpHost::host("localhost"),
@@ -302,5 +317,14 @@ mod test {
         assert!(allowed.allow(&Url::parse("https://spin.fermyon.dev/").unwrap()));
         assert!(!allowed.allow(&Url::parse("http://example.com/").unwrap()));
         assert!(!allowed.allow(&Url::parse("http://google.com/").unwrap()));
+    }
+
+    #[test]
+    fn test_allowed_hosts_includes() {
+        let allowed =
+            parse_allowed_http_hosts(&to_vec_owned(&["self", "http://example.com:8383"])).unwrap();
+        assert!(allowed.includes(AllowedHttpHost::host("self")));
+        assert!(allowed.includes(AllowedHttpHost::host_and_port("example.com", 8383)));
+        assert!(!allowed.includes(AllowedHttpHost::host("google.com")));
     }
 }

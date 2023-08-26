@@ -14,6 +14,51 @@ fn get_url(base: &str, path: &str) -> String {
     format!("{}{}", base, path)
 }
 
+pub async fn component_outbound_http_works(controller: &dyn Controller) {
+    async fn checks(
+        metadata: AppMetadata,
+        _: Option<Pin<Box<dyn AsyncBufRead>>>,
+        _: Option<Pin<Box<dyn AsyncBufRead>>>,
+    ) -> Result<()> {
+        assert_http_response(
+            get_url(metadata.base.as_str(), "/outbound-allowed").as_str(),
+            Method::GET,
+            "",
+            200,
+            &[],
+            Some("Hello, Fermyon!\n"),
+        )
+        .await?;
+
+        assert_http_response(
+            get_url(metadata.base.as_str(), "/outbound-not-allowed").as_str(),
+            Method::GET,
+            "",
+            500,
+            &[],
+            Some("destination-not-allowed (error 1)\n"),
+        )
+        .await
+    }
+
+    let tc = TestCaseBuilder::default()
+        .name("outbound-http-to-same-app".to_string())
+        //the appname should be same as dir where this app exists
+        .appname(Some("outbound-http-to-same-app".to_string()))
+        .template(None)
+        .assertions(
+            |metadata: AppMetadata,
+             stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
+             stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
+                Box::pin(checks(metadata, stdout_stream, stderr_stream))
+            },
+        )
+        .build()
+        .unwrap();
+
+    tc.run(controller).await.unwrap()
+}
+
 pub async fn config_variables_default_works(controller: &dyn Controller) {
     async fn checks(
         metadata: AppMetadata,

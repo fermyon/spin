@@ -1,24 +1,48 @@
 spin_manifest_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
-description = "A simple application that makes an outbound http call."
+description = "Demonstrates outbound HTTP calls"
 name = "spin-outbound-http"
 trigger = { type = "http", base = "/" }
 version = "1.0.0"
 
 [[component]]
-id = "rust-outbound-http"
-source = "target/wasm32-wasi/release/http_rust_outbound_http.wasm"
+id = "outbound-http"
+source = "outbound-http/target/wasm32-wasi/release/http_rust_outbound_http.wasm"
 allowed_http_hosts = ["https://random-data-api.fermyon.app"]
 [component.trigger]
 route = "/outbound"
 [component.build]
+workdir = "outbound-http"
 command = "cargo build --target wasm32-wasi --release"
 
 [[component]]
-id = "rust-outbound-http-wildcard"
-source = "target/wasm32-wasi/release/http_rust_outbound_http.wasm"
+id = "outbound-http-wildcard"
+source = "outbound-http/target/wasm32-wasi/release/http_rust_outbound_http.wasm"
 allowed_http_hosts = ["insecure:allow-all"]
 [component.trigger]
 route = "/wildcard"
 [component.build]
+workdir = "outbound-http"
+command = "cargo build --target wasm32-wasi --release"
+
+[[component]]
+id = "outbound-http-to-same-app"
+source = "outbound-http-to-same-app/target/wasm32-wasi/release/outbound_http_to_same_app.wasm"
+# To make outbound calls to components in the same Spin app,
+# use the special value self
+allowed_http_hosts = ["self"]
+[component.trigger]
+route = "/outbound-to-hello-component"
+[component.build]
+workdir = "outbound-http-to-same-app"
+command = "cargo build --target wasm32-wasi --release"
+
+[[component]]
+id = "hello-component"
+source = "http-hello/target/wasm32-wasi/release/http_hello.wasm"
+description = "A simple component that returns hello."
+[component.trigger]
+route = "/hello"
+[component.build]
+workdir = "http-hello"
 command = "cargo build --target wasm32-wasi --release"

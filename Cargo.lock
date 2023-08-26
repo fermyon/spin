@@ -5311,6 +5311,7 @@ dependencies = [
  "hyper",
  "indexmap",
  "num_cpus",
+ "outbound-http",
  "percent-encoding",
  "rustls-pemfile 0.3.0",
  "serde",

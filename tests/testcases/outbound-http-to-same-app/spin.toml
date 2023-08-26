@@ -1,0 +1,31 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "An application that demonstates a component making an outbound http request to another component in the same application."
+name = "local-outbound-http"
+trigger = { type = "http", base = "/test" }
+version = "1.0.0"
+
+[[component]]
+id = "hello"
+source = "http-component/target/wasm32-wasi/release/http_component.wasm"
+[component.trigger]
+route = "/hello/..."
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+
+[[component]]
+id = "outbound-http-allowed"
+source = "outbound-http-component/target/wasm32-wasi/release/outbound_http_component.wasm"
+allowed_http_hosts = ["self"]
+[component.trigger]
+route = "/outbound-allowed/..."
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+
+[[component]]
+id = "outbound-http-not-allowed"
+source = "outbound-http-component/target/wasm32-wasi/release/outbound_http_component.wasm"
+[component.trigger]
+route = "/outbound-not-allowed/..."
+[component.build]
+command = "cargo build --target wasm32-wasi --release"

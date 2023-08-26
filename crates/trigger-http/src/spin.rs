@@ -27,10 +27,26 @@ impl HttpExecutor for SpinHttpExecutor {
             component_id
         );
 
-        let (instance, store) = engine.prepare_instance(component_id).await?;
+        let (instance, mut store) = engine.prepare_instance(component_id).await?;
         let EitherInstance::Component(instance) = instance else {
             unreachable!()
         };
+
+        if let Some(authority) = req.uri().authority() {
+            if let Some(scheme) = req.uri().scheme_str() {
+                if let Some(outbound_http_handle) = engine
+                .engine
+                .find_host_component_handle::<std::sync::Arc<outbound_http::OutboundHttpComponent>>(
+                )
+            {
+                let outbound_http_data = store
+                    .host_components_data()
+                    .get_or_insert(outbound_http_handle);
+
+                outbound_http_data.origin = format!("{}://{}", scheme, authority);
+            }
+            }
+        }
 
         let resp = Self::execute_impl(store, instance, base, raw_route, req, client_addr)
             .await

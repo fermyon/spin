@@ -11,7 +11,7 @@ use spin_world::{
     http_types::{Headers, HttpError, Method, Request, Response},
 };
 
-use allowed_http_hosts::AllowedHttpHosts;
+use allowed_http_hosts::{AllowedHttpHost, AllowedHttpHosts};
 pub use host_component::OutboundHttpComponent;
 
 pub const ALLOWED_HTTP_HOSTS_KEY: MetadataKey<Vec<String>> = MetadataKey::new("allowed_http_hosts");
@@ -21,15 +21,27 @@ pub const ALLOWED_HTTP_HOSTS_KEY: MetadataKey<Vec<String>> = MetadataKey::new("a
 pub struct OutboundHttp {
     /// List of hosts guest modules are allowed to make requests to.
     pub allowed_hosts: AllowedHttpHosts,
+    /// During an incoming HTTP request, origin is set to the host of that incoming HTTP request.
+    /// This is used to direct outbound requests to the same host when allowed.
+    pub origin: String,
     client: Option<Client>,
 }
 
 impl OutboundHttp {
     /// Check if guest module is allowed to send request to URL, based on the list of
-    /// allowed hosts defined by the runtime. If the list of allowed hosts contains
+    /// allowed hosts defined by the runtime. If the url passed in is a relative path,
+    /// only allow if allowed_hosts contains `self`. If the list of allowed hosts contains
     /// `insecure:allow-all`, then all hosts are allowed.
     /// If `None` is passed, the guest module is not allowed to send the request.
-    fn is_allowed(&self, url: &str) -> Result<bool, HttpError> {
+    fn is_allowed(&mut self, url: &str) -> Result<bool, HttpError> {
+        if url.starts_with('/') {
+            if self.allowed_hosts.includes(AllowedHttpHost::host("self")) {
+                return Ok(true);
+            } else {
+                return Ok(false);
+            }
+        }
+
         let url = Url::parse(url).map_err(|_| HttpError::InvalidUrl)?;
         Ok(self.allowed_hosts.allow(&url))
     }
@@ -49,7 +61,14 @@ impl outbound_http::Host for OutboundHttp {
             }
 
             let method = method_from(req.method);
-            let url = Url::parse(&req.uri).map_err(|_| HttpError::InvalidUrl)?;
+
+            let req_url: Url = if req.uri.starts_with('/') {
+                Url::parse(&format!("{}{}", self.origin, req.uri))
+                    .map_err(|_| HttpError::InvalidUrl)?
+            } else {
+                Url::parse(&req.uri).map_err(|_| HttpError::InvalidUrl)?
+            };
+
             let headers = request_headers(req.headers).map_err(|_| HttpError::RuntimeError)?;
             let body = req.body.unwrap_or_default().to_vec();
 
@@ -62,7 +81,7 @@ impl outbound_http::Host for OutboundHttp {
             let client = self.client.get_or_insert_with(Default::default);
 
             let resp = client
-                .request(method, url)
+                .request(method, req_url)
                 .headers(headers)
                 .body(body)
                 .send()

@@ -202,6 +202,17 @@ impl WatchCommand {
         let mut spin_args = match state {
             State::Building => vec![String::from("build")],
             State::Running => vec![String::from("up")],
+            State::WaitingForSpinUpToExit => {
+                // This should never happen and it's a logic error if it does.
+                // Currently this tries to gracefully continue but it might mean
+                // the watch state and running process are out of sync in which
+                // case it might be better to panic...?
+                debug_assert!(false, "spin watch: Should not have tried to start a process while in the WaitingForSpinUpToExit state");
+                tracing::error!(
+                    "Internal error: spin watch tried to restart while waiting for spin up to exit"
+                );
+                vec![String::from("build")]
+            }
         };
         spin_args.append(&mut vec![String::from("-f"), manifest_path]);
         if matches!(state, State::Running) {

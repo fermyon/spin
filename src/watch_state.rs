@@ -42,33 +42,50 @@ impl WatchState {
         // https://docs.rs/watchexec/latest/watchexec/action/enum.Outcome.html
         let outcome = match (effect, *state) {
             (Effect::Exit, _) => {
-                Outcome::if_running(Outcome::both(Outcome::Stop, Outcome::Exit), Outcome::Exit)
+                Outcome::if_running(Outcome::both(stop_outcome(), Outcome::Exit), Outcome::Exit)
             }
             (Effect::ChildProcessFailed, _) => {
-                Outcome::if_running(Outcome::Stop, Outcome::DoNothing)
+                Outcome::if_running(stop_outcome(), Outcome::DoNothing)
             }
             (Effect::ChildProcessCompleted, State::Building) => {
                 *state = State::Running;
                 self.restart_outcome(PREVENT_CLEAR)
             }
-            (Effect::ChildProcessCompleted, State::Running) => Outcome::DoNothing,
+            (Effect::ChildProcessCompleted, State::Running) => {
+                *state = State::Building;
+                self.restart_outcome(PREVENT_CLEAR)
+            }
+            (Effect::ChildProcessCompleted, State::WaitingForSpinUpToExit) => {
+                *state = State::Building;
+                self.restart_outcome(PREVENT_CLEAR)
+            }
             (Effect::ManifestChange, State::Building) => self.restart_outcome(ALLOW_CLEAR),
+            (Effect::ManifestChange, State::WaitingForSpinUpToExit) => Outcome::DoNothing,
             (Effect::ManifestChange, State::Running) => {
                 if !self.skip_build {
-                    *state = State::Building;
+                    *state = State::WaitingForSpinUpToExit;
+                    Outcome::if_running(stop_outcome(), Outcome::DoNothing)
+                } else {
+                    self.restart_outcome(ALLOW_CLEAR)
                 }
-                self.restart_outcome(ALLOW_CLEAR)
             }
             (Effect::SourceChange, State::Building) => self.restart_outcome(ALLOW_CLEAR),
+            (Effect::SourceChange, State::WaitingForSpinUpToExit) => Outcome::DoNothing,
             (Effect::SourceChange, State::Running) => {
                 if !self.skip_build {
-                    *state = State::Building;
-                    return self.restart_outcome(ALLOW_CLEAR);
+                    *state = State::WaitingForSpinUpToExit;
+                    Outcome::if_running(stop_outcome(), Outcome::DoNothing)
+                } else {
+                    Outcome::DoNothing
                 }
-                Outcome::DoNothing
             }
             (Effect::ArtifactChange, State::Building) => Outcome::DoNothing,
-            (Effect::ArtifactChange, State::Running) => self.restart_outcome(ALLOW_CLEAR),
+            (Effect::ArtifactChange, State::WaitingForSpinUpToExit) => Outcome::DoNothing,
+            (Effect::ArtifactChange, State::Running) => {
+                *state = State::WaitingForSpinUpToExit;
+                Outcome::if_running(stop_outcome(), Outcome::DoNothing)
+            }
+            (Effect::DoNothing, State::WaitingForSpinUpToExit) => Outcome::DoNothing,
             (Effect::DoNothing, _) => Outcome::if_running(Outcome::DoNothing, Outcome::Start),
         };
         tracing::debug!("now in {:?} state with outcome {:?}", *state, outcome);
@@ -79,7 +96,7 @@ impl WatchState {
         let should_clear = !prevent_clear && self.clear;
         Outcome::sequence(
             [
-                Outcome::if_running(Outcome::Stop, Outcome::DoNothing),
+                Outcome::if_running(stop_outcome(), Outcome::DoNothing),
                 match should_clear {
                     true => Outcome::Clear,
                     false => Outcome::DoNothing,
@@ -91,11 +108,22 @@ impl WatchState {
     }
 }
 
+// We prefer to stop `spin up` with Ctrl+C (Interrupt) so that it cleans up properly,
+// but this may depend on the OS.
+fn stop_outcome() -> Outcome {
+    #[cfg(unix)]
+    let stop = Outcome::Signal(watchexec::signal::source::MainSignal::Interrupt);
+    #[cfg(not(unix))]
+    let stop = Outcome::Stop;
+    stop
+}
+
 /// A state that the watch command can be in.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum State {
     Building,
     Running,
+    WaitingForSpinUpToExit,
 }
 
 /// An effect is parsed from the events of an action and results in an outcome.
@@ -109,7 +137,7 @@ pub enum Effect {
     Exit,
     /// Either `spin build` or `spin up` failed to run
     ChildProcessFailed,
-    /// `spin build` has completed running, `spin up` never completes
+    /// Either `spin build` or `spin up` has completed
     ChildProcessCompleted,
     /// Changes have been made to the application manifest
     ManifestChange,
@@ -159,7 +187,7 @@ mod tests {
         assert_eq!(
             Outcome::both(
                 Outcome::both(
-                    Outcome::if_running(Outcome::Stop, Outcome::DoNothing),
+                    Outcome::if_running(stop_outcome(), Outcome::DoNothing),
                     Outcome::DoNothing
                 ),
                 Outcome::Start
@@ -168,22 +196,29 @@ mod tests {
         );
         assert_eq!(State::Running, sm.get_state());
 
-        // Source change restarts build and clears screen
+        // Source change waits for `spin up` to exit...
+        assert_eq!(
+            Outcome::if_running(stop_outcome(), Outcome::DoNothing),
+            sm.handle(Effect::SourceChange)
+        );
+        assert_eq!(State::WaitingForSpinUpToExit, sm.get_state());
+
+        // ...and when it does, kicks off the build
         assert_eq!(
             Outcome::both(
                 Outcome::both(
-                    Outcome::if_running(Outcome::Stop, Outcome::DoNothing),
-                    Outcome::Clear
+                    Outcome::if_running(stop_outcome(), Outcome::DoNothing),
+                    Outcome::DoNothing
                 ),
                 Outcome::Start
             ),
-            sm.handle(Effect::SourceChange)
+            sm.handle(Effect::ChildProcessCompleted)
         );
         assert_eq!(State::Building, sm.get_state());
 
         // Build fails and it halts there
         assert_eq!(
-            Outcome::if_running(Outcome::Stop, Outcome::DoNothing),
+            Outcome::if_running(stop_outcome(), Outcome::DoNothing),
             sm.handle(Effect::ChildProcessFailed)
         );
         assert_eq!(State::Building, sm.get_state());
@@ -202,7 +237,7 @@ mod tests {
         assert_eq!(
             Outcome::both(
                 Outcome::both(
-                    Outcome::if_running(Outcome::Stop, Outcome::DoNothing),
+                    Outcome::if_running(stop_outcome(), Outcome::DoNothing),
                     Outcome::DoNothing
                 ),
                 Outcome::Start
@@ -213,7 +248,7 @@ mod tests {
 
         // Running server fails and it halts there
         assert_eq!(
-            Outcome::if_running(Outcome::Stop, Outcome::DoNothing),
+            Outcome::if_running(stop_outcome(), Outcome::DoNothing),
             sm.handle(Effect::ChildProcessFailed)
         );
         assert_eq!(State::Running, sm.get_state());

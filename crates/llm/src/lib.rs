@@ -144,8 +144,7 @@ impl wasi_llm::Host for LlmEngine {
         p: String,
         _params: Option<wasi_llm::InferencingParams>,
     ) -> anyhow::Result<Result<wasi_llm::InferencingResult, wasi_llm::Error>> {
-        let res = self.run(m, p).await.unwrap();
-        Ok(Ok(res))
+        Ok(self.run(m, p).await)
     }
 
     async fn generate_embeddings(

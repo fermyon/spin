@@ -147,7 +147,7 @@ where
             &*self.key_values,
             &*self.sqlite_statements,
             spin_llm::LLmOptions {
-                model_registry: PathBuf::from(".spin/llm-models"),
+                model_registry: PathBuf::from(".spin/llms"),
                 use_gpu: true,
             },
         );

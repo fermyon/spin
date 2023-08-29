@@ -12,6 +12,8 @@ use rand::SeedableRng;
 use spin_core::{async_trait, HostComponent};
 use spin_world::llm::{self as wasi_llm};
 use std::{
+    collections::hash_map::Entry,
+    collections::HashMap,
     convert::Infallible,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -55,11 +57,18 @@ impl LlmComponent {
 pub struct LlmEngine {
     pub registry: PathBuf,
     pub use_gpu: bool,
+    inferencing_models: HashMap<String, Arc<dyn llm::Model>>,
+    embeddings_models: HashMap<String, (tokenizers::Tokenizer, Arc<BertModel>)>,
 }
 
 impl LlmEngine {
     pub fn new(registry: PathBuf, use_gpu: bool) -> Self {
-        Self { registry, use_gpu }
+        Self {
+            registry,
+            use_gpu,
+            inferencing_models: Default::default(),
+            embeddings_models: Default::default(),
+        }
     }
 
     async fn run(
@@ -77,18 +86,7 @@ impl LlmEngine {
             n_gqa: None,
         };
 
-        let progress_fn = |_| {};
-
-        let model = llm::load_dynamic(
-            Some(model_arch(&model)?),
-            &self.registry.join(&model_name(model)?),
-            llm::TokenizerSource::Embedded,
-            params,
-            progress_fn,
-        )
-        .map_err(|e| {
-            wasi_llm::Error::RuntimeError(format!("Failed to load model from model registry: {e}"))
-        })?;
+        let model = self.inferencing_model(model, params).await?;
         let cfg = InferenceSessionConfig {
             memory_k_type: ModelKVMemoryType::Float16,
             memory_v_type: ModelKVMemoryType::Float16,
@@ -136,27 +134,89 @@ impl LlmEngine {
 
     async fn generate_embeddings(
         &mut self,
-        _model: wasi_llm::EmbeddingModel,
+        model: wasi_llm::EmbeddingModel,
         data: Vec<String>,
     ) -> Result<Vec<Vec<f32>>, wasi_llm::Error> {
-        generate_embeddings(
-            data,
-            &self.registry.join("tokenizer.json"),
-            &self.registry.join("model.safetensor"),
-        )
-        .await
-        .map_err(|e| wasi_llm::Error::RuntimeError(format!("Error generating embeddings: {e}")))
+        let (tokenizer, model) = self.embeddings_model(model).await?;
+        generate_embeddings(data, tokenizer, model)
+            .await
+            .map_err(|e| wasi_llm::Error::RuntimeError(format!("Error generating embeddings: {e}")))
+    }
+
+    /// Get embeddings model from cache or load from disk
+    async fn embeddings_model(
+        &mut self,
+        model: wasi_llm::EmbeddingModel,
+    ) -> Result<(tokenizers::Tokenizer, Arc<BertModel>), wasi_llm::Error> {
+        let key = match model {
+            wasi_llm::EmbeddingModel::AllMiniLmL6V2 => "all-mini-llm-l6-v2".into(),
+            wasi_llm::EmbeddingModel::Other(o) => o,
+        };
+        let registry_path = self.registry.join(&key);
+        let r = match self.embeddings_models.entry(key) {
+            Entry::Occupied(o) => o.get().clone(),
+            Entry::Vacant(v) => v
+                .insert({
+                    let tokenizer_file = registry_path.join("tokenizer.json");
+                    let model_file = registry_path.join("model.safetensor");
+                    let tokenizer = load_tokenizer(&tokenizer_file).map_err(|_| {
+                        wasi_llm::Error::RuntimeError("failed to load embeddings tokenizer".into())
+                    })?;
+                    let model = load_model(&model_file).await.map_err(|_| {
+                        wasi_llm::Error::RuntimeError("failed to load embeddings model".into())
+                    })?;
+                    (tokenizer, Arc::new(model))
+                })
+                .clone(),
+        };
+        Ok(r)
+    }
+
+    /// Get inferencing model from cache or load from disk
+    async fn inferencing_model(
+        &mut self,
+        model: wasi_llm::InferencingModel,
+        params: ModelParameters,
+    ) -> Result<Arc<dyn Model>, wasi_llm::Error> {
+        let model_name = model_name(model.clone())?;
+        let progress_fn = |_| {};
+        let model = match self.inferencing_models.entry(model_name.into()) {
+            Entry::Occupied(o) => o.get().clone(),
+            Entry::Vacant(v) => v
+                .insert({
+                    let path = self.registry.join(model_name);
+                    tokio::task::spawn_blocking(move || {
+                        let model = llm::load_dynamic(
+                            Some(model_arch(&model)?),
+                            &path,
+                            llm::TokenizerSource::Embedded,
+                            params,
+                            progress_fn,
+                        )
+                        .map_err(|e| {
+                            wasi_llm::Error::RuntimeError(format!(
+                                "Failed to load model from model registry: {e}"
+                            ))
+                        })?;
+                        Ok(Arc::from(model))
+                    })
+                    .await
+                    .map_err(|_| {
+                        wasi_llm::Error::RuntimeError("error loading inferencing model".into())
+                    })??
+                })
+                .clone(),
+        };
+        Ok(model)
     }
 }
 
 async fn generate_embeddings(
     data: Vec<String>,
-    tokenizer_file: &Path,
-    model_file: &Path,
+    mut tokenizer: tokenizers::Tokenizer,
+    model: Arc<BertModel>,
 ) -> anyhow::Result<Vec<Vec<f32>>> {
     let n_sentences = data.len();
-    let mut tokenizer = tokenizers::Tokenizer::from_file(tokenizer_file)
-        .map_err(|e| anyhow::anyhow!("failed to read tokenizer file {tokenizer_file:?}: {e}"))?;
     // This function attempts to generate the embeddings for a batch of inputs, most
     // likely of different lengths.
     // The tokenizer expects all inputs in a batch to have the same length, so the
@@ -184,7 +244,6 @@ async fn generate_embeddings(
             )?)
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
-    let model = load_model(model_file).await?;
 
     // Execute the model's forward propagation function, which generates the raw embeddings.
     let token_ids = candle::Tensor::stack(&token_ids, 0)?;
@@ -211,6 +270,12 @@ async fn generate_embeddings(
     }
 
     Ok(results)
+}
+
+fn load_tokenizer(tokenizer_file: &Path) -> anyhow::Result<tokenizers::Tokenizer> {
+    let tokenizer = tokenizers::Tokenizer::from_file(tokenizer_file)
+        .map_err(|e| anyhow::anyhow!("failed to read tokenizer file {tokenizer_file:?}: {e}"))?;
+    Ok(tokenizer)
 }
 
 async fn load_model(model_file: &Path) -> anyhow::Result<BertModel> {

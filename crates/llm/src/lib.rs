@@ -46,19 +46,29 @@ impl HostComponent for LlmComponent {
 }
 
 impl LlmComponent {
-    pub fn new(registry: PathBuf, use_gpu: bool) -> Self {
-        Self {
+    pub async fn new(registry: PathBuf, use_gpu: bool) -> Self {
+        let mut component = Self {
             engine: LlmEngine::new(registry, use_gpu),
-        }
+        };
+        // warm caches
+        let _ = component
+            .engine
+            .inferencing_model(wasi_llm::InferencingModel::Llama2V13bChat)
+            .await;
+        let _ = component
+            .engine
+            .embeddings_model(wasi_llm::EmbeddingModel::AllMiniLmL6V2)
+            .await;
+        component
     }
 }
 
 #[derive(Clone)]
 pub struct LlmEngine {
-    pub registry: PathBuf,
-    pub use_gpu: bool,
-    inferencing_models: HashMap<String, Arc<dyn llm::Model>>,
-    embeddings_models: HashMap<String, (tokenizers::Tokenizer, Arc<BertModel>)>,
+    registry: PathBuf,
+    use_gpu: bool,
+    inferencing_models: HashMap<(String, bool), Arc<dyn llm::Model>>,
+    embeddings_models: HashMap<String, Arc<(tokenizers::Tokenizer, BertModel)>>,
 }
 
 impl LlmEngine {
@@ -76,17 +86,7 @@ impl LlmEngine {
         model: wasi_llm::InferencingModel,
         prompt: String,
     ) -> Result<String, wasi_llm::Error> {
-        let params = ModelParameters {
-            prefer_mmap: true,
-            context_size: 2048,
-            lora_adapters: None,
-            use_gpu: self.use_gpu,
-            gpu_layers: None,
-            rope_overrides: None,
-            n_gqa: None,
-        };
-
-        let model = self.inferencing_model(model, params).await?;
+        let model = self.inferencing_model(model).await?;
         let cfg = InferenceSessionConfig {
             memory_k_type: ModelKVMemoryType::Float16,
             memory_v_type: ModelKVMemoryType::Float16,
@@ -137,8 +137,8 @@ impl LlmEngine {
         model: wasi_llm::EmbeddingModel,
         data: Vec<String>,
     ) -> Result<Vec<Vec<f32>>, wasi_llm::Error> {
-        let (tokenizer, model) = self.embeddings_model(model).await?;
-        generate_embeddings(data, tokenizer, model)
+        let model = self.embeddings_model(model).await?;
+        generate_embeddings(data, model)
             .await
             .map_err(|e| wasi_llm::Error::RuntimeError(format!("Error generating embeddings: {e}")))
     }
@@ -147,7 +147,7 @@ impl LlmEngine {
     async fn embeddings_model(
         &mut self,
         model: wasi_llm::EmbeddingModel,
-    ) -> Result<(tokenizers::Tokenizer, Arc<BertModel>), wasi_llm::Error> {
+    ) -> Result<Arc<(tokenizers::Tokenizer, BertModel)>, wasi_llm::Error> {
         let key = match model {
             wasi_llm::EmbeddingModel::AllMiniLmL6V2 => "all-mini-llm-l6-v2".into(),
             wasi_llm::EmbeddingModel::Other(o) => o,
@@ -157,15 +157,23 @@ impl LlmEngine {
             Entry::Occupied(o) => o.get().clone(),
             Entry::Vacant(v) => v
                 .insert({
-                    let tokenizer_file = registry_path.join("tokenizer.json");
-                    let model_file = registry_path.join("model.safetensor");
-                    let tokenizer = load_tokenizer(&tokenizer_file).map_err(|_| {
-                        wasi_llm::Error::RuntimeError("failed to load embeddings tokenizer".into())
-                    })?;
-                    let model = load_model(&model_file).await.map_err(|_| {
-                        wasi_llm::Error::RuntimeError("failed to load embeddings model".into())
-                    })?;
-                    (tokenizer, Arc::new(model))
+                    tokio::task::spawn_blocking(move || {
+                        let tokenizer_file = registry_path.join("tokenizer.json");
+                        let model_file = registry_path.join("model.safetensor");
+                        let tokenizer = load_tokenizer(&tokenizer_file).map_err(|_| {
+                            wasi_llm::Error::RuntimeError(
+                                "failed to load embeddings tokenizer".into(),
+                            )
+                        })?;
+                        let model = load_model(&model_file).map_err(|_| {
+                            wasi_llm::Error::RuntimeError("failed to load embeddings model".into())
+                        })?;
+                        Ok(Arc::new((tokenizer, model)))
+                    })
+                    .await
+                    .map_err(|_| {
+                        wasi_llm::Error::RuntimeError("error loading inferencing model".into())
+                    })??
                 })
                 .clone(),
         };
@@ -176,16 +184,25 @@ impl LlmEngine {
     async fn inferencing_model(
         &mut self,
         model: wasi_llm::InferencingModel,
-        params: ModelParameters,
     ) -> Result<Arc<dyn Model>, wasi_llm::Error> {
         let model_name = model_name(model.clone())?;
+        let use_gpu = self.use_gpu;
         let progress_fn = |_| {};
-        let model = match self.inferencing_models.entry(model_name.into()) {
+        let model = match self.inferencing_models.entry((model_name.into(), use_gpu)) {
             Entry::Occupied(o) => o.get().clone(),
             Entry::Vacant(v) => v
                 .insert({
                     let path = self.registry.join(model_name);
                     tokio::task::spawn_blocking(move || {
+                        let params = ModelParameters {
+                            prefer_mmap: true,
+                            context_size: 2048,
+                            lora_adapters: None,
+                            use_gpu,
+                            gpu_layers: None,
+                            rope_overrides: None,
+                            n_gqa: None,
+                        };
                         let model = llm::load_dynamic(
                             Some(model_arch(&model)?),
                             &path,
@@ -213,63 +230,67 @@ impl LlmEngine {
 
 async fn generate_embeddings(
     data: Vec<String>,
-    mut tokenizer: tokenizers::Tokenizer,
-    model: Arc<BertModel>,
+    model: Arc<(tokenizers::Tokenizer, BertModel)>,
 ) -> anyhow::Result<Vec<Vec<f32>>> {
     let n_sentences = data.len();
-    // This function attempts to generate the embeddings for a batch of inputs, most
-    // likely of different lengths.
-    // The tokenizer expects all inputs in a batch to have the same length, so the
-    // following is configuring the tokenizer to pad (add trailing zeros) each input
-    // to match the length of the longest in the batch.
-    if let Some(pp) = tokenizer.get_padding_mut() {
-        pp.strategy = tokenizers::PaddingStrategy::BatchLongest
-    } else {
-        let pp = PaddingParams {
-            strategy: tokenizers::PaddingStrategy::BatchLongest,
-            ..Default::default()
-        };
-        tokenizer.with_padding(Some(pp));
-    }
-    let tokens = tokenizer
-        .encode_batch(data, true)
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
-    let token_ids = tokens
-        .iter()
-        .map(|tokens| {
-            let tokens = tokens.get_ids().to_vec();
-            Ok(candle::Tensor::new(
-                tokens.as_slice(),
-                &candle::Device::Cpu,
-            )?)
-        })
-        .collect::<anyhow::Result<Vec<_>>>()?;
+    tokio::task::spawn_blocking(move || {
+        let mut tokenizer = model.0.clone();
+        let model = &model.1;
+        // This function attempts to generate the embeddings for a batch of inputs, most
+        // likely of different lengths.
+        // The tokenizer expects all inputs in a batch to have the same length, so the
+        // following is configuring the tokenizer to pad (add trailing zeros) each input
+        // to match the length of the longest in the batch.
+        if let Some(pp) = tokenizer.get_padding_mut() {
+            pp.strategy = tokenizers::PaddingStrategy::BatchLongest
+        } else {
+            let pp = PaddingParams {
+                strategy: tokenizers::PaddingStrategy::BatchLongest,
+                ..Default::default()
+            };
+            tokenizer.with_padding(Some(pp));
+        }
+        let tokens = tokenizer
+            .encode_batch(data, true)
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+        let token_ids = tokens
+            .iter()
+            .map(|tokens| {
+                let tokens = tokens.get_ids().to_vec();
+                Ok(candle::Tensor::new(
+                    tokens.as_slice(),
+                    &candle::Device::Cpu,
+                )?)
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
 
-    // Execute the model's forward propagation function, which generates the raw embeddings.
-    let token_ids = candle::Tensor::stack(&token_ids, 0)?;
-    let embeddings = model.forward(&token_ids, &token_ids.zeros_like()?)?;
+        // Execute the model's forward propagation function, which generates the raw embeddings.
+        let token_ids = candle::Tensor::stack(&token_ids, 0)?;
+        let embeddings = model.forward(&token_ids, &token_ids.zeros_like()?)?;
 
-    // SBERT adds a pooling operation to the raw output to derive a fixed sized sentence embedding.
-    // The BERT models suggest using mean pooling, which is what the operation below performs.
-    // https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2#usage-huggingface-transformers
-    let (_, n_tokens, _) = embeddings.dims3()?;
-    let embeddings = (embeddings.sum(1)? / (n_tokens as f64))?;
-    tracing::debug!("Number of tokens: {}", n_tokens);
+        // SBERT adds a pooling operation to the raw output to derive a fixed sized sentence embedding.
+        // The BERT models suggest using mean pooling, which is what the operation below performs.
+        // https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2#usage-huggingface-transformers
+        let (_, n_tokens, _) = embeddings.dims3()?;
+        let embeddings = (embeddings.sum(1)? / (n_tokens as f64))?;
+        tracing::debug!("Number of tokens: {}", n_tokens);
 
-    // Take each sentence embedding from the batch and arrange it in the final result tensor.
-    // Normalize each embedding as the last step (this generates vectors with length 1, which
-    // makes the cosine similarity function significantly more efficient (it becomes a simple
-    // dot product).
-    let mut results: Vec<Vec<f32>> = Vec::new();
-    for j in 0..n_sentences {
-        let e_j = embeddings.get(j)?;
-        let mut emb: Vec<f32> = e_j.to_vec1()?;
-        let length: f32 = emb.iter().map(|x| x * x).sum::<f32>().sqrt();
-        emb.iter_mut().for_each(|x| *x /= length);
-        results.push(emb);
-    }
+        // Take each sentence embedding from the batch and arrange it in the final result tensor.
+        // Normalize each embedding as the last step (this generates vectors with length 1, which
+        // makes the cosine similarity function significantly more efficient (it becomes a simple
+        // dot product).
+        let mut results: Vec<Vec<f32>> = Vec::new();
+        for j in 0..n_sentences {
+            let e_j = embeddings.get(j)?;
+            let mut emb: Vec<f32> = e_j.to_vec1()?;
+            let length: f32 = emb.iter().map(|x| x * x).sum::<f32>().sqrt();
+            emb.iter_mut().for_each(|x| *x /= length);
+            results.push(emb);
+        }
 
-    Ok(results)
+        Ok(results)
+    })
+    .await?
 }
 
 fn load_tokenizer(tokenizer_file: &Path) -> anyhow::Result<tokenizers::Tokenizer> {
@@ -278,9 +299,8 @@ fn load_tokenizer(tokenizer_file: &Path) -> anyhow::Result<tokenizers::Tokenizer
     Ok(tokenizer)
 }
 
-async fn load_model(model_file: &Path) -> anyhow::Result<BertModel> {
-    let buffer = tokio::fs::read(model_file)
-        .await
+fn load_model(model_file: &Path) -> anyhow::Result<BertModel> {
+    let buffer = std::fs::read(model_file)
         .with_context(|| format!("failed to read model file {model_file:?}"))?;
     let weights = safetensors::SafeTensors::deserialize(&buffer)?;
     let vb = VarBuilder::from_safetensors(vec![weights], DType::F32, &candle::Device::Cpu);

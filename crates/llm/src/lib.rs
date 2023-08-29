@@ -1,3 +1,9 @@
+mod bert;
+
+use anyhow::Context;
+use bert::{BertModel, Config};
+use candle::DType;
+use candle_nn::VarBuilder;
 use llm::{
     InferenceFeedback, InferenceParameters, InferenceResponse, InferenceSessionConfig, Model,
     ModelArchitecture, ModelKVMemoryType, ModelParameters,
@@ -7,9 +13,10 @@ use spin_core::{async_trait, HostComponent};
 use spin_world::llm::{self as wasi_llm};
 use std::{
     convert::Infallible,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
+use tokenizers::PaddingParams;
 
 #[derive(Default)]
 pub struct LLmOptions {
@@ -130,10 +137,90 @@ impl LlmEngine {
     async fn generate_embeddings(
         &mut self,
         _model: wasi_llm::EmbeddingModel,
-        _data: Vec<String>,
+        data: Vec<String>,
     ) -> Result<Vec<Vec<f32>>, wasi_llm::Error> {
-        Err(wasi_llm::Error::ModelNotSupported)
+        generate_embeddings(
+            data,
+            &self.registry.join("tokenizer.json"),
+            &self.registry.join("model.safetensor"),
+        )
+        .await
+        .map_err(|e| wasi_llm::Error::RuntimeError(format!("Error generating embeddings: {e}")))
     }
+}
+
+async fn generate_embeddings(
+    data: Vec<String>,
+    tokenizer_file: &Path,
+    model_file: &Path,
+) -> anyhow::Result<Vec<Vec<f32>>> {
+    let n_sentences = data.len();
+    let mut tokenizer = tokenizers::Tokenizer::from_file(tokenizer_file)
+        .map_err(|e| anyhow::anyhow!("failed to read tokenizer file {tokenizer_file:?}: {e}"))?;
+    // This function attempts to generate the embeddings for a batch of inputs, most
+    // likely of different lengths.
+    // The tokenizer expects all inputs in a batch to have the same length, so the
+    // following is configuring the tokenizer to pad (add trailing zeros) each input
+    // to match the length of the longest in the batch.
+    if let Some(pp) = tokenizer.get_padding_mut() {
+        pp.strategy = tokenizers::PaddingStrategy::BatchLongest
+    } else {
+        let pp = PaddingParams {
+            strategy: tokenizers::PaddingStrategy::BatchLongest,
+            ..Default::default()
+        };
+        tokenizer.with_padding(Some(pp));
+    }
+    let tokens = tokenizer
+        .encode_batch(data, true)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    let token_ids = tokens
+        .iter()
+        .map(|tokens| {
+            let tokens = tokens.get_ids().to_vec();
+            Ok(candle::Tensor::new(
+                tokens.as_slice(),
+                &candle::Device::Cpu,
+            )?)
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let model = load_model(model_file).await?;
+
+    // Execute the model's forward propagation function, which generates the raw embeddings.
+    let token_ids = candle::Tensor::stack(&token_ids, 0)?;
+    let embeddings = model.forward(&token_ids, &token_ids.zeros_like()?)?;
+
+    // SBERT adds a pooling operation to the raw output to derive a fixed sized sentence embedding.
+    // The BERT models suggest using mean pooling, which is what the operation below performs.
+    // https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2#usage-huggingface-transformers
+    let (_, n_tokens, _) = embeddings.dims3()?;
+    let embeddings = (embeddings.sum(1)? / (n_tokens as f64))?;
+    tracing::debug!("Number of tokens: {}", n_tokens);
+
+    // Take each sentence embedding from the batch and arrange it in the final result tensor.
+    // Normalize each embedding as the last step (this generates vectors with length 1, which
+    // makes the cosine similarity function significantly more efficient (it becomes a simple
+    // dot product).
+    let mut results: Vec<Vec<f32>> = Vec::new();
+    for j in 0..n_sentences {
+        let e_j = embeddings.get(j)?;
+        let mut emb: Vec<f32> = e_j.to_vec1()?;
+        let length: f32 = emb.iter().map(|x| x * x).sum::<f32>().sqrt();
+        emb.iter_mut().for_each(|x| *x /= length);
+        results.push(emb);
+    }
+
+    Ok(results)
+}
+
+async fn load_model(model_file: &Path) -> anyhow::Result<BertModel> {
+    let buffer = tokio::fs::read(model_file)
+        .await
+        .with_context(|| format!("failed to read model file {model_file:?}"))?;
+    let weights = safetensors::SafeTensors::deserialize(&buffer)?;
+    let vb = VarBuilder::from_safetensors(vec![weights], DType::F32, &candle::Device::Cpu);
+    let model = BertModel::load(vb, &Config::default()).context("error loading bert model")?;
+    Ok(model)
 }
 
 #[async_trait]

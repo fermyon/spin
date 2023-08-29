@@ -174,7 +174,7 @@ impl<'a, L: MaybeLoader> App<'a, L> {
         &'this self,
         key: MetadataKey<T>,
     ) -> Result<Option<T>> {
-        self.locked.metadata.get_typed(key)
+        self.locked.get_metadata(key)
     }
 
     /// Deserializes typed metadata for this app.
@@ -185,7 +185,7 @@ impl<'a, L: MaybeLoader> App<'a, L> {
         &'this self,
         key: MetadataKey<T>,
     ) -> Result<T> {
-        self.locked.metadata.require_typed(key)
+        self.locked.require_metadata(key)
     }
 
     /// Returns an iterator of custom config [`Variable`]s defined for this app.

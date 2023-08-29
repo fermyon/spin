@@ -6,6 +6,12 @@ on:
     tags:
       - "v*"
 
+# Serialize workflow runs
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+env:
+  RUST_VERSION: 1.68
+
 jobs:
   build-and-sign:
     name: build and sign release assets
@@ -85,14 +91,18 @@ jobs:
           cosign-release: v2.0.0
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.68
-          default: true
-          target: ${{ matrix.config.target }}
+        shell: bash
+        run: |
+          rustup toolchain install ${{ env.RUST_VERSION }}
+          rustup default ${{ env.RUST_VERSION }}
+
+      - name: Install target
+        if: matrix.config.target != ''
+        shell: bash
+        run: rustup target add --toolchain ${{ env.RUST_VERSION }} ${{ matrix.config.target }}
 
       - name: "Install Wasm Rust target"
-        run: rustup target add wasm32-wasi --toolchain 1.68 && rustup target add wasm32-unknown-unknown --toolchain 1.68
+        run: rustup target add wasm32-wasi --toolchain ${{ env.RUST_VERSION }} && rustup target add wasm32-unknown-unknown --toolchain ${{ env.RUST_VERSION }}
 
       - name: setup for cross-compiled linux aarch64 build
         if: matrix.config.target == 'aarch64-unknown-linux-gnu'
@@ -103,10 +113,8 @@ jobs:
           echo 'linker = "aarch64-linux-gnu-gcc"' >> ${HOME}/.cargo/config.toml
 
       - name: build release
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: "--all-features --release ${{ matrix.config.extraArgs }}"
+        shell: bash
+        run: cargo build --all-features --release ${{ matrix.config.extraArgs }}
 
       - name: Sign the binary with GitHub OIDC token
         shell: bash

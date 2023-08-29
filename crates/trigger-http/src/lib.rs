@@ -23,8 +23,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use serde::{Deserialize, Serialize};
-use spin_app::{AppComponent, MetadataKey};
+use spin_app::AppComponent;
 use spin_core::Engine;
 use spin_http::{
     app_info::AppInfo,
@@ -43,8 +42,6 @@ pub use tls::TlsConfig;
 
 pub(crate) type RuntimeData = ();
 pub(crate) type Store = spin_core::Store<RuntimeData>;
-
-const TRIGGER_METADATA_KEY: MetadataKey<TriggerMetadata> = MetadataKey::new("trigger");
 
 /// The Spin HTTP trigger.
 pub struct HttpTrigger {
@@ -84,13 +81,6 @@ impl CliArgs {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct TriggerMetadata {
-    r#type: String,
-    base: String,
-}
-
 #[async_trait]
 impl TriggerExecutor for HttpTrigger {
     const TRIGGER_TYPE: &'static str = "http";
@@ -99,7 +89,10 @@ impl TriggerExecutor for HttpTrigger {
     type RunConfig = CliArgs;
 
     async fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
-        let base = engine.app().require_metadata(TRIGGER_METADATA_KEY)?.base;
+        let base = engine
+            .app()
+            .require_metadata(spin_http::trigger::METADATA_KEY)?
+            .base;
 
         let component_routes = engine
             .trigger_configs()
@@ -174,17 +167,11 @@ impl TriggerExecutor for HttpTrigger {
         if let Some(HttpExecutorType::Wagi(_)) = &config.executor {
             let module = component.load_module(engine).await?;
             Ok(EitherInstancePre::Module(
-                engine
-                    .module_instantiate_pre(&module)
-                    .map_err(spin_trigger::decode_preinstantiation_error)?,
+                engine.module_instantiate_pre(&module)?,
             ))
         } else {
             let comp = component.load_component(engine).await?;
-            Ok(EitherInstancePre::Component(
-                engine
-                    .instantiate_pre(&comp)
-                    .map_err(spin_trigger::decode_preinstantiation_error)?,
-            ))
+            Ok(EitherInstancePre::Component(engine.instantiate_pre(&comp)?))
         }
     }
 }
@@ -465,6 +452,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use anyhow::Result;
+    use serde::Deserialize;
     use spin_testing::test_socket_addr;
 
     use super::*;

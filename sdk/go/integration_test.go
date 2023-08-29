@@ -17,14 +17,18 @@ const spinBinary = "../../target/debug/spin"
 func retryGet(t *testing.T, url string) *http.Response {
 	t.Helper()
 
-	const maxTries = 120 // (10min/5sec)
+	const maxTries = 600 // (10min)
 	for i := 1; i < maxTries; i++ {
+		// Catch call to `Fail` in other goroutine
+		if t.Failed() {
+			t.FailNow()
+		}
 		if res, err := http.Get(url); err != nil {
 			t.Log(err)
 		} else {
 			return res
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 	t.Fatal("Get request timeout: ", url)
 	return nil
@@ -49,6 +53,15 @@ func startSpin(t *testing.T, spinfile string) *testSpin {
 		t.Log(stderr.String())
 		t.Fatal(err)
 	}
+
+	go func() {
+		cmd.Wait()
+		if ctx.Err() == nil {
+			t.Log("spin exited before the test finished:", cmd.ProcessState)
+			t.Log("stderr:\n", stderr.String())
+			t.Fail()
+		}
+	}()
 
 	return &testSpin{
 		cancel: cancel,

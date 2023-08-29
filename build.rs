@@ -116,7 +116,17 @@ fn has_wasm32_wasi_target() -> bool {
 
 fn cargo_build(dir: &str) {
     run(
-        vec!["cargo", "build", "--target", "wasm32-wasi", "--release"],
+        vec![
+            "cargo",
+            "build",
+            "--target",
+            "wasm32-wasi",
+            "--release",
+            // Ensure that even if `CARGO_TARGET_DIR` is set
+            // that we're still building into the right dir.
+            "--target-dir",
+            "./target",
+        ],
         Some(dir),
         None,
     );

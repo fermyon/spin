@@ -10,7 +10,7 @@ import (
 	"unsafe"
 )
 
-type Store C.key_value_store_t
+type Store uint32
 
 const (
 	errorKindStoreTableFull = iota

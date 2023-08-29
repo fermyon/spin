@@ -93,12 +93,11 @@ runs:
   using: "composite"
   steps:
     - name: Install latest Rust stable toolchain
-      uses: actions-rs/toolchain@v1
+      shell: bash
       if: ${{ inputs.rust == 'true' }}
-      with:
-        toolchain: ${{ inputs.rust-version }}
-        default: true
-        components: clippy, rustfmt
+      run: |
+        rustup toolchain install ${{ inputs.rust-version }} --component clippy --component rustfmt
+        rustup default ${{ inputs.rust-version }}
 
     - name: "Install Wasm Rust target"
       run: rustup target add wasm32-wasi && rustup target add wasm32-unknown-unknown

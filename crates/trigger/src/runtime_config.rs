@@ -1,5 +1,6 @@
 pub mod config_provider;
 pub mod key_value;
+pub mod llm;
 pub mod sqlite;
 
 use std::{
@@ -21,8 +22,6 @@ use self::{
 
 pub const DEFAULT_STATE_DIR: &str = ".spin";
 const DEFAULT_LOGS_DIR: &str = "logs";
-
-const DEFAULT_SQLITE_DB_FILENAME: &str = "sqlite.db";
 
 /// RuntimeConfig allows multiple sources of runtime configuration to be
 /// queried uniformly.
@@ -162,16 +161,6 @@ impl RuntimeConfig {
         } else if let Some(state_dir) = self.state_dir() {
             // If the state dir is set, build the default path
             Some(state_dir.join(DEFAULT_LOGS_DIR))
-        } else {
-            None
-        }
-    }
-
-    /// Return a path to the sqlite DB used for key value storage if set.
-    pub fn sqlite_db_path(&self) -> Option<PathBuf> {
-        if let Some(state_dir) = self.state_dir() {
-            // If the state dir is set, build the default path
-            Some(state_dir.join(DEFAULT_SQLITE_DB_FILENAME))
         } else {
             None
         }

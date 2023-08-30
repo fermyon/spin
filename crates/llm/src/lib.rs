@@ -22,7 +22,6 @@ use tokenizers::PaddingParams;
 
 #[derive(Default)]
 pub struct LLmOptions {
-    pub model_registry: PathBuf,
     pub use_gpu: bool,
 }
 

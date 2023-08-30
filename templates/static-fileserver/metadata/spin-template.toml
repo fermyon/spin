@@ -5,7 +5,7 @@ trigger_type = "http"
 tags = ["http", "file", "static", "asset"]
 
 [add_component]
-skip_files = ["spin.toml"]
+skip_files = ["spin.toml", ".gitignore"]
 skip_parameters = ["http-base", "project-description"]
 [add_component.snippets]
 component = "component.txt"

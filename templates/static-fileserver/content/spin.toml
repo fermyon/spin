@@ -6,8 +6,8 @@ trigger = { type = "http", base = "{{http-base}}" }
 version = "0.1.0"
 
 [[component]]
-source = { url = "https://github.com/fermyon/spin-fileserver/releases/download/v0.0.2/spin_static_fs.wasm", digest = "sha256:65456bf4e84cf81b62075e761b2b0afaffaef2d0aeda521b245150f76b96421b" }
+source = { url = "https://github.com/fermyon/spin-fileserver/releases/download/v0.0.3/spin_static_fs.wasm", digest = "sha256:38bf971900228222f7f6b2ccee5051f399adca58d71692cdfdea98997965fd0d" }
 id = "{{ project-name }}"
-files = [ { source = "{{ files-path }}", destination = "/" } ]
+files = [{ source = "{{ files-path }}", destination = "/" }]
 [component.trigger]
 route = "{{ http-path | http_wildcard }}"

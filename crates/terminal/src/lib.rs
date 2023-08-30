@@ -75,7 +75,6 @@ fn color_choice(stream: atty::Stream) -> termcolor::ColorChoice {
 #[macro_export]
 macro_rules! step {
     ($step:expr, $($arg:tt)*) => {{
-
         $crate::cprint!($crate::colors::bold_green(), $step);
         print!(" ");
         println!($($arg)*);

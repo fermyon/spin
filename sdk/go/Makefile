@@ -47,6 +47,10 @@ SDK_VERSION_SOURCE_FILE  = sdk_version/sdk-version-go-template.c
 SDK_VERSION_DEST_FILES   = config/sdk-version-go.c http/sdk-version-go.c \
 			   key_value/sdk-version-go.c redis/sdk-version-go.c
 
+# NOTE: To generate the C bindings you need to install a forked version of wit-bindgen.
+#
+#   cargo install wit-bindgen-cli --git https://github.com/fermyon/wit-bindgen-backport --rev "b89d5079ba5b07b319631a1b191d2139f126c976"
+#
 .PHONY: generate
 generate: $(GENERATED_OUTBOUND_HTTP) $(GENERATED_SPIN_HTTP)
 generate: $(GENERATED_OUTBOUND_REDIS) $(GENERATED_SPIN_REDIS)

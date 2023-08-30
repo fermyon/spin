@@ -23,7 +23,7 @@ impl TryFrom<RawVariable> for Variable {
     fn try_from(var: RawVariable) -> Result<Self, Self::Error> {
         ensure!(
             var.required ^ var.default.is_some(),
-            "variable has both `required` and `default` set"
+            "variable should either have `required` set to true OR have a non-empty default value"
         );
         Ok(Variable {
             default: var.default,

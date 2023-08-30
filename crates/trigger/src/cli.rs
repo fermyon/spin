@@ -28,7 +28,10 @@ pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
 
 /// A command that runs a TriggerExecutor.
 #[derive(Parser, Debug)]
-#[clap(next_help_heading = "TRIGGER OPTIONS")]
+#[clap(
+    usage = "spin [COMMAND] [OPTIONS]",
+    next_help_heading = "TRIGGER OPTIONS"
+)]
 pub struct TriggerExecutorCommand<Executor: TriggerExecutor>
 where
     Executor::RunConfig: Args,

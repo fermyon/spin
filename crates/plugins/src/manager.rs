@@ -6,7 +6,7 @@ use crate::{
     SPIN_INTERNAL_COMMANDS,
 };
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use path_absolutize::Absolutize;
 use serde::Serialize;
 use spin_common::sha256;
@@ -93,15 +93,26 @@ impl PluginManager {
         let target_url = Url::parse(&target)?;
         let temp_dir = tempdir()?;
         let plugin_tarball_path = match target_url.scheme() {
-            URL_FILE_SCHEME => target_url
-                .to_file_path()
-                .map_err(|_| anyhow!("Invalid file URL: {target_url:?}"))?,
+            URL_FILE_SCHEME => {
+                let path = target_url
+                    .to_file_path()
+                    .map_err(|_| anyhow!("Invalid file URL: {target_url:?}"))?;
+                if path.is_file() {
+                    path
+                } else {
+                    bail!(
+                        "Package path {} does not exist or is not a file",
+                        path.display()
+                    );
+                }
+            }
             _ => download_plugin(&plugin_manifest.name(), &temp_dir, &target).await?,
         };
         verify_checksum(&plugin_tarball_path, &plugin_package.sha256)?;
 
         self.store
-            .untar_plugin(&plugin_tarball_path, &plugin_manifest.name())?;
+            .untar_plugin(&plugin_tarball_path, &plugin_manifest.name())
+            .with_context(|| format!("Failed to untar {}", plugin_tarball_path.display()))?;
 
         // Save manifest to installed plugins directory
         self.store.add_manifest(plugin_manifest)?;
@@ -173,6 +184,8 @@ impl PluginManager {
     pub async fn get_manifest(
         &self,
         manifest_location: &ManifestLocation,
+        skip_compatibility_check: bool,
+        spin_version: &str,
     ) -> PluginLookupResult<PluginManifest> {
         let plugin_manifest = match manifest_location {
             ManifestLocation::Remote(url) => {
@@ -221,7 +234,11 @@ impl PluginManager {
             }
             ManifestLocation::PluginsRepository(lookup) => {
                 lookup
-                    .get_manifest_from_repository(self.store().get_plugins_directory())
+                    .resolve_manifest(
+                        self.store().get_plugins_directory(),
+                        skip_compatibility_check,
+                        spin_version,
+                    )
                     .await?
             }
         };
@@ -338,7 +355,8 @@ async fn download_plugin(name: &str, temp_dir: &TempDir, target_url: &str) -> Re
 }
 
 fn verify_checksum(plugin_file: &Path, expected_sha256: &str) -> Result<()> {
-    let actual_sha256 = sha256::hex_digest_from_file(plugin_file)?;
+    let actual_sha256 = sha256::hex_digest_from_file(plugin_file)
+        .with_context(|| format!("Cannot get digest for {}", plugin_file.display()))?;
     if actual_sha256 == expected_sha256 {
         log::info!("Package checksum verified successfully");
         Ok(())

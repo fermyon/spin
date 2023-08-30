@@ -64,40 +64,8 @@ where
     pub cache: Option<PathBuf>,
 
     /// Enable Wasmtime's pooling instance allocator.
-    #[clap(long = "enable-pooling")]
-    pub enable_pooling: bool,
-
-    /// Maximum number of memories each instance can use.
-    #[clap(
-        long = "pooling-max-memories",
-        requires = "enable-pooling",
-        default_value_t = spin_core::DEFAULT_INSTANCE_MEMORIES,
-    )]
-    pub max_memories: u32,
-
-    /// Maximum size for each instance memory, in 64kb pages.
-    #[clap(
-        long = "pooling-max-memory-pages",
-        requires = "enable-pooling",
-        default_value_t = spin_core::DEFAULT_INSTANCE_MEMORY_PAGES,
-    )]
-    pub max_memory_pages: u64,
-
-    /// Maximum number of tables each instance can use.
-    #[clap(
-        long = "pooling-max-tables",
-        requires = "enable-pooling",
-        default_value_t = spin_core::DEFAULT_INSTANCE_TABLES,
-    )]
-    pub max_tables: u32,
-
-    /// Maximum number of entries each table can contain.
-    #[clap(
-        long = "pooling-max-table-entries",
-        requires = "enable-pooling",
-        default_value_t = spin_core::DEFAULT_INSTANCE_TABLE_ELEMENTS,
-    )]
-    pub max_table_entries: u32,
+    #[clap(long = "disable-pooling")]
+    pub disable_pooling: bool,
 
     /// Print output to stdout/stderr only for given component(s)
     #[clap(
@@ -216,7 +184,7 @@ where
         let _sloth_guard = warn_if_wasm_build_slothful();
 
         let mut builder = TriggerExecutorBuilder::new(loader);
-        self.update_wasmtime_config(builder.wasmtime_config_mut())?;
+        self.update_config(builder.config_mut())?;
 
         builder.hooks(StdioLoggingTriggerHooks::new(self.follow_components()));
         builder.hooks(KeyValuePersistenceMessageHook);
@@ -257,14 +225,7 @@ where
             config.configure_cache(&self.cache)?;
         }
 
-        if self.enable_pooling {
-            config.enable_pooling(
-                self.max_memories,
-                self.max_memory_pages,
-                self.max_tables,
-                self.max_table_entries,
-            );
-        } else {
+        if self.disable_pooling {
             config.disable_pooling();
         }
 

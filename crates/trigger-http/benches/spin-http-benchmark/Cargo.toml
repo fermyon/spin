@@ -8,5 +8,6 @@ crate-type = [ "cdylib" ]
 
 [dependencies]
 wit-bindgen = "0.8"
+url = "2.4.1"
 
 [workspace]

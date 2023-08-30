@@ -3342,12 +3342,7 @@ version = "0.2.0-dev"
 source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
 dependencies = [
  "llm-base",
- "llm-bloom",
- "llm-gpt2",
- "llm-gptj",
- "llm-gptneox",
  "llm-llama",
- "llm-mpt",
  "serde",
  "tracing",
 ]
@@ -3373,53 +3368,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "llm-bloom"
-version = "0.2.0-dev"
-source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
-dependencies = [
- "llm-base",
-]
-
-[[package]]
-name = "llm-gpt2"
-version = "0.2.0-dev"
-source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
-dependencies = [
- "bytemuck",
- "llm-base",
-]
-
-[[package]]
-name = "llm-gptj"
-version = "0.2.0-dev"
-source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
-dependencies = [
- "llm-base",
-]
-
-[[package]]
-name = "llm-gptneox"
-version = "0.2.0-dev"
-source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
-dependencies = [
- "llm-base",
-]
-
-[[package]]
 name = "llm-llama"
 version = "0.2.0-dev"
 source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
 dependencies = [
  "llm-base",
  "tracing",
-]
-
-[[package]]
-name = "llm-mpt"
-version = "0.2.0-dev"
-source = "git+https://github.com/rustformers/llm?rev=2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663#2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663"
-dependencies = [
- "llm-base",
 ]
 
 [[package]]

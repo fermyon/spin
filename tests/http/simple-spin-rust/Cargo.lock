@@ -247,7 +247,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sdk"
-version = "1.4.1"
+version = "1.4.2"
 dependencies = [
  "anyhow",
  "bytes",

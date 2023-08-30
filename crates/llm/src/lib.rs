@@ -52,15 +52,17 @@ impl LlmComponent {
         // warm caches
         let _ = component
             .engine
-            .inferencing_model(wasi_llm::InferencingModel::Llama2V13bChat)
+            .inferencing_model("llama2-chat".into())
             .await;
         let _ = component
             .engine
-            .embeddings_model(wasi_llm::EmbeddingModel::AllMiniLmL6V2)
+            .embeddings_model(MODEL_ALL_MINILM_L6_V2.into())
             .await;
         component
     }
 }
+
+const MODEL_ALL_MINILM_L6_V2: &str = "all-minilm-l6-v2";
 
 #[derive(Clone)]
 pub struct LlmEngine {
@@ -147,9 +149,9 @@ impl LlmEngine {
         &mut self,
         model: wasi_llm::EmbeddingModel,
     ) -> Result<Arc<(tokenizers::Tokenizer, BertModel)>, wasi_llm::Error> {
-        let key = match model {
-            wasi_llm::EmbeddingModel::AllMiniLmL6V2 => "all-mini-llm-l6-v2".into(),
-            wasi_llm::EmbeddingModel::Other(o) => o,
+        let key = match model.as_str() {
+            MODEL_ALL_MINILM_L6_V2 => model,
+            _ => return Err(wasi_llm::Error::ModelNotSupported),
         };
         let registry_path = self.registry.join(&key);
         let r = match self.embeddings_models.entry(key) {
@@ -328,18 +330,16 @@ impl wasi_llm::Host for LlmEngine {
 }
 
 fn model_name(model: wasi_llm::InferencingModel) -> Result<&'static str, wasi_llm::Error> {
-    match model {
-        wasi_llm::InferencingModel::Llama2V13bChat => Ok("llama2-13b-chat"),
+    match model.as_str() {
+        "llama2-chat" => Ok("llama2-chat"),
         _ => Err(wasi_llm::Error::ModelNotSupported),
     }
 }
 
 fn model_arch(model: &wasi_llm::InferencingModel) -> Result<ModelArchitecture, wasi_llm::Error> {
-    match model {
-        wasi_llm::InferencingModel::Llama2V70bChat
-        | wasi_llm::InferencingModel::Llama2V13bChat
-        | wasi_llm::InferencingModel::Llama2V7bChat => Ok(ModelArchitecture::Llama),
-        wasi_llm::InferencingModel::Other(_) => Err(wasi_llm::Error::ModelNotSupported),
+    match model.as_str() {
+        "llama2-chat" | "codellama-instruct" => Ok(ModelArchitecture::Llama),
+        _ => Err(wasi_llm::Error::ModelNotSupported),
     }
 }
 

@@ -1,13 +1,28 @@
 use crate::wit::fermyon::spin::llm;
 
-pub use crate::wit::fermyon::spin::llm::{
-    generate_embeddings, EmbeddingModel, Error, InferencingModel, InferencingParams,
-    InferencingResult,
-};
+pub use crate::wit::fermyon::spin::llm::{Error, InferencingParams, InferencingResult};
+
+/// The model use for inferencing
+#[allow(missing_docs)]
+pub enum InferencingModel<'a> {
+    Llama2Chat,
+    CodellamaInstruct,
+    Other(&'a str),
+}
+
+impl<'a> InferencingModel<'a> {
+    fn as_str(&self) -> llm::InferencingModel<'a> {
+        match self {
+            InferencingModel::Llama2Chat => "llama2-chat",
+            InferencingModel::CodellamaInstruct => "codellama-instruct",
+            InferencingModel::Other(s) => s,
+        }
+    }
+}
 
 /// Perform inferencing using the provided model and prompt
 pub fn infer(model: InferencingModel, prompt: &str) -> Result<InferencingResult, Error> {
-    llm::infer(model, prompt, None)
+    llm::infer(model.as_str(), prompt, None)
 }
 
 /// Perform inferencing using the provided model, prompt, and options
@@ -16,5 +31,26 @@ pub fn infer_with_options(
     prompt: &str,
     options: InferencingParams,
 ) -> Result<InferencingResult, Error> {
-    llm::infer(model, prompt, Some(options))
+    llm::infer(model.as_str(), prompt, Some(options))
+}
+
+/// Model used for generating embeddings
+#[allow(missing_docs)]
+pub enum EmbeddingModel<'a> {
+    AllMiniLmL6V2,
+    Other(&'a str),
+}
+
+impl<'a> EmbeddingModel<'a> {
+    fn as_str(&self) -> llm::EmbeddingModel<'a> {
+        match self {
+            EmbeddingModel::AllMiniLmL6V2 => "all-minilm-l6-v2",
+            EmbeddingModel::Other(s) => s,
+        }
+    }
+}
+
+/// Generate embeddings using the provided model and collection of text
+pub fn generate_embeddings(model: EmbeddingModel, text: &[&str]) -> Result<Vec<Vec<f32>>, Error> {
+    llm::generate_embeddings(model.as_str(), text)
 }

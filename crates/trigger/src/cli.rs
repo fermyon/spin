@@ -64,12 +64,10 @@ where
     pub cache: Option<PathBuf>,
 
     /// Enable Wasmtime's pooling instance allocator.
-    #[cfg(not(target_os = "windows"))]
     #[clap(long = "enable-pooling")]
     pub enable_pooling: bool,
 
     /// Maximum number of memories each instance can use.
-    #[cfg(not(target_os = "windows"))]
     #[clap(
         long = "pooling-max-memories",
         requires = "enable-pooling",
@@ -78,7 +76,6 @@ where
     pub max_memories: u32,
 
     /// Maximum size for each instance memory, in 64kb pages.
-    #[cfg(not(target_os = "windows"))]
     #[clap(
         long = "pooling-max-memory-pages",
         requires = "enable-pooling",
@@ -87,7 +84,6 @@ where
     pub max_memory_pages: u64,
 
     /// Maximum number of tables each instance can use.
-    #[cfg(not(target_os = "windows"))]
     #[clap(
         long = "pooling-max-tables",
         requires = "enable-pooling",
@@ -96,7 +92,6 @@ where
     pub max_tables: u32,
 
     /// Maximum number of entries each table can contain.
-    #[cfg(not(target_os = "windows"))]
     #[clap(
         long = "pooling-max-table-entries",
         requires = "enable-pooling",
@@ -262,7 +257,6 @@ where
             config.configure_cache(&self.cache)?;
         }
 
-        #[cfg(not(target_os = "windows"))]
         if self.enable_pooling {
             config.enable_pooling(
                 self.max_memories,

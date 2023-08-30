@@ -545,7 +545,7 @@ route = "/"
     #[test]
     fn can_parse_mqtt_trigger() {
         let m = load_test_manifest(
-            r#"{ type = "mqtt", address = "dummy" }"#,
+            r#"{ type = "mqtt", address = "dummy", qos = 0 }"#,
             r#"topic = "topi""#,
         );
 

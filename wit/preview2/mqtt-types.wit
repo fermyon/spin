@@ -5,6 +5,13 @@ interface mqtt-types {
       error,
   }
 
+  // MQTT QoS levels.
+  enum qos {
+      at-most-once,
+      at-least-once,
+      exactly-once,
+  }
+
   // The message payload.
   type payload = list<u8>
 }

@@ -24,7 +24,7 @@ fn publish(_req: Request) -> Result<Response> {
     let message = "Hello from Spin!".as_bytes();
 
     // Publish to Mqtt
-    match mqtt::publish(&address, &topic, message) {
+    match mqtt::publish(&address, mqtt::Qos::ExactlyOnce, &topic, message) {
         Ok(()) =>  Ok(http::Response::builder().status(200).body(None)?),
         Err(e) => { println!("{e}"); internal_server_error() } ,
     }

@@ -22,12 +22,13 @@ impl outbound_mqtt::Host for OutboundMqtt {
     async fn publish(
         &mut self,
         address: String,
+        qos: outbound_mqtt::Qos,
         topic: String,
         payload: Vec<u8>,
     ) -> Result<Result<(), Error>> {
         Ok(async {
             let client = self.get_conn(&address).await.map_err(log_error)?;
-            let message = paho_mqtt::Message::new(&topic, payload, 0);
+            let message = paho_mqtt::Message::new(&topic, payload, qos as i32);
             client.publish(message).map_err(log_error)?;
             Ok(())
         }

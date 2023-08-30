@@ -2,7 +2,7 @@ spin_manifest_version = "1"
 authors = ["Suneet Nangia <suneetnangia@gmail.com>"]
 description = "An MQTT application."
 name = "spin-mqtt"
-trigger = {type = "mqtt", address = "localhost"}
+trigger = {type = "mqtt", address = "localhost", qos = 0}
 version = "0.1.0"
 
 [[component]]

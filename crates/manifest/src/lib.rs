@@ -261,6 +261,8 @@ impl TryFrom<ApplicationTrigger> for RedisTriggerConfiguration {
 pub struct MqttTriggerConfiguration {
     /// Address of Mqtt server.
     pub address: String,
+    /// QoS level for Mqtt server.
+    pub qos: u8,
 }
 
 impl TryFrom<ApplicationTrigger> for MqttTriggerConfiguration {

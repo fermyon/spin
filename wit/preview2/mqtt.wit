@@ -1,6 +1,6 @@
 interface mqtt {
-  use mqtt-types.{payload, error}
+  use mqtt-types.{payload, error, qos}
 
   // Publish an MQTT message to the specified topic and return an error, if any.
-  publish: func(address: string, topic: string, payload: payload) -> result<_, error>    
+  publish: func(address: string, qos: qos, topic: string, payload: payload) -> result<_, error>
 }

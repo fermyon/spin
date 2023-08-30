@@ -176,7 +176,7 @@ impl MqttTestConfig {
         TestLoader {
             module_path: self.module_path.clone().expect("module path to be set"),
             trigger_type: "mqtt".into(),
-            app_trigger_metadata: json!({"address": "test-mqtt-host"}),
+            app_trigger_metadata: json!({"address": "test-mqtt-host", "qos": 0}),
             trigger_config: json!({
                 "component": "test-component",
                 "topic": self.mqtt_topic,

@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use serde::{de::IgnoredAny, Deserialize, Serialize};
 use spin_app::MetadataKey;
 use spin_trigger::{cli::NoArgs, TriggerAppEngine, TriggerExecutor};
+use spin_world::mqtt;
 use std::{collections::HashMap, time::Duration};
 
 const TRIGGER_METADATA_KEY: MetadataKey<TriggerMetadata> = MetadataKey::new("trigger");
@@ -17,6 +18,8 @@ pub struct MqttTrigger {
     engine: TriggerAppEngine<Self>,
     // Mqtt address to connect to
     address: String,
+    // Mqtt QoS level
+    qos: mqtt::Qos,
     // Mapping of subscription topics to component IDs
     topic_components: HashMap<String, String>,
 }
@@ -39,6 +42,7 @@ pub struct MqttTriggerConfig {
 pub struct TriggerMetadata {
     r#type: String,
     address: String,
+    qos: u8,
 }
 
 #[async_trait]
@@ -51,6 +55,13 @@ impl TriggerExecutor for MqttTrigger {
     async fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
         let address = engine.app().require_metadata(TRIGGER_METADATA_KEY)?.address;
 
+        let qos = match engine.app().require_metadata(TRIGGER_METADATA_KEY)?.qos {
+            0 => mqtt::Qos::AtMostOnce,
+            1 => mqtt::Qos::AtLeastOnce,
+            2 => mqtt::Qos::ExactlyOnce,
+            _ => return Err(anyhow::anyhow!("Invalid QoS level")),
+        };
+
         let topic_components: HashMap<String, String> = engine
             .trigger_configs()
             .map(|(_, config)| (config.topic.clone(), config.component.clone()))
@@ -59,6 +70,7 @@ impl TriggerExecutor for MqttTrigger {
         Ok(Self {
             engine,
             address,
+            qos,
             topic_components,
         })
     }
@@ -66,7 +78,9 @@ impl TriggerExecutor for MqttTrigger {
     /// Run the Mqtt trigger indefinitely.
     async fn run(self, _config: Self::RunConfig) -> Result<()> {
         let address = &self.address;
-        tracing::info!("Connecting to Mqtt server at {}", address);
+        let qos: mqtt::Qos = self.qos;
+
+        tracing::info!("Connecting to Mqtt server at {}, with {:?}", address, qos);
         let client = paho_mqtt::Client::new(address.to_string())?;
 
         let conn_opts = paho_mqtt::ConnectOptionsBuilder::new()
@@ -78,14 +92,12 @@ impl TriggerExecutor for MqttTrigger {
 
         for (topic, component) in self.topic_components.iter() {
             tracing::info!("Subscribing component {component:?} to topic {topic:?}");
-            client.subscribe(topic, 1)?;
+            client.subscribe(topic, qos as i32)?;
         }
 
         loop {
             // Wait for message to appear in the message channel.
-            // Optimise this for parallel reads with single thread.
-
-            match client.start_consuming().recv().unwrap() {
+            match client.start_consuming().recv()? {
                 Some(msg) => drop(self.handle(msg).await),
                 None => {
                     println!("No message");

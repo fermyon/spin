@@ -86,7 +86,7 @@ impl LlmEngine {
         &mut self,
         model: wasi_llm::InferencingModel,
         prompt: String,
-    ) -> Result<String, wasi_llm::Error> {
+    ) -> Result<wasi_llm::InferencingResult, wasi_llm::Error> {
         let model = self.inferencing_model(model).await?;
         let cfg = InferenceSessionConfig {
             memory_k_type: ModelKVMemoryType::Float16,
@@ -100,7 +100,7 @@ impl LlmEngine {
             sampler: generate_sampler(),
         };
         let mut rng = rand::rngs::StdRng::from_entropy();
-        let mut response = String::new();
+        let mut text = String::new();
 
         #[cfg(debug_assertions)]
         {
@@ -122,14 +122,19 @@ impl LlmEngine {
             &mut Default::default(),
             |r| {
                 if let InferenceResponse::InferredToken(t) = r {
-                    response.push_str(&t);
+                    text.push_str(&t);
                 }
                 Ok(InferenceFeedback::Continue)
             },
         );
-        let _ = res.map_err(|e| {
+        let stats = res.map_err(|e| {
             wasi_llm::Error::RuntimeError(format!("Failure ocurred during inferencing: {e}"))
         })?;
+        let usage = wasi_llm::InferencingUsage {
+            num_prompt_tokens: stats.prompt_tokens as u32,
+            num_generated_tokens: (stats.predict_tokens - stats.prompt_tokens) as u32,
+        };
+        let response = wasi_llm::InferencingResult { text, usage };
         Ok(response)
     }
 
@@ -137,7 +142,7 @@ impl LlmEngine {
         &mut self,
         model: wasi_llm::EmbeddingModel,
         data: Vec<String>,
-    ) -> Result<Vec<Vec<f32>>, wasi_llm::Error> {
+    ) -> Result<wasi_llm::EmbeddingsResult, wasi_llm::Error> {
         let model = self.embeddings_model(model).await?;
         generate_embeddings(data, model)
             .await
@@ -232,7 +237,7 @@ impl LlmEngine {
 async fn generate_embeddings(
     data: Vec<String>,
     model: Arc<(tokenizers::Tokenizer, BertModel)>,
-) -> anyhow::Result<Vec<Vec<f32>>> {
+) -> anyhow::Result<wasi_llm::EmbeddingsResult> {
     let n_sentences = data.len();
     tokio::task::spawn_blocking(move || {
         let mut tokenizer = model.0.clone();
@@ -274,7 +279,6 @@ async fn generate_embeddings(
         // https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2#usage-huggingface-transformers
         let (_, n_tokens, _) = embeddings.dims3()?;
         let embeddings = (embeddings.sum(1)? / (n_tokens as f64))?;
-        tracing::debug!("Number of tokens: {}", n_tokens);
 
         // Take each sentence embedding from the batch and arrange it in the final result tensor.
         // Normalize each embedding as the last step (this generates vectors with length 1, which
@@ -289,7 +293,13 @@ async fn generate_embeddings(
             results.push(emb);
         }
 
-        Ok(results)
+        let result = wasi_llm::EmbeddingsResult {
+            embeddings: results,
+            usage: wasi_llm::EmbeddingsUsage {
+                num_prompt_tokens: n_tokens as u32,
+            },
+        };
+        Ok(result)
     })
     .await?
 }
@@ -324,7 +334,7 @@ impl wasi_llm::Host for LlmEngine {
         &mut self,
         m: wasi_llm::EmbeddingModel,
         data: Vec<String>,
-    ) -> anyhow::Result<Result<Vec<Vec<f32>>, wasi_llm::Error>> {
+    ) -> anyhow::Result<Result<wasi_llm::EmbeddingsResult, wasi_llm::Error>> {
         Ok(self.generate_embeddings(m, data).await)
     }
 }

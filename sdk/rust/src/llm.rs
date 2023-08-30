@@ -1,6 +1,9 @@
 use crate::wit::fermyon::spin::llm;
 
-pub use crate::wit::fermyon::spin::llm::{Error, InferencingParams, InferencingResult};
+pub use crate::wit::fermyon::spin::llm::{
+    EmbeddingsResult, EmbeddingsUsage, Error, InferencingParams, InferencingResult,
+    InferencingUsage,
+};
 
 /// The model use for inferencing
 #[allow(missing_docs)]
@@ -51,6 +54,9 @@ impl<'a> EmbeddingModel<'a> {
 }
 
 /// Generate embeddings using the provided model and collection of text
-pub fn generate_embeddings(model: EmbeddingModel, text: &[&str]) -> Result<Vec<Vec<f32>>, Error> {
+pub fn generate_embeddings(
+    model: EmbeddingModel,
+    text: &[&str],
+) -> Result<llm::EmbeddingsResult, Error> {
     llm::generate_embeddings(model.as_str(), text)
 }

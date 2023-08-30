@@ -1,11 +1,7 @@
+// A WASI interface dedicated to performing inferencing for Large Language Models.
 interface llm {
 	/// A Large Language Model.
-	variant inferencing-model {
-		llama2-v70b-chat,
-		llama2-v13b-chat,
-		llama2-v7b-chat,
-		other(string)
-	}
+	type inferencing-model = string
 
 	/// Inference request parameters
 	record inferencing-params {
@@ -35,12 +31,8 @@ interface llm {
 	infer: func(model: inferencing-model, prompt: string, params: option<inferencing-params>) -> result<inferencing-result, error>
 
 	/// The model used for generating embeddings
-	variant embedding-model {
-		all-mini-lm-l6-v2,
-		other(string)
-	}
+	type embedding-model = string
 
 	/// Generate embeddings for the supplied list of text
 	generate-embeddings: func(model: embedding-model, text: list<string>) -> result<list<list<float32>>, error>
 }
-

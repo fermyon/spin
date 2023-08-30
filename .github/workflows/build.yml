@@ -13,6 +13,12 @@ on:
       - "README.md"
       - "tests/README.md"
 
+# Serialize workflow runs per ref
+# Cancel any outdated, in-flight runs for refs other than 'main'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 env:
   CARGO_TERM_COLOR: always
 jobs:
@@ -150,7 +156,8 @@ jobs:
         run: make test-sdk-go
 
   e2e-tests:
-    runs-on: ubuntu-22.04
+    # run on a larger runner for more SSD/resource access
+    runs-on: ubuntu-22.04-4core-spin
     needs: build-rust-ubuntu
     steps:
       - uses: actions/checkout@v3

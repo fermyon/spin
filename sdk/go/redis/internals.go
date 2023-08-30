@@ -100,7 +100,7 @@ func srem(addr string, key string, values []string) (int64, error) {
 	return int64(cpayload), toErr(err)
 }
 
-type RedisParameterKind C.uint8_t
+type RedisParameterKind uint8
 
 const (
 	RedisParameterKindInt64 = iota
@@ -112,7 +112,7 @@ type RedisParameter struct {
 	Val interface{}
 }
 
-type RedisResultKind C.uint8_t
+type RedisResultKind uint8
 
 const (
 	RedisResultKindNil = iota

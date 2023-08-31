@@ -131,8 +131,8 @@ impl LlmEngine {
             wasi_llm::Error::RuntimeError(format!("Failure ocurred during inferencing: {e}"))
         })?;
         let usage = wasi_llm::InferencingUsage {
-            num_prompt_tokens: stats.prompt_tokens as u32,
-            num_generated_tokens: (stats.predict_tokens - stats.prompt_tokens) as u32,
+            prompt_token_count: stats.prompt_tokens as u32,
+            generated_token_count: (stats.predict_tokens - stats.prompt_tokens) as u32,
         };
         let response = wasi_llm::InferencingResult { text, usage };
         Ok(response)
@@ -296,7 +296,7 @@ async fn generate_embeddings(
         let result = wasi_llm::EmbeddingsResult {
             embeddings: results,
             usage: wasi_llm::EmbeddingsUsage {
-                num_prompt_tokens: n_tokens as u32,
+                prompt_token_count: n_tokens as u32,
             },
         };
         Ok(result)

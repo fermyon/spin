@@ -23,10 +23,7 @@ impl<T> MetadataKey<T> {
 
 impl<T> Clone for MetadataKey<T> {
     fn clone(&self) -> Self {
-        Self {
-            key: self.key,
-            _phantom: PhantomData,
-        }
+        *self
     }
 }
 

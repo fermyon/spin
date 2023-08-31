@@ -35,7 +35,7 @@ impl Filter {
 
     /// A default set of ignore patterns that can be used by the consumer of Filter.
     pub fn default_ignore_patterns() -> Vec<WatchPattern> {
-        vec!["*.swp"]
+        ["*.swp"]
             .iter()
             .map(|i| WatchPattern {
                 glob: i.to_string(),

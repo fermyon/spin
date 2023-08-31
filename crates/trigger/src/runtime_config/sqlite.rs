@@ -47,9 +47,12 @@ async fn execute_statements(
     if statements.is_empty() {
         return Ok(());
     }
-    let Some(default) = databases.get("default") else { 
-        debug_assert!(false, "the 'default' sqlite database should always be available but for some reason was not");
-        return Ok(())
+    let Some(default) = databases.get("default") else {
+        debug_assert!(
+            false,
+            "the 'default' sqlite database should always be available but for some reason was not"
+        );
+        return Ok(());
     };
 
     for m in statements {

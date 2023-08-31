@@ -131,7 +131,7 @@ impl LlmEngine {
             },
         );
         let stats = res.map_err(|e| {
-            wasi_llm::Error::RuntimeError(format!("Failure occurred during inferencing: {e}"))
+            wasi_llm::Error::RuntimeError(format!("Error occurred during inferencing: {e}"))
         })?;
         let usage = wasi_llm::InferencingUsage {
             prompt_token_count: stats.prompt_tokens as u32,
@@ -147,9 +147,9 @@ impl LlmEngine {
         data: Vec<String>,
     ) -> Result<wasi_llm::EmbeddingsResult, wasi_llm::Error> {
         let model = self.embeddings_model(model).await?;
-        generate_embeddings(data, model)
-            .await
-            .map_err(|e| wasi_llm::Error::RuntimeError(format!("Error generating embeddings: {e}")))
+        generate_embeddings(data, model).await.map_err(|e| {
+            wasi_llm::Error::RuntimeError(format!("Error occurred generating embeddings: {e}"))
+        })
     }
 
     /// Get embeddings model from cache or load from disk
@@ -167,21 +167,32 @@ impl LlmEngine {
             Entry::Vacant(v) => v
                 .insert({
                     tokio::task::spawn_blocking(move || {
+                        if !registry_path.exists() {
+                            return Err(
+                                wasi_llm::Error::RuntimeError(format!(
+                                "The directory expected to house the embeddings models '{}' does not exist.",
+                                registry_path.display()
+                            )));
+                        }
                         let tokenizer_file = registry_path.join("tokenizer.json");
-                        let model_file = registry_path.join("model.safetensor");
+                        let model_file = registry_path.join("model.safetensors");
                         let tokenizer = load_tokenizer(&tokenizer_file).map_err(|_| {
-                            wasi_llm::Error::RuntimeError(
-                                "failed to load embeddings tokenizer".into(),
-                            )
+                            wasi_llm::Error::RuntimeError(format!(
+                                "Failed to load embeddings tokenizer from '{}'",
+                                tokenizer_file.display()
+                            ))
                         })?;
                         let model = load_model(&model_file).map_err(|_| {
-                            wasi_llm::Error::RuntimeError("failed to load embeddings model".into())
+                            wasi_llm::Error::RuntimeError(format!(
+                                "Failed to load embeddings model from '{}'",
+                                model_file.display()
+                            ))
                         })?;
                         Ok(Arc::new((tokenizer, model)))
                     })
                     .await
                     .map_err(|_| {
-                        wasi_llm::Error::RuntimeError("error loading inferencing model".into())
+                        wasi_llm::Error::RuntimeError("Error loading inferencing model".into())
                     })??
                 })
                 .clone(),
@@ -202,6 +213,16 @@ impl LlmEngine {
             Entry::Vacant(v) => v
                 .insert({
                     let path = self.registry.join(model_name);
+                    if !self.registry.exists() {
+                        return Err(wasi_llm::Error::RuntimeError(
+                            format!("The directory expected to house the inferencing model '{}' does not exist.", self.registry.display())
+                        ));
+                    }
+                    if !path.exists() {
+                        return Err(wasi_llm::Error::RuntimeError(
+                            format!("The inferencing model file '{}' does not exist.", path.display())
+                        ));
+                    }
                     tokio::task::spawn_blocking(move || {
                         let params = ModelParameters {
                             prefer_mmap: true,
@@ -228,7 +249,7 @@ impl LlmEngine {
                     })
                     .await
                     .map_err(|_| {
-                        wasi_llm::Error::RuntimeError("error loading inferencing model".into())
+                        wasi_llm::Error::RuntimeError("Error loading inferencing model".into())
                     })??
                 })
                 .clone(),
@@ -309,13 +330,13 @@ async fn generate_embeddings(
 
 fn load_tokenizer(tokenizer_file: &Path) -> anyhow::Result<tokenizers::Tokenizer> {
     let tokenizer = tokenizers::Tokenizer::from_file(tokenizer_file)
-        .map_err(|e| anyhow::anyhow!("failed to read tokenizer file {tokenizer_file:?}: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("Failed to read tokenizer file {tokenizer_file:?}: {e}"))?;
     Ok(tokenizer)
 }
 
 fn load_model(model_file: &Path) -> anyhow::Result<BertModel> {
     let buffer = std::fs::read(model_file)
-        .with_context(|| format!("failed to read model file {model_file:?}"))?;
+        .with_context(|| format!("Failed to read model file {model_file:?}"))?;
     let weights = safetensors::SafeTensors::deserialize(&buffer)?;
     let vb = VarBuilder::from_safetensors(vec![weights], DType::F32, &candle::Device::Cpu);
     let model = BertModel::load(vb, &Config::default()).context("error loading bert model")?;

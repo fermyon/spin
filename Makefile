@@ -27,6 +27,10 @@ endif
 build:
 	cargo build --release
 
+.PHONY: install
+install:
+	cargo install --path . --locked
+
 .PHONY: test
 test: lint test-unit test-integration
 

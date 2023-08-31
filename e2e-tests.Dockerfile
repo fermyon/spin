@@ -5,7 +5,7 @@ ARG FETCH_SPIN=true
 ARG SPIN_VERSION=canary
 
 WORKDIR /root
-RUN apt-get update && apt-get install -y wget sudo xz-utils gcc git pkg-config redis clang libicu-dev docker.io cmake
+RUN apt-get update && apt-get install -y wget sudo xz-utils gcc git pkg-config redis clang libicu-dev docker.io
 
 # nodejs
 RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -

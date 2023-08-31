@@ -9,16 +9,19 @@ use llm::{
     ModelArchitecture, ModelKVMemoryType, ModelParameters,
 };
 use rand::SeedableRng;
+use spin_app::{DynamicHostComponent, MetadataKey};
 use spin_core::{async_trait, HostComponent};
 use spin_world::llm::{self as wasi_llm};
 use std::{
-    collections::hash_map::Entry,
     collections::HashMap,
+    collections::{hash_map::Entry, HashSet},
     convert::Infallible,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 use tokenizers::PaddingParams;
+
+pub const AI_MODELS_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("ai_models");
 
 #[derive(Default)]
 pub struct LLmOptions {
@@ -41,6 +44,17 @@ impl HostComponent for LlmComponent {
 
     fn build_data(&self) -> Self::Data {
         self.engine.clone()
+    }
+}
+
+impl DynamicHostComponent for LlmComponent {
+    fn update_data(
+        &self,
+        data: &mut Self::Data,
+        component: &spin_app::AppComponent,
+    ) -> anyhow::Result<()> {
+        data.allowed_models = component.get_metadata(AI_MODELS_KEY)?.unwrap_or_default();
+        Ok(())
     }
 }
 
@@ -68,6 +82,7 @@ const MODEL_ALL_MINILM_L6_V2: &str = "all-minilm-l6-v2";
 pub struct LlmEngine {
     registry: PathBuf,
     use_gpu: bool,
+    allowed_models: HashSet<String>,
     inferencing_models: HashMap<(String, bool), Arc<dyn llm::Model>>,
     embeddings_models: HashMap<String, Arc<(tokenizers::Tokenizer, BertModel)>>,
 }
@@ -77,6 +92,7 @@ impl LlmEngine {
         Self {
             registry,
             use_gpu,
+            allowed_models: Default::default(),
             inferencing_models: Default::default(),
             embeddings_models: Default::default(),
         }
@@ -88,6 +104,9 @@ impl LlmEngine {
         prompt: String,
         params: wasi_llm::InferencingParams,
     ) -> Result<wasi_llm::InferencingResult, wasi_llm::Error> {
+        if !self.allowed_models.contains(&model) {
+            return Err(access_denied_error(&model));
+        }
         let model = self.inferencing_model(model).await?;
         let cfg = InferenceSessionConfig {
             memory_k_type: ModelKVMemoryType::Float16,
@@ -146,6 +165,9 @@ impl LlmEngine {
         model: wasi_llm::EmbeddingModel,
         data: Vec<String>,
     ) -> Result<wasi_llm::EmbeddingsResult, wasi_llm::Error> {
+        if !self.allowed_models.contains(&model) {
+            return Err(access_denied_error(&model));
+        }
         let model = self.embeddings_model(model).await?;
         generate_embeddings(data, model).await.map_err(|e| {
             wasi_llm::Error::RuntimeError(format!("Error occurred generating embeddings: {e}"))
@@ -256,6 +278,12 @@ impl LlmEngine {
         };
         Ok(model)
     }
+}
+
+fn access_denied_error(model: &str) -> wasi_llm::Error {
+    wasi_llm::Error::InvalidInput(format!(
+        "The component does not have access to use '{model}'. To give the component access, add '{model}' to the 'ai_models' key for the component in your spin.toml manifest"
+    ))
 }
 
 async fn generate_embeddings(

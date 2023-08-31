@@ -13,6 +13,7 @@ use spin_app::{
     MetadataKey,
 };
 use spin_key_value::KEY_VALUE_STORES_KEY;
+use spin_llm::AI_MODELS_KEY;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
     HttpConfig, HttpTriggerConfiguration, RedisConfig, TriggerConfig,
@@ -148,6 +149,7 @@ impl LockedAppBuilder {
             .string_array(ALLOWED_HTTP_HOSTS_KEY, component.wasm.allowed_http_hosts)
             .string_array(KEY_VALUE_STORES_KEY, component.wasm.key_value_stores)
             .string_array(DATABASES_KEY, component.wasm.sqlite_databases)
+            .string_array(AI_MODELS_KEY, component.wasm.ai_models)
             .take();
 
         let source = {

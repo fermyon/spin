@@ -272,6 +272,8 @@ pub struct WasmConfig {
     pub key_value_stores: Vec<String>,
     /// Optional list of sqlite databases the component is allowed to use.
     pub sqlite_databases: Vec<String>,
+    /// Optional list of allowed llms the component is allowed to use
+    pub ai_models: Vec<String>,
 }
 
 /// Directory mount for the assets of a component.

@@ -114,7 +114,8 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 builder.add_host_component(outbound_redis::OutboundRedisComponent)?;
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
-                builder.add_host_component(
+                self.loader.add_dynamic_host_component(
+                    &mut builder,
                     runtime_config::llm::build_component(&runtime_config, init_data.llm.use_gpu)
                         .await,
                 )?;

@@ -121,14 +121,16 @@ impl LlmEngine {
             },
             &mut Default::default(),
             |r| {
-                if let InferenceResponse::InferredToken(t) = r {
-                    text.push_str(&t);
-                }
+                match r {
+                    InferenceResponse::InferredToken(t) => text.push_str(&t),
+                    InferenceResponse::EotToken => return Ok(InferenceFeedback::Halt),
+                    _ => {}
+                };
                 Ok(InferenceFeedback::Continue)
             },
         );
         let stats = res.map_err(|e| {
-            wasi_llm::Error::RuntimeError(format!("Failure ocurred during inferencing: {e}"))
+            wasi_llm::Error::RuntimeError(format!("Failure occurred during inferencing: {e}"))
         })?;
         let usage = wasi_llm::InferencingUsage {
             prompt_token_count: stats.prompt_tokens as u32,

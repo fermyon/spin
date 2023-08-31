@@ -106,7 +106,7 @@ impl Default for Config {
             .instance_count(env("SPIN_WASMTIME_INSTANCE_COUNT", 1_000))
             .instance_size(env("SPIN_WASMTIME_INSTANCE_SIZE", (10 * MB) as u32) as usize)
             .instance_tables(env("SPIN_WASMTIME_INSTANCE_TABLES", 2))
-            .instance_table_elements(env("SPIN_WASMTIME_INSTANCE_TABLE_ELEMENTS", 10_000))
+            .instance_table_elements(env("SPIN_WASMTIME_INSTANCE_TABLE_ELEMENTS", 30_000))
             .instance_memories(env("SPIN_WASMTIME_INSTANCE_MEMORIES", 1))
             // Nothing is lost from allowing the maximum size of memory for
             // all instance as it's still limited through other the normal

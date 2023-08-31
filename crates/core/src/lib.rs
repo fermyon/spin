@@ -13,11 +13,12 @@ mod limits;
 mod preview1;
 mod store;
 
-use std::{sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use crossbeam_channel::Sender;
 use tracing::instrument;
+use wasmtime::{InstanceAllocationStrategy, PoolingAllocationConfig};
 use wasmtime_wasi::preview2::Table;
 
 use self::host_component::{HostComponents, HostComponentsBuilder};
@@ -39,6 +40,10 @@ pub use store::{Store, StoreBuilder, Wasi, WasiVersion};
 /// The default [`EngineBuilder::epoch_tick_interval`].
 pub const DEFAULT_EPOCH_TICK_INTERVAL: Duration = Duration::from_millis(10);
 
+const MB: u64 = 1 << 20;
+const GB: u64 = 1 << 30;
+const WASM_PAGE_SIZE: u64 = 64 * 1024;
+
 /// Global configuration for `EngineBuilder`.
 ///
 /// This is currently only used for advanced (undocumented) use cases.
@@ -53,6 +58,28 @@ impl Config {
     pub fn wasmtime_config(&mut self) -> &mut wasmtime::Config {
         &mut self.inner
     }
+
+    /// Enable the Wasmtime compilation cache. If `path` is given it will override
+    /// the system default path.
+    ///
+    /// For more information, see the [Wasmtime cache config documentation][docs].
+    ///
+    /// [docs]: https://docs.wasmtime.dev/cli-cache.html
+    pub fn enable_cache(&mut self, config_path: &Option<PathBuf>) -> Result<()> {
+        match config_path {
+            Some(p) => self.inner.cache_config_load(p)?,
+            None => self.inner.cache_config_load_default()?,
+        };
+
+        Ok(())
+    }
+
+    /// Disable the pooling instance allocator.
+    pub fn disable_pooling(&mut self) -> &mut Self {
+        self.inner
+            .allocation_strategy(wasmtime::InstanceAllocationStrategy::OnDemand);
+        self
+    }
 }
 
 impl Default for Config {
@@ -61,7 +88,45 @@ impl Default for Config {
         inner.async_support(true);
         inner.epoch_interruption(true);
         inner.wasm_component_model(true);
-        Self { inner }
+
+        // By default enable the pooling instance allocator in Wasmtime. This
+        // drastically reduces syscall/kernel overhead for wasm execution,
+        // especially in async contexts where async stacks must be allocated.
+        // The general goal here is that the default settings here rarely, if
+        // ever, need to be modified. As a result there aren't fine-grained
+        // knobs for each of these settings just yet and instead they're
+        // generally set to defaults. Environment-variable-based fallbacks are
+        // supported though as an escape valve for if this is a problem.
+        //
+        // NB: much of this will change in Wasmtime 13 as the settings are
+        // different. Ping @alexcrichton for assistance in updating this if
+        // needed (and delete this comment after the 13 update).
+        let mut pooling_config = PoolingAllocationConfig::default();
+        pooling_config
+            .instance_count(env("SPIN_WASMTIME_INSTANCE_COUNT", 1_000))
+            .instance_size(env("SPIN_WASMTIME_INSTANCE_SIZE", (10 * MB) as u32) as usize)
+            .instance_tables(env("SPIN_WASMTIME_INSTANCE_TABLES", 2))
+            .instance_table_elements(env("SPIN_WASMTIME_INSTANCE_TABLE_ELEMENTS", 30_000))
+            .instance_memories(env("SPIN_WASMTIME_INSTANCE_MEMORIES", 1))
+            // Nothing is lost from allowing the maximum size of memory for
+            // all instance as it's still limited through other the normal
+            // `StoreLimitsAsync` accounting method too.
+            .instance_memory_pages(4 * GB / WASM_PAGE_SIZE)
+            // These numbers are completely arbitrary at something above 0.
+            .linear_memory_keep_resident((2 * MB) as usize)
+            .table_keep_resident((MB / 2) as usize);
+        inner.allocation_strategy(InstanceAllocationStrategy::Pooling(pooling_config));
+
+        return Self { inner };
+
+        fn env(name: &str, default: u32) -> u32 {
+            match std::env::var(name) {
+                Ok(val) => val
+                    .parse()
+                    .unwrap_or_else(|e| panic!("failed to parse env var `{name}={val}`: {e}")),
+                Err(_) => default,
+            }
+        }
     }
 }
 

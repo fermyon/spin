@@ -63,6 +63,10 @@ where
     )]
     pub cache: Option<PathBuf>,
 
+    /// Enable Wasmtime's pooling instance allocator.
+    #[clap(long = "disable-pooling")]
+    pub disable_pooling: bool,
+
     /// Print output to stdout/stderr only for given component(s)
     #[clap(
         name = FOLLOW_LOG_OPT,
@@ -180,7 +184,7 @@ where
         let _sloth_guard = warn_if_wasm_build_slothful();
 
         let mut builder = TriggerExecutorBuilder::new(loader);
-        self.update_wasmtime_config(builder.wasmtime_config_mut())?;
+        self.update_config(builder.config_mut())?;
 
         builder.hooks(StdioLoggingTriggerHooks::new(self.follow_components()));
         builder.hooks(KeyValuePersistenceMessageHook);
@@ -215,14 +219,16 @@ where
         }
     }
 
-    fn update_wasmtime_config(&self, config: &mut spin_core::wasmtime::Config) -> Result<()> {
+    fn update_config(&self, config: &mut spin_core::Config) -> Result<()> {
         // Apply --cache / --disable-cache
         if !self.disable_cache {
-            match &self.cache {
-                Some(p) => config.cache_config_load(p)?,
-                None => config.cache_config_load_default()?,
-            };
+            config.enable_cache(&self.cache)?;
         }
+
+        if self.disable_pooling {
+            config.disable_pooling();
+        }
+
         Ok(())
     }
 }

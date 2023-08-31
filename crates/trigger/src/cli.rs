@@ -222,7 +222,7 @@ where
     fn update_config(&self, config: &mut spin_core::Config) -> Result<()> {
         // Apply --cache / --disable-cache
         if !self.disable_cache {
-            config.configure_cache(&self.cache)?;
+            config.enable_cache(&self.cache)?;
         }
 
         if self.disable_pooling {

@@ -65,7 +65,7 @@ impl Config {
     /// For more information, see the [Wasmtime cache config documentation][docs].
     ///
     /// [docs]: https://docs.wasmtime.dev/cli-cache.html
-    pub fn configure_cache(&mut self, config_path: &Option<PathBuf>) -> Result<()> {
+    pub fn enable_cache(&mut self, config_path: &Option<PathBuf>) -> Result<()> {
         match config_path {
             Some(p) => self.inner.cache_config_load(p)?,
             None => self.inner.cache_config_load_default()?,

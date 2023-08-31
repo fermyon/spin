@@ -1,5 +1,7 @@
 use spin_world::sqlite::{self, RowResult};
 
+mod sqlite_parser;
+
 #[derive(Clone)]
 pub struct LibsqlClient {
     inner: libsql_client::http::Client,
@@ -43,13 +45,10 @@ impl spin_sqlite::Connection for LibsqlClient {
 
         // Unfortunately, the libsql library requires that the statements are already split
         // into individual statement strings which requires us to parse the supplied SQL string.
-        let stmts = sqlparser::parser::Parser::parse_sql(
-            &sqlparser::dialect::SQLiteDialect {},
-            statements,
-        )?
-        .into_iter()
-        .map(|st| st.to_string())
-        .map(libsql_client::Statement::from);
+        let stmts = sqlite_parser::split_sql_statements(statements)
+            .0
+            .into_iter()
+            .map(libsql_client::Statement::from);
 
         let _ = client.batch(stmts).await?;
 

@@ -82,6 +82,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "antlr-rust"
+version = "0.3.0-beta"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfc6ab5594c6b2b7aa8719f4ecb785a268b2e0c2529042046035d5cebe9fa7d7"
+dependencies = [
+ "better_any",
+ "bit-set",
+ "byteorder",
+ "lazy_static",
+ "murmur3",
+ "once_cell",
+ "parking_lot 0.11.2",
+ "typed-arena",
+ "uuid 0.8.2",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -222,7 +239,7 @@ dependencies = [
  "serde_json",
  "time 0.3.20",
  "url",
- "uuid",
+ "uuid 1.3.0",
 ]
 
 [[package]]
@@ -243,7 +260,7 @@ dependencies = [
  "thiserror",
  "time 0.3.20",
  "url",
- "uuid",
+ "uuid 1.3.0",
 ]
 
 [[package]]
@@ -277,6 +294,12 @@ dependencies = [
  "blowfish",
  "getrandom 0.2.8",
 ]
+
+[[package]]
+name = "better_any"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1795ebc740ea791ffbe6685e0688ab1effec16c2864e0476db40bfdf0c02cb3d"
 
 [[package]]
 name = "bincode"
@@ -347,6 +370,21 @@ dependencies = [
  "tracing-futures",
  "url",
 ]
+
+[[package]]
+name = "bit-set"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0700ddab506f33b20a03b13996eccd309a48e5ff77d0d95926aa0210fb4e95f1"
+dependencies = [
+ "bit-vec",
+]
+
+[[package]]
+name = "bit-vec"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
 
 [[package]]
 name = "bitflags"
@@ -1150,7 +1188,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef552e6f588e446098f6ba40d89ac146c8c7b64aade83c051ee00bb5d2bc18d"
 dependencies = [
- "uuid",
+ "uuid 1.3.0",
 ]
 
 [[package]]
@@ -2143,7 +2181,7 @@ dependencies = [
  "sha2 0.9.9",
  "tokio",
  "toml 0.5.11",
- "uuid",
+ "uuid 1.3.0",
 ]
 
 [[package]]
@@ -2157,7 +2195,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "url",
- "uuid",
+ "uuid 1.3.0",
 ]
 
 [[package]]
@@ -3028,6 +3066,15 @@ dependencies = [
  "log",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.45.0",
+]
+
+[[package]]
+name = "murmur3"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a198f9589efc03f544388dfc4a19fe8af4323662b62f598b8dcfdac62c14771c"
+dependencies = [
+ "byteorder",
 ]
 
 [[package]]
@@ -4866,7 +4913,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
- "uuid",
+ "uuid 1.3.0",
  "vergen",
  "wasmtime",
  "watchexec",
@@ -5191,12 +5238,12 @@ dependencies = [
 name = "spin-sqlite-libsql"
 version = "1.5.0-pre0"
 dependencies = [
+ "antlr-rust",
  "anyhow",
  "async-trait",
  "libsql-client",
  "spin-sqlite",
  "spin-world",
- "sqlparser",
  "tokio",
 ]
 
@@ -5343,15 +5390,6 @@ name = "sptr"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b9b39299b249ad65f3b7e96443bad61c02ca5cd3589f46cb6d610a0fd6c0d6a"
-
-[[package]]
-name = "sqlparser"
-version = "0.34.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37d3706eefb17039056234df6b566b0014f303f867f2656108334a55b8096f59"
-dependencies = [
- "log",
-]
 
 [[package]]
 name = "stable_deref_trait"
@@ -5962,6 +6000,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "typed-arena"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
+
+[[package]]
 name = "typenum"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6044,6 +6088,12 @@ dependencies = [
  "percent-encoding",
  "serde",
 ]
+
+[[package]]
+name = "uuid"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 
 [[package]]
 name = "uuid"

@@ -132,12 +132,14 @@ async fn core(
     let allowed_http_hosts = raw.wasm.allowed_http_hosts.unwrap_or_default();
     let key_value_stores = raw.wasm.key_value_stores.unwrap_or_default();
     let sqlite_databases = raw.wasm.sqlite_databases.unwrap_or_default();
+    let ai_models = raw.wasm.ai_models.unwrap_or_default();
     let wasm = WasmConfig {
         environment,
         mounts,
         allowed_http_hosts,
         key_value_stores,
         sqlite_databases,
+        ai_models,
     };
     let config = raw.config.unwrap_or_default();
     Ok(CoreComponent {

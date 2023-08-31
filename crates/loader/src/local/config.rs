@@ -144,6 +144,8 @@ pub struct RawWasmConfig {
     pub key_value_stores: Option<Vec<String>>,
     /// Optional list of sqlite databases the component is allowed to use.
     pub sqlite_databases: Option<Vec<String>>,
+    /// Optional list of ai models the component is allowed to use.
+    pub ai_models: Option<Vec<String>>,
     /// Environment variables to be mapped inside the Wasm module at runtime.
     pub environment: Option<HashMap<String, String>>,
 }

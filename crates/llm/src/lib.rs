@@ -86,6 +86,7 @@ impl LlmEngine {
         &mut self,
         model: wasi_llm::InferencingModel,
         prompt: String,
+        params: wasi_llm::InferencingParams,
     ) -> Result<wasi_llm::InferencingResult, wasi_llm::Error> {
         let model = self.inferencing_model(model).await?;
         let cfg = InferenceSessionConfig {
@@ -96,8 +97,8 @@ impl LlmEngine {
         };
 
         let mut session = Model::start_session(model.as_ref(), cfg);
-        let params = InferenceParameters {
-            sampler: generate_sampler(),
+        let inference_params = InferenceParameters {
+            sampler: generate_sampler(params),
         };
         let mut rng = rand::rngs::StdRng::from_entropy();
         let mut text = String::new();
@@ -115,9 +116,9 @@ impl LlmEngine {
             &mut rng,
             &llm::InferenceRequest {
                 prompt: prompt.as_str().into(),
-                parameters: &params,
+                parameters: &inference_params,
                 play_back_previous_tokens: false,
-                maximum_token_count: Some(75),
+                maximum_token_count: Some(params.max_tokens as usize),
             },
             &mut Default::default(),
             |r| {
@@ -325,11 +326,24 @@ fn load_model(model_file: &Path) -> anyhow::Result<BertModel> {
 impl wasi_llm::Host for LlmEngine {
     async fn infer(
         &mut self,
-        m: wasi_llm::InferencingModel,
-        p: String,
-        _params: Option<wasi_llm::InferencingParams>,
+        model: wasi_llm::InferencingModel,
+        prompt: String,
+        params: Option<wasi_llm::InferencingParams>,
     ) -> anyhow::Result<Result<wasi_llm::InferencingResult, wasi_llm::Error>> {
-        Ok(self.run(m, p).await)
+        Ok(self
+            .run(
+                model,
+                prompt,
+                params.unwrap_or(wasi_llm::InferencingParams {
+                    max_tokens: 100,
+                    repeat_penalty: 1.1,
+                    repeat_penalty_last_n_token_count: 64,
+                    temperature: 0.8,
+                    top_k: 40,
+                    top_p: 0.9,
+                }),
+            )
+            .await)
     }
 
     async fn generate_embeddings(
@@ -358,6 +372,7 @@ fn model_arch(model: &wasi_llm::InferencingModel) -> Result<ModelArchitecture, w
 // Sampling options for picking the next token in the sequence.
 // We start with a default sampler, then add the inference parameters supplied by the request.
 fn generate_sampler(
+    params: wasi_llm::InferencingParams,
 ) -> Arc<Mutex<dyn llm::samplers::llm_samplers::types::Sampler<llm::TokenId, f32>>> {
     let mut result = llm::samplers::ConfiguredSamplers {
         // We are *not* using the default implementation for ConfiguredSamplers here
@@ -372,7 +387,7 @@ fn generate_sampler(
             move || {
                 Box::new(
                     llm::samplers::llm_samplers::samplers::SampleTemperature::default()
-                        .temperature(0.8),
+                        .temperature(params.temperature),
                 )
             },
             Option::<llm::samplers::llm_samplers::samplers::SampleTemperature>::None,
@@ -381,14 +396,23 @@ fn generate_sampler(
     result.builder += (
         "topp".into(),
         llm::samplers::llm_samplers::configure::SamplerSlot::new_single(
-            move || Box::new(llm::samplers::llm_samplers::samplers::SampleTopP::default().p(0.9)),
+            move || {
+                Box::new(
+                    llm::samplers::llm_samplers::samplers::SampleTopP::default().p(params.top_p),
+                )
+            },
             Option::<llm::samplers::llm_samplers::samplers::SampleTopP>::None,
         ),
     );
     result.builder += (
         "topk".into(),
         llm::samplers::llm_samplers::configure::SamplerSlot::new_single(
-            move || Box::new(llm::samplers::llm_samplers::samplers::SampleTopK::default().k(40)),
+            move || {
+                Box::new(
+                    llm::samplers::llm_samplers::samplers::SampleTopK::default()
+                        .k(params.top_k as usize),
+                )
+            },
             Option::<llm::samplers::llm_samplers::samplers::SampleTopK>::None,
         ),
     );
@@ -398,8 +422,8 @@ fn generate_sampler(
             move || {
                 Box::new(
                     llm::samplers::llm_samplers::samplers::SampleRepetition::default()
-                        .penalty(1.1)
-                        .last_n(64),
+                        .penalty(params.repeat_penalty)
+                        .last_n(params.repeat_penalty_last_n_token_count as usize),
                 )
             },
             [],

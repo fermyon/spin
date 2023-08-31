@@ -10,7 +10,7 @@ bytes = "1.1"
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "4.0"
 fd-lock = "3.0.12"
-flate2 = { version = "1.0.17", features = ["zlib-ng"], default-features = false }
+flate2 = "1.0.17"
 is-terminal = "0.4"
 path-absolutize = "3.0.11"
 reqwest = { version = "0.11", features = ["json"] }

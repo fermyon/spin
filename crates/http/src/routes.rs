@@ -2,7 +2,7 @@
 
 #![deny(missing_docs)]
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Result};
 use http::Uri;
 use indexmap::IndexMap;
 use std::{borrow::Cow, fmt};
@@ -14,35 +14,83 @@ pub struct Router {
     pub(crate) routes: IndexMap<RoutePattern, String>,
 }
 
+/// A detected duplicate route.
+pub struct DuplicateRoute {
+    /// The duplicated route pattern.
+    pub route: RoutePattern,
+    /// The raw route that was duplicated.
+    pub replaced_id: String,
+    /// The component ID corresponding to the duplicated route.
+    pub effective_id: String,
+}
+
 impl Router {
     /// Builds a router based on application configuration.
-    pub(crate) fn build<'a>(
+    pub fn build<'a>(
         base: &str,
         component_routes: impl IntoIterator<Item = (&'a str, &'a str)>,
-    ) -> Result<Self> {
-        let routes = component_routes
-            .into_iter()
-            .map(|(component_id, route)| {
-                (RoutePattern::from(base, route), component_id.to_string())
-            })
-            .collect();
+    ) -> Result<(Self, Vec<DuplicateRoute>)> {
+        let mut routes = IndexMap::new();
+        let mut duplicates = vec![];
 
-        Ok(Self { routes })
+        let routes_iter = component_routes.into_iter().map(|(component_id, route)| {
+            (RoutePattern::from(base, route), component_id.to_string())
+        });
+
+        for (route, component_id) in routes_iter {
+            let replaced = routes.insert(route.clone(), component_id.clone());
+            if let Some(replaced) = replaced {
+                duplicates.push(DuplicateRoute {
+                    route: route.clone(),
+                    replaced_id: replaced,
+                    effective_id: component_id.clone(),
+                });
+            }
+        }
+
+        Ok((Self { routes }, duplicates))
     }
 
-    // This assumes the order of the components in the manifest has been
-    // preserved, so the routing algorithm, which takes the order into account,
-    // is correct.
-    /// Returns the component ID that should handle the given path, or an error
+    /// Returns the constructed routes.
+    pub fn routes(&self) -> impl Iterator<Item = (&RoutePattern, &String)> {
+        self.routes.iter()
+    }
+
+    /// This returns the component id and route pattern for a matched route.
+    pub fn route_full(&self, p: &str) -> Result<(&str, &RoutePattern)> {
+        let matches = self.routes.iter().filter(|(rp, _)| rp.matches(p));
+
+        let mut best_match: (Option<&str>, Option<&RoutePattern>, usize) = (None, None, 0); // matched id, pattern and length
+
+        for (rp, id) in matches {
+            match rp {
+                RoutePattern::Exact(_m) => {
+                    // Exact matching routes take precedence over wildcard matches.
+                    return Ok((id, rp));
+                }
+                RoutePattern::Wildcard(m) => {
+                    // Check and find longest matching prefix of wildcard pattern.
+                    let (_id_opt, _rp_opt, len) = best_match;
+                    if m.len() >= len {
+                        best_match = (Some(id), Some(rp), m.len());
+                    }
+                }
+            }
+        }
+
+        let (id, rp, _) = best_match;
+        id.zip(rp)
+            .ok_or_else(|| anyhow!("Cannot match route for path {p}"))
+    }
+
+    /// This returns the component ID that should handle the given path, or an error
     /// if no component matches.
-    /// If there are multiple possible components registered for the same route or
-    /// wildcard, this returns the last entry in the component map.
-    pub(crate) fn route(&self, p: &str) -> Result<&str> {
-        self.routes
-            .iter()
-            .rfind(|(rp, _)| rp.matches(p))
-            .map(|(_, c)| c.as_ref())
-            .with_context(|| format!("Cannot match route for path {}", p))
+    ///
+    /// If multiple components could potentially handle the same request based on their
+    /// defined routes, components with matching exact routes take precedence followed
+    /// by matching wildcard patterns with the longest matching prefix.
+    pub fn route(&self, p: &str) -> Result<&str> {
+        self.route_full(p).map(|(r, _)| r)
     }
 }
 
@@ -67,7 +115,7 @@ impl RoutePattern {
 
     /// Returns true if the given path fragment can be handled
     /// by the route pattern.
-    pub(crate) fn matches<S: Into<String>>(&self, p: S) -> bool {
+    pub fn matches<S: Into<String>>(&self, p: S) -> bool {
         let p = Self::sanitize(p);
         match self {
             RoutePattern::Exact(path) => &p == path,
@@ -78,7 +126,7 @@ impl RoutePattern {
     }
 
     /// Resolves a relative path from the end of the matched path to the end of the string.
-    pub(crate) fn relative(&self, uri: &str) -> Result<String> {
+    pub fn relative(&self, uri: &str) -> Result<String> {
         let base = match self {
             Self::Exact(path) => path,
             Self::Wildcard(prefix) => prefix,
@@ -92,7 +140,7 @@ impl RoutePattern {
     }
 
     /// The full path (for Exact) or prefix (for Wildcard).
-    pub(crate) fn path_or_prefix(&self) -> &str {
+    pub fn path_or_prefix(&self) -> &str {
         match self {
             RoutePattern::Exact(s) => s,
             RoutePattern::Wildcard(s) => s,
@@ -100,20 +148,35 @@ impl RoutePattern {
     }
 
     /// The full pattern, with trailing "/..." for Wildcard.
-    pub(crate) fn full_pattern(&self) -> Cow<str> {
+    pub fn full_pattern(&self) -> Cow<str> {
         match self {
             Self::Exact(path) => path.into(),
             Self::Wildcard(prefix) => format!("{}/...", prefix).into(),
         }
     }
 
+    /// The full pattern, with trailing "/..." for Wildcard and "/" for root.
+    pub fn full_pattern_non_empty(&self) -> Cow<str> {
+        match self {
+            Self::Exact(path) if path.is_empty() => "/".into(),
+            _ => self.full_pattern(),
+        }
+    }
+
     /// Sanitizes the base and path and return a formed path.
-    pub(crate) fn sanitize_with_base<S: Into<String>>(base: S, path: S) -> String {
-        format!(
-            "{}{}",
-            Self::sanitize(base.into()),
-            Self::sanitize(path.into())
-        )
+    pub fn sanitize_with_base<S: Into<String>>(base: S, path: S) -> String {
+        let path = Self::absolutize(path);
+
+        format!("{}{}", Self::sanitize(base.into()), Self::sanitize(path))
+    }
+
+    fn absolutize<S: Into<String>>(s: S) -> String {
+        let s = s.into();
+        if s.starts_with('/') {
+            s
+        } else {
+            format!("/{s}")
+        }
     }
 
     /// Strips the trailing slash from a string.
@@ -196,6 +259,22 @@ mod route_tests {
         assert!(rp.matches("/base/foo/bar/baz"));
         assert!(rp.matches("/base/this/should/really/match/everything/"));
         assert!(rp.matches("/base"));
+    }
+
+    #[test]
+    fn handles_missing_leading_slash() {
+        let rp = RoutePattern::from("/", "foo/bar");
+        assert!(rp.matches("/foo/bar"));
+        assert!(rp.matches("/foo/bar/"));
+        assert!(!rp.matches("/foo"));
+        assert!(!rp.matches("/foo/bar/thisshouldbefalse"));
+        assert!(!rp.matches("/abc"));
+
+        let rp = RoutePattern::from("/base", "foo");
+        assert!(rp.matches("/base/foo"));
+        assert!(rp.matches("/base/foo/"));
+        assert!(!rp.matches("/base/foo/bar"));
+        assert!(!rp.matches("/thishouldbefalse"));
     }
 
     #[test]
@@ -314,8 +393,93 @@ mod route_tests {
 
         let r = Router { routes };
 
-        assert_eq!(r.route("/one/two/three/four")?, "one_wildcard".to_string());
+        assert_eq!(
+            r.route("/one/two/three/four")?,
+            "onetwothree_wildcard".to_string()
+        );
+
+        // Test routing rule "exact beats wildcard" ...
+        let mut routes = IndexMap::new();
+
+        routes.insert(RoutePattern::from("/", "/one"), "one_exact".to_string());
+
+        routes.insert(RoutePattern::from("/", "/..."), "wildcard".to_string());
+
+        let r = Router { routes };
+
+        assert_eq!(r.route("/one")?, "one_exact".to_string(),);
 
         Ok(())
+    }
+
+    #[test]
+    fn sensible_routes_are_reachable() {
+        let (routes, duplicates) = Router::build(
+            "/",
+            vec![
+                ("/", "/"),
+                ("/foo", "/foo"),
+                ("/bar", "/bar"),
+                ("/whee/...", "/whee/..."),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(4, routes.routes.len());
+        assert_eq!(0, duplicates.len());
+    }
+
+    #[test]
+    fn order_of_reachable_routes_is_preserved() {
+        let (routes, _) = Router::build(
+            "/",
+            vec![
+                ("/", "/"),
+                ("/foo", "/foo"),
+                ("/bar", "/bar"),
+                ("/whee/...", "/whee/..."),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!("/", routes.routes[0]);
+        assert_eq!("/foo", routes.routes[1]);
+        assert_eq!("/bar", routes.routes[2]);
+        assert_eq!("/whee/...", routes.routes[3]);
+    }
+
+    #[test]
+    fn duplicate_routes_are_unreachable() {
+        let (routes, duplicates) = Router::build(
+            "/",
+            vec![
+                ("/", "/"),
+                ("first /foo", "/foo"),
+                ("second /foo", "/foo"),
+                ("/whee/...", "/whee/..."),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(3, routes.routes.len());
+        assert_eq!(1, duplicates.len());
+    }
+
+    #[test]
+    fn duplicate_routes_last_one_wins() {
+        let (routes, duplicates) = Router::build(
+            "/",
+            vec![
+                ("/", "/"),
+                ("first /foo", "/foo"),
+                ("second /foo", "/foo"),
+                ("/whee/...", "/whee/..."),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!("second /foo", routes.routes[1]);
+        assert_eq!("first /foo", duplicates[0].replaced_id);
+        assert_eq!("second /foo", duplicates[0].effective_id);
     }
 }

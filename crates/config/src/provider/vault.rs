@@ -23,13 +23,13 @@ impl VaultProvider {
         url: impl Into<String>,
         token: impl Into<String>,
         mount: impl Into<String>,
-        prefix: Option<String>,
+        prefix: Option<impl Into<String>>,
     ) -> Self {
         Self {
             url: url.into(),
             token: token.into(),
             mount: mount.into(),
-            prefix,
+            prefix: prefix.map(Into::into),
         }
     }
 }

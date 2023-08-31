@@ -1,13 +1,14 @@
-use mysql_async::consts::ColumnType;
-use mysql_async::{from_value_opt, prelude::*};
-pub use outbound_mysql::add_to_linker;
-use spin_core::HostComponent;
+use anyhow::Result;
+pub use mysql::add_to_linker;
+use mysql_async::{consts::ColumnType, from_value_opt, prelude::*, Opts, OptsBuilder, SslOpts};
+use spin_core::{async_trait, HostComponent};
+use spin_world::{
+    mysql::{self, MysqlError},
+    rdbms_types::{Column, DbDataType, DbValue, ParameterValue, RowSet},
+};
 use std::collections::HashMap;
 use std::sync::Arc;
-use wit_bindgen_wasmtime::async_trait;
-
-wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/outbound-mysql.wit"], async: *});
-use outbound_mysql::*;
+use url::Url;
 
 /// A simple implementation to support outbound mysql connection
 #[derive(Default)]
@@ -22,7 +23,7 @@ impl HostComponent for OutboundMysql {
         linker: &mut spin_core::Linker<T>,
         get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
     ) -> anyhow::Result<()> {
-        outbound_mysql::add_to_linker(linker, get)
+        mysql::add_to_linker(linker, get)
     }
 
     fn build_data(&self) -> Self::Data {
@@ -31,68 +32,74 @@ impl HostComponent for OutboundMysql {
 }
 
 #[async_trait]
-impl outbound_mysql::OutboundMysql for OutboundMysql {
+impl mysql::Host for OutboundMysql {
     async fn execute(
         &mut self,
-        address: &str,
-        statement: &str,
-        params: Vec<ParameterValue<'_>>,
-    ) -> Result<(), MysqlError> {
-        let db_params = params
-            .iter()
-            .map(to_sql_parameter)
-            .collect::<anyhow::Result<Vec<_>>>()
-            .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
+        address: String,
+        statement: String,
+        params: Vec<ParameterValue>,
+    ) -> Result<Result<(), MysqlError>> {
+        Ok(async {
+            let db_params = params
+                .iter()
+                .map(to_sql_parameter)
+                .collect::<anyhow::Result<Vec<_>>>()
+                .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
 
-        let parameters = mysql_async::Params::Positional(db_params);
+            let parameters = mysql_async::Params::Positional(db_params);
 
-        self.get_conn(address)
-            .await
-            .map_err(|e| MysqlError::ConnectionFailed(format!("{:?}", e)))?
-            .exec_batch(statement, &[parameters])
-            .await
-            .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
+            self.get_conn(&address)
+                .await
+                .map_err(|e| MysqlError::ConnectionFailed(format!("{:?}", e)))?
+                .exec_batch(&statement, &[parameters])
+                .await
+                .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
 
-        Ok(())
+            Ok(())
+        }
+        .await)
     }
 
     async fn query(
         &mut self,
-        address: &str,
-        statement: &str,
-        params: Vec<ParameterValue<'_>>,
-    ) -> Result<RowSet, MysqlError> {
-        let db_params = params
-            .iter()
-            .map(to_sql_parameter)
-            .collect::<anyhow::Result<Vec<_>>>()
-            .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
+        address: String,
+        statement: String,
+        params: Vec<ParameterValue>,
+    ) -> Result<Result<RowSet, MysqlError>> {
+        Ok(async {
+            let db_params = params
+                .iter()
+                .map(to_sql_parameter)
+                .collect::<anyhow::Result<Vec<_>>>()
+                .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
 
-        let parameters = mysql_async::Params::Positional(db_params);
+            let parameters = mysql_async::Params::Positional(db_params);
 
-        let mut query_result = self
-            .get_conn(address)
-            .await
-            .map_err(|e| MysqlError::ConnectionFailed(format!("{:?}", e)))?
-            .exec_iter(statement, parameters)
-            .await
-            .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
+            let mut query_result = self
+                .get_conn(&address)
+                .await
+                .map_err(|e| MysqlError::ConnectionFailed(format!("{:?}", e)))?
+                .exec_iter(&statement, parameters)
+                .await
+                .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
 
-        // We have to get these before collect() destroys them
-        let columns = convert_columns(query_result.columns());
+            // We have to get these before collect() destroys them
+            let columns = convert_columns(query_result.columns());
 
-        match query_result.collect::<mysql_async::Row>().await {
-            Err(e) => Err(MysqlError::OtherError(format!("{:?}", e))),
-            Ok(result_set) => {
-                let rows = result_set
-                    .into_iter()
-                    .map(|row| convert_row(row, &columns))
-                    .collect::<Result<Vec<_>, _>>()
-                    .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
+            match query_result.collect::<mysql_async::Row>().await {
+                Err(e) => Err(MysqlError::OtherError(format!("{:?}", e))),
+                Ok(result_set) => {
+                    let rows = result_set
+                        .into_iter()
+                        .map(|row| convert_row(row, &columns))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map_err(|e| MysqlError::QueryFailed(format!("{:?}", e)))?;
 
-                Ok(RowSet { columns, rows })
+                    Ok(RowSet { columns, rows })
+                }
             }
         }
+        .await)
     }
 }
 
@@ -244,11 +251,93 @@ impl OutboundMysql {
 async fn build_conn(address: &str) -> Result<mysql_async::Conn, mysql_async::Error> {
     tracing::log::debug!("Build new connection: {}", address);
 
-    let connection_pool = mysql_async::Pool::new(address);
+    let opts = build_opts(address)?;
+
+    let connection_pool = mysql_async::Pool::new(opts);
 
     connection_pool.get_conn().await
 }
 
+fn is_ssl_param(s: &str) -> bool {
+    ["ssl-mode", "sslmode"].contains(&s.to_lowercase().as_str())
+}
+
+/// The mysql_async crate blows up if you pass it an SSL parameter and doesn't support SSL opts properly. This function
+/// is a workaround to manually set SSL opts if the user requests them.
+///
+/// We only support ssl-mode in the query as per
+/// https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-connp-props-security.html#cj-conn-prop_sslMode.
+///
+/// An issue has been filed in the upstream repository https://github.com/blackbeam/mysql_async/issues/225.
+fn build_opts(address: &str) -> Result<Opts, mysql_async::Error> {
+    let url = Url::parse(address)?;
+
+    let use_ssl = url
+        .query_pairs()
+        .any(|(k, v)| is_ssl_param(&k) && v.to_lowercase() != "disabled");
+
+    let query_without_ssl: Vec<(_, _)> = url
+        .query_pairs()
+        .filter(|(k, _v)| !is_ssl_param(k))
+        .collect();
+    let mut cleaned_url = url.clone();
+    cleaned_url.set_query(None);
+    cleaned_url
+        .query_pairs_mut()
+        .extend_pairs(query_without_ssl);
+
+    Ok(OptsBuilder::from_opts(cleaned_url.as_str())
+        .ssl_opts(if use_ssl {
+            Some(SslOpts::default())
+        } else {
+            None
+        })
+        .into())
+}
+
 fn convert_value_to<T: FromValue>(value: mysql_async::Value) -> Result<T, MysqlError> {
     from_value_opt::<T>(value).map_err(|e| MysqlError::ValueConversionFailed(format!("{}", e)))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_mysql_address_without_ssl_mode() {
+        assert!(build_opts("mysql://myuser:password@127.0.0.1/db")
+            .unwrap()
+            .ssl_opts()
+            .is_none())
+    }
+
+    #[test]
+    fn test_mysql_address_with_ssl_mode_disabled() {
+        assert!(
+            build_opts("mysql://myuser:password@127.0.0.1/db?ssl-mode=DISABLED")
+                .unwrap()
+                .ssl_opts()
+                .is_none()
+        )
+    }
+
+    #[test]
+    fn test_mysql_address_with_ssl_mode_verify_ca() {
+        assert!(
+            build_opts("mysql://myuser:password@127.0.0.1/db?sslMode=VERIFY_CA")
+                .unwrap()
+                .ssl_opts()
+                .is_some()
+        )
+    }
+
+    #[test]
+    fn test_mysql_address_with_more_to_query() {
+        let address = "mysql://myuser:password@127.0.0.1/db?SsLmOdE=VERIFY_CA&pool_max=10";
+        assert!(build_opts(address).unwrap().ssl_opts().is_some());
+        assert_eq!(
+            build_opts(address).unwrap().pool_opts().constraints().max(),
+            10
+        )
+    }
 }

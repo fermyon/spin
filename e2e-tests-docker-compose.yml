@@ -1,0 +1,61 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: ${MYSQL_IMAGE:-mysql:8.0.22}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: spin
+      MYSQL_DATABASE: spin_dev
+      MYSQL_USER: spin
+      MYSQL_PASSWORD: spin
+
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:14.7-alpine}
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=spin_dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7.0.8-alpine3.17}
+    ports:
+      - "6379:6379"
+    restart: always
+
+  registry:
+    image: ${REGISTRY_IMAGE:-registry:2}
+    ports:
+      - "5001:5000"
+    restart: always
+    environment:
+      - REGISTRY_HTTP_SECRET=secret
+
+  e2e-tests:
+    depends_on:
+      - mysql
+      - redis
+      - postgres
+      - registry
+    image: spin-e2e-tests
+    entrypoint: cargo test spinup_tests --features e2e-tests --no-fail-fast -- --nocapture
+    volumes:
+      - target_cache:/e2e-tests/target
+      - cargo_registry_cache:/usr/local/cargo/registry
+      - cargo_git_cache:/usr/local/cargo/git
+
+volumes:
+  db_data: {}
+  postgres_data: {}
+  cargo_registry_cache: {}
+  cargo_git_cache: {}
+  target_cache: {}

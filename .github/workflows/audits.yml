@@ -2,16 +2,19 @@ name: Run Rust audits
 on:
   schedule:
     - cron: '0 0 * * *'
+  workflow_dispatch:
+jobs:
   cargo-vet:
     name: Vet Dependencies
     runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'fermyon' }}
     env:
-      CARGO_VET_VERSION: 0.3.0
+      CARGO_VET_VERSION: 0.7.0
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v3
       - name: Install Rust
         run: rustup update stable && rustup default stable
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: ${{ runner.tool_cache }}/cargo-vet
           key: cargo-vet-bin-${{ env.CARGO_VET_VERSION }}

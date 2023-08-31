@@ -3,13 +3,16 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Args, IntoApp, Parser};
 use serde::de::DeserializeOwned;
-use tokio::{
-    task::JoinHandle,
-    time::{sleep, Duration},
-};
+use spin_app::Loader;
+use spin_common::{arg_parser::parse_kv, sloth};
 
+use crate::runtime_config::sqlite::SqlitePersistenceMessageHook;
 use crate::stdio::StdioLoggingTriggerHooks;
-use crate::{config::TriggerExecutorBuilderConfig, loader::TriggerLoader, stdio::FollowComponents};
+use crate::{
+    loader::TriggerLoader,
+    runtime_config::{key_value::KeyValuePersistenceMessageHook, RuntimeConfig},
+    stdio::FollowComponents,
+};
 use crate::{TriggerExecutor, TriggerExecutorBuilder};
 
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
@@ -20,21 +23,25 @@ pub const RUNTIME_CONFIG_FILE: &str = "RUNTIME_CONFIG_FILE";
 
 // Set by `spin up`
 pub const SPIN_LOCKED_URL: &str = "SPIN_LOCKED_URL";
+pub const SPIN_LOCAL_APP_DIR: &str = "SPIN_LOCAL_APP_DIR";
 pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
 
 /// A command that runs a TriggerExecutor.
 #[derive(Parser, Debug)]
-#[clap(next_help_heading = "TRIGGER OPTIONS")]
+#[clap(
+    usage = "spin [COMMAND] [OPTIONS]",
+    next_help_heading = "TRIGGER OPTIONS"
+)]
 pub struct TriggerExecutorCommand<Executor: TriggerExecutor>
 where
     Executor::RunConfig: Args,
 {
     /// Log directory for the stdout and stderr of components.
     #[clap(
-            name = APP_LOG_DIR,
-            short = 'L',
-            long = "log-dir",
-            )]
+        name = APP_LOG_DIR,
+        short = 'L',
+        long = "log-dir",
+    )]
     pub log: Option<PathBuf>,
 
     /// Disable Wasmtime cache.
@@ -97,20 +104,22 @@ where
     )]
     pub max_table_entries: u32,
 
-    /// Print output for given component(s) to stdout/stderr
+    /// Print output to stdout/stderr only for given component(s)
     #[clap(
         name = FOLLOW_LOG_OPT,
         long = "follow",
         multiple_occurrences = true,
-        )]
+    )]
     pub follow_components: Vec<String>,
 
-    /// Print all component output to stdout/stderr
+    /// Silence all component output to stdout/stderr
     #[clap(
-        long = "follow-all",
+        long = "quiet",
+        short = 'q',
+        aliases = &["sh", "shush"],
         conflicts_with = FOLLOW_LOG_OPT,
         )]
-    pub follow_all_components: bool,
+    pub silence_component_logs: bool,
 
     /// Set the static assets of the components in the temporary directory as writable.
     #[clap(long = "allow-transient-write")]
@@ -124,8 +133,28 @@ where
     )]
     pub runtime_config_file: Option<PathBuf>,
 
+    /// Set the application state directory path. This is used in the default
+    /// locations for logs, key value stores, etc.
+    ///
+    /// For local apps, this defaults to `.spin/` relative to the `spin.toml` file.
+    /// For remote apps, this has no default (unset).
+    /// Passing an empty value forces the value to be unset.
+    #[clap(long)]
+    pub state_dir: Option<String>,
+
     #[clap(flatten)]
     pub run_config: Executor::RunConfig,
+
+    /// Set a key/value pair (key=value) in the application's
+    /// default store. Any existing value will be overwritten.
+    /// Can be used multiple times.
+    #[clap(long = "key-value", parse(try_from_str = parse_kv))]
+    key_values: Vec<(String, String)>,
+
+    /// Run a SQLite statement such as a migration against the default database.
+    /// To run from a file, prefix the filename with @ e.g. spin up --sqlite @migration.sql
+    #[clap(long = "sqlite")]
+    sqlite_statements: Vec<String>,
 
     #[clap(long = "help-args-only", hide = true)]
     pub help_args_only: bool,
@@ -155,22 +184,11 @@ where
         let working_dir = std::env::var(SPIN_WORKING_DIR).context(SPIN_WORKING_DIR)?;
         let locked_url = std::env::var(SPIN_LOCKED_URL).context(SPIN_LOCKED_URL)?;
 
+        let init_data =
+            crate::HostComponentInitData::new(&*self.key_values, &*self.sqlite_statements);
+
         let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
-
-        let trigger_config =
-            TriggerExecutorBuilderConfig::load_from_file(self.runtime_config_file.clone())?;
-
-        let executor: Executor = {
-            let _sloth_warning = warn_if_wasm_build_slothful();
-
-            let mut builder = TriggerExecutorBuilder::new(loader);
-            self.update_config(builder.config_mut())?;
-
-            let logging_hooks = StdioLoggingTriggerHooks::new(self.follow_components(), self.log);
-            builder.hooks(logging_hooks);
-
-            builder.build(locked_url, trigger_config).await?
-        };
+        let executor = self.build_executor(loader, locked_url, init_data).await?;
 
         let run_fut = executor.run(self.run_config);
 
@@ -192,11 +210,46 @@ where
         }
     }
 
-    pub fn follow_components(&self) -> FollowComponents {
-        if self.follow_all_components {
-            FollowComponents::All
-        } else if self.follow_components.is_empty() {
+    async fn build_executor(
+        &self,
+        loader: impl Loader + Send + Sync + 'static,
+        locked_url: String,
+        init_data: crate::HostComponentInitData,
+    ) -> Result<Executor> {
+        let runtime_config = self.build_runtime_config()?;
+
+        let _sloth_guard = warn_if_wasm_build_slothful();
+
+        let mut builder = TriggerExecutorBuilder::new(loader);
+        self.update_wasmtime_config(builder.wasmtime_config_mut())?;
+
+        builder.hooks(StdioLoggingTriggerHooks::new(self.follow_components()));
+        builder.hooks(KeyValuePersistenceMessageHook);
+        builder.hooks(SqlitePersistenceMessageHook);
+
+        builder.build(locked_url, runtime_config, init_data).await
+    }
+
+    fn build_runtime_config(&self) -> Result<RuntimeConfig> {
+        let local_app_dir = std::env::var_os(SPIN_LOCAL_APP_DIR);
+        let mut config = RuntimeConfig::new(local_app_dir.map(Into::into));
+        if let Some(state_dir) = &self.state_dir {
+            config.set_state_dir(state_dir);
+        }
+        if let Some(log_dir) = &self.log {
+            config.set_log_dir(log_dir);
+        }
+        if let Some(config_file) = &self.runtime_config_file {
+            config.merge_config_file(config_file)?;
+        }
+        Ok(config)
+    }
+
+    fn follow_components(&self) -> FollowComponents {
+        if self.silence_component_logs {
             FollowComponents::None
+        } else if self.follow_components.is_empty() {
+            FollowComponents::All
         } else {
             let followed = self.follow_components.clone().into_iter().collect();
             FollowComponents::Named(followed)
@@ -227,32 +280,36 @@ where
 
 const SLOTH_WARNING_DELAY_MILLIS: u64 = 1250;
 
-struct WasmBuildSlothWarning<T> {
-    warning: JoinHandle<T>,
+fn warn_if_wasm_build_slothful() -> sloth::SlothGuard {
+    #[cfg(debug_assertions)]
+    let message = "\
+        This is a debug build - preparing Wasm modules might take a few seconds\n\
+        If you're experiencing long startup times please switch to the release build";
+
+    #[cfg(not(debug_assertions))]
+    let message = "Preparing Wasm modules is taking a few seconds...";
+
+    sloth::warn_if_slothful(SLOTH_WARNING_DELAY_MILLIS, format!("{message}\n"))
 }
 
-impl<T> Drop for WasmBuildSlothWarning<T> {
-    fn drop(&mut self) {
-        self.warning.abort()
+pub mod help {
+    use super::*;
+
+    /// Null object to support --help-args-only in the absence of
+    /// a `spin.toml` file.
+    pub struct HelpArgsOnlyTrigger;
+
+    #[async_trait::async_trait]
+    impl TriggerExecutor for HelpArgsOnlyTrigger {
+        const TRIGGER_TYPE: &'static str = "help-args-only";
+        type RuntimeData = ();
+        type TriggerConfig = ();
+        type RunConfig = NoArgs;
+        async fn new(_: crate::TriggerAppEngine<Self>) -> Result<Self> {
+            Ok(Self)
+        }
+        async fn run(self, _: Self::RunConfig) -> Result<()> {
+            Ok(())
+        }
     }
-}
-
-fn warn_if_wasm_build_slothful() -> WasmBuildSlothWarning<()> {
-    let warning = tokio::spawn(warn_slow_wasm_build());
-    WasmBuildSlothWarning { warning }
-}
-
-#[cfg(debug_assertions)]
-async fn warn_slow_wasm_build() {
-    sleep(Duration::from_millis(SLOTH_WARNING_DELAY_MILLIS)).await;
-    println!("This is a debug build - preparing Wasm modules might take a few seconds");
-    println!("If you're experiencing long startup times please switch to the release build");
-    println!();
-}
-
-#[cfg(not(debug_assertions))]
-async fn warn_slow_wasm_build() {
-    sleep(Duration::from_millis(SLOTH_WARNING_DELAY_MILLIS)).await;
-    println!("Preparing Wasm modules is taking a few seconds...");
-    println!();
 }

@@ -15,25 +15,25 @@ import (
 
 //export spin_http_handle_http_request
 func handle_http_request(req *C.spin_http_request_t, res *C.spin_http_response_t) {
-	defer C.spin_http_request_free(req)
-
 	var body []byte
 	if req.body.is_some {
 		body = C.GoBytes(unsafe.Pointer(req.body.val.ptr), C.int(req.body.val.len))
 	}
 	method := methods[req.method]
-	uri := C.GoStringN(req.uri.ptr, C.int(req.uri.len))
+	header := fromSpinHeaders(&req.headers)
+	url := header.Get(HeaderFullUrl)
 
-	// NOTE Host is not included in the URL
-	r, err := http.NewRequest(method, uri, bytes.NewReader(body))
+	r, err := http.NewRequest(method, url, bytes.NewReader(body))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		res.status = C.uint16_t(http.StatusInternalServerError)
 		return
 	}
 
-	r.Header = fromSpinHeaders(&req.headers)
+	r.Header = header
 	r.Host = r.Header.Get("Host")
+	r.RequestURI = C.GoStringN(req.uri.ptr, C.int(req.uri.len))
+	r.RemoteAddr = r.Header.Get(HeaderClientAddr)
 
 	w := newResponse()
 
@@ -63,17 +63,15 @@ func toSpinHeaders(hm http.Header) C.spin_http_headers_t {
 
 	if headersLen > 0 {
 		reqHeaders.len = C.ulong(headersLen)
-		var x C.spin_http_string_t
-		headersPtr := C.malloc(C.size_t(headersLen) * C.size_t(unsafe.Sizeof(x)))
-		ptr := (*[1 << 30]C.spin_http_tuple2_string_string_t)(unsafe.Pointer(&headersPtr))[:headersLen:headersLen]
+		var x C.spin_http_tuple2_string_string_t
+		reqHeaders.ptr = (*C.spin_http_tuple2_string_string_t)(C.malloc(C.size_t(headersLen) * C.size_t(unsafe.Sizeof(x))))
+		headers := unsafe.Slice(reqHeaders.ptr, headersLen)
 
 		idx := 0
 		for k, v := range hm {
-			ptr[idx] = newSpinHeader(k, v[0])
+			headers[idx] = newSpinHeader(k, v[0])
 			idx++
 		}
-
-		reqHeaders.ptr = &ptr[0]
 	}
 	return reqHeaders
 }
@@ -93,9 +91,12 @@ func toSpinBody(body io.Reader) (C.spin_http_option_body_t, error) {
 	}
 
 	if len > 0 {
+		bodyPtr := (*C.uint8_t)(C.malloc(C.size_t(len)))
+		copy(unsafe.Slice(bodyPtr, len), buf.Bytes())
+
 		spinBody.is_some = true
 		spinBody.val = C.spin_http_body_t{
-			ptr: &buf.Bytes()[0],
+			ptr: bodyPtr,
 			len: C.size_t(len),
 		}
 	}

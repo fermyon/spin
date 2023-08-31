@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::Context;
 use indexmap::IndexMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "manifest_version")]
@@ -18,6 +18,7 @@ pub(crate) struct RawTemplateManifestV1 {
     pub id: String,
     pub description: Option<String>,
     pub trigger_type: Option<String>,
+    pub tags: Option<HashSet<String>>,
     pub new_application: Option<RawTemplateVariant>,
     pub add_component: Option<RawTemplateVariant>,
     pub parameters: Option<IndexMap<String, RawParameter>>,
@@ -53,4 +54,16 @@ pub(crate) struct RawCustomFilter {
 
 pub(crate) fn parse_manifest_toml(text: impl AsRef<str>) -> anyhow::Result<RawTemplateManifest> {
     toml::from_str(text.as_ref()).context("Failed to parse template manifest TOML")
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case", untagged)]
+pub(crate) enum RawInstalledFrom {
+    Git { git: String },
+    File { dir: String },
+}
+
+pub(crate) fn parse_installed_from(text: impl AsRef<str>) -> Option<RawInstalledFrom> {
+    // If we can't load it then it's not worth an error
+    toml::from_str(text.as_ref()).ok()
 }

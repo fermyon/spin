@@ -5,9 +5,11 @@ __attribute__((weak, export_name("canonical_abi_realloc")))
 void *canonical_abi_realloc(
 void *ptr,
 size_t orig_size,
-size_t org_align,
+size_t align,
 size_t new_size
 ) {
+  if (new_size == 0)
+  return (void*) align;
   void *ret = realloc(ptr, new_size);
   if (!ret)
   abort();
@@ -20,10 +22,50 @@ void *ptr,
 size_t size,
 size_t align
 ) {
+  if (size == 0)
+  return;
   free(ptr);
+}
+#include <string.h>
+
+void spin_redis_string_set(spin_redis_string_t *ret, const char *s) {
+  ret->ptr = (char*) s;
+  ret->len = strlen(s);
+}
+
+void spin_redis_string_dup(spin_redis_string_t *ret, const char *s) {
+  ret->len = strlen(s);
+  ret->ptr = canonical_abi_realloc(NULL, 0, 1, ret->len);
+  memcpy(ret->ptr, s, ret->len);
+}
+
+void spin_redis_string_free(spin_redis_string_t *ret) {
+  canonical_abi_free(ret->ptr, ret->len, 1);
+  ret->ptr = NULL;
+  ret->len = 0;
 }
 void spin_redis_payload_free(spin_redis_payload_t *ptr) {
   canonical_abi_free(ptr->ptr, ptr->len * 1, 1);
+}
+void spin_redis_redis_parameter_free(spin_redis_redis_parameter_t *ptr) {
+  switch ((int32_t) ptr->tag) {
+    case 1: {
+      spin_redis_payload_free(&ptr->val.binary);
+      break;
+    }
+  }
+}
+void spin_redis_redis_result_free(spin_redis_redis_result_t *ptr) {
+  switch ((int32_t) ptr->tag) {
+    case 1: {
+      spin_redis_string_free(&ptr->val.status);
+      break;
+    }
+    case 3: {
+      spin_redis_payload_free(&ptr->val.binary);
+      break;
+    }
+  }
 }
 typedef struct {
   bool is_err;

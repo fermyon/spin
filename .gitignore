@@ -1,9 +1,16 @@
 target
 .husky
-cache
+# cache
 node_modules
 ignored-assets
 main.wasm
 .parcel-cache
 .vscode/*.log
-Cargo.lock
+tests/**/Cargo.lock
+crates/**/Cargo.lock
+examples/**/Cargo.lock
+tests/testcases/*-generated
+spin-plugin-update.lock
+package-lock.json
+.spin
+.DS_Store

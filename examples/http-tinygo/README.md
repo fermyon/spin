@@ -30,8 +30,9 @@ func main() {}
 Building this as a WebAssembly module can be done using the `tinygo` compiler:
 
 ```shell
+$ go mod tidy
 $ spin build
-Executing the build command for component tinygo-hello: tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go
+Executing the build command for component tinygo-hello: tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go
 Successfully ran the build command for the Spin components.
 ```
 
@@ -52,7 +53,7 @@ source = "main.wasm"
 [component.trigger]
 route = "/hello"
 [component.build]
-command = "tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go"
+command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"
 ```
 
 At this point, we can execute the application with the `spin` CLI:

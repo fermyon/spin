@@ -1,0 +1,15 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A simple application that exercises key/value storage."
+name = "key-value"
+trigger = {type = "http", base = "/test"}
+version = "1.0.0"
+
+[[component]]
+id = "hello"
+key_value_stores = ["default"]
+source = "target/wasm32-wasi/release/key_value.wasm"
+[component.trigger]
+route = "/..."
+[component.build]
+command = "cargo build --release --target wasm32-wasi"

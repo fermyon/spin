@@ -4,15 +4,15 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use path_absolutize::Absolutize;
-use tokio::{fs::File, io::AsyncReadExt};
+use tokio;
 
 use spin_loader::local::absolutize;
 use spin_templates::{RunOptions, Template, TemplateManager, TemplateVariantInfo};
 
-use crate::opts::{APP_CONFIG_FILE_OPT, DEFAULT_MANIFEST_FILE};
+use crate::opts::{APP_MANIFEST_FILE_OPT, DEFAULT_MANIFEST_FILE};
 
 /// Scaffold a new application based on a template.
 #[derive(Parser, Debug)]
@@ -23,6 +23,14 @@ pub struct TemplateNewCommandCore {
     /// The name of the new application or component.
     #[clap(value_parser = validate_name)]
     pub name: Option<String>,
+
+    /// Filter templates to select by tags.
+    #[clap(
+        long = "tag",
+        multiple_occurrences = true,
+        conflicts_with = "template-id"
+    )]
+    pub tags: Vec<String>,
 
     /// The directory in which to create the new application or component.
     /// The default is the name argument.
@@ -41,7 +49,7 @@ pub struct TemplateNewCommandCore {
 
     /// An optional argument that allows to skip prompts for the manifest file
     /// by accepting the defaults if available on the template
-    #[clap(long = "accept-defaults", takes_value = false)]
+    #[clap(short = 'a', long = "accept-defaults", takes_value = false)]
     pub accept_defaults: bool,
 }
 
@@ -60,7 +68,7 @@ pub struct AddCommand {
 
     /// Path to spin.toml.
     #[clap(
-        name = APP_CONFIG_FILE_OPT,
+        name = APP_MANIFEST_FILE_OPT,
         short = 'f',
         long = "file",
     )]
@@ -111,12 +119,14 @@ impl TemplateNewCommandCore {
                 .with_context(|| format!("Error retrieving template {}", template_id))?
             {
                 Some(template) => template,
-                None => {
-                    println!("Template {template_id} not found");
-                    return Ok(());
-                }
+                None => match prompt_template(&template_manager, &variant, &[template_id.clone()])
+                    .await?
+                {
+                    Some(template) => template,
+                    None => return Ok(()),
+                },
             },
-            None => match prompt_template(&template_manager).await? {
+            None => match prompt_template(&template_manager, &variant, &self.tags).await? {
                 Some(template) => template,
                 None => return Ok(()),
             },
@@ -133,7 +143,7 @@ impl TemplateNewCommandCore {
 
         let name = match &self.name {
             Some(name) => name.to_owned(),
-            None => prompt_name().await?,
+            None => prompt_name(&variant).await?,
         };
 
         let output_path = self.output_path.clone().unwrap_or_else(|| path_safe(&name));
@@ -178,17 +188,19 @@ impl FromStr for ParameterValue {
     }
 }
 
-async fn values_from_file(file: impl AsRef<Path>) -> Result<HashMap<String, String>> {
-    let file = absolutize(file)?;
+/// This function reads a file and parses it as TOML, then
+/// returns the resulting hashmap of key-value pairs.
+async fn values_from_file(path: impl AsRef<Path>) -> Result<HashMap<String, String>> {
+    // Get the absolute path of the file we're reading.
+    let path = absolutize(path)?;
 
-    let mut buf = vec![];
-    File::open(&file)
-        .await?
-        .read_to_end(&mut buf)
+    // Open the file.
+    let text = tokio::fs::read_to_string(&path)
         .await
-        .with_context(|| anyhow!("Cannot read values file from {:?}", file))?;
+        .with_context(|| format!("Failed to read text from values file {}", path.display()))?;
 
-    toml::from_slice(&buf).context("Failed to deserialize values file")
+    // Parse the TOML file into a hashmap of values.
+    toml::from_str(&text).context("Failed to deserialize values file")
 }
 
 /// Merges values from file and values passed as command line options. CLI
@@ -199,17 +211,31 @@ fn merge_values(from_file: &mut HashMap<String, String>, from_cli: &[ParameterVa
     }
 }
 
-async fn prompt_template(template_manager: &TemplateManager) -> anyhow::Result<Option<Template>> {
-    let mut templates = match get_or_install_templates(template_manager).await? {
+async fn prompt_template(
+    template_manager: &TemplateManager,
+    variant: &TemplateVariantInfo,
+    tags: &[String],
+) -> anyhow::Result<Option<Template>> {
+    let mut templates = match list_or_install_templates(template_manager, tags).await? {
         Some(t) => t,
         None => return Ok(None),
     };
+    if templates.is_empty() {
+        if tags.len() == 1 {
+            bail!("No templates matched '{}'", tags[0]);
+        } else {
+            bail!("No templates matched all tags");
+        }
+    }
+
     let opts = templates
         .iter()
         .map(|t| format!("{} ({})", t.id(), t.description_or_empty()))
         .collect::<Vec<_>>();
+    let noun = variant.prompt_noun();
+    let prompt = format!("Pick a template to start your {noun} with");
     let index = match dialoguer::Select::new()
-        .with_prompt("Pick a template to start your project with")
+        .with_prompt(prompt)
         .items(&opts)
         .default(0)
         .interact_opt()?
@@ -221,56 +247,27 @@ async fn prompt_template(template_manager: &TemplateManager) -> anyhow::Result<O
     Ok(Some(choice))
 }
 
-const DEFAULT_TEMPLATES_INSTALL_PROMPT: &str =
-    "You don't have any templates yet. Would you like to install the default set?";
-const DEFAULT_TEMPLATE_REPO: &str = "https://github.com/fermyon/spin";
-
-async fn get_or_install_templates(
+async fn list_or_install_templates(
     template_manager: &TemplateManager,
+    tags: &[String],
 ) -> anyhow::Result<Option<Vec<Template>>> {
-    let templates = template_manager.list().await?.templates;
-    if templates.is_empty() {
-        let should_install = dialoguer::Confirm::new()
-            .with_prompt(DEFAULT_TEMPLATES_INSTALL_PROMPT)
-            .default(true)
-            .interact_opt()?;
-        if should_install == Some(true) {
-            install_default_templates().await?;
-            Ok(Some(template_manager.list().await?.templates))
-        } else {
-            println!(
-                "You can install the default templates later with 'spin install --git {}'",
-                DEFAULT_TEMPLATE_REPO
-            );
-            Ok(None)
-        }
+    let list_results = template_manager.list_with_tags(tags).await?;
+    if list_results.needs_install() {
+        super::templates::prompt_install_default_templates(template_manager).await
     } else {
-        Ok(Some(templates))
+        Ok(Some(list_results.templates))
     }
 }
 
-async fn install_default_templates() -> Result<(), anyhow::Error> {
-    let install_cmd = super::templates::Install {
-        git: Some(DEFAULT_TEMPLATE_REPO.to_owned()),
-        branch: None,
-        dir: None,
-        update: false,
-    };
-    install_cmd
-        .run()
-        .await
-        .context("Failed to install the default templates")?;
-    Ok(())
-}
-
-async fn prompt_name() -> anyhow::Result<String> {
-    let mut prompt = "Enter a name for your new project";
+async fn prompt_name(variant: &TemplateVariantInfo) -> anyhow::Result<String> {
+    let noun = variant.prompt_noun();
+    let mut prompt = format!("Enter a name for your new {noun}");
     loop {
         let result = dialoguer::Input::<String>::new()
             .with_prompt(prompt)
             .interact_text()?;
         if result.trim().is_empty() {
-            prompt = "Name is required. Try another project name (or Ctrl+C to exit)";
+            prompt = format!("Name is required. Try another {noun} name (or Crl+C to exit)");
             continue;
         } else {
             return Ok(result);
@@ -280,7 +277,7 @@ async fn prompt_name() -> anyhow::Result<String> {
 
 lazy_static::lazy_static! {
     static ref PATH_UNSAFE_CHARACTERS: regex::Regex = regex::Regex::new("[^-_.a-zA-Z0-9]").expect("Invalid path safety regex");
-    static ref PROJECT_NAME: regex::Regex = regex::Regex::new("^[a-zA-Z].*").expect("Invalid project name regex");
+    static ref NAME: regex::Regex = regex::Regex::new("^[a-zA-Z].*").expect("Invalid name regex");
 }
 
 fn path_safe(text: &str) -> PathBuf {
@@ -289,7 +286,7 @@ fn path_safe(text: &str) -> PathBuf {
 }
 
 fn validate_name(name: &str) -> Result<String, String> {
-    if PROJECT_NAME.is_match(name) {
+    if NAME.is_match(name) {
         Ok(name.to_owned())
     } else {
         Err("Name must start with a letter".to_owned())

@@ -15,9 +15,9 @@ serde = "1"
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 spin-trigger = { path = "../trigger" }
+spin-world = { path = "../world" }
 redis = { version = "0.21", features = [ "tokio-comp" ] }
 tracing = { workspace = true }
-wit-bindgen-wasmtime = { workspace = true }
 
 [dev-dependencies]
 spin-testing = { path = "../testing" }

@@ -84,6 +84,16 @@ pub struct ListResults {
     pub templates: Vec<Template>,
     /// Any warnings identified during the list operation.
     pub warnings: Vec<(String, InstalledTemplateWarning)>,
+    /// Any skipped templates (populated as a result of filtering by tags).
+    pub skipped: Vec<Template>,
+}
+
+impl ListResults {
+    /// Returns true if no templates were found or skipped indicating that
+    /// templates may not be installed.
+    pub fn needs_install(&self) -> bool {
+        self.templates.is_empty() && self.skipped.is_empty()
+    }
 }
 
 /// A recoverable problem while listing templates.
@@ -97,7 +107,11 @@ impl TemplateManager {
     /// Creates a `TemplateManager` for the default install location.
     pub fn try_default() -> anyhow::Result<Self> {
         let store = TemplateStore::try_default()?;
-        Ok(Self { store })
+        Ok(Self::new(store))
+    }
+
+    pub(crate) fn new(store: TemplateStore) -> Self {
+        Self { store }
     }
 
     /// Installs templates from the specified source.
@@ -125,7 +139,7 @@ impl TemplateManager {
 
         for template_dir in template_dirs {
             let install_result = self
-                .install_one(&template_dir, options, reporter)
+                .install_one(&template_dir, options, source, reporter)
                 .await
                 .with_context(|| {
                     format!("Failed to install template from {}", template_dir.display())
@@ -146,6 +160,7 @@ impl TemplateManager {
         &self,
         source_dir: &Path,
         options: &InstallOptions,
+        source: &TemplateSource,
         reporter: &impl ProgressReporter,
     ) -> anyhow::Result<InstallationResult> {
         let layout = TemplateLayout::new(source_dir);
@@ -179,11 +194,11 @@ impl TemplateManager {
                     ))
                 }
                 ExistsBehaviour::Update => {
-                    copy_template_over_existing(id, source_dir, &dest_dir).await?
+                    copy_template_over_existing(id, source_dir, &dest_dir, source).await?
                 }
             }
         } else {
-            copy_template_into(id, source_dir, &dest_dir).await?
+            copy_template_into(id, source_dir, &dest_dir, source).await?
         };
 
         Ok(InstallationResult::Installed(template))
@@ -219,6 +234,26 @@ impl TemplateManager {
         Ok(ListResults {
             templates,
             warnings,
+            skipped: vec![],
+        })
+    }
+
+    /// Lists all installed templates that match all the provided tags.
+    pub async fn list_with_tags(&self, tags: &[String]) -> anyhow::Result<ListResults> {
+        let ListResults {
+            templates,
+            warnings,
+            ..
+        } = self.list().await?;
+
+        let (templates, skipped) = templates
+            .into_iter()
+            .partition(|tpl| tpl.matches_all_tags(tags));
+
+        Ok(ListResults {
+            templates,
+            warnings,
+            skipped,
         })
     }
 
@@ -237,6 +272,7 @@ async fn copy_template_over_existing(
     id: &str,
     source_dir: &Path,
     dest_dir: &Path,
+    source: &TemplateSource,
 ) -> anyhow::Result<Template> {
     // The nearby directory to which we initially copy the source
     let stage_dir = dest_dir.with_extension(".stage");
@@ -270,7 +306,9 @@ async fn copy_template_over_existing(
 
     // Copy template source into stage directory, and do best effort
     // cleanup if it goes wrong.
-    let copy_to_stage_err = copy_template_into(id, source_dir, &stage_dir).await.err();
+    let copy_to_stage_err = copy_template_into(id, source_dir, &stage_dir, source)
+        .await
+        .err();
     if let Some(e) = copy_to_stage_err {
         let _ = tokio::fs::remove_dir_all(&stage_dir).await;
         return Err(e);
@@ -320,6 +358,7 @@ async fn copy_template_into(
     id: &str,
     source_dir: &Path,
     dest_dir: &Path,
+    source: &TemplateSource,
 ) -> anyhow::Result<Template> {
     tokio::fs::create_dir_all(&dest_dir)
         .await
@@ -340,7 +379,20 @@ async fn copy_template_into(
         )
     })?;
 
+    write_install_record(dest_dir, source);
+
     load_template_from(id, dest_dir)
+}
+
+fn write_install_record(dest_dir: &Path, source: &TemplateSource) {
+    let layout = TemplateLayout::new(dest_dir);
+    let install_record_path = layout.installation_record_file();
+
+    // A failure here shouldn't fail the install
+    let install_record = source.to_install_record();
+    if let Ok(record_text) = toml::to_string_pretty(&install_record) {
+        _ = std::fs::write(install_record_path, record_text);
+    }
 }
 
 fn load_template_from(id: &str, dest_dir: &Path) -> anyhow::Result<Template> {
@@ -467,6 +519,98 @@ mod tests {
             install_result.skipped[0].1,
             SkippedReason::InvalidManifest(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn can_list_all_templates_with_empty_tags() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let list_results = manager.list_with_tags(&[]).await.unwrap();
+        assert_eq!(0, list_results.skipped.len());
+        assert_eq!(TPLS_IN_THIS, list_results.templates.len());
+    }
+
+    #[tokio::test]
+    async fn skips_when_all_tags_do_not_match() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let tags_to_match = vec!["c".to_string(), "unused_tag".to_string()];
+
+        let list_results = manager.list_with_tags(&tags_to_match).await.unwrap();
+        assert_eq!(TPLS_IN_THIS, list_results.skipped.len());
+        assert_eq!(0, list_results.templates.len());
+    }
+
+    #[tokio::test]
+    async fn can_list_templates_with_multiple_tags() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let tags_to_match = vec!["http".to_string(), "c".to_string()];
+
+        let list_results = manager.list_with_tags(&tags_to_match).await.unwrap();
+        assert_eq!(TPLS_IN_THIS - 1, list_results.skipped.len());
+        assert_eq!(1, list_results.templates.len());
+    }
+
+    #[tokio::test]
+    async fn can_list_templates_with_case_insensitive_tags() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let list_results = manager.list_with_tags(&["C".to_string()]).await.unwrap();
+        assert_eq!(TPLS_IN_THIS - 1, list_results.skipped.len());
+        assert_eq!(1, list_results.templates.len());
+    }
+
+    #[tokio::test]
+    async fn can_skip_templates_with_missing_tag() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let list_results = manager
+            .list_with_tags(&["unused_tag".to_string()])
+            .await
+            .unwrap();
+        assert_eq!(TPLS_IN_THIS, list_results.skipped.len());
+        assert_eq!(0, list_results.templates.len());
     }
 
     #[tokio::test]

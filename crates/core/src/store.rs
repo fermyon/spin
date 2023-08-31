@@ -4,20 +4,49 @@ use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
-use wasi_cap_std_sync::{ambient_authority, Dir};
-use wasi_common::{dir::DirCaps, pipe::WritePipe, WasiFile};
-use wasi_common::{file::FileCaps, pipe::ReadPipe};
-use wasmtime_wasi::tokio::WasiCtxBuilder;
+use system_interface::io::ReadReady;
+use wasi_common_preview1 as wasi_preview1;
+use wasmtime_wasi as wasmtime_wasi_preview1;
+use wasmtime_wasi::preview2 as wasi_preview2;
 
 use crate::{
     host_component::{HostComponents, HostComponentsData},
     io::OutputBuffer,
     limits::StoreLimitsAsync,
-    Data,
+    preview1, Data,
 };
 
 #[cfg(doc)]
 use crate::EngineBuilder;
+
+/// Wrapper for the Preview 1 and Preview 2 versions of `WasiCtx`.
+///
+/// Currently, only WAGI uses Preview 1, while everything else uses Preview 2 (possibly via an adapter).  WAGI is
+/// stuck on Preview 1 and modules because there's no reliable way to wrap an arbitrary Preview 1 command in a
+/// component -- the Preview 1 -> 2 adapter only works with modules that either export `canonical_abi_realloc`
+/// (e.g. native Spin apps) or use a recent version of `wasi-sdk`, which contains patches to allow the adapter to
+/// safely allocate memory via `memory.grow`.
+///
+/// In theory, someone could build a WAGI app using a new-enough version of `wasi-sdk` and wrap it in a component
+/// using the adapter, but that wouldn't add any value beyond leaving it as a module, and any toolchain capable of
+/// natively producing components will be capable enough to produce native Spin apps, so we probably won't ever
+/// support WAGI components.
+///
+// TODO: As of this writing, the plan is to merge the WASI Preview 1 and Preview 2 implementations together, at
+// which point we'll be able to avoid all the duplication here and below.
+pub enum Wasi {
+    /// Preview 1 `WasiCtx`
+    Preview1(wasi_preview1::WasiCtx),
+    /// Preview 2 `WasiCtx`
+    Preview2(wasi_preview2::WasiCtx),
+}
+
+/// The version of Wasi being used
+#[allow(missing_docs)]
+pub enum WasiVersion {
+    Preview1,
+    Preview2,
+}
 
 /// A `Store` holds the runtime state of a Spin instance.
 ///
@@ -84,32 +113,13 @@ impl<T> wasmtime::AsContextMut for Store<T> {
     }
 }
 
-// WASI expects preopened dirs in FDs starting at 3 (0-2 are stdio).
-const WASI_FIRST_PREOPENED_DIR_FD: u32 = 3;
-
-const READ_ONLY_DIR_CAPS: DirCaps = DirCaps::from_bits_truncate(
-    DirCaps::OPEN.bits()
-        | DirCaps::READDIR.bits()
-        | DirCaps::READLINK.bits()
-        | DirCaps::PATH_FILESTAT_GET.bits()
-        | DirCaps::FILESTAT_GET.bits(),
-);
-const READ_ONLY_FILE_CAPS: FileCaps = FileCaps::from_bits_truncate(
-    FileCaps::READ.bits()
-        | FileCaps::SEEK.bits()
-        | FileCaps::TELL.bits()
-        | FileCaps::FILESTAT_GET.bits()
-        | FileCaps::POLL_READWRITE.bits(),
-);
-
 /// A builder interface for configuring a new [`Store`].
 ///
 /// A new [`StoreBuilder`] can be obtained with [`crate::Engine::store_builder`].
 pub struct StoreBuilder {
     engine: wasmtime::Engine,
     epoch_tick_interval: Duration,
-    wasi: std::result::Result<Option<WasiCtxBuilder>, String>,
-    read_only_preopened_dirs: Vec<(Dir, PathBuf)>,
+    wasi: std::result::Result<WasiCtxBuilder, String>,
     host_components_data: HostComponentsData,
     store_limits: StoreLimitsAsync,
 }
@@ -120,12 +130,12 @@ impl StoreBuilder {
         engine: wasmtime::Engine,
         epoch_tick_interval: Duration,
         host_components: &HostComponents,
+        wasi: WasiVersion,
     ) -> Self {
         Self {
             engine,
             epoch_tick_interval,
-            wasi: Ok(Some(WasiCtxBuilder::new())),
-            read_only_preopened_dirs: Vec::new(),
+            wasi: Ok(wasi.into()),
             host_components_data: host_components.new_data(),
             store_limits: StoreLimitsAsync::default(),
         }
@@ -141,71 +151,116 @@ impl StoreBuilder {
 
     /// Inherit stdin from the host process.
     pub fn inherit_stdin(&mut self) {
-        self.with_wasi(|wasi| wasi.inherit_stdin());
-    }
-
-    /// Sets the WASI `stdin` descriptor.
-    pub fn stdin(&mut self, file: impl WasiFile + 'static) {
-        self.with_wasi(|wasi| wasi.stdin(Box::new(file)))
+        self.with_wasi(|wasi| match wasi {
+            WasiCtxBuilder::Preview1(ctx) => {
+                ctx.set_stdin(Box::new(wasmtime_wasi_preview1::stdio::stdin()))
+            }
+            WasiCtxBuilder::Preview2(ctx) => {
+                *ctx = std::mem::take(ctx).set_stdin(wasi_preview2::stdio::stdin())
+            }
+        });
     }
 
     /// Sets the WASI `stdin` descriptor to the given [`Read`]er.
-    pub fn stdin_pipe(&mut self, r: impl Read + Send + Sync + 'static) {
-        self.stdin(ReadPipe::new(r))
+    pub fn stdin_pipe(&mut self, r: impl Read + ReadReady + Send + Sync + 'static) {
+        self.with_wasi(|wasi| match wasi {
+            WasiCtxBuilder::Preview1(ctx) => {
+                ctx.set_stdin(Box::new(wasi_preview1::pipe::ReadPipe::new(r)))
+            }
+            WasiCtxBuilder::Preview2(ctx) => {
+                *ctx = std::mem::take(ctx).set_stdin(wasi_preview2::pipe::ReadPipe::new(r))
+            }
+        })
     }
 
     /// Inherit stdin from the host process.
     pub fn inherit_stdout(&mut self) {
-        self.with_wasi(|wasi| wasi.inherit_stdout());
+        self.with_wasi(|wasi| match wasi {
+            WasiCtxBuilder::Preview1(ctx) => {
+                ctx.set_stdout(Box::new(wasmtime_wasi_preview1::stdio::stdout()))
+            }
+            WasiCtxBuilder::Preview2(ctx) => {
+                *ctx = std::mem::take(ctx).set_stdout(wasi_preview2::stdio::stdout())
+            }
+        });
     }
 
-    /// Sets the WASI `stdout` descriptor.
-    pub fn stdout(&mut self, file: impl WasiFile + 'static) {
-        self.with_wasi(|wasi| wasi.stdout(Box::new(file)))
+    /// Sets the WASI `stdout` descriptor to the given [`Write`]er.
+    pub fn stdout(&mut self, w: Box<dyn wasi_preview1::WasiFile>) -> Result<()> {
+        self.try_with_wasi(|wasi| match wasi {
+            WasiCtxBuilder::Preview1(ctx) => {
+                ctx.set_stdout(w);
+                Ok(())
+            }
+            WasiCtxBuilder::Preview2(_) => Err(anyhow!(
+                "`Store::stdout` only supported with WASI Preview 1"
+            )),
+        })
     }
 
     /// Sets the WASI `stdout` descriptor to the given [`Write`]er.
     pub fn stdout_pipe(&mut self, w: impl Write + Send + Sync + 'static) {
-        self.stdout(WritePipe::new(w))
+        self.with_wasi(|wasi| match wasi {
+            WasiCtxBuilder::Preview1(ctx) => {
+                ctx.set_stdout(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
+            }
+            WasiCtxBuilder::Preview2(ctx) => {
+                *ctx = std::mem::take(ctx).set_stdout(wasi_preview2::pipe::WritePipe::new(w))
+            }
+        })
     }
+
     /// Sets the WASI `stdout` descriptor to an in-memory buffer which can be
     /// retrieved after execution from the returned [`OutputBuffer`].
-    pub fn stdout_buffered(&mut self) -> OutputBuffer {
+    pub fn stdout_buffered(&mut self) -> Result<OutputBuffer> {
         let buffer = OutputBuffer::default();
-        self.stdout(buffer.writer());
-        buffer
+        // This only needs to work with Preview 2 since WAGI does its own thing with Preview 1:
+        self.try_with_wasi(|wasi| match wasi {
+            WasiCtxBuilder::Preview1(_) => Err(anyhow!(
+                "`Store::stdout_buffered` only supported with WASI Preview 2"
+            )),
+            WasiCtxBuilder::Preview2(ctx) => {
+                *ctx = std::mem::take(ctx).set_stdout(buffer.writer());
+                Ok(())
+            }
+        })?;
+        Ok(buffer)
     }
 
     /// Inherit stdin from the host process.
     pub fn inherit_stderr(&mut self) {
-        self.with_wasi(|wasi| wasi.inherit_stderr());
-    }
-
-    /// Sets the WASI `stderr` descriptor.
-    pub fn stderr(&mut self, file: impl WasiFile + 'static) {
-        self.with_wasi(|wasi| wasi.stderr(Box::new(file)))
+        self.with_wasi(|wasi| match wasi {
+            WasiCtxBuilder::Preview1(ctx) => {
+                ctx.set_stderr(Box::new(wasmtime_wasi_preview1::stdio::stderr()))
+            }
+            WasiCtxBuilder::Preview2(ctx) => {
+                *ctx = std::mem::take(ctx).set_stderr(wasi_preview2::stdio::stderr())
+            }
+        });
     }
 
     /// Sets the WASI `stderr` descriptor to the given [`Write`]er.
     pub fn stderr_pipe(&mut self, w: impl Write + Send + Sync + 'static) {
-        self.stderr(WritePipe::new(w))
-    }
-
-    /// Sets the WASI `stderr` descriptor to an in-memory buffer which can be
-    /// retrieved after execution from the returned [`OutputBuffer`].
-    pub fn stderr_buffered(&mut self) -> OutputBuffer {
-        let buffer = OutputBuffer::default();
-        self.stderr(buffer.writer());
-        buffer
+        self.with_wasi(|wasi| match wasi {
+            WasiCtxBuilder::Preview1(ctx) => {
+                ctx.set_stderr(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
+            }
+            WasiCtxBuilder::Preview2(ctx) => {
+                *ctx = std::mem::take(ctx).set_stderr(wasi_preview2::pipe::WritePipe::new(w))
+            }
+        })
     }
 
     /// Appends the given strings to the the WASI 'args'.
     pub fn args<'b>(&mut self, args: impl IntoIterator<Item = &'b str>) -> Result<()> {
-        self.try_with_wasi(|mut wasi| {
+        self.try_with_wasi(|wasi| {
             for arg in args {
-                wasi = wasi.arg(arg)?;
+                match wasi {
+                    WasiCtxBuilder::Preview1(ctx) => ctx.push_arg(arg)?,
+                    WasiCtxBuilder::Preview2(ctx) => *ctx = std::mem::take(ctx).push_arg(arg),
+                }
             }
-            Ok(wasi)
+            Ok(())
         })
     }
 
@@ -214,11 +269,17 @@ impl StoreBuilder {
         &mut self,
         vars: impl IntoIterator<Item = (impl AsRef<str>, impl AsRef<str>)>,
     ) -> Result<()> {
-        self.try_with_wasi(|mut wasi| {
+        self.try_with_wasi(|wasi| {
             for (k, v) in vars {
-                wasi = wasi.env(k.as_ref(), v.as_ref())?;
+                match wasi {
+                    WasiCtxBuilder::Preview1(ctx) => ctx.push_env(k.as_ref(), v.as_ref())?,
+                    WasiCtxBuilder::Preview2(ctx) => {
+                        *ctx = std::mem::take(ctx).push_env(k, v);
+                    }
+                }
             }
-            Ok(wasi)
+
+            Ok(())
         })
     }
 
@@ -229,11 +290,7 @@ impl StoreBuilder {
         host_path: impl AsRef<Path>,
         guest_path: PathBuf,
     ) -> Result<()> {
-        // WasiCtxBuilder::preopened_dir doesn't let you set capabilities, so we need
-        // to wait and call WasiCtx::insert_dir after building the WasiCtx.
-        let dir = wasmtime_wasi::Dir::open_ambient_dir(host_path, ambient_authority())?;
-        self.read_only_preopened_dirs.push((dir, guest_path));
-        Ok(())
+        self.preopened_dir_impl(host_path, guest_path, false)
     }
 
     /// "Mounts" the given `host_path` into the WASI filesystem at the given
@@ -243,8 +300,49 @@ impl StoreBuilder {
         host_path: impl AsRef<Path>,
         guest_path: PathBuf,
     ) -> Result<()> {
-        let dir = wasmtime_wasi::Dir::open_ambient_dir(host_path, ambient_authority())?;
-        self.try_with_wasi(|wasi| wasi.preopened_dir(dir, guest_path))
+        self.preopened_dir_impl(host_path, guest_path, true)
+    }
+
+    fn preopened_dir_impl(
+        &mut self,
+        host_path: impl AsRef<Path>,
+        guest_path: PathBuf,
+        writable: bool,
+    ) -> Result<()> {
+        let cap_std_dir =
+            cap_std::fs::Dir::open_ambient_dir(host_path.as_ref(), cap_std::ambient_authority())?;
+        let path = guest_path
+            .to_str()
+            .ok_or_else(|| anyhow!("non-utf8 path: {}", guest_path.display()))?;
+
+        self.try_with_wasi(|wasi| {
+            match wasi {
+                WasiCtxBuilder::Preview1(ctx) => {
+                    let mut dir =
+                        Box::new(wasmtime_wasi_preview1::dir::Dir::from_cap_std(cap_std_dir)) as _;
+                    if !writable {
+                        dir = Box::new(preview1::ReadOnlyDir(dir));
+                    }
+                    ctx.push_preopened_dir(dir, path)?;
+                }
+                WasiCtxBuilder::Preview2(ctx) => {
+                    let dir_perms = if writable {
+                        wasi_preview2::DirPerms::all()
+                    } else {
+                        wasi_preview2::DirPerms::READ
+                    };
+                    let file_perms = wasi_preview2::FilePerms::all();
+
+                    *ctx = std::mem::take(ctx).push_preopened_dir(
+                        cap_std_dir,
+                        dir_perms,
+                        file_perms,
+                        path,
+                    );
+                }
+            }
+            Ok(())
+        })
     }
 
     /// Returns a mutable reference to the built
@@ -254,16 +352,10 @@ impl StoreBuilder {
 
     /// Builds a [`Store`] from this builder with given host state data.
     ///
-    /// If `T: Default`, it may be preferable to use [`StoreBuilder::build`].
+    /// If `T: Default`, it may be preferable to use [`Store::build`].
     pub fn build_with_data<T>(self, inner_data: T) -> Result<Store<T>> {
-        let mut wasi = self.wasi.map_err(anyhow::Error::msg)?.unwrap().build();
-
-        // Insert any read-only preopened dirs
-        for (idx, (dir, path)) in self.read_only_preopened_dirs.into_iter().enumerate() {
-            let fd = WASI_FIRST_PREOPENED_DIR_FD + idx as u32;
-            let dir = Box::new(wasmtime_wasi::tokio::Dir::from_cap_std(dir));
-            wasi.insert_dir(fd, dir, READ_ONLY_DIR_CAPS, READ_ONLY_FILE_CAPS, path);
-        }
+        let mut table = wasi_preview2::Table::new();
+        let wasi = self.wasi.map_err(anyhow::Error::msg)?.build(&mut table)?;
 
         let mut inner = wasmtime::Store::new(
             &self.engine,
@@ -272,6 +364,7 @@ impl StoreBuilder {
                 wasi,
                 host_components_data: self.host_components_data,
                 store_limits: self.store_limits,
+                table,
             },
         );
 
@@ -294,32 +387,52 @@ impl StoreBuilder {
         self.build_with_data(T::default())
     }
 
-    // Helpers for adapting the "consuming builder" style of WasiCtxBuilder to
-    // StoreBuilder's "non-consuming builder" style.
-
-    fn with_wasi(&mut self, f: impl FnOnce(WasiCtxBuilder) -> WasiCtxBuilder) {
-        let _ = self.try_with_wasi(|wasi| Ok(f(wasi)));
+    fn with_wasi(&mut self, f: impl FnOnce(&mut WasiCtxBuilder)) {
+        let _ = self.try_with_wasi(|wasi| {
+            f(wasi);
+            Ok(())
+        });
     }
 
-    fn try_with_wasi(
-        &mut self,
-        f: impl FnOnce(WasiCtxBuilder) -> Result<WasiCtxBuilder>,
-    ) -> Result<()> {
+    fn try_with_wasi(&mut self, f: impl FnOnce(&mut WasiCtxBuilder) -> Result<()>) -> Result<()> {
         let wasi = self
             .wasi
             .as_mut()
-            .map_err(|err| anyhow!("StoreBuilder already failed: {}", err))?
-            .take()
-            .unwrap();
+            .map_err(|err| anyhow!("StoreBuilder already failed: {}", err))?;
+
         match f(wasi) {
-            Ok(wasi) => {
-                self.wasi = Ok(Some(wasi));
-                Ok(())
-            }
+            Ok(()) => Ok(()),
             Err(err) => {
                 self.wasi = Err(err.to_string());
                 Err(err)
             }
+        }
+    }
+}
+
+/// A builder of a `WasiCtx` for all versions of Wasi
+#[allow(clippy::large_enum_variant)]
+enum WasiCtxBuilder {
+    Preview1(wasi_preview1::WasiCtx),
+    Preview2(wasi_preview2::WasiCtxBuilder),
+}
+
+impl From<WasiVersion> for WasiCtxBuilder {
+    fn from(value: WasiVersion) -> Self {
+        match value {
+            WasiVersion::Preview1 => {
+                Self::Preview1(wasmtime_wasi_preview1::WasiCtxBuilder::new().build())
+            }
+            WasiVersion::Preview2 => Self::Preview2(wasi_preview2::WasiCtxBuilder::new()),
+        }
+    }
+}
+
+impl WasiCtxBuilder {
+    fn build(self, table: &mut wasi_preview2::Table) -> anyhow::Result<Wasi> {
+        match self {
+            WasiCtxBuilder::Preview1(ctx) => Ok(Wasi::Preview1(ctx)),
+            WasiCtxBuilder::Preview2(b) => b.build(table).map(Wasi::Preview2),
         }
     }
 }

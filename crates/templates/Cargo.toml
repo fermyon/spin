@@ -25,7 +25,8 @@ pathdiff = "0.2.1"
 regex = "1.5.4"
 semver = "1.0"
 serde = { version = "1.0", features = [ "derive" ] }
-sha2 = "0.10.1"
+spin-common = { path = "../common" }
+spin-loader = { path = "../loader" }
 tempfile = "3.3.0"
 tokio = { version = "1.23", features = [ "fs", "process", "rt", "macros" ] }
 toml = "0.5"
@@ -33,4 +34,8 @@ url = "2.2.2"
 walkdir = "2"
 wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
-wit-bindgen-wasmtime = { workspace = true }
+
+[dependencies.wit-bindgen-wasmtime]
+git = "https://github.com/fermyon/wit-bindgen-backport"
+rev = "b89d5079ba5b07b319631a1b191d2139f126c976"
+features = ["async"]

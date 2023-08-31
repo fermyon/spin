@@ -56,6 +56,34 @@ impl TemplateSource {
             spin_version: spin_version.to_owned(),
         }))
     }
+
+    pub(crate) fn to_install_record(&self) -> Option<crate::reader::RawInstalledFrom> {
+        match self {
+            Self::Git(g) => Some(crate::reader::RawInstalledFrom::Git {
+                git: g.url.to_string(),
+            }),
+            Self::File(p) => {
+                // Saving a relative path would be meaningless (but should never happen)
+                if p.is_absolute() {
+                    Some(crate::reader::RawInstalledFrom::File {
+                        dir: format!("{}", p.display()),
+                    })
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    // Sorry I know this is a bit ugly
+    /// For a Git source, resolves the tag to use as the source.
+    /// For other sources, returns None.
+    pub async fn resolved_tag(&self) -> Option<String> {
+        match self {
+            Self::Git(g) => version_matched_tag(g.url.as_str(), &g.spin_version).await,
+            _ => None,
+        }
+    }
 }
 
 pub(crate) struct LocalTemplateSource {

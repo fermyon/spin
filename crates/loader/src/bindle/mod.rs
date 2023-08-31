@@ -7,6 +7,8 @@ mod assets;
 /// Configuration representation for a Spin application in Bindle.
 pub mod config;
 mod connection;
+/// Functions relating to Bindle deprecation.
+pub mod deprecation;
 /// Bindle helper functions.
 mod utils;
 
@@ -128,10 +130,14 @@ async fn core(
     };
     let environment = raw.wasm.environment.unwrap_or_default();
     let allowed_http_hosts = raw.wasm.allowed_http_hosts.unwrap_or_default();
+    let key_value_stores = raw.wasm.key_value_stores.unwrap_or_default();
+    let sqlite_databases = raw.wasm.sqlite_databases.unwrap_or_default();
     let wasm = WasmConfig {
         environment,
         mounts,
         allowed_http_hosts,
+        key_value_stores,
+        sqlite_databases,
     };
     let config = raw.config.unwrap_or_default();
     Ok(CoreComponent {
@@ -148,14 +154,13 @@ async fn core(
 fn info(raw: &RawAppManifest, invoice: &Invoice, url: &str) -> ApplicationInformation {
     ApplicationInformation {
         // TODO
-        // Handle API version and namespace.
+        // Handle API version
         spin_version: SpinVersion::V1,
         name: invoice.bindle.id.name().to_string(),
         version: invoice.bindle.id.version_string(),
         description: invoice.bindle.description.clone(),
         authors: invoice.bindle.authors.clone().unwrap_or_default(),
         trigger: raw.trigger.clone(),
-        namespace: None,
         origin: ApplicationOrigin::Bindle {
             id: invoice.bindle.id.to_string(),
             server: url.to_string(),

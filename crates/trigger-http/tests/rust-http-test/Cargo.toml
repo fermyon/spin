@@ -1,0 +1,13 @@
+[package]
+name    = "rust-http-test"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
+
+[lib]
+crate-type = [ "cdylib" ]
+
+[dependencies]
+wit-bindgen = "0.8"
+
+[workspace]

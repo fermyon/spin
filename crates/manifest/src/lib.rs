@@ -17,6 +17,15 @@ pub enum Error {
     /// Invalid config key.
     #[error("invalid trigger type")]
     InvalidTriggerType,
+    /// No 'type' key in trigger declaration.
+    #[error("the application did not specify a trigger type")]
+    MissingTriggerType,
+    /// No 'type' key in trigger declaration.
+    #[error("could not load application trigger parameters: {0}")]
+    InvalidTriggerTypeParameters(String),
+    /// Non-string 'type' key in trigger declaration.
+    #[error("the trigger type must be a string")]
+    NonStringTriggerType,
 }
 
 /// An ordered map of component IDs to some value.
@@ -62,8 +71,6 @@ pub struct ApplicationInformation {
     /// but for now, a component with a different trigger must be part of
     /// a separate application.
     pub trigger: ApplicationTrigger,
-    /// Namespace for grouping applications.
-    pub namespace: Option<String>,
     /// The location from which the application is loaded.
     pub origin: ApplicationOrigin,
 }
@@ -108,13 +115,92 @@ pub enum ApplicationOrigin {
 }
 
 /// The trigger type.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase", tag = "type")]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(
+    deny_unknown_fields,
+    rename_all = "camelCase",
+    try_from = "ApplicationTriggerDeserialised",
+    into = "ApplicationTriggerSerialised"
+)]
 pub enum ApplicationTrigger {
     /// HTTP trigger type.
     Http(HttpTriggerConfiguration),
     /// Redis trigger type.
     Redis(RedisTriggerConfiguration),
+    /// A trigger type that is not built in.
+    External(ExternalTriggerConfiguration),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase", untagged)]
+enum ApplicationTriggerSerialised {
+    Internal(InternalApplicationTriggerSerialised),
+    /// A trigger type that is not built in.
+    External(HashMap<String, toml::Value>),
+}
+
+/// Deserialisation helper - we need all unmatched `trigger.type` values to
+/// map to `ApplicationTrigger::External`, but `#[serde(other)]` can
+/// only be applied to unit types.  The following types cause recognised
+/// tags to map to the Internal case and unrecognised ones to the
+/// External case.
+#[derive(Deserialize)]
+struct ApplicationTriggerDeserialised {
+    #[serde(rename = "type")]
+    trigger_type: String,
+    #[serde(flatten)]
+    parameters: toml::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, Eq)]
+#[serde(deny_unknown_fields, rename_all = "camelCase", tag = "type")]
+enum InternalApplicationTriggerSerialised {
+    /// HTTP trigger type.
+    Http(HttpTriggerConfiguration),
+    /// Redis trigger type.
+    Redis(RedisTriggerConfiguration),
+}
+
+impl TryFrom<ApplicationTriggerDeserialised> for ApplicationTrigger {
+    type Error = Error;
+
+    fn try_from(value: ApplicationTriggerDeserialised) -> Result<Self, Self::Error> {
+        let trigger = match value.trigger_type.as_str() {
+            "http" => ApplicationTrigger::Http(
+                HttpTriggerConfiguration::deserialize(value.parameters)
+                    .map_err(|e| Error::InvalidTriggerTypeParameters(e.to_string()))?,
+            ),
+            "redis" => ApplicationTrigger::Redis(
+                RedisTriggerConfiguration::deserialize(value.parameters)
+                    .map_err(|e| Error::InvalidTriggerTypeParameters(e.to_string()))?,
+            ),
+            _ => ApplicationTrigger::External(ExternalTriggerConfiguration {
+                trigger_type: value.trigger_type,
+                parameters: HashMap::deserialize(value.parameters)
+                    .map_err(|e| Error::InvalidTriggerTypeParameters(e.to_string()))?,
+            }),
+        };
+        Ok(trigger)
+    }
+}
+
+impl From<ApplicationTrigger> for ApplicationTriggerSerialised {
+    fn from(value: ApplicationTrigger) -> Self {
+        match value {
+            ApplicationTrigger::Http(h) => {
+                Self::Internal(InternalApplicationTriggerSerialised::Http(h))
+            }
+            ApplicationTrigger::Redis(r) => {
+                Self::Internal(InternalApplicationTriggerSerialised::Redis(r))
+            }
+            ApplicationTrigger::External(e) => {
+                let ty = e.trigger_type;
+                let mut map = e.parameters;
+                map.insert("type".to_owned(), toml::Value::String(ty));
+                Self::External(map)
+            }
+        }
+    }
 }
 
 /// HTTP trigger configuration.
@@ -159,6 +245,20 @@ impl TryFrom<ApplicationTrigger> for RedisTriggerConfiguration {
     }
 }
 
+/// External trigger configuration
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExternalTriggerConfiguration {
+    trigger_type: String,
+    parameters: HashMap<String, toml::Value>,
+}
+
+impl ExternalTriggerConfiguration {
+    /// The trigger type.
+    pub fn trigger_type(&self) -> &str {
+        &self.trigger_type
+    }
+}
+
 /// WebAssembly configuration.
 #[derive(Clone, Debug, Default)]
 pub struct WasmConfig {
@@ -168,6 +268,10 @@ pub struct WasmConfig {
     pub mounts: Vec<DirectoryMount>,
     /// Optional list of HTTP hosts the component is allowed to connect.
     pub allowed_http_hosts: Vec<String>,
+    /// Optional list of key-value stores the component is allowed to use.
+    pub key_value_stores: Vec<String>,
+    /// Optional list of sqlite databases the component is allowed to use.
+    pub sqlite_databases: Vec<String>,
 }
 
 /// Directory mount for the assets of a component.
@@ -306,6 +410,8 @@ pub enum TriggerConfig {
     Http(HttpConfig),
     /// Redis trigger configuration
     Redis(RedisConfig),
+    /// External trigger configuration
+    External(HashMap<String, toml::Value>),
 }
 
 impl Default for TriggerConfig {

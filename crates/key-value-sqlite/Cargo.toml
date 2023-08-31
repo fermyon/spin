@@ -1,0 +1,13 @@
+[package]
+name = "spin-key-value-sqlite"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+once_cell = "1"
+rusqlite = { version = "0.29.0", features = [ "bundled" ] }
+tokio = "1"
+spin-key-value = { path = "../key-value" }
+spin-core = { path = "../core" }
+spin-world = { path = "../world" }

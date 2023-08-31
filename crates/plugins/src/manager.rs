@@ -1,13 +1,15 @@
 use crate::{
     error::*,
     lookup::PluginLookup,
-    manifest::{check_supported_version, PluginManifest, PluginPackage},
+    manifest::{warn_unsupported_version, PluginManifest, PluginPackage},
     store::PluginStore,
     SPIN_INTERNAL_COMMANDS,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
-use sha2::{Digest, Sha256};
+use path_absolutize::Absolutize;
+use serde::Serialize;
+use spin_common::sha256;
 use std::{
     fs::{self, File},
     io::{copy, Cursor},
@@ -28,6 +30,34 @@ pub enum ManifestLocation {
     Remote(Url),
     /// Plugin manifest lives in the centralized plugins repository
     PluginsRepository(PluginLookup),
+}
+
+impl ManifestLocation {
+    pub(crate) fn to_install_record(&self) -> RawInstallRecord {
+        match self {
+            Self::Local(path) => {
+                // Plugin commands don't absolutise on the way in, so do it now.
+                use std::borrow::Cow;
+                let abs = path
+                    .absolutize()
+                    .unwrap_or(Cow::Borrowed(path))
+                    .to_path_buf();
+                RawInstallRecord::Local { file: abs }
+            }
+            Self::Remote(url) => RawInstallRecord::Remote {
+                url: url.to_owned(),
+            },
+            Self::PluginsRepository(_) => RawInstallRecord::PluginsRepository,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename = "snake_case", tag = "source")]
+pub(crate) enum RawInstallRecord {
+    PluginsRepository,
+    Remote { url: Url },
+    Local { file: PathBuf },
 }
 
 /// Provides accesses to functionality to inspect and manage the installation of plugins.
@@ -57,23 +87,37 @@ impl PluginManager {
         &self,
         plugin_manifest: &PluginManifest,
         plugin_package: &PluginPackage,
+        source: &ManifestLocation,
     ) -> Result<String> {
         let target = plugin_package.url.to_owned();
         let target_url = Url::parse(&target)?;
         let temp_dir = tempdir()?;
         let plugin_tarball_path = match target_url.scheme() {
-            URL_FILE_SCHEME => target_url
-                .to_file_path()
-                .map_err(|_| anyhow!("Invalid file URL: {target_url:?}"))?,
+            URL_FILE_SCHEME => {
+                let path = target_url
+                    .to_file_path()
+                    .map_err(|_| anyhow!("Invalid file URL: {target_url:?}"))?;
+                if path.is_file() {
+                    path
+                } else {
+                    bail!(
+                        "Package path {} does not exist or is not a file",
+                        path.display()
+                    );
+                }
+            }
             _ => download_plugin(&plugin_manifest.name(), &temp_dir, &target).await?,
         };
         verify_checksum(&plugin_tarball_path, &plugin_package.sha256)?;
 
         self.store
-            .untar_plugin(&plugin_tarball_path, &plugin_manifest.name())?;
+            .untar_plugin(&plugin_tarball_path, &plugin_manifest.name())
+            .with_context(|| format!("Failed to untar {}", plugin_tarball_path.display()))?;
 
         // Save manifest to installed plugins directory
         self.store.add_manifest(plugin_manifest)?;
+        self.write_install_record(&plugin_manifest.name(), source);
+
         Ok(plugin_manifest.name())
     }
 
@@ -122,7 +166,7 @@ impl PluginManager {
                 });
             } else if installed.version > plugin_manifest.version && !allow_downgrades {
                 bail!(
-                    "Newer version {} of plugin '{}' is already installed. To downgrade to version {} set the `--downgrade` flag.",
+                    "Newer version {} of plugin '{}' is already installed. To downgrade to version {}, run `spin plugins upgrade` with the `--downgrade` flag.",
                     installed.version,
                     plugin_manifest.name(),
                     plugin_manifest.version,
@@ -130,7 +174,7 @@ impl PluginManager {
             }
         }
 
-        check_supported_version(plugin_manifest, spin_version, override_compatibility_check)?;
+        warn_unsupported_version(plugin_manifest, spin_version, override_compatibility_check)?;
 
         Ok(InstallAction::Continue)
     }
@@ -140,6 +184,8 @@ impl PluginManager {
     pub async fn get_manifest(
         &self,
         manifest_location: &ManifestLocation,
+        skip_compatibility_check: bool,
+        spin_version: &str,
     ) -> PluginLookupResult<PluginManifest> {
         let plugin_manifest = match manifest_location {
             ManifestLocation::Remote(url) => {
@@ -188,11 +234,84 @@ impl PluginManager {
             }
             ManifestLocation::PluginsRepository(lookup) => {
                 lookup
-                    .get_manifest_from_repository(self.store().get_plugins_directory())
+                    .resolve_manifest(
+                        self.store().get_plugins_directory(),
+                        skip_compatibility_check,
+                        spin_version,
+                    )
                     .await?
             }
         };
         Ok(plugin_manifest)
+    }
+
+    pub async fn update_lock(&self) -> PluginManagerUpdateLock {
+        let lock = self.update_lock_impl().await;
+        PluginManagerUpdateLock::from(lock)
+    }
+
+    async fn update_lock_impl(&self) -> anyhow::Result<fd_lock::RwLock<tokio::fs::File>> {
+        let plugins_dir = self.store().get_plugins_directory();
+        tokio::fs::create_dir_all(plugins_dir).await?;
+        let file = tokio::fs::File::create(plugins_dir.join(".updatelock")).await?;
+        let locker = fd_lock::RwLock::new(file);
+        Ok(locker)
+    }
+
+    fn write_install_record(&self, plugin_name: &str, source: &ManifestLocation) {
+        let install_record_path = self.store.installation_record_file(plugin_name);
+
+        // A failure here shouldn't fail the install
+        let install_record = source.to_install_record();
+        if let Ok(record_text) = serde_json::to_string_pretty(&install_record) {
+            _ = std::fs::write(install_record_path, record_text);
+        }
+    }
+}
+
+// We permit the "locking failed" state rather than erroring so that we don't prevent the user
+// from doing updates just because something is amiss in the lock system. (This is basically
+// falling back to the previous, never-lock, behaviour.) Put another way, we prevent updates
+// only if we can _positively confirm_ that another update is in progress.
+pub enum PluginManagerUpdateLock {
+    Lock(fd_lock::RwLock<tokio::fs::File>),
+    Failed,
+}
+
+impl From<anyhow::Result<fd_lock::RwLock<tokio::fs::File>>> for PluginManagerUpdateLock {
+    fn from(value: anyhow::Result<fd_lock::RwLock<tokio::fs::File>>) -> Self {
+        match value {
+            Ok(lock) => Self::Lock(lock),
+            Err(_) => Self::Failed,
+        }
+    }
+}
+
+impl PluginManagerUpdateLock {
+    pub fn lock_updates(&mut self) -> PluginManagerUpdateGuard<'_> {
+        match self {
+            Self::Lock(lock) => match lock.try_write() {
+                Ok(guard) => PluginManagerUpdateGuard::Acquired(guard),
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    PluginManagerUpdateGuard::Denied
+                }
+                _ => PluginManagerUpdateGuard::Failed,
+            },
+            Self::Failed => PluginManagerUpdateGuard::Failed,
+        }
+    }
+}
+
+#[must_use]
+pub enum PluginManagerUpdateGuard<'lock> {
+    Acquired(fd_lock::RwLockWriteGuard<'lock, tokio::fs::File>),
+    Denied,
+    Failed, // See comment on PluginManagerUpdateLock
+}
+
+impl<'lock> PluginManagerUpdateGuard<'lock> {
+    pub fn denied(&self) -> bool {
+        matches!(self, Self::Denied)
     }
 }
 
@@ -219,6 +338,13 @@ pub fn get_package(plugin_manifest: &PluginManifest) -> Result<&PluginPackage> {
 async fn download_plugin(name: &str, temp_dir: &TempDir, target_url: &str) -> Result<PathBuf> {
     log::trace!("Trying to get tar file for plugin '{name}' from {target_url}");
     let plugin_bin = reqwest::get(target_url).await?;
+    if !plugin_bin.status().is_success() {
+        match plugin_bin.status() {
+            reqwest::StatusCode::NOT_FOUND => bail!("The download URL specified in the plugin manifest was not found ({target_url} returned HTTP error 404). Please contact the plugin author."),
+            _ => bail!("HTTP error {} when downloading plugin from {target_url}", plugin_bin.status()),
+        }
+    }
+
     let mut content = Cursor::new(plugin_bin.bytes().await?);
     let dir = temp_dir.path();
     let mut plugin_file = dir.join(name);
@@ -229,7 +355,8 @@ async fn download_plugin(name: &str, temp_dir: &TempDir, target_url: &str) -> Re
 }
 
 fn verify_checksum(plugin_file: &Path, expected_sha256: &str) -> Result<()> {
-    let actual_sha256 = file_digest_string(plugin_file)?;
+    let actual_sha256 = sha256::hex_digest_from_file(plugin_file)
+        .with_context(|| format!("Cannot get digest for {}", plugin_file.display()))?;
     if actual_sha256 == expected_sha256 {
         log::info!("Package checksum verified successfully");
         Ok(())
@@ -238,12 +365,36 @@ fn verify_checksum(plugin_file: &Path, expected_sha256: &str) -> Result<()> {
     }
 }
 
-fn file_digest_string(path: &Path) -> Result<String> {
-    let mut file = std::fs::File::open(path)
-        .with_context(|| format!("Could not open file at {}", path.display()))?;
-    let mut sha = Sha256::new();
-    std::io::copy(&mut file, &mut sha)?;
-    let digest_value = sha.finalize();
-    let digest_string = format!("{:x}", digest_value);
-    Ok(digest_string)
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn good_error_when_tarball_404s() -> anyhow::Result<()> {
+        let temp_dir = tempdir()?;
+        let store = PluginStore::new(temp_dir.path());
+        let manager = PluginManager { store };
+
+        let bad_manifest: PluginManifest = serde_json::from_str(include_str!(
+            "../tests/nonexistent-url/nonexistent-url.json"
+        ))?;
+
+        let install_result = manager
+            .install(
+                &bad_manifest,
+                &bad_manifest.packages[0],
+                &ManifestLocation::Local(PathBuf::from(
+                    "../tests/nonexistent-url/nonexistent-url.json",
+                )),
+            )
+            .await;
+
+        let err = format!("{:#}", install_result.unwrap_err());
+        assert!(
+            err.contains("not found"),
+            "Expected error to contain 'not found' but was '{err}'"
+        );
+
+        Ok(())
+    }
 }

@@ -1,3 +1,5 @@
+// Package redis provides the handler function for the Redis trigger, as well
+// as access to Redis within Spin components.
 package redis
 
 import (
@@ -48,4 +50,28 @@ func Incr(addr, key string) (int64, error) {
 // Removes the specified keys. A key is ignored if it does not exist.
 func Del(addr string, keys []string) (int64, error) {
 	return del(addr, keys)
+}
+
+// Adds the specified values to the set for the specified key, creating it if it
+// does not already exist.
+func Sadd(addr string, key string, values []string) (int64, error) {
+	return sadd(addr, key, values)
+}
+
+// Get the elements of the set for the specified key.
+func Smembers(addr string, key string) ([]string, error) {
+	return smembers(addr, key)
+}
+
+// Removes the specified elements from the set for the specified key. This has
+// no effect if the key does not exist.
+func Srem(addr string, key string, values []string) (int64, error) {
+	return srem(addr, key, values)
+}
+
+// Run the specified Redis command with the specified arguments, returning zero
+// or more results.  This is a general-purpose function which should work with
+// any Redis command.
+func Execute(addr string, command string, arguments []RedisParameter) ([]RedisResult, error) {
+	return execute(addr, command, arguments)
 }

@@ -1,4 +1,4 @@
-spin_version = "1"
+spin_manifest_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A simple Spin application written in (Tiny)Go."
 name = "spin-config-tinygo"
@@ -16,4 +16,4 @@ route = "/..."
 [component.config]
 message = "I'm a {{object}}"
 [component.build]
-command = "tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go"
+command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"

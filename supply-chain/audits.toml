@@ -6,9 +6,36 @@ who = "Radu Matei <radu.matei@fermyon.com>"
 criteria = "safe-to-deploy"
 version = "1.0.65"
 
+[[audits.anyhow]]
+who = "Vaughn Dice <vaughn.dice@fermyon.com>"
+criteria = "safe-to-deploy"
+delta = "1.0.65 -> 1.0.68"
+notes = "CI and test updates plus minor Rust efficiency improvements."
+
+[[audits.oorandom]]
+who = "Radu Matei <radu.matei@fermyon.com>"
+criteria = "safe-to-run"
+version = "11.1.3"
+
+[[audits.plotters-svg]]
+who = "Radu Matei <radu.matei@fermyon.com>"
+criteria = "safe-to-run"
+version = "0.3.3"
+
 [[audits.regalloc2]]
 who = "Radu Matei <radu.matei@fermyon.com>"
 criteria = "safe-to-deploy"
 version = "0.3.1"
 notes = "The Bytecode Alliance is the author of this crate."
 
+[[audits.wasmtime-asm-macros]]
+who = "Radu Matei <radu.matei@fermyon.com>"
+criteria = "safe-to-deploy"
+delta = "5.0.0 -> 5.0.1"
+notes = "The version bump does not have any functional change for the wasmtime-asm-macros crate."
+
+[[audits.wasmtime-cache]]
+who = "Radu Matei <radu.matei@fermyon.com>"
+criteria = "safe-to-deploy"
+delta = "5.0.0 -> 5.0.1"
+notes = "The version bump does not have any functional change for the wasmtime-cache crate."

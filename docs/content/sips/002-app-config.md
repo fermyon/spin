@@ -89,8 +89,8 @@ prefix = "MY_APP_"
 #### Example providers
 
 - Environment provider
-  - Configured with a prefix, e.g. `SPIN_APP_`
-  - `key_one` -> `SPIN_APP_KEY_ONE`
+  - Configured with a prefix, e.g. `SPIN_CONFIG_`
+  - `key_one` -> `SPIN_CONFIG_KEY_ONE`
 - File provider
   ```json
   {"key_one": "value-one"}

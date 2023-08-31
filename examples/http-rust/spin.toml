@@ -1,4 +1,4 @@
-spin_version = "1"
+spin_manifest_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A simple application that returns hello."
 name = "spin-hello-world"
@@ -13,3 +13,4 @@ description = "A simple component that returns hello."
 route = "/hello"
 [component.build]
 command = "cargo build --target wasm32-wasi --release"
+watch = ["src/**/*.rs", "Cargo.toml"]

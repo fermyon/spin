@@ -1,0 +1,4 @@
+/target
+trigger-timer
+trigger-timer.tar.gz
+!Cargo.lock

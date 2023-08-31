@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use wasi_common::pipe::WritePipe;
+use wasmtime_wasi::preview2::pipe::WritePipe;
 
 /// An in-memory stdio output buffer.
 #[derive(Default)]
@@ -19,19 +19,14 @@ impl OutputBuffer {
 
 #[cfg(test)]
 mod tests {
-    use std::io::IoSlice;
-
-    use wasi_common::WasiFile;
+    use wasmtime_wasi::preview2::OutputStream;
 
     use super::*;
 
     #[tokio::test]
     async fn take_what_you_write() {
         let mut buf = OutputBuffer::default();
-        buf.writer()
-            .write_vectored(&[IoSlice::new(b"foo")])
-            .await
-            .unwrap();
+        buf.writer().write(b"foo").await.unwrap();
         assert_eq!(buf.take(), b"foo");
     }
 }

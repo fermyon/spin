@@ -7,16 +7,21 @@ edition = { workspace = true }
 [dependencies]
 anyhow = "1.0"
 bytes = "1.1"
+chrono = { version = "0.4", features = ["serde"] }
 dirs = "4.0"
-flate2 = "1.0"
+fd-lock = "3.0.12"
+flate2 = { version = "1.0.17", features = ["zlib-ng"], default-features = false }
+is-terminal = "0.4"
+path-absolutize = "3.0.11"
 reqwest = { version = "0.11", features = ["json"] }
-semver = "1.0"
+semver = { version = "1.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-sha2 = "0.10.2"
+spin-common = { path = "../common" }
 tar = "0.4.38"
 tempfile = "3.3.0"
+terminal = { path = "../terminal" }
 thiserror = "1"
 tokio = { version = "1.23", features = [ "fs", "process", "rt", "macros" ] }
 tracing = { workspace = true }
-url = "2.2.2"
+url = { version = "2.2.2", features = ["serde"] }

@@ -12,7 +12,7 @@ anyhow = "1.0"
 native-tls = "0.2.11"
 postgres-native-tls = "0.5.0"
 spin-core = { path = "../core" }
+spin-world = { path = "../world" }
 tokio = { version = "1", features = [ "rt-multi-thread" ] }
 tokio-postgres = { version = "0.7.7" }
 tracing = { workspace = true }
-wit-bindgen-wasmtime = { workspace = true }

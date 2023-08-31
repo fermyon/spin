@@ -1,0 +1,27 @@
+spin_manifest_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A simple application that returns hello."
+name = "spin-hello-world"
+trigger = { type = "http", base = "/" }
+version = "1.0.0"
+
+[[component]]
+id = "hello"
+source = "target/wasm32-wasi/release/http_rust_watch_test.wasm"
+description = "A simple component that returns hello."
+[component.trigger]
+route = "/hello"
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+watch = ["src/**/*.rs", "Cargo.toml"]
+
+[[component]]
+id = "subcomponent"
+source = "subcomponent/main.wasm"
+allowed_http_hosts = []
+[component.trigger]
+route = "/..."
+[component.build]
+command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"
+workdir = "subcomponent"
+watch = ["**/*.go", "go.mod"]

@@ -1,7 +1,6 @@
+use anyhow::Context;
+use spin_common::data_dir::default_data_dir;
 use std::path::{Path, PathBuf};
-
-use anyhow::{anyhow, Context};
-use sha2::{Digest, Sha256};
 
 use crate::directory::subdirectories;
 
@@ -21,11 +20,7 @@ impl TemplateStore {
     }
 
     pub(crate) fn try_default() -> anyhow::Result<Self> {
-        let data_dir = dirs::data_local_dir()
-            .or_else(|| dirs::home_dir().map(|p| p.join(".spin")))
-            .ok_or_else(|| anyhow!("Unable to get local data directory or home directory"))?;
-        let templates_dir = data_dir.join("spin").join("templates");
-        Ok(Self::new(templates_dir))
+        Ok(Self::new(default_data_dir()?.join("templates")))
     }
 
     pub(crate) fn get_directory(&self, id: impl AsRef<str>) -> PathBuf {
@@ -61,7 +56,7 @@ impl TemplateStore {
         // if the template filenames are also long. Longer term, consider an alternative approach where
         // we use an index or something for disambiguation, and/or disambiguating only if a clash is
         // detected, etc.
-        let id_sha256 = format!("{:x}", Sha256::digest(id));
+        let id_sha256 = spin_common::sha256::hex_digest_from_bytes(id);
         format!("{}_{}", UNSAFE_CHARACTERS.replace_all(id, "_"), id_sha256)
     }
 }
@@ -76,6 +71,8 @@ const CONTENT_DIR_NAME: &str = "content";
 const SNIPPETS_DIR_NAME: &str = "snippets";
 
 const MANIFEST_FILE_NAME: &str = "spin-template.toml";
+
+const INSTALLATION_RECORD_FILE_NAME: &str = ".install.toml";
 
 impl TemplateLayout {
     pub fn new(template_dir: impl AsRef<Path>) -> Self {
@@ -106,5 +103,9 @@ impl TemplateLayout {
 
     pub fn snippets_dir(&self) -> PathBuf {
         self.metadata_dir().join(SNIPPETS_DIR_NAME)
+    }
+
+    pub fn installation_record_file(&self) -> PathBuf {
+        self.template_dir.join(INSTALLATION_RECORD_FILE_NAME)
     }
 }

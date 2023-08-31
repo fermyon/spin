@@ -1,0 +1,21 @@
+spin_manifest_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A simple application that exercises the use of a configuration variable"
+name = "config-variables"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[variables]
+password = { default = "pw" }
+
+[[component]]
+id = "config-variables"
+source = "target/wasm32-wasi/release/config_variables.wasm"
+allowed_http_hosts = []
+[component.trigger]
+route = "/..."
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+watch = ["src/**/*.rs", "Cargo.toml"]
+[component.config]
+password = "{{ password }}"

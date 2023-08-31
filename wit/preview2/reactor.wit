@@ -1,0 +1,35 @@
+package fermyon:spin
+
+world reactor {
+  import config
+  import postgres
+  import mysql
+  import sqlite
+  import redis
+  import key-value
+  import http
+  export inbound-http
+  export inbound-redis
+}
+
+world redis-trigger {
+  import config
+  import postgres
+  import mysql
+  import sqlite
+  import redis
+  import key-value
+  import http
+  export inbound-redis
+}
+
+world http-trigger {
+  import config
+  import postgres
+  import mysql
+  import sqlite
+  import redis
+  import key-value
+  import http
+  export inbound-http
+}

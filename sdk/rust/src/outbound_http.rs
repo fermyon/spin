@@ -1,12 +1,14 @@
-use http::{header::HeaderName, HeaderValue};
+use http_types::{header::HeaderName, HeaderValue};
 
 use super::http::{Request, Response};
 
-wit_bindgen_rust::import!("../../wit/ephemeral/wasi-outbound-http.wit");
-
-use wasi_outbound_http::{
-    HttpError as OutboundHttpError, Request as OutboundRequest, Response as OutboundResponse,
+use super::wit::fermyon::spin::http::{
+    self as spin_http, Request as OutboundRequest, Response as OutboundResponse,
 };
+use super::wit::fermyon::spin::http_types as spin_http_types;
+
+/// Error type returned by [`send_request`][crate::outbound_http::send_request]
+pub use super::wit::fermyon::spin::http_types::HttpError as OutboundHttpError;
 
 type Result<T> = std::result::Result<T, OutboundHttpError>;
 
@@ -40,9 +42,9 @@ pub fn send_request(req: Request) -> Result<Response> {
         status,
         headers,
         body,
-    } = wasi_outbound_http::request(out_req)?;
+    } = spin_http::send_request(out_req)?;
 
-    let resp_builder = http::response::Builder::new().status(status);
+    let resp_builder = http_types::response::Builder::new().status(status);
     let resp_builder = headers
         .into_iter()
         .flatten()
@@ -64,12 +66,12 @@ fn try_header_to_strs<'k, 'v>(
     ))
 }
 
-impl TryFrom<http::Method> for wasi_outbound_http::Method {
+impl TryFrom<http_types::Method> for spin_http_types::Method {
     type Error = OutboundHttpError;
 
-    fn try_from(method: http::Method) -> Result<Self> {
-        use http::Method;
-        use wasi_outbound_http::Method::*;
+    fn try_from(method: http_types::Method) -> Result<Self> {
+        use http_types::Method;
+        use spin_http_types::Method::*;
         Ok(match method {
             Method::GET => Get,
             Method::POST => Post,
@@ -78,15 +80,7 @@ impl TryFrom<http::Method> for wasi_outbound_http::Method {
             Method::PATCH => Patch,
             Method::HEAD => Head,
             Method::OPTIONS => Options,
-            _ => return Err(wasi_outbound_http::HttpError::RequestError),
+            _ => return Err(spin_http::HttpError::RequestError),
         })
     }
 }
-
-impl std::fmt::Display for OutboundHttpError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl std::error::Error for OutboundHttpError {}

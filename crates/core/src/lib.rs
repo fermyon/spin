@@ -2,7 +2,7 @@
 //!
 //! This crate provides low-level Wasm and WASI functionality required by Spin.
 //! Most of this functionality consists of wrappers around [`wasmtime`] and
-//! [`wasmtime_wasi`] that narrows the flexibility of `wasmtime` to the set of
+//! [`wasi_common`] that narrows the flexibility of `wasmtime` to the set of
 //! features used by Spin (such as only supporting `wasmtime`'s async calling style).
 
 #![deny(missing_docs)]
@@ -10,26 +10,31 @@
 mod host_component;
 mod io;
 mod limits;
+mod preview1;
 mod store;
 
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use crossbeam_channel::Sender;
 use tracing::instrument;
-pub use wasmtime::{self, Instance, Module, Trap};
-pub use wasmtime_wasi::I32Exit;
-use wasmtime_wasi::WasiCtx;
+use wasmtime_wasi::preview2::Table;
 
 use self::host_component::{HostComponents, HostComponentsBuilder};
 
-pub use host_component::{HostComponent, HostComponentDataHandle, HostComponentsData};
+pub use async_trait::async_trait;
+pub use wasmtime::{
+    self,
+    component::{Component, Instance},
+    Instance as ModuleInstance, Module, Trap,
+};
+pub use wasmtime_wasi::preview2::I32Exit;
+
+pub use host_component::{
+    AnyHostComponentDataHandle, HostComponent, HostComponentDataHandle, HostComponentsData,
+};
 pub use io::OutputBuffer;
-pub use store::{Store, StoreBuilder};
+pub use store::{Store, StoreBuilder, Wasi, WasiVersion};
 
 /// The default [`EngineBuilder::epoch_tick_interval`].
 pub const DEFAULT_EPOCH_TICK_INTERVAL: Duration = Duration::from_millis(10);
@@ -118,7 +123,7 @@ impl Default for Config {
         let mut inner = wasmtime::Config::new();
         inner.async_support(true);
         inner.epoch_interruption(true);
-
+        inner.wasm_component_model(true);
         Self { inner }
     }
 }
@@ -126,9 +131,17 @@ impl Default for Config {
 /// Host state data associated with individual [Store]s and [Instance]s.
 pub struct Data<T> {
     inner: T,
-    wasi: WasiCtx,
+    wasi: Wasi,
     host_components_data: HostComponentsData,
     store_limits: limits::StoreLimitsAsync,
+    table: Table,
+}
+
+impl<T> Data<T> {
+    /// Get the amount of memory in bytes consumed by instances in the store
+    pub fn memory_consumed(&self) -> u64 {
+        self.store_limits.memory_consumed()
+    }
 }
 
 impl<T> AsRef<T> for Data<T> {
@@ -143,8 +156,35 @@ impl<T> AsMut<T> for Data<T> {
     }
 }
 
+impl<T: Send> wasmtime_wasi::preview2::WasiView for Data<T> {
+    fn table(&self) -> &wasmtime_wasi::preview2::Table {
+        &self.table
+    }
+
+    fn table_mut(&mut self) -> &mut wasmtime_wasi::preview2::Table {
+        &mut self.table
+    }
+
+    fn ctx(&self) -> &wasmtime_wasi::preview2::WasiCtx {
+        match &self.wasi {
+            Wasi::Preview1(_) => panic!("using WASI Preview 1 functions with Preview 2 store"),
+            Wasi::Preview2(ctx) => ctx,
+        }
+    }
+
+    fn ctx_mut(&mut self) -> &mut wasmtime_wasi::preview2::WasiCtx {
+        match &mut self.wasi {
+            Wasi::Preview1(_) => panic!("using WASI Preview 1 functions with Preview 2 store"),
+            Wasi::Preview2(ctx) => ctx,
+        }
+    }
+}
+
 /// An alias for [`wasmtime::Linker`] specialized to [`Data`].
-pub type Linker<T> = wasmtime::Linker<Data<T>>;
+pub type ModuleLinker<T> = wasmtime::Linker<Data<T>>;
+
+/// An alias for [`wasmtime::component::Linker`] specialized to [`Data`].
+pub type Linker<T> = wasmtime::component::Linker<Data<T>>;
 
 /// A builder interface for configuring a new [`Engine`].
 ///
@@ -152,6 +192,7 @@ pub type Linker<T> = wasmtime::Linker<Data<T>>;
 pub struct EngineBuilder<T> {
     engine: wasmtime::Engine,
     linker: Linker<T>,
+    module_linker: ModuleLinker<T>,
     host_components_builder: HostComponentsBuilder,
     epoch_tick_interval: Duration,
     epoch_ticker_thread: bool,
@@ -162,11 +203,18 @@ impl<T: Send + Sync> EngineBuilder<T> {
         let engine = wasmtime::Engine::new(&config.inner)?;
 
         let mut linker: Linker<T> = Linker::new(&engine);
-        wasmtime_wasi::tokio::add_to_linker(&mut linker, |data| &mut data.wasi)?;
+        wasmtime_wasi::preview2::wasi::command::add_to_linker(&mut linker)?;
+
+        let mut module_linker = ModuleLinker::new(&engine);
+        wasmtime_wasi::tokio::add_to_linker(&mut module_linker, |data| match &mut data.wasi {
+            Wasi::Preview1(ctx) => ctx,
+            Wasi::Preview2(_) => panic!("using WASI Preview 2 functions with Preview 1 store"),
+        })?;
 
         Ok(Self {
             engine,
             linker,
+            module_linker,
             host_components_builder: HostComponents::builder(),
             epoch_tick_interval: DEFAULT_EPOCH_TICK_INTERVAL,
             epoch_ticker_thread: true,
@@ -176,14 +224,13 @@ impl<T: Send + Sync> EngineBuilder<T> {
     /// Adds definition(s) to the built [`Engine`].
     ///
     /// This method's signature is meant to be used with
-    /// [`wit-bindgen`](https://github.com/bytecodealliance/wit-bindgen)'s
-    /// generated `add_to_linker` functions, e.g.:
+    /// [`wasmtime::component::bindgen`]'s generated `add_to_linker` functions, e.g.:
     ///
     /// ```ignore
-    /// wit_bindgen_wasmtime::import!({paths: ["my-interface.wit"], async: *});
+    /// use spin_core::my_interface;
     /// // ...
     /// let mut builder: EngineBuilder<my_interface::MyInterfaceData> = Engine::builder();
-    /// builder.link_import(my_interface::MyInterface::add_to_linker)?;
+    /// builder.link_import(my_interface::add_to_linker)?;
     /// ```
     pub fn link_import(
         &mut self,
@@ -245,37 +292,20 @@ impl<T: Send + Sync> EngineBuilder<T> {
         Some(send)
     }
 
-    /// Builds an [`Engine`] from this builder with the given host state data.
-    ///
-    /// Note that this data will generally go entirely unused, but is needed
-    /// by the implementation of [`Engine::instantiate_pre`]. If `T: Default`,
-    /// it is probably preferable to use [`EngineBuilder::build`].
-    pub fn build_with_data(self, instance_pre_data: T) -> Engine<T> {
+    /// Builds an [`Engine`] from this builder.
+    pub fn build(self) -> Engine<T> {
         let epoch_ticker_signal = self.maybe_spawn_epoch_ticker();
 
         let host_components = self.host_components_builder.build();
 
-        let instance_pre_store = Arc::new(Mutex::new(
-            StoreBuilder::new(self.engine.clone(), Duration::ZERO, &host_components)
-                .build_with_data(instance_pre_data)
-                .expect("instance_pre_store build should not fail"),
-        ));
-
         Engine {
             inner: self.engine,
             linker: self.linker,
+            module_linker: self.module_linker,
             host_components,
-            instance_pre_store,
             epoch_tick_interval: self.epoch_tick_interval,
             _epoch_ticker_signal: epoch_ticker_signal,
         }
-    }
-}
-
-impl<T: Default + Send + Sync> EngineBuilder<T> {
-    /// Builds an [`Engine`] from this builder.
-    pub fn build(self) -> Engine<T> {
-        self.build_with_data(T::default())
     }
 }
 
@@ -284,8 +314,8 @@ impl<T: Default + Send + Sync> EngineBuilder<T> {
 pub struct Engine<T> {
     inner: wasmtime::Engine,
     linker: Linker<T>,
+    module_linker: ModuleLinker<T>,
     host_components: HostComponents,
-    instance_pre_store: Arc<Mutex<Store<T>>>,
     epoch_tick_interval: Duration,
     // Matching receiver closes on drop
     _epoch_ticker_signal: Option<Sender<()>>,
@@ -298,20 +328,34 @@ impl<T: Send + Sync> Engine<T> {
     }
 
     /// Creates a new [`StoreBuilder`].
-    pub fn store_builder(&self) -> StoreBuilder {
+    pub fn store_builder(&self, wasi_version: WasiVersion) -> StoreBuilder {
         StoreBuilder::new(
             self.inner.clone(),
             self.epoch_tick_interval,
             &self.host_components,
+            wasi_version,
         )
     }
 
-    /// Creates a new [`InstancePre`] for the given [`Module`].
+    /// Creates a new [`InstancePre`] for the given [`Component`].
     #[instrument(skip_all)]
-    pub fn instantiate_pre(&self, module: &Module) -> Result<InstancePre<T>> {
-        let mut store = self.instance_pre_store.lock().unwrap();
-        let inner = self.linker.instantiate_pre(&mut *store, module)?;
+    pub fn instantiate_pre(&self, component: &Component) -> Result<InstancePre<T>> {
+        let inner = Arc::new(self.linker.instantiate_pre(component)?);
         Ok(InstancePre { inner })
+    }
+
+    /// Creates a new [`ModuleInstancePre`] for the given [`Module`].
+    #[instrument(skip_all)]
+    pub fn module_instantiate_pre(&self, module: &Module) -> Result<ModuleInstancePre<T>> {
+        let inner = Arc::new(self.module_linker.instantiate_pre(module)?);
+        Ok(ModuleInstancePre { inner })
+    }
+
+    /// Find the [`HostComponentDataHandle`] for a [`HostComponent`] if configured for this engine.
+    pub fn find_host_component_handle<HC: HostComponent>(
+        &self,
+    ) -> Option<HostComponentDataHandle<HC>> {
+        self.host_components.find_handle()
     }
 }
 
@@ -323,9 +367,9 @@ impl<T> AsRef<wasmtime::Engine> for Engine<T> {
 
 /// A pre-initialized instance that is ready to be instantiated.
 ///
-/// See [`wasmtime::InstancePre`] for more information.
+/// See [`wasmtime::component::InstancePre`] for more information.
 pub struct InstancePre<T> {
-    inner: wasmtime::InstancePre<Data<T>>,
+    inner: Arc<wasmtime::component::InstancePre<Data<T>>>,
 }
 
 impl<T: Send + Sync> InstancePre<T> {
@@ -344,7 +388,36 @@ impl<T> Clone for InstancePre<T> {
     }
 }
 
-impl<T> AsRef<wasmtime::InstancePre<Data<T>>> for InstancePre<T> {
+impl<T> AsRef<wasmtime::component::InstancePre<Data<T>>> for InstancePre<T> {
+    fn as_ref(&self) -> &wasmtime::component::InstancePre<Data<T>> {
+        &self.inner
+    }
+}
+
+/// A pre-initialized module instance that is ready to be instantiated.
+///
+/// See [`wasmtime::InstancePre`] for more information.
+pub struct ModuleInstancePre<T> {
+    inner: Arc<wasmtime::InstancePre<Data<T>>>,
+}
+
+impl<T: Send + Sync> ModuleInstancePre<T> {
+    /// Instantiates this instance with the given [`Store`].
+    #[instrument(skip_all)]
+    pub async fn instantiate_async(&self, store: &mut Store<T>) -> Result<ModuleInstance> {
+        self.inner.instantiate_async(store).await
+    }
+}
+
+impl<T> Clone for ModuleInstancePre<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+impl<T> AsRef<wasmtime::InstancePre<Data<T>>> for ModuleInstancePre<T> {
     fn as_ref(&self) -> &wasmtime::InstancePre<Data<T>> {
         &self.inner
     }

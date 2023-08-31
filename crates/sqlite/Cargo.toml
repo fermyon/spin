@@ -1,0 +1,14 @@
+[package]
+name = "spin-sqlite"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+async-trait = "0.1.68"
+spin-core = { path = "../core" }
+spin-app = { path = "../app" }
+spin-key-value = { path = "../key-value" }
+spin-world = { path = "../world" }
+anyhow = "1.0"
+tokio = "1"

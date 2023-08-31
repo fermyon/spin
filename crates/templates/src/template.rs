@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use anyhow::{anyhow, Context};
 use indexmap::IndexMap;
@@ -16,13 +19,22 @@ use crate::{
 #[derive(Debug)]
 pub struct Template {
     id: String,
+    tags: HashSet<String>,
     description: Option<String>,
+    installed_from: InstalledFrom,
     trigger: TemplateTriggerCompatibility,
     variants: HashMap<TemplateVariantKind, TemplateVariant>,
     parameters: Vec<TemplateParameter>,
     custom_filters: Vec<CustomFilterParser>,
     snippets_dir: Option<PathBuf>,
     content_dir: Option<PathBuf>, // TODO: maybe always need a spin.toml file in there?
+}
+
+#[derive(Debug)]
+enum InstalledFrom {
+    Git(String),
+    Directory(String),
+    Unknown,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
@@ -56,6 +68,14 @@ impl TemplateVariantInfo {
         match self {
             Self::NewApplication => "new application",
             Self::AddComponent { .. } => "add component",
+        }
+    }
+
+    /// The noun that should be used for the variant in a prompt
+    pub fn prompt_noun(&self) -> &'static str {
+        match self {
+            Self::NewApplication => "application",
+            Self::AddComponent { .. } => "component",
         }
     }
 }
@@ -115,10 +135,14 @@ impl Template {
             None
         };
 
+        let installed_from = read_install_record(layout);
+
         let template = match raw {
             RawTemplateManifest::V1(raw) => Self {
                 id: raw.id.clone(),
+                tags: raw.tags.map(Self::normalize_tags).unwrap_or_default(),
                 description: raw.description.clone(),
+                installed_from,
                 trigger: Self::parse_trigger_type(raw.trigger_type, layout),
                 variants: Self::parse_template_variants(raw.new_application, raw.add_component),
                 parameters: Self::parse_parameters(&raw.parameters)?,
@@ -136,6 +160,19 @@ impl Template {
         &self.id
     }
 
+    /// Returns true if the templates matches the provided set of tags.
+    pub fn matches_all_tags(&self, match_set: &[String]) -> bool {
+        match_set
+            .iter()
+            .all(|tag| self.tags().contains(&tag.to_lowercase()))
+    }
+
+    /// The set of tags associated with the template, provided by the
+    /// template author.
+    pub fn tags(&self) -> &HashSet<String> {
+        &self.tags
+    }
+
     /// A human-readable description of the template, provided by the
     /// template author.
     pub fn description(&self) -> &Option<String> {
@@ -149,6 +186,27 @@ impl Template {
         match &self.description {
             Some(s) => s,
             None => "",
+        }
+    }
+
+    /// The Git repository from which the template was installed, if
+    /// it was installed from Git; otherwise None.
+    pub fn source_repo(&self) -> Option<&str> {
+        // TODO: this is kind of specialised - should we do the discarding of
+        // non-Git sources at the application layer?
+        match &self.installed_from {
+            InstalledFrom::Git(url) => Some(url),
+            _ => None,
+        }
+    }
+
+    /// A human-readable description of where the template was installed
+    /// from.
+    pub fn installed_from_or_empty(&self) -> &str {
+        match &self.installed_from {
+            InstalledFrom::Git(repo) => repo,
+            InstalledFrom::Directory(path) => path,
+            InstalledFrom::Unknown => "",
         }
     }
 
@@ -199,6 +257,10 @@ impl Template {
     /// for values and interact with the user at the console).
     pub fn run(self, options: RunOptions) -> Run {
         Run::new(self, options)
+    }
+
+    fn normalize_tags(tags: HashSet<String>) -> HashSet<String> {
+        tags.into_iter().map(|tag| tag.to_lowercase()).collect()
     }
 
     fn parse_trigger_type(
@@ -389,4 +451,15 @@ fn parse_string_constraints(raw: &RawParameter) -> anyhow::Result<StringConstrai
     let regex = raw.pattern.as_ref().map(|re| Regex::new(re)).transpose()?;
 
     Ok(StringConstraints { regex })
+}
+
+fn read_install_record(layout: &TemplateLayout) -> InstalledFrom {
+    use crate::reader::{parse_installed_from, RawInstalledFrom};
+
+    let installed_from_text = std::fs::read_to_string(layout.installation_record_file()).ok();
+    match installed_from_text.and_then(parse_installed_from) {
+        Some(RawInstalledFrom::Git { git }) => InstalledFrom::Git(git),
+        Some(RawInstalledFrom::File { dir }) => InstalledFrom::Directory(dir),
+        None => InstalledFrom::Unknown,
+    }
 }

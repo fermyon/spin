@@ -13,7 +13,7 @@ Creating and sending HTTP requests from Spin components closely follows the Go
 `net/http` API:
 
 ```go
- r1, err := spin_http.Get("https://some-random-api.ml/facts/dog")
+ r1, err := spin_http.Get("https://random-data-api.fermyon.app/animals/json")
  r2, err := spin_http.Post("https://postman-echo.com/post", "text/plain", bytes.NewBufferString("Hello there!"))
 
 req, err := http.NewRequest("PUT", "https://postman-echo.com/put", bytes NewBufferString("General Kenobi!"))
@@ -24,8 +24,9 @@ r3, err := spin_http.Send(req)
 Building this as a WebAssembly module can be done using the `tinygo` compiler:
 
 ```shell
+$ go mod tidy
 $ spin build
-Executing the build command for component tinygo-hello: tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go
+Executing the build command for component tinygo-hello: tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go
 Successfully ran the build command for the Spin components.
 ```
 
@@ -40,11 +41,11 @@ Cannot send HTTP request: Destination not allowed: <URL>
 [[component]]
 id = "tinygo-hello"
 source = "main.wasm"
-allowed_http_hosts = [ "https://some-random-api.ml", "https://postman-echo.com" ]
+allowed_http_hosts = [ "https://random-data-api.fermyon.app", "https://postman-echo.com" ]
 [component.trigger]
 route = "/hello"
 [component.build]
-command = "tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go"
+command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"
 ```
 
 At this point, we can execute the application with the `spin` CLI:

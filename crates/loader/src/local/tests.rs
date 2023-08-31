@@ -5,13 +5,17 @@ use anyhow::Result;
 use spin_manifest::{HttpConfig, HttpExecutor, HttpTriggerConfiguration};
 use std::path::PathBuf;
 
+fn raw_manifest_from_str(toml: &str) -> Result<RawAppManifestAnyVersion> {
+    raw_manifest_from_slice(toml.as_bytes())
+}
+
 #[tokio::test]
 async fn test_from_local_source() -> Result<()> {
     const MANIFEST: &str = "tests/valid-with-files/spin.toml";
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, Some(dir), &None).await?;
+    let app = from_file(MANIFEST, Some(dir)).await?;
 
     assert_eq!(app.info.name, "spin-local-source-test");
     assert_eq!(app.info.version, "1.0.0");
@@ -44,11 +48,33 @@ async fn test_from_local_source() -> Result<()> {
 }
 
 #[test]
+fn test_manifest_v1_signatures() -> Result<()> {
+    const MANIFEST: &str = include_str!("../../tests/valid-manifest.toml");
+    let ageless = MANIFEST
+        .replace("spin_version", "temp")
+        .replace("spin_manifest_version", "temp");
+    let v1_old = ageless.replace("temp", "spin_version");
+    let v1_new = ageless.replace("temp", "spin_manifest_version");
+    into_v1_manifest(&v1_old, "chain-of-command")?;
+    into_v1_manifest(&v1_new, "chain-of-command")?;
+    Ok(())
+}
+
+fn into_v1_manifest(spin_versioned_manifest: &str, app_name: &str) -> Result<()> {
+    use config::RawAppManifestAnyVersionImpl;
+    let raw: RawAppManifestAnyVersionImpl<toml::Value> =
+        toml::from_slice(spin_versioned_manifest.as_bytes())?;
+    let manifest = raw.into_v1();
+    assert_eq!(manifest.info.name, app_name);
+    Ok(())
+}
+
+#[test]
 fn test_manifest() -> Result<()> {
     const MANIFEST: &str = include_str!("../../tests/valid-manifest.toml");
 
-    let cfg_any: RawAppManifestAnyVersion = toml::from_str(MANIFEST)?;
-    let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
+    let cfg_any: RawAppManifestAnyVersion = raw_manifest_from_str(MANIFEST)?;
+    let cfg = cfg_any.into_v1();
 
     assert_eq!(cfg.info.name, "chain-of-command");
     assert_eq!(cfg.info.version, "6.11.2");
@@ -88,19 +114,9 @@ fn test_manifest() -> Result<()> {
         RawFileMount::Pattern("subdir/another.txt".to_owned())
     );
 
-    let b = match cfg.components[1].source.clone() {
-        RawModuleSource::Bindle(b) => b,
-        RawModuleSource::FileReference(_) => panic!("expected bindle source"),
-        RawModuleSource::Url(_) => panic!("expected bindle source"),
-    };
-
-    assert_eq!(b.reference, "bindle reference".to_string());
-    assert_eq!(b.parcel, "parcel".to_string());
-
     let u = match cfg.components[2].source.clone() {
         RawModuleSource::Url(u) => u,
         RawModuleSource::FileReference(_) => panic!("expected URL source"),
-        RawModuleSource::Bindle(_) => panic!("expected URL source"),
     };
 
     assert_eq!(u.url, "https://example.com/wasm.wasm.wasm".to_string());
@@ -157,7 +173,7 @@ async fn test_invalid_manifest() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, Some(dir), &None).await;
+    let app = from_file(MANIFEST, Some(dir)).await;
 
     let e = app.unwrap_err().to_string();
     assert!(
@@ -172,7 +188,7 @@ async fn test_invalid_manifest() -> Result<()> {
 fn test_unknown_version_is_rejected() {
     const MANIFEST: &str = include_str!("../../tests/invalid-version.toml");
 
-    let cfg = toml::from_str::<RawAppManifestAnyVersion>(MANIFEST);
+    let cfg = raw_manifest_from_str(MANIFEST);
     assert!(
         cfg.is_err(),
         "Expected version to be validated but it wasn't"
@@ -185,6 +201,21 @@ fn test_unknown_version_is_rejected() {
     );
 }
 
+#[tokio::test]
+async fn gives_correct_error_when_missing_app_trigger_field() -> Result<()> {
+    const MANIFEST: &str = "tests/missing-http-base.toml";
+
+    let app = raw_manifest_from_file(&PathBuf::from(MANIFEST)).await;
+
+    let e = format!("{:#}", app.unwrap_err());
+    assert!(
+        e.contains("missing field `base`"),
+        "Expected error to contain trigger field information but was '{e}'"
+    );
+
+    Ok(())
+}
+
 #[test]
 fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
     const MANIFEST: &str = include_str!("../../tests/wagi-custom-entrypoint.toml");
@@ -192,8 +223,8 @@ fn test_wagi_executor_with_custom_entrypoint() -> Result<()> {
     const EXPECTED_CUSTOM_ENTRYPOINT: &str = "custom-entrypoint";
     const EXPECTED_DEFAULT_ARGV: &str = "${SCRIPT_NAME} ${ARGS}";
 
-    let cfg_any: RawAppManifestAnyVersion = toml::from_str(MANIFEST)?;
-    let RawAppManifestAnyVersion::V1(cfg) = cfg_any;
+    let cfg_any: RawAppManifestAnyVersion = raw_manifest_from_str(MANIFEST)?;
+    let cfg = cfg_any.into_v1();
 
     let http_config: HttpConfig = cfg.components[0].trigger.clone().try_into()?;
 
@@ -214,7 +245,7 @@ async fn test_duplicate_component_id_is_rejected() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, Some(dir), &None).await;
+    let app = from_file(MANIFEST, Some(dir)).await;
 
     assert!(
         app.is_err(),
@@ -236,7 +267,7 @@ async fn test_insecure_allow_all_with_invalid_url() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, Some(dir), &None).await;
+    let app = from_file(MANIFEST, Some(dir)).await;
 
     assert!(
         app.is_ok(),
@@ -252,14 +283,14 @@ async fn test_invalid_url_in_allowed_http_hosts_is_rejected() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
     let dir = temp_dir.path();
-    let app = from_file(MANIFEST, Some(dir), &None).await;
+    let app = from_file(MANIFEST, Some(dir)).await;
 
     assert!(app.is_err(), "Expected allowed_http_hosts parsing error");
 
     let e = app.unwrap_err().to_string();
     assert!(
-        e.contains("ftp://some-random-api.ml"),
-        "Expected allowed_http_hosts parse error to contain `ftp://some-random-api.ml`"
+        e.contains("ftp://random-data-api.fermyon.app"),
+        "Expected allowed_http_hosts parse error to contain `ftp://random-data-api.fermyon.app`"
     );
     assert!(
         e.contains("example.com/wib/wob"),

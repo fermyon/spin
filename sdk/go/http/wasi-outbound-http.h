@@ -37,6 +37,7 @@ extern "C"
   #define WASI_OUTBOUND_HTTP_HTTP_ERROR_INVALID_URL 2
   #define WASI_OUTBOUND_HTTP_HTTP_ERROR_REQUEST_ERROR 3
   #define WASI_OUTBOUND_HTTP_HTTP_ERROR_RUNTIME_ERROR 4
+  #define WASI_OUTBOUND_HTTP_HTTP_ERROR_TOO_MANY_REQUESTS 5
   typedef uint16_t wasi_outbound_http_http_status_t;
   typedef uint8_t wasi_outbound_http_method_t;
   #define WASI_OUTBOUND_HTTP_METHOD_GET 0

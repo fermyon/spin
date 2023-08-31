@@ -1,4 +1,4 @@
-spin_version = "1"
+spin_manifest_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A simple Spin application written in (Tiny)Go that performs outbound HTTP requests."
 name = "spin-tinygo-outbound-http"
@@ -8,8 +8,8 @@ version = "1.0.0"
 [[component]]
 id = "tinygo-hello"
 source = "main.wasm"
-allowed_http_hosts = ["https://some-random-api.ml", "https://postman-echo.com"]
+allowed_http_hosts = ["https://random-data-api.fermyon.app", "https://postman-echo.com"]
 [component.trigger]
 route = "/hello"
 [component.build]
-command = "tinygo build -wasm-abi=generic -target=wasi -gc=leaking -no-debug -o main.wasm main.go"
+command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"

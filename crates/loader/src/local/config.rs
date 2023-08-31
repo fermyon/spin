@@ -11,26 +11,60 @@ use std::{collections::HashMap, path::PathBuf};
 use crate::common::RawVariable;
 
 /// Container for any version of the manifest.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(tag = "spin_version")]
-pub enum RawAppManifestAnyVersion {
-    /// A manifest with API version 1.
-    #[serde(rename = "1")]
-    V1(RawAppManifest),
+pub type RawAppManifestAnyVersion = RawAppManifestAnyVersionImpl<TriggerConfig>;
+/// Application configuration local file format.
+/// This is the main structure spin.toml deserializes into.
+pub type RawAppManifest = RawAppManifestImpl<TriggerConfig>;
+/// Core component configuration.
+pub type RawComponentManifest = RawComponentManifestImpl<TriggerConfig>;
+
+pub(crate) type RawAppManifestAnyVersionPartial = RawAppManifestAnyVersionImpl<toml::Value>;
+pub(crate) type RawComponentManifestPartial = RawComponentManifestImpl<toml::Value>;
+
+/// Container for any version of the manifest.
+#[derive(Clone, Debug, Deserialize)]
+pub struct RawAppManifestAnyVersionImpl<C> {
+    #[serde(alias = "spin_version")]
+    //We don't actually use the version yet
+    #[allow(dead_code)]
+    /// Version key name
+    spin_manifest_version: FixedStringVersion<1>,
+    /// Manifest
+    #[serde(flatten)]
+    manifest: RawAppManifestImpl<C>,
+}
+
+impl<C> RawAppManifestAnyVersionImpl<C> {
+    /// Creates a `RawAppManifestAnyVersionImpl` from `RawAppManifestImpl`
+    pub fn from_manifest(manifest: RawAppManifestImpl<C>) -> Self {
+        Self {
+            manifest,
+            spin_manifest_version: FixedStringVersion::default(),
+        }
+    }
+    /// Converts `RawAppManifestAnyVersionImpl` into underlying V1 manifest
+    pub fn into_v1(self) -> RawAppManifestImpl<C> {
+        self.manifest
+    }
+
+    /// Returns a reference to the underlying V1 manifest
+    pub fn as_v1(&self) -> &RawAppManifestImpl<C> {
+        &self.manifest
+    }
 }
 
 /// Application configuration local file format.
 /// This is the main structure spin.toml deserializes into.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
-pub struct RawAppManifest {
+pub struct RawAppManifestImpl<C> {
     /// General application information.
     #[serde(flatten)]
     pub info: RawAppInformation,
 
     /// Configuration for the application components.
     #[serde(rename = "component")]
-    pub components: Vec<RawComponentManifest>,
+    pub components: Vec<RawComponentManifestImpl<C>>,
 
     /// Application-specific configuration schema.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
@@ -51,14 +85,14 @@ pub struct RawAppInformation {
     pub authors: Option<Vec<String>>,
     /// Trigger for the application.
     pub trigger: ApplicationTrigger,
-    /// Namespace for the application.
+    /// Namespace for the application. (deprecated)
     pub namespace: Option<String>,
 }
 
 /// Core component configuration.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
-pub struct RawComponentManifest {
+pub struct RawComponentManifestImpl<C> {
     /// The module source.
     pub source: RawModuleSource,
     /// ID of the component. Used at runtime to select between
@@ -70,7 +104,7 @@ pub struct RawComponentManifest {
     #[serde(flatten)]
     pub wasm: RawWasmConfig,
     /// Trigger configuration.
-    pub trigger: TriggerConfig,
+    pub trigger: C,
     /// Build configuration for the component.
     pub build: Option<RawBuildConfig>,
     /// Component-specific configuration values.
@@ -86,6 +120,9 @@ pub struct RawBuildConfig {
     /// Working directory in which the build command is executed. It must be
     /// relative to the directory in which `spin.toml` is located.
     pub workdir: Option<PathBuf>,
+    /// List of glob patterns to watch for changes. Used by spin watch to
+    /// re-execute spin build and spin up when your source changes.
+    pub watch: Option<Vec<String>>,
 }
 
 /// WebAssembly configuration.
@@ -103,6 +140,10 @@ pub struct RawWasmConfig {
     pub exclude_files: Option<Vec<String>>,
     /// Optional list of HTTP hosts the component is allowed to connect.
     pub allowed_http_hosts: Option<Vec<String>>,
+    /// Optional list of key-value stores the component is allowed to use.
+    pub key_value_stores: Option<Vec<String>>,
+    /// Optional list of sqlite databases the component is allowed to use.
+    pub sqlite_databases: Option<Vec<String>>,
     /// Environment variables to be mapped inside the Wasm module at runtime.
     pub environment: Option<HashMap<String, String>>,
 }
@@ -135,8 +176,6 @@ pub enum RawFileMount {
 pub enum RawModuleSource {
     /// Local path or parcel reference to a module that needs to be linked.
     FileReference(PathBuf),
-    /// Reference to a remote bindle
-    Bindle(FileComponentBindleSource),
     /// Reference to a Wasm file at a URL
     Url(FileComponentUrlSource),
 }
@@ -162,4 +201,28 @@ pub struct FileComponentUrlSource {
     /// The digest of the Wasm binary, used for integrity checking. This must be a
     /// SHA256 digest, in the form `sha256:...`
     pub digest: String,
+}
+
+/// FixedStringVersion represents a schema version field with a const value.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(into = "String", try_from = "String")]
+pub struct FixedStringVersion<const V: usize>;
+
+impl<const V: usize> From<FixedStringVersion<V>> for String {
+    fn from(_: FixedStringVersion<V>) -> String {
+        V.to_string()
+    }
+}
+
+impl<const V: usize> TryFrom<String> for FixedStringVersion<V> {
+    type Error = String;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let value: usize = value
+            .parse()
+            .map_err(|err| format!("invalid version: {}", err))?;
+        if value != V {
+            return Err(format!("invalid version {} != {}", value, V));
+        }
+        Ok(Self)
+    }
 }

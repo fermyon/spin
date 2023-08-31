@@ -1,0 +1,77 @@
+name: Code coverage
+on:
+  # Currently disabled due to cargo-tarpaulin timing out on the GH Ubuntu hosts.
+  # Ref: https://github.com/fermyon/spin/issues/1350
+  # Will need to investigate and tune usage/invocation to get passing before re-enabling.
+  # schedule:
+  #   - cron: '0 0 * * *'
+  workflow_dispatch:
+jobs:
+  build-rust:
+    name: Build Spin
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'fermyon' }} || ${{ github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
+        with:
+          rust: true
+          rust-wasm: true
+          rust-cache: true
+
+      - name: Cargo Build
+        run: cargo build --workspace --all-targets --all-features --features openssl/vendored
+
+      - name: "Archive executable artifact"
+        uses: actions/upload-artifact@v3
+        with:
+          name: spin-ubuntu-latest
+          path: target/debug/spin
+
+  code-coverage:
+    name: Run code coverage
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'fermyon' }} || ${{ github.event_name == 'workflow_dispatch' }}
+    needs: build-rust
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
+        with:
+          rust: true
+          rust-wasm: true
+          bindle: true
+          nomad: true
+          hippo: true
+
+      - name: Install cargo-tarpaulin binary crate
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-tarpaulin
+          version: 0.19.1
+          use-tool-cache: true
+
+      - name: Cargo Tarpaulin
+        run: cargo tarpaulin --follow-exec --skip-clean -t 6000 --out xml --features openssl/vendored,default
+        env:
+          RUST_LOG: spin=trace
+
+      # Only attempt to upload to codecov.io if the repo owner is fermyon.
+      # This allows forks to run code coverage manually, without needing
+      # to have a codecov token for uploading.
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v3
+        if: ${{ github.ref == 'refs/heads/main' && github.repository_owner == 'fermyon' }}
+        with:
+          fail_ci_if_error: true
+          verbose: true
+
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v3
+        if: ${{ github.ref == 'refs/heads/main' }}
+        with:
+          name: code-coverage-report
+          path: cobertura.xml

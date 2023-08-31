@@ -3,13 +3,34 @@ mod host_component;
 use std::collections::{hash_map::Entry, HashMap};
 
 use anyhow::Result;
-use redis::{aio::Connection, AsyncCommands};
-use wit_bindgen_wasmtime::async_trait;
+use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
+use spin_core::async_trait;
+use spin_world::{
+    redis as outbound_redis,
+    redis_types::{Error, RedisParameter, RedisResult},
+};
 
 pub use host_component::OutboundRedisComponent;
 
-wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/outbound-redis.wit"], async: *});
-use outbound_redis::Error;
+struct RedisResults(Vec<RedisResult>);
+
+impl FromRedisValue for RedisResults {
+    fn from_redis_value(value: &Value) -> redis::RedisResult<Self> {
+        fn append(values: &mut Vec<RedisResult>, value: &Value) {
+            match value {
+                Value::Nil | Value::Okay => (),
+                Value::Int(v) => values.push(RedisResult::Int64(*v)),
+                Value::Data(bytes) => values.push(RedisResult::Binary(bytes.to_owned())),
+                Value::Bulk(bulk) => bulk.iter().for_each(|value| append(values, value)),
+                Value::Status(message) => values.push(RedisResult::Status(message.to_owned())),
+            }
+        }
+
+        let mut values = Vec::new();
+        append(&mut values, value);
+        Ok(RedisResults(values))
+    }
+}
 
 #[derive(Default)]
 pub struct OutboundRedis {
@@ -17,53 +38,127 @@ pub struct OutboundRedis {
 }
 
 #[async_trait]
-impl outbound_redis::OutboundRedis for OutboundRedis {
-    async fn publish(&mut self, address: &str, channel: &str, payload: &[u8]) -> Result<(), Error> {
-        let conn = self.get_conn(address).await.map_err(log_error)?;
-        conn.publish(channel, payload).await.map_err(log_error)?;
-        Ok(())
+impl outbound_redis::Host for OutboundRedis {
+    async fn publish(
+        &mut self,
+        address: String,
+        channel: String,
+        payload: Vec<u8>,
+    ) -> Result<Result<(), Error>> {
+        Ok(async {
+            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            conn.publish(&channel, &payload).await.map_err(log_error)?;
+            Ok(())
+        }
+        .await)
     }
 
-    async fn get(&mut self, address: &str, key: &str) -> Result<Vec<u8>, Error> {
-        let conn = self.get_conn(address).await.map_err(log_error)?;
-        let value = conn.get(key).await.map_err(log_error)?;
-        Ok(value)
+    async fn get(&mut self, address: String, key: String) -> Result<Result<Vec<u8>, Error>> {
+        Ok(async {
+            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let value = conn.get(&key).await.map_err(log_error)?;
+            Ok(value)
+        }
+        .await)
     }
 
-    async fn set(&mut self, address: &str, key: &str, value: &[u8]) -> Result<(), Error> {
-        let conn = self.get_conn(address).await.map_err(log_error)?;
-        conn.set(key, value).await.map_err(log_error)?;
-        Ok(())
+    async fn set(
+        &mut self,
+        address: String,
+        key: String,
+        value: Vec<u8>,
+    ) -> Result<Result<(), Error>> {
+        Ok(async {
+            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            conn.set(&key, &value).await.map_err(log_error)?;
+            Ok(())
+        }
+        .await)
     }
 
-    async fn incr(&mut self, address: &str, key: &str) -> Result<i64, Error> {
-        let conn = self.get_conn(address).await.map_err(log_error)?;
-        let value = conn.incr(key, 1).await.map_err(log_error)?;
-        Ok(value)
+    async fn incr(&mut self, address: String, key: String) -> Result<Result<i64, Error>> {
+        Ok(async {
+            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let value = conn.incr(&key, 1).await.map_err(log_error)?;
+            Ok(value)
+        }
+        .await)
     }
 
-    async fn del(&mut self, address: &str, keys: Vec<&str>) -> Result<i64, Error> {
-        let conn = self.get_conn(address).await.map_err(log_error)?;
-        let value = conn.del(keys).await.map_err(log_error)?;
-        Ok(value)
+    async fn del(&mut self, address: String, keys: Vec<String>) -> Result<Result<i64, Error>> {
+        Ok(async {
+            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let value = conn.del(&keys).await.map_err(log_error)?;
+            Ok(value)
+        }
+        .await)
     }
 
-    async fn sadd(&mut self, address: &str, key: &str, values: Vec<&str>) -> Result<i64, Error> {
-        let conn = self.get_conn(address).await.map_err(log_error)?;
-        let value = conn.sadd(key, values).await.map_err(log_error)?;
-        Ok(value)
+    async fn sadd(
+        &mut self,
+        address: String,
+        key: String,
+        values: Vec<String>,
+    ) -> Result<Result<i64, Error>> {
+        Ok(async {
+            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let value = conn.sadd(&key, &values).await.map_err(log_error)?;
+            Ok(value)
+        }
+        .await)
     }
 
-    async fn smembers(&mut self, address: &str, key: &str) -> Result<Vec<String>, Error> {
-        let conn = self.get_conn(address).await.map_err(log_error)?;
-        let value = conn.smembers(key).await.map_err(log_error)?;
-        Ok(value)
+    async fn smembers(
+        &mut self,
+        address: String,
+        key: String,
+    ) -> Result<Result<Vec<String>, Error>> {
+        Ok(async {
+            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let value = conn.smembers(&key).await.map_err(log_error)?;
+            Ok(value)
+        }
+        .await)
     }
 
-    async fn srem(&mut self, address: &str, key: &str, values: Vec<&str>) -> Result<i64, Error> {
-        let conn = self.get_conn(address).await.map_err(log_error)?;
-        let value = conn.srem(key, values).await.map_err(log_error)?;
-        Ok(value)
+    async fn srem(
+        &mut self,
+        address: String,
+        key: String,
+        values: Vec<String>,
+    ) -> Result<Result<i64, Error>> {
+        Ok(async {
+            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let value = conn.srem(&key, &values).await.map_err(log_error)?;
+            Ok(value)
+        }
+        .await)
+    }
+
+    async fn execute(
+        &mut self,
+        address: String,
+        command: String,
+        arguments: Vec<RedisParameter>,
+    ) -> Result<Result<Vec<RedisResult>, Error>> {
+        Ok(async {
+            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let mut cmd = redis::cmd(&command);
+            arguments.iter().for_each(|value| match value {
+                RedisParameter::Int64(v) => {
+                    cmd.arg(v);
+                }
+                RedisParameter::Binary(v) => {
+                    cmd.arg(v);
+                }
+            });
+
+            cmd.query_async::<_, RedisResults>(conn)
+                .await
+                .map(|values| values.0)
+                .map_err(log_error)
+        }
+        .await)
     }
 }
 

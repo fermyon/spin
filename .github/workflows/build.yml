@@ -3,14 +3,22 @@
 name: Rust
 on:
   push:
-    branches: [main]
+    branches: ["main", "v*"]
     # Also run on tag pushes, as the release.yml doesn't currently run tests
     tags: ["v*"]
   pull_request:
-    branches: [main]
+    branches: ["main", "v*"]
     paths-ignore:
       - "docs/**"
       - "README.md"
+      - "tests/README.md"
+
+# Serialize workflow runs per ref
+# Cancel any outdated, in-flight runs for refs other than 'main'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 env:
   CARGO_TERM_COLOR: always
 jobs:
@@ -18,17 +26,14 @@ jobs:
     name: Lint Rust
     runs-on: "ubuntu-latest"
     steps:
-      - uses: actions/checkout@v2
-      - name: Install latest Rust stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          components: clippy, rustfmt
+      - uses: actions/checkout@v3
 
-      - uses: Swatinem/rust-cache@v2
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
         with:
-          shared-key: "${{ runner.os }}-lint-${{ hashFiles('./Cargo.lock') }}"
+          rust: true
+          rust-wasm: true
+          rust-cache: true
 
       - name: Cargo Format
         run:
@@ -38,178 +43,93 @@ jobs:
         run:
           BUILD_SPIN_EXAMPLES=0 cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-  build-rust:
-    name: Build Spin
-    runs-on: ${{ matrix.config.os }}
-    strategy:
-      matrix:
-        config:
-          - {
-              os: "ubuntu-latest",
-              extension: "",
-              # We have this enabled for releases, so we should test it.
-              extraArgs: "--features openssl/vendored",
-            }
-          - {
-              os: "macos-latest",
-              extension: "",
-              extraArgs: "",
-            }
-          - {
-              os: "windows-latest",
-              extension: ".exe",
-              extraArgs: "",
-            }
+  ## This is separated out to remove e2e-tests dependency on windows/mac builds
+  build-rust-ubuntu:
+    name: Build Spin Ubuntu
+    runs-on: ubuntu-latest
+    needs: [lint-rust]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - name: Install latest Rust stable toolchain
-        uses: actions-rs/toolchain@v1
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
         with:
-          toolchain: stable
-          default: true
-
-      - name: "Install Wasm Rust target"
-        run: rustup target add wasm32-wasi
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "${{ runner.os }}-full-${{ hashFiles('./Cargo.lock') }}"
+          rust: true
+          rust-wasm: true
+          rust-cache: true
 
       - name: Cargo Build
-        run: cargo build --workspace --all-targets --all-features ${{ matrix.config.extraArgs }}
+        run: cargo build --workspace --release --all-targets --all-features --features openssl/vendored
+        env:
+          CARGO_INCREMENTAL: 0
 
       - name: "Archive executable artifact"
         uses: actions/upload-artifact@v3
         with:
-          name: spin-${{ matrix.config.os }}
-          path: target/debug/spin${{ matrix.config.extension }}
+          name: spin-ubuntu-latest
+          path: target/release/spin
+
+  build-rust:
+    name: Build Spin
+    runs-on: ${{ matrix.os }}
+    needs: [lint-rust]
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
+        with:
+          rust: true
+          rust-wasm: true
+          rust-cache: true
+
+      - name: Cargo Build
+        run: cargo build --workspace --release --all-targets --all-features
+        env:
+          CARGO_INCREMENTAL: 0
+
+      - name: "Archive executable artifact"
+        uses: actions/upload-artifact@v3
+        with:
+          name: spin-${{ matrix.os }}
+          path: target/release/spin${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
 
   test-rust:
     name: Test Spin SDK - Rust
-    runs-on: ${{ matrix.config.os }}
-    needs: build-rust
+    runs-on: ${{ matrix.os }}
+    needs: [lint-rust]
     strategy:
       matrix:
-        config:
-          - {
-              os: "ubuntu-latest",
-              extension: "",
-              # We have this enabled for releases, so we should test it.
-              extraArgs: "--features openssl/vendored",
-              bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-linux-amd64.tar.gz",
-              bindleBinary: "bindle-server",
-              pathInBindleArchive: "bindle-server",
-              nomadUrl: "https://releases.hashicorp.com/nomad/1.3.1/nomad_1.3.1_linux_amd64.zip",
-              nomadBinary: "nomad",
-              pathInNomadArchive: "nomad",
-              hippoUrl: "https://github.com/deislabs/hippo/releases/download/v0.19.0/hippo-server-linux-x64.tar.gz",
-              wasmtimeUrl: "https://github.com/bytecodealliance/wasmtime/releases/download/v0.36.0/wasmtime-v0.36.0-x86_64-linux.tar.xz",
-              wasmtimeBinary: "wasmtime",
-              pathInWasmtimeArchive: "wasmtime-v0.36.0-x86_64-linux/wasmtime",
-              platformAgnosticChecks: true,
-            }
-          - {
-              os: "macos-latest",
-              extension: "",
-              extraArgs: "",
-              bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-macos-amd64.tar.gz",
-              bindleBinary: "bindle-server",
-              pathInBindleArchive: "bindle-server",
-              nomadUrl: "https://releases.hashicorp.com/nomad/1.3.1/nomad_1.3.1_darwin_amd64.zip",
-              nomadBinary: "nomad",
-              pathInNomadArchive: "nomad",
-              hippoUrl: "https://github.com/deislabs/hippo/releases/download/v0.19.0/hippo-server-osx-x64.tar.gz",
-            }
-          - {
-              os: "windows-latest",
-              extension: ".exe",
-              extraArgs: "",
-              bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-windows-amd64.tar.gz",
-              bindleBinary: "bindle-server.exe",
-              pathInBindleArchive: "bindle-server.exe",
-              nomadUrl: "https://releases.hashicorp.com/nomad/1.3.1/nomad_1.3.1_windows_amd64.zip",
-              nomadBinary: "nomad.exe",
-              pathInNomadArchive: "nomad.exe",
-              hippoUrl: "https://github.com/deislabs/hippo/releases/download/v0.19.0/hippo-server-win-x64.zip",
-            }
+        os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - name: Install latest Rust stable toolchain
-        uses: actions-rs/toolchain@v1
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
         with:
-          toolchain: stable
-          default: true
-
-      - name: "Install Wasm Rust target"
-        run: rustup target add wasm32-wasi
-
-      - name: Install bindle
-        uses: engineerd/configurator@v0.0.8
-        with:
-          name: ${{ matrix.config.bindleBinary }}
-          url: ${{ matrix.config.bindleUrl }}
-          pathInArchive: ${{ matrix.config.pathInBindleArchive }}
-
-      - name: Install nomad
-        uses: engineerd/configurator@v0.0.8
-        with:
-          name: ${{ matrix.config.nomadBinary }}
-          url: ${{ matrix.config.nomadUrl }}
-          pathInArchive: ${{ matrix.config.pathInNomadArchive }}
-
-      - name: Install hippo
-        if: ${{ fromJSON(matrix.config.os != 'windows-latest') }}
-        run: |
-          curl -L ${{ matrix.config.hippoUrl }} -o hippo-server.tar.gz
-          mkdir hippo-server-output
-          tar xz -C hippo-server-output -f hippo-server.tar.gz
-          cp -r hippo-server-output/**/* ~/configurator/bin
-          chmod +x ~/configurator/bin/Hippo.Web
-
-      - name: Install hippo on Windows
-        if: ${{ fromJSON(matrix.config.os == 'windows-latest') }}
-        run: |
-          (New-Object System.Net.WebClient).DownloadFile("${{ matrix.config.hippoUrl }}","hippo-server.zip");
-          md hippo-server-output;
-          Expand-Archive .\hippo-server.zip .\hippo-server-output;
-          echo "$((Get-Item .\hippo-server-output).FullName)\win-x64";
-          echo "$((Get-Item .\hippo-server-output).FullName)\win-x64" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append;
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "${{ runner.os }}-full-${{ hashFiles('./Cargo.lock') }}"
+          rust: true
+          rust-wasm: true
+          rust-cache: true
+          bindle: true
+          nomad: true
+          hippo: true
 
       - name: Cargo Unit Tests
         run: |
           make test-unit
-
-      - name: Cargo E2E Tests
-        run: |
-          make test-e2e
         env:
-          RUST_LOG: spin=trace
+          CARGO_INCREMENTAL: 0
 
   test-go:
     name: Test Spin SDK - Go
-    runs-on: ${{ matrix.config.os }}
-    needs: build-rust
-    strategy:
-      matrix:
-        config:
-          - {
-              os: "ubuntu-latest",
-              bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-linux-amd64.tar.gz",
-              bindleBinary: "bindle-server",
-              pathInBindleArchive: "bindle-server",
-              wasmtimeUrl: "https://github.com/bytecodealliance/wasmtime/releases/download/v0.36.0/wasmtime-v0.36.0-x86_64-linux.tar.xz",
-              wasmtimeBinary: "wasmtime",
-              pathInWasmtimeArchive: "wasmtime-v0.36.0-x86_64-linux/wasmtime",
-            }
+    runs-on: ubuntu-latest
+    needs: build-rust-ubuntu
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Retrieve saved Spin Binary
         uses: actions/download-artifact@v3
@@ -223,113 +143,34 @@ jobs:
           ls -lah target/debug
           chmod +x target/debug/spin
 
-      - name: Install bindle
-        uses: engineerd/configurator@v0.0.8
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
         with:
-          name: ${{ matrix.config.bindleBinary }}
-          url: ${{ matrix.config.bindleUrl }}
-          pathInArchive: ${{ matrix.config.pathInBindleArchive }}
-
-      - name: "Install Go"
-        uses: actions/setup-go@v3
-        with:
-          go-version: '1.17'
-
-      - name: "Install TinyGo"
-        run: |
-          wget https://github.com/tinygo-org/tinygo/releases/download/v0.22.0/tinygo_0.22.0_amd64.deb
-          sudo dpkg -i tinygo_0.22.0_amd64.deb
-          tinygo env
-
-      - name: "Install Wasmtime"
-        uses: engineerd/configurator@v0.0.8
-        with:
-          name: ${{ matrix.config.wasmtimeBinary }}
-          url: ${{ matrix.config.wasmtimeUrl }}
-          pathInArchive: ${{ matrix.config.pathInWasmtimeArchive }}
+          rust: true
+          bindle: true
+          golang: true
+          tinygo: true
+          wasmtime: true
 
       - name: "Test Go SDK"
         run: make test-sdk-go
 
-  code-coverage:
-    name: Run code coverage
-    runs-on: ${{ matrix.config.os }}
-    needs: build-rust
-    strategy:
-      matrix:
-        config:
-          - {
-              os: "ubuntu-latest",
-              extension: "",
-              # We have this enabled for releases, so we should test it.
-              extraArgs: "--features openssl/vendored",
-              bindleUrl: "https://bindle.blob.core.windows.net/releases/bindle-v0.8.0-linux-amd64.tar.gz",
-              bindleBinary: "bindle-server",
-              pathInBindleArchive: "bindle-server",
-              nomadUrl: "https://releases.hashicorp.com/nomad/1.3.1/nomad_1.3.1_linux_amd64.zip",
-              nomadBinary: "nomad",
-              pathInNomadArchive: "nomad",
-              hippoUrl: "https://github.com/deislabs/hippo/releases/download/v0.19.0/hippo-server-linux-x64.tar.gz",
-            }
+  e2e-tests:
+    # run on a larger runner for more SSD/resource access
+    runs-on: ubuntu-22.04-4core-spin
+    needs: build-rust-ubuntu
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - name: Install latest Rust stable toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Retrieve saved Spin Binary
+        uses: actions/download-artifact@v3
         with:
-          toolchain: stable
-          default: true
+          name: spin-ubuntu-latest
+          path: target/release/
 
-      - name: "Install Wasm Rust target"
-        run: rustup target add wasm32-wasi
-
-      - name: Install bindle
-        uses: engineerd/configurator@v0.0.8
-        with:
-          name: ${{ matrix.config.bindleBinary }}
-          url: ${{ matrix.config.bindleUrl }}
-          pathInArchive: ${{ matrix.config.pathInBindleArchive }}
-
-      - name: Install nomad
-        uses: engineerd/configurator@v0.0.8
-        with:
-          name: ${{ matrix.config.nomadBinary }}
-          url: ${{ matrix.config.nomadUrl }}
-          pathInArchive: ${{ matrix.config.pathInNomadArchive }}
-
-      - name: Install hippo
+      - name: Run e2e tests
         run: |
-          curl -L ${{ matrix.config.hippoUrl }} -o hippo-server.tar.gz
-          mkdir hippo-server-output
-          tar xz -C hippo-server-output -f hippo-server.tar.gz
-          cp -r hippo-server-output/**/* ~/configurator/bin
-          chmod +x ~/configurator/bin/Hippo.Web
-
-      - name: Install cargo-tarpaulin binary crate
-        uses: actions-rs/install@v0.1
-        with:
-          crate: cargo-tarpaulin
-          version: latest
-          use-tool-cache: true
-
-      - name: Cargo Tarpaulin
-        run: cargo tarpaulin --follow-exec --skip-clean -t 6000 --out xml --features openssl/vendored,default,e2e-tests
-        env:
-          RUST_LOG: spin=trace
-
-      # Only attempt to upload to codecov.io if the repo owner is fermyon.
-      # This allows forks to run CI on their own main branches as usual,
-      # without needing to have a codecov token for uploading.
-      - name: Upload to codecov.io
-        uses: codecov/codecov-action@v3
-        if: ${{ github.ref == 'refs/heads/main' && github.repository_owner == 'fermyon' }}
-        with:
-          fail_ci_if_error: true
-          verbose: true
-
-      - name: Archive code coverage results
-        uses: actions/upload-artifact@v3
-        if: ${{ github.ref == 'refs/heads/main' }}
-        with:
-          name: code-coverage-report
-          path: cobertura.xml
+          chmod +x `pwd`/target/release/spin
+          export E2E_VOLUME_MOUNT="-v `pwd`/target/release/spin:/usr/local/bin/spin"
+          export E2E_FETCH_SPIN=false
+          make test-spin-up

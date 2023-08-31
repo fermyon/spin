@@ -9,6 +9,7 @@ use spin_app::{
     AppComponent, Loader,
 };
 use spin_core::StoreBuilder;
+use tokio::fs;
 
 use crate::parse_file_url;
 
@@ -35,6 +36,36 @@ impl Loader for TriggerLoader {
         let app =
             serde_json::from_slice(&contents).context("failed to parse app lock file JSON")?;
         Ok(app)
+    }
+
+    async fn load_component(
+        &self,
+        engine: &spin_core::wasmtime::Engine,
+        source: &LockedComponentSource,
+    ) -> Result<spin_core::Component> {
+        let source = source
+            .content
+            .source
+            .as_ref()
+            .context("LockedComponentSource missing source field")?;
+        let path = parse_file_url(source)?;
+        let bytes = fs::read(&path).await.with_context(|| {
+            format!(
+                "failed to read component source from disk at path '{}'",
+                path.display()
+            )
+        })?;
+        let component = spin_componentize::componentize_if_necessary(&bytes)?;
+        let was_already_component = matches!(component, std::borrow::Cow::Borrowed(_));
+        if was_already_component {
+            terminal::warn!(
+                "Spin component at path {} is a WebAssembly component instead of a \
+                WebAssembly module. Use of the WebAssembly component model is an experimental feature.",
+                path.display()
+            )
+        }
+        spin_core::Component::new(engine, component)
+            .with_context(|| format!("loading module {path:?}"))
     }
 
     async fn load_module(

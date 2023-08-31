@@ -1,0 +1,26 @@
+spin_manifest_version = "1"
+authors = ["itowlson <ivan.towlson@fermyon.com>"]
+description = ""
+name = "goodbye"
+trigger = { type = "timer", speedup = 2 }
+version = "0.1.0"
+
+[[component]]
+id = "three"
+source = "target/wasm32-wasi/release/timer_app_example.wasm"
+[component.trigger]
+interval_secs = 6
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+[component.config]
+message = "Fizz"
+
+[[component]]
+id = "five"
+source = "target/wasm32-wasi/release/timer_app_example.wasm"
+[component.trigger]
+interval_secs = 10
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+[component.config]
+message = "Buzz"

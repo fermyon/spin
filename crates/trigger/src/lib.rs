@@ -1,38 +1,43 @@
 pub mod cli;
-pub mod config;
 pub mod loader;
 pub mod locked;
+mod runtime_config;
 mod stdio;
 
-use std::{
-    collections::HashMap,
-    marker::PhantomData,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 pub use async_trait::async_trait;
+use indexmap::IndexMap;
 use serde::de::DeserializeOwned;
 
 use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp};
-use spin_config::{
-    provider::{env::EnvProvider, vault::VaultProvider},
-    Provider,
+use spin_core::{
+    Config, Engine, EngineBuilder, Instance, InstancePre, ModuleInstance, ModuleInstancePre, Store,
+    StoreBuilder, WasiVersion,
 };
-use spin_core::{Config, Engine, EngineBuilder, Instance, InstancePre, Store, StoreBuilder};
 
-const SPIN_HOME: &str = ".spin";
-const SPIN_CONFIG_ENV_PREFIX: &str = "SPIN_APP";
+pub use crate::runtime_config::RuntimeConfig;
+
+pub enum EitherInstancePre<T> {
+    Component(InstancePre<T>),
+    Module(ModuleInstancePre<T>),
+}
+
+pub enum EitherInstance {
+    Component(Instance),
+    Module(ModuleInstance),
+}
 
 #[async_trait]
-pub trait TriggerExecutor: Sized {
+pub trait TriggerExecutor: Sized + Send + Sync {
     const TRIGGER_TYPE: &'static str;
     type RuntimeData: Default + Send + Sync + 'static;
     type TriggerConfig;
     type RunConfig;
 
     /// Create a new trigger executor.
-    fn new(engine: TriggerAppEngine<Self>) -> Result<Self>;
+    async fn new(engine: TriggerAppEngine<Self>) -> Result<Self>;
 
     /// Run the trigger executor.
     async fn run(self, config: Self::RunConfig) -> Result<()>;
@@ -41,12 +46,25 @@ pub trait TriggerExecutor: Sized {
     fn configure_engine(_builder: &mut EngineBuilder<Self::RuntimeData>) -> Result<()> {
         Ok(())
     }
+
+    async fn instantiate_pre(
+        engine: &Engine<Self::RuntimeData>,
+        component: &AppComponent,
+        _config: &Self::TriggerConfig,
+    ) -> Result<EitherInstancePre<Self::RuntimeData>> {
+        let comp = component.load_component(engine).await?;
+        Ok(EitherInstancePre::Component(
+            engine
+                .instantiate_pre(&comp)
+                .with_context(|| format!("Failed to instantiate component '{}'", component.id()))?,
+        ))
+    }
 }
 
 pub struct TriggerExecutorBuilder<Executor: TriggerExecutor> {
     loader: AppLoader,
     config: Config,
-    hooks: Box<dyn TriggerHooks>,
+    hooks: Vec<Box<dyn TriggerHooks>>,
     disable_default_host_components: bool,
     _phantom: PhantomData<Executor>,
 }
@@ -57,7 +75,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         Self {
             loader: AppLoader::new(loader),
             config: Default::default(),
-            hooks: Box::new(()),
+            hooks: Default::default(),
             disable_default_host_components: false,
             _phantom: PhantomData,
         }
@@ -71,7 +89,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     }
 
     pub fn hooks(&mut self, hooks: impl TriggerHooks + 'static) -> &mut Self {
-        self.hooks = Box::new(hooks);
+        self.hooks.push(Box::new(hooks));
         self
     }
 
@@ -83,7 +101,8 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     pub async fn build(
         mut self,
         app_uri: String,
-        builder_config: config::TriggerExecutorBuilderConfig,
+        runtime_config: runtime_config::RuntimeConfig,
+        init_data: HostComponentInitData,
     ) -> Result<Executor>
     where
         Executor::TriggerConfig: DeserializeOwned,
@@ -97,13 +116,24 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
+                    runtime_config::key_value::build_key_value_component(
+                        &runtime_config,
+                        &init_data.kv,
+                    )
+                    .await?,
+                )?;
+                self.loader.add_dynamic_host_component(
+                    &mut builder,
+                    runtime_config::sqlite::build_component(&runtime_config, &init_data.sqlite)
+                        .await?,
+                )?;
+                self.loader.add_dynamic_host_component(
+                    &mut builder,
                     outbound_http::OutboundHttpComponent,
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    spin_config::ConfigHostComponent::new(
-                        self.get_config_providers(&app_uri, &builder_config),
-                    ),
+                    spin_config::ConfigHostComponent::new(runtime_config.config_providers()),
                 )?;
             }
 
@@ -112,47 +142,37 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         };
 
         let app = self.loader.load_owned_app(app_uri).await?;
-        let app_name = app.borrowed().require_metadata("name")?;
 
-        self.hooks.app_loaded(app.borrowed())?;
+        let app_name = app.borrowed().require_metadata(locked::NAME_KEY)?;
+
+        self.hooks
+            .iter_mut()
+            .try_for_each(|h| h.app_loaded(app.borrowed(), &runtime_config))?;
 
         // Run trigger executor
-        Executor::new(TriggerAppEngine::new(engine, app_name, app, self.hooks).await?)
+        Executor::new(TriggerAppEngine::new(engine, app_name, app, self.hooks).await?).await
     }
+}
 
-    pub fn get_config_providers(
-        &self,
-        app_uri: &str,
-        builder_config: &config::TriggerExecutorBuilderConfig,
-    ) -> Vec<Box<dyn Provider>> {
-        let mut providers = self.default_config_providers(app_uri);
-        for config_provider in &builder_config.config_providers {
-            let provider = match config_provider {
-                config::ConfigProvider::Vault(vault_config) => VaultProvider::new(
-                    &vault_config.url,
-                    &vault_config.token,
-                    &vault_config.mount,
-                    vault_config.prefix.clone(),
-                ),
-            };
-            providers.push(Box::new(provider));
+/// Initialisation data for host components.
+#[derive(Default)] // TODO: the implementation of Default is only for tests - would like to get rid of
+pub struct HostComponentInitData {
+    kv: Vec<(String, String)>,
+    sqlite: Vec<String>,
+}
+
+impl HostComponentInitData {
+    /// Create an instance of `HostComponentInitData`.  `key_value_init_values`
+    /// will be added to the default key-value store; `sqlite_init_statements`
+    /// will be run against the default SQLite database.
+    pub fn new(
+        key_value_init_values: impl Into<Vec<(String, String)>>,
+        sqlite_init_statements: impl Into<Vec<String>>,
+    ) -> Self {
+        Self {
+            kv: key_value_init_values.into(),
+            sqlite: sqlite_init_statements.into(),
         }
-        providers
-    }
-
-    pub fn default_config_providers(&self, app_uri: &str) -> Vec<Box<dyn Provider>> {
-        // EnvProvider
-        // Look for a .env file in either the manifest parent directory for local apps
-        // or the current directory for remote (e.g. bindle) apps.
-        let dotenv_path = parse_file_url(app_uri)
-            .as_deref()
-            .ok()
-            .unwrap_or_else(|| Path::new("."))
-            .join(".env");
-        vec![Box::new(EnvProvider::new(
-            SPIN_CONFIG_ENV_PREFIX,
-            Some(dotenv_path),
-        ))]
     }
 }
 
@@ -165,11 +185,11 @@ pub struct TriggerAppEngine<Executor: TriggerExecutor> {
     // An owned wrapper of the App.
     app: OwnedApp,
     // Trigger hooks
-    hooks: Box<dyn TriggerHooks>,
+    hooks: Vec<Box<dyn TriggerHooks>>,
     // Trigger configs for this trigger type, with order matching `app.triggers_with_type(Executor::TRIGGER_TYPE)`
     trigger_configs: Vec<Executor::TriggerConfig>,
     // Map of {Component ID -> InstancePre} for each component.
-    component_instance_pres: HashMap<String, InstancePre<Executor::RuntimeData>>,
+    component_instance_pres: HashMap<String, EitherInstancePre<Executor::RuntimeData>>,
 }
 
 impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
@@ -179,7 +199,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         engine: Engine<Executor::RuntimeData>,
         app_name: String,
         app: OwnedApp,
-        hooks: Box<dyn TriggerHooks>,
+        hooks: Vec<Box<dyn TriggerHooks>>,
     ) -> Result<Self>
     where
         <Executor as TriggerExecutor>::TriggerConfig: DeserializeOwned,
@@ -188,20 +208,24 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
             .borrowed()
             .triggers_with_type(Executor::TRIGGER_TYPE)
             .map(|trigger| {
-                trigger.typed_config().with_context(|| {
-                    format!("invalid trigger configuration for {:?}", trigger.id())
-                })
+                Ok((
+                    trigger.component()?.id().to_owned(),
+                    trigger.typed_config().with_context(|| {
+                        format!("invalid trigger configuration for {:?}", trigger.id())
+                    })?,
+                ))
             })
-            .collect::<Result<_>>()?;
+            .collect::<Result<IndexMap<_, _>>>()?;
 
         let mut component_instance_pres = HashMap::default();
         for component in app.borrowed().components() {
-            let module = component.load_module(&engine).await?;
-            let instance_pre = engine
-                .instantiate_pre(&module)
-                .map_err(decode_preinstantiation_error)
-                .with_context(|| format!("Failed to instantiate component '{}'", component.id()))?;
-            component_instance_pres.insert(component.id().to_string(), instance_pre);
+            let id = component.id();
+            component_instance_pres.insert(
+                id.to_owned(),
+                Executor::instantiate_pre(&engine, &component, trigger_configs.get(id).unwrap())
+                    .await
+                    .with_context(|| format!("Failed to instantiate component '{id}'"))?,
+            );
         }
 
         Ok(Self {
@@ -209,7 +233,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
             app_name,
             app,
             hooks,
-            trigger_configs,
+            trigger_configs: trigger_configs.into_values().collect(),
             component_instance_pres,
         })
     }
@@ -227,11 +251,16 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
     }
 
     /// Returns a new StoreBuilder for the given component ID.
-    pub fn store_builder(&self, component_id: &str) -> Result<StoreBuilder> {
-        let mut builder = self.engine.store_builder();
+    pub fn store_builder(
+        &self,
+        component_id: &str,
+        wasi_version: WasiVersion,
+    ) -> Result<StoreBuilder> {
+        let mut builder = self.engine.store_builder(wasi_version);
         let component = self.get_component(component_id)?;
         self.hooks
-            .component_store_builder(component, &mut builder)?;
+            .iter()
+            .try_for_each(|h| h.component_store_builder(&component, &mut builder))?;
         Ok(builder)
     }
 
@@ -239,8 +268,8 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
     pub async fn prepare_instance(
         &self,
         component_id: &str,
-    ) -> Result<(Instance, Store<Executor::RuntimeData>)> {
-        let store_builder = self.store_builder(component_id)?;
+    ) -> Result<(EitherInstance, Store<Executor::RuntimeData>)> {
+        let store_builder = self.store_builder(component_id, WasiVersion::Preview2)?;
         self.prepare_instance_with_store(component_id, store_builder)
             .await
     }
@@ -250,7 +279,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         &self,
         component_id: &str,
         mut store_builder: StoreBuilder,
-    ) -> Result<(Instance, Store<Executor::RuntimeData>)> {
+    ) -> Result<(EitherInstance, Store<Executor::RuntimeData>)> {
         let component = self.get_component(component_id)?;
 
         // Build Store
@@ -258,23 +287,33 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         let mut store = store_builder.build()?;
 
         // Instantiate
-        let instance = self
+        let pre = self
             .component_instance_pres
             .get(component_id)
-            .expect("component_instance_pres missing valid component_id")
-            .instantiate_async(&mut store)
-            .await
-            .with_context(|| {
-                format!(
-                    "app {:?} component {:?} instantiation failed",
-                    self.app_name, component_id
-                )
-            })?;
+            .expect("component_instance_pres missing valid component_id");
+
+        let instance = match pre {
+            EitherInstancePre::Component(pre) => pre
+                .instantiate_async(&mut store)
+                .await
+                .map(EitherInstance::Component),
+
+            EitherInstancePre::Module(pre) => pre
+                .instantiate_async(&mut store)
+                .await
+                .map(EitherInstance::Module),
+        }
+        .with_context(|| {
+            format!(
+                "app {:?} component {:?} instantiation failed",
+                self.app_name, component_id
+            )
+        })?;
 
         Ok((instance, store))
     }
 
-    fn get_component(&self, component_id: &str) -> Result<AppComponent> {
+    pub fn get_component(&self, component_id: &str) -> Result<AppComponent> {
         self.app().get_component(component_id).with_context(|| {
             format!(
                 "app {:?} has no component {:?}",
@@ -290,7 +329,7 @@ pub trait TriggerHooks: Send + Sync {
     #![allow(unused_variables)]
 
     /// Called once, immediately after an App is loaded.
-    fn app_loaded(&mut self, app: &App) -> Result<()> {
+    fn app_loaded(&mut self, app: &App, runtime_config: &RuntimeConfig) -> Result<()> {
         Ok(())
     }
 
@@ -299,7 +338,7 @@ pub trait TriggerHooks: Send + Sync {
     /// environment of the instance to be executed.
     fn component_store_builder(
         &self,
-        component: AppComponent,
+        component: &AppComponent,
         store_builder: &mut StoreBuilder,
     ) -> Result<()> {
         Ok(())
@@ -308,36 +347,9 @@ pub trait TriggerHooks: Send + Sync {
 
 impl TriggerHooks for () {}
 
-pub(crate) fn parse_file_url(url: &str) -> Result<PathBuf> {
+pub fn parse_file_url(url: &str) -> Result<PathBuf> {
     url::Url::parse(url)
         .with_context(|| format!("Invalid URL: {url:?}"))?
         .to_file_path()
         .map_err(|_| anyhow!("Invalid file URL path: {url:?}"))
-}
-
-fn decode_preinstantiation_error(e: anyhow::Error) -> anyhow::Error {
-    let err_text = e.to_string();
-
-    if err_text.contains("unknown import") && err_text.contains("has not been defined") {
-        // TODO: how to maintain this list?
-        let sdk_imported_interfaces = &[
-            "outbound-pg",
-            "outbound-redis",
-            "spin-config",
-            "wasi_experimental_http",
-            "wasi-outbound-http",
-        ];
-
-        if sdk_imported_interfaces
-            .iter()
-            .map(|s| format!("{s}::"))
-            .any(|s| err_text.contains(&s))
-        {
-            return anyhow!(
-                "{e}. Check that the component uses a SDK version that matches the Spin runtime."
-            );
-        }
-    }
-
-    e
 }

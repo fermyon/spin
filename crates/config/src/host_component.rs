@@ -1,13 +1,12 @@
 use std::sync::{Arc, Mutex};
 
-use async_trait::async_trait;
+use anyhow::Result;
 use once_cell::sync::OnceCell;
 use spin_app::{AppComponent, DynamicHostComponent};
-use spin_core::HostComponent;
+use spin_core::{async_trait, HostComponent};
+use spin_world::config;
 
 use crate::{Error, Key, Provider, Resolver};
-
-wit_bindgen_wasmtime::export!({paths: ["../../wit/ephemeral/spin-config.wit"], async: *});
 
 pub struct ConfigHostComponent {
     providers: Mutex<Vec<Box<dyn Provider>>>,
@@ -30,7 +29,7 @@ impl HostComponent for ConfigHostComponent {
         linker: &mut spin_core::Linker<T>,
         get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
     ) -> anyhow::Result<()> {
-        spin_config::add_to_linker(linker, get)
+        config::add_to_linker(linker, get)
     }
 
     fn build_data(&self) -> Self::Data {
@@ -73,21 +72,24 @@ pub struct ComponentConfig {
 }
 
 #[async_trait]
-impl spin_config::SpinConfig for ComponentConfig {
-    async fn get_config(&mut self, key: &str) -> Result<String, spin_config::Error> {
-        // Set by DynamicHostComponent::update_data
-        let component_id = self.component_id.as_deref().unwrap();
-        let key = Key::new(key)?;
-        Ok(self
-            .resolver
-            .get()
-            .unwrap()
-            .resolve(component_id, key)
-            .await?)
+impl config::Host for ComponentConfig {
+    async fn get_config(&mut self, key: String) -> Result<Result<String, config::Error>> {
+        Ok(async {
+            // Set by DynamicHostComponent::update_data
+            let component_id = self.component_id.as_deref().unwrap();
+            let key = Key::new(&key)?;
+            Ok(self
+                .resolver
+                .get()
+                .unwrap()
+                .resolve(component_id, key)
+                .await?)
+        }
+        .await)
     }
 }
 
-impl From<Error> for spin_config::Error {
+impl From<Error> for config::Error {
     fn from(err: Error) -> Self {
         match err {
             Error::InvalidKey(msg) => Self::InvalidKey(msg),

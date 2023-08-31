@@ -4,8 +4,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-use spin_core::{Config, Engine, HostComponent, I32Exit, Module, Store, StoreBuilder, Trap};
+use spin_core::{
+    Component, Config, Engine, HostComponent, I32Exit, Store, StoreBuilder, Trap, WasiVersion,
+};
 use tempfile::TempDir;
+use tokio::fs;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_stdio() {
@@ -46,7 +49,10 @@ async fn test_read_only_preopened_dir_write_fails() {
     })
     .await
     .unwrap_err();
-    let trap = err.downcast::<I32Exit>().expect("trap");
+    let trap = err
+        .root_cause() // The error returned is a backtrace. We need the root cause.
+        .downcast_ref::<I32Exit>()
+        .expect("trap error was not an I32Exit");
     assert_eq!(trap.0, 1);
 }
 
@@ -87,7 +93,10 @@ async fn test_max_memory_size_violated() {
     })
     .await
     .unwrap_err();
-    let trap = err.downcast::<I32Exit>().expect("trap");
+    let trap = err
+        .root_cause() // The error returned is a backtrace. We need the root cause.
+        .downcast_ref::<I32Exit>()
+        .expect("trap error was not an I32Exit");
     assert_eq!(trap.0, 1);
 }
 
@@ -129,12 +138,10 @@ async fn test_host_component() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_host_component_data_update() {
-    // Need to build Engine separately to get the HostComponentDataHandle
-    let mut engine_builder = Engine::builder(&test_config()).unwrap();
-    let factor_data_handle = engine_builder
-        .add_host_component(MultiplierHostComponent)
+    let engine = test_engine();
+    let multiplier_handle = engine
+        .find_host_component_handle::<MultiplierHostComponent>()
         .unwrap();
-    let engine: Engine<()> = engine_builder.build();
 
     let stdout = run_core_wasi_test_engine(
         &engine,
@@ -142,7 +149,7 @@ async fn test_host_component_data_update() {
         |store_builder| {
             store_builder
                 .host_components_data()
-                .set(factor_data_handle, 100);
+                .set(multiplier_handle, Multiplier(100));
         },
         |_| {},
     )
@@ -186,24 +193,28 @@ async fn run_core_wasi_test_engine<'a>(
     update_store_builder: impl FnOnce(&mut StoreBuilder),
     update_store: impl FnOnce(&mut Store<()>),
 ) -> anyhow::Result<String> {
-    let mut store_builder: StoreBuilder = engine.store_builder();
-    let mut stdout_buf = store_builder.stdout_buffered();
+    let mut store_builder: StoreBuilder = engine.store_builder(WasiVersion::Preview2);
+    let mut stdout_buf = store_builder.stdout_buffered()?;
     store_builder.stderr_pipe(TestWriter);
-    store_builder.args(args).unwrap();
+    store_builder.args(args)?;
 
     update_store_builder(&mut store_builder);
 
-    let mut store = store_builder.build().unwrap();
+    let mut store = store_builder.build()?;
     let module_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../target/test-programs/core-wasi-test.wasm");
-    let module = Module::from_file(engine.as_ref(), module_path).unwrap();
-    let instance_pre = engine.instantiate_pre(&module).unwrap();
-    let instance = instance_pre.instantiate_async(&mut store).await.unwrap();
-    let func = instance.get_func(&mut store, "_start").unwrap();
+    let component = spin_componentize::componentize_command(&fs::read(module_path).await?)?;
+    let component = Component::new(engine.as_ref(), &component)?;
+    let instance_pre = engine.instantiate_pre(&component)?;
+    let instance = instance_pre.instantiate_async(&mut store).await?;
+    let func = instance.get_typed_func::<(), (Result<(), ()>,)>(&mut store, "run")?;
 
     update_store(&mut store);
 
-    func.call_async(&mut store, &[], &mut []).await?;
+    func.call_async(&mut store, ())
+        .await?
+        .0
+        .map_err(|()| anyhow::anyhow!("command failed"))?;
 
     let stdout = String::from_utf8(stdout_buf.take())?.trim_end().into();
     Ok(stdout)
@@ -213,31 +224,35 @@ async fn run_core_wasi_test_engine<'a>(
 #[derive(Clone)]
 struct MultiplierHostComponent;
 
+mod multiplier {
+    wasmtime::component::bindgen!("multiplier" in "tests/core-wasi-test/wit");
+}
+
 impl HostComponent for MultiplierHostComponent {
-    type Data = i32;
+    type Data = Multiplier;
 
     fn add_to_linker<T: Send>(
         linker: &mut spin_core::Linker<T>,
         get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
     ) -> anyhow::Result<()> {
-        // NOTE: we're trying to avoid wit-bindgen because a git dependency
-        // would make this crate unpublishable on crates.io
-        linker.func_wrap1_async("multiplier", "multiply", move |mut caller, input: i32| {
-            Box::new(async move {
-                let &mut factor = get(caller.data_mut());
-                let output = factor * input;
-                Ok(output)
-            })
-        })?;
-        Ok(())
+        multiplier::imports::add_to_linker(linker, get)
     }
 
     fn build_data(&self) -> Self::Data {
-        2
+        Multiplier(2)
+    }
+}
+
+struct Multiplier(i32);
+
+impl multiplier::imports::Host for Multiplier {
+    fn multiply(&mut self, a: i32) -> wasmtime::Result<i32> {
+        Ok(self.0 * a)
     }
 }
 
 // Write with `print!`, required for test output capture
+#[derive(Copy, Clone)]
 struct TestWriter;
 
 impl std::io::Write for TestWriter {

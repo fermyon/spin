@@ -1,4 +1,4 @@
-spin_version = "1"
+spin_manifest_version = "1"
 authors = ["{{authors}}"]
 description = "{{project-description}}"
 name = "{{project-name}}"
@@ -14,3 +14,4 @@ route = "{{http-path}}"
 executor = { type = "wagi" }
 [component.build]
 command = "grain compile --release -o main.wasm main.gr"
+watch = ["**/*.gr"]

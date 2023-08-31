@@ -1,8 +1,9 @@
 manifest_version = "1"
 id = "redis-rust"
 description = "Redis message handler using Rust"
+tags = ["redis", "rust"]
 
 [parameters]
-project-description = { type = "string",  prompt = "Project description", default = "" }
+project-description = { type = "string",  prompt = "Description", default = "" }
 redis-address = { type = "string", prompt = "Redis address", default = "redis://localhost:6379" }
 redis-channel = { type = "string", prompt = "Redis channel" }

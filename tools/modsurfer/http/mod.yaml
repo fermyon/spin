@@ -1,0 +1,76 @@
+# For more information about other checkfile options, see the documentation at https://dev.dylib.so/docs/modsurfer/cli#checkfile
+validate:
+  allow_wasi: true
+  imports:
+    include:
+    - namespace: wasi_snapshot_preview1
+      name: fd_write
+      params:
+      - I32
+      - I32
+      - I32
+      - I32
+      results:
+      - I32
+    - namespace: wasi_snapshot_preview1
+      name: random_get
+      params:
+      - I32
+      - I32
+      results:
+      - I32
+    - namespace: wasi_snapshot_preview1
+      name: environ_get
+      params:
+      - I32
+      - I32
+      results:
+      - I32
+    - namespace: wasi_snapshot_preview1
+      name: environ_sizes_get
+      params:
+      - I32
+      - I32
+      results:
+      - I32
+    - namespace: wasi_snapshot_preview1
+      name: proc_exit
+      params:
+      - I32
+      results: []
+    namespace:
+      include:
+      - wasi_snapshot_preview1
+  exports:
+    include:
+    - name: handle-http-request
+      params:
+      - I32
+      - I32
+      - I32
+      - I32
+      - I32
+      - I32
+      - I32
+      - I32
+      - I32
+      - I32
+      results:
+      - I32
+    - name: canonical_abi_realloc
+      params:
+      - I32
+      - I32
+      - I32
+      - I32
+      results:
+      - I32
+    - name: canonical_abi_free
+      params:
+      - I32
+      - I32
+      - I32
+      results: []
+    max: 3
+  complexity:
+    max_risk: medium

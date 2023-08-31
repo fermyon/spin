@@ -11,8 +11,8 @@ pub mod config;
 mod tests;
 
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
-    str::FromStr,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -22,15 +22,19 @@ use outbound_http::allowed_http_hosts::validate_allowed_http_hosts;
 use path_absolutize::Absolutize;
 use reqwest::Url;
 use spin_manifest::{
-    Application, ApplicationInformation, ApplicationOrigin, CoreComponent, ModuleSource,
-    SpinVersion, WasmConfig,
+    Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
+    HttpConfig, ModuleSource, RedisConfig, SpinVersion, TriggerConfig, WasmConfig,
 };
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::{bindle::BindleConnectionInfo, digest::bytes_sha256_string};
-use config::{RawAppInformation, RawAppManifest, RawAppManifestAnyVersion, RawComponentManifest};
-
-use self::config::FileComponentUrlSource;
+use crate::{
+    cache::Cache,
+    validation::{validate_config_keys, validate_key_value_stores, validate_variable_names},
+};
+use config::{
+    FileComponentUrlSource, RawAppInformation, RawAppManifest, RawAppManifestAnyVersion,
+    RawAppManifestAnyVersionPartial, RawComponentManifest, RawComponentManifestPartial,
+};
 
 /// Given the path to a spin.toml manifest file, prepare its assets locally and
 /// get a prepared application configuration consumable by a Spin execution context.
@@ -39,29 +43,31 @@ use self::config::FileComponentUrlSource;
 pub async fn from_file(
     app: impl AsRef<Path>,
     base_dst: Option<impl AsRef<Path>>,
-    bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<Application> {
     let app = absolutize(app)?;
     let manifest = raw_manifest_from_file(&app).await?;
     validate_raw_app_manifest(&manifest)?;
 
-    prepare_any_version(manifest, app, base_dst, bindle_connection).await
+    prepare_any_version(manifest, app, base_dst).await
 }
 
 /// Reads the spin.toml file as a raw manifest.
 pub async fn raw_manifest_from_file(app: &impl AsRef<Path>) -> Result<RawAppManifestAnyVersion> {
-    let mut buf = vec![];
-    File::open(app.as_ref())
-        .await
-        .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?
-        .read_to_end(&mut buf)
-        .await
-        .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
+    async fn from_file(app: &Path) -> anyhow::Result<RawAppManifestAnyVersion> {
+        let mut buf = vec![];
+        File::open(app).await?.read_to_end(&mut buf).await?;
+        raw_manifest_from_slice(&buf)
+    }
 
-    let manifest: RawAppManifestAnyVersion = toml::from_slice(&buf)
-        .with_context(|| anyhow!("Cannot read manifest file from {:?}", app.as_ref()))?;
-
+    let manifest = from_file(app.as_ref())
+        .await
+        .with_context(|| anyhow!("Cannot read spin.toml manifest from {:?}", app.as_ref()))?;
     Ok(manifest)
+}
+
+fn raw_manifest_from_slice(buf: &[u8]) -> Result<RawAppManifestAnyVersion> {
+    let partially_parsed = toml::from_slice(buf)?;
+    resolve_partials(partially_parsed)
 }
 
 /// Returns the absolute path to directory containing the file
@@ -92,11 +98,9 @@ async fn prepare_any_version(
     raw: RawAppManifestAnyVersion,
     src: impl AsRef<Path>,
     base_dst: Option<impl AsRef<Path>>,
-    bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<Application> {
-    match raw {
-        RawAppManifestAnyVersion::V1(raw) => prepare(raw, src, base_dst, bindle_connection).await,
-    }
+    let manifest = raw.into_v1();
+    prepare(manifest, src, base_dst).await
 }
 
 /// Iterates over a vector of RawComponentManifest structs and throws an error if any component ids are duplicated
@@ -115,13 +119,23 @@ fn error_on_duplicate_ids(components: Vec<RawComponentManifest>) -> Result<()> {
 
 /// Validate fields in raw app manifest
 pub fn validate_raw_app_manifest(raw: &RawAppManifestAnyVersion) -> Result<()> {
-    match raw {
-        RawAppManifestAnyVersion::V1(raw) => {
-            raw.components
-                .iter()
-                .try_for_each(|c| validate_allowed_http_hosts(&c.wasm.allowed_http_hosts))?;
-        }
-    }
+    let manifest = raw.as_v1();
+
+    validate_variable_names(&manifest.variables)?;
+
+    manifest
+        .components
+        .iter()
+        .try_for_each(|c| validate_allowed_http_hosts(&c.wasm.allowed_http_hosts))?;
+    manifest
+        .components
+        .iter()
+        .try_for_each(|c| validate_key_value_stores(&c.wasm.key_value_stores))?;
+    manifest
+        .components
+        .iter()
+        .try_for_each(|c| validate_config_keys(&c.config))?;
+
     Ok(())
 }
 
@@ -130,7 +144,6 @@ async fn prepare(
     raw: RawAppManifest,
     src: impl AsRef<Path>,
     base_dst: Option<impl AsRef<Path>>,
-    bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<Application> {
     let info = info(raw.info, &src);
 
@@ -145,18 +158,22 @@ async fn prepare(
     let components = future::join_all(
         raw.components
             .into_iter()
-            .map(|c| async { core(c, &src, base_dst.as_ref(), bindle_connection).await })
-            .collect::<Vec<_>>(),
+            .map(|c| async { core(c, &src, base_dst.as_ref()).await }),
     )
     .await
     .into_iter()
-    .collect::<Result<Vec<_>>>()
-    .context("Failed to prepare configuration")?;
+    .collect::<Result<Vec<_>>>()?;
 
     let variables = raw
         .variables
         .into_iter()
-        .map(|(key, var)| Ok((key, var.try_into()?)))
+        .map(|(key, var)| {
+            Ok((
+                key.clone(),
+                var.try_into()
+                    .map_err(|err| anyhow!("variable '{}': {}", key, err))?,
+            ))
+        })
         .collect::<Result<_>>()?;
 
     Ok(Application {
@@ -172,43 +189,12 @@ async fn core(
     raw: RawComponentManifest,
     src: impl AsRef<Path>,
     base_dst: Option<impl AsRef<Path>>,
-    bindle_connection: &Option<BindleConnectionInfo>,
 ) -> Result<CoreComponent> {
     let id = raw.id;
     let src = parent_dir(src)?;
     let source = match raw.source {
         config::RawModuleSource::FileReference(p) => {
-            let p = match p.is_absolute() {
-                true => p,
-                false => src.join(p),
-            };
-
-            ModuleSource::FileReference(p)
-        }
-        config::RawModuleSource::Bindle(b) => {
-            let bindle_id = bindle::Id::from_str(&b.reference).with_context(|| {
-                format!("Invalid bindle ID {} in component {}", b.reference, id)
-            })?;
-            let parcel_sha = &b.parcel;
-            let client = match bindle_connection {
-                None => anyhow::bail!(
-                    "Component {} requires a Bindle connection but none was specified",
-                    id
-                ),
-                Some(c) => c.client()?,
-            };
-            let bindle_reader = crate::bindle::BindleReader::remote(&client, &bindle_id);
-            let bytes = bindle_reader
-                .get_parcel(parcel_sha)
-                .await
-                .with_context(|| {
-                    format!(
-                        "Failed to download parcel {}@{} for component {}",
-                        bindle_id, parcel_sha, id
-                    )
-                })?;
-            let name = format!("{}@{}", bindle_id, parcel_sha);
-            ModuleSource::Buffer(bytes, name)
+            ModuleSource::FileReference(canonicalize_and_absolutize(p, &src)?)
         }
         config::RawModuleSource::Url(us) => {
             let source = UrlSource::new(&us)
@@ -233,10 +219,14 @@ async fn core(
     };
     let environment = raw.wasm.environment.unwrap_or_default();
     let allowed_http_hosts = raw.wasm.allowed_http_hosts.unwrap_or_default();
+    let key_value_stores = raw.wasm.key_value_stores.unwrap_or_default();
+    let sqlite_databases = raw.wasm.sqlite_databases.unwrap_or_default();
     let wasm = WasmConfig {
         environment,
         mounts,
         allowed_http_hosts,
+        key_value_stores,
+        sqlite_databases,
     };
     let config = raw.config.unwrap_or_default();
     Ok(CoreComponent {
@@ -246,6 +236,24 @@ async fn core(
         wasm,
         config,
     })
+}
+
+/// Ensures that the path is canonicalized and absolutized base on the `src` path
+pub fn canonicalize_and_absolutize(mut path: PathBuf, src: &Path) -> anyhow::Result<PathBuf> {
+    path = path.canonicalize().unwrap_or(path);
+    // If path is UTF-8 and we can successfully perform tilde and environment expansion, do so.
+    if let Some(p) = path.as_os_str().to_str() {
+        match shellexpand::full(p) {
+            Ok(p) => path = Path::new(&*p).to_owned(),
+            Err(e) => {
+                return Err(e.cause).context(anyhow!(
+                    "failed to expand `source` path: `${}` could not be expanded",
+                    e.var_name
+                ))
+            }
+        }
+    }
+    Ok(src.join(path))
 }
 
 /// A parsed URL source for a component module.
@@ -290,29 +298,46 @@ impl UrlSource {
 
     /// Gets the data from the source as a byte buffer.
     pub async fn get(&self) -> anyhow::Result<Vec<u8>> {
-        let response = reqwest::get(self.url.clone())
-            .await
-            .with_context(|| format!("Error fetching source URL {}", self.url))?;
-        // TODO: handle redirects
-        let status = response.status();
-        if status != reqwest::StatusCode::OK {
-            let reason = status.canonical_reason().unwrap_or("(no reason provided)");
-            anyhow::bail!(
-                "Error fetching source URL {}: {} {}",
-                self.url,
-                status.as_u16(),
-                reason
-            );
+        // TODO: when `spin up` integrates running an app from OCI, pass the configured
+        // cache root to this function. For now, use the default cache directory.
+        let cache = Cache::new(None).await?;
+        match cache.wasm_file(self.digest_str()) {
+            Ok(p) => {
+                tracing::debug!(
+                    "Using local cache for module source {} with digest {}",
+                    &self.url,
+                    &self.digest_str()
+                );
+                Ok(tokio::fs::read(p).await?)
+            }
+            Err(_) => {
+                tracing::debug!("Pulling module from URL {}", &self.url);
+                let response = reqwest::get(self.url.clone())
+                    .await
+                    .with_context(|| format!("Error fetching source URL {}", self.url))?;
+                // TODO: handle redirects
+                let status = response.status();
+                if status != reqwest::StatusCode::OK {
+                    let reason = status.canonical_reason().unwrap_or("(no reason provided)");
+                    anyhow::bail!(
+                        "Error fetching source URL {}: {} {}",
+                        self.url,
+                        status.as_u16(),
+                        reason
+                    );
+                }
+                let body = response
+                    .bytes()
+                    .await
+                    .with_context(|| format!("Error loading source URL {}", self.url))?;
+                let bytes = body.into_iter().collect_vec();
+
+                self.digest.verify(&bytes).context("Incorrect digest")?;
+                cache.write_wasm(&bytes, self.digest_str()).await?;
+
+                Ok(bytes)
+            }
         }
-        let body = response
-            .bytes()
-            .await
-            .with_context(|| format!("Error loading source URL {}", self.url))?;
-        let bytes = body.into_iter().collect_vec();
-
-        self.digest.verify(&bytes).context("Incorrect digest")?;
-
-        Ok(bytes)
     }
 }
 
@@ -350,7 +375,7 @@ impl ComponentDigest {
     fn verify(&self, bytes: &[u8]) -> anyhow::Result<()> {
         match self {
             Self::Sha256(expected) => {
-                let actual = &bytes_sha256_string(bytes);
+                let actual = &spin_common::sha256::hex_digest_from_bytes(bytes);
                 if expected == actual {
                     Ok(())
                 } else {
@@ -359,6 +384,71 @@ impl ComponentDigest {
             }
         }
     }
+}
+
+/// The parsing of a `component.trigger` table depends on the application trigger type.
+/// But serde doesn't allow us to express that dependency through attributes.  In lieu
+/// of writing a custom Deserialize implementation for the whole manifest, we instead
+/// leave `component.trigger` initially unparsed, then once we have the rest of the
+/// manifest loaded, we go back and parse it into the correct enum case - we basically
+/// clone the partially-parsed manifest but changing the type of `component.trigger`
+/// (which is why this can't be a straight clone).  The next few functions accomplish
+/// this.
+///
+/// (The reason we can't continue using an untagged enum is that an external trigger
+/// might have a setting called `route` which would make serde parse it as a
+/// TriggerConfig::Http.  There are other ways around this, e.g. the trigger match
+/// checker could see External/Http and transform the typed config back to a HashMap -
+/// I went this way to avoid having to know about individual types but it has its
+/// own downsides for sure.)
+fn resolve_partials(
+    partially_parsed: RawAppManifestAnyVersionPartial,
+) -> Result<RawAppManifestAnyVersion> {
+    let manifest = partially_parsed.into_v1();
+
+    let app_trigger = &manifest.info.trigger;
+    let components = manifest
+        .components
+        .into_iter()
+        .map(|c| resolve_partial_component(app_trigger, c))
+        .collect::<Result<_>>()?;
+
+    // Only concerned with preserving manifest.
+    Ok(RawAppManifestAnyVersion::from_manifest(RawAppManifest {
+        info: manifest.info,
+        components,
+        variables: manifest.variables,
+    }))
+}
+
+fn resolve_partial_component(
+    app_trigger: &ApplicationTrigger,
+    partial: RawComponentManifestPartial,
+) -> Result<RawComponentManifest> {
+    let trigger = resolve_trigger(app_trigger, partial.trigger)?;
+
+    Ok(RawComponentManifest {
+        id: partial.id,
+        source: partial.source,
+        description: partial.description,
+        wasm: partial.wasm,
+        trigger,
+        build: partial.build,
+        config: partial.config,
+    })
+}
+
+fn resolve_trigger(
+    app_trigger: &ApplicationTrigger,
+    partial: toml::Value,
+) -> Result<TriggerConfig> {
+    use serde::Deserialize;
+    let tc = match app_trigger {
+        ApplicationTrigger::Http(_) => TriggerConfig::Http(HttpConfig::deserialize(partial)?),
+        ApplicationTrigger::Redis(_) => TriggerConfig::Redis(RedisConfig::deserialize(partial)?),
+        ApplicationTrigger::External(_) => TriggerConfig::External(HashMap::deserialize(partial)?),
+    };
+    Ok(tc)
 }
 
 /// Converts the raw application information from the spin.toml manifest to the standard configuration.
@@ -370,7 +460,120 @@ fn info(raw: RawAppInformation, src: impl AsRef<Path>) -> ApplicationInformation
         description: raw.description,
         authors: raw.authors.unwrap_or_default(),
         trigger: raw.trigger,
-        namespace: raw.namespace,
         origin: ApplicationOrigin::File(src.as_ref().to_path_buf()),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn load_test_manifest(app_trigger: &str, comp_trigger: &str) -> RawAppManifestAnyVersion {
+        let manifest_toml = format!(
+            r#"
+spin_version = "1"
+name = "test"
+trigger = {app_trigger}
+version = "0.0.1"
+
+[[component]]
+id = "test"
+source = "nonexistent.wasm"
+[component.trigger]
+{comp_trigger}
+"#
+        );
+
+        let manifest = raw_manifest_from_slice(manifest_toml.as_bytes()).unwrap();
+        validate_raw_app_manifest(&manifest).unwrap();
+
+        manifest
+    }
+
+    fn load_config_test_manifest(var_name: &str) -> anyhow::Result<RawAppManifestAnyVersion> {
+        let manifest_toml = format!(
+            r#"
+spin_version = "1"
+name = "test"
+trigger = {{ type = "http", base = "/" }}
+version = "0.0.1"
+
+[variables]
+{var_name} = {{ required = true }}
+
+[[component]]
+id = "test"
+source = "nonexistent.wasm"
+[component.trigger]
+route = "/"
+[component.config]
+{var_name} = "hello"
+"#
+        );
+
+        let manifest = raw_manifest_from_slice(manifest_toml.as_bytes()).unwrap();
+        validate_raw_app_manifest(&manifest)?;
+
+        Ok(manifest)
+    }
+
+    #[test]
+    fn can_parse_http_trigger() {
+        let m = load_test_manifest(r#"{ type = "http", base = "/" }"#, r#"route = "/...""#);
+        let m1 = m.into_v1();
+        let t = &m1.info.trigger;
+        let ct = &m1.components[0].trigger;
+        assert!(matches!(t, ApplicationTrigger::Http(_)));
+        assert!(matches!(ct, TriggerConfig::Http(_)));
+    }
+
+    #[test]
+    fn can_parse_redis_trigger() {
+        let m = load_test_manifest(
+            r#"{ type = "redis", address = "dummy" }"#,
+            r#"channel = "chan""#,
+        );
+
+        let m1 = m.into_v1();
+        let t = m1.info.trigger;
+        let ct = &m1.components[0].trigger;
+        assert!(matches!(t, ApplicationTrigger::Redis(_)));
+        assert!(matches!(ct, TriggerConfig::Redis(_)));
+    }
+
+    #[test]
+    fn can_parse_unknown_trigger() {
+        let m = load_test_manifest(r#"{ type = "pounce" }"#, r#"on = "MY KNEES""#);
+
+        let m1 = m.into_v1();
+        let t = m1.info.trigger;
+        let ct = &m1.components[0].trigger;
+        assert!(matches!(t, ApplicationTrigger::External(_)));
+        assert!(matches!(ct, TriggerConfig::External(_)));
+    }
+
+    #[test]
+    fn external_triggers_can_have_same_config_keys_as_builtins() {
+        let m = load_test_manifest(
+            r#"{ type = "pounce" }"#,
+            r#"route = "over the cat tree and out of the sun""#,
+        );
+
+        let m1 = m.into_v1();
+        let t = m1.info.trigger;
+        let ct = &m1.components[0].trigger;
+        assert!(matches!(t, ApplicationTrigger::External(_)));
+        assert!(matches!(ct, TriggerConfig::External(_)));
+    }
+
+    #[test]
+    fn rejects_bad_variable_names() {
+        load_config_test_manifest("hello").expect("hello should validate");
+
+        load_config_test_manifest("hello_123").expect("hello_123 should validate");
+
+        load_config_test_manifest("HELLO").expect_err("HELLO should not validate");
+
+        load_config_test_manifest("hell-o").expect_err("hell-o should not validate");
     }
 }

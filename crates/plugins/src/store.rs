@@ -1,5 +1,6 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Context, Result};
 use flate2::read::GzDecoder;
+use spin_common::data_dir::default_data_dir;
 use std::{
     ffi::OsStr,
     fs::{self, File},
@@ -12,6 +13,7 @@ use crate::{error::*, manifest::PluginManifest};
 
 /// Directory where the manifests of installed plugins are stored.
 pub const PLUGIN_MANIFESTS_DIRECTORY_NAME: &str = "manifests";
+const INSTALLATION_RECORD_FILE_NAME: &str = ".install.json";
 
 /// Houses utilities for getting the path to Spin plugin directories.
 pub struct PluginStore {
@@ -24,14 +26,12 @@ impl PluginStore {
     }
 
     pub fn try_default() -> Result<Self> {
-        let data_dir = match std::env::var("TEST_PLUGINS_DIRECTORY") {
-            Ok(test_dir) => PathBuf::from(test_dir),
-            Err(_) => dirs::data_local_dir()
-                .or_else(|| dirs::home_dir().map(|p| p.join(".spin")))
-                .ok_or_else(|| anyhow!("Unable to get local data directory or home directory"))?,
+        let data_dir = if let Ok(test_dir) = std::env::var("TEST_PLUGINS_DIRECTORY") {
+            PathBuf::from(test_dir).join("spin")
+        } else {
+            default_data_dir()?
         };
-        let plugins_dir = data_dir.join("spin").join("plugins");
-        Ok(Self::new(plugins_dir))
+        Ok(Self::new(data_dir.join("plugins")))
     }
 
     /// Gets the path to where Spin plugin are installed.
@@ -63,6 +63,12 @@ impl PluginStore {
         binary
     }
 
+    pub fn installation_record_file(&self, plugin_name: &str) -> PathBuf {
+        self.root
+            .join(plugin_name)
+            .join(INSTALLATION_RECORD_FILE_NAME)
+    }
+
     pub fn installed_manifests(&self) -> Result<Vec<PluginManifest>> {
         let manifests_dir = self.installed_manifests_directory();
         let manifest_paths = Self::json_files_in(&manifests_dir);
@@ -85,8 +91,15 @@ impl PluginStore {
         //    |- bar.json
         let catalogue_dir =
             crate::lookup::spin_plugins_repo_manifest_dir(self.get_plugins_directory());
+
+        // Catalogue directory doesn't exist so likely nothing has been installed.
+        if !catalogue_dir.exists() {
+            return Ok(Vec::new());
+        }
+
         let plugin_dirs = catalogue_dir
-            .read_dir()?
+            .read_dir()
+            .context("reading manifest catalogue at {catalogue_dir:?}")?
             .filter_map(|d| d.ok())
             .map(|d| d.path())
             .filter(|p| p.is_dir());

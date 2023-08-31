@@ -12,19 +12,23 @@ import (
 	"time"
 )
 
-const spin_binary = "../../target/debug/spin"
+const spinBinary = "../../target/debug/spin"
 
 func retryGet(t *testing.T, url string) *http.Response {
 	t.Helper()
 
-	const tries = 10
-	for i := 1; i < tries; i++ {
+	const maxTries = 600 // (10min)
+	for i := 1; i < maxTries; i++ {
+		// Catch call to `Fail` in other goroutine
+		if t.Failed() {
+			t.FailNow()
+		}
 		if res, err := http.Get(url); err != nil {
 			t.Log(err)
 		} else {
 			return res
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 	t.Fatal("Get request timeout: ", url)
 	return nil
@@ -37,17 +41,27 @@ type testSpin struct {
 }
 
 func startSpin(t *testing.T, spinfile string) *testSpin {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// long timeout because... ci
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 
 	url := getFreePort(t)
 
-	cmd := exec.CommandContext(ctx, spin_binary, "up", "--file", spinfile, "--listen", url)
+	cmd := exec.CommandContext(ctx, spinBinary, "build", "--up", "--file", spinfile, "--listen", url)
 	stderr := new(bytes.Buffer)
 	cmd.Stderr = stderr
 	if err := cmd.Start(); err != nil {
 		t.Log(stderr.String())
 		t.Fatal(err)
 	}
+
+	go func() {
+		cmd.Wait()
+		if ctx.Err() == nil {
+			t.Log("spin exited before the test finished:", cmd.ProcessState)
+			t.Log("stderr:\n", stderr.String())
+			t.Fail()
+		}
+	}()
 
 	return &testSpin{
 		cancel: cancel,
@@ -56,12 +70,12 @@ func startSpin(t *testing.T, spinfile string) *testSpin {
 	}
 }
 
-func buildTinyGo(t *testing.T, dir string) {
+func build(t *testing.T, dir string) {
 	t.Helper()
 
 	t.Log("building example: ", dir)
 
-	cmd := exec.Command("tinygo", "build", "-wasm-abi=generic", "-target=wasi", "-gc=leaking", "-o", "main.wasm", "main.go")
+	cmd := exec.Command(spinBinary, "build")
 	cmd.Dir = dir
 
 	stderr := new(bytes.Buffer)
@@ -72,8 +86,31 @@ func buildTinyGo(t *testing.T, dir string) {
 	}
 }
 
+func TestSpinRoundTrip(t *testing.T) {
+	spin := startSpin(t, "http/testdata/spin-roundtrip/spin.toml")
+	defer spin.cancel()
+
+	resp := retryGet(t, spin.url+"/hello")
+	spin.cancel()
+	if resp.Body == nil {
+		t.Fatal("body is nil")
+	}
+	t.Log(resp.Status)
+	b, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// assert response body
+	want := "Hello world!\n"
+	got := string(b)
+	if want != got {
+		t.Fatalf("body is not equal: want = %q got = %q", want, got)
+	}
+}
+
 func TestHTTPTriger(t *testing.T) {
-	buildTinyGo(t, "http/testdata/http-tinygo")
 	spin := startSpin(t, "http/testdata/http-tinygo/spin.toml")
 	defer spin.cancel()
 
@@ -110,8 +147,9 @@ func TestBuildExamples(t *testing.T) {
 		"../../examples/http-tinygo-outbound-http",
 		"../../examples/tinygo-outbound-redis",
 		"../../examples/tinygo-redis",
+		"../../examples/tinygo-key-value",
 	} {
-		buildTinyGo(t, example)
+		build(t, example)
 	}
 }
 

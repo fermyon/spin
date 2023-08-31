@@ -1,7 +1,7 @@
 # Example Plugin
 
 This `example.sh` script acts as an example Spin plugin for testing Spin plugin functionality.
-It is referenced in the `spin plugin` [integration tests](../integration.rs)
+It is referenced in the `spin plugins` [integration tests](../integration.rs)
 
 To recreate:
 

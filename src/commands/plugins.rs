@@ -1,3 +1,6 @@
+// Needed for clap derive: https://github.com/clap-rs/clap/issues/4857
+#![allow(clippy::almost_swapped)]
+
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 use semver::Version;
@@ -11,6 +14,7 @@ use std::path::{Path, PathBuf};
 use tracing::log;
 use url::Url;
 
+use crate::build_info::*;
 use crate::opts::*;
 
 /// Install/uninstall Spin plugins.
@@ -100,23 +104,30 @@ pub struct Install {
 }
 
 impl Install {
-    pub async fn run(self) -> Result<()> {
-        let manifest_location = match (self.local_manifest_src, self.remote_manifest_src, self.name) {
-            (Some(path), None, None) => ManifestLocation::Local(path),
-            (None, Some(url), None) => ManifestLocation::Remote(url),
-            (None, None, Some(name)) => ManifestLocation::PluginsRepository(PluginLookup::new(&name, self.version)),
+    pub async fn run(&self) -> Result<()> {
+        let manifest_location = match (&self.local_manifest_src, &self.remote_manifest_src, &self.name) {
+            (Some(path), None, None) => ManifestLocation::Local(path.to_path_buf()),
+            (None, Some(url), None) => ManifestLocation::Remote(url.clone()),
+            (None, None, Some(name)) => ManifestLocation::PluginsRepository(PluginLookup::new(name, self.version.clone())),
             _ => return Err(anyhow::anyhow!("For plugin lookup, must provide exactly one of: plugin name, url to manifest, local path to manifest")),
         };
         let manager = PluginManager::try_default()?;
         // Downgrades are only allowed via the `upgrade` subcommand
         let downgrade = false;
-        let manifest = manager.get_manifest(&manifest_location).await?;
+        let manifest = manager
+            .get_manifest(
+                &manifest_location,
+                self.override_compatibility_check,
+                SPIN_VERSION,
+            )
+            .await?;
         try_install(
             &manifest,
             &manager,
             self.yes_to_all,
             self.override_compatibility_check,
             downgrade,
+            &manifest_location,
         )
         .await?;
         Ok(())
@@ -152,7 +163,7 @@ pub struct Upgrade {
     #[clap(
         name = PLUGIN_NAME_OPT,
         conflicts_with = PLUGIN_ALL_OPT,
-        required_unless_present_any = [PLUGIN_ALL_OPT],
+        required_unless_present_any = [PLUGIN_ALL_OPT, PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT, PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT],
     )]
     pub name: Option<String>,
 
@@ -228,11 +239,7 @@ impl Upgrade {
         if self.all {
             self.upgrade_all(manifests_dir).await
         } else {
-            let plugin_name = self
-                .name
-                .clone()
-                .context("plugin name is required for upgrades")?;
-            self.upgrade_one(&plugin_name).await
+            self.upgrade_one().await
         }
     }
 
@@ -249,7 +256,14 @@ impl Upgrade {
                 .to_string();
             let manifest_location =
                 ManifestLocation::PluginsRepository(PluginLookup::new(&name, None));
-            let manifest = match manager.get_manifest(&manifest_location).await {
+            let manifest = match manager
+                .get_manifest(
+                    &manifest_location,
+                    self.override_compatibility_check,
+                    SPIN_VERSION,
+                )
+                .await
+            {
                 Err(Error::NotFound(e)) => {
                     log::info!("Could not upgrade plugin '{name}': {e:?}");
                     continue;
@@ -263,26 +277,39 @@ impl Upgrade {
                 self.yes_to_all,
                 self.override_compatibility_check,
                 self.downgrade,
+                &manifest_location,
             )
             .await?;
         }
         Ok(())
     }
 
-    async fn upgrade_one(self, name: &str) -> Result<()> {
+    async fn upgrade_one(self) -> Result<()> {
         let manager = PluginManager::try_default()?;
         let manifest_location = match (self.local_manifest_src, self.remote_manifest_src) {
             (Some(path), None) => ManifestLocation::Local(path),
             (None, Some(url)) => ManifestLocation::Remote(url),
-            _ => ManifestLocation::PluginsRepository(PluginLookup::new(name, self.version)),
+            _ => ManifestLocation::PluginsRepository(PluginLookup::new(
+                self.name
+                    .as_ref()
+                    .context("plugin name is required for upgrades")?,
+                self.version,
+            )),
         };
-        let manifest = manager.get_manifest(&manifest_location).await?;
+        let manifest = manager
+            .get_manifest(
+                &manifest_location,
+                self.override_compatibility_check,
+                SPIN_VERSION,
+            )
+            .await?;
         try_install(
             &manifest,
             &manager,
             self.yes_to_all,
             self.override_compatibility_check,
             self.downgrade,
+            &manifest_location,
         )
         .await?;
         Ok(())
@@ -302,7 +329,7 @@ impl List {
         let mut plugins = if self.installed {
             Self::list_installed_plugins()
         } else {
-            Self::list_catalogue_plugins()
+            Self::list_catalogue_and_installed_plugins()
         }?;
 
         plugins.sort_by(|p, q| p.cmp(q));
@@ -316,12 +343,13 @@ impl List {
         let store = manager.store();
         let manifests = store.installed_manifests()?;
         let descriptors = manifests
-            .iter()
+            .into_iter()
             .map(|m| PluginDescriptor {
                 name: m.name(),
                 version: m.version().to_owned(),
                 installed: true,
-                compatibility: PluginCompatibility::for_current(m),
+                compatibility: PluginCompatibility::for_current(&m),
+                manifest: m,
             })
             .collect();
         Ok(descriptors)
@@ -332,15 +360,22 @@ impl List {
         let store = manager.store();
         let manifests = store.catalogue_manifests();
         let descriptors = manifests?
-            .iter()
+            .into_iter()
             .map(|m| PluginDescriptor {
                 name: m.name(),
                 version: m.version().to_owned(),
                 installed: m.is_installed_in(store),
-                compatibility: PluginCompatibility::for_current(m),
+                compatibility: PluginCompatibility::for_current(&m),
+                manifest: m,
             })
             .collect();
         Ok(descriptors)
+    }
+
+    fn list_catalogue_and_installed_plugins() -> Result<Vec<PluginDescriptor>> {
+        let catalogue = Self::list_catalogue_plugins()?;
+        let installed = Self::list_installed_plugins()?;
+        Ok(merge_plugin_lists(catalogue, installed))
     }
 
     fn print(plugins: &[PluginDescriptor]) {
@@ -349,10 +384,10 @@ impl List {
         } else {
             for p in plugins {
                 let installed = if p.installed { " [installed]" } else { "" };
-                let compat = match p.compatibility {
-                    PluginCompatibility::Compatible => "",
-                    PluginCompatibility::IncompatibleSpin => " [requires other Spin version]",
-                    PluginCompatibility::Incompatible => " [incompatible]",
+                let compat = match &p.compatibility {
+                    PluginCompatibility::Compatible => String::new(),
+                    PluginCompatibility::IncompatibleSpin(v) => format!(" [requires Spin {v}]"),
+                    PluginCompatibility::Incompatible => String::from(" [incompatible]"),
                 };
                 println!("{} {}{}{}", p.name, p.version, installed, compat);
             }
@@ -361,20 +396,20 @@ impl List {
 }
 
 #[derive(Debug)]
-enum PluginCompatibility {
+pub(crate) enum PluginCompatibility {
     Compatible,
-    IncompatibleSpin,
+    IncompatibleSpin(String),
     Incompatible,
 }
 
 impl PluginCompatibility {
-    fn for_current(manifest: &PluginManifest) -> Self {
+    pub(crate) fn for_current(manifest: &PluginManifest) -> Self {
         if manifest.has_compatible_package() {
-            let spin_version = env!("VERGEN_BUILD_SEMVER");
+            let spin_version = SPIN_VERSION;
             if manifest.is_compatible_spin_version(spin_version) {
                 Self::Compatible
             } else {
-                Self::IncompatibleSpin
+                Self::IncompatibleSpin(manifest.spin_compatibility())
             }
         } else {
             Self::Incompatible
@@ -388,6 +423,7 @@ struct PluginDescriptor {
     version: String,
     compatibility: PluginCompatibility,
     installed: bool,
+    manifest: PluginManifest,
 }
 
 impl PluginDescriptor {
@@ -404,9 +440,34 @@ impl PluginDescriptor {
     }
 }
 
+fn merge_plugin_lists(a: Vec<PluginDescriptor>, b: Vec<PluginDescriptor>) -> Vec<PluginDescriptor> {
+    let mut result = a;
+
+    for descriptor in b {
+        // Use the manifest for sameness checking, because an installed local build could have the same name
+        // and version as a registry package, yet be a different binary. It could even have different
+        // compatibility characteristics!
+        let already_got = result
+            .iter()
+            .any(|desc| desc.manifest == descriptor.manifest);
+        if !already_got {
+            result.push(descriptor);
+        }
+    }
+
+    result
+}
+
 /// Updates the locally cached spin-plugins repository, fetching the latest plugins.
-async fn update() -> Result<()> {
+pub(crate) async fn update() -> Result<()> {
     let manager = PluginManager::try_default()?;
+
+    let mut locker = manager.update_lock().await;
+    let guard = locker.lock_updates();
+    if guard.denied() {
+        anyhow::bail!("Another plugin update operation is already in progress");
+    }
+
     let plugins_dir = manager.store().get_plugins_directory();
     let url = plugins_repo_url()?;
     fetch_plugins_repo(&url, plugins_dir, true).await?;
@@ -446,11 +507,11 @@ async fn try_install(
     yes_to_all: bool,
     override_compatibility_check: bool,
     downgrade: bool,
+    source: &ManifestLocation,
 ) -> Result<bool> {
-    let spin_version = env!("VERGEN_BUILD_SEMVER");
     let install_action = manager.check_manifest(
         manifest,
-        spin_version,
+        SPIN_VERSION,
         override_compatibility_check,
         downgrade,
     )?;
@@ -462,8 +523,19 @@ async fn try_install(
 
     let package = manager::get_package(manifest)?;
     if continue_to_install(manifest, package, yes_to_all)? {
-        let installed = manager.install(manifest, package).await?;
+        let installed = manager.install(manifest, package, source).await?;
         println!("Plugin '{installed}' was installed successfully!");
+
+        if let Some(description) = manifest.description() {
+            println!("\nDescription:");
+            println!("\t{description}");
+        }
+
+        if let Some(homepage) = manifest.homepage_url().filter(|h| h.scheme() == "https") {
+            println!("\nHomepage:");
+            println!("\t{homepage}");
+        }
+
         Ok(true)
     } else {
         Ok(false)

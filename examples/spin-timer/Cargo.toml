@@ -1,20 +1,19 @@
 [package]
-name = "spin-timer"
+name = "trigger-timer"
 version = "0.1.0"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0"
-chrono = "0.4"
+anyhow = "1.0.68"
+clap = { version = "3.1.15", features = ["derive", "env"] }
+futures = "0.3.25"
+serde = "1.0"
+spin-app = { path = "../../crates/app" }
 spin-core = { path = "../../crates/core" }
-tokio = { version = "1.14", features = [ "full" ] }
-tracing = { version = "0.1", features = [ "log" ] }
-tracing-subscriber = { version = "0.3.7", features = [ "env-filter" ] }
-
-[dependencies.wit-bindgen-wasmtime]
-git = "https://github.com/fermyon/wit-bindgen-backport"
-rev = "b84eb01c20d9ed7964cb8f296ccdc44e639019ce"
-features = ["async"]
+spin-trigger = { path = "../../crates/trigger" }
+tokio = { version = "1.11", features = [ "full" ] }
+tokio-scoped = "0.2.0"
+wasmtime = { version = "10.0.1", features = ["component-model"] }
 
 [workspace]

@@ -7,9 +7,25 @@ version = "1.0.0"
 
 [[component]]
 id = "tinygo-hello"
-source = "main.wasm"
-allowed_http_hosts = ["https://random-data-api.fermyon.app", "https://postman-echo.com"]
+source = "tinygo-hello/main.wasm"
+allowed_http_hosts = [
+    "https://random-data-api.fermyon.app",
+    "https://postman-echo.com",
+]
 [component.trigger]
 route = "/hello"
 [component.build]
+workdir = "tinygo-hello"
+command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"
+
+[[component]]
+id = "outbound-http-to-same-app"
+source = "outbound-http-to-same-app/main.wasm"
+# Use self to make outbound requests to components in the same Spin application.
+# `self` is not yet supported in cloud
+allowed_http_hosts = ["self"]
+[component.trigger]
+route = "/outbound-http-to-same-app"
+[component.build]
+workdir = "outbound-http-to-same-app"
 command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"

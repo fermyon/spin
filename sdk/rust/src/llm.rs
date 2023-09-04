@@ -23,6 +23,19 @@ impl<'a> InferencingModel<'a> {
     }
 }
 
+impl Default for InferencingParams {
+    fn default() -> Self {
+        Self {
+            max_tokens: 100,
+            repeat_penalty: 1.1,
+            repeat_penalty_last_n_token_count: 64,
+            temperature: 0.8,
+            top_k: 40,
+            top_p: 0.9,
+        }
+    }
+}
+
 /// Perform inferencing using the provided model and prompt
 pub fn infer(model: InferencingModel, prompt: &str) -> Result<InferencingResult, Error> {
     llm::infer(model.as_str(), prompt, None)

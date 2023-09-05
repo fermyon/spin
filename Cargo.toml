@@ -99,13 +99,11 @@ outbound-redis-tests = []
 config-provider-tests = []
 outbound-pg-tests = []
 outbound-mysql-tests = []
+# llm-metal = ["spin-trigger-http/llm-metal"]
+# llm-cublas = ["spin-trigger-http/llm-cublas"]
 
 [workspace]
-members = [
-  "crates/*",
-  "sdk/rust",
-  "sdk/rust/macro",
-]
+members = ["crates/*", "sdk/rust", "sdk/rust/macro"]
 
 [workspace.dependencies]
 tracing = { version = "0.1", features = ["log"] }

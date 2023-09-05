@@ -8,6 +8,7 @@ world reactor {
   import redis
   import key-value
   import http
+  import llm
   export inbound-http
   export inbound-redis
 }

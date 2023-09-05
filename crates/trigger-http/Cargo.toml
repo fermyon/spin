@@ -46,3 +46,8 @@ spin-testing = { path = "../testing" }
 [[bench]]
 name = "baseline"
 harness = false
+
+[features]
+default = []
+# llm-metal = ["spin-trigger/llm-metal"]
+# llm-cublas = ["spin-trigger/llm-cublas"]

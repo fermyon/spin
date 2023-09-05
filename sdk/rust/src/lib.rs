@@ -11,6 +11,9 @@ pub mod key_value;
 /// SQLite storage.
 pub mod sqlite;
 
+/// Large Language Model APIs
+pub mod llm;
+
 /// Exports the procedural macros for writing handlers for Spin components.
 pub use spin_macro::*;
 

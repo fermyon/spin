@@ -8,7 +8,7 @@ import (
 	"unsafe"
 )
 
-func open(name string) (*Conn, error) {
+func open(name string) (*conn, error) {
 	var dbname C.sqlite_string_t
 	var ret C.sqlite_expected_connection_error_t
 
@@ -20,14 +20,14 @@ func open(name string) (*Conn, error) {
 	}
 
 	sqliteConn := *((*C.sqlite_connection_t)(unsafe.Pointer(&ret.val)))
-	return &Conn{_ptr: sqliteConn}, nil
+	return &conn{_ptr: sqliteConn}, nil
 }
 
-func (db *Conn) close() {
+func (db *conn) close() {
 	C.sqlite_close(db._ptr)
 }
 
-func (db *Conn) execute(statement string, args []any) (*results, error) {
+func (db *conn) execute(statement string, args []any) (*results, error) {
 	var ret C.sqlite_expected_query_result_error_t
 	defer C.sqlite_expected_query_result_error_free(&ret)
 

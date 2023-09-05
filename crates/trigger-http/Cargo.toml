@@ -50,4 +50,4 @@ harness = false
 [features]
 default = []
 llm-metal = ["spin-trigger/llm-metal"]
-llm-cublas = ["spin-trigger/llm-cublas"]
+# llm-cublas = ["spin-trigger/llm-cublas"]

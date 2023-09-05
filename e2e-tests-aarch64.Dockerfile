@@ -36,7 +36,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 RUN url="https://static.rust-lang.org/rustup/dist/aarch64-unknown-linux-gnu/rustup-init";                       \
     wget "$url";                                                                                                \
     chmod +x rustup-init;                                                                                       \
-    ./rustup-init -y --no-modify-path --default-toolchain 1.68 --default-host aarch64-unknown-linux-gnu;        \
+    ./rustup-init -y --no-modify-path --default-toolchain 1.71 --default-host aarch64-unknown-linux-gnu;        \
     rm rustup-init;                                                                                             \
     chmod -R a+w $RUSTUP_HOME $CARGO_HOME;                                                                      \
     rustup --version;                                                                                           \

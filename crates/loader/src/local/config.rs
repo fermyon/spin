@@ -39,7 +39,7 @@ impl<C> RawAppManifestAnyVersionImpl<C> {
     pub fn from_manifest(manifest: RawAppManifestImpl<C>) -> Self {
         Self {
             manifest,
-            spin_manifest_version: FixedStringVersion::default(),
+            spin_manifest_version: FixedStringVersion,
         }
     }
     /// Converts `RawAppManifestAnyVersionImpl` into underlying V1 manifest

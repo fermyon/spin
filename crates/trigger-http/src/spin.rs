@@ -197,7 +197,7 @@ fn set_http_origin_from_request(
                 .engine
                 .find_host_component_handle::<Arc<OutboundHttpComponent>>()
             {
-                let mut outbound_http_data = store
+                let outbound_http_data = store
                     .host_components_data()
                     .get_or_insert(outbound_http_handle);
 

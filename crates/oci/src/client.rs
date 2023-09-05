@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -6,7 +7,7 @@ use futures_util::future;
 use futures_util::stream::{self, StreamExt, TryStreamExt};
 use oci_distribution::{
     client::{Config, ImageLayer},
-    manifest::OciImageManifest,
+    manifest::{OciDescriptor, OciImageManifest},
     secrets::RegistryAuth,
     Reference,
 };
@@ -23,6 +24,11 @@ use crate::auth::AuthConfig;
 const SPIN_APPLICATION_MEDIA_TYPE: &str = "application/vnd.fermyon.spin.application.v1+config";
 const WASM_LAYER_MEDIA_TYPE: &str = "application/vnd.wasm.content.layer.v1+wasm";
 const DATA_MEDIATYPE: &str = "application/vnd.wasm.content.layer.v1+data";
+
+// Annotations per https://github.com/opencontainers/image-spec/blob/main/annotations.md#rules
+/// Used to annotate an OCI descriptor as representing an empty layers.
+/// This can be used when pulling to zero out the file's bytes when writing to disk.
+pub const EMPTY_DATA_LAYER_ANNOTATION: &str = "com.fermyon.spin.application.layer.isEmpty";
 
 const CONFIG_FILE: &str = "config.json";
 const LATEST_TAG: &str = "latest";
@@ -111,8 +117,18 @@ impl Client {
                             "Adding new layer for asset {:?}",
                             spin_loader::to_relative(entry.path(), &source)?
                         );
-                        let layer = Self::data_layer(entry.path()).await?;
-
+                        let mut layer = Self::data_layer(entry.path()).await?;
+                        // HACK: Empty layer uploads may not be supported depending on registry implementation.
+                        // (Context: https://github.com/distribution/distribution/discussions/4029)
+                        // Here we add two 'placeholder' bytes to such layers on upload and add an annotation
+                        // that clients pulling layers can inspect, for removing the bytes when applicable.
+                        if entry.metadata()?.len() == 0 {
+                            layer.annotations = Some(HashMap::from([(
+                                EMPTY_DATA_LAYER_ANNOTATION.to_string(),
+                                "true".to_string(),
+                            )]));
+                            layer.data.append(&mut Vec::from([u8::MIN, u8::MIN]));
+                        }
                         let digest = &layer.sha256_digest();
                         layers.push(layer);
 
@@ -203,7 +219,11 @@ impl Client {
                                     let _ = this.cache.write_wasm(&bytes, &layer.digest).await;
                                 }
                                 _ => {
-                                    let _ = this.cache.write_data(&bytes, &layer.digest).await;
+                                    let data = match Self::is_empty_layer(&layer) {
+                                        true => Vec::new(),
+                                        false => bytes,
+                                    };
+                                    let _ = this.cache.write_data(&data, &layer.digest).await;
                                 }
                             },
                         }
@@ -282,6 +302,17 @@ impl Client {
             DATA_MEDIATYPE.to_string(),
             None,
         ))
+    }
+
+    /// Determine if the provided OciDescriptor represents an empty layer
+    pub fn is_empty_layer(descriptor: &OciDescriptor) -> bool {
+        match descriptor.annotations.clone() {
+            Some(annotations) => match annotations.get(EMPTY_DATA_LAYER_ANNOTATION) {
+                Some(v) => v == "true",
+                None => false,
+            },
+            None => false,
+        }
     }
 
     /// Save a credential set containing the registry username and password.

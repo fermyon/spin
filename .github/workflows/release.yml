@@ -34,14 +34,15 @@ jobs:
               target: "",
               targetDir: "target/release",
             }
-          - {
-              os: "ubuntu-20.04",
-              arch: "aarch64",
-              extension: "",
-              extraArgs: "--features openssl/vendored --target aarch64-unknown-linux-gnu",
-              target: "aarch64-unknown-linux-gnu",
-              targetDir: "target/aarch64-unknown-linux-gnu/release",
-            }
+          # Temporarily turning off Linux aarch64 builds so we can generate a canary release.
+          # - {
+          #     os: "ubuntu-20.04",
+          #     arch: "aarch64",
+          #     extension: "",
+          #     extraArgs: "--features openssl/vendored --target aarch64-unknown-linux-gnu",
+          #     target: "aarch64-unknown-linux-gnu",
+          #     targetDir: "target/aarch64-unknown-linux-gnu/release",
+          #   }
           - {
               os: "macos-latest",
               arch: "amd64",

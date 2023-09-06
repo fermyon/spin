@@ -25,10 +25,11 @@ const SPIN_APPLICATION_MEDIA_TYPE: &str = "application/vnd.fermyon.spin.applicat
 const WASM_LAYER_MEDIA_TYPE: &str = "application/vnd.wasm.content.layer.v1+wasm";
 const DATA_MEDIATYPE: &str = "application/vnd.wasm.content.layer.v1+data";
 
-// Annotations per https://github.com/opencontainers/image-spec/blob/main/annotations.md#rules
-/// Used to annotate an OCI descriptor as representing an empty layers.
-/// This can be used when pulling to zero out the file's bytes when writing to disk.
-pub const EMPTY_DATA_LAYER_ANNOTATION: &str = "com.fermyon.spin.application.layer.isEmpty";
+/// Used to annotate an OCI descriptor as representing an undersized layer,
+/// i.e. containing less than the 2 byte minimum seen across OCI registry implementations.
+/// Naming per https://github.com/opencontainers/image-spec/blob/main/annotations.md#rules
+pub const UNDERSIZED_LAYER_ANNOTATION: &str = "com.fermyon.spin.application.layer.undersized";
+pub const UNDERSIZED_LAYER_PADDING: &[u8] = &[0, 0];
 
 const CONFIG_FILE: &str = "config.json";
 const LATEST_TAG: &str = "latest";
@@ -118,16 +119,16 @@ impl Client {
                             spin_loader::to_relative(entry.path(), &source)?
                         );
                         let mut layer = Self::data_layer(entry.path()).await?;
-                        // HACK: Empty layer uploads may not be supported depending on registry implementation.
+                        // HACK: Undersized layer uploads may not be supported depending on registry implementation.
                         // (Context: https://github.com/distribution/distribution/discussions/4029)
-                        // Here we add two 'placeholder' bytes to such layers on upload and add an annotation
-                        // that clients pulling layers can inspect, for removing the bytes when applicable.
-                        if entry.metadata()?.len() == 0 {
+                        // Here we pad the data with two 'placeholder' bytes and add an annotation
+                        // that clients pulling layers can inspect, for removing the padding where applicable.
+                        if entry.metadata()?.len() < 2 {
                             layer.annotations = Some(HashMap::from([(
-                                EMPTY_DATA_LAYER_ANNOTATION.to_string(),
-                                "true".to_string(),
+                                UNDERSIZED_LAYER_ANNOTATION.to_string(),
+                                "".to_string(),
                             )]));
-                            layer.data.append(&mut Vec::from([u8::MIN, u8::MIN]));
+                            layer.data.extend(UNDERSIZED_LAYER_PADDING);
                         }
                         let digest = &layer.sha256_digest();
                         layers.push(layer);
@@ -219,9 +220,9 @@ impl Client {
                                     let _ = this.cache.write_wasm(&bytes, &layer.digest).await;
                                 }
                                 _ => {
-                                    let data = match Self::is_empty_layer(&layer) {
-                                        true => Vec::new(),
-                                        false => bytes,
+                                    let mut data = bytes;
+                                    if Self::is_undersized(&layer) {
+                                        data.truncate(data.len() - UNDERSIZED_LAYER_PADDING.len())
                                     };
                                     let _ = this.cache.write_data(&data, &layer.digest).await;
                                 }
@@ -304,13 +305,11 @@ impl Client {
         ))
     }
 
-    /// Determine if the provided OciDescriptor represents an empty layer
-    pub fn is_empty_layer(descriptor: &OciDescriptor) -> bool {
+    /// Determine if the provided OciDescriptor represents an undersized layer,
+    /// i.e. with length below the minimum seen across OCI registry implementations
+    pub fn is_undersized(descriptor: &OciDescriptor) -> bool {
         match descriptor.annotations.clone() {
-            Some(annotations) => match annotations.get(EMPTY_DATA_LAYER_ANNOTATION) {
-                Some(v) => v == "true",
-                None => false,
-            },
+            Some(annotations) => annotations.contains_key(UNDERSIZED_LAYER_ANNOTATION),
             None => false,
         }
     }

@@ -81,12 +81,29 @@ impl<'a> TryFrom<&'a ValueResult> for bool {
     }
 }
 
-impl<'a> TryFrom<&'a ValueResult> for u32 {
+macro_rules! int_conversions {
+    ($($t:ty),*) => {
+        $(impl<'a> TryFrom<&'a ValueResult> for $t {
+            type Error = ();
+
+            fn try_from(value: &'a ValueResult) -> Result<Self, Self::Error> {
+                match value {
+                    ValueResult::Integer(i) => (*i).try_into().map_err(|_| ()),
+                    _ => Err(()),
+                }
+            }
+        })*
+    };
+}
+
+int_conversions!(u8, u16, u32, u64, i8, i16, i32, i64, usize, isize);
+
+impl<'a> TryFrom<&'a ValueResult> for f64 {
     type Error = ();
 
     fn try_from(value: &'a ValueResult) -> Result<Self, Self::Error> {
         match value {
-            ValueResult::Integer(i) => Ok(*i as u32),
+            ValueResult::Real(f) => Ok(*f),
             _ => Err(()),
         }
     }
@@ -98,6 +115,19 @@ impl<'a> TryFrom<&'a ValueResult> for &'a str {
     fn try_from(value: &'a ValueResult) -> Result<Self, Self::Error> {
         match value {
             ValueResult::Text(s) => Ok(s.as_str()),
+            ValueResult::Blob(b) => std::str::from_utf8(b).map_err(|_| ()),
+            _ => Err(()),
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a ValueResult> for &'a [u8] {
+    type Error = ();
+
+    fn try_from(value: &'a ValueResult) -> Result<Self, Self::Error> {
+        match value {
+            ValueResult::Blob(b) => Ok(b.as_slice()),
+            ValueResult::Text(s) => Ok(s.as_bytes()),
             _ => Err(()),
         }
     }

@@ -6101,6 +6101,7 @@ dependencies = [
  "spin-componentize",
  "spin-config",
  "spin-core",
+ "spin-http",
  "spin-key-value",
  "spin-key-value-azure",
  "spin-key-value-redis",

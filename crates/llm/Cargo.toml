@@ -30,6 +30,5 @@ uuid = { version = "1.4.1", features = ["v4"] }
 
 [features]
 default = []
-# Currently disabling this because CI is failing when this feature is enabled.
-# metal = ["llm/metal"]
-# cublas = ["llm/cublas"]
+metal = ["llm/metal"]
+cublas = ["llm/cublas"]

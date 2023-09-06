@@ -22,7 +22,7 @@ jobs:
           rust-cache: true
 
       - name: Cargo Build
-        run: cargo build --workspace --all-targets --all-features --features openssl/vendored
+        run: cargo build --workspace --all-targets --features all-tests --features openssl/vendored
 
       - name: "Archive executable artifact"
         uses: actions/upload-artifact@v3

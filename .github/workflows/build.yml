@@ -41,7 +41,7 @@ jobs:
 
       - name: Cargo Clippy
         run:
-          BUILD_SPIN_EXAMPLES=0 cargo clippy --workspace --all-targets --all-features -- -D warnings
+          BUILD_SPIN_EXAMPLES=0 cargo clippy --workspace --all-targets --features all-tests -- -D warnings
 
   ## This is separated out to remove e2e-tests dependency on windows/mac builds
   build-rust-ubuntu:
@@ -59,7 +59,7 @@ jobs:
           rust-cache: true
 
       - name: Cargo Build
-        run: cargo build --workspace --release --all-targets --all-features --features openssl/vendored
+        run: cargo build --workspace --release --all-targets --features openssl/vendored --features all-tests
         env:
           CARGO_INCREMENTAL: 0
 
@@ -87,7 +87,7 @@ jobs:
           rust-cache: true
 
       - name: Cargo Build
-        run: cargo build --workspace --release --all-targets --all-features
+        run: cargo build --workspace --release --all-targets
         env:
           CARGO_INCREMENTAL: 0
 

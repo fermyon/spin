@@ -115,7 +115,7 @@ jobs:
 
       - name: build release
         shell: bash
-        run: cargo build --all-features --release ${{ matrix.config.extraArgs }}
+        run: cargo build --release ${{ matrix.config.extraArgs }}
 
       - name: Sign the binary with GitHub OIDC token
         shell: bash

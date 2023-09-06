@@ -49,5 +49,5 @@ tokio = { version = "1.23", features = ["rt", "macros"] }
 
 [features]
 default = []
-# llm-metal = ["spin-llm/metal"]
-# llm-cublas = ["spin-llm/cublas"]
+llm-metal = ["spin-llm/metal"]
+llm-cublas = ["spin-llm/cublas"]

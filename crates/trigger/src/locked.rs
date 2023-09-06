@@ -12,6 +12,7 @@ use spin_app::{
     values::{ValuesMap, ValuesMapBuilder},
     MetadataKey,
 };
+use spin_http::routes::RoutePattern;
 use spin_key_value::KEY_VALUE_STORES_KEY;
 use spin_manifest::{
     Application, ApplicationInformation, ApplicationOrigin, ApplicationTrigger, CoreComponent,
@@ -97,15 +98,15 @@ impl LockedAppBuilder {
         component_triggers
             .into_iter()
             .map(|(component_id, config)| {
-                let id = format!("trigger--{component_id}");
+                let id = format!("{component_id}--trigger");
                 let mut builder = ValuesMapBuilder::new();
                 builder.string("component", component_id);
 
                 let trigger_type;
                 match (app_trigger, config) {
-                    (ApplicationTrigger::Http(HttpTriggerConfiguration{base: _}), TriggerConfig::Http(HttpConfig{ route, executor })) => {
+                    (ApplicationTrigger::Http(HttpTriggerConfiguration{base}), TriggerConfig::Http(HttpConfig{ route, executor })) => {
                         trigger_type = "http";
-                        builder.string("route", route);
+                        builder.string("route", RoutePattern::sanitize_with_base(base, &route));
                         builder.serializable("executor", executor)?;
                     },
                     (ApplicationTrigger::Redis(_), TriggerConfig::Redis(RedisConfig{ channel, executor: _ })) => {

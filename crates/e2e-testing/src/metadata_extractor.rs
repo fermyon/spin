@@ -42,7 +42,7 @@ pub fn extract_version_from_logs(appname: &str, logs: &str) -> String {
 
 /// Extracts routes of app being deployed by parsing logs
 pub fn extract_routes_from_logs(logs: &str) -> Vec<AppRoute> {
-    let re: Regex = Regex::new(r##"^\s*(.*): (https?://[^\s^\\(]+)(.*)$"##).unwrap();
+    let re: Regex = Regex::new(r"^\s*(.*): (https?://[^\s^\\(]+)(.*)$").unwrap();
     let mut route_start = false;
     let lines = logs.split('\n');
     let mut routes: Vec<AppRoute> = vec![];

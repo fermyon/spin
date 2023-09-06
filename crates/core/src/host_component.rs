@@ -106,7 +106,7 @@ impl<HC: HostComponent> HostComponentDataHandle<HC> {
 
 impl<HC: HostComponent> Clone for HostComponentDataHandle<HC> {
     fn clone(&self) -> Self {
-        Self::from_any(self.inner)
+        *self
     }
 }
 

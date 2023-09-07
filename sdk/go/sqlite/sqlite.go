@@ -29,14 +29,9 @@ func (c *conn) Prepare(query string) (driver.Stmt, error) {
 	return &stmt{c: c, query: query}, nil
 }
 
-// Prepare returns a prepared statement, bound to this connection.
-func (c *conn) PrepareContext(_ context.Context, query string) (driver.Stmt, error) {
-	return c.Prepare(query)
-}
-
-// Begin isn't implemented.
+// Begin isn't supported.
 func (c *conn) Begin() (driver.Tx, error) {
-	return nil, errors.New("Begin method not implemented")
+	return nil, errors.New("transactions are unsupported by this driver")
 }
 
 // connector implements driver.Connector.
@@ -59,7 +54,7 @@ func (d *connector) Open(name string) (driver.Conn, error) {
 	return open(name)
 }
 
-type results struct {
+type rows struct {
 	columns []string
 	pos     int
 	len     int
@@ -67,13 +62,15 @@ type results struct {
 	closed  bool
 }
 
+var _ driver.Rows = (*rows)(nil)
+
 // Columns return column names.
-func (r *results) Columns() []string {
+func (r *rows) Columns() []string {
 	return r.columns
 }
 
 // Close closes the rows iterator.
-func (r *results) Close() error {
+func (r *rows) Close() error {
 	r.rows = nil
 	r.pos = 0
 	r.len = 0
@@ -82,7 +79,7 @@ func (r *results) Close() error {
 }
 
 // Next moves the cursor to the next row.
-func (r *results) Next(dest []driver.Value) error {
+func (r *rows) Next(dest []driver.Value) error {
 	if !r.HasNextResultSet() {
 		return io.EOF
 	}
@@ -95,7 +92,7 @@ func (r *results) Next(dest []driver.Value) error {
 
 // HasNextResultSet is called at the end of the current result set and
 // reports whether there is another result set after the current one.
-func (r *results) HasNextResultSet() bool {
+func (r *rows) HasNextResultSet() bool {
 	return r.pos < r.len
 }
 
@@ -103,7 +100,7 @@ func (r *results) HasNextResultSet() bool {
 // if there are remaining rows in the current result set.
 //
 // NextResultSet should return io.EOF when there are no more result sets.
-func (r *results) NextResultSet() error {
+func (r *rows) NextResultSet() error {
 	if r.HasNextResultSet() {
 		r.pos++
 		return nil
@@ -115,6 +112,8 @@ type stmt struct {
 	c     *conn
 	query string
 }
+
+var _ driver.Stmt = (*stmt)(nil)
 
 // Close closes the statement.
 func (s *stmt) Close() error {
@@ -136,17 +135,23 @@ func (s *stmt) Query(args []driver.Value) (driver.Rows, error) {
 	return s.c.execute(s.query, params)
 }
 
-// QueryContext executes a query that may return rows, such as a SELECT.
-func (s *stmt) QueryContext(_ context.Context, query string, args []driver.Value) (driver.Rows, error) {
-	return s.Query(args)
-}
-
-// Exec isn't implemented. Use Query method.
+// Exec executes a query that doesn't return rows, such as an INSERT or
+// UPDATE.
 func (s *stmt) Exec(args []driver.Value) (driver.Result, error) {
-	return nil, errors.New("Exec method not implemented")
+	params := make([]any, len(args))
+	for i := range args {
+		params[i] = args[i]
+	}
+	_, err := s.c.execute(s.query, params)
+	return &result{}, err
 }
 
-// ExecContext isn't implemented. Use Query method.
-func (s *stmt) ExecContext(_ context.Context, _ string, _ []driver.NamedValue) (driver.Result, error) {
-	return nil, errors.New("ExecContext method not implemented")
+type result struct{}
+
+func (r result) LastInsertId() (int64, error) {
+	return -1, errors.New("LastInsertId is unsupported by this driver")
+}
+
+func (r result) RowsAffected() (int64, error) {
+	return -1, errors.New("RowsAffected is unsupported by this driver")
 }

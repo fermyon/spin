@@ -27,7 +27,7 @@ func (db *conn) close() {
 	C.sqlite_close(db._ptr)
 }
 
-func (db *conn) execute(statement string, args []any) (*results, error) {
+func (db *conn) execute(statement string, args []any) (*rows, error) {
 	var ret C.sqlite_expected_query_result_error_t
 	defer C.sqlite_expected_query_result_error_free(&ret)
 
@@ -42,12 +42,10 @@ func (db *conn) execute(statement string, args []any) (*results, error) {
 	}
 
 	qr := (*C.sqlite_query_result_t)(unsafe.Pointer(&ret.val))
-	cols := fromSqliteListString(qr.columns)
-	rows := fromSqliteListRowResult(qr.rows)
 
-	result := &results{
-		columns: cols,
-		rows:    rows,
+	result := &rows{
+		columns: fromSqliteListString(qr.columns),
+		rows:    fromSqliteListRowResult(qr.rows),
 		len:     int(qr.rows.len),
 	}
 

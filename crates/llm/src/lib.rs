@@ -227,7 +227,7 @@ impl LlmEngine {
         &mut self,
         model: wasi_llm::InferencingModel,
     ) -> Result<Arc<dyn Model>, wasi_llm::Error> {
-        let model_name = model_name(model.clone())?;
+        let model_name = model_name(&model)?;
         let use_gpu = self.use_gpu;
         let progress_fn = |_| {};
         let model = match self.inferencing_models.entry((model_name.into(), use_gpu)) {
@@ -404,9 +404,9 @@ impl wasi_llm::Host for LlmEngine {
     }
 }
 
-fn model_name(model: wasi_llm::InferencingModel) -> Result<&'static str, wasi_llm::Error> {
+fn model_name(model: &wasi_llm::InferencingModel) -> Result<&str, wasi_llm::Error> {
     match model.as_str() {
-        "llama2-chat" => Ok("llama2-chat"),
+        "llama2-chat" | "codellama-instruct" => Ok(model.as_str()),
         _ => Err(wasi_llm::Error::ModelNotSupported),
     }
 }

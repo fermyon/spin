@@ -113,6 +113,16 @@ pub struct ContentRef {
     /// different URI schemes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    /// The content itself, base64-encoded.
+    ///
+    /// NOTE: This is both an optimization for small content and a workaround
+    /// for certain OCI implementations that don't support 0 or 1 byte blobs.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "serde_base64"
+    )]
+    pub inline: Option<Vec<u8>>,
     /// If set, the content must have the given SHA-256 digest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub digest: Option<String>,
@@ -176,5 +186,34 @@ impl<const V: usize> TryFrom<String> for FixedVersion<V> {
             .parse()
             .map_err(|err| format!("invalid version: {}", err))?;
         value.try_into()
+    }
+}
+
+mod serde_base64 {
+    use std::borrow::Cow;
+
+    use base64::{engine::GeneralPurpose, prelude::BASE64_STANDARD_NO_PAD, Engine};
+    use serde::{de, Deserialize, Deserializer, Serializer};
+
+    const BASE64: GeneralPurpose = BASE64_STANDARD_NO_PAD;
+
+    pub fn serialize<S>(bytes: &Option<Vec<u8>>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match bytes {
+            Some(bytes) => serializer.serialize_str(&BASE64.encode(bytes)),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        match Option::<Cow<str>>::deserialize(deserializer)? {
+            Some(s) => Ok(Some(BASE64.decode(s.as_ref()).map_err(de::Error::custom)?)),
+            None => Ok(None),
+        }
     }
 }

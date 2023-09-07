@@ -30,6 +30,9 @@ const MANIFEST_FILE: &str = "manifest.json";
 
 const MAX_PARALLEL_PULL: usize = 16;
 
+// Inline content into ContentRef iff < this size.
+const CONTENT_REF_INLINE_MAX_SIZE: usize = 128;
+
 /// Client for interacting with an OCI registry for Spin applications.
 pub struct Client {
     /// Global cache for the metadata, Wasm modules, and static assets pulled from OCI registries.
@@ -67,6 +70,12 @@ impl Client {
             .context("cannot create locked app")?;
         let mut locked = locked.clone();
 
+        // Opt-in to omitting layers for files that have been inlined into the manifest.
+        // TODO: After full integration this can be turned on by default.
+        let skip_inlined_files = !std::env::var_os("SPIN_OCI_SKIP_INLINED_FILES")
+            .unwrap_or_default()
+            .is_empty();
+
         // For each component in the application, add layers for the wasm module and
         // all static assets and update the locked application with the file digests.
         let mut layers = Vec::new();
@@ -83,14 +92,11 @@ impl Client {
 
             let source = spin_trigger::parse_file_url(source.as_str())?;
             let layer = Self::wasm_layer(&source).await?;
-            let digest = &layer.sha256_digest();
-            layers.push(layer);
 
-            // Update the module source with the content digest of the layer.
-            c.source.content = ContentRef {
-                source: None,
-                digest: Some(digest.clone()),
-            };
+            // Update the module source with the content ref of the layer.
+            c.source.content = Self::content_ref_for_layer(&layer);
+
+            layers.push(layer);
 
             // Add a layer for each file referenced in the mount directory.
             // Note that this is in fact a directory, and not a single file, so we need to
@@ -112,17 +118,19 @@ impl Client {
                             spin_loader::to_relative(entry.path(), &source)?
                         );
                         let layer = Self::data_layer(entry.path()).await?;
-
-                        let digest = &layer.sha256_digest();
-                        layers.push(layer);
-
+                        let content = Self::content_ref_for_layer(&layer);
+                        let content_inline = content.inline.is_some();
                         files.push(ContentPath {
-                            content: ContentRef {
-                                source: None,
-                                digest: Some(digest.clone()),
-                            },
+                            content,
                             path: PathBuf::from(spin_loader::to_relative(entry.path(), &source)?),
                         });
+                        // As a workaround for OCI implementations that don't support very small blobs,
+                        // don't push very small content that has been inlined into the manifest:
+                        // https://github.com/distribution/distribution/discussions/4029
+                        let skip_layer = skip_inlined_files && content_inline;
+                        if !skip_layer {
+                            layers.push(layer);
+                        }
                     }
                 }
             }
@@ -219,16 +227,6 @@ impl Client {
         Ok(())
     }
 
-    /// Create a new wasm layer based on a file.
-    pub async fn wasm_layer(file: &Path) -> Result<ImageLayer> {
-        tracing::log::trace!("Reading wasm module from {:?}", file);
-        Ok(ImageLayer::new(
-            fs::read(file).await.context("cannot read wasm module")?,
-            WASM_LAYER_MEDIA_TYPE.to_string(),
-            None,
-        ))
-    }
-
     /// Get the file path to an OCI manifest given a reference.
     /// If the directory for the manifest does not exist, this will create it.
     async fn manifest_path(&self, reference: impl AsRef<str>) -> Result<PathBuf> {
@@ -274,14 +272,34 @@ impl Client {
         Ok(p.join(CONFIG_FILE))
     }
 
+    /// Create a new wasm layer based on a file.
+    async fn wasm_layer(file: &Path) -> Result<ImageLayer> {
+        tracing::log::trace!("Reading wasm module from {:?}", file);
+        Ok(ImageLayer::new(
+            fs::read(file).await.context("cannot read wasm module")?,
+            WASM_LAYER_MEDIA_TYPE.to_string(),
+            None,
+        ))
+    }
+
     /// Create a new data layer based on a file.
-    pub async fn data_layer(file: &Path) -> Result<ImageLayer> {
+    async fn data_layer(file: &Path) -> Result<ImageLayer> {
         tracing::log::trace!("Reading data file from {:?}", file);
         Ok(ImageLayer::new(
             fs::read(&file).await?,
             DATA_MEDIATYPE.to_string(),
             None,
         ))
+    }
+
+    fn content_ref_for_layer(layer: &ImageLayer) -> ContentRef {
+        ContentRef {
+            // Inline small content as an optimization and to work around issues
+            // with OCI implementations that don't support very small blobs.
+            inline: (layer.data.len() <= CONTENT_REF_INLINE_MAX_SIZE).then(|| layer.data.to_vec()),
+            digest: Some(layer.sha256_digest()),
+            ..Default::default()
+        }
     }
 
     /// Save a credential set containing the registry username and password.

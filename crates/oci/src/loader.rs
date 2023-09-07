@@ -69,9 +69,6 @@ impl OciLoader {
         if !component.files.is_empty() {
             let mount_dir = self.working_dir.join(&component.id);
             for file in &mut component.files {
-                let digest = content_digest(&file.content)?;
-                let content_path = cache.data_file(digest)?;
-
                 ensure!(is_safe_to_join(&file.path), "invalid file mount {file:?}");
                 let mount_path = mount_dir.join(&file.path);
 
@@ -85,11 +82,24 @@ impl OciLoader {
                         format!("failed to create temporary mount path {mount_path:?}")
                     })?;
 
-                // Copy content
-                // TODO: parallelize
-                tokio::fs::copy(&content_path, &mount_path)
-                    .await
-                    .with_context(|| format!("failed to copy {content_path:?}->{mount_path:?}"))?;
+                if let Some(content_bytes) = file.content.inline.as_deref() {
+                    // Write inline content to disk
+                    tokio::fs::write(&mount_path, content_bytes)
+                        .await
+                        .with_context(|| {
+                            format!("failed to write inline content to {mount_path:?}")
+                        })?;
+                } else {
+                    // Copy content
+                    let digest = content_digest(&file.content)?;
+                    let content_path = cache.data_file(digest)?;
+                    // TODO: parallelize
+                    tokio::fs::copy(&content_path, &mount_path)
+                        .await
+                        .with_context(|| {
+                            format!("failed to copy {content_path:?}->{mount_path:?}")
+                        })?;
+                }
             }
 
             component.files = vec![ContentPath {

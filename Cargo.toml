@@ -109,7 +109,7 @@ tracing = { version = "0.1", features = ["log"] }
 wasmtime-wasi = { version = "10.0.1", features = ["tokio"] }
 wasi-common-preview1 = { package = "wasi-common", version = "10.0.1" }
 wasmtime = { version = "10.0.1", features = ["component-model"] }
-spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "3653d24ee95b4efcc39de52b5c988b435f87712a" }
+spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "0aa9622d2dafbdacae55b1fd62eb5bb36bf84b2d" }
 
 [workspace.dependencies.bindle]
 git = "https://github.com/fermyon/bindle"

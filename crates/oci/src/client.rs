@@ -4,6 +4,8 @@ use anyhow::{bail, Context, Result};
 use docker_credential::DockerCredential;
 use futures_util::future;
 use futures_util::stream::{self, StreamExt, TryStreamExt};
+use oci_distribution::token_cache::RegistryTokenType;
+use oci_distribution::RegistryOperation;
 use oci_distribution::{
     client::{Config, ImageLayer},
     manifest::OciImageManifest,
@@ -37,6 +39,7 @@ const CONTENT_REF_INLINE_MAX_SIZE: usize = 128;
 pub struct Client {
     /// Global cache for the metadata, Wasm modules, and static assets pulled from OCI registries.
     pub cache: Cache,
+    /// Underlying OCI client.
     oci: oci_distribution::Client,
 }
 
@@ -324,6 +327,16 @@ impl Client {
         let mut auth = AuthConfig::load_default().await?;
         auth.insert(server, username, password)?;
         auth.save_default().await
+    }
+
+    /// Insert a token in the OCI client token cache.
+    pub fn insert_token(
+        &mut self,
+        reference: &Reference,
+        op: RegistryOperation,
+        token: RegistryTokenType,
+    ) {
+        self.oci.tokens.insert(reference, op, token);
     }
 
     /// Validate the credentials by attempting to send an authenticated request to the registry.

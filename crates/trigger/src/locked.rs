@@ -24,7 +24,6 @@ pub const NAME_KEY: MetadataKey = MetadataKey::new("name");
 pub const VERSION_KEY: MetadataKey = MetadataKey::new("version");
 pub const DESCRIPTION_KEY: MetadataKey = MetadataKey::new("description");
 pub const BINDLE_VERSION_KEY: MetadataKey = MetadataKey::new("bindle_version");
-pub const OCI_IMAGE_DIGEST_KEY: MetadataKey = MetadataKey::new("oci_image_digest");
 pub const ORIGIN_KEY: MetadataKey = MetadataKey::new("origin");
 
 const WASM_CONTENT_TYPE: &str = "application/wasm";

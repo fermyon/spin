@@ -97,21 +97,29 @@ impl Default for Config {
         // knobs for each of these settings just yet and instead they're
         // generally set to defaults. Environment-variable-based fallbacks are
         // supported though as an escape valve for if this is a problem.
-        //
-        // NB: much of this will change in Wasmtime 13 as the settings are
-        // different. Ping @alexcrichton for assistance in updating this if
-        // needed (and delete this comment after the 13 update).
         let mut pooling_config = PoolingAllocationConfig::default();
         pooling_config
-            .instance_count(env("SPIN_WASMTIME_INSTANCE_COUNT", 1_000))
-            .instance_size(env("SPIN_WASMTIME_INSTANCE_SIZE", (10 * MB) as u32) as usize)
-            .instance_tables(env("SPIN_WASMTIME_INSTANCE_TABLES", 2))
-            .instance_table_elements(env("SPIN_WASMTIME_INSTANCE_TABLE_ELEMENTS", 30_000))
-            .instance_memories(env("SPIN_WASMTIME_INSTANCE_MEMORIES", 1))
+            .total_component_instances(env("SPIN_WASMTIME_INSTANCE_COUNT", 1_000))
+            // This number accounts for internal data structures that Wasmtime allocates for each instance.
+            // Instance allocation is proportional to the number of "things" in a wasm module like functions,
+            // globals, memories, etc. Instance allocations are relatively small and are largely inconsequential
+            // compared to other runtime state, but a number needs to be chosen here so a relatively large threshold
+            // of 10MB is arbitrarily chosen. It should be unlikely that any reasonably-sized module hits this limit.
+            .max_component_instance_size(
+                env("SPIN_WASMTIME_INSTANCE_SIZE", (10 * MB) as u32) as usize
+            )
+            .max_tables_per_component(env("SPIN_WASMTIME_INSTANCE_TABLES", 2))
+            .table_elements(env("SPIN_WASMTIME_INSTANCE_TABLE_ELEMENTS", 30_000))
+            // The number of memories an instance can have effectively limits the number of inner components
+            // a composed component can have (since each inner component has its own memory). We default to 32 for now, and
+            // we'll see how often this limit gets reached.
+            .max_memories_per_component(env("SPIN_WASMTIME_INSTANCE_MEMORIES", 32))
+            .total_memories(env("SPIN_WASMTIME_TOTAL_MEMORIES", 1_000))
+            .total_tables(env("SPIN_WASMTIME_TOTAL_TABLES", 2_000))
             // Nothing is lost from allowing the maximum size of memory for
             // all instance as it's still limited through other the normal
             // `StoreLimitsAsync` accounting method too.
-            .instance_memory_pages(4 * GB / WASM_PAGE_SIZE)
+            .memory_pages(4 * GB / WASM_PAGE_SIZE)
             // These numbers are completely arbitrary at something above 0.
             .linear_memory_keep_resident((2 * MB) as usize)
             .table_keep_resident((MB / 2) as usize);
@@ -205,7 +213,7 @@ impl<T: Send + Sync> EngineBuilder<T> {
         let engine = wasmtime::Engine::new(&config.inner)?;
 
         let mut linker: Linker<T> = Linker::new(&engine);
-        wasmtime_wasi::preview2::wasi::command::add_to_linker(&mut linker)?;
+        wasmtime_wasi::preview2::command::add_to_linker(&mut linker)?;
 
         let mut module_linker = ModuleLinker::new(&engine);
         wasmtime_wasi::tokio::add_to_linker(&mut module_linker, |data| match &mut data.wasi {

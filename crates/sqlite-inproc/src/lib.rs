@@ -20,6 +20,10 @@ pub struct InProcConnection {
 
 impl InProcConnection {
     pub fn new(location: InProcDatabaseLocation) -> Result<Self, spin_world::sqlite::Error> {
+        unsafe {
+            rusqlite::ffi::sqlite3_auto_extension(Some(sqlite_vss::sqlite3_vector_init));
+            rusqlite::ffi::sqlite3_auto_extension(Some(sqlite_vss::sqlite3_vss_init));
+        }
         let connection = {
             let c = match &location {
                 InProcDatabaseLocation::InMemory => rusqlite::Connection::open_in_memory(),

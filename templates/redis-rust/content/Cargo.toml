@@ -14,6 +14,6 @@ anyhow = "1"
 # Crate to simplify working with bytes.
 bytes = "1"
 # The Spin SDK.
-spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v1.4.2" }
+spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v1.5.0" }
 
 [workspace]

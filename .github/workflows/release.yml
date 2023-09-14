@@ -235,7 +235,7 @@ jobs:
           delete_release: true
 
       - name: Recreate canary tag and release
-        uses: rajatjindal/release-action@v0.0.1
+        uses: ncipollo/release-action@v1.13.0
         with:
           tag: canary
           allowUpdates: true

@@ -670,6 +670,30 @@ pub async fn assets_routing_works(controller: &dyn Controller) {
         .await?;
 
         assert_http_response(
+            get_url(metadata.base.as_str(), "/static/thisshouldbemounted/empty").as_str(),
+            Method::GET,
+            "",
+            200,
+            &[],
+            None,
+        )
+        .await?;
+
+        assert_http_response(
+            get_url(
+                metadata.base.as_str(),
+                "/static/thisshouldbemounted/one-byte",
+            )
+            .as_str(),
+            Method::GET,
+            "",
+            200,
+            &[],
+            Some("{"),
+        )
+        .await?;
+
+        assert_http_response(
             get_url(metadata.base.as_str(), "/static/donotmount/a").as_str(),
             Method::GET,
             "",

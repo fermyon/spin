@@ -58,6 +58,9 @@ jobs:
           rust-wasm: true
           rust-cache: true
 
+      - name: Install sqlite-vss dependencies
+        run: sudo apt-get install -y libgomp1 libatlas-base-dev liblapack-dev
+
       - name: Cargo Build
         run: cargo build --workspace --release --all-targets --features openssl/vendored --features all-tests
         env:

@@ -99,8 +99,18 @@ jobs:
           export LDFLAGS="-L/usr/local/opt/llvm/lib"
           export CPPFLAGS="-I/usr/local/opt/llvm/include"
 
-      - name: show me the libomp
-        run: ls -a -l /opt/homebrew/opt/libomp/lib
+      - name: where is this homebrew thing
+        run: echo $HOMEBREW_PREFIX
+      - name: what the heck
+        run: |
+          brew --prefix
+          brew config
+      # - name: show me the libomp
+      #   run: which libomp
+      - name: seriously show me the libomp
+        run: tree /opt/homebrew
+      - name: also show me the libomp in a sane way
+        run: tree /opt/homebrew | grep libomp
 
       - name: Cargo Build
         run: RUSTFLAGS="-L/opt/homebrew/opt/libomp/lib -L/opt/homebrew/opt/llvm/lib -lblas -llapack" LDFLAGS="-L/usr/local/opt/llvm/lib" CPPFLAGS="-I/usr/local/opt/llvm/include" cargo build --workspace --release --all-targets

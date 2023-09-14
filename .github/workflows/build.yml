@@ -90,6 +90,13 @@ jobs:
           rust-wasm: true
           rust-cache: true
 
+      - name: Install sqlite-vss dependencies
+        if:  ${{ matrix.os == 'macos-latest' }}
+        run: |
+          brew install llvm
+          brew install libomp
+          export RUSTFLAGS="-L/opt/homebrew/opt/libomp/lib -L/opt/homebrew/opt/llvm/lib -lblas -llapack"
+
       - name: Cargo Build
         run: cargo build --workspace --release --all-targets
         env:

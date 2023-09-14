@@ -79,7 +79,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        # os: [windows-latest, macos-latest]
+        os: [macos-latest]
     steps:
       - uses: actions/checkout@v3
 
@@ -91,14 +92,18 @@ jobs:
           rust-cache: true
 
       - name: Install sqlite-vss dependencies
-        if:  ${{ matrix.os == 'macos-latest' }}
         run: |
           brew install llvm
           brew install libomp
           export RUSTFLAGS="-L/opt/homebrew/opt/libomp/lib -L/opt/homebrew/opt/llvm/lib -lblas -llapack"
+          export LDFLAGS="-L/usr/local/opt/llvm/lib"
+          export CPPFLAGS="-I/usr/local/opt/llvm/include"
+
+      - name: show me the libomp
+        run: ls -a -l /opt/homebrew/opt/libomp/lib
 
       - name: Cargo Build
-        run: cargo build --workspace --release --all-targets
+        run: RUSTFLAGS="-L/opt/homebrew/opt/libomp/lib -L/opt/homebrew/opt/llvm/lib -lblas -llapack" LDFLAGS="-L/usr/local/opt/llvm/lib" CPPFLAGS="-I/usr/local/opt/llvm/include" cargo build --workspace --release --all-targets
         env:
           CARGO_INCREMENTAL: 0
 

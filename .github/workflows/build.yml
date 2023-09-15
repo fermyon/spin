@@ -112,7 +112,11 @@ jobs:
       # # - name: show me the libomp
       # #   run: which libomp
       # - name: seriously show me the libomp
-      #   run: tree /opt/homebrew
+      #   run: ls -l -R /usr/local/opt
+      - name: seriously show me the blas I REALLY MEAN THIS
+        run: ls -l -R /usr/local/Cellar/openblas
+      - name: AND LAPACK COME ON
+        run: ls -l -R /usr/local/Cellar/lapack
       # - name: also show me the libomp in a sane way
       #   run: tree /opt/homebrew | grep libomp
 

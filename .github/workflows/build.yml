@@ -101,7 +101,7 @@ jobs:
           brew install openblas lapack
           export CC=/usr/local/opt/llvm/bin/clang
           export CXX=/usr/local/opt/llvm/bin/clang++
-          export LDFLAGS="-L/usr/local/opt/llvm/lib"
+          export LDFLAGS="-L/usr/local/opt/llvm/lib  -L/usr/local/opt/openblas/lib -L/usr/local/opt/llvm/lib"
           export CPPFLAGS="-I/usr/local/opt/llvm/include"
       # - name: where is this homebrew thing
       #   run: echo $HOMEBREW_PREFIX

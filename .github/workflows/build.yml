@@ -101,7 +101,7 @@ jobs:
           brew install openblas lapack
           export CC=/usr/local/opt/llvm/bin/clang
           export CXX=/usr/local/opt/llvm/bin/clang++
-          export LDFLAGS="-L/usr/local/opt/llvm/lib  -L/usr/local/opt/openblas/lib -L/usr/local/opt/llvm/lib"
+          export LDFLAGS="-L/usr/local/opt/libomp/lib  -L/usr/local/opt/lapack/lib -L/usr/local/opt/llvm/lib"
           export CPPFLAGS="-I/usr/local/opt/llvm/include"
       # - name: where is this homebrew thing
       #   run: echo $HOMEBREW_PREFIX
@@ -116,14 +116,14 @@ jobs:
       # - name: seriously show me the blas I REALLY MEAN THIS
       #   run: ls -l -R /usr/local/Cellar/openblas
       - name: AND LAPACK COME ON
-        run: ls -l -R /usr/local/opt/lapack
+        run: ls -lH -R /usr/local/opt/lapack
       # - name: also show me the libomp in a sane way
       #   run: tree /opt/homebrew | grep libomp
 
       - name: Cargo Build
 #        run: RUSTFLAGS="-L/opt/homebrew/opt/libomp/lib -L/opt/homebrew/opt/llvm/lib -lblas -llapack" LDFLAGS="-L/usr/local/opt/llvm/lib" CPPFLAGS="-I/usr/local/opt/llvm/include" cargo build --workspace --release --all-targets
         # lapack dir contains blas
-        run: RUSTFLAGS="-L/usr/local/opt/libomp/lib -L/usr/local/opt/lapack/lib -L/usr/local/opt/llvm/lib -lblas -llapack" LDFLAGS="-L/usr/local/opt/llvm/lib" CPPFLAGS="-I/usr/local/opt/llvm/include" cargo build --workspace --release --all-targets
+        run: RUSTFLAGS="-L/usr/local/opt/libomp/lib -L/usr/local/opt/lapack/lib -L/usr/local/opt/llvm/lib -lblas -llapack" LDFLAGS="-L/usr/local/opt/libomp/lib -L/usr/local/opt/lapack/lib -L/usr/local/opt/llvm/lib" CPPFLAGS="-I/usr/local/opt/llvm/include" cargo build --workspace --release --all-targets
         env:
           CARGO_INCREMENTAL: 0
 

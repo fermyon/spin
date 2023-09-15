@@ -124,7 +124,7 @@ jobs:
 #        run: RUSTFLAGS="-L/opt/homebrew/opt/libomp/lib -L/opt/homebrew/opt/llvm/lib -lblas -llapack" LDFLAGS="-L/usr/local/opt/llvm/lib" CPPFLAGS="-I/usr/local/opt/llvm/include" cargo build --workspace --release --all-targets
         # lapack dir contains blas
         # run: RUSTFLAGS="-L/usr/local/opt/libomp/lib -L/usr/local/opt/lapack/lib -L/usr/local/opt/llvm/lib -lblas -llapack" LDFLAGS="-L/usr/local/opt/libomp/lib -L/usr/local/opt/lapack/lib -L/usr/local/opt/llvm/lib" CPPFLAGS="-I/usr/local/opt/llvm/include" cargo build --workspace --release --all-targets
-        run: RUSTFLAGS="-L/usr/local/opt/libomp/lib -L/usr/local/opt/lapack/lib -L/usr/local/opt/llvm/lib" LDFLAGS="-L/usr/local/opt/libomp/lib -L/usr/local/opt/lapack/lib -L/usr/local/opt/llvm/lib" CPPFLAGS="-I/usr/local/opt/llvm/include" CC=/usr/local/opt/llvm/bin/clang CXX=/usr/local/opt/llvm/bin/clang++ cargo build --workspace --release --all-targets
+        run: RUSTFLAGS="-L/usr/local/opt/libomp/lib -L/usr/local/opt/lapack/lib -L/usr/local/opt/llvm/lib -lblas -llapack" LDFLAGS="-L/usr/local/opt/libomp/lib -L/usr/local/opt/lapack/lib -L/usr/local/opt/llvm/lib" CPPFLAGS="-I/usr/local/opt/llvm/include" CC=/usr/local/opt/llvm/bin/clang CXX=/usr/local/opt/llvm/bin/clang++ cargo build --workspace --release --all-targets
         env:
           CARGO_INCREMENTAL: 0
 

@@ -7,6 +7,9 @@ edition = { workspace = true }
 [dependencies]
 async-trait = "0.1.68"
 anyhow = "1.0"
+# We don't actually use rusqlite itself, but we'd like the same bundled
+# libsqlite3-sys as used by spin-sqlite-inproc.
+rusqlite = { version = "0.29.0", features = [ "bundled" ] }
 spin-sqlite = { path = "../sqlite" }
 spin-world = { path = "../world" }
 sqlparser = "0.34"

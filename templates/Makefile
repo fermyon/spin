@@ -16,7 +16,7 @@ bump-go-versions:
 bump-rust-versions:
 	@for dir in $$(ls -d *-rust) ; do \
 		cd $$dir/content ; \
-		sed -r -i.sed-bak -e 's%"https://github.com/fermyon/spin", tag = "[a-zA-Z0-9.]+"%"https://github.com/fermyon/spin", tag = "${SDK_VERSION}"%g' Cargo.toml ; \
+		sed -r -i.sed-bak -e 's%"https://github.com/fermyon/spin", ((tag = "[a-zA-Z0-9.]+")|(branch = "main"))%"https://github.com/fermyon/spin", tag = "${SDK_VERSION}"%g' Cargo.toml ; \
 		rm *.sed-bak ; \
 		cd - 2>&1 >/dev/null ; \
 	done

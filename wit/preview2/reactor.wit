@@ -36,3 +36,15 @@ world http-trigger {
   import llm
   export inbound-http
 }
+
+world platform {
+  import http-types
+  import config
+  import postgres
+  import mysql
+  import sqlite
+  import redis
+  import key-value
+  import http
+  import llm
+}

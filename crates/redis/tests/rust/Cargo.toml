@@ -1,13 +1,13 @@
 [package]
-name    = "rust"
+name = "rust"
 version = "0.1.0"
 edition = "2021"
-authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
+authors = ["Radu Matei <radu.matei@fermyon.com>"]
 
 [lib]
-crate-type = [ "cdylib" ]
+crate-type = ["cdylib"]
 
 [dependencies]
-wit-bindgen = "0.8"
+wit-bindgen = "0.12"
 
 [workspace]

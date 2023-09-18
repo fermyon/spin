@@ -1,0 +1,6 @@
+package fermyon:spin
+
+world exports {
+  export inbound-http
+  export inbound-redis
+}

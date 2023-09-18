@@ -5,9 +5,10 @@ date = "2022-05-20T13:22:30Z"
 
 Summary: A new design for Application Manifests (`spin.toml`)
 
-Owner: lann.martin@fermyon.com
+Owner: <lann.martin@fermyon.com>
 
 Created: May 20, 2022
+Updated: Sep 11, 2023
 
 ## Background
 
@@ -16,14 +17,15 @@ components, and trigger configurations. The current design supports a single tri
 component and trigger configuration with an implicit one-to-one relationship:
 
 ```toml
+spin_manifest_version = "1"
 name = "hello-world"
 trigger = { type = "http", base = "/hello" }
 
 [[component]]
-id = "world"
+id = "hello"
 # ...
 [component.trigger]
-route = "/world"
+route = "/hello"
 ```
 
 In order to support future features, we would like to enable more flexible trigger configurations:
@@ -36,6 +38,18 @@ In order to support future features, we would like to enable more flexible trigg
   - an HTTP trigger with middleware components
 
 ## Proposal
+
+### Manifest version
+
+Since this proposal represents a backward-incompatible change to the manifest format, the manifest
+version changes.
+
+> Note that this also changes the version from a string to an int, which is a minor/optional
+> change for this proposal.
+
+```toml
+spin_manifest_version = 2
+```
 
 ### Global trigger config
 
@@ -53,6 +67,16 @@ base = "/hello"
 > In the short term we can continue to enforce the use of exactly one trigger type in an
 > application as a manifest validation step.
 
+### Component config
+
+Component IDs will become more important under this design, which we can emphasize
+by moving the ID into the section header (aka TOML table key):
+
+```toml
+[component.hello-world]
+# instead of id = "hello-world"
+```
+
 ### Trigger config
 
 In order to decouple triggers and components, we move triggers to new top-level
@@ -60,32 +84,48 @@ In order to decouple triggers and components, we move triggers to new top-level
 
 ```toml
 [[trigger.http]]
-route = "/world"
-component = "world"
-
-[[component]]
-id = "world"
+route = "/hello"
+handler = "hello"
+[component.hello]
 # ...
 ```
 
-### Manifest version
+### Component inline config
 
-Since this proposal represents a backward-incompatible change to the manifest format, the manifest
-version changes. The existing `spin_version = "1"` field name leaves some room for misinterpretation
-as "compatible with Spin project version 1". As an optional part of this proposal, change that name:
+In addition to being defined in their own top-level sections and referenced by ID,
+component configs may be inlined; allowing this:
 
 ```toml
-spin_manifest_version = "2"
+[[trigger.http]]
+route = "/hello"
+handler = { source = "hello.wasm" }
 ```
+
+which would be equivalent to:
+
+```toml
+[[trigger.http]]
+route = "/hello"
+handler = "<generated-id>"
+[component.<generated-id>]
+source = "hello.wasm"
+```
+
+### Rename `config`
+
+The Spin `config` feature is easily confused with Spin "Runtime Config". We can adopt
+the `variables` terminology which is already used by the top-level `[variables]` section
+and rename `[component.config]` to `[component.variables]`.
 
 ## Backward compatibility
 
-Existing "version 1" manifests can be transformed into this "version 2" data structure losslessly:
+Existing "version 1" manifests can be transformed into this "version 2" format losslessly:
 
 ```toml
 trigger = { type = "http", base = "/" }
 [[component]]
 id = "hello"
+source = "hello.wasm"
 [component.trigger]
 route = "/hello"
 ```
@@ -97,30 +137,17 @@ is equivalent to:
 base = "/"
 [[trigger.http]]
 route = "/hello"
-component = "hello"
-[[component]]
-id = "hello"
+handler = "hello"
+[component.hello]
+source = "hello.wasm"
 ```
+
+This upgrade could be performed automatically by `spin doctor`.
 
 ## Design options
 
-### Don't update the manifest version
+### Remove http `base`
 
-Instead of updating the manifest version we could not do that. It would be nice to include
-error message guidance and/or a `spin doctor` tool to upgrade the manifest format. This
-would be easy to detect if we switch the `spin_version` key.
-
-### Trigger IDs
-
-We might want to be able to reference individual triggers, for example to implement a
-`spin up --trigger=world`. It would save some compatibility headache if we require IDs now:
-
-```toml
-[[trigger.http]]
-id = "world"
-```
-
-Mandatory IDs would require a translation from the current "v1" manifest, which could either
-simply copy the component ID (if we're fine with component and trigger IDs being separate
-namespaces), or e.g. add a suffix to the component ID (`world` -> `world-trigger`), which
-could technically cause conflicts but doesn't seem likely in practice.
+This trigger option is rarely used and has caused implementation headaches.
+For any (rare) existing applications that do use it, the `spin doctor` upgrade
+path could inline the `base` into the trigger `route`(s).

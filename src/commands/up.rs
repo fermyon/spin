@@ -85,6 +85,12 @@ pub struct UpCommand {
     #[clap(long, takes_value = false)]
     pub direct_mounts: bool,
 
+    /// For local apps, specifies to perform `spin build` before running the application.
+    ///
+    /// This is ignored on remote applications, as they are already built.
+    #[clap(long, takes_value = false, env = "SPIN_ALWAYS_BUILD")]
+    pub build: bool,
+
     /// All other args, to be passed through to the trigger
     #[clap(hide = true)]
     pub trigger_args: Vec<OsString>,
@@ -123,6 +129,10 @@ impl UpCommand {
             } else {
                 bail!("Default file '{DEFAULT_MANIFEST_FILE}' not found. Run `spin up --from <APPLICATION>`, or `spin up --help` for usage.");
             }
+        }
+
+        if self.build {
+            app_source.build().await?;
         }
 
         // Get working dir holder and hold on to it for the rest of the function.
@@ -437,6 +447,13 @@ impl AppSource {
                 None
             }),
             _ => None,
+        }
+    }
+
+    async fn build(&self) -> anyhow::Result<()> {
+        match self {
+            Self::File(path) => spin_build::build(path, &[]).await,
+            _ => Ok(()),
         }
     }
 }

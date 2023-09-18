@@ -1,13 +1,13 @@
 [package]
-name    = "spin-http-benchmark"
+name = "spin-http-benchmark"
 version = "0.2.0"
 edition = "2021"
 
 [lib]
-crate-type = [ "cdylib" ]
+crate-type = ["cdylib"]
 
 [dependencies]
-wit-bindgen = "0.8"
+wit-bindgen = "0.12"
 url = "2.4.1"
 
 [workspace]

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use spin_app::MetadataKey;
-use spin_core::async_trait;
+use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_world::key_value;
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
@@ -69,13 +69,17 @@ impl Default for KeyValueDispatch {
 }
 
 #[async_trait]
-impl key_value::Host for KeyValueDispatch {
-    async fn open(&mut self, name: String) -> Result<Result<StoreHandle, Error>> {
+impl key_value::Host for KeyValueDispatch {}
+#[async_trait]
+impl key_value::HostStore for KeyValueDispatch {
+    async fn open(&mut self, name: String) -> Result<Result<Resource<key_value::Store>, Error>> {
         Ok(async {
             if self.allowed_stores.contains(&name) {
-                self.stores
+                let store = self
+                    .stores
                     .push(self.manager.get(&name).await?)
-                    .map_err(|()| Error::StoreTableFull)
+                    .map_err(|()| Error::StoreTableFull)?;
+                Ok(Resource::new_own(store))
             } else {
                 Err(Error::AccessDenied)
             }
@@ -83,10 +87,14 @@ impl key_value::Host for KeyValueDispatch {
         .await)
     }
 
-    async fn get(&mut self, store: StoreHandle, key: String) -> Result<Result<Vec<u8>, Error>> {
+    async fn get(
+        &mut self,
+        store: Resource<key_value::Store>,
+        key: String,
+    ) -> Result<Result<Vec<u8>, Error>> {
         Ok(async {
             self.stores
-                .get(store)
+                .get(store.rep())
                 .ok_or(Error::InvalidStore)?
                 .get(&key)
                 .await
@@ -96,13 +104,13 @@ impl key_value::Host for KeyValueDispatch {
 
     async fn set(
         &mut self,
-        store: StoreHandle,
+        store: Resource<key_value::Store>,
         key: String,
         value: Vec<u8>,
     ) -> Result<Result<(), Error>> {
         Ok(async {
             self.stores
-                .get(store)
+                .get(store.rep())
                 .ok_or(Error::InvalidStore)?
                 .set(&key, &value)
                 .await
@@ -110,10 +118,14 @@ impl key_value::Host for KeyValueDispatch {
         .await)
     }
 
-    async fn delete(&mut self, store: StoreHandle, key: String) -> Result<Result<(), Error>> {
+    async fn delete(
+        &mut self,
+        store: Resource<key_value::Store>,
+        key: String,
+    ) -> Result<Result<(), Error>> {
         Ok(async {
             self.stores
-                .get(store)
+                .get(store.rep())
                 .ok_or(Error::InvalidStore)?
                 .delete(&key)
                 .await
@@ -121,10 +133,14 @@ impl key_value::Host for KeyValueDispatch {
         .await)
     }
 
-    async fn exists(&mut self, store: StoreHandle, key: String) -> Result<Result<bool, Error>> {
+    async fn exists(
+        &mut self,
+        store: Resource<key_value::Store>,
+        key: String,
+    ) -> Result<Result<bool, Error>> {
         Ok(async {
             self.stores
-                .get(store)
+                .get(store.rep())
                 .ok_or(Error::InvalidStore)?
                 .exists(&key)
                 .await
@@ -132,10 +148,13 @@ impl key_value::Host for KeyValueDispatch {
         .await)
     }
 
-    async fn get_keys(&mut self, store: StoreHandle) -> Result<Result<Vec<String>, Error>> {
+    async fn get_keys(
+        &mut self,
+        store: Resource<key_value::Store>,
+    ) -> Result<Result<Vec<String>, Error>> {
         Ok(async {
             self.stores
-                .get(store)
+                .get(store.rep())
                 .ok_or(Error::InvalidStore)?
                 .get_keys()
                 .await
@@ -143,8 +162,8 @@ impl key_value::Host for KeyValueDispatch {
         .await)
     }
 
-    async fn close(&mut self, store: StoreHandle) -> Result<()> {
-        self.stores.remove(store);
+    fn drop(&mut self, store: Resource<key_value::Store>) -> Result<()> {
+        self.stores.remove(store.rep());
         Ok(())
     }
 }

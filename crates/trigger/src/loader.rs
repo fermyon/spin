@@ -56,6 +56,7 @@ impl Loader for TriggerLoader {
             )
         })?;
         let component = spin_componentize::componentize_if_necessary(&bytes)?;
+        std::fs::write("COMPONENT.wasm", &component).unwrap();
         let was_already_component = matches!(component, std::borrow::Cow::Borrowed(_));
         if was_already_component {
             terminal::warn!(

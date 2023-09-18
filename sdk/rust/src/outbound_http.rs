@@ -2,9 +2,7 @@ use http_types::{header::HeaderName, HeaderValue};
 
 use super::http::{Request, Response};
 
-use super::wit::fermyon::spin::http::{
-    self as spin_http, Request as OutboundRequest, Response as OutboundResponse,
-};
+use super::wit::fermyon::spin::http::{self as spin_http};
 use super::wit::fermyon::spin::http_types as spin_http_types;
 
 /// Error type returned by [`send_request`][crate::outbound_http::send_request]
@@ -30,7 +28,7 @@ pub fn send_request(req: Request) -> Result<Response> {
 
     let body = body.as_ref().map(|bytes| bytes.as_ref());
 
-    let out_req = OutboundRequest {
+    let out_req = spin_http_types::RequestParam {
         method,
         uri: &uri,
         params: &params,
@@ -38,7 +36,7 @@ pub fn send_request(req: Request) -> Result<Response> {
         body,
     };
 
-    let OutboundResponse {
+    let spin_http_types::Response {
         status,
         headers,
         body,

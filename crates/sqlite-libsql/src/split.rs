@@ -94,6 +94,13 @@ mod tests {
             ("SELECT 1;", &["SELECT 1;"]),
             ("SELECT 1;SELECT 2", &["SELECT 1;", "SELECT 2"]),
             ("SELECT 1;SELECT 2", &["SELECT 1;", "SELECT 2"]),
+            (
+                "CREATE TABLE fiteme23 (num INT);\nINSERT INTO fiteme23(num) VALUES(55);",
+                &[
+                    "CREATE TABLE fiteme23 (num INT);",
+                    "\nINSERT INTO fiteme23(num) VALUES(55);",
+                ],
+            ),
         ] {
             let stmts = split_sql(input)
                 .collect::<Result<Vec<_>, Error>>()
@@ -118,6 +125,8 @@ mod tests {
             "/* leading comment */ SELECT 1",
             "  -- Just a comment",
             "/* comment one */ -- comment two",
+            "CREATE virtual TABLE vss_blog_posts3 USING vss0(embedding(384))",
+            "CREATE TRIGGER update_customer_address UPDATE OF address ON customers \n                BEGIN\n                  UPDATE orders SET address = new.address WHERE customer_name = old.name;\n                END;",
         ] {
             let (stmt, tail) = split_sql_once(input)
                 .unwrap_or_else(|err| panic!("Failed to split {input:?}: {err}"));

@@ -1,3 +1,5 @@
+mod split;
+
 use spin_world::sqlite::{self, RowResult};
 
 #[derive(Clone)]
@@ -43,13 +45,11 @@ impl spin_sqlite::Connection for LibsqlClient {
 
         // Unfortunately, the libsql library requires that the statements are already split
         // into individual statement strings which requires us to parse the supplied SQL string.
-        let stmts = sqlparser::parser::Parser::parse_sql(
-            &sqlparser::dialect::SQLiteDialect {},
-            statements,
-        )?
-        .into_iter()
-        .map(|st| st.to_string())
-        .map(libsql_client::Statement::from);
+        let stmts = split::split_sql(statements)
+            .map(|res| Ok(res?.to_string()))
+            .collect::<anyhow::Result<Vec<_>>>()?
+            .into_iter()
+            .map(libsql_client::Statement::from);
 
         let _ = client.batch(stmts).await?;
 

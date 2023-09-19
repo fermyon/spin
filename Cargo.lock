@@ -6027,6 +6027,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "libsql-client",
+ "rusqlite",
  "spin-sqlite",
  "spin-world",
  "sqlparser",

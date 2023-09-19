@@ -18,6 +18,8 @@ bindle = { workspace = true }
 bytes = "1.1"
 chrono = "0.4"
 clap = { version = "3.2.24", features = ["derive", "env"] }
+clearscreen = "2.0.1"
+command-group = "2.1"
 comfy-table = "5.0"
 ctrlc = { version = "3.2", features = ["termination"] }
 dialoguer = "0.10"
@@ -29,6 +31,7 @@ hippo-openapi = "0.10"
 hippo = { git = "https://github.com/deislabs/hippo-cli", tag = "v0.16.1" }
 indicatif = "0.17.3"
 is-terminal = "0.4"
+itertools = "0.11.0"
 lazy_static = "1.4.0"
 levenshtein = "1.0.5"
 nix = { version = "0.24", features = ["signal"] }
@@ -70,6 +73,7 @@ url = "2.2.2"
 uuid = { version = "^1.0", features = ["v4"] }
 wasmtime = { workspace = true }
 watchexec = { git = "https://github.com/watchexec/watchexec.git", rev = "8e91d26ef6400c1e60b32a8314cbb144fa33f288" }
+watchexec-filterer-globset = { git = "https://github.com/watchexec/watchexec.git", rev = "8e91d26ef6400c1e60b32a8314cbb144fa33f288" }
 subprocess = "0.2.9"
 
 [target.'cfg(target_os = "linux")'.dependencies]

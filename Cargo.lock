@@ -1749,9 +1749,9 @@ checksum = "03d8c417d7a8cb362e0c37e5d815f5eb7c37f79ff93707329d5a194e42e54ca0"
 
 [[package]]
 name = "dunce"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bd4b30a6560bbd9b4620f4de34c3f14f60848e58a9b7216801afcb4c7b31c3c"
+checksum = "56ce8c6da7551ec6c462cbaf3bfbc75131ebbfa1c944aeaa9dab51ca1c5f0c3b"
 
 [[package]]
 name = "dyn-clone"
@@ -1953,14 +1953,14 @@ dependencies = [
 
 [[package]]
 name = "filetime"
-version = "0.2.20"
+version = "0.2.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a3de6e8d11b22ff9edc6d916f890800597d60f8b2da1caf2955c274638d6412"
+checksum = "d4029edd3e734da6fe05b6cd7bd2960760a616bd2ddd0d59a0124746d6272af0"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall 0.2.16",
- "windows-sys 0.45.0",
+ "redox_syscall 0.3.5",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -5617,7 +5617,9 @@ dependencies = [
  "cargo-target-dep",
  "chrono",
  "clap 3.2.24",
+ "clearscreen",
  "comfy-table",
+ "command-group",
  "ctrlc",
  "dialoguer 0.10.3",
  "dirs 4.0.0",
@@ -5630,6 +5632,7 @@ dependencies = [
  "hyper",
  "indicatif 0.17.6",
  "is-terminal",
+ "itertools 0.11.0",
  "lazy_static",
  "levenshtein",
  "nix 0.24.3",
@@ -5674,6 +5677,7 @@ dependencies = [
  "vergen",
  "wasmtime",
  "watchexec",
+ "watchexec-filterer-globset",
  "which",
 ]
 
@@ -7607,6 +7611,30 @@ source = "git+https://github.com/watchexec/watchexec.git?rev=8e91d26ef6400c1e60b
 dependencies = [
  "nix 0.26.2",
  "notify",
+ "watchexec-signals",
+]
+
+[[package]]
+name = "watchexec-filterer-globset"
+version = "1.2.0"
+source = "git+https://github.com/watchexec/watchexec.git?rev=8e91d26ef6400c1e60b32a8314cbb144fa33f288#8e91d26ef6400c1e60b32a8314cbb144fa33f288"
+dependencies = [
+ "ignore",
+ "ignore-files",
+ "tracing",
+ "watchexec",
+ "watchexec-filterer-ignore",
+]
+
+[[package]]
+name = "watchexec-filterer-ignore"
+version = "1.2.0"
+source = "git+https://github.com/watchexec/watchexec.git?rev=8e91d26ef6400c1e60b32a8314cbb144fa33f288#8e91d26ef6400c1e60b32a8314cbb144fa33f288"
+dependencies = [
+ "ignore",
+ "ignore-files",
+ "tracing",
+ "watchexec",
  "watchexec-signals",
 ]
 

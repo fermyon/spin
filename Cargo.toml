@@ -4,7 +4,7 @@ version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
 license = "Apache-2.0 WITH LLVM-exception"
-rust-version = "1.67"
+rust-version = "1.71"
 
 [workspace.package]
 version = "1.6.0-pre0"

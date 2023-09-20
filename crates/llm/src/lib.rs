@@ -29,11 +29,21 @@ pub struct LLmOptions {
 }
 
 pub struct LlmComponent {
-    engine: LlmEngine,
+    create_engine: Box<dyn Fn() -> Box<dyn LlmEngine> + Send+ Sync>
 }
 
+impl LlmComponent {
+    pub fn new<F>(create_engine: F) -> Self where F: Fn() -> Box<dyn LlmEngine> + Send + Sync + 'static{
+        Self {
+            create_engine: Box::new(create_engine)
+        }
+
+    }
+}
+
+
 impl HostComponent for LlmComponent {
-    type Data = LlmEngine;
+    type Data = LlmDispatch;
 
     fn add_to_linker<T: Send>(
         linker: &mut spin_core::Linker<T>,
@@ -43,7 +53,7 @@ impl HostComponent for LlmComponent {
     }
 
     fn build_data(&self) -> Self::Data {
-        self.engine.clone()
+        LlmDispatch((self.create_engine)())
     }
 }
 
@@ -53,33 +63,15 @@ impl DynamicHostComponent for LlmComponent {
         data: &mut Self::Data,
         component: &spin_app::AppComponent,
     ) -> anyhow::Result<()> {
-        data.allowed_models = component.get_metadata(AI_MODELS_KEY)?.unwrap_or_default();
+        data.0.add_allowed_models(component.get_metadata(AI_MODELS_KEY)?.unwrap_or_default());
         Ok(())
-    }
-}
-
-impl LlmComponent {
-    pub async fn new(registry: PathBuf, use_gpu: bool) -> Self {
-        let mut component = Self {
-            engine: LlmEngine::new(registry, use_gpu),
-        };
-        // warm caches
-        let _ = component
-            .engine
-            .inferencing_model("llama2-chat".into())
-            .await;
-        let _ = component
-            .engine
-            .embeddings_model(MODEL_ALL_MINILM_L6_V2.into())
-            .await;
-        component
     }
 }
 
 const MODEL_ALL_MINILM_L6_V2: &str = "all-minilm-l6-v2";
 
 #[derive(Clone)]
-pub struct LlmEngine {
+pub struct LocalLlmEngine {
     registry: PathBuf,
     use_gpu: bool,
     allowed_models: HashSet<String>,
@@ -87,18 +79,31 @@ pub struct LlmEngine {
     embeddings_models: HashMap<String, Arc<(tokenizers::Tokenizer, BertModel)>>,
 }
 
-impl LlmEngine {
-    pub fn new(registry: PathBuf, use_gpu: bool) -> Self {
-        Self {
-            registry,
-            use_gpu,
-            allowed_models: Default::default(),
-            inferencing_models: Default::default(),
-            embeddings_models: Default::default(),
-        }
-    }
+#[async_trait]
+pub trait LlmEngine: Send + Sync {
+    fn add_allowed_models(&mut self, models: HashSet<String>);
+    async fn infer(
+        &mut self,
+        model: wasi_llm::InferencingModel,
+        prompt: String,
+        params: wasi_llm::InferencingParams,
+    ) -> Result<wasi_llm::InferencingResult, wasi_llm::Error>;
 
-    async fn run(
+    async fn generate_embeddings(
+        &mut self,
+        model: wasi_llm::EmbeddingModel,
+        data: Vec<String>,
+    ) -> Result<wasi_llm::EmbeddingsResult, wasi_llm::Error>;
+
+    async fn init(&mut self);
+}
+
+#[async_trait]
+impl LlmEngine for LocalLlmEngine {
+    fn add_allowed_models(&mut self, models: HashSet<String>) {
+        self.allowed_models = models;
+    }
+    async fn infer(
         &mut self,
         model: wasi_llm::InferencingModel,
         prompt: String,
@@ -172,6 +177,27 @@ impl LlmEngine {
         generate_embeddings(data, model).await.map_err(|e| {
             wasi_llm::Error::RuntimeError(format!("Error occurred generating embeddings: {e}"))
         })
+    }
+
+    async fn init(&mut self) {
+        let _ = self
+            .inferencing_model("llama2-chat".into())
+            .await;
+        let _ = self
+            .embeddings_model(MODEL_ALL_MINILM_L6_V2.into())
+            .await;
+    }
+}
+
+impl LocalLlmEngine {
+    pub fn new(registry: PathBuf, use_gpu: bool) -> Self {
+        Self {
+            registry,
+            use_gpu,
+            allowed_models: Default::default(),
+            inferencing_models: Default::default(),
+            embeddings_models: Default::default(),
+        }
     }
 
     /// Get embeddings model from cache or load from disk
@@ -371,16 +397,18 @@ fn load_model(model_file: &Path) -> anyhow::Result<BertModel> {
     Ok(model)
 }
 
+pub struct LlmDispatch(Box<dyn LlmEngine>);
+
 #[async_trait]
-impl wasi_llm::Host for LlmEngine {
+impl wasi_llm::Host for LlmDispatch {
     async fn infer(
         &mut self,
         model: wasi_llm::InferencingModel,
         prompt: String,
         params: Option<wasi_llm::InferencingParams>,
     ) -> anyhow::Result<Result<wasi_llm::InferencingResult, wasi_llm::Error>> {
-        Ok(self
-            .run(
+        Ok(self.0
+            .infer(
                 model,
                 prompt,
                 params.unwrap_or(wasi_llm::InferencingParams {
@@ -400,7 +428,7 @@ impl wasi_llm::Host for LlmEngine {
         m: wasi_llm::EmbeddingModel,
         data: Vec<String>,
     ) -> anyhow::Result<Result<wasi_llm::EmbeddingsResult, wasi_llm::Error>> {
-        Ok(self.generate_embeddings(m, data).await)
+        Ok(self.0.generate_embeddings(m, data).await)
     }
 }
 

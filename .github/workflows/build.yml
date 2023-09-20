@@ -158,6 +158,7 @@ jobs:
   e2e-tests:
     # run on a larger runner for more SSD/resource access
     runs-on: ubuntu-22.04-4core-spin
+    if: ${{ github.repository_owner == 'fermyon' }}
     needs: build-rust-ubuntu
     steps:
       - uses: actions/checkout@v3

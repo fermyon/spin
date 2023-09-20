@@ -10,7 +10,7 @@ use llm::{
 };
 use rand::SeedableRng;
 use spin_core::async_trait;
-use spin_llm::{model_arch, model_name, MODEL_ALL_MINILM_L6_V2, LlmEngine};
+use spin_llm::{model_arch, model_name, LlmEngine, MODEL_ALL_MINILM_L6_V2};
 use spin_world::llm::{self as wasi_llm};
 use std::{
     collections::HashMap,

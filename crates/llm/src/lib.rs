@@ -1,10 +1,10 @@
 pub mod host_component;
 
-use std::collections::HashSet;
 use llm::ModelArchitecture;
 use spin_app::MetadataKey;
 use spin_core::async_trait;
 use spin_world::llm::{self as wasi_llm};
+use std::collections::HashSet;
 
 pub use crate::host_component::LlmComponent;
 
@@ -38,7 +38,8 @@ impl wasi_llm::Host for LlmDispatch {
         prompt: String,
         params: Option<wasi_llm::InferencingParams>,
     ) -> anyhow::Result<Result<wasi_llm::InferencingResult, wasi_llm::Error>> {
-        Ok(self.0
+        Ok(self
+            .0
             .infer(
                 model,
                 prompt,
@@ -70,7 +71,9 @@ pub fn model_name(model: &wasi_llm::InferencingModel) -> Result<&str, wasi_llm::
     }
 }
 
-pub fn model_arch(model: &wasi_llm::InferencingModel) -> Result<ModelArchitecture, wasi_llm::Error> {
+pub fn model_arch(
+    model: &wasi_llm::InferencingModel,
+) -> Result<ModelArchitecture, wasi_llm::Error> {
     match model.as_str() {
         "llama2-chat" | "codellama-instruct" => Ok(ModelArchitecture::Llama),
         _ => Err(wasi_llm::Error::ModelNotSupported),

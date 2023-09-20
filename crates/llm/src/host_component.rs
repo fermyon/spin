@@ -3,7 +3,6 @@ use spin_core::HostComponent;
 
 use crate::{LlmDispatch, LlmEngine, AI_MODELS_KEY};
 
-
 pub struct LlmComponent {
     create_engine: Box<dyn Fn() -> Box<dyn LlmEngine> + Send + Sync>,
 }

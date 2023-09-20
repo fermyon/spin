@@ -5864,6 +5864,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-llm-remote-http"
+version = "1.6.0-pre0"
+dependencies = [
+ "anyhow",
+ "http",
+ "llm",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "spin-core",
+ "spin-llm",
+ "spin-world",
+]
+
+[[package]]
 name = "spin-loader"
 version = "1.6.0-pre0"
 dependencies = [
@@ -6128,6 +6143,7 @@ dependencies = [
  "spin-key-value-sqlite",
  "spin-llm",
  "spin-llm-local",
+ "spin-llm-remote-http",
  "spin-loader",
  "spin-manifest",
  "spin-sqlite",

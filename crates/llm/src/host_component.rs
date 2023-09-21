@@ -40,7 +40,7 @@ impl DynamicHostComponent for LlmComponent {
         component: &spin_app::AppComponent,
     ) -> anyhow::Result<()> {
         data.0
-            .add_allowed_models(component.get_metadata(AI_MODELS_KEY)?.unwrap_or_default());
+            .set_allowed_models(component.get_metadata(AI_MODELS_KEY)?.unwrap_or_default());
         Ok(())
     }
 }

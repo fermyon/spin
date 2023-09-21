@@ -179,7 +179,7 @@ jobs:
           tag: ${{ github.ref }}
 
       - name: Configure AWS Credentials
-        if: runner.os == 'linux' && matrix.config.arch == 'amd64'
+        if: runner.os == 'linux' && matrix.config.arch == 'amd64' && ${{ github.repository_owner == 'fermyon' }}
         uses: aws-actions/configure-aws-credentials@v1
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.SPIN_RELEASE_ARTIFACTS_REPO }}
@@ -187,7 +187,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Copy Binary to S3 - ${{ env.RELEASE_VERSION }}
-        if: runner.os == 'linux' && matrix.config.arch == 'amd64'
+        if: runner.os == 'linux' && matrix.config.arch == 'amd64' && ${{ github.repository_owner == 'fermyon' }}
         run: |
           aws s3 cp _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz s3://${{ secrets.SPIN_RELEASE_ARTIFACTS_REPO }}/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz --acl public-read
 

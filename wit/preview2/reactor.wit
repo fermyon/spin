@@ -21,6 +21,7 @@ world redis-trigger {
   import redis
   import key-value
   import http
+  import llm
   export inbound-redis
 }
 
@@ -32,5 +33,6 @@ world http-trigger {
   import redis
   import key-value
   import http
+  import llm
   export inbound-http
 }

@@ -6,16 +6,14 @@ use reqwest::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use spin_core::async_trait;
-use spin_llm::{access_denied_error, LlmEngine};
-use spin_world::llm::{self as wasi_llm, InferencingParams};
-use std::collections::HashSet;
+use spin_llm::LlmEngine;
+use spin_world::llm::{self as wasi_llm};
 
 #[derive(Clone)]
 pub struct RemoteHttpLlmEngine {
     auth_token: String,
     url: Url,
     client: Option<Client>,
-    allowed_models: HashSet<String>,
 }
 
 #[derive(Serialize)]
@@ -35,6 +33,7 @@ struct InferUsage {
     prompt_token_count: u32,
     generated_token_count: u32,
 }
+
 #[derive(Deserialize)]
 struct InferResponseBody {
     text: String,
@@ -55,19 +54,12 @@ struct EmbeddingResponseBody {
 
 #[async_trait]
 impl LlmEngine for RemoteHttpLlmEngine {
-    fn set_allowed_models(&mut self, models: HashSet<String>) {
-        self.allowed_models = models;
-    }
-
     async fn infer(
         &mut self,
         model: wasi_llm::InferencingModel,
         prompt: String,
-        params: InferencingParams,
+        params: wasi_llm::InferencingParams,
     ) -> Result<wasi_llm::InferencingResult, wasi_llm::Error> {
-        if !self.allowed_models.contains(&model) {
-            return Err(access_denied_error(&model));
-        }
         let client = self.client.get_or_insert_with(Default::default);
 
         let mut headers = HeaderMap::new();
@@ -102,22 +94,22 @@ impl LlmEngine for RemoteHttpLlmEngine {
             .headers(headers)
             .body(body)
             .send()
-            .await;
+            .await
+            .map_err(|err| {
+                wasi_llm::Error::RuntimeError(format!("POST /infer request error: {err}"))
+            })?;
 
-        match resp {
-            Ok(resp) => match resp.json::<InferResponseBody>().await {
-                Ok(val) => Ok(wasi_llm::InferencingResult {
-                    text: val.text,
-                    usage: wasi_llm::InferencingUsage {
-                        prompt_token_count: val.usage.prompt_token_count,
-                        generated_token_count: val.usage.generated_token_count,
-                    },
-                }),
-                Err(err) => Err(wasi_llm::Error::RuntimeError(format!(
-                    "Failed to deserialize response: {err}"
-                ))),
-            },
-            Err(err) => Err(wasi_llm::Error::RuntimeError(err.to_string())),
+        match resp.json::<InferResponseBody>().await {
+            Ok(val) => Ok(wasi_llm::InferencingResult {
+                text: val.text,
+                usage: wasi_llm::InferencingUsage {
+                    prompt_token_count: val.usage.prompt_token_count,
+                    generated_token_count: val.usage.generated_token_count,
+                },
+            }),
+            Err(err) => Err(wasi_llm::Error::RuntimeError(format!(
+                "Failed to deserialize response for \"POST  /index\": {err}"
+            ))),
         }
     }
 
@@ -126,9 +118,6 @@ impl LlmEngine for RemoteHttpLlmEngine {
         model: wasi_llm::EmbeddingModel,
         data: Vec<String>,
     ) -> Result<wasi_llm::EmbeddingsResult, wasi_llm::Error> {
-        if !self.allowed_models.contains(&model) {
-            return Err(access_denied_error(&model));
-        }
         let client = self.client.get_or_insert_with(Default::default);
 
         let mut headers = HeaderMap::new();
@@ -155,21 +144,21 @@ impl LlmEngine for RemoteHttpLlmEngine {
             .headers(headers)
             .body(body)
             .send()
-            .await;
+            .await
+            .map_err(|err| {
+                wasi_llm::Error::RuntimeError(format!("POST /embed request error: {err}"))
+            })?;
 
-        match resp {
-            Ok(resp) => match resp.json::<EmbeddingResponseBody>().await {
-                Ok(val) => Ok(wasi_llm::EmbeddingsResult {
-                    embeddings: val.embeddings,
-                    usage: wasi_llm::EmbeddingsUsage {
-                        prompt_token_count: val.usage.prompt_token_count,
-                    },
-                }),
-                Err(err) => Err(wasi_llm::Error::RuntimeError(format!(
-                    "Failed to deserialize response: {err}"
-                ))),
-            },
-            Err(err) => Err(wasi_llm::Error::RuntimeError(err.to_string())),
+        match resp.json::<EmbeddingResponseBody>().await {
+            Ok(val) => Ok(wasi_llm::EmbeddingsResult {
+                embeddings: val.embeddings,
+                usage: wasi_llm::EmbeddingsUsage {
+                    prompt_token_count: val.usage.prompt_token_count,
+                },
+            }),
+            Err(err) => Err(wasi_llm::Error::RuntimeError(format!(
+                "Failed to deserialize response  for \"POST  /embed\": {err}"
+            ))),
         }
     }
 }
@@ -179,7 +168,6 @@ impl RemoteHttpLlmEngine {
         RemoteHttpLlmEngine {
             url,
             auth_token,
-            allowed_models: Default::default(),
             client: None,
         }
     }

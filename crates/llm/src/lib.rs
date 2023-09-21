@@ -13,7 +13,6 @@ pub const AI_MODELS_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("ai_mod
 
 #[async_trait]
 pub trait LlmEngine: Send + Sync {
-    fn set_allowed_models(&mut self, models: HashSet<String>);
     async fn infer(
         &mut self,
         model: wasi_llm::InferencingModel,
@@ -28,7 +27,10 @@ pub trait LlmEngine: Send + Sync {
     ) -> Result<wasi_llm::EmbeddingsResult, wasi_llm::Error>;
 }
 
-pub struct LlmDispatch(Box<dyn LlmEngine>);
+pub struct LlmDispatch {
+    engine: Box<dyn LlmEngine>,
+    allowed_models: HashSet<String>,
+}
 
 #[async_trait]
 impl wasi_llm::Host for LlmDispatch {
@@ -38,8 +40,11 @@ impl wasi_llm::Host for LlmDispatch {
         prompt: String,
         params: Option<wasi_llm::InferencingParams>,
     ) -> anyhow::Result<Result<wasi_llm::InferencingResult, wasi_llm::Error>> {
+        if !self.allowed_models.contains(&model) {
+            return Ok(Err(access_denied_error(&model)));
+        }
         Ok(self
-            .0
+            .engine
             .infer(
                 model,
                 prompt,
@@ -60,7 +65,10 @@ impl wasi_llm::Host for LlmDispatch {
         m: wasi_llm::EmbeddingModel,
         data: Vec<String>,
     ) -> anyhow::Result<Result<wasi_llm::EmbeddingsResult, wasi_llm::Error>> {
-        Ok(self.0.generate_embeddings(m, data).await)
+        if !self.allowed_models.contains(&m) {
+            return Ok(Err(access_denied_error(&m)));
+        }
+        Ok(self.engine.generate_embeddings(m, data).await)
     }
 }
 
@@ -80,7 +88,7 @@ pub fn model_arch(
     }
 }
 
-pub fn access_denied_error(model: &str) -> wasi_llm::Error {
+fn access_denied_error(model: &str) -> wasi_llm::Error {
     wasi_llm::Error::InvalidInput(format!(
         "The component does not have access to use '{model}'. To give the component access, add '{model}' to the 'ai_models' key for the component in your spin.toml manifest"
     ))

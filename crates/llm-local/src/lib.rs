@@ -10,11 +10,11 @@ use llm::{
 };
 use rand::SeedableRng;
 use spin_core::async_trait;
-use spin_llm::{access_denied_error, model_arch, model_name, LlmEngine, MODEL_ALL_MINILM_L6_V2};
+use spin_llm::{model_arch, model_name, LlmEngine, MODEL_ALL_MINILM_L6_V2};
 use spin_world::llm::{self as wasi_llm};
 use std::{
+    collections::hash_map::Entry,
     collections::HashMap,
-    collections::{hash_map::Entry, HashSet},
     convert::Infallible,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -30,25 +30,18 @@ pub struct LLmOptions {
 pub struct LocalLlmEngine {
     registry: PathBuf,
     use_gpu: bool,
-    allowed_models: HashSet<String>,
     inferencing_models: HashMap<(String, bool), Arc<dyn llm::Model>>,
     embeddings_models: HashMap<String, Arc<(tokenizers::Tokenizer, BertModel)>>,
 }
 
 #[async_trait]
 impl LlmEngine for LocalLlmEngine {
-    fn set_allowed_models(&mut self, models: HashSet<String>) {
-        self.allowed_models = models;
-    }
     async fn infer(
         &mut self,
         model: wasi_llm::InferencingModel,
         prompt: String,
         params: wasi_llm::InferencingParams,
     ) -> Result<wasi_llm::InferencingResult, wasi_llm::Error> {
-        if !self.allowed_models.contains(&model) {
-            return Err(access_denied_error(&model));
-        }
         let model = self.inferencing_model(model).await?;
         let cfg = InferenceSessionConfig {
             memory_k_type: ModelKVMemoryType::Float16,
@@ -107,9 +100,6 @@ impl LlmEngine for LocalLlmEngine {
         model: wasi_llm::EmbeddingModel,
         data: Vec<String>,
     ) -> Result<wasi_llm::EmbeddingsResult, wasi_llm::Error> {
-        if !self.allowed_models.contains(&model) {
-            return Err(access_denied_error(&model));
-        }
         let model = self.embeddings_model(model).await?;
         generate_embeddings(data, model).await.map_err(|e| {
             wasi_llm::Error::RuntimeError(format!("Error occurred generating embeddings: {e}"))
@@ -118,18 +108,18 @@ impl LlmEngine for LocalLlmEngine {
 }
 
 impl LocalLlmEngine {
-    pub async fn init(&mut self) {
-        let _ = self.inferencing_model("llama2-chat".into()).await;
-        let _ = self.embeddings_model(MODEL_ALL_MINILM_L6_V2.into()).await;
-    }
-    pub fn new(registry: PathBuf, use_gpu: bool) -> Self {
-        Self {
+    pub async fn new(registry: PathBuf, use_gpu: bool) -> Self {
+        let mut engine = Self {
             registry,
             use_gpu,
-            allowed_models: Default::default(),
             inferencing_models: Default::default(),
             embeddings_models: Default::default(),
-        }
+        };
+
+        let _ = engine.inferencing_model("llama2-chat".into()).await;
+        let _ = engine.embeddings_model(MODEL_ALL_MINILM_L6_V2.into()).await;
+
+        engine
     }
 
     /// Get embeddings model from cache or load from disk

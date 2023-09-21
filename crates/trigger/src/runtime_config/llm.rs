@@ -12,8 +12,7 @@ pub(crate) async fn build_component(
                 .state_dir()
                 .unwrap_or_default()
                 .join("ai-models");
-            let mut engine = LocalLlmEngine::new(path, use_gpu);
-            engine.init().await;
+            let engine = LocalLlmEngine::new(path, use_gpu).await;
             spin_llm::LlmComponent::new(move || Box::new(engine.clone()))
         }
         LlmComputeOpts::RemoteHttp(config) => {

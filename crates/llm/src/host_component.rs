@@ -29,7 +29,10 @@ impl HostComponent for LlmComponent {
     }
 
     fn build_data(&self) -> Self::Data {
-        LlmDispatch((self.create_engine)())
+        LlmDispatch {
+            engine: (self.create_engine)(),
+            allowed_models: Default::default(),
+        }
     }
 }
 
@@ -39,8 +42,7 @@ impl DynamicHostComponent for LlmComponent {
         data: &mut Self::Data,
         component: &spin_app::AppComponent,
     ) -> anyhow::Result<()> {
-        data.0
-            .set_allowed_models(component.get_metadata(AI_MODELS_KEY)?.unwrap_or_default());
+        data.allowed_models = component.get_metadata(AI_MODELS_KEY)?.unwrap_or_default();
         Ok(())
     }
 }

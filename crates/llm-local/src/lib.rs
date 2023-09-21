@@ -10,7 +10,7 @@ use llm::{
 };
 use rand::SeedableRng;
 use spin_core::async_trait;
-use spin_llm::{model_arch, model_name, LlmEngine, MODEL_ALL_MINILM_L6_V2};
+use spin_llm::{access_denied_error, model_arch, model_name, LlmEngine, MODEL_ALL_MINILM_L6_V2};
 use spin_world::llm::{self as wasi_llm};
 use std::{
     collections::HashMap,
@@ -37,7 +37,7 @@ pub struct LocalLlmEngine {
 
 #[async_trait]
 impl LlmEngine for LocalLlmEngine {
-    fn add_allowed_models(&mut self, models: HashSet<String>) {
+    fn set_allowed_models(&mut self, models: HashSet<String>) {
         self.allowed_models = models;
     }
     async fn infer(
@@ -236,12 +236,6 @@ impl LocalLlmEngine {
         };
         Ok(model)
     }
-}
-
-fn access_denied_error(model: &str) -> wasi_llm::Error {
-    wasi_llm::Error::InvalidInput(format!(
-        "The component does not have access to use '{model}'. To give the component access, add '{model}' to the 'ai_models' key for the component in your spin.toml manifest"
-    ))
 }
 
 async fn generate_embeddings(

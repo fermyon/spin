@@ -13,7 +13,7 @@ pub const AI_MODELS_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("ai_mod
 
 #[async_trait]
 pub trait LlmEngine: Send + Sync {
-    fn add_allowed_models(&mut self, models: HashSet<String>);
+    fn set_allowed_models(&mut self, models: HashSet<String>);
     async fn infer(
         &mut self,
         model: wasi_llm::InferencingModel,
@@ -78,4 +78,10 @@ pub fn model_arch(
         "llama2-chat" | "codellama-instruct" => Ok(ModelArchitecture::Llama),
         _ => Err(wasi_llm::Error::ModelNotSupported),
     }
+}
+
+pub fn access_denied_error(model: &str) -> wasi_llm::Error {
+    wasi_llm::Error::InvalidInput(format!(
+        "The component does not have access to use '{model}'. To give the component access, add '{model}' to the 'ai_models' key for the component in your spin.toml manifest"
+    ))
 }

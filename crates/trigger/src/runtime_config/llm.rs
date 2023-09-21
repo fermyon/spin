@@ -17,7 +17,7 @@ pub(crate) async fn build_component(
             spin_llm::LlmComponent::new(move || Box::new(engine.clone()))
         }
         LlmComputeOpts::RemoteHttp(config) => {
-            println!("Using remote compute for LLMs");
+            tracing::log::info!("Using remote compute for LLMs");
             let engine =
                 RemoteHttpLlmEngine::new(config.url.to_owned(), config.auth_token.to_owned());
             spin_llm::LlmComponent::new(move || Box::new(engine.clone()))

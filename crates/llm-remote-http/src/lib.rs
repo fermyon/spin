@@ -6,7 +6,7 @@ use reqwest::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use spin_core::async_trait;
-use spin_llm::LlmEngine;
+use spin_llm::{access_denied_error, LlmEngine};
 use spin_world::llm::{self as wasi_llm, InferencingParams};
 use std::collections::HashSet;
 
@@ -55,7 +55,7 @@ struct EmbeddingResponseBody {
 
 #[async_trait]
 impl LlmEngine for RemoteHttpLlmEngine {
-    fn add_allowed_models(&mut self, models: HashSet<String>) {
+    fn set_allowed_models(&mut self, models: HashSet<String>) {
         self.allowed_models = models;
     }
 
@@ -65,12 +65,17 @@ impl LlmEngine for RemoteHttpLlmEngine {
         prompt: String,
         params: InferencingParams,
     ) -> Result<wasi_llm::InferencingResult, wasi_llm::Error> {
+        if !self.allowed_models.contains(&model) {
+            return Err(access_denied_error(&model));
+        }
         let client = self.client.get_or_insert_with(Default::default);
 
         let mut headers = HeaderMap::new();
         headers.insert(
             "authorization",
-            HeaderValue::from_str(&format!("bearer {}", self.auth_token)).unwrap(),
+            HeaderValue::from_str(&format!("bearer {}", self.auth_token)).map_err(|_| {
+                wasi_llm::Error::RuntimeError("Failed to create authorization header".to_string())
+            })?,
         );
         let inference_options = InferRequestBodyParams {
             max_tokens: params.max_tokens,
@@ -85,10 +90,15 @@ impl LlmEngine for RemoteHttpLlmEngine {
             "prompt": prompt,
             "options": inference_options
         }))
-        .unwrap();
+        .map_err(|_| wasi_llm::Error::RuntimeError("Failed to serialize JSON".to_string()))?;
 
         let resp = client
-            .request(http::Method::POST, self.url.join("/infer").unwrap())
+            .request(
+                http::Method::POST,
+                self.url.join("/infer").map_err(|_| {
+                    wasi_llm::Error::RuntimeError("Failed to create URL".to_string())
+                })?,
+            )
             .headers(headers)
             .body(body)
             .send()
@@ -116,22 +126,32 @@ impl LlmEngine for RemoteHttpLlmEngine {
         model: wasi_llm::EmbeddingModel,
         data: Vec<String>,
     ) -> Result<wasi_llm::EmbeddingsResult, wasi_llm::Error> {
+        if !self.allowed_models.contains(&model) {
+            return Err(access_denied_error(&model));
+        }
         let client = self.client.get_or_insert_with(Default::default);
 
         let mut headers = HeaderMap::new();
         headers.insert(
             "authorization",
-            HeaderValue::from_str(&format!("bearer {}", self.auth_token)).unwrap(),
+            HeaderValue::from_str(&format!("bearer {}", self.auth_token)).map_err(|_| {
+                wasi_llm::Error::RuntimeError("Failed to create authorization header".to_string())
+            })?,
         );
 
         let body = serde_json::to_string(&json!({
             "model": model,
             "input": data
         }))
-        .unwrap();
+        .map_err(|_| wasi_llm::Error::RuntimeError("Failed to serialize JSON".to_string()))?;
 
         let resp = client
-            .request(http::Method::POST, self.url.join("/embed").unwrap())
+            .request(
+                http::Method::POST,
+                self.url.join("/embed").map_err(|_| {
+                    wasi_llm::Error::RuntimeError("Failed to create URL".to_string())
+                })?,
+            )
             .headers(headers)
             .body(body)
             .send()

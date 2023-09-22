@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use serde::Deserialize;
-use spin_config::provider::{env::EnvProvider, vault::VaultProvider, azkv::AzureKeyVaultProvider};
+use spin_config::provider::{azkv::AzureKeyVaultProvider, env::EnvProvider, vault::VaultProvider};
 
 use super::RuntimeConfig;
 

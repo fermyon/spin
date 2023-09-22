@@ -1,6 +1,5 @@
 pub mod host_component;
 
-use llm::ModelArchitecture;
 use spin_app::MetadataKey;
 use spin_core::async_trait;
 use spin_world::llm::{self as wasi_llm};
@@ -69,22 +68,6 @@ impl wasi_llm::Host for LlmDispatch {
             return Ok(Err(access_denied_error(&m)));
         }
         Ok(self.engine.generate_embeddings(m, data).await)
-    }
-}
-
-pub fn model_name(model: &wasi_llm::InferencingModel) -> Result<&str, wasi_llm::Error> {
-    match model.as_str() {
-        "llama2-chat" | "codellama-instruct" => Ok(model.as_str()),
-        _ => Err(wasi_llm::Error::ModelNotSupported),
-    }
-}
-
-pub fn model_arch(
-    model: &wasi_llm::InferencingModel,
-) -> Result<ModelArchitecture, wasi_llm::Error> {
-    match model.as_str() {
-        "llama2-chat" | "codellama-instruct" => Ok(ModelArchitecture::Llama),
-        _ => Err(wasi_llm::Error::ModelNotSupported),
     }
 }
 

@@ -150,7 +150,7 @@ where
         let init_data = crate::HostComponentInitData::new(
             &*self.key_values,
             &*self.sqlite_statements,
-            spin_llm::LLmOptions { use_gpu: true },
+            spin_llm_local::LLmOptions { use_gpu: true },
         );
 
         let loader = TriggerLoader::new(working_dir, self.allow_transient_write);

@@ -179,7 +179,7 @@ jobs:
           tag: ${{ github.ref }}
 
       - name: Configure AWS Credentials
-        if: runner.os == 'linux' && matrix.config.arch == 'amd64' && ${{ github.repository_owner == 'fermyon' }}
+        if: runner.os == 'linux' && matrix.config.arch == 'amd64' && github.repository_owner == 'fermyon'
         uses: aws-actions/configure-aws-credentials@v1
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.SPIN_RELEASE_ARTIFACTS_REPO }}

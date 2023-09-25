@@ -33,7 +33,7 @@ jobs:
       - name: setup spin
         run: |
           wget https://spin-release-artifacts.s3.amazonaws.com/spin-canary-linux-amd64.tar.gz -O /tmp/spin-canary-linux-amd64.tar.gz
-          tar -xvf /tmp/spin-canary-linux-amd64.tar.gz
+          tar -xvf /tmp/spin-canary-linux-amd64.tar.gz -C /tmp/spin-canary-linux-amd64
           mkdir -p target/release
           ls -ltr /tmp/
           cp /tmp/spin-canary-linux-amd64/spin target/release/spin

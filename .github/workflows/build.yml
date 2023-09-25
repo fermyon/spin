@@ -35,7 +35,8 @@ jobs:
           wget https://spin-release-artifacts.s3.amazonaws.com/spin-canary-linux-amd64.tar.gz -O /tmp/spin-canary-linux-amd64.tar.gz
           tar -xvf /tmp/spin-canary-linux-amd64.tar.gz
           mkdir -p target/release
-          cp /tmp/spin target/release/spin
+          ls -ltr /tmp/
+          cp /tmp/spin-canary-linux-amd64/spin target/release/spin
 
       - name: Cache Docker images.
         uses: ScribeMD/docker-cache@0.3.6

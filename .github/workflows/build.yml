@@ -21,153 +21,25 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+
 jobs:
-  lint-rust:
-    name: Lint Rust
-    runs-on: "ubuntu-latest"
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: setup dependencies
-        uses: ./.github/actions/spin-ci-dependencies
-        with:
-          rust: true
-          rust-wasm: true
-          rust-cache: true
-
-      - name: Cargo Format
-        run:
-          BUILD_SPIN_EXAMPLES=0 cargo fmt --all -- --check
-
-      - name: Cargo Clippy
-        run:
-          BUILD_SPIN_EXAMPLES=0 cargo clippy --workspace --all-targets --features all-tests -- -D warnings
-
-  ## This is separated out to remove e2e-tests dependency on windows/mac builds
-  build-rust-ubuntu:
-    name: Build Spin Ubuntu
-    runs-on: ubuntu-latest
-    needs: [lint-rust]
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: setup dependencies
-        uses: ./.github/actions/spin-ci-dependencies
-        with:
-          rust: true
-          rust-wasm: true
-          rust-cache: true
-
-      - name: Cargo Build
-        run: cargo build --workspace --release --all-targets --features openssl/vendored --features all-tests
-        env:
-          CARGO_INCREMENTAL: 0
-
-      - name: "Archive executable artifact"
-        uses: actions/upload-artifact@v3
-        with:
-          name: spin-ubuntu-latest
-          path: target/release/spin
-
-  build-rust:
-    name: Build Spin
-    runs-on: ${{ matrix.os }}
-    needs: [lint-rust]
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: setup dependencies
-        uses: ./.github/actions/spin-ci-dependencies
-        with:
-          rust: true
-          rust-wasm: true
-          rust-cache: true
-
-      - name: Cargo Build
-        run: cargo build --workspace --release --all-targets
-        env:
-          CARGO_INCREMENTAL: 0
-
-      - name: "Archive executable artifact"
-        uses: actions/upload-artifact@v3
-        with:
-          name: spin-${{ matrix.os }}
-          path: target/release/spin${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-
-
-  test-rust:
-    name: Test Spin SDK - Rust
-    runs-on: ${{ matrix.os }}
-    needs: [lint-rust]
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: setup dependencies
-        uses: ./.github/actions/spin-ci-dependencies
-        with:
-          rust: true
-          rust-wasm: true
-          rust-cache: true
-          bindle: true
-          nomad: true
-          hippo: true
-
-      - name: Cargo Unit Tests
-        run: |
-          make test-unit
-        env:
-          CARGO_INCREMENTAL: 0
-
-  test-go:
-    name: Test Spin SDK - Go
-    runs-on: ubuntu-latest
-    needs: build-rust-ubuntu
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Retrieve saved Spin Binary
-        uses: actions/download-artifact@v3
-        with:
-          name: spin-ubuntu-latest
-          path: target/debug/
-
-      - name: Fix Spin Binary permissions
-        run: |
-          ls -lah target/
-          ls -lah target/debug
-          chmod +x target/debug/spin
-
-      - name: setup dependencies
-        uses: ./.github/actions/spin-ci-dependencies
-        with:
-          rust: true
-          bindle: true
-          golang: true
-          tinygo: true
-          wasmtime: true
-
-      - name: "Test Go SDK"
-        run: make test-sdk-go
-
   e2e-tests:
     # run on a larger runner for more SSD/resource access
     runs-on: ubuntu-22.04-4core-spin
     if: ${{ github.repository_owner == 'fermyon' }}
-    needs: build-rust-ubuntu
     steps:
       - uses: actions/checkout@v3
 
-      - name: Retrieve saved Spin Binary
-        uses: actions/download-artifact@v3
+      - name: Cache Docker images.
+        uses: ScribeMD/docker-cache@0.3.6
+        id: e2e-toolchain-cache
         with:
-          name: spin-ubuntu-latest
-          path: target/release/
+          key: docker-e2e-tests-${{ runner.os }}-${{ hashFiles('e2e-tests-toolchain.Dockerfile') }}
+
+      - name: Build e2e tests toolchain image
+        if: steps.e2e-cache.outputs.cache-hit != 'true'
+        run: |
+          docker build -t fermyon/e2e-tests-toolchain -f e2e-tests-toolchain.Dockerfile .
 
       - name: Build e2e tests image
         run: |

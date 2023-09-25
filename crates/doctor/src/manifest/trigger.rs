@@ -57,8 +57,6 @@ pub enum TriggerDiagnosis {
     MissingAppTrigger,
     /// Invalid app trigger config
     InvalidAppTrigger(&'static str),
-    /// HTTP trigger missing base field
-    HttpAppTriggerMissingBase,
     /// HTTP component trigger missing route field
     HttpComponentTriggerMissingRoute(String, bool),
     /// Invalid HTTP component trigger config
@@ -76,12 +74,9 @@ impl TriggerDiagnosis {
         let Some(trigger_type) = trigger.get("type") else {
             return Some(Self::InvalidAppTrigger("trigger table missing type"));
         };
-        let Some(trigger_type) = trigger_type.as_str() else {
+        let Some(_) = trigger_type.as_str() else {
             return Some(Self::InvalidAppTrigger("type must be a string"));
         };
-        if trigger_type == "http" && trigger.get("base").is_none() {
-            return Some(Self::HttpAppTriggerMissingBase);
-        }
         None
     }
 
@@ -116,7 +111,6 @@ impl Diagnosis for TriggerDiagnosis {
             Self::InvalidAppTrigger(msg) => {
                 format!("Invalid app trigger config: {msg}")
             }
-            Self::HttpAppTriggerMissingBase => "http trigger config missing base".into(),
             Self::HttpComponentTriggerMissingRoute(id, _) => {
                 format!("HTTP component {id:?} missing trigger.route")
             }
@@ -128,7 +122,7 @@ impl Diagnosis for TriggerDiagnosis {
 
     fn treatment(&self) -> Option<&dyn Treatment> {
         match self {
-            Self::MissingAppTrigger | Self::HttpAppTriggerMissingBase => Some(self),
+            Self::MissingAppTrigger => Some(self),
             // We can reasonably fill in default "route" iff there is only one component
             Self::HttpComponentTriggerMissingRoute(_, single_component) if *single_component => {
                 Some(self)
@@ -143,9 +137,6 @@ impl ManifestTreatment for TriggerDiagnosis {
     fn summary(&self) -> String {
         match self {
             TriggerDiagnosis::MissingAppTrigger => "Add default HTTP trigger config".into(),
-            TriggerDiagnosis::HttpAppTriggerMissingBase => {
-                "Set default HTTP trigger base '/'".into()
-            }
             TriggerDiagnosis::HttpComponentTriggerMissingRoute(id, _) => {
                 format!("Set trigger.route '/...' for component {id:?}")
             }
@@ -155,7 +146,7 @@ impl ManifestTreatment for TriggerDiagnosis {
 
     async fn treat_manifest(&self, doc: &mut Document) -> anyhow::Result<()> {
         match self {
-            Self::MissingAppTrigger | Self::HttpAppTriggerMissingBase => {
+            Self::MissingAppTrigger => {
                 // Get or insert missing trigger config
                 if doc.get("trigger").is_none() {
                     doc.insert("trigger", Item::Value(InlineTable::new().into()));
@@ -175,8 +166,6 @@ impl ManifestTreatment for TriggerDiagnosis {
                             decor.set_suffix(suffix.to_string().trim());
                         }
                     }
-                    // Set missing "base"
-                    trigger.entry("base").or_insert(Item::Value("/".into()));
                 }
             }
             Self::HttpComponentTriggerMissingRoute(_, true) => {
@@ -228,16 +217,6 @@ mod tests {
         let diag =
             run_broken_test::<TriggerDiagnostic>("manifest_trigger", "missing_app_trigger").await;
         assert!(matches!(diag, TriggerDiagnosis::MissingAppTrigger));
-    }
-
-    #[tokio::test]
-    async fn test_http_app_trigger_missing_base() {
-        let diag = run_broken_test::<TriggerDiagnostic>(
-            "manifest_trigger",
-            "http_app_trigger_missing_base",
-        )
-        .await;
-        assert!(matches!(diag, TriggerDiagnosis::HttpAppTriggerMissingBase));
     }
 
     #[tokio::test]

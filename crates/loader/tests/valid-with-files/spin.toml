@@ -1,7 +1,7 @@
 spin_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 name = "spin-local-source-test"
-trigger = {type = "http", base = "/"}
+trigger = {type = "http"}
 version = "1.0.0"
 
 [[component]]

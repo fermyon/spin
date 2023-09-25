@@ -10,5 +10,10 @@ pub struct Metadata {
     // The type of trigger which should always been "http" in this case
     pub r#type: String,
     // The based url
+    #[serde(default = "default_base")]
     pub base: String,
+}
+
+pub fn default_base() -> String {
+    "/".into()
 }

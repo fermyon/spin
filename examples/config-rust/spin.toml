@@ -2,7 +2,7 @@ spin_manifest_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A Spin Rust application demonstrating the config sdk."
 name = "spin-config-rust"
-trigger = { type = "http", base = "/" }
+trigger = { type = "http" }
 version = "0.1.0"
 
 [variables]

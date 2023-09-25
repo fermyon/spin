@@ -2,7 +2,7 @@ spin_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A simple Spin application written in (Tiny)Go."
 name = "spin-http-tinygo-test"
-trigger = { type = "http", base = "/" }
+trigger = { type = "http" }
 version = "1.0.0"
 
 [[component]]

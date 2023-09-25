@@ -497,7 +497,7 @@ source = "nonexistent.wasm"
             r#"
 spin_version = "1"
 name = "test"
-trigger = {{ type = "http", base = "/" }}
+trigger = {{ type = "http" }}
 version = "0.0.1"
 
 [variables]

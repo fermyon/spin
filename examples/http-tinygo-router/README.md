@@ -43,7 +43,7 @@ apiVersion = "0.1.0"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A simple Spin application written in (Tiny)Go."
 name = "spin-hello-world"
-trigger = { type = "http", base = "/" }
+trigger = { type = "http" }
 version = "1.0.0"
 
 [[component]]

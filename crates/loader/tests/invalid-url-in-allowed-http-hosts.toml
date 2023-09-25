@@ -1,7 +1,7 @@
 spin_version = "1"
 name = "spin-hello-world-duplicate"
 version = "1.0.0"
-trigger = { type = "http", base = "/" }
+trigger = { type = "http" }
 
 [[component]]
 id = "hello"

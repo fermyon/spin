@@ -205,6 +205,7 @@ impl From<ApplicationTrigger> for ApplicationTriggerSerialised {
 
 /// HTTP trigger configuration.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(default)]
 pub struct HttpTriggerConfiguration {
     /// Base path for the HTTP application.
     pub base: String,

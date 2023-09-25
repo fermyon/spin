@@ -1,4 +1,4 @@
-trigger = { type = "http", base = "/" }
+trigger = { type = "http" }
 
 [[component]]
 id = "http-component"

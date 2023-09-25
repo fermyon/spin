@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
+use once_cell::sync::OnceCell;
 use spin_sqlite::Connection;
 
 #[derive(Debug, Clone)]
@@ -15,20 +16,32 @@ pub enum InProcDatabaseLocation {
 
 /// A connection to a sqlite database
 pub struct InProcConnection {
-    connection: Arc<Mutex<rusqlite::Connection>>,
+    location: InProcDatabaseLocation,
+    connection: OnceCell<Arc<Mutex<rusqlite::Connection>>>,
 }
 
 impl InProcConnection {
     pub fn new(location: InProcDatabaseLocation) -> Result<Self, spin_world::sqlite::Error> {
-        let connection = {
-            let c = match &location {
-                InProcDatabaseLocation::InMemory => rusqlite::Connection::open_in_memory(),
-                InProcDatabaseLocation::Path(path) => rusqlite::Connection::open(path),
-            }
-            .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))?;
-            Arc::new(Mutex::new(c))
-        };
-        Ok(Self { connection })
+        let connection = OnceCell::new();
+        Ok(Self {
+            location,
+            connection,
+        })
+    }
+
+    pub fn db_connection(
+        &self,
+    ) -> Result<Arc<Mutex<rusqlite::Connection>>, spin_world::sqlite::Error> {
+        self.connection
+            .get_or_try_init(|| {
+                match &self.location {
+                    InProcDatabaseLocation::InMemory => rusqlite::Connection::open_in_memory(),
+                    InProcDatabaseLocation::Path(path) => rusqlite::Connection::open(path),
+                }
+                .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))
+                .map(|c| Arc::new(Mutex::new(c)))
+            })
+            .cloned()
     }
 }
 
@@ -39,7 +52,7 @@ impl Connection for InProcConnection {
         query: &str,
         parameters: Vec<spin_world::sqlite::Value>,
     ) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error> {
-        let connection = self.connection.clone();
+        let connection = self.db_connection()?;
         let query = query.to_owned();
         // Tell the tokio runtime that we're going to block while making the query
         tokio::task::spawn_blocking(move || execute_query(&connection, &query, parameters))
@@ -49,7 +62,7 @@ impl Connection for InProcConnection {
     }
 
     async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
-        let connection = self.connection.clone();
+        let connection = self.db_connection()?;
         let statements = statements.to_owned();
         tokio::task::spawn_blocking(move || {
             let conn = connection.lock().unwrap();

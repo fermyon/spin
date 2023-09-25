@@ -30,6 +30,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: setup spin
+        run: |
+          wget https://spin-release-artifacts.s3.amazonaws.com/spin-canary-linux-amd64.tar.gz -O /tmp/spin-canary-linux-amd64.tar.gz
+          tar -xvf /tmp/spin-canary-linux-amd64.tar.gz
+          mkdir -p target/release
+          cp /tmp/spin target/release/spin
+
       - name: Cache Docker images.
         uses: ScribeMD/docker-cache@0.3.6
         id: e2e-toolchain-cache

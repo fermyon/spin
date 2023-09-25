@@ -169,9 +169,13 @@ jobs:
           name: spin-ubuntu-latest
           path: target/release/
 
-      - name: Run e2e tests
+      - name: Build e2e tests image
+        run: |
+          export E2E_FETCH_SPIN=false
+          make build-test-spin-up
+
+      - name: Run e2e tests image
         run: |
           chmod +x `pwd`/target/release/spin
           export E2E_VOLUME_MOUNT="-v `pwd`/target/release/spin:/usr/local/bin/spin"
-          export E2E_FETCH_SPIN=false
-          make test-spin-up
+          make run-test-spin-up

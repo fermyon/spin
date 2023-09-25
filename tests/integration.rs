@@ -468,7 +468,7 @@ mod integration_tests {
         // We still don't see full help if there are no components.
         let toml_text = r#"spin_version = "1"
 name = "unbuilt"
-trigger = { type = "http", base = "/" }
+trigger = { type = "http" }
 version = "0.1.0"
 [[component]]
 id = "unbuilt"

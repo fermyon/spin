@@ -1,7 +1,7 @@
 spin_manifest_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 name = "rust-outbound-pg-example"
-trigger = { type = "http", base = "/" }
+trigger = { type = "http" }
 version = "0.1.0"
 
 [[component]]

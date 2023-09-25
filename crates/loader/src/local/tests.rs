@@ -202,14 +202,14 @@ fn test_unknown_version_is_rejected() {
 }
 
 #[tokio::test]
-async fn gives_correct_error_when_missing_app_trigger_field() -> Result<()> {
-    const MANIFEST: &str = "tests/missing-http-base.toml";
+async fn gives_correct_error_for_invalid_app_trigger_field() -> Result<()> {
+    const MANIFEST: &str = "tests/invalid-http-base.toml";
 
     let app = raw_manifest_from_file(&PathBuf::from(MANIFEST)).await;
 
     let e = format!("{:#}", app.unwrap_err());
     assert!(
-        e.contains("missing field `base`"),
+        e.contains("expected a string for key `base`"),
         "Expected error to contain trigger field information but was '{e}'"
     );
 

@@ -1,8 +1,8 @@
 spin_version = "1"
 authors = ["Gul Madred", "Edward Jellico", "JL"]
-description = "A HTTP application without a base"
-name = "missing-http-base"
-trigger = {type = "http"}
+description = "A HTTP application with an invalid base"
+name = "invalid-http-base"
+trigger = { type = "http", base = 7 }
 version = "6.11.2"
 
 [[component]]

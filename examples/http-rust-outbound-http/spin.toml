@@ -2,7 +2,7 @@ spin_manifest_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "Demonstrates outbound HTTP calls"
 name = "spin-outbound-http"
-trigger = { type = "http", base = "/" }
+trigger = { type = "http" }
 version = "1.0.0"
 
 [[component]]

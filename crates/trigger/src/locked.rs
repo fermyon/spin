@@ -221,7 +221,7 @@ mod tests {
         spin_version = "1"
         name = "test-app"
         version = "0.0.1"
-        trigger = { type = "http", base = "/" }
+        trigger = { type = "http" }
 
         [variables]
         test_var = { default = "test-val" }

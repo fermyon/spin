@@ -2,7 +2,7 @@ name = "spin-wagi-custom-entrypoint"
 spin_version = "1"
 version = "1.0.0"
 authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
-trigger = { type = "http", base = "/" }
+trigger = { type = "http" }
 
 [[component]]
 source = "spin-fs.wasm"

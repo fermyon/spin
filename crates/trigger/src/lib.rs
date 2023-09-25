@@ -9,6 +9,7 @@ use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 use anyhow::{anyhow, Context, Result};
 pub use async_trait::async_trait;
 use indexmap::IndexMap;
+use runtime_config::llm::LLmOptions;
 use serde::de::DeserializeOwned;
 
 use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp};
@@ -164,7 +165,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 pub struct HostComponentInitData {
     kv: Vec<(String, String)>,
     sqlite: Vec<String>,
-    llm: spin_llm_local::LLmOptions,
+    llm: LLmOptions,
 }
 
 impl HostComponentInitData {
@@ -174,7 +175,7 @@ impl HostComponentInitData {
     pub fn new(
         key_value_init_values: impl Into<Vec<(String, String)>>,
         sqlite_init_statements: impl Into<Vec<String>>,
-        llm: spin_llm_local::LLmOptions,
+        llm: LLmOptions,
     ) -> Self {
         Self {
             kv: key_value_init_values.into(),

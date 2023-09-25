@@ -21,11 +21,6 @@ use std::{
 };
 use tokenizers::PaddingParams;
 
-#[derive(Default)]
-pub struct LLmOptions {
-    pub use_gpu: bool,
-}
-
 #[derive(Clone)]
 pub struct LocalLlmEngine {
     registry: PathBuf,

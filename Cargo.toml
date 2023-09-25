@@ -97,13 +97,14 @@ vergen = { version = "^8.2.1", default-features = false, features = [
 ] }
 
 [features]
-default = []
+default = ["llm"]
 all-tests = ["e2e-tests", "outbound-redis-tests", "config-provider-tests"]
 config-provider-tests = []
 e2e-tests = []
 outbound-redis-tests = []
-llm-metal = ["spin-trigger-http/llm-metal"]
-llm-cublas = ["spin-trigger-http/llm-cublas"]
+llm = ["spin-trigger-http/llm"]
+llm-metal = ["llm", "spin-trigger-http/llm-metal"]
+llm-cublas = ["llm", "spin-trigger-http/llm-cublas"]
 
 [workspace]
 members = ["crates/*", "sdk/rust", "sdk/rust/macro"]

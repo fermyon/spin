@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 
 	spinhttp "github.com/fermyon/spin/sdk/go/http"
 	"github.com/fermyon/spin/sdk/go/mysql"
@@ -18,7 +19,12 @@ type Pet struct {
 
 func init() {
 	spinhttp.Handle(func(w http.ResponseWriter, r *http.Request) {
-		db := mysql.Open("default")
+
+		// addr is the environment variable set in `spin.toml` that points to the
+		// address of the Mysql server.
+		addr := os.Getenv("DB_URL")
+
+		db := mysql.Open(addr)
 		defer db.Close()
 
 		_, err := db.Query("REPLACE INTO pets VALUES (4, 'Maya', ?, false);", "bananas")

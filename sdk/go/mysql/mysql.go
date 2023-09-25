@@ -159,9 +159,7 @@ func (r *rows) NextResultSet() error {
 	return io.EOF // Per interface spec.
 }
 
-// RowsColumnTypeScanType may be implemented by Rows. It should return
-// the value type that can be used to scan types into. For example, the database
-// column type "bigint" this should return "reflect.TypeOf(int64(0))".
+// ColumnTypeScanType return the value type that can be used to scan types into.
 func (r *rows) ColumnTypeScanType(index int) reflect.Type {
 	return colTypeToReflectType(r.columnType[index])
 }

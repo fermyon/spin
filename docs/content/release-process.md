@@ -54,7 +54,11 @@ Follow the [wrapping up](#wrapping-up) section to finish off the release process
 
 To cut a patch release of Spin, you will need to do the following:
 
-1. Backport the commits you wish to include to the release branch you're creating the patch release for. **NOTE** Use the [backport script](https://github.com/fermyon/spin/blob/main/.github/gh-backport.sh) to do so.
+1. Backport the commits you wish to include to the release branch you're creating the patch release for. **NOTE** Use the [backport script](https://github.com/fermyon/spin/blob/main/.github/gh-backport.sh) to do so. 
+
+```
+$ ./.github/gh-backport.sh <pull-request> <branch-name>
+```
 
 1. Switch to the release branch locally and update versions (e.g. `1.1.0-pre0` could `1.1.1`).
    - Bump the version in Spin's `Cargo.toml`

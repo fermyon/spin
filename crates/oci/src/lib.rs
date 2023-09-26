@@ -4,6 +4,7 @@
 mod auth;
 mod client;
 mod loader;
+mod utils;
 
 pub use client::Client;
 pub use loader::OciLoader;

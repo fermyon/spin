@@ -8,12 +8,12 @@ edition = "2021"
 anyhow = "1.0.68"
 clap = { version = "3.1.15", features = ["derive", "env"] }
 futures = "0.3.25"
-serde = "1.0"
+serde = "1.0.188"
 spin-app = { path = "../../crates/app" }
 spin-core = { path = "../../crates/core" }
 spin-trigger = { path = "../../crates/trigger" }
-tokio = { version = "1.11", features = [ "full" ] }
+tokio = { version = "1.11", features = ["full"] }
 tokio-scoped = "0.2.0"
-wasmtime = { version = "10.0.1", features = ["component-model"] }
+wasmtime = { version = "13.0.0", features = ["component-model"] }
 
 [workspace]

@@ -5,6 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 use system_interface::io::ReadReady;
+use tokio::io::{AsyncRead, AsyncWrite};
 use wasi_common_preview1 as wasi_preview1;
 use wasmtime_wasi as wasmtime_wasi_preview1;
 use wasmtime_wasi::preview2 as wasi_preview2;
@@ -156,19 +157,25 @@ impl StoreBuilder {
                 ctx.set_stdin(Box::new(wasmtime_wasi_preview1::stdio::stdin()))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stdin(wasi_preview2::stdio::stdin())
+                ctx.inherit_stdin();
             }
         });
     }
 
     /// Sets the WASI `stdin` descriptor to the given [`Read`]er.
-    pub fn stdin_pipe(&mut self, r: impl Read + ReadReady + Send + Sync + 'static) {
+    pub fn stdin_pipe(
+        &mut self,
+        r: impl AsyncRead + Read + ReadReady + Send + Sync + Unpin + 'static,
+    ) {
         self.with_wasi(|wasi| match wasi {
             WasiCtxBuilder::Preview1(ctx) => {
                 ctx.set_stdin(Box::new(wasi_preview1::pipe::ReadPipe::new(r)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stdin(wasi_preview2::pipe::ReadPipe::new(r))
+                ctx.stdin(
+                    wasi_preview2::pipe::AsyncReadStream::new(r),
+                    wasi_preview2::IsATTY::No,
+                );
             }
         })
     }
@@ -180,7 +187,7 @@ impl StoreBuilder {
                 ctx.set_stdout(Box::new(wasmtime_wasi_preview1::stdio::stdout()))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stdout(wasi_preview2::stdio::stdout())
+                ctx.inherit_stdout();
             }
         });
     }
@@ -199,13 +206,16 @@ impl StoreBuilder {
     }
 
     /// Sets the WASI `stdout` descriptor to the given [`Write`]er.
-    pub fn stdout_pipe(&mut self, w: impl Write + Send + Sync + 'static) {
+    pub fn stdout_pipe(&mut self, w: impl AsyncWrite + Write + Send + Sync + Unpin + 'static) {
         self.with_wasi(|wasi| match wasi {
             WasiCtxBuilder::Preview1(ctx) => {
                 ctx.set_stdout(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stdout(wasi_preview2::pipe::WritePipe::new(w))
+                ctx.stdout(
+                    wasi_preview2::pipe::AsyncWriteStream::new(1024 * 1024, w),
+                    wasi_preview2::IsATTY::No,
+                );
             }
         })
     }
@@ -220,7 +230,7 @@ impl StoreBuilder {
                 "`Store::stdout_buffered` only supported with WASI Preview 2"
             )),
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stdout(buffer.writer());
+                ctx.stdout(buffer.writer(), wasi_preview2::IsATTY::No);
                 Ok(())
             }
         })?;
@@ -234,19 +244,22 @@ impl StoreBuilder {
                 ctx.set_stderr(Box::new(wasmtime_wasi_preview1::stdio::stderr()))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stderr(wasi_preview2::stdio::stderr())
+                ctx.inherit_stderr();
             }
         });
     }
 
     /// Sets the WASI `stderr` descriptor to the given [`Write`]er.
-    pub fn stderr_pipe(&mut self, w: impl Write + Send + Sync + 'static) {
+    pub fn stderr_pipe(&mut self, w: impl AsyncWrite + Write + Send + Sync + Unpin + 'static) {
         self.with_wasi(|wasi| match wasi {
             WasiCtxBuilder::Preview1(ctx) => {
                 ctx.set_stderr(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                *ctx = std::mem::take(ctx).set_stderr(wasi_preview2::pipe::WritePipe::new(w))
+                ctx.stderr(
+                    wasi_preview2::pipe::AsyncWriteStream::new(1024 * 1024, w),
+                    wasi_preview2::IsATTY::No,
+                );
             }
         })
     }
@@ -257,7 +270,9 @@ impl StoreBuilder {
             for arg in args {
                 match wasi {
                     WasiCtxBuilder::Preview1(ctx) => ctx.push_arg(arg)?,
-                    WasiCtxBuilder::Preview2(ctx) => *ctx = std::mem::take(ctx).push_arg(arg),
+                    WasiCtxBuilder::Preview2(ctx) => {
+                        ctx.arg(arg);
+                    }
                 }
             }
             Ok(())
@@ -274,7 +289,7 @@ impl StoreBuilder {
                 match wasi {
                     WasiCtxBuilder::Preview1(ctx) => ctx.push_env(k.as_ref(), v.as_ref())?,
                     WasiCtxBuilder::Preview2(ctx) => {
-                        *ctx = std::mem::take(ctx).push_env(k, v);
+                        ctx.env(k, v);
                     }
                 }
             }
@@ -333,12 +348,7 @@ impl StoreBuilder {
                     };
                     let file_perms = wasi_preview2::FilePerms::all();
 
-                    *ctx = std::mem::take(ctx).push_preopened_dir(
-                        cap_std_dir,
-                        dir_perms,
-                        file_perms,
-                        path,
-                    );
+                    ctx.preopened_dir(cap_std_dir, dir_perms, file_perms, path);
                 }
             }
             Ok(())
@@ -432,7 +442,7 @@ impl WasiCtxBuilder {
     fn build(self, table: &mut wasi_preview2::Table) -> anyhow::Result<Wasi> {
         match self {
             WasiCtxBuilder::Preview1(ctx) => Ok(Wasi::Preview1(ctx)),
-            WasiCtxBuilder::Preview2(b) => b.build(table).map(Wasi::Preview2),
+            WasiCtxBuilder::Preview2(mut b) => b.build(table).map(Wasi::Preview2),
         }
     }
 }

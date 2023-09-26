@@ -4,11 +4,12 @@ use std::{
     time::{Duration, Instant},
 };
 
+use anyhow::Context;
 use spin_core::{
     Component, Config, Engine, HostComponent, I32Exit, Store, StoreBuilder, Trap, WasiVersion,
 };
 use tempfile::TempDir;
-use tokio::fs;
+use tokio::{fs, io::AsyncWrite};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_stdio() {
@@ -194,8 +195,8 @@ async fn run_core_wasi_test_engine<'a>(
     update_store: impl FnOnce(&mut Store<()>),
 ) -> anyhow::Result<String> {
     let mut store_builder: StoreBuilder = engine.store_builder(WasiVersion::Preview2);
-    let mut stdout_buf = store_builder.stdout_buffered()?;
-    store_builder.stderr_pipe(TestWriter);
+    let stdout_buf = store_builder.stdout_buffered()?;
+    store_builder.stderr_pipe(TestWriter(tokio::io::stdout()));
     store_builder.args(args)?;
 
     update_store_builder(&mut store_builder);
@@ -207,8 +208,14 @@ async fn run_core_wasi_test_engine<'a>(
     let component = Component::new(engine.as_ref(), &component)?;
     let instance_pre = engine.instantiate_pre(&component)?;
     let instance = instance_pre.instantiate_async(&mut store).await?;
-    let func = instance.get_typed_func::<(), (Result<(), ()>,)>(&mut store, "run")?;
+    let func = {
+        let mut exports = instance.exports(&mut store);
 
+        let mut instance = exports
+            .instance("wasi:cli/run")
+            .context("missing the expected 'wasi:cli/run' instance")?;
+        instance.typed_func::<(), (Result<(), ()>,)>("run")?
+    };
     update_store(&mut store);
 
     func.call_async(&mut store, ())
@@ -216,7 +223,9 @@ async fn run_core_wasi_test_engine<'a>(
         .0
         .map_err(|()| anyhow::anyhow!("command failed"))?;
 
-    let stdout = String::from_utf8(stdout_buf.take())?.trim_end().into();
+    let stdout = String::from_utf8(stdout_buf.contents().to_vec())?
+        .trim_end()
+        .into();
     Ok(stdout)
 }
 
@@ -252,8 +261,7 @@ impl multiplier::imports::Host for Multiplier {
 }
 
 // Write with `print!`, required for test output capture
-#[derive(Copy, Clone)]
-struct TestWriter;
+struct TestWriter(tokio::io::Stdout);
 
 impl std::io::Write for TestWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
@@ -263,5 +271,32 @@ impl std::io::Write for TestWriter {
 
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
+    }
+}
+
+impl AsyncWrite for TestWriter {
+    fn poll_write(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<Result<usize, std::io::Error>> {
+        let this = self.get_mut();
+        std::pin::Pin::new(&mut this.0).poll_write(cx, buf)
+    }
+
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), std::io::Error>> {
+        let this = self.get_mut();
+        std::pin::Pin::new(&mut this.0).poll_flush(cx)
+    }
+
+    fn poll_shutdown(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), std::io::Error>> {
+        let this = self.get_mut();
+        std::pin::Pin::new(&mut this.0).poll_shutdown(cx)
     }
 }

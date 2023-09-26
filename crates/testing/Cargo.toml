@@ -8,7 +8,7 @@ edition = { workspace = true }
 anyhow = "1.0"
 http = "0.2"
 hyper = "0.14"
-serde = "1"
+serde = "1.0.188"
 serde_json = "1"
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }

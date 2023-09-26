@@ -39,6 +39,7 @@ pub fn init_tracing() {
 }
 
 // Convenience wrapper for deserializing from literal JSON
+#[macro_export]
 macro_rules! from_json {
     ($($json:tt)+) => {
         serde_json::from_value(serde_json::json!($($json)+)).expect("valid json")

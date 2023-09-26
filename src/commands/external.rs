@@ -6,6 +6,7 @@ use spin_plugins::{
     badger::BadgerChecker, error::Error as PluginError, manifest::warn_unsupported_version,
     PluginStore,
 };
+use std::io::{stderr, IsTerminal};
 use std::{collections::HashMap, env, process};
 use tokio::process::Command;
 use tracing::log;
@@ -57,49 +58,13 @@ pub async fn execute_external_subcommand(
 ) -> anyhow::Result<()> {
     let (plugin_name, args, override_compatibility_check) = parse_subcommand(cmd)?;
     let plugin_store = PluginStore::try_default()?;
-    let plugin_version = match plugin_store.read_plugin_manifest(&plugin_name) {
-        Ok(manifest) => {
-            if let Err(e) =
-                warn_unsupported_version(&manifest, SPIN_VERSION, override_compatibility_check)
-            {
-                eprintln!("{e}");
-                // TODO: consider running the update checked?
-                process::exit(1);
-            }
-            Some(manifest.version().to_owned())
-        }
-        Err(PluginError::NotFound(e)) => {
-            if predefined_externals()
-                .iter()
-                .any(|(name, _)| name == &plugin_name)
-            {
-                println!("The `{plugin_name}` plugin is required. Installing now.");
-                let plugin_installer = Install {
-                    name: Some(plugin_name.clone()),
-                    yes_to_all: true,
-                    local_manifest_src: None,
-                    remote_manifest_src: None,
-                    override_compatibility_check: false,
-                    version: None,
-                };
-                // Automatically update plugins if the cloud plugin manifest does not exist
-                // TODO: remove this eventually once very unlikely to not have updated
-                if let Err(e) = plugin_installer.run().await {
-                    if let Some(PluginError::NotFound(_)) = e.downcast_ref::<PluginError>() {
-                        update().await?;
-                    }
-                    plugin_installer.run().await?;
-                }
-                None // No update badgering needed if we just updated/installed it!
-            } else {
-                tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
-                terminal::error!("'{plugin_name}' is not a known Spin command. See spin --help.\n");
-                print_similar_commands(app, &plugin_name);
-                process::exit(2);
-            }
-        }
-        Err(e) => return Err(e.into()),
-    };
+    let plugin_version = ensure_plugin_available(
+        &plugin_name,
+        &plugin_store,
+        app,
+        override_compatibility_check,
+    )
+    .await?;
 
     let mut command = Command::new(plugin_store.installed_binary_path(&plugin_name));
     command.args(args);
@@ -121,6 +86,98 @@ pub async fn execute_external_subcommand(
         }
     }
     Ok(())
+}
+
+async fn ensure_plugin_available(
+    plugin_name: &str,
+    plugin_store: &PluginStore,
+    app: clap::App<'_>,
+    override_compatibility_check: bool,
+) -> anyhow::Result<Option<String>> {
+    let plugin_version = match plugin_store.read_plugin_manifest(plugin_name) {
+        Ok(manifest) => {
+            if let Err(e) =
+                warn_unsupported_version(&manifest, SPIN_VERSION, override_compatibility_check)
+            {
+                eprintln!("{e}");
+                // TODO: consider running the update checked?
+                process::exit(1);
+            }
+            Some(manifest.version().to_owned())
+        }
+        Err(PluginError::NotFound(e)) => {
+            consider_install(plugin_name, plugin_store, app, &e).await?
+        }
+        Err(e) => return Err(e.into()),
+    };
+    Ok(plugin_version)
+}
+
+async fn consider_install(
+    plugin_name: &str,
+    plugin_store: &PluginStore,
+    app: clap::App<'_>,
+    e: &spin_plugins::error::NotFoundError,
+) -> anyhow::Result<Option<String>> {
+    if predefined_externals()
+        .iter()
+        .any(|(name, _)| name == plugin_name)
+    {
+        println!("The `{plugin_name}` plugin is required. Installing now.");
+        let plugin_installer = installer_for(plugin_name);
+        // Automatically update plugins if the cloud plugin manifest does not exist
+        // TODO: remove this eventually once very unlikely to not have updated
+        if let Err(e) = plugin_installer.run().await {
+            if let Some(PluginError::NotFound(_)) = e.downcast_ref::<PluginError>() {
+                update().await?;
+            }
+            plugin_installer.run().await?;
+        }
+        Ok(None) // No update badgering needed if we just updated/installed it!
+    } else if stderr().is_terminal() && matches_catalogue_plugin(plugin_store, plugin_name) {
+        if offer_install(plugin_name)? {
+            let plugin_installer = installer_for(plugin_name);
+            plugin_installer.run().await?;
+            eprintln!();
+            Ok(None) // No update badgering needed if we just updated/installed it!
+        } else {
+            process::exit(2);
+        }
+    } else {
+        tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
+        terminal::error!("'{plugin_name}' is not a known Spin command. See spin --help.\n");
+        print_similar_commands(app, plugin_name);
+        process::exit(2);
+    }
+}
+
+fn offer_install(name: &str) -> anyhow::Result<bool, anyhow::Error> {
+    terminal::warn!("`{name}` is not a known Spin command, but there is a plugin with that name.");
+    let choice = dialoguer::Confirm::new()
+        .with_prompt("Would you like to install and run it now?")
+        .interact_opt()?
+        .unwrap_or(false);
+    Ok(choice)
+}
+
+fn installer_for(plugin_name: &str) -> Install {
+    Install {
+        name: Some(plugin_name.to_owned()),
+        yes_to_all: true,
+        local_manifest_src: None,
+        remote_manifest_src: None,
+        override_compatibility_check: false,
+        version: None,
+    }
+}
+
+fn matches_catalogue_plugin(plugin_store: &PluginStore, plugin_name: &str) -> bool {
+    let Ok(known) = plugin_store.catalogue_manifests() else {
+        return false;
+    };
+    known
+        .iter()
+        .any(|m| m.name() == plugin_name && m.has_compatible_package())
 }
 
 async fn report_badger_result(badger: tokio::task::JoinHandle<BadgerChecker>) {

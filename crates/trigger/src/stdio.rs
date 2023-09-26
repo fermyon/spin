@@ -175,10 +175,14 @@ impl AsyncWrite for ComponentStdioWriter {
                         Ok(e) => e,
                         Err(e) => return Poll::Ready(Err(e)),
                     };
-                    this.state = ComponentStdioWriterState::Follow(0..written);
+                    if this.follow {
+                        this.state = ComponentStdioWriterState::Follow(0..written);
+                    } else {
+                        return Poll::Ready(Ok(written));
+                    }
                 }
                 ComponentStdioWriterState::Follow(range) => {
-                    let written = futures::ready!(std::pin::Pin::new(&mut tokio::io::stdout())
+                    let written = futures::ready!(std::pin::Pin::new(&mut tokio::io::stderr())
                         .poll_write(cx, &buf[range.clone()]));
                     let written = match written {
                         Ok(e) => e,
@@ -207,7 +211,7 @@ impl AsyncWrite for ComponentStdioWriter {
                 std::pin::Pin::new(&mut this.async_file).poll_flush(cx)
             }
             ComponentStdioWriterState::Follow(_) => {
-                std::pin::Pin::new(&mut tokio::io::stdout()).poll_flush(cx)
+                std::pin::Pin::new(&mut tokio::io::stderr()).poll_flush(cx)
             }
         }
     }
@@ -222,7 +226,7 @@ impl AsyncWrite for ComponentStdioWriter {
                 std::pin::Pin::new(&mut this.async_file).poll_shutdown(cx)
             }
             ComponentStdioWriterState::Follow(_) => {
-                std::pin::Pin::new(&mut tokio::io::stdout()).poll_flush(cx)
+                std::pin::Pin::new(&mut tokio::io::stderr()).poll_flush(cx)
             }
         }
     }

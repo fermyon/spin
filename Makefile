@@ -72,7 +72,7 @@ test-integration: test-kv
 	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast -- --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-spin-up
-test-spin-up: build-test-spin-up-docker run-test-spin-up-docker
+test-spin-up: build-test-spin-up run-test-spin-up
 
 .PHONY: build-test-spin-up
 build-test-spin-up:

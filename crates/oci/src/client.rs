@@ -100,12 +100,6 @@ impl Client {
         auth: RegistryAuth,
         reference: Reference,
     ) -> Result<Option<String>> {
-        // Opt-in to omitting layers for files that have been inlined into the manifest.
-        // TODO: After full integration this can be turned on by default.
-        let skip_inlined_files = !std::env::var_os("SPIN_OCI_SKIP_INLINED_FILES")
-            .unwrap_or_default()
-            .is_empty();
-
         // For each component in the application, add layers for the wasm module and
         // all static assets and update the locked application with the file digests.
         let mut layers = Vec::new();
@@ -157,7 +151,7 @@ impl Client {
                         // As a workaround for OCI implementations that don't support very small blobs,
                         // don't push very small content that has been inlined into the manifest:
                         // https://github.com/distribution/distribution/discussions/4029
-                        let skip_layer = skip_inlined_files && content_inline;
+                        let skip_layer = content_inline;
                         if !skip_layer {
                             layers.push(layer);
                         }

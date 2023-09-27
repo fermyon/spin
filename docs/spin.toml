@@ -3,7 +3,7 @@ name = "spin-docs"
 version = "0.1.0"
 description = "The Spin documentation website running on... Spin."
 authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
-trigger = { type = "http" }
+trigger = { type = "http", base = "/" }
 
 [[component]]
 id = "redirect-download"

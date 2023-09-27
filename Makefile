@@ -1,26 +1,44 @@
 LOG_LEVEL ?= spin=trace
 CERT_NAME ?= local
 SPIN_DOC_NAME ?= new-doc.md
+export PATH := target/debug:target/release:$(HOME)/.cargo/bin:$(PATH)
 
 ARCH = $(shell uname -p)
 
 ## dependencies for e2e-tests
-E2E_VOLUME_MOUNT     ?=
-E2E_BUILD_SPIN       ?= false
-E2E_FETCH_SPIN       ?= true
-E2E_TESTS_DOCKERFILE ?= e2e-tests.Dockerfile
-MYSQL_IMAGE          ?= mysql:8.0.22
-REDIS_IMAGE          ?= redis:7.0.8-alpine3.17
-POSTGRES_IMAGE       ?= postgres:14.7-alpine
-REGISTRY_IMAGE       ?= registry:2
+E2E_BUILD_SPIN                  ?= false
+E2E_FETCH_SPIN                  ?= true
+E2E_TESTS_DOCKERFILE            ?= e2e-tests.Dockerfile
+MYSQL_IMAGE                     ?= mysql:8.0.22
+REDIS_IMAGE                     ?= redis:7.0.8-alpine3.17
+POSTGRES_IMAGE                  ?= postgres:14.7-alpine
+REGISTRY_IMAGE                  ?= registry:2
+E2E_SPIN_RELEASE_VOLUME_MOUNT   ?=
+E2E_SPIN_DEBUG_VOLUME_MOUNT     ?=
 
 ## overrides for aarch64
 ifneq ($(ARCH),x86_64)
-	MYSQL_IMAGE		 = arm64v8/mysql:8.0.32
-	REDIS_IMAGE		 = arm64v8/redis:6.0-alpine3.17
-	POSTGRES_IMAGE		 = arm64v8/postgres:14.7
-	REGISTRY_IMAGE		 = arm64v8/registry:2
-	E2E_TESTS_DOCKERFILE = e2e-tests-aarch64.Dockerfile
+	MYSQL_IMAGE             = arm64v8/mysql:8.0.32
+	REDIS_IMAGE             = arm64v8/redis:6.0-alpine3.17
+	POSTGRES_IMAGE          = arm64v8/postgres:14.7
+	REGISTRY_IMAGE          = arm64v8/registry:2
+	E2E_TESTS_DOCKERFILE    = e2e-tests-aarch64.Dockerfile
+endif
+
+ifneq (,$(wildcard $(shell pwd)/target/release/spin))
+	E2E_SPIN_RELEASE_VOLUME_MOUNT = -v $(shell pwd)/target/release/spin:/from-host/target/release/spin
+endif
+
+ifneq (,$(wildcard $(shell pwd)/target/debug/spin))
+	E2E_SPIN_DEBUG_VOLUME_MOUNT = -v $(shell pwd)/target/debug/spin:/from-host/target/debug/spin
+endif
+
+## Reset volume mounts for e2e-tests if Darwin because the
+## spin binaries built on macOS won't run in the docker container
+ifeq ($(shell uname -s),Darwin)
+	E2E_SPIN_RELEASE_VOLUME_MOUNT = 
+	E2E_SPIN_DEBUG_VOLUME_MOUNT =
+	E2E_BUILD_SPIN = true
 endif
 
 .PHONY: build
@@ -54,7 +72,7 @@ test-integration: test-kv
 	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast -- --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-spin-up
-test-spin-up: build-test-spin-up-docker run-test-spin-up-docker
+test-spin-up: build-test-spin-up run-test-spin-up
 
 .PHONY: build-test-spin-up
 build-test-spin-up:
@@ -63,7 +81,8 @@ build-test-spin-up:
 .PHONY: run-test-spin-up
 run-test-spin-up:
 	REDIS_IMAGE=$(REDIS_IMAGE) MYSQL_IMAGE=$(MYSQL_IMAGE) POSTGRES_IMAGE=$(POSTGRES_IMAGE) \
-	docker compose -f e2e-tests-docker-compose.yml run $(E2E_VOLUME_MOUNT) e2e-tests
+	BUILD_SPIN=$(E2E_BUILD_SPIN) \
+	docker compose -f e2e-tests-docker-compose.yml run $(E2E_SPIN_RELEASE_VOLUME_MOUNT) $(E2E_SPIN_DEBUG_VOLUME_MOUNT) e2e-tests
 
 .PHONY: test-kv
 test-kv:

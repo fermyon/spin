@@ -67,11 +67,16 @@ RUN wget https://github.com/fermyon/spin/releases/download/${SPIN_VERSION}/spin-
 WORKDIR /e2e-tests
 COPY . .
 
-RUN if [ "${BUILD_SPIN}" == "true" ]; then                                                                                      \
-    cargo build --release &&                                                                                                    \
-    cp target/release/spin /usr/local/bin/spin;                                                                                 \
-    fi
+RUN printf '#!/bin/bash                                                         \n      \
+    if [[ "$BUILD_SPIN" == "true" ]]; then                                      \n      \
+    echo "BUILD_SPIN is true. compiling spin"                                   \n      \
+    cargo build --release                                                       \n      \
+    fi                                                                          \n\n    \
+    cargo test spinup_tests --features e2e-tests --no-fail-fast -- --nocapture  \n      \
+    ' > /usr/local/bin/entrypoint.sh
+
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 RUN spin --version
-
-CMD cargo test spinup_tests --features e2e-tests --no-fail-fast -- --nocapture
+ENV PATH=/from-host/target/debug:/from-host/target/release:$HOME/.cargo/bin:$PATH
+CMD /usr/local/bin/entrypoint.sh

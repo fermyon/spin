@@ -174,7 +174,7 @@ jobs:
           export E2E_FETCH_SPIN=false
           make build-test-spin-up
 
-      - name: Run e2e tests image
+      - name: Run e2e tests
         run: |
           chmod +x `pwd`/target/release/spin
           export E2E_VOLUME_MOUNT="-v `pwd`/target/release/spin:/usr/local/bin/spin"

@@ -13,6 +13,13 @@ The goal of these tests is to ensure that spin continues to work with existing a
 make test-spin-up
 ```
 
+The e2e-tests looks for `spin` binary in following folders (in that order):
+
+- target/debug
+- target/release
+- $HOME/.cargo/bin
+- $PATH
+
 ## How to use `spin` binary with your local changes
 
 By default, tests use the canary build of `spin` downloaded at the docker image creation time. If you want to test it with your changes, you can use the environment variable E2E_BUILD_SPIN=true

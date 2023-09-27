@@ -6,6 +6,7 @@ use serde::de::DeserializeOwned;
 use spin_app::Loader;
 use spin_common::{arg_parser::parse_kv, sloth};
 
+use crate::runtime_config::llm::LLmOptions;
 use crate::runtime_config::sqlite::SqlitePersistenceMessageHook;
 use crate::stdio::StdioLoggingTriggerHooks;
 use crate::{
@@ -150,7 +151,7 @@ where
         let init_data = crate::HostComponentInitData::new(
             &*self.key_values,
             &*self.sqlite_statements,
-            spin_llm_local::LLmOptions { use_gpu: true },
+            LLmOptions { use_gpu: true },
         );
 
         let loader = TriggerLoader::new(working_dir, self.allow_transient_write);

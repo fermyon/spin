@@ -26,7 +26,7 @@ spin-sqlite-inproc = { path = "../sqlite-inproc" }
 spin-sqlite-libsql = { path = "../sqlite-libsql" }
 spin-world = { path = "../world" }
 spin-llm = { path = "../llm" }
-spin-llm-local = { path = "../llm-local" }
+spin-llm-local = { path = "../llm-local", optional = true }
 spin-llm-remote-http = { path = "../llm-remote-http" }
 sanitize-filename = "0.4"
 serde = "1.0.188"
@@ -50,6 +50,6 @@ toml = "0.5"
 tokio = { version = "1.23", features = ["rt", "macros"] }
 
 [features]
-default = []
-llm-metal = ["spin-llm-local/metal"]
-llm-cublas = ["spin-llm-local/cublas"]
+llm = ["spin-llm-local"]
+llm-metal = ["llm", "spin-llm-local/metal"]
+llm-cublas = ["llm", "spin-llm-local/cublas"]

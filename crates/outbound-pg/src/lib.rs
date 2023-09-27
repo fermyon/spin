@@ -103,8 +103,6 @@ impl postgres::Host for OutboundPg {
     }
 }
 
-const DB_NULL: Option<i32> = None;
-
 fn to_sql_parameter(value: &ParameterValue) -> anyhow::Result<&(dyn ToSql + Sync)> {
     match value {
         ParameterValue::Boolean(v) => Ok(v),
@@ -120,7 +118,7 @@ fn to_sql_parameter(value: &ParameterValue) -> anyhow::Result<&(dyn ToSql + Sync
         | ParameterValue::Uint64(_) => Err(anyhow!("Postgres does not support unsigned integers")),
         ParameterValue::Str(v) => Ok(v),
         ParameterValue::Binary(v) => Ok(v),
-        ParameterValue::DbNull => Ok(&DB_NULL),
+        ParameterValue::DbNull => Ok(&PgNull),
     }
 }
 
@@ -284,4 +282,46 @@ where
             tracing::error!("Postgres connection error: {}", e);
         }
     });
+}
+
+/// Although the Postgres crate converts Rust Option::None to Postgres NULL,
+/// it enforces the type of the Option as it does so. (For example, trying to
+/// pass an Option::<i32>::None to a VARCHAR column fails conversion.) As we
+/// do not know expected column types, we instead use a "neutral" custom type
+/// which allows conversion to any type but always tells the Postgres crate to
+/// treat it as a SQL NULL.
+struct PgNull;
+
+impl ToSql for PgNull {
+    fn to_sql(
+        &self,
+        _ty: &Type,
+        _out: &mut tokio_postgres::types::private::BytesMut,
+    ) -> Result<tokio_postgres::types::IsNull, Box<dyn std::error::Error + Sync + Send>>
+    where
+        Self: Sized,
+    {
+        Ok(tokio_postgres::types::IsNull::Yes)
+    }
+
+    fn accepts(_ty: &Type) -> bool
+    where
+        Self: Sized,
+    {
+        true
+    }
+
+    fn to_sql_checked(
+        &self,
+        _ty: &Type,
+        _out: &mut tokio_postgres::types::private::BytesMut,
+    ) -> Result<tokio_postgres::types::IsNull, Box<dyn std::error::Error + Sync + Send>> {
+        Ok(tokio_postgres::types::IsNull::Yes)
+    }
+}
+
+impl std::fmt::Debug for PgNull {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NULL").finish()
+    }
 }

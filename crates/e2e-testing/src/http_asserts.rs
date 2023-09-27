@@ -67,7 +67,9 @@ pub async fn create_request(method: Method, url: &str, body: &str) -> Result<Req
 
 pub fn create_client() -> Client<HttpsConnector<HttpConnector>> {
     let connector = HttpsConnector::new();
-    Client::builder().build::<_, hyper::Body>(connector)
+    Client::builder()
+        .pool_max_idle_per_host(0)
+        .build::<_, hyper::Body>(connector)
 }
 
 pub async fn make_request(method: Method, path: &str, body: &str) -> Result<Response<Body>> {

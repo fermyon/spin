@@ -329,7 +329,7 @@ impl List {
         let mut plugins = if self.installed {
             Self::list_installed_plugins()
         } else {
-            Self::list_catalogue_and_installed_plugins()
+            Self::list_catalogue_and_installed_plugins().await
         }?;
 
         plugins.sort_by(|p, q| p.cmp(q));
@@ -355,7 +355,11 @@ impl List {
         Ok(descriptors)
     }
 
-    fn list_catalogue_plugins() -> Result<Vec<PluginDescriptor>> {
+    async fn list_catalogue_plugins() -> Result<Vec<PluginDescriptor>> {
+        if update_silent().await.is_err() {
+            terminal::warn!("Couldn't update plugins registry cache - using most recent");
+        }
+
         let manager = PluginManager::try_default()?;
         let store = manager.store();
         let manifests = store.catalogue_manifests();
@@ -372,8 +376,8 @@ impl List {
         Ok(descriptors)
     }
 
-    fn list_catalogue_and_installed_plugins() -> Result<Vec<PluginDescriptor>> {
-        let catalogue = Self::list_catalogue_plugins()?;
+    async fn list_catalogue_and_installed_plugins() -> Result<Vec<PluginDescriptor>> {
+        let catalogue = Self::list_catalogue_plugins().await?;
         let installed = Self::list_installed_plugins()?;
         Ok(merge_plugin_lists(catalogue, installed))
     }
@@ -460,6 +464,12 @@ fn merge_plugin_lists(a: Vec<PluginDescriptor>, b: Vec<PluginDescriptor>) -> Vec
 
 /// Updates the locally cached spin-plugins repository, fetching the latest plugins.
 pub(crate) async fn update() -> Result<()> {
+    update_silent().await?;
+    println!("Plugin information updated successfully");
+    Ok(())
+}
+
+pub(crate) async fn update_silent() -> Result<()> {
     let manager = PluginManager::try_default()?;
 
     let mut locker = manager.update_lock().await;
@@ -471,7 +481,6 @@ pub(crate) async fn update() -> Result<()> {
     let plugins_dir = manager.store().get_plugins_directory();
     let url = plugins_repo_url()?;
     fetch_plugins_repo(&url, plugins_dir, true).await?;
-    println!("Plugin information updated successfully");
     Ok(())
 }
 

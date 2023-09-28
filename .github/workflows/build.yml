@@ -116,7 +116,6 @@ jobs:
           rust-cache: true
           bindle: true
           nomad: true
-          hippo: true
 
       # FIXME: THIS IS THE SHORTEST-TERM OF ALL SHORT-TERM FIXES
       - name: Rescue some space for Linux tests

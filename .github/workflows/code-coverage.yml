@@ -45,7 +45,6 @@ jobs:
           rust-wasm: true
           bindle: true
           nomad: true
-          hippo: true
 
       - name: Install cargo-tarpaulin binary crate
         uses: actions-rs/install@v0.1

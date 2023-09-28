@@ -5,7 +5,6 @@
 mod app_info;
 mod cancellable;
 mod constraints;
-mod custom_filters;
 mod directory;
 mod environment;
 mod filters;

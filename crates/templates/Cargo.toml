@@ -32,10 +32,3 @@ tokio = { version = "1.23", features = ["fs", "process", "rt", "macros"] }
 toml = "0.5"
 url = "2.2.2"
 walkdir = "2"
-wasmtime = { workspace = true }
-wasmtime-wasi = { workspace = true }
-
-[dependencies.wit-bindgen-wasmtime]
-git = "https://github.com/fermyon/wit-bindgen-backport"
-rev = "598cd229bb43baceff9616d16930b8a5a3e79d79"
-features = ["async"]

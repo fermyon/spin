@@ -322,6 +322,10 @@ pub struct List {
     /// List only installed plugins.
     #[clap(long = "installed", takes_value = false)]
     pub installed: bool,
+
+    /// Filter the list to plugins containing this string.
+    #[clap(long = "filter")]
+    pub filter: Option<String>,
 }
 
 impl List {
@@ -333,6 +337,10 @@ impl List {
         }?;
 
         plugins.sort_by(|p, q| p.cmp(q));
+
+        if let Some(filter) = self.filter.as_ref() {
+            plugins.retain(|p| p.name.contains(filter));
+        }
 
         Self::print(&plugins);
         Ok(())

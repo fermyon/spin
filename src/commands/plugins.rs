@@ -29,6 +29,9 @@ pub enum PluginCommands {
     /// List available or installed plugins.
     List(List),
 
+    /// Search for plugins by name.
+    Search(Search),
+
     /// Remove a plugin from your installation.
     Uninstall(Uninstall),
 
@@ -44,6 +47,7 @@ impl PluginCommands {
         match self {
             PluginCommands::Install(cmd) => cmd.run().await,
             PluginCommands::List(cmd) => cmd.run().await,
+            PluginCommands::Search(cmd) => cmd.run().await,
             PluginCommands::Uninstall(cmd) => cmd.run().await,
             PluginCommands::Upgrade(cmd) => cmd.run().await,
             PluginCommands::Update => update().await,
@@ -316,7 +320,7 @@ impl Upgrade {
     }
 }
 
-/// Install plugins from remote source
+/// List available or installed plugins.
 #[derive(Parser, Debug)]
 pub struct List {
     /// List only installed plugins.
@@ -404,6 +408,24 @@ impl List {
                 println!("{} {}{}{}", p.name, p.version, installed, compat);
             }
         }
+    }
+}
+
+/// Search for plugins by name.
+#[derive(Parser, Debug)]
+pub struct Search {
+    /// The text to search for. If omitted, all plugins are returned.
+    pub filter: Option<String>,
+}
+
+impl Search {
+    async fn run(&self) -> anyhow::Result<()> {
+        let list_cmd = List {
+            installed: false,
+            filter: self.filter.clone(),
+        };
+
+        list_cmd.run().await
     }
 }
 

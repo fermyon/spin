@@ -13,7 +13,7 @@ use oci_distribution::{
     Reference,
 };
 use reqwest::Url;
-use spin_app::locked::{ContentPath, ContentRef};
+use spin_app::locked::{ContentPath, ContentRef, LockedApp};
 use spin_loader::cache::Cache;
 use spin_manifest::Application;
 use tokio::fs;
@@ -71,8 +71,35 @@ impl Client {
         // We should be able to use assets::collect instead when constructing the locked app.
         let locked = spin_trigger::locked::build_locked_app(app.clone(), working_dir.path())
             .context("cannot create locked app")?;
-        let mut locked = locked.clone();
+        let locked = locked.clone();
 
+        self.push_locked_core(locked, auth, reference).await
+    }
+
+    /// Push a Spin application to an OCI registry and return the digest (or None
+    /// if the digest cannot be determined).
+    pub async fn push_locked(
+        &mut self,
+        locked: LockedApp,
+        reference: impl AsRef<str>,
+    ) -> Result<Option<String>> {
+        let reference: Reference = reference
+            .as_ref()
+            .parse()
+            .with_context(|| format!("cannot parse reference {}", reference.as_ref()))?;
+        let auth = Self::auth(&reference).await?;
+
+        self.push_locked_core(locked, auth, reference).await
+    }
+
+    /// Push a Spin application to an OCI registry and return the digest (or None
+    /// if the digest cannot be determined).
+    async fn push_locked_core(
+        &mut self,
+        mut locked: LockedApp,
+        auth: RegistryAuth,
+        reference: Reference,
+    ) -> Result<Option<String>> {
         // Opt-in to omitting layers for files that have been inlined into the manifest.
         // TODO: After full integration this can be turned on by default.
         let skip_inlined_files = !std::env::var_os("SPIN_OCI_SKIP_INLINED_FILES")

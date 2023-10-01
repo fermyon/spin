@@ -4,6 +4,7 @@ use async_trait::async_trait;
 
 use crate::Key;
 
+pub mod azkv;
 /// Environment variable based provider.
 pub mod env;
 pub mod vault;

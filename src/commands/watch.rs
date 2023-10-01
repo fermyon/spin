@@ -265,8 +265,8 @@ impl WatchCommand {
         };
         let wasm_globs = manifest.components.iter().filter_map(|c| {
             let RawModuleSource::FileReference(path) = &c.source else {
-                    return None;
-                };
+                return None;
+            };
             path.to_str().map(String::from)
         });
         let asset_globs = manifest

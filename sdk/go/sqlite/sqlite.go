@@ -19,8 +19,8 @@ type conn struct {
 }
 
 // Close the connection.
-func (db *conn) Close() error {
-	db.close()
+func (c *conn) Close() error {
+	c.close()
 	return nil
 }
 
@@ -36,12 +36,17 @@ func (c *conn) Begin() (driver.Tx, error) {
 
 // connector implements driver.Connector.
 type connector struct {
+	conn *conn
 	name string
 }
 
 // Connect returns a connection to the database.
 func (d *connector) Connect(_ context.Context) (driver.Conn, error) {
-	return open(d.name)
+	if d.conn != nil {
+		return d.conn, nil
+	}
+
+	return d.Open(d.name)
 }
 
 // Driver returns the underlying Driver of the Connector.
@@ -51,7 +56,23 @@ func (d *connector) Driver() driver.Driver {
 
 // Open returns a new connection to the database.
 func (d *connector) Open(name string) (driver.Conn, error) {
-	return open(name)
+	conn, err := open(name)
+	if err != nil {
+		return nil, err
+	}
+
+	d.conn = conn
+
+	return conn, err
+}
+
+// Close closes the connection to the database.
+func (d *connector) Close() error {
+	if d.conn != nil {
+		d.conn.Close()
+	}
+
+	return nil
 }
 
 type rows struct {

@@ -29,6 +29,9 @@ pub enum PluginCommands {
     /// List available or installed plugins.
     List(List),
 
+    /// Search for plugins by name.
+    Search(Search),
+
     /// Remove a plugin from your installation.
     Uninstall(Uninstall),
 
@@ -44,6 +47,7 @@ impl PluginCommands {
         match self {
             PluginCommands::Install(cmd) => cmd.run().await,
             PluginCommands::List(cmd) => cmd.run().await,
+            PluginCommands::Search(cmd) => cmd.run().await,
             PluginCommands::Uninstall(cmd) => cmd.run().await,
             PluginCommands::Upgrade(cmd) => cmd.run().await,
             PluginCommands::Update => update().await,
@@ -316,12 +320,16 @@ impl Upgrade {
     }
 }
 
-/// Install plugins from remote source
+/// List available or installed plugins.
 #[derive(Parser, Debug)]
 pub struct List {
     /// List only installed plugins.
     #[clap(long = "installed", takes_value = false)]
     pub installed: bool,
+
+    /// Filter the list to plugins containing this string.
+    #[clap(long = "filter")]
+    pub filter: Option<String>,
 }
 
 impl List {
@@ -329,10 +337,14 @@ impl List {
         let mut plugins = if self.installed {
             Self::list_installed_plugins()
         } else {
-            Self::list_catalogue_and_installed_plugins()
+            Self::list_catalogue_and_installed_plugins().await
         }?;
 
         plugins.sort_by(|p, q| p.cmp(q));
+
+        if let Some(filter) = self.filter.as_ref() {
+            plugins.retain(|p| p.name.contains(filter));
+        }
 
         Self::print(&plugins);
         Ok(())
@@ -355,7 +367,11 @@ impl List {
         Ok(descriptors)
     }
 
-    fn list_catalogue_plugins() -> Result<Vec<PluginDescriptor>> {
+    async fn list_catalogue_plugins() -> Result<Vec<PluginDescriptor>> {
+        if update_silent().await.is_err() {
+            terminal::warn!("Couldn't update plugins registry cache - using most recent");
+        }
+
         let manager = PluginManager::try_default()?;
         let store = manager.store();
         let manifests = store.catalogue_manifests();
@@ -372,8 +388,8 @@ impl List {
         Ok(descriptors)
     }
 
-    fn list_catalogue_and_installed_plugins() -> Result<Vec<PluginDescriptor>> {
-        let catalogue = Self::list_catalogue_plugins()?;
+    async fn list_catalogue_and_installed_plugins() -> Result<Vec<PluginDescriptor>> {
+        let catalogue = Self::list_catalogue_plugins().await?;
         let installed = Self::list_installed_plugins()?;
         Ok(merge_plugin_lists(catalogue, installed))
     }
@@ -392,6 +408,24 @@ impl List {
                 println!("{} {}{}{}", p.name, p.version, installed, compat);
             }
         }
+    }
+}
+
+/// Search for plugins by name.
+#[derive(Parser, Debug)]
+pub struct Search {
+    /// The text to search for. If omitted, all plugins are returned.
+    pub filter: Option<String>,
+}
+
+impl Search {
+    async fn run(&self) -> anyhow::Result<()> {
+        let list_cmd = List {
+            installed: false,
+            filter: self.filter.clone(),
+        };
+
+        list_cmd.run().await
     }
 }
 
@@ -460,6 +494,12 @@ fn merge_plugin_lists(a: Vec<PluginDescriptor>, b: Vec<PluginDescriptor>) -> Vec
 
 /// Updates the locally cached spin-plugins repository, fetching the latest plugins.
 pub(crate) async fn update() -> Result<()> {
+    update_silent().await?;
+    println!("Plugin information updated successfully");
+    Ok(())
+}
+
+pub(crate) async fn update_silent() -> Result<()> {
     let manager = PluginManager::try_default()?;
 
     let mut locker = manager.update_lock().await;
@@ -471,7 +511,6 @@ pub(crate) async fn update() -> Result<()> {
     let plugins_dir = manager.store().get_plugins_directory();
     let url = plugins_repo_url()?;
     fetch_plugins_repo(&url, plugins_dir, true).await?;
-    println!("Plugin information updated successfully");
     Ok(())
 }
 

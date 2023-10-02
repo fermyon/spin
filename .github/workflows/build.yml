@@ -118,6 +118,13 @@ jobs:
           nomad: true
           hippo: true
 
+      # FIXME: THIS IS THE SHORTEST-TERM OF ALL SHORT-TERM FIXES
+      - name: Rescue some space for Linux tests
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          rm -rf ./target/debug/deps
+          rm -rf ./target/debug/build
+
       - name: Cargo Unit Tests
         run: |
           make test-unit

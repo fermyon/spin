@@ -1,17 +1,13 @@
 use std::{
-    convert::Infallible,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use clap::Parser;
 use itertools::Itertools;
-use spin_loader::local::{
-    config::{RawComponentManifestImpl, RawFileMount, RawModuleSource},
-    parent_dir,
-};
+use spin_loader::local::parent_dir;
 use uuid::Uuid;
 use watchexec::Watchexec;
 
@@ -21,9 +17,12 @@ use crate::opts::{
 };
 
 mod buildifier;
+mod filters;
+mod reconfiguriser;
 mod uppificator;
 
 use buildifier::Buildifier;
+use filters::{ArtifactFilterFactory, BuildFilterFactory, FilterFactory, ManifestFilterFactory};
 use uppificator::{Pause, Uppificator};
 
 /// Build and run the Spin application, rebuilding and restarting it when files change.
@@ -81,6 +80,12 @@ impl WatchCommand {
         // * The Buildifier, if in play, watches the manifest and component.build.watch collections. When it detects a
         //   change, it PAUSES the Uppificator, does the build, then unpauses the Uppificator.
         //   * It is on the Uppificator to recognise if any interesting files have changed when it unpauses.
+        // * The Reconfiguriser watches the manifest *only*. When it detects a change, it reconfigures the `watchexec`
+        //   instances that underlie the Uppificator and Buildifier. There is no need to trigger a reload as
+        //   both of these will already be triggered by the manifest change.
+        //   * Reconfiguration is supported by the ReconfigurableWatcher, which holds the watchexec instance,
+        //     and the RuntimeConfigFactory, which holds the information needed to re-read the manifest
+        //     and create a new configuration for the watchexec instances.
         // * In skip_build configurations, the Buildifier is not present.
         // * In clear configurations, both the Buildifier and the Uppificator clear the screen on a change.
         //   * There is a slight twist here that the Uppificator does _not_ clear the screen if the Buildifier
@@ -89,9 +94,6 @@ impl WatchCommand {
         let spin_bin = std::env::current_exe()?;
         let manifest_file = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
         let manifest_dir = parent_dir(&manifest_file)?;
-        let manifest = spin_loader::local::raw_manifest_from_file(&manifest_file)
-            .await?
-            .into_v1();
 
         // Set up the event processors (but don't start them yet).
         // We create the build-related objects even if skip_build is on - the cost is insignificant,
@@ -100,6 +102,7 @@ impl WatchCommand {
         let (artifact_tx, artifact_rx) = tokio::sync::watch::channel(Uuid::new_v4());
         let (pause_tx, pause_rx) = tokio::sync::mpsc::channel(1);
         let (source_code_tx, source_code_rx) = tokio::sync::watch::channel(Uuid::new_v4());
+        let (manifest_tx, manifest_rx) = tokio::sync::watch::channel(Uuid::new_v4());
         let (stop_tx, stop_rx) = tokio::sync::watch::channel(Uuid::new_v4());
 
         let mut buildifier = Buildifier {
@@ -122,31 +125,58 @@ impl WatchCommand {
 
         // Start `watchexec` tasks to monitor artifact and build files.
 
-        // BUG: Currently the filter is not dynamic - if the asset list in the manifest changes, this will
-        // trigger a reload but the old asset list remains effective. I think this was an existing issue, not
-        // sure if I've exacerbated it. We can use `Watchexec::reconfigure()` to fix this but
-        // then we might need a Reconfiguriser as well to monitor the manifest.
+        let artifact_tx = Arc::new(artifact_tx);
+        let source_code_tx = Arc::new(source_code_tx);
+        let manifest_tx = Arc::new(manifest_tx);
 
-        let artifact_filterer = self
-            .artifact_filterer(&manifest_file, &manifest_dir, &manifest)
+        let artifact_filterer = Box::new(ArtifactFilterFactory {
+            skip_build: self.skip_build,
+        });
+        let (artifact_watcher, artifact_watcher_handle) = self
+            .spawn_watchexec(
+                &manifest_file,
+                &manifest_dir,
+                artifact_filterer,
+                artifact_tx,
+                "reload",
+            )
             .await
-            .context("Error creating artifact filterer")?;
-        let artifact_watcher_handle = self
-            .spawn_watchexec(&manifest_dir, artifact_filterer, artifact_tx, "reload")
             .context("Error creating artifact watcher")?;
 
-        let build_files_watcher_handle = if self.skip_build {
-            tokio::task::spawn(tokio::time::sleep(tokio::time::Duration::MAX))
+        let (build_watcher, build_files_watcher_handle) = if self.skip_build {
+            ReconfigurableWatcher::dummy()
         } else {
-            let build_filterer = self
-                .build_filterer(&manifest_file, &manifest_dir, &manifest)
-                .await
-                .context("Error creating build files filterer")?;
-            self.spawn_watchexec(&manifest_dir, build_filterer, source_code_tx, "build")
-                .context("Error creating build files watcher")?
+            let build_filterer = Box::new(BuildFilterFactory);
+            self.spawn_watchexec(
+                &manifest_file,
+                &manifest_dir,
+                build_filterer,
+                source_code_tx,
+                "build",
+            )
+            .await
+            .context("Error creating build files watcher")?
         };
 
-        // Start the the uppificator and buildifier to process notifications from the
+        let mut reconfiguriser = reconfiguriser::Reconfiguriser {
+            manifest_changes: manifest_rx,
+            artifact_watcher,
+            build_watcher,
+        };
+
+        let manifest_filterer = Box::new(ManifestFilterFactory);
+        let (_, manifest_watcher_handle) = self
+            .spawn_watchexec(
+                &manifest_file,
+                &manifest_dir,
+                manifest_filterer,
+                manifest_tx,
+                "reconfigure",
+            )
+            .await
+            .context("Error creating manifest watcher")?;
+
+        // Start the the uppificator, buildifier and reconfiguriser to process notifications from the
         // `watchexec` tasks.
 
         let uppificator_handle = tokio::task::spawn(async move { uppificator.run().await });
@@ -157,6 +187,7 @@ impl WatchCommand {
         } else {
             tokio::task::spawn(async move { buildifier.run().await })
         };
+        let reconfiguriser_handle = tokio::task::spawn(async move { reconfiguriser.run().await });
 
         // Wait for either the user to stop the watch, or some catastrophe to dump us out.
 
@@ -174,8 +205,10 @@ impl WatchCommand {
         _ = futures::future::select_all(vec![
             uppificator_handle,
             buildifier_handle,
+            reconfiguriser_handle,
             artifact_watcher_handle,
             build_files_watcher_handle,
+            manifest_watcher_handle,
         ])
         .await;
 
@@ -189,149 +222,113 @@ impl WatchCommand {
     // like `notify`.) Therefore, we use `watchexec`, but do not set a command to run,
     // and always set the action outcome to DoNothing. Instead, our action handler manually
     // sends messages to let the two process managers make their own decisions.
-    fn spawn_watchexec(
+    //
+    // Note that this does not return the watchexec instance directly: it returns a
+    // wrapper that allows self-reconfiguration (ReconfigurableWatcher), and a future
+    // (tokio::JoinHandle) representing the running watchexec instance.
+    async fn spawn_watchexec(
         &self,
+        manifest_file: &Path,
         manifest_dir: &Path,
-        filterer: impl watchexec::filter::Filterer + 'static,
-        notifier: tokio::sync::watch::Sender<Uuid>,
+        filter_factory: Box<dyn FilterFactory>,
+        notifier: Arc<tokio::sync::watch::Sender<Uuid>>,
         impact_description: &'static str,
-    ) -> anyhow::Result<tokio::task::JoinHandle<()>> {
-        let mut despurifier = despurifier::Despurifier::new();
-        let mut rt = watchexec::config::RuntimeConfig::default();
-        rt.pathset([manifest_dir]);
-        rt.filterer(Arc::new(filterer));
-        rt.action_throttle(Duration::from_millis(self.debounce));
-        rt.on_action(move |action: watchexec::action::Action| {
-            if despurifier.all_spurious(&action) {
-                tracing::debug!("spin watch ignored spurious changes: {}", paths_of(&action));
-            } else {
-                tracing::debug!(
-                    "spin watch detected changes requiring {impact_description}: {}",
-                    paths_of(&action)
-                );
-                _ = notifier.send(Uuid::new_v4());
-            }
-            action.outcome(watchexec::action::Outcome::DoNothing);
-            async { Ok::<(), Infallible>(()) }
-        });
-        let watcher = Watchexec::new(watchexec::config::InitConfig::default(), rt)?;
-        let watcher_join_handle = tokio::task::spawn(async move {
-            _ = watcher.main().await;
-        });
-        Ok(watcher_join_handle)
-    }
-
-    async fn build_filterer<T>(
-        &self,
-        manifest_file: &Path,
-        manifest_dir: &Path,
-        manifest: &spin_loader::local::config::RawAppManifestImpl<T>,
-    ) -> anyhow::Result<watchexec_filterer_globset::GlobsetFilterer> {
-        let manifest_glob = vec![stringize_path(manifest_file)?];
-        let src_globs = manifest
-            .components
-            .iter()
-            .filter_map(|c| Self::create_source_globs(c))
-            .flatten();
-
-        let build_globs = manifest_glob
-            .into_iter()
-            .chain(src_globs)
-            .map(|s| (s, None))
-            .collect::<Vec<_>>();
-
-        let filterer = watchexec_filterer_globset::GlobsetFilterer::new(
-            manifest_dir,
-            build_globs,
-            standard_ignores(),
-            [],
-            [],
-        )
-        .await?;
-
-        Ok(filterer)
-    }
-
-    async fn artifact_filterer<T>(
-        &self,
-        manifest_file: &Path,
-        manifest_dir: &Path,
-        manifest: &spin_loader::local::config::RawAppManifestImpl<T>,
-    ) -> anyhow::Result<watchexec_filterer_globset::GlobsetFilterer> {
-        let manifest_glob = if self.skip_build {
-            vec![stringize_path(manifest_file)?]
-        } else {
-            vec![] // In this case, manifest changes trigger a rebuild, which will poke the uppificator anyway
+    ) -> anyhow::Result<(ReconfigurableWatcher, tokio::task::JoinHandle<()>)> {
+        let rtf = RuntimeConfigFactory {
+            manifest_file: manifest_file.to_owned(),
+            manifest_dir: manifest_dir.to_owned(),
+            filter_factory,
+            notifier,
+            impact_description,
+            debounce: Duration::from_millis(self.debounce),
         };
-        let wasm_globs = manifest.components.iter().filter_map(|c| {
-            let RawModuleSource::FileReference(path) = &c.source else {
-                    return None;
-                };
-            path.to_str().map(String::from)
-        });
-        let asset_globs = manifest
-            .components
-            .iter()
-            .filter_map(|c| c.wasm.files.as_ref())
-            .flatten()
-            .filter_map(|raw_file_mount| match raw_file_mount {
-                RawFileMount::Placement(raw_directory_placement) => raw_directory_placement
-                    .source
-                    .join("**/*")
-                    .to_str()
-                    .map(String::from),
-                RawFileMount::Pattern(pattern) => Some(pattern.to_string()),
-            });
-
-        let artifact_globs = manifest_glob
-            .into_iter()
-            .chain(wasm_globs)
-            .chain(asset_globs)
-            .map(|s| (s, None))
-            .collect::<Vec<_>>();
-
-        let filterer = watchexec_filterer_globset::GlobsetFilterer::new(
-            manifest_dir,
-            artifact_globs,
-            standard_ignores(),
-            [],
-            [],
-        )
-        .await?;
-
-        Ok(filterer)
-    }
-
-    fn create_source_globs<T>(c: &RawComponentManifestImpl<T>) -> Option<Vec<String>> {
-        let build = c.build.as_ref()?;
-        let Some(watch) = build.watch.clone() else {
-            eprintln!(
-                "You haven't configured what to watch for the component: '{}'. Learn how to configure Spin watch at https://developer.fermyon.com/common/cli-reference#watch",
-                c.id
-            );
-            return None;
-        };
-        let sources = build
-            .workdir
-            .clone()
-            .map(|workdir| {
-                watch
-                    .iter()
-                    .filter_map(|w| workdir.join(w).to_str().map(String::from))
-                    .collect()
-            })
-            .unwrap_or(watch);
-        Some(sources)
+        let watcher = ReconfigurableWatcher::start(rtf).await?;
+        Ok(watcher)
     }
 }
 
-fn standard_ignores() -> Vec<(String, Option<PathBuf>)> {
-    [
-        "**/*.swp", // Vim creates swap files during editing
-    ]
-    .into_iter()
-    .map(|pat| (pat.to_owned(), None))
-    .collect()
+// When the manifest changes, we need to re-generate the watchexec configuration by
+// re-reading the manifest. This struct contains the info needed to fully create
+// that configuration, and the logic to do so. It's more than just "where can we
+// read the manifest" because the watchexec RuntimeConfig also defines the
+// action on change - we can't update the filter in isolation unfortunately.
+// (At least not as far as I know.)
+//
+// Although re-generation is the motive behind having a dedicated struct, this is
+// actually used for _all_ watchexec runtime configuration, including the initial
+// one. This is to ensure consistency and avoid duplicating the logic.
+pub struct RuntimeConfigFactory {
+    manifest_file: PathBuf,
+    manifest_dir: PathBuf,
+    filter_factory: Box<dyn FilterFactory>,
+    notifier: Arc<tokio::sync::watch::Sender<Uuid>>,
+    impact_description: &'static str,
+    debounce: Duration,
+}
+
+impl RuntimeConfigFactory {
+    async fn build_config(&self) -> anyhow::Result<watchexec::config::RuntimeConfig> {
+        let manifest = spin_loader::local::raw_manifest_from_file(&self.manifest_file)
+            .await?
+            .into_v1();
+        let filterer = self
+            .filter_factory
+            .build_filter(&self.manifest_file, &self.manifest_dir, &manifest)
+            .await?;
+
+        let handler = NotifyOnFileChange::new(self.notifier.clone(), self.impact_description);
+
+        let mut rt = watchexec::config::RuntimeConfig::default();
+        rt.pathset([&self.manifest_dir]);
+        rt.filterer(filterer);
+        rt.action_throttle(self.debounce);
+        rt.on_action(handler);
+        Ok(rt)
+    }
+}
+
+// This is the watchexec action handler that triggers the Uppificator
+// to reload or Builidifer to rebuild by sending a notification.
+// It is a struct rather than a closure because this makes it easier
+// for the compiler to confirm that all the data lives long enough and
+// is thread-safe for async stuff.
+struct NotifyOnFileChange {
+    despurifier: despurifier::Despurifier,
+    notifier: Arc<tokio::sync::watch::Sender<Uuid>>,
+    impact_description: &'static str,
+}
+
+impl NotifyOnFileChange {
+    fn new(
+        notifier: Arc<tokio::sync::watch::Sender<Uuid>>,
+        impact_description: &'static str,
+    ) -> Self {
+        Self {
+            despurifier: despurifier::Despurifier::new(),
+            notifier,
+            impact_description,
+        }
+    }
+}
+
+impl watchexec::handler::Handler<watchexec::action::Action> for NotifyOnFileChange {
+    fn handle(
+        &mut self,
+        action: watchexec::action::Action,
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        if self.despurifier.all_spurious(&action) {
+            tracing::debug!("spin watch ignored spurious changes: {}", paths_of(&action));
+        } else {
+            tracing::debug!(
+                "spin watch detected changes requiring {}: {}",
+                self.impact_description,
+                paths_of(&action)
+            );
+            _ = self.notifier.send(Uuid::new_v4());
+        }
+        action.outcome(watchexec::action::Outcome::DoNothing);
+        Ok::<(), Box<(dyn std::error::Error + 'static)>>(())
+    }
 }
 
 fn paths_of(action: &watchexec::action::Action) -> String {
@@ -353,13 +350,6 @@ fn path_of_tag(tag: &watchexec::event::Tag) -> Option<&Path> {
     match tag {
         watchexec::event::Tag::Path { path, .. } => Some(path),
         _ => None,
-    }
-}
-
-fn stringize_path(path: &Path) -> anyhow::Result<String> {
-    match path.to_str() {
-        Some(s) => Ok(s.to_owned()),
-        None => bail!("Can't represent path {} as string", path.display()),
     }
 }
 
@@ -439,6 +429,55 @@ mod despurifier {
 
         pub fn all_spurious(&mut self, _action: &watchexec::action::Action) -> bool {
             false
+        }
+    }
+}
+
+// On manifest change, the Reconfiguriser updates the watchexec configuration
+// for the Uppificator and Buildifier. This means that we need to hold onto both
+// the watchexec instance (so we can call reconfigure on it) *and* the logic for
+// building a configuration from a manifest (so we know what to reconfigure it *to*).
+// ReconfigurableWatcher wraps those up, and returns the future (JoinHandle) that
+// we also need to wait on the watchexec tasks.
+pub(crate) enum ReconfigurableWatcher {
+    Actual((Arc<Watchexec>, RuntimeConfigFactory)),
+    Dummy,
+}
+
+impl ReconfigurableWatcher {
+    async fn start(
+        rtf: RuntimeConfigFactory,
+    ) -> anyhow::Result<(Self, tokio::task::JoinHandle<()>)> {
+        let rt = rtf.build_config().await?;
+        let watcher = Watchexec::new(watchexec::config::InitConfig::default(), rt)?;
+        let watcher_clone = watcher.clone();
+        let join_handle = tokio::task::spawn(async move {
+            _ = watcher_clone.main().await;
+        });
+
+        Ok((Self::Actual((watcher, rtf)), join_handle))
+    }
+
+    fn dummy() -> (Self, tokio::task::JoinHandle<()>) {
+        let join_handle = tokio::task::spawn(tokio::time::sleep(tokio::time::Duration::MAX));
+        (Self::Dummy, join_handle)
+    }
+
+    pub async fn reconfigure(&self) {
+        match self {
+            Self::Actual((watchexec, rtf)) => {
+                let rt = match rtf.build_config().await {
+                    Ok(rt) => rt,
+                    Err(e) => {
+                        tracing::error!("Unable to re-configure watcher after manifest change. Changes in files newly added to the application may not be detected. Error: {e}");
+                        return;
+                    }
+                };
+                if let Err(e) = watchexec.reconfigure(rt) {
+                    tracing::error!("Unable to re-configure watcher after manifest change. Changes in files newly added to the application may not be detected. Error: {e}");
+                }
+            }
+            Self::Dummy => (),
         }
     }
 }

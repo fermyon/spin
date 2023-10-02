@@ -49,6 +49,10 @@ pub struct Push {
     )]
     pub insecure: bool,
 
+    /// Specifies to perform `spin build` before pushing the application.
+    #[clap(long, takes_value = false, env = ALWAYS_BUILD_ENV)]
+    pub build: bool,
+
     /// Reference of the Spin application
     #[clap()]
     pub reference: String,
@@ -57,6 +61,9 @@ pub struct Push {
 impl Push {
     pub async fn run(self) -> Result<()> {
         let app_file = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
+        if self.build {
+            spin_build::build(&app_file, &[]).await?;
+        }
 
         let dir = tempfile::tempdir()?;
         let app = spin_loader::local::from_file(&app_file, Some(dir.path())).await?;

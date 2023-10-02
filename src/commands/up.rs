@@ -88,7 +88,7 @@ pub struct UpCommand {
     /// For local apps, specifies to perform `spin build` before running the application.
     ///
     /// This is ignored on remote applications, as they are already built.
-    #[clap(long, takes_value = false, env = "SPIN_ALWAYS_BUILD")]
+    #[clap(long, takes_value = false, env = ALWAYS_BUILD_ENV)]
     pub build: bool,
 
     /// All other args, to be passed through to the trigger

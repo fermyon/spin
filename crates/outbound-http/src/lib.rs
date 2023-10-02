@@ -53,6 +53,9 @@ impl outbound_http::Host for OutboundHttp {
                 .map_err(|_| HttpError::RuntimeError)?
             {
                 tracing::log::info!("Destination not allowed: {}", req.uri);
+                terminal::warn!("A component tried to make a HTTP request to '{}'.", req.uri);
+                eprintln!("The component was configured not to allow requests to this host.");
+                eprintln!("To allow requests, add the host to `allowed_http_posts`.");
                 return Err(HttpError::DestinationNotAllowed);
             }
 

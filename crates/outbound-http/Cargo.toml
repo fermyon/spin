@@ -14,5 +14,6 @@ reqwest = { version = "0.11", features = ["gzip"] }
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 spin-world = { path = "../world" }
+terminal = { path = "../terminal" }
 tracing = { workspace = true }
 url = "2.2.1"

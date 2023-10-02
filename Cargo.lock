@@ -4035,6 +4035,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-world",
+ "terminal",
  "tracing",
  "url",
 ]

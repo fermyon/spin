@@ -12,3 +12,4 @@ pub const FROM_REGISTRY_OPT: &str = "REGISTRY_REFERENCE";
 pub const WATCH_CLEAR_OPT: &str = "CLEAR";
 pub const WATCH_DEBOUNCE_OPT: &str = "DEBOUNCE";
 pub const WATCH_SKIP_BUILD_OPT: &str = "SKIP_BUILD";
+pub const ALWAYS_BUILD_ENV: &str = "SPIN_ALWAYS_BUILD";

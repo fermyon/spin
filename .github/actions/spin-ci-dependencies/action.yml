@@ -45,17 +45,6 @@ inputs:
     required: false
     type: string
 
-  hippo:
-    description: 'setup hippo'
-    required: false
-    default: 'false'
-    type: bool
-  hippo-version:
-    description: 'Hippo version to setup'
-    default: 'v0.19.0'
-    required: false
-    type: string
-
   golang:
     description: 'setup golang'
     required: false
@@ -122,14 +111,6 @@ runs:
       if: ${{ inputs.nomad == 'true' }}
       with:
         version: ${{ inputs.nomad-version }}
-
-
-    ## Install hippo
-    - name: Install hippo
-      uses: rajatjindal/setup-actions/hippo@v0.0.1
-      if: ${{ inputs.hippo == 'true' }}
-      with:
-        version: ${{ inputs.hippo-version }}
 
     ## Install wasmtime
     - name: Install wasmtime

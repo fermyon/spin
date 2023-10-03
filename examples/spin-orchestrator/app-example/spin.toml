@@ -1,0 +1,27 @@
+spin_manifest_version = "1"
+authors = ["suneet nangia <suneetnangia@gmail.com>"]
+description = ""
+name = "orchestrator"
+trigger = { type = "orchestrator", retry_policy_enabled = "None" }
+version = "0.1.0"
+
+[[component]]
+id = "module1"
+source = "module1/target/wasm32-wasi/release/module1_orchestrator_app_example.wasm"
+[component.trigger]
+config = "{\"ssl_only\": true}"
+[component.build]
+command = "cargo build --manifest-path module1/Cargo.toml --target wasm32-wasi --release"
+[component.config]
+message = "Start Message"
+
+[[component]]
+id = "module2"
+source = "module2/target/wasm32-wasi/release/module2_orchestrator_app_example.wasm"
+[component.trigger]
+config = "{\"batch_size\": 6}"
+[component.build]
+command = "cargo build --manifest-path module2/Cargo.toml --target wasm32-wasi --release"
+[component.config]
+timeout = "2"
+retries = "5"

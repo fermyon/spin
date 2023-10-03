@@ -1,0 +1,20 @@
+[package]
+name = "trigger-orchestrator"
+version = "0.1.0"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.68"
+clap = { version = "3.1.15", features = ["derive", "env"] }
+futures = "0.3.25"
+serde = "1.0"
+serde_json = "*"
+spin-app = { path = "../../crates/app" }
+spin-core = { path = "../../crates/core" }
+spin-trigger = { path = "../../crates/trigger" }
+tokio = { version = "1.11", features = [ "full" ] }
+tokio-scoped = "0.2.0"
+wasmtime = { version = "8.0.1", features = ["component-model"] }
+
+[workspace]

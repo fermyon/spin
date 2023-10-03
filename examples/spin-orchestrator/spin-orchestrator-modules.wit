@@ -1,0 +1,7 @@
+world spin-orchestrator-module1 {
+  export handle-init: func(start-input: string) -> string   
+}
+
+world spin-orchestrator-module2 {  
+  export handle-init: func(module1-output: string) -> string  
+}

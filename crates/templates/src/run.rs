@@ -308,14 +308,11 @@ impl Run {
     }
 
     fn template_parser(&self) -> liquid::Parser {
-        let mut builder = liquid::ParserBuilder::with_stdlib()
+        let builder = liquid::ParserBuilder::with_stdlib()
             .filter(crate::filters::KebabCaseFilterParser)
             .filter(crate::filters::PascalCaseFilterParser)
             .filter(crate::filters::SnakeCaseFilterParser)
             .filter(crate::filters::HttpWildcardFilterParser);
-        for filter in self.template.custom_filters() {
-            builder = builder.filter(filter);
-        }
         builder
             .build()
             .expect("can't fail due to no partials support")

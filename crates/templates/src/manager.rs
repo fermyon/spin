@@ -56,6 +56,7 @@ enum ExistsBehaviour {
     Update,
 }
 
+#[allow(clippy::large_enum_variant)] // it's not worth it
 enum InstallationResult {
     Installed(Template),
     Skipped(String, SkippedReason),
@@ -828,43 +829,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn can_use_custom_filter_in_template() {
+    async fn cannot_use_custom_filter_in_template() {
         let temp_dir = tempdir().unwrap();
         let store = TemplateStore::new(temp_dir.path());
         let manager = TemplateManager { store };
         let source = TemplateSource::File(test_data_root());
 
-        manager
+        let install_results = manager
             .install(&source, &InstallOptions::default(), &DiscardingReporter)
             .await
             .unwrap();
 
-        let template = manager.get("testing-custom-filter").unwrap().unwrap();
+        assert_eq!(1, install_results.skipped.len());
 
-        let dest_temp_dir = tempdir().unwrap();
-        let output_dir = dest_temp_dir.path().join("myproj");
-        let values = [
-            ("p1".to_owned(), "biscuits".to_owned()),
-            ("p2".to_owned(), "nomnomnom".to_owned()),
-        ]
-        .into_iter()
-        .collect();
-        let options = RunOptions {
-            variant: crate::template::TemplateVariantInfo::NewApplication,
-            output_path: output_dir.clone(),
-            name: "custom-filter-test".to_owned(),
-            values,
-            accept_defaults: false,
+        let (id, reason) = &install_results.skipped[0];
+        assert_eq!("testing-custom-filter", id);
+        let SkippedReason::InvalidManifest(message) = reason else {
+            panic!("skip reason should be InvalidManifest"); // clippy dislikes assert!(false...)
         };
-
-        template.run(options).silent().await.unwrap();
-
-        let message = tokio::fs::read_to_string(output_dir.join("test.txt"))
-            .await
-            .unwrap();
-        assert!(message.contains("p1/studly = bIsCuItS"));
-        assert!(message.contains("p2/studly = nOmNoMnOm"));
-        assert!(message.contains("p1/clappy = b👏i👏s👏c👏u👏i👏t👏s"));
+        assert_contains(message, "filters");
+        assert_contains(message, "not supported");
     }
 
     #[tokio::test]

@@ -9,8 +9,7 @@ use regex::Regex;
 
 use crate::{
     constraints::StringConstraints,
-    custom_filters::CustomFilterParser,
-    reader::{RawCustomFilter, RawParameter, RawTemplateManifest, RawTemplateVariant},
+    reader::{RawParameter, RawTemplateManifest, RawTemplateManifestV1, RawTemplateVariant},
     run::{Run, RunOptions},
     store::TemplateLayout,
 };
@@ -25,7 +24,6 @@ pub struct Template {
     trigger: TemplateTriggerCompatibility,
     variants: HashMap<TemplateVariantKind, TemplateVariant>,
     parameters: Vec<TemplateParameter>,
-    custom_filters: Vec<CustomFilterParser>,
     snippets_dir: Option<PathBuf>,
     content_dir: Option<PathBuf>, // TODO: maybe always need a spin.toml file in there?
 }
@@ -123,6 +121,8 @@ impl Template {
             )
         })?;
 
+        validate_manifest(&raw)?;
+
         let content_dir = if layout.content_dir().exists() {
             Some(layout.content_dir())
         } else {
@@ -146,7 +146,6 @@ impl Template {
                 trigger: Self::parse_trigger_type(raw.trigger_type, layout),
                 variants: Self::parse_template_variants(raw.new_application, raw.add_component),
                 parameters: Self::parse_parameters(&raw.parameters)?,
-                custom_filters: Self::load_custom_filters(layout, &raw.custom_filters)?,
                 snippets_dir,
                 content_dir,
             },
@@ -227,10 +226,6 @@ impl Template {
 
     pub(crate) fn parameter(&self, name: impl AsRef<str>) -> Option<&TemplateParameter> {
         self.parameters.iter().find(|p| p.id == name.as_ref())
-    }
-
-    pub(crate) fn custom_filters(&self) -> Vec<CustomFilterParser> {
-        self.custom_filters.clone()
     }
 
     pub(crate) fn content_dir(&self) -> &Option<PathBuf> {
@@ -338,27 +333,6 @@ impl Template {
         }
     }
 
-    fn load_custom_filters(
-        layout: &TemplateLayout,
-        raw: &Option<Vec<RawCustomFilter>>,
-    ) -> anyhow::Result<Vec<CustomFilterParser>> {
-        match raw {
-            None => Ok(vec![]),
-            Some(filters) => filters
-                .iter()
-                .map(|f| Self::load_custom_filter(layout, f))
-                .collect(),
-        }
-    }
-
-    fn load_custom_filter(
-        layout: &TemplateLayout,
-        raw: &RawCustomFilter,
-    ) -> anyhow::Result<CustomFilterParser> {
-        let wasm_path = layout.filter_path(&raw.wasm);
-        CustomFilterParser::load(&raw.name, &wasm_path)
-    }
-
     pub(crate) fn included_files(
         &self,
         base: &std::path::Path,
@@ -462,4 +436,17 @@ fn read_install_record(layout: &TemplateLayout) -> InstalledFrom {
         Some(RawInstalledFrom::File { dir }) => InstalledFrom::Directory(dir),
         None => InstalledFrom::Unknown,
     }
+}
+
+fn validate_manifest(raw: &RawTemplateManifest) -> anyhow::Result<()> {
+    match raw {
+        RawTemplateManifest::V1(raw) => validate_v1_manifest(raw),
+    }
+}
+
+fn validate_v1_manifest(raw: &RawTemplateManifestV1) -> anyhow::Result<()> {
+    if raw.custom_filters.is_some() {
+        anyhow::bail!("Custom filters are not supported in this version of Spin. Please update your template.");
+    }
+    Ok(())
 }

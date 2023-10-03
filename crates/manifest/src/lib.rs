@@ -105,13 +105,6 @@ pub struct Variable {
 pub enum ApplicationOrigin {
     /// The application was loaded from the specified file.
     File(PathBuf),
-    /// The application was loaded from the specified bindle.
-    Bindle {
-        /// Bindle ID for the component.
-        id: String,
-        /// Bindle server URL.
-        server: String,
-    },
 }
 
 /// The trigger type.

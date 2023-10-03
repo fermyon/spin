@@ -8,9 +8,6 @@ FROM mcr.microsoft.com/vscode/devcontainers/rust:0-${VARIANT}
 # RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 #     && apt-get -y install --no-install-recommends <your-package-list-here>
 
-ARG BINDLE_URL="https://github.com/deislabs/bindle/releases/download/v0.8.0/bindle-v0.8.0-linux-amd64.tar.gz"
-RUN curl -sL "$BINDLE_URL" | tar -xzf - -C /usr/local/bin bindle bindle-server
-
 # Go installation, see https://go.dev/doc/install
 ARG GO_URL="https://go.dev/dl/go1.20.1.linux-amd64.tar.gz"
 RUN curl -sL "$GO_URL" | tar -xzf - -C /usr/local

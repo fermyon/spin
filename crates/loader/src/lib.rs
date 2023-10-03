@@ -1,7 +1,7 @@
 //! Loaders for Spin applications.
 //! This crate implements the possible application sources for Spin applications,
 //! and includes functionality to convert the specific configuration (for example
-//! local configuration files, pulled from Bindle, or from OCI) into Spin configuration that
+//! local configuration files or from OCI) into Spin configuration that
 //! can be consumed by the Spin execution context.
 //!
 //! This crate can be extended (or replaced entirely) to support additional loaders,
@@ -11,8 +11,6 @@
 #![deny(missing_docs)]
 
 mod assets;
-#[cfg(feature = "bindle")]
-pub mod bindle;
 pub mod cache;
 mod common;
 #[cfg(feature = "local")]
@@ -22,10 +20,6 @@ mod validation;
 /// Load a Spin application configuration from a spin.toml manifest file.
 #[cfg(feature = "local")]
 pub use local::from_file;
-
-/// Load a Spin application configuration from Bindle.
-#[cfg(feature = "bindle")]
-pub use crate::bindle::from_bindle;
 
 /// Maximum number of assets to process in parallel
 pub(crate) const MAX_PARALLEL_ASSET_PROCESSING: usize = 16;

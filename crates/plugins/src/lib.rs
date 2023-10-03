@@ -8,12 +8,11 @@ mod store;
 pub use store::PluginStore;
 
 /// List of Spin internal subcommands
-pub(crate) const SPIN_INTERNAL_COMMANDS: [&str; 10] = [
+pub(crate) const SPIN_INTERNAL_COMMANDS: &[&str] = &[
     "templates",
     "up",
     "new",
     "add",
-    "bindle",
     "deploy",
     "build",
     "plugin",

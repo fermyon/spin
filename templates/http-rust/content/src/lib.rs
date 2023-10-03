@@ -10,6 +10,6 @@ fn handle_{{project-name | snake_case}}(req: Request) -> Result<Response> {
     println!("{:?}", req.headers());
     Ok(http::Response::builder()
         .status(200)
-        .header("foo", "bar")
+        .header("content-type", "text/plain")
         .body(Some("Hello, Fermyon".into()))?)
 }

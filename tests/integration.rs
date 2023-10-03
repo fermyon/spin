@@ -39,7 +39,6 @@ mod integration_tests {
                 ),
                 &[],
                 &[],
-                None,
             )
             .await?;
 
@@ -57,7 +56,6 @@ mod integration_tests {
             ),
             &[],
             &[],
-            None,
         )
         .await?;
 
@@ -159,7 +157,6 @@ mod integration_tests {
                     &format!("{}/{}", RUST_HTTP_VAULT_CONFIG_TEST, "runtime_config.toml"),
                 ],
                 &[],
-                None,
             )
             .await?;
 
@@ -268,16 +265,11 @@ mod integration_tests {
             manifest_path: &str,
             spin_args: &[&str],
             spin_app_env: &[&str],
-            bindle_url: Option<&str>,
         ) -> Result<SpinTestController> {
             // start Spin using the given application manifest and wait for the HTTP server to be available.
             let url = format!("127.0.0.1:{}", get_random_port()?);
             let mut args = vec!["up", "--file", manifest_path, "--listen", &url];
             args.extend(spin_args);
-            if let Some(b) = bindle_url {
-                args.push("--bindle-server");
-                args.push(b);
-            }
             for v in spin_app_env {
                 args.push("--env");
                 args.push(v);

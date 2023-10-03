@@ -43,7 +43,6 @@ jobs:
         with:
           rust: true
           rust-wasm: true
-          bindle: true
           nomad: true
 
       - name: Install cargo-tarpaulin binary crate

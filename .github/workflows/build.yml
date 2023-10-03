@@ -114,7 +114,6 @@ jobs:
           rust: true
           rust-wasm: true
           rust-cache: true
-          bindle: true
           nomad: true
 
       # FIXME: THIS IS THE SHORTEST-TERM OF ALL SHORT-TERM FIXES
@@ -153,7 +152,6 @@ jobs:
         uses: ./.github/actions/spin-ci-dependencies
         with:
           rust: true
-          bindle: true
           golang: true
           tinygo: true
           wasmtime: true

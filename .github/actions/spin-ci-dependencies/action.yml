@@ -23,17 +23,6 @@ inputs:
     default: 'false'
     type: bool
 
-  bindle:
-    description: 'setup bindle'
-    required: false
-    default: 'false'
-    type: bool
-  bindle-version:
-    description: 'Bindle version to setup'
-    default: 'v0.8.0'
-    required: false
-    type: string
-
   nomad:
     description: 'setup nomad'
     required: false
@@ -97,13 +86,6 @@ runs:
       if: ${{ inputs.rust-cache == 'true' }}
       with:
         shared-key: "${{ runner.os }}-full-${{ hashFiles('./Cargo.lock') }}"
-
-    ## Install bindle
-    - name: Install bindle
-      uses: rajatjindal/setup-actions/bindle@v0.0.1
-      if: ${{ inputs.bindle == 'true' }}
-      with:
-        version: ${{ inputs.bindle-version }}
 
     ## Install nomad
     - name: Install nomad

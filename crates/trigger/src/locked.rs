@@ -23,7 +23,6 @@ use spin_sqlite::DATABASES_KEY;
 pub const NAME_KEY: MetadataKey = MetadataKey::new("name");
 pub const VERSION_KEY: MetadataKey = MetadataKey::new("version");
 pub const DESCRIPTION_KEY: MetadataKey = MetadataKey::new("description");
-pub const BINDLE_VERSION_KEY: MetadataKey = MetadataKey::new("bindle_version");
 pub const ORIGIN_KEY: MetadataKey = MetadataKey::new("origin");
 
 const WASM_CONTENT_TYPE: &str = "application/wasm";
@@ -61,12 +60,6 @@ impl LockedAppBuilder {
         // Convert ApplicationOrigin to a URL
         let origin = match info.origin {
             ApplicationOrigin::File(path) => file_uri(&path)?,
-            ApplicationOrigin::Bindle { id, server } => {
-                if let Some((_, version)) = id.split_once('/') {
-                    builder.string(BINDLE_VERSION_KEY, version);
-                }
-                format!("bindle+{server}?id={id}")
-            }
         };
         builder.string(ORIGIN_KEY, origin);
         Ok(builder.build())

@@ -182,18 +182,6 @@ pub enum RawModuleSource {
     Url(FileComponentUrlSource),
 }
 
-/// A component source from Bindle.
-/// TODO
-/// The component and its entrypoint should be pulled from Bindle.
-/// This assumes access to the Bindle server.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "snake_case")]
-pub struct FileComponentBindleSource {
-    /// Reference to the bindle (name/version)
-    pub reference: String,
-    /// Parcel to use from the bindle.
-    pub parcel: String,
-}
 /// A component source from a URL.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]

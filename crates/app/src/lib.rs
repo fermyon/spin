@@ -28,8 +28,6 @@ pub use metadata::MetadataKey;
 pub const APP_NAME_KEY: MetadataKey = MetadataKey::new("name");
 /// MetadataKey for extracting the application version.
 pub const APP_VERSION_KEY: MetadataKey = MetadataKey::new("version");
-/// MetadataKey for extracting the bindle version.
-pub const BINDLE_VERSION_KEY: MetadataKey = MetadataKey::new("bindle_version");
 /// MetadataKey for extracting the OCI image digest.
 pub const OCI_IMAGE_DIGEST_KEY: MetadataKey = MetadataKey::new("oci_image_digest");
 

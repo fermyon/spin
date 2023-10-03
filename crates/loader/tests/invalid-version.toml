@@ -7,8 +7,6 @@ version = "6.11.2"
 
 [[component]]
 id = "abc"
-[component.source]
-parcel = "parcel"
-reference = "bindle reference"
+source = "nope/nope/nope"
 [component.trigger]
 route = "/test"

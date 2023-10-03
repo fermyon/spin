@@ -29,7 +29,6 @@
     "matklad.rust-analyzer",
     "tamasfe.even-better-toml",
     "serayuzgur.crates",
-    "fermyon.autobindle",
     "golang.Go",
     "grain-lang.vscode-grain"
   ],

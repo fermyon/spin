@@ -60,7 +60,7 @@ pub struct UpCommand {
     )]
     pub registry_source: Option<String>,
 
-    /// Ignore server certificate errors from bindle server or registry
+    /// Ignore server certificate errors from a registry
     #[clap(
         name = INSECURE_OPT,
         short = 'k',
@@ -81,7 +81,7 @@ pub struct UpCommand {
     /// directory.
     ///
     /// This allows you to update the assets on the host filesystem such that the updates are visible to the guest
-    /// without a restart.  This cannot be used with bindle apps or apps which use file patterns and/or exclusions.
+    /// without a restart.  This cannot be used with registry apps or apps which use file patterns and/or exclusions.
     #[clap(long, takes_value = false)]
     pub direct_mounts: bool,
 

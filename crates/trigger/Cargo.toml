@@ -4,6 +4,11 @@ version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
 
+[features]
+llm = ["spin-llm-local"]
+llm-metal = ["llm", "spin-llm-local/metal"]
+llm-cublas = ["llm", "spin-llm-local/cublas"]
+
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
@@ -45,11 +50,13 @@ wasmtime = { workspace = true }
 spin-componentize = { workspace = true }
 
 [dev-dependencies]
+libtest-mimic = "0.6.1"
+snapbox = "0.4.12"
 tempfile = "3.3.0"
 toml = "0.5"
 tokio = { version = "1.23", features = ["rt", "macros"] }
 
-[features]
-llm = ["spin-llm-local"]
-llm-metal = ["llm", "spin-llm-local/metal"]
-llm-cublas = ["llm", "spin-llm-local/cublas"]
+[[test]]
+name = "ui"
+path = "tests/ui.rs"
+harness = false

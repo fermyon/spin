@@ -53,9 +53,10 @@ impl outbound_http::Host for OutboundHttp {
                 .map_err(|_| HttpError::RuntimeError)?
             {
                 tracing::log::info!("Destination not allowed: {}", req.uri);
-                terminal::warn!("A component tried to make a HTTP request to '{}'.", req.uri);
-                eprintln!("The component was configured not to allow requests to this host.");
-                eprintln!("To allow requests, add the host to `allowed_http_posts`.");
+                if let Some(host) = host(&req.uri) {
+                    terminal::warn!("A component tried to make a HTTP request to non-allowed host '{host}'.");
+                    eprintln!("To allow requests, add 'allowed_http_hosts = [\"{host}\"]' to the manifest component section.");
+                }
                 return Err(HttpError::DestinationNotAllowed);
             }
 
@@ -169,4 +170,10 @@ fn response_headers(h: &HeaderMap) -> anyhow::Result<Option<Vec<(String, String)
     }
 
     Ok(Some(res))
+}
+
+fn host(url: &str) -> Option<String> {
+    url::Url::parse(url)
+        .ok()
+        .and_then(|u| u.host().map(|h| h.to_string()))
 }

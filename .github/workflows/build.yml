@@ -183,3 +183,19 @@ jobs:
           chmod +x `pwd`/target/release/spin
           export E2E_VOLUME_MOUNT="-v `pwd`/target/release/spin:/usr/local/bin/spin"
           make run-test-spin-up
+          
+  lint-examples:
+    name: Lint Examples
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up dependencies
+        uses: ./.github/actions/spin-ci-dependencies
+        with:
+          rust: true
+          rust-wasm: true
+          rust-cache: true
+
+      - name: Lint examples
+        run: make check-rust-examples

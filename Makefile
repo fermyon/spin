@@ -60,7 +60,9 @@ lint:
 .PHONY: check-rust-examples
 check-rust-examples:
 	for manifest_path in examples/*/Cargo.toml; do \
-		cargo clippy --manifest-path "$${manifest_path}" -- -D warnings || exit 1 ; \
+		cargo clippy --manifest-path "$${manifest_path}" -- -D warnings \
+		&& cargo fmt --manifest-path "$${manifest_path}" -- --check \
+		|| exit 1 ; \
 	done
 
 .PHONY: test-unit
@@ -68,7 +70,7 @@ test-unit:
 	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --skip integration_tests --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-integration
-test-integration: test-kv
+test-integration: test-kv test-sqlite
 	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast -- --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-spin-up
@@ -85,12 +87,12 @@ run-test-spin-up:
 	docker compose -f e2e-tests-docker-compose.yml run $(E2E_SPIN_RELEASE_VOLUME_MOUNT) $(E2E_SPIN_DEBUG_VOLUME_MOUNT) e2e-tests
 
 .PHONY: test-kv
-test-kv:
-	RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::key_value --nocapture
+test-kv: build
+	PATH=$$(pwd)/target/release:$$PATH RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::key_value --nocapture
 
 .PHONY: test-sqlite
-test-sqlite:
-	RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::sqlite --nocapture
+test-sqlite: build
+	PATH=$$(pwd)/target/release:$$PATH RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::sqlite --nocapture
 
 .PHONY: test-outbound-redis
 test-outbound-redis:

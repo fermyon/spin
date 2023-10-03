@@ -11,13 +11,13 @@ fn handle_request(req: Request) -> Result<Response> {
     // Open the default key-value store
     let store = Store::open_default()?;
 
-    let (status, body) = match req.method() {
-        &Method::POST => {
+    let (status, body) = match *req.method() {
+        Method::POST => {
             // Add the request (URI, body) tuple to the store
             store.set(req.uri().path(), req.body().as_deref().unwrap_or(&[]))?;
             (StatusCode::OK, None)
         }
-        &Method::GET => {
+        Method::GET => {
             // Get the value associated with the request URI, or return a 404 if it's not present
             match store.get(req.uri().path()) {
                 Ok(value) => (StatusCode::OK, Some(value.into())),
@@ -25,12 +25,12 @@ fn handle_request(req: Request) -> Result<Response> {
                 Err(error) => return Err(error.into()),
             }
         }
-        &Method::DELETE => {
+        Method::DELETE => {
             // Delete the value associated with the request URI, if present
             store.delete(req.uri().path())?;
             (StatusCode::OK, None)
         }
-        &Method::HEAD => {
+        Method::HEAD => {
             // Like GET, except do not return the value
             match store.exists(req.uri().path()) {
                 Ok(true) => (StatusCode::OK, None),

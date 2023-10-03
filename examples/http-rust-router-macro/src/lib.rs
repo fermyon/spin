@@ -11,7 +11,7 @@ fn handle_route(req: Request) -> anyhow::Result<Response> {
             let capture = params.wildcard().unwrap_or_default();
             Ok(http::Response::builder()
                 .status(http::StatusCode::OK)
-                .body(Some(format!("{capture}").into()))
+                .body(Some(capture.to_string().into()))
                 .unwrap())
         }
     };
@@ -27,7 +27,7 @@ mod api {
 
         Ok(http::Response::builder()
             .status(http::StatusCode::OK)
-            .body(Some(format!("{planet}").into()))
+            .body(Some(planet.to_string().into()))
             .unwrap())
     }
 }

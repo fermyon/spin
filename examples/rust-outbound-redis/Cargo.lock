@@ -234,26 +234,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "smartcow"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "656fcb1c1fca8c4655372134ce87d8afdf5ec5949ebabe8d314be0141d8b5da2"
-dependencies = [
- "smartstring",
-]
-
-[[package]]
-name = "smartstring"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fb72c633efbaa2dd666986505016c32c3044395ceaf881518399d2f4127ee29"
-dependencies = [
- "autocfg",
- "static_assertions",
- "version_check",
-]
-
-[[package]]
 name = "spin-macro"
 version = "0.1.0"
 dependencies = [
@@ -262,12 +242,12 @@ dependencies = [
  "http",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.90",
 ]
 
 [[package]]
 name = "spin-sdk"
-version = "1.4.0-pre0"
+version = "2.0.0-pre0"
 dependencies = [
  "anyhow",
  "bytes",

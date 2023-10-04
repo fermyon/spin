@@ -5352,7 +5352,7 @@ dependencies = [
 [[package]]
 name = "spin-componentize"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/spin-componentize?rev=0fa79bfc60f20c172213e2a2c34bd0b3168960b0#0fa79bfc60f20c172213e2a2c34bd0b3168960b0"
+source = "git+https://github.com/fermyon/spin-componentize?rev=f29cdb26a6b1700ae1fe48c94bbef26a8069d566#f29cdb26a6b1700ae1fe48c94bbef26a8069d566"
 dependencies = [
  "anyhow",
  "wasm-encoder 0.32.0",

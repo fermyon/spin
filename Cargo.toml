@@ -110,7 +110,7 @@ tracing = { version = "0.1", features = ["log"] }
 wasmtime-wasi = { version = "13.0.0", features = ["tokio"] }
 wasi-common-preview1 = { version = "13.0.0", package = "wasi-common" }
 wasmtime = { version = "13.0.0", features = ["component-model"] }
-spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "0fa79bfc60f20c172213e2a2c34bd0b3168960b0" }
+spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "f29cdb26a6b1700ae1fe48c94bbef26a8069d566" }
 
 [[bin]]
 name = "spin"

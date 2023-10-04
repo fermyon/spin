@@ -45,6 +45,7 @@ semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.82"
 sha2 = "0.10.2"
+shell_completion = "0.0.2"
 terminal = { path = "crates/terminal" }
 spin-app = { path = "crates/app" }
 spin-build = { path = "crates/build" }
@@ -115,3 +116,7 @@ spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev 
 [[bin]]
 name = "spin"
 path = "src/bin/spin.rs"
+
+[[bin]]
+name = "_spin_completions"
+path = "src/bin/completions.rs"

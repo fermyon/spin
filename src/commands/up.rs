@@ -35,6 +35,7 @@ pub struct UpCommand {
         name = APPLICATION_OPT,
         short = 'f',
         long = "from",
+        value_hint = clap::ValueHint::FilePath,
         group = "source",
     )]
     pub app_source: Option<String>,
@@ -45,6 +46,7 @@ pub struct UpCommand {
         hide = true,
         name = APP_MANIFEST_FILE_OPT,
         long = "from-file",
+        value_hint = clap::ValueHint::FilePath,
         alias = "file",
         group = "source",
     )]
@@ -74,7 +76,7 @@ pub struct UpCommand {
     pub env: Vec<(String, String)>,
 
     /// Temporary directory for the static assets of the components.
-    #[clap(long = "temp")]
+    #[clap(long = "temp", value_hint = clap::ValueHint::DirPath)]
     pub tmp: Option<PathBuf>,
 
     /// For local apps with directory mounts and no excluded files, mount them directly instead of using a temporary

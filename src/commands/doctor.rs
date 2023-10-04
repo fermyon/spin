@@ -19,6 +19,7 @@ pub struct DoctorCommand {
         short = 'f',
         long = "from",
         alias = "file",
+        value_hint = clap::ValueHint::FilePath,
         default_value = DEFAULT_MANIFEST_FILE
     )]
     pub app_source: PathBuf,

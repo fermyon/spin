@@ -44,7 +44,7 @@ pub struct TemplateNewCommandCore {
     /// A TOML file which contains parameter values in name = "value" format.
     /// Parameters passed as CLI option overwrite parameters specified in the
     /// file.
-    #[clap(long = "values-file")]
+    #[clap(long = "values-file", value_hint = clap::ValueHint::FilePath)]
     pub values_file: Option<PathBuf>,
 
     /// An optional argument that allows to skip prompts for the manifest file

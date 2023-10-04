@@ -14,3 +14,4 @@ spin-core = { path = "../core" }
 spin-llm = { path = "../llm" }
 spin-world = { path = "../world" }
 reqwest = { version = "0.11", features = ["gzip", "json"] }
+tracing = { workspace = true }

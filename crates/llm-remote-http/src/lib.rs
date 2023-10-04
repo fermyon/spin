@@ -84,13 +84,14 @@ impl LlmEngine for RemoteHttpLlmEngine {
         }))
         .map_err(|_| wasi_llm::Error::RuntimeError("Failed to serialize JSON".to_string()))?;
 
+        let infer_url = self
+            .url
+            .join("/infer")
+            .map_err(|_| wasi_llm::Error::RuntimeError("Failed to create URL".to_string()))?;
+        tracing::info!("Sending remote inference request to {infer_url}");
+
         let resp = client
-            .request(
-                http::Method::POST,
-                self.url.join("/infer").map_err(|_| {
-                    wasi_llm::Error::RuntimeError("Failed to create URL".to_string())
-                })?,
-            )
+            .request(http::Method::POST, infer_url)
             .headers(headers)
             .body(body)
             .send()

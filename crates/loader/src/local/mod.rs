@@ -7,9 +7,6 @@ pub mod assets;
 /// Configuration representation for a Spin application as a local spin.toml file.
 pub mod config;
 
-#[cfg(test)]
-mod tests;
-
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},

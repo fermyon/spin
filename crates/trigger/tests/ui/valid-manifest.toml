@@ -8,7 +8,7 @@ version = "6.11.2"
 [[component]]
 files = ["file.txt", { source = "valid-with-files", destination = "/vwf" }, "subdir/another.txt"]
 id = "four-lights"
-source = "path/to/wasm/file.wasm"
+source = "wasm/dummy.wasm"
 [component.trigger]
 executor = {type = "spin"}
 route = "/lights"
@@ -26,6 +26,6 @@ route = "/test"
 id = "web"
 [component.source]
 url = "https://example.com/wasm.wasm.wasm"
-digest = "sha256:12345"
+digest = "sha256:0000"
 [component.trigger]
 route = "/dont/test"

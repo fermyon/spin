@@ -1,0 +1,4 @@
+Cannot read spin.toml manifest from "<root-dir>/invalid-version.toml"
+
+Caused by:
+    invalid version: invalid digit found in string for key `spin_version` at line 11 column 1

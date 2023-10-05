@@ -60,7 +60,7 @@ impl PluginManifest {
     }
     pub fn is_installed_in(&self, store: &PluginStore) -> bool {
         match store.read_plugin_manifest(&self.name) {
-            Ok(m) => m.version == self.version,
+            Ok(m) => m.eq(self),
             Err(_) => false,
         }
     }

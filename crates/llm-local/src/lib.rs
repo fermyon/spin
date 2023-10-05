@@ -6,11 +6,11 @@ use candle::DType;
 use candle_nn::VarBuilder;
 use llm::{
     InferenceFeedback, InferenceParameters, InferenceResponse, InferenceSessionConfig, Model,
-    ModelKVMemoryType, ModelParameters,
+    ModelArchitecture, ModelKVMemoryType, ModelParameters,
 };
 use rand::SeedableRng;
 use spin_core::async_trait;
-use spin_llm::{model_arch, model_name, LlmEngine, MODEL_ALL_MINILM_L6_V2};
+use spin_llm::{LlmEngine, MODEL_ALL_MINILM_L6_V2};
 use spin_world::llm::{self as wasi_llm};
 use std::{
     collections::hash_map::Entry,
@@ -170,14 +170,22 @@ impl LocalLlmEngine {
         &mut self,
         model: wasi_llm::InferencingModel,
     ) -> Result<Arc<dyn Model>, wasi_llm::Error> {
-        let model_name = model_name(&model)?;
         let use_gpu = self.use_gpu;
         let progress_fn = |_| {};
-        let model = match self.inferencing_models.entry((model_name.into(), use_gpu)) {
+        let model = match self.inferencing_models.entry((model.clone(), use_gpu)) {
             Entry::Occupied(o) => o.get().clone(),
             Entry::Vacant(v) => v
                 .insert({
-                    let path = self.registry.join(model_name);
+                    let (path, arch) = if let Some(arch) = well_known_inferencing_model_arch(&model) {
+                        let model_binary = self.registry.join(&model);
+                        if model_binary.exists() {
+                            (model_binary, arch.to_owned())
+                        } else {
+                            walk_registry_for_model(&self.registry, model).await?
+                        }
+                    } else {
+                        walk_registry_for_model(&self.registry, model).await?
+                    };
                     if !self.registry.exists() {
                         return Err(wasi_llm::Error::RuntimeError(
                             format!("The directory expected to house the inferencing model '{}' does not exist.", self.registry.display())
@@ -199,7 +207,7 @@ impl LocalLlmEngine {
                             n_gqa: None,
                         };
                         let model = llm::load_dynamic(
-                            Some(model_arch(&model)?),
+                            Some(arch),
                             &path,
                             llm::TokenizerSource::Embedded,
                             params,
@@ -220,6 +228,80 @@ impl LocalLlmEngine {
                 .clone(),
         };
         Ok(model)
+    }
+}
+
+/// Get the model binary and arch from walking the registry file structure
+async fn walk_registry_for_model(
+    registry_path: &Path,
+    model: String,
+) -> Result<(PathBuf, ModelArchitecture), wasi_llm::Error> {
+    let mut arch_dirs = tokio::fs::read_dir(registry_path).await.map_err(|e| {
+        wasi_llm::Error::RuntimeError(format!(
+            "Could not read model registry directory '{}': {e}",
+            registry_path.display()
+        ))
+    })?;
+    let mut result = None;
+    'outer: while let Some(arch_dir) = arch_dirs.next_entry().await.map_err(|e| {
+        wasi_llm::Error::RuntimeError(format!(
+            "Failed to read arch directory in model registry: {e}"
+        ))
+    })? {
+        if arch_dir
+            .file_type()
+            .await
+            .map_err(|e| {
+                wasi_llm::Error::RuntimeError(format!(
+                    "Could not read file type of '{}' dir: {e}",
+                    arch_dir.path().display()
+                ))
+            })?
+            .is_file()
+        {
+            continue;
+        }
+        let mut model_files = tokio::fs::read_dir(arch_dir.path()).await.map_err(|e| {
+            wasi_llm::Error::RuntimeError(format!(
+                "Error reading architecture directory in model registry: {e}"
+            ))
+        })?;
+        while let Some(model_file) = model_files.next_entry().await.map_err(|e| {
+            wasi_llm::Error::RuntimeError(format!(
+                "Error reading model file in model registry: {e}"
+            ))
+        })? {
+            if model_file
+                .file_name()
+                .to_str()
+                .map(|m| m == model)
+                .unwrap_or_default()
+            {
+                let arch = arch_dir.file_name();
+                let arch = arch
+                    .to_str()
+                    .ok_or(wasi_llm::Error::ModelNotSupported)?
+                    .parse()
+                    .map_err(|_| wasi_llm::Error::ModelNotSupported)?;
+                result = Some((model_file.path(), arch));
+                break 'outer;
+            }
+        }
+    }
+
+    result.ok_or_else(|| {
+        wasi_llm::Error::InvalidInput(format!(
+            "no model directory found in registry for model '{model}'"
+        ))
+    })
+}
+
+fn well_known_inferencing_model_arch(
+    model: &wasi_llm::InferencingModel,
+) -> Option<ModelArchitecture> {
+    match model.as_str() {
+        "llama2-chat" | "code_llama" => Some(ModelArchitecture::Llama),
+        _ => None,
     }
 }
 

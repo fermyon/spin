@@ -9,7 +9,7 @@ anyhow = "1.0"
 bytesize = "1.1"
 llm = { git = "https://github.com/rustformers/llm", rev = "2f6ffd4435799ceaa1d1bcb5a8790e5b3e0c5663", features = [
     "tokenizers-remote",
-    "llama",
+    "models",
 ], default-features = false }
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }

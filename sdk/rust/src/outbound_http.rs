@@ -30,17 +30,17 @@ pub fn send_request(req: Request) -> Result<Response> {
 
     let out_req = spin_http_types::RequestParam {
         method,
-        uri: &uri,
-        params: &params,
-        headers,
-        body,
+        uri: &uri.as_str(),
+        params: &params.as_slice(),
+        headers: &headers.as_slice(),
+        body: body.as_ref(),
     };
 
     let spin_http_types::Response {
         status,
         headers,
         body,
-    } = spin_http::send_request(out_req)?;
+    } = spin_http::send_request(&&out_req)?;
 
     let resp_builder = http_types::response::Builder::new().status(status);
     let resp_builder = headers

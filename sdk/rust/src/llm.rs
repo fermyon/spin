@@ -38,7 +38,7 @@ impl Default for InferencingParams {
 
 /// Perform inferencing using the provided model and prompt
 pub fn infer(model: InferencingModel, prompt: &str) -> Result<InferencingResult, Error> {
-    llm::infer(model.as_str(), prompt, None)
+    llm::infer(&model.as_str(), prompt, None)
 }
 
 /// Perform inferencing using the provided model, prompt, and options
@@ -47,7 +47,7 @@ pub fn infer_with_options(
     prompt: &str,
     options: InferencingParams,
 ) -> Result<InferencingResult, Error> {
-    llm::infer(model.as_str(), prompt, Some(options))
+    llm::infer(&model.as_str(), prompt, Some(options))
 }
 
 /// Model used for generating embeddings
@@ -71,5 +71,5 @@ pub fn generate_embeddings(
     model: EmbeddingModel,
     text: &[&str],
 ) -> Result<llm::EmbeddingsResult, Error> {
-    llm::generate_embeddings(model.as_str(), text)
+    llm::generate_embeddings(&model.as_str(), text)
 }

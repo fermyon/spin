@@ -2,16 +2,14 @@ use std::{io::Cursor, net::SocketAddr};
 
 use anyhow::{anyhow, ensure, Context, Result};
 use async_trait::async_trait;
-use hyper::{
-    body::{self},
-    Body, Request, Response,
-};
+use http_body_util::BodyExt;
+use hyper::{Request, Response};
 use spin_core::WasiVersion;
 use spin_http::{config::WagiTriggerConfig, routes::RoutePattern, wagi};
 use spin_trigger::{EitherInstance, TriggerAppEngine};
 use wasi_common_preview1::{pipe::WritePipe, I32Exit};
 
-use crate::{HttpExecutor, HttpTrigger};
+use crate::{Body, HttpExecutor, HttpTrigger};
 
 #[derive(Clone)]
 pub struct WagiHttpExecutor {
@@ -49,7 +47,7 @@ impl HttpExecutor for WagiHttpExecutor {
 
         let (parts, body) = req.into_parts();
 
-        let body = body::to_bytes(body).await?.to_vec();
+        let body = body.collect().await?.to_bytes().to_vec();
         let len = body.len();
 
         // TODO

@@ -9,9 +9,8 @@ use http::{
     request::Parts,
     HeaderMap, HeaderValue, Response, StatusCode,
 };
-use hyper::Body;
 
-use crate::routes::RoutePattern;
+use crate::{body, routes::RoutePattern, Body};
 
 /// This sets the version of CGI that WAGI adheres to.
 ///
@@ -240,7 +239,7 @@ pub fn compose_response(stdout: &[u8]) -> Result<Response<Body>, Error> {
         last = *i;
         buffer.push(*i)
     });
-    let mut res = Response::new(Body::from(buffer));
+    let mut res = Response::new(body::full(buffer.into()));
     let mut sufficient_response = false;
     let mut explicit_status_code = false;
     parse_cgi_headers(String::from_utf8(out_headers)?)
@@ -322,7 +321,7 @@ fn parse_cgi_headers(headers: String) -> HashMap<String, String> {
 fn internal_error(msg: impl std::string::ToString) -> Response<Body> {
     let message = msg.to_string();
     tracing::error!(error = %message, "HTTP 500 error");
-    let mut res = Response::new(Body::from(message));
+    let mut res = Response::new(body::full(message.into()));
     *res.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
     res
 }

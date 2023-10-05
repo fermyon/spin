@@ -1,18 +1,25 @@
 #[cfg(test)]
 mod integration_tests {
-    use anyhow::{Context, Result};
-    use hyper::{Body, Client, Response};
+    use anyhow::{anyhow, Context, Error, Result};
+    use futures::{channel::oneshot, future, stream, FutureExt};
+    use hyper::{body::Bytes, server::conn::http1, service::service_fn, Method, StatusCode};
+    use reqwest::{Client, Response};
+    use sha2::{Digest, Sha256};
+    use spin_http::body;
     use spin_loader::local::{config::RawModuleSource, raw_manifest_from_file};
     use std::{
         collections::HashMap,
         ffi::OsStr,
+        iter,
         net::{Ipv4Addr, SocketAddrV4, TcpListener},
         path::Path,
         process::{self, Child, Command, Output},
+        sync::Arc,
         time::Duration,
     };
     use tempfile::tempdir;
-    use tokio::{net::TcpStream, time::sleep};
+    use tokio::{net::TcpStream, task, time::sleep};
+    use tracing::log;
 
     const TIMER_TRIGGER_INTEGRATION_TEST: &str = "examples/spin-timer/app-example";
     const TIMER_TRIGGER_DIRECTORY: &str = "examples/spin-timer";
@@ -238,20 +245,17 @@ mod integration_tests {
     ) -> Result<()> {
         let res = req(s, absolute_uri).await?;
         let status = res.status();
-        let body = hyper::body::to_bytes(res.into_body())
-            .await
-            .expect("read body");
+        let body = res.bytes().await?;
         assert_eq!(status, expected, "{}", String::from_utf8_lossy(&body));
 
         Ok(())
     }
 
-    async fn req(s: &SpinTestController, absolute_uri: &str) -> Result<Response<Body>> {
-        let c = Client::new();
-        let url = format!("http://{}{}", s.url, absolute_uri)
-            .parse()
-            .with_context(|| "cannot parse URL")?;
-        Ok(c.get(url).await?)
+    async fn req(s: &SpinTestController, absolute_uri: &str) -> Result<Response> {
+        Ok(Client::new()
+            .get(format!("http://{}{}", s.url, absolute_uri))
+            .send()
+            .await?)
     }
 
     /// Controller for running Spin.
@@ -637,6 +641,156 @@ route = "/..."
     #[tokio::test]
     async fn test_build_command() -> Result<()> {
         do_test_build_command("tests/build/simple").await
+    }
+
+    #[tokio::test]
+    async fn test_wasi_http_hash_all() -> Result<()> {
+        let bodies = Arc::new(
+            [
+                ("/a", "’Twas brillig, and the slithy toves"),
+                ("/b", "Did gyre and gimble in the wabe:"),
+                ("/c", "All mimsy were the borogoves,"),
+                ("/d", "And the mome raths outgrabe."),
+            ]
+            .into_iter()
+            .collect::<HashMap<_, _>>(),
+        );
+
+        let listener = tokio::net::TcpListener::bind((Ipv4Addr::new(127, 0, 0, 1), 0)).await?;
+
+        let prefix = format!("http://{}", listener.local_addr()?);
+
+        let server = {
+            let bodies = bodies.clone();
+            async move {
+                loop {
+                    let (stream, _) = listener.accept().await?;
+                    let bodies = bodies.clone();
+                    task::spawn(async move {
+                        if let Err(e) = http1::Builder::new()
+                            .keep_alive(true)
+                            .serve_connection(
+                                stream,
+                                service_fn(move |request| {
+                                    let bodies = bodies.clone();
+                                    async move {
+                                        if let (&Method::GET, Some(body)) =
+                                            (request.method(), bodies.get(request.uri().path()))
+                                        {
+                                            Ok::<_, Error>(hyper::Response::new(body::full(
+                                                Bytes::copy_from_slice(body.as_bytes()),
+                                            )))
+                                        } else {
+                                            Ok(hyper::Response::builder()
+                                                .status(StatusCode::METHOD_NOT_ALLOWED)
+                                                .body(body::empty())?)
+                                        }
+                                    }
+                                }),
+                            )
+                            .await
+                        {
+                            log::warn!("{e:?}");
+                        }
+                    });
+
+                    // Help rustc with type inference:
+                    if false {
+                        return Ok::<_, Error>(());
+                    }
+                }
+            }
+        }
+        .then(|result| {
+            if let Err(e) = result {
+                log::warn!("{e:?}");
+            }
+            future::ready(())
+        })
+        .boxed();
+
+        let (_tx, rx) = oneshot::channel::<()>();
+
+        task::spawn(async move {
+            drop(future::select(server, rx).await);
+        });
+
+        let controller =
+            SpinTestController::with_manifest("examples/wasi-http-rust-async/spin.toml", &[], &[])
+                .await?;
+
+        let mut request = Client::new().get(format!("http://{}/hash-all", controller.url));
+        for path in bodies.keys() {
+            request = request.header("url", format!("{prefix}{path}"));
+        }
+        let response = request.send().await?;
+
+        assert_eq!(200, response.status());
+        let body = response.text().await?;
+        for line in body.lines() {
+            let (url, hash) = line
+                .split_once(": ")
+                .ok_or_else(|| anyhow!("expected string of form `<url>: <sha-256>`; got {line}"))?;
+
+            let path = url
+                .strip_prefix(&prefix)
+                .ok_or_else(|| anyhow!("expected string with prefix {prefix}; got {url}"))?;
+
+            let mut hasher = Sha256::new();
+            hasher.update(
+                bodies
+                    .get(path)
+                    .ok_or_else(|| anyhow!("unexpected path: {path}"))?,
+            );
+            assert_eq!(hash, hex::encode(hasher.finalize()));
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_wasi_http_echo() -> Result<()> {
+        let body = {
+            // A sorta-random-ish megabyte
+            let mut n = 0_u8;
+            iter::repeat_with(move || {
+                n = n.wrapping_add(251);
+                n
+            })
+            .take(1024 * 1024)
+            .collect::<Vec<_>>()
+        };
+
+        let controller =
+            SpinTestController::with_manifest("examples/wasi-http-rust-async/spin.toml", &[], &[])
+                .await?;
+
+        let response = Client::new()
+            .post(format!("http://{}/echo", controller.url))
+            .header("content-type", "application/octet-stream")
+            .body(reqwest::Body::wrap_stream(stream::iter(
+                body.chunks(16 * 1024)
+                    .map(|chunk| Ok::<_, Error>(Bytes::copy_from_slice(chunk)))
+                    .collect::<Vec<_>>(),
+            )))
+            .send()
+            .await?;
+
+        assert_eq!(200, response.status());
+        assert_eq!(
+            response.headers()["content-type"],
+            "application/octet-stream"
+        );
+        let received = response.bytes().await?;
+        if body != received {
+            panic!(
+                "body content mismatch (expected length {}; actual length {})",
+                body.len(),
+                received.len()
+            );
+        }
+
+        Ok(())
     }
 
     /// Build an app whose component `workdir` is a subdirectory.

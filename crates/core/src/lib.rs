@@ -20,6 +20,7 @@ use crossbeam_channel::Sender;
 use tracing::instrument;
 use wasmtime::{InstanceAllocationStrategy, PoolingAllocationConfig};
 use wasmtime_wasi::preview2::Table;
+use wasmtime_wasi_http::types::{WasiHttpCtx, WasiHttpView};
 
 use self::host_component::{HostComponents, HostComponentsBuilder};
 
@@ -178,15 +179,28 @@ impl<T: Send> wasmtime_wasi::preview2::WasiView for Data<T> {
     fn ctx(&self) -> &wasmtime_wasi::preview2::WasiCtx {
         match &self.wasi {
             Wasi::Preview1(_) => panic!("using WASI Preview 1 functions with Preview 2 store"),
-            Wasi::Preview2(ctx) => ctx,
+            Wasi::Preview2 { wasi_ctx, .. } => wasi_ctx,
         }
     }
 
     fn ctx_mut(&mut self) -> &mut wasmtime_wasi::preview2::WasiCtx {
         match &mut self.wasi {
             Wasi::Preview1(_) => panic!("using WASI Preview 1 functions with Preview 2 store"),
-            Wasi::Preview2(ctx) => ctx,
+            Wasi::Preview2 { wasi_ctx, .. } => wasi_ctx,
         }
+    }
+}
+
+impl<T: Send> WasiHttpView for Data<T> {
+    fn ctx(&mut self) -> &mut WasiHttpCtx {
+        match &mut self.wasi {
+            Wasi::Preview1(_) => panic!("using WASI Preview 1 functions with Preview 2 store"),
+            Wasi::Preview2 { wasi_http_ctx, .. } => wasi_http_ctx,
+        }
+    }
+
+    fn table(&mut self) -> &mut Table {
+        &mut self.table
     }
 }
 
@@ -213,12 +227,12 @@ impl<T: Send + Sync> EngineBuilder<T> {
         let engine = wasmtime::Engine::new(&config.inner)?;
 
         let mut linker: Linker<T> = Linker::new(&engine);
-        wasmtime_wasi::preview2::command::add_to_linker(&mut linker)?;
+        wasmtime_wasi_http::proxy::add_to_linker(&mut linker)?;
 
         let mut module_linker = ModuleLinker::new(&engine);
         wasmtime_wasi::tokio::add_to_linker(&mut module_linker, |data| match &mut data.wasi {
             Wasi::Preview1(ctx) => ctx,
-            Wasi::Preview2(_) => panic!("using WASI Preview 2 functions with Preview 1 store"),
+            Wasi::Preview2 { .. } => panic!("using WASI Preview 2 functions with Preview 1 store"),
         })?;
 
         Ok(Self {

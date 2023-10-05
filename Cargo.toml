@@ -78,7 +78,8 @@ subprocess = "0.2.9"
 openssl = { version = "0.10" }
 
 [dev-dependencies]
-hyper = { version = "0.14", features = ["full"] }
+hex = "0.4.3"
+hyper = { workspace = true }
 sha2 = "0.10.1"
 which = "4.2.5"
 e2e-testing = { path = "crates/e2e-testing" }
@@ -114,7 +115,10 @@ wasi-common-preview1 = { git = "https://github.com/bytecodealliance/wasmtime", r
 wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", rev = "c796ce7376a57a40605f03e74bd78cefcc9acf3a", features = [
   "component-model",
 ] }
+wasmtime-wasi-http = { git = "https://github.com/bytecodealliance/wasmtime", rev = "c796ce7376a57a40605f03e74bd78cefcc9acf3a" }
 spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "84286054d632ccb8ae06c6419940b5d328229e59" }
+hyper = { version = "=1.0.0-rc.3", features = ["full"] }
+http-body-util = "=0.1.0-rc.2"
 
 [[bin]]
 name = "spin"

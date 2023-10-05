@@ -11,6 +11,7 @@ crossbeam-channel = "0.5"
 tracing = { workspace = true }
 wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
+wasmtime-wasi-http = { workspace = true }
 wasi-common-preview1 = { workspace = true }
 system-interface = { version = "0.26.0", features = ["cap_std_impls"] }
 cap-std = "2.0.0"

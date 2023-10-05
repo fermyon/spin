@@ -13,13 +13,15 @@ pub enum InferencingModel<'a> {
     Other(&'a str),
 }
 
+#[allow(clippy::inherent_to_string)]
 impl<'a> InferencingModel<'a> {
-    fn as_str(&self) -> llm::InferencingModel<'a> {
+    fn to_string(&self) -> llm::InferencingModel {
         match self {
             InferencingModel::Llama2Chat => "llama2-chat",
             InferencingModel::CodellamaInstruct => "codellama-instruct",
             InferencingModel::Other(s) => s,
         }
+        .into()
     }
 }
 
@@ -38,7 +40,7 @@ impl Default for InferencingParams {
 
 /// Perform inferencing using the provided model and prompt
 pub fn infer(model: InferencingModel, prompt: &str) -> Result<InferencingResult, Error> {
-    llm::infer(model.as_str(), prompt, None)
+    llm::infer(&model.to_string(), prompt, None)
 }
 
 /// Perform inferencing using the provided model, prompt, and options
@@ -47,7 +49,7 @@ pub fn infer_with_options(
     prompt: &str,
     options: InferencingParams,
 ) -> Result<InferencingResult, Error> {
-    llm::infer(model.as_str(), prompt, Some(options))
+    llm::infer(&model.to_string(), prompt, Some(options))
 }
 
 /// Model used for generating embeddings
@@ -57,12 +59,14 @@ pub enum EmbeddingModel<'a> {
     Other(&'a str),
 }
 
+#[allow(clippy::inherent_to_string)]
 impl<'a> EmbeddingModel<'a> {
-    fn as_str(&self) -> llm::EmbeddingModel<'a> {
+    fn to_string(&self) -> llm::EmbeddingModel {
         match self {
             EmbeddingModel::AllMiniLmL6V2 => "all-minilm-l6-v2",
             EmbeddingModel::Other(s) => s,
         }
+        .into()
     }
 }
 
@@ -71,5 +75,8 @@ pub fn generate_embeddings(
     model: EmbeddingModel,
     text: &[&str],
 ) -> Result<llm::EmbeddingsResult, Error> {
-    llm::generate_embeddings(model.as_str(), text)
+    llm::generate_embeddings(
+        &model.to_string(),
+        &text.iter().map(|&s| s.into()).collect::<Vec<_>>(),
+    )
 }

@@ -1,9 +1,10 @@
 use std::{net::SocketAddr, str, str::FromStr};
 
-use crate::{HttpExecutor, HttpTrigger, Store};
+use crate::{Body, HttpExecutor, HttpTrigger, Store};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use hyper::{Body, Request, Response};
+use http_body_util::BodyExt;
+use hyper::{Request, Response};
 use outbound_http::OutboundHttpComponent;
 use spin_core::Instance;
 use spin_trigger::{EitherInstance, TriggerAppEngine};
@@ -69,15 +70,15 @@ impl SpinHttpExecutor {
             .ok_or_else(|| anyhow!("no fermyon:spin/inbound-http instance found"))?
             .typed_func::<(http_types::Request,), (http_types::Response,)>("handle-request")?;
 
-        let (parts, bytes) = req.into_parts();
-        let bytes = hyper::body::to_bytes(bytes).await?.to_vec();
+        let (parts, body) = req.into_parts();
+        let bytes = body.collect().await?.to_bytes().to_vec();
 
         let method = if let Some(method) = Self::method(&parts.method) {
             method
         } else {
             return Ok(Response::builder()
                 .status(http::StatusCode::METHOD_NOT_ALLOWED)
-                .body(Body::empty())?);
+                .body(spin_http::empty())?);
         };
 
         // Preparing to remove the params field. We are leaving it in place for now
@@ -104,7 +105,7 @@ impl SpinHttpExecutor {
             tracing::error!("malformed HTTP status code");
             return Ok(Response::builder()
                 .status(http::StatusCode::INTERNAL_SERVER_ERROR)
-                .body(Body::empty())?);
+                .body(spin_http::empty())?);
         };
 
         let mut response = http::Response::builder().status(resp.status);
@@ -113,8 +114,8 @@ impl SpinHttpExecutor {
         }
 
         let body = match resp.body {
-            Some(b) => Body::from(b),
-            None => Body::empty(),
+            Some(b) => spin_http::full(b.into()),
+            None => spin_http::empty(),
         };
 
         Ok(response.body(body)?)

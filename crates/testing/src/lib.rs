@@ -8,7 +8,6 @@ use std::{
 };
 
 use http::Response;
-use hyper::Body;
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use spin_app::{
@@ -233,7 +232,7 @@ pub fn test_socket_addr() -> SocketAddr {
     "127.0.0.1:55555".parse().unwrap()
 }
 
-pub fn assert_http_response_success(resp: &Response<Body>) {
+pub fn assert_http_response_success<T: std::fmt::Debug>(resp: &Response<T>) {
     if !resp.status().is_success() {
         panic!("non-success response {}: {:?}", resp.status(), resp.body());
     }

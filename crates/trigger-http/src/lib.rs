@@ -3,25 +3,25 @@
 mod spin;
 mod tls;
 mod wagi;
+mod wasi;
 
 use std::{
     collections::HashMap,
-    future::ready,
     net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
     path::PathBuf,
     sync::Arc,
 };
 
-use anyhow::{Context, Error, Result};
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use clap::Args;
-use futures_util::stream::StreamExt;
 use http::{uri::Scheme, StatusCode, Uri};
+use http_body_util::BodyExt;
 use hyper::{
-    server::accept,
-    server::conn::AddrStream,
-    service::{make_service_fn, service_fn},
-    Body, Request, Response, Server,
+    body::{Bytes, Incoming},
+    server::conn::http1,
+    service::service_fn,
+    Request, Response,
 };
 use spin_app::AppComponent;
 use spin_core::Engine;
@@ -31,12 +31,16 @@ use spin_http::{
     routes::{RoutePattern, Router},
 };
 use spin_trigger::{locked::DESCRIPTION_KEY, EitherInstancePre, TriggerAppEngine, TriggerExecutor};
-use tls_listener::TlsListener;
-use tokio::net::{TcpListener, TcpStream};
-use tokio_rustls::server::TlsStream;
-use tracing::log;
+use tokio::{
+    io::{AsyncRead, AsyncWrite},
+    net::TcpListener,
+    task,
+};
 
-use crate::{spin::SpinHttpExecutor, wagi::WagiHttpExecutor};
+use tracing::log;
+use wasmtime_wasi_http::body::HyperIncomingBody as Body;
+
+use crate::{spin::SpinHttpExecutor, wagi::WagiHttpExecutor, wasi::WasiHttpExecutor};
 
 pub use tls::TlsConfig;
 
@@ -197,7 +201,9 @@ impl HttpTrigger {
         // Handle well-known spin paths
         if let Some(well_known) = path.strip_prefix(spin_http::WELL_KNOWN_PREFIX) {
             return match well_known {
-                "health" => Ok(Response::new(Body::from("OK"))),
+                "health" => Ok(Response::new(spin_http::full(Bytes::copy_from_slice(
+                    b"OK",
+                )))),
                 "info" => self.app_info(),
                 _ => Self::not_found(),
             };
@@ -239,6 +245,18 @@ impl HttpTrigger {
                             )
                             .await
                     }
+                    HttpExecutorType::Wasi => {
+                        WasiHttpExecutor
+                            .execute(
+                                &self.engine,
+                                component_id,
+                                &self.base,
+                                &trigger.route,
+                                req,
+                                addr,
+                            )
+                            .await
+                    }
                 };
                 match res {
                     Ok(res) => Ok(res),
@@ -258,14 +276,14 @@ impl HttpTrigger {
         let body = serde_json::to_vec_pretty(&info)?;
         Ok(Response::builder()
             .header("content-type", "application/json")
-            .body(body.into())?)
+            .body(spin_http::full(body.into()))?)
     }
 
     /// Creates an HTTP 500 response.
     fn internal_error(body: Option<&str>) -> Result<Response<Body>> {
         let body = match body {
-            Some(body) => Body::from(body.as_bytes().to_vec()),
-            None => Body::empty(),
+            Some(body) => spin_http::full(Bytes::copy_from_slice(body.as_bytes())),
+            None => spin_http::empty(),
         };
 
         Ok(Response::builder()
@@ -277,73 +295,67 @@ impl HttpTrigger {
     fn not_found() -> Result<Response<Body>> {
         Ok(Response::builder()
             .status(StatusCode::NOT_FOUND)
-            .body(Body::empty())?)
+            .body(spin_http::empty())?)
+    }
+
+    fn serve_connection<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
+        self_: Arc<Self>,
+        stream: S,
+        addr: SocketAddr,
+    ) {
+        task::spawn(async move {
+            if let Err(e) = http1::Builder::new()
+                .keep_alive(true)
+                .serve_connection(
+                    stream,
+                    service_fn(move |request| {
+                        let self_ = self_.clone();
+                        async move {
+                            self_
+                                .handle(
+                                    request
+                                        .map(|body: Incoming| body.map_err(|e| anyhow!(e)).boxed()),
+                                    Scheme::HTTP,
+                                    addr,
+                                )
+                                .await
+                        }
+                    }),
+                )
+                .await
+            {
+                log::warn!("{e:?}");
+            }
+        });
     }
 
     async fn serve(self, listen_addr: SocketAddr) -> Result<()> {
         let self_ = Arc::new(self);
-        let make_service = make_service_fn(|conn: &AddrStream| {
-            let self_ = self_.clone();
-            let addr = conn.remote_addr();
-            async move {
-                let service = service_fn(move |req| {
-                    let self_ = self_.clone();
-                    async move { self_.handle(req, Scheme::HTTP, addr).await }
-                });
-                Ok::<_, Error>(service)
-            }
-        });
 
-        Server::try_bind(&listen_addr)
-            .with_context(|| format!("Unable to listen on {}", listen_addr))?
-            .serve(make_service)
-            .await?;
-        Ok(())
+        let listener = TcpListener::bind(listen_addr)
+            .await
+            .with_context(|| format!("Unable to listen on {}", listen_addr))?;
+
+        loop {
+            let (stream, addr) = listener.accept().await?;
+            Self::serve_connection(self_.clone(), stream, addr);
+        }
     }
 
     async fn serve_tls(self, listen_addr: SocketAddr, tls: TlsConfig) -> Result<()> {
         let self_ = Arc::new(self);
-        let make_service = make_service_fn(|conn: &TlsStream<TcpStream>| {
-            let self_ = self_.clone();
-            let (inner_conn, _) = conn.get_ref();
-            let addr_res = inner_conn.peer_addr().map_err(|err| err.to_string());
 
-            async move {
-                let service = service_fn(move |req| {
-                    let self_ = self_.clone();
-                    let addr_res = addr_res.clone();
-
-                    async move {
-                        match addr_res {
-                            Ok(addr) => self_.handle(req, Scheme::HTTPS, addr).await,
-                            Err(err) => {
-                                log::warn!("Failed to get remote socket address: {}", err);
-                                Self::internal_error(Some("Socket connection error"))
-                            }
-                        }
-                    }
-                });
-                Ok::<_, Error>(service)
-            }
-        });
-
-        let listener = TcpListener::bind(&listen_addr)
+        let listener = TcpListener::bind(listen_addr)
             .await
             .with_context(|| format!("Unable to listen on {}", listen_addr))?;
 
-        let incoming = accept::from_stream(
-            TlsListener::new(tls.server_config()?, listener).filter(|conn| {
-                if let Err(err) = conn {
-                    log::warn!("{:?}", err);
-                    ready(false)
-                } else {
-                    ready(true)
-                }
-            }),
-        );
+        let acceptor = tls.server_config()?;
 
-        Server::builder(incoming).serve(make_service).await?;
-        Ok(())
+        loop {
+            let (stream, addr) = listener.accept().await?;
+            let stream = acceptor.accept(stream).await?;
+            Self::serve_connection(self_.clone(), stream, addr);
+        }
     }
 }
 
@@ -587,7 +599,7 @@ mod tests {
             .build_trigger()
             .await;
 
-        let body = Body::from("Fermyon".as_bytes().to_vec());
+        let body = spin_http::full(Bytes::copy_from_slice("Fermyon".as_bytes()));
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
             .header("x-custom-foo", "bar")
             .header("x-custom-foo2", "bar2")
@@ -598,7 +610,7 @@ mod tests {
             .handle(req, Scheme::HTTPS, test_socket_addr())
             .await?;
         assert_eq!(res.status(), StatusCode::OK);
-        let body_bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
+        let body_bytes = res.into_body().collect().await.unwrap().to_bytes();
         assert_eq!(body_bytes.to_vec(), "Hello, Fermyon".as_bytes());
 
         Ok(())
@@ -612,7 +624,7 @@ mod tests {
             .build_trigger()
             .await;
 
-        let body = Body::from("Fermyon".as_bytes().to_vec());
+        let body = spin_http::full(Bytes::copy_from_slice("Fermyon".as_bytes()));
         let req = http::Request::builder()
             .method("POST")
             .uri("https://myservice.fermyon.dev/test?abc=def")
@@ -625,7 +637,7 @@ mod tests {
             .handle(req, Scheme::HTTPS, test_socket_addr())
             .await?;
         assert_eq!(res.status(), StatusCode::OK);
-        let body_bytes = hyper::body::to_bytes(res.into_body()).await.unwrap();
+        let body_bytes = res.into_body().collect().await.unwrap().to_bytes();
 
         #[derive(Deserialize)]
         struct Env {

@@ -8,6 +8,6 @@ authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
 crate-type = [ "cdylib" ]
 
 [dependencies]
-wit-bindgen = "0.8"
+wit-bindgen = "0.12"
 
 [workspace]

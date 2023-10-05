@@ -148,7 +148,7 @@ fn create(name: &str, prey: &Option<String>, is_finicky: bool) -> Result<Respons
 
     let prey_param = match prey {
         None => ParameterValue::DbNull,
-        Some(str) => ParameterValue::Str(str),
+        Some(str) => ParameterValue::Str(str.to_string()),
     };
 
     let is_finicky_param = ParameterValue::Int8(i8::from(is_finicky));
@@ -156,7 +156,7 @@ fn create(name: &str, prey: &Option<String>, is_finicky: bool) -> Result<Respons
     let sql = "INSERT INTO pets (id, name, prey, is_finicky) VALUES (?, ?, ?, ?)";
     let params = vec![
         ParameterValue::Int32(id),
-        ParameterValue::Str(name),
+        ParameterValue::Str(name.to_string()),
         prey_param,
         is_finicky_param,
     ];

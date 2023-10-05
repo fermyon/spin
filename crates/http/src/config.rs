@@ -15,7 +15,7 @@ pub struct HttpTriggerConfig {
 
 /// The executor for the HTTP component.
 /// The component can either implement the Spin HTTP interface,
-/// or the Wagi CGI interface.
+/// the `wasi-http` interface, or the Wagi CGI interface.
 ///
 /// If an executor is not specified, the inferred default is `HttpExecutor::Spin`.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -26,6 +26,9 @@ pub enum HttpExecutorType {
     Spin,
     /// The component implements the Wagi CGI interface.
     Wagi(WagiTriggerConfig),
+    /// The component implements [`wasi-http`](https://github.com/WebAssembly/wasi-http)
+    /// interface (experimental, subject to change)
+    Wasi,
 }
 
 /// Wagi specific configuration for the http executor.

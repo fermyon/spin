@@ -70,6 +70,7 @@ impl Default for KeyValueDispatch {
 
 #[async_trait]
 impl key_value::Host for KeyValueDispatch {}
+
 #[async_trait]
 impl key_value::HostStore for KeyValueDispatch {
     async fn open(&mut self, name: String) -> Result<Result<Resource<key_value::Store>, Error>> {

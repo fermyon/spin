@@ -56,28 +56,28 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             mod inbound_http_helpers {
                 use super::fermyon::spin::http_types as spin_http_types;
-            
+
                 impl TryFrom<spin_http_types::Request> for http::Request<Option<bytes::Bytes>> {
                     type Error = anyhow::Error;
-                
+
                     fn try_from(spin_req: spin_http_types::Request) -> Result<Self, Self::Error> {
                         let mut http_req = http::Request::builder()
                             .method(spin_req.method.clone())
                             .uri(&spin_req.uri);
-                    
+
                         append_request_headers(&mut http_req, &spin_req)?;
-                    
+
                         let body = match spin_req.body {
                             Some(b) => b.to_vec(),
                             None => Vec::new(),
                         };
-                    
+
                         let body = Some(bytes::Bytes::from(body));
-                    
+
                         Ok(http_req.body(body)?)
                     }
                 }
-            
+
                 impl From<spin_http_types::Method> for http::Method {
                     fn from(spin_method: spin_http_types::Method) -> Self {
                         match spin_method {
@@ -91,7 +91,7 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         }
                     }
                 }
-            
+
                 fn append_request_headers(
                     http_req: &mut http::request::Builder,
                     spin_req: &spin_http_types::Request,
@@ -103,27 +103,27 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                             http::header::HeaderValue::from_str(v)?,
                         );
                     }
-                
+
                     Ok(())
                 }
-            
+
                 impl TryFrom<spin_http_types::Response> for http::Response<Option<bytes::Bytes>> {
                     type Error = anyhow::Error;
-                
+
                     fn try_from(spin_res: spin_http_types::Response) -> Result<Self, Self::Error> {
                         let mut http_res = http::Response::builder().status(spin_res.status);
                         append_response_headers(&mut http_res, spin_res.clone())?;
-                    
+
                         let body = match spin_res.body {
                             Some(b) => b.to_vec(),
                             None => Vec::new(),
                         };
                         let body = Some(bytes::Bytes::from(body));
-                    
+
                         Ok(http_res.body(body)?)
                     }
                 }
-            
+
                 fn append_response_headers(
                     http_res: &mut http::response::Builder,
                     spin_res: spin_http_types::Response,
@@ -135,20 +135,20 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                             http::header::HeaderValue::from_str(&v)?,
                         );
                     }
-                
+
                     Ok(())
                 }
-            
+
                 impl TryFrom<http::Response<Option<bytes::Bytes>>> for spin_http_types::Response {
                     type Error = anyhow::Error;
-                
+
                     fn try_from(
                         http_res: http::Response<Option<bytes::Bytes>>,
                     ) -> Result<Self, Self::Error> {
                         let status = http_res.status().as_u16();
                         let headers = Some(outbound_headers(http_res.headers())?);
                         let body = http_res.body().as_ref().map(|b| b.to_vec());
-                    
+
                         Ok(spin_http_types::Response {
                             status,
                             headers,
@@ -156,17 +156,17 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         })
                     }
                 }
-            
+
                 fn outbound_headers(hm: &http::HeaderMap) -> anyhow::Result<Vec<(String, String)>> {
                     let mut res = Vec::new();
-                
+
                     for (k, v) in hm {
                         res.push((
                             k.as_str().to_string(),
                             std::str::from_utf8(v.as_bytes())?.to_string(),
                         ));
                     }
-                
+
                     Ok(res)
                 }
             }

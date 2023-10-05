@@ -1,15 +1,10 @@
 use super::wit::fermyon::spin::sqlite;
 
 /// Represents a store in which key value tuples may be placed
+// TODO: use `#[doc(inline)]` as soon as wit-bindgen#688 is merged
 pub use sqlite::Connection;
-/// Errors which may be raised by the methods of `Store`
-pub use sqlite::Error;
-/// The result of making a query
-pub use sqlite::QueryResult;
-/// A row in a QueryResult
-pub use sqlite::RowResult;
-/// A single column's result from a database query
-pub use sqlite::Value;
+#[doc(inline)]
+pub use sqlite::{Error, QueryResult, RowResult, Value};
 
 impl sqlite::Connection {
     /// Open a connection to the default database

@@ -9,11 +9,12 @@ use super::wit::fermyon::spin::key_value;
 #[cfg(feature = "json")]
 use serde::{de::DeserializeOwned, Serialize};
 
-/// Errors which may be raised by the methods of `Store`
-pub use key_value::Error;
-
-/// A store
+/// An open key-value store
+// TODO: use `#[doc(inline)]` as soon as wit-bindgen#688 is merged
 pub use key_value::Store;
+
+#[doc(inline)]
+pub use key_value::Error;
 
 impl Store {
     #[cfg(feature = "json")]

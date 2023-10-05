@@ -1,6 +1,7 @@
 mod host_component;
 
 use spin_app::{async_trait, MetadataKey};
+use spin_core::wasmtime::component::Resource;
 use spin_key_value::table;
 use std::{collections::HashSet, sync::Arc};
 
@@ -60,20 +61,24 @@ impl SqliteDispatch {
 
     fn get_connection(
         &self,
-        connection: spin_world::sqlite::Connection,
+        connection: Resource<spin_world::sqlite::Connection>,
     ) -> Result<&Arc<dyn Connection>, spin_world::sqlite::Error> {
         self.connections
-            .get(connection)
+            .get(connection.rep())
             .ok_or(spin_world::sqlite::Error::InvalidConnection)
     }
 }
 
 #[async_trait]
-impl spin_world::sqlite::Host for SqliteDispatch {
+impl spin_world::sqlite::Host for SqliteDispatch {}
+
+#[async_trait]
+impl spin_world::sqlite::HostConnection for SqliteDispatch {
     async fn open(
         &mut self,
         database: String,
-    ) -> anyhow::Result<Result<spin_world::sqlite::Connection, spin_world::sqlite::Error>> {
+    ) -> anyhow::Result<Result<Resource<spin_world::sqlite::Connection>, spin_world::sqlite::Error>>
+    {
         if !self.allowed_databases.contains(&database) {
             return Ok(Err(spin_world::sqlite::Error::AccessDenied));
         }
@@ -86,12 +91,13 @@ impl spin_world::sqlite::Host for SqliteDispatch {
                 self.connections.push(conn).map_err(|()| {
                     spin_world::sqlite::Error::Io("too many connections opened".to_string())
                 })
-            }))
+            })
+            .map(|c| Resource::new_own(c)))
     }
 
     async fn execute(
         &mut self,
-        connection: spin_world::sqlite::Connection,
+        connection: Resource<spin_world::sqlite::Connection>,
         query: String,
         parameters: Vec<spin_world::sqlite::Value>,
     ) -> anyhow::Result<Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error>> {
@@ -102,8 +108,8 @@ impl spin_world::sqlite::Host for SqliteDispatch {
         Ok(conn.query(&query, parameters).await)
     }
 
-    async fn close(&mut self, connection: spin_world::sqlite::Connection) -> anyhow::Result<()> {
-        let _ = self.connections.remove(connection);
+    fn drop(&mut self, connection: Resource<spin_world::sqlite::Connection>) -> anyhow::Result<()> {
+        let _ = self.connections.remove(connection.rep());
         Ok(())
     }
 }

@@ -1,7 +1,6 @@
 interface key-value {
   // An open key-value store
   resource store {
-
     // Open the store with the specified name.
     //
     // If `name` is "default", the default store is opened.  Otherwise,

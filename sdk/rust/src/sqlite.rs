@@ -1,8 +1,7 @@
-#![allow(missing_docs)]
-
 use super::wit::fermyon::spin::sqlite;
-use sqlite::Connection as RawConnection;
 
+/// Represents a store in which key value tuples may be placed
+pub use sqlite::Connection;
 /// Errors which may be raised by the methods of `Store`
 pub use sqlite::Error;
 /// The result of making a query
@@ -12,24 +11,10 @@ pub use sqlite::RowResult;
 /// A single column's result from a database query
 pub use sqlite::Value;
 
-/// Represents a store in which key value tuples may be placed
-#[derive(Debug)]
-pub struct Connection(RawConnection);
-
-impl Connection {
+impl sqlite::Connection {
     /// Open a connection to the default database
     pub fn open_default() -> Result<Self, Error> {
-        Ok(Self(sqlite::open("default")?))
-    }
-
-    /// Open a connection
-    pub fn open(database: &str) -> Result<Self, Error> {
-        Ok(Self(sqlite::open(database)?))
-    }
-
-    /// Execute a statement against the database
-    pub fn execute(&self, query: &str, parameters: &[Value]) -> Result<sqlite::QueryResult, Error> {
-        sqlite::execute(self.0, query, parameters)
+        Self::open("default")
     }
 }
 

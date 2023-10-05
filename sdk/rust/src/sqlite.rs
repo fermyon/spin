@@ -35,7 +35,11 @@ impl Connection {
         query: &str,
         parameters: &[ValueParam<'_>],
     ) -> Result<sqlite::QueryResult, Error> {
-        sqlite::execute(self.0, query, parameters)
+        sqlite::execute(
+            self.0,
+            query,
+            parameters.iter().collect::<Vec<_>>().as_slice(),
+        )
     }
 }
 

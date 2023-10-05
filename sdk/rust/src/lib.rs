@@ -26,9 +26,6 @@ pub mod wit {
     wit_bindgen::generate!({
         world: "platform",
         path: "../../wit/preview2",
-        ownership: Borrowing {
-            duplicate_if_necessary: true
-        },
     });
 }
 

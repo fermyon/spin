@@ -12,7 +12,7 @@ const REDIS_ADDRESS_ENV: &str = "REDIS_ADDRESS";
 fn test(_req: Request) -> Result<Response> {
     let address = std::env::var(REDIS_ADDRESS_ENV)?;
 
-    redis::set(&address, "spin-example-get-set", &&b"Eureka!".as_slice())
+    redis::set(&address, "spin-example-get-set", &b"Eureka!".to_vec())
         .map_err(|_| anyhow!("Error executing Redis set command"))?;
 
     let payload = redis::get(&address, "spin-example-get-set")
@@ -20,7 +20,7 @@ fn test(_req: Request) -> Result<Response> {
 
     assert_eq!(std::str::from_utf8(&payload).unwrap(), "Eureka!");
 
-    redis::set(&address, "spin-example-incr", &&b"0".as_slice())
+    redis::set(&address, "spin-example-incr", &b"0".to_vec())
         .map_err(|_| anyhow!("Error querying Redis set command"))?;
 
     let int_value = redis::incr(&address, "spin-example-incr")
@@ -28,7 +28,7 @@ fn test(_req: Request) -> Result<Response> {
 
     assert_eq!(int_value, 1);
 
-    let keys = vec!["spin-example-get-set", "spin-example-incr"];
+    let keys = vec!["spin-example-get-set".into(), "spin-example-incr".into()];
 
     let del_keys =
         redis::del(&address, &keys).map_err(|_| anyhow!("Error executing Redis incr command"))?;
@@ -39,8 +39,8 @@ fn test(_req: Request) -> Result<Response> {
         &address,
         "set",
         &[
-            &&RedisParameter::Binary(&b"spin-example".as_slice()),
-            &&RedisParameter::Binary(&b"Eureka!".as_slice()),
+            RedisParameter::Binary(b"spin-example".to_vec()),
+            RedisParameter::Binary(b"Eureka!".to_vec()),
         ],
     )
     .map_err(|_| anyhow!("Error executing Redis set command"))?;
@@ -49,8 +49,8 @@ fn test(_req: Request) -> Result<Response> {
         &address,
         "append",
         &[
-            &&RedisParameter::Binary(&b"spin-example".as_slice()),
-            &&RedisParameter::Binary(&b" I've got it!".as_slice()),
+            RedisParameter::Binary(b"spin-example".to_vec()),
+            RedisParameter::Binary(b" I've got it!".to_vec()),
         ],
     )
     .map_err(|_| anyhow!("Error executing Redis append command via `execute`"))?;
@@ -58,7 +58,7 @@ fn test(_req: Request) -> Result<Response> {
     let values = redis::execute(
         &address,
         "get",
-        &[&&RedisParameter::Binary(&b"spin-example".as_slice())],
+        &[RedisParameter::Binary(b"spin-example".to_vec())],
     )
     .map_err(|_| anyhow!("Error executing Redis get command via `execute`"))?;
 
@@ -71,8 +71,8 @@ fn test(_req: Request) -> Result<Response> {
         &address,
         "set",
         &[
-            &&RedisParameter::Binary(&b"int-key".as_slice()),
-            &&RedisParameter::Int64(0),
+            RedisParameter::Binary(b"int-key".to_vec()),
+            RedisParameter::Int64(0),
         ],
     )
     .map_err(|_| anyhow!("Error executing Redis set command via `execute`"))?;
@@ -80,7 +80,7 @@ fn test(_req: Request) -> Result<Response> {
     let values = redis::execute(
         &address,
         "incr",
-        &[&&RedisParameter::Binary(&b"int-key".as_slice())],
+        &[RedisParameter::Binary(b"int-key".to_vec())],
     )
     .map_err(|_| anyhow!("Error executing Redis incr command via `execute`"))?;
 
@@ -89,26 +89,22 @@ fn test(_req: Request) -> Result<Response> {
     let values = redis::execute(
         &address,
         "get",
-        &[&&RedisParameter::Binary(&b"int-key".as_slice())],
+        &[RedisParameter::Binary(b"int-key".to_vec())],
     )
     .map_err(|_| anyhow!("Error executing Redis get command via `execute`"))?;
 
     assert_eq!(values, &[RedisResult::Binary(b"1".to_vec())]);
 
-    redis::execute(
-        &address,
-        "del",
-        &[&&RedisParameter::Binary(&b"foo".as_slice())],
-    )
-    .map_err(|_| anyhow!("Error executing Redis del command via `execute`"))?;
+    redis::execute(&address, "del", &[RedisParameter::Binary(b"foo".to_vec())])
+        .map_err(|_| anyhow!("Error executing Redis del command via `execute`"))?;
 
     redis::execute(
         &address,
         "sadd",
         &[
-            &&RedisParameter::Binary(&b"foo".as_slice()),
-            &&RedisParameter::Binary(&b"bar".as_slice()),
-            &&RedisParameter::Binary(&b"baz".as_slice()),
+            RedisParameter::Binary(b"foo".to_vec()),
+            RedisParameter::Binary(b"bar".to_vec()),
+            RedisParameter::Binary(b"baz".to_vec()),
         ],
     )
     .map_err(|_| anyhow!("Error executing Redis sadd command via `execute`"))?;
@@ -116,7 +112,7 @@ fn test(_req: Request) -> Result<Response> {
     let values = redis::execute(
         &address,
         "smembers",
-        &[&&RedisParameter::Binary(&b"foo".as_slice())],
+        &[RedisParameter::Binary(b"foo".to_vec())],
     )
     .map_err(|_| anyhow!("Error executing Redis smembers command via `execute`"))?;
 
@@ -134,8 +130,8 @@ fn test(_req: Request) -> Result<Response> {
         &address,
         "srem",
         &[
-            &&RedisParameter::Binary(&b"foo".as_slice()),
-            &&RedisParameter::Binary(&b"baz".as_slice()),
+            RedisParameter::Binary(b"foo".to_vec()),
+            RedisParameter::Binary(b"baz".to_vec()),
         ],
     )
     .map_err(|_| anyhow!("Error executing Redis srem command via `execute`"))?;
@@ -143,7 +139,7 @@ fn test(_req: Request) -> Result<Response> {
     let values = redis::execute(
         &address,
         "smembers",
-        &[&&RedisParameter::Binary(&b"foo".as_slice())],
+        &[RedisParameter::Binary(b"foo".to_vec())],
     )
     .map_err(|_| anyhow!("Error executing Redis smembers command via `execute`"))?;
 

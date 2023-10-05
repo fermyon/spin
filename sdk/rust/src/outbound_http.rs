@@ -20,27 +20,27 @@ pub fn send_request(req: Request) -> Result<Response> {
 
     let params = vec![];
 
-    let headers = &req
+    let headers = req
         .headers
         .iter()
         .map(try_header_to_strs)
         .collect::<Result<Vec<_>>>()?;
 
-    let body = body.as_ref().map(|bytes| bytes.as_ref());
+    let body = body.map(|bytes| bytes.to_vec());
 
-    let out_req = spin_http_types::RequestParam {
+    let out_req = spin_http_types::Request {
         method,
-        uri: &uri.as_str(),
-        params: &params.as_slice(),
-        headers: &headers.as_slice(),
-        body: body.as_ref(),
+        uri,
+        params,
+        headers,
+        body,
     };
 
     let spin_http_types::Response {
         status,
         headers,
         body,
-    } = spin_http::send_request(&&out_req)?;
+    } = spin_http::send_request(&out_req)?;
 
     let resp_builder = http_types::response::Builder::new().status(status);
     let resp_builder = headers
@@ -53,14 +53,14 @@ pub fn send_request(req: Request) -> Result<Response> {
 }
 
 fn try_header_to_strs<'k, 'v>(
-    header: (&'k HeaderName, &'v HeaderValue),
-) -> Result<(&'k str, &'v str)> {
+    (header_name, header_value): (&'k HeaderName, &'v HeaderValue),
+) -> Result<(String, String)> {
     Ok((
-        header.0.as_str(),
-        header
-            .1
+        header_name.to_string(),
+        header_value
             .to_str()
-            .map_err(|_| OutboundHttpError::InvalidUrl)?,
+            .map_err(|_| OutboundHttpError::InvalidUrl)?
+            .to_owned(),
     ))
 }
 

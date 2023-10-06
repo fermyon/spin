@@ -14,6 +14,6 @@ spin-core = { path = "../../crates/core" }
 spin-trigger = { path = "../../crates/trigger" }
 tokio = { version = "1.11", features = ["full"] }
 tokio-scoped = "0.2.0"
-wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", rev = "d4e4f610ce86289619e5962ae13031fec9e5d71d", features = ["component-model"] }
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", rev = "17505667fa2895b3bd31bb9f5f4c544250090926", features = ["component-model"] }
 
 [workspace]

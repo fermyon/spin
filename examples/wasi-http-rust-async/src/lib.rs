@@ -71,7 +71,7 @@ async fn handle_async(
 
             let response = OutgoingResponse::new(
                 200,
-                Fields::new(&[("content-type".to_string(), b"text/plain".to_vec())]),
+                &Fields::new(&[("content-type".to_string(), b"text/plain".to_vec())]),
             );
 
             let mut sink = outgoing_response_body(wakers, &response);
@@ -95,7 +95,7 @@ async fn handle_async(
         (Method::Post, Some("/echo")) => {
             let response = OutgoingResponse::new(
                 200,
-                Fields::new(
+                &Fields::new(
                     &headers
                         .iter()
                         .filter_map(|(k, v)| {
@@ -118,7 +118,7 @@ async fn handle_async(
         }
 
         _ => {
-            let response = OutgoingResponse::new(405, Fields::new(&[]));
+            let response = OutgoingResponse::new(405, &Fields::new(&[]));
 
             let body = response.write().expect("response should be writable");
 
@@ -141,7 +141,7 @@ async fn hash(wakers: Wakers, url: Url) -> Result<String> {
             scheme => Scheme::Other(scheme.into()),
         }),
         Some(url.authority()),
-        Fields::new(&[]),
+        &Fields::new(&[]),
     );
 
     let response = outgoing_request_send(wakers.clone(), request).await?;
@@ -286,8 +286,8 @@ fn incoming_body(wakers: Wakers, body: IncomingBody) -> impl Stream<Item = Resul
                         }
                     }
                     Err(StreamError::Closed) => Poll::Ready(None),
-                    Err(StreamError::LastOperationFailed) => {
-                        Poll::Ready(Some(Err(anyhow!("I/O error"))))
+                    Err(StreamError::LastOperationFailed(error)) => {
+                        Poll::Ready(Some(Err(anyhow!("{}", error.to_debug_string()))))
                     }
                 }
             } else {

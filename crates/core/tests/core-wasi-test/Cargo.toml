@@ -7,6 +7,6 @@ edition = "2021"
 debug = true
 
 [dependencies]
-wit-bindgen = "0.8"
+wit-bindgen = "0.12"
 
 [workspace]

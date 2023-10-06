@@ -108,11 +108,11 @@ members = ["crates/*", "sdk/rust", "sdk/rust/macro"]
 
 [workspace.dependencies]
 tracing = { version = "0.1", features = ["log"] }
-wasmtime-wasi-http = { git = "https://github.com/bytecodealliance/wasmtime", rev = "d4e4f610ce86289619e5962ae13031fec9e5d71d" }
-wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", rev = "d4e4f610ce86289619e5962ae13031fec9e5d71d", features = ["tokio"] }
-wasi-common-preview1 = { git = "https://github.com/bytecodealliance/wasmtime", rev = "d4e4f610ce86289619e5962ae13031fec9e5d71d", package = "wasi-common" }
-wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", rev = "d4e4f610ce86289619e5962ae13031fec9e5d71d", features = ["component-model"] }
-spin-componentize = { git = "https://github.com/fermyon/spin-componentize", branch = "wasmtime-d4e4f610" }
+wasmtime-wasi-http = { git = "https://github.com/bytecodealliance/wasmtime", rev = "17505667fa2895b3bd31bb9f5f4c544250090926" }
+wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", rev = "17505667fa2895b3bd31bb9f5f4c544250090926", features = ["tokio"] }
+wasi-common-preview1 = { git = "https://github.com/bytecodealliance/wasmtime", rev = "17505667fa2895b3bd31bb9f5f4c544250090926", package = "wasi-common" }
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", rev = "17505667fa2895b3bd31bb9f5f4c544250090926", features = ["component-model"] }
+spin-componentize = { git = "https://github.com/fermyon/spin-componentize", branch = "wasmtime-17505667" }
 hyper = { version = "=1.0.0-rc.3", features = ["full"] }
 http-body-util = "=0.1.0-rc.2"
 

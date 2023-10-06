@@ -52,8 +52,8 @@ pub fn send_request(req: Request) -> Result<Response> {
         .map_err(|_| OutboundHttpError::RuntimeError)
 }
 
-fn try_header_to_strs<'k, 'v>(
-    (header_name, header_value): (&'k HeaderName, &'v HeaderValue),
+fn try_header_to_strs(
+    (header_name, header_value): (&HeaderName, &HeaderValue),
 ) -> Result<(String, String)> {
     Ok((
         header_name.to_string(),

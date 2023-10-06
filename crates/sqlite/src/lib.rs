@@ -92,7 +92,7 @@ impl spin_world::sqlite::HostConnection for SqliteDispatch {
                     spin_world::sqlite::Error::Io("too many connections opened".to_string())
                 })
             })
-            .map(|c| Resource::new_own(c)))
+            .map(Resource::new_own))
     }
 
     async fn execute(

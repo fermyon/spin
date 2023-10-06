@@ -14,14 +14,14 @@ pub enum InferencingModel<'a> {
     Other(&'a str),
 }
 
-impl<'a> InferencingModel<'a> {
-    fn to_string(&self) -> llm::InferencingModel {
-        match self {
+impl<'a> std::fmt::Display for InferencingModel<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
             InferencingModel::Llama2Chat => "llama2-chat",
             InferencingModel::CodellamaInstruct => "codellama-instruct",
             InferencingModel::Other(s) => s,
-        }
-        .into()
+        };
+        f.write_str(str)
     }
 }
 
@@ -60,13 +60,13 @@ pub enum EmbeddingModel<'a> {
     Other(&'a str),
 }
 
-impl<'a> EmbeddingModel<'a> {
-    fn to_string(&self) -> llm::EmbeddingModel {
-        match self {
+impl<'a> std::fmt::Display for EmbeddingModel<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
             EmbeddingModel::AllMiniLmL6V2 => "all-minilm-l6-v2",
             EmbeddingModel::Other(s) => s,
-        }
-        .into()
+        };
+        f.write_str(str)
     }
 }
 

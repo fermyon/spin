@@ -115,7 +115,7 @@ impl Loader for TriggerLoader {
 fn adapt_old_worlds_to_new(component: &[u8]) -> anyhow::Result<std::borrow::Cow<[u8]>> {
     let mut resolve = wit_parser::Resolve::new();
     const SPIN_WIT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/wit");
-    resolve.push_dir(&std::path::Path::new(SPIN_WIT_PATH))?;
+    resolve.push_dir(std::path::Path::new(SPIN_WIT_PATH))?;
     let pkg = resolve
         .package_names
         .get(&PackageName {
@@ -126,7 +126,7 @@ fn adapt_old_worlds_to_new(component: &[u8]) -> anyhow::Result<std::borrow::Cow<
         .unwrap();
     let spin_world = resolve.select_world(*pkg, Some("platform"))?;
     const WASI_WIT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/wasi");
-    resolve.push_dir(&std::path::Path::new(WASI_WIT_PATH))?;
+    resolve.push_dir(std::path::Path::new(WASI_WIT_PATH))?;
     let pkg = resolve
         .package_names
         .get(&PackageName {

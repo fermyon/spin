@@ -100,11 +100,11 @@ jobs:
 
   test-rust:
     name: Test Spin SDK - Rust
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
     needs: [lint-rust]
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        runner: [ubuntu-22.04-4core-spin, macos-latest]
     steps:
       - uses: actions/checkout@v3
 
@@ -115,13 +115,6 @@ jobs:
           rust-wasm: true
           rust-cache: true
           nomad: true
-
-      # FIXME: THIS IS THE SHORTEST-TERM OF ALL SHORT-TERM FIXES
-      - name: Rescue some space for Linux tests
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          rm -rf ./target/debug/deps
-          rm -rf ./target/debug/build
 
       - name: Cargo Unit Tests
         run: |

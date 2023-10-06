@@ -147,5 +147,38 @@ fn adapt_old_worlds_to_new(component: &[u8]) -> anyhow::Result<std::borrow::Cow<
     // The adapter component exports the Spin 1.5 world and imports the Spin 2.0 world
     // The exports of the adapter fill the incoming component's imports leaving a component
     // that is 2.0 compatible
-    todo!()
+    const VIRT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/adapters/spin_adapter.wasm");
+    let temp = std::env::temp_dir();
+    let tmp_component = temp.join("component.wasm");
+    std::fs::write("COMPONENT.wasm", component)?;
+
+    std::fs::write(&tmp_component, component)?;
+    let bytes = wasm_compose::composer::ComponentComposer::new(
+        &tmp_component,
+        &wasm_compose::config::Config {
+            definitions: vec![VIRT_PATH.into()],
+            instantiations: [
+                (
+                    "fermyon:spin/key-value".to_owned(),
+                    wasm_compose::config::Instantiation {
+                        dependency: Some("spin_adapter".into()),
+                        ..Default::default()
+                    },
+                ),
+                (
+                    "fermyon:spin/sqlite".to_owned(),
+                    wasm_compose::config::Instantiation {
+                        dependency: Some("spin_adapter".into()),
+                        ..Default::default()
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
+            ..Default::default()
+        },
+    )
+    .compose()
+    .context("failed to compose with adapter")?;
+    Ok(std::borrow::Cow::Owned(bytes))
 }

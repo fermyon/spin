@@ -1,0 +1,20 @@
+[package]
+name = "spin-adapter"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+cargo-component-bindings = { git = "https://github.com/bytecodealliance/cargo-component", rev = "86ccf3e9e57885784d5a32dcbb162813d5c820ba" }
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.component]
+package = "component:spin-adapter"
+
+[package.metadata.component.dependencies]
+
+[package.metadata.component.target.dependencies]
+"fermyon:spin-two" = { path = "wit/deps/spin-two" }
+"fermyon:spin-one" = { path = "wit/deps/spin-one" }

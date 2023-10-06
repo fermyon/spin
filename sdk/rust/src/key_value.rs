@@ -13,6 +13,15 @@ use serde::{de::DeserializeOwned, Serialize};
 // TODO: use `#[doc(inline)]` as soon as wit-bindgen#688 is merged
 pub use key_value::Store;
 
+impl Store {
+    /// Open the default store.
+    ///
+    /// This is equivalent to `Store::open("default")`.
+    pub fn open_default() -> Result<Self, Error> {
+        Self::open("default")
+    }
+}
+
 #[doc(inline)]
 pub use key_value::Error;
 

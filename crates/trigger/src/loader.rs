@@ -10,6 +10,7 @@ use spin_app::{
 };
 use spin_core::StoreBuilder;
 use tokio::fs;
+use wit_parser::PackageName;
 
 use crate::parse_file_url;
 
@@ -56,7 +57,6 @@ impl Loader for TriggerLoader {
             )
         })?;
         let component = spin_componentize::componentize_if_necessary(&bytes)?;
-        std::fs::write("COMPONENT.wasm", &component).unwrap();
         let was_already_component = matches!(component, std::borrow::Cow::Borrowed(_));
         if was_already_component {
             terminal::warn!(
@@ -65,7 +65,8 @@ impl Loader for TriggerLoader {
                 path.display()
             )
         }
-        spin_core::Component::new(engine, component)
+        let component = adapt_old_worlds_to_new(&component)?;
+        spin_core::Component::new(engine, component.as_ref())
             .with_context(|| format!("loading module {path:?}"))
     }
 
@@ -109,4 +110,42 @@ impl Loader for TriggerLoader {
         }
         Ok(())
     }
+}
+
+fn adapt_old_worlds_to_new(component: &[u8]) -> anyhow::Result<std::borrow::Cow<[u8]>> {
+    let mut resolve = wit_parser::Resolve::new();
+    const SPIN_WIT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/wit");
+    resolve.push_dir(&std::path::Path::new(SPIN_WIT_PATH))?;
+    let pkg = resolve
+        .package_names
+        .get(&PackageName {
+            namespace: "fermyon".into(),
+            name: "spin".into(),
+            version: None,
+        })
+        .unwrap();
+    let spin_world = resolve.select_world(*pkg, Some("platform"))?;
+    const WASI_WIT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/wasi");
+    resolve.push_dir(&std::path::Path::new(WASI_WIT_PATH))?;
+    let pkg = resolve
+        .package_names
+        .get(&PackageName {
+            namespace: "wasmtime".into(),
+            name: "wasi".into(),
+            version: None,
+        })
+        .unwrap();
+    let wasi_world = resolve.select_world(*pkg, Some("preview1-adapter-reactor"))?;
+    resolve.merge_worlds(wasi_world, spin_world)?;
+    // We assume `component` is a valid component and so the only failure possible from `targets`
+    // is if the component does not conform to the world
+    if wit_component::targets(&resolve, spin_world, component).is_ok() {
+        return Ok(std::borrow::Cow::Borrowed(component));
+    }
+
+    // Now we compose the incoming component with an adapter component
+    // The adapter component exports the Spin 1.5 world and imports the Spin 2.0 world
+    // The exports of the adapter fill the incoming component's imports leaving a component
+    // that is 2.0 compatible
+    todo!()
 }

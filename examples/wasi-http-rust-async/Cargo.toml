@@ -10,11 +10,8 @@ crate-type = [ "cdylib" ]
 anyhow = "1.0.71"
 futures = "0.3.28"
 hex = "0.4.3"
-# General-purpose crate with common HTTP types.
-http = "0.2"
 sha2 = "0.10.6"
 url = "2.4.0"
-# Crate that generates Rust Wasm bindings from a WebAssembly interface.
-wit-bindgen = "0.12.0"
+spin-sdk = { path = "../../sdk/rust" }
 
 [workspace]

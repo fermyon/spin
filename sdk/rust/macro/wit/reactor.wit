@@ -11,6 +11,11 @@ world reactor-imports {
   import llm
 }
 
+world reactor-wasi-http {
+  import wasi:http/outgoing-handler
+  export wasi:http/incoming-handler
+}
+
 world reactor-http-export {
   export inbound-http
 }

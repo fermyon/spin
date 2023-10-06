@@ -7,6 +7,7 @@ use http_body_util::BodyExt;
 use hyper::{Request, Response};
 use outbound_http::OutboundHttpComponent;
 use spin_core::Instance;
+use spin_http::body;
 use spin_trigger::{EitherInstance, TriggerAppEngine};
 use spin_world::http_types;
 use std::sync::Arc;
@@ -78,7 +79,7 @@ impl SpinHttpExecutor {
         } else {
             return Ok(Response::builder()
                 .status(http::StatusCode::METHOD_NOT_ALLOWED)
-                .body(spin_http::empty())?);
+                .body(body::empty())?);
         };
 
         // Preparing to remove the params field. We are leaving it in place for now
@@ -105,7 +106,7 @@ impl SpinHttpExecutor {
             tracing::error!("malformed HTTP status code");
             return Ok(Response::builder()
                 .status(http::StatusCode::INTERNAL_SERVER_ERROR)
-                .body(spin_http::empty())?);
+                .body(body::empty())?);
         };
 
         let mut response = http::Response::builder().status(resp.status);
@@ -114,8 +115,8 @@ impl SpinHttpExecutor {
         }
 
         let body = match resp.body {
-            Some(b) => spin_http::full(b.into()),
-            None => spin_http::empty(),
+            Some(b) => body::full(b.into()),
+            None => body::empty(),
         };
 
         Ok(response.body(body)?)

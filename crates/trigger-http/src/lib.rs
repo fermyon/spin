@@ -27,6 +27,7 @@ use spin_app::AppComponent;
 use spin_core::Engine;
 use spin_http::{
     app_info::AppInfo,
+    body,
     config::{HttpExecutorType, HttpTriggerConfig},
     routes::{RoutePattern, Router},
 };
@@ -201,9 +202,7 @@ impl HttpTrigger {
         // Handle well-known spin paths
         if let Some(well_known) = path.strip_prefix(spin_http::WELL_KNOWN_PREFIX) {
             return match well_known {
-                "health" => Ok(Response::new(spin_http::full(Bytes::copy_from_slice(
-                    b"OK",
-                )))),
+                "health" => Ok(Response::new(body::full(Bytes::from_static(b"OK")))),
                 "info" => self.app_info(),
                 _ => Self::not_found(),
             };
@@ -276,14 +275,14 @@ impl HttpTrigger {
         let body = serde_json::to_vec_pretty(&info)?;
         Ok(Response::builder()
             .header("content-type", "application/json")
-            .body(spin_http::full(body.into()))?)
+            .body(body::full(body.into()))?)
     }
 
     /// Creates an HTTP 500 response.
     fn internal_error(body: Option<&str>) -> Result<Response<Body>> {
         let body = match body {
-            Some(body) => spin_http::full(Bytes::copy_from_slice(body.as_bytes())),
-            None => spin_http::empty(),
+            Some(body) => body::full(Bytes::copy_from_slice(body.as_bytes())),
+            None => body::empty(),
         };
 
         Ok(Response::builder()
@@ -295,7 +294,7 @@ impl HttpTrigger {
     fn not_found() -> Result<Response<Body>> {
         Ok(Response::builder()
             .status(StatusCode::NOT_FOUND)
-            .body(spin_http::empty())?)
+            .body(body::empty())?)
     }
 
     fn serve_connection<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
@@ -599,7 +598,7 @@ mod tests {
             .build_trigger()
             .await;
 
-        let body = spin_http::full(Bytes::copy_from_slice("Fermyon".as_bytes()));
+        let body = body::full(Bytes::from_static("Fermyon".as_bytes()));
         let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
             .header("x-custom-foo", "bar")
             .header("x-custom-foo2", "bar2")
@@ -624,7 +623,7 @@ mod tests {
             .build_trigger()
             .await;
 
-        let body = spin_http::full(Bytes::copy_from_slice("Fermyon".as_bytes()));
+        let body = body::full(Bytes::from_static("Fermyon".as_bytes()));
         let req = http::Request::builder()
             .method("POST")
             .uri("https://myservice.fermyon.dev/test?abc=def")

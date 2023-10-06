@@ -5,6 +5,7 @@ mod integration_tests {
     use hyper::{body::Bytes, server::conn::http1, service::service_fn, Method, StatusCode};
     use reqwest::{Client, Response};
     use sha2::{Digest, Sha256};
+    use spin_http::body;
     use spin_loader::local::{config::RawModuleSource, raw_manifest_from_file};
     use std::{
         collections::HashMap,
@@ -676,13 +677,13 @@ route = "/..."
                                         if let (&Method::GET, Some(body)) =
                                             (request.method(), bodies.get(request.uri().path()))
                                         {
-                                            Ok::<_, Error>(hyper::Response::new(spin_http::full(
+                                            Ok::<_, Error>(hyper::Response::new(body::full(
                                                 Bytes::copy_from_slice(body.as_bytes()),
                                             )))
                                         } else {
                                             Ok(hyper::Response::builder()
                                                 .status(StatusCode::METHOD_NOT_ALLOWED)
-                                                .body(spin_http::empty())?)
+                                                .body(body::empty())?)
                                         }
                                     }
                                 }),

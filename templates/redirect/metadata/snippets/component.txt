@@ -1,7 +1,6 @@
 [[component]]
-source = { url = "https://github.com/fermyon/spin-redirect/releases/download/v0.0.1/redirect.wasm", digest = "sha256:d57c3d91e9b62a6b628516c6d11daf6681e1ca2355251a3672074cddefd7f391" }
+source = { url = "https://github.com/fermyon/spin-redirect/releases/download/v0.1.0/redirect.wasm", digest = "sha256:8bee959843f28fef2a02164f5840477db81d350877e1c22cb524f41363468e52" }
 id = "{{ project-name }}"
 environment = { DESTINATION = "{{ redirect-to }}" }
 [component.trigger]
 route = "{{ redirect-from }}"
-executor = { type = "wagi" }

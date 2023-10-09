@@ -954,6 +954,178 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn can_add_variables_from_template() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source1 = TemplateSource::File(test_data_root());
+        let source2 = TemplateSource::File(project_root()); // We will need some of the standard templates too
+
+        manager
+            .install(&source1, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+        manager
+            .install(&source2, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let application_dir = dest_temp_dir.path().join("spinvars");
+
+        // Set up the containing app
+        {
+            let template = manager.get("http-rust").unwrap().unwrap();
+
+            let values = [
+                ("project-description".to_owned(), "my desc".to_owned()),
+                ("http-base".to_owned(), "/".to_owned()),
+                ("http-path".to_owned(), "/...".to_owned()),
+            ]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantInfo::NewApplication,
+                output_path: application_dir.clone(),
+                name: "my various project".to_owned(),
+                values,
+                accept_defaults: false,
+            };
+
+            template.run(options).silent().await.unwrap();
+        }
+
+        let spin_toml_path = application_dir.join("spin.toml");
+        assert!(spin_toml_path.exists(), "expected spin.toml to be created");
+
+        // Now add the variables
+        {
+            let template = manager.get("add-variables").unwrap().unwrap();
+
+            let output_dir = "hello";
+            let values = [(
+                "service-url".to_owned(),
+                "https://service.example.com".to_owned(),
+            )]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantInfo::AddComponent {
+                    manifest_path: spin_toml_path.clone(),
+                },
+                output_path: PathBuf::from(output_dir),
+                name: "insertvars".to_owned(),
+                values,
+                accept_defaults: false,
+            };
+
+            template.run(options).silent().await.unwrap();
+        }
+
+        let spin_toml = tokio::fs::read_to_string(&spin_toml_path).await.unwrap();
+        assert!(spin_toml.contains("[variables]\nsecret"));
+        assert!(spin_toml.contains("url = { default = \"https://service.example.com\" }"));
+    }
+
+    #[tokio::test]
+    async fn can_overwrite_existing_variables() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source1 = TemplateSource::File(test_data_root());
+        let source2 = TemplateSource::File(project_root()); // We will need some of the standard templates too
+
+        manager
+            .install(&source1, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+        manager
+            .install(&source2, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let application_dir = dest_temp_dir.path().join("spinvars");
+
+        // Set up the containing app
+        {
+            let template = manager.get("http-rust").unwrap().unwrap();
+
+            let values = [
+                ("project-description".to_owned(), "my desc".to_owned()),
+                ("http-base".to_owned(), "/".to_owned()),
+                ("http-path".to_owned(), "/...".to_owned()),
+            ]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantInfo::NewApplication,
+                output_path: application_dir.clone(),
+                name: "my various project".to_owned(),
+                values,
+                accept_defaults: false,
+            };
+
+            template.run(options).silent().await.unwrap();
+        }
+
+        let spin_toml_path = application_dir.join("spin.toml");
+        assert!(spin_toml_path.exists(), "expected spin.toml to be created");
+
+        // Now add the variables
+        {
+            let template = manager.get("add-variables").unwrap().unwrap();
+
+            let output_dir = "hello";
+            let values = [(
+                "service-url".to_owned(),
+                "https://service.example.com".to_owned(),
+            )]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantInfo::AddComponent {
+                    manifest_path: spin_toml_path.clone(),
+                },
+                output_path: PathBuf::from(output_dir),
+                name: "insertvars".to_owned(),
+                values,
+                accept_defaults: false,
+            };
+
+            template.run(options).silent().await.unwrap();
+        }
+
+        // Now add them again but with different values
+        {
+            let template = manager.get("add-variables").unwrap().unwrap();
+
+            let output_dir = "hello";
+            let values = [(
+                "service-url".to_owned(),
+                "https://other.example.com".to_owned(),
+            )]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantInfo::AddComponent {
+                    manifest_path: spin_toml_path.clone(),
+                },
+                output_path: PathBuf::from(output_dir),
+                name: "insertvars".to_owned(),
+                values,
+                accept_defaults: false,
+            };
+
+            template.run(options).silent().await.unwrap();
+        }
+
+        let spin_toml = tokio::fs::read_to_string(&spin_toml_path).await.unwrap();
+        assert!(spin_toml.contains("url = { default = \"https://other.example.com\" }"));
+        assert!(!spin_toml.contains("service.example.com"));
+    }
+
+    #[tokio::test]
     async fn cannot_add_component_that_does_not_match_trigger() {
         let temp_dir = tempdir().unwrap();
         let store = TemplateStore::new(temp_dir.path());

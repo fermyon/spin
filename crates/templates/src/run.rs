@@ -11,6 +11,7 @@ use walkdir::WalkDir;
 use crate::{
     cancellable::Cancellable,
     interaction::{InteractionStrategy, Interactive, Silent},
+    renderer::MergeTarget,
     template::TemplateVariantInfo,
 };
 use crate::{
@@ -248,9 +249,20 @@ impl Run {
                         Err(anyhow::anyhow!("Spin doesn't know what to do with a 'component' snippet outside an 'add component' operation")),
                 }
             },
+            "variables" => {
+                match &self.options.variant {
+                    TemplateVariantInfo::AddComponent { manifest_path } =>
+                        Ok(RenderOperation::MergeToml(
+                            manifest_path.clone(),
+                            MergeTarget::Application("variables"),
+                            content,
+                        )),
+                    TemplateVariantInfo::NewApplication =>
+                        Err(anyhow::anyhow!("Spin doesn't know what to do with a 'variables' snippet outside an 'add component' operation")),
+                }
+            },
             _ => Err(anyhow::anyhow!(
-                "Spin doesn't know what to do with snippet {}",
-                id
+                "Spin doesn't know what to do with snippet {id}",
             )),
         }
     }

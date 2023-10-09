@@ -30,5 +30,6 @@ spin-loader = { path = "../loader" }
 tempfile = "3.3.0"
 tokio = { version = "1.23", features = ["fs", "process", "rt", "macros"] }
 toml = "0.5"
+toml_edit = "0.20.2"
 url = "2.2.2"
 walkdir = "2"

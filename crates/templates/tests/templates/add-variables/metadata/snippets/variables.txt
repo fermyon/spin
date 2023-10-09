@@ -1,0 +1,2 @@
+secret = { required = true }
+url = { default = "{{ service-url }}" }

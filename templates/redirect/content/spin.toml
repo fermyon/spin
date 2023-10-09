@@ -1,6 +1,13 @@
+spin_manifest_version = "1"
+authors = ["{{authors}}"]
+description = "{{project-description}}"
+name = "{{project-name}}"
+trigger = { type = "http", base = "{{http-base}}" }
+version = "0.1.0"
+
 [[component]]
 source = { url = "https://github.com/fermyon/spin-redirect/releases/download/v0.1.0/redirect.wasm", digest = "sha256:8bee959843f28fef2a02164f5840477db81d350877e1c22cb524f41363468e52" }
-id = "{{ project-name | kebab_case }}"
+id = "{{ project-name  | kebab_case }}"
 environment = { DESTINATION = "{{ redirect-to }}" }
 [component.trigger]
 route = "{{ redirect-from }}"

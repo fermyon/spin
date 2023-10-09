@@ -1033,10 +1033,15 @@ mod tests {
         let temp_dir = tempdir().unwrap();
         let store = TemplateStore::new(temp_dir.path());
         let manager = TemplateManager { store };
-        let source = TemplateSource::File(project_root());
+        let source1 = TemplateSource::File(test_data_root());
+        let source2 = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(&source1, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+        manager
+            .install(&source2, &InstallOptions::default(), &DiscardingReporter)
             .await
             .unwrap();
 
@@ -1044,7 +1049,7 @@ mod tests {
         let manifest_path = dummy_dir.join("ignored_spin.toml");
         let add_component = TemplateVariantInfo::AddComponent { manifest_path };
 
-        let redirect = manager.get("redirect").unwrap().unwrap();
+        let redirect = manager.get("add-only-redirect").unwrap().unwrap();
         assert!(!redirect.supports_variant(&TemplateVariantInfo::NewApplication));
         assert!(redirect.supports_variant(&add_component));
 

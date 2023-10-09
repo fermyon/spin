@@ -26,7 +26,7 @@ pub enum PluginCommands {
     /// plugins directory.
     Install(Install),
 
-    /// List available or installed plugins.
+    /// List installed plugins.
     List(List),
 
     /// Search for plugins by name.
@@ -320,12 +320,13 @@ impl Upgrade {
     }
 }
 
-/// List available or installed plugins.
+/// List installed plugins.
 #[derive(Parser, Debug)]
 pub struct List {
-    /// List only installed plugins.
-    #[clap(long = "installed", takes_value = false)]
-    pub installed: bool,
+    // This is always treated as set, but is retained for backward
+    // compatibility.
+    #[clap(long = "installed", takes_value = false, hide = true)]
+    _installed: bool,
 
     /// Filter the list to plugins containing this string.
     #[clap(long = "filter")]
@@ -334,10 +335,30 @@ pub struct List {
 
 impl List {
     pub async fn run(self) -> Result<()> {
-        let mut plugins = if self.installed {
-            Self::list_installed_plugins()
-        } else {
-            Self::list_catalogue_and_installed_plugins().await
+        ListCommandCore {
+            which: WhichPlugins::Installed,
+            filter: self.filter,
+        }
+        .run()
+        .await
+    }
+}
+
+enum WhichPlugins {
+    Installed,
+    All,
+}
+
+struct ListCommandCore {
+    which: WhichPlugins,
+    filter: Option<String>,
+}
+
+impl ListCommandCore {
+    pub async fn run(self) -> Result<()> {
+        let mut plugins = match &self.which {
+            WhichPlugins::Installed => Self::list_installed_plugins(),
+            WhichPlugins::All => Self::list_catalogue_and_installed_plugins().await,
         }?;
 
         plugins.sort_by(|p, q| p.cmp(q));
@@ -420,12 +441,12 @@ pub struct Search {
 
 impl Search {
     async fn run(&self) -> anyhow::Result<()> {
-        let list_cmd = List {
-            installed: false,
+        ListCommandCore {
+            which: WhichPlugins::All,
             filter: self.filter.clone(),
-        };
-
-        list_cmd.run().await
+        }
+        .run()
+        .await
     }
 }
 

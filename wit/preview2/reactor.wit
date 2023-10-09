@@ -1,4 +1,4 @@
-package fermyon:spin
+package fermyon:spin@2.0.0
 
 world reactor {
   import config
@@ -7,6 +7,7 @@ world reactor {
   import sqlite
   import redis
   import key-value
+  import fermyon:spin/key-value
   import http
   import llm
   export inbound-http

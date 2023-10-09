@@ -83,9 +83,9 @@ impl spin_world::sqlite::Host for SqliteDispatch {
             .await
             .and_then(|conn| conn.ok_or(spin_world::sqlite::Error::NoSuchDatabase))
             .and_then(|conn| {
-                self.connections
-                    .push(conn)
-                    .map_err(|()| spin_world::sqlite::Error::DatabaseFull)
+                self.connections.push(conn).map_err(|()| {
+                    spin_world::sqlite::Error::Io("too many connections opened".to_string())
+                })
             }))
     }
 

@@ -28,6 +28,7 @@ build-examples: $(EXAMPLES_DIR)/tinygo-outbound-redis/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-redis/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-key-value/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-sqlite/main.wasm
+build-examples: $(EXAMPLES_DIR)/tinygo-llm/main.wasm
 
 $(EXAMPLES_DIR)/%/main.wasm: $(EXAMPLES_DIR)/%/main.go
 	tinygo build -target=wasi -gc=leaking -no-debug -o $@ $<
@@ -42,13 +43,14 @@ GENERATED_OUTBOUND_REDIS = redis/outbound-redis.c redis/outbound-redis.h
 GENERATED_SPIN_REDIS     = redis/spin-redis.c redis/spin-redis.h
 GENERATED_KEY_VALUE      = key_value/key-value.c key_value/key-value.h
 GENERATED_SQLITE         = sqlite/sqlite.c sqlite/sqlite.h
+GENERATED_LLM            = llm/llm.c llm/llm.h
 
 SDK_VERSION_SOURCE_FILE  = sdk_version/sdk-version-go-template.c
 
 # NOTE: Please update this list if you add a new directory to the SDK:
 SDK_VERSION_DEST_FILES   = config/sdk-version-go.c http/sdk-version-go.c \
 			   key_value/sdk-version-go.c redis/sdk-version-go.c \
-				 sqlite/sdk-version-go.c
+				 sqlite/sdk-version-go.c llm/sdk-version-go.c
 
 # NOTE: To generate the C bindings you need to install a forked version of wit-bindgen.
 #
@@ -58,7 +60,7 @@ SDK_VERSION_DEST_FILES   = config/sdk-version-go.c http/sdk-version-go.c \
 generate: $(GENERATED_OUTBOUND_HTTP) $(GENERATED_SPIN_HTTP)
 generate: $(GENERATED_OUTBOUND_REDIS) $(GENERATED_SPIN_REDIS)
 generate: $(GENERATED_SPIN_CONFIG) $(GENERATED_KEY_VALUE)
-generate: $(GENERATED_SQLITE)
+generate: $(GENERATED_SQLITE) $(GENERATED_LLM)
 generate: $(SDK_VERSION_DEST_FILES)
 
 $(SDK_VERSION_DEST_FILES): $(SDK_VERSION_SOURCE_FILE)
@@ -87,6 +89,9 @@ $(GENERATED_KEY_VALUE):
 $(GENERATED_SQLITE):
 	wit-bindgen c --import ../../wit/ephemeral/sqlite.wit --out-dir ./sqlite
 
+$(GENERATED_LLM):
+	wit-bindgen c --import ../../wit/ephemeral/llm.wit --out-dir ./llm
+
 # ----------------------------------------------------------------------
 # Cleanup
 # ----------------------------------------------------------------------
@@ -96,6 +101,7 @@ clean:
 	rm -f $(GENERATED_OUTBOUND_HTTP) $(GENERATED_SPIN_HTTP)
 	rm -f $(GENERATED_OUTBOUND_REDIS) $(GENERATED_SPIN_REDIS)
 	rm -f $(GENERATED_KEY_VALUE) $(GENERATED_SQLITE)
+	rm -f $(GENERATED_LLM)
 	rm -f $(GENERATED_SDK_VERSION)
 	rm -f http/testdata/http-tinygo/main.wasm
 	rm -f $(EXAMPLES_DIR)/http-tinygo/main.wasm
@@ -104,4 +110,5 @@ clean:
 	rm -f $(EXAMPLES_DIR)/tinygo-redis/main.wasm
 	rm -f $(EXAMPLES_DIR)/tinygo-key-value/main.wasm
 	rm -f $(EXAMPLES_DIR)/tinygo-sqlite/main.wasm
+	rm -f $(EXAMPLES_DIR)/tinygo-llm/main.wasm
 	rm -f $(SDK_VERSION_DEST_FILES)

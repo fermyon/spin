@@ -6,4 +6,5 @@ wasmtime::component::bindgen!({
     async: true
 });
 
-pub use fermyon::spin::*;
+pub use fermyon::spin as spin_1;
+pub use fermyon::spin2_0_0::*;

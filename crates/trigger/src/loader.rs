@@ -139,7 +139,9 @@ fn adapt_old_worlds_to_new(component: &[u8]) -> anyhow::Result<std::borrow::Cow<
     resolve.merge_worlds(wasi_world, spin_world)?;
     // We assume `component` is a valid component and so the only failure possible from `targets`
     // is if the component does not conform to the world
-    if wit_component::targets(&resolve, spin_world, component).is_ok() {
+    if std::env::var_os("SPIN_COMPOSE").is_none()
+        || wit_component::targets(&resolve, spin_world, component).is_ok()
+    {
         return Ok(std::borrow::Cow::Borrowed(component));
     }
 
@@ -150,7 +152,6 @@ fn adapt_old_worlds_to_new(component: &[u8]) -> anyhow::Result<std::borrow::Cow<
     const VIRT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/adapters/spin_adapter.wasm");
     let temp = std::env::temp_dir();
     let tmp_component = temp.join("component.wasm");
-    std::fs::write("COMPONENT.wasm", component)?;
 
     std::fs::write(&tmp_component, component)?;
     let bytes = wasm_compose::composer::ComponentComposer::new(

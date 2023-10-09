@@ -1,7 +1,7 @@
 use anyhow::Result;
 use spin_app::MetadataKey;
 use spin_core::{async_trait, wasmtime::component::Resource};
-use spin_world::key_value;
+use spin_world::key_value::{self, HostStore};
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
 
@@ -9,7 +9,7 @@ mod host_component;
 pub mod table;
 mod util;
 
-pub use host_component::{manager, KeyValueComponent};
+pub use host_component::{manager, KeyValueComponent, LegacyKeyValueComponent};
 pub use util::{CachingStoreManager, DelegatingStoreManager, EmptyStoreManager};
 
 pub const KEY_VALUE_STORES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("key_value_stores");
@@ -172,4 +172,67 @@ impl key_value::HostStore for KeyValueDispatch {
 pub fn log_error(err: impl std::fmt::Debug) -> Error {
     tracing::warn!("key-value error: {err:?}");
     Error::Io(format!("{err:?}"))
+}
+
+use spin_world::spin_1::key_value::Error as LegacyError;
+
+pub struct LegacyDispatch(KeyValueDispatch);
+
+fn to_legacy_error(value: key_value::Error) -> LegacyError {
+    match value {
+        Error::StoreTableFull => LegacyError::StoreTableFull,
+        Error::NoSuchStore => LegacyError::NoSuchStore,
+        Error::AccessDenied => LegacyError::AccessDenied,
+        Error::InvalidStore => LegacyError::InvalidStore,
+        Error::NoSuchKey => LegacyError::NoSuchKey,
+        Error::Io(s) => LegacyError::Io(s),
+    }
+}
+
+#[async_trait]
+impl spin_world::spin_1::key_value::Host for LegacyDispatch {
+    async fn open(&mut self, name: String) -> Result<Result<u32, LegacyError>> {
+        let result = self.0.open(name).await?;
+        Ok(result.map_err(to_legacy_error).map(|s| s.rep()))
+    }
+
+    async fn get(&mut self, store: u32, key: String) -> Result<Result<Vec<u8>, LegacyError>> {
+        let this = Resource::new_borrow(store);
+        let result = self.0.get(this, key).await?;
+        Ok(result.map_err(to_legacy_error))
+    }
+
+    async fn set(
+        &mut self,
+        store: u32,
+        key: String,
+        value: Vec<u8>,
+    ) -> Result<Result<(), LegacyError>> {
+        let this = Resource::new_borrow(store);
+        let result = self.0.set(this, key, value).await?;
+        Ok(result.map_err(to_legacy_error))
+    }
+
+    async fn delete(&mut self, store: u32, key: String) -> Result<Result<(), LegacyError>> {
+        let this = Resource::new_borrow(store);
+        let result = self.0.delete(this, key).await?;
+        Ok(result.map_err(to_legacy_error))
+    }
+
+    async fn exists(&mut self, store: u32, key: String) -> Result<Result<bool, LegacyError>> {
+        let this = Resource::new_borrow(store);
+        let result = self.0.exists(this, key).await?;
+        Ok(result.map_err(to_legacy_error))
+    }
+
+    async fn get_keys(&mut self, store: u32) -> Result<Result<Vec<String>, LegacyError>> {
+        let this = Resource::new_borrow(store);
+        let result = self.0.get_keys(this).await?;
+        Ok(result.map_err(to_legacy_error))
+    }
+
+    async fn close(&mut self, store: u32) -> Result<()> {
+        let _: Resource<key_value::Store> = Resource::new_own(store);
+        Ok(())
+    }
 }

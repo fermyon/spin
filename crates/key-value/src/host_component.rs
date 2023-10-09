@@ -1,4 +1,4 @@
-use crate::{KeyValueDispatch, StoreManager, KEY_VALUE_STORES_KEY};
+use crate::{KeyValueDispatch, LegacyDispatch, StoreManager, KEY_VALUE_STORES_KEY};
 use anyhow::anyhow;
 use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::HostComponent;
@@ -100,5 +100,38 @@ impl DynamicHostComponent for KeyValueComponent {
                 .collect();
             Err(anyhow!(lines.join("\n")))
         }
+    }
+}
+
+pub struct LegacyKeyValueComponent(KeyValueComponent);
+
+impl LegacyKeyValueComponent {
+    pub fn new(new: KeyValueComponent) -> Self {
+        Self(new)
+    }
+}
+
+impl HostComponent for LegacyKeyValueComponent {
+    type Data = LegacyDispatch;
+
+    fn add_to_linker<T: Send>(
+        linker: &mut spin_core::Linker<T>,
+        get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
+    ) -> anyhow::Result<()> {
+        spin_world::spin_1::key_value::add_to_linker(linker, get)
+    }
+
+    fn build_data(&self) -> Self::Data {
+        LegacyDispatch(KeyValueDispatch::new_with_capacity(self.0.capacity))
+    }
+}
+
+impl DynamicHostComponent for LegacyKeyValueComponent {
+    fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> anyhow::Result<()> {
+        self.0.update_data(&mut data.0, component)
+    }
+
+    fn validate_app(&self, app: &spin_app::App) -> anyhow::Result<()> {
+        self.0.validate_app(app)
     }
 }

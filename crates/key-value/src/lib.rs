@@ -1,7 +1,7 @@
 use anyhow::Result;
 use spin_app::MetadataKey;
 use spin_core::{async_trait, wasmtime::component::Resource};
-use spin_world::key_value::{self, HostStore};
+use spin_world::v2::key_value::{self, HostStore};
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
 
@@ -174,7 +174,7 @@ pub fn log_error(err: impl std::fmt::Debug) -> Error {
     Error::Io(format!("{err:?}"))
 }
 
-use spin_world::spin_1::key_value::Error as LegacyError;
+use spin_world::v1::key_value::Error as LegacyError;
 
 pub struct LegacyDispatch(KeyValueDispatch);
 
@@ -190,7 +190,7 @@ fn to_legacy_error(value: key_value::Error) -> LegacyError {
 }
 
 #[async_trait]
-impl spin_world::spin_1::key_value::Host for LegacyDispatch {
+impl spin_world::v1::key_value::Host for LegacyDispatch {
     async fn open(&mut self, name: String) -> Result<Result<u32, LegacyError>> {
         let result = self.0.open(name).await?;
         Ok(result.map_err(to_legacy_error).map(|s| s.rep()))

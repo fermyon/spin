@@ -31,7 +31,7 @@ impl ConnectionsStore for SimpleConnectionsStore {
     async fn get_connection(
         &self,
         database: &str,
-    ) -> Result<Option<Arc<(dyn Connection + 'static)>>, spin_world::sqlite::Error> {
+    ) -> Result<Option<Arc<(dyn Connection + 'static)>>, spin_world::v2::sqlite::Error> {
         Ok(self.0.get(database).cloned())
     }
 

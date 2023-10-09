@@ -4,7 +4,7 @@ use crate::{ConnectionsStore, SqliteDispatch, DATABASES_KEY};
 use anyhow::anyhow;
 use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::HostComponent;
-use spin_world::sqlite;
+use spin_world::v2::sqlite;
 
 type InitConnectionsStore = dyn (Fn(&AppComponent) -> Arc<dyn ConnectionsStore>) + Sync + Send;
 
@@ -44,8 +44,7 @@ impl HostComponent for SqliteComponent {
             async fn get_connection(
                 &self,
                 _database: &str,
-            ) -> Result<Option<Arc<(dyn crate::Connection + 'static)>>, spin_world::sqlite::Error>
-            {
+            ) -> Result<Option<Arc<(dyn crate::Connection + 'static)>>, sqlite::Error> {
                 debug_assert!(false, "`Noop` `ConnectionsStore` was called");
                 Ok(None)
             }

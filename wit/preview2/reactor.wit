@@ -7,7 +7,7 @@ world reactor {
   import sqlite
   import redis
   import key-value
-  import fermyon:spin/key-value
+  import fermyon:spin/key-value@1.0.0
   import http
   import llm
   export inbound-http

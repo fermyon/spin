@@ -1,4 +1,4 @@
-package fermyon:spin
+package fermyon:spin@1.0.0
 
 interface key-value {
   // A handle to an open key-value store

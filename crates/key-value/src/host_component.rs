@@ -118,7 +118,7 @@ impl HostComponent for LegacyKeyValueComponent {
         linker: &mut spin_core::Linker<T>,
         get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
     ) -> anyhow::Result<()> {
-        spin_world::spin_1::key_value::add_to_linker(linker, get)
+        spin_world::v1::key_value::add_to_linker(linker, get)
     }
 
     fn build_data(&self) -> Self::Data {

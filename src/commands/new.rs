@@ -35,8 +35,12 @@ pub struct TemplateNewCommandCore {
 
     /// The directory in which to create the new application or component.
     /// The default is the name argument.
-    #[clap(short = 'o', long = "output")]
+    #[clap(short = 'o', long = "output", group = "location")]
     pub output_path: Option<PathBuf>,
+
+    /// Create the new application or component in the current directory.
+    #[clap(long = "init", takes_value = false, group = "location")]
+    pub init: bool,
 
     /// Parameter values to be passed to the template (in name=value format).
     #[clap(short = 'v', long = "value", multiple_occurrences = true)]
@@ -158,7 +162,12 @@ impl TemplateNewCommandCore {
             None => prompt_name(&variant).await?,
         };
 
-        let output_path = self.output_path.clone().unwrap_or_else(|| path_safe(&name));
+        let output_path = if self.init {
+            PathBuf::from(".")
+        } else {
+            self.output_path.clone().unwrap_or_else(|| path_safe(&name))
+        };
+
         let values = {
             let mut values = match self.values_file.as_ref() {
                 Some(file) => values_from_file(file.as_path()).await?,

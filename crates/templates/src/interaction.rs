@@ -42,7 +42,7 @@ impl InteractionStrategy for Interactive {
     fn allow_generate_into(&self, target_dir: &Path) -> Cancellable<(), anyhow::Error> {
         if !is_directory_empty(target_dir) {
             let prompt = format!(
-                "{} already contains other files. Generate into it anyway?",
+                "Directory '{}' already contains other files. Generate into it anyway?",
                 target_dir.display()
             );
             match crate::interaction::confirm(&prompt) {

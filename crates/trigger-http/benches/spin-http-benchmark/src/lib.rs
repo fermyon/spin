@@ -2,11 +2,11 @@ wit_bindgen::generate!({
     world: "http-trigger",
     path: "../../../../wit/preview2",
     exports: {
-        "fermyon:spin/inbound-http@1.0.0": SpinHttp,
+        "fermyon:spin/inbound-http": SpinHttp,
     }
 });
 
-use exports::fermyon::spin1_0_0::inbound_http;
+use exports::fermyon::spin::inbound_http;
 
 struct SpinHttp;
 

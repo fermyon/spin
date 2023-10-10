@@ -2,7 +2,7 @@
 
 wasmtime::component::bindgen!({
     path: "../../wit/preview2",
-    world: "reactor",
+    world: "host",
     async: true
 });
 

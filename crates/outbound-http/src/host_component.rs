@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use spin_app::DynamicHostComponent;
 use spin_core::{Data, HostComponent, Linker};
-use spin_world::v2::http;
+use spin_world::v1::http;
 
 use crate::{allowed_http_hosts::parse_allowed_http_hosts, OutboundHttp};
 

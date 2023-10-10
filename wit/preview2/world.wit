@@ -1,0 +1,30 @@
+package fermyon:spin@2.0.0
+
+world host {
+  include fermyon:spin/host@1.0.0
+  
+  import sqlite
+  import key-value
+}
+
+world redis-trigger {
+  include platform
+  export fermyon:spin/inbound-redis@1.0.0
+}
+
+world http-trigger {
+  include platform
+  export fermyon:spin/inbound-http@1.0.0
+}
+
+world platform {
+  import fermyon:spin/config@1.0.0
+  import fermyon:spin/http@1.0.0
+  import fermyon:spin/postgres@1.0.0
+  import fermyon:spin/mysql@1.0.0
+  import fermyon:spin/redis@1.0.0
+  import fermyon:spin/llm@1.0.0
+
+  import sqlite
+  import key-value
+}

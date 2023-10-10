@@ -5,7 +5,7 @@ use std::collections::{hash_map::Entry, HashMap};
 use anyhow::Result;
 use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
 use spin_core::async_trait;
-use spin_world::v2::{
+use spin_world::v1::{
     redis as outbound_redis,
     redis_types::{Error, RedisParameter, RedisResult},
 };

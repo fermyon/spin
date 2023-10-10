@@ -2,7 +2,7 @@ use anyhow::Result;
 pub use mysql::add_to_linker;
 use mysql_async::{consts::ColumnType, from_value_opt, prelude::*, Opts, OptsBuilder, SslOpts};
 use spin_core::{async_trait, HostComponent};
-use spin_world::v2::{
+use spin_world::v1::{
     mysql::{self, MysqlError},
     rdbms_types::{Column, DbDataType, DbValue, ParameterValue, RowSet},
 };

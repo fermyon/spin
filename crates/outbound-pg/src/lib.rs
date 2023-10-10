@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
 use spin_core::{async_trait, HostComponent};
-use spin_world::v2::{
+use spin_world::v1::{
     postgres::{self, PgError},
     rdbms_types::{Column, DbDataType, DbValue, ParameterValue, RowSet},
 };

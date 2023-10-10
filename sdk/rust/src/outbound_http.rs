@@ -2,11 +2,11 @@ use http_types::{header::HeaderName, HeaderValue};
 
 use super::http::{Request, Response};
 
-use super::wit::v2::http::{self as spin_http};
-use super::wit::v2::http_types as spin_http_types;
+use super::wit::v1::http::{self as spin_http};
+use super::wit::v1::http_types as spin_http_types;
 
 /// Error type returned by [`send_request`][crate::outbound_http::send_request]
-pub use super::wit::v2::http_types::HttpError as OutboundHttpError;
+pub use spin_http_types::HttpError as OutboundHttpError;
 
 type Result<T> = std::result::Result<T, OutboundHttpError>;
 

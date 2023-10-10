@@ -155,8 +155,26 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
             .iter_mut()
             .try_for_each(|h| h.app_loaded(app.borrowed(), &runtime_config))?;
 
+        let app_engine = TriggerAppEngine::new(engine, app_name, app, self.hooks).await?;
+
+        for component_id in app_engine.app().components().map(|c| c.id().to_string()) {
+            let (instance, mut store) = app_engine.prepare_instance(&component_id).await?;
+            if let EitherInstance::Component(instance) = instance {
+                let start_func = instance
+                    .exports(&mut store)
+                    .instance("fermyon:spin/app-start")
+                    .as_mut()
+                    .map(|i| i.typed_func::<(), (Result<(), String>,)>("handle-app-start"));
+                if let Some(Ok(func)) = start_func {
+                    if let Err(s) = func.call_async(&mut store, ()).await?.0 {
+                        anyhow::bail!("Component {component_id} startup error: {s}");
+                    }
+                }
+            }
+        }
+
         // Run trigger executor
-        Executor::new(TriggerAppEngine::new(engine, app_name, app, self.hooks).await?).await
+        Executor::new(app_engine).await
     }
 }
 

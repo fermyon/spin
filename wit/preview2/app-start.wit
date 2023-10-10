@@ -1,0 +1,5 @@
+interface app-start {
+    type error = string
+
+    handle-app-start: func() -> result<_, error>
+}

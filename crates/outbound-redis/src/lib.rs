@@ -1,14 +1,12 @@
 mod host_component;
 
-use std::collections::{hash_map::Entry, HashMap};
-
 use anyhow::Result;
 use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
-use spin_core::async_trait;
-use spin_world::v1::{
-    redis as outbound_redis,
-    redis_types::{Error, RedisParameter, RedisResult},
-};
+use spin_core::{async_trait, wasmtime::component::Resource};
+use spin_world::v1::redis as v1;
+use spin_world::v2::redis as v2;
+use v1::{Error, RedisParameter, RedisResult};
+use v2::Connection as RedisConnection;
 
 pub use host_component::OutboundRedisComponent;
 
@@ -32,30 +30,50 @@ impl FromRedisValue for RedisResults {
     }
 }
 
-#[derive(Default)]
 pub struct OutboundRedis {
-    connections: HashMap<String, Connection>,
+    connections: table::Table<Connection>,
 }
 
+impl Default for OutboundRedis {
+    fn default() -> Self {
+        Self {
+            connections: table::Table::new(1024)
+        }
+    }
+}
+
+impl v2::Host for OutboundRedis {}
+
 #[async_trait]
-impl outbound_redis::Host for OutboundRedis {
+impl v2::HostConnection for OutboundRedis {
+    async fn open(&mut self, address: String) -> Result<Result<Resource<RedisConnection>, Error>> {
+        let conn = redis::Client::open(address.as_str())?
+            .get_async_connection()
+            .await?;
+        Ok(self.connections.push(conn).map(Resource::new_own).map_err(|_| Error::Error))
+    }
+
     async fn publish(
         &mut self,
-        address: String,
+        connection: Resource<RedisConnection>,
         channel: String,
         payload: Vec<u8>,
     ) -> Result<Result<(), Error>> {
         Ok(async {
-            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(log_error)?;
             conn.publish(&channel, &payload).await.map_err(log_error)?;
             Ok(())
         }
         .await)
     }
 
-    async fn get(&mut self, address: String, key: String) -> Result<Result<Vec<u8>, Error>> {
+    async fn get(
+        &mut self,
+        connection: Resource<RedisConnection>,
+        key: String,
+    ) -> Result<Result<Vec<u8>, Error>> {
         Ok(async {
-            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(log_error)?;
             let value = conn.get(&key).await.map_err(log_error)?;
             Ok(value)
         }
@@ -64,30 +82,38 @@ impl outbound_redis::Host for OutboundRedis {
 
     async fn set(
         &mut self,
-        address: String,
+        connection: Resource<RedisConnection>,
         key: String,
         value: Vec<u8>,
     ) -> Result<Result<(), Error>> {
         Ok(async {
-            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(log_error)?;
             conn.set(&key, &value).await.map_err(log_error)?;
             Ok(())
         }
         .await)
     }
 
-    async fn incr(&mut self, address: String, key: String) -> Result<Result<i64, Error>> {
+    async fn incr(
+        &mut self,
+        connection: Resource<RedisConnection>,
+        key: String,
+    ) -> Result<Result<i64, Error>> {
         Ok(async {
-            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(log_error)?;
             let value = conn.incr(&key, 1).await.map_err(log_error)?;
             Ok(value)
         }
         .await)
     }
 
-    async fn del(&mut self, address: String, keys: Vec<String>) -> Result<Result<i64, Error>> {
+    async fn del(
+        &mut self,
+        connection: Resource<RedisConnection>,
+        keys: Vec<String>,
+    ) -> Result<Result<i64, Error>> {
         Ok(async {
-            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(log_error)?;
             let value = conn.del(&keys).await.map_err(log_error)?;
             Ok(value)
         }
@@ -96,12 +122,12 @@ impl outbound_redis::Host for OutboundRedis {
 
     async fn sadd(
         &mut self,
-        address: String,
+        connection: Resource<RedisConnection>,
         key: String,
         values: Vec<String>,
     ) -> Result<Result<i64, Error>> {
         Ok(async {
-            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(log_error)?;
             let value = conn.sadd(&key, &values).await.map_err(log_error)?;
             Ok(value)
         }
@@ -110,11 +136,11 @@ impl outbound_redis::Host for OutboundRedis {
 
     async fn smembers(
         &mut self,
-        address: String,
+        connection: Resource<RedisConnection>,
         key: String,
     ) -> Result<Result<Vec<String>, Error>> {
         Ok(async {
-            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(log_error)?;
             let value = conn.smembers(&key).await.map_err(log_error)?;
             Ok(value)
         }
@@ -123,12 +149,12 @@ impl outbound_redis::Host for OutboundRedis {
 
     async fn srem(
         &mut self,
-        address: String,
+        connection: Resource<RedisConnection>,
         key: String,
         values: Vec<String>,
     ) -> Result<Result<i64, Error>> {
         Ok(async {
-            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(log_error)?;
             let value = conn.srem(&key, &values).await.map_err(log_error)?;
             Ok(value)
         }
@@ -137,12 +163,12 @@ impl outbound_redis::Host for OutboundRedis {
 
     async fn execute(
         &mut self,
-        address: String,
+        connection: Resource<RedisConnection>,
         command: String,
         arguments: Vec<RedisParameter>,
     ) -> Result<Result<Vec<RedisResult>, Error>> {
         Ok(async {
-            let conn = self.get_conn(&address).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(log_error)?;
             let mut cmd = redis::cmd(&command);
             arguments.iter().for_each(|value| match value {
                 RedisParameter::Int64(v) => {
@@ -160,18 +186,102 @@ impl outbound_redis::Host for OutboundRedis {
         }
         .await)
     }
+
+    fn drop(&mut self, connection: Resource<RedisConnection>) -> anyhow::Result<()> {
+        self.connections.remove(connection.rep());
+        Ok(())
+    }
+}
+
+macro_rules! unwrap {
+    ($expr:expr) => {
+        match $expr {
+            Ok(s) => s,
+            Err(e) => return Ok(Err(e)),
+        }
+    };
+}
+
+#[async_trait]
+impl v1::Host for OutboundRedis {
+    async fn publish(
+        &mut self,
+        address: String,
+        channel: String,
+        payload: Vec<u8>,
+    ) -> Result<Result<(), Error>> {
+        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
+        <Self as v2::HostConnection>::publish(self, connection, channel, payload).await
+    }
+
+    async fn get(&mut self, address: String, key: String) -> Result<Result<Vec<u8>, Error>> {
+        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
+        <Self as v2::HostConnection>::get(self, connection, key).await
+    }
+
+    async fn set(
+        &mut self,
+        address: String,
+        key: String,
+        value: Vec<u8>,
+    ) -> Result<Result<(), Error>> {
+        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
+        <Self as v2::HostConnection>::set(self, connection, key, value).await
+    }
+
+    async fn incr(&mut self, address: String, key: String) -> Result<Result<i64, Error>> {
+        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
+        <Self as v2::HostConnection>::incr(self, connection, key).await
+    }
+
+    async fn del(&mut self, address: String, keys: Vec<String>) -> Result<Result<i64, Error>> {
+        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
+        <Self as v2::HostConnection>::del(self, connection, keys).await
+    }
+
+    async fn sadd(
+        &mut self,
+        address: String,
+        key: String,
+        values: Vec<String>,
+    ) -> Result<Result<i64, Error>> {
+        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
+        <Self as v2::HostConnection>::sadd(self, connection, key, values).await
+    }
+
+    async fn smembers(
+        &mut self,
+        address: String,
+        key: String,
+    ) -> Result<Result<Vec<String>, Error>> {
+        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
+        <Self as v2::HostConnection>::smembers(self, connection, key).await
+    }
+
+    async fn srem(
+        &mut self,
+        address: String,
+        key: String,
+        values: Vec<String>,
+    ) -> Result<Result<i64, Error>> {
+        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
+        <Self as v2::HostConnection>::srem(self, connection, key, values).await
+    }
+
+    async fn execute(
+        &mut self,
+        address: String,
+        command: String,
+        arguments: Vec<RedisParameter>,
+    ) -> Result<Result<Vec<RedisResult>, Error>> {
+        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
+        <Self as v2::HostConnection>::execute(self, connection, command, arguments).await
+    }
 }
 
 impl OutboundRedis {
-    async fn get_conn(&mut self, address: &str) -> Result<&mut Connection> {
-        let conn = match self.connections.entry(address.to_string()) {
-            Entry::Occupied(o) => o.into_mut(),
-            Entry::Vacant(v) => {
-                let conn = redis::Client::open(address)?.get_async_connection().await?;
-                v.insert(conn)
-            }
-        };
-        Ok(conn)
+    async fn get_conn(&mut self, connection: Resource<RedisConnection>) -> Result<&mut Connection> {
+        Ok(self.connections.get_mut(connection.rep()).expect("could not find connection for resource"))
     }
 }
 

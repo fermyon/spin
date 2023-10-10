@@ -12,5 +12,6 @@ anyhow = "1.0"
 redis = { version = "0.21", features = ["tokio-comp", "tokio-native-tls-comp"] }
 spin-core = { path = "../core" }
 spin-world = { path = "../world" }
+table = { path = "../table" }
 tokio = { version = "1", features = ["sync"] }
 tracing = { workspace = true }

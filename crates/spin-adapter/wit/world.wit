@@ -1,9 +1,0 @@
-package example:spin-adapter
-
-world adapter {
-    import fermyon:spin-two/sqlite
-    import fermyon:spin-two/key-value
-
-    export fermyon:spin-one/sqlite
-    export fermyon:spin-one/key-value
-}

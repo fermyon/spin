@@ -49,10 +49,6 @@ url = "2"
 wasmtime = { workspace = true }
 spin-componentize = { workspace = true }
 
-wit-component = "0.14.5"
-wit-parser = "0.11.3"
-wasm-compose = "0.4.7"
-
 [dev-dependencies]
 libtest-mimic = "0.6.1"
 snapbox = "0.4.12"

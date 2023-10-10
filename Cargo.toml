@@ -114,7 +114,7 @@ wasi-common-preview1 = { git = "https://github.com/bytecodealliance/wasmtime", r
 wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", rev = "4c34504efb258a0c51c6a5f3f8a5b24d987993b9", features = [
   "component-model",
 ] }
-spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "f6061b9d8cf3ca8f8a0ad45113452dc64c50045a" }
+spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "84286054d632ccb8ae06c6419940b5d328229e59" }
 
 [[bin]]
 name = "spin"

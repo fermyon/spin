@@ -332,8 +332,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4f7c5d6f59ae013fc4c013c76eab667844a46e86b51987acb71b1e32953211a"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=bad91ec820adc9d4a6048a455c57f1d4138079ea#bad91ec820adc9d4a6048a455c57f1d4138079ea"
 dependencies = [
  "bitflags 2.4.0",
  "wit-bindgen-rust-macro",
@@ -342,8 +341,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-core"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f0371c47784e7559efb422f74473e395b49f7101725584e2673657e0b4fc104"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=bad91ec820adc9d4a6048a455c57f1d4138079ea#bad91ec820adc9d4a6048a455c57f1d4138079ea"
 dependencies = [
  "anyhow",
  "wit-component",
@@ -353,39 +351,26 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-rust"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eeab5a09a85b1641690922ce05d79d868a2f2e78e9415a5302f58b9846fab8f1"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=bad91ec820adc9d4a6048a455c57f1d4138079ea#bad91ec820adc9d4a6048a455c57f1d4138079ea"
 dependencies = [
  "anyhow",
  "heck",
  "wasm-metadata",
  "wit-bindgen-core",
- "wit-bindgen-rust-lib",
  "wit-component",
-]
-
-[[package]]
-name = "wit-bindgen-rust-lib"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a13c89c9c1a93e164318745841026f63f889376f38664f86a7f678930280e728"
-dependencies = [
- "heck",
- "wit-bindgen-core",
 ]
 
 [[package]]
 name = "wit-bindgen-rust-macro"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a70c97e09751a9a95a592bd8ef84e953e5cdce6ebbfdb35ceefa5cc511da3b71"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=bad91ec820adc9d4a6048a455c57f1d4138079ea#bad91ec820adc9d4a6048a455c57f1d4138079ea"
 dependencies = [
  "anyhow",
  "proc-macro2",
+ "quote",
  "syn",
  "wit-bindgen-core",
  "wit-bindgen-rust",
- "wit-bindgen-rust-lib",
  "wit-component",
 ]
 

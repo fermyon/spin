@@ -4,7 +4,7 @@
 //! ways (e.g. via an in-memory table, a local file, or a remote database). Details such as consistency model and
 //! durability will depend on the implementation and may vary from one to store to the next.
 
-use super::wit::fermyon::spin::key_value;
+use super::wit::v2::key_value;
 
 #[cfg(feature = "json")]
 use serde::{de::DeserializeOwned, Serialize};

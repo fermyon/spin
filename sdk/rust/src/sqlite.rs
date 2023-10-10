@@ -1,4 +1,4 @@
-use super::wit::fermyon::spin::sqlite;
+use super::wit::v2::sqlite;
 
 /// Represents a store in which key value tuples may be placed
 // TODO: use `#[doc(inline)]` as soon as wit-bindgen#688 is merged

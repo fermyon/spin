@@ -4,10 +4,10 @@ wit_bindgen::generate!({
     world: "redis-trigger",
     path: "../../../../wit/preview2",
     exports: {
-        "fermyon:spin/inbound-redis": SpinRedis,
+        "fermyon:spin/inbound-redis@2.0.0": SpinRedis,
     }
 });
-use exports::fermyon::spin::inbound_redis::{self, Error, Payload};
+use exports::fermyon::spin2_0_0::inbound_redis::{self, Error, Payload};
 
 struct SpinRedis;
 

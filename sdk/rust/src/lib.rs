@@ -27,6 +27,8 @@ pub mod wit {
         world: "platform",
         path: "../../wit/preview2",
     });
+    pub use fermyon::spin1_0_0 as v1;
+    pub use fermyon::spin2_0_0 as v2;
 }
 
 /// Needed by the export macro
@@ -84,14 +86,12 @@ pub mod http {
 pub mod redis {
     use std::hash::{Hash, Hasher};
 
-    pub use super::wit::fermyon::spin::redis::{
-        del, execute, get, incr, publish, sadd, set, smembers, srem,
-    };
-    pub use super::wit::fermyon::spin::redis_types::*;
+    pub use super::wit::v2::redis::{del, execute, get, incr, publish, sadd, set, smembers, srem};
+    pub use super::wit::v2::redis_types::*;
 
     impl PartialEq for RedisResult {
         fn eq(&self, other: &Self) -> bool {
-            use super::wit::fermyon::spin::redis_types::RedisResult::*;
+            use super::wit::v2::redis_types::RedisResult::*;
             match (self, other) {
                 (Nil, Nil) => true,
                 (Status(a), Status(b)) => a == b,
@@ -106,7 +106,7 @@ pub mod redis {
 
     impl Hash for RedisResult {
         fn hash<H: Hasher>(&self, state: &mut H) {
-            use super::wit::fermyon::spin::redis_types::RedisResult::*;
+            use super::wit::v2::redis_types::RedisResult::*;
 
             match self {
                 Nil => (),
@@ -128,7 +128,7 @@ pub mod mysql;
 #[allow(missing_docs)]
 pub mod config {
     /// Exports the generated Spin config items.
-    pub use super::wit::fermyon::spin::config::{get_config as get, Error};
+    pub use super::wit::v1::config::{get_config as get, Error};
 }
 
 #[doc(hidden)]

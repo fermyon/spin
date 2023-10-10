@@ -18,8 +18,8 @@
 //! | `String`  | str(string)         | VARCHAR, CHAR, TEXT     |
 //! | `Vec<u8>` | binary(list\<u8\>)  | VARBINARY, BINARY, BLOB |
 
-pub use super::wit::fermyon::spin::mysql::{execute, query, MysqlError};
-pub use super::wit::fermyon::spin::rdbms_types::*;
+pub use super::wit::v2::mysql::{execute, query, MysqlError};
+pub use super::wit::v2::rdbms_types::*;
 
 /// A MySQL error
 #[derive(Debug, thiserror::Error)]

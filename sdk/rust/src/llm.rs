@@ -1,6 +1,6 @@
-use crate::wit::fermyon::spin::llm;
+use crate::wit::v2::llm;
 
-pub use crate::wit::fermyon::spin::llm::{
+pub use crate::wit::v2::llm::{
     EmbeddingsResult, EmbeddingsUsage, Error, InferencingParams, InferencingResult,
     InferencingUsage,
 };

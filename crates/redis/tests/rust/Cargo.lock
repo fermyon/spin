@@ -288,18 +288,18 @@ checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
 
 [[package]]
 name = "wasm-encoder"
-version = "0.33.1"
+version = "0.33.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b39de0723a53d3c8f54bed106cfbc0d06b3e4d945c5c5022115a61e3b29183ae"
+checksum = "34180c89672b3e4825c3a8db4b61a674f1447afd5fe2445b2d22c3d8b6ea086c"
 dependencies = [
  "leb128",
 ]
 
 [[package]]
 name = "wasm-metadata"
-version = "0.10.5"
+version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fab01638cbecc57afec7b53ce0e28620b44d7ae1dea53120c96dd08486c07ce"
+checksum = "4f2c051ef041d348324b01ff0419f6f6593f094b4897d93c9cf52d5d1ac879ba"
 dependencies = [
  "anyhow",
  "indexmap",
@@ -312,9 +312,9 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.113.1"
+version = "0.113.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a128cea7b8516703ab41b10a0b1aa9ba18d0454cd3792341489947ddeee268db"
+checksum = "286049849b5a5bd09a8773171be96824afabffc7cc3df6caaf33a38db6cd07ae"
 dependencies = [
  "indexmap",
  "semver",
@@ -323,8 +323,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4f7c5d6f59ae013fc4c013c76eab667844a46e86b51987acb71b1e32953211a"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=bad91ec820adc9d4a6048a455c57f1d4138079ea#bad91ec820adc9d4a6048a455c57f1d4138079ea"
 dependencies = [
  "bitflags 2.4.0",
  "wit-bindgen-rust-macro",
@@ -333,8 +332,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-core"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f0371c47784e7559efb422f74473e395b49f7101725584e2673657e0b4fc104"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=bad91ec820adc9d4a6048a455c57f1d4138079ea#bad91ec820adc9d4a6048a455c57f1d4138079ea"
 dependencies = [
  "anyhow",
  "wit-component",
@@ -344,47 +342,34 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-rust"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eeab5a09a85b1641690922ce05d79d868a2f2e78e9415a5302f58b9846fab8f1"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=bad91ec820adc9d4a6048a455c57f1d4138079ea#bad91ec820adc9d4a6048a455c57f1d4138079ea"
 dependencies = [
  "anyhow",
  "heck",
  "wasm-metadata",
  "wit-bindgen-core",
- "wit-bindgen-rust-lib",
  "wit-component",
-]
-
-[[package]]
-name = "wit-bindgen-rust-lib"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a13c89c9c1a93e164318745841026f63f889376f38664f86a7f678930280e728"
-dependencies = [
- "heck",
- "wit-bindgen-core",
 ]
 
 [[package]]
 name = "wit-bindgen-rust-macro"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a70c97e09751a9a95a592bd8ef84e953e5cdce6ebbfdb35ceefa5cc511da3b71"
+source = "git+https://github.com/bytecodealliance/wit-bindgen?rev=bad91ec820adc9d4a6048a455c57f1d4138079ea#bad91ec820adc9d4a6048a455c57f1d4138079ea"
 dependencies = [
  "anyhow",
  "proc-macro2",
+ "quote",
  "syn",
  "wit-bindgen-core",
  "wit-bindgen-rust",
- "wit-bindgen-rust-lib",
  "wit-component",
 ]
 
 [[package]]
 name = "wit-component"
-version = "0.14.2"
+version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af872ef43ecb73cc49c7bd2dd19ef9117168e183c78cf70000dca0e14b6a5473"
+checksum = "2e2bf941487fc5afa9e3fc94761f6b80ecef5a2bed6239b959d23d9de69e3448"
 dependencies = [
  "anyhow",
  "bitflags 2.4.0",
@@ -400,9 +385,9 @@ dependencies = [
 
 [[package]]
 name = "wit-parser"
-version = "0.11.1"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dcd022610436a1873e60bfdd9b407763f2404adf7d1cb57912c7ae4059e57a5"
+checksum = "a39edca9abb16309def3843af73b58d47d243fe33a9ceee572446bcc57556b9a"
 dependencies = [
  "anyhow",
  "id-arena",

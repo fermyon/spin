@@ -1,0 +1,14 @@
+manifest_version = "1"
+id = "add-variables"
+description = "Tests variables in spin add"
+trigger_type = "http"
+
+[new_application]
+supported = false
+
+[add_component]
+[add_component.snippets]
+variables = "variables.txt"
+
+[parameters]
+service-url = { type = "string", prompt = "Service URL" }

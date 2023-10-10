@@ -5856,6 +5856,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "toml 0.5.11",
+ "toml_edit 0.20.2",
  "url",
  "walkdir",
 ]
@@ -6498,7 +6499,7 @@ checksum = "b403acf6f2bb0859c93c7f0d967cb4a75a7ac552100f9322faf64dc047669b21"
 dependencies = [
  "serde",
  "serde_spanned",
- "toml_datetime 0.6.1",
+ "toml_datetime 0.6.3",
  "toml_edit 0.19.8",
 ]
 
@@ -6513,9 +6514,9 @@ dependencies = [
 
 [[package]]
 name = "toml_datetime"
-version = "0.6.1"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ab8ed2edee10b50132aed5f331333428b011c99402b5a534154ed15746f9622"
+checksum = "7cda73e2f1397b1262d6dfdcef8aafae14d1de7748d66822d3bfeeb6d03e5e4b"
 dependencies = [
  "serde",
 ]
@@ -6542,8 +6543,19 @@ dependencies = [
  "indexmap 1.9.2",
  "serde",
  "serde_spanned",
- "toml_datetime 0.6.1",
- "winnow",
+ "toml_datetime 0.6.3",
+ "winnow 0.4.1",
+]
+
+[[package]]
+name = "toml_edit"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "396e4d48bbb2b7554c944bde63101b5ae446cff6ec4a24227428f15eb72ef338"
+dependencies = [
+ "indexmap 2.0.0",
+ "toml_datetime 0.6.3",
+ "winnow 0.5.16",
 ]
 
 [[package]]
@@ -7790,6 +7802,15 @@ name = "winnow"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae8970b36c66498d8ff1d66685dc86b91b29db0c7739899012f63a63814b4b28"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
+name = "winnow"
+version = "0.5.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "037711d82167854aff2018dfd193aa0fef5370f456732f0d5a0c59b0f1b4b907"
 dependencies = [
  "memchr",
 ]

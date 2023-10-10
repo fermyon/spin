@@ -143,11 +143,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    runtime_config::sqlite::build_legacy_component(
-                        &runtime_config,
-                        &init_data.sqlite,
-                    )
-                    .await?,
+                    runtime_config::sqlite::build_legacy_component(&runtime_config).await?,
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,

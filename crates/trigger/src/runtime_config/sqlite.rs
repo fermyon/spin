@@ -27,9 +27,8 @@ pub(crate) async fn build_component(
 
 pub(crate) async fn build_legacy_component(
     runtime_config: &RuntimeConfig,
-    sqlite_statements: &[String],
 ) -> anyhow::Result<LegacySqliteComponent> {
-    let component = build_component(runtime_config, sqlite_statements).await?;
+    let component = build_component(runtime_config, &[]).await?;
     Ok(LegacySqliteComponent::new(component))
 }
 

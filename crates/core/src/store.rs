@@ -363,8 +363,7 @@ impl StoreBuilder {
     ///
     /// If `T: Default`, it may be preferable to use [`Store::build`].
     pub fn build_with_data<T>(self, inner_data: T) -> Result<Store<T>> {
-        let mut table = wasi_preview2::Table::new();
-        let wasi = self.wasi.map_err(anyhow::Error::msg)?.build(&mut table)?;
+        let wasi = self.wasi.map_err(anyhow::Error::msg)?.build();
 
         let mut inner = wasmtime::Store::new(
             &self.engine,
@@ -373,7 +372,7 @@ impl StoreBuilder {
                 wasi,
                 host_components_data: self.host_components_data,
                 store_limits: self.store_limits,
-                table,
+                table: wasi_preview2::Table::new(),
             },
         );
 
@@ -470,11 +469,10 @@ impl From<WasiVersion> for WasiCtxBuilder {
 }
 
 impl WasiCtxBuilder {
-    // TODO: remove `Result` and `table`
-    fn build(self, _table: &mut wasi_preview2::Table) -> anyhow::Result<Wasi> {
+    fn build(self) -> Wasi {
         match self {
-            WasiCtxBuilder::Preview1(ctx) => Ok(Wasi::Preview1(ctx)),
-            WasiCtxBuilder::Preview2(mut b) => Ok(Wasi::Preview2(b.build())),
+            WasiCtxBuilder::Preview1(ctx) => Wasi::Preview1(ctx),
+            WasiCtxBuilder::Preview2(mut b) => Wasi::Preview2(b.build()),
         }
     }
 }

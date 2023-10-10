@@ -232,7 +232,7 @@ impl spin_world::v1::key_value::Host for LegacyDispatch {
     }
 
     async fn close(&mut self, store: u32) -> Result<()> {
-        let _: Resource<key_value::Store> = Resource::new_own(store);
-        Ok(())
+        let this = Resource::new_borrow(store);
+        self.0.drop(this)
     }
 }

@@ -146,7 +146,7 @@ mod test {
     use super::*;
     use spin_core::wasmtime::component::Resource;
     use spin_key_value::{DelegatingStoreManager, KeyValueDispatch};
-    use spin_world::key_value::HostStore;
+    use spin_world::v2::key_value::HostStore;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn all() -> Result<()> {

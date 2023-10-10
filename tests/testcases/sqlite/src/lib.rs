@@ -2,21 +2,34 @@ use anyhow::{ensure, Result};
 use spin_sdk::{
     http::{Request, Response},
     http_component,
-    sqlite::{Connection, Error, ValueParam},
+    sqlite::{Connection, Error, Value},
 };
 
 #[http_component]
 fn handle_request(req: Request) -> Result<Response> {
-    ensure!(matches!(Connection::open("forbidden"), Err(Error::AccessDenied)));
+    ensure!(matches!(
+        Connection::open("forbidden"),
+        Err(Error::AccessDenied)
+    ));
 
-    let query = req.uri().query().expect("Should have a testkey query string");
-    let query: std::collections::HashMap::<String, String> = serde_qs::from_str(query)?;
-    let init_key = query.get("testkey").expect("Should have a testkey query string");
-    let init_val = query.get("testval").expect("Should have a testval query string");
+    let query = req
+        .uri()
+        .query()
+        .expect("Should have a testkey query string");
+    let query: std::collections::HashMap<String, String> = serde_qs::from_str(query)?;
+    let init_key = query
+        .get("testkey")
+        .expect("Should have a testkey query string");
+    let init_val = query
+        .get("testval")
+        .expect("Should have a testval query string");
 
     let conn = Connection::open_default()?;
 
-    let results = conn.execute("SELECT * FROM testdata WHERE key = ?", &[ValueParam::Text(init_key)])?;
+    let results = conn.execute(
+        "SELECT * FROM testdata WHERE key = ?",
+        &[Value::Text(init_key.to_owned())],
+    )?;
 
     assert_eq!(1, results.rows.len());
     assert_eq!(2, results.columns.len());

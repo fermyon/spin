@@ -1,7 +1,7 @@
 use anyhow::Result;
 use spin_app::MetadataKey;
 use spin_core::{async_trait, wasmtime::component::Resource};
-use spin_world::v2::key_value::{self, HostStore};
+use spin_world::v2::key_value;
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
 
@@ -16,7 +16,7 @@ pub const KEY_VALUE_STORES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("key
 
 const DEFAULT_STORE_TABLE_CAPACITY: u32 = 256;
 
-pub use key_value::{Error, Store as StoreHandle};
+pub use key_value::Error;
 
 #[async_trait]
 pub trait StoreManager: Sync + Send {
@@ -27,13 +27,9 @@ pub trait StoreManager: Sync + Send {
 #[async_trait]
 pub trait Store: Sync + Send {
     async fn get(&self, key: &str) -> Result<Vec<u8>, Error>;
-
     async fn set(&self, key: &str, value: &[u8]) -> Result<(), Error>;
-
     async fn delete(&self, key: &str) -> Result<(), Error>;
-
     async fn exists(&self, key: &str) -> Result<bool, Error>;
-
     async fn get_keys(&self) -> Result<Vec<String>, Error>;
 }
 
@@ -176,8 +172,6 @@ pub fn log_error(err: impl std::fmt::Debug) -> Error {
 
 use spin_world::v1::key_value::Error as LegacyError;
 
-pub struct LegacyDispatch(KeyValueDispatch);
-
 fn to_legacy_error(value: key_value::Error) -> LegacyError {
     match value {
         Error::StoreTableFull => LegacyError::StoreTableFull,
@@ -190,15 +184,15 @@ fn to_legacy_error(value: key_value::Error) -> LegacyError {
 }
 
 #[async_trait]
-impl spin_world::v1::key_value::Host for LegacyDispatch {
+impl spin_world::v1::key_value::Host for KeyValueDispatch {
     async fn open(&mut self, name: String) -> Result<Result<u32, LegacyError>> {
-        let result = self.0.open(name).await?;
+        let result = <Self as key_value::HostStore>::open(self, name).await?;
         Ok(result.map_err(to_legacy_error).map(|s| s.rep()))
     }
 
     async fn get(&mut self, store: u32, key: String) -> Result<Result<Vec<u8>, LegacyError>> {
         let this = Resource::new_borrow(store);
-        let result = self.0.get(this, key).await?;
+        let result = <Self as key_value::HostStore>::get(self, this, key).await?;
         Ok(result.map_err(to_legacy_error))
     }
 
@@ -209,30 +203,30 @@ impl spin_world::v1::key_value::Host for LegacyDispatch {
         value: Vec<u8>,
     ) -> Result<Result<(), LegacyError>> {
         let this = Resource::new_borrow(store);
-        let result = self.0.set(this, key, value).await?;
+        let result = <Self as key_value::HostStore>::set(self, this, key, value).await?;
         Ok(result.map_err(to_legacy_error))
     }
 
     async fn delete(&mut self, store: u32, key: String) -> Result<Result<(), LegacyError>> {
         let this = Resource::new_borrow(store);
-        let result = self.0.delete(this, key).await?;
+        let result = <Self as key_value::HostStore>::delete(self, this, key).await?;
         Ok(result.map_err(to_legacy_error))
     }
 
     async fn exists(&mut self, store: u32, key: String) -> Result<Result<bool, LegacyError>> {
         let this = Resource::new_borrow(store);
-        let result = self.0.exists(this, key).await?;
+        let result = <Self as key_value::HostStore>::exists(self, this, key).await?;
         Ok(result.map_err(to_legacy_error))
     }
 
     async fn get_keys(&mut self, store: u32) -> Result<Result<Vec<String>, LegacyError>> {
         let this = Resource::new_borrow(store);
-        let result = self.0.get_keys(this).await?;
+        let result = <Self as key_value::HostStore>::get_keys(self, this).await?;
         Ok(result.map_err(to_legacy_error))
     }
 
     async fn close(&mut self, store: u32) -> Result<()> {
         let this = Resource::new_borrow(store);
-        self.0.drop(this)
+        <Self as key_value::HostStore>::drop(self, this)
     }
 }

@@ -121,11 +121,7 @@ impl spin_world::v1::sqlite::Host for SqliteDispatch {
         database: String,
     ) -> anyhow::Result<Result<u32, spin_world::v1::sqlite::Error>> {
         let result = <Self as sqlite::HostConnection>::open(self, database).await?;
-        Ok(result.map_err(to_legacy_error).map(|s| {
-            let rep = s.rep();
-            std::mem::forget(s);
-            rep
-        }))
+        Ok(result.map_err(to_legacy_error).map(|s| s.rep()))
     }
 
     async fn execute(

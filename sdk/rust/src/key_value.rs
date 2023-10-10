@@ -9,9 +9,8 @@ use super::wit::v2::key_value;
 #[cfg(feature = "json")]
 use serde::{de::DeserializeOwned, Serialize};
 
-/// An open key-value store
-// TODO: use `#[doc(inline)]` as soon as wit-bindgen#688 is merged
-pub use key_value::Store;
+#[doc(inline)]
+pub use key_value::{Error, Store};
 
 impl Store {
     /// Open the default store.
@@ -21,9 +20,6 @@ impl Store {
         Self::open("default")
     }
 }
-
-#[doc(inline)]
-pub use key_value::Error;
 
 impl Store {
     #[cfg(feature = "json")]

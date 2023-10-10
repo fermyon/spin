@@ -1,10 +1,7 @@
 use super::wit::v2::sqlite;
 
-/// Represents a store in which key value tuples may be placed
-// TODO: use `#[doc(inline)]` as soon as wit-bindgen#688 is merged
-pub use sqlite::Connection;
 #[doc(inline)]
-pub use sqlite::{Error, QueryResult, RowResult, Value};
+pub use sqlite::{Connection, Error, QueryResult, RowResult, Value};
 
 impl sqlite::Connection {
     /// Open a connection to the default database

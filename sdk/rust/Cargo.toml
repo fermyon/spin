@@ -15,7 +15,7 @@ form_urlencoded = "1.0"
 http_types = { package = "http", version = "0.2" }
 spin-macro = { path = "macro" }
 thiserror = "1.0.37"
-wit-bindgen = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "bad91ec820adc9d4a6048a455c57f1d4138079ea" }
+wit-bindgen = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "46fba30bb667a3a4962f63b1cc28b84427b49114" }
 routefinder = "0.5.3"
 serde_json = { version = "1.0.96", optional = true }
 serde = { version = "1.0.163", optional = true }

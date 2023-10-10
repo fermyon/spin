@@ -1,6 +1,9 @@
 package fermyon:spin
 
-world exports {
+world http-trigger {
   export inbound-http
+}
+
+world redis-trigger {
   export inbound-redis
 }

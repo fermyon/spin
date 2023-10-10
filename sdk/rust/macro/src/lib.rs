@@ -8,7 +8,7 @@ const WIT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/wit");
 pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func = syn::parse_macro_input!(item as syn::ItemFn);
     let func_name = &func.sig.ident;
-    let preamble = preamble();
+    let preamble = preamble(Export::Http);
 
     quote!(
         #func
@@ -34,12 +34,6 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                             }
                         },
                     }
-                }
-            }
-
-            impl self::exports::fermyon::spin::inbound_redis::Guest for Spin {
-                fn handle_message(msg: self::exports::fermyon::spin::inbound_redis::Payload) -> Result<(), self::exports::fermyon::spin::inbound_redis::Error> {
-                    unimplemented!("No implementation for inbound-redis#handle-message");
                 }
             }
 
@@ -169,7 +163,7 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func = syn::parse_macro_input!(item as syn::ItemFn);
     let func_name = &func.sig.ident;
-    let preamble = preamble();
+    let preamble = preamble(Export::Redis);
 
     quote!(
         #func
@@ -186,26 +180,34 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     }
                 }
             }
-            impl self::exports::fermyon::spin::inbound_http::Guest for Spin {
-                fn handle_request(req: self::exports::fermyon::spin::inbound_http::Request) -> self::exports::fermyon::spin::inbound_http::Response {
-                    unimplemented!("No implementation for inbound-http#handle-request");
-                }
-            }
         }
     )
     .into()
 }
 
-fn preamble() -> proc_macro2::TokenStream {
+#[derive(Copy, Clone)]
+enum Export {
+    Http,
+    Redis,
+}
+
+fn preamble(export: Export) -> proc_macro2::TokenStream {
+    let export_decl = match export {
+        Export::Http => quote!("fermyon:spin/inbound-http": Spin),
+        Export::Redis => quote!("fermyon:spin/inbound-redis": Spin),
+    };
+    let world = match export {
+        Export::Http => quote!("http-trigger"),
+        Export::Redis => quote!("redis-trigger"),
+    };
     quote! {
         #![allow(missing_docs)]
         ::spin_sdk::wit_bindgen::generate!({
-            world: "exports",
+            world: #world,
             path: #WIT_PATH,
             runtime_path: "::spin_sdk::wit_bindgen::rt",
             exports: {
-                "fermyon:spin/inbound-redis": Spin,
-                "fermyon:spin/inbound-http": Spin
+                #export_decl
             }
         });
         struct Spin;

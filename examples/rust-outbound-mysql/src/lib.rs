@@ -27,7 +27,7 @@ fn rust_outbound_mysql(req: Request) -> Result<Response> {
     match parse_request(req) {
         RequestAction::List => list(),
         RequestAction::Get(id) => get(id),
-        RequestAction::Create(name, prey, is_finicky) => create(&name, &prey, is_finicky),
+        RequestAction::Create(name, prey, is_finicky) => create(name, prey, is_finicky),
         RequestAction::Error(status) => error(status),
     }
 }
@@ -141,7 +141,7 @@ fn get(id: i32) -> Result<Response> {
     }
 }
 
-fn create(name: &str, prey: &Option<String>, is_finicky: bool) -> Result<Response> {
+fn create(name: String, prey: Option<String>, is_finicky: bool) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let id = max_pet_id(&address)? + 1;

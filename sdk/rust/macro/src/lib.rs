@@ -1,33 +1,22 @@
 use proc_macro::TokenStream;
 use quote::quote;
 
+const WIT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/wit");
+
 /// The entrypoint to a Spin HTTP component written in Rust.
 #[proc_macro_attribute]
 pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func = syn::parse_macro_input!(item as syn::ItemFn);
     let func_name = &func.sig.ident;
-    const HTTP_COMPONENT_WIT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/wit");
+    let preamble = preamble();
 
     quote!(
         #func
-
         mod __spin_http {
-            #![allow(missing_docs)]
-            ::spin_sdk::wit_bindgen::generate!({
-                world: "exports",
-                path: #HTTP_COMPONENT_WIT_PATH,
-                runtime_path: "::spin_sdk::wit_bindgen::rt",
-                exports: {
-                    "fermyon:spin/inbound-redis": Spin,
-                    "fermyon:spin/inbound-http": Spin
-                }
-            });
-            struct Spin;
-            use exports::fermyon::spin::{inbound_http, inbound_redis};
-
-            impl inbound_http::Guest for Spin {
+            #preamble
+            impl self::exports::fermyon::spin::inbound_http::Guest for Spin {
                 // Implement the `handler` entrypoint for Spin HTTP components.
-                fn handle_request(req: inbound_http::Request) -> inbound_http::Response {
+                fn handle_request(req: self::exports::fermyon::spin::inbound_http::Request) -> self::exports::fermyon::spin::inbound_http::Response {
                     match super::#func_name(req.try_into().expect("cannot convert from Spin HTTP request")) {
                         Ok(resp) => resp.try_into().expect("cannot convert to Spin HTTP response"),
                         Err(error) => {
@@ -38,7 +27,7 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                                 eprintln!("  caused by: {}", s);
                                 source = s.source();
                             }
-                            inbound_http::Response {
+                            self::exports::fermyon::spin::inbound_http::Response {
                                 status: 500,
                                 headers: None,
                                 body: Some(body.as_bytes().to_vec()),
@@ -48,8 +37,8 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
 
-            impl inbound_redis::Guest for Spin {
-                fn handle_message(msg: inbound_redis::Payload) -> Result<(), inbound_redis::Error> {
+            impl self::exports::fermyon::spin::inbound_redis::Guest for Spin {
+                fn handle_message(msg: self::exports::fermyon::spin::inbound_redis::Payload) -> Result<(), self::exports::fermyon::spin::inbound_redis::Error> {
                     unimplemented!("No implementation for inbound-redis#handle-message");
                 }
             }
@@ -180,31 +169,45 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func = syn::parse_macro_input!(item as syn::ItemFn);
     let func_name = &func.sig.ident;
+    let preamble = preamble();
 
     quote!(
         #func
-
         mod __spin_redis {
-            struct Spin;
-            ::spin_sdk::export_reactor!(Spin);
-
-            impl ::spin_sdk::inbound_redis::InboundRedis for Spin {
-                fn handle_message(msg: ::spin_sdk::inbound_redis::Payload) -> Result<(), ::spin_sdk::redis::Error> {
+            #preamble
+            impl self::exports::fermyon::spin::inbound_redis::Guest for Spin {
+                fn handle_message(msg: self::exports::fermyon::spin::inbound_redis::Payload) -> Result<(), self::fermyon::spin::redis_types::Error> {
                     match super::#func_name(msg.try_into().expect("cannot convert from Spin Redis payload")) {
                         Ok(()) => Ok(()),
                         Err(e) => {
                             eprintln!("{}", e);
-                            Err(::spin_sdk::redis::Error::Error)
+                            Err(self::fermyon::spin::redis_types::Error::Error)
                         },
                     }
                 }
             }
-            impl ::spin_sdk::inbound_http::InboundHttp for Spin {
-                fn handle_request(req: ::spin_sdk::inbound_http::Request) -> ::spin_sdk::inbound_http::Response {
+            impl self::exports::fermyon::spin::inbound_http::Guest for Spin {
+                fn handle_request(req: self::exports::fermyon::spin::inbound_http::Request) -> self::exports::fermyon::spin::inbound_http::Response {
                     unimplemented!("No implementation for inbound-http#handle-request");
                 }
             }
         }
     )
     .into()
+}
+
+fn preamble() -> proc_macro2::TokenStream {
+    quote! {
+        #![allow(missing_docs)]
+        ::spin_sdk::wit_bindgen::generate!({
+            world: "exports",
+            path: #WIT_PATH,
+            runtime_path: "::spin_sdk::wit_bindgen::rt",
+            exports: {
+                "fermyon:spin/inbound-redis": Spin,
+                "fermyon:spin/inbound-http": Spin
+            }
+        });
+        struct Spin;
+    }
 }

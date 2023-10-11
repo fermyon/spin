@@ -159,11 +159,6 @@ mod test {
         );
 
         assert!(matches!(
-            kv.exists(Resource::new_own(42), "bar".to_owned()).await?,
-            Err(Error::InvalidStore)
-        ));
-
-        assert!(matches!(
             kv.open("foo".to_owned()).await?,
             Err(Error::NoSuchStore)
         ));
@@ -234,11 +229,6 @@ mod test {
         ));
 
         kv.drop(Resource::new_own(rep))?;
-
-        assert!(matches!(
-            kv.exists(Resource::new_own(rep), "bar".to_owned()).await?,
-            Err(Error::InvalidStore)
-        ));
 
         Ok(())
     }

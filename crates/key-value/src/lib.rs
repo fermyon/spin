@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use spin_app::MetadataKey;
 use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_world::v2::key_value;
@@ -55,6 +55,10 @@ impl KeyValueDispatch {
         self.allowed_stores = allowed_stores;
         self.manager = manager;
     }
+
+    pub fn get_store(&self, store: Resource<key_value::Store>) -> anyhow::Result<&Arc<dyn Store>> {
+        self.stores.get(store.rep()).context("invalid store")
+    }
 }
 
 impl Default for KeyValueDispatch {
@@ -88,14 +92,8 @@ impl key_value::HostStore for KeyValueDispatch {
         store: Resource<key_value::Store>,
         key: String,
     ) -> Result<Result<Option<Vec<u8>>, Error>> {
-        Ok(async {
-            self.stores
-                .get(store.rep())
-                .ok_or(Error::InvalidStore)?
-                .get(&key)
-                .await
-        }
-        .await)
+        let store = self.get_store(store)?;
+        Ok(store.get(&key).await)
     }
 
     async fn set(
@@ -104,14 +102,8 @@ impl key_value::HostStore for KeyValueDispatch {
         key: String,
         value: Vec<u8>,
     ) -> Result<Result<(), Error>> {
-        Ok(async {
-            self.stores
-                .get(store.rep())
-                .ok_or(Error::InvalidStore)?
-                .set(&key, &value)
-                .await
-        }
-        .await)
+        let store = self.get_store(store)?;
+        Ok(store.set(&key, &value).await)
     }
 
     async fn delete(
@@ -119,14 +111,8 @@ impl key_value::HostStore for KeyValueDispatch {
         store: Resource<key_value::Store>,
         key: String,
     ) -> Result<Result<(), Error>> {
-        Ok(async {
-            self.stores
-                .get(store.rep())
-                .ok_or(Error::InvalidStore)?
-                .delete(&key)
-                .await
-        }
-        .await)
+        let store = self.get_store(store)?;
+        Ok(store.delete(&key).await)
     }
 
     async fn exists(
@@ -134,28 +120,16 @@ impl key_value::HostStore for KeyValueDispatch {
         store: Resource<key_value::Store>,
         key: String,
     ) -> Result<Result<bool, Error>> {
-        Ok(async {
-            self.stores
-                .get(store.rep())
-                .ok_or(Error::InvalidStore)?
-                .exists(&key)
-                .await
-        }
-        .await)
+        let store = self.get_store(store)?;
+        Ok(store.exists(&key).await)
     }
 
     async fn get_keys(
         &mut self,
         store: Resource<key_value::Store>,
     ) -> Result<Result<Vec<String>, Error>> {
-        Ok(async {
-            self.stores
-                .get(store.rep())
-                .ok_or(Error::InvalidStore)?
-                .get_keys()
-                .await
-        }
-        .await)
+        let store = self.get_store(store)?;
+        Ok(store.get_keys().await)
     }
 
     fn drop(&mut self, store: Resource<key_value::Store>) -> Result<()> {
@@ -176,7 +150,6 @@ fn to_legacy_error(value: key_value::Error) -> LegacyError {
         Error::StoreTableFull => LegacyError::StoreTableFull,
         Error::NoSuchStore => LegacyError::NoSuchStore,
         Error::AccessDenied => LegacyError::AccessDenied,
-        Error::InvalidStore => LegacyError::InvalidStore,
         Error::Io(s) => LegacyError::Io(s),
     }
 }

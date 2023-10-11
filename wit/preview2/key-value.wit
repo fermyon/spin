@@ -41,9 +41,6 @@ interface key-value {
     /// (which may or may not exist).
     access-denied,
 
-    /// The store handle provided is not recognized
-    invalid-store,
-
     /// Some implementation-specific error has occurred (e.g. I/O)
     io(string)
   }

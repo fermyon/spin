@@ -1,6 +1,0 @@
-package wasi:filesystem
-
-world imports {
-    import types
-    import preopens
-}

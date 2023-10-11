@@ -1,7 +1,0 @@
-package wasi:cli
-
-world command {
-  include reactor
-
-  export run
-}

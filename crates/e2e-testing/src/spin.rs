@@ -30,7 +30,14 @@ pub fn new_app<'a>(
     mut args: Vec<&'a str>,
 ) -> Result<Output> {
     let basedir = utils::testcases_base_dir();
-    let mut cmd = vec!["spin", "new", template_name, app_name, "--accept-defaults"];
+    let mut cmd = vec![
+        "spin",
+        "new",
+        app_name,
+        "-t",
+        template_name,
+        "--accept-defaults",
+    ];
     if !args.is_empty() {
         cmd.append(&mut args);
     }

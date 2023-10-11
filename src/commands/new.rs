@@ -17,12 +17,13 @@ use crate::opts::{APP_MANIFEST_FILE_OPT, DEFAULT_MANIFEST_FILE};
 /// Scaffold a new application based on a template.
 #[derive(Parser, Debug)]
 pub struct TemplateNewCommandCore {
-    /// The template from which to create the new application or component. Run `spin templates list` to see available options.
-    pub template_id: Option<String>,
-
     /// The name of the new application or component.
     #[clap(value_parser = validate_name)]
     pub name: Option<String>,
+
+    /// The template from which to create the new application or component. Run `spin templates list` to see available options.
+    #[clap(short = 't', long = "template")]
+    pub template_id: Option<String>,
 
     /// Filter templates to select by tags.
     #[clap(
@@ -34,8 +35,12 @@ pub struct TemplateNewCommandCore {
 
     /// The directory in which to create the new application or component.
     /// The default is the name argument.
-    #[clap(short = 'o', long = "output")]
+    #[clap(short = 'o', long = "output", group = "location")]
     pub output_path: Option<PathBuf>,
+
+    /// Create the new application or component in the current directory.
+    #[clap(long = "init", takes_value = false, group = "location")]
+    pub init: bool,
 
     /// Parameter values to be passed to the template (in name=value format).
     #[clap(short = 'v', long = "value", multiple_occurrences = true)]
@@ -113,6 +118,17 @@ impl TemplateNewCommandCore {
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
 
+        // If a user types `spin new http-rust` etc. then it's *probably* Spin 1.x muscle memory;
+        // try to be helpful without getting in the way.
+        if let Some(name) = &self.name {
+            if self.template_id.is_none() && matches!(template_manager.get(name), Ok(Some(_))) {
+                terminal::einfo!(
+                    "This will create an app called {name}.",
+                    "If you meant to use the {name} template, write '-t {name}'."
+                )
+            }
+        }
+
         let template = match &self.template_id {
             Some(template_id) => match template_manager
                 .get(template_id)
@@ -146,7 +162,12 @@ impl TemplateNewCommandCore {
             None => prompt_name(&variant).await?,
         };
 
-        let output_path = self.output_path.clone().unwrap_or_else(|| path_safe(&name));
+        let output_path = if self.init {
+            PathBuf::from(".")
+        } else {
+            self.output_path.clone().unwrap_or_else(|| path_safe(&name))
+        };
+
         let values = {
             let mut values = match self.values_file.as_ref() {
                 Some(file) => values_from_file(file.as_path()).await?,

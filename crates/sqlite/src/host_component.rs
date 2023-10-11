@@ -31,7 +31,8 @@ impl HostComponent for SqliteComponent {
         linker: &mut spin_core::Linker<T>,
         get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
     ) -> anyhow::Result<()> {
-        sqlite::add_to_linker(linker, get)
+        sqlite::add_to_linker(linker, get)?;
+        spin_world::v1::sqlite::add_to_linker(linker, get)
     }
 
     fn build_data(&self) -> Self::Data {
@@ -96,38 +97,5 @@ impl DynamicHostComponent for SqliteComponent {
                 .collect();
             Err(anyhow!(lines.join("\n")))
         }
-    }
-}
-
-pub struct LegacySqliteComponent(SqliteComponent);
-
-impl LegacySqliteComponent {
-    pub fn new(new: SqliteComponent) -> Self {
-        Self(new)
-    }
-}
-
-impl HostComponent for LegacySqliteComponent {
-    type Data = super::SqliteDispatch;
-
-    fn add_to_linker<T: Send>(
-        linker: &mut spin_core::Linker<T>,
-        get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
-    ) -> anyhow::Result<()> {
-        spin_world::v1::sqlite::add_to_linker(linker, get)
-    }
-
-    fn build_data(&self) -> Self::Data {
-        self.0.build_data()
-    }
-}
-
-impl DynamicHostComponent for LegacySqliteComponent {
-    fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> anyhow::Result<()> {
-        self.0.update_data(data, component)
-    }
-
-    fn validate_app(&self, app: &spin_app::App) -> anyhow::Result<()> {
-        self.0.validate_app(app)
     }
 }

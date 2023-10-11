@@ -4,8 +4,8 @@ use crate::{runtime_config::RuntimeConfig, TriggerHooks};
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use spin_key_value::{
-    CachingStoreManager, DelegatingStoreManager, KeyValueComponent, LegacyKeyValueComponent,
-    StoreManager, KEY_VALUE_STORES_KEY,
+    CachingStoreManager, DelegatingStoreManager, KeyValueComponent, StoreManager,
+    KEY_VALUE_STORES_KEY,
 };
 use spin_key_value_azure::KeyValueAzureCosmos;
 use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
@@ -52,14 +52,6 @@ pub async fn build_key_value_component(
     Ok(KeyValueComponent::new(spin_key_value::manager(move |_| {
         caching_manager.clone()
     })))
-}
-
-pub async fn build_legacy_key_value_component(
-    runtime_config: &RuntimeConfig,
-    init_data: &[(String, String)],
-) -> Result<LegacyKeyValueComponent> {
-    let new = build_key_value_component(runtime_config, init_data).await?;
-    Ok(LegacyKeyValueComponent::new(new))
 }
 
 // Holds deserialized options from a `[key_value_store.<name>]` runtime config section.

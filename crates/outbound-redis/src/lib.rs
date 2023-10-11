@@ -3,10 +3,8 @@ mod host_component;
 use anyhow::Result;
 use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
 use spin_core::{async_trait, wasmtime::component::Resource};
-use spin_world::v1::redis as v1;
-use spin_world::v2::redis as v2;
-use v1::{Error as V1Error, RedisParameter, RedisResult};
-use v2::{Connection as RedisConnection, Error};
+use spin_world::v1::redis::{self as v1, RedisParameter, RedisResult};
+use spin_world::v2::redis::{self as v2, Connection as RedisConnection, Error};
 
 pub use host_component::OutboundRedisComponent;
 
@@ -47,14 +45,18 @@ impl v2::Host for OutboundRedis {}
 #[async_trait]
 impl v2::HostConnection for OutboundRedis {
     async fn open(&mut self, address: String) -> Result<Result<Resource<RedisConnection>, Error>> {
-        let conn = redis::Client::open(address.as_str())?
-            .get_async_connection()
-            .await?;
-        Ok(self
-            .connections
-            .push(conn)
-            .map(Resource::new_own)
-            .map_err(|_| Error::TooManyConnections))
+        Ok(async {
+            let conn = redis::Client::open(address.as_str())
+                .map_err(|_| Error::InvalidAddress)?
+                .get_async_connection()
+                .await
+                .map_err(io_error)?;
+            self.connections
+                .push(conn)
+                .map(Resource::new_own)
+                .map_err(|_| Error::TooManyConnections)
+        }
+        .await)
     }
 
     async fn publish(
@@ -212,11 +214,11 @@ macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
         let connection = match <Self as v2::HostConnection>::open($self, $address).await? {
             Ok(c) => c,
-            Err(_) => return Ok(Err(V1Error::Error)),
+            Err(_) => return Ok(Err(v1::Error::Error)),
         };
         Ok(<Self as v2::HostConnection>::$name($self, connection, $($arg),*)
             .await?
-            .map_err(|_| V1Error::Error))
+            .map_err(|_| v1::Error::Error))
     }};
 }
 
@@ -227,11 +229,11 @@ impl v1::Host for OutboundRedis {
         address: String,
         channel: String,
         payload: Vec<u8>,
-    ) -> Result<Result<(), V1Error>> {
+    ) -> Result<Result<(), v1::Error>> {
         delegate!(self.publish(address, channel, payload))
     }
 
-    async fn get(&mut self, address: String, key: String) -> Result<Result<Vec<u8>, V1Error>> {
+    async fn get(&mut self, address: String, key: String) -> Result<Result<Vec<u8>, v1::Error>> {
         delegate!(self.get(address, key))
     }
 
@@ -240,15 +242,15 @@ impl v1::Host for OutboundRedis {
         address: String,
         key: String,
         value: Vec<u8>,
-    ) -> Result<Result<(), V1Error>> {
+    ) -> Result<Result<(), v1::Error>> {
         delegate!(self.set(address, key, value))
     }
 
-    async fn incr(&mut self, address: String, key: String) -> Result<Result<i64, V1Error>> {
+    async fn incr(&mut self, address: String, key: String) -> Result<Result<i64, v1::Error>> {
         delegate!(self.incr(address, key))
     }
 
-    async fn del(&mut self, address: String, keys: Vec<String>) -> Result<Result<i64, V1Error>> {
+    async fn del(&mut self, address: String, keys: Vec<String>) -> Result<Result<i64, v1::Error>> {
         delegate!(self.del(address, keys))
     }
 
@@ -257,7 +259,7 @@ impl v1::Host for OutboundRedis {
         address: String,
         key: String,
         values: Vec<String>,
-    ) -> Result<Result<i64, V1Error>> {
+    ) -> Result<Result<i64, v1::Error>> {
         delegate!(self.sadd(address, key, values))
     }
 
@@ -265,7 +267,7 @@ impl v1::Host for OutboundRedis {
         &mut self,
         address: String,
         key: String,
-    ) -> Result<Result<Vec<String>, V1Error>> {
+    ) -> Result<Result<Vec<String>, v1::Error>> {
         delegate!(self.smembers(address, key))
     }
 
@@ -274,7 +276,7 @@ impl v1::Host for OutboundRedis {
         address: String,
         key: String,
         values: Vec<String>,
-    ) -> Result<Result<i64, V1Error>> {
+    ) -> Result<Result<i64, v1::Error>> {
         delegate!(self.srem(address, key, values))
     }
 
@@ -283,7 +285,7 @@ impl v1::Host for OutboundRedis {
         address: String,
         command: String,
         arguments: Vec<RedisParameter>,
-    ) -> Result<Result<Vec<RedisResult>, V1Error>> {
+    ) -> Result<Result<Vec<RedisResult>, v1::Error>> {
         delegate!(self.execute(address, command, arguments))
     }
 }

@@ -3,6 +3,8 @@ interface redis {
 
   /// Errors related to interacting with Redis
   variant error {
+      /// An invalid address string
+      invalid-address,
       /// There are too many open connections
       too-many-connections,
       /// A retrieved value was not of the correct type

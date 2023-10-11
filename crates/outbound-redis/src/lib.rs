@@ -50,7 +50,7 @@ impl v2::HostConnection for OutboundRedis {
                 .map_err(|_| Error::InvalidAddress)?
                 .get_async_connection()
                 .await
-                .map_err(io_error)?;
+                .map_err(other_error)?;
             self.connections
                 .push(conn)
                 .map(Resource::new_own)
@@ -66,8 +66,10 @@ impl v2::HostConnection for OutboundRedis {
         payload: Vec<u8>,
     ) -> Result<Result<(), Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(io_error)?;
-            conn.publish(&channel, &payload).await.map_err(io_error)?;
+            let conn = self.get_conn(connection).await.map_err(other_error)?;
+            conn.publish(&channel, &payload)
+                .await
+                .map_err(other_error)?;
             Ok(())
         }
         .await)
@@ -79,8 +81,8 @@ impl v2::HostConnection for OutboundRedis {
         key: String,
     ) -> Result<Result<Vec<u8>, Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(io_error)?;
-            let value = conn.get(&key).await.map_err(io_error)?;
+            let conn = self.get_conn(connection).await.map_err(other_error)?;
+            let value = conn.get(&key).await.map_err(other_error)?;
             Ok(value)
         }
         .await)
@@ -93,8 +95,8 @@ impl v2::HostConnection for OutboundRedis {
         value: Vec<u8>,
     ) -> Result<Result<(), Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(io_error)?;
-            conn.set(&key, &value).await.map_err(io_error)?;
+            let conn = self.get_conn(connection).await.map_err(other_error)?;
+            conn.set(&key, &value).await.map_err(other_error)?;
             Ok(())
         }
         .await)
@@ -106,8 +108,8 @@ impl v2::HostConnection for OutboundRedis {
         key: String,
     ) -> Result<Result<i64, Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(io_error)?;
-            let value = conn.incr(&key, 1).await.map_err(io_error)?;
+            let conn = self.get_conn(connection).await.map_err(other_error)?;
+            let value = conn.incr(&key, 1).await.map_err(other_error)?;
             Ok(value)
         }
         .await)
@@ -119,8 +121,8 @@ impl v2::HostConnection for OutboundRedis {
         keys: Vec<String>,
     ) -> Result<Result<i64, Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(io_error)?;
-            let value = conn.del(&keys).await.map_err(io_error)?;
+            let conn = self.get_conn(connection).await.map_err(other_error)?;
+            let value = conn.del(&keys).await.map_err(other_error)?;
             Ok(value)
         }
         .await)
@@ -133,12 +135,12 @@ impl v2::HostConnection for OutboundRedis {
         values: Vec<String>,
     ) -> Result<Result<i64, Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(io_error)?;
+            let conn = self.get_conn(connection).await.map_err(other_error)?;
             let value = conn.sadd(&key, &values).await.map_err(|e| {
                 if e.kind() == redis::ErrorKind::TypeError {
                     Error::TypeError
                 } else {
-                    Error::Io(e.to_string())
+                    Error::Other(e.to_string())
                 }
             })?;
             Ok(value)
@@ -152,8 +154,8 @@ impl v2::HostConnection for OutboundRedis {
         key: String,
     ) -> Result<Result<Vec<String>, Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(io_error)?;
-            let value = conn.smembers(&key).await.map_err(io_error)?;
+            let conn = self.get_conn(connection).await.map_err(other_error)?;
+            let value = conn.smembers(&key).await.map_err(other_error)?;
             Ok(value)
         }
         .await)
@@ -166,8 +168,8 @@ impl v2::HostConnection for OutboundRedis {
         values: Vec<String>,
     ) -> Result<Result<i64, Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(io_error)?;
-            let value = conn.srem(&key, &values).await.map_err(io_error)?;
+            let conn = self.get_conn(connection).await.map_err(other_error)?;
+            let value = conn.srem(&key, &values).await.map_err(other_error)?;
             Ok(value)
         }
         .await)
@@ -194,7 +196,7 @@ impl v2::HostConnection for OutboundRedis {
             cmd.query_async::<_, RedisResults>(conn)
                 .await
                 .map(|values| values.0)
-                .map_err(io_error)
+                .map_err(other_error)
         }
         .await)
     }
@@ -205,8 +207,8 @@ impl v2::HostConnection for OutboundRedis {
     }
 }
 
-fn io_error(e: impl std::fmt::Display) -> Error {
-    Error::Io(e.to_string())
+fn other_error(e: impl std::fmt::Display) -> Error {
+    Error::Other(e.to_string())
 }
 
 /// Delegate a function call to the v2::HostConnection implementation
@@ -297,6 +299,8 @@ impl OutboundRedis {
     ) -> Result<&mut Connection, Error> {
         self.connections
             .get_mut(connection.rep())
-            .ok_or(Error::Io("could not find connection for resource".into()))
+            .ok_or(Error::Other(
+                "could not find connection for resource".into(),
+            ))
     }
 }

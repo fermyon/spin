@@ -9,8 +9,8 @@ interface redis {
       too-many-connections,
       /// A retrieved value was not of the correct type
       type-error,
-      /// An I/O error occurred
-      io(string),
+      /// Some other error occurred
+      other(string),
   }
   
   resource connection {

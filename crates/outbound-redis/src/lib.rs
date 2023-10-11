@@ -212,11 +212,11 @@ macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
         let connection = match <Self as v2::HostConnection>::open($self, $address).await? {
             Ok(c) => c,
-            Err(e) => return Ok(Err(to_legacy_error(e))),
+            Err(_) => return Ok(Err(V1Error::Error)),
         };
         Ok(<Self as v2::HostConnection>::$name($self, connection, $($arg),*)
             .await?
-            .map_err(to_legacy_error))
+            .map_err(|_| V1Error::Error))
     }};
 }
 
@@ -297,8 +297,4 @@ impl OutboundRedis {
             .get_mut(connection.rep())
             .ok_or(Error::Io("could not find connection for resource".into()))
     }
-}
-
-fn to_legacy_error(_error: Error) -> V1Error {
-    V1Error::Error
 }

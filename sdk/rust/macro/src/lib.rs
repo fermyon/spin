@@ -190,26 +190,19 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func = syn::parse_macro_input!(item as syn::ItemFn);
     let func_name = &func.sig.ident;
+    let preamble = preamble(Export::WasiHttp);
 
     quote!(
-        ::spin_sdk::wit_bindgen::generate!({
-            runtime_path: "::spin_sdk::wit_bindgen::rt",
-            world: "wasi-http-trigger",
-            path: #WIT_PATH,
-            exports: {
-                "wasi:http/incoming-handler": __spin_wasi_http::Spin,
-            }
-        });
-
         #func
-
+        // We export wasi here since `wit-bindgen` currently has no way of using types
+        // declared somewhere else as part of its generated code. If we want users to be able to
+        // use `wasi-http` types, they have to be generated in this macro. This should be solved once
+        // `with` is supported in wit-bindgen [ref: https://github.com/bytecodealliance/wit-bindgen/issues/694].
+        use __spin_wasi_http::wasi;
         mod __spin_wasi_http {
-            use super::{
-                exports::wasi::http::incoming_handler,
-                wasi::http::types::{IncomingRequest, ResponseOutparam}
-            };
-
-            pub struct Spin;
+            #preamble
+            use exports::wasi::http::incoming_handler;
+            use wasi::http::types::{IncomingRequest, ResponseOutparam};
 
             impl incoming_handler::Guest for Spin {
                 fn handle(request: IncomingRequest, response_out: ResponseOutparam) {
@@ -454,16 +447,19 @@ pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream
 
 #[derive(Copy, Clone)]
 enum Export {
+    WasiHttp,
     Http,
     Redis,
 }
 
 fn preamble(export: Export) -> proc_macro2::TokenStream {
     let export_decl = match export {
+        Export::WasiHttp => quote!("wasi:http/incoming-handler": Spin),
         Export::Http => quote!("fermyon:spin/inbound-http": Spin),
         Export::Redis => quote!("fermyon:spin/inbound-redis": Spin),
     };
     let world = match export {
+        Export::WasiHttp => quote!("wasi-http-trigger"),
         Export::Http => quote!("http-trigger"),
         Export::Redis => quote!("redis-trigger"),
     };

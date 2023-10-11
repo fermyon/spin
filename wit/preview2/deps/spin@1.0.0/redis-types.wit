@@ -5,16 +5,16 @@ interface redis-types {
       error,
   }
 
-  // The message payload.
+  /// The message payload.
   type payload = list<u8>
 
-  // A parameter type for the general-purpose `execute` function.
+  /// A parameter type for the general-purpose `execute` function.
   variant redis-parameter {
       int64(s64),
       binary(payload)
   }
 
-  // A return type for the general-purpose `execute` function.
+  /// A return type for the general-purpose `execute` function.
   variant redis-result {
       nil,
       status(string),

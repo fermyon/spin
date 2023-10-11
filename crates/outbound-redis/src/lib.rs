@@ -5,8 +5,8 @@ use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
 use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_world::v1::redis as v1;
 use spin_world::v2::redis as v2;
-use v1::{Error, RedisParameter, RedisResult};
-use v2::Connection as RedisConnection;
+use v1::{Error as V1Error, RedisParameter, RedisResult};
+use v2::{Connection as RedisConnection, Error};
 
 pub use host_component::OutboundRedisComponent;
 
@@ -37,7 +37,7 @@ pub struct OutboundRedis {
 impl Default for OutboundRedis {
     fn default() -> Self {
         Self {
-            connections: table::Table::new(1024)
+            connections: table::Table::new(1024),
         }
     }
 }
@@ -50,7 +50,11 @@ impl v2::HostConnection for OutboundRedis {
         let conn = redis::Client::open(address.as_str())?
             .get_async_connection()
             .await?;
-        Ok(self.connections.push(conn).map(Resource::new_own).map_err(|_| Error::Error))
+        Ok(self
+            .connections
+            .push(conn)
+            .map(Resource::new_own)
+            .map_err(|_| Error::TooManyConnections))
     }
 
     async fn publish(
@@ -60,8 +64,8 @@ impl v2::HostConnection for OutboundRedis {
         payload: Vec<u8>,
     ) -> Result<Result<(), Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(log_error)?;
-            conn.publish(&channel, &payload).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(io_error)?;
+            conn.publish(&channel, &payload).await.map_err(io_error)?;
             Ok(())
         }
         .await)
@@ -73,8 +77,8 @@ impl v2::HostConnection for OutboundRedis {
         key: String,
     ) -> Result<Result<Vec<u8>, Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(log_error)?;
-            let value = conn.get(&key).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(io_error)?;
+            let value = conn.get(&key).await.map_err(io_error)?;
             Ok(value)
         }
         .await)
@@ -87,8 +91,8 @@ impl v2::HostConnection for OutboundRedis {
         value: Vec<u8>,
     ) -> Result<Result<(), Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(log_error)?;
-            conn.set(&key, &value).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(io_error)?;
+            conn.set(&key, &value).await.map_err(io_error)?;
             Ok(())
         }
         .await)
@@ -100,8 +104,8 @@ impl v2::HostConnection for OutboundRedis {
         key: String,
     ) -> Result<Result<i64, Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(log_error)?;
-            let value = conn.incr(&key, 1).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(io_error)?;
+            let value = conn.incr(&key, 1).await.map_err(io_error)?;
             Ok(value)
         }
         .await)
@@ -113,8 +117,8 @@ impl v2::HostConnection for OutboundRedis {
         keys: Vec<String>,
     ) -> Result<Result<i64, Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(log_error)?;
-            let value = conn.del(&keys).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(io_error)?;
+            let value = conn.del(&keys).await.map_err(io_error)?;
             Ok(value)
         }
         .await)
@@ -127,8 +131,14 @@ impl v2::HostConnection for OutboundRedis {
         values: Vec<String>,
     ) -> Result<Result<i64, Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(log_error)?;
-            let value = conn.sadd(&key, &values).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(io_error)?;
+            let value = conn.sadd(&key, &values).await.map_err(|e| {
+                if e.kind() == redis::ErrorKind::TypeError {
+                    Error::TypeError
+                } else {
+                    Error::Io(e.to_string())
+                }
+            })?;
             Ok(value)
         }
         .await)
@@ -140,8 +150,8 @@ impl v2::HostConnection for OutboundRedis {
         key: String,
     ) -> Result<Result<Vec<String>, Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(log_error)?;
-            let value = conn.smembers(&key).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(io_error)?;
+            let value = conn.smembers(&key).await.map_err(io_error)?;
             Ok(value)
         }
         .await)
@@ -154,8 +164,8 @@ impl v2::HostConnection for OutboundRedis {
         values: Vec<String>,
     ) -> Result<Result<i64, Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(log_error)?;
-            let value = conn.srem(&key, &values).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await.map_err(io_error)?;
+            let value = conn.srem(&key, &values).await.map_err(io_error)?;
             Ok(value)
         }
         .await)
@@ -168,7 +178,7 @@ impl v2::HostConnection for OutboundRedis {
         arguments: Vec<RedisParameter>,
     ) -> Result<Result<Vec<RedisResult>, Error>> {
         Ok(async {
-            let conn = self.get_conn(connection).await.map_err(log_error)?;
+            let conn = self.get_conn(connection).await?;
             let mut cmd = redis::cmd(&command);
             arguments.iter().for_each(|value| match value {
                 RedisParameter::Int64(v) => {
@@ -182,7 +192,7 @@ impl v2::HostConnection for OutboundRedis {
             cmd.query_async::<_, RedisResults>(conn)
                 .await
                 .map(|values| values.0)
-                .map_err(log_error)
+                .map_err(io_error)
         }
         .await)
     }
@@ -193,13 +203,21 @@ impl v2::HostConnection for OutboundRedis {
     }
 }
 
-macro_rules! unwrap {
-    ($expr:expr) => {
-        match $expr {
-            Ok(s) => s,
-            Err(e) => return Ok(Err(e)),
-        }
-    };
+fn io_error(e: impl std::fmt::Display) -> Error {
+    Error::Io(e.to_string())
+}
+
+/// Delegate a function call to the v2::HostConnection implementation
+macro_rules! delegate {
+    ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
+        let connection = match <Self as v2::HostConnection>::open($self, $address).await? {
+            Ok(c) => c,
+            Err(e) => return Ok(Err(to_legacy_error(e))),
+        };
+        Ok(<Self as v2::HostConnection>::$name($self, connection, $($arg),*)
+            .await?
+            .map_err(to_legacy_error))
+    }};
 }
 
 #[async_trait]
@@ -209,14 +227,12 @@ impl v1::Host for OutboundRedis {
         address: String,
         channel: String,
         payload: Vec<u8>,
-    ) -> Result<Result<(), Error>> {
-        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
-        <Self as v2::HostConnection>::publish(self, connection, channel, payload).await
+    ) -> Result<Result<(), V1Error>> {
+        delegate!(self.publish(address, channel, payload))
     }
 
-    async fn get(&mut self, address: String, key: String) -> Result<Result<Vec<u8>, Error>> {
-        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
-        <Self as v2::HostConnection>::get(self, connection, key).await
+    async fn get(&mut self, address: String, key: String) -> Result<Result<Vec<u8>, V1Error>> {
+        delegate!(self.get(address, key))
     }
 
     async fn set(
@@ -224,19 +240,16 @@ impl v1::Host for OutboundRedis {
         address: String,
         key: String,
         value: Vec<u8>,
-    ) -> Result<Result<(), Error>> {
-        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
-        <Self as v2::HostConnection>::set(self, connection, key, value).await
+    ) -> Result<Result<(), V1Error>> {
+        delegate!(self.set(address, key, value))
     }
 
-    async fn incr(&mut self, address: String, key: String) -> Result<Result<i64, Error>> {
-        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
-        <Self as v2::HostConnection>::incr(self, connection, key).await
+    async fn incr(&mut self, address: String, key: String) -> Result<Result<i64, V1Error>> {
+        delegate!(self.incr(address, key))
     }
 
-    async fn del(&mut self, address: String, keys: Vec<String>) -> Result<Result<i64, Error>> {
-        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
-        <Self as v2::HostConnection>::del(self, connection, keys).await
+    async fn del(&mut self, address: String, keys: Vec<String>) -> Result<Result<i64, V1Error>> {
+        delegate!(self.del(address, keys))
     }
 
     async fn sadd(
@@ -244,18 +257,16 @@ impl v1::Host for OutboundRedis {
         address: String,
         key: String,
         values: Vec<String>,
-    ) -> Result<Result<i64, Error>> {
-        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
-        <Self as v2::HostConnection>::sadd(self, connection, key, values).await
+    ) -> Result<Result<i64, V1Error>> {
+        delegate!(self.sadd(address, key, values))
     }
 
     async fn smembers(
         &mut self,
         address: String,
         key: String,
-    ) -> Result<Result<Vec<String>, Error>> {
-        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
-        <Self as v2::HostConnection>::smembers(self, connection, key).await
+    ) -> Result<Result<Vec<String>, V1Error>> {
+        delegate!(self.smembers(address, key))
     }
 
     async fn srem(
@@ -263,9 +274,8 @@ impl v1::Host for OutboundRedis {
         address: String,
         key: String,
         values: Vec<String>,
-    ) -> Result<Result<i64, Error>> {
-        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
-        <Self as v2::HostConnection>::srem(self, connection, key, values).await
+    ) -> Result<Result<i64, V1Error>> {
+        delegate!(self.srem(address, key, values))
     }
 
     async fn execute(
@@ -273,19 +283,22 @@ impl v1::Host for OutboundRedis {
         address: String,
         command: String,
         arguments: Vec<RedisParameter>,
-    ) -> Result<Result<Vec<RedisResult>, Error>> {
-        let connection = unwrap!(<Self as v2::HostConnection>::open(self, address).await?);
-        <Self as v2::HostConnection>::execute(self, connection, command, arguments).await
+    ) -> Result<Result<Vec<RedisResult>, V1Error>> {
+        delegate!(self.execute(address, command, arguments))
     }
 }
 
 impl OutboundRedis {
-    async fn get_conn(&mut self, connection: Resource<RedisConnection>) -> Result<&mut Connection> {
-        Ok(self.connections.get_mut(connection.rep()).expect("could not find connection for resource"))
+    async fn get_conn(
+        &mut self,
+        connection: Resource<RedisConnection>,
+    ) -> Result<&mut Connection, Error> {
+        self.connections
+            .get_mut(connection.rep())
+            .ok_or(Error::Io("could not find connection for resource".into()))
     }
 }
 
-fn log_error(err: impl std::fmt::Debug) -> Error {
-    tracing::warn!("Outbound Redis error: {err:?}");
-    Error::Error
+fn to_legacy_error(_error: Error) -> V1Error {
+    V1Error::Error
 }

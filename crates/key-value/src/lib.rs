@@ -25,7 +25,7 @@ pub trait StoreManager: Sync + Send {
 
 #[async_trait]
 pub trait Store: Sync + Send {
-    async fn get(&self, key: &str) -> Result<Vec<u8>, Error>;
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error>;
     async fn set(&self, key: &str, value: &[u8]) -> Result<(), Error>;
     async fn delete(&self, key: &str) -> Result<(), Error>;
     async fn exists(&self, key: &str) -> Result<bool, Error>;
@@ -87,7 +87,7 @@ impl key_value::HostStore for KeyValueDispatch {
         &mut self,
         store: Resource<key_value::Store>,
         key: String,
-    ) -> Result<Result<Vec<u8>, Error>> {
+    ) -> Result<Result<Option<Vec<u8>>, Error>> {
         Ok(async {
             self.stores
                 .get(store.rep())
@@ -177,7 +177,6 @@ fn to_legacy_error(value: key_value::Error) -> LegacyError {
         Error::NoSuchStore => LegacyError::NoSuchStore,
         Error::AccessDenied => LegacyError::AccessDenied,
         Error::InvalidStore => LegacyError::InvalidStore,
-        Error::NoSuchKey => LegacyError::NoSuchKey,
         Error::Io(s) => LegacyError::Io(s),
     }
 }
@@ -192,7 +191,9 @@ impl spin_world::v1::key_value::Host for KeyValueDispatch {
     async fn get(&mut self, store: u32, key: String) -> Result<Result<Vec<u8>, LegacyError>> {
         let this = Resource::new_borrow(store);
         let result = <Self as key_value::HostStore>::get(self, this, key).await?;
-        Ok(result.map_err(to_legacy_error))
+        Ok(result
+            .map_err(to_legacy_error)
+            .map(|v| v.unwrap_or_default()))
     }
 
     async fn set(

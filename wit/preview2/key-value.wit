@@ -10,8 +10,8 @@ interface key-value {
 
     /// Get the value associated with the specified `key`
     ///
-    /// `error::no-such-key` will be raised if there is no tuple for `key`
-    get: func(key: string) -> result<list<u8>, error>
+    /// Returns `ok(none)` if the key does not exist.
+    get: func(key: string) -> result<option<list<u8>>, error>
 
     /// Set the `value` associated with the specified `key` overwriting any existing value.
     set: func(key: string, value: list<u8>) -> result<_, error>
@@ -43,10 +43,6 @@ interface key-value {
 
     /// The store handle provided is not recognized
     invalid-store,
-
-    /// No key-value tuple exists for the specified key in the specified
-    /// store.
-    no-such-key,
 
     /// Some implementation-specific error has occurred (e.g. I/O)
     io(string)

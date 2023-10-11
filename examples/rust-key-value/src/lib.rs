@@ -3,7 +3,7 @@ use http::{Method, StatusCode};
 use spin_sdk::{
     http::{Request, Response},
     http_component,
-    key_value::{Error, Store},
+    key_value::Store,
 };
 
 #[http_component]
@@ -19,10 +19,9 @@ fn handle_request(req: Request) -> Result<Response> {
         }
         Method::GET => {
             // Get the value associated with the request URI, or return a 404 if it's not present
-            match store.get(req.uri().path()) {
-                Ok(value) => (StatusCode::OK, Some(value.into())),
-                Err(Error::NoSuchKey) => (StatusCode::NOT_FOUND, None),
-                Err(error) => return Err(error.into()),
+            match store.get(req.uri().path())? {
+                Some(value) => (StatusCode::OK, Some(value.into())),
+                None => (StatusCode::NOT_FOUND, None),
             }
         }
         Method::DELETE => {

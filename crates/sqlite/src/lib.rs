@@ -6,7 +6,7 @@ use spin_key_value::table;
 use spin_world::v2::sqlite;
 use std::{collections::HashSet, sync::Arc};
 
-pub use host_component::{LegacySqliteComponent, SqliteComponent};
+pub use host_component::SqliteComponent;
 
 pub const DATABASES_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("databases");
 

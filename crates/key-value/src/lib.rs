@@ -9,7 +9,7 @@ mod host_component;
 pub mod table;
 mod util;
 
-pub use host_component::{manager, KeyValueComponent, LegacyKeyValueComponent};
+pub use host_component::{manager, KeyValueComponent};
 pub use util::{CachingStoreManager, DelegatingStoreManager, EmptyStoreManager};
 
 pub const KEY_VALUE_STORES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("key_value_stores");

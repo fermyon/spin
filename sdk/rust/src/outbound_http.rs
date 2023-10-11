@@ -23,7 +23,7 @@ pub fn send_request(req: Request) -> Result<Response> {
     let headers = req
         .headers
         .iter()
-        .map(try_header_to_strs)
+        .map(try_header_to_strings)
         .collect::<Result<Vec<_>>>()?;
 
     let body = body.map(|bytes| bytes.to_vec());
@@ -52,7 +52,7 @@ pub fn send_request(req: Request) -> Result<Response> {
         .map_err(|_| OutboundHttpError::RuntimeError)
 }
 
-fn try_header_to_strs(
+fn try_header_to_strings(
     (header_name, header_value): (&HeaderName, &HeaderValue),
 ) -> Result<(String, String)> {
     Ok((

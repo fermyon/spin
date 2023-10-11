@@ -17,6 +17,12 @@ world http-trigger {
   export inbound-http
 }
 
+world wasi-http-trigger {
+  include platform
+  import wasi:http/outgoing-handler
+  export wasi:http/incoming-handler
+}
+
 world platform {
   import config
   import http

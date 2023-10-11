@@ -17,12 +17,15 @@ pub mod llm;
 /// Exports the procedural macros for writing handlers for Spin components.
 pub use spin_macro::*;
 
+pub use http_types;
+
 #[doc(hidden)]
 /// Module containing wit bindgen generated code.
 ///
 /// This is only meant for internal consumption.
 pub mod wit {
     #![allow(missing_docs)]
+
     wit_bindgen::generate!({
         world: "platform",
         path: "../../wit/preview2",

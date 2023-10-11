@@ -9,8 +9,10 @@ use system_interface::io::ReadReady;
 use tokio::io::{AsyncRead, AsyncWrite};
 use wasi_common_preview1 as wasi_preview1;
 use wasmtime_wasi as wasmtime_wasi_preview1;
-use wasmtime_wasi::preview2::{self as wasi_preview2, StdinStream, StdoutStream};
-use wasmtime_wasi_preview1::preview2::{HostInputStream, HostOutputStream};
+use wasmtime_wasi::preview2::{
+    self as wasi_preview2, HostInputStream, HostOutputStream, StdinStream, StdoutStream,
+};
+use wasmtime_wasi_http::types::WasiHttpCtx;
 
 use crate::{
     host_component::{HostComponents, HostComponentsData},
@@ -41,7 +43,13 @@ pub enum Wasi {
     /// Preview 1 `WasiCtx`
     Preview1(wasi_preview1::WasiCtx),
     /// Preview 2 `WasiCtx`
-    Preview2(wasi_preview2::WasiCtx),
+    Preview2 {
+        /// `wasi-cli` context
+        wasi_ctx: wasi_preview2::WasiCtx,
+
+        /// `wasi-http` context
+        wasi_http_ctx: WasiHttpCtx,
+    },
 }
 
 /// The version of Wasi being used
@@ -472,7 +480,10 @@ impl WasiCtxBuilder {
     fn build(self) -> Wasi {
         match self {
             WasiCtxBuilder::Preview1(ctx) => Wasi::Preview1(ctx),
-            WasiCtxBuilder::Preview2(mut b) => Wasi::Preview2(b.build()),
+            WasiCtxBuilder::Preview2(mut b) => Wasi::Preview2 {
+                wasi_ctx: b.build(),
+                wasi_http_ctx: WasiHttpCtx,
+            },
         }
     }
 }

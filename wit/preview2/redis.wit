@@ -37,17 +37,17 @@ interface redis {
 
     /// Removes the specified keys.
     ///
-    /// A key is ignored if it does not exist.
-    del: func(keys: list<string>) -> result<s64, error>
+    /// A key is ignored if it does not exist. Returns the number of keys deleted.
+    del: func(keys: list<string>) -> result<u32, error>
 
     /// Add the specified `values` to the set named `key`, returning the number of newly-added values.
-    sadd: func(key: string, values: list<string>) -> result<s64, error>
+    sadd: func(key: string, values: list<string>) -> result<u32, error>
 
     /// Retrieve the contents of the set named `key`.
     smembers: func(key: string) -> result<list<string>, error>
 
     /// Remove the specified `values` from the set named `key`, returning the number of newly-removed values.
-    srem: func(key: string, values: list<string>) -> result<s64, error>
+    srem: func(key: string, values: list<string>) -> result<u32, error>
 
     /// Execute an arbitrary Redis command and receive the result.
     execute: func(command: string, arguments: list<redis-parameter>) -> result<list<redis-result>, error>

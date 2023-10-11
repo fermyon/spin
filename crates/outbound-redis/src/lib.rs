@@ -119,7 +119,7 @@ impl v2::HostConnection for OutboundRedis {
         &mut self,
         connection: Resource<RedisConnection>,
         keys: Vec<String>,
-    ) -> Result<Result<i64, Error>> {
+    ) -> Result<Result<u32, Error>> {
         Ok(async {
             let conn = self.get_conn(connection).await.map_err(other_error)?;
             let value = conn.del(&keys).await.map_err(other_error)?;
@@ -133,7 +133,7 @@ impl v2::HostConnection for OutboundRedis {
         connection: Resource<RedisConnection>,
         key: String,
         values: Vec<String>,
-    ) -> Result<Result<i64, Error>> {
+    ) -> Result<Result<u32, Error>> {
         Ok(async {
             let conn = self.get_conn(connection).await.map_err(other_error)?;
             let value = conn.sadd(&key, &values).await.map_err(|e| {
@@ -166,7 +166,7 @@ impl v2::HostConnection for OutboundRedis {
         connection: Resource<RedisConnection>,
         key: String,
         values: Vec<String>,
-    ) -> Result<Result<i64, Error>> {
+    ) -> Result<Result<u32, Error>> {
         Ok(async {
             let conn = self.get_conn(connection).await.map_err(other_error)?;
             let value = conn.srem(&key, &values).await.map_err(other_error)?;
@@ -253,7 +253,7 @@ impl v1::Host for OutboundRedis {
     }
 
     async fn del(&mut self, address: String, keys: Vec<String>) -> Result<Result<i64, v1::Error>> {
-        delegate!(self.del(address, keys))
+        delegate!(self.del(address, keys)).map(|v| v.map(|v| v as i64))
     }
 
     async fn sadd(
@@ -262,7 +262,7 @@ impl v1::Host for OutboundRedis {
         key: String,
         values: Vec<String>,
     ) -> Result<Result<i64, v1::Error>> {
-        delegate!(self.sadd(address, key, values))
+        delegate!(self.sadd(address, key, values)).map(|v| v.map(|v| v as i64))
     }
 
     async fn smembers(
@@ -279,7 +279,7 @@ impl v1::Host for OutboundRedis {
         key: String,
         values: Vec<String>,
     ) -> Result<Result<i64, v1::Error>> {
-        delegate!(self.srem(address, key, values))
+        delegate!(self.srem(address, key, values)).map(|v| v.map(|v| v as i64))
     }
 
     async fn execute(

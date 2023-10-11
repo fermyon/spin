@@ -3995,10 +3995,10 @@ dependencies = [
 [[package]]
 name = "oci-distribution"
 version = "0.10.0"
-source = "git+https://github.com/fermyon/oci-distribution?rev=05022618d78feef9b99f20b5da8fd6def6bb80d2#05022618d78feef9b99f20b5da8fd6def6bb80d2"
+source = "git+https://github.com/fermyon/oci-distribution?rev=639c907b7c0c4e74716356585410d4abe4aebf4d#639c907b7c0c4e74716356585410d4abe4aebf4d"
 dependencies = [
+ "bytes",
  "chrono",
- "futures",
  "futures-util",
  "http",
  "http-auth",
@@ -4012,7 +4012,6 @@ dependencies = [
  "sha2",
  "thiserror",
  "tokio",
- "tokio-util 0.7.9",
  "tracing",
  "unicase",
 ]

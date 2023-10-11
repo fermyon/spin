@@ -1,11 +1,16 @@
-wit_bindgen::generate!("http-trigger" in "../../../../wit/preview2");
+wit_bindgen::generate!({
+    world: "http-trigger",
+    path: "../../../../wit/preview2",
+    exports: {
+        "fermyon:spin/inbound-http": SpinHttp,
+    }
+});
 
 use exports::fermyon::spin::inbound_http;
 
 struct SpinHttp;
-export_http_trigger!(SpinHttp);
 
-impl inbound_http::InboundHttp for SpinHttp {
+impl inbound_http::Guest for SpinHttp {
     fn handle_request(req: inbound_http::Request) -> inbound_http::Response {
         let params = req.uri.find('?').map(|i| &req.uri[i + 1..]).unwrap_or("");
         for (key, value) in url::form_urlencoded::parse(params.as_bytes()) {

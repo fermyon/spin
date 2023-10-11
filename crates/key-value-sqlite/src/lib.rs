@@ -144,8 +144,9 @@ impl Store for SqliteStore {
 #[cfg(test)]
 mod test {
     use super::*;
+    use spin_core::wasmtime::component::Resource;
     use spin_key_value::{DelegatingStoreManager, KeyValueDispatch};
-    use spin_world::key_value::Host;
+    use spin_world::v2::key_value::HostStore;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn all() -> Result<()> {
@@ -162,7 +163,7 @@ mod test {
         );
 
         assert!(matches!(
-            kv.exists(42, "bar".to_owned()).await?,
+            kv.exists(Resource::new_own(42), "bar".to_owned()).await?,
             Err(Error::InvalidStore)
         ));
 
@@ -176,41 +177,66 @@ mod test {
         ));
 
         let store = kv.open("default".to_owned()).await??;
+        let rep = store.rep();
 
-        assert!(!kv.exists(store, "bar".to_owned()).await??);
+        assert!(
+            !kv.exists(Resource::new_own(rep), "bar".to_owned())
+                .await??
+        );
 
         assert!(matches!(
-            kv.get(store, "bar".to_owned()).await?,
+            kv.get(Resource::new_own(rep), "bar".to_owned()).await?,
             Err(Error::NoSuchKey)
         ));
 
-        kv.set(store, "bar".to_owned(), b"baz".to_vec()).await??;
+        kv.set(Resource::new_own(rep), "bar".to_owned(), b"baz".to_vec())
+            .await??;
 
-        assert!(kv.exists(store, "bar".to_owned()).await??);
+        assert!(
+            kv.exists(Resource::new_own(rep), "bar".to_owned())
+                .await??
+        );
 
-        assert_eq!(b"baz" as &[_], &kv.get(store, "bar".to_owned()).await??);
+        assert_eq!(
+            b"baz" as &[_],
+            &kv.get(Resource::new_own(rep), "bar".to_owned()).await??
+        );
 
-        kv.set(store, "bar".to_owned(), b"wow".to_vec()).await??;
+        kv.set(Resource::new_own(rep), "bar".to_owned(), b"wow".to_vec())
+            .await??;
 
-        assert_eq!(b"wow" as &[_], &kv.get(store, "bar".to_owned()).await??);
+        assert_eq!(
+            b"wow" as &[_],
+            &kv.get(Resource::new_own(rep), "bar".to_owned()).await??
+        );
 
-        assert_eq!(&["bar".to_owned()] as &[_], &kv.get_keys(store).await??);
+        assert_eq!(
+            &["bar".to_owned()] as &[_],
+            &kv.get_keys(Resource::new_own(rep)).await??
+        );
 
-        kv.delete(store, "bar".to_owned()).await??;
+        kv.delete(Resource::new_own(rep), "bar".to_owned())
+            .await??;
 
-        assert!(!kv.exists(store, "bar".to_owned()).await??);
+        assert!(
+            !kv.exists(Resource::new_own(rep), "bar".to_owned())
+                .await??
+        );
 
-        assert_eq!(&[] as &[String], &kv.get_keys(store).await??);
+        assert_eq!(
+            &[] as &[String],
+            &kv.get_keys(Resource::new_own(rep)).await??
+        );
 
         assert!(matches!(
-            kv.get(store, "bar".to_owned()).await?,
+            kv.get(Resource::new_own(rep), "bar".to_owned()).await?,
             Err(Error::NoSuchKey)
         ));
 
-        kv.close(store).await?;
+        kv.drop(Resource::new_own(rep))?;
 
         assert!(matches!(
-            kv.exists(store, "bar".to_owned()).await?,
+            kv.exists(Resource::new_own(rep), "bar".to_owned()).await?,
             Err(Error::InvalidStore)
         ));
 

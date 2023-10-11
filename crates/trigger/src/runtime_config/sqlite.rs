@@ -2,7 +2,9 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use crate::{runtime_config::RuntimeConfig, TriggerHooks};
 use anyhow::Context;
-use spin_sqlite::{Connection, ConnectionsStore, SqliteComponent, DATABASES_KEY};
+use spin_sqlite::{
+    Connection, ConnectionsStore, LegacySqliteComponent, SqliteComponent, DATABASES_KEY,
+};
 
 use super::RuntimeConfigOpts;
 
@@ -23,6 +25,13 @@ pub(crate) async fn build_component(
     Ok(SqliteComponent::new(move |_| connections_store.clone()))
 }
 
+pub(crate) async fn build_legacy_component(
+    runtime_config: &RuntimeConfig,
+) -> anyhow::Result<LegacySqliteComponent> {
+    let component = build_component(runtime_config, &[]).await?;
+    Ok(LegacySqliteComponent::new(component))
+}
+
 /// A `ConnectionStore` based on a `HashMap`
 struct SimpleConnectionsStore(HashMap<String, Arc<dyn Connection>>);
 
@@ -31,7 +40,7 @@ impl ConnectionsStore for SimpleConnectionsStore {
     async fn get_connection(
         &self,
         database: &str,
-    ) -> Result<Option<Arc<(dyn Connection + 'static)>>, spin_world::sqlite::Error> {
+    ) -> Result<Option<Arc<(dyn Connection + 'static)>>, spin_world::v2::sqlite::Error> {
         Ok(self.0.get(database).cloned())
     }
 

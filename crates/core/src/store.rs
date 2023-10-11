@@ -2,13 +2,15 @@ use anyhow::{anyhow, Result};
 use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
+    sync::Mutex,
     time::{Duration, Instant},
 };
 use system_interface::io::ReadReady;
 use tokio::io::{AsyncRead, AsyncWrite};
 use wasi_common_preview1 as wasi_preview1;
 use wasmtime_wasi as wasmtime_wasi_preview1;
-use wasmtime_wasi::preview2 as wasi_preview2;
+use wasmtime_wasi::preview2::{self as wasi_preview2, StdinStream, StdoutStream};
+use wasmtime_wasi_preview1::preview2::{HostInputStream, HostOutputStream};
 
 use crate::{
     host_component::{HostComponents, HostComponentsData},
@@ -172,10 +174,9 @@ impl StoreBuilder {
                 ctx.set_stdin(Box::new(wasi_preview1::pipe::ReadPipe::new(r)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                ctx.stdin(
+                ctx.stdin(MyStdinStream(Mutex::new(Some(Box::new(
                     wasi_preview2::pipe::AsyncReadStream::new(r),
-                    wasi_preview2::IsATTY::No,
-                );
+                )))));
             }
         })
     }
@@ -212,10 +213,9 @@ impl StoreBuilder {
                 ctx.set_stdout(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                ctx.stdout(
+                ctx.stdout(MyStdoutStream(Mutex::new(Some(Box::new(
                     wasi_preview2::pipe::AsyncWriteStream::new(1024 * 1024, w),
-                    wasi_preview2::IsATTY::No,
-                );
+                )))));
             }
         })
     }
@@ -230,7 +230,7 @@ impl StoreBuilder {
                 "`Store::stdout_buffered` only supported with WASI Preview 2"
             )),
             WasiCtxBuilder::Preview2(ctx) => {
-                ctx.stdout(buffer.writer(), wasi_preview2::IsATTY::No);
+                ctx.stdout(MyStdoutStream(Mutex::new(Some(Box::new(buffer.writer())))));
                 Ok(())
             }
         })?;
@@ -256,10 +256,9 @@ impl StoreBuilder {
                 ctx.set_stderr(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                ctx.stderr(
+                ctx.stderr(MyStdoutStream(Mutex::new(Some(Box::new(
                     wasi_preview2::pipe::AsyncWriteStream::new(1024 * 1024, w),
-                    wasi_preview2::IsATTY::No,
-                );
+                )))));
             }
         })
     }
@@ -364,8 +363,7 @@ impl StoreBuilder {
     ///
     /// If `T: Default`, it may be preferable to use [`Store::build`].
     pub fn build_with_data<T>(self, inner_data: T) -> Result<Store<T>> {
-        let mut table = wasi_preview2::Table::new();
-        let wasi = self.wasi.map_err(anyhow::Error::msg)?.build(&mut table)?;
+        let wasi = self.wasi.map_err(anyhow::Error::msg)?.build();
 
         let mut inner = wasmtime::Store::new(
             &self.engine,
@@ -374,7 +372,7 @@ impl StoreBuilder {
                 wasi,
                 host_components_data: self.host_components_data,
                 store_limits: self.store_limits,
-                table,
+                table: wasi_preview2::Table::new(),
             },
         );
 
@@ -420,6 +418,38 @@ impl StoreBuilder {
     }
 }
 
+struct MyStdinStream(Mutex<Option<Box<dyn HostInputStream>>>);
+
+impl StdinStream for MyStdinStream {
+    fn stream(&self) -> Box<dyn HostInputStream> {
+        self.0
+            .lock()
+            .unwrap()
+            .take()
+            .expect("MyStdinStream::stream should only be called once")
+    }
+
+    fn isatty(&self) -> bool {
+        false
+    }
+}
+
+struct MyStdoutStream(Mutex<Option<Box<dyn HostOutputStream>>>);
+
+impl StdoutStream for MyStdoutStream {
+    fn stream(&self) -> Box<dyn HostOutputStream> {
+        self.0
+            .lock()
+            .unwrap()
+            .take()
+            .expect("MyStdoutStream::stream should only be called once")
+    }
+
+    fn isatty(&self) -> bool {
+        false
+    }
+}
+
 /// A builder of a `WasiCtx` for all versions of Wasi
 #[allow(clippy::large_enum_variant)]
 enum WasiCtxBuilder {
@@ -439,10 +469,10 @@ impl From<WasiVersion> for WasiCtxBuilder {
 }
 
 impl WasiCtxBuilder {
-    fn build(self, table: &mut wasi_preview2::Table) -> anyhow::Result<Wasi> {
+    fn build(self) -> Wasi {
         match self {
-            WasiCtxBuilder::Preview1(ctx) => Ok(Wasi::Preview1(ctx)),
-            WasiCtxBuilder::Preview2(mut b) => b.build(table).map(Wasi::Preview2),
+            WasiCtxBuilder::Preview1(ctx) => Wasi::Preview1(ctx),
+            WasiCtxBuilder::Preview2(mut b) => Wasi::Preview2(b.build()),
         }
     }
 }

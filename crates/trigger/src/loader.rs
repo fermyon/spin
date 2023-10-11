@@ -64,7 +64,7 @@ impl Loader for TriggerLoader {
                 path.display()
             )
         }
-        spin_core::Component::new(engine, component)
+        spin_core::Component::new(engine, component.as_ref())
             .with_context(|| format!("loading module {path:?}"))
     }
 

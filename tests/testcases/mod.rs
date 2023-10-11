@@ -225,7 +225,7 @@ pub async fn sqlite_works(controller: &dyn Controller) {
         .template(None)
         .deploy_args(vec![
             "--sqlite".to_string(),
-            "\"CREATE TABLE testdata(key TEXT, value TEXT)\"".to_string(),
+            "\"CREATE TABLE IF NOT EXISTS testdata(key TEXT, value TEXT)\"".to_string(),
             "--sqlite".to_string(),
             format!("\"INSERT INTO testdata(key, value) VALUES ('{init_key}', '{init_value}')\""),
         ])

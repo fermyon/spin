@@ -4,7 +4,7 @@ use crate::{ConnectionsStore, SqliteDispatch, DATABASES_KEY};
 use anyhow::anyhow;
 use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::HostComponent;
-use spin_world::sqlite;
+use spin_world::v2::sqlite;
 
 type InitConnectionsStore = dyn (Fn(&AppComponent) -> Arc<dyn ConnectionsStore>) + Sync + Send;
 
@@ -44,8 +44,7 @@ impl HostComponent for SqliteComponent {
             async fn get_connection(
                 &self,
                 _database: &str,
-            ) -> Result<Option<Arc<(dyn crate::Connection + 'static)>>, spin_world::sqlite::Error>
-            {
+            ) -> Result<Option<Arc<(dyn crate::Connection + 'static)>>, sqlite::Error> {
                 debug_assert!(false, "`Noop` `ConnectionsStore` was called");
                 Ok(None)
             }
@@ -97,5 +96,38 @@ impl DynamicHostComponent for SqliteComponent {
                 .collect();
             Err(anyhow!(lines.join("\n")))
         }
+    }
+}
+
+pub struct LegacySqliteComponent(SqliteComponent);
+
+impl LegacySqliteComponent {
+    pub fn new(new: SqliteComponent) -> Self {
+        Self(new)
+    }
+}
+
+impl HostComponent for LegacySqliteComponent {
+    type Data = super::SqliteDispatch;
+
+    fn add_to_linker<T: Send>(
+        linker: &mut spin_core::Linker<T>,
+        get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
+    ) -> anyhow::Result<()> {
+        spin_world::v1::sqlite::add_to_linker(linker, get)
+    }
+
+    fn build_data(&self) -> Self::Data {
+        self.0.build_data()
+    }
+}
+
+impl DynamicHostComponent for LegacySqliteComponent {
+    fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> anyhow::Result<()> {
+        self.0.update_data(data, component)
+    }
+
+    fn validate_app(&self, app: &spin_app::App) -> anyhow::Result<()> {
+        self.0.validate_app(app)
     }
 }

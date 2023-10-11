@@ -12,10 +12,17 @@ fn handle_request(req: Request) -> Result<Response> {
     // an allowed-but-non-existent one returns Error::NoSuchStore
     ensure!(matches!(Store::open("forbidden"), Err(Error::AccessDenied)));
 
-    let query = req.uri().query().expect("Should have a testkey query string");
-    let query: std::collections::HashMap::<String, String> = serde_qs::from_str(query)?;
-    let init_key = query.get("testkey").expect("Should have a testkey query string");
-    let init_val = query.get("testval").expect("Should have a testval query string");
+    let query = req
+        .uri()
+        .query()
+        .expect("Should have a testkey query string");
+    let query: std::collections::HashMap<String, String> = serde_qs::from_str(query)?;
+    let init_key = query
+        .get("testkey")
+        .expect("Should have a testkey query string");
+    let init_val = query
+        .get("testval")
+        .expect("Should have a testval query string");
 
     let store = Store::open_default()?;
 
@@ -42,7 +49,8 @@ fn handle_request(req: Request) -> Result<Response> {
     );
 
     ensure!(
-        sorted(vec!["bar".to_owned(), init_key.to_owned()]).collect::<Vec<_>>() == sorted(store.get_keys()?).collect::<Vec<_>>(),
+        sorted(vec!["bar".to_owned(), init_key.to_owned()]).collect::<Vec<_>>()
+            == sorted(store.get_keys()?).collect::<Vec<_>>(),
         "Expected exectly keys 'bar' and '{}' but got '{:?}'",
         init_key,
         &store.get_keys()?

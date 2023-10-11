@@ -11,7 +11,7 @@ use llm::{
 use rand::SeedableRng;
 use spin_core::async_trait;
 use spin_llm::{LlmEngine, MODEL_ALL_MINILM_L6_V2};
-use spin_world::llm::{self as wasi_llm};
+use spin_world::v1::llm::{self as wasi_llm};
 use std::{
     collections::hash_map::Entry,
     collections::HashMap,

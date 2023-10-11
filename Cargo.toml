@@ -107,10 +107,14 @@ members = ["crates/*", "sdk/rust", "sdk/rust/macro"]
 
 [workspace.dependencies]
 tracing = { version = "0.1", features = ["log"] }
-wasmtime-wasi = { version = "13.0.0", features = ["tokio"] }
-wasi-common-preview1 = { version = "13.0.0", package = "wasi-common" }
-wasmtime = { version = "13.0.0", features = ["component-model"] }
-spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "f29cdb26a6b1700ae1fe48c94bbef26a8069d566" }
+wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", rev = "c796ce7376a57a40605f03e74bd78cefcc9acf3a", features = [
+  "tokio",
+] }
+wasi-common-preview1 = { git = "https://github.com/bytecodealliance/wasmtime", rev = "c796ce7376a57a40605f03e74bd78cefcc9acf3a", package = "wasi-common" }
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", rev = "c796ce7376a57a40605f03e74bd78cefcc9acf3a", features = [
+  "component-model",
+] }
+spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "84286054d632ccb8ae06c6419940b5d328229e59" }
 
 [[bin]]
 name = "spin"

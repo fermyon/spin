@@ -117,7 +117,7 @@ impl Router {
     {
         self.methods_map
             .entry(method)
-            .or_insert_with(MethodRouter::new)
+            .or_default()
             .add(path, Box::new(handler))
             .unwrap();
     }

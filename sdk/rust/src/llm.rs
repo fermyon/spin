@@ -1,25 +1,25 @@
-use crate::wit::fermyon::spin::llm;
-
-pub use crate::wit::fermyon::spin::llm::{
-    EmbeddingsResult, EmbeddingsUsage, Error, InferencingParams, InferencingResult,
+pub use crate::wit::v1::llm::{
+    self, EmbeddingsResult, EmbeddingsUsage, Error, InferencingParams, InferencingResult,
     InferencingUsage,
 };
 
 /// The model use for inferencing
 #[allow(missing_docs)]
+#[derive(Debug, Clone, Copy)]
 pub enum InferencingModel<'a> {
     Llama2Chat,
     CodellamaInstruct,
     Other(&'a str),
 }
 
-impl<'a> InferencingModel<'a> {
-    fn as_str(&self) -> llm::InferencingModel<'a> {
-        match self {
+impl<'a> std::fmt::Display for InferencingModel<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
             InferencingModel::Llama2Chat => "llama2-chat",
             InferencingModel::CodellamaInstruct => "codellama-instruct",
             InferencingModel::Other(s) => s,
-        }
+        };
+        f.write_str(str)
     }
 }
 
@@ -38,7 +38,7 @@ impl Default for InferencingParams {
 
 /// Perform inferencing using the provided model and prompt
 pub fn infer(model: InferencingModel, prompt: &str) -> Result<InferencingResult, Error> {
-    llm::infer(model.as_str(), prompt, None)
+    llm::infer(&model.to_string(), prompt, None)
 }
 
 /// Perform inferencing using the provided model, prompt, and options
@@ -47,29 +47,31 @@ pub fn infer_with_options(
     prompt: &str,
     options: InferencingParams,
 ) -> Result<InferencingResult, Error> {
-    llm::infer(model.as_str(), prompt, Some(options))
+    llm::infer(&model.to_string(), prompt, Some(options))
 }
 
 /// Model used for generating embeddings
 #[allow(missing_docs)]
+#[derive(Debug, Clone, Copy)]
 pub enum EmbeddingModel<'a> {
     AllMiniLmL6V2,
     Other(&'a str),
 }
 
-impl<'a> EmbeddingModel<'a> {
-    fn as_str(&self) -> llm::EmbeddingModel<'a> {
-        match self {
+impl<'a> std::fmt::Display for EmbeddingModel<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
             EmbeddingModel::AllMiniLmL6V2 => "all-minilm-l6-v2",
             EmbeddingModel::Other(s) => s,
-        }
+        };
+        f.write_str(str)
     }
 }
 
 /// Generate embeddings using the provided model and collection of text
 pub fn generate_embeddings(
     model: EmbeddingModel,
-    text: &[&str],
+    text: &[String],
 ) -> Result<llm::EmbeddingsResult, Error> {
-    llm::generate_embeddings(model.as_str(), text)
+    llm::generate_embeddings(&model.to_string(), text)
 }

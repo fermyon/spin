@@ -2,13 +2,11 @@ use http_types::{header::HeaderName, HeaderValue};
 
 use super::http::{Request, Response};
 
-use super::wit::fermyon::spin::http::{
-    self as spin_http, Request as OutboundRequest, Response as OutboundResponse,
-};
-use super::wit::fermyon::spin::http_types as spin_http_types;
+use super::wit::v1::http::{self as spin_http};
+use super::wit::v1::http_types as spin_http_types;
 
 /// Error type returned by [`send_request`][crate::outbound_http::send_request]
-pub use super::wit::fermyon::spin::http_types::HttpError as OutboundHttpError;
+pub use spin_http_types::HttpError as OutboundHttpError;
 
 type Result<T> = std::result::Result<T, OutboundHttpError>;
 
@@ -22,27 +20,27 @@ pub fn send_request(req: Request) -> Result<Response> {
 
     let params = vec![];
 
-    let headers = &req
+    let headers = req
         .headers
         .iter()
         .map(try_header_to_strs)
         .collect::<Result<Vec<_>>>()?;
 
-    let body = body.as_ref().map(|bytes| bytes.as_ref());
+    let body = body.map(|bytes| bytes.to_vec());
 
-    let out_req = OutboundRequest {
+    let out_req = spin_http_types::Request {
         method,
-        uri: &uri,
-        params: &params,
+        uri,
+        params,
         headers,
         body,
     };
 
-    let OutboundResponse {
+    let spin_http_types::Response {
         status,
         headers,
         body,
-    } = spin_http::send_request(out_req)?;
+    } = spin_http::send_request(&out_req)?;
 
     let resp_builder = http_types::response::Builder::new().status(status);
     let resp_builder = headers
@@ -54,15 +52,15 @@ pub fn send_request(req: Request) -> Result<Response> {
         .map_err(|_| OutboundHttpError::RuntimeError)
 }
 
-fn try_header_to_strs<'k, 'v>(
-    header: (&'k HeaderName, &'v HeaderValue),
-) -> Result<(&'k str, &'v str)> {
+fn try_header_to_strs(
+    (header_name, header_value): (&HeaderName, &HeaderValue),
+) -> Result<(String, String)> {
     Ok((
-        header.0.as_str(),
-        header
-            .1
+        header_name.to_string(),
+        header_value
             .to_str()
-            .map_err(|_| OutboundHttpError::InvalidUrl)?,
+            .map_err(|_| OutboundHttpError::InvalidUrl)?
+            .to_owned(),
     ))
 }
 

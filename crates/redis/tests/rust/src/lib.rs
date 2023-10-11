@@ -1,12 +1,17 @@
 use std::str::{from_utf8, Utf8Error};
 
-wit_bindgen::generate!("redis-trigger" in "../../../../wit/preview2");
+wit_bindgen::generate!({
+    world: "redis-trigger",
+    path: "../../../../wit/preview2",
+    exports: {
+        "fermyon:spin/inbound-redis": SpinRedis,
+    }
+});
 use exports::fermyon::spin::inbound_redis::{self, Error, Payload};
 
 struct SpinRedis;
-export_redis_trigger!(SpinRedis);
 
-impl inbound_redis::InboundRedis for SpinRedis {
+impl inbound_redis::Guest for SpinRedis {
     fn handle_message(message: Payload) -> Result<(), Error> {
         println!("Message: {:?}", from_utf8(&message));
         Ok(())

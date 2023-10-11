@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use spin_llm::LlmEngine;
 use spin_llm_remote_http::RemoteHttpLlmEngine;
-use spin_world::llm as wasi_llm;
+use spin_world::v1::llm as wasi_llm;
 use url::Url;
 
 #[derive(Default)]

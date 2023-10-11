@@ -1,6 +1,6 @@
 mod split;
 
-use spin_world::sqlite::{self, RowResult};
+use spin_world::v2::sqlite::{self, RowResult};
 
 #[derive(Clone)]
 pub struct LibsqlClient {

@@ -7,7 +7,7 @@ use hyper::{Body, Request, Response};
 use outbound_http::OutboundHttpComponent;
 use spin_core::Instance;
 use spin_trigger::{EitherInstance, TriggerAppEngine};
-use spin_world::http_types;
+use spin_world::v1::http_types;
 use std::sync::Arc;
 
 #[derive(Clone)]

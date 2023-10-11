@@ -7,6 +7,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use once_cell::sync::OnceCell;
 use spin_sqlite::Connection;
+use spin_world::v2::sqlite;
 
 #[derive(Debug, Clone)]
 pub enum InProcDatabaseLocation {
@@ -21,7 +22,7 @@ pub struct InProcConnection {
 }
 
 impl InProcConnection {
-    pub fn new(location: InProcDatabaseLocation) -> Result<Self, spin_world::sqlite::Error> {
+    pub fn new(location: InProcDatabaseLocation) -> Result<Self, sqlite::Error> {
         let connection = OnceCell::new();
         Ok(Self {
             location,
@@ -29,16 +30,14 @@ impl InProcConnection {
         })
     }
 
-    pub fn db_connection(
-        &self,
-    ) -> Result<Arc<Mutex<rusqlite::Connection>>, spin_world::sqlite::Error> {
+    pub fn db_connection(&self) -> Result<Arc<Mutex<rusqlite::Connection>>, sqlite::Error> {
         self.connection
             .get_or_try_init(|| {
                 match &self.location {
                     InProcDatabaseLocation::InMemory => rusqlite::Connection::open_in_memory(),
                     InProcDatabaseLocation::Path(path) => rusqlite::Connection::open(path),
                 }
-                .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))
+                .map_err(|e| sqlite::Error::Io(e.to_string()))
                 .map(|c| Arc::new(Mutex::new(c)))
             })
             .cloned()
@@ -50,15 +49,15 @@ impl Connection for InProcConnection {
     async fn query(
         &self,
         query: &str,
-        parameters: Vec<spin_world::sqlite::Value>,
-    ) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error> {
+        parameters: Vec<sqlite::Value>,
+    ) -> Result<sqlite::QueryResult, sqlite::Error> {
         let connection = self.db_connection()?;
         let query = query.to_owned();
         // Tell the tokio runtime that we're going to block while making the query
         tokio::task::spawn_blocking(move || execute_query(&connection, &query, parameters))
             .await
             .context("internal runtime error")
-            .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))?
+            .map_err(|e| sqlite::Error::Io(e.to_string()))?
     }
 
     async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
@@ -78,12 +77,12 @@ impl Connection for InProcConnection {
 fn execute_query(
     connection: &Mutex<rusqlite::Connection>,
     query: &str,
-    parameters: Vec<spin_world::sqlite::Value>,
-) -> Result<spin_world::sqlite::QueryResult, spin_world::sqlite::Error> {
+    parameters: Vec<sqlite::Value>,
+) -> Result<sqlite::QueryResult, sqlite::Error> {
     let conn = connection.lock().unwrap();
     let mut statement = conn
         .prepare_cached(query)
-        .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))?;
+        .map_err(|e| sqlite::Error::Io(e.to_string()))?;
     let columns = statement
         .column_names()
         .into_iter()
@@ -102,42 +101,42 @@ fn execute_query(
                     let value = value?.0;
                     values.push(value);
                 }
-                Ok(spin_world::sqlite::RowResult { values })
+                Ok(sqlite::RowResult { values })
             },
         )
-        .map_err(|e| spin_world::sqlite::Error::Io(e.to_string()))?;
+        .map_err(|e| sqlite::Error::Io(e.to_string()))?;
     let rows = rows
         .into_iter()
-        .map(|r| r.map_err(|e| spin_world::sqlite::Error::Io(e.to_string())))
-        .collect::<Result<_, spin_world::sqlite::Error>>()?;
-    Ok(spin_world::sqlite::QueryResult { columns, rows })
+        .map(|r| r.map_err(|e| sqlite::Error::Io(e.to_string())))
+        .collect::<Result<_, sqlite::Error>>()?;
+    Ok(sqlite::QueryResult { columns, rows })
 }
 
 fn convert_data(
-    arguments: impl Iterator<Item = spin_world::sqlite::Value>,
+    arguments: impl Iterator<Item = sqlite::Value>,
 ) -> impl Iterator<Item = rusqlite::types::Value> {
     arguments.map(|a| match a {
-        spin_world::sqlite::Value::Null => rusqlite::types::Value::Null,
-        spin_world::sqlite::Value::Integer(i) => rusqlite::types::Value::Integer(i),
-        spin_world::sqlite::Value::Real(r) => rusqlite::types::Value::Real(r),
-        spin_world::sqlite::Value::Text(t) => rusqlite::types::Value::Text(t),
-        spin_world::sqlite::Value::Blob(b) => rusqlite::types::Value::Blob(b),
+        sqlite::Value::Null => rusqlite::types::Value::Null,
+        sqlite::Value::Integer(i) => rusqlite::types::Value::Integer(i),
+        sqlite::Value::Real(r) => rusqlite::types::Value::Real(r),
+        sqlite::Value::Text(t) => rusqlite::types::Value::Text(t),
+        sqlite::Value::Blob(b) => rusqlite::types::Value::Blob(b),
     })
 }
 
-// A wrapper around spin_world::sqlite::Value so that we can convert from rusqlite ValueRef
-struct ValueWrapper(spin_world::sqlite::Value);
+// A wrapper around sqlite::Value so that we can convert from rusqlite ValueRef
+struct ValueWrapper(sqlite::Value);
 
 impl rusqlite::types::FromSql for ValueWrapper {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = match value {
-            rusqlite::types::ValueRef::Null => spin_world::sqlite::Value::Null,
-            rusqlite::types::ValueRef::Integer(i) => spin_world::sqlite::Value::Integer(i),
-            rusqlite::types::ValueRef::Real(f) => spin_world::sqlite::Value::Real(f),
+            rusqlite::types::ValueRef::Null => sqlite::Value::Null,
+            rusqlite::types::ValueRef::Integer(i) => sqlite::Value::Integer(i),
+            rusqlite::types::ValueRef::Real(f) => sqlite::Value::Real(f),
             rusqlite::types::ValueRef::Text(t) => {
-                spin_world::sqlite::Value::Text(String::from_utf8(t.to_vec()).unwrap())
+                sqlite::Value::Text(String::from_utf8(t.to_vec()).unwrap())
             }
-            rusqlite::types::ValueRef::Blob(b) => spin_world::sqlite::Value::Blob(b.to_vec()),
+            rusqlite::types::ValueRef::Blob(b) => sqlite::Value::Blob(b.to_vec()),
         };
         Ok(ValueWrapper(value))
     }

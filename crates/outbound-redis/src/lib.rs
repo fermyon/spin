@@ -79,7 +79,7 @@ impl v2::HostConnection for OutboundRedis {
         &mut self,
         connection: Resource<RedisConnection>,
         key: String,
-    ) -> Result<Result<Vec<u8>, Error>> {
+    ) -> Result<Result<Option<Vec<u8>>, Error>> {
         Ok(async {
             let conn = self.get_conn(connection).await.map_err(other_error)?;
             let value = conn.get(&key).await.map_err(other_error)?;
@@ -236,7 +236,7 @@ impl v1::Host for OutboundRedis {
     }
 
     async fn get(&mut self, address: String, key: String) -> Result<Result<Vec<u8>, v1::Error>> {
-        delegate!(self.get(address, key))
+        delegate!(self.get(address, key)).map(|v| v.map(|v| v.unwrap_or_default()))
     }
 
     async fn set(

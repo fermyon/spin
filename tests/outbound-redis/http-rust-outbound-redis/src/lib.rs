@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use spin_sdk::{
     http::{Request, Response},
     http_component,
@@ -19,9 +19,10 @@ fn test(_req: Request) -> Result<Response> {
 
     let payload = connection
         .get("spin-example-get-set")
-        .map_err(|_| anyhow!("Error querying Redis"))?;
+        .map_err(|_| anyhow!("Error querying Redis"))?
+        .context("no value found for key 'spin-example-get-set'")?;
 
-    assert_eq!(std::str::from_utf8(&payload).unwrap(), "Eureka!");
+    assert_eq!(std::str::from_utf8(&payload)?, "Eureka!");
 
     connection
         .set("spin-example-incr", &b"0".to_vec())

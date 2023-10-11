@@ -21,7 +21,7 @@ interface redis {
     publish: func(channel: string, payload: payload) -> result<_, error>
 
     /// Get the value of a key.
-    get: func(key: string) -> result<payload, error>
+    get: func(key: string) -> result<option<payload>, error>
 
     /// Set key to value.
     ///

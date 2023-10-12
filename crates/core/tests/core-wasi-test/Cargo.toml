@@ -7,6 +7,7 @@ edition = "2021"
 debug = true
 
 [dependencies]
-wit-bindgen = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "46fba30bb667a3a4962f63b1cc28b84427b49114" }
+# TODO: switch this back to upstream once https://github.com/bytecodealliance/wit-bindgen/pull/700 is merged
+wit-bindgen = { git = "https://github.com/dicej/wit-bindgen", rev = "60195574dc59f9ba56801a0c7fe5bba1382592d1" }
 
 [workspace]

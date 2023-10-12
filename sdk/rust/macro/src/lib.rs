@@ -17,8 +17,9 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
             impl self::exports::fermyon::spin::inbound_http::Guest for Spin {
                 // Implement the `handler` entrypoint for Spin HTTP components.
                 fn handle_request(req: self::exports::fermyon::spin::inbound_http::Request) -> self::exports::fermyon::spin::inbound_http::Response {
+                    let req: ::spin_sdk::http::Request = ::std::convert::Into::into(req);
                     match super::#func_name(req.try_into().expect("cannot convert from Spin HTTP request")) {
-                        Ok(resp) => resp.try_into().expect("cannot convert to Spin HTTP response"),
+                        Ok(resp) => ::spin_sdk::http::IntoResponse::into(resp).into(),
                         Err(error) => {
                             let body = error.to_string();
                             eprintln!("Handler returned an error: {}", body);
@@ -37,120 +38,39 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
 
-            mod inbound_http_helpers {
-                use super::fermyon::spin::http_types as spin_http_types;
-
-                impl TryFrom<spin_http_types::Request> for http::Request<Option<bytes::Bytes>> {
-                    type Error = anyhow::Error;
-
-                    fn try_from(spin_req: spin_http_types::Request) -> Result<Self, Self::Error> {
-                        let mut http_req = http::Request::builder()
-                            .method(spin_req.method.clone())
-                            .uri(&spin_req.uri);
-
-                        append_request_headers(&mut http_req, &spin_req)?;
-
-                        let body = match spin_req.body {
-                            Some(b) => b.to_vec(),
-                            None => Vec::new(),
-                        };
-
-                        let body = Some(bytes::Bytes::from(body));
-
-                        Ok(http_req.body(body)?)
+            impl From<self::fermyon::spin::http_types::Request> for ::spin_sdk::http::Request  {
+                fn from(req: self::fermyon::spin::http_types::Request) -> Self {
+                    Self {
+                        method: ::std::convert::Into::into(req.method),
+                        uri: req.uri,
+                        params: req.params,
+                        headers: req.headers,
+                        body: req.body
                     }
                 }
+            }
 
-                impl From<spin_http_types::Method> for http::Method {
-                    fn from(spin_method: spin_http_types::Method) -> Self {
-                        match spin_method {
-                            spin_http_types::Method::Get => http::Method::GET,
-                            spin_http_types::Method::Post => http::Method::POST,
-                            spin_http_types::Method::Put => http::Method::PUT,
-                            spin_http_types::Method::Delete => http::Method::DELETE,
-                            spin_http_types::Method::Patch => http::Method::PATCH,
-                            spin_http_types::Method::Head => http::Method::HEAD,
-                            spin_http_types::Method::Options => http::Method::OPTIONS,
-                        }
+            impl From<self::fermyon::spin::http_types::Method> for ::spin_sdk::http::Method  {
+                fn from(method: self::fermyon::spin::http_types::Method) -> Self {
+                    match method {
+                        self::fermyon::spin::http_types::Method::Get => Self::Get,
+                        self::fermyon::spin::http_types::Method::Post => Self::Post,
+                        self::fermyon::spin::http_types::Method::Put => Self::Put,
+                        self::fermyon::spin::http_types::Method::Patch => Self::Patch,
+                        self::fermyon::spin::http_types::Method::Delete => Self::Delete,
+                        self::fermyon::spin::http_types::Method::Head => Self::Head,
+                        self::fermyon::spin::http_types::Method::Options => Self::Options,
                     }
                 }
+            }
 
-                fn append_request_headers(
-                    http_req: &mut http::request::Builder,
-                    spin_req: &spin_http_types::Request,
-                ) -> anyhow::Result<()> {
-                    let headers = http_req.headers_mut().unwrap();
-                    for (k, v) in &spin_req.headers {
-                        headers.append(
-                            <http::header::HeaderName as std::str::FromStr>::from_str(k)?,
-                            http::header::HeaderValue::from_str(v)?,
-                        );
+            impl From<::spin_sdk::http::Response> for self::fermyon::spin::http_types::Response {
+                fn from(resp: ::spin_sdk::http::Response) -> Self {
+                    Self {
+                        status: resp.status,
+                        headers: resp.headers,
+                        body: resp.body,
                     }
-
-                    Ok(())
-                }
-
-                impl TryFrom<spin_http_types::Response> for http::Response<Option<bytes::Bytes>> {
-                    type Error = anyhow::Error;
-
-                    fn try_from(spin_res: spin_http_types::Response) -> Result<Self, Self::Error> {
-                        let mut http_res = http::Response::builder().status(spin_res.status);
-                        append_response_headers(&mut http_res, spin_res.clone())?;
-
-                        let body = match spin_res.body {
-                            Some(b) => b.to_vec(),
-                            None => Vec::new(),
-                        };
-                        let body = Some(bytes::Bytes::from(body));
-
-                        Ok(http_res.body(body)?)
-                    }
-                }
-
-                fn append_response_headers(
-                    http_res: &mut http::response::Builder,
-                    spin_res: spin_http_types::Response,
-                ) -> anyhow::Result<()> {
-                    let headers = http_res.headers_mut().unwrap();
-                    for (k, v) in spin_res.headers.unwrap() {
-                        headers.append(
-                            <http::header::HeaderName as ::std::str::FromStr>::from_str(&k)?,
-                            http::header::HeaderValue::from_str(&v)?,
-                        );
-                    }
-
-                    Ok(())
-                }
-
-                impl TryFrom<http::Response<Option<bytes::Bytes>>> for spin_http_types::Response {
-                    type Error = anyhow::Error;
-
-                    fn try_from(
-                        http_res: http::Response<Option<bytes::Bytes>>,
-                    ) -> Result<Self, Self::Error> {
-                        let status = http_res.status().as_u16();
-                        let headers = Some(outbound_headers(http_res.headers())?);
-                        let body = http_res.body().as_ref().map(|b| b.to_vec());
-
-                        Ok(spin_http_types::Response {
-                            status,
-                            headers,
-                            body,
-                        })
-                    }
-                }
-
-                fn outbound_headers(hm: &http::HeaderMap) -> anyhow::Result<Vec<(String, String)>> {
-                    let mut res = Vec::new();
-
-                    for (k, v) in hm {
-                        res.push((
-                            k.as_str().to_string(),
-                            std::str::from_utf8(v.as_bytes())?.to_string(),
-                        ));
-                    }
-
-                    Ok(res)
                 }
             }
         }

@@ -4173,6 +4173,7 @@ dependencies = [
  "postgres-native-tls",
  "spin-core",
  "spin-world",
+ "table",
  "tokio",
  "tokio-postgres",
  "tracing",

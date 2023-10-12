@@ -1,0 +1,24 @@
+interface postgres {
+  use fermyon:spin/rdbms-types.{parameter-value, row-set}
+
+  /// Errors related to interacting with Postgres.
+  variant error {
+      connection-failed(string),
+      bad-parameter(string),
+      query-failed(string),
+      value-conversion-failed(string),
+      other-error(string)
+  }
+
+  /// A connection to a postgres database.
+  resource connection {
+    /// Open a connection to the Postgres instance at `address`.
+    open: static func(address: string) -> result<connection, error>
+
+    /// Query the database.
+    query: func(statement: string, params: list<parameter-value>) -> result<row-set, error>
+
+    /// Execute command to the database.
+    execute: func(statement: string, params: list<parameter-value>) -> result<u64, error>
+  }
+}

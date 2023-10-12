@@ -13,8 +13,10 @@
 //! | `String`   | str(string)         | VARCHAR, CHAR(N), TEXT       |
 //! | `Vec<u8>`  | binary(list\<u8\>)  | BYTEA                        |
 
-pub use super::wit::v1::postgres::{execute, query, PgError};
+#[doc(inline)]
 pub use super::wit::v1::rdbms_types::*;
+#[doc(inline)]
+pub use super::wit::v2::postgres::{Connection, Error as PgError};
 
 /// A pg error
 #[derive(Debug, thiserror::Error)]
@@ -23,7 +25,7 @@ pub enum Error {
     #[error("error value decoding: {0}")]
     Decode(String),
     /// Pg query failed with an error
-    #[error("{0}")]
+    #[error(transparent)]
     PgError(#[from] PgError),
 }
 

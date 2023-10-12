@@ -53,9 +53,10 @@ fn process(req: Request) -> Result<Response> {
 
 fn read(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
+    let conn = pg::Connection::open(&address)?;
 
     let sql = "SELECT id, title, content, authorname, coauthor FROM articletest";
-    let rowset = pg::query(&address, sql, &[])?;
+    let rowset = conn.query(sql, &[])?;
 
     let column_summary = rowset
         .columns
@@ -89,14 +90,15 @@ fn read(_req: Request) -> Result<Response> {
 
 fn write(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
+    let conn = pg::Connection::open(&address)?;
 
     let sql = "INSERT INTO articletest (title, content, authorname) VALUES ('aaa', 'bbb', 'ccc')";
-    let nrow_executed = pg::execute(&address, sql, &[])?;
+    let nrow_executed = conn.execute(sql, &[])?;
 
     println!("nrow_executed: {}", nrow_executed);
 
     let sql = "SELECT COUNT(id) FROM articletest";
-    let rowset = pg::query(&address, sql, &[])?;
+    let rowset = conn.query(sql, &[])?;
     let row = &rowset.rows[0];
     let count = i64::decode(&row[0])?;
     let response = format!("Count: {}\n", count);
@@ -108,10 +110,11 @@ fn write(_req: Request) -> Result<Response> {
 
 fn pg_backend_pid(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
+    let conn = pg::Connection::open(&address)?;
     let sql = "SELECT pg_backend_pid()";
 
     let get_pid = || {
-        let rowset = pg::query(&address, sql, &[])?;
+        let rowset = conn.query(sql, &[])?;
         let row = &rowset.rows[0];
 
         i32::decode(&row[0])

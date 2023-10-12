@@ -13,6 +13,12 @@ pub struct Table<V> {
     tuples: HashMap<u32, V>,
 }
 
+impl<V> Default for Table<V> {
+    fn default() -> Self {
+        Self::new(1024)
+    }
+}
+
 impl<V> Table<V> {
     /// Create a new, empty table with the specified capacity.
     pub fn new(capacity: u32) -> Self {

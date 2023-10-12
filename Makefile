@@ -53,13 +53,13 @@ install:
 test: lint test-unit test-integration
 
 .PHONY: lint
-lint:
-	cargo clippy --all-targets --all-features -- -D warnings
+lint: lint-rust-examples-and-testcases
+	cargo clippy --all --all-targets --all-features -- -D warnings
 	cargo fmt --all -- --check
 
-.PHONY: check-rust-examples
-check-rust-examples:
-	for manifest_path in examples/*/Cargo.toml; do \
+.PHONY: lint-rust-examples-and-testcases
+lint-rust-examples-and-testcases:
+	for manifest_path in examples/*/Cargo.toml tests/testcases/*/Cargo.toml; do \
 		cargo clippy --manifest-path "$${manifest_path}" -- -D warnings \
 		&& cargo fmt --manifest-path "$${manifest_path}" -- --check \
 		|| exit 1 ; \

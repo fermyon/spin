@@ -2,7 +2,8 @@
 use anyhow::{anyhow, Result};
 use spin_sdk::{
     http::{Request, Response},
-    http_component, mysql::{self, Decode},
+    http_component,
+    mysql::{self, Decode},
 };
 
 // The environment variable set in `spin.toml` that points to the
@@ -34,7 +35,7 @@ struct CharacterRow {
     rchar: String,
     rbinary: Vec<u8>,
     rvarbinary: Vec<u8>,
-    rblob: Vec<u8>
+    rblob: Vec<u8>,
 }
 
 #[http_component]

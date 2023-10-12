@@ -59,7 +59,7 @@ lint: lint-rust-examples-and-testcases
 
 .PHONY: lint-rust-examples-and-testcases
 lint-rust-examples-and-testcases:
-	for manifest_path in examples/*/Cargo.toml tests/testcases/*/Cargo.toml; do \
+	for manifest_path in $$(find examples tests/testcases -name Cargo.toml); do \
 		cargo clippy --manifest-path "$${manifest_path}" -- -D warnings \
 		&& cargo fmt --manifest-path "$${manifest_path}" -- --check \
 		|| exit 1 ; \

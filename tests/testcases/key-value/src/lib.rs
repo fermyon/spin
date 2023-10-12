@@ -30,22 +30,23 @@ fn handle_request(req: Request) -> Result<Response> {
 
     ensure!(!store.exists("bar")?);
 
-    ensure!(matches!(store.get("bar"), Err(Error::NoSuchKey)));
+    ensure!(matches!(store.get("bar"), Ok(None)));
 
     store.set("bar", b"baz")?;
 
     ensure!(store.exists("bar")?);
 
-    ensure!(b"baz" as &[_] == &store.get("bar")?);
+    ensure!(Some(b"baz" as &[_]) == store.get("bar")?.as_deref());
 
     store.set("bar", b"wow")?;
 
-    ensure!(b"wow" as &[_] == &store.get("bar")?);
+    ensure!(Some(b"wow" as &[_]) == store.get("bar")?.as_deref());
 
+    let result = store.get(init_key)?;
     ensure!(
-        init_val.as_bytes() == store.get(init_key)?,
-        "Expected to look up {init_key} and get {init_val} but actually got {}",
-        String::from_utf8_lossy(&store.get(init_key)?)
+        Some(init_val.as_bytes()) == result.as_deref(),
+        "Expected to look up {init_key} and get {init_val} but actually got {:?}",
+        result.as_deref().map(String::from_utf8_lossy)
     );
 
     ensure!(
@@ -63,7 +64,7 @@ fn handle_request(req: Request) -> Result<Response> {
 
     ensure!(!store.exists("bar")?);
 
-    ensure!(matches!(store.get("bar"), Err(Error::NoSuchKey)));
+    ensure!(matches!(store.get("bar"), Ok(None)));
 
     Ok(http::Response::builder().status(200).body(None)?)
 }

@@ -25,7 +25,7 @@ spin-manifest = { path = "../manifest" }
 spin-trigger = { path = "../trigger" }
 tempfile = "3.3"
 tokio = { version = "1", features = ["fs"] }
-tokio-util = "0.7.9"
+tokio-util = { version = "0.7.9", features = ["compat"] }
 tracing = { workspace = true }
 walkdir = "2.3"
 

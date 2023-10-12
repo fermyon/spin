@@ -18,23 +18,8 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 // Implement the `handler` entrypoint for Spin HTTP components.
                 fn handle_request(req: self::exports::fermyon::spin::inbound_http::Request) -> self::exports::fermyon::spin::inbound_http::Response {
                     let req: ::spin_sdk::http::Request = ::std::convert::Into::into(req);
-                    match super::#func_name(req.try_into().expect("cannot convert from Spin HTTP request")) {
-                        Ok(resp) => ::spin_sdk::http::IntoResponse::into(resp).into(),
-                        Err(error) => {
-                            let body = error.to_string();
-                            eprintln!("Handler returned an error: {}", body);
-                            let mut source = error.source();
-                            while let Some(s) = source {
-                                eprintln!("  caused by: {}", s);
-                                source = s.source();
-                            }
-                            self::exports::fermyon::spin::inbound_http::Response {
-                                status: 500,
-                                headers: None,
-                                body: Some(body.as_bytes().to_vec()),
-                            }
-                        },
-                    }
+                    let resp = super::#func_name(req.try_into().expect("cannot convert from Spin HTTP request"));
+                    ::spin_sdk::http::IntoResponse::into(resp).into()
                 }
             }
 

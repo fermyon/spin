@@ -169,6 +169,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "http",
+ "serde",
  "spin-sdk",
 ]
 
@@ -375,6 +376,8 @@ dependencies = [
  "http",
  "once_cell",
  "routefinder",
+ "serde",
+ "serde_json",
  "spin-macro",
  "thiserror",
  "wit-bindgen",

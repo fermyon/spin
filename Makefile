@@ -54,7 +54,7 @@ test: lint test-unit test-integration
 
 .PHONY: lint
 lint: lint-rust-examples-and-testcases
-	cargo clippy --all --all-targets --all-features -- -D warnings
+	cargo clippy --all --all-targets --features all-tests -- -D warnings
 	cargo fmt --all -- --check
 
 .PHONY: lint-rust-examples-and-testcases

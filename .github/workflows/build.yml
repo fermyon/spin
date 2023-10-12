@@ -39,7 +39,7 @@ jobs:
         run:
           BUILD_SPIN_EXAMPLES=0 make lint
 
-      - name: Cancel everything if this fails
+      - name: Cancel everything if linting fails
         if: failure()
         uses: andymckay/cancel-action@0.2
 

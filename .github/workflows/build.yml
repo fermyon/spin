@@ -39,11 +39,14 @@ jobs:
         run:
           BUILD_SPIN_EXAMPLES=0 make lint
 
+      - name: Cancel everything if this fails
+        if: failure()
+        uses: andymckay/cancel-action@0.2
+
   ## This is separated out to remove e2e-tests dependency on windows/mac builds
   build-rust-ubuntu:
     name: Build Spin Ubuntu
     runs-on: ubuntu-latest
-    needs: [lint-rust]
     steps:
       - uses: actions/checkout@v3
 
@@ -68,7 +71,6 @@ jobs:
   build-rust:
     name: Build Spin
     runs-on: ${{ matrix.os }}
-    needs: [lint-rust]
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
@@ -97,7 +99,6 @@ jobs:
   test-rust:
     name: Test Spin SDK - Rust
     runs-on: ${{ matrix.runner }}
-    needs: [lint-rust]
     strategy:
       matrix:
         runner: [ubuntu-22.04-4core-spin, macos-latest]

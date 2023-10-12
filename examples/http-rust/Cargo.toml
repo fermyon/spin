@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = [ "cdylib" ]
+crate-type = ["cdylib"]
 
 [dependencies]
 # Useful crate to handle errors.
@@ -15,4 +15,5 @@ bytes = "1"
 http = "0.2"
 # The Spin SDK.
 spin-sdk = { path = "../../sdk/rust" }
+serde = { version = "1.0", features = ["derive"] }
 [workspace]

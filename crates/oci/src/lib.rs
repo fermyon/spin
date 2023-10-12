@@ -2,9 +2,9 @@
 #![deny(missing_docs)]
 
 mod auth;
-mod client;
+pub mod client;
 mod loader;
-mod utils;
+pub mod utils;
 
 pub use client::Client;
 pub use loader::OciLoader;

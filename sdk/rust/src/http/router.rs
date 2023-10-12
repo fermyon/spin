@@ -1,8 +1,8 @@
-use super::{responses, Method, Request, Response};
+use super::{responses, IntoResponse, Method, Request, Response};
 use routefinder::{Captures, Router as MethodRouter};
 use std::{collections::HashMap, fmt::Display};
 
-type Handler = dyn Fn(Request, Params) -> anyhow::Result<Response>;
+type Handler = dyn Fn(Request, Params) -> Response;
 
 /// Route parameters extracted from a URI that match a route pattern.
 pub type Params = Captures<'static, 'static>;
@@ -38,7 +38,7 @@ struct RouteMatch<'a> {
 
 impl Router {
     /// Dispatches a request to the appropriate handler along with the URI parameters.
-    pub fn handle<R: Into<Request>>(&self, request: R) -> anyhow::Result<Response> {
+    pub fn handle<R: Into<Request>>(&self, request: R) -> Response {
         let request = request.into();
         let method = request.method;
         // TODO: get just the path
@@ -105,29 +105,45 @@ impl Router {
     }
 
     /// Register a handler at the path for all methods.
-    pub fn any<F>(&mut self, path: &str, handler: F)
+    pub fn any<F, I, O>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Request, Params) -> anyhow::Result<Response> + 'static,
+        F: Fn(I, Params) -> O + 'static,
+        I: From<Request>,
+        O: IntoResponse,
     {
-        self.any_methods.add(path, Box::new(handler)).unwrap();
+        self.any_methods
+            .add(
+                path,
+                Box::new(move |req, params| handler(req.into(), params).into()),
+            )
+            .unwrap();
     }
 
     /// Register a handler at the path for the specified HTTP method.
-    pub fn add<F>(&mut self, path: &str, method: Method, handler: F)
+    pub fn add<F, I, O>(&mut self, path: &str, method: Method, handler: F)
     where
-        F: Fn(Request, Params) -> anyhow::Result<Response> + 'static,
+        F: Fn(I, Params) -> O + 'static,
+        I: TryFrom<Request>,
+        O: IntoResponse,
     {
         self.methods_map
             .entry(method)
             .or_default()
-            .add(path, Box::new(handler))
+            .add(
+                path,
+                Box::new(move |req, params| {
+                    handler(req.try_into().unwrap_or_else(|_| panic!("TODO")), params).into()
+                }),
+            )
             .unwrap();
     }
 
     /// Register a handler at the path for the HTTP GET method.
-    pub fn get<F>(&mut self, path: &str, handler: F)
+    pub fn get<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Request, Params) -> anyhow::Result<Response> + 'static,
+        F: Fn(Req, Params) -> Resp + 'static,
+        Req: TryFrom<Request>,
+        Resp: IntoResponse,
     {
         self.add(path, Method::Get, handler)
     }
@@ -189,12 +205,12 @@ impl Router {
     }
 }
 
-fn not_found(_req: Request, _params: Params) -> anyhow::Result<Response> {
-    Ok(responses::not_found())
+fn not_found(_req: Request, _params: Params) -> Response {
+    responses::not_found()
 }
 
-fn method_not_allowed(_req: Request, _params: Params) -> anyhow::Result<Response> {
-    Ok(responses::method_not_allowed())
+fn method_not_allowed(_req: Request, _params: Params) -> Response {
+    responses::method_not_allowed()
 }
 
 /// A macro to help with constructing a Router from a stream of tokens.
@@ -249,9 +265,9 @@ mod tests {
         }
     }
 
-    fn echo_param(req: Request, params: Params) -> anyhow::Result<Response> {
+    fn echo_param(req: Request, params: Params) -> Response {
         match params.get("x") {
-            Some(path) => Ok(Response::new(200, Some(path.into()))),
+            Some(path) => Response::new(200, Some(path.into())),
             None => not_found(req, params),
         }
     }
@@ -262,7 +278,7 @@ mod tests {
         router.get("/:x", echo_param);
 
         let req = make_request(Method::Post, "/foobar");
-        let res = router.handle(req).unwrap();
+        let res = router.handle(req);
         assert_eq!(res.status, http_types::StatusCode::METHOD_NOT_ALLOWED);
     }
 
@@ -276,7 +292,7 @@ mod tests {
         router.get("/h1/:param", h1);
 
         let req = make_request(Method::Get, "/h1/");
-        let res = router.handle(req).unwrap();
+        let res = router.handle(req);
         assert_eq!(res.status, http_types::StatusCode::NOT_FOUND);
     }
 
@@ -295,7 +311,7 @@ mod tests {
         router.get("/multiply/:x/:y", multiply);
 
         let req = make_request(Method::Get, "/multiply/2/4");
-        let res = router.handle(req).unwrap();
+        let res = router.handle(req);
 
         assert_eq!(res.body.unwrap(), "8".to_owned().into_bytes());
     }
@@ -306,16 +322,16 @@ mod tests {
         router.get("/:x", echo_param);
 
         let req = make_request(Method::Get, "/y");
-        let res = router.handle(req).unwrap();
+        let res = router.handle(req);
 
         assert_eq!(res.body.unwrap(), "y".to_owned().into_bytes());
     }
 
     #[test]
     fn test_wildcard() {
-        fn echo_wildcard(req: Request, params: Params) -> anyhow::Result<Response> {
+        fn echo_wildcard(req: Request, params: Params) -> Response {
             match params.wildcard() {
-                Some(path) => Ok(Response::new(200, Some(path.to_string().into()))),
+                Some(path) => Response::new(200, Some(path.to_string().into())),
                 None => not_found(req, params),
             }
         }
@@ -324,7 +340,7 @@ mod tests {
         router.get("/*", echo_wildcard);
 
         let req = make_request(Method::Get, "/foo/bar");
-        let res = router.handle(req).unwrap();
+        let res = router.handle(req);
         assert_eq!(res.status, http_types::StatusCode::OK);
         assert_eq!(res.body.unwrap(), "foo/bar".to_owned().into_bytes());
     }
@@ -335,7 +351,7 @@ mod tests {
         router.get("/:x/*", echo_param);
 
         let req = make_request(Method::Get, "/foo/bar");
-        let res = router.handle(req).unwrap();
+        let res = router.handle(req);
         assert_eq!(res.body.unwrap(), "foo".to_owned().into_bytes());
     }
 
@@ -365,7 +381,7 @@ mod tests {
         router.get("/posts/*", h2);
 
         let req = make_request(Method::Get, "/posts/2");
-        let res = router.handle(req).unwrap();
+        let res = router.handle(req);
 
         assert_eq!(res.body.unwrap(), "posts/*".to_owned().into_bytes());
     }

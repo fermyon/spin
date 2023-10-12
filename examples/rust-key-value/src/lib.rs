@@ -1,9 +1,5 @@
 use http::{Method, StatusCode};
-use spin_sdk::{
-    http::IntoResponse,
-    http_component,
-    key_value::Store,
-};
+use spin_sdk::{http::IntoResponse, http_component, key_value::Store};
 
 #[http_component]
 fn handle_request(req: http::Request<Option<String>>) -> anyhow::Result<impl IntoResponse> {
@@ -22,7 +18,7 @@ fn handle_request(req: http::Request<Option<String>>) -> anyhow::Result<impl Int
         Method::GET => {
             // Get the value associated with the request URI, or return a 404 if it's not present
             match store.get(req.uri().path())? {
-                Some(value) => (StatusCode::OK, Some(value.into())),
+                Some(value) => (StatusCode::OK, Some(value)),
                 None => (StatusCode::NOT_FOUND, None),
             }
         }

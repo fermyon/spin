@@ -5,6 +5,42 @@ pub use crate::wit::v1::http::send_request as send;
 
 pub use crate::wit::v1::http_types::{Method, Request, Response};
 
+#[cfg(feature = "http")]
+impl<B> From<http_types::Request<B>> for Request
+where
+    for<'a> &'a B: IntoBody,
+{
+    fn from(req: http_types::Request<B>) -> Self {
+        let method = match *req.method() {
+            http_types::Method::GET => Method::Get,
+            http_types::Method::POST => Method::Post,
+            http_types::Method::PUT => Method::Put,
+            http_types::Method::DELETE => Method::Delete,
+            http_types::Method::PATCH => Method::Patch,
+            http_types::Method::HEAD => Method::Head,
+            http_types::Method::OPTIONS => Method::Options,
+            _ => todo!(),
+        };
+        let headers = req
+            .headers()
+            .into_iter()
+            .map(|(n, v)| {
+                (
+                    n.as_str().to_owned(),
+                    String::from_utf8_lossy(v.as_bytes()).into_owned(),
+                )
+            })
+            .collect();
+        Request {
+            method,
+            uri: req.uri().to_string(),
+            headers,
+            params: Vec::new(),
+            body: IntoBody::into(req.body()),
+        }
+    }
+}
+
 impl Display for Method {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
@@ -127,10 +163,16 @@ impl<S: IntoStatusCode, B: IntoBody> IntoResponse for (S, B) {
     }
 }
 
+impl IntoResponse for u16 {
+    fn into(self) -> Response {
+        IntoResponse::into((self, ()))
+    }
+}
+
 #[cfg(feature = "http")]
 impl<B> IntoResponse for http_types::Response<B>
 where
-    for<'a> &'a B: IntoBody,
+    B: IntoBody,
 {
     fn into(self) -> Response {
         Response::new_with_headers(
@@ -144,7 +186,7 @@ where
                     )
                 })
                 .collect(),
-            IntoBody::into(self.body()),
+            IntoBody::into(self.into_body()),
         )
     }
 }
@@ -222,15 +264,33 @@ pub trait IntoBody {
     fn into(self) -> Option<Vec<u8>>;
 }
 
+impl IntoBody for Option<Vec<u8>> {
+    fn into(self) -> Option<Vec<u8>> {
+        self
+    }
+}
+
+impl IntoBody for Vec<u8> {
+    fn into(self) -> Option<Vec<u8>> {
+        Some(self)
+    }
+}
+
 impl IntoBody for Option<bytes::Bytes> {
     fn into(self) -> Option<Vec<u8>> {
         self.map(|b| b.to_vec())
     }
 }
 
-impl IntoBody for &Option<bytes::Bytes> {
+impl IntoBody for () {
     fn into(self) -> Option<Vec<u8>> {
-        self.as_ref().map(|b| b.to_vec())
+        None
+    }
+}
+
+impl IntoBody for &() {
+    fn into(self) -> Option<Vec<u8>> {
+        None
     }
 }
 
@@ -240,7 +300,13 @@ impl IntoBody for &str {
     }
 }
 
-impl IntoBody for &String {
+impl IntoBody for Option<String> {
+    fn into(self) -> Option<Vec<u8>> {
+        self.map(|b| b.into_bytes())
+    }
+}
+
+impl IntoBody for String {
     fn into(self) -> Option<Vec<u8>> {
         Some(self.to_owned().into_bytes())
     }
@@ -313,7 +379,7 @@ impl FromBody for String {
 #[cfg(feature = "http")]
 impl FromBody for bytes::Bytes {
     fn from(body: Vec<u8>) -> Self {
-        body.into()
+        Into::into(body)
     }
 }
 

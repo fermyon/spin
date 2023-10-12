@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Result};
-use http::{HeaderValue, Method};
+use http::{HeaderValue, Method, Request, Response};
 use spin_sdk::{
-    http::{Request, Response},
     http_component,
     mysql::{self, ParameterValue},
 };
@@ -23,7 +22,7 @@ enum RequestAction {
 }
 
 #[http_component]
-fn rust_outbound_mysql(req: Request) -> Result<Response> {
+fn rust_outbound_mysql(req: Request<Option<bytes::Bytes>>) -> Result<Response<Option<String>>> {
     match parse_request(req) {
         RequestAction::List => list(),
         RequestAction::Get(id) => get(id),
@@ -32,7 +31,7 @@ fn rust_outbound_mysql(req: Request) -> Result<Response> {
     }
 }
 
-fn parse_request(req: Request) -> RequestAction {
+fn parse_request(req: Request<Option<bytes::Bytes>>) -> RequestAction {
     match *req.method() {
         Method::GET => match req.headers().get("spin-path-info") {
             None => RequestAction::Error(500),
@@ -80,7 +79,7 @@ fn header_val_to_int(header_val: &HeaderValue) -> Result<Option<i32>, ()> {
     }
 }
 
-fn body_json_to_map(req: &Request) -> Result<HashMap<String, String>> {
+fn body_json_to_map(req: &Request<Option<bytes::Bytes>>) -> Result<HashMap<String, String>> {
     // TODO: easier way?
     let body = match req.body().as_ref() {
         Some(bytes) => bytes.slice(..),
@@ -89,7 +88,7 @@ fn body_json_to_map(req: &Request) -> Result<HashMap<String, String>> {
     Ok(serde_json::from_slice::<HashMap<String, String>>(&body)?)
 }
 
-fn list() -> Result<Response> {
+fn list() -> Result<Response<Option<String>>> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "SELECT id, name, prey, is_finicky FROM pets";
@@ -117,12 +116,10 @@ fn list() -> Result<Response> {
         column_summary,
     );
 
-    Ok(http::Response::builder()
-        .status(200)
-        .body(Some(response.into()))?)
+    Ok(http::Response::builder().status(200).body(Some(response))?)
 }
 
-fn get(id: i32) -> Result<Response> {
+fn get(id: i32) -> Result<Response<Option<String>>> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "SELECT id, name, prey, is_finicky FROM pets WHERE id = ?";
@@ -134,14 +131,16 @@ fn get(id: i32) -> Result<Response> {
         Some(row) => {
             let pet = as_pet(row)?;
             let response = format!("{:?}", pet);
-            Ok(http::Response::builder()
-                .status(200)
-                .body(Some(response.into()))?)
+            Ok(http::Response::builder().status(200).body(Some(response))?)
         }
     }
 }
 
-fn create(name: String, prey: Option<String>, is_finicky: bool) -> Result<Response> {
+fn create(
+    name: String,
+    prey: Option<String>,
+    is_finicky: bool,
+) -> Result<Response<Option<String>>> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let id = max_pet_id(&address)? + 1;
@@ -170,7 +169,7 @@ fn create(name: String, prey: Option<String>, is_finicky: bool) -> Result<Respon
         .body(None)?)
 }
 
-fn error(status: u16) -> Result<Response> {
+fn error(status: u16) -> Result<Response<Option<String>>> {
     Ok(http::Response::builder().status(status).body(None)?)
 }
 

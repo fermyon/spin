@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use anyhow::Result;
+use http::{Request, Response};
 use spin_sdk::{
-    http::{Request, Response},
     http_component,
     pg::{self, Decode},
 };
@@ -40,7 +40,7 @@ impl TryFrom<&pg::Row> for Article {
 }
 
 #[http_component]
-fn process(req: Request) -> Result<Response> {
+fn process(req: Request<Option<bytes::Bytes>>) -> Result<Response<Option<bytes::Bytes>>> {
     match req.uri().path() {
         "/read" => read(req),
         "/write" => write(req),
@@ -51,7 +51,7 @@ fn process(req: Request) -> Result<Response> {
     }
 }
 
-fn read(_req: Request) -> Result<Response> {
+fn read(_req: Request<Option<bytes::Bytes>>) -> Result<Response<Option<bytes::Bytes>>> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "SELECT id, title, content, authorname, coauthor FROM articletest";
@@ -87,7 +87,7 @@ fn read(_req: Request) -> Result<Response> {
         .body(Some(response.into()))?)
 }
 
-fn write(_req: Request) -> Result<Response> {
+fn write(_req: Request<Option<bytes::Bytes>>) -> Result<Response<Option<bytes::Bytes>>> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "INSERT INTO articletest (title, content, authorname) VALUES ('aaa', 'bbb', 'ccc')";
@@ -106,7 +106,7 @@ fn write(_req: Request) -> Result<Response> {
         .body(Some(response.into()))?)
 }
 
-fn pg_backend_pid(_req: Request) -> Result<Response> {
+fn pg_backend_pid(_req: Request<Option<bytes::Bytes>>) -> Result<Response<Option<bytes::Bytes>>> {
     let address = std::env::var(DB_URL_ENV)?;
     let sql = "SELECT pg_backend_pid()";
 

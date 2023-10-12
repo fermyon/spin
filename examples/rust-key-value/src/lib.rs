@@ -22,7 +22,7 @@ fn handle_request(req: http::Request<Option<String>>) -> anyhow::Result<impl Int
         Method::GET => {
             // Get the value associated with the request URI, or return a 404 if it's not present
             match store.get(req.uri().path()) {
-                Ok(value) => (StatusCode::OK, Some(value.into())),
+                Ok(value) => (StatusCode::OK, Some(value)),
                 Err(Error::NoSuchKey) => (StatusCode::NOT_FOUND, None),
                 Err(error) => return Err(error.into()),
             }

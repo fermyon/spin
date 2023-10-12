@@ -1,3 +1,5 @@
+//! Utilities related to distributing Spin apps via OCI registries
+
 use anyhow::{Context, Result};
 use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::write::GzipEncoder;

@@ -54,10 +54,10 @@ impl v2::HostConnection for OutboundPg {
                 .push(
                     build_client(&address)
                         .await
-                        .map_err(|e| v2::Error::ConnectionFailed(format!("{:?}", e)))?,
+                        .map_err(|e| v2::Error::ConnectionFailed(format!("{e:?}")))?,
                 )
+                .map_err(|_| v2::Error::Other("too many connections".into()))
                 .map(Resource::new_own)
-                .map_err(|_| v2::Error::OtherError("too many connections".into()))
         }
         .await)
     }
@@ -385,6 +385,6 @@ fn to_legacy_error(error: v2::Error) -> v1::PgError {
         v2::Error::BadParameter(e) => v1::PgError::BadParameter(e),
         v2::Error::QueryFailed(e) => v1::PgError::QueryFailed(e),
         v2::Error::ValueConversionFailed(e) => v1::PgError::ValueConversionFailed(e),
-        v2::Error::OtherError(e) => v1::PgError::OtherError(e),
+        v2::Error::Other(e) => v1::PgError::OtherError(e),
     }
 }

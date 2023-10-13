@@ -7,7 +7,7 @@ interface postgres {
       bad-parameter(string),
       query-failed(string),
       value-conversion-failed(string),
-      other-error(string)
+      other(string)
   }
 
   /// A connection to a postgres database.

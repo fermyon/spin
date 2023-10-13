@@ -123,7 +123,7 @@ impl CachingStoreState {
             if let Some(previous_task) = previous_task {
                 previous_task
                     .await
-                    .map_err(|e| Error::Io(format!("{e:?}")))??
+                    .map_err(|e| Error::Other(format!("{e:?}")))??
             }
 
             task.await
@@ -134,7 +134,7 @@ impl CachingStoreState {
         if let Some(previous_task) = self.previous_task.take() {
             previous_task
                 .await
-                .map_err(|e| Error::Io(format!("{e:?}")))??
+                .map_err(|e| Error::Other(format!("{e:?}")))??
         }
 
         Ok(())
@@ -148,30 +148,25 @@ struct CachingStore {
 
 #[async_trait]
 impl Store for CachingStore {
-    async fn get(&self, key: &str) -> Result<Vec<u8>, Error> {
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         // Retrieve the specified value from the cache, lazily populating the cache as necessary.
 
         let mut state = self.state.lock().await;
 
         if let Some(value) = state.cache.get(key).cloned() {
-            value
-        } else {
-            // Flush any outstanding writes prior to reading from store.  This is necessary because we need to
-            // guarantee the guest will read its own writes even if entries have been popped off the end of the LRU
-            // cache prior to their corresponding writes reaching the backing store.
-            state.flush().await?;
-
-            let value = match self.inner.get(key).await {
-                Ok(value) => Some(value),
-                Err(Error::NoSuchKey) => None,
-                e => return e,
-            };
-
-            state.cache.put(key.to_owned(), value.clone());
-
-            value
+            return Ok(value);
         }
-        .ok_or(Error::NoSuchKey)
+
+        // Flush any outstanding writes prior to reading from store.  This is necessary because we need to
+        // guarantee the guest will read its own writes even if entries have been popped off the end of the LRU
+        // cache prior to their corresponding writes reaching the backing store.
+        state.flush().await?;
+
+        let value = self.inner.get(key).await?;
+
+        state.cache.put(key.to_owned(), value.clone());
+
+        Ok(value)
     }
 
     async fn set(&self, key: &str, value: &[u8]) -> Result<(), Error> {
@@ -204,11 +199,7 @@ impl Store for CachingStore {
     }
 
     async fn exists(&self, key: &str) -> Result<bool, Error> {
-        match self.get(key).await {
-            Ok(_) => Ok(true),
-            Err(Error::NoSuchKey) => Ok(false),
-            Err(e) => Err(e),
-        }
+        Ok(self.get(key).await?.is_some())
     }
 
     async fn get_keys(&self) -> Result<Vec<String>, Error> {

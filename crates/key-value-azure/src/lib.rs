@@ -46,9 +46,9 @@ struct AzureCosmosStore {
 
 #[async_trait]
 impl Store for AzureCosmosStore {
-    async fn get(&self, key: &str) -> Result<Vec<u8>, Error> {
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         let pair = self.get_pair(key).await?;
-        Ok(pair.value)
+        Ok(pair.map(|p| p.value))
     }
 
     async fn set(&self, key: &str, value: &[u8]) -> Result<(), Error> {
@@ -73,11 +73,7 @@ impl Store for AzureCosmosStore {
     }
 
     async fn exists(&self, key: &str) -> Result<bool, Error> {
-        match self.get_pair(key).await {
-            Ok(_) => Ok(true),
-            Err(Error::NoSuchKey) => Ok(false),
-            Err(e) => Err(e),
-        }
+        Ok(self.get_pair(key).await?.is_some())
     }
 
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
@@ -86,7 +82,7 @@ impl Store for AzureCosmosStore {
 }
 
 impl AzureCosmosStore {
-    async fn get_pair(&self, key: &str) -> Result<Pair, Error> {
+    async fn get_pair(&self, key: &str) -> Result<Option<Pair>, Error> {
         let query = self
             .client
             .query_documents(Query::new(format!("SELECT * FROM c WHERE c.id='{}'", key)))
@@ -100,11 +96,11 @@ impl AzureCosmosStore {
             Some(r) => {
                 let r = r.map_err(log_error)?;
                 match r.results.first().cloned() {
-                    Some((p, _)) => Ok(p),
-                    None => Err(Error::NoSuchKey),
+                    Some((p, _)) => Ok(Some(p)),
+                    None => Ok(None),
                 }
             }
-            None => Err(Error::NoSuchKey),
+            None => Ok(None),
         }
     }
 

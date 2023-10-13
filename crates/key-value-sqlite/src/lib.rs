@@ -74,7 +74,7 @@ struct SqliteStore {
 
 #[async_trait]
 impl Store for SqliteStore {
-    async fn get(&self, key: &str) -> Result<Vec<u8>, Error> {
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         task::block_in_place(|| {
             self.connection
                 .lock()
@@ -84,7 +84,7 @@ impl Store for SqliteStore {
                 .query_map([&self.name, key], |row| row.get(0))
                 .map_err(log_error)?
                 .next()
-                .ok_or(Error::NoSuchKey)?
+                .transpose()
                 .map_err(log_error)
         })
     }
@@ -119,11 +119,7 @@ impl Store for SqliteStore {
     }
 
     async fn exists(&self, key: &str) -> Result<bool, Error> {
-        match self.get(key).await {
-            Ok(_) => Ok(true),
-            Err(Error::NoSuchKey) => Ok(false),
-            Err(e) => Err(e),
-        }
+        Ok(self.get(key).await?.is_some())
     }
 
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
@@ -163,11 +159,6 @@ mod test {
         );
 
         assert!(matches!(
-            kv.exists(Resource::new_own(42), "bar".to_owned()).await?,
-            Err(Error::InvalidStore)
-        ));
-
-        assert!(matches!(
             kv.open("foo".to_owned()).await?,
             Err(Error::NoSuchStore)
         ));
@@ -186,7 +177,7 @@ mod test {
 
         assert!(matches!(
             kv.get(Resource::new_own(rep), "bar".to_owned()).await?,
-            Err(Error::NoSuchKey)
+            Ok(None)
         ));
 
         kv.set(Resource::new_own(rep), "bar".to_owned(), b"baz".to_vec())
@@ -198,16 +189,20 @@ mod test {
         );
 
         assert_eq!(
-            b"baz" as &[_],
-            &kv.get(Resource::new_own(rep), "bar".to_owned()).await??
+            Some(b"baz" as &[_]),
+            kv.get(Resource::new_own(rep), "bar".to_owned())
+                .await??
+                .as_deref()
         );
 
         kv.set(Resource::new_own(rep), "bar".to_owned(), b"wow".to_vec())
             .await??;
 
         assert_eq!(
-            b"wow" as &[_],
-            &kv.get(Resource::new_own(rep), "bar".to_owned()).await??
+            Some(b"wow" as &[_]),
+            kv.get(Resource::new_own(rep), "bar".to_owned())
+                .await??
+                .as_deref()
         );
 
         assert_eq!(
@@ -230,15 +225,10 @@ mod test {
 
         assert!(matches!(
             kv.get(Resource::new_own(rep), "bar".to_owned()).await?,
-            Err(Error::NoSuchKey)
+            Ok(None)
         ));
 
         kv.drop(Resource::new_own(rep))?;
-
-        assert!(matches!(
-            kv.exists(Resource::new_own(rep), "bar".to_owned()).await?,
-            Err(Error::InvalidStore)
-        ));
 
         Ok(())
     }

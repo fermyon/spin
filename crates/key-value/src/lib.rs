@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use spin_app::MetadataKey;
 use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_world::v2::key_value;
@@ -25,7 +25,7 @@ pub trait StoreManager: Sync + Send {
 
 #[async_trait]
 pub trait Store: Sync + Send {
-    async fn get(&self, key: &str) -> Result<Vec<u8>, Error>;
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error>;
     async fn set(&self, key: &str, value: &[u8]) -> Result<(), Error>;
     async fn delete(&self, key: &str) -> Result<(), Error>;
     async fn exists(&self, key: &str) -> Result<bool, Error>;
@@ -54,6 +54,10 @@ impl KeyValueDispatch {
     pub fn init(&mut self, allowed_stores: HashSet<String>, manager: Arc<dyn StoreManager>) {
         self.allowed_stores = allowed_stores;
         self.manager = manager;
+    }
+
+    pub fn get_store(&self, store: Resource<key_value::Store>) -> anyhow::Result<&Arc<dyn Store>> {
+        self.stores.get(store.rep()).context("invalid store")
     }
 }
 
@@ -87,15 +91,9 @@ impl key_value::HostStore for KeyValueDispatch {
         &mut self,
         store: Resource<key_value::Store>,
         key: String,
-    ) -> Result<Result<Vec<u8>, Error>> {
-        Ok(async {
-            self.stores
-                .get(store.rep())
-                .ok_or(Error::InvalidStore)?
-                .get(&key)
-                .await
-        }
-        .await)
+    ) -> Result<Result<Option<Vec<u8>>, Error>> {
+        let store = self.get_store(store)?;
+        Ok(store.get(&key).await)
     }
 
     async fn set(
@@ -104,14 +102,8 @@ impl key_value::HostStore for KeyValueDispatch {
         key: String,
         value: Vec<u8>,
     ) -> Result<Result<(), Error>> {
-        Ok(async {
-            self.stores
-                .get(store.rep())
-                .ok_or(Error::InvalidStore)?
-                .set(&key, &value)
-                .await
-        }
-        .await)
+        let store = self.get_store(store)?;
+        Ok(store.set(&key, &value).await)
     }
 
     async fn delete(
@@ -119,14 +111,8 @@ impl key_value::HostStore for KeyValueDispatch {
         store: Resource<key_value::Store>,
         key: String,
     ) -> Result<Result<(), Error>> {
-        Ok(async {
-            self.stores
-                .get(store.rep())
-                .ok_or(Error::InvalidStore)?
-                .delete(&key)
-                .await
-        }
-        .await)
+        let store = self.get_store(store)?;
+        Ok(store.delete(&key).await)
     }
 
     async fn exists(
@@ -134,28 +120,16 @@ impl key_value::HostStore for KeyValueDispatch {
         store: Resource<key_value::Store>,
         key: String,
     ) -> Result<Result<bool, Error>> {
-        Ok(async {
-            self.stores
-                .get(store.rep())
-                .ok_or(Error::InvalidStore)?
-                .exists(&key)
-                .await
-        }
-        .await)
+        let store = self.get_store(store)?;
+        Ok(store.exists(&key).await)
     }
 
     async fn get_keys(
         &mut self,
         store: Resource<key_value::Store>,
     ) -> Result<Result<Vec<String>, Error>> {
-        Ok(async {
-            self.stores
-                .get(store.rep())
-                .ok_or(Error::InvalidStore)?
-                .get_keys()
-                .await
-        }
-        .await)
+        let store = self.get_store(store)?;
+        Ok(store.get_keys().await)
     }
 
     fn drop(&mut self, store: Resource<key_value::Store>) -> Result<()> {
@@ -166,7 +140,7 @@ impl key_value::HostStore for KeyValueDispatch {
 
 pub fn log_error(err: impl std::fmt::Debug) -> Error {
     tracing::warn!("key-value error: {err:?}");
-    Error::Io(format!("{err:?}"))
+    Error::Other(format!("{err:?}"))
 }
 
 use spin_world::v1::key_value::Error as LegacyError;
@@ -176,9 +150,7 @@ fn to_legacy_error(value: key_value::Error) -> LegacyError {
         Error::StoreTableFull => LegacyError::StoreTableFull,
         Error::NoSuchStore => LegacyError::NoSuchStore,
         Error::AccessDenied => LegacyError::AccessDenied,
-        Error::InvalidStore => LegacyError::InvalidStore,
-        Error::NoSuchKey => LegacyError::NoSuchKey,
-        Error::Io(s) => LegacyError::Io(s),
+        Error::Other(s) => LegacyError::Io(s),
     }
 }
 
@@ -192,7 +164,9 @@ impl spin_world::v1::key_value::Host for KeyValueDispatch {
     async fn get(&mut self, store: u32, key: String) -> Result<Result<Vec<u8>, LegacyError>> {
         let this = Resource::new_borrow(store);
         let result = <Self as key_value::HostStore>::get(self, this, key).await?;
-        Ok(result.map_err(to_legacy_error))
+        Ok(result
+            .map_err(to_legacy_error)
+            .and_then(|v| v.ok_or(LegacyError::NoSuchKey)))
     }
 
     async fn set(

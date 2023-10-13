@@ -53,15 +53,9 @@ struct RedisStore {
 
 #[async_trait]
 impl Store for RedisStore {
-    async fn get(&self, key: &str) -> Result<Vec<u8>, Error> {
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         let mut conn = self.connection.lock().await;
-        let result: Vec<u8> = conn.get(key).await.map_err(log_error)?;
-
-        if result.is_empty() {
-            Err(Error::NoSuchKey)
-        } else {
-            Ok(result)
-        }
+        conn.get(key).await.map_err(log_error)
     }
 
     async fn set(&self, key: &str, value: &[u8]) -> Result<(), Error> {

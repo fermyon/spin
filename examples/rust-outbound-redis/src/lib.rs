@@ -35,7 +35,7 @@ fn publish(_req: http::Request<()>) -> Result<impl IntoResponse> {
 
     // Publish to Redis
     match redis::publish(&address, &channel, &payload) {
-        Ok(()) => Ok(IntoResponse::into(200)),
+        Ok(()) => Ok(IntoResponse::into((200, ()))),
         Err(_e) => Ok(internal_server_error()),
     }
 }

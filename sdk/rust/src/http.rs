@@ -9,10 +9,10 @@ pub use crate::wit::v1::http_types::{Method, Request, Response};
 /// An error encountered when performing an HTTP request
 #[derive(thiserror::Error, Debug)]
 pub enum SendError {
-    ///
+    /// Error converting to a request
     #[error(transparent)]
     RequestConversion(Box<dyn std::error::Error + Send + Sync>),
-    /// Error converting to the response type
+    /// Error converting from a response
     #[error(transparent)]
     ResponseConversion(Box<dyn std::error::Error + Send + Sync>),
     /// An HTTP error
@@ -21,15 +21,15 @@ pub enum SendError {
 }
 
 /// Perform an HTTP request getting back a response or an error
-pub fn send<I: TryIntoRequest, O: TryFrom<Response>>(req: I) -> Result<O, SendError>
+pub fn send<I, O>(req: I) -> Result<O, SendError>
 where
-    I: TryIntoRequest,
+    I: TryInto<Request>,
     I::Error: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
     O: TryFrom<Response>,
     O::Error: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
 {
     let response = send_request(
-        &req.try_into_request()
+        &req.try_into()
             .map_err(|e| SendError::RequestConversion(e.into()))?,
     )
     .map_err(SendError::Http)?;
@@ -38,30 +38,15 @@ where
         .map_err(|e: O::Error| SendError::ResponseConversion(e.into()))
 }
 
-/// A trait for converting into a `Request`
-pub trait TryIntoRequest {
-    /// TODO
-    type Error;
-    /// Turn `self` into a `Request`
-    fn try_into_request(self) -> Result<Request, Self::Error>;
-}
-
-impl<R: TryInto<Request>> TryIntoRequest for R {
-    type Error = R::Error;
-    fn try_into_request(self) -> Result<Request, Self::Error> {
-        self.try_into()
-    }
-}
-
 #[cfg(feature = "http")]
-impl<B> TryIntoRequest for http_types::Request<B>
+impl<B> TryFrom<http_types::Request<B>> for Request
 where
-    for<'a> &'a B: TryIntoBody,
-    for<'a> <&'a B as TryIntoBody>::Error: std::error::Error + Send + Sync + 'static,
+    B: TryIntoBody,
+    B::Error: std::error::Error + Send + Sync + 'static,
 {
     type Error = anyhow::Error;
-    fn try_into_request(self) -> Result<Request, Self::Error> {
-        let method = match self.method() {
+    fn try_from(req: http_types::Request<B>) -> Result<Self, Self::Error> {
+        let method = match req.method() {
             &http_types::Method::GET => Method::Get,
             &http_types::Method::POST => Method::Post,
             &http_types::Method::PUT => Method::Put,
@@ -69,9 +54,9 @@ where
             &http_types::Method::PATCH => Method::Patch,
             &http_types::Method::HEAD => Method::Head,
             &http_types::Method::OPTIONS => Method::Options,
-            m => panic!("Unsupported method: {m}"),
+            m => anyhow::bail!("Unsupported method: {m}"),
         };
-        let headers = self
+        let headers = req
             .headers()
             .into_iter()
             .map(|(n, v)| {
@@ -83,10 +68,10 @@ where
             .collect();
         Ok(Request {
             method,
-            uri: self.uri().to_string(),
+            uri: req.uri().to_string(),
             headers,
             params: Vec::new(),
-            body: <&B as TryIntoBody>::try_into(self.body())?,
+            body: TryIntoBody::try_into(req.into_body())?,
         })
     }
 }
@@ -262,12 +247,6 @@ impl<S: IntoStatusCode, B: IntoBody> IntoResponse for (S, B) {
     }
 }
 
-impl IntoResponse for u16 {
-    fn into(self) -> Response {
-        IntoResponse::into((self, ()))
-    }
-}
-
 #[cfg(feature = "http")]
 impl<B> IntoResponse for http_types::Response<B>
 where
@@ -388,11 +367,11 @@ impl IntoStatusCode for http_types::StatusCode {
     }
 }
 
-/// TODO
+/// A trait for any type that can be turned into a `Response` body or fail
 pub trait TryIntoBody {
-    ///
+    /// The type of error if the conversion fails
     type Error;
-    ///
+    /// Turn `self` into an Error
     fn try_into(self) -> Result<Option<Vec<u8>>, Self::Error>;
 }
 
@@ -432,18 +411,6 @@ impl IntoBody for bytes::Bytes {
 }
 
 impl IntoBody for () {
-    fn into(self) -> Option<Vec<u8>> {
-        None
-    }
-}
-
-impl IntoBody for &Option<()> {
-    fn into(self) -> Option<Vec<u8>> {
-        None
-    }
-}
-
-impl IntoBody for &() {
     fn into(self) -> Option<Vec<u8>> {
         None
     }

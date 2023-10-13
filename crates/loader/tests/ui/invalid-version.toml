@@ -7,6 +7,6 @@ version = "6.11.2"
 
 [[component]]
 id = "abc"
-source = "nope/nope/nope"
+source = "wasm/dummy.wasm"
 [component.trigger]
 route = "/test"

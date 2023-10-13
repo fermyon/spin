@@ -1,0 +1,11 @@
+spin_version = "1"
+name = "chain-of-command"
+trigger = {type = "http"}
+
+[[component]]
+id = "web"
+[component.source]
+url = "https://example.com/wasm.wasm.wasm"
+digest = "not-a-digest"
+[component.trigger]
+route = "/dont/test"

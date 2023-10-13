@@ -1,0 +1,7 @@
+Failed to load Spin app from "<test-dir>/invalid-url-in-allowed-http-hosts.toml"
+
+Caused by:
+    0: Failed to load component `hello`
+    1: One or more allowed_http_hosts entries was invalid:
+       ftp://random-data-api.fermyon.app isn't a valid host or host:port string
+       example.com/wib/wob contains a path, should be host and optional port only

@@ -1,0 +1,41 @@
+{
+  "spin_lock_version": 0,
+  "metadata": {
+    "name": "spin-hello-world-duplicate",
+    "origin": "file://<test-dir>/invalid-manifest-duplicate-id.toml",
+    "trigger": {
+      "type": "http"
+    },
+    "triggers": {
+      "http": {}
+    },
+    "version": "1.0.0"
+  },
+  "triggers": [
+    {
+      "id": "trigger-hello",
+      "trigger_type": "http",
+      "trigger_config": {
+        "component": "hello",
+        "route": "/hello"
+      }
+    },
+    {
+      "id": "trigger-hello",
+      "trigger_type": "http",
+      "trigger_config": {
+        "component": "hello",
+        "route": "/hello"
+      }
+    }
+  ],
+  "components": [
+    {
+      "id": "hello",
+      "source": {
+        "content_type": "application/wasm",
+        "source": "file://<test-dir>/wasm/dummy.wasm"
+      }
+    }
+  ]
+}

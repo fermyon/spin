@@ -5,7 +5,7 @@ trigger = { type = "http" }
 
 [[component]]
 id = "hello"
-source = "path/to/wasm/file.wasm"
+source = "wasm/dummy.wasm"
 allowed_http_hosts = ["insecure:allow-all", "random-data-api.fermyon.app"]
 [component.trigger]
 route = "/hello"

@@ -1,6 +1,5 @@
 pub mod cli;
 pub mod loader;
-pub mod locked;
 mod runtime_config;
 mod stdio;
 
@@ -12,7 +11,7 @@ use indexmap::IndexMap;
 use runtime_config::llm::LLmOptions;
 use serde::de::DeserializeOwned;
 
-use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp};
+use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp, APP_NAME_KEY};
 use spin_core::{
     Config, Engine, EngineBuilder, Instance, InstancePre, ModuleInstance, ModuleInstancePre, Store,
     StoreBuilder, WasiVersion,
@@ -149,7 +148,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 
         let app = self.loader.load_owned_app(app_uri).await?;
 
-        let app_name = app.borrowed().require_metadata(locked::NAME_KEY)?;
+        let app_name = app.borrowed().require_metadata(APP_NAME_KEY)?;
 
         self.hooks
             .iter_mut()

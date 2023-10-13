@@ -6,7 +6,6 @@ trigger = {type = "http"}
 version = "6.11.2"
 
 [[component]]
-files = ["file.txt", { source = "valid-with-files", destination = "/vwf" }, "subdir/another.txt"]
 id = "four-lights"
 source = "wasm/dummy.wasm"
 [component.trigger]
@@ -17,8 +16,8 @@ env1 = "first"
 env2 = "second"
 
 [[component]]
-id = "this used to test Bindle but is no longer used; kept around because some tests index into the component array"
-source = "nope/nope/nope"
+id = "old-test"
+source = "wasm/dummy.wasm"
 [component.trigger]
 route = "/test"
 
@@ -26,6 +25,6 @@ route = "/test"
 id = "web"
 [component.source]
 url = "https://example.com/wasm.wasm.wasm"
-digest = "sha256:0000"
+digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 [component.trigger]
 route = "/dont/test"

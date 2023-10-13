@@ -1,4 +1,0 @@
-Cannot read spin.toml manifest from "<root-dir>/invalid-manifest.toml"
-
-Caused by:
-    expected an equals, found a newline at line 6 column 4

@@ -123,7 +123,7 @@ impl CachingStoreState {
             if let Some(previous_task) = previous_task {
                 previous_task
                     .await
-                    .map_err(|e| Error::Io(format!("{e:?}")))??
+                    .map_err(|e| Error::Other(format!("{e:?}")))??
             }
 
             task.await
@@ -134,7 +134,7 @@ impl CachingStoreState {
         if let Some(previous_task) = self.previous_task.take() {
             previous_task
                 .await
-                .map_err(|e| Error::Io(format!("{e:?}")))??
+                .map_err(|e| Error::Other(format!("{e:?}")))??
         }
 
         Ok(())

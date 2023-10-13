@@ -42,6 +42,6 @@ interface key-value {
     access-denied,
 
     /// Some implementation-specific error has occurred (e.g. I/O)
-    io(string)
+    other(string)
   }
 }

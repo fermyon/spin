@@ -140,7 +140,7 @@ impl key_value::HostStore for KeyValueDispatch {
 
 pub fn log_error(err: impl std::fmt::Debug) -> Error {
     tracing::warn!("key-value error: {err:?}");
-    Error::Io(format!("{err:?}"))
+    Error::Other(format!("{err:?}"))
 }
 
 use spin_world::v1::key_value::Error as LegacyError;
@@ -150,7 +150,7 @@ fn to_legacy_error(value: key_value::Error) -> LegacyError {
         Error::StoreTableFull => LegacyError::StoreTableFull,
         Error::NoSuchStore => LegacyError::NoSuchStore,
         Error::AccessDenied => LegacyError::AccessDenied,
-        Error::Io(s) => LegacyError::Io(s),
+        Error::Other(s) => LegacyError::Io(s),
     }
 }
 
@@ -166,7 +166,7 @@ impl spin_world::v1::key_value::Host for KeyValueDispatch {
         let result = <Self as key_value::HostStore>::get(self, this, key).await?;
         Ok(result
             .map_err(to_legacy_error)
-            .map(|v| v.unwrap_or_default()))
+            .and_then(|v| v.ok_or(LegacyError::NoSuchKey)))
     }
 
     async fn set(

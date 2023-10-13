@@ -1,0 +1,50 @@
+spin_manifest_version = 2
+
+[application]
+name = "maximal"
+version = "9999.9.9"
+description = "All the features, all the time"
+authors = ["alice@example.com", "bob@example.com"]
+
+[application.trigger.fake]
+global_option = true
+
+[variables.var_one]
+default = "Default"
+
+[variables.var_TWO]
+required = true
+secret = true
+
+[[trigger.fake]]
+id = "trigger-minimal-component"
+component = "minimal-component"
+
+[[trigger.fake]]
+id = "trigger-maximal-component"
+component = "maximal-component"
+option = true
+
+[component.minimal-component]
+source = "max-a.wasm"
+
+[component.maximal-component]
+description = "My fine component"
+files = ["pattern/*", { source = "placement", destination = "/" }]
+exclude_files = ["**/secret"]
+allowed_http_hosts = ["example.com"]
+key_value_stores = ["default"]
+sqlite_databases = ["default"]
+ai_models = ["llama2-chat"]
+
+[component.maximal-component.source]
+url = "http://example.test/max-b.wasm"
+digest = "sha256:abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"
+
+[component.maximal-component.environment]
+VAR = "val"
+
+[component.maximal-component.build]
+command = "cargo build"
+workdir = "my-component"
+watch = ["src/**/*.rs"]

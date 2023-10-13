@@ -1,0 +1,20 @@
+spin_manifest_version = 2
+
+[application]
+name = "update-component-case"
+
+[application.trigger.fake]
+
+[[trigger.fake]]
+id = "trigger-snake-case"
+component = "snake-case"
+
+[[trigger.fake]]
+id = "trigger-mixedcase"
+component = "mixedcase"
+
+[component.snake-case]
+source = "wasm.wasm"
+
+[component.mixedcase]
+source = "wasm.wasm"

@@ -5,7 +5,21 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-indexmap = "1"
-serde = { version = "1.0", features = [ "derive" ] }
+anyhow = "1.0.75"
+indexmap = { version = "1", features = ["serde"] }
+outbound-http = { path = "../outbound-http" }
+serde = { version = "1.0", features = ["derive"] }
+spin-app = { path = "../app" }
 thiserror = "1"
-toml = "0.5"
+toml = { version = "0.8.0", features = ["preserve_order"] }
+
+[dev-dependencies]
+anyhow  = "1.0.75"
+glob = "0.3.1"
+serde_json = "1.0"
+ui-testing = { path = "../ui-testing" }
+
+[[test]]
+name = "ui"
+path = "tests/ui.rs"
+harness = false

@@ -1,0 +1,11 @@
+spin_manifest_version = "1"
+name = "update-component-case"
+trigger = { type = "fake" }
+[[component]]
+id = "snake_case"
+source = "wasm.wasm"
+trigger = {}
+[[component]]
+id = "mixedCase"
+source = "wasm.wasm"
+trigger = {}

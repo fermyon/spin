@@ -1,0 +1,15 @@
+{
+  "spin_manifest_version": 2,
+  "application": {
+    "name": "minimal-v2"
+  },
+  "trigger": {
+    "example": [
+      {
+        "component": {
+          "source": "example.wasm"
+        }
+      }
+    ]
+  }
+}

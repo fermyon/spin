@@ -1,7 +1,15 @@
 use std::fmt::Display;
 use std::hash::Hash;
 
-pub use crate::wit::v1::http::send_request as send;
+use crate::wit::v1::{
+    http::{self, send_request},
+    http_types::HttpError,
+};
+
+/// TODO
+pub fn send<R: Into<http::Request>>(req: R) -> Result<Response, HttpError> {
+    send_request(&req.into())
+}
 
 pub use crate::wit::v1::http_types::{Method, Request, Response};
 
@@ -95,8 +103,8 @@ impl<B: serde::de::DeserializeOwned> TryFrom<Request> for Json<B> {
     }
 }
 
-impl<B: FromBody> TryFrom<Request> for http_types::Request<Option<B>> {
-    type Error = ();
+impl<B: TryFromBody> TryFrom<Request> for http_types::Request<Option<B>> {
+    type Error = B::Error;
     fn try_from(value: Request) -> Result<Self, Self::Error> {
         let method = match value.method {
             Method::Get => http_types::Method::GET,
@@ -111,7 +119,9 @@ impl<B: FromBody> TryFrom<Request> for http_types::Request<Option<B>> {
         for (n, v) in value.headers {
             builder = builder.header(n, v);
         }
-        Ok(builder.body(value.body.map(B::from)).unwrap())
+        Ok(builder
+            .body(value.body.map(B::try_from).transpose()?)
+            .unwrap())
     }
 }
 
@@ -129,6 +139,19 @@ impl<B: TryFromBody> TryFrom<Request> for http_types::Request<B> {
         };
         let mut builder = http_types::Request::builder().uri(value.uri).method(method);
         for (n, v) in value.headers {
+            builder = builder.header(n, v);
+        }
+        Ok(builder
+            .body(B::try_from(value.body.unwrap_or_default())?)
+            .unwrap())
+    }
+}
+
+impl<B: TryFromBody> TryFrom<Response> for http_types::Response<B> {
+    type Error = B::Error;
+    fn try_from(value: Response) -> Result<Self, Self::Error> {
+        let mut builder = http_types::Response::builder().status(value.status);
+        for (n, v) in value.headers.unwrap_or_default() {
             builder = builder.header(n, v);
         }
         Ok(builder
@@ -264,9 +287,9 @@ pub trait IntoBody {
     fn into(self) -> Option<Vec<u8>>;
 }
 
-impl IntoBody for Option<Vec<u8>> {
+impl<T: IntoBody> IntoBody for Option<T> {
     fn into(self) -> Option<Vec<u8>> {
-        self
+        self.and_then(|b| IntoBody::into(b))
     }
 }
 
@@ -276,13 +299,19 @@ impl IntoBody for Vec<u8> {
     }
 }
 
-impl IntoBody for Option<bytes::Bytes> {
+impl IntoBody for bytes::Bytes {
     fn into(self) -> Option<Vec<u8>> {
-        self.map(|b| b.to_vec())
+        Some(self.to_vec())
     }
 }
 
 impl IntoBody for () {
+    fn into(self) -> Option<Vec<u8>> {
+        None
+    }
+}
+
+impl IntoBody for &Option<()> {
     fn into(self) -> Option<Vec<u8>> {
         None
     }
@@ -297,12 +326,6 @@ impl IntoBody for &() {
 impl IntoBody for &str {
     fn into(self) -> Option<Vec<u8>> {
         Some(self.to_owned().into_bytes())
-    }
-}
-
-impl IntoBody for Option<String> {
-    fn into(self) -> Option<Vec<u8>> {
-        self.map(|b| b.into_bytes())
     }
 }
 
@@ -339,6 +362,29 @@ pub trait FromBody {
     fn from(body: Vec<u8>) -> Self;
 }
 
+impl FromBody for Vec<u8> {
+    fn from(body: Vec<u8>) -> Self {
+        body
+    }
+}
+
+impl FromBody for () {
+    fn from(_body: Vec<u8>) -> Self {}
+}
+
+impl FromBody for String {
+    fn from(body: Vec<u8>) -> Self {
+        String::from_utf8_lossy(&body).into_owned()
+    }
+}
+
+#[cfg(feature = "http")]
+impl FromBody for bytes::Bytes {
+    fn from(body: Vec<u8>) -> Self {
+        Into::into(body)
+    }
+}
+
 /// A Json extractor
 #[derive(Debug)]
 pub struct Json<T>(pub T);
@@ -355,31 +401,6 @@ impl<T> std::ops::Deref for Json<T> {
 impl<T: serde::de::DeserializeOwned> FromBody for Json<T> {
     fn from(body: Vec<u8>) -> Self {
         Json(serde_json::from_slice(&body).unwrap())
-    }
-}
-
-impl FromBody for Vec<u8> {
-    fn from(body: Vec<u8>) -> Self {
-        body
-    }
-}
-
-impl FromBody for () {
-    fn from(_body: Vec<u8>) -> Self {
-        ()
-    }
-}
-
-impl FromBody for String {
-    fn from(body: Vec<u8>) -> Self {
-        String::from_utf8_lossy(&body).into_owned()
-    }
-}
-
-#[cfg(feature = "http")]
-impl FromBody for bytes::Bytes {
-    fn from(body: Vec<u8>) -> Self {
-        Into::into(body)
     }
 }
 

@@ -1,12 +1,8 @@
 use anyhow::{ensure, Result};
-use spin_sdk::{
-    config,
-    http::{Request, Response},
-    http_component,
-};
+use spin_sdk::{config, http_component};
 
 #[http_component]
-fn handle_request(req: Request) -> Result<Response> {
+fn handle_request(req: http::Request<()>) -> Result<http::Response<()>> {
     let query = req
         .uri()
         .query()
@@ -24,5 +20,5 @@ fn handle_request(req: Request) -> Result<Response> {
         expected_password_value
     );
 
-    Ok(http::Response::builder().status(200).body(None)?)
+    Ok(http::Response::builder().status(200).body(())?)
 }

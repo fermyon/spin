@@ -1,19 +1,20 @@
 use anyhow::Result;
 use spin_sdk::{
-    http::{Request, Response},
+    http::{IntoResponse, Request},
     http_component,
 };
 
 /// Send an HTTP request and return the response.
 #[http_component]
-fn send_outbound(_req: Request) -> Result<Response> {
-    let mut res = spin_sdk::outbound_http::send_request(
+fn send_outbound(_req: Request) -> Result<impl IntoResponse> {
+    let res = spin_sdk::http::send(
         http::Request::builder()
             .method("GET")
             .uri("/hello") // relative routes are not yet supported in cloud
             .body(None)
             .unwrap(),
     )?;
+    let mut res: http::Response<()> = res.try_into()?;
     res.headers_mut()
         .insert("spin-component", "rust-outbound-http".try_into()?);
     println!("{:?}", res);

@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 use spin_sdk::{
-    http::{Request, Response},
     http_component,
     redis::{self, RedisParameter, RedisResult},
 };
@@ -9,7 +8,7 @@ use std::collections::HashSet;
 const REDIS_ADDRESS_ENV: &str = "REDIS_ADDRESS";
 
 #[http_component]
-fn test(_req: Request) -> Result<Response> {
+fn test(_req: http::Request<()>) -> Result<http::Response<()>> {
     let address = std::env::var(REDIS_ADDRESS_ENV)?;
 
     redis::set(&address, "spin-example-get-set", &b"Eureka!".to_vec())
@@ -150,5 +149,5 @@ fn test(_req: Request) -> Result<Response> {
             .collect::<HashSet<_>>()
     );
 
-    Ok(http::Response::builder().status(204).body(None)?)
+    Ok(http::Response::builder().status(204).body(())?)
 }

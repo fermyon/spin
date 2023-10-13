@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 use anyhow::Result;
 use spin_sdk::{
-    http::{Request, Response},
     http_component,
     pg::{self, Decode},
 };
@@ -41,7 +40,7 @@ struct GeneralRow<'a> {
 }
 
 #[http_component]
-fn process(req: Request) -> Result<Response> {
+fn process(req: http::Request<()>) -> Result<http::Response<String>> {
     match req.uri().path() {
         "/test_character_types" => test_character_types(req),
         "/test_numeric_types" => test_numeric_types(req),
@@ -49,11 +48,11 @@ fn process(req: Request) -> Result<Response> {
         "/pg_backend_pid" => pg_backend_pid(req),
         _ => Ok(http::Response::builder()
             .status(404)
-            .body(Some("Not found".into()))?),
+            .body("Not found".into())?),
     }
 }
 
-fn test_numeric_types(_req: Request) -> Result<Response> {
+fn test_numeric_types(_req: http::Request<()>) -> Result<http::Response<String>> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let create_table_sql = r#"
@@ -151,12 +150,10 @@ fn test_numeric_types(_req: Request) -> Result<Response> {
         column_summary,
     );
 
-    Ok(http::Response::builder()
-        .status(200)
-        .body(Some(response.into()))?)
+    Ok(http::Response::builder().status(200).body(response)?)
 }
 
-fn test_character_types(_req: Request) -> Result<Response> {
+fn test_character_types(_req: http::Request<()>) -> Result<http::Response<String>> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let create_table_sql = r#"
@@ -216,12 +213,10 @@ fn test_character_types(_req: Request) -> Result<Response> {
         column_summary,
     );
 
-    Ok(http::Response::builder()
-        .status(200)
-        .body(Some(response.into()))?)
+    Ok(http::Response::builder().status(200).body(response)?)
 }
 
-fn test_general_types(_req: Request) -> Result<Response> {
+fn test_general_types(_req: http::Request<()>) -> Result<http::Response<String>> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let create_table_sql = r#"
@@ -281,12 +276,10 @@ fn test_general_types(_req: Request) -> Result<Response> {
         column_summary,
     );
 
-    Ok(http::Response::builder()
-        .status(200)
-        .body(Some(response.into()))?)
+    Ok(http::Response::builder().status(200).body(response)?)
 }
 
-fn pg_backend_pid(_req: Request) -> Result<Response> {
+fn pg_backend_pid(_req: http::Request<()>) -> Result<http::Response<String>> {
     let address = std::env::var(DB_URL_ENV)?;
     let sql = "SELECT pg_backend_pid()";
 
@@ -301,9 +294,7 @@ fn pg_backend_pid(_req: Request) -> Result<Response> {
 
     let response = format!("pg_backend_pid: {}\n", get_pid()?);
 
-    Ok(http::Response::builder()
-        .status(200)
-        .body(Some(response.into()))?)
+    Ok(http::Response::builder().status(200).body(response)?)
 }
 
 fn format_col(column: &pg::Column) -> String {

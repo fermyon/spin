@@ -93,42 +93,76 @@ impl Response {
     }
 }
 
+impl<B: TryFromBody> TryFrom<Request> for (String, Body<B>) {
+    type Error = B::Error;
+    fn try_from(req: Request) -> Result<Self, Self::Error> {
+        Ok((req.uri, Body(B::try_from(req.body)?)))
+    }
+}
+
+impl<B: TryFromBody> TryFrom<Request> for (String, Vec<(String, String)>, Body<B>) {
+    type Error = B::Error;
+    fn try_from(req: Request) -> Result<Self, Self::Error> {
+        Ok((req.uri, req.headers, Body(B::try_from(req.body)?)))
+    }
+}
+
+impl<B: TryFromBody> TryFrom<Request> for (Method, String, Vec<(String, String)>, Body<B>) {
+    type Error = B::Error;
+    fn try_from(req: Request) -> Result<Self, Self::Error> {
+        Ok((
+            req.method,
+            req.uri,
+            req.headers,
+            Body(B::try_from(req.body)?),
+        ))
+    }
+}
+
+impl<B: TryFromBody> TryFrom<Request> for Body<B> {
+    type Error = B::Error;
+    fn try_from(req: Request) -> Result<Self, Self::Error> {
+        Ok(Body(B::try_from(req.body)?))
+    }
+}
+
 #[cfg(feature = "json")]
 impl<B: serde::de::DeserializeOwned> TryFrom<Request> for Json<B> {
-    type Error = serde_json::Error;
-    fn try_from(value: Request) -> Result<Self, Self::Error> {
-        Ok(Json(serde_json::from_slice(
-            &value.body.unwrap_or_default(),
-        )?))
+    type Error = JsonBodyError;
+    fn try_from(req: Request) -> Result<Self, Self::Error> {
+        Ok(Json(
+            serde_json::from_slice(&req.body.unwrap_or_default()).map_err(JsonBodyError)?,
+        ))
     }
 }
 
-impl<B: TryFromBody> TryFrom<Request> for http_types::Request<Option<B>> {
-    type Error = B::Error;
-    fn try_from(value: Request) -> Result<Self, Self::Error> {
-        let method = match value.method {
-            Method::Get => http_types::Method::GET,
-            Method::Post => http_types::Method::POST,
-            Method::Put => http_types::Method::PUT,
-            Method::Delete => http_types::Method::DELETE,
-            Method::Patch => http_types::Method::PATCH,
-            Method::Head => http_types::Method::HEAD,
-            Method::Options => http_types::Method::OPTIONS,
-        };
-        let mut builder = http_types::Request::builder().uri(value.uri).method(method);
-        for (n, v) in value.headers {
-            builder = builder.header(n, v);
-        }
-        Ok(builder
-            .body(value.body.map(B::try_from).transpose()?)
-            .unwrap())
-    }
-}
+/// An error parsing a JSON body
+#[cfg(feature = "json")]
+#[derive(Debug)]
+pub struct JsonBodyError(serde_json::Error);
 
+/// An error when the body is not UTF-8
+#[derive(Debug)]
+pub struct NonUtf8BodyError;
+
+#[cfg(feature = "http")]
 impl<B: TryFromBody> TryFrom<Request> for http_types::Request<B> {
     type Error = B::Error;
-    fn try_from(value: Request) -> Result<Self, Self::Error> {
-        let method = match value.method {
+    fn try_from(req: Request) -> Result<Self, Self::Error> {
+        let mut builder = http_types::Request::builder()
+            .uri(req.uri)
+            .method(req.method);
+        for (n, v) in req.headers {
+            builder = builder.header(n, v);
+        }
+        Ok(builder.body(B::try_from(req.body)?).unwrap())
+    }
+}
+
+#[cfg(feature = "http")]
+impl From<Method> for http_types::Method {
+    fn from(method: Method) -> Self {
+        match method {
             Method::Get => http_types::Method::GET,
             Method::Post => http_types::Method::POST,
             Method::Put => http_types::Method::PUT,
@@ -136,27 +170,19 @@ impl<B: TryFromBody> TryFrom<Request> for http_types::Request<B> {
             Method::Patch => http_types::Method::PATCH,
             Method::Head => http_types::Method::HEAD,
             Method::Options => http_types::Method::OPTIONS,
-        };
-        let mut builder = http_types::Request::builder().uri(value.uri).method(method);
-        for (n, v) in value.headers {
-            builder = builder.header(n, v);
         }
-        Ok(builder
-            .body(B::try_from(value.body.unwrap_or_default())?)
-            .unwrap())
     }
 }
 
+#[cfg(feature = "http")]
 impl<B: TryFromBody> TryFrom<Response> for http_types::Response<B> {
     type Error = B::Error;
-    fn try_from(value: Response) -> Result<Self, Self::Error> {
-        let mut builder = http_types::Response::builder().status(value.status);
-        for (n, v) in value.headers.unwrap_or_default() {
+    fn try_from(resp: Response) -> Result<Self, Self::Error> {
+        let mut builder = http_types::Response::builder().status(resp.status);
+        for (n, v) in resp.headers.unwrap_or_default() {
             builder = builder.header(n, v);
         }
-        Ok(builder
-            .body(B::try_from(value.body.unwrap_or_default())?)
-            .unwrap())
+        Ok(builder.body(B::try_from(resp.body)?).unwrap())
     }
 }
 
@@ -262,6 +288,37 @@ impl IntoResponse for Box<dyn std::error::Error> {
     }
 }
 
+#[cfg(feature = "json")]
+impl IntoResponse for JsonBodyError {
+    fn into(self) -> Response {
+        Response {
+            status: 400,
+            headers: None,
+            body: Some(format!("failed to parse JSON body: {}", self.0).into_bytes()),
+        }
+    }
+}
+
+impl IntoResponse for NonUtf8BodyError {
+    fn into(self) -> Response {
+        Response {
+            status: 400,
+            headers: None,
+            body: Some(
+                "expected body to be utf8 but wasn't"
+                    .to_owned()
+                    .into_bytes(),
+            ),
+        }
+    }
+}
+
+impl IntoResponse for std::convert::Infallible {
+    fn into(self) -> Response {
+        unreachable!()
+    }
+}
+
 /// A trait for any type that can be turned into a `Response` status code
 pub trait IntoStatusCode {
     /// Turn `self` into a status code
@@ -338,17 +395,31 @@ impl IntoBody for String {
 /// A trait for converting from a body or failing
 pub trait TryFromBody {
     /// The error encountered if conversion fails
-    type Error;
+    type Error: IntoResponse;
     /// Convert from a body to `Self` or fail
-    fn try_from(body: Vec<u8>) -> Result<Self, Self::Error>
+    fn try_from(body: Option<Vec<u8>>) -> Result<Self, Self::Error>
     where
         Self: Sized;
+}
+
+impl<T: TryFromBody> TryFromBody for Option<T> {
+    type Error = T::Error;
+
+    fn try_from(body: Option<Vec<u8>>) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        Ok(match body {
+            None => None,
+            Some(v) => Some(TryFromBody::try_from(Some(v))?),
+        })
+    }
 }
 
 impl<T: FromBody> TryFromBody for T {
     type Error = std::convert::Infallible;
 
-    fn try_from(body: Vec<u8>) -> Result<Self, Self::Error>
+    fn try_from(body: Option<Vec<u8>>) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {
@@ -356,32 +427,59 @@ impl<T: FromBody> TryFromBody for T {
     }
 }
 
+impl TryFromBody for String {
+    type Error = NonUtf8BodyError;
+
+    fn try_from(body: Option<Vec<u8>>) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        String::from_utf8(body.unwrap_or_default()).map_err(|_| NonUtf8BodyError)
+    }
+}
+
+#[cfg(feature = "json")]
+impl<T: serde::de::DeserializeOwned> TryFromBody for Json<T> {
+    type Error = JsonBodyError;
+    fn try_from(body: Option<Vec<u8>>) -> Result<Self, Self::Error> {
+        Ok(Json(
+            serde_json::from_slice(&body.unwrap_or_default()).map_err(JsonBodyError)?,
+        ))
+    }
+}
+
 /// A trait from converting from a body
 pub trait FromBody {
     /// Convert from a body into the type
-    fn from(body: Vec<u8>) -> Self;
+    fn from(body: Option<Vec<u8>>) -> Self;
 }
 
 impl FromBody for Vec<u8> {
-    fn from(body: Vec<u8>) -> Self {
-        body
+    fn from(body: Option<Vec<u8>>) -> Self {
+        body.unwrap_or_default()
     }
 }
 
 impl FromBody for () {
-    fn from(_body: Vec<u8>) -> Self {}
-}
-
-impl FromBody for String {
-    fn from(body: Vec<u8>) -> Self {
-        String::from_utf8_lossy(&body).into_owned()
-    }
+    fn from(_body: Option<Vec<u8>>) -> Self {}
 }
 
 #[cfg(feature = "http")]
 impl FromBody for bytes::Bytes {
-    fn from(body: Vec<u8>) -> Self {
-        Into::into(body)
+    fn from(body: Option<Vec<u8>>) -> Self {
+        Into::into(body.unwrap_or_default())
+    }
+}
+
+/// A Body extractor
+#[derive(Debug)]
+pub struct Body<T>(pub T);
+
+impl<T> std::ops::Deref for Body<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -394,13 +492,6 @@ impl<T> std::ops::Deref for Json<T> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-#[cfg(feature = "json")]
-impl<T: serde::de::DeserializeOwned> FromBody for Json<T> {
-    fn from(body: Vec<u8>) -> Self {
-        Json(serde_json::from_slice(&body).unwrap())
     }
 }
 

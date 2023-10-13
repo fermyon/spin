@@ -40,14 +40,8 @@ fn publish(_req: http::Request<Option<bytes::Bytes>>) -> Result<impl IntoRespons
     assert_eq!(int_value, 1);
 
     // Publish to Redis
-<<<<<<< HEAD
     match conn.publish(&channel, &payload) {
-        Ok(()) => Ok(http::Response::builder().status(200).body(None)?),
-        Err(_e) => internal_server_error(),
-=======
-    match redis::publish(&address, &channel, &payload) {
         Ok(()) => Ok(IntoResponse::into(200)),
         Err(_e) => Ok(internal_server_error()),
->>>>>>> 62a2bf1a (Fix examples)
     }
 }

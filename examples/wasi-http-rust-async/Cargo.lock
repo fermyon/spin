@@ -452,6 +452,8 @@ dependencies = [
  "http",
  "once_cell",
  "routefinder",
+ "serde",
+ "serde_json",
  "spin-macro",
  "thiserror",
  "wit-bindgen",

@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 use anyhow::{anyhow, Result};
 use spin_sdk::{
-    http::{Request, Response},
     http_component,
     mysql::{self, Decode},
 };
@@ -39,17 +38,17 @@ struct CharacterRow {
 }
 
 #[http_component]
-fn process(req: Request) -> Result<Response> {
+fn process(req: http::Request<()>) -> Result<http::Response<String>> {
     match req.uri().path() {
         "/test_character_types" => test_character_types(req),
         "/test_numeric_types" => test_numeric_types(req),
         _ => Ok(http::Response::builder()
             .status(404)
-            .body(Some("Not found".into()))?),
+            .body("Not found".into())?),
     }
 }
 
-fn test_numeric_types(_req: Request) -> Result<Response> {
+fn test_numeric_types(_req: http::Request<()>) -> Result<http::Response<String>> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let create_table_sql = r#"
@@ -155,12 +154,10 @@ fn test_numeric_types(_req: Request) -> Result<Response> {
         column_summary,
     );
 
-    Ok(http::Response::builder()
-        .status(200)
-        .body(Some(response.into()))?)
+    Ok(http::Response::builder().status(200).body(response)?)
 }
 
-fn test_character_types(_req: Request) -> Result<Response> {
+fn test_character_types(_req: http::Request<()>) -> Result<http::Response<String>> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let create_table_sql = r#"
@@ -230,9 +227,7 @@ fn test_character_types(_req: Request) -> Result<Response> {
         column_summary,
     );
 
-    Ok(http::Response::builder()
-        .status(200)
-        .body(Some(response.into()))?)
+    Ok(http::Response::builder().status(200).body(response)?)
 }
 
 fn format_col(column: &mysql::Column) -> String {

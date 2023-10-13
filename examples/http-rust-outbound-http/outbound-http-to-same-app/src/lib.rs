@@ -7,13 +7,12 @@ use spin_sdk::{
 /// Send an HTTP request and return the response.
 #[http_component]
 fn send_outbound(_req: Request) -> Result<impl IntoResponse> {
-    let res = spin_sdk::http::send(
+    let mut res: http::Response<()> = spin_sdk::http::send(
         http::Request::builder()
             .method("GET")
             .uri("/hello") // relative routes are not yet supported in cloud
             .body(())?,
     )?;
-    let mut res: http::Response<String> = res.try_into()?;
     res.headers_mut()
         .insert("spin-component", "rust-outbound-http".try_into()?);
     println!("{:?}", res);

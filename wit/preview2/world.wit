@@ -20,6 +20,8 @@ world platform {
   import fermyon:spin/http
   import fermyon:spin/mysql
   import fermyon:spin/llm
+  import wasi:http/types
+  import wasi:http/outgoing-handler
 
   import redis
   import postgres

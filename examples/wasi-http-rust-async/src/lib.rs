@@ -1,11 +1,12 @@
 use {
-    self::wasi::http::types::{
-        Fields, IncomingRequest, Method, OutgoingBody, OutgoingRequest, OutgoingResponse,
-        ResponseOutparam, Scheme,
-    },
     anyhow::{bail, Result},
     futures::{stream, FutureExt, SinkExt, StreamExt, TryStreamExt},
     sha2::{Digest, Sha256},
+    spin_sdk::wasi_http::executor,
+    spin_sdk::wasi_http::types::{
+        Fields, IncomingRequest, Method, OutgoingBody, OutgoingRequest, OutgoingResponse,
+        ResponseOutparam, Scheme,
+    },
     spin_sdk::wasi_http_component,
     std::str,
     url::Url,

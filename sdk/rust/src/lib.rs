@@ -89,8 +89,8 @@ pub mod http {
 pub mod redis {
     use std::hash::{Hash, Hasher};
 
-    pub use super::wit::v1::redis::{del, execute, get, incr, publish, sadd, set, smembers, srem};
-    pub use super::wit::v1::redis_types::*;
+    pub use super::wit::v1::redis_types::{Payload, RedisParameter, RedisResult};
+    pub use super::wit::v2::redis::{Connection, Error};
 
     impl PartialEq for RedisResult {
         fn eq(&self, other: &Self) -> bool {

@@ -4186,6 +4186,7 @@ dependencies = [
  "redis",
  "spin-core",
  "spin-world",
+ "table",
  "tokio",
  "tracing",
 ]
@@ -5803,6 +5804,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-world",
+ "table",
  "tokio",
  "tracing",
 ]
@@ -6052,8 +6054,8 @@ dependencies = [
  "async-trait",
  "spin-app",
  "spin-core",
- "spin-key-value",
  "spin-world",
+ "table",
  "tokio",
 ]
 
@@ -6368,6 +6370,10 @@ dependencies = [
  "windows-sys 0.48.0",
  "winx",
 ]
+
+[[package]]
+name = "table"
+version = "2.0.0-pre0"
 
 [[package]]
 name = "tap"

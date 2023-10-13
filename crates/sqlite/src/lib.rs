@@ -2,7 +2,6 @@ mod host_component;
 
 use spin_app::{async_trait, MetadataKey};
 use spin_core::wasmtime::component::Resource;
-use spin_key_value::table;
 use spin_world::v2::sqlite;
 use std::{collections::HashSet, sync::Arc};
 

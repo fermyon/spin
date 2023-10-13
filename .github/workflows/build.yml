@@ -35,19 +35,18 @@ jobs:
           rust-wasm: true
           rust-cache: true
 
-      - name: Cargo Format
+      - name: Run lints
         run:
-          BUILD_SPIN_EXAMPLES=0 cargo fmt --all -- --check
+          BUILD_SPIN_EXAMPLES=0 make lint
 
-      - name: Cargo Clippy
-        run:
-          BUILD_SPIN_EXAMPLES=0 cargo clippy --workspace --all-targets --features all-tests -- -D warnings
+      - name: Cancel everything if linting fails
+        if: failure()
+        uses: andymckay/cancel-action@0.2
 
   ## This is separated out to remove e2e-tests dependency on windows/mac builds
   build-rust-ubuntu:
     name: Build Spin Ubuntu
     runs-on: ubuntu-latest
-    needs: [lint-rust]
     steps:
       - uses: actions/checkout@v3
 
@@ -72,7 +71,6 @@ jobs:
   build-rust:
     name: Build Spin
     runs-on: ${{ matrix.os }}
-    needs: [lint-rust]
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
@@ -101,7 +99,6 @@ jobs:
   test-rust:
     name: Test Spin SDK - Rust
     runs-on: ${{ matrix.runner }}
-    needs: [lint-rust]
     strategy:
       matrix:
         runner: [ubuntu-22.04-4core-spin, macos-latest]
@@ -176,19 +173,3 @@ jobs:
           chmod +x `pwd`/target/release/spin
           export E2E_VOLUME_MOUNT="-v `pwd`/target/release/spin:/usr/local/bin/spin"
           make run-test-spin-up
-          
-  lint-examples:
-    name: Lint Examples
-    runs-on: "ubuntu-latest"
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up dependencies
-        uses: ./.github/actions/spin-ci-dependencies
-        with:
-          rust: true
-          rust-wasm: true
-          rust-cache: true
-
-      - name: Lint examples
-        run: make check-rust-examples

@@ -234,12 +234,12 @@ fn test_general_types(_req: Request) -> Result<Response> {
 
     pg::execute(&address, create_table_sql, &[])?;
 
-    let insert_sql = r#"
+    let insert_sql = r"
         INSERT INTO test_general_types
             (rbool, rbytea)
         VALUES
             (TRUE, '\176'::bytea);
-    "#;
+    ";
 
     pg::execute(&address, insert_sql, &[])?;
 

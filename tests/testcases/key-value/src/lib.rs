@@ -43,9 +43,9 @@ fn handle_request(req: Request) -> Result<Response> {
     ensure!(b"wow" as &[_] == &store.get("bar")?);
 
     ensure!(
-        init_val.as_bytes() == &store.get(&init_key)?,
+        init_val.as_bytes() == store.get(init_key)?,
         "Expected to look up {init_key} and get {init_val} but actually got {}",
-        String::from_utf8_lossy(&store.get(&init_key)?)
+        String::from_utf8_lossy(&store.get(init_key)?)
     );
 
     ensure!(
@@ -57,7 +57,7 @@ fn handle_request(req: Request) -> Result<Response> {
     );
 
     store.delete("bar")?;
-    store.delete(&init_key)?;
+    store.delete(init_key)?;
 
     ensure!(&[] as &[String] == &store.get_keys()?);
 

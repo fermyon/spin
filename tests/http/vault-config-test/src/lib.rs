@@ -10,5 +10,5 @@ fn config_test(_req: http::Request<()>) -> Result<http::Response<String>> {
     let greeting = config::get("greeting").expect("Failed to acquire greeting from default");
     Ok(http::Response::builder()
         .status(200)
-        .body(format!("{} Got password {}", greeting, password).into())?)
+        .body(format!("{} Got password {}", greeting, password))?)
 }

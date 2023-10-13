@@ -18,12 +18,16 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 // Implement the `handler` entrypoint for Spin HTTP components.
                 fn handle_request(req: self::exports::fermyon::spin::inbound_http::Request) -> self::exports::fermyon::spin::inbound_http::Response {
                     let req: ::spin_sdk::http::Request = ::std::convert::Into::into(req);
-                    let resp = super::#func_name(req.try_into().expect("cannot convert from Spin HTTP request"));
+                    let req = match ::std::convert::TryInto::try_into(req) {
+                        ::std::result::Result::Ok(r) => r,
+                        ::std::result::Result::Err(e) => return ::spin_sdk::http::IntoResponse::into(e).into(),
+                    };
+                    let resp = super::#func_name(req);
                     ::spin_sdk::http::IntoResponse::into(resp).into()
                 }
             }
 
-            impl From<self::fermyon::spin::http_types::Request> for ::spin_sdk::http::Request  {
+            impl ::std::convert::From<self::fermyon::spin::http_types::Request> for ::spin_sdk::http::Request  {
                 fn from(req: self::fermyon::spin::http_types::Request) -> Self {
                     Self {
                         method: ::std::convert::Into::into(req.method),
@@ -35,7 +39,7 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
 
-            impl From<self::fermyon::spin::http_types::Method> for ::spin_sdk::http::Method  {
+            impl ::std::convert::From<self::fermyon::spin::http_types::Method> for ::spin_sdk::http::Method  {
                 fn from(method: self::fermyon::spin::http_types::Method) -> Self {
                     match method {
                         self::fermyon::spin::http_types::Method::Get => Self::Get,
@@ -49,7 +53,7 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
 
-            impl From<::spin_sdk::http::Response> for self::fermyon::spin::http_types::Response {
+            impl ::std::convert::From<::spin_sdk::http::Response> for self::fermyon::spin::http_types::Response {
                 fn from(resp: ::spin_sdk::http::Response) -> Self {
                     Self {
                         status: resp.status,

@@ -20,10 +20,10 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     let req: ::spin_sdk::http::Request = ::std::convert::Into::into(req);
                     let req = match ::std::convert::TryInto::try_into(req) {
                         ::std::result::Result::Ok(r) => r,
-                        ::std::result::Result::Err(e) => return ::spin_sdk::http::IntoResponse::into(e).into(),
+                        ::std::result::Result::Err(e) => return ::std::convert::Into::into(::spin_sdk::http::IntoResponse::into_response(e)),
                     };
                     let resp = super::#func_name(req);
-                    ::spin_sdk::http::IntoResponse::into(resp).into()
+                    ::std::convert::Into::into(::spin_sdk::http::IntoResponse::into_response(resp))
                 }
             }
 

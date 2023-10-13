@@ -114,7 +114,7 @@ impl Router {
         self.any_methods
             .add(
                 path,
-                Box::new(move |req, params| handler(req.into(), params).into()),
+                Box::new(move |req, params| handler(req.into(), params).into_response()),
             )
             .unwrap();
     }
@@ -132,7 +132,8 @@ impl Router {
             .add(
                 path,
                 Box::new(move |req, params| {
-                    handler(req.try_into().unwrap_or_else(|_| panic!("TODO")), params).into()
+                    handler(req.try_into().unwrap_or_else(|_| panic!("TODO")), params)
+                        .into_response()
                 }),
             )
             .unwrap();

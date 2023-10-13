@@ -71,7 +71,7 @@ where
             uri: req.uri().to_string(),
             headers,
             params: Vec::new(),
-            body: TryIntoBody::try_into(req.into_body())?,
+            body: TryIntoBody::try_into_body(req.into_body())?,
         })
     }
 }
@@ -123,14 +123,14 @@ impl Response {
 impl<B: TryFromBody> TryFrom<Request> for (String, Body<B>) {
     type Error = B::Error;
     fn try_from(req: Request) -> Result<Self, Self::Error> {
-        Ok((req.uri, Body(B::try_from(req.body)?)))
+        Ok((req.uri, Body(B::try_from_body(req.body)?)))
     }
 }
 
 impl<B: TryFromBody> TryFrom<Request> for (String, Vec<(String, String)>, Body<B>) {
     type Error = B::Error;
     fn try_from(req: Request) -> Result<Self, Self::Error> {
-        Ok((req.uri, req.headers, Body(B::try_from(req.body)?)))
+        Ok((req.uri, req.headers, Body(B::try_from_body(req.body)?)))
     }
 }
 
@@ -141,7 +141,7 @@ impl<B: TryFromBody> TryFrom<Request> for (Method, String, Vec<(String, String)>
             req.method,
             req.uri,
             req.headers,
-            Body(B::try_from(req.body)?),
+            Body(B::try_from_body(req.body)?),
         ))
     }
 }
@@ -149,7 +149,7 @@ impl<B: TryFromBody> TryFrom<Request> for (Method, String, Vec<(String, String)>
 impl<B: TryFromBody> TryFrom<Request> for Body<B> {
     type Error = B::Error;
     fn try_from(req: Request) -> Result<Self, Self::Error> {
-        Ok(Body(B::try_from(req.body)?))
+        Ok(Body(B::try_from_body(req.body)?))
     }
 }
 
@@ -190,7 +190,7 @@ impl<B: TryFromBody> TryFrom<Request> for http_types::Request<B> {
         for (n, v) in req.headers {
             builder = builder.header(n, v);
         }
-        Ok(builder.body(B::try_from(req.body)?).unwrap())
+        Ok(builder.body(B::try_from_body(req.body)?).unwrap())
     }
 }
 
@@ -217,7 +217,7 @@ impl<B: TryFromBody> TryFrom<Response> for http_types::Response<B> {
         for (n, v) in resp.headers.unwrap_or_default() {
             builder = builder.header(n, v);
         }
-        Ok(builder.body(B::try_from(resp.body)?).unwrap())
+        Ok(builder.body(B::try_from_body(resp.body)?).unwrap())
     }
 }
 
@@ -228,21 +228,21 @@ pub use router::*;
 /// A trait for any type that can be turned into a `Response`
 pub trait IntoResponse {
     /// Turn `self` into a `Response`
-    fn into(self) -> Response;
+    fn into_response(self) -> Response;
 }
 
 impl<R: Into<Response>> IntoResponse for R {
-    fn into(self) -> Response {
+    fn into_response(self) -> Response {
         self.into()
     }
 }
 
 impl<S: IntoStatusCode, B: IntoBody> IntoResponse for (S, B) {
-    fn into(self) -> Response {
+    fn into_response(self) -> Response {
         Response {
-            status: self.0.into(),
+            status: self.0.into_status_code(),
             headers: Default::default(),
-            body: self.1.into(),
+            body: self.1.into_body(),
         }
     }
 }
@@ -252,7 +252,7 @@ impl<B> IntoResponse for http_types::Response<B>
 where
     B: IntoBody,
 {
-    fn into(self) -> Response {
+    fn into_response(self) -> Response {
         Response::new_with_headers(
             self.status().as_u16(),
             self.headers()
@@ -264,24 +264,24 @@ where
                     )
                 })
                 .collect(),
-            IntoBody::into(self.into_body()),
+            IntoBody::into_body(self.into_body()),
         )
     }
 }
 
 impl<R: IntoResponse, E: IntoResponse> IntoResponse for std::result::Result<R, E> {
-    fn into(self) -> Response {
+    fn into_response(self) -> Response {
         match self {
-            Ok(r) => r.into(),
-            Err(e) => e.into(),
+            Ok(r) => r.into_response(),
+            Err(e) => e.into_response(),
         }
     }
 }
 
 impl<R: IntoResponse> IntoResponse for std::result::Result<R, anyhow::Error> {
-    fn into(self) -> Response {
+    fn into_response(self) -> Response {
         match self {
-            Ok(r) => r.into(),
+            Ok(r) => r.into_response(),
             Err(error) => {
                 let body = error.to_string();
                 eprintln!("Handler returned an error: {}", body);
@@ -301,7 +301,7 @@ impl<R: IntoResponse> IntoResponse for std::result::Result<R, anyhow::Error> {
 }
 
 impl IntoResponse for Box<dyn std::error::Error> {
-    fn into(self) -> Response {
+    fn into_response(self) -> Response {
         let body = self.to_string();
         eprintln!("Handler returned an error: {}", body);
         let mut source = self.source();
@@ -319,7 +319,7 @@ impl IntoResponse for Box<dyn std::error::Error> {
 
 #[cfg(feature = "json")]
 impl IntoResponse for JsonBodyError {
-    fn into(self) -> Response {
+    fn into_response(self) -> Response {
         Response {
             status: 400,
             headers: None,
@@ -329,7 +329,7 @@ impl IntoResponse for JsonBodyError {
 }
 
 impl IntoResponse for NonUtf8BodyError {
-    fn into(self) -> Response {
+    fn into_response(self) -> Response {
         Response {
             status: 400,
             headers: None,
@@ -343,7 +343,7 @@ impl IntoResponse for NonUtf8BodyError {
 }
 
 impl IntoResponse for std::convert::Infallible {
-    fn into(self) -> Response {
+    fn into_response(self) -> Response {
         unreachable!()
     }
 }
@@ -351,18 +351,18 @@ impl IntoResponse for std::convert::Infallible {
 /// A trait for any type that can be turned into a `Response` status code
 pub trait IntoStatusCode {
     /// Turn `self` into a status code
-    fn into(self) -> u16;
+    fn into_status_code(self) -> u16;
 }
 
 impl IntoStatusCode for u16 {
-    fn into(self) -> u16 {
+    fn into_status_code(self) -> u16 {
         self
     }
 }
 
 #[cfg(feature = "http")]
 impl IntoStatusCode for http_types::StatusCode {
-    fn into(self) -> u16 {
+    fn into_status_code(self) -> u16 {
         self.as_u16()
     }
 }
@@ -372,7 +372,7 @@ pub trait TryIntoBody {
     /// The type of error if the conversion fails
     type Error;
     /// Turn `self` into an Error
-    fn try_into(self) -> Result<Option<Vec<u8>>, Self::Error>;
+    fn try_into_body(self) -> Result<Option<Vec<u8>>, Self::Error>;
 }
 
 impl<B> TryIntoBody for B
@@ -381,49 +381,49 @@ where
 {
     type Error = Infallible;
 
-    fn try_into(self) -> Result<Option<Vec<u8>>, Self::Error> {
-        Ok(self.into())
+    fn try_into_body(self) -> Result<Option<Vec<u8>>, Self::Error> {
+        Ok(self.into_body())
     }
 }
 
 /// A trait for any type that can be turned into a `Response` body
 pub trait IntoBody {
     /// Turn `self` into a `Response` body
-    fn into(self) -> Option<Vec<u8>>;
+    fn into_body(self) -> Option<Vec<u8>>;
 }
 
 impl<T: IntoBody> IntoBody for Option<T> {
-    fn into(self) -> Option<Vec<u8>> {
-        self.and_then(|b| IntoBody::into(b))
+    fn into_body(self) -> Option<Vec<u8>> {
+        self.and_then(|b| IntoBody::into_body(b))
     }
 }
 
 impl IntoBody for Vec<u8> {
-    fn into(self) -> Option<Vec<u8>> {
+    fn into_body(self) -> Option<Vec<u8>> {
         Some(self)
     }
 }
 
 impl IntoBody for bytes::Bytes {
-    fn into(self) -> Option<Vec<u8>> {
+    fn into_body(self) -> Option<Vec<u8>> {
         Some(self.to_vec())
     }
 }
 
 impl IntoBody for () {
-    fn into(self) -> Option<Vec<u8>> {
+    fn into_body(self) -> Option<Vec<u8>> {
         None
     }
 }
 
 impl IntoBody for &str {
-    fn into(self) -> Option<Vec<u8>> {
+    fn into_body(self) -> Option<Vec<u8>> {
         Some(self.to_owned().into_bytes())
     }
 }
 
 impl IntoBody for String {
-    fn into(self) -> Option<Vec<u8>> {
+    fn into_body(self) -> Option<Vec<u8>> {
         Some(self.to_owned().into_bytes())
     }
 }
@@ -433,7 +433,7 @@ pub trait TryFromBody {
     /// The error encountered if conversion fails
     type Error: IntoResponse;
     /// Convert from a body to `Self` or fail
-    fn try_from(body: Option<Vec<u8>>) -> Result<Self, Self::Error>
+    fn try_from_body(body: Option<Vec<u8>>) -> Result<Self, Self::Error>
     where
         Self: Sized;
 }
@@ -441,13 +441,13 @@ pub trait TryFromBody {
 impl<T: TryFromBody> TryFromBody for Option<T> {
     type Error = T::Error;
 
-    fn try_from(body: Option<Vec<u8>>) -> Result<Self, Self::Error>
+    fn try_from_body(body: Option<Vec<u8>>) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {
         Ok(match body {
             None => None,
-            Some(v) => Some(TryFromBody::try_from(Some(v))?),
+            Some(v) => Some(TryFromBody::try_from_body(Some(v))?),
         })
     }
 }
@@ -455,18 +455,18 @@ impl<T: TryFromBody> TryFromBody for Option<T> {
 impl<T: FromBody> TryFromBody for T {
     type Error = std::convert::Infallible;
 
-    fn try_from(body: Option<Vec<u8>>) -> Result<Self, Self::Error>
+    fn try_from_body(body: Option<Vec<u8>>) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {
-        Ok(FromBody::from(body))
+        Ok(FromBody::from_body(body))
     }
 }
 
 impl TryFromBody for String {
     type Error = NonUtf8BodyError;
 
-    fn try_from(body: Option<Vec<u8>>) -> Result<Self, Self::Error>
+    fn try_from_body(body: Option<Vec<u8>>) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {
@@ -477,7 +477,7 @@ impl TryFromBody for String {
 #[cfg(feature = "json")]
 impl<T: serde::de::DeserializeOwned> TryFromBody for Json<T> {
     type Error = JsonBodyError;
-    fn try_from(body: Option<Vec<u8>>) -> Result<Self, Self::Error> {
+    fn try_from_body(body: Option<Vec<u8>>) -> Result<Self, Self::Error> {
         Ok(Json(
             serde_json::from_slice(&body.unwrap_or_default()).map_err(JsonBodyError)?,
         ))
@@ -487,22 +487,22 @@ impl<T: serde::de::DeserializeOwned> TryFromBody for Json<T> {
 /// A trait from converting from a body
 pub trait FromBody {
     /// Convert from a body into the type
-    fn from(body: Option<Vec<u8>>) -> Self;
+    fn from_body(body: Option<Vec<u8>>) -> Self;
 }
 
 impl FromBody for Vec<u8> {
-    fn from(body: Option<Vec<u8>>) -> Self {
+    fn from_body(body: Option<Vec<u8>>) -> Self {
         body.unwrap_or_default()
     }
 }
 
 impl FromBody for () {
-    fn from(_body: Option<Vec<u8>>) -> Self {}
+    fn from_body(_body: Option<Vec<u8>>) -> Self {}
 }
 
 #[cfg(feature = "http")]
 impl FromBody for bytes::Bytes {
-    fn from(body: Option<Vec<u8>>) -> Self {
+    fn from_body(body: Option<Vec<u8>>) -> Self {
         Into::into(body.unwrap_or_default())
     }
 }

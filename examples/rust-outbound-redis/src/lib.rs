@@ -41,7 +41,7 @@ fn publish(_req: http::Request<()>) -> Result<impl IntoResponse> {
 
     // Publish to Redis
     match conn.publish(&channel, &payload) {
-        Ok(()) => Ok(IntoResponse::into((200, ()))),
+        Ok(()) => Ok((200, ()).into_response()),
         Err(_e) => Ok(internal_server_error()),
     }
 }

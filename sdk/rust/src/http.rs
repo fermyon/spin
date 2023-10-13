@@ -1,35 +1,77 @@
-use std::fmt::Display;
 use std::hash::Hash;
+use std::{convert::Infallible, fmt::Display};
 
-use crate::wit::v1::{
-    http::{self, send_request},
-    http_types::HttpError,
-};
+use crate::wit::v1::{http::send_request, http_types::HttpError};
 
-/// TODO
-pub fn send<R: Into<http::Request>>(req: R) -> Result<Response, HttpError> {
-    send_request(&req.into())
-}
-
+#[doc(inline)]
 pub use crate::wit::v1::http_types::{Method, Request, Response};
 
-#[cfg(feature = "http")]
-impl<B> From<http_types::Request<B>> for Request
+/// An error encountered when performing an HTTP request
+#[derive(thiserror::Error, Debug)]
+pub enum SendError {
+    ///
+    #[error(transparent)]
+    RequestConversion(Box<dyn std::error::Error + Send + Sync>),
+    /// Error converting to the response type
+    #[error(transparent)]
+    ResponseConversion(Box<dyn std::error::Error + Send + Sync>),
+    /// An HTTP error
+    #[error(transparent)]
+    Http(HttpError),
+}
+
+/// Perform an HTTP request getting back a response or an error
+pub fn send<I: TryIntoRequest, O: TryFrom<Response>>(req: I) -> Result<O, SendError>
 where
-    for<'a> &'a B: IntoBody,
+    I: TryIntoRequest,
+    I::Error: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
+    O: TryFrom<Response>,
+    O::Error: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
 {
-    fn from(req: http_types::Request<B>) -> Self {
-        let method = match *req.method() {
-            http_types::Method::GET => Method::Get,
-            http_types::Method::POST => Method::Post,
-            http_types::Method::PUT => Method::Put,
-            http_types::Method::DELETE => Method::Delete,
-            http_types::Method::PATCH => Method::Patch,
-            http_types::Method::HEAD => Method::Head,
-            http_types::Method::OPTIONS => Method::Options,
-            _ => todo!(),
+    let response = send_request(
+        &req.try_into_request()
+            .map_err(|e| SendError::RequestConversion(e.into()))?,
+    )
+    .map_err(SendError::Http)?;
+    response
+        .try_into()
+        .map_err(|e: O::Error| SendError::ResponseConversion(e.into()))
+}
+
+/// A trait for converting into a `Request`
+pub trait TryIntoRequest {
+    /// TODO
+    type Error;
+    /// Turn `self` into a `Request`
+    fn try_into_request(self) -> Result<Request, Self::Error>;
+}
+
+impl<R: TryInto<Request>> TryIntoRequest for R {
+    type Error = R::Error;
+    fn try_into_request(self) -> Result<Request, Self::Error> {
+        self.try_into()
+    }
+}
+
+#[cfg(feature = "http")]
+impl<B> TryIntoRequest for http_types::Request<B>
+where
+    for<'a> &'a B: TryIntoBody,
+    for<'a> <&'a B as TryIntoBody>::Error: std::error::Error + Send + Sync + 'static,
+{
+    type Error = anyhow::Error;
+    fn try_into_request(self) -> Result<Request, Self::Error> {
+        let method = match self.method() {
+            &http_types::Method::GET => Method::Get,
+            &http_types::Method::POST => Method::Post,
+            &http_types::Method::PUT => Method::Put,
+            &http_types::Method::DELETE => Method::Delete,
+            &http_types::Method::PATCH => Method::Patch,
+            &http_types::Method::HEAD => Method::Head,
+            &http_types::Method::OPTIONS => Method::Options,
+            m => panic!("Unsupported method: {m}"),
         };
-        let headers = req
+        let headers = self
             .headers()
             .into_iter()
             .map(|(n, v)| {
@@ -39,13 +81,13 @@ where
                 )
             })
             .collect();
-        Request {
+        Ok(Request {
             method,
-            uri: req.uri().to_string(),
+            uri: self.uri().to_string(),
             headers,
             params: Vec::new(),
-            body: IntoBody::into(req.body()),
-        }
+            body: <&B as TryIntoBody>::try_into(self.body())?,
+        })
     }
 }
 
@@ -343,6 +385,25 @@ impl IntoStatusCode for u16 {
 impl IntoStatusCode for http_types::StatusCode {
     fn into(self) -> u16 {
         self.as_u16()
+    }
+}
+
+/// TODO
+pub trait TryIntoBody {
+    ///
+    type Error;
+    ///
+    fn try_into(self) -> Result<Option<Vec<u8>>, Self::Error>;
+}
+
+impl<B> TryIntoBody for B
+where
+    B: IntoBody,
+{
+    type Error = Infallible;
+
+    fn try_into(self) -> Result<Option<Vec<u8>>, Self::Error> {
+        Ok(self.into())
     }
 }
 

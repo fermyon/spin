@@ -347,7 +347,6 @@ name = "spin-config-example"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bytes",
  "http",
  "spin-sdk",
 ]

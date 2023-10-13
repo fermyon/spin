@@ -11,7 +11,7 @@ fn send_outbound(_req: Request) -> Result<impl IntoResponse> {
         http::Request::builder()
             .method("GET")
             .uri("/test/hello")
-            .body(None)?,
+            .body(())?,
     )?;
     res.headers_mut()
         .insert("spin-component", "outbound-http-component".try_into()?);

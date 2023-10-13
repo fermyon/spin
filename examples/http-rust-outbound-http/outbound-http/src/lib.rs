@@ -11,7 +11,7 @@ fn send_outbound(_req: Request) -> Result<impl IntoResponse> {
         http::Request::builder()
             .method("GET")
             .uri("https://random-data-api.fermyon.app/animals/json")
-            .body(None)?,
+            .body(())?,
     )?;
     res.headers_mut()
         .insert("spin-component", "rust-outbound-http".try_into()?);

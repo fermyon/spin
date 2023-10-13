@@ -15,8 +15,7 @@ form_urlencoded = "1.0"
 http_types = { package = "http", version = "0.2" }
 spin-macro = { path = "macro" }
 thiserror = "1.0.37"
-# TODO: switch this back to upstream once https://github.com/bytecodealliance/wit-bindgen/pull/700 is merged
-wit-bindgen = { git = "https://github.com/dicej/wit-bindgen", rev = "60195574dc59f9ba56801a0c7fe5bba1382592d1" }
+wit-bindgen = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "3fac9c9f4a06061a1cfae83de356cecad2d642d1" }
 routefinder = "0.5.3"
 serde_json = { version = "1.0.96", optional = true }
 serde = { version = "1.0.163", optional = true }

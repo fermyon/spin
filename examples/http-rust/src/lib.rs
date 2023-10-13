@@ -8,7 +8,7 @@ struct MyBody {
 
 /// A simple Spin HTTP component.
 #[http_component]
-fn hello_world(Json(body): Json<MyBody>) -> impl IntoResponse {
-    println!("Body: {:?}", body.data);
-    (200, "Hello, world")
+fn hello_world(Json(body): Json<MyBody>) -> anyhow::Result<impl IntoResponse> {
+    println!("Body data: {}", body.data);
+    Ok((200, "Hello, world"))
 }

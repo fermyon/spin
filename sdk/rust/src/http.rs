@@ -145,6 +145,14 @@ pub struct JsonBodyError(serde_json::Error);
 #[derive(Debug)]
 pub struct NonUtf8BodyError;
 
+impl std::error::Error for NonUtf8BodyError {}
+
+impl Display for NonUtf8BodyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("body was expected to be utf8 but was not")
+    }
+}
+
 #[cfg(feature = "http")]
 impl<B: TryFromBody> TryFrom<Request> for http_types::Request<B> {
     type Error = B::Error;

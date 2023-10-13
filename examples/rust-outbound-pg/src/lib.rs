@@ -40,18 +40,18 @@ impl TryFrom<&pg::Row> for Article {
 }
 
 #[http_component]
-fn process(req: Request<Option<bytes::Bytes>>) -> Result<Response<Option<bytes::Bytes>>> {
+fn process(req: Request<()>) -> Result<Response<String>> {
     match req.uri().path() {
         "/read" => read(req),
         "/write" => write(req),
         "/pg_backend_pid" => pg_backend_pid(req),
         _ => Ok(http::Response::builder()
             .status(404)
-            .body(Some("Not found".into()))?),
+            .body("Not found".into())?),
     }
 }
 
-fn read(_req: Request<Option<bytes::Bytes>>) -> Result<Response<Option<bytes::Bytes>>> {
+fn read(_req: Request<()>) -> Result<Response<String>> {
     let address = std::env::var(DB_URL_ENV)?;
     let conn = pg::Connection::open(&address)?;
 
@@ -83,12 +83,10 @@ fn read(_req: Request<Option<bytes::Bytes>>) -> Result<Response<Option<bytes::By
         column_summary,
     );
 
-    Ok(http::Response::builder()
-        .status(200)
-        .body(Some(response.into()))?)
+    Ok(http::Response::builder().status(200).body(response)?)
 }
 
-fn write(_req: Request<Option<bytes::Bytes>>) -> Result<Response<Option<bytes::Bytes>>> {
+fn write(_req: Request<()>) -> Result<Response<String>> {
     let address = std::env::var(DB_URL_ENV)?;
     let conn = pg::Connection::open(&address)?;
 
@@ -103,12 +101,10 @@ fn write(_req: Request<Option<bytes::Bytes>>) -> Result<Response<Option<bytes::B
     let count = i64::decode(&row[0])?;
     let response = format!("Count: {}\n", count);
 
-    Ok(http::Response::builder()
-        .status(200)
-        .body(Some(response.into()))?)
+    Ok(http::Response::builder().status(200).body(response)?)
 }
 
-fn pg_backend_pid(_req: Request<Option<bytes::Bytes>>) -> Result<Response<Option<bytes::Bytes>>> {
+fn pg_backend_pid(_req: Request<()>) -> Result<Response<String>> {
     let address = std::env::var(DB_URL_ENV)?;
     let conn = pg::Connection::open(&address)?;
     let sql = "SELECT pg_backend_pid()";
@@ -124,9 +120,7 @@ fn pg_backend_pid(_req: Request<Option<bytes::Bytes>>) -> Result<Response<Option
 
     let response = format!("pg_backend_pid: {}\n", get_pid()?);
 
-    Ok(http::Response::builder()
-        .status(200)
-        .body(Some(response.into()))?)
+    Ok(http::Response::builder().status(200).body(response)?)
 }
 
 fn format_col(column: &pg::Column) -> String {

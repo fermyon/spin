@@ -11,10 +11,9 @@ fn send_outbound(_req: Request) -> Result<impl IntoResponse> {
         http::Request::builder()
             .method("GET")
             .uri("/hello") // relative routes are not yet supported in cloud
-            .body(None)
-            .unwrap(),
+            .body(())?,
     )?;
-    let mut res: http::Response<()> = res.try_into()?;
+    let mut res: http::Response<String> = res.try_into()?;
     res.headers_mut()
         .insert("spin-component", "rust-outbound-http".try_into()?);
     println!("{:?}", res);

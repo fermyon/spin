@@ -2,17 +2,14 @@ use http::{Method, StatusCode};
 use spin_sdk::{http::IntoResponse, http_component, key_value::Store};
 
 #[http_component]
-fn handle_request(req: http::Request<Option<String>>) -> anyhow::Result<impl IntoResponse> {
+fn handle_request(req: http::Request<Vec<u8>>) -> anyhow::Result<impl IntoResponse> {
     // Open the default key-value store
     let store = Store::open_default()?;
 
     Ok(match *req.method() {
         Method::POST => {
             // Add the request (URI, body) tuple to the store
-            store.set(
-                req.uri().path(),
-                req.body().as_deref().unwrap_or_default().as_bytes(),
-            )?;
+            store.set(req.uri().path(), req.body().as_slice())?;
             (StatusCode::OK, None)
         }
         Method::GET => {

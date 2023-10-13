@@ -24,6 +24,8 @@ world platform {
   import fermyon:spin/mysql
   import fermyon:spin/redis
   import fermyon:spin/llm
+  import wasi:http/types
+  import wasi:http/outgoing-handler
 
   import sqlite
   import key-value

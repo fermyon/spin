@@ -167,8 +167,6 @@ name = "http-rust-router-macro"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bytes",
- "http",
  "spin-sdk",
 ]
 

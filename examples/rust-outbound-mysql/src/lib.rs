@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use http::{HeaderValue, Method, Request, Response};
 use spin_sdk::{
+    http::Json,
     http_component,
     mysql::{self, ParameterValue},
 };
@@ -22,7 +23,9 @@ enum RequestAction {
 }
 
 #[http_component]
-fn rust_outbound_mysql(req: Request<Option<bytes::Bytes>>) -> Result<Response<Option<String>>> {
+fn rust_outbound_mysql(
+    req: Request<Json<HashMap<String, String>>>,
+) -> Result<Response<Option<String>>> {
     match parse_request(req) {
         RequestAction::List => list(),
         RequestAction::Get(id) => get(id),
@@ -31,7 +34,7 @@ fn rust_outbound_mysql(req: Request<Option<bytes::Bytes>>) -> Result<Response<Op
     }
 }
 
-fn parse_request(req: Request<Option<bytes::Bytes>>) -> RequestAction {
+fn parse_request(req: Request<Json<HashMap<String, String>>>) -> RequestAction {
     match *req.method() {
         Method::GET => match req.headers().get("spin-path-info") {
             None => RequestAction::Error(500),
@@ -42,21 +45,17 @@ fn parse_request(req: Request<Option<bytes::Bytes>>) -> RequestAction {
             },
         },
         Method::POST => {
-            match body_json_to_map(&req) {
-                Ok(map) => {
-                    let name = match map.get("name") {
-                        Some(n) => n.to_owned(),
-                        None => return RequestAction::Error(400), // If this were a real app it would have error messages
-                    };
-                    let prey = map.get("prey").cloned();
-                    let is_finicky = map
-                        .get("is_finicky")
-                        .map(|s| s == "true")
-                        .unwrap_or_default();
-                    RequestAction::Create(name, prey, is_finicky)
-                }
-                Err(_) => RequestAction::Error(400), // Sorry no this isn't helpful either
-            }
+            let map = req.body();
+            let name = match map.get("name") {
+                Some(n) => n.to_owned(),
+                None => return RequestAction::Error(400), // If this were a real app it would have error messages
+            };
+            let prey = map.get("prey").cloned();
+            let is_finicky = map
+                .get("is_finicky")
+                .map(|s| s == "true")
+                .unwrap_or_default();
+            RequestAction::Create(name, prey, is_finicky)
         }
         _ => RequestAction::Error(405),
     }
@@ -77,15 +76,6 @@ fn header_val_to_int(header_val: &HeaderValue) -> Result<Option<i32>, ()> {
         }
         Err(_) => Err(()),
     }
-}
-
-fn body_json_to_map(req: &Request<Option<bytes::Bytes>>) -> Result<HashMap<String, String>> {
-    // TODO: easier way?
-    let body = match req.body().as_ref() {
-        Some(bytes) => bytes.slice(..),
-        None => bytes::Bytes::default(),
-    };
-    Ok(serde_json::from_slice::<HashMap<String, String>>(&body)?)
 }
 
 fn list() -> Result<Response<Option<String>>> {

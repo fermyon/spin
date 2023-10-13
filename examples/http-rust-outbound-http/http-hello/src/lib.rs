@@ -6,6 +6,5 @@ use spin_sdk::http_component;
 fn hello_world(_req: http::Request<()>) -> Result<http::Response<&'static str>> {
     Ok(http::Response::builder()
         .status(200)
-        .header("foo", "bar")
         .body("Hello, Fermyon!\n")?)
 }

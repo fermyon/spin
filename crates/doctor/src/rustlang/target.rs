@@ -14,11 +14,9 @@ impl Diagnostic for TargetDiagnostic {
     async fn diagnose(&self, patient: &PatientApp) -> Result<Vec<Self::Diagnosis>> {
         // TODO: this, down to the "does the app use Rust" check, probably ought to move up to the Rust level
         // but we can defer this until we have more Rust diagnoses
-        let path = &patient.manifest_path;
-        let manifest = spin_loader::local::raw_manifest_from_file(&path)
-            .await?
-            .into_v1();
-        let uses_rust = manifest.components.iter().any(|c| {
+        let manifest_str = patient.manifest_doc.to_string();
+        let manifest = spin_manifest::manifest_from_str(&manifest_str)?;
+        let uses_rust = manifest.components.values().any(|c| {
             c.build
                 .as_ref()
                 .map(|b| b.command.starts_with("cargo"))

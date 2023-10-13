@@ -2,46 +2,15 @@
 // interest to the template system.  spin_loader does too
 // much processing to fit our needs here.
 
-use anyhow::Context;
-use spin_loader::local::config::FixedStringVersion;
 use std::path::{Path, PathBuf};
+
+use anyhow::ensure;
+use serde::Deserialize;
+use spin_manifest::schema::v1;
 
 use crate::store::TemplateLayout;
 
-#[derive(Debug, serde::Deserialize)]
-#[serde(untagged)]
-pub(crate) enum AppInfo {
-    V1Old {
-        #[allow(dead_code)]
-        spin_version: FixedStringVersion<1>,
-        #[serde(flatten)]
-        manifest: AppInfoV1,
-    },
-    V1New {
-        #[allow(dead_code)]
-        spin_manifest_version: FixedStringVersion<1>,
-        #[serde(flatten)]
-        manifest: AppInfoV1,
-    },
-}
-
-impl AppInfo {
-    pub fn as_v1(&self) -> &AppInfoV1 {
-        match self {
-            AppInfo::V1New { manifest, .. } => manifest,
-            AppInfo::V1Old { manifest, .. } => manifest,
-        }
-    }
-}
-
-#[derive(Debug, serde::Deserialize)]
-pub(crate) struct AppInfoV1 {
-    trigger: TriggerInfo,
-}
-
-#[derive(Debug, serde::Deserialize)]
-pub(crate) struct TriggerInfo {
-    #[serde(rename = "type")]
+pub(crate) struct AppInfo {
     trigger_type: String,
 }
 
@@ -68,13 +37,40 @@ impl AppInfo {
         }
     }
 
-    fn from_existent_file(manifest_path: &Path) -> anyhow::Result<AppInfo> {
-        let manifest_text =
-            std::fs::read_to_string(manifest_path).context("Can't read manifest file")?;
-        toml::from_str(&manifest_text).context("Can't parse manifest file")
+    fn from_existent_file(manifest_path: &Path) -> anyhow::Result<Self> {
+        let manifest_str = std::fs::read_to_string(manifest_path)?;
+        let trigger_type = match spin_manifest::ManifestVersion::detect(&manifest_str)? {
+            spin_manifest::ManifestVersion::V1 => {
+                toml::from_str::<ManifestV1TriggerProbe>(&manifest_str)?
+                    .trigger
+                    .trigger_type
+            }
+            spin_manifest::ManifestVersion::V2 => {
+                let triggers = toml::from_str::<ManifestV2TriggerProbe>(&manifest_str)?.trigger;
+                let type_count = triggers.len();
+                ensure!(
+                    type_count == 1,
+                    "only 1 trigger type currently supported; got {type_count}"
+                );
+                triggers.into_iter().next().unwrap().0
+            }
+        };
+        Ok(Self { trigger_type })
     }
 
     pub fn trigger_type(&self) -> &str {
-        &self.as_v1().trigger.trigger_type
+        &self.trigger_type
     }
+}
+
+#[derive(Deserialize)]
+struct ManifestV1TriggerProbe {
+    // `trigger = { type = "<type>", ...}`
+    trigger: v1::AppTriggerV1,
+}
+
+#[derive(Deserialize)]
+struct ManifestV2TriggerProbe {
+    // `[trigger.<type>]`
+    trigger: toml::value::Table,
 }

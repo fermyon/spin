@@ -29,7 +29,9 @@ impl DynamicHostComponent for OutboundHttpComponent {
         data: &mut Self::Data,
         component: &spin_app::AppComponent,
     ) -> anyhow::Result<()> {
-        let hosts = component.get_metadata(crate::ALLOWED_HTTP_HOSTS_KEY)?;
+        let hosts = component
+            .get_metadata(crate::ALLOWED_HTTP_HOSTS_KEY)?
+            .unwrap_or_default();
         data.allowed_hosts = parse_allowed_http_hosts(&hosts)?;
         Ok(())
     }

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use spin_loader::local::config::FixedStringVersion;
+use spin_manifest::schema::FixedStringVersion;
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, Deserialize)]

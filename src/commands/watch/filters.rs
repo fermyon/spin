@@ -5,10 +5,7 @@ use std::{
 
 use anyhow::bail;
 use async_trait::async_trait;
-use spin_loader::local::config::{RawFileMount, RawModuleSource};
-
-type Manifest = spin_loader::local::config::RawAppManifestImpl<spin_manifest::TriggerConfig>;
-type Component = spin_loader::local::config::RawComponentManifestImpl<spin_manifest::TriggerConfig>;
+use spin_manifest::schema::v2;
 
 #[async_trait]
 pub(crate) trait FilterFactory: Send + Sync {
@@ -16,7 +13,7 @@ pub(crate) trait FilterFactory: Send + Sync {
         &self,
         manifest_file: &Path,
         manifest_dir: &Path,
-        manifest: &Manifest,
+        manifest: &v2::AppManifest,
     ) -> anyhow::Result<Arc<watchexec_filterer_globset::GlobsetFilterer>>;
 }
 
@@ -33,24 +30,24 @@ impl FilterFactory for ArtifactFilterFactory {
         &self,
         manifest_file: &Path,
         manifest_dir: &Path,
-        manifest: &Manifest,
+        manifest: &v2::AppManifest,
     ) -> anyhow::Result<Arc<watchexec_filterer_globset::GlobsetFilterer>> {
         let manifest_glob = if self.skip_build {
             vec![stringize_path(manifest_file)?]
         } else {
             vec![] // In this case, manifest changes trigger a rebuild, which will poke the uppificator anyway
         };
-        let wasm_globs = manifest.components.iter().filter_map(|c| {
-            let RawModuleSource::FileReference(path) = &c.source else {
-                return None;
-            };
-            path.to_str().map(String::from)
-        });
+        let wasm_globs = manifest
+            .components
+            .values()
+            .filter_map(|c| match &c.source {
+                v2::ComponentSource::Local(path) => Some(path.clone()),
+                _ => None,
+            });
         let asset_globs = manifest
             .components
-            .iter()
-            .filter_map(|c| c.wasm.files.as_ref())
-            .flatten()
+            .values()
+            .flat_map(|c| c.files.iter())
             .filter_map(globbify)
             .collect::<Vec<_>>();
 
@@ -74,14 +71,12 @@ impl FilterFactory for ArtifactFilterFactory {
     }
 }
 
-fn globbify(raw_file_mount: &RawFileMount) -> Option<String> {
-    match raw_file_mount {
-        RawFileMount::Placement(raw_directory_placement) => raw_directory_placement
-            .source
-            .join("**/*")
-            .to_str()
-            .map(String::from),
-        RawFileMount::Pattern(pattern) => Some(pattern.to_string()),
+fn globbify(files_mount: &v2::WasiFilesMount) -> Option<String> {
+    match files_mount {
+        v2::WasiFilesMount::Placement { source, .. } => {
+            Path::new(source).join("**/*").to_str().map(String::from)
+        }
+        v2::WasiFilesMount::Pattern(pattern) => Some(pattern.clone()),
     }
 }
 
@@ -91,14 +86,13 @@ impl FilterFactory for BuildFilterFactory {
         &self,
         manifest_file: &Path,
         manifest_dir: &Path,
-        manifest: &spin_loader::local::config::RawAppManifestImpl<spin_manifest::TriggerConfig>,
+        manifest: &v2::AppManifest,
     ) -> anyhow::Result<Arc<watchexec_filterer_globset::GlobsetFilterer>> {
         let manifest_glob = vec![stringize_path(manifest_file)?];
         let src_globs = manifest
             .components
             .iter()
-            .filter_map(create_source_globs)
-            .flatten()
+            .flat_map(|(cid, c)| create_source_globs(cid.as_ref(), c))
             .collect::<Vec<_>>();
 
         let build_globs = manifest_glob
@@ -120,26 +114,27 @@ impl FilterFactory for BuildFilterFactory {
     }
 }
 
-fn create_source_globs(c: &Component) -> Option<Vec<String>> {
-    let build = c.build.as_ref()?;
-    let Some(watch) = build.watch.clone() else {
-        eprintln!(
-            "You haven't configured what to watch for the component: '{}'. Learn how to configure Spin watch at https://developer.fermyon.com/common/cli-reference#watch",
-            c.id
-        );
-        return None;
+fn create_source_globs(cid: &str, c: &v2::Component) -> Vec<String> {
+    let Some(build) = &c.build else {
+        return vec![];
     };
-    let sources = build
+    if build.watch.is_empty() {
+        eprintln!(
+            "You haven't configured what to watch for the component: '{cid}'. Learn how to configure Spin watch at https://developer.fermyon.com/common/cli-reference#watch"
+        );
+        return vec![];
+    };
+    build
         .workdir
-        .clone()
+        .as_deref()
         .map(|workdir| {
-            watch
+            build
+                .watch
                 .iter()
-                .filter_map(|w| workdir.join(w).to_str().map(String::from))
+                .filter_map(|w| Path::new(workdir).join(w).to_str().map(String::from))
                 .collect()
         })
-        .unwrap_or(watch);
-    Some(sources)
+        .unwrap_or_else(|| build.watch.clone())
 }
 
 #[async_trait]
@@ -148,7 +143,7 @@ impl FilterFactory for ManifestFilterFactory {
         &self,
         manifest_file: &Path,
         manifest_dir: &Path,
-        _: &spin_loader::local::config::RawAppManifestImpl<spin_manifest::TriggerConfig>,
+        _: &v2::AppManifest,
     ) -> anyhow::Result<Arc<watchexec_filterer_globset::GlobsetFilterer>> {
         let manifest_glob = stringize_path(manifest_file)?;
 

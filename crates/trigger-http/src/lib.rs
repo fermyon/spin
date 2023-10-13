@@ -23,7 +23,7 @@ use hyper::{
     service::service_fn,
     Request, Response,
 };
-use spin_app::AppComponent;
+use spin_app::{AppComponent, APP_DESCRIPTION_KEY};
 use spin_core::Engine;
 use spin_http::{
     app_info::AppInfo,
@@ -31,13 +31,12 @@ use spin_http::{
     config::{HttpExecutorType, HttpTriggerConfig},
     routes::{RoutePattern, Router},
 };
-use spin_trigger::{locked::DESCRIPTION_KEY, EitherInstancePre, TriggerAppEngine, TriggerExecutor};
+use spin_trigger::{EitherInstancePre, TriggerAppEngine, TriggerExecutor};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::TcpListener,
     task,
 };
-
 use tracing::log;
 use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
@@ -150,7 +149,7 @@ impl TriggerExecutor for HttpTrigger {
         for (route, component_id) in self.router.routes() {
             println!("  {}: {}{}", component_id, base_url, route);
             if let Some(component) = self.engine.app().get_component(component_id) {
-                if let Some(description) = component.get_metadata(DESCRIPTION_KEY)? {
+                if let Some(description) = component.get_metadata(APP_DESCRIPTION_KEY)? {
                     println!("    {}", description);
                 }
             }

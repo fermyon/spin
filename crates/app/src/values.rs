@@ -16,9 +16,21 @@ impl ValuesMapBuilder {
         Self::default()
     }
 
+    /// Returns a ValuesMapBuilder populated from the given map-serializable
+    /// value.
+    pub fn try_from<S: Serialize>(s: S) -> serde_json::Result<Self> {
+        let value = serde_json::to_value(s)?;
+        let map = serde_json::from_value(value)?;
+        Ok(Self(map))
+    }
+
     /// Inserts a string value into the map.
     pub fn string(&mut self, key: impl Into<String>, value: impl Into<String>) -> &mut Self {
-        self.entry(key, value.into())
+        let value = value.into();
+        if value.is_empty() {
+            return self;
+        }
+        self.entry(key, value)
     }
 
     /// Inserts a string value into the map only if the given Option is Some.
@@ -39,7 +51,11 @@ impl ValuesMapBuilder {
         key: impl Into<String>,
         iter: impl IntoIterator<Item = T>,
     ) -> &mut Self {
-        self.entry(key, iter.into_iter().map(|s| s.into()).collect::<Vec<_>>())
+        let entries = iter.into_iter().map(|s| s.into()).collect::<Vec<_>>();
+        if entries.is_empty() {
+            return self;
+        }
+        self.entry(key, entries)
     }
 
     /// Inserts an entry into the map using the value's `impl Into<Value>`.
@@ -55,7 +71,9 @@ impl ValuesMapBuilder {
         value: impl Serialize,
     ) -> serde_json::Result<&mut Self> {
         let value = serde_json::to_value(value)?;
-        self.0.insert(key.into(), value);
+        if !value.is_null() {
+            self.0.insert(key.into(), value);
+        }
         Ok(self)
     }
 

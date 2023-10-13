@@ -161,12 +161,6 @@ impl<const V: usize> From<FixedVersion<V>> for usize {
     }
 }
 
-impl<const V: usize> From<FixedVersion<V>> for String {
-    fn from(_: FixedVersion<V>) -> String {
-        V.to_string()
-    }
-}
-
 impl<const V: usize> TryFrom<usize> for FixedVersion<V> {
     type Error = String;
 
@@ -175,17 +169,6 @@ impl<const V: usize> TryFrom<usize> for FixedVersion<V> {
             return Err(format!("invalid version {} != {}", value, V));
         }
         Ok(Self)
-    }
-}
-
-impl<const V: usize> TryFrom<String> for FixedVersion<V> {
-    type Error = String;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        let value: usize = value
-            .parse()
-            .map_err(|err| format!("invalid version: {}", err))?;
-        value.try_into()
     }
 }
 

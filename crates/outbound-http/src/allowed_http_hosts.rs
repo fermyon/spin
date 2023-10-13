@@ -74,34 +74,27 @@ impl AllowedHttpHost {
     }
 }
 
-// Checks a list of allowed HTTP hosts is valid
-pub fn validate_allowed_http_hosts(http_hosts: &Option<Vec<String>>) -> Result<()> {
-    parse_allowed_http_hosts(http_hosts).map(|_| ())
-}
-
 // Parses a list of allowed HTTP hosts
-pub fn parse_allowed_http_hosts(raw: &Option<Vec<String>>) -> Result<AllowedHttpHosts> {
-    match raw {
-        None => Ok(AllowedHttpHosts::AllowSpecific(vec![])),
-        Some(list) => {
-            if list.iter().any(|domain| domain == ALLOW_ALL_HOSTS) {
-                Ok(AllowedHttpHosts::AllowAll)
-            } else {
-                let parse_results = list
-                    .iter()
-                    .map(|h| parse_allowed_http_host(h))
-                    .collect::<Vec<_>>();
-                let (hosts, errors) = partition_results(parse_results);
+pub fn parse_allowed_http_hosts(list: &[impl AsRef<str>]) -> Result<AllowedHttpHosts> {
+    if list.is_empty() {
+        return Ok(AllowedHttpHosts::AllowSpecific(vec![]));
+    }
+    if list.iter().any(|domain| domain.as_ref() == ALLOW_ALL_HOSTS) {
+        Ok(AllowedHttpHosts::AllowAll)
+    } else {
+        let parse_results = list
+            .iter()
+            .map(|h| parse_allowed_http_host(h.as_ref()))
+            .collect::<Vec<_>>();
+        let (hosts, errors) = partition_results(parse_results);
 
-                if errors.is_empty() {
-                    Ok(AllowedHttpHosts::AllowSpecific(hosts))
-                } else {
-                    Err(anyhow!(
-                        "One or more allowed_http_hosts entries was invalid:\n{}",
-                        errors.join("\n")
-                    ))
-                }
-            }
+        if errors.is_empty() {
+            Ok(AllowedHttpHosts::AllowSpecific(hosts))
+        } else {
+            Err(anyhow!(
+                "One or more allowed_http_hosts entries was invalid:\n{}",
+                errors.join("\n")
+            ))
         }
     }
 }
@@ -289,30 +282,22 @@ mod test {
         assert!(parse_allowed_http_host("ftp://spin.fermyon.dev:6666").is_err());
     }
 
-    fn to_vec_owned(source: &[&str]) -> Option<Vec<String>> {
-        Some(source.iter().map(|s| s.to_owned().to_owned()).collect())
-    }
-
     #[test]
     fn test_allowed_hosts_respects_allow_all() {
         assert_eq!(
             AllowedHttpHosts::AllowAll,
-            parse_allowed_http_hosts(&to_vec_owned(&["insecure:allow-all"])).unwrap()
+            parse_allowed_http_hosts(&["insecure:allow-all"]).unwrap()
         );
         assert_eq!(
             AllowedHttpHosts::AllowAll,
-            parse_allowed_http_hosts(&to_vec_owned(&["spin.fermyon.dev", "insecure:allow-all"]))
-                .unwrap()
+            parse_allowed_http_hosts(&["spin.fermyon.dev", "insecure:allow-all"]).unwrap()
         );
     }
 
     #[test]
     fn test_allowed_hosts_can_be_specific() {
-        let allowed = parse_allowed_http_hosts(&to_vec_owned(&[
-            "spin.fermyon.dev",
-            "http://example.com:8383",
-        ]))
-        .unwrap();
+        let allowed =
+            parse_allowed_http_hosts(&["spin.fermyon.dev", "http://example.com:8383"]).unwrap();
         assert!(allowed.allow(&Url::parse("http://example.com:8383/foo/bar").unwrap()));
         assert!(allowed.allow(&Url::parse("https://spin.fermyon.dev/").unwrap()));
         assert!(!allowed.allow(&Url::parse("http://example.com/").unwrap()));
@@ -321,15 +306,13 @@ mod test {
 
     #[test]
     fn test_allowed_hosts_allow_relative_url() {
-        let allowed =
-            parse_allowed_http_hosts(&to_vec_owned(&["self", "http://example.com:8383"])).unwrap();
+        let allowed = parse_allowed_http_hosts(&["self", "http://example.com:8383"]).unwrap();
         assert!(allowed.allow_relative_url());
 
-        let not_allowed =
-            parse_allowed_http_hosts(&to_vec_owned(&["http://example.com:8383"])).unwrap();
+        let not_allowed = parse_allowed_http_hosts(&["http://example.com:8383"]).unwrap();
         assert!(!not_allowed.allow_relative_url());
 
-        let allow_all = parse_allowed_http_hosts(&to_vec_owned(&["insecure:allow-all"])).unwrap();
+        let allow_all = parse_allowed_http_hosts(&["insecure:allow-all"]).unwrap();
         assert!(allow_all.allow_relative_url());
     }
 }

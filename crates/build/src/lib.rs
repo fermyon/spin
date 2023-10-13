@@ -5,7 +5,7 @@
 mod manifest;
 
 use anyhow::{anyhow, bail, Context, Result};
-use spin_loader::local::parent_dir;
+use spin_common::paths::parent_dir;
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},

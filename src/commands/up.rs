@@ -1,14 +1,15 @@
 use std::{
+    collections::HashSet,
     ffi::OsString,
-    fmt::Debug,
+    fmt::{Debug, Display},
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::{CommandFactory, Parser};
 use reqwest::Url;
 use spin_app::locked::LockedApp;
-use spin_manifest::ApplicationTrigger;
+use spin_loader::FilesMountStrategy;
 use spin_oci::OciLoader;
 use spin_trigger::cli::{SPIN_LOCAL_APP_DIR, SPIN_LOCKED_URL, SPIN_WORKING_DIR};
 use tempfile::TempDir;
@@ -110,7 +111,7 @@ impl UpCommand {
         }
         self.run_inner().await.or_else(|err| {
             if help {
-                tracing::warn!("Error resolving trigger-specific help: {}", err);
+                tracing::warn!("Error resolving trigger-specific help: {err:?}");
                 Ok(())
             } else {
                 Err(err)
@@ -150,7 +151,8 @@ impl UpCommand {
             AppSource::Unresolvable(err) => bail!("{err}"),
         };
 
-        let trigger_cmd = trigger_command_from_locked_app(&locked_app)?;
+        let trigger_cmd = trigger_command_from_locked_app(&locked_app)
+            .with_context(|| format!("Couldn't find trigger executor for {app_source}"))?;
 
         if self.help {
             return self.run_trigger(trigger_cmd, None).await;
@@ -311,15 +313,14 @@ impl UpCommand {
         manifest_path: &Path,
         working_dir: &Path,
     ) -> Result<LockedApp> {
-        let asset_dst = if self.direct_mounts {
-            None
+        let files_mount_strategy = if self.direct_mounts {
+            FilesMountStrategy::Direct
         } else {
-            Some(working_dir)
+            FilesMountStrategy::Copy(working_dir.join("assets"))
         };
-
-        let app = spin_loader::from_file(manifest_path, asset_dst).await?;
-
-        spin_trigger::locked::build_locked_app(app, working_dir)
+        spin_loader::from_file(manifest_path, files_mount_strategy)
+            .await
+            .with_context(|| format!("Failed to load manifest from {manifest_path:?}"))
     }
 
     async fn prepare_app_from_oci(&self, reference: &str, working_dir: &Path) -> Result<LockedApp> {
@@ -409,20 +410,22 @@ fn trigger_command(trigger_type: &str) -> Vec<String> {
 }
 
 fn trigger_command_from_locked_app(locked_app: &LockedApp) -> Result<Vec<String>> {
-    let trigger_metadata = locked_app
-        .metadata
-        .get("trigger")
-        .cloned()
-        .ok_or_else(|| anyhow!("missing trigger metadata in locked application"))?;
+    let trigger_type = {
+        let types = locked_app
+            .triggers
+            .iter()
+            .map(|t| t.trigger_type.as_str())
+            .collect::<HashSet<_>>();
+        ensure!(!types.is_empty(), "no triggers in app");
+        ensure!(types.len() == 1, "multiple trigger types not yet supported");
+        types.into_iter().next().unwrap()
+    };
 
-    let trigger_info: ApplicationTrigger = serde_json::from_value(trigger_metadata)
-        .context("deserializing trigger type from locked application")?;
-
-    match trigger_info {
-        ApplicationTrigger::Http(_) => Ok(trigger_command("http")),
-        ApplicationTrigger::Redis(_) => Ok(trigger_command("redis")),
-        ApplicationTrigger::External(cfg) => {
-            resolve_trigger_plugin(cfg.trigger_type()).map(|p| vec![p])
+    match trigger_type {
+        "http" | "redis" => Ok(trigger_command(trigger_type)),
+        _ => {
+            let cmd = resolve_trigger_plugin(trigger_type)?;
+            Ok(vec![cmd])
         }
     }
 }
@@ -454,6 +457,17 @@ impl AppSource {
         match self {
             Self::File(path) => spin_build::build(path, &[]).await,
             _ => Ok(()),
+        }
+    }
+}
+
+impl Display for AppSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AppSource::None => write!(f, "<no source>"),
+            AppSource::File(path) => write!(f, "local app {path:?}"),
+            AppSource::OciRegistry(reference) => write!(f, "remote app {reference:?}"),
+            AppSource::Unresolvable(s) => write!(f, "unknown app source {s:?}"),
         }
     }
 }

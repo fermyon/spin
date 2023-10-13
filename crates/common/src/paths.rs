@@ -1,6 +1,6 @@
 //! Resolves a file path to a manifest file
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use std::path::{Path, PathBuf};
 
 /// The name given to the default manifest file.
@@ -31,5 +31,38 @@ pub fn resolve_manifest_file_path(provided_path: impl AsRef<Path>) -> Result<Pat
             Ok(true) => anyhow!("Path {pd} is neither a file nor a directory"),
         };
         Err(err)
+    }
+}
+
+/// Resolves the parent directory of a path, returning an error if the path
+/// has no parent. A path with a single component will return ".".
+pub fn parent_dir(path: impl AsRef<Path>) -> Result<PathBuf> {
+    let path = path.as_ref();
+    let mut parent = path
+        .parent()
+        .with_context(|| format!("No parent directory for path {path:?}"))?;
+    if parent == Path::new("") {
+        parent = Path::new(".");
+    }
+    Ok(parent.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parent_returns_parent() {
+        assert_eq!(parent_dir("foo/bar").unwrap(), Path::new("foo"));
+    }
+
+    #[test]
+    fn blank_parent_returns_dot() {
+        assert_eq!(parent_dir("foo").unwrap(), Path::new("."));
+    }
+
+    #[test]
+    fn no_parent_returns_err() {
+        parent_dir("").unwrap_err();
     }
 }

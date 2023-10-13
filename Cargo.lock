@@ -187,6 +187,9 @@ name = "anyhow"
 version = "1.0.75"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
+dependencies = [
+ "backtrace",
+]
 
 [[package]]
 name = "anymap2"
@@ -1678,9 +1681,9 @@ dependencies = [
 
 [[package]]
 name = "digest"
-version = "0.10.6"
+version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8168378f4e5023e7218c89c891c0fd8ecdb5e5e4f18cb78f38cf245dd021e76f"
+checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer",
  "crypto-common",
@@ -5341,9 +5344,9 @@ dependencies = [
 
 [[package]]
 name = "serde_spanned"
-version = "0.6.1"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0efd8caf556a6cebd3b285caf480045fcc1ac04f6bd786b09a6f11af30c4fcf4"
+checksum = "96426c9936fd7a0124915f9185ea1d20aa9445cc9821142f0a73bc9207a2e186"
 dependencies = [
  "serde",
 ]
@@ -5388,9 +5391,9 @@ checksum = "ae1a47186c03a32177042e55dbc5fd5aee900b8e0069a8d70fba96a9375cd012"
 
 [[package]]
 name = "sha2"
-version = "0.10.6"
+version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82e6b795fe2e3b1e845bafcb27aa35405c4d47cdfc92af5fc8d3002f76cebdc0"
+checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -5597,7 +5600,8 @@ dependencies = [
  "anyhow",
  "futures",
  "serde",
- "spin-loader",
+ "spin-common",
+ "spin-manifest",
  "subprocess",
  "terminal",
  "tokio",
@@ -5750,7 +5754,8 @@ dependencies = [
  "reqwest",
  "serde",
  "similar",
- "spin-loader",
+ "spin-common",
+ "spin-manifest",
  "tempfile",
  "terminal",
  "tokio",
@@ -5772,6 +5777,7 @@ dependencies = [
  "serde",
  "spin-app",
  "spin-testing",
+ "toml 0.8.2",
  "tracing",
  "wasmtime-wasi-http",
 ]
@@ -5902,16 +5908,20 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "sha2",
  "shellexpand 3.1.0",
+ "spin-app",
  "spin-common",
  "spin-config",
  "spin-manifest",
  "tempfile",
  "terminal",
+ "thiserror",
  "tokio",
  "tokio-util 0.6.10",
- "toml 0.5.11",
+ "toml 0.8.2",
  "tracing",
+ "ui-testing",
  "walkdir",
 ]
 
@@ -5931,10 +5941,16 @@ dependencies = [
 name = "spin-manifest"
 version = "2.0.0-pre0"
 dependencies = [
+ "anyhow",
+ "glob",
  "indexmap 1.9.2",
+ "outbound-http",
  "serde",
+ "serde_json",
+ "spin-app",
  "thiserror",
- "toml 0.5.11",
+ "toml 0.8.2",
+ "ui-testing",
 ]
 
 [[package]]
@@ -6093,7 +6109,7 @@ dependencies = [
  "semver",
  "serde",
  "spin-common",
- "spin-loader",
+ "spin-manifest",
  "tempfile",
  "tokio",
  "toml 0.5.11",
@@ -6132,7 +6148,6 @@ dependencies = [
  "dirs 4.0.0",
  "futures",
  "indexmap 1.9.2",
- "libtest-mimic",
  "outbound-http",
  "outbound-mysql",
  "outbound-pg",
@@ -6140,7 +6155,6 @@ dependencies = [
  "sanitize-filename",
  "serde",
  "serde_json",
- "snapbox",
  "spin-app",
  "spin-common",
  "spin-componentize",
@@ -6440,18 +6454,18 @@ checksum = "222a222a5bfe1bba4a77b45ec488a741b3cb8872e5e499451fd7d0129c9c7c3d"
 
 [[package]]
 name = "thiserror"
-version = "1.0.47"
+version = "1.0.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97a802ec30afc17eee47b2855fc72e0c4cd62be9b4efe6591edde0ec5bd68d8f"
+checksum = "1177e8c6d7ede7afde3585fd2513e611227efd6481bd78d2e82ba1ce16557ed4"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.47"
+version = "1.0.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bb623b56e39ab7dcd4b1b98bb6c8f8d907ed255b18de254088016b27a8ee19b"
+checksum = "10712f02019e9288794769fba95cd6847df9874d49d871d062172f9dd41bc4cc"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6751,6 +6765,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "185d8ab0dfbb35cf1399a6344d8484209c088f75f8f68230da55d48d95d43e3d"
+dependencies = [
+ "indexmap 2.0.0",
+ "serde",
+ "serde_spanned",
+ "toml_datetime 0.6.3",
+ "toml_edit 0.20.2",
+]
+
+[[package]]
 name = "toml_datetime"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6801,6 +6828,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "396e4d48bbb2b7554c944bde63101b5ae446cff6ec4a24227428f15eb72ef338"
 dependencies = [
  "indexmap 2.0.0",
+ "serde",
+ "serde_spanned",
  "toml_datetime 0.6.3",
  "winnow 0.5.16",
 ]
@@ -6902,6 +6931,16 @@ name = "ucd-trie"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e79c4d996edb816c91e4308506774452e55e95c3c9de07b6729e17e15a5ef81"
+
+[[package]]
+name = "ui-testing"
+version = "2.0.0-pre0"
+dependencies = [
+ "anyhow",
+ "dirs 4.0.0",
+ "libtest-mimic",
+ "snapbox",
+]
 
 [[package]]
 name = "unicase"

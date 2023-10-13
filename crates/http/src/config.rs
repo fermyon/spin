@@ -33,10 +33,9 @@ pub enum HttpExecutorType {
 
 /// Wagi specific configuration for the http executor.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct WagiTriggerConfig {
     /// The name of the entrypoint.
-    #[serde(default)]
     pub entrypoint: String,
 
     /// A string representation of the argv array.
@@ -48,7 +47,6 @@ pub struct WagiTriggerConfig {
     /// `param1=val1&param2=val2` will become `param1=val1 param2=val2`,
     /// which will then be presented to the program as two arguments
     /// in argv.
-    #[serde(default)]
     pub argv: String,
 }
 
@@ -62,5 +60,20 @@ impl Default for WagiTriggerConfig {
             entrypoint: WAGI_DEFAULT_ENTRYPOINT.to_owned(),
             argv: WAGI_DEFAULT_ARGV.to_owned(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wagi_config_smoke_test() {
+        let HttpExecutorType::Wagi(config) = toml::toml! { type = "wagi" }.try_into().unwrap()
+        else {
+            panic!("wrong type");
+        };
+        assert_eq!(config.entrypoint, "_start");
+        assert_eq!(config.argv, "${SCRIPT_NAME} ${ARGS}");
     }
 }

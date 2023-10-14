@@ -19,6 +19,12 @@ impl IncomingRequest {
         }
         Ok(body)
     }
+    /// Return a `Vec<u8>` of the body
+    pub fn into_body_sync(self) -> anyhow::Result<Vec<u8>> {
+        let future = async { self.into_body().await };
+        futures::pin_mut!(future);
+        executor::run(future)
+    }
 }
 
 impl IncomingResponse {
@@ -108,5 +114,75 @@ impl From<crate::http::Response> for (OutgoingResponse, Vec<u8>) {
             OutgoingResponse::new(response.status, &Headers::new(&[])),
             response.body.unwrap_or_default(),
         )
+    }
+}
+
+/// A trait for trying to convert from an `IncomingRequest` to the implementing type
+pub trait TryFromIncomingRequest {
+    /// The error if conversion fails
+    type Error;
+
+    /// Try to turn the `IncomingRequest` into the implementing type
+    fn try_from_incoming_request(value: IncomingRequest) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
+}
+
+#[derive(Debug, thiserror::Error)]
+/// TODO
+pub enum IncomingRequestError {
+    /// TODO
+    #[error(transparent)]
+    ToRequest(anyhow::Error),
+    /// TODO
+    #[error(transparent)]
+    ToType(Box<dyn std::error::Error>),
+}
+
+impl crate::http::IntoResponse for IncomingRequestError {
+    fn into_response(self) -> crate::http::Response {
+        match self {
+            IncomingRequestError::ToRequest(e) => e.into_response(),
+            IncomingRequestError::ToType(e) => e.into_response(),
+        }
+    }
+}
+impl TryFromIncomingRequest for IncomingRequest {
+    type Error = std::convert::Infallible;
+    fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
+        Ok(request)
+    }
+}
+
+impl<R> TryFromIncomingRequest for R
+where
+    R: crate::http::TryFromRequest,
+    R::Error: Into<Box<dyn std::error::Error>>,
+{
+    type Error = IncomingRequestError;
+
+    fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
+        let req = crate::http::Request::try_from_incoming_request(request)
+            .map_err(IncomingRequestError::ToRequest)?;
+        R::try_from_request(req).map_err(|e| IncomingRequestError::ToType(e.into()))
+    }
+}
+
+impl TryFromIncomingRequest for crate::http::Request {
+    type Error = anyhow::Error;
+
+    fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            method: request
+                .method()
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("unexpected method"))?,
+            uri: request
+                .path_with_query()
+                .unwrap_or_else(|| String::from("/")),
+            headers: Vec::new(), // TODO
+            params: Vec::new(),
+            body: Some(request.into_body_sync()?),
+        })
     }
 }

@@ -99,13 +99,19 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func = syn::parse_macro_input!(item as syn::ItemFn);
     let func_name = &func.sig.ident;
-    let len = func.sig.inputs.len();
     let preamble = preamble(Export::WasiHttp);
-    let handler = if len == 2 {
+    let is_native_wasi_http_handler = func.sig.inputs.len() == 2;
+    let handler = if is_native_wasi_http_handler {
         quote! {
-            let request = match ::std::convert::TryInto::try_into(request) {
+            let request = match ::spin_sdk::wasi_http::TryFromIncomingRequest::try_from_incoming_request(request) {
                 ::std::result::Result::Ok(r) => r,
-                ::std::result::Result::Err(e) => panic!("TODO")
+                ::std::result::Result::Err(e) => {
+                    let response = ::spin_sdk::http::IntoResponse::into_response(e);
+                    let (response, body_buffer) = ::std::convert::Into::into(response);
+                    // TODO: handle error
+                    ::spin_sdk::wasi_http::ResponseOutparam::set_with_body(response_out, response, body_buffer).await.unwrap();
+                    return;
+                }
             };
             if let Err(e) = super::#func_name(request, response_out).await {
                 eprintln!("Handler returned an error: {e}");
@@ -114,16 +120,16 @@ pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream
     } else {
         quote! {
             let (response, body_buffer): (::spin_sdk::wasi_http::OutgoingResponse, Vec<u8>) = {
-                // TODO: handle conversion error
-                let request: ::spin_sdk::http::Request = ::std::convert::TryInto::try_into(request).unwrap();
-                let response = match ::std::convert::TryInto::try_into(request) {
+                let response = match ::spin_sdk::wasi_http::TryFromIncomingRequest::try_from_incoming_request(request) {
                     ::std::result::Result::Ok(r) => ::spin_sdk::http::IntoResponse::into_response(super::#func_name(r)),
                     ::std::result::Result::Err(e) => ::spin_sdk::http::IntoResponse::into_response(e),
                 };
+                // `spin_sdk::http::Response` => (`spin_sdk::wasi_http::OutgoingResponse`, `Vec<u8>`)
                 ::std::convert::Into::into(response)
             };
-            // TODO: handle error
-            ::spin_sdk::wasi_http::ResponseOutparam::set_with_body(response_out, response, body_buffer).await.unwrap();
+            if let Err(e) = ::spin_sdk::wasi_http::ResponseOutparam::set_with_body(response_out, response, body_buffer).await {
+                eprintln!("Could not set `ResponseOutparam`: {e}");
+            }
         }
     };
 

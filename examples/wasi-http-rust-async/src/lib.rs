@@ -64,7 +64,7 @@ async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam
 
             ResponseOutparam::set(response_out, Ok(response));
 
-            let mut stream = request.into_body();
+            let mut stream = request.into_body_stream();
             while let Some(chunk) = stream.try_next().await? {
                 body.send(chunk).await?;
             }

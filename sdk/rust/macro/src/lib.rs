@@ -99,55 +99,78 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func = syn::parse_macro_input!(item as syn::ItemFn);
     let func_name = &func.sig.ident;
+    let len = func.sig.inputs.len();
     let preamble = preamble(Export::WasiHttp);
+    let handler = if len == 2 {
+        quote! {
+            let request = match ::std::convert::TryInto::try_into(request) {
+                ::std::result::Result::Ok(r) => r,
+                ::std::result::Result::Err(e) => panic!("TODO")
+            };
+            if let Err(e) = super::#func_name(request, response_out).await {
+                eprintln!("Handler returned an error: {e}");
+            }
+        }
+    } else {
+        quote! {
+            let (response, body_buffer): (::spin_sdk::wasi_http::OutgoingResponse, Vec<u8>) = {
+                // TODO: handle conversion error
+                let request: ::spin_sdk::http::Request = ::std::convert::TryInto::try_into(request).unwrap();
+                let response = match ::std::convert::TryInto::try_into(request) {
+                    ::std::result::Result::Ok(r) => ::spin_sdk::http::IntoResponse::into_response(super::#func_name(r)),
+                    ::std::result::Result::Err(e) => ::spin_sdk::http::IntoResponse::into_response(e),
+                };
+                ::std::convert::Into::into(response)
+            };
+            // TODO: handle error
+            ::spin_sdk::wasi_http::ResponseOutparam::set_with_body(response_out, response, body_buffer).await.unwrap();
+        }
+    };
 
     quote!(
         #func
-        // We export wasi here since `wit-bindgen` currently has no way of using types
-        // declared somewhere else as part of its generated code. If we want users to be able to
-        // use `wasi-http` types, they have to be generated in this macro. This should be solved once
-        // `with` is supported in wit-bindgen [ref: https://github.com/bytecodealliance/wit-bindgen/issues/694].
-        use __spin_wasi_http::wasi;
         mod __spin_wasi_http {
             #preamble
             use exports::wasi::http::incoming_handler;
-            use wasi::http::types::{IncomingRequest, ResponseOutparam};
+            use wasi::http::types::{IncomingRequest, ResponseOutparam, OutgoingResponse};
 
             impl incoming_handler::Guest for Spin {
                 fn handle(request: IncomingRequest, response_out: ResponseOutparam) {
                     let request: ::spin_sdk::wasi_http::IncomingRequest = Into::into(request);
                     let response_out: ::spin_sdk::wasi_http::ResponseOutparam = Into::into(response_out);
                     let future = async move {
-                        let request = match ::std::convert::TryInto::try_into(request) {
-                            ::std::result::Result::Ok(r) => r,
-                            ::std::result::Result::Err(e) => panic!("TODO")
-                        };
-                        if let Err(e) = super::#func_name(request, response_out).await {
-                            eprintln!("Handler returned an error: {e}");
-                        }
+                        #handler
                     };
+                    // TODO: get rid of use of `futures` crate here
                     futures::pin_mut!(future);
                     ::spin_sdk::wasi_http::run(future);
                 }
             }
 
+
             impl From<IncomingRequest> for  ::spin_sdk::wasi_http::IncomingRequest {
                 fn from(req: IncomingRequest) -> Self {
-                    let req = std::mem::ManuallyDrop::new(req);
+                    let req = ::std::mem::ManuallyDrop::new(req);
                     unsafe { Self::from_handle(req.handle()) }
+                }
+            }
+
+            impl From<::spin_sdk::wasi_http::OutgoingResponse> for OutgoingResponse {
+                fn from(resp: ::spin_sdk::wasi_http::OutgoingResponse) -> Self {
+                    unsafe { Self::from_handle(resp.into_handle()) }
                 }
             }
 
             impl From<ResponseOutparam> for  ::spin_sdk::wasi_http::ResponseOutparam {
                 fn from(resp: ResponseOutparam) -> Self {
-                    let resp = std::mem::ManuallyDrop::new(resp);
+                    let resp = ::std::mem::ManuallyDrop::new(resp);
                     unsafe { Self::from_handle(resp.handle()) }
                 }
             }
         }
 
     )
-        .into()
+    .into()
 }
 
 #[derive(Copy, Clone)]

@@ -156,7 +156,8 @@ pub(crate) fn outgoing_request_send(
     })
 }
 
-pub(crate) fn incoming_body(body: IncomingBody) -> impl Stream<Item = Result<Vec<u8>>> {
+#[doc(hidden)]
+pub fn incoming_body(body: IncomingBody) -> impl Stream<Item = Result<Vec<u8>>> {
     struct Incoming(Option<(InputStream, IncomingBody)>);
 
     impl Drop for Incoming {

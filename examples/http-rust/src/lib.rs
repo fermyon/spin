@@ -1,5 +1,5 @@
 use spin_sdk::http::{IntoResponse, Json};
-use spin_sdk::http_component;
+use spin_sdk::wasi_http_component;
 
 #[derive(serde::Deserialize, Debug)]
 struct MyBody {
@@ -7,7 +7,7 @@ struct MyBody {
 }
 
 /// A simple Spin HTTP component.
-#[http_component]
+#[wasi_http_component]
 fn hello_world(Json(body): Json<MyBody>) -> anyhow::Result<impl IntoResponse> {
     println!("Body data: {}", body.data);
     Ok((200, "Hello, world"))

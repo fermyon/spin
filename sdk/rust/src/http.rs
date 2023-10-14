@@ -120,23 +120,33 @@ impl Response {
     }
 }
 
-impl<B: TryFromBody> TryFrom<Request> for (String, Body<B>) {
+/// A trait for any type that can be constructor from a `Request`
+pub trait TryFromRequest {
+    /// The error if the conversion fails
+    type Error;
+    /// Try to turn the request into the type
+    fn try_from_request(req: Request) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
+}
+
+impl<B: TryFromBody> TryFromRequest for (String, Body<B>) {
     type Error = B::Error;
-    fn try_from(req: Request) -> Result<Self, Self::Error> {
+    fn try_from_request(req: Request) -> Result<Self, Self::Error> {
         Ok((req.uri, Body(B::try_from_body(req.body)?)))
     }
 }
 
-impl<B: TryFromBody> TryFrom<Request> for (String, Vec<(String, String)>, Body<B>) {
+impl<B: TryFromBody> TryFromRequest for (String, Vec<(String, String)>, Body<B>) {
     type Error = B::Error;
-    fn try_from(req: Request) -> Result<Self, Self::Error> {
+    fn try_from_request(req: Request) -> Result<Self, Self::Error> {
         Ok((req.uri, req.headers, Body(B::try_from_body(req.body)?)))
     }
 }
 
-impl<B: TryFromBody> TryFrom<Request> for (Method, String, Vec<(String, String)>, Body<B>) {
+impl<B: TryFromBody> TryFromRequest for (Method, String, Vec<(String, String)>, Body<B>) {
     type Error = B::Error;
-    fn try_from(req: Request) -> Result<Self, Self::Error> {
+    fn try_from_request(req: Request) -> Result<Self, Self::Error> {
         Ok((
             req.method,
             req.uri,
@@ -146,17 +156,17 @@ impl<B: TryFromBody> TryFrom<Request> for (Method, String, Vec<(String, String)>
     }
 }
 
-impl<B: TryFromBody> TryFrom<Request> for Body<B> {
+impl<B: TryFromBody> TryFromRequest for Body<B> {
     type Error = B::Error;
-    fn try_from(req: Request) -> Result<Self, Self::Error> {
+    fn try_from_request(req: Request) -> Result<Self, Self::Error> {
         Ok(Body(B::try_from_body(req.body)?))
     }
 }
 
 #[cfg(feature = "json")]
-impl<B: serde::de::DeserializeOwned> TryFrom<Request> for Json<B> {
+impl<B: serde::de::DeserializeOwned> TryFromRequest for Json<B> {
     type Error = JsonBodyError;
-    fn try_from(req: Request) -> Result<Self, Self::Error> {
+    fn try_from_request(req: Request) -> Result<Self, Self::Error> {
         Ok(Json(
             serde_json::from_slice(&req.body.unwrap_or_default()).map_err(JsonBodyError)?,
         ))
@@ -167,6 +177,14 @@ impl<B: serde::de::DeserializeOwned> TryFrom<Request> for Json<B> {
 #[cfg(feature = "json")]
 #[derive(Debug)]
 pub struct JsonBodyError(serde_json::Error);
+
+impl std::error::Error for JsonBodyError {}
+
+impl Display for JsonBodyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("could not convert body to json")
+    }
+}
 
 /// An error when the body is not UTF-8
 #[derive(Debug)]
@@ -181,9 +199,9 @@ impl Display for NonUtf8BodyError {
 }
 
 #[cfg(feature = "http")]
-impl<B: TryFromBody> TryFrom<Request> for http_types::Request<B> {
+impl<B: TryFromBody> TryFromRequest for http_types::Request<B> {
     type Error = B::Error;
-    fn try_from(req: Request) -> Result<Self, Self::Error> {
+    fn try_from_request(req: Request) -> Result<Self, Self::Error> {
         let mut builder = http_types::Request::builder()
             .uri(req.uri)
             .method(req.method);
@@ -278,24 +296,19 @@ impl<R: IntoResponse, E: IntoResponse> IntoResponse for std::result::Result<R, E
     }
 }
 
-impl<R: IntoResponse> IntoResponse for std::result::Result<R, anyhow::Error> {
+impl IntoResponse for anyhow::Error {
     fn into_response(self) -> Response {
-        match self {
-            Ok(r) => r.into_response(),
-            Err(error) => {
-                let body = error.to_string();
-                eprintln!("Handler returned an error: {}", body);
-                let mut source = error.source();
-                while let Some(s) = source {
-                    eprintln!("  caused by: {}", s);
-                    source = s.source();
-                }
-                Response {
-                    status: 500,
-                    headers: None,
-                    body: Some(body.as_bytes().to_vec()),
-                }
-            }
+        let body = self.to_string();
+        eprintln!("Handler returned an error: {}", body);
+        let mut source = self.source();
+        while let Some(s) = source {
+            eprintln!("  caused by: {}", s);
+            source = s.source();
+        }
+        Response {
+            status: 500,
+            headers: None,
+            body: Some(body.as_bytes().to_vec()),
         }
     }
 }

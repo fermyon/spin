@@ -11,6 +11,7 @@ source = "target/wasm32-wasi/release/http_rust.wasm"
 description = "A simple component that returns hello."
 [component.trigger]
 route = "/hello"
+executor = { type = "wasi" }
 [component.build]
 command = "cargo build --target wasm32-wasi --release"
 watch = ["src/**/*.rs", "Cargo.toml"]

@@ -115,26 +115,30 @@ pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream
 
             impl incoming_handler::Guest for Spin {
                 fn handle(request: IncomingRequest, response_out: ResponseOutparam) {
-                    let request: ::spin_sdk::wasi_http::types::IncomingRequest = Into::into(request);
-                    let response_out: ::spin_sdk::wasi_http::types::ResponseOutparam = Into::into(response_out);
+                    let request: ::spin_sdk::wasi_http::IncomingRequest = Into::into(request);
+                    let response_out: ::spin_sdk::wasi_http::ResponseOutparam = Into::into(response_out);
                     let future = async move {
+                        let request = match ::std::convert::TryInto::try_into(request) {
+                            ::std::result::Result::Ok(r) => r,
+                            ::std::result::Result::Err(e) => panic!("TODO")
+                        };
                         if let Err(e) = super::#func_name(request, response_out).await {
                             eprintln!("Handler returned an error: {e}");
                         }
                     };
                     futures::pin_mut!(future);
-                    ::spin_sdk::wasi_http::executor::run(future);
+                    ::spin_sdk::wasi_http::run(future);
                 }
             }
 
-            impl From<IncomingRequest> for  ::spin_sdk::wasi_http::types::IncomingRequest {
+            impl From<IncomingRequest> for  ::spin_sdk::wasi_http::IncomingRequest {
                 fn from(req: IncomingRequest) -> Self {
                     let req = std::mem::ManuallyDrop::new(req);
                     unsafe { Self::from_handle(req.handle()) }
                 }
             }
 
-            impl From<ResponseOutparam> for  ::spin_sdk::wasi_http::types::ResponseOutparam {
+            impl From<ResponseOutparam> for  ::spin_sdk::wasi_http::ResponseOutparam {
                 fn from(resp: ResponseOutparam) -> Self {
                     let resp = std::mem::ManuallyDrop::new(resp);
                     unsafe { Self::from_handle(resp.handle()) }

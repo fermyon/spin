@@ -64,8 +64,37 @@ impl ResponseOutparam {
 }
 
 /// Send an outgoing request
-pub async fn send(request: OutgoingRequest) -> Result<IncomingResponse, Error> {
-    executor::outgoing_request_send(request).await
+pub async fn send<I, O>(request: I) -> Result<O, SendError>
+where
+    I: TryInto<OutgoingRequest>,
+    I::Error: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
+    O: TryFrom<IncomingResponse>,
+    O::Error: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
+{
+    let response = executor::outgoing_request_send(
+        request
+            .try_into()
+            .map_err(|e| SendError::RequestConversion(e.into()))?,
+    )
+    .await
+    .map_err(SendError::Http)?;
+    response
+        .try_into()
+        .map_err(|e: O::Error| SendError::ResponseConversion(e.into()))
+}
+
+/// An error encountered when performing an HTTP request
+#[derive(thiserror::Error, Debug)]
+pub enum SendError {
+    /// Error converting to a request
+    #[error(transparent)]
+    RequestConversion(Box<dyn std::error::Error + Send + Sync>),
+    /// Error converting from a response
+    #[error(transparent)]
+    ResponseConversion(Box<dyn std::error::Error + Send + Sync>),
+    /// An HTTP error
+    #[error(transparent)]
+    Http(Error),
 }
 
 #[doc(inline)]

@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+
 use super::{Headers, IncomingRequest, Method, OutgoingResponse};
 
 impl From<crate::http::Response> for OutgoingResponse {
@@ -8,40 +10,44 @@ impl From<crate::http::Response> for OutgoingResponse {
 }
 
 /// A trait for trying to convert from an `IncomingRequest` to the implementing type
+#[async_trait]
 pub trait TryFromIncomingRequest {
     /// The error if conversion fails
     type Error;
 
     /// Try to turn the `IncomingRequest` into the implementing type
-    fn try_from_incoming_request(value: IncomingRequest) -> Result<Self, Self::Error>
+    async fn try_from_incoming_request(value: IncomingRequest) -> Result<Self, Self::Error>
     where
         Self: Sized;
 }
 
+#[async_trait]
 impl TryFromIncomingRequest for IncomingRequest {
     type Error = std::convert::Infallible;
-    fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
+    async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
         Ok(request)
     }
 }
 
+#[async_trait]
 impl<R> TryFromIncomingRequest for R
 where
     R: crate::http::TryFromRequest,
-    R::Error: Into<Box<dyn std::error::Error>>,
+    R::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
     type Error = IncomingRequestError;
 
-    fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
-        let req = crate::http::Request::try_from_incoming_request(request)?;
+    async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
+        let req = crate::http::Request::try_from_incoming_request(request).await?;
         R::try_from_request(req).map_err(|e| IncomingRequestError::ConversionError(e.into()))
     }
 }
 
+#[async_trait]
 impl TryFromIncomingRequest for crate::http::Request {
     type Error = IncomingRequestError;
 
-    fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
+    async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
         Ok(Self {
             method: request
                 .method()
@@ -54,7 +60,8 @@ impl TryFromIncomingRequest for crate::http::Request {
             params: Vec::new(),
             body: Some(
                 request
-                    .into_body_sync()
+                    .into_body()
+                    .await
                     .map_err(IncomingRequestError::BodyConversionError)?,
             ),
         })
@@ -72,7 +79,7 @@ pub enum IncomingRequestError {
     BodyConversionError(anyhow::Error),
     /// There was an error converting the `Request` into the requested type
     #[error(transparent)]
-    ConversionError(Box<dyn std::error::Error>),
+    ConversionError(Box<dyn std::error::Error + Send + Sync>),
 }
 
 impl crate::http::IntoResponse for IncomingRequestError {

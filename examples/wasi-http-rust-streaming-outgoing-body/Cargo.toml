@@ -1,0 +1,17 @@
+[package]
+name = "wasi-http-rust-streaming-outgoing-body"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.71"
+futures = "0.3.28"
+hex = "0.4.3"
+sha2 = "0.10.6"
+url = "2.4.0"
+spin-sdk = { path = "../../sdk/rust" }
+
+[workspace]

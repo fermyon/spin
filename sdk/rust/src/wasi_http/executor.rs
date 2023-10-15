@@ -1,20 +1,19 @@
+use crate::wit::wasi::http::outgoing_handler;
+use crate::wit::wasi::http::types::{
+    self, IncomingBody, IncomingResponse, OutgoingBody, OutgoingRequest,
+};
 use crate::wit::wasi::io;
 use crate::wit::wasi::io::streams::{InputStream, OutputStream, StreamError};
-use crate::wit::wasi::{
-    http::outgoing_handler,
-    http::types::{self, IncomingBody, IncomingResponse, OutgoingBody, OutgoingRequest},
-};
+
 use anyhow::{anyhow, Error, Result};
 use futures::{future, sink, stream, Sink, Stream};
-use std::{
-    cell::RefCell,
-    future::Future,
-    mem,
-    pin::Pin,
-    rc::Rc,
-    sync::{Arc, Mutex},
-    task::{Context, Poll, Wake, Waker},
-};
+
+use std::cell::RefCell;
+use std::future::Future;
+use std::mem;
+use std::rc::Rc;
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll, Wake, Waker};
 
 const READ_SIZE: u64 = 16 * 1024;
 
@@ -23,7 +22,8 @@ static WAKERS: Mutex<Vec<(io::poll::Pollable, Waker)>> = Mutex::new(Vec::new());
 /// Run the specified future to completion blocking until it yields a result.
 ///
 /// Based on an executor using `wasi::io/poll/poll-list`,
-pub fn run<T>(mut future: Pin<&mut impl Future<Output = T>>) -> T {
+pub fn run<T>(future: impl Future<Output = T>) -> T {
+    futures::pin_mut!(future);
     struct DummyWaker;
 
     impl Wake for DummyWaker {

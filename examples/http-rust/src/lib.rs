@@ -8,7 +8,7 @@ struct MyBody {
 
 /// A simple Spin HTTP component.
 #[wasi_http_component]
-fn hello_world(Json(body): Json<MyBody>) -> anyhow::Result<impl IntoResponse> {
+async fn hello_world(Json(body): Json<MyBody>) -> anyhow::Result<impl IntoResponse> {
     println!("Body data: {}", body.data);
     Ok((200, "Hello, world"))
 }

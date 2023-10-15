@@ -95,6 +95,29 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// The entrypoint to a WASI HTTP component written in Rust.
+///
+/// Functions annotated with this attribute can be of two forms:
+/// * Input/Output Params
+/// * Request/Response
+///
+/// ### Input/Output Params
+///
+/// Input/Output functions allow for streaming HTTP bodies. They are expected generally to be in the form:
+/// ```rust
+/// #[wasi_http_component]
+/// fn my_handler(request: IncomingRequest, response_out: ResponseOutparam) {
+///   // Your logic goes here
+/// }
+/// ```
+///
+/// The `request` param can be anything that implements `spin_sdk::wasi_http::conversions::TryFromIncomingRequest`.
+/// This includes all types that implement `spin_sdk::http::TryIntoRequest` (which may be more convenient to use
+/// when you don't need streaming request bodies).
+///
+/// ### Request/Response
+///
+/// This form has the same shape as the `http_component` handlers. The only difference is that the underlying handling
+/// happens through the `wasi-http` interface instead of the Spin specific `http` interface.
 #[proc_macro_attribute]
 pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func = syn::parse_macro_input!(item as syn::ItemFn);
@@ -103,33 +126,22 @@ pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream
     let is_native_wasi_http_handler = func.sig.inputs.len() == 2;
     let handler = if is_native_wasi_http_handler {
         quote! {
-            let request = match ::spin_sdk::wasi_http::TryFromIncomingRequest::try_from_incoming_request(request) {
+            let request = match ::spin_sdk::wasi_http::conversions::TryFromIncomingRequest::try_from_incoming_request(request) {
                 ::std::result::Result::Ok(r) => r,
                 ::std::result::Result::Err(e) => {
-                    let response = ::spin_sdk::http::IntoResponse::into_response(e);
-                    let (response, body_buffer) = ::std::convert::Into::into(response);
-                    // TODO: handle error
-                    ::spin_sdk::wasi_http::ResponseOutparam::set_with_body(response_out, response, body_buffer).await.unwrap();
+                    handle_response(response_out, e).await;
                     return;
                 }
             };
-            if let Err(e) = super::#func_name(request, response_out).await {
-                eprintln!("Handler returned an error: {e}");
-            }
+            super::#func_name(request, response_out).await;
         }
     } else {
         quote! {
-            let (response, body_buffer): (::spin_sdk::wasi_http::OutgoingResponse, Vec<u8>) = {
-                let response = match ::spin_sdk::wasi_http::TryFromIncomingRequest::try_from_incoming_request(request) {
-                    ::std::result::Result::Ok(r) => ::spin_sdk::http::IntoResponse::into_response(super::#func_name(r)),
-                    ::std::result::Result::Err(e) => ::spin_sdk::http::IntoResponse::into_response(e),
-                };
-                // `spin_sdk::http::Response` => (`spin_sdk::wasi_http::OutgoingResponse`, `Vec<u8>`)
-                ::std::convert::Into::into(response)
+            let mut response = match ::spin_sdk::wasi_http::conversions::TryFromIncomingRequest::try_from_incoming_request(request) {
+                ::std::result::Result::Ok(r) => ::spin_sdk::http::IntoResponse::into_response(super::#func_name(r)),
+                ::std::result::Result::Err(e) => ::spin_sdk::http::IntoResponse::into_response(e),
             };
-            if let Err(e) = ::spin_sdk::wasi_http::ResponseOutparam::set_with_body(response_out, response, body_buffer).await {
-                eprintln!("Could not set `ResponseOutparam`: {e}");
-            }
+            handle_response(response_out, response).await;
         }
     };
 
@@ -153,6 +165,14 @@ pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream
                 }
             }
 
+            async fn handle_response<R: ::spin_sdk::http::IntoResponse>(response_out: ::spin_sdk::wasi_http::ResponseOutparam, resp: R) {
+                let mut response = ::spin_sdk::http::IntoResponse::into_response(resp);
+                let body = response.body.take().unwrap_or_default();
+                let (response, body_buffer) = (::std::convert::Into::into(response), body);
+                if let Err(e) = ::spin_sdk::wasi_http::ResponseOutparam::set_with_body(response_out, response, body_buffer).await {
+                    eprintln!("Could not set `ResponseOutparam`: {e}");
+                }
+            }
 
             impl From<IncomingRequest> for  ::spin_sdk::wasi_http::IncomingRequest {
                 fn from(req: IncomingRequest) -> Self {

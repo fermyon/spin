@@ -1,5 +1,11 @@
 use futures::{Sink, Stream};
 
+/// Traits for converting between the various types
+pub mod conversions;
+#[doc(hidden)]
+/// The executor for driving wasi-http futures to completion
+mod executor;
+
 #[doc(inline)]
 pub use super::wit::wasi::http::types::*;
 
@@ -62,127 +68,5 @@ pub async fn send(request: OutgoingRequest) -> Result<IncomingResponse, Error> {
     executor::outgoing_request_send(request).await
 }
 
-#[doc(hidden)]
-/// The executor for driving wasi-http futures to completion
-pub mod executor;
-
 #[doc(inline)]
 pub use executor::run;
-
-impl TryFrom<IncomingRequest> for crate::http::Request {
-    type Error = anyhow::Error;
-    fn try_from(req: IncomingRequest) -> Result<Self, Self::Error> {
-        let method = req
-            .method()
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("invalid method"))?;
-        let uri = req.path_with_query().unwrap(); // TODO
-        let future = async move { req.into_body().await };
-        futures::pin_mut!(future);
-        let body = executor::run(future)?;
-        Ok(Self {
-            method,
-            uri,
-            headers: Vec::new(), //TODO
-            params: Vec::new(),
-            body: Some(body),
-        })
-    }
-}
-
-impl TryFrom<Method> for crate::http::Method {
-    type Error = ();
-    fn try_from(method: Method) -> Result<Self, Self::Error> {
-        let method = match method {
-            Method::Get => Self::Get,
-            Method::Head => Self::Head,
-            Method::Post => Self::Post,
-            Method::Put => Self::Put,
-            Method::Patch => Self::Patch,
-            Method::Delete => Self::Delete,
-            Method::Options => Self::Options,
-            _ => return Err(()),
-        };
-        Ok(method)
-    }
-}
-
-impl From<crate::http::Response> for (OutgoingResponse, Vec<u8>) {
-    fn from(response: crate::http::Response) -> Self {
-        // TODO: headers
-        (
-            OutgoingResponse::new(response.status, &Headers::new(&[])),
-            response.body.unwrap_or_default(),
-        )
-    }
-}
-
-/// A trait for trying to convert from an `IncomingRequest` to the implementing type
-pub trait TryFromIncomingRequest {
-    /// The error if conversion fails
-    type Error;
-
-    /// Try to turn the `IncomingRequest` into the implementing type
-    fn try_from_incoming_request(value: IncomingRequest) -> Result<Self, Self::Error>
-    where
-        Self: Sized;
-}
-
-#[derive(Debug, thiserror::Error)]
-/// TODO
-pub enum IncomingRequestError {
-    /// TODO
-    #[error(transparent)]
-    ToRequest(anyhow::Error),
-    /// TODO
-    #[error(transparent)]
-    ToType(Box<dyn std::error::Error>),
-}
-
-impl crate::http::IntoResponse for IncomingRequestError {
-    fn into_response(self) -> crate::http::Response {
-        match self {
-            IncomingRequestError::ToRequest(e) => e.into_response(),
-            IncomingRequestError::ToType(e) => e.into_response(),
-        }
-    }
-}
-impl TryFromIncomingRequest for IncomingRequest {
-    type Error = std::convert::Infallible;
-    fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
-        Ok(request)
-    }
-}
-
-impl<R> TryFromIncomingRequest for R
-where
-    R: crate::http::TryFromRequest,
-    R::Error: Into<Box<dyn std::error::Error>>,
-{
-    type Error = IncomingRequestError;
-
-    fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
-        let req = crate::http::Request::try_from_incoming_request(request)
-            .map_err(IncomingRequestError::ToRequest)?;
-        R::try_from_request(req).map_err(|e| IncomingRequestError::ToType(e.into()))
-    }
-}
-
-impl TryFromIncomingRequest for crate::http::Request {
-    type Error = anyhow::Error;
-
-    fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
-        Ok(Self {
-            method: request
-                .method()
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("unexpected method"))?,
-            uri: request
-                .path_with_query()
-                .unwrap_or_else(|| String::from("/")),
-            headers: Vec::new(), // TODO
-            params: Vec::new(),
-            body: Some(request.into_body_sync()?),
-        })
-    }
-}

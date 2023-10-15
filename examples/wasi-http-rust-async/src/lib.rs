@@ -11,7 +11,7 @@ use url::Url;
 const MAX_CONCURRENCY: usize = 16;
 
 #[wasi_http_component]
-async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam) -> Result<()> {
+async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam) {
     let headers = request.headers().entries();
 
     match (request.method(), request.path_with_query().as_deref()) {
@@ -45,7 +45,9 @@ async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam
                     Err(e) => format!("{url}: {e:?}\n"),
                 }
                 .into_bytes();
-                body.send(payload).await?;
+                if let Err(e) = body.send(payload).await {
+                    eprintln!("Error sending payload: {e}");
+                }
             }
         }
 
@@ -65,8 +67,10 @@ async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam
             ResponseOutparam::set(response_out, Ok(response));
 
             let mut stream = request.into_body_stream();
-            while let Some(chunk) = stream.try_next().await? {
-                body.send(chunk).await?;
+            while let Ok(Some(chunk)) = stream.try_next().await {
+                if let Err(e) = body.send(chunk).await {
+                    eprintln!("Error sending body: {e}");
+                }
             }
         }
 
@@ -80,8 +84,6 @@ async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam
             OutgoingBody::finish(body, None);
         }
     }
-
-    Ok(())
 }
 
 async fn hash(url: &Url) -> Result<String> {

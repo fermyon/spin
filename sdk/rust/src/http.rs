@@ -562,4 +562,8 @@ pub mod responses {
     pub fn method_not_allowed() -> Response {
         Response::new(405, Some("Method Not Allowed".into()))
     }
+
+    pub(crate) fn bad_request(msg: Option<String>) -> Response {
+        Response::new(400, msg.map(|m| m.into_bytes()))
+    }
 }

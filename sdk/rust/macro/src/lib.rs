@@ -152,7 +152,7 @@ pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream
                     let request: ::spin_sdk::wasi_http::IncomingRequest = ::std::convert::Into::into(request);
                     let response_out: ::spin_sdk::wasi_http::ResponseOutparam = ::std::convert::Into::into(response_out);
                     ::spin_sdk::wasi_http::run(async move {
-                        match ::spin_sdk::wasi_http::conversions::TryFromIncomingRequest::try_from_incoming_request(request) {
+                        match ::spin_sdk::wasi_http::conversions::TryFromIncomingRequest::try_from_incoming_request(request).await {
                             ::std::result::Result::Ok(req) => #handler,
                             ::std::result::Result::Err(e) => handle_response(response_out, e).await,
                         }

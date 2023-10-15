@@ -10,6 +10,7 @@ name = "spin_sdk"
 
 [dependencies]
 anyhow = "1"
+async-trait = "0.1.74"
 form_urlencoded = "1.0"
 spin-macro = { path = "macro" }
 thiserror = "1.0.37"

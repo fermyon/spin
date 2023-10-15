@@ -15,15 +15,13 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
         mod __spin_http {
             #preamble
             impl self::exports::fermyon::spin::inbound_http::Guest for Spin {
-                // Implement the `handler` entrypoint for Spin HTTP components.
                 fn handle_request(req: self::exports::fermyon::spin::inbound_http::Request) -> self::exports::fermyon::spin::inbound_http::Response {
                     let req: ::spin_sdk::http::Request = ::std::convert::Into::into(req);
-                    let req = match ::std::convert::TryInto::try_into(req) {
-                        ::std::result::Result::Ok(r) => r,
-                        ::std::result::Result::Err(e) => return ::std::convert::Into::into(::spin_sdk::http::IntoResponse::into_response(e)),
+                    let resp = match ::spin_sdk::http::TryFromRequest::try_from_request(req) {
+                        ::std::result::Result::Ok(req) => ::spin_sdk::http::IntoResponse::into_response(super::#func_name(req)),
+                        ::std::result::Result::Err(e) => ::spin_sdk::http::IntoResponse::into_response(e),
                     };
-                    let resp = super::#func_name(req);
-                    ::std::convert::Into::into(::spin_sdk::http::IntoResponse::into_response(resp))
+                    ::std::convert::Into::into(resp)
                 }
             }
 

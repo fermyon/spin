@@ -6,20 +6,6 @@ use crate::wit::v1::{http::send_request, http_types::HttpError};
 #[doc(inline)]
 pub use crate::wit::v1::http_types::{Method, Request, Response};
 
-/// An error encountered when performing an HTTP request
-#[derive(thiserror::Error, Debug)]
-pub enum SendError {
-    /// Error converting to a request
-    #[error(transparent)]
-    RequestConversion(Box<dyn std::error::Error + Send + Sync>),
-    /// Error converting from a response
-    #[error(transparent)]
-    ResponseConversion(Box<dyn std::error::Error + Send + Sync>),
-    /// An HTTP error
-    #[error(transparent)]
-    Http(HttpError),
-}
-
 /// Perform an HTTP request getting back a response or an error
 pub fn send<I, O>(req: I) -> Result<O, SendError>
 where
@@ -36,6 +22,20 @@ where
     response
         .try_into()
         .map_err(|e: O::Error| SendError::ResponseConversion(e.into()))
+}
+
+/// An error encountered when performing an HTTP request
+#[derive(thiserror::Error, Debug)]
+pub enum SendError {
+    /// Error converting to a request
+    #[error(transparent)]
+    RequestConversion(Box<dyn std::error::Error + Send + Sync>),
+    /// Error converting from a response
+    #[error(transparent)]
+    ResponseConversion(Box<dyn std::error::Error + Send + Sync>),
+    /// An HTTP error
+    #[error(transparent)]
+    Http(HttpError),
 }
 
 #[cfg(feature = "http")]

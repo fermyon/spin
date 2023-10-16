@@ -6,7 +6,7 @@ version = "1.0.0"
 
 [[component]]
 id = "fs"
-source = { url = "https://github.com/fermyon/spin-fileserver/releases/download/v0.0.1/spin_static_fs.wasm", digest = "sha256:650376c33a0756b1a52cad7ca670f1126391b79050df0321407da9c741d32375" }
+source = { url = "https://github.com/fermyon/spin-fileserver/releases/download/v0.1.0/spin_static_fs.wasm", digest = "sha256:96c76d9af86420b39eb6cd7be5550e3cb5d4cc4de572ce0fd1f6a29471536cb4" }
 files = [{source = "static/thisshouldbemounted", destination = "/thisshouldbemounted"}]
 exclude_files = ["static/thisshouldbemounted/thisshouldbeexcluded/*"]
 [component.trigger]

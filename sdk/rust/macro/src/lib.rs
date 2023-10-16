@@ -108,7 +108,7 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// implements `spin_sdk::http::IntoResponse`.
 ///
 /// For example:
-/// ```rust
+/// ```ignore
 /// #[wasi_http_component]
 /// async fn my_handler(request: IncomingRequest) -> anyhow::Result<impl IntoResponse> {
 ///   // Your logic goes here
@@ -118,7 +118,7 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ### Input/Output Params
 ///
 /// Input/Output functions allow for streaming HTTP bodies. They are expected generally to be in the form:
-/// ```rust
+/// ```ignore
 /// #[wasi_http_component]
 /// async fn my_handler(request: IncomingRequest, response_out: ResponseOutparam) {
 ///   // Your logic goes here

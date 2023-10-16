@@ -1,4 +1,4 @@
-use super::{responses, IntoResponse, Method, Request, Response};
+use super::{responses, IntoResponse, Method, Request, Response, TryFromRequest};
 use routefinder::{Captures, Router as MethodRouter};
 use std::{collections::HashMap, fmt::Display};
 
@@ -41,8 +41,8 @@ impl Router {
     pub fn handle<R: Into<Request>>(&self, request: R) -> Response {
         let request = request.into();
         let method = request.method;
-        // TODO: get just the path
-        let path = &request.uri;
+        let url = url::Url::parse(&request.uri).expect("request's uri was malformed");
+        let path = url.path();
         let RouteMatch { params, handler } = self.find(path, method);
         handler(request, params)
     }
@@ -108,13 +108,19 @@ impl Router {
     pub fn any<F, I, O>(&mut self, path: &str, handler: F)
     where
         F: Fn(I, Params) -> O + 'static,
-        I: From<Request>,
+        I: TryFromRequest,
+        I::Error: IntoResponse,
         O: IntoResponse,
     {
         self.any_methods
             .add(
                 path,
-                Box::new(move |req, params| handler(req.into(), params).into_response()),
+                Box::new(
+                    move |req, params| match TryFromRequest::try_from_request(req) {
+                        Ok(r) => handler(r, params).into_response(),
+                        Err(e) => e.into_response(),
+                    },
+                ),
             )
             .unwrap();
     }
@@ -123,7 +129,8 @@ impl Router {
     pub fn add<F, I, O>(&mut self, path: &str, method: Method, handler: F)
     where
         F: Fn(I, Params) -> O + 'static,
-        I: TryFrom<Request>,
+        I: TryFromRequest,
+        I::Error: IntoResponse,
         O: IntoResponse,
     {
         self.methods_map
@@ -131,10 +138,12 @@ impl Router {
             .or_default()
             .add(
                 path,
-                Box::new(move |req, params| {
-                    handler(req.try_into().unwrap_or_else(|_| panic!("TODO")), params)
-                        .into_response()
-                }),
+                Box::new(
+                    move |req, params| match TryFromRequest::try_from_request(req) {
+                        Ok(r) => handler(r, params).into_response(),
+                        Err(e) => e.into_response(),
+                    },
+                ),
             )
             .unwrap();
     }
@@ -143,56 +152,75 @@ impl Router {
     pub fn get<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
         F: Fn(Req, Params) -> Resp + 'static,
-        Req: TryFrom<Request>,
+        Req: TryFromRequest,
+        Req::Error: IntoResponse,
         Resp: IntoResponse,
     {
         self.add(path, Method::Get, handler)
     }
 
     /// Register a handler at the path for the HTTP HEAD method.
-    pub fn head<F>(&mut self, path: &str, handler: F)
+    pub fn head<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Request, Params) -> anyhow::Result<Response> + 'static,
+        F: Fn(Req, Params) -> Resp + 'static,
+        Req: TryFromRequest,
+        Req::Error: IntoResponse,
+        Resp: IntoResponse,
     {
         self.add(path, Method::Head, handler)
     }
 
     /// Register a handler at the path for the HTTP POST method.
-    pub fn post<F>(&mut self, path: &str, handler: F)
+    pub fn post<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Request, Params) -> anyhow::Result<Response> + 'static,
+        F: Fn(Req, Params) -> Resp + 'static,
+        Req: TryFromRequest,
+        Req::Error: IntoResponse,
+        Resp: IntoResponse,
     {
         self.add(path, Method::Post, handler)
     }
 
     /// Register a handler at the path for the HTTP DELETE method.
-    pub fn delete<F>(&mut self, path: &str, handler: F)
+    pub fn delete<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Request, Params) -> anyhow::Result<Response> + 'static,
+        F: Fn(Req, Params) -> Resp + 'static,
+        Req: TryFromRequest,
+        Req::Error: IntoResponse,
+        Resp: IntoResponse,
     {
         self.add(path, Method::Delete, handler)
     }
 
     /// Register a handler at the path for the HTTP PUT method.
-    pub fn put<F>(&mut self, path: &str, handler: F)
+    pub fn put<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Request, Params) -> anyhow::Result<Response> + 'static,
+        F: Fn(Req, Params) -> Resp + 'static,
+        Req: TryFromRequest,
+        Req::Error: IntoResponse,
+        Resp: IntoResponse,
     {
         self.add(path, Method::Put, handler)
     }
 
     /// Register a handler at the path for the HTTP PATCH method.
-    pub fn patch<F>(&mut self, path: &str, handler: F)
+    pub fn patch<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Request, Params) -> anyhow::Result<Response> + 'static,
+        F: Fn(Req, Params) -> Resp + 'static,
+        Req: TryFromRequest,
+        Req::Error: IntoResponse,
+        Resp: IntoResponse,
     {
         self.add(path, Method::Patch, handler)
     }
 
     /// Register a handler at the path for the HTTP OPTIONS method.
-    pub fn options<F>(&mut self, path: &str, handler: F)
+    pub fn options<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Request, Params) -> anyhow::Result<Response> + 'static,
+        F: Fn(Req, Params) -> Resp + 'static,
+        Req: TryFromRequest,
+        Req::Error: IntoResponse,
+        Resp: IntoResponse,
     {
         self.add(path, Method::Options, handler)
     }

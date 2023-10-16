@@ -6,7 +6,7 @@ fn handle_request(req: http::Request<Vec<u8>>) -> anyhow::Result<impl IntoRespon
     // Open the default key-value store
     let store = Store::open_default()?;
 
-    Ok(match *req.method() {
+    let (status, body) = match *req.method() {
         Method::POST => {
             // Add the request (URI, body) tuple to the store
             store.set(req.uri().path(), req.body().as_slice())?;
@@ -35,5 +35,6 @@ fn handle_request(req: http::Request<Vec<u8>>) -> anyhow::Result<impl IntoRespon
         }
         // No other methods are currently supported
         _ => (StatusCode::METHOD_NOT_ALLOWED, None),
-    })
+    };
+    Ok((status, body))
 }

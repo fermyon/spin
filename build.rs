@@ -12,7 +12,7 @@ const RUST_HTTP_INTEGRATION_ENV_TEST: &str = "tests/http/headers-env-routes-test
 const RUST_HTTP_VAULT_CONFIG_TEST: &str = "tests/http/vault-config-test";
 const RUST_OUTBOUND_REDIS_INTEGRATION_TEST: &str = "tests/outbound-redis/http-rust-outbound-redis";
 const TIMER_TRIGGER_INTEGRATION_TEST: &str = "examples/spin-timer/app-example";
-const WASI_HTTP_INTEGRATION_TEST: &str = "examples/wasi-http-rust-async";
+const WASI_HTTP_INTEGRATION_TEST: &str = "examples/wasi-http-rust-streaming-outgoing-body";
 
 fn main() {
     // Extract environment information to be passed to plugins.

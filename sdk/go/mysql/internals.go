@@ -172,10 +172,12 @@ func fromOutboundMysqlDbValue(x C.outbound_mysql_db_value_t) (any, error) {
 	case dbValueStr:
 		str := (*C.outbound_mysql_string_t)(unsafe.Pointer(&x.val))
 		return C.GoStringN(str.ptr, C.int(str.len)), nil
+	case dbValueNull:
+		return nil, nil
 	case dbValueUnsupported:
 		return nil, errors.New("db return value type unsupported")
 	}
-	return nil, nil
+	return nil, errors.New("db return value unknown type")
 }
 
 const (
@@ -212,13 +214,25 @@ func toOutboundMysqlParameterValue(x any) C.outbound_mysql_parameter_value_t {
 		*(*C.int32_t)(unsafe.Pointer(&ret.val)) = int32(v)
 		ret.tag = paramValueInt32
 	case int64:
-		*(*C.int64_t)(unsafe.Pointer(&ret.val)) = v
+		*(*C.int64_t)(unsafe.Pointer(&ret.val)) = int64(v)
 		ret.tag = paramValueInt64
+	case uint8:
+		*(*C.uint8_t)(unsafe.Pointer(&ret.val)) = uint8(v)
+		ret.tag = paramValueUint8
+	case uint16:
+		*(*C.uint16_t)(unsafe.Pointer(&ret.val)) = uint16(v)
+		ret.tag = paramValueUint16
+	case uint32:
+		*(*C.uint32_t)(unsafe.Pointer(&ret.val)) = uint32(v)
+		ret.tag = paramValueUint32
+	case uint64:
+		*(*C.uint64_t)(unsafe.Pointer(&ret.val)) = uint64(v)
+		ret.tag = paramValueUint64
 	case float32:
-		*(*C.float)(unsafe.Pointer(&ret.val)) = v
+		*(*C.float)(unsafe.Pointer(&ret.val)) = float32(v)
 		ret.tag = paramValueFloat32
 	case float64:
-		*(*C.double)(unsafe.Pointer(&ret.val)) = v
+		*(*C.double)(unsafe.Pointer(&ret.val)) = float64(v)
 		ret.tag = paramValueFloat64
 	case string:
 		str := outboundMysqlStr(v)
@@ -288,7 +302,7 @@ func colTypeToReflectType(typ uint8) reflect.Type {
 	case dbDataTypeInt32:
 		return reflect.TypeOf(int32(0))
 	case dbDataTypeInt64:
-		return reflect.TypeOf(int32(0))
+		return reflect.TypeOf(int64(0))
 	case dbDataTypeUint8:
 		return reflect.TypeOf(uint8(0))
 	case dbDataTypeUint16:
@@ -296,7 +310,7 @@ func colTypeToReflectType(typ uint8) reflect.Type {
 	case dbDataTypeUint32:
 		return reflect.TypeOf(uint32(0))
 	case dbDataTypeUint64:
-		return reflect.TypeOf(uint32(0))
+		return reflect.TypeOf(uint64(0))
 	case dbDataTypeStr:
 		return reflect.TypeOf("")
 	case dbDataTypeBinary:

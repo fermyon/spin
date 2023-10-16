@@ -130,33 +130,44 @@ pub trait TryFromRequest {
         Self: Sized;
 }
 
-impl<B: TryFromBody> TryFromRequest for (String, Body<B>) {
-    type Error = B::Error;
-    fn try_from_request(req: Request) -> Result<Self, Self::Error> {
-        Ok((req.uri, Body(B::try_from_body(req.body)?)))
+impl TryFromRequest for Request {
+    type Error = std::convert::Infallible;
+
+    fn try_from_request(req: Request) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        Ok(req)
     }
 }
 
-impl<B: TryFromBody> TryFromRequest for (String, Vec<(String, String)>, Body<B>) {
-    type Error = B::Error;
-    fn try_from_request(req: Request) -> Result<Self, Self::Error> {
-        Ok((req.uri, req.headers, Body(B::try_from_body(req.body)?)))
+impl<R: TryNonRequestFromRequest> TryFromRequest for R {
+    type Error = R::Error;
+
+    fn try_from_request(req: Request) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        TryNonRequestFromRequest::try_from_request(req)
     }
 }
 
-impl<B: TryFromBody> TryFromRequest for (Method, String, Vec<(String, String)>, Body<B>) {
-    type Error = B::Error;
-    fn try_from_request(req: Request) -> Result<Self, Self::Error> {
-        Ok((
-            req.method,
-            req.uri,
-            req.headers,
-            Body(B::try_from_body(req.body)?),
-        ))
-    }
+/// A hack that allows us to do blanket impls for `T where T: TryFromRequest` for all types
+/// `T` *except* for `Request`.
+///
+/// This is useful in `wasi_http` where we want to implement `TryFromIncomingRequest` for all types that impl
+/// `TryFromRequest` with the exception of `Request` itself. This allows that implementation to first convert
+/// the `IncomingRequest` to a `Request` and then using this trait convert from `Request` to the given type.
+pub trait TryNonRequestFromRequest {
+    /// The error if the conversion fails
+    type Error;
+    /// Try to turn the request into the type
+    fn try_from_request(req: Request) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
 }
 
-impl<B: TryFromBody> TryFromRequest for Body<B> {
+impl<B: TryFromBody> TryNonRequestFromRequest for Body<B> {
     type Error = B::Error;
     fn try_from_request(req: Request) -> Result<Self, Self::Error> {
         Ok(Body(B::try_from_body(req.body)?))
@@ -164,7 +175,7 @@ impl<B: TryFromBody> TryFromRequest for Body<B> {
 }
 
 #[cfg(feature = "json")]
-impl<B: serde::de::DeserializeOwned> TryFromRequest for Json<B> {
+impl<B: serde::de::DeserializeOwned> TryNonRequestFromRequest for Json<B> {
     type Error = JsonBodyError;
     fn try_from_request(req: Request) -> Result<Self, Self::Error> {
         Ok(Json(
@@ -199,7 +210,7 @@ impl Display for NonUtf8BodyError {
 }
 
 #[cfg(feature = "http")]
-impl<B: TryFromBody> TryFromRequest for http_types::Request<B> {
+impl<B: TryFromBody> TryNonRequestFromRequest for http_types::Request<B> {
     type Error = B::Error;
     fn try_from_request(req: Request) -> Result<Self, Self::Error> {
         let mut builder = http_types::Request::builder()
@@ -333,25 +344,13 @@ impl IntoResponse for Box<dyn std::error::Error> {
 #[cfg(feature = "json")]
 impl IntoResponse for JsonBodyError {
     fn into_response(self) -> Response {
-        Response {
-            status: 400,
-            headers: None,
-            body: Some(format!("failed to parse JSON body: {}", self.0).into_bytes()),
-        }
+        responses::bad_request(Some(format!("failed to parse JSON body: {}", self.0)))
     }
 }
 
 impl IntoResponse for NonUtf8BodyError {
     fn into_response(self) -> Response {
-        Response {
-            status: 400,
-            headers: None,
-            body: Some(
-                "expected body to be utf8 but wasn't"
-                    .to_owned()
-                    .into_bytes(),
-            ),
-        }
+        responses::bad_request(Some("expected body to be utf8 but wasn't".to_owned()))
     }
 }
 

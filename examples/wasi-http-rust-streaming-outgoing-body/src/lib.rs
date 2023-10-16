@@ -2,8 +2,8 @@ use anyhow::{bail, Result};
 use futures::{stream, SinkExt, StreamExt, TryStreamExt};
 use spin_sdk::wasi_http::send;
 use spin_sdk::wasi_http::{
-    Fields, IncomingRequest, Method, OutgoingBody, OutgoingRequest, OutgoingResponse,
-    ResponseOutparam, Scheme,
+    Fields, IncomingRequest, IncomingResponse, Method, OutgoingBody, OutgoingRequest,
+    OutgoingResponse, ResponseOutparam, Scheme,
 };
 use spin_sdk::wasi_http_component;
 use url::Url;
@@ -99,7 +99,7 @@ async fn hash(url: &Url) -> Result<String> {
         &Fields::new(&[]),
     );
 
-    let response = send(request).await?;
+    let response: IncomingResponse = send(request).await?;
 
     let status = response.status();
 
@@ -107,7 +107,7 @@ async fn hash(url: &Url) -> Result<String> {
         bail!("unexpected status: {status}");
     }
 
-    let mut body = response.into_body();
+    let mut body = response.into_body_stream();
 
     use sha2::Digest;
     let mut hasher = sha2::Sha256::new();

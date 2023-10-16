@@ -11,11 +11,15 @@ pub use super::wit::wasi::http::types::*;
 
 impl IncomingRequest {
     /// Return a `Stream` from which the body of the specified request may be read.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the body was already consumed.
     pub fn into_body_stream(self) -> impl Stream<Item = anyhow::Result<Vec<u8>>> {
-        executor::incoming_body(self.consume().expect("request should be consumable"))
+        executor::incoming_body(self.consume().expect("request body was already consumed"))
     }
 
-    /// Return a `Vec<u8>` of the body
+    /// Return a `Vec<u8>` of the body or fails
     pub async fn into_body(self) -> anyhow::Result<Vec<u8>> {
         use futures::TryStreamExt;
         let mut stream = self.into_body_stream();
@@ -25,25 +29,27 @@ impl IncomingRequest {
         }
         Ok(body)
     }
-    /// Return a `Vec<u8>` of the body
-    pub fn into_body_sync(self) -> anyhow::Result<Vec<u8>> {
-        let future = async { self.into_body().await };
-        futures::pin_mut!(future);
-        executor::run(future)
-    }
 }
 
 impl IncomingResponse {
     /// Return a `Stream` from which the body of the specified response may be read.
-    pub fn into_body(self) -> impl Stream<Item = anyhow::Result<Vec<u8>>> {
-        executor::incoming_body(self.consume().expect("response should be consumable"))
+    ///
+    /// # Panics
+    ///
+    /// Panics if the body was already consumed.
+    pub fn into_body_stream(self) -> impl Stream<Item = anyhow::Result<Vec<u8>>> {
+        executor::incoming_body(self.consume().expect("response body was already consumed"))
     }
 }
 
 impl OutgoingResponse {
     /// Construct a `Sink` which writes chunks to the body of the specified response.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the body was already taken.
     pub fn take_body(&self) -> impl Sink<Vec<u8>, Error = anyhow::Error> {
-        executor::outgoing_body(self.write().expect("response should be writable"))
+        executor::outgoing_body(self.write().expect("response body was already taken"))
     }
 }
 

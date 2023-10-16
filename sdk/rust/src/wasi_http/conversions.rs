@@ -32,20 +32,21 @@ impl TryFromIncomingRequest for IncomingRequest {
 #[async_trait]
 impl<R> TryFromIncomingRequest for R
 where
-    R: crate::http::TryFromRequest,
-    R::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    R: crate::http::TryNonRequestFromRequest,
 {
-    type Error = IncomingRequestError;
+    type Error = IncomingRequestError<R::Error>;
 
     async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
-        let req = crate::http::Request::try_from_incoming_request(request).await?;
-        R::try_from_request(req).map_err(|e| IncomingRequestError::ConversionError(e.into()))
+        let req = crate::http::Request::try_from_incoming_request(request)
+            .await
+            .map_err(convert_error)?;
+        R::try_from_request(req).map_err(IncomingRequestError::ConversionError)
     }
 }
 
 #[async_trait]
 impl TryFromIncomingRequest for crate::http::Request {
-    type Error = IncomingRequestError;
+    type Error = IncomingRequestError<std::convert::Infallible>;
 
     async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -70,7 +71,7 @@ impl TryFromIncomingRequest for crate::http::Request {
 
 #[derive(Debug, thiserror::Error)]
 /// An error converting an `IncomingRequest`
-pub enum IncomingRequestError {
+pub enum IncomingRequestError<E> {
     /// The `IncomingRequest` has a method not supported by `Request`
     #[error("unexpected method: {0:?}")]
     UnexpectedMethod(Method),
@@ -79,19 +80,31 @@ pub enum IncomingRequestError {
     BodyConversionError(anyhow::Error),
     /// There was an error converting the `Request` into the requested type
     #[error(transparent)]
-    ConversionError(Box<dyn std::error::Error + Send + Sync>),
+    ConversionError(E),
 }
 
-impl crate::http::IntoResponse for IncomingRequestError {
+/// Helper for converting `IncomingRequestError`s that cannot fail due to conversion errors
+/// into ones that can.
+fn convert_error<E>(
+    error: IncomingRequestError<std::convert::Infallible>,
+) -> IncomingRequestError<E> {
+    match error {
+        IncomingRequestError::UnexpectedMethod(e) => IncomingRequestError::UnexpectedMethod(e),
+        IncomingRequestError::BodyConversionError(e) => {
+            IncomingRequestError::BodyConversionError(e)
+        }
+        IncomingRequestError::ConversionError(_) => unreachable!(),
+    }
+}
+
+impl<E: crate::http::IntoResponse> crate::http::IntoResponse for IncomingRequestError<E> {
     fn into_response(self) -> crate::http::Response {
         match self {
             IncomingRequestError::UnexpectedMethod(_) => {
                 crate::http::responses::method_not_allowed()
             }
             IncomingRequestError::BodyConversionError(e) => e.into_response(),
-            IncomingRequestError::ConversionError(e) => crate::http::responses::bad_request(Some(
-                format!("could not convert request to desired type: {e}"),
-            )),
+            IncomingRequestError::ConversionError(e) => e.into_response(),
         }
     }
 }

@@ -4,6 +4,7 @@ use anyhow::{bail, Context, Result};
 use docker_credential::DockerCredential;
 use futures_util::future;
 use futures_util::stream::{self, StreamExt, TryStreamExt};
+use oci_distribution::errors::OciDistributionError;
 use oci_distribution::token_cache::RegistryTokenType;
 use oci_distribution::RegistryOperation;
 use oci_distribution::{
@@ -14,6 +15,7 @@ use oci_distribution::{
 };
 use reqwest::Url;
 use spin_app::locked::{ContentPath, ContentRef, LockedApp};
+use spin_common::sha256;
 use spin_loader::cache::Cache;
 use spin_manifest::Application;
 use tokio::fs;
@@ -21,16 +23,21 @@ use walkdir::WalkDir;
 
 use crate::auth::AuthConfig;
 
-// TODO: the media types for application, wasm module, and data layer are not final.
+// TODO: the media types for application, wasm module, data and archive layer are not final.
 const SPIN_APPLICATION_MEDIA_TYPE: &str = "application/vnd.fermyon.spin.application.v1+config";
 const WASM_LAYER_MEDIA_TYPE: &str = "application/vnd.wasm.content.layer.v1+wasm";
 const DATA_MEDIATYPE: &str = "application/vnd.wasm.content.layer.v1+data";
+const ARCHIVE_MEDIATYPE: &str = "application/vnd.wasm.content.bundle.v1.tar+gzip";
 
 const CONFIG_FILE: &str = "config.json";
 const LATEST_TAG: &str = "latest";
 const MANIFEST_FILE: &str = "manifest.json";
 
 const MAX_PARALLEL_PULL: usize = 16;
+/// Maximum layer count allowed per app, set in accordance to the lowest
+/// known maximum per image in well-known OCI registry implementations.
+/// (500 appears to be the limit for Elastic Container Registry)
+const MAX_LAYER_COUNT: usize = 500;
 
 // Inline content into ContentRef iff < this size.
 const CONTENT_REF_INLINE_MAX_SIZE: usize = 128;
@@ -100,10 +107,13 @@ impl Client {
         auth: RegistryAuth,
         reference: Reference,
     ) -> Result<Option<String>> {
-        // For each component in the application, add layers for the wasm module and
-        // all static assets and update the locked application with the file digests.
+        // For each component in the application, add a layer for the wasm module and
+        // separate layers for all static assets if application total will be under MAX_LAYER_COUNT,
+        // else an archive layer for all static assets per file entry if not.
+        // Finally, update the locked application with the layer digests.
         let mut layers = Vec::new();
         let mut components = Vec::new();
+        let archive_layers: bool = layer_count(locked.clone()).await? > MAX_LAYER_COUNT;
 
         for mut c in locked.components {
             // Add the wasm module for the component as layers.
@@ -122,9 +132,6 @@ impl Client {
 
             layers.push(layer);
 
-            // Add a layer for each file referenced in the mount directory.
-            // Note that this is in fact a directory, and not a single file, so we need to
-            // recursively traverse it and add layers for each file.
             let mut files = Vec::new();
             for f in c.files {
                 let source = f
@@ -132,30 +139,15 @@ impl Client {
                     .source
                     .context("file mount loaded from disk should contain a file source")?;
                 let source = spin_trigger::parse_file_url(source.as_str())?;
-                // Traverse each mount directory, add all static assets as layers, then update the
-                // locked application file with the file digest.
-                for entry in WalkDir::new(&source) {
-                    let entry = entry?;
-                    if entry.file_type().is_file() && !entry.file_type().is_dir() {
-                        tracing::trace!(
-                            "Adding new layer for asset {:?}",
-                            spin_loader::to_relative(entry.path(), &source)?
-                        );
-                        let layer = Self::data_layer(entry.path()).await?;
-                        let content = Self::content_ref_for_layer(&layer);
-                        let content_inline = content.inline.is_some();
-                        files.push(ContentPath {
-                            content,
-                            path: PathBuf::from(spin_loader::to_relative(entry.path(), &source)?),
-                        });
-                        // As a workaround for OCI implementations that don't support very small blobs,
-                        // don't push very small content that has been inlined into the manifest:
-                        // https://github.com/distribution/distribution/discussions/4029
-                        let skip_layer = content_inline;
-                        if !skip_layer {
-                            layers.push(layer);
-                        }
-                    }
+
+                if archive_layers {
+                    self.push_archive_layer(&source, &mut files, &mut layers)
+                        .await
+                        .context(format!("cannot push archive layer for source {:?}", source))?;
+                } else {
+                    self.push_file_layers(&source, &mut files, &mut layers)
+                        .await
+                        .context(format!("cannot push file layers for source {:?}", source))?;
                 }
             }
             c.files = files;
@@ -181,6 +173,83 @@ impl Client {
 
         let digest = digest_from_url(&response);
         Ok(digest)
+    }
+
+    /// Archive all of the files recursively under the source directory
+    /// and push as a compressed archive layer
+    async fn push_archive_layer(
+        &mut self,
+        source: &PathBuf,
+        files: &mut Vec<ContentPath>,
+        layers: &mut Vec<ImageLayer>,
+    ) -> Result<()> {
+        // Add all archived file entries to the locked app manifest
+        for entry in WalkDir::new(source) {
+            let entry = entry?;
+            if entry.file_type().is_file() && !entry.file_type().is_dir() {
+                tracing::trace!(
+                    "Adding asset {:?} to component files list",
+                    spin_loader::to_relative(entry.path(), source)?
+                );
+                // Add content/path to the locked component files list
+                let layer = Self::data_layer(entry.path(), DATA_MEDIATYPE.to_string()).await?;
+                let content = Self::content_ref_for_layer(&layer);
+                files.push(ContentPath {
+                    content,
+                    path: PathBuf::from(spin_loader::to_relative(entry.path(), source)?),
+                });
+            }
+        }
+
+        // Only add the archive layer to the OCI manifest
+        tracing::trace!("Adding archive layer for all files in source {:?}", &source);
+        let working_dir = tempfile::tempdir()?;
+        let archive_path = crate::utils::archive(source, &working_dir.into_path())
+            .await
+            .context(format!(
+                "Unable to create compressed archive for source {:?}",
+                source
+            ))?;
+        let layer = Self::data_layer(archive_path.as_path(), ARCHIVE_MEDIATYPE.to_string()).await?;
+        layers.push(layer);
+        Ok(())
+    }
+
+    /// Recursively traverse the source directory and add layers for each file.
+    async fn push_file_layers(
+        &mut self,
+        source: &PathBuf,
+        files: &mut Vec<ContentPath>,
+        layers: &mut Vec<ImageLayer>,
+    ) -> Result<()> {
+        // Traverse each mount directory, add all static assets as layers, then update the
+        // locked application file with the file digest.
+        tracing::trace!("Adding new layer per file under source {:?}", source);
+        for entry in WalkDir::new(source) {
+            let entry = entry?;
+            if entry.file_type().is_file() && !entry.file_type().is_dir() {
+                tracing::trace!(
+                    "Adding new layer for asset {:?}",
+                    spin_loader::to_relative(entry.path(), source)?
+                );
+                // Construct and push layer, adding its digest to the locked component files Vec
+                let layer = Self::data_layer(entry.path(), DATA_MEDIATYPE.to_string()).await?;
+                let content = Self::content_ref_for_layer(&layer);
+                let content_inline = content.inline.is_some();
+                files.push(ContentPath {
+                    content,
+                    path: PathBuf::from(spin_loader::to_relative(entry.path(), source)?),
+                });
+                // As a workaround for OCI implementations that don't support very small blobs,
+                // don't push very small content that has been inlined into the manifest:
+                // https://github.com/distribution/distribution/discussions/4029
+                let skip_layer = content_inline;
+                if !skip_layer {
+                    layers.push(layer);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Pull a Spin application from an OCI registry.
@@ -210,7 +279,7 @@ impl Client {
         fs::write(&c, &cfg).await?;
 
         // If a layer is a Wasm module, write it in the Wasm directory.
-        // Otherwise, write it in the data directory.
+        // Otherwise, write it in the data directory (after unpacking if archive layer)
         stream::iter(manifest.layers)
             .map(|layer| {
                 let this = &self;
@@ -233,6 +302,15 @@ impl Client {
                             _ => match layer.media_type.as_str() {
                                 WASM_LAYER_MEDIA_TYPE => {
                                     let _ = this.cache.write_wasm(&bytes, &layer.digest).await;
+                                }
+                                ARCHIVE_MEDIATYPE => {
+                                    if let Err(e) =
+                                        this.unpack_archive_layer(&bytes, &layer.digest).await
+                                    {
+                                        return Err(OciDistributionError::GenericError(Some(
+                                            e.to_string(),
+                                        )));
+                                    }
                                 }
                                 _ => {
                                     let _ = this.cache.write_data(&bytes, &layer.digest).await;
@@ -307,13 +385,9 @@ impl Client {
     }
 
     /// Create a new data layer based on a file.
-    async fn data_layer(file: &Path) -> Result<ImageLayer> {
+    async fn data_layer(file: &Path, media_type: String) -> Result<ImageLayer> {
         tracing::log::trace!("Reading data file from {:?}", file);
-        Ok(ImageLayer::new(
-            fs::read(&file).await?,
-            DATA_MEDIATYPE.to_string(),
-            None,
-        ))
+        Ok(ImageLayer::new(fs::read(&file).await?, media_type, None))
     }
 
     fn content_ref_for_layer(layer: &ImageLayer) -> ContentRef {
@@ -324,6 +398,44 @@ impl Client {
             digest: Some(layer.sha256_digest()),
             ..Default::default()
         }
+    }
+
+    /// Unpack archive layer into self.cache
+    async fn unpack_archive_layer(
+        &self,
+        bytes: impl AsRef<[u8]>,
+        digest: impl AsRef<str>,
+    ) -> Result<()> {
+        // Write archive layer to cache as usual
+        self.cache.write_data(&bytes, &digest).await?;
+
+        // Unpack archive into a staging dir
+        let path = self
+            .cache
+            .data_file(&digest)
+            .context("unable to read archive layer from cache")?;
+        let staging_dir = tempfile::tempdir()?;
+        crate::utils::unarchive(path.as_ref(), staging_dir.path()).await?;
+
+        // Traverse unpacked contents and if a file, write to cache by digest
+        // (if it doesn't already exist)
+        for entry in WalkDir::new(staging_dir.path()) {
+            let entry = entry?;
+            if entry.file_type().is_file() && !entry.file_type().is_dir() {
+                let bytes = tokio::fs::read(entry.path()).await?;
+                let digest = format!("sha256:{}", sha256::hex_digest_from_bytes(&bytes));
+                if self.cache.data_file(&digest).is_ok() {
+                    tracing::debug!(
+                        "Skipping unpacked asset {:?}; file already exists",
+                        entry.path()
+                    );
+                } else {
+                    tracing::debug!("Adding unpacked asset {:?} to cache", entry.path());
+                    self.cache.write_data(bytes, &digest).await?;
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Save a credential set containing the registry username and password.
@@ -444,6 +556,27 @@ fn digest_from_url(manifest_url: &str) -> Option<String> {
     }
 }
 
+async fn layer_count(locked: LockedApp) -> Result<usize> {
+    let mut layer_count = 0;
+    for c in locked.components {
+        layer_count += 1;
+        for f in c.files {
+            let source = f
+                .content
+                .source
+                .context("file mount loaded from disk should contain a file source")?;
+            let source = spin_trigger::parse_file_url(source.as_str())?;
+            for entry in WalkDir::new(&source) {
+                let entry = entry?;
+                if entry.file_type().is_file() && !entry.file_type().is_dir() {
+                    layer_count += 1;
+                }
+            }
+        }
+    }
+    Ok(layer_count)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -456,5 +589,60 @@ mod test {
             "sha256:0a867093096e0ef01ef749b12b6e7a90e4952eda107f89a676eeedce63a8361f",
             digest
         );
+    }
+
+    #[tokio::test]
+    async fn can_get_layer_count() {
+        use spin_app::locked::LockedComponent;
+
+        let working_dir = tempfile::tempdir().unwrap();
+        let source_dir = working_dir.path().join("foo");
+        let _ = tokio::fs::create_dir(source_dir.as_path()).await;
+        let file_path = source_dir.join("bar");
+        let _ = tokio::fs::File::create(file_path.as_path()).await;
+
+        let tests: Vec<(Vec<LockedComponent>, usize)> = [
+            (
+                spin_testing::from_json!([{
+                "id": "test-component",
+                "source": {
+                    "content_type": "application/wasm",
+                    "digest": "test-source",
+                },
+                }]),
+                1,
+            ),
+            (
+                spin_testing::from_json!([{
+                "id": "test-component",
+                "source": {
+                    "content_type": "application/wasm",
+                    "digest": "test-source",
+                },
+                "files": [
+                    {
+                        "source": format!("file://{}", file_path.to_str().unwrap()),
+                        "path": ""
+                    }
+                ]
+                }]),
+                2,
+            ),
+        ]
+        .to_vec();
+
+        for (components, expected) in tests {
+            let triggers = Default::default();
+            let metadata = Default::default();
+            let variables = Default::default();
+            let locked = LockedApp {
+                spin_lock_version: spin_app::locked::FixedVersion,
+                components,
+                triggers,
+                metadata,
+                variables,
+            };
+            assert_eq!(expected, layer_count(locked).await.unwrap());
+        }
     }
 }

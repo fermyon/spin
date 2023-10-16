@@ -18,8 +18,10 @@
 //! | `String`  | str(string)         | VARCHAR, CHAR, TEXT     |
 //! | `Vec<u8>` | binary(list\<u8\>)  | VARBINARY, BINARY, BLOB |
 
-pub use super::wit::v1::mysql::{execute, query, MysqlError};
+#[doc(inline)]
 pub use super::wit::v1::rdbms_types::*;
+#[doc(inline)]
+pub use super::wit::v2::mysql::{Connection, Error as MysqlError};
 
 /// A MySQL error
 #[derive(Debug, thiserror::Error)]

@@ -1,39 +1,48 @@
-use serde::{Deserialize, Serialize};
-use spin_manifest::schema::FixedStringVersion;
-use std::path::PathBuf;
+use anyhow::Result;
+use serde::Deserialize;
+use std::{collections::BTreeMap, path::Path};
 
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct BuildAppInfoAnyVersion {
-    #[allow(dead_code)]
-    #[serde(alias = "spin_version")]
-    spin_manifest_version: FixedStringVersion<1>,
-    #[serde(flatten)]
-    manifest: BuildAppInfoV1,
-}
-impl BuildAppInfoAnyVersion {
-    pub fn into_v1(self) -> BuildAppInfoV1 {
-        self.manifest
-    }
+use spin_manifest::{schema::v2, ManifestVersion};
+
+/// Returns a map of component IDs to [`v2::ComponentBuildConfig`]s for the
+/// given (v1 or v2) manifest path.
+pub async fn component_build_configs(
+    manifest_file: impl AsRef<Path>,
+) -> Result<Vec<ComponentBuildInfo>> {
+    let manifest_text = tokio::fs::read_to_string(manifest_file).await?;
+    Ok(match ManifestVersion::detect(&manifest_text)? {
+        ManifestVersion::V1 => {
+            let v1: ManifestV1BuildInfo = toml::from_str(&manifest_text)?;
+            v1.components
+        }
+        ManifestVersion::V2 => {
+            let v2: ManifestV2BuildInfo = toml::from_str(&manifest_text)?;
+            v2.components
+                .into_iter()
+                .map(|(id, mut c)| {
+                    c.id = id;
+                    c
+                })
+                .collect()
+        }
+    })
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) struct BuildAppInfoV1 {
-    #[serde(rename = "component")]
-    pub components: Vec<RawComponentManifest>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) struct RawComponentManifest {
+#[derive(Deserialize)]
+pub struct ComponentBuildInfo {
+    #[serde(default)]
     pub id: String,
-    pub build: Option<RawBuildConfig>,
+    pub build: Option<v2::ComponentBuildConfig>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "snake_case")]
-pub(crate) struct RawBuildConfig {
-    pub command: String,
-    pub workdir: Option<PathBuf>,
-    pub watch: Option<Vec<String>>,
+#[derive(Deserialize)]
+struct ManifestV1BuildInfo {
+    #[serde(rename = "component")]
+    components: Vec<ComponentBuildInfo>,
+}
+
+#[derive(Deserialize)]
+struct ManifestV2BuildInfo {
+    #[serde(rename = "component")]
+    components: BTreeMap<String, ComponentBuildInfo>,
 }

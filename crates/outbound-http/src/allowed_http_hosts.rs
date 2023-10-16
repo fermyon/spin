@@ -76,9 +76,6 @@ impl AllowedHttpHost {
 
 // Parses a list of allowed HTTP hosts
 pub fn parse_allowed_http_hosts(list: &[impl AsRef<str>]) -> Result<AllowedHttpHosts> {
-    if list.is_empty() {
-        return Ok(AllowedHttpHosts::AllowSpecific(vec![]));
-    }
     if list.iter().any(|domain| domain.as_ref() == ALLOW_ALL_HOSTS) {
         Ok(AllowedHttpHosts::AllowAll)
     } else {

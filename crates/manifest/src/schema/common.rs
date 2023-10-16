@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 /// Variable definition
@@ -30,7 +32,16 @@ pub enum ComponentSource {
     },
 }
 
-/// Component source
+impl Display for ComponentSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ComponentSource::Local(path) => write!(f, "{path:?}"),
+            ComponentSource::Remote { url, digest } => write!(f, "{url:?} with digest {digest:?}"),
+        }
+    }
+}
+
+/// WASI files mount
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, untagged)]
 pub enum WasiFilesMount {

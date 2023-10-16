@@ -4,7 +4,7 @@ use anyhow::{ensure, Context, Result};
 use sha2::Digest;
 use tokio::io::AsyncWriteExt;
 
-/// Download content from `url` while will be verified to match `digest` and
+/// Downloads content from `url` which will be verified to match `digest` and
 /// then moved to `dest`.
 pub async fn verified_download(url: &str, digest: &str, dest: &Path) -> Result<()> {
     tracing::debug!("Downloading content from {url:?}");

@@ -40,7 +40,7 @@ impl UiTestsRunner {
         let tests = std::mem::take(&mut self.tests);
         let conclusion = libtest_mimic::run(&args, tests);
         if conclusion.has_failed() {
-            eprintln!("Snapshot files can be automatically updated by re-running with BLESS=1");
+            eprintln!("Snapshot files can be automatically updated by re-running with BLESS=1\n");
         }
         conclusion.exit_if_failed();
         Ok(())

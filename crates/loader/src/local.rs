@@ -124,7 +124,7 @@ impl LocalLoader {
         let source = self
             .load_component_source(component.source.clone())
             .await
-            .with_context(|| format!("Failed to load Wasm source {:?}", component.source))?;
+            .with_context(|| format!("Failed to load Wasm source {}", component.source))?;
 
         let env = component.environment.into_iter().collect();
 

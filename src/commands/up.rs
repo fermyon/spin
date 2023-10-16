@@ -467,7 +467,7 @@ impl Display for AppSource {
             AppSource::None => write!(f, "<no source>"),
             AppSource::File(path) => write!(f, "local app {path:?}"),
             AppSource::OciRegistry(reference) => write!(f, "remote app {reference:?}"),
-            AppSource::Unresolvable(s) => write!(f, "unknown app source {s:?}"),
+            AppSource::Unresolvable(s) => write!(f, "unknown app source: {s:?}"),
         }
     }
 }

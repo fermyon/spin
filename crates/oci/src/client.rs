@@ -195,6 +195,7 @@ impl Client {
         for entry in WalkDir::new(source) {
             let entry = entry?;
             if entry.file_type().is_file() {
+                // Can unwrap because we got to 'entry' from walking 'source'
                 let rel_path = entry.path().strip_prefix(source).unwrap();
                 tracing::trace!("Adding asset {rel_path:?} to component files list");
                 // Add content/path to the locked component files list
@@ -234,6 +235,7 @@ impl Client {
         for entry in WalkDir::new(source) {
             let entry = entry?;
             if entry.file_type().is_file() {
+                // Can unwrap because we got to 'entry' from walking 'source'
                 let rel_path = entry.path().strip_prefix(source).unwrap();
                 tracing::trace!("Adding new layer for asset {rel_path:?}");
                 // Construct and push layer, adding its digest to the locked component files Vec
@@ -640,7 +642,7 @@ mod test {
             let metadata = Default::default();
             let variables = Default::default();
             let locked = LockedApp {
-                spin_lock_version: spin_app::locked::FixedVersion,
+                spin_lock_version: Default::default(),
                 components,
                 triggers,
                 metadata,

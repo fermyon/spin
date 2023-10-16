@@ -4,8 +4,13 @@ use super::{Headers, IncomingRequest, Method, OutgoingResponse};
 
 impl From<crate::http::Response> for OutgoingResponse {
     fn from(response: crate::http::Response) -> Self {
-        // TODO: headers
-        OutgoingResponse::new(response.status, &Headers::new(&[]))
+        let headers = response
+            .headers
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(k, v)| (k, v.into_bytes()))
+            .collect::<Vec<_>>();
+        OutgoingResponse::new(response.status, &Headers::new(&headers))
     }
 }
 
@@ -46,9 +51,15 @@ where
 
 #[async_trait]
 impl TryFromIncomingRequest for crate::http::Request {
-    type Error = IncomingRequestError<std::convert::Infallible>;
+    type Error = IncomingRequestError;
 
     async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
+        let headers = request
+            .headers()
+            .entries()
+            .iter()
+            .map(|(k, v)| (k.clone(), String::from_utf8_lossy(v).into_owned()))
+            .collect();
         Ok(Self {
             method: request
                 .method()
@@ -57,7 +68,7 @@ impl TryFromIncomingRequest for crate::http::Request {
             uri: request
                 .path_with_query()
                 .unwrap_or_else(|| String::from("/")),
-            headers: Vec::new(), // TODO
+            headers,
             params: Vec::new(),
             body: Some(
                 request
@@ -71,7 +82,7 @@ impl TryFromIncomingRequest for crate::http::Request {
 
 #[derive(Debug, thiserror::Error)]
 /// An error converting an `IncomingRequest`
-pub enum IncomingRequestError<E> {
+pub enum IncomingRequestError<E = std::convert::Infallible> {
     /// The `IncomingRequest` has a method not supported by `Request`
     #[error("unexpected method: {0:?}")]
     UnexpectedMethod(Method),

@@ -401,6 +401,7 @@ dependencies = [
  "serde_json",
  "spin-macro",
  "thiserror",
+ "url",
  "wit-bindgen",
 ]
 

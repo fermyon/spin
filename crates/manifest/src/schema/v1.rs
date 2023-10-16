@@ -20,27 +20,27 @@ pub struct AppManifestV1 {
     /// `name = "my-app"`
     pub name: String,
     /// `version = "1.0.0"`
-    #[serde(default, skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
     pub version: String,
     /// `description = "App description"`
-    #[serde(default, skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
     pub description: String,
     /// `authors = ["author@example.com"]`
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub authors: Vec<String>,
     /// `trigger = { ... }`
     pub trigger: AppTriggerV1,
     /// `[variables]`
-    #[serde(default, skip_serializing_if = "Map::is_empty")]
+    #[serde(default)]
     pub variables: Map<String, VariableV1>,
     /// `[[component]]`
     #[serde(rename = "component")]
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub components: Vec<ComponentV1>,
 }
 
 /// App trigger config
-#[derive(Deserialize, serde::Serialize)]
+#[derive(Deserialize)]
 pub struct AppTriggerV1 {
     /// `type = "trigger-type"`
     #[serde(rename = "type")]
@@ -61,34 +61,34 @@ pub struct ComponentV1 {
     /// `[component.trigger]`
     pub trigger: toml::Table,
     /// `description = "Component description"`
-    #[serde(default, skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
     pub description: String,
     /// `config = { name = "{{ app_var }}"}`
-    #[serde(default, skip_serializing_if = "Map::is_empty")]
+    #[serde(default)]
     pub config: Map<String, String>,
     /// `environment = { VAR = "value" }`
-    #[serde(default, skip_serializing_if = "Map::is_empty")]
+    #[serde(default)]
     pub environment: Map<String, String>,
     /// `files = [...]`
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub files: Vec<WasiFilesMountV1>,
     /// `exclude_files = ["secrets/*"]`
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub exclude_files: Vec<String>,
     /// `allowed_http_hosts = ["example.com"]`
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub allowed_http_hosts: Vec<String>,
     /// `key_value_stores = ["default"]`
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub key_value_stores: Vec<String>,
     /// `sqlite_databases = ["default"]`
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub sqlite_databases: Vec<String>,
     /// `ai_models = ["llama2-chat"]`
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub ai_models: Vec<String>,
     /// Build configuration
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub build: Option<ComponentBuildConfigV1>,
 }
 

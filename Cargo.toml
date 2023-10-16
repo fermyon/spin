@@ -116,7 +116,7 @@ wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", rev = "c796ce
   "component-model",
 ] }
 wasmtime-wasi-http = { git = "https://github.com/bytecodealliance/wasmtime", rev = "c796ce7376a57a40605f03e74bd78cefcc9acf3a" }
-spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "7e371ff2ee8aad90ad94170c3c962947a51045c8" }
+spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "0c68c5f2afae65c2011fa23b30fd136682506e2a" }
 hyper = { version = "=1.0.0-rc.3", features = ["full"] }
 http-body-util = "=0.1.0-rc.2"
 

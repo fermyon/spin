@@ -1,3 +1,5 @@
+//! Spin's client for distributing applications via OCI registries
+
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -24,10 +26,14 @@ use walkdir::WalkDir;
 use crate::auth::AuthConfig;
 
 // TODO: the media types for application, wasm module, data and archive layer are not final.
-const SPIN_APPLICATION_MEDIA_TYPE: &str = "application/vnd.fermyon.spin.application.v1+config";
+/// Media type for a layer representing a locked Spin application configuration
+pub const SPIN_APPLICATION_MEDIA_TYPE: &str = "application/vnd.fermyon.spin.application.v1+config";
+// Note: we hope to use a canonical value defined upstream for this media type
 const WASM_LAYER_MEDIA_TYPE: &str = "application/vnd.wasm.content.layer.v1+wasm";
-const DATA_MEDIATYPE: &str = "application/vnd.wasm.content.layer.v1+data";
-const ARCHIVE_MEDIATYPE: &str = "application/vnd.wasm.content.bundle.v1.tar+gzip";
+/// Media type for a layer representing a generic data file used by a Spin application
+pub const DATA_MEDIATYPE: &str = "application/vnd.wasm.content.layer.v1+data";
+/// Media type for a layer representing a compressed archive of one or more files used by a Spin application
+pub const ARCHIVE_MEDIATYPE: &str = "application/vnd.wasm.content.bundle.v1.tar+gzip";
 
 const CONFIG_FILE: &str = "config.json";
 const LATEST_TAG: &str = "latest";

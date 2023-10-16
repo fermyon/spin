@@ -2,4 +2,4 @@ TOML parse error at line 6, column 12
   |
 6 | [component.bad_id]
   |            ^^^^^^
-'-'-separated words may only contain alphanumeric ASCII; got '_'
+words must be separated with '-', not '_'

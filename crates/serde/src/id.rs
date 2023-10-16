@@ -33,6 +33,14 @@ impl<const DELIM: char> TryFrom<String> for Id<DELIM> {
         if id.is_empty() {
             return Err("empty".into());
         }
+        // Special-case common "wrong separator" errors
+        if let Some(wrong) = wrong_delim::<DELIM>() {
+            if id.contains(wrong) {
+                return Err(format!(
+                    "words must be separated with {DELIM:?}, not {wrong:?}"
+                ));
+            }
+        }
         for word in id.split(DELIM) {
             if word.is_empty() {
                 return Err(format!("{DELIM:?}-separated words must not be empty"));
@@ -57,5 +65,13 @@ impl<const DELIM: char> TryFrom<String> for Id<DELIM> {
             }
         }
         Ok(Self(id))
+    }
+}
+
+const fn wrong_delim<const DELIM: char>() -> Option<char> {
+    match DELIM {
+        '_' => Some('-'),
+        '-' => Some('_'),
+        _ => None,
     }
 }

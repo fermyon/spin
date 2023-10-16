@@ -55,6 +55,7 @@ fn process(req: Request) -> Result<Response> {
 
 fn test_numeric_types(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
+    let conn = pg::Connection::open(&address)?;
 
     let create_table_sql = r#"
         CREATE TEMPORARY TABLE test_numeric_types (
@@ -73,7 +74,7 @@ fn test_numeric_types(_req: Request) -> Result<Response> {
          );
     "#;
 
-    pg::execute(&address, create_table_sql, &[])?;
+    conn.execute(create_table_sql, &[])?;
 
     let insert_sql = r#"
         INSERT INTO test_numeric_types
@@ -82,7 +83,7 @@ fn test_numeric_types(_req: Request) -> Result<Response> {
             (0, 0, 0, 0, 0, 0, 0, 0);
     "#;
 
-    pg::execute(&address, insert_sql, &[])?;
+    conn.execute(insert_sql, &[])?;
 
     let sql = r#"
         SELECT
@@ -101,7 +102,7 @@ fn test_numeric_types(_req: Request) -> Result<Response> {
         FROM test_numeric_types;
     "#;
 
-    let rowset = pg::query(&address, sql, &[])?;
+    let rowset = conn.query(sql, &[])?;
 
     let column_summary = rowset
         .columns
@@ -158,6 +159,7 @@ fn test_numeric_types(_req: Request) -> Result<Response> {
 
 fn test_character_types(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
+    let conn = pg::Connection::open(&address)?;
 
     let create_table_sql = r#"
         CREATE TEMPORARY TABLE test_character_types (
@@ -167,7 +169,7 @@ fn test_character_types(_req: Request) -> Result<Response> {
          );
     "#;
 
-    pg::execute(&address, create_table_sql, &[])?;
+    conn.execute(create_table_sql, &[])?;
 
     let insert_sql = r#"
         INSERT INTO test_character_types
@@ -176,7 +178,7 @@ fn test_character_types(_req: Request) -> Result<Response> {
             ('rvarchar', 'rtext', 'rchar');
     "#;
 
-    pg::execute(&address, insert_sql, &[])?;
+    conn.execute(insert_sql, &[])?;
 
     let sql = r#"
         SELECT
@@ -184,7 +186,7 @@ fn test_character_types(_req: Request) -> Result<Response> {
         FROM test_character_types;
     "#;
 
-    let rowset = pg::query(&address, sql, &[])?;
+    let rowset = conn.query(sql, &[])?;
 
     let column_summary = rowset
         .columns
@@ -223,6 +225,7 @@ fn test_character_types(_req: Request) -> Result<Response> {
 
 fn test_general_types(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
+    let conn = pg::Connection::open(&address)?;
 
     let create_table_sql = r#"
         CREATE TEMPORARY TABLE test_general_types (
@@ -232,7 +235,7 @@ fn test_general_types(_req: Request) -> Result<Response> {
          );
     "#;
 
-    pg::execute(&address, create_table_sql, &[])?;
+    conn.execute(create_table_sql, &[])?;
 
     let insert_sql = r"
         INSERT INTO test_general_types
@@ -241,7 +244,7 @@ fn test_general_types(_req: Request) -> Result<Response> {
             (TRUE, '\176'::bytea);
     ";
 
-    pg::execute(&address, insert_sql, &[])?;
+    conn.execute(insert_sql, &[])?;
 
     let sql = r#"
         SELECT
@@ -249,7 +252,7 @@ fn test_general_types(_req: Request) -> Result<Response> {
         FROM test_general_types;
     "#;
 
-    let rowset = pg::query(&address, sql, &[])?;
+    let rowset = conn.query(sql, &[])?;
 
     let column_summary = rowset
         .columns
@@ -288,10 +291,11 @@ fn test_general_types(_req: Request) -> Result<Response> {
 
 fn pg_backend_pid(_req: Request) -> Result<Response> {
     let address = std::env::var(DB_URL_ENV)?;
+    let conn = pg::Connection::open(&address)?;
     let sql = "SELECT pg_backend_pid()";
 
     let get_pid = || {
-        let rowset = pg::query(&address, sql, &[])?;
+        let rowset = conn.query(sql, &[])?;
 
         let row = &rowset.rows[0];
         i32::decode(&row[0])

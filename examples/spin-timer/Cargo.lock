@@ -2565,6 +2565,7 @@ dependencies = [
  "postgres-native-tls",
  "spin-core",
  "spin-world",
+ "table",
  "tokio",
  "tokio-postgres",
  "tracing",
@@ -3588,7 +3589,7 @@ dependencies = [
 [[package]]
 name = "spin-componentize"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/spin-componentize?rev=ed1305044fd1455ded4bb47a4d3b1ed8a505fc86#ed1305044fd1455ded4bb47a4d3b1ed8a505fc86"
+source = "git+https://github.com/fermyon/spin-componentize?rev=0c68c5f2afae65c2011fa23b30fd136682506e2a#0c68c5f2afae65c2011fa23b30fd136682506e2a"
 dependencies = [
  "anyhow",
  "wasm-encoder 0.35.0",

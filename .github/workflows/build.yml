@@ -36,8 +36,9 @@ jobs:
           rust-cache: true
 
       - name: Run lints
-        run:
-          BUILD_SPIN_EXAMPLES=0 make lint
+        run: |
+            BUILD_SPIN_EXAMPLES=0 make lint
+            git diff --quiet . || (echo "Git working tree dirtied by lints. Run `make lint` and check in changes" && exit 1)
 
       - name: Cancel everything if linting fails
         if: failure()

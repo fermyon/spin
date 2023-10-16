@@ -98,11 +98,11 @@ impl Hash for Method {
 
 impl Response {
     /// Create a new response from a status and optional headers and body
-    pub fn new(status: u16, body: Option<Vec<u8>>) -> Self {
+    pub fn new<S: IntoStatusCode, B: IntoBody>(status: S, body: B) -> Self {
         Self {
-            status,
+            status: status.into_status_code(),
             headers: None,
-            body,
+            body: body.into_body(),
         }
     }
 
@@ -165,23 +165,6 @@ pub trait TryNonRequestFromRequest {
     fn try_from_request(req: Request) -> Result<Self, Self::Error>
     where
         Self: Sized;
-}
-
-impl<B: TryFromBody> TryNonRequestFromRequest for Body<B> {
-    type Error = B::Error;
-    fn try_from_request(req: Request) -> Result<Self, Self::Error> {
-        Ok(Body(B::try_from_body(req.body)?))
-    }
-}
-
-#[cfg(feature = "json")]
-impl<B: serde::de::DeserializeOwned> TryNonRequestFromRequest for Json<B> {
-    type Error = JsonBodyError;
-    fn try_from_request(req: Request) -> Result<Self, Self::Error> {
-        Ok(Json(
-            serde_json::from_slice(&req.body.unwrap_or_default()).map_err(JsonBodyError)?,
-        ))
-    }
 }
 
 /// An error parsing a JSON body
@@ -266,33 +249,25 @@ impl<R: Into<Response>> IntoResponse for R {
     }
 }
 
-impl<S: IntoStatusCode, B: IntoBody> IntoResponse for (S, B) {
-    fn into_response(self) -> Response {
-        Response {
-            status: self.0.into_status_code(),
-            headers: Default::default(),
-            body: self.1.into_body(),
-        }
-    }
-}
-
 #[cfg(feature = "http")]
 impl<B> IntoResponse for http_types::Response<B>
 where
     B: IntoBody,
 {
     fn into_response(self) -> Response {
+        let headers = self
+            .headers()
+            .into_iter()
+            .map(|(n, v)| {
+                (
+                    n.as_str().to_owned(),
+                    String::from_utf8_lossy(v.as_bytes()).into_owned(),
+                )
+            })
+            .collect();
         Response::new_with_headers(
             self.status().as_u16(),
-            self.headers()
-                .into_iter()
-                .map(|(n, v)| {
-                    (
-                        n.as_str().to_owned(),
-                        String::from_utf8_lossy(v.as_bytes()).into_owned(),
-                    )
-                })
-                .collect(),
+            headers,
             IntoBody::into_body(self.into_body()),
         )
     }
@@ -549,17 +524,17 @@ pub mod responses {
 
     /// Helper function to return a 404 Not Found response.
     pub fn not_found() -> Response {
-        Response::new(404, Some("Not Found".into()))
+        Response::new(404, "Not Found")
     }
 
     /// Helper function to return a 500 Internal Server Error response.
     pub fn internal_server_error() -> Response {
-        Response::new(500, Some("Internal Server Error".into()))
+        Response::new(500, "Internal Server Error")
     }
 
     /// Helper function to return a 405 Method Not Allowed response.
     pub fn method_not_allowed() -> Response {
-        Response::new(405, Some("Method Not Allowed".into()))
+        Response::new(405, "Method Not Allowed")
     }
 
     pub(crate) fn bad_request(msg: Option<String>) -> Response {

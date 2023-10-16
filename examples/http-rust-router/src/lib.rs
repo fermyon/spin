@@ -20,12 +20,12 @@ mod api {
     pub fn hello_planet(_req: Request, params: Params) -> Result<impl IntoResponse> {
         let planet = params.get("planet").expect("PLANET");
 
-        Ok((200, planet.to_string()))
+        Ok(Response::new(200, planet.to_string()))
     }
 
     // /*
     pub fn echo_wildcard(_req: Request, params: Params) -> Result<impl IntoResponse> {
         let capture = params.wildcard().unwrap_or_default();
-        Ok((200, capture.to_string()))
+        Ok(Response::new(200, capture.to_string()))
     }
 }

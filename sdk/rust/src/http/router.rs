@@ -296,7 +296,7 @@ mod tests {
 
     fn echo_param(req: Request, params: Params) -> Response {
         match params.get("x") {
-            Some(path) => Response::new(200, Some(path.into())),
+            Some(path) => Response::new(200, path),
             None => not_found(req, params),
         }
     }
@@ -314,7 +314,7 @@ mod tests {
     #[test]
     fn test_not_found() {
         fn h1(_req: Request, _params: Params) -> anyhow::Result<Response> {
-            Ok(Response::new(200, None))
+            Ok(Response::new(200, ()))
         }
 
         let mut router = Router::default();
@@ -330,10 +330,7 @@ mod tests {
         fn multiply(_req: Request, params: Params) -> anyhow::Result<Response> {
             let x: i64 = params.get("x").unwrap().parse()?;
             let y: i64 = params.get("y").unwrap().parse()?;
-            Ok(Response::new(
-                200,
-                Some(format!("{result}", result = x * y).into()),
-            ))
+            Ok(Response::new(200, format!("{result}", result = x * y)))
         }
 
         let mut router = Router::default();
@@ -360,7 +357,7 @@ mod tests {
     fn test_wildcard() {
         fn echo_wildcard(req: Request, params: Params) -> Response {
             match params.wildcard() {
-                Some(path) => Response::new(200, Some(path.to_string().into())),
+                Some(path) => Response::new(200, path),
                 None => not_found(req, params),
             }
         }
@@ -398,11 +395,11 @@ mod tests {
     #[test]
     fn test_ambiguous_wildcard_vs_star() {
         fn h1(_req: Request, _params: Params) -> anyhow::Result<Response> {
-            Ok(Response::new(200, Some("one/two".into())))
+            Ok(Response::new(200, "one/two"))
         }
 
         fn h2(_req: Request, _params: Params) -> anyhow::Result<Response> {
-            Ok(Response::new(200, Some("posts/*".into())))
+            Ok(Response::new(200, "posts/*"))
         }
 
         let mut router = Router::default();

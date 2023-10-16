@@ -1,6 +1,6 @@
 #![allow(dead_code, unused_imports)]
 use spin_sdk::{
-    http::{IntoResponse, Params, Request},
+    http::{IntoResponse, Params, Request, Response},
     http_component, http_router,
 };
 
@@ -10,7 +10,7 @@ fn handle_route(req: Request) -> impl IntoResponse {
         GET "/hello/:planet" => api::hello_planet,
         _   "/*"             => |_req: Request, params| {
             let capture = params.wildcard().unwrap_or_default();
-            (200, capture.to_string())
+            Response::new(200, capture.to_string())
         }
     };
     router.handle(req)
@@ -23,6 +23,6 @@ mod api {
     pub fn hello_planet(_req: Request, params: Params) -> anyhow::Result<impl IntoResponse> {
         let planet = params.get("planet").expect("PLANET");
 
-        Ok((200, planet.to_string()))
+        Ok(Response::new(200, planet.to_string()))
     }
 }

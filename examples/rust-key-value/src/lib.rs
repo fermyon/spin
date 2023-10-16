@@ -1,5 +1,9 @@
 use http::{Method, StatusCode};
-use spin_sdk::{http::IntoResponse, http_component, key_value::Store};
+use spin_sdk::{
+    http::{IntoResponse, Response},
+    http_component,
+    key_value::Store,
+};
 
 #[http_component]
 fn handle_request(req: http::Request<Vec<u8>>) -> anyhow::Result<impl IntoResponse> {
@@ -36,5 +40,5 @@ fn handle_request(req: http::Request<Vec<u8>>) -> anyhow::Result<impl IntoRespon
         // No other methods are currently supported
         _ => (StatusCode::METHOD_NOT_ALLOWED, None),
     };
-    Ok((status, body))
+    Ok(Response::new(status, body))
 }

@@ -7,6 +7,6 @@ edition = "2021"
 debug = true
 
 [dependencies]
-wit-bindgen = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "3fac9c9f4a06061a1cfae83de356cecad2d642d1" }
+wit-bindgen = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2405a79c74c5d61b9bc88c378d475c6c21ed6a9f" }
 
 [workspace]

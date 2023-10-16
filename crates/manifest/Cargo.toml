@@ -9,7 +9,7 @@ anyhow = "1.0.75"
 indexmap = { version = "1", features = ["serde"] }
 outbound-http = { path = "../outbound-http" }
 serde = { version = "1.0", features = ["derive"] }
-spin-app = { path = "../app" }
+spin-serde = { path = "../serde" }
 thiserror = "1"
 toml = { version = "0.8.0", features = ["preserve_order"] }
 

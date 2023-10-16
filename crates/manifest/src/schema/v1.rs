@@ -1,10 +1,11 @@
 use serde::Deserialize;
 
+use spin_serde::FixedStringVersion;
+
 pub use super::common::{
     ComponentBuildConfig as ComponentBuildConfigV1, ComponentSource as ComponentSourceV1,
     Variable as VariableV1, WasiFilesMount as WasiFilesMountV1,
 };
-use super::FixedStringVersion;
 
 type Map<K, V> = indexmap::IndexMap<K, V>;
 

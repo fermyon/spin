@@ -1,10 +1,5 @@
-use futures::{Sink, Stream};
-
 /// Traits for converting between the various types
 pub mod conversions;
-#[doc(hidden)]
-/// The executor for driving wasi-http futures to completion
-mod executor;
 
 #[doc(inline)]
 pub use super::wit::wasi::http::types::*;
@@ -15,7 +10,7 @@ impl IncomingRequest {
     /// # Panics
     ///
     /// Panics if the body was already consumed.
-    pub fn into_body_stream(self) -> impl Stream<Item = anyhow::Result<Vec<u8>>> {
+    pub fn into_body_stream(self) -> impl futures::Stream<Item = anyhow::Result<Vec<u8>>> {
         executor::incoming_body(self.consume().expect("request body was already consumed"))
     }
 
@@ -37,7 +32,7 @@ impl IncomingResponse {
     /// # Panics
     ///
     /// Panics if the body was already consumed.
-    pub fn into_body_stream(self) -> impl Stream<Item = anyhow::Result<Vec<u8>>> {
+    pub fn into_body_stream(self) -> impl futures::Stream<Item = anyhow::Result<Vec<u8>>> {
         executor::incoming_body(self.consume().expect("response body was already consumed"))
     }
 }
@@ -48,7 +43,7 @@ impl OutgoingResponse {
     /// # Panics
     ///
     /// Panics if the body was already taken.
-    pub fn take_body(&self) -> impl Sink<Vec<u8>, Error = anyhow::Error> {
+    pub fn take_body(&self) -> impl futures::Sink<Vec<u8>, Error = anyhow::Error> {
         executor::outgoing_body(self.write().expect("response body was already taken"))
     }
 }
@@ -103,5 +98,8 @@ pub enum SendError {
     Http(Error),
 }
 
-#[doc(inline)]
+#[doc(hidden)]
+/// The executor for driving wasi-http futures to completion
+mod executor;
+#[doc(hidden)]
 pub use executor::run;

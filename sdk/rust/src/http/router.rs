@@ -1,4 +1,5 @@
-use super::{responses, IntoResponse, Method, Request, Response, TryFromRequest};
+use super::conversions::{IntoResponse, TryFromRequest};
+use super::{responses, Method, Request, Response};
 use routefinder::{Captures, Router as MethodRouter};
 use std::{collections::HashMap, fmt::Display};
 

@@ -17,7 +17,7 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
             impl self::exports::fermyon::spin::inbound_http::Guest for Spin {
                 fn handle_request(req: self::exports::fermyon::spin::inbound_http::Request) -> self::exports::fermyon::spin::inbound_http::Response {
                     let req: ::spin_sdk::http::Request = ::std::convert::Into::into(req);
-                    let resp = match ::spin_sdk::http::TryFromRequest::try_from_request(req) {
+                    let resp = match ::spin_sdk::http::conversions::TryFromRequest::try_from_request(req) {
                         ::std::result::Result::Ok(req) => ::spin_sdk::http::IntoResponse::into_response(super::#func_name(req)),
                         ::std::result::Result::Err(e) => ::spin_sdk::http::IntoResponse::into_response(e),
                     };
@@ -126,7 +126,7 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 ///
 /// The `request` param can be anything that implements `spin_sdk::wasi_http::conversions::TryFromIncomingRequest`.
-/// This includes all types that implement `spin_sdk::http::TryIntoRequest` (which may be more convenient to use
+/// This includes all types that implement `spin_sdk::http::conversions::TryIntoRequest` (which may be more convenient to use
 /// when you don't need streaming request bodies).
 #[proc_macro_attribute]
 pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {

@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
 use super::{Headers, IncomingRequest, Method, OutgoingResponse};
+use crate::http::conversions as http_conversions;
 
 impl From<crate::http::Response> for OutgoingResponse {
     fn from(response: crate::http::Response) -> Self {
@@ -37,7 +38,7 @@ impl TryFromIncomingRequest for IncomingRequest {
 #[async_trait]
 impl<R> TryFromIncomingRequest for R
 where
-    R: crate::http::TryNonRequestFromRequest,
+    R: crate::http::conversions::TryNonRequestFromRequest,
 {
     type Error = IncomingRequestError<R::Error>;
 
@@ -108,7 +109,7 @@ fn convert_error<E>(
     }
 }
 
-impl<E: crate::http::IntoResponse> crate::http::IntoResponse for IncomingRequestError<E> {
+impl<E: http_conversions::IntoResponse> http_conversions::IntoResponse for IncomingRequestError<E> {
     fn into_response(self) -> crate::http::Response {
         match self {
             IncomingRequestError::UnexpectedMethod(_) => {

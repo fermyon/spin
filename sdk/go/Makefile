@@ -118,4 +118,5 @@ clean:
 	rm -f $(EXAMPLES_DIR)/tinygo-key-value/main.wasm
 	rm -f $(EXAMPLES_DIR)/tinygo-sqlite/main.wasm
 	rm -f $(EXAMPLES_DIR)/tinygo-llm/main.wasm
+	rm -f $(EXAMPLES_DIR)/tinygo-outbound-mysql/main.wasm
 	rm -f $(SDK_VERSION_DEST_FILES)

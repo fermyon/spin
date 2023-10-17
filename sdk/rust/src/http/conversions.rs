@@ -366,11 +366,7 @@ where
             .collect();
         Ok(Request {
             method,
-            uri: req
-                .uri()
-                .path_and_query()
-                .map(|p| p.to_string())
-                .unwrap_or_else(|| String::from("/")),
+            uri: req.uri().to_string(),
             headers,
             params: Vec::new(),
             body: B::try_into_body(req.into_body())?,

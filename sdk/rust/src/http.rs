@@ -39,21 +39,21 @@ pub enum SendError {
 }
 
 #[cfg(feature = "http")]
-impl<B> TryFrom<http_types::Request<B>> for Request
+impl<B> TryFrom<hyperium::Request<B>> for Request
 where
     B: TryIntoBody,
     B::Error: std::error::Error + Send + Sync + 'static,
 {
     type Error = anyhow::Error;
-    fn try_from(req: http_types::Request<B>) -> Result<Self, Self::Error> {
+    fn try_from(req: hyperium::Request<B>) -> Result<Self, Self::Error> {
         let method = match req.method() {
-            &http_types::Method::GET => Method::Get,
-            &http_types::Method::POST => Method::Post,
-            &http_types::Method::PUT => Method::Put,
-            &http_types::Method::DELETE => Method::Delete,
-            &http_types::Method::PATCH => Method::Patch,
-            &http_types::Method::HEAD => Method::Head,
-            &http_types::Method::OPTIONS => Method::Options,
+            &hyperium::Method::GET => Method::Get,
+            &hyperium::Method::POST => Method::Post,
+            &hyperium::Method::PUT => Method::Put,
+            &hyperium::Method::DELETE => Method::Delete,
+            &hyperium::Method::PATCH => Method::Patch,
+            &hyperium::Method::HEAD => Method::Head,
+            &hyperium::Method::OPTIONS => Method::Options,
             m => anyhow::bail!("Unsupported method: {m}"),
         };
         let headers = req
@@ -197,12 +197,10 @@ impl Display for NonUtf8BodyError {
 }
 
 #[cfg(feature = "http")]
-impl<B: TryFromBody> TryNonRequestFromRequest for http_types::Request<B> {
+impl<B: TryFromBody> TryNonRequestFromRequest for hyperium::Request<B> {
     type Error = B::Error;
     fn try_from_request(req: Request) -> Result<Self, Self::Error> {
-        let mut builder = http_types::Request::builder()
-            .uri(req.uri)
-            .method(req.method);
+        let mut builder = hyperium::Request::builder().uri(req.uri).method(req.method);
         for (n, v) in req.headers {
             builder = builder.header(n, v);
         }
@@ -211,25 +209,25 @@ impl<B: TryFromBody> TryNonRequestFromRequest for http_types::Request<B> {
 }
 
 #[cfg(feature = "http")]
-impl From<Method> for http_types::Method {
+impl From<Method> for hyperium::Method {
     fn from(method: Method) -> Self {
         match method {
-            Method::Get => http_types::Method::GET,
-            Method::Post => http_types::Method::POST,
-            Method::Put => http_types::Method::PUT,
-            Method::Delete => http_types::Method::DELETE,
-            Method::Patch => http_types::Method::PATCH,
-            Method::Head => http_types::Method::HEAD,
-            Method::Options => http_types::Method::OPTIONS,
+            Method::Get => hyperium::Method::GET,
+            Method::Post => hyperium::Method::POST,
+            Method::Put => hyperium::Method::PUT,
+            Method::Delete => hyperium::Method::DELETE,
+            Method::Patch => hyperium::Method::PATCH,
+            Method::Head => hyperium::Method::HEAD,
+            Method::Options => hyperium::Method::OPTIONS,
         }
     }
 }
 
 #[cfg(feature = "http")]
-impl<B: TryFromBody> TryFrom<Response> for http_types::Response<B> {
+impl<B: TryFromBody> TryFrom<Response> for hyperium::Response<B> {
     type Error = B::Error;
     fn try_from(resp: Response) -> Result<Self, Self::Error> {
-        let mut builder = http_types::Response::builder().status(resp.status);
+        let mut builder = hyperium::Response::builder().status(resp.status);
         for (n, v) in resp.headers.unwrap_or_default() {
             builder = builder.header(n, v);
         }
@@ -254,7 +252,7 @@ impl<R: Into<Response>> IntoResponse for R {
 }
 
 #[cfg(feature = "http")]
-impl<B> IntoResponse for http_types::Response<B>
+impl<B> IntoResponse for hyperium::Response<B>
 where
     B: IntoBody,
 {
@@ -352,7 +350,7 @@ impl IntoStatusCode for u16 {
 }
 
 #[cfg(feature = "http")]
-impl IntoStatusCode for http_types::StatusCode {
+impl IntoStatusCode for hyperium::StatusCode {
     fn into_status_code(self) -> u16 {
         self.as_u16()
     }

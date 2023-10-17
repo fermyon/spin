@@ -307,7 +307,7 @@ mod tests {
 
         let req = make_request(Method::Post, "/foobar");
         let res = router.handle(req);
-        assert_eq!(res.status, http_types::StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(res.status, hyperium::StatusCode::METHOD_NOT_ALLOWED);
     }
 
     #[test]
@@ -321,7 +321,7 @@ mod tests {
 
         let req = make_request(Method::Get, "/h1/");
         let res = router.handle(req);
-        assert_eq!(res.status, http_types::StatusCode::NOT_FOUND);
+        assert_eq!(res.status, hyperium::StatusCode::NOT_FOUND);
     }
 
     #[test]
@@ -366,7 +366,7 @@ mod tests {
 
         let req = make_request(Method::Get, "/foo/bar");
         let res = router.handle(req);
-        assert_eq!(res.status, http_types::StatusCode::OK);
+        assert_eq!(res.status, hyperium::StatusCode::OK);
         assert_eq!(res.body.unwrap(), "foo/bar".to_owned().into_bytes());
     }
 

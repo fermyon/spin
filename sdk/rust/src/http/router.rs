@@ -41,8 +41,7 @@ impl Router {
     pub fn handle<R: Into<Request>>(&self, request: R) -> Response {
         let request = request.into();
         let method = request.method;
-        let url = url::Url::parse(&request.uri).expect("request's uri was malformed");
-        let path = url.path();
+        let path = &request.uri;
         let RouteMatch { params, handler } = self.find(path, method);
         handler(request, params)
     }

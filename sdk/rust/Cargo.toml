@@ -20,7 +20,6 @@ wit-bindgen = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "
 routefinder = "0.5.3"
 once_cell = "1.18.0"
 futures = "0.3.28"
-url = "2.4.1"
 serde_json = { version = "1.0.96", optional = true }
 serde = { version = "1.0.163", optional = true }
 http_types = { package = "http", version = "0.2", optional = true }

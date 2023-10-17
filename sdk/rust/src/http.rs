@@ -68,7 +68,11 @@ where
             .collect();
         Ok(Request {
             method,
-            uri: req.uri().to_string(),
+            uri: req
+                .uri()
+                .path_and_query()
+                .map(|p| p.to_string())
+                .unwrap_or_else(|| String::from("/")),
             headers,
             params: Vec::new(),
             body: TryIntoBody::try_into_body(req.into_body())?,

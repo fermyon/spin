@@ -1,10 +1,10 @@
 use anyhow::{ensure, Result};
 use spin_sdk::{
-    http_component,
     sqlite::{Connection, Error, Value},
+    wasi_http_component,
 };
 
-#[http_component]
+#[wasi_http_component]
 fn handle_request(req: http::Request<()>) -> Result<http::Response<()>> {
     ensure!(matches!(
         Connection::open("forbidden"),

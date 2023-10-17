@@ -2,8 +2,8 @@
 use anyhow::Result;
 use http::{Request, Response};
 use spin_sdk::{
-    http_component,
     pg::{self, Decode},
+    wasi_http_component,
 };
 
 // The environment variable set in `spin.toml` that points to the
@@ -39,7 +39,7 @@ impl TryFrom<&pg::Row> for Article {
     }
 }
 
-#[http_component]
+#[wasi_http_component]
 fn process(req: Request<()>) -> Result<Response<String>> {
     match req.uri().path() {
         "/read" => read(req),

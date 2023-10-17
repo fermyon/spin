@@ -14,6 +14,7 @@ id = "spin_config_rust"
 source = "target/wasm32-wasi/release/spin_config_example.wasm"
 [component.trigger]
 route = "/..."
+executor = { type = "wasi" }
 [component.config]
 message = "I'm a {{object}}"
 dotenv = "{{dotenv}}"

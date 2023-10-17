@@ -1,4 +1,4 @@
-use spin_sdk::http::{IntoResponse, Json, Response};
+use spin_sdk::wasi_http::{IntoResponse, Json, Response};
 use spin_sdk::wasi_http_component;
 
 #[derive(serde::Deserialize, Debug)]

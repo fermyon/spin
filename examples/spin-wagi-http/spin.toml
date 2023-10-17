@@ -10,7 +10,7 @@ id = "hello"
 source = "wagi-http-cpp/main.wasm"
 [component.trigger]
 route = "/hello"
-executor =  { type = "wagi" } # _start (the default entrypoint) is automatically mapped to main()
+executor = { type = "wagi" } # _start (the default entrypoint) is automatically mapped to main()
 [component.build]
 command = "make build -C wagi-http-cpp"
 
@@ -19,6 +19,6 @@ id = "goodbye"
 source = "http-rust/target/wasm32-wasi/release/goodbyerust.wasm"
 [component.trigger]
 route = "/goodbye"
-executor =  { type = "spin" }
+executor = { type = "wasi_http" }
 [component.build]
 command = "cargo build --target wasm32-wasi --release --manifest-path http-rust/Cargo.toml"

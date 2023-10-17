@@ -11,6 +11,7 @@ source = "outbound-http/target/wasm32-wasi/release/http_rust_outbound_http.wasm"
 allowed_http_hosts = ["https://random-data-api.fermyon.app"]
 [component.trigger]
 route = "/outbound"
+executor = { type = "wasi" }
 [component.build]
 workdir = "outbound-http"
 command = "cargo build --target wasm32-wasi --release"
@@ -21,6 +22,7 @@ source = "outbound-http/target/wasm32-wasi/release/http_rust_outbound_http.wasm"
 allowed_http_hosts = ["insecure:allow-all"]
 [component.trigger]
 route = "/wildcard"
+executor = { type = "wasi" }
 [component.build]
 workdir = "outbound-http"
 command = "cargo build --target wasm32-wasi --release"
@@ -33,6 +35,7 @@ source = "outbound-http-to-same-app/target/wasm32-wasi/release/outbound_http_to_
 allowed_http_hosts = ["self"]
 [component.trigger]
 route = "/outbound-to-hello-component"
+executor = { type = "wasi" }
 [component.build]
 workdir = "outbound-http-to-same-app"
 command = "cargo build --target wasm32-wasi --release"

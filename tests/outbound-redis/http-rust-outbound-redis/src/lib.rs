@@ -1,13 +1,13 @@
 use anyhow::{anyhow, Context, Result};
 use spin_sdk::{
-    http_component,
     redis::{self, RedisParameter, RedisResult},
+    wasi_http_component,
 };
 use std::collections::HashSet;
 
 const REDIS_ADDRESS_ENV: &str = "REDIS_ADDRESS";
 
-#[http_component]
+#[wasi_http_component]
 fn test(_req: http::Request<()>) -> Result<http::Response<()>> {
     let address = std::env::var(REDIS_ADDRESS_ENV)?;
     let connection = redis::Connection::open(&address)?;

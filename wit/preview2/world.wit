@@ -17,7 +17,6 @@ world http-trigger {
 
 world platform {
   import fermyon:spin/config
-  import fermyon:spin/http
   import fermyon:spin/llm
   import wasi:http/outgoing-handler
 

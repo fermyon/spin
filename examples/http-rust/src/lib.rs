@@ -1,5 +1,5 @@
-use spin_sdk::http::{IntoResponse, Json, Response};
-use spin_sdk::http_component;
+use spin_sdk::wasi_http::{IntoResponse, Json, Response};
+use spin_sdk::wasi_http_component;
 
 #[derive(serde::Deserialize, Debug)]
 struct Greeted {
@@ -7,7 +7,7 @@ struct Greeted {
 }
 
 /// A simple Spin HTTP component.
-#[http_component]
+#[wasi_http_component]
 fn hello_world(req: http::Request<Json<Greeted>>) -> anyhow::Result<impl IntoResponse> {
     Ok(Response::new(200, format!("Hello, {}", req.body().name)))
 }

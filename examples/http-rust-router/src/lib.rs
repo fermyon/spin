@@ -1,11 +1,11 @@
 use anyhow::Result;
 use spin_sdk::{
-    http::{IntoResponse, Params, Request, Response, Router},
-    http_component,
+    wasi_http::{IntoResponse, Params, Request, Response, Router},
+    wasi_http_component,
 };
 
 /// A Spin HTTP component that internally routes requests.
-#[http_component]
+#[wasi_http_component]
 fn handle_route(req: Request) -> Response {
     let mut router = Router::new();
     router.get("/hello/:planet", api::hello_planet);

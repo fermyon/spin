@@ -11,6 +11,7 @@ source = "target/wasm32-wasi/release/http_rust_router.wasm"
 description = "A component that internally routes HTTP requests."
 [component.trigger]
 route = "/..."
+executor = { type = "wasi" }
 [component.build]
 command = "cargo build --target wasm32-wasi --release"
 watch = ["src/**/*.rs", "Cargo.toml", "spin.toml"]

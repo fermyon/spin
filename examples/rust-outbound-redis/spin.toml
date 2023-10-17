@@ -10,6 +10,6 @@ id = "outbound-redis"
 source = "target/wasm32-wasi/release/rust_outbound_redis.wasm"
 [component.trigger]
 route = "/publish"
+executor = { type = "wasi" }
 [component.build]
 command = "cargo build --target wasm32-wasi --release"
-

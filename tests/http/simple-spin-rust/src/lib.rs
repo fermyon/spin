@@ -1,7 +1,7 @@
 use anyhow::Result;
-use spin_sdk::{config, http_component};
+use spin_sdk::{config, wasi_http_component};
 
-#[http_component]
+#[wasi_http_component]
 fn hello_world(req: http::Request<()>) -> Result<http::Response<String>> {
     let path = req.uri().path();
 

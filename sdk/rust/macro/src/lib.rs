@@ -3,68 +3,6 @@ use quote::quote;
 
 const WIT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/wit");
 
-/// The entrypoint to a Spin HTTP component written in Rust.
-#[proc_macro_attribute]
-pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let func = syn::parse_macro_input!(item as syn::ItemFn);
-    let func_name = &func.sig.ident;
-    let preamble = preamble(Export::Http);
-
-    quote!(
-        #func
-        mod __spin_http {
-            #preamble
-            impl self::exports::fermyon::spin::inbound_http::Guest for Spin {
-                fn handle_request(req: self::exports::fermyon::spin::inbound_http::Request) -> self::exports::fermyon::spin::inbound_http::Response {
-                    let req: ::spin_sdk::http::Request = ::std::convert::Into::into(req);
-                    let resp = match ::spin_sdk::http::conversions::TryFromRequest::try_from_request(req) {
-                        ::std::result::Result::Ok(req) => ::spin_sdk::http::IntoResponse::into_response(super::#func_name(req)),
-                        ::std::result::Result::Err(e) => ::spin_sdk::http::IntoResponse::into_response(e),
-                    };
-                    ::std::convert::Into::into(resp)
-                }
-            }
-
-            impl ::std::convert::From<self::fermyon::spin::http_types::Request> for ::spin_sdk::http::Request  {
-                fn from(req: self::fermyon::spin::http_types::Request) -> Self {
-                    Self {
-                        method: ::std::convert::Into::into(req.method),
-                        uri: req.uri,
-                        params: req.params,
-                        headers: req.headers,
-                        body: req.body
-                    }
-                }
-            }
-
-            impl ::std::convert::From<self::fermyon::spin::http_types::Method> for ::spin_sdk::http::Method  {
-                fn from(method: self::fermyon::spin::http_types::Method) -> Self {
-                    match method {
-                        self::fermyon::spin::http_types::Method::Get => Self::Get,
-                        self::fermyon::spin::http_types::Method::Post => Self::Post,
-                        self::fermyon::spin::http_types::Method::Put => Self::Put,
-                        self::fermyon::spin::http_types::Method::Patch => Self::Patch,
-                        self::fermyon::spin::http_types::Method::Delete => Self::Delete,
-                        self::fermyon::spin::http_types::Method::Head => Self::Head,
-                        self::fermyon::spin::http_types::Method::Options => Self::Options,
-                    }
-                }
-            }
-
-            impl ::std::convert::From<::spin_sdk::http::Response> for self::fermyon::spin::http_types::Response {
-                fn from(resp: ::spin_sdk::http::Response) -> Self {
-                    Self {
-                        status: resp.status,
-                        headers: resp.headers,
-                        body: resp.body,
-                    }
-                }
-            }
-        }
-    )
-        .into()
-}
-
 /// Generates the entrypoint to a Spin Redis component written in Rust.
 #[proc_macro_attribute]
 pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -105,7 +43,7 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// This form has the same shape as the `http_component` handlers. The only difference is that the underlying handling
 /// happens through the `wasi-http` interface instead of the Spin specific `http` interface and thus requests are
 /// anything that implements `spin_sdk::wasi_http::conversions::TryFromIncomingRequest` and responses are anything that
-/// implements `spin_sdk::http::IntoResponse`.
+/// implements `spin_sdk::wasi_http::IntoResponse`.
 ///
 /// For example:
 /// ```ignore
@@ -126,7 +64,7 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 ///
 /// The `request` param can be anything that implements `spin_sdk::wasi_http::conversions::TryFromIncomingRequest`.
-/// This includes all types that implement `spin_sdk::http::conversions::TryIntoRequest` (which may be more convenient to use
+/// This includes all types that implement `spin_sdk::wasi_http::conversions::TryIntoRequest` (which may be more convenient to use
 /// when you don't need streaming request bodies).
 #[proc_macro_attribute]
 pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -158,9 +96,9 @@ pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream
                 }
             }
 
-            async fn handle_response<R: ::spin_sdk::http::IntoResponse>(response_out: ::spin_sdk::wasi_http::ResponseOutparam, resp: R) {
-                let mut response = ::spin_sdk::http::IntoResponse::into_response(resp);
-                let body = response.body.take().unwrap_or_default();
+            async fn handle_response<R: ::spin_sdk::wasi_http::IntoResponse>(response_out: ::spin_sdk::wasi_http::ResponseOutparam, resp: R) {
+                let mut response = ::spin_sdk::wasi_http::IntoResponse::into_response(resp);
+                let body = std::mem::take(&mut response.body);
                 let response = ::std::convert::Into::into(response);
                 if let Err(e) = ::spin_sdk::wasi_http::ResponseOutparam::set_with_body(response_out, response, body).await {
                     eprintln!("Could not set `ResponseOutparam`: {e}");
@@ -195,19 +133,16 @@ pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream
 #[derive(Copy, Clone)]
 enum Export {
     WasiHttp,
-    Http,
     Redis,
 }
 
 fn preamble(export: Export) -> proc_macro2::TokenStream {
     let export_decl = match export {
         Export::WasiHttp => quote!("wasi:http/incoming-handler": Spin),
-        Export::Http => quote!("fermyon:spin/inbound-http": Spin),
         Export::Redis => quote!("fermyon:spin/inbound-redis": Spin),
     };
     let world = match export {
         Export::WasiHttp => quote!("wasi-http-trigger"),
-        Export::Http => quote!("http-trigger"),
         Export::Redis => quote!("redis-trigger"),
     };
     quote! {

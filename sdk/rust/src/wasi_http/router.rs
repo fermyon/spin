@@ -41,8 +41,8 @@ impl Router {
     /// Dispatches a request to the appropriate handler along with the URI parameters.
     pub fn handle<R: Into<Request>>(&self, request: R) -> Response {
         let request = request.into();
-        let method = request.method;
-        let path = &request.uri;
+        let method = request.method.clone();
+        let path = &request.path_and_query;
         let RouteMatch { params, handler } = self.find(path, method);
         handler(request, params)
     }
@@ -247,9 +247,9 @@ fn method_not_allowed(_req: Request, _params: Params) -> Response {
 macro_rules! http_router {
     ($($method:tt $path:literal => $h:expr),*) => {
         {
-            let mut router = spin_sdk::http::Router::new();
+            let mut router = $crate::wasi_http::Router::new();
             $(
-                spin_sdk::http_router!(@build router $method $path => $h);
+                $crate::http_router!(@build router $method $path => $h);
             )*
             router
         }
@@ -287,10 +287,9 @@ mod tests {
     fn make_request(method: Method, path: &str) -> Request {
         Request {
             method,
-            uri: path.into(),
+            path_and_query: path.into(),
             headers: Vec::new(),
-            params: Vec::new(),
-            body: None,
+            body: Default::default(),
         }
     }
 
@@ -339,7 +338,7 @@ mod tests {
         let req = make_request(Method::Get, "/multiply/2/4");
         let res = router.handle(req);
 
-        assert_eq!(res.body.unwrap(), "8".to_owned().into_bytes());
+        assert_eq!(res.body, "8".to_owned().into_bytes());
     }
 
     #[test]
@@ -350,7 +349,7 @@ mod tests {
         let req = make_request(Method::Get, "/y");
         let res = router.handle(req);
 
-        assert_eq!(res.body.unwrap(), "y".to_owned().into_bytes());
+        assert_eq!(res.body, "y".to_owned().into_bytes());
     }
 
     #[test]
@@ -368,7 +367,7 @@ mod tests {
         let req = make_request(Method::Get, "/foo/bar");
         let res = router.handle(req);
         assert_eq!(res.status, hyperium::StatusCode::OK);
-        assert_eq!(res.body.unwrap(), "foo/bar".to_owned().into_bytes());
+        assert_eq!(res.body, "foo/bar".to_owned().into_bytes());
     }
 
     #[test]
@@ -378,7 +377,7 @@ mod tests {
 
         let req = make_request(Method::Get, "/foo/bar");
         let res = router.handle(req);
-        assert_eq!(res.body.unwrap(), "foo".to_owned().into_bytes());
+        assert_eq!(res.body, "foo".to_owned().into_bytes());
     }
 
     #[test]
@@ -409,6 +408,6 @@ mod tests {
         let req = make_request(Method::Get, "/posts/2");
         let res = router.handle(req);
 
-        assert_eq!(res.body.unwrap(), "posts/*".to_owned().into_bytes());
+        assert_eq!(res.body, "posts/*".to_owned().into_bytes());
     }
 }

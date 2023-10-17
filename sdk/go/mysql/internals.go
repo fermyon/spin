@@ -202,7 +202,7 @@ func toOutboundMysqlParameterValue(x any) C.outbound_mysql_parameter_value_t {
 	var ret C.outbound_mysql_parameter_value_t
 	switch v := x.(type) {
 	case bool:
-		*(*C._Bool)(unsafe.Pointer(&ret.val)) = bool(v)
+		*(*bool)(unsafe.Pointer(&ret.val)) = bool(v)
 		ret.tag = paramValueBoolean
 	case int8:
 		*(*C.int8_t)(unsafe.Pointer(&ret.val)) = int8(v)

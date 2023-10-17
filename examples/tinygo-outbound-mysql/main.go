@@ -27,7 +27,7 @@ func init() {
 		db := mysql.Open(addr)
 		defer db.Close()
 
-		_, err := db.Query("REPLACE INTO pets VALUES (4, 'Maya', ?, false);", "bananas")
+		_, err := db.Query("REPLACE INTO pets VALUES (?, 'Maya', ?, ?);", 4, "bananas", true)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

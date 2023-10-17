@@ -1,0 +1,39 @@
+spin_manifest_version = 2
+
+[application]
+name = "minimal-v2"
+
+[[trigger.http]]
+id = "hello-http-trigger"
+component = "hello"
+
+[[trigger.http]]
+id = "admin-handler"
+component = "admin-handler-component"
+
+[[trigger.http]]
+id = "http-trigger1"
+component = "http-trigger1-component"
+
+[[trigger.example]]
+id = "example-trigger1"
+
+[trigger.example.components]
+hello = "hello"
+inline1 = "inline-component1"
+inline2 = "inline-component2"
+
+[component.hello]
+source = "hello.wasm"
+
+[component.admin-handler-component]
+source = "admin.wasm"
+
+[component.http-trigger1-component]
+source = "other.wasm"
+
+[component.inline-component1]
+source = "inline1.wasm"
+
+[component.inline-component2]
+source = "inline2.wasm"

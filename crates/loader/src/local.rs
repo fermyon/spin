@@ -60,8 +60,7 @@ impl LocalLoader {
 
     // Load the given manifest into a LockedApp, ready for execution.
     async fn load_manifest(&self, mut manifest: AppManifest) -> Result<LockedApp> {
-        spin_manifest::normalize::normalize_inline_components(&mut manifest);
-        spin_manifest::normalize::normalize_trigger_ids(&mut manifest.triggers);
+        spin_manifest::normalize::normalize_manifest(&mut manifest);
 
         let AppManifest {
             spin_manifest_version: _,

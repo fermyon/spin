@@ -1,0 +1,42 @@
+{
+  "spin_manifest_version": 2,
+  "application": {
+    "name": "minimal-v2"
+  },
+  "trigger": {
+    "http": [
+      {
+        "component": "hello"
+      },
+      {
+        "id": "admin-handler",
+        "component": {
+          "source": "admin.wasm"
+        }
+      },
+      {
+        "component": {
+          "source": "other.wasm"
+        }
+      }
+    ],
+    "example": [
+      {
+        "components": {
+          "hello": "hello",
+          "inline1": {
+            "source": "inline1.wasm"
+          },
+          "inline2": {
+            "source": "inline2.wasm"
+          }
+        }
+      }
+    ]
+  },
+  "component": {
+    "hello": {
+      "source": "hello.wasm"
+    }
+  }
+}

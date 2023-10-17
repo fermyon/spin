@@ -139,7 +139,7 @@ impl<R: TryNonRequestFromRequest> TryFromRequest for R {
 /// A hack that allows us to do blanket impls for `T where T: TryFromRequest` for all types
 /// `T` *except* for `Request`.
 ///
-/// This is useful in `wasi_http` where we want to implement `TryFromIncomingRequest` for all types that impl
+/// This is useful because we want to implement `TryFromIncomingRequest` for all types that impl
 /// `TryFromRequest` with the exception of `Request` itself. This allows that implementation to first convert
 /// the `IncomingRequest` to a `Request` and then using this trait convert from `Request` to the given type.
 pub trait TryNonRequestFromRequest {
@@ -153,7 +153,7 @@ pub trait TryNonRequestFromRequest {
 
 #[cfg(feature = "http")]
 impl<B: TryFromBody> TryNonRequestFromRequest for hyperium::Request<B> {
-    type Error = B::Error;
+    type Error = HyperiumConversionError<B::Error>;
     fn try_from_request(req: Request) -> Result<Self, Self::Error> {
         let mut builder = hyperium::Request::builder()
             .uri(req.uri())
@@ -161,14 +161,17 @@ impl<B: TryFromBody> TryNonRequestFromRequest for hyperium::Request<B> {
         for (n, v) in req.headers {
             builder = builder.header(n, v.into_bytes());
         }
-        Ok(builder.body(B::try_from_body(req.body)?).unwrap())
+        builder
+            .body(B::try_from_body(req.body).map_err(HyperiumConversionError::ConstructingBody)?)
+            .map_err(HyperiumConversionError::Construction)
     }
 }
 
 #[cfg(feature = "http")]
-impl From<super::Method> for hyperium::Method {
-    fn from(method: super::Method) -> Self {
-        match method {
+impl TryFrom<super::Method> for hyperium::Method {
+    type Error = hyperium::method::InvalidMethod;
+    fn try_from(method: super::Method) -> Result<Self, Self::Error> {
+        let method = match method {
             super::Method::Get => hyperium::Method::GET,
             super::Method::Post => hyperium::Method::POST,
             super::Method::Put => hyperium::Method::PUT,
@@ -178,8 +181,9 @@ impl From<super::Method> for hyperium::Method {
             super::Method::Options => hyperium::Method::OPTIONS,
             super::Method::Connect => hyperium::Method::CONNECT,
             super::Method::Trace => hyperium::Method::TRACE,
-            super::Method::Other(o) => hyperium::Method::from_bytes(o.as_bytes()).expect("TODO"),
-        }
+            super::Method::Other(o) => hyperium::Method::from_bytes(o.as_bytes())?,
+        };
+        Ok(method)
     }
 }
 
@@ -482,6 +486,16 @@ where
     }
 }
 
+impl<T> TryIntoBody for super::Json<T>
+where
+    T: serde::Serialize,
+{
+    type Error = serde_json::Error;
+    fn try_into_body(self) -> Result<Vec<u8>, Self::Error> {
+        serde_json::to_vec(&self.0)
+    }
+}
+
 #[cfg(feature = "http")]
 impl<B> TryFrom<hyperium::Request<B>> for OutgoingRequest
 where
@@ -523,11 +537,11 @@ where
 }
 
 #[async_trait]
-/// TODO
+/// Convert to a type from an `IncomingResponse`
 pub trait TryFromIncomingResponse {
-    /// TODO
+    /// The error from converting from an `IncomingResponse`
     type Error;
-    /// TODO
+    /// Convert to the type from an `IncomingResponse`
     async fn try_from_incoming_response(resp: IncomingResponse) -> Result<Self, Self::Error>
     where
         Self: Sized;
@@ -544,13 +558,57 @@ impl TryFromIncomingResponse for IncomingResponse {
 #[cfg(feature = "http")]
 #[async_trait]
 impl<B: TryFromBody> TryFromIncomingResponse for hyperium::Response<B> {
-    type Error = B::Error;
+    type Error = HyperiumConversionError<B::Error>;
     async fn try_from_incoming_response(resp: IncomingResponse) -> Result<Self, Self::Error> {
         let mut builder = hyperium::Response::builder().status(resp.status());
         for (n, v) in resp.headers().entries() {
             builder = builder.header(n, v);
         }
-        let body = resp.into_body().await.expect("TODO");
-        Ok(builder.body(B::try_from_body(body)?).unwrap())
+        let body = resp
+            .into_body()
+            .await
+            .map_err(HyperiumConversionError::CollectingBody)?;
+        builder
+            .body(B::try_from_body(body).map_err(HyperiumConversionError::ConstructingBody)?)
+            .map_err(HyperiumConversionError::Construction)
     }
 }
+
+#[cfg(feature = "http")]
+#[derive(Debug)]
+/// An error constructing a hyperium `http` crate type
+pub enum HyperiumConversionError<B> {
+    /// Error constructing the `http` crate type
+    Construction(hyperium::Error),
+    /// Error collecting the body bytes from the body stream
+    CollectingBody(anyhow::Error),
+    /// Error creating the body type
+    ConstructingBody(B),
+}
+
+#[cfg(feature = "http")]
+impl<B: IntoResponse> IntoResponse for HyperiumConversionError<B> {
+    fn into_response(self) -> Response {
+        match self {
+            HyperiumConversionError::Construction(e) => {
+                // TODO: This should probably be a 400 not a 500
+                (Box::new(e) as Box<dyn std::error::Error>).into_response()
+            }
+            HyperiumConversionError::CollectingBody(e) => e.into_response(),
+            HyperiumConversionError::ConstructingBody(b) => b.into_response(),
+        }
+    }
+}
+
+#[cfg(feature = "http")]
+impl<B: std::error::Error> std::fmt::Display for HyperiumConversionError<B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            HyperiumConversionError::Construction(e) => write!(f, "{e}"),
+            HyperiumConversionError::CollectingBody(e) => write!(f, "{e}"),
+            HyperiumConversionError::ConstructingBody(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl<B: std::error::Error> std::error::Error for HyperiumConversionError<B> {}

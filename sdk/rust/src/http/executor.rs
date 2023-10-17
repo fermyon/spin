@@ -5,13 +5,11 @@ use crate::wit::wasi::http::types::{
 use crate::wit::wasi::io;
 use crate::wit::wasi::io::streams::{InputStream, OutputStream, StreamError};
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Result};
 use futures::{future, sink, stream, Sink, Stream};
 
-use std::cell::RefCell;
 use std::future::Future;
 use std::mem;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Wake, Waker};
 
@@ -67,7 +65,7 @@ pub fn run<T>(future: impl Future<Output = T>) -> T {
     }
 }
 
-pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = Error> {
+pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = types::Error> + Send {
     struct Outgoing(Option<(OutputStream, OutgoingBody)>);
 
     impl Drop for Outgoing {
@@ -80,7 +78,7 @@ pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = Er
     }
 
     let stream = body.write().expect("response body should be writable");
-    let pair = Rc::new(RefCell::new(Outgoing(Some((stream, body)))));
+    let pair = Arc::new(Mutex::new(Outgoing(Some((stream, body)))));
 
     sink::unfold((), {
         move |(), chunk: Vec<u8>| {
@@ -90,7 +88,7 @@ pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = Er
                 let pair = pair.clone();
 
                 move |context| {
-                    let pair = pair.borrow();
+                    let pair = pair.lock().unwrap();
                     let (stream, _) = &pair.0.as_ref().unwrap();
 
                     loop {
@@ -119,11 +117,19 @@ pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = Er
                                         Ok(()) => {
                                             offset += count;
                                         }
-                                        Err(_) => break Poll::Ready(Err(anyhow!("I/O error"))),
+                                        Err(_) => {
+                                            break Poll::Ready(Err(types::Error::ProtocolError(
+                                                "I/O error".into(),
+                                            )))
+                                        }
                                     }
                                 }
                             }
-                            Err(_) => break Poll::Ready(Err(anyhow!("I/O error"))),
+                            Err(_) => {
+                                break Poll::Ready(Err(types::Error::ProtocolError(
+                                    "I/O error".into(),
+                                )))
+                            }
                         }
                     }
                 }

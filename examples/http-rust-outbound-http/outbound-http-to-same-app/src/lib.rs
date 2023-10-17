@@ -13,7 +13,7 @@ async fn send_outbound(_req: Request) -> Result<impl IntoResponse> {
             .uri("/hello") // relative routes are not yet supported in cloud
             .body(())?,
     )
-    .await?;
+    .await??;
     res.headers_mut()
         .insert("spin-component", "rust-outbound-http".try_into()?);
     println!("{:?}", res);

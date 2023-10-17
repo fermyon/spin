@@ -108,7 +108,7 @@ async fn hash(url: &Url) -> Result<String> {
         &Headers::new(&[]),
     );
 
-    let response: IncomingResponse = send(request).await?;
+    let response: IncomingResponse = send(request).await??;
 
     let status = response.status();
 

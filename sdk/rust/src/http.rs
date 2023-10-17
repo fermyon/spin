@@ -3,6 +3,7 @@ pub mod conversions;
 
 use std::collections::HashMap;
 
+use async_trait::async_trait;
 #[doc(inline)]
 pub use conversions::IntoResponse;
 
@@ -67,6 +68,16 @@ impl Request {
             .unwrap_or_default()
     }
 
+    /// The request path and query combined
+    pub fn path_and_query(&self) -> &str {
+        self.uri
+            .0
+            .as_ref()
+            .and_then(|u| u.path_and_query())
+            .map(|s| s.as_str())
+            .unwrap_or_default()
+    }
+
     /// The request headers
     pub fn headers(&self) -> impl Iterator<Item = (&str, &HeaderValue)> {
         self.headers.iter().map(|(k, v)| (k.as_str(), v))
@@ -97,6 +108,23 @@ impl Request {
     /// Create a request builder
     pub fn builder() -> RequestBuilder {
         RequestBuilder::new(Method::Get, "/")
+    }
+
+    fn tls(&self) -> bool {
+        self.uri
+            .0
+            .as_ref()
+            .and_then(|u| u.scheme())
+            .map(|s| s == &hyperium::uri::Scheme::HTTPS)
+            .unwrap_or(true)
+    }
+
+    fn authority(&self) -> Option<&str> {
+        self.uri
+            .0
+            .as_ref()
+            .and_then(|u| u.authority())
+            .map(|a| a.as_str())
     }
 
     fn parse_uri(uri: String) -> (Option<hyperium::Uri>, String) {
@@ -454,7 +482,7 @@ impl OutgoingResponse {
     /// # Panics
     ///
     /// Panics if the body was already taken.
-    pub fn take_body(&self) -> impl futures::Sink<Vec<u8>, Error = anyhow::Error> {
+    pub fn take_body(&self) -> impl futures::Sink<Vec<u8>, Error = Error> {
         executor::outgoing_body(self.write().expect("response body was already taken"))
     }
 }
@@ -482,7 +510,7 @@ impl ResponseOutparam {
         self,
         response: OutgoingResponse,
         buffer: Vec<u8>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), Error> {
         use futures::SinkExt;
         let mut body = response.take_body();
         self.set(response);
@@ -490,38 +518,111 @@ impl ResponseOutparam {
     }
 }
 
-/// Send an outgoing request
-pub async fn send<I, O>(request: I) -> Result<O, SendError>
+/// Send a request and get a response
+pub async fn send<S, R>(request: S) -> Result<Result<R, R::Error>, Error>
 where
-    I: TryInto<OutgoingRequest>,
-    I::Error: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
-    O: TryFromIncomingResponse,
-    O::Error: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
+    S: Sendable,
+    R: TryFromIncomingResponse,
 {
-    let response = executor::outgoing_request_send(
-        request
-            .try_into()
-            .map_err(|e| SendError::RequestConversion(e.into()))?,
-    )
-    .await
-    .map_err(SendError::Http)?;
-    TryFromIncomingResponse::try_from_incoming_response(response)
-        .await
-        .map_err(|e: O::Error| SendError::ResponseConversion(e.into()))
+    Ok(TryFromIncomingResponse::try_from_incoming_response(request.send().await?).await)
 }
 
-/// An error encountered when performing an HTTP request
-#[derive(thiserror::Error, Debug)]
-pub enum SendError {
-    /// Error converting to a request
-    #[error(transparent)]
-    RequestConversion(Box<dyn std::error::Error + Send + Sync>),
-    /// Error converting from a response
-    #[error(transparent)]
-    ResponseConversion(Box<dyn std::error::Error + Send + Sync>),
-    /// An HTTP error
-    #[error(transparent)]
-    Http(Error),
+#[async_trait]
+/// A type that can be sent as an `OutgoingRequest` and return an `IncomingResponse`
+pub trait Sendable {
+    /// Send the request and get back an `IncomingResponse`
+    async fn send(self) -> Result<IncomingResponse, Error>
+    where
+        Self: Sized;
+}
+
+#[async_trait]
+impl Sendable for OutgoingRequest {
+    async fn send(self) -> Result<IncomingResponse, Error> {
+        executor::outgoing_request_send(self).await
+    }
+}
+
+#[async_trait]
+impl Sendable for Request {
+    async fn send(self) -> Result<IncomingResponse, Error> {
+        use futures::SinkExt;
+        let outgoing = OutgoingRequest::new(
+            &self.method,
+            Some(self.path_and_query()),
+            Some(if self.tls() {
+                &Scheme::Https
+            } else {
+                &Scheme::Http
+            }),
+            self.authority(),
+            &Fields::new(
+                &self
+                    .headers()
+                    .map(|(k, v)| (k.to_owned(), v.as_bytes().to_owned()))
+                    .collect::<Vec<_>>(),
+            ),
+        );
+        // This is safe to unwrap because `write` has not been called before.
+        let body = outgoing.write().unwrap();
+        let response = executor::outgoing_request_send(outgoing).await?;
+        let mut sink = executor::outgoing_body(body);
+        sink.send(self.body).await?;
+        Ok(response)
+    }
+}
+
+#[cfg(feature = "http")]
+#[async_trait]
+impl<B: conversions::TryIntoBody + Send + Sync> Sendable for hyperium::Request<B>
+where
+    B::Error: std::fmt::Display + Send,
+{
+    async fn send(self) -> Result<IncomingResponse, Error> {
+        use futures::SinkExt;
+        let method = match self.method() {
+            &hyperium::Method::GET => Method::Get,
+            &hyperium::Method::POST => Method::Post,
+            &hyperium::Method::PUT => Method::Put,
+            &hyperium::Method::DELETE => Method::Delete,
+            &hyperium::Method::PATCH => Method::Patch,
+            &hyperium::Method::HEAD => Method::Head,
+            &hyperium::Method::OPTIONS => Method::Options,
+            &hyperium::Method::CONNECT => Method::Connect,
+            &hyperium::Method::TRACE => Method::Trace,
+            m => Method::Other(m.to_string()),
+        };
+        let headers = self
+            .headers()
+            .into_iter()
+            .map(|(n, v)| (n.as_str().to_owned(), v.as_bytes().to_owned()))
+            .collect::<Vec<_>>();
+        let outgoing = OutgoingRequest::new(
+            &method,
+            self.uri().path_and_query().map(|p| p.as_str()),
+            self.uri()
+                .scheme()
+                .map(|s| match s.as_str() {
+                    "http" => Scheme::Http,
+                    "https" => Scheme::Https,
+                    s => Scheme::Other(s.to_owned()),
+                })
+                .as_ref(),
+            self.uri().authority().map(|a| a.as_str()),
+            &Fields::new(&headers),
+        );
+        // Safe unwrap here as it will only panic if `write` has been called before
+        let body = outgoing.write().unwrap();
+        let response = executor::outgoing_request_send(outgoing).await?;
+        let mut sink = executor::outgoing_body(body);
+        sink.send(
+            conversions::TryIntoBody::try_into_body(self.into_body())
+                .map_err(|e| Error::UnexpectedError(format!("failed to serialize body: {e}")))?,
+        )
+        .await
+        .unwrap();
+        Ok(response)
+    }
 }
 
 #[doc(hidden)]

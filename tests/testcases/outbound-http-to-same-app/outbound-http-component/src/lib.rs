@@ -13,7 +13,7 @@ async fn send_outbound(_req: Request) -> Result<impl IntoResponse> {
             .uri("/test/hello")
             .body(())?,
     )
-    .await?;
+    .await??;
     res.headers_mut()
         .insert("spin-component", "outbound-http-component".try_into()?);
     println!("{:?}", res);

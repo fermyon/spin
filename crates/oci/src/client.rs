@@ -8,7 +8,6 @@ use futures_util::future;
 use futures_util::stream::{self, StreamExt, TryStreamExt};
 use oci_distribution::{
     client::{Config, ImageLayer},
-    errors::OciDistributionError,
     manifest::{OciImageManifest, OCI_IMAGE_MEDIA_TYPE},
     secrets::RegistryAuth,
     token_cache::RegistryTokenType,
@@ -37,7 +36,6 @@ const WASM_LAYER_MEDIA_TYPE_LEGACY: &str = "application/vnd.wasm.content.layer.v
 
 // TODO: use canonical types defined upstream; see https://github.com/bytecodealliance/registry/pull/146
 const WASM_LAYER_MEDIA_TYPE: &str = "application/vnd.bytecodealliance.wasm.component.layer.v0+wasm";
-const COMPONENT_ARTIFACT_TYPE: &str = "application/vnd.bytecodealliance.component.v1+wasm";
 
 const CONFIG_FILE: &str = "config.json";
 const LATEST_TAG: &str = "latest";
@@ -184,8 +182,8 @@ impl Client {
             media_type: OCI_IMAGE_MEDIA_TYPE.to_string(),
             annotations: None,
         };
-        let mut manifest = OciImageManifest::build(&layers, &oci_config, None);
-        manifest.artifact_type = Some(COMPONENT_ARTIFACT_TYPE.to_string());
+        let manifest = OciImageManifest::build(&layers, &oci_config, None);
+
         let response = self
             .oci
             .push(&reference, &layers, oci_config, &auth, Some(manifest))
@@ -315,7 +313,6 @@ impl Client {
                         || this.cache.data_file(&layer.digest).is_ok()
                     {
                         tracing::debug!("Layer {} already exists in cache", &layer.digest);
-<<<<<<< HEAD
                         return anyhow::Ok(());
                     }
 
@@ -325,7 +322,12 @@ impl Client {
                         .pull_blob(&reference, &layer.digest, &mut bytes)
                         .await?;
                     match layer.media_type.as_str() {
-                        WASM_LAYER_MEDIA_TYPE => {
+                        SPIN_APPLICATION_MEDIA_TYPE => {
+                            this.write_locked_app_config(&reference.to_string(), &bytes)
+                                .await
+                                .with_context(|| "unable to write locked app config to cache")?;
+                        }
+                        WASM_LAYER_MEDIA_TYPE | WASM_LAYER_MEDIA_TYPE_LEGACY => {
                             this.cache.write_wasm(&bytes, &layer.digest).await?;
                         }
                         ARCHIVE_MEDIATYPE => {
@@ -333,44 +335,6 @@ impl Client {
                         }
                         _ => {
                             this.cache.write_data(&bytes, &layer.digest).await?;
-=======
-                    } else {
-                        tracing::debug!("Pulling layer {}", &layer.digest);
-                        let mut bytes = Vec::new();
-                        match this
-                            .oci
-                            .pull_blob(&reference, &layer.digest, &mut bytes)
-                            .await
-                        {
-                            Err(e) => return Err(e),
-                            _ => match layer.media_type.as_str() {
-                                // If the locked app config is present as a separate layer, this should take precedence
-                                SPIN_APPLICATION_MEDIA_TYPE => {
-                                    if let Err(e) = this.write_locked_app_config(&reference.to_string(), &bytes)
-                                        .await
-                                        {
-                                            return Err(OciDistributionError::GenericError(
-                                                Some(format!("unable to write locked app config to cache: {}", e))
-                                            ));
-                                        }
-                                }
-                                WASM_LAYER_MEDIA_TYPE | WASM_LAYER_MEDIA_TYPE_LEGACY => {
-                                    let _ = this.cache.write_wasm(&bytes, &layer.digest).await;
-                                }
-                                ARCHIVE_MEDIATYPE => {
-                                    if let Err(e) =
-                                        this.unpack_archive_layer(&bytes, &layer.digest).await
-                                    {
-                                        return Err(OciDistributionError::GenericError(Some(
-                                            format!("unable to unpack archive layer with digest {}: {}", &layer.digest, e),
-                                        )));
-                                    }
-                                }
-                                _ => {
-                                    let _ = this.cache.write_data(&bytes, &layer.digest).await;
-                                }
-                            },
->>>>>>> 942a1782 (feat(oci): manifest/config updates to support containerd)
                         }
                     }
                     Ok(())

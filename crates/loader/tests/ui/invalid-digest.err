@@ -1,0 +1,6 @@
+Failed to load Spin app from "<test-dir>/invalid-digest.toml"
+
+Caused by:
+    0: Failed to load component `web`
+    1: Failed to load Wasm source "https://example.com/wasm.wasm.wasm" with digest "not-a-digest"
+    2: invalid `digest` "not-a-digest"; must start with 'sha256:'

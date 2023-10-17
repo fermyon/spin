@@ -1,0 +1,5 @@
+TOML parse error at line 1, column 1
+  |
+1 | 
+  | ^
+missing field `spin_manifest_version`

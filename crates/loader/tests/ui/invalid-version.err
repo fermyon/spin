@@ -1,0 +1,4 @@
+Failed to read Spin app manifest from "<test-dir>/invalid-version.toml"
+
+Caused by:
+    invalid manifest version: "77.301.12"

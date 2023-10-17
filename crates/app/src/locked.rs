@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use spin_serde::FixedVersion;
 
 use crate::{metadata::MetadataExt, values::ValuesMap};
 
@@ -120,7 +121,7 @@ pub struct ContentRef {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        with = "serde_base64"
+        with = "spin_serde::base64"
     )]
     pub inline: Option<Vec<u8>>,
     /// If set, the content must have the given SHA-256 digest.
@@ -148,72 +149,4 @@ pub struct Variable {
     /// If set, the variable's value may be sensitive and e.g. shouldn't be logged.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub secret: bool,
-}
-
-/// FixedVersion represents a schema version field with a const value.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(into = "usize", try_from = "usize")]
-pub struct FixedVersion<const V: usize>;
-
-impl<const V: usize> From<FixedVersion<V>> for usize {
-    fn from(_: FixedVersion<V>) -> usize {
-        V
-    }
-}
-
-impl<const V: usize> From<FixedVersion<V>> for String {
-    fn from(_: FixedVersion<V>) -> String {
-        V.to_string()
-    }
-}
-
-impl<const V: usize> TryFrom<usize> for FixedVersion<V> {
-    type Error = String;
-
-    fn try_from(value: usize) -> Result<Self, Self::Error> {
-        if value != V {
-            return Err(format!("invalid version {} != {}", value, V));
-        }
-        Ok(Self)
-    }
-}
-
-impl<const V: usize> TryFrom<String> for FixedVersion<V> {
-    type Error = String;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        let value: usize = value
-            .parse()
-            .map_err(|err| format!("invalid version: {}", err))?;
-        value.try_into()
-    }
-}
-
-mod serde_base64 {
-    use std::borrow::Cow;
-
-    use base64::{engine::GeneralPurpose, prelude::BASE64_STANDARD_NO_PAD, Engine};
-    use serde::{de, Deserialize, Deserializer, Serializer};
-
-    const BASE64: GeneralPurpose = BASE64_STANDARD_NO_PAD;
-
-    pub fn serialize<S>(bytes: &Option<Vec<u8>>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match bytes {
-            Some(bytes) => serializer.serialize_str(&BASE64.encode(bytes)),
-            None => serializer.serialize_none(),
-        }
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        match Option::<Cow<str>>::deserialize(deserializer)? {
-            Some(s) => Ok(Some(BASE64.decode(s.as_ref()).map_err(de::Error::custom)?)),
-            None => Ok(None),
-        }
-    }
 }

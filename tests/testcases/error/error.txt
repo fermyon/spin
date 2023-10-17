@@ -1,4 +1,4 @@
-Error: Cannot read spin.toml manifest from "$APPDIR/spin.toml"
+Error: Couldn't find trigger executor for local app "spin.toml"
 
 Caused by:
-      missing field `component` at line 1 column 1
+      no triggers in app

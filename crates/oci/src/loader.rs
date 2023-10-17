@@ -78,7 +78,7 @@ impl OciLoader {
         component.source.content = content_ref(wasm_path)?;
 
         if !component.files.is_empty() {
-            let mount_dir = self.working_dir.join(&component.id);
+            let mount_dir = self.working_dir.join("assets").join(&component.id);
             for file in &mut component.files {
                 ensure!(is_safe_to_join(&file.path), "invalid file mount {file:?}");
                 let mount_path = mount_dir.join(&file.path);

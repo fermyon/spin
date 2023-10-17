@@ -65,14 +65,11 @@ impl Push {
             spin_build::build(&app_file, &[]).await?;
         }
 
-        let dir = tempfile::tempdir()?;
-        let app = spin_loader::local::from_file(&app_file, Some(dir.path())).await?;
-
         let mut client = spin_oci::Client::new(self.insecure, None).await?;
 
         let _spinner = create_dotted_spinner(2000, "Pushing app to the Registry".to_owned());
 
-        let digest = client.push(&app, &self.reference).await?;
+        let digest = client.push(&app_file, &self.reference).await?;
         match digest {
             Some(digest) => println!("Pushed with digest {digest}"),
             None => println!("Pushed; the registry did not return the digest"),

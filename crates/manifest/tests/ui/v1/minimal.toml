@@ -1,0 +1,3 @@
+spin_manifest_version = "1"
+name = "minimal-v1"
+trigger = { type = "fake" }

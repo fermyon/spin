@@ -8,7 +8,8 @@ edition = { workspace = true }
 anyhow = "1.0.57"
 futures = "0.3.21"
 serde = { version = "1.0", features = [ "derive" ] }
-spin-loader = { path = "../loader" }
+spin-common = { path = "../common" }
+spin-manifest = { path = "../manifest" }
 terminal = { path = "../terminal" }
 subprocess = "0.2.8"
 tokio = { version = "1.23", features = [ "full" ] }

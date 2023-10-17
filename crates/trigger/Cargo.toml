@@ -50,13 +50,4 @@ wasmtime = { workspace = true }
 spin-componentize = { workspace = true }
 
 [dev-dependencies]
-libtest-mimic = "0.6.1"
-snapbox = "0.4.12"
-tempfile = "3.3.0"
-toml = "0.5"
-tokio = { version = "1.23", features = ["rt", "macros"] }
-
-[[test]]
-name = "ui"
-path = "tests/ui.rs"
-harness = false
+tempfile = "3.8.0"

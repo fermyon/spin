@@ -1,0 +1,9 @@
+[package]
+name = "spin-serde"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+base64 = "0.21.4"
+serde = "1.0.189"

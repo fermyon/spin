@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, Result};
 use clap::Parser;
 use itertools::Itertools;
-use spin_loader::local::parent_dir;
+use spin_common::paths::parent_dir;
 use uuid::Uuid;
 use watchexec::Watchexec;
 
@@ -268,9 +268,8 @@ pub struct RuntimeConfigFactory {
 
 impl RuntimeConfigFactory {
     async fn build_config(&self) -> anyhow::Result<watchexec::config::RuntimeConfig> {
-        let manifest = spin_loader::local::raw_manifest_from_file(&self.manifest_file)
-            .await?
-            .into_v1();
+        let manifest_str = tokio::fs::read_to_string(&self.manifest_file).await?;
+        let manifest = spin_manifest::manifest_from_str(&manifest_str)?;
         let filterer = self
             .filter_factory
             .build_filter(&self.manifest_file, &self.manifest_dir, &manifest)

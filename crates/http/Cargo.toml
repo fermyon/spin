@@ -18,3 +18,4 @@ spin-app = { path = "../app" }
 
 [dev-dependencies]
 spin-testing = { path = "../testing" }
+toml = "0.8.2"

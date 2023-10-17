@@ -5,27 +5,27 @@
 mod manifest;
 
 use anyhow::{anyhow, bail, Context, Result};
-use spin_loader::local::parent_dir;
+use manifest::ComponentBuildInfo;
+use spin_common::paths::parent_dir;
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
 };
 use subprocess::{Exec, Redirection};
 
-use crate::manifest::{BuildAppInfoAnyVersion, RawComponentManifest};
+use crate::manifest::component_build_configs;
 
 /// If present, run the build command of each component.
 pub async fn build(manifest_file: &Path, component_ids: &[String]) -> Result<()> {
-    let manifest_text = tokio::fs::read_to_string(manifest_file)
+    let components = component_build_configs(manifest_file)
         .await
         .with_context(|| format!("Cannot read manifest file from {}", manifest_file.display()))?;
-    let app = toml::from_str(&manifest_text).map(BuildAppInfoAnyVersion::into_v1)?;
     let app_dir = parent_dir(manifest_file)?;
 
     let components_to_build = if component_ids.is_empty() {
-        app.components
+        components
     } else {
-        let all_ids: HashSet<_> = app.components.iter().map(|c| &c.id).collect();
+        let all_ids: HashSet<_> = components.iter().map(|c| &c.id).collect();
         let unknown_component_ids: Vec<_> = component_ids
             .iter()
             .filter(|id| !all_ids.contains(id))
@@ -36,7 +36,7 @@ pub async fn build(manifest_file: &Path, component_ids: &[String]) -> Result<()>
             bail!("Unknown component(s) {}", unknown_component_ids.join(", "));
         }
 
-        app.components
+        components
             .into_iter()
             .filter(|c| component_ids.contains(&c.id))
             .collect()
@@ -58,10 +58,15 @@ pub async fn build(manifest_file: &Path, component_ids: &[String]) -> Result<()>
 }
 
 /// Run the build command of the component.
-fn build_component(raw: RawComponentManifest, app_dir: &Path) -> Result<()> {
-    match raw.build {
+fn build_component(build_info: ComponentBuildInfo, app_dir: &Path) -> Result<()> {
+    match build_info.build {
         Some(b) => {
-            terminal::step!("Building", "component {} with `{}`", raw.id, b.command);
+            terminal::step!(
+                "Building",
+                "component {} with `{}`",
+                build_info.id,
+                b.command
+            );
             let workdir = construct_workdir(app_dir, b.workdir.as_ref())?;
             if b.workdir.is_some() {
                 println!("Working directory: {:?}", workdir);
@@ -77,7 +82,7 @@ fn build_component(raw: RawComponentManifest, app_dir: &Path) -> Result<()> {
                     anyhow!(
                         "Cannot spawn build process '{:?}' for component {}: {}",
                         &b.command,
-                        raw.id,
+                        build_info.id,
                         err
                     )
                 })?
@@ -86,7 +91,7 @@ fn build_component(raw: RawComponentManifest, app_dir: &Path) -> Result<()> {
             if !exit_status.success() {
                 bail!(
                     "Build command for component {} failed with status {:?}",
-                    raw.id,
+                    build_info.id,
                     exit_status,
                 );
             }

@@ -1,0 +1,14 @@
+name = "spin-wagi-custom-entrypoint"
+spin_version = "1"
+version = "1.0.0"
+authors = [ "Fermyon Engineering <engineering@fermyon.com>" ]
+trigger = { type = "http" }
+
+[[component]]
+source = "wasm/dummy.wasm"
+id = "fs"
+files = ["**/*"]
+
+[component.trigger]
+route = "/hello"
+executor =  { type = "wagi", entrypoint = "custom-entrypoint" }

@@ -9,7 +9,6 @@ use clap::Parser;
 use path_absolutize::Absolutize;
 use tokio;
 
-use spin_loader::local::absolutize;
 use spin_templates::{RunOptions, Template, TemplateManager, TemplateVariantInfo};
 
 use crate::opts::{APP_MANIFEST_FILE_OPT, DEFAULT_MANIFEST_FILE};
@@ -212,11 +211,10 @@ impl FromStr for ParameterValue {
 /// This function reads a file and parses it as TOML, then
 /// returns the resulting hashmap of key-value pairs.
 async fn values_from_file(path: impl AsRef<Path>) -> Result<HashMap<String, String>> {
-    // Get the absolute path of the file we're reading.
-    let path = absolutize(path)?;
+    let path = path.as_ref();
 
     // Open the file.
-    let text = tokio::fs::read_to_string(&path)
+    let text = tokio::fs::read_to_string(path)
         .await
         .with_context(|| format!("Failed to read text from values file {}", path.display()))?;
 

@@ -26,7 +26,7 @@ regex = "1.5.4"
 semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 spin-common = { path = "../common" }
-spin-loader = { path = "../loader" }
+spin-manifest = { path = "../manifest" }
 tempfile = "3.3.0"
 tokio = { version = "1.23", features = ["fs", "process", "rt", "macros"] }
 toml = "0.5"

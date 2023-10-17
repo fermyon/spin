@@ -1,0 +1,45 @@
+{
+  "spin_lock_version": 0,
+  "metadata": {
+    "authors": [
+      "Fermyon Engineering <engineering@fermyon.com>"
+    ],
+    "name": "spin-local-source-test",
+    "origin": "file://<test-dir>/spin.toml",
+    "trigger": {
+      "type": "http"
+    },
+    "triggers": {
+      "http": {}
+    },
+    "version": "1.0.0"
+  },
+  "triggers": [
+    {
+      "id": "trigger-fs",
+      "trigger_type": "http",
+      "trigger_config": {
+        "component": "fs",
+        "executor": {
+          "type": "spin"
+        },
+        "route": "/..."
+      }
+    }
+  ],
+  "components": [
+    {
+      "id": "fs",
+      "source": {
+        "content_type": "application/wasm",
+        "source": "file://<test-dir>/spin-fs.wasm"
+      },
+      "files": [
+        {
+          "source": "file://<temp-dir>/assets/fs",
+          "path": "/"
+        }
+      ]
+    }
+  ]
+}

@@ -190,7 +190,7 @@ impl Loader for TestLoader {
         let metadata = from_json!({"name": "test-app", "trigger": trigger_meta});
         let variables = Default::default();
         Ok(LockedApp {
-            spin_lock_version: spin_app::locked::FixedVersion,
+            spin_lock_version: Default::default(),
             components,
             triggers,
             metadata,

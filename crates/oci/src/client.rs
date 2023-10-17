@@ -19,7 +19,7 @@ use reqwest::Url;
 use spin_app::locked::{ContentPath, ContentRef, LockedApp};
 use spin_common::sha256;
 use spin_loader::cache::Cache;
-use spin_manifest::Application;
+use spin_loader::FilesMountStrategy;
 use tokio::fs;
 use walkdir::WalkDir;
 
@@ -69,7 +69,7 @@ impl Client {
     /// if the digest cannot be determined).
     pub async fn push(
         &mut self,
-        app: &Application,
+        manifest_path: &Path,
         reference: impl AsRef<str>,
     ) -> Result<Option<String>> {
         let reference: Reference = reference
@@ -82,9 +82,11 @@ impl Client {
         // Create a locked application from the application manifest.
         // TODO: We don't need an extra copy here for each asset to prepare the application.
         // We should be able to use assets::collect instead when constructing the locked app.
-        let locked = spin_trigger::locked::build_locked_app(app.clone(), working_dir.path())
-            .context("cannot create locked app")?;
-        let locked = locked.clone();
+        let locked = spin_loader::from_file(
+            manifest_path,
+            FilesMountStrategy::Copy(working_dir.path().into()),
+        )
+        .await?;
 
         self.push_locked_core(locked, auth, reference).await
     }
@@ -192,17 +194,16 @@ impl Client {
         // Add all archived file entries to the locked app manifest
         for entry in WalkDir::new(source) {
             let entry = entry?;
-            if entry.file_type().is_file() && !entry.file_type().is_dir() {
-                tracing::trace!(
-                    "Adding asset {:?} to component files list",
-                    spin_loader::to_relative(entry.path(), source)?
-                );
+            if entry.file_type().is_file() {
+                // Can unwrap because we got to 'entry' from walking 'source'
+                let rel_path = entry.path().strip_prefix(source).unwrap();
+                tracing::trace!("Adding asset {rel_path:?} to component files list");
                 // Add content/path to the locked component files list
                 let layer = Self::data_layer(entry.path(), DATA_MEDIATYPE.to_string()).await?;
                 let content = Self::content_ref_for_layer(&layer);
                 files.push(ContentPath {
                     content,
-                    path: PathBuf::from(spin_loader::to_relative(entry.path(), source)?),
+                    path: rel_path.into(),
                 });
             }
         }
@@ -233,18 +234,17 @@ impl Client {
         tracing::trace!("Adding new layer per file under source {:?}", source);
         for entry in WalkDir::new(source) {
             let entry = entry?;
-            if entry.file_type().is_file() && !entry.file_type().is_dir() {
-                tracing::trace!(
-                    "Adding new layer for asset {:?}",
-                    spin_loader::to_relative(entry.path(), source)?
-                );
+            if entry.file_type().is_file() {
+                // Can unwrap because we got to 'entry' from walking 'source'
+                let rel_path = entry.path().strip_prefix(source).unwrap();
+                tracing::trace!("Adding new layer for asset {rel_path:?}");
                 // Construct and push layer, adding its digest to the locked component files Vec
                 let layer = Self::data_layer(entry.path(), DATA_MEDIATYPE.to_string()).await?;
                 let content = Self::content_ref_for_layer(&layer);
                 let content_inline = content.inline.is_some();
                 files.push(ContentPath {
                     content,
-                    path: PathBuf::from(spin_loader::to_relative(entry.path(), source)?),
+                    path: rel_path.into(),
                 });
                 // As a workaround for OCI implementations that don't support very small blobs,
                 // don't push very small content that has been inlined into the manifest:
@@ -642,7 +642,7 @@ mod test {
             let metadata = Default::default();
             let variables = Default::default();
             let locked = LockedApp {
-                spin_lock_version: spin_app::locked::FixedVersion,
+                spin_lock_version: Default::default(),
                 components,
                 triggers,
                 metadata,

@@ -1,0 +1,5 @@
+TOML parse error at line 6, column 12
+  |
+6 | [component.bad_id]
+  |            ^^^^^^
+words must be separated with '-', not '_'

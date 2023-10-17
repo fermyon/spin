@@ -1,6 +1,6 @@
 //! Cache for OCI registry entities.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{ensure, Context, Result};
 use tokio::fs;
 
 use std::path::{Path, PathBuf};
@@ -12,6 +12,7 @@ const WASM_DIR: &str = "wasm";
 const DATA_DIR: &str = "data";
 
 /// Cache for registry entities.
+#[derive(Debug)]
 pub struct Cache {
     /// Root directory for the cache instance.
     root: PathBuf,
@@ -49,38 +50,46 @@ impl Cache {
 
     /// Return the path to a wasm file given its digest.
     pub fn wasm_file(&self, digest: impl AsRef<str>) -> Result<PathBuf> {
-        let path = &self.wasm_dir().join(digest.as_ref());
-        match path.exists() {
-            true => Ok(path.into()),
-            false => bail!(format!(
-                "cannot find wasm file for digest {}",
-                digest.as_ref()
-            )),
-        }
+        let path = self.wasm_path(&digest);
+        ensure!(
+            path.exists(),
+            "cannot find wasm file for digest {}",
+            digest.as_ref()
+        );
+        Ok(path)
     }
 
     /// Return the path to a data file given its digest.
     pub fn data_file(&self, digest: impl AsRef<str>) -> Result<PathBuf> {
-        let path = &self.data_dir().join(digest.as_ref());
-        match path.exists() {
-            true => Ok(path.into()),
-            false => bail!(format!(
-                "cannot find data file for digest {}",
-                digest.as_ref()
-            )),
-        }
+        let path = self.data_path(&digest);
+        ensure!(
+            path.exists(),
+            "cannot find data file for digest {}",
+            digest.as_ref()
+        );
+        Ok(path)
     }
 
     /// Write the contents in the cache's wasm directory.
     pub async fn write_wasm(&self, bytes: impl AsRef<[u8]>, digest: impl AsRef<str>) -> Result<()> {
-        fs::write(self.wasm_dir().join(digest.as_ref()), bytes.as_ref()).await?;
+        fs::write(self.wasm_path(digest), bytes.as_ref()).await?;
         Ok(())
     }
 
     /// Write the contents in the cache's data directory.
     pub async fn write_data(&self, bytes: impl AsRef<[u8]>, digest: impl AsRef<str>) -> Result<()> {
-        fs::write(self.data_dir().join(digest.as_ref()), bytes.as_ref()).await?;
+        fs::write(self.data_path(digest), bytes.as_ref()).await?;
         Ok(())
+    }
+
+    /// The path of contents in the cache's wasm directory, which may or may not exist.
+    pub fn wasm_path(&self, digest: impl AsRef<str>) -> PathBuf {
+        self.wasm_dir().join(digest.as_ref())
+    }
+
+    /// The path of contents in the cache's wasm directory, which may or may not exist.
+    pub fn data_path(&self, digest: impl AsRef<str>) -> PathBuf {
+        self.data_dir().join(digest.as_ref())
     }
 
     /// Ensure the expected configuration directories are found in the root.

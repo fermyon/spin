@@ -12,7 +12,7 @@ authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0"
+anyhow = { workspace = true }
 async-trait = "0.1"
 bytes = "1.1"
 chrono = "0.4"
@@ -78,6 +78,7 @@ subprocess = "0.2.9"
 openssl = { version = "0.10" }
 
 [dev-dependencies]
+anyhow = { workspace = true, features = ["backtrace"] }
 hex = "0.4.3"
 hyper = { workspace = true }
 sha2 = "0.10.1"
@@ -107,6 +108,7 @@ llm-cublas = ["llm", "spin-trigger-http/llm-cublas"]
 members = ["crates/*", "sdk/rust", "sdk/rust/macro"]
 
 [workspace.dependencies]
+anyhow = "1.0.75"
 tracing = { version = "0.1", features = ["log"] }
 wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", rev = "c796ce7376a57a40605f03e74bd78cefcc9acf3a", features = [
   "tokio",

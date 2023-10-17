@@ -1,0 +1,11 @@
+spin_version = "1"
+name = "spin-hello-world-duplicate"
+version = "1.0.0"
+trigger = { type = "http" }
+
+[[component]]
+id = "hello"
+source = "wasm/dummy.wasm"
+allowed_http_hosts = ["insecure:allow-all", "random-data-api.fermyon.app"]
+[component.trigger]
+route = "/hello"

@@ -1,0 +1,5 @@
+TOML parse error at line 7, column 1
+  |
+7 | "bad+name" = { required = true }
+  | ^^^^^^^^^^
+'_'-separated words may only contain alphanumeric ASCII; got '+'

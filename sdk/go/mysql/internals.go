@@ -256,21 +256,21 @@ func toErr(err *C.outbound_mysql_mysql_error_t) error {
 		return nil
 	case 1:
 		str := (*C.outbound_mysql_string_t)(unsafe.Pointer(&err.val))
-		return errors.New(fmt.Sprintf("connection failed: %s", C.GoStringN(str.ptr, C.int(str.len))))
+		return fmt.Errorf("connection failed: %s", C.GoStringN(str.ptr, C.int(str.len)))
 	case 2:
 		str := (*C.outbound_mysql_string_t)(unsafe.Pointer(&err.val))
-		return errors.New(fmt.Sprintf("bad parameter: %s", C.GoStringN(str.ptr, C.int(str.len))))
+		return fmt.Errorf("bad parameter: %s", C.GoStringN(str.ptr, C.int(str.len)))
 	case 3:
 		str := (*C.outbound_mysql_string_t)(unsafe.Pointer(&err.val))
-		return errors.New(fmt.Sprintf("query failed: %s", C.GoStringN(str.ptr, C.int(str.len))))
+		return fmt.Errorf("query failed: %s", C.GoStringN(str.ptr, C.int(str.len)))
 	case 4:
 		str := (*C.outbound_mysql_string_t)(unsafe.Pointer(&err.val))
-		return errors.New(fmt.Sprintf("value conversion failed: %s", C.GoStringN(str.ptr, C.int(str.len))))
+		return fmt.Errorf(fmt.Sprintf("value conversion failed: %s", C.GoStringN(str.ptr, C.int(str.len))))
 	case 5:
 		str := (*C.outbound_mysql_string_t)(unsafe.Pointer(&err.val))
-		return errors.New(fmt.Sprintf("other error: %s", C.GoStringN(str.ptr, C.int(str.len))))
+		return fmt.Errorf(fmt.Sprintf("other error: %s", C.GoStringN(str.ptr, C.int(str.len))))
 	default:
-		return errors.New(fmt.Sprintf("unrecognized error: %v", err.tag))
+		return fmt.Errorf("unrecognized error: %v", err.tag)
 	}
 }
 

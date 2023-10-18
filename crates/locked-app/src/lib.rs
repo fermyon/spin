@@ -30,8 +30,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// An error propagated from the [`spin_core`] crate.
-    #[error("spin core error: {0:#}")]
-    CoreError(#[source] anyhow::Error),
+    #[error(transparent)]
+    CoreError(anyhow::Error),
     /// An error from a [`DynamicHostComponent`].
     #[error("host component error: {0:#}")]
     HostComponentError(#[source] anyhow::Error),

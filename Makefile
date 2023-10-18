@@ -65,6 +65,16 @@ lint-rust-examples-and-testcases:
 		|| exit 1 ; \
 	done
 
+## Bring all of the checked in `Cargo.lock` files up-to-date
+.PHONY: update-cargo-locks
+update-cargo-locks: 
+	echo "Updating Cargo.toml"
+	cargo update -w --offline; \
+	for manifest_path in $$(find examples tests/testcases -name Cargo.toml); do \
+		echo "Updating $${manifest_path}" && \
+		cargo update --manifest-path "$${manifest_path}" -w --offline; \
+	done
+
 .PHONY: test-unit
 test-unit:
 	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --skip integration_tests --skip spinup_tests --skip cloud_tests --nocapture

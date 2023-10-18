@@ -18,12 +18,12 @@ world http-trigger {
 world platform {
   import fermyon:spin/config
   import fermyon:spin/http
-  import fermyon:spin/mysql
   import fermyon:spin/llm
   import wasi:http/outgoing-handler
 
   import redis
   import postgres
+  import mysql
   import sqlite
   import key-value
 }

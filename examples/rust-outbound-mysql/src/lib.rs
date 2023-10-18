@@ -80,9 +80,10 @@ fn header_val_to_int(header_val: &HeaderValue) -> Result<Option<i32>, ()> {
 
 fn list() -> Result<Response<Option<String>>> {
     let address = std::env::var(DB_URL_ENV)?;
+    let conn = mysql::Connection::open(&address)?;
 
     let sql = "SELECT id, name, prey, is_finicky FROM pets";
-    let rowset = mysql::query(&address, sql, &[])?;
+    let rowset = conn.query(sql, &[])?;
 
     let column_summary = rowset
         .columns
@@ -111,10 +112,11 @@ fn list() -> Result<Response<Option<String>>> {
 
 fn get(id: i32) -> Result<Response<Option<String>>> {
     let address = std::env::var(DB_URL_ENV)?;
+    let conn = mysql::Connection::open(&address)?;
 
     let sql = "SELECT id, name, prey, is_finicky FROM pets WHERE id = ?";
     let params = vec![ParameterValue::Int32(id)];
-    let rowset = mysql::query(&address, sql, &params)?;
+    let rowset = conn.query(sql, &params)?;
 
     match rowset.rows.first() {
         None => Ok(http::Response::builder().status(404).body(None)?),
@@ -132,8 +134,9 @@ fn create(
     is_finicky: bool,
 ) -> Result<Response<Option<String>>> {
     let address = std::env::var(DB_URL_ENV)?;
+    let conn = mysql::Connection::open(&address)?;
 
-    let id = max_pet_id(&address)? + 1;
+    let id = max_pet_id(&conn)? + 1;
 
     let prey_param = match prey {
         None => ParameterValue::DbNull,
@@ -149,7 +152,7 @@ fn create(
         prey_param,
         is_finicky_param,
     ];
-    mysql::execute(&address, sql, &params)?;
+    conn.execute(sql, &params)?;
 
     let location_url = format!("/{}", id);
 
@@ -167,9 +170,9 @@ fn format_col(column: &mysql::Column) -> String {
     format!("{}: {:?}", column.name, column.data_type)
 }
 
-fn max_pet_id(address: &str) -> Result<i32> {
+fn max_pet_id(conn: &mysql::Connection) -> Result<i32> {
     let sql = "SELECT MAX(id) FROM pets";
-    let rowset = mysql::query(address, sql, &[])?;
+    let rowset = conn.query(sql, &[])?;
 
     match rowset.rows.first() {
         None => Ok(0),

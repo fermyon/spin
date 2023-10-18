@@ -2552,6 +2552,7 @@ dependencies = [
  "mysql_common",
  "spin-core",
  "spin-world",
+ "table",
  "tokio",
  "tracing",
  "url",

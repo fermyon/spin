@@ -22,7 +22,6 @@ spin-app = { path = "../app" }
 spin-common = { path = "../common" }
 spin-loader = { path = "../loader" }
 spin-manifest = { path = "../manifest" }
-spin-trigger = { path = "../trigger" }
 tempfile = "3.3"
 tokio = { version = "1", features = ["fs"] }
 tokio-util = { version = "0.7.9", features = ["compat"] }

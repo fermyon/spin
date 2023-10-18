@@ -10,3 +10,4 @@ dirs = "4.0"
 sha2 = "0.10"
 tempfile = "3.5"
 tokio = { version = "1", features = ["rt", "time"] }
+url = "2"

@@ -11,7 +11,7 @@ use spin_app::{
 use spin_core::StoreBuilder;
 use tokio::fs;
 
-use crate::parse_file_url;
+use spin_common::url::parse_file_url;
 
 pub struct TriggerLoader {
     working_dir: PathBuf,

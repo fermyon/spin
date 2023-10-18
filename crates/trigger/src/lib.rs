@@ -3,9 +3,9 @@ pub mod loader;
 mod runtime_config;
 mod stdio;
 
-use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
+use std::{collections::HashMap, marker::PhantomData};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 pub use async_trait::async_trait;
 use indexmap::IndexMap;
 use runtime_config::llm::LLmOptions;
@@ -354,10 +354,3 @@ pub trait TriggerHooks: Send + Sync {
 }
 
 impl TriggerHooks for () {}
-
-pub fn parse_file_url(url: &str) -> Result<PathBuf> {
-    url::Url::parse(url)
-        .with_context(|| format!("Invalid URL: {url:?}"))?
-        .to_file_path()
-        .map_err(|_| anyhow!("Invalid file URL path: {url:?}"))
-}

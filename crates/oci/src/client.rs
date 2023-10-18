@@ -18,6 +18,7 @@ use oci_distribution::{
 use reqwest::Url;
 use spin_app::locked::{ContentPath, ContentRef, LockedApp};
 use spin_common::sha256;
+use spin_common::url::parse_file_url;
 use spin_loader::cache::Cache;
 use spin_loader::FilesMountStrategy;
 use tokio::fs;
@@ -132,7 +133,7 @@ impl Client {
                 .source
                 .context("component loaded from disk should contain a file source")?;
 
-            let source = spin_trigger::parse_file_url(source.as_str())?;
+            let source = parse_file_url(source.as_str())?;
             let layer = Self::wasm_layer(&source).await?;
 
             // Update the module source with the content ref of the layer.
@@ -146,7 +147,7 @@ impl Client {
                     .content
                     .source
                     .context("file mount loaded from disk should contain a file source")?;
-                let source = spin_trigger::parse_file_url(source.as_str())?;
+                let source = parse_file_url(source.as_str())?;
 
                 if archive_layers {
                     self.push_archive_layer(&source, &mut files, &mut layers)
@@ -571,7 +572,7 @@ async fn layer_count(locked: LockedApp) -> Result<usize> {
                 .content
                 .source
                 .context("file mount loaded from disk should contain a file source")?;
-            let source = spin_trigger::parse_file_url(source.as_str())?;
+            let source = parse_file_url(source.as_str())?;
             for entry in WalkDir::new(&source) {
                 let entry = entry?;
                 if entry.file_type().is_file() && !entry.file_type().is_dir() {

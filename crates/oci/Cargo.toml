@@ -18,9 +18,9 @@ oci-distribution = { git = "https://github.com/fermyon/oci-distribution", rev = 
 reqwest = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-spin-app = { path = "../app" }
 spin-common = { path = "../common" }
 spin-loader = { path = "../loader" }
+spin-locked-app = { path = "../locked-app" }
 spin-manifest = { path = "../manifest" }
 tempfile = "3.3"
 tokio = { version = "1", features = ["fs"] }

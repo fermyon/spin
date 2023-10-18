@@ -16,11 +16,11 @@ use oci_distribution::{
     Reference,
 };
 use reqwest::Url;
-use spin_app::locked::{ContentPath, ContentRef, LockedApp};
 use spin_common::sha256;
 use spin_common::url::parse_file_url;
 use spin_loader::cache::Cache;
 use spin_loader::FilesMountStrategy;
+use spin_locked_app::locked::{ContentPath, ContentRef, LockedApp};
 use tokio::fs;
 use walkdir::WalkDir;
 
@@ -600,7 +600,7 @@ mod test {
 
     #[tokio::test]
     async fn can_get_layer_count() {
-        use spin_app::locked::LockedComponent;
+        use spin_locked_app::locked::LockedComponent;
 
         let working_dir = tempfile::tempdir().unwrap();
         let source_dir = working_dir.path().join("foo");

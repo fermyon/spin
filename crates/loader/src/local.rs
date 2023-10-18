@@ -3,14 +3,14 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, ensure, Context, Result};
 use futures::future::try_join_all;
 use reqwest::Url;
-use spin_app::{
+use spin_common::paths::parent_dir;
+use spin_locked_app::{
     locked::{
         self, ContentPath, ContentRef, LockedApp, LockedComponent, LockedComponentSource,
         LockedTrigger,
     },
     values::{ValuesMap, ValuesMapBuilder},
 };
-use spin_common::paths::parent_dir;
 use spin_manifest::schema::v2::{self, AppManifest, KebabId, WasiFilesMount};
 use tokio::{fs, sync::Semaphore};
 

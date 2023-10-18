@@ -1,5 +1,5 @@
 [package]
-name = "spin-app"
+name = "spin-locked-app"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
@@ -10,7 +10,5 @@ async-trait = "0.1"
 ouroboros = "0.18.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-spin-core = { path = "../core" }
-spin-locked-app = { path = "../locked-app" }
 spin-serde = { path = "../serde" }
 thiserror = "1.0"

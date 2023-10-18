@@ -719,9 +719,12 @@ route = "/..."
             drop(future::select(server, rx).await);
         });
 
-        let controller =
-            SpinTestController::with_manifest("examples/wasi-http-rust-async/spin.toml", &[], &[])
-                .await?;
+        let controller = SpinTestController::with_manifest(
+            "examples/wasi-http-rust-streaming-outgoing-body/spin.toml",
+            &[],
+            &[],
+        )
+        .await?;
 
         let mut request = Client::new().get(format!("http://{}/hash-all", controller.url));
         for path in bodies.keys() {
@@ -765,9 +768,12 @@ route = "/..."
             .collect::<Vec<_>>()
         };
 
-        let controller =
-            SpinTestController::with_manifest("examples/wasi-http-rust-async/spin.toml", &[], &[])
-                .await?;
+        let controller = SpinTestController::with_manifest(
+            "examples/wasi-http-rust-streaming-outgoing-body/spin.toml",
+            &[],
+            &[],
+        )
+        .await?;
 
         let response = Client::new()
             .post(format!("http://{}/echo", controller.url))

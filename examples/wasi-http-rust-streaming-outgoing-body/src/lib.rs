@@ -67,9 +67,18 @@ async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam
             ResponseOutparam::set(response_out, Ok(response));
 
             let mut stream = request.into_body_stream();
-            while let Ok(Some(chunk)) = stream.try_next().await {
-                if let Err(e) = body.send(chunk).await {
-                    eprintln!("Error sending body: {e}");
+            while let Some(chunk) = stream.next().await {
+                match chunk {
+                    Ok(chunk) => {
+                        if let Err(e) = body.send(chunk).await {
+                            eprintln!("Error sending body: {e}");
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error receiving body: {e}");
+                        break;
+                    }
                 }
             }
         }

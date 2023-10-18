@@ -7,7 +7,7 @@ version = "1.0.0"
 
 [[component]]
 id = "wasi-http-async"
-source = "target/wasm32-wasi/release/wasi_http_rust_async.wasm"
+source = "target/wasm32-wasi/release/wasi_http_rust_streaming_outgoing_body.wasm"
 [component.trigger]
 route = "/..."
 executor =  { type = "wasi" }

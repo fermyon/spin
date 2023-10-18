@@ -115,9 +115,9 @@ jobs:
           rust-cache: true
           nomad: true
 
-      - name: Cargo Unit Tests
+      - name: Cargo Unit and Integration Tests
         run: |
-          make test-unit
+          make test-unit test-integration
         env:
           CARGO_INCREMENTAL: 0
 

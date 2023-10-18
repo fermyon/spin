@@ -6,7 +6,6 @@ use anyhow::{bail, Context, Result};
 use docker_credential::DockerCredential;
 use futures_util::future;
 use futures_util::stream::{self, StreamExt, TryStreamExt};
-use oci_distribution::errors::OciDistributionError;
 use oci_distribution::token_cache::RegistryTokenType;
 use oci_distribution::RegistryOperation;
 use oci_distribution::{
@@ -195,18 +194,19 @@ impl Client {
         // Add all archived file entries to the locked app manifest
         for entry in WalkDir::new(source) {
             let entry = entry?;
-            if entry.file_type().is_file() {
-                // Can unwrap because we got to 'entry' from walking 'source'
-                let rel_path = entry.path().strip_prefix(source).unwrap();
-                tracing::trace!("Adding asset {rel_path:?} to component files list");
-                // Add content/path to the locked component files list
-                let layer = Self::data_layer(entry.path(), DATA_MEDIATYPE.to_string()).await?;
-                let content = Self::content_ref_for_layer(&layer);
-                files.push(ContentPath {
-                    content,
-                    path: rel_path.into(),
-                });
+            if !entry.file_type().is_file() {
+                continue;
             }
+            // Can unwrap because we got to 'entry' from walking 'source'
+            let rel_path = entry.path().strip_prefix(source).unwrap();
+            tracing::trace!("Adding asset {rel_path:?} to component files list");
+            // Add content/path to the locked component files list
+            let layer = Self::data_layer(entry.path(), DATA_MEDIATYPE.to_string()).await?;
+            let content = Self::content_ref_for_layer(&layer);
+            files.push(ContentPath {
+                content,
+                path: rel_path.into(),
+            });
         }
 
         // Only add the archive layer to the OCI manifest
@@ -235,25 +235,26 @@ impl Client {
         tracing::trace!("Adding new layer per file under source {:?}", source);
         for entry in WalkDir::new(source) {
             let entry = entry?;
-            if entry.file_type().is_file() {
-                // Can unwrap because we got to 'entry' from walking 'source'
-                let rel_path = entry.path().strip_prefix(source).unwrap();
-                tracing::trace!("Adding new layer for asset {rel_path:?}");
-                // Construct and push layer, adding its digest to the locked component files Vec
-                let layer = Self::data_layer(entry.path(), DATA_MEDIATYPE.to_string()).await?;
-                let content = Self::content_ref_for_layer(&layer);
-                let content_inline = content.inline.is_some();
-                files.push(ContentPath {
-                    content,
-                    path: rel_path.into(),
-                });
-                // As a workaround for OCI implementations that don't support very small blobs,
-                // don't push very small content that has been inlined into the manifest:
-                // https://github.com/distribution/distribution/discussions/4029
-                let skip_layer = content_inline;
-                if !skip_layer {
-                    layers.push(layer);
-                }
+            if !entry.file_type().is_file() {
+                continue;
+            }
+            // Can unwrap because we got to 'entry' from walking 'source'
+            let rel_path = entry.path().strip_prefix(source).unwrap();
+            tracing::trace!("Adding new layer for asset {rel_path:?}");
+            // Construct and push layer, adding its digest to the locked component files Vec
+            let layer = Self::data_layer(entry.path(), DATA_MEDIATYPE.to_string()).await?;
+            let content = Self::content_ref_for_layer(&layer);
+            let content_inline = content.inline.is_some();
+            files.push(ContentPath {
+                content,
+                path: rel_path.into(),
+            });
+            // As a workaround for OCI implementations that don't support very small blobs,
+            // don't push very small content that has been inlined into the manifest:
+            // https://github.com/distribution/distribution/discussions/4029
+            let skip_layer = content_inline;
+            if !skip_layer {
+                layers.push(layer);
             }
         }
         Ok(())
@@ -297,32 +298,23 @@ impl Client {
                         || this.cache.data_file(&layer.digest).is_ok()
                     {
                         tracing::debug!("Layer {} already exists in cache", &layer.digest);
-                    } else {
-                        tracing::debug!("Pulling layer {}", &layer.digest);
-                        let mut bytes = Vec::new();
-                        match this
-                            .oci
-                            .pull_blob(&reference, &layer.digest, &mut bytes)
-                            .await
-                        {
-                            Err(e) => return Err(e),
-                            _ => match layer.media_type.as_str() {
-                                WASM_LAYER_MEDIA_TYPE => {
-                                    let _ = this.cache.write_wasm(&bytes, &layer.digest).await;
-                                }
-                                ARCHIVE_MEDIATYPE => {
-                                    if let Err(e) =
-                                        this.unpack_archive_layer(&bytes, &layer.digest).await
-                                    {
-                                        return Err(OciDistributionError::GenericError(Some(
-                                            e.to_string(),
-                                        )));
-                                    }
-                                }
-                                _ => {
-                                    let _ = this.cache.write_data(&bytes, &layer.digest).await;
-                                }
-                            },
+                        return anyhow::Ok(());
+                    }
+
+                    tracing::debug!("Pulling layer {}", &layer.digest);
+                    let mut bytes = Vec::with_capacity(layer.size.try_into()?);
+                    this.oci
+                        .pull_blob(&reference, &layer.digest, &mut bytes)
+                        .await?;
+                    match layer.media_type.as_str() {
+                        WASM_LAYER_MEDIA_TYPE => {
+                            this.cache.write_wasm(&bytes, &layer.digest).await?;
+                        }
+                        ARCHIVE_MEDIATYPE => {
+                            this.unpack_archive_layer(&bytes, &layer.digest).await?;
+                        }
+                        _ => {
+                            this.cache.write_data(&bytes, &layer.digest).await?;
                         }
                     }
                     Ok(())

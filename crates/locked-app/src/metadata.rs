@@ -47,9 +47,12 @@ impl<T> std::fmt::Debug for MetadataKey<T> {
     }
 }
 
+/// Helper functions for reading LockedApp metadata
 pub trait MetadataExt {
+    /// Get a value from a metadata map
     fn get_value(&self, key: &str) -> Option<&Value>;
 
+    /// Get a typed value from a metadata map
     fn get_typed<'a, T: Deserialize<'a>>(&'a self, key: MetadataKey<T>) -> Result<Option<T>> {
         self.get_value(key.as_ref())
             .map(T::deserialize)
@@ -59,6 +62,8 @@ pub trait MetadataExt {
             })
     }
 
+    /// Get a required value from a metadata map, returning an error
+    /// if it is not present
     fn require_typed<'a, T: Deserialize<'a>>(&'a self, key: MetadataKey<T>) -> Result<T> {
         self.get_typed(key)?
             .ok_or_else(|| Error::MetadataError(format!("missing required metadata {key:?}")))

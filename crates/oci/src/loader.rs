@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, ensure, Context, Result};
 use oci_distribution::Reference;
 use reqwest::Url;
-use spin_app::locked::{ContentPath, ContentRef, LockedApp, LockedComponent};
 use spin_loader::cache::Cache;
+use spin_locked_app::locked::{ContentPath, ContentRef, LockedApp, LockedComponent};
 
 use crate::{Client, ORIGIN_URL_SCHEME};
 

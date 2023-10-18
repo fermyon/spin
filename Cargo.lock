@@ -5590,6 +5590,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spin-core",
+ "spin-locked-app",
  "spin-serde",
  "thiserror",
 ]
@@ -5659,6 +5660,7 @@ dependencies = [
  "spin-key-value",
  "spin-key-value-sqlite",
  "spin-loader",
+ "spin-locked-app",
  "spin-manifest",
  "spin-oci",
  "spin-plugins",
@@ -5912,9 +5914,9 @@ dependencies = [
  "serde_json",
  "sha2",
  "shellexpand 3.1.0",
- "spin-app",
  "spin-common",
  "spin-config",
+ "spin-locked-app",
  "spin-manifest",
  "tempfile",
  "terminal",
@@ -5925,6 +5927,19 @@ dependencies = [
  "tracing",
  "ui-testing",
  "walkdir",
+]
+
+[[package]]
+name = "spin-locked-app"
+version = "2.0.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "ouroboros",
+ "serde",
+ "serde_json",
+ "spin-serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -5971,9 +5986,9 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "spin-app",
  "spin-common",
  "spin-loader",
+ "spin-locked-app",
  "spin-manifest",
  "spin-testing",
  "tempfile",

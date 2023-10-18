@@ -7,9 +7,9 @@
 #![deny(missing_docs)]
 
 mod host_component;
-pub mod locked;
-mod metadata;
-pub mod values;
+pub use spin_locked_app::locked;
+pub use spin_locked_app::values;
+pub use spin_locked_app::{Error, MetadataKey, Result};
 
 use ouroboros::self_referencing;
 use serde::Deserialize;
@@ -17,12 +17,11 @@ use spin_core::{wasmtime, Engine, EngineBuilder, HostComponentDataHandle, StoreB
 
 use host_component::DynamicHostComponents;
 use locked::{ContentPath, LockedApp, LockedComponent, LockedComponentSource, LockedTrigger};
-use metadata::MetadataExt;
+use spin_locked_app::MetadataExt;
 
 pub use async_trait::async_trait;
 pub use host_component::DynamicHostComponent;
 pub use locked::Variable;
-pub use metadata::MetadataKey;
 
 /// MetadataKey for extracting the application name.
 pub const APP_NAME_KEY: MetadataKey = MetadataKey::new("name");
@@ -396,30 +395,4 @@ impl<'a, L: MaybeLoader> AppTrigger<'a, L> {
 #[derive(Deserialize)]
 struct CommonTriggerConfig {
     component: Option<String>,
-}
-
-/// Type alias for a [`Result`]s with [`Error`].
-pub type Result<T> = std::result::Result<T, Error>;
-
-/// Errors returned by methods in this crate.
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    /// An error propagated from the [`spin_core`] crate.
-    #[error("spin core error: {0:#}")]
-    CoreError(#[source] anyhow::Error),
-    /// An error from a [`DynamicHostComponent`].
-    #[error("host component error: {0:#}")]
-    HostComponentError(#[source] anyhow::Error),
-    /// An error from a [`Loader`] implementation.
-    #[error(transparent)]
-    LoaderError(anyhow::Error),
-    /// An error indicating missing or unexpected metadata.
-    #[error("metadata error: {0}")]
-    MetadataError(String),
-    /// An error indicating failed JSON (de)serialization.
-    #[error("json error: {0}")]
-    JsonError(#[from] serde_json::Error),
-    /// A validation error that can be presented directly to the user.
-    #[error(transparent)]
-    ValidationError(anyhow::Error),
 }

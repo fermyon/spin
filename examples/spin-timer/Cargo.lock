@@ -3583,6 +3583,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spin-core",
+ "spin-locked-app",
  "spin-serde",
  "thiserror",
 ]
@@ -3753,9 +3754,9 @@ dependencies = [
  "serde_json",
  "sha2",
  "shellexpand 3.1.0",
- "spin-app",
  "spin-common",
  "spin-config",
+ "spin-locked-app",
  "spin-manifest",
  "tempfile",
  "terminal",
@@ -3765,6 +3766,19 @@ dependencies = [
  "toml 0.8.2",
  "tracing",
  "walkdir",
+]
+
+[[package]]
+name = "spin-locked-app"
+version = "2.0.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "ouroboros",
+ "serde",
+ "serde_json",
+ "spin-serde",
+ "thiserror",
 ]
 
 [[package]]

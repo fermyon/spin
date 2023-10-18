@@ -9,7 +9,7 @@ use cargo_target_dep::build_target_dep;
 
 const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
 const RUST_HTTP_INTEGRATION_ENV_TEST: &str = "tests/http/headers-env-routes-test";
-const RUST_HTTP_VAULT_CONFIG_TEST: &str = "tests/http/vault-config-test";
+const RUST_HTTP_VAULT_VARIABLES_TEST: &str = "tests/http/vault-variables-test";
 const RUST_OUTBOUND_REDIS_INTEGRATION_TEST: &str = "tests/outbound-redis/http-rust-outbound-redis";
 const TIMER_TRIGGER_INTEGRATION_TEST: &str = "examples/spin-timer/app-example";
 const WASI_HTTP_INTEGRATION_TEST: &str = "examples/wasi-http-rust-streaming-outgoing-body";
@@ -88,7 +88,7 @@ error: the `wasm32-wasi` target is not installed
 
     cargo_build(RUST_HTTP_INTEGRATION_TEST);
     cargo_build(RUST_HTTP_INTEGRATION_ENV_TEST);
-    cargo_build(RUST_HTTP_VAULT_CONFIG_TEST);
+    cargo_build(RUST_HTTP_VAULT_VARIABLES_TEST);
     cargo_build(RUST_OUTBOUND_REDIS_INTEGRATION_TEST);
     cargo_build(TIMER_TRIGGER_INTEGRATION_TEST);
     cargo_build(WASI_HTTP_INTEGRATION_TEST);

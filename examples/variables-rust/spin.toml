@@ -1,7 +1,7 @@
 spin_manifest_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
-description = "A Spin Rust application demonstrating the config sdk."
-name = "spin-config-rust"
+description = "A Spin Rust application demonstrating the variables sdk."
+name = "spin-variables-rust"
 trigger = { type = "http" }
 version = "0.1.0"
 
@@ -10,8 +10,8 @@ object = { default = "teapot" }
 dotenv = { default = "should-be-replaced" }
 
 [[component]]
-id = "spin_config_rust"
-source = "target/wasm32-wasi/release/spin_config_example.wasm"
+id = "spin_variales_rust"
+source = "target/wasm32-wasi/release/spin_variables_example.wasm"
 [component.trigger]
 route = "/..."
 [component.config]

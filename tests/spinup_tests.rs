@@ -13,8 +13,8 @@ mod spinup_tests {
     }
 
     #[tokio::test]
-    async fn config_variables_default_works() {
-        testcases::config_variables_default_works(CONTROLLER).await
+    async fn application_variables_default_works() {
+        testcases::application_variables_default_works(CONTROLLER).await
     }
 
     #[tokio::test]

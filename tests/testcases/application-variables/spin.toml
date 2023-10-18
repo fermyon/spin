@@ -1,7 +1,7 @@
 spin_manifest_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
-description = "A simple application that exercises the use of a configuration variable"
-name = "config-variables"
+description = "A simple application that exercises the use of an application variable"
+name = "application-variables"
 trigger = { type = "http" }
 version = "0.1.0"
 
@@ -9,8 +9,8 @@ version = "0.1.0"
 password = { default = "pw" }
 
 [[component]]
-id = "config-variables"
-source = "target/wasm32-wasi/release/config_variables.wasm"
+id = "application-variables"
+source = "target/wasm32-wasi/release/application_variables.wasm"
 allowed_http_hosts = []
 [component.trigger]
 route = "/..."

@@ -61,7 +61,7 @@ pub async fn component_outbound_http_works(controller: &dyn Controller) {
     tc.run(controller).await.unwrap()
 }
 
-pub async fn config_variables_default_works(controller: &dyn Controller) {
+pub async fn application_variables_default_works(controller: &dyn Controller) {
     async fn checks(
         metadata: AppMetadata,
         password: String,
@@ -87,8 +87,8 @@ pub async fn config_variables_default_works(controller: &dyn Controller) {
     let expected_password = String::from("pw");
 
     let tc = TestCaseBuilder::default()
-        .name("config-variables".to_string())
-        .appname(Some("config-variables".to_string()))
+        .name("application-variables".to_string())
+        .appname(Some("application-variables".to_string()))
         .template(None)
         .assertions(
             move |metadata: AppMetadata,

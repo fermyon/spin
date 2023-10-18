@@ -92,12 +92,8 @@ pub mod pg;
 /// Implementation of the Spin MySQL database interface.
 pub mod mysql;
 
-/// Implementation of the spin config interface.
-#[allow(missing_docs)]
-pub mod config {
-    /// Exports the generated Spin config items.
-    pub use super::wit::v1::config::{get_config as get, Error};
-}
+#[doc(inline)]
+pub use wit::v2::variables;
 
 #[doc(hidden)]
 pub use wit_bindgen;

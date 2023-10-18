@@ -1,5 +1,5 @@
 [package]
-name = "spin-config"
+name = "spin-variables"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use spin_sdk::{config, http_component};
+use spin_sdk::{http_component, variables};
 
 #[http_component]
 fn hello_world(req: http::Request<()>) -> Result<http::Response<String>> {
@@ -11,7 +11,7 @@ fn hello_world(req: http::Request<()>) -> Result<http::Response<String>> {
             Err(e) => anyhow::bail!("Error, could not access test.txt: {}", e),
         }
     } else {
-        let msg = config::get("message").expect("Failed to acquire message from spin.toml");
+        let msg = variables::get("message").expect("Failed to acquire message from spin.toml");
 
         Ok(http::Response::builder().status(200).body(msg)?)
     }

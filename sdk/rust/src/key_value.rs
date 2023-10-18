@@ -34,7 +34,13 @@ impl Store {
 
     #[cfg(feature = "json")]
     /// Deserialize an instance of type `T` from the value of `key`.
-    pub fn get_json<T: DeserializeOwned>(&self, key: impl AsRef<str>) -> Result<T, anyhow::Error> {
-        Ok(serde_json::from_slice(&self.get(key.as_ref())?)?)
+    pub fn get_json<T: DeserializeOwned>(
+        &self,
+        key: impl AsRef<str>,
+    ) -> Result<Option<T>, anyhow::Error> {
+        let Some(value) = self.get(key.as_ref())? else {
+            return Ok(None);
+        };
+        Ok(serde_json::from_slice(&value)?)
     }
 }

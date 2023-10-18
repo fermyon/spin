@@ -1,13 +1,12 @@
 use anyhow::{ensure, Result};
 use itertools::sorted;
 use spin_sdk::{
-    http::{Request, Response},
     http_component,
     key_value::{Error, Store},
 };
 
 #[http_component]
-fn handle_request(req: Request) -> Result<Response> {
+fn handle_request(req: http::Request<()>) -> Result<http::Response<()>> {
     // TODO: once we allow users to pass non-default stores, test that opening
     // an allowed-but-non-existent one returns Error::NoSuchStore
     ensure!(matches!(Store::open("forbidden"), Err(Error::AccessDenied)));
@@ -66,5 +65,5 @@ fn handle_request(req: Request) -> Result<Response> {
 
     ensure!(matches!(store.get("bar"), Ok(None)));
 
-    Ok(http::Response::builder().status(200).body(None)?)
+    Ok(http::Response::builder().status(200).body(())?)
 }

@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
-use http::{HeaderValue, Method};
+use http::{HeaderValue, Method, Request, Response};
 use spin_sdk::{
-    http::{Request, Response},
+    http::Json,
     http_component,
     mysql::{self, ParameterValue},
 };
@@ -23,7 +23,9 @@ enum RequestAction {
 }
 
 #[http_component]
-fn rust_outbound_mysql(req: Request) -> Result<Response> {
+fn rust_outbound_mysql(
+    req: Request<Json<HashMap<String, String>>>,
+) -> Result<Response<Option<String>>> {
     match parse_request(req) {
         RequestAction::List => list(),
         RequestAction::Get(id) => get(id),
@@ -32,7 +34,7 @@ fn rust_outbound_mysql(req: Request) -> Result<Response> {
     }
 }
 
-fn parse_request(req: Request) -> RequestAction {
+fn parse_request(req: Request<Json<HashMap<String, String>>>) -> RequestAction {
     match *req.method() {
         Method::GET => match req.headers().get("spin-path-info") {
             None => RequestAction::Error(500),
@@ -43,21 +45,17 @@ fn parse_request(req: Request) -> RequestAction {
             },
         },
         Method::POST => {
-            match body_json_to_map(&req) {
-                Ok(map) => {
-                    let name = match map.get("name") {
-                        Some(n) => n.to_owned(),
-                        None => return RequestAction::Error(400), // If this were a real app it would have error messages
-                    };
-                    let prey = map.get("prey").cloned();
-                    let is_finicky = map
-                        .get("is_finicky")
-                        .map(|s| s == "true")
-                        .unwrap_or_default();
-                    RequestAction::Create(name, prey, is_finicky)
-                }
-                Err(_) => RequestAction::Error(400), // Sorry no this isn't helpful either
-            }
+            let map = req.body();
+            let name = match map.get("name") {
+                Some(n) => n.to_owned(),
+                None => return RequestAction::Error(400), // If this were a real app it would have error messages
+            };
+            let prey = map.get("prey").cloned();
+            let is_finicky = map
+                .get("is_finicky")
+                .map(|s| s == "true")
+                .unwrap_or_default();
+            RequestAction::Create(name, prey, is_finicky)
         }
         _ => RequestAction::Error(405),
     }
@@ -80,16 +78,7 @@ fn header_val_to_int(header_val: &HeaderValue) -> Result<Option<i32>, ()> {
     }
 }
 
-fn body_json_to_map(req: &Request) -> Result<HashMap<String, String>> {
-    // TODO: easier way?
-    let body = match req.body().as_ref() {
-        Some(bytes) => bytes.slice(..),
-        None => bytes::Bytes::default(),
-    };
-    Ok(serde_json::from_slice::<HashMap<String, String>>(&body)?)
-}
-
-fn list() -> Result<Response> {
+fn list() -> Result<Response<Option<String>>> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "SELECT id, name, prey, is_finicky FROM pets";
@@ -117,12 +106,10 @@ fn list() -> Result<Response> {
         column_summary,
     );
 
-    Ok(http::Response::builder()
-        .status(200)
-        .body(Some(response.into()))?)
+    Ok(http::Response::builder().status(200).body(Some(response))?)
 }
 
-fn get(id: i32) -> Result<Response> {
+fn get(id: i32) -> Result<Response<Option<String>>> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let sql = "SELECT id, name, prey, is_finicky FROM pets WHERE id = ?";
@@ -134,14 +121,16 @@ fn get(id: i32) -> Result<Response> {
         Some(row) => {
             let pet = as_pet(row)?;
             let response = format!("{:?}", pet);
-            Ok(http::Response::builder()
-                .status(200)
-                .body(Some(response.into()))?)
+            Ok(http::Response::builder().status(200).body(Some(response))?)
         }
     }
 }
 
-fn create(name: String, prey: Option<String>, is_finicky: bool) -> Result<Response> {
+fn create(
+    name: String,
+    prey: Option<String>,
+    is_finicky: bool,
+) -> Result<Response<Option<String>>> {
     let address = std::env::var(DB_URL_ENV)?;
 
     let id = max_pet_id(&address)? + 1;
@@ -170,7 +159,7 @@ fn create(name: String, prey: Option<String>, is_finicky: bool) -> Result<Respon
         .body(None)?)
 }
 
-fn error(status: u16) -> Result<Response> {
+fn error(status: u16) -> Result<Response<Option<String>>> {
     Ok(http::Response::builder().status(status).body(None)?)
 }
 

@@ -1,15 +1,13 @@
-use anyhow::Result;
-use spin_sdk::{
-    http::{Request, Response},
-    http_component,
-};
+use spin_sdk::http::{IntoResponse, Json, Response};
+use spin_sdk::http_component;
+
+#[derive(serde::Deserialize, Debug)]
+struct Greeted {
+    name: String,
+}
 
 /// A simple Spin HTTP component.
 #[http_component]
-fn hello_world(req: Request) -> Result<Response> {
-    println!("{:?}", req.headers());
-    Ok(http::Response::builder()
-        .status(200)
-        .header("foo", "bar")
-        .body(Some("Hello, Fermyon!\n".into()))?)
+fn hello_world(req: http::Request<Json<Greeted>>) -> anyhow::Result<impl IntoResponse> {
+    Ok(Response::new(200, format!("Hello, {}", req.body().name)))
 }

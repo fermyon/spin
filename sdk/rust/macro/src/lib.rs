@@ -15,142 +15,49 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
         mod __spin_http {
             #preamble
             impl self::exports::fermyon::spin::inbound_http::Guest for Spin {
-                // Implement the `handler` entrypoint for Spin HTTP components.
                 fn handle_request(req: self::exports::fermyon::spin::inbound_http::Request) -> self::exports::fermyon::spin::inbound_http::Response {
-                    match super::#func_name(req.try_into().expect("cannot convert from Spin HTTP request")) {
-                        Ok(resp) => resp.try_into().expect("cannot convert to Spin HTTP response"),
-                        Err(error) => {
-                            let body = error.to_string();
-                            eprintln!("Handler returned an error: {}", body);
-                            let mut source = error.source();
-                            while let Some(s) = source {
-                                eprintln!("  caused by: {}", s);
-                                source = s.source();
-                            }
-                            self::exports::fermyon::spin::inbound_http::Response {
-                                status: 500,
-                                headers: None,
-                                body: Some(body.as_bytes().to_vec()),
-                            }
-                        },
+                    let req: ::spin_sdk::http::Request = ::std::convert::Into::into(req);
+                    let resp = match ::spin_sdk::http::conversions::TryFromRequest::try_from_request(req) {
+                        ::std::result::Result::Ok(req) => ::spin_sdk::http::IntoResponse::into_response(super::#func_name(req)),
+                        ::std::result::Result::Err(e) => ::spin_sdk::http::IntoResponse::into_response(e),
+                    };
+                    ::std::convert::Into::into(resp)
+                }
+            }
+
+            impl ::std::convert::From<self::fermyon::spin::http_types::Request> for ::spin_sdk::http::Request  {
+                fn from(req: self::fermyon::spin::http_types::Request) -> Self {
+                    Self {
+                        method: ::std::convert::Into::into(req.method),
+                        uri: req.uri,
+                        params: req.params,
+                        headers: req.headers,
+                        body: req.body
                     }
                 }
             }
 
-            mod inbound_http_helpers {
-                use super::fermyon::spin::http_types as spin_http_types;
-
-                impl TryFrom<spin_http_types::Request> for http::Request<Option<bytes::Bytes>> {
-                    type Error = anyhow::Error;
-
-                    fn try_from(spin_req: spin_http_types::Request) -> Result<Self, Self::Error> {
-                        let mut http_req = http::Request::builder()
-                            .method(spin_req.method.clone())
-                            .uri(&spin_req.uri);
-
-                        append_request_headers(&mut http_req, &spin_req)?;
-
-                        let body = match spin_req.body {
-                            Some(b) => b.to_vec(),
-                            None => Vec::new(),
-                        };
-
-                        let body = Some(bytes::Bytes::from(body));
-
-                        Ok(http_req.body(body)?)
+            impl ::std::convert::From<self::fermyon::spin::http_types::Method> for ::spin_sdk::http::Method  {
+                fn from(method: self::fermyon::spin::http_types::Method) -> Self {
+                    match method {
+                        self::fermyon::spin::http_types::Method::Get => Self::Get,
+                        self::fermyon::spin::http_types::Method::Post => Self::Post,
+                        self::fermyon::spin::http_types::Method::Put => Self::Put,
+                        self::fermyon::spin::http_types::Method::Patch => Self::Patch,
+                        self::fermyon::spin::http_types::Method::Delete => Self::Delete,
+                        self::fermyon::spin::http_types::Method::Head => Self::Head,
+                        self::fermyon::spin::http_types::Method::Options => Self::Options,
                     }
                 }
+            }
 
-                impl From<spin_http_types::Method> for http::Method {
-                    fn from(spin_method: spin_http_types::Method) -> Self {
-                        match spin_method {
-                            spin_http_types::Method::Get => http::Method::GET,
-                            spin_http_types::Method::Post => http::Method::POST,
-                            spin_http_types::Method::Put => http::Method::PUT,
-                            spin_http_types::Method::Delete => http::Method::DELETE,
-                            spin_http_types::Method::Patch => http::Method::PATCH,
-                            spin_http_types::Method::Head => http::Method::HEAD,
-                            spin_http_types::Method::Options => http::Method::OPTIONS,
-                        }
+            impl ::std::convert::From<::spin_sdk::http::Response> for self::fermyon::spin::http_types::Response {
+                fn from(resp: ::spin_sdk::http::Response) -> Self {
+                    Self {
+                        status: resp.status,
+                        headers: resp.headers,
+                        body: resp.body,
                     }
-                }
-
-                fn append_request_headers(
-                    http_req: &mut http::request::Builder,
-                    spin_req: &spin_http_types::Request,
-                ) -> anyhow::Result<()> {
-                    let headers = http_req.headers_mut().unwrap();
-                    for (k, v) in &spin_req.headers {
-                        headers.append(
-                            <http::header::HeaderName as std::str::FromStr>::from_str(k)?,
-                            http::header::HeaderValue::from_str(v)?,
-                        );
-                    }
-
-                    Ok(())
-                }
-
-                impl TryFrom<spin_http_types::Response> for http::Response<Option<bytes::Bytes>> {
-                    type Error = anyhow::Error;
-
-                    fn try_from(spin_res: spin_http_types::Response) -> Result<Self, Self::Error> {
-                        let mut http_res = http::Response::builder().status(spin_res.status);
-                        append_response_headers(&mut http_res, spin_res.clone())?;
-
-                        let body = match spin_res.body {
-                            Some(b) => b.to_vec(),
-                            None => Vec::new(),
-                        };
-                        let body = Some(bytes::Bytes::from(body));
-
-                        Ok(http_res.body(body)?)
-                    }
-                }
-
-                fn append_response_headers(
-                    http_res: &mut http::response::Builder,
-                    spin_res: spin_http_types::Response,
-                ) -> anyhow::Result<()> {
-                    let headers = http_res.headers_mut().unwrap();
-                    for (k, v) in spin_res.headers.unwrap() {
-                        headers.append(
-                            <http::header::HeaderName as ::std::str::FromStr>::from_str(&k)?,
-                            http::header::HeaderValue::from_str(&v)?,
-                        );
-                    }
-
-                    Ok(())
-                }
-
-                impl TryFrom<http::Response<Option<bytes::Bytes>>> for spin_http_types::Response {
-                    type Error = anyhow::Error;
-
-                    fn try_from(
-                        http_res: http::Response<Option<bytes::Bytes>>,
-                    ) -> Result<Self, Self::Error> {
-                        let status = http_res.status().as_u16();
-                        let headers = Some(outbound_headers(http_res.headers())?);
-                        let body = http_res.body().as_ref().map(|b| b.to_vec());
-
-                        Ok(spin_http_types::Response {
-                            status,
-                            headers,
-                            body,
-                        })
-                    }
-                }
-
-                fn outbound_headers(hm: &http::HeaderMap) -> anyhow::Result<Vec<(String, String)>> {
-                    let mut res = Vec::new();
-
-                    for (k, v) in hm {
-                        res.push((
-                            k.as_str().to_string(),
-                            std::str::from_utf8(v.as_bytes())?.to_string(),
-                        ));
-                    }
-
-                    Ok(res)
                 }
             }
         }
@@ -186,263 +93,103 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// The entrypoint to a WASI HTTP component written in Rust.
+///
+/// Functions annotated with this attribute can be of two forms:
+/// * Request/Response
+/// * Input/Output Params
+///
+/// When in doubt prefer the Request/Response variant unless streaming response bodies is something you need.
+///
+/// ### Request/Response
+///
+/// This form has the same shape as the `http_component` handlers. The only difference is that the underlying handling
+/// happens through the `wasi-http` interface instead of the Spin specific `http` interface and thus requests are
+/// anything that implements `spin_sdk::wasi_http::conversions::TryFromIncomingRequest` and responses are anything that
+/// implements `spin_sdk::http::IntoResponse`.
+///
+/// For example:
+/// ```ignore
+/// #[wasi_http_component]
+/// async fn my_handler(request: IncomingRequest) -> anyhow::Result<impl IntoResponse> {
+///   // Your logic goes here
+/// }
+/// ```
+///
+/// ### Input/Output Params
+///
+/// Input/Output functions allow for streaming HTTP bodies. They are expected generally to be in the form:
+/// ```ignore
+/// #[wasi_http_component]
+/// async fn my_handler(request: IncomingRequest, response_out: ResponseOutparam) {
+///   // Your logic goes here
+/// }
+/// ```
+///
+/// The `request` param can be anything that implements `spin_sdk::wasi_http::conversions::TryFromIncomingRequest`.
+/// This includes all types that implement `spin_sdk::http::conversions::TryIntoRequest` (which may be more convenient to use
+/// when you don't need streaming request bodies).
 #[proc_macro_attribute]
 pub fn wasi_http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func = syn::parse_macro_input!(item as syn::ItemFn);
     let func_name = &func.sig.ident;
     let preamble = preamble(Export::WasiHttp);
+    let is_native_wasi_http_handler = func.sig.inputs.len() == 2;
+    let await_postfix = func.sig.asyncness.map(|_| quote!(.await));
+    let handler = if is_native_wasi_http_handler {
+        quote! { super::#func_name(req, response_out)#await_postfix }
+    } else {
+        quote! { handle_response(response_out, super::#func_name(req)#await_postfix).await }
+    };
 
     quote!(
         #func
-        // We export wasi here since `wit-bindgen` currently has no way of using types
-        // declared somewhere else as part of its generated code. If we want users to be able to
-        // use `wasi-http` types, they have to be generated in this macro. This should be solved once
-        // `with` is supported in wit-bindgen [ref: https://github.com/bytecodealliance/wit-bindgen/issues/694].
-        use __spin_wasi_http::wasi;
         mod __spin_wasi_http {
             #preamble
-            use exports::wasi::http::incoming_handler;
-            use wasi::http::types::{IncomingRequest, ResponseOutparam};
-
-            impl incoming_handler::Guest for Spin {
-                fn handle(request: IncomingRequest, response_out: ResponseOutparam) {
-                    let future = async move {
-                        if let Err(e) = super::#func_name(request, response_out).await {
-                            eprintln!("Handler returned an error: {e}");
+            impl self::exports::wasi::http::incoming_handler::Guest for Spin {
+                fn handle(request: wasi::http::types::IncomingRequest, response_out: self::wasi::http::types::ResponseOutparam) {
+                    let request: ::spin_sdk::wasi_http::IncomingRequest = ::std::convert::Into::into(request);
+                    let response_out: ::spin_sdk::wasi_http::ResponseOutparam = ::std::convert::Into::into(response_out);
+                    ::spin_sdk::wasi_http::run(async move {
+                        match ::spin_sdk::wasi_http::conversions::TryFromIncomingRequest::try_from_incoming_request(request).await {
+                            ::std::result::Result::Ok(req) => #handler,
+                            ::std::result::Result::Err(e) => handle_response(response_out, e).await,
                         }
-                    };
-                    futures::pin_mut!(future);
-                    super::executor::run(future);
+                    });
+                }
+            }
+
+            async fn handle_response<R: ::spin_sdk::http::IntoResponse>(response_out: ::spin_sdk::wasi_http::ResponseOutparam, resp: R) {
+                let mut response = ::spin_sdk::http::IntoResponse::into_response(resp);
+                let body = response.body.take().unwrap_or_default();
+                let response = ::std::convert::Into::into(response);
+                if let Err(e) = ::spin_sdk::wasi_http::ResponseOutparam::set_with_body(response_out, response, body).await {
+                    eprintln!("Could not set `ResponseOutparam`: {e}");
+                }
+            }
+
+            impl From<self::wasi::http::types::IncomingRequest> for ::spin_sdk::wasi_http::IncomingRequest {
+                fn from(req: self::wasi::http::types::IncomingRequest) -> Self {
+                    let req = ::std::mem::ManuallyDrop::new(req);
+                    unsafe { Self::from_handle(req.handle()) }
+                }
+            }
+
+            impl From<::spin_sdk::wasi_http::OutgoingResponse> for self::wasi::http::types::OutgoingResponse {
+                fn from(resp: ::spin_sdk::wasi_http::OutgoingResponse) -> Self {
+                    unsafe { Self::from_handle(resp.into_handle()) }
+                }
+            }
+
+            impl From<self::wasi::http::types::ResponseOutparam> for ::spin_sdk::wasi_http::ResponseOutparam {
+                fn from(resp: self::wasi::http::types::ResponseOutparam) -> Self {
+                    let resp = ::std::mem::ManuallyDrop::new(resp);
+                    unsafe { Self::from_handle(resp.handle()) }
                 }
             }
         }
 
-        mod executor {
-            use {
-                super::wasi::{
-                    http::{
-                        outgoing_handler,
-                        types::{
-                            self, IncomingBody, IncomingRequest, IncomingResponse, OutgoingBody,
-                            OutgoingRequest, OutgoingResponse,
-                        },
-                    },
-                    io::{
-                        poll,
-                        streams::{InputStream, OutputStream, StreamError},
-                    },
-                },
-                anyhow::{anyhow, Error, Result},
-                futures::{future, sink, stream, Sink, Stream},
-                std::{
-                    cell::RefCell,
-                    future::Future,
-                    mem,
-                    pin::Pin,
-                    rc::Rc,
-                    sync::{Arc, Mutex},
-                    task::{Context, Poll, Wake, Waker},
-                },
-            };
-
-            const READ_SIZE: u64 = 16 * 1024;
-
-            static WAKERS: Mutex<Vec<(poll::Pollable, Waker)>> = Mutex::new(Vec::new());
-
-            /// Run the specified future on an executor based on `wasi::io/poll/poll-list`, blocking until it
-            /// yields a result.
-            pub fn run<T>(mut future: Pin<&mut impl Future<Output = T>>) -> T {
-                struct DummyWaker;
-
-                impl Wake for DummyWaker {
-                    fn wake(self: Arc<Self>) {}
-                }
-
-                let waker = Arc::new(DummyWaker).into();
-
-                loop {
-                    match future.as_mut().poll(&mut Context::from_waker(&waker)) {
-                        Poll::Pending => {
-                            let mut new_wakers = Vec::new();
-
-                            let wakers = mem::take::<Vec<_>>(&mut WAKERS.lock().unwrap());
-
-                            assert!(!wakers.is_empty());
-
-                            let pollables = wakers
-                                .iter()
-                                .map(|(pollable, _)| pollable)
-                                .collect::<Vec<_>>();
-
-                            let mut ready = vec![false; wakers.len()];
-
-                            for index in poll::poll_list(&pollables) {
-                                ready[usize::try_from(index).unwrap()] = true;
-                            }
-
-                            for (ready, (pollable, waker)) in ready.into_iter().zip(wakers) {
-                                if ready {
-                                    waker.wake()
-                                } else {
-                                    new_wakers.push((pollable, waker));
-                                }
-                            }
-
-                            *WAKERS.lock().unwrap() = new_wakers;
-                        }
-                        Poll::Ready(result) => break result,
-                    }
-                }
-            }
-
-            /// Construct a `Sink` which writes chunks to the body of the specified response.
-            pub fn outgoing_response_body(response: &OutgoingResponse) -> impl Sink<Vec<u8>, Error = Error> {
-                outgoing_body(response.write().expect("response should be writable"))
-            }
-
-            fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = Error> {
-                struct Outgoing(Option<(OutputStream, OutgoingBody)>);
-
-                impl Drop for Outgoing {
-                    fn drop(&mut self) {
-                        if let Some((stream, body)) = self.0.take() {
-                            drop(stream);
-                            OutgoingBody::finish(body, None);
-                        }
-                    }
-                }
-
-                let stream = body.write().expect("response body should be writable");
-                let pair = Rc::new(RefCell::new(Outgoing(Some((stream, body)))));
-
-                sink::unfold((), {
-                    move |(), chunk: Vec<u8>| {
-                        future::poll_fn({
-                            let mut offset = 0;
-                            let mut flushing = false;
-                            let pair = pair.clone();
-
-                            move |context| {
-                                let pair = pair.borrow();
-                                let (stream, _) = &pair.0.as_ref().unwrap();
-
-                                loop {
-                                    match stream.check_write() {
-                                        Ok(0) => {
-                                            WAKERS
-                                                .lock()
-                                                .unwrap()
-                                                .push((stream.subscribe(), context.waker().clone()));
-
-                                            break Poll::Pending;
-                                        }
-                                        Ok(count) => {
-                                            if offset == chunk.len() {
-                                                if flushing {
-                                                    break Poll::Ready(Ok(()));
-                                                } else {
-                                                    stream.flush().expect("stream should be flushable");
-                                                    flushing = true;
-                                                }
-                                            } else {
-                                                let count =
-                                                    usize::try_from(count).unwrap().min(chunk.len() - offset);
-
-                                                match stream.write(&chunk[offset..][..count]) {
-                                                    Ok(()) => {
-                                                        offset += count;
-                                                    }
-                                                    Err(_) => break Poll::Ready(Err(anyhow!("I/O error"))),
-                                                }
-                                            }
-                                        }
-                                        Err(_) => break Poll::Ready(Err(anyhow!("I/O error"))),
-                                    }
-                                }
-                            }
-                        })
-                    }
-                })
-            }
-
-            /// Send the specified request and return the response.
-            pub fn outgoing_request_send(
-                request: OutgoingRequest,
-            ) -> impl Future<Output = Result<IncomingResponse, types::Error>> {
-                future::poll_fn({
-                    let response = outgoing_handler::handle(request, None);
-
-                    move |context| match &response {
-                        Ok(response) => {
-                            if let Some(response) = response.get() {
-                                Poll::Ready(response.unwrap())
-                            } else {
-                                WAKERS
-                                    .lock()
-                                    .unwrap()
-                                    .push((response.subscribe(), context.waker().clone()));
-                                Poll::Pending
-                            }
-                        }
-                        Err(error) => Poll::Ready(Err(error.clone())),
-                    }
-                })
-            }
-
-            /// Return a `Stream` from which the body of the specified request may be read.
-            pub fn incoming_request_body(request: IncomingRequest) -> impl Stream<Item = Result<Vec<u8>>> {
-                incoming_body(request.consume().expect("request should be consumable"))
-            }
-
-            /// Return a `Stream` from which the body of the specified response may be read.
-            pub fn incoming_response_body(response: IncomingResponse) -> impl Stream<Item = Result<Vec<u8>>> {
-                incoming_body(response.consume().expect("response should be consumable"))
-            }
-
-            fn incoming_body(body: IncomingBody) -> impl Stream<Item = Result<Vec<u8>>> {
-                struct Incoming(Option<(InputStream, IncomingBody)>);
-
-                impl Drop for Incoming {
-                    fn drop(&mut self) {
-                        if let Some((stream, body)) = self.0.take() {
-                            drop(stream);
-                            IncomingBody::finish(body);
-                        }
-                    }
-                }
-
-                stream::poll_fn({
-                    let stream = body.stream().expect("response body should be readable");
-                    let pair = Incoming(Some((stream, body)));
-
-                    move |context| {
-                        if let Some((stream, _)) = &pair.0 {
-                            match stream.read(READ_SIZE) {
-                                Ok(buffer) => {
-                                    if buffer.is_empty() {
-                                        WAKERS
-                                            .lock()
-                                            .unwrap()
-                                            .push((stream.subscribe(), context.waker().clone()));
-                                        Poll::Pending
-                                    } else {
-                                        Poll::Ready(Some(Ok(buffer)))
-                                    }
-                                }
-                                Err(StreamError::Closed) => Poll::Ready(None),
-                                Err(StreamError::LastOperationFailed(error)) => {
-                                    Poll::Ready(Some(Err(anyhow!("{}", error.to_debug_string()))))
-                                }
-                            }
-                        } else {
-                            Poll::Ready(None)
-                        }
-                    }
-                })
-            }
-        }
     )
-        .into()
+    .into()
 }
 
 #[derive(Copy, Clone)]

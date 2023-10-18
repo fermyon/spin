@@ -18,11 +18,8 @@ use spin_sdk::{
 /// A simple Spin HTTP component.
 #[http_component]
 fn hello_world(req: Request) -> Result<Response> {
-    println!("{:?}", req.headers());
-    Ok(http::Response::builder()
-        .status(200)
-        .header("foo", "bar")
-        .body(Some("Hello, Fermyon!".into()))?)
+    println!("{:?}", req.headers);
+    Ok(Response::new_with_headers(200, &[] "Hello, Fermyon!"))
 }
 ```
 
@@ -31,9 +28,10 @@ The important things to note in the function above:
 - the `spin_sdk::http_component` macro — this marks the function as the
   entrypoint for the Spin component
 - the function signature — `fn hello_world(req: Request) -> Result<Response>` —
-  the Spin HTTP component uses the HTTP objects from the popular Rust crate
-  [`http`](https://crates.io/crates/http), and the request and response bodies
-  are optionally using [`bytes::Bytes`](https://crates.io/crates/bytes)
+`req` can be any number of types including the built in `Request` type or 
+the `http::Request` from the popular `http` crate. Likewise, the response type
+can be many things including the built in `Response` type or the `http::Response` type
+from the `http` crate.
 
 ### Making outbound HTTP requests
 
@@ -43,11 +41,11 @@ server, modifies the result, then returns it:
 ```rust
 #[http_component]
 fn hello_world(_req: Request) -> Result<Response> {
-    let mut res = spin_sdk::http::send(
+    let mut res: http::Response<()> = spin_sdk::http::send(
         http::Request::builder()
             .method("GET")
             .uri("https://fermyon.com")
-            .body(None)?,
+            .body(())?,
     )?;
 
     res.headers_mut()

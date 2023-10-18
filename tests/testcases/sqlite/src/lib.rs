@@ -1,12 +1,11 @@
 use anyhow::{ensure, Result};
 use spin_sdk::{
-    http::{Request, Response},
     http_component,
     sqlite::{Connection, Error, Value},
 };
 
 #[http_component]
-fn handle_request(req: Request) -> Result<Response> {
+fn handle_request(req: http::Request<()>) -> Result<http::Response<()>> {
     ensure!(matches!(
         Connection::open("forbidden"),
         Err(Error::AccessDenied)
@@ -43,5 +42,5 @@ fn handle_request(req: Request) -> Result<Response> {
     assert_eq!(init_key, fetched_key);
     assert_eq!(init_val, fetched_value);
 
-    Ok(http::Response::builder().status(200).body(None)?)
+    Ok(http::Response::builder().status(200).body(())?)
 }

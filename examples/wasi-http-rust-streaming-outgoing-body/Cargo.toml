@@ -1,10 +1,10 @@
 [package]
-name = "wasi-http-rust-async"
+name = "wasi-http-rust-streaming-outgoing-body"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = [ "cdylib" ]
+crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1.0.71"

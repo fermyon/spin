@@ -3787,7 +3787,6 @@ version = "2.0.0-pre0"
 dependencies = [
  "anyhow",
  "indexmap 1.9.3",
- "outbound-http",
  "serde",
  "spin-serde",
  "thiserror",

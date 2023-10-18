@@ -1,7 +1,7 @@
 interface mysql {
   use fermyon:spin/rdbms-types.{parameter-value, row-set}
 
-  /// Errors related to interacting with Mysql.
+  /// Errors related to interacting with MySQL.
   variant error {
       connection-failed(string),
       bad-parameter(string),
@@ -10,9 +10,9 @@ interface mysql {
       other(string)
   }
 
-  /// A connection to a mysql database.
+  /// A connection to a MySQL database.
   resource connection {
-    /// Open a connection to the Postgres instance at `address`.
+    /// Open a connection to the MySQL instance at `address`.
     open: static func(address: string) -> result<connection, error>
 
     /// query the database: select

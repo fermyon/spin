@@ -53,7 +53,7 @@ impl v2::HostConnection for OutboundMysql {
                         .await
                         .map_err(|e| v2::Error::ConnectionFailed(format!("{e:?}")))?,
                 )
-                .map_err(|_| v2::Error::Other("too many connections".into()))
+                .map_err(|_| v2::Error::ConnectionFailed("too many connections".into()))
                 .map(Resource::new_own)
         }
         .await)

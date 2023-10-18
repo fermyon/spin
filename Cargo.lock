@@ -5946,7 +5946,6 @@ dependencies = [
  "anyhow",
  "glob",
  "indexmap 1.9.2",
- "outbound-http",
  "serde",
  "serde_json",
  "spin-serde",

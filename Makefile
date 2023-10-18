@@ -60,8 +60,10 @@ lint: lint-rust-examples-and-testcases
 .PHONY: lint-rust-examples-and-testcases
 lint-rust-examples-and-testcases:
 	for manifest_path in $$(find examples tests/testcases -name Cargo.toml); do \
-		cargo clippy --manifest-path "$${manifest_path}" -- -D warnings \
+		echo "Linting $${manifest_path}" \
+		&& cargo clippy --manifest-path "$${manifest_path}" -- -D warnings \
 		&& cargo fmt --manifest-path "$${manifest_path}" -- --check \
+		&& (git diff --name-status --exit-code . || (echo "Git working tree dirtied by lints. Run 'make update-cargo-locks' and check in changes" && false)) \
 		|| exit 1 ; \
 	done
 

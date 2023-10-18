@@ -1,16 +1,16 @@
 use anyhow::{bail, Result};
 use futures::{stream, SinkExt, StreamExt, TryStreamExt};
-use spin_sdk::wasi_http::send;
-use spin_sdk::wasi_http::{
+use spin_sdk::http::send;
+use spin_sdk::http::{
     Fields, IncomingRequest, IncomingResponse, Method, OutgoingBody, OutgoingRequest,
     OutgoingResponse, ResponseOutparam, Scheme,
 };
-use spin_sdk::wasi_http_component;
+use spin_sdk::http_component;
 use url::Url;
 
 const MAX_CONCURRENCY: usize = 16;
 
-#[wasi_http_component]
+#[http_component]
 async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam) {
     let headers = request.headers().entries();
 

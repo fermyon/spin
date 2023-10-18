@@ -47,7 +47,7 @@ extern "C" fn __spin_sdk_language() {}
 extern "C" fn __spin_sdk_hash() {}
 
 /// Helpers for building Spin `wasi-http` components.
-pub mod wasi_http;
+pub mod http;
 
 /// Implementation of the spin redis interface.
 #[allow(missing_docs)]

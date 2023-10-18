@@ -1,7 +1,7 @@
 use anyhow::Result;
 use spin_sdk::{
+    http::{Request, Response},
     http_component,
-    wasi_http::{Request, Response},
 };
 
 /// A simple Spin HTTP component.

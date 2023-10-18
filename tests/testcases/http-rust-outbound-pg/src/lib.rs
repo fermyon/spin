@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 use anyhow::Result;
 use spin_sdk::{
+    http_component,
     pg::{self, Decode},
-    wasi_http_component,
 };
 
 // The environment variable set in `spin.toml` that points to the
@@ -39,7 +39,7 @@ struct GeneralRow<'a> {
     rbytea: &'a str,
 }
 
-#[wasi_http_component]
+#[http_component]
 fn process(req: http::Request<()>) -> Result<http::Response<String>> {
     match req.uri().path() {
         "/test_character_types" => test_character_types(req),

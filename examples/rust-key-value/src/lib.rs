@@ -1,11 +1,11 @@
 use http::{Method, StatusCode};
 use spin_sdk::{
+    http::{IntoResponse, Response},
+    http_component,
     key_value::Store,
-    wasi_http::{IntoResponse, Response},
-    wasi_http_component,
 };
 
-#[wasi_http_component]
+#[http_component]
 fn handle_request(req: http::Request<Vec<u8>>) -> anyhow::Result<impl IntoResponse> {
     // Open the default key-value store
     let store = Store::open_default()?;

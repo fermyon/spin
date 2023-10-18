@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, str, str::FromStr};
 
 use crate::{Body, HttpExecutor, HttpTrigger, Store};
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use http_body_util::BodyExt;
 use hyper::{Request, Response};
@@ -64,12 +64,19 @@ impl SpinHttpExecutor {
         {
             headers = Self::headers(&mut req, raw_route, base, client_addr)?;
         }
-
-        let func = instance
-            .exports(&mut store)
-            .instance("fermyon:spin/inbound-http")
-            .ok_or_else(|| anyhow!("no fermyon:spin/inbound-http instance found"))?
-            .typed_func::<(http_types::Request,), (http_types::Response,)>("handle-request")?;
+        let func = {
+            let mut exports = instance.exports(&mut store);
+            let Some(mut instance) = exports.instance("fermyon:spin/inbound-http") else {
+                if exports.instance("wasi:http/incoming-handler").is_some() {
+                    anyhow::bail!("no fermyon:spin/inbound-http instance found but wasi:http/incoming-handler was found instead.\n\
+                    Make sure to put `executor = {{ type = \"wasi\" }}` under [component.trigger] in your spin.toml manifest.")
+                } else {
+                    anyhow::bail!("no fermyon:spin/inbound-http instance found")
+                }
+            };
+            instance
+                .typed_func::<(http_types::Request,), (http_types::Response,)>("handle-request")?
+        };
 
         let (parts, body) = req.into_parts();
         let bytes = body.collect().await?.to_bytes().to_vec();

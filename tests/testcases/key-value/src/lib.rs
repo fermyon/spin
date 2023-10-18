@@ -1,11 +1,11 @@
 use anyhow::{ensure, Result};
 use itertools::sorted;
 use spin_sdk::{
+    http_component,
     key_value::{Error, Store},
-    wasi_http_component,
 };
 
-#[wasi_http_component]
+#[http_component]
 fn handle_request(req: http::Request<()>) -> Result<http::Response<()>> {
     // TODO: once we allow users to pass non-default stores, test that opening
     // an allowed-but-non-existent one returns Error::NoSuchStore

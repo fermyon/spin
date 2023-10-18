@@ -1,9 +1,8 @@
 use anyhow::{anyhow, Context, Result};
 use spin_sdk::{
-    redis,
-    wasi_http::responses::internal_server_error,
-    wasi_http::{IntoResponse, Request, Response},
-    wasi_http_component,
+    http::responses::internal_server_error,
+    http::{IntoResponse, Request, Response},
+    http_component, redis,
 };
 
 // The environment variable set in `spin.toml` that points to the
@@ -19,7 +18,7 @@ const REDIS_CHANNEL_ENV: &str = "REDIS_CHANNEL";
 /// by key, setting a key with a value, and publishing a message
 /// to a Redis channel. The component is triggered by an HTTP
 /// request served on the route configured in the `spin.toml`.
-#[wasi_http_component]
+#[http_component]
 fn publish(_req: Request) -> Result<impl IntoResponse> {
     let address = std::env::var(REDIS_ADDRESS_ENV)?;
     let channel = std::env::var(REDIS_CHANNEL_ENV)?;

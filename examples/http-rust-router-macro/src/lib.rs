@@ -1,11 +1,10 @@
 #![allow(dead_code, unused_imports)]
 use spin_sdk::{
-    http_router,
-    wasi_http::{IntoResponse, Params, Request, Response},
-    wasi_http_component,
+    http::{IntoResponse, Params, Request, Response},
+    http_component, http_router,
 };
 
-#[wasi_http_component]
+#[http_component]
 fn handle_route(req: Request) -> impl IntoResponse {
     let router = http_router! {
         GET "/hello/:planet" => api::hello_planet,

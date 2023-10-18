@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Result};
 use http::{HeaderValue, Method, Request, Response};
 use spin_sdk::{
+    http::Json,
+    http_component,
     mysql::{self, ParameterValue},
-    wasi_http::Json,
-    wasi_http_component,
 };
 use std::{collections::HashMap, str::FromStr};
 
@@ -22,7 +22,7 @@ enum RequestAction {
     Error(u16),
 }
 
-#[wasi_http_component]
+#[http_component]
 fn rust_outbound_mysql(
     req: Request<Json<HashMap<String, String>>>,
 ) -> Result<Response<Option<String>>> {

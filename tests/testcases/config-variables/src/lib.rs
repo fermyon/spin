@@ -1,7 +1,7 @@
 use anyhow::{ensure, Result};
-use spin_sdk::{config, wasi_http_component};
+use spin_sdk::{config, http_component};
 
-#[wasi_http_component]
+#[http_component]
 fn handle_request(req: http::Request<()>) -> Result<http::Response<()>> {
     let query = req
         .uri()

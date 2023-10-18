@@ -11,12 +11,12 @@ such a component:
 // lib.rs
 use anyhow::Result;
 use spin_sdk::{
-    wasi_http::{Request, Response},
-    wasi_http_component,
+    http::{Request, Response},
+    http_component,
 };
 
 /// A simple Spin HTTP component.
-#[wasi_http_component]
+#[http_component]
 fn hello_world(req: Request) -> Result<Response> {
     println!("{:?}", req.headers);
     Ok(Response::new_with_headers(200, &[] "Hello, Fermyon!"))
@@ -39,9 +39,9 @@ Let's see an example where the component makes an outbound HTTP request to a
 server, modifies the result, then returns it:
 
 ```rust
-#[wasi_http_component]
+#[http_component]
 async fn hello_world(_req: Request) -> Result<Response> {
-    let mut res: http::Response<()> = spin_sdk::wasi_http::send(
+    let mut res: http::Response<()> = spin_sdk::http::send(
         http::Request::builder()
             .method("GET")
             .uri("https://fermyon.com")

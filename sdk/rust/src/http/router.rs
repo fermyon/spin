@@ -247,7 +247,7 @@ fn method_not_allowed(_req: Request, _params: Params) -> Response {
 macro_rules! http_router {
     ($($method:tt $path:literal => $h:expr),*) => {
         {
-            let mut router = $crate::wasi_http::Router::new();
+            let mut router = $crate::http::Router::new();
             $(
                 $crate::http_router!(@build router $method $path => $h);
             )*

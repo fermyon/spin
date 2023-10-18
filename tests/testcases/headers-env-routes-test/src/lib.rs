@@ -1,10 +1,10 @@
 use anyhow::Result;
-use spin_sdk::{wasi_http::IntoResponse, wasi_http_component};
+use spin_sdk::{http::IntoResponse, http_component};
 
 // This handler does the following:
 // - returns all environment variables as headers with an ENV_ prefix
 // - returns all request headers as response headers.
-#[wasi_http_component]
+#[http_component]
 fn handle_http_request(req: http::Request<()>) -> Result<impl IntoResponse> {
     let resp = append_headers(http::Response::builder(), &req);
     Ok(resp.status(200).body(Some("I'm a teapot"))?)

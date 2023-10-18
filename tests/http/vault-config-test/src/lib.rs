@@ -1,8 +1,8 @@
 use anyhow::Result;
-use spin_sdk::{config, wasi_http_component};
+use spin_sdk::{config, http_component};
 
 /// A simple Spin HTTP component.
-#[wasi_http_component]
+#[http_component]
 fn config_test(_req: http::Request<()>) -> Result<http::Response<String>> {
     // Ensure we can get a value from Vault
     let password = config::get("password").expect("Failed to acquire password from vault");

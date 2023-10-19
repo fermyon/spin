@@ -407,6 +407,11 @@ pub async fn http_go_works(controller: &dyn Controller) {
     let tc = TestCaseBuilder::default()
         .name("http-go-template".to_string())
         .template(Some("http-go".to_string()))
+        .pre_build_hooks(Some(vec![vec![
+            "go".to_string(),
+            "mod".to_string(),
+            "tidy".to_string(),
+        ]]))
         .assertions(
             |metadata: AppMetadata,
              stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
@@ -1020,6 +1025,11 @@ pub async fn redis_go_works(controller: &dyn Controller) {
             "redis-address=redis://redis:6379".to_string(),
         ])
         .trigger_type("redis".to_string())
+        .pre_build_hooks(Some(vec![vec![
+            "go".to_string(),
+            "mod".to_string(),
+            "tidy".to_string(),
+        ]]))
         .assertions(
             |metadata: AppMetadata,
              stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
@@ -1180,6 +1190,11 @@ pub async fn registry_works(controller: &dyn Controller) {
         .name("http-go".to_string())
         .template(Some("http-go".to_string()))
         .appname(Some("http-go-registry-generated".to_string()))
+        .pre_build_hooks(Some(vec![vec![
+            "go".to_string(),
+            "mod".to_string(),
+            "tidy".to_string(),
+        ]]))
         .push_to_registry(Some(registry_app_url.clone()))
         .deploy_args(vec![
             "--from-registry".to_string(),

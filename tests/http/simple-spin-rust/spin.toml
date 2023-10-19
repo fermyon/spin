@@ -14,6 +14,5 @@ source = "target/wasm32-wasi/release/simple_spin_rust.wasm"
 files = [{ source = "assets", destination = "/" }]
 [component.trigger]
 route = "/hello/..."
-executor = { type = "wagi" }
 [component.config]
 message = "I'm a {{object}}"

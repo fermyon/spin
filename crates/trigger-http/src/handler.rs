@@ -1,22 +1,25 @@
 use std::{net::SocketAddr, str, str::FromStr};
 
 use crate::{Body, HttpExecutor, HttpTrigger, Store};
-use anyhow::Result;
-use async_trait::async_trait;
+use anyhow::bail;
+use anyhow::{anyhow, Context, Result};
 use http_body_util::BodyExt;
 use hyper::{Request, Response};
 use outbound_http::OutboundHttpComponent;
+use spin_core::async_trait;
 use spin_core::Instance;
 use spin_http::body;
 use spin_trigger::{EitherInstance, TriggerAppEngine};
 use spin_world::v1::http_types;
 use std::sync::Arc;
+use tokio::{sync::oneshot, task};
+use wasmtime_wasi_http::{proxy::Proxy, WasiHttpView};
 
 #[derive(Clone)]
-pub struct SpinHttpExecutor;
+pub struct HttpHandlerExecutor;
 
 #[async_trait]
-impl HttpExecutor for SpinHttpExecutor {
+impl HttpExecutor for HttpHandlerExecutor {
     async fn execute(
         &self,
         engine: &TriggerAppEngine<HttpTrigger>,
@@ -38,9 +41,15 @@ impl HttpExecutor for SpinHttpExecutor {
 
         set_http_origin_from_request(&mut store, engine, &req);
 
-        let resp = Self::execute_impl(store, instance, base, raw_route, req, client_addr)
-            .await
-            .map_err(contextualise_err)?;
+        let resp = match HandlerType::from_exports(instance.exports(&mut store)) {
+            Some(HandlerType::Wasi) => Self::execute_wasi(store, instance, req).await?,
+            Some(HandlerType::Spin) => {
+                Self::execute_spin(store, instance, base, raw_route, req, client_addr)
+                    .await
+                    .map_err(contextualise_err)?
+            }
+            None => bail!("Expected component to either export `wasi:http/incoming-handler` or `fermyon:spin/inbound-http` but it exported neither")
+        };
 
         tracing::info!(
             "Request finished, sending response with status code {}",
@@ -50,8 +59,8 @@ impl HttpExecutor for SpinHttpExecutor {
     }
 }
 
-impl SpinHttpExecutor {
-    pub async fn execute_impl(
+impl HttpHandlerExecutor {
+    pub async fn execute_spin(
         mut store: Store,
         instance: Instance,
         base: &str,
@@ -64,19 +73,12 @@ impl SpinHttpExecutor {
         {
             headers = Self::headers(&mut req, raw_route, base, client_addr)?;
         }
-        let func = {
-            let mut exports = instance.exports(&mut store);
-            let Some(mut instance) = exports.instance("fermyon:spin/inbound-http") else {
-                if exports.instance("wasi:http/incoming-handler").is_some() {
-                    anyhow::bail!("no fermyon:spin/inbound-http instance found but wasi:http/incoming-handler was found instead.\n\
-                    Make sure to put `executor = {{ type = \"wasi\" }}` under [component.trigger] in your spin.toml manifest.")
-                } else {
-                    anyhow::bail!("no fermyon:spin/inbound-http instance found")
-                }
-            };
-            instance
-                .typed_func::<(http_types::Request,), (http_types::Response,)>("handle-request")?
-        };
+        let func = instance
+            .exports(&mut store)
+            .instance("fermyon:spin/inbound-http")
+            // Safe since we have already checked that this instance exists
+            .expect("no fermyon:spin/inbound-http found")
+            .typed_func::<(http_types::Request,), (http_types::Response,)>("handle-request")?;
 
         let (parts, body) = req.into_parts();
         let bytes = body.collect().await?.to_bytes().to_vec();
@@ -142,6 +144,53 @@ impl SpinHttpExecutor {
         })
     }
 
+    async fn execute_wasi(
+        mut store: Store,
+        instance: Instance,
+        req: Request<Body>,
+    ) -> anyhow::Result<Response<Body>> {
+        let request = store.as_mut().data_mut().new_incoming_request(req)?;
+
+        let (response_tx, response_rx) = oneshot::channel();
+        let response = store
+            .as_mut()
+            .data_mut()
+            .new_response_outparam(response_tx)?;
+
+        let proxy = Proxy::new(&mut store, &instance)?;
+
+        let handle = task::spawn(async move {
+            let result = proxy
+                .wasi_http_incoming_handler()
+                .call_handle(&mut store, request, response)
+                .await;
+
+            tracing::trace!("result: {result:?}",);
+
+            tracing::trace!(
+                "memory consumed: {}",
+                store.as_ref().data().memory_consumed()
+            );
+
+            result
+        });
+
+        match response_rx.await {
+            Ok(response) => Ok(response.context("guest failed to produce a response")?),
+
+            Err(_) => {
+                handle
+                    .await
+                    .context("guest invocation panicked")?
+                    .context("guest invocation failed")?;
+
+                Err(anyhow!(
+                    "guest failed to produce a response prior to returning"
+                ))
+            }
+        }
+    }
+
     fn headers(
         req: &mut Request<Body>,
         raw: &str,
@@ -195,6 +244,25 @@ impl SpinHttpExecutor {
     }
 }
 
+/// Whether this handler uses the custom Spin http handler interface for wasi-http
+enum HandlerType {
+    Spin,
+    Wasi,
+}
+
+impl HandlerType {
+    /// Determine the handler type from the exports
+    fn from_exports(mut exports: wasmtime::component::Exports<'_>) -> Option<HandlerType> {
+        if exports.instance("wasi:http/incoming-handler").is_some() {
+            return Some(HandlerType::Wasi);
+        }
+        if exports.instance("fermyon:spin/inbound-http").is_some() {
+            return Some(HandlerType::Spin);
+        }
+        None
+    }
+}
+
 fn set_http_origin_from_request(
     store: &mut Store,
     engine: &TriggerAppEngine<HttpTrigger>,
@@ -235,15 +303,15 @@ mod tests {
     #[test]
     fn test_spin_header_keys() {
         assert_eq!(
-            SpinHttpExecutor::prepare_header_key("SPIN_FULL_URL"),
+            HttpHandlerExecutor::prepare_header_key("SPIN_FULL_URL"),
             "spin-full-url".to_string()
         );
         assert_eq!(
-            SpinHttpExecutor::prepare_header_key("SPIN_PATH_INFO"),
+            HttpHandlerExecutor::prepare_header_key("SPIN_PATH_INFO"),
             "spin-path-info".to_string()
         );
         assert_eq!(
-            SpinHttpExecutor::prepare_header_key("SPIN_RAW_COMPONENT_ROUTE"),
+            HttpHandlerExecutor::prepare_header_key("SPIN_RAW_COMPONENT_ROUTE"),
             "spin-raw-component-route".to_string()
         );
     }

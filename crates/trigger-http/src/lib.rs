@@ -1,9 +1,8 @@
 //! Implementation for the Spin HTTP engine.
 
-mod spin;
+mod handler;
 mod tls;
 mod wagi;
-mod wasi;
 
 use std::{
     collections::HashMap,
@@ -40,7 +39,7 @@ use tokio::{
 use tracing::log;
 use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
-use crate::{spin::SpinHttpExecutor, wagi::WagiHttpExecutor, wasi::WasiHttpExecutor};
+use crate::{handler::HttpHandlerExecutor, wagi::WagiHttpExecutor};
 
 pub use tls::TlsConfig;
 
@@ -212,12 +211,11 @@ impl HttpTrigger {
             Ok(component_id) => {
                 let trigger = self.component_trigger_configs.get(component_id).unwrap();
 
-                let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Spin);
+                let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Http);
 
                 let res = match executor {
-                    HttpExecutorType::Spin => {
-                        let executor = SpinHttpExecutor;
-                        executor
+                    HttpExecutorType::Http => {
+                        HttpHandlerExecutor
                             .execute(
                                 &self.engine,
                                 component_id,
@@ -233,18 +231,6 @@ impl HttpTrigger {
                             wagi_config: wagi_config.clone(),
                         };
                         executor
-                            .execute(
-                                &self.engine,
-                                component_id,
-                                &self.base,
-                                &trigger.route,
-                                req,
-                                addr,
-                            )
-                            .await
-                    }
-                    HttpExecutorType::Wasi => {
-                        WasiHttpExecutor
                             .execute(
                                 &self.engine,
                                 component_id,

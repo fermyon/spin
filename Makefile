@@ -53,7 +53,7 @@ install:
 test: lint test-unit test-integration
 
 .PHONY: lint
-lint: lint-rust-examples-and-testcases
+lint:
 	cargo clippy --all --all-targets --features all-tests -- -D warnings
 	cargo fmt --all -- --check
 
@@ -66,6 +66,9 @@ lint-rust-examples-and-testcases:
 		&& (git diff --name-status --exit-code . || (echo "Git working tree dirtied by lints. Run 'make update-cargo-locks' and check in changes" && false)) \
 		|| exit 1 ; \
 	done
+
+.PHONY: lint-all
+lint-all: lint lint-rust-examples-and-testcases
 
 ## Bring all of the checked in `Cargo.lock` files up-to-date
 .PHONY: update-cargo-locks

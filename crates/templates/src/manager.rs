@@ -1123,7 +1123,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore]  // This will need rework when more templates are ported to the v2 manifest - the failure is benign, a missing safety rail not an error
+    #[ignore] // This will need rework when more templates are ported to the v2 manifest - the failure is benign, a missing safety rail not an error
     async fn cannot_add_component_that_does_not_match_trigger() {
         let temp_dir = tempdir().unwrap();
         let store = TemplateStore::new(temp_dir.path());

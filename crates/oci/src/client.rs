@@ -7,11 +7,8 @@ use docker_credential::DockerCredential;
 use futures_util::future;
 use futures_util::stream::{self, StreamExt, TryStreamExt};
 use oci_distribution::{
-    client::{Config, ImageLayer},
-    manifest::{OciImageManifest, OCI_IMAGE_MEDIA_TYPE},
-    secrets::RegistryAuth,
-    token_cache::RegistryTokenType,
-    Reference, RegistryOperation,
+    client::ImageLayer, config::ConfigFile, manifest::OciImageManifest, secrets::RegistryAuth,
+    token_cache::RegistryTokenType, Reference, RegistryOperation,
 };
 use reqwest::Url;
 use spin_common::sha256;
@@ -174,14 +171,15 @@ impl Client {
         );
         layers.push(locked_config_layer);
 
-        let oci_config = Config {
-            // TODO: now that the locked config bytes are pushed as a layer, what should data here be?
-            // Keeping as locked config bytes would make it feasible for older Spin clients to pull/run
-            // apps published by newer Spin clients
-            data: serde_json::to_vec(&locked)?,
-            media_type: OCI_IMAGE_MEDIA_TYPE.to_string(),
-            annotations: None,
+        // Construct empty/default OCI config file. Data may be parsed according to
+        // the expected config structure per the image spec, so we want to ensure it conforms.
+        // (See https://github.com/opencontainers/image-spec/blob/main/config.md)
+        // TODO: Explore adding data applicable to a Spin app.
+        let oci_config_file = ConfigFile {
+            ..Default::default()
         };
+        let oci_config =
+            oci_distribution::client::Config::oci_v1_from_config_file(oci_config_file, None)?;
         let manifest = OciImageManifest::build(&layers, &oci_config, None);
 
         let response = self
@@ -292,7 +290,6 @@ impl Client {
         // Older published Spin apps feature the locked app config *as* the OCI manifest config layer,
         // while newer versions publish the locked app config as a generic layer alongside others.
         // Assume that these bytes may represent the locked app config and write it as such.
-        // TODO: update this assumption if we change the data we write to the OCI manifest config layer.
         let mut cfg_bytes = Vec::new();
         self.oci
             .pull_blob(&reference, &manifest.config.digest, &mut cfg_bytes)

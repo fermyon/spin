@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - "v[0-9]+.[0-9]+"
     tags:
       - "v*"
 
@@ -289,7 +290,14 @@ jobs:
 
       - name: Set the spin tag
         shell: bash
-        run: echo "SPIN_TAG=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
+        run: |
+          echo "SPIN_TAG=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
+
+      - name: Set the PR base branch
+        shell: bash
+        run: |
+          IFS=. read -r major minor patch <<< "${{ env.SPIN_TAG }}"
+          echo "RELEASE_BRANCH=$major.$minor" >> $GITHUB_ENV
 
       - name: Change sdk version
         shell: bash
@@ -312,7 +320,7 @@ jobs:
           title: "feat(templates): update sdk to ${{ env.SPIN_TAG }}"
           body: Update the SDK version used by the templates
           branch: update-sdk-${{ env.SPIN_TAG }}
-          base: main
+          base: ${{ env.RELEASE_BRANCH }}
           delete-branch: true
           committer: fermybot <103076628+fermybot@users.noreply.github.com>
           author: fermybot <103076628+fermybot@users.noreply.github.com>

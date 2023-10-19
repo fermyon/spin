@@ -14,7 +14,6 @@ To cut a major / minor release of Spin, you will need to do the following:
 
 1. Switch to the release branch locally and update versions (e.g. `1.1.0-pre0` could `1.1.0`).
    - Bump the version in Spin's `Cargo.toml`
-   - Update SDK_VERSION in `templates/Makefile`
    - Run `make build` so that `Cargo.lock` and other associated files are updated
 
    PR these changes to the release branch ensuring that pull request has a base corresponding to the release branch (e.g. `v1.1`).
@@ -62,7 +61,6 @@ $ ./.github/gh-backport.sh <pull-request> <branch-name>
 
 1. Switch to the release branch locally and update versions (e.g. `1.1.0-pre0` could `1.1.1`).
    - Bump the version in Spin's `Cargo.toml`
-   - Update SDK_VERSION in `templates/Makefile`
    - Run `make build` so that `Cargo.lock` and other associated files are updated
 
    PR these changes to the release branch ensuring that pull request has a base corresponding to the release branch (e.g. `v1.1`).

@@ -174,8 +174,10 @@ impl Client {
         // Construct empty/default OCI config file. Data may be parsed according to
         // the expected config structure per the image spec, so we want to ensure it conforms.
         // (See https://github.com/opencontainers/image-spec/blob/main/config.md)
-        // TODO: Explore adding data applicable to a Spin app.
+        // TODO: Explore adding data applicable to the Spin app being published.
         let oci_config_file = ConfigFile {
+            architecture: oci_distribution::config::Architecture::Wasm,
+            os: oci_distribution::config::Os::Wasip1,
             ..Default::default()
         };
         let oci_config =

@@ -3995,7 +3995,7 @@ dependencies = [
 [[package]]
 name = "oci-distribution"
 version = "0.10.0"
-source = "git+https://github.com/fermyon/oci-distribution?rev=639c907b7c0c4e74716356585410d4abe4aebf4d#639c907b7c0c4e74716356585410d4abe4aebf4d"
+source = "git+https://github.com/fermyon/oci-distribution?rev=63cbb0925775e0c9c870195cad1d50ac8707a264#63cbb0925775e0c9c870195cad1d50ac8707a264"
 dependencies = [
  "bytes",
  "chrono",

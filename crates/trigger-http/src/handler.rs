@@ -48,7 +48,7 @@ impl HttpExecutor for HttpHandlerExecutor {
                     .await
                     .map_err(contextualise_err)?
             }
-            None => bail!("Expected component to either export `wasi:http/incoming-handler` or `fermyon:spin/inbound-http` but it exported neither")
+            None => bail!("Expected component to either export `{}` or `fermyon:spin/inbound-http` but it exported neither", WASI_HTTP_EXPORT)
         };
 
         tracing::info!(
@@ -165,10 +165,8 @@ impl HttpHandlerExecutor {
                 .call_handle(&mut store, request, response)
                 .await;
 
-            tracing::trace!("result: {result:?}",);
-
             tracing::trace!(
-                "memory consumed: {}",
+                "wasi-http memory consumed: {}",
                 store.as_ref().data().memory_consumed()
             );
 
@@ -250,10 +248,12 @@ enum HandlerType {
     Wasi,
 }
 
+const WASI_HTTP_EXPORT: &str = "wasi:http/incoming-handler@0.2.0-rc-2023-10-18";
+
 impl HandlerType {
     /// Determine the handler type from the exports
     fn from_exports(mut exports: wasmtime::component::Exports<'_>) -> Option<HandlerType> {
-        if exports.instance("wasi:http/incoming-handler").is_some() {
+        if exports.instance(WASI_HTTP_EXPORT).is_some() {
             return Some(HandlerType::Wasi);
         }
         if exports.instance("fermyon:spin/inbound-http").is_some() {

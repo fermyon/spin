@@ -1,5 +1,3 @@
-package wasi:io
-
 /// WASI I/O is an I/O abstraction API which is currently focused on providing
 /// stream types.
 ///

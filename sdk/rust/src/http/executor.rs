@@ -188,9 +188,9 @@ pub fn incoming_body(body: IncomingBody) -> impl Stream<Item = Result<Vec<u8>>> 
                         }
                     }
                     Err(StreamError::Closed) => Poll::Ready(None),
-                    Err(StreamError::LastOperationFailed(error)) => {
-                        Poll::Ready(Some(Err(anyhow!("{}", error.to_debug_string()))))
-                    }
+                    Err(StreamError::LastOperationFailed(error)) => Poll::Ready(Some(Err(
+                        anyhow!("Last operation failed: {}", error.to_debug_string()),
+                    ))),
                 }
             } else {
                 Poll::Ready(None)

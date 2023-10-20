@@ -14,8 +14,6 @@ async-trait = "0.1.74"
 form_urlencoded = "1.0"
 spin-macro = { path = "macro" }
 thiserror = "1.0.37"
-# Use a sha commit for now to include https://github.com/bytecodealliance/wit-bindgen/pull/693
-# Once wit-bindgen 0.13 is released we can move to that version.
 wit-bindgen = "0.13.0"
 routefinder = "0.5.3"
 once_cell = "1.18.0"

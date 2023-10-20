@@ -8,6 +8,6 @@ authors = ["Radu Matei <radu.matei@fermyon.com>"]
 crate-type = ["cdylib"]
 
 [dependencies]
-wit-bindgen = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "2405a79c74c5d61b9bc88c378d475c6c21ed6a9f" }
+wit-bindgen = "0.13.0"
 
 [workspace]

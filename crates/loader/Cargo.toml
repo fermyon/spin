@@ -15,7 +15,7 @@ glob = "0.3.0"
 itertools = "0.10.3"
 lazy_static = "1.4.0"
 mime_guess = { version = "2.0" }
-outbound-http = { path = "../outbound-http" }
+outbound-http = { path = "../outbound-http", default-features = false }
 path-absolutize = "3.0.11"
 regex = "1.5.4"
 reqwest = "0.11.9"
@@ -26,7 +26,6 @@ sha2 = "0.10.8"
 shellexpand = "3.1"
 spin-locked-app = { path = "../locked-app" }
 spin-common = { path = "../common" }
-spin-config = { path = "../config" }
 spin-manifest = { path = "../manifest" }
 tempfile = "3.8.0"
 terminal = { path = "../terminal" }

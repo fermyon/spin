@@ -1,6 +1,7 @@
-spin_manifest_version = "1"
+spin_manifest_version = 2
+
+[application]
+name = "{{project-name}}"
+version = "0.1.0"
 authors = ["{{authors}}"]
 description = "{{project-description}}"
-name = "{{project-name}}"
-trigger = { type = "http", base = "{{http-base}}" }
-version = "0.1.0"

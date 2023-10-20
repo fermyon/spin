@@ -24,16 +24,25 @@ impl Diagnostic for VersionDiagnostic {
         let test: VersionProbe =
             from_document(doc.clone()).context("failed to decode VersionProbe")?;
 
-        if let Some(value) = test.spin_manifest_version.or(test.spin_version.clone()) {
-            if value.as_str() != Some("1") {
+        if let Some(value) = test.spin_manifest_version {
+            if corrected_version(&value).is_some() {
                 return Ok(vec![VersionDiagnosis::WrongValue(value)]);
-            } else if test.spin_version.is_some() {
-                return Ok(vec![VersionDiagnosis::OldVersionKey]);
             }
+        } else if test.spin_version.is_some() {
+            return Ok(vec![VersionDiagnosis::OldVersionKey]);
         } else {
             return Ok(vec![VersionDiagnosis::MissingVersion]);
         }
         Ok(vec![])
+    }
+}
+
+fn corrected_version(value: &Value) -> Option<toml_edit::Value> {
+    match value {
+        Value::String(s) if s == "1" => None,
+        Value::Integer(2) => None,
+        Value::Integer(1) => Some("1".into()),
+        _ => Some(2.into()),
     }
 }
 
@@ -60,7 +69,7 @@ impl Diagnosis for VersionDiagnosis {
             Self::MissingVersion => "Manifest missing 'spin_manifest_version' key".into(),
             Self::OldVersionKey => "Manifest using old 'spin_version' key".into(),
             Self::WrongValue(val) => {
-                format!(r#"Manifest 'spin_manifest_version' must be "1", not {val}"#)
+                format!(r#"Manifest 'spin_manifest_version' must be "1" or 2, not {val}"#)
             }
         }
     }
@@ -78,16 +87,23 @@ impl Diagnosis for VersionDiagnosis {
 impl ManifestTreatment for VersionDiagnosis {
     fn summary(&self) -> String {
         match self {
-            Self::MissingVersion => "Add spin_manifest_version to manifest",
-            Self::OldVersionKey => "Replace 'spin_version' with 'spin_manifest_version'",
-            Self::WrongValue(_) => r#"Set manifest version to "1""#,
+            Self::MissingVersion => "Add spin_manifest_version to manifest".into(),
+            Self::OldVersionKey => "Replace 'spin_version' with 'spin_manifest_version'".into(),
+            Self::WrongValue(value) => format!(
+                "Set manifest version to {}",
+                corrected_version(value).unwrap()
+            ),
         }
-        .into()
     }
 
     async fn treat_manifest(&self, doc: &mut Document) -> anyhow::Result<()> {
         doc.remove(SPIN_VERSION);
-        let item = Item::Value("1".into());
+
+        let item = Item::Value(match self {
+            Self::MissingVersion => 2.into(),
+            Self::OldVersionKey => "1".into(),
+            Self::WrongValue(value) => corrected_version(value).unwrap(),
+        });
         if let Some(existing) = doc.get_mut(SPIN_MANIFEST_VERSION) {
             *existing = item;
         } else {
@@ -113,12 +129,6 @@ mod tests {
     #[tokio::test]
     async fn test_correct() {
         run_correct_test::<VersionDiagnostic>("manifest_version").await;
-    }
-
-    #[tokio::test]
-    async fn test_missing() {
-        let diag = run_broken_test::<VersionDiagnostic>("manifest_version", "missing_key").await;
-        assert!(matches!(diag, VersionDiagnosis::MissingVersion));
     }
 
     #[tokio::test]

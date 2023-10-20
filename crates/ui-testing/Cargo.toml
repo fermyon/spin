@@ -9,3 +9,4 @@ anyhow = "1.0"
 dirs = "4.0"
 libtest-mimic = "0.6.1"
 snapbox = "0.4.12"
+tokio = { version = "1", features = ["macros", "rt"] }

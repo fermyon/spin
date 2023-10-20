@@ -13,10 +13,18 @@ spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }
 tempfile = "3.3.0"
 terminal = { path = "../terminal" }
-tokio = "1"
-toml = "0.7"
-toml_edit = "0.19"
+tokio = { version = "1", features = ["process"] }
+toml = "0.8.2"
+toml_edit = "0.20.2"
 tracing = { workspace = true }
 
 [dev-dependencies]
+glob = "0.3.1"
 tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt"] }
+ui-testing = { path = "../ui-testing" }
+
+[[test]]
+name = "ui"
+path = "tests/ui.rs"
+harness = false

@@ -1,0 +1,2 @@
+Manifest 'spin_manifest_version' must be "1" or 2, not 1
+HTTP component "bad" missing trigger.route

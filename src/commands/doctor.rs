@@ -3,8 +3,7 @@ use std::{fmt::Debug, path::PathBuf};
 use anyhow::Result;
 use clap::Parser;
 use dialoguer::{console::Emoji, Confirm, Select};
-use futures::FutureExt;
-use spin_doctor::{Diagnosis, DryRunNotSupported};
+use spin_doctor::{Diagnosis, DryRunNotSupported, PatientDiagnosis};
 
 use crate::opts::{APP_MANIFEST_FILE_OPT, DEFAULT_MANIFEST_FILE};
 
@@ -35,55 +34,48 @@ impl DoctorCommand {
             icon = Emoji("🩺 ", "")
         );
 
-        let count = spin_doctor::Checkup::new(manifest_file)
-            .for_each_diagnosis(move |diagnosis, patient| {
-                async move {
-                    show_diagnosis(&*diagnosis);
+        let mut checkup = spin_doctor::Checkup::new(manifest_file)?;
+        let mut has_problems = false;
+        while let Some(PatientDiagnosis { diagnosis, patient }) = checkup.next_diagnosis().await? {
+            show_diagnosis(&*diagnosis);
+            has_problems = true;
 
-                    if let Some(treatment) = diagnosis.treatment() {
-                        let dry_run = match treatment.dry_run(patient).await {
-                            Ok(desc) => Some(desc),
-                            Err(err) => {
-                                if !err.is::<DryRunNotSupported>() {
-                                    show_error("Treatment dry run failed: ", err);
-                                }
-                                return Ok(());
-                            }
-                        };
+            if let Some(treatment) = diagnosis.treatment() {
+                let dry_run = match treatment.dry_run(patient).await {
+                    Ok(desc) => Some(desc),
+                    Err(err) => {
+                        if !err.is::<DryRunNotSupported>() {
+                            show_error("Treatment dry run failed: ", err);
+                        }
+                        return Ok(());
+                    }
+                };
 
-                        let should_treat = prompt_treatment(treatment.summary(), dry_run)
-                            .unwrap_or_else(|err| {
-                                show_error("Prompt error: ", err);
-                                false
-                            });
+                let should_treat =
+                    prompt_treatment(treatment.summary(), dry_run).unwrap_or_else(|err| {
+                        show_error("Prompt error: ", err);
+                        false
+                    });
 
-                        if should_treat {
-                            match treatment.treat(patient).await {
-                                Ok(()) => {
-                                    println!("{icon}Treatment applied!", icon = Emoji("❤  ", ""));
+                if should_treat {
+                    match treatment.treat(patient).await {
+                        Ok(()) => {
+                            println!("{icon}Treatment applied!", icon = Emoji("❤  ", ""));
+                        }
+                        Err(err) => {
+                            match err.downcast_ref::<spin_doctor::StopDiagnosing>() {
+                                Some(stop) => {
+                                    terminal::einfo!("Action required!", "{}", stop.message());
+                                    return Ok(());
                                 }
-                                Err(err) => {
-                                    match err.downcast_ref::<spin_doctor::StopDiagnosing>() {
-                                        Some(stop) => {
-                                            terminal::einfo!(
-                                                "Action required!",
-                                                "{}",
-                                                stop.message()
-                                            );
-                                            return Ok(());
-                                        }
-                                        None => show_error("Treatment failed: ", err),
-                                    };
-                                }
-                            }
+                                None => show_error("Treatment failed: ", err),
+                            };
                         }
                     }
-                    Ok(())
                 }
-                .boxed()
-            })
-            .await?;
-        if count == 0 {
+            }
+        }
+        if has_problems {
             println!("{icon}No problems found.", icon = Emoji("❤  ", ""));
         }
         Ok(())

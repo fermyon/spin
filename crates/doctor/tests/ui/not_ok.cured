@@ -1,0 +1,12 @@
+# Wrong version type
+spin_manifest_version = "1"
+
+name = "not_ok"
+trigger = { type = "http" }
+
+[[component]]
+id = "bad"
+source = "does/not/exist.wasm"
+
+[component.trigger]
+route = "/..."

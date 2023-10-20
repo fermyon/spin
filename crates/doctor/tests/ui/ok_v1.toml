@@ -1,0 +1,9 @@
+spin_manifest_version = "1"
+name = "ok"
+trigger = { type = "http" }
+
+[[component]]
+id = "good-component"
+source = "wasm/fake.wasm"
+[component.trigger]
+route = "/"

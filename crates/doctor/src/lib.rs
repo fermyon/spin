@@ -1,11 +1,10 @@
 //! Spin doctor: check and automatically fix problems with Spin apps.
 #![deny(missing_docs)]
 
-use std::{fmt::Debug, fs, future::Future, path::PathBuf, pin::Pin, sync::Arc};
+use std::{collections::VecDeque, fmt::Debug, fs, path::PathBuf};
 
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
-use tokio::sync::Mutex;
 use toml_edit::Document;
 
 /// Diagnoses for app manifest format problems.
@@ -19,77 +18,58 @@ pub mod wasm;
 
 /// Configuration for an app to be checked for problems.
 pub struct Checkup {
-    manifest_path: PathBuf,
-    diagnostics: Vec<Box<dyn BoxingDiagnostic>>,
+    patient: PatientApp,
+    diagnostics: VecDeque<Box<dyn BoxingDiagnostic>>,
+    unprocessed_diagnoses: VecDeque<Box<dyn Diagnosis>>,
 }
 
 impl Checkup {
     /// Return a new checkup for the app manifest at the given path.
-    pub fn new(manifest_path: impl Into<PathBuf>) -> Self {
+    pub fn new(manifest_path: impl Into<PathBuf>) -> Result<Self> {
+        let patient = PatientApp::new(manifest_path)?;
         let mut checkup = Self {
-            manifest_path: manifest_path.into(),
-            diagnostics: vec![],
+            patient,
+            diagnostics: Default::default(),
+            unprocessed_diagnoses: Default::default(),
         };
-        checkup.add_diagnostic::<manifest::version::VersionDiagnostic>();
-        checkup.add_diagnostic::<manifest::trigger::TriggerDiagnostic>();
-        checkup.add_diagnostic::<rustlang::target::TargetDiagnostic>(); // Do toolchain checks _before_ build checks
-        checkup.add_diagnostic::<wasm::missing::WasmMissingDiagnostic>();
         checkup
+            .add_diagnostic::<manifest::version::VersionDiagnostic>()
+            .add_diagnostic::<manifest::trigger::TriggerDiagnostic>()
+            .add_diagnostic::<rustlang::target::TargetDiagnostic>() // Do toolchain checks _before_ build check
+            .add_diagnostic::<wasm::missing::WasmMissingDiagnostic>();
+        Ok(checkup)
+    }
+
+    /// Returns the [`PatientApp`] being checked.
+    pub fn patient(&self) -> &PatientApp {
+        &self.patient
     }
 
     /// Add a detectable problem to this checkup.
     pub fn add_diagnostic<D: Diagnostic + Default + 'static>(&mut self) -> &mut Self {
-        self.diagnostics.push(Box::<D>::default());
+        self.diagnostics.push_back(Box::<D>::default());
         self
     }
 
-    fn patient(&self) -> Result<PatientApp> {
-        let path = &self.manifest_path;
-        ensure!(
-            path.is_file(),
-            "No Spin app manifest file found at {path:?}"
-        );
-
-        let contents = fs::read_to_string(path)
-            .with_context(|| format!("Couldn't read Spin app manifest file at {path:?}"))?;
-
-        let manifest_doc: Document = contents
-            .parse()
-            .with_context(|| format!("Couldn't parse manifest file at {path:?} as valid TOML"))?;
-
-        Ok(PatientApp {
-            manifest_path: path.into(),
-            manifest_doc,
-        })
-    }
-
-    /// Find problems with the configured app, calling the given closure with
-    /// each problem found.
-    pub async fn for_each_diagnosis<F>(&self, mut f: F) -> Result<usize>
-    where
-        F: for<'a> FnMut(
-            Box<dyn Diagnosis + 'static>,
-            &'a mut PatientApp,
-        ) -> Pin<Box<dyn Future<Output = Result<()>> + 'a>>,
-    {
-        let patient = Arc::new(Mutex::new(self.patient()?));
-        let mut count = 0;
-        for diagnostic in &self.diagnostics {
-            let patient = patient.clone();
-            let diags = diagnostic
-                .diagnose_boxed(&*patient.lock().await)
+    /// Returns the next detected problem.
+    pub async fn next_diagnosis(&mut self) -> Result<Option<PatientDiagnosis>> {
+        while self.unprocessed_diagnoses.is_empty() {
+            let Some(diagnostic) = self.diagnostics.pop_front() else {
+                return Ok(None);
+            };
+            self.unprocessed_diagnoses = diagnostic
+                .diagnose_boxed(&self.patient)
                 .await
                 .unwrap_or_else(|err| {
                     tracing::debug!("Diagnose failed: {err:?}");
                     vec![]
-                });
-            count += diags.len();
-            for diag in diags {
-                let mut patient = patient.lock().await;
-                f(diag, &mut patient).await?;
-            }
+                })
+                .into()
         }
-        Ok(count)
+        Ok(Some(PatientDiagnosis {
+            patient: &mut self.patient,
+            diagnosis: self.unprocessed_diagnoses.pop_front().unwrap(),
+        }))
     }
 }
 
@@ -100,6 +80,36 @@ pub struct PatientApp {
     pub manifest_path: PathBuf,
     /// Parsed app manifest TOML document.
     pub manifest_doc: Document,
+}
+
+impl PatientApp {
+    fn new(manifest_path: impl Into<PathBuf>) -> Result<Self> {
+        let path = manifest_path.into();
+        ensure!(
+            path.is_file(),
+            "No Spin app manifest file found at {path:?}"
+        );
+
+        let contents = fs::read_to_string(&path)
+            .with_context(|| format!("Couldn't read Spin app manifest file at {path:?}"))?;
+
+        let manifest_doc: Document = contents
+            .parse()
+            .with_context(|| format!("Couldn't parse manifest file at {path:?} as valid TOML"))?;
+
+        Ok(Self {
+            manifest_path: path,
+            manifest_doc,
+        })
+    }
+}
+
+/// A PatientDiagnosis bundles a [`Diagnosis`] with its (borrowed) [`PatientApp`].
+pub struct PatientDiagnosis<'a> {
+    /// The diagnosis
+    pub diagnosis: Box<dyn Diagnosis>,
+    /// A reference to the patient this diagnosis applies to
+    pub patient: &'a mut PatientApp,
 }
 
 /// The Diagnose trait implements the detection of a particular Spin app problem.

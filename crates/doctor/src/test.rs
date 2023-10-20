@@ -68,7 +68,7 @@ pub struct TestPatient {
 
 impl TestPatient {
     fn new(manifest_temp: TempPath) -> Result<Self> {
-        let inner = Checkup::new(&manifest_temp).patient()?;
+        let inner = PatientApp::new(&manifest_temp)?;
         Ok(Self {
             inner,
             _manifest_temp: manifest_temp,

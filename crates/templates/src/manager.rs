@@ -869,12 +869,9 @@ mod tests {
         {
             let template = manager.get("http-empty").unwrap().unwrap();
 
-            let values = [
-                ("project-description".to_owned(), "my desc".to_owned()),
-                ("http-base".to_owned(), "/".to_owned()),
-            ]
-            .into_iter()
-            .collect();
+            let values = [("project-description".to_owned(), "my desc".to_owned())]
+                .into_iter()
+                .collect();
             let options = RunOptions {
                 variant: crate::template::TemplateVariantInfo::NewApplication,
                 output_path: application_dir.clone(),

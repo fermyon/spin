@@ -38,8 +38,11 @@ jobs:
           rust-wasm: true
           rust-cache: true
 
-      - name: Run lints
+      - name: Run lints on main code
         run: BUILD_SPIN_EXAMPLES=0 make lint
+
+      - name: Run lints on examples
+        run: BUILD_SPIN_EXAMPLES=0 make lint-rust-examples-and-testcases
 
       - name: Cancel everything if linting fails
         if: failure()

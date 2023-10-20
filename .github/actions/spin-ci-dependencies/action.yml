@@ -17,6 +17,11 @@ inputs:
     required: false
     default: 'false'
     type: bool
+  rust-cross:
+    description: 'setup rust cross'
+    required: false
+    default: 'false'
+    type: bool
   rust-cache:
     description: 'setup rust cache'
     required: false
@@ -80,6 +85,11 @@ runs:
     - name: "Install Wasm Rust target"
       run: rustup target add wasm32-wasi && rustup target add wasm32-unknown-unknown
       if: ${{ inputs.rust-wasm == 'true' }}
+      shell: bash
+
+    - name: "Install cross-rs"
+      run: cargo install cross
+      if: ${{ inputs.rust-cross == 'true' }}
       shell: bash
 
     - uses: Swatinem/rust-cache@v2

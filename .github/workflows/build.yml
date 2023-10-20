@@ -73,6 +73,31 @@ jobs:
           name: spin-ubuntu-latest
           path: target/release/spin
 
+  build-rust-static:
+    name: Build Spin static
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
+        with:
+          rust: true
+          rust-cross: true
+          rust-cache: true
+
+      - name: Cargo Build
+        run: cross build --target x86_64-unknown-linux-musl --workspace --release --all-targets --features openssl/vendored
+        env:
+          CARGO_INCREMENTAL: 0
+          BUILD_SPIN_EXAMPLES: 0
+
+      - name: "Archive executable artifact"
+        uses: actions/upload-artifact@v3
+        with:
+          name: spin-static-latest
+          path: target/x86_64-unknown-linux-musl/release/spin
+
   build-rust:
     name: Build Spin
     runs-on: ${{ matrix.os }}

@@ -23,7 +23,7 @@ use hyper::{
     Request, Response,
 };
 use spin_app::{AppComponent, APP_DESCRIPTION_KEY};
-use spin_core::Engine;
+use spin_core::{Engine, OutboundWasiHttpHandler};
 use spin_http::{
     app_info::AppInfo,
     body,
@@ -43,7 +43,7 @@ use crate::{handler::HttpHandlerExecutor, wagi::WagiHttpExecutor};
 
 pub use tls::TlsConfig;
 
-pub(crate) type RuntimeData = ();
+pub(crate) type RuntimeData = HttpRuntimeData;
 pub(crate) type Store = spin_core::Store<RuntimeData>;
 
 /// The Spin HTTP trigger.
@@ -441,6 +441,54 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>>;
+}
+
+#[derive(Default)]
+pub struct HttpRuntimeData {
+    origin: Option<String>,
+}
+
+impl OutboundWasiHttpHandler for HttpRuntimeData {
+    fn send_request(
+        data: &mut spin_core::Data<Self>,
+        mut request: wasmtime_wasi_http::types::OutgoingRequest,
+    ) -> wasmtime::Result<
+        wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
+    >
+    where
+        Self: Sized,
+    {
+        let is_relative_url = request
+            .request
+            .uri()
+            .authority()
+            .map(|a| a.host().trim() == "")
+            .unwrap_or_default();
+        if is_relative_url {
+            // Origin must be set in the incoming http handler
+            let origin = data.as_ref().origin.clone().unwrap();
+            let path_and_query = request
+                .request
+                .uri()
+                .path_and_query()
+                .map(|p| p.as_str())
+                .unwrap_or("/");
+            let uri: Uri = format!("{origin}{path_and_query}")
+                .parse()
+                // origin together with the path and query must be a valid URI
+                .unwrap();
+
+            request.use_tls = uri
+                .scheme()
+                .map(|s| s == &Scheme::HTTPS)
+                .unwrap_or_default();
+            // We know that `uri` has an authority because we set it above
+            request.authority = uri.authority().unwrap().as_str().to_owned();
+            *request.request.uri_mut() = uri;
+        }
+
+        wasmtime_wasi_http::types::default_send_request(data, request)
+    }
 }
 
 #[cfg(test)]

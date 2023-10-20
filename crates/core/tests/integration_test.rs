@@ -212,8 +212,8 @@ async fn run_core_wasi_test_engine<'a>(
         let mut exports = instance.exports(&mut store);
 
         let mut instance = exports
-            .instance("wasi:cli/run")
-            .context("missing the expected 'wasi:cli/run' instance")?;
+            .instance("wasi:cli/run@0.2.0-rc-2023-10-18")
+            .context("missing the expected 'wasi:cli/run@0.2.0-rc-2023-10-18' instance")?;
         instance.typed_func::<(), (Result<(), ()>,)>("run")?
     };
     update_store(&mut store);

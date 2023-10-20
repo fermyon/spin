@@ -270,6 +270,7 @@ fn set_http_origin_from_request(
 ) {
     if let Some(authority) = req.uri().authority() {
         if let Some(scheme) = req.uri().scheme_str() {
+            let origin = format!("{}://{}", scheme, authority);
             if let Some(outbound_http_handle) = engine
                 .engine
                 .find_host_component_handle::<Arc<OutboundHttpComponent>>()
@@ -278,8 +279,9 @@ fn set_http_origin_from_request(
                     .host_components_data()
                     .get_or_insert(outbound_http_handle);
 
-                outbound_http_data.origin = format!("{}://{}", scheme, authority);
+                outbound_http_data.origin = origin.clone();
             }
+            store.as_mut().data_mut().as_mut().origin = Some(origin);
         }
     }
 }

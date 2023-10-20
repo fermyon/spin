@@ -95,8 +95,34 @@ jobs:
       - name: "Archive executable artifact"
         uses: actions/upload-artifact@v3
         with:
-          name: spin-static-latest
+          name: spin-static-x86_64
           path: target/x86_64-unknown-linux-musl/release/spin
+
+  build-rust-static-aarch64:
+    name: Build Spin static (aarch64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
+        with:
+          rust: true
+          rust-cross: true
+          rust-cache: true
+
+      - name: Cargo Build
+        run: cross build --target aarch64-unknown-linux-musl --workspace --release --all-targets --features openssl/vendored
+        env:
+          CARGO_INCREMENTAL: 0
+          BUILD_SPIN_EXAMPLES: 0
+          RUSTFLAGS: '-C target-feature=+fp16'
+
+      - name: "Archive executable artifact"
+        uses: actions/upload-artifact@v3
+        with:
+          name: spin-static-aarch64
+          path: target/aarch64-unknown-linux-musl/release/spin
 
   build-rust:
     name: Build Spin

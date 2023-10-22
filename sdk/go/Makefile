@@ -47,7 +47,7 @@ GENERATED_SPIN_REDIS     = redis/spin-redis.c redis/spin-redis.h
 GENERATED_KEY_VALUE      = key_value/key-value.c key_value/key-value.h
 GENERATED_SQLITE         = sqlite/sqlite.c sqlite/sqlite.h
 GENERATED_LLM            = llm/llm.c llm/llm.h
-GENERATED_OUTBOUND_MYSQL = mysql/outbound-mysql.c mysql/outbound-mysql.h
+GENERATED_OUTBOUND_MYSQL = mysql/outbound-mysql.c mysql/outbound-mysql.h 
 GENERATED_OUTBOUND_PG    = pg/outbound-pg.c pg/outbound-pg.h 
 
 SDK_VERSION_SOURCE_FILE  = sdk_version/sdk-version-go-template.c

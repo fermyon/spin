@@ -6193,6 +6193,7 @@ dependencies = [
  "tracing",
  "url",
  "wasmtime",
+ "wasmtime-wasi-http",
 ]
 
 [[package]]

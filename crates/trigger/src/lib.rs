@@ -111,6 +111,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
             let mut builder = Engine::builder(&self.config)?;
 
             if !self.disable_default_host_components {
+                builder.link_import(|l, _| wasmtime_wasi_http::proxy::add_to_linker(l))?;
                 builder.add_host_component(outbound_redis::OutboundRedisComponent)?;
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;

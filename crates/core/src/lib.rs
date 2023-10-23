@@ -264,10 +264,7 @@ pub struct EngineBuilder<T> {
 impl<T: Send + Sync + OutboundWasiHttpHandler> EngineBuilder<T> {
     fn new(config: &Config) -> Result<Self> {
         let engine = wasmtime::Engine::new(&config.inner)?;
-
-        let mut linker: Linker<T> = Linker::new(&engine);
-        wasmtime_wasi_http::proxy::add_to_linker(&mut linker)?;
-
+        let linker: Linker<T> = Linker::new(&engine);
         let mut module_linker = ModuleLinker::new(&engine);
         wasmtime_wasi::tokio::add_to_linker(&mut module_linker, |data| match &mut data.wasi {
             Wasi::Preview1(ctx) => ctx,

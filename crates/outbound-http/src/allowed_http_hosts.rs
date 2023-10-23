@@ -20,14 +20,14 @@ impl Default for AllowedHttpHosts {
 
 impl AllowedHttpHosts {
     /// Tests whether the given URL is allowed according to the allow-list.
-    pub fn allow(&self, url: &url::Url) -> bool {
+    pub fn allows(&self, url: &url::Url) -> bool {
         match self {
             Self::AllowAll => true,
             Self::AllowSpecific(hosts) => hosts.iter().any(|h| h.allow(url)),
         }
     }
 
-    pub fn allow_relative_url(&self) -> bool {
+    pub fn allows_relative_url(&self) -> bool {
         match self {
             Self::AllowAll => true,
             Self::AllowSpecific(hosts) => hosts.contains(&AllowedHttpHost::host("self")),
@@ -295,21 +295,21 @@ mod test {
     fn test_allowed_hosts_can_be_specific() {
         let allowed =
             parse_allowed_http_hosts(&["spin.fermyon.dev", "http://example.com:8383"]).unwrap();
-        assert!(allowed.allow(&Url::parse("http://example.com:8383/foo/bar").unwrap()));
-        assert!(allowed.allow(&Url::parse("https://spin.fermyon.dev/").unwrap()));
-        assert!(!allowed.allow(&Url::parse("http://example.com/").unwrap()));
-        assert!(!allowed.allow(&Url::parse("http://google.com/").unwrap()));
+        assert!(allowed.allows(&Url::parse("http://example.com:8383/foo/bar").unwrap()));
+        assert!(allowed.allows(&Url::parse("https://spin.fermyon.dev/").unwrap()));
+        assert!(!allowed.allows(&Url::parse("http://example.com/").unwrap()));
+        assert!(!allowed.allows(&Url::parse("http://google.com/").unwrap()));
     }
 
     #[test]
     fn test_allowed_hosts_allow_relative_url() {
         let allowed = parse_allowed_http_hosts(&["self", "http://example.com:8383"]).unwrap();
-        assert!(allowed.allow_relative_url());
+        assert!(allowed.allows_relative_url());
 
         let not_allowed = parse_allowed_http_hosts(&["http://example.com:8383"]).unwrap();
-        assert!(!not_allowed.allow_relative_url());
+        assert!(!not_allowed.allows_relative_url());
 
         let allow_all = parse_allowed_http_hosts(&["insecure:allow-all"]).unwrap();
-        assert!(allow_all.allow_relative_url());
+        assert!(allow_all.allows_relative_url());
     }
 }

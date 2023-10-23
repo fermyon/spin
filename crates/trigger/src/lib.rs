@@ -13,8 +13,8 @@ use serde::de::DeserializeOwned;
 
 use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp, APP_NAME_KEY};
 use spin_core::{
-    Config, Engine, EngineBuilder, Instance, InstancePre, ModuleInstance, ModuleInstancePre, Store,
-    StoreBuilder, WasiVersion,
+    Config, Engine, EngineBuilder, Instance, InstancePre, ModuleInstance, ModuleInstancePre,
+    OutboundWasiHttpHandler, Store, StoreBuilder, WasiVersion,
 };
 
 pub use crate::runtime_config::RuntimeConfig;
@@ -32,7 +32,7 @@ pub enum EitherInstance {
 #[async_trait]
 pub trait TriggerExecutor: Sized + Send + Sync {
     const TRIGGER_TYPE: &'static str;
-    type RuntimeData: Default + Send + Sync + 'static;
+    type RuntimeData: OutboundWasiHttpHandler + Default + Send + Sync + 'static;
     type TriggerConfig;
     type RunConfig;
 
@@ -111,6 +111,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
             let mut builder = Engine::builder(&self.config)?;
 
             if !self.disable_default_host_components {
+                builder.link_import(|l, _| wasmtime_wasi_http::proxy::add_to_linker(l))?;
                 builder.add_host_component(outbound_redis::OutboundRedisComponent)?;
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;

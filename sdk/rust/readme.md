@@ -40,13 +40,13 @@ server, modifies the result, then returns it:
 
 ```rust
 #[http_component]
-fn hello_world(_req: Request) -> Result<Response> {
+async fn hello_world(_req: Request) -> Result<Response> {
     let mut res: http::Response<()> = spin_sdk::http::send(
         http::Request::builder()
             .method("GET")
             .uri("https://fermyon.com")
             .body(())?,
-    )?;
+    ).await?;
 
     res.headers_mut()
         .insert(http::header::SERVER, "spin/0.1.0".try_into()?);

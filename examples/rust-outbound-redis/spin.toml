@@ -12,4 +12,3 @@ source = "target/wasm32-wasi/release/rust_outbound_redis.wasm"
 route = "/publish"
 [component.build]
 command = "cargo build --target wasm32-wasi --release"
-

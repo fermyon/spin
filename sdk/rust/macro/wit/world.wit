@@ -1,14 +1,10 @@
 package fermyon:spin
 
-world http-trigger {
-  export inbound-http
-}
-
 world redis-trigger {
   export inbound-redis
 }
 
 world wasi-http-trigger {
-  import wasi:http/outgoing-handler
-  export wasi:http/incoming-handler
+  import wasi:http/outgoing-handler@0.2.0-rc-2023-10-18
+  export wasi:http/incoming-handler@0.2.0-rc-2023-10-18
 }

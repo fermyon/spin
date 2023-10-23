@@ -21,7 +21,7 @@
       "trigger_config": {
         "component": "fs",
         "executor": {
-          "type": "spin"
+          "type": "http"
         },
         "route": "/..."
       }

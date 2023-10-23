@@ -19,8 +19,8 @@ world http-trigger {
 
 world wasi-http-trigger {
   include platform
-  import wasi:http/outgoing-handler
-  export wasi:http/incoming-handler
+  import wasi:http/outgoing-handler@0.2.0-rc-2023-10-18
+  export wasi:http/incoming-handler@0.2.0-rc-2023-10-18
 }
 
 world platform {

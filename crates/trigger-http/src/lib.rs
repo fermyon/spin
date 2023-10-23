@@ -1,9 +1,8 @@
 //! Implementation for the Spin HTTP engine.
 
-mod spin;
+mod handler;
 mod tls;
 mod wagi;
-mod wasi;
 
 use std::{
     collections::HashMap,
@@ -23,8 +22,9 @@ use hyper::{
     service::service_fn,
     Request, Response,
 };
+use outbound_http::allowed_http_hosts::AllowedHttpHosts;
 use spin_app::{AppComponent, APP_DESCRIPTION_KEY};
-use spin_core::Engine;
+use spin_core::{Engine, OutboundWasiHttpHandler};
 use spin_http::{
     app_info::AppInfo,
     body,
@@ -40,11 +40,11 @@ use tokio::{
 use tracing::log;
 use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
-use crate::{spin::SpinHttpExecutor, wagi::WagiHttpExecutor, wasi::WasiHttpExecutor};
+use crate::{handler::HttpHandlerExecutor, wagi::WagiHttpExecutor};
 
 pub use tls::TlsConfig;
 
-pub(crate) type RuntimeData = ();
+pub(crate) type RuntimeData = HttpRuntimeData;
 pub(crate) type Store = spin_core::Store<RuntimeData>;
 
 /// The Spin HTTP trigger.
@@ -212,12 +212,11 @@ impl HttpTrigger {
             Ok(component_id) => {
                 let trigger = self.component_trigger_configs.get(component_id).unwrap();
 
-                let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Spin);
+                let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Http);
 
                 let res = match executor {
-                    HttpExecutorType::Spin => {
-                        let executor = SpinHttpExecutor;
-                        executor
+                    HttpExecutorType::Http => {
+                        HttpHandlerExecutor
                             .execute(
                                 &self.engine,
                                 component_id,
@@ -233,18 +232,6 @@ impl HttpTrigger {
                             wagi_config: wagi_config.clone(),
                         };
                         executor
-                            .execute(
-                                &self.engine,
-                                component_id,
-                                &self.base,
-                                &trigger.route,
-                                req,
-                                addr,
-                            )
-                            .await
-                    }
-                    HttpExecutorType::Wasi => {
-                        WasiHttpExecutor
                             .execute(
                                 &self.engine,
                                 component_id,
@@ -455,6 +442,78 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>>;
+}
+
+#[derive(Default)]
+pub struct HttpRuntimeData {
+    origin: Option<String>,
+    allowed_hosts: AllowedHttpHosts,
+}
+
+impl OutboundWasiHttpHandler for HttpRuntimeData {
+    fn send_request(
+        data: &mut spin_core::Data<Self>,
+        mut request: wasmtime_wasi_http::types::OutgoingRequest,
+    ) -> wasmtime::Result<
+        wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
+    >
+    where
+        Self: Sized,
+    {
+        let this = data.as_ref();
+        let is_relative_url = request
+            .request
+            .uri()
+            .authority()
+            .map(|a| a.host().trim() == "")
+            .unwrap_or_default();
+        if is_relative_url {
+            // Origin must be set in the incoming http handler
+            let origin = this.origin.clone().unwrap();
+            let path_and_query = request
+                .request
+                .uri()
+                .path_and_query()
+                .map(|p| p.as_str())
+                .unwrap_or("/");
+            let uri: Uri = format!("{origin}{path_and_query}")
+                .parse()
+                // origin together with the path and query must be a valid URI
+                .unwrap();
+
+            request.use_tls = uri
+                .scheme()
+                .map(|s| s == &Scheme::HTTPS)
+                .unwrap_or_default();
+            // We know that `uri` has an authority because we set it above
+            request.authority = uri.authority().unwrap().as_str().to_owned();
+            *request.request.uri_mut() = uri;
+        }
+
+        let unallowed_relative = is_relative_url && !this.allowed_hosts.allows_relative_url();
+        let unallowed_absolute = !is_relative_url
+            && !this
+                .allowed_hosts
+                .allows(&url::Url::parse(&request.request.uri().to_string()).unwrap());
+        if unallowed_relative || unallowed_absolute {
+            tracing::log::error!("Destination not allowed: {}", request.request.uri());
+            let host = if unallowed_absolute {
+                // Safe to unwrap because absolute urls have a host by definition.
+                let host = request.request.uri().authority().map(|a| a.host()).unwrap();
+                terminal::warn!(
+                    "A component tried to make a HTTP request to non-allowed host '{host}'."
+                );
+                host
+            } else {
+                terminal::warn!("A component tried to make a HTTP request to the same component but it does not have permission.");
+                "self"
+            };
+            eprintln!("To allow requests, add 'allowed_http_hosts = [\"{}\"]' to the manifest component section.", host);
+            anyhow::bail!("destination-not-allowed (error 1)")
+        }
+
+        wasmtime_wasi_http::types::default_send_request(data, request)
+    }
 }
 
 #[cfg(test)]

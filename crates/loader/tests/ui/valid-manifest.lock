@@ -24,7 +24,7 @@
       "trigger_config": {
         "component": "four-lights",
         "executor": {
-          "type": "spin"
+          "type": "http"
         },
         "route": "/lights"
       }

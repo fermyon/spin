@@ -36,7 +36,7 @@ pub async fn component_outbound_http_works(controller: &dyn Controller) {
             "",
             500,
             &[],
-            Some("destination-not-allowed (error 1)"),
+            None,
         )
         .await?;
 

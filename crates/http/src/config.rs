@@ -21,14 +21,14 @@ pub struct HttpTriggerConfig {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "lowercase", tag = "type")]
 pub enum HttpExecutorType {
-    /// The component implements the Spin HTTP interface.
+    /// The component implements an HTTP based interface.
+    ///
+    /// This can be either `fermyon:spin/inbound-http` or `wasi:http/incoming-handler`
     #[default]
-    Spin,
+    #[serde(alias = "spin")]
+    Http,
     /// The component implements the Wagi CGI interface.
     Wagi(WagiTriggerConfig),
-    /// The component implements [`wasi-http`](https://github.com/WebAssembly/wasi-http)
-    /// interface (experimental, subject to change)
-    Wasi,
 }
 
 /// Wagi specific configuration for the http executor.

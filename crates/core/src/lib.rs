@@ -20,7 +20,7 @@ use crossbeam_channel::Sender;
 use tracing::instrument;
 use wasmtime::{InstanceAllocationStrategy, PoolingAllocationConfig};
 use wasmtime_wasi::preview2::Table;
-use wasmtime_wasi_http::types::{WasiHttpCtx, WasiHttpView};
+use wasmtime_wasi_http::types::{default_send_request, WasiHttpCtx, WasiHttpView};
 
 use self::host_component::{HostComponents, HostComponentsBuilder};
 
@@ -191,7 +191,7 @@ impl<T: Send> wasmtime_wasi::preview2::WasiView for Data<T> {
     }
 }
 
-impl<T: Send> WasiHttpView for Data<T> {
+impl<T: Send + OutboundWasiHttpHandler> WasiHttpView for Data<T> {
     fn ctx(&mut self) -> &mut WasiHttpCtx {
         match &mut self.wasi {
             Wasi::Preview1(_) => panic!("using WASI Preview 1 functions with Preview 2 store"),
@@ -201,6 +201,45 @@ impl<T: Send> WasiHttpView for Data<T> {
 
     fn table(&mut self) -> &mut Table {
         &mut self.table
+    }
+
+    fn send_request(
+        &mut self,
+        request: wasmtime_wasi_http::types::OutgoingRequest,
+    ) -> wasmtime::Result<
+        wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
+    >
+    where
+        Self: Sized,
+    {
+        T::send_request(self, request)
+    }
+}
+
+/// Handler for wasi-http based requests
+pub trait OutboundWasiHttpHandler {
+    /// Send the request
+    fn send_request(
+        data: &mut Data<Self>,
+        request: wasmtime_wasi_http::types::OutgoingRequest,
+    ) -> wasmtime::Result<
+        wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
+    >
+    where
+        Self: Sized;
+}
+
+impl OutboundWasiHttpHandler for () {
+    fn send_request(
+        data: &mut Data<Self>,
+        request: wasmtime_wasi_http::types::OutgoingRequest,
+    ) -> wasmtime::Result<
+        wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
+    >
+    where
+        Self: Sized,
+    {
+        default_send_request(data, request)
     }
 }
 
@@ -222,13 +261,10 @@ pub struct EngineBuilder<T> {
     epoch_ticker_thread: bool,
 }
 
-impl<T: Send + Sync> EngineBuilder<T> {
+impl<T: Send + Sync + OutboundWasiHttpHandler> EngineBuilder<T> {
     fn new(config: &Config) -> Result<Self> {
         let engine = wasmtime::Engine::new(&config.inner)?;
-
-        let mut linker: Linker<T> = Linker::new(&engine);
-        wasmtime_wasi_http::proxy::add_to_linker(&mut linker)?;
-
+        let linker: Linker<T> = Linker::new(&engine);
         let mut module_linker = ModuleLinker::new(&engine);
         wasmtime_wasi::tokio::add_to_linker(&mut module_linker, |data| match &mut data.wasi {
             Wasi::Preview1(ctx) => ctx,
@@ -244,7 +280,9 @@ impl<T: Send + Sync> EngineBuilder<T> {
             epoch_ticker_thread: true,
         })
     }
+}
 
+impl<T: Send + Sync> EngineBuilder<T> {
     /// Adds definition(s) to the built [`Engine`].
     ///
     /// This method's signature is meant to be used with
@@ -345,7 +383,7 @@ pub struct Engine<T> {
     _epoch_ticker_signal: Option<Sender<()>>,
 }
 
-impl<T: Send + Sync> Engine<T> {
+impl<T: OutboundWasiHttpHandler + Send + Sync> Engine<T> {
     /// Creates a new [`EngineBuilder`] with the given [`Config`].
     pub fn builder(config: &Config) -> Result<EngineBuilder<T>> {
         EngineBuilder::new(config)

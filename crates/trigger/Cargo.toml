@@ -44,10 +44,11 @@ spin-manifest = { path = "../manifest" }
 terminal = { path = "../terminal" }
 tokio = { version = "1.23", features = ["fs"] }
 toml = "0.5.9"
-tracing = { workspace = true }
 url = "2"
-wasmtime = { workspace = true }
 spin-componentize = { workspace = true }
+tracing = { workspace = true }
+wasmtime = { workspace = true }
+wasmtime-wasi-http = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3.8.0"

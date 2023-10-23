@@ -111,23 +111,21 @@ func toResponse(res *C.wasi_outbound_http_response_t) (*http.Response, error) {
 
 func toOutboundHeaders(hm http.Header) C.wasi_outbound_http_headers_t {
 	var reqHeaders C.wasi_outbound_http_headers_t
+
 	headersLen := len(hm)
 
 	if headersLen > 0 {
 		reqHeaders.len = C.ulong(headersLen)
-		var x C.wasi_outbound_http_string_t
-		headersPtr := C.malloc(C.size_t(headersLen) * C.size_t(unsafe.Sizeof(x)))
-		ptr := (*[1 << 30]C.wasi_outbound_http_tuple2_string_string_t)(unsafe.Pointer(&headersPtr))[:headersLen:headersLen]
+		var x C.wasi_outbound_http_tuple2_string_string_t
+		reqHeaders.ptr = (*C.wasi_outbound_http_tuple2_string_string_t)(C.malloc(C.size_t(headersLen) * C.size_t(unsafe.Sizeof(x))))
+		headers := unsafe.Slice(reqHeaders.ptr, headersLen)
 
 		idx := 0
 		for k, v := range hm {
-			ptr[idx].f0 = C.wasi_outbound_http_string_t{ptr: C.CString(k), len: C.size_t(len(k))}
-			ptr[idx].f1 = C.wasi_outbound_http_string_t{ptr: C.CString(v[0]), len: C.size_t(len(v[0]))}
+			headers[idx] = newOutboundHeader(k, v[0])
 			idx++
 		}
-		reqHeaders.ptr = &ptr[0]
 	}
-
 	return reqHeaders
 }
 
@@ -186,5 +184,13 @@ func toErr(code C.uint8_t, url string) error {
 		return fmt.Errorf("Runtime error")
 	default:
 		return nil
+	}
+}
+
+// newOutboundHeader creates a new outboundHeader with the given key/value.
+func newOutboundHeader(k, v string) C.wasi_outbound_http_tuple2_string_string_t {
+	return C.wasi_outbound_http_tuple2_string_string_t{
+		f0: C.wasi_outbound_http_string_t{ptr: C.CString(k), len: C.size_t(len(k))},
+		f1: C.wasi_outbound_http_string_t{ptr: C.CString(v), len: C.size_t(len(v))},
 	}
 }

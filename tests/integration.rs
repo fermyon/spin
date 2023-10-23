@@ -28,7 +28,19 @@ mod integration_tests {
 
     const DEFAULT_MANIFEST_LOCATION: &str = "spin.toml";
 
-    const SPIN_BINARY: &str = "./target/debug/spin";
+    fn spin_binary() -> String {
+        format!("{}/debug/spin", target_dir())
+    }
+
+    fn target_dir() -> String {
+        match std::env::var_os("CARGO_TARGET_DIR") {
+            Some(d) => d
+                .to_str()
+                .expect("CARGO_TARGET_DIR is not utf-8")
+                .to_owned(),
+            None => "./target".into(),
+        }
+    }
 
     #[cfg(feature = "outbound-redis-tests")]
     mod outbound_redis_tests {
@@ -87,7 +99,10 @@ mod integration_tests {
         assert!(Command::new("cargo")
             .arg("build")
             .arg("--release")
-            .current_dir(trigger_dir)
+            .arg("--target-dir")
+            .arg(trigger_dir.join("target"))
+            .arg("--manifest-path")
+            .arg(trigger_dir.join("Cargo.toml"))
             .status()?
             .success());
 
@@ -100,18 +115,20 @@ mod integration_tests {
         fs::copy(
             trigger_dir.join("target/release/trigger-timer"),
             plugin_dir.join("trigger-timer"),
-        )?;
+        )
+        .context("could not copy plugin binary into plugin directory")?;
 
         let manifests_dir = plugins_dir.join("manifests");
         fs::create_dir_all(&manifests_dir)?;
         // Note that the hash and path in the manifest aren't accurate, but they won't be used anyway for this
-        // test.  We just need something that parses without throwing errors here.
+        // test. We just need something that parses without throwing errors here.
         fs::copy(
             Path::new(TIMER_TRIGGER_DIRECTORY).join("trigger-timer.json"),
             manifests_dir.join("trigger-timer.json"),
-        )?;
+        )
+        .context("could not copy plugin manifest into manifests directory")?;
 
-        assert!(Command::new(get_process(SPIN_BINARY))
+        let out = Command::new(get_process(&spin_binary()))
             .args([
                 "up",
                 "--file",
@@ -119,8 +136,12 @@ mod integration_tests {
                 "--test",
             ])
             .env("TEST_PLUGINS_DIRECTORY", plugin_store_dir)
-            .status()?
-            .success());
+            .output()?;
+        assert!(
+            out.status.success(),
+            "Running `spin up` returned error: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
 
         Ok(())
     }
@@ -279,7 +300,7 @@ mod integration_tests {
                 args.push(v);
             }
 
-            let mut spin_handle = Command::new(get_process(SPIN_BINARY))
+            let mut spin_handle = Command::new(get_process(&spin_binary()))
                 .args(args)
                 .env(
                     "RUST_LOG",
@@ -289,7 +310,7 @@ mod integration_tests {
                 .with_context(|| "executing Spin")?;
 
             // ensure the server is accepting requests before continuing.
-            wait_tcp(&url, &mut spin_handle, SPIN_BINARY).await?;
+            wait_tcp(&url, &mut spin_handle, &spin_binary()).await?;
 
             Ok(SpinTestController { url, spin_handle })
         }
@@ -351,7 +372,7 @@ mod integration_tests {
         if cfg!(target_os = "windows") {
             format!("{}.exe", binary)
         } else {
-            binary.to_string()
+            binary.to_owned()
         }
     }
 
@@ -432,7 +453,7 @@ mod integration_tests {
 
         run(
             vec![
-                SPIN_BINARY,
+                spin_binary().as_str(),
                 "build",
                 "--file",
                 manifest_file.to_str().unwrap(),
@@ -479,8 +500,9 @@ route = "/..."
         std::fs::write(&manifest_file, toml_text)?;
         std::fs::write(dir.join("fake.wasm"), "")?;
 
+        let binary = spin_binary();
         let up_help_args = vec![
-            SPIN_BINARY,
+            &binary,
             "up",
             "--file",
             manifest_file.to_str().unwrap(),
@@ -553,8 +575,9 @@ route = "/..."
         )?;
 
         // Install plugin
+        let binary = spin_binary();
         let install_args = vec![
-            SPIN_BINARY,
+            &binary,
             "plugins",
             "install",
             "--file",
@@ -564,7 +587,8 @@ route = "/..."
         run(install_args, None, Some(env_map.clone()))?;
 
         // Execute example plugin which writes "This is an example Spin plugin!" to a specified file
-        let execute_args = vec![SPIN_BINARY, "example"];
+        let binary = spin_binary();
+        let execute_args = vec![&binary, "example"];
         let output = run(execute_args, None, Some(env_map.clone()))?;
 
         // Verify plugin successfully wrote to output file
@@ -579,8 +603,9 @@ route = "/..."
             dir.join("example-plugin-manifest.json"),
             serde_json::to_string(&plugin_manifest_json).unwrap(),
         )?;
+        let binary = spin_binary();
         let upgrade_args = vec![
-            SPIN_BINARY,
+            &binary,
             "plugins",
             "upgrade",
             "example",
@@ -602,7 +627,8 @@ route = "/..."
         assert!(manifest.contains("0.2.1"));
 
         // Uninstall plugin
-        let uninstall_args = vec![SPIN_BINARY, "plugins", "uninstall", "example"];
+        let binary = spin_binary();
+        let uninstall_args = vec![&binary, "plugins", "uninstall", "example"];
         run(uninstall_args, None, None)?;
         Ok(())
     }
@@ -624,7 +650,8 @@ route = "/..."
         );
 
         // `spin login --help` should cause the `cloud` plugin to be installed
-        let args = vec![SPIN_BINARY, "login", "--help"];
+        let spin_binary = spin_binary();
+        let args = vec![&spin_binary, "login", "--help"];
 
         // Execute example plugin which writes "This is an example Spin plugin!" to a specified file
         let output = run(args, None, Some(env_map.clone()))?;

@@ -178,6 +178,9 @@ fn test_config() -> Config {
 fn test_engine() -> Engine<()> {
     let mut builder = Engine::builder(&test_config()).unwrap();
     builder.add_host_component(MultiplierHostComponent).unwrap();
+    builder
+        .link_import(|l, _| wasmtime_wasi::preview2::command::add_to_linker(l))
+        .unwrap();
     builder.build()
 }
 

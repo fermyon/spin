@@ -3,6 +3,7 @@ use std::{net::SocketAddr, str, str::FromStr};
 use crate::{Body, HttpExecutor, HttpTrigger, Store};
 use anyhow::bail;
 use anyhow::{anyhow, Context, Result};
+use http::{HeaderName, HeaderValue};
 use http_body_util::BodyExt;
 use hyper::{Request, Response};
 use outbound_http::OutboundHttpComponent;
@@ -42,7 +43,7 @@ impl HttpExecutor for HttpHandlerExecutor {
         set_http_origin_from_request(&mut store, engine, &req);
 
         let resp = match HandlerType::from_exports(instance.exports(&mut store)) {
-            Some(HandlerType::Wasi) => Self::execute_wasi(store, instance, req).await?,
+            Some(HandlerType::Wasi) => Self::execute_wasi(store, instance, base, raw_route, req, client_addr).await?,
             Some(HandlerType::Spin) => {
                 Self::execute_spin(store, instance, base, raw_route, req, client_addr)
                     .await
@@ -68,11 +69,7 @@ impl HttpHandlerExecutor {
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
-        let headers;
-        let mut req = req;
-        {
-            headers = Self::headers(&mut req, raw_route, base, client_addr)?;
-        }
+        let headers = Self::headers(&req, raw_route, base, client_addr)?;
         let func = instance
             .exports(&mut store)
             .instance("fermyon:spin/inbound-http")
@@ -147,8 +144,23 @@ impl HttpHandlerExecutor {
     async fn execute_wasi(
         mut store: Store,
         instance: Instance,
-        req: Request<Body>,
+        base: &str,
+        raw_route: &str,
+        mut req: Request<Body>,
+        client_addr: SocketAddr,
     ) -> anyhow::Result<Response<Body>> {
+        let headers = Self::headers(&req, raw_route, base, client_addr)?;
+        req.headers_mut().clear();
+        req.headers_mut()
+            .extend(headers.into_iter().filter_map(|(n, v)| {
+                let Ok(name) = n.parse::<HeaderName>() else {
+                    return None;
+                };
+                let Ok(value) = HeaderValue::from_bytes(v.as_bytes()) else {
+                    return None;
+                };
+                Some((name, value))
+            }));
         let request = store.as_mut().data_mut().new_incoming_request(req)?;
 
         let (response_tx, response_rx) = oneshot::channel();
@@ -190,7 +202,7 @@ impl HttpHandlerExecutor {
     }
 
     fn headers(
-        req: &mut Request<Body>,
+        req: &Request<Body>,
         raw: &str,
         base: &str,
         client_addr: SocketAddr,
@@ -280,6 +292,8 @@ fn set_http_origin_from_request(
                     .get_or_insert(outbound_http_handle);
 
                 outbound_http_data.origin = origin.clone();
+                store.as_mut().data_mut().as_mut().allowed_hosts =
+                    outbound_http_data.allowed_hosts.clone();
             }
             store.as_mut().data_mut().as_mut().origin = Some(origin);
         }

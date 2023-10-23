@@ -8,6 +8,7 @@ version = "1.0.0"
 [[component]]
 id = "wasi-http-async"
 source = "target/wasm32-wasi/release/wasi_http_rust_streaming_outgoing_body.wasm"
+allowed_http_hosts = ["insecure:allow-all"]
 [component.trigger]
 route = "/..."
 [component.build]

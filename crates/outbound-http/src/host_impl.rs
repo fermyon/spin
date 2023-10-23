@@ -28,11 +28,11 @@ impl OutboundHttp {
     /// If `None` is passed, the guest module is not allowed to send the request.
     fn is_allowed(&mut self, url: &str) -> Result<bool, HttpError> {
         if url.starts_with('/') {
-            return Ok(self.allowed_hosts.allow_relative_url());
+            return Ok(self.allowed_hosts.allows_relative_url());
         }
 
         let url = Url::parse(url).map_err(|_| HttpError::InvalidUrl)?;
-        Ok(self.allowed_hosts.allow(&url))
+        Ok(self.allowed_hosts.allows(&url))
     }
 }
 

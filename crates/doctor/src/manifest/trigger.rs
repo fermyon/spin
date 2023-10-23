@@ -18,6 +18,11 @@ impl Diagnostic for TriggerDiagnostic {
     async fn diagnose(&self, patient: &PatientApp) -> Result<Vec<Self::Diagnosis>> {
         let manifest: toml::Value = toml_edit::de::from_document(patient.manifest_doc.clone())?;
 
+        if manifest.get("spin_manifest_version") == Some(&Value::Integer(2)) {
+            // Not applicable to manifest V2
+            return Ok(vec![]);
+        }
+
         let mut diags = vec![];
 
         // Top-level trigger config

@@ -1,4 +1,4 @@
-spin_manifest_version = 2
+spin_manifest_version = 1
 
 # comment preserved
 name = "app-name"

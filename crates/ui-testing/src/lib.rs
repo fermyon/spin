@@ -1,6 +1,9 @@
 //! UI (aka "golden file") testing
 
-use std::path::{Path, PathBuf};
+use std::{
+    future::Future,
+    path::{Path, PathBuf},
+};
 
 use libtest_mimic::{Arguments, Trial};
 use snapbox::{Action, Assert, Data, Normalize};
@@ -29,6 +32,25 @@ impl UiTestsRunner {
             run_test(snapshot_path, runner)
         }));
         self
+    }
+
+    pub fn add_async_test<R, F>(
+        &mut self,
+        test_name: String,
+        snapshot_path: impl Into<PathBuf>,
+        runner: R,
+    ) -> &mut Self
+    where
+        R: FnOnce(&mut Normalizer) -> F + Send + 'static,
+        F: Future<Output = Result<String, Failed>>,
+    {
+        self.add_test(test_name, snapshot_path, |normalizer| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("tokio runtime builder should work")
+                .block_on(runner(normalizer))
+        })
     }
 
     /// For every entry in `tests/ui/*`, calls the path mapper to determine

@@ -1,7 +1,7 @@
-pub mod config_provider;
 pub mod key_value;
 pub mod llm;
 pub mod sqlite;
+pub mod variables_provider;
 
 use std::{
     collections::HashMap,
@@ -15,10 +15,10 @@ use serde::Deserialize;
 use spin_sqlite::Connection;
 
 use self::{
-    config_provider::{ConfigProvider, ConfigProviderOpts},
     key_value::{KeyValueStore, KeyValueStoreOpts},
     llm::LlmComputeOpts,
     sqlite::SqliteDatabaseOpts,
+    variables_provider::{VariablesProvider, VariablesProviderOpts},
 };
 
 pub const DEFAULT_STATE_DIR: &str = ".spin";
@@ -57,12 +57,12 @@ impl RuntimeConfig {
         Ok(())
     }
 
-    /// Return a Vec of configured [`spin_config::Provider`]s.
-    pub fn config_providers(&self) -> Vec<ConfigProvider> {
-        let default_provider = ConfigProviderOpts::default_provider_opts(self).build_provider();
-        let mut providers: Vec<ConfigProvider> = vec![default_provider];
+    /// Return a Vec of configured [`VariablesProvider`]s.
+    pub fn variables_providers(&self) -> Vec<VariablesProvider> {
+        let default_provider = VariablesProviderOpts::default_provider_opts(self).build_provider();
+        let mut providers: Vec<VariablesProvider> = vec![default_provider];
         providers.extend(self.opts_layers().flat_map(|opts| {
-            opts.config_providers
+            opts.variables_providers
                 .iter()
                 .map(|opts| opts.build_provider())
         }));
@@ -198,8 +198,8 @@ pub struct RuntimeConfigOpts {
     #[serde(default)]
     pub llm_compute: Option<LlmComputeOpts>,
 
-    #[serde(rename = "config_provider", default)]
-    pub config_providers: Vec<ConfigProviderOpts>,
+    #[serde(rename = "variables_provider", alias = "config_provider", default)]
+    pub variables_providers: Vec<VariablesProviderOpts>,
 
     #[serde(rename = "key_value_store", default)]
     pub key_value_stores: HashMap<String, KeyValueStoreOpts>,
@@ -307,11 +307,11 @@ mod tests {
     }
 
     #[test]
-    fn config_providers_from_file() -> Result<()> {
+    fn deprecated_config_provider_in_runtime_config_file() -> Result<()> {
         let mut config = RuntimeConfig::new(None);
 
         // One default provider
-        assert_eq!(config.config_providers().len(), 1);
+        assert_eq!(config.variables_providers().len(), 1);
 
         merge_config_toml(
             &mut config,
@@ -323,7 +323,29 @@ mod tests {
                 mount = "root"
             },
         );
-        assert_eq!(config.config_providers().len(), 2);
+        assert_eq!(config.variables_providers().len(), 2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn variables_providers_from_file() -> Result<()> {
+        let mut config = RuntimeConfig::new(None);
+
+        // One default provider
+        assert_eq!(config.variables_providers().len(), 1);
+
+        merge_config_toml(
+            &mut config,
+            toml! {
+                [[variables_provider]]
+                type = "vault"
+                url = "http://vault"
+                token = "secret"
+                mount = "root"
+            },
+        );
+        assert_eq!(config.variables_providers().len(), 2);
 
         Ok(())
     }

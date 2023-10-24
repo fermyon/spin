@@ -1,5 +1,5 @@
 use anyhow::{ensure, Result};
-use spin_sdk::{config, http_component};
+use spin_sdk::{http_component, variables};
 
 #[http_component]
 fn handle_request(req: http::Request<()>) -> Result<http::Response<()>> {
@@ -11,11 +11,11 @@ fn handle_request(req: http::Request<()>) -> Result<http::Response<()>> {
     let expected_password_value = query
         .get("password")
         .expect("Should have a password query string");
-    let actual_password_value = config::get("password")?;
+    let actual_password_value = variables::get("password")?;
 
     ensure!(
         expected_password_value == &actual_password_value,
-        "actual password value from config store '{}' must match expected password value '{}'",
+        "actual password value from variable store '{}' must match expected password value '{}'",
         &actual_password_value,
         expected_password_value
     );

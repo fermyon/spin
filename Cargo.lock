@@ -5644,7 +5644,6 @@ dependencies = [
  "spin-app",
  "spin-build",
  "spin-common",
- "spin-config",
  "spin-doctor",
  "spin-http",
  "spin-key-value",
@@ -5658,6 +5657,7 @@ dependencies = [
  "spin-templates",
  "spin-trigger",
  "spin-trigger-http",
+ "spin-variables",
  "subprocess",
  "tempfile",
  "terminal",
@@ -5696,24 +5696,6 @@ dependencies = [
  "wasmparser",
  "wit-component",
  "wit-parser",
-]
-
-[[package]]
-name = "spin-config"
-version = "2.0.0-pre0"
-dependencies = [
- "anyhow",
- "async-trait",
- "dotenvy",
- "once_cell",
- "serde",
- "spin-app",
- "spin-core",
- "spin-world",
- "thiserror",
- "tokio",
- "toml 0.5.11",
- "vaultrs",
 ]
 
 [[package]]
@@ -6173,7 +6155,6 @@ dependencies = [
  "spin-app",
  "spin-common",
  "spin-componentize",
- "spin-config",
  "spin-core",
  "spin-key-value",
  "spin-key-value-azure",
@@ -6187,6 +6168,7 @@ dependencies = [
  "spin-sqlite",
  "spin-sqlite-inproc",
  "spin-sqlite-libsql",
+ "spin-variables",
  "spin-world",
  "tempfile",
  "terminal",
@@ -6234,6 +6216,24 @@ dependencies = [
  "wasmtime",
  "wasmtime-wasi",
  "wasmtime-wasi-http",
+]
+
+[[package]]
+name = "spin-variables"
+version = "2.0.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dotenvy",
+ "once_cell",
+ "serde",
+ "spin-app",
+ "spin-core",
+ "spin-world",
+ "thiserror",
+ "tokio",
+ "toml 0.5.11",
+ "vaultrs",
 ]
 
 [[package]]

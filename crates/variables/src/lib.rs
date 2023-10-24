@@ -6,15 +6,15 @@ use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
 use spin_app::Variable;
 
-pub use crate::{host_component::ConfigHostComponent, provider::Provider};
+pub use crate::{host_component::VariablesHostComponent, provider::Provider};
 use template::{Part, Template};
 
-/// A configuration resolver.
+/// A variable resolver.
 #[derive(Debug, Default)]
 pub struct Resolver {
     // variable key -> variable
     variables: HashMap<String, Variable>,
-    // component ID -> config key -> config value template
+    // component ID -> variable key -> variable value template
     component_configs: HashMap<String, HashMap<String, Template>>,
     providers: Vec<Box<dyn Provider>>,
 }
@@ -32,17 +32,17 @@ impl Resolver {
         })
     }
 
-    /// Adds component configuration values to the Resolver.
-    pub fn add_component_config(
+    /// Adds component variable values to the Resolver.
+    pub fn add_component_variables(
         &mut self,
         component_id: impl Into<String>,
-        config: impl IntoIterator<Item = (String, String)>,
+        variables: impl IntoIterator<Item = (String, String)>,
     ) -> Result<()> {
         let component_id = component_id.into();
-        let templates = config
+        let templates = variables
             .into_iter()
             .map(|(key, val)| {
-                // Validate config keys so that we can rely on them during resolution
+                // Validate variable keys so that we can rely on them during resolution
                 Key::validate(&key)?;
                 let template = self.validate_template(val)?;
                 Ok((key, template))
@@ -54,21 +54,21 @@ impl Resolver {
         Ok(())
     }
 
-    /// Adds a config Provider to the Resolver.
+    /// Adds a variable Provider to the Resolver.
     pub fn add_provider(&mut self, provider: Box<dyn Provider>) {
         self.providers.push(provider);
     }
 
-    /// Resolves a config value for the given path.
+    /// Resolves a variable value for the given path.
     pub async fn resolve(&self, component_id: &str, key: Key<'_>) -> Result<String> {
         let configs = self.component_configs.get(component_id).ok_or_else(|| {
-            Error::UnknownPath(format!("no config for component {component_id:?}"))
+            Error::Undefined(format!("no variable for component {component_id:?}"))
         })?;
 
         let key = key.as_ref();
         let template = configs
             .get(key)
-            .ok_or_else(|| Error::UnknownPath(format!("no config for {component_id:?}.{key:?}")))?;
+            .ok_or_else(|| Error::Undefined(format!("no variable for {component_id:?}.{key:?}")))?;
 
         self.resolve_template(template).await
     }
@@ -89,7 +89,7 @@ impl Resolver {
             .variables
             .get(key)
             // This should have been caught by validate_template
-            .ok_or_else(|| Error::InvalidKey(key.to_string()))?;
+            .ok_or_else(|| Error::InvalidName(key.to_string()))?;
 
         for provider in &self.providers {
             if let Some(value) = provider.get(&Key(key)).await.map_err(Error::Provider)? {
@@ -117,7 +117,7 @@ impl Resolver {
     }
 }
 
-/// A config key
+/// A variable key
 #[derive(Debug, PartialEq, Eq)]
 pub struct Key<'a>(&'a str);
 
@@ -140,7 +140,7 @@ impl<'a> Key<'a> {
                 .chars()
                 .find(|c| !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == &'_'))
             {
-                Err(format!("invalid character {:?}. Variable names and config keys may contain only lower-case letters, numbers, and underscores.", invalid))
+                Err(format!("invalid character {:?}. Variable names may contain only lower-case letters, numbers, and underscores.", invalid))
             } else if !key.bytes().next().unwrap().is_ascii_lowercase() {
                 Err("must start with a lowercase ASCII letter".to_string())
             } else if !key.bytes().last().unwrap().is_ascii_alphanumeric() {
@@ -151,7 +151,7 @@ impl<'a> Key<'a> {
                 Ok(())
             }
         }
-        .map_err(|reason| Error::InvalidKey(format!("{key:?}: {reason}")))
+        .map_err(|reason| Error::InvalidName(format!("{key:?}: {reason}")))
     }
 }
 
@@ -163,32 +163,24 @@ impl<'a> AsRef<str> for Key<'a> {
 
 type Result<T> = std::result::Result<T, Error>;
 
-/// A config resolution error.
+/// A variable resolution error.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    /// Invalid config key.
-    #[error("invalid config key: {0}")]
-    InvalidKey(String),
+    /// Invalid variable name.
+    #[error("invalid variable name: {0}")]
+    InvalidName(String),
 
-    /// Invalid config path.
-    #[error("invalid config path: {0}")]
-    InvalidPath(String),
-
-    /// Invalid config schema.
-    #[error("invalid config schema: {0}")]
-    InvalidSchema(String),
-
-    /// Invalid config template.
-    #[error("invalid config template: {0}")]
+    /// Invalid variable template.
+    #[error("invalid variable template: {0}")]
     InvalidTemplate(String),
 
-    /// Config provider error.
+    /// Variable provider error.
     #[error("provider error: {0:?}")]
     Provider(#[source] anyhow::Error),
 
-    /// Unknown config path.
-    #[error("unknown config path: {0}")]
-    UnknownPath(String),
+    /// Undefined variable.
+    #[error("undefined variable: {0}")]
+    Undefined(String),
 }
 
 #[cfg(test)]
@@ -211,7 +203,7 @@ mod tests {
         }
     }
 
-    async fn test_resolve(config_template: &str) -> Result<String> {
+    async fn test_resolve(template: &str) -> Result<String> {
         let mut resolver = Resolver::new([
             (
                 "required".into(),
@@ -230,10 +222,7 @@ mod tests {
         ])
         .unwrap();
         resolver
-            .add_component_config(
-                "test-component",
-                [("test_key".into(), config_template.into())],
-            )
+            .add_component_variables("test-component", [("test_key".into(), template.into())])
             .unwrap();
         resolver.add_provider(Box::new(TestProvider));
         resolver.resolve("test-component", Key("test_key")).await

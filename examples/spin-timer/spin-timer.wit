@@ -1,6 +1,6 @@
 package fermyon:example
 
 world spin-timer {
-  import fermyon:spin/config
+  import fermyon:spin/variables@2.0.0
   export handle-timer-request: func()
 }

@@ -1,5 +1,5 @@
 [package]
-name = "spin-config-example"
+name = "spin-variables-example"
 version = "0.1.0"
 edition = "2021"
 

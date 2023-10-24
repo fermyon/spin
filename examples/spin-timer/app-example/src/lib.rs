@@ -6,13 +6,13 @@ wit_bindgen::generate!({
     }
 });
 
-use fermyon::spin::config;
+use fermyon::spin::variables;
 
 struct MySpinTimer;
 
 impl Guest for MySpinTimer {
     fn handle_timer_request() {
-        let text = config::get_config("message").unwrap();
+        let text = variables::get("message").unwrap();
         println!("{text}");
     }
 }

@@ -5,31 +5,56 @@ use async_trait::async_trait;
 
 use crate::{Key, Provider};
 
+const DEFAULT_ENV_PREFIX: &str = "SPIN_VARIABLE";
+const LEGACY_ENV_PREFIX: &str = "SPIN_CONFIG";
+
 /// A config Provider that uses environment variables.
 #[derive(Debug)]
 pub struct EnvProvider {
-    prefix: String,
+    prefix: Option<String>,
     dotenv_path: Option<PathBuf>,
     dotenv_cache: Mutex<Option<HashMap<String, String>>>,
 }
 
 impl EnvProvider {
     /// Creates a new EnvProvider.
-    pub fn new(prefix: impl Into<String>, dotenv_path: Option<PathBuf>) -> Self {
+    pub fn new(prefix: Option<impl Into<String>>, dotenv_path: Option<PathBuf>) -> Self {
         Self {
-            prefix: prefix.into(),
+            prefix: prefix.map(Into::into),
             dotenv_path,
             dotenv_cache: Default::default(),
         }
     }
 
-    fn get_sync(&self, key: &Key) -> Result<Option<String>> {
-        let env_key = format!("{}_{}", &self.prefix, key.as_ref().to_ascii_uppercase());
-        match std::env::var(&env_key) {
-            Err(std::env::VarError::NotPresent) => self.get_dotenv(&env_key),
+    fn query_env(&self, env_key: &str) -> Result<Option<String>> {
+        match std::env::var(env_key) {
+            Err(std::env::VarError::NotPresent) => self.get_dotenv(env_key),
             other => other
                 .map(Some)
-                .with_context(|| format!("failed to resolve env var {}", &env_key)),
+                .with_context(|| format!("failed to resolve env var {env_key}")),
+        }
+    }
+
+    fn get_sync(&self, key: &Key) -> Result<Option<String>> {
+        let prefix = self
+            .prefix
+            .clone()
+            .unwrap_or(DEFAULT_ENV_PREFIX.to_string());
+        let use_fallback = self.prefix.is_none();
+
+        let upper_key = key.as_ref().to_ascii_uppercase();
+        let env_key = format!("{prefix}_{upper_key}");
+
+        match self.query_env(&env_key)? {
+            None if use_fallback => {
+                let old_key = format!("{LEGACY_ENV_PREFIX}_{upper_key}");
+                let result = self.query_env(&old_key);
+                if let Ok(Some(_)) = &result {
+                    eprintln!("Warning: variable '{key}': {env_key} was not set, so used {old_key}. The {LEGACY_ENV_PREFIX} prefix is deprecated; please switch to the {DEFAULT_ENV_PREFIX} prefix.", key = key.as_ref());
+                }
+                result
+            }
+            other => Ok(other),
         }
     }
 
@@ -80,7 +105,7 @@ mod test {
             "dotenv_val".to_string(),
         );
         assert_eq!(
-            EnvProvider::new("TESTING_SPIN", None)
+            EnvProvider::new(Some("TESTING_SPIN"), None)
                 .get_sync(&key1)
                 .unwrap(),
             Some("val".to_string())
@@ -94,7 +119,7 @@ mod test {
 
         let key = Key::new("env_key2").unwrap();
         assert_eq!(
-            EnvProvider::new("TESTING_SPIN", Some(dotenv_path))
+            EnvProvider::new(Some("TESTING_SPIN"), Some(dotenv_path))
                 .get_sync(&key)
                 .unwrap(),
             Some("dotenv_val".to_string())
@@ -105,7 +130,7 @@ mod test {
     fn provider_get_missing() {
         let key = Key::new("please_do_not_ever_set_this_during_tests").unwrap();
         assert_eq!(
-            EnvProvider::new("TESTING_SPIN", Default::default())
+            EnvProvider::new(Some("TESTING_SPIN"), Default::default())
                 .get_sync(&key)
                 .unwrap(),
             None

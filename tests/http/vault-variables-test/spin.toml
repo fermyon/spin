@@ -1,7 +1,7 @@
 spin_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
-description = "A simple application that returns query values from config providers"
-name = "vault-config-test"
+description = "A simple application that returns query values from variable providers"
+name = "vault-variables-test"
 trigger = { type = "http" }
 version = "0.1.0"
 
@@ -11,7 +11,7 @@ greeting = { default = "Hello!" }
 
 [[component]]
 id = "config-test"
-source = "target/wasm32-wasi/release/vault_config_test.wasm"
+source = "target/wasm32-wasi/release/vault_variables_test.wasm"
 [component.trigger]
 route = "/..."
 [component.build]

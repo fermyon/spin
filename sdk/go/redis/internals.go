@@ -164,16 +164,18 @@ func fromRedisListStr(list *C.outbound_redis_list_string_t) []string {
 }
 
 func redisParameter(x RedisParameter) C.outbound_redis_redis_parameter_t {
-	var val C._Ctype_union___9
+
+	var ret C.outbound_redis_redis_parameter_t
 	switch x.Kind {
-	case RedisParameterKindInt64: *(*C.int64_t)(unsafe.Pointer(&val)) = x.Val.(int64)
-	case RedisParameterKindBinary: {
+	case RedisParameterKindInt64:
+		*(*C.int64_t)(unsafe.Pointer(&ret.val)) = x.Val.(int64)
+	case RedisParameterKindBinary:
 		value := x.Val.([]byte)
 		payload := C.outbound_redis_payload_t{ptr: &value[0], len: C.size_t(len(value))}
-		*(*C.outbound_redis_payload_t)(unsafe.Pointer(&val)) = payload
+		*(*C.outbound_redis_payload_t)(unsafe.Pointer(&ret.val)) = payload
 	}
-	}
-	return C.outbound_redis_redis_parameter_t{tag: C.uint8_t(x.Kind), val: val}
+	ret.tag = C.uint8_t(x.Kind)
+	return ret
 }
 
 func redisListParameter(xs []RedisParameter) C.outbound_redis_list_redis_parameter_t {

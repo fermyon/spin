@@ -7,6 +7,6 @@ fn get(req: http::Request<()>) -> anyhow::Result<http::Response<String>> {
         let val = variables::get("dotenv").expect("Failed to acquire dotenv from spin.toml");
         return Ok(http::Response::builder().status(200).body(val)?);
     }
-    let val = format!("message: {}", config::get("message")?);
+    let val = format!("message: {}", variables::get("message")?);
     Ok(http::Response::builder().status(200).body(val)?)
 }

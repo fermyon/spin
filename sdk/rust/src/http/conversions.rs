@@ -1,18 +1,16 @@
 use async_trait::async_trait;
 
 use super::{
-    Fields, Headers, IncomingRequest, IncomingResponse, OutgoingRequest, OutgoingResponse, Request,
-    Response,
+    responses, Fields, Headers, IncomingRequest, IncomingResponse, NonUtf8BodyError,
+    OutgoingRequest, OutgoingResponse, Request, Response,
 };
 
-use super::{responses, NonUtf8BodyError};
-
-impl<B> From<hyperium::Response<B>> for OutgoingResponse {
-    fn from(mut response: hyperium::Response<B>) -> Self {
-        let headers = std::mem::take(response.headers_mut());
-        let headers = headers
+impl From<Response> for OutgoingResponse {
+    fn from(response: Response) -> Self {
+        let headers = response
+            .headers()
             .iter()
-            .map(|(k, v)| (k.to_string(), v.as_bytes().to_owned()))
+            .map(|(n, v)| (n.to_string(), v.as_bytes().to_owned()))
             .collect::<Vec<_>>();
         OutgoingResponse::new(response.status().into(), &Headers::new(&headers))
     }
@@ -35,6 +33,66 @@ impl TryFromIncomingRequest for IncomingRequest {
     type Error = std::convert::Infallible;
     async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
         Ok(request)
+    }
+}
+
+#[async_trait]
+impl<B> TryFromIncomingRequest for hyperium::Request<B>
+where
+    B: TryFromBody,
+    B::Error: Into<anyhow::Error>,
+{
+    type Error = IncomingRequestError<hyperium::Error>;
+
+    async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
+        let uri = request
+            .uri()
+            .map_err(|e| IncomingRequestError::ConversionError(e.into()))?;
+        let mut builder = hyperium::Request::builder()
+            .method(request.method())
+            .uri(uri);
+        let headers = request
+            .headers()
+            .entries()
+            .into_iter()
+            .map(|(n, v)| {
+                Ok((
+                    hyperium::HeaderName::try_from(n)?,
+                    hyperium::HeaderValue::try_from(v)?,
+                ))
+            })
+            .collect::<Result<hyperium::HeaderMap, hyperium::Error>>()
+            .map_err(IncomingRequestError::ConversionError)?;
+        *builder.headers_mut().unwrap() = headers;
+        builder
+            .body(
+                B::try_from_body(
+                    request
+                        .into_body()
+                        .await
+                        .map_err(IncomingRequestError::BodyConversionError)?,
+                )
+                .map_err(|e| IncomingRequestError::BodyConversionError(e.into()))?,
+            )
+            .map_err(IncomingRequestError::ConversionError)
+    }
+}
+
+impl TryFrom<super::Method> for hyperium::Method {
+    type Error = hyperium::method::InvalidMethod;
+    fn try_from(method: super::Method) -> Result<Self, Self::Error> {
+        Ok(match method {
+            super::Method::Get => hyperium::Method::GET,
+            super::Method::Post => hyperium::Method::POST,
+            super::Method::Put => hyperium::Method::PUT,
+            super::Method::Delete => hyperium::Method::DELETE,
+            super::Method::Patch => hyperium::Method::PATCH,
+            super::Method::Head => hyperium::Method::HEAD,
+            super::Method::Options => hyperium::Method::OPTIONS,
+            super::Method::Connect => hyperium::Method::CONNECT,
+            super::Method::Trace => hyperium::Method::TRACE,
+            super::Method::Other(o) => hyperium::Method::from_bytes(o.as_bytes())?,
+        })
     }
 }
 
@@ -66,48 +124,6 @@ where
             .await
             .map_err(convert_error)?;
         R::try_from_request(req).map_err(IncomingRequestError::ConversionError)
-    }
-}
-
-#[async_trait]
-impl<B> TryFromIncomingRequest for hyperium::Request<B>
-where
-    B: TryFromBody,
-    B::Error: Into<anyhow::Error>,
-{
-    type Error = IncomingRequestError<hyperium::Error>;
-
-    async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
-        let uri = request
-            .uri()
-            .map_err(|e| IncomingRequestError::ConversionError(e.into()))?;
-        let headers = request
-            .headers()
-            .entries()
-            .into_iter()
-            .map(|(n, v)| {
-                Ok((
-                    hyperium::HeaderName::try_from(n)?,
-                    hyperium::HeaderValue::try_from(v)?,
-                ))
-            })
-            .collect::<Result<hyperium::HeaderMap, hyperium::Error>>()
-            .map_err(IncomingRequestError::ConversionError)?;
-        let mut builder = hyperium::Request::builder()
-            .method(request.method())
-            .uri(uri);
-        *builder.headers_mut().unwrap() = headers;
-        builder
-            .body(
-                B::try_from_body(
-                    request
-                        .into_body()
-                        .await
-                        .map_err(IncomingRequestError::BodyConversionError)?,
-                )
-                .map_err(|e| IncomingRequestError::BodyConversionError(e.into()))?,
-            )
-            .map_err(IncomingRequestError::ConversionError)
     }
 }
 
@@ -156,7 +172,7 @@ impl<B: TryFromBody> TryFromRequest for hyperium::Request<B> {
 /// A hack that allows us to do blanket impls for `T where T: TryFromRequest` for all types
 /// `T` *except* for `Request`.
 ///
-/// This is useful in `wasi_http` where we want to implement `TryFromIncomingRequest` for all types that impl
+/// This is useful where we want to implement `TryFromIncomingRequest` for all types that impl
 /// `TryFromRequest` with the exception of `Request` itself. This allows that implementation to first convert
 /// the `IncomingRequest` to a `Request` and then using this trait convert from `Request` to the given type.
 pub trait TryNonRequestFromRequest {
@@ -166,23 +182,6 @@ pub trait TryNonRequestFromRequest {
     fn try_from_request(req: Request) -> Result<Self, Self::Error>
     where
         Self: Sized;
-}
-
-impl From<super::Method> for hyperium::Method {
-    fn from(method: super::Method) -> Self {
-        match method {
-            super::Method::Get => hyperium::Method::GET,
-            super::Method::Post => hyperium::Method::POST,
-            super::Method::Put => hyperium::Method::PUT,
-            super::Method::Delete => hyperium::Method::DELETE,
-            super::Method::Patch => hyperium::Method::PATCH,
-            super::Method::Head => hyperium::Method::HEAD,
-            super::Method::Options => hyperium::Method::OPTIONS,
-            super::Method::Connect => hyperium::Method::CONNECT,
-            super::Method::Trace => hyperium::Method::TRACE,
-            super::Method::Other(o) => hyperium::Method::from_bytes(o.as_bytes()).expect("TODO"),
-        }
-    }
 }
 
 /// A trait for any type that can be turned into a `Response`
@@ -293,7 +292,6 @@ impl IntoStatusCode for u16 {
     }
 }
 
-#[cfg(feature = "http")]
 impl IntoStatusCode for hyperium::StatusCode {
     fn into_status_code(self) -> u16 {
         self.as_u16()
@@ -326,7 +324,7 @@ impl IntoBody for bytes::Bytes {
 
 impl IntoBody for () {
     fn into_body(self) -> Vec<u8> {
-        Default::default()
+        Vec::new()
     }
 }
 
@@ -338,7 +336,7 @@ impl IntoBody for &str {
 
 impl IntoBody for String {
     fn into_body(self) -> Vec<u8> {
-        self.to_owned().into_bytes()
+        self.into_bytes()
     }
 }
 
@@ -476,11 +474,11 @@ where
 }
 
 #[async_trait]
-/// TODO
+/// Convert into type from an `IncomingResponse`.
 pub trait TryFromIncomingResponse {
-    /// TODO
+    /// The error if the conversion does not succeed.
     type Error;
-    /// TODO
+    /// Convert the `IncomingResponse` to the implementing type.
     async fn try_from_incoming_response(resp: IncomingResponse) -> Result<Self, Self::Error>
     where
         Self: Sized;

@@ -29,7 +29,7 @@ impl DynamicHostComponent for OutboundRedisComponent {
         let hosts = component
             .get_metadata(crate::ALLOWED_REDIS_HOSTS_KEY)?
             .unwrap_or_default();
-        data.allowed_hosts.extend(hosts);
+        data.allowed_hosts = hosts;
         Ok(())
     }
 }

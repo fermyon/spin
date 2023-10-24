@@ -58,6 +58,20 @@ impl ValuesMapBuilder {
         self.entry(key, entries)
     }
 
+    /// Inserts an optional list of strings
+    pub fn string_array_option(
+        &mut self,
+        key: impl Into<String>,
+        value: Option<impl IntoIterator<Item = impl Into<String>>>,
+    ) -> &mut Self {
+        if let Some(value) = value {
+            let entries = value.into_iter().map(|s| s.into()).collect::<Vec<_>>();
+            self.entry(key, entries)
+        } else {
+            self.entry(key, Value::Null)
+        }
+    }
+
     /// Inserts an entry into the map using the value's `impl Into<Value>`.
     pub fn entry(&mut self, key: impl Into<String>, value: impl Into<Value>) -> &mut Self {
         self.0.insert(key.into(), value.into());

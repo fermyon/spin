@@ -9,7 +9,7 @@ use spin_locked_app::MetadataKey;
 use spin_world::v1::redis::{self as v1, RedisParameter, RedisResult};
 use spin_world::v2::redis::{self as v2, Connection as RedisConnection, Error};
 
-pub const ALLOWED_REDIS_HOSTS_KEY: MetadataKey<Vec<String>> =
+pub const ALLOWED_REDIS_HOSTS_KEY: MetadataKey<Option<HashSet<String>>> =
     MetadataKey::new("allowed_redis_hosts");
 
 pub use host_component::OutboundRedisComponent;
@@ -35,7 +35,7 @@ impl FromRedisValue for RedisResults {
 }
 
 pub struct OutboundRedis {
-    allowed_hosts: HashSet<String>,
+    allowed_hosts: Option<HashSet<String>>,
     connections: table::Table<Connection>,
 }
 
@@ -49,6 +49,24 @@ impl Default for OutboundRedis {
 }
 
 impl OutboundRedis {
+    fn is_address_allowed(&self, address: &str, default: bool) -> bool {
+        fn do_check(allowed_hosts: Option<&HashSet<String>>, address: &str, default: bool) -> bool {
+            let Some(allowed_hosts) = allowed_hosts else {
+                return default;
+            };
+            allowed_hosts.contains(address)
+        }
+
+        let response = do_check(self.allowed_hosts.as_ref(), address, default);
+        if !response {
+            terminal::warn!(
+                "A component tried to make a HTTP request to non-allowed address {address:?}."
+            );
+            eprintln!("To allow requests, add 'allowed_redis_hosts = [{address:?}]' to the manifest component section.");
+        }
+        response
+    }
+
     async fn establish_connection(
         &mut self,
         address: String,
@@ -73,11 +91,7 @@ impl v2::Host for OutboundRedis {}
 #[async_trait]
 impl v2::HostConnection for OutboundRedis {
     async fn open(&mut self, address: String) -> Result<Result<Resource<RedisConnection>, Error>> {
-        if !self.allowed_hosts.contains(&address) {
-            terminal::warn!(
-                "A component tried to make a HTTP request to non-allowed address '{address}'."
-            );
-            eprintln!("To allow requests, add 'allowed_redis_hosts = [\"{address}\"]' to the manifest component section.");
+        if !self.is_address_allowed(&address, false) {
             return Ok(Err(Error::InvalidAddress));
         }
 
@@ -239,6 +253,9 @@ fn other_error(e: impl std::fmt::Display) -> Error {
 /// Delegate a function call to the v2::HostConnection implementation
 macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
+        if !$self.is_address_allowed(&$address, true) {
+            return Ok(Err(v1::Error::Error));
+        }
         let connection = match $self.establish_connection($address).await? {
             Ok(c) => c,
             Err(_) => return Ok(Err(v1::Error::Error)),

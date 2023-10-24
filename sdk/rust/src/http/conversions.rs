@@ -1,14 +1,20 @@
 use async_trait::async_trait;
 
 use super::{
-    Fields, Headers, IncomingRequest, IncomingResponse, OutgoingRequest, OutgoingResponse,
+    Fields, Headers, IncomingRequest, IncomingResponse, OutgoingRequest, OutgoingResponse, Request,
+    Response,
 };
 
-use super::{responses, NonUtf8BodyError, Request, Response};
+use super::{responses, NonUtf8BodyError};
 
-impl From<Response> for OutgoingResponse {
-    fn from(response: Response) -> Self {
-        OutgoingResponse::new(response.status, &Headers::new(&response.headers))
+impl<B> From<hyperium::Response<B>> for OutgoingResponse {
+    fn from(mut response: hyperium::Response<B>) -> Self {
+        let headers = std::mem::take(response.headers_mut());
+        let headers = headers
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.as_bytes().to_owned()))
+            .collect::<Vec<_>>();
+        OutgoingResponse::new(response.status().into(), &Headers::new(&headers))
     }
 }
 
@@ -36,11 +42,27 @@ impl TryFromIncomingRequest for IncomingRequest {
 impl<R> TryFromIncomingRequest for R
 where
     R: TryNonRequestFromRequest,
+    R::Error: From<hyperium::Error>,
 {
     type Error = IncomingRequestError<R::Error>;
 
     async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
-        let req = Request::try_from_incoming_request(request)
+        /// Helper for converting `IncomingRequestError`s that cannot fail due to conversion errors
+        /// into ones that can.
+        fn convert_error<E: From<hyperium::Error>>(
+            error: IncomingRequestError<hyperium::Error>,
+        ) -> IncomingRequestError<E> {
+            match error {
+                IncomingRequestError::BodyConversionError(e) => {
+                    IncomingRequestError::BodyConversionError(e)
+                }
+                IncomingRequestError::ConversionError(e) => {
+                    IncomingRequestError::ConversionError(e.into())
+                }
+            }
+        }
+
+        let req = hyperium::Request::try_from_incoming_request(request)
             .await
             .map_err(convert_error)?;
         R::try_from_request(req).map_err(IncomingRequestError::ConversionError)
@@ -48,22 +70,44 @@ where
 }
 
 #[async_trait]
-impl TryFromIncomingRequest for Request {
-    type Error = IncomingRequestError;
+impl<B> TryFromIncomingRequest for hyperium::Request<B>
+where
+    B: TryFromBody,
+    B::Error: Into<anyhow::Error>,
+{
+    type Error = IncomingRequestError<hyperium::Error>;
 
     async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
-        let headers = request.headers().entries();
-        Ok(Self {
-            method: request.method(),
-            path_and_query: request
-                .path_with_query()
-                .unwrap_or_else(|| String::from("/")),
-            headers,
-            body: request
-                .into_body()
-                .await
-                .map_err(IncomingRequestError::BodyConversionError)?,
-        })
+        let uri = request
+            .uri()
+            .map_err(|e| IncomingRequestError::ConversionError(e.into()))?;
+        let headers = request
+            .headers()
+            .entries()
+            .into_iter()
+            .map(|(n, v)| {
+                Ok((
+                    hyperium::HeaderName::try_from(n)?,
+                    hyperium::HeaderValue::try_from(v)?,
+                ))
+            })
+            .collect::<Result<hyperium::HeaderMap, hyperium::Error>>()
+            .map_err(IncomingRequestError::ConversionError)?;
+        let mut builder = hyperium::Request::builder()
+            .method(request.method())
+            .uri(uri);
+        *builder.headers_mut().unwrap() = headers;
+        builder
+            .body(
+                B::try_from_body(
+                    request
+                        .into_body()
+                        .await
+                        .map_err(IncomingRequestError::BodyConversionError)?,
+                )
+                .map_err(|e| IncomingRequestError::BodyConversionError(e.into()))?,
+            )
+            .map_err(IncomingRequestError::ConversionError)
     }
 }
 
@@ -76,19 +120,6 @@ pub enum IncomingRequestError<E = std::convert::Infallible> {
     /// There was an error converting the `Request` into the requested type
     #[error(transparent)]
     ConversionError(E),
-}
-
-/// Helper for converting `IncomingRequestError`s that cannot fail due to conversion errors
-/// into ones that can.
-fn convert_error<E>(
-    error: IncomingRequestError<std::convert::Infallible>,
-) -> IncomingRequestError<E> {
-    match error {
-        IncomingRequestError::BodyConversionError(e) => {
-            IncomingRequestError::BodyConversionError(e)
-        }
-        IncomingRequestError::ConversionError(_) => unreachable!(),
-    }
 }
 
 impl<E: IntoResponse> IntoResponse for IncomingRequestError<E> {
@@ -105,30 +136,20 @@ pub trait TryFromRequest {
     /// The error if the conversion fails
     type Error;
     /// Try to turn the request into the type
-    fn try_from_request(req: Request) -> Result<Self, Self::Error>
+    fn try_from_request(req: hyperium::Request<Vec<u8>>) -> Result<Self, Self::Error>
     where
         Self: Sized;
 }
 
-impl TryFromRequest for Request {
-    type Error = std::convert::Infallible;
-
-    fn try_from_request(req: Request) -> Result<Self, Self::Error>
-    where
-        Self: Sized,
-    {
-        Ok(req)
-    }
-}
-
-impl<R: TryNonRequestFromRequest> TryFromRequest for R {
-    type Error = R::Error;
-
-    fn try_from_request(req: Request) -> Result<Self, Self::Error>
-    where
-        Self: Sized,
-    {
-        TryNonRequestFromRequest::try_from_request(req)
+impl<B: TryFromBody> TryFromRequest for hyperium::Request<B> {
+    type Error = B::Error;
+    fn try_from_request(mut req: Request) -> Result<Self, Self::Error> {
+        let uri = std::mem::take(req.uri_mut());
+        let headers = std::mem::take(req.headers_mut());
+        let mut builder = hyperium::Request::builder().uri(uri).method(req.method());
+        // unwraps are safe here because the builder cannot fail
+        *builder.headers_mut().unwrap() = headers;
+        Ok(builder.body(B::try_from_body(req.into_body())?).unwrap())
     }
 }
 
@@ -147,21 +168,6 @@ pub trait TryNonRequestFromRequest {
         Self: Sized;
 }
 
-#[cfg(feature = "http")]
-impl<B: TryFromBody> TryNonRequestFromRequest for hyperium::Request<B> {
-    type Error = B::Error;
-    fn try_from_request(req: Request) -> Result<Self, Self::Error> {
-        let mut builder = hyperium::Request::builder()
-            .uri(req.path_and_query)
-            .method(req.method);
-        for (n, v) in req.headers {
-            builder = builder.header(n, v);
-        }
-        Ok(builder.body(B::try_from_body(req.body)?).unwrap())
-    }
-}
-
-#[cfg(feature = "http")]
 impl From<super::Method> for hyperium::Method {
     fn from(method: super::Method) -> Self {
         match method {
@@ -185,28 +191,16 @@ pub trait IntoResponse {
     fn into_response(self) -> Response;
 }
 
-impl IntoResponse for Response {
-    fn into_response(self) -> Response {
-        self
-    }
-}
-
-#[cfg(feature = "http")]
 impl<B> IntoResponse for hyperium::Response<B>
 where
     B: IntoBody,
 {
-    fn into_response(self) -> Response {
-        let headers = self
-            .headers()
-            .into_iter()
-            .map(|(n, v)| (n.as_str().to_owned(), v.as_bytes().to_owned()))
-            .collect();
-        Response::new_with_headers(
-            self.status().as_u16(),
-            headers,
-            IntoBody::into_body(self.into_body()),
-        )
+    fn into_response(mut self) -> hyperium::Response<Vec<u8>> {
+        let mut builder = hyperium::Response::builder().status(self.status());
+        let headers = std::mem::take(self.headers_mut());
+        // unwraps are safe here because the builder cannot be in an errored state
+        *builder.headers_mut().unwrap() = headers;
+        builder.body(self.into_body().into_body()).unwrap()
     }
 }
 
@@ -228,11 +222,11 @@ impl IntoResponse for anyhow::Error {
             eprintln!("  caused by: {}", s);
             source = s.source();
         }
-        Response {
-            status: 500,
-            headers: Default::default(),
-            body: body.as_bytes().to_vec(),
-        }
+        hyperium::Response::builder()
+            .status(500)
+            .body(body.into_bytes())
+            // Safe since nothing about this builder usage can fail
+            .unwrap()
     }
 }
 
@@ -245,11 +239,22 @@ impl IntoResponse for Box<dyn std::error::Error> {
             eprintln!("  caused by: {}", s);
             source = s.source();
         }
-        Response {
-            status: 500,
-            headers: Default::default(),
-            body: body.as_bytes().to_vec(),
-        }
+        hyperium::Response::builder()
+            .status(500)
+            .body(body.into_bytes())
+            // Safe since nothing about this builder usage can fail
+            .unwrap()
+    }
+}
+
+impl IntoResponse for hyperium::Error {
+    fn into_response(self) -> Response {
+        let body = self.to_string();
+        hyperium::Response::builder()
+            .status(500)
+            .body(body.into_bytes())
+            // Safe since nothing about this builder usage can fail
+            .unwrap()
     }
 }
 
@@ -257,6 +262,7 @@ impl IntoResponse for Box<dyn std::error::Error> {
 impl IntoResponse for super::JsonBodyError {
     fn into_response(self) -> Response {
         responses::bad_request(Some(format!("failed to parse JSON body: {}", self.0)))
+            .into_response()
     }
 }
 
@@ -265,6 +271,7 @@ impl IntoResponse for NonUtf8BodyError {
         responses::bad_request(Some(
             "expected body to be a utf8 string but wasn't".to_owned(),
         ))
+        .into_response()
     }
 }
 
@@ -311,7 +318,6 @@ impl IntoBody for Vec<u8> {
     }
 }
 
-#[cfg(feature = "http")]
 impl IntoBody for bytes::Bytes {
     fn into_body(self) -> Vec<u8> {
         self.to_vec()
@@ -405,7 +411,6 @@ impl FromBody for () {
     fn from_body(_body: Vec<u8>) -> Self {}
 }
 
-#[cfg(feature = "http")]
 impl FromBody for bytes::Bytes {
     fn from_body(body: Vec<u8>) -> Self {
         Into::into(body)
@@ -431,7 +436,6 @@ where
     }
 }
 
-#[cfg(feature = "http")]
 impl<B> TryFrom<hyperium::Request<B>> for OutgoingRequest
 where
     B: TryIntoBody,
@@ -490,7 +494,6 @@ impl TryFromIncomingResponse for IncomingResponse {
     }
 }
 
-#[cfg(feature = "http")]
 #[async_trait]
 impl<B: TryFromBody> TryFromIncomingResponse for hyperium::Response<B> {
     type Error = B::Error;
@@ -501,5 +504,22 @@ impl<B: TryFromBody> TryFromIncomingResponse for hyperium::Response<B> {
         }
         let body = resp.into_body().await.expect("TODO");
         Ok(builder.body(B::try_from_body(body)?).unwrap())
+    }
+}
+
+/// Convert into a `Request`
+pub trait IntoRequest {
+    /// Convert into a `Request`
+    fn into_request(self) -> Request;
+}
+
+impl<B: IntoBody> IntoRequest for hyperium::Request<B> {
+    fn into_request(mut self) -> Request {
+        let mut builder = hyperium::Request::builder()
+            .method(self.method())
+            .uri(self.uri());
+        let headers = std::mem::take(self.headers_mut());
+        *builder.headers_mut().unwrap() = headers;
+        builder.body(self.into_body().into_body()).unwrap()
     }
 }

@@ -9,96 +9,27 @@ use self::conversions::TryFromIncomingResponse;
 #[doc(inline)]
 pub use super::wit::wasi::http::types::*;
 
-/// A unified request object that can represent both incoming and outgoing requests.
-///
-/// This should be used in favor of `IncomingRequest` and `OutgoingRequest` when there
-/// is no need for streaming bodies.
-pub struct Request {
-    /// The method of the request
-    pub method: Method,
-    /// The path together with the query string
-    pub path_and_query: String,
-    /// The request headers
-    pub headers: Vec<(String, Vec<u8>)>,
-    /// The request body as bytes
-    pub body: Vec<u8>,
-}
-
-/// A unified response object that can represent both outgoing and incoming responses.
-///
-/// This should be used in favor of `OutgoingResponse` and `IncomingResponse` when there
-/// is no need for streaming bodies.
-pub struct Response {
-    /// The status of the response
-    pub status: StatusCode,
-    /// The response headers
-    pub headers: Vec<(String, Vec<u8>)>,
-    /// The body of the response as bytes
-    pub body: Vec<u8>,
-}
-
-impl Response {
-    /// Create a new response from a status and optional headers and body
-    pub fn new<S: conversions::IntoStatusCode, B: conversions::IntoBody>(
-        status: S,
-        body: B,
-    ) -> Self {
-        Self {
-            status: status.into_status_code(),
-            headers: Default::default(),
-            body: body.into_body(),
-        }
-    }
-
-    /// Create a new response from a status and optional headers and body
-    pub fn new_with_headers<S: conversions::IntoStatusCode, B: conversions::IntoBody>(
-        status: S,
-        headers: Vec<(String, Vec<u8>)>,
-        body: B,
-    ) -> Self {
-        Self {
-            status: status.into_status_code(),
-            headers,
-            body: body.into_body(),
-        }
-    }
-}
-
-impl std::hash::Hash for Method {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        core::mem::discriminant(self).hash(state);
-    }
-}
-
-impl Eq for Method {}
-
-impl PartialEq for Method {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Other(l), Self::Other(r)) => l == r,
-            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
-        }
-    }
-}
-
-impl std::fmt::Display for Method {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Method::Get => "GET",
-            Method::Post => "POST",
-            Method::Put => "PUT",
-            Method::Delete => "DELETE",
-            Method::Patch => "PATCH",
-            Method::Head => "HEAD",
-            Method::Options => "OPTIONS",
-            Method::Connect => "CONNECT",
-            Method::Trace => "TRACE",
-            Method::Other(o) => o,
-        })
-    }
-}
+type Request = hyperium::Request<Vec<u8>>;
+type Response = hyperium::Response<Vec<u8>>;
 
 impl IncomingRequest {
+    /// The incoming request Uri
+    pub fn uri(&self) -> Result<hyperium::Uri, hyperium::uri::InvalidUri> {
+        let scheme_and_authority =
+            if let (Some(scheme), Some(authority)) = (self.scheme(), self.authority()) {
+                let scheme = match &scheme {
+                    Scheme::Http => "http://",
+                    Scheme::Https => "https://",
+                    Scheme::Other(s) => s.as_str(),
+                };
+                format!("{scheme}{authority}")
+            } else {
+                String::new()
+            };
+        let path_and_query = self.path_with_query().unwrap_or_default();
+        format!("{scheme_and_authority}{path_and_query}").parse()
+    }
+
     /// Return a `Stream` from which the body of the specified request may be read.
     ///
     /// # Panics
@@ -166,6 +97,40 @@ impl ResponseOutparam {
         let mut body = response.take_body();
         ResponseOutparam::set(self, Ok(response));
         body.send(buffer).await
+    }
+}
+
+impl std::hash::Hash for Method {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+    }
+}
+
+impl Eq for Method {}
+
+impl PartialEq for Method {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Other(l), Self::Other(r)) => l == r,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
+}
+
+impl std::fmt::Display for Method {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Method::Get => "GET",
+            Method::Post => "POST",
+            Method::Put => "PUT",
+            Method::Delete => "DELETE",
+            Method::Patch => "PATCH",
+            Method::Head => "HEAD",
+            Method::Options => "OPTIONS",
+            Method::Connect => "CONNECT",
+            Method::Trace => "TRACE",
+            Method::Other(o) => o,
+        })
     }
 }
 
@@ -266,24 +231,31 @@ impl<T> std::ops::Deref for Json<T> {
 
 /// Helper functions for creating responses
 pub mod responses {
-    use super::Response;
-
     /// Helper function to return a 404 Not Found response.
-    pub fn not_found() -> Response {
-        Response::new(404, "Not Found")
+    pub fn not_found() -> hyperium::Response<&'static str> {
+        hyperium::Response::builder()
+            .status(404)
+            .body("Not Found")
+            .unwrap()
     }
 
     /// Helper function to return a 500 Internal Server Error response.
-    pub fn internal_server_error() -> Response {
-        Response::new(500, "Internal Server Error")
+    pub fn internal_server_error() -> hyperium::Response<&'static str> {
+        hyperium::Response::builder()
+            .status(500)
+            .body("Internal Server Error")
+            .unwrap()
     }
 
     /// Helper function to return a 405 Method Not Allowed response.
-    pub fn method_not_allowed() -> Response {
-        Response::new(405, "Method Not Allowed")
+    pub fn method_not_allowed() -> hyperium::Response<&'static str> {
+        hyperium::Response::builder()
+            .status(405)
+            .body("Method Not Allowed")
+            .unwrap()
     }
 
-    pub(crate) fn bad_request(msg: Option<String>) -> Response {
-        Response::new(400, msg.map(|m| m.into_bytes()))
+    pub(crate) fn bad_request(msg: Option<String>) -> hyperium::Response<Option<String>> {
+        hyperium::Response::builder().status(400).body(msg).unwrap()
     }
 }

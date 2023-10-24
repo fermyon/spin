@@ -1,12 +1,12 @@
 use anyhow::Result;
 use spin_sdk::{
-    http::{IntoResponse, Params, Request, Response, Router},
+    http::{IntoResponse, Params, Router},
     http_component,
 };
 
 /// A Spin HTTP component that internally routes requests.
 #[http_component]
-fn handle_route(req: Request) -> Response {
+fn handle_route(req: http::Request<()>) -> impl IntoResponse {
     let mut router = Router::new();
     router.get("/hello/:planet", api::hello_planet);
     router.any("/*", api::echo_wildcard);
@@ -17,15 +17,19 @@ mod api {
     use super::*;
 
     // /hello/:planet
-    pub fn hello_planet(_req: Request, params: Params) -> Result<impl IntoResponse> {
+    pub fn hello_planet(_req: http::Request<()>, params: Params) -> Result<impl IntoResponse> {
         let planet = params.get("planet").expect("PLANET");
 
-        Ok(Response::new(200, planet.to_string()))
+        Ok(http::Response::builder()
+            .status(200)
+            .body(planet.to_string())?)
     }
 
     // /*
-    pub fn echo_wildcard(_req: Request, params: Params) -> Result<impl IntoResponse> {
+    pub fn echo_wildcard(_req: http::Request<()>, params: Params) -> Result<impl IntoResponse> {
         let capture = params.wildcard().unwrap_or_default();
-        Ok(Response::new(200, capture.to_string()))
+        Ok(http::Response::builder()
+            .status(200)
+            .body(capture.to_string())?)
     }
 }

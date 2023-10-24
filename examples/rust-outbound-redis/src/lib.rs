@@ -1,9 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use spin_sdk::{
-    http::responses::internal_server_error,
-    http::{IntoResponse, Request, Response},
-    http_component, redis,
-};
+use spin_sdk::{http::responses::internal_server_error, http::IntoResponse, http_component, redis};
 
 // The environment variable set in `spin.toml` that points to the
 // address of the Redis server that the component will publish
@@ -19,7 +15,7 @@ const REDIS_CHANNEL_ENV: &str = "REDIS_CHANNEL";
 /// to a Redis channel. The component is triggered by an HTTP
 /// request served on the route configured in the `spin.toml`.
 #[http_component]
-fn publish(_req: Request) -> Result<impl IntoResponse> {
+fn publish(_req: http::Request<()>) -> Result<impl IntoResponse> {
     let address = std::env::var(REDIS_ADDRESS_ENV)?;
     let channel = std::env::var(REDIS_CHANNEL_ENV)?;
 
@@ -45,7 +41,7 @@ fn publish(_req: Request) -> Result<impl IntoResponse> {
 
     // Publish to Redis
     match conn.publish(&channel, &payload) {
-        Ok(()) => Ok(Response::new(200, ())),
-        Err(_e) => Ok(internal_server_error()),
+        Ok(()) => Ok(http::Response::builder().status(200).body(Vec::new())?),
+        Err(_e) => Ok(internal_server_error().into_response()),
     }
 }

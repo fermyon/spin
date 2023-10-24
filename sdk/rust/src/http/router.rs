@@ -1,5 +1,5 @@
-use super::conversions::{IntoResponse, TryFromRequest};
-use super::{responses, Method, Request, Response};
+use super::conversions::{IntoRequest, IntoResponse, TryFromRequest};
+use super::{responses, Request, Response};
 use routefinder::{Captures, Router as MethodRouter};
 use std::{collections::HashMap, fmt::Display};
 
@@ -10,7 +10,7 @@ pub type Params = Captures<'static, 'static>;
 
 /// The Spin SDK HTTP router.
 pub struct Router {
-    methods_map: HashMap<Method, MethodRouter<Box<Handler>>>,
+    methods_map: HashMap<hyperium::Method, MethodRouter<Box<Handler>>>,
     any_methods: MethodRouter<Box<Handler>>,
 }
 
@@ -39,15 +39,15 @@ struct RouteMatch<'a> {
 
 impl Router {
     /// Dispatches a request to the appropriate handler along with the URI parameters.
-    pub fn handle<R: Into<Request>>(&self, request: R) -> Response {
-        let request = request.into();
-        let method = request.method.clone();
-        let path = &request.path_and_query;
-        let RouteMatch { params, handler } = self.find(path, method);
+    pub fn handle<R: IntoRequest>(&self, request: R) -> Response {
+        let request = request.into_request();
+        let method = request.method();
+        let path = &request.uri().path();
+        let RouteMatch { params, handler } = self.find(path, method.clone());
         handler(request, params)
     }
 
-    fn find(&self, path: &str, method: Method) -> RouteMatch<'_> {
+    fn find(&self, path: &str, method: hyperium::Method) -> RouteMatch<'_> {
         let best_match = self
             .methods_map
             .get(&method)
@@ -67,10 +67,10 @@ impl Router {
                 let handler = m.handler();
                 RouteMatch { handler, params }
             }
-            None if method == Method::Head => {
+            None if method == hyperium::Method::HEAD => {
                 // If it is a HTTP HEAD request then check if there is a callback in the methods map
                 // if not then fallback to the behavior of HTTP GET else proceed as usual
-                self.find(path, Method::Get)
+                self.find(path, hyperium::Method::GET)
             }
             None => {
                 // Handle the failure case where no match could be resolved.
@@ -80,7 +80,7 @@ impl Router {
     }
 
     // Helper function to handle the case where a best match couldn't be resolved.
-    fn fail(&self, path: &str, method: Method) -> RouteMatch<'_> {
+    fn fail(&self, path: &str, method: hyperium::Method) -> RouteMatch<'_> {
         // First, filter all routers to determine if the path can match but the provided method is not allowed.
         let is_method_not_allowed = self
             .methods_map
@@ -126,7 +126,7 @@ impl Router {
     }
 
     /// Register a handler at the path for the specified HTTP method.
-    pub fn add<F, I, O>(&mut self, path: &str, method: Method, handler: F)
+    pub fn add<F, I, O>(&mut self, path: &str, method: hyperium::Method, handler: F)
     where
         F: Fn(I, Params) -> O + 'static,
         I: TryFromRequest,
@@ -156,7 +156,7 @@ impl Router {
         Req::Error: IntoResponse,
         Resp: IntoResponse,
     {
-        self.add(path, Method::Get, handler)
+        self.add(path, hyperium::Method::GET, handler)
     }
 
     /// Register a handler at the path for the HTTP HEAD method.
@@ -167,7 +167,7 @@ impl Router {
         Req::Error: IntoResponse,
         Resp: IntoResponse,
     {
-        self.add(path, Method::Head, handler)
+        self.add(path, hyperium::Method::HEAD, handler)
     }
 
     /// Register a handler at the path for the HTTP POST method.
@@ -178,7 +178,7 @@ impl Router {
         Req::Error: IntoResponse,
         Resp: IntoResponse,
     {
-        self.add(path, Method::Post, handler)
+        self.add(path, hyperium::Method::POST, handler)
     }
 
     /// Register a handler at the path for the HTTP DELETE method.
@@ -189,7 +189,7 @@ impl Router {
         Req::Error: IntoResponse,
         Resp: IntoResponse,
     {
-        self.add(path, Method::Delete, handler)
+        self.add(path, hyperium::Method::DELETE, handler)
     }
 
     /// Register a handler at the path for the HTTP PUT method.
@@ -200,7 +200,7 @@ impl Router {
         Req::Error: IntoResponse,
         Resp: IntoResponse,
     {
-        self.add(path, Method::Put, handler)
+        self.add(path, hyperium::Method::PUT, handler)
     }
 
     /// Register a handler at the path for the HTTP PATCH method.
@@ -211,7 +211,7 @@ impl Router {
         Req::Error: IntoResponse,
         Resp: IntoResponse,
     {
-        self.add(path, Method::Patch, handler)
+        self.add(path, hyperium::Method::PATCH, handler)
     }
 
     /// Register a handler at the path for the HTTP OPTIONS method.
@@ -222,7 +222,7 @@ impl Router {
         Req::Error: IntoResponse,
         Resp: IntoResponse,
     {
-        self.add(path, Method::Options, handler)
+        self.add(path, hyperium::Method::OPTIONS, handler)
     }
 
     /// Construct a new Router.
@@ -235,11 +235,11 @@ impl Router {
 }
 
 fn not_found(_req: Request, _params: Params) -> Response {
-    responses::not_found()
+    responses::not_found().into_response()
 }
 
 fn method_not_allowed(_req: Request, _params: Params) -> Response {
-    responses::method_not_allowed()
+    responses::method_not_allowed().into_response()
 }
 
 /// A macro to help with constructing a Router from a stream of tokens.
@@ -284,18 +284,20 @@ macro_rules! http_router {
 mod tests {
     use super::*;
 
-    fn make_request(method: Method, path: &str) -> Request {
-        Request {
-            method,
-            path_and_query: path.into(),
-            headers: Vec::new(),
-            body: Default::default(),
-        }
+    fn make_request(method: hyperium::Method, path: &str) -> Request {
+        hyperium::Request::builder()
+            .method(method)
+            .uri(path)
+            .body(Vec::new())
+            .unwrap()
     }
 
     fn echo_param(req: Request, params: Params) -> Response {
         match params.get("x") {
-            Some(path) => Response::new(200, path),
+            Some(path) => hyperium::Response::builder()
+                .status(200)
+                .body(path.as_bytes().to_owned())
+                .unwrap(),
             None => not_found(req, params),
         }
     }
@@ -305,23 +307,26 @@ mod tests {
         let mut router = Router::default();
         router.get("/:x", echo_param);
 
-        let req = make_request(Method::Post, "/foobar");
+        let req = make_request(hyperium::Method::POST, "/foobar");
         let res = router.handle(req);
-        assert_eq!(res.status, hyperium::StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(res.status(), hyperium::StatusCode::METHOD_NOT_ALLOWED);
     }
 
     #[test]
     fn test_not_found() {
         fn h1(_req: Request, _params: Params) -> anyhow::Result<Response> {
-            Ok(Response::new(200, ()))
+            Ok(hyperium::Response::builder()
+                .status(200)
+                .body(Vec::new())
+                .unwrap())
         }
 
         let mut router = Router::default();
         router.get("/h1/:param", h1);
 
-        let req = make_request(Method::Get, "/h1/");
+        let req = make_request(hyperium::Method::GET, "/h1/");
         let res = router.handle(req);
-        assert_eq!(res.status, hyperium::StatusCode::NOT_FOUND);
+        assert_eq!(res.status(), hyperium::StatusCode::NOT_FOUND);
     }
 
     #[test]
@@ -329,16 +334,19 @@ mod tests {
         fn multiply(_req: Request, params: Params) -> anyhow::Result<Response> {
             let x: i64 = params.get("x").unwrap().parse()?;
             let y: i64 = params.get("y").unwrap().parse()?;
-            Ok(Response::new(200, format!("{result}", result = x * y)))
+            Ok(hyperium::Response::builder()
+                .status(200)
+                .body(format!("{result}", result = x * y).into_bytes())
+                .unwrap())
         }
 
         let mut router = Router::default();
         router.get("/multiply/:x/:y", multiply);
 
-        let req = make_request(Method::Get, "/multiply/2/4");
+        let req = make_request(hyperium::Method::GET, "/multiply/2/4");
         let res = router.handle(req);
 
-        assert_eq!(res.body, "8".to_owned().into_bytes());
+        assert_eq!(res.into_body(), "8".to_owned().into_bytes());
     }
 
     #[test]
@@ -346,17 +354,20 @@ mod tests {
         let mut router = Router::default();
         router.get("/:x", echo_param);
 
-        let req = make_request(Method::Get, "/y");
+        let req = make_request(hyperium::Method::GET, "/y");
         let res = router.handle(req);
 
-        assert_eq!(res.body, "y".to_owned().into_bytes());
+        assert_eq!(res.into_body(), "y".to_owned().into_bytes());
     }
 
     #[test]
     fn test_wildcard() {
         fn echo_wildcard(req: Request, params: Params) -> Response {
             match params.wildcard() {
-                Some(path) => Response::new(200, path),
+                Some(path) => hyperium::Response::builder()
+                    .status(200)
+                    .body(path.as_bytes().to_owned())
+                    .unwrap(),
                 None => not_found(req, params),
             }
         }
@@ -364,10 +375,10 @@ mod tests {
         let mut router = Router::default();
         router.get("/*", echo_wildcard);
 
-        let req = make_request(Method::Get, "/foo/bar");
+        let req = make_request(hyperium::Method::GET, "/foo/bar");
         let res = router.handle(req);
-        assert_eq!(res.status, hyperium::StatusCode::OK);
-        assert_eq!(res.body, "foo/bar".to_owned().into_bytes());
+        assert_eq!(res.status(), hyperium::StatusCode::OK);
+        assert_eq!(res.into_body(), "foo/bar".to_owned().into_bytes());
     }
 
     #[test]
@@ -375,9 +386,9 @@ mod tests {
         let mut router = Router::default();
         router.get("/:x/*", echo_param);
 
-        let req = make_request(Method::Get, "/foo/bar");
+        let req = make_request(hyperium::Method::GET, "/foo/bar");
         let res = router.handle(req);
-        assert_eq!(res.body, "foo".to_owned().into_bytes());
+        assert_eq!(res.into_body(), "foo".to_owned().into_bytes());
     }
 
     #[test]
@@ -394,20 +405,26 @@ mod tests {
     #[test]
     fn test_ambiguous_wildcard_vs_star() {
         fn h1(_req: Request, _params: Params) -> anyhow::Result<Response> {
-            Ok(Response::new(200, "one/two"))
+            Ok(hyperium::Response::builder()
+                .status(200)
+                .body("one/two".into())
+                .unwrap())
         }
 
         fn h2(_req: Request, _params: Params) -> anyhow::Result<Response> {
-            Ok(Response::new(200, "posts/*"))
+            Ok(hyperium::Response::builder()
+                .status(200)
+                .body("posts/*".into())
+                .unwrap())
         }
 
         let mut router = Router::default();
         router.get("/:one/:two", h1);
         router.get("/posts/*", h2);
 
-        let req = make_request(Method::Get, "/posts/2");
+        let req = make_request(hyperium::Method::GET, "/posts/2");
         let res = router.handle(req);
 
-        assert_eq!(res.body, "posts/*".to_owned().into_bytes());
+        assert_eq!(res.into_body(), "posts/*".to_owned().into_bytes());
     }
 }

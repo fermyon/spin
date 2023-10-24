@@ -8,6 +8,7 @@ version = "0.1.0"
 environment = { REDIS_ADDRESS = "redis://127.0.0.1:6379", REDIS_CHANNEL = "messages" }
 id = "outbound-redis"
 source = "target/wasm32-wasi/release/rust_outbound_redis.wasm"
+allowed_redis_hosts = ["redis://127.0.0.1:6379"]
 [component.trigger]
 route = "/publish"
 [component.build]

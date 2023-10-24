@@ -114,6 +114,7 @@ impl LocalLoader {
         let metadata = ValuesMapBuilder::new()
             .string("description", component.description)
             .string_array("allowed_http_hosts", component.allowed_http_hosts)
+            .string_array("allowed_redis_hosts", component.allowed_redis_hosts)
             .string_array("key_value_stores", component.key_value_stores)
             .string_array("databases", component.sqlite_databases)
             .string_array("ai_models", component.ai_models)

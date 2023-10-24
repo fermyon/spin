@@ -2580,9 +2580,12 @@ version = "2.0.0-pre0"
 dependencies = [
  "anyhow",
  "redis",
+ "spin-app",
  "spin-core",
+ "spin-locked-app",
  "spin-world",
  "table",
+ "terminal",
  "tokio",
  "tracing",
 ]

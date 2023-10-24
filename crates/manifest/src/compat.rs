@@ -69,6 +69,7 @@ pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Erro
                 sqlite_databases,
                 ai_models,
                 build: component.build,
+                allowed_redis_hosts: component.allowed_redis_hosts,
             },
         );
         triggers

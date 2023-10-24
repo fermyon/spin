@@ -102,6 +102,9 @@ pub struct Component {
     /// `allowed_http_hosts = ["example.com"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_http_hosts: Vec<String>,
+    /// `allowed_redis_hosts = ["myredishost.com"]`
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_redis_hosts: Vec<String>,
     /// `key_value_stores = ["default"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub key_value_stores: Vec<SnakeId>,

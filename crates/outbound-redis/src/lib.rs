@@ -1,10 +1,16 @@
 mod host_component;
 
+use std::collections::HashSet;
+
 use anyhow::Result;
 use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
 use spin_core::{async_trait, wasmtime::component::Resource};
+use spin_locked_app::MetadataKey;
 use spin_world::v1::redis::{self as v1, RedisParameter, RedisResult};
 use spin_world::v2::redis::{self as v2, Connection as RedisConnection, Error};
+
+pub const ALLOWED_REDIS_HOSTS_KEY: MetadataKey<Vec<String>> =
+    MetadataKey::new("allowed_redis_hosts");
 
 pub use host_component::OutboundRedisComponent;
 
@@ -29,22 +35,24 @@ impl FromRedisValue for RedisResults {
 }
 
 pub struct OutboundRedis {
+    allowed_hosts: HashSet<String>,
     connections: table::Table<Connection>,
 }
 
 impl Default for OutboundRedis {
     fn default() -> Self {
         Self {
+            allowed_hosts: Default::default(),
             connections: table::Table::new(1024),
         }
     }
 }
 
-impl v2::Host for OutboundRedis {}
-
-#[async_trait]
-impl v2::HostConnection for OutboundRedis {
-    async fn open(&mut self, address: String) -> Result<Result<Resource<RedisConnection>, Error>> {
+impl OutboundRedis {
+    async fn establish_connection(
+        &mut self,
+        address: String,
+    ) -> Result<Result<Resource<RedisConnection>, Error>> {
         Ok(async {
             let conn = redis::Client::open(address.as_str())
                 .map_err(|_| Error::InvalidAddress)?
@@ -57,6 +65,23 @@ impl v2::HostConnection for OutboundRedis {
                 .map_err(|_| Error::TooManyConnections)
         }
         .await)
+    }
+}
+
+impl v2::Host for OutboundRedis {}
+
+#[async_trait]
+impl v2::HostConnection for OutboundRedis {
+    async fn open(&mut self, address: String) -> Result<Result<Resource<RedisConnection>, Error>> {
+        if !self.allowed_hosts.contains(&address) {
+            terminal::warn!(
+                "A component tried to make a HTTP request to non-allowed address '{address}'."
+            );
+            eprintln!("To allow requests, add 'allowed_redis_hosts = [\"{address}\"]' to the manifest component section.");
+            return Ok(Err(Error::InvalidAddress));
+        }
+
+        self.establish_connection(address).await
     }
 
     async fn publish(
@@ -214,7 +239,7 @@ fn other_error(e: impl std::fmt::Display) -> Error {
 /// Delegate a function call to the v2::HostConnection implementation
 macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
-        let connection = match <Self as v2::HostConnection>::open($self, $address).await? {
+        let connection = match $self.establish_connection($address).await? {
             Ok(c) => c,
             Err(_) => return Ok(Err(v1::Error::Error)),
         };

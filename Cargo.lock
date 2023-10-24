@@ -4198,6 +4198,7 @@ dependencies = [
  "terminal",
  "tokio",
  "tracing",
+ "url",
 ]
 
 [[package]]

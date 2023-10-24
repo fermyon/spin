@@ -18,3 +18,4 @@ table = { path = "../table" }
 tokio = { version = "1", features = ["sync"] }
 tracing = { workspace = true }
 terminal = { path = "../terminal" }
+url = "2.4.1"

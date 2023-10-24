@@ -78,9 +78,9 @@ pub struct ComponentV1 {
     /// `allowed_http_hosts = ["example.com"]`
     #[serde(default)]
     pub allowed_http_hosts: Vec<String>,
-    /// `allowed_redis_hosts` = ["redis://redis.com:6379"]`
+    /// `allowed_outbound_hosts` = ["redis://redis.com:6379"]`
     #[serde(default)]
-    pub allowed_redis_hosts: Option<Vec<String>>,
+    pub allowed_outbound_hosts: Option<Vec<String>>,
     /// `key_value_stores = ["default"]`
     #[serde(default)]
     pub key_value_stores: Vec<String>,

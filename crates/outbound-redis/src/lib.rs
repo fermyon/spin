@@ -1,7 +1,5 @@
 mod host_component;
 
-use std::collections::HashSet;
-
 use anyhow::Result;
 use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
 use spin_core::{async_trait, wasmtime::component::Resource};
@@ -9,7 +7,7 @@ use spin_locked_app::MetadataKey;
 use spin_world::v1::redis::{self as v1, RedisParameter, RedisResult};
 use spin_world::v2::redis::{self as v2, Connection as RedisConnection, Error};
 
-pub const ALLOWED_REDIS_HOSTS_KEY: MetadataKey<Option<HashSet<String>>> =
+pub const ALLOWED_HOSTS_KEY: MetadataKey<Option<Vec<String>>> =
     MetadataKey::new("allowed_outbound_hosts");
 
 pub use host_component::OutboundRedisComponent;
@@ -35,7 +33,7 @@ impl FromRedisValue for RedisResults {
 }
 
 pub struct OutboundRedis {
-    allowed_hosts: Option<HashSet<String>>,
+    allowed_hosts: Option<spin_outbound_networking::AllowedHosts>,
     connections: table::Table<Connection>,
 }
 
@@ -50,19 +48,25 @@ impl Default for OutboundRedis {
 
 impl OutboundRedis {
     fn is_address_allowed(&self, address: &str, default: bool) -> bool {
-        let url = url::Url::parse(address).ok();
-        let host = url.as_ref().and_then(|u| u.host_str()).unwrap_or(address);
-        let is_allowed = if let Some(allowed_hosts) = self.allowed_hosts.as_ref() {
-            allowed_hosts.contains(host)
+        let Ok(url) = spin_outbound_networking::parse_url_with_host(address, "redis") else {
+            terminal::warn!(
+                "A component tried to make a request to an address that could not be parsed as a url {address:?}."
+            );
+            return false;
+        };
+        let is_allowed = if let Some(allowed_hosts) = &self.allowed_hosts {
+            allowed_hosts.allows(url.clone())
         } else {
             default
         };
 
         if !is_allowed {
             terminal::warn!(
-                "A component tried to make a HTTP request to non-allowed address {address:?}."
+                "A component tried to make a request to non-allowed address {address:?}."
             );
-            eprintln!("To allow requests, add 'allowed_outbound_hosts = [{host:?}]' to the manifest component section.");
+            if let (Some(host), Some(port)) = (url.host_str(), url.port_or_known_default()) {
+                eprintln!("To allow requests, add 'allowed_outbound_hosts = '[\"{host}:{port}\"]' to the manifest component section.");
+            }
         }
         is_allowed
     }

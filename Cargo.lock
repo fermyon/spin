@@ -4193,12 +4193,12 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-locked-app",
+ "spin-outbound-networking",
  "spin-world",
  "table",
  "terminal",
  "tokio",
  "tracing",
- "url",
 ]
 
 [[package]]
@@ -5913,6 +5913,7 @@ dependencies = [
  "spin-common",
  "spin-locked-app",
  "spin-manifest",
+ "spin-outbound-networking",
  "tempfile",
  "terminal",
  "thiserror",
@@ -5990,6 +5991,14 @@ dependencies = [
  "tokio-util 0.7.9",
  "tracing",
  "walkdir",
+]
+
+[[package]]
+name = "spin-outbound-networking"
+version = "2.0.0-pre0"
+dependencies = [
+ "anyhow",
+ "url",
 ]
 
 [[package]]

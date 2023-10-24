@@ -14,8 +14,8 @@ spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 spin-locked-app = { path = "../locked-app" }
 spin-world = { path = "../world" }
+spin-outbound-networking = { path = "../outbound-networking" }
 table = { path = "../table" }
 tokio = { version = "1", features = ["sync"] }
 tracing = { workspace = true }
 terminal = { path = "../terminal" }
-url = "2.4.1"

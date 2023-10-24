@@ -2583,6 +2583,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-locked-app",
+ "spin-outbound-networking",
  "spin-world",
  "table",
  "terminal",
@@ -3750,6 +3751,7 @@ dependencies = [
  "spin-common",
  "spin-locked-app",
  "spin-manifest",
+ "spin-outbound-networking",
  "tempfile",
  "terminal",
  "thiserror",
@@ -3783,6 +3785,14 @@ dependencies = [
  "spin-serde",
  "thiserror",
  "toml 0.8.2",
+]
+
+[[package]]
+name = "spin-outbound-networking"
+version = "2.0.0-pre0"
+dependencies = [
+ "anyhow",
+ "url",
 ]
 
 [[package]]

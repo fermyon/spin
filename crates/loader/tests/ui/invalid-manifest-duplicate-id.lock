@@ -32,6 +32,9 @@
   "components": [
     {
       "id": "hello",
+      "metadata": {
+        "allowed_outbound_hosts": null
+      },
       "source": {
         "content_type": "application/wasm",
         "source": "file://<test-dir>/wasm/dummy.wasm"

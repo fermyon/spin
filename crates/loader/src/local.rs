@@ -111,6 +111,10 @@ impl LocalLoader {
         component: v2::Component,
     ) -> Result<LockedComponent> {
         outbound_http::allowed_http_hosts::parse_allowed_http_hosts(&component.allowed_http_hosts)?;
+        if let Some(hosts) = &component.allowed_outbound_hosts {
+            spin_outbound_networking::AllowedHosts::parse(hosts)
+                .context("`allowed_outbound_hosts` is malformed")?;
+        }
         let metadata = ValuesMapBuilder::new()
             .string("description", component.description)
             .string_array("allowed_http_hosts", component.allowed_http_hosts)

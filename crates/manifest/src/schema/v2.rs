@@ -121,7 +121,7 @@ pub struct Component {
 
 /// Used to skip serializing if the value is either `None` or `Some(v)` where `v` is empty
 fn is_none_or_empty<T>(value: &Option<Vec<T>>) -> bool {
-    value.as_ref().map(|s| !s.is_empty()).unwrap_or_default()
+    value.as_ref().map(|s| s.is_empty()).unwrap_or(true)
 }
 
 mod one_or_many {

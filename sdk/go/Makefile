@@ -22,14 +22,15 @@ EXAMPLES_DIR = ../../examples
 .PHONY: build-examples
 build-examples: generate
 build-examples: $(EXAMPLES_DIR)/config-tinygo/main.wasm
-build-examples: $(EXAMPLES_DIR)/http-tinygo-outbound-http/main.wasm
+build-examples: $(EXAMPLES_DIR)/http-tinygo-outbound-http/outbound-http-to-same-app/main.wasm
+build-examples: $(EXAMPLES_DIR)/http-tinygo-outbound-http/tinygo-hello/main.wasm
 build-examples: $(EXAMPLES_DIR)/http-tinygo/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-outbound-redis/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-redis/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-key-value/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-sqlite/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-llm/main.wasm
-build-examples: $(EXAMPLES_DIR)/tinygo-mysql/main.wasm
+build-examples: $(EXAMPLES_DIR)/tinygo-outbound-mysql/main.wasm
 
 $(EXAMPLES_DIR)/%/main.wasm: $(EXAMPLES_DIR)/%/main.go
 	tinygo build -target=wasi -gc=leaking -no-debug -o $@ $<
@@ -45,7 +46,7 @@ GENERATED_SPIN_REDIS     = redis/spin-redis.c redis/spin-redis.h
 GENERATED_KEY_VALUE      = key_value/key-value.c key_value/key-value.h
 GENERATED_SQLITE         = sqlite/sqlite.c sqlite/sqlite.h
 GENERATED_LLM            = llm/llm.c llm/llm.h
-GENERATED_OUTBOUND_MYSQL = mysql/outbound-mysql.c mysql/outbound-mysql.h 
+GENERATED_OUTBOUND_MYSQL = mysql/outbound-mysql.c mysql/outbound-mysql.h
 
 SDK_VERSION_SOURCE_FILE  = sdk_version/sdk-version-go-template.c
 

@@ -289,7 +289,9 @@ impl HeaderValue {
     /// Construct a `HeaderValue` from a bag of bytes
     pub fn bytes(bytes: Vec<u8>) -> HeaderValue {
         HeaderValue {
-            inner: HeaderValueRep::Bytes(bytes),
+            inner: String::from_utf8(bytes)
+                .map(HeaderValueRep::String)
+                .unwrap_or_else(|e| HeaderValueRep::Bytes(e.into_bytes())),
         }
     }
 

@@ -28,11 +28,8 @@ pub const SPIN_APPLICATION_MEDIA_TYPE: &str = "application/vnd.fermyon.spin.appl
 pub const DATA_MEDIATYPE: &str = "application/vnd.wasm.content.layer.v1+data";
 /// Media type for a layer representing a compressed archive of one or more files used by a Spin application
 pub const ARCHIVE_MEDIATYPE: &str = "application/vnd.wasm.content.bundle.v1.tar+gzip";
-// Legacy wasm layer media type used by pre-2.0 versions of Spin
-const WASM_LAYER_MEDIA_TYPE_LEGACY: &str = "application/vnd.wasm.content.layer.v1+wasm";
-
-// TODO: use canonical types defined upstream; see https://github.com/bytecodealliance/registry/pull/146
-const WASM_LAYER_MEDIA_TYPE: &str = "application/vnd.bytecodealliance.wasm.component.layer.v0+wasm";
+// Note: this will be updated with a canonical value once defined upstream
+const WASM_LAYER_MEDIA_TYPE: &str = "application/vnd.wasm.content.layer.v1+wasm";
 
 const CONFIG_FILE: &str = "config.json";
 const LATEST_TAG: &str = "latest";
@@ -326,7 +323,7 @@ impl Client {
                                 .await
                                 .with_context(|| "unable to write locked app config to cache")?;
                         }
-                        WASM_LAYER_MEDIA_TYPE | WASM_LAYER_MEDIA_TYPE_LEGACY => {
+                        WASM_LAYER_MEDIA_TYPE => {
                             this.cache.write_wasm(&bytes, &layer.digest).await?;
                         }
                         ARCHIVE_MEDIATYPE => {

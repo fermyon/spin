@@ -28,81 +28,9 @@ pub struct Request {
     body: Vec<u8>,
 }
 
-/// A header value.
-///
-/// Since header values do not have to be valid utf8, this allows for
-/// both utf8 strings and bags of bytes.
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct HeaderValue {
-    inner: HeaderValueRep,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-enum HeaderValueRep {
-    /// Header value encoded as a utf8 string
-    String(String),
-    /// Header value as a bag of bytes
-    Bytes(Vec<u8>),
-}
-
-impl HeaderValue {
-    /// Construct a `HeaderValue` from a string
-    pub fn string(str: String) -> HeaderValue {
-        HeaderValue {
-            inner: HeaderValueRep::String(str),
-        }
-    }
-
-    /// Construct a `HeaderValue` from a bag of bytes
-    pub fn bytes(bytes: Vec<u8>) -> HeaderValue {
-        HeaderValue {
-            inner: HeaderValueRep::Bytes(bytes),
-        }
-    }
-
-    /// Get the `HeaderValue` as a utf8 encoded string
-    ///
-    /// Returns `None` if the value is a non utf8 encoded header value
-    pub fn as_str(&self) -> Option<&str> {
-        match &self.inner {
-            HeaderValueRep::String(s) => Some(s),
-            HeaderValueRep::Bytes(_) => None,
-        }
-    }
-
-    /// Get the `HeaderValue` as bytes
-    pub fn as_bytes(&self) -> &[u8] {
-        self.as_ref()
-    }
-
-    /// Turn the `HeaderValue` into a String (in a lossy way if the `HeaderValue` is a bag of bytes)
-    pub fn into_utf8_lossy(self) -> String {
-        match self.inner {
-            HeaderValueRep::String(s) => s,
-            HeaderValueRep::Bytes(b) => String::from_utf8_lossy(&b).into_owned(),
-        }
-    }
-
-    /// Turn the `HeaderValue` into bytes
-    pub fn into_bytes(self) -> Vec<u8> {
-        match self.inner {
-            HeaderValueRep::String(s) => s.into_bytes(),
-            HeaderValueRep::Bytes(b) => b,
-        }
-    }
-}
-
-impl AsRef<[u8]> for HeaderValue {
-    fn as_ref(&self) -> &[u8] {
-        match &self.inner {
-            HeaderValueRep::String(s) => s.as_bytes(),
-            HeaderValueRep::Bytes(b) => b,
-        }
-    }
-}
-
 impl Request {
-    fn new(method: Method, uri: impl Into<String>) -> Self {
+    /// Create a new request from a method and uri
+    pub fn new(method: Method, uri: impl Into<String>) -> Self {
         Self {
             method,
             uri: Self::parse_uri(uri.into()),
@@ -242,7 +170,7 @@ pub struct Response {
 }
 
 impl Response {
-    /// Create a new response from a status and optional headers and body
+    /// Create a new response from a status and body
     pub fn new(status: impl conversions::IntoStatusCode, body: impl conversions::IntoBody) -> Self {
         Self {
             status: status.into_status_code(),
@@ -330,6 +258,79 @@ impl ResponseBuilder {
     /// Build the `Response`
     pub fn build(&mut self) -> Response {
         std::mem::replace(&mut self.response, Response::new(200, Vec::new()))
+    }
+}
+
+/// A header value.
+///
+/// Since header values do not have to be valid utf8, this allows for
+/// both utf8 strings and bags of bytes.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct HeaderValue {
+    inner: HeaderValueRep,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+enum HeaderValueRep {
+    /// Header value encoded as a utf8 string
+    String(String),
+    /// Header value as a bag of bytes
+    Bytes(Vec<u8>),
+}
+
+impl HeaderValue {
+    /// Construct a `HeaderValue` from a string
+    pub fn string(str: String) -> HeaderValue {
+        HeaderValue {
+            inner: HeaderValueRep::String(str),
+        }
+    }
+
+    /// Construct a `HeaderValue` from a bag of bytes
+    pub fn bytes(bytes: Vec<u8>) -> HeaderValue {
+        HeaderValue {
+            inner: HeaderValueRep::Bytes(bytes),
+        }
+    }
+
+    /// Get the `HeaderValue` as a utf8 encoded string
+    ///
+    /// Returns `None` if the value is a non utf8 encoded header value
+    pub fn as_str(&self) -> Option<&str> {
+        match &self.inner {
+            HeaderValueRep::String(s) => Some(s),
+            HeaderValueRep::Bytes(_) => None,
+        }
+    }
+
+    /// Get the `HeaderValue` as bytes
+    pub fn as_bytes(&self) -> &[u8] {
+        self.as_ref()
+    }
+
+    /// Turn the `HeaderValue` into a String (in a lossy way if the `HeaderValue` is a bag of bytes)
+    pub fn into_utf8_lossy(self) -> String {
+        match self.inner {
+            HeaderValueRep::String(s) => s,
+            HeaderValueRep::Bytes(b) => String::from_utf8_lossy(&b).into_owned(),
+        }
+    }
+
+    /// Turn the `HeaderValue` into bytes
+    pub fn into_bytes(self) -> Vec<u8> {
+        match self.inner {
+            HeaderValueRep::String(s) => s.into_bytes(),
+            HeaderValueRep::Bytes(b) => b,
+        }
+    }
+}
+
+impl AsRef<[u8]> for HeaderValue {
+    fn as_ref(&self) -> &[u8] {
+        match &self.inner {
+            HeaderValueRep::String(s) => s.as_bytes(),
+            HeaderValueRep::Bytes(b) => b,
+        }
     }
 }
 

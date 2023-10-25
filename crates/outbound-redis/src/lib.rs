@@ -3,8 +3,12 @@ mod host_component;
 use anyhow::Result;
 use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
 use spin_core::{async_trait, wasmtime::component::Resource};
+use spin_locked_app::MetadataKey;
 use spin_world::v1::redis::{self as v1, RedisParameter, RedisResult};
 use spin_world::v2::redis::{self as v2, Connection as RedisConnection, Error};
+
+pub const ALLOWED_HOSTS_KEY: MetadataKey<Option<Vec<String>>> =
+    MetadataKey::new("allowed_outbound_hosts");
 
 pub use host_component::OutboundRedisComponent;
 
@@ -29,22 +33,48 @@ impl FromRedisValue for RedisResults {
 }
 
 pub struct OutboundRedis {
+    allowed_hosts: Option<spin_outbound_networking::AllowedHosts>,
     connections: table::Table<Connection>,
 }
 
 impl Default for OutboundRedis {
     fn default() -> Self {
         Self {
+            allowed_hosts: Default::default(),
             connections: table::Table::new(1024),
         }
     }
 }
 
-impl v2::Host for OutboundRedis {}
+impl OutboundRedis {
+    fn is_address_allowed(&self, address: &str, default: bool) -> bool {
+        let Ok(url) = spin_outbound_networking::parse_url_with_host(address, "redis") else {
+            terminal::warn!(
+                "A component tried to make a request to an address that could not be parsed as a url {address:?}."
+            );
+            return false;
+        };
+        let is_allowed = if let Some(allowed_hosts) = &self.allowed_hosts {
+            allowed_hosts.allows(url.clone())
+        } else {
+            default
+        };
 
-#[async_trait]
-impl v2::HostConnection for OutboundRedis {
-    async fn open(&mut self, address: String) -> Result<Result<Resource<RedisConnection>, Error>> {
+        if !is_allowed {
+            terminal::warn!(
+                "A component tried to make a request to non-allowed address {address:?}."
+            );
+            if let (Some(host), Some(port)) = (url.host_str(), url.port_or_known_default()) {
+                eprintln!("To allow requests, add 'allowed_outbound_hosts = '[\"{host}:{port}\"]' to the manifest component section.");
+            }
+        }
+        is_allowed
+    }
+
+    async fn establish_connection(
+        &mut self,
+        address: String,
+    ) -> Result<Result<Resource<RedisConnection>, Error>> {
         Ok(async {
             let conn = redis::Client::open(address.as_str())
                 .map_err(|_| Error::InvalidAddress)?
@@ -57,6 +87,19 @@ impl v2::HostConnection for OutboundRedis {
                 .map_err(|_| Error::TooManyConnections)
         }
         .await)
+    }
+}
+
+impl v2::Host for OutboundRedis {}
+
+#[async_trait]
+impl v2::HostConnection for OutboundRedis {
+    async fn open(&mut self, address: String) -> Result<Result<Resource<RedisConnection>, Error>> {
+        if !self.is_address_allowed(&address, false) {
+            return Ok(Err(Error::InvalidAddress));
+        }
+
+        self.establish_connection(address).await
     }
 
     async fn publish(
@@ -214,7 +257,10 @@ fn other_error(e: impl std::fmt::Display) -> Error {
 /// Delegate a function call to the v2::HostConnection implementation
 macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
-        let connection = match <Self as v2::HostConnection>::open($self, $address).await? {
+        if !$self.is_address_allowed(&$address, true) {
+            return Ok(Err(v1::Error::Error));
+        }
+        let connection = match $self.establish_connection($address).await? {
             Ok(c) => c,
             Err(_) => return Ok(Err(v1::Error::Error)),
         };

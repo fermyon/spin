@@ -1,3 +1,5 @@
+use anyhow::Context;
+use spin_app::DynamicHostComponent;
 use spin_core::HostComponent;
 
 use crate::OutboundRedis;
@@ -16,5 +18,22 @@ impl HostComponent for OutboundRedisComponent {
 
     fn build_data(&self) -> Self::Data {
         Default::default()
+    }
+}
+
+impl DynamicHostComponent for OutboundRedisComponent {
+    fn update_data(
+        &self,
+        data: &mut Self::Data,
+        component: &spin_app::AppComponent,
+    ) -> anyhow::Result<()> {
+        let hosts = component
+            .get_metadata(crate::ALLOWED_HOSTS_KEY)?
+            .unwrap_or_default();
+        data.allowed_hosts = hosts
+            .map(|h| spin_outbound_networking::AllowedHosts::parse(&h[..]))
+            .transpose()
+            .context("`allowed_outbound_hosts` contained an invalid url")?;
+        Ok(())
     }
 }

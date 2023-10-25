@@ -112,9 +112,12 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 
             if !self.disable_default_host_components {
                 builder.link_import(|l, _| wasmtime_wasi_http::proxy::add_to_linker(l))?;
-                builder.add_host_component(outbound_redis::OutboundRedisComponent)?;
                 builder.add_host_component(outbound_pg::OutboundPg::default())?;
                 builder.add_host_component(outbound_mysql::OutboundMysql::default())?;
+                self.loader.add_dynamic_host_component(
+                    &mut builder,
+                    outbound_redis::OutboundRedisComponent,
+                )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
                     runtime_config::llm::build_component(&runtime_config, init_data.llm.use_gpu)

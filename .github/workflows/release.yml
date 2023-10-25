@@ -22,6 +22,8 @@ jobs:
       id-token: write
       # needed to upload artifacts to a GH release
       contents: write
+    outputs:
+      prerelease: ${{ steps.release-version.outputs.prerelease }}
     strategy:
       matrix:
         config:
@@ -114,6 +116,14 @@ jobs:
           echo 'linker = "aarch64-linux-gnu-gcc"' >> ${HOME}/.cargo/config.toml
           echo 'rustflags = ["-Ctarget-feature=+fp16"]' >> ${HOME}/.cargo/config.toml
 
+      - name: Check if pre-release
+        id: release-version
+        shell: bash
+        run: |
+          [[ "${{ env.RELEASE_VERSION }}" =~ ^v[0-9]+.[0-9]+.[0-9]+$ ]] && \
+            echo "prerelease=false" >> "$GITHUB_OUTPUT" || \
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+
       - name: build release
         shell: bash
         run: cargo build --release ${{ matrix.config.extraArgs }}
@@ -163,6 +173,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
           tag: ${{ github.ref }}
+          prerelease: ${{ steps.release-version.outputs.prerelease == 'true' }}
 
       - name: upload binary as GitHub artifact
         if: runner.os == 'Windows'
@@ -178,6 +189,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip
           tag: ${{ github.ref }}
+          prerelease: ${{ steps.release-version.outputs.prerelease == 'true' }}
 
       - name: Configure AWS Credentials
         if: runner.os == 'linux' && matrix.config.arch == 'amd64' && github.repository_owner == 'fermyon'
@@ -227,7 +239,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: checksums-${{ env.RELEASE_VERSION }}.txt
           tag: ${{ github.ref }}
-
+          prerelease: ${{ needs.build-and-sign.outputs.prerelease == 'true' }}
 
   update-canary:
     name: update canary release
@@ -264,7 +276,9 @@ jobs:
     name: create tag sdk/go/v*
     runs-on: ubuntu-latest
     needs: build-and-sign
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: |
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.build-and-sign.outputs.prerelease == 'false'
     steps:
       - uses: actions/checkout@v3
 
@@ -283,8 +297,10 @@ jobs:
   create-template-sdk-update-pr:
     name: Create PR with template SDK updates
     runs-on: ubuntu-latest
-    needs: create-go-sdk-tag
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-and-sign, create-go-sdk-tag]
+    if: |
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.build-and-sign.outputs.prerelease == 'false'
     steps:
       - uses: actions/checkout@v3
 
@@ -330,7 +346,10 @@ jobs:
   push-templates-tag:
     runs-on: ubuntu-latest
     needs: build-and-sign
-    if: github.event.commits[0].author.name == 'fermybot' && contains(github.event.commits[0].message, 'update sdk')
+    if: |
+      github.event.commits[0].author.name == 'fermybot' &&
+      contains(github.event.commits[0].message, 'update sdk') &&
+      needs.build-and-sign.outputs.prerelease == 'false'
     steps:
       - uses: actions/checkout@v3
 

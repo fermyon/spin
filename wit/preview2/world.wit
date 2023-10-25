@@ -1,25 +1,21 @@
 package fermyon:spin@2.0.0
 
+// All worlds the Spin host supports
 world host {
   include fermyon:spin/host
   include platform
 }
 
-world redis-trigger {
-  include platform
-  export fermyon:spin/inbound-redis
-}
-
+// The full world of a guest targeting an http-trigger
 world http-trigger {
   include platform
-  export fermyon:spin/inbound-http
+  export wasi:http/outgoing-handler@0.2.0-rc-2023-10-18
 }
 
+// The imports needed for a guest to run on a Spin host
 world platform {
-  import fermyon:spin/http
-  import fermyon:spin/llm
   import wasi:http/outgoing-handler@0.2.0-rc-2023-10-18
-
+  import llm
   import redis
   import postgres
   import mysql

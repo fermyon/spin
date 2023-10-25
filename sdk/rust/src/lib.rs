@@ -25,7 +25,6 @@ pub mod wit {
         world: "platform",
         path: "../../wit/preview2",
     });
-    pub use fermyon::spin as v1;
     pub use fermyon::spin2_0_0 as v2;
 }
 
@@ -54,8 +53,8 @@ pub mod http;
 pub mod redis {
     use std::hash::{Hash, Hasher};
 
-    pub use super::wit::v1::redis_types::{Payload, RedisParameter, RedisResult};
     pub use super::wit::v2::redis::{Connection, Error};
+    pub use super::wit::v2::redis_types::{Payload, RedisParameter, RedisResult};
 
     impl PartialEq for RedisResult {
         fn eq(&self, other: &Self) -> bool {

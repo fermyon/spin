@@ -1,14 +1,5 @@
 interface mysql {
-  use fermyon:spin/rdbms-types.{parameter-value, row-set}
-
-  /// Errors related to interacting with MySQL.
-  variant error {
-      connection-failed(string),
-      bad-parameter(string),
-      query-failed(string),
-      value-conversion-failed(string),
-      other(string)
-  }
+  use rdbms-types.{parameter-value, row-set, error}
 
   /// A connection to a MySQL database.
   resource connection {

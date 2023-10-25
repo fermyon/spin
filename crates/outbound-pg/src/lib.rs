@@ -2,11 +2,10 @@ use anyhow::{anyhow, Result};
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
 use spin_core::{async_trait, wasmtime::component::Resource, HostComponent};
-use spin_world::v1::{
-    postgres as v1,
-    rdbms_types::{Column, DbDataType, DbValue, ParameterValue, RowSet},
-};
+use spin_world::v1::postgres as v1;
+use spin_world::v1::rdbms_types as v1_types;
 use spin_world::v2::postgres::{self as v2, Connection};
+use spin_world::v2::rdbms_types::{Column, DbDataType, DbValue, ParameterValue, RowSet};
 use tokio_postgres::{
     config::SslMode,
     types::{ToSql, Type},
@@ -350,11 +349,11 @@ macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
         let connection = match <Self as v2::HostConnection>::open($self, $address).await? {
             Ok(c) => c,
-            Err(e) => return Ok(Err(to_legacy_error(e))),
+            Err(e) => return Ok(Err(e.into())),
         };
         Ok(<Self as v2::HostConnection>::$name($self, connection, $($arg),*)
             .await?
-            .map_err(|e| to_legacy_error(e)))
+            .map_err(|e| e.into()))
     }};
 }
 
@@ -364,27 +363,26 @@ impl v1::Host for OutboundPg {
         &mut self,
         address: String,
         statement: String,
-        params: Vec<ParameterValue>,
+        params: Vec<v1_types::ParameterValue>,
     ) -> Result<Result<u64, v1::PgError>> {
-        delegate!(self.execute(address, statement, params))
+        delegate!(self.execute(
+            address,
+            statement,
+            params.into_iter().map(Into::into).collect()
+        ))
     }
 
     async fn query(
         &mut self,
         address: String,
         statement: String,
-        params: Vec<ParameterValue>,
-    ) -> Result<Result<RowSet, v1::PgError>> {
-        delegate!(self.query(address, statement, params))
-    }
-}
-
-fn to_legacy_error(error: v2::Error) -> v1::PgError {
-    match error {
-        v2::Error::ConnectionFailed(e) => v1::PgError::ConnectionFailed(e),
-        v2::Error::BadParameter(e) => v1::PgError::BadParameter(e),
-        v2::Error::QueryFailed(e) => v1::PgError::QueryFailed(e),
-        v2::Error::ValueConversionFailed(e) => v1::PgError::ValueConversionFailed(e),
-        v2::Error::Other(e) => v1::PgError::OtherError(e),
+        params: Vec<v1_types::ParameterValue>,
+    ) -> Result<Result<v1_types::RowSet, v1::PgError>> {
+        delegate!(self.query(
+            address,
+            statement,
+            params.into_iter().map(Into::into).collect()
+        ))
+        .map(|r| r.map(Into::into))
     }
 }

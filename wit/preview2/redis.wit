@@ -1,5 +1,5 @@
 interface redis {
-  use fermyon:spin/redis-types.{payload, redis-parameter, redis-result}
+  use redis-types.{payload, redis-parameter, redis-result}
 
   /// Errors related to interacting with Redis
   variant error {

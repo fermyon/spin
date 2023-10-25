@@ -14,9 +14,9 @@
 //! | `Vec<u8>`  | binary(list\<u8\>)  | BYTEA                        |
 
 #[doc(inline)]
-pub use super::wit::v1::rdbms_types::*;
-#[doc(inline)]
 pub use super::wit::v2::postgres::{Connection, Error as PgError};
+#[doc(inline)]
+pub use super::wit::v2::rdbms_types::*;
 
 /// A pg error
 #[derive(Debug, thiserror::Error)]

@@ -19,9 +19,9 @@
 //! | `Vec<u8>` | binary(list\<u8\>)  | VARBINARY, BINARY, BLOB |
 
 #[doc(inline)]
-pub use super::wit::v1::rdbms_types::*;
-#[doc(inline)]
 pub use super::wit::v2::mysql::{Connection, Error as MysqlError};
+#[doc(inline)]
+pub use super::wit::v2::rdbms_types::*;
 
 /// A MySQL error
 #[derive(Debug, thiserror::Error)]

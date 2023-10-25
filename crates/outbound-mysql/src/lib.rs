@@ -3,8 +3,9 @@ use mysql_async::{consts::ColumnType, from_value_opt, prelude::*, Opts, OptsBuil
 use spin_core::wasmtime::component::Resource;
 use spin_core::{async_trait, HostComponent};
 use spin_world::v1::mysql as v1;
-use spin_world::v1::rdbms_types::{Column, DbDataType, DbValue, ParameterValue, RowSet};
 use spin_world::v2::mysql::{self as v2, Connection};
+use spin_world::v2::rdbms_types as v2_types;
+use spin_world::v2::rdbms_types::{Column, DbDataType, DbValue, ParameterValue};
 use std::sync::Arc;
 use url::Url;
 
@@ -85,7 +86,7 @@ impl v2::HostConnection for OutboundMysql {
         connection: Resource<Connection>,
         statement: String,
         params: Vec<ParameterValue>,
-    ) -> Result<Result<RowSet, v2::Error>> {
+    ) -> Result<Result<v2_types::RowSet, v2::Error>> {
         Ok(async {
             let db_params = params.into_iter().map(to_sql_parameter).collect::<Vec<_>>();
             let parameters = mysql_async::Params::Positional(db_params);
@@ -108,7 +109,7 @@ impl v2::HostConnection for OutboundMysql {
                         .map(|row| convert_row(row, &columns))
                         .collect::<Result<Vec<_>, _>>()?;
 
-                    Ok(RowSet { columns, rows })
+                    Ok(v2_types::RowSet { columns, rows })
                 }
             }
         }
@@ -126,11 +127,11 @@ macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
         let connection = match <Self as v2::HostConnection>::open($self, $address).await? {
             Ok(c) => c,
-            Err(e) => return Ok(Err(to_legacy_error(e))),
+            Err(e) => return Ok(Err(e.into())),
         };
         Ok(<Self as v2::HostConnection>::$name($self, connection, $($arg),*)
             .await?
-            .map_err(|e| to_legacy_error(e)))
+            .map_err(Into::into))
     }};
 }
 
@@ -140,28 +141,27 @@ impl v1::Host for OutboundMysql {
         &mut self,
         address: String,
         statement: String,
-        params: Vec<ParameterValue>,
+        params: Vec<v1::ParameterValue>,
     ) -> Result<Result<(), v1::MysqlError>> {
-        delegate!(self.execute(address, statement, params))
+        delegate!(self.execute(
+            address,
+            statement,
+            params.into_iter().map(Into::into).collect()
+        ))
     }
 
     async fn query(
         &mut self,
         address: String,
         statement: String,
-        params: Vec<ParameterValue>,
-    ) -> Result<Result<RowSet, v1::MysqlError>> {
-        delegate!(self.query(address, statement, params))
-    }
-}
-
-fn to_legacy_error(error: v2::Error) -> v1::MysqlError {
-    match error {
-        v2::Error::ConnectionFailed(e) => v1::MysqlError::ConnectionFailed(e),
-        v2::Error::BadParameter(e) => v1::MysqlError::BadParameter(e),
-        v2::Error::QueryFailed(e) => v1::MysqlError::QueryFailed(e),
-        v2::Error::ValueConversionFailed(e) => v1::MysqlError::ValueConversionFailed(e),
-        v2::Error::Other(e) => v1::MysqlError::OtherError(e),
+        params: Vec<v1::ParameterValue>,
+    ) -> Result<Result<v1::RowSet, v1::MysqlError>> {
+        delegate!(self.query(
+            address,
+            statement,
+            params.into_iter().map(Into::into).collect()
+        ))
+        .map(|r| r.map(Into::into))
     }
 }
 

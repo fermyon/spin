@@ -28,17 +28,75 @@ pub struct Request {
     body: Vec<u8>,
 }
 
-enum HeaderValue {
+/// A header value.
+///
+/// Since header values do not have to be valid utf8, this allows for
+/// both utf8 strings and bags of bytes.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct HeaderValue {
+    inner: HeaderValueRep,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+enum HeaderValueRep {
+    /// Header value encoded as a utf8 string
     String(String),
+    /// Header value as a bag of bytes
     Bytes(Vec<u8>),
 }
 
 impl HeaderValue {
+    /// Construct a `HeaderValue` from a string
+    pub fn string(str: String) -> HeaderValue {
+        HeaderValue {
+            inner: HeaderValueRep::String(str),
+        }
+    }
+
+    /// Construct a `HeaderValue` from a bag of bytes
+    pub fn bytes(bytes: Vec<u8>) -> HeaderValue {
+        HeaderValue {
+            inner: HeaderValueRep::Bytes(bytes),
+        }
+    }
+
+    /// Get the `HeaderValue` as a utf8 encoded string
+    ///
+    /// Returns `None` if the value is a non utf8 encoded header value
+    pub fn as_str(&self) -> Option<&str> {
+        match &self.inner {
+            HeaderValueRep::String(s) => Some(s),
+            HeaderValueRep::Bytes(_) => None,
+        }
+    }
+
+    /// Get the `HeaderValue` as bytes
+    pub fn as_bytes(&self) -> &[u8] {
+        self.as_ref()
+    }
+
+    /// Turn the `HeaderValue` into a String (in a lossy way if the `HeaderValue` is a bag of bytes)
+    pub fn into_utf8_lossy(self) -> String {
+        match self.inner {
+            HeaderValueRep::String(s) => s,
+            HeaderValueRep::Bytes(b) => String::from_utf8_lossy(&b).into_owned(),
+        }
+    }
+
     /// Turn the `HeaderValue` into bytes
-    fn into_bytes(self) -> Vec<u8> {
-        match self {
-            HeaderValue::String(s) => s.into_bytes(),
-            HeaderValue::Bytes(b) => b,
+    pub fn into_bytes(self) -> Vec<u8> {
+        match self.inner {
+            HeaderValueRep::String(s) => s.into_bytes(),
+            HeaderValueRep::Bytes(b) => b,
+        }
+    }
+}
+
+impl AsRef<[u8]> for HeaderValue {
+    fn as_ref(&self) -> &[u8] {
+        match &self.inner {
+            HeaderValueRep::String(s) => s.as_bytes(),
+            HeaderValueRep::Bytes(b) => b,
         }
     }
 }
@@ -78,33 +136,15 @@ impl Request {
     }
 
     /// The request headers
-    ///
-    /// This only returns headers that are utf8 encoded
-    pub fn headers(&self) -> impl Iterator<Item = (&str, &str)> {
-        self.headers.iter().filter_map(|(k, v)| match v {
-            HeaderValue::String(v) => Some((k.as_str(), v.as_str())),
-            HeaderValue::Bytes(_) => None,
-        })
+    pub fn headers(&self) -> impl Iterator<Item = (&str, &HeaderValue)> {
+        self.headers.iter().map(|(k, v)| (k.as_str(), v))
     }
 
     /// Return a header value
     ///
-    /// Will return `None` if the header does not exist or if it is not utf8
-    pub fn header(&self, name: &str) -> Option<&str> {
-        self.headers
-            .get(&name.to_lowercase())
-            .and_then(|v| match v {
-                HeaderValue::String(s) => Some(s.as_str()),
-                HeaderValue::Bytes(_) => None,
-            })
-    }
-
-    /// The request headers as bytes
-    pub fn headers_raw(&self) -> impl Iterator<Item = (&str, &[u8])> {
-        self.headers.iter().map(|(k, v)| match v {
-            HeaderValue::String(v) => (k.as_str(), v.as_bytes()),
-            HeaderValue::Bytes(v) => (k.as_str(), v.as_slice()),
-        })
+    /// Will return `None` if the header does not exist.
+    pub fn header(&self, name: &str) -> Option<&HeaderValue> {
+        self.headers.get(&name.to_lowercase())
     }
 
     /// The request body
@@ -172,7 +212,7 @@ impl RequestBuilder {
     pub fn header(&mut self, key: impl Into<String>, value: impl Into<String>) -> &mut Self {
         self.request
             .headers
-            .insert(key.into().to_lowercase(), HeaderValue::String(value.into()));
+            .insert(key.into().to_lowercase(), HeaderValue::string(value.into()));
         self
     }
 
@@ -216,32 +256,16 @@ impl Response {
         &self.status
     }
 
-    /// The response headers
-    ///
-    /// This only returns headers that are utf8 encoded
-    pub fn headers(&self) -> impl Iterator<Item = (&str, &str)> {
-        self.headers.iter().filter_map(|(k, v)| match v {
-            HeaderValue::String(v) => Some((k.as_str(), v.as_str())),
-            HeaderValue::Bytes(_) => None,
-        })
+    /// The request headers
+    pub fn headers(&self) -> impl Iterator<Item = (&str, &HeaderValue)> {
+        self.headers.iter().map(|(k, v)| (k.as_str(), v))
     }
 
     /// Return a header value
     ///
-    /// Will return `None` if the header does not exist or if it is not utf8
-    pub fn header(&self, name: &str) -> Option<&str> {
-        self.headers.get(name).and_then(|v| match v {
-            HeaderValue::String(s) => Some(s.as_str()),
-            HeaderValue::Bytes(_) => None,
-        })
-    }
-
-    /// The request headers as bytes
-    pub fn headers_raw(&self) -> impl Iterator<Item = (&str, &[u8])> {
-        self.headers.iter().map(|(k, v)| match v {
-            HeaderValue::String(v) => (k.as_str(), v.as_bytes()),
-            HeaderValue::Bytes(v) => (k.as_str(), v.as_slice()),
-        })
+    /// Will return `None` if the header does not exist.
+    pub fn header(&self, name: &str) -> Option<&HeaderValue> {
+        self.headers.get(&name.to_lowercase())
     }
 
     /// The response body
@@ -293,7 +317,7 @@ impl ResponseBuilder {
     pub fn header(&mut self, key: impl Into<String>, value: impl Into<String>) -> &mut Self {
         self.response
             .headers
-            .insert(key.into().to_lowercase(), HeaderValue::String(value.into()));
+            .insert(key.into().to_lowercase(), HeaderValue::string(value.into()));
         self
     }
 
@@ -315,9 +339,9 @@ fn into_header_rep(headers: impl conversions::IntoHeaders) -> HashMap<String, He
         .into_iter()
         .map(|(k, v)| {
             let v = String::from_utf8(v)
-                .map(HeaderValue::String)
-                .unwrap_or_else(|e| HeaderValue::Bytes(e.into_bytes()));
-            (k.to_lowercase(), v)
+                .map(HeaderValueRep::String)
+                .unwrap_or_else(|e| HeaderValueRep::Bytes(e.into_bytes()));
+            (k.to_lowercase(), HeaderValue { inner: v })
         })
         .collect()
 }

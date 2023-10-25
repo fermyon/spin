@@ -6,12 +6,11 @@ tags = ["http", "file", "static", "asset"]
 
 [add_component]
 skip_files = ["spin.toml", ".gitignore"]
-skip_parameters = ["http-base", "project-description"]
+skip_parameters = ["project-description"]
 [add_component.snippets]
 component = "component.txt"
 
 [parameters]
 project-description = { type = "string",  prompt = "Description", default = "" }
-http-base = { type = "string", prompt = "HTTP base", default = "/", pattern = "^/\\S*$" }
 http-path = { type = "string", prompt = "HTTP path", default = "/static/...", pattern = "^/\\S*$" }
 files-path = { type = "string", prompt = "Directory containing the files to serve", default = "assets", pattern = "^\\S+$" }

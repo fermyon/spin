@@ -1,17 +1,19 @@
-spin_manifest_version = "1"
+spin_manifest_version = 2
+
+[application]
+name = "{{project-name}}"
+version = "0.1.0"
 authors = ["{{authors}}"]
 description = "{{project-description}}"
-name = "{{project-name}}"
-trigger = { type = "http", base = "{{http-base}}" }
-version = "0.1.0"
 
-[[component]]
-id = "{{project-name | kebab_case}}"
+[[trigger.http]]
+route = "{{http-path}}"
+component = "{{project-name | kebab_case}}"
+executor = { type = "wagi" }
+
+[component.{{project-name | kebab_case}}]
 source = "main.wasm"
 allowed_http_hosts = []
-[component.trigger]
-route = "{{http-path}}"
-executor = { type = "wagi" }
-[component.build]
+[component.{{project-name | kebab_case}}.build]
 command = "grain compile --release -o main.wasm main.gr"
 watch = ["**/*.gr"]

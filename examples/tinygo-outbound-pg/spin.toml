@@ -1,13 +1,13 @@
 spin_manifest_version = "1"
 authors = ["Patrick Jiang <patrickjiang0530@gmail.com>"]
 description = ""
-name = "outbound-pg-example"
+name = "tinygo-outbound-pg-example"
 trigger = { type = "http", base = "/" }
 version = "0.1.0"
 
 [[component]]
-environment = { DB_URL = "mysql://spin:spin@127.0.0.1/spin_dev" }
-id = "outbound-pg-example"
+environment = { DB_URL = "host=localhost user=postgres dbname=spin_dev" }
+id = "tinygo-outbound-pg-example"
 source = "main.wasm"
 [component.trigger]
 route = "/..."

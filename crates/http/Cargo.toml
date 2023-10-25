@@ -9,13 +9,18 @@ anyhow = "1.0"
 http = "0.2"
 hyper = { workspace = true }
 http-body-util = { workspace = true }
-wasmtime-wasi-http = { workspace = true }
+wasmtime-wasi-http = { workspace = true, optional = true }
 indexmap = "1"
 percent-encoding = "2"
 serde = { version = "1.0", features = ["derive"] }
 tracing = { workspace = true }
-spin-app = { path = "../app" }
+spin-app = { path = "../app", optional = true }
+spin-locked-app = { path = "../locked-app" }
 
 [dev-dependencies]
 spin-testing = { path = "../testing" }
 toml = "0.8.2"
+
+[features]
+default = ["runtime"]
+runtime = ["dep:spin-app", "dep:wasmtime-wasi-http"]

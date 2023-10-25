@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use spin_app::MetadataKey;
+use spin_locked_app::MetadataKey;
 
 /// Http trigger metadata key
 pub const METADATA_KEY: MetadataKey<Metadata> = MetadataKey::new("trigger");

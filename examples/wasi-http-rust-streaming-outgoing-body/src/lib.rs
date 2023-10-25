@@ -2,7 +2,7 @@ use anyhow::{bail, Result};
 use futures::{stream, SinkExt, StreamExt, TryStreamExt};
 use spin_sdk::http::send;
 use spin_sdk::http::{
-    Fields, IncomingRequest, IncomingResponse, Method, OutgoingBody, OutgoingRequest,
+    Headers, IncomingRequest, IncomingResponse, Method, OutgoingBody, OutgoingRequest,
     OutgoingResponse, ResponseOutparam, Scheme,
 };
 use spin_sdk::http_component;
@@ -32,12 +32,12 @@ async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam
 
             let response = OutgoingResponse::new(
                 200,
-                &Fields::new(&[("content-type".to_string(), b"text/plain".to_vec())]),
+                &Headers::new(&[("content-type".to_string(), b"text/plain".to_vec())]),
             );
 
             let mut body = response.take_body();
 
-            ResponseOutparam::set(response_out, Ok(response));
+            response_out.set(response);
 
             while let Some((url, result)) = results.next().await {
                 let payload = match result {
@@ -54,7 +54,7 @@ async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam
         (Method::Post, Some("/echo")) => {
             let response = OutgoingResponse::new(
                 200,
-                &Fields::new(
+                &Headers::new(
                     &headers
                         .into_iter()
                         .filter_map(|(k, v)| (k == "content-type").then_some((k, v)))
@@ -64,7 +64,7 @@ async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam
 
             let mut body = response.take_body();
 
-            ResponseOutparam::set(response_out, Ok(response));
+            response_out.set(response);
 
             let mut stream = request.into_body_stream();
             while let Some(chunk) = stream.next().await {
@@ -84,11 +84,11 @@ async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam
         }
 
         _ => {
-            let response = OutgoingResponse::new(405, &Fields::new(&[]));
+            let response = OutgoingResponse::new(405, &Headers::new(&[]));
 
             let body = response.write().expect("response should be writable");
 
-            ResponseOutparam::set(response_out, Ok(response));
+            response_out.set(response);
 
             OutgoingBody::finish(body, None);
         }
@@ -105,7 +105,7 @@ async fn hash(url: &Url) -> Result<String> {
             scheme => Scheme::Other(scheme.into()),
         }),
         Some(url.authority()),
-        &Fields::new(&[]),
+        &Headers::new(&[]),
     );
 
     let response: IncomingResponse = send(request).await?;

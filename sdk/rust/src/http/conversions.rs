@@ -1,8 +1,6 @@
 use async_trait::async_trait;
 
-use super::{
-    Fields, Headers, IncomingRequest, IncomingResponse, OutgoingRequest, OutgoingResponse,
-};
+use super::{Headers, IncomingRequest, IncomingResponse, OutgoingRequest, OutgoingResponse};
 
 use super::{responses, NonUtf8BodyError, Request, Response};
 
@@ -466,7 +464,7 @@ where
                 })
                 .as_ref(),
             req.uri().authority().map(|a| a.as_str()),
-            &Fields::new(&headers),
+            &Headers::new(&headers),
         ))
     }
 }

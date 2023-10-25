@@ -161,7 +161,7 @@ impl<B: TryFromBody> TryNonRequestFromRequest for hyperium::Request<B> {
             .uri(req.uri())
             .method(req.method);
         for (n, v) in req.headers {
-            builder = builder.header(n, v);
+            builder = builder.header(n, v.into_bytes());
         }
         Ok(builder.body(B::try_from_body(req.body)?).unwrap())
     }
@@ -296,61 +296,52 @@ impl IntoStatusCode for hyperium::StatusCode {
 
 /// A trait for any type that can be turned into `Response` headers
 pub trait IntoHeaders {
-    /// Turn `self` into a `Response` body
-    fn into_headers(self) -> Vec<(String, String)>;
+    /// Turn `self` into `Response` headers
+    fn into_headers(self) -> Vec<(String, Vec<u8>)>;
 }
 
 impl IntoHeaders for Vec<(String, String)> {
-    fn into_headers(self) -> Vec<(String, String)> {
-        self
+    fn into_headers(self) -> Vec<(String, Vec<u8>)> {
+        self.into_iter().map(|(k, v)| (k, v.into_bytes())).collect()
     }
 }
 
 impl IntoHeaders for Vec<(String, Vec<u8>)> {
-    fn into_headers(self) -> Vec<(String, String)> {
-        self.into_iter()
-            .map(|(k, v)| (k, String::from_utf8_lossy(&v).into_owned()))
-            .collect()
+    fn into_headers(self) -> Vec<(String, Vec<u8>)> {
+        self
     }
 }
 
 impl IntoHeaders for HashMap<String, Vec<String>> {
-    fn into_headers(self) -> Vec<(String, String)> {
+    fn into_headers(self) -> Vec<(String, Vec<u8>)> {
         self.into_iter()
-            .flat_map(|(k, values)| values.into_iter().map(move |v| (k.clone(), v)))
+            .flat_map(|(k, values)| values.into_iter().map(move |v| (k.clone(), v.into_bytes())))
             .collect()
     }
 }
 
 impl IntoHeaders for HashMap<String, String> {
-    fn into_headers(self) -> Vec<(String, String)> {
-        self.into_iter().collect()
+    fn into_headers(self) -> Vec<(String, Vec<u8>)> {
+        self.into_iter().map(|(k, v)| (k, v.into_bytes())).collect()
     }
 }
 
 impl IntoHeaders for HashMap<String, Vec<u8>> {
-    fn into_headers(self) -> Vec<(String, String)> {
-        self.into_iter()
-            .map(|(k, v)| (k, String::from_utf8_lossy(&v).into_owned()))
-            .collect()
+    fn into_headers(self) -> Vec<(String, Vec<u8>)> {
+        self.into_iter().collect()
     }
 }
 
 impl IntoHeaders for &hyperium::HeaderMap {
-    fn into_headers(self) -> Vec<(String, String)> {
+    fn into_headers(self) -> Vec<(String, Vec<u8>)> {
         self.iter()
-            .map(|(k, v)| {
-                (
-                    k.as_str().to_owned(),
-                    String::from_utf8_lossy(v.as_bytes()).into_owned(),
-                )
-            })
+            .map(|(k, v)| (k.as_str().to_owned(), v.as_bytes().to_owned()))
             .collect()
     }
 }
 
 impl IntoHeaders for Headers {
-    fn into_headers(self) -> Vec<(String, String)> {
+    fn into_headers(self) -> Vec<(String, Vec<u8>)> {
         self.entries().into_headers()
     }
 }

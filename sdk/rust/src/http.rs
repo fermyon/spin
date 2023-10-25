@@ -1,6 +1,8 @@
 /// Traits for converting between the various types
 pub mod conversions;
 
+use std::collections::HashMap;
+
 #[doc(inline)]
 pub use conversions::IntoResponse;
 
@@ -21,9 +23,24 @@ pub struct Request {
     /// The first item is set to `None` if the supplied uri is malformed
     uri: (Option<hyperium::Uri>, String),
     /// The request headers
-    headers: Vec<(String, String)>,
+    headers: HashMap<String, HeaderValue>,
     /// The request body as bytes
     body: Vec<u8>,
+}
+
+enum HeaderValue {
+    String(String),
+    Bytes(Vec<u8>),
+}
+
+impl HeaderValue {
+    /// Turn the `HeaderValue` into bytes
+    fn into_bytes(self) -> Vec<u8> {
+        match self {
+            HeaderValue::String(s) => s.into_bytes(),
+            HeaderValue::Bytes(b) => b,
+        }
+    }
 }
 
 impl Request {
@@ -31,7 +48,7 @@ impl Request {
         Self {
             method,
             uri: Self::parse_uri(uri.into()),
-            headers: Vec::new(),
+            headers: HashMap::new(),
             body: Vec::new(),
         }
     }
@@ -61,13 +78,33 @@ impl Request {
     }
 
     /// The request headers
-    pub fn headers(&self) -> &[(String, String)] {
-        &self.headers
+    ///
+    /// This only returns headers that are utf8 encoded
+    pub fn headers(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.headers.iter().filter_map(|(k, v)| match v {
+            HeaderValue::String(v) => Some((k.as_str(), v.as_str())),
+            HeaderValue::Bytes(_) => None,
+        })
     }
 
-    /// The request headers
-    pub fn headers_mut(&mut self) -> &mut Vec<(String, String)> {
-        &mut self.headers
+    /// Return a header value
+    ///
+    /// Will return `None` if the header does not exist or if it is not utf8
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.headers
+            .get(&name.to_lowercase())
+            .and_then(|v| match v {
+                HeaderValue::String(s) => Some(s.as_str()),
+                HeaderValue::Bytes(_) => None,
+            })
+    }
+
+    /// The request headers as bytes
+    pub fn headers_raw(&self) -> impl Iterator<Item = (&str, &[u8])> {
+        self.headers.iter().map(|(k, v)| match v {
+            HeaderValue::String(v) => (k.as_str(), v.as_bytes()),
+            HeaderValue::Bytes(v) => (k.as_str(), v.as_slice()),
+        })
     }
 
     /// The request body
@@ -127,7 +164,15 @@ impl RequestBuilder {
 
     /// Set the headers
     pub fn headers(&mut self, headers: impl conversions::IntoHeaders) -> &mut Self {
-        self.request.headers = headers.into_headers();
+        self.request.headers = into_header_rep(headers);
+        self
+    }
+
+    /// Set a header
+    pub fn header(&mut self, key: impl Into<String>, value: impl Into<String>) -> &mut Self {
+        self.request
+            .headers
+            .insert(key.into().to_lowercase(), HeaderValue::String(value.into()));
         self
     }
 
@@ -151,7 +196,7 @@ pub struct Response {
     /// The status of the response
     status: StatusCode,
     /// The response headers
-    headers: Vec<(String, String)>,
+    headers: HashMap<String, HeaderValue>,
     /// The body of the response as bytes
     body: Vec<u8>,
 }
@@ -161,7 +206,7 @@ impl Response {
     pub fn new(status: impl conversions::IntoStatusCode, body: impl conversions::IntoBody) -> Self {
         Self {
             status: status.into_status_code(),
-            headers: Vec::new(),
+            headers: HashMap::new(),
             body: body.into_body(),
         }
     }
@@ -173,16 +218,30 @@ impl Response {
 
     /// The response headers
     ///
-    /// Technically headers do not have to be utf8 encoded but this type assumes they are.
-    /// If you know you'll be dealing with non-utf8 encoded headers, reach more a more powerful
-    /// response type like that found in the `http` crate.
-    pub fn headers(&self) -> &[(String, String)] {
-        &self.headers
+    /// This only returns headers that are utf8 encoded
+    pub fn headers(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.headers.iter().filter_map(|(k, v)| match v {
+            HeaderValue::String(v) => Some((k.as_str(), v.as_str())),
+            HeaderValue::Bytes(_) => None,
+        })
     }
 
-    /// The response headers
-    pub fn headers_mut(&mut self) -> &mut Vec<(String, String)> {
-        &mut self.headers
+    /// Return a header value
+    ///
+    /// Will return `None` if the header does not exist or if it is not utf8
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.headers.get(name).and_then(|v| match v {
+            HeaderValue::String(s) => Some(s.as_str()),
+            HeaderValue::Bytes(_) => None,
+        })
+    }
+
+    /// The request headers as bytes
+    pub fn headers_raw(&self) -> impl Iterator<Item = (&str, &[u8])> {
+        self.headers.iter().map(|(k, v)| match v {
+            HeaderValue::String(v) => (k.as_str(), v.as_bytes()),
+            HeaderValue::Bytes(v) => (k.as_str(), v.as_slice()),
+        })
     }
 
     /// The response body
@@ -205,11 +264,13 @@ impl Response {
     }
 }
 
-struct ResponseBuilder {
+/// A builder for `Response``
+pub struct ResponseBuilder {
     response: Response,
 }
 
 impl ResponseBuilder {
+    /// Create a new `ResponseBuilder`
     pub fn new(status: impl conversions::IntoStatusCode) -> Self {
         ResponseBuilder {
             response: Response::new(status, Vec::new()),
@@ -224,7 +285,15 @@ impl ResponseBuilder {
 
     /// Set the headers
     pub fn headers(&mut self, headers: impl conversions::IntoHeaders) -> &mut Self {
-        self.response.headers = headers.into_headers();
+        self.response.headers = into_header_rep(headers.into_headers());
+        self
+    }
+
+    /// Set a header
+    pub fn header(&mut self, key: impl Into<String>, value: impl Into<String>) -> &mut Self {
+        self.response
+            .headers
+            .insert(key.into().to_lowercase(), HeaderValue::String(value.into()));
         self
     }
 
@@ -234,9 +303,23 @@ impl ResponseBuilder {
         self
     }
 
+    /// Build the `Response`
     pub fn build(&mut self) -> Response {
         std::mem::replace(&mut self.response, Response::new(200, Vec::new()))
     }
+}
+
+fn into_header_rep(headers: impl conversions::IntoHeaders) -> HashMap<String, HeaderValue> {
+    headers
+        .into_headers()
+        .into_iter()
+        .map(|(k, v)| {
+            let v = String::from_utf8(v)
+                .map(HeaderValue::String)
+                .unwrap_or_else(|e| HeaderValue::Bytes(e.into_bytes()));
+            (k.to_lowercase(), v)
+        })
+        .collect()
 }
 
 impl std::hash::Hash for Method {

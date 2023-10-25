@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 
 use super::{
@@ -8,7 +10,12 @@ use super::{responses, NonUtf8BodyError, Request, Response};
 
 impl From<Response> for OutgoingResponse {
     fn from(response: Response) -> Self {
-        OutgoingResponse::new(response.status, &Headers::new(&response.headers))
+        let headers = response
+            .headers
+            .into_iter()
+            .map(|(k, v)| (k, v.into_bytes()))
+            .collect::<Vec<_>>();
+        OutgoingResponse::new(response.status, &Headers::new(&headers))
     }
 }
 
@@ -52,18 +59,17 @@ impl TryFromIncomingRequest for Request {
     type Error = IncomingRequestError;
 
     async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
-        let headers = request.headers().entries();
-        Ok(Self {
-            method: request.method(),
-            path_and_query: request
-                .path_with_query()
-                .unwrap_or_else(|| String::from("/")),
-            headers,
-            body: request
-                .into_body()
-                .await
-                .map_err(IncomingRequestError::BodyConversionError)?,
-        })
+        Ok(Request::builder()
+            .method(request.method())
+            .uri(request.uri())
+            .headers(request.headers())
+            .body(
+                request
+                    .into_body()
+                    .await
+                    .map_err(IncomingRequestError::BodyConversionError)?,
+            )
+            .build())
     }
 }
 
@@ -152,7 +158,7 @@ impl<B: TryFromBody> TryNonRequestFromRequest for hyperium::Request<B> {
     type Error = B::Error;
     fn try_from_request(req: Request) -> Result<Self, Self::Error> {
         let mut builder = hyperium::Request::builder()
-            .uri(req.path_and_query)
+            .uri(req.uri())
             .method(req.method);
         for (n, v) in req.headers {
             builder = builder.header(n, v);
@@ -197,16 +203,11 @@ where
     B: IntoBody,
 {
     fn into_response(self) -> Response {
-        let headers = self
-            .headers()
-            .into_iter()
-            .map(|(n, v)| (n.as_str().to_owned(), v.as_bytes().to_owned()))
-            .collect();
-        Response::new_with_headers(
-            self.status().as_u16(),
-            headers,
-            IntoBody::into_body(self.into_body()),
-        )
+        Response::builder()
+            .status(self.status().as_u16())
+            .headers(self.headers())
+            .body(self.into_body())
+            .build()
     }
 }
 
@@ -290,6 +291,67 @@ impl IntoStatusCode for u16 {
 impl IntoStatusCode for hyperium::StatusCode {
     fn into_status_code(self) -> u16 {
         self.as_u16()
+    }
+}
+
+/// A trait for any type that can be turned into `Response` headers
+pub trait IntoHeaders {
+    /// Turn `self` into a `Response` body
+    fn into_headers(self) -> Vec<(String, String)>;
+}
+
+impl IntoHeaders for Vec<(String, String)> {
+    fn into_headers(self) -> Vec<(String, String)> {
+        self
+    }
+}
+
+impl IntoHeaders for Vec<(String, Vec<u8>)> {
+    fn into_headers(self) -> Vec<(String, String)> {
+        self.into_iter()
+            .map(|(k, v)| (k, String::from_utf8_lossy(&v).into_owned()))
+            .collect()
+    }
+}
+
+impl IntoHeaders for HashMap<String, Vec<String>> {
+    fn into_headers(self) -> Vec<(String, String)> {
+        self.into_iter()
+            .flat_map(|(k, values)| values.into_iter().map(move |v| (k.clone(), v)))
+            .collect()
+    }
+}
+
+impl IntoHeaders for HashMap<String, String> {
+    fn into_headers(self) -> Vec<(String, String)> {
+        self.into_iter().collect()
+    }
+}
+
+impl IntoHeaders for HashMap<String, Vec<u8>> {
+    fn into_headers(self) -> Vec<(String, String)> {
+        self.into_iter()
+            .map(|(k, v)| (k, String::from_utf8_lossy(&v).into_owned()))
+            .collect()
+    }
+}
+
+impl IntoHeaders for &hyperium::HeaderMap {
+    fn into_headers(self) -> Vec<(String, String)> {
+        self.iter()
+            .map(|(k, v)| {
+                (
+                    k.as_str().to_owned(),
+                    String::from_utf8_lossy(v.as_bytes()).into_owned(),
+                )
+            })
+            .collect()
+    }
+}
+
+impl IntoHeaders for Headers {
+    fn into_headers(self) -> Vec<(String, String)> {
+        self.entries().into_headers()
     }
 }
 

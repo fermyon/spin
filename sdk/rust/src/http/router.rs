@@ -42,7 +42,7 @@ impl Router {
     pub fn handle<R: Into<Request>>(&self, request: R) -> Response {
         let request = request.into();
         let method = request.method.clone();
-        let path = &request.path_and_query;
+        let path = &request.path();
         let RouteMatch { params, handler } = self.find(path, method);
         handler(request, params)
     }
@@ -285,12 +285,7 @@ mod tests {
     use super::*;
 
     fn make_request(method: Method, path: &str) -> Request {
-        Request {
-            method,
-            path_and_query: path.into(),
-            headers: Vec::new(),
-            body: Default::default(),
-        }
+        Request::new(method, path)
     }
 
     fn echo_param(req: Request, params: Params) -> Response {

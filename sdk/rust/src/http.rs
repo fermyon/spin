@@ -15,13 +15,132 @@ pub use super::wit::wasi::http::types::*;
 /// is no need for streaming bodies.
 pub struct Request {
     /// The method of the request
-    pub method: Method,
-    /// The path together with the query string
-    pub path_and_query: String,
+    method: Method,
+    /// The uri for the request
+    ///
+    /// The first item is set to `None` if the supplied uri is malformed
+    uri: (Option<hyperium::Uri>, String),
     /// The request headers
-    pub headers: Vec<(String, Vec<u8>)>,
+    headers: Vec<(String, String)>,
     /// The request body as bytes
-    pub body: Vec<u8>,
+    body: Vec<u8>,
+}
+
+impl Request {
+    fn new(method: Method, uri: impl Into<String>) -> Self {
+        Self {
+            method,
+            uri: Self::parse_uri(uri.into()),
+            headers: Vec::new(),
+            body: Vec::new(),
+        }
+    }
+
+    /// The request method
+    pub fn method(&self) -> &Method {
+        &self.method
+    }
+
+    /// The request uri
+    pub fn uri(&self) -> &str {
+        &self.uri.1
+    }
+
+    /// The request uri path
+    pub fn path(&self) -> &str {
+        self.uri.0.as_ref().map(|u| u.path()).unwrap_or_default()
+    }
+
+    /// The request uri query
+    pub fn query(&self) -> &str {
+        self.uri
+            .0
+            .as_ref()
+            .and_then(|u| u.query())
+            .unwrap_or_default()
+    }
+
+    /// The request headers
+    pub fn headers(&self) -> &[(String, String)] {
+        &self.headers
+    }
+
+    /// The request headers
+    pub fn headers_mut(&mut self) -> &mut Vec<(String, String)> {
+        &mut self.headers
+    }
+
+    /// The request body
+    pub fn body(&self) -> &[u8] {
+        &self.body
+    }
+
+    /// The request body
+    pub fn body_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.body
+    }
+
+    /// Consume this type and return its body
+    pub fn into_body(self) -> Vec<u8> {
+        self.body
+    }
+
+    /// Create a request builder
+    pub fn builder() -> RequestBuilder {
+        RequestBuilder::new(Method::Get, "/")
+    }
+
+    fn parse_uri(uri: String) -> (Option<hyperium::Uri>, String) {
+        (
+            hyperium::Uri::try_from(&uri)
+                .or_else(|_| hyperium::Uri::try_from(&format!("http://{uri}")))
+                .ok(),
+            uri,
+        )
+    }
+}
+
+/// A request builder
+pub struct RequestBuilder {
+    request: Request,
+}
+
+impl RequestBuilder {
+    /// Create a new `RequestBuilder`
+    pub fn new(method: Method, uri: impl Into<String>) -> Self {
+        Self {
+            request: Request::new(method, uri.into()),
+        }
+    }
+
+    /// Set the method
+    pub fn method(&mut self, method: Method) -> &mut Self {
+        self.request.method = method;
+        self
+    }
+
+    /// Set the uri
+    pub fn uri(&mut self, uri: impl Into<String>) -> &mut Self {
+        self.request.uri = Request::parse_uri(uri.into());
+        self
+    }
+
+    /// Set the headers
+    pub fn headers(&mut self, headers: impl conversions::IntoHeaders) -> &mut Self {
+        self.request.headers = headers.into_headers();
+        self
+    }
+
+    /// Set the body
+    pub fn body(&mut self, body: impl conversions::IntoBody) -> &mut Self {
+        self.request.body = body.into_body();
+        self
+    }
+
+    /// Build the `Request`
+    pub fn build(&mut self) -> Request {
+        std::mem::replace(&mut self.request, Request::new(Method::Get, "/"))
+    }
 }
 
 /// A unified response object that can represent both outgoing and incoming responses.
@@ -30,37 +149,93 @@ pub struct Request {
 /// is no need for streaming bodies.
 pub struct Response {
     /// The status of the response
-    pub status: StatusCode,
+    status: StatusCode,
     /// The response headers
-    pub headers: Vec<(String, Vec<u8>)>,
+    headers: Vec<(String, String)>,
     /// The body of the response as bytes
-    pub body: Vec<u8>,
+    body: Vec<u8>,
 }
 
 impl Response {
     /// Create a new response from a status and optional headers and body
-    pub fn new<S: conversions::IntoStatusCode, B: conversions::IntoBody>(
-        status: S,
-        body: B,
-    ) -> Self {
+    pub fn new(status: impl conversions::IntoStatusCode, body: impl conversions::IntoBody) -> Self {
         Self {
             status: status.into_status_code(),
-            headers: Default::default(),
+            headers: Vec::new(),
             body: body.into_body(),
         }
     }
 
-    /// Create a new response from a status and optional headers and body
-    pub fn new_with_headers<S: conversions::IntoStatusCode, B: conversions::IntoBody>(
-        status: S,
-        headers: Vec<(String, Vec<u8>)>,
-        body: B,
-    ) -> Self {
-        Self {
-            status: status.into_status_code(),
-            headers,
-            body: body.into_body(),
+    /// The response status
+    pub fn status(&self) -> &StatusCode {
+        &self.status
+    }
+
+    /// The response headers
+    ///
+    /// Technically headers do not have to be utf8 encoded but this type assumes they are.
+    /// If you know you'll be dealing with non-utf8 encoded headers, reach more a more powerful
+    /// response type like that found in the `http` crate.
+    pub fn headers(&self) -> &[(String, String)] {
+        &self.headers
+    }
+
+    /// The response headers
+    pub fn headers_mut(&mut self) -> &mut Vec<(String, String)> {
+        &mut self.headers
+    }
+
+    /// The response body
+    pub fn body(&self) -> &[u8] {
+        &self.body
+    }
+
+    /// The response body
+    pub fn body_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.body
+    }
+
+    /// Consume this type and return its body
+    pub fn into_body(self) -> Vec<u8> {
+        self.body
+    }
+
+    fn builder() -> ResponseBuilder {
+        ResponseBuilder::new(200)
+    }
+}
+
+struct ResponseBuilder {
+    response: Response,
+}
+
+impl ResponseBuilder {
+    pub fn new(status: impl conversions::IntoStatusCode) -> Self {
+        ResponseBuilder {
+            response: Response::new(status, Vec::new()),
         }
+    }
+
+    /// Set the status
+    pub fn status(&mut self, status: impl conversions::IntoStatusCode) -> &mut Self {
+        self.response.status = status.into_status_code();
+        self
+    }
+
+    /// Set the headers
+    pub fn headers(&mut self, headers: impl conversions::IntoHeaders) -> &mut Self {
+        self.response.headers = headers.into_headers();
+        self
+    }
+
+    /// Set the body
+    pub fn body(&mut self, body: impl conversions::IntoBody) -> &mut Self {
+        self.response.body = body.into_body();
+        self
+    }
+
+    pub fn build(&mut self) -> Response {
+        std::mem::replace(&mut self.response, Response::new(200, Vec::new()))
     }
 }
 
@@ -99,6 +274,23 @@ impl std::fmt::Display for Method {
 }
 
 impl IncomingRequest {
+    /// The incoming request Uri
+    pub fn uri(&self) -> String {
+        let scheme_and_authority =
+            if let (Some(scheme), Some(authority)) = (self.scheme(), self.authority()) {
+                let scheme = match &scheme {
+                    Scheme::Http => "http://",
+                    Scheme::Https => "https://",
+                    Scheme::Other(s) => s.as_str(),
+                };
+                format!("{scheme}{authority}")
+            } else {
+                String::new()
+            };
+        let path_and_query = self.path_with_query().unwrap_or_default();
+        format!("{scheme_and_authority}{path_and_query}")
+    }
+
     /// Return a `Stream` from which the body of the specified request may be read.
     ///
     /// # Panics
@@ -285,5 +477,31 @@ pub mod responses {
 
     pub(crate) fn bad_request(msg: Option<String>) -> Response {
         Response::new(400, msg.map(|m| m.into_bytes()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_uri_parses() {
+        let uri = "/hello?world=1";
+        let req = Request::new(Method::Get, uri);
+        assert_eq!(req.uri(), uri);
+        assert_eq!(req.path(), "/hello");
+        assert_eq!(req.query(), "world=1");
+
+        let uri = "http://localhost:3000/hello?world=1";
+        let req = Request::new(Method::Get, uri);
+        assert_eq!(req.uri(), uri);
+        assert_eq!(req.path(), "/hello");
+        assert_eq!(req.query(), "world=1");
+
+        let uri = "localhost:3000/hello?world=1";
+        let req = Request::new(Method::Get, uri);
+        assert_eq!(req.uri(), uri);
+        assert_eq!(req.path(), "/hello");
+        assert_eq!(req.query(), "world=1");
     }
 }

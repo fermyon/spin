@@ -112,7 +112,7 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             async fn handle_response<R: ::spin_sdk::http::IntoResponse>(response_out: ::spin_sdk::http::ResponseOutparam, resp: R) {
                 let mut response = ::spin_sdk::http::IntoResponse::into_response(resp);
-                let body = std::mem::take(&mut response.body);
+                let body = std::mem::take(response.body_mut());
                 let response = ::std::convert::Into::into(response);
                 if let Err(e) = ::spin_sdk::http::ResponseOutparam::set_with_body(response_out, response, body).await {
                     eprintln!("Could not set `ResponseOutparam`: {e}");

@@ -121,8 +121,7 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             impl From<self::wasi::http::types::IncomingRequest> for ::spin_sdk::http::IncomingRequest {
                 fn from(req: self::wasi::http::types::IncomingRequest) -> Self {
-                    let req = ::std::mem::ManuallyDrop::new(req);
-                    unsafe { Self::from_handle(req.handle()) }
+                    unsafe { Self::from_handle(req.into_handle()) }
                 }
             }
 
@@ -134,8 +133,7 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             impl From<self::wasi::http::types::ResponseOutparam> for ::spin_sdk::http::ResponseOutparam {
                 fn from(resp: self::wasi::http::types::ResponseOutparam) -> Self {
-                    let resp = ::std::mem::ManuallyDrop::new(resp);
-                    unsafe { Self::from_handle(resp.handle()) }
+                    unsafe { Self::from_handle(resp.into_handle()) }
                 }
             }
         }

@@ -8,8 +8,12 @@ pub use conversions::IntoResponse;
 
 use self::conversions::TryFromIncomingResponse;
 
+use super::wit::wasi::http::types;
 #[doc(inline)]
-pub use super::wit::wasi::http::types::*;
+pub use types::{
+    Error, Fields, Headers, IncomingRequest, IncomingResponse, Method, OutgoingBody,
+    OutgoingRequest, OutgoingResponse, Scheme, StatusCode, Trailers,
+};
 
 /// A unified request object that can represent both incoming and outgoing requests.
 ///
@@ -455,7 +459,22 @@ impl OutgoingResponse {
     }
 }
 
+/// The out param for setting an `OutgoingResponse`
+pub struct ResponseOutparam(types::ResponseOutparam);
+
 impl ResponseOutparam {
+    #[doc(hidden)]
+    // This is needed for the macro so we can transfrom the macro's
+    // `ResponseOutparam` to this `ResponseOutparam`
+    pub unsafe fn from_handle(handle: u32) -> Self {
+        Self(types::ResponseOutparam::from_handle(handle))
+    }
+
+    /// Set the outgoing response
+    pub fn set(self, response: OutgoingResponse) {
+        types::ResponseOutparam::set(self.0, Ok(response));
+    }
+
     /// Set with the outgoing response and the supplied buffer
     ///
     /// Will panic if response body has already been taken
@@ -466,7 +485,7 @@ impl ResponseOutparam {
     ) -> anyhow::Result<()> {
         use futures::SinkExt;
         let mut body = response.take_body();
-        ResponseOutparam::set(self, Ok(response));
+        self.set(response);
         body.send(buffer).await
     }
 }

@@ -119,11 +119,18 @@ Otherwise, switch to the branch locally.
     git push origin v2.0.0-rc.1
     ```
 
+    **NOTE**
+    > The Go SDK tag associated with this release (e.g. `sdk/go/v2.0.0-rc.1`) will be
+    > created in the [release action] that has been triggered by the tag push.
+    >
+    > When the [release action] completes, binary artifacts and checksums will be
+    > automatically uploaded to the GitHub release.
+
     Follow the [wrapping up](#wrapping-up) section to finish off the release process. 
 
 ## Wrapping up
 
-1. A Pull Request will be created by `fermybot` containing changes to the templates per the updated SDK version, unless this is a release candidate. Once CI completes, approve this PR and merge via a merge commit (rather than squash or rebase).
+1. A Pull Request will be created by `fermybot` containing changes to the templates per the updated SDK version. Once CI completes, approve this PR and merge via a merge commit (rather than squash or rebase).
    
 	>This will trigger the `push-templates-tag` job in the [release action], pushing the `spin/templates/v2.0` tag. (Note that this tag may be force-pushed for all patch releases of a given minor release.)
 

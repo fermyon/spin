@@ -276,9 +276,7 @@ jobs:
     name: create tag sdk/go/v*
     runs-on: ubuntu-latest
     needs: build-and-sign
-    if: |
-      startsWith(github.ref, 'refs/tags/v') &&
-      needs.build-and-sign.outputs.prerelease == 'false'
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v3
 
@@ -297,10 +295,8 @@ jobs:
   create-template-sdk-update-pr:
     name: Create PR with template SDK updates
     runs-on: ubuntu-latest
-    needs: [build-and-sign, create-go-sdk-tag]
-    if: |
-      startsWith(github.ref, 'refs/tags/v') &&
-      needs.build-and-sign.outputs.prerelease == 'false'
+    needs: create-go-sdk-tag
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v3
 
@@ -346,10 +342,7 @@ jobs:
   push-templates-tag:
     runs-on: ubuntu-latest
     needs: build-and-sign
-    if: |
-      github.event.commits[0].author.name == 'fermybot' &&
-      contains(github.event.commits[0].message, 'update sdk') &&
-      needs.build-and-sign.outputs.prerelease == 'false'
+    if: github.event.commits[0].author.name == 'fermybot' && contains(github.event.commits[0].message, 'update sdk')
     steps:
       - uses: actions/checkout@v3
 

@@ -50,7 +50,14 @@ impl Cache {
 
     /// Return the path to a wasm file given its digest.
     pub fn wasm_file(&self, digest: impl AsRef<str>) -> Result<PathBuf> {
-        let path = self.wasm_path(&digest);
+        // Check the expected wasm directory first; else check the data directory as a fallback.
+        // (Layers with unknown media types are currently saved to the data directory in client.pull())
+        // This adds a bit of futureproofing for fetching wasm layers with different/updated media types
+        // (see WASM_LAYER_MEDIA_TYPE, which is subject to change in future versions).
+        let mut path = self.wasm_path(&digest);
+        if !path.exists() {
+            path = self.data_path(&digest);
+        }
         ensure!(
             path.exists(),
             "cannot find wasm file for digest {}",

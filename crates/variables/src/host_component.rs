@@ -96,7 +96,14 @@ impl spin_world::v1::config::Host for ComponentVariables {
         &mut self,
         key: String,
     ) -> Result<Result<String, spin_world::v1::config::Error>> {
-        Ok(Ok(<Self as variables::Host>::get(self, key).await??))
+        use spin_world::v1::config::Error as V1ConfigError;
+        Ok(<Self as variables::Host>::get(self, key)
+            .await?
+            .map_err(|err| match err {
+                variables::Error::InvalidName(msg) => V1ConfigError::InvalidKey(msg),
+                variables::Error::Undefined(msg) => V1ConfigError::Provider(msg),
+                other => V1ConfigError::Other(format!("{other}")),
+            }))
     }
 }
 
@@ -106,17 +113,7 @@ impl From<Error> for variables::Error {
             Error::InvalidName(msg) => Self::InvalidName(msg),
             Error::Undefined(msg) => Self::Undefined(msg),
             Error::Provider(err) => Self::Provider(err.to_string()),
-            other => Self::Other(format!("{}", other)),
-        }
-    }
-}
-
-impl From<Error> for spin_world::v1::config::Error {
-    fn from(err: Error) -> Self {
-        match err {
-            Error::InvalidName(msg) => Self::InvalidKey(msg),
-            Error::Provider(err) => Self::Provider(err.to_string()),
-            other => Self::Other(format!("{}", other)),
+            other => Self::Other(format!("{other}")),
         }
     }
 }

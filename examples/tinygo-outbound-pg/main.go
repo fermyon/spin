@@ -27,7 +27,7 @@ func init() {
 		db := pg.Open(addr)
 		defer db.Close()
 
-		_, err := db.Query("INSERT INTO pets VALUES (4, 'Maya', $1, $2);", "bananas", true)
+		_, err := db.Query("INSERT INTO pets VALUES ($1, 'Maya', $2, $3);", int32(4), "bananas", true)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

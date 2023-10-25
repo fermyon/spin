@@ -31,6 +31,7 @@ build-examples: $(EXAMPLES_DIR)/tinygo-key-value/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-sqlite/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-llm/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-outbound-mysql/main.wasm
+build-examples: $(EXAMPLES_DIR)/tinygo-outbound-pg/main.wasm
 
 $(EXAMPLES_DIR)/%/main.wasm: $(EXAMPLES_DIR)/%/main.go
 	tinygo build -target=wasi -gc=leaking -no-debug -o $@ $<
@@ -46,7 +47,8 @@ GENERATED_SPIN_REDIS     = redis/spin-redis.c redis/spin-redis.h
 GENERATED_KEY_VALUE      = key_value/key-value.c key_value/key-value.h
 GENERATED_SQLITE         = sqlite/sqlite.c sqlite/sqlite.h
 GENERATED_LLM            = llm/llm.c llm/llm.h
-GENERATED_OUTBOUND_MYSQL = mysql/outbound-mysql.c mysql/outbound-mysql.h
+GENERATED_OUTBOUND_MYSQL = mysql/outbound-mysql.c mysql/outbound-mysql.h 
+GENERATED_OUTBOUND_PG    = pg/outbound-pg.c pg/outbound-pg.h 
 
 SDK_VERSION_SOURCE_FILE  = sdk_version/sdk-version-go-template.c
 
@@ -64,7 +66,7 @@ generate: $(GENERATED_OUTBOUND_HTTP) $(GENERATED_SPIN_HTTP)
 generate: $(GENERATED_OUTBOUND_REDIS) $(GENERATED_SPIN_REDIS)
 generate: $(GENERATED_SPIN_CONFIG) $(GENERATED_KEY_VALUE)
 generate: $(GENERATED_SQLITE) $(GENERATED_LLM)
-generate: $(GENERATED_OUTBOUND_MYSQL)
+generate: $(GENERATED_OUTBOUND_MYSQL) $(GENERATED_OUTBOUND_PG)
 generate: $(SDK_VERSION_DEST_FILES)
 
 $(SDK_VERSION_DEST_FILES): $(SDK_VERSION_SOURCE_FILE)
@@ -99,6 +101,9 @@ $(GENERATED_LLM):
 $(GENERATED_OUTBOUND_MYSQL):
 	wit-bindgen c --import ../../wit/ephemeral/outbound-mysql.wit --out-dir ./mysql
 
+$(GENERATED_OUTBOUND_PG):
+	wit-bindgen c --import ../../wit/ephemeral/outbound-pg.wit --out-dir ./pg
+
 # ----------------------------------------------------------------------
 # Cleanup
 # ----------------------------------------------------------------------
@@ -120,4 +125,5 @@ clean:
 	rm -f $(EXAMPLES_DIR)/tinygo-sqlite/main.wasm
 	rm -f $(EXAMPLES_DIR)/tinygo-llm/main.wasm
 	rm -f $(EXAMPLES_DIR)/tinygo-outbound-mysql/main.wasm
+	rm -f $(EXAMPLES_DIR)/tinygo-outbound-pg/main.wasm
 	rm -f $(SDK_VERSION_DEST_FILES)

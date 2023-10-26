@@ -63,6 +63,7 @@ type stmt struct {
 }
 
 var _ driver.Stmt = (*stmt)(nil)
+var _ driver.ColumnConverter = (*stmt)(nil)
 
 // Close closes the statement.
 func (s *stmt) Close() error {

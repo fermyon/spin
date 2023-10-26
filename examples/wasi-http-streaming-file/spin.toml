@@ -1,16 +1,19 @@
-spin_manifest_version = "1"
+spin_manifest_version = 2
+
+[application]
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "An application that streams a chunked file as an HTTP response"
 name = "spin-wasi-http-streaming-file"
-trigger = { type = "http", base = "/" }
 version = "1.0.0"
 
-[[component]]
-id = "spin-wasi-http-streaming-file"
+[[trigger.http]]
+route = "/..."
+component = "spin-wasi-http-streaming-file"
+
+[component.spin-wasi-http-streaming-file]
 source = "target/wasm32-wasi/release/spin_wasi_http_streaming_file.wasm"
 files = [{ source = ".", destination = "/" }]
-[component.trigger]
-route = "/..."
-[component.build]
+
+[component.spin-wasi-http-streaming-file.build]
 command = "cargo build --target wasm32-wasi --release"
 watch = ["src/**/*.rs", "Cargo.toml"]

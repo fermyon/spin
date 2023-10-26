@@ -1,21 +1,25 @@
-spin_manifest_version = "1"
+spin_manifest_version = 2
+
+[application]
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A Spin Rust application demonstrating the variables sdk."
 name = "spin-variables-rust"
-trigger = { type = "http" }
 version = "0.1.0"
 
 [variables]
 object = { default = "teapot" }
 dotenv = { default = "should-be-replaced" }
 
-[[component]]
-id = "spin_variales_rust"
-source = "target/wasm32-wasi/release/spin_variables_example.wasm"
-[component.trigger]
+[[trigger.http]]
 route = "/..."
-[component.config]
+component = "spin-variables-rust"
+
+[component.spin-variables-rust]
+source = "target/wasm32-wasi/release/spin_variables_example.wasm"
+
+[component.spin-variables-rust.variables]
 message = "I'm a {{object}}"
 dotenv = "{{dotenv}}"
-[component.build]
+
+[component.spin-variables-rust.build]
 command = "cargo build --target wasm32-wasi --release"

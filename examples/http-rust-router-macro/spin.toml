@@ -1,16 +1,19 @@
-spin_manifest_version = "1"
+spin_manifest_version = 2
+
+[application]
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "An application that demonstrates HTTP routing."
 name = "spin-rust-router"
-trigger = { type = "http" }
 version = "1.0.0"
 
-[[component]]
-id = "route"
+[[trigger.http]]
+route = "/..."
+component = "route"
+
+[component.route]
 source = "target/wasm32-wasi/release/http_rust_router_macro.wasm"
 description = "A component that internally routes HTTP requests."
-[component.trigger]
-route = "/..."
-[component.build]
+
+[component.route.build]
 command = "cargo build --target wasm32-wasi --release"
 watch = ["src/**/*.rs", "Cargo.toml", "spin.toml"]

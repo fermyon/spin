@@ -1,17 +1,20 @@
-spin_manifest_version = "1"
+spin_manifest_version = 2
+
+[application]
 authors = ["Adam Reese <adam@reese.io>"]
 description = ""
 name = "tinygo-sqlite"
-trigger = { type = "http" }
 version = "0.1.0"
 
-[[component]]
-id = "tinygo-sqlite"
+[[trigger.http]]
+route = "/..."
+component = "tinygo-sqlite"
+
+[component.tinygo-sqlite]
 source = "main.wasm"
 allowed_http_hosts = []
 sqlite_databases = ["default"]
-[component.trigger]
-route = "/..."
-[component.build]
+
+[component.tinygo-sqlite.build]
 command = "tinygo build -target=wasi -gc=leaking -o main.wasm main.go"
 watch = ["**/*.go", "go.mod"]

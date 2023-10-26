@@ -93,10 +93,13 @@ impl TriggerExecutor for HttpTrigger {
     type RunConfig = CliArgs;
 
     async fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
-        let base = engine
+        let mut base = engine
             .app()
             .require_metadata(spin_http::trigger::METADATA_KEY)?
             .base;
+        if !base.starts_with('/') {
+            base = format!("/{base}");
+        }
 
         let component_routes = engine
             .trigger_configs()

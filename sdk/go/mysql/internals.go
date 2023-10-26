@@ -216,6 +216,9 @@ func toOutboundMysqlParameterValue(x any) C.outbound_mysql_parameter_value_t {
 	case int64:
 		*(*C.int64_t)(unsafe.Pointer(&ret.val)) = int64(v)
 		ret.tag = paramValueInt64
+	case int:
+		*(*C.int64_t)(unsafe.Pointer(&ret.val)) = int64(v)
+		ret.tag = paramValueInt64
 	case uint8:
 		*(*C.uint8_t)(unsafe.Pointer(&ret.val)) = uint8(v)
 		ret.tag = paramValueUint8

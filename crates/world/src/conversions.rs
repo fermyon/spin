@@ -151,12 +151,8 @@ mod redis {
     impl From<v1::redis::RedisParameter> for v2::redis::RedisParameter {
         fn from(value: v1::redis::RedisParameter) -> Self {
             match value {
-                v1::redis_types::RedisParameter::Int64(i) => {
-                    v2::redis_types::RedisParameter::Int64(i)
-                }
-                v1::redis_types::RedisParameter::Binary(b) => {
-                    v2::redis_types::RedisParameter::Binary(b)
-                }
+                v1::redis::RedisParameter::Int64(i) => v2::redis::RedisParameter::Int64(i),
+                v1::redis::RedisParameter::Binary(b) => v2::redis::RedisParameter::Binary(b),
             }
         }
     }
@@ -164,10 +160,10 @@ mod redis {
     impl From<v2::redis::RedisResult> for v1::redis::RedisResult {
         fn from(value: v2::redis::RedisResult) -> Self {
             match value {
-                v2::redis_types::RedisResult::Nil => v1::redis_types::RedisResult::Nil,
-                v2::redis_types::RedisResult::Status(s) => v1::redis_types::RedisResult::Status(s),
-                v2::redis_types::RedisResult::Int64(i) => v1::redis_types::RedisResult::Int64(i),
-                v2::redis_types::RedisResult::Binary(b) => v1::redis_types::RedisResult::Binary(b),
+                v2::redis::RedisResult::Nil => v1::redis::RedisResult::Nil,
+                v2::redis::RedisResult::Status(s) => v1::redis::RedisResult::Status(s),
+                v2::redis::RedisResult::Int64(i) => v1::redis::RedisResult::Int64(i),
+                v2::redis::RedisResult::Binary(b) => v1::redis::RedisResult::Binary(b),
             }
         }
     }

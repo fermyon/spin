@@ -109,7 +109,7 @@ impl Default for Config {
             .max_component_instance_size(
                 env("SPIN_WASMTIME_INSTANCE_SIZE", (10 * MB) as u32) as usize
             )
-            .max_tables_per_component(env("SPIN_WASMTIME_INSTANCE_TABLES", 2))
+            .max_tables_per_component(env("SPIN_WASMTIME_INSTANCE_TABLES", 20))
             .table_elements(env("SPIN_WASMTIME_INSTANCE_TABLE_ELEMENTS", 30_000))
             // The number of memories an instance can have effectively limits the number of inner components
             // a composed component can have (since each inner component has its own memory). We default to 32 for now, and

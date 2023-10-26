@@ -13,14 +13,16 @@ pub fn redis_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     quote!(
         #func
         mod __spin_redis {
-            #preamble
-            impl self::exports::fermyon::spin::inbound_redis::Guest for Spin {
-                fn handle_message(msg: self::exports::fermyon::spin::inbound_redis::Payload) -> Result<(), self::fermyon::spin::redis_types::Error> {
+            mod preamble {
+                #preamble
+            }
+            impl self::preamble::exports::fermyon::spin::inbound_redis::Guest for preamble::Spin {
+                fn handle_message(msg: self::preamble::exports::fermyon::spin::inbound_redis::Payload) -> Result<(), self::preamble::fermyon::spin::redis_types::Error> {
                     match super::#func_name(msg.try_into().expect("cannot convert from Spin Redis payload")) {
                         Ok(()) => Ok(()),
                         Err(e) => {
                             eprintln!("{}", e);
-                            Err(self::fermyon::spin::redis_types::Error::Error)
+                            Err(self::preamble::fermyon::spin::redis_types::Error::Error)
                         },
                     }
                 }
@@ -96,9 +98,11 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     quote!(
         #func
         mod __spin_wasi_http {
-            #preamble
-            impl self::exports::wasi::http::incoming_handler::Guest for Spin {
-                fn handle(request: wasi::http::types::IncomingRequest, response_out: self::wasi::http::types::ResponseOutparam) {
+            mod preamble {
+              #preamble
+            }
+            impl self::preamble::exports::wasi::http::incoming_handler::Guest for self::preamble::Spin {
+                fn handle(request: self::preamble::wasi::http::types::IncomingRequest, response_out: self::preamble::wasi::http::types::ResponseOutparam) {
                     let request: ::spin_sdk::http::IncomingRequest = ::std::convert::Into::into(request);
                     let response_out: ::spin_sdk::http::ResponseOutparam = ::std::convert::Into::into(response_out);
                     ::spin_sdk::http::run(async move {
@@ -119,20 +123,20 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
 
-            impl From<self::wasi::http::types::IncomingRequest> for ::spin_sdk::http::IncomingRequest {
-                fn from(req: self::wasi::http::types::IncomingRequest) -> Self {
+            impl From<self::preamble::wasi::http::types::IncomingRequest> for ::spin_sdk::http::IncomingRequest {
+                fn from(req: self::preamble::wasi::http::types::IncomingRequest) -> Self {
                     unsafe { Self::from_handle(req.into_handle()) }
                 }
             }
 
-            impl From<::spin_sdk::http::OutgoingResponse> for self::wasi::http::types::OutgoingResponse {
+            impl From<::spin_sdk::http::OutgoingResponse> for self::preamble::wasi::http::types::OutgoingResponse {
                 fn from(resp: ::spin_sdk::http::OutgoingResponse) -> Self {
                     unsafe { Self::from_handle(resp.into_handle()) }
                 }
             }
 
-            impl From<self::wasi::http::types::ResponseOutparam> for ::spin_sdk::http::ResponseOutparam {
-                fn from(resp: self::wasi::http::types::ResponseOutparam) -> Self {
+            impl From<self::preamble::wasi::http::types::ResponseOutparam> for ::spin_sdk::http::ResponseOutparam {
+                fn from(resp: self::preamble::wasi::http::types::ResponseOutparam) -> Self {
                     unsafe { Self::from_handle(resp.into_handle()) }
                 }
             }
@@ -167,6 +171,6 @@ fn preamble(export: Export) -> proc_macro2::TokenStream {
                 #export_decl
             }
         });
-        struct Spin;
+        pub struct Spin;
     }
 }

@@ -6,8 +6,47 @@ package redis
 import "C"
 import (
 	"errors"
+	"fmt"
 	"unsafe"
 )
+
+// argumentKind represents a type of a argument for executing a Redis command.
+type argumentKind uint8
+
+const (
+	argumentKindInt argumentKind = iota
+	argumentKindBinary
+)
+
+// argument represents an argument for a Redis command.
+type argument struct {
+	kind argumentKind
+	val  any
+}
+
+func createParameter(x any) (*argument, error) {
+	var p argument
+	switch v := x.(type) {
+	case int:
+		p.kind = argumentKindInt
+		p.val = int64(v)
+	case int32:
+		p.kind = argumentKindInt
+		p.val = int64(v)
+	case int64:
+		p.kind = argumentKindInt
+		p.val = v
+	case string:
+		p.kind = argumentKindBinary
+		p.val = []byte(v)
+	case []byte:
+		p.kind = argumentKindBinary
+		p.val = v
+	default:
+		return &p, fmt.Errorf("unsupported parameter type: %T", x)
+	}
+	return &p, nil
+}
 
 //export spin_redis_handle_redis_message
 func handleRedisMessage(payload *C.spin_redis_payload_t) C.spin_redis_error_t {
@@ -68,7 +107,7 @@ func del(addr string, keys []string) (int64, error) {
 	return int64(cpayload), toErr(err)
 }
 
-func sadd(addr string, key string, values []string) (int64, error) {
+func sadd(addr, key string, values []string) (int64, error) {
 	caddr := redisStr(addr)
 	ckey := redisStr(key)
 	cvalues := redisListStr(values)
@@ -79,7 +118,7 @@ func sadd(addr string, key string, values []string) (int64, error) {
 	return int64(cpayload), toErr(err)
 }
 
-func smembers(addr string, key string) ([]string, error) {
+func smembers(addr, key string) ([]string, error) {
 	caddr := redisStr(addr)
 	ckey := redisStr(key)
 
@@ -89,7 +128,7 @@ func smembers(addr string, key string) ([]string, error) {
 	return fromRedisListStr(&cpayload), toErr(err)
 }
 
-func srem(addr string, key string, values []string) (int64, error) {
+func srem(addr, key string, values []string) (int64, error) {
 	caddr := redisStr(addr)
 	ckey := redisStr(key)
 	cvalues := redisListStr(values)
@@ -100,33 +139,7 @@ func srem(addr string, key string, values []string) (int64, error) {
 	return int64(cpayload), toErr(err)
 }
 
-type RedisParameterKind uint8
-
-const (
-	RedisParameterKindInt64 = iota
-	RedisParameterKindBinary
-)
-
-type RedisParameter struct {
-	Kind RedisParameterKind
-	Val interface{}
-}
-
-type RedisResultKind uint8
-
-const (
-	RedisResultKindNil = iota
-	RedisResultKindStatus
-	RedisResultKindInt64
-	RedisResultKindBinary
-)
-
-type RedisResult struct {
-	Kind RedisResultKind
-	Val interface{}
-}
-
-func execute(addr string, command string, arguments []RedisParameter) ([]RedisResult, error) {
+func execute(addr, command string, arguments []*argument) ([]*Result, error) {
 	caddr := redisStr(addr)
 	ccommand := redisStr(command)
 	carguments := redisListParameter(arguments)
@@ -142,8 +155,10 @@ func redisStr(x string) C.outbound_redis_string_t {
 }
 
 func redisListStr(xs []string) C.outbound_redis_list_string_t {
-	var cxs []C.outbound_redis_string_t
-
+	if len(xs) == 0 {
+		return C.outbound_redis_list_string_t{}
+	}
+	cxs := make([]C.outbound_redis_string_t, 0, len(xs))
 	for i := 0; i < len(xs); i++ {
 		cxs = append(cxs, redisStr(xs[i]))
 	}
@@ -152,62 +167,63 @@ func redisListStr(xs []string) C.outbound_redis_list_string_t {
 
 func fromRedisListStr(list *C.outbound_redis_list_string_t) []string {
 	listLen := int(list.len)
-	var result []string
+	result := make([]string, 0, listLen)
 
 	slice := unsafe.Slice(list.ptr, listLen)
 	for i := 0; i < listLen; i++ {
-		string := slice[i]
-		result = append(result, C.GoStringN(string.ptr, C.int(string.len)))
+		str := slice[i]
+		result = append(result, C.GoStringN(str.ptr, C.int(str.len)))
 	}
-
 	return result
 }
 
-func redisParameter(x RedisParameter) C.outbound_redis_redis_parameter_t {
-
+func redisParameter(x *argument) C.outbound_redis_redis_parameter_t {
 	var ret C.outbound_redis_redis_parameter_t
-	switch x.Kind {
-	case RedisParameterKindInt64:
-		*(*C.int64_t)(unsafe.Pointer(&ret.val)) = x.Val.(int64)
-	case RedisParameterKindBinary:
-		value := x.Val.([]byte)
+	switch x.kind {
+	case argumentKindInt:
+		*(*C.int64_t)(unsafe.Pointer(&ret.val)) = x.val.(int64)
+	case argumentKindBinary:
+		value := x.val.([]byte)
 		payload := C.outbound_redis_payload_t{ptr: &value[0], len: C.size_t(len(value))}
 		*(*C.outbound_redis_payload_t)(unsafe.Pointer(&ret.val)) = payload
 	}
-	ret.tag = C.uint8_t(x.Kind)
+	ret.tag = C.uint8_t(x.kind)
 	return ret
 }
 
-func redisListParameter(xs []RedisParameter) C.outbound_redis_list_redis_parameter_t {
-	var cxs []C.outbound_redis_redis_parameter_t
+func redisListParameter(xs []*argument) C.outbound_redis_list_redis_parameter_t {
+	if len(xs) == 0 {
+		return C.outbound_redis_list_redis_parameter_t{}
+	}
 
+	cxs := make([]C.outbound_redis_redis_parameter_t, 0, len(xs))
 	for i := 0; i < len(xs); i++ {
 		cxs = append(cxs, redisParameter(xs[i]))
 	}
 	return C.outbound_redis_list_redis_parameter_t{ptr: &cxs[0], len: C.size_t(len(cxs))}
 }
 
-func fromRedisResult(result *C.outbound_redis_redis_result_t) RedisResult {
-	var val interface{}
-	switch result.tag {
-	case 0: val = nil
-	case 1: {
-		string := (*C.outbound_redis_string_t)(unsafe.Pointer(&result.val))
-		val = C.GoStringN(string.ptr, C.int(string.len))
-	}
-	case 2: val = int64(*(*C.int64_t)(unsafe.Pointer(&result.val)))
-	case 3: {
+func fromRedisResult(result *C.outbound_redis_redis_result_t) *Result {
+	var val any
+	switch ResultKind(result.tag) {
+	case ResultKindNil:
+		val = nil
+	case ResultKindStatus:
+		str := (*C.outbound_redis_string_t)(unsafe.Pointer(&result.val))
+		val = C.GoStringN(str.ptr, C.int(str.len))
+	case ResultKindInt64:
+		val = int64(*(*C.int64_t)(unsafe.Pointer(&result.val)))
+	case ResultKindBinary:
 		payload := (*C.outbound_redis_payload_t)(unsafe.Pointer(&result.val))
 		val = C.GoBytes(unsafe.Pointer(payload.ptr), C.int(payload.len))
 	}
-	}
 
-	return RedisResult{Kind: RedisResultKind(result.tag), Val: val}
+	return &Result{Kind: ResultKind(result.tag), Val: val}
 }
 
-func fromRedisListResult(list *C.outbound_redis_list_redis_result_t) []RedisResult {
+func fromRedisListResult(list *C.outbound_redis_list_redis_result_t) []*Result {
 	listLen := int(list.len)
-	var result []RedisResult
+	result := make([]*Result, 0, listLen)
 
 	slice := unsafe.Slice(list.ptr, listLen)
 	for i := 0; i < listLen; i++ {

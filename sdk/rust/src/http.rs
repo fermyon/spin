@@ -488,6 +488,11 @@ impl ResponseOutparam {
         self.set(response);
         body.send(buffer).await
     }
+
+    /// Return the inner, `wit-bindgen`-generated instance
+    pub fn into_inner(self) -> types::ResponseOutparam {
+        self.0
+    }
 }
 
 /// Send an outgoing request

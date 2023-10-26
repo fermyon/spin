@@ -1,4 +1,4 @@
-# Spin component in TinyGo
+# Spin component in TinyGo using the Redis trigger
 
 ```shell
 $ RUST_LOG=spin=trace spin build --up

@@ -1,4 +1,4 @@
-# Spin component in TinyGo
+# Spin component in TinyGo making an outbound http call to Redis
 
 ```shell
 $ go mod tidy

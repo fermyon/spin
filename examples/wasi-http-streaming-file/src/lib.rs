@@ -1,6 +1,5 @@
 use std::{fs::File, io::Read};
 
-use anyhow::Result;
 use futures::SinkExt;
 use spin_sdk::{
     http::{Headers, IncomingRequest, OutgoingResponse, ResponseOutparam},
@@ -10,11 +9,7 @@ use spin_sdk::{
 const CHUNK_SIZE: usize = 1024 * 1024; // 1 MB
 
 #[http_component]
-async fn handler(req: IncomingRequest, res: ResponseOutparam) {
-    stream_file(req, res).await.unwrap();
-}
-
-async fn stream_file(_req: IncomingRequest, res: ResponseOutparam) -> Result<()> {
+async fn handler(_req: IncomingRequest, res: ResponseOutparam) -> anyhow::Result<()> {
     let response = OutgoingResponse::new(
         200,
         &Headers::new(&[(

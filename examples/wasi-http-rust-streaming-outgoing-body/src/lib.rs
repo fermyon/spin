@@ -11,7 +11,10 @@ use url::Url;
 const MAX_CONCURRENCY: usize = 16;
 
 #[http_component]
-async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam) {
+async fn handle_request(
+    request: IncomingRequest,
+    response_out: ResponseOutparam,
+) -> anyhow::Result<()> {
     let headers = request.headers().entries();
 
     match (request.method(), request.path_with_query().as_deref()) {
@@ -45,9 +48,7 @@ async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam
                     Err(e) => format!("{url}: {e:?}\n"),
                 }
                 .into_bytes();
-                if let Err(e) = body.send(payload).await {
-                    eprintln!("Error sending payload: {e}");
-                }
+                body.send(payload).await?;
             }
         }
 
@@ -70,10 +71,7 @@ async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam
             while let Some(chunk) = stream.next().await {
                 match chunk {
                     Ok(chunk) => {
-                        if let Err(e) = body.send(chunk).await {
-                            eprintln!("Error sending body: {e}");
-                            break;
-                        }
+                        body.send(chunk).await?;
                     }
                     Err(e) => {
                         eprintln!("Error receiving body: {e}");
@@ -93,6 +91,7 @@ async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam
             OutgoingBody::finish(body, None);
         }
     }
+    Ok(())
 }
 
 async fn hash(url: &Url) -> Result<String> {

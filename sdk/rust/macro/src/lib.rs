@@ -86,9 +86,24 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func_name = &func.sig.ident;
     let preamble = preamble(Export::WasiHttp);
     let is_native_wasi_http_handler = func.sig.inputs.len() == 2;
+    let has_return = matches!(func.sig.output, syn::ReturnType::Type(_, _));
     let await_postfix = func.sig.asyncness.map(|_| quote!(.await));
     let handler = if is_native_wasi_http_handler {
-        quote! { super::#func_name(req, response_out)#await_postfix }
+        if has_return {
+            quote! {{
+                if let ::std::result::Result::Err(response) = super::#func_name(req, response_out.clone())#await_postfix {
+                    ::std::eprintln!("the http handler exited with an error");
+                    if !response_out.has_been_set() {
+                        handle_response(response_out, response).await;
+                        return;
+                    }
+                }
+            }}
+        } else {
+            quote! {{
+                super::#func_name(req, response_out.clone())#await_postfix;
+            }}
+        }
     } else {
         quote! { handle_response(response_out, super::#func_name(req)#await_postfix).await }
     };

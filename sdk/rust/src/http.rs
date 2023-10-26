@@ -1,7 +1,7 @@
 /// Traits for converting between the various types
 pub mod conversions;
 
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[doc(inline)]
 pub use conversions::IntoResponse;
@@ -460,24 +460,34 @@ impl OutgoingResponse {
 }
 
 /// The out param for setting an `OutgoingResponse`
-pub struct ResponseOutparam(types::ResponseOutparam);
+#[derive(Clone)]
+pub struct ResponseOutparam(Rc<RefCell<Option<types::ResponseOutparam>>>);
 
 impl ResponseOutparam {
     #[doc(hidden)]
     // This is needed for the macro so we can transfrom the macro's
     // `ResponseOutparam` to this `ResponseOutparam`
     pub unsafe fn from_handle(handle: u32) -> Self {
-        Self(types::ResponseOutparam::from_handle(handle))
+        Self(Rc::new(RefCell::new(Some(
+            types::ResponseOutparam::from_handle(handle),
+        ))))
     }
 
     /// Set the outgoing response
-    pub fn set(self, response: OutgoingResponse) {
-        types::ResponseOutparam::set(self.0, Ok(response));
+    ///
+    /// Will panic if the response has already been set.
+    pub fn set(&self, response: OutgoingResponse) {
+        let inner = self
+            .0
+            .borrow_mut()
+            .take()
+            .expect("OutgoingResponse::set may only be called once.");
+        types::ResponseOutparam::set(inner, Ok(response));
     }
 
     /// Set with the outgoing response and the supplied buffer
     ///
-    /// Will panic if response body has already been taken
+    /// Will panic if the response body has already been taken or the response has already been set
     pub async fn set_with_body(
         self,
         response: OutgoingResponse,
@@ -487,6 +497,11 @@ impl ResponseOutparam {
         let mut body = response.take_body();
         self.set(response);
         body.send(buffer).await
+    }
+
+    #[doc(hidden)]
+    pub fn has_been_set(&self) -> bool {
+        self.0.borrow().is_none()
     }
 }
 

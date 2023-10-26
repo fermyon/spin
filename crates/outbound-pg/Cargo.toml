@@ -11,7 +11,9 @@ doctest = false
 anyhow = "1.0"
 native-tls = "0.2.11"
 postgres-native-tls = "0.5.0"
+spin-app = { path = "../app" }
 spin-core = { path = "../core" }
+spin-outbound-networking = { path = "../outbound-networking" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
 tokio = { version = "1", features = ["rt-multi-thread"] }

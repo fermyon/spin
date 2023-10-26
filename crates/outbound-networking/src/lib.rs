@@ -14,45 +14,112 @@ pub fn check_address(
     allowed_hosts: &Option<AllowedHosts>,
     default: bool,
 ) -> bool {
-    let Ok(url) = parse_url_with_host(address, scheme) else {
+    let Ok(address) = Address::parse(address, Some(scheme)) else {
         terminal::warn!(
-                "A component tried to make a request to an address that could not be parsed as a url {address:?}."
-            );
+            "A component tried to make a request to an address that could not be parsed {address}.",
+        );
         return false;
     };
     let is_allowed = if let Some(allowed_hosts) = allowed_hosts {
-        allowed_hosts.allows(url.clone())
+        allowed_hosts.allows(&address)
     } else {
         default
     };
 
     if !is_allowed {
-        terminal::warn!("A component tried to make a request to non-allowed address {address:?}.");
-        if let (Some(host), Some(port)) = (url.host_str(), url.port_or_known_default()) {
-            eprintln!("To allow requests, add 'allowed_outbound_hosts = '[\"{host}:{port}\"]' to the manifest component section.");
-        }
+        terminal::warn!("A component tried to make a request to non-allowed address '{address}'.");
+        let (host, port) = (address.host(), address.port());
+        eprintln!("To allow requests, add 'allowed_outbound_hosts = '[\"{host}:{port}\"]' to the manifest component section.");
     }
     is_allowed
 }
 
-/// Try to parse the url that may or not include the provided scheme.
-///
-/// If the parsing fails, the url is appended with the scheme and parsing
-/// is tried again.
-pub fn parse_url_with_host(url: &str, scheme: &str) -> anyhow::Result<Url> {
-    match Url::parse(url) {
-        Ok(url) if url.has_host() => Ok(url),
-        first_try => {
-            let second_try = format!("{scheme}://{url}")
-                .as_str()
-                .try_into()
-                .context("could not convert into a url");
-            match (second_try, first_try.map_err(|e| e.into())) {
-                (Ok(u), _) => Ok(u),
-                // Return an error preferring the error from the first attempt if present
-                (_, Err(e)) | (Err(e), _) => Err(e),
+/// An address is a url-like string that contains a host, a port, and an optional scheme
+struct Address {
+    inner: Url,
+    original: String,
+    has_scheme: bool,
+}
+
+impl Address {
+    /// Try to parse the address.
+    ///
+    /// If the parsing fails, the address is prepended with the scheme and parsing
+    /// is tried again.
+    pub fn parse(url: &str, scheme: Option<&str>) -> anyhow::Result<Self> {
+        let mut has_scheme = true;
+        let mut parsed = match Url::parse(url) {
+            Ok(url) if url.has_host() => Ok(url),
+            first_try => {
+                // Parsing with 'scheme' resolves the ambiguity between 'spin.fermyon.com:80' and 'unix:80'.
+                // Technically according to the spec a valid url *must* contain a scheme. However,
+                // we allow url-like address strings without schemes, and we interpret the first part as the host.
+                let second_try = format!("{}://{url}", scheme.unwrap_or("scheme"))
+                    .as_str()
+                    .try_into()
+                    .context("could not convert into a url");
+                has_scheme = false;
+                match (second_try, first_try.map_err(|e| e.into())) {
+                    (Ok(u), _) => Ok(u),
+                    // Return an error preferring the error from the first attempt if present
+                    (_, Err(e)) | (Err(e), _) => Err(e),
+                }
             }
+        }?;
+
+        if parsed.port_or_known_default().is_none() {
+            let _ = parsed.set_port(well_known_port(parsed.scheme()));
         }
+
+        Ok(Self {
+            inner: parsed,
+            has_scheme,
+            original: url.to_owned(),
+        })
+    }
+
+    fn scheme(&self) -> Option<&str> {
+        self.has_scheme.then_some(self.inner.scheme())
+    }
+
+    fn host(&self) -> &str {
+        self.inner.host_str().unwrap_or_default()
+    }
+
+    fn port(&self) -> u16 {
+        self.inner
+            .port_or_known_default()
+            .or_else(|| well_known_port(self.scheme()?))
+            .unwrap_or_default()
+    }
+
+    fn validate_as_config(&self) -> anyhow::Result<()> {
+        if !["", "/"].contains(&self.inner.path()) {
+            anyhow::bail!("config '{}' contains a path", self);
+        }
+        if self.inner.query().is_some() {
+            anyhow::bail!("config '{}' contains a query string", self);
+        }
+        if self.port() == 0 {
+            anyhow::bail!("config '{}' did not contain port", self)
+        }
+
+        Ok(())
+    }
+}
+
+impl std::fmt::Display for Address {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.original)
+    }
+}
+
+fn well_known_port(scheme: &str) -> Option<u16> {
+    match scheme {
+        "postgres" => Some(5432),
+        "mysql" => Some(3306),
+        "redis" => Some(6379),
+        _ => None,
     }
 }
 
@@ -75,15 +142,10 @@ impl AllowedHosts {
         Ok(Self::SpecificHosts(allowed))
     }
 
-    pub fn allows<U: TryInto<Url>>(&self, url: U) -> bool {
+    fn allows(&self, address: &Address) -> bool {
         match self {
             AllowedHosts::All => true,
-            AllowedHosts::SpecificHosts(hosts) => {
-                let Ok(url) = url.try_into() else {
-                    return false;
-                };
-                hosts.iter().any(|h| h.allows(&url))
-            }
+            AllowedHosts::SpecificHosts(hosts) => hosts.iter().any(|h| h.allows(address)),
         }
     }
 }
@@ -103,53 +165,24 @@ pub struct AllowedHost {
 
 impl AllowedHost {
     fn parse<U: AsRef<str>>(url: U) -> anyhow::Result<Self> {
-        let url_str = url.as_ref();
-        let url: anyhow::Result<Url> = url_str
-            .try_into()
-            .with_context(|| format!("could not convert {url_str:?} into a url"));
-        let (url, has_scheme) = match url {
-            Ok(url) if url.has_host() => (url, true),
-            first_try => {
-                // If the url doesn't successfully parse try again with an added scheme.
-                // This resolves the ambiguity between 'spin.fermyon.com:80' and 'unix:80'.
-                // Technically according to the spec a valid url *must* contain a scheme. However,
-                // we allow url-like strings without schemes, and we interpret the first part as the host.
-                let second_try = format!("scheme://{url_str}")
-                    .as_str()
-                    .try_into()
-                    .context("could not convert into a url");
-                match (second_try, first_try) {
-                    (Ok(u), _) => (u, false),
-                    // Return an error preferring the error from the first attempt if present
-                    (_, Err(e)) | (Err(e), _) => return Err(e),
-                }
-            }
-        };
-        let host = url.host_str().context("the url has no host")?.to_owned();
+        let address = Address::parse(url.as_ref(), None)?;
+        address.validate_as_config()?;
 
-        if !["", "/"].contains(&url.path()) {
-            anyhow::bail!("url contains a path")
-        }
-        if url.query().is_some() {
-            anyhow::bail!("url contains a query string")
-        }
         Ok(Self {
-            scheme: has_scheme.then(|| url.scheme().to_owned()),
-            host,
-            port: url
-                .port_or_known_default()
-                .context("url did not contain port")?,
+            scheme: address.scheme().map(ToOwned::to_owned),
+            host: address.host().to_owned(),
+            port: address.port(),
         })
     }
 
-    fn allows(&self, url: &Url) -> bool {
+    fn allows(&self, address: &Address) -> bool {
         let scheme_matches = self
             .scheme
-            .as_ref()
-            .map(|s| s == url.scheme())
+            .as_deref()
+            .map(|s| Some(s) == address.scheme())
             .unwrap_or(true);
-        let host_matches = url.host_str().unwrap_or_default() == self.host;
-        let port_matches = url.port_or_known_default().unwrap_or_default() == self.port;
+        let host_matches = address.host() == self.host;
+        let port_matches = address.port() == self.port;
 
         scheme_matches && host_matches && port_matches
     }
@@ -170,7 +203,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_allowed_hosts_accepts_http_url() {
+    fn test_allowed_hosts_accepts_url() {
         assert_eq!(
             AllowedHost::new(Some("http"), "spin.fermyon.dev", 80),
             AllowedHost::parse("http://spin.fermyon.dev").unwrap()
@@ -183,10 +216,14 @@ mod test {
             AllowedHost::new(Some("https"), "spin.fermyon.dev", 443),
             AllowedHost::parse("https://spin.fermyon.dev").unwrap()
         );
+        assert_eq!(
+            AllowedHost::new(Some("postgres"), "spin.fermyon.dev", 5432),
+            AllowedHost::parse("postgres://spin.fermyon.dev").unwrap()
+        );
     }
 
     #[test]
-    fn test_allowed_hosts_accepts_http_url_with_port() {
+    fn test_allowed_hosts_accepts_url_with_port() {
         assert_eq!(
             AllowedHost::new(Some("http"), "spin.fermyon.dev", 4444),
             AllowedHost::parse("http://spin.fermyon.dev:4444").unwrap()
@@ -281,9 +318,13 @@ mod test {
     fn test_allowed_hosts_can_be_specific() {
         let allowed =
             AllowedHosts::parse(&["spin.fermyon.dev:443", "http://example.com:8383"]).unwrap();
-        assert!(allowed.allows(Url::parse("http://example.com:8383/foo/bar").unwrap()));
-        assert!(allowed.allows(Url::parse("https://spin.fermyon.dev/").unwrap()));
-        assert!(!allowed.allows(Url::parse("http://example.com/").unwrap()));
-        assert!(!allowed.allows(Url::parse("http://google.com/").unwrap()));
+        assert!(allowed
+            .allows(&Address::parse("http://example.com:8383/foo/bar", Some("http")).unwrap()));
+        assert!(
+            allowed.allows(&Address::parse("https://spin.fermyon.dev/", Some("https")).unwrap())
+        );
+        assert!(!allowed.allows(&Address::parse("http://example.com/", Some("http")).unwrap()));
+        assert!(!allowed.allows(&Address::parse("http://google.com/", Some("http")).unwrap()));
+        assert!(allowed.allows(&Address::parse("spin.fermyon.dev:443", Some("https")).unwrap()));
     }
 }

@@ -1,6 +1,7 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
+use spin_app::DynamicHostComponent;
 use spin_core::{async_trait, wasmtime::component::Resource, HostComponent};
 use spin_world::v1::postgres as v1;
 use spin_world::v1::rdbms_types as v1_types;
@@ -15,6 +16,7 @@ use tokio_postgres::{
 /// A simple implementation to support outbound pg connection
 #[derive(Default)]
 pub struct OutboundPg {
+    allowed_hosts: Option<spin_outbound_networking::AllowedHosts>,
     pub connections: table::Table<Client>,
 }
 
@@ -23,6 +25,29 @@ impl OutboundPg {
         self.connections
             .get(connection.rep())
             .ok_or_else(|| v2::Error::ConnectionFailed("no connection found".into()))
+    }
+
+    fn is_address_allowed(&self, address: &str, default: bool) -> bool {
+        let Ok(config) = address.parse::<tokio_postgres::Config>() else {
+            return false;
+        };
+        for host in config.get_hosts() {
+            match host {
+                tokio_postgres::config::Host::Tcp(address) => {
+                    if !spin_outbound_networking::check_address(
+                        address,
+                        "postgres",
+                        &self.allowed_hosts,
+                        default,
+                    ) {
+                        return false;
+                    }
+                }
+                #[cfg(unix)]
+                tokio_postgres::config::Host::Unix(_) => return false,
+            }
+        }
+        true
     }
 }
 
@@ -42,12 +67,34 @@ impl HostComponent for OutboundPg {
     }
 }
 
+impl DynamicHostComponent for OutboundPg {
+    fn update_data(
+        &self,
+        data: &mut Self::Data,
+        component: &spin_app::AppComponent,
+    ) -> anyhow::Result<()> {
+        let hosts = component
+            .get_metadata(spin_outbound_networking::ALLOWED_HOSTS_KEY)?
+            .unwrap_or_default();
+        data.allowed_hosts = hosts
+            .map(|h| spin_outbound_networking::AllowedHosts::parse(&h[..]))
+            .transpose()
+            .context("`allowed_outbound_hosts` contained an invalid url")?;
+        Ok(())
+    }
+}
+
 #[async_trait]
 impl v2::Host for OutboundPg {}
 
 #[async_trait]
 impl v2::HostConnection for OutboundPg {
     async fn open(&mut self, address: String) -> Result<Result<Resource<Connection>, v2::Error>> {
+        if !self.is_address_allowed(&address, false) {
+            return Ok(Err(v2::Error::ConnectionFailed(format!(
+                "address {address} is not permitted"
+            ))));
+        }
         Ok(async {
             self.connections
                 .push(
@@ -347,6 +394,11 @@ impl std::fmt::Debug for PgNull {
 /// Delegate a function call to the v2::HostConnection implementation
 macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
+        if !$self.is_address_allowed(&$address, true) {
+            return Ok(Err(v1::PgError::ConnectionFailed(format!(
+                "address {} is not permitted", $address
+            ))));
+        }
         let connection = match <Self as v2::HostConnection>::open($self, $address).await? {
             Ok(c) => c,
             Err(e) => return Ok(Err(e.into())),

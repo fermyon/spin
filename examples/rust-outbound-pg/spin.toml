@@ -12,5 +12,6 @@ component = "outbound-pg"
 [component.outbound-pg]
 environment = { DB_URL = "host=localhost user=postgres dbname=spin_dev" }
 source = "target/wasm32-wasi/release/rust_outbound_pg.wasm"
+allowed_outbound_hosts = ["localhost:5432"]
 [component.outbound-pg.build]
 command = "cargo build --target wasm32-wasi --release"

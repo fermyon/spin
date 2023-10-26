@@ -20,6 +20,12 @@ pub struct TemplateNewCommandCore {
     #[clap(value_parser = validate_name)]
     pub name: Option<String>,
 
+    /// The name of the new application or component. If present, `name` is instead
+    /// treated as the template ID. This provides backward compatibility with
+    /// Spin 1.x syntax, so that existing content continues to work.
+    #[clap(hide = true)]
+    pub name_back_compat: Option<String>,
+
     /// The template from which to create the new application or component. Run `spin templates list` to see available options.
     #[clap(short = 't', long = "template")]
     pub template_id: Option<String>,
@@ -117,18 +123,9 @@ impl TemplateNewCommandCore {
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
 
-        // If a user types `spin new http-rust` etc. then it's *probably* Spin 1.x muscle memory;
-        // try to be helpful without getting in the way.
-        if let Some(name) = &self.name {
-            if self.template_id.is_none() && matches!(template_manager.get(name), Ok(Some(_))) {
-                terminal::einfo!(
-                    "This will create an app called {name}.",
-                    "If you meant to use the {name} template, write '-t {name}'."
-                )
-            }
-        }
+        let (name, template_id) = self.resolve_name_template_syntax(&template_manager, &variant)?;
 
-        let template = match &self.template_id {
+        let template = match &template_id {
             Some(template_id) => match template_manager
                 .get(template_id)
                 .with_context(|| format!("Error retrieving template {}", template_id))?
@@ -156,7 +153,7 @@ impl TemplateNewCommandCore {
             return Ok(());
         }
 
-        let name = match &self.name {
+        let name = match &name {
             Some(name) => name.to_owned(),
             None => prompt_name(&variant).await?,
         };
@@ -184,6 +181,55 @@ impl TemplateNewCommandCore {
         };
 
         template.run(options).interactive().await
+    }
+
+    // Try to guess if the user is using v1 or v2 syntax, and fix things up so
+    // v1 syntax as used in existing content still works...!
+    fn resolve_name_template_syntax(
+        &self,
+        template_manager: &TemplateManager,
+        variant: &TemplateVariantInfo,
+    ) -> anyhow::Result<(Option<String>, Option<String>)> {
+        // If a user types `spin new http-rust` etc. then it's *probably* Spin 1.x muscle memory;
+        // try to be helpful without getting in the way.  And if a user types `spin new http-rust myapp`
+        // then it's DEFINITELY Spin 1.x muscle memory (or one of our many existing pieces of
+        // Spin 1.x content); do some sneaky magic.
+        let (name, template_id) = match (&self.name, &self.name_back_compat, &self.template_id) {
+            // If -t is provided we are DEFINITELY in Spin 2 syntax
+            (_, None, Some(_)) => (self.name.clone(), self.template_id.clone()),
+            (_, Some(_), Some(_)) => bail!("Cannot supply both positional and named template id"),
+            // If -t is NOT provided and we have two positional args then
+            // we are definitely in Spin 1 syntax
+            (Some(compat_tpl), Some(compat_name), None) => {
+                let command = match variant {
+                    TemplateVariantInfo::NewApplication => "new",
+                    TemplateVariantInfo::AddComponent { .. } => "add",
+                };
+                terminal::einfo!(
+                    "Using Spin 1 command syntax.",
+                    "The recommended syntax in Spin 2 is 'spin {command} {compat_name} -t {compat_tpl}'"
+                );
+                (self.name_back_compat.clone(), self.name.clone())
+            }
+            // If -t is NOT provided and we have one positional arg then we have
+            // to assume Spin 2 syntax. But if that arg matches a template then
+            // it could be Spin 1muscle memory.
+            (Some(name), None, None) => {
+                if matches!(template_manager.get(name), Ok(Some(_))) {
+                    terminal::einfo!(
+                        "This will create an app called {name}.",
+                        "If you meant to use the {name} template, write '-t {name}'."
+                    );
+                }
+                (self.name.clone(), self.template_id.clone())
+            }
+            // If NOTHING is provided we'll prompt for everything so :shrug:
+            (None, None, None) => (None, None),
+            // We can't have a second positional arg without having a first.
+            // That's not how numbers work
+            (None, Some(_), None) => panic!("got second positional arg without first"),
+        };
+        Ok((name, template_id))
     }
 }
 

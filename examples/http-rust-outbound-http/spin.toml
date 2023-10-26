@@ -29,7 +29,6 @@ command = "cargo build --target wasm32-wasi --release"
 id = "outbound-http-to-same-app"
 source = "outbound-http-to-same-app/target/wasm32-wasi/release/outbound_http_to_same_app.wasm"
 # To make outbound calls to components in the same Spin app, use the special value self.
-# This is not yet supported in cloud.
 allowed_http_hosts = ["self"]
 [component.trigger]
 route = "/outbound-to-hello-component"

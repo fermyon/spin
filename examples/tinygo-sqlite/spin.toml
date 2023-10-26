@@ -14,7 +14,6 @@ component = "tinygo-sqlite"
 source = "main.wasm"
 allowed_http_hosts = []
 sqlite_databases = ["default"]
-
 [component.tinygo-sqlite.build]
 command = "tinygo build -target=wasi -gc=leaking -o main.wasm main.go"
 watch = ["**/*.go", "go.mod"]

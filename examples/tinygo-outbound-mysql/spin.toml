@@ -13,7 +13,6 @@ component = "tinygo-mysql"
 [component.tinygo-mysql]
 environment = { DB_URL = "mysql://spin:spin@127.0.0.1/spin_dev" }
 source = "main.wasm"
-
 [component.tinygo-mysql.build]
 command = "tinygo build -target=wasi -gc=leaking -o main.wasm main.go"
 watch = ["**/*.go", "go.mod"]

@@ -13,7 +13,6 @@ component = "tinygo-outbound-pg-example"
 [component.tinygo-outbound-pg-example]
 environment = { DB_URL = "host=localhost user=postgres dbname=spin_dev" }
 source = "main.wasm"
-
 [component.tinygo-outbound-pg-example.build]
 command = "tinygo build -target=wasi -gc=leaking -o main.wasm main.go"
 watch = ["**/*.go", "go.mod"]

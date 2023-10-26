@@ -13,6 +13,5 @@ executor =  { type = "wagi" } # _start (the default entrypoint) is automatically
 
 [component.env]
 source = "target/wasm32-wasi/release/wagihelloworld.wasm"
-
 [component.env.build]
 command = "cargo build --target wasm32-wasi --release"

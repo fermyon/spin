@@ -13,6 +13,5 @@ component = "hello"
 [component.hello]
 source = "lib.wasm"
 description = "A simple component that returns hello."
-
 [component.hello.build]
 command = "make"

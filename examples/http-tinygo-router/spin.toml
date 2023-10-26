@@ -12,6 +12,5 @@ component = "tinygo-hello"
 
 [component.tinygo-hello]
 source = "main.wasm"
-
 [component.tinygo-hello.build]
 command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"

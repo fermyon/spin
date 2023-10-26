@@ -15,6 +15,5 @@ component = "echo-message"
 
 [component.echo-message]
 source = "target/wasm32-wasi/release/spinredis.wasm"
-
 [component.echo-message.build]
 command = "cargo build --target wasm32-wasi --release"

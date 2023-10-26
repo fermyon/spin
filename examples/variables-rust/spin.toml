@@ -16,10 +16,8 @@ component = "spin-variables-rust"
 
 [component.spin-variables-rust]
 source = "target/wasm32-wasi/release/spin_variables_example.wasm"
-
 [component.spin-variables-rust.variables]
 message = "I'm a {{object}}"
 dotenv = "{{dotenv}}"
-
 [component.spin-variables-rust.build]
 command = "cargo build --target wasm32-wasi --release"

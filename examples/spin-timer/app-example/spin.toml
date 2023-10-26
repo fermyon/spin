@@ -18,18 +18,14 @@ component = "five"
 
 [component.three]
 source = "target/wasm32-wasi/release/timer_app_example.wasm"
-
 [component.three.variables]
 message = "Fizz"
-
 [component.three.build]
 command = "cargo build --target wasm32-wasi --release"
 
 [component.five]
 source = "target/wasm32-wasi/release/timer_app_example.wasm"
-
 [component.five.variables]
 message = "Buzz"
-
 [component.five.build]
 command = "cargo build --target wasm32-wasi --release"

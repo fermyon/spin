@@ -20,7 +20,6 @@ allowed_http_hosts = [
     "https://random-data-api.fermyon.app",
     "https://postman-echo.com",
 ]
-
 [component.tinygo-hello.build]
 workdir = "tinygo-hello"
 command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"
@@ -30,7 +29,6 @@ source = "outbound-http-to-same-app/main.wasm"
 # Use self to make outbound requests to components in the same Spin application.
 # `self` is not yet supported in cloud
 allowed_http_hosts = ["self"]
-
 [component.outbound-http-to-same-app.build]
 workdir = "outbound-http-to-same-app"
 command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"

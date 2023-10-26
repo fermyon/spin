@@ -1,4 +1,4 @@
-use spin_sdk::http::{HeaderValue, IntoResponse, Request};
+use spin_sdk::http::{IntoResponse, Request};
 use spin_sdk::http_component;
 
 /// A simple Spin HTTP component.

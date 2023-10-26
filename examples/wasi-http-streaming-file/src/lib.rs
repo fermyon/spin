@@ -24,8 +24,8 @@ async fn stream_file(_req: IncomingRequest, res: ResponseOutparam) -> Result<()>
     );
 
     let mut body = response.take_body();
+    res.set(response);
 
-    ResponseOutparam::set(res, Ok(response));
     let mut file =
         File::open("target/wasm32-wasi/release/wasi_http_rust_streaming_outgoing_body.wasm")?;
 

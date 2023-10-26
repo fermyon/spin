@@ -21,7 +21,6 @@ EXAMPLES_DIR = ../../examples
 
 .PHONY: build-examples
 build-examples: generate
-build-examples: $(EXAMPLES_DIR)/config-tinygo/main.wasm
 build-examples: $(EXAMPLES_DIR)/http-tinygo-outbound-http/outbound-http-to-same-app/main.wasm
 build-examples: $(EXAMPLES_DIR)/http-tinygo-outbound-http/tinygo-hello/main.wasm
 build-examples: $(EXAMPLES_DIR)/http-tinygo/main.wasm
@@ -32,6 +31,7 @@ build-examples: $(EXAMPLES_DIR)/tinygo-sqlite/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-llm/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-outbound-mysql/main.wasm
 build-examples: $(EXAMPLES_DIR)/tinygo-outbound-pg/main.wasm
+build-examples: $(EXAMPLES_DIR)/variables-tinygo/main.wasm
 
 $(EXAMPLES_DIR)/%/main.wasm: $(EXAMPLES_DIR)/%/main.go
 	tinygo build -target=wasi -gc=leaking -no-debug -o $@ $<

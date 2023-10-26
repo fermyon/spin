@@ -1,19 +1,21 @@
-spin_manifest_version = "1"
+spin_manifest_version = 2
+
+[application]
+name = "spin-config-tinygo"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A simple Spin application written in (Tiny)Go."
-name = "spin-config-tinygo"
-trigger = { type = "http" }
 version = "1.0.0"
 
 [variables]
 object = { default = "teapot" }
 
-[[component]]
-id = "spin_config_tinygo"
-source = "main.wasm"
-[component.trigger]
+[[trigger.http]]
 route = "/..."
-[component.config]
+component = "spin-config-tinygo"
+
+[component.spin-config-tinygo]
+source = "main.wasm"
+[component.spin-config-tinygo.variables]
 message = "I'm a {{object}}"
-[component.build]
+[component.spin-config-tinygo.build]
 command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"

@@ -1,47 +1,52 @@
-spin_manifest_version = "1"
+spin_manifest_version = 2
+
+[application]
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "Demonstrates outbound HTTP calls"
 name = "spin-outbound-http"
-trigger = { type = "http" }
 version = "1.0.0"
 
-[[component]]
-id = "outbound-http"
+[[trigger.http]]
+route = "/outbound"
+component = "outbound-http"
+
+[[trigger.http]]
+route = "/wildcard"
+component = "outbound-http-wildcard"
+
+[[trigger.http]]
+route = "/outbound-to-hello-component"
+component = "outbound-http-to-same-app"
+
+[[trigger.http]]
+route = "/hello"
+component = "hello-component"
+
+[component.outbound-http]
 source = "outbound-http/target/wasm32-wasi/release/http_rust_outbound_http.wasm"
 allowed_http_hosts = ["https://random-data-api.fermyon.app"]
-[component.trigger]
-route = "/outbound"
-[component.build]
+[component.outbound-http.build]
 workdir = "outbound-http"
 command = "cargo build --target wasm32-wasi --release"
 
-[[component]]
-id = "outbound-http-wildcard"
+[component.outbound-http-wildcard]
 source = "outbound-http/target/wasm32-wasi/release/http_rust_outbound_http.wasm"
 allowed_http_hosts = ["insecure:allow-all"]
-[component.trigger]
-route = "/wildcard"
-[component.build]
+[component.outbound-http-wildcard.build]
 workdir = "outbound-http"
 command = "cargo build --target wasm32-wasi --release"
 
-[[component]]
-id = "outbound-http-to-same-app"
+[component.outbound-http-to-same-app]
 source = "outbound-http-to-same-app/target/wasm32-wasi/release/outbound_http_to_same_app.wasm"
 # To make outbound calls to components in the same Spin app, use the special value self.
 allowed_http_hosts = ["self"]
-[component.trigger]
-route = "/outbound-to-hello-component"
-[component.build]
+[component.outbound-http-to-same-app.build]
 workdir = "outbound-http-to-same-app"
 command = "cargo build --target wasm32-wasi --release"
 
-[[component]]
-id = "hello-component"
+[component.hello-component]
 source = "http-hello/target/wasm32-wasi/release/http_hello.wasm"
 description = "A simple component that returns hello."
-[component.trigger]
-route = "/hello"
-[component.build]
+[component.hello-component.build]
 workdir = "http-hello"
 command = "cargo build --target wasm32-wasi --release"

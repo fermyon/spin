@@ -1,16 +1,18 @@
-spin_manifest_version = "1"
+spin_manifest_version = 2
+
+[application]
 authors = ["Patrick Jiang <patrickjiang0530@gmail.com>"]
 description = ""
 name = "tinygo-outbound-pg-example"
-trigger = { type = "http", base = "/" }
 version = "0.1.0"
 
-[[component]]
-environment = { DB_URL = "host=localhost user=postgres dbname=spin_dev" }
-id = "tinygo-outbound-pg-example"
-source = "main.wasm"
-[component.trigger]
+[[trigger.http]]
 route = "/..."
-[component.build]
+component = "tinygo-outbound-pg-example"
+
+[component.tinygo-outbound-pg-example]
+environment = { DB_URL = "host=localhost user=postgres dbname=spin_dev" }
+source = "main.wasm"
+[component.tinygo-outbound-pg-example.build]
 command = "tinygo build -target=wasi -gc=leaking -o main.wasm main.go"
 watch = ["**/*.go", "go.mod"]

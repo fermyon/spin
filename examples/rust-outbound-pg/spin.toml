@@ -1,14 +1,16 @@
-spin_manifest_version = "1"
+spin_manifest_version = 2
+
+[application]
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 name = "rust-outbound-pg-example"
-trigger = { type = "http" }
 version = "0.1.0"
 
-[[component]]
-environment = { DB_URL = "host=localhost user=postgres dbname=spin_dev" }
-id = "outbound-pg"
-source = "target/wasm32-wasi/release/rust_outbound_pg.wasm"
-[component.trigger]
+[[trigger.http]]
 route = "/..."
-[component.build]
+component = "outbound-pg"
+
+[component.outbound-pg]
+environment = { DB_URL = "host=localhost user=postgres dbname=spin_dev" }
+source = "target/wasm32-wasi/release/rust_outbound_pg.wasm"
+[component.outbound-pg.build]
 command = "cargo build --target wasm32-wasi --release"

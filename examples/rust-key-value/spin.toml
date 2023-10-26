@@ -1,15 +1,17 @@
-spin_manifest_version = "1"
+spin_manifest_version = 2
+
+[application]
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A simple application that exercises key-value storage."
 name = "spin-key-value"
-trigger = { type = "http" }
 version = "1.0.0"
 
-[[component]]
-id = "hello"
+[[trigger.http]]
+route = "/..."
+component = "hello"
+
+[component.hello]
 source = "target/wasm32-wasi/release/rust_key_value.wasm"
 key_value_stores = ["default"]
-[component.trigger]
-route = "/..."
-[component.build]
+[component.hello.build]
 command = "cargo build --target wasm32-wasi --release"

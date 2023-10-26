@@ -7,7 +7,8 @@ To test:
 * `tar czvf trigger-timer.tar.gz trigger-timer`
 * Update the plugin manifest (`trigger-timer.json`):
   * Get the SHA: `shasum -a 256 trigger-timer.tar.gz` and copy it into the `sha256` field
+  * Update `os` and `arch` with values for your OS/Arch
   * Update the URL too, to reflect the directory where the tar file is
 * `spin plugin install --file ./trigger-timer.json --yes`
 
-Then you should be able to `spin build --up` the guest.
+Then you should be able to `spin build --up` the [guest](./app-example/).

@@ -13,5 +13,6 @@ component = "rust-outbound-mysql"
 [component.rust-outbound-mysql]
 environment = { DB_URL = "mysql://spin:spin@127.0.0.1/spin_dev" }
 source = "target/wasm32-wasi/release/rust_outbound_mysql.wasm"
+allowed_outbound_hosts = ["127.0.0.1:3306"]
 [component.rust-outbound-mysql.build]
 command = "cargo build --target wasm32-wasi --release"

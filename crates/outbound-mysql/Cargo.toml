@@ -16,7 +16,9 @@ mysql_async = { version = "0.32.2", default-features = false, features = [
 ] }
 # Removing default features for mysql_common to remove flate2/zlib feature
 mysql_common = { version = "0.30.6", default-features = false }
+spin-app = { path = "../app" }
 spin-core = { path = "../core" }
+spin-outbound-networking = { path = "../outbound-networking" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
 tokio = { version = "1", features = ["rt-multi-thread"] }

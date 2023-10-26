@@ -1,5 +1,39 @@
 use anyhow::Context;
+use spin_locked_app::MetadataKey;
 use url::Url;
+
+pub const ALLOWED_HOSTS_KEY: MetadataKey<Option<Vec<String>>> =
+    MetadataKey::new("allowed_outbound_hosts");
+
+/// Checks address against allowed hosts
+///
+/// Emits several warnings
+pub fn check_address(
+    address: &str,
+    scheme: &str,
+    allowed_hosts: &Option<AllowedHosts>,
+    default: bool,
+) -> bool {
+    let Ok(url) = parse_url_with_host(address, scheme) else {
+        terminal::warn!(
+                "A component tried to make a request to an address that could not be parsed as a url {address:?}."
+            );
+        return false;
+    };
+    let is_allowed = if let Some(allowed_hosts) = allowed_hosts {
+        allowed_hosts.allows(url.clone())
+    } else {
+        default
+    };
+
+    if !is_allowed {
+        terminal::warn!("A component tried to make a request to non-allowed address {address:?}.");
+        if let (Some(host), Some(port)) = (url.host_str(), url.port_or_known_default()) {
+            eprintln!("To allow requests, add 'allowed_outbound_hosts = '[\"{host}:{port}\"]' to the manifest component section.");
+        }
+    }
+    is_allowed
+}
 
 /// Try to parse the url that may or not include the provided scheme.
 ///

@@ -142,12 +142,12 @@ func TestHTTPTriger(t *testing.T) {
 // TestBuildExamples ensures that the tinygo examples will build successfully.
 func TestBuildExamples(t *testing.T) {
 	for _, example := range []string{
-		"../../examples/config-tinygo",
 		"../../examples/http-tinygo",
 		"../../examples/http-tinygo-outbound-http",
 		"../../examples/tinygo-outbound-redis",
 		"../../examples/tinygo-redis",
 		"../../examples/tinygo-key-value",
+		"../../examples/variables-tinygo",
 	} {
 		build(t, example)
 	}

@@ -1,4 +1,4 @@
-# Spin component in TinyGo
+# Spin component in TinyGo using variables
 
 ```shell
 $ go mod tidy

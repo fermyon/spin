@@ -5758,6 +5758,7 @@ dependencies = [
  "percent-encoding",
  "serde",
  "spin-app",
+ "spin-locked-app",
  "spin-testing",
  "toml 0.8.2",
  "tracing",

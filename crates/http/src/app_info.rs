@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "runtime")]
 use spin_app::{App, APP_NAME_KEY, APP_VERSION_KEY, OCI_IMAGE_DIGEST_KEY};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -11,6 +12,7 @@ pub struct AppInfo {
 }
 
 impl AppInfo {
+    #[cfg(feature = "runtime")]
     pub fn new(app: &App) -> Self {
         let name = app
             .get_metadata(APP_NAME_KEY)

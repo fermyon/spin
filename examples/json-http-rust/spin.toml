@@ -1,0 +1,18 @@
+spin_manifest_version = 2
+
+[application]
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "An application which parses a JSON POST body."
+name = "json-http-rust"
+version = "1.0.0"
+
+[[trigger.http]]
+route = "/..."
+component = "json-demo"
+
+[component.json-demo]
+source = "target/wasm32-wasi/release/json_http_rust.wasm"
+description = "Parses 'name' from the POST body and responds using it."
+[component.json-demo.build]
+command = "cargo build --target wasm32-wasi --release"
+watch = ["src/**/*.rs", "Cargo.toml"]

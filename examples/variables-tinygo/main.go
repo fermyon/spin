@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/fermyon/spin/sdk/go/config"
-	spinhttp "github.com/fermyon/spin/sdk/go/http"
+	"github.com/fermyon/spin/sdk/go/v2/config"
+	spinhttp "github.com/fermyon/spin/sdk/go/v2/http"
 )
 
 func init() {

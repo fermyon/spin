@@ -1,6 +1,7 @@
 use wasmtime_wasi::preview2::{pipe::MemoryOutputPipe, HostOutputStream};
 
 /// An in-memory stdio output buffer.
+#[derive(Clone)]
 pub struct OutputBuffer(MemoryOutputPipe);
 
 impl OutputBuffer {

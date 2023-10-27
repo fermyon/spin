@@ -1,6 +1,4 @@
 interface redis {
-  use fermyon:spin/redis-types.{payload, redis-parameter, redis-result}
-
   /// Errors related to interacting with Redis
   variant error {
       /// An invalid address string
@@ -51,5 +49,22 @@ interface redis {
 
     /// Execute an arbitrary Redis command and receive the result.
     execute: func(command: string, arguments: list<redis-parameter>) -> result<list<redis-result>, error>
+  }
+
+  /// The message payload.
+  type payload = list<u8>
+
+  /// A parameter type for the general-purpose `execute` function.
+  variant redis-parameter {
+      int64(s64),
+      binary(payload)
+  }
+
+  /// A return type for the general-purpose `execute` function.
+  variant redis-result {
+      nil,
+      status(string),
+      int64(s64),
+      binary(payload)
   }
 }

@@ -4,8 +4,10 @@ use anyhow::Result;
 use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
 use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_locked_app::MetadataKey;
-use spin_world::v1::redis::{self as v1, RedisParameter, RedisResult};
-use spin_world::v2::redis::{self as v2, Connection as RedisConnection, Error};
+use spin_world::v1::redis as v1;
+use spin_world::v2::redis::{
+    self as v2, Connection as RedisConnection, Error, RedisParameter, RedisResult,
+};
 
 pub const ALLOWED_HOSTS_KEY: MetadataKey<Option<Vec<String>>> =
     MetadataKey::new("allowed_outbound_hosts");
@@ -332,9 +334,14 @@ impl v1::Host for OutboundRedis {
         &mut self,
         address: String,
         command: String,
-        arguments: Vec<RedisParameter>,
-    ) -> Result<Result<Vec<RedisResult>, v1::Error>> {
-        delegate!(self.execute(address, command, arguments))
+        arguments: Vec<v1::RedisParameter>,
+    ) -> Result<Result<Vec<v1::RedisResult>, v1::Error>> {
+        delegate!(self.execute(
+            address,
+            command,
+            arguments.into_iter().map(Into::into).collect()
+        ))
+        .map(|r| r.map(|v| v.into_iter().map(Into::into).collect()))
     }
 }
 

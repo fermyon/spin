@@ -1,4 +1,4 @@
-pub use crate::wit::v1::llm::{
+pub use crate::wit::v2::llm::{
     self, EmbeddingsResult, EmbeddingsUsage, Error, InferencingParams, InferencingResult,
     InferencingUsage,
 };

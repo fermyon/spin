@@ -1,11 +1,19 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
+use anyhow::ensure;
+use spin_locked_app::locked::LockedApp;
+use spin_manifest::schema::v2::AppManifest;
+
+/// A source from which an App may be loaded.
 #[derive(Debug, PartialEq, Eq)]
 pub enum AppSource {
-    None,
     File(PathBuf),
     OciRegistry(String),
     Unresolvable(String),
+    None,
 }
 
 impl AppSource {
@@ -52,10 +60,42 @@ impl AppSource {
 impl std::fmt::Display for AppSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::None => write!(f, "<no source>"),
             Self::File(path) => write!(f, "local app {path:?}"),
             Self::OciRegistry(reference) => write!(f, "remote app {reference:?}"),
             Self::Unresolvable(s) => write!(f, "unknown app source: {s:?}"),
+            Self::None => write!(f, "<no source>"),
         }
+    }
+}
+
+/// This represents a "partially loaded" source which has enough information to
+/// dispatch to the correct trigger executor but hasn't (necessarily) gone
+/// through full validation / loading yet.
+pub enum ResolvedAppSource {
+    File {
+        manifest_path: PathBuf,
+        manifest: AppManifest,
+    },
+    OciRegistry {
+        locked_app: LockedApp,
+    },
+}
+
+impl ResolvedAppSource {
+    pub fn trigger_type(&self) -> anyhow::Result<&str> {
+        let types = match self {
+            ResolvedAppSource::File { manifest, .. } => {
+                manifest.triggers.keys().collect::<HashSet<_>>()
+            }
+            ResolvedAppSource::OciRegistry { locked_app } => locked_app
+                .triggers
+                .iter()
+                .map(|t| &t.trigger_type)
+                .collect::<HashSet<_>>(),
+        };
+
+        ensure!(!types.is_empty(), "no triggers in app");
+        ensure!(types.len() == 1, "multiple trigger types not yet supported");
+        Ok(types.into_iter().next().unwrap())
     }
 }

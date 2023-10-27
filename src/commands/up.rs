@@ -1,13 +1,12 @@
 mod app_source;
 
 use std::{
-    collections::HashSet,
     ffi::OsString,
     fmt::Debug,
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, bail, ensure, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::{CommandFactory, Parser};
 use reqwest::Url;
 use spin_app::locked::LockedApp;
@@ -18,7 +17,7 @@ use tempfile::TempDir;
 
 use crate::opts::*;
 
-use self::app_source::AppSource;
+use self::app_source::{AppSource, ResolvedAppSource};
 
 const APPLICATION_OPT: &str = "APPLICATION";
 
@@ -124,7 +123,7 @@ impl UpCommand {
     }
 
     async fn run_inner(self) -> Result<()> {
-        let app_source = self.resolve_app_source();
+        let app_source = self.app_source();
 
         if app_source == AppSource::None {
             if self.help {
@@ -148,19 +147,18 @@ impl UpCommand {
             .canonicalize()
             .context("Could not canonicalize working directory")?;
 
-        let mut locked_app = match &app_source {
-            AppSource::None => bail!("Internal error - should have shown help"),
-            AppSource::File(path) => self.prepare_app_from_file(path, &working_dir).await?,
-            AppSource::OciRegistry(oci) => self.prepare_app_from_oci(oci, &working_dir).await?,
-            AppSource::Unresolvable(err) => bail!("{err}"),
-        };
+        let resolved_app_source = self.resolve_app_source(&app_source, &working_dir).await?;
 
-        let trigger_cmd = trigger_command_from_locked_app(&locked_app)
+        let trigger_cmd = trigger_command_for_resolved_app_source(&resolved_app_source)
             .with_context(|| format!("Couldn't find trigger executor for {app_source}"))?;
 
         if self.help {
             return self.run_trigger(trigger_cmd, None).await;
         }
+
+        let mut locked_app = self
+            .load_resolved_app_source(resolved_app_source, &working_dir)
+            .await?;
 
         self.update_locked_app(&mut locked_app);
 
@@ -244,7 +242,7 @@ impl UpCommand {
         }
     }
 
-    fn resolve_app_source(&self) -> AppSource {
+    fn app_source(&self) -> AppSource {
         match (&self.app_source, &self.file_source, &self.registry_source) {
             (None, None, None) => self.default_manifest_or_none(),
             (Some(source), None, None) => AppSource::infer_source(source),
@@ -294,29 +292,54 @@ impl UpCommand {
         Ok(locked_url)
     }
 
-    async fn prepare_app_from_file(
+    // Take the AppSource and do the minimum amount of work necessary to
+    // be able to resolve the trigger executor.
+    async fn resolve_app_source(
         &self,
-        manifest_path: &Path,
+        app_source: &AppSource,
         working_dir: &Path,
-    ) -> Result<LockedApp> {
-        let files_mount_strategy = if self.direct_mounts {
-            FilesMountStrategy::Direct
-        } else {
-            FilesMountStrategy::Copy(working_dir.join("assets"))
-        };
-        spin_loader::from_file(manifest_path, files_mount_strategy)
-            .await
-            .with_context(|| format!("Failed to load manifest from {manifest_path:?}"))
+    ) -> anyhow::Result<ResolvedAppSource> {
+        Ok(match &app_source {
+            AppSource::File(path) => ResolvedAppSource::File {
+                manifest_path: path.clone(),
+                manifest: spin_manifest::manifest_from_file(path)?,
+            },
+            // TODO: We could make the `--help` experience a little faster if
+            // we could fetch just the locked app JSON at this stage.
+            AppSource::OciRegistry(reference) => {
+                let mut client = spin_oci::Client::new(self.insecure, None)
+                    .await
+                    .context("cannot create registry client")?;
+
+                let locked_app = OciLoader::new(working_dir)
+                    .load_app(&mut client, reference)
+                    .await?;
+                ResolvedAppSource::OciRegistry { locked_app }
+            }
+            AppSource::Unresolvable(err) => bail!("{err}"),
+            AppSource::None => bail!("Internal error - should have shown help"),
+        })
     }
 
-    async fn prepare_app_from_oci(&self, reference: &str, working_dir: &Path) -> Result<LockedApp> {
-        let mut client = spin_oci::Client::new(self.insecure, None)
-            .await
-            .context("cannot create registry client")?;
-
-        OciLoader::new(working_dir)
-            .load_app(&mut client, reference)
-            .await
+    // Finish preparing a ResolvedAppSource for execution.
+    async fn load_resolved_app_source(
+        &self,
+        resolved: ResolvedAppSource,
+        working_dir: &Path,
+    ) -> anyhow::Result<LockedApp> {
+        match resolved {
+            ResolvedAppSource::File { manifest_path, .. } => {
+                let files_mount_strategy = if self.direct_mounts {
+                    FilesMountStrategy::Direct
+                } else {
+                    FilesMountStrategy::Copy(working_dir.join("assets"))
+                };
+                spin_loader::from_file(&manifest_path, files_mount_strategy)
+                    .await
+                    .with_context(|| format!("Failed to load manifest from {manifest_path:?}"))
+            }
+            ResolvedAppSource::OciRegistry { locked_app } => Ok(locked_app),
+        }
     }
 
     fn update_locked_app(&self, locked_app: &mut LockedApp) {
@@ -395,17 +418,8 @@ fn trigger_command(trigger_type: &str) -> Vec<String> {
     vec!["trigger".to_owned(), trigger_type.to_owned()]
 }
 
-fn trigger_command_from_locked_app(locked_app: &LockedApp) -> Result<Vec<String>> {
-    let trigger_type = {
-        let types = locked_app
-            .triggers
-            .iter()
-            .map(|t| t.trigger_type.as_str())
-            .collect::<HashSet<_>>();
-        ensure!(!types.is_empty(), "no triggers in app");
-        ensure!(types.len() == 1, "multiple trigger types not yet supported");
-        types.into_iter().next().unwrap()
-    };
+fn trigger_command_for_resolved_app_source(resolved: &ResolvedAppSource) -> Result<Vec<String>> {
+    let trigger_type = resolved.trigger_type()?;
 
     match trigger_type {
         "http" | "redis" => Ok(trigger_command(trigger_type)),
@@ -436,7 +450,7 @@ mod test {
             app_source: Some(file.clone()),
             ..Default::default()
         }
-        .resolve_app_source();
+        .app_source();
 
         assert_eq!(AppSource::File(PathBuf::from(file)), source);
     }
@@ -449,7 +463,7 @@ mod test {
             app_source: Some(dir.clone()),
             ..Default::default()
         }
-        .resolve_app_source();
+        .app_source();
 
         assert_eq!(
             AppSource::File(PathBuf::from(dir).join("spin.toml")),
@@ -465,7 +479,7 @@ mod test {
             app_source: Some(file),
             ..Default::default()
         }
-        .resolve_app_source();
+        .app_source();
 
         assert!(matches!(source, AppSource::Unresolvable(_)));
     }
@@ -478,7 +492,7 @@ mod test {
             app_source: Some(file),
             ..Default::default()
         }
-        .resolve_app_source();
+        .app_source();
 
         assert!(matches!(source, AppSource::Unresolvable(_)));
     }
@@ -491,7 +505,7 @@ mod test {
             app_source: Some(dir),
             ..Default::default()
         }
-        .resolve_app_source();
+        .app_source();
 
         assert!(matches!(source, AppSource::Unresolvable(_)));
     }
@@ -504,7 +518,7 @@ mod test {
             app_source: Some(reference.clone()),
             ..Default::default()
         }
-        .resolve_app_source();
+        .app_source();
 
         assert_eq!(AppSource::OciRegistry(reference), source);
     }
@@ -518,7 +532,7 @@ mod test {
             app_source: Some(reference.clone()),
             ..Default::default()
         }
-        .resolve_app_source();
+        .app_source();
 
         assert_eq!(AppSource::OciRegistry(reference), source);
     }
@@ -531,7 +545,7 @@ mod test {
             app_source: Some(garbage),
             ..Default::default()
         }
-        .resolve_app_source();
+        .app_source();
 
         // Honestly I feel Unresolvable might be a bit weak sauce for this case
         assert!(matches!(source, AppSource::Unresolvable(_)));

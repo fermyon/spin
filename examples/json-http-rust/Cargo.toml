@@ -1,5 +1,5 @@
 [package]
-name = "wasi-http-rust"
+name = "json-http-rust"
 version = "0.1.0"
 edition = "2021"
 

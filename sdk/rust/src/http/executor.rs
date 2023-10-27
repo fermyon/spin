@@ -143,9 +143,8 @@ pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = ty
 pub(crate) fn outgoing_request_send(
     request: OutgoingRequest,
 ) -> impl Future<Output = Result<IncomingResponse, types::Error>> {
+    let response = outgoing_handler::handle(request, None);
     future::poll_fn({
-        let response = outgoing_handler::handle(request, None);
-
         move |context| match &response {
             Ok(response) => {
                 if let Some(response) = response.get() {

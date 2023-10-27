@@ -535,6 +535,9 @@ impl ResponseOutparam {
 }
 
 /// Send an outgoing request
+///
+/// If `request`` is an `OutgoingRequest` and you are streaming the body to the
+/// outgoing request body sink, you need to ensure it is dropped before awaiting this function.
 pub async fn send<I, O>(request: I) -> Result<O, SendError>
 where
     I: TryIntoOutgoingRequest,
@@ -544,18 +547,22 @@ where
 {
     let (request, body_buffer) = I::try_into_outgoing_request(request)
         .map_err(|e| SendError::RequestConversion(e.into()))?;
-    if let Some(body_buffer) = body_buffer {
+    let response = if let Some(body_buffer) = body_buffer {
         // It is part of the contract of the trait that implementors of `TryIntoOutgoingRequest`
         // do not call `OutgoingRequest::write`` if they return a buffered body.
         let mut body_sink = request.take_body();
+        let response = executor::outgoing_request_send(request);
         body_sink
             .send(body_buffer)
             .await
             .map_err(|e| SendError::Http(Error::UnexpectedError(e.to_string())))?;
+        // The body sink needs to be dropped before we await the response, otherwise we deadlock
+        drop(body_sink);
+        response.await
+    } else {
+        executor::outgoing_request_send(request).await
     }
-    let response = executor::outgoing_request_send(request)
-        .await
-        .map_err(SendError::Http)?;
+    .map_err(SendError::Http)?;
 
     TryFromIncomingResponse::try_from_incoming_response(response)
         .await

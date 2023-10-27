@@ -41,7 +41,7 @@ server, modifies the result, then returns it:
 ```rust
 #[http_component]
 async fn hello_world(_req: Request) -> Result<Response> {
-    let mut res: http::Response<()> = spin_sdk::http::send(
+    let mut res: http::Response<String> = spin_sdk::http::send(
         http::Request::builder()
             .method("GET")
             .uri("https://fermyon.com")

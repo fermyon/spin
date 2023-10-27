@@ -29,12 +29,18 @@ pub fn check_address(
     if !is_allowed {
         terminal::warn!("A component tried to make a request to non-allowed address '{address}'.");
         let (host, port) = (address.host(), address.port());
-        eprintln!("To allow requests, add 'allowed_outbound_hosts = '[\"{host}:{port}\"]' to the manifest component section.");
+        let msg = if let Some(port) = port {
+            format!("`allowed_outbound_hosts = [\"{host}:{port}\"]`")
+        } else {
+            format!("`allowed_outbound_hosts = [\"{host}:$PORT\"]` (where $PORT is the correct port number)")
+        };
+        eprintln!("To allow requests, add {msg} to the manifest component section.");
     }
     is_allowed
 }
 
 /// An address is a url-like string that contains a host, a port, and an optional scheme
+#[derive(Debug)]
 struct Address {
     inner: Url,
     original: String,
@@ -58,7 +64,7 @@ impl Address {
                     .as_str()
                     .try_into()
                     .context("could not convert into a url");
-                has_scheme = false;
+                has_scheme = scheme.is_some();
                 match (second_try, first_try.map_err(|e| e.into())) {
                     (Ok(u), _) => Ok(u),
                     // Return an error preferring the error from the first attempt if present
@@ -86,11 +92,10 @@ impl Address {
         self.inner.host_str().unwrap_or_default()
     }
 
-    fn port(&self) -> u16 {
+    fn port(&self) -> Option<u16> {
         self.inner
             .port_or_known_default()
             .or_else(|| well_known_port(self.scheme()?))
-            .unwrap_or_default()
     }
 
     fn validate_as_config(&self) -> anyhow::Result<()> {
@@ -100,7 +105,8 @@ impl Address {
         if self.inner.query().is_some() {
             anyhow::bail!("config '{}' contains a query string", self);
         }
-        if self.port() == 0 {
+        // We require configs contain a port
+        if self.inner.port().is_none() {
             anyhow::bail!("config '{}' did not contain port", self)
         }
 
@@ -171,7 +177,8 @@ impl AllowedHost {
         Ok(Self {
             scheme: address.scheme().map(ToOwned::to_owned),
             host: address.host().to_owned(),
-            port: address.port(),
+            // `unwrap` is safe as `validate_as_config` checks that it is `Some`
+            port: address.port().unwrap(),
         })
     }
 
@@ -182,8 +189,9 @@ impl AllowedHost {
             .map(|s| Some(s) == address.scheme())
             .unwrap_or(true);
         let host_matches = address.host() == self.host;
-        let port_matches = address.port() == self.port;
+        let port_matches = address.port() == Some(self.port);
 
+        println!("{scheme_matches:?} {host_matches:?} {port_matches:?}");
         scheme_matches && host_matches && port_matches
     }
 }
@@ -203,23 +211,8 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_allowed_hosts_accepts_url() {
-        assert_eq!(
-            AllowedHost::new(Some("http"), "spin.fermyon.dev", 80),
-            AllowedHost::parse("http://spin.fermyon.dev").unwrap()
-        );
-        assert_eq!(
-            AllowedHost::new(Some("http"), "spin.fermyon.dev", 80),
-            AllowedHost::parse("http://spin.fermyon.dev/").unwrap()
-        );
-        assert_eq!(
-            AllowedHost::new(Some("https"), "spin.fermyon.dev", 443),
-            AllowedHost::parse("https://spin.fermyon.dev").unwrap()
-        );
-        assert_eq!(
-            AllowedHost::new(Some("postgres"), "spin.fermyon.dev", 5432),
-            AllowedHost::parse("postgres://spin.fermyon.dev").unwrap()
-        );
+    fn test_allowed_hosts_rejects_url_without_port() {
+        assert!(AllowedHost::parse("http://spin.fermyon.dev").is_err());
     }
 
     #[test]
@@ -263,10 +256,7 @@ mod test {
     #[test]
     fn test_allowed_hosts_accepts_localhost_addresses() {
         assert!(AllowedHost::parse("localhost").is_err());
-        assert_eq!(
-            AllowedHost::new(Some("http"), "localhost", 80),
-            AllowedHost::parse("http://localhost").unwrap()
-        );
+        assert!(AllowedHost::parse("http://localhost").is_err());
         assert_eq!(
             AllowedHost::new(None, "localhost", 3001),
             AllowedHost::parse("localhost:3001").unwrap()
@@ -279,10 +269,7 @@ mod test {
 
     #[test]
     fn test_allowed_hosts_accepts_ip_addresses() {
-        assert_eq!(
-            AllowedHost::new(Some("http"), "192.168.1.1", 80),
-            AllowedHost::parse("http://192.168.1.1").unwrap()
-        );
+        assert!(AllowedHost::parse("http://192.168.1.1").is_err());
         assert_eq!(
             AllowedHost::new(Some("http"), "192.168.1.1", 3002),
             AllowedHost::parse("http://192.168.1.1:3002").unwrap()
@@ -326,5 +313,6 @@ mod test {
         assert!(!allowed.allows(&Address::parse("http://example.com/", Some("http")).unwrap()));
         assert!(!allowed.allows(&Address::parse("http://google.com/", Some("http")).unwrap()));
         assert!(allowed.allows(&Address::parse("spin.fermyon.dev:443", Some("https")).unwrap()));
+        assert!(allowed.allows(&Address::parse("example.com:8383", Some("http")).unwrap()));
     }
 }

@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Result};
+use bytes::Bytes;
 use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 use system_interface::io::ReadReady;
@@ -11,10 +12,12 @@ use wasi_common_preview1 as wasi_preview1;
 use wasmtime_wasi as wasmtime_wasi_preview1;
 use wasmtime_wasi::preview2::{
     self as wasi_preview2, HostInputStream, HostOutputStream, StdinStream, StdoutStream,
+    StreamError, Subscribe,
 };
 use wasmtime_wasi_http::types::WasiHttpCtx;
 
 use crate::{
+    async_trait,
     host_component::{HostComponents, HostComponentsData},
     io::OutputBuffer,
     limits::StoreLimitsAsync,
@@ -221,7 +224,7 @@ impl StoreBuilder {
                 ctx.set_stdout(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                ctx.stdout(MyStdoutStream(Mutex::new(Some(Box::new(
+                ctx.stdout(MyStdoutStream(Arc::new(Mutex::new(Box::new(
                     wasi_preview2::pipe::AsyncWriteStream::new(1024 * 1024, w),
                 )))));
             }
@@ -238,7 +241,9 @@ impl StoreBuilder {
                 "`Store::stdout_buffered` only supported with WASI Preview 2"
             )),
             WasiCtxBuilder::Preview2(ctx) => {
-                ctx.stdout(MyStdoutStream(Mutex::new(Some(Box::new(buffer.writer())))));
+                ctx.stdout(MyStdoutStream(Arc::new(Mutex::new(Box::new(
+                    buffer.writer(),
+                )))));
                 Ok(())
             }
         })?;
@@ -264,7 +269,7 @@ impl StoreBuilder {
                 ctx.set_stderr(Box::new(wasi_preview1::pipe::WritePipe::new(w)))
             }
             WasiCtxBuilder::Preview2(ctx) => {
-                ctx.stderr(MyStdoutStream(Mutex::new(Some(Box::new(
+                ctx.stderr(MyStdoutStream(Arc::new(Mutex::new(Box::new(
                     wasi_preview2::pipe::AsyncWriteStream::new(1024 * 1024, w),
                 )))));
             }
@@ -442,15 +447,31 @@ impl StdinStream for MyStdinStream {
     }
 }
 
-struct MyStdoutStream(Mutex<Option<Box<dyn HostOutputStream>>>);
+#[derive(Clone)]
+struct MyStdoutStream(Arc<Mutex<Box<dyn HostOutputStream>>>);
+
+impl HostOutputStream for MyStdoutStream {
+    fn write(&mut self, bytes: Bytes) -> Result<(), StreamError> {
+        self.0.lock().unwrap().write(bytes)
+    }
+
+    fn flush(&mut self) -> Result<(), StreamError> {
+        self.0.lock().unwrap().flush()
+    }
+
+    fn check_write(&mut self) -> Result<usize, StreamError> {
+        self.0.lock().unwrap().check_write()
+    }
+}
+
+#[async_trait]
+impl Subscribe for MyStdoutStream {
+    async fn ready(&mut self) {}
+}
 
 impl StdoutStream for MyStdoutStream {
     fn stream(&self) -> Box<dyn HostOutputStream> {
-        self.0
-            .lock()
-            .unwrap()
-            .take()
-            .expect("MyStdoutStream::stream should only be called once")
+        Box::new(self.clone())
     }
 
     fn isatty(&self) -> bool {

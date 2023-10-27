@@ -1,7 +1,9 @@
+mod app_source;
+
 use std::{
     collections::HashSet,
     ffi::OsString,
-    fmt::{Debug, Display},
+    fmt::Debug,
     path::{Path, PathBuf},
 };
 
@@ -15,6 +17,8 @@ use spin_trigger::cli::{SPIN_LOCAL_APP_DIR, SPIN_LOCKED_URL, SPIN_WORKING_DIR};
 use tempfile::TempDir;
 
 use crate::opts::*;
+
+use self::app_source::AppSource;
 
 const APPLICATION_OPT: &str = "APPLICATION";
 
@@ -243,8 +247,8 @@ impl UpCommand {
     fn resolve_app_source(&self) -> AppSource {
         match (&self.app_source, &self.file_source, &self.registry_source) {
             (None, None, None) => self.default_manifest_or_none(),
-            (Some(source), None, None) => Self::infer_source(source),
-            (None, Some(file), None) => Self::infer_file_source(file.to_owned()),
+            (Some(source), None, None) => AppSource::infer_source(source),
+            (None, Some(file), None) => AppSource::infer_file_source(file.to_owned()),
             (None, None, Some(reference)) => AppSource::OciRegistry(reference.to_owned()),
             _ => AppSource::unresolvable("More than one application source was specified"),
         }
@@ -262,24 +266,6 @@ impl UpCommand {
             AppSource::Unresolvable(msg)
         } else {
             AppSource::None
-        }
-    }
-
-    fn infer_source(source: &str) -> AppSource {
-        let path = PathBuf::from(source);
-        if path.exists() {
-            Self::infer_file_source(path)
-        } else if spin_oci::is_probably_oci_reference(source) {
-            AppSource::OciRegistry(source.to_owned())
-        } else {
-            AppSource::Unresolvable(format!("File or directory '{source}' not found. If you meant to load from a registry, use the `--from-registry` option."))
-        }
-    }
-
-    fn infer_file_source(path: impl Into<PathBuf>) -> AppSource {
-        match spin_common::paths::resolve_manifest_file_path(path.into()) {
-            Ok(file) => AppSource::File(file),
-            Err(e) => AppSource::Unresolvable(e.to_string()),
         }
     }
 
@@ -430,50 +416,10 @@ fn trigger_command_from_locked_app(locked_app: &LockedApp) -> Result<Vec<String>
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum AppSource {
-    None,
-    File(PathBuf),
-    OciRegistry(String),
-    Unresolvable(String),
-}
-
-impl AppSource {
-    fn unresolvable(message: impl Into<String>) -> Self {
-        Self::Unresolvable(message.into())
-    }
-
-    fn local_app_dir(&self) -> Option<&Path> {
-        match self {
-            Self::File(path) => path.parent().or_else(|| {
-                tracing::warn!("Error finding local app dir from source {path:?}");
-                None
-            }),
-            _ => None,
-        }
-    }
-
-    async fn build(&self) -> anyhow::Result<()> {
-        match self {
-            Self::File(path) => spin_build::build(path, &[]).await,
-            _ => Ok(()),
-        }
-    }
-}
-
-impl Display for AppSource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AppSource::None => write!(f, "<no source>"),
-            AppSource::File(path) => write!(f, "local app {path:?}"),
-            AppSource::OciRegistry(reference) => write!(f, "remote app {reference:?}"),
-            AppSource::Unresolvable(s) => write!(f, "unknown app source: {s:?}"),
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
+    use crate::commands::up::app_source::AppSource;
+
     use super::*;
 
     fn repo_path(path: &str) -> String {

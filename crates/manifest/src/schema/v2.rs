@@ -102,7 +102,7 @@ pub struct Component {
     /// `allowed_http_hosts = ["example.com"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_http_hosts: Vec<String>,
-    /// `allowed_outbound_hosts = ["myredishost.com"]`
+    /// `allowed_outbound_hosts = ["myredishost.com:6379"]`
     #[serde(default, skip_serializing_if = "is_none_or_empty")]
     pub allowed_outbound_hosts: Option<Vec<String>>,
     /// `key_value_stores = ["default"]`

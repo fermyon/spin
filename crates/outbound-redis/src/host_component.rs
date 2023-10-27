@@ -28,7 +28,7 @@ impl DynamicHostComponent for OutboundRedisComponent {
         component: &spin_app::AppComponent,
     ) -> anyhow::Result<()> {
         let hosts = component
-            .get_metadata(crate::ALLOWED_HOSTS_KEY)?
+            .get_metadata(spin_outbound_networking::ALLOWED_HOSTS_KEY)?
             .unwrap_or_default();
         data.allowed_hosts = hosts
             .map(|h| spin_outbound_networking::AllowedHosts::parse(&h[..]))

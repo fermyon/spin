@@ -3,14 +3,10 @@ mod host_component;
 use anyhow::Result;
 use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
 use spin_core::{async_trait, wasmtime::component::Resource};
-use spin_locked_app::MetadataKey;
 use spin_world::v1::redis as v1;
 use spin_world::v2::redis::{
     self as v2, Connection as RedisConnection, Error, RedisParameter, RedisResult,
 };
-
-pub const ALLOWED_HOSTS_KEY: MetadataKey<Option<Vec<String>>> =
-    MetadataKey::new("allowed_outbound_hosts");
 
 pub use host_component::OutboundRedisComponent;
 
@@ -50,27 +46,7 @@ impl Default for OutboundRedis {
 
 impl OutboundRedis {
     fn is_address_allowed(&self, address: &str, default: bool) -> bool {
-        let Ok(url) = spin_outbound_networking::parse_url_with_host(address, "redis") else {
-            terminal::warn!(
-                "A component tried to make a request to an address that could not be parsed as a url {address:?}."
-            );
-            return false;
-        };
-        let is_allowed = if let Some(allowed_hosts) = &self.allowed_hosts {
-            allowed_hosts.allows(url.clone())
-        } else {
-            default
-        };
-
-        if !is_allowed {
-            terminal::warn!(
-                "A component tried to make a request to non-allowed address {address:?}."
-            );
-            if let (Some(host), Some(port)) = (url.host_str(), url.port_or_known_default()) {
-                eprintln!("To allow requests, add 'allowed_outbound_hosts = '[\"{host}:{port}\"]' to the manifest component section.");
-            }
-        }
-        is_allowed
+        spin_outbound_networking::check_address(address, "redis", &self.allowed_hosts, default)
     }
 
     async fn establish_connection(

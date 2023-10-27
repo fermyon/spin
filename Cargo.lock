@@ -4161,7 +4161,9 @@ dependencies = [
  "flate2",
  "mysql_async",
  "mysql_common",
+ "spin-app",
  "spin-core",
+ "spin-outbound-networking",
  "spin-world",
  "table",
  "tokio",
@@ -4176,7 +4178,9 @@ dependencies = [
  "anyhow",
  "native-tls",
  "postgres-native-tls",
+ "spin-app",
  "spin-core",
+ "spin-outbound-networking",
  "spin-world",
  "table",
  "tokio",
@@ -4192,11 +4196,9 @@ dependencies = [
  "redis",
  "spin-app",
  "spin-core",
- "spin-locked-app",
  "spin-outbound-networking",
  "spin-world",
  "table",
- "terminal",
  "tokio",
  "tracing",
 ]
@@ -5981,6 +5983,8 @@ name = "spin-outbound-networking"
 version = "2.0.0-pre0"
 dependencies = [
  "anyhow",
+ "spin-locked-app",
+ "terminal",
  "url",
 ]
 

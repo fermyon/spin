@@ -482,6 +482,28 @@ where
     }
 }
 
+impl TryFrom<Request> for OutgoingRequest {
+    type Error = std::convert::Infallible;
+
+    fn try_from(req: Request) -> Result<Self, Self::Error> {
+        let headers = req
+            .headers()
+            .map(|(k, v)| (k.to_owned(), v.as_bytes().to_owned()))
+            .collect::<Vec<_>>();
+        Ok(OutgoingRequest::new(
+            req.method(),
+            req.path_and_query(),
+            Some(if req.is_https() {
+                &super::Scheme::Https
+            } else {
+                &super::Scheme::Http
+            }),
+            req.authority(),
+            &Headers::new(&headers),
+        ))
+    }
+}
+
 #[cfg(feature = "http")]
 impl<B> TryFrom<hyperium::Request<B>> for OutgoingRequest
 where

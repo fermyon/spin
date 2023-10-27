@@ -5,7 +5,7 @@ use crate::wit::wasi::http::types::{
 use crate::wit::wasi::io;
 use crate::wit::wasi::io::streams::{InputStream, OutputStream, StreamError};
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Result};
 use futures::{future, sink, stream, Sink, Stream};
 
 use std::cell::RefCell;
@@ -67,7 +67,7 @@ pub fn run<T>(future: impl Future<Output = T>) -> T {
     }
 }
 
-pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = Error> {
+pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = types::Error> {
     struct Outgoing(Option<(OutputStream, OutgoingBody)>);
 
     impl Drop for Outgoing {
@@ -119,11 +119,19 @@ pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = Er
                                         Ok(()) => {
                                             offset += count;
                                         }
-                                        Err(_) => break Poll::Ready(Err(anyhow!("I/O error"))),
+                                        Err(e) => {
+                                            break Poll::Ready(Err(types::Error::ProtocolError(
+                                                format!("I/O error: {e}"),
+                                            )))
+                                        }
                                     }
                                 }
                             }
-                            Err(_) => break Poll::Ready(Err(anyhow!("I/O error"))),
+                            Err(e) => {
+                                break Poll::Ready(Err(types::Error::ProtocolError(format!(
+                                    "I/O error: {e}"
+                                ))))
+                            }
                         }
                     }
                 }

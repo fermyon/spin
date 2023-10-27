@@ -107,6 +107,34 @@ impl Request {
             uri,
         )
     }
+
+    /// Whether the request is an HTTPS request
+    fn is_https(&self) -> bool {
+        self.uri
+            .0
+            .as_ref()
+            .and_then(|u| u.scheme())
+            .map(|s| s == &hyperium::uri::Scheme::HTTPS)
+            .unwrap_or(true)
+    }
+
+    /// The URI's authority
+    fn authority(&self) -> Option<&str> {
+        self.uri
+            .0
+            .as_ref()
+            .and_then(|u| u.authority())
+            .map(|a| a.as_str())
+    }
+
+    /// The request path and query combined
+    pub fn path_and_query(&self) -> Option<&str> {
+        self.uri
+            .0
+            .as_ref()
+            .and_then(|u| u.path_and_query())
+            .map(|s| s.as_str())
+    }
 }
 
 /// A request builder
@@ -454,7 +482,7 @@ impl OutgoingResponse {
     /// # Panics
     ///
     /// Panics if the body was already taken.
-    pub fn take_body(&self) -> impl futures::Sink<Vec<u8>, Error = anyhow::Error> {
+    pub fn take_body(&self) -> impl futures::Sink<Vec<u8>, Error = Error> {
         executor::outgoing_body(self.write().expect("response body was already taken"))
     }
 }
@@ -482,7 +510,7 @@ impl ResponseOutparam {
         self,
         response: OutgoingResponse,
         buffer: Vec<u8>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), Error> {
         use futures::SinkExt;
         let mut body = response.take_body();
         self.set(response);

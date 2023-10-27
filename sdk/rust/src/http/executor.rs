@@ -5,7 +5,6 @@ use crate::wit::wasi::http::types::{
 use crate::wit::wasi::io;
 use crate::wit::wasi::io::streams::{InputStream, OutputStream, StreamError};
 
-use anyhow::{anyhow, Result};
 use futures::{future, sink, stream, Sink, Stream};
 
 use std::cell::RefCell;
@@ -165,7 +164,9 @@ pub(crate) fn outgoing_request_send(
 }
 
 #[doc(hidden)]
-pub fn incoming_body(body: IncomingBody) -> impl Stream<Item = Result<Vec<u8>>> {
+pub fn incoming_body(
+    body: IncomingBody,
+) -> impl Stream<Item = Result<Vec<u8>, io::streams::Error>> {
     struct Incoming(Option<(InputStream, IncomingBody)>);
 
     impl Drop for Incoming {
@@ -196,9 +197,7 @@ pub fn incoming_body(body: IncomingBody) -> impl Stream<Item = Result<Vec<u8>>> 
                         }
                     }
                     Err(StreamError::Closed) => Poll::Ready(None),
-                    Err(StreamError::LastOperationFailed(error)) => Poll::Ready(Some(Err(
-                        anyhow!("Last operation failed: {}", error.to_debug_string()),
-                    ))),
+                    Err(StreamError::LastOperationFailed(error)) => Poll::Ready(Some(Err(error))),
                 }
             } else {
                 Poll::Ready(None)

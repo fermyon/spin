@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 
+use crate::wit::wasi::io::streams;
+
 use super::{Headers, IncomingRequest, IncomingResponse, OutgoingRequest, OutgoingResponse};
 
 use super::{responses, NonUtf8BodyError, Request, Response};
@@ -61,12 +63,12 @@ impl TryFromIncomingRequest for Request {
             .method(request.method())
             .uri(request.uri())
             .headers(request.headers())
-            .body(
-                request
-                    .into_body()
-                    .await
-                    .map_err(IncomingRequestError::BodyConversionError)?,
-            )
+            .body(request.into_body().await.map_err(|e| {
+                IncomingRequestError::BodyConversionError(anyhow::anyhow!(
+                    "{}",
+                    e.to_debug_string()
+                ))
+            })?)
             .build())
     }
 }
@@ -482,37 +484,59 @@ where
     }
 }
 
-impl TryFrom<Request> for OutgoingRequest {
+/// A trait for converting a type into an `OutgoingRequest`
+pub trait TryIntoOutgoingRequest {
+    /// The error if the conversion fails
+    type Error;
+
+    /// Turn the type into an `OutgoingRequest`
+    ///
+    /// If the implementor can be sure that the `OutgoingRequest::write` has not been called they
+    /// can return a buffer as the second element of the returned tuple and `send` will send
+    /// that as the request body.
+    fn try_into_outgoing_request(self) -> Result<(OutgoingRequest, Option<Vec<u8>>), Self::Error>;
+}
+
+impl TryIntoOutgoingRequest for OutgoingRequest {
     type Error = std::convert::Infallible;
 
-    fn try_from(req: Request) -> Result<Self, Self::Error> {
-        let headers = req
+    fn try_into_outgoing_request(self) -> Result<(OutgoingRequest, Option<Vec<u8>>), Self::Error> {
+        Ok((self, None))
+    }
+}
+
+impl TryIntoOutgoingRequest for Request {
+    type Error = std::convert::Infallible;
+
+    fn try_into_outgoing_request(self) -> Result<(OutgoingRequest, Option<Vec<u8>>), Self::Error> {
+        let headers = self
             .headers()
             .map(|(k, v)| (k.to_owned(), v.as_bytes().to_owned()))
             .collect::<Vec<_>>();
-        Ok(OutgoingRequest::new(
-            req.method(),
-            req.path_and_query(),
-            Some(if req.is_https() {
+        let request = OutgoingRequest::new(
+            self.method(),
+            self.path_and_query(),
+            Some(if self.is_https() {
                 &super::Scheme::Https
             } else {
                 &super::Scheme::Http
             }),
-            req.authority(),
+            self.authority(),
             &Headers::new(&headers),
-        ))
+        );
+        Ok((request, Some(self.into_body())))
     }
 }
 
 #[cfg(feature = "http")]
-impl<B> TryFrom<hyperium::Request<B>> for OutgoingRequest
+impl<B> TryIntoOutgoingRequest for hyperium::Request<B>
 where
     B: TryIntoBody,
     B::Error: std::error::Error + Send + Sync + 'static,
 {
     type Error = anyhow::Error;
-    fn try_from(req: hyperium::Request<B>) -> Result<Self, Self::Error> {
-        let method = match req.method() {
+    fn try_into_outgoing_request(self) -> Result<(OutgoingRequest, Option<Vec<u8>>), Self::Error> {
+        let method = match self.method() {
             &hyperium::Method::GET => super::Method::Get,
             &hyperium::Method::POST => super::Method::Post,
             &hyperium::Method::PUT => super::Method::Put,
@@ -522,15 +546,15 @@ where
             &hyperium::Method::OPTIONS => super::Method::Options,
             m => anyhow::bail!("Unsupported method: {m}"),
         };
-        let headers = req
+        let headers = self
             .headers()
             .into_iter()
             .map(|(n, v)| (n.as_str().to_owned(), v.as_bytes().to_owned()))
             .collect::<Vec<_>>();
-        Ok(OutgoingRequest::new(
+        let request = OutgoingRequest::new(
             &method,
-            req.uri().path_and_query().map(|p| p.as_str()),
-            req.uri()
+            self.uri().path_and_query().map(|p| p.as_str()),
+            self.uri()
                 .scheme()
                 .map(|s| match s.as_str() {
                     "http" => super::Scheme::Http,
@@ -538,18 +562,20 @@ where
                     s => super::Scheme::Other(s.to_owned()),
                 })
                 .as_ref(),
-            req.uri().authority().map(|a| a.as_str()),
+            self.uri().authority().map(|a| a.as_str()),
             &Headers::new(&headers),
-        ))
+        );
+        let buffer = TryIntoBody::try_into_body(self.into_body())?;
+        Ok((request, Some(buffer)))
     }
 }
 
+/// A trait for converting from an `IncomingRequest`
 #[async_trait]
-/// TODO
 pub trait TryFromIncomingResponse {
-    /// TODO
+    /// The error if conversion fails
     type Error;
-    /// TODO
+    /// Turn the `IncomingResponse` into the type
     async fn try_from_incoming_response(resp: IncomingResponse) -> Result<Self, Self::Error>
     where
         Self: Sized;
@@ -560,6 +586,18 @@ impl TryFromIncomingResponse for IncomingResponse {
     type Error = std::convert::Infallible;
     async fn try_from_incoming_response(resp: IncomingResponse) -> Result<Self, Self::Error> {
         Ok(resp)
+    }
+}
+
+#[async_trait]
+impl TryFromIncomingResponse for Response {
+    type Error = streams::Error;
+    async fn try_from_incoming_response(resp: IncomingResponse) -> Result<Self, Self::Error> {
+        Ok(Response::builder()
+            .status(resp.status())
+            .headers(resp.headers())
+            .body(resp.into_body().await?)
+            .build())
     }
 }
 

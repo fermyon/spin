@@ -4,7 +4,9 @@ use async_trait::async_trait;
 
 use crate::wit::wasi::io::streams;
 
-use super::{Headers, IncomingRequest, IncomingResponse, OutgoingRequest, OutgoingResponse};
+use super::{
+    Headers, IncomingRequest, IncomingResponse, OutgoingRequest, OutgoingResponse, RequestBuilder,
+};
 
 use super::{responses, NonUtf8BodyError, Request, Response};
 
@@ -525,6 +527,16 @@ impl TryIntoOutgoingRequest for Request {
             &Headers::new(&headers),
         );
         Ok((request, Some(self.into_body())))
+    }
+}
+
+impl TryIntoOutgoingRequest for RequestBuilder {
+    type Error = std::convert::Infallible;
+
+    fn try_into_outgoing_request(
+        mut self,
+    ) -> Result<(OutgoingRequest, Option<Vec<u8>>), Self::Error> {
+        self.build().try_into_outgoing_request()
     }
 }
 

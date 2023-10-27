@@ -44,7 +44,7 @@ GENERATED_OUTBOUND_HTTP  = http/wasi-outbound-http.c http/wasi-outbound-http.h
 GENERATED_SPIN_HTTP      = http/spin-http.c http/spin-http.h
 GENERATED_OUTBOUND_REDIS = redis/outbound-redis.c redis/outbound-redis.h
 GENERATED_SPIN_REDIS     = redis/spin-redis.c redis/spin-redis.h
-GENERATED_KEY_VALUE      = key_value/key-value.c key_value/key-value.h
+GENERATED_KEY_VALUE      = kv/key-value.c kv/key-value.h
 GENERATED_SQLITE         = sqlite/sqlite.c sqlite/sqlite.h
 GENERATED_LLM            = llm/llm.c llm/llm.h
 GENERATED_OUTBOUND_MYSQL = mysql/outbound-mysql.c mysql/outbound-mysql.h 
@@ -54,7 +54,7 @@ SDK_VERSION_SOURCE_FILE  = sdk_version/sdk-version-go-template.c
 
 # NOTE: Please update this list if you add a new directory to the SDK:
 SDK_VERSION_DEST_FILES   = config/sdk-version-go.c http/sdk-version-go.c \
-			   key_value/sdk-version-go.c redis/sdk-version-go.c \
+			   kv/sdk-version-go.c redis/sdk-version-go.c \
 				 sqlite/sdk-version-go.c llm/sdk-version-go.c
 
 # NOTE: To generate the C bindings you need to install a forked version of wit-bindgen.
@@ -90,7 +90,7 @@ $(GENERATED_SPIN_REDIS):
 	wit-bindgen c --export ../../wit/ephemeral/spin-redis.wit --out-dir ./redis
 
 $(GENERATED_KEY_VALUE):
-	wit-bindgen c --import ../../wit/ephemeral/key-value.wit --out-dir ./key_value
+	wit-bindgen c --import ../../wit/ephemeral/key-value.wit --out-dir ./kv
 
 $(GENERATED_SQLITE):
 	wit-bindgen c --import ../../wit/ephemeral/sqlite.wit --out-dir ./sqlite

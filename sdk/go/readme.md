@@ -7,7 +7,7 @@ executor.
 ```go
 import (
 	"fmt"
-	spinhttp "github.com/fermyon/spin/sdk/go/http"
+	spinhttp "github.com/fermyon/spin/sdk/go/v2/http"
 )
 
 func init() {

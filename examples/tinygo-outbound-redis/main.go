@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strconv"
 
-	spin_http "github.com/fermyon/spin/sdk/go/http"
-	"github.com/fermyon/spin/sdk/go/redis"
+	spin_http "github.com/fermyon/spin/sdk/go/v2/http"
+	"github.com/fermyon/spin/sdk/go/v2/redis"
 )
 
 func init() {

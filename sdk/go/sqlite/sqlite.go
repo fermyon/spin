@@ -6,6 +6,8 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+
+	spindb "github.com/fermyon/spin/sdk/go/internal/db"
 )
 
 // Open returns a new connection to the database.
@@ -135,6 +137,7 @@ type stmt struct {
 }
 
 var _ driver.Stmt = (*stmt)(nil)
+var _ driver.ColumnConverter = (*stmt)(nil)
 
 // Close closes the statement.
 func (s *stmt) Close() error {
@@ -165,6 +168,11 @@ func (s *stmt) Exec(args []driver.Value) (driver.Result, error) {
 	}
 	_, err := s.c.execute(s.query, params)
 	return &result{}, err
+}
+
+// ColumnConverter returns GlobalParameterConverter to prevent using driver.DefaultParameterConverter.
+func (s *stmt) ColumnConverter(_ int) driver.ValueConverter {
+	return spindb.GlobalParameterConverter
 }
 
 type result struct{}

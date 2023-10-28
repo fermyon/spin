@@ -5,7 +5,6 @@ use crate::wit::wasi::http::types::{
 use crate::wit::wasi::io;
 use crate::wit::wasi::io::streams::{InputStream, OutputStream, StreamError};
 
-use anyhow::{anyhow, Error, Result};
 use futures::{future, sink, stream, Sink, Stream};
 
 use std::cell::RefCell;
@@ -67,7 +66,7 @@ pub fn run<T>(future: impl Future<Output = T>) -> T {
     }
 }
 
-pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = Error> {
+pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = types::Error> {
     struct Outgoing(Option<(OutputStream, OutgoingBody)>);
 
     impl Drop for Outgoing {
@@ -119,11 +118,19 @@ pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = Er
                                         Ok(()) => {
                                             offset += count;
                                         }
-                                        Err(_) => break Poll::Ready(Err(anyhow!("I/O error"))),
+                                        Err(e) => {
+                                            break Poll::Ready(Err(types::Error::ProtocolError(
+                                                format!("I/O error: {e}"),
+                                            )))
+                                        }
                                     }
                                 }
                             }
-                            Err(_) => break Poll::Ready(Err(anyhow!("I/O error"))),
+                            Err(e) => {
+                                break Poll::Ready(Err(types::Error::ProtocolError(format!(
+                                    "I/O error: {e}"
+                                ))))
+                            }
                         }
                     }
                 }
@@ -136,9 +143,8 @@ pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = Er
 pub(crate) fn outgoing_request_send(
     request: OutgoingRequest,
 ) -> impl Future<Output = Result<IncomingResponse, types::Error>> {
+    let response = outgoing_handler::handle(request, None);
     future::poll_fn({
-        let response = outgoing_handler::handle(request, None);
-
         move |context| match &response {
             Ok(response) => {
                 if let Some(response) = response.get() {
@@ -157,7 +163,9 @@ pub(crate) fn outgoing_request_send(
 }
 
 #[doc(hidden)]
-pub fn incoming_body(body: IncomingBody) -> impl Stream<Item = Result<Vec<u8>>> {
+pub fn incoming_body(
+    body: IncomingBody,
+) -> impl Stream<Item = Result<Vec<u8>, io::streams::Error>> {
     struct Incoming(Option<(InputStream, IncomingBody)>);
 
     impl Drop for Incoming {
@@ -188,9 +196,7 @@ pub fn incoming_body(body: IncomingBody) -> impl Stream<Item = Result<Vec<u8>>> 
                         }
                     }
                     Err(StreamError::Closed) => Poll::Ready(None),
-                    Err(StreamError::LastOperationFailed(error)) => Poll::Ready(Some(Err(
-                        anyhow!("Last operation failed: {}", error.to_debug_string()),
-                    ))),
+                    Err(StreamError::LastOperationFailed(error)) => Poll::Ready(Some(Err(error))),
                 }
             } else {
                 Poll::Ready(None)

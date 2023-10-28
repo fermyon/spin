@@ -5,15 +5,16 @@ use std::collections::HashMap;
 
 #[doc(inline)]
 pub use conversions::IntoResponse;
-
-use self::conversions::TryFromIncomingResponse;
-
-use super::wit::wasi::http::types;
 #[doc(inline)]
 pub use types::{
     Error, Fields, Headers, IncomingRequest, IncomingResponse, Method, OutgoingBody,
     OutgoingRequest, OutgoingResponse, Scheme, StatusCode, Trailers,
 };
+
+use self::conversions::{TryFromIncomingResponse, TryIntoOutgoingRequest};
+use super::wit::wasi::http::types;
+use crate::wit::wasi::io::streams;
+use futures::SinkExt;
 
 /// A unified request object that can represent both incoming and outgoing requests.
 ///
@@ -106,6 +107,34 @@ impl Request {
                 .ok(),
             uri,
         )
+    }
+
+    /// Whether the request is an HTTPS request
+    fn is_https(&self) -> bool {
+        self.uri
+            .0
+            .as_ref()
+            .and_then(|u| u.scheme())
+            .map(|s| s == &hyperium::uri::Scheme::HTTPS)
+            .unwrap_or(true)
+    }
+
+    /// The URI's authority
+    fn authority(&self) -> Option<&str> {
+        self.uri
+            .0
+            .as_ref()
+            .and_then(|u| u.authority())
+            .map(|a| a.as_str())
+    }
+
+    /// The request path and query combined
+    pub fn path_and_query(&self) -> Option<&str> {
+        self.uri
+            .0
+            .as_ref()
+            .and_then(|u| u.path_and_query())
+            .map(|s| s.as_str())
     }
 }
 
@@ -410,12 +439,12 @@ impl IncomingRequest {
     /// # Panics
     ///
     /// Panics if the body was already consumed.
-    pub fn into_body_stream(self) -> impl futures::Stream<Item = anyhow::Result<Vec<u8>>> {
+    pub fn into_body_stream(self) -> impl futures::Stream<Item = Result<Vec<u8>, streams::Error>> {
         executor::incoming_body(self.consume().expect("request body was already consumed"))
     }
 
     /// Return a `Vec<u8>` of the body or fails
-    pub async fn into_body(self) -> anyhow::Result<Vec<u8>> {
+    pub async fn into_body(self) -> Result<Vec<u8>, streams::Error> {
         use futures::TryStreamExt;
         let mut stream = self.into_body_stream();
         let mut body = Vec::new();
@@ -432,12 +461,12 @@ impl IncomingResponse {
     /// # Panics
     ///
     /// Panics if the body was already consumed.
-    pub fn into_body_stream(self) -> impl futures::Stream<Item = anyhow::Result<Vec<u8>>> {
+    pub fn into_body_stream(self) -> impl futures::Stream<Item = Result<Vec<u8>, streams::Error>> {
         executor::incoming_body(self.consume().expect("response body was already consumed"))
     }
 
     /// Return a `Vec<u8>` of the body or fails
-    pub async fn into_body(self) -> anyhow::Result<Vec<u8>> {
+    pub async fn into_body(self) -> Result<Vec<u8>, streams::Error> {
         use futures::TryStreamExt;
         let mut stream = self.into_body_stream();
         let mut body = Vec::new();
@@ -454,8 +483,19 @@ impl OutgoingResponse {
     /// # Panics
     ///
     /// Panics if the body was already taken.
-    pub fn take_body(&self) -> impl futures::Sink<Vec<u8>, Error = anyhow::Error> {
+    pub fn take_body(&self) -> impl futures::Sink<Vec<u8>, Error = Error> {
         executor::outgoing_body(self.write().expect("response body was already taken"))
+    }
+}
+
+impl OutgoingRequest {
+    /// Construct a `Sink` which writes chunks to the body of the specified response.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the body was already taken.
+    pub fn take_body(&self) -> impl futures::Sink<Vec<u8>, Error = Error> {
+        executor::outgoing_body(self.write().expect("request body was already taken"))
     }
 }
 
@@ -482,8 +522,7 @@ impl ResponseOutparam {
         self,
         response: OutgoingResponse,
         buffer: Vec<u8>,
-    ) -> anyhow::Result<()> {
-        use futures::SinkExt;
+    ) -> Result<(), Error> {
         let mut body = response.take_body();
         self.set(response);
         body.send(buffer).await
@@ -496,20 +535,35 @@ impl ResponseOutparam {
 }
 
 /// Send an outgoing request
+///
+/// If `request`` is an `OutgoingRequest` and you are streaming the body to the
+/// outgoing request body sink, you need to ensure it is dropped before awaiting this function.
 pub async fn send<I, O>(request: I) -> Result<O, SendError>
 where
-    I: TryInto<OutgoingRequest>,
+    I: TryIntoOutgoingRequest,
     I::Error: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
     O: TryFromIncomingResponse,
     O::Error: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
 {
-    let response = executor::outgoing_request_send(
-        request
-            .try_into()
-            .map_err(|e| SendError::RequestConversion(e.into()))?,
-    )
-    .await
+    let (request, body_buffer) = I::try_into_outgoing_request(request)
+        .map_err(|e| SendError::RequestConversion(e.into()))?;
+    let response = if let Some(body_buffer) = body_buffer {
+        // It is part of the contract of the trait that implementors of `TryIntoOutgoingRequest`
+        // do not call `OutgoingRequest::write`` if they return a buffered body.
+        let mut body_sink = request.take_body();
+        let response = executor::outgoing_request_send(request);
+        body_sink
+            .send(body_buffer)
+            .await
+            .map_err(|e| SendError::Http(Error::UnexpectedError(e.to_string())))?;
+        // The body sink needs to be dropped before we await the response, otherwise we deadlock
+        drop(body_sink);
+        response.await
+    } else {
+        executor::outgoing_request_send(request).await
+    }
     .map_err(SendError::Http)?;
+
     TryFromIncomingResponse::try_from_incoming_response(response)
         .await
         .map_err(|e: O::Error| SendError::ResponseConversion(e.into()))
@@ -613,6 +667,14 @@ pub mod responses {
         Response::new(400, msg.map(|m| m.into_bytes()))
     }
 }
+
+impl std::fmt::Display for streams::Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.to_debug_string())
+    }
+}
+
+impl std::error::Error for streams::Error {}
 
 #[cfg(test)]
 mod tests {

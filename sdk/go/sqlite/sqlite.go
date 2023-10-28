@@ -6,10 +6,9 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
-)
 
-// globalValueConv a valueConv instance
-var globalValueConv = &valueConv{}
+	spindb "github.com/fermyon/spin/sdk/go/internal/db"
+)
 
 // Open returns a new connection to the database.
 func Open(name string) *sql.DB {
@@ -171,16 +170,9 @@ func (s *stmt) Exec(args []driver.Value) (driver.Result, error) {
 	return &result{}, err
 }
 
-// ColumnConverter return globalValueConv to don't use driver.DefaultParameterConverter
+// ColumnConverter returns globalValueConverter to prevent using driver.DefaultParameterConverter.
 func (s *stmt) ColumnConverter(_ int) driver.ValueConverter {
-	return globalValueConv
-}
-
-// valueConv a convertor not convert value
-type valueConv struct{}
-
-func (c *valueConv) ConvertValue(v any) (driver.Value, error) {
-	return driver.Value(v), nil
+	return spindb.GlobalValueConverter
 }
 
 type result struct{}

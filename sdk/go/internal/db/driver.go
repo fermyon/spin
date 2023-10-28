@@ -4,7 +4,7 @@ import (
 	"database/sql/driver"
 )
 
-// globalValueConverter is a valueConverter instance.
+// GlobalValueConverter is a valueConverter instance.
 var GlobalValueConverter = &valueConverter{}
 
 // valueConverter is a no-op value converter.

@@ -95,9 +95,9 @@ func (s *stmt) Exec(args []driver.Value) (driver.Result, error) {
 	return &result{rowsAffected: int64(n)}, err
 }
 
-// ColumnConverter returns globalValueConverter to prevent using driver.DefaultParameterConverter.
+// ColumnConverter returns GlobalParameterConverter to prevent using driver.DefaultParameterConverter.
 func (s *stmt) ColumnConverter(_ int) driver.ValueConverter {
-	return spindb.GlobalValueConverter
+	return spindb.GlobalParameterConverter
 }
 
 type result struct {

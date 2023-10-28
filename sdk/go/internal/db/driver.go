@@ -4,8 +4,10 @@ import (
 	"database/sql/driver"
 )
 
-// GlobalValueConverter is a valueConverter instance.
-var GlobalValueConverter = &valueConverter{}
+// GlobalParameterConverter is a global valueConverter instance to convert parameters.
+var GlobalParameterConverter = &valueConverter{}
+
+var _ driver.ValueConverter = (*valueConverter)(nil)
 
 // valueConverter is a no-op value converter.
 type valueConverter struct{}

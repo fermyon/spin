@@ -461,14 +461,24 @@ impl IncomingResponse {
     /// # Panics
     ///
     /// Panics if the body was already consumed.
-    pub fn into_body_stream(self) -> impl futures::Stream<Item = Result<Vec<u8>, streams::Error>> {
+    // TODO: This should ideally take ownership of `self` and be called `into_body_stream` (i.e. symmetric with
+    // `IncomingRequest::into_body_stream`).  However, as of this writing, `wasmtime-wasi-http` is implemented in
+    // such a way that dropping an `IncomingResponse` will cause the request to be cancelled, meaning the caller
+    // won't necessarily have a chance to send the request body if they haven't started doing so yet (or, if they
+    // have started, they might not be able to finish before the connection is closed).  See
+    // https://github.com/bytecodealliance/wasmtime/issues/7413 for details.
+    pub fn take_body_stream(&self) -> impl futures::Stream<Item = Result<Vec<u8>, streams::Error>> {
         executor::incoming_body(self.consume().expect("response body was already consumed"))
     }
 
     /// Return a `Vec<u8>` of the body or fails
+    ///
+    /// # Panics
+    ///
+    /// Panics if the body was already consumed.
     pub async fn into_body(self) -> Result<Vec<u8>, streams::Error> {
         use futures::TryStreamExt;
-        let mut stream = self.into_body_stream();
+        let mut stream = self.take_body_stream();
         let mut body = Vec::new();
         while let Some(chunk) = stream.try_next().await? {
             body.extend(chunk);

@@ -545,9 +545,6 @@ impl ResponseOutparam {
 }
 
 /// Send an outgoing request
-///
-/// If `request`` is an `OutgoingRequest` and you are streaming the body to the
-/// outgoing request body sink, you need to ensure it is dropped before awaiting this function.
 pub async fn send<I, O>(request: I) -> Result<O, SendError>
 where
     I: TryIntoOutgoingRequest,

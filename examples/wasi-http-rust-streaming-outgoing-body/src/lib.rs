@@ -162,7 +162,13 @@ async fn double_echo(
 
     let mut body = outgoing_request.take_body();
 
-    let response = http::send::<_, IncomingResponse>(outgoing_request);
+    let response = http::send::<_, IncomingResponse>(outgoing_request).await?;
+
+    let status = response.status();
+
+    if !(200..300).contains(&status) {
+        bail!("unexpected status: {status}");
+    }
 
     let mut stream = incoming_request.into_body_stream();
 
@@ -172,14 +178,6 @@ async fn double_echo(
         }
         Ok::<_, anyhow::Error>(())
     };
-
-    let response = response.await?;
-
-    let status = response.status();
-
-    if !(200..300).contains(&status) {
-        bail!("unexpected status: {status}");
-    }
 
     Ok((copy, response))
 }

@@ -558,18 +558,19 @@ where
         // It is part of the contract of the trait that implementors of `TryIntoOutgoingRequest`
         // do not call `OutgoingRequest::write`` if they return a buffered body.
         let mut body_sink = request.take_body();
-        let response = executor::outgoing_request_send(request);
+        let response = executor::outgoing_request_send(request)
+            .await
+            .map_err(SendError::Http)?;
         body_sink
             .send(body_buffer)
             .await
             .map_err(|e| SendError::Http(Error::UnexpectedError(e.to_string())))?;
-        // The body sink needs to be dropped before we await the response, otherwise we deadlock
-        drop(body_sink);
-        response.await
+        response
     } else {
-        executor::outgoing_request_send(request).await
-    }
-    .map_err(SendError::Http)?;
+        executor::outgoing_request_send(request)
+            .await
+            .map_err(SendError::Http)?
+    };
 
     TryFromIncomingResponse::try_from_incoming_response(response)
         .await

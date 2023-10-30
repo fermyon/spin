@@ -1,5 +1,5 @@
 module github.com/{{project-name | snake_case}}
 
-go 1.17
+go 1.20
 
-require github.com/fermyon/spin/sdk/go main
+require github.com/fermyon/spin/sdk/go/v2 main

@@ -41,7 +41,7 @@ pub fn check_address(
 
 /// An address is a url-like string that contains a host, a port, and an optional scheme
 #[derive(Debug)]
-struct Address {
+pub struct Address {
     inner: Url,
     original: String,
     has_scheme: bool,
@@ -129,7 +129,7 @@ fn well_known_port(scheme: &str) -> Option<u16> {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum AllowedHosts {
     All,
     SpecificHosts(Vec<AllowedHost>),
@@ -137,10 +137,9 @@ pub enum AllowedHosts {
 
 impl AllowedHosts {
     pub fn parse<S: AsRef<str>>(hosts: &[S]) -> anyhow::Result<AllowedHosts> {
-        // TODO: do we support this?
-        // if hosts.len() == 1 && hosts[0].as_ref() == "insecure:allow-all" {
-        //     return Ok(Self::All);
-        // }
+        if hosts.len() == 1 && hosts[0].as_ref() == "insecure:allow-all" {
+            return Ok(Self::All);
+        }
         let mut allowed = Vec::with_capacity(hosts.len());
         for host in hosts {
             allowed.push(AllowedHost::parse(host)?)
@@ -148,10 +147,18 @@ impl AllowedHosts {
         Ok(Self::SpecificHosts(allowed))
     }
 
-    fn allows(&self, address: &Address) -> bool {
+    /// Determine if the supplied address is allowed
+    pub fn allows(&self, address: &Address) -> bool {
         match self {
             AllowedHosts::All => true,
             AllowedHosts::SpecificHosts(hosts) => hosts.iter().any(|h| h.allows(address)),
+        }
+    }
+
+    pub fn allows_relative_url(&self) -> bool {
+        match self {
+            AllowedHosts::All => true,
+            AllowedHosts::SpecificHosts(hosts) => hosts.iter().any(|h| h.allows_relative()),
         }
     }
 }
@@ -162,14 +169,41 @@ impl Default for AllowedHosts {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
-pub struct AllowedHost {
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum AllowedHost {
+    SelfHost,
+    Host(Host),
+}
+
+impl AllowedHost {
+    fn parse<U: AsRef<str>>(url: U) -> anyhow::Result<Self> {
+        let url = url.as_ref().trim();
+        if url == "self" {
+            return Ok(Self::SelfHost);
+        }
+        Ok(Self::Host(Host::parse(url)?))
+    }
+
+    fn allows(&self, address: &Address) -> bool {
+        match self {
+            AllowedHost::SelfHost => false,
+            AllowedHost::Host(h) => h.allows(address),
+        }
+    }
+
+    pub fn allows_relative(&self) -> bool {
+        matches!(self, Self::SelfHost)
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct Host {
     scheme: Option<String>,
     host: String,
     port: u16,
 }
 
-impl AllowedHost {
+impl Host {
     fn parse<U: AsRef<str>>(url: U) -> anyhow::Result<Self> {
         let address = Address::parse(url.as_ref(), None)?;
         address.validate_as_config()?;
@@ -200,11 +234,11 @@ impl AllowedHost {
 mod test {
     impl AllowedHost {
         fn new(scheme: Option<&str>, host: impl Into<String>, port: u16) -> Self {
-            Self {
+            Self::Host(Host {
                 scheme: scheme.map(Into::into),
                 host: host.into(),
                 port,
-            }
+            })
         }
     }
 
@@ -244,14 +278,10 @@ mod test {
         )
     }
 
-    // #[test]
-    // fn test_allowed_hosts_accepts_self() {
-    // TODO: do we support this?
-    //     assert_eq!(
-    //         AllowedHost::host("self"),
-    //         parse_allowed_http_host("self").unwrap()
-    //     );
-    // }
+    #[test]
+    fn test_allowed_hosts_accepts_self() {
+        assert_eq!(AllowedHost::SelfHost, AllowedHost::parse("self").unwrap());
+    }
 
     #[test]
     fn test_allowed_hosts_accepts_localhost_addresses() {
@@ -292,12 +322,10 @@ mod test {
 
     #[test]
     fn test_allowed_hosts_respects_allow_all() {
-        // TODO: do we support this?
-        // assert_eq!(
-        //     AllowedHosts::All,
-        //     AllowedHosts::parse(&["insecure:allow-all"]).unwrap()
-        // );
-        assert!(AllowedHosts::parse(&["insecure:allow-all"]).is_err());
+        assert_eq!(
+            AllowedHosts::All,
+            AllowedHosts::parse(&["insecure:allow-all"]).unwrap()
+        );
         assert!(AllowedHosts::parse(&["spin.fermyon.dev", "insecure:allow-all"]).is_err());
     }
 

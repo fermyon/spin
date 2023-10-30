@@ -292,8 +292,11 @@ fn set_http_origin_from_request(
                     .get_or_insert(outbound_http_handle);
 
                 outbound_http_data.origin = origin.clone();
-                store.as_mut().data_mut().as_mut().allowed_hosts =
-                    outbound_http_data.allowed_hosts.clone();
+                let allowed_http_hosts = outbound_http_data.allowed_http_hosts.clone();
+                let allowed_hosts = outbound_http_data.allowed_hosts.clone();
+                let data = store.as_mut().data_mut().as_mut();
+                data.allowed_http_hosts = allowed_http_hosts;
+                data.allowed_hosts = allowed_hosts;
             }
             store.as_mut().data_mut().as_mut().origin = Some(origin);
         }

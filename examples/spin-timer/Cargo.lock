@@ -2538,6 +2538,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-locked-app",
+ "spin-outbound-networking",
  "spin-world",
  "terminal",
  "tracing",

@@ -99,8 +99,8 @@ pub struct Component {
     /// `exclude_files = ["secrets/*"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub exclude_files: Vec<String>,
-    /// `allowed_http_hosts = ["example.com"]`
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// Deprecated field only used for v1 schema compat
+    #[serde(skip_deserializing, skip_serializing_if = "Vec::is_empty")]
     pub allowed_http_hosts: Vec<String>,
     /// `allowed_outbound_hosts = ["myredishost.com:6379"]`
     #[serde(default, skip_serializing_if = "is_none_or_empty")]

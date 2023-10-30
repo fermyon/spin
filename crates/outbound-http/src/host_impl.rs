@@ -2,6 +2,7 @@ use anyhow::Result;
 use http::HeaderMap;
 use reqwest::{Client, Url};
 use spin_core::async_trait;
+use spin_outbound_networking::{Address, AllowedHosts};
 use spin_world::v1::{
     http as outbound_http,
     http_types::{Headers, HttpError, Method, Request, Response},
@@ -13,7 +14,9 @@ use crate::allowed_http_hosts::AllowedHttpHosts;
 #[derive(Default, Clone)]
 pub struct OutboundHttp {
     /// List of hosts guest modules are allowed to make requests to.
-    pub allowed_hosts: AllowedHttpHosts,
+    pub allowed_http_hosts: AllowedHttpHosts,
+    /// List of hosts guest modules are allowed to make requests to.
+    pub allowed_hosts: AllowedHosts,
     /// During an incoming HTTP request, origin is set to the host of that incoming HTTP request.
     /// This is used to direct outbound requests to the same host when allowed.
     pub origin: String,
@@ -28,11 +31,19 @@ impl OutboundHttp {
     /// If `None` is passed, the guest module is not allowed to send the request.
     fn is_allowed(&mut self, url: &str) -> Result<bool, HttpError> {
         if url.starts_with('/') {
-            return Ok(self.allowed_hosts.allows_relative_url());
+            return Ok(self.allowed_http_hosts.allows_relative_url()
+                || self.allowed_http_hosts.allows_relative_url());
         }
 
-        let url = Url::parse(url).map_err(|_| HttpError::InvalidUrl)?;
-        Ok(self.allowed_hosts.allows(&url))
+        let parsed = Url::parse(url).map_err(|_| HttpError::InvalidUrl)?;
+        // Try with `allowed_http_hosts` and if it's not allowed there,
+        // try again with `allowed_hosts`
+        Ok(self.allowed_http_hosts.allows(&parsed) || {
+            match Address::parse(url, Some("https")) {
+                Ok(a) => self.allowed_hosts.allows(&a),
+                Err(_) => false,
+            }
+        })
     }
 }
 

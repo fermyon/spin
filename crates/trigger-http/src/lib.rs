@@ -31,6 +31,7 @@ use spin_http::{
     config::{HttpExecutorType, HttpTriggerConfig},
     routes::{RoutePattern, Router},
 };
+use spin_outbound_networking::{Address, AllowedHosts};
 use spin_trigger::{EitherInstancePre, TriggerAppEngine, TriggerExecutor};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
@@ -450,7 +451,11 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
 #[derive(Default)]
 pub struct HttpRuntimeData {
     origin: Option<String>,
-    allowed_hosts: AllowedHttpHosts,
+    /// The allowed hosts from the `allowed_http_hosts` config option.
+    /// This option is deprecated but still respected in v2
+    allowed_http_hosts: AllowedHttpHosts,
+    /// Newer apps should prefer this option which controls *all* outbound networking
+    allowed_hosts: AllowedHosts,
 }
 
 impl OutboundWasiHttpHandler for HttpRuntimeData {
@@ -493,25 +498,39 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
             *request.request.uri_mut() = uri;
         }
 
-        let unallowed_relative = is_relative_url && !this.allowed_hosts.allows_relative_url();
+        let uri = request.request.uri();
+        let uri_string = uri.to_string();
+        let unallowed_relative = is_relative_url
+            && !this.allowed_http_hosts.allows_relative_url()
+            && !this.allowed_hosts.allows_relative_url();
         let unallowed_absolute = !is_relative_url
             && !this
-                .allowed_hosts
-                .allows(&url::Url::parse(&request.request.uri().to_string()).unwrap());
+                .allowed_http_hosts
+                .allows(&url::Url::parse(&uri_string).unwrap())
+            && {
+                println!("Here: {uri_string} {:?}", this.allowed_hosts);
+                !this
+                    .allowed_hosts
+                    .allows(&Address::parse(&uri_string, Some("https"))?)
+            };
         if unallowed_relative || unallowed_absolute {
             tracing::log::error!("Destination not allowed: {}", request.request.uri());
             let host = if unallowed_absolute {
                 // Safe to unwrap because absolute urls have a host by definition.
-                let host = request.request.uri().authority().map(|a| a.host()).unwrap();
+                let host = uri.authority().map(|a| a.host()).unwrap();
+                let port = uri
+                    .scheme()
+                    .and_then(|s| (s == &Scheme::HTTP).then_some(80))
+                    .unwrap_or(443);
                 terminal::warn!(
                     "A component tried to make a HTTP request to non-allowed host '{host}'."
                 );
-                host
+                format!("{host}:{port}")
             } else {
                 terminal::warn!("A component tried to make a HTTP request to the same component but it does not have permission.");
-                "self"
+                "self".into()
             };
-            eprintln!("To allow requests, add 'allowed_http_hosts = [\"{}\"]' to the manifest component section.", host);
+            eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"{}\"]' to the manifest component section.", host);
             anyhow::bail!("destination-not-allowed (error 1)")
         }
 

@@ -35,9 +35,9 @@ The `tinygo-hello` component has the following allowed hosts set:
 ```toml
 [component.tinygo-hello]
 source = "tinygo-hello/main.wasm"
-allowed_http_hosts = [
-    "https://random-data-api.fermyon.app",
-    "https://postman-echo.com",
+allowed_outbound_hosts = [
+    "https://random-data-api.fermyon.app:443",
+    "https://postman-echo.com:443",
 ]
 ```
 
@@ -49,7 +49,7 @@ is `tinygo-hello` at `/hello`):
 [component.outbound-http-to-same-app]
 source = "outbound-http-to-same-app/main.wasm"
 # Use self to make outbound requests to components in the same Spin application.
-allowed_http_hosts = ["self"]
+allowed_outbound_hosts = ["self"]
 ```
 
 At this point, we can execute the application with the `spin` CLI:

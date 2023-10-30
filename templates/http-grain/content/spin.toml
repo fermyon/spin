@@ -13,7 +13,7 @@ executor = { type = "wagi" }
 
 [component.{{project-name | kebab_case}}]
 source = "main.wasm"
-allowed_http_hosts = []
+allowed_outbound_hosts = []
 [component.{{project-name | kebab_case}}.build]
 command = "grain compile --release -o main.wasm main.gr"
 watch = ["**/*.gr"]

@@ -8,7 +8,7 @@ import (
 	"io"
 	"reflect"
 
-	spindb "github.com/fermyon/spin/sdk/go/internal/db"
+	spindb "github.com/fermyon/spin/sdk/go/v2/internal/db"
 )
 
 // Open returns a new connection to the database.

@@ -46,7 +46,7 @@ func startSpin(t *testing.T, spinfile string) *testSpin {
 
 	url := getFreePort(t)
 
-	cmd := exec.CommandContext(ctx, spinBinary, "build", "--up", "--file", spinfile, "--listen", url)
+	cmd := exec.CommandContext(ctx, spinBinary, "up", "--build", "--file", spinfile, "--listen", url)
 	stderr := new(bytes.Buffer)
 	cmd.Stderr = stderr
 	if err := cmd.Start(); err != nil {

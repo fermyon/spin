@@ -31,7 +31,7 @@ impl FromRedisValue for RedisResults {
 }
 
 pub struct OutboundRedis {
-    allowed_hosts: Option<spin_outbound_networking::AllowedHosts>,
+    allowed_hosts: Option<spin_outbound_networking::AllowedHostsConfig>,
     connections: table::Table<Connection>,
 }
 
@@ -46,7 +46,7 @@ impl Default for OutboundRedis {
 
 impl OutboundRedis {
     fn is_address_allowed(&self, address: &str, default: bool) -> bool {
-        spin_outbound_networking::check_address(address, "redis", &self.allowed_hosts, default)
+        spin_outbound_networking::check_url(address, "redis", &self.allowed_hosts, default)
     }
 
     async fn establish_connection(

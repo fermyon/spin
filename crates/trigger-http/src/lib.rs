@@ -22,7 +22,6 @@ use hyper::{
     service::service_fn,
     Request, Response,
 };
-use outbound_http::allowed_http_hosts::AllowedHttpHosts;
 use spin_app::{AppComponent, APP_DESCRIPTION_KEY};
 use spin_core::{Engine, OutboundWasiHttpHandler};
 use spin_http::{
@@ -31,7 +30,7 @@ use spin_http::{
     config::{HttpExecutorType, HttpTriggerConfig},
     routes::{RoutePattern, Router},
 };
-use spin_outbound_networking::{Address, AllowedHosts};
+use spin_outbound_networking::{AllowedHostsConfig, Url};
 use spin_trigger::{EitherInstancePre, TriggerAppEngine, TriggerExecutor};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
@@ -451,11 +450,8 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
 #[derive(Default)]
 pub struct HttpRuntimeData {
     origin: Option<String>,
-    /// The allowed hosts from the `allowed_http_hosts` config option.
-    /// This option is deprecated but still respected in v2
-    allowed_http_hosts: AllowedHttpHosts,
-    /// Newer apps should prefer this option which controls *all* outbound networking
-    allowed_hosts: AllowedHosts,
+    /// The hosts this app is allowed to make outbound requests to
+    allowed_hosts: AllowedHostsConfig,
 }
 
 impl OutboundWasiHttpHandler for HttpRuntimeData {
@@ -500,19 +496,9 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
 
         let uri = request.request.uri();
         let uri_string = uri.to_string();
-        let unallowed_relative = is_relative_url
-            && !this.allowed_http_hosts.allows_relative_url()
-            && !this.allowed_hosts.allows_relative_url();
-        let unallowed_absolute = !is_relative_url
-            && !this
-                .allowed_http_hosts
-                .allows(&url::Url::parse(&uri_string).unwrap())
-            && {
-                println!("Here: {uri_string} {:?}", this.allowed_hosts);
-                !this
-                    .allowed_hosts
-                    .allows(&Address::parse(&uri_string, Some("https"))?)
-            };
+        let unallowed_relative = is_relative_url && !this.allowed_hosts.allows_relative_url();
+        let unallowed_absolute =
+            !is_relative_url && !this.allowed_hosts.allows(&Url::parse(uri_string, "https")?);
         if unallowed_relative || unallowed_absolute {
             tracing::log::error!("Destination not allowed: {}", request.request.uri());
             let host = if unallowed_absolute {
@@ -525,7 +511,7 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
                 terminal::warn!(
                     "A component tried to make a HTTP request to non-allowed host '{host}'."
                 );
-                format!("{host}:{port}")
+                format!("https://{host}:{port}")
             } else {
                 terminal::warn!("A component tried to make a HTTP request to the same component but it does not have permission.");
                 "self".into()

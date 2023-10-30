@@ -11,9 +11,10 @@ serde = { version = "1.0", features = ["derive"] }
 spin-serde = { path = "../serde" }
 thiserror = "1"
 toml = { version = "0.8.0", features = ["preserve_order"] }
+url = "2.4.1"
 
 [dev-dependencies]
-anyhow  = "1.0.75"
+anyhow = "1.0.75"
 glob = "0.3.1"
 serde_json = "1.0"
 ui-testing = { path = "../ui-testing" }

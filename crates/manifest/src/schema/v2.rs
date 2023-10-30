@@ -99,12 +99,9 @@ pub struct Component {
     /// `exclude_files = ["secrets/*"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub exclude_files: Vec<String>,
-    /// Deprecated field only used for v1 schema compat
-    #[serde(skip_deserializing, skip_serializing_if = "Vec::is_empty")]
-    pub allowed_http_hosts: Vec<String>,
-    /// `allowed_outbound_hosts = ["myredishost.com:6379"]`
-    #[serde(default, skip_serializing_if = "is_none_or_empty")]
-    pub allowed_outbound_hosts: Option<Vec<String>>,
+    /// `allowed_outbound_hosts = ["redis://myredishost.com:6379"]`
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_outbound_hosts: Vec<String>,
     /// `key_value_stores = ["default"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub key_value_stores: Vec<SnakeId>,
@@ -117,11 +114,6 @@ pub struct Component {
     /// Build configuration
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<ComponentBuildConfig>,
-}
-
-/// Used to skip serializing if the value is either `None` or `Some(v)` where `v` is empty
-fn is_none_or_empty<T>(value: &Option<Vec<T>>) -> bool {
-    value.as_ref().map(|s| s.is_empty()).unwrap_or(true)
 }
 
 mod one_or_many {

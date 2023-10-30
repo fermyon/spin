@@ -25,11 +25,12 @@
     {
       "id": "hello",
       "metadata": {
-        "allowed_http_hosts": [
-          "insecure:allow-all",
-          "random-data-api.fermyon.app"
-        ],
-        "allowed_outbound_hosts": null
+        "allowed_outbound_hosts": [
+          "redis://*:*",
+          "mysql://*:*",
+          "postgres://*:*",
+          "https://*:*"
+        ]
       },
       "source": {
         "content_type": "application/wasm",

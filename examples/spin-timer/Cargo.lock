@@ -3787,6 +3787,7 @@ dependencies = [
  "spin-serde",
  "thiserror",
  "toml 0.8.2",
+ "url",
 ]
 
 [[package]]

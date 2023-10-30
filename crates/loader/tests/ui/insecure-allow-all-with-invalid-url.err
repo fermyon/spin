@@ -1,0 +1,6 @@
+Failed to load Spin app from "<test-dir>/insecure-allow-all-with-invalid-url.toml"
+
+Caused by:
+    0: Failed to load component `hello`
+    1: `allowed_outbound_hosts` is malformed
+    2: scheme lists are not yet supported

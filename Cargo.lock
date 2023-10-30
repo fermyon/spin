@@ -5949,6 +5949,7 @@ dependencies = [
  "thiserror",
  "toml 0.8.2",
  "ui-testing",
+ "url",
 ]
 
 [[package]]

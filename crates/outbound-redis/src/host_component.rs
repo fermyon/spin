@@ -31,7 +31,7 @@ impl DynamicHostComponent for OutboundRedisComponent {
             .get_metadata(spin_outbound_networking::ALLOWED_HOSTS_KEY)?
             .unwrap_or_default();
         data.allowed_hosts = hosts
-            .map(|h| spin_outbound_networking::AllowedHosts::parse(&h[..]))
+            .map(|h| spin_outbound_networking::AllowedHostsConfig::parse(&h[..]))
             .transpose()
             .context("`allowed_outbound_hosts` contained an invalid url")?;
         Ok(())

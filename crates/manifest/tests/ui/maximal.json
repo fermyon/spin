@@ -60,7 +60,7 @@
         "**/secret"
       ],
       "allowed_outbound_hosts": [
-        "example.com:443"
+        "https://example.com:443"
       ],
       "key_value_stores": [
         "default"

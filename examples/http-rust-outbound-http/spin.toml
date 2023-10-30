@@ -24,14 +24,14 @@ component = "hello-component"
 
 [component.outbound-http]
 source = "outbound-http/target/wasm32-wasi/release/http_rust_outbound_http.wasm"
-allowed_outbound_hosts = ["random-data-api.fermyon.app:443"]
+allowed_outbound_hosts = ["https://random-data-api.fermyon.app:443"]
 [component.outbound-http.build]
 workdir = "outbound-http"
 command = "cargo build --target wasm32-wasi --release"
 
 [component.outbound-http-wildcard]
 source = "outbound-http/target/wasm32-wasi/release/http_rust_outbound_http.wasm"
-allowed_outbound_hosts = ["insecure:allow-all"]
+allowed_outbound_hosts = ["https://*:*"]
 [component.outbound-http-wildcard.build]
 workdir = "outbound-http"
 command = "cargo build --target wasm32-wasi --release"

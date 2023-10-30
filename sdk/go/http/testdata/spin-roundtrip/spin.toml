@@ -8,7 +8,7 @@ version = "1.0.0"
 [[component]]
 id = "http-roundtrip-test"
 source = "main.wasm"
-allowed_outbound_hosts = ["example.com:443"]
+allowed_outbound_hosts = ["https://example.com:443"]
 [component.trigger]
 route = "/hello/..."
 [component.build]

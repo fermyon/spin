@@ -1,22 +1,18 @@
 use anyhow::Result;
 use http::HeaderMap;
-use reqwest::{Client, Url};
+use reqwest::Client;
 use spin_core::async_trait;
-use spin_outbound_networking::{Address, AllowedHosts};
+use spin_outbound_networking::{AllowedHostsConfig, Url};
 use spin_world::v1::{
     http as outbound_http,
     http_types::{Headers, HttpError, Method, Request, Response},
 };
 
-use crate::allowed_http_hosts::AllowedHttpHosts;
-
 /// A very simple implementation for outbound HTTP requests.
 #[derive(Default, Clone)]
 pub struct OutboundHttp {
     /// List of hosts guest modules are allowed to make requests to.
-    pub allowed_http_hosts: AllowedHttpHosts,
-    /// List of hosts guest modules are allowed to make requests to.
-    pub allowed_hosts: AllowedHosts,
+    pub allowed_hosts: AllowedHostsConfig,
     /// During an incoming HTTP request, origin is set to the host of that incoming HTTP request.
     /// This is used to direct outbound requests to the same host when allowed.
     pub origin: String,
@@ -31,18 +27,12 @@ impl OutboundHttp {
     /// If `None` is passed, the guest module is not allowed to send the request.
     fn is_allowed(&mut self, url: &str) -> Result<bool, HttpError> {
         if url.starts_with('/') {
-            return Ok(self.allowed_http_hosts.allows_relative_url()
-                || self.allowed_http_hosts.allows_relative_url());
+            return Ok(self.allowed_hosts.allows_relative_url());
         }
 
-        let parsed = Url::parse(url).map_err(|_| HttpError::InvalidUrl)?;
-        // Try with `allowed_http_hosts` and if it's not allowed there,
-        // try again with `allowed_hosts`
-        Ok(self.allowed_http_hosts.allows(&parsed) || {
-            match Address::parse(url, Some("https")) {
-                Ok(a) => self.allowed_hosts.allows(&a),
-                Err(_) => false,
-            }
+        Ok(match Url::parse(url, "https") {
+            Ok(a) => self.allowed_hosts.allows(&a),
+            Err(_) => false,
         })
     }
 }
@@ -72,7 +62,7 @@ impl outbound_http::Host for OutboundHttp {
                 req.uri.clone()
             };
 
-            let req_url = Url::parse(&abs_url).map_err(|_| HttpError::InvalidUrl)?;
+            let req_url = reqwest::Url::parse(&abs_url).map_err(|_| HttpError::InvalidUrl)?;
 
             let headers = request_headers(req.headers).map_err(|_| HttpError::RuntimeError)?;
             let body = req.body.unwrap_or_default().to_vec();

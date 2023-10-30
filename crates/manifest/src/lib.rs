@@ -2,6 +2,7 @@
 
 #![deny(missing_docs)]
 
+mod allowed_http_hosts;
 pub mod compat;
 pub mod error;
 pub mod normalize;

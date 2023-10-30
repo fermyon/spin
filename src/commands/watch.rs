@@ -7,6 +7,7 @@ use std::{
 use anyhow::{Context, Result};
 use clap::Parser;
 use itertools::Itertools;
+use path_absolutize::Absolutize;
 use spin_common::paths::parent_dir;
 use uuid::Uuid;
 use watchexec::Watchexec;
@@ -93,6 +94,7 @@ impl WatchCommand {
 
         let spin_bin = std::env::current_exe()?;
         let manifest_file = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
+        let manifest_file = manifest_file.absolutize()?.to_path_buf(); // or watchexec misses files in subdirectories
         let manifest_dir = parent_dir(&manifest_file)?;
 
         // Set up the event processors (but don't start them yet).

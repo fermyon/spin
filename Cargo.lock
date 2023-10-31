@@ -1830,7 +1830,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "derive_builder 0.12.0",
- "hyper 0.14.25",
  "hyper-tls",
  "nix 0.26.2",
  "regex",

@@ -1,4 +1,4 @@
-package config
+package variables
 
 // #cgo CFLAGS: -Wno-unused-parameter -Wno-switch-bool
 // #include<spin-config.h>

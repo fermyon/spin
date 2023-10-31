@@ -39,7 +39,7 @@ $(EXAMPLES_DIR)/%/main.wasm: $(EXAMPLES_DIR)/%/main.go
 # ----------------------------------------------------------------------
 # Generate C bindings
 # ----------------------------------------------------------------------
-GENERATED_SPIN_CONFIG    = config/spin-config.c config/spin-config.h
+GENERATED_SPIN_VARIABLES = variables/spin-config.c variables/spin-config.h
 GENERATED_OUTBOUND_HTTP  = http/wasi-outbound-http.c http/wasi-outbound-http.h
 GENERATED_SPIN_HTTP      = http/spin-http.c http/spin-http.h
 GENERATED_OUTBOUND_REDIS = redis/outbound-redis.c redis/outbound-redis.h
@@ -47,13 +47,13 @@ GENERATED_SPIN_REDIS     = redis/spin-redis.c redis/spin-redis.h
 GENERATED_KEY_VALUE      = kv/key-value.c kv/key-value.h
 GENERATED_SQLITE         = sqlite/sqlite.c sqlite/sqlite.h
 GENERATED_LLM            = llm/llm.c llm/llm.h
-GENERATED_OUTBOUND_MYSQL = mysql/outbound-mysql.c mysql/outbound-mysql.h 
-GENERATED_OUTBOUND_PG    = pg/outbound-pg.c pg/outbound-pg.h 
+GENERATED_OUTBOUND_MYSQL = mysql/outbound-mysql.c mysql/outbound-mysql.h
+GENERATED_OUTBOUND_PG    = pg/outbound-pg.c pg/outbound-pg.h
 
 SDK_VERSION_SOURCE_FILE  = sdk_version/sdk-version-go-template.c
 
 # NOTE: Please update this list if you add a new directory to the SDK:
-SDK_VERSION_DEST_FILES   = config/sdk-version-go.c http/sdk-version-go.c \
+SDK_VERSION_DEST_FILES   = variables/sdk-version-go.c http/sdk-version-go.c \
 			   kv/sdk-version-go.c redis/sdk-version-go.c \
 				 sqlite/sdk-version-go.c llm/sdk-version-go.c
 
@@ -64,7 +64,7 @@ SDK_VERSION_DEST_FILES   = config/sdk-version-go.c http/sdk-version-go.c \
 .PHONY: generate
 generate: $(GENERATED_OUTBOUND_HTTP) $(GENERATED_SPIN_HTTP)
 generate: $(GENERATED_OUTBOUND_REDIS) $(GENERATED_SPIN_REDIS)
-generate: $(GENERATED_SPIN_CONFIG) $(GENERATED_KEY_VALUE)
+generate: $(GENERATED_SPIN_VARIABLES) $(GENERATED_KEY_VALUE)
 generate: $(GENERATED_SQLITE) $(GENERATED_LLM)
 generate: $(GENERATED_OUTBOUND_MYSQL) $(GENERATED_OUTBOUND_PG)
 generate: $(SDK_VERSION_DEST_FILES)
@@ -74,8 +74,8 @@ $(SDK_VERSION_DEST_FILES): $(SDK_VERSION_SOURCE_FILE)
 	export commit="$$(git rev-parse HEAD)"; \
 	sed -e "s/{{VERSION}}/$${version}/" -e "s/{{COMMIT}}/$${commit}/" < $< > $@
 
-$(GENERATED_SPIN_CONFIG):
-	wit-bindgen c --import ../../wit/ephemeral/spin-config.wit --out-dir ./config
+$(GENERATED_SPIN_VARIABLES):
+	wit-bindgen c --import ../../wit/ephemeral/spin-config.wit --out-dir ./variables
 
 $(GENERATED_OUTBOUND_HTTP):
 	wit-bindgen c --import ../../wit/ephemeral/wasi-outbound-http.wit --out-dir ./http

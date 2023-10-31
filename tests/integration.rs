@@ -784,6 +784,15 @@ route = "/..."
 
     #[tokio::test]
     async fn test_wasi_http_echo() -> Result<()> {
+        wasi_http_echo("echo", None).await
+    }
+
+    #[tokio::test]
+    async fn test_wasi_http_double_echo() -> Result<()> {
+        wasi_http_echo("double-echo", Some("echo")).await
+    }
+
+    async fn wasi_http_echo(uri: &str, url_header_uri: Option<&str>) -> Result<()> {
         let body = {
             // A sorta-random-ish megabyte
             let mut n = 0_u8;
@@ -802,9 +811,15 @@ route = "/..."
         )
         .await?;
 
-        let response = Client::new()
-            .post(format!("http://{}/echo", controller.url))
-            .header("content-type", "application/octet-stream")
+        let mut request = Client::new()
+            .post(format!("http://{}/{uri}", controller.url))
+            .header("content-type", "application/octet-stream");
+
+        if let Some(url_header_uri) = url_header_uri {
+            request = request.header("url", format!("http://{}/{url_header_uri}", controller.url));
+        }
+
+        let response = request
             .body(reqwest::Body::wrap_stream(stream::iter(
                 body.chunks(16 * 1024)
                     .map(|chunk| Ok::<_, Error>(Bytes::copy_from_slice(chunk)))

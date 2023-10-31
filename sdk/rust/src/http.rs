@@ -490,14 +490,24 @@ impl IncomingResponse {
     /// # Panics
     ///
     /// Panics if the body was already consumed.
-    pub fn into_body_stream(self) -> impl futures::Stream<Item = Result<Vec<u8>, streams::Error>> {
+    // TODO: This should ideally take ownership of `self` and be called `into_body_stream` (i.e. symmetric with
+    // `IncomingRequest::into_body_stream`).  However, as of this writing, `wasmtime-wasi-http` is implemented in
+    // such a way that dropping an `IncomingResponse` will cause the request to be cancelled, meaning the caller
+    // won't necessarily have a chance to send the request body if they haven't started doing so yet (or, if they
+    // have started, they might not be able to finish before the connection is closed).  See
+    // https://github.com/bytecodealliance/wasmtime/issues/7413 for details.
+    pub fn take_body_stream(&self) -> impl futures::Stream<Item = Result<Vec<u8>, streams::Error>> {
         executor::incoming_body(self.consume().expect("response body was already consumed"))
     }
 
     /// Return a `Vec<u8>` of the body or fails
+    ///
+    /// # Panics
+    ///
+    /// Panics if the body was already consumed.
     pub async fn into_body(self) -> Result<Vec<u8>, streams::Error> {
         use futures::TryStreamExt;
-        let mut stream = self.into_body_stream();
+        let mut stream = self.take_body_stream();
         let mut body = Vec::new();
         while let Some(chunk) = stream.try_next().await? {
             body.extend(chunk);
@@ -564,9 +574,6 @@ impl ResponseOutparam {
 }
 
 /// Send an outgoing request
-///
-/// If `request`` is an `OutgoingRequest` and you are streaming the body to the
-/// outgoing request body sink, you need to ensure it is dropped before awaiting this function.
 pub async fn send<I, O>(request: I) -> Result<O, SendError>
 where
     I: TryIntoOutgoingRequest,
@@ -580,18 +587,19 @@ where
         // It is part of the contract of the trait that implementors of `TryIntoOutgoingRequest`
         // do not call `OutgoingRequest::write`` if they return a buffered body.
         let mut body_sink = request.take_body();
-        let response = executor::outgoing_request_send(request);
+        let response = executor::outgoing_request_send(request)
+            .await
+            .map_err(SendError::Http)?;
         body_sink
             .send(body_buffer)
             .await
             .map_err(|e| SendError::Http(Error::UnexpectedError(e.to_string())))?;
-        // The body sink needs to be dropped before we await the response, otherwise we deadlock
-        drop(body_sink);
-        response.await
+        response
     } else {
-        executor::outgoing_request_send(request).await
-    }
-    .map_err(SendError::Http)?;
+        executor::outgoing_request_send(request)
+            .await
+            .map_err(SendError::Http)?
+    };
 
     TryFromIncomingResponse::try_from_incoming_response(response)
         .await

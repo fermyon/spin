@@ -123,11 +123,15 @@ pub(crate) fn convert_allowed_http_to_allowed_hosts(
         AllowedHttpHosts::AllowAll => outbound_hosts.extend(["https://*:*".into()]),
         AllowedHttpHosts::AllowSpecific(specific) => {
             outbound_hosts.extend(specific.into_iter().map(|s| {
-                let port = match s.port {
-                    Some(p) => p.to_string(),
-                    None => "443".to_string(),
-                };
-                format!("https://{}:{}", s.domain, port)
+                if s.domain == "self" {
+                    "http://self".into()
+                } else {
+                    let port = match s.port {
+                        Some(p) => p.to_string(),
+                        None => "443".to_string(),
+                    };
+                    format!("https://{}:{}", s.domain, port)
+                }
             }))
         }
     };

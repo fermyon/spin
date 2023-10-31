@@ -2,7 +2,7 @@ use anyhow::Result;
 use http::HeaderMap;
 use reqwest::Client;
 use spin_core::async_trait;
-use spin_outbound_networking::{AllowedHostsConfig, Url};
+use spin_outbound_networking::{AllowedHostsConfig, OutboundUrl};
 use spin_world::v1::{
     http as outbound_http,
     http_types::{Headers, HttpError, Method, Request, Response},
@@ -27,13 +27,12 @@ impl OutboundHttp {
     /// If `None` is passed, the guest module is not allowed to send the request.
     fn is_allowed(&mut self, url: &str) -> Result<bool, HttpError> {
         if url.starts_with('/') {
-            return Ok(self.allowed_hosts.allows_relative_url());
+            return Ok(self.allowed_hosts.allows_relative_url(&["http", "https"]));
         }
 
-        Ok(match Url::parse(url, "https") {
-            Ok(a) => self.allowed_hosts.allows(&a),
-            Err(_) => false,
-        })
+        Ok(OutboundUrl::parse(url, "https")
+            .map(|u| self.allowed_hosts.allows(&u))
+            .unwrap_or_default())
     }
 }
 

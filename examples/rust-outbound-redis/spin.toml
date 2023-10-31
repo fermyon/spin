@@ -12,6 +12,6 @@ component = "outbound-redis"
 [component.outbound-redis]
 environment = { REDIS_ADDRESS = "redis://127.0.0.1:6379", REDIS_CHANNEL = "messages" }
 source = "target/wasm32-wasi/release/rust_outbound_redis.wasm"
-allowed_outbound_hosts = ["redis://127.0.0.1:6379"]
+allowed_outbound_hosts = ["redis://127.0.0.1"]
 [component.outbound-redis.build]
 command = "cargo build --target wasm32-wasi --release"

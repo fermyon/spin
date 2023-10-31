@@ -128,12 +128,7 @@ impl Component {
         if !normalized.is_empty() {
             terminal::warn!(
                 "Use of the deprecated field `allowed_http_hosts` - to fix, \
-            replace the use of `allowed_http_hosts` with `allowed_outbound_hosts = [{}]`",
-                normalized
-                    .iter()
-                    .map(|s| format!("\"{s}\""))
-                    .collect::<Vec<_>>()
-                    .join(", ")
+            replace the use of `allowed_http_hosts` with `allowed_outbound_hosts = {normalized:?}`",
             )
         }
 

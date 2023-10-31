@@ -30,7 +30,7 @@ use spin_http::{
     config::{HttpExecutorType, HttpTriggerConfig},
     routes::{RoutePattern, Router},
 };
-use spin_outbound_networking::{AllowedHostsConfig, Url};
+use spin_outbound_networking::{AllowedHostsConfig, OutboundUrl};
 use spin_trigger::{EitherInstancePre, TriggerAppEngine, TriggerExecutor};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
@@ -496,9 +496,12 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
 
         let uri = request.request.uri();
         let uri_string = uri.to_string();
-        let unallowed_relative = is_relative_url && !this.allowed_hosts.allows_relative_url();
-        let unallowed_absolute =
-            !is_relative_url && !this.allowed_hosts.allows(&Url::parse(uri_string, "https")?);
+        let unallowed_relative =
+            is_relative_url && !this.allowed_hosts.allows_relative_url(&["http", "https"]);
+        let unallowed_absolute = !is_relative_url
+            && !this
+                .allowed_hosts
+                .allows(&OutboundUrl::parse(uri_string, "https")?);
         if unallowed_relative || unallowed_absolute {
             tracing::log::error!("Destination not allowed: {}", request.request.uri());
             let host = if unallowed_absolute {

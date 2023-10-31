@@ -48,7 +48,7 @@ $ rustup target add wasm32-wasi
 First, run the `spin new` command to create a Spin application from a template.
 ```bash
 # Create a new Spin application named 'hello-rust' based on the Rust http template, accepting all defaults
-$ spin new --accept-defaults http-rust hello-rust
+$ spin new --accept-defaults -t http-rust hello-rust
 ```
 Running the `spin new` command created a `hello-rust` directory with all the necessary files for your application. Change to the `hello-rust` directory and build the application with `spin build`, then run it locally with `spin up`:
 
@@ -98,10 +98,10 @@ The table below summarizes the [feature support](https://developer.fermyon.com/s
 | [Configuration Variables](https://developer.fermyon.com/spin/variables) | Supported | Supported | Supported | Supported | Supported |
 | [Key Value Storage](https://developer.fermyon.com/spin/kv-store-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
 | [Sqlite Storage](https://developer.fermyon.com/spin/sqlite-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
-| [MySQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Not Supported | Not Supported | Not Supported | Not Supported |
-| [PostgreSQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Not Supported | Not Supported | Not Supported | Supported |
+| [MySQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Not Supported | Not Supported | Supported | Not Supported |
+| [PostgreSQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Not Supported | Not Supported | Supported | Supported |
 | [Outbound Redis](https://developer.fermyon.com/spin/rust-components.md#storing-data-in-redis-from-rust-components) | Supported | Supported | Supported | Supported | Supported |
-| [Serverless AI](https://developer.fermyon.com/spin/rust-components#ai-inferencing-from-rust-components) | Supported | Supported | Not Supported | Not Supported | Not Supported |
+| [Serverless AI](https://developer.fermyon.com/spin/rust-components#ai-inferencing-from-rust-components) | Supported | Supported | Supported | Supported | Not Supported |
 | **Extensibility** |
 | [Authoring Custom Triggers](https://developer.fermyon.com/spin/extending-and-embedding) | Supported | Not Supported | Not Supported | Not Supported | Not Supported |
 

@@ -34,7 +34,7 @@ pub struct Request {
 }
 
 impl Request {
-    /// Create a new request from a method and uri
+    /// Creates a new request from a method and uri
     pub fn new(method: Method, uri: impl Into<String>) -> Self {
         Self {
             method,
@@ -42,6 +42,23 @@ impl Request {
             headers: HashMap::new(),
             body: Vec::new(),
         }
+    }
+
+    /// Creates a [`RequestBuilder`]
+    pub fn builder() -> RequestBuilder {
+        RequestBuilder::new(Method::Get, "/")
+    }
+
+    /// Creates a [`RequestBuilder`] to GET the given `uri`
+    pub fn get(uri: impl Into<String>) -> RequestBuilder {
+        RequestBuilder::new(Method::Get, uri)
+    }
+
+    /// Creates a [`RequestBuilder`] to POST the given `body` to `uri`
+    pub fn post(uri: impl Into<String>, body: impl conversions::IntoBody) -> RequestBuilder {
+        let mut builder = RequestBuilder::new(Method::Post, uri);
+        builder.body(body);
+        builder
     }
 
     /// The request method
@@ -93,11 +110,6 @@ impl Request {
     /// Consume this type and return its body
     pub fn into_body(self) -> Vec<u8> {
         self.body
-    }
-
-    /// Create a request builder
-    pub fn builder() -> RequestBuilder {
-        RequestBuilder::new(Method::Get, "/")
     }
 
     fn parse_uri(uri: String) -> (Option<hyperium::Uri>, String) {
@@ -244,8 +256,24 @@ impl Response {
         self.body
     }
 
+    /// Converts this response into a [`ResponseBuilder`]. This can be used to
+    /// update a response before passing it on.
+    pub fn into_builder(self) -> ResponseBuilder {
+        ResponseBuilder { response: self }
+    }
+
     fn builder() -> ResponseBuilder {
         ResponseBuilder::new(200)
+    }
+}
+
+impl std::fmt::Debug for Response {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Response")
+            .field("status", &self.status)
+            .field("headers", &self.headers)
+            .field("body.len()", &self.body.len())
+            .finish()
     }
 }
 

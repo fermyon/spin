@@ -178,7 +178,6 @@ name = "http-rust-outbound-http"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "http",
  "spin-sdk",
 ]
 

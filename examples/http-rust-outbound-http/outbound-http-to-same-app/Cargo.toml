@@ -7,11 +7,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-# Useful crate to handle errors.
 anyhow = "1"
-# Crate to simplify working with bytes.
-http = "0.2"
-# The Spin SDK.
 spin-sdk = { path = "../../../sdk/rust" }
-url = "2"
+
 [workspace]

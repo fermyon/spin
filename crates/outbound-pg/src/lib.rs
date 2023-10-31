@@ -21,6 +21,17 @@ pub struct OutboundPg {
 }
 
 impl OutboundPg {
+    async fn open_connection(&mut self, address: &str) -> Result<Resource<Connection>, v2::Error> {
+        self.connections
+            .push(
+                build_client(address)
+                    .await
+                    .map_err(|e| v2::Error::ConnectionFailed(format!("{e:?}")))?,
+            )
+            .map_err(|_| v2::Error::ConnectionFailed("too many connections".into()))
+            .map(Resource::new_own)
+    }
+
     async fn get_client(&mut self, connection: Resource<Connection>) -> Result<&Client, v2::Error> {
         self.connections
             .get(connection.rep())
@@ -95,17 +106,7 @@ impl v2::HostConnection for OutboundPg {
                 "address {address} is not permitted"
             ))));
         }
-        Ok(async {
-            self.connections
-                .push(
-                    build_client(&address)
-                        .await
-                        .map_err(|e| v2::Error::ConnectionFailed(format!("{e:?}")))?,
-                )
-                .map_err(|_| v2::Error::ConnectionFailed("too many connections".into()))
-                .map(Resource::new_own)
-        }
-        .await)
+        Ok(self.open_connection(&address).await)
     }
 
     async fn execute(
@@ -399,7 +400,7 @@ macro_rules! delegate {
                 "address {} is not permitted", $address
             ))));
         }
-        let connection = match <Self as v2::HostConnection>::open($self, $address).await? {
+        let connection = match $self.open_connection(&$address).await {
             Ok(c) => c,
             Err(e) => return Ok(Err(e.into())),
         };

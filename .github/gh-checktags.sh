@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-## for the release tags v1*, check if
+## for the release tags v*, check if
 ## - golang sdk tag exists
 ## - spin templates tag exists
 
@@ -15,7 +15,7 @@ tags=$(gh release list --repo fermyon/spin --exclude-pre-releases --exclude-draf
 
 exit_code=0
 for tag in $tags; do
-  if [[ $tag != v1* ]]; then
+  if [[ $tag != v* ]]; then
     continue
   fi
 

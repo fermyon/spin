@@ -150,6 +150,17 @@ impl Request {
     }
 }
 
+impl std::fmt::Debug for Request {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Request")
+            .field("method", &self.method)
+            .field("uri", &self.uri)
+            .field("headers", &self.headers)
+            .field("body", &DebugBody(&self.body))
+            .finish()
+    }
+}
+
 /// A request builder
 pub struct RequestBuilder {
     request: Request,
@@ -273,7 +284,7 @@ impl std::fmt::Debug for Response {
         f.debug_struct("Response")
             .field("status", &self.status)
             .field("headers", &self.headers)
-            .field("body.len()", &self.body.len())
+            .field("body", &DebugBody(&self.body))
             .finish()
     }
 }
@@ -705,6 +716,21 @@ impl std::fmt::Display for streams::Error {
 
 impl std::error::Error for streams::Error {}
 
+struct DebugBody<'a>(&'a [u8]);
+
+impl<'a> std::fmt::Debug for DebugBody<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        const BODY_MAX_LEN: usize = 50;
+        let truncated_len = self.0.len().saturating_sub(BODY_MAX_LEN);
+        if truncated_len > 0 {
+            let prefix = String::from_utf8_lossy(&self.0[..BODY_MAX_LEN]);
+            write!(f, "{prefix:?} (...and {truncated_len} more bytes)")
+        } else {
+            write!(f, "{:?}", String::from_utf8_lossy(self.0))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -728,5 +754,17 @@ mod tests {
         assert_eq!(req.uri(), uri);
         assert_eq!(req.path(), "/hello");
         assert_eq!(req.query(), "world=1");
+    }
+
+    #[test]
+    fn debug_body_works() {
+        assert_eq!(format!("{:?}", DebugBody(b"short")), "\"short\"");
+        assert_eq!(
+            format!(
+                "{:?}",
+                DebugBody(b"loooooooooooooooooooooooooooooooooooooooooooooooooong"),
+            ),
+            "\"looooooooooooooooooooooooooooooooooooooooooooooooo\" (...and 3 more bytes)"
+        );
     }
 }

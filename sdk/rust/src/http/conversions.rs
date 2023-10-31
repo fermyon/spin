@@ -6,6 +6,7 @@ use crate::wit::wasi::io::streams;
 
 use super::{
     Headers, IncomingRequest, IncomingResponse, OutgoingRequest, OutgoingResponse, RequestBuilder,
+    ResponseBuilder,
 };
 
 use super::{responses, NonUtf8BodyError, Request, Response};
@@ -196,6 +197,12 @@ pub trait IntoResponse {
 impl IntoResponse for Response {
     fn into_response(self) -> Response {
         self
+    }
+}
+
+impl IntoResponse for ResponseBuilder {
+    fn into_response(mut self) -> Response {
+        self.build()
     }
 }
 

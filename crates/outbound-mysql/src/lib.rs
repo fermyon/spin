@@ -13,7 +13,7 @@ use url::Url;
 /// A simple implementation to support outbound mysql connection
 #[derive(Default)]
 pub struct OutboundMysql {
-    allowed_hosts: Option<spin_outbound_networking::AllowedHostsConfig>,
+    allowed_hosts: spin_outbound_networking::AllowedHostsConfig,
     pub connections: table::Table<mysql_async::Conn>,
 }
 
@@ -38,8 +38,8 @@ impl OutboundMysql {
             .ok_or_else(|| v2::Error::ConnectionFailed("no connection found".into()))
     }
 
-    fn is_address_allowed(&self, address: &str, default: bool) -> bool {
-        spin_outbound_networking::check_url(address, "mysql", &self.allowed_hosts, default)
+    fn is_address_allowed(&self, address: &str) -> bool {
+        spin_outbound_networking::check_url(address, "mysql", &self.allowed_hosts)
     }
 }
 
@@ -68,9 +68,7 @@ impl DynamicHostComponent for OutboundMysql {
         let hosts = component
             .get_metadata(spin_outbound_networking::ALLOWED_HOSTS_KEY)?
             .unwrap_or_default();
-        data.allowed_hosts = hosts
-            .map(|h| spin_outbound_networking::AllowedHostsConfig::parse(&h[..]))
-            .transpose()
+        data.allowed_hosts = spin_outbound_networking::AllowedHostsConfig::parse(&hosts)
             .context("`allowed_outbound_hosts` contained an invalid url")?;
         Ok(())
     }
@@ -81,7 +79,7 @@ impl v2::Host for OutboundMysql {}
 #[async_trait]
 impl v2::HostConnection for OutboundMysql {
     async fn open(&mut self, address: String) -> Result<Result<Resource<Connection>, v2::Error>> {
-        if !self.is_address_allowed(&address, false) {
+        if !self.is_address_allowed(&address) {
             return Ok(Err(v2::Error::ConnectionFailed(format!(
                 "address {address} is not permitted"
             ))));
@@ -154,7 +152,7 @@ impl v2::HostConnection for OutboundMysql {
 /// Delegate a function call to the v2::HostConnection implementation
 macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
-        if !$self.is_address_allowed(&$address, true) {
+        if !$self.is_address_allowed(&$address) {
             return Ok(Err(v1::MysqlError::ConnectionFailed(format!(
                 "address {} is not permitted", $address
             ))));

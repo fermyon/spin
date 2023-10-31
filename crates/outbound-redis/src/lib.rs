@@ -31,7 +31,7 @@ impl FromRedisValue for RedisResults {
 }
 
 pub struct OutboundRedis {
-    allowed_hosts: Option<spin_outbound_networking::AllowedHostsConfig>,
+    allowed_hosts: spin_outbound_networking::AllowedHostsConfig,
     connections: table::Table<Connection>,
 }
 
@@ -45,8 +45,8 @@ impl Default for OutboundRedis {
 }
 
 impl OutboundRedis {
-    fn is_address_allowed(&self, address: &str, default: bool) -> bool {
-        spin_outbound_networking::check_url(address, "redis", &self.allowed_hosts, default)
+    fn is_address_allowed(&self, address: &str) -> bool {
+        spin_outbound_networking::check_url(address, "redis", &self.allowed_hosts)
     }
 
     async fn establish_connection(
@@ -73,7 +73,7 @@ impl v2::Host for OutboundRedis {}
 #[async_trait]
 impl v2::HostConnection for OutboundRedis {
     async fn open(&mut self, address: String) -> Result<Result<Resource<RedisConnection>, Error>> {
-        if !self.is_address_allowed(&address, false) {
+        if !self.is_address_allowed(&address) {
             return Ok(Err(Error::InvalidAddress));
         }
 
@@ -235,7 +235,7 @@ fn other_error(e: impl std::fmt::Display) -> Error {
 /// Delegate a function call to the v2::HostConnection implementation
 macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
-        if !$self.is_address_allowed(&$address, true) {
+        if !$self.is_address_allowed(&$address) {
             return Ok(Err(v1::Error::Error));
         }
         let connection = match $self.establish_connection($address).await? {

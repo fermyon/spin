@@ -99,32 +99,33 @@ async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam
                     .and_then(|v| Url::parse(v).ok())
             }) {
                 match double_echo(request, &url).await {
-                    Ok((request_copy, response)) => {
-                        let mut stream = response.take_body_stream();
+                    Ok((request_copy, incoming_response)) => {
+                        let mut incoming_response_body = incoming_response.take_body_stream();
 
-                        let response = OutgoingResponse::new(
+                        let outgoing_response = OutgoingResponse::new(
                             200,
                             &Headers::new(
                                 &headers
                                     .into_iter()
-                                    .filter_map(|(k, v)| (k == "content-type").then_some((k, v)))
+                                    .filter(|(k, _)| k == "content-type")
                                     .collect::<Vec<_>>(),
                             ),
                         );
 
-                        let mut body = response.take_body();
+                        let mut outgoing_response_body = outgoing_response.take_body();
 
-                        response_out.set(response);
+                        response_out.set(outgoing_response);
 
                         let response_copy = async move {
-                            while let Some(chunk) = stream.next().await {
-                                body.send(chunk?).await?;
+                            while let Some(chunk) = incoming_response_body.next().await {
+                                outgoing_response_body.send(chunk?).await?;
                             }
                             Ok::<_, anyhow::Error>(())
                         };
 
                         let (request_copy, response_copy) =
                             future::join(request_copy, response_copy).await;
+
                         if let Err(e) = request_copy.and(response_copy) {
                             eprintln!("error piping to and from {url}: {e}");
                         }

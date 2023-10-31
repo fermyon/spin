@@ -12,7 +12,7 @@ component = "wasi-http-async"
 
 [component.wasi-http-async]
 source = "target/wasm32-wasi/release/wasi_http_rust_streaming_outgoing_body.wasm"
-allowed_http_hosts = ["insecure:allow-all"]
+allowed_outbound_hosts = ["https://*:*"]
 [component.wasi-http-async.build]
 command = "cargo build --target wasm32-wasi --release"
 watch = ["src/**/*.rs", "Cargo.toml"]

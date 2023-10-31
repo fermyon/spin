@@ -31,7 +31,11 @@
     {
       "id": "fs",
       "metadata": {
-        "allowed_outbound_hosts": null
+        "allowed_outbound_hosts": [
+          "redis://*:*",
+          "mysql://*:*",
+          "postgres://*:*"
+        ]
       },
       "source": {
         "content_type": "application/wasm",

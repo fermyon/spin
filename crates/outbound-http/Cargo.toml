@@ -8,12 +8,13 @@ edition = { workspace = true }
 doctest = false
 
 [dependencies]
-anyhow  = "1.0"
+anyhow = "1.0"
 http = "0.2"
 reqwest = { version = "0.11", features = ["gzip"] }
 spin-app = { path = "../app", optional = true }
 spin-core = { path = "../core", optional = true }
 spin-locked-app = { path = "../locked-app" }
+spin-outbound-networking = { path = "../outbound-networking" }
 spin-world = { path = "../world", optional = true }
 terminal = { path = "../terminal" }
 tracing = { workspace = true }

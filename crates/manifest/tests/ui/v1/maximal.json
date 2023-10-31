@@ -38,7 +38,12 @@
   },
   "component": {
     "minimal-component": {
-      "source": "max-a.wasm"
+      "source": "max-a.wasm",
+      "allowed_outbound_hosts": [
+        "redis://*:*",
+        "mysql://*:*",
+        "postgres://*:*"
+      ]
     },
     "maximal-component": {
       "source": {
@@ -59,8 +64,9 @@
       "exclude_files": [
         "**/secret"
       ],
-      "allowed_http_hosts": [
-        "example.com"
+      "allowed_outbound_hosts": [
+        "https://fermyon.com:443",
+        "https://example.com:443"
       ],
       "key_value_stores": [
         "default"

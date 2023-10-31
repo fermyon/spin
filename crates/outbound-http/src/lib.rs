@@ -1,4 +1,3 @@
-pub mod allowed_http_hosts;
 #[cfg(feature = "runtime")]
 mod host_component;
 #[cfg(feature = "runtime")]

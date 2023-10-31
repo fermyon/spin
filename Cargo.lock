@@ -4155,6 +4155,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-locked-app",
+ "spin-outbound-networking",
  "spin-world",
  "terminal",
  "tracing",
@@ -5953,9 +5954,11 @@ dependencies = [
  "serde",
  "serde_json",
  "spin-serde",
+ "terminal",
  "thiserror",
  "toml 0.8.2",
  "ui-testing",
+ "url",
 ]
 
 [[package]]
@@ -6229,6 +6232,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-http",
+ "spin-outbound-networking",
  "spin-testing",
  "spin-trigger",
  "spin-world",

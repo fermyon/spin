@@ -16,7 +16,7 @@ use tokio_postgres::{
 /// A simple implementation to support outbound pg connection
 #[derive(Default)]
 pub struct OutboundPg {
-    allowed_hosts: Option<spin_outbound_networking::AllowedHosts>,
+    allowed_hosts: Option<spin_outbound_networking::AllowedHostsConfig>,
     pub connections: table::Table<Client>,
 }
 
@@ -45,7 +45,7 @@ impl OutboundPg {
         for host in config.get_hosts() {
             match host {
                 tokio_postgres::config::Host::Tcp(address) => {
-                    if !spin_outbound_networking::check_address(
+                    if !spin_outbound_networking::check_url(
                         address,
                         "postgres",
                         &self.allowed_hosts,
@@ -88,7 +88,7 @@ impl DynamicHostComponent for OutboundPg {
             .get_metadata(spin_outbound_networking::ALLOWED_HOSTS_KEY)?
             .unwrap_or_default();
         data.allowed_hosts = hosts
-            .map(|h| spin_outbound_networking::AllowedHosts::parse(&h[..]))
+            .map(|h| spin_outbound_networking::AllowedHostsConfig::parse(&h[..]))
             .transpose()
             .context("`allowed_outbound_hosts` contained an invalid url")?;
         Ok(())

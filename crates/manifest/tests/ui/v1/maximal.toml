@@ -26,6 +26,7 @@ environment = { VAR = "val" }
 files = ["pattern/*", { source = "placement", destination = "/" }]
 exclude_files = ["**/secret"]
 allowed_http_hosts = ["example.com"]
+allowed_outbound_hosts = ["https://fermyon.com:443"]
 key_value_stores = ["default"]
 sqlite_databases = ["default"]
 ai_models = ["llama2-chat"]

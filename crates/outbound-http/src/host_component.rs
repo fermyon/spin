@@ -2,9 +2,10 @@ use anyhow::Result;
 
 use spin_app::DynamicHostComponent;
 use spin_core::{Data, HostComponent, Linker};
+use spin_outbound_networking::{AllowedHostsConfig, ALLOWED_HOSTS_KEY};
 use spin_world::v1::http;
 
-use crate::{allowed_http_hosts::parse_allowed_http_hosts, host_impl::OutboundHttp};
+use crate::host_impl::OutboundHttp;
 
 pub struct OutboundHttpComponent;
 
@@ -30,9 +31,10 @@ impl DynamicHostComponent for OutboundHttpComponent {
         component: &spin_app::AppComponent,
     ) -> anyhow::Result<()> {
         let hosts = component
-            .get_metadata(crate::ALLOWED_HTTP_HOSTS_KEY)?
+            .get_metadata(ALLOWED_HOSTS_KEY)?
+            .unwrap_or_default()
             .unwrap_or_default();
-        data.allowed_hosts = parse_allowed_http_hosts(&hosts)?;
+        data.allowed_hosts = AllowedHostsConfig::parse(&hosts)?;
         Ok(())
     }
 }

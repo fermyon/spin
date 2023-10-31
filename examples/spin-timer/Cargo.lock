@@ -2548,6 +2548,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-locked-app",
+ "spin-outbound-networking",
  "spin-world",
  "terminal",
  "tracing",
@@ -3794,8 +3795,10 @@ dependencies = [
  "indexmap 1.9.3",
  "serde",
  "spin-serde",
+ "terminal",
  "thiserror",
  "toml 0.8.2",
+ "url",
 ]
 
 [[package]]

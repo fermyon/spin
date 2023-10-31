@@ -24,14 +24,15 @@ component = "hello-component"
 
 [component.outbound-http]
 source = "outbound-http/target/wasm32-wasi/release/http_rust_outbound_http.wasm"
-allowed_http_hosts = ["https://random-data-api.fermyon.app"]
+allowed_http_hosts = ["foo.com"]
+allowed_outbound_hosts = ["https://random-data-api.fermyon.app"]
 [component.outbound-http.build]
 workdir = "outbound-http"
 command = "cargo build --target wasm32-wasi --release"
 
 [component.outbound-http-wildcard]
 source = "outbound-http/target/wasm32-wasi/release/http_rust_outbound_http.wasm"
-allowed_http_hosts = ["insecure:allow-all"]
+allowed_outbound_hosts = ["https://*:*"]
 [component.outbound-http-wildcard.build]
 workdir = "outbound-http"
 command = "cargo build --target wasm32-wasi --release"
@@ -39,7 +40,7 @@ command = "cargo build --target wasm32-wasi --release"
 [component.outbound-http-to-same-app]
 source = "outbound-http-to-same-app/target/wasm32-wasi/release/outbound_http_to_same_app.wasm"
 # To make outbound calls to components in the same Spin app, use the special value self.
-allowed_http_hosts = ["self"]
+allowed_outbound_hosts = ["http://self"]
 [component.outbound-http-to-same-app.build]
 workdir = "outbound-http-to-same-app"
 command = "cargo build --target wasm32-wasi --release"

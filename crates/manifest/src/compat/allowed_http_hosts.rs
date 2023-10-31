@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use reqwest::Url;
+use url::Url;
 
 const ALLOW_ALL_HOSTS: &str = "insecure:allow-all";
 
@@ -18,28 +18,11 @@ impl Default for AllowedHttpHosts {
     }
 }
 
-impl AllowedHttpHosts {
-    /// Tests whether the given URL is allowed according to the allow-list.
-    pub fn allows(&self, url: &url::Url) -> bool {
-        match self {
-            Self::AllowAll => true,
-            Self::AllowSpecific(hosts) => hosts.iter().any(|h| h.allow(url)),
-        }
-    }
-
-    pub fn allows_relative_url(&self) -> bool {
-        match self {
-            Self::AllowAll => true,
-            Self::AllowSpecific(hosts) => hosts.contains(&AllowedHttpHost::host("self")),
-        }
-    }
-}
-
 /// An HTTP host allow-list entry.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct AllowedHttpHost {
-    domain: String,
-    port: Option<u16>,
+    pub(crate) domain: String,
+    pub(crate) port: Option<u16>,
 }
 
 impl AllowedHttpHost {
@@ -50,31 +33,9 @@ impl AllowedHttpHost {
             port,
         }
     }
-
-    /// An allow-list entry that specifies a host and allows the default port.
-    pub fn host(name: impl Into<String>) -> Self {
-        Self {
-            domain: name.into(),
-            port: None,
-        }
-    }
-
-    /// An allow-list entry that specifies a host and port.
-    pub fn host_and_port(name: impl Into<String>, port: u16) -> Self {
-        Self {
-            domain: name.into(),
-            port: Some(port),
-        }
-    }
-
-    fn allow(&self, url: &url::Url) -> bool {
-        (url.scheme() == "http" || url.scheme() == "https")
-            && self.domain == url.host_str().unwrap_or_default()
-            && self.port == url.port()
-    }
 }
 
-// Parses a list of allowed HTTP hosts
+/// Parses a list of allowed HTTP hosts
 pub fn parse_allowed_http_hosts(list: &[impl AsRef<str>]) -> Result<AllowedHttpHosts> {
     if list.iter().any(|domain| domain.as_ref() == ALLOW_ALL_HOSTS) {
         Ok(AllowedHttpHosts::AllowAll)
@@ -162,6 +123,24 @@ fn partition_results<T, E>(results: Vec<Result<T, E>>) -> (Vec<T>, Vec<E>) {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    impl AllowedHttpHost {
+        /// An allow-list entry that specifies a host and allows the default port.
+        fn host(name: impl Into<String>) -> Self {
+            Self {
+                domain: name.into(),
+                port: None,
+            }
+        }
+
+        /// An allow-list entry that specifies a host and port.
+        fn host_and_port(name: impl Into<String>, port: u16) -> Self {
+            Self {
+                domain: name.into(),
+                port: Some(port),
+            }
+        }
+    }
 
     #[test]
     fn test_allowed_hosts_accepts_http_url() {
@@ -289,27 +268,5 @@ mod test {
             AllowedHttpHosts::AllowAll,
             parse_allowed_http_hosts(&["spin.fermyon.dev", "insecure:allow-all"]).unwrap()
         );
-    }
-
-    #[test]
-    fn test_allowed_hosts_can_be_specific() {
-        let allowed =
-            parse_allowed_http_hosts(&["spin.fermyon.dev", "http://example.com:8383"]).unwrap();
-        assert!(allowed.allows(&Url::parse("http://example.com:8383/foo/bar").unwrap()));
-        assert!(allowed.allows(&Url::parse("https://spin.fermyon.dev/").unwrap()));
-        assert!(!allowed.allows(&Url::parse("http://example.com/").unwrap()));
-        assert!(!allowed.allows(&Url::parse("http://google.com/").unwrap()));
-    }
-
-    #[test]
-    fn test_allowed_hosts_allow_relative_url() {
-        let allowed = parse_allowed_http_hosts(&["self", "http://example.com:8383"]).unwrap();
-        assert!(allowed.allows_relative_url());
-
-        let not_allowed = parse_allowed_http_hosts(&["http://example.com:8383"]).unwrap();
-        assert!(!not_allowed.allows_relative_url());
-
-        let allow_all = parse_allowed_http_hosts(&["insecure:allow-all"]).unwrap();
-        assert!(allow_all.allows_relative_url());
     }
 }

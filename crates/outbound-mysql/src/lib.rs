@@ -13,7 +13,7 @@ use url::Url;
 /// A simple implementation to support outbound mysql connection
 #[derive(Default)]
 pub struct OutboundMysql {
-    allowed_hosts: Option<spin_outbound_networking::AllowedHosts>,
+    allowed_hosts: Option<spin_outbound_networking::AllowedHostsConfig>,
     pub connections: table::Table<mysql_async::Conn>,
 }
 
@@ -39,7 +39,7 @@ impl OutboundMysql {
     }
 
     fn is_address_allowed(&self, address: &str, default: bool) -> bool {
-        spin_outbound_networking::check_address(address, "mysql", &self.allowed_hosts, default)
+        spin_outbound_networking::check_url(address, "mysql", &self.allowed_hosts, default)
     }
 }
 
@@ -69,7 +69,7 @@ impl DynamicHostComponent for OutboundMysql {
             .get_metadata(spin_outbound_networking::ALLOWED_HOSTS_KEY)?
             .unwrap_or_default();
         data.allowed_hosts = hosts
-            .map(|h| spin_outbound_networking::AllowedHosts::parse(&h[..]))
+            .map(|h| spin_outbound_networking::AllowedHostsConfig::parse(&h[..]))
             .transpose()
             .context("`allowed_outbound_hosts` contained an invalid url")?;
         Ok(())

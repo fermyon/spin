@@ -5946,6 +5946,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spin-serde",
+ "terminal",
  "thiserror",
  "toml 0.8.2",
  "ui-testing",

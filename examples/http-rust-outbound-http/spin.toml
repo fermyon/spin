@@ -24,6 +24,7 @@ component = "hello-component"
 
 [component.outbound-http]
 source = "outbound-http/target/wasm32-wasi/release/http_rust_outbound_http.wasm"
+allowed_http_hosts = ["foo.com"]
 allowed_outbound_hosts = ["https://random-data-api.fermyon.app:443"]
 [component.outbound-http.build]
 workdir = "outbound-http"

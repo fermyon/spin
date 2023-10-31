@@ -99,9 +99,12 @@ pub struct Component {
     /// `exclude_files = ["secrets/*"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub exclude_files: Vec<String>,
+    /// `allowed_http_hosts = ["example.com"]`
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) allowed_http_hosts: Vec<String>,
     /// `allowed_outbound_hosts = ["redis://myredishost.com:6379"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allowed_outbound_hosts: Vec<String>,
+    pub(crate) allowed_outbound_hosts: Vec<String>,
     /// `key_value_stores = ["default"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub key_value_stores: Vec<SnakeId>,
@@ -114,6 +117,33 @@ pub struct Component {
     /// Build configuration
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<ComponentBuildConfig>,
+}
+
+impl Component {
+    /// Combine `allowed_outbound_hosts` with the deprecated `allowed_http_hosts` into
+    /// one array all normalized to the syntax of `allowed_outbound_hosts`.
+    pub fn normalized_allowed_outbound_hosts(&self) -> anyhow::Result<Vec<String>> {
+        let normalized =
+            crate::compat::convert_allowed_http_to_allowed_hosts(&self.allowed_http_hosts, false)?;
+        if !normalized.is_empty() {
+            terminal::warn!(
+                "Use of the deprecated field `allowed_http_hosts` - to fix, \
+            replace the use of `allowed_http_hosts` with `allowed_outbound_hosts = [{}]`",
+                normalized
+                    .iter()
+                    .map(|s| format!("\"{s}\""))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        }
+
+        Ok(self
+            .allowed_outbound_hosts
+            .iter()
+            .cloned()
+            .chain(normalized)
+            .collect())
+    }
 }
 
 mod one_or_many {

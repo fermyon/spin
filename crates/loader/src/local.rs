@@ -110,12 +110,15 @@ impl LocalLoader {
         id: &KebabId,
         component: v2::Component,
     ) -> Result<LockedComponent> {
-        spin_outbound_networking::AllowedHostsConfig::parse(&component.allowed_outbound_hosts)
+        let allowed_outbound_hosts = component
+            .normalized_allowed_outbound_hosts()
+            .context("`allowed_http_hosts` is malformed")?;
+        let _ = spin_outbound_networking::AllowedHostsConfig::parse(&allowed_outbound_hosts)
             .context("`allowed_outbound_hosts` is malformed")?;
 
         let metadata = ValuesMapBuilder::new()
             .string("description", component.description)
-            .string_array("allowed_outbound_hosts", component.allowed_outbound_hosts)
+            .string_array("allowed_outbound_hosts", allowed_outbound_hosts)
             .string_array("key_value_stores", component.key_value_stores)
             .string_array("databases", component.sqlite_databases)
             .string_array("ai_models", component.ai_models)

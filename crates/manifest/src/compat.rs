@@ -1,10 +1,12 @@
 //! Compatibility for old manifest versions.
 
+mod allowed_http_hosts;
+
 use crate::{
-    allowed_http_hosts::{parse_allowed_http_hosts, AllowedHttpHosts},
     error::Error,
     schema::{v1, v2},
 };
+use allowed_http_hosts::{parse_allowed_http_hosts, AllowedHttpHosts};
 
 /// Converts a V1 app manifest to V2.
 pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Error> {
@@ -56,8 +58,8 @@ pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Erro
             .map(id_from_string)
             .collect::<Result<_, Error>>()?;
         let allowed_http = convert_allowed_http_to_allowed_hosts(
-            component.allowed_http_hosts,
-            component.allowed_outbound_hosts.is_some(),
+            &component.allowed_http_hosts,
+            component.allowed_outbound_hosts.is_none(),
         )
         .map_err(Error::ValidationError)?;
         let allowed_outbound_hosts = match component.allowed_outbound_hosts {
@@ -81,6 +83,7 @@ pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Erro
                 ai_models,
                 build: component.build,
                 allowed_outbound_hosts,
+                allowed_http_hosts: Vec::new(),
             },
         );
         triggers
@@ -102,19 +105,19 @@ pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Erro
     })
 }
 
-fn convert_allowed_http_to_allowed_hosts(
-    allowed_http_hosts: Vec<String>,
-    deny_all_non_http: bool,
+pub(crate) fn convert_allowed_http_to_allowed_hosts(
+    allowed_http_hosts: &[impl AsRef<str>],
+    allow_database_access: bool,
 ) -> anyhow::Result<Vec<String>> {
-    let http_hosts = parse_allowed_http_hosts(&allowed_http_hosts)?;
-    let mut outbound_hosts = if deny_all_non_http {
-        Vec::new()
-    } else {
+    let http_hosts = parse_allowed_http_hosts(allowed_http_hosts)?;
+    let mut outbound_hosts = if allow_database_access {
         vec![
             "redis://*:*".into(),
             "mysql://*:*".into(),
             "postgres://*:*".into(),
         ]
+    } else {
+        Vec::new()
     };
     match http_hosts {
         AllowedHttpHosts::AllowAll => outbound_hosts.extend(["https://*:*".into()]),

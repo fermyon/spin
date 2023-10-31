@@ -168,3 +168,53 @@ mod redis {
         }
     }
 }
+
+mod llm {
+    use super::*;
+
+    impl From<v1::llm::InferencingParams> for v2::llm::InferencingParams {
+        fn from(value: v1::llm::InferencingParams) -> Self {
+            Self {
+                max_tokens: value.max_tokens,
+                repeat_penalty: value.repeat_penalty,
+                repeat_penalty_last_n_token_count: value.repeat_penalty_last_n_token_count,
+                temperature: value.temperature,
+                top_k: value.top_k,
+                top_p: value.top_p,
+            }
+        }
+    }
+
+    impl From<v2::llm::InferencingResult> for v1::llm::InferencingResult {
+        fn from(value: v2::llm::InferencingResult) -> Self {
+            Self {
+                text: value.text,
+                usage: v1::llm::InferencingUsage {
+                    prompt_token_count: value.usage.prompt_token_count,
+                    generated_token_count: value.usage.prompt_token_count,
+                },
+            }
+        }
+    }
+
+    impl From<v2::llm::EmbeddingsResult> for v1::llm::EmbeddingsResult {
+        fn from(value: v2::llm::EmbeddingsResult) -> Self {
+            Self {
+                embeddings: value.embeddings,
+                usage: v1::llm::EmbeddingsUsage {
+                    prompt_token_count: value.usage.prompt_token_count,
+                },
+            }
+        }
+    }
+
+    impl From<v2::llm::Error> for v1::llm::Error {
+        fn from(value: v2::llm::Error) -> Self {
+            match value {
+                v2::llm::Error::ModelNotSupported => Self::ModelNotSupported,
+                v2::llm::Error::RuntimeError(s) => Self::RuntimeError(s),
+                v2::llm::Error::InvalidInput(s) => Self::InvalidInput(s),
+            }
+        }
+    }
+}

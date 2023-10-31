@@ -2,7 +2,8 @@ pub mod host_component;
 
 use spin_app::MetadataKey;
 use spin_core::async_trait;
-use spin_world::v1::llm::{self as wasi_llm};
+use spin_world::v1::llm::{self as v1};
+use spin_world::v2::llm::{self as v2};
 use std::collections::HashSet;
 
 pub use crate::host_component::LlmComponent;
@@ -14,16 +15,16 @@ pub const AI_MODELS_KEY: MetadataKey<HashSet<String>> = MetadataKey::new("ai_mod
 pub trait LlmEngine: Send + Sync {
     async fn infer(
         &mut self,
-        model: wasi_llm::InferencingModel,
+        model: v1::InferencingModel,
         prompt: String,
-        params: wasi_llm::InferencingParams,
-    ) -> Result<wasi_llm::InferencingResult, wasi_llm::Error>;
+        params: v2::InferencingParams,
+    ) -> Result<v2::InferencingResult, v2::Error>;
 
     async fn generate_embeddings(
         &mut self,
-        model: wasi_llm::EmbeddingModel,
+        model: v2::EmbeddingModel,
         data: Vec<String>,
-    ) -> Result<wasi_llm::EmbeddingsResult, wasi_llm::Error>;
+    ) -> Result<v2::EmbeddingsResult, v2::Error>;
 }
 
 pub struct LlmDispatch {
@@ -32,13 +33,13 @@ pub struct LlmDispatch {
 }
 
 #[async_trait]
-impl wasi_llm::Host for LlmDispatch {
+impl v2::Host for LlmDispatch {
     async fn infer(
         &mut self,
-        model: wasi_llm::InferencingModel,
+        model: v2::InferencingModel,
         prompt: String,
-        params: Option<wasi_llm::InferencingParams>,
-    ) -> anyhow::Result<Result<wasi_llm::InferencingResult, wasi_llm::Error>> {
+        params: Option<v2::InferencingParams>,
+    ) -> anyhow::Result<Result<v2::InferencingResult, v2::Error>> {
         if !self.allowed_models.contains(&model) {
             return Ok(Err(access_denied_error(&model)));
         }
@@ -47,7 +48,7 @@ impl wasi_llm::Host for LlmDispatch {
             .infer(
                 model,
                 prompt,
-                params.unwrap_or(wasi_llm::InferencingParams {
+                params.unwrap_or(v2::InferencingParams {
                     max_tokens: 100,
                     repeat_penalty: 1.1,
                     repeat_penalty_last_n_token_count: 64,
@@ -61,9 +62,9 @@ impl wasi_llm::Host for LlmDispatch {
 
     async fn generate_embeddings(
         &mut self,
-        m: wasi_llm::EmbeddingModel,
+        m: v1::EmbeddingModel,
         data: Vec<String>,
-    ) -> anyhow::Result<Result<wasi_llm::EmbeddingsResult, wasi_llm::Error>> {
+    ) -> anyhow::Result<Result<v2::EmbeddingsResult, v2::Error>> {
         if !self.allowed_models.contains(&m) {
             return Ok(Err(access_denied_error(&m)));
         }
@@ -71,8 +72,36 @@ impl wasi_llm::Host for LlmDispatch {
     }
 }
 
-fn access_denied_error(model: &str) -> wasi_llm::Error {
-    wasi_llm::Error::InvalidInput(format!(
+#[async_trait]
+impl v1::Host for LlmDispatch {
+    async fn infer(
+        &mut self,
+        model: v1::InferencingModel,
+        prompt: String,
+        params: Option<v1::InferencingParams>,
+    ) -> anyhow::Result<Result<v1::InferencingResult, v1::Error>> {
+        Ok(
+            <Self as v2::Host>::infer(self, model, prompt, params.map(Into::into))
+                .await?
+                .map(Into::into)
+                .map_err(Into::into),
+        )
+    }
+
+    async fn generate_embeddings(
+        &mut self,
+        model: v1::EmbeddingModel,
+        data: Vec<String>,
+    ) -> anyhow::Result<Result<v1::EmbeddingsResult, v1::Error>> {
+        Ok(<Self as v2::Host>::generate_embeddings(self, model, data)
+            .await?
+            .map(Into::into)
+            .map_err(Into::into))
+    }
+}
+
+fn access_denied_error(model: &str) -> v2::Error {
+    v2::Error::InvalidInput(format!(
         "The component does not have access to use '{model}'. To give the component access, add '{model}' to the 'ai_models' key for the component in your spin.toml manifest"
     ))
 }

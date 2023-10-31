@@ -1,16 +1,14 @@
 use crate::ensure_eq;
 use anyhow::Result;
-use hyper::client::HttpConnector;
-use hyper::{body, Body, Client, Method, Request, Response};
-use hyper_tls::HttpsConnector;
+use reqwest::{Method, Request, Response};
 use std::str;
 
 pub async fn assert_status(url: &str, expected: u16) -> Result<()> {
     let resp = make_request(Method::GET, url, "").await?;
     let status = resp.status();
 
-    let response = body::to_bytes(resp.into_body()).await.unwrap().to_vec();
-    let actual_body = str::from_utf8(&response).unwrap().to_string();
+    let body = resp.bytes().await?;
+    let actual_body = str::from_utf8(&body).unwrap().to_string();
 
     ensure_eq!(status, expected, "{}", actual_body);
 
@@ -29,8 +27,8 @@ pub async fn assert_http_response(
 
     let status = res.status();
     let headers = res.headers().clone();
-    let response = body::to_bytes(res.into_body()).await.unwrap().to_vec();
-    let actual_body = str::from_utf8(&response).unwrap().to_string();
+    let body = res.bytes().await?;
+    let actual_body = str::from_utf8(&body).unwrap().to_string();
 
     ensure_eq!(
         expected,
@@ -55,26 +53,15 @@ pub async fn assert_http_response(
     Ok(())
 }
 
-pub async fn create_request(method: Method, url: &str, body: &str) -> Result<Request<Body>> {
-    let req = Request::builder()
-        .method(method)
-        .uri(url)
-        .body(Body::from(body.to_string()))
-        .expect("request builder");
+pub async fn create_request(method: Method, url: &str, body: &str) -> Result<Request> {
+    let mut req = reqwest::Request::new(method, url.try_into()?);
+    *req.body_mut() = Some(body.to_owned().into());
 
     Ok(req)
 }
 
-pub fn create_client() -> Client<HttpsConnector<HttpConnector>> {
-    let connector = HttpsConnector::new();
-    Client::builder()
-        .pool_max_idle_per_host(0)
-        .build::<_, hyper::Body>(connector)
-}
-
-pub async fn make_request(method: Method, path: &str, body: &str) -> Result<Response<Body>> {
-    let c = create_client();
-    let req = create_request(method, path, body);
-    let resp = c.request(req.await?).await.unwrap();
-    Ok(resp)
+pub async fn make_request(method: Method, path: &str, body: &str) -> Result<Response> {
+    let req = create_request(method, path, body).await?;
+    let client = reqwest::Client::new();
+    Ok(client.execute(req).await?)
 }

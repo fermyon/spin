@@ -262,7 +262,8 @@ impl Response {
         ResponseBuilder { response: self }
     }
 
-    fn builder() -> ResponseBuilder {
+    /// Creates a [`ResponseBuilder`]
+    pub fn builder() -> ResponseBuilder {
         ResponseBuilder::new(200)
     }
 }

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use spin_core::async_trait;
 use spin_llm::LlmEngine;
-use spin_world::v1::llm::{self as wasi_llm};
+use spin_world::v2::llm::{self as wasi_llm};
 
 #[derive(Clone)]
 pub struct RemoteHttpLlmEngine {

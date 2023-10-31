@@ -25,7 +25,8 @@ impl HostComponent for LlmComponent {
         linker: &mut spin_core::Linker<T>,
         get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
     ) -> anyhow::Result<()> {
-        spin_world::v1::llm::add_to_linker(linker, get)
+        spin_world::v1::llm::add_to_linker(linker, get)?;
+        spin_world::v2::llm::add_to_linker(linker, get)
     }
 
     fn build_data(&self) -> Self::Data {

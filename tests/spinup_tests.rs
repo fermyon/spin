@@ -104,6 +104,11 @@ mod spinup_tests {
     }
 
     #[tokio::test]
+    async fn llm_works() {
+        testcases::llm_works(CONTROLLER).await
+    }
+
+    #[tokio::test]
     async fn header_env_routes_works() {
         testcases::header_env_routes_works(CONTROLLER).await
     }

@@ -32,7 +32,6 @@ impl DynamicHostComponent for OutboundHttpComponent {
     ) -> anyhow::Result<()> {
         let hosts = component
             .get_metadata(ALLOWED_HOSTS_KEY)?
-            .unwrap_or_default()
             .unwrap_or_default();
         data.allowed_hosts = AllowedHostsConfig::parse(&hosts)?;
         Ok(())

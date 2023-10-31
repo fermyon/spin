@@ -16,7 +16,7 @@ use tokio_postgres::{
 /// A simple implementation to support outbound pg connection
 #[derive(Default)]
 pub struct OutboundPg {
-    allowed_hosts: Option<spin_outbound_networking::AllowedHostsConfig>,
+    allowed_hosts: spin_outbound_networking::AllowedHostsConfig,
     pub connections: table::Table<Client>,
 }
 
@@ -38,7 +38,7 @@ impl OutboundPg {
             .ok_or_else(|| v2::Error::ConnectionFailed("no connection found".into()))
     }
 
-    fn is_address_allowed(&self, address: &str, default: bool) -> bool {
+    fn is_address_allowed(&self, address: &str) -> bool {
         let Ok(config) = address.parse::<tokio_postgres::Config>() else {
             return false;
         };
@@ -49,7 +49,6 @@ impl OutboundPg {
                         address,
                         "postgres",
                         &self.allowed_hosts,
-                        default,
                     ) {
                         return false;
                     }
@@ -87,9 +86,7 @@ impl DynamicHostComponent for OutboundPg {
         let hosts = component
             .get_metadata(spin_outbound_networking::ALLOWED_HOSTS_KEY)?
             .unwrap_or_default();
-        data.allowed_hosts = hosts
-            .map(|h| spin_outbound_networking::AllowedHostsConfig::parse(&h[..]))
-            .transpose()
+        data.allowed_hosts = spin_outbound_networking::AllowedHostsConfig::parse(&hosts)
             .context("`allowed_outbound_hosts` contained an invalid url")?;
         Ok(())
     }
@@ -101,7 +98,7 @@ impl v2::Host for OutboundPg {}
 #[async_trait]
 impl v2::HostConnection for OutboundPg {
     async fn open(&mut self, address: String) -> Result<Result<Resource<Connection>, v2::Error>> {
-        if !self.is_address_allowed(&address, false) {
+        if !self.is_address_allowed(&address) {
             return Ok(Err(v2::Error::ConnectionFailed(format!(
                 "address {address} is not permitted"
             ))));
@@ -395,7 +392,7 @@ impl std::fmt::Debug for PgNull {
 /// Delegate a function call to the v2::HostConnection implementation
 macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
-        if !$self.is_address_allowed(&$address, true) {
+        if !$self.is_address_allowed(&$address) {
             return Ok(Err(v1::PgError::ConnectionFailed(format!(
                 "address {} is not permitted", $address
             ))));

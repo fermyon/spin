@@ -3,29 +3,19 @@ use std::ops::Range;
 use anyhow::{bail, Context};
 use spin_locked_app::MetadataKey;
 
-pub const ALLOWED_HOSTS_KEY: MetadataKey<Option<Vec<String>>> =
-    MetadataKey::new("allowed_outbound_hosts");
+pub const ALLOWED_HOSTS_KEY: MetadataKey<Vec<String>> = MetadataKey::new("allowed_outbound_hosts");
 
 /// Checks address against allowed hosts
 ///
 /// Emits several warnings
-pub fn check_url(
-    url: &str,
-    scheme: &str,
-    allowed_hosts: &Option<AllowedHostsConfig>,
-    default: bool,
-) -> bool {
+pub fn check_url(url: &str, scheme: &str, allowed_hosts: &AllowedHostsConfig) -> bool {
     let Ok(url) = OutboundUrl::parse(url, scheme) else {
         terminal::warn!(
             "A component tried to make a request to an url that could not be parsed {url}.",
         );
         return false;
     };
-    let is_allowed = if let Some(allowed_hosts) = allowed_hosts {
-        allowed_hosts.allows(&url)
-    } else {
-        default
-    };
+    let is_allowed = allowed_hosts.allows(&url);
 
     if !is_allowed {
         terminal::warn!("A component tried to make a request to non-allowed url '{url}'.");
@@ -58,7 +48,7 @@ impl AllowedHostConfig {
         let original = url.into();
         let url = original.trim();
         let (scheme, rest) = url.split_once("://").with_context(|| {
-            format!("{url:?} does not contain a scheme (e.g., 'http://' or '*://'")
+            format!("{url:?} does not contain a scheme (e.g., 'http://' or '*://')")
         })?;
         let (host, rest) = rest
             .split_once(':')

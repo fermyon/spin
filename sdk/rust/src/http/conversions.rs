@@ -186,6 +186,22 @@ impl From<super::Method> for hyperium::Method {
         }
     }
 }
+impl From<hyperium::Method> for super::Method {
+    fn from(method: hyperium::Method) -> Self {
+        match method {
+            hyperium::Method::GET => super::Method::Get,
+            hyperium::Method::POST => super::Method::Post,
+            hyperium::Method::PUT => super::Method::Put,
+            hyperium::Method::DELETE => super::Method::Delete,
+            hyperium::Method::PATCH => super::Method::Patch,
+            hyperium::Method::HEAD => super::Method::Head,
+            hyperium::Method::OPTIONS => super::Method::Options,
+            hyperium::Method::CONNECT => super::Method::Connect,
+            hyperium::Method::TRACE => super::Method::Trace,
+            m => super::Method::Other(m.as_str().into()),
+        }
+    }
+}
 
 /// A trait for any type that can be turned into a `Response`
 pub trait IntoResponse {
@@ -548,23 +564,13 @@ where
 {
     type Error = anyhow::Error;
     fn try_into_outgoing_request(self) -> Result<(OutgoingRequest, Option<Vec<u8>>), Self::Error> {
-        let method = match self.method() {
-            &hyperium::Method::GET => super::Method::Get,
-            &hyperium::Method::POST => super::Method::Post,
-            &hyperium::Method::PUT => super::Method::Put,
-            &hyperium::Method::DELETE => super::Method::Delete,
-            &hyperium::Method::PATCH => super::Method::Patch,
-            &hyperium::Method::HEAD => super::Method::Head,
-            &hyperium::Method::OPTIONS => super::Method::Options,
-            m => anyhow::bail!("Unsupported method: {m}"),
-        };
         let headers = self
             .headers()
             .into_iter()
             .map(|(n, v)| (n.as_str().to_owned(), v.as_bytes().to_owned()))
             .collect::<Vec<_>>();
         let request = OutgoingRequest::new(
-            &method,
+            &self.method().clone().into(),
             self.uri().path_and_query().map(|p| p.as_str()),
             self.uri()
                 .scheme()
@@ -624,5 +630,17 @@ impl<B: TryFromBody> TryFromIncomingResponse for hyperium::Response<B> {
         }
         let body = resp.into_body().await.expect("TODO");
         Ok(builder.body(B::try_from_body(body)?).unwrap())
+    }
+}
+
+#[cfg(feature = "http")]
+impl<B: IntoBody> From<hyperium::Request<B>> for Request {
+    fn from(value: hyperium::Request<B>) -> Self {
+        Request::builder()
+            .method(value.method().clone().into())
+            .uri(value.uri().to_string())
+            .headers(value.headers())
+            .body(value.into_body())
+            .build()
     }
 }

@@ -11,6 +11,7 @@ use spin_manifest::schema::v1;
 use crate::store::TemplateLayout;
 
 pub(crate) struct AppInfo {
+    manifest_format: u32,
     trigger_type: String,
 }
 
@@ -39,7 +40,12 @@ impl AppInfo {
 
     fn from_existent_file(manifest_path: &Path) -> anyhow::Result<Self> {
         let manifest_str = std::fs::read_to_string(manifest_path)?;
-        let trigger_type = match spin_manifest::ManifestVersion::detect(&manifest_str)? {
+        let manifest_version = spin_manifest::ManifestVersion::detect(&manifest_str)?;
+        let manifest_format = match manifest_version {
+            spin_manifest::ManifestVersion::V1 => 1,
+            spin_manifest::ManifestVersion::V2 => 2,
+        };
+        let trigger_type = match manifest_version {
             spin_manifest::ManifestVersion::V1 => {
                 toml::from_str::<ManifestV1TriggerProbe>(&manifest_str)?
                     .trigger
@@ -55,7 +61,14 @@ impl AppInfo {
                 triggers.into_iter().next().unwrap().0
             }
         };
-        Ok(Self { trigger_type })
+        Ok(Self {
+            manifest_format,
+            trigger_type,
+        })
+    }
+
+    pub fn manifest_format(&self) -> u32 {
+        self.manifest_format
     }
 
     pub fn trigger_type(&self) -> &str {

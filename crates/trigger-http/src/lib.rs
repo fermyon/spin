@@ -507,14 +507,20 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
             let host = if unallowed_absolute {
                 // Safe to unwrap because absolute urls have a host by definition.
                 let host = uri.authority().map(|a| a.host()).unwrap();
-                let port = uri
-                    .scheme()
-                    .and_then(|s| (s == &Scheme::HTTP).then_some(80))
-                    .unwrap_or(443);
+                let port = uri.authority().map(|a| a.port()).unwrap();
+                let port = match port {
+                    Some(port_str) => port_str.to_string(),
+                    None => uri
+                        .scheme()
+                        .and_then(|s| (s == &Scheme::HTTP).then_some(80))
+                        .unwrap_or(443)
+                        .to_string(),
+                };
                 terminal::warn!(
                     "A component tried to make a HTTP request to non-allowed host '{host}'."
                 );
-                format!("https://{host}:{port}")
+                let scheme = uri.scheme().unwrap_or(&Scheme::HTTPS);
+                format!("{scheme}://{host}:{port}")
             } else {
                 terminal::warn!("A component tried to make a HTTP request to the same component but it does not have permission.");
                 "self".into()

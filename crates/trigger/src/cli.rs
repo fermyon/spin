@@ -64,7 +64,7 @@ where
     )]
     pub cache: Option<PathBuf>,
 
-    /// Enable Wasmtime's pooling instance allocator.
+    /// Disable Wasmtime's pooling instance allocator.
     #[clap(long = "disable-pooling")]
     pub disable_pooling: bool,
 

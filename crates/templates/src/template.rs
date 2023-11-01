@@ -358,6 +358,43 @@ impl Template {
             }
         }
     }
+
+    pub(crate) fn check_compatible_manifest_format(
+        &self,
+        manifest_format: u32,
+    ) -> anyhow::Result<()> {
+        let Some(content_dir) = &self.content_dir else {
+            return Ok(());
+        };
+        let manifest_tpl = content_dir.join("spin.toml");
+        if !manifest_tpl.is_file() {
+            return Ok(());
+        }
+
+        // We can't load the manifest template because it's not valid TOML until
+        // substituted, so GO BIG or at least GO CRUDE.
+        let Ok(manifest_tpl_str) = std::fs::read_to_string(&manifest_tpl) else {
+            return Ok(());
+        };
+        let is_v1_tpl = manifest_tpl_str.contains("spin_manifest_version = \"1\"");
+        let is_v2_tpl = manifest_tpl_str.contains("spin_manifest_version = 2");
+
+        // If we have not positively identified a format, err on the side of forgiveness
+        let positively_identified = is_v1_tpl ^ is_v2_tpl; // exactly one should be true
+        if !positively_identified {
+            return Ok(());
+        }
+
+        let compatible = (is_v1_tpl && manifest_format == 1) || (is_v2_tpl && manifest_format == 2);
+
+        if compatible {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "This template is for a different version of the Spin manifest"
+            ))
+        }
+    }
 }
 
 impl TemplateParameter {

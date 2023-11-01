@@ -1119,6 +1119,8 @@ mod tests {
         assert!(!spin_toml.contains("service.example.com"));
     }
 
+    // TODO: The challenge here is that figuring out the trigger from a template manifest is now hard
+    // because template manifests are not valid TOML (because the component table header is templatised).
     #[tokio::test]
     #[ignore] // This will need rework when more templates are ported to the v2 manifest - the failure is benign, a missing safety rail not an error
     async fn cannot_add_component_that_does_not_match_trigger() {
@@ -1165,6 +1167,64 @@ mod tests {
 
         let spin_toml_path = application_dir.join("spin.toml");
         assert!(spin_toml_path.exists(), "expected spin.toml to be created");
+
+        // Now add a component
+        {
+            let template = manager.get("http-rust").unwrap().unwrap();
+
+            let output_dir = "hello";
+            let values = [
+                ("project-description".to_owned(), "hello".to_owned()),
+                ("http-path".to_owned(), "/hello".to_owned()),
+            ]
+            .into_iter()
+            .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantInfo::AddComponent {
+                    manifest_path: spin_toml_path.clone(),
+                },
+                output_path: PathBuf::from(output_dir),
+                name: "hello".to_owned(),
+                values,
+                accept_defaults: false,
+            };
+
+            template
+                .run(options)
+                .silent()
+                .await
+                .expect_err("Expected to fail to add component, but it succeeded");
+        }
+    }
+
+    #[tokio::test]
+    async fn cannot_add_component_that_does_not_match_manifest() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let application_dir = dest_temp_dir.path().join("multi");
+
+        // Set up the containing app
+        {
+            let fake_v1_src = test_data_root().join("v1manifest.toml");
+            let fake_v1_dest = application_dir.join("spin.toml");
+            tokio::fs::create_dir_all(&application_dir).await.unwrap();
+            tokio::fs::copy(fake_v1_src, fake_v1_dest).await.unwrap();
+        }
+
+        let spin_toml_path = application_dir.join("spin.toml");
+        assert!(
+            spin_toml_path.exists(),
+            "expected v1 spin.toml to be created"
+        );
 
         // Now add a component
         {

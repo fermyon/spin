@@ -101,7 +101,7 @@ The table below summarizes the [feature support](https://developer.fermyon.com/s
 | [MySQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Supported | Not Supported | Supported | Not Supported |
 | [PostgreSQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Supported | Not Supported | Supported | Supported |
 | [Outbound Redis](https://developer.fermyon.com/spin/rust-components.md#storing-data-in-redis-from-rust-components) | Supported | Supported | Supported | Supported | Supported |
-| [Serverless AI](https://developer.fermyon.com/spin/rust-components#ai-inferencing-from-rust-components) | Supported | Supported | Supported | Supported | Not Supported |
+| [Serverless AI](https://developer.fermyon.com/spin/serverless-ai-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
 | **Extensibility** |
 | [Authoring Custom Triggers](https://developer.fermyon.com/spin/extending-and-embedding) | Supported | Not Supported | Not Supported | Not Supported | Not Supported |
 

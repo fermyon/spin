@@ -1,0 +1,8 @@
+spin_manifest_version = "1"
+name = "v1"
+version = "0.1.0"
+trigger = { type = "http", base = "/" }
+
+[[component]]
+id = "v1"
+source = "does-not-exist.wasm"

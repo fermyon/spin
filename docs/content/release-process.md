@@ -14,7 +14,7 @@ To cut a major / minor release of Spin, you will need to do the following:
 
 1. Switch to the release branch locally and update versions (e.g. `2.0.0-pre0` could be `2.0.0`).
    - Bump the version in Spin's `Cargo.toml`
-   - Run `make build` so that `Cargo.lock` and other associated files are updated
+   - Run `make build update-cargo-locks` so that `Cargo.lock` and example/test `Cargo.lock` files are updated
 
    PR these changes to the release branch ensuring that pull request has a base corresponding to the release branch (e.g. `v2.0`).
 
@@ -42,7 +42,7 @@ To cut a major / minor release of Spin, you will need to do the following:
     > automatically uploaded to the GitHub release.
 
 1. Switch back to `main` and update the `Cargo.toml` and `templates/Makefile` versions again, this time to e.g. `2.1.0-pre0` if `2.1.0` is the next anticipated release.
-   - Run `make build` so that `Cargo.lock` and other associated files are updated
+   - Run `make build update-cargo-locks` so that `Cargo.lock` and example/test `Cargo.lock` files are updated
    - PR this to `main`
    - See [sips/011-component-versioning.md](sips/011-component-versioning.md)
      for details
@@ -61,7 +61,7 @@ $ ./.github/gh-backport.sh <pull-request> <branch-name>
 
 1. Switch to the release branch locally and update versions (e.g. `2.0.0` could be `2.0.1`).
    - Bump the version in Spin's `Cargo.toml`
-   - Run `make build` so that `Cargo.lock` and other associated files are updated
+   - Run `make build update-cargo-locks` so that `Cargo.lock` and example/test `Cargo.lock` files are updated
 
    PR these changes to the release branch ensuring that pull request has a base corresponding to the release branch (e.g. `v2.0`).
 
@@ -99,7 +99,7 @@ Otherwise, switch to the branch locally.
 
 1. Update the Spin version with `-rc.N` where `N` is the release candidate number (e.g. `2.0.0-pre0` could be `2.0.0-rc.1`).
    - Bump the version in Spin's `Cargo.toml`
-   - Run `make build` so that `Cargo.lock` and other associated files are updated
+   - Run `make build update-cargo-locks` so that `Cargo.lock` and example/test `Cargo.lock` files are updated
 
    PR these changes to the release branch ensuring that pull request has a base corresponding to the release branch (e.g. `v2.0`).
 

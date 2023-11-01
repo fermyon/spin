@@ -6,13 +6,9 @@ use anyhow::{bail, Context, Result};
 use docker_credential::DockerCredential;
 use futures_util::future;
 use futures_util::stream::{self, StreamExt, TryStreamExt};
-use oci_distribution::token_cache::RegistryTokenType;
-use oci_distribution::RegistryOperation;
 use oci_distribution::{
-    client::{Config, ImageLayer},
-    manifest::OciImageManifest,
-    secrets::RegistryAuth,
-    Reference,
+    client::ImageLayer, config::ConfigFile, manifest::OciImageManifest, secrets::RegistryAuth,
+    token_cache::RegistryTokenType, Reference, RegistryOperation,
 };
 use reqwest::Url;
 use spin_common::sha256;
@@ -25,15 +21,15 @@ use walkdir::WalkDir;
 
 use crate::auth::AuthConfig;
 
-// TODO: the media types for application, wasm module, data and archive layer are not final.
+// TODO: the media types for application, data and archive layer are not final
 /// Media type for a layer representing a locked Spin application configuration
 pub const SPIN_APPLICATION_MEDIA_TYPE: &str = "application/vnd.fermyon.spin.application.v1+config";
-// Note: we hope to use a canonical value defined upstream for this media type
-const WASM_LAYER_MEDIA_TYPE: &str = "application/vnd.wasm.content.layer.v1+wasm";
 /// Media type for a layer representing a generic data file used by a Spin application
 pub const DATA_MEDIATYPE: &str = "application/vnd.wasm.content.layer.v1+data";
 /// Media type for a layer representing a compressed archive of one or more files used by a Spin application
 pub const ARCHIVE_MEDIATYPE: &str = "application/vnd.wasm.content.bundle.v1.tar+gzip";
+// Note: this will be updated with a canonical value once defined upstream
+const WASM_LAYER_MEDIA_TYPE: &str = "application/vnd.wasm.content.layer.v1+wasm";
 
 const CONFIG_FILE: &str = "config.json";
 const LATEST_TAG: &str = "latest";
@@ -164,12 +160,27 @@ impl Client {
         locked.components = components;
         locked.metadata.remove("origin");
 
-        let oci_config = Config {
-            data: serde_json::to_vec(&locked)?,
-            media_type: SPIN_APPLICATION_MEDIA_TYPE.to_string(),
-            annotations: None,
+        // Push layer for locked spin application config
+        let locked_config_layer = ImageLayer::new(
+            serde_json::to_vec(&locked).context("could not serialize locked config")?,
+            SPIN_APPLICATION_MEDIA_TYPE.to_string(),
+            None,
+        );
+        layers.push(locked_config_layer);
+
+        // Construct empty/default OCI config file. Data may be parsed according to
+        // the expected config structure per the image spec, so we want to ensure it conforms.
+        // (See https://github.com/opencontainers/image-spec/blob/main/config.md)
+        // TODO: Explore adding data applicable to the Spin app being published.
+        let oci_config_file = ConfigFile {
+            architecture: oci_distribution::config::Architecture::Wasm,
+            os: oci_distribution::config::Os::Wasip1,
+            ..Default::default()
         };
+        let oci_config =
+            oci_distribution::client::Config::oci_v1_from_config_file(oci_config_file, None)?;
         let manifest = OciImageManifest::build(&layers, &oci_config, None);
+
         let response = self
             .oci
             .push(&reference, &layers, oci_config, &auth, Some(manifest))
@@ -275,16 +286,16 @@ impl Client {
         let m = self.manifest_path(&reference.to_string()).await?;
         fs::write(&m, &manifest_json).await?;
 
+        // Older published Spin apps feature the locked app config *as* the OCI manifest config layer,
+        // while newer versions publish the locked app config as a generic layer alongside others.
+        // Assume that these bytes may represent the locked app config and write it as such.
         let mut cfg_bytes = Vec::new();
         self.oci
             .pull_blob(&reference, &manifest.config.digest, &mut cfg_bytes)
             .await?;
-        let cfg = std::str::from_utf8(&cfg_bytes)?;
-        tracing::debug!("Pulled config: {}", cfg);
-
-        // Write the config object in `<cache_root>/registry/oci/manifests/repository:<tag_or_latest>/config.json`
-        let c = self.lockfile_path(&reference.to_string()).await?;
-        fs::write(&c, &cfg).await?;
+        self.write_locked_app_config(&reference.to_string(), &cfg_bytes)
+            .await
+            .context("unable to write locked app config to cache")?;
 
         // If a layer is a Wasm module, write it in the Wasm directory.
         // Otherwise, write it in the data directory (after unpacking if archive layer)
@@ -307,6 +318,11 @@ impl Client {
                         .pull_blob(&reference, &layer.digest, &mut bytes)
                         .await?;
                     match layer.media_type.as_str() {
+                        SPIN_APPLICATION_MEDIA_TYPE => {
+                            this.write_locked_app_config(&reference.to_string(), &bytes)
+                                .await
+                                .with_context(|| "unable to write locked app config to cache")?;
+                        }
                         WASM_LAYER_MEDIA_TYPE => {
                             this.cache.write_wasm(&bytes, &layer.digest).await?;
                         }
@@ -371,6 +387,19 @@ impl Client {
         }
 
         Ok(p.join(CONFIG_FILE))
+    }
+
+    /// Write the config object in `<cache_root>/registry/oci/manifests/repository:<tag_or_latest>/config.json`
+    async fn write_locked_app_config(
+        &self,
+        reference: impl AsRef<str>,
+        bytes: impl AsRef<[u8]>,
+    ) -> Result<()> {
+        let cfg = std::str::from_utf8(bytes.as_ref())?;
+        tracing::debug!("Pulled config: {}", cfg);
+
+        let c = self.lockfile_path(reference).await?;
+        fs::write(&c, &cfg).await.map_err(anyhow::Error::from)
     }
 
     /// Create a new wasm layer based on a file.

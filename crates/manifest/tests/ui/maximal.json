@@ -59,8 +59,8 @@
       "exclude_files": [
         "**/secret"
       ],
-      "allowed_http_hosts": [
-        "example.com"
+      "allowed_outbound_hosts": [
+        "https://example.com:443"
       ],
       "key_value_stores": [
         "default"

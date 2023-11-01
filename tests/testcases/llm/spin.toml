@@ -1,0 +1,17 @@
+spin_manifest_version = "1"
+authors = ["Ryan Levick <me@ryanlevick.com>"]
+description = ""
+name = "ai"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[[component]]
+id = "ai"
+source = "target/wasm32-wasi/release/ai.wasm"
+allowed_http_hosts = []
+ai_models = ["llama2-chat","all-minilm-l6-v2"]
+[component.trigger]
+route = "/..."
+[component.build]
+command = "cargo build --target wasm32-wasi --release"
+watch = ["src/**/*.rs", "Cargo.toml"]

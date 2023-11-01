@@ -20,10 +20,20 @@
   },
   "component": {
     "snake-case": {
-      "source": "wasm.wasm"
+      "source": "wasm.wasm",
+      "allowed_outbound_hosts": [
+        "redis://*:*",
+        "mysql://*:*",
+        "postgres://*:*"
+      ]
     },
     "mixedcase": {
-      "source": "wasm.wasm"
+      "source": "wasm.wasm",
+      "allowed_outbound_hosts": [
+        "redis://*:*",
+        "mysql://*:*",
+        "postgres://*:*"
+      ]
     }
   }
 }

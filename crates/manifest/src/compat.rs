@@ -1,9 +1,12 @@
 //! Compatibility for old manifest versions.
 
+mod allowed_http_hosts;
+
 use crate::{
     error::Error,
     schema::{v1, v2},
 };
+use allowed_http_hosts::{parse_allowed_http_hosts, AllowedHttpHosts};
 
 /// Converts a V1 app manifest to V2.
 pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Error> {
@@ -54,7 +57,18 @@ pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Erro
             .into_iter()
             .map(id_from_string)
             .collect::<Result<_, Error>>()?;
-
+        let allowed_http = convert_allowed_http_to_allowed_hosts(
+            &component.allowed_http_hosts,
+            component.allowed_outbound_hosts.is_none(),
+        )
+        .map_err(Error::ValidationError)?;
+        let allowed_outbound_hosts = match component.allowed_outbound_hosts {
+            Some(mut hs) => {
+                hs.extend(allowed_http);
+                hs
+            }
+            None => allowed_http,
+        };
         components.insert(
             component_id.clone(),
             v2::Component {
@@ -64,12 +78,12 @@ pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Erro
                 environment: component.environment,
                 files: component.files,
                 exclude_files: component.exclude_files,
-                allowed_http_hosts: component.allowed_http_hosts,
                 key_value_stores,
                 sqlite_databases,
                 ai_models,
                 build: component.build,
-                allowed_outbound_hosts: component.allowed_outbound_hosts,
+                allowed_outbound_hosts,
+                allowed_http_hosts: Vec::new(),
             },
         );
         triggers
@@ -89,6 +103,39 @@ pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Erro
         triggers,
         components,
     })
+}
+
+pub(crate) fn convert_allowed_http_to_allowed_hosts(
+    allowed_http_hosts: &[impl AsRef<str>],
+    allow_database_access: bool,
+) -> anyhow::Result<Vec<String>> {
+    let http_hosts = parse_allowed_http_hosts(allowed_http_hosts)?;
+    let mut outbound_hosts = if allow_database_access {
+        vec![
+            "redis://*:*".into(),
+            "mysql://*:*".into(),
+            "postgres://*:*".into(),
+        ]
+    } else {
+        Vec::new()
+    };
+    match http_hosts {
+        AllowedHttpHosts::AllowAll => outbound_hosts.extend(["https://*:*".into()]),
+        AllowedHttpHosts::AllowSpecific(specific) => {
+            outbound_hosts.extend(specific.into_iter().map(|s| {
+                if s.domain == "self" {
+                    "http://self".into()
+                } else {
+                    let port = match s.port {
+                        Some(p) => p.to_string(),
+                        None => "443".to_string(),
+                    };
+                    format!("https://{}:{}", s.domain, port)
+                }
+            }))
+        }
+    };
+    Ok(outbound_hosts)
 }
 
 fn component_id_from_string(id: String) -> Result<v2::KebabId, Error> {

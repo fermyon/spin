@@ -22,7 +22,6 @@ use hyper::{
     service::service_fn,
     Request, Response,
 };
-use outbound_http::allowed_http_hosts::AllowedHttpHosts;
 use spin_app::{AppComponent, APP_DESCRIPTION_KEY};
 use spin_core::{Engine, OutboundWasiHttpHandler};
 use spin_http::{
@@ -31,6 +30,7 @@ use spin_http::{
     config::{HttpExecutorType, HttpTriggerConfig},
     routes::{RoutePattern, Router},
 };
+use spin_outbound_networking::{AllowedHostsConfig, OutboundUrl};
 use spin_trigger::{EitherInstancePre, TriggerAppEngine, TriggerExecutor};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
@@ -450,7 +450,8 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
 #[derive(Default)]
 pub struct HttpRuntimeData {
     origin: Option<String>,
-    allowed_hosts: AllowedHttpHosts,
+    /// The hosts this app is allowed to make outbound requests to
+    allowed_hosts: AllowedHostsConfig,
 }
 
 impl OutboundWasiHttpHandler for HttpRuntimeData {
@@ -493,25 +494,38 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
             *request.request.uri_mut() = uri;
         }
 
-        let unallowed_relative = is_relative_url && !this.allowed_hosts.allows_relative_url();
+        let uri = request.request.uri();
+        let uri_string = uri.to_string();
+        let unallowed_relative =
+            is_relative_url && !this.allowed_hosts.allows_relative_url(&["http", "https"]);
         let unallowed_absolute = !is_relative_url
             && !this
                 .allowed_hosts
-                .allows(&url::Url::parse(&request.request.uri().to_string()).unwrap());
+                .allows(&OutboundUrl::parse(uri_string, "https")?);
         if unallowed_relative || unallowed_absolute {
             tracing::log::error!("Destination not allowed: {}", request.request.uri());
             let host = if unallowed_absolute {
                 // Safe to unwrap because absolute urls have a host by definition.
-                let host = request.request.uri().authority().map(|a| a.host()).unwrap();
+                let host = uri.authority().map(|a| a.host()).unwrap();
+                let port = uri.authority().map(|a| a.port()).unwrap();
+                let port = match port {
+                    Some(port_str) => port_str.to_string(),
+                    None => uri
+                        .scheme()
+                        .and_then(|s| (s == &Scheme::HTTP).then_some(80))
+                        .unwrap_or(443)
+                        .to_string(),
+                };
                 terminal::warn!(
                     "A component tried to make a HTTP request to non-allowed host '{host}'."
                 );
-                host
+                let scheme = uri.scheme().unwrap_or(&Scheme::HTTPS);
+                format!("{scheme}://{host}:{port}")
             } else {
                 terminal::warn!("A component tried to make a HTTP request to the same component but it does not have permission.");
-                "self"
+                "self".into()
             };
-            eprintln!("To allow requests, add 'allowed_http_hosts = [\"{}\"]' to the manifest component section.", host);
+            eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"{}\"]' to the manifest component section.", host);
             anyhow::bail!("destination-not-allowed (error 1)")
         }
 

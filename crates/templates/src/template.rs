@@ -76,6 +76,15 @@ impl TemplateVariantInfo {
             Self::AddComponent { .. } => "component",
         }
     }
+
+    /// The noun that should be used for the variant in a prompt,
+    /// qualified with the appropriate a/an article for English
+    pub fn articled_noun(&self) -> &'static str {
+        match self {
+            Self::NewApplication => "an application",
+            Self::AddComponent { .. } => "a component",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]

@@ -213,13 +213,10 @@ impl TemplateNewCommandCore {
             }
             // If -t is NOT provided and we have one positional arg then we have
             // to assume Spin 2 syntax. But if that arg matches a template then
-            // it could be Spin 1muscle memory.
+            // it could be Spin 1 muscle memory.
             (Some(name), None, None) => {
-                let creation_type = match variant {
-                    TemplateVariantInfo::NewApplication => "an app",
-                    TemplateVariantInfo::AddComponent { .. } => "a component",
-                };
                 if matches!(template_manager.get(name), Ok(Some(_))) {
+                    let creation_type = variant.articled_noun();
                     terminal::einfo!(
                         "This will create {creation_type} called {name}.",
                         "If you meant to use the {name} template, write '-t {name}'."

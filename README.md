@@ -92,14 +92,14 @@ The table below summarizes the [feature support](https://developer.fermyon.com/s
 |-----|-----|-----|-----|-----|-----|
 | **Triggers** |
 | [HTTP](https://developer.fermyon.com/spin/http-trigger) | Supported | Supported | Supported | Supported | Supported |
-| [Redis](https://developer.fermyon.com/spin/redis-trigger) | Supported | Not Supported | Not Supported | Supported | Not Supported |
+| [Redis](https://developer.fermyon.com/spin/redis-trigger) | Supported | Supported | Supported | Supported | Not Supported |
 | **APIs** |
 | [Outbound HTTP](https://developer.fermyon.com/spin/rust-components.md#sending-outbound-http-requests) | Supported | Supported | Supported | Supported | Supported |
 | [Configuration Variables](https://developer.fermyon.com/spin/variables) | Supported | Supported | Supported | Supported | Supported |
 | [Key Value Storage](https://developer.fermyon.com/spin/kv-store-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
 | [SQLite Storage](https://developer.fermyon.com/spin/sqlite-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
-| [MySQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Not Supported | Not Supported | Supported | Not Supported |
-| [PostgreSQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Not Supported | Not Supported | Supported | Supported |
+| [MySQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Supported | Not Supported | Supported | Not Supported |
+| [PostgreSQL](https://developer.fermyon.com/spin/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Supported | Not Supported | Supported | Supported |
 | [Outbound Redis](https://developer.fermyon.com/spin/rust-components.md#storing-data-in-redis-from-rust-components) | Supported | Supported | Supported | Supported | Supported |
 | [Serverless AI](https://developer.fermyon.com/spin/rust-components#ai-inferencing-from-rust-components) | Supported | Supported | Supported | Supported | Not Supported |
 | **Extensibility** |

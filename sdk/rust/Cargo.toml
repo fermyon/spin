@@ -21,7 +21,9 @@ serde_json = {version = "1.0.96", optional = true}
 serde = {version = "1.0.163", optional = true}
 
 [features]
-default = ["export-sdk-language"]
+default = ["export-sdk-language", "export-sdk-version", "export-sdk-commit"]
 export-sdk-language = []
+export-sdk-version = []
+export-sdk-commit = []
 json = ["dep:serde", "dep:serde_json"]
 experimental = []

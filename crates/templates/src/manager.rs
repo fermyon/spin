@@ -1119,10 +1119,7 @@ mod tests {
         assert!(!spin_toml.contains("service.example.com"));
     }
 
-    // TODO: The challenge here is that figuring out the trigger from a template manifest is now hard
-    // because template manifests are not valid TOML (because the component table header is templatised).
     #[tokio::test]
-    #[ignore] // This will need rework when more templates are ported to the v2 manifest - the failure is benign, a missing safety rail not an error
     async fn cannot_add_component_that_does_not_match_trigger() {
         let temp_dir = tempdir().unwrap();
         let store = TemplateStore::new(temp_dir.path());

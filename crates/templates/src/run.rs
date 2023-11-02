@@ -85,8 +85,8 @@ impl Run {
         &self,
         interaction: impl InteractionStrategy,
     ) -> anyhow::Result<Option<TemplateRenderer>> {
-        self.validate_trigger()?;
         self.validate_version()?;
+        self.validate_trigger()?;
 
         // TODO: rationalise `path` and `dir`
         let to = self.generation_target_dir();

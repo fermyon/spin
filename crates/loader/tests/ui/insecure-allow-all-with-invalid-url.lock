@@ -29,7 +29,9 @@
           "redis://*:*",
           "mysql://*:*",
           "postgres://*:*",
-          "https://*:*"
+          "http://*:*",
+          "https://*:*",
+          "http://self"
         ]
       },
       "source": {

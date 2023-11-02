@@ -85,7 +85,8 @@ impl Run {
         &self,
         interaction: impl InteractionStrategy,
     ) -> anyhow::Result<Option<TemplateRenderer>> {
-        self.validate_trigger().await?;
+        self.validate_trigger()?;
+        self.validate_version()?;
 
         // TODO: rationalise `path` and `dir`
         let to = self.generation_target_dir();
@@ -211,7 +212,7 @@ impl Run {
         }
     }
 
-    async fn validate_trigger(&self) -> anyhow::Result<()> {
+    fn validate_trigger(&self) -> anyhow::Result<()> {
         match &self.options.variant {
             TemplateVariantInfo::NewApplication => Ok(()),
             TemplateVariantInfo::AddComponent { manifest_path } => {
@@ -219,6 +220,20 @@ impl Run {
                     Some(Ok(app_info)) => self
                         .template
                         .check_compatible_trigger(app_info.trigger_type()),
+                    _ => Ok(()), // Fail forgiving - don't block the user if things are under construction
+                }
+            }
+        }
+    }
+
+    fn validate_version(&self) -> anyhow::Result<()> {
+        match &self.options.variant {
+            TemplateVariantInfo::NewApplication => Ok(()),
+            TemplateVariantInfo::AddComponent { manifest_path } => {
+                match crate::app_info::AppInfo::from_file(manifest_path) {
+                    Some(Ok(app_info)) => self
+                        .template
+                        .check_compatible_manifest_format(app_info.manifest_format()),
                     _ => Ok(()), // Fail forgiving - don't block the user if things are under construction
                 }
             }

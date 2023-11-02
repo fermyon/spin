@@ -106,7 +106,7 @@ pub fn http_component(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     let request: ::spin_sdk::http::IncomingRequest = ::std::convert::Into::into(request);
                     let response_out: ::spin_sdk::http::ResponseOutparam = ::std::convert::Into::into(response_out);
                     ::spin_sdk::http::run(async move {
-                        match ::spin_sdk::http::conversions::TryFromIncomingRequest::try_from_incoming_request(request).await {
+                        match ::spin_sdk::http::conversions::TryFromIncomingRequest::try_from_incoming_request(request) {
                             ::std::result::Result::Ok(req) => #handler,
                             ::std::result::Result::Err(e) => handle_response(response_out, e).await,
                         }

@@ -1,4 +1,4 @@
-use super::conversions::{IntoResponse, TryFromRequest, TryIntoRequest};
+use super::conversions::{IntoRequest, IntoResponse, TryFromRequest};
 use super::{responses, Method, Request, Response};
 use routefinder::{Captures, Router as MethodRouter};
 use std::{collections::HashMap, fmt::Display};
@@ -41,13 +41,9 @@ impl Router {
     /// Dispatches a request to the appropriate handler along with the URI parameters.
     pub fn handle<R>(&self, request: R) -> Response
     where
-        R: TryIntoRequest,
-        R::Error: IntoResponse,
+        R: IntoRequest,
     {
-        let request = match R::try_into_request(request) {
-            Ok(r) => r,
-            Err(e) => return e.into_response(),
-        };
+        let request = R::into_request(request);
         let method = request.method.clone();
         let path = &request.path();
         let RouteMatch { params, handler } = self.find(path, method);

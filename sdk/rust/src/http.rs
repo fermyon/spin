@@ -1,7 +1,7 @@
 /// Traits for converting between the various types
 pub mod conversions;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 #[doc(inline)]
 pub use conversions::IntoResponse;
@@ -15,6 +15,27 @@ use self::conversions::{TryFromIncomingResponse, TryIntoOutgoingRequest};
 use super::wit::wasi::http::types;
 use crate::wit::wasi::io::streams;
 use futures::SinkExt;
+
+type Lazy<T> = once_cell::sync::Lazy<T, Box<dyn (FnOnce() -> T) + Send + Sync>>;
+
+trait LazyExt<T> {
+    fn new<F: (FnOnce() -> T) + Send + Sync + 'static>(f: F) -> Self;
+
+    fn force_value(self) -> T;
+}
+
+impl<T> LazyExt<T> for Lazy<T> {
+    fn new<F: (FnOnce() -> T) + Send + Sync + 'static>(f: F) -> Self {
+        Lazy::new(Box::new(f))
+    }
+
+    fn force_value(self) -> T {
+        match Lazy::into_value(self) {
+            Ok(value) => value,
+            Err(f) => (f)(),
+        }
+    }
+}
 
 /// A unified request object that can represent both incoming and outgoing requests.
 ///
@@ -30,7 +51,7 @@ pub struct Request {
     /// The request headers
     headers: HashMap<String, HeaderValue>,
     /// The request body as bytes
-    body: Vec<u8>,
+    body: Lazy<Result<Vec<u8>, Arc<anyhow::Error>>>,
 }
 
 impl Request {
@@ -40,7 +61,7 @@ impl Request {
             method,
             uri: Self::parse_uri(uri.into()),
             headers: HashMap::new(),
-            body: Vec::new(),
+            body: LazyExt::new(|| Ok(Vec::new())),
         }
     }
 
@@ -55,7 +76,7 @@ impl Request {
     }
 
     /// Creates a [`RequestBuilder`] to POST the given `body` to `uri`
-    pub fn post(uri: impl Into<String>, body: impl conversions::IntoBody) -> RequestBuilder {
+    pub fn post(uri: impl Into<String>, body: impl conversions::IntoLazyBody) -> RequestBuilder {
         let mut builder = RequestBuilder::new(Method::Post, uri);
         builder.body(body);
         builder
@@ -98,18 +119,23 @@ impl Request {
     }
 
     /// The request body
-    pub fn body(&self) -> &[u8] {
-        &self.body
+    pub fn body(&self) -> Result<&[u8], Arc<anyhow::Error>> {
+        Lazy::force(&self.body)
+            .as_ref()
+            .map(|v| &v[..])
+            .map_err(|e| e.clone())
     }
 
     /// The request body
-    pub fn body_mut(&mut self) -> &mut Vec<u8> {
-        &mut self.body
+    pub fn body_mut(&mut self) -> Result<&mut Vec<u8>, Arc<anyhow::Error>> {
+        Lazy::force_mut(&mut self.body)
+            .as_mut()
+            .map_err(|e| e.clone())
     }
 
     /// Consume this type and return its body
-    pub fn into_body(self) -> Vec<u8> {
-        self.body
+    pub fn into_body(self) -> Result<Vec<u8>, Arc<anyhow::Error>> {
+        Lazy::force_value(self.body)
     }
 
     fn parse_uri(uri: String) -> (Option<hyperium::Uri>, String) {
@@ -190,8 +216,8 @@ impl RequestBuilder {
     }
 
     /// Set the body
-    pub fn body(&mut self, body: impl conversions::IntoBody) -> &mut Self {
-        self.request.body = body.into_body();
+    pub fn body(&mut self, body: impl conversions::IntoLazyBody) -> &mut Self {
+        self.request.body = body.into_lazy_body();
         self
     }
 

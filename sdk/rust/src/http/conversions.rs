@@ -1,12 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 
 use crate::wit::wasi::io::streams;
 
 use super::{
-    Headers, IncomingRequest, IncomingResponse, Json, JsonBodyError, OutgoingRequest,
-    OutgoingResponse, RequestBuilder,
+    executor, Headers, IncomingRequest, IncomingResponse, Json, JsonBodyError, Lazy, LazyExt,
+    OutgoingRequest, OutgoingResponse, RequestBuilder,
 };
 
 use super::{responses, NonUtf8BodyError, Request, Response};
@@ -29,7 +29,7 @@ pub trait TryFromIncomingRequest {
     type Error;
 
     /// Try to turn the `IncomingRequest` into the implementing type
-    async fn try_from_incoming_request(value: IncomingRequest) -> Result<Self, Self::Error>
+    fn try_from_incoming_request(value: IncomingRequest) -> Result<Self, Self::Error>
     where
         Self: Sized;
 }
@@ -37,7 +37,8 @@ pub trait TryFromIncomingRequest {
 #[async_trait]
 impl TryFromIncomingRequest for IncomingRequest {
     type Error = std::convert::Infallible;
-    async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
+
+    fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
         Ok(request)
     }
 }
@@ -49,29 +50,31 @@ where
 {
     type Error = IncomingRequestError<R::Error>;
 
-    async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
-        let req = Request::try_from_incoming_request(request)
-            .await
-            .map_err(convert_error)?;
+    fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
+        let req = Request::try_from_incoming_request(request).unwrap();
         R::try_from_request(req).map_err(IncomingRequestError::ConversionError)
     }
 }
 
 #[async_trait]
 impl TryFromIncomingRequest for Request {
-    type Error = IncomingRequestError;
+    type Error = std::convert::Infallible;
 
-    async fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
+    fn try_from_incoming_request(request: IncomingRequest) -> Result<Self, Self::Error> {
         Ok(Request::builder()
             .method(request.method())
             .uri(request.uri())
             .headers(request.headers())
-            .body(request.into_body().await.map_err(|e| {
-                IncomingRequestError::BodyConversionError(anyhow::anyhow!(
-                    "{}",
-                    e.to_debug_string()
-                ))
-            })?)
+            .body(
+                <Lazy<Result<Vec<u8>, Arc<anyhow::Error>>> as LazyExt<_>>::new(move || {
+                    executor::run(async move {
+                        request
+                            .into_body()
+                            .await
+                            .map_err(|e| Arc::new(anyhow::anyhow!("{}", e.to_debug_string())))
+                    })
+                }),
+            )
             .build())
     }
 }
@@ -79,25 +82,12 @@ impl TryFromIncomingRequest for Request {
 #[derive(Debug, thiserror::Error)]
 /// An error converting an `IncomingRequest`
 pub enum IncomingRequestError<E = std::convert::Infallible> {
-    /// There was an error converting the body to an `Option<Vec<u8>>k`
+    /// There was an error converting the body to an `Option<Vec<u8>>`
     #[error(transparent)]
     BodyConversionError(anyhow::Error),
     /// There was an error converting the `Request` into the requested type
     #[error(transparent)]
     ConversionError(E),
-}
-
-/// Helper for converting `IncomingRequestError`s that cannot fail due to conversion errors
-/// into ones that can.
-fn convert_error<E>(
-    error: IncomingRequestError<std::convert::Infallible>,
-) -> IncomingRequestError<E> {
-    match error {
-        IncomingRequestError::BodyConversionError(e) => {
-            IncomingRequestError::BodyConversionError(e)
-        }
-        IncomingRequestError::ConversionError(_) => unreachable!(),
-    }
 }
 
 impl<E: IntoResponse> IntoResponse for IncomingRequestError<E> {
@@ -157,8 +147,9 @@ pub trait TryNonRequestFromRequest {
 }
 
 #[cfg(feature = "http")]
-impl<B: TryFromBody> TryNonRequestFromRequest for hyperium::Request<B> {
+impl<B: TryFromLazyBody> TryNonRequestFromRequest for hyperium::Request<B> {
     type Error = B::Error;
+
     fn try_from_request(req: Request) -> Result<Self, Self::Error> {
         let mut builder = hyperium::Request::builder()
             .uri(req.uri())
@@ -166,7 +157,7 @@ impl<B: TryFromBody> TryNonRequestFromRequest for hyperium::Request<B> {
         for (n, v) in req.headers {
             builder = builder.header(n, v.into_bytes());
         }
-        Ok(builder.body(B::try_from_body(req.body)?).unwrap())
+        Ok(builder.body(B::try_from_lazy_body(req.body)?).unwrap())
     }
 }
 
@@ -408,6 +399,158 @@ impl IntoBody for String {
     }
 }
 
+/// A trait for any type that can be turned into a `Request` body
+pub trait IntoLazyBody {
+    /// Turn `self` into a `Response` body
+    fn into_lazy_body(self) -> Lazy<Result<Vec<u8>, Arc<anyhow::Error>>>;
+}
+
+impl<T: IntoLazyBody> IntoLazyBody for Option<T> {
+    fn into_lazy_body(self) -> Lazy<Result<Vec<u8>, Arc<anyhow::Error>>> {
+        self.map(|b| IntoLazyBody::into_lazy_body(b))
+            .unwrap_or_else(|| LazyExt::new(|| Ok(Default::default())))
+    }
+}
+
+impl IntoLazyBody for Lazy<Result<Vec<u8>, Arc<anyhow::Error>>> {
+    fn into_lazy_body(self) -> Lazy<Result<Vec<u8>, Arc<anyhow::Error>>> {
+        self
+    }
+}
+
+impl IntoLazyBody for Vec<u8> {
+    fn into_lazy_body(self) -> Lazy<Result<Vec<u8>, Arc<anyhow::Error>>> {
+        LazyExt::new(move || Ok(self))
+    }
+}
+
+#[cfg(feature = "http")]
+impl IntoLazyBody for bytes::Bytes {
+    fn into_lazy_body(self) -> Lazy<Result<Vec<u8>, Arc<anyhow::Error>>> {
+        LazyExt::new(move || Ok(self.to_vec()))
+    }
+}
+
+impl IntoLazyBody for () {
+    fn into_lazy_body(self) -> Lazy<Result<Vec<u8>, Arc<anyhow::Error>>> {
+        LazyExt::new(|| Ok(Default::default()))
+    }
+}
+
+impl IntoLazyBody for &str {
+    fn into_lazy_body(self) -> Lazy<Result<Vec<u8>, Arc<anyhow::Error>>> {
+        let owned = self.to_owned();
+        LazyExt::new(move || Ok(owned.into_bytes()))
+    }
+}
+
+impl IntoLazyBody for String {
+    fn into_lazy_body(self) -> Lazy<Result<Vec<u8>, Arc<anyhow::Error>>> {
+        LazyExt::new(move || Ok(self.into_bytes()))
+    }
+}
+
+/// A trait for any type that can be turned into a `Response` body
+pub trait TryIntoBody {
+    /// The type of error if the conversion fails
+    type Error;
+    /// Turn `self` into an Error
+    fn try_into_body(self) -> Result<Vec<u8>, Self::Error>;
+}
+
+impl<B> TryIntoBody for B
+where
+    B: IntoBody,
+{
+    type Error = std::convert::Infallible;
+
+    fn try_into_body(self) -> Result<Vec<u8>, Self::Error> {
+        Ok(self.into_body())
+    }
+}
+
+/// A trait for converting from a body or failing
+pub trait TryFromLazyBody {
+    /// The error encountered if conversion fails
+    type Error: IntoResponse;
+    /// Convert from a body to `Self` or fail
+    fn try_from_lazy_body(
+        body: Lazy<Result<Vec<u8>, Arc<anyhow::Error>>>,
+    ) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
+}
+
+impl<T: TryFromLazyBody> TryFromLazyBody for Option<T> {
+    type Error = T::Error;
+
+    fn try_from_lazy_body(
+        body: Lazy<Result<Vec<u8>, Arc<anyhow::Error>>>,
+    ) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        Ok(Some(TryFromLazyBody::try_from_lazy_body(body)?))
+    }
+}
+
+impl TryFromLazyBody for String {
+    type Error = anyhow::Error;
+
+    fn try_from_lazy_body(
+        body: Lazy<Result<Vec<u8>, Arc<anyhow::Error>>>,
+    ) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        String::from_utf8(Lazy::force_value(body).map_err(|e| anyhow::anyhow!("{e}"))?)
+            .map_err(|_| anyhow::Error::from(NonUtf8BodyError))
+    }
+}
+
+impl TryFromLazyBody for Vec<u8> {
+    type Error = anyhow::Error;
+
+    fn try_from_lazy_body(
+        body: Lazy<Result<Vec<u8>, Arc<anyhow::Error>>>,
+    ) -> Result<Self, Self::Error> {
+        Lazy::force_value(body).map_err(|e| anyhow::anyhow!("{e}"))
+    }
+}
+
+impl TryFromLazyBody for () {
+    type Error = std::convert::Infallible;
+
+    fn try_from_lazy_body(
+        _body: Lazy<Result<Vec<u8>, Arc<anyhow::Error>>>,
+    ) -> Result<Self, Self::Error> {
+        Ok(())
+    }
+}
+
+/// A trait from converting from a body
+pub trait FromBody {
+    /// Convert from a body into the type
+    fn from_body(body: Vec<u8>) -> Self;
+}
+
+impl FromBody for Vec<u8> {
+    fn from_body(body: Vec<u8>) -> Self {
+        body
+    }
+}
+
+impl FromBody for () {
+    fn from_body(_body: Vec<u8>) -> Self {}
+}
+
+#[cfg(feature = "http")]
+impl FromBody for bytes::Bytes {
+    fn from_body(body: Vec<u8>) -> Self {
+        Into::into(body)
+    }
+}
+
 /// A trait for converting from a body or failing
 pub trait TryFromBody {
     /// The error encountered if conversion fails
@@ -459,45 +602,39 @@ impl<T: serde::de::DeserializeOwned> TryFromBody for Json<T> {
     }
 }
 
-/// A trait from converting from a body
-pub trait FromBody {
-    /// Convert from a body into the type
-    fn from_body(body: Vec<u8>) -> Self;
-}
+#[cfg(feature = "json")]
+impl<T: serde::de::DeserializeOwned> TryFromLazyBody for Json<T> {
+    type Error = anyhow::Error;
 
-impl FromBody for Vec<u8> {
-    fn from_body(body: Vec<u8>) -> Self {
-        body
+    fn try_from_lazy_body(
+        body: Lazy<Result<Vec<u8>, Arc<anyhow::Error>>>,
+    ) -> Result<Self, Self::Error> {
+        Ok(Json(
+            serde_json::from_slice(&Lazy::force_value(body).map_err(|e| anyhow::anyhow!("{e}"))?)
+                .map_err(|e| anyhow::Error::from(JsonBodyError(e)))?,
+        ))
     }
-}
-
-impl FromBody for () {
-    fn from_body(_body: Vec<u8>) -> Self {}
 }
 
 #[cfg(feature = "http")]
-impl FromBody for bytes::Bytes {
-    fn from_body(body: Vec<u8>) -> Self {
-        Into::into(body)
+impl TryFromLazyBody for bytes::Bytes {
+    type Error = anyhow::Error;
+
+    fn try_from_lazy_body(
+        body: Lazy<Result<Vec<u8>, Arc<anyhow::Error>>>,
+    ) -> Result<Self, Self::Error> {
+        Lazy::force_value(body)
+            .map(Into::into)
+            .map_err(|e| anyhow::anyhow!("{e}"))
     }
 }
 
-/// A trait for any type that can be turned into a `Response` body or fail
-pub trait TryIntoBody {
-    /// The type of error if the conversion fails
-    type Error;
-    /// Turn `self` into an Error
-    fn try_into_body(self) -> Result<Vec<u8>, Self::Error>;
-}
-
-impl<B> TryIntoBody for B
-where
-    B: IntoBody,
-{
-    type Error = std::convert::Infallible;
-
-    fn try_into_body(self) -> Result<Vec<u8>, Self::Error> {
-        Ok(self.into_body())
+#[cfg(feature = "json")]
+impl<T: serde::Serialize + Send + Sync + 'static> IntoLazyBody for Json<T> {
+    fn into_lazy_body(self) -> Lazy<Result<Vec<u8>, Arc<anyhow::Error>>> {
+        LazyExt::new(move || {
+            serde_json::to_vec(&self.0).map_err(|e| Arc::new(anyhow::Error::from(e)))
+        })
     }
 }
 
@@ -532,7 +669,7 @@ impl TryIntoOutgoingRequest for OutgoingRequest {
 }
 
 impl TryIntoOutgoingRequest for Request {
-    type Error = std::convert::Infallible;
+    type Error = anyhow::Error;
 
     fn try_into_outgoing_request(self) -> Result<(OutgoingRequest, Option<Vec<u8>>), Self::Error> {
         let headers = self
@@ -550,12 +687,15 @@ impl TryIntoOutgoingRequest for Request {
             self.authority(),
             &Headers::new(&headers),
         );
-        Ok((request, Some(self.into_body())))
+        Ok((
+            request,
+            Some(self.into_body().map_err(|e| anyhow::anyhow!("{e}"))?),
+        ))
     }
 }
 
 impl TryIntoOutgoingRequest for RequestBuilder {
-    type Error = std::convert::Infallible;
+    type Error = anyhow::Error;
 
     fn try_into_outgoing_request(
         mut self,
@@ -642,31 +782,25 @@ impl<B: TryFromBody> TryFromIncomingResponse for hyperium::Response<B> {
 }
 
 /// Turn a type into a `Request`
-pub trait TryIntoRequest {
-    /// The error if the conversion fails
-    type Error;
-
+pub trait IntoRequest {
     /// Turn `self` into a `Request`
-    fn try_into_request(self) -> Result<Request, Self::Error>;
+    fn into_request(self) -> Request;
 }
 
-impl TryIntoRequest for Request {
-    type Error = std::convert::Infallible;
-
-    fn try_into_request(self) -> Result<Request, Self::Error> {
-        Ok(self)
+impl IntoRequest for Request {
+    fn into_request(self) -> Request {
+        self
     }
 }
 
 #[cfg(feature = "http")]
-impl<B: TryIntoBody> TryIntoRequest for hyperium::Request<B> {
-    type Error = B::Error;
-    fn try_into_request(self) -> Result<Request, Self::Error> {
-        Ok(Request::builder()
+impl<B: IntoLazyBody> IntoRequest for hyperium::Request<B> {
+    fn into_request(self) -> Request {
+        Request::builder()
             .method(self.method().clone().into())
             .uri(self.uri().to_string())
             .headers(self.headers())
-            .body(B::try_into_body(self.into_body())?)
-            .build())
+            .body(B::into_lazy_body(self.into_body()))
+            .build()
     }
 }

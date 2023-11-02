@@ -3,6 +3,7 @@ use std::{net::SocketAddr, str, str::FromStr};
 use crate::{Body, HttpExecutor, HttpTrigger, Store};
 use anyhow::bail;
 use anyhow::{anyhow, Context, Result};
+use futures::TryFutureExt;
 use http::{HeaderName, HeaderValue};
 use http_body_util::BodyExt;
 use hyper::{Request, Response};
@@ -186,7 +187,23 @@ impl HttpHandlerExecutor {
         });
 
         match response_rx.await {
-            Ok(response) => Ok(response.context("guest failed to produce a response")?),
+            Ok(response) => {
+                task::spawn(
+                    async move {
+                        handle
+                            .await
+                            .context("guest invocation panicked")?
+                            .context("guest invocation failed")?;
+
+                        Ok(())
+                    }
+                    .map_err(|e: anyhow::Error| {
+                        tracing::warn!("component error after response: {e:?}");
+                    }),
+                );
+
+                Ok(response.context("guest failed to produce a response")?)
+            }
 
             Err(_) => {
                 handle

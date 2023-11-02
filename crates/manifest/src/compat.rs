@@ -120,7 +120,11 @@ pub(crate) fn convert_allowed_http_to_allowed_hosts(
         Vec::new()
     };
     match http_hosts {
-        AllowedHttpHosts::AllowAll => outbound_hosts.extend(["https://*:*".into()]),
+        AllowedHttpHosts::AllowAll => outbound_hosts.extend([
+            "http://*:*".into(),
+            "https://*:*".into(),
+            "http://self".into(),
+        ]),
         AllowedHttpHosts::AllowSpecific(specific) => {
             outbound_hosts.extend(specific.into_iter().map(|s| {
                 if s.domain == "self" {

@@ -5,7 +5,8 @@ use async_trait::async_trait;
 use crate::wit::wasi::io::streams;
 
 use super::{
-    Headers, IncomingRequest, IncomingResponse, OutgoingRequest, OutgoingResponse, RequestBuilder,
+    Headers, IncomingRequest, IncomingResponse, Json, JsonBodyError, OutgoingRequest,
+    OutgoingResponse, RequestBuilder,
 };
 
 use super::{responses, NonUtf8BodyError, Request, Response};
@@ -275,7 +276,7 @@ impl IntoResponse for Box<dyn std::error::Error> {
 #[cfg(feature = "json")]
 impl IntoResponse for super::JsonBodyError {
     fn into_response(self) -> Response {
-        responses::bad_request(Some(format!("failed to parse JSON body: {}", self.0)))
+        responses::bad_request(Some(format!("invalid JSON body: {}", self.0)))
     }
 }
 
@@ -451,12 +452,10 @@ impl TryFromBody for String {
 }
 
 #[cfg(feature = "json")]
-impl<T: serde::de::DeserializeOwned> TryFromBody for super::Json<T> {
-    type Error = super::JsonBodyError;
+impl<T: serde::de::DeserializeOwned> TryFromBody for Json<T> {
+    type Error = JsonBodyError;
     fn try_from_body(body: Vec<u8>) -> Result<Self, Self::Error> {
-        Ok(super::Json(
-            serde_json::from_slice(&body).map_err(super::JsonBodyError)?,
-        ))
+        Ok(Json(serde_json::from_slice(&body).map_err(JsonBodyError)?))
     }
 }
 
@@ -499,6 +498,15 @@ where
 
     fn try_into_body(self) -> Result<Vec<u8>, Self::Error> {
         Ok(self.into_body())
+    }
+}
+
+#[cfg(feature = "json")]
+impl<T: serde::Serialize> TryIntoBody for Json<T> {
+    type Error = JsonBodyError;
+
+    fn try_into_body(self) -> Result<Vec<u8>, Self::Error> {
+        serde_json::to_vec(&self.0).map_err(JsonBodyError)
     }
 }
 
@@ -633,14 +641,32 @@ impl<B: TryFromBody> TryFromIncomingResponse for hyperium::Response<B> {
     }
 }
 
+/// Turn a type into a `Request`
+pub trait TryIntoRequest {
+    /// The error if the conversion fails
+    type Error;
+
+    /// Turn `self` into a `Request`
+    fn try_into_request(self) -> Result<Request, Self::Error>;
+}
+
+impl TryIntoRequest for Request {
+    type Error = std::convert::Infallible;
+
+    fn try_into_request(self) -> Result<Request, Self::Error> {
+        Ok(self)
+    }
+}
+
 #[cfg(feature = "http")]
-impl<B: IntoBody> From<hyperium::Request<B>> for Request {
-    fn from(value: hyperium::Request<B>) -> Self {
-        Request::builder()
-            .method(value.method().clone().into())
-            .uri(value.uri().to_string())
-            .headers(value.headers())
-            .body(value.into_body())
-            .build()
+impl<B: TryIntoBody> TryIntoRequest for hyperium::Request<B> {
+    type Error = B::Error;
+    fn try_into_request(self) -> Result<Request, Self::Error> {
+        Ok(Request::builder()
+            .method(self.method().clone().into())
+            .uri(self.uri().to_string())
+            .headers(self.headers())
+            .body(B::try_into_body(self.into_body())?)
+            .build())
     }
 }

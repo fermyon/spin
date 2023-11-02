@@ -48,7 +48,7 @@ $ rustup target add wasm32-wasi
 First, run the `spin new` command to create a Spin application from a template.
 ```bash
 # Create a new Spin application named 'hello-rust' based on the Rust http template, accepting all defaults
-$ spin new --accept-defaults -t http-rust hello-rust
+$ spin new --accept-defaults http-rust hello-rust
 ```
 Running the `spin new` command created a `hello-rust` directory with all the necessary files for your application. Change to the `hello-rust` directory and build the application with `spin build`, then run it locally with `spin up`:
 

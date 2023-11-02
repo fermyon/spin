@@ -35,6 +35,7 @@ pub mod wit {
 #[doc(hidden)]
 pub use wit::__link_section;
 
+#[cfg(feature = "export-sdk-version")]
 #[export_name = concat!("spin-sdk-version-", env!("SDK_VERSION"))]
 extern "C" fn __spin_sdk_version() {}
 
@@ -42,6 +43,7 @@ extern "C" fn __spin_sdk_version() {}
 #[export_name = "spin-sdk-language-rust"]
 extern "C" fn __spin_sdk_language() {}
 
+#[cfg(feature = "export-sdk-commit")]
 #[export_name = concat!("spin-sdk-commit-", env!("SDK_COMMIT"))]
 extern "C" fn __spin_sdk_hash() {}
 

@@ -24,8 +24,10 @@ hyperium = { package = "http", version = "0.2", optional = true }
 bytes = { version = "1", optional = true }
 
 [features]
-default = ["export-sdk-language", "http", "json"]
+default = ["export-sdk-language", "export-sdk-version", "export-sdk-commit", "http", "json"]
 http = ["dep:hyperium", "dep:bytes"]
 export-sdk-language = []
+export-sdk-version = []
+export-sdk-commit = []
 json = ["dep:serde", "dep:serde_json"]
 experimental = []

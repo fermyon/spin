@@ -33,7 +33,7 @@ allowed_outbound_hosts = ["redis://*:*", "mysql://*:*", "postgres://*:*"]
 description = "My fine component"
 files = ["pattern/*", { source = "placement", destination = "/" }]
 exclude_files = ["**/secret"]
-allowed_outbound_hosts = ["https://fermyon.com:443", "https://example.com:443"]
+allowed_outbound_hosts = ["https://fermyon.com:443", "http://example.com", "https://example.com"]
 key_value_stores = ["default"]
 sqlite_databases = ["default"]
 ai_models = ["llama2-chat"]

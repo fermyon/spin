@@ -107,8 +107,17 @@ pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = ty
                                     if flushing {
                                         break Poll::Ready(Ok(()));
                                     } else {
-                                        stream.flush().expect("stream should be flushable");
-                                        flushing = true;
+                                        match stream.flush() {
+                                            Ok(()) => flushing = true,
+                                            Err(StreamError::Closed) => break Poll::Ready(Ok(())),
+                                            Err(StreamError::LastOperationFailed(e)) => {
+                                                break Poll::Ready(Err(
+                                                    types::Error::ProtocolError(format!(
+                                                        "I/O error: {e}"
+                                                    )),
+                                                ))
+                                            }
+                                        }
                                     }
                                 } else {
                                     let count =
@@ -125,6 +134,12 @@ pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = ty
                                         }
                                     }
                                 }
+                            }
+                            // If the stream is closed but the entire chunk was
+                            // written then we've done all we could so this
+                            // chunk is now complete.
+                            Err(StreamError::Closed) if offset == chunk.len() => {
+                                break Poll::Ready(Ok(()))
                             }
                             Err(e) => {
                                 break Poll::Ready(Err(types::Error::ProtocolError(format!(

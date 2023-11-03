@@ -120,6 +120,11 @@ spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev 
 hyper = { version = "=1.0.0-rc.3", features = ["full"] }
 http-body-util = "=0.1.0-rc.2"
 
+[patch.crates-io]
+# Using fork to bump nested dep sqlite3-parser to 0.9.0 for Windows build fix
+# Pending related upstream PR https://github.com/libsql/libsql-client-rs/pull/32
+libsql-client = { git = "https://github.com/vdice/libsql-client-rs", branch = "chore/bump-deps"}
+
 [[bin]]
 name = "spin"
 path = "src/bin/spin.rs"

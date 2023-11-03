@@ -3257,12 +3257,11 @@ checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 [[package]]
 name = "libsql-client"
 version = "0.31.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ad36885b1e43534f5015a8c45a0be4e8a6e9a829bbb3c5704a1c5e0c0fad848"
+source = "git+https://github.com/vdice/libsql-client-rs?branch=chore/bump-deps#f60e71ca91ba6d914d3482a79ba994a7157be0c3"
 dependencies = [
  "anyhow",
  "base64 0.21.5",
- "fallible-iterator 0.2.0",
+ "fallible-iterator 0.3.0",
  "futures",
  "hrana-client-proto",
  "num-traits",
@@ -6294,13 +6293,13 @@ checksum = "3b9b39299b249ad65f3b7e96443bad61c02ca5cd3589f46cb6d610a0fd6c0d6a"
 
 [[package]]
 name = "sqlite3-parser"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3995a6daa13c113217b6ad22154865fb06f9cb939bef398fd04f4a7aaaf5bd7"
+checksum = "db68d3f0682b50197a408d65a3246b7d6173399d1325cf0208fb3fdb66e3229f"
 dependencies = [
  "bitflags 2.4.1",
  "cc",
- "fallible-iterator 0.2.0",
+ "fallible-iterator 0.3.0",
  "indexmap 1.9.3",
  "log",
  "memchr",

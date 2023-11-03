@@ -79,7 +79,7 @@ impl AllowedHostConfig {
     }
 
     fn allows_relative(&self, schemes: &[&str]) -> bool {
-        schemes.iter().any(|s| self.scheme.allows(s)) && self.host == HostConfig::ToSelf
+        schemes.iter().any(|s| self.scheme.allows(s)) && self.host.allows_relative()
     }
 }
 
@@ -158,6 +158,10 @@ impl HostConfig {
             HostConfig::List(l) => l.iter().any(|h| h.as_str() == host),
             HostConfig::ToSelf => false,
         }
+    }
+
+    fn allows_relative(&self) -> bool {
+        matches!(self, Self::Any | Self::ToSelf)
     }
 }
 

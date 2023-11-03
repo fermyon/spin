@@ -166,7 +166,13 @@ fn response_headers(h: &HeaderMap) -> anyhow::Result<Option<Vec<(String, String)
 }
 
 fn host(url: &str) -> Option<String> {
-    url::Url::parse(url)
-        .ok()
-        .and_then(|u| u.host().map(|h| h.to_string()))
+    match url::Url::parse(url) {
+        Err(_) => None,
+        Ok(u) => Some(format!(
+            "{}://{}:{}",
+            u.scheme(),
+            u.host().unwrap(),
+            u.port().unwrap()
+        )),
+    }
 }

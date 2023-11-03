@@ -7,7 +7,7 @@ license = "Apache-2.0 WITH LLVM-exception"
 rust-version = "1.71"
 
 [workspace.package]
-version = "2.0.0-pre0"
+version = "2.1.0-pre0"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 edition = "2021"
 

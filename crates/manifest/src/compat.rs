@@ -126,15 +126,15 @@ pub(crate) fn convert_allowed_http_to_allowed_hosts(
             "http://self".into(),
         ]),
         AllowedHttpHosts::AllowSpecific(specific) => {
-            outbound_hosts.extend(specific.into_iter().map(|s| {
+            outbound_hosts.extend(specific.into_iter().flat_map(|s| {
                 if s.domain == "self" {
-                    "http://self".into()
+                    vec!["http://self".into()]
                 } else {
-                    let port = match s.port {
-                        Some(p) => p.to_string(),
-                        None => "443".to_string(),
-                    };
-                    format!("https://{}:{}", s.domain, port)
+                    let port = s.port.map(|p| format!(":{p}")).unwrap_or_default();
+                    vec![
+                        format!("http://{}{}", s.domain, port),
+                        format!("https://{}{}", s.domain, port),
+                    ]
                 }
             }))
         }

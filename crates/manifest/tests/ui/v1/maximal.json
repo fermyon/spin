@@ -66,7 +66,8 @@
       ],
       "allowed_outbound_hosts": [
         "https://fermyon.com:443",
-        "https://example.com:443"
+        "http://example.com",
+        "https://example.com"
       ],
       "key_value_stores": [
         "default"

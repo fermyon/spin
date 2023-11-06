@@ -1,0 +1,8 @@
+package component:sqlite
+
+world example {
+    use fermyon:spin/sqlite@2.0.0.{error};
+
+    import fermyon:spin/sqlite@2.0.0;
+    export run: func() -> result<_, error>;
+}

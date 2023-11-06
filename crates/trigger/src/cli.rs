@@ -37,7 +37,8 @@ pub struct TriggerExecutorCommand<Executor: TriggerExecutor>
 where
     Executor::RunConfig: Args,
 {
-    /// Log directory for the stdout and stderr of components.
+    /// Log directory for the stdout and stderr of components. Setting to
+    /// the empty string disables logging to disk.
     #[clap(
         name = APP_LOG_DIR,
         short = 'L',

@@ -157,8 +157,13 @@ impl RuntimeConfig {
     /// Return the log dir if set.
     pub fn log_dir(&self) -> Option<PathBuf> {
         if let Some(path) = self.find_opt(|opts| &opts.log_dir) {
-            // If there is an explicit log dir set, return it
-            Some(path.into())
+            if path.as_os_str().is_empty() {
+                // If the log dir is explicitly set to "", disable logging
+                None
+            } else {
+                // If there is an explicit log dir set, return it
+                Some(path.into())
+            }
         } else if let Some(state_dir) = self.state_dir() {
             // If the state dir is set, build the default path
             Some(state_dir.join(DEFAULT_LOGS_DIR))

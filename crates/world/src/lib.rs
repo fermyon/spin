@@ -1,8 +1,14 @@
 #![allow(missing_docs)]
 
 wasmtime::component::bindgen!({
-    path: "../../wit/preview2",
-    world: "host",
+    inline: r#"
+    package fermyon:runtime
+    world host {
+        include fermyon:spin/host
+        include fermyon:spin/platform@2.0.0
+    }
+    "#,
+    path: "../../wit",
     async: true
 });
 

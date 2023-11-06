@@ -1,11 +1,5 @@
 package fermyon:spin@2.0.0
 
-/// All worlds the Spin host supports
-world host {
-  include fermyon:spin/host
-  include platform
-}
-
 /// The full world of a guest targeting an http-trigger
 world http-trigger {
   include platform

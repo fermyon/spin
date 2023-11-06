@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 cargo-component-bindings = "0.4.0"
+futures = "0.3.29"
 
 [lib]
 crate-type = ["cdylib"]

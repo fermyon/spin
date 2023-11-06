@@ -1,8 +1,6 @@
-package component:sqlite
+package fermyon:test
 
-world example {
-    use fermyon:spin/sqlite@2.0.0.{error};
-
+world sqlite {
     import fermyon:spin/sqlite@2.0.0;
-    export run: func() -> result<_, error>;
+    export wasi:http/incoming-handler@0.2.0-rc-2023-10-18
 }

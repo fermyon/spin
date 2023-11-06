@@ -8,7 +8,7 @@ wasmtime::component::bindgen!({
         include fermyon:spin/platform@2.0.0
     }
     "#,
-    path: "../../wit/preview2",
+    path: "../../wit",
     async: true
 });
 

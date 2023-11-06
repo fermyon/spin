@@ -1,6 +1,6 @@
 wit_bindgen::generate!({
     world: "http-trigger",
-    path: "../../../../wit/preview2/deps/spin@unversioned",
+    path: "../../../../wit/deps/spin@unversioned",
     exports: {
         "fermyon:spin/inbound-http": SpinHttp,
     }

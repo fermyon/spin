@@ -75,34 +75,34 @@ $(SDK_VERSION_DEST_FILES): $(SDK_VERSION_SOURCE_FILE)
 	sed -e "s/{{VERSION}}/$${version}/" -e "s/{{COMMIT}}/$${commit}/" < $< > $@
 
 $(GENERATED_SPIN_VARIABLES):
-	wit-bindgen c --import ../../wit/ephemeral/spin-config.wit --out-dir ./variables
+	wit-bindgen c --import wit/spin-config.wit --out-dir ./variables
 
 $(GENERATED_OUTBOUND_HTTP):
-	wit-bindgen c --import ../../wit/ephemeral/wasi-outbound-http.wit --out-dir ./http
+	wit-bindgen c --import wit/wasi-outbound-http.wit --out-dir ./http
 
 $(GENERATED_SPIN_HTTP):
-	wit-bindgen c --export ../../wit/ephemeral/spin-http.wit --out-dir ./http
+	wit-bindgen c --export wit/spin-http.wit --out-dir ./http
 
 $(GENERATED_OUTBOUND_REDIS):
-	wit-bindgen c --import ../../wit/ephemeral/outbound-redis.wit --out-dir ./redis
+	wit-bindgen c --import wit/outbound-redis.wit --out-dir ./redis
 
 $(GENERATED_SPIN_REDIS):
-	wit-bindgen c --export ../../wit/ephemeral/spin-redis.wit --out-dir ./redis
+	wit-bindgen c --export wit/spin-redis.wit --out-dir ./redis
 
 $(GENERATED_KEY_VALUE):
-	wit-bindgen c --import ../../wit/ephemeral/key-value.wit --out-dir ./kv
+	wit-bindgen c --import wit/key-value.wit --out-dir ./kv
 
 $(GENERATED_SQLITE):
-	wit-bindgen c --import ../../wit/ephemeral/sqlite.wit --out-dir ./sqlite
+	wit-bindgen c --import wit/sqlite.wit --out-dir ./sqlite
 
 $(GENERATED_LLM):
-	wit-bindgen c --import ../../wit/ephemeral/llm.wit --out-dir ./llm
+	wit-bindgen c --import wit/llm.wit --out-dir ./llm
 
 $(GENERATED_OUTBOUND_MYSQL):
-	wit-bindgen c --import ../../wit/ephemeral/outbound-mysql.wit --out-dir ./mysql
+	wit-bindgen c --import wit/outbound-mysql.wit --out-dir ./mysql
 
 $(GENERATED_OUTBOUND_PG):
-	wit-bindgen c --import ../../wit/ephemeral/outbound-pg.wit --out-dir ./pg
+	wit-bindgen c --import wit/outbound-pg.wit --out-dir ./pg
 
 # ----------------------------------------------------------------------
 # Cleanup

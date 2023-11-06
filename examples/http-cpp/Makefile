@@ -9,7 +9,7 @@ WIT_BINDGEN   ?= wit-bindgen
 lib.wasm: lib.o spin-http.o
 	$(WASI_CC) -Wall -mexec-model=reactor -o $@ $^
 
-bindings/spin-http.c bindings/spin-http.h: ../../wit/ephemeral/spin-http.wit
+bindings/spin-http.c bindings/spin-http.h: ../../sdk/go/wit/spin-http.wit
 	$(WIT_BINDGEN) c --export $< --out-dir bindings
 
 spin-http.o: bindings/spin-http.c bindings/spin-http.h

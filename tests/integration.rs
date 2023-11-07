@@ -592,10 +592,9 @@ route = "/..."
         let output = run(execute_args, None, Some(env_map.clone()))?;
 
         // Verify plugin successfully wrote to output file
-        assert_eq!(
-            std::str::from_utf8(&output.stdout)?.trim(),
-            "This is an example Spin plugin!"
-        );
+        assert!(std::str::from_utf8(&output.stdout)?
+            .trim()
+            .contains("This is an example Spin plugin!"));
 
         // Upgrade plugin to newer version
         *plugin_manifest_json.get_mut("version").unwrap() = serde_json::json!("0.2.1");

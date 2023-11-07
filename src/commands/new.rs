@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
+use itertools::Itertools;
 use path_absolutize::Absolutize;
 use tokio;
 
@@ -343,7 +344,6 @@ async fn prompt_name(variant: &TemplateVariantInfo) -> anyhow::Result<String> {
 
 lazy_static::lazy_static! {
     static ref PATH_UNSAFE_CHARACTERS: regex::Regex = regex::Regex::new("[^-_.a-zA-Z0-9]").expect("Invalid path safety regex");
-    static ref NAME: regex::Regex = regex::Regex::new("^[a-zA-Z].*").expect("Invalid name regex");
 }
 
 fn path_safe(text: &str) -> PathBuf {
@@ -352,11 +352,25 @@ fn path_safe(text: &str) -> PathBuf {
 }
 
 fn validate_name(name: &str) -> Result<String, String> {
-    if NAME.is_match(name) {
-        Ok(name.to_owned())
-    } else {
-        Err("Name must start with a letter".to_owned())
+    let splits = name.split(|c| !char::is_alphanumeric(c));
+    let invalid_split_displays = splits
+        .filter(|s| !s.starts_with(char::is_alphabetic))
+        .map(|s| format!("'{s}'"))
+        .collect_vec();
+
+    if invalid_split_displays.is_empty() {
+        return Ok(name.to_owned());
     }
+
+    let invalid_text = invalid_split_displays.join(", ");
+    let verb = if invalid_split_displays.len() == 1 {
+        "does"
+    } else {
+        "do"
+    };
+
+    let msg = format!("Each segment of the name must start with a letter. {invalid_text} {verb} not start with a letter");
+    Err(msg)
 }
 
 #[cfg(test)]
@@ -432,11 +446,15 @@ mod tests {
     }
 
     #[test]
-    fn project_names_must_start_with_letter() {
+    fn project_name_segments_must_start_with_letter() {
         assert_eq!("hello", validate_name("hello").unwrap());
-        assert_eq!("Proj123!.456", validate_name("Proj123!.456").unwrap());
+        assert_eq!("hello1", validate_name("hello1").unwrap());
+        assert_eq!("hello1-again1", validate_name("hello1-again1").unwrap());
+        validate_name("Proj123!.456").unwrap_err();
         validate_name("123").unwrap_err();
         validate_name("1hello").unwrap_err();
         validate_name("_foo").unwrap_err();
+        validate_name("hello-123").unwrap_err();
+        validate_name("hello_123_456").unwrap_err();
     }
 }

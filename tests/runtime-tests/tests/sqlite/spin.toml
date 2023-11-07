@@ -7,7 +7,7 @@ version = "0.1.0"
 
 [[component]]
 id = "sqlite"
-source = "{{SQLITE}}"
+source = "{{sqlite}}"
 sqlite_databases = ["default"]
 allowed_http_hosts = []
 [component.trigger]

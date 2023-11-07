@@ -94,7 +94,7 @@ fn copy_manifest(test_dir: &Path, temp: &temp_dir::TempDir) -> anyhow::Result<()
         if source_str.starts_with("{{") {
             let name = &source_str[2..source_str.len() - 2];
             let path = component_path(name);
-            let wasm_name = format!("{}.wasm", name.to_lowercase());
+            let wasm_name = format!("{name}.wasm");
             std::fs::copy(&path, temp.path().join(&wasm_name)).with_context(|| {
                 format!(
                     "failed to copy wasm file '{}' to temporary directory",
@@ -267,7 +267,7 @@ fn kill_process(process: &mut std::process::Child) {
 }
 
 fn component_path(name: &str) -> PathBuf {
-    PathBuf::from("../test-components/")
-        .join(name.to_lowercase())
+    PathBuf::from("../../test-components/")
+        .join(name)
         .join("component.wasm")
 }

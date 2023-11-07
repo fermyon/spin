@@ -96,3 +96,35 @@ macro_rules! r#try {
         }
     };
 }
+
+macro_rules! assert_eq {
+    ($expr1:expr, $expr2:expr) => {
+        if $expr1 != $expr2 {
+            let krate = module_path!().split("::").next().unwrap();
+            let file = file!();
+            let line = line!();
+            return Err(format!(
+                "{krate}: ({file}:{line}) `{}` != `{}`",
+                stringify!($expr1),
+                stringify!($expr2),
+            ));
+        }
+    };
+}
+
+macro_rules! try_unwrap {
+    ($expr:expr) => {
+        match $expr {
+            Some(e) => e,
+            None => {
+                let krate = module_path!().split("::").next().unwrap();
+                let file = file!();
+                let line = line!();
+                return Err(format!(
+                    "{krate}: ({file}:{line}) `{}` was None",
+                    stringify!($expr),
+                ));
+            }
+        }
+    };
+}

@@ -23,14 +23,14 @@ fn main() -> Result<(), String> {
     assert_eq!(1, results.rows.len());
     assert_eq!(2, results.columns.len());
 
-    let key_index = results.columns.iter().position(|c| c == "key").unwrap();
-    let value_index = results.columns.iter().position(|c| c == "value").unwrap();
+    let key_index = try_unwrap!(results.columns.iter().position(|c| c == "key"));
+    let value_index = try_unwrap!(results.columns.iter().position(|c| c == "value"));
 
     let fetched_key = &results.rows[0].values[key_index];
     let fetched_value = &results.rows[0].values[value_index];
 
-    assert!(matches!(fetched_key, Value::Text(t) if t == "my_key"));
-    assert!(matches!(fetched_value, Value::Text(t) if t == "my_value"));
+    ensure!(matches!(fetched_key, Value::Text(t) if t == "my_key"));
+    ensure!(matches!(fetched_value, Value::Text(t) if t == "my_value"));
 
     Ok(())
 }

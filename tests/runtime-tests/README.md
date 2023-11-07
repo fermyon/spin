@@ -8,7 +8,7 @@ For the purposes of these tests, an "application" is a collection of the followi
 * A list of arguments to be passed to `spin up`
 * A collection of a files needed for running `spin up` (e.g., a migration file for passing to the `--sqlite` argument)
 
-## Adding a new test
+## How do I add a new test?
 
 To add a new test you must add a new folder to the `tests` directory with at least a `spin.toml` manifest. 
 
@@ -16,7 +16,13 @@ The manifest can reference pre-built Spin compliant WebAssembly modules that can
 
 Optionally, an `args` file can be added with newline separated arguments to be passed to the `spin up` invocation, and a `data` directory can be added which will have all of its contents copied into the temporary folder where `spin up` will be run.
 
-## Running the tests
+## When do tests pass?
+
+A test will pass in the following conditions:
+* The Spin web server returns a 200
+* The Spin web server returns a 500 with a body that contains the same text inside of the test's error.txt file.
+
+## How do I run the tests?
 
 Running the tests is as easy as running the `runtime-tests` binary. In this directory run:
 

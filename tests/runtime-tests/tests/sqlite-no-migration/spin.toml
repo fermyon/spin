@@ -1,0 +1,13 @@
+spin_manifest_version = "1"
+authors = ["Ryan Levick <ryan.levick@fermyon.com>"]
+description = ""
+name = "sqlite"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[[component]]
+id = "sqlite"
+source = "{{sqlite}}"
+sqlite_databases = ["default"]
+[component.trigger]
+route = "/..."

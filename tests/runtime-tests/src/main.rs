@@ -10,21 +10,33 @@ fn main() -> anyhow::Result<()> {
     env_logger::init();
     for test in std::fs::read_dir("tests")? {
         let test = test?;
-        let temp = temp_dir::TempDir::new()?;
-        log::trace!("temporary directory: {}", temp.path().display());
         if test.file_type()?.is_dir() {
             log::info!("Testing: {}", test.path().display());
+            let temp = temp_dir::TempDir::new()?;
+            log::trace!("temporary directory: {}", temp.path().display());
             copy_manifest(&test.path(), &temp)?;
             copy_data(&test.path(), &temp)?;
             let args = get_args(&test.path())?;
             log::info!("Starting Spin...");
             let mut spin = Spin::start(&temp.path(), &args)?;
-            log::info!("Started Spin...");
+            log::info!("Started Spin on port {}...", spin.port());
 
             let response: Response = make_http_request(&mut spin)?.parse()?;
             match response {
                 Response::Ok => println!("Test passed!"),
-                Response::Err(e) => println!("Test errored: {e}"),
+                Response::Err(e) => {
+                    let error_file = test.path().join("error.txt");
+                    if error_file.exists() {
+                        let error = std::fs::read_to_string(&error_file)?;
+                        if e.contains(&error) {
+                            println!("Test passed!");
+                        } else {
+                            eprintln!("Test errored but not in the expected way: {e}")
+                        }
+                    } else {
+                        eprintln!("Test errored: {e}");
+                    }
+                }
                 Response::ErrNoBody => {
                     let stderr = spin.kill()?;
                     eprintln!("Spin did not return error body (most likely due to a test panicking). stderr:\n{stderr}");
@@ -155,13 +167,13 @@ fn make_http_request(spin: &mut Spin) -> Result<String, anyhow::Error> {
         anyhow::bail!("Spin exited early with status code {:?}", status.code());
     }
     log::debug!("Connecting to HTTP server");
-    let mut connection = std::net::TcpStream::connect("127.0.0.1:3000")
+    let mut connection = std::net::TcpStream::connect(format!("127.0.0.1:{}", spin.port()))
         .context("could not connect to Spin web server")?;
     connection.write_all(b"GET / HTTP/1.1\r\nHost: 127.0.0.1:3000\r\n\r\n")?;
     log::debug!("Awaiting response from server");
     let mut start = 0;
     let mut output = vec![0; 1024];
-    for _ in 0..5 {
+    for _ in 0..20 {
         let n = connection.read(&mut output[start..])?;
         start += n;
         let header_end = output.windows(4).position(|c| c == b"\r\n\r\n");
@@ -187,7 +199,7 @@ fn make_http_request(spin: &mut Spin) -> Result<String, anyhow::Error> {
                 return Ok(response);
             }
         }
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        std::thread::sleep(std::time::Duration::from_millis(250));
         if let Some(status) = spin.try_wait()? {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
         }
@@ -197,22 +209,30 @@ fn make_http_request(spin: &mut Spin) -> Result<String, anyhow::Error> {
 
 struct Spin {
     process: std::process::Child,
+    port: u16,
 }
 
 impl Spin {
     fn start(dir: &Path, args: &[String]) -> Result<Self, anyhow::Error> {
+        let port = get_random_port()?;
         log::trace!("Starting up Spin with `spin up {}`", args.join(" "));
         let mut child = std::process::Command::new("spin")
             .arg("up")
             .current_dir(dir)
+            .args(&["--listen", &format!("127.0.0.1:{port}")])
             .args(args)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()?;
         log::debug!("Awaiting spin binary to start up");
-        for _ in 0..10 {
-            match std::net::TcpStream::connect("127.0.0.1:3000") {
-                Ok(_) => return Ok(Self { process: child }),
+        for _ in 0..20 {
+            match std::net::TcpStream::connect(format!("127.0.0.1:{port}")) {
+                Ok(_) => {
+                    return Ok(Self {
+                        process: child,
+                        port,
+                    })
+                }
                 Err(e) => {
                     log::trace!("Checking that the Spin server started returned an error: {e}")
                 }
@@ -226,7 +246,7 @@ impl Spin {
                 );
             }
 
-            std::thread::sleep(std::time::Duration::from_secs(1));
+            std::thread::sleep(std::time::Duration::from_millis(250));
         }
         child
             .kill()
@@ -234,6 +254,11 @@ impl Spin {
         let mut stderr = vec![0; 4048];
         let _ = child.stderr.take().unwrap().read(&mut stderr);
         anyhow::bail!("`spin up` did not start server or error after 5 seconds")
+    }
+
+    /// The port Spin is running on
+    fn port(&self) -> u16 {
+        self.port
     }
 
     fn try_wait(&mut self) -> std::io::Result<Option<std::process::ExitStatus>> {
@@ -270,4 +295,10 @@ fn component_path(name: &str) -> PathBuf {
     PathBuf::from("../../test-components/")
         .join(name)
         .join("component.wasm")
+}
+
+fn get_random_port() -> anyhow::Result<u16> {
+    Ok(std::net::TcpListener::bind("localhost:0")?
+        .local_addr()?
+        .port())
 }

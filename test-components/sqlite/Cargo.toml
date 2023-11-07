@@ -16,8 +16,8 @@ package = "component:sqlite"
 [package.metadata.component.dependencies]
 
 [package.metadata.component.target]
-dependencies."wasi:http" = { path = "../../../wit/preview2/deps/http" }
-dependencies."wasi:io" = { path = "../../../wit/preview2/deps/io" }
-dependencies."fermyon:spin" = { path = "../../../wit/preview2" }
+dependencies."wasi:http" = { path = "../../wit/preview2/deps/http" }
+dependencies."wasi:io" = { path = "../../wit/preview2/deps/io" }
+dependencies."fermyon:spin" = { path = "../../wit/preview2" }
 
 [workspace]

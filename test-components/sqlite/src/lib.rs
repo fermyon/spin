@@ -16,7 +16,7 @@ fn main() -> Result<(), String> {
     let conn = r#try!(Connection::open("default"));
 
     let results = r#try!(conn.execute(
-        "SELECT * FROM testdata WHERE key = ?",
+        "SELECT * FROM test_data WHERE key = ?",
         &[Value::Text("my_key".to_owned())],
     ));
 

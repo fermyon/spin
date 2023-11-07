@@ -29,8 +29,8 @@ fn main() -> Result<(), String> {
     let fetched_key = &results.rows[0].values[key_index];
     let fetched_value = &results.rows[0].values[value_index];
 
-    assert!(matches!(fetched_key, Value::Text(t) if t == "hello"));
-    assert!(matches!(fetched_value, Value::Text(t) if t == "world"));
+    assert!(matches!(fetched_key, Value::Text(t) if t == "my_key"));
+    assert!(matches!(fetched_value, Value::Text(t) if t == "my_value"));
 
     Ok(())
 }

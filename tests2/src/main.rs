@@ -11,6 +11,7 @@ fn main() -> anyhow::Result<()> {
     for test in std::fs::read_dir("tests")? {
         let test = test?;
         let temp = temp_dir::TempDir::new()?;
+        log::trace!("temporary directory: {}", temp.path().display());
         if test.file_type()?.is_dir() {
             log::info!("Testing: {}", test.path().display());
             copy_manifest(&test.path(), &temp)?;
@@ -21,7 +22,14 @@ fn main() -> anyhow::Result<()> {
             log::info!("Started Spin...");
 
             let response: Response = make_http_request(&mut spin)?.parse()?;
-            println!("{response:?}");
+            match response {
+                Response::Ok => println!("Test passed!"),
+                Response::Err(e) => println!("Test errored: {e}"),
+                Response::ErrNoBody => {
+                    let stderr = spin.kill()?;
+                    eprintln!("Spin did not return error body (most likely due to a test panicking). stderr:\n{stderr}");
+                }
+            }
         } else {
             todo!("Support Spin.toml only tests")
         }
@@ -107,6 +115,8 @@ fn copy_manifest(test_dir: &Path, temp: &temp_dir::TempDir) -> anyhow::Result<()
 enum Response {
     Ok,
     Err(String),
+    /// This happens when we panic
+    ErrNoBody,
 }
 
 impl FromStr for Response {
@@ -126,6 +136,9 @@ impl FromStr for Response {
             let header_end = s
                 .find("\r\n\r\n")
                 .context("malformed response does not contain CRLF header separator")?;
+            if header_end + 4 == s.len() {
+                return Ok(Response::ErrNoBody);
+            }
             let body =
                 String::from_utf8(s.as_bytes()[header_end + 4..s.len() - 4].to_vec()).unwrap();
             return Ok(Response::Err(body));
@@ -153,6 +166,18 @@ fn make_http_request(spin: &mut Spin) -> Result<String, anyhow::Error> {
         start += n;
         let header_end = output.windows(4).position(|c| c == b"\r\n\r\n");
         if let Some(header_end) = header_end {
+            let until_headers = String::from_utf8(output[..header_end].to_vec())
+                .context("spin HTTP response headers contained non-utf8 bytes")?;
+            if let Some(s) = until_headers.find("content-length: ") {
+                if std::str::from_utf8(&until_headers.as_bytes()[s + 16..])
+                    .unwrap()
+                    .starts_with("0")
+                {
+                    let response_with_no_body =
+                        String::from_utf8(output[..header_end + 4].to_vec()).unwrap();
+                    return Ok(response_with_no_body);
+                }
+            }
             if let Some(_) = output[header_end + 4..]
                 .windows(4)
                 .find(|c| c == b"\r\n\r\n")
@@ -176,6 +201,7 @@ struct Spin {
 
 impl Spin {
     fn start(dir: &Path, args: &[String]) -> Result<Self, anyhow::Error> {
+        log::trace!("Starting up Spin with `spin up {}`", args.join(" "));
         let mut child = std::process::Command::new("spin")
             .arg("up")
             .current_dir(dir)
@@ -183,68 +209,60 @@ impl Spin {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()?;
-        let mut stdout = child
-            .stdout
-            .take()
-            .expect("spin binary somehow not configured to capture stdout");
-        let mut stderr = child
-            .stderr
-            .take()
-            .expect("the spin binary somehow not configured to capture stderr");
-        let mut buf = vec![0; 1024];
-        let mut start = 0;
         log::debug!("Awaiting spin binary to start up");
-        for _ in 0..5 {
-            log::trace!("Reading from stdout");
-            let stdoutn = stdout.read(&mut buf[start..])?;
-            // Only read stderr if stdout did not return anything
-            let stderrn = if stdoutn == 0 {
-                log::trace!("Reading from stderr");
-                stderr.read(&mut buf[start + stdoutn..])?
-            } else {
-                0
-            };
-            start += stdoutn + stderrn;
-            let string = std::str::from_utf8(&buf[..start])
-                .context("spin binary produced non-utf8 stdout/stderr")?;
-            log::trace!("Checking stderr and stdout for well known output:{string}");
-            if string.contains("Serving http://127.0.0.1") {
-                child.stdout = Some(stdout);
-                child.stderr = Some(stderr);
-                return Ok(Self { process: child });
-            }
-            if string.contains("Error:") {
-                anyhow::bail!("{string}");
+        for _ in 0..10 {
+            match std::net::TcpStream::connect("127.0.0.1:3000") {
+                Ok(_) => return Ok(Self { process: child }),
+                Err(e) => {
+                    log::trace!("Checking that the Spin server started returned an error: {e}")
+                }
             }
             if let Some(status) = child.try_wait()? {
+                let mut stderr = String::new();
+                let _ = child.stderr.unwrap().read_to_string(&mut stderr);
                 anyhow::bail!(
-                    "Spin exited early with status code {:?}\n{string}",
+                    "Spin exited early with status code {:?}\n{stderr}",
                     status.code()
                 );
             }
 
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
-        let string = std::str::from_utf8(&buf[..start]);
-        anyhow::bail!(
-            "`spin up` did not start server or error after 5 seconds - stdout/stderr:\n{string:?}"
-        )
+        child
+            .kill()
+            .context("`spin up` did not start server or error and killing the process failed")?;
+        let mut stderr = vec![0; 4048];
+        let _ = child.stderr.take().unwrap().read(&mut stderr);
+        anyhow::bail!("`spin up` did not start server or error after 5 seconds")
     }
 
     fn try_wait(&mut self) -> std::io::Result<Option<std::process::ExitStatus>> {
         self.process.try_wait()
     }
+
+    fn kill(mut self) -> anyhow::Result<String> {
+        kill_process(&mut self.process);
+        let mut stderr = vec![0; 4048];
+        let _ = self.process.stderr.take().unwrap().read(&mut stderr);
+        Ok(String::from_utf8(stderr).unwrap())
+    }
 }
 
 impl Drop for Spin {
     fn drop(&mut self) {
-        #[cfg(windows)]
-        let _ = self.process.kill();
-        #[cfg(not(windows))]
-        {
-            let pid = nix::unistd::Pid::from_raw(self.process.id() as i32);
-            let _ = nix::sys::signal::kill(pid, nix::sys::signal::SIGTERM);
-        }
+        kill_process(&mut self.process);
+    }
+}
+
+fn kill_process(process: &mut std::process::Child) {
+    #[cfg(windows)]
+    {
+        let _ = process.kill();
+    }
+    #[cfg(not(windows))]
+    {
+        let pid = nix::unistd::Pid::from_raw(process.id() as i32);
+        let _ = nix::sys::signal::kill(pid, nix::sys::signal::SIGTERM);
     }
 }
 

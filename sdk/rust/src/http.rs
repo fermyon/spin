@@ -241,6 +241,16 @@ impl Response {
         self.headers.get(&name.to_lowercase())
     }
 
+    /// Set a response header
+    pub fn set_header(&mut self, name: impl Into<String>, value: impl Into<String>) {
+        self.headers.insert(
+            name.into(),
+            HeaderValue {
+                inner: HeaderValueRep::String(value.into()),
+            },
+        );
+    }
+
     /// The response body
     pub fn body(&self) -> &[u8] {
         &self.body

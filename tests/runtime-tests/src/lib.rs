@@ -6,9 +6,9 @@ use std::{
 
 use anyhow::Context;
 
-fn main() -> anyhow::Result<()> {
+pub fn main() -> anyhow::Result<()> {
     env_logger::init();
-    for test in std::fs::read_dir("tests")? {
+    for test in std::fs::read_dir("tests/runtime-tests/tests")? {
         let test = test?;
         if test.file_type()?.is_dir() {
             log::info!("Testing: {}", test.path().display());
@@ -16,7 +16,7 @@ fn main() -> anyhow::Result<()> {
                 .context("failed to produce a temporary directory to run the test in")?;
             log::trace!("temporary directory: {}", temp.path().display());
             copy_manifest(&test.path(), &temp)?;
-            let mut spin = Spin::start(&temp.path())?;
+            let mut spin = Spin::start(temp.path())?;
             log::debug!("Spin started on port {}.", spin.port());
 
             // TODO: don't bail everything if the http request fails
@@ -128,7 +128,7 @@ impl FromStr for Response {
             .parse::<u16>()
             .context("malformed response does not contain a status code")?;
         anyhow::ensure!(
-            &s.as_bytes()[s.len() - 4..] == &b"\r\n\r\n"[..],
+            s.as_bytes()[s.len() - 4..] == b"\r\n\r\n"[..],
             r#"malformed response does not end with the expected CRLF"#
         );
         if code == 500 {
@@ -170,16 +170,16 @@ fn make_http_request(spin: &mut Spin) -> Result<String, anyhow::Error> {
             if let Some(s) = until_headers.find("content-length: ") {
                 if std::str::from_utf8(&until_headers.as_bytes()[s + 16..])
                     .unwrap()
-                    .starts_with("0")
+                    .starts_with('0')
                 {
                     let response_with_no_body =
                         String::from_utf8(output[..header_end + 4].to_vec()).unwrap();
                     return Ok(response_with_no_body);
                 }
             }
-            if let Some(_) = output[header_end + 4..]
+            if output[header_end + 4..]
                 .windows(4)
-                .find(|c| c == b"\r\n\r\n")
+                .any(|c| c == b"\r\n\r\n")
             {
                 let response = String::from_utf8(output[..start].to_vec())
                     .context("spin HTTP response contained non-utf8 bytes")?;
@@ -208,7 +208,7 @@ impl Spin {
         let mut child = std::process::Command::new("spin")
             .arg("up")
             .current_dir(dir)
-            .args(&["--listen", &format!("127.0.0.1:{port}")])
+            .args(["--listen", &format!("127.0.0.1:{port}")])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()?;
@@ -276,7 +276,7 @@ fn kill_process(process: &mut std::process::Child) {
 }
 
 fn component_path(name: &str) -> PathBuf {
-    PathBuf::from("../../test-components/")
+    PathBuf::from("test-components/")
         .join(name)
         .join("component.wasm")
 }

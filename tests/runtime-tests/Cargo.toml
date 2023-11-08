@@ -10,5 +10,3 @@ log = "0.4"
 nix = "0.26.1"
 toml = "0.8.6"
 temp-dir = "0.1.11"
-
-[workspace]

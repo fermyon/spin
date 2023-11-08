@@ -1,6 +1,0 @@
-package fermyon:test
-
-world sqlite {
-    import fermyon:spin/sqlite@2.0.0;
-    export wasi:http/incoming-handler@0.2.0-rc-2023-10-18
-}

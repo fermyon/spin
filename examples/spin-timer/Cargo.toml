@@ -14,6 +14,9 @@ spin-core = { path = "../../crates/core" }
 spin-trigger = { path = "../../crates/trigger" }
 tokio = { version = "1.11", features = ["full"] }
 tokio-scoped = "0.2.0"
-wasmtime = { version = "14.0.3", features = ["component-model"] }
+
+# Use forked wasmtime 14.0.4 with backported patches to fix a performance regression
+# TODO: Replace with wasmtime 15 release.
+wasmtime = { git = "https://github.com/fermyon/wasmtime", rev = "69aa4526eab5fc71fbf0df5088b648c7a7db6c04" , features = ["component-model"] }
 
 [workspace]

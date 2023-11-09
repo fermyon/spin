@@ -80,6 +80,17 @@ func (s *Store) Exists(key string) (bool, error) {
 	return *(*bool)(unsafe.Pointer(&ret.val)), nil
 }
 
+// GetKeys retrieves the list of keys from Store.
+func (s *Store) GetKeys() ([]string, error) {
+	var ret C.key_value_expected_list_string_error_t
+	C.key_value_get_keys(C.uint32_t(s.ptr), &ret)
+	if ret.is_err {
+		return nil, toErr((*C.key_value_error_t)(unsafe.Pointer(&ret.val)))
+	}
+	list := (*C.key_value_list_string_t)(unsafe.Pointer(&ret.val))
+	return fromCStrList(list), nil
+}
+
 func (s *Store) open() error {
 	if s.active {
 		return nil

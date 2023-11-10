@@ -373,7 +373,7 @@ impl HeaderValue {
     pub fn as_str(&self) -> Option<&str> {
         match &self.inner {
             HeaderValueRep::String(s) => Some(s),
-            HeaderValueRep::Bytes(_) => None,
+            HeaderValueRep::Bytes(b) => std::str::from_utf8(b).ok(),
         }
     }
 
@@ -597,14 +597,13 @@ where
         // It is part of the contract of the trait that implementors of `TryIntoOutgoingRequest`
         // do not call `OutgoingRequest::write`` if they return a buffered body.
         let mut body_sink = request.take_body();
-        let response = executor::outgoing_request_send(request)
-            .await
-            .map_err(SendError::Http)?;
+        let response = executor::outgoing_request_send(request);
         body_sink
             .send(body_buffer)
             .await
             .map_err(|e| SendError::Http(Error::UnexpectedError(e.to_string())))?;
-        response
+        drop(body_sink);
+        response.await.map_err(SendError::Http)?
     } else {
         executor::outgoing_request_send(request)
             .await

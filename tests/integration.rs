@@ -2,6 +2,7 @@
 mod integration_tests {
     use anyhow::{anyhow, Context, Error, Result};
     use futures::{channel::oneshot, future, stream, FutureExt};
+    use http_body_util::BodyExt;
     use hyper::{body::Bytes, server::conn::http1, service::service_fn, Method, StatusCode};
     use reqwest::{Client, Response};
     use sha2::{Digest, Sha256};
@@ -14,7 +15,7 @@ mod integration_tests {
         net::{Ipv4Addr, SocketAddrV4, TcpListener},
         path::Path,
         process::{self, Child, Command, Output},
-        sync::Arc,
+        sync::{Arc, Mutex},
         time::Duration,
     };
     use tempfile::tempdir;
@@ -671,6 +672,88 @@ route = "/..."
     #[tokio::test]
     async fn test_build_command() -> Result<()> {
         do_test_build_command("tests/build/simple").await
+    }
+
+    #[tokio::test]
+    async fn test_outbound_post() -> Result<()> {
+        let listener = tokio::net::TcpListener::bind((Ipv4Addr::new(127, 0, 0, 1), 0)).await?;
+
+        let prefix = format!("http://{}", listener.local_addr()?);
+
+        let body = Arc::new(Mutex::new(Vec::new()));
+
+        let server = {
+            let body = body.clone();
+            async move {
+                loop {
+                    let (stream, _) = listener.accept().await?;
+                    let body = body.clone();
+                    task::spawn(async move {
+                        if let Err(e) = http1::Builder::new()
+                            .keep_alive(true)
+                            .serve_connection(
+                                stream,
+                                service_fn(
+                                    move |request: hyper::Request<hyper::body::Incoming>| {
+                                        let body = body.clone();
+                                        async move {
+                                            if let &Method::POST = request.method() {
+                                                let req_body = request.into_body();
+                                                let bytes =
+                                                    req_body.collect().await?.to_bytes().to_vec();
+                                                *body.lock().unwrap() = bytes;
+                                                Ok::<_, Error>(hyper::Response::new(body::empty()))
+                                            } else {
+                                                Ok(hyper::Response::builder()
+                                                    .status(StatusCode::METHOD_NOT_ALLOWED)
+                                                    .body(body::empty())?)
+                                            }
+                                        }
+                                    },
+                                ),
+                            )
+                            .await
+                        {
+                            log::warn!("{e:?}");
+                        }
+                    });
+
+                    // Help rustc with type inference:
+                    if false {
+                        return Ok::<_, Error>(());
+                    }
+                }
+            }
+        }
+        .then(|result| {
+            if let Err(e) = result {
+                log::warn!("{e:?}");
+            }
+            future::ready(())
+        })
+        .boxed();
+
+        let (_tx, rx) = oneshot::channel::<()>();
+
+        task::spawn(async move {
+            drop(future::select(server, rx).await);
+        });
+        let controller = SpinTestController::with_manifest(
+            "examples/http-rust-outbound-post/spin.toml",
+            &[],
+            &[],
+        )
+        .await?;
+
+        let response = Client::new()
+            .get(format!("http://{}/", controller.url))
+            .header("url", format!("{prefix}/"))
+            .send()
+            .await?;
+        assert_eq!(200, response.status());
+        assert_eq!(b"Hello, world!", body.lock().unwrap().as_slice());
+
+        Ok(())
     }
 
     #[tokio::test]

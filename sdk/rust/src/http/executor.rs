@@ -91,7 +91,6 @@ pub(crate) fn outgoing_body(body: OutgoingBody) -> impl Sink<Vec<u8>, Error = ty
                 move |context| {
                     let pair = pair.borrow();
                     let (stream, _) = &pair.0.as_ref().unwrap();
-
                     loop {
                         match stream.check_write() {
                             Ok(0) => {

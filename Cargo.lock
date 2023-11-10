@@ -5647,6 +5647,7 @@ dependencies = [
  "futures",
  "glob",
  "hex",
+ "http-body-util",
  "hyper 1.0.0-rc.3",
  "indicatif 0.17.6",
  "is-terminal",

@@ -156,7 +156,6 @@ pub trait TryNonRequestFromRequest {
         Self: Sized;
 }
 
-#[cfg(feature = "http")]
 impl<B: TryFromBody> TryNonRequestFromRequest for hyperium::Request<B> {
     type Error = B::Error;
     fn try_from_request(req: Request) -> Result<Self, Self::Error> {
@@ -170,7 +169,6 @@ impl<B: TryFromBody> TryNonRequestFromRequest for hyperium::Request<B> {
     }
 }
 
-#[cfg(feature = "http")]
 impl From<super::Method> for hyperium::Method {
     fn from(method: super::Method) -> Self {
         match method {
@@ -216,7 +214,6 @@ impl IntoResponse for Response {
     }
 }
 
-#[cfg(feature = "http")]
 impl<B> IntoResponse for hyperium::Response<B>
 where
     B: IntoBody,
@@ -306,7 +303,6 @@ impl IntoStatusCode for u16 {
     }
 }
 
-#[cfg(feature = "http")]
 impl IntoStatusCode for hyperium::StatusCode {
     fn into_status_code(self) -> u16 {
         self.as_u16()
@@ -383,7 +379,6 @@ impl IntoBody for Vec<u8> {
     }
 }
 
-#[cfg(feature = "http")]
 impl IntoBody for bytes::Bytes {
     fn into_body(self) -> Vec<u8> {
         self.to_vec()
@@ -475,7 +470,6 @@ impl FromBody for () {
     fn from_body(_body: Vec<u8>) -> Self {}
 }
 
-#[cfg(feature = "http")]
 impl FromBody for bytes::Bytes {
     fn from_body(body: Vec<u8>) -> Self {
         Into::into(body)
@@ -564,7 +558,6 @@ impl TryIntoOutgoingRequest for RequestBuilder {
     }
 }
 
-#[cfg(feature = "http")]
 impl<B> TryIntoOutgoingRequest for hyperium::Request<B>
 where
     B: TryIntoBody,
@@ -627,7 +620,6 @@ impl TryFromIncomingResponse for Response {
     }
 }
 
-#[cfg(feature = "http")]
 #[async_trait]
 impl<B: TryFromBody> TryFromIncomingResponse for hyperium::Response<B> {
     type Error = B::Error;
@@ -658,7 +650,6 @@ impl TryIntoRequest for Request {
     }
 }
 
-#[cfg(feature = "http")]
 impl<B: TryIntoBody> TryIntoRequest for hyperium::Request<B> {
     type Error = B::Error;
     fn try_into_request(self) -> Result<Request, Self::Error> {

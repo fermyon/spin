@@ -63,7 +63,6 @@ pub struct Install {
         name = PLUGIN_NAME_OPT,
         conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
         conflicts_with = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
-        required_unless_present_any = [PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT, PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT],
     )]
     pub name: Option<String>,
 
@@ -230,6 +229,8 @@ impl Upgrade {
     /// Upgrades one or all plugins by reinstalling the latest or a specified
     /// version of a plugin. If downgrade is specified, first uninstalls the
     /// plugin.
+    /// Also, by default, Spin displays the list of installed plugins that are in
+    /// the catalogue and prompts user to choose which ones to upgrade.
     pub async fn run(self) -> Result<()> {
         let manager = PluginManager::try_default()?;
         let manifests_dir = manager.store().installed_manifests_directory();
@@ -242,9 +243,69 @@ impl Upgrade {
 
         if self.all {
             self.upgrade_all(manifests_dir).await
+        } else if self.name.is_none()
+            && self.local_manifest_src.is_none()
+            && self.remote_manifest_src.is_none()
+        {
+            // Default behavior
+            self.upgrade_default().await
         } else {
             self.upgrade_one().await
         }
+    }
+
+    async fn upgrade_default(self) -> Result<()> {
+        let catalogue_plugins = list_catalogue_plugins().await?;
+        let installed_plugins = list_installed_plugins()?;
+
+        let installed_in_catalogue: Vec<_> = installed_plugins
+            .into_iter()
+            .filter(|installed| {
+                catalogue_plugins.iter().any(|catalogue| {
+                    installed.manifest == catalogue.manifest
+                        && matches!(catalogue.compatibility, PluginCompatibility::Compatible)
+                })
+            })
+            .collect();
+
+        eprintln!(
+            "Select repos to upgrade. Use Space to select/deselect and Enter to confirm selection."
+        );
+        let selected_indexes = match dialoguer::MultiSelect::new()
+            .items(&installed_in_catalogue)
+            .interact_opt()?
+        {
+            Some(indexes) => indexes,
+            None => return Ok(()),
+        };
+
+        let plugins_selected = elements_at(installed_in_catalogue, selected_indexes);
+
+        if plugins_selected.is_empty() {
+            eprintln!("No plugins selected");
+            return Ok(());
+        }
+
+        // Upgrade plugins selected
+        for plugin in plugins_selected {
+            let manager = PluginManager::try_default()?;
+            let manifest_location = ManifestLocation::PluginsRepository(PluginLookup::new(
+                &plugin.name,
+                Some(plugin.version.parse::<Version>()?),
+            ));
+
+            try_install(
+                &plugin.manifest,
+                &manager,
+                true,  // not sure
+                true,  // not sure
+                false, // not sure
+                &manifest_location,
+            )
+            .await?;
+        }
+
+        Ok(())
     }
 
     // Install the latest of all currently installed plugins
@@ -320,6 +381,46 @@ impl Upgrade {
     }
 }
 
+// Make list_installed_plugins and list_catalogue_plugins into 'free' module-level functions
+// in order to call them in Upgrade::upgrade_default
+fn list_installed_plugins() -> Result<Vec<PluginDescriptor>> {
+    let manager = PluginManager::try_default()?;
+    let store = manager.store();
+    let manifests = store.installed_manifests()?;
+    let descriptors = manifests
+        .into_iter()
+        .map(|m| PluginDescriptor {
+            name: m.name(),
+            version: m.version().to_owned(),
+            installed: true,
+            compatibility: PluginCompatibility::for_current(&m),
+            manifest: m,
+        })
+        .collect();
+    Ok(descriptors)
+}
+
+async fn list_catalogue_plugins() -> Result<Vec<PluginDescriptor>> {
+    if update_silent().await.is_err() {
+        terminal::warn!("Couldn't update plugins registry cache - using most recent");
+    }
+
+    let manager = PluginManager::try_default()?;
+    let store = manager.store();
+    let manifests = store.catalogue_manifests();
+    let descriptors = manifests?
+        .into_iter()
+        .map(|m| PluginDescriptor {
+            name: m.name(),
+            version: m.version().to_owned(),
+            installed: m.is_installed_in(store),
+            compatibility: PluginCompatibility::for_current(&m),
+            manifest: m,
+        })
+        .collect();
+    Ok(descriptors)
+}
+
 /// List available or installed plugins.
 #[derive(Parser, Debug)]
 pub struct List {
@@ -335,7 +436,7 @@ pub struct List {
 impl List {
     pub async fn run(self) -> Result<()> {
         let mut plugins = if self.installed {
-            Self::list_installed_plugins()
+            list_installed_plugins()
         } else {
             Self::list_catalogue_and_installed_plugins().await
         }?;
@@ -350,47 +451,9 @@ impl List {
         Ok(())
     }
 
-    fn list_installed_plugins() -> Result<Vec<PluginDescriptor>> {
-        let manager = PluginManager::try_default()?;
-        let store = manager.store();
-        let manifests = store.installed_manifests()?;
-        let descriptors = manifests
-            .into_iter()
-            .map(|m| PluginDescriptor {
-                name: m.name(),
-                version: m.version().to_owned(),
-                installed: true,
-                compatibility: PluginCompatibility::for_current(&m),
-                manifest: m,
-            })
-            .collect();
-        Ok(descriptors)
-    }
-
-    async fn list_catalogue_plugins() -> Result<Vec<PluginDescriptor>> {
-        if update_silent().await.is_err() {
-            terminal::warn!("Couldn't update plugins registry cache - using most recent");
-        }
-
-        let manager = PluginManager::try_default()?;
-        let store = manager.store();
-        let manifests = store.catalogue_manifests();
-        let descriptors = manifests?
-            .into_iter()
-            .map(|m| PluginDescriptor {
-                name: m.name(),
-                version: m.version().to_owned(),
-                installed: m.is_installed_in(store),
-                compatibility: PluginCompatibility::for_current(&m),
-                manifest: m,
-            })
-            .collect();
-        Ok(descriptors)
-    }
-
     async fn list_catalogue_and_installed_plugins() -> Result<Vec<PluginDescriptor>> {
-        let catalogue = Self::list_catalogue_plugins().await?;
-        let installed = Self::list_installed_plugins()?;
+        let catalogue = list_catalogue_plugins().await?;
+        let installed = list_installed_plugins()?;
         Ok(merge_plugin_lists(catalogue, installed))
     }
 
@@ -472,6 +535,26 @@ impl PluginDescriptor {
 
         self.name.cmp(&other.name).then(version_cmp)
     }
+}
+
+impl std::fmt::Display for PluginDescriptor {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{} v{}", self.name, self.version).map_err(std::fmt::Error::from)
+    }
+}
+
+fn elements_at<T>(source: Vec<T>, indexes: Vec<usize>) -> Vec<T> {
+    source
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, s)| {
+            if indexes.contains(&index) {
+                Some(s)
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 fn merge_plugin_lists(a: Vec<PluginDescriptor>, b: Vec<PluginDescriptor>) -> Vec<PluginDescriptor> {

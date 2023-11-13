@@ -1,0 +1,7 @@
+spin_manifest_version = 2
+
+[application]
+name = "minimal-v2"
+
+[[trigger.fake]]
+component = "1-2-3"

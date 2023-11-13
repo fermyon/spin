@@ -70,12 +70,26 @@ pub struct OneOrManyComponentSpecs(#[serde(with = "one_or_many")] pub Vec<Compon
 
 /// Component reference or inline definition
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, untagged)]
+#[serde(deny_unknown_fields, untagged, try_from = "toml::Value")]
 pub enum ComponentSpec {
     /// `"component-id"`
     Reference(KebabId),
     /// `{ ... }`
     Inline(Box<Component>),
+}
+
+impl TryFrom<toml::Value> for ComponentSpec {
+    type Error = toml::de::Error;
+
+    fn try_from(value: toml::Value) -> Result<Self, Self::Error> {
+        if value.is_str() {
+            Ok(ComponentSpec::Reference(KebabId::deserialize(value)?))
+        } else {
+            Ok(ComponentSpec::Inline(Box::new(Component::deserialize(
+                value,
+            )?)))
+        }
+    }
 }
 
 /// Component definition

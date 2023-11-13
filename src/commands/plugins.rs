@@ -247,14 +247,15 @@ impl Upgrade {
             && self.local_manifest_src.is_none()
             && self.remote_manifest_src.is_none()
         {
-            // Default behavior
-            self.upgrade_default().await
+            // Default behavior (multiselect)
+            self.upgrade_multiselect().await
         } else {
             self.upgrade_one().await
         }
     }
 
-    async fn upgrade_default(self) -> Result<()> {
+    // Multiselect plugin upgrade experience
+    async fn upgrade_multiselect(self) -> Result<()> {
         let catalogue_plugins = list_catalogue_plugins().await?;
         let installed_plugins = list_installed_plugins()?;
 
@@ -269,7 +270,7 @@ impl Upgrade {
             .collect();
 
         eprintln!(
-            "Select repos to upgrade. Use Space to select/deselect and Enter to confirm selection."
+            "Select plugins to upgrade. Use Space to select/deselect and Enter to confirm selection."
         );
         let selected_indexes = match dialoguer::MultiSelect::new()
             .items(&installed_in_catalogue)
@@ -297,9 +298,9 @@ impl Upgrade {
             try_install(
                 &plugin.manifest,
                 &manager,
-                true,  // not sure
-                true,  // not sure
-                false, // not sure
+                true,
+                false,
+                false,
                 &manifest_location,
             )
             .await?;
@@ -382,7 +383,7 @@ impl Upgrade {
 }
 
 // Make list_installed_plugins and list_catalogue_plugins into 'free' module-level functions
-// in order to call them in Upgrade::upgrade_default
+// in order to call them in Upgrade::upgrade_multiselect
 fn list_installed_plugins() -> Result<Vec<PluginDescriptor>> {
     let manager = PluginManager::try_default()?;
     let store = manager.store();
@@ -542,7 +543,7 @@ impl std::fmt::Display for PluginDescriptor {
         write!(f, "{} v{}", self.name, self.version).map_err(std::fmt::Error::from)
     }
 }
-
+// Auxiliar function for Upgrade::upgrade_multiselect
 fn elements_at<T>(source: Vec<T>, indexes: Vec<usize>) -> Vec<T> {
     source
         .into_iter()

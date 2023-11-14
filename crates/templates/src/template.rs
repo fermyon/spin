@@ -279,9 +279,10 @@ impl Template {
 
     fn infer_trigger_type(layout: &TemplateLayout) -> TemplateTriggerCompatibility {
         match crate::app_info::AppInfo::from_layout(layout) {
-            Some(Ok(app_info)) => {
-                TemplateTriggerCompatibility::Only(app_info.trigger_type().to_owned())
-            }
+            Some(Ok(app_info)) => match app_info.trigger_type() {
+                None => TemplateTriggerCompatibility::Any,
+                Some(t) => TemplateTriggerCompatibility::Only(t.to_owned()),
+            },
             _ => TemplateTriggerCompatibility::Any, // Fail forgiving
         }
     }
@@ -355,7 +356,12 @@ impl Template {
             .collect()
     }
 
-    pub(crate) fn check_compatible_trigger(&self, app_trigger: &str) -> anyhow::Result<()> {
+    pub(crate) fn check_compatible_trigger(&self, app_trigger: Option<&str>) -> anyhow::Result<()> {
+        // The application we are merging into might not have a trigger yet, in which case
+        // we're good to go.
+        let Some(app_trigger) = app_trigger else {
+            return Ok(());
+        };
         match &self.trigger {
             TemplateTriggerCompatibility::Any => Ok(()),
             TemplateTriggerCompatibility::Only(t) => {

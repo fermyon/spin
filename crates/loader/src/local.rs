@@ -25,14 +25,18 @@ pub struct LocalLoader {
 }
 
 impl LocalLoader {
-    pub async fn new(app_root: &Path, files_mount_strategy: FilesMountStrategy) -> Result<Self> {
+    pub async fn new(
+        app_root: &Path,
+        files_mount_strategy: FilesMountStrategy,
+        cache_root: Option<PathBuf>,
+    ) -> Result<Self> {
         let app_root = app_root
             .canonicalize()
             .with_context(|| format!("Invalid manifest dir `{}`", app_root.display()))?;
         Ok(Self {
             app_root,
             files_mount_strategy,
-            cache: Cache::new(None).await?,
+            cache: Cache::new(cache_root).await?,
             // Limit concurrency to avoid hitting system resource limits
             file_loading_permits: Semaphore::new(crate::MAX_FILE_LOADING_CONCURRENCY),
         })

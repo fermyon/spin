@@ -334,7 +334,7 @@ impl UpCommand {
                 } else {
                     FilesMountStrategy::Copy(working_dir.join("assets"))
                 };
-                spin_loader::from_file(&manifest_path, files_mount_strategy)
+                spin_loader::from_file(&manifest_path, files_mount_strategy, None)
                     .await
                     .with_context(|| format!("Failed to load manifest from {manifest_path:?}"))
             }

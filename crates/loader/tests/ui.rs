@@ -49,6 +49,7 @@ fn run_test(input: &Path, normalizer: &mut Normalizer) -> Result<String, Failed>
         let locked = spin_loader::from_file(
             input,
             spin_loader::FilesMountStrategy::Copy(files_mount_root),
+            None,
         )
         .await
         .map_err(|err| format!("{err:?}"))?;

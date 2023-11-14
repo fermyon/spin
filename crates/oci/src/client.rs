@@ -81,6 +81,7 @@ impl Client {
         let locked = spin_loader::from_file(
             manifest_path,
             FilesMountStrategy::Copy(working_dir.path().into()),
+            None,
         )
         .await?;
 

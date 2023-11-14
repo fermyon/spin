@@ -30,10 +30,11 @@ pub(crate) const MAX_FILE_LOADING_CONCURRENCY: usize = 16;
 pub async fn from_file(
     manifest_path: impl AsRef<Path>,
     files_mount_strategy: FilesMountStrategy,
+    cache_root: Option<PathBuf>,
 ) -> Result<LockedApp> {
     let path = manifest_path.as_ref();
     let app_root = parent_dir(path)?;
-    let loader = LocalLoader::new(&app_root, files_mount_strategy).await?;
+    let loader = LocalLoader::new(&app_root, files_mount_strategy, cache_root).await?;
     loader.load_file(path).await
 }
 

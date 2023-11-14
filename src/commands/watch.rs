@@ -111,6 +111,7 @@ impl WatchCommand {
             spin_bin: spin_bin.clone(),
             manifest: manifest_file.clone(),
             clear_screen: self.clear,
+            has_ever_built: false,
             watched_changes: source_code_rx,
             uppificator_pauser: pause_tx,
         };

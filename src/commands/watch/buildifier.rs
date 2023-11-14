@@ -8,11 +8,13 @@ pub(crate) struct Buildifier {
     pub spin_bin: PathBuf,
     pub manifest: PathBuf,
     pub clear_screen: bool,
+    pub has_ever_built: bool,
     pub watched_changes: tokio::sync::watch::Receiver<Uuid>, // TODO: refine which component(s) a change affects
     pub uppificator_pauser: tokio::sync::mpsc::Sender<Pause>,
 }
 
 impl Buildifier {
+    #[allow(clippy::collapsible_if)]
     pub(crate) async fn run(&mut self) {
         // Other components may close channels as part of shutdown, so if any channels
         // fail, just exit the loop and fall out normally.
@@ -26,10 +28,15 @@ impl Buildifier {
                 break;
             }
 
-            _ = self.build_once().await;
+            let build_result = self.build_once().await;
+            if !self.has_ever_built {
+                self.has_ever_built = matches!(build_result, Ok(true));
+            }
 
-            if self.uppificator_pauser.send(Pause::Unpause).await.is_err() {
-                break;
+            if self.has_ever_built {
+                if self.uppificator_pauser.send(Pause::Unpause).await.is_err() {
+                    break;
+                }
             }
 
             if self.watched_changes.changed().await.is_err() {

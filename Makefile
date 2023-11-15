@@ -84,6 +84,10 @@ update-cargo-locks:
 test-unit:
 	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --skip integration_tests --skip spinup_tests --skip cloud_tests --nocapture
 
+.PHONY: test-crate
+test-crate:
+	RUST_LOG=$(LOG_LEVEL) cargo test -p $(crate) --no-fail-fast -- --skip integration_tests --skip spinup_tests --skip cloud_tests --nocapture
+
 .PHONY: test-integration
 test-integration: test-kv test-sqlite
 	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast -- --skip spinup_tests --skip cloud_tests --nocapture

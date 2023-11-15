@@ -15,7 +15,7 @@ tempfile = "3.3.0"
 terminal = { path = "../terminal" }
 tokio = { version = "1", features = ["process"] }
 toml = "0.8.2"
-toml_edit = "0.20.2"
+toml_edit = { version = "0.20.2", features = ["serde"] }
 tracing = { workspace = true }
 
 [dev-dependencies]

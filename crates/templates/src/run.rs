@@ -249,7 +249,7 @@ impl Run {
         let abs_snippet_file = snippets_dir.join(snippet_file);
         let file_content = std::fs::read(abs_snippet_file)
             .with_context(|| format!("Error reading snippet file {}", snippet_file))?;
-        let content = TemplateContent::infer_from_bytes(file_content, &self.template_parser())
+        let content = TemplateContent::infer_from_bytes(file_content, &Self::template_parser())
             .with_context(|| format!("Error parsing snippet file {}", snippet_file))?;
 
         match id {
@@ -302,7 +302,7 @@ impl Run {
 
     // TODO: async when we know where things sit
     fn read_all(&self, paths: Vec<PathBuf>) -> anyhow::Result<Vec<(PathBuf, TemplateContent)>> {
-        let template_parser = self.template_parser();
+        let template_parser = Self::template_parser();
         let contents = paths
             .iter()
             .map(std::fs::read)
@@ -334,14 +334,44 @@ impl Run {
         pathdiff::diff_paths(source, src_dir).map(|rel| (dest_dir.join(rel), cont))
     }
 
-    fn template_parser(&self) -> liquid::Parser {
+    fn template_parser() -> liquid::Parser {
         let builder = liquid::ParserBuilder::with_stdlib()
             .filter(crate::filters::KebabCaseFilterParser)
             .filter(crate::filters::PascalCaseFilterParser)
+            .filter(crate::filters::DottedPascalCaseFilterParser)
             .filter(crate::filters::SnakeCaseFilterParser)
             .filter(crate::filters::HttpWildcardFilterParser);
         builder
             .build()
             .expect("can't fail due to no partials support")
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_filters() {
+        let data = liquid::object!({
+            "snaky": "originally_snaky",
+            "kebabby": "originally-kebabby",
+            "dotted": "originally.semi-dotted"
+        });
+        let parser = Run::template_parser();
+
+        let eval = |s: &str| parser.parse(s).unwrap().render(&data).unwrap();
+
+        let kebab = eval("{{ snaky | kebab_case }}");
+        assert_eq!("originally-snaky", kebab);
+
+        let snek = eval("{{ kebabby | snake_case }}");
+        assert_eq!("originally_kebabby", snek);
+
+        let pascal = eval("{{ snaky | pascal_case }}");
+        assert_eq!("OriginallySnaky", pascal);
+
+        let dotpas = eval("{{ dotted | dotted_pascal_case }}");
+        assert_eq!("Originally.SemiDotted", dotpas);
     }
 }

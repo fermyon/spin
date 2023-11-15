@@ -8,6 +8,13 @@ use liquid_derive::FilterReflection;
 // Filters that are added to the Liquid parser and allow templates to specify
 // transformations of input strings
 
+// ADDING A FILTER HERE IS NOT ENOUGH.  You must also:
+//
+// * Register it with the template ParserBuilder in `Run::template_parser`.
+//   Otherwise Liquid won't know about it.
+// * Add a test using the registration name to `test_filters` in run.rs.
+//   This ensures that the name->parser->filter chain is hooked up correctly.
+
 #[derive(Clone, ParseFilter, FilterReflection)]
 #[filter(
     name = "kebab_case",
@@ -121,5 +128,64 @@ impl Filter for HttpWildcardFilter {
         };
 
         Ok(wildcard_route.to_value())
+    }
+}
+
+#[derive(Clone, ParseFilter, FilterReflection)]
+#[filter(
+    name = "dotted_pascal_case",
+    description = "Change text to Dotted.Pascal.Case.",
+    parsed(DottedPascalCaseFilter)
+)]
+pub(crate) struct DottedPascalCaseFilterParser;
+
+#[derive(Debug, Default, liquid_derive::Display_filter)]
+#[name = "dotted_pascal_case"]
+struct DottedPascalCaseFilter;
+
+impl Filter for DottedPascalCaseFilter {
+    fn evaluate(
+        &self,
+        input: &dyn ValueView,
+        _runtime: &dyn Runtime,
+    ) -> Result<liquid_core::model::Value, liquid_core::error::Error> {
+        let input = input
+            .as_scalar()
+            .ok_or_else(|| liquid_core::error::Error::with_msg("String expected"))?;
+
+        let input = input.into_string().to_string();
+
+        let result = input
+            .split('.')
+            .map(|s| s.to_upper_camel_case())
+            .collect::<Vec<_>>()
+            .join(".");
+
+        Ok(result.to_value())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use liquid_core::{Filter, ValueView};
+
+    // Just to save cluttering the tests with ceremonial bits
+    fn dotted_pascal(input: &str) -> String {
+        let filter = super::DottedPascalCaseFilter;
+        let runtime = liquid_core::runtime::RuntimeBuilder::new().build();
+        filter
+            .evaluate(&input.to_value(), &runtime)
+            .map(|v| v.into_scalar().unwrap().into_string().to_string())
+            .unwrap()
+    }
+
+    #[test]
+    fn test_dotted_pascal_case() {
+        assert_eq!("Fermyon.PetStore", dotted_pascal("Fermyon.PetStore"));
+        assert_eq!("FermyonPetStore", dotted_pascal("fermyon-pet-store"));
+        assert_eq!("FermyonPetStore", dotted_pascal("fermyon_pet_store"));
+        assert_eq!("Fermyon.PetStore", dotted_pascal("fermyon.pet-store"));
+        assert_eq!("Fermyon.PetStore", dotted_pascal("fermyon.pet_store"));
+        assert_eq!("FermyonPetStore", dotted_pascal("fermyon pet store"));
     }
 }

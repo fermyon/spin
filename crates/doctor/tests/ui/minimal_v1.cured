@@ -1,0 +1,13 @@
+spin_manifest_version = 2
+
+[application]
+name = "ok"
+
+[[trigger.http]]
+id = "trigger-good-component"
+component = "good-component"
+route = "/"
+
+[component.good-component]
+source = "wasm/fake.wasm"
+allowed_outbound_hosts = ["redis://*:*", "mysql://*:*", "postgres://*:*"]

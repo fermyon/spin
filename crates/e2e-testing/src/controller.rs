@@ -1,4 +1,4 @@
-use crate::metadata_extractor::AppMetadata;
+use crate::metadata::AppMetadata;
 use anyhow::Result;
 use async_trait::async_trait;
 use std::process::Output;

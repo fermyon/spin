@@ -1,7 +1,7 @@
 use anyhow::Result;
 use e2e_testing::controller::Controller;
 use e2e_testing::http_asserts::assert_http_response;
-use e2e_testing::metadata_extractor::AppMetadata;
+use e2e_testing::metadata::AppMetadata;
 use e2e_testing::testcase::TestCaseBuilder;
 use e2e_testing::{spin, utils};
 use hyper::Method;

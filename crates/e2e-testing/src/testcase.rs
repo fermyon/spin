@@ -1,5 +1,5 @@
 use crate::controller::Controller;
-use crate::metadata_extractor::AppMetadata;
+use crate::metadata::AppMetadata;
 use crate::spin;
 use crate::utils;
 use anyhow::{Context, Result};

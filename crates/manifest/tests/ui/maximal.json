@@ -12,6 +12,11 @@
       "fake": {
         "global_option": true
       }
+    },
+    "tool": {
+      "lint": {
+        "lint_level": "savage"
+      }
     }
   },
   "variables": {
@@ -77,6 +82,11 @@
         "watch": [
           "src/**/*.rs"
         ]
+      },
+      "tool": {
+        "clean": {
+          "command": "cargo clean"
+        }
       }
     }
   }

@@ -9,6 +9,9 @@ authors = ["alice@example.com", "bob@example.com"]
 [application.trigger.fake]
 global_option = true
 
+[application.tool.lint]
+lint_level = "savage"
+
 [variables]
 var_one = { default = "Default" }
 var_TWO = { required = true, secret = true }
@@ -38,3 +41,6 @@ ai_models = ["llama2-chat"]
 command = "cargo build"
 workdir = "my-component"
 watch = ["src/**/*.rs"]
+
+[component.maximal-component.tool.clean]
+command = "cargo clean"

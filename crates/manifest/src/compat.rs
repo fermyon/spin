@@ -21,6 +21,7 @@ pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Erro
         description: manifest.description,
         authors: manifest.authors,
         trigger_global_configs,
+        tool: Default::default(),
     };
 
     let app_variables = manifest
@@ -82,6 +83,7 @@ pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Erro
                 sqlite_databases,
                 ai_models,
                 build: component.build,
+                tool: Default::default(),
                 allowed_outbound_hosts,
                 allowed_http_hosts: Vec::new(),
             },

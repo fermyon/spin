@@ -44,6 +44,9 @@ pub struct AppDetails {
     /// `[application.triggers.<type>]`
     #[serde(rename = "trigger", default, skip_serializing_if = "Map::is_empty")]
     pub trigger_global_configs: Map<String, toml::Table>,
+    /// Settings for custom tools or plugins. Spin ignores this field.
+    #[serde(default, skip_serializing_if = "Map::is_empty")]
+    pub tool: Map<String, toml::Table>,
 }
 
 /// Trigger configuration
@@ -131,6 +134,9 @@ pub struct Component {
     /// Build configuration
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<ComponentBuildConfig>,
+    /// Settings for custom tools or plugins. Spin ignores this field.
+    #[serde(default, skip_serializing_if = "Map::is_empty")]
+    pub tool: Map<String, toml::Table>,
 }
 
 impl Component {
@@ -222,6 +228,41 @@ mod tests {
         .unwrap();
 
         FakeTriggerConfig::deserialize(manifest.triggers["fake"][0].config.clone()).unwrap();
+    }
+
+    #[derive(Deserialize)]
+    #[allow(dead_code)]
+    struct FakeGlobalToolConfig {
+        lint_level: String,
+    }
+
+    #[derive(Deserialize)]
+    #[allow(dead_code)]
+    struct FakeComponentToolConfig {
+        command: String,
+    }
+
+    #[test]
+    fn deserialising_custom_tool_settings() {
+        let manifest = AppManifest::deserialize(toml! {
+            spin_manifest_version = 2
+            [application]
+            name = "trigger-configs"
+            [application.tool.lint]
+            lint_level = "savage"
+            [[trigger.fake]]
+            something = "something else"
+            [component.fake]
+            source = "dummy"
+            [component.fake.tool.clean]
+            command = "cargo clean"
+        })
+        .unwrap();
+
+        FakeGlobalToolConfig::deserialize(manifest.application.tool["lint"].clone()).unwrap();
+        let fake_id: KebabId = "fake".to_owned().try_into().unwrap();
+        FakeComponentToolConfig::deserialize(manifest.components[&fake_id].tool["clean"].clone())
+            .unwrap();
     }
 
     #[test]

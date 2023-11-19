@@ -63,6 +63,7 @@ pub struct Install {
         name = PLUGIN_NAME_OPT,
         conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
         conflicts_with = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
+        required_unless_present_any = [PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT, PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT],
     )]
     pub name: Option<String>,
 
@@ -166,7 +167,6 @@ pub struct Upgrade {
     #[clap(
         name = PLUGIN_NAME_OPT,
         conflicts_with = PLUGIN_ALL_OPT,
-        required_unless_present_any = [PLUGIN_ALL_OPT, PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT, PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT],
     )]
     pub name: Option<String>,
 
@@ -269,18 +269,53 @@ impl Upgrade {
             })
             .collect();
 
+        let mut eligible_plugins = Vec::new();
+
+        // Getting only eligible plugins to upgrade
+        for installed_plugin in installed_in_catalogue {
+            let manager = PluginManager::try_default()?;
+            let manifest_location = ManifestLocation::PluginsRepository(PluginLookup::new(
+                &installed_plugin.name,
+                None,
+            ));
+
+            // Attempt to get the manifest to check eligibility to upgrade
+            if let Ok(manifest) = manager
+                .get_manifest(&manifest_location, false, SPIN_VERSION)
+                .await
+            {
+                if installed_plugin.version != manifest.version() {
+                    eligible_plugins.push((installed_plugin, manifest));
+                }
+            }
+        }
+
+        if eligible_plugins.is_empty() {
+            eprintln!("No plugins found to upgrade");
+            return Ok(());
+        }
+
+        let names: Vec<_> = eligible_plugins
+            .iter()
+            .map(|(descriptor, manifest)| {
+                format!(
+                    "{} from version {} to {}",
+                    descriptor.name.clone(),
+                    descriptor.version.clone(),
+                    manifest.version()
+                )
+            })
+            .collect();
+
         eprintln!(
             "Select plugins to upgrade. Use Space to select/deselect and Enter to confirm selection."
         );
-        let selected_indexes = match dialoguer::MultiSelect::new()
-            .items(&installed_in_catalogue)
-            .interact_opt()?
-        {
+        let selected_indexes = match dialoguer::MultiSelect::new().items(&names).interact_opt()? {
             Some(indexes) => indexes,
             None => return Ok(()),
         };
 
-        let plugins_selected = elements_at(installed_in_catalogue, selected_indexes);
+        let plugins_selected = elements_at(eligible_plugins, selected_indexes);
 
         if plugins_selected.is_empty() {
             eprintln!("No plugins selected");
@@ -288,22 +323,14 @@ impl Upgrade {
         }
 
         // Upgrade plugins selected
-        for plugin in plugins_selected {
+        for (installed_plugin, manifest) in plugins_selected {
             let manager = PluginManager::try_default()?;
             let manifest_location = ManifestLocation::PluginsRepository(PluginLookup::new(
-                &plugin.name,
-                Some(plugin.version.parse::<Version>()?),
+                &installed_plugin.name,
+                None,
             ));
 
-            try_install(
-                &plugin.manifest,
-                &manager,
-                true,
-                false,
-                false,
-                &manifest_location,
-            )
-            .await?;
+            try_install(&manifest, &manager, true, false, false, &manifest_location).await?;
         }
 
         Ok(())
@@ -422,6 +449,12 @@ async fn list_catalogue_plugins() -> Result<Vec<PluginDescriptor>> {
     Ok(descriptors)
 }
 
+async fn list_catalogue_and_installed_plugins() -> Result<Vec<PluginDescriptor>> {
+    let catalogue = list_catalogue_plugins().await?;
+    let installed = list_installed_plugins()?;
+    Ok(merge_plugin_lists(catalogue, installed))
+}
+
 /// List available or installed plugins.
 #[derive(Parser, Debug)]
 pub struct List {
@@ -439,7 +472,7 @@ impl List {
         let mut plugins = if self.installed {
             list_installed_plugins()
         } else {
-            Self::list_catalogue_and_installed_plugins().await
+            list_catalogue_and_installed_plugins().await
         }?;
 
         plugins.sort_by(|p, q| p.cmp(q));
@@ -450,12 +483,6 @@ impl List {
 
         Self::print(&plugins);
         Ok(())
-    }
-
-    async fn list_catalogue_and_installed_plugins() -> Result<Vec<PluginDescriptor>> {
-        let catalogue = list_catalogue_plugins().await?;
-        let installed = list_installed_plugins()?;
-        Ok(merge_plugin_lists(catalogue, installed))
     }
 
     fn print(plugins: &[PluginDescriptor]) {
@@ -538,11 +565,6 @@ impl PluginDescriptor {
     }
 }
 
-impl std::fmt::Display for PluginDescriptor {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{} v{}", self.name, self.version).map_err(std::fmt::Error::from)
-    }
-}
 // Auxiliar function for Upgrade::upgrade_multiselect
 fn elements_at<T>(source: Vec<T>, indexes: Vec<usize>) -> Vec<T> {
     source

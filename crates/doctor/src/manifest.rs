@@ -8,7 +8,9 @@ use crate::Treatment;
 
 /// Diagnose app manifest trigger config problems.
 pub mod trigger;
-/// Diagnose app manifest version problems.
+/// Diagnose old app manifest versions.
+pub mod upgrade;
+/// Diagnose upgradable app manifest versions.
 pub mod version;
 
 /// ManifestTreatment helps implement [`Treatment`]s for app manifest problems.

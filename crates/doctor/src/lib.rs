@@ -33,6 +33,7 @@ impl Checkup {
             unprocessed_diagnoses: Default::default(),
         };
         checkup
+            .add_diagnostic::<manifest::upgrade::UpgradeDiagnostic>()
             .add_diagnostic::<manifest::version::VersionDiagnostic>()
             .add_diagnostic::<manifest::trigger::TriggerDiagnostic>()
             .add_diagnostic::<rustlang::target::TargetDiagnostic>() // Do toolchain checks _before_ build check

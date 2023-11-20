@@ -46,8 +46,9 @@ impl DoctorCommand {
                     Err(err) => {
                         if !err.is::<DryRunNotSupported>() {
                             show_error("Treatment dry run failed: ", err);
+                            return Ok(());
                         }
-                        return Ok(());
+                        None
                     }
                 };
 

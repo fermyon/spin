@@ -144,26 +144,18 @@ impl OwnedApp {
     }
 }
 
-// Implementation detail of [`App::inert`]; "sealed" to prevent external impls.
-mod private {
-    pub trait MaybeLoader {}
-}
-use private::MaybeLoader;
-
-impl MaybeLoader for AppLoader {}
-
 /// An `App` holds loaded configuration for a Spin application.
 ///
-/// Note: The `L: MaybeLoader` param is an implementation detail to support the
+/// Note: The `L` param is an implementation detail to support the
 /// [`App::inert`] constructor.
 #[derive(Debug)]
-pub struct App<'a, L: MaybeLoader = AppLoader> {
+pub struct App<'a, L = AppLoader> {
     loader: &'a L,
     uri: String,
     locked: LockedApp,
 }
 
-impl<'a, L: MaybeLoader> App<'a, L> {
+impl<'a, L> App<'a, L> {
     /// Deserializes typed metadata for this app.
     ///
     /// Returns `Ok(None)` if there is no metadata for the given `key` and an
@@ -233,15 +225,13 @@ impl<'a> App<'a> {
     }
 }
 
-/// Used in the return type of [`App::inert`] to prevent the use of methods
-/// that require an [`AppLoader`].
+#[doc(hidden)]
 pub struct InertLoader;
-impl MaybeLoader for InertLoader {}
 
 impl App<'static, InertLoader> {
     /// Return an "inert" App which does not have an associated [`AppLoader`]
     /// and cannot be used to instantiate components.
-    pub fn inert(locked: LockedApp) -> App<'static, InertLoader> {
+    pub fn inert(locked: LockedApp) -> Self {
         App {
             loader: &InertLoader,
             uri: "".into(),
@@ -251,13 +241,13 @@ impl App<'static, InertLoader> {
 }
 
 /// An `AppComponent` holds configuration for a Spin application component.
-pub struct AppComponent<'a, L: MaybeLoader = AppLoader> {
+pub struct AppComponent<'a, L = AppLoader> {
     /// The app this component belongs to.
     pub app: &'a App<'a, L>,
     locked: &'a LockedComponent,
 }
 
-impl<'a, L: MaybeLoader> AppComponent<'a, L> {
+impl<'a, L> AppComponent<'a, L> {
     /// Returns this component's app-unique ID.
     pub fn id(&self) -> &str {
         &self.locked.id
@@ -352,13 +342,13 @@ impl<'a> AppComponent<'a> {
 }
 
 /// An `AppTrigger` holds configuration for a Spin application trigger.
-pub struct AppTrigger<'a, L: MaybeLoader = AppLoader> {
+pub struct AppTrigger<'a, L = AppLoader> {
     /// The app this trigger belongs to.
     pub app: &'a App<'a, L>,
     locked: &'a LockedTrigger,
 }
 
-impl<'a, L: MaybeLoader> AppTrigger<'a, L> {
+impl<'a, L> AppTrigger<'a, L> {
     /// Returns this trigger's app-unique ID.
     pub fn id(&self) -> &str {
         &self.locked.id

@@ -9,6 +9,7 @@ use http_body_util::BodyExt;
 use hyper::{Request, Response};
 use outbound_http::OutboundHttpComponent;
 use spin_core::async_trait;
+use spin_core::wasi_2023_10_18::exports::wasi::http::incoming_handler::IncomingHandler as IncomingHandler2023_10_18;
 use spin_core::Instance;
 use spin_http::body;
 use spin_trigger::{EitherInstance, TriggerAppEngine};
@@ -170,13 +171,37 @@ impl HttpHandlerExecutor {
             .data_mut()
             .new_response_outparam(response_tx)?;
 
-        let proxy = Proxy::new(&mut store, &instance)?;
+        enum Handler {
+            Latest(Proxy),
+            Handler2023_10_18(IncomingHandler2023_10_18),
+        }
+
+        let handler = match instance
+            .exports(&mut store)
+            .instance("wasi:http/incoming-handler@0.2.0-rc-2023-10-18")
+        {
+            Some(mut instance) => Some(Handler::Handler2023_10_18(IncomingHandler2023_10_18::new(
+                &mut instance,
+            )?)),
+            None => None,
+        };
+        let handler = match handler {
+            Some(handler) => handler,
+            None => Handler::Latest(Proxy::new(&mut store, &instance)?),
+        };
 
         let handle = task::spawn(async move {
-            let result = proxy
-                .wasi_http_incoming_handler()
-                .call_handle(&mut store, request, response)
-                .await;
+            let result = match handler {
+                Handler::Latest(proxy) => {
+                    proxy
+                        .wasi_http_incoming_handler()
+                        .call_handle(&mut store, request, response)
+                        .await
+                }
+                Handler::Handler2023_10_18(proxy) => {
+                    proxy.call_handle(&mut store, request, response).await
+                }
+            };
 
             tracing::trace!(
                 "wasi-http memory consumed: {}",

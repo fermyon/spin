@@ -1,5 +1,5 @@
 interface postgres {
-  use rdbms-types.{parameter-value, row-set}
+  use rdbms-types.{parameter-value, row-set};
 
   // General purpose error.
   variant pg-error {
@@ -12,8 +12,8 @@ interface postgres {
   }
 
   // query the database: select
-  query: func(address: string, statement: string, params: list<parameter-value>) -> result<row-set, pg-error>
+  query: func(address: string, statement: string, params: list<parameter-value>) -> result<row-set, pg-error>;
 
   // execute command to the database: insert, update, delete
-  execute: func(address: string, statement: string, params: list<parameter-value>) -> result<u64, pg-error>
+  execute: func(address: string, statement: string, params: list<parameter-value>) -> result<u64, pg-error>;
 }

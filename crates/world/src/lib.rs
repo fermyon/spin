@@ -2,10 +2,10 @@
 
 wasmtime::component::bindgen!({
     inline: r#"
-    package fermyon:runtime
+    package fermyon:runtime;
     world host {
-        include fermyon:spin/host
-        include fermyon:spin/platform@2.0.0
+        include fermyon:spin/host;
+        include fermyon:spin/platform@2.0.0;
     }
     "#,
     path: "../../wit",

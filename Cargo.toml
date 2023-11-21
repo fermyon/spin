@@ -118,16 +118,10 @@ hyper = { version = "=1.0.0-rc.3", features = ["full"] }
 reqwest = { version = "0.11", features = ["stream"] }
 tracing = { version = "0.1", features = ["log"] }
 
-# Use forked wasmtime 14.0.4 with backported patches to fix a performance regression
-# TODO: Replace with wasmtime 15 release.
-wasi-common-preview1 = { git = "https://github.com/fermyon/wasmtime", rev = "a2fa8fe7de1e918eae06d78de53451832ba380b6", package = "wasi-common" }
-wasmtime = { git = "https://github.com/fermyon/wasmtime", rev = "a2fa8fe7de1e918eae06d78de53451832ba380b6", features = [
-  "component-model",
-] }
-wasmtime-wasi = { git = "https://github.com/fermyon/wasmtime", rev = "a2fa8fe7de1e918eae06d78de53451832ba380b6", features = [
-  "tokio",
-] }
-wasmtime-wasi-http = { git = "https://github.com/fermyon/wasmtime", rev = "a2fa8fe7de1e918eae06d78de53451832ba380b6" }
+wasi-common-preview1 = { version = "15.0.0", package = "wasi-common" }
+wasmtime = { version = "15.0.0" , features = ["component-model"] }
+wasmtime-wasi = { version = "15.0.0", features = ["tokio"] }
+wasmtime-wasi-http = "15.0.0"
 
 spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "191789170abde10cd55590466c0660dd6c7d472a" }
 

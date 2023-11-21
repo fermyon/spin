@@ -262,10 +262,9 @@ impl Upgrade {
         let installed_in_catalogue: Vec<_> = installed_plugins
             .into_iter()
             .filter(|installed| {
-                catalogue_plugins.iter().any(|catalogue| {
-                    installed.manifest == catalogue.manifest
-                        && matches!(catalogue.compatibility, PluginCompatibility::Compatible)
-                })
+                catalogue_plugins
+                    .iter()
+                    .any(|catalogue| installed.manifest == catalogue.manifest)
             })
             .collect();
 
@@ -290,12 +289,11 @@ impl Upgrade {
                 .await
             {
                 // Check if upgraded candidates have a newer version and if are compatible
-                if is_potential_upgrade(&installed_plugin.manifest, &manifest) {
-                    if let PluginCompatibility::Compatible =
-                        PluginCompatibility::for_current(&manifest)
-                    {
-                        eligible_plugins.push((installed_plugin, manifest));
-                    }
+                if is_potential_upgrade(&installed_plugin.manifest, &manifest)
+                    && PluginCompatibility::Compatible
+                        == PluginCompatibility::for_current(&manifest)
+                {
+                    eligible_plugins.push((installed_plugin, manifest));
                 }
             }
         }
@@ -537,7 +535,7 @@ impl Search {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum PluginCompatibility {
     Compatible,
     IncompatibleSpin(String),

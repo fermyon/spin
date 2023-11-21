@@ -291,7 +291,7 @@ impl Upgrade {
         }
 
         if eligible_plugins.is_empty() {
-            eprintln!("No plugins found to upgrade");
+            eprintln!("All plugins are up to date");
             return Ok(());
         }
 

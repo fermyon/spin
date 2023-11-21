@@ -269,6 +269,11 @@ impl Upgrade {
             })
             .collect();
 
+        if installed_in_catalogue.is_empty() {
+            eprintln!("No plugins found to upgrade");
+            return Ok(());
+        }
+
         let mut eligible_plugins = Vec::new();
 
         // Getting only eligible plugins to upgrade
@@ -284,8 +289,13 @@ impl Upgrade {
                 .get_manifest(&manifest_location, false, SPIN_VERSION)
                 .await
             {
-                if installed_plugin.version != manifest.version() {
-                    eligible_plugins.push((installed_plugin, manifest));
+                // Check if upgraded candidates have a newer version and if are compatible
+                if is_potential_upgrade(&installed_plugin.manifest, &manifest) {
+                    if let PluginCompatibility::Compatible =
+                        PluginCompatibility::for_current(&manifest)
+                    {
+                        eligible_plugins.push((installed_plugin, manifest));
+                    }
                 }
             }
         }
@@ -300,8 +310,8 @@ impl Upgrade {
             .map(|(descriptor, manifest)| {
                 format!(
                     "{} from version {} to {}",
-                    descriptor.name.clone(),
-                    descriptor.version.clone(),
+                    descriptor.name,
+                    descriptor.version,
                     manifest.version()
                 )
             })
@@ -406,6 +416,13 @@ impl Upgrade {
         )
         .await?;
         Ok(())
+    }
+}
+
+fn is_potential_upgrade(current: &PluginManifest, candidate: &PluginManifest) -> bool {
+    match (current.try_version(), candidate.try_version()) {
+        (Ok(cur_ver), Ok(cand_ver)) => cand_ver > cur_ver,
+        _ => current.version() != candidate.version(),
     }
 }
 

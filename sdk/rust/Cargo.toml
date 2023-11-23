@@ -18,14 +18,17 @@ wit-bindgen = "0.13.0"
 routefinder = "0.5.3"
 once_cell = "1.18.0"
 futures = "0.3.28"
+bytes = "1"
+hyperium = { package = "http", version = "0.2" }
 serde_json = { version = "1.0.96", optional = true }
 serde = { version = "1.0.163", optional = true }
-hyperium = { package = "http", version = "0.2", optional = true }
-bytes = { version = "1", optional = true }
 
 [features]
-default = ["export-sdk-language", "http", "json"]
-http = ["dep:hyperium", "dep:bytes"]
+default = ["export-sdk-language", "json"]
+experimental = []
 export-sdk-language = []
 json = ["dep:serde", "dep:serde_json"]
-experimental = []
+# This was a default feature in the 2.0.0 release but couldn't be disabled
+# without breakage. Retained here for backward compat and future reuse.
+# TODO: Consider removing in a future release if it remains unused.
+http = []

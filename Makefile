@@ -104,6 +104,8 @@ run-test-spin-up:
 	REDIS_IMAGE=$(REDIS_IMAGE) MYSQL_IMAGE=$(MYSQL_IMAGE) POSTGRES_IMAGE=$(POSTGRES_IMAGE) \
 	BUILD_SPIN=$(E2E_BUILD_SPIN) \
 	docker compose -f e2e-tests-docker-compose.yml run $(E2E_SPIN_RELEASE_VOLUME_MOUNT) $(E2E_SPIN_DEBUG_VOLUME_MOUNT) e2e-tests
+	# Run the runtime tests which will supersede e2e tests in the future
+	cargo test -F e2e-tests -- runtime_tests
 
 .PHONY: test-kv
 test-kv: build

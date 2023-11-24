@@ -1,0 +1,13 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+name = "outbound-mysql"
+trigger = { type = "http" }
+version = "0.1.0"
+
+[[component]]
+id = "outbound-mysql"
+source = "{{outbound-mysql}}"
+allowed_outbound_hosts = ["mysql://localhost:3306"]
+environment = { DB_URL = "mysql://spin:spin@localhost:3306/spin_dev" }
+[component.trigger]
+route = "/..."

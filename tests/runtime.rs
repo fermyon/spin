@@ -1,8 +1,9 @@
-use runtime_tests::Config;
-use std::path::PathBuf;
-
+#[cfg(feature = "e2e-tests")]
 #[test]
 fn runtime_tests() {
+    use runtime_tests::Config;
+    use std::path::PathBuf;
+
     let spin_binary_path = env!("CARGO_BIN_EXE_spin").into();
     let tests_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/runtime-tests/tests");
     let components_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test-components");

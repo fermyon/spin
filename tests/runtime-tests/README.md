@@ -8,6 +8,10 @@ For the purposes of these tests, an "application" is a collection of the followi
 * A list of arguments to be passed to `spin up`
 * A collection of a files needed for running `spin up` (e.g., a migration file for passing to the `--sqlite` argument)
 
+## How do I run the tests?
+
+The runtime tests can either be run as a library function (e.g., this is how they are run as part of Spin's test suite using `cargo test`) or they can be run stand alone using the `runtime-tests` crate's binary (i.e., running `cargo run` from this directory).
+
 ## How do I add a new test?
 
 To add a new test you must add a new folder to the `tests` directory with at least a `spin.toml` manifest. 
@@ -21,11 +25,3 @@ Optionally, an `args` file can be added with newline separated arguments to be p
 A test will pass in the following conditions:
 * The Spin web server returns a 200
 * The Spin web server returns a 500 with a body that contains the same text inside of the test's error.txt file.
-
-## How do I run the tests?
-
-Running the tests is as easy as running the `runtime-tests` binary. In this directory run:
-
-```bash
-cargo run
-```

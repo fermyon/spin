@@ -1,5 +1,16 @@
+use runtime_tests::Config;
+use std::path::PathBuf;
+
 #[test]
-#[ignore = "ignoring until we have greater confidence this can run without false negatives"]
-fn perform_runtime_tests() {
-    runtime_tests::main().unwrap()
+fn runtime_tests() {
+    let spin_binary_path = env!("CARGO_BIN_EXE_spin").into();
+    let tests_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/runtime-tests/tests");
+    let components_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test-components");
+    let config = Config {
+        spin_binary_path,
+        tests_path,
+        components_path,
+        on_error: runtime_tests::OnTestError::Panic,
+    };
+    runtime_tests::run(config).expect("failed to bootstrap runtime tests tests")
 }

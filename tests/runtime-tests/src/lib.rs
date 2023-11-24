@@ -6,61 +6,134 @@ use std::{
 
 use anyhow::Context;
 
-pub fn main() -> anyhow::Result<()> {
-    env_logger::init();
-    for test in std::fs::read_dir("tests/runtime-tests/tests")? {
-        let test = test?;
-        if test.file_type()?.is_dir() {
-            log::info!("Testing: {}", test.path().display());
-            let temp = temp_dir::TempDir::new()
-                .context("failed to produce a temporary directory to run the test in")?;
-            log::trace!("temporary directory: {}", temp.path().display());
-            copy_manifest(&test.path(), &temp)?;
-            let mut spin = Spin::start(temp.path())?;
-            log::debug!("Spin started on port {}.", spin.port());
+/// Configuration for the test suite
+pub struct Config {
+    /// The path to the Spin binary under test
+    pub spin_binary_path: PathBuf,
+    /// The path to the tests directory which contains all the runtime test definitions
+    pub tests_path: PathBuf,
+    /// The path to the shared repository of WebAssembly components that the test suite uses
+    pub components_path: PathBuf,
+    /// What to do when an individual test fails
+    pub on_error: OnTestError,
+}
 
-            // TODO: don't bail everything if the http request fails
-            let response = match make_http_request(&mut spin) {
-                Ok(r) => r,
-                Err(e) => {
-                    eprintln!("Test failed trying to connect to http server: {e}");
-                    continue;
-                }
-            };
-            let response: Response = response.parse()?;
-            let error_file = test.path().join("error.txt");
-            match response {
-                Response::Ok if !error_file.exists() => println!("Test passed!"),
-                Response::Ok => {
-                    let expected = std::fs::read_to_string(&error_file)?;
-                    println!("Test passed but should have failed with error: {expected}")
-                }
-                Response::Err(e) if error_file.exists() => {
-                    let expected = std::fs::read_to_string(&error_file)
-                        .context("failed to read error.txt file")?;
-                    if e.contains(&expected) {
-                        println!("Test passed!");
-                    } else {
-                        eprintln!("Test errored but not in the expected way.\n\texpected: {expected}\n\tgot: {e}")
-                    }
-                }
-                Response::Err(e) => {
-                    eprintln!("Test errored: {e}");
-                }
-                Response::ErrNoBody => {
-                    let stderr = spin.stderr.output_as_str().unwrap_or("<non-utf8>");
-                    eprintln!("Spin did not return error body (most likely due to a test panicking). stderr:\n{stderr}");
-                }
-            }
-        } else {
-            todo!("Support Spin.toml only tests")
+#[derive(Clone, Copy)]
+/// What to do on a test error
+pub enum OnTestError {
+    Panic,
+    Log,
+}
+
+/// Run the runtime tests suite.
+///
+/// Error represents an error in bootstrapping the tests. What happens on individual test failures
+/// is controlled by `config`.
+pub fn run(config: Config) -> anyhow::Result<()> {
+    for test in std::fs::read_dir(&config.tests_path).with_context(|| {
+        format!(
+            "failed to read test directory '{}'",
+            config.tests_path.display()
+        )
+    })? {
+        let test = test.context("I/O error reading entry from test directory")?;
+        if !test.file_type()?.is_dir() {
+            log::debug!(
+                "Ignoring non-sub-directory in test directory: {}",
+                test.path().display()
+            );
+            continue;
         }
+
+        log::info!("Testing: {}", test.path().display());
+        let temp = temp_dir::TempDir::new()
+            .context("failed to produce a temporary directory to run the test in")?;
+        log::trace!("Temporary directory: {}", temp.path().display());
+        copy_manifest(&test.path(), &config.components_path, &temp)?;
+        let spin = Spin::start(&config.spin_binary_path, temp.path())?;
+        log::debug!("Spin started on port {}.", spin.port());
+        run_test(test.path().as_path(), spin, config.on_error)
     }
     Ok(())
 }
 
+/// Run an individual test
+fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
+    // macro which will look at `on_error` and do the right thing
+    macro_rules! error {
+        ($on_error:expr, $($arg:tt)*) => {
+            match $on_error {
+                OnTestError::Panic => panic!($($arg)*),
+                OnTestError::Log => {
+                    println!($($arg)*);
+                    return;
+                }
+            }
+        };
+    }
+
+    let response = match make_http_request(&mut spin) {
+        Ok(r) => r,
+        Err(e) => {
+            error!(
+                on_error,
+                "Test failed trying to connect to http server: {e}"
+            );
+        }
+    };
+    let response: Response = match response.parse() {
+        Ok(r) => r,
+        Err(e) => {
+            error!(on_error, "failed to parse response from Spin server: {e}")
+        }
+    };
+    let error_file = test_path.join("error.txt");
+    match response {
+        Response::Ok if !error_file.exists() => log::info!("Test passed!"),
+        Response::Ok => {
+            let expected = match std::fs::read_to_string(&error_file) {
+                Ok(e) => e,
+                Err(e) => error!(on_error, "failed to read error.txt file: {}", e),
+            };
+            error!(
+                on_error,
+                "Test passed but should have failed with error: {expected}"
+            )
+        }
+        Response::Err(e) if error_file.exists() => {
+            let expected = match std::fs::read_to_string(&error_file) {
+                Ok(e) => e,
+                Err(e) => error!(on_error, "failed to read error.txt file: {}", e),
+            };
+            if e.contains(&expected) {
+                log::info!("Test passed!");
+            } else {
+                error!(
+                    on_error,
+                    "Test errored but not in the expected way.\n\texpected: {}\n\tgot: {}",
+                    expected,
+                    e
+                )
+            }
+        }
+        Response::Err(e) => {
+            error!(on_error, "Test errored: {e}");
+        }
+        Response::ErrNoBody => {
+            let stderr = spin.stderr.output_as_str().unwrap_or("<non-utf8>");
+            error!(on_error, "Spin did not return error body (most likely due to a test panicking). stderr:\n{stderr}");
+        }
+    }
+}
+
 /// Copies the test dir's manifest file into the temporary directory
-fn copy_manifest(test_dir: &Path, temp: &temp_dir::TempDir) -> anyhow::Result<()> {
+///
+/// Replaces template variables in the manifest file with components from the components path.
+fn copy_manifest(
+    test_dir: &Path,
+    components_path: &Path,
+    temp: &temp_dir::TempDir,
+) -> anyhow::Result<()> {
     let manifest_path = test_dir.join("spin.toml");
     let manifest = std::fs::read_to_string(&manifest_path).with_context(|| {
         format!(
@@ -92,7 +165,7 @@ fn copy_manifest(test_dir: &Path, temp: &temp_dir::TempDir) -> anyhow::Result<()
         // TODO: make this more robust
         if source_str.starts_with("{{") {
             let name = &source_str[2..source_str.len() - 2];
-            let path = component_path(name);
+            let path = component_path(components_path, name);
             let wasm_name = format!("{name}.wasm");
             std::fs::copy(&path, temp.path().join(&wasm_name)).with_context(|| {
                 format!(
@@ -203,11 +276,11 @@ struct Spin {
 }
 
 impl Spin {
-    fn start(dir: &Path) -> Result<Self, anyhow::Error> {
+    fn start(spin_binary_path: &Path, current_dir: &Path) -> Result<Self, anyhow::Error> {
         let port = get_random_port()?;
-        let mut child = std::process::Command::new("spin")
+        let mut child = std::process::Command::new(spin_binary_path)
             .arg("up")
-            .current_dir(dir)
+            .current_dir(current_dir)
             .args(["--listen", &format!("127.0.0.1:{port}")])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -275,10 +348,8 @@ fn kill_process(process: &mut std::process::Child) {
     }
 }
 
-fn component_path(name: &str) -> PathBuf {
-    PathBuf::from("test-components/")
-        .join(name)
-        .join("component.wasm")
+fn component_path(test_components_path: &Path, name: &str) -> PathBuf {
+    test_components_path.join(name).join("component.wasm")
 }
 
 /// Uses a track to ge a random unused port

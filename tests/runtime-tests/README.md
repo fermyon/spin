@@ -5,8 +5,16 @@ The runtime tests ensure that Spin can properly run applications.
 For the purposes of these tests, an "application" is a collection of the following things:
 * A Spin compliant WebAssembly binary
 * A spin.toml manifest
-* A list of arguments to be passed to `spin up`
-* A collection of a files needed for running `spin up` (e.g., a migration file for passing to the `--sqlite` argument)
+* Optional runtime-config.toml files
+
+## What do runtime tests supposed test and not test?
+
+Runtime tests are meant to test the runtime functionality of Spin. In other words, they ensure that a valid combination of Spin manifest and some number of Spin compliant WebAssembly binaries perform in expected ways or fail in expected ways.
+
+Runtime tests are not full end-to-end integration tests, and thus there are some things they do not concern themselves with including:
+* Different arguments to the Spin CLI
+* Failure cases that cause Spin not to start a running http server (e.g., malformed manifest, malformed WebAssembly binaries etc.)
+* Bootstrapping WebAssembly modules into compliant WebAssembly components (e.g., turning Wasm modules created with JavaScript tooling into WebAssembly components using `js2wasm`)
 
 ## How do I run the tests?
 
@@ -18,7 +26,11 @@ To add a new test you must add a new folder to the `tests` directory with at lea
 
 The manifest can reference pre-built Spin compliant WebAssembly modules that can be found in the `test-components` folder in the Spin repo. It does so by using the `{{$NAME}}` where `$NAME` is substituted for the name of the test component to be used. For example `{{sqlite}}` will use the test-component named "sqlite" found in the `test-components` directory.
 
-Optionally, an `args` file can be added with newline separated arguments to be passed to the `spin up` invocation, and a `data` directory can be added which will have all of its contents copied into the temporary folder where `spin up` will be run.
+The test directory may additionally contain an `error.txt` if the Spin application is expected to fail.
+
+### The testing protocol
+
+The test runner will make a GET request against the `/` path. The component should either return a 200 if everything goes well or a 500 if there is an error. If an `error.txt` file is present, the Spin application must return a 500 with the body set to some error message that contains the contents of `error.txt`.
 
 ## When do tests pass?
 

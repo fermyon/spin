@@ -299,7 +299,21 @@ pub struct OutboundUrl {
 
 impl OutboundUrl {
     pub fn parse(url: impl Into<String>, scheme: &str) -> anyhow::Result<Self> {
-        let url = url.into();
+        let mut url = url.into();
+        let original = url.clone();
+
+        // Ensure that the authority is url encoded. Since the authority is ignored after this,
+        // we can always url encode the authority even if it is already encoded.
+        if let Some(at) = url.find('@') {
+            let scheme_end = url.find("://").map(|e| e + 3).unwrap_or(0);
+            let userinfo = &url[scheme_end..at];
+
+            let encoded = urlencoding::encode(userinfo);
+            let prefix = &url[..scheme_end];
+            let suffix = &url[scheme_end + userinfo.len()..];
+            url = format!("{prefix}{encoded}{suffix}");
+        }
+
         let parsed = match url::Url::parse(&url) {
             Ok(url) if url.has_host() => Ok(url),
             first_try => {
@@ -322,7 +336,7 @@ impl OutboundUrl {
                 .with_context(|| format!("{url:?} does not have a host component"))?
                 .to_owned(),
             port: parsed.port(),
-            original: url,
+            original,
         })
     }
 }
@@ -523,5 +537,16 @@ mod test {
         assert!(!allowed.allows(&OutboundUrl::parse("http://google.com/", "http").unwrap()));
         assert!(allowed.allows(&OutboundUrl::parse("spin.fermyon.dev:443", "https").unwrap()));
         assert!(allowed.allows(&OutboundUrl::parse("example.com:8383", "http").unwrap()));
+    }
+
+    #[test]
+    fn test_hash_char_in_db_password() {
+        let allowed = AllowedHostsConfig::parse(&["mysql://xyz.com"]).unwrap();
+        assert!(
+            allowed.allows(&OutboundUrl::parse("mysql://user:pass#word@xyz.com", "mysql").unwrap())
+        );
+        assert!(allowed
+            .allows(&OutboundUrl::parse("mysql://user%3Apass%23word@xyz.com", "mysql").unwrap()));
+        assert!(allowed.allows(&OutboundUrl::parse("user%3Apass%23word@xyz.com", "mysql").unwrap()));
     }
 }

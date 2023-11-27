@@ -1,4 +1,4 @@
-use helper::{ensure_matches, ensure_ok, ensure_some};
+use helper::{ensure_eq, ensure_matches, ensure_ok, ensure_some};
 
 use bindings::fermyon::spin2_0_0::sqlite::{Connection, Error, Value};
 
@@ -23,8 +23,8 @@ impl Component {
             &[Value::Text("my_key".to_owned())],
         ));
 
-        assert_eq!(1, results.rows.len());
-        assert_eq!(2, results.columns.len());
+        ensure_eq!(1, results.rows.len());
+        ensure_eq!(2, results.columns.len());
 
         let key_index = ensure_some!(results.columns.iter().position(|c| c == "key"));
         let value_index = ensure_some!(results.columns.iter().position(|c| c == "value"));

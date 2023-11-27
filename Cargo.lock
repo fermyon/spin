@@ -5029,6 +5029,7 @@ dependencies = [
  "env_logger",
  "log",
  "nix 0.26.2",
+ "reqwest",
  "temp-dir",
  "toml 0.8.8",
 ]

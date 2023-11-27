@@ -1,7 +1,6 @@
 use std::{
-    io::{Read, Write},
+    io::Read,
     path::{Path, PathBuf},
-    str::FromStr,
 };
 
 use anyhow::Context;
@@ -81,7 +80,7 @@ fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
             );
         }
     };
-    let response: Response = match response.parse() {
+    let response = match ResponseKind::from_response(response) {
         Ok(r) => r,
         Err(e) => {
             error!(on_error, "failed to parse response from Spin server: {e}")
@@ -89,8 +88,8 @@ fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
     };
     let error_file = test_path.join("error.txt");
     match response {
-        Response::Ok if !error_file.exists() => log::info!("Test passed!"),
-        Response::Ok => {
+        ResponseKind::Ok if !error_file.exists() => log::info!("Test passed!"),
+        ResponseKind::Ok => {
             let expected = match std::fs::read_to_string(&error_file) {
                 Ok(e) => e,
                 Err(e) => error!(on_error, "failed to read error.txt file: {}", e),
@@ -100,7 +99,7 @@ fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
                 "Test passed but should have failed with error: {expected}"
             )
         }
-        Response::Err(e) if error_file.exists() => {
+        ResponseKind::Err(e) if error_file.exists() => {
             let expected = match std::fs::read_to_string(&error_file) {
                 Ok(e) => e,
                 Err(e) => error!(on_error, "failed to read error.txt file: {}", e),
@@ -116,12 +115,8 @@ fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
                 )
             }
         }
-        Response::Err(e) => {
-            error!(on_error, "Test errored: {e}");
-        }
-        Response::ErrNoBody => {
-            let stderr = spin.stderr.output_as_str().unwrap_or("<non-utf8>");
-            error!(on_error, "Spin did not return error body (most likely due to a test panicking). stderr:\n{stderr}");
+        ResponseKind::Err(e) => {
+            error!(on_error, "Test '{}' errored: {e}", test_path.display());
         }
     }
 }
@@ -184,87 +179,35 @@ fn copy_manifest(
 }
 
 #[derive(Debug)]
-enum Response {
+enum ResponseKind {
     Ok,
     Err(String),
-    /// This happens when we panic
-    ErrNoBody,
 }
 
-impl FromStr for Response {
-    type Err = anyhow::Error;
+impl ResponseKind {
+    fn from_response(response: reqwest::blocking::Response) -> anyhow::Result<Self> {
+        if response.status() == 200 {
+            return Ok(Self::Ok);
+        }
+        if response.status() != 500 {
+            anyhow::bail!("Response was neither 200 nor 500")
+        }
 
-    fn from_str(s: &str) -> anyhow::Result<Self> {
-        let code = s
-            .strip_prefix("HTTP/1.1 ")
-            .context("malformed response does not contain `HTTP/1.1` prefix")?[..3]
-            .parse::<u16>()
-            .context("malformed response does not contain a status code")?;
-        anyhow::ensure!(
-            s.as_bytes()[s.len() - 4..] == b"\r\n\r\n"[..],
-            r#"malformed response does not end with the expected CRLF"#
-        );
-        if code == 500 {
-            let header_end = s
-                .find("\r\n\r\n")
-                .context("malformed response does not contain CRLF header separator")?;
-            if header_end + 4 == s.len() {
-                return Ok(Response::ErrNoBody);
-            }
-            let body =
-                String::from_utf8(s.as_bytes()[header_end + 4..s.len() - 4].to_vec()).unwrap();
-            return Ok(Response::Err(body));
-        }
-        if code == 200 {
-            return Ok(Response::Ok);
-        }
-        anyhow::bail!("Could not parse HTTP raw response: {s}")
+        Ok(Self::Err(response.text()?))
     }
 }
 
-fn make_http_request(spin: &mut Spin) -> Result<String, anyhow::Error> {
+fn make_http_request(spin: &mut Spin) -> Result<reqwest::blocking::Response, anyhow::Error> {
     if let Some(status) = spin.try_wait()? {
         anyhow::bail!("Spin exited early with status code {:?}", status.code());
     }
     log::debug!("Connecting to HTTP server on port {}...", spin.port());
-    let mut connection = std::net::TcpStream::connect(format!("127.0.0.1:{}", spin.port()))
-        .context("could not connect to Spin web server")?;
-    connection.write_all(b"GET / HTTP/1.1\r\nHost: 127.0.0.1:3000\r\n\r\n")?;
+    let response = reqwest::blocking::get(format!("http://127.0.0.1:{}", spin.port()))?;
     log::debug!("Awaiting response from server");
-    let mut start = 0;
-    let mut output = vec![0; 1024];
-    for _ in 0..20 {
-        let n = connection.read(&mut output[start..])?;
-        start += n;
-        let header_end = output.windows(4).position(|c| c == b"\r\n\r\n");
-        if let Some(header_end) = header_end {
-            let until_headers = String::from_utf8(output[..header_end].to_vec())
-                .context("spin HTTP response headers contained non-utf8 bytes")?;
-            if let Some(s) = until_headers.find("content-length: ") {
-                if std::str::from_utf8(&until_headers.as_bytes()[s + 16..])
-                    .unwrap()
-                    .starts_with('0')
-                {
-                    let response_with_no_body =
-                        String::from_utf8(output[..header_end + 4].to_vec()).unwrap();
-                    return Ok(response_with_no_body);
-                }
-            }
-            if output[header_end + 4..]
-                .windows(4)
-                .any(|c| c == b"\r\n\r\n")
-            {
-                let response = String::from_utf8(output[..start].to_vec())
-                    .context("spin HTTP response contained non-utf8 bytes")?;
-                return Ok(response);
-            }
-        }
-        std::thread::sleep(std::time::Duration::from_millis(250));
-        if let Some(status) = spin.try_wait()? {
-            anyhow::bail!("Spin exited early with status code {:?}", status.code());
-        }
+    if let Some(status) = spin.try_wait()? {
+        anyhow::bail!("Spin exited early with status code {:?}", status.code());
     }
-    anyhow::bail!("did not return http response after 5 seconds")
+    Ok(response)
 }
 
 struct Spin {

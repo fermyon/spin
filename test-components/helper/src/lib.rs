@@ -108,7 +108,7 @@ pub fn outgoing_body(body: OutgoingBody, buffer: Vec<u8>) -> Result<(), Error> {
 macro_rules! ensure {
     ($expr:expr) => {{
         if !$expr {
-            return_error!("`{}` unexpectedly returned false", stringify!($expr))
+            bail!("`{}` unexpectedly returned false", stringify!($expr))
         }
     }};
 }
@@ -118,7 +118,7 @@ macro_rules! ensure_ok {
     ($expr:expr) => {
         match $expr {
             Ok(s) => s,
-            Err(e) => $crate::return_error!("`{}` errored: '{e}'", stringify!($expr)),
+            Err(e) => $crate::bail!("`{}` errored: '{e}'", stringify!($expr)),
         }
     };
 }
@@ -128,7 +128,7 @@ macro_rules! ensure_some {
     ($expr:expr) => {
         match $expr {
             Some(e) => e,
-            None => $crate::return_error!("`{}` was None", stringify!($expr)),
+            None => $crate::bail!("`{}` was None", stringify!($expr)),
         }
     };
 }
@@ -137,22 +137,22 @@ macro_rules! ensure_some {
 macro_rules! ensure_matches {
     ($expr:expr, $($arg:tt)*) => {
         if !matches!($expr, $($arg)*) {
-            $crate::return_error!("`{}` did not match `{}`", stringify!($expr), stringify!($($arg)*))
+            $crate::bail!("`{}` did not match `{}`", stringify!($expr), stringify!($($arg)*))
         }
     };
 }
 
 #[macro_export]
-macro_rules! assert_eq {
+macro_rules! ensure_eq {
     ($expr1:expr, $expr2:expr) => {
         if $expr1 != $expr2 {
-            $crate::return_error!("`{}` != `{}`", stringify!($expr1), stringify!($expr2));
+            $crate::bail!("`{}` != `{}`", stringify!($expr1), stringify!($expr2));
         }
     };
 }
 
 #[macro_export]
-macro_rules! return_error {
+macro_rules! bail {
     ($fmt:expr, $($arg:tt)*) => {{
         let krate = module_path!().split("::").next().unwrap();
         let file = file!();

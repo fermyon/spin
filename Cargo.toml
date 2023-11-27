@@ -39,7 +39,7 @@ spin-key-value-sqlite = { path = "crates/key-value-sqlite" }
 path-absolutize = "3.0.11"
 rand = "0.8"
 regex = "1.5.5"
-reqwest = { version = "0.11", features = ["stream"] }
+reqwest = { workspace = true }
 rpassword = "7.0"
 semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -115,6 +115,7 @@ members = ["crates/*", "sdk/rust", "sdk/rust/macro", "tests/runtime-tests"]
 anyhow = "1.0.75"
 http-body-util = "=0.1.0-rc.2"
 hyper = { version = "=1.0.0-rc.3", features = ["full"] }
+reqwest = { version = "0.11", features = ["stream"] }
 tracing = { version = "0.1", features = ["log"] }
 
 # Use forked wasmtime 14.0.4 with backported patches to fix a performance regression

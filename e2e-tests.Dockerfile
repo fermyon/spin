@@ -76,6 +76,8 @@ RUN printf '#!/bin/bash                                                         
     cargo build --release                                                       \n      \
     fi                                                                          \n\n    \
     cargo test spinup_tests --features e2e-tests --no-fail-fast -- --nocapture  \n      \
+    # Run the runtime tests which will supersede many e2e tests in the future   \n      \
+    cargo test -F e2e-tests -- runtime_tests --nocapture                        \n      \
     ' > /usr/local/bin/entrypoint.sh
 
 RUN chmod +x /usr/local/bin/entrypoint.sh

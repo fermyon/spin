@@ -1,0 +1,10 @@
+[package]
+name = "sqlite"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+helper = { path = "../helper" }
+
+[lib]
+crate-type = ["cdylib"]

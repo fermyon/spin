@@ -9,3 +9,4 @@ anyhow = "1.0"
 spin-locked-app = { path = "../locked-app" }
 terminal = { path = "../terminal" }
 url = "2.4.1"
+urlencoding = "2.1"

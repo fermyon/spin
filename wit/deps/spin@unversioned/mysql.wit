@@ -1,5 +1,5 @@
 interface mysql {
-  use rdbms-types.{parameter-value, row-set}
+  use rdbms-types.{parameter-value, row-set};
 
   // General purpose error.
   variant mysql-error {
@@ -12,8 +12,8 @@ interface mysql {
   }
 
   // query the database: select
-  query: func(address: string, statement: string, params: list<parameter-value>) -> result<row-set, mysql-error>
+  query: func(address: string, statement: string, params: list<parameter-value>) -> result<row-set, mysql-error>;
 
   // execute command to the database: insert, update, delete
-  execute: func(address: string, statement: string, params: list<parameter-value>) -> result<_, mysql-error>
+  execute: func(address: string, statement: string, params: list<parameter-value>) -> result<_, mysql-error>;
 }

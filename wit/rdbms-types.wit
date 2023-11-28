@@ -70,7 +70,7 @@ interface rdbms-types {
   }
 
   /// A database row
-  type row = list<db-value>
+  type row = list<db-value>;
 
   /// A set of database rows
   record row-set {

@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use clap::Args;
 use http::{uri::Scheme, StatusCode, Uri};
@@ -301,8 +301,10 @@ impl HttpTrigger {
                         async move {
                             self_
                                 .handle(
-                                    request
-                                        .map(|body: Incoming| body.map_err(|e| anyhow!(e)).boxed()),
+                                    request.map(|body: Incoming| {
+                                        body.map_err(wasmtime_wasi_http::hyper_response_error)
+                                            .boxed()
+                                    }),
                                     Scheme::HTTP,
                                     addr,
                                 )

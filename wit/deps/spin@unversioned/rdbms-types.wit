@@ -56,7 +56,7 @@ interface rdbms-types {
       data-type: db-data-type,
   }
 
-  type row = list<db-value>
+  type row = list<db-value>;
 
   record row-set {
       columns: list<column>,

@@ -181,6 +181,9 @@ fn test_engine() -> Engine<()> {
     builder
         .link_import(|l, _| wasmtime_wasi::preview2::command::add_to_linker(l))
         .unwrap();
+    builder
+        .link_import(|l, _| spin_core::wasi_2023_10_18::add_to_linker(l))
+        .unwrap();
     builder.build()
 }
 

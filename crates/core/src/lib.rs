@@ -12,6 +12,7 @@ mod io;
 mod limits;
 mod preview1;
 mod store;
+pub mod wasi_2023_10_18;
 
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
@@ -266,6 +267,7 @@ impl<T: Send + Sync + OutboundWasiHttpHandler> EngineBuilder<T> {
         let engine = wasmtime::Engine::new(&config.inner)?;
         let linker: Linker<T> = Linker::new(&engine);
         let mut module_linker = ModuleLinker::new(&engine);
+
         wasmtime_wasi::tokio::add_to_linker(&mut module_linker, |data| match &mut data.wasi {
             Wasi::Preview1(ctx) => ctx,
             Wasi::Preview2 { .. } => panic!("using WASI Preview 2 functions with Preview 1 store"),

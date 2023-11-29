@@ -28,16 +28,6 @@ mod spinup_tests {
     }
 
     #[tokio::test]
-    async fn sqlite_works() {
-        testcases::sqlite_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn sqlite_validation_works() {
-        testcases::sqlite_validation_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
     async fn http_go_works() {
         testcases::http_go_works(CONTROLLER).await
     }

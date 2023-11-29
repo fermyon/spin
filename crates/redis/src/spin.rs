@@ -31,8 +31,8 @@ impl RedisExecutor for SpinRedisExecutor {
                 Ok(())
             }
             Err(e) => {
-                tracing::trace!("Request finished with error {e}");
-                Err(e)
+                tracing::trace!("Request finished with error from {component_id}: {e}");
+                Err(anyhow!("Error from {component_id}: {e}"))
             }
         }
     }

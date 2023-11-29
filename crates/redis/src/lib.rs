@@ -5,7 +5,7 @@ mod spin;
 use std::collections::HashMap;
 
 use anyhow::{anyhow, Context, Result};
-use futures::StreamExt;
+use futures::{future::join_all, StreamExt};
 use redis::{Client, ConnectionLike};
 use serde::{de::IgnoredAny, Deserialize, Serialize};
 use spin_app::MetadataKey;
@@ -25,7 +25,7 @@ pub struct RedisTrigger {
     // Redis address to connect to
     address: String,
     // Mapping of subscription channels to component IDs
-    channel_components: HashMap<String, String>,
+    channel_components: HashMap<String, Vec<String>>,
 }
 
 /// Redis trigger configuration.
@@ -58,11 +58,14 @@ impl TriggerExecutor for RedisTrigger {
     async fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
         let address = engine.app().require_metadata(TRIGGER_METADATA_KEY)?.address;
 
-        let channel_components = engine
-            .trigger_configs()
-            .map(|(_, config)| (config.channel.clone(), config.component.clone()))
-            .collect();
+        let mut channel_components: HashMap<String, Vec<String>> = HashMap::new();
 
+        for (_, config) in engine.trigger_configs() {
+            channel_components
+                .entry(config.channel.clone())
+                .or_default()
+                .push(config.component.clone());
+        }
         Ok(Self {
             engine,
             address,
@@ -110,12 +113,19 @@ impl RedisTrigger {
         let channel = msg.get_channel_name();
         tracing::info!("Received message on channel {:?}", channel);
 
-        if let Some(component_id) = self.channel_components.get(channel) {
-            tracing::trace!("Executing Redis component {component_id:?}");
-            let executor = SpinRedisExecutor;
-            executor
-                .execute(&self.engine, component_id, channel, msg.get_payload_bytes())
-                .await?
+        if let Some(component_ids) = self.channel_components.get(channel) {
+            let futures = component_ids.iter().map(|id| {
+                tracing::trace!("Executing Redis component {id:?}");
+                SpinRedisExecutor.execute(&self.engine, id, channel, msg.get_payload_bytes())
+            });
+            let results: Vec<_> = join_all(futures).await.into_iter().collect();
+            let errors = results
+                .into_iter()
+                .filter_map(|r| r.err())
+                .collect::<Vec<_>>();
+            if !errors.is_empty() {
+                return Err(anyhow!("{errors:#?}"));
+            }
         } else {
             tracing::debug!("No subscription found for {:?}", channel);
         }

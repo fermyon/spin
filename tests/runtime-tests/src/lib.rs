@@ -147,7 +147,7 @@ fn copy_manifest(
     let mut table = manifest
         .parse::<toml::Table>()
         .context("could not parse the manifest as toml")?;
-    for component in table["component"].as_array_mut().with_context(|| {
+    for (_, component) in table["component"].as_table_mut().with_context(|| {
         format!(
             "malformed manifest '{}' does not contain 'component' array",
             manifest_path.display(),

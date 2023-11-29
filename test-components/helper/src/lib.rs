@@ -108,7 +108,7 @@ pub fn outgoing_body(body: OutgoingBody, buffer: Vec<u8>) -> Result<(), Error> {
 macro_rules! ensure {
     ($expr:expr) => {{
         if !$expr {
-            bail!("`{}` unexpectedly returned false", stringify!($expr))
+            $crate::bail!("`{}` unexpectedly returned false", stringify!($expr))
         }
     }};
 }

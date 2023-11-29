@@ -7,5 +7,4 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0"
-spin-sdk = { git = "https://github.com/fermyon/spin", branch = "main" }
+helper = { path = "../helper" }

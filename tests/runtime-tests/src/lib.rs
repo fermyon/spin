@@ -115,6 +115,14 @@ fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
                 )
             }
         }
+        // An empty error message may indicate that the component panicked
+        ResponseKind::Err(e) if e.is_empty() => {
+            let e = spin
+                .stderr
+                .output_as_str()
+                .unwrap_or("Spin server did not return body and did not write to stderr");
+            error!(on_error, "Test '{}' errored: {e}", test_path.display());
+        }
         ResponseKind::Err(e) => {
             error!(on_error, "Test '{}' errored: {e}", test_path.display());
         }

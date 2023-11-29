@@ -43,30 +43,6 @@ mod integration_tests {
         }
     }
 
-    #[cfg(feature = "outbound-redis-tests")]
-    mod outbound_redis_tests {
-        use super::*;
-
-        const RUST_OUTBOUND_REDIS_INTEGRATION_TEST: &str =
-            "tests/outbound-redis/http-rust-outbound-redis";
-
-        #[tokio::test]
-        async fn test_outbound_redis_rust_local() -> Result<()> {
-            let s = SpinTestController::with_manifest(
-                &format!(
-                    "{}/{}",
-                    RUST_OUTBOUND_REDIS_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
-                ),
-                &[],
-                &[],
-            )
-            .await?;
-
-            assert_status(&s, "/test", 204).await?;
-            Ok(())
-        }
-    }
-
     #[tokio::test]
     async fn test_simple_rust_local() -> Result<()> {
         let s = SpinTestController::with_manifest(

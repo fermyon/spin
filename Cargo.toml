@@ -100,10 +100,9 @@ vergen = { version = "^8.2.1", default-features = false, features = [
 
 [features]
 default = ["llm"]
-all-tests = ["e2e-tests", "outbound-redis-tests", "config-provider-tests"]
+all-tests = ["e2e-tests", "config-provider-tests"]
 config-provider-tests = []
 e2e-tests = []
-outbound-redis-tests = []
 llm = ["spin-trigger-http/llm"]
 llm-metal = ["llm", "spin-trigger-http/llm-metal"]
 llm-cublas = ["llm", "spin-trigger-http/llm-cublas"]
@@ -119,7 +118,7 @@ reqwest = { version = "0.11", features = ["stream"] }
 tracing = { version = "0.1", features = ["log"] }
 
 wasi-common-preview1 = { version = "15.0.0", package = "wasi-common" }
-wasmtime = { version = "15.0.0" , features = ["component-model"] }
+wasmtime = { version = "15.0.0", features = ["component-model"] }
 wasmtime-wasi = { version = "15.0.0", features = ["tokio"] }
 wasmtime-wasi-http = "15.0.0"
 

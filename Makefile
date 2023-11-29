@@ -113,10 +113,6 @@ test-kv: build
 test-sqlite: build
 	PATH=$$(pwd)/target/release:$$PATH RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::sqlite --nocapture
 
-.PHONY: test-outbound-redis
-test-outbound-redis:
-	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features outbound-redis-tests --no-fail-fast -- --nocapture
-
 .PHONY: test-config-provider
 test-config-provider:
 	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features config-provider-tests --no-fail-fast -- integration_tests::config_provider_tests --nocapture

@@ -250,6 +250,12 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
                         .await
                         .with_context(|| format!("Failed to instantiate component '{id}'"))?,
                 );
+            } else {
+                tracing::warn!(
+                    "component '{id}' is not used by any triggers in app '{app_name}'",
+                    id = id,
+                    app_name = app_name
+                )
             }
         }
 

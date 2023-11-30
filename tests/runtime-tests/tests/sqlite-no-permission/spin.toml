@@ -9,6 +9,5 @@ version = "0.1.0"
 route = "/"
 component = "test"
 
-[component.sqlite]
-id = "sqlite"
+[component.test]
 source = "{{sqlite}}"

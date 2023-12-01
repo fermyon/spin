@@ -1,17 +1,48 @@
+// This router implementation is heavily inspired by the `Endpoint` type in the https://github.com/http-rs/tide project.
+
 use super::conversions::{IntoResponse, TryFromRequest, TryIntoRequest};
 use super::{responses, Method, Request, Response};
+use async_trait::async_trait;
 use routefinder::{Captures, Router as MethodRouter};
+use std::future::Future;
 use std::{collections::HashMap, fmt::Display};
 
-type Handler = dyn Fn(Request, Params) -> Response;
+/// An HTTP request handler.
+///  
+/// This trait is automatically implemented for `Fn` types, and so is rarely implemented
+/// directly by Spin users.
+#[async_trait]
+pub trait Handler: Send + Sync {
+    /// Invoke the handler.
+    async fn handle(&self, req: Request, params: Params) -> Response;
+}
+
+#[async_trait]
+impl Handler for Box<dyn Handler> {
+    async fn handle(&self, req: Request, params: Params) -> Response {
+        self.as_ref().handle(req, params).await
+    }
+}
+
+#[async_trait]
+impl<F, Fut> Handler for F
+where
+    F: Fn(Request, Params) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Response> + Send + 'static,
+{
+    async fn handle(&self, req: Request, params: Params) -> Response {
+        let fut = (self)(req, params);
+        fut.await
+    }
+}
 
 /// Route parameters extracted from a URI that match a route pattern.
 pub type Params = Captures<'static, 'static>;
 
 /// The Spin SDK HTTP router.
 pub struct Router {
-    methods_map: HashMap<Method, MethodRouter<Box<Handler>>>,
-    any_methods: MethodRouter<Box<Handler>>,
+    methods_map: HashMap<Method, MethodRouter<Box<dyn Handler>>>,
+    any_methods: MethodRouter<Box<dyn Handler>>,
 }
 
 impl Default for Router {
@@ -34,12 +65,21 @@ impl Display for Router {
 
 struct RouteMatch<'a> {
     params: Captures<'static, 'static>,
-    handler: &'a Handler,
+    handler: &'a dyn Handler,
 }
 
 impl Router {
-    /// Dispatches a request to the appropriate handler along with the URI parameters.
+    /// Synchronously dispatches a request to the appropriate handler along with the URI parameters.
     pub fn handle<R>(&self, request: R) -> Response
+    where
+        R: TryIntoRequest,
+        R::Error: IntoResponse,
+    {
+        crate::http::executor::run(self.handle_async(request))
+    }
+
+    /// Asynchronously dispatches a request to the appropriate handler along with the URI parameters.
+    pub async fn handle_async<R>(&self, request: R) -> Response
     where
         R: TryIntoRequest,
         R::Error: IntoResponse,
@@ -51,7 +91,7 @@ impl Router {
         let method = request.method.clone();
         let path = &request.path();
         let RouteMatch { params, handler } = self.find(path, method);
-        handler(request, params)
+        handler.handle(request, params).await
     }
 
     fn find(&self, path: &str, method: Method) -> RouteMatch<'_> {
@@ -112,124 +152,254 @@ impl Router {
     }
 
     /// Register a handler at the path for all methods.
-    pub fn any<F, I, O>(&mut self, path: &str, handler: F)
+    pub fn any<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(I, Params) -> O + 'static,
-        I: TryFromRequest,
-        I::Error: IntoResponse,
-        O: IntoResponse,
+        F: Fn(Req, Params) -> Resp + 'static + Send + Sync,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
     {
-        self.any_methods
-            .add(
-                path,
-                Box::new(
-                    move |req, params| match TryFromRequest::try_from_request(req) {
-                        Ok(r) => handler(r, params).into_response(),
-                        Err(e) => e.into_response(),
-                    },
-                ),
-            )
-            .unwrap();
+        let handler = move |req, params| {
+            let res = TryFromRequest::try_from_request(req).map(|r| handler(r, params));
+            async move {
+                match res {
+                    Ok(res) => res.into_response(),
+                    Err(e) => e.into_response(),
+                }
+            }
+        };
+
+        self.any_async(path, handler)
+    }
+
+    /// Register an async handler at the path for all methods.
+    pub fn any_async<F, Fut, I, O>(&mut self, path: &str, handler: F)
+    where
+        F: Fn(I, Params) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = O> + Send + 'static,
+        I: TryFromRequest + 'static + Send,
+        I::Error: IntoResponse + Send + 'static,
+        O: IntoResponse + 'static + Send,
+    {
+        let handler = move |req, params| {
+            let res = TryFromRequest::try_from_request(req).map(|r| handler(r, params));
+            async move {
+                match res {
+                    Ok(f) => f.await.into_response(),
+                    Err(e) => e.into_response(),
+                }
+            }
+        };
+
+        self.any_methods.add(path, Box::new(handler)).unwrap();
     }
 
     /// Register a handler at the path for the specified HTTP method.
-    pub fn add<F, I, O>(&mut self, path: &str, method: Method, handler: F)
+    pub fn add<F, Req, Resp>(&mut self, path: &str, method: Method, handler: F)
     where
-        F: Fn(I, Params) -> O + 'static,
-        I: TryFromRequest,
-        I::Error: IntoResponse,
-        O: IntoResponse,
+        F: Fn(Req, Params) -> Resp + 'static + Send + Sync,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
     {
+        let handler = move |req, params| {
+            let res = TryFromRequest::try_from_request(req).map(|r| handler(r, params));
+            async move {
+                match res {
+                    Ok(res) => res.into_response(),
+                    Err(e) => e.into_response(),
+                }
+            }
+        };
+
+        self.add_async(path, method, handler)
+    }
+
+    /// Register an async handler at the path for the specified HTTP method.
+    pub fn add_async<F, Fut, I, O>(&mut self, path: &str, method: Method, handler: F)
+    where
+        F: Fn(I, Params) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = O> + Send + 'static,
+        I: TryFromRequest + 'static + Send,
+        I::Error: IntoResponse + Send + 'static,
+        O: IntoResponse + 'static + Send,
+    {
+        let handler = move |req, params| {
+            let res = TryFromRequest::try_from_request(req).map(|r| handler(r, params));
+            async move {
+                match res {
+                    Ok(f) => f.await.into_response(),
+                    Err(e) => e.into_response(),
+                }
+            }
+        };
+
         self.methods_map
             .entry(method)
             .or_default()
-            .add(
-                path,
-                Box::new(
-                    move |req, params| match TryFromRequest::try_from_request(req) {
-                        Ok(r) => handler(r, params).into_response(),
-                        Err(e) => e.into_response(),
-                    },
-                ),
-            )
+            .add(path, Box::new(handler))
             .unwrap();
     }
 
     /// Register a handler at the path for the HTTP GET method.
     pub fn get<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Req, Params) -> Resp + 'static,
-        Req: TryFromRequest,
-        Req::Error: IntoResponse,
-        Resp: IntoResponse,
+        F: Fn(Req, Params) -> Resp + 'static + Send + Sync,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
     {
         self.add(path, Method::Get, handler)
+    }
+
+    /// Register an async handler at the path for the HTTP GET method.
+    pub fn get_async<F, Fut, Req, Resp>(&mut self, path: &str, handler: F)
+    where
+        F: Fn(Req, Params) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Resp> + Send + 'static,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
+    {
+        self.add_async(path, Method::Get, handler)
     }
 
     /// Register a handler at the path for the HTTP HEAD method.
     pub fn head<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Req, Params) -> Resp + 'static,
-        Req: TryFromRequest,
-        Req::Error: IntoResponse,
-        Resp: IntoResponse,
+        F: Fn(Req, Params) -> Resp + 'static + Send + Sync,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
     {
         self.add(path, Method::Head, handler)
+    }
+
+    /// Register an async handler at the path for the HTTP HEAD method.
+    pub fn head_async<F, Fut, Req, Resp>(&mut self, path: &str, handler: F)
+    where
+        F: Fn(Req, Params) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Resp> + Send + 'static,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
+    {
+        self.add_async(path, Method::Head, handler)
     }
 
     /// Register a handler at the path for the HTTP POST method.
     pub fn post<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Req, Params) -> Resp + 'static,
-        Req: TryFromRequest,
-        Req::Error: IntoResponse,
-        Resp: IntoResponse,
+        F: Fn(Req, Params) -> Resp + 'static + Send + Sync,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
     {
         self.add(path, Method::Post, handler)
+    }
+
+    /// Register an async handler at the path for the HTTP POST method.
+    pub fn post_async<F, Fut, Req, Resp>(&mut self, path: &str, handler: F)
+    where
+        F: Fn(Req, Params) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Resp> + Send + 'static,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
+    {
+        self.add_async(path, Method::Post, handler)
     }
 
     /// Register a handler at the path for the HTTP DELETE method.
     pub fn delete<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Req, Params) -> Resp + 'static,
-        Req: TryFromRequest,
-        Req::Error: IntoResponse,
-        Resp: IntoResponse,
+        F: Fn(Req, Params) -> Resp + 'static + Send + Sync,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
     {
         self.add(path, Method::Delete, handler)
+    }
+
+    /// Register an async handler at the path for the HTTP DELETE method.
+    pub fn delete_async<F, Fut, Req, Resp>(&mut self, path: &str, handler: F)
+    where
+        F: Fn(Req, Params) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Resp> + Send + 'static,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
+    {
+        self.add_async(path, Method::Delete, handler)
     }
 
     /// Register a handler at the path for the HTTP PUT method.
     pub fn put<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Req, Params) -> Resp + 'static,
-        Req: TryFromRequest,
-        Req::Error: IntoResponse,
-        Resp: IntoResponse,
+        F: Fn(Req, Params) -> Resp + 'static + Send + Sync,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
     {
         self.add(path, Method::Put, handler)
+    }
+
+    /// Register an async handler at the path for the HTTP PUT method.
+    pub fn put_async<F, Fut, Req, Resp>(&mut self, path: &str, handler: F)
+    where
+        F: Fn(Req, Params) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Resp> + Send + 'static,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
+    {
+        self.add_async(path, Method::Put, handler)
     }
 
     /// Register a handler at the path for the HTTP PATCH method.
     pub fn patch<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Req, Params) -> Resp + 'static,
-        Req: TryFromRequest,
-        Req::Error: IntoResponse,
-        Resp: IntoResponse,
+        F: Fn(Req, Params) -> Resp + 'static + Send + Sync,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
     {
         self.add(path, Method::Patch, handler)
+    }
+
+    /// Register an async handler at the path for the HTTP PATCH method.
+    pub fn patch_async<F, Fut, Req, Resp>(&mut self, path: &str, handler: F)
+    where
+        F: Fn(Req, Params) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Resp> + Send + 'static,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
+    {
+        self.add_async(path, Method::Patch, handler)
     }
 
     /// Register a handler at the path for the HTTP OPTIONS method.
     pub fn options<F, Req, Resp>(&mut self, path: &str, handler: F)
     where
-        F: Fn(Req, Params) -> Resp + 'static,
-        Req: TryFromRequest,
-        Req::Error: IntoResponse,
-        Resp: IntoResponse,
+        F: Fn(Req, Params) -> Resp + 'static + Send + Sync,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
     {
         self.add(path, Method::Options, handler)
+    }
+
+    /// Register an async handler at the path for the HTTP OPTIONS method.
+    pub fn options_async<F, Fut, Req, Resp>(&mut self, path: &str, handler: F)
+    where
+        F: Fn(Req, Params) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Resp> + Send + 'static,
+        Req: TryFromRequest + 'static + Send,
+        Req::Error: IntoResponse + Send + 'static,
+        Resp: IntoResponse + 'static + Send,
+    {
+        self.add_async(path, Method::Options, handler)
     }
 
     /// Construct a new Router.
@@ -241,11 +411,11 @@ impl Router {
     }
 }
 
-fn not_found(_req: Request, _params: Params) -> Response {
+async fn not_found(_req: Request, _params: Params) -> Response {
     responses::not_found()
 }
 
-fn method_not_allowed(_req: Request, _params: Params) -> Response {
+async fn method_not_allowed(_req: Request, _params: Params) -> Response {
     responses::method_not_allowed()
 }
 
@@ -295,10 +465,10 @@ mod tests {
         Request::new(method, path)
     }
 
-    fn echo_param(req: Request, params: Params) -> Response {
+    fn echo_param(_req: Request, params: Params) -> Response {
         match params.get("x") {
             Some(path) => Response::new(200, path),
-            None => not_found(req, params),
+            None => responses::not_found(),
         }
     }
 
@@ -356,10 +526,10 @@ mod tests {
 
     #[test]
     fn test_wildcard() {
-        fn echo_wildcard(req: Request, params: Params) -> Response {
+        fn echo_wildcard(_req: Request, params: Params) -> Response {
             match params.wildcard() {
                 Some(path) => Response::new(200, path),
-                None => not_found(req, params),
+                None => responses::not_found(),
             }
         }
 

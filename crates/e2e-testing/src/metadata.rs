@@ -23,6 +23,6 @@ impl AppMetadata {
             }
         }
 
-        Err("requested route not found").map_err(anyhow::Error::msg)
+        Err(anyhow::Error::msg("requested route not found"))
     }
 }

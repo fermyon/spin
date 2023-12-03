@@ -1,4 +1,4 @@
-LOG_LEVEL ?= spin=trace
+LOG_LEVEL_VAR ?= RUST_LOG=spin=trace
 CERT_NAME ?= local
 SPIN_DOC_NAME ?= new-doc.md
 export PATH := target/debug:target/release:$(HOME)/.cargo/bin:$(PATH)
@@ -39,6 +39,11 @@ ifeq ($(shell uname -s),Darwin)
 	E2E_SPIN_RELEASE_VOLUME_MOUNT = 
 	E2E_SPIN_DEBUG_VOLUME_MOUNT =
 	E2E_BUILD_SPIN = true
+endif
+
+## overrides for Windows
+ifeq ($(OS),Windows_NT)
+	LOG_LEVEL_VAR = 
 endif
 
 .PHONY: build
@@ -82,15 +87,15 @@ update-cargo-locks:
 
 .PHONY: test-unit
 test-unit:
-	RUST_LOG=$(LOG_LEVEL) cargo test --all --no-fail-fast -- --skip integration_tests --skip spinup_tests --skip cloud_tests --nocapture
+	$(LOG_LEVEL_VAR) cargo test --all --no-fail-fast -- --skip integration_tests --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-crate
 test-crate:
-	RUST_LOG=$(LOG_LEVEL) cargo test -p $(crate) --no-fail-fast -- --skip integration_tests --skip spinup_tests --skip cloud_tests --nocapture
+	$(LOG_LEVEL_VAR) cargo test -p $(crate) --no-fail-fast -- --skip integration_tests --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-integration
 test-integration: test-kv test-sqlite
-	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --no-fail-fast -- --skip spinup_tests --skip cloud_tests --nocapture
+	$(LOG_LEVEL_VAR) cargo test --test integration --no-fail-fast -- --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-spin-up
 test-spin-up: build-test-spin-up run-test-spin-up
@@ -107,15 +112,15 @@ run-test-spin-up:
 
 .PHONY: test-kv
 test-kv: build
-	PATH=$$(pwd)/target/release:$$PATH RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::key_value --nocapture
+	PATH=$$(pwd)/target/release:$$PATH $(LOG_LEVEL_VAR) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::key_value --nocapture
 
 .PHONY: test-sqlite
 test-sqlite: build
-	PATH=$$(pwd)/target/release:$$PATH RUST_LOG=$(LOG_LEVEL) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::sqlite --nocapture
+	PATH=$$(pwd)/target/release:$$PATH $(LOG_LEVEL_VAR) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::sqlite --nocapture
 
 .PHONY: test-config-provider
 test-config-provider:
-	RUST_LOG=$(LOG_LEVEL) cargo test --test integration --features config-provider-tests --no-fail-fast -- integration_tests::config_provider_tests --nocapture
+	$(LOG_LEVEL_VAR) cargo test --test integration --features config-provider-tests --no-fail-fast -- integration_tests::config_provider_tests --nocapture
 
 .PHONY: test-sdk-go
 test-sdk-go:

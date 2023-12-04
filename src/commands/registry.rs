@@ -53,7 +53,8 @@ pub struct Push {
     #[clap(long, takes_value = false, env = ALWAYS_BUILD_ENV)]
     pub build: bool,
 
-    /// Reference of the Spin application
+    /// Reference in the registry of the Spin application.
+    /// This is a string whose format is defined by the registry standard, and generally consists of <registry>/<username>/<application-name>:<version>. E.g. ghcr.io/ogghead/spin-test-app:0.1.0
     #[clap()]
     pub reference: String,
 }
@@ -90,7 +91,8 @@ pub struct Pull {
     )]
     pub insecure: bool,
 
-    /// Reference of the Spin application
+    /// Reference in the registry of the published Spin application.
+    /// This is a string whose format is defined by the registry standard, and generally consists of <registry>/<username>/<application-name>:<version>. E.g. ghcr.io/ogghead/spin-test-app:0.1.0
     #[clap()]
     pub reference: String,
 }
@@ -126,6 +128,7 @@ pub struct Login {
     )]
     pub password_stdin: bool,
 
+    /// OCI registry server (e.g. ghcr.io)
     #[clap()]
     pub server: String,
 }

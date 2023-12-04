@@ -1,4 +1,4 @@
-use helper::{ensure, ensure_eq, ensure_ok, ensure_some};
+use helper::{ensure_eq, ensure_matches, ensure_ok, ensure_some};
 
 const REDIS_ADDRESS_ENV: &str = "REDIS_ADDRESS";
 
@@ -50,10 +50,10 @@ impl Component {
             &[redis::RedisParameter::Binary(b"spin-example".to_vec())]
         ));
 
-        ensure!(matches!(
+        ensure_matches!(
             values.as_slice(),
             &[redis::RedisResult::Binary(ref b)] if b == b"Eureka! I've got it!"
-        ));
+        );
 
         ensure_ok!(connection.execute(
             "set",
@@ -68,16 +68,16 @@ impl Component {
             &[redis::RedisParameter::Binary(b"int-key".to_vec())]
         ));
 
-        ensure!(matches!(values.as_slice(), &[redis::RedisResult::Int64(1)]));
+        ensure_matches!(values.as_slice(), &[redis::RedisResult::Int64(1)]);
 
         let values = ensure_ok!(
             connection.execute("get", &[redis::RedisParameter::Binary(b"int-key".to_vec())])
         );
 
-        ensure!(matches!(
+        ensure_matches!(
             values.as_slice(),
             &[redis::RedisResult::Binary(ref b)] if b == b"1"
-        ));
+        );
 
         ensure_ok!(connection.execute("del", &[redis::RedisParameter::Binary(b"foo".to_vec())]));
 
@@ -95,13 +95,13 @@ impl Component {
             &[redis::RedisParameter::Binary(b"foo".to_vec())],
         ));
 
-        ensure!(matches!(
+        ensure_matches!(
             values.as_slice(),
             &[
                 redis::RedisResult::Binary(ref bar),
                 redis::RedisResult::Binary(ref baz)
             ] if bar == b"bar" && baz == b"baz"
-        ));
+        );
 
         ensure_ok!(connection.execute(
             "srem",
@@ -116,10 +116,10 @@ impl Component {
             &[redis::RedisParameter::Binary(b"foo".to_vec())]
         ));
 
-        ensure!(matches!(
+        ensure_matches!(
             values.as_slice(),
             &[redis::RedisResult::Binary(ref bar)] if bar == b"bar"
-        ));
+        );
 
         Ok(())
     }

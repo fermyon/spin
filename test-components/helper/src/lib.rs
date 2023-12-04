@@ -137,7 +137,7 @@ macro_rules! ensure_some {
 macro_rules! ensure_matches {
     ($expr:expr, $($arg:tt)*) => {
         if !matches!($expr, $($arg)*) {
-            $crate::bail!("`{}` did not match `{}`", stringify!($expr), stringify!($($arg)*))
+            $crate::bail!("`{:?}` did not match `{}`", $expr, stringify!($($arg)*))
         }
     };
 }

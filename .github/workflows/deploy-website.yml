@@ -14,12 +14,6 @@ on:
         default: 'refs/heads/main'
       commit:
         description: 'Commit SHA to deploy from (optional)'
-      environment:
-        type: choice
-        description: 'Environment to deploy to (Default: canary)'
-        options:
-          - canary
-          - prod
 
 # Construct a concurrency group to be shared across workflow runs.
 # The default behavior ensures that only one is running at a time, with
@@ -30,9 +24,6 @@ permissions:
   contents: read
   id-token: write # Allow the workflow to create a JWT for AWS auth
 
-env:
-  JOB: spin-docs
-
 jobs:
   echo-inputs:
     runs-on: ubuntu-latest
@@ -42,13 +33,58 @@ jobs:
         run: |
           echo ref: ${{ github.event.inputs.ref }}
           echo commit: ${{ github.event.inputs.commit }}
-          echo environment: ${{ github.event.inputs.environment }}
 
   deploy:
     runs-on: ubuntu-latest
     if: ${{ github.repository_owner == 'fermyon' }}
+    env:
+      OCI_IMAGE_NAME: spin-docs
     steps:
       - uses: actions/checkout@v3
+
+      - name: Check out specific ref
+        if: ${{ github.event_name == 'workflow_dispatch' }} && ${{ inputs.ref != ''}}
+        run: git checkout ${{ inputs.ref }}
+
+      - name: Check out specific commit
+        if: ${{ github.event_name == 'workflow_dispatch' }} && ${{ inputs.commit != ''}}
+        run: git checkout ${{ inputs.commit }}
+
+      - name: Construct OCI image tag
+        shell: bash
+        run: |
+          [[ "${{ github.event_name }}" == "push" ]] && \
+            echo "IMAGE_TAG=latest" >> $GITHUB_ENV || \
+            echo "IMAGE_TAG=canary" >> $GITHUB_ENV
+
+      - name: Setup Spin
+        uses: fermyon/actions/spin/setup@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          version: v2.0.1
+
+      - name: Configure AWS Credentials for publishing
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_IAM_ROLE }}
+          role-session-name: ${{ env.OCI_IMAGE_NAME }}
+          aws-region: ${{ secrets.AWS_REGION_WEBSITES }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Publish Spin app
+        id: push
+        uses: fermyon/actions/spin/push@v1
+        with:
+          registry_reference: ${{ steps.login-ecr.outputs.registry }}/${{ env.OCI_IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          manifest_file: docs/spin.toml
+
+      - name: Cleanup login
+        if: ${{ always() }}
+        run: |
+          rm -rf /home/runner/fermyon
 
       - name: Install Nomad
         env:
@@ -58,87 +94,21 @@ jobs:
           unzip nomad_${NOMAD_VERSION}_linux_$(dpkg --print-architecture).zip -d /usr/local/bin
           chmod +x /usr/local/bin/nomad
 
-      # This action currently generates a warning due to using deprecated features.
-      # https://github.com/aws-actions/configure-aws-credentials/issues/521 tracks the new behaviour.
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      - name: Tailscale
+        uses: tailscale/github-action@v2
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.INFRA_NAMESPACE }}-${{ secrets.AWS_REGION }}-gha-certs
-          role-session-name: fermyon-developer-deploy
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Fetch Nomad Certs from S3
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          for cert in infra_ca \
-            api_client_cert_private_key \
-            api_client_cert_public_key; do
-
-            aws s3api get-object \
-              --bucket "infra-certs-${{ secrets.INFRA_NAMESPACE }}-${{ secrets.AWS_REGION }}" \
-              --key "${cert}" \
-              "/tmp/${cert}"
-          done
-
-      - name: Configure Nomad
-        shell: bash
-        run: |
-          echo "NOMAD_CACERT=/tmp/infra_ca" >> $GITHUB_ENV
-          echo "NOMAD_CLIENT_CERT=/tmp/api_client_cert_public_key" >> $GITHUB_ENV
-          echo "NOMAD_CLIENT_KEY=/tmp/api_client_cert_private_key" >> $GITHUB_ENV
-          echo "NOMAD_ADDR=https://nomad.${{ secrets.INFRA_NAMESPACE }}.${{ secrets.AWS_REGION }}.fermyon.link:4646" >> $GITHUB_ENV
-
-      - name: Configure manual deploy
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        shell: bash
-        run: |
-          echo "GIT_REF=${{ github.event.inputs.ref }}" >> $GITHUB_ENV
-          echo "GIT_SHA=${{ github.event.inputs.commit }}" >> $GITHUB_ENV
-          
-          if [[ "${{ github.event.inputs.environment }}" == "prod" ]]; then
-            echo "PRODUCTION=true" >> $GITHUB_ENV
-            echo "NOMAD_NAMESPACE=prod" >> $GITHUB_ENV
-          else
-            echo "PRODUCTION=false" >> $GITHUB_ENV
-            echo "NOMAD_NAMESPACE=staging" >> $GITHUB_ENV
-          fi
-
-      - name: Configure auto-deploy
-        if: ${{ github.event_name == 'push' }}
-        shell: bash
-        run: |
-          echo "GIT_REF=${{ github.ref }}" >> $GITHUB_ENV
-          echo "GIT_SHA=${{ github.sha }}" >> $GITHUB_ENV
-
-          echo "PRODUCTION=true" >> $GITHUB_ENV
-          echo "NOMAD_NAMESPACE=prod" >> $GITHUB_ENV
+          oauth-client-id: ${{ secrets.TS_CI_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_CI_OAUTH_SECRET }}
+          tags: tag:ci
 
       - name: Deploy
         shell: bash
         run: |
-          set -euox pipefail
+          export NOMAD_ADDR="${{ secrets.NOMAD_ADDR }}"
+          export NOMAD_NAMESPACE=websites
 
-          # purge any lingering/completed publish jobs
-          nomad job inspect publish-${{ env.JOB }} &>/dev/null && \
-            nomad stop -purge -yes publish-${{ env.JOB }}
-
-          # run the publish job
           nomad run \
-            -var "region=${{ secrets.AWS_REGION }}" \
-            -var "git_ref=${{ env.GIT_REF }}" \
-            -var "commit_sha=${{ env.GIT_SHA }}" \
-            deploy/publish-${{ env.JOB }}.nomad
-
-          # wait for publish job to complete
-          timeout 300s bash -c 'until [[ "$(nomad job inspect publish-${{ env.JOB }} | jq -j '.Job.Status')" == "dead" ]]; do sleep 2; done'
-
-          readonly bindle_id="$(nomad logs -job publish-${{ env.JOB }} | sed -n 's/pushed: //p')"
-
-          # run/update the website job
-          nomad run \
-            -var "region=${{ secrets.AWS_REGION }}" \
-            -var "production=${{ env.PRODUCTION }}" \
-            -var "bindle_id=${bindle_id}" \
-            deploy/${{ env.JOB }}.nomad
+            -var "region=${{ secrets.AWS_REGION_WEBSITES }}" \
+            -var "commit_sha=$(git rev-parse HEAD)" \
+            -var "ecr_ref=${{ steps.login-ecr.outputs.registry }}/${{ env.OCI_IMAGE_NAME }}@${{ steps.push.outputs.digest }}" \
+            deploy/spin-docs.nomad

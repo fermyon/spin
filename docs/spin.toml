@@ -142,7 +142,7 @@ route = "/sips/index"
 executor = { type = "wagi" }
 
 [[component]]
-id = "redirect-sip-001"
+id = "redirect-sip001"
 source = "modules/redirect.wasm"
 environment = { DESTINATION = "https://github.com/fermyon/spin/blob/main/docs/content/sips/001-spin-deploy.md" }
 [component.trigger]
@@ -150,7 +150,7 @@ route = "/sips/001-spin-deploy.md"
 executor = { type = "wagi" }
 
 [[component]]
-id = "redirect-sip-002"
+id = "redirect-sip002"
 source = "modules/redirect.wasm"
 environment = { DESTINATION = "https://github.com/fermyon/spin/blob/main/docs/content/sips/002-app-config.md" }
 [component.trigger]
@@ -158,7 +158,7 @@ route = "/sips/002-app-config.md"
 executor = { type = "wagi" }
 
 [[component]]
-id = "redirect-sip-003"
+id = "redirect-sip003"
 source = "modules/redirect.wasm"
 environment = { DESTINATION = "https://github.com/fermyon/spin/blob/main/docs/content/sips/003-trigger-executors.md" }
 [component.trigger]
@@ -166,7 +166,7 @@ route = "/sips/003-trigger-executors.md"
 executor = { type = "wagi" }
 
 [[component]]
-id = "redirect-sip-004"
+id = "redirect-sip004"
 source = "modules/redirect.wasm"
 environment = { DESTINATION = "https://github.com/fermyon/spin/blob/main/docs/content/sips/004-spin-build.md" }
 [component.trigger]
@@ -174,7 +174,7 @@ route = "/sips/004-spin-build.md"
 executor = { type = "wagi" }
 
 [[component]]
-id = "redirect-sip-005"
+id = "redirect-sip005"
 source = "modules/redirect.wasm"
 environment = { DESTINATION = "https://github.com/fermyon/spin/blob/main/docs/content/sips/005-manifest-redesign.md" }
 [component.trigger]
@@ -182,7 +182,7 @@ route = "/sips/005-manifest-redesign.md"
 executor = { type = "wagi" }
 
 [[component]]
-id = "redirect-sip-006"
+id = "redirect-sip006"
 source = "modules/redirect.wasm"
 environment = { DESTINATION = "https://github.com/fermyon/spin/blob/main/docs/content/sips/006-spin-plugins.md" }
 [component.trigger]

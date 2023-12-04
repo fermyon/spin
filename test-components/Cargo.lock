@@ -85,6 +85,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "outbound-redis"
+version = "0.1.0"
+dependencies = [
+ "helper",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -161,7 +168,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sqlite"
+name = "sqlite-test-component"
 version = "0.1.0"
 dependencies = [
  "helper",

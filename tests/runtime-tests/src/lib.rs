@@ -28,7 +28,7 @@ pub enum OnTestError {
 ///
 /// Error represents an error in bootstrapping the tests. What happens on individual test failures
 /// is controlled by `config`.
-pub fn run(config: Config) -> anyhow::Result<()> {
+pub fn run_all(config: Config) -> anyhow::Result<()> {
     for test in std::fs::read_dir(&config.tests_path).with_context(|| {
         format!(
             "failed to read test directory '{}'",
@@ -44,15 +44,21 @@ pub fn run(config: Config) -> anyhow::Result<()> {
             continue;
         }
 
-        log::info!("Testing: {}", test.path().display());
-        let temp = temp_dir::TempDir::new()
-            .context("failed to produce a temporary directory to run the test in")?;
-        log::trace!("Temporary directory: {}", temp.path().display());
-        copy_manifest(&test.path(), &config.components_path, &temp)?;
-        let spin = Spin::start(&config.spin_binary_path, temp.path())?;
-        log::debug!("Spin started on port {}.", spin.port());
-        run_test(test.path().as_path(), spin, config.on_error)
+        bootstrap_and_run(&test.path(), &config)?;
     }
+    Ok(())
+}
+
+/// Bootstrap and run a test at a path against the given config
+pub fn bootstrap_and_run(test_path: &Path, config: &Config) -> Result<(), anyhow::Error> {
+    log::info!("Testing: {}", test_path.display());
+    let temp = temp_dir::TempDir::new()
+        .context("failed to produce a temporary directory to run the test in")?;
+    log::trace!("Temporary directory: {}", temp.path().display());
+    copy_manifest(test_path, &config.components_path, &temp)?;
+    let spin = Spin::start(&config.spin_binary_path, temp.path())?;
+    log::debug!("Spin started on port {}.", spin.port());
+    run_test(test_path, spin, config.on_error);
     Ok(())
 }
 
@@ -147,7 +153,7 @@ fn copy_manifest(
     let mut table = manifest
         .parse::<toml::Table>()
         .context("could not parse the manifest as toml")?;
-    for component in table["component"].as_array_mut().with_context(|| {
+    for (_, component) in table["component"].as_table_mut().with_context(|| {
         format!(
             "malformed manifest '{}' does not contain 'component' array",
             manifest_path.display(),

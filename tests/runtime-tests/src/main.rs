@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use runtime_tests::{run, Config, OnTestError};
+use runtime_tests::{run_all, Config, OnTestError};
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();
@@ -18,5 +18,5 @@ fn main() -> anyhow::Result<()> {
         components_path,
         on_error: OnTestError::Log,
     };
-    run(config)
+    run_all(config)
 }

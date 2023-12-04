@@ -1,14 +1,14 @@
-spin_manifest_version = "1"
-authors = ["Ryan Levick <ryan.levick@fermyon.com>"]
-description = ""
+spin_manifest_version = 2
+
+[application]
 name = "sqlite"
-trigger = { type = "http", base = "/" }
+authors = ["Ryan Levick <ryan.levick@fermyon.com>"]
 version = "0.1.0"
 
-[[component]]
-id = "sqlite"
+[[trigger.http]]
+route = "/"
+component = "test"
+
+[component.test]
 source = "{{sqlite}}"
 sqlite_databases = ["default"]
-allowed_http_hosts = []
-[component.trigger]
-route = "/..."

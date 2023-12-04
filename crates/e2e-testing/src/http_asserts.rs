@@ -6,15 +6,13 @@ use std::thread::sleep;
 use std::time::Duration;
 
 pub async fn assert_status(url: &str, expected: u16) -> Result<()> {
-    let mut count = 0;
-    while count < 5 {
+    for _ in 0..5 {
         let result = assert_status_once(url, expected).await;
         if result.is_ok() {
             return Ok(());
         }
 
         println!("assert_status error is {:?}", result.err());
-        count += 1;
         sleep(Duration::from_secs(2))
     }
 
@@ -41,8 +39,7 @@ pub async fn assert_http_response(
     expected_headers: &[(&str, &str)],
     expected_body: Option<&str>,
 ) -> Result<()> {
-    let mut count = 0;
-    while count < 5 {
+    for _ in 0..5 {
         let result = assert_http_response_once(
             url,
             method.clone(),
@@ -57,7 +54,6 @@ pub async fn assert_http_response(
         }
 
         println!("assert_http_response error is {:?}", result.err());
-        count += 1;
         sleep(Duration::from_secs(2))
     }
 

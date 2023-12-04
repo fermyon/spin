@@ -243,12 +243,20 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         let mut component_instance_pres = HashMap::default();
         for component in app.borrowed().components() {
             let id = component.id();
-            component_instance_pres.insert(
-                id.to_owned(),
-                Executor::instantiate_pre(&engine, &component, trigger_configs.get(id).unwrap())
-                    .await
-                    .with_context(|| format!("Failed to instantiate component '{id}'"))?,
-            );
+            if let Some(config) = trigger_configs.get(id) {
+                component_instance_pres.insert(
+                    id.to_owned(),
+                    Executor::instantiate_pre(&engine, &component, config)
+                        .await
+                        .with_context(|| format!("Failed to instantiate component '{id}'"))?,
+                );
+            } else {
+                tracing::warn!(
+                    "component '{id}' is not used by any triggers in app '{app_name}'",
+                    id = id,
+                    app_name = app_name
+                )
+            }
         }
 
         Ok(Self {

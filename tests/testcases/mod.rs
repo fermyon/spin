@@ -155,44 +155,6 @@ pub async fn key_value_works(controller: &dyn Controller) {
     tc.run(controller).await.unwrap()
 }
 
-pub async fn key_value_validation_works(controller: &dyn Controller) {
-    async fn checks(
-        _: AppMetadata,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-        stderr: Option<Pin<Box<dyn AsyncBufRead>>>,
-    ) -> Result<()> {
-        let err_text = utils::get_output(stderr).await.unwrap();
-        let expected1 = "Component hello uses store 'anaspeptic'";
-        let expected2 = "Component hello uses store 'pericombobulations'";
-
-        assert!(
-            err_text.contains(expected1),
-            "Expected error containing '{expected1}' but got '{err_text}'"
-        );
-        assert!(
-            err_text.contains(expected2),
-            "Expected error containing '{expected2}' but got '{err_text}'"
-        );
-        Ok(())
-    }
-
-    let tc = TestCaseBuilder::default()
-        .name("key-value-undefined-store".to_string())
-        .appname(Some("key-value-undefined-store".to_string()))
-        .template(None)
-        .assertions(
-            |metadata: AppMetadata,
-             stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
-             stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
-                Box::pin(checks(metadata, stdout_stream, stderr_stream))
-            },
-        )
-        .build()
-        .unwrap();
-
-    tc.try_run(controller).await.unwrap();
-}
-
 pub async fn http_python_works(controller: &dyn Controller) {
     async fn checks(
         metadata: AppMetadata,

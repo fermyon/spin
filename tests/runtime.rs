@@ -20,6 +20,8 @@ mod runtime_tests {
     test!(outbound_redis_no_permission, "outbound-redis-no-permission");
     test!(sqlite, "sqlite");
     test!(sqlite_no_permission, "sqlite-no-permission");
+    test!(key_value, "key-value");
+    test!(key_value_no_permission, "key-value-no-permission");
 
     fn run(name: &str) {
         let spin_binary_path = env!("CARGO_BIN_EXE_spin").into();

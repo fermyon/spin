@@ -46,9 +46,9 @@ impl outbound_http::Host for OutboundHttp {
                 .map_err(|_| HttpError::RuntimeError)?
             {
                 tracing::log::info!("Destination not allowed: {}", req.uri);
-                if let Some(host_and_port) = host_and_port(&req.uri) {
+                if let Some((scheme, host_and_port)) = scheme_host_and_port(&req.uri) {
                     terminal::warn!("A component tried to make a HTTP request to non-allowed host '{host_and_port}'.");
-                    eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"https://{host_and_port}\"]' to the manifest component section.");
+                    eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"{scheme}://{host_and_port}\"]' to the manifest component section.");
                 }
                 return Err(HttpError::DestinationNotAllowed);
             }
@@ -165,10 +165,10 @@ fn response_headers(h: &HeaderMap) -> anyhow::Result<Option<Vec<(String, String)
     Ok(Some(res))
 }
 
-/// Return the `$HOST:$PORT` for the url string
+/// Returns both the scheme and the `$HOST:$PORT` for the url string
 ///
 /// Returns `None` if the url cannot be parsed or if it does not contain a host
-fn host_and_port(url: &str) -> Option<String> {
+fn scheme_host_and_port(url: &str) -> Option<(String, String)> {
     url::Url::parse(url).ok().and_then(|u| {
         u.host_str().map(|h| {
             let mut host = h.to_owned();
@@ -176,7 +176,7 @@ fn host_and_port(url: &str) -> Option<String> {
                 use std::fmt::Write;
                 write!(&mut host, ":{p}").unwrap();
             }
-            host
+            (u.scheme().to_owned(), host)
         })
     })
 }

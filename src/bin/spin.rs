@@ -115,15 +115,20 @@ fn version() -> &'static str {
 enum SpinApp {
     #[clap(subcommand, alias = "template")]
     Templates(TemplateCommands),
+    #[clap(alias = "n")]
     New(NewCommand),
+    #[clap(alias = "a")]
     Add(AddCommand),
+    #[clap(alias = "u")]
     Up(UpCommand),
     // acts as a cross-level subcommand shortcut -> `spin cloud deploy`
+    #[clap(alias = "d")]
     Deploy(DeployCommand),
     // acts as a cross-level subcommand shortcut -> `spin cloud login`
     Login(LoginCommand),
     #[clap(subcommand, alias = "oci")]
     Registry(RegistryCommands),
+    #[clap(alias = "b")]
     Build(BuildCommand),
     #[clap(subcommand, alias = "plugin")]
     Plugins(PluginCommands),
@@ -131,6 +136,7 @@ enum SpinApp {
     Trigger(TriggerCommands),
     #[clap(external_subcommand)]
     External(Vec<String>),
+    #[clap(alias = "w")]
     Watch(WatchCommand),
     Doctor(DoctorCommand),
 }

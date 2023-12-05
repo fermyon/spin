@@ -1,9 +1,6 @@
 use anyhow::{ensure, Result};
 use itertools::sorted;
-use spin_sdk::{
-    http_component,
-    key_value::{Error, Store},
-};
+use spin_sdk::{http_component, key_value::Store};
 
 #[http_component]
 fn handle_request(req: http::Request<()>) -> Result<http::Response<()>> {
@@ -29,9 +26,9 @@ fn handle_request(req: http::Request<()>) -> Result<http::Response<()>> {
     );
 
     ensure!(
-        sorted(vec!["bar".to_owned(), init_key.to_owned()]).collect::<Vec<_>>()
+        sorted(vec![init_key.to_owned()]).collect::<Vec<_>>()
             == sorted(store.get_keys()?).collect::<Vec<_>>(),
-        "Expected exectly keys 'bar' and '{}' but got '{:?}'",
+        "Expected exactly keys '{}' but got '{:?}'",
         init_key,
         &store.get_keys()?
     );

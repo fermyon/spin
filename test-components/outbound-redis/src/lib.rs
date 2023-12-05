@@ -94,14 +94,17 @@ impl Component {
             "smembers",
             &[redis::RedisParameter::Binary(b"foo".to_vec())],
         ));
+        let mut values: Vec<_> = ensure_ok!(values
+            .iter()
+            .map(|v| match v {
+                redis::RedisResult::Binary(v) => Ok(v.as_slice()),
+                v => Err(format!("unexpected value: {v:?}")),
+            })
+            .collect());
+        // Ensure the values are always in a deterministic order
+        values.sort();
 
-        ensure_matches!(
-            values.as_slice(),
-            &[
-                redis::RedisResult::Binary(ref bar),
-                redis::RedisResult::Binary(ref baz)
-            ] if bar == b"bar" && baz == b"baz"
-        );
+        ensure_matches!(values.as_slice(), &[b"bar", b"baz",]);
 
         ensure_ok!(connection.execute(
             "srem",

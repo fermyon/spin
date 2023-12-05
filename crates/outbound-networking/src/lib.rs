@@ -72,6 +72,18 @@ impl AllowedHostConfig {
         })
     }
 
+    pub fn scheme(&self) -> &SchemeConfig {
+        &self.scheme
+    }
+
+    pub fn host(&self) -> &HostConfig {
+        &self.host
+    }
+
+    pub fn port(&self) -> &PortConfig {
+        &self.port
+    }
+
     fn allows(&self, url: &OutboundUrl) -> bool {
         self.scheme.allows(&url.scheme)
             && self.host.allows(&url.host)
@@ -96,7 +108,7 @@ impl std::fmt::Display for AllowedHostConfig {
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-enum SchemeConfig {
+pub enum SchemeConfig {
     Any,
     List(Vec<String>),
 }
@@ -119,6 +131,10 @@ impl SchemeConfig {
         Ok(Self::List(vec![scheme.into()]))
     }
 
+    pub fn allows_any(&self) -> bool {
+        matches!(self, Self::Any)
+    }
+
     fn allows(&self, scheme: &str) -> bool {
         match self {
             SchemeConfig::Any => true,
@@ -128,7 +144,7 @@ impl SchemeConfig {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-enum HostConfig {
+pub enum HostConfig {
     Any,
     ToSelf,
     List(Vec<String>),
@@ -166,7 +182,7 @@ impl HostConfig {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-enum PortConfig {
+pub enum PortConfig {
     Any,
     List(Vec<IndividualPortConfig>),
 }
@@ -207,7 +223,7 @@ impl PortConfig {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-enum IndividualPortConfig {
+pub enum IndividualPortConfig {
     Port(u16),
     Range(Range<u16>),
 }

@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
+use cap_std::ipnet::IpNet;
 use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
@@ -171,6 +172,36 @@ impl StoreBuilder {
             }
             WasiCtxBuilder::Preview2(ctx) => {
                 ctx.inherit_stdin();
+            }
+        });
+    }
+
+    /// Insert IP network with a given port range
+    pub fn insert_ip_net_port_range(
+        &mut self,
+        ip_net: IpNet,
+        ports_start: u16,
+        ports_end: Option<u16>,
+    ) {
+        self.with_wasi(|wasi| match wasi {
+            WasiCtxBuilder::Preview1(_) => {
+                panic!("Enabling network only allowed in preview2")
+            }
+            WasiCtxBuilder::Preview2(ctx) => {
+                ctx.insert_ip_net_port_range(ip_net, ports_start, ports_end);
+            }
+        });
+    }
+
+    /// Inherit the host network with a few hardcoded caveats
+    pub fn inherit_limited_network(&mut self) {
+        self.with_wasi(|wasi| match wasi {
+            WasiCtxBuilder::Preview1(_) => {
+                panic!("Enabling network only allowed in preview2")
+            }
+            WasiCtxBuilder::Preview2(ctx) => {
+                // TODO: ctx.allow_udp(false);
+                ctx.inherit_network(cap_std::ambient_authority());
             }
         });
     }

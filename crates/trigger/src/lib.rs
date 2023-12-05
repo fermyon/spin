@@ -1,5 +1,6 @@
 pub mod cli;
 pub mod loader;
+mod network;
 mod runtime_config;
 mod stdio;
 

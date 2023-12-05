@@ -26,6 +26,7 @@ spin-key-value = { path = "../key-value" }
 spin-key-value-azure = { path = "../key-value-azure" }
 spin-key-value-redis = { path = "../key-value-redis" }
 spin-key-value-sqlite = { path = "../key-value-sqlite" }
+spin-outbound-networking = { path = "../outbound-networking" }
 spin-sqlite = { path = "../sqlite" }
 spin-sqlite-inproc = { path = "../sqlite-inproc" }
 spin-sqlite-libsql = { path = "../sqlite-libsql" }

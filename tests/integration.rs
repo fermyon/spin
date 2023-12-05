@@ -64,6 +64,22 @@ mod integration_tests {
     }
 
     #[tokio::test]
+    async fn test_duplicate_rust_local() -> Result<()> {
+        let s = SpinTestController::with_manifest(
+            &format!("{}/{}", RUST_HTTP_INTEGRATION_TEST, "double-trouble.toml"),
+            &[],
+            &[],
+        )
+        .await?;
+
+        assert_status(&s, "/route1", 200).await?;
+        assert_status(&s, "/route2", 200).await?;
+        assert_status(&s, "/thisshouldfail", 404).await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_timer_trigger() -> Result<()> {
         use std::fs;
 

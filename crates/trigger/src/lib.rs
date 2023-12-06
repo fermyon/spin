@@ -7,7 +7,6 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use anyhow::{Context, Result};
 pub use async_trait::async_trait;
-use indexmap::IndexMap;
 use runtime_config::llm::LLmOptions;
 use serde::de::DeserializeOwned;
 
@@ -238,12 +237,19 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
                     })?,
                 ))
             })
-            .collect::<Result<IndexMap<_, _>>>()?;
+            .collect::<Result<Vec<_>>>()?;
 
         let mut component_instance_pres = HashMap::default();
         for component in app.borrowed().components() {
             let id = component.id();
-            if let Some(config) = trigger_configs.get(id) {
+            // There is an issue here for triggers that consider the trigger config during
+            // preinstantiation. We defer this for now because the only case is the HTTP
+            // `executor` field and that should not differ from trigger to trigger.
+            let trigger_config = trigger_configs
+                .iter()
+                .find(|(c, _)| c == id)
+                .map(|(_, cfg)| cfg);
+            if let Some(config) = trigger_config {
                 component_instance_pres.insert(
                     id.to_owned(),
                     Executor::instantiate_pre(&engine, &component, config)
@@ -264,7 +270,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
             app_name,
             app,
             hooks,
-            trigger_configs: trigger_configs.into_values().collect(),
+            trigger_configs: trigger_configs.into_iter().map(|(_, v)| v).collect(),
             component_instance_pres,
         })
     }

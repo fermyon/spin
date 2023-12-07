@@ -1,0 +1,1 @@
+Error::ConnectionFailed("address postgres://spin:spin@postgres:5432/spin_dev is not permitted")

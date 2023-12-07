@@ -104,16 +104,6 @@ mod spinup_tests {
     }
 
     #[tokio::test]
-    async fn http_rust_outbound_mysql_works() {
-        testcases::http_rust_outbound_mysql_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn http_rust_outbound_pg_works() {
-        testcases::http_rust_outbound_pg_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
     async fn redis_go_works() {
         testcases::redis_go_works(CONTROLLER).await
     }

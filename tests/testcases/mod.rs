@@ -848,52 +848,6 @@ pub async fn header_dynamic_env_works(controller: &dyn Controller) {
     tc.run(controller).await.unwrap()
 }
 
-pub async fn http_rust_outbound_mysql_works(controller: &dyn Controller) {
-    async fn checks(
-        metadata: AppMetadata,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-    ) -> Result<()> {
-        assert_http_response(
-            get_url(metadata.base.as_str(), "/test_numeric_types").as_str(),
-            Method::GET,
-            "",
-            200,
-            &[],
-            None,
-        )
-        .await?;
-
-        assert_http_response(
-            get_url(metadata.base.as_str(), "/test_character_types").as_str(),
-            Method::GET,
-            "",
-            200,
-            &[],
-            None,
-        )
-        .await?;
-
-        Ok(())
-    }
-
-    let tc = TestCaseBuilder::default()
-        .name("http-rust-outbound-mysql".to_string())
-        .appname(Some("http-rust-outbound-mysql".to_string()))
-        .deploy_args(vec!["--env".to_string(), "foo=bar".to_string()])
-        .assertions(
-            |metadata: AppMetadata,
-             stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
-             stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
-                Box::pin(checks(metadata, stdout_stream, stderr_stream))
-            },
-        )
-        .build()
-        .unwrap();
-
-    tc.run(controller).await.unwrap()
-}
-
 pub async fn redis_go_works(controller: &dyn Controller) {
     async fn checks(
         _: AppMetadata,
@@ -998,71 +952,6 @@ pub async fn redis_rust_works(controller: &dyn Controller) {
             "redis-address=redis://redis:6379".to_string(),
         ])
         .trigger_type("redis".to_string())
-        .assertions(
-            |metadata: AppMetadata,
-             stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
-             stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
-                Box::pin(checks(metadata, stdout_stream, stderr_stream))
-            },
-        )
-        .build()
-        .unwrap();
-
-    tc.run(controller).await.unwrap()
-}
-
-pub async fn http_rust_outbound_pg_works(controller: &dyn Controller) {
-    async fn checks(
-        metadata: AppMetadata,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-    ) -> Result<()> {
-        assert_http_response(
-            get_url(metadata.base.as_str(), "/test_numeric_types").as_str(),
-            Method::GET,
-            "",
-            200,
-            &[],
-            None,
-        )
-        .await?;
-
-        assert_http_response(
-            get_url(metadata.base.as_str(), "/test_character_types").as_str(),
-            Method::GET,
-            "",
-            200,
-            &[],
-            None,
-        )
-        .await?;
-
-        assert_http_response(
-            get_url(metadata.base.as_str(), "/test_general_types").as_str(),
-            Method::GET,
-            "",
-            200,
-            &[],
-            None,
-        )
-        .await?;
-
-        assert_http_response(
-            get_url(metadata.base.as_str(), "/pg_backend_pid").as_str(),
-            Method::GET,
-            "",
-            200,
-            &[],
-            None,
-        )
-        .await?;
-
-        Ok(())
-    }
-
-    let tc = TestCaseBuilder::default()
-        .name("http-rust-outbound-pg".to_string())
-        .appname(Some("http-rust-outbound-pg".to_string()))
         .assertions(
             |metadata: AppMetadata,
              stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,

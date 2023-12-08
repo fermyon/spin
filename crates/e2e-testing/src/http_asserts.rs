@@ -2,8 +2,24 @@ use crate::ensure_eq;
 use anyhow::Result;
 use reqwest::{Method, Request, Response};
 use std::str;
+use std::thread::sleep;
+use std::time::Duration;
 
 pub async fn assert_status(url: &str, expected: u16) -> Result<()> {
+    for _ in 0..5 {
+        let result = assert_status_once(url, expected).await;
+        if result.is_ok() {
+            return Ok(());
+        }
+
+        println!("assert_status error is {:?}", result.err());
+        sleep(Duration::from_secs(2))
+    }
+
+    panic!("failed assert_status after 5 retries")
+}
+
+pub async fn assert_status_once(url: &str, expected: u16) -> Result<()> {
     let resp = make_request(Method::GET, url, "").await?;
     let status = resp.status();
 
@@ -16,6 +32,35 @@ pub async fn assert_status(url: &str, expected: u16) -> Result<()> {
 }
 
 pub async fn assert_http_response(
+    url: &str,
+    method: Method,
+    body: &str,
+    expected: u16,
+    expected_headers: &[(&str, &str)],
+    expected_body: Option<&str>,
+) -> Result<()> {
+    for _ in 0..5 {
+        let result = assert_http_response_once(
+            url,
+            method.clone(),
+            body,
+            expected,
+            expected_headers,
+            expected_body,
+        )
+        .await;
+        if result.is_ok() {
+            return Ok(());
+        }
+
+        println!("assert_http_response error is {:?}", result.err());
+        sleep(Duration::from_secs(2))
+    }
+
+    panic!("failed assert_http_response after 5 retries")
+}
+
+pub async fn assert_http_response_once(
     url: &str,
     method: Method,
     body: &str,

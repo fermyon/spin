@@ -3,13 +3,16 @@ name = "spin-cli"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
-license = "Apache-2.0 WITH LLVM-exception"
+license = { workspace = true }
 rust-version = "1.71"
 
 [workspace.package]
 version = "2.1.0-pre0"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 edition = "2021"
+license = "Apache-2.0 WITH LLVM-exception"
+homepage = "https://developer.fermyon.com/spin"
+repository = "https://github.com/fermyon/spin"
 
 [dependencies]
 anyhow = { workspace = true }

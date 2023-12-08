@@ -3,7 +3,16 @@ name = "spin-sdk"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
+license = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+documentation = "https://fermyon.github.io/rust-docs/spin/main/spin_sdk"
+readme = "README.md"
 rust-version = "1.64"
+
+description = """
+The Spin Rust SDK makes it easy to build Spin components in Rust.
+"""
 
 [lib]
 name = "spin_sdk"

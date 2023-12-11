@@ -16,6 +16,11 @@ mod runtime_tests {
 
     test!(outbound_mysql, "outbound-mysql");
     test!(outbound_mysql_no_permission, "outbound-mysql-no-permission");
+    test!(outbound_postgres, "outbound-postgres");
+    test!(
+        outbound_postgres_no_permission,
+        "outbound-postgres-no-permission"
+    );
     test!(outbound_redis, "outbound-redis");
     test!(outbound_redis_no_permission, "outbound-redis-no-permission");
     test!(sqlite, "sqlite");

@@ -92,6 +92,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "outbound-postgres"
+version = "0.1.0"
+dependencies = [
+ "helper",
+]
+
+[[package]]
 name = "outbound-redis"
 version = "0.1.0"
 dependencies = [

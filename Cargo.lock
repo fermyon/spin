@@ -5468,6 +5468,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24188a676b6ae68c3b2cb3a01be17fbf7240ce009799bb56d5b1409051e78fde"
 
 [[package]]
+name = "shell_completion"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73937c192504363290613e241705a02dff92ae7c03f544e2a69bbef24cc1042c"
+
+[[package]]
 name = "shellexpand"
 version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5710,6 +5716,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "shell_completion",
  "spin-app",
  "spin-build",
  "spin-common",

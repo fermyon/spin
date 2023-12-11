@@ -74,6 +74,7 @@ pub struct Install {
     #[clap(
         name = INSTALL_FROM_DIR_OPT,
         long = "dir",
+        value_hint = clap::ValueHint::DirPath,
         conflicts_with = INSTALL_FROM_GIT_OPT,
     )]
     pub dir: Option<PathBuf>,

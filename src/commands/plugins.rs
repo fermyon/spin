@@ -72,6 +72,7 @@ pub struct Install {
         name = PLUGIN_LOCAL_PLUGIN_MANIFEST_OPT,
         short = 'f',
         long = "file",
+        value_hint = clap::ValueHint::FilePath,
         conflicts_with = PLUGIN_REMOTE_PLUGIN_MANIFEST_OPT,
         conflicts_with = PLUGIN_NAME_OPT,
     )]

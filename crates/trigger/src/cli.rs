@@ -43,6 +43,7 @@ where
         name = APP_LOG_DIR,
         short = 'L',
         long = "log-dir",
+        value_hint = clap::ValueHint::DirPath,
     )]
     pub log: Option<PathBuf>,
 
@@ -62,6 +63,7 @@ where
         long = "cache",
         env = WASMTIME_CACHE_FILE,
         conflicts_with = DISABLE_WASMTIME_CACHE,
+        value_hint = clap::ValueHint::FilePath,
     )]
     pub cache: Option<PathBuf>,
 
@@ -95,6 +97,7 @@ where
         name = RUNTIME_CONFIG_FILE,
         long = "runtime-config-file",
         env = RUNTIME_CONFIG_FILE,
+        value_hint = clap::ValueHint::FilePath,
     )]
     pub runtime_config_file: Option<PathBuf>,
 
@@ -104,7 +107,7 @@ where
     /// For local apps, this defaults to `.spin/` relative to the `spin.toml` file.
     /// For remote apps, this has no default (unset).
     /// Passing an empty value forces the value to be unset.
-    #[clap(long)]
+    #[clap(long, value_hint = clap::ValueHint::DirPath)]
     pub state_dir: Option<String>,
 
     #[clap(flatten)]

@@ -6,7 +6,7 @@ edition = { workspace = true }
 license = { workspace = true }
 homepage = { workspace = true }
 repository = { workspace = true }
-documentation = "https://fermyon.github.io/rust-docs/spin/main/spin_sdk"
+documentation = "https://docs.rs/spin-sdk"
 readme = "README.md"
 rust-version = "1.64"
 

@@ -91,12 +91,12 @@ impl Cache {
 
     /// The path of contents in the cache's wasm directory, which may or may not exist.
     pub fn wasm_path(&self, digest: impl AsRef<str>) -> PathBuf {
-        self.wasm_dir().join(digest.as_ref())
+        self.wasm_dir().join(safe_name(digest).as_ref())
     }
 
     /// The path of contents in the cache's wasm directory, which may or may not exist.
     pub fn data_path(&self, digest: impl AsRef<str>) -> PathBuf {
-        self.data_dir().join(digest.as_ref())
+        self.data_dir().join(safe_name(digest).as_ref())
     }
 
     /// Ensure the expected configuration directories are found in the root.
@@ -128,6 +128,41 @@ impl Cache {
                 .await
                 .with_context(|| format!("failed to create assets directory `{}`", p.display()))?;
         }
+
+        Ok(())
+    }
+}
+
+#[cfg(windows)]
+fn safe_name(digest: impl AsRef<str>) -> impl AsRef<Path> {
+    digest.as_ref().replace(':', "_")
+}
+
+#[cfg(not(windows))]
+fn safe_name(digest: impl AsRef<str>) -> impl AsRef<str> {
+    digest
+}
+
+#[cfg(test)]
+mod test {
+    use spin_common::sha256::hex_digest_from_bytes;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn accepts_prefixed_digests() -> anyhow::Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let cache = Cache::new(Some(temp_dir.path().to_owned())).await?;
+
+        let wasm = "Wasm".as_bytes();
+        let digest = format!("sha256:{}", hex_digest_from_bytes(wasm));
+        cache.write_wasm(wasm, &digest).await?;
+        assert_eq!(wasm, std::fs::read(cache.wasm_path(&digest))?);
+
+        let data = "hello".as_bytes();
+        let digest = format!("sha256:{}", hex_digest_from_bytes(data));
+        cache.write_data(data, &digest).await?;
+        assert_eq!(data, std::fs::read(cache.data_path(&digest))?);
 
         Ok(())
     }

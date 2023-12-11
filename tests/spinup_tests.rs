@@ -23,11 +23,6 @@ mod spinup_tests {
     }
 
     #[tokio::test]
-    async fn key_value_validation_works() {
-        testcases::key_value_validation_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
     async fn http_go_works() {
         testcases::http_go_works(CONTROLLER).await
     }

@@ -61,6 +61,25 @@ impl Request {
         builder
     }
 
+    /// Creates a [`RequestBuilder`] to PUT the given `body` to `uri`
+    pub fn put(uri: impl Into<String>, body: impl conversions::IntoBody) -> RequestBuilder {
+        let mut builder = RequestBuilder::new(Method::Put, uri);
+        builder.body(body);
+        builder
+    }
+
+    /// Creates a [`RequestBuilder`] to PATCH the resource specified by `uri`
+    pub fn patch(uri: impl Into<String>, body: impl conversions::IntoBody) -> RequestBuilder {
+        let mut builder = RequestBuilder::new(Method::Patch, uri);
+        builder.body(body);
+        builder
+    }
+
+    /// Creates a [`RequestBuilder`] to DELETE the resource specified by `uri`
+    pub fn delete(uri: impl Into<String>) -> RequestBuilder {
+        RequestBuilder::new(Method::Delete, uri)
+    }
+
     /// The request method
     pub fn method(&self) -> &Method {
         &self.method

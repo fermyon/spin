@@ -30,8 +30,7 @@ impl LocalLoader {
         files_mount_strategy: FilesMountStrategy,
         cache_root: Option<PathBuf>,
     ) -> Result<Self> {
-        let app_root = app_root
-            .canonicalize()
+        let app_root = safe_canonicalize(app_root)
             .with_context(|| format!("Invalid manifest dir `{}`", app_root.display()))?;
         Ok(Self {
             app_root,
@@ -388,6 +387,20 @@ impl LocalLoader {
             path: dest.into(),
         })
     }
+}
+
+/// This canonicalizes the path in a way that works with globs. On non-Windows
+/// platforms, we can use Path::canonicalize, but on Windows platforms this
+/// expands to a UNC path, and the glob library does not work with UNC paths.
+#[cfg(not(windows))]
+fn safe_canonicalize(path: &Path) -> std::io::Result<PathBuf> {
+    path.canonicalize()
+}
+
+#[cfg(windows)]
+fn safe_canonicalize(path: &Path) -> std::io::Result<PathBuf> {
+    use path_absolutize::Absolutize;
+    Ok(path.absolutize()?.into_owned())
 }
 
 fn locked_metadata(

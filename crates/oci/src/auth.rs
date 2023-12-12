@@ -6,6 +6,7 @@ use std::{
 use anyhow::{bail, Context, Result};
 use oci_distribution::secrets::RegistryAuth;
 use serde::{Deserialize, Serialize};
+use spin_common::ui::quoted_path;
 
 #[derive(Serialize, Deserialize)]
 pub struct AuthConfig {
@@ -84,7 +85,7 @@ impl AuthConfig {
     async fn load(p: &Path) -> Result<Self> {
         let contents = tokio::fs::read_to_string(&p).await?;
         serde_json::from_str(&contents)
-            .with_context(|| format!("cannot load authentication file {:?}", p))
+            .with_context(|| format!("cannot load authentication file {}", quoted_path(p)))
     }
 
     async fn save(&self, p: &Path) -> Result<()> {
@@ -95,6 +96,6 @@ impl AuthConfig {
         }
         tokio::fs::write(&p, &serde_json::to_vec_pretty(&self)?)
             .await
-            .with_context(|| format!("cannot save authentication file {:?}", p))
+            .with_context(|| format!("cannot save authentication file {}", quoted_path(p)))
     }
 }

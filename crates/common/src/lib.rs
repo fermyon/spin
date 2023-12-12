@@ -13,4 +13,5 @@ pub mod data_dir;
 pub mod paths;
 pub mod sha256;
 pub mod sloth;
+pub mod ui;
 pub mod url;

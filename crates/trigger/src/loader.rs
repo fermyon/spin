@@ -11,7 +11,7 @@ use spin_app::{
 use spin_core::StoreBuilder;
 use tokio::fs;
 
-use spin_common::url::parse_file_url;
+use spin_common::{ui::quoted_path, url::parse_file_url};
 
 pub struct TriggerLoader {
     working_dir: PathBuf,
@@ -31,8 +31,8 @@ impl TriggerLoader {
 impl Loader for TriggerLoader {
     async fn load_app(&self, url: &str) -> Result<LockedApp> {
         let path = parse_file_url(url)?;
-        let contents =
-            std::fs::read(&path).with_context(|| format!("failed to read manifest at {path:?}"))?;
+        let contents = std::fs::read(&path)
+            .with_context(|| format!("failed to read manifest at {}", quoted_path(&path)))?;
         let app =
             serde_json::from_slice(&contents).context("failed to parse app lock file JSON")?;
         Ok(app)
@@ -57,7 +57,7 @@ impl Loader for TriggerLoader {
         })?;
         let component = spin_componentize::componentize_if_necessary(&bytes)?;
         spin_core::Component::new(engine, component.as_ref())
-            .with_context(|| format!("loading module {path:?}"))
+            .with_context(|| format!("loading module {}", quoted_path(&path)))
     }
 
     async fn load_module(
@@ -72,7 +72,7 @@ impl Loader for TriggerLoader {
             .context("LockedComponentSource missing source field")?;
         let path = parse_file_url(source)?;
         spin_core::Module::from_file(engine, &path)
-            .with_context(|| format!("loading module {path:?}"))
+            .with_context(|| format!("loading module {}", quoted_path(&path)))
     }
 
     async fn mount_files(
@@ -89,7 +89,8 @@ impl Loader for TriggerLoader {
             let source_path = self.working_dir.join(parse_file_url(source_uri)?);
             ensure!(
                 source_path.is_dir(),
-                "TriggerLoader only supports directory mounts; {source_path:?} is not a directory"
+                "TriggerLoader only supports directory mounts; {} is not a directory",
+                quoted_path(&source_path),
             );
             let guest_path = content_dir.path.clone();
             if self.allow_transient_write {

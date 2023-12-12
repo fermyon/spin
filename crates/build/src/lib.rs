@@ -6,7 +6,7 @@ mod manifest;
 
 use anyhow::{anyhow, bail, Context, Result};
 use manifest::ComponentBuildInfo;
-use spin_common::paths::parent_dir;
+use spin_common::{paths::parent_dir, ui::quoted_path};
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -19,7 +19,12 @@ use crate::manifest::component_build_configs;
 pub async fn build(manifest_file: &Path, component_ids: &[String]) -> Result<()> {
     let components = component_build_configs(manifest_file)
         .await
-        .with_context(|| format!("Cannot read manifest file from {}", manifest_file.display()))?;
+        .with_context(|| {
+            format!(
+                "Cannot read manifest file from {}",
+                quoted_path(manifest_file)
+            )
+        })?;
     let app_dir = parent_dir(manifest_file)?;
 
     let components_to_build = if component_ids.is_empty() {
@@ -69,7 +74,7 @@ fn build_component(build_info: ComponentBuildInfo, app_dir: &Path) -> Result<()>
             );
             let workdir = construct_workdir(app_dir, b.workdir.as_ref())?;
             if b.workdir.is_some() {
-                println!("Working directory: {:?}", workdir);
+                println!("Working directory: {}", quoted_path(&workdir));
             }
 
             let exit_status = Exec::shell(&b.command)

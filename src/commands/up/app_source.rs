@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::ensure;
+use spin_common::ui::quoted_path;
 use spin_locked_app::locked::LockedApp;
 use spin_manifest::schema::v2::AppManifest;
 
@@ -60,7 +61,7 @@ impl AppSource {
 impl std::fmt::Display for AppSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::File(path) => write!(f, "local app {path:?}"),
+            Self::File(path) => write!(f, "local app {}", quoted_path(path)),
             Self::OciRegistry(reference) => write!(f, "remote app {reference:?}"),
             Self::Unresolvable(s) => write!(f, "unknown app source: {s:?}"),
             Self::None => write!(f, "<no source>"),

@@ -12,6 +12,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
+use spin_common::ui::quoted_path;
 use spin_sqlite::Connection;
 
 use self::{
@@ -48,10 +49,12 @@ impl RuntimeConfig {
     /// later-loaded file take precedence over any earlier-loaded files.
     pub fn merge_config_file(&mut self, path: impl Into<PathBuf>) -> Result<()> {
         let path = path.into();
-        let bytes = fs::read(&path)
-            .with_context(|| format!("Failed to load runtime config file {path:?}"))?;
-        let mut opts: RuntimeConfigOpts = toml::from_slice(&bytes)
-            .with_context(|| format!("Failed to parse runtime config file {path:?}"))?;
+        let bytes = fs::read(&path).with_context(|| {
+            format!("Failed to load runtime config file {}", quoted_path(&path))
+        })?;
+        let mut opts: RuntimeConfigOpts = toml::from_slice(&bytes).with_context(|| {
+            format!("Failed to parse runtime config file {}", quoted_path(&path))
+        })?;
         opts.file_path = Some(path);
         self.files.push(opts);
         Ok(())
@@ -224,7 +227,10 @@ fn resolve_config_path(path: &Path, config_opts: &RuntimeConfigOpts) -> Result<P
         Some(file_path) => file_path
             .parent()
             .with_context(|| {
-                format!("failed to get parent of runtime config file path {file_path:?}")
+                format!(
+                    "failed to get parent of runtime config file path {}",
+                    quoted_path(file_path)
+                )
             })?
             .to_owned(),
         None => std::env::current_dir().context("failed to get current directory")?,

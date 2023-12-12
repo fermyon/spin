@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, ensure, Context, Result};
 use oci_distribution::Reference;
 use reqwest::Url;
+use spin_common::ui::quoted_path;
 use spin_loader::cache::Cache;
 use spin_locked_app::locked::{ContentPath, ContentRef, LockedApp, LockedComponent};
 
@@ -46,9 +47,13 @@ impl OciLoader {
     ) -> std::result::Result<LockedApp, anyhow::Error> {
         let locked_content = tokio::fs::read(&lockfile_path)
             .await
-            .with_context(|| format!("failed to read from {lockfile_path:?}"))?;
-        let mut locked_app = LockedApp::from_json(&locked_content)
-            .with_context(|| format!("failed to decode locked app from {lockfile_path:?}"))?;
+            .with_context(|| format!("failed to read from {}", quoted_path(&lockfile_path)))?;
+        let mut locked_app = LockedApp::from_json(&locked_content).with_context(|| {
+            format!(
+                "failed to decode locked app from {}",
+                quoted_path(&lockfile_path)
+            )
+        })?;
 
         // Update origin metadata
         let resolved_reference = Reference::try_from(reference).context("invalid reference")?;
@@ -108,7 +113,10 @@ impl OciLoader {
                     tokio::fs::copy(&content_path, &mount_path)
                         .await
                         .with_context(|| {
-                            format!("failed to copy {content_path:?}->{mount_path:?}")
+                            format!(
+                                "failed to copy {}->{mount_path:?}",
+                                quoted_path(&content_path)
+                            )
                         })?;
                 }
             }

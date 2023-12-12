@@ -5910,6 +5910,7 @@ dependencies = [
  "rand 0.8.5",
  "safetensors",
  "serde",
+ "spin-common",
  "spin-core",
  "spin-llm",
  "spin-world",

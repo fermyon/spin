@@ -3,6 +3,8 @@
 use anyhow::{anyhow, Context, Result};
 use std::path::{Path, PathBuf};
 
+use crate::ui::quoted_path;
+
 /// The name given to the default manifest file.
 pub const DEFAULT_MANIFEST_FILE: &str = "spin.toml";
 
@@ -40,7 +42,7 @@ pub fn parent_dir(path: impl AsRef<Path>) -> Result<PathBuf> {
     let path = path.as_ref();
     let mut parent = path
         .parent()
-        .with_context(|| format!("No parent directory for path {path:?}"))?;
+        .with_context(|| format!("No parent directory for path {}", quoted_path(path)))?;
     if parent == Path::new("") {
         parent = Path::new(".");
     }

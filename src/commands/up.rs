@@ -10,6 +10,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use clap::{CommandFactory, Parser};
 use reqwest::Url;
 use spin_app::locked::LockedApp;
+use spin_common::ui::quoted_path;
 use spin_loader::FilesMountStrategy;
 use spin_oci::OciLoader;
 use spin_trigger::cli::{SPIN_LOCAL_APP_DIR, SPIN_LOCKED_URL, SPIN_WORKING_DIR};
@@ -284,9 +285,9 @@ impl UpCommand {
             serde_json::to_vec_pretty(&locked_app).context("failed to serialize locked app")?;
         tokio::fs::write(&locked_path, locked_app_contents)
             .await
-            .with_context(|| format!("failed to write {:?}", locked_path))?;
+            .with_context(|| format!("failed to write {}", quoted_path(&locked_path)))?;
         let locked_url = Url::from_file_path(&locked_path)
-            .map_err(|_| anyhow!("cannot convert to file URL: {locked_path:?}"))?
+            .map_err(|_| anyhow!("cannot convert to file URL: {}", quoted_path(&locked_path)))?
             .to_string();
 
         Ok(locked_url)
@@ -336,7 +337,12 @@ impl UpCommand {
                 };
                 spin_loader::from_file(&manifest_path, files_mount_strategy, None)
                     .await
-                    .with_context(|| format!("Failed to load manifest from {manifest_path:?}"))
+                    .with_context(|| {
+                        format!(
+                            "Failed to load manifest from {}",
+                            quoted_path(&manifest_path)
+                        )
+                    })
             }
             ResolvedAppSource::OciRegistry { locked_app } => Ok(locked_app),
         }

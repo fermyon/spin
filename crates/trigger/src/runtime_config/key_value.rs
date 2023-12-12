@@ -3,6 +3,7 @@ use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
 use crate::{runtime_config::RuntimeConfig, TriggerHooks};
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
+use spin_common::ui::quoted_path;
 use spin_key_value::{
     CachingStoreManager, DelegatingStoreManager, KeyValueComponent, StoreManager,
     KEY_VALUE_STORES_KEY,
@@ -159,7 +160,7 @@ impl TriggerHooks for KeyValuePersistenceMessageHook {
             }
             KeyValueStoreOpts::Spin(store_opts) => {
                 if let Some(path) = &store_opts.path {
-                    println!("Storing default key-value data to {path:?}");
+                    println!("Storing default key-value data to {}", quoted_path(path));
                 } else {
                     println!("Using in-memory default key-value store; data will not be saved!");
                 }

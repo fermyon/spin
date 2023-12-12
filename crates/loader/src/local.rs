@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, ensure, Context, Result};
 use futures::future::try_join_all;
 use reqwest::Url;
-use spin_common::paths::parent_dir;
+use spin_common::{paths::parent_dir, ui::quoted_path};
 use spin_locked_app::{
     locked::{
         self, ContentPath, ContentRef, LockedApp, LockedComponent, LockedComponentSource,
@@ -47,12 +47,16 @@ impl LocalLoader {
     pub async fn load_file(&self, path: impl AsRef<Path>) -> Result<LockedApp> {
         // Parse manifest
         let path = path.as_ref();
-        let manifest = spin_manifest::manifest_from_file(path)
-            .with_context(|| format!("Failed to read Spin app manifest from {path:?}"))?;
+        let manifest = spin_manifest::manifest_from_file(path).with_context(|| {
+            format!(
+                "Failed to read Spin app manifest from {}",
+                quoted_path(path)
+            )
+        })?;
         let mut locked = self
             .load_manifest(manifest)
             .await
-            .with_context(|| format!("Failed to load Spin app from {path:?}"))?;
+            .with_context(|| format!("Failed to load Spin app from {}", quoted_path(path)))?;
 
         // Set origin metadata
         locked
@@ -286,7 +290,7 @@ impl LocalLoader {
         let src_path = self.app_root.join(src);
         let meta = fs::metadata(&src_path)
             .await
-            .with_context(|| format!("invalid file mount source {src:?}"))?;
+            .with_context(|| format!("invalid file mount source {}", quoted_path(src)))?;
         if meta.is_dir() {
             // { source = "host/dir", destination = "guest/dir" }
             let pattern = src_path.join("**/*");
@@ -359,12 +363,19 @@ impl LocalLoader {
 
         let _loading_permit = self.file_loading_permits.acquire().await?;
         let dest_parent = parent_dir(dest)?;
-        fs::create_dir_all(&dest_parent)
-            .await
-            .with_context(|| format!("Failed to create parent directory {dest_parent:?}"))?;
-        fs::copy(src, dest)
-            .await
-            .with_context(|| format!("Failed to copy {src:?} to {dest:?}"))?;
+        fs::create_dir_all(&dest_parent).await.with_context(|| {
+            format!(
+                "Failed to create parent directory {}",
+                quoted_path(&dest_parent)
+            )
+        })?;
+        fs::copy(src, dest).await.with_context(|| {
+            format!(
+                "Failed to copy {} to {}",
+                quoted_path(src),
+                quoted_path(dest)
+            )
+        })?;
         tracing::debug!("Copied {src:?} to {dest:?}");
         Ok(())
     }

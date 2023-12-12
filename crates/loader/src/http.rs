@@ -38,7 +38,9 @@ pub async fn verified_download(url: &str, digest: &str, dest: &Path) -> Result<(
     );
 
     // Move to final destination
-    temp_path.persist_noclobber(dest)?;
+    temp_path
+        .persist_noclobber(dest)
+        .with_context(|| format!("Failed to save download from {url} to {}", dest.display()))?;
 
     Ok(())
 }

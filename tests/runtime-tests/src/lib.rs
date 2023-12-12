@@ -11,8 +11,6 @@ pub struct Config {
     pub spin_binary_path: PathBuf,
     /// The path to the tests directory which contains all the runtime test definitions
     pub tests_path: PathBuf,
-    /// The path to the shared repository of WebAssembly components that the test suite uses
-    pub components_path: PathBuf,
     /// What to do when an individual test fails
     pub on_error: OnTestError,
 }
@@ -55,7 +53,7 @@ pub fn bootstrap_and_run(test_path: &Path, config: &Config) -> Result<(), anyhow
     let temp = temp_dir::TempDir::new()
         .context("failed to produce a temporary directory to run the test in")?;
     log::trace!("Temporary directory: {}", temp.path().display());
-    copy_manifest(test_path, &config.components_path, &temp)?;
+    copy_manifest(test_path, &temp)?;
     let spin = Spin::start(&config.spin_binary_path, temp.path())?;
     log::debug!("Spin started on port {}.", spin.port());
     run_test(test_path, spin, config.on_error);
@@ -138,11 +136,7 @@ fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
 /// Copies the test dir's manifest file into the temporary directory
 ///
 /// Replaces template variables in the manifest file with components from the components path.
-fn copy_manifest(
-    test_dir: &Path,
-    components_path: &Path,
-    temp: &temp_dir::TempDir,
-) -> anyhow::Result<()> {
+fn copy_manifest(test_dir: &Path, temp: &temp_dir::TempDir) -> anyhow::Result<()> {
     let manifest_path = test_dir.join("spin.toml");
     let manifest = std::fs::read_to_string(&manifest_path).with_context(|| {
         format!(
@@ -174,15 +168,16 @@ fn copy_manifest(
         // TODO: make this more robust
         if source_str.starts_with("{{") {
             let name = &source_str[2..source_str.len() - 2];
-            let path = component_path(components_path, name);
-            let wasm_name = format!("{name}.wasm");
-            std::fs::copy(&path, temp.path().join(&wasm_name)).with_context(|| {
+            let path =
+                std::path::PathBuf::from(test_components::path(name).context("no such component")?);
+            let wasm_name = path.file_name().unwrap().to_str().unwrap();
+            std::fs::copy(&path, temp.path().join(wasm_name)).with_context(|| {
                 format!(
                     "failed to copy wasm file '{}' to temporary directory",
                     path.display()
                 )
             })?;
-            *source = toml::Value::String(wasm_name);
+            *source = toml::Value::String(wasm_name.into());
         }
     }
     let manifest =
@@ -303,10 +298,6 @@ fn kill_process(process: &mut std::process::Child) {
         let pid = nix::unistd::Pid::from_raw(process.id() as i32);
         let _ = nix::sys::signal::kill(pid, nix::sys::signal::SIGTERM);
     }
-}
-
-fn component_path(test_components_path: &Path, name: &str) -> PathBuf {
-    test_components_path.join(name).join("component.wasm")
 }
 
 /// Uses a track to ge a random unused port

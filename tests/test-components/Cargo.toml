@@ -1,0 +1,8 @@
+[package]
+name = "test-components"
+version = "0.1.0"
+edition = "2021"
+
+
+[build-dependencies]
+cargo_toml = "0.17.1"

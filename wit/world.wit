@@ -8,6 +8,7 @@ world http-trigger {
 
 /// The imports needed for a guest to run on a Spin host
 world platform {
+  include wasi:cli/reactor@0.2.0-rc-2023-10-18;
   import wasi:http/outgoing-handler@0.2.0-rc-2023-10-18;
   import llm;
   import redis;

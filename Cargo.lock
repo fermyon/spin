@@ -927,6 +927,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cargo_toml"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d1ece59890e746567b467253aea0adbe8a21784d0b025d8a306f66c391c2957"
+dependencies = [
+ "serde",
+ "toml 0.8.8",
+]
+
+[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5041,6 +5051,7 @@ dependencies = [
  "nix 0.26.2",
  "reqwest",
  "temp-dir",
+ "test-components",
  "toml 0.8.8",
 ]
 
@@ -5730,6 +5741,7 @@ dependencies = [
  "subprocess",
  "tempfile",
  "terminal",
+ "test-components",
  "tokio",
  "toml 0.6.0",
  "tracing",
@@ -6547,6 +6559,13 @@ dependencies = [
  "nom",
  "phf",
  "phf_codegen",
+]
+
+[[package]]
+name = "test-components"
+version = "0.1.0"
+dependencies = [
+ "cargo_toml",
 ]
 
 [[package]]
@@ -8268,9 +8287,9 @@ dependencies = [
 
 [[package]]
 name = "wit-bindgen"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7d92ce0ca6b6074059413a9581a637550c3a740581c854f9847ec293c8aed71"
+checksum = "38726c54a5d7c03cac28a2a8de1006cfe40397ddf6def3f836189033a413bc08"
 dependencies = [
  "bitflags 2.4.0",
  "wit-bindgen-rust-macro",

@@ -1,0 +1,11 @@
+[package]
+name = "sqlite-test-component"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+helper = { path = "../../helper" }
+wit-bindgen = "0.16.0"
+
+[lib]
+crate-type = ["cdylib"]

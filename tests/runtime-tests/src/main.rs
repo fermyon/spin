@@ -9,13 +9,9 @@ fn main() -> anyhow::Result<()> {
     let tests_path = args
         .next()
         .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests"));
-    let components_path = args
-        .next()
-        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test-components"));
     let config = Config {
         spin_binary_path,
         tests_path,
-        components_path,
         on_error: OnTestError::Log,
     };
     run_all(config)

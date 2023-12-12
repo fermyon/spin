@@ -366,6 +366,8 @@ dependencies = [
 [[package]]
 name = "spin-macro"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b535a46fef834e2fb85bbd5557196ff66de4c773b343da9b493cf399aef9cb42"
 dependencies = [
  "anyhow",
  "bytes",

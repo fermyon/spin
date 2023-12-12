@@ -27,6 +27,7 @@ mod runtime_tests {
     test!(sqlite_no_permission, "sqlite-no-permission");
     test!(key_value, "key-value");
     test!(key_value_no_permission, "key-value-no-permission");
+    test!(variables, "variables");
 
     fn run(name: &str) {
         let spin_binary_path = env!("CARGO_BIN_EXE_spin").into();

@@ -5,6 +5,7 @@ use std::{collections::VecDeque, fmt::Debug, fs, path::PathBuf};
 
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
+use spin_common::ui::quoted_path;
 use toml_edit::Document;
 
 /// Diagnoses for app manifest format problems.
@@ -88,15 +89,23 @@ impl PatientApp {
         let path = manifest_path.into();
         ensure!(
             path.is_file(),
-            "No Spin app manifest file found at {path:?}"
+            "No Spin app manifest file found at {}",
+            quoted_path(&path),
         );
 
-        let contents = fs::read_to_string(&path)
-            .with_context(|| format!("Couldn't read Spin app manifest file at {path:?}"))?;
+        let contents = fs::read_to_string(&path).with_context(|| {
+            format!(
+                "Couldn't read Spin app manifest file at {}",
+                quoted_path(&path)
+            )
+        })?;
 
-        let manifest_doc: Document = contents
-            .parse()
-            .with_context(|| format!("Couldn't parse manifest file at {path:?} as valid TOML"))?;
+        let manifest_doc: Document = contents.parse().with_context(|| {
+            format!(
+                "Couldn't parse manifest file at {} as valid TOML",
+                quoted_path(&path)
+            )
+        })?;
 
         Ok(Self {
             manifest_path: path,

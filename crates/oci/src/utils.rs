@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::write::GzipEncoder;
 use async_tar::Archive;
+use spin_common::ui::quoted_path;
 use std::path::{Path, PathBuf};
 
 /// Create a compressed archive of source, returning its path in working_dir
@@ -15,8 +16,8 @@ pub async fn archive(source: &Path, working_dir: &Path) -> Result<PathBuf> {
     let tar_gz = tokio::fs::File::create(tar_gz_path.as_path())
         .await
         .context(format!(
-            "Unable to create tar archive for source {:?}",
-            source
+            "Unable to create tar archive for source {}",
+            quoted_path(source)
         ))?;
 
     // Create encoder
@@ -31,8 +32,8 @@ pub async fn archive(source: &Path, working_dir: &Path) -> Result<PathBuf> {
         .append_dir_all(".", source)
         .await
         .context(format!(
-            "Unable to create tar archive for source {:?}",
-            source
+            "Unable to create tar archive for source {}",
+            quoted_path(source)
         ))?;
     // Finish writing the archive
     tar_builder.finish().await?;

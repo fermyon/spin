@@ -2,6 +2,7 @@ use std::fs;
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use spin_common::ui::quoted_path;
 use toml_edit::Document;
 
 use crate::Treatment;
@@ -37,8 +38,9 @@ impl<T: ManifestTreatment + Sync> Treatment for T {
         let after = after_doc.to_string();
         let diff = similar::udiff::unified_diff(Default::default(), &before, &after, 1, None);
         Ok(format!(
-            "Apply the following diff to {:?}:\n{}",
-            patient.manifest_path, diff
+            "Apply the following diff to {}:\n{}",
+            quoted_path(&patient.manifest_path),
+            diff
         ))
     }
 
@@ -47,6 +49,6 @@ impl<T: ManifestTreatment + Sync> Treatment for T {
         self.treat_manifest(doc).await?;
         let path = &patient.manifest_path;
         fs::write(path, doc.to_string())
-            .with_context(|| format!("failed to write fixed manifest to {path:?}"))
+            .with_context(|| format!("failed to write fixed manifest to {}", quoted_path(path)))
     }
 }

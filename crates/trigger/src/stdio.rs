@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use spin_common::ui::quoted_path;
 use tokio::io::AsyncWrite;
 
 use crate::{runtime_config::RuntimeConfig, TriggerHooks};
@@ -61,7 +62,7 @@ impl StdioLoggingTriggerHooks {
         let log_path = log_dir.join(format!("{sanitized_component_id}_{log_suffix}.txt"));
         let follow = self.follow_components.should_follow(component_id);
         ComponentStdioWriter::new(&log_path, follow)
-            .with_context(|| format!("Failed to open log file {log_path:?}"))
+            .with_context(|| format!("Failed to open log file {}", quoted_path(&log_path)))
     }
 
     fn validate_follows(&self, app: &spin_app::App) -> anyhow::Result<()> {
@@ -97,9 +98,9 @@ impl TriggerHooks for StdioLoggingTriggerHooks {
         if let Some(dir) = &self.log_dir {
             // Ensure log dir exists if set
             std::fs::create_dir_all(dir)
-                .with_context(|| format!("Failed to create log dir {dir:?}"))?;
+                .with_context(|| format!("Failed to create log dir {}", quoted_path(dir)))?;
 
-            println!("Logging component stdio to {:?}", dir.join(""))
+            println!("Logging component stdio to {}", quoted_path(dir.join("")))
         }
 
         Ok(())

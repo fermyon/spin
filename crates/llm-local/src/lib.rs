@@ -9,6 +9,7 @@ use llm::{
     ModelArchitecture, ModelKVMemoryType, ModelParameters,
 };
 use rand::SeedableRng;
+use spin_common::ui::quoted_path;
 use spin_core::async_trait;
 use spin_llm::{LlmEngine, MODEL_ALL_MINILM_L6_V2};
 use spin_world::v2::llm::{self as wasi_llm};
@@ -376,14 +377,18 @@ async fn generate_embeddings(
 }
 
 fn load_tokenizer(tokenizer_file: &Path) -> anyhow::Result<tokenizers::Tokenizer> {
-    let tokenizer = tokenizers::Tokenizer::from_file(tokenizer_file)
-        .map_err(|e| anyhow::anyhow!("Failed to read tokenizer file {tokenizer_file:?}: {e}"))?;
+    let tokenizer = tokenizers::Tokenizer::from_file(tokenizer_file).map_err(|e| {
+        anyhow::anyhow!(
+            "Failed to read tokenizer file {}: {e}",
+            quoted_path(tokenizer_file)
+        )
+    })?;
     Ok(tokenizer)
 }
 
 fn load_model(model_file: &Path) -> anyhow::Result<BertModel> {
     let buffer = std::fs::read(model_file)
-        .with_context(|| format!("Failed to read model file {model_file:?}"))?;
+        .with_context(|| format!("Failed to read model file {}", quoted_path(model_file)))?;
     let weights = safetensors::SafeTensors::deserialize(&buffer)?;
     let vb = VarBuilder::from_safetensors(vec![weights], DType::F32, &candle::Device::Cpu);
     let model = BertModel::load(vb, &Config::default()).context("error loading bert model")?;

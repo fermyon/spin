@@ -12,6 +12,7 @@ use oci_distribution::{
 };
 use reqwest::Url;
 use spin_common::sha256;
+use spin_common::ui::quoted_path;
 use spin_common::url::parse_file_url;
 use spin_loader::cache::Cache;
 use spin_loader::FilesMountStrategy;
@@ -148,11 +149,17 @@ impl Client {
                 if archive_layers {
                     self.push_archive_layer(&source, &mut files, &mut layers)
                         .await
-                        .context(format!("cannot push archive layer for source {:?}", source))?;
+                        .context(format!(
+                            "cannot push archive layer for source {}",
+                            quoted_path(&source)
+                        ))?;
                 } else {
                     self.push_file_layers(&source, &mut files, &mut layers)
                         .await
-                        .context(format!("cannot push file layers for source {:?}", source))?;
+                        .context(format!(
+                            "cannot push file layers for source {}",
+                            quoted_path(&source)
+                        ))?;
                 }
             }
             c.files = files;

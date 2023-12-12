@@ -2,6 +2,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use crate::{runtime_config::RuntimeConfig, TriggerHooks};
 use anyhow::Context;
+use spin_common::ui::quoted_path;
 use spin_sqlite::{Connection, ConnectionsStore, SqliteComponent, DATABASES_KEY};
 
 use super::RuntimeConfigOpts;
@@ -178,7 +179,7 @@ impl TriggerHooks for SqlitePersistenceMessageHook {
         match runtime_config.default_sqlite_opts() {
             SqliteDatabaseOpts::Spin(s) => {
                 if let Some(path) = &s.path {
-                    println!("Storing default SQLite data to {path:?}");
+                    println!("Storing default SQLite data to {}", quoted_path(path));
                 } else {
                     println!("Using in-memory default SQLite database; data will not be saved!");
                 }

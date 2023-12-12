@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
+use spin_common::ui::quoted_path;
 use spin_manifest::{compat::v1_to_v2_app, schema::v1::AppManifestV1, ManifestVersion};
 use toml_edit::{de::from_document, ser::to_document, Item, Table};
 
@@ -97,7 +98,10 @@ impl Treatment for UpgradeDiagnosis {
         let v1_backup_path = patient.manifest_path.with_extension("toml.v1_backup");
         std::fs::rename(&patient.manifest_path, &v1_backup_path)
             .context("failed to back up existing manifest")?;
-        println!("Version 1 manifest backed up to {v1_backup_path:?}.");
+        println!(
+            "Version 1 manifest backed up to {}.",
+            quoted_path(&v1_backup_path)
+        );
 
         // Write new V2 manifest
         std::fs::write(&patient.manifest_path, v2_doc.to_string())

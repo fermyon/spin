@@ -2,6 +2,7 @@ use std::process::Command;
 
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
+use spin_common::ui::quoted_path;
 
 use crate::{Diagnosis, PatientApp, Treatment};
 
@@ -52,7 +53,10 @@ impl Diagnosis for WasmMissing {
         let Some(rel_path) = self.0.source_path() else {
             unreachable!("unsupported source");
         };
-        format!("Component {id:?} source {rel_path:?} is missing")
+        format!(
+            "Component {id:?} source {} is missing",
+            quoted_path(rel_path)
+        )
     }
 
     fn treatment(&self) -> Option<&dyn Treatment> {

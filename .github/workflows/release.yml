@@ -438,13 +438,13 @@ jobs:
           cosign-release: v2.0.0
 
       - name: Sign the binary with GitHub OIDC token
-          shell: bash
-          run: |
-            cosign sign-blob \
-              --yes \
-              --output-certificate crt.pem \
-              --output-signature spin.sig \
-              target/${{ matrix.config.target }}/release/spin
+        shell: bash
+        run: |
+          cosign sign-blob \
+            --yes \
+            --output-certificate crt.pem \
+            --output-signature spin.sig \
+            target/${{ matrix.config.target }}/release/spin
 
       - name: package release assets
         shell: bash

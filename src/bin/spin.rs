@@ -8,6 +8,7 @@ use spin_cli::commands::{
     cloud::{DeployCommand, LoginCommand},
     doctor::DoctorCommand,
     external::execute_external_subcommand,
+    generate_completions::GenerateCompletionsCommand,
     new::{AddCommand, NewCommand},
     plugins::PluginCommands,
     registry::RegistryCommands,
@@ -134,6 +135,8 @@ enum SpinApp {
     Plugins(PluginCommands),
     #[clap(subcommand, hide = true)]
     Trigger(TriggerCommands),
+    #[clap(hide = true, name = "generate-completions")]
+    GenerateCompletions(GenerateCompletionsCommand),
     #[clap(external_subcommand)]
     External(Vec<String>),
     #[clap(alias = "w")]
@@ -168,6 +171,7 @@ impl SpinApp {
             Self::External(cmd) => execute_external_subcommand(cmd, app).await,
             Self::Watch(cmd) => cmd.run().await,
             Self::Doctor(cmd) => cmd.run().await,
+            Self::GenerateCompletions(cmd) => cmd.run(SpinApp::into_app()).await,
         }
     }
 }

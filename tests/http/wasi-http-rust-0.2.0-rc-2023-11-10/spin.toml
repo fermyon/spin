@@ -11,8 +11,8 @@ route = "/..."
 component = "wasi-http"
 
 [component.wasi-http]
-source = "target/wasm32-wasi/release/wasi_http_rust_rc_2023_11_10.wasm"
+source = "target/wasm32-wasi/release/wasi_http_rust_rc_2023_11_10.component.wasm"
 allowed_outbound_hosts = ["http://*:*", "https://*:*"]
 [component.wasi-http.build]
-command = "cargo build --target wasm32-wasi --release"
+command = "cargo build --target wasm32-wasi --release && wasm-tools component new --adapt wasi_snapshot_preview1.reactor.wasm target/wasm32-wasi/release/wasi_http_rust_rc_2023_11_10.wasm -o target/wasm32-wasi/release/wasi_http_rust_rc_2023_11_10.component.wasm"
 watch = ["src/**/*.rs", "Cargo.toml"]

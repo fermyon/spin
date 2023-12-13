@@ -920,7 +920,7 @@ route = "/..."
     }
 
     #[tokio::test]
-    async fn test_wasi_http_rc_12_05() -> Result<()> {
+    async fn test_wasi_http_rc_11_10() -> Result<()> {
         let body = b"So rested he by the Tumtum tree";
 
         let listener = tokio::net::TcpListener::bind((Ipv4Addr::new(127, 0, 0, 1), 0)).await?;

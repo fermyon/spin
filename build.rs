@@ -97,16 +97,19 @@ error: the `wasm32-wasi` target is not installed
 
     // Rather than let `spin-componentize` turn the `WASI_HTTP_RC_11_10_INTEGRATION_TEST` module into a component,
     // we use Wasmtime 15.0.1's adapter to ensure it uses the WASI 0.2.0-rc-2023-11-10 snapshot for everything.
-    let wasi_http_rc_11_10_wasm = format!(
+    let wasi_http_rc_11_10_module = format!(
         "{WASI_HTTP_RC_11_10_INTEGRATION_TEST}/target/wasm32-wasi/release/wasi_http_rust_rc_2023_11_10.wasm"
     );
     let wasi_http_rc_11_10_adapter =
         format!("{WASI_HTTP_RC_11_10_INTEGRATION_TEST}/wasi_snapshot_preview1.reactor.wasm");
+    let wasi_http_rc_11_10_component = format!(
+        "{WASI_HTTP_RC_11_10_INTEGRATION_TEST}/target/wasm32-wasi/release/wasi_http_rust_rc_2023_11_10.component.wasm"
+    );
     std::fs::write(
-        &wasi_http_rc_11_10_wasm,
+        wasi_http_rc_11_10_component,
         wit_component::ComponentEncoder::default()
             .validate(true)
-            .module(&std::fs::read(&wasi_http_rc_11_10_wasm).unwrap())
+            .module(&std::fs::read(wasi_http_rc_11_10_module).unwrap())
             .unwrap()
             .adapter(
                 "wasi_snapshot_preview1",

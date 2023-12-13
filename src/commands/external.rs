@@ -7,6 +7,7 @@ use spin_plugins::{
     PluginStore,
 };
 use std::io::{stderr, IsTerminal};
+use std::path::PathBuf;
 use std::{collections::HashMap, env, process};
 use tokio::process::Command;
 use tracing::log;
@@ -57,16 +58,11 @@ pub async fn execute_external_subcommand(
     app: clap::App<'_>,
 ) -> anyhow::Result<()> {
     let (plugin_name, args, override_compatibility_check) = parse_subcommand(cmd)?;
-    let plugin_store = PluginStore::try_default()?;
-    let plugin_version = ensure_plugin_available(
-        &plugin_name,
-        &plugin_store,
-        app,
-        override_compatibility_check,
-    )
-    .await?;
 
-    let mut command = Command::new(plugin_store.installed_binary_path(&plugin_name));
+    let (binary, plugin_version) =
+        get_plugin_executable(&plugin_name, app, override_compatibility_check).await?;
+
+    let mut command = Command::new(&binary);
     command.args(args);
     command.envs(get_env_vars_map()?);
 
@@ -86,6 +82,35 @@ pub async fn execute_external_subcommand(
         }
     }
     Ok(())
+}
+
+async fn get_plugin_executable(
+    plugin_name: &str,
+    app: clap::App<'_>,
+    override_compatibility_check: bool,
+) -> anyhow::Result<(PathBuf, Option<String>)> {
+    if let Ok(search_path) = std::env::var("SPIN_EXT_PLUGIN_PATH") {
+        let mut binary = std::path::PathBuf::from(&search_path).join(plugin_name);
+        if cfg!(target_os = "windows") {
+            binary.set_extension("exe");
+        }
+        if binary.is_file() {
+            return Ok((binary, None));
+        }
+    }
+
+    let plugin_store = PluginStore::try_default()?;
+    let plugin_version = ensure_plugin_available(
+        plugin_name,
+        &plugin_store,
+        app,
+        override_compatibility_check,
+    )
+    .await?;
+
+    let binary = plugin_store.installed_binary_path(plugin_name);
+
+    Ok((binary, plugin_version))
 }
 
 async fn ensure_plugin_available(

@@ -14,6 +14,7 @@ To cut a major / minor release of Spin, you will need to do the following:
 
 1. Switch to the release branch locally and update versions (e.g. `2.0.0-pre0` could be `2.0.0`).
    - Bump the version in Spin's `Cargo.toml`
+   - Bump the `spin-macro` version to the same in the spin-sdk's [Cargo.toml](../../sdk/rust/Cargo.toml)
    - Run `make build update-cargo-locks` so that `Cargo.lock` and example/test `Cargo.lock` files are updated
 
    PR these changes to the release branch ensuring that pull request has a base corresponding to the release branch (e.g. `v2.0`).
@@ -61,6 +62,7 @@ $ ./.github/gh-backport.sh <pull-request> <branch-name>
 
 1. Switch to the release branch locally and update versions (e.g. `2.0.0` could be `2.0.1`).
    - Bump the version in Spin's `Cargo.toml`
+   - Bump the `spin-macro` version to the same in the spin-sdk's [Cargo.toml](../../sdk/rust/Cargo.toml)
    - Run `make build update-cargo-locks` so that `Cargo.lock` and example/test `Cargo.lock` files are updated
 
    PR these changes to the release branch ensuring that pull request has a base corresponding to the release branch (e.g. `v2.0`).
@@ -99,6 +101,7 @@ Otherwise, switch to the branch locally.
 
 1. Update the Spin version with `-rc.N` where `N` is the release candidate number (e.g. `2.0.0-pre0` could be `2.0.0-rc.1`).
    - Bump the version in Spin's `Cargo.toml`
+   - Bump the `spin-macro` version to the same in the spin-sdk's [Cargo.toml](../../sdk/rust/Cargo.toml)
    - Run `make build update-cargo-locks` so that `Cargo.lock` and example/test `Cargo.lock` files are updated
 
    PR these changes to the release branch ensuring that pull request has a base corresponding to the release branch (e.g. `v2.0`).

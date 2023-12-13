@@ -3,7 +3,16 @@ name = "spin-sdk"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
-rust-version = "1.64"
+license = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+documentation = "https://docs.rs/spin-sdk"
+readme = "README.md"
+rust-version = { workspace = true }
+
+description = """
+The Spin Rust SDK makes it easy to build Spin components in Rust.
+"""
 
 [lib]
 name = "spin_sdk"
@@ -12,7 +21,7 @@ name = "spin_sdk"
 anyhow = "1"
 async-trait = "0.1.74"
 form_urlencoded = "1.0"
-spin-macro = { path = "macro" }
+spin-macro = { version = "2.1.0-pre0", path = "macro" }
 thiserror = "1.0.37"
 wit-bindgen = "0.13.0"
 routefinder = "0.5.3"

@@ -1,7 +1,17 @@
 [package]
-edition = "2021"
 name = "spin-macro"
-version = "0.1.0"
+version = { workspace = true }
+edition = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+documentation = "https://docs.rs/spin-macro"
+readme = "README.md"
+
+description = """
+Rust procedural macros for Spin and associated WIT files
+"""
 
 [lib]
 name = "spin_macro"

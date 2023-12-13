@@ -366,7 +366,7 @@ dependencies = [
 
 [[package]]
 name = "spin-macro"
-version = "0.1.0"
+version = "2.1.0-pre0"
 dependencies = [
  "anyhow",
  "bytes",

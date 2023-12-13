@@ -919,6 +919,81 @@ route = "/..."
         Ok(())
     }
 
+    #[tokio::test]
+    async fn test_wasi_http_rc_11_10() -> Result<()> {
+        let body = b"So rested he by the Tumtum tree";
+
+        let listener = tokio::net::TcpListener::bind((Ipv4Addr::new(127, 0, 0, 1), 0)).await?;
+
+        let prefix = format!("http://{}", listener.local_addr()?);
+
+        let server = {
+            async move {
+                loop {
+                    let (stream, _) = listener.accept().await?;
+                    task::spawn(async move {
+                        if let Err(e) = http1::Builder::new()
+                            .keep_alive(true)
+                            .serve_connection(
+                                stream,
+                                service_fn(move |request| async move {
+                                    if let &Method::GET = request.method() {
+                                        Ok::<_, Error>(hyper::Response::new(body::full(
+                                            Bytes::copy_from_slice(body),
+                                        )))
+                                    } else {
+                                        Ok(hyper::Response::builder()
+                                            .status(StatusCode::METHOD_NOT_ALLOWED)
+                                            .body(body::empty())?)
+                                    }
+                                }),
+                            )
+                            .await
+                        {
+                            log::warn!("{e:?}");
+                        }
+                    });
+
+                    // Help rustc with type inference:
+                    if false {
+                        return Ok::<_, Error>(());
+                    }
+                }
+            }
+        }
+        .then(|result| {
+            if let Err(e) = result {
+                log::warn!("{e:?}");
+            }
+            future::ready(())
+        })
+        .boxed();
+
+        let (_tx, rx) = oneshot::channel::<()>();
+
+        task::spawn(async move {
+            drop(future::select(server, rx).await);
+        });
+
+        let controller = SpinTestController::with_manifest(
+            "tests/http/wasi-http-rust-0.2.0-rc-2023-11-10/spin.toml",
+            &[],
+            &[],
+        )
+        .await?;
+
+        let response = Client::new()
+            .get(format!("http://{}/", controller.url))
+            .header("url", format!("{prefix}/"))
+            .send()
+            .await?;
+
+        assert_eq!(200, response.status());
+        assert_eq!(body as &[_], response.bytes().await?);
+
+        Ok(())
+    }
+
     /// Build an app whose component `workdir` is a subdirectory.
     #[tokio::test]
     #[cfg(not(tarpaulin))]

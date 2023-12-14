@@ -191,7 +191,7 @@ mod llm {
                 text: value.text,
                 usage: v1::llm::InferencingUsage {
                     prompt_token_count: value.usage.prompt_token_count,
-                    generated_token_count: value.usage.prompt_token_count,
+                    generated_token_count: value.usage.generated_token_count,
                 },
             }
         }

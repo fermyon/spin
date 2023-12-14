@@ -3006,9 +3006,9 @@ checksum = "bffb4def18c48926ccac55c1223e02865ce1a821751a95920448662696e7472c"
 
 [[package]]
 name = "ipnet"
-version = "2.7.1"
+version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30e22bd8629359895450b59ea7a776c850561b96a3b1d31321c1949d9e6c9146"
+checksum = "8f518f335dce6725a761382244631d86cf0ccb2863413590b31338feb467f9c3"
 
 [[package]]
 name = "is-terminal"
@@ -6062,6 +6062,7 @@ name = "spin-outbound-networking"
 version = "2.1.0-pre0"
 dependencies = [
  "anyhow",
+ "ipnet",
  "spin-locked-app",
  "terminal",
  "url",
@@ -6243,6 +6244,7 @@ dependencies = [
  "dirs 4.0.0",
  "futures",
  "indexmap 1.9.2",
+ "ipnet",
  "outbound-http",
  "outbound-mysql",
  "outbound-pg",

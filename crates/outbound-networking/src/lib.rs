@@ -50,10 +50,7 @@ impl AllowedHostConfig {
         let (scheme, rest) = url.split_once("://").with_context(|| {
             format!("{url:?} does not contain a scheme (e.g., 'http://' or '*://')")
         })?;
-        let (host, rest) = rest
-            .split_once(':')
-            .or_else(|| rest.split_once('/'))
-            .unwrap_or((rest, ""));
+        let (host, rest) = rest.split_once(':').unwrap_or((rest, ""));
         let port = match rest.split_once('/') {
             Some((port, path)) => {
                 if !path.is_empty() {
@@ -148,10 +145,12 @@ pub enum HostConfig {
     Any,
     ToSelf,
     List(Vec<String>),
+    Cidr(ipnet::IpNet),
 }
 
 impl HostConfig {
-    fn parse(host: &str) -> anyhow::Result<Self> {
+    fn parse(mut host: &str) -> anyhow::Result<Self> {
+        host = host.trim();
         if host == "*" {
             return Ok(Self::Any);
         }
@@ -161,8 +160,15 @@ impl HostConfig {
         }
 
         if host.starts_with('{') {
-            // TODO:
             bail!("host lists are not yet supported")
+        }
+
+        if let Ok(net) = host.parse::<ipnet::IpNet>() {
+            return Ok(Self::Cidr(net));
+        }
+
+        if matches!(host.split('/').skip(1).next(), Some(path) if !path.is_empty()) {
+            bail!("hosts must not contain paths");
         }
 
         Ok(Self::List(vec![host.into()]))
@@ -173,6 +179,12 @@ impl HostConfig {
             HostConfig::Any => true,
             HostConfig::List(l) => l.iter().any(|h| h.as_str() == host),
             HostConfig::ToSelf => false,
+            HostConfig::Cidr(c) => {
+                let Ok(ip) = host.parse::<ipnet::IpNet>() else {
+                    return false;
+                };
+                c.contains(&ip)
+            }
         }
     }
 
@@ -399,6 +411,7 @@ mod test {
     }
 
     use super::*;
+    use std::net::Ipv4Addr;
 
     #[test]
     fn test_allowed_hosts_accepts_url_with_port() {
@@ -518,6 +531,21 @@ mod test {
         //     AllowedHostConfig::new(Some("http"), "[::1]", 8001),
         //     AllowedHostConfig::parse("http://[::1]:8001").unwrap()
         // );
+    }
+
+    #[test]
+    fn test_allowed_hosts_accepts_ip_cidr() {
+        assert_eq!(
+            AllowedHostConfig::new(
+                SchemeConfig::Any,
+                HostConfig::Cidr(ipnet::IpNet::V4(
+                    ipnet::Ipv4Net::new(Ipv4Addr::new(127, 0, 0, 0), 24).unwrap()
+                )),
+                PortConfig::new(80)
+            ),
+            AllowedHostConfig::parse("*://127.0.0.0/24:80").unwrap()
+        );
+        assert!(AllowedHostConfig::parse("*://127.0.0.0/24").is_err());
     }
 
     #[test]

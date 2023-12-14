@@ -246,7 +246,7 @@ impl Spin {
             stderr,
             port,
         };
-        for _ in 0..40 {
+        for _ in 0..80 {
             match std::net::TcpStream::connect(format!("127.0.0.1:{port}")) {
                 Ok(_) => return Ok(spin),
                 Err(e) => {
@@ -267,7 +267,7 @@ impl Spin {
             std::thread::sleep(std::time::Duration::from_millis(250));
         }
         anyhow::bail!(
-            "`spin up` did not start server or error after 10 seconds. stderr:\n\t{}",
+            "`spin up` did not start server or error after 20 seconds. stderr:\n\t{}",
             spin.stderr.output_as_str().unwrap_or("<non-utf8>")
         )
     }

@@ -87,7 +87,7 @@ jobs:
           rust-cache: true
 
       - name: Cargo Build
-        run: cross build --target x86_64-unknown-linux-musl --workspace --release --all-targets --features openssl/vendored
+        run: cross build --target x86_64-unknown-linux-musl --release --features openssl/vendored
         env:
           CARGO_INCREMENTAL: 0
           BUILD_SPIN_EXAMPLES: 0
@@ -113,7 +113,7 @@ jobs:
           rust-cache: true
 
       - name: Cargo Build
-        run: cross build --target aarch64-unknown-linux-musl --workspace --release --all-targets --features openssl/vendored
+        run: cross build --target aarch64-unknown-linux-musl --release --features openssl/vendored
         env:
           CARGO_INCREMENTAL: 0
           BUILD_SPIN_EXAMPLES: 0

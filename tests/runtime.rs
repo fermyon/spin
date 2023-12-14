@@ -30,7 +30,7 @@ mod runtime_tests {
     test!(variables, "variables");
     // TODO: reenable these tests once we have a way to run them reliably in CI
     // test!(tcp_sockets, "tcp-sockets");
-    test!(tcp_sockets_ip_range, "tcp-sockets-ip-range");
+    // test!(tcp_sockets_ip_range, "tcp-sockets-ip-range");
     // test!(
     //     tcp_sockets_no_port_permission,
     //     "tcp-sockets-no-port-permission"

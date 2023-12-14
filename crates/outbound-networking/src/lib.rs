@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use anyhow::{bail, Context};
+use anyhow::{bail, ensure, Context};
 use spin_locked_app::MetadataKey;
 
 pub const ALLOWED_HOSTS_KEY: MetadataKey<Vec<String>> = MetadataKey::new("allowed_outbound_hosts");
@@ -50,7 +50,7 @@ impl AllowedHostConfig {
         let (scheme, rest) = url.split_once("://").with_context(|| {
             format!("{url:?} does not contain a scheme (e.g., 'http://' or '*://')")
         })?;
-        let (host, rest) = rest.split_once(':').unwrap_or((rest, ""));
+        let (host, rest) = rest.rsplit_once(':').unwrap_or((rest, ""));
         let port = match rest.split_once('/') {
             Some((port, path)) => {
                 if !path.is_empty() {
@@ -160,6 +160,7 @@ impl HostConfig {
         }
 
         if host.starts_with('{') {
+            ensure!(host.ends_with('}'));
             bail!("host lists are not yet supported")
         }
 
@@ -167,7 +168,7 @@ impl HostConfig {
             return Ok(Self::Cidr(net));
         }
 
-        if matches!(host.split('/').skip(1).next(), Some(path) if !path.is_empty()) {
+        if matches!(host.split('/').nth(1), Some(path) if !path.is_empty()) {
             bail!("hosts must not contain paths");
         }
 
@@ -411,7 +412,7 @@ mod test {
     }
 
     use super::*;
-    use std::net::Ipv4Addr;
+    use std::net::{Ipv4Addr, Ipv6Addr};
 
     #[test]
     fn test_allowed_hosts_accepts_url_with_port() {
@@ -527,10 +528,16 @@ mod test {
             ),
             AllowedHostConfig::parse("http://192.168.1.1:3002").unwrap()
         );
-        // assert_eq!(
-        //     AllowedHostConfig::new(Some("http"), "[::1]", 8001),
-        //     AllowedHostConfig::parse("http://[::1]:8001").unwrap()
-        // );
+        assert_eq!(
+            AllowedHostConfig::new(
+                SchemeConfig::new("http"),
+                HostConfig::new("[::1]"),
+                PortConfig::new(8001)
+            ),
+            AllowedHostConfig::parse("http://[::1]:8001").unwrap()
+        );
+
+        assert!(AllowedHostConfig::parse("http://[::1]").is_err())
     }
 
     #[test]
@@ -546,6 +553,16 @@ mod test {
             AllowedHostConfig::parse("*://127.0.0.0/24:80").unwrap()
         );
         assert!(AllowedHostConfig::parse("*://127.0.0.0/24").is_err());
+        assert_eq!(
+            AllowedHostConfig::new(
+                SchemeConfig::Any,
+                HostConfig::Cidr(ipnet::IpNet::V6(
+                    ipnet::Ipv6Net::new(Ipv6Addr::new(0xff00, 0, 0, 0, 0, 0, 0, 0), 8).unwrap()
+                )),
+                PortConfig::new(80)
+            ),
+            AllowedHostConfig::parse("*://ff00::/8:80").unwrap()
+        );
     }
 
     #[test]

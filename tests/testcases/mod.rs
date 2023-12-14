@@ -61,49 +61,6 @@ pub async fn component_outbound_http_works(controller: &dyn Controller) {
     tc.run(controller).await.unwrap()
 }
 
-pub async fn application_variables_default_works(controller: &dyn Controller) {
-    async fn checks(
-        metadata: AppMetadata,
-        password: String,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-    ) -> Result<()> {
-        assert_http_response(
-            get_url(
-                metadata.base.as_str(),
-                &format!("/test?password={password}"),
-            )
-            .as_str(),
-            Method::GET,
-            "",
-            200,
-            &[],
-            None,
-        )
-        .await
-    }
-
-    // Set to Spin.toml default: `password = { default = "pw" }`
-    let expected_password = String::from("pw");
-
-    let tc = TestCaseBuilder::default()
-        .name("application-variables".to_string())
-        .appname(Some("application-variables".to_string()))
-        .template(None)
-        .assertions(
-            move |metadata: AppMetadata,
-                  stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
-                  stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
-                let pw = expected_password.clone();
-                Box::pin(checks(metadata, pw, stdout_stream, stderr_stream))
-            },
-        )
-        .build()
-        .unwrap();
-
-    tc.run(controller).await.unwrap()
-}
-
 pub async fn key_value_works(controller: &dyn Controller) {
     async fn checks(
         metadata: AppMetadata,

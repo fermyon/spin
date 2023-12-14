@@ -1,0 +1,15 @@
+spin_manifest_version = 2
+
+[application]
+name = "tcp-sockets"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+version = "0.1.0"
+
+[[trigger.http]]
+route = "/"
+component = "test"
+
+[component.test]
+source = "{{tcp-sockets}}"
+# Component expects 127.0.0.1 but we only allow 127.0.0.2
+allowed_outbound_hosts = ["*://127.0.0.2:5001"]

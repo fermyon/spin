@@ -6,6 +6,7 @@ use serde::de::DeserializeOwned;
 use spin_app::Loader;
 use spin_common::{arg_parser::parse_kv, sloth};
 
+use crate::network::Network;
 use crate::runtime_config::llm::LLmOptions;
 use crate::runtime_config::sqlite::SqlitePersistenceMessageHook;
 use crate::stdio::StdioLoggingTriggerHooks;
@@ -192,6 +193,7 @@ where
         self.update_config(builder.config_mut())?;
 
         builder.hooks(StdioLoggingTriggerHooks::new(self.follow_components()));
+        builder.hooks(Network);
         builder.hooks(KeyValuePersistenceMessageHook);
         builder.hooks(SqlitePersistenceMessageHook);
 

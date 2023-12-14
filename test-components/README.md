@@ -1,6 +1,16 @@
 # Test Components
 
-Test components for use in runtime testing. Each test component has a README on what it tests.
+Test components for use in runtime testing. Each test component has a README on what it tests. The components are checked into the repository so that users do not necessarily have to build them from source.
+
+## Building 
+
+Each component is generally built like so:
+
+```
+cargo b --target=wasm32-wasi
+```
+
+Additionally, to prevent bloat, the components are run through `wasm-tools strip`.
 
 ## Contract
 

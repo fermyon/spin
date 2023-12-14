@@ -6251,6 +6251,7 @@ dependencies = [
  "spin-llm-remote-http",
  "spin-loader",
  "spin-manifest",
+ "spin-outbound-networking",
  "spin-sqlite",
  "spin-sqlite-inproc",
  "spin-sqlite-libsql",

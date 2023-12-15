@@ -30,7 +30,7 @@ The important things to note about the function above are:
 - in the function signature (`fn handle_hello_world(req: Request) -> anyhow::Result<impl IntoResponse>`), `req` can be any number of types, including the built-in `Request` type or the `http::Request` from the popular `http` crate
 - in the function signature, the response type can be many things, including `anyhow::Result<impl IntoResponse>` (as shown above) or the `http::Response` type from the `http` crate (e.g. `Result<Response>`). Note - Using the `http` crate will require you to add it, e.g. `cargo install http`.
 
-### Making outbound HTTP requests
+### Making Outbound HTTP Requests
 
 Let's see an example where the component makes an outbound HTTP request to a server, modifies the result, and then returns it:
 

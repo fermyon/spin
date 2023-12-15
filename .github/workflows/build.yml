@@ -73,6 +73,45 @@ jobs:
           name: spin-ubuntu-latest
           path: target/release/spin
 
+  build-spin-static:
+    name: Build Spin static
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        config:
+          - {
+              arch: "aarch64",
+              target: "aarch64-unknown-linux-musl",
+              rustflags: '-C target-feature=+fp16 -C target-feature=+crt-static -C link-self-contained=yes'
+            }
+          - {
+              arch: "amd64",
+              target: "x86_64-unknown-linux-musl",
+              rustflags: '-C target-feature=+crt-static -C link-self-contained=yes'
+            }
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
+        with:
+          rust: true
+          rust-cross: true
+          rust-cache: true
+
+      - name: Cargo Build
+        run: cross build --target ${{ matrix.config.target }} --release --features openssl/vendored
+        env:
+          CARGO_INCREMENTAL: 0
+          BUILD_SPIN_EXAMPLES: 0
+          RUSTFLAGS: ${{ matrix.config.rustflags }}
+
+      - name: "Archive executable artifact"
+        uses: actions/upload-artifact@v3
+        with:
+          name: spin-static-${{ matrix.config.arch }}
+          path: target/${{ matrix.config.target }}/release/spin
+
   build-rust:
     name: Build Spin
     runs-on: ${{ matrix.os }}

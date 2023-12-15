@@ -33,24 +33,11 @@ impl TriggerHooks for Network {
                                     else {
                                         continue;
                                     };
-                                    match config.port() {
-                                        spin_outbound_networking::PortConfig::Any => {
-                                            store_builder.insert_ip_net_port_range(ip_net, 0, None);
-                                        }
-                                        spin_outbound_networking::PortConfig::List(ports) => {
-                                            for port in ports {
-                                                match port {
-                                                    spin_outbound_networking::IndividualPortConfig::Port(p) => {
-                                                        store_builder.insert_ip_net_port_range(ip_net, *p, p.checked_add(1));
-                                                    }
-                                                    spin_outbound_networking::IndividualPortConfig::Range(r) =>  {
-                                                        store_builder.insert_ip_net_port_range(ip_net, r.start, Some(r.end))
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                                    add_ip_net(store_builder, ip_net, config.port());
                                 }
+                            }
+                            spin_outbound_networking::HostConfig::Cidr(ip_net) => {
+                                add_ip_net(store_builder, *ip_net, config.port())
                             }
                         }
                     }
@@ -58,5 +45,29 @@ impl TriggerHooks for Network {
             }
         }
         Ok(())
+    }
+}
+
+fn add_ip_net(
+    store_builder: &mut spin_core::StoreBuilder,
+    ip_net: ipnet::IpNet,
+    port: &spin_outbound_networking::PortConfig,
+) {
+    match port {
+        spin_outbound_networking::PortConfig::Any => {
+            store_builder.insert_ip_net_port_range(ip_net, 0, None);
+        }
+        spin_outbound_networking::PortConfig::List(ports) => {
+            for port in ports {
+                match port {
+                    spin_outbound_networking::IndividualPortConfig::Port(p) => {
+                        store_builder.insert_ip_net_port_range(ip_net, *p, p.checked_add(1));
+                    }
+                    spin_outbound_networking::IndividualPortConfig::Range(r) => {
+                        store_builder.insert_ip_net_port_range(ip_net, r.start, Some(r.end))
+                    }
+                }
+            }
+        }
     }
 }

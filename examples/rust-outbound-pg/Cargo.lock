@@ -364,7 +364,7 @@ dependencies = [
 
 [[package]]
 name = "spin-macro"
-version = "2.1.0-pre0"
+version = "2.2.0-pre0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -376,7 +376,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sdk"
-version = "2.1.0-pre0"
+version = "2.2.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",

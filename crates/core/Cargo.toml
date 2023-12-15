@@ -19,7 +19,7 @@ tokio = "1.0"
 bytes = "1.0"
 
 [target.'cfg(unix)'.dependencies]
-rustix = "0.37.19"
+rustix = "0.38.25"
 
 [target.'cfg(windows)'.dependencies]
 io-extras = "0.18.0"

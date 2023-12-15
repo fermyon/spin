@@ -80,6 +80,8 @@ command = "cargo build --target wasm32-wasi --release"
 watch = ["src/**/*.rs", "Cargo.toml"]
 ```
 
+## Building and Running the Spin Application
+
 Spin build can be used to build all components defined in the Spin manifest file at the same time, and also has a flag that starts the application after finishing the compilation, `spin build --up`:
 
 ```bash

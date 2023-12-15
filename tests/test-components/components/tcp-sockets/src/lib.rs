@@ -15,7 +15,7 @@ helper::define_component!(Component);
 
 impl Component {
     fn main() -> Result<(), String> {
-        let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5001);
+        let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 6001);
 
         let client = ensure_ok!(tcp_create_socket::create_tcp_socket(IpAddressFamily::Ipv4));
 

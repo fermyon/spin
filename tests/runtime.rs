@@ -28,14 +28,13 @@ mod runtime_tests {
     test!(key_value, "key-value");
     test!(key_value_no_permission, "key-value-no-permission");
     test!(variables, "variables");
-    // TODO: reenable these tests once we have a way to run them reliably in CI
-    // test!(tcp_sockets, "tcp-sockets");
-    // test!(tcp_sockets_ip_range, "tcp-sockets-ip-range");
-    // test!(
-    //     tcp_sockets_no_port_permission,
-    //     "tcp-sockets-no-port-permission"
-    // );
-    // test!(tcp_sockets_no_ip_permission, "tcp-sockets-no-ip-permission");
+    test!(tcp_sockets, "tcp-sockets");
+    test!(tcp_sockets_ip_range, "tcp-sockets-ip-range");
+    test!(
+        tcp_sockets_no_port_permission,
+        "tcp-sockets-no-port-permission"
+    );
+    test!(tcp_sockets_no_ip_permission, "tcp-sockets-no-ip-permission");
 
     fn run(name: &str) {
         let spin_binary_path = env!("CARGO_BIN_EXE_spin").into();

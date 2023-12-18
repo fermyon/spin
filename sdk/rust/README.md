@@ -28,7 +28,8 @@ The important things to note about the function above are:
 
 - the `spin_sdk::http_component` macro marks the function as the entry point for the Spin component,
 - in the function signature (`fn handle_hello_world(req: Request) -> anyhow::Result<impl IntoResponse>`), `req` can be any number of types, including the built-in `Request` type or the `http::Request` type from the popular `http` crate
-- in the function signature, the response type can be many things, including `anyhow::Result<impl IntoResponse>` (as shown above) or the `http::Response` type from the `http` crate (e.g. `Result<Response>`). Note - Using the `http` crate will require you to add it, e.g. `cargo install http`.
+- in the function signature, the response type can be anything that implements `IntoResponse` meaning the return type can any number of things including `anyhow::Result<impl IntoResponse>` (as shown above), `impl IntoResponse`, `Response`, `anyhow::Result<Response>`, or even the `http::Response` type from the `http` crate. 
+  - Note: Using the `http` crate will require you to add it to your Cargo.toml manifest (i.e., `cargo add http`).
 
 ### Making Outbound HTTP Requests
 

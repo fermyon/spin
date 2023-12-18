@@ -1,10 +1,12 @@
+mod services;
+
 use std::{
     io::Read,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
-use anyhow::{bail, Context};
+use anyhow::Context;
 
 /// Configuration for the test suite
 pub struct Config {
@@ -55,90 +57,11 @@ pub fn bootstrap_and_run(test_path: &Path, config: &Config) -> Result<(), anyhow
         .context("failed to produce a temporary directory to run the test in")?;
     log::trace!("Temporary directory: {}", temp.path().display());
     copy_manifest(test_path, &temp)?;
-    let mut services = start_services(test_path)?;
+    let mut services = services::start_services(test_path)?;
     let spin = Spin::start(&config.spin_binary_path, temp.path(), &mut services)?;
     log::debug!("Spin started on port {}.", spin.port());
     run_test(test_path, spin, config.on_error);
     Ok(())
-}
-
-fn start_services(test_path: &Path) -> anyhow::Result<Services> {
-    let services_config_path = test_path.join("services");
-    let children = if services_config_path.exists() {
-        let services = std::fs::read_to_string(&services_config_path)
-            .context("could not read services file")?;
-        let service_files = services.lines().filter_map(|s| {
-            let s = s.trim();
-            (!s.is_empty()).then_some(Path::new(s))
-        });
-        // TODO: make this more robust so that it is not just assumed where the services definitions are
-        let services_path = test_path
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("services");
-        let mut services = Vec::new();
-        for service_file in service_files {
-            let service_name = service_file.file_stem().unwrap().to_str().unwrap();
-            let child = match service_file.extension().and_then(|e| e.to_str()) {
-                Some("py") => {
-                    let mut lock =
-                        fslock::LockFile::open(&services_path.join(format!("{service_name}.lock")))
-                            .context("failed to open service file lock")?;
-                    lock.lock().context("failed to obtain service file lock")?;
-                    let child = python()
-                        .arg(services_path.join(service_file).display().to_string())
-                        // Ignore stdout
-                        .stdout(Stdio::null())
-                        .spawn()
-                        .context("service failed to spawn")?;
-                    (child, Some(lock))
-                }
-                _ => bail!("unsupported service type found: {service_name}",),
-            };
-            services.push(child);
-        }
-        services
-    } else {
-        Vec::new()
-    };
-
-    Ok(Services { children })
-}
-
-fn python() -> Command {
-    Command::new("python3")
-}
-
-struct Services {
-    children: Vec<(std::process::Child, Option<fslock::LockFile>)>,
-}
-
-impl Services {
-    fn error(&mut self) -> std::io::Result<()> {
-        for (child, _) in &mut self.children {
-            let exit = child.try_wait()?;
-            if exit.is_some() {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Interrupted,
-                    "process exited early",
-                ));
-            }
-        }
-        Ok(())
-    }
-}
-
-impl Drop for Services {
-    fn drop(&mut self) {
-        for (child, lock) in &mut self.children {
-            let _ = child.kill();
-            if let Some(lock) = lock {
-                let _ = lock.unlock();
-            }
-        }
-    }
 }
 
 /// Run an individual test
@@ -315,7 +238,7 @@ impl Spin {
     fn start(
         spin_binary_path: &Path,
         current_dir: &Path,
-        services: &mut Services,
+        services: &mut services::Services,
     ) -> Result<Self, anyhow::Error> {
         let port = get_random_port()?;
         let mut child = Command::new(spin_binary_path)

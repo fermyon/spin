@@ -39,7 +39,7 @@ The test runner will make a GET request against the `/` path. The component shou
 Services allow for tests to be run against external sources. The service definitions can be found in the 'services' directory. Each test directory contains a 'services' file that configures the tests services. Each line of the services file should contain the name of a services file that needs to run. For example, the following 'services' file will run the `tcp-echo.py` service:
 
 ```txt
-tcp-echo.py
+tcp-echo
 ```
 
 Each service is run under a file lock meaning that all other tests that require that service must wait until the current test using that service has finished.

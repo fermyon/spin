@@ -105,4 +105,3 @@ content-length: 77
 content-type: application/json
 
 {"timestamp":1702599575198,"fact":"Sharks lay the biggest eggs in the world"}
-```

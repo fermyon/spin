@@ -1498,18 +1498,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hrana-client-proto"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f16b4e41e289da3fd60e64f245246a97e78fab7b3788c6d8147b3ae7d9f5e533"
-dependencies = [
- "anyhow",
- "base64 0.21.4",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "http"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1641,9 +1629,12 @@ dependencies = [
  "futures-util",
  "http",
  "hyper 0.14.26",
+ "log",
  "rustls",
+ "rustls-native-certs",
  "tokio",
  "tokio-rustls",
+ "webpki-roots 0.23.1",
 ]
 
 [[package]]
@@ -1960,21 +1951,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "libsql-client"
-version = "0.31.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19eb636edc7f6da0a1306e5258440c94b630993a2b5e4a93e69fd2bfc00287af"
+name = "libsql"
+version = "0.2.0-alpha.1"
+source = "git+https://github.com/tursodatabase/libsql?rev=8d59b728f5bdf4ee33a65cb02ad174f311a2c94d#8d59b728f5bdf4ee33a65cb02ad174f311a2c94d"
 dependencies = [
- "anyhow",
+ "async-trait",
  "base64 0.21.4",
+ "bitflags 2.4.1",
+ "fallible-iterator 0.3.0",
  "futures",
- "hrana-client-proto",
- "num-traits",
- "reqwest",
+ "http",
+ "hyper 0.14.26",
+ "hyper-rustls",
  "serde",
  "serde_json",
+ "sqlite3-parser",
+ "thiserror",
+ "tokio",
+ "tower",
  "tracing",
- "url",
 ]
 
 [[package]]
@@ -2741,12 +2736,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "phf_codegen"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8d39688d359e6b34654d328e262234662d16cc0f60ec8dcbe5e718709342a5a"
+dependencies = [
+ "phf_generator",
+ "phf_shared",
+]
+
+[[package]]
+name = "phf_generator"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1181c94580fa345f50f19d738aaa39c0ed30a600d95cb2d3e23f94266f14fbf"
+dependencies = [
+ "phf_shared",
+ "rand 0.8.5",
+]
+
+[[package]]
 name = "phf_shared"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1fb5f6f826b772a8d4c0394209441e7d37cbbb967ae9c7e0e8134365c9ee676"
 dependencies = [
  "siphasher",
+ "uncased",
 ]
 
 [[package]]
@@ -3140,7 +3156,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-streams",
  "web-sys",
- "webpki-roots",
+ "webpki-roots 0.25.2",
  "winreg",
 ]
 
@@ -3265,8 +3281,20 @@ checksum = "1d1feddffcfcc0b33f5c6ce9a29e341e4cd59c3f78e7ee45f4a40c038b1d6cbb"
 dependencies = [
  "log",
  "ring",
- "rustls-webpki",
+ "rustls-webpki 0.101.4",
  "sct",
+]
+
+[[package]]
+name = "rustls-native-certs"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9aace74cb666635c918e9c12bc0d348266037aa8eb599b5cba565709a8dff00"
+dependencies = [
+ "openssl-probe",
+ "rustls-pemfile",
+ "schannel",
+ "security-framework",
 ]
 
 [[package]]
@@ -3276,6 +3304,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d194b56d58803a43635bdc398cd17e383d6f71f9182b9a192c127ca42494a59b"
 dependencies = [
  "base64 0.21.4",
+]
+
+[[package]]
+name = "rustls-webpki"
+version = "0.100.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f6a5fc258f1c1276dfe3016516945546e2d5383911efc0fc4f1cdc5df3a4ae3"
+dependencies = [
+ "ring",
+ "untrusted",
 ]
 
 [[package]]
@@ -3835,7 +3873,7 @@ version = "2.2.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
- "libsql-client",
+ "libsql",
  "rusqlite",
  "spin-sqlite",
  "spin-world",
@@ -3931,6 +3969,24 @@ name = "sptr"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b9b39299b249ad65f3b7e96443bad61c02ca5cd3589f46cb6d610a0fd6c0d6a"
+
+[[package]]
+name = "sqlite3-parser"
+version = "0.11.0"
+source = "git+https://github.com/tursodatabase/libsql?rev=8d59b728f5bdf4ee33a65cb02ad174f311a2c94d#8d59b728f5bdf4ee33a65cb02ad174f311a2c94d"
+dependencies = [
+ "bitflags 2.4.1",
+ "cc",
+ "fallible-iterator 0.3.0",
+ "indexmap 2.0.2",
+ "log",
+ "memchr",
+ "phf",
+ "phf_codegen",
+ "phf_shared",
+ "smallvec",
+ "uncased",
+]
 
 [[package]]
 name = "sqlparser"
@@ -4365,6 +4421,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "tower"
+version = "0.4.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8fa9be0de6cf49e536ce1851f987bd21a43b771b09473c3549a6c853db37c1c"
+dependencies = [
+ "futures-core",
+ "futures-util",
+ "pin-project",
+ "pin-project-lite",
+ "tower-layer",
+ "tower-service",
+ "tracing",
+]
+
+[[package]]
+name = "tower-layer"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c20c8dbed6283a09604c3e69b4b7eeb54e298b8a600d4d5ecb5ad39de609f1d0"
+
+[[package]]
 name = "tower-service"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4441,6 +4518,15 @@ name = "typenum"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
+
+[[package]]
+name = "uncased"
+version = "0.9.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b9bc53168a4be7402ab86c3aad243a84dd7381d09be0eddc81280c1da95ca68"
+dependencies = [
+ "version_check",
+]
 
 [[package]]
 name = "unicase"
@@ -5158,7 +5244,7 @@ dependencies = [
  "tracing",
  "wasmtime",
  "wasmtime-wasi",
- "webpki-roots",
+ "webpki-roots 0.25.2",
 ]
 
 [[package]]
@@ -5234,6 +5320,15 @@ checksum = "e33b99f4b23ba3eec1a53ac264e35a755f00e966e0065077d6027c0f575b0b97"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "webpki-roots"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b03058f88386e5ff5310d9111d53f48b17d732b401aeb83a8d5190f2ac459338"
+dependencies = [
+ "rustls-webpki 0.100.3",
 ]
 
 [[package]]

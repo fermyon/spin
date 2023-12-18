@@ -36,7 +36,6 @@ The important things to note about the function above are:
 Let's see an example where the component makes an outbound HTTP request to a server, modifies the result, and then returns it:
 
 ```rust
-use anyhow::Result;
 use spin_sdk::{
     http::{IntoResponse, Request, Method, Response},
     http_component,

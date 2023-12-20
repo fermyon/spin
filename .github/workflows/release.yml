@@ -424,7 +424,7 @@ jobs:
           rust-cache: true
 
       - name: Cargo Build
-        run: cross build --target ${{ matrix.config.target }} --workspace --release --all-targets --features openssl/vendored
+        run: cross build --target ${{ matrix.config.target }} --release --features openssl/vendored
         env:
           CARGO_INCREMENTAL: 0
           BUILD_SPIN_EXAMPLES: 0

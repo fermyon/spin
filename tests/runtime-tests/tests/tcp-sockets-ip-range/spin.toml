@@ -11,4 +11,4 @@ component = "test"
 
 [component.test]
 source = "{{tcp-sockets}}"
-allowed_outbound_hosts = ["*://127.0.0.0/24:5001"]
+allowed_outbound_hosts = ["*://127.0.0.0/24:6001"]

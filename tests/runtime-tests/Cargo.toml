@@ -5,10 +5,11 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-test-components = { path = "../test-components" }
 env_logger = "0.10.0"
+fslock = "0.2.1"
 log = "0.4"
 nix = "0.26.1"
 reqwest = { workspace = true }
-toml = "0.8.6"
 temp-dir = "0.1.11"
+test-components = { path = "../test-components" }
+toml = "0.8.6"

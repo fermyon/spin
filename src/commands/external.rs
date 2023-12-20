@@ -2,6 +2,7 @@ use crate::build_info::*;
 use crate::commands::plugins::{update, Install};
 use crate::opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG;
 use anyhow::{anyhow, Result};
+use spin_common::ui::quoted_path;
 use spin_plugins::{
     badger::BadgerChecker, error::Error as PluginError, manifest::warn_unsupported_version,
     PluginStore,
@@ -66,7 +67,16 @@ pub async fn execute_external_subcommand(
     )
     .await?;
 
-    let mut command = Command::new(plugin_store.installed_binary_path(&plugin_name));
+    let binary = plugin_store.installed_binary_path(&plugin_name);
+    if !binary.exists() {
+        return Err(anyhow!(
+            "plugin executable {} is missing. Try uninstalling and installing the plugin '{}' again.",
+            quoted_path(&binary),
+            plugin_name
+        ));
+    }
+
+    let mut command = Command::new(binary);
     command.args(args);
     command.envs(get_env_vars_map()?);
 

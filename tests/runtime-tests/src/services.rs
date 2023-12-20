@@ -52,6 +52,8 @@ pub fn start_services(test_path: &Path) -> anyhow::Result<Services> {
                     // TODO: get rid of this hardcoding of ports
                     let config = match required_service {
                         "redis" => DockerServiceConfig { port: 6379 },
+                        "postgres" => DockerServiceConfig { port: 5432 },
+                        "mysql" => DockerServiceConfig { port: 3306 },
                         _ => bail!("unsupported service found: {required_service}"),
                     };
                     Box::new(DockerService::start(

@@ -11,4 +11,4 @@ component = "test"
 
 [component.test]
 source = "{{outbound-redis}}"
-environment = { REDIS_ADDRESS = "redis://redis:6379" }
+environment = { REDIS_ADDRESS = "redis://localhost:6379" }

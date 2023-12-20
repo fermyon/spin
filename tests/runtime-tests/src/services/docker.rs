@@ -24,19 +24,11 @@ impl DockerService {
             fslock::LockFile::open(&service_definitions_path.join(format!("{name}.lock")))
                 .context("failed to open service file lock")?;
         lock.lock().context("failed to obtain service file lock")?;
+
         stop_containers(&get_running_containers(&image_name)?)?;
         build_image(&docker_file_path, &image_name)?;
-        let status = Command::new("docker")
-            .arg("run")
-            .arg("-d")
-            .arg("-p")
-            .arg(format!("{}:{}", config.port, config.port))
-            .arg(&image_name)
-            .status()
-            .context("service failed to spawn")?;
-        if !status.success() {
-            bail!("failed to run docker image");
-        }
+        run_container(&image_name, &config)?;
+
         Ok(Self { image_name, lock })
     }
 }
@@ -54,7 +46,9 @@ impl Service for DockerService {
     }
 }
 
+/// Configuration for a docker service
 pub struct DockerServiceConfig {
+    /// Port mapping
     pub port: u16,
 }
 
@@ -89,6 +83,22 @@ fn get_running_containers(image_name: &str) -> anyhow::Result<Vec<String>> {
         .context("failed to get running containers")?;
     let output = String::from_utf8(output.stdout)?;
     Ok(output.lines().map(|s| s.to_owned()).collect())
+}
+
+fn run_container(image_name: &str, config: &DockerServiceConfig) -> anyhow::Result<()> {
+    let status = Command::new("docker")
+        .arg("run")
+        .arg("-d")
+        .arg("-p")
+        .arg(format!("{}:{}", config.port, config.port))
+        .arg(image_name)
+        .stdout(Stdio::null())
+        .status()
+        .context("service failed to spawn")?;
+    if !status.success() {
+        bail!("failed to run docker image");
+    }
+    Ok(())
 }
 
 fn stop_containers(ids: &[String]) -> anyhow::Result<()> {

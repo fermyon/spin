@@ -11,5 +11,5 @@ component = "test"
 
 [component.test]
 source = "{{outbound-mysql}}"
-allowed_outbound_hosts = ["mysql://mysql:3306"]
-environment = { DB_URL = "mysql://spin:spin@mysql:3306/spin_dev" }
+allowed_outbound_hosts = ["mysql://localhost:3306"]
+environment = { DB_URL = "mysql://spin:spin@localhost:3306/spin_dev" }

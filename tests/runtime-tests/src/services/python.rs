@@ -1,13 +1,14 @@
 use super::Service;
 use anyhow::Context as _;
 use std::{
+    collections::HashMap,
     path::Path,
     process::{Command, Stdio},
 };
 
 pub struct PythonService {
     child: std::process::Child,
-    lock: fslock::LockFile,
+    _lock: fslock::LockFile,
 }
 
 impl PythonService {
@@ -27,7 +28,7 @@ impl PythonService {
             .stdout(Stdio::null())
             .spawn()
             .context("service failed to spawn")?;
-        Ok(Self { child, lock })
+        Ok(Self { child, _lock: lock })
     }
 }
 
@@ -44,10 +45,18 @@ impl Service for PythonService {
         Ok(())
     }
 
-    fn stop(&mut self) -> anyhow::Result<()> {
+    fn ports(&self) -> anyhow::Result<&HashMap<u16, u16>> {
+        todo!()
+    }
+
+    fn name(&self) -> &str {
+        "python"
+    }
+}
+
+impl Drop for PythonService {
+    fn drop(&mut self) {
         let _ = self.child.kill();
-        let _ = self.lock.unlock();
-        Ok(())
     }
 }
 

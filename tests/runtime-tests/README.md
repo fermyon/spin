@@ -22,9 +22,12 @@ The runtime tests can either be run as a library function (e.g., this is how the
 
 ## How do I add a new test?
 
-To add a new test you must add a new folder to the `tests` directory with at least a `spin.toml` manifest. 
+To add a new test you must add a new folder to the `tests` directory with at least a `spin.toml` manifest.
 
-The manifest can reference pre-built Spin compliant WebAssembly modules that can be found in the `test-components` folder in the Spin repo. It does so by using the `{{$NAME}}` where `$NAME` is substituted for the name of the test component to be used. For example `{{sqlite}}` will use the test-component named "sqlite" found in the `test-components` directory.
+The manifest is actually a template that allows for a few values to be interpolated by the test runner. The interpolation happens through `{{key=value}}` annotations where `key` is one of a limited number of keys the test runner supports. The supported keys are:
+
+* `source`: The manifest can reference pre-built Spin compliant WebAssembly modules that can be found in the `test-components` folder in the Spin repo. The value is substituted for the name of the test component to be used. For example `{{source=sqlite}}` will use the test-component named "sqlite" found in the `test-components` directory.
+* `port`: The manifest can reference a port that has been exposed by a service (see the section on services below). For example, if the test runner sees `{{port=1234}}` it will look for a service that exposes the guest port 1234 on some randomly assigned host port and substitute `{{port=1234}}` for that randomly assigned port.
 
 The test directory may additionally contain:
 * an `error.txt` if the Spin application is expected to fail
@@ -46,6 +49,9 @@ Each service is run under a file lock meaning that all other tests that require 
 
 The following service types are supported:
 * Python services (a python script ending in the .py file extension)
+* Docker services (a docker file ending in the .Dockerfile extension)
+
+When looking to add a new service, always prefer the Python based service as it's generally much quicker and lighter weight to run a Python script than a Docker container. Only use Docker when the service you require is not possible to achieve in cross platform way as a Python script.
 
 ## When do tests pass?
 

@@ -10,6 +10,6 @@ route = "/"
 component = "test"
 
 [component.test]
-source = "{{tcp-sockets}}"
+source = "{{source=tcp-sockets}}"
 # Component expects 127.0.0.1 but we only allow 127.0.0.2
 allowed_outbound_hosts = ["*://127.0.0.2:6001"]

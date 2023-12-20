@@ -10,4 +10,4 @@ route = "/"
 component = "test"
 
 [component.test]
-source = "{{key-value}}"
+source = "{{source=key-value}}"

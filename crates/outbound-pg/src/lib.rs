@@ -42,14 +42,20 @@ impl OutboundPg {
         let Ok(config) = address.parse::<tokio_postgres::Config>() else {
             return false;
         };
-        for host in config.get_hosts() {
+        for (i, host) in config.get_hosts().iter().enumerate() {
             match host {
                 tokio_postgres::config::Host::Tcp(address) => {
-                    if !spin_outbound_networking::check_url(
-                        address,
-                        "postgres",
-                        &self.allowed_hosts,
-                    ) {
+                    let ports = config.get_ports();
+                    // The port we use is either:
+                    // * The port at the same index as the host
+                    // * The first port if there is only one port
+                    let port =
+                        ports
+                            .get(i)
+                            .or_else(|| if ports.len() == 1 { ports.get(1) } else { None });
+                    let port_str = port.map(|p| format!(":{}", p)).unwrap_or_default();
+                    let url = format!("{address}{port_str}");
+                    if !spin_outbound_networking::check_url(&url, "postgres", &self.allowed_hosts) {
                         return false;
                     }
                 }

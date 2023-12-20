@@ -11,11 +11,11 @@ doctest = false
 anyhow = "1.0"
 flate2 = "1.0.17"
 # Removing default features for mysql_async to remove flate2/zlib feature
-mysql_async = { version = "0.32.2", default-features = false, features = [
+mysql_async = { version = "0.33.0", default-features = false, features = [
     "native-tls-tls",
 ] }
 # Removing default features for mysql_common to remove flate2/zlib feature
-mysql_common = { version = "0.30.6", default-features = false }
+mysql_common = { version = "0.31.0", default-features = false }
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 spin-outbound-networking = { path = "../outbound-networking" }

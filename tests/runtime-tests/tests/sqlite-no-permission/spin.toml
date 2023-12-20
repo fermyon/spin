@@ -10,4 +10,4 @@ route = "/"
 component = "test"
 
 [component.test]
-source = "{{sqlite}}"
+source = "{{source=sqlite}}"

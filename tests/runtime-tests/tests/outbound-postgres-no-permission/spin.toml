@@ -10,5 +10,5 @@ route = "/"
 component = "test"
 
 [component.test]
-source = "{{outbound-postgres}}"
+source = "{{source=outbound-postgres}}"
 environment = { DB_URL = "postgres://spin:spin@localhost:5432/spin_dev" }

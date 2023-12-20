@@ -9,6 +9,7 @@ env_logger = "0.10.0"
 fslock = "0.2.1"
 log = "0.4"
 nix = "0.26.1"
+regex = "1.10.2"
 reqwest = { workspace = true }
 temp-dir = "0.1.11"
 test-components = { path = "../test-components" }

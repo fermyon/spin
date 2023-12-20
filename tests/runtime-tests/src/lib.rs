@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::Context;
+use services::Services;
 
 /// Configuration for the test suite
 pub struct Config {
@@ -56,8 +57,8 @@ pub fn bootstrap_and_run(test_path: &Path, config: &Config) -> Result<(), anyhow
     let temp = temp_dir::TempDir::new()
         .context("failed to produce a temporary directory to run the test in")?;
     log::trace!("Temporary directory: {}", temp.path().display());
-    copy_manifest(test_path, &temp)?;
     let mut services = services::start_services(test_path)?;
+    copy_manifest(test_path, &temp, &services)?;
     let spin = Spin::start(&config.spin_binary_path, temp.path(), &mut services)?;
     log::debug!("Spin started on port {}.", spin.port());
     run_test(test_path, spin, config.on_error);
@@ -117,9 +118,11 @@ fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
             } else {
                 error!(
                     on_error,
-                    "Test errored but not in the expected way.\n\texpected: {}\n\tgot: {}",
+                    "Test errored but not in the expected way.\n\texpected: {}\n\tgot: {}\n\nSpin stderr:\n{}",
                     expected,
-                    e
+                    e,
+                    spin.stderr.output_as_str().unwrap_or("<non-utf8>")
+
                 )
             }
         }
@@ -132,7 +135,12 @@ fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
             error!(on_error, "Test '{}' errored: {e}", test_path.display());
         }
         ResponseKind::Err(e) => {
-            error!(on_error, "Test '{}' errored: {e}", test_path.display());
+            error!(
+                on_error,
+                "Test '{}' errored: {e}\nSpin stderr: {}",
+                test_path.display(),
+                spin.stderr.output_as_str().unwrap_or("<non-utf8>")
+            );
         }
     }
     if let OnTestError::Log = on_error {
@@ -143,52 +151,54 @@ fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
 /// Copies the test dir's manifest file into the temporary directory
 ///
 /// Replaces template variables in the manifest file with components from the components path.
-fn copy_manifest(test_dir: &Path, temp: &temp_dir::TempDir) -> anyhow::Result<()> {
+fn copy_manifest(
+    test_dir: &Path,
+    temp: &temp_dir::TempDir,
+    services: &Services,
+) -> anyhow::Result<()> {
     let manifest_path = test_dir.join("spin.toml");
-    let manifest = std::fs::read_to_string(&manifest_path).with_context(|| {
+    let mut manifest = std::fs::read_to_string(manifest_path).with_context(|| {
         format!(
             "no spin.toml manifest found in test directory {}",
             test_dir.display()
         )
     })?;
-    let mut table = manifest
-        .parse::<toml::Table>()
-        .context("could not parse the manifest as toml")?;
-    for (_, component) in table["component"].as_table_mut().with_context(|| {
-        format!(
-            "malformed manifest '{}' does not contain 'component' array",
-            manifest_path.display(),
-        )
-    })? {
-        let source = component.get_mut("source").with_context(|| {
-            format!(
-                "malformed manifest '{}' does not contain 'source' string key in component",
-                manifest_path.display()
-            )
+    let regex = regex::Regex::new(r"\{\{(.*)\}\}").unwrap();
+    while let Some(captures) = regex.captures(&manifest) {
+        let (Some(full), Some(capture)) = (captures.get(0), captures.get(1)) else {
+            continue;
+        };
+        let template = capture.as_str();
+        let (template_key, template_value) = template.split_once('=').with_context(|| {
+            format!("invalid template '{template}'(template should be in the form $KEY=$VALUE)")
         })?;
-        let source_str = source.as_str().with_context(|| {
-            format!(
-                "malformed manifest '{}' contains 'source' key that isn't a string in component",
-                manifest_path.display()
-            )
-        })?;
-        // TODO: make this more robust
-        if source_str.starts_with("{{") {
-            let name = &source_str[2..source_str.len() - 2];
-            let path =
-                std::path::PathBuf::from(test_components::path(name).context("no such component")?);
-            let wasm_name = path.file_name().unwrap().to_str().unwrap();
-            std::fs::copy(&path, temp.path().join(wasm_name)).with_context(|| {
-                format!(
-                    "failed to copy wasm file '{}' to temporary directory",
-                    path.display()
-                )
-            })?;
-            *source = toml::Value::String(wasm_name.into());
-        }
+        let replacement = match template_key.trim() {
+            "source" => {
+                let path = std::path::PathBuf::from(
+                    test_components::path(template_value).context("no such component")?,
+                );
+                let wasm_name = path.file_name().unwrap().to_str().unwrap();
+                std::fs::copy(&path, temp.path().join(wasm_name)).with_context(|| {
+                    format!(
+                        "failed to copy wasm file '{}' to temporary directory",
+                        path.display()
+                    )
+                })?;
+                wasm_name.to_owned()
+            }
+            "port" => {
+                let guest_port = template_value.parse()?;
+                let port = services
+                    .get_port(guest_port)?
+                    .with_context(|| format!("no port {guest_port} exposed by any service"))?;
+                port.to_string()
+            }
+            _ => {
+                anyhow::bail!("unknown template key: {template_key}");
+            }
+        };
+        manifest.replace_range(full.range(), &replacement);
     }
-    let manifest =
-        toml::to_string(&table).context("failed to re-serialize manifest as a string")?;
     std::fs::write(temp.path().join("spin.toml"), manifest)
         .context("failed to copy spin.toml manifest to temporary directory")?;
     Ok(())

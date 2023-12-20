@@ -1,10 +1,12 @@
-use std::{
-    collections::HashMap,
-    path::Path,
-    process::{Command, Stdio},
-};
+use std::{collections::HashMap, path::Path};
+
+mod docker;
+mod python;
 
 use anyhow::{bail, Context};
+
+use docker::{DockerService, DockerServiceConfig};
+use python::PythonService;
 
 pub fn start_services(test_path: &Path) -> anyhow::Result<Services> {
     let services_config_path = test_path.join("services");
@@ -41,42 +43,22 @@ pub fn start_services(test_path: &Path) -> anyhow::Result<Services> {
         let mut services = Vec::new();
         for required_service in required_services {
             let service_definition_extension = service_definitions.get(required_service);
-            let child = match service_definition_extension.map(|s| s.as_str()) {
-                Some("py") => {
-                    let mut lock = fslock::LockFile::open(
-                        &service_definitions_path.join(format!("{required_service}.lock")),
-                    )
-                    .context("failed to open service file lock")?;
-                    lock.lock().context("failed to obtain service file lock")?;
-                    let child = python()
-                        .arg(
-                            service_definitions_path
-                                .join(format!("{required_service}.py"))
-                                .display()
-                                .to_string(),
-                        )
-                        // Ignore stdout
-                        .stdout(Stdio::null())
-                        .spawn()
-                        .context("service failed to spawn")?;
-                    (child, Some(lock))
-                }
-                Some("docker-compose.yml") => {
-                    let child = Command::new("docker-compose")
-                        .arg("-f")
-                        .arg(
-                            service_definitions_path
-                                .join(format!("{required_service}.docker-compose.yml"))
-                                .display()
-                                .to_string(),
-                        )
-                        .arg("up")
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null())
-                        .spawn()
-                        .context("service failed to spawn")?;
-                    std::thread::sleep(std::time::Duration::from_secs(5));
-                    (child, None)
+            let child: Box<dyn Service> = match service_definition_extension.map(|s| s.as_str()) {
+                Some("py") => Box::new(PythonService::start(
+                    required_service,
+                    &service_definitions_path,
+                )?),
+                Some("Dockerfile") => {
+                    // TODO: get rid of this hardcoding of ports
+                    let config = match required_service {
+                        "redis" => DockerServiceConfig { port: 6379 },
+                        _ => bail!("unsupported service found: {required_service}"),
+                    };
+                    Box::new(DockerService::start(
+                        required_service,
+                        &service_definitions_path,
+                        config,
+                    )?)
                 }
                 _ => bail!("unsupported service found: {required_service}"),
             };
@@ -87,27 +69,18 @@ pub fn start_services(test_path: &Path) -> anyhow::Result<Services> {
         Vec::new()
     };
 
-    Ok(Services { children })
+    Ok(Services { services: children })
 }
 
-fn python() -> Command {
-    Command::new("python3")
-}
-
+/// All the services that are running for a test.
 pub struct Services {
-    children: Vec<(std::process::Child, Option<fslock::LockFile>)>,
+    services: Vec<Box<dyn Service>>,
 }
 
 impl Services {
-    pub fn error(&mut self) -> std::io::Result<()> {
-        for (child, _) in &mut self.children {
-            let exit = child.try_wait()?;
-            if exit.is_some() {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Interrupted,
-                    "process exited early",
-                ));
-            }
+    pub fn error(&mut self) -> anyhow::Result<()> {
+        for service in &mut self.services {
+            service.error()?;
         }
         Ok(())
     }
@@ -115,11 +88,16 @@ impl Services {
 
 impl Drop for Services {
     fn drop(&mut self) {
-        for (child, lock) in &mut self.children {
-            let _ = child.kill();
-            if let Some(lock) = lock {
-                let _ = lock.unlock();
-            }
+        for service in &mut self.services {
+            service.stop().unwrap();
         }
     }
+}
+
+/// An external service a test may depend on.
+trait Service {
+    /// Check if the service is in an error state.
+    fn error(&mut self) -> anyhow::Result<()>;
+    /// Stop the service.
+    fn stop(&mut self) -> anyhow::Result<()>;
 }

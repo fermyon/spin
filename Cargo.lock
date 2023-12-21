@@ -5806,6 +5806,7 @@ dependencies = [
  "subprocess",
  "tempfile",
  "terminal",
+ "test-codegen-macro",
  "test-components",
  "tokio",
  "toml 0.6.0",
@@ -6666,6 +6667,14 @@ dependencies = [
  "nom",
  "phf",
  "phf_codegen",
+]
+
+[[package]]
+name = "test-codegen-macro"
+version = "0.0.0"
+dependencies = [
+ "heck 0.4.1",
+ "quote",
 ]
 
 [[package]]

@@ -141,7 +141,7 @@ jobs:
 
 
   test-rust:
-    name: Test Spin SDK - Rust
+    name: Test Spin
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:

@@ -133,10 +133,20 @@ fn build_wasm_test_program(name: &'static str, root: &'static str) {
 }
 
 fn has_wasm32_wasi_target() -> bool {
-    let output = run(vec!["rustup", "target", "list", "--installed"], None, None);
-    let output = std::str::from_utf8(&output.stdout).unwrap();
+    // Using rustc here for systems that don't have rustup
+    let output = run(
+        vec!["rustc", "--print=target-libdir", "--target=wasm32-wasi"],
+        None,
+        None,
+    );
+    let Ok(output) = std::str::from_utf8(&output.stdout) else {
+        return false;
+    };
+    // If it returns regular output on stdout, then the compiler understands
+    // If the path exists, then we know the target is installed
+    // If the path doesn't exist, it must be installed with rustup or something
     for line in output.lines() {
-        if line == "wasm32-wasi" {
+        if !line.is_empty() && std::path::Path::new(line).exists() {
             return true;
         }
     }

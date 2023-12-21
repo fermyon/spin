@@ -95,6 +95,7 @@ test-crate:
 
 .PHONY: test-integration
 test-integration:
+	cargo test -F e2e-tests -- runtime_tests --nocapture; \
 	$(LOG_LEVEL_VAR) cargo test --test integration --no-fail-fast -- --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-spin-up

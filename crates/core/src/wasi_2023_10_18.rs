@@ -199,7 +199,7 @@ where
 {
     fn filesystem_error_code(
         &mut self,
-        err: Resource<Error>,
+        err: Resource<wasi::filesystem::types::Error>,
     ) -> wasmtime::Result<Option<FsErrorCode>> {
         Ok(
             <T as latest::filesystem::types::Host>::filesystem_error_code(self, err)?
@@ -2033,11 +2033,12 @@ where
         self_: wasmtime::component::Resource<FutureTrailers>,
     ) -> wasmtime::Result<Option<Result<wasmtime::component::Resource<Trailers>, HttpError>>> {
         match <T as latest::http::types::HostFutureTrailers>::get(self, self_)? {
-            Some(Ok(Some(trailers))) => Ok(Some(Ok(trailers))),
+            Some(Ok(Ok(Some(trailers)))) => Ok(Some(Ok(trailers))),
             // Return an empty trailers if no trailers popped out since this
             // version of WASI couldn't represent the lack of trailers.
-            Some(Ok(None)) => Ok(Some(Ok(<T as latest::http::types::HostFields>::new(self)?))),
-            Some(Err(e)) => Ok(Some(Err(e.into()))),
+            Some(Ok(Ok(None))) => Ok(Some(Ok(<T as latest::http::types::HostFields>::new(self)?))),
+            Some(Ok(Err(e))) => Ok(Some(Err(e.into()))),
+            Some(Err(())) => Err(anyhow::anyhow!("trailers have already been retrieved")),
             None => Ok(None),
         }
     }
@@ -2101,7 +2102,7 @@ where
 
                 if let Some(ms) = connect_timeout_ms {
                     if let Err(()) =
-                        <T as latest::http::types::HostRequestOptions>::set_connect_timeout_ms(
+                        <T as latest::http::types::HostRequestOptions>::set_connect_timeout(
                             self,
                             borrow(),
                             Some(ms.into()),
@@ -2114,7 +2115,7 @@ where
 
                 if let Some(ms) = first_byte_timeout_ms {
                     if let Err(()) =
-                        <T as latest::http::types::HostRequestOptions>::set_first_byte_timeout_ms(
+                        <T as latest::http::types::HostRequestOptions>::set_first_byte_timeout(
                             self,
                             borrow(),
                             Some(ms.into()),
@@ -2127,7 +2128,7 @@ where
 
                 if let Some(ms) = between_bytes_timeout_ms {
                     if let Err(()) =
-                        <T as latest::http::types::HostRequestOptions>::set_between_bytes_timeout_ms(
+                        <T as latest::http::types::HostRequestOptions>::set_between_bytes_timeout(
                             self,
                             borrow(),
                             Some(ms.into()),
@@ -2233,6 +2234,8 @@ macro_rules! convert {
         convert!($($rest)*);
     };
 }
+
+pub(crate) use convert;
 
 convert! {
     struct latest::clocks::wall_clock::Datetime [<=>] Datetime {

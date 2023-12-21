@@ -1,6 +1,7 @@
 use crate::ensure_eq;
 use anyhow::Result;
-use reqwest::{Method, Request, Response};
+use http::Method;
+use reqwest::{Request, Response};
 use std::str;
 use std::thread::sleep;
 use std::time::Duration;
@@ -99,7 +100,14 @@ pub async fn assert_http_response_once(
 }
 
 pub async fn create_request(method: Method, url: &str, body: &str) -> Result<Request> {
-    let mut req = reqwest::Request::new(method, url.try_into()?);
+    let mut req = reqwest::Request::new(
+        match method {
+            Method::GET => reqwest::Method::GET,
+            Method::POST => reqwest::Method::POST,
+            _ => todo!("handle {method}"),
+        },
+        url.try_into()?,
+    );
     *req.body_mut() = Some(body.to_owned().into());
 
     Ok(req)

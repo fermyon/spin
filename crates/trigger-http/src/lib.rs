@@ -22,6 +22,7 @@ use hyper::{
     service::service_fn,
     Request, Response,
 };
+use hyper_util::rt::tokio::TokioIo;
 use spin_app::{AppComponent, APP_DESCRIPTION_KEY};
 use spin_core::{Engine, OutboundWasiHttpHandler};
 use spin_http::{
@@ -295,7 +296,7 @@ impl HttpTrigger {
             if let Err(e) = http1::Builder::new()
                 .keep_alive(true)
                 .serve_connection(
-                    stream,
+                    TokioIo::new(stream),
                     service_fn(move |request| {
                         let self_ = self_.clone();
                         async move {

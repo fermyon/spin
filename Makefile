@@ -94,7 +94,7 @@ test-crate:
 	$(LOG_LEVEL_VAR) cargo test -p $(crate) --no-fail-fast -- --skip integration_tests --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-integration
-test-integration: test-kv test-sqlite
+test-integration:
 	$(LOG_LEVEL_VAR) cargo test --test integration --no-fail-fast -- --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-spin-up
@@ -109,18 +109,6 @@ run-test-spin-up:
 	REDIS_IMAGE=$(REDIS_IMAGE) MYSQL_IMAGE=$(MYSQL_IMAGE) POSTGRES_IMAGE=$(POSTGRES_IMAGE) \
 	BUILD_SPIN=$(E2E_BUILD_SPIN) \
 	docker compose -f e2e-tests-docker-compose.yml run $(E2E_SPIN_RELEASE_VOLUME_MOUNT) $(E2E_SPIN_DEBUG_VOLUME_MOUNT) e2e-tests
-
-.PHONY: test-kv
-test-kv: build
-	PATH=$$(pwd)/target/release:$$PATH $(LOG_LEVEL_VAR) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::key_value --nocapture
-
-.PHONY: test-sqlite
-test-sqlite: build
-	PATH=$$(pwd)/target/release:$$PATH $(LOG_LEVEL_VAR) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::sqlite --nocapture
-
-.PHONY: test-config-provider
-test-config-provider:
-	$(LOG_LEVEL_VAR) cargo test --test integration --features config-provider-tests --no-fail-fast -- integration_tests::config_provider_tests --nocapture
 
 .PHONY: test-sdk-go
 test-sdk-go:

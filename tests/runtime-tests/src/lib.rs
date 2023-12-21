@@ -295,11 +295,20 @@ fn make_http_request(spin: &mut Spin) -> Result<reqwest::blocking::Response, any
         anyhow::bail!("Spin exited early with status code {:?}", status.code());
     }
     log::debug!("Connecting to HTTP server on port {}...", spin.port());
-    let response = reqwest::blocking::get(format!("http://127.0.0.1:{}", spin.port()))?;
-    log::debug!("Awaiting response from server");
-    if let Some(status) = spin.try_wait()? {
-        anyhow::bail!("Spin exited early with status code {:?}", status.code());
-    }
+    let mut retry = 0;
+    let response = loop {
+        match reqwest::blocking::get(format!("http://127.0.0.1:{}", spin.port())) {
+            Ok(r) => break r,
+            Err(e) if !e.is_connect() || retry >= 5 => return Err(e.into()),
+            Err(_) => {
+                log::debug!("Awaiting response from server");
+                if let Some(status) = spin.try_wait()? {
+                    anyhow::bail!("Spin exited early with status code {:?}", status.code());
+                }
+                retry += 1
+            }
+        }
+    };
     Ok(response)
 }
 

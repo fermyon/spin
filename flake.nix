@@ -1,6 +1,6 @@
 
 {
-  description = "A basic Rust devshell";
+  description = "Nix Devshell for Spin";
 
   inputs = {
     nixpkgs.url      = "github:NixOS/nixpkgs/nixos-unstable";

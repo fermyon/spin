@@ -3,6 +3,8 @@ use std::{collections::HashMap, path::PathBuf, process::Command};
 fn main() {
     println!("cargo:rerun-if-changed=components");
     println!("cargo:rerun-if-changed=helper");
+    println!("cargo:rerun-if-changed=adapters");
+
     let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR env variable not set"));
     let packages = std::fs::read_dir("components")
         .expect("could not read components directory")
@@ -46,7 +48,8 @@ fn main() {
             .join(format!("{binary_name}.wasm"));
 
         let adapter_version = package.split('v').last().and_then(|v| match v {
-            "0.2.0-rc-2023-11-10" => Some("15.0.1"),
+            // Only allow this version through
+            "0.2.0-rc-2023-11-10" => Some(v),
             _ => None,
         });
 
@@ -66,10 +69,7 @@ fn main() {
         }
 
         // Generate const with the wasm binary path
-        generated_code += &format!(
-            "pub const {const_name}: &str = \"{}\";\n",
-            wasm_path.display()
-        );
+        generated_code += &format!("pub const {const_name}: &str = {wasm_path:?};\n",);
         name_to_path.insert(package, wasm_path);
     }
 

@@ -51,6 +51,7 @@ pub fn start_services(test_path: &Path) -> anyhow::Result<Services> {
             }
             None => bail!("no service definition found for '{required_service}'"),
         };
+        service.await_ready()?;
         services.push(service);
     }
 
@@ -120,8 +121,12 @@ pub trait Service {
     /// The name of the service
     fn name(&self) -> &str;
 
+    /// Block until the service is ready.
+    fn await_ready(&self) -> anyhow::Result<()>;
+
     /// Check if the service is in an error state.
     fn error(&mut self) -> anyhow::Result<()>;
 
+    /// Get a mapping of ports that the service exposes.
     fn ports(&self) -> anyhow::Result<&HashMap<u16, u16>>;
 }

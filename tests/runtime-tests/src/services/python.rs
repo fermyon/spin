@@ -33,6 +33,14 @@ impl PythonService {
 }
 
 impl Service for PythonService {
+    fn name(&self) -> &str {
+        "python"
+    }
+
+    fn await_ready(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     fn error(&mut self) -> anyhow::Result<()> {
         let exit = self.child.try_wait()?;
         if exit.is_some() {
@@ -47,10 +55,6 @@ impl Service for PythonService {
 
     fn ports(&self) -> anyhow::Result<&HashMap<u16, u16>> {
         todo!()
-    }
-
-    fn name(&self) -> &str {
-        "python"
     }
 }
 

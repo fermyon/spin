@@ -81,6 +81,31 @@ impl Service for DockerService {
         "docker"
     }
 
+    fn await_ready(&self) -> anyhow::Result<()> {
+        // docker container inspect -f '{{.State.Health.Status}}'
+        loop {
+            let output = Command::new("docker")
+                .arg("container")
+                .arg("inspect")
+                .arg("-f")
+                // Ensure that .State.Health exists and otherwise just print that it's healthy
+                .arg("{{with .State.Health}}{{.Status}}{{else}}healthy{{end}}")
+                .arg(&self.container.id)
+                .output()
+                .context("failed to determine container health")?;
+            if !output.status.success() {
+                let stderr = std::str::from_utf8(&output.stderr).unwrap_or("<non-utf8>");
+                bail!("docker health status check failed: {stderr}");
+            }
+            let output = String::from_utf8(output.stdout)?;
+            match output.trim() {
+                "healthy" => return Ok(()),
+                "unhealthy" => bail!("docker container is unhealthy"),
+                _ => std::thread::sleep(std::time::Duration::from_millis(100)),
+            }
+        }
+    }
+
     fn error(&mut self) -> anyhow::Result<()> {
         anyhow::ensure!(!get_running_containers(&self.image_name)?.is_empty());
         Ok(())
@@ -135,16 +160,12 @@ fn run_container(image_name: &str) -> anyhow::Result<Container> {
         .arg("run")
         .arg("-d")
         .arg("-P")
+        .arg("--health-start-period=1s")
         .arg(image_name)
         .output()
         .context("service failed to spawn")?;
     if !output.status.success() {
         bail!("failed to run docker image");
-    }
-    // TODO: figure out how we get rid of this hack
-    // This is currently necessary because mysql takes a while to start up
-    if image_name.contains("mysql") {
-        std::thread::sleep(std::time::Duration::from_secs(15));
     }
     let output = String::from_utf8(output.stdout)?;
     let id = output.trim().to_owned();

@@ -3,15 +3,19 @@ use std::{collections::HashMap, path::PathBuf, process::Command};
 fn main() {
     println!("cargo:rerun-if-changed=components");
     println!("cargo:rerun-if-changed=helper");
-    let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
+    let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR env variable not set"));
     let packages = std::fs::read_dir("components")
-        .unwrap()
+        .expect("could not read components directory")
         .filter_map(|e| {
             let dir = e.ok()?;
             let file_type = dir.file_type().ok()?;
             file_type.is_dir().then_some(dir)
         })
-        .map(|e| e.file_name().into_string().unwrap())
+        .map(|e| {
+            e.file_name()
+                .into_string()
+                .expect("file name is not valid utf8")
+        })
         .collect::<Vec<_>>();
 
     let mut generated_code = String::new();
@@ -19,7 +23,8 @@ fn main() {
     for package in packages {
         let crate_path = PathBuf::from("components").join(&package);
         let manifest_path = crate_path.join("Cargo.toml");
-        let manifest = cargo_toml::Manifest::from_path(&manifest_path).unwrap();
+        let manifest = cargo_toml::Manifest::from_path(&manifest_path)
+            .expect("failed to read and parse Cargo manifest");
 
         // Build the test component
         let mut cargo = Command::new("cargo");
@@ -30,19 +35,42 @@ fn main() {
             .env("RUSTFLAGS", rustflags())
             .env("CARGO_TARGET_DIR", &out_dir);
         eprintln!("running: {cargo:?}");
-        let status = cargo.status().unwrap();
+        let status = cargo.status().expect("`cargo build` failed");
         assert!(status.success(), "{status:?}");
-        eprintln!("{status:?}");
         let const_name = to_shouty_snake_case(&package);
-        let binary_name = manifest.package.unwrap().name.replace('-', "_");
-        let wasm = out_dir
+        let package_name = manifest.package.expect("manifest has no package").name;
+        let binary_name = package_name.replace(['-', '.'], "_");
+        let wasm_path = out_dir
             .join("wasm32-wasi")
             .join("debug")
             .join(format!("{binary_name}.wasm"));
 
+        let adapter_version = package.split('v').last().and_then(|v| match v {
+            "0.2.0-rc-2023-11-10" => Some("15.0.1"),
+            _ => None,
+        });
+
+        if let Some(adapter_version) = adapter_version {
+            let module_bytes = std::fs::read(&wasm_path).expect("failed to read wasm binary");
+            let adapter_bytes = std::fs::read(format!("adapters/{adapter_version}.reactor.wasm"))
+                .expect("failed to read adapter wasm binary");
+            let new_bytes = wit_component::ComponentEncoder::default()
+                .validate(true)
+                .module(&module_bytes)
+                .expect("failed to set wasm module")
+                .adapter("wasi_snapshot_preview1", &adapter_bytes)
+                .expect("failed to apply adapter")
+                .encode()
+                .expect("failed to encode component");
+            std::fs::write(&wasm_path, new_bytes).expect("failed to write new wasm binary");
+        }
+
         // Generate const with the wasm binary path
-        generated_code += &format!("pub const {const_name}: &str = {wasm:?};\n");
-        name_to_path.insert(package, wasm);
+        generated_code += &format!(
+            "pub const {const_name}: &str = \"{}\";\n",
+            wasm_path.display()
+        );
+        name_to_path.insert(package, wasm_path);
     }
 
     // Generate helper function to map package name to binary path
@@ -53,11 +81,11 @@ fn main() {
         generated_code.push_str("    }\n");
     }
     generated_code.push_str("None\n}");
-    std::fs::write(out_dir.join("gen.rs"), generated_code).unwrap();
+    std::fs::write(out_dir.join("gen.rs"), generated_code).expect("failed to write gen.rs");
 }
 
 fn to_shouty_snake_case(package: &str) -> String {
-    package.to_uppercase().replace('-', "_")
+    package.to_uppercase().replace(['-', '.'], "_")
 }
 
 fn rustflags() -> &'static str {

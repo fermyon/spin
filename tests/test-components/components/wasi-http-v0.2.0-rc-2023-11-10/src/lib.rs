@@ -3,7 +3,7 @@ wit_bindgen::generate!({
     world: "wasi:http/handler@0.2.0-rc-2023-11-10",
 });
 
-use helper::ensure_eq;
+use helper::{ensure_eq, ensure_ok};
 use wasi::http::outgoing_handler;
 use wasi::http::types::{Headers, Method, OutgoingBody, OutgoingRequest, Scheme};
 use wasi::io::streams::StreamError;
@@ -12,10 +12,14 @@ helper::define_component!(Component);
 
 impl Component {
     fn main() -> Result<(), String> {
-        let url = url::Url::parse("https://localhost.com:3000").unwrap();
+        let url = url::Url::parse("http://localhost:8080").unwrap();
 
-        let outgoing_request = OutgoingRequest::new(Headers::new());
-        outgoing_request.set_method(&Method::Get).unwrap();
+        let headers = Headers::new();
+        headers
+            .append(&"Content-Length".into(), &"13".into())
+            .unwrap();
+        let outgoing_request = OutgoingRequest::new(headers);
+        outgoing_request.set_method(&Method::Post).unwrap();
         outgoing_request
             .set_path_with_query(Some(url.path()))
             .unwrap();
@@ -36,29 +40,28 @@ impl Component {
         let message = b"Hello, world!";
         let mut offset = 0;
         loop {
-            let write = outgoing_stream.check_write().unwrap();
+            let write = ensure_ok!(outgoing_stream.check_write());
             if write == 0 {
                 outgoing_stream.subscribe().block();
-                continue;
             } else {
                 let count = (write as usize).min(message.len() - offset);
-                outgoing_stream.write(&message[offset..][..count]).unwrap();
-                offset += count as usize;
+                ensure_ok!(outgoing_stream.write(&message[offset..][..count]));
+                offset += count;
                 if offset == message.len() {
-                    outgoing_stream.flush().unwrap();
+                    ensure_ok!(outgoing_stream.flush());
                     break;
                 }
             }
         }
         // The outgoing stream must be dropped before the outgoing body is finished.
         drop(outgoing_stream);
-        OutgoingBody::finish(outgoing_body, None).unwrap();
+        ensure_ok!(OutgoingBody::finish(outgoing_body, None));
 
         // Send the request and get the response.
-        let incoming_response = outgoing_handler::handle(outgoing_request, None).unwrap();
+        let incoming_response = ensure_ok!(outgoing_handler::handle(outgoing_request, None));
         let incoming_response = loop {
             if let Some(incoming_response) = incoming_response.get() {
-                break incoming_response.unwrap().unwrap();
+                break ensure_ok!(incoming_response.unwrap());
             } else {
                 incoming_response.subscribe().block()
             }

@@ -10,5 +10,5 @@ route = "/"
 component = "test"
 
 [component.test]
-source = "{{source=key-value}}"
+source = "%{source=key-value}"
 key_value_stores = ["default"]

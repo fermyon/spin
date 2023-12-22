@@ -4,6 +4,7 @@ use std::{
     io::Read,
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::OnceLock,
 };
 
 use anyhow::Context;
@@ -148,6 +149,7 @@ fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
     }
 }
 
+static TEMPLATE: OnceLock<regex::Regex> = OnceLock::new();
 /// Copies the test dir's manifest file into the temporary directory
 ///
 /// Replaces template variables in the manifest file with components from the components path.
@@ -163,7 +165,7 @@ fn copy_manifest(
             test_dir.display()
         )
     })?;
-    let regex = regex::Regex::new(r"\{\{(.*)\}\}").unwrap();
+    let regex = TEMPLATE.get_or_init(|| regex::Regex::new(r"%\{(.*?)\}").unwrap());
     while let Some(captures) = regex.captures(&manifest) {
         let (Some(full), Some(capture)) = (captures.get(0), captures.get(1)) else {
             continue;
@@ -175,7 +177,8 @@ fn copy_manifest(
         let replacement = match template_key.trim() {
             "source" => {
                 let path = std::path::PathBuf::from(
-                    test_components::path(template_value).context("no such component")?,
+                    test_components::path(template_value)
+                        .with_context(|| format!("no such component '{template_value}'"))?,
                 );
                 let wasm_name = path.file_name().unwrap().to_str().unwrap();
                 std::fs::copy(&path, temp.path().join(wasm_name)).with_context(|| {
@@ -187,7 +190,9 @@ fn copy_manifest(
                 wasm_name.to_owned()
             }
             "port" => {
-                let guest_port = template_value.parse()?;
+                let guest_port = template_value
+                    .parse()
+                    .with_context(|| format!("failed to parse '{template_value}' as port"))?;
                 let port = services
                     .get_port(guest_port)?
                     .with_context(|| format!("no port {guest_port} exposed by any service"))?;

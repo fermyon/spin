@@ -24,10 +24,10 @@ The runtime tests can either be run as a library function (e.g., this is how the
 
 To add a new test you must add a new folder to the `tests` directory with at least a `spin.toml` manifest.
 
-The manifest is actually a template that allows for a few values to be interpolated by the test runner. The interpolation happens through `{{key=value}}` annotations where `key` is one of a limited number of keys the test runner supports. The supported keys are:
+The manifest is actually a template that allows for a few values to be interpolated by the test runner. The interpolation happens through `%{key=value}` annotations where `key` is one of a limited number of keys the test runner supports. The supported keys are:
 
-* `source`: The manifest can reference pre-built Spin compliant WebAssembly modules that can be found in the `test-components` folder in the Spin repo. The value is substituted for the name of the test component to be used. For example `{{source=sqlite}}` will use the test-component named "sqlite" found in the `test-components` directory.
-* `port`: The manifest can reference a port that has been exposed by a service (see the section on services below). For example, if the test runner sees `{{port=1234}}` it will look for a service that exposes the guest port 1234 on some randomly assigned host port and substitute `{{port=1234}}` for that randomly assigned port.
+* `source`: The manifest can reference pre-built Spin compliant WebAssembly modules that can be found in the `test-components` folder in the Spin repo. The value is substituted for the name of the test component to be used. For example `%{source=sqlite}` will use the test-component named "sqlite" found in the `test-components` directory.
+* `port`: The manifest can reference a port that has been exposed by a service (see the section on services below). For example, if the test runner sees `%{port=1234}` it will look for a service that exposes the guest port 1234 on some randomly assigned host port and substitute `%{port=1234}` for that randomly assigned port.
 
 The test directory may additionally contain:
 * an `error.txt` if the Spin application is expected to fail

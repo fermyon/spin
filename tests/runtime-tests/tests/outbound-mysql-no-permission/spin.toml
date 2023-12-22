@@ -10,5 +10,5 @@ route = "/"
 component = "test"
 
 [component.test]
-source = "{{source=outbound-mysql}}"
+source = "%{source=outbound-mysql}"
 environment = { DB_URL = "mysql://spin:spin@localhost:3306/spin_dev" }

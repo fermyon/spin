@@ -10,7 +10,7 @@ route = "/"
 component = "test"
 
 [component.test]
-source = "{{source=variables}}"
+source = "%{source=variables}"
 
 [component.test.variables]
 variable = "value"

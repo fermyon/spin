@@ -10,6 +10,6 @@ route = "/"
 component = "test"
 
 [component.test]
-source = "{{outbound-redis}}"
-environment = { REDIS_ADDRESS = "redis://redis:6379" }
-allowed_outbound_hosts = ["redis://redis:6379"]
+source = "%{source=outbound-redis}"
+environment = { REDIS_ADDRESS = "redis://localhost:%{port=6379}" }
+allowed_outbound_hosts = ["redis://localhost:%{port=6379}"]

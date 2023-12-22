@@ -1,10 +1,14 @@
+mod services;
+
 use std::{
     io::Read,
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::OnceLock,
 };
 
-use anyhow::{bail, Context};
+use anyhow::Context;
+use services::Services;
 
 /// Configuration for the test suite
 pub struct Config {
@@ -54,91 +58,12 @@ pub fn bootstrap_and_run(test_path: &Path, config: &Config) -> Result<(), anyhow
     let temp = temp_dir::TempDir::new()
         .context("failed to produce a temporary directory to run the test in")?;
     log::trace!("Temporary directory: {}", temp.path().display());
-    copy_manifest(test_path, &temp)?;
-    let mut services = start_services(test_path)?;
+    let mut services = services::start_services(test_path)?;
+    copy_manifest(test_path, &temp, &services)?;
     let spin = Spin::start(&config.spin_binary_path, temp.path(), &mut services)?;
     log::debug!("Spin started on port {}.", spin.port());
     run_test(test_path, spin, config.on_error);
     Ok(())
-}
-
-fn start_services(test_path: &Path) -> anyhow::Result<Services> {
-    let services_config_path = test_path.join("services");
-    let children = if services_config_path.exists() {
-        let services = std::fs::read_to_string(&services_config_path)
-            .context("could not read services file")?;
-        let service_files = services.lines().filter_map(|s| {
-            let s = s.trim();
-            (!s.is_empty()).then_some(Path::new(s))
-        });
-        // TODO: make this more robust so that it is not just assumed where the services definitions are
-        let services_path = test_path
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("services");
-        let mut services = Vec::new();
-        for service_file in service_files {
-            let service_name = service_file.file_stem().unwrap().to_str().unwrap();
-            let child = match service_file.extension().and_then(|e| e.to_str()) {
-                Some("py") => {
-                    let mut lock =
-                        fslock::LockFile::open(&services_path.join(format!("{service_name}.lock")))
-                            .context("failed to open service file lock")?;
-                    lock.lock().context("failed to obtain service file lock")?;
-                    let child = python()
-                        .arg(services_path.join(service_file).display().to_string())
-                        // Ignore stdout
-                        .stdout(Stdio::null())
-                        .spawn()
-                        .context("service failed to spawn")?;
-                    (child, Some(lock))
-                }
-                _ => bail!("unsupported service type found: {service_name}",),
-            };
-            services.push(child);
-        }
-        services
-    } else {
-        Vec::new()
-    };
-
-    Ok(Services { children })
-}
-
-fn python() -> Command {
-    Command::new("python3")
-}
-
-struct Services {
-    children: Vec<(std::process::Child, Option<fslock::LockFile>)>,
-}
-
-impl Services {
-    fn error(&mut self) -> std::io::Result<()> {
-        for (child, _) in &mut self.children {
-            let exit = child.try_wait()?;
-            if exit.is_some() {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Interrupted,
-                    "process exited early",
-                ));
-            }
-        }
-        Ok(())
-    }
-}
-
-impl Drop for Services {
-    fn drop(&mut self) {
-        for (child, lock) in &mut self.children {
-            let _ = child.kill();
-            if let Some(lock) = lock {
-                let _ = lock.unlock();
-            }
-        }
-    }
 }
 
 /// Run an individual test
@@ -194,9 +119,11 @@ fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
             } else {
                 error!(
                     on_error,
-                    "Test errored but not in the expected way.\n\texpected: {}\n\tgot: {}",
+                    "Test errored but not in the expected way.\n\texpected: {}\n\tgot: {}\n\nSpin stderr:\n{}",
                     expected,
-                    e
+                    e,
+                    spin.stderr.output_as_str().unwrap_or("<non-utf8>")
+
                 )
             }
         }
@@ -209,7 +136,12 @@ fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
             error!(on_error, "Test '{}' errored: {e}", test_path.display());
         }
         ResponseKind::Err(e) => {
-            error!(on_error, "Test '{}' errored: {e}", test_path.display());
+            error!(
+                on_error,
+                "Test '{}' errored: {e}\nSpin stderr: {}",
+                test_path.display(),
+                spin.stderr.output_as_str().unwrap_or("<non-utf8>")
+            );
         }
     }
     if let OnTestError::Log = on_error {
@@ -217,55 +149,61 @@ fn run_test(test_path: &Path, mut spin: Spin, on_error: OnTestError) {
     }
 }
 
+static TEMPLATE: OnceLock<regex::Regex> = OnceLock::new();
 /// Copies the test dir's manifest file into the temporary directory
 ///
 /// Replaces template variables in the manifest file with components from the components path.
-fn copy_manifest(test_dir: &Path, temp: &temp_dir::TempDir) -> anyhow::Result<()> {
+fn copy_manifest(
+    test_dir: &Path,
+    temp: &temp_dir::TempDir,
+    services: &Services,
+) -> anyhow::Result<()> {
     let manifest_path = test_dir.join("spin.toml");
-    let manifest = std::fs::read_to_string(&manifest_path).with_context(|| {
+    let mut manifest = std::fs::read_to_string(manifest_path).with_context(|| {
         format!(
             "no spin.toml manifest found in test directory {}",
             test_dir.display()
         )
     })?;
-    let mut table = manifest
-        .parse::<toml::Table>()
-        .context("could not parse the manifest as toml")?;
-    for (_, component) in table["component"].as_table_mut().with_context(|| {
-        format!(
-            "malformed manifest '{}' does not contain 'component' array",
-            manifest_path.display(),
-        )
-    })? {
-        let source = component.get_mut("source").with_context(|| {
-            format!(
-                "malformed manifest '{}' does not contain 'source' string key in component",
-                manifest_path.display()
-            )
+    let regex = TEMPLATE.get_or_init(|| regex::Regex::new(r"%\{(.*?)\}").unwrap());
+    while let Some(captures) = regex.captures(&manifest) {
+        let (Some(full), Some(capture)) = (captures.get(0), captures.get(1)) else {
+            continue;
+        };
+        let template = capture.as_str();
+        let (template_key, template_value) = template.split_once('=').with_context(|| {
+            format!("invalid template '{template}'(template should be in the form $KEY=$VALUE)")
         })?;
-        let source_str = source.as_str().with_context(|| {
-            format!(
-                "malformed manifest '{}' contains 'source' key that isn't a string in component",
-                manifest_path.display()
-            )
-        })?;
-        // TODO: make this more robust
-        if source_str.starts_with("{{") {
-            let name = &source_str[2..source_str.len() - 2];
-            let path =
-                std::path::PathBuf::from(test_components::path(name).context("no such component")?);
-            let wasm_name = path.file_name().unwrap().to_str().unwrap();
-            std::fs::copy(&path, temp.path().join(wasm_name)).with_context(|| {
-                format!(
-                    "failed to copy wasm file '{}' to temporary directory",
-                    path.display()
-                )
-            })?;
-            *source = toml::Value::String(wasm_name.into());
-        }
+        let replacement = match template_key.trim() {
+            "source" => {
+                let path = std::path::PathBuf::from(
+                    test_components::path(template_value)
+                        .with_context(|| format!("no such component '{template_value}'"))?,
+                );
+                let wasm_name = path.file_name().unwrap().to_str().unwrap();
+                std::fs::copy(&path, temp.path().join(wasm_name)).with_context(|| {
+                    format!(
+                        "failed to copy wasm file '{}' to temporary directory",
+                        path.display()
+                    )
+                })?;
+                wasm_name.to_owned()
+            }
+            "port" => {
+                let guest_port = template_value
+                    .parse()
+                    .with_context(|| format!("failed to parse '{template_value}' as port"))?;
+                let port = services
+                    .get_port(guest_port)?
+                    .with_context(|| format!("no port {guest_port} exposed by any service"))?;
+                port.to_string()
+            }
+            _ => {
+                anyhow::bail!("unknown template key: {template_key}");
+            }
+        };
+        manifest.replace_range(full.range(), &replacement);
     }
-    let manifest =
-        toml::to_string(&table).context("failed to re-serialize manifest as a string")?;
     std::fs::write(temp.path().join("spin.toml"), manifest)
         .context("failed to copy spin.toml manifest to temporary directory")?;
     Ok(())
@@ -315,7 +253,7 @@ impl Spin {
     fn start(
         spin_binary_path: &Path,
         current_dir: &Path,
-        services: &mut Services,
+        services: &mut services::Services,
     ) -> Result<Self, anyhow::Error> {
         let port = get_random_port()?;
         let mut child = Command::new(spin_binary_path)

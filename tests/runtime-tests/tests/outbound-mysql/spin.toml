@@ -10,6 +10,6 @@ route = "/"
 component = "test"
 
 [component.test]
-source = "{{outbound-mysql}}"
-allowed_outbound_hosts = ["mysql://mysql:3306"]
-environment = { DB_URL = "mysql://spin:spin@mysql:3306/spin_dev" }
+source = "%{source=outbound-mysql}"
+allowed_outbound_hosts = ["mysql://localhost:%{port=3306}"]
+environment = { DB_URL = "mysql://spin:spin@localhost:%{port=3306}/spin_dev" }

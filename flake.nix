@@ -27,6 +27,8 @@
             openssl
             pkg-config
             rustTarget
+          ] ++ lib.optionals stdenv.isDarwin [
+            darwin.apple_sdk.frameworks.Accelerate
           ];
 
           shellHook = ''

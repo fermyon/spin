@@ -10,5 +10,6 @@ route = "/"
 component = "test"
 
 [component.test]
-source = "{{wasi-http-v0.2.0-rc-2023-11-10}}"
-allowed_outbound_hosts = ["http://localhost:8080"]
+source = "%{source=wasi-http-v0.2.0-rc-2023-11-10}"
+environment = { URL = "http://localhost:%{port=80}" }
+allowed_outbound_hosts = ["http://localhost:%{port=80}"]

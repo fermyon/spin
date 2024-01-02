@@ -7,4 +7,5 @@ The `wit` directory was copied from https://github.com/bytecodealliance/wasmtime
 ## Expectations
 
 This test component expects the following to be true:
-* It has access to an HTTP server on localhost:8080 that accepts POST requests and returns the same bytes in the response body as in the request body.
+* It is provided the env variable `URL`
+* It has access to an HTTP server at $URL (where $URL is the url provided above) that accepts POST requests and returns the same bytes in the response body as in the request body.

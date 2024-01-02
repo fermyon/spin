@@ -12,7 +12,7 @@ helper::define_component!(Component);
 
 impl Component {
     fn main() -> Result<(), String> {
-        let url = url::Url::parse("http://localhost:8080").unwrap();
+        let url = ensure_ok!(url::Url::parse(&ensure_ok!(std::env::var("URL"))));
 
         let headers = Headers::new();
         headers

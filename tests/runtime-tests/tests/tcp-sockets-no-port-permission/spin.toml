@@ -11,5 +11,6 @@ component = "test"
 
 [component.test]
 source = "%{source=tcp-sockets}"
-# Component expects port 5001 but we allow 6002
+environment = { ADDRESS = "127.0.0.1:6001" }
+# Component expects port 6001 but we allow 6002
 allowed_outbound_hosts = ["*://127.0.0.1:6002"]

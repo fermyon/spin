@@ -1018,8 +1018,13 @@ mod tests {
         }
 
         let spin_toml = tokio::fs::read_to_string(&spin_toml_path).await.unwrap();
+
         assert!(spin_toml.contains("[variables]\nsecret"));
         assert!(spin_toml.contains("url = { default = \"https://service.example.com\" }"));
+
+        assert!(spin_toml.contains("[component.insertvars]"));
+        assert!(spin_toml.contains("[component.insertvars.variables]"));
+        assert!(spin_toml.contains("kv_credentials = \"{{ secret }}\""));
     }
 
     #[tokio::test]
@@ -1106,7 +1111,7 @@ mod tests {
                     manifest_path: spin_toml_path.clone(),
                 },
                 output_path: PathBuf::from(output_dir),
-                name: "insertvars".to_owned(),
+                name: "insertvarsagain".to_owned(),
                 values,
                 accept_defaults: false,
             };

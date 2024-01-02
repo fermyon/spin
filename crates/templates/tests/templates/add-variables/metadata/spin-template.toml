@@ -8,6 +8,7 @@ supported = false
 
 [add_component]
 [add_component.snippets]
+component = "component.txt"
 variables = "variables.txt"
 
 [parameters]

@@ -1,11 +1,10 @@
-
 {
   description = "Nix Devshell for Spin";
 
   inputs = {
-    nixpkgs.url      = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     rust-overlay.url = "github:oxalica/rust-overlay";
-    flake-utils.url  = "github:numtide/flake-utils";
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
   outputs = { self, nixpkgs, rust-overlay, flake-utils, ... }:
@@ -16,9 +15,9 @@
           inherit system overlays;
         };
         rustTarget = pkgs.rust-bin.stable.latest.default.override {
-              extensions= [ "rust-src" "rust-analyzer" ];
-              targets = [ "wasm32-wasi" "wasm32-unknown-unknown" ];
-            };
+          extensions = [ "rust-src" "rust-analyzer" ];
+          targets = [ "wasm32-wasi" "wasm32-unknown-unknown" ];
+        };
       in
       with pkgs;
       {
@@ -27,11 +26,13 @@
             openssl
             pkg-config
             rustTarget
+          ] ++ lib.optionals stdenv.isDarwin [
+            darwin.apple_sdk.frameworks.Accelerate
           ];
 
           shellHook = ''
             '';
-        RUST_SRC_PATH = "${rustTarget}/lib/rustlib/src/rust/library";
+          RUST_SRC_PATH = "${rustTarget}/lib/rustlib/src/rust/library";
 
         };
       }

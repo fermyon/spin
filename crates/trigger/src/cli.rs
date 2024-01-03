@@ -44,6 +44,7 @@ where
         name = APP_LOG_DIR,
         short = 'L',
         long = "log-dir",
+        env = "SPIN_LOG_DIR",
     )]
     pub log: Option<PathBuf>,
 

@@ -62,8 +62,13 @@ impl Container {
                 let (guest, host) = s
                     .split_once(" -> ")
                     .context("failed to parse port mapping")?;
-                let (guest_port, _) = guest.split_once('/').context("TODO")?;
-                let host_port = host.rsplit(':').next().context("TODO")?;
+                let (guest_port, _) = guest
+                    .split_once('/')
+                    .context("guest mapping does not contain '/'")?;
+                let host_port = host
+                    .rsplit(':')
+                    .next()
+                    .expect("`rsplit` should always return one element but somehow did not");
                 Ok((guest_port.parse()?, host_port.parse()?))
             })
             .collect()
@@ -81,7 +86,7 @@ impl Service for DockerService {
         "docker"
     }
 
-    fn await_ready(&self) -> anyhow::Result<()> {
+    fn await_ready(&mut self) -> anyhow::Result<()> {
         // docker container inspect -f '{{.State.Health.Status}}'
         loop {
             let output = Command::new("docker")
@@ -111,7 +116,7 @@ impl Service for DockerService {
         Ok(())
     }
 
-    fn ports(&self) -> anyhow::Result<&HashMap<u16, u16>> {
+    fn ports(&mut self) -> anyhow::Result<&HashMap<u16, u16>> {
         match self.ports.get() {
             Some(p) => Ok(p),
             None => {

@@ -59,7 +59,7 @@ pub fn bootstrap_and_run(test_path: &Path, config: &Config) -> Result<(), anyhow
         .context("failed to produce a temporary directory to run the test in")?;
     log::trace!("Temporary directory: {}", temp.path().display());
     let mut services = services::start_services(test_path)?;
-    copy_manifest(test_path, &temp, &services)?;
+    copy_manifest(test_path, &temp, &mut services)?;
     let spin = Spin::start(&config.spin_binary_path, temp.path(), &mut services)?;
     log::debug!("Spin started on port {}.", spin.port());
     run_test(test_path, spin, config.on_error);
@@ -156,7 +156,7 @@ static TEMPLATE: OnceLock<regex::Regex> = OnceLock::new();
 fn copy_manifest(
     test_dir: &Path,
     temp: &temp_dir::TempDir,
-    services: &Services,
+    services: &mut Services,
 ) -> anyhow::Result<()> {
     let manifest_path = test_dir.join("spin.toml");
     let mut manifest = std::fs::read_to_string(manifest_path).with_context(|| {
@@ -346,10 +346,11 @@ impl OutputStream {
         std::thread::spawn(move || {
             let mut buffer = vec![0; 1024];
             loop {
-                if tx
-                    .send(stream.read(&mut buffer).map(|n| buffer[..n].to_vec()))
-                    .is_err()
-                {
+                let msg = stream.read(&mut buffer).map(|n| buffer[..n].to_vec());
+                if let Err(e) = tx.send(msg) {
+                    if let Err(e) = e.0 {
+                        eprintln!("Error reading from stream: {e}");
+                    }
                     break;
                 }
             }
@@ -369,6 +370,8 @@ impl OutputStream {
     }
 
     /// Get the output of the stream so far
+    ///
+    /// Returns None if the output is not valid utf8
     fn output_as_str(&mut self) -> Option<&str> {
         std::str::from_utf8(self.output()).ok()
     }

@@ -9,13 +9,13 @@ use bindings::wasi::{
     },
 };
 use helper::{ensure_eq, ensure_ok};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::SocketAddr;
 
 helper::define_component!(Component);
 
 impl Component {
     fn main() -> Result<(), String> {
-        let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 6001);
+        let address = ensure_ok!(ensure_ok!(std::env::var("ADDRESS")).parse());
 
         let client = ensure_ok!(tcp_create_socket::create_tcp_socket(IpAddressFamily::Ipv4));
 

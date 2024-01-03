@@ -20,10 +20,13 @@ class EchoHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
 
-def run(port=8080):
-    server_address = ('', port)
+def run():
+    server_address = ('', 0)
     httpd = HTTPServer(server_address, EchoHandler)
-    print(f'Starting server on port {port}...')
+    print(f'Starting http server...')
+    port = selected_port = httpd.server_address[1]
+    print(f'PORT=(80,{port})')
+    print(f'READY',  flush=True)
     httpd.serve_forever()
 
 

@@ -37,7 +37,7 @@ pub fn start_services(test_path: &Path) -> anyhow::Result<Services> {
         let service_definition_extension = service_definitions
             .get(required_service)
             .map(|e| e.as_str());
-        let service: Box<dyn Service> = match service_definition_extension {
+        let mut service: Box<dyn Service> = match service_definition_extension {
             Some("py") => Box::new(PythonService::start(
                 required_service,
                 &service_definitions_path,
@@ -92,9 +92,9 @@ impl Services {
     }
 
     /// Get the host port that a service exposes a guest port on.
-    pub(crate) fn get_port(&self, guest_port: u16) -> anyhow::Result<Option<u16>> {
+    pub(crate) fn get_port(&mut self, guest_port: u16) -> anyhow::Result<Option<u16>> {
         let mut result = None;
-        for service in &self.services {
+        for service in &mut self.services {
             let host_port = service.ports().unwrap().get(&guest_port);
             match result {
                 None => result = host_port.copied(),
@@ -122,11 +122,11 @@ pub trait Service {
     fn name(&self) -> &str;
 
     /// Block until the service is ready.
-    fn await_ready(&self) -> anyhow::Result<()>;
+    fn await_ready(&mut self) -> anyhow::Result<()>;
 
     /// Check if the service is in an error state.
     fn error(&mut self) -> anyhow::Result<()>;
 
     /// Get a mapping of ports that the service exposes.
-    fn ports(&self) -> anyhow::Result<&HashMap<u16, u16>>;
+    fn ports(&mut self) -> anyhow::Result<&HashMap<u16, u16>>;
 }

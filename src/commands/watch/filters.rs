@@ -19,6 +19,7 @@ pub(crate) trait FilterFactory: Send + Sync {
 
 pub(crate) struct ArtifactFilterFactory {
     pub skip_build: bool,
+    pub skip_assets: bool,
 }
 
 pub(crate) struct BuildFilterFactory;
@@ -44,12 +45,18 @@ impl FilterFactory for ArtifactFilterFactory {
                 v2::ComponentSource::Local(path) => Some(path.clone()),
                 _ => None,
             });
-        let asset_globs = manifest
-            .components
-            .values()
-            .flat_map(|c| c.files.iter())
-            .filter_map(globbify)
-            .collect::<Vec<_>>();
+        let asset_globs = match self.skip_assets {
+            true => {
+                tracing::debug!("Skipping asset globs from being watched");
+                vec![]
+            }
+            false => manifest
+                .components
+                .values()
+                .flat_map(|c| c.files.iter())
+                .filter_map(globbify)
+                .collect::<Vec<_>>(),
+        };
 
         let artifact_globs = manifest_glob
             .into_iter()

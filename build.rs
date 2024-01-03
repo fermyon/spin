@@ -8,7 +8,6 @@ use std::{
 use cargo_target_dep::build_target_dep;
 
 const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
-const RUST_HTTP_INTEGRATION_ENV_TEST: &str = "tests/http/headers-env-routes-test";
 const RUST_HTTP_VAULT_VARIABLES_TEST: &str = "tests/http/vault-variables-test";
 const TIMER_TRIGGER_INTEGRATION_TEST: &str = "examples/spin-timer/app-example";
 const WASI_HTTP_INTEGRATION_TEST: &str = "examples/wasi-http-rust-streaming-outgoing-body";
@@ -88,7 +87,6 @@ error: the `wasm32-wasi` target is not installed
     build_wasm_test_program("timer_app_example.wasm", "examples/spin-timer/app-example");
 
     cargo_build(RUST_HTTP_INTEGRATION_TEST);
-    cargo_build(RUST_HTTP_INTEGRATION_ENV_TEST);
     cargo_build(RUST_HTTP_VAULT_VARIABLES_TEST);
     cargo_build(TIMER_TRIGGER_INTEGRATION_TEST);
     cargo_build(WASI_HTTP_INTEGRATION_TEST);

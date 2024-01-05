@@ -287,6 +287,10 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         self.app.borrowed()
     }
 
+    pub fn trigger_metadata<T: DeserializeOwned + Default>(&self) -> spin_app::Result<Option<T>> {
+        self.app().get_trigger_metadata(Executor::TRIGGER_TYPE)
+    }
+
     /// Returns AppTriggers and typed TriggerConfigs for this executor type.
     pub fn trigger_configs(&self) -> impl Iterator<Item = (AppTrigger, &Executor::TriggerConfig)> {
         self.app()

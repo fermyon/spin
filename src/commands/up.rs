@@ -16,6 +16,8 @@ use spin_oci::OciLoader;
 use spin_trigger::cli::{SPIN_LOCAL_APP_DIR, SPIN_LOCKED_URL, SPIN_WORKING_DIR};
 use tempfile::TempDir;
 
+use futures::future::try_join_all;
+
 use crate::opts::*;
 
 use self::app_source::{AppSource, ResolvedAppSource};
@@ -154,7 +156,11 @@ impl UpCommand {
             .with_context(|| format!("Couldn't find trigger executor for {app_source}"))?;
 
         if self.help {
-            return self.run_trigger(trigger_cmd, None).await;
+            for cmd in trigger_cmd
+            {
+                    self.run_trigger(cmd.clone(), None).await?;
+            }
+            return Ok(());
         }
 
         let mut locked_app = self
@@ -165,13 +171,16 @@ impl UpCommand {
 
         let local_app_dir = app_source.local_app_dir().map(Into::into);
 
-        let run_opts = RunTriggerOpts {
-            locked_app,
-            working_dir,
-            local_app_dir,
-        };
+        try_join_all(trigger_cmd.iter().map(|cmd| {
+            let run_opts = RunTriggerOpts {
+                locked_app: locked_app.clone(),
+                working_dir: working_dir.clone(),
+                local_app_dir: local_app_dir.clone(),
+            };
 
-        self.run_trigger(trigger_cmd, Some(run_opts)).await
+            self.run_trigger(cmd.clone(), Some(run_opts))
+        }))
+        .await.map(|_| ())
     }
 
     fn get_canonical_working_dir(&self) -> Result<WorkingDirectory, anyhow::Error> {
@@ -191,13 +200,14 @@ impl UpCommand {
     }
 
     async fn run_trigger(
-        self,
+        &self,
         trigger_cmd: Vec<String>,
         opts: Option<RunTriggerOpts>,
     ) -> Result<(), anyhow::Error> {
         // The docs for `current_exe` warn that this may be insecure because it could be executed
         // via hard-link. I think it should be fine as long as we aren't `setuid`ing this binary.
-        let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
+        
+        let mut cmd = tokio::process::Command::new(std::env::current_exe().unwrap());
         cmd.args(&trigger_cmd);
 
         if let Some(RunTriggerOpts {
@@ -235,7 +245,7 @@ impl UpCommand {
             })?;
         }
 
-        let status = child.wait()?;
+        let status = child.wait().await?;
         if status.success() {
             Ok(())
         } else {
@@ -424,16 +434,20 @@ fn trigger_command(trigger_type: &str) -> Vec<String> {
     vec!["trigger".to_owned(), trigger_type.to_owned()]
 }
 
-fn trigger_command_for_resolved_app_source(resolved: &ResolvedAppSource) -> Result<Vec<String>> {
-    let trigger_type = resolved.trigger_type()?;
-
-    match trigger_type {
-        "http" | "redis" => Ok(trigger_command(trigger_type)),
-        _ => {
-            let cmd = resolve_trigger_plugin(trigger_type)?;
-            Ok(vec![cmd])
-        }
-    }
+fn trigger_command_for_resolved_app_source(
+    resolved: &ResolvedAppSource,
+) -> Result<Vec<Vec<String>>> {
+    let trigger_type = resolved.trigger_types()?;
+    trigger_type
+        .iter()
+        .map(|&t| match t {
+            "http" | "redis" => Ok(trigger_command(t)),
+            _ => {
+                let cmd = resolve_trigger_plugin(t)?;
+                Ok(vec![cmd])
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

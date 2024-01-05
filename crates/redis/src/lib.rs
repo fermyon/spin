@@ -44,7 +44,6 @@ pub struct RedisTriggerConfig {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct TriggerMetadata {
-    r#type: String,
     address: String,
 }
 
@@ -56,7 +55,18 @@ impl TriggerExecutor for RedisTrigger {
     type RunConfig = NoArgs;
 
     async fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
-        let address = engine.app().require_metadata(TRIGGER_METADATA_KEY)?.address;
+        let address = engine
+            .app()
+            .get_metadata(TRIGGER_METADATA_KEY)?
+            .map_or_else(
+                || {
+                    engine
+                        .trigger_metadata::<TriggerMetadata>()
+                        .unwrap_or_default()
+                        .map_or(String::new(), |f| f.address)
+                },
+                |t| t.address,
+            );
 
         let mut channel_components: HashMap<String, Vec<String>> = HashMap::new();
 

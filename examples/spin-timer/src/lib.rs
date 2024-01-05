@@ -45,7 +45,7 @@ pub struct TimerTriggerConfig {
     interval_secs: u64,
 }
 
-const TRIGGER_METADATA_KEY: MetadataKey<TriggerMetadata> = MetadataKey::new("trigger");
+const TRIGGER_METADATA_KEY: MetadataKey<TriggerMetadata> = MetadataKey::new("triggers");
 
 #[async_trait]
 impl TriggerExecutor for TimerTrigger {

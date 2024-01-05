@@ -207,6 +207,23 @@ impl<'a, L> App<'a, L> {
             .map(|locked| AppTrigger { app: self, locked })
     }
 
+    /// Returns the trigger metadata for a specific trigger type.
+    pub fn get_trigger_metadata<'this, T: Deserialize<'this> + Default>(
+        &'this self,
+        trigger_type: &'a str,
+    ) -> Result<Option<T>> {
+        self.locked.metadata.get("triggers").map_or(Ok(None), |t| {
+            t.get(trigger_type)
+                .map(T::deserialize)
+                .transpose()
+                .map_err(|err| {
+                    Error::MetadataError(format!(
+                        "invalid metadata value for {trigger_type:?}: {err:?}"
+                    ))
+                })
+        })
+    }
+
     /// Returns an iterator of [`AppTrigger`]s defined for this app with
     /// the given `trigger_type`.
     pub fn triggers_with_type(

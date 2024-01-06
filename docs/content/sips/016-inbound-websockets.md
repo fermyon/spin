@@ -199,10 +199,10 @@ However, if the app uses a database that's distributed and eventually consistent
 
 The first two of those options are appealing from a both a developer and user experience perspective. The third one requires the app developer to confront a fundamental trade-off: polling too often creates unreasonable load on the database, application server, etc., while polling too infrequently results in a poor user experience. Indeed, one of the big reasons to provide WebSocket support is to avoid polling and its trade-offs.
 
-Unfortunately, as of this writing, neither of Spin's built-in persistent stores (SQLite and key-value) provide any sort of explicit consistency guarantees, so the third option is the only one currently available to apps. In the future (or even concurrently with this proposal) should consider providing one or both of the first two options.
+Unfortunately, as of this writing, neither of Spin's built-in persistent stores (SQLite and key-value) provide any sort of explicit consistency guarantees, so apps must either provide their own store (e.g. a PostgreSQL, MySQL, or Redis server) or use the third option. In the future (or even concurrently with this proposal) should consider providing one or both of the first two options as a built-in part of Spin.
 
 ## Future Possibilities
 
-- As discussed above, Spin should offer one or more persistent state stores with explicit consistency guarantees to avoid the need for polling.
+- As discussed above, Spin should offer one or more built-in, persistent state stores with explicit consistency guarantees to avoid the need for polling.
 - [WebTransport](https://www.w3.org/TR/webtransport/) is a new, more advanced protocol for high-performance client-server networking based on HTTP/3. It's not yet supported by all popular browsers, but could be worth supporting in Spin eventually.
 - Outbound WebSockets could be supported similarly to this proposal, with short-lived instantiations created as frames arrive from the remote server. However, server-to-server WebSockets are rare, so it's not clear how useful this would be.

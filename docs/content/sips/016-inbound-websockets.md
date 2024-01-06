@@ -175,7 +175,7 @@ As frames arrive from the client, Spin will create new instances and pass the fr
 
 If a connection is lost unexpectedly prior to receiving a WebSocket `close` frame from the client, Spin will attempt synthesize such a frame and deliver to the application, giving it an opportunity to clean up associated state. Note, however, there is no guarantee that the app will always receive a `close` frame promptly or at all -- external factors such as network failures or power loss might delay or prevent that, so apps should not rely exclusively on it.
 
-Each open WebSocket will be assigned a unique, opaque ID (e.g. a 128-bit, base-64-encoded, securely-generated random number) which may be used by any component of any type (e.g. `http`, `redis`, or `websocket`) to send frames to the client via `fermyon:spin/inbound-websocket-send#send-frame`. For example, a chat application might use these IDs (or aliases thereof) to route chat messages within a group.
+Each open WebSocket will be assigned a unique, opaque ID (e.g. a 128-bit, base-64-encoded, securely-generated random number) which may be used by any component of any type (e.g. `http`, `redis`, or `websocket`) to send frames to the client via `fermyon:spin/inbound-websocket-send#send-frame`. For example, a chat application might use these IDs (or aliases thereof) to route chat messages within a group.
 
 ## Scalability and Reliability
 
@@ -183,7 +183,26 @@ The design described in this proposal is intended to scale horizontally in a dis
 
 Spin (and any associated infrastructure, such as `websocket-bridge`, load balancers, etc.) will deliver frames to and from WebSocket clients on a best-effort basis, guaranteeing in-order delivery with no gaps or repetitions, and conservatively closing connections whenever that cannot be achieved (e.g. due to network partitions, server failures, etc.). Applications are therefore responsible for recovering from unexpected connection closures if required. For example, the client side of a collaborative editing application could reconnect and re-synchronize with the server using a [CRDT](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type) protocol, only alerting the user if that process takes more than a moment.
 
+## State Management
+
+Many applications will need to maintain state that lives for at least the lifetime of a given WebSocket connection, and many will also need to share state across multiple connections. In a traditional, monolithic, long-lived server application, such state is usually stored in memory, with access to shared state managed using e.g. mutexes. In this proposal, however, each frame may be received by a different instance, possibly running on a different node in a cluster. Therefore, any state must be kept in a persistent store outside of a given instance's memory, and the behavior of an application is highly sensitive to the consistency model of the persistent store(s) it uses.
+
+For example, consider the following scenario: two users, Alice and Bob, enter a chat room at nearly the same time. The chat application is responsible for promptly notifying both users that the other has arrived. One way it might do that is: for each new connection, add the user to the requested room via a write to a database, then query the database to discover any other users present in the room.
+
+If the database provides global, strict serlializability, this will always work correctly: if the app adds Alice first and doesn't see Bob, then later when Bob arrives the app will see Alice, send her a notification, and report to Bob that Alice is already there. Regardless of which order they arrive, they'll both discover each other as soon as the last one arrives.
+
+However, if the app uses a database that's distributed and eventually consistent, Alice and Bob may never see each other; they may end up writing to and querying different database nodes and miss each other due to state synchronization delays.  In this case, the app has a few options:
+
+1. Switch to a state store that offers global, strict-serlializability where it's needed.
+2. Switch to an eventually consistent store that provides asynchronous notifications of state changes, and propagate those notifications to clients as appropriate.
+3. Stick with the original eventually consistent store, but poll it periodically to discover new arrivals.
+
+The first two of those options are appealing from a both a developer and user experience perspective. The third one requires the app developer to confront a fundamental trade-off: polling too often creates unreasonable load on the database, application server, etc., while polling too infrequently results in a poor user experience. Indeed, one of the big reasons to provide WebSocket support is to avoid polling and its trade-offs.
+
+Unfortunately, as of this writing, neither of Spin's built-in persistent stores (SQLite and key-value) provide any sort of explicit consistency guarantees, so the third option is the only one currently available to apps. In the future (or even concurrently with this proposal) should consider providing one or both of the first two options.
+
 ## Future Possibilities
 
+- As discussed above, Spin should offer one or more persistent state stores with explicit consistency guarantees to avoid the need for polling.
 - [WebTransport](https://www.w3.org/TR/webtransport/) is a new, more advanced protocol for high-performance client-server networking based on HTTP/3. It's not yet supported by all popular browsers, but could be worth supporting in Spin eventually.
 - Outbound WebSockets could be supported similarly to this proposal, with short-lived instantiations created as frames arrive from the remote server. However, server-to-server WebSockets are rare, so it's not clear how useful this would be.

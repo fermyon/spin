@@ -11,7 +11,7 @@ use anyhow::Context;
 use services::Services;
 
 /// A callback to create a runtime given a path to a temporary directory and a set of services
-pub type RuntimeCreator = dyn Fn(&Path, &mut Services) -> anyhow::Result<Box<dyn Runtime>>;
+pub type RuntimeCreator = dyn Fn(&Path) -> anyhow::Result<Box<dyn Runtime>>;
 
 /// Configuration for the test suite
 pub struct Config {
@@ -63,7 +63,9 @@ pub fn bootstrap_and_run(test_path: &Path, config: &Config) -> anyhow::Result<()
     log::trace!("Temporary directory: {}", temp.path().display());
     let mut services = services::start_services(test_path)?;
     copy_manifest(test_path, &temp, &mut services)?;
-    let runtime = &mut *(config.create_runtime)(temp.path(), &mut services)?;
+    services.error().context("services have failed")?;
+    let runtime = &mut *(config.create_runtime)(temp.path())?;
+    services.error().context("services have failed")?;
     run_test(runtime, test_path, config.on_error);
     Ok(())
 }

@@ -11,8 +11,8 @@ fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests"));
 
     let config = Config {
-        create_runtime: Box::new(move |temp, services| {
-            Ok(Box::new(Spin::start(&spin_binary_path, temp, services)?) as _)
+        create_runtime: Box::new(move |temp| {
+            Ok(Box::new(Spin::start(&spin_binary_path, temp)?) as _)
         }),
         tests_path,
         on_error: OnTestError::Log,

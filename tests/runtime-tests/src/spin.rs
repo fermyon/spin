@@ -1,4 +1,4 @@
-use crate::{io::OutputStream, services::Services, Runtime, TestResult};
+use crate::{io::OutputStream, Runtime, TestResult};
 use std::{
     path::Path,
     process::{Command, Stdio},
@@ -13,11 +13,8 @@ pub struct Spin {
 }
 
 impl Spin {
-    pub fn start(
-        spin_binary_path: &Path,
-        current_dir: &Path,
-        services: &mut Services,
-    ) -> Result<Self, anyhow::Error> {
+    /// Start Spin in `current_dir` using the binary at `spin_binary_path`
+    pub fn start(spin_binary_path: &Path, current_dir: &Path) -> anyhow::Result<Self> {
         let port = get_random_port()?;
         let mut child = Command::new(spin_binary_path)
             .arg("up")
@@ -37,7 +34,6 @@ impl Spin {
         };
         let start = std::time::Instant::now();
         loop {
-            services.error()?;
             match std::net::TcpStream::connect(format!("127.0.0.1:{port}")) {
                 Ok(_) => {
                     log::debug!("Spin started on port {}.", spin.port);

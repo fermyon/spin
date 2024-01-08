@@ -121,10 +121,10 @@ interface inbound-websocket-receive {
   // Construct a new handler for the specified request, which the
   // client has requested to be upgraded to a WebSocket.
   //
-  // - `id`: a globally unique identifier which may be used to send
-  //   frames to this WebSocket using
+  // - `token`: a globally unique identifier which may be used to
+  //   send frames to this WebSocket using
   //   `outgoing-websocket#send-frame`. Note that any application
-  //   may use this `id` to send frames to the WebSocket for as
+  //   may use this `token` to send frames to the WebSocket for as
   //   long as it is connected, which means it should be treated as
   //   a secret and shared only with trusted parties.
   //
@@ -135,12 +135,11 @@ interface inbound-websocket-receive {
   //   response to the client. If (and only if) the response has a
   //   status code of 101, then the connection will be upgraded to a
   //   WebSocket.
-  handle-new: func(id: string, request: incoming-request, response-out: response-outparam);
+  handle-new: func(token: string, request: incoming-request, response-out: response-outparam);
 
   // Handle the most recent frames received for the specified
-  // WebSockets. `frames` consists of a mapping from WebSocket ids
-  // to ordered lists of frames.
-  handle-frames: func(frames: list<tuple<string, list<received-frame>>);
+  // WebSocket.
+  handle-frames: func(token: string, frames: list<received-frame>);
 }
 
 interface inbound-websocket-send {
@@ -151,7 +150,7 @@ interface inbound-websocket-send {
   // This will fail if the WebSocket is no longer open. Otherwise,
   // if the frame is an instance of `close`, the connection will
   // be closed after sending the frame.
-  send-frame: func(id: string, frame: frame) -> future-send-frame;
+  send-frame: func(token: string, frame: frame) -> future-send-frame;
 }
 
 world inbound-websocket-handler {
@@ -175,7 +174,7 @@ As frames arrive from the client, Spin will create new instances and pass the fr
 
 If a connection is lost unexpectedly prior to receiving a WebSocket `close` frame from the client, Spin will attempt synthesize such a frame and deliver to the application, giving it an opportunity to clean up associated state. Note, however, there is no guarantee that the app will always receive a `close` frame promptly or at all -- external factors such as network failures or power loss might delay or prevent that, so apps should not rely exclusively on it.
 
-Each open WebSocket will be assigned a unique, opaque ID (e.g. a 128-bit, base-64-encoded, securely-generated random number) which may be used by any component of any type (e.g. `http`, `redis`, or `websocket`) to send frames to the client via `fermyon:spin/inbound-websocket-send#send-frame`. For example, a chat application might use these IDs (or aliases thereof) to route chat messages within a group.
+Each open WebSocket will be assigned a unique, opaque token (e.g. a 128-bit, base-64-encoded, securely-generated random number, or perhaps a signed, encrypted auth token) which may be used by any component of any type (e.g. `http`, `redis`, `websocket`, etc.) to send frames to the client via `fermyon:spin/inbound-websocket-send#send-frame`. For example, a chat application might use these tokens (or aliases thereof) to route chat messages within a group.
 
 ## Scalability and Reliability
 

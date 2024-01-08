@@ -1,4 +1,4 @@
-use crate::OutputStream;
+use crate::io::OutputStream;
 
 use super::Service;
 use anyhow::Context as _;

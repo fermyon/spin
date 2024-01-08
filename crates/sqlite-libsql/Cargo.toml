@@ -13,5 +13,5 @@ rusqlite = { version = "0.29.0", features = [ "bundled" ] }
 spin-sqlite = { path = "../sqlite" }
 spin-world = { path = "../world" }
 sqlparser = "0.34"
-libsql = { git = "https://github.com/tursodatabase/libsql", rev = "8d59b728f5bdf4ee33a65cb02ad174f311a2c94d", features = ["remote"], default-features = false } # ETA for release: early Jan 2024
+libsql = { version = "0.2.0-alpha.1", features = ["remote"], default-features = false }
 tokio = { version = "1", features = ["full"] }

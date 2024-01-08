@@ -320,6 +320,9 @@ name = "bytes"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2bd12c1caf447e69cd4528f47f94d203fd2582878ecb9e9465484c4148a8223"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "bytesize"
@@ -1897,23 +1900,44 @@ dependencies = [
 [[package]]
 name = "libsql"
 version = "0.2.0-alpha.1"
-source = "git+https://github.com/tursodatabase/libsql?rev=8d59b728f5bdf4ee33a65cb02ad174f311a2c94d#8d59b728f5bdf4ee33a65cb02ad174f311a2c94d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "763520528136ad15c317829e4d4ea481a7650b8edf460e6b81860698ccea2e76"
 dependencies = [
  "async-trait",
  "base64 0.21.4",
  "bitflags 2.4.1",
+ "bytes",
  "fallible-iterator 0.3.0",
  "futures",
  "http",
  "hyper 0.14.27",
  "hyper-rustls",
+ "libsql-sqlite3-parser",
  "serde",
  "serde_json",
- "sqlite3-parser",
  "thiserror",
  "tokio",
  "tower",
  "tracing",
+]
+
+[[package]]
+name = "libsql-sqlite3-parser"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "600b1fc036f15466a4293adbf82d1c3ac7a22b865b5d501db325adeb8a116063"
+dependencies = [
+ "bitflags 2.4.1",
+ "cc",
+ "fallible-iterator 0.3.0",
+ "indexmap 2.1.0",
+ "log",
+ "memchr",
+ "phf",
+ "phf_codegen",
+ "phf_shared",
+ "smallvec",
+ "uncased",
 ]
 
 [[package]]
@@ -3904,24 +3928,6 @@ name = "sptr"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b9b39299b249ad65f3b7e96443bad61c02ca5cd3589f46cb6d610a0fd6c0d6a"
-
-[[package]]
-name = "sqlite3-parser"
-version = "0.11.0"
-source = "git+https://github.com/tursodatabase/libsql?rev=8d59b728f5bdf4ee33a65cb02ad174f311a2c94d#8d59b728f5bdf4ee33a65cb02ad174f311a2c94d"
-dependencies = [
- "bitflags 2.4.1",
- "cc",
- "fallible-iterator 0.3.0",
- "indexmap 2.1.0",
- "log",
- "memchr",
- "phf",
- "phf_codegen",
- "phf_shared",
- "smallvec",
- "uncased",
-]
 
 [[package]]
 name = "sqlparser"

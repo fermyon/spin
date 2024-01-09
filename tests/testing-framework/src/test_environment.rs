@@ -40,7 +40,7 @@ impl TestEnvironment {
     /// Copy a file into the test environment at the given relative path
     pub fn copy_into(&self, from: impl AsRef<Path>, into: impl AsRef<Path>) -> anyhow::Result<()> {
         fn copy_dir_all(from: &Path, into: &Path) -> anyhow::Result<()> {
-            std::fs::create_dir_all(&into)?;
+            std::fs::create_dir_all(into)?;
             for entry in std::fs::read_dir(from)? {
                 let entry = entry?;
                 let ty = entry.file_type()?;
@@ -122,20 +122,20 @@ impl TestEnvironmentConfig {
     /// Configure a test environment that uses a local Spin as a runtime
     ///
     /// * `spin_binary` - the path to the Spin binary
-    /// * `boot` - a callback that happens after the services have started but before the runtime is
-    /// * `tester` - a callback that runs the test against the runtime
+    /// * `preboot` - a callback that happens after the services have started but before the runtime is
+    /// * `test` - a callback that runs the test against the runtime
     /// * `services_config` - the services that the test requires
     pub fn spin(
         spin_binary: PathBuf,
-        boot: impl FnOnce(&mut TestEnvironment) -> anyhow::Result<()> + 'static,
-        tester: impl Fn(&mut Spin) -> TestResult + 'static,
+        preboot: impl FnOnce(&mut TestEnvironment) -> anyhow::Result<()> + 'static,
+        test: impl Fn(&mut Spin) -> TestResult + 'static,
         services_config: ServicesConfig,
     ) -> Self {
         Self {
             services_config,
             create_runtime: Box::new(move |env| {
-                boot(env)?;
-                let runtime = Spin::start(&spin_binary, env.path(), Box::new(tester))?;
+                preboot(env)?;
+                let runtime = Spin::start(&spin_binary, env.path(), Box::new(test))?;
                 Ok(Box::new(runtime))
             }),
         }

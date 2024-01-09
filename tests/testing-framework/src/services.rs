@@ -19,7 +19,7 @@ pub struct Services {
 
 impl Services {
     /// Start all the required services given a path to service definitions
-    pub fn start<'a>(config: &ServicesConfig) -> anyhow::Result<Self> {
+    pub fn start(config: &ServicesConfig) -> anyhow::Result<Self> {
         let mut services = Vec::new();
         for required_service in &config.services {
             let service_definition_extension =

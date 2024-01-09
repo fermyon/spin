@@ -35,11 +35,11 @@ mod integration_tests {
 
     #[test]
     fn test_simple_rust_local() -> Result<()> {
-        fn test(spin: &mut runtime_tests::Spin) -> runtime_tests::TestResult {
-            assert_status(spin, "/test/hello", 200)?;
-            assert_status(spin, "/test/hello/wildcards/should/be/handled", 200)?;
-            assert_status(spin, "/thisshouldfail", 404)?;
-            assert_status(spin, "/test/hello/test-placement", 200)?;
+        fn test(spin: &mut testing_framework::Spin) -> testing_framework::TestResult {
+            assert_spin_status(spin, "/test/hello", 200)?;
+            assert_spin_status(spin, "/test/hello/wildcards/should/be/handled", 200)?;
+            assert_spin_status(spin, "/thisshouldfail", 404)?;
+            assert_spin_status(spin, "/test/hello/test-placement", 200)?;
             Ok(())
         }
         integration_test(
@@ -55,14 +55,14 @@ mod integration_tests {
 
     #[test]
     fn test_duplicate_rust_local() -> Result<()> {
-        fn test(spin: &mut runtime_tests::Spin) -> runtime_tests::TestResult {
-            assert_status(spin, "/route1", 200)?;
-            assert_status(spin, "/route2", 200)?;
-            assert_status(spin, "/thisshouldfail", 404)?;
+        fn test(spin: &mut testing_framework::Spin) -> testing_framework::TestResult {
+            assert_spin_status(spin, "/route1", 200)?;
+            assert_spin_status(spin, "/route2", 200)?;
+            assert_spin_status(spin, "/thisshouldfail", 404)?;
             Ok(())
         }
         integration_test(
-            &format!("{}/{}", RUST_HTTP_INTEGRATION_TEST, "double-trouble.toml"),
+            format!("{}/{}", RUST_HTTP_INTEGRATION_TEST, "double-trouble.toml"),
             test,
         )?;
 
@@ -244,14 +244,14 @@ mod integration_tests {
 
     fn integration_test(
         manifest_path: impl Into<PathBuf>,
-        test: impl Fn(&mut runtime_tests::Spin) -> runtime_tests::TestResult + 'static,
+        test: impl Fn(&mut testing_framework::Spin) -> testing_framework::TestResult + 'static,
     ) -> anyhow::Result<()> {
         let manifest_path = manifest_path.into();
-        let spin = runtime_tests::TestEnvironmentConfig::spin(
+        let spin = testing_framework::TestEnvironmentConfig::spin(
             spin_binary().into(),
             move |env| {
                 // Copy manifest
-                let mut template = runtime_tests::ManifestTemplate::from_file(&manifest_path)?;
+                let mut template = testing_framework::ManifestTemplate::from_file(manifest_path)?;
                 template.substitute(env)?;
                 env.write_file(DEFAULT_MANIFEST_LOCATION, template.contents())?;
 
@@ -261,30 +261,47 @@ mod integration_tests {
                 Ok(())
             },
             test,
-            runtime_tests::ServicesConfig::none(),
+            testing_framework::ServicesConfig::none(),
         );
-        let mut env = runtime_tests::TestEnvironment::up(spin)?;
+        let mut env = testing_framework::TestEnvironment::up(spin)?;
         Ok(env.test()?)
     }
 
-    fn assert_status(
-        spin: &mut runtime_tests::Spin,
+    fn assert_spin_status(
+        spin: &mut testing_framework::Spin,
         uri: &str,
         status: u16,
-    ) -> runtime_tests::TestResult {
+    ) -> testing_framework::TestResult {
         let r = spin.make_http_request(reqwest::Method::GET, uri)?;
         if r.status() != status {
-            return Err(runtime_tests::TestError::Failure(
+            return Err(testing_framework::TestError::Failure(
                 String::new(),
                 anyhow!(
                     "Expected status {} for {} but got {}",
                     status,
                     uri,
                     r.status()
-                )
-                .into(),
+                ),
             ));
         }
+        Ok(())
+    }
+
+    #[cfg(feature = "config-provider-tests")]
+    async fn assert_status(
+        s: &SpinTestController,
+        absolute_uri: &str,
+        expected: u16,
+    ) -> Result<()> {
+        let res = Client::new()
+            .get(format!("http://{}{}", s.url, absolute_uri))
+            .send()
+            .await?;
+
+        let status = res.status();
+        let body = res.bytes().await?;
+        assert_eq!(status, expected, "{}", String::from_utf8_lossy(&body));
+
         Ok(())
     }
 

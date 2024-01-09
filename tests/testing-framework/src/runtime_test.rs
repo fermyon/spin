@@ -162,14 +162,7 @@ fn environment_config(
 ) -> anyhow::Result<TestEnvironmentConfig> {
     let required_services = required_services(test_path)?;
 
-    // TODO: make this more robust so that it is not just assumed that the services definitions are
-    // located at ../../services relative to the test path
-    let service_definitions = test_path
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("services");
+    let service_definitions = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("services");
     let services_config = services::ServicesConfig::new(service_definitions, required_services)?;
     Ok(TestEnvironmentConfig {
         create_runtime,

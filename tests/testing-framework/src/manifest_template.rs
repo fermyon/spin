@@ -21,7 +21,7 @@ impl ManifestTemplate {
     /// Substitute template variables in the manifest template.
     pub fn substitute(&mut self, env: &mut TestEnvironment) -> Result<(), anyhow::Error> {
         let regex = TEMPLATE.get_or_init(|| regex::Regex::new(r"%\{(.*?)\}").unwrap());
-        Ok(while let Some(captures) = regex.captures(&self.manifest) {
+        while let Some(captures) = regex.captures(&self.manifest) {
             let (Some(full), Some(capture)) = (captures.get(0), captures.get(1)) else {
                 continue;
             };
@@ -53,7 +53,8 @@ impl ManifestTemplate {
                 }
             };
             self.manifest.replace_range(full.range(), &replacement);
-        })
+        }
+        Ok(())
     }
 
     pub fn contents(&self) -> &str {

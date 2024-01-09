@@ -484,6 +484,84 @@ impl std::fmt::Display for Method {
     }
 }
 
+/// Provides a typed Request type with automatic conversion of the body.
+pub mod typed {
+    use super::{
+        conversions::{IncomingRequestError, TryFromBody, TryFromIncomingRequest},
+        HeaderValue, IncomingRequest, Method,
+    };
+    use std::marker::PhantomData;
+
+    /// A typed request object that represents an incoming request whose body is expected
+    /// to be in a known format.  For example, if the body is expected to be a string,
+    /// you can write `Request<String>`; if the body is expected to be a JSON-serialised
+    /// `Widget`, you can write `Request<Json<Widget>>`.
+    pub struct Request<T: TryFromBody> {
+        request: super::Request,
+        _phantom: PhantomData<T>,
+    }
+
+    #[async_trait::async_trait]
+    impl<T: TryFromBody> TryFromIncomingRequest for Request<T> {
+        type Error = IncomingRequestError;
+
+        async fn try_from_incoming_request(value: IncomingRequest) -> Result<Self, Self::Error>
+        where
+            Self: Sized,
+        {
+            let request = super::Request::try_from_incoming_request(value).await?;
+            Ok(Self {
+                request,
+                _phantom: PhantomData,
+            })
+        }
+    }
+
+    impl<T: TryFromBody> Request<T> {
+        /// The request headers
+        pub fn headers(&self) -> impl Iterator<Item = (&str, &HeaderValue)> {
+            self.request.headers()
+        }
+
+        /// Return a header value
+        ///
+        /// Will return `None` if the header does not exist.
+        pub fn header(&self, name: &str) -> Option<&HeaderValue> {
+            self.request.header(name)
+        }
+
+        /// The request method
+        pub fn method(&self) -> &Method {
+            self.request.method()
+        }
+
+        /// The request URI path
+        pub fn path(&self) -> &str {
+            self.request.path()
+        }
+
+        /// The request path and query combined
+        pub fn path_and_query(&self) -> Option<&str> {
+            self.request.path_and_query()
+        }
+
+        /// The request URI query
+        pub fn query(&self) -> &str {
+            self.request.query()
+        }
+
+        /// The request URI
+        pub fn uri(&self) -> &str {
+            self.request.uri()
+        }
+
+        /// Consume this type and return its (converted) body
+        pub fn body(self) -> Result<T, T::Error> {
+            T::try_from_body(self.request.into_body())
+        }
+    }
+}
+
 impl IncomingRequest {
     /// The incoming request Uri
     pub fn uri(&self) -> String {

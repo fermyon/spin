@@ -24,6 +24,7 @@ Note that support for outbound WebSocket connections could also be useful, but i
     - These interfaced are deliberately designed to avoid the need for long-lived component instances
     - Eventually, we may want to propose this as a WASI standard, but to begin with we'll consider it experimental and Spin-specific
 - Add host trigger and component support to Spin for said interfaces, using e.g. `hyper` and `tokio-tungstenite`
+- Document consistency guarantees in Spin's SQLite support so developers can rely on them for application state management
 
 ### WIT Interfaces and World
 
@@ -198,10 +199,18 @@ However, if the app uses a database that's distributed and eventually consistent
 
 The first two of those options are appealing from a both a developer and user experience perspective. The third one requires the app developer to confront a fundamental trade-off: polling too often creates unreasonable load on the database, application server, etc., while polling too infrequently results in a poor user experience. Indeed, one of the big reasons to provide WebSocket support is to avoid polling and its trade-offs.
 
-Unfortunately, as of this writing, neither of Spin's built-in persistent stores (SQLite and key-value) provide any sort of explicit consistency guarantees, so apps must either provide their own store (e.g. a PostgreSQL, MySQL, or Redis server) or use the third option. In the future (or even concurrently with this proposal) should consider providing one or both of the first two options as a built-in part of Spin.
+Unfortunately, as of this writing, neither of Spin's built-in persistent stores (SQLite and key-value) provide any sort of explicit consistency guarantees, so apps must either provide their own store (e.g. a PostgreSQL, MySQL, or Redis server) or use the third option.
+
+Therefore, we propose to officially document and support a consistency model for Spin's SQLite implementation which provides (optional) strict serializability (i.e. both [linearizability and serializability](http://www.bailis.org/blog/linearizability-versus-serializability/)). Specifically:
+
+- All writes (e.g. `INSERT`s, `UPDATE`s, and `DELETE`s) are linearized (i.e. each database connection will see writes applied in the same order)
+- A `SELECT` query following a write on the same database connection is guaranteed to see that write and all previous writes
+- A `SELECT` query in a [BEGIN IMMEDIATE](https://sqlite.org/lang_transaction.html) transaction is guaranteed to see all the writes completed up to that point in time, regardless of whether it is preceded by a write on the same database connection
+- In contrast, a `SELECT` query which neither follows a write on the same connection nor is part of a `BEGIN IMMEDIATE` transaction may see old data. For example, if an app opens a database connection, performs a write, closes the connection, then opens a new connection and does a `SELECT`, it might not see the write performed by the original connection.
+
+A consequence of the last point above is that if `fermyon:spin/inbound-websocket-receive#handle-frames` is invoked twice conscutively for the same connection, with each invocation delivering a batch of frames in order, and the first invocation writes to the database, the second invocation might not see the result of that write. It must either perform its own write prior to querying or else do the query inside a `BEGIN IMMEDIATE` transaction.
 
 ## Future Possibilities
 
-- As discussed above, Spin should offer one or more built-in, persistent state stores with explicit consistency guarantees to avoid the need for polling.
 - [WebTransport](https://www.w3.org/TR/webtransport/) is a new, more advanced protocol for high-performance client-server networking based on HTTP/3. It's not yet supported by all popular browsers, but could be worth supporting in Spin eventually.
 - Outbound WebSockets could be supported similarly to this proposal, with short-lived instantiations created as frames arrive from the remote server. However, server-to-server WebSockets are rare, so it's not clear how useful this would be.

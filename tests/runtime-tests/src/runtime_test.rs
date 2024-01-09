@@ -1,11 +1,9 @@
+use crate::manifest_template::ManifestTemplate;
 use crate::spin::Spin;
 use crate::test_environment::{RuntimeCreator, TestEnvironment, TestEnvironmentConfig};
-use crate::{OnTestError, TestResult};
+use crate::{services, OnTestError, TestError, TestResult};
 use anyhow::Context;
-use std::{
-    path::{Path, PathBuf},
-    sync::OnceLock,
-};
+use std::path::{Path, PathBuf};
 
 /// Configuration for a runtime test
 pub struct RuntimeTestConfig {
@@ -57,14 +55,35 @@ impl RuntimeTest {
         log::info!("Testing: {}", config.test_path.display());
         let test_path_clone = config.test_path.to_owned();
         let spin_binary = config.spin_binary.clone();
+        let tester = |spin: &mut Spin| -> TestResult {
+            let response = spin.make_http_request(reqwest::Method::GET, "/")?;
+            if response.status() == 200 {
+                return Ok(());
+            }
+            if response.status() != 500 {
+                return Err(anyhow::anyhow!("Runtime tests are expected to return either either a 200 or a 500, but it returned a {}", response.status()).into());
+            }
+            let text = response
+                .text()
+                .context("could not get runtime test HTTP response")?;
+            if text.is_empty() {
+                let stderr = spin.stderr();
+                return Err(anyhow::anyhow!("Runtime tests are expected to return a response body, but the response body was empty.\nstderr:\n{stderr}").into());
+            }
+
+            Err(TestError::Failure(
+                text,
+                anyhow::anyhow!("stderr:\n{}", spin.stderr()),
+            ))
+        };
         let env_config = environment_config(
             &config.test_path,
             Box::new(move |env| {
                 copy_manifest(&test_path_clone, env)?;
-                Ok(Box::new(Spin::start(&spin_binary, env.path())?) as _)
+                Ok(Box::new(Spin::start(&spin_binary, env.path(), Box::new(tester))?) as _)
             }),
         )?;
-        let env = TestEnvironment::up(&env_config)?;
+        let env = TestEnvironment::up(env_config)?;
         Ok(Self {
             test_path: config.test_path,
             on_error: config.on_error,
@@ -87,16 +106,11 @@ impl RuntimeTest {
                 }
             };
         }
-        let response = match self.env.test() {
-            Ok(r) => r,
-            Err(e) => {
-                error!(on_error, "failed to run test: {e}")
-            }
-        };
+        let response = self.env.test();
         let error_file = self.test_path.join("error.txt");
         match response {
-            TestResult::Pass if !error_file.exists() => log::info!("Test passed!"),
-            TestResult::Pass => {
+            Ok(()) if !error_file.exists() => log::info!("Test passed!"),
+            Ok(()) => {
                 let expected = match std::fs::read_to_string(&error_file) {
                     Ok(e) => e,
                     Err(e) => error!(on_error, "failed to read error.txt file: {}", e),
@@ -106,7 +120,7 @@ impl RuntimeTest {
                     "Test passed but should have failed with error: {expected}"
                 )
             }
-            TestResult::Fail(e, extra) if error_file.exists() => {
+            Err(TestError::Failure(e, extra)) if error_file.exists() => {
                 let expected = match std::fs::read_to_string(&error_file) {
                     Ok(e) => e,
                     Err(e) => error!(on_error, "failed to read error.txt file: {e}"),
@@ -120,14 +134,14 @@ impl RuntimeTest {
                 )
                 }
             }
-            TestResult::Fail(e, extra) => {
+            Err(TestError::Failure(e, extra)) => {
                 error!(
                     on_error,
                     "Test '{}' errored: {e}\n{extra}",
                     self.test_path.display()
                 );
             }
-            TestResult::RuntimeError(extra) => {
+            Err(TestError::Fatal(extra)) => {
                 error!(
                     on_error,
                     "Test '{}' failed fatally: {extra}",
@@ -156,10 +170,10 @@ fn environment_config(
         .parent()
         .unwrap()
         .join("services");
+    let services_config = services::ServicesConfig::new(service_definitions, required_services)?;
     Ok(TestEnvironmentConfig {
-        required_services,
-        service_definitions,
         create_runtime,
+        services_config,
     })
 }
 
@@ -178,53 +192,19 @@ fn required_services(test_path: &Path) -> anyhow::Result<Vec<String>> {
     Ok(iter.collect())
 }
 
-static TEMPLATE: OnceLock<regex::Regex> = OnceLock::new();
 /// Copies the test dir's manifest file into the temporary directory
 ///
 /// Replaces template variables in the manifest file with components from the components path.
 fn copy_manifest(test_dir: &Path, env: &mut TestEnvironment) -> anyhow::Result<()> {
     let manifest_path = test_dir.join("spin.toml");
-    let mut manifest = std::fs::read_to_string(manifest_path).with_context(|| {
+    let mut manifest = ManifestTemplate::from_file(manifest_path).with_context(|| {
         format!(
             "no spin.toml manifest found in test directory {}",
             test_dir.display()
         )
     })?;
-    let regex = TEMPLATE.get_or_init(|| regex::Regex::new(r"%\{(.*?)\}").unwrap());
-    while let Some(captures) = regex.captures(&manifest) {
-        let (Some(full), Some(capture)) = (captures.get(0), captures.get(1)) else {
-            continue;
-        };
-        let template = capture.as_str();
-        let (template_key, template_value) = template.split_once('=').with_context(|| {
-            format!("invalid template '{template}'(template should be in the form $KEY=$VALUE)")
-        })?;
-        let replacement = match template_key.trim() {
-            "source" => {
-                let path = std::path::PathBuf::from(
-                    test_components::path(template_value)
-                        .with_context(|| format!("no such component '{template_value}'"))?,
-                );
-                let wasm_name = path.file_name().unwrap().to_str().unwrap();
-                env.copy_into(&path, wasm_name)?;
-                wasm_name.to_owned()
-            }
-            "port" => {
-                let guest_port = template_value
-                    .parse()
-                    .with_context(|| format!("failed to parse '{template_value}' as port"))?;
-                let port = env
-                    .get_port(guest_port)?
-                    .with_context(|| format!("no port {guest_port} exposed by any service"))?;
-                port.to_string()
-            }
-            _ => {
-                anyhow::bail!("unknown template key: {template_key}");
-            }
-        };
-        manifest.replace_range(full.range(), &replacement);
-    }
-    env.write_file("spin.toml", manifest)
+    manifest.substitute(env)?;
+    env.write_file("spin.toml", manifest.contents())
         .context("failed to copy spin.toml manifest to temporary directory")?;
     Ok(())
 }

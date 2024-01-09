@@ -4,17 +4,26 @@ use std::{
     process::{Command, Stdio},
 };
 
+/// A wrapper around a running Spin instance
 pub struct Spin {
     process: std::process::Child,
     #[allow(dead_code)]
     stdout: OutputStream,
     stderr: OutputStream,
     port: u16,
+    tester: Option<Box<Tester>>,
 }
+
+/// A callback that runs the test against the runtime
+pub type Tester = dyn Fn(&mut Spin) -> TestResult;
 
 impl Spin {
     /// Start Spin in `current_dir` using the binary at `spin_binary_path`
-    pub fn start(spin_binary_path: &Path, current_dir: &Path) -> anyhow::Result<Self> {
+    pub fn start(
+        spin_binary_path: &Path,
+        current_dir: &Path,
+        tester: Box<Tester>,
+    ) -> anyhow::Result<Self> {
         let port = get_random_port()?;
         let mut child = Command::new(spin_binary_path)
             .arg("up")
@@ -31,6 +40,7 @@ impl Spin {
             stdout,
             stderr,
             port,
+            tester: Some(tester),
         };
         let start = std::time::Instant::now();
         loop {
@@ -65,17 +75,31 @@ impl Spin {
         )
     }
 
-    fn make_http_request(&mut self) -> Result<reqwest::blocking::Response, anyhow::Error> {
+    pub fn make_http_request(
+        &mut self,
+        method: reqwest::Method,
+        path: &str,
+    ) -> anyhow::Result<reqwest::blocking::Response> {
         if let Some(status) = self.try_wait()? {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
         }
         log::debug!("Connecting to HTTP server on port {}...", self.port);
-        let response = reqwest::blocking::get(format!("http://127.0.0.1:{}", self.port))?;
+        let request = reqwest::blocking::Request::new(
+            method,
+            format!("http://localhost:{}{}", self.port, path)
+                .parse()
+                .unwrap(),
+        );
+        let response = reqwest::blocking::Client::new().execute(request)?;
         log::debug!("Awaiting response from server");
         if let Some(status) = self.try_wait()? {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
         }
         Ok(response)
+    }
+
+    pub fn stderr(&mut self) -> &str {
+        self.stderr.output_as_str().unwrap_or("<non-utf8>")
     }
 
     fn try_wait(&mut self) -> std::io::Result<Option<std::process::ExitStatus>> {
@@ -90,27 +114,19 @@ impl Drop for Spin {
 }
 
 impl Runtime for Spin {
-    fn test(&mut self) -> anyhow::Result<TestResult> {
-        let response = self.make_http_request()?;
-        if response.status() == 200 {
-            return Ok(TestResult::Pass);
-        }
-        if response.status() != 500 {
-            anyhow::bail!("Response was neither 200 nor 500")
-        }
-        let text = response.text()?;
-        if text.is_empty() {
-            let stderr = self.stderr.output_as_str().unwrap_or("<non-utf8>");
-            return Ok(TestResult::RuntimeError(stderr.to_owned()));
+    fn test(&mut self) -> TestResult {
+        let tester = self.tester.take().expect("called test twice");
+        let result = tester(self);
+        self.tester = Some(tester);
+        result
+    }
+
+    fn error(&mut self) -> anyhow::Result<()> {
+        if self.try_wait()?.is_some() {
+            anyhow::bail!("Spin exited early: {}", self.stderr());
         }
 
-        Ok(TestResult::Fail(
-            text,
-            self.stderr
-                .output_as_str()
-                .unwrap_or("<non-utf8>")
-                .to_owned(),
-        ))
+        Ok(())
     }
 }
 

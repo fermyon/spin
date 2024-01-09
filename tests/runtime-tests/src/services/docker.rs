@@ -14,6 +14,7 @@ pub struct DockerService {
     // We declare lock after container so that the lock is dropped after the container is
     _lock: fslock::LockFile,
     ports: OnceCell<HashMap<u16, u16>>,
+    ready: bool,
 }
 
 impl DockerService {
@@ -35,6 +36,7 @@ impl DockerService {
             container,
             _lock: lock,
             ports: OnceCell::new(),
+            ready: false,
         })
     }
 }
@@ -86,9 +88,9 @@ impl Service for DockerService {
         "docker"
     }
 
-    fn await_ready(&mut self) -> anyhow::Result<()> {
+    fn ready(&mut self) -> anyhow::Result<()> {
         // docker container inspect -f '{{.State.Health.Status}}'
-        loop {
+        while !self.ready {
             let output = Command::new("docker")
                 .arg("container")
                 .arg("inspect")
@@ -104,14 +106,11 @@ impl Service for DockerService {
             }
             let output = String::from_utf8(output.stdout)?;
             match output.trim() {
-                "healthy" => return Ok(()),
+                "healthy" => self.ready = true,
                 "unhealthy" => bail!("docker container is unhealthy"),
                 _ => std::thread::sleep(std::time::Duration::from_millis(100)),
             }
         }
-    }
-
-    fn error(&mut self) -> anyhow::Result<()> {
         anyhow::ensure!(!get_running_containers(&self.image_name)?.is_empty());
         Ok(())
     }

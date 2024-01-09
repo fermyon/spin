@@ -14,6 +14,7 @@ pub struct PythonService {
     stdout: OutputStream,
     ports: OnceCell<HashMap<u16, u16>>,
     _lock: fslock::LockFile,
+    ready: bool,
 }
 
 impl PythonService {
@@ -43,6 +44,7 @@ impl PythonService {
             child,
             ports: OnceCell::new(),
             _lock: lock,
+            ready: false,
         })
     }
 }
@@ -52,28 +54,25 @@ impl Service for PythonService {
         "python"
     }
 
-    fn await_ready(&mut self) -> anyhow::Result<()> {
-        loop {
+    fn ready(&mut self) -> anyhow::Result<()> {
+        while !self.ready {
             let stdout = self
                 .stdout
                 .output_as_str()
                 .context("stdout is not valid utf8")?;
             if stdout.contains("READY") {
-                break;
+                self.ready = true;
             }
         }
-        Ok(())
-    }
-
-    fn error(&mut self) -> anyhow::Result<()> {
         let exit = self.child.try_wait()?;
         if exit.is_some() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Interrupted,
-                "process exited early",
+                "python service process exited early",
             )
             .into());
         }
+
         Ok(())
     }
 

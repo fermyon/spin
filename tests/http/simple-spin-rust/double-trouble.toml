@@ -16,7 +16,7 @@ component = "hello" # intentionally pointing to same component
 object = { default = "teapot" }
 
 [component.hello]
-source = "target/wasm32-wasi/release/simple_spin_rust.wasm"
+source = "%{source=integration-simple}"
 files = [{ source = "assets", destination = "/" }]
 [component.hello.variables]
 message = "I'm a {{object}}"

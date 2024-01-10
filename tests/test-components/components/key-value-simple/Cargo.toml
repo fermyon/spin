@@ -1,0 +1,12 @@
+[package]
+name = "key-value-simple"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0"
+serde_qs = "0.12.0"
+spin-sdk = { path = "../../../../sdk/rust" }

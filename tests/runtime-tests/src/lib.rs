@@ -60,7 +60,7 @@ impl RuntimeTest<Spin> {
             Ok(())
         };
         let services_config = services_config(&config)?;
-        let env_config = TestEnvironmentConfig::spin(spin_binary, preboot, services_config);
+        let env_config = TestEnvironmentConfig::spin(spin_binary, [], preboot, services_config);
         let env = TestEnvironment::up(env_config)?;
         Ok(Self {
             test_path: config.test_path,

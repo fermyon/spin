@@ -1,5 +1,94 @@
+use std::path::PathBuf;
+
 #[cfg(feature = "e2e-tests")]
 mod testcases;
+
+fn spin_binary() -> PathBuf {
+    env!("CARGO_BIN_EXE_spin").into()
+}
+
+#[test]
+/// Test that the --key-value flag works as expected
+fn key_value_cli_flag() -> anyhow::Result<()> {
+    let test_key = uuid::Uuid::new_v4().to_string();
+    let test_value = uuid::Uuid::new_v4().to_string();
+    run_test(
+        "key-value",
+        ["--key-value".into(), format!("{test_key}={test_value}")],
+        move |spin: &mut testing_framework::Spin| {
+            assert_spin_request(
+                spin,
+                reqwest::Method::GET,
+                &format!("/test?key={test_key}"),
+                200,
+                &test_value,
+            )
+        },
+    )?;
+    Ok(())
+}
+
+/// Run an e2e test
+fn run_test(
+    test_name: impl Into<String>,
+    spin_up_args: impl IntoIterator<Item = String>,
+    test: impl testing_framework::Test<Runtime = testing_framework::Spin, Failure = anyhow::Error>,
+) -> testing_framework::TestResult<anyhow::Error> {
+    let config = environment_config(test_name.into(), spin_up_args);
+    testing_framework::TestEnvironment::up(config)?.test(test)?;
+    Ok(())
+}
+
+/// Assert that a request to the spin server returns the expected status and body
+fn assert_spin_request(
+    spin: &mut testing_framework::Spin,
+    method: reqwest::Method,
+    uri: &str,
+    expected_status: u16,
+    expected_body: &str,
+) -> testing_framework::TestResult<anyhow::Error> {
+    let r = spin.make_http_request(method, uri)?;
+    let status = r.status();
+    let body = r.text().unwrap_or_else(|_| String::from("<non-utf8>"));
+    if status != expected_status {
+        return Err(testing_framework::TestError::Failure(anyhow::anyhow!(
+            "Expected status {expected_status} for {uri} but got {status}\nBody:\n{body}",
+        )));
+    }
+    if body != expected_body {
+        return Err(anyhow::anyhow!("expected {expected_body}, got {body}",).into());
+    }
+    Ok(())
+}
+
+/// Get the configuration for a test environment
+fn environment_config(
+    test_name: String,
+    spin_up_args: impl IntoIterator<Item = String>,
+) -> testing_framework::TestEnvironmentConfig<testing_framework::Spin> {
+    testing_framework::TestEnvironmentConfig::spin(
+        spin_binary(),
+        spin_up_args,
+        move |env| preboot(&test_name, env),
+        testing_framework::ServicesConfig::none(),
+    )
+}
+
+/// Get the test environment ready to run a test
+fn preboot(
+    test: &str,
+    env: &mut testing_framework::TestEnvironment<testing_framework::Spin>,
+) -> anyhow::Result<()> {
+    // Copy everything into the test environment
+    env.copy_into(format!("tests/testcases/{test}"), "")?;
+
+    // Copy the manifest with all templates substituted
+    let manifest_path = PathBuf::from(format!("tests/testcases/{test}/spin.toml"));
+    let mut template = testing_framework::ManifestTemplate::from_file(manifest_path)?;
+    template.substitute(env)?;
+    env.write_file("spin.toml", template.contents())?;
+    Ok(())
+}
 
 #[cfg(feature = "e2e-tests")]
 mod spinup_tests {
@@ -10,11 +99,6 @@ mod spinup_tests {
     #[tokio::test]
     async fn component_outbound_http_works() {
         testcases::component_outbound_http_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn key_value_works() {
-        testcases::key_value_works(CONTROLLER).await
     }
 
     #[tokio::test]

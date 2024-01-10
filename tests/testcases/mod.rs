@@ -61,57 +61,6 @@ pub async fn component_outbound_http_works(controller: &dyn Controller) {
     tc.run(controller).await.unwrap()
 }
 
-pub async fn key_value_works(controller: &dyn Controller) {
-    async fn checks(
-        metadata: AppMetadata,
-        test_init_key: String,
-        test_init_value: String,
-        // TODO: investigate why omitting these two next parameters does not
-        // cause a compile time error but causes a runtime one
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-    ) -> Result<()> {
-        assert_http_response(
-            get_url(
-                metadata.base.as_str(),
-                &format!("/test?testkey={test_init_key}&testval={test_init_value}"),
-            )
-            .as_str(),
-            Method::GET,
-            "",
-            200,
-            &[],
-            None,
-        )
-        .await
-    }
-
-    let init_key = uuid::Uuid::new_v4().to_string();
-    let init_value = uuid::Uuid::new_v4().to_string();
-
-    let tc = TestCaseBuilder::default()
-        .name("key-value".to_string())
-        .appname(Some("key-value".to_string()))
-        .template(None)
-        .deploy_args(vec![
-            "--key-value".to_string(),
-            format!("{init_key}={init_value}"),
-        ])
-        .assertions(
-            move |metadata: AppMetadata,
-                  stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
-                  stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
-                let ik = init_key.clone();
-                let iv = init_value.clone();
-                Box::pin(checks(metadata, ik, iv, stdout_stream, stderr_stream))
-            },
-        )
-        .build()
-        .unwrap();
-
-    tc.run(controller).await.unwrap()
-}
-
 pub async fn http_python_works(controller: &dyn Controller) {
     async fn checks(
         metadata: AppMetadata,

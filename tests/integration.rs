@@ -249,6 +249,7 @@ mod integration_tests {
         let manifest_path = manifest_path.into();
         let spin = testing_framework::TestEnvironmentConfig::spin(
             spin_binary().into(),
+            [],
             move |env| {
                 // Copy manifest
                 let mut template = testing_framework::ManifestTemplate::from_file(manifest_path)?;

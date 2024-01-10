@@ -116,9 +116,9 @@ impl<R> TestEnvironment<R> {
 /// Configuration for a test environment
 pub struct TestEnvironmentConfig<R> {
     /// A callback to create a runtime given a path to a temporary directory
-    pub create_runtime: Box<RuntimeCreator<R>>,
+    create_runtime: Box<RuntimeCreator<R>>,
     /// The services that the test requires
-    pub services_config: ServicesConfig,
+    services_config: ServicesConfig,
 }
 
 impl TestEnvironmentConfig<Spin> {
@@ -128,16 +128,18 @@ impl TestEnvironmentConfig<Spin> {
     /// * `preboot` - a callback that happens after the services have started but before the runtime is
     /// * `test` - a callback that runs the test against the runtime
     /// * `services_config` - the services that the test requires
-    pub fn spin(
+    pub fn spin<'a>(
         spin_binary: PathBuf,
+        spin_up_args: impl IntoIterator<Item = String>,
         preboot: impl FnOnce(&mut TestEnvironment<Spin>) -> anyhow::Result<()> + 'static,
         services_config: ServicesConfig,
     ) -> Self {
+        let spin_up_args = spin_up_args.into_iter().collect();
         Self {
             services_config,
             create_runtime: Box::new(move |env| {
                 preboot(env)?;
-                Spin::start(&spin_binary, env.path())
+                Spin::start(&spin_binary, env.path(), spin_up_args)
             }),
         }
     }

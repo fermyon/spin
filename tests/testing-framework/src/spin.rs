@@ -15,12 +15,17 @@ pub struct Spin {
 
 impl Spin {
     /// Start Spin in `current_dir` using the binary at `spin_binary_path`
-    pub fn start(spin_binary_path: &Path, current_dir: &Path) -> anyhow::Result<Self> {
+    pub fn start(
+        spin_binary_path: &Path,
+        current_dir: &Path,
+        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
+    ) -> anyhow::Result<Self> {
         let port = get_random_port()?;
         let mut child = Command::new(spin_binary_path)
             .arg("up")
             .current_dir(current_dir)
             .args(["--listen", &format!("127.0.0.1:{port}")])
+            .args(spin_up_args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;

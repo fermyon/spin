@@ -28,6 +28,46 @@ fn key_value_cli_flag() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn http_smoke_test() -> anyhow::Result<()> {
+    run_test(
+        "smoke-test",
+        [],
+        move |spin: &mut testing_framework::Spin| {
+            assert_spin_request(
+                spin,
+                reqwest::Method::GET,
+                &format!("/test/hello"),
+                200,
+                "I'm a teapot",
+            )?;
+            assert_spin_request(
+                spin,
+                reqwest::Method::GET,
+                &format!("/test/hello/wildcards/should/be/handled"),
+                200,
+                "I'm a teapot",
+            )?;
+            assert_spin_request(
+                spin,
+                reqwest::Method::GET,
+                &format!("/thishsouldfail"),
+                404,
+                "",
+            )?;
+            assert_spin_request(
+                spin,
+                reqwest::Method::GET,
+                &format!("/test/hello/test-placement"),
+                200,
+                "text for test",
+            )
+        },
+    )?;
+
+    Ok(())
+}
+
 /// Run an e2e test
 fn run_test(
     test_name: impl Into<String>,
@@ -155,11 +195,6 @@ mod spinup_tests {
     #[tokio::test]
     async fn assets_routing_works() {
         testcases::assets_routing_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn head_rust_sdk_http() {
-        testcases::head_rust_sdk_http(CONTROLLER).await
     }
 
     #[tokio::test]

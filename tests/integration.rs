@@ -4,7 +4,7 @@ mod integration_tests {
     use futures::{channel::oneshot, future, stream, FutureExt};
     use http_body_util::BodyExt;
     use hyper::{body::Bytes, server::conn::http1, service::service_fn, Method, StatusCode};
-    use reqwest::{Client, Response};
+    use reqwest::Client;
     use sha2::{Digest, Sha256};
     use spin_http::body;
     use spin_manifest::schema::v2;
@@ -13,7 +13,7 @@ mod integration_tests {
         ffi::OsStr,
         iter,
         net::{Ipv4Addr, SocketAddrV4, TcpListener},
-        path::Path,
+        path::{Path, PathBuf},
         process::{self, Child, Command, Output},
         sync::{Arc, Mutex},
         time::Duration,
@@ -30,51 +30,39 @@ mod integration_tests {
     const DEFAULT_MANIFEST_LOCATION: &str = "spin.toml";
 
     fn spin_binary() -> String {
-        format!("{}/debug/spin", target_dir())
+        env!("CARGO_BIN_EXE_spin").into()
     }
 
-    fn target_dir() -> String {
-        match std::env::var_os("CARGO_TARGET_DIR") {
-            Some(d) => d
-                .to_str()
-                .expect("CARGO_TARGET_DIR is not utf-8")
-                .to_owned(),
-            None => "./target".into(),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_simple_rust_local() -> Result<()> {
-        let s = SpinTestController::with_manifest(
-            &format!(
+    #[test]
+    fn test_simple_rust_local() -> Result<()> {
+        integration_test(
+            format!(
                 "{}/{}",
                 RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
             ),
-            &[],
-            &[],
-        )
-        .await?;
-
-        assert_status(&s, "/test/hello", 200).await?;
-        assert_status(&s, "/test/hello/wildcards/should/be/handled", 200).await?;
-        assert_status(&s, "/thisshouldfail", 404).await?;
-        assert_status(&s, "/test/hello/test-placement", 200).await?;
+            |spin| {
+                assert_spin_status(spin, "/test/hello", 200)?;
+                assert_spin_status(spin, "/test/hello/wildcards/should/be/handled", 200)?;
+                assert_spin_status(spin, "/thisshouldfail", 404)?;
+                assert_spin_status(spin, "/test/hello/test-placement", 200)?;
+                Ok(())
+            },
+        )?;
 
         Ok(())
     }
 
-    #[tokio::test]
-    async fn test_duplicate_rust_local() -> Result<()> {
-        let s = SpinTestController::with_manifest(
-            &format!("{}/{}", RUST_HTTP_INTEGRATION_TEST, "double-trouble.toml"),
-            &[],
-            &[],
-        )
-        .await?;
-
-        assert_status(&s, "/route1", 200).await?;
-        assert_status(&s, "/route2", 200).await?;
-        assert_status(&s, "/thisshouldfail", 404).await?;
+    #[test]
+    fn test_duplicate_rust_local() -> Result<()> {
+        integration_test(
+            format!("{}/{}", RUST_HTTP_INTEGRATION_TEST, "double-trouble.toml"),
+            |spin| {
+                assert_spin_status(spin, "/route1", 200)?;
+                assert_spin_status(spin, "/route2", 200)?;
+                assert_spin_status(spin, "/thisshouldfail", 404)?;
+                Ok(())
+            },
+        )?;
 
         Ok(())
     }
@@ -252,24 +240,64 @@ mod integration_tests {
         }
     }
 
+    fn integration_test(
+        manifest_path: impl Into<PathBuf>,
+        test: impl FnOnce(&mut testing_framework::Spin) -> testing_framework::TestResult<anyhow::Error>
+            + 'static,
+    ) -> anyhow::Result<()> {
+        let manifest_path = manifest_path.into();
+        let spin = testing_framework::TestEnvironmentConfig::spin(
+            spin_binary().into(),
+            move |env| {
+                // Copy manifest
+                let mut template = testing_framework::ManifestTemplate::from_file(manifest_path)?;
+                template.substitute(env)?;
+                env.write_file(DEFAULT_MANIFEST_LOCATION, template.contents())?;
+
+                // Copy assets directory
+                let assets_path = format!("{}/assets", RUST_HTTP_INTEGRATION_TEST);
+                env.copy_into(assets_path, "assets")?;
+                Ok(())
+            },
+            testing_framework::ServicesConfig::none(),
+        );
+        let mut env = testing_framework::TestEnvironment::up(spin)?;
+        Ok(env.test(test)?)
+    }
+
+    fn assert_spin_status(
+        spin: &mut testing_framework::Spin,
+        uri: &str,
+        status: u16,
+    ) -> testing_framework::TestResult<anyhow::Error> {
+        let r = spin.make_http_request(reqwest::Method::GET, uri)?;
+        if r.status() != status {
+            return Err(testing_framework::TestError::Failure(anyhow!(
+                "Expected status {} for {} but got {}",
+                status,
+                uri,
+                r.status()
+            )));
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "config-provider-tests")]
     async fn assert_status(
         s: &SpinTestController,
         absolute_uri: &str,
         expected: u16,
     ) -> Result<()> {
-        let res = req(s, absolute_uri).await?;
+        let res = Client::new()
+            .get(format!("http://{}{}", s.url, absolute_uri))
+            .send()
+            .await?;
+
         let status = res.status();
         let body = res.bytes().await?;
         assert_eq!(status, expected, "{}", String::from_utf8_lossy(&body));
 
         Ok(())
-    }
-
-    async fn req(s: &SpinTestController, absolute_uri: &str) -> Result<Response> {
-        Ok(Client::new()
-            .get(format!("http://{}{}", s.url, absolute_uri))
-            .send()
-            .await?)
     }
 
     /// Controller for running Spin.

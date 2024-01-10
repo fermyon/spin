@@ -1,16 +1,16 @@
 [package]
 name = "runtime-tests"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [dependencies]
-anyhow = { workspace = true }
+anyhow = "1.0"
 env_logger = "0.10.0"
-fslock = "0.2.1"
 log = "0.4"
-nix = "0.26.1"
-regex = "1.10.2"
 reqwest = { workspace = true }
-temp-dir = "0.1.11"
-test-components = { path = "../test-components" }
-toml = "0.8.6"
+testing-framework = { path = "../testing-framework" }

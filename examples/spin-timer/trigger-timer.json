@@ -3,7 +3,7 @@
     "description": "Run Spin components at timed intervals",
     "homepage": "https://github.com/fermyon/spin/tree/main/examples/spin-timer",
     "version": "0.1.0",
-    "spinCompatibility": ">=2.0",
+    "spinCompatibility": ">=2.2",
     "license": "Apache-2.0",
     "packages": [
         {

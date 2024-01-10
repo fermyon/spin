@@ -4274,7 +4274,7 @@ name = "outbound-redis"
 version = "2.2.0-pre0"
 dependencies = [
  "anyhow",
- "redis",
+ "redis 0.21.7",
  "spin-app",
  "spin-core",
  "spin-outbound-networking",
@@ -4888,6 +4888,21 @@ dependencies = [
  "tokio",
  "tokio-native-tls",
  "tokio-util 0.7.10",
+ "url",
+]
+
+[[package]]
+name = "redis"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c580d9cbbe1d1b479e8d67cf9daf6a62c957e6846048408b80b43ac3f6af84cd"
+dependencies = [
+ "combine",
+ "itoa",
+ "percent-encoding",
+ "ryu",
+ "sha1_smol",
+ "socket2 0.4.10",
  "url",
 ]
 
@@ -5757,6 +5772,7 @@ dependencies = [
  "outbound-redis",
  "path-absolutize",
  "rand 0.8.5",
+ "redis 0.24.0",
  "regex",
  "reqwest",
  "rpassword",
@@ -5923,7 +5939,7 @@ name = "spin-key-value-redis"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "redis",
+ "redis 0.21.7",
  "spin-core",
  "spin-key-value",
  "spin-world",
@@ -6149,7 +6165,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "futures",
- "redis",
+ "redis 0.21.7",
  "serde",
  "spin-app",
  "spin-core",

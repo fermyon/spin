@@ -10,12 +10,24 @@ pub struct Spin {
     #[allow(dead_code)]
     stdout: OutputStream,
     stderr: OutputStream,
-    port: u16,
+    io_mode: IoMode,
 }
 
 impl Spin {
-    /// Start Spin in `current_dir` using the binary at `spin_binary_path`
     pub fn start(
+        spin_binary_path: &Path,
+        current_dir: &Path,
+        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
+        mode: SpinMode,
+    ) -> anyhow::Result<Self> {
+        match mode {
+            SpinMode::Http => Self::start_http(spin_binary_path, current_dir, spin_up_args),
+            SpinMode::Redis => Self::start_redis(spin_binary_path, current_dir, spin_up_args),
+        }
+    }
+
+    /// Start Spin in `current_dir` using the binary at `spin_binary_path`
+    pub fn start_http(
         spin_binary_path: &Path,
         current_dir: &Path,
         spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
@@ -36,13 +48,13 @@ impl Spin {
             process: child,
             stdout,
             stderr,
-            port,
+            io_mode: IoMode::Http(port),
         };
         let start = std::time::Instant::now();
         loop {
             match std::net::TcpStream::connect(format!("127.0.0.1:{port}")) {
                 Ok(_) => {
-                    log::debug!("Spin started on port {}.", spin.port);
+                    log::debug!("Spin started on port {port}.");
                     return Ok(spin);
                 }
                 Err(e) => {
@@ -71,18 +83,54 @@ impl Spin {
         )
     }
 
+    pub fn start_redis(
+        spin_binary_path: &Path,
+        current_dir: &Path,
+        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
+    ) -> anyhow::Result<Self> {
+        let mut child = Command::new(spin_binary_path)
+            .arg("up")
+            .current_dir(current_dir)
+            .args(spin_up_args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        let stdout = OutputStream::new(child.stdout.take().unwrap());
+        let stderr = OutputStream::new(child.stderr.take().unwrap());
+        let mut spin = Self {
+            process: child,
+            stdout,
+            stderr,
+            io_mode: IoMode::Redis,
+        };
+        // TODO this is a hack to wait for the redis service to start
+        std::thread::sleep(std::time::Duration::from_millis(10000));
+        if let Some(status) = spin.try_wait()? {
+            anyhow::bail!(
+                "Spin exited early with status code {:?}\n{}{}",
+                status.code(),
+                spin.stdout.output_as_str().unwrap_or("<non-utf8>"),
+                spin.stderr.output_as_str().unwrap_or("<non-utf8>")
+            );
+        }
+        Ok(spin)
+    }
+
     pub fn make_http_request(
         &mut self,
         method: reqwest::Method,
         path: &str,
     ) -> anyhow::Result<reqwest::blocking::Response> {
+        let IoMode::Http(port) = self.io_mode else {
+            anyhow::bail!("Spin is not running in HTTP mode");
+        };
         if let Some(status) = self.try_wait()? {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
         }
-        log::debug!("Connecting to HTTP server on port {}...", self.port);
+        log::debug!("Connecting to HTTP server on port {port}...");
         let request = reqwest::blocking::Request::new(
             method,
-            format!("http://localhost:{}{}", self.port, path)
+            format!("http://localhost:{}{}", port, path)
                 .parse()
                 .unwrap(),
         );
@@ -92,6 +140,10 @@ impl Spin {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
         }
         Ok(response)
+    }
+
+    pub fn stdout(&mut self) -> &str {
+        self.stdout.output_as_str().unwrap_or("<non-utf8>")
     }
 
     pub fn stderr(&mut self) -> &str {
@@ -129,6 +181,18 @@ fn kill_process(process: &mut std::process::Child) {
         let pid = nix::unistd::Pid::from_raw(process.id() as i32);
         let _ = nix::sys::signal::kill(pid, nix::sys::signal::SIGTERM);
     }
+}
+
+/// How this Spin instance is communicating with the outside world
+enum IoMode {
+    Http(u16),
+    Redis,
+}
+
+/// The mode start Spin up in
+pub enum SpinMode {
+    Http,
+    Redis,
 }
 
 /// Uses a track to ge a random unused port

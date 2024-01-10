@@ -60,7 +60,13 @@ impl RuntimeTest<Spin> {
             Ok(())
         };
         let services_config = services_config(&config)?;
-        let env_config = TestEnvironmentConfig::spin(spin_binary, [], preboot, services_config);
+        let env_config = TestEnvironmentConfig::spin(
+            spin_binary,
+            [],
+            preboot,
+            services_config,
+            testing_framework::SpinMode::Http,
+        );
         let env = TestEnvironment::up(env_config)?;
         Ok(Self {
             test_path: config.test_path,
@@ -84,7 +90,7 @@ impl RuntimeTest<Spin> {
                 }
             };
         }
-        let response = self.env.test(test);
+        let response = test(&mut self.env);
         let error_file = self.test_path.join("error.txt");
         match response {
             Ok(()) if !error_file.exists() => log::info!("Test passed!"),
@@ -173,7 +179,8 @@ fn copy_manifest<R>(test_dir: &Path, env: &mut TestEnvironment<R>) -> anyhow::Re
     Ok(())
 }
 
-fn test(runtime: &mut Spin) -> TestResult<RuntimeTestFailure> {
+fn test(env: &mut TestEnvironment<Spin>) -> TestResult<RuntimeTestFailure> {
+    let runtime = env.runtime_mut();
     let response = runtime.make_http_request(reqwest::Method::GET, "/")?;
     if response.status() == 200 {
         return Ok(());

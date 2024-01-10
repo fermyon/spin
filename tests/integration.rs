@@ -41,7 +41,8 @@ mod integration_tests {
                 "{}/{}",
                 RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
             ),
-            |spin| {
+            |env| {
+                let spin = env.runtime_mut();
                 assert_spin_status(spin, "/test/hello", 200)?;
                 assert_spin_status(spin, "/test/hello/wildcards/should/be/handled", 200)?;
                 assert_spin_status(spin, "/thisshouldfail", 404)?;
@@ -57,7 +58,8 @@ mod integration_tests {
     fn test_duplicate_rust_local() -> Result<()> {
         integration_test(
             format!("{}/{}", RUST_HTTP_INTEGRATION_TEST, "double-trouble.toml"),
-            |spin| {
+            |env| {
+                let spin = env.runtime_mut();
                 assert_spin_status(spin, "/route1", 200)?;
                 assert_spin_status(spin, "/route2", 200)?;
                 assert_spin_status(spin, "/thisshouldfail", 404)?;
@@ -243,7 +245,9 @@ mod integration_tests {
 
     fn integration_test(
         manifest_path: impl Into<PathBuf>,
-        test: impl FnOnce(&mut testing_framework::Spin) -> testing_framework::TestResult<anyhow::Error>
+        test: impl FnOnce(
+                &mut testing_framework::TestEnvironment<testing_framework::Spin>,
+            ) -> testing_framework::TestResult<anyhow::Error>
             + 'static,
     ) -> anyhow::Result<()> {
         let manifest_path = manifest_path.into();
@@ -262,9 +266,11 @@ mod integration_tests {
                 Ok(())
             },
             testing_framework::ServicesConfig::none(),
+            testing_framework::SpinMode::Http,
         );
         let mut env = testing_framework::TestEnvironment::up(spin)?;
-        Ok(env.test(test)?)
+        test(&mut env)?;
+        Ok(())
     }
 
     fn assert_spin_status(

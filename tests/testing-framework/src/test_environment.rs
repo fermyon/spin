@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use crate::{
     services::{Services, ServicesConfig},
-    spin::Spin,
-    Runtime, Test, TestResult,
+    spin::{Spin, SpinMode},
+    Runtime,
 };
 use anyhow::Context as _;
 
@@ -37,15 +37,6 @@ impl<R: Runtime> TestEnvironment<R> {
         Ok(env)
     }
 
-    /// Run test against runtime
-    pub fn test<T: Test<Runtime = R>>(&mut self, test: T) -> TestResult<T::Failure> {
-        let runtime = self
-            .runtime
-            .as_mut()
-            .context("runtime was not initialized")?;
-        test.test(runtime)
-    }
-
     /// Whether an error has occurred
     fn error(&mut self) -> anyhow::Result<()> {
         self.services.healthy()?;
@@ -57,6 +48,18 @@ impl<R: Runtime> TestEnvironment<R> {
 }
 
 impl<R> TestEnvironment<R> {
+    /// Get the services that are running for the test
+    pub fn services_mut(&mut self) -> &mut Services {
+        &mut self.services
+    }
+
+    /// Get the runtime that is running for the test
+    pub fn runtime_mut(&mut self) -> &mut R {
+        self.runtime
+            .as_mut()
+            .expect("runtime has not been initialized")
+    }
+
     /// Copy a file into the test environment at the given relative path
     pub fn copy_into(&self, from: impl AsRef<Path>, into: impl AsRef<Path>) -> anyhow::Result<()> {
         fn copy_dir_all(from: &Path, into: &Path) -> anyhow::Result<()> {
@@ -107,6 +110,11 @@ impl<R> TestEnvironment<R> {
         Ok(())
     }
 
+    /// Read a file from the test environment at the given relative path
+    pub fn read_file(&self, path: impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
+        std::fs::read(self.temp.path().join(path))
+    }
+
     /// Get the path to test environment
     pub(crate) fn path(&self) -> &Path {
         self.temp.path()
@@ -128,18 +136,19 @@ impl TestEnvironmentConfig<Spin> {
     /// * `preboot` - a callback that happens after the services have started but before the runtime is
     /// * `test` - a callback that runs the test against the runtime
     /// * `services_config` - the services that the test requires
-    pub fn spin<'a>(
+    pub fn spin(
         spin_binary: PathBuf,
         spin_up_args: impl IntoIterator<Item = String>,
         preboot: impl FnOnce(&mut TestEnvironment<Spin>) -> anyhow::Result<()> + 'static,
         services_config: ServicesConfig,
+        mode: SpinMode,
     ) -> Self {
         let spin_up_args = spin_up_args.into_iter().collect();
         Self {
             services_config,
             create_runtime: Box::new(move |env| {
                 preboot(env)?;
-                Spin::start(&spin_binary, env.path(), spin_up_args)
+                Spin::start(&spin_binary, env.path(), spin_up_args, mode)
             }),
         }
     }

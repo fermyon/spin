@@ -520,40 +520,6 @@ pub async fn assets_routing_works(controller: &dyn Controller) {
     tc.run(controller).await.unwrap()
 }
 
-/// Test a redis app using the current branch's version of the Rust SDK
-pub async fn head_rust_sdk_redis(controller: &dyn Controller) {
-    async fn checks(
-        _: AppMetadata,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-        stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
-    ) -> Result<()> {
-        wait_for_spin().await;
-        let stderr = get_output_stream(stderr_stream).await?;
-        anyhow::ensure!(
-            stderr.is_empty(),
-            "expected stderr to be empty, but it was not: {}",
-            stderr.join("\n")
-        );
-        Ok(())
-    }
-
-    let tc = TestCaseBuilder::default()
-        .name("head-rust-sdk-redis".to_string())
-        .appname(Some("head-rust-sdk-redis".to_string()))
-        .trigger_type("redis".to_string())
-        .assertions(
-            |metadata: AppMetadata,
-             stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
-             stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
-                Box::pin(checks(metadata, stdout_stream, stderr_stream))
-            },
-        )
-        .build()
-        .unwrap();
-
-    tc.run(controller).await.unwrap()
-}
-
 pub async fn llm_works(controller: &dyn Controller) {
     async fn checks(
         metadata: AppMetadata,

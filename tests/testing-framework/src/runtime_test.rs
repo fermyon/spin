@@ -13,13 +13,13 @@ pub struct RuntimeTestConfig {
 }
 
 /// A single runtime test
-pub struct RuntimeTest {
+pub struct RuntimeTest<R> {
     test_path: PathBuf,
     on_error: OnTestError,
-    env: TestEnvironment,
+    env: TestEnvironment<R>,
 }
 
-impl RuntimeTest {
+impl RuntimeTest<Spin> {
     /// Run the runtime tests suite.
     ///
     /// Error represents an error in bootstrapping the tests. What happens on individual test failures
@@ -55,33 +55,12 @@ impl RuntimeTest {
         log::info!("Testing: {}", config.test_path.display());
         let test_path_clone = config.test_path.to_owned();
         let spin_binary = config.spin_binary.clone();
-        let test = |spin: &mut Spin| -> TestResult {
-            let response = spin.make_http_request(reqwest::Method::GET, "/")?;
-            if response.status() == 200 {
-                return Ok(());
-            }
-            if response.status() != 500 {
-                return Err(anyhow::anyhow!("Runtime tests are expected to return either either a 200 or a 500, but it returned a {}", response.status()).into());
-            }
-            let text = response
-                .text()
-                .context("could not get runtime test HTTP response")?;
-            if text.is_empty() {
-                let stderr = spin.stderr();
-                return Err(anyhow::anyhow!("Runtime tests are expected to return a response body, but the response body was empty.\nstderr:\n{stderr}").into());
-            }
-
-            Err(TestError::Failure(
-                text,
-                anyhow::anyhow!("stderr:\n{}", spin.stderr()),
-            ))
-        };
-        let preboot = move |env: &mut TestEnvironment| {
+        let preboot = move |env: &mut TestEnvironment<Spin>| {
             copy_manifest(&test_path_clone, env)?;
             Ok(())
         };
         let services_config = services_config(&config)?;
-        let env_config = TestEnvironmentConfig::spin(spin_binary, preboot, test, services_config);
+        let env_config = TestEnvironmentConfig::spin(spin_binary, preboot, services_config);
         let env = TestEnvironment::up(env_config)?;
         Ok(Self {
             test_path: config.test_path,
@@ -105,7 +84,7 @@ impl RuntimeTest {
                 }
             };
         }
-        let response = self.env.test();
+        let response = self.env.test(test);
         let error_file = self.test_path.join("error.txt");
         match response {
             Ok(()) if !error_file.exists() => log::info!("Test passed!"),
@@ -119,31 +98,33 @@ impl RuntimeTest {
                     "Test passed but should have failed with error: {expected}"
                 )
             }
-            Err(TestError::Failure(e, extra)) if error_file.exists() => {
+            Err(TestError::Failure(RuntimeTestFailure { error, stderr }))
+                if error_file.exists() =>
+            {
                 let expected = match std::fs::read_to_string(&error_file) {
                     Ok(e) => e,
                     Err(e) => error!(on_error, "failed to read error.txt file: {e}"),
                 };
-                if e.contains(&expected) {
+                if error.contains(&expected) {
                     log::info!("Test passed!");
                 } else {
                     error!(
                     on_error,
-                    "Test errored but not in the expected way.\n\texpected: {expected}\n\tgot: {e}\n\n{extra}",
+                    "Test errored but not in the expected way.\n\texpected: {expected}\n\tgot: {error}\n\nstderr:\n{stderr}",
                 )
                 }
             }
-            Err(TestError::Failure(e, extra)) => {
+            Err(TestError::Failure(RuntimeTestFailure { error, stderr })) => {
                 error!(
                     on_error,
-                    "Test '{}' errored: {e}\n{extra}",
+                    "Test '{}' errored: {error}\nstderr:\n{stderr}",
                     self.test_path.display()
                 );
             }
             Err(TestError::Fatal(extra)) => {
                 error!(
                     on_error,
-                    "Test '{}' failed fatally: {extra}",
+                    "Test '{}' failed to run: {extra}",
                     self.test_path.display()
                 );
             }
@@ -179,7 +160,7 @@ fn required_services(test_path: &Path) -> anyhow::Result<Vec<String>> {
 /// Copies the test dir's manifest file into the temporary directory
 ///
 /// Replaces template variables in the manifest file with components from the components path.
-fn copy_manifest(test_dir: &Path, env: &mut TestEnvironment) -> anyhow::Result<()> {
+fn copy_manifest<R>(test_dir: &Path, env: &mut TestEnvironment<R>) -> anyhow::Result<()> {
     let manifest_path = test_dir.join("spin.toml");
     let mut manifest = ManifestTemplate::from_file(manifest_path).with_context(|| {
         format!(
@@ -191,4 +172,34 @@ fn copy_manifest(test_dir: &Path, env: &mut TestEnvironment) -> anyhow::Result<(
     env.write_file("spin.toml", manifest.contents())
         .context("failed to copy spin.toml manifest to temporary directory")?;
     Ok(())
+}
+
+fn test(runtime: &mut Spin) -> TestResult<RuntimeTestFailure> {
+    let response = runtime.make_http_request(reqwest::Method::GET, "/")?;
+    if response.status() == 200 {
+        return Ok(());
+    }
+    if response.status() != 500 {
+        return Err(anyhow::anyhow!("Runtime tests are expected to return either either a 200 or a 500, but it returned a {}", response.status()).into());
+    }
+    let text = response
+        .text()
+        .context("could not get runtime test HTTP response")?;
+    if text.is_empty() {
+        let stderr = runtime.stderr();
+        return Err(anyhow::anyhow!("Runtime tests are expected to return a response body, but the response body was empty.\nstderr:\n{stderr}").into());
+    }
+
+    Err(TestError::Failure(RuntimeTestFailure {
+        error: text,
+        stderr: runtime.stderr().to_owned(),
+    }))
+}
+
+/// A runtime test failure
+struct RuntimeTestFailure {
+    /// The error message returned by the runtime
+    error: String,
+    /// The runtime's stderr
+    stderr: String,
 }

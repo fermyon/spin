@@ -1,4 +1,4 @@
-use crate::{io::OutputStream, Runtime, TestResult};
+use crate::{io::OutputStream, Runtime};
 use std::{
     path::Path,
     process::{Command, Stdio},
@@ -11,19 +11,11 @@ pub struct Spin {
     stdout: OutputStream,
     stderr: OutputStream,
     port: u16,
-    tester: Option<Box<Tester>>,
 }
-
-/// A callback that runs the test against the runtime
-pub type Tester = dyn Fn(&mut Spin) -> TestResult;
 
 impl Spin {
     /// Start Spin in `current_dir` using the binary at `spin_binary_path`
-    pub fn start(
-        spin_binary_path: &Path,
-        current_dir: &Path,
-        tester: Box<Tester>,
-    ) -> anyhow::Result<Self> {
+    pub fn start(spin_binary_path: &Path, current_dir: &Path) -> anyhow::Result<Self> {
         let port = get_random_port()?;
         let mut child = Command::new(spin_binary_path)
             .arg("up")
@@ -40,7 +32,6 @@ impl Spin {
             stdout,
             stderr,
             port,
-            tester: Some(tester),
         };
         let start = std::time::Instant::now();
         loop {
@@ -114,13 +105,6 @@ impl Drop for Spin {
 }
 
 impl Runtime for Spin {
-    fn test(&mut self) -> TestResult {
-        let tester = self.tester.take().expect("called test twice");
-        let result = tester(self);
-        self.tester = Some(tester);
-        result
-    }
-
     fn error(&mut self) -> anyhow::Result<()> {
         if self.try_wait()?.is_some() {
             anyhow::bail!("Spin exited early: {}", self.stderr());

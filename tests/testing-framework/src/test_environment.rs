@@ -3,23 +3,23 @@ use std::path::{Path, PathBuf};
 use crate::{
     services::{Services, ServicesConfig},
     spin::Spin,
-    Runtime, TestResult,
+    Runtime, Test, TestResult,
 };
 use anyhow::Context as _;
 
 /// A callback to create a runtime given a path to a temporary directory and a set of services
-pub type RuntimeCreator = dyn FnOnce(&mut TestEnvironment) -> anyhow::Result<Box<dyn Runtime>>;
+pub type RuntimeCreator<R> = dyn FnOnce(&mut TestEnvironment<R>) -> anyhow::Result<R>;
 
 /// All the requirements to run a test
-pub struct TestEnvironment {
+pub struct TestEnvironment<R> {
     temp: temp_dir::TempDir,
     services: Services,
-    runtime: Option<Box<dyn Runtime>>,
+    runtime: Option<R>,
 }
 
-impl TestEnvironment {
+impl<R: Runtime> TestEnvironment<R> {
     /// Spin up a test environment
-    pub fn up(config: TestEnvironmentConfig) -> anyhow::Result<Self> {
+    pub fn up(config: TestEnvironmentConfig<R>) -> anyhow::Result<Self> {
         let temp = temp_dir::TempDir::new()
             .context("failed to produce a temporary directory to run the test in")?;
         log::trace!("Temporary directory: {}", temp.path().display());
@@ -37,6 +37,26 @@ impl TestEnvironment {
         Ok(env)
     }
 
+    /// Run test against runtime
+    pub fn test<T: Test<Runtime = R>>(&mut self, test: T) -> TestResult<T::Failure> {
+        let runtime = self
+            .runtime
+            .as_mut()
+            .context("runtime was not initialized")?;
+        test.test(runtime)
+    }
+
+    /// Whether an error has occurred
+    fn error(&mut self) -> anyhow::Result<()> {
+        self.services.healthy()?;
+        if let Some(runtime) = &mut self.runtime {
+            runtime.error()?;
+        }
+        Ok(())
+    }
+}
+
+impl<R> TestEnvironment<R> {
     /// Copy a file into the test environment at the given relative path
     pub fn copy_into(&self, from: impl AsRef<Path>, into: impl AsRef<Path>) -> anyhow::Result<()> {
         fn copy_dir_all(from: &Path, into: &Path) -> anyhow::Result<()> {
@@ -87,38 +107,21 @@ impl TestEnvironment {
         Ok(())
     }
 
-    /// Run test against runtime
-    pub fn test(&mut self) -> TestResult {
-        self.runtime
-            .as_mut()
-            .context("runtime was not initialized")?
-            .test()
-    }
-
     /// Get the path to test environment
     pub(crate) fn path(&self) -> &Path {
         self.temp.path()
     }
-
-    /// Whether an error has occurred
-    fn error(&mut self) -> anyhow::Result<()> {
-        self.services.healthy()?;
-        if let Some(runtime) = &mut self.runtime {
-            runtime.error()?;
-        }
-        Ok(())
-    }
 }
 
 /// Configuration for a test environment
-pub struct TestEnvironmentConfig {
+pub struct TestEnvironmentConfig<R> {
     /// A callback to create a runtime given a path to a temporary directory
-    pub create_runtime: Box<RuntimeCreator>,
+    pub create_runtime: Box<RuntimeCreator<R>>,
     /// The services that the test requires
     pub services_config: ServicesConfig,
 }
 
-impl TestEnvironmentConfig {
+impl TestEnvironmentConfig<Spin> {
     /// Configure a test environment that uses a local Spin as a runtime
     ///
     /// * `spin_binary` - the path to the Spin binary
@@ -127,16 +130,14 @@ impl TestEnvironmentConfig {
     /// * `services_config` - the services that the test requires
     pub fn spin(
         spin_binary: PathBuf,
-        preboot: impl FnOnce(&mut TestEnvironment) -> anyhow::Result<()> + 'static,
-        test: impl Fn(&mut Spin) -> TestResult + 'static,
+        preboot: impl FnOnce(&mut TestEnvironment<Spin>) -> anyhow::Result<()> + 'static,
         services_config: ServicesConfig,
     ) -> Self {
         Self {
             services_config,
             create_runtime: Box::new(move |env| {
                 preboot(env)?;
-                let runtime = Spin::start(&spin_binary, env.path(), Box::new(test))?;
-                Ok(Box::new(runtime))
+                Spin::start(&spin_binary, env.path())
             }),
         }
     }

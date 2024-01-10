@@ -35,19 +35,18 @@ mod integration_tests {
 
     #[test]
     fn test_simple_rust_local() -> Result<()> {
-        fn test(spin: &mut testing_framework::Spin) -> testing_framework::TestResult {
-            assert_spin_status(spin, "/test/hello", 200)?;
-            assert_spin_status(spin, "/test/hello/wildcards/should/be/handled", 200)?;
-            assert_spin_status(spin, "/thisshouldfail", 404)?;
-            assert_spin_status(spin, "/test/hello/test-placement", 200)?;
-            Ok(())
-        }
         integration_test(
             format!(
                 "{}/{}",
                 RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
             ),
-            test,
+            |spin| {
+                assert_spin_status(spin, "/test/hello", 200)?;
+                assert_spin_status(spin, "/test/hello/wildcards/should/be/handled", 200)?;
+                assert_spin_status(spin, "/thisshouldfail", 404)?;
+                assert_spin_status(spin, "/test/hello/test-placement", 200)?;
+                Ok(())
+            },
         )?;
 
         Ok(())
@@ -55,15 +54,14 @@ mod integration_tests {
 
     #[test]
     fn test_duplicate_rust_local() -> Result<()> {
-        fn test(spin: &mut testing_framework::Spin) -> testing_framework::TestResult {
-            assert_spin_status(spin, "/route1", 200)?;
-            assert_spin_status(spin, "/route2", 200)?;
-            assert_spin_status(spin, "/thisshouldfail", 404)?;
-            Ok(())
-        }
         integration_test(
             format!("{}/{}", RUST_HTTP_INTEGRATION_TEST, "double-trouble.toml"),
-            test,
+            |spin| {
+                assert_spin_status(spin, "/route1", 200)?;
+                assert_spin_status(spin, "/route2", 200)?;
+                assert_spin_status(spin, "/thisshouldfail", 404)?;
+                Ok(())
+            },
         )?;
 
         Ok(())
@@ -244,7 +242,8 @@ mod integration_tests {
 
     fn integration_test(
         manifest_path: impl Into<PathBuf>,
-        test: impl Fn(&mut testing_framework::Spin) -> testing_framework::TestResult + 'static,
+        test: impl FnOnce(&mut testing_framework::Spin) -> testing_framework::TestResult<anyhow::Error>
+            + 'static,
     ) -> anyhow::Result<()> {
         let manifest_path = manifest_path.into();
         let spin = testing_framework::TestEnvironmentConfig::spin(
@@ -260,29 +259,25 @@ mod integration_tests {
                 env.copy_into(assets_path, "assets")?;
                 Ok(())
             },
-            test,
             testing_framework::ServicesConfig::none(),
         );
         let mut env = testing_framework::TestEnvironment::up(spin)?;
-        Ok(env.test()?)
+        Ok(env.test(test)?)
     }
 
     fn assert_spin_status(
         spin: &mut testing_framework::Spin,
         uri: &str,
         status: u16,
-    ) -> testing_framework::TestResult {
+    ) -> testing_framework::TestResult<anyhow::Error> {
         let r = spin.make_http_request(reqwest::Method::GET, uri)?;
         if r.status() != status {
-            return Err(testing_framework::TestError::Failure(
-                String::new(),
-                anyhow!(
-                    "Expected status {} for {} but got {}",
-                    status,
-                    uri,
-                    r.status()
-                ),
-            ));
+            return Err(testing_framework::TestError::Failure(anyhow!(
+                "Expected status {} for {} but got {}",
+                status,
+                uri,
+                r.status()
+            )));
         }
         Ok(())
     }

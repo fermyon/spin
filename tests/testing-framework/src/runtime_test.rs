@@ -1,7 +1,7 @@
 use crate::manifest_template::ManifestTemplate;
 use crate::spin::Spin;
-use crate::test_environment::{RuntimeCreator, TestEnvironment, TestEnvironmentConfig};
-use crate::{services, OnTestError, TestError, TestResult};
+use crate::test_environment::{TestEnvironment, TestEnvironmentConfig};
+use crate::{OnTestError, ServicesConfig, TestError, TestResult};
 use anyhow::Context;
 use std::path::{Path, PathBuf};
 
@@ -55,7 +55,7 @@ impl RuntimeTest {
         log::info!("Testing: {}", config.test_path.display());
         let test_path_clone = config.test_path.to_owned();
         let spin_binary = config.spin_binary.clone();
-        let tester = |spin: &mut Spin| -> TestResult {
+        let test = |spin: &mut Spin| -> TestResult {
             let response = spin.make_http_request(reqwest::Method::GET, "/")?;
             if response.status() == 200 {
                 return Ok(());
@@ -76,13 +76,12 @@ impl RuntimeTest {
                 anyhow::anyhow!("stderr:\n{}", spin.stderr()),
             ))
         };
-        let env_config = environment_config(
-            &config.test_path,
-            Box::new(move |env| {
-                copy_manifest(&test_path_clone, env)?;
-                Ok(Box::new(Spin::start(&spin_binary, env.path(), Box::new(tester))?) as _)
-            }),
-        )?;
+        let preboot = move |env: &mut TestEnvironment| {
+            copy_manifest(&test_path_clone, env)?;
+            Ok(())
+        };
+        let services_config = services_config(&config)?;
+        let env_config = TestEnvironmentConfig::spin(spin_binary, preboot, test, services_config);
         let env = TestEnvironment::up(env_config)?;
         Ok(Self {
             test_path: config.test_path,
@@ -155,19 +154,11 @@ impl RuntimeTest {
     }
 }
 
-/// Start the services that a run test requires.
-fn environment_config(
-    test_path: &Path,
-    create_runtime: Box<RuntimeCreator>,
-) -> anyhow::Result<TestEnvironmentConfig> {
-    let required_services = required_services(test_path)?;
-
+fn services_config(config: &RuntimeTestConfig) -> anyhow::Result<ServicesConfig> {
+    let required_services = required_services(&config.test_path)?;
     let service_definitions = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("services");
-    let services_config = services::ServicesConfig::new(service_definitions, required_services)?;
-    Ok(TestEnvironmentConfig {
-        create_runtime,
-        services_config,
-    })
+    let services_config = ServicesConfig::new(service_definitions, required_services)?;
+    Ok(services_config)
 }
 
 /// Get the services that a test requires.

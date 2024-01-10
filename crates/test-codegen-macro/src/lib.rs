@@ -7,7 +7,10 @@ use std::{env, path::PathBuf};
 pub fn codegen_tests(_input: TokenStream) -> TokenStream {
     let mut tests = Vec::new();
     let tests_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/runtime-tests");
-    let tests_path_string = tests_path.display().to_string();
+    let tests_path_string = tests_path
+        .to_str()
+        .expect("CARGO_MANIFEST_DIR is not valid utf8")
+        .to_owned();
     for entry in std::fs::read_dir(tests_path).expect("failed to read tests directory") {
         let entry = entry.expect("error reading test directory entry");
         let test = entry.path();

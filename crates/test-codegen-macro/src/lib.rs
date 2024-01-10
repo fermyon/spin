@@ -4,9 +4,10 @@ use std::{env, path::PathBuf};
 
 /// This macro generates the `#[test]` functions for the runtime tests.
 #[proc_macro]
-pub fn codegen_tests(_input: TokenStream) -> TokenStream {
+pub fn codegen_runtime_tests(_input: TokenStream) -> TokenStream {
     let mut tests = Vec::new();
-    let tests_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/runtime-tests");
+    let tests_path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/runtime-tests/tests");
     let tests_path_string = tests_path
         .to_str()
         .expect("CARGO_MANIFEST_DIR is not valid utf8")

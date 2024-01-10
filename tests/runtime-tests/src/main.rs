@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use testing_framework::{OnTestError, RuntimeTest};
+use runtime_tests::RuntimeTest;
+use testing_framework::OnTestError;
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();

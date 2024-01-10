@@ -85,7 +85,8 @@ pub struct ServicesConfig {
 
 impl ServicesConfig {
     /// Create a new services config given a path to service definitions and a list of services to start.
-    pub fn new(definitions: PathBuf, services: Vec<String>) -> anyhow::Result<Self> {
+    pub fn new(services: Vec<String>) -> anyhow::Result<Self> {
+        let definitions = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("services");
         let service_definitions = service_definitions(&definitions)?;
         Ok(Self {
             services,

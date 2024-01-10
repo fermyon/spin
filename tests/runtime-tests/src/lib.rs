@@ -1,9 +1,9 @@
-use crate::manifest_template::ManifestTemplate;
-use crate::spin::Spin;
-use crate::test_environment::{TestEnvironment, TestEnvironmentConfig};
-use crate::{OnTestError, ServicesConfig, TestError, TestResult};
 use anyhow::Context;
 use std::path::{Path, PathBuf};
+use testing_framework::{
+    ManifestTemplate, OnTestError, ServicesConfig, Spin, TestEnvironment, TestEnvironmentConfig,
+    TestError, TestResult,
+};
 
 /// Configuration for a runtime test
 pub struct RuntimeTestConfig {
@@ -137,8 +137,7 @@ impl RuntimeTest<Spin> {
 
 fn services_config(config: &RuntimeTestConfig) -> anyhow::Result<ServicesConfig> {
     let required_services = required_services(&config.test_path)?;
-    let service_definitions = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("services");
-    let services_config = ServicesConfig::new(service_definitions, required_services)?;
+    let services_config = ServicesConfig::new(required_services)?;
     Ok(services_config)
 }
 

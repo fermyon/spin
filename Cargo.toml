@@ -91,6 +91,7 @@ which = "4.2.5"
 e2e-testing = { path = "crates/e2e-testing" }
 http-body-util = { workspace = true }
 testing-framework = { path = "tests/testing-framework" }
+runtime-tests = { path = "tests/runtime-tests" }
 test-components = { path = "tests/test-components" }
 test-codegen-macro = { path = "crates/test-codegen-macro" }
 
@@ -114,7 +115,13 @@ llm-metal = ["llm", "spin-trigger-http/llm-metal"]
 llm-cublas = ["llm", "spin-trigger-http/llm-cublas"]
 
 [workspace]
-members = ["crates/*", "sdk/rust", "sdk/rust/macro", "tests/testing-framework"]
+members = [
+  "crates/*",
+  "sdk/rust",
+  "sdk/rust/macro",
+  "tests/runtime-tests",
+  "tests/testing-framework",
+]
 
 [workspace.dependencies]
 anyhow = "1.0.75"

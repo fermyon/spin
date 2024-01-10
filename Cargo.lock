@@ -5041,6 +5041,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "runtime-tests"
+version = "2.2.0-pre0"
+dependencies = [
+ "anyhow",
+ "env_logger",
+ "log",
+ "reqwest",
+ "testing-framework",
+]
+
+[[package]]
 name = "rusqlite"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5693,6 +5704,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rpassword",
+ "runtime-tests",
  "semver",
  "serde",
  "serde_json",
@@ -6578,7 +6590,6 @@ name = "testing-framework"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "env_logger",
  "fslock",
  "log",
  "nix 0.26.4",

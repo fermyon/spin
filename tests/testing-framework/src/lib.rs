@@ -6,13 +6,11 @@
 
 mod io;
 mod manifest_template;
-mod runtime_test;
 mod services;
 mod spin;
 mod test_environment;
 
 pub use manifest_template::ManifestTemplate;
-pub use runtime_test::{RuntimeTest, RuntimeTestConfig};
 pub use services::ServicesConfig;
 pub use spin::Spin;
 pub use test_environment::{TestEnvironment, TestEnvironmentConfig};

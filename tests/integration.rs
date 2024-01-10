@@ -684,7 +684,7 @@ route = "/..."
         // Ensure login help info is displayed
         assert!(std::str::from_utf8(&output.stdout)?
             .trim()
-            .contains("Login to Fermyon Cloud"));
+            .contains("Log into Fermyon Cloud"));
 
         Ok(())
     }

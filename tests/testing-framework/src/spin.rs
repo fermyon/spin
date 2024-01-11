@@ -55,13 +55,13 @@ impl Spin {
                 );
             }
 
-            if start.elapsed() > std::time::Duration::from_secs(20) {
+            if start.elapsed() > std::time::Duration::from_secs(2 * 60) {
                 break;
             }
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
         anyhow::bail!(
-            "`spin up` did not start server or error after 20 seconds. stderr:\n\t{}",
+            "`spin up` did not start server or error after two minutes. stderr:\n\t{}",
             spin.stderr.output_as_str().unwrap_or("<non-utf8>")
         )
     }

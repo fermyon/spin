@@ -668,41 +668,6 @@ pub async fn registry_works(controller: &dyn Controller) {
     tc.run(controller).await.unwrap()
 }
 
-pub async fn error_messages(controller: &dyn Controller) {
-    async fn checks(
-        _metadata: AppMetadata,
-        _stdout: Option<Pin<Box<dyn AsyncBufRead>>>,
-        stderr: Option<Pin<Box<dyn AsyncBufRead>>>,
-    ) -> Result<()> {
-        let appdir = spin::appdir("error");
-        let expected = tokio::fs::read_to_string(appdir.join("error.txt"))
-            .await
-            .unwrap()
-            .replace(
-                "$APPDIR",
-                &appdir.canonicalize().unwrap().display().to_string(),
-            );
-        let actual = utils::get_output(stderr).await.unwrap();
-        assert_eq!(actual, expected);
-        Ok(())
-    }
-
-    let tc = TestCaseBuilder::default()
-        .name("error".to_string())
-        .appname(Some("error".to_string()))
-        .assertions(
-            |metadata: AppMetadata,
-             stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
-             stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
-                Box::pin(checks(metadata, stdout_stream, stderr_stream))
-            },
-        )
-        .build()
-        .unwrap();
-
-    tc.try_run(controller).await.unwrap();
-}
-
 async fn get_output_stream(
     stream: Option<Pin<Box<dyn AsyncBufRead>>>,
 ) -> anyhow::Result<Vec<String>> {

@@ -244,6 +244,25 @@ fn legacy_apps() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn bad_build_test() -> anyhow::Result<()> {
+    let mut env = bootstap_env(
+        "error",
+        [],
+        testing_framework::ServicesConfig::none(),
+        testing_framework::SpinMode::None,
+    )?;
+    let expected = r#"Error: Couldn't find trigger executor for local app "spin.toml"
+
+Caused by:
+      no triggers in app
+"#;
+
+    assert_eq!(env.runtime_mut().stderr(), expected);
+
+    Ok(())
+}
+
 /// Run an e2e test
 fn run_test(
     test_name: impl Into<String>,
@@ -255,6 +274,18 @@ fn run_test(
         ) -> testing_framework::TestResult<anyhow::Error>
         + 'static,
 ) -> testing_framework::TestResult<anyhow::Error> {
+    let mut env = bootstap_env(test_name, spin_up_args, services_config, mode)?;
+    test(&mut env)?;
+    Ok(())
+}
+
+/// Bootstrap a test environment
+fn bootstap_env(
+    test_name: impl Into<String>,
+    spin_up_args: impl IntoIterator<Item = String>,
+    services_config: testing_framework::ServicesConfig,
+    mode: testing_framework::SpinMode,
+) -> anyhow::Result<testing_framework::TestEnvironment<testing_framework::Spin>> {
     let test_name = test_name.into();
     let config = testing_framework::TestEnvironmentConfig::spin(
         spin_binary(),
@@ -263,9 +294,7 @@ fn run_test(
         services_config,
         mode,
     );
-    let mut env = testing_framework::TestEnvironment::up(config)?;
-    test(&mut env)?;
-    Ok(())
+    testing_framework::TestEnvironment::up(config)
 }
 
 /// Assert that a request to the spin server returns the expected status and body
@@ -410,15 +439,5 @@ mod spinup_tests {
     #[tokio::test]
     async fn registry_works() {
         testcases::registry_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn longevity_apps_works() {
-        testcases::longevity_apps_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn error_messages() {
-        testcases::error_messages(CONTROLLER).await
     }
 }

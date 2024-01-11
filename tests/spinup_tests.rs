@@ -263,6 +263,38 @@ Caused by:
     Ok(())
 }
 
+#[test]
+fn outbound_http_works() -> anyhow::Result<()> {
+    run_test(
+        "outbound-http-to-same-app",
+        testing_framework::SpinMode::Http,
+        [],
+        testing_framework::ServicesConfig::none(),
+        move |env| {
+            let spin = env.runtime_mut();
+            assert_spin_request(
+                spin,
+                testing_framework::Request::new(reqwest::Method::GET, "/test/outbound-allowed"),
+                200,
+                &[],
+                "Hello, Fermyon!\n",
+            )?;
+
+            assert_spin_request(
+                spin,
+                testing_framework::Request::new(reqwest::Method::GET, "/test/outbound-not-allowed"),
+                500,
+                &[],
+                "",
+            )?;
+
+            Ok(())
+        },
+    )?;
+
+    Ok(())
+}
+
 /// Run an e2e test
 fn run_test(
     test_name: impl Into<String>,
@@ -359,11 +391,6 @@ mod spinup_tests {
     use super::testcases;
     use {e2e_testing::controller::Controller, e2e_testing::spin_controller::SpinUp};
     const CONTROLLER: &dyn Controller = &SpinUp {};
-
-    #[tokio::test]
-    async fn component_outbound_http_works() {
-        testcases::component_outbound_http_works(CONTROLLER).await
-    }
 
     #[tokio::test]
     async fn http_go_works() {

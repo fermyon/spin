@@ -12,7 +12,7 @@ edition = "2021"
 license = "Apache-2.0 WITH LLVM-exception"
 homepage = "https://developer.fermyon.com/spin"
 repository = "https://github.com/fermyon/spin"
-rust-version = "1.71"
+rust-version = "1.73"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -91,6 +91,7 @@ which = "4.2.5"
 e2e-testing = { path = "crates/e2e-testing" }
 http-body-util = { workspace = true }
 testing-framework = { path = "tests/testing-framework" }
+hyper-util = { version = "0.1.2", features = ["tokio"] }
 runtime-tests = { path = "tests/runtime-tests" }
 test-components = { path = "tests/test-components" }
 test-codegen-macro = { path = "crates/test-codegen-macro" }
@@ -125,15 +126,16 @@ members = [
 
 [workspace.dependencies]
 anyhow = "1.0.75"
-http-body-util = "=0.1.0-rc.2"
-hyper = { version = "=1.0.0-rc.3", features = ["full"] }
+http-body-util = "0.1.0"
+hyper = { version = "1.0.0", features = ["full"] }
 reqwest = { version = "0.11", features = ["stream", "blocking"] }
 tracing = { version = "0.1", features = ["log"] }
 
-wasi-common-preview1 = { version = "15.0.0", package = "wasi-common" }
-wasmtime = { version = "15.0.0", features = ["component-model"] }
-wasmtime-wasi = { version = "15.0.0", features = ["tokio"] }
-wasmtime-wasi-http = "15.0.0"
+# TODO: update to final 17.0.0 release once it's available
+wasi-common-preview1 = { git = "https://github.com/bytecodealliance/wasmtime", branch = "release-17.0.0", package = "wasi-common" }
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", branch = "release-17.0.0", features = ["component-model"] }
+wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", branch = "release-17.0.0", features = ["tokio"] }
+wasmtime-wasi-http = { git = "https://github.com/bytecodealliance/wasmtime", branch = "release-17.0.0" }
 
 spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "191789170abde10cd55590466c0660dd6c7d472a" }
 

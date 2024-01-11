@@ -1,8 +1,10 @@
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
+use cap_primitives::net::Pool;
 use cap_std::ipnet::IpNet;
 use std::{
     io::{Read, Write},
+    mem,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -137,6 +139,7 @@ pub struct StoreBuilder {
     wasi: std::result::Result<WasiCtxBuilder, String>,
     host_components_data: HostComponentsData,
     store_limits: StoreLimitsAsync,
+    net_pool: Pool,
 }
 
 impl StoreBuilder {
@@ -153,6 +156,7 @@ impl StoreBuilder {
             wasi: Ok(wasi.into()),
             host_components_data: host_components.new_data(),
             store_limits: StoreLimitsAsync::default(),
+            net_pool: Pool::default(),
         }
     }
 
@@ -187,10 +191,15 @@ impl StoreBuilder {
             WasiCtxBuilder::Preview1(_) => {
                 panic!("Enabling network only allowed in preview2")
             }
-            WasiCtxBuilder::Preview2(ctx) => {
-                ctx.insert_ip_net_port_range(ip_net, ports_start, ports_end);
-            }
+            WasiCtxBuilder::Preview2(_) => {}
         });
+
+        self.net_pool.insert_ip_net_port_range(
+            ip_net,
+            ports_start,
+            ports_end,
+            cap_primitives::ambient_authority(),
+        );
     }
 
     /// Inherit the host network with a few hardcoded caveats
@@ -201,7 +210,7 @@ impl StoreBuilder {
             }
             WasiCtxBuilder::Preview2(ctx) => {
                 // TODO: ctx.allow_udp(false);
-                ctx.inherit_network(cap_std::ambient_authority());
+                ctx.inherit_network();
             }
         });
     }
@@ -398,7 +407,15 @@ impl StoreBuilder {
     /// Builds a [`Store`] from this builder with given host state data.
     ///
     /// If `T: Default`, it may be preferable to use [`Store::build`].
-    pub fn build_with_data<T>(self, inner_data: T) -> Result<Store<T>> {
+    pub fn build_with_data<T>(mut self, inner_data: T) -> Result<Store<T>> {
+        let net_pool = mem::take(&mut self.net_pool);
+        self.with_wasi(move |wasi| match wasi {
+            WasiCtxBuilder::Preview1(_) => {}
+            WasiCtxBuilder::Preview2(ctx) => {
+                ctx.socket_addr_check(move |addr, _| net_pool.check_addr(addr).is_ok());
+            }
+        });
+
         let wasi = self.wasi.map_err(anyhow::Error::msg)?.build();
 
         let mut inner = wasmtime::Store::new(
@@ -408,7 +425,7 @@ impl StoreBuilder {
                 wasi,
                 host_components_data: self.host_components_data,
                 store_limits: self.store_limits,
-                table: wasi_preview2::Table::new(),
+                table: wasi_preview2::ResourceTable::new(),
             },
         );
 

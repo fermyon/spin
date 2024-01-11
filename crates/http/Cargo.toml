@@ -6,7 +6,7 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = "1.0"
-http = "0.2"
+http = "1.0.0"
 hyper = { workspace = true }
 http-body-util = { workspace = true }
 wasmtime-wasi-http = { workspace = true, optional = true }

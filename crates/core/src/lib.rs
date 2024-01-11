@@ -13,6 +13,7 @@ mod limits;
 mod preview1;
 mod store;
 pub mod wasi_2023_10_18;
+pub mod wasi_2023_11_10;
 
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
@@ -20,7 +21,7 @@ use anyhow::Result;
 use crossbeam_channel::Sender;
 use tracing::instrument;
 use wasmtime::{InstanceAllocationStrategy, PoolingAllocationConfig};
-use wasmtime_wasi::preview2::Table;
+use wasmtime_wasi::preview2::ResourceTable;
 use wasmtime_wasi_http::types::{default_send_request, WasiHttpCtx, WasiHttpView};
 
 use self::host_component::{HostComponents, HostComponentsBuilder};
@@ -146,7 +147,7 @@ pub struct Data<T> {
     wasi: Wasi,
     host_components_data: HostComponentsData,
     store_limits: limits::StoreLimitsAsync,
-    table: Table,
+    table: ResourceTable,
 }
 
 impl<T> Data<T> {
@@ -169,11 +170,11 @@ impl<T> AsMut<T> for Data<T> {
 }
 
 impl<T: Send> wasmtime_wasi::preview2::WasiView for Data<T> {
-    fn table(&self) -> &wasmtime_wasi::preview2::Table {
+    fn table(&self) -> &ResourceTable {
         &self.table
     }
 
-    fn table_mut(&mut self) -> &mut wasmtime_wasi::preview2::Table {
+    fn table_mut(&mut self) -> &mut ResourceTable {
         &mut self.table
     }
 
@@ -200,7 +201,7 @@ impl<T: Send + OutboundWasiHttpHandler> WasiHttpView for Data<T> {
         }
     }
 
-    fn table(&mut self) -> &mut Table {
+    fn table(&mut self) -> &mut ResourceTable {
         &mut self.table
     }
 

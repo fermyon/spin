@@ -1,5 +1,5 @@
 wit_bindgen::generate!({
-    path: "wit",
+    path: "../../../wit-2023-11-10",
     world: "wasi:http/proxy@0.2.0-rc-2023-11-10",
     exports: {
         "wasi:http/incoming-handler": Component
@@ -61,7 +61,7 @@ impl incoming_handler::Guest for Component {
             let incoming_body = response.consume().unwrap();
             let incoming_stream = incoming_body.stream().unwrap();
             let status = response.status();
-            let response = OutgoingResponse::new(response.headers());
+            let response = OutgoingResponse::new(response.headers().clone());
             response.set_status_code(status).unwrap();
             let outgoing_body = response.body().unwrap();
             {

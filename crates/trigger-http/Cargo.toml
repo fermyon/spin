@@ -13,8 +13,9 @@ async-trait = "0.1"
 clap = "3"
 futures = "0.3"
 futures-util = "0.3.8"
-http = "0.2"
+http = "1.0.0"
 hyper = { workspace = true }
+hyper-util = { version = "0.1.2", features = ["tokio"] }
 http-body-util = { workspace = true }
 indexmap = "1"
 outbound-http = { path = "../outbound-http" }

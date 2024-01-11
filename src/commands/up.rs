@@ -237,7 +237,7 @@ impl UpCommand {
         #[cfg(not(windows))]
         {
             // https://github.com/nix-rust/nix/issues/656
-            let pid = nix::unistd::Pid::from_raw(child.id() as i32);
+            let pid = nix::unistd::Pid::from_raw(child.id() as u32);
             ctrlc::set_handler(move || {
                 if let Err(err) = nix::sys::signal::kill(pid, nix::sys::signal::SIGTERM) {
                     tracing::warn!("Failed to kill trigger handler process: {:?}", err)

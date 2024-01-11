@@ -160,6 +160,58 @@ fn dynamic_env_test() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn assets_routing_test() -> anyhow::Result<()> {
+    run_test(
+        "assets-test",
+        testing_framework::SpinMode::Http,
+        [],
+        testing_framework::ServicesConfig::none(),
+        move |env| {
+            let spin = env.runtime_mut();
+            let mut assert_file = |name: &str, content: &str| {
+                assert_spin_request(
+                    spin,
+                    testing_framework::Request::new(
+                        reqwest::Method::GET,
+                        &format!("/static/thisshouldbemounted/{name}"),
+                    ),
+                    200,
+                    &[],
+                    content,
+                )
+            };
+            let mut assert_file_content_eq_name =
+                |name: &str| assert_file(name, &format!("{name}\n"));
+
+            assert_file_content_eq_name("1")?;
+            assert_file_content_eq_name("2")?;
+            assert_file_content_eq_name("3")?;
+            assert_file("empty", "")?;
+            assert_file("one-byte", "{")?;
+
+            let mut assert_not_found = |path: &str| {
+                assert_spin_request(
+                    spin,
+                    testing_framework::Request::new(
+                        reqwest::Method::GET,
+                        &format!("/static/{path}"),
+                    ),
+                    404,
+                    &[],
+                    "Not Found",
+                )
+            };
+
+            assert_not_found("donotmount/a")?;
+            assert_not_found("thisshouldbemounted/thisshouldbeexcluded/4")?;
+            Ok(())
+        },
+    )?;
+
+    Ok(())
+}
+
 /// Run an e2e test
 fn run_test(
     test_name: impl Into<String>,
@@ -213,7 +265,9 @@ fn assert_spin_request(
         )));
     }
     if body != expected_body {
-        return Err(anyhow::anyhow!("expected {expected_body}, got {body}").into());
+        return Err(testing_framework::TestError::Failure(
+            anyhow::anyhow!("expected body '{expected_body}', got '{body}'").into(),
+        ));
     }
     Ok(())
 }
@@ -299,11 +353,6 @@ mod spinup_tests {
     #[tokio::test]
     async fn http_swift_works() {
         testcases::http_swift_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn assets_routing_works() {
-        testcases::assets_routing_works(CONTROLLER).await
     }
 
     #[tokio::test]

@@ -181,7 +181,8 @@ fn copy_manifest<R>(test_dir: &Path, env: &mut TestEnvironment<R>) -> anyhow::Re
 
 fn test(env: &mut TestEnvironment<Spin>) -> TestResult<RuntimeTestFailure> {
     let runtime = env.runtime_mut();
-    let response = runtime.make_http_request(reqwest::Method::GET, "/")?;
+    let request = testing_framework::Request::new(reqwest::Method::GET, "/");
+    let response = runtime.make_http_request(request)?;
     if response.status() == 200 {
         return Ok(());
     }

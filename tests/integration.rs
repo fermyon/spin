@@ -278,7 +278,8 @@ mod integration_tests {
         uri: &str,
         status: u16,
     ) -> testing_framework::TestResult<anyhow::Error> {
-        let r = spin.make_http_request(reqwest::Method::GET, uri)?;
+        let r =
+            spin.make_http_request(testing_framework::Request::new(reqwest::Method::GET, uri))?;
         if r.status() != status {
             return Err(testing_framework::TestError::Failure(anyhow!(
                 "Expected status {} for {} but got {}",

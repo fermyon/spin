@@ -604,52 +604,6 @@ pub async fn header_env_routes_works(controller: &dyn Controller) {
     tc.run(controller).await.unwrap()
 }
 
-pub async fn header_dynamic_env_works(controller: &dyn Controller) {
-    async fn checks(
-        metadata: AppMetadata,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-    ) -> Result<()> {
-        assert_http_response(
-            get_url(metadata.base.as_str(), "/env").as_str(),
-            Method::GET,
-            "",
-            200,
-            &[],
-            Some("I'm a teapot"),
-        )
-        .await?;
-
-        assert_http_response(
-            get_url(metadata.base.as_str(), "/env/foo").as_str(),
-            Method::GET,
-            "",
-            200,
-            &[("env_some_key", "some_value")],
-            Some("I'm a teapot"),
-        )
-        .await?;
-
-        Ok(())
-    }
-
-    let tc = TestCaseBuilder::default()
-        .name("headers-dynamic-env-test".to_string())
-        .appname(Some("headers-dynamic-env-test".to_string()))
-        .deploy_args(vec!["--env".to_string(), "foo=bar".to_string()])
-        .assertions(
-            |metadata: AppMetadata,
-             stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
-             stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
-                Box::pin(checks(metadata, stdout_stream, stderr_stream))
-            },
-        )
-        .build()
-        .unwrap();
-
-    tc.run(controller).await.unwrap()
-}
-
 pub async fn redis_go_works(controller: &dyn Controller) {
     async fn checks(
         _: AppMetadata,

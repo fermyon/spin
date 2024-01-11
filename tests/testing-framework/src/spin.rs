@@ -1,3 +1,5 @@
+use anyhow::Context;
+
 use crate::{io::OutputStream, Runtime};
 use std::{
     path::Path,
@@ -116,10 +118,12 @@ impl Spin {
         Ok(spin)
     }
 
+    /// Make an HTTP request against Spin
+    ///
+    /// Will fail if Spin has already exited or if the io mode is not HTTP
     pub fn make_http_request(
         &mut self,
-        method: reqwest::Method,
-        path: &str,
+        request: Request<'_>,
     ) -> anyhow::Result<reqwest::blocking::Response> {
         let IoMode::Http(port) = self.io_mode else {
             anyhow::bail!("Spin is not running in HTTP mode");
@@ -128,13 +132,23 @@ impl Spin {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
         }
         log::debug!("Connecting to HTTP server on port {port}...");
-        let request = reqwest::blocking::Request::new(
-            method,
-            format!("http://localhost:{}{}", port, path)
-                .parse()
-                .unwrap(),
+        let mut outgoing = reqwest::blocking::Request::new(
+            request.method,
+            reqwest::Url::parse(&format!("http://localhost:{port}"))
+                .unwrap()
+                .join(request.uri)
+                .context("could not construct url for request against Spin")?,
         );
-        let response = reqwest::blocking::Client::new().execute(request)?;
+        outgoing
+            .headers_mut()
+            .extend(request.headers.iter().map(|(k, v)| {
+                (
+                    reqwest::header::HeaderName::from_bytes(k.as_bytes()).unwrap(),
+                    reqwest::header::HeaderValue::from_str(v).unwrap(),
+                )
+            }));
+        *outgoing.body_mut() = request.body.map(Into::into);
+        let response = reqwest::blocking::Client::new().execute(outgoing)?;
         log::debug!("Awaiting response from server");
         if let Some(status) = self.try_wait()? {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
@@ -200,4 +214,39 @@ fn get_random_port() -> anyhow::Result<u16> {
     Ok(std::net::TcpListener::bind("localhost:0")?
         .local_addr()?
         .port())
+}
+
+/// A request to the spin server
+pub struct Request<'a> {
+    pub method: reqwest::Method,
+    pub uri: &'a str,
+    pub headers: &'a [(&'a str, &'a str)],
+    pub body: Option<Vec<u8>>,
+}
+
+impl<'a> Request<'a> {
+    /// Create a new request with no headers or body
+    pub fn new(method: reqwest::Method, uri: &'a str) -> Self {
+        Self {
+            method,
+            uri,
+            headers: &[],
+            body: None,
+        }
+    }
+
+    /// Create a new request with headers and a body
+    pub fn full(
+        method: reqwest::Method,
+        uri: &'a str,
+        headers: &'a [(&'a str, &'a str)],
+        body: Option<Vec<u8>>,
+    ) -> Self {
+        Self {
+            method,
+            uri,
+            headers,
+            body,
+        }
+    }
 }

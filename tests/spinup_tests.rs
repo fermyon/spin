@@ -1,26 +1,8 @@
-use anyhow::Context;
-use redis::Commands;
+use reqwest::header::HeaderValue;
 use std::path::PathBuf;
 
 #[cfg(feature = "e2e-tests")]
 mod testcases;
-
-/// Helper macro to assert that a condition is true eventually
-macro_rules! assert_eventually {
-    ($e:expr) => {
-        let mut i = 0;
-        loop {
-            if $e {
-                break;
-            } else if i > 20 {
-                assert!($e);
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            i += 1;
-        }
-    };
-}
 
 #[test]
 /// Test that the --key-value flag works as expected
@@ -36,9 +18,12 @@ fn key_value_cli_flag() -> anyhow::Result<()> {
             let spin = env.runtime_mut();
             assert_spin_request(
                 spin,
-                reqwest::Method::GET,
-                &format!("/test?key={test_key}"),
+                testing_framework::Request::new(
+                    reqwest::Method::GET,
+                    &format!("/test?key={test_key}"),
+                ),
                 200,
+                &[],
                 &test_value,
             )
         },
@@ -58,24 +43,33 @@ fn http_smoke_test() -> anyhow::Result<()> {
             let spin = env.runtime_mut();
             assert_spin_request(
                 spin,
-                reqwest::Method::GET,
-                "/test/hello",
+                testing_framework::Request::new(reqwest::Method::GET, "/test/hello"),
                 200,
+                &[],
                 "I'm a teapot",
             )?;
             assert_spin_request(
                 spin,
-                reqwest::Method::GET,
-                "/test/hello/wildcards/should/be/handled",
+                testing_framework::Request::new(
+                    reqwest::Method::GET,
+                    "/test/hello/wildcards/should/be/handled",
+                ),
                 200,
+                &[],
                 "I'm a teapot",
             )?;
-            assert_spin_request(spin, reqwest::Method::GET, "/thishsouldfail", 404, "")?;
             assert_spin_request(
                 spin,
-                reqwest::Method::GET,
-                "/test/hello/test-placement",
+                testing_framework::Request::new(reqwest::Method::GET, "/thishsouldfail"),
+                404,
+                &[],
+                "",
+            )?;
+            assert_spin_request(
+                spin,
+                testing_framework::Request::new(reqwest::Method::GET, "/test/hello/test-placement"),
                 200,
+                &[],
                 "text for test",
             )
         },
@@ -85,8 +79,30 @@ fn http_smoke_test() -> anyhow::Result<()> {
 }
 
 #[test]
+// TODO: it seems that running this test on macOS CI is not possible because the docker services doesn't run.
+// Investigate if there is a possible fix for this.
+#[cfg(feature = "e2e-tests")]
 /// Test that basic redis trigger support works
 fn redis_smoke_test() -> anyhow::Result<()> {
+    /// Helper macro to assert that a condition is true eventually
+    macro_rules! assert_eventually {
+        ($e:expr) => {
+            let mut i = 0;
+            loop {
+                if $e {
+                    break;
+                } else if i > 20 {
+                    assert!($e);
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                i += 1;
+            }
+        };
+    }
+
+    use anyhow::Context;
+    use redis::Commands;
     run_test(
         "redis-smoke-test",
         testing_framework::SpinMode::Redis,
@@ -113,6 +129,30 @@ fn redis_smoke_test() -> anyhow::Result<()> {
                     Err(e) => return Err(anyhow::anyhow!("could not read stdout file: {e}").into()),
                 }
             });
+            Ok(())
+        },
+    )?;
+
+    Ok(())
+}
+
+#[test]
+/// Test dynamic environment variables
+fn dynamic_env_test() -> anyhow::Result<()> {
+    run_test(
+        "dynamic-env-test",
+        testing_framework::SpinMode::Http,
+        vec!["--env".to_owned(), "foo=bar".to_owned()],
+        testing_framework::ServicesConfig::none(),
+        move |env| {
+            let spin = env.runtime_mut();
+            assert_spin_request(
+                spin,
+                testing_framework::Request::new(reqwest::Method::GET, "/env"),
+                200,
+                &[("env_some_key", "some_value"), ("ENV_foo", "bar")],
+                "I'm a teapot",
+            )?;
             Ok(())
         },
     )?;
@@ -147,21 +187,33 @@ fn run_test(
 /// Assert that a request to the spin server returns the expected status and body
 fn assert_spin_request(
     spin: &mut testing_framework::Spin,
-    method: reqwest::Method,
-    uri: &str,
+    request: testing_framework::Request<'_>,
     expected_status: u16,
+    expected_headers: &[(&str, &str)],
     expected_body: &str,
 ) -> testing_framework::TestResult<anyhow::Error> {
-    let r = spin.make_http_request(method, uri)?;
+    let uri = request.uri;
+    let mut r = spin.make_http_request(request)?;
     let status = r.status();
+    let headers = std::mem::take(r.headers_mut());
     let body = r.text().unwrap_or_else(|_| String::from("<non-utf8>"));
     if status != expected_status {
         return Err(testing_framework::TestError::Failure(anyhow::anyhow!(
             "Expected status {expected_status} for {uri} but got {status}\nBody:\n{body}",
         )));
     }
+    let wrong_headers: std::collections::HashMap<_, _> = expected_headers
+        .iter()
+        .copied()
+        .filter(|(ek, ev)| headers.get(*ek) != Some(&HeaderValue::from_str(ev).unwrap()))
+        .collect();
+    if !wrong_headers.is_empty() {
+        return Err(testing_framework::TestError::Failure(anyhow::anyhow!(
+            "Expected headers {headers:?}  to contain {wrong_headers:?}\nBody:\n{body}"
+        )));
+    }
     if body != expected_body {
-        return Err(anyhow::anyhow!("expected {expected_body}, got {body}",).into());
+        return Err(anyhow::anyhow!("expected {expected_body}, got {body}").into());
     }
     Ok(())
 }
@@ -262,11 +314,6 @@ mod spinup_tests {
     #[tokio::test]
     async fn header_env_routes_works() {
         testcases::header_env_routes_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn header_dynamic_env_works() {
-        testcases::header_dynamic_env_works(CONTROLLER).await
     }
 
     #[tokio::test]

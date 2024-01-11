@@ -161,6 +161,7 @@ fn dynamic_env_test() -> anyhow::Result<()> {
 }
 
 #[test]
+/// Test that mounting works properly
 fn assets_routing_test() -> anyhow::Result<()> {
     run_test(
         "assets-test",
@@ -205,6 +206,37 @@ fn assets_routing_test() -> anyhow::Result<()> {
 
             assert_not_found("donotmount/a")?;
             assert_not_found("thisshouldbemounted/thisshouldbeexcluded/4")?;
+            Ok(())
+        },
+    )?;
+
+    Ok(())
+}
+
+#[test]
+/// Test that mounting works properly
+fn legacy_apps() -> anyhow::Result<()> {
+    run_test(
+        "legacy-apps-test",
+        testing_framework::SpinMode::Http,
+        [],
+        testing_framework::ServicesConfig::none(),
+        move |env| {
+            let spin = env.runtime_mut();
+            let mut test = |lang: &str, body: &str| {
+                assert_spin_request(
+                    spin,
+                    testing_framework::Request::new(reqwest::Method::GET, &format!("/{lang}")),
+                    200,
+                    &[],
+                    body,
+                )
+            };
+
+            test("golang", "Hello Fermyon!\n")?;
+            test("rust", "Hello, Fermyon")?;
+            test("javascript", "Hello from JS-SDK")?;
+            test("typescript", "Hello from TS-SDK")?;
             Ok(())
         },
     )?;

@@ -132,7 +132,13 @@ impl<R> TestEnvironment<R> {
     ///
     /// This blocks until the command has finished running and will error if the command fails
     pub fn run_in(&self, cmd: &mut std::process::Command) -> anyhow::Result<std::process::Output> {
-        let output = cmd.current_dir(self.temp.path()).output()?;
+        let output = cmd
+            .current_dir(self.temp.path())
+            // TODO: figure out how not to hardcode this
+            // We do this so that if `spin build` is run with a Rust app,
+            // it builds inside the test environment
+            .env("CARGO_TARGET_DIR", self.path().join("target"))
+            .output()?;
         if !output.status.success() {
             anyhow::bail!(
                 "'{cmd:?}' failed with status code {:?}\nstdout:\n{}\nstderr:\n{}\n",

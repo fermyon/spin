@@ -66,9 +66,9 @@ pub fn assert_spin_request(
         )));
     }
     if body != expected_body {
-        return Err(testing_framework::TestError::Failure(
-            anyhow::anyhow!("expected body '{expected_body}', got '{body}'").into(),
-        ));
+        return Err(testing_framework::TestError::Failure(anyhow::anyhow!(
+            "expected body '{expected_body}', got '{body}'"
+        )));
     }
     Ok(())
 }
@@ -182,7 +182,11 @@ pub fn redis_smoke_test_template(
     Ok(())
 }
 
+static TEMPLATE_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Bootstrap a test environment for a smoke test
+// TODO: refactor this function to not take so many arguments
+#[allow(clippy::too_many_arguments)]
 pub fn bootstrap_smoke_test(
     services: &testing_framework::ServicesConfig,
     template_url: Option<&str>,
@@ -199,15 +203,28 @@ pub fn bootstrap_smoke_test(
 ) -> anyhow::Result<testing_framework::TestEnvironment<testing_framework::Spin>> {
     let mut env: testing_framework::TestEnvironment<()> =
         testing_framework::TestEnvironment::boot(services)?;
-    if let Some(template_url) = template_url {
-        let mut template_install = std::process::Command::new(spin_binary());
-        template_install.args(["templates", "install", "--git", template_url, "--update"]);
+
+    let template_url = template_url.unwrap_or("https://github.com/fermyon/spin");
+    let mut template_install = std::process::Command::new(spin_binary());
+    template_install.args(["templates", "install", "--git", template_url, "--update"]);
+    // We need to serialize template installs since they can't be run in parallel
+    {
+        let _guard = TEMPLATE_MUTEX.lock().unwrap();
         env.run_in(&mut template_install)?;
     }
+
     if !plugins.is_empty() {
         let mut plugin_update = std::process::Command::new(spin_binary());
         plugin_update.args(["plugin", "update"]);
-        env.run_in(&mut plugin_update)?;
+        if let Err(e) = env.run_in(&mut plugin_update) {
+            // We treat plugin updates as best efforts since it only needs to be run once
+            if !e
+                .to_string()
+                .contains("update operation is already in progress")
+            {
+                return Err(e);
+            }
+        }
     }
     for plugin in plugins {
         let mut plugin_install = std::process::Command::new(spin_binary());

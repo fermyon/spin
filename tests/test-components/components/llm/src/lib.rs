@@ -20,7 +20,7 @@ impl Component {
             Some(param)
         ));
 
-        ensure!(inference.text.len() > 0);
+        ensure!(!inference.text.is_empty());
         ensure_eq!(inference.usage.generated_token_count, 1);
 
         Ok(())

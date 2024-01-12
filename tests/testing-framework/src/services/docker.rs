@@ -129,7 +129,7 @@ impl Service for DockerService {
 fn build_image(docker_file_path: &Path, image_name: &String) -> anyhow::Result<()> {
     let temp_dir = temp_dir::TempDir::new()
         .context("failed to produce a temporary directory to run docker in")?;
-    let status = Command::new("docker")
+    let output = Command::new("docker")
         .arg("build")
         .arg("-f")
         .arg(docker_file_path)
@@ -137,12 +137,16 @@ fn build_image(docker_file_path: &Path, image_name: &String) -> anyhow::Result<(
         .arg(image_name)
         .arg(temp_dir.path())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
+        .stderr(Stdio::piped())
+        .output()
         .context("service failed to spawn")?;
 
-    if !status.success() {
-        bail!("failed to build docker image");
+    if !output.status.success() {
+        let stderr = std::str::from_utf8(&output.stderr).unwrap_or("<non-utf8>");
+        bail!(
+            "failed to build docker '{image_name}' image: status={} stderr={stderr}",
+            output.status
+        );
     }
     Ok(())
 }

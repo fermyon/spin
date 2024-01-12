@@ -444,11 +444,6 @@ mod spinup_tests {
     }
 
     #[tokio::test]
-    async fn llm_works() {
-        testcases::llm_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
     async fn redis_go_works() {
         testcases::redis_go_works(CONTROLLER).await
     }

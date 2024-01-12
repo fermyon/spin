@@ -1,0 +1,1 @@
+Could not read model registry directory '.spin/ai-models'

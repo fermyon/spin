@@ -370,45 +370,6 @@ pub async fn http_js_works(controller: &dyn Controller) {
     tc.run(controller).await.unwrap()
 }
 
-pub async fn llm_works(controller: &dyn Controller) {
-    async fn checks(
-        metadata: AppMetadata,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-    ) -> Result<()> {
-        let response = e2e_testing::http_asserts::make_request(
-            Method::GET,
-            get_url(metadata.base.as_str(), "/").as_str(),
-            "",
-        )
-        .await?;
-        // We avoid actually running inferencing because it's slow and instead just
-        // ensure that the app boots properly.
-        assert_eq!(response.status(), 500);
-        let body = std::str::from_utf8(&response.bytes().await?)
-            .unwrap()
-            .to_string();
-        assert!(body.contains("Could not read model registry directory"));
-
-        Ok(())
-    }
-
-    let tc = TestCaseBuilder::default()
-        .name("llm".to_string())
-        .appname(Some("llm".to_string()))
-        .assertions(
-            |metadata: AppMetadata,
-             stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
-             stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
-                Box::pin(checks(metadata, stdout_stream, stderr_stream))
-            },
-        )
-        .build()
-        .unwrap();
-
-    tc.run(controller).await.unwrap()
-}
-
 pub async fn redis_go_works(controller: &dyn Controller) {
     async fn checks(
         _: AppMetadata,

@@ -3,6 +3,14 @@
 version = 3
 
 [[package]]
+name = "ai"
+version = "0.1.0"
+dependencies = [
+ "helper",
+ "wit-bindgen 0.16.0",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.75"
 source = "registry+https://github.com/rust-lang/crates.io-index"

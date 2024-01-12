@@ -1,3 +1,5 @@
+use anyhow::Context;
+use redis::Commands;
 use reqwest::header::HeaderValue;
 use std::path::PathBuf;
 
@@ -297,7 +299,7 @@ fn outbound_http_works() -> anyhow::Result<()> {
 
 #[test]
 fn http_python_template_smoke_test() -> anyhow::Result<()> {
-    smoke_test_template(
+    http_smoke_test_template(
         "http-py",
         Some("https://github.com/fermyon/spin-python-sdk"),
         &["py2wasm"],
@@ -308,12 +310,12 @@ fn http_python_template_smoke_test() -> anyhow::Result<()> {
 
 #[test]
 fn http_rust_template_smoke_test() -> anyhow::Result<()> {
-    smoke_test_template("http-rust", None, &[], |_| Ok(()), "Hello, Fermyon")
+    http_smoke_test_template("http-rust", None, &[], |_| Ok(()), "Hello, Fermyon")
 }
 
 #[test]
 fn http_c_template_smoke_test() -> anyhow::Result<()> {
-    smoke_test_template("http-c", None, &[], |_| Ok(()), "Hello from WAGI/1\n")
+    http_smoke_test_template("http-c", None, &[], |_| Ok(()), "Hello from WAGI/1\n")
 }
 
 #[test]
@@ -324,7 +326,7 @@ fn http_go_template_smoke_test() -> anyhow::Result<()> {
         env.run_in(&mut tidy)?;
         Ok(())
     };
-    smoke_test_template("http-go", None, &[], prebuild, "Hello Fermyon!\n")
+    http_smoke_test_template("http-go", None, &[], prebuild, "Hello Fermyon!\n")
 }
 
 #[test]
@@ -335,7 +337,7 @@ fn http_js_template_smoke_test() -> anyhow::Result<()> {
         env.run_in(&mut tidy)?;
         Ok(())
     };
-    smoke_test_template(
+    http_smoke_test_template(
         "http-js",
         Some("https://github.com/fermyon/spin-js-sdk"),
         &["js2wasm"],
@@ -352,7 +354,7 @@ fn http_ts_template_smoke_test() -> anyhow::Result<()> {
         env.run_in(&mut tidy)?;
         Ok(())
     };
-    smoke_test_template(
+    http_smoke_test_template(
         "http-ts",
         Some("https://github.com/fermyon/spin-js-sdk"),
         &["js2wasm"],
@@ -364,28 +366,64 @@ fn http_ts_template_smoke_test() -> anyhow::Result<()> {
 #[test]
 #[cfg(target_arch = "x86_64")]
 fn http_grain_template_smoke_test() -> anyhow::Result<()> {
-    smoke_test_template("http-grain", None, &[], |_| Ok(()), "Hello, World\n")
+    http_smoke_test_template("http-grain", None, &[], |_| Ok(()), "Hello, World\n")
 }
 
 #[test]
 fn http_zig_template_smoke_test() -> anyhow::Result<()> {
-    smoke_test_template("http-zig", None, &[], |_| Ok(()), "Hello World!\n")
+    http_smoke_test_template("http-zig", None, &[], |_| Ok(()), "Hello World!\n")
 }
 
 #[test]
 fn http_swift_template_smoke_test() -> anyhow::Result<()> {
-    smoke_test_template("http-swift", None, &[], |_| Ok(()), "Hello from WAGI/1!\n")
+    http_smoke_test_template("http-swift", None, &[], |_| Ok(()), "Hello from WAGI/1!\n")
 }
 
 #[test]
 fn http_php_template_smoke_test() -> anyhow::Result<()> {
-    smoke_test_template_with_route(
+    http_smoke_test_template_with_route(
         "http-php",
         None,
         &[],
         |_| Ok(()),
         "/index.php",
         "Hello Fermyon Spin",
+    )
+}
+
+#[test]
+fn redis_go_template_smoke_test() -> anyhow::Result<()> {
+    redis_smoke_test_template(
+        "redis-go",
+        None,
+        &[],
+        |port| {
+            vec![
+                "--value".into(),
+                "redis-channel=redis-channel".into(),
+                "--value".into(),
+                format!("redis-address=redis://localhost:{port}"),
+            ]
+        },
+        |_| Ok(()),
+    )
+}
+
+#[test]
+fn redis_rust_template_smoke_test() -> anyhow::Result<()> {
+    redis_smoke_test_template(
+        "redis-rust",
+        None,
+        &[],
+        |port| {
+            vec![
+                "--value".into(),
+                "redis-channel=redis-channel".into(),
+                "--value".into(),
+                format!("redis-address=redis://localhost:{port}"),
+            ]
+        },
+        |_| Ok(()),
     )
 }
 
@@ -475,15 +513,15 @@ fn preboot(
     Ok(())
 }
 
-/// Run a smoke test against a `spin new` template
-fn smoke_test_template(
+/// Run a smoke test against a `spin new` http template
+fn http_smoke_test_template(
     template_name: &str,
     template_url: Option<&str>,
     plugins: &[&str],
     prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> anyhow::Result<()>,
     expected_body: &str,
 ) -> anyhow::Result<()> {
-    smoke_test_template_with_route(
+    http_smoke_test_template_with_route(
         template_name,
         template_url,
         plugins,
@@ -493,8 +531,8 @@ fn smoke_test_template(
     )
 }
 
-/// Run a smoke test against a given http route for a `spin new` template
-fn smoke_test_template_with_route(
+/// Run a smoke test against a given http route for a `spin new` http template
+fn http_smoke_test_template_with_route(
     template_name: &str,
     template_url: Option<&str>,
     plugins: &[&str],
@@ -502,50 +540,18 @@ fn smoke_test_template_with_route(
     route: &str,
     expected_body: &str,
 ) -> anyhow::Result<()> {
-    let mut env: testing_framework::TestEnvironment<()> =
-        testing_framework::TestEnvironment::boot(&testing_framework::ServicesConfig::none())?;
-    if let Some(template_url) = template_url {
-        let mut template_install = std::process::Command::new(spin_binary());
-        template_install.args(["templates", "install", "--git", template_url, "--update"]);
-        env.run_in(&mut template_install)?;
-    }
-
-    if !plugins.is_empty() {
-        let mut plugin_update = std::process::Command::new(spin_binary());
-        plugin_update.args(["plugin", "update"]);
-        env.run_in(&mut plugin_update)?;
-    }
-
-    for plugin in plugins {
-        let mut plugin_install = std::process::Command::new(spin_binary());
-        plugin_install.args(["plugin", "install", plugin, "--yes"]);
-        env.run_in(&mut plugin_install)?;
-    }
-    let mut new_app = std::process::Command::new(spin_binary());
-    new_app.args([
-        "new",
-        "test",
-        "-t",
+    let mut env = bootstrap_smoke_test(
+        &testing_framework::ServicesConfig::none(),
+        template_url,
+        plugins,
         template_name,
-        "-o",
-        ".",
-        "--accept-defaults",
-    ]);
-    env.run_in(&mut new_app)?;
-
-    prebuild_hook(&mut env)?;
-    let mut build = std::process::Command::new(spin_binary());
-    build.args(["build"]);
-    env.run_in(&mut build)?;
-    let mut spin = testing_framework::Spin::start(
-        &spin_binary(),
-        &env,
-        vec![] as Vec<&str>,
+        |_| Ok(Vec::new()),
+        prebuild_hook,
         testing_framework::SpinMode::Http,
     )?;
 
     assert_spin_request(
-        &mut spin,
+        env.runtime_mut(),
         testing_framework::Request::new(reqwest::Method::GET, route),
         200,
         &[],
@@ -555,6 +561,101 @@ fn smoke_test_template_with_route(
     Ok(())
 }
 
+/// Run a smoke test for a `spin new` redis template
+fn redis_smoke_test_template(
+    template_name: &str,
+    template_url: Option<&str>,
+    plugins: &[&str],
+    new_app_args: impl FnOnce(u16) -> Vec<String>,
+    prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
+    let mut env = bootstrap_smoke_test(
+        &testing_framework::ServicesConfig::new(vec!["redis".into()])?,
+        template_url,
+        plugins,
+        template_name,
+        |env| {
+            let redis_port = env
+                .services_mut()
+                .get_port(6379)?
+                .context("no redis port was exposed by test services")?;
+            Ok(new_app_args(redis_port))
+        },
+        prebuild_hook,
+        testing_framework::SpinMode::Redis,
+    )?;
+    let redis_port = env
+        .get_port(6379)?
+        .context("no redis port was exposed by test services")?;
+    let mut client = redis::Client::open(format!("redis://localhost:{redis_port}"))?;
+    let mut conn = client.get_connection()?;
+    let mut pubsub = conn.as_pubsub();
+    pubsub.subscribe("redis-channel")?;
+    client.publish("redis-channel", "hello from redis")?;
+
+    // Wait for the message to be received (as an approximation for when Spin receives the message)
+    let _ = pubsub.get_message()?;
+    // Leave some time for the message to be processed
+    std::thread::sleep(std::time::Duration::from_millis(100));
+
+    let stderr = env.runtime_mut().stderr();
+    assert!(stderr.contains("hello from redis"));
+
+    Ok(())
+}
+
+/// Bootstrap a test environment for a smoke test
+fn bootstrap_smoke_test(
+    services: &testing_framework::ServicesConfig,
+    template_url: Option<&str>,
+    plugins: &[&str],
+    template_name: &str,
+    new_app_args: impl FnOnce(
+        &mut testing_framework::TestEnvironment<()>,
+    ) -> anyhow::Result<Vec<String>>,
+    prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> Result<(), anyhow::Error>,
+    spin_mode: testing_framework::SpinMode,
+) -> Result<testing_framework::TestEnvironment<testing_framework::Spin>, anyhow::Error> {
+    let mut env: testing_framework::TestEnvironment<()> =
+        testing_framework::TestEnvironment::boot(services)?;
+    if let Some(template_url) = template_url {
+        let mut template_install = std::process::Command::new(spin_binary());
+        template_install.args(["templates", "install", "--git", template_url, "--update"]);
+        env.run_in(&mut template_install)?;
+    }
+    if !plugins.is_empty() {
+        let mut plugin_update = std::process::Command::new(spin_binary());
+        plugin_update.args(["plugin", "update"]);
+        env.run_in(&mut plugin_update)?;
+    }
+    for plugin in plugins {
+        let mut plugin_install = std::process::Command::new(spin_binary());
+        plugin_install.args(["plugin", "install", plugin, "--yes"]);
+        env.run_in(&mut plugin_install)?;
+    }
+    let mut new_app = std::process::Command::new(spin_binary());
+    new_app
+        .args([
+            "new",
+            "test",
+            "-t",
+            template_name,
+            "-o",
+            ".",
+            "--accept-defaults",
+        ])
+        .args(new_app_args(&mut env)?);
+    env.run_in(&mut new_app)?;
+    prebuild_hook(&mut env)?;
+    let mut build = std::process::Command::new(spin_binary());
+    build.args(["build"]);
+    env.run_in(&mut build)?;
+    let spin =
+        testing_framework::Spin::start(&spin_binary(), &env, vec![] as Vec<&str>, spin_mode)?;
+    let env = env.start_runtime(spin)?;
+    Ok(env)
+}
+
 /// Get the spin binary path
 fn spin_binary() -> PathBuf {
     env!("CARGO_BIN_EXE_spin").into()
@@ -562,22 +663,11 @@ fn spin_binary() -> PathBuf {
 
 #[cfg(feature = "e2e-tests")]
 mod spinup_tests {
-    use super::testcases;
-    use {e2e_testing::controller::Controller, e2e_testing::spin_controller::SpinUp};
-    const CONTROLLER: &dyn Controller = &SpinUp {};
-
-    #[tokio::test]
-    async fn redis_go_works() {
-        testcases::redis_go_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn redis_rust_works() {
-        testcases::redis_rust_works(CONTROLLER).await
-    }
-
     #[tokio::test]
     async fn registry_works() {
+        use super::testcases;
+        use {e2e_testing::controller::Controller, e2e_testing::spin_controller::SpinUp};
+        const CONTROLLER: &dyn Controller = &SpinUp {};
         testcases::registry_works(CONTROLLER).await
     }
 }

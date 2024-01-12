@@ -1,6 +1,6 @@
 use anyhow::Context;
 
-use crate::{io::OutputStream, Runtime};
+use crate::{io::OutputStream, Runtime, TestEnvironment};
 use std::{
     path::Path,
     process::{Command, Stdio},
@@ -16,29 +16,29 @@ pub struct Spin {
 }
 
 impl Spin {
-    pub fn start(
+    pub fn start<R>(
         spin_binary_path: &Path,
-        current_dir: &Path,
+        env: &TestEnvironment<R>,
         spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
         mode: SpinMode,
     ) -> anyhow::Result<Self> {
         match mode {
-            SpinMode::Http => Self::start_http(spin_binary_path, current_dir, spin_up_args),
-            SpinMode::Redis => Self::start_redis(spin_binary_path, current_dir, spin_up_args),
-            SpinMode::None => Self::attempt_start(spin_binary_path, current_dir, spin_up_args),
+            SpinMode::Http => Self::start_http(spin_binary_path, env, spin_up_args),
+            SpinMode::Redis => Self::start_redis(spin_binary_path, env, spin_up_args),
+            SpinMode::None => Self::attempt_start(spin_binary_path, env, spin_up_args),
         }
     }
 
     /// Start Spin in `current_dir` using the binary at `spin_binary_path`
-    pub fn start_http(
+    pub fn start_http<R>(
         spin_binary_path: &Path,
-        current_dir: &Path,
+        env: &TestEnvironment<R>,
         spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
     ) -> anyhow::Result<Self> {
         let port = get_random_port()?;
         let mut child = Command::new(spin_binary_path)
             .arg("up")
-            .current_dir(current_dir)
+            .current_dir(env.path())
             .args(["--listen", &format!("127.0.0.1:{port}")])
             .args(spin_up_args)
             .stdout(Stdio::piped())
@@ -86,14 +86,14 @@ impl Spin {
         )
     }
 
-    pub fn start_redis(
+    pub fn start_redis<R>(
         spin_binary_path: &Path,
-        current_dir: &Path,
+        env: &TestEnvironment<R>,
         spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
     ) -> anyhow::Result<Self> {
         let mut child = Command::new(spin_binary_path)
             .arg("up")
-            .current_dir(current_dir)
+            .current_dir(env.path())
             .args(spin_up_args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -119,14 +119,14 @@ impl Spin {
         Ok(spin)
     }
 
-    fn attempt_start(
+    fn attempt_start<R>(
         spin_binary_path: &Path,
-        current_dir: &Path,
+        env: &TestEnvironment<R>,
         spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
     ) -> anyhow::Result<Self> {
         let mut child = Command::new(spin_binary_path)
             .arg("up")
-            .current_dir(current_dir)
+            .current_dir(env.path())
             .args(spin_up_args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

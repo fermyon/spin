@@ -295,6 +295,68 @@ fn outbound_http_works() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn http_python_template_smoke_test() -> anyhow::Result<()> {
+    smoke_test_template(
+        "http-py",
+        "https://github.com/fermyon/spin-python-sdk",
+        &["py2wasm"],
+        "Hello from the Python SDK",
+    )
+}
+
+/// Run a smoke test against a `spin new` template
+fn smoke_test_template(
+    template_name: &str,
+    template_url: &str,
+    plugins: &[&str],
+    expected_body: &str,
+) -> anyhow::Result<()> {
+    let env: testing_framework::TestEnvironment<()> =
+        testing_framework::TestEnvironment::boot(&testing_framework::ServicesConfig::none())?;
+    let mut template_install = std::process::Command::new(spin_binary());
+    template_install.args(["templates", "install", "--git", template_url, "--update"]);
+    env.run_in(&mut template_install)?;
+    let mut plugin_update = std::process::Command::new(spin_binary());
+    plugin_update.args(["plugin", "update"]);
+    env.run_in(&mut plugin_update)?;
+    for plugin in plugins {
+        let mut plugin_install = std::process::Command::new(spin_binary());
+        plugin_install.args(["plugin", "install", plugin, "--yes"]);
+        env.run_in(&mut plugin_install)?;
+    }
+    let mut new_app = std::process::Command::new(spin_binary());
+    new_app.args([
+        "new",
+        "test",
+        "-t",
+        template_name,
+        "-o",
+        ".",
+        "--accept-defaults",
+    ]);
+    env.run_in(&mut new_app)?;
+    let mut build = std::process::Command::new(spin_binary());
+    build.args(["build"]);
+    env.run_in(&mut build)?;
+    let mut spin = testing_framework::Spin::start(
+        &spin_binary(),
+        &env,
+        vec![] as Vec<&str>,
+        testing_framework::SpinMode::Http,
+    )?;
+
+    assert_spin_request(
+        &mut spin,
+        testing_framework::Request::new(reqwest::Method::GET, "/"),
+        200,
+        &[],
+        expected_body,
+    )?;
+
+    Ok(())
+}
+
 /// Run an e2e test
 fn run_test(
     test_name: impl Into<String>,

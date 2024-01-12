@@ -62,9 +62,9 @@ lint:
 	cargo clippy --all --all-targets --features all-tests -- -D warnings
 	cargo fmt --all -- --check
 
-.PHONY: lint-rust-examples-and-testcases
-lint-rust-examples-and-testcases:
-	for manifest_path in $$(find examples tests/testcases -name Cargo.toml); do \
+.PHONY: lint-rust-examples
+lint-rust-examples:
+	for manifest_path in $$(find examples  -name Cargo.toml); do \
 		echo "Linting $${manifest_path}" \
 		&& cargo clippy --manifest-path "$${manifest_path}" -- -D warnings \
 		&& cargo fmt --manifest-path "$${manifest_path}" -- --check \
@@ -73,14 +73,14 @@ lint-rust-examples-and-testcases:
 	done
 
 .PHONY: lint-all
-lint-all: lint lint-rust-examples-and-testcases
+lint-all: lint lint-rust-examples
 
 ## Bring all of the checked in `Cargo.lock` files up-to-date
 .PHONY: update-cargo-locks
 update-cargo-locks: 
 	echo "Updating Cargo.toml"
 	cargo update -w --offline; \
-	for manifest_path in $$(find examples tests/testcases -name Cargo.toml); do \
+	for manifest_path in $$(find examples -name Cargo.toml); do \
 		echo "Updating $${manifest_path}" && \
 		cargo update --manifest-path "$${manifest_path}" -w --offline; \
 	done

@@ -490,7 +490,9 @@ impl Client {
         // First, validate the credentials. If a user accidentally enters a wrong credential set, this
         // can catch the issue early rather than getting an error at the first operation that needs
         // to use the credentials (first time they do a push/pull/up).
-        Self::validate_credentials(&server, &username, &password).await?;
+        if let Err(_) = Self::validate_credentials(&server, &username, &password).await {
+            tracing::error!("Cannot validate regsitry credentials. The server does not accept this operation, or the credentials might be wrong. Adding the credentials to the configuration and attempting to use them in future registry operations. You can check the registries spin is logged in at {:?}", AuthConfig::default_path()?);
+        }
 
         // Save an encoded representation of the credential set in the local configuration file.
         let mut auth = AuthConfig::load_default().await?;

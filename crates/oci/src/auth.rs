@@ -50,7 +50,7 @@ impl AuthConfig {
         Ok(())
     }
 
-    fn default_path() -> Result<PathBuf> {
+    pub(crate) fn default_path() -> Result<PathBuf> {
         Ok(dirs::config_dir()
             .context("Cannot find configuration directory")?
             .join("fermyon")

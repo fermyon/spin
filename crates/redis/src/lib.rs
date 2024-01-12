@@ -8,13 +8,10 @@ use anyhow::{anyhow, Context, Result};
 use futures::{future::join_all, StreamExt};
 use redis::{Client, ConnectionLike};
 use serde::{de::IgnoredAny, Deserialize, Serialize};
-use spin_app::MetadataKey;
 use spin_core::async_trait;
 use spin_trigger::{cli::NoArgs, TriggerAppEngine, TriggerExecutor};
 
 use crate::spin::SpinRedisExecutor;
-
-const TRIGGER_METADATA_KEY: MetadataKey<TriggerMetadata> = MetadataKey::new("trigger");
 
 pub(crate) type RuntimeData = ();
 pub(crate) type Store = spin_core::Store<RuntimeData>;
@@ -56,17 +53,9 @@ impl TriggerExecutor for RedisTrigger {
 
     async fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
         let address = engine
-            .app()
-            .get_metadata(TRIGGER_METADATA_KEY)?
-            .map_or_else(
-                || {
-                    engine
-                        .trigger_metadata::<TriggerMetadata>()
-                        .unwrap_or_default()
-                        .map_or(String::new(), |f| f.address)
-                },
-                |t| t.address,
-            );
+            .trigger_metadata::<TriggerMetadata>()?
+            .unwrap_or_default()
+            .address;
 
         let mut channel_components: HashMap<String, Vec<String>> = HashMap::new();
 

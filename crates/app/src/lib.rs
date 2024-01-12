@@ -7,6 +7,7 @@
 #![deny(missing_docs)]
 
 mod host_component;
+use serde_json::Value;
 pub use spin_locked_app::locked;
 pub use spin_locked_app::values;
 pub use spin_locked_app::{Error, MetadataKey, Result};
@@ -212,16 +213,29 @@ impl<'a, L> App<'a, L> {
         &'this self,
         trigger_type: &'a str,
     ) -> Result<Option<T>> {
-        self.locked.metadata.get("triggers").map_or(Ok(None), |t| {
-            t.get(trigger_type)
-                .map(T::deserialize)
-                .transpose()
-                .map_err(|err| {
-                    Error::MetadataError(format!(
-                        "invalid metadata value for {trigger_type:?}: {err:?}"
-                    ))
-                })
-        })
+        let Some(value) = self.get_trigger_metadata_value(trigger_type) else {
+            return Ok(None);
+        };
+        let metadata = T::deserialize(value).map_err(|err| {
+            Error::MetadataError(format!(
+                "invalid metadata value for {trigger_type:?}: {err:?}"
+            ))
+        })?;
+        Ok(Some(metadata))
+    }
+
+    fn get_trigger_metadata_value(&self, trigger_type: &str) -> Option<Value> {
+        if let Some(trigger_configs) = self.locked.metadata.get("triggers") {
+            // New-style: `{"triggers": {"<type>": {...}}}`
+            trigger_configs.get(trigger_type).cloned()
+        } else if self.locked.metadata["trigger"]["type"] == trigger_type {
+            // Old-style: `{"trigger": {"type": "<type>", ...}}`
+            let mut meta = self.locked.metadata["trigger"].clone();
+            meta.as_object_mut().unwrap().remove("type");
+            Some(meta)
+        } else {
+            None
+        }
     }
 
     /// Returns an iterator of [`AppTrigger`]s defined for this app with

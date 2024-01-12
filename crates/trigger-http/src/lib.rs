@@ -95,17 +95,9 @@ impl TriggerExecutor for HttpTrigger {
 
     async fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
         let mut base = engine
-            .app()
-            .get_metadata(spin_http::trigger::METADATA_KEY)?
-            .map_or_else(
-                || {
-                    engine
-                        .trigger_metadata::<spin_http::trigger::Metadata>()
-                        .unwrap_or_default()
-                        .map_or(String::new(), |f| f.base)
-                },
-                |t| t.base,
-            );
+            .trigger_metadata::<spin_http::trigger::Metadata>()?
+            .unwrap_or_default()
+            .base;
 
         if !base.starts_with('/') {
             base = format!("/{base}");

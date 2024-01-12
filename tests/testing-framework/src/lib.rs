@@ -12,7 +12,7 @@ mod test_environment;
 
 pub use manifest_template::ManifestTemplate;
 pub use services::ServicesConfig;
-pub use spin::Spin;
+pub use spin::{Request, Spin, SpinMode};
 pub use test_environment::{TestEnvironment, TestEnvironmentConfig};
 
 #[derive(Debug, Clone, Copy)]
@@ -41,18 +41,18 @@ pub trait Test {
     type Failure;
 
     /// Run the test against the runtime
-    fn test(self, runtime: &mut Self::Runtime) -> TestResult<Self::Failure>;
+    fn test(self, env: &mut TestEnvironment<Self::Runtime>) -> TestResult<Self::Failure>;
 }
 
 impl<F, E> Test for F
 where
-    F: FnOnce(&mut Spin) -> TestResult<E> + 'static,
+    F: FnOnce(&mut TestEnvironment<Spin>) -> TestResult<E> + 'static,
 {
     type Runtime = Spin;
     type Failure = E;
 
-    fn test(self, runtime: &mut Self::Runtime) -> TestResult<Self::Failure> {
-        self(runtime)
+    fn test(self, env: &mut TestEnvironment<Self::Runtime>) -> TestResult<Self::Failure> {
+        self(env)
     }
 }
 

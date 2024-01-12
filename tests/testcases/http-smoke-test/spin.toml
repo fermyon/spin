@@ -2,7 +2,7 @@ spin_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A simple application that returns hello and goodbye."
 name = "head-rust-sdk-http"
-trigger = {type = "http", base = "/test"}
+trigger = { type = "http", base = "/test" }
 version = "1.0.0"
 
 [variables]
@@ -10,11 +10,9 @@ object = { default = "teapot" }
 
 [[component]]
 id = "hello"
-source = "target/wasm32-wasi/release/head_rust_sdk_http.wasm"
-files = [ { source = "assets", destination = "/" } ]
+source = "%{source=integration-simple}"
+files = [{ source = "assets", destination = "/" }]
 [component.trigger]
 route = "/hello/..."
 [component.config]
 message = "I'm a {{object}}"
-[component.build]
-command = "cargo build --target wasm32-wasi --release"

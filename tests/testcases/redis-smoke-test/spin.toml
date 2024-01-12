@@ -2,12 +2,12 @@ spin_version = "1"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 description = "A simple redis application that exercises the Rust SDK in the current branch"
 name = "head-rust-sdk-redis"
-trigger = {type = "redis", address = "redis://redis:6379"}
+trigger = { type = "redis", address = "redis://localhost:%{port=6379}" }
 version = "1.0.0"
 
 [[component]]
 id = "hello"
-source = "target/wasm32-wasi/release/head_rust_sdk_redis.wasm"
+source = "%{source=redis-smoke-test}"
 [component.trigger]
 channel = "my-channel"
 [component.build]

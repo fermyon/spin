@@ -52,8 +52,8 @@ impl Services {
         Ok(())
     }
 
-    /// Get the host port that a service exposes a guest port on.
-    pub(crate) fn get_port(&mut self, guest_port: u16) -> anyhow::Result<Option<u16>> {
+    /// Get the host port that one of the services exposes a guest port on.
+    pub fn get_port(&mut self, guest_port: u16) -> anyhow::Result<Option<u16>> {
         let mut result = None;
         for service in &mut self.services {
             let host_port = service.ports().unwrap().get(&guest_port);

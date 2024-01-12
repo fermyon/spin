@@ -301,13 +301,92 @@ fn http_python_template_smoke_test() -> anyhow::Result<()> {
         "http-py",
         Some("https://github.com/fermyon/spin-python-sdk"),
         &["py2wasm"],
+        |_| Ok(()),
         "Hello from the Python SDK",
     )
 }
 
 #[test]
 fn http_rust_template_smoke_test() -> anyhow::Result<()> {
-    smoke_test_template("http-rust", None, &[], "Hello, Fermyon")
+    smoke_test_template("http-rust", None, &[], |_| Ok(()), "Hello, Fermyon")
+}
+
+#[test]
+fn http_c_template_smoke_test() -> anyhow::Result<()> {
+    smoke_test_template("http-c", None, &[], |_| Ok(()), "Hello from WAGI/1\n")
+}
+
+#[test]
+fn http_go_template_smoke_test() -> anyhow::Result<()> {
+    let prebuild = |env: &mut testing_framework::TestEnvironment<_>| {
+        let mut tidy = std::process::Command::new("go");
+        tidy.args(["mod", "tidy"]);
+        env.run_in(&mut tidy)?;
+        Ok(())
+    };
+    smoke_test_template("http-go", None, &[], prebuild, "Hello Fermyon!\n")
+}
+
+#[test]
+fn http_js_template_smoke_test() -> anyhow::Result<()> {
+    let prebuild = |env: &mut testing_framework::TestEnvironment<_>| {
+        let mut tidy = std::process::Command::new("npm");
+        tidy.args(["install"]);
+        env.run_in(&mut tidy)?;
+        Ok(())
+    };
+    smoke_test_template(
+        "http-js",
+        Some("https://github.com/fermyon/spin-js-sdk"),
+        &["js2wasm"],
+        prebuild,
+        "Hello from JS-SDK",
+    )
+}
+
+#[test]
+fn http_ts_template_smoke_test() -> anyhow::Result<()> {
+    let prebuild = |env: &mut testing_framework::TestEnvironment<_>| {
+        let mut tidy = std::process::Command::new("npm");
+        tidy.args(["install"]);
+        env.run_in(&mut tidy)?;
+        Ok(())
+    };
+    smoke_test_template(
+        "http-ts",
+        Some("https://github.com/fermyon/spin-js-sdk"),
+        &["js2wasm"],
+        prebuild,
+        "Hello from TS-SDK",
+    )
+}
+
+#[test]
+#[cfg(target_arch = "x86_64")]
+fn http_grain_template_smoke_test() -> anyhow::Result<()> {
+    smoke_test_template("http-grain", None, &[], |_| Ok(()), "Hello, World\n")
+}
+
+#[test]
+fn http_zig_template_smoke_test() -> anyhow::Result<()> {
+    smoke_test_template("http-zig", None, &[], |_| Ok(()), "Hello World!\n")
+}
+
+#[test]
+fn http_swift_template_smoke_test() -> anyhow::Result<()> {
+    smoke_test_template("http-swift", None, &[], |_| Ok(()), "Hello from WAGI/1!\n")
+}
+
+#[test]
+fn http_php_template_smoke_test() -> anyhow::Result<()> {
+    smoke_test_template_with_route(
+        "http-php",
+        None,
+        &[],
+        |_| Ok(()),
+        "/index.php",
+        "Hello Fermyon Spin",
+    )
 }
 
 /// Run an e2e test
@@ -401,9 +480,29 @@ fn smoke_test_template(
     template_name: &str,
     template_url: Option<&str>,
     plugins: &[&str],
+    prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> anyhow::Result<()>,
     expected_body: &str,
 ) -> anyhow::Result<()> {
-    let env: testing_framework::TestEnvironment<()> =
+    smoke_test_template_with_route(
+        template_name,
+        template_url,
+        plugins,
+        prebuild_hook,
+        "/",
+        expected_body,
+    )
+}
+
+/// Run a smoke test against a given http route for a `spin new` template
+fn smoke_test_template_with_route(
+    template_name: &str,
+    template_url: Option<&str>,
+    plugins: &[&str],
+    prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> anyhow::Result<()>,
+    route: &str,
+    expected_body: &str,
+) -> anyhow::Result<()> {
+    let mut env: testing_framework::TestEnvironment<()> =
         testing_framework::TestEnvironment::boot(&testing_framework::ServicesConfig::none())?;
     if let Some(template_url) = template_url {
         let mut template_install = std::process::Command::new(spin_binary());
@@ -433,6 +532,8 @@ fn smoke_test_template(
         "--accept-defaults",
     ]);
     env.run_in(&mut new_app)?;
+
+    prebuild_hook(&mut env)?;
     let mut build = std::process::Command::new(spin_binary());
     build.args(["build"]);
     env.run_in(&mut build)?;
@@ -445,7 +546,7 @@ fn smoke_test_template(
 
     assert_spin_request(
         &mut spin,
-        testing_framework::Request::new(reqwest::Method::GET, "/"),
+        testing_framework::Request::new(reqwest::Method::GET, route),
         200,
         &[],
         expected_body,
@@ -464,57 +565,6 @@ mod spinup_tests {
     use super::testcases;
     use {e2e_testing::controller::Controller, e2e_testing::spin_controller::SpinUp};
     const CONTROLLER: &dyn Controller = &SpinUp {};
-
-    #[tokio::test]
-    async fn http_go_works() {
-        testcases::http_go_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn http_c_works() {
-        testcases::http_c_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn http_rust_works() {
-        testcases::http_rust_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn http_zig_works() {
-        testcases::http_zig_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    #[cfg(target_arch = "x86_64")]
-    async fn http_grain_works() {
-        testcases::http_grain_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn http_ts_works() {
-        testcases::http_ts_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn http_js_works() {
-        testcases::http_js_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn http_python_works() {
-        testcases::http_python_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn http_php_works() {
-        testcases::http_php_works(CONTROLLER).await
-    }
-
-    #[tokio::test]
-    async fn http_swift_works() {
-        testcases::http_swift_works(CONTROLLER).await
-    }
 
     #[tokio::test]
     async fn redis_go_works() {

@@ -1,5 +1,6 @@
+use anyhow::Context;
 use testcases::{
-    assert_spin_request, bootstap_env, http_smoke_test_template,
+    assert_spin_request, bootstap_env, bootstrap_smoke_test, http_smoke_test_template,
     http_smoke_test_template_with_route, redis_smoke_test_template, run_test,
 };
 
@@ -434,13 +435,40 @@ fn redis_rust_template_smoke_test() -> anyhow::Result<()> {
     )
 }
 
-#[cfg(feature = "e2e-tests")]
-mod spinup_tests {
-    #[tokio::test]
-    async fn registry_works() {
-        use super::testcases;
-        use {e2e_testing::controller::Controller, e2e_testing::spin_controller::SpinUp};
-        const CONTROLLER: &dyn Controller = &SpinUp {};
-        testcases::registry_works(CONTROLLER).await
-    }
+#[test]
+fn registry_works() -> anyhow::Result<()> {
+    let services = testing_framework::ServicesConfig::new(vec!["registry".into()])?;
+    let spin_up_args = |env: &mut testing_framework::TestEnvironment<()>| {
+        let registry_url = format!(
+            "localhost:{}/spin-e2e-tests/registry-works/v1",
+            env.get_port(5000)?
+                .context("no registry port was exposed by test services")?
+        );
+        let mut registry_push = std::process::Command::new(testcases::spin_binary());
+        registry_push.args(&["registry", "push", &registry_url, "--insecure"]);
+        env.run_in(&mut registry_push)?;
+        Ok(vec![
+            "--from-registry".into(),
+            registry_url,
+            "--insecure".into(),
+        ])
+    };
+    let mut env = bootstrap_smoke_test(
+        &services,
+        None,
+        &[],
+        "http-rust",
+        |_| Ok(Vec::new()),
+        |_| Ok(()),
+        spin_up_args,
+        testing_framework::SpinMode::Http,
+    )?;
+    assert_spin_request(
+        env.runtime_mut(),
+        testing_framework::Request::new(reqwest::Method::GET, "/"),
+        200,
+        &[],
+        "Hello, Fermyon",
+    )?;
+    Ok(())
 }

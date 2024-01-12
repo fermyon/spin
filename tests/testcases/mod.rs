@@ -1,66 +1,7 @@
 use anyhow::Context;
-use anyhow::Result;
 use redis::Commands;
 use reqwest::header::HeaderValue;
 use std::path::PathBuf;
-
-#[cfg(feature = "e2e-tests")]
-pub async fn registry_works(controller: &dyn Controller) {
-    use e2e_testing::controller::Controller;
-    use e2e_testing::http_asserts::assert_http_response;
-    use e2e_testing::metadata::AppMetadata;
-    use e2e_testing::testcase::TestCaseBuilder;
-    use hyper::Method;
-    use std::pin::Pin;
-    use tokio::io::AsyncBufRead;
-    async fn checks(
-        metadata: AppMetadata,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-        _: Option<Pin<Box<dyn AsyncBufRead>>>,
-    ) -> Result<()> {
-        assert_http_response(
-            metadata.base.as_str(),
-            Method::GET,
-            "",
-            200,
-            &[],
-            Some("Hello Fermyon!\n"),
-        )
-        .await
-    }
-
-    let registry = "registry:5000";
-    let registry_app_url = format!(
-        "{}/{}/{}:{}",
-        registry, "spin-e2e-tests", "registry_works", "v1"
-    );
-    let tc = TestCaseBuilder::default()
-        .name("http-go".to_string())
-        .template(Some("http-go".to_string()))
-        .appname(Some("http-go-registry-generated".to_string()))
-        .pre_build_hooks(Some(vec![vec![
-            "go".to_string(),
-            "mod".to_string(),
-            "tidy".to_string(),
-        ]]))
-        .push_to_registry(Some(registry_app_url.clone()))
-        .deploy_args(vec![
-            "--from-registry".to_string(),
-            registry_app_url.clone(),
-            "--insecure".to_string(),
-        ])
-        .assertions(
-            |metadata: AppMetadata,
-             stdout_stream: Option<Pin<Box<dyn AsyncBufRead>>>,
-             stderr_stream: Option<Pin<Box<dyn AsyncBufRead>>>| {
-                Box::pin(checks(metadata, stdout_stream, stderr_stream))
-            },
-        )
-        .build()
-        .unwrap();
-
-    tc.run(controller).await.unwrap()
-}
 
 /// Run an e2e test
 pub fn run_test(
@@ -182,6 +123,7 @@ pub fn http_smoke_test_template_with_route(
         template_name,
         |_| Ok(Vec::new()),
         prebuild_hook,
+        |_| Ok(Vec::new()),
         testing_framework::SpinMode::Http,
     )?;
 
@@ -217,6 +159,7 @@ pub fn redis_smoke_test_template(
             Ok(new_app_args(redis_port))
         },
         prebuild_hook,
+        |_| Ok(Vec::new()),
         testing_framework::SpinMode::Redis,
     )?;
     let redis_port = env
@@ -240,7 +183,7 @@ pub fn redis_smoke_test_template(
 }
 
 /// Bootstrap a test environment for a smoke test
-fn bootstrap_smoke_test(
+pub fn bootstrap_smoke_test(
     services: &testing_framework::ServicesConfig,
     template_url: Option<&str>,
     plugins: &[&str],
@@ -248,9 +191,12 @@ fn bootstrap_smoke_test(
     new_app_args: impl FnOnce(
         &mut testing_framework::TestEnvironment<()>,
     ) -> anyhow::Result<Vec<String>>,
-    prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> Result<(), anyhow::Error>,
+    prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> anyhow::Result<()>,
+    spin_up_args: impl FnOnce(
+        &mut testing_framework::TestEnvironment<()>,
+    ) -> anyhow::Result<Vec<String>>,
     spin_mode: testing_framework::SpinMode,
-) -> Result<testing_framework::TestEnvironment<testing_framework::Spin>, anyhow::Error> {
+) -> anyhow::Result<testing_framework::TestEnvironment<testing_framework::Spin>> {
     let mut env: testing_framework::TestEnvironment<()> =
         testing_framework::TestEnvironment::boot(services)?;
     if let Some(template_url) = template_url {
@@ -285,13 +231,13 @@ fn bootstrap_smoke_test(
     let mut build = std::process::Command::new(spin_binary());
     build.args(["build"]);
     env.run_in(&mut build)?;
-    let spin =
-        testing_framework::Spin::start(&spin_binary(), &env, vec![] as Vec<&str>, spin_mode)?;
+    let spin_up_args = spin_up_args(&mut env)?;
+    let spin = testing_framework::Spin::start(&spin_binary(), &env, spin_up_args, spin_mode)?;
     let env = env.start_runtime(spin)?;
     Ok(env)
 }
 
 /// Get the spin binary path
-fn spin_binary() -> PathBuf {
+pub fn spin_binary() -> PathBuf {
     env!("CARGO_BIN_EXE_spin").into()
 }

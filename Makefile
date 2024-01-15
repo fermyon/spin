@@ -99,17 +99,8 @@ test-integration:
 	$(LOG_LEVEL_VAR) cargo test --test integration --no-fail-fast -- --skip spinup_tests --skip cloud_tests --nocapture
 
 .PHONY: test-spin-up
-test-spin-up: build-test-spin-up run-test-spin-up
-
-.PHONY: build-test-spin-up
-build-test-spin-up:
-	docker build -t spin-e2e-tests --build-arg FETCH_SPIN=$(E2E_FETCH_SPIN) --build-arg BUILD_SPIN=$(E2E_BUILD_SPIN) -f $(E2E_TESTS_DOCKERFILE) .
-
-.PHONY: run-test-spin-up
-run-test-spin-up:
-	REDIS_IMAGE=$(REDIS_IMAGE) MYSQL_IMAGE=$(MYSQL_IMAGE) POSTGRES_IMAGE=$(POSTGRES_IMAGE) \
-	BUILD_SPIN=$(E2E_BUILD_SPIN) \
-	docker compose -f e2e-tests-docker-compose.yml run $(E2E_SPIN_RELEASE_VOLUME_MOUNT) $(E2E_SPIN_DEBUG_VOLUME_MOUNT) e2e-tests
+test-spin-up:
+	cargo test --release spinup_tests --no-default-features --features e2e-tests --no-fail-fast -- --nocapture
 
 .PHONY: test-sdk-go
 test-sdk-go:

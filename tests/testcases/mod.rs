@@ -245,8 +245,15 @@ pub fn bootstrap_smoke_test(
         .args(new_app_args(&mut env)?);
     env.run_in(&mut new_app)?;
     prebuild_hook(&mut env)?;
+    let path = std::env::var("PATH").unwrap_or_default();
+    let path = if path.is_empty() {
+        spin_binary().parent().unwrap().display().to_string()
+    } else {
+        format!("{path}:{}", spin_binary().parent().unwrap().display())
+    };
     let mut build = std::process::Command::new(spin_binary());
-    build.args(["build"]);
+    // Ensure `spin` is on the path
+    build.env("PATH", path).args(["build"]);
     env.run_in(&mut build)?;
     let spin_up_args = spin_up_args(&mut env)?;
     let spin = testing_framework::Spin::start(&spin_binary(), &env, spin_up_args, spin_mode)?;

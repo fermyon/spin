@@ -197,23 +197,34 @@ jobs:
     # run on a larger runner for more SSD/resource access
     runs-on: ubuntu-22.04-4core-spin
     if: ${{ github.repository_owner == 'fermyon' }}
-    needs: build-rust-ubuntu
     steps:
       - uses: actions/checkout@v3
 
-      - name: Retrieve saved Spin Binary
-        uses: actions/download-artifact@v3
+      # Install all the toolchain dependencies
+      - name: Install Rust wasm target
+        run: rustup target add wasm32-wasi && rustup target add wasm32-unknown-unknown
+      - uses: goto-bus-stop/setup-zig@v2
+      - uses: actions/setup-go@v4
         with:
-          name: spin-ubuntu-latest
-          path: target/release/
-
-      - name: Build e2e tests image
+          go-version: '1.20.1'
+      - uses: acifani/setup-tinygo@v2
+        with:
+          tinygo-version: '0.27.0'
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16.x'
+      - name: Install Swift
         run: |
-          export E2E_FETCH_SPIN=false
-          make build-test-spin-up
+          wget https://github.com/swiftwasm/swift/releases/download/swift-wasm-5.8-SNAPSHOT-2023-02-24-a/swift-wasm-5.8-SNAPSHOT-2023-02-24-a-ubuntu22.04_x86_64.tar.gz
+          tar -xf swift-wasm-5.8-SNAPSHOT-2023-02-24-a-ubuntu22.04_x86_64.tar.gz
+          echo "$PWD/swift-wasm-5.8-SNAPSHOT-2023-02-24-a/usr/bin" >> $GITHUB_PATH
+      - name: Install Grain
+        run: |
+          wget https://github.com/grain-lang/grain/releases/download/grain-v0.5.4/grain-linux-x64
+          chmod +x grain-linux-x64
+          mv grain-linux-x64 grain
+          echo "$PWD" >> $GITHUB_PATH
 
       - name: Run e2e tests
         run: |
-          chmod +x `pwd`/target/release/spin
-          export E2E_VOLUME_MOUNT="-v `pwd`/target/release/spin:/usr/local/bin/spin"
-          make run-test-spin-up
+          make test-spin-up

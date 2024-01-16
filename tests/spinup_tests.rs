@@ -312,6 +312,48 @@ Caused by:
     }
 
     #[test]
+    fn test_vault_config_provider() -> anyhow::Result<()> {
+        use std::collections::HashMap;
+        const VAULT_ROOT_TOKEN: &str = "root";
+        run_test(
+            "vault-variables-test",
+            testing_framework::SpinMode::Http,
+            vec!["--runtime-config-file".into(), "runtime_config.toml".into()],
+            testing_framework::ServicesConfig::new(vec!["vault".into()])?,
+            |env| {
+                let http_client = reqwest::blocking::Client::new();
+                let body: HashMap<String, HashMap<String, String>> =
+                    serde_json::from_value(serde_json::json!(
+                        {
+                            "data": {
+                                "value": "test_password"
+                            }
+
+                        }
+                    ))
+                    .unwrap();
+                let status = http_client
+                    .post(format!(
+                        "http://localhost:{}/v1/secret/data/password",
+                        env.get_port(8200)?.context("vault port not found")?
+                    ))
+                    .header("X-Vault-Token", VAULT_ROOT_TOKEN)
+                    .json(&body)
+                    .send()
+                    .context("failed to send request to Vault")?
+                    .status();
+                assert_eq!(status, 200);
+                let spin = env.runtime_mut();
+                let request = testing_framework::Request::new(reqwest::Method::GET, "/");
+                assert_spin_request(spin, request, 200, &[], "Hello! Got password test_password")?;
+                Ok(())
+            },
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
     #[cfg(feature = "e2e-tests")]
     fn http_python_template_smoke_test() -> anyhow::Result<()> {
         http_smoke_test_template(

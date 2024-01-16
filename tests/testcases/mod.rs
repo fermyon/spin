@@ -51,8 +51,9 @@ pub fn assert_spin_request(
     let headers = std::mem::take(r.headers_mut());
     let body = r.text().unwrap_or_else(|_| String::from("<non-utf8>"));
     if status != expected_status {
+        let stderr = spin.stderr();
         return Err(testing_framework::TestError::Failure(anyhow::anyhow!(
-            "Expected status {expected_status} for {uri} but got {status}\nBody:\n{body}",
+            "Expected status {expected_status} for {uri} but got {status}\nBody:\n{body}\nStderr: {stderr}",
         )));
     }
     let wrong_headers: std::collections::HashMap<_, _> = expected_headers
@@ -78,14 +79,19 @@ fn preboot(
     test: &str,
     env: &mut testing_framework::TestEnvironment<testing_framework::Spin>,
 ) -> anyhow::Result<()> {
-    // Copy everything into the test environment
-    env.copy_into(format!("tests/testcases/{test}"), "")?;
+    let test_path = format!("tests/testcases/{test}");
+    for file in std::fs::read_dir(test_path)? {
+        let file = file?;
+        let path = file.path();
+        if path.is_dir() {
+            env.copy_into(&path, "")?;
+        } else {
+            let mut template = testing_framework::ManifestTemplate::from_file(&path)?;
+            template.substitute(env)?;
+            env.write_file(path.file_name().unwrap(), template.contents())?;
+        }
+    }
 
-    // Copy the manifest with all templates substituted
-    let manifest_path = PathBuf::from(format!("tests/testcases/{test}/spin.toml"));
-    let mut template = testing_framework::ManifestTemplate::from_file(manifest_path)?;
-    template.substitute(env)?;
-    env.write_file("spin.toml", template.contents())?;
     Ok(())
 }
 

@@ -11,11 +11,9 @@ greeting = { default = "Hello!" }
 
 [[component]]
 id = "config-test"
-source = "target/wasm32-wasi/release/vault_variables_test.wasm"
+source = "%{source=integration-variables}"
 [component.trigger]
 route = "/..."
-[component.build]
-command = "cargo build --target wasm32-wasi --release"
 [component.config]
 password = "{{ password }}"
 greeting = "{{ greeting }}"

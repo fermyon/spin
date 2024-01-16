@@ -1,0 +1,3 @@
+FROM vault:1.13.3
+
+ENV VAULT_DEV_ROOT_TOKEN_ID="root"

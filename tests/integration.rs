@@ -27,6 +27,7 @@ mod integration_tests {
     const TIMER_TRIGGER_DIRECTORY: &str = "examples/spin-timer";
 
     const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
+    const RUST_HTTP_DOUBLE_INTEGRATION_TEST: &str = "tests/http/double-spin-rust";
 
     const DEFAULT_MANIFEST_LOCATION: &str = "spin.toml";
 
@@ -36,36 +37,27 @@ mod integration_tests {
 
     #[test]
     fn test_simple_rust_local() -> Result<()> {
-        integration_test(
-            format!(
-                "{}/{}",
-                RUST_HTTP_INTEGRATION_TEST, DEFAULT_MANIFEST_LOCATION
-            ),
-            |env| {
-                let spin = env.runtime_mut();
-                assert_spin_status(spin, "/test/hello", 200)?;
-                assert_spin_status(spin, "/test/hello/wildcards/should/be/handled", 200)?;
-                assert_spin_status(spin, "/thisshouldfail", 404)?;
-                assert_spin_status(spin, "/test/hello/test-placement", 200)?;
-                Ok(())
-            },
-        )?;
+        integration_test(RUST_HTTP_INTEGRATION_TEST, |env| {
+            let spin = env.runtime_mut();
+            assert_spin_status(spin, "/test/hello", 200)?;
+            assert_spin_status(spin, "/test/hello/wildcards/should/be/handled", 200)?;
+            assert_spin_status(spin, "/thisshouldfail", 404)?;
+            assert_spin_status(spin, "/test/hello/test-placement", 200)?;
+            Ok(())
+        })?;
 
         Ok(())
     }
 
     #[test]
     fn test_duplicate_rust_local() -> Result<()> {
-        integration_test(
-            format!("{}/{}", RUST_HTTP_INTEGRATION_TEST, "double-trouble.toml"),
-            |env| {
-                let spin = env.runtime_mut();
-                assert_spin_status(spin, "/route1", 200)?;
-                assert_spin_status(spin, "/route2", 200)?;
-                assert_spin_status(spin, "/thisshouldfail", 404)?;
-                Ok(())
-            },
-        )?;
+        integration_test(RUST_HTTP_DOUBLE_INTEGRATION_TEST, |env| {
+            let spin = env.runtime_mut();
+            assert_spin_status(spin, "/route1", 200)?;
+            assert_spin_status(spin, "/route2", 200)?;
+            assert_spin_status(spin, "/thisshouldfail", 404)?;
+            Ok(())
+        })?;
 
         Ok(())
     }
@@ -130,142 +122,50 @@ mod integration_tests {
         Ok(())
     }
 
-    #[cfg(feature = "config-provider-tests")]
-    mod config_provider_tests {
-        use super::*;
-
-        const RUST_HTTP_VAULT_CONFIG_TEST: &str = "tests/http/vault-config-test";
-        const VAULT_BINARY: &str = "vault";
-        const VAULT_ROOT_TOKEN: &str = "root";
-
-        #[tokio::test]
-        async fn test_vault_config_provider() -> Result<()> {
-            let vault = VaultTestController::new().await?;
-            let http_client = reqwest::Client::new();
-            let data = r#"
-{
-    "data": {
-        "value": "test_password"
-    }
-}
-"#;
-            let body_map: HashMap<String, HashMap<String, String>> = serde_json::from_str(data)?;
-            let status = http_client
-                .post(format!("{}/v1/secret/data/password", &vault.url))
-                .header("X-Vault-Token", VAULT_ROOT_TOKEN)
-                .json(&body_map)
-                .send()
-                .await?
-                .status();
-            assert_eq!(status, 200);
-
-            let s = SpinTestController::with_manifest(
-                &format!(
-                    "{}/{}",
-                    RUST_HTTP_VAULT_CONFIG_TEST, DEFAULT_MANIFEST_LOCATION
-                ),
-                &[
-                    "--runtime-config-file",
-                    &format!("{}/{}", RUST_HTTP_VAULT_CONFIG_TEST, "runtime_config.toml"),
-                ],
-                &[],
-            )
-            .await?;
-
-            assert_status(&s, "/", 200).await?;
-
-            Ok(())
-        }
-
-        /// Controller for running Vault.
-        pub struct VaultTestController {
-            pub url: String,
-            vault_handle: Child,
-        }
-
-        impl VaultTestController {
-            pub async fn new() -> Result<VaultTestController> {
-                let address = "127.0.0.1:8200";
-                let url = format!("http://{}", address);
-
-                let mut vault_handle = Command::new(get_process(VAULT_BINARY))
-                    .args(["server", "-dev", "-dev-root-token-id", VAULT_ROOT_TOKEN])
-                    .spawn()
-                    .with_context(|| "executing vault")?;
-
-                wait_vault(&url, &mut vault_handle, VAULT_BINARY).await?;
-
-                Ok(Self { url, vault_handle })
-            }
-        }
-
-        impl Drop for VaultTestController {
-            fn drop(&mut self) {
-                let _ = self.vault_handle.kill();
-            }
-        }
-
-        async fn wait_vault(url: &str, process: &mut Child, target: &str) -> Result<()> {
-            println!("vault url is {} and process is {:?}", url, process);
-            let mut wait_count = 0;
-            loop {
-                if wait_count >= 120 {
-                    panic!(
-                        "Ran out of retries waiting for {} to start on URL {}",
-                        target, url
-                    );
-                }
-
-                if let Ok(Some(_)) = process.try_wait() {
-                    panic!(
-                        "Process exited before starting to serve {} to start on URL {}",
-                        target, url
-                    );
-                }
-
-                let client = reqwest::Client::new();
-                if let Ok(rsp) = client
-                    .get(format!("{url}/v1/sys/health"))
-                    .header("X-Vault-Token", VAULT_ROOT_TOKEN)
-                    .send()
-                    .await
-                {
-                    if rsp.status().is_success() {
-                        break;
-                    }
-                }
-
-                wait_count += 1;
-                sleep(Duration::from_secs(1)).await;
-            }
-
-            Ok(())
-        }
-    }
-
     fn integration_test(
-        manifest_path: impl Into<PathBuf>,
+        test_path: impl Into<PathBuf>,
         test: impl FnOnce(
                 &mut testing_framework::TestEnvironment<testing_framework::Spin>,
             ) -> testing_framework::TestResult<anyhow::Error>
             + 'static,
     ) -> anyhow::Result<()> {
-        let manifest_path = manifest_path.into();
+        integration_test_with_args(
+            test_path,
+            test,
+            Vec::new(),
+            testing_framework::ServicesConfig::none(),
+        )
+    }
+
+    fn integration_test_with_args(
+        test_path: impl Into<PathBuf>,
+        test: impl FnOnce(
+                &mut testing_framework::TestEnvironment<testing_framework::Spin>,
+            ) -> testing_framework::TestResult<anyhow::Error>
+            + 'static,
+        spin_up_args: Vec<String>,
+        services: testing_framework::ServicesConfig,
+    ) -> anyhow::Result<()> {
+        let test_path = test_path.into();
         let spin = testing_framework::TestEnvironmentConfig::spin(
             spin_binary().into(),
-            [],
+            spin_up_args,
             move |env| {
-                // Copy manifest
-                let mut template = testing_framework::ManifestTemplate::from_file(manifest_path)?;
-                template.substitute(env)?;
-                env.write_file(DEFAULT_MANIFEST_LOCATION, template.contents())?;
+                for file in std::fs::read_dir(test_path)? {
+                    let file = file?;
+                    let path = file.path();
+                    if path.is_dir() {
+                        env.copy_into(&path, "")?;
+                    } else {
+                        let mut template = testing_framework::ManifestTemplate::from_file(&path)?;
+                        template.substitute(env)?;
+                        env.write_file(path.file_name().unwrap(), template.contents())?;
+                    }
+                }
 
-                // Copy assets directory
-                let assets_path = format!("{}/assets", RUST_HTTP_INTEGRATION_TEST);
-                env.copy_into(assets_path, "assets")?;
                 Ok(())
             },
-            testing_framework::ServicesConfig::none(),
+            services,
             testing_framework::SpinMode::Http,
         );
         let mut env = testing_framework::TestEnvironment::up(spin)?;
@@ -282,30 +182,14 @@ mod integration_tests {
             spin.make_http_request(testing_framework::Request::new(reqwest::Method::GET, uri))?;
         if r.status() != status {
             return Err(testing_framework::TestError::Failure(anyhow!(
-                "Expected status {} for {} but got {}",
+                "Expected status {} for {} but got {}\nbody: {}\nstderr: {}",
                 status,
                 uri,
-                r.status()
+                r.status(),
+                r.text().unwrap_or_else(|_| String::from("<non-utf8>")),
+                spin.stderr()
             )));
         }
-        Ok(())
-    }
-
-    #[cfg(feature = "config-provider-tests")]
-    async fn assert_status(
-        s: &SpinTestController,
-        absolute_uri: &str,
-        expected: u16,
-    ) -> Result<()> {
-        let res = Client::new()
-            .get(format!("http://{}{}", s.url, absolute_uri))
-            .send()
-            .await?;
-
-        let status = res.status();
-        let body = res.bytes().await?;
-        assert_eq!(status, expected, "{}", String::from_utf8_lossy(&body));
-
         Ok(())
     }
 

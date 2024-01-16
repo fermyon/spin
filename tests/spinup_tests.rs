@@ -312,6 +312,57 @@ Caused by:
     }
 
     #[test]
+    fn test_simple_rust_local() -> anyhow::Result<()> {
+        run_test(
+            "simple-test",
+            testing_framework::SpinMode::Http,
+            [],
+            testing_framework::ServicesConfig::none(),
+            |env| {
+                let spin = env.runtime_mut();
+                let mut ensure_success = |uri, expected_status, expected_body| {
+                    let request = testing_framework::Request::new(reqwest::Method::GET, uri);
+                    assert_spin_request(spin, request, expected_status, &[], expected_body)
+                };
+                ensure_success("/test/hello", 200, "I'm a teapot")?;
+                ensure_success(
+                    "/test/hello/wildcards/should/be/handled",
+                    200,
+                    "I'm a teapot",
+                )?;
+                ensure_success("/thisshouldfail", 404, "")?;
+                ensure_success("/test/hello/test-placement", 200, "text for test")?;
+                Ok(())
+            },
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_duplicate_rust_local() -> anyhow::Result<()> {
+        run_test(
+            "simple-double-test",
+            testing_framework::SpinMode::Http,
+            [],
+            testing_framework::ServicesConfig::none(),
+            |env| {
+                let spin = env.runtime_mut();
+                let mut ensure_success = |uri, expected_status, expected_body| {
+                    let request = testing_framework::Request::new(reqwest::Method::GET, uri);
+                    assert_spin_request(spin, request, expected_status, &[], expected_body)
+                };
+                ensure_success("/route1", 200, "I'm a teapot")?;
+                ensure_success("/route2", 200, "I'm a teapot")?;
+                ensure_success("/thisshouldfail", 404, "")?;
+                Ok(())
+            },
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
     fn test_vault_config_provider() -> anyhow::Result<()> {
         use std::collections::HashMap;
         const VAULT_ROOT_TOKEN: &str = "root";

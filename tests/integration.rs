@@ -26,40 +26,10 @@ mod integration_tests {
     const TIMER_TRIGGER_INTEGRATION_TEST: &str = "examples/spin-timer/app-example";
     const TIMER_TRIGGER_DIRECTORY: &str = "examples/spin-timer";
 
-    const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
-    const RUST_HTTP_DOUBLE_INTEGRATION_TEST: &str = "tests/http/double-spin-rust";
-
     const DEFAULT_MANIFEST_LOCATION: &str = "spin.toml";
 
     fn spin_binary() -> String {
         env!("CARGO_BIN_EXE_spin").into()
-    }
-
-    #[test]
-    fn test_simple_rust_local() -> Result<()> {
-        integration_test(RUST_HTTP_INTEGRATION_TEST, |env| {
-            let spin = env.runtime_mut();
-            assert_spin_status(spin, "/test/hello", 200)?;
-            assert_spin_status(spin, "/test/hello/wildcards/should/be/handled", 200)?;
-            assert_spin_status(spin, "/thisshouldfail", 404)?;
-            assert_spin_status(spin, "/test/hello/test-placement", 200)?;
-            Ok(())
-        })?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_duplicate_rust_local() -> Result<()> {
-        integration_test(RUST_HTTP_DOUBLE_INTEGRATION_TEST, |env| {
-            let spin = env.runtime_mut();
-            assert_spin_status(spin, "/route1", 200)?;
-            assert_spin_status(spin, "/route2", 200)?;
-            assert_spin_status(spin, "/thisshouldfail", 404)?;
-            Ok(())
-        })?;
-
-        Ok(())
     }
 
     #[tokio::test]
@@ -120,21 +90,6 @@ mod integration_tests {
         );
 
         Ok(())
-    }
-
-    fn integration_test(
-        test_path: impl Into<PathBuf>,
-        test: impl FnOnce(
-                &mut testing_framework::TestEnvironment<testing_framework::Spin>,
-            ) -> testing_framework::TestResult<anyhow::Error>
-            + 'static,
-    ) -> anyhow::Result<()> {
-        integration_test_with_args(
-            test_path,
-            test,
-            Vec::new(),
-            testing_framework::ServicesConfig::none(),
-        )
     }
 
     fn integration_test_with_args(

@@ -14,7 +14,8 @@ pub fn run_test(
         ) -> testing_framework::TestResult<anyhow::Error>
         + 'static,
 ) -> testing_framework::TestResult<anyhow::Error> {
-    let mut env = bootstap_env(test_name, spin_up_args, services_config, mode)?;
+    let mut env = bootstap_env(test_name, spin_up_args, services_config, mode)
+        .context("failed to boot test environment")?;
     test(&mut env)?;
     Ok(())
 }
@@ -84,7 +85,7 @@ fn preboot(
         let file = file?;
         let path = file.path();
         if path.is_dir() {
-            env.copy_into(&path, "")?;
+            env.copy_into(&path, path.file_name().unwrap())?;
         } else {
             let mut template = testing_framework::ManifestTemplate::from_file(&path)?;
             template.substitute(env)?;

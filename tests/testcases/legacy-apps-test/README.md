@@ -2,7 +2,7 @@
 
 longevity test is to ensure `wasm` file(s) compiled with a version of `Spin` continues to work with runtime of future version of `Spin`. 
 
-The current wasm files are created using following templates with `Spin v0.9.0`
+The current wasm files are created using following templates with `Spin v0.9.0 (a99ed51 2023-02-16)`
 
 - http-go
 - http-rust
@@ -12,8 +12,6 @@ The current wasm files are created using following templates with `Spin v0.9.0`
 The `wasm` files are built using `spin build` and copied over here for validation.
 
 ## How to re-generate the wasm files
-
-> When updating the wasm files, we also need to update the value of const `SPIN_VERSION_USED_TO_BUILD_APP` in `tests/testcases/mod.rs::longevity_apps_works`. It will enable us to efficiently track the change that triggered the backward incompatibility issue.
 
 ### Install plugin and templates
 

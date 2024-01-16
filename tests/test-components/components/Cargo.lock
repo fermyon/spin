@@ -3,6 +3,14 @@
 version = 3
 
 [[package]]
+name = "ai"
+version = "0.1.0"
+dependencies = [
+ "helper",
+ "wit-bindgen 0.16.0",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.75"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -181,6 +189,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-world"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "http",
+ "spin-sdk",
+]
+
+[[package]]
 name = "helper"
 version = "0.1.0"
 dependencies = [
@@ -280,6 +297,15 @@ name = "once_cell"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
+
+[[package]]
+name = "outbound-http-component"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "http",
+ "spin-sdk",
+]
 
 [[package]]
 name = "outbound-mysql-test-component"

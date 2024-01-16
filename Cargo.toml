@@ -88,7 +88,6 @@ hex = "0.4.3"
 hyper = { workspace = true }
 sha2 = "0.10.1"
 which = "4.2.5"
-e2e-testing = { path = "crates/e2e-testing" }
 http-body-util = { workspace = true }
 testing-framework = { path = "tests/testing-framework" }
 hyper-util = { version = "0.1.2", features = ["tokio"] }

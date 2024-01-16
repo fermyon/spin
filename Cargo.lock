@@ -1804,23 +1804,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "e2e-testing"
-version = "2.2.0-pre0"
-dependencies = [
- "anyhow",
- "async-trait",
- "derive_builder 0.12.0",
- "http 1.0.0",
- "hyper-tls 0.6.0",
- "nix 0.26.4",
- "regex",
- "reqwest",
- "tempfile",
- "tokio",
- "url",
-]
-
-[[package]]
 name = "either"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2860,22 +2843,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hyper-tls"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
-dependencies = [
- "bytes",
- "http-body-util",
- "hyper 1.1.0",
- "hyper-util",
- "native-tls",
- "tokio",
- "tokio-native-tls",
- "tower-service",
-]
-
-[[package]]
 name = "hyper-util"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2890,8 +2857,6 @@ dependencies = [
  "pin-project-lite",
  "socket2 0.5.5",
  "tokio",
- "tower",
- "tower-service",
  "tracing",
 ]
 
@@ -5015,7 +4980,7 @@ dependencies = [
  "http-body 0.4.5",
  "hyper 0.14.27",
  "hyper-rustls",
- "hyper-tls 0.5.0",
+ "hyper-tls",
  "ipnet",
  "js-sys",
  "log",
@@ -5754,7 +5719,6 @@ dependencies = [
  "dialoguer",
  "dirs 4.0.0",
  "dunce",
- "e2e-testing",
  "futures",
  "glob",
  "hex",
@@ -7062,7 +7026,6 @@ dependencies = [
  "futures-util",
  "pin-project",
  "pin-project-lite",
- "tokio",
  "tower-layer",
  "tower-service",
  "tracing",

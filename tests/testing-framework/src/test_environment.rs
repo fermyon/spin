@@ -18,23 +18,11 @@ pub struct TestEnvironment<R> {
 }
 
 impl<R: Runtime> TestEnvironment<R> {
-    /// Spin up a test environment
+    /// Spin up a test environment with a runtime
     pub fn up(config: TestEnvironmentConfig<R>) -> anyhow::Result<Self> {
-        let temp = temp_dir::TempDir::new()
-            .context("failed to produce a temporary directory to run the test in")?;
-        log::trace!("Temporary directory: {}", temp.path().display());
-        let mut services =
-            Services::start(&config.services_config).context("failed to start services")?;
-        services.healthy().context("services have failed")?;
-        let mut env = Self {
-            temp,
-            services,
-            runtime: None,
-        };
+        let mut env = Self::boot(&config.services_config)?;
         let runtime = (config.create_runtime)(&mut env)?;
-        env.runtime = Some(runtime);
-        env.error().context("services have failed")?;
-        Ok(env)
+        env.start_runtime(runtime)
     }
 
     /// Whether an error has occurred
@@ -48,6 +36,31 @@ impl<R: Runtime> TestEnvironment<R> {
 }
 
 impl<R> TestEnvironment<R> {
+    /// Spin up a test environment without a runtime
+    pub fn boot(services: &ServicesConfig) -> anyhow::Result<Self> {
+        let temp = temp_dir::TempDir::new()
+            .context("failed to produce a temporary directory to run the test in")?;
+        log::trace!("Temporary directory: {}", temp.path().display());
+        let mut services = Services::start(services).context("failed to start services")?;
+        services.healthy().context("services have failed")?;
+        Ok(Self {
+            temp,
+            services,
+            runtime: None,
+        })
+    }
+
+    /// Start the runtime
+    pub fn start_runtime<N: Runtime>(self, runtime: N) -> anyhow::Result<TestEnvironment<N>> {
+        let mut this = TestEnvironment {
+            temp: self.temp,
+            services: self.services,
+            runtime: Some(runtime),
+        };
+        this.error().context("testing environment is not healthy")?;
+        Ok(this)
+    }
+
     /// Get the services that are running for the test
     pub fn services_mut(&mut self) -> &mut Services {
         &mut self.services
@@ -115,6 +128,28 @@ impl<R> TestEnvironment<R> {
         std::fs::read(self.temp.path().join(path))
     }
 
+    /// Run a command in the test environment
+    ///
+    /// This blocks until the command has finished running and will error if the command fails
+    pub fn run_in(&self, cmd: &mut std::process::Command) -> anyhow::Result<std::process::Output> {
+        let output = cmd
+            .current_dir(self.temp.path())
+            // TODO: figure out how not to hardcode this
+            // We do this so that if `spin build` is run with a Rust app,
+            // it builds inside the test environment
+            .env("CARGO_TARGET_DIR", self.path().join("target"))
+            .output()?;
+        if !output.status.success() {
+            anyhow::bail!(
+                "'{cmd:?}' failed with status code {:?}\nstdout:\n{}\nstderr:\n{}\n",
+                output.status.code(),
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        Ok(output)
+    }
+
     /// Get the path to test environment
     pub(crate) fn path(&self) -> &Path {
         self.temp.path()
@@ -148,7 +183,7 @@ impl TestEnvironmentConfig<Spin> {
             services_config,
             create_runtime: Box::new(move |env| {
                 preboot(env)?;
-                Spin::start(&spin_binary, env.path(), spin_up_args, mode)
+                Spin::start(&spin_binary, env, spin_up_args, mode)
             }),
         }
     }

@@ -9,7 +9,5 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1"
-spin-sdk = { path = "../../../sdk/rust" }
-
-[workspace]
+helper = { path = "../../helper" }
+wit-bindgen = "0.16.0"

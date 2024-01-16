@@ -7,7 +7,6 @@ main.wasm
 .parcel-cache
 .vscode/*.log
 crates/**/Cargo.lock
-tests/testcases/*-generated
 spin-plugin-update.lock
 package-lock.json
 .spin

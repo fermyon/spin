@@ -87,9 +87,18 @@ fn preboot(
         if path.is_dir() {
             env.copy_into(&path, path.file_name().unwrap())?;
         } else {
-            let mut template = testing_framework::ManifestTemplate::from_file(&path)?;
-            template.substitute(env)?;
-            env.write_file(path.file_name().unwrap(), template.contents())?;
+            let content = std::fs::read(&path)
+                .with_context(|| format!("failed to read file '{}' for copying", path.display()))?;
+            match String::from_utf8(content) {
+                Ok(content) => {
+                    let mut template = testing_framework::EnvTemplate::new(content)?;
+                    template.substitute(env)?;
+                    env.write_file(path.file_name().unwrap(), template.contents())?;
+                }
+                Err(e) => {
+                    env.write_file(path.file_name().unwrap(), e.as_bytes())?;
+                }
+            };
         }
     }
 

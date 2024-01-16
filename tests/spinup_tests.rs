@@ -579,4 +579,45 @@ Caused by:
         )?;
         Ok(())
     }
+
+    #[test]
+    fn test_wasi_http_rc_11_10() -> anyhow::Result<()> {
+        test_wasi_http_rc("wasi-http-0.2.0-rc-2023-11-10")
+    }
+
+    #[test]
+    fn test_wasi_http_rc_12_05() -> anyhow::Result<()> {
+        test_wasi_http_rc("wasi-http-0.2.0-rc-2023-12-05")
+    }
+
+    fn test_wasi_http_rc(test_name: &str) -> anyhow::Result<()> {
+        let body = "So rested he by the Tumtum tree";
+
+        run_test(
+            test_name,
+            testing_framework::SpinMode::Http,
+            [],
+            testing_framework::ServicesConfig::new(vec!["http-echo".into()])?,
+            |env| {
+                let port = env
+                    .get_port(80)?
+                    .context("no http-echo port was exposed by test services")?;
+                assert_spin_request(
+                    env.runtime_mut(),
+                    testing_framework::Request::full(
+                        reqwest::Method::GET,
+                        "/",
+                        &[("url", &format!("http://127.0.0.1:{port}/",))],
+                        Some(body.into()),
+                    ),
+                    200,
+                    &[],
+                    "Hello, world!",
+                )?;
+                Ok(())
+            },
+        )?;
+
+        Ok(())
+    }
 }

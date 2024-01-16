@@ -10,8 +10,6 @@ use cargo_target_dep::build_target_dep;
 const TIMER_TRIGGER_INTEGRATION_TEST: &str = "examples/spin-timer/app-example";
 const WASI_HTTP_INTEGRATION_TEST: &str = "examples/wasi-http-rust-streaming-outgoing-body";
 const OUTBOUND_HTTP_POST_INTEGRATION_TEST: &str = "examples/http-rust-outbound-post";
-const WASI_HTTP_RC_11_10_INTEGRATION_TEST: &str = "tests/http/wasi-http-rust-0.2.0-rc-2023-11-10";
-const WASI_HTTP_RC_12_05_INTEGRATION_TEST: &str = "tests/http/wasi-http-rust-0.2.0-rc-2023-12-05";
 
 fn main() {
     // Extract environment information to be passed to plugins.
@@ -88,61 +86,6 @@ error: the `wasm32-wasi` target is not installed
     cargo_build(TIMER_TRIGGER_INTEGRATION_TEST);
     cargo_build(WASI_HTTP_INTEGRATION_TEST);
     cargo_build(OUTBOUND_HTTP_POST_INTEGRATION_TEST);
-    cargo_build(WASI_HTTP_RC_11_10_INTEGRATION_TEST);
-
-    // Rather than let `spin-componentize` turn the `WASI_HTTP_RC_11_10_INTEGRATION_TEST` module into a component,
-    // we use Wasmtime 15.0.1's adapter to ensure it uses the WASI 0.2.0-rc-2023-11-10 snapshot for everything.
-    let wasi_http_rc_11_10_module = format!(
-        "{WASI_HTTP_RC_11_10_INTEGRATION_TEST}/target/wasm32-wasi/release/wasi_http_rust_rc_2023_11_10.wasm"
-    );
-    let wasi_http_rc_11_10_adapter =
-        format!("{WASI_HTTP_RC_11_10_INTEGRATION_TEST}/wasi_snapshot_preview1.reactor.wasm");
-    let wasi_http_rc_11_10_component = format!(
-        "{WASI_HTTP_RC_11_10_INTEGRATION_TEST}/target/wasm32-wasi/release/wasi_http_rust_rc_2023_11_10.component.wasm"
-    );
-    std::fs::write(
-        wasi_http_rc_11_10_component,
-        wit_component::ComponentEncoder::default()
-            .validate(true)
-            .module(&std::fs::read(wasi_http_rc_11_10_module).unwrap())
-            .unwrap()
-            .adapter(
-                "wasi_snapshot_preview1",
-                &std::fs::read(wasi_http_rc_11_10_adapter).unwrap(),
-            )
-            .unwrap()
-            .encode()
-            .unwrap(),
-    )
-    .unwrap();
-
-    cargo_build(WASI_HTTP_RC_12_05_INTEGRATION_TEST);
-
-    // Rather than let `spin-componentize` turn the `WASI_HTTP_RC_12_05_INTEGRATION_TEST` module into a component,
-    // we use Wasmtime 16.0.0's adapter to ensure it uses the WASI 0.2.0-rc-2023-12-05 snapshot for everything.
-    let wasi_http_rc_12_05_module = format!(
-        "{WASI_HTTP_RC_12_05_INTEGRATION_TEST}/target/wasm32-wasi/release/wasi_http_rust_rc_2023_12_05.wasm"
-    );
-    let wasi_http_rc_12_05_adapter =
-        format!("{WASI_HTTP_RC_12_05_INTEGRATION_TEST}/wasi_snapshot_preview1.reactor.wasm");
-    let wasi_http_rc_12_05_component = format!(
-        "{WASI_HTTP_RC_12_05_INTEGRATION_TEST}/target/wasm32-wasi/release/wasi_http_rust_rc_2023_12_05.component.wasm"
-    );
-    std::fs::write(
-        wasi_http_rc_12_05_component,
-        wit_component::ComponentEncoder::default()
-            .validate(true)
-            .module(&std::fs::read(wasi_http_rc_12_05_module).unwrap())
-            .unwrap()
-            .adapter(
-                "wasi_snapshot_preview1",
-                &std::fs::read(wasi_http_rc_12_05_adapter).unwrap(),
-            )
-            .unwrap()
-            .encode()
-            .unwrap(),
-    )
-    .unwrap();
 }
 
 fn build_wasm_test_program(name: &'static str, root: &'static str) {

@@ -662,6 +662,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasi-http-rust-rc-2023-11-10"
+version = "0.1.0"
+dependencies = [
+ "url",
+ "wit-bindgen 0.16.0",
+]
+
+[[package]]
+name = "wasi-http-rust-rc-2023-12-05"
+version = "0.1.0"
+dependencies = [
+ "url",
+ "wit-bindgen 0.16.0",
+]
+
+[[package]]
 name = "wasm-encoder"
 version = "0.36.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -14,7 +14,7 @@ mod integration_tests {
         ffi::OsStr,
         iter,
         net::{Ipv4Addr, SocketAddrV4, TcpListener},
-        path::{Path, PathBuf},
+        path::Path,
         process::{self, Child, Command, Output},
         sync::{Arc, Mutex},
         time::Duration,
@@ -89,62 +89,6 @@ mod integration_tests {
             String::from_utf8_lossy(&out.stderr)
         );
 
-        Ok(())
-    }
-
-    fn integration_test_with_args(
-        test_path: impl Into<PathBuf>,
-        test: impl FnOnce(
-                &mut testing_framework::TestEnvironment<testing_framework::Spin>,
-            ) -> testing_framework::TestResult<anyhow::Error>
-            + 'static,
-        spin_up_args: Vec<String>,
-        services: testing_framework::ServicesConfig,
-    ) -> anyhow::Result<()> {
-        let test_path = test_path.into();
-        let spin = testing_framework::TestEnvironmentConfig::spin(
-            spin_binary().into(),
-            spin_up_args,
-            move |env| {
-                for file in std::fs::read_dir(test_path)? {
-                    let file = file?;
-                    let path = file.path();
-                    if path.is_dir() {
-                        env.copy_into(&path, "")?;
-                    } else {
-                        let mut template = testing_framework::ManifestTemplate::from_file(&path)?;
-                        template.substitute(env)?;
-                        env.write_file(path.file_name().unwrap(), template.contents())?;
-                    }
-                }
-
-                Ok(())
-            },
-            services,
-            testing_framework::SpinMode::Http,
-        );
-        let mut env = testing_framework::TestEnvironment::up(spin)?;
-        test(&mut env)?;
-        Ok(())
-    }
-
-    fn assert_spin_status(
-        spin: &mut testing_framework::Spin,
-        uri: &str,
-        status: u16,
-    ) -> testing_framework::TestResult<anyhow::Error> {
-        let r =
-            spin.make_http_request(testing_framework::Request::new(reqwest::Method::GET, uri))?;
-        if r.status() != status {
-            return Err(testing_framework::TestError::Failure(anyhow!(
-                "Expected status {} for {} but got {}\nbody: {}\nstderr: {}",
-                status,
-                uri,
-                r.status(),
-                r.text().unwrap_or_else(|_| String::from("<non-utf8>")),
-                spin.stderr()
-            )));
-        }
         Ok(())
     }
 
@@ -793,85 +737,6 @@ route = "/..."
         }
 
         Ok(())
-    }
-
-    async fn test_wasi_http_rc(manifest_path: &str) -> Result<()> {
-        let body = b"So rested he by the Tumtum tree";
-
-        let listener = tokio::net::TcpListener::bind((Ipv4Addr::new(127, 0, 0, 1), 0)).await?;
-
-        let prefix = format!("http://{}", listener.local_addr()?);
-
-        let server = {
-            async move {
-                loop {
-                    let (stream, _) = listener.accept().await?;
-                    task::spawn(async move {
-                        if let Err(e) = http1::Builder::new()
-                            .keep_alive(true)
-                            .serve_connection(
-                                TokioIo::new(stream),
-                                service_fn(move |request| async move {
-                                    if let &Method::GET = request.method() {
-                                        Ok::<_, Error>(hyper::Response::new(body::full(
-                                            Bytes::copy_from_slice(body),
-                                        )))
-                                    } else {
-                                        Ok(hyper::Response::builder()
-                                            .status(StatusCode::METHOD_NOT_ALLOWED)
-                                            .body(body::empty())?)
-                                    }
-                                }),
-                            )
-                            .await
-                        {
-                            log::warn!("{e:?}");
-                        }
-                    });
-
-                    // Help rustc with type inference:
-                    if false {
-                        return Ok::<_, Error>(());
-                    }
-                }
-            }
-        }
-        .then(|result| {
-            if let Err(e) = result {
-                log::warn!("{e:?}");
-            }
-            future::ready(())
-        })
-        .boxed();
-
-        let (_tx, rx) = oneshot::channel::<()>();
-
-        task::spawn(async move {
-            drop(future::select(server, rx).await);
-        });
-
-        let controller = SpinTestController::with_manifest(manifest_path, &[], &[]).await?;
-
-        let response = Client::new()
-            .get(format!("http://{}/", controller.url))
-            .header("url", format!("{prefix}/"))
-            .send()
-            .await?;
-
-        assert_eq!(200, response.status());
-        assert_eq!(body as &[_], response.bytes().await?);
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_wasi_http_rc_11_10() -> Result<()> {
-        test_wasi_http_rc("tests/http/wasi-http-rust-0.2.0-rc-2023-11-10/spin.toml").await
-    }
-
-    #[tokio::test]
-    async fn test_wasi_http_rc_12_05() -> Result<()> {
-        test_wasi_http_rc("tests/http/wasi-http-rust-0.2.0-rc-2023-12-05/spin.toml").await
     }
 
     /// Build an app whose component `workdir` is a subdirectory.

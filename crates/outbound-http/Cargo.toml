@@ -9,17 +9,19 @@ doctest = false
 
 [dependencies]
 anyhow = "1.0"
-http = "0.2"
+http = "1.0.0"
 reqwest = { version = "0.11", features = ["gzip"] }
 spin-app = { path = "../app", optional = true }
 spin-core = { path = "../core", optional = true }
+spin-http = { path = "../http", optional = true }
 spin-locked-app = { path = "../locked-app" }
 spin-outbound-networking = { path = "../outbound-networking" }
 spin-world = { path = "../world", optional = true }
 terminal = { path = "../terminal" }
 tracing = { workspace = true }
 url = "2.2.1"
+wasmtime-wasi-http = { workspace = true }
 
 [features]
 default = ["runtime"]
-runtime = ["dep:spin-app", "dep:spin-core", "dep:spin-world"]
+runtime = ["dep:spin-app", "dep:spin-core", "dep:spin-http", "dep:spin-world"]

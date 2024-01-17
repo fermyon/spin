@@ -5,6 +5,8 @@ mod host_impl;
 
 #[cfg(feature = "runtime")]
 pub use host_component::OutboundHttpComponent;
+#[cfg(feature = "runtime")]
+pub use host_impl::{HttpRequestHandler, HttpSelfDispatcher};
 
 use spin_locked_app::MetadataKey;
 

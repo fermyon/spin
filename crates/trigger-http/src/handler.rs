@@ -7,7 +7,6 @@ use futures::TryFutureExt;
 use http::{HeaderName, HeaderValue};
 use http_body_util::BodyExt;
 use hyper::{Request, Response};
-use outbound_http::OutboundHttpComponent;
 use spin_core::async_trait;
 use spin_core::wasi_2023_10_18::exports::wasi::http::incoming_handler::IncomingHandler as IncomingHandler2023_10_18;
 use spin_core::wasi_2023_11_10::exports::wasi::http::incoming_handler::IncomingHandler as IncomingHandler2023_11_10;
@@ -20,7 +19,15 @@ use tokio::{sync::oneshot, task};
 use wasmtime_wasi_http::{proxy::Proxy, WasiHttpView};
 
 #[derive(Clone)]
-pub struct HttpHandlerExecutor;
+pub struct HttpHandlerExecutor {
+    trigger: HttpTrigger,
+}
+
+impl HttpHandlerExecutor {
+    pub fn new(trigger: HttpTrigger) -> Self {
+        Self { trigger }
+    }
+}
 
 #[async_trait]
 impl HttpExecutor for HttpHandlerExecutor {
@@ -43,7 +50,7 @@ impl HttpExecutor for HttpHandlerExecutor {
             unreachable!()
         };
 
-        set_http_origin_from_request(&mut store, engine, &req);
+        self.set_self_dispatcher(&mut store, engine);
 
         let resp = match HandlerType::from_exports(instance.exports(&mut store)) {
             Some(HandlerType::Wasi) => {
@@ -66,6 +73,18 @@ impl HttpExecutor for HttpHandlerExecutor {
             resp.status()
         );
         Ok(resp)
+    }
+}
+
+#[async_trait]
+impl outbound_http::HttpRequestHandler for HttpTrigger {
+    async fn handle(
+        &self,
+        req: http::Request<wasmtime_wasi_http::body::HyperIncomingBody>,
+        scheme: http::uri::Scheme,
+        addr: std::net::SocketAddr,
+    ) -> anyhow::Result<http::Response<wasmtime_wasi_http::body::HyperIncomingBody>> {
+        self.handle(req, scheme, addr).await
     }
 }
 
@@ -317,6 +336,30 @@ impl HttpHandlerExecutor {
 
         Ok(())
     }
+
+    fn set_self_dispatcher(&self, store: &mut Store, engine: &TriggerAppEngine<HttpTrigger>) {
+        if let Some(outbound_http_handle) = engine
+            .engine
+            .find_host_component_handle::<Arc<outbound_http::OutboundHttpComponent>>()
+        {
+            let outbound_http_data = store
+                .host_components_data()
+                .get_or_insert(outbound_http_handle);
+            let allowed_hosts = outbound_http_data.allowed_hosts.clone();
+
+            // The reason this uses a Box and the WASI one uses an Arc is that we don't want
+            // the `outbound_http` crate to depend on `http-trigger` so we have to put it through
+            // a trait.  But TODO: try to unify these.
+            let http_handler = Box::new(self.trigger.clone());
+            outbound_http_data.self_dispatcher =
+                outbound_http::HttpSelfDispatcher::new(&Arc::new(http_handler));
+
+            let arc_http_handler = Arc::new(self.trigger.clone());
+            store.as_mut().data_mut().as_mut().self_dispatcher =
+                crate::WasiHttpSelfDispatcher::new(arc_http_handler);
+            store.as_mut().data_mut().as_mut().allowed_hosts = allowed_hosts;
+        }
+    }
 }
 
 /// Whether this handler uses the custom Spin http handler interface for wasi-http
@@ -342,31 +385,6 @@ impl HandlerType {
             return Some(HandlerType::Spin);
         }
         None
-    }
-}
-
-fn set_http_origin_from_request(
-    store: &mut Store,
-    engine: &TriggerAppEngine<HttpTrigger>,
-    req: &Request<Body>,
-) {
-    if let Some(authority) = req.uri().authority() {
-        if let Some(scheme) = req.uri().scheme_str() {
-            let origin = format!("{}://{}", scheme, authority);
-            if let Some(outbound_http_handle) = engine
-                .engine
-                .find_host_component_handle::<Arc<OutboundHttpComponent>>()
-            {
-                let outbound_http_data = store
-                    .host_components_data()
-                    .get_or_insert(outbound_http_handle);
-
-                outbound_http_data.origin = origin.clone();
-                store.as_mut().data_mut().as_mut().allowed_hosts =
-                    outbound_http_data.allowed_hosts.clone();
-            }
-            store.as_mut().data_mut().as_mut().origin = Some(origin);
-        }
     }
 }
 

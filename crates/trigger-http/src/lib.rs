@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use clap::Args;
 use http::{uri::Scheme, StatusCode, Uri};
@@ -48,9 +48,10 @@ pub use tls::TlsConfig;
 pub(crate) type RuntimeData = HttpRuntimeData;
 pub(crate) type Store = spin_core::Store<RuntimeData>;
 
+#[derive(Clone)]
 /// The Spin HTTP trigger.
 pub struct HttpTrigger {
-    engine: TriggerAppEngine<Self>,
+    engine: std::sync::Arc<TriggerAppEngine<Self>>,
     router: Router,
     // Base path for component routes.
     base: String,
@@ -132,7 +133,7 @@ impl TriggerExecutor for HttpTrigger {
             .collect();
 
         Ok(Self {
-            engine,
+            engine: std::sync::Arc::new(engine),
             router,
             base,
             component_trigger_configs,
@@ -220,7 +221,7 @@ impl HttpTrigger {
 
                 let res = match executor {
                     HttpExecutorType::Http => {
-                        HttpHandlerExecutor
+                        HttpHandlerExecutor::new(self.clone())
                             .execute(
                                 &self.engine,
                                 component_id,
@@ -452,22 +453,102 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
 
 #[derive(Default)]
 pub struct HttpRuntimeData {
-    origin: Option<String>,
+    self_dispatcher: WasiHttpSelfDispatcher,
     /// The hosts this app is allowed to make outbound requests to
     allowed_hosts: AllowedHostsConfig,
+}
+
+#[derive(Clone, Default)]
+enum WasiHttpSelfDispatcher {
+    #[default]
+    NotHttp,
+    Handler(Arc<HttpTrigger>),
+}
+
+type OutboundHandle = wasmtime_wasi::preview2::AbortOnDropJoinHandle<
+    Result<
+        Result<
+            wasmtime_wasi_http::types::IncomingResponseInternal,
+            wasmtime_wasi_http::bindings::http::types::ErrorCode,
+        >,
+        anyhow::Error,
+    >,
+>;
+
+impl WasiHttpSelfDispatcher {
+    fn new(trigger: Arc<HttpTrigger>) -> Self {
+        Self::Handler(trigger)
+    }
+
+    fn dispatch(
+        &self,
+        data: &mut spin_core::Data<HttpRuntimeData>,
+        request: wasmtime_wasi_http::types::OutgoingRequest,
+    ) -> wasmtime::Result<
+        wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
+    > {
+        use wasmtime_wasi_http::types::WasiHttpView;
+        match self {
+            Self::NotHttp => {
+                let message = format!("Cannot send request to {}: same-application requests are supported only for applications with HTTP triggers", request.request.uri());
+                tracing::error!(message);
+                Err(anyhow::Error::msg(message))
+            }
+            Self::Handler(t) => {
+                let trigger = t.clone();
+
+                let between_bytes_timeout = request.between_bytes_timeout;
+                let req = request.request;
+                let scheme = req
+                    .uri()
+                    .scheme()
+                    .cloned()
+                    .unwrap_or(http::uri::Scheme::HTTPS);
+                let addr = std::net::SocketAddr::new(
+                    std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED),
+                    0,
+                );
+
+                let resp_fut = wasmtime_wasi::preview2::spawn(async move {
+                    match trigger.handle(req, scheme, addr).await {
+                        Err(e) => {
+                            let error = anyhow!("Inline call to HTTP component failed: {e:?}");
+                            tracing::error!("{:?}", error);
+                            Err(error)
+                        }
+                        Ok(resp) => {
+                            let worker = Arc::new(wasmtime_wasi::preview2::spawn(async {})); // TODO: better?
+                            let incoming_resp =
+                                wasmtime_wasi_http::types::IncomingResponseInternal {
+                                    resp,
+                                    worker,
+                                    between_bytes_timeout,
+                                };
+                            Ok(Ok(incoming_resp))
+                        }
+                    }
+                });
+
+                let outbound_handle = OutboundHandle::from(resp_fut);
+                let future_resp =
+                    wasmtime_wasi_http::types::HostFutureIncomingResponse::new(outbound_handle);
+                let resp_resource = data.table().push(future_resp)?;
+                Ok(resp_resource)
+            }
+        }
+    }
 }
 
 impl OutboundWasiHttpHandler for HttpRuntimeData {
     fn send_request(
         data: &mut spin_core::Data<Self>,
-        mut request: wasmtime_wasi_http::types::OutgoingRequest,
+        request: wasmtime_wasi_http::types::OutgoingRequest,
     ) -> wasmtime::Result<
         wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
     >
     where
         Self: Sized,
     {
-        let this = data.as_ref();
         let is_relative_url = request
             .request
             .uri()
@@ -475,28 +556,31 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
             .map(|a| a.host().trim() == "")
             .unwrap_or_default();
         if is_relative_url {
-            // Origin must be set in the incoming http handler
-            let origin = this.origin.clone().unwrap();
-            let path_and_query = request
-                .request
-                .uri()
-                .path_and_query()
-                .map(|p| p.as_str())
-                .unwrap_or("/");
-            let uri: Uri = format!("{origin}{path_and_query}")
-                .parse()
-                // origin together with the path and query must be a valid URI
-                .unwrap();
+            let self_dispatcher = data.as_ref().self_dispatcher.clone();
+            return self_dispatcher.dispatch(data, request);
+            // // Origin must be set in the incoming http handler
+            // let origin = this.origin.clone().unwrap();
+            // let path_and_query = request
+            //     .request
+            //     .uri()
+            //     .path_and_query()
+            //     .map(|p| p.as_str())
+            //     .unwrap_or("/");
+            // let uri: Uri = format!("{origin}{path_and_query}")
+            //     .parse()
+            //     // origin together with the path and query must be a valid URI
+            //     .unwrap();
 
-            request.use_tls = uri
-                .scheme()
-                .map(|s| s == &Scheme::HTTPS)
-                .unwrap_or_default();
-            // We know that `uri` has an authority because we set it above
-            request.authority = uri.authority().unwrap().as_str().to_owned();
-            *request.request.uri_mut() = uri;
+            // request.use_tls = uri
+            //     .scheme()
+            //     .map(|s| s == &Scheme::HTTPS)
+            //     .unwrap_or_default();
+            // // We know that `uri` has an authority because we set it above
+            // request.authority = uri.authority().unwrap().as_str().to_owned();
+            // *request.request.uri_mut() = uri;
         }
 
+        let this = data.as_ref();
         let uri = request.request.uri();
         let uri_string = uri.to_string();
         let unallowed_relative =

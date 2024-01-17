@@ -2547,16 +2547,18 @@ name = "outbound-http"
 version = "2.2.0-pre0"
 dependencies = [
  "anyhow",
- "http 0.2.9",
+ "http 1.0.0",
  "reqwest",
  "spin-app",
  "spin-core",
+ "spin-http",
  "spin-locked-app",
  "spin-outbound-networking",
  "spin-world",
  "terminal",
  "tracing",
  "url",
+ "wasmtime-wasi-http",
 ]
 
 [[package]]
@@ -3649,6 +3651,23 @@ dependencies = [
  "wasi-common",
  "wasmtime",
  "wasmtime-wasi",
+ "wasmtime-wasi-http",
+]
+
+[[package]]
+name = "spin-http"
+version = "2.2.0-pre0"
+dependencies = [
+ "anyhow",
+ "http 1.0.0",
+ "http-body-util",
+ "hyper 1.1.0",
+ "indexmap 1.9.3",
+ "percent-encoding",
+ "serde",
+ "spin-app",
+ "spin-locked-app",
+ "tracing",
  "wasmtime-wasi-http",
 ]
 

@@ -1,5 +1,4 @@
 use anyhow::Result;
-use http::HeaderMap;
 use reqwest::Client;
 use spin_core::async_trait;
 use spin_outbound_networking::{AllowedHostsConfig, OutboundUrl};
@@ -13,10 +12,69 @@ use spin_world::v1::{
 pub struct OutboundHttp {
     /// List of hosts guest modules are allowed to make requests to.
     pub allowed_hosts: AllowedHostsConfig,
-    /// During an incoming HTTP request, origin is set to the host of that incoming HTTP request.
-    /// This is used to direct outbound requests to the same host when allowed.
-    pub origin: String,
+    /// Used to dispatch outbound `self` requests directly to a component.
+    pub self_dispatcher: HttpSelfDispatcher,
     client: Option<Client>,
+}
+
+#[derive(Default, Clone)]
+pub enum HttpSelfDispatcher {
+    #[default]
+    NotHttp,
+    Handler(std::sync::Arc<Box<dyn HttpRequestHandler + Send + Sync>>),
+}
+
+#[async_trait]
+pub trait HttpRequestHandler {
+    async fn handle(
+        &self,
+        mut req: http::Request<wasmtime_wasi_http::body::HyperIncomingBody>,
+        scheme: http::uri::Scheme,
+        addr: std::net::SocketAddr,
+    ) -> anyhow::Result<http::Response<wasmtime_wasi_http::body::HyperIncomingBody>>;
+}
+
+impl HttpSelfDispatcher {
+    pub fn new(handler: &std::sync::Arc<Box<dyn HttpRequestHandler + Send + Sync>>) -> Self {
+        Self::Handler(handler.clone())
+    }
+
+    async fn dispatch(&self, request: Request) -> Result<Response, HttpError> {
+        match self {
+            Self::NotHttp => {
+                tracing::error!("Cannot send request to {}: same-application requests are supported only for applications with HTTP triggers", request.uri);
+                Err(HttpError::RuntimeError)
+            }
+            Self::Handler(handler) => {
+                let mut reqbuilder = http::Request::builder()
+                    .uri(request.uri)
+                    .method(http_method_from(request.method));
+                for (hname, hval) in request.headers {
+                    reqbuilder = reqbuilder.header(hname, hval);
+                }
+                let req = reqbuilder
+                    .body(match request.body {
+                        Some(b) => spin_http::body::full(b.into()),
+                        None => spin_http::body::empty(),
+                    })
+                    .map_err(|_| HttpError::RuntimeError)?;
+                let scheme = http::uri::Scheme::HTTPS;
+                let addr = std::net::SocketAddr::new(
+                    std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED),
+                    0,
+                );
+                let resp = handler
+                    .handle(req, scheme, addr)
+                    .await
+                    .map_err(|_| HttpError::RuntimeError)?;
+                Ok(Response {
+                    status: resp.status().as_u16(),
+                    headers: None,
+                    body: None,
+                })
+            }
+        }
+    }
 }
 
 impl OutboundHttp {
@@ -53,13 +111,13 @@ impl outbound_http::Host for OutboundHttp {
                 return Err(HttpError::DestinationNotAllowed);
             }
 
-            let method = method_from(req.method);
+            if req.uri.starts_with('/') {
+                return self.self_dispatcher.dispatch(req).await;
+            }
 
-            let abs_url = if req.uri.starts_with('/') {
-                format!("{}{}", self.origin, req.uri)
-            } else {
-                req.uri.clone()
-            };
+            let method = reqwest_method_from(req.method);
+
+            let abs_url = req.uri.clone();
 
             let req_url = reqwest::Url::parse(&abs_url).map_err(|_| HttpError::InvalidUrl)?;
 
@@ -111,7 +169,7 @@ fn log_reqwest_error(err: reqwest::Error) -> HttpError {
     HttpError::RuntimeError
 }
 
-fn method_from(m: Method) -> http::Method {
+fn http_method_from(m: Method) -> http::Method {
     match m {
         Method::Get => http::Method::GET,
         Method::Post => http::Method::POST,
@@ -120,6 +178,18 @@ fn method_from(m: Method) -> http::Method {
         Method::Patch => http::Method::PATCH,
         Method::Head => http::Method::HEAD,
         Method::Options => http::Method::OPTIONS,
+    }
+}
+
+fn reqwest_method_from(m: Method) -> reqwest::Method {
+    match m {
+        Method::Get => reqwest::Method::GET,
+        Method::Post => reqwest::Method::POST,
+        Method::Put => reqwest::Method::PUT,
+        Method::Delete => reqwest::Method::DELETE,
+        Method::Patch => reqwest::Method::PATCH,
+        Method::Head => reqwest::Method::HEAD,
+        Method::Options => reqwest::Method::OPTIONS,
     }
 }
 
@@ -141,18 +211,20 @@ async fn response_from_reqwest(res: reqwest::Response) -> Result<Response, HttpE
     })
 }
 
-fn request_headers(h: Headers) -> anyhow::Result<HeaderMap> {
-    let mut res = HeaderMap::new();
+fn request_headers(h: Headers) -> anyhow::Result<reqwest::header::HeaderMap> {
+    let mut res = reqwest::header::HeaderMap::new();
     for (k, v) in h {
         res.insert(
-            http::header::HeaderName::try_from(k)?,
-            http::header::HeaderValue::try_from(v)?,
+            reqwest::header::HeaderName::try_from(k)?,
+            reqwest::header::HeaderValue::try_from(v)?,
         );
     }
     Ok(res)
 }
 
-fn response_headers(h: &HeaderMap) -> anyhow::Result<Option<Vec<(String, String)>>> {
+fn response_headers(
+    h: &reqwest::header::HeaderMap,
+) -> anyhow::Result<Option<Vec<(String, String)>>> {
     let mut res: Vec<(String, String)> = vec![];
 
     for (k, v) in h {

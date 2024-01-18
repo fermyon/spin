@@ -85,9 +85,6 @@ mod spinup_tests {
     }
 
     #[test]
-    // TODO: it seems that running this test on macOS CI is not possible because the docker services doesn't run.
-    // Investigate if there is a possible fix for this.
-    #[cfg(any(not(target_os = "macos"), feature = "e2e-tests"))]
     /// Test that basic redis trigger support works
     fn redis_smoke_test() -> anyhow::Result<()> {
         /// Helper macro to assert that a condition is true eventually
@@ -131,7 +128,13 @@ mod spinup_tests {
                             let logs = String::from_utf8_lossy(&logs);
                             logs.contains("Got message: 'msg-from-test'")
                         }
-                        Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+                        Err(e)
+                            if e.downcast_ref()
+                                .map(|e: &std::io::Error| e.kind() == std::io::ErrorKind::NotFound)
+                                .unwrap_or_default() =>
+                        {
+                            false
+                        }
                         Err(e) => {
                             return Err(anyhow::anyhow!("could not read stdout file: {e}").into())
                         }
@@ -639,7 +642,7 @@ source = "fake.wasm"
 route = "/..."
 "#;
         env.write_file("spin.toml", toml_text)?;
-        env.write_file("fake.wasm", &[])?;
+        env.write_file("fake.wasm", [])?;
 
         testing_framework::Spin::start(
             &spin_binary(),
@@ -649,7 +652,7 @@ route = "/..."
         )?;
 
         let mut up = std::process::Command::new(spin_binary());
-        up.args(&["up", "--help"]);
+        up.args(["up", "--help"]);
         let output = env.run_in(&mut up)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -705,7 +708,7 @@ route = "/..."
         env.write_file("example-plugin-manifest.json", contents)?;
 
         // Install plugin
-        let mut install = std::process::Command::new(&spin_binary());
+        let mut install = std::process::Command::new(spin_binary());
         install
             .args([
                 "plugins",
@@ -722,14 +725,14 @@ route = "/..."
         struct Uninstaller<'a>(&'a testing_framework::TestEnvironment<()>);
         impl<'a> Drop for Uninstaller<'a> {
             fn drop(&mut self) {
-                let mut uninstall = std::process::Command::new(&spin_binary());
+                let mut uninstall = std::process::Command::new(spin_binary());
                 uninstall.args(["plugins", "uninstall", "example"]);
                 self.0.run_in(&mut uninstall).unwrap();
             }
         }
         let _u = Uninstaller(&env);
 
-        let mut install = std::process::Command::new(&spin_binary());
+        let mut install = std::process::Command::new(spin_binary());
         install
             .args([
                 "plugins",
@@ -742,7 +745,7 @@ route = "/..."
             .env("TEST_PLUGINS_DIRECTORY", "./plugins");
         env.run_in(&mut install)?;
 
-        let mut execute = std::process::Command::new(&spin_binary());
+        let mut execute = std::process::Command::new(spin_binary());
         execute
             .args(["example"])
             .env("TEST_PLUGINS_DIRECTORY", "./plugins");
@@ -759,7 +762,7 @@ route = "/..."
             "example-plugin-manifest.json",
             serde_json::to_string(&plugin_manifest_json).unwrap(),
         )?;
-        let mut upgrade = std::process::Command::new(&spin_binary());
+        let mut upgrade = std::process::Command::new(spin_binary());
         upgrade
             .args([
                 "plugins",
@@ -792,7 +795,7 @@ route = "/..."
             &testing_framework::ServicesConfig::none(),
         )?;
 
-        let mut login = std::process::Command::new(&spin_binary());
+        let mut login = std::process::Command::new(spin_binary());
         login
             .args(["login", "--help"])
             // Ensure that spin installs the plugins into the temporary directory
@@ -827,7 +830,7 @@ route = "/..."
     fn do_test_build_command(dir: impl AsRef<std::path::Path>) -> anyhow::Result<()> {
         let dir = dir.as_ref();
         let manifest_file = dir.join("spin.toml");
-        let manifest = spin_manifest::manifest_from_file(&manifest_file)?;
+        let manifest = spin_manifest::manifest_from_file(manifest_file)?;
 
         let sources = manifest
             .components
@@ -849,7 +852,7 @@ route = "/..."
         )?;
         env.copy_into(dir, ".")?;
 
-        let mut build = std::process::Command::new(&spin_binary());
+        let mut build = std::process::Command::new(spin_binary());
         build.arg("build");
         env.run_in(&mut build)?;
 

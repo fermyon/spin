@@ -620,4 +620,193 @@ Caused by:
 
         Ok(())
     }
+
+    #[test]
+    fn spin_up_gives_help_on_new_app() -> anyhow::Result<()> {
+        let env = testing_framework::TestEnvironment::<()>::boot(
+            &testing_framework::ServicesConfig::none(),
+        )?;
+
+        // We still don't see full help if there are no components.
+        let toml_text = r#"spin_version = "1"
+name = "unbuilt"
+trigger = { type = "http" }
+version = "0.1.0"
+[[component]]
+id = "unbuilt"
+source = "fake.wasm"
+[component.trigger]
+route = "/..."
+"#;
+        env.write_file("spin.toml", toml_text)?;
+        env.write_file("fake.wasm", &[])?;
+
+        testing_framework::Spin::start(
+            &spin_binary(),
+            &env,
+            Vec::<String>::new(),
+            testing_framework::SpinMode::None,
+        )?;
+
+        let mut up = std::process::Command::new(spin_binary());
+        up.args(&["up", "--help"]);
+        let output = env.run_in(&mut up)?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("--quiet"));
+        assert!(stdout.contains("--listen"));
+
+        Ok(())
+    }
+
+    // TODO: Test on Windows
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn test_spin_plugin_install_command() -> anyhow::Result<()> {
+        let env = testing_framework::TestEnvironment::<()>::boot(
+            &testing_framework::ServicesConfig::none(),
+        )?;
+
+        let path_to_test_dir = std::env::current_dir()?;
+        let file_url = format!(
+            "file:{}/tests/plugin/example.tar.gz",
+            path_to_test_dir.to_str().unwrap()
+        );
+        let mut plugin_manifest_json = serde_json::json!(
+        {
+            "name": "example",
+            "description": "A description of the plugin.",
+            "homepage": "www.example.com",
+            "version": "0.2.0",
+            "spinCompatibility": ">=0.5",
+            "license": "MIT",
+            "packages": [
+                {
+                    "os": "linux",
+                    "arch": "amd64",
+                    "url": file_url,
+                    "sha256": "f7a5a8c16a94fe934007f777a1bf532ef7e42b02133e31abf7523177b220a1ce"
+                },
+                {
+                    "os": "macos",
+                    "arch": "aarch64",
+                    "url": file_url,
+                    "sha256": "f7a5a8c16a94fe934007f777a1bf532ef7e42b02133e31abf7523177b220a1ce"
+                },
+                {
+                    "os": "macos",
+                    "arch": "amd64",
+                    "url": file_url,
+                    "sha256": "f7a5a8c16a94fe934007f777a1bf532ef7e42b02133e31abf7523177b220a1ce"
+                }
+            ]
+        });
+        let contents = serde_json::to_string(&plugin_manifest_json).unwrap();
+        env.write_file("example-plugin-manifest.json", contents)?;
+
+        // Install plugin
+        let mut install = std::process::Command::new(&spin_binary());
+        install
+            .args([
+                "plugins",
+                "install",
+                "--file",
+                "example-plugin-manifest.json",
+                "--yes",
+            ])
+            // Ensure that spin installs the plugins into the temporary directory
+            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+        env.run_in(&mut install)?;
+
+        /// Make sure that the plugin is uninstalled after the test
+        struct Uninstaller<'a>(&'a testing_framework::TestEnvironment<()>);
+        impl<'a> Drop for Uninstaller<'a> {
+            fn drop(&mut self) {
+                let mut uninstall = std::process::Command::new(&spin_binary());
+                uninstall.args(["plugins", "uninstall", "example"]);
+                self.0.run_in(&mut uninstall).unwrap();
+            }
+        }
+        let _u = Uninstaller(&env);
+
+        let mut install = std::process::Command::new(&spin_binary());
+        install
+            .args([
+                "plugins",
+                "install",
+                "--file",
+                "example-plugin-manifest.json",
+                "--yes",
+            ])
+            // Ensure that spin installs the plugins into the temporary directory
+            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+        env.run_in(&mut install)?;
+
+        let mut execute = std::process::Command::new(&spin_binary());
+        execute
+            .args(["example"])
+            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+        let output = env.run_in(&mut execute)?;
+
+        // Verify plugin successfully wrote to output file
+        assert!(std::str::from_utf8(&output.stdout)?
+            .trim()
+            .contains("This is an example Spin plugin!"));
+
+        // Upgrade plugin to newer version
+        *plugin_manifest_json.get_mut("version").unwrap() = serde_json::json!("0.2.1");
+        env.write_file(
+            "example-plugin-manifest.json",
+            serde_json::to_string(&plugin_manifest_json).unwrap(),
+        )?;
+        let mut upgrade = std::process::Command::new(&spin_binary());
+        upgrade
+            .args([
+                "plugins",
+                "upgrade",
+                "example",
+                "--file",
+                "example-plugin-manifest.json",
+                "--yes",
+            ])
+            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+        env.run_in(&mut upgrade)?;
+
+        // Check plugin version
+        let installed_manifest = std::path::PathBuf::from("plugins")
+            .join("spin")
+            .join("plugins")
+            .join("manifests")
+            .join("example.json");
+        let manifest = String::from_utf8(env.read_file(installed_manifest)?).unwrap();
+        assert!(manifest.contains("0.2.1"));
+
+        Ok(())
+    }
+
+    // TODO: Test on Windows
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn test_cloud_plugin_autoinstall() -> anyhow::Result<()> {
+        let env = testing_framework::TestEnvironment::<()>::boot(
+            &testing_framework::ServicesConfig::none(),
+        )?;
+
+        let mut login = std::process::Command::new(&spin_binary());
+        login
+            .args(["login", "--help"])
+            // Ensure that spin installs the plugins into the temporary directory
+            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+        let output = env.run_in(&mut login)?;
+
+        // Verify plugin successfully wrote to output file
+        assert!(std::str::from_utf8(&output.stdout)?
+            .trim()
+            .contains("The `cloud` plugin is required. Installing now."));
+        // Ensure login help info is displayed
+        assert!(std::str::from_utf8(&output.stdout)?
+            .trim()
+            .contains("Log into Fermyon Cloud"));
+        Ok(())
+    }
 }

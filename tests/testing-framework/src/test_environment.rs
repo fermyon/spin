@@ -124,8 +124,10 @@ impl<R> TestEnvironment<R> {
     }
 
     /// Read a file from the test environment at the given relative path
-    pub fn read_file(&self, path: impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
+    pub fn read_file(&self, path: impl AsRef<Path>) -> anyhow::Result<Vec<u8>> {
+        let path = path.as_ref();
         std::fs::read(self.temp.path().join(path))
+            .with_context(|| format!("failed to read file '{}'", path.display()))
     }
 
     /// Run a command in the test environment

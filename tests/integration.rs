@@ -8,14 +8,12 @@ mod integration_tests {
     use reqwest::Client;
     use sha2::{Digest, Sha256};
     use spin_http::body;
-    use spin_manifest::schema::v2;
     use std::{
         collections::HashMap,
-        ffi::OsStr,
         iter,
         net::{Ipv4Addr, SocketAddrV4, TcpListener},
         path::Path,
-        process::{self, Child, Command, Output},
+        process::{Child, Command},
         sync::{Arc, Mutex},
         time::Duration,
     };
@@ -87,149 +85,6 @@ mod integration_tests {
             "Running `spin up` returned error: {}",
             String::from_utf8_lossy(&out.stderr)
         );
-
-        Ok(())
-    }
-
-    /// Controller for running Spin.
-    pub struct SpinTestController {
-        pub url: String,
-        spin_handle: Child,
-    }
-
-    impl SpinTestController {
-        pub async fn with_manifest(
-            manifest_path: &str,
-            spin_args: &[&str],
-            spin_app_env: &[&str],
-        ) -> Result<SpinTestController> {
-            // start Spin using the given application manifest and wait for the HTTP server to be available.
-            let url = format!("127.0.0.1:{}", get_random_port()?);
-            let mut args = vec!["up", "--file", manifest_path, "--listen", &url];
-            args.extend(spin_args);
-            for v in spin_app_env {
-                args.push("--env");
-                args.push(v);
-            }
-
-            let mut spin_handle = Command::new(get_process(&spin_binary()))
-                .args(args)
-                .env(
-                    "RUST_LOG",
-                    "spin=trace,spin_loader=trace,spin_core=trace,spin_http=trace",
-                )
-                .spawn()
-                .with_context(|| "executing Spin")?;
-
-            // ensure the server is accepting requests before continuing.
-            wait_tcp(&url, &mut spin_handle, &spin_binary()).await?;
-
-            Ok(SpinTestController { url, spin_handle })
-        }
-    }
-
-    impl Drop for SpinTestController {
-        fn drop(&mut self) {
-            #[cfg(windows)]
-            let _ = self.spin_handle.kill();
-            #[cfg(not(windows))]
-            {
-                let pid = nix::unistd::Pid::from_raw(self.spin_handle.id() as i32);
-                let _ = nix::sys::signal::kill(pid, nix::sys::signal::SIGTERM);
-            }
-        }
-    }
-
-    fn run<S: Into<String> + AsRef<OsStr>>(
-        args: Vec<S>,
-        dir: Option<S>,
-        envs: Option<HashMap<&str, &str>>,
-    ) -> Result<Output> {
-        let mut cmd = Command::new(get_os_process());
-        cmd.stdout(process::Stdio::piped());
-        cmd.stderr(process::Stdio::piped());
-
-        if let Some(dir) = dir {
-            cmd.current_dir(dir.into());
-        };
-
-        cmd.arg("-c");
-        cmd.arg(
-            args.into_iter()
-                .map(Into::into)
-                .collect::<Vec<String>>()
-                .join(" "),
-        );
-
-        cmd.env("RUST_LOG", "spin_cli=warn");
-        if let Some(envs) = envs {
-            for (k, v) in envs {
-                cmd.env(k, v);
-            }
-        }
-
-        let output = cmd.output()?;
-        println!("STDOUT:\n{}", String::from_utf8_lossy(&output.stdout));
-        println!("STDERR:\n{}", String::from_utf8_lossy(&output.stderr));
-
-        let code = output.status.code().expect("should have status code");
-        if code != 0 {
-            panic!("command `{:?}` exited with code {}", cmd, code);
-        }
-
-        Ok(output)
-    }
-
-    fn get_process(binary: &str) -> String {
-        if cfg!(target_os = "windows") {
-            format!("{}.exe", binary)
-        } else {
-            binary.to_owned()
-        }
-    }
-
-    fn get_os_process() -> String {
-        if cfg!(target_os = "windows") {
-            String::from("powershell.exe")
-        } else {
-            String::from("bash")
-        }
-    }
-
-    fn get_random_port() -> Result<u16> {
-        Ok(
-            TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))?
-                .local_addr()?
-                .port(),
-        )
-    }
-
-    async fn wait_tcp(url: &str, process: &mut Child, target: &str) -> Result<()> {
-        let mut wait_count = 0;
-        loop {
-            if wait_count >= 240 {
-                panic!(
-                    "Ran out of retries waiting for {} to start on URL {}",
-                    target, url
-                );
-            }
-
-            if let Ok(Some(_)) = process.try_wait() {
-                panic!(
-                    "Process exited before starting to serve {} to start on URL {}",
-                    target, url
-                );
-            }
-
-            match TcpStream::connect(&url).await {
-                Ok(_) => break,
-                Err(e) => {
-                    println!("connect {} error {}, retry {}", &url, e, wait_count);
-                    wait_count += 1;
-                    sleep(Duration::from_secs(1)).await;
-                }
-            }
-        }
 
         Ok(())
     }
@@ -434,6 +289,101 @@ mod integration_tests {
         wasi_http_echo("double-echo", Some("echo")).await
     }
 
+    /// Controller for running Spin.
+    pub struct SpinTestController {
+        pub url: String,
+        spin_handle: Child,
+    }
+
+    impl SpinTestController {
+        pub async fn with_manifest(
+            manifest_path: &str,
+            spin_args: &[&str],
+            spin_app_env: &[&str],
+        ) -> Result<SpinTestController> {
+            // start Spin using the given application manifest and wait for the HTTP server to be available.
+            let url = format!("127.0.0.1:{}", get_random_port()?);
+            let mut args = vec!["up", "--file", manifest_path, "--listen", &url];
+            args.extend(spin_args);
+            for v in spin_app_env {
+                args.push("--env");
+                args.push(v);
+            }
+
+            let mut spin_handle = Command::new(get_process(&spin_binary()))
+                .args(args)
+                .env(
+                    "RUST_LOG",
+                    "spin=trace,spin_loader=trace,spin_core=trace,spin_http=trace",
+                )
+                .spawn()
+                .with_context(|| "executing Spin")?;
+
+            // ensure the server is accepting requests before continuing.
+            wait_tcp(&url, &mut spin_handle, &spin_binary()).await?;
+
+            Ok(SpinTestController { url, spin_handle })
+        }
+    }
+
+    impl Drop for SpinTestController {
+        fn drop(&mut self) {
+            #[cfg(windows)]
+            let _ = self.spin_handle.kill();
+            #[cfg(not(windows))]
+            {
+                let pid = nix::unistd::Pid::from_raw(self.spin_handle.id() as i32);
+                let _ = nix::sys::signal::kill(pid, nix::sys::signal::SIGTERM);
+            }
+        }
+    }
+
+    fn get_process(binary: &str) -> String {
+        if cfg!(target_os = "windows") {
+            format!("{}.exe", binary)
+        } else {
+            binary.to_owned()
+        }
+    }
+
+    fn get_random_port() -> Result<u16> {
+        Ok(
+            TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))?
+                .local_addr()?
+                .port(),
+        )
+    }
+
+    async fn wait_tcp(url: &str, process: &mut Child, target: &str) -> Result<()> {
+        let mut wait_count = 0;
+        loop {
+            if wait_count >= 240 {
+                panic!(
+                    "Ran out of retries waiting for {} to start on URL {}",
+                    target, url
+                );
+            }
+
+            if let Ok(Some(_)) = process.try_wait() {
+                panic!(
+                    "Process exited before starting to serve {} to start on URL {}",
+                    target, url
+                );
+            }
+
+            match TcpStream::connect(&url).await {
+                Ok(_) => break,
+                Err(e) => {
+                    println!("connect {} error {}, retry {}", &url, e, wait_count);
+                    wait_count += 1;
+                    sleep(Duration::from_secs(1)).await;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     async fn wasi_http_echo(uri: &str, url_header_uri: Option<&str>) -> Result<()> {
         let body = {
             // A sorta-random-ish megabyte
@@ -483,82 +433,6 @@ mod integration_tests {
                 received.len()
             );
         }
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_build_command() -> Result<()> {
-        do_test_build_command("tests/build/simple").await
-    }
-
-    /// Build an app whose component `workdir` is a subdirectory.
-    #[tokio::test]
-    #[cfg(not(tarpaulin))]
-    async fn test_build_command_nested_workdir() -> Result<()> {
-        do_test_build_command("tests/build/nested").await
-    }
-
-    /// Build an app whose component `workdir` is a sibling.
-    #[tokio::test]
-    #[cfg(not(tarpaulin))]
-    async fn test_build_command_sibling_workdir() -> Result<()> {
-        do_test_build_command("tests/build/sibling").await
-    }
-
-    /// Builds app in `dir` and verifies the build succeeded. Expects manifest
-    /// in `spin.toml` inside `dir`.
-    async fn do_test_build_command(dir: impl AsRef<Path>) -> Result<()> {
-        let dir = dir.as_ref();
-        let manifest_file = dir.join("spin.toml");
-        let manifest = spin_manifest::manifest_from_file(&manifest_file)?;
-
-        let sources = manifest
-            .components
-            .iter()
-            .map(|(id, component)| {
-                let v2::ComponentSource::Local(file) = &component.source else {
-                    panic!(
-                        "{}.{}: source is not a file reference",
-                        manifest.application.name, id
-                    )
-                };
-                (id, dir.join(file))
-            })
-            .collect::<HashMap<_, _>>();
-
-        // Delete build output so that later it can be assumed: if the output
-        // exists, it is because `spin build` succeeded.
-        for source in sources.values() {
-            if source.exists() {
-                std::fs::remove_file(source)?
-            }
-        }
-
-        run(
-            vec![
-                spin_binary().as_str(),
-                "build",
-                "--file",
-                manifest_file.to_str().unwrap(),
-            ],
-            None,
-            None,
-        )?;
-
-        let mut missing_sources_count = 0;
-        for (component_id, source) in sources.iter() {
-            if source.exists() {
-                std::fs::remove_file(source)?;
-            } else {
-                missing_sources_count += 1;
-                println!(
-                    "{}.{} source file was not generated by build",
-                    manifest.application.name, component_id
-                );
-            }
-        }
-        assert_eq!(missing_sources_count, 0);
 
         Ok(())
     }

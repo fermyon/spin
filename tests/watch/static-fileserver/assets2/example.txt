@@ -1,1 +1,0 @@
-This is an example file served up by the static-fileserver.

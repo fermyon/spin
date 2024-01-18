@@ -94,7 +94,11 @@ impl TriggerExecutor for RedisTrigger {
         let mut stream = pubsub.on_message();
         loop {
             match stream.next().await {
-                Some(msg) => drop(self.handle(msg).await),
+                Some(msg) => {
+                    if let Err(err) = self.handle(msg).await {
+                        tracing::warn!("Error handling message: {err}");
+                    }
+                }
                 None => {
                     tracing::trace!("Empty message");
                     if !client.check_connection() {

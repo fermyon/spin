@@ -24,9 +24,6 @@ impl OciLoader {
 
     /// Pulls and loads an OCI Artifact and returns a LockedApp with the given OCI client and reference
     pub async fn load_app(&self, client: &mut Client, reference: &str) -> Result<LockedApp> {
-        // Fix: https://github.com/fermyon/spin/issues/2109.
-        println!("pulling spin application from registry reference {reference:?}...");
-
         // Fetch app
         client.pull(reference).await.with_context(|| {
             format!("cannot pull Spin application from registry reference {reference:?}")

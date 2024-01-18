@@ -94,7 +94,7 @@ impl LocalLoader {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        warn_if_component_load_slothful();
+        let sloth_guard = warn_if_component_load_slothful();
 
         // Load all components concurrently
         let components = try_join_all(components.into_iter().map(|(id, c)| async move {
@@ -103,6 +103,8 @@ impl LocalLoader {
                 .with_context(|| format!("Failed to load component `{id}`"))
         }))
         .await?;
+
+        drop(sloth_guard);
 
         Ok(LockedApp {
             spin_lock_version: Default::default(),
@@ -522,6 +524,6 @@ fn file_url(path: impl AsRef<Path>) -> Result<String> {
 const SLOTH_WARNING_DELAY_MILLIS: u64 = 1250;
 
 fn warn_if_component_load_slothful() -> sloth::SlothGuard {
-    let message = "WASM components loading is taking a few seconds...";
+    let message = "Loading Wasm components is taking a few seconds...";
     sloth::warn_if_slothful(SLOTH_WARNING_DELAY_MILLIS, format!("{message}\n"))
 }

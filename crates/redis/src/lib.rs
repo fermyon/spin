@@ -85,10 +85,12 @@ impl TriggerExecutor for RedisTrigger {
             .with_context(|| anyhow!("Redis trigger failed to connect to {}", address))?
             .into_pubsub();
 
+        println!("Active Channels on {address}:");
         // Subscribe to channels
         for (channel, component) in self.channel_components.iter() {
             tracing::info!("Subscribing component {component:?} to channel {channel:?}");
             pubsub.subscribe(channel).await?;
+            println!("\t{channel}: [{}]", component.join(","));
         }
 
         let mut stream = pubsub.on_message();

@@ -10,7 +10,7 @@ mod services;
 mod spin;
 mod test_environment;
 
-pub use manifest_template::ManifestTemplate;
+pub use manifest_template::EnvTemplate;
 pub use services::ServicesConfig;
 pub use spin::{Request, Spin, SpinMode};
 pub use test_environment::{TestEnvironment, TestEnvironmentConfig};
@@ -82,16 +82,23 @@ impl<E> From<anyhow::Error> for TestError<E> {
     }
 }
 
-impl<E: std::fmt::Display + std::fmt::Debug> std::error::Error for TestError<E> {}
+impl std::error::Error for TestError<anyhow::Error> {}
 
-impl<E: std::fmt::Display> std::fmt::Display for TestError<E> {
+impl std::fmt::Display for TestError<anyhow::Error> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
+        let e = match self {
             TestError::Failure(e) => {
                 write!(f, "{e}")?;
-                Ok(())
+                e
             }
-            TestError::Fatal(e) => write!(f, "Test failed to run: {}", e),
+            TestError::Fatal(e) => {
+                write!(f, "Test failed to run: {}", e)?;
+                e
+            }
+        };
+        for cause in e.chain().skip(1) {
+            write!(f, "\n  Caused by: {}", cause)?;
         }
+        Ok(())
     }
 }

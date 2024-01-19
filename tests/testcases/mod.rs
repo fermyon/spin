@@ -14,7 +14,8 @@ pub fn run_test(
         ) -> testing_framework::TestResult<anyhow::Error>
         + 'static,
 ) -> testing_framework::TestResult<anyhow::Error> {
-    let mut env = bootstap_env(test_name, spin_up_args, services_config, mode)?;
+    let mut env = bootstap_env(test_name, spin_up_args, services_config, mode)
+        .context("failed to boot test environment")?;
     test(&mut env)?;
     Ok(())
 }
@@ -51,8 +52,9 @@ pub fn assert_spin_request(
     let headers = std::mem::take(r.headers_mut());
     let body = r.text().unwrap_or_else(|_| String::from("<non-utf8>"));
     if status != expected_status {
+        let stderr = spin.stderr();
         return Err(testing_framework::TestError::Failure(anyhow::anyhow!(
-            "Expected status {expected_status} for {uri} but got {status}\nBody:\n{body}",
+            "Expected status {expected_status} for {uri} but got {status}\nBody:\n{body}\nStderr: {stderr}",
         )));
     }
     let wrong_headers: std::collections::HashMap<_, _> = expected_headers
@@ -78,14 +80,28 @@ fn preboot(
     test: &str,
     env: &mut testing_framework::TestEnvironment<testing_framework::Spin>,
 ) -> anyhow::Result<()> {
-    // Copy everything into the test environment
-    env.copy_into(format!("tests/testcases/{test}"), "")?;
+    let test_path = format!("tests/testcases/{test}");
+    for file in std::fs::read_dir(test_path)? {
+        let file = file?;
+        let path = file.path();
+        if path.is_dir() {
+            env.copy_into(&path, path.file_name().unwrap())?;
+        } else {
+            let content = std::fs::read(&path)
+                .with_context(|| format!("failed to read file '{}' for copying", path.display()))?;
+            match String::from_utf8(content) {
+                Ok(content) => {
+                    let mut template = testing_framework::EnvTemplate::new(content)?;
+                    template.substitute(env)?;
+                    env.write_file(path.file_name().unwrap(), template.contents())?;
+                }
+                Err(e) => {
+                    env.write_file(path.file_name().unwrap(), e.as_bytes())?;
+                }
+            };
+        }
+    }
 
-    // Copy the manifest with all templates substituted
-    let manifest_path = PathBuf::from(format!("tests/testcases/{test}/spin.toml"));
-    let mut template = testing_framework::ManifestTemplate::from_file(manifest_path)?;
-    template.substitute(env)?;
-    env.write_file("spin.toml", template.contents())?;
     Ok(())
 }
 

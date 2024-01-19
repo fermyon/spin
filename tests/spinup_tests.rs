@@ -85,9 +85,6 @@ mod spinup_tests {
     }
 
     #[test]
-    // TODO: it seems that running this test on macOS CI is not possible because the docker services doesn't run.
-    // Investigate if there is a possible fix for this.
-    #[cfg(any(not(target_os = "macos"), feature = "e2e-tests"))]
     /// Test that basic redis trigger support works
     fn redis_smoke_test() -> anyhow::Result<()> {
         /// Helper macro to assert that a condition is true eventually
@@ -131,7 +128,13 @@ mod spinup_tests {
                             let logs = String::from_utf8_lossy(&logs);
                             logs.contains("Got message: 'msg-from-test'")
                         }
-                        Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+                        Err(e)
+                            if e.downcast_ref()
+                                .map(|e: &std::io::Error| e.kind() == std::io::ErrorKind::NotFound)
+                                .unwrap_or_default() =>
+                        {
+                            false
+                        }
                         Err(e) => {
                             return Err(anyhow::anyhow!("could not read stdout file: {e}").into())
                         }
@@ -312,6 +315,99 @@ Caused by:
     }
 
     #[test]
+    fn test_simple_rust_local() -> anyhow::Result<()> {
+        run_test(
+            "simple-test",
+            testing_framework::SpinMode::Http,
+            [],
+            testing_framework::ServicesConfig::none(),
+            |env| {
+                let spin = env.runtime_mut();
+                let mut ensure_success = |uri, expected_status, expected_body| {
+                    let request = testing_framework::Request::new(reqwest::Method::GET, uri);
+                    assert_spin_request(spin, request, expected_status, &[], expected_body)
+                };
+                ensure_success("/test/hello", 200, "I'm a teapot")?;
+                ensure_success(
+                    "/test/hello/wildcards/should/be/handled",
+                    200,
+                    "I'm a teapot",
+                )?;
+                ensure_success("/thisshouldfail", 404, "")?;
+                ensure_success("/test/hello/test-placement", 200, "text for test")?;
+                Ok(())
+            },
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_duplicate_rust_local() -> anyhow::Result<()> {
+        run_test(
+            "simple-double-test",
+            testing_framework::SpinMode::Http,
+            [],
+            testing_framework::ServicesConfig::none(),
+            |env| {
+                let spin = env.runtime_mut();
+                let mut ensure_success = |uri, expected_status, expected_body| {
+                    let request = testing_framework::Request::new(reqwest::Method::GET, uri);
+                    assert_spin_request(spin, request, expected_status, &[], expected_body)
+                };
+                ensure_success("/route1", 200, "I'm a teapot")?;
+                ensure_success("/route2", 200, "I'm a teapot")?;
+                ensure_success("/thisshouldfail", 404, "")?;
+                Ok(())
+            },
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_vault_config_provider() -> anyhow::Result<()> {
+        use std::collections::HashMap;
+        const VAULT_ROOT_TOKEN: &str = "root";
+        run_test(
+            "vault-variables-test",
+            testing_framework::SpinMode::Http,
+            vec!["--runtime-config-file".into(), "runtime_config.toml".into()],
+            testing_framework::ServicesConfig::new(vec!["vault".into()])?,
+            |env| {
+                let http_client = reqwest::blocking::Client::new();
+                let body: HashMap<String, HashMap<String, String>> =
+                    serde_json::from_value(serde_json::json!(
+                        {
+                            "data": {
+                                "value": "test_password"
+                            }
+
+                        }
+                    ))
+                    .unwrap();
+                let status = http_client
+                    .post(format!(
+                        "http://localhost:{}/v1/secret/data/password",
+                        env.get_port(8200)?.context("vault port not found")?
+                    ))
+                    .header("X-Vault-Token", VAULT_ROOT_TOKEN)
+                    .json(&body)
+                    .send()
+                    .context("failed to send request to Vault")?
+                    .status();
+                assert_eq!(status, 200);
+                let spin = env.runtime_mut();
+                let request = testing_framework::Request::new(reqwest::Method::GET, "/");
+                assert_spin_request(spin, request, 200, &[], "Hello! Got password test_password")?;
+                Ok(())
+            },
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
     #[cfg(feature = "e2e-tests")]
     fn http_python_template_smoke_test() -> anyhow::Result<()> {
         http_smoke_test_template(
@@ -484,6 +580,296 @@ Caused by:
             &[],
             "Hello, Fermyon",
         )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_wasi_http_rc_11_10() -> anyhow::Result<()> {
+        test_wasi_http_rc("wasi-http-0.2.0-rc-2023-11-10")
+    }
+
+    #[test]
+    fn test_wasi_http_rc_12_05() -> anyhow::Result<()> {
+        test_wasi_http_rc("wasi-http-0.2.0-rc-2023-12-05")
+    }
+
+    fn test_wasi_http_rc(test_name: &str) -> anyhow::Result<()> {
+        let body = "So rested he by the Tumtum tree";
+
+        run_test(
+            test_name,
+            testing_framework::SpinMode::Http,
+            [],
+            testing_framework::ServicesConfig::new(vec!["http-echo".into()])?,
+            |env| {
+                let port = env
+                    .get_port(80)?
+                    .context("no http-echo port was exposed by test services")?;
+                assert_spin_request(
+                    env.runtime_mut(),
+                    testing_framework::Request::full(
+                        reqwest::Method::GET,
+                        "/",
+                        &[("url", &format!("http://127.0.0.1:{port}/",))],
+                        Some(body.into()),
+                    ),
+                    200,
+                    &[],
+                    "Hello, world!",
+                )?;
+                Ok(())
+            },
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn spin_up_gives_help_on_new_app() -> anyhow::Result<()> {
+        let env = testing_framework::TestEnvironment::<()>::boot(
+            &testing_framework::ServicesConfig::none(),
+        )?;
+
+        // We still don't see full help if there are no components.
+        let toml_text = r#"spin_version = "1"
+name = "unbuilt"
+trigger = { type = "http" }
+version = "0.1.0"
+[[component]]
+id = "unbuilt"
+source = "fake.wasm"
+[component.trigger]
+route = "/..."
+"#;
+        env.write_file("spin.toml", toml_text)?;
+        env.write_file("fake.wasm", [])?;
+
+        testing_framework::Spin::start(
+            &spin_binary(),
+            &env,
+            Vec::<String>::new(),
+            testing_framework::SpinMode::None,
+        )?;
+
+        let mut up = std::process::Command::new(spin_binary());
+        up.args(["up", "--help"]);
+        let output = env.run_in(&mut up)?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("--quiet"));
+        assert!(stdout.contains("--listen"));
+
+        Ok(())
+    }
+
+    // TODO: Test on Windows
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn test_spin_plugin_install_command() -> anyhow::Result<()> {
+        let env = testing_framework::TestEnvironment::<()>::boot(
+            &testing_framework::ServicesConfig::none(),
+        )?;
+
+        let path_to_test_dir = std::env::current_dir()?;
+        let file_url = format!(
+            "file:{}/tests/testcases/plugin/example.tar.gz",
+            path_to_test_dir.to_str().unwrap()
+        );
+        let mut plugin_manifest_json = serde_json::json!(
+        {
+            "name": "example",
+            "description": "A description of the plugin.",
+            "homepage": "www.example.com",
+            "version": "0.2.0",
+            "spinCompatibility": ">=0.5",
+            "license": "MIT",
+            "packages": [
+                {
+                    "os": "linux",
+                    "arch": "amd64",
+                    "url": file_url,
+                    "sha256": "f7a5a8c16a94fe934007f777a1bf532ef7e42b02133e31abf7523177b220a1ce"
+                },
+                {
+                    "os": "macos",
+                    "arch": "aarch64",
+                    "url": file_url,
+                    "sha256": "f7a5a8c16a94fe934007f777a1bf532ef7e42b02133e31abf7523177b220a1ce"
+                },
+                {
+                    "os": "macos",
+                    "arch": "amd64",
+                    "url": file_url,
+                    "sha256": "f7a5a8c16a94fe934007f777a1bf532ef7e42b02133e31abf7523177b220a1ce"
+                }
+            ]
+        });
+        let contents = serde_json::to_string(&plugin_manifest_json).unwrap();
+        env.write_file("example-plugin-manifest.json", contents)?;
+
+        // Install plugin
+        let mut install = std::process::Command::new(spin_binary());
+        install
+            .args([
+                "plugins",
+                "install",
+                "--file",
+                "example-plugin-manifest.json",
+                "--yes",
+            ])
+            // Ensure that spin installs the plugins into the temporary directory
+            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+        env.run_in(&mut install)?;
+
+        /// Make sure that the plugin is uninstalled after the test
+        struct Uninstaller<'a>(&'a testing_framework::TestEnvironment<()>);
+        impl<'a> Drop for Uninstaller<'a> {
+            fn drop(&mut self) {
+                let mut uninstall = std::process::Command::new(spin_binary());
+                uninstall.args(["plugins", "uninstall", "example"]);
+                self.0.run_in(&mut uninstall).unwrap();
+            }
+        }
+        let _u = Uninstaller(&env);
+
+        let mut install = std::process::Command::new(spin_binary());
+        install
+            .args([
+                "plugins",
+                "install",
+                "--file",
+                "example-plugin-manifest.json",
+                "--yes",
+            ])
+            // Ensure that spin installs the plugins into the temporary directory
+            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+        env.run_in(&mut install)?;
+
+        let mut execute = std::process::Command::new(spin_binary());
+        execute
+            .args(["example"])
+            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+        let output = env.run_in(&mut execute)?;
+
+        // Verify plugin successfully wrote to output file
+        assert!(std::str::from_utf8(&output.stdout)?
+            .trim()
+            .contains("This is an example Spin plugin!"));
+
+        // Upgrade plugin to newer version
+        *plugin_manifest_json.get_mut("version").unwrap() = serde_json::json!("0.2.1");
+        env.write_file(
+            "example-plugin-manifest.json",
+            serde_json::to_string(&plugin_manifest_json).unwrap(),
+        )?;
+        let mut upgrade = std::process::Command::new(spin_binary());
+        upgrade
+            .args([
+                "plugins",
+                "upgrade",
+                "example",
+                "--file",
+                "example-plugin-manifest.json",
+                "--yes",
+            ])
+            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+        env.run_in(&mut upgrade)?;
+
+        // Check plugin version
+        let installed_manifest = std::path::PathBuf::from("plugins")
+            .join("spin")
+            .join("plugins")
+            .join("manifests")
+            .join("example.json");
+        let manifest = String::from_utf8(env.read_file(installed_manifest)?).unwrap();
+        assert!(manifest.contains("0.2.1"));
+
+        Ok(())
+    }
+
+    // TODO: Test on Windows
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn test_cloud_plugin_autoinstall() -> anyhow::Result<()> {
+        let env = testing_framework::TestEnvironment::<()>::boot(
+            &testing_framework::ServicesConfig::none(),
+        )?;
+
+        let mut login = std::process::Command::new(spin_binary());
+        login
+            .args(["login", "--help"])
+            // Ensure that spin installs the plugins into the temporary directory
+            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+        let output = env.run_in(&mut login)?;
+
+        // Verify plugin successfully wrote to output file
+        assert!(std::str::from_utf8(&output.stdout)?
+            .trim()
+            .contains("The `cloud` plugin is required. Installing now."));
+        // Ensure login help info is displayed
+        assert!(std::str::from_utf8(&output.stdout)?
+            .trim()
+            .contains("Log into Fermyon Cloud"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_build_command() -> anyhow::Result<()> {
+        do_test_build_command("tests/testcases/simple-build")
+    }
+
+    /// Build an app whose component `workdir` is a subdirectory.
+    #[test]
+    #[cfg(not(tarpaulin))]
+    fn test_build_command_nested_workdir() -> anyhow::Result<()> {
+        do_test_build_command("tests/testcases/nested-build")
+    }
+
+    /// Builds app in `dir` and verifies the build succeeded. Expects manifest
+    /// in `spin.toml` inside `dir`.
+    fn do_test_build_command(dir: impl AsRef<std::path::Path>) -> anyhow::Result<()> {
+        let dir = dir.as_ref();
+        let manifest_file = dir.join("spin.toml");
+        let manifest = spin_manifest::manifest_from_file(manifest_file)?;
+
+        let sources = manifest
+            .components
+            .iter()
+            .map(|(id, component)| {
+                let spin_manifest::schema::v2::ComponentSource::Local(file) = &component.source
+                else {
+                    panic!(
+                        "{}.{}: source is not a file reference",
+                        manifest.application.name, id
+                    )
+                };
+                (id, std::path::PathBuf::from(file))
+            })
+            .collect::<std::collections::HashMap<_, _>>();
+
+        let env = testing_framework::TestEnvironment::<()>::boot(
+            &testing_framework::ServicesConfig::none(),
+        )?;
+        env.copy_into(dir, ".")?;
+
+        let mut build = std::process::Command::new(spin_binary());
+        build.arg("build");
+        env.run_in(&mut build)?;
+
+        let mut missing_sources_count = 0;
+        for (component_id, source) in sources.iter() {
+            if env.read_file(source).is_err() {
+                missing_sources_count += 1;
+                println!(
+                    "{}.{} source file '{}' was not generated by build",
+                    manifest.application.name,
+                    component_id,
+                    source.display()
+                );
+            }
+        }
+        assert_eq!(missing_sources_count, 0);
+
         Ok(())
     }
 }

@@ -48,8 +48,8 @@ fn main() {
             .join(format!("{binary_name}.wasm"));
 
         let adapter_version = package.split('v').last().and_then(|v| match v {
-            // Only allow this version through
-            "0.2.0-rc-2023-11-10" => Some(v),
+            // Only allow these versions through
+            "0.2.0-rc-2023-11-10" | "0.2.0-rc-2023-12-05" => Some(v),
             _ => None,
         });
 

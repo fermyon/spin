@@ -1,7 +1,7 @@
 use anyhow::Context;
 use std::path::{Path, PathBuf};
 use testing_framework::{
-    ManifestTemplate, OnTestError, ServicesConfig, Spin, TestEnvironment, TestEnvironmentConfig,
+    EnvTemplate, OnTestError, ServicesConfig, Spin, TestEnvironment, TestEnvironmentConfig,
     TestError, TestResult,
 };
 
@@ -167,7 +167,7 @@ fn required_services(test_path: &Path) -> anyhow::Result<Vec<String>> {
 /// Replaces template variables in the manifest file with components from the components path.
 fn copy_manifest<R>(test_dir: &Path, env: &mut TestEnvironment<R>) -> anyhow::Result<()> {
     let manifest_path = test_dir.join("spin.toml");
-    let mut manifest = ManifestTemplate::from_file(manifest_path).with_context(|| {
+    let mut manifest = EnvTemplate::from_file(manifest_path).with_context(|| {
         format!(
             "no spin.toml manifest found in test directory {}",
             test_dir.display()

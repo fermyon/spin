@@ -638,6 +638,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vault-variables-test"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "http",
+ "spin-sdk",
+]
+
+[[package]]
 name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -648,6 +657,22 @@ name = "wasi-http-rc-2023-11-10"
 version = "0.1.0"
 dependencies = [
  "helper",
+ "url",
+ "wit-bindgen 0.16.0",
+]
+
+[[package]]
+name = "wasi-http-rust-rc-2023-11-10"
+version = "0.1.0"
+dependencies = [
+ "url",
+ "wit-bindgen 0.16.0",
+]
+
+[[package]]
+name = "wasi-http-rust-rc-2023-12-05"
+version = "0.1.0"
+dependencies = [
  "url",
  "wit-bindgen 0.16.0",
 ]

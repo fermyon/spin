@@ -68,6 +68,8 @@ pub enum SkippedReason {
     AlreadyExists,
     /// The template was skipped because its manifest was missing or invalid.
     InvalidManifest(String),
+    /// The template name does match the provided IDs
+    IdNotIncluded,
 }
 
 /// The results of installing a set of templates.
@@ -121,6 +123,7 @@ impl TemplateManager {
         source: &TemplateSource,
         options: &InstallOptions,
         reporter: &impl ProgressReporter,
+        install_template_list: &Vec<String>,
     ) -> anyhow::Result<InstallationResults> {
         if source.requires_copy() {
             reporter.report("Copying remote template source");
@@ -140,7 +143,13 @@ impl TemplateManager {
 
         for template_dir in template_dirs {
             let install_result = self
-                .install_one(&template_dir, options, source, reporter)
+                .install_one(
+                    &template_dir,
+                    options,
+                    source,
+                    reporter,
+                    install_template_list,
+                )
                 .await
                 .with_context(|| {
                     format!("Failed to install template from {}", template_dir.display())
@@ -163,6 +172,7 @@ impl TemplateManager {
         options: &InstallOptions,
         source: &TemplateSource,
         reporter: &impl ProgressReporter,
+        install_template_list: &Vec<String>,
     ) -> anyhow::Result<InstallationResult> {
         let layout = TemplateLayout::new(source_dir);
         let template = match Template::load_from(&layout) {
@@ -180,6 +190,15 @@ impl TemplateManager {
             }
         };
         let id = template.id();
+
+        if !install_template_list.is_empty() && !install_template_list.contains(&id.to_owned()) {
+            let message = format!("Skipping template {}...", id);
+            reporter.report(message);
+            return Ok(InstallationResult::Skipped(
+                id.to_owned(),
+                SkippedReason::IdNotIncluded,
+            ));
+        }
 
         let message = format!("Installing template {}...", id);
         reporter.report(&message);
@@ -479,7 +498,12 @@ mod tests {
         assert_eq!(0, manager.list().await.unwrap().templates.len());
 
         let install_result = manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
         assert_eq!(TPLS_IN_THIS, install_result.installed.len());
@@ -510,7 +534,12 @@ mod tests {
         assert_eq!(0, manager.list().await.unwrap().warnings.len());
 
         let install_result = manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
         assert_eq!(TPLS_IN_THIS, install_result.installed.len());
@@ -530,7 +559,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -547,7 +581,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -566,7 +605,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -585,7 +629,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -602,7 +651,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -624,7 +678,12 @@ mod tests {
         assert_eq!(0, manager.list().await.unwrap().templates.len());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -651,7 +710,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
         assert_eq!(TPLS_IN_THIS, manager.list().await.unwrap().templates.len());
@@ -671,7 +735,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
         manager.uninstall("http-rust").await.unwrap();
@@ -682,7 +751,12 @@ mod tests {
         );
 
         let install_result = manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
         assert_eq!(2, install_result.installed.len());
@@ -695,6 +769,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn can_install_only_some() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        let install_result = manager
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &vec!["http-rust".into(), "http-c".into()],
+            )
+            .await
+            .unwrap();
+        assert_eq!(2, install_result.installed.len());
+        assert_eq!(TPLS_IN_THIS - 2, install_result.skipped.len());
+
+        let installed = manager.list().await.unwrap().templates;
+        assert!(installed.iter().any(|t| t.id() == "http-rust"));
+        assert!(installed.iter().any(|t| t.id() == "http-c"));
+    }
+
+    #[tokio::test]
     async fn can_update_existing() {
         let temp_dir = tempdir().unwrap();
         let store = TemplateStore::new(temp_dir.path());
@@ -702,7 +800,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
         manager.uninstall("http-rust").await.unwrap();
@@ -716,6 +819,7 @@ mod tests {
                 &source,
                 &InstallOptions::default().update(true),
                 &DiscardingReporter,
+                &Vec::new(),
             )
             .await
             .unwrap();
@@ -735,7 +839,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -760,7 +869,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -798,7 +912,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -835,7 +954,12 @@ mod tests {
         let source = TemplateSource::File(test_data_root());
 
         let install_results = manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -858,7 +982,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -958,11 +1087,21 @@ mod tests {
         let source2 = TemplateSource::File(project_root()); // We will need some of the standard templates too
 
         manager
-            .install(&source1, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source1,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
         manager
-            .install(&source2, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source2,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -1036,11 +1175,21 @@ mod tests {
         let source2 = TemplateSource::File(project_root()); // We will need some of the standard templates too
 
         manager
-            .install(&source1, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source1,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
         manager
-            .install(&source2, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source2,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -1132,7 +1281,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -1207,7 +1361,12 @@ mod tests {
         let source = TemplateSource::File(project_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -1266,11 +1425,21 @@ mod tests {
         let source2 = TemplateSource::File(project_root());
 
         manager
-            .install(&source1, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source1,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
         manager
-            .install(&source2, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source2,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 
@@ -1299,7 +1468,12 @@ mod tests {
         let source = TemplateSource::File(test_data_root());
 
         manager
-            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .install(
+                &source,
+                &InstallOptions::default(),
+                &DiscardingReporter,
+                &Vec::new(),
+            )
             .await
             .unwrap();
 

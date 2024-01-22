@@ -28,6 +28,7 @@ async fn add_fileserver_does_not_create_dir() -> anyhow::Result<()> {
             &built_ins_src,
             &InstallOptions::default(),
             &DiscardingReporter,
+            &Vec::new(),
         )
         .await?;
 

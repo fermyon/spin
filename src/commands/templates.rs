@@ -81,6 +81,11 @@ pub struct Install {
     /// If present, updates existing templates instead of skipping.
     #[clap(long = "upgrade", alias = "update")]
     pub update: bool,
+
+    /// By default, Spin upgrades all the templates in the source.
+    /// Pass this flag with a list of template IDs to update specific ones.
+    #[clap(long, value_delimiter = ',')]
+    pub id: Vec<String>,
 }
 
 /// Upgrade existing template repositories from their source.
@@ -131,7 +136,7 @@ impl Install {
         let options = InstallOptions::default().update(self.update);
 
         let installation_results = template_manager
-            .install(&source, &options, &reporter)
+            .install(&source, &options, &reporter, &self.id)
             .await
             .context("Failed to install one or more templates")?;
 
@@ -188,6 +193,7 @@ impl Upgrade {
                 branch: self.branch.clone(),
                 dir: None,
                 update: true,
+                id: Vec::new(),
             };
 
             install.run().await
@@ -207,7 +213,7 @@ impl Upgrade {
                 println!("Upgrading templates from {}...", source.repo);
 
                 let installation_results = template_manager
-                    .install(&source.template_source, &options, &reporter)
+                    .install(&source.template_source, &options, &reporter, &Vec::new())
                     .await;
 
                 summary.extend_with(&source.repo, installation_results);
@@ -570,6 +576,7 @@ fn skipped_reason_text(reason: &SkippedReason) -> String {
     match reason {
         SkippedReason::AlreadyExists => "Already exists".to_owned(),
         SkippedReason::InvalidManifest(msg) => format!("Template load error: {}", msg),
+        SkippedReason::IdNotIncluded => "ID not included".to_owned(),
     }
 }
 
@@ -604,6 +611,7 @@ async fn install_default_templates() -> anyhow::Result<()> {
         branch: None,
         dir: None,
         update: false,
+        id: Vec::new(),
     };
     install_cmd
         .run()

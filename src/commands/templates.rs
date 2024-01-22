@@ -186,6 +186,14 @@ impl Install {
 
 impl Upgrade {
     pub async fn run(&self) -> Result<()> {
+        let template_manager = TemplateManager::try_default()?;
+        let installed: Vec<String> = template_manager
+            .list()
+            .await?
+            .templates
+            .into_iter()
+            .map(|s| s.id().to_owned())
+            .collect();
         if self.git.is_some() {
             // This is equivalent to `install --update`
             let install = Install {
@@ -193,12 +201,11 @@ impl Upgrade {
                 branch: self.branch.clone(),
                 dir: None,
                 update: true,
-                id: Vec::new(),
+                id: installed,
             };
 
             install.run().await
         } else {
-            let template_manager = TemplateManager::try_default()?;
             let reporter = ConsoleProgressReporter;
             let options = InstallOptions::default().update(true);
 
@@ -213,7 +220,7 @@ impl Upgrade {
                 println!("Upgrading templates from {}...", source.repo);
 
                 let installation_results = template_manager
-                    .install(&source.template_source, &options, &reporter, &Vec::new())
+                    .install(&source.template_source, &options, &reporter, &installed)
                     .await;
 
                 summary.extend_with(&source.repo, installation_results);

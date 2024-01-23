@@ -29,11 +29,16 @@ pub struct TimerTrigger {
     component_timings: HashMap<String, u64>,
 }
 
-// Application settings (raw serialization format)
+// Picks out the timer entry from the application-level trigger settings
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+struct TriggerMetadataParent {
+    timer: Option<TriggerMetadata>,
+}
+
+// Application-level settings (raw serialization format)
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct TriggerMetadata {
-    r#type: String,
     speedup: Option<u64>,
 }
 
@@ -45,7 +50,7 @@ pub struct TimerTriggerConfig {
     interval_secs: u64,
 }
 
-const TRIGGER_METADATA_KEY: MetadataKey<TriggerMetadata> = MetadataKey::new("trigger");
+const TRIGGER_METADATA_KEY: MetadataKey<TriggerMetadataParent> = MetadataKey::new("triggers");
 
 #[async_trait]
 impl TriggerExecutor for TimerTrigger {
@@ -61,6 +66,8 @@ impl TriggerExecutor for TimerTrigger {
         let speedup = engine
             .app()
             .require_metadata(TRIGGER_METADATA_KEY)?
+            .timer
+            .unwrap_or_default()
             .speedup
             .unwrap_or(1);
 

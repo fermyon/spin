@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::{CommandFactory, Parser};
+use itertools::Itertools;
 use reqwest::Url;
 use spin_app::locked::LockedApp;
 use spin_common::ui::quoted_path;
@@ -15,6 +16,8 @@ use spin_loader::FilesMountStrategy;
 use spin_oci::OciLoader;
 use spin_trigger::cli::{SPIN_LOCAL_APP_DIR, SPIN_LOCKED_URL, SPIN_WORKING_DIR};
 use tempfile::TempDir;
+
+use futures::StreamExt;
 
 use crate::opts::*;
 
@@ -128,9 +131,11 @@ impl UpCommand {
 
         if app_source == AppSource::None {
             if self.help {
-                return self
-                    .run_trigger(trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE), None)
-                    .await;
+                let mut child = self
+                    .start_trigger(trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE), None)
+                    .await?;
+                let _ = child.wait().await?;
+                return Ok(());
             } else {
                 bail!("Default file '{DEFAULT_MANIFEST_FILE}' not found. Run `spin up --from <APPLICATION>`, or `spin up --help` for usage.");
             }
@@ -150,11 +155,15 @@ impl UpCommand {
 
         let resolved_app_source = self.resolve_app_source(&app_source, &working_dir).await?;
 
-        let trigger_cmd = trigger_command_for_resolved_app_source(&resolved_app_source)
+        let trigger_cmds = trigger_command_for_resolved_app_source(&resolved_app_source)
             .with_context(|| format!("Couldn't find trigger executor for {app_source}"))?;
 
         if self.help {
-            return self.run_trigger(trigger_cmd, None).await;
+            for cmd in trigger_cmds {
+                let mut help_process = self.start_trigger(cmd.clone(), None).await?;
+                _ = help_process.wait().await;
+            }
+            return Ok(());
         }
 
         let mut locked_app = self
@@ -162,16 +171,35 @@ impl UpCommand {
             .await?;
 
         self.update_locked_app(&mut locked_app);
+        let locked_url = self.write_locked_app(&locked_app, &working_dir).await?;
 
         let local_app_dir = app_source.local_app_dir().map(Into::into);
 
         let run_opts = RunTriggerOpts {
-            locked_app,
+            locked_url,
             working_dir,
             local_app_dir,
         };
 
-        self.run_trigger(trigger_cmd, Some(run_opts)).await
+        let mut trigger_processes = self.start_trigger_processes(trigger_cmds, run_opts).await?;
+
+        set_kill_on_ctrl_c(&trigger_processes)?;
+
+        let mut trigger_tasks = trigger_processes
+            .iter_mut()
+            .map(|ch| ch.wait())
+            .collect::<futures::stream::FuturesUnordered<_>>();
+
+        let first_to_finish = trigger_tasks.next().await;
+
+        if let Some(process_result) = first_to_finish {
+            let status = process_result?;
+            if !status.success() {
+                return Err(crate::subprocess::ExitStatusError::new(status).into());
+            }
+        }
+
+        Ok(())
     }
 
     fn get_canonical_working_dir(&self) -> Result<WorkingDirectory, anyhow::Error> {
@@ -190,24 +218,40 @@ impl UpCommand {
         Ok(working_dir_holder)
     }
 
-    async fn run_trigger(
+    async fn start_trigger_processes(
         self,
+        trigger_cmds: Vec<Vec<String>>,
+        run_opts: RunTriggerOpts,
+    ) -> anyhow::Result<Vec<tokio::process::Child>> {
+        let mut trigger_processes = Vec::with_capacity(trigger_cmds.len());
+
+        for cmd in trigger_cmds {
+            let child = self
+                .start_trigger(cmd.clone(), Some(run_opts.clone()))
+                .await
+                .context("Failed to start trigger process")?;
+            trigger_processes.push(child);
+        }
+
+        Ok(trigger_processes)
+    }
+
+    async fn start_trigger(
+        &self,
         trigger_cmd: Vec<String>,
         opts: Option<RunTriggerOpts>,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<tokio::process::Child, anyhow::Error> {
         // The docs for `current_exe` warn that this may be insecure because it could be executed
         // via hard-link. I think it should be fine as long as we aren't `setuid`ing this binary.
-        let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
+        let mut cmd = tokio::process::Command::new(std::env::current_exe().unwrap());
         cmd.args(&trigger_cmd);
 
         if let Some(RunTriggerOpts {
-            locked_app,
+            locked_url,
             working_dir,
             local_app_dir,
         }) = opts
         {
-            let locked_url = self.write_locked_app(&locked_app, &working_dir).await?;
-
             cmd.env(SPIN_LOCKED_URL, locked_url)
                 .env(SPIN_WORKING_DIR, &working_dir)
                 .args(&self.trigger_args);
@@ -215,32 +259,16 @@ impl UpCommand {
             if let Some(local_app_dir) = local_app_dir {
                 cmd.env(SPIN_LOCAL_APP_DIR, local_app_dir);
             }
+
+            cmd.kill_on_drop(true);
         } else {
             cmd.arg("--help-args-only");
         }
 
         tracing::trace!("Running trigger executor: {:?}", cmd);
 
-        let mut child = cmd.spawn().context("Failed to execute trigger")?;
-
-        // Terminate trigger executor if `spin up` itself receives a termination signal
-        #[cfg(not(windows))]
-        {
-            // https://github.com/nix-rust/nix/issues/656
-            let pid = nix::unistd::Pid::from_raw(child.id() as i32);
-            ctrlc::set_handler(move || {
-                if let Err(err) = nix::sys::signal::kill(pid, nix::sys::signal::SIGTERM) {
-                    tracing::warn!("Failed to kill trigger handler process: {:?}", err)
-                }
-            })?;
-        }
-
-        let status = child.wait()?;
-        if status.success() {
-            Ok(())
-        } else {
-            Err(crate::subprocess::ExitStatusError::new(status).into())
-        }
+        let child = cmd.spawn().context("Failed to execute trigger")?;
+        Ok(child)
     }
 
     fn app_source(&self) -> AppSource {
@@ -358,8 +386,31 @@ impl UpCommand {
     }
 }
 
+#[cfg(windows)]
+fn set_kill_on_ctrl_c(trigger_processes: &Vec<tokio::process::Child>) -> Result<(), anyhow::Error> {
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn set_kill_on_ctrl_c(trigger_processes: &[tokio::process::Child]) -> Result<(), anyhow::Error> {
+    // https://github.com/nix-rust/nix/issues/656
+    let pids = trigger_processes
+        .iter()
+        .flat_map(|child| child.id().map(|id| nix::unistd::Pid::from_raw(id as i32)))
+        .collect_vec();
+    ctrlc::set_handler(move || {
+        for pid in &pids {
+            if let Err(err) = nix::sys::signal::kill(*pid, nix::sys::signal::SIGTERM) {
+                tracing::warn!("Failed to kill trigger handler process: {:?}", err)
+            }
+        }
+    })?;
+    Ok(())
+}
+
+#[derive(Clone)]
 struct RunTriggerOpts {
-    locked_app: LockedApp,
+    locked_url: String,
     working_dir: PathBuf,
     local_app_dir: Option<PathBuf>,
 }
@@ -424,16 +475,20 @@ fn trigger_command(trigger_type: &str) -> Vec<String> {
     vec!["trigger".to_owned(), trigger_type.to_owned()]
 }
 
-fn trigger_command_for_resolved_app_source(resolved: &ResolvedAppSource) -> Result<Vec<String>> {
-    let trigger_type = resolved.trigger_type()?;
-
-    match trigger_type {
-        "http" | "redis" => Ok(trigger_command(trigger_type)),
-        _ => {
-            let cmd = resolve_trigger_plugin(trigger_type)?;
-            Ok(vec![cmd])
-        }
-    }
+fn trigger_command_for_resolved_app_source(
+    resolved: &ResolvedAppSource,
+) -> Result<Vec<Vec<String>>> {
+    let trigger_type = resolved.trigger_types()?;
+    trigger_type
+        .iter()
+        .map(|&t| match t {
+            "http" | "redis" => Ok(trigger_command(t)),
+            _ => {
+                let cmd = resolve_trigger_plugin(t)?;
+                Ok(vec![cmd])
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

@@ -6488,6 +6488,7 @@ dependencies = [
  "spin-testing",
  "spin-trigger",
  "spin-world",
+ "tokio",
  "tracing",
 ]
 

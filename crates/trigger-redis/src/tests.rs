@@ -20,7 +20,7 @@ async fn test_pubsub() -> Result<()> {
         .await;
 
     let msg = create_trigger_event("messages", "hello");
-    trigger.handle(msg).await?;
+    trigger.handle("".to_owned(), msg).await?;
 
     Ok(())
 }

@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, Context};
 use spin_sdk::{
     http::{IntoResponse, Request, Response},
     http_component,

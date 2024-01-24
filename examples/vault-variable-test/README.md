@@ -34,5 +34,6 @@ spin up --runtime-config-file runtime_config.toml
 6. Test the application:
 
 ```bash
-curl -i http://127.0.0.1:3000
+$ curl localhost:3000 --data "test_password"
+{"authentication": "accepted"}
 ```

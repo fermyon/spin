@@ -1,0 +1,25 @@
+spin_manifest_version = 2
+
+[application]
+name = "vault-variable-test"
+version = "0.1.0"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "Vault Application Variable Provider Example"
+
+[[trigger.http]]
+route = "/..."
+component = "vault-variable-test"
+
+[variables]
+secret = { required = true }
+
+[component.vault-variable-test]
+source = "target/wasm32-wasi/release/vault_variable_test.wasm"
+allowed_outbound_hosts = []
+
+[component.vault-variable-test.variables]
+password = "{{ secret }}"
+
+[component.vault-variable-test.build]
+command = "cargo build --target wasm32-wasi --release"
+watch = ["src/**/*.rs", "Cargo.toml"]

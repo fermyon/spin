@@ -8,7 +8,7 @@ use spin_sdk::{
 #[http_component]
 fn handle_vault_variable_test(req: Request) -> Result<impl IntoResponse> {
     let attempt = std::str::from_utf8(req.body()).unwrap();
-    let expected = variables::get("password").expect("could not get variable");
+    let expected = variables::get("password").context("could not get variable")?;
     let response = if expected == attempt {
         "accepted"
     } else {

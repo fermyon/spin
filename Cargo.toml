@@ -131,14 +131,14 @@ reqwest = { version = "0.11", features = ["stream", "blocking"] }
 tracing = { version = "0.1", features = ["log"] }
 
 # TODO: update to final 17.0.0 release once it's available
-wasi-common-preview1 = { git = "https://github.com/bytecodealliance/wasmtime", branch = "release-17.0.0", package = "wasi-common" }
-wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", branch = "release-17.0.0", features = [
+wasi-common-preview1 = { git = "https://github.com/bytecodealliance/wasmtime", rev = "0b632023", package = "wasi-common" }
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", rev = "0b632023", features = [
   "component-model",
 ] }
-wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", branch = "release-17.0.0", features = [
+wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", rev = "0b632023", features = [
   "tokio",
 ] }
-wasmtime-wasi-http = { git = "https://github.com/bytecodealliance/wasmtime", branch = "release-17.0.0" }
+wasmtime-wasi-http = { git = "https://github.com/bytecodealliance/wasmtime", rev = "0b632023" }
 
 spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "191789170abde10cd55590466c0660dd6c7d472a" }
 

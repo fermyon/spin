@@ -96,8 +96,10 @@ impl TriggerExecutor for RedisTrigger {
             })
             .collect();
 
-        let _ = join_all(tasks).await;
-
+        // wait for the first handle to be returned and drop the rest
+        let (_, _, rest) = futures::future::select_all(tasks).await;
+        drop(rest);
+        println!("exiting");
         Ok(())
     }
 }

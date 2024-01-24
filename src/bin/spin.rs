@@ -46,6 +46,7 @@ async fn _main() -> anyhow::Result<()> {
         .with_writer(std::io::stderr)
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive("wasmtime_wasi_http=warn".parse()?)
                 .add_directive("watchexec=off".parse()?),
         )
         .with_ansi(std::io::stderr().is_terminal())

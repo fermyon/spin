@@ -1,8 +1,7 @@
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use spin_sdk::{
     http::{IntoResponse, Request, Response},
-    http_component,
-    variables,
+    http_component, variables,
 };
 
 #[http_component]

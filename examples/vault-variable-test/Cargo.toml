@@ -1,7 +1,7 @@
 [package]
 name = "vault-variable-test"
-authors = ["tpmccallum <tim.mccallum@fermyon.com>"]
-description = "A simple application that returns query values from variable providers"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "Vault Application Variable Provider Example"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,6 +10,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1"
-spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v2.1.0" }
+spin-sdk = { path = "../../sdk/rust" }
 
 [workspace]

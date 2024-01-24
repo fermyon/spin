@@ -1,0 +1,15 @@
+[package]
+name = "vault-variable-test"
+authors = ["tpmccallum <tim.mccallum@fermyon.com>"]
+description = "A simple application that returns query values from variable providers"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1"
+spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v2.1.0" }
+
+[workspace]

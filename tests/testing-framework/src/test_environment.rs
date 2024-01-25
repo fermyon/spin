@@ -41,7 +41,8 @@ impl<R> TestEnvironment<R> {
         let temp = temp_dir::TempDir::new()
             .context("failed to produce a temporary directory to run the test in")?;
         log::trace!("Temporary directory: {}", temp.path().display());
-        let mut services = Services::start(services).context("failed to start services")?;
+        let mut services =
+            Services::start(services, temp.path()).context("failed to start services")?;
         services.healthy().context("services have failed")?;
         Ok(Self {
             temp,

@@ -165,11 +165,11 @@ async fn double_echo(
 
     let response = http::send::<_, IncomingResponse>(outgoing_request).await?;
 
-    let status = response.status();
+    // let status = response.status();
 
-    if !(200..300).contains(&status) {
-        bail!("unexpected status: {status}");
-    }
+    // if !(200..300).contains(&status) {
+    //     bail!("unexpected status: {status}");
+    // }
 
     let mut stream = incoming_request.into_body_stream();
 

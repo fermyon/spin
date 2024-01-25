@@ -1,6 +1,9 @@
 mod testcases;
 
 mod spinup_tests {
+    use sha2::Digest;
+    use std::collections::HashMap;
+
     use super::testcases::{
         assert_spin_request, bootstap_env, bootstrap_smoke_test, http_smoke_test_template,
         http_smoke_test_template_with_route, redis_smoke_test_template, run_test, spin_binary,
@@ -937,6 +940,88 @@ route = "/..."
                         chunks,
                     ),
                 )?;
+
+                Ok(())
+            },
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_wasi_http_hash_all() -> anyhow::Result<()> {
+        let requests = [
+            ("/a", "’Twas brillig, and the slithy toves"),
+            ("/b", "Did gyre and gimble in the wabe:"),
+            ("/c", "All mimsy were the borogoves,"),
+            ("/d", "And the mome raths outgrabe."),
+        ]
+        .into_iter()
+        .collect::<HashMap<_, _>>();
+        run_test(
+            "wasi-http-streaming",
+            testing_framework::SpinMode::Http,
+            [],
+            testing_framework::ServicesConfig::new(vec!["http-responses-from-file".into()])?,
+            move |env| {
+                let service_url = format!(
+                    "http://localhost:{}",
+                    env.get_port(80)?
+                        .context("no http-responses-from-file port was exposed by test services")?
+                );
+                // Write responses for the `http-responses-from-file` service to a config
+                let response_config =
+                    requests
+                        .iter()
+                        .fold(String::new(), |mut sum, (path, body)| {
+                            sum.push_str(path);
+                            sum.push(' ');
+                            sum.push_str(body);
+                            sum.push('\n');
+                            sum
+                        });
+                env.write_file("responses.txt", response_config)?;
+
+                // Make a request and get a response
+                let headers = requests
+                    .iter()
+                    .map(|(path, _)| ("url", format!("{service_url}{path}")))
+                    .collect::<Vec<_>>();
+                let headers = headers
+                    .iter()
+                    .map(|(k, v)| (*k, v.as_str()))
+                    .collect::<Vec<_>>();
+                let request = testing_framework::Request::full(
+                    reqwest::Method::GET,
+                    "/hash-all",
+                    &headers,
+                    Option::<Vec<u8>>::None,
+                );
+                let response = env.runtime_mut().make_http_request(request)?;
+
+                // Assert the response
+                assert_eq!(response.status(), 200);
+                let body = response
+                    .text()
+                    .context("expected response body to be a string but wasn't")?;
+                assert!(body.lines().count() == requests.len());
+                for line in body.lines() {
+                    let (url, hash) = line.split_once(": ").with_context(|| {
+                        format!("expected string of form `<url>: <sha-256>`; got {line}")
+                    })?;
+
+                    let path = url.strip_prefix(&service_url).with_context(|| {
+                        format!("expected string with service url {service_url}; got {url}")
+                    })?;
+
+                    let mut hasher = sha2::Sha256::new();
+                    hasher.update(
+                        requests
+                            .get(path)
+                            .with_context(|| format!("unexpected path: {path}"))?,
+                    );
+                    assert_eq!(hash, hex::encode(hasher.finalize()));
+                }
 
                 Ok(())
             },

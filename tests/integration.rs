@@ -1,15 +1,13 @@
 #[cfg(test)]
 mod integration_tests {
-    use anyhow::{anyhow, Context, Error, Result};
+    use anyhow::{Context, Error, Result};
     use futures::{channel::oneshot, future, FutureExt};
     use http_body_util::BodyExt;
-    use hyper::{body::Bytes, server::conn::http1, service::service_fn, Method, StatusCode};
+    use hyper::{server::conn::http1, service::service_fn, Method, StatusCode};
     use hyper_util::rt::tokio::TokioIo;
     use reqwest::Client;
-    use sha2::{Digest, Sha256};
     use spin_http::body;
     use std::{
-        collections::HashMap,
         net::{Ipv4Addr, SocketAddrV4, TcpListener},
         path::Path,
         process::{Child, Command},
@@ -166,114 +164,6 @@ mod integration_tests {
             .await?;
         assert_eq!(200, response.status());
         assert_eq!(b"Hello, world!", body.lock().unwrap().as_slice());
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_wasi_http_hash_all() -> Result<()> {
-        let bodies = Arc::new(
-            [
-                ("/a", "’Twas brillig, and the slithy toves"),
-                ("/b", "Did gyre and gimble in the wabe:"),
-                ("/c", "All mimsy were the borogoves,"),
-                ("/d", "And the mome raths outgrabe."),
-            ]
-            .into_iter()
-            .collect::<HashMap<_, _>>(),
-        );
-
-        let listener = tokio::net::TcpListener::bind((Ipv4Addr::new(127, 0, 0, 1), 0)).await?;
-
-        let prefix = format!("http://{}", listener.local_addr()?);
-
-        let server = {
-            let bodies = bodies.clone();
-            async move {
-                loop {
-                    let (stream, _) = listener.accept().await?;
-                    let bodies = bodies.clone();
-                    task::spawn(async move {
-                        if let Err(e) = http1::Builder::new()
-                            .keep_alive(true)
-                            .serve_connection(
-                                TokioIo::new(stream),
-                                service_fn(move |request| {
-                                    let bodies = bodies.clone();
-                                    async move {
-                                        if let (&Method::GET, Some(body)) =
-                                            (request.method(), bodies.get(request.uri().path()))
-                                        {
-                                            Ok::<_, Error>(hyper::Response::new(body::full(
-                                                Bytes::copy_from_slice(body.as_bytes()),
-                                            )))
-                                        } else {
-                                            Ok(hyper::Response::builder()
-                                                .status(StatusCode::METHOD_NOT_ALLOWED)
-                                                .body(body::empty())?)
-                                        }
-                                    }
-                                }),
-                            )
-                            .await
-                        {
-                            log::warn!("{e:?}");
-                        }
-                    });
-
-                    // Help rustc with type inference:
-                    if false {
-                        return Ok::<_, Error>(());
-                    }
-                }
-            }
-        }
-        .then(|result| {
-            if let Err(e) = result {
-                log::warn!("{e:?}");
-            }
-            future::ready(())
-        })
-        .boxed();
-
-        let (_tx, rx) = oneshot::channel::<()>();
-
-        task::spawn(async move {
-            drop(future::select(server, rx).await);
-        });
-
-        let controller = SpinTestController::with_manifest(
-            "examples/wasi-http-rust-streaming-outgoing-body/spin.toml",
-            &[],
-            &[],
-        )
-        .await?;
-
-        let mut request = Client::new().get(format!("http://{}/hash-all", controller.url));
-        for path in bodies.keys() {
-            request = request.header("url", format!("{prefix}{path}"));
-        }
-        let response = request.send().await?;
-
-        assert_eq!(200, response.status());
-        let body = response.text().await?;
-        for line in body.lines() {
-            let (url, hash) = line
-                .split_once(": ")
-                .ok_or_else(|| anyhow!("expected string of form `<url>: <sha-256>`; got {line}"))?;
-
-            let path = url
-                .strip_prefix(&prefix)
-                .ok_or_else(|| anyhow!("expected string with prefix {prefix}; got {url}"))?;
-
-            let mut hasher = Sha256::new();
-            hasher.update(
-                bodies
-                    .get(path)
-                    .ok_or_else(|| anyhow!("unexpected path: {path}"))?,
-            );
-            assert_eq!(hash, hex::encode(hasher.finalize()));
-        }
 
         Ok(())
     }

@@ -25,9 +25,7 @@ mod spinup_tests {
                         reqwest::Method::GET,
                         &format!("/test?key={test_key}"),
                     ),
-                    200,
-                    &[],
-                    &test_value,
+                    testing_framework::Response::new_with_body(200, test_value),
                 )
             },
         )?;
@@ -47,9 +45,7 @@ mod spinup_tests {
                 assert_spin_request(
                     spin,
                     testing_framework::Request::new(reqwest::Method::GET, "/test/hello"),
-                    200,
-                    &[],
-                    "I'm a teapot",
+                    testing_framework::Response::new_with_body(200, "I'm a teapot"),
                 )?;
                 assert_spin_request(
                     spin,
@@ -57,16 +53,12 @@ mod spinup_tests {
                         reqwest::Method::GET,
                         "/test/hello/wildcards/should/be/handled",
                     ),
-                    200,
-                    &[],
-                    "I'm a teapot",
+                    testing_framework::Response::new_with_body(200, "I'm a teapot"),
                 )?;
                 assert_spin_request(
                     spin,
                     testing_framework::Request::new(reqwest::Method::GET, "/thishsouldfail"),
-                    404,
-                    &[],
-                    "",
+                    testing_framework::Response::new(404),
                 )?;
                 assert_spin_request(
                     spin,
@@ -74,9 +66,7 @@ mod spinup_tests {
                         reqwest::Method::GET,
                         "/test/hello/test-placement",
                     ),
-                    200,
-                    &[],
-                    "text for test",
+                    testing_framework::Response::new_with_body(200, "text for test"),
                 )
             },
         )?;
@@ -160,9 +150,16 @@ mod spinup_tests {
                 assert_spin_request(
                     spin,
                     testing_framework::Request::new(reqwest::Method::GET, "/env"),
-                    200,
-                    &[("env_some_key", "some_value"), ("ENV_foo", "bar")],
-                    "I'm a teapot",
+                    testing_framework::Response::full(
+                        200,
+                        [
+                            ("env_some_key".to_owned(), "some_value".to_owned()),
+                            ("ENV_foo".to_owned(), "bar".to_owned()),
+                        ]
+                        .into_iter()
+                        .collect(),
+                        "I'm a teapot",
+                    ),
                 )?;
                 Ok(())
             },
@@ -188,9 +185,7 @@ mod spinup_tests {
                             reqwest::Method::GET,
                             &format!("/static/thisshouldbemounted/{name}"),
                         ),
-                        200,
-                        &[],
-                        content,
+                        testing_framework::Response::new_with_body(200, content),
                     )
                 };
                 let mut assert_file_content_eq_name =
@@ -209,9 +204,7 @@ mod spinup_tests {
                             reqwest::Method::GET,
                             &format!("/static/{path}"),
                         ),
-                        404,
-                        &[],
-                        "Not Found",
+                        testing_framework::Response::new_with_body(404, "Not Found"),
                     )
                 };
 
@@ -238,9 +231,7 @@ mod spinup_tests {
                     assert_spin_request(
                         spin,
                         testing_framework::Request::new(reqwest::Method::GET, &format!("/{lang}")),
-                        200,
-                        &[],
-                        body,
+                        testing_framework::Response::new_with_body(200, body),
                     )
                 };
 
@@ -286,9 +277,7 @@ Caused by:
                 assert_spin_request(
                     spin,
                     testing_framework::Request::new(reqwest::Method::GET, "/test/outbound-allowed"),
-                    200,
-                    &[],
-                    "Hello, Fermyon!\n",
+                    testing_framework::Response::new_with_body(200, "Hello, Fermyon!\n"),
                 )?;
 
                 assert_spin_request(
@@ -297,9 +286,7 @@ Caused by:
                         reqwest::Method::GET,
                         "/test/outbound-not-allowed",
                     ),
-                    500,
-                    &[],
-                    "",
+                    testing_framework::Response::new(500),
                 )?;
 
                 Ok(())
@@ -325,7 +312,11 @@ Caused by:
                 let spin = env.runtime_mut();
                 let mut ensure_success = |uri, expected_status, expected_body| {
                     let request = testing_framework::Request::new(reqwest::Method::GET, uri);
-                    assert_spin_request(spin, request, expected_status, &[], expected_body)
+                    assert_spin_request(
+                        spin,
+                        request,
+                        testing_framework::Response::new_with_body(expected_status, expected_body),
+                    )
                 };
                 ensure_success("/test/hello", 200, "I'm a teapot")?;
                 ensure_success(
@@ -353,7 +344,11 @@ Caused by:
                 let spin = env.runtime_mut();
                 let mut ensure_success = |uri, expected_status, expected_body| {
                     let request = testing_framework::Request::new(reqwest::Method::GET, uri);
-                    assert_spin_request(spin, request, expected_status, &[], expected_body)
+                    assert_spin_request(
+                        spin,
+                        request,
+                        testing_framework::Response::new_with_body(expected_status, expected_body),
+                    )
                 };
                 ensure_success("/route1", 200, "I'm a teapot")?;
                 ensure_success("/route2", 200, "I'm a teapot")?;
@@ -399,7 +394,14 @@ Caused by:
                 assert_eq!(status, 200);
                 let spin = env.runtime_mut();
                 let request = testing_framework::Request::new(reqwest::Method::GET, "/");
-                assert_spin_request(spin, request, 200, &[], "Hello! Got password test_password")?;
+                assert_spin_request(
+                    spin,
+                    request,
+                    testing_framework::Response::new_with_body(
+                        200,
+                        "Hello! Got password test_password",
+                    ),
+                )?;
                 Ok(())
             },
         )?;
@@ -576,9 +578,7 @@ Caused by:
         assert_spin_request(
             env.runtime_mut(),
             testing_framework::Request::new(reqwest::Method::GET, "/"),
-            200,
-            &[],
-            "Hello, Fermyon",
+            testing_framework::Response::new_with_body(200, "Hello, Fermyon"),
         )?;
         Ok(())
     }
@@ -601,7 +601,7 @@ Caused by:
             testing_framework::SpinMode::Http,
             [],
             testing_framework::ServicesConfig::new(vec!["http-echo".into()])?,
-            |env| {
+            move |env| {
                 let port = env
                     .get_port(80)?
                     .context("no http-echo port was exposed by test services")?;
@@ -611,11 +611,9 @@ Caused by:
                         reqwest::Method::GET,
                         "/",
                         &[("url", &format!("http://127.0.0.1:{port}/",))],
-                        Some(body.into()),
+                        Some(body.as_bytes()),
                     ),
-                    200,
-                    &[],
-                    "Hello, world!",
+                    testing_framework::Response::new_with_body(200, "Hello, world!"),
                 )?;
                 Ok(())
             },
@@ -869,6 +867,80 @@ route = "/..."
             }
         }
         assert_eq!(missing_sources_count, 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_wasi_http_echo() -> anyhow::Result<()> {
+        wasi_http_echo("echo".into(), None)
+    }
+
+    #[test]
+    fn test_wasi_http_double_echo() -> anyhow::Result<()> {
+        wasi_http_echo("double-echo".into(), Some("echo".into()))
+    }
+
+    fn wasi_http_echo(uri: String, url_header_uri: Option<String>) -> anyhow::Result<()> {
+        let body_bytes = {
+            // A sorta-random-ish megabyte
+            let mut n = 0_u8;
+            std::iter::repeat_with(move || {
+                n = n.wrapping_add(251);
+                n
+            })
+            .take(1024 * 1024)
+            .collect::<Vec<_>>()
+        };
+        let chunks: Vec<_> = body_bytes
+            .chunks(16 * 1024)
+            .map(ToOwned::to_owned)
+            .collect();
+        let body = reqwest::Body::wrap_stream(futures::stream::iter(
+            chunks
+                .iter()
+                .map(|chunk| Ok::<_, anyhow::Error>(bytes::Bytes::copy_from_slice(chunk)))
+                .collect::<Vec<_>>(),
+        ));
+
+        run_test(
+            "wasi-http-streaming",
+            testing_framework::SpinMode::Http,
+            [],
+            testing_framework::ServicesConfig::none(),
+            move |env| {
+                let spin = env.runtime_mut();
+                let mut headers = vec![("content-type", "application/octet-stream")];
+                let url;
+                if let Some(url_header_uri) = url_header_uri {
+                    url = format!("{}/{url_header_uri}", spin.http_url().unwrap());
+                    headers.push(("url", &url));
+                }
+                let uri = format!("/{uri}");
+                let request = testing_framework::Request::full(
+                    reqwest::Method::POST,
+                    &uri,
+                    &headers,
+                    Some(body),
+                );
+                assert_spin_request(
+                    spin,
+                    request,
+                    testing_framework::Response::full(
+                        200,
+                        [(
+                            "content-type".to_owned(),
+                            "application/octet-stream".to_owned(),
+                        )]
+                        .into_iter()
+                        .collect(),
+                        chunks,
+                    ),
+                )?;
+
+                Ok(())
+            },
+        )?;
 
         Ok(())
     }

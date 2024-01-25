@@ -6645,6 +6645,7 @@ dependencies = [
  "reqwest",
  "temp-dir",
  "test-components",
+ "tokio",
  "toml 0.8.8",
 ]
 

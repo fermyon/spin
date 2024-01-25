@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod integration_tests {
     use anyhow::{anyhow, Context, Error, Result};
-    use futures::{channel::oneshot, future, stream, FutureExt};
+    use futures::{channel::oneshot, future, FutureExt};
     use http_body_util::BodyExt;
     use hyper::{body::Bytes, server::conn::http1, service::service_fn, Method, StatusCode};
     use hyper_util::rt::tokio::TokioIo;
@@ -10,7 +10,6 @@ mod integration_tests {
     use spin_http::body;
     use std::{
         collections::HashMap,
-        iter,
         net::{Ipv4Addr, SocketAddrV4, TcpListener},
         path::Path,
         process::{Child, Command},
@@ -279,16 +278,6 @@ mod integration_tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn test_wasi_http_echo() -> Result<()> {
-        wasi_http_echo("echo", None).await
-    }
-
-    #[tokio::test]
-    async fn test_wasi_http_double_echo() -> Result<()> {
-        wasi_http_echo("double-echo", Some("echo")).await
-    }
-
     /// Controller for running Spin.
     pub struct SpinTestController {
         pub url: String,
@@ -379,59 +368,6 @@ mod integration_tests {
                     sleep(Duration::from_secs(1)).await;
                 }
             }
-        }
-
-        Ok(())
-    }
-
-    async fn wasi_http_echo(uri: &str, url_header_uri: Option<&str>) -> Result<()> {
-        let body = {
-            // A sorta-random-ish megabyte
-            let mut n = 0_u8;
-            iter::repeat_with(move || {
-                n = n.wrapping_add(251);
-                n
-            })
-            .take(1024 * 1024)
-            .collect::<Vec<_>>()
-        };
-
-        let controller = SpinTestController::with_manifest(
-            "examples/wasi-http-rust-streaming-outgoing-body/spin.toml",
-            &[],
-            &[],
-        )
-        .await?;
-
-        let mut request = Client::new()
-            .post(format!("http://{}/{uri}", controller.url))
-            .header("content-type", "application/octet-stream");
-
-        if let Some(url_header_uri) = url_header_uri {
-            request = request.header("url", format!("http://{}/{url_header_uri}", controller.url));
-        }
-
-        let response = request
-            .body(reqwest::Body::wrap_stream(stream::iter(
-                body.chunks(16 * 1024)
-                    .map(|chunk| Ok::<_, Error>(Bytes::copy_from_slice(chunk)))
-                    .collect::<Vec<_>>(),
-            )))
-            .send()
-            .await?;
-
-        assert_eq!(200, response.status());
-        assert_eq!(
-            response.headers()["content-type"],
-            "application/octet-stream"
-        );
-        let received = response.bytes().await?;
-        if body != received {
-            panic!(
-                "body content mismatch (expected length {}; actual length {})",
-                body.len(),
-                received.len()
-            );
         }
 
         Ok(())

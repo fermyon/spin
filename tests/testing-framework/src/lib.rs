@@ -12,7 +12,7 @@ mod test_environment;
 
 pub use manifest_template::EnvTemplate;
 pub use services::ServicesConfig;
-pub use spin::{Request, Spin, SpinMode};
+pub use spin::{Request, Response, Spin, SpinMode};
 pub use test_environment::{TestEnvironment, TestEnvironmentConfig};
 
 #[derive(Debug, Clone, Copy)]

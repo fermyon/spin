@@ -81,20 +81,15 @@ impl TriggerExecutor for RedisTrigger {
 
     /// Run the Redis trigger indefinitely.
     async fn run(self, _config: Self::RunConfig) -> Result<()> {
-        let addresses: Vec<String> = self
+        let tasks: Vec<_> = self
             .server_channels
-            .keys()
-            .map(|key| key.to_owned())
-            .collect();
-        let tasks: Vec<_> = addresses
+            .clone()
             .into_iter()
-            .map(|address| {
+            .map(|(server_address, channel_components)| {
                 let trigger = self.clone();
-                // safe to unwrap hashmap as only address that exist are passed
-                let channel_components = self.server_channels.get(&address).unwrap().clone();
                 tokio::spawn(async move {
                     trigger
-                        .run_listener(address.clone(), channel_components)
+                        .run_listener(server_address.clone(), channel_components.clone())
                         .await
                 })
             })

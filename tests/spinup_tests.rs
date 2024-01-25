@@ -984,8 +984,8 @@ route = "/..."
 
                 // Make a request and get a response
                 let headers = requests
-                    .iter()
-                    .map(|(path, _)| ("url", format!("{service_url}{path}")))
+                    .keys()
+                    .map(|path| ("url", format!("{service_url}{path}")))
                     .collect::<Vec<_>>();
                 let headers = headers
                     .iter()

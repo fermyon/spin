@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use spin_sdk::{
     http::{self, IncomingResponse, IntoResponse, Method, Request, RequestBuilder, Response},
     http_component,
@@ -19,8 +19,6 @@ async fn handle(req: Request) -> anyhow::Result<impl IntoResponse> {
         .build();
 
     let response: IncomingResponse = http::send(request).await?;
-    let status = response.status();
-
     let body = response
         .into_body()
         .await

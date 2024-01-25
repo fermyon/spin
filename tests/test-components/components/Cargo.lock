@@ -578,6 +578,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-outbound-post"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "hex",
+ "sha2",
+ "spin-sdk",
+ "url",
+]
+
+[[package]]
 name = "spin-sdk"
 version = "2.3.0-pre0"
 dependencies = [

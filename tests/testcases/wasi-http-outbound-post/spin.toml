@@ -11,8 +11,5 @@ route = "/..."
 component = "spin-outbound-post"
 
 [component.spin-outbound-post]
-source = "target/wasm32-wasi/release/spin_outbound_post.wasm"
+source = "%{source=integration-http-outbound-post}"
 allowed_outbound_hosts = ["http://*:*", "https://*:*"]
-[component.spin-outbound-post.build]
-command = "cargo build --target wasm32-wasi --release"
-watch = ["src/**/*.rs", "Cargo.toml"]

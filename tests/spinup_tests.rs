@@ -1029,4 +1029,28 @@ route = "/..."
 
         Ok(())
     }
+
+    #[test]
+    fn test_outbound_post() -> anyhow::Result<()> {
+        run_test(
+            "wasi-http-outbound-post",
+            testing_framework::SpinMode::Http,
+            [],
+            testing_framework::ServicesConfig::new(vec!["http-echo".into()])?,
+            move |env| {
+                let service_url = format!(
+                    "http://localhost:{}",
+                    env.get_port(80)?
+                        .context("no http-echo port was exposed by test services")?
+                );
+                let headers = [("url", service_url.as_str())];
+                let request: testing_framework::Request<'_, Vec<u8>> =
+                    testing_framework::Request::full(reqwest::Method::GET, "/", &headers, None);
+                let expected = testing_framework::Response::new_with_body(200, "Hello, world!");
+                assert_spin_request(env.runtime_mut(), request, expected)
+            },
+        )?;
+
+        Ok(())
+    }
 }

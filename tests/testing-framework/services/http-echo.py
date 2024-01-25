@@ -14,7 +14,7 @@ class EchoHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
+        content_length = int(self.headers['Content-Length'] or "0")
         body = self.rfile.read(content_length)
         self._set_headers()
         self.wfile.write(body)

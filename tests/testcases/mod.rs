@@ -58,7 +58,7 @@ pub fn assert_spin_request<B: Into<reqwest::Body>>(
     if status != expected.status() {
         let stderr = spin.stderr();
         return Err(testing_framework::TestError::Failure(anyhow::anyhow!(
-            "Expected status {expected_status} for {uri} but got {status}\nBody:\n{body_string}\nStderr: {stderr}",
+            "Expected status {expected_status} for {uri} but got {status}\nBody: '{body_string}'\nStderr: '{stderr}'",
         )));
     }
     let wrong_headers: std::collections::HashMap<_, _> = expected_headers

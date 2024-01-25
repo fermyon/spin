@@ -345,8 +345,10 @@ impl HttpTrigger {
 
         loop {
             let (stream, addr) = listener.accept().await?;
-            let stream = acceptor.accept(stream).await?;
-            Self::serve_connection(self_.clone(), stream, addr);
+            match acceptor.accept(stream).await {
+                Ok(stream) => Self::serve_connection(self_.clone(), stream, addr),
+                Err(err) => tracing::error!(?err, "Failed to start TLS session"),
+            }
         }
     }
 }

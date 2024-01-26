@@ -63,8 +63,13 @@ impl outbound_http::Host for OutboundHttp {
 
             let req_url = reqwest::Url::parse(&abs_url).map_err(|_| HttpError::InvalidUrl)?;
 
-            let headers = request_headers(req.headers).map_err(|_| HttpError::RuntimeError)?;
+            let mut headers = request_headers(req.headers).map_err(|_| HttpError::RuntimeError)?;
             let body = req.body.unwrap_or_default().to_vec();
+
+            // if no content length, set it
+            if headers.get("content-length").is_none() && !body.is_empty() && headers.get("transfer-encoding").is_none() {
+                headers.append("content-length", body.len().into());
+            }
 
             if !req.params.is_empty() {
                 tracing::log::warn!("HTTP params field is deprecated");

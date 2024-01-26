@@ -79,12 +79,15 @@ pub async fn execute_external_subcommand(
     let mut command = Command::new(binary);
     command.args(args);
     command.envs(get_env_vars_map()?);
+    command.kill_on_drop(true);
 
     let badger = BadgerChecker::start(&plugin_name, plugin_version, SPIN_VERSION);
 
     log::info!("Executing command {:?}", command);
     // Allow user to interact with stdio/stdout of child process
-    let status = command.status().await?;
+    let mut child = command.spawn()?;
+    set_kill_on_ctrl_c(&child);
+    let status = child.wait().await?;
     log::info!("Exiting process with {}", status);
 
     report_badger_result(badger).await;
@@ -96,6 +99,18 @@ pub async fn execute_external_subcommand(
         }
     }
     Ok(())
+}
+
+#[cfg(windows)]
+fn set_kill_on_ctrl_c(_child: &tokio::process::Child) {}
+
+#[cfg(not(windows))]
+fn set_kill_on_ctrl_c(child: &tokio::process::Child) {
+    if let Some(pid) = child.id().map(|id| nix::unistd::Pid::from_raw(id as i32)) {
+        _ = ctrlc::set_handler(move || {
+            _ = nix::sys::signal::kill(pid, nix::sys::signal::SIGTERM);
+        });
+    }
 }
 
 async fn ensure_plugin_available(

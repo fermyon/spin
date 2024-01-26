@@ -8,7 +8,6 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::{CommandFactory, Parser};
-use itertools::Itertools;
 use reqwest::Url;
 use spin_app::locked::LockedApp;
 use spin_common::ui::quoted_path;
@@ -17,13 +16,22 @@ use spin_oci::OciLoader;
 use spin_trigger::cli::{SPIN_LOCAL_APP_DIR, SPIN_LOCKED_URL, SPIN_WORKING_DIR};
 use tempfile::TempDir;
 
-use futures::StreamExt;
-
 use crate::opts::*;
 
 use self::app_source::{AppSource, ResolvedAppSource};
 
 const APPLICATION_OPT: &str = "APPLICATION";
+
+// If multiple triggers start very close together, there is a race condition
+// where if one trigger fails during startup, other external triggers may
+// not have their cancellation hooked up.  (kill_on_drop doesn't fully solve
+// this because it kills the Spin process but that doesn't cascade to the
+// child plugin trigger process.) So add a hopefully insignificant delay
+// between them to reduce the chance of this happening.
+const MULTI_TRIGGER_START_OFFSET: tokio::time::Duration = tokio::time::Duration::from_millis(20);
+// And just in case wait a few moments before performing the first "have
+// any exited" check.
+const MULTI_TRIGGER_LET_ALL_START: tokio::time::Duration = tokio::time::Duration::from_millis(500);
 
 /// Start the Fermyon runtime.
 #[derive(Parser, Debug, Default)]
@@ -181,20 +189,30 @@ impl UpCommand {
             local_app_dir,
         };
 
-        let mut trigger_processes = self.start_trigger_processes(trigger_cmds, run_opts).await?;
+        let trigger_processes = self.start_trigger_processes(trigger_cmds, run_opts).await?;
+        let is_multi = trigger_processes.len() > 1;
+        let pids = get_pids(&trigger_processes);
 
-        set_kill_on_ctrl_c(&trigger_processes)?;
+        set_kill_on_ctrl_c(&pids)?;
 
-        let mut trigger_tasks = trigger_processes
-            .iter_mut()
-            .map(|ch| ch.wait())
-            .collect::<futures::stream::FuturesUnordered<_>>();
+        let trigger_tasks = trigger_processes
+            .into_iter()
+            .map(|mut ch| tokio::task::spawn(async move { ch.wait().await }))
+            .collect::<Vec<_>>();
 
-        let first_to_finish = trigger_tasks.next().await;
+        if is_multi {
+            tokio::time::sleep(MULTI_TRIGGER_LET_ALL_START).await;
+        }
 
-        if let Some(process_result) = first_to_finish {
+        let (first_to_finish, _index, _rest) = futures::future::select_all(trigger_tasks).await;
+
+        if let Ok(process_result) = first_to_finish {
             let status = process_result?;
             if !status.success() {
+                if is_multi {
+                    println!("A trigger exited unexpectedly. Terminating.");
+                    kill_child_processes(&pids);
+                }
                 return Err(crate::subprocess::ExitStatusError::new(status).into());
             }
         }
@@ -223,6 +241,7 @@ impl UpCommand {
         trigger_cmds: Vec<Vec<String>>,
         run_opts: RunTriggerOpts,
     ) -> anyhow::Result<Vec<tokio::process::Child>> {
+        let is_multi = trigger_cmds.len() > 1;
         let mut trigger_processes = Vec::with_capacity(trigger_cmds.len());
 
         for cmd in trigger_cmds {
@@ -231,6 +250,13 @@ impl UpCommand {
                 .await
                 .context("Failed to start trigger process")?;
             trigger_processes.push(child);
+
+            if is_multi {
+                // Allow time for the child `spin` process to launch the trigger
+                // and hook up its cancellation. Mitigates the race condition
+                // noted on the constant (see there for more info).
+                tokio::time::sleep(MULTI_TRIGGER_START_OFFSET).await;
+            }
         }
 
         Ok(trigger_processes)
@@ -387,25 +413,45 @@ impl UpCommand {
 }
 
 #[cfg(windows)]
-fn set_kill_on_ctrl_c(trigger_processes: &Vec<tokio::process::Child>) -> Result<(), anyhow::Error> {
+fn set_kill_on_ctrl_c(_pids: &[usize]) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
 #[cfg(not(windows))]
-fn set_kill_on_ctrl_c(trigger_processes: &[tokio::process::Child]) -> Result<(), anyhow::Error> {
-    // https://github.com/nix-rust/nix/issues/656
-    let pids = trigger_processes
-        .iter()
-        .flat_map(|child| child.id().map(|id| nix::unistd::Pid::from_raw(id as i32)))
-        .collect_vec();
+fn set_kill_on_ctrl_c(pids: &[nix::unistd::Pid]) -> Result<(), anyhow::Error> {
+    let pids = pids.to_owned();
     ctrlc::set_handler(move || {
-        for pid in &pids {
-            if let Err(err) = nix::sys::signal::kill(*pid, nix::sys::signal::SIGTERM) {
-                tracing::warn!("Failed to kill trigger handler process: {:?}", err)
-            }
-        }
+        kill_child_processes(&pids);
     })?;
     Ok(())
+}
+
+#[cfg(windows)]
+fn get_pids(_trigger_processes: &[tokio::process::Child]) -> Vec<usize> {
+    vec![]
+}
+
+#[cfg(not(windows))]
+fn get_pids(trigger_processes: &[tokio::process::Child]) -> Vec<nix::unistd::Pid> {
+    use itertools::Itertools;
+    // https://github.com/nix-rust/nix/issues/656
+    trigger_processes
+        .iter()
+        .flat_map(|child| child.id().map(|id| nix::unistd::Pid::from_raw(id as i32)))
+        .collect_vec()
+}
+
+#[cfg(windows)]
+fn kill_child_processes(_pids: &[usize]) {}
+
+#[cfg(not(windows))]
+fn kill_child_processes(pids: &[nix::unistd::Pid]) {
+    // https://github.com/nix-rust/nix/issues/656
+    for pid in pids {
+        if let Err(err) = nix::sys::signal::kill(*pid, nix::sys::signal::SIGTERM) {
+            tracing::warn!("Failed to kill trigger handler process: {:?}", err)
+        }
+    }
 }
 
 #[derive(Clone)]

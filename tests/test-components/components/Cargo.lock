@@ -201,6 +201,7 @@ dependencies = [
 name = "helper"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "wit-bindgen 0.16.0",
 ]
 
@@ -662,7 +663,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasi-http-rust-rc-2023-11-10"
+name = "wasi-http-rust-0-2-0"
 version = "0.1.0"
 dependencies = [
  "url",
@@ -670,7 +671,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasi-http-rust-rc-2023-12-05"
+name = "wasi-http-rust-rc-2023-11-10"
 version = "0.1.0"
 dependencies = [
  "url",

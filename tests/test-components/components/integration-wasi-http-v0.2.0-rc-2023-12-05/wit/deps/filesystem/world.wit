@@ -1,6 +1,0 @@
-package wasi:filesystem@0.2.0-rc-2023-11-10;
-
-world imports {
-    import types;
-    import preopens;
-}

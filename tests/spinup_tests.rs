@@ -589,8 +589,8 @@ Caused by:
     }
 
     #[test]
-    fn test_wasi_http_rc_12_05() -> anyhow::Result<()> {
-        test_wasi_http_rc("wasi-http-0.2.0-rc-2023-12-05")
+    fn test_wasi_http_0_2_0() -> anyhow::Result<()> {
+        test_wasi_http_rc("wasi-http-0.2.0")
     }
 
     fn test_wasi_http_rc(test_name: &str) -> anyhow::Result<()> {

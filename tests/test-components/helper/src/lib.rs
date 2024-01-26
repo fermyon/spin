@@ -1,7 +1,7 @@
 pub mod bindings {
     wit_bindgen::generate!({
         world: "platform",
-        path: "../../../wit",
+        path: "../../../wit-2023-10-18",
         runtime_path: "::wit_bindgen::rt"
     });
 }
@@ -20,7 +20,7 @@ macro_rules! define_component {
         mod bindings {
             $crate::wit_bindgen::generate!({
                 world: "http-trigger",
-                path: "../../../../wit",
+                path: "../../../../wit-2023-10-18",
                 exports: {
                     "wasi:http/incoming-handler": super::Component
                 },

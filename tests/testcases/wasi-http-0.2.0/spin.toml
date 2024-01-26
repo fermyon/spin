@@ -1,0 +1,15 @@
+spin_manifest_version = 2
+
+[application]
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "Test using wasi:http/incoming-handler@0.2.0."
+name = "wasi-http"
+version = "1.0.0"
+
+[[trigger.http]]
+route = "/..."
+component = "wasi-http"
+
+[component.wasi-http]
+source = "%{source=integration-wasi-http-v0.2.0}"
+allowed_outbound_hosts = ["http://*:*", "https://*:*"]

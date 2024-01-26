@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 wit-bindgen = "0.16.0"
+anyhow = "1.0"

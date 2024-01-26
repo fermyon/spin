@@ -23,7 +23,7 @@ pub mod wit {
 
     wit_bindgen::generate!({
         world: "platform",
-        path: "./wit",
+        path: "./wit-2023-10-18",
     });
     pub use fermyon::spin2_0_0 as v2;
 }

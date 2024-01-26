@@ -49,7 +49,7 @@ fn main() {
 
         let adapter_version = package.split('v').last().and_then(|v| match v {
             // Only allow these versions through
-            "0.2.0-rc-2023-11-10" | "0.2.0-rc-2023-12-05" => Some(v),
+            "0.2.0-rc-2023-11-10" | "0.2.0" => Some(v),
             _ => None,
         });
 

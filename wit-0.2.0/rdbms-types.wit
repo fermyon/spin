@@ -1,0 +1,80 @@
+interface rdbms-types {
+  /// Errors related to interacting with a database.
+  variant error {
+      connection-failed(string),
+      bad-parameter(string),
+      query-failed(string),
+      value-conversion-failed(string),
+      other(string)
+  }
+
+  /// Data types for a database column
+  enum db-data-type {
+      boolean,
+      int8,
+      int16,
+      int32,
+      int64,
+      uint8,
+      uint16,
+      uint32,
+      uint64,
+      floating32,
+      floating64,
+      str,
+      binary,
+      other,
+  }
+
+  /// Database values
+  variant db-value {
+      boolean(bool),
+      int8(s8),
+      int16(s16),
+      int32(s32),
+      int64(s64),
+      uint8(u8),
+      uint16(u16),
+      uint32(u32),
+      uint64(u64),
+      floating32(float32),
+      floating64(float64),
+      str(string),
+      binary(list<u8>),
+      db-null,
+      unsupported,
+  }
+
+  /// Values used in parameterized queries
+  variant parameter-value {
+      boolean(bool),
+      int8(s8),
+      int16(s16),
+      int32(s32),
+      int64(s64),
+      uint8(u8),
+      uint16(u16),
+      uint32(u32),
+      uint64(u64),
+      floating32(float32),
+      floating64(float64),
+      str(string),
+      binary(list<u8>),
+      db-null,
+  }
+
+  /// A database column
+  record column {
+      name: string,
+      data-type: db-data-type,
+  }
+
+  /// A database row
+  type row = list<db-value>;
+
+  /// A set of database rows
+  record row-set {
+      columns: list<column>,
+      rows: list<row>,
+  }
+}

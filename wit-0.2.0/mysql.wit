@@ -1,0 +1,15 @@
+interface mysql {
+  use rdbms-types.{parameter-value, row-set, error};
+
+  /// A connection to a MySQL database.
+  resource connection {
+    /// Open a connection to the MySQL instance at `address`.
+    open: static func(address: string) -> result<connection, error>;
+
+    /// query the database: select
+    query: func(statement: string, params: list<parameter-value>) -> result<row-set, error>;
+
+    /// execute command to the database: insert, update, delete
+    execute: func(statement: string, params: list<parameter-value>) -> result<_, error>;
+  }
+}

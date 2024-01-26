@@ -15,7 +15,7 @@ mod latest {
 }
 
 wasmtime::component::bindgen!({
-    path: "../../wit",
+    path: "../../wit-2023-10-18",
     interfaces: r#"
         include wasi:http/proxy@0.2.0-rc-2023-10-18;
 
@@ -1093,21 +1093,17 @@ where
 
     fn ipv6_only(
         &mut self,
-        self_: Resource<TcpSocket>,
+        _self_: Resource<TcpSocket>,
     ) -> wasmtime::Result<Result<bool, SocketErrorCode>> {
-        convert_result(<T as latest::sockets::tcp::HostTcpSocket>::ipv6_only(
-            self, self_,
-        ))
+        anyhow::bail!("ipv6-only API no longer supported")
     }
 
     fn set_ipv6_only(
         &mut self,
-        self_: Resource<TcpSocket>,
-        value: bool,
+        _self_: Resource<TcpSocket>,
+        _value: bool,
     ) -> wasmtime::Result<Result<(), SocketErrorCode>> {
-        convert_result(<T as latest::sockets::tcp::HostTcpSocket>::set_ipv6_only(
-            self, self_, value,
-        ))
+        anyhow::bail!("ipv6-only API no longer supported")
     }
 
     fn set_listen_backlog_size(
@@ -1467,23 +1463,17 @@ where
 
     fn ipv6_only(
         &mut self,
-        self_: Resource<UdpSocket>,
+        _self_: Resource<UdpSocket>,
     ) -> wasmtime::Result<Result<bool, SocketErrorCode>> {
-        let socket = self.table().get(&self_)?.inner()?;
-        convert_result(<T as latest::sockets::udp::HostUdpSocket>::ipv6_only(
-            self, socket,
-        ))
+        anyhow::bail!("ipv6-only API no longer supported")
     }
 
     fn set_ipv6_only(
         &mut self,
-        self_: Resource<UdpSocket>,
-        value: bool,
+        _self_: Resource<UdpSocket>,
+        _value: bool,
     ) -> wasmtime::Result<Result<(), SocketErrorCode>> {
-        let socket = self.table().get(&self_)?.inner()?;
-        convert_result(<T as latest::sockets::udp::HostUdpSocket>::set_ipv6_only(
-            self, socket, value,
-        ))
+        anyhow::bail!("ipv6-only API no longer supported")
     }
 
     fn unicast_hop_limit(
@@ -2150,7 +2140,7 @@ where
     }
 }
 
-fn convert_result<T, T2, E, E2>(
+pub fn convert_result<T, T2, E, E2>(
     result: Result<T, TrappableError<E>>,
 ) -> wasmtime::Result<Result<T2, E2>>
 where

@@ -32,7 +32,8 @@ pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
 #[derive(Parser, Debug)]
 #[clap(
     usage = "spin [COMMAND] [OPTIONS]",
-    next_help_heading = "TRIGGER OPTIONS"
+    next_help_heading = "TRIGGER OPTIONS",
+    ignore_errors = true
 )]
 pub struct TriggerExecutorCommand<Executor: TriggerExecutor>
 where

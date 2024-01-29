@@ -177,7 +177,19 @@ impl Spin {
             .enable_all()
             .build()?;
         let response = rt.block_on(async {
-            let mut response = reqwest::Client::new().execute(outgoing).await?;
+            let mut retries = 0;
+            let mut response = loop {
+                let Some(request) = outgoing.try_clone() else {
+                    break reqwest::Client::new().execute(outgoing).await;
+                };
+                let response = reqwest::Client::new().execute(request).await;
+                if response.is_err() && retries < 5 {
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                    retries += 1;
+                } else {
+                    break response;
+                }
+            }?;
             let mut chunks = Vec::new();
             while let Some(chunk) = response.chunk().await? {
                 chunks.push(chunk.to_vec());

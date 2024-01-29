@@ -6623,6 +6623,7 @@ version = "0.0.0"
 dependencies = [
  "heck 0.4.1",
  "quote",
+ "syn 2.0.39",
 ]
 
 [[package]]

@@ -1,8 +1,7 @@
 use anyhow::Context;
-use redis::Commands;
 use std::path::PathBuf;
 
-/// Run an e2e test
+/// Run an integration test
 pub fn run_test(
     test_name: impl Into<String>,
     mode: testing_framework::SpinMode,
@@ -173,6 +172,7 @@ pub fn http_smoke_test_template_with_route(
 }
 
 /// Run a smoke test for a `spin new` redis template
+#[cfg(feature = "extern-dependencies-tests")]
 pub fn redis_smoke_test_template(
     template_name: &str,
     template_url: Option<&str>,
@@ -180,6 +180,7 @@ pub fn redis_smoke_test_template(
     new_app_args: impl FnOnce(u16) -> Vec<String>,
     prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
+    use redis::Commands;
     let mut env = bootstrap_smoke_test(
         &testing_framework::ServicesConfig::new(vec!["redis".into()])?,
         template_url,

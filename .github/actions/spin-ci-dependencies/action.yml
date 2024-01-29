@@ -72,6 +72,12 @@ inputs:
     required: false
     type: string
 
+  docker: 
+    description: 'setup docker'
+    required: false
+    default: 'false'
+    type: bool
+
 runs:
   using: "composite"
   steps:

@@ -1,12 +1,11 @@
 mod testcases;
 
-mod spinup_tests {
+mod integration_tests {
     use sha2::Digest;
     use std::collections::HashMap;
 
     use super::testcases::{
-        assert_spin_request, bootstap_env, bootstrap_smoke_test, http_smoke_test_template,
-        http_smoke_test_template_with_route, redis_smoke_test_template, run_test, spin_binary,
+        assert_spin_request, bootstap_env, http_smoke_test_template, run_test, spin_binary,
     };
     use anyhow::Context;
 
@@ -78,6 +77,7 @@ mod spinup_tests {
     }
 
     #[test]
+    #[cfg(feature = "extern-dependencies-tests")]
     /// Test that basic redis trigger support works
     fn redis_smoke_test() -> anyhow::Result<()> {
         /// Helper macro to assert that a condition is true eventually
@@ -364,6 +364,7 @@ Caused by:
     }
 
     #[test]
+    #[cfg(feature = "extern-dependencies-tests")]
     fn test_vault_config_provider() -> anyhow::Result<()> {
         use std::collections::HashMap;
         const VAULT_ROOT_TOKEN: &str = "root";
@@ -413,7 +414,8 @@ Caused by:
     }
 
     #[test]
-    #[cfg(feature = "e2e-tests")]
+    #[cfg(feature = "extern-dependencies-tests")]
+    // Ignore until https://github.com/fermyon/spin-python-sdk/pull/65 is merged
     fn http_python_template_smoke_test() -> anyhow::Result<()> {
         http_smoke_test_template(
             "http-py",
@@ -425,13 +427,13 @@ Caused by:
     }
 
     #[test]
-    #[cfg(feature = "e2e-tests")]
+    #[cfg(feature = "extern-dependencies-tests")]
     fn http_c_template_smoke_test() -> anyhow::Result<()> {
         http_smoke_test_template("http-c", None, &[], |_| Ok(()), "Hello from WAGI/1\n")
     }
 
     #[test]
-    #[cfg(feature = "e2e-tests")]
+    #[cfg(feature = "extern-dependencies-tests")]
     fn http_go_template_smoke_test() -> anyhow::Result<()> {
         let prebuild = |env: &mut testing_framework::TestEnvironment<_>| {
             let mut tidy = std::process::Command::new("go");
@@ -443,7 +445,7 @@ Caused by:
     }
 
     #[test]
-    #[cfg(feature = "e2e-tests")]
+    #[cfg(feature = "extern-dependencies-tests")]
     fn http_js_template_smoke_test() -> anyhow::Result<()> {
         let prebuild = |env: &mut testing_framework::TestEnvironment<_>| {
             let mut tidy = std::process::Command::new("npm");
@@ -461,7 +463,7 @@ Caused by:
     }
 
     #[test]
-    #[cfg(feature = "e2e-tests")]
+    #[cfg(feature = "extern-dependencies-tests")]
     fn http_ts_template_smoke_test() -> anyhow::Result<()> {
         let prebuild = |env: &mut testing_framework::TestEnvironment<_>| {
             let mut tidy = std::process::Command::new("npm");
@@ -480,26 +482,27 @@ Caused by:
 
     #[test]
     #[cfg(target_arch = "x86_64")]
-    #[cfg(feature = "e2e-tests")]
+    #[cfg(feature = "extern-dependencies-tests")]
     fn http_grain_template_smoke_test() -> anyhow::Result<()> {
         http_smoke_test_template("http-grain", None, &[], |_| Ok(()), "Hello, World\n")
     }
 
     #[test]
-    #[cfg(feature = "e2e-tests")]
+    #[cfg(feature = "extern-dependencies-tests")]
     fn http_zig_template_smoke_test() -> anyhow::Result<()> {
         http_smoke_test_template("http-zig", None, &[], |_| Ok(()), "Hello World!\n")
     }
 
     #[test]
-    #[cfg(feature = "e2e-tests")]
+    #[cfg(feature = "extern-dependencies-tests")]
     fn http_swift_template_smoke_test() -> anyhow::Result<()> {
         http_smoke_test_template("http-swift", None, &[], |_| Ok(()), "Hello from WAGI/1!\n")
     }
 
     #[test]
+    #[cfg(feature = "extern-dependencies-tests")]
     fn http_php_template_smoke_test() -> anyhow::Result<()> {
-        http_smoke_test_template_with_route(
+        super::testcases::http_smoke_test_template_with_route(
             "http-php",
             None,
             &[],
@@ -510,8 +513,9 @@ Caused by:
     }
 
     #[test]
+    #[cfg(feature = "extern-dependencies-tests")]
     fn redis_go_template_smoke_test() -> anyhow::Result<()> {
-        redis_smoke_test_template(
+        super::testcases::redis_smoke_test_template(
             "redis-go",
             None,
             &[],
@@ -533,8 +537,9 @@ Caused by:
     }
 
     #[test]
+    #[cfg(feature = "extern-dependencies-tests")]
     fn redis_rust_template_smoke_test() -> anyhow::Result<()> {
-        redis_smoke_test_template(
+        super::testcases::redis_smoke_test_template(
             "redis-rust",
             None,
             &[],
@@ -551,6 +556,7 @@ Caused by:
     }
 
     #[test]
+    #[cfg(feature = "extern-dependencies-tests")]
     fn registry_works() -> anyhow::Result<()> {
         let services = testing_framework::ServicesConfig::new(vec!["registry".into()])?;
         let spin_up_args = |env: &mut testing_framework::TestEnvironment<()>| {
@@ -568,7 +574,7 @@ Caused by:
                 "--insecure".into(),
             ])
         };
-        let mut env = bootstrap_smoke_test(
+        let mut env = super::testcases::bootstrap_smoke_test(
             &services,
             None,
             &[],
@@ -1072,7 +1078,6 @@ route = "/..."
         // be very fast.
         assert!(std::process::Command::new("cargo")
             .arg("build")
-            // .arg("--release")
             .arg("--target-dir")
             .arg(trigger_dir.join("target"))
             .arg("--manifest-path")
@@ -1087,7 +1092,7 @@ route = "/..."
         let plugin_dir = plugins_dir.join("trigger-timer");
         fs::create_dir_all(&plugin_dir)?;
         fs::copy(
-            trigger_dir.join("target/release/trigger-timer"),
+            trigger_dir.join("target/debug/trigger-timer"),
             plugin_dir.join("trigger-timer"),
         )
         .context("could not copy plugin binary into plugin directory")?;

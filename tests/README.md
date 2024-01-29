@@ -23,17 +23,16 @@ The runtime tests are handled through the `runtime-tests` support crate. See the
 You can run runtime tests like so:
 
 ```bash
-cargo test runtime_tests -F e2e-tests
+cargo test runtime_tests -F extern-dependencies-tests
 ```
 
 # Integration tests
 
 Integration tests are meant to test anything that cannot be tested through some other testing mechanism usually because the scenario under test is complicated and involves the interaction between many different subsystems.  Historically, integration tests have been a landing pad for experimentation around testing that have eventually been turned into their own class of tests. 
 
-Currently, integration tests are split between two different modules that will soon be combined into one: `integration_tests` and `spinup_tests`.
-
 You can run integration tests like so:
 ```bash
 make test-integration
-make test-spin-up
 ```
+
+Note that this also runs the runtime tests as well.

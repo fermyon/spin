@@ -32,7 +32,7 @@ pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
 #[derive(Parser, Debug)]
 #[clap(
     usage = "spin [COMMAND] [OPTIONS]",
-    next_help_heading = "TRIGGER OPTIONS"
+    next_help_heading = help_heading::<Executor>()
 )]
 pub struct TriggerExecutorCommand<Executor: TriggerExecutor>
 where
@@ -253,6 +253,12 @@ fn warn_if_wasm_build_slothful() -> sloth::SlothGuard {
     let message = "Preparing Wasm modules is taking a few seconds...";
 
     sloth::warn_if_slothful(SLOTH_WARNING_DELAY_MILLIS, format!("{message}\n"))
+}
+
+fn help_heading<E: TriggerExecutor>() -> Option<&'static str> {
+    let heading = format!("{} TRIGGER OPTIONS", E::TRIGGER_TYPE.to_uppercase());
+    let as_str = Box::new(heading).leak();
+    Some(as_str)
 }
 
 pub mod help {

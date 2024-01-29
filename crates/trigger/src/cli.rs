@@ -256,9 +256,13 @@ fn warn_if_wasm_build_slothful() -> sloth::SlothGuard {
 }
 
 fn help_heading<E: TriggerExecutor>() -> Option<&'static str> {
-    let heading = format!("{} TRIGGER OPTIONS", E::TRIGGER_TYPE.to_uppercase());
-    let as_str = Box::new(heading).leak();
-    Some(as_str)
+    if E::TRIGGER_TYPE == help::HelpArgsOnlyTrigger::TRIGGER_TYPE {
+        Some("TRIGGER OPTIONS")
+    } else {
+        let heading = format!("{} TRIGGER OPTIONS", E::TRIGGER_TYPE.to_uppercase());
+        let as_str = Box::new(heading).leak();
+        Some(as_str)
+    }
 }
 
 pub mod help {

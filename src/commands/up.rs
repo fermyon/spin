@@ -166,12 +166,26 @@ impl UpCommand {
         let trigger_cmds = trigger_command_for_resolved_app_source(&resolved_app_source)
             .with_context(|| format!("Couldn't find trigger executor for {app_source}"))?;
 
+        let is_multi = trigger_cmds.len() > 1;
+
         if self.help {
+            if is_multi {
+                // For now, only common flags are allowed on multi-trigger apps.
+                let mut child = self
+                    .start_trigger(trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE), None)
+                    .await?;
+                let _ = child.wait().await?;
+                return Ok(());
+            }
             for cmd in trigger_cmds {
                 let mut help_process = self.start_trigger(cmd.clone(), None).await?;
                 _ = help_process.wait().await;
             }
             return Ok(());
+        }
+
+        if is_multi {
+            self.allow_only_common_flags()?;
         }
 
         let mut locked_app = self
@@ -190,7 +204,6 @@ impl UpCommand {
         };
 
         let trigger_processes = self.start_trigger_processes(trigger_cmds, run_opts).await?;
-        let is_multi = trigger_processes.len() > 1;
         let pids = get_pids(&trigger_processes);
 
         set_kill_on_ctrl_c(&pids)?;
@@ -410,6 +423,57 @@ impl UpCommand {
             }
         }
     }
+
+    fn allow_only_common_flags(&self) -> anyhow::Result<()> {
+        allow_only_common_flags(&self.trigger_args)
+    }
+}
+
+const COMMON_FLAGS: &[&str] = &[
+    "-L",
+    "--log-dir",
+    "--disable-cache",
+    "--cache",
+    "--disable-pooling",
+    "--follow",
+    "-q",
+    "--quiet",
+    "--sh",
+    "--shush",
+    "--allow-transient-write",
+    "--runtime-config-file",
+    "--state-dir",
+    "--key-value",
+    "--sqlite",
+    "--help-args-only",
+];
+
+fn allow_only_common_flags(args: &[OsString]) -> anyhow::Result<()> {
+    for i in 0..(args.len()) {
+        let Some(value) = args[i].to_str() else {
+            // Err on the side of forgiveness
+            continue;
+        };
+        if value.starts_with('-') {
+            // Flag candidate. Is it allowed?
+            if !is_common_flag(value) {
+                anyhow::bail!("Cannot use trigger option '{value}'. Apps with multiple trigger types do not yet support options specific to one trigger type.");
+            }
+        } else if i >= 1 {
+            // Value candidate. Does it immediately follow a flag?
+            let Some(prev) = args[i - 1].to_str() else {
+                continue;
+            };
+            if !prev.starts_with('-') {
+                anyhow::bail!("Cannot use trigger option '{value}'. Apps with multiple trigger types do not yet support options specific to one trigger type.");
+            }
+        }
+    }
+    Ok(())
+}
+
+fn is_common_flag(candidate: &str) -> bool {
+    COMMON_FLAGS.contains(&candidate)
 }
 
 #[cfg(windows)]
@@ -702,5 +766,29 @@ mod test {
             .expect("Failed to parse implicit source with option");
         UpCommand::try_parse_from(["up", "--listen", "127.0.0.1:39453"])
             .expect("Failed to parse implicit source with trigger option");
+    }
+
+    #[test]
+    fn multi_accept_no_trigger_args() {
+        allow_only_common_flags(&[]).expect("should allow no trigger args");
+    }
+
+    #[test]
+    fn multi_accept_only_common_args() {
+        let args: Vec<_> = ["--log-dir", "/fie", "-q", "--sqlite", "SOME SQL"]
+            .iter()
+            .map(OsString::from)
+            .collect();
+        allow_only_common_flags(&args).expect("should allow common trigger args");
+    }
+
+    #[test]
+    fn multi_reject_trigger_specific_args() {
+        let args: Vec<_> = ["--log-dir", "/fie", "--listen", "some.address"]
+            .iter()
+            .map(OsString::from)
+            .collect();
+        let e = allow_only_common_flags(&args).expect_err("should reject trigger-specific args");
+        assert!(e.to_string().contains("'--listen'"));
     }
 }

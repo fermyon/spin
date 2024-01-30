@@ -10,6 +10,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1"
-spin-sdk = { git = "https://github.com/fermyon/spin", branch = "main" }
+spin-sdk = "2.2.0"
 
 [workspace]

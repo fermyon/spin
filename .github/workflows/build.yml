@@ -112,7 +112,7 @@ jobs:
           name: spin-static-${{ matrix.config.arch }}
           path: target/${{ matrix.config.target }}/release/spin
 
-  build-rust:
+  build-spin:
     name: Build Spin
     runs-on: ${{ matrix.os }}
     strategy:
@@ -140,7 +140,7 @@ jobs:
           path: target/release/spin${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
 
-  test-rust:
+  test-spin:
     name: Test Spin
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -230,5 +230,4 @@ jobs:
           echo "$PWD" >> $GITHUB_PATH
 
       - name: Run Full Integration Tests
-        run: |
-          make test-integration-full
+        run: make test-integration-full

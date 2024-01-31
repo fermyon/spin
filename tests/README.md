@@ -36,3 +36,9 @@ make test-integration
 ```
 
 Note that this also runs the runtime tests as well.
+
+This will not run the full integration test suite, but a subset that only relies the presence of Rust and Python toolchains. The full integration test suite runs tests that rely on Docker and some additional compiler toolchains (e.g., Swift, Zig, etc.). Eventually, we want to only require the presence of Docker, but we're not quite there yet. You can run the full test suite like so:
+
+```bash
+make test-integration-full
+```

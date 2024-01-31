@@ -19,7 +19,7 @@ pub struct Services {
 
 impl Services {
     /// Start all the required services given a path to service definitions
-    pub fn start(config: &ServicesConfig) -> anyhow::Result<Self> {
+    pub fn start(config: &ServicesConfig, working_dir: &Path) -> anyhow::Result<Self> {
         let mut services = Vec::new();
         for required_service in &config.services {
             let service_definition_extension =
@@ -28,6 +28,7 @@ impl Services {
                 Some("py") => Box::new(PythonService::start(
                     required_service,
                     &config.definitions_path,
+                    working_dir,
                 )?),
                 Some("Dockerfile") => Box::new(DockerService::start(
                     required_service,

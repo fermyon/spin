@@ -48,7 +48,7 @@ jobs:
         if: failure()
         uses: andymckay/cancel-action@0.2
 
-  ## This is separated out to remove e2e-tests dependency on windows/mac builds
+  ## This is separated out to remove full integration tests dependencies on windows/mac builds
   build-rust-ubuntu:
     name: Build Spin Ubuntu
     runs-on: ubuntu-latest
@@ -157,11 +157,15 @@ jobs:
           rust-cache: true
           nomad: true
 
-      - name: Cargo Unit and Integration Tests
+      - name: Run Unit Tests
         run: |
-          make test-unit test-integration
-        env:
-          CARGO_INCREMENTAL: 0
+          make test-unit
+
+      - name: Run Integration Tests
+        run: |
+          make test-integration
+        # Only run integration tests on macOS as they will be run on ubuntu separately
+        if: ${{ matrix.runner == 'macos-latest' }}
 
   test-go:
     name: Test Spin SDK - Go
@@ -193,7 +197,7 @@ jobs:
       - name: "Test Go SDK"
         run: make test-sdk-go
 
-  e2e-tests:
+  all-integration-tests:
     # run on a larger runner for more SSD/resource access
     runs-on: ubuntu-22.04-4core-spin
     if: ${{ github.repository_owner == 'fermyon' }}
@@ -225,6 +229,6 @@ jobs:
           mv grain-linux-x64 grain
           echo "$PWD" >> $GITHUB_PATH
 
-      - name: Run e2e tests
+      - name: Run Full Integration Tests
         run: |
-          make test-spin-up
+          make test-integration-full

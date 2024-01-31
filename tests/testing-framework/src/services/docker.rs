@@ -107,7 +107,21 @@ impl Service for DockerService {
             let output = String::from_utf8(output.stdout)?;
             match output.trim() {
                 "healthy" => self.ready = true,
-                "unhealthy" => bail!("docker container is unhealthy"),
+                "unhealthy" => {
+                    let output = Command::new("docker")
+                        .arg("container")
+                        .arg("inspect")
+                        .arg("-f")
+                        // Ensure that .State.Health exists and otherwise just print that there are no logs
+                        .arg("{{with .State.Health}}{{json .Log}}{{else}}<NO LOG>{{end}}")
+                        .arg(&self.container.id)
+                        .output();
+                    let logs = output
+                        .as_ref()
+                        .map(|o| String::from_utf8_lossy(&o.stdout))
+                        .unwrap_or_else(|_| "<failed to get health check logs>".into());
+                    bail!("docker container is unhealthy:\n{logs}")
+                }
                 _ => std::thread::sleep(std::time::Duration::from_millis(100)),
             }
         }

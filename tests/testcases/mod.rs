@@ -1,9 +1,7 @@
 use anyhow::Context;
-use redis::Commands;
-use reqwest::header::HeaderValue;
 use std::path::PathBuf;
 
-/// Run an e2e test
+/// Run an integration test
 pub fn run_test(
     test_name: impl Into<String>,
     mode: testing_framework::SpinMode,
@@ -39,40 +37,61 @@ pub fn bootstap_env(
 }
 
 /// Assert that a request to the spin server returns the expected status and body
-pub fn assert_spin_request(
+pub fn assert_spin_request<B: Into<reqwest::Body>>(
     spin: &mut testing_framework::Spin,
-    request: testing_framework::Request<'_>,
-    expected_status: u16,
-    expected_headers: &[(&str, &str)],
-    expected_body: &str,
+    request: testing_framework::Request<'_, B>,
+    expected: testing_framework::Response,
 ) -> testing_framework::TestResult<anyhow::Error> {
     let uri = request.uri;
-    let mut r = spin.make_http_request(request)?;
+    let r = spin.make_http_request(request)?;
     let status = r.status();
-    let headers = std::mem::take(r.headers_mut());
-    let body = r.text().unwrap_or_else(|_| String::from("<non-utf8>"));
-    if status != expected_status {
+    let expected_status = expected.status();
+    let headers = r.headers();
+    let expected_headers = expected.headers();
+    let body_string = r
+        .text()
+        .unwrap_or_else(|_| format!("{}", TruncatedSlice(&r.body())));
+    let expected_body_string = expected
+        .text()
+        .unwrap_or_else(|_| format!("{}", TruncatedSlice(&expected.body())));
+    if status != expected.status() {
         let stderr = spin.stderr();
         return Err(testing_framework::TestError::Failure(anyhow::anyhow!(
-            "Expected status {expected_status} for {uri} but got {status}\nBody:\n{body}\nStderr: {stderr}",
+            "Expected status {expected_status} for {uri} but got {status}\nBody: '{body_string}'\nStderr: '{stderr}'",
         )));
     }
     let wrong_headers: std::collections::HashMap<_, _> = expected_headers
         .iter()
-        .copied()
-        .filter(|(ek, ev)| headers.get(*ek) != Some(&HeaderValue::from_str(ev).unwrap()))
+        .filter(|(ek, ev)| headers.get(*ek).map(String::as_str) != Some(ev))
         .collect();
     if !wrong_headers.is_empty() {
         return Err(testing_framework::TestError::Failure(anyhow::anyhow!(
-            "Expected headers {headers:?}  to contain {wrong_headers:?}\nBody:\n{body}"
+            "Expected headers {headers:?}  to contain {wrong_headers:?}\nBody:\n{body_string}"
         )));
     }
-    if body != expected_body {
+    if r.body() != expected.body() {
         return Err(testing_framework::TestError::Failure(anyhow::anyhow!(
-            "expected body '{expected_body}', got '{body}'"
+            "expected body chunk '{expected_body_string}', got '{body_string}'",
         )));
     }
     Ok(())
+}
+
+struct TruncatedSlice<'a, T>(&'a [T]);
+
+impl<'a, T: std::fmt::Display> std::fmt::Display for TruncatedSlice<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("[")?;
+        for item in self.0.iter().take(10) {
+            f.write_fmt(format_args!("{item}, "))?;
+        }
+        if self.0.len() > 10 {
+            f.write_fmt(format_args!("...({} more items)]", self.0.len() - 10))?;
+        } else {
+            f.write_str("]")?;
+        }
+        Ok(())
+    }
 }
 
 /// Get the test environment ready to run a test
@@ -146,15 +165,14 @@ pub fn http_smoke_test_template_with_route(
     assert_spin_request(
         env.runtime_mut(),
         testing_framework::Request::new(reqwest::Method::GET, route),
-        200,
-        &[],
-        expected_body,
+        testing_framework::Response::full(200, Default::default(), expected_body),
     )?;
 
     Ok(())
 }
 
 /// Run a smoke test for a `spin new` redis template
+#[cfg(feature = "extern-dependencies-tests")]
 pub fn redis_smoke_test_template(
     template_name: &str,
     template_url: Option<&str>,
@@ -162,6 +180,7 @@ pub fn redis_smoke_test_template(
     new_app_args: impl FnOnce(u16) -> Vec<String>,
     prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
+    use redis::Commands;
     let mut env = bootstrap_smoke_test(
         &testing_framework::ServicesConfig::new(vec!["redis".into()])?,
         template_url,

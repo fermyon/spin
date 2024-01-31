@@ -13,3 +13,4 @@ reqwest = { workspace = true }
 temp-dir = "0.1.11"
 test-components = { path = "../test-components" }
 toml = "0.8.6"
+tokio = "1.23"

@@ -1,0 +1,15 @@
+spin_manifest_version = 2
+
+[application]
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "Demonstrates outbound HTTP calls"
+name = "spin-outbound-post"
+version = "1.0.0"
+
+[[trigger.http]]
+route = "/..."
+component = "spin-outbound-post"
+
+[component.spin-outbound-post]
+source = "%{source=integration-http-outbound-post}"
+allowed_outbound_hosts = ["http://*:*", "https://*:*"]

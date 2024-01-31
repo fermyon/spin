@@ -4,7 +4,13 @@ mod runtime_tests {
 
     // The macro inspects the tests directory and
     // generates individual tests for each one.
-    test_codegen_macro::codegen_runtime_tests!();
+    test_codegen_macro::codegen_runtime_tests!(
+        ignore: [
+            // This test is flacky. Often gets "Connection reset by peer" errors.
+            // https://github.com/fermyon/spin/issues/2265
+            "outbound-postgres"
+        ]
+    );
 
     fn run(test_path: PathBuf) {
         let config = runtime_tests::RuntimeTestConfig {

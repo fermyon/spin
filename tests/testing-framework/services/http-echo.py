@@ -14,7 +14,7 @@ class EchoHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
+        content_length = int(self.headers['Content-Length'] or "0")
         body = self.rfile.read(content_length)
         self._set_headers()
         self.wfile.write(body)
@@ -24,7 +24,7 @@ def run():
     server_address = ('', 0)
     httpd = HTTPServer(server_address, EchoHandler)
     print(f'Starting http server...')
-    port = selected_port = httpd.server_address[1]
+    port = httpd.server_address[1]
     print(f'PORT=(80,{port})')
     print(f'READY',  flush=True)
     httpd.serve_forever()

@@ -2,6 +2,7 @@ use anyhow::Context;
 
 use crate::{io::OutputStream, Runtime, TestEnvironment};
 use std::{
+    collections::HashMap,
     path::Path,
     process::{Command, Stdio},
 };
@@ -145,10 +146,10 @@ impl Spin {
     /// Make an HTTP request against Spin
     ///
     /// Will fail if Spin has already exited or if the io mode is not HTTP
-    pub fn make_http_request(
+    pub fn make_http_request<B: Into<reqwest::Body>>(
         &mut self,
-        request: Request<'_>,
-    ) -> anyhow::Result<reqwest::blocking::Response> {
+        request: Request<'_, B>,
+    ) -> anyhow::Result<Response> {
         let IoMode::Http(port) = self.io_mode else {
             anyhow::bail!("Spin is not running in HTTP mode");
         };
@@ -156,7 +157,7 @@ impl Spin {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
         }
         log::debug!("Connecting to HTTP server on port {port}...");
-        let mut outgoing = reqwest::blocking::Request::new(
+        let mut outgoing = reqwest::Request::new(
             request.method,
             reqwest::Url::parse(&format!("http://localhost:{port}"))
                 .unwrap()
@@ -172,12 +173,55 @@ impl Spin {
                 )
             }));
         *outgoing.body_mut() = request.body.map(Into::into);
-        let response = reqwest::blocking::Client::new().execute(outgoing)?;
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        let response = rt.block_on(async {
+            let mut retries = 0;
+            let mut response = loop {
+                let Some(request) = outgoing.try_clone() else {
+                    break reqwest::Client::new().execute(outgoing).await;
+                };
+                let response = reqwest::Client::new().execute(request).await;
+                if response.is_err() && retries < 5 {
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                    retries += 1;
+                } else {
+                    break response;
+                }
+            }?;
+            let mut chunks = Vec::new();
+            while let Some(chunk) = response.chunk().await? {
+                chunks.push(chunk.to_vec());
+            }
+            Result::<_, anyhow::Error>::Ok(Response {
+                status: response.status().as_u16(),
+                headers: response
+                    .headers()
+                    .into_iter()
+                    .map(|(k, v)| {
+                        (
+                            k.as_str().to_owned(),
+                            v.to_str().unwrap_or("<non-utf8>").to_owned(),
+                        )
+                    })
+                    .collect(),
+                chunks,
+            })
+        })?;
         log::debug!("Awaiting response from server");
         if let Some(status) = self.try_wait()? {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
         }
         Ok(response)
+    }
+
+    /// Get the HTTP URL of the Spin server if running in http mode
+    pub fn http_url(&self) -> Option<String> {
+        match self.io_mode {
+            IoMode::Http(port) => Some(format!("http://localhost:{}", port)),
+            _ => None,
+        }
     }
 
     pub fn stdout(&mut self) -> &str {
@@ -249,14 +293,14 @@ fn get_random_port() -> anyhow::Result<u16> {
 }
 
 /// A request to the spin server
-pub struct Request<'a> {
+pub struct Request<'a, B> {
     pub method: reqwest::Method,
     pub uri: &'a str,
     pub headers: &'a [(&'a str, &'a str)],
-    pub body: Option<Vec<u8>>,
+    pub body: Option<B>,
 }
 
-impl<'a> Request<'a> {
+impl<'a, 'b> Request<'a, &'b [u8]> {
     /// Create a new request with no headers or body
     pub fn new(method: reqwest::Method, uri: &'a str) -> Self {
         Self {
@@ -266,13 +310,15 @@ impl<'a> Request<'a> {
             body: None,
         }
     }
+}
 
+impl<'a, B> Request<'a, B> {
     /// Create a new request with headers and a body
     pub fn full(
         method: reqwest::Method,
         uri: &'a str,
         headers: &'a [(&'a str, &'a str)],
-        body: Option<Vec<u8>>,
+        body: Option<B>,
     ) -> Self {
         Self {
             method,
@@ -280,5 +326,95 @@ impl<'a> Request<'a> {
             headers,
             body,
         }
+    }
+}
+
+pub struct Response {
+    status: u16,
+    headers: HashMap<String, String>,
+    chunks: Vec<Vec<u8>>,
+}
+
+impl Response {
+    /// A response with no headers or body
+    pub fn new(status: u16) -> Self {
+        Self {
+            status,
+            headers: Default::default(),
+            chunks: Default::default(),
+        }
+    }
+
+    /// A response with headers and a body
+    pub fn new_with_body(status: u16, chunks: impl IntoChunks) -> Self {
+        Self {
+            status,
+            headers: Default::default(),
+            chunks: chunks.into_chunks(),
+        }
+    }
+
+    /// A response with headers and a body
+    pub fn full(status: u16, headers: HashMap<String, String>, chunks: impl IntoChunks) -> Self {
+        Self {
+            status,
+            headers,
+            chunks: chunks.into_chunks(),
+        }
+    }
+
+    /// The status code of the response
+    pub fn status(&self) -> u16 {
+        self.status
+    }
+
+    /// The headers of the response
+    pub fn headers(&self) -> &HashMap<String, String> {
+        &self.headers
+    }
+
+    /// The body of the response
+    pub fn body(&self) -> Vec<u8> {
+        self.chunks.iter().flatten().copied().collect()
+    }
+
+    /// The body of the response as chunks of bytes
+    ///
+    /// If the response is not stream this will be a single chunk equal to the body
+    pub fn chunks(&self) -> &[Vec<u8>] {
+        &self.chunks
+    }
+
+    /// The body of the response as a string
+    pub fn text(&self) -> Result<String, std::string::FromUtf8Error> {
+        String::from_utf8(self.body())
+    }
+}
+
+pub trait IntoChunks {
+    fn into_chunks(self) -> Vec<Vec<u8>>;
+}
+
+impl IntoChunks for Vec<Vec<u8>> {
+    fn into_chunks(self) -> Vec<Vec<u8>> {
+        self
+    }
+}
+
+impl IntoChunks for Vec<u8> {
+    fn into_chunks(self) -> Vec<Vec<u8>> {
+        vec![self]
+    }
+}
+
+impl IntoChunks for String {
+    fn into_chunks(self) -> Vec<Vec<u8>> {
+        vec![self.into_bytes()]
+    }
+}
+
+impl IntoChunks for &str {
+    fn into_chunks(self) -> Vec<Vec<u8>> {
+        vec![self.as_bytes().into()]
     }
 }

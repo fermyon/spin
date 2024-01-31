@@ -21,7 +21,7 @@ name = "spin_sdk"
 anyhow = "1"
 async-trait = "0.1.74"
 form_urlencoded = "1.0"
-spin-macro = { version = "2.2.0-pre0", path = "macro" }
+spin-macro = { version = "2.3.0-pre0", path = "macro" }
 thiserror = "1.0.37"
 wit-bindgen = "0.13.0"
 routefinder = "0.5.3"

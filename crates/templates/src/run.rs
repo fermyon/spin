@@ -217,7 +217,7 @@ impl Run {
             TemplateVariantInfo::NewApplication => Ok(()),
             TemplateVariantInfo::AddComponent { manifest_path } => {
                 match crate::app_info::AppInfo::from_file(manifest_path) {
-                    Some(Ok(app_info)) => self
+                    Some(Ok(app_info)) if app_info.manifest_format() == 1 => self
                         .template
                         .check_compatible_trigger(app_info.trigger_type()),
                     _ => Ok(()), // Fail forgiving - don't block the user if things are under construction

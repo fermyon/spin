@@ -1125,7 +1125,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cannot_add_component_that_does_not_match_trigger() {
+    async fn can_add_component_with_different_trigger() {
         let temp_dir = tempdir().unwrap();
         let store = TemplateStore::new(temp_dir.path());
         let manager = TemplateManager { store };
@@ -1191,12 +1191,14 @@ mod tests {
                 accept_defaults: false,
             };
 
-            template
-                .run(options)
-                .silent()
-                .await
-                .expect_err("Expected to fail to add component, but it succeeded");
+            template.run(options).silent().await.unwrap();
         }
+
+        let spin_toml = tokio::fs::read_to_string(&spin_toml_path).await.unwrap();
+        assert!(spin_toml.contains("[[trigger.redis]]"));
+        assert!(spin_toml.contains("[[trigger.http]]"));
+        assert!(spin_toml.contains("[component.my-multi-project]"));
+        assert!(spin_toml.contains("[component.hello]"));
     }
 
     #[tokio::test]

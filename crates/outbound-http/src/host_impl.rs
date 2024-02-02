@@ -1,5 +1,8 @@
 use anyhow::Result;
-use http::HeaderMap;
+use http::{
+    header::{CONTENT_LENGTH, TRANSFER_ENCODING},
+    HeaderMap,
+};
 use reqwest::Client;
 use spin_core::async_trait;
 use spin_outbound_networking::{AllowedHostsConfig, OutboundUrl};
@@ -67,8 +70,8 @@ impl outbound_http::Host for OutboundHttp {
             let body = req.body.unwrap_or_default().to_vec();
 
             // if no content length, set it
-            if headers.get("content-length").is_none() && !body.is_empty() && headers.get("transfer-encoding").is_none() {
-                headers.append("content-length", body.len().into());
+            if !body.is_empty() && !headers.contains_key(CONTENT_LENGTH) && !headers.contains_key(TRANSFER_ENCODING){
+                headers.insert("content-length", body.len().into());
             }
 
             if !req.params.is_empty() {

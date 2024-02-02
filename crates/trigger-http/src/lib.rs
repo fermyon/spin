@@ -14,10 +14,14 @@ use std::{
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use clap::Args;
-use http::{uri::Scheme, StatusCode, Uri};
+use http::{
+    header::{CONTENT_LENGTH, TRANSFER_ENCODING},
+    uri::Scheme,
+    StatusCode, Uri,
+};
 use http_body_util::BodyExt;
 use hyper::{
-    body::{Bytes, Incoming},
+    body::{Body as _, Bytes, Incoming},
     server::conn::http1,
     service::service_fn,
     Request, Response,
@@ -533,6 +537,16 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
             };
             eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"{}\"]' to the manifest component section.", host);
             anyhow::bail!("destination-not-allowed (error 1)")
+        }
+
+        if let Some(size) = request.request.body().size_hint().exact() {
+            let headers = request.request.headers_mut();
+            if size > 0
+                && headers.contains_key(CONTENT_LENGTH)
+                && headers.contains_key(TRANSFER_ENCODING)
+            {
+                headers.insert(CONTENT_LENGTH, size.into());
+            }
         }
 
         wasmtime_wasi_http::types::default_send_request(data, request)

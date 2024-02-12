@@ -59,10 +59,10 @@ spin-locked-app = { path = "crates/locked-app" }
 spin-manifest = { path = "crates/manifest" }
 spin-oci = { path = "crates/oci" }
 spin-plugins = { path = "crates/plugins" }
-spin-redis-engine = { path = "crates/redis" }
 spin-templates = { path = "crates/templates" }
 spin-trigger = { path = "crates/trigger" }
 spin-trigger-http = { path = "crates/trigger-http" }
+spin-trigger-redis = { path = "crates/trigger-redis" }
 spin-variables = { path = "crates/variables" }
 
 tempfile = "3.8.0"

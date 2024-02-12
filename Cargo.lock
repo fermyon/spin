@@ -5767,10 +5767,10 @@ dependencies = [
  "spin-manifest",
  "spin-oci",
  "spin-plugins",
- "spin-redis-engine",
  "spin-templates",
  "spin-trigger",
  "spin-trigger-http",
+ "spin-trigger-redis",
  "spin-variables",
  "subprocess",
  "tempfile",
@@ -6133,23 +6133,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-redis-engine"
-version = "2.3.0-pre0"
-dependencies = [
- "anyhow",
- "async-trait",
- "futures",
- "redis 0.21.7",
- "serde",
- "spin-app",
- "spin-core",
- "spin-testing",
- "spin-trigger",
- "spin-world",
- "tracing",
-]
-
-[[package]]
 name = "spin-sdk"
 version = "2.3.0-pre0"
 dependencies = [
@@ -6357,6 +6340,23 @@ dependencies = [
  "wasmtime",
  "wasmtime-wasi",
  "wasmtime-wasi-http",
+]
+
+[[package]]
+name = "spin-trigger-redis"
+version = "2.3.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "futures",
+ "redis 0.21.7",
+ "serde",
+ "spin-app",
+ "spin-core",
+ "spin-testing",
+ "spin-trigger",
+ "spin-world",
+ "tracing",
 ]
 
 [[package]]

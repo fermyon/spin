@@ -1,5 +1,5 @@
 [package]
-name = "spin-redis-engine"
+name = "spin-trigger-redis"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }

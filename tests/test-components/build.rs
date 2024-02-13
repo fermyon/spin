@@ -25,8 +25,14 @@ fn main() {
     for package in packages {
         let crate_path = PathBuf::from("components").join(&package);
         let manifest_path = crate_path.join("Cargo.toml");
+        if !manifest_path.exists() {
+            eprintln!("No Cargo.toml in {crate_path:?}; skipping");
+            continue;
+        }
         let manifest = cargo_toml::Manifest::from_path(&manifest_path)
             .expect("failed to read and parse Cargo manifest");
+
+        eprintln!("Building test component {:?}", manifest.package().name());
 
         // Build the test component
         let mut cargo = Command::new("cargo");

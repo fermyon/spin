@@ -69,7 +69,6 @@ error: the `wasm32-wasi` target is not installed
         "crates/trigger-http/tests/rust-http-test",
     );
     build_wasm_test_program("redis-rust.wasm", "crates/trigger-redis/tests/rust");
-    build_wasm_test_program("wagi-test.wasm", "crates/trigger-http/tests/wagi-test");
 
     build_wasm_test_program(
         "spin-http-benchmark.wasm",

@@ -1,9 +1,11 @@
 mod app_source;
 
 use std::{
+    collections::HashMap,
     ffi::OsString,
     fmt::Debug,
     path::{Path, PathBuf},
+    process::Stdio,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -13,7 +15,7 @@ use spin_app::locked::LockedApp;
 use spin_common::ui::quoted_path;
 use spin_loader::FilesMountStrategy;
 use spin_oci::OciLoader;
-use spin_trigger::cli::{SPIN_LOCAL_APP_DIR, SPIN_LOCKED_URL, SPIN_WORKING_DIR};
+use spin_trigger::cli::{LaunchMetadata, SPIN_LOCAL_APP_DIR, SPIN_LOCKED_URL, SPIN_WORKING_DIR};
 use tempfile::TempDir;
 
 use crate::opts::*;
@@ -140,7 +142,7 @@ impl UpCommand {
         if app_source == AppSource::None {
             if self.help {
                 let mut child = self
-                    .start_trigger(trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE), None)
+                    .start_trigger(trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE), None, &[])
                     .await?;
                 let _ = child.wait().await?;
                 return Ok(());
@@ -172,20 +174,16 @@ impl UpCommand {
             if is_multi {
                 // For now, only common flags are allowed on multi-trigger apps.
                 let mut child = self
-                    .start_trigger(trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE), None)
+                    .start_trigger(trigger_command(HELP_ARGS_ONLY_TRIGGER_TYPE), None, &[])
                     .await?;
                 let _ = child.wait().await?;
                 return Ok(());
             }
             for cmd in trigger_cmds {
-                let mut help_process = self.start_trigger(cmd.clone(), None).await?;
+                let mut help_process = self.start_trigger(cmd.clone(), None, &[]).await?;
                 _ = help_process.wait().await;
             }
             return Ok(());
-        }
-
-        if is_multi {
-            self.allow_only_common_flags()?;
         }
 
         let mut locked_app = self
@@ -249,17 +247,64 @@ impl UpCommand {
         Ok(working_dir_holder)
     }
 
+    async fn get_trigger_launch_metas(
+        &self,
+        trigger_cmds: &[Vec<String>],
+    ) -> anyhow::Result<HashMap<Vec<String>, LaunchMetadata>> {
+        let mut metas = HashMap::new();
+
+        for trigger_cmd in trigger_cmds {
+            let mut meta_cmd = tokio::process::Command::new(std::env::current_exe().unwrap());
+            meta_cmd.args(trigger_cmd);
+            meta_cmd.arg("--launch-metadata-only");
+            meta_cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+            let meta_out = meta_cmd.spawn()?.wait_with_output().await?;
+            let meta = serde_json::from_slice::<LaunchMetadata>(&meta_out.stderr)?;
+            metas.insert(trigger_cmd.clone(), meta);
+        }
+
+        Ok(metas)
+    }
+
     async fn start_trigger_processes(
         self,
         trigger_cmds: Vec<Vec<String>>,
         run_opts: RunTriggerOpts,
     ) -> anyhow::Result<Vec<tokio::process::Child>> {
         let is_multi = trigger_cmds.len() > 1;
+
+        let trigger_args = self.group_trigger_args();
+        let trigger_metas = if is_multi {
+            match self.get_trigger_launch_metas(&trigger_cmds).await {
+                Ok(m) => Some(m),
+                Err(e) => {
+                    tracing::warn!("Error getting trigger launch meta - allowing all. {e:?}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        if let Some(trigger_metas) = trigger_metas.as_ref() {
+            for group in &trigger_args {
+                let is_accepted = trigger_metas.values().any(|m| m.is_group_match(group));
+                if !is_accepted {
+                    bail!("Unrecognised trigger option {:?}", group[0]);
+                }
+            }
+        }
+
         let mut trigger_processes = Vec::with_capacity(trigger_cmds.len());
 
         for cmd in trigger_cmds {
+            let meta = trigger_metas.as_ref().and_then(|ms| ms.get(&cmd));
+            let trigger_args = match meta {
+                Some(m) => m.matches(&trigger_args),
+                None => self.trigger_args.iter().collect(),
+            };
             let child = self
-                .start_trigger(cmd.clone(), Some(run_opts.clone()))
+                .start_trigger(cmd.clone(), Some(run_opts.clone()), &trigger_args)
                 .await
                 .context("Failed to start trigger process")?;
             trigger_processes.push(child);
@@ -279,6 +324,7 @@ impl UpCommand {
         &self,
         trigger_cmd: Vec<String>,
         opts: Option<RunTriggerOpts>,
+        trigger_args: &[&OsString],
     ) -> Result<tokio::process::Child, anyhow::Error> {
         // The docs for `current_exe` warn that this may be insecure because it could be executed
         // via hard-link. I think it should be fine as long as we aren't `setuid`ing this binary.
@@ -293,7 +339,7 @@ impl UpCommand {
         {
             cmd.env(SPIN_LOCKED_URL, locked_url)
                 .env(SPIN_WORKING_DIR, &working_dir)
-                .args(&self.trigger_args);
+                .args(trigger_args);
 
             if let Some(local_app_dir) = local_app_dir {
                 cmd.env(SPIN_LOCAL_APP_DIR, local_app_dir);
@@ -424,56 +470,42 @@ impl UpCommand {
         }
     }
 
-    fn allow_only_common_flags(&self) -> anyhow::Result<()> {
-        allow_only_common_flags(&self.trigger_args)
-    }
-}
+    fn group_trigger_args(&self) -> Vec<Vec<&OsString>> {
+        let mut groups = vec![];
 
-const COMMON_FLAGS: &[&str] = &[
-    "-L",
-    "--log-dir",
-    "--disable-cache",
-    "--cache",
-    "--disable-pooling",
-    "--follow",
-    "-q",
-    "--quiet",
-    "--sh",
-    "--shush",
-    "--allow-transient-write",
-    "--runtime-config-file",
-    "--state-dir",
-    "--key-value",
-    "--sqlite",
-    "--help-args-only",
-];
+        let mut pending_group: Option<Vec<&OsString>> = None;
 
-fn allow_only_common_flags(args: &[OsString]) -> anyhow::Result<()> {
-    for i in 0..(args.len()) {
-        let Some(value) = args[i].to_str() else {
-            // Err on the side of forgiveness
-            continue;
-        };
-        if value.starts_with('-') {
-            // Flag candidate. Is it allowed?
-            if !is_common_flag(value) {
-                anyhow::bail!("Cannot use trigger option '{value}'. Apps with multiple trigger types do not yet support options specific to one trigger type.");
-            }
-        } else if i >= 1 {
-            // Value candidate. Does it immediately follow a flag?
-            let Some(prev) = args[i - 1].to_str() else {
-                continue;
-            };
-            if !prev.starts_with('-') {
-                anyhow::bail!("Cannot use trigger option '{value}'. Apps with multiple trigger types do not yet support options specific to one trigger type.");
+        for arg in &self.trigger_args {
+            if is_flag_arg(arg) {
+                if let Some(prev_group) = pending_group.take() {
+                    if !prev_group.is_empty() {
+                        groups.push(prev_group);
+                    }
+                }
+                pending_group = Some(vec![arg]);
+            } else if let Some(mut pending) = pending_group.take() {
+                // it's (probably) a value associated with the flag - append, push, group done
+                pending.push(arg);
+                groups.push(pending);
+            } else {
+                // it's positional, oh no
+                groups.push(vec![arg]);
             }
         }
+        if let Some(pending) = pending_group.take() {
+            groups.push(pending);
+        }
+
+        groups
     }
-    Ok(())
 }
 
-fn is_common_flag(candidate: &str) -> bool {
-    COMMON_FLAGS.contains(&candidate)
+fn is_flag_arg(arg: &OsString) -> bool {
+    if let Some(s) = arg.to_str() {
+        s.starts_with('-')
+    } else {
+        false
+    }
 }
 
 #[cfg(windows)]
@@ -769,26 +801,72 @@ mod test {
     }
 
     #[test]
-    fn multi_accept_no_trigger_args() {
-        allow_only_common_flags(&[]).expect("should allow no trigger args");
+    fn group_no_args_is_empty() {
+        let cmd = UpCommand::try_parse_from(["up"]).unwrap();
+        let groups = cmd.group_trigger_args();
+        assert!(groups.is_empty());
     }
 
     #[test]
-    fn multi_accept_only_common_args() {
-        let args: Vec<_> = ["--log-dir", "/fie", "-q", "--sqlite", "SOME SQL"]
-            .iter()
-            .map(OsString::from)
-            .collect();
-        allow_only_common_flags(&args).expect("should allow common trigger args");
+    fn can_group_valueful_flags() {
+        let cmd =
+            UpCommand::try_parse_from(["up", "--listen", "127.0.0.1:39453", "-L", "/fie"]).unwrap();
+        let groups = cmd.group_trigger_args();
+        assert_eq!(2, groups.len());
+        assert_eq!(2, groups[0].len());
+        assert_eq!("--listen", groups[0][0]);
+        assert_eq!("127.0.0.1:39453", groups[0][1]);
+        assert_eq!(2, groups[1].len());
+        assert_eq!("-L", groups[1][0]);
+        assert_eq!("/fie", groups[1][1]);
     }
 
     #[test]
-    fn multi_reject_trigger_specific_args() {
-        let args: Vec<_> = ["--log-dir", "/fie", "--listen", "some.address"]
-            .iter()
-            .map(OsString::from)
-            .collect();
-        let e = allow_only_common_flags(&args).expect_err("should reject trigger-specific args");
-        assert!(e.to_string().contains("'--listen'"));
+    fn can_group_valueful_flags_with_valueless() {
+        let cmd = UpCommand::try_parse_from([
+            "up",
+            "--listen",
+            "127.0.0.1:39453",
+            "--shush",
+            "--allow-transient-writes",
+            "-L",
+            "/fie",
+        ])
+        .unwrap();
+        let groups = cmd.group_trigger_args();
+        assert_eq!(4, groups.len());
+        assert_eq!(2, groups[0].len());
+        assert_eq!("--listen", groups[0][0]);
+        assert_eq!("127.0.0.1:39453", groups[0][1]);
+        assert_eq!(1, groups[1].len());
+        assert_eq!("--shush", groups[1][0]);
+        assert_eq!(1, groups[2].len());
+        assert_eq!("--allow-transient-writes", groups[2][0]);
+        assert_eq!(2, groups[3].len());
+        assert_eq!("-L", groups[3][0]);
+        assert_eq!("/fie", groups[3][1]);
+    }
+
+    #[test]
+    fn can_group_valueful_flags_with_extraneous_values() {
+        let cmd = UpCommand::try_parse_from([
+            "up",
+            "--listen",
+            "127.0.0.1:39453",
+            "HELLO MUM",
+            "-L",
+            "/fie",
+        ])
+        .unwrap();
+        let groups = cmd.group_trigger_args();
+        assert_eq!(3, groups.len());
+        assert_eq!(2, groups[0].len());
+        assert_eq!("--listen", groups[0][0]);
+        assert_eq!("127.0.0.1:39453", groups[0][1]);
+        assert_eq!(1, groups[1].len());
+        assert_eq!("HELLO MUM", groups[1][0]);
+        assert_eq!(2, groups[2].len());
+        assert_eq!("-L", groups[2][0]);
+        assert_eq!("/fie", groups[2][1]);
     }
 }

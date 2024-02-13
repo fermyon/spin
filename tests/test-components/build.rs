@@ -25,8 +25,14 @@ fn main() {
     for package in packages {
         let crate_path = PathBuf::from("components").join(&package);
         let manifest_path = crate_path.join("Cargo.toml");
+        if !manifest_path.exists() {
+            eprintln!("No Cargo.toml in {crate_path:?}; skipping");
+            continue;
+        }
         let manifest = cargo_toml::Manifest::from_path(&manifest_path)
             .expect("failed to read and parse Cargo manifest");
+
+        eprintln!("Building test component {:?}", manifest.package().name());
 
         // Build the test component
         let mut cargo = Command::new("cargo");
@@ -42,7 +48,7 @@ fn main() {
         let const_name = to_shouty_snake_case(&package);
         let package_name = manifest.package.expect("manifest has no package").name;
         let binary_name = package_name.replace(['-', '.'], "_");
-        let wasm_path = out_dir
+        let mut wasm_path = out_dir
             .join("wasm32-wasi")
             .join("debug")
             .join(format!("{binary_name}.wasm"));
@@ -65,6 +71,7 @@ fn main() {
                 .expect("failed to apply adapter")
                 .encode()
                 .expect("failed to encode component");
+            wasm_path = wasm_path.with_extension("adapted.wasm");
             std::fs::write(&wasm_path, new_bytes).expect("failed to write new wasm binary");
         }
 

@@ -1037,6 +1037,51 @@ route = "/..."
     }
 
     #[test]
+    fn test_wagi_http() -> anyhow::Result<()> {
+        run_test(
+            "wagi-http",
+            testing_framework::SpinMode::Http,
+            [],
+            testing_framework::ServicesConfig::none(),
+            move |env| {
+                let spin = env.runtime_mut();
+                assert_spin_request(
+                    spin,
+                    testing_framework::Request::new(reqwest::Method::GET, "/base/hello"),
+                    testing_framework::Response::new_with_body(200, "I'm a teapot"),
+                )?;
+                assert_spin_request(
+                    spin,
+                    testing_framework::Request::full(
+                        reqwest::Method::GET,
+                        "/base/echo",
+                        &[],
+                        Some("Echo..."),
+                    ),
+                    testing_framework::Response::new_with_body(200, "Echo..."),
+                )?;
+                assert_spin_request(
+                    spin,
+                    testing_framework::Request::new(reqwest::Method::GET, "/base/args?x=y"),
+                    testing_framework::Response::new_with_body(200, r#"["/base/args", "x=y"]"#),
+                )?;
+                assert_spin_request(
+                    spin,
+                    testing_framework::Request::full(
+                        reqwest::Method::GET,
+                        "/base/env?HTTP_X_CUSTOM_FOO",
+                        &[("X-Custom-Foo", "bar")],
+                        Option::<Vec<u8>>::None,
+                    ),
+                    testing_framework::Response::new_with_body(200, "bar"),
+                )
+            },
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
     fn test_outbound_post() -> anyhow::Result<()> {
         run_test(
             "wasi-http-outbound-post",

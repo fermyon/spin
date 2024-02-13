@@ -325,6 +325,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "integration_wagi"
+version = "0.1.0"
+
+[[package]]
 name = "itoa"
 version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"

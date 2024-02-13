@@ -48,7 +48,7 @@ fn main() {
         let const_name = to_shouty_snake_case(&package);
         let package_name = manifest.package.expect("manifest has no package").name;
         let binary_name = package_name.replace(['-', '.'], "_");
-        let wasm_path = out_dir
+        let mut wasm_path = out_dir
             .join("wasm32-wasi")
             .join("debug")
             .join(format!("{binary_name}.wasm"));
@@ -71,6 +71,7 @@ fn main() {
                 .expect("failed to apply adapter")
                 .encode()
                 .expect("failed to encode component");
+            wasm_path = wasm_path.with_extension("adapted.wasm");
             std::fs::write(&wasm_path, new_bytes).expect("failed to write new wasm binary");
         }
 

@@ -1042,11 +1042,6 @@ route = "/..."
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(reqwest::Method::GET, "/base/hello"),
-                    testing_framework::Response::new_with_body(200, "I'm a teapot"),
-                )?;
-                assert_spin_request(
-                    spin,
                     testing_framework::Request::full(
                         Method::GET,
                         "/base/echo",
@@ -1057,19 +1052,25 @@ route = "/..."
                 )?;
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(reqwest::Method::GET, "/base/args?x=y"),
-                    testing_framework::Response::new_with_body(200, r#"["/base/args", "x=y"]"#),
+                    testing_framework::Request::full(
+                        Method::GET,
+                        "/base/assert-args?x=y",
+                        &[],
+                        Some(r#"["/base/assert-args", "x=y"]"#),
+                    ),
+                    testing_framework::Response::new(200),
                 )?;
                 assert_spin_request(
                     spin,
                     testing_framework::Request::full(
-                        reqwest::Method::GET,
-                        "/base/env?HTTP_X_CUSTOM_FOO",
+                        Method::GET,
+                        "/base/assert-env",
                         &[("X-Custom-Foo", "bar")],
-                        Option::<Vec<u8>>::None,
+                        Some(r#"{"HTTP_X_CUSTOM_FOO": "bar"}"#),
                     ),
-                    testing_framework::Response::new_with_body(200, "bar"),
-                )
+                    testing_framework::Response::new(200),
+                )?;
+                Ok(())
             },
         )?;
 

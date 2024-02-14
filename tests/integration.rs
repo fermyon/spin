@@ -415,14 +415,24 @@ Caused by:
 
     #[test]
     #[cfg(feature = "extern-dependencies-tests")]
-    // Ignore until https://github.com/fermyon/spin-python-sdk/pull/65 is merged
+    // TODO: Check why python is not picking up the spin_sdk from site_packages
+    // Currently installing to the local directory to get around it.
     fn http_python_template_smoke_test() -> anyhow::Result<()> {
+        let prebuild = |env: &mut testing_framework::TestEnvironment<_>| {
+            let mut tidy = std::process::Command::new("pip3");
+            tidy.args(["install", "-r", "requirements.txt", "-t", "."]);
+            env.run_in(&mut tidy)?;
+            let mut tidy = std::process::Command::new("pip3");
+            tidy.args(["install", "componentize-py"]);
+            env.run_in(&mut tidy)?;
+            Ok(())
+        };
         http_smoke_test_template(
             "http-py",
             Some("https://github.com/fermyon/spin-python-sdk"),
-            &["py2wasm"],
-            |_| Ok(()),
-            "Hello from the Python SDK",
+            &[],
+            prebuild,
+            "Hello from Python!",
         )
     }
 

@@ -1,8 +1,12 @@
+use std::{fs, path::Path};
+
 mod testcases;
 
 mod integration_tests {
     use sha2::Digest;
-    use std::collections::HashMap;
+    use std::{collections::HashMap, path::Path};
+
+    use crate::visit_dirs;
 
     use super::testcases::{
         assert_spin_request, bootstap_env, http_smoke_test_template, run_test, spin_binary,
@@ -414,15 +418,26 @@ Caused by:
     }
 
     #[test]
-    #[cfg(feature = "extern-dependencies-tests")]
-    // Ignore until https://github.com/fermyon/spin-python-sdk/pull/65 is merged
+    // #[cfg(feature = "extern-dependencies-tests")]
     fn http_python_template_smoke_test() -> anyhow::Result<()> {
+        let prebuild = |env: &mut testing_framework::TestEnvironment<_>| {
+            let mut tidy = std::process::Command::new("pip3");
+            tidy.args(["install", "-r", "requirements.txt"]);
+            env.run_in(&mut tidy)?;
+            let mut site_package = std::process::Command::new("python3");
+            site_package.args(["-c", "'import site; print(site.getsitepackages()[0])'"]);
+            let result = env.run_in(&mut site_package)?;
+            let location = String::from_utf8(result.stdout)?;
+            println!("location of sitepackages: {location}");
+            visit_dirs(&Path::new(&location))?;
+            Ok(())
+        };
         http_smoke_test_template(
             "http-py",
             Some("https://github.com/fermyon/spin-python-sdk"),
-            &["py2wasm"],
-            |_| Ok(()),
-            "Hello from the Python SDK",
+            &[],
+            prebuild,
+            "Hello from Python!",
         )
     }
 
@@ -1169,4 +1184,21 @@ route = "/..."
 
         Ok(())
     }
+}
+
+fn visit_dirs(dir: &Path) -> std::io::Result<()> {
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            if path.is_dir() {
+                println!("Directory: {}", path.display());
+                visit_dirs(&path)?;
+            } else {
+                println!("File: {}", path.display());
+            }
+        }
+    }
+    Ok(())
 }

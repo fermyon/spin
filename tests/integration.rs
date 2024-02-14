@@ -1,12 +1,8 @@
-use std::{fs, path::Path};
-
 mod testcases;
 
 mod integration_tests {
     use sha2::Digest;
-    use std::{collections::HashMap, path::Path};
-
-    use crate::visit_dirs;
+    use std::collections::HashMap;
 
     use super::testcases::{
         assert_spin_request, bootstap_env, http_smoke_test_template, run_test, spin_binary,
@@ -418,18 +414,17 @@ Caused by:
     }
 
     #[test]
-    // #[cfg(feature = "extern-dependencies-tests")]
+    #[cfg(feature = "extern-dependencies-tests")]
+    // TODO: Check why python is not picking up the spin_sdk from site_packages
+    // Currently installing to the local directory to get around it.
     fn http_python_template_smoke_test() -> anyhow::Result<()> {
         let prebuild = |env: &mut testing_framework::TestEnvironment<_>| {
             let mut tidy = std::process::Command::new("pip3");
-            tidy.args(["install", "-r", "requirements.txt"]);
+            tidy.args(["install", "-r", "requirements.txt", "-t", "."]);
             env.run_in(&mut tidy)?;
-            let mut site_package = std::process::Command::new("python3");
-            site_package.args(["-c", "'import site; print(site.getsitepackages()[0])'"]);
-            let result = env.run_in(&mut site_package)?;
-            let location = String::from_utf8(result.stdout)?;
-            println!("location of sitepackages: {location}");
-            visit_dirs(&Path::new(&location))?;
+            let mut tidy = std::process::Command::new("pip3");
+            tidy.args(["install", "componentize-py"]);
+            env.run_in(&mut tidy)?;
             Ok(())
         };
         http_smoke_test_template(
@@ -1184,21 +1179,4 @@ route = "/..."
 
         Ok(())
     }
-}
-
-fn visit_dirs(dir: &Path) -> std::io::Result<()> {
-    if dir.is_dir() {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.is_dir() {
-                println!("Directory: {}", path.display());
-                visit_dirs(&path)?;
-            } else {
-                println!("File: {}", path.display());
-            }
-        }
-    }
-    Ok(())
 }

@@ -9,11 +9,12 @@ description = "{{project-description}}"
 [[trigger.http]]
 route = "{{http-path}}"
 component = "{{project-name | kebab_case}}"
-executor = { type = "wagi"}
+executor = { type = "wagi" }
 
 [component.{{project-name | kebab_case}}]
-files = [ { source = "./src", destination = "/" } ]
+files = [{ source = "./src", destination = "/" }]
 allowed_outbound_hosts = []
+
 [component.{{project-name | kebab_case}}.source]
-url = "https://github.com/vmware-labs/webassembly-language-runtimes/releases/download/php%2F7.4.32%2B20221124-2159d1c/php-cgi-7.4.32.speed-optimized.wasm"
-digest = "sha256:511720698dee56134ed8a08a87131d33c3ea8a64b6726cd6710d624bca4ceb6c"
+url = "https://github.com/vmware-labs/webassembly-language-runtimes/releases/download/php%2F8.2.6%2B20230714-11be424/php-cgi-8.2.6-slim.wasm"
+digest = "sha256:4fd2e8c42ae529ba72f88a0f1e46de1fc69a4b4f01e01fedd65ca966b8ffe6fa"

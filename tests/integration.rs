@@ -1032,6 +1032,41 @@ route = "/..."
     }
 
     #[test]
+    fn test_spin_inbound_http() -> anyhow::Result<()> {
+        run_test(
+            "spin-inbound-http",
+            testing_framework::SpinMode::Http,
+            [],
+            testing_framework::ServicesConfig::none(),
+            move |env| {
+                let spin = env.runtime_mut();
+                assert_spin_request(
+                    spin,
+                    testing_framework::Request::full(
+                        Method::GET,
+                        "/base/echo",
+                        &[],
+                        Some("Echo..."),
+                    ),
+                    testing_framework::Response::new_with_body(200, "Echo..."),
+                )?;
+                assert_spin_request(
+                    spin,
+                    testing_framework::Request::full(
+                        Method::GET,
+                        "/base/assert-headers?k=v",
+                        &[("X-Custom-Foo", "bar")],
+                        Some(r#"{"x-custom-foo": "bar"}"#),
+                    ),
+                    testing_framework::Response::new(200),
+                )?;
+                Ok(())
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
     fn test_wagi_http() -> anyhow::Result<()> {
         run_test(
             "wagi-http",

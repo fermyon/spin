@@ -244,6 +244,8 @@ impl Drop for Spin {
 }
 
 impl Runtime for Spin {
+    type Config = SpinConfig;
+
     fn error(&mut self) -> anyhow::Result<()> {
         if !matches!(self.io_mode, IoMode::None) && self.try_wait()?.is_some() {
             anyhow::bail!("Spin exited early: {}", self.stderr());
@@ -251,6 +253,10 @@ impl Runtime for Spin {
 
         Ok(())
     }
+}
+
+pub struct SpinConfig {
+    pub binary_path: std::path::PathBuf,
 }
 
 fn kill_process(process: &mut std::process::Child) {

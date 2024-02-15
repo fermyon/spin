@@ -1,14 +1,14 @@
 use anyhow::Context;
 use std::path::{Path, PathBuf};
 use testing_framework::{
-    EnvTemplate, OnTestError, ServicesConfig, Spin, TestEnvironment, TestEnvironmentConfig,
-    TestError, TestResult,
+    EnvTemplate, InMemorySpin, OnTestError, Runtime, ServicesConfig, Spin, SpinConfig,
+    TestEnvironment, TestEnvironmentConfig, TestError, TestResult,
 };
 
 /// Configuration for a runtime test
-pub struct RuntimeTestConfig {
+pub struct RuntimeTestConfig<R: Runtime> {
     pub test_path: PathBuf,
-    pub spin_binary: PathBuf,
+    pub runtime_config: R::Config,
     pub on_error: OnTestError,
 }
 
@@ -43,18 +43,20 @@ impl RuntimeTest<Spin> {
 
             let config = RuntimeTestConfig {
                 test_path: test.path(),
-                spin_binary: spin_binary.clone(),
+                runtime_config: SpinConfig {
+                    binary_path: spin_binary.clone(),
+                },
                 on_error,
             };
-            RuntimeTest::bootstrap(config)?.run();
+            Self::bootstrap(config)?.run();
         }
         Ok(())
     }
 
-    pub fn bootstrap(config: RuntimeTestConfig) -> anyhow::Result<Self> {
+    pub fn bootstrap(config: RuntimeTestConfig<Spin>) -> anyhow::Result<Self> {
         log::info!("Testing: {}", config.test_path.display());
         let test_path_clone = config.test_path.to_owned();
-        let spin_binary = config.spin_binary.clone();
+        let spin_binary = config.runtime_config.binary_path.clone();
         let preboot = move |env: &mut TestEnvironment<Spin>| {
             copy_manifest(&test_path_clone, env)?;
             Ok(())
@@ -77,6 +79,91 @@ impl RuntimeTest<Spin> {
 
     /// Run an individual test
     pub fn run(&mut self) {
+        self.run_test(|env| {
+            let runtime = env.runtime_mut();
+            let request = testing_framework::Request::new(reqwest::Method::GET, "/");
+            let response = runtime.make_http_request(request)?;
+            if response.status() == 200 {
+                return Ok(());
+            }
+            if response.status() != 500 {
+                return Err(anyhow::anyhow!("Runtime tests are expected to return either either a 200 or a 500, but it returned a {}", response.status()).into());
+            }
+            let text = response
+                .text()
+                .context("could not get runtime test HTTP response")?;
+            if text.is_empty() {
+                let stderr = runtime.stderr();
+                return Err(anyhow::anyhow!("Runtime tests are expected to return a response body, but the response body was empty.\nstderr:\n{stderr}").into());
+            }
+
+            Err(TestError::Failure(RuntimeTestFailure {
+                error: text,
+                stderr: runtime.stderr().to_owned(),
+            }))
+        })
+    }
+}
+
+impl RuntimeTest<InMemorySpin> {
+    /// Run the runtime tests suite.
+    ///
+    /// Error represents an error in bootstrapping the tests. What happens on individual test failures
+    /// is controlled by `on_error`.
+    pub fn run_all(tests_path: &Path, on_error: OnTestError) -> anyhow::Result<()> {
+        for test in std::fs::read_dir(tests_path)
+            .with_context(|| format!("failed to read test directory '{}'", tests_path.display()))?
+        {
+            let test = test.context("I/O error reading entry from test directory")?;
+            if !test.file_type()?.is_dir() {
+                log::debug!(
+                    "Ignoring non-sub-directory in test directory: {}",
+                    test.path().display()
+                );
+                continue;
+            }
+
+            let config = RuntimeTestConfig {
+                test_path: test.path(),
+                runtime_config: (),
+                on_error,
+            };
+            Self::bootstrap(config)?.run();
+        }
+        Ok(())
+    }
+
+    pub fn bootstrap(config: RuntimeTestConfig<InMemorySpin>) -> anyhow::Result<Self> {
+        log::info!("Testing: {}", config.test_path.display());
+        let test_path_clone = config.test_path.to_owned();
+        let preboot = move |env: &mut TestEnvironment<InMemorySpin>| {
+            copy_manifest(&test_path_clone, env)?;
+            Ok(())
+        };
+        let services_config = services_config(&config)?;
+        let env_config = TestEnvironmentConfig::in_memory(services_config, preboot);
+        let env = TestEnvironment::up(env_config)?;
+        Ok(Self {
+            test_path: config.test_path,
+            on_error: config.on_error,
+            env,
+        })
+    }
+
+    fn run(&mut self) {
+        self.run_test(|env| {
+            let runtime = env.runtime_mut();
+            todo!()
+        })
+    }
+}
+
+impl<R> RuntimeTest<R> {
+    /// Run an individual test
+    pub(crate) fn run_test(
+        &mut self,
+        test: impl FnOnce(&mut TestEnvironment<R>) -> TestResult<RuntimeTestFailure>,
+    ) {
         let on_error = self.on_error;
         // macro which will look at `on_error` and do the right thing
         macro_rules! error {
@@ -141,7 +228,7 @@ impl RuntimeTest<Spin> {
     }
 }
 
-fn services_config(config: &RuntimeTestConfig) -> anyhow::Result<ServicesConfig> {
+fn services_config<R: Runtime>(config: &RuntimeTestConfig<R>) -> anyhow::Result<ServicesConfig> {
     let required_services = required_services(&config.test_path)?;
     let services_config = ServicesConfig::new(required_services)?;
     Ok(services_config)
@@ -177,30 +264,6 @@ fn copy_manifest<R>(test_dir: &Path, env: &mut TestEnvironment<R>) -> anyhow::Re
     env.write_file("spin.toml", manifest.contents())
         .context("failed to copy spin.toml manifest to temporary directory")?;
     Ok(())
-}
-
-fn test(env: &mut TestEnvironment<Spin>) -> TestResult<RuntimeTestFailure> {
-    let runtime = env.runtime_mut();
-    let request = testing_framework::Request::new(reqwest::Method::GET, "/");
-    let response = runtime.make_http_request(request)?;
-    if response.status() == 200 {
-        return Ok(());
-    }
-    if response.status() != 500 {
-        return Err(anyhow::anyhow!("Runtime tests are expected to return either either a 200 or a 500, but it returned a {}", response.status()).into());
-    }
-    let text = response
-        .text()
-        .context("could not get runtime test HTTP response")?;
-    if text.is_empty() {
-        let stderr = runtime.stderr();
-        return Err(anyhow::anyhow!("Runtime tests are expected to return a response body, but the response body was empty.\nstderr:\n{stderr}").into());
-    }
-
-    Err(TestError::Failure(RuntimeTestFailure {
-        error: text,
-        stderr: runtime.stderr().to_owned(),
-    }))
 }
 
 /// A runtime test failure

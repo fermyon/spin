@@ -12,8 +12,8 @@ mod test_environment;
 
 pub use manifest_template::EnvTemplate;
 pub use services::ServicesConfig;
-pub use spin::{Request, Response, Spin, SpinMode};
-pub use test_environment::{TestEnvironment, TestEnvironmentConfig};
+pub use spin::{Request, Response, Spin, SpinConfig, SpinMode};
+pub use test_environment::{InMemorySpin, TestEnvironment, TestEnvironmentConfig};
 
 #[derive(Debug, Clone, Copy)]
 /// What to do when a test errors
@@ -26,6 +26,7 @@ pub enum OnTestError {
 
 /// A runtime which can be tested
 pub trait Runtime {
+    type Config;
     /// Return an error if one has occurred
     fn error(&mut self) -> anyhow::Result<()>;
 }

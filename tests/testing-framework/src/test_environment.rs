@@ -191,3 +191,28 @@ impl TestEnvironmentConfig<Spin> {
         }
     }
 }
+
+pub struct InMemorySpin;
+
+impl Runtime for InMemorySpin {
+    type Config = ();
+
+    fn error(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
+
+impl TestEnvironmentConfig<InMemorySpin> {
+    pub fn in_memory(
+        services_config: ServicesConfig,
+        preboot: impl FnOnce(&mut TestEnvironment<InMemorySpin>) -> anyhow::Result<()> + 'static,
+    ) -> Self {
+        Self {
+            services_config,
+            create_runtime: Box::new(|env| {
+                preboot(env)?;
+                Ok(InMemorySpin)
+            }),
+        }
+    }
+}

@@ -542,7 +542,6 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use spin_testing::test_socket_addr;
 
     use super::*;
 
@@ -666,31 +665,6 @@ mod tests {
         }
 
         res
-    }
-
-    #[tokio::test]
-    async fn test_spin_http() -> Result<()> {
-        let trigger: HttpTrigger = spin_testing::HttpTestConfig::default()
-            .test_program("rust-http-test.wasm")
-            .http_spin_trigger("/test")
-            .build_trigger()
-            .await;
-
-        let body = body::full(Bytes::from_static("Fermyon".as_bytes()));
-        let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
-            .header("x-custom-foo", "bar")
-            .header("x-custom-foo2", "bar2")
-            .body(body)
-            .unwrap();
-
-        let res = trigger
-            .handle(req, Scheme::HTTPS, test_socket_addr())
-            .await?;
-        assert_eq!(res.status(), StatusCode::OK);
-        let body_bytes = res.into_body().collect().await.unwrap().to_bytes();
-        assert_eq!(body_bytes.to_vec(), "Hello, Fermyon".as_bytes());
-
-        Ok(())
     }
 
     #[test]

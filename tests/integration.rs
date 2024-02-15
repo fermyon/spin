@@ -1,6 +1,7 @@
 mod testcases;
 
 mod integration_tests {
+    use reqwest::Method;
     use sha2::Digest;
     use std::collections::HashMap;
 
@@ -23,10 +24,7 @@ mod integration_tests {
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(
-                        reqwest::Method::GET,
-                        &format!("/test?key={test_key}"),
-                    ),
+                    testing_framework::Request::new(Method::GET, &format!("/test?key={test_key}")),
                     testing_framework::Response::new_with_body(200, test_value),
                 )
             },
@@ -46,28 +44,25 @@ mod integration_tests {
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(reqwest::Method::GET, "/test/hello"),
+                    testing_framework::Request::new(Method::GET, "/test/hello"),
                     testing_framework::Response::new_with_body(200, "I'm a teapot"),
                 )?;
                 assert_spin_request(
                     spin,
                     testing_framework::Request::new(
-                        reqwest::Method::GET,
+                        Method::GET,
                         "/test/hello/wildcards/should/be/handled",
                     ),
                     testing_framework::Response::new_with_body(200, "I'm a teapot"),
                 )?;
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(reqwest::Method::GET, "/thishsouldfail"),
+                    testing_framework::Request::new(Method::GET, "/thishsouldfail"),
                     testing_framework::Response::new(404),
                 )?;
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(
-                        reqwest::Method::GET,
-                        "/test/hello/test-placement",
-                    ),
+                    testing_framework::Request::new(Method::GET, "/test/hello/test-placement"),
                     testing_framework::Response::new_with_body(200, "text for test"),
                 )
             },
@@ -152,7 +147,7 @@ mod integration_tests {
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(reqwest::Method::GET, "/env"),
+                    testing_framework::Request::new(Method::GET, "/env"),
                     testing_framework::Response::full(
                         200,
                         [
@@ -185,7 +180,7 @@ mod integration_tests {
                     assert_spin_request(
                         spin,
                         testing_framework::Request::new(
-                            reqwest::Method::GET,
+                            Method::GET,
                             &format!("/static/thisshouldbemounted/{name}"),
                         ),
                         testing_framework::Response::new_with_body(200, content),
@@ -203,10 +198,7 @@ mod integration_tests {
                 let mut assert_not_found = |path: &str| {
                     assert_spin_request(
                         spin,
-                        testing_framework::Request::new(
-                            reqwest::Method::GET,
-                            &format!("/static/{path}"),
-                        ),
+                        testing_framework::Request::new(Method::GET, &format!("/static/{path}")),
                         testing_framework::Response::new_with_body(404, "Not Found"),
                     )
                 };
@@ -233,7 +225,7 @@ mod integration_tests {
                 let mut test = |lang: &str, body: &str| {
                     assert_spin_request(
                         spin,
-                        testing_framework::Request::new(reqwest::Method::GET, &format!("/{lang}")),
+                        testing_framework::Request::new(Method::GET, &format!("/{lang}")),
                         testing_framework::Response::new_with_body(200, body),
                     )
                 };
@@ -279,16 +271,13 @@ Caused by:
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(reqwest::Method::GET, "/test/outbound-allowed"),
+                    testing_framework::Request::new(Method::GET, "/test/outbound-allowed"),
                     testing_framework::Response::new_with_body(200, "Hello, Fermyon!\n"),
                 )?;
 
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(
-                        reqwest::Method::GET,
-                        "/test/outbound-not-allowed",
-                    ),
+                    testing_framework::Request::new(Method::GET, "/test/outbound-not-allowed"),
                     testing_framework::Response::new(500),
                 )?;
 
@@ -314,7 +303,7 @@ Caused by:
             |env| {
                 let spin = env.runtime_mut();
                 let mut ensure_success = |uri, expected_status, expected_body| {
-                    let request = testing_framework::Request::new(reqwest::Method::GET, uri);
+                    let request = testing_framework::Request::new(Method::GET, uri);
                     assert_spin_request(
                         spin,
                         request,
@@ -346,7 +335,7 @@ Caused by:
             |env| {
                 let spin = env.runtime_mut();
                 let mut ensure_success = |uri, expected_status, expected_body| {
-                    let request = testing_framework::Request::new(reqwest::Method::GET, uri);
+                    let request = testing_framework::Request::new(Method::GET, uri);
                     assert_spin_request(
                         spin,
                         request,
@@ -397,7 +386,7 @@ Caused by:
                     .status();
                 assert_eq!(status, 200);
                 let spin = env.runtime_mut();
-                let request = testing_framework::Request::new(reqwest::Method::GET, "/");
+                let request = testing_framework::Request::new(Method::GET, "/");
                 assert_spin_request(
                     spin,
                     request,
@@ -596,7 +585,7 @@ Caused by:
         )?;
         assert_spin_request(
             env.runtime_mut(),
-            testing_framework::Request::new(reqwest::Method::GET, "/"),
+            testing_framework::Request::new(Method::GET, "/"),
             testing_framework::Response::new_with_body(200, "Hello, Fermyon"),
         )?;
         Ok(())
@@ -627,7 +616,7 @@ Caused by:
                 assert_spin_request(
                     env.runtime_mut(),
                     testing_framework::Request::full(
-                        reqwest::Method::GET,
+                        Method::GET,
                         "/",
                         &[("url", &format!("http://127.0.0.1:{port}/",))],
                         Some(body.as_bytes()),
@@ -936,12 +925,8 @@ route = "/..."
                     headers.push(("url", &url));
                 }
                 let uri = format!("/{uri}");
-                let request = testing_framework::Request::full(
-                    reqwest::Method::POST,
-                    &uri,
-                    &headers,
-                    Some(body),
-                );
+                let request =
+                    testing_framework::Request::full(Method::POST, &uri, &headers, Some(body));
                 assert_spin_request(
                     spin,
                     request,
@@ -1008,7 +993,7 @@ route = "/..."
                     .map(|(k, v)| (*k, v.as_str()))
                     .collect::<Vec<_>>();
                 let request = testing_framework::Request::full(
-                    reqwest::Method::GET,
+                    Method::GET,
                     "/hash-all",
                     &headers,
                     Option::<Vec<u8>>::None,
@@ -1047,6 +1032,41 @@ route = "/..."
     }
 
     #[test]
+    fn test_spin_inbound_http() -> anyhow::Result<()> {
+        run_test(
+            "spin-inbound-http",
+            testing_framework::SpinMode::Http,
+            [],
+            testing_framework::ServicesConfig::none(),
+            move |env| {
+                let spin = env.runtime_mut();
+                assert_spin_request(
+                    spin,
+                    testing_framework::Request::full(
+                        Method::GET,
+                        "/base/echo",
+                        &[],
+                        Some("Echo..."),
+                    ),
+                    testing_framework::Response::new_with_body(200, "Echo..."),
+                )?;
+                assert_spin_request(
+                    spin,
+                    testing_framework::Request::full(
+                        Method::GET,
+                        "/base/assert-headers?k=v",
+                        &[("X-Custom-Foo", "bar")],
+                        Some(r#"{"x-custom-foo": "bar"}"#),
+                    ),
+                    testing_framework::Response::new(200),
+                )?;
+                Ok(())
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
     fn test_wagi_http() -> anyhow::Result<()> {
         run_test(
             "wagi-http",
@@ -1057,13 +1077,8 @@ route = "/..."
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(reqwest::Method::GET, "/base/hello"),
-                    testing_framework::Response::new_with_body(200, "I'm a teapot"),
-                )?;
-                assert_spin_request(
-                    spin,
                     testing_framework::Request::full(
-                        reqwest::Method::GET,
+                        Method::GET,
                         "/base/echo",
                         &[],
                         Some("Echo..."),
@@ -1072,19 +1087,25 @@ route = "/..."
                 )?;
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(reqwest::Method::GET, "/base/args?x=y"),
-                    testing_framework::Response::new_with_body(200, r#"["/base/args", "x=y"]"#),
+                    testing_framework::Request::full(
+                        Method::GET,
+                        "/base/assert-args?x=y",
+                        &[],
+                        Some(r#"["/base/assert-args", "x=y"]"#),
+                    ),
+                    testing_framework::Response::new(200),
                 )?;
                 assert_spin_request(
                     spin,
                     testing_framework::Request::full(
-                        reqwest::Method::GET,
-                        "/base/env?HTTP_X_CUSTOM_FOO",
+                        Method::GET,
+                        "/base/assert-env",
                         &[("X-Custom-Foo", "bar")],
-                        Option::<Vec<u8>>::None,
+                        Some(r#"{"HTTP_X_CUSTOM_FOO": "bar"}"#),
                     ),
-                    testing_framework::Response::new_with_body(200, "bar"),
-                )
+                    testing_framework::Response::new(200),
+                )?;
+                Ok(())
             },
         )?;
 
@@ -1106,7 +1127,7 @@ route = "/..."
                 );
                 let headers = [("url", service_url.as_str())];
                 let request: testing_framework::Request<'_, Vec<u8>> =
-                    testing_framework::Request::full(reqwest::Method::GET, "/", &headers, None);
+                    testing_framework::Request::full(Method::GET, "/", &headers, None);
                 let expected = testing_framework::Response::new_with_body(200, "Hello, world!");
                 assert_spin_request(env.runtime_mut(), request, expected)
             },

@@ -1,1 +1,1 @@
-Could not read model registry directory '.spin/ai-models'
+Local LLM operations are not supported in this version of Spin.

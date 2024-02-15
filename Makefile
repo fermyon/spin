@@ -49,20 +49,26 @@ update-cargo-locks:
 
 .PHONY: test-unit
 test-unit:
-	$(LOG_LEVEL_VAR) cargo test --all --no-fail-fast -- --skip integration_tests --nocapture
+	$(LOG_LEVEL_VAR) cargo test --all --no-fail-fast -- --skip integration_tests --skip runtime_tests --nocapture
 
-.PHONY: test-crate
-test-crate:
-	$(LOG_LEVEL_VAR) cargo test -p $(crate) --no-fail-fast -- --skip integration_tests --nocapture
+# Run the runtime tests without the tests that use some sort of assumed external depedency (e.g., Docker, a language toolchain, etc.)
+.PHONY: test-runtime
+test-runtime:
+	cargo test --release runtime_tests --no-default-features --no-fail-fast -- --nocapture
+
+# Run all of the runtime tests including those that use some sort of assumed external depedency (e.g., Docker, a language toolchain, etc.)
+.PHONY: test-runtime-full
+test-runtime-full:
+	cargo test --release runtime_tests --no-default-features --features extern-dependencies-tests --no-fail-fast -- --nocapture
 
 # Run the integration tests without the tests that use some sort of assumed external depedency (e.g., Docker, a language toolchain, etc.)
 .PHONY: test-integration
-test-integration:
+test-integration: test-runtime
 	cargo test --release integration_tests --no-default-features --no-fail-fast -- --nocapture
 
 # Run all of the integration tests including those that use some sort of assumed external depedency (e.g., Docker, a language toolchain, etc.)
 .PHONY: test-integration-full
-test-integration-full:
+test-integration-full: test-runtime-full
 	cargo test --release integration_tests --no-default-features --features extern-dependencies-tests --no-fail-fast -- --nocapture
 
 .PHONY: test-sdk-go

@@ -150,10 +150,27 @@ impl RuntimeTest<InMemorySpin> {
         })
     }
 
-    fn run(&mut self) {
+    pub fn run(&mut self) {
         self.run_test(|env| {
             let runtime = env.runtime_mut();
-            todo!()
+            let response = runtime.make_http_request(testing_framework::Request::new(reqwest::Method::GET, "/"))?;
+            if response.status() == 200 {
+                return Ok(());
+            }
+            if response.status() != 500 {
+                return Err(anyhow::anyhow!("Runtime tests are expected to return either either a 200 or a 500, but it returned a {}", response.status()).into());
+            }
+            let text = response
+                .text()
+                .context("could not get runtime test HTTP response")?;
+            if text.is_empty() {
+                return Err(anyhow::anyhow!("Runtime tests are expected to return a response body, but the response body was empty.").into());
+            }
+
+            Err(TestError::Failure(RuntimeTestFailure {
+                error: text,
+                stderr: String::new()
+            }))
         })
     }
 }

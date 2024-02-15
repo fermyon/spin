@@ -6640,14 +6640,21 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "fslock",
+ "http 1.0.0",
+ "http-body-util",
  "log",
  "nix 0.26.4",
  "regex",
  "reqwest",
+ "spin-http",
+ "spin-loader",
+ "spin-trigger",
+ "spin-trigger-http",
  "temp-dir",
  "test-components",
  "tokio",
  "toml 0.8.8",
+ "wasmtime-wasi-http",
 ]
 
 [[package]]

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use crate::{
     services::{Services, ServicesConfig},
     spin::{Spin, SpinMode},
-    Runtime,
+    Response, Runtime,
 };
 use anyhow::Context as _;
 
@@ -192,7 +192,46 @@ impl TestEnvironmentConfig<Spin> {
     }
 }
 
-pub struct InMemorySpin;
+pub struct InMemorySpin {
+    trigger: spin_trigger_http::HttpTrigger,
+}
+
+impl InMemorySpin {
+    pub fn make_http_request(
+        &self,
+        req: crate::Request<'_, &[u8]>,
+    ) -> anyhow::Result<crate::Response> {
+        tokio::runtime::Runtime::new()?.block_on(async {
+            let req = http::request::Request::builder()
+                .method(http::Method::GET) // TODO
+                .uri(req.uri)
+                // TODO: headers
+                .body(spin_http::body::empty()) // TODO
+                .unwrap();
+            let response = self
+                .trigger
+                .handle(
+                    req,
+                    http::uri::Scheme::HTTP,
+                    std::net::SocketAddr::V4(std::net::SocketAddrV4::new(
+                        std::net::Ipv4Addr::LOCALHOST,
+                        80,
+                    )),
+                )
+                .await?;
+            use http_body_util::BodyExt;
+            let status = response.status().as_u16();
+            let body = response.into_body();
+            let chunks = body
+                .collect()
+                .await
+                .context("could not get runtime test HTTP response")?
+                .to_bytes()
+                .to_vec();
+            Ok(Response::full(status, Default::default(), chunks))
+        })
+    }
+}
 
 impl Runtime for InMemorySpin {
     type Config = ();
@@ -211,7 +250,34 @@ impl TestEnvironmentConfig<InMemorySpin> {
             services_config,
             create_runtime: Box::new(|env| {
                 preboot(env)?;
-                Ok(InMemorySpin)
+                tokio::runtime::Runtime::new()
+                    .context("failed to start tokio runtime")?
+                    .block_on(async {
+                        use spin_trigger::{
+                            loader::TriggerLoader, HostComponentInitData, RuntimeConfig,
+                            TriggerExecutorBuilder,
+                        };
+                        use spin_trigger_http::HttpTrigger;
+                        let locked_app = spin_loader::from_file(
+                            env.path().join("spin.toml"),
+                            spin_loader::FilesMountStrategy::Direct,
+                            None,
+                        )
+                        .await?;
+                        let json = locked_app.to_json()?;
+                        std::fs::write(env.path().join("locked.json"), json)?;
+
+                        let loader = TriggerLoader::new(env.path().join(".working_dir"), false);
+                        let trigger = TriggerExecutorBuilder::<HttpTrigger>::new(loader)
+                            .build(
+                                format!("file:{}", env.path().join("locked.json").display()),
+                                RuntimeConfig::default(),
+                                HostComponentInitData::default(),
+                            )
+                            .await?;
+
+                        Result::<_, anyhow::Error>::Ok(InMemorySpin { trigger })
+                    })
             }),
         }
     }

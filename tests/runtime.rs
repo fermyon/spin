@@ -2,11 +2,13 @@
 mod runtime_tests {
     use std::path::PathBuf;
 
+    use testing_framework::runtimes::in_process_spin::InProcessSpin;
+
     // The macro inspects the tests directory and
     // generates individual tests for each one.
     test_codegen_macro::codegen_runtime_tests!(
         ignore: [
-            // This test is flacky. Often gets "Connection reset by peer" errors.
+            // This test is flaky. Often gets "Connection reset by peer" errors.
             // https://github.com/fermyon/spin/issues/2265
             "outbound-postgres"
         ]
@@ -15,10 +17,10 @@ mod runtime_tests {
     fn run(test_path: PathBuf) {
         let config = runtime_tests::RuntimeTestConfig {
             test_path,
-            spin_binary: env!("CARGO_BIN_EXE_spin").into(),
+            runtime_config: (),
             on_error: testing_framework::OnTestError::Panic,
         };
-        runtime_tests::RuntimeTest::bootstrap(config)
+        runtime_tests::RuntimeTest::<InProcessSpin>::bootstrap(config)
             .expect("failed to bootstrap runtime tests tests")
             .run();
     }

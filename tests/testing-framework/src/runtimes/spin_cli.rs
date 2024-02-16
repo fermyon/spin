@@ -1,14 +1,20 @@
+//! The Spin CLI runtime (i.e., the `spin` command-line tool).
+
 use anyhow::Context;
 
-use crate::{io::OutputStream, Runtime, TestEnvironment};
+use super::SpinAppType;
+use crate::{
+    http::{Request, Response},
+    io::OutputStream,
+    Runtime, TestEnvironment,
+};
 use std::{
-    collections::HashMap,
     path::Path,
     process::{Command, Stdio},
 };
 
-/// A wrapper around a running Spin instance
-pub struct Spin {
+/// A wrapper around a running Spin CLI instance
+pub struct SpinCli {
     process: std::process::Child,
     #[allow(dead_code)]
     stdout: OutputStream,
@@ -16,21 +22,22 @@ pub struct Spin {
     io_mode: IoMode,
 }
 
-impl Spin {
+impl SpinCli {
+    /// Start Spin using the binary at `spin_binary_path` in the `env` testing environment
     pub fn start<R>(
         spin_binary_path: &Path,
         env: &TestEnvironment<R>,
         spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
-        mode: SpinMode,
+        app_type: SpinAppType,
     ) -> anyhow::Result<Self> {
-        match mode {
-            SpinMode::Http => Self::start_http(spin_binary_path, env, spin_up_args),
-            SpinMode::Redis => Self::start_redis(spin_binary_path, env, spin_up_args),
-            SpinMode::None => Self::attempt_start(spin_binary_path, env, spin_up_args),
+        match app_type {
+            SpinAppType::Http => Self::start_http(spin_binary_path, env, spin_up_args),
+            SpinAppType::Redis => Self::start_redis(spin_binary_path, env, spin_up_args),
+            SpinAppType::None => Self::attempt_start(spin_binary_path, env, spin_up_args),
         }
     }
 
-    /// Start Spin in `current_dir` using the binary at `spin_binary_path`
+    /// Start Spin assuming an HTTP app in `env` testing directory using the binary at `spin_binary_path`
     pub fn start_http<R>(
         spin_binary_path: &Path,
         env: &TestEnvironment<R>,
@@ -87,6 +94,7 @@ impl Spin {
         )
     }
 
+    /// Start Spin assuming a Redis app in `env` testing directory using the binary at `spin_binary_path`
     pub fn start_redis<R>(
         spin_binary_path: &Path,
         env: &TestEnvironment<R>,
@@ -194,9 +202,9 @@ impl Spin {
             while let Some(chunk) = response.chunk().await? {
                 chunks.push(chunk.to_vec());
             }
-            Result::<_, anyhow::Error>::Ok(Response {
-                status: response.status().as_u16(),
-                headers: response
+            Result::<_, anyhow::Error>::Ok(Response::full(
+                response.status().as_u16(),
+                response
                     .headers()
                     .into_iter()
                     .map(|(k, v)| {
@@ -207,7 +215,7 @@ impl Spin {
                     })
                     .collect(),
                 chunks,
-            })
+            ))
         })?;
         log::debug!("Awaiting response from server");
         if let Some(status) = self.try_wait()? {
@@ -237,13 +245,15 @@ impl Spin {
     }
 }
 
-impl Drop for Spin {
+impl Drop for SpinCli {
     fn drop(&mut self) {
         kill_process(&mut self.process);
     }
 }
 
-impl Runtime for Spin {
+impl Runtime for SpinCli {
+    type Config = SpinConfig;
+
     fn error(&mut self) -> anyhow::Result<()> {
         if !matches!(self.io_mode, IoMode::None) && self.try_wait()?.is_some() {
             anyhow::bail!("Spin exited early: {}", self.stderr());
@@ -251,6 +261,10 @@ impl Runtime for Spin {
 
         Ok(())
     }
+}
+
+pub struct SpinConfig {
+    pub binary_path: std::path::PathBuf,
 }
 
 fn kill_process(process: &mut std::process::Child) {
@@ -275,146 +289,9 @@ enum IoMode {
     None,
 }
 
-/// The mode start Spin up in
-pub enum SpinMode {
-    /// Expect an http listener to start
-    Http,
-    /// Expect a redis listener to start
-    Redis,
-    /// Don't expect spin to start
-    None,
-}
-
 /// Uses a track to ge a random unused port
 fn get_random_port() -> anyhow::Result<u16> {
     Ok(std::net::TcpListener::bind("localhost:0")?
         .local_addr()?
         .port())
-}
-
-/// A request to the spin server
-pub struct Request<'a, B> {
-    pub method: reqwest::Method,
-    pub uri: &'a str,
-    pub headers: &'a [(&'a str, &'a str)],
-    pub body: Option<B>,
-}
-
-impl<'a, 'b> Request<'a, &'b [u8]> {
-    /// Create a new request with no headers or body
-    pub fn new(method: reqwest::Method, uri: &'a str) -> Self {
-        Self {
-            method,
-            uri,
-            headers: &[],
-            body: None,
-        }
-    }
-}
-
-impl<'a, B> Request<'a, B> {
-    /// Create a new request with headers and a body
-    pub fn full(
-        method: reqwest::Method,
-        uri: &'a str,
-        headers: &'a [(&'a str, &'a str)],
-        body: Option<B>,
-    ) -> Self {
-        Self {
-            method,
-            uri,
-            headers,
-            body,
-        }
-    }
-}
-
-pub struct Response {
-    status: u16,
-    headers: HashMap<String, String>,
-    chunks: Vec<Vec<u8>>,
-}
-
-impl Response {
-    /// A response with no headers or body
-    pub fn new(status: u16) -> Self {
-        Self {
-            status,
-            headers: Default::default(),
-            chunks: Default::default(),
-        }
-    }
-
-    /// A response with headers and a body
-    pub fn new_with_body(status: u16, chunks: impl IntoChunks) -> Self {
-        Self {
-            status,
-            headers: Default::default(),
-            chunks: chunks.into_chunks(),
-        }
-    }
-
-    /// A response with headers and a body
-    pub fn full(status: u16, headers: HashMap<String, String>, chunks: impl IntoChunks) -> Self {
-        Self {
-            status,
-            headers,
-            chunks: chunks.into_chunks(),
-        }
-    }
-
-    /// The status code of the response
-    pub fn status(&self) -> u16 {
-        self.status
-    }
-
-    /// The headers of the response
-    pub fn headers(&self) -> &HashMap<String, String> {
-        &self.headers
-    }
-
-    /// The body of the response
-    pub fn body(&self) -> Vec<u8> {
-        self.chunks.iter().flatten().copied().collect()
-    }
-
-    /// The body of the response as chunks of bytes
-    ///
-    /// If the response is not stream this will be a single chunk equal to the body
-    pub fn chunks(&self) -> &[Vec<u8>] {
-        &self.chunks
-    }
-
-    /// The body of the response as a string
-    pub fn text(&self) -> Result<String, std::string::FromUtf8Error> {
-        String::from_utf8(self.body())
-    }
-}
-
-pub trait IntoChunks {
-    fn into_chunks(self) -> Vec<Vec<u8>>;
-}
-
-impl IntoChunks for Vec<Vec<u8>> {
-    fn into_chunks(self) -> Vec<Vec<u8>> {
-        self
-    }
-}
-
-impl IntoChunks for Vec<u8> {
-    fn into_chunks(self) -> Vec<Vec<u8>> {
-        vec![self]
-    }
-}
-
-impl IntoChunks for String {
-    fn into_chunks(self) -> Vec<Vec<u8>> {
-        vec![self.into_bytes()]
-    }
-}
-
-impl IntoChunks for &str {
-    fn into_chunks(self) -> Vec<Vec<u8>> {
-        vec![self.as_bytes().into()]
-    }
 }

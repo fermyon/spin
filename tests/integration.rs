@@ -1,9 +1,12 @@
 mod testcases;
 
 mod integration_tests {
-    use reqwest::Method;
     use sha2::Digest;
     use std::collections::HashMap;
+    use testing_framework::{
+        http::{Method, Request, Response},
+        runtimes::SpinAppType,
+    };
 
     use super::testcases::{
         assert_spin_request, bootstap_env, http_smoke_test_template, run_test, spin_binary,
@@ -17,15 +20,15 @@ mod integration_tests {
         let test_value = uuid::Uuid::new_v4().to_string();
         run_test(
             "key-value",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             ["--key-value".into(), format!("{test_key}={test_value}")],
             testing_framework::ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(Method::GET, &format!("/test?key={test_key}")),
-                    testing_framework::Response::new_with_body(200, test_value),
+                    Request::new(Method::GET, &format!("/test?key={test_key}")),
+                    Response::new_with_body(200, test_value),
                 )
             },
         )?;
@@ -37,33 +40,30 @@ mod integration_tests {
     fn http_smoke_test() -> anyhow::Result<()> {
         run_test(
             "http-smoke-test",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             [],
             testing_framework::ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(Method::GET, "/test/hello"),
-                    testing_framework::Response::new_with_body(200, "I'm a teapot"),
+                    Request::new(Method::GET, "/test/hello"),
+                    Response::new_with_body(200, "I'm a teapot"),
                 )?;
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(
-                        Method::GET,
-                        "/test/hello/wildcards/should/be/handled",
-                    ),
-                    testing_framework::Response::new_with_body(200, "I'm a teapot"),
+                    Request::new(Method::GET, "/test/hello/wildcards/should/be/handled"),
+                    Response::new_with_body(200, "I'm a teapot"),
                 )?;
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(Method::GET, "/thishsouldfail"),
-                    testing_framework::Response::new(404),
+                    Request::new(Method::GET, "/thishsouldfail"),
+                    Response::new(404),
                 )?;
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(Method::GET, "/test/hello/test-placement"),
-                    testing_framework::Response::new_with_body(200, "text for test"),
+                    Request::new(Method::GET, "/test/hello/test-placement"),
+                    Response::new_with_body(200, "text for test"),
                 )
             },
         )?;
@@ -96,7 +96,7 @@ mod integration_tests {
         use redis::Commands;
         run_test(
             "redis-smoke-test",
-            testing_framework::SpinMode::Redis,
+            SpinAppType::Redis,
             [],
             testing_framework::ServicesConfig::new(vec!["redis".into()])?,
             move |env| {
@@ -140,15 +140,15 @@ mod integration_tests {
     fn dynamic_env_test() -> anyhow::Result<()> {
         run_test(
             "dynamic-env-test",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             vec!["--env".to_owned(), "foo=bar".to_owned()],
             testing_framework::ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(Method::GET, "/env"),
-                    testing_framework::Response::full(
+                    Request::new(Method::GET, "/env"),
+                    Response::full(
                         200,
                         [
                             ("env_some_key".to_owned(), "some_value".to_owned()),
@@ -171,7 +171,7 @@ mod integration_tests {
     fn assets_routing_test() -> anyhow::Result<()> {
         run_test(
             "assets-test",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             [],
             testing_framework::ServicesConfig::none(),
             move |env| {
@@ -179,11 +179,8 @@ mod integration_tests {
                 let mut assert_file = |name: &str, content: &str| {
                     assert_spin_request(
                         spin,
-                        testing_framework::Request::new(
-                            Method::GET,
-                            &format!("/static/thisshouldbemounted/{name}"),
-                        ),
-                        testing_framework::Response::new_with_body(200, content),
+                        Request::new(Method::GET, &format!("/static/thisshouldbemounted/{name}")),
+                        Response::new_with_body(200, content),
                     )
                 };
                 let mut assert_file_content_eq_name =
@@ -198,8 +195,8 @@ mod integration_tests {
                 let mut assert_not_found = |path: &str| {
                     assert_spin_request(
                         spin,
-                        testing_framework::Request::new(Method::GET, &format!("/static/{path}")),
-                        testing_framework::Response::new_with_body(404, "Not Found"),
+                        Request::new(Method::GET, &format!("/static/{path}")),
+                        Response::new_with_body(404, "Not Found"),
                     )
                 };
 
@@ -217,7 +214,7 @@ mod integration_tests {
     fn legacy_apps() -> anyhow::Result<()> {
         run_test(
             "legacy-apps-test",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             [],
             testing_framework::ServicesConfig::none(),
             move |env| {
@@ -225,8 +222,8 @@ mod integration_tests {
                 let mut test = |lang: &str, body: &str| {
                     assert_spin_request(
                         spin,
-                        testing_framework::Request::new(Method::GET, &format!("/{lang}")),
-                        testing_framework::Response::new_with_body(200, body),
+                        Request::new(Method::GET, &format!("/{lang}")),
+                        Response::new_with_body(200, body),
                     )
                 };
 
@@ -247,7 +244,7 @@ mod integration_tests {
             "error",
             [],
             testing_framework::ServicesConfig::none(),
-            testing_framework::SpinMode::None,
+            SpinAppType::None,
         )?;
         let expected = r#"Error: Couldn't find trigger executor for local app "spin.toml"
 
@@ -264,21 +261,21 @@ Caused by:
     fn outbound_http_works() -> anyhow::Result<()> {
         run_test(
             "outbound-http-to-same-app",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             [],
             testing_framework::ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(Method::GET, "/test/outbound-allowed"),
-                    testing_framework::Response::new_with_body(200, "Hello, Fermyon!\n"),
+                    Request::new(Method::GET, "/test/outbound-allowed"),
+                    Response::new_with_body(200, "Hello, Fermyon!\n"),
                 )?;
 
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::new(Method::GET, "/test/outbound-not-allowed"),
-                    testing_framework::Response::new(500),
+                    Request::new(Method::GET, "/test/outbound-not-allowed"),
+                    Response::new(500),
                 )?;
 
                 Ok(())
@@ -297,17 +294,17 @@ Caused by:
     fn test_simple_rust_local() -> anyhow::Result<()> {
         run_test(
             "simple-test",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             [],
             testing_framework::ServicesConfig::none(),
             |env| {
                 let spin = env.runtime_mut();
                 let mut ensure_success = |uri, expected_status, expected_body| {
-                    let request = testing_framework::Request::new(Method::GET, uri);
+                    let request = Request::new(Method::GET, uri);
                     assert_spin_request(
                         spin,
                         request,
-                        testing_framework::Response::new_with_body(expected_status, expected_body),
+                        Response::new_with_body(expected_status, expected_body),
                     )
                 };
                 ensure_success("/test/hello", 200, "I'm a teapot")?;
@@ -329,17 +326,17 @@ Caused by:
     fn test_duplicate_rust_local() -> anyhow::Result<()> {
         run_test(
             "simple-double-test",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             [],
             testing_framework::ServicesConfig::none(),
             |env| {
                 let spin = env.runtime_mut();
                 let mut ensure_success = |uri, expected_status, expected_body| {
-                    let request = testing_framework::Request::new(Method::GET, uri);
+                    let request = Request::new(Method::GET, uri);
                     assert_spin_request(
                         spin,
                         request,
-                        testing_framework::Response::new_with_body(expected_status, expected_body),
+                        Response::new_with_body(expected_status, expected_body),
                     )
                 };
                 ensure_success("/route1", 200, "I'm a teapot")?;
@@ -359,7 +356,7 @@ Caused by:
         const VAULT_ROOT_TOKEN: &str = "root";
         run_test(
             "vault-variables-test",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             vec!["--runtime-config-file".into(), "runtime_config.toml".into()],
             testing_framework::ServicesConfig::new(vec!["vault".into()])?,
             |env| {
@@ -386,14 +383,11 @@ Caused by:
                     .status();
                 assert_eq!(status, 200);
                 let spin = env.runtime_mut();
-                let request = testing_framework::Request::new(Method::GET, "/");
+                let request = Request::new(Method::GET, "/");
                 assert_spin_request(
                     spin,
                     request,
-                    testing_framework::Response::new_with_body(
-                        200,
-                        "Hello! Got password test_password",
-                    ),
+                    Response::new_with_body(200, "Hello! Got password test_password"),
                 )?;
                 Ok(())
             },
@@ -581,12 +575,12 @@ Caused by:
             |_| Ok(Vec::new()),
             |_| Ok(()),
             spin_up_args,
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
         )?;
         assert_spin_request(
             env.runtime_mut(),
-            testing_framework::Request::new(Method::GET, "/"),
-            testing_framework::Response::new_with_body(200, "Hello, Fermyon"),
+            Request::new(Method::GET, "/"),
+            Response::new_with_body(200, "Hello, Fermyon"),
         )?;
         Ok(())
     }
@@ -606,7 +600,7 @@ Caused by:
 
         run_test(
             test_name,
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             [],
             testing_framework::ServicesConfig::new(vec!["http-echo".into()])?,
             move |env| {
@@ -615,13 +609,13 @@ Caused by:
                     .context("no http-echo port was exposed by test services")?;
                 assert_spin_request(
                     env.runtime_mut(),
-                    testing_framework::Request::full(
+                    Request::full(
                         Method::GET,
                         "/",
                         &[("url", &format!("http://127.0.0.1:{port}/",))],
                         Some(body.as_bytes()),
                     ),
-                    testing_framework::Response::new_with_body(200, "Hello, world!"),
+                    Response::new_with_body(200, "Hello, world!"),
                 )?;
                 Ok(())
             },
@@ -650,11 +644,11 @@ route = "/..."
         env.write_file("spin.toml", toml_text)?;
         env.write_file("fake.wasm", [])?;
 
-        testing_framework::Spin::start(
+        testing_framework::runtimes::spin_cli::SpinCli::start(
             &spin_binary(),
             &env,
             Vec::<String>::new(),
-            testing_framework::SpinMode::None,
+            SpinAppType::None,
         )?;
 
         let mut up = std::process::Command::new(spin_binary());
@@ -913,7 +907,7 @@ route = "/..."
 
         run_test(
             "wasi-http-streaming",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             [],
             testing_framework::ServicesConfig::none(),
             move |env| {
@@ -925,12 +919,11 @@ route = "/..."
                     headers.push(("url", &url));
                 }
                 let uri = format!("/{uri}");
-                let request =
-                    testing_framework::Request::full(Method::POST, &uri, &headers, Some(body));
+                let request = Request::full(Method::POST, &uri, &headers, Some(body));
                 assert_spin_request(
                     spin,
                     request,
-                    testing_framework::Response::full(
+                    Response::full(
                         200,
                         [(
                             "content-type".to_owned(),
@@ -961,7 +954,7 @@ route = "/..."
         .collect::<HashMap<_, _>>();
         run_test(
             "wasi-http-streaming",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             [],
             testing_framework::ServicesConfig::new(vec!["http-responses-from-file".into()])?,
             move |env| {
@@ -992,12 +985,8 @@ route = "/..."
                     .iter()
                     .map(|(k, v)| (*k, v.as_str()))
                     .collect::<Vec<_>>();
-                let request = testing_framework::Request::full(
-                    Method::GET,
-                    "/hash-all",
-                    &headers,
-                    Option::<Vec<u8>>::None,
-                );
+                let request =
+                    Request::full(Method::GET, "/hash-all", &headers, Option::<Vec<u8>>::None);
                 let response = env.runtime_mut().make_http_request(request)?;
 
                 // Assert the response
@@ -1035,30 +1024,25 @@ route = "/..."
     fn test_spin_inbound_http() -> anyhow::Result<()> {
         run_test(
             "spin-inbound-http",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             [],
             testing_framework::ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::full(
-                        Method::GET,
-                        "/base/echo",
-                        &[],
-                        Some("Echo..."),
-                    ),
-                    testing_framework::Response::new_with_body(200, "Echo..."),
+                    Request::full(Method::GET, "/base/echo", &[], Some("Echo...")),
+                    Response::new_with_body(200, "Echo..."),
                 )?;
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::full(
+                    Request::full(
                         Method::GET,
                         "/base/assert-headers?k=v",
                         &[("X-Custom-Foo", "bar")],
                         Some(r#"{"x-custom-foo": "bar"}"#),
                     ),
-                    testing_framework::Response::new(200),
+                    Response::new(200),
                 )?;
                 Ok(())
             },
@@ -1070,40 +1054,35 @@ route = "/..."
     fn test_wagi_http() -> anyhow::Result<()> {
         run_test(
             "wagi-http",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             [],
             testing_framework::ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::full(
-                        Method::GET,
-                        "/base/echo",
-                        &[],
-                        Some("Echo..."),
-                    ),
-                    testing_framework::Response::new_with_body(200, "Echo..."),
+                    Request::full(Method::GET, "/base/echo", &[], Some("Echo...")),
+                    Response::new_with_body(200, "Echo..."),
                 )?;
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::full(
+                    Request::full(
                         Method::GET,
                         "/base/assert-args?x=y",
                         &[],
                         Some(r#"["/base/assert-args", "x=y"]"#),
                     ),
-                    testing_framework::Response::new(200),
+                    Response::new(200),
                 )?;
                 assert_spin_request(
                     spin,
-                    testing_framework::Request::full(
+                    Request::full(
                         Method::GET,
                         "/base/assert-env",
                         &[("X-Custom-Foo", "bar")],
                         Some(r#"{"HTTP_X_CUSTOM_FOO": "bar"}"#),
                     ),
-                    testing_framework::Response::new(200),
+                    Response::new(200),
                 )?;
                 Ok(())
             },
@@ -1116,7 +1095,7 @@ route = "/..."
     fn test_outbound_post() -> anyhow::Result<()> {
         run_test(
             "wasi-http-outbound-post",
-            testing_framework::SpinMode::Http,
+            SpinAppType::Http,
             [],
             testing_framework::ServicesConfig::new(vec!["http-echo".into()])?,
             move |env| {
@@ -1126,9 +1105,8 @@ route = "/..."
                         .context("no http-echo port was exposed by test services")?
                 );
                 let headers = [("url", service_url.as_str())];
-                let request: testing_framework::Request<'_, Vec<u8>> =
-                    testing_framework::Request::full(Method::GET, "/", &headers, None);
-                let expected = testing_framework::Response::new_with_body(200, "Hello, world!");
+                let request: Request<'_, Vec<u8>> = Request::full(Method::GET, "/", &headers, None);
+                let expected = Response::new_with_body(200, "Hello, world!");
                 assert_spin_request(env.runtime_mut(), request, expected)
             },
         )?;

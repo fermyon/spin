@@ -4,15 +4,15 @@ use std::path::PathBuf;
 /// Run an integration test
 pub fn run_test(
     test_name: impl Into<String>,
-    mode: testing_framework::SpinMode,
+    app_type: testing_framework::runtimes::SpinAppType,
     spin_up_args: impl IntoIterator<Item = String>,
     services_config: testing_framework::ServicesConfig,
     test: impl FnOnce(
-            &mut testing_framework::TestEnvironment<testing_framework::Spin>,
+            &mut testing_framework::TestEnvironment<testing_framework::runtimes::spin_cli::SpinCli>,
         ) -> testing_framework::TestResult<anyhow::Error>
         + 'static,
 ) -> testing_framework::TestResult<anyhow::Error> {
-    let mut env = bootstap_env(test_name, spin_up_args, services_config, mode)
+    let mut env = bootstap_env(test_name, spin_up_args, services_config, app_type)
         .context("failed to boot test environment")?;
     test(&mut env)?;
     Ok(())
@@ -23,24 +23,26 @@ pub fn bootstap_env(
     test_name: impl Into<String>,
     spin_up_args: impl IntoIterator<Item = String>,
     services_config: testing_framework::ServicesConfig,
-    mode: testing_framework::SpinMode,
-) -> anyhow::Result<testing_framework::TestEnvironment<testing_framework::Spin>> {
+    app_type: testing_framework::runtimes::SpinAppType,
+) -> anyhow::Result<
+    testing_framework::TestEnvironment<testing_framework::runtimes::spin_cli::SpinCli>,
+> {
     let test_name = test_name.into();
     let config = testing_framework::TestEnvironmentConfig::spin(
         spin_binary(),
         spin_up_args,
         move |env| preboot(&test_name, env),
         services_config,
-        mode,
+        app_type,
     );
     testing_framework::TestEnvironment::up(config)
 }
 
 /// Assert that a request to the spin server returns the expected status and body
 pub fn assert_spin_request<B: Into<reqwest::Body>>(
-    spin: &mut testing_framework::Spin,
-    request: testing_framework::Request<'_, B>,
-    expected: testing_framework::Response,
+    spin: &mut testing_framework::runtimes::spin_cli::SpinCli,
+    request: testing_framework::http::Request<'_, B>,
+    expected: testing_framework::http::Response,
 ) -> testing_framework::TestResult<anyhow::Error> {
     let uri = request.uri;
     let r = spin.make_http_request(request)?;
@@ -97,7 +99,7 @@ impl<'a, T: std::fmt::Display> std::fmt::Display for TruncatedSlice<'a, T> {
 /// Get the test environment ready to run a test
 fn preboot(
     test: &str,
-    env: &mut testing_framework::TestEnvironment<testing_framework::Spin>,
+    env: &mut testing_framework::TestEnvironment<testing_framework::runtimes::spin_cli::SpinCli>,
 ) -> anyhow::Result<()> {
     let test_path = format!("tests/testcases/{test}");
     for file in std::fs::read_dir(test_path)? {
@@ -159,13 +161,13 @@ pub fn http_smoke_test_template_with_route(
         |_| Ok(Vec::new()),
         prebuild_hook,
         |_| Ok(Vec::new()),
-        testing_framework::SpinMode::Http,
+        testing_framework::runtimes::SpinAppType::Http,
     )?;
 
     assert_spin_request(
         env.runtime_mut(),
-        testing_framework::Request::new(reqwest::Method::GET, route),
-        testing_framework::Response::full(200, Default::default(), expected_body),
+        testing_framework::http::Request::new(testing_framework::http::Method::GET, route),
+        testing_framework::http::Response::full(200, Default::default(), expected_body),
     )?;
 
     Ok(())
@@ -195,7 +197,7 @@ pub fn redis_smoke_test_template(
         },
         prebuild_hook,
         |_| Ok(Vec::new()),
-        testing_framework::SpinMode::Redis,
+        testing_framework::runtimes::SpinAppType::Redis,
     )?;
     let redis_port = env
         .get_port(6379)?
@@ -234,8 +236,10 @@ pub fn bootstrap_smoke_test(
     spin_up_args: impl FnOnce(
         &mut testing_framework::TestEnvironment<()>,
     ) -> anyhow::Result<Vec<String>>,
-    spin_mode: testing_framework::SpinMode,
-) -> anyhow::Result<testing_framework::TestEnvironment<testing_framework::Spin>> {
+    spin_app_type: testing_framework::runtimes::SpinAppType,
+) -> anyhow::Result<
+    testing_framework::TestEnvironment<testing_framework::runtimes::spin_cli::SpinCli>,
+> {
     let mut env: testing_framework::TestEnvironment<()> =
         testing_framework::TestEnvironment::boot(services)?;
 
@@ -291,7 +295,12 @@ pub fn bootstrap_smoke_test(
     build.env("PATH", path).args(["build"]);
     env.run_in(&mut build)?;
     let spin_up_args = spin_up_args(&mut env)?;
-    let spin = testing_framework::Spin::start(&spin_binary(), &env, spin_up_args, spin_mode)?;
+    let spin = testing_framework::runtimes::spin_cli::SpinCli::start(
+        &spin_binary(),
+        &env,
+        spin_up_args,
+        spin_app_type,
+    )?;
     let env = env.start_runtime(spin)?;
     Ok(env)
 }

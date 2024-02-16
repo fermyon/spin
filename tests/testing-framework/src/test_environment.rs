@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
+    runtimes::{in_process_spin::InProcessSpin, spin_cli::SpinCli, SpinAppType},
     services::{Services, ServicesConfig},
-    spin::{Spin, SpinMode},
-    Response, Runtime,
+    Runtime,
 };
 use anyhow::Context as _;
 
@@ -167,8 +167,8 @@ pub struct TestEnvironmentConfig<R> {
     services_config: ServicesConfig,
 }
 
-impl TestEnvironmentConfig<Spin> {
-    /// Configure a test environment that uses a local Spin as a runtime
+impl TestEnvironmentConfig<SpinCli> {
+    /// Configure a test environment that uses a local Spin binary as a runtime
     ///
     /// * `spin_binary` - the path to the Spin binary
     /// * `preboot` - a callback that happens after the services have started but before the runtime is
@@ -177,74 +177,25 @@ impl TestEnvironmentConfig<Spin> {
     pub fn spin(
         spin_binary: PathBuf,
         spin_up_args: impl IntoIterator<Item = String>,
-        preboot: impl FnOnce(&mut TestEnvironment<Spin>) -> anyhow::Result<()> + 'static,
+        preboot: impl FnOnce(&mut TestEnvironment<SpinCli>) -> anyhow::Result<()> + 'static,
         services_config: ServicesConfig,
-        mode: SpinMode,
+        app_type: SpinAppType,
     ) -> Self {
         let spin_up_args = spin_up_args.into_iter().collect();
         Self {
             services_config,
             create_runtime: Box::new(move |env| {
                 preboot(env)?;
-                Spin::start(&spin_binary, env, spin_up_args, mode)
+                SpinCli::start(&spin_binary, env, spin_up_args, app_type)
             }),
         }
     }
 }
 
-pub struct InMemorySpin {
-    trigger: spin_trigger_http::HttpTrigger,
-}
-
-impl InMemorySpin {
-    pub fn make_http_request(
-        &self,
-        req: crate::Request<'_, &[u8]>,
-    ) -> anyhow::Result<crate::Response> {
-        tokio::runtime::Runtime::new()?.block_on(async {
-            let req = http::request::Request::builder()
-                .method(http::Method::GET) // TODO
-                .uri(req.uri)
-                // TODO: headers
-                .body(spin_http::body::empty()) // TODO
-                .unwrap();
-            let response = self
-                .trigger
-                .handle(
-                    req,
-                    http::uri::Scheme::HTTP,
-                    std::net::SocketAddr::V4(std::net::SocketAddrV4::new(
-                        std::net::Ipv4Addr::LOCALHOST,
-                        80,
-                    )),
-                )
-                .await?;
-            use http_body_util::BodyExt;
-            let status = response.status().as_u16();
-            let body = response.into_body();
-            let chunks = body
-                .collect()
-                .await
-                .context("could not get runtime test HTTP response")?
-                .to_bytes()
-                .to_vec();
-            Ok(Response::full(status, Default::default(), chunks))
-        })
-    }
-}
-
-impl Runtime for InMemorySpin {
-    type Config = ();
-
-    fn error(&mut self) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
-
-impl TestEnvironmentConfig<InMemorySpin> {
+impl TestEnvironmentConfig<InProcessSpin> {
     pub fn in_memory(
         services_config: ServicesConfig,
-        preboot: impl FnOnce(&mut TestEnvironment<InMemorySpin>) -> anyhow::Result<()> + 'static,
+        preboot: impl FnOnce(&mut TestEnvironment<InProcessSpin>) -> anyhow::Result<()> + 'static,
     ) -> Self {
         Self {
             services_config,
@@ -276,7 +227,7 @@ impl TestEnvironmentConfig<InMemorySpin> {
                             )
                             .await?;
 
-                        Result::<_, anyhow::Error>::Ok(InMemorySpin { trigger })
+                        Result::<_, anyhow::Error>::Ok(InProcessSpin::new(trigger))
                     })
             }),
         }

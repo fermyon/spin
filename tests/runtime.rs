@@ -2,6 +2,8 @@
 mod runtime_tests {
     use std::path::PathBuf;
 
+    use testing_framework::runtimes::in_process_spin::InProcessSpin;
+
     // The macro inspects the tests directory and
     // generates individual tests for each one.
     test_codegen_macro::codegen_runtime_tests!(
@@ -16,12 +18,9 @@ mod runtime_tests {
         let config = runtime_tests::RuntimeTestConfig {
             test_path,
             runtime_config: (),
-            // runtime_config: testing_framework::SpinConfig {
-            //     binary_path: env!("CARGO_BIN_EXE_spin").into(),
-            // },
             on_error: testing_framework::OnTestError::Panic,
         };
-        runtime_tests::RuntimeTest::<testing_framework::InMemorySpin>::bootstrap(config)
+        runtime_tests::RuntimeTest::<InProcessSpin>::bootstrap(config)
             .expect("failed to bootstrap runtime tests tests")
             .run();
     }

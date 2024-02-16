@@ -1,8 +1,13 @@
 use anyhow::Context;
 use std::path::{Path, PathBuf};
 use testing_framework::{
-    EnvTemplate, InMemorySpin, OnTestError, Runtime, ServicesConfig, Spin, SpinConfig,
-    TestEnvironment, TestEnvironmentConfig, TestError, TestResult,
+    http::{Method, Request},
+    runtimes::{
+        in_process_spin::InProcessSpin,
+        spin_cli::{SpinCli, SpinConfig},
+    },
+    EnvTemplate, OnTestError, Runtime, ServicesConfig, TestEnvironment, TestEnvironmentConfig,
+    TestError, TestResult,
 };
 
 /// Configuration for a runtime test
@@ -19,45 +24,34 @@ pub struct RuntimeTest<R> {
     env: TestEnvironment<R>,
 }
 
-impl RuntimeTest<Spin> {
+impl RuntimeTest<SpinCli> {
     /// Run the runtime tests suite.
     ///
     /// Error represents an error in bootstrapping the tests. What happens on individual test failures
     /// is controlled by `on_error`.
     pub fn run_all(
-        tests_path: &Path,
+        tests_dir_path: &Path,
         spin_binary: PathBuf,
         on_error: OnTestError,
     ) -> anyhow::Result<()> {
-        for test in std::fs::read_dir(tests_path)
-            .with_context(|| format!("failed to read test directory '{}'", tests_path.display()))?
-        {
-            let test = test.context("I/O error reading entry from test directory")?;
-            if !test.file_type()?.is_dir() {
-                log::debug!(
-                    "Ignoring non-sub-directory in test directory: {}",
-                    test.path().display()
-                );
-                continue;
-            }
-
+        Self::run_on_all(tests_dir_path, |test_path| {
             let config = RuntimeTestConfig {
-                test_path: test.path(),
+                test_path,
                 runtime_config: SpinConfig {
                     binary_path: spin_binary.clone(),
                 },
                 on_error,
             };
             Self::bootstrap(config)?.run();
-        }
-        Ok(())
+            Ok(())
+        })
     }
 
-    pub fn bootstrap(config: RuntimeTestConfig<Spin>) -> anyhow::Result<Self> {
+    pub fn bootstrap(config: RuntimeTestConfig<SpinCli>) -> anyhow::Result<Self> {
         log::info!("Testing: {}", config.test_path.display());
         let test_path_clone = config.test_path.to_owned();
         let spin_binary = config.runtime_config.binary_path.clone();
-        let preboot = move |env: &mut TestEnvironment<Spin>| {
+        let preboot = move |env: &mut TestEnvironment<SpinCli>| {
             copy_manifest(&test_path_clone, env)?;
             Ok(())
         };
@@ -67,7 +61,7 @@ impl RuntimeTest<Spin> {
             [],
             preboot,
             services_config,
-            testing_framework::SpinMode::Http,
+            testing_framework::runtimes::SpinAppType::Http,
         );
         let env = TestEnvironment::up(env_config)?;
         Ok(Self {
@@ -81,7 +75,7 @@ impl RuntimeTest<Spin> {
     pub fn run(&mut self) {
         self.run_test(|env| {
             let runtime = env.runtime_mut();
-            let request = testing_framework::Request::new(reqwest::Method::GET, "/");
+            let request = Request::new(Method::GET, "/");
             let response = runtime.make_http_request(request)?;
             if response.status() == 200 {
                 return Ok(());
@@ -99,44 +93,33 @@ impl RuntimeTest<Spin> {
 
             Err(TestError::Failure(RuntimeTestFailure {
                 error: text,
-                stderr: runtime.stderr().to_owned(),
+                stderr: Some(runtime.stderr().to_owned()),
             }))
         })
     }
 }
 
-impl RuntimeTest<InMemorySpin> {
+impl RuntimeTest<InProcessSpin> {
     /// Run the runtime tests suite.
     ///
     /// Error represents an error in bootstrapping the tests. What happens on individual test failures
     /// is controlled by `on_error`.
-    pub fn run_all(tests_path: &Path, on_error: OnTestError) -> anyhow::Result<()> {
-        for test in std::fs::read_dir(tests_path)
-            .with_context(|| format!("failed to read test directory '{}'", tests_path.display()))?
-        {
-            let test = test.context("I/O error reading entry from test directory")?;
-            if !test.file_type()?.is_dir() {
-                log::debug!(
-                    "Ignoring non-sub-directory in test directory: {}",
-                    test.path().display()
-                );
-                continue;
-            }
-
+    pub fn run_all(tests_dir_path: &Path, on_error: OnTestError) -> anyhow::Result<()> {
+        Self::run_on_all(tests_dir_path, |test_path| {
             let config = RuntimeTestConfig {
-                test_path: test.path(),
+                test_path,
                 runtime_config: (),
                 on_error,
             };
             Self::bootstrap(config)?.run();
-        }
-        Ok(())
+            Ok(())
+        })
     }
 
-    pub fn bootstrap(config: RuntimeTestConfig<InMemorySpin>) -> anyhow::Result<Self> {
+    pub fn bootstrap(config: RuntimeTestConfig<InProcessSpin>) -> anyhow::Result<Self> {
         log::info!("Testing: {}", config.test_path.display());
         let test_path_clone = config.test_path.to_owned();
-        let preboot = move |env: &mut TestEnvironment<InMemorySpin>| {
+        let preboot = move |env: &mut TestEnvironment<InProcessSpin>| {
             copy_manifest(&test_path_clone, env)?;
             Ok(())
         };
@@ -153,7 +136,7 @@ impl RuntimeTest<InMemorySpin> {
     pub fn run(&mut self) {
         self.run_test(|env| {
             let runtime = env.runtime_mut();
-            let response = runtime.make_http_request(testing_framework::Request::new(reqwest::Method::GET, "/"))?;
+            let response = runtime.make_http_request(Request::new(Method::GET, "/"))?;
             if response.status() == 200 {
                 return Ok(());
             }
@@ -169,13 +152,37 @@ impl RuntimeTest<InMemorySpin> {
 
             Err(TestError::Failure(RuntimeTestFailure {
                 error: text,
-                stderr: String::new()
+                stderr: None
             }))
         })
     }
 }
 
 impl<R> RuntimeTest<R> {
+    /// Run a closure against all tests in the given tests directory
+    pub fn run_on_all(
+        tests_dir_path: &Path,
+        run: impl Fn(PathBuf) -> anyhow::Result<()>,
+    ) -> anyhow::Result<()> {
+        for test in std::fs::read_dir(tests_dir_path).with_context(|| {
+            format!(
+                "failed to read test directory '{}'",
+                tests_dir_path.display()
+            )
+        })? {
+            let test = test.context("I/O error reading entry from test directory")?;
+            if !test.file_type()?.is_dir() {
+                log::debug!(
+                    "Ignoring non-sub-directory in test directory: {}",
+                    test.path().display()
+                );
+                continue;
+            }
+            run(test.path())?;
+        }
+        Ok(())
+    }
+
     /// Run an individual test
     pub(crate) fn run_test(
         &mut self,
@@ -220,15 +227,21 @@ impl<R> RuntimeTest<R> {
                 } else {
                     error!(
                     on_error,
-                    "Test errored but not in the expected way.\n\texpected: {expected}\n\tgot: {error}\n\nstderr:\n{stderr}",
+                    "Test errored but not in the expected way.\n\texpected: {expected}\n\tgot: {error}{}",
+                    stderr
+                        .map(|e| format!("\n\nstderr:\n{e}"))
+                        .unwrap_or_default()
                 )
                 }
             }
             Err(TestError::Failure(RuntimeTestFailure { error, stderr })) => {
                 error!(
                     on_error,
-                    "Test '{}' errored: {error}\nstderr:\n{stderr}",
-                    self.test_path.display()
+                    "Test '{}' errored: {error}{}",
+                    self.test_path.display(),
+                    stderr
+                        .map(|e| format!("\nstderr:\n{e}"))
+                        .unwrap_or_default()
                 );
             }
             Err(TestError::Fatal(extra)) => {
@@ -287,6 +300,6 @@ fn copy_manifest<R>(test_dir: &Path, env: &mut TestEnvironment<R>) -> anyhow::Re
 struct RuntimeTestFailure {
     /// The error message returned by the runtime
     error: String,
-    /// The runtime's stderr
-    stderr: String,
+    /// The runtime's stderr if there is one
+    stderr: Option<String>,
 }

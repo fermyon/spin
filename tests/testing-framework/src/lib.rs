@@ -4,16 +4,16 @@
 //! * `RuntimeTest` - bootstraps and runs a single runtime test
 //! * `TestEnvironment` - bootstraps a test environment which can be used by more than just runtime tests
 
+pub mod http;
 mod io;
 mod manifest_template;
+pub mod runtimes;
 mod services;
-mod spin;
 mod test_environment;
 
 pub use manifest_template::EnvTemplate;
 pub use services::ServicesConfig;
-pub use spin::{Request, Response, Spin, SpinConfig, SpinMode};
-pub use test_environment::{InMemorySpin, TestEnvironment, TestEnvironmentConfig};
+pub use test_environment::{TestEnvironment, TestEnvironmentConfig};
 
 #[derive(Debug, Clone, Copy)]
 /// What to do when a test errors
@@ -27,6 +27,7 @@ pub enum OnTestError {
 /// A runtime which can be tested
 pub trait Runtime {
     type Config;
+
     /// Return an error if one has occurred
     fn error(&mut self) -> anyhow::Result<()>;
 }
@@ -47,9 +48,9 @@ pub trait Test {
 
 impl<F, E> Test for F
 where
-    F: FnOnce(&mut TestEnvironment<Spin>) -> TestResult<E> + 'static,
+    F: FnOnce(&mut TestEnvironment<runtimes::spin_cli::SpinCli>) -> TestResult<E> + 'static,
 {
-    type Runtime = Spin;
+    type Runtime = runtimes::spin_cli::SpinCli;
     type Failure = E;
 
     fn test(self, env: &mut TestEnvironment<Self::Runtime>) -> TestResult<Self::Failure> {

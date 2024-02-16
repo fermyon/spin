@@ -12,5 +12,4 @@ rust-version.workspace = true
 anyhow = "1.0"
 env_logger = "0.10.0"
 log = "0.4"
-reqwest = { workspace = true }
 testing-framework = { path = "../testing-framework" }

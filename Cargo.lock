@@ -5092,7 +5092,6 @@ dependencies = [
  "anyhow",
  "env_logger",
  "log",
- "reqwest",
  "testing-framework",
 ]
 

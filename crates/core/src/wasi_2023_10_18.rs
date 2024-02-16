@@ -14,91 +14,111 @@ mod latest {
     }
 }
 
-wasmtime::component::bindgen!({
-    path: "../../wit-2023-10-18",
-    interfaces: r#"
-        include wasi:http/proxy@0.2.0-rc-2023-10-18;
+mod bindings {
+    use super::latest;
+    pub use super::UdpSocket;
 
-        // NB: this is handling the historical behavior where Spin supported
-        // more than "just" this snaphsot of the proxy world but additionally
-        // other CLI-related interfaces.
-        include wasi:cli/reactor@0.2.0-rc-2023-10-18;
-    "#,
-    async: {
-        only_imports: [
-            "[method]descriptor.access-at",
-            "[method]descriptor.advise",
-            "[method]descriptor.change-directory-permissions-at",
-            "[method]descriptor.change-file-permissions-at",
-            "[method]descriptor.create-directory-at",
-            "[method]descriptor.get-flags",
-            "[method]descriptor.get-type",
-            "[method]descriptor.is-same-object",
-            "[method]descriptor.link-at",
-            "[method]descriptor.lock-exclusive",
-            "[method]descriptor.lock-shared",
-            "[method]descriptor.metadata-hash",
-            "[method]descriptor.metadata-hash-at",
-            "[method]descriptor.open-at",
-            "[method]descriptor.read",
-            "[method]descriptor.read-directory",
-            "[method]descriptor.readlink-at",
-            "[method]descriptor.remove-directory-at",
-            "[method]descriptor.rename-at",
-            "[method]descriptor.set-size",
-            "[method]descriptor.set-times",
-            "[method]descriptor.set-times-at",
-            "[method]descriptor.stat",
-            "[method]descriptor.stat-at",
-            "[method]descriptor.symlink-at",
-            "[method]descriptor.sync",
-            "[method]descriptor.sync-data",
-            "[method]descriptor.try-lock-exclusive",
-            "[method]descriptor.try-lock-shared",
-            "[method]descriptor.unlink-file-at",
-            "[method]descriptor.unlock",
-            "[method]descriptor.write",
-            "[method]input-stream.read",
-            "[method]input-stream.blocking-read",
-            "[method]input-stream.blocking-skip",
-            "[method]input-stream.skip",
-            "[method]output-stream.forward",
-            "[method]output-stream.splice",
-            "[method]output-stream.blocking-splice",
-            "[method]output-stream.blocking-flush",
-            "[method]output-stream.blocking-write",
-            "[method]output-stream.blocking-write-and-flush",
-            "[method]output-stream.blocking-write-zeroes-and-flush",
-            "[method]directory-entry-stream.read-directory-entry",
-            "poll-list",
-            "poll-one",
-        ],
-    },
-    with: {
-        "wasi:io/poll/pollable": latest::io::poll::Pollable,
-        "wasi:io/streams/input-stream": latest::io::streams::InputStream,
-        "wasi:io/streams/output-stream": latest::io::streams::OutputStream,
-        "wasi:io/streams/error": latest::io::streams::Error,
-        "wasi:filesystem/types/directory-entry-stream": latest::filesystem::types::DirectoryEntryStream,
-        "wasi:filesystem/types/descriptor": latest::filesystem::types::Descriptor,
-        "wasi:cli/terminal-input/terminal-input": latest::cli::terminal_input::TerminalInput,
-        "wasi:cli/terminal-output/terminal-output": latest::cli::terminal_output::TerminalOutput,
-        "wasi:sockets/tcp/tcp-socket": latest::sockets::tcp::TcpSocket,
-        "wasi:sockets/udp/udp-socket": UdpSocket,
-        "wasi:sockets/network/network": latest::sockets::network::Network,
-        "wasi:sockets/ip-name-lookup/resolve-address-stream": latest::sockets::ip_name_lookup::ResolveAddressStream,
-        "wasi:http/types/incoming-response": latest::http::types::IncomingResponse,
-        "wasi:http/types/incoming-request": latest::http::types::IncomingRequest,
-        "wasi:http/types/incoming-body": latest::http::types::IncomingBody,
-        "wasi:http/types/outgoing-response": latest::http::types::OutgoingResponse,
-        "wasi:http/types/outgoing-request": latest::http::types::OutgoingRequest,
-        "wasi:http/types/outgoing-body": latest::http::types::OutgoingBody,
-        "wasi:http/types/fields": latest::http::types::Fields,
-        "wasi:http/types/response-outparam": latest::http::types::ResponseOutparam,
-        "wasi:http/types/future-incoming-response": latest::http::types::FutureIncomingResponse,
-        "wasi:http/types/future-trailers": latest::http::types::FutureTrailers,
-    },
-});
+    wasmtime::component::bindgen!({
+        path: "../../wit",
+        interfaces: r#"
+            include wasi:http/proxy@0.2.0-rc-2023-10-18;
+    
+            // NB: this is handling the historical behavior where Spin supported
+            // more than "just" this snaphsot of the proxy world but additionally
+            // other CLI-related interfaces.
+            include wasi:cli/reactor@0.2.0-rc-2023-10-18;
+        "#,
+        async: {
+            only_imports: [
+                "[method]descriptor.access-at",
+                "[method]descriptor.advise",
+                "[method]descriptor.change-directory-permissions-at",
+                "[method]descriptor.change-file-permissions-at",
+                "[method]descriptor.create-directory-at",
+                "[method]descriptor.get-flags",
+                "[method]descriptor.get-type",
+                "[method]descriptor.is-same-object",
+                "[method]descriptor.link-at",
+                "[method]descriptor.lock-exclusive",
+                "[method]descriptor.lock-shared",
+                "[method]descriptor.metadata-hash",
+                "[method]descriptor.metadata-hash-at",
+                "[method]descriptor.open-at",
+                "[method]descriptor.read",
+                "[method]descriptor.read-directory",
+                "[method]descriptor.readlink-at",
+                "[method]descriptor.remove-directory-at",
+                "[method]descriptor.rename-at",
+                "[method]descriptor.set-size",
+                "[method]descriptor.set-times",
+                "[method]descriptor.set-times-at",
+                "[method]descriptor.stat",
+                "[method]descriptor.stat-at",
+                "[method]descriptor.symlink-at",
+                "[method]descriptor.sync",
+                "[method]descriptor.sync-data",
+                "[method]descriptor.try-lock-exclusive",
+                "[method]descriptor.try-lock-shared",
+                "[method]descriptor.unlink-file-at",
+                "[method]descriptor.unlock",
+                "[method]descriptor.write",
+                "[method]input-stream.read",
+                "[method]input-stream.blocking-read",
+                "[method]input-stream.blocking-skip",
+                "[method]input-stream.skip",
+                "[method]output-stream.forward",
+                "[method]output-stream.splice",
+                "[method]output-stream.blocking-splice",
+                "[method]output-stream.blocking-flush",
+                "[method]output-stream.blocking-write",
+                "[method]output-stream.blocking-write-and-flush",
+                "[method]output-stream.blocking-write-zeroes-and-flush",
+                "[method]directory-entry-stream.read-directory-entry",
+                "poll-list",
+                "poll-one",
+            ],
+        },
+        with: {
+            "wasi:io/poll/pollable": latest::io::poll::Pollable,
+            "wasi:io/streams/input-stream": latest::io::streams::InputStream,
+            "wasi:io/streams/output-stream": latest::io::streams::OutputStream,
+            "wasi:io/streams/error": latest::io::streams::Error,
+            "wasi:filesystem/types/directory-entry-stream": latest::filesystem::types::DirectoryEntryStream,
+            "wasi:filesystem/types/descriptor": latest::filesystem::types::Descriptor,
+            "wasi:cli/terminal-input/terminal-input": latest::cli::terminal_input::TerminalInput,
+            "wasi:cli/terminal-output/terminal-output": latest::cli::terminal_output::TerminalOutput,
+            "wasi:sockets/tcp/tcp-socket": latest::sockets::tcp::TcpSocket,
+            "wasi:sockets/udp/udp-socket": UdpSocket,
+            "wasi:sockets/network/network": latest::sockets::network::Network,
+            "wasi:sockets/ip-name-lookup/resolve-address-stream": latest::sockets::ip_name_lookup::ResolveAddressStream,
+            "wasi:http/types/incoming-response": latest::http::types::IncomingResponse,
+            "wasi:http/types/incoming-request": latest::http::types::IncomingRequest,
+            "wasi:http/types/incoming-body": latest::http::types::IncomingBody,
+            "wasi:http/types/outgoing-response": latest::http::types::OutgoingResponse,
+            "wasi:http/types/outgoing-request": latest::http::types::OutgoingRequest,
+            "wasi:http/types/outgoing-body": latest::http::types::OutgoingBody,
+            "wasi:http/types/fields": latest::http::types::Fields,
+            "wasi:http/types/response-outparam": latest::http::types::ResponseOutparam,
+            "wasi:http/types/future-incoming-response": latest::http::types::FutureIncomingResponse,
+            "wasi:http/types/future-trailers": latest::http::types::FutureTrailers,
+        },
+    });
+}
+
+mod wasi {
+    pub use super::bindings::wasi::{
+        cli0_2_0_rc_2023_10_18 as cli, clocks0_2_0_rc_2023_10_18 as clocks,
+        filesystem0_2_0_rc_2023_10_18 as filesystem, http0_2_0_rc_2023_10_18 as http,
+        io0_2_0_rc_2023_10_18 as io, random0_2_0_rc_2023_10_18 as random,
+        sockets0_2_0_rc_2023_10_18 as sockets,
+    };
+}
+
+pub mod exports {
+    pub mod wasi {
+        pub use super::super::bindings::exports::wasi::http0_2_0_rc_2023_10_18 as http;
+    }
+}
 
 use wasi::cli::terminal_input::TerminalInput;
 use wasi::cli::terminal_output::TerminalOutput;

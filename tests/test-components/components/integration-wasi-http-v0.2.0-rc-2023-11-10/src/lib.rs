@@ -1,23 +1,23 @@
 wit_bindgen::generate!({
-    path: "../../../../wit-2023-11-10",
+    path: "../../../../wit",
     world: "wasi:http/proxy@0.2.0-rc-2023-11-10",
     exports: {
-        "wasi:http/incoming-handler": Component
+        "wasi:http/incoming-handler@0.2.0-rc-2023-11-10": Component
     }
 });
 
 use {
-    exports::wasi::http::incoming_handler,
+    exports::wasi::http0_2_0_rc_2023_11_10::incoming_handler,
     url::Url,
     wasi::{
-        http::{
+        http0_2_0_rc_2023_11_10::{
             outgoing_handler,
             types::{
                 Headers, IncomingRequest, Method, OutgoingBody, OutgoingRequest, OutgoingResponse,
                 ResponseOutparam, Scheme,
             },
         },
-        io::streams::StreamError,
+        io0_2_0_rc_2023_11_10::streams::StreamError,
     },
 };
 

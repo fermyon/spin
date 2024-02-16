@@ -2,7 +2,7 @@ use std::str::{from_utf8, Utf8Error};
 
 wit_bindgen::generate!({
     world: "redis-trigger",
-    path: "../../../../wit-2023-10-18/deps/spin@unversioned",
+    path: "../../../../wit/deps/spin@unversioned",
     exports: {
         "fermyon:spin/inbound-redis": SpinRedis,
     }

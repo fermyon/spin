@@ -8,7 +8,7 @@ wasmtime::component::bindgen!({
         include fermyon:spin/platform@2.0.0;
     }
     "#,
-    path: "../../wit-2023-10-18",
+    path: "../../wit",
     async: true
 });
 

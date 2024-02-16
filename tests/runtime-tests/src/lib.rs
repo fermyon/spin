@@ -124,7 +124,7 @@ impl RuntimeTest<InProcessSpin> {
             Ok(())
         };
         let services_config = services_config(&config)?;
-        let env_config = TestEnvironmentConfig::in_memory(services_config, preboot);
+        let env_config = TestEnvironmentConfig::in_process(services_config, preboot);
         let env = TestEnvironment::up(env_config)?;
         Ok(Self {
             test_path: config.test_path,

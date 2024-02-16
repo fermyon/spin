@@ -193,7 +193,7 @@ impl TestEnvironmentConfig<SpinCli> {
 }
 
 impl TestEnvironmentConfig<InProcessSpin> {
-    pub fn in_memory(
+    pub fn in_process(
         services_config: ServicesConfig,
         preboot: impl FnOnce(&mut TestEnvironment<InProcessSpin>) -> anyhow::Result<()> + 'static,
     ) -> Self {
@@ -219,7 +219,10 @@ impl TestEnvironmentConfig<InProcessSpin> {
                         std::fs::write(env.path().join("locked.json"), json)?;
 
                         let loader = TriggerLoader::new(env.path().join(".working_dir"), false);
-                        let trigger = TriggerExecutorBuilder::<HttpTrigger>::new(loader)
+                        let mut builder = TriggerExecutorBuilder::<HttpTrigger>::new(loader);
+                        // TODO(rylev): see if we can reuse the builder from spin_trigger instead of duplicating it here
+                        builder.hooks(spin_trigger::network::Network);
+                        let trigger = builder
                             .build(
                                 format!("file:{}", env.path().join("locked.json").display()),
                                 RuntimeConfig::default(),

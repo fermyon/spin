@@ -1,6 +1,6 @@
 use bindings::wasi::{
-    io::poll,
-    sockets::{
+    io0_2_0_rc_2023_10_18::poll,
+    sockets0_2_0_rc_2023_10_18::{
         instance_network,
         network::{
             ErrorCode, IpAddressFamily, IpSocketAddress, Ipv4SocketAddress, Ipv6SocketAddress,

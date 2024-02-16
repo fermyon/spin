@@ -15,7 +15,7 @@ mod latest {
 }
 
 wasmtime::component::bindgen!({
-    path: "../../wit-2023-10-18",
+    path: "../../wit",
     interfaces: r#"
         include wasi:http/proxy@0.2.0-rc-2023-10-18;
 
@@ -100,66 +100,66 @@ wasmtime::component::bindgen!({
     },
 });
 
-use wasi::cli::terminal_input::TerminalInput;
-use wasi::cli::terminal_output::TerminalOutput;
-use wasi::clocks::monotonic_clock::Instant;
-use wasi::clocks::wall_clock::Datetime;
-use wasi::filesystem::types::{
+use wasi::cli0_2_0_rc_2023_10_18::terminal_input::TerminalInput;
+use wasi::cli0_2_0_rc_2023_10_18::terminal_output::TerminalOutput;
+use wasi::clocks0_2_0_rc_2023_10_18::monotonic_clock::Instant;
+use wasi::clocks0_2_0_rc_2023_10_18::wall_clock::Datetime;
+use wasi::filesystem0_2_0_rc_2023_10_18::types::{
     AccessType, Advice, Descriptor, DescriptorFlags, DescriptorStat, DescriptorType,
     DirectoryEntry, DirectoryEntryStream, Error, ErrorCode as FsErrorCode, Filesize,
     MetadataHashValue, Modes, NewTimestamp, OpenFlags, PathFlags,
 };
-use wasi::http::types::{
+use wasi::http0_2_0_rc_2023_10_18::types::{
     Error as HttpError, Fields, FutureIncomingResponse, FutureTrailers, Headers, IncomingBody,
     IncomingRequest, IncomingResponse, Method, OutgoingBody, OutgoingRequest, OutgoingResponse,
     RequestOptions, ResponseOutparam, Scheme, StatusCode, Trailers,
 };
-use wasi::io::poll::Pollable;
-use wasi::io::streams::{InputStream, OutputStream, StreamError};
-use wasi::sockets::ip_name_lookup::{IpAddress, ResolveAddressStream};
-use wasi::sockets::network::{Ipv4SocketAddress, Ipv6SocketAddress};
-use wasi::sockets::tcp::{
+use wasi::io0_2_0_rc_2023_10_18::poll::Pollable;
+use wasi::io0_2_0_rc_2023_10_18::streams::{InputStream, OutputStream, StreamError};
+use wasi::sockets0_2_0_rc_2023_10_18::ip_name_lookup::{IpAddress, ResolveAddressStream};
+use wasi::sockets0_2_0_rc_2023_10_18::network::{Ipv4SocketAddress, Ipv6SocketAddress};
+use wasi::sockets0_2_0_rc_2023_10_18::tcp::{
     ErrorCode as SocketErrorCode, IpAddressFamily, IpSocketAddress, Network, ShutdownType,
     TcpSocket,
 };
-use wasi::sockets::udp::Datagram;
+use wasi::sockets0_2_0_rc_2023_10_18::udp::Datagram;
 
 pub fn add_to_linker<T>(linker: &mut Linker<T>) -> Result<()>
 where
     T: WasiView + WasiHttpView,
 {
     // interfaces from the "command" world
-    wasi::clocks::monotonic_clock::add_to_linker(linker, |t| t)?;
-    wasi::clocks::wall_clock::add_to_linker(linker, |t| t)?;
-    wasi::filesystem::types::add_to_linker(linker, |t| t)?;
-    wasi::filesystem::preopens::add_to_linker(linker, |t| t)?;
-    wasi::io::poll::add_to_linker(linker, |t| t)?;
-    wasi::io::streams::add_to_linker(linker, |t| t)?;
-    wasi::random::random::add_to_linker(linker, |t| t)?;
-    wasi::cli::exit::add_to_linker(linker, |t| t)?;
-    wasi::cli::environment::add_to_linker(linker, |t| t)?;
-    wasi::cli::stdin::add_to_linker(linker, |t| t)?;
-    wasi::cli::stdout::add_to_linker(linker, |t| t)?;
-    wasi::cli::stderr::add_to_linker(linker, |t| t)?;
-    wasi::cli::terminal_input::add_to_linker(linker, |t| t)?;
-    wasi::cli::terminal_output::add_to_linker(linker, |t| t)?;
-    wasi::cli::terminal_stdin::add_to_linker(linker, |t| t)?;
-    wasi::cli::terminal_stdout::add_to_linker(linker, |t| t)?;
-    wasi::cli::terminal_stderr::add_to_linker(linker, |t| t)?;
-    wasi::sockets::tcp::add_to_linker(linker, |t| t)?;
-    wasi::sockets::tcp_create_socket::add_to_linker(linker, |t| t)?;
-    wasi::sockets::udp::add_to_linker(linker, |t| t)?;
-    wasi::sockets::udp_create_socket::add_to_linker(linker, |t| t)?;
-    wasi::sockets::instance_network::add_to_linker(linker, |t| t)?;
-    wasi::sockets::network::add_to_linker(linker, |t| t)?;
-    wasi::sockets::ip_name_lookup::add_to_linker(linker, |t| t)?;
+    wasi::clocks0_2_0_rc_2023_10_18::monotonic_clock::add_to_linker(linker, |t| t)?;
+    wasi::clocks0_2_0_rc_2023_10_18::wall_clock::add_to_linker(linker, |t| t)?;
+    wasi::filesystem0_2_0_rc_2023_10_18::types::add_to_linker(linker, |t| t)?;
+    wasi::filesystem0_2_0_rc_2023_10_18::preopens::add_to_linker(linker, |t| t)?;
+    wasi::io0_2_0_rc_2023_10_18::poll::add_to_linker(linker, |t| t)?;
+    wasi::io0_2_0_rc_2023_10_18::streams::add_to_linker(linker, |t| t)?;
+    wasi::random0_2_0_rc_2023_10_18::random::add_to_linker(linker, |t| t)?;
+    wasi::cli0_2_0_rc_2023_10_18::exit::add_to_linker(linker, |t| t)?;
+    wasi::cli0_2_0_rc_2023_10_18::environment::add_to_linker(linker, |t| t)?;
+    wasi::cli0_2_0_rc_2023_10_18::stdin::add_to_linker(linker, |t| t)?;
+    wasi::cli0_2_0_rc_2023_10_18::stdout::add_to_linker(linker, |t| t)?;
+    wasi::cli0_2_0_rc_2023_10_18::stderr::add_to_linker(linker, |t| t)?;
+    wasi::cli0_2_0_rc_2023_10_18::terminal_input::add_to_linker(linker, |t| t)?;
+    wasi::cli0_2_0_rc_2023_10_18::terminal_output::add_to_linker(linker, |t| t)?;
+    wasi::cli0_2_0_rc_2023_10_18::terminal_stdin::add_to_linker(linker, |t| t)?;
+    wasi::cli0_2_0_rc_2023_10_18::terminal_stdout::add_to_linker(linker, |t| t)?;
+    wasi::cli0_2_0_rc_2023_10_18::terminal_stderr::add_to_linker(linker, |t| t)?;
+    wasi::sockets0_2_0_rc_2023_10_18::tcp::add_to_linker(linker, |t| t)?;
+    wasi::sockets0_2_0_rc_2023_10_18::tcp_create_socket::add_to_linker(linker, |t| t)?;
+    wasi::sockets0_2_0_rc_2023_10_18::udp::add_to_linker(linker, |t| t)?;
+    wasi::sockets0_2_0_rc_2023_10_18::udp_create_socket::add_to_linker(linker, |t| t)?;
+    wasi::sockets0_2_0_rc_2023_10_18::instance_network::add_to_linker(linker, |t| t)?;
+    wasi::sockets0_2_0_rc_2023_10_18::network::add_to_linker(linker, |t| t)?;
+    wasi::sockets0_2_0_rc_2023_10_18::ip_name_lookup::add_to_linker(linker, |t| t)?;
 
-    wasi::http::types::add_to_linker(linker, |t| t)?;
-    wasi::http::outgoing_handler::add_to_linker(linker, |t| t)?;
+    wasi::http0_2_0_rc_2023_10_18::types::add_to_linker(linker, |t| t)?;
+    wasi::http0_2_0_rc_2023_10_18::outgoing_handler::add_to_linker(linker, |t| t)?;
     Ok(())
 }
 
-impl<T> wasi::clocks::monotonic_clock::Host for T
+impl<T> wasi::clocks0_2_0_rc_2023_10_18::monotonic_clock::Host for T
 where
     T: WasiView,
 {
@@ -180,7 +180,7 @@ where
     }
 }
 
-impl<T> wasi::clocks::wall_clock::Host for T
+impl<T> wasi::clocks0_2_0_rc_2023_10_18::wall_clock::Host for T
 where
     T: WasiView,
 {
@@ -193,13 +193,13 @@ where
     }
 }
 
-impl<T> wasi::filesystem::types::Host for T
+impl<T> wasi::filesystem0_2_0_rc_2023_10_18::types::Host for T
 where
     T: WasiView,
 {
     fn filesystem_error_code(
         &mut self,
-        err: Resource<wasi::filesystem::types::Error>,
+        err: Resource<wasi::filesystem0_2_0_rc_2023_10_18::types::Error>,
     ) -> wasmtime::Result<Option<FsErrorCode>> {
         Ok(
             <T as latest::filesystem::types::Host>::filesystem_error_code(self, err)?
@@ -209,7 +209,7 @@ where
 }
 
 #[async_trait]
-impl<T> wasi::filesystem::types::HostDescriptor for T
+impl<T> wasi::filesystem0_2_0_rc_2023_10_18::types::HostDescriptor for T
 where
     T: WasiView,
 {
@@ -632,7 +632,7 @@ where
 }
 
 #[async_trait]
-impl<T> wasi::filesystem::types::HostDirectoryEntryStream for T
+impl<T> wasi::filesystem0_2_0_rc_2023_10_18::types::HostDirectoryEntryStream for T
 where
     T: WasiView,
 {
@@ -654,7 +654,7 @@ where
     }
 }
 
-impl<T> wasi::filesystem::preopens::Host for T
+impl<T> wasi::filesystem0_2_0_rc_2023_10_18::preopens::Host for T
 where
     T: WasiView,
 {
@@ -664,7 +664,7 @@ where
 }
 
 #[async_trait]
-impl<T> wasi::io::poll::Host for T
+impl<T> wasi::io0_2_0_rc_2023_10_18::poll::Host for T
 where
     T: WasiView,
 {
@@ -677,7 +677,7 @@ where
     }
 }
 
-impl<T> wasi::io::poll::HostPollable for T
+impl<T> wasi::io0_2_0_rc_2023_10_18::poll::HostPollable for T
 where
     T: WasiView,
 {
@@ -686,9 +686,9 @@ where
     }
 }
 
-impl<T> wasi::io::streams::Host for T where T: WasiView {}
+impl<T> wasi::io0_2_0_rc_2023_10_18::streams::Host for T where T: WasiView {}
 
-impl<T> wasi::io::streams::HostError for T
+impl<T> wasi::io0_2_0_rc_2023_10_18::streams::HostError for T
 where
     T: WasiView,
 {
@@ -702,7 +702,7 @@ where
 }
 
 #[async_trait]
-impl<T> wasi::io::streams::HostInputStream for T
+impl<T> wasi::io0_2_0_rc_2023_10_18::streams::HostInputStream for T
 where
     T: WasiView,
 {
@@ -754,7 +754,7 @@ where
 }
 
 #[async_trait]
-impl<T> wasi::io::streams::HostOutputStream for T
+impl<T> wasi::io0_2_0_rc_2023_10_18::streams::HostOutputStream for T
 where
     T: WasiView,
 {
@@ -865,7 +865,7 @@ where
     }
 }
 
-impl<T> wasi::random::random::Host for T
+impl<T> wasi::random0_2_0_rc_2023_10_18::random::Host for T
 where
     T: WasiView,
 {
@@ -878,7 +878,7 @@ where
     }
 }
 
-impl<T> wasi::cli::exit::Host for T
+impl<T> wasi::cli0_2_0_rc_2023_10_18::exit::Host for T
 where
     T: WasiView,
 {
@@ -887,7 +887,7 @@ where
     }
 }
 
-impl<T> wasi::cli::environment::Host for T
+impl<T> wasi::cli0_2_0_rc_2023_10_18::environment::Host for T
 where
     T: WasiView,
 {
@@ -904,7 +904,7 @@ where
     }
 }
 
-impl<T> wasi::cli::stdin::Host for T
+impl<T> wasi::cli0_2_0_rc_2023_10_18::stdin::Host for T
 where
     T: WasiView,
 {
@@ -913,7 +913,7 @@ where
     }
 }
 
-impl<T> wasi::cli::stdout::Host for T
+impl<T> wasi::cli0_2_0_rc_2023_10_18::stdout::Host for T
 where
     T: WasiView,
 {
@@ -922,7 +922,7 @@ where
     }
 }
 
-impl<T> wasi::cli::stderr::Host for T
+impl<T> wasi::cli0_2_0_rc_2023_10_18::stderr::Host for T
 where
     T: WasiView,
 {
@@ -931,7 +931,7 @@ where
     }
 }
 
-impl<T> wasi::cli::terminal_stdin::Host for T
+impl<T> wasi::cli0_2_0_rc_2023_10_18::terminal_stdin::Host for T
 where
     T: WasiView,
 {
@@ -940,7 +940,7 @@ where
     }
 }
 
-impl<T> wasi::cli::terminal_stdout::Host for T
+impl<T> wasi::cli0_2_0_rc_2023_10_18::terminal_stdout::Host for T
 where
     T: WasiView,
 {
@@ -949,7 +949,7 @@ where
     }
 }
 
-impl<T> wasi::cli::terminal_stderr::Host for T
+impl<T> wasi::cli0_2_0_rc_2023_10_18::terminal_stderr::Host for T
 where
     T: WasiView,
 {
@@ -958,9 +958,9 @@ where
     }
 }
 
-impl<T> wasi::cli::terminal_input::Host for T where T: WasiView {}
+impl<T> wasi::cli0_2_0_rc_2023_10_18::terminal_input::Host for T where T: WasiView {}
 
-impl<T> wasi::cli::terminal_input::HostTerminalInput for T
+impl<T> wasi::cli0_2_0_rc_2023_10_18::terminal_input::HostTerminalInput for T
 where
     T: WasiView,
 {
@@ -969,9 +969,9 @@ where
     }
 }
 
-impl<T> wasi::cli::terminal_output::Host for T where T: WasiView {}
+impl<T> wasi::cli0_2_0_rc_2023_10_18::terminal_output::Host for T where T: WasiView {}
 
-impl<T> wasi::cli::terminal_output::HostTerminalOutput for T
+impl<T> wasi::cli0_2_0_rc_2023_10_18::terminal_output::HostTerminalOutput for T
 where
     T: WasiView,
 {
@@ -980,9 +980,9 @@ where
     }
 }
 
-impl<T> wasi::sockets::tcp::Host for T where T: WasiView {}
+impl<T> wasi::sockets0_2_0_rc_2023_10_18::tcp::Host for T where T: WasiView {}
 
-impl<T> wasi::sockets::tcp::HostTcpSocket for T
+impl<T> wasi::sockets0_2_0_rc_2023_10_18::tcp::HostTcpSocket for T
 where
     T: WasiView,
 {
@@ -1222,7 +1222,7 @@ where
     }
 }
 
-impl<T> wasi::sockets::tcp_create_socket::Host for T
+impl<T> wasi::sockets0_2_0_rc_2023_10_18::tcp_create_socket::Host for T
 where
     T: WasiView,
 {
@@ -1239,7 +1239,7 @@ where
     }
 }
 
-impl<T> wasi::sockets::udp::Host for T where T: WasiView {}
+impl<T> wasi::sockets0_2_0_rc_2023_10_18::udp::Host for T where T: WasiView {}
 
 /// Between the snapshot of WASI that this file is implementing and the current
 /// implementation of WASI UDP sockets were redesigned slightly to deal with
@@ -1304,7 +1304,7 @@ impl UdpSocket {
     }
 }
 
-impl<T> wasi::sockets::udp::HostUdpSocket for T
+impl<T> wasi::sockets0_2_0_rc_2023_10_18::udp::HostUdpSocket for T
 where
     T: WasiView,
 {
@@ -1562,7 +1562,7 @@ where
     }
 }
 
-impl<T> wasi::sockets::udp_create_socket::Host for T
+impl<T> wasi::sockets0_2_0_rc_2023_10_18::udp_create_socket::Host for T
 where
     T: WasiView,
 {
@@ -1585,7 +1585,7 @@ where
     }
 }
 
-impl<T> wasi::sockets::instance_network::Host for T
+impl<T> wasi::sockets0_2_0_rc_2023_10_18::instance_network::Host for T
 where
     T: WasiView,
 {
@@ -1594,9 +1594,9 @@ where
     }
 }
 
-impl<T> wasi::sockets::network::Host for T where T: WasiView {}
+impl<T> wasi::sockets0_2_0_rc_2023_10_18::network::Host for T where T: WasiView {}
 
-impl<T> wasi::sockets::network::HostNetwork for T
+impl<T> wasi::sockets0_2_0_rc_2023_10_18::network::HostNetwork for T
 where
     T: WasiView,
 {
@@ -1605,7 +1605,7 @@ where
     }
 }
 
-impl<T> wasi::sockets::ip_name_lookup::Host for T
+impl<T> wasi::sockets0_2_0_rc_2023_10_18::ip_name_lookup::Host for T
 where
     T: WasiView,
 {
@@ -1622,7 +1622,7 @@ where
     }
 }
 
-impl<T> wasi::sockets::ip_name_lookup::HostResolveAddressStream for T
+impl<T> wasi::sockets0_2_0_rc_2023_10_18::ip_name_lookup::HostResolveAddressStream for T
 where
     T: WasiView,
 {
@@ -1650,9 +1650,9 @@ where
     }
 }
 
-impl<T> wasi::http::types::Host for T where T: WasiHttpView {}
+impl<T> wasi::http0_2_0_rc_2023_10_18::types::Host for T where T: WasiHttpView {}
 
-impl<T> wasi::http::types::HostFields for T
+impl<T> wasi::http0_2_0_rc_2023_10_18::types::HostFields for T
 where
     T: WasiHttpView,
 {
@@ -1722,7 +1722,7 @@ where
     }
 }
 
-impl<T> wasi::http::types::HostIncomingRequest for T
+impl<T> wasi::http0_2_0_rc_2023_10_18::types::HostIncomingRequest for T
 where
     T: WasiHttpView,
 {
@@ -1777,7 +1777,7 @@ where
     }
 }
 
-impl<T> wasi::http::types::HostIncomingResponse for T
+impl<T> wasi::http0_2_0_rc_2023_10_18::types::HostIncomingResponse for T
 where
     T: WasiHttpView,
 {
@@ -1810,7 +1810,7 @@ where
     }
 }
 
-impl<T> wasi::http::types::HostIncomingBody for T
+impl<T> wasi::http0_2_0_rc_2023_10_18::types::HostIncomingBody for T
 where
     T: WasiHttpView,
 {
@@ -1833,7 +1833,7 @@ where
     }
 }
 
-impl<T> wasi::http::types::HostOutgoingRequest for T
+impl<T> wasi::http0_2_0_rc_2023_10_18::types::HostOutgoingRequest for T
 where
     T: WasiHttpView,
 {
@@ -1910,7 +1910,7 @@ where
     }
 }
 
-impl<T> wasi::http::types::HostOutgoingResponse for T
+impl<T> wasi::http0_2_0_rc_2023_10_18::types::HostOutgoingResponse for T
 where
     T: WasiHttpView,
 {
@@ -1950,7 +1950,7 @@ where
     }
 }
 
-impl<T> wasi::http::types::HostOutgoingBody for T
+impl<T> wasi::http0_2_0_rc_2023_10_18::types::HostOutgoingBody for T
 where
     T: WasiHttpView,
 {
@@ -1975,7 +1975,7 @@ where
     }
 }
 
-impl<T> wasi::http::types::HostResponseOutparam for T
+impl<T> wasi::http0_2_0_rc_2023_10_18::types::HostResponseOutparam for T
 where
     T: WasiHttpView,
 {
@@ -2007,7 +2007,7 @@ where
     }
 }
 
-impl<T> wasi::http::types::HostFutureTrailers for T
+impl<T> wasi::http0_2_0_rc_2023_10_18::types::HostFutureTrailers for T
 where
     T: WasiHttpView,
 {
@@ -2038,7 +2038,7 @@ where
     }
 }
 
-impl<T> wasi::http::types::HostFutureIncomingResponse for T
+impl<T> wasi::http0_2_0_rc_2023_10_18::types::HostFutureIncomingResponse for T
 where
     T: WasiHttpView,
 {
@@ -2071,7 +2071,7 @@ where
     }
 }
 
-impl<T> wasi::http::outgoing_handler::Host for T
+impl<T> wasi::http0_2_0_rc_2023_10_18::outgoing_handler::Host for T
 where
     T: WasiHttpView,
 {

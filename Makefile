@@ -5,7 +5,7 @@ export PATH := target/debug:target/release:$(HOME)/.cargo/bin:$(PATH)
 
 ## overrides for Windows
 ifeq ($(OS),Windows_NT)
-	LOG_LEVEL_VAR = 
+	LOG_LEVEL_VAR =
 endif
 
 .PHONY: build
@@ -39,7 +39,7 @@ lint-all: lint lint-rust-examples
 
 ## Bring all of the checked in `Cargo.lock` files up-to-date
 .PHONY: update-cargo-locks
-update-cargo-locks: 
+update-cargo-locks:
 	echo "Updating Cargo.toml"
 	cargo update -w --offline; \
 	for manifest_path in $$(find examples -name Cargo.toml); do \
@@ -70,10 +70,6 @@ test-integration: test-runtime
 .PHONY: test-integration-full
 test-integration-full: test-runtime-full
 	cargo test --release integration_tests --no-default-features --features extern-dependencies-tests --no-fail-fast -- --nocapture
-
-.PHONY: test-sdk-go
-test-sdk-go:
-	$(MAKE) -C sdk/go test
 
 # simple convenience for developing with TLS
 .PHONY: tls

@@ -9,4 +9,4 @@ crate-type = ["cdylib"]
 [dependencies]
 anyhow = "1.0"
 serde_qs = "0.12.0"
-spin-sdk = { path = "../../../../sdk/rust" }
+spin-sdk = "2.2.0"

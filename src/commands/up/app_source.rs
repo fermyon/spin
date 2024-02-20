@@ -83,7 +83,7 @@ pub enum ResolvedAppSource {
 }
 
 impl ResolvedAppSource {
-    pub fn trigger_type(&self) -> anyhow::Result<&str> {
+    pub fn trigger_types(&self) -> anyhow::Result<Vec<&str>> {
         let types = match self {
             ResolvedAppSource::File { manifest, .. } => {
                 manifest.triggers.keys().collect::<HashSet<_>>()
@@ -96,7 +96,6 @@ impl ResolvedAppSource {
         };
 
         ensure!(!types.is_empty(), "no triggers in app");
-        ensure!(types.len() == 1, "multiple trigger types not yet supported");
-        Ok(types.into_iter().next().unwrap())
+        Ok(types.into_iter().map(|t| t.as_str()).collect())
     }
 }

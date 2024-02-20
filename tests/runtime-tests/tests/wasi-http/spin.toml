@@ -1,0 +1,15 @@
+spin_manifest_version = 2
+
+[application]
+name = "wasi-http"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+version = "0.1.0"
+
+[[trigger.http]]
+route = "/"
+component = "test"
+
+[component.test]
+source = "%{source=wasi-http-v0.2.0-rc-2023-11-10}"
+environment = { URL = "http://localhost:%{port=80}" }
+allowed_outbound_hosts = ["http://localhost:%{port=80}"]

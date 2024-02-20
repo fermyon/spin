@@ -1,0 +1,13 @@
+spin_manifest_version = "1"
+authors = ["Ryan Levick <me@ryanlevick.com>"]
+description = ""
+name = "ai"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[[component]]
+id = "ai"
+source = "%{source=llm}"
+ai_models = ["llama2-chat"]
+[component.trigger]
+route = "/..."

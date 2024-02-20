@@ -132,8 +132,13 @@ impl WatchCommand {
         let source_code_tx = Arc::new(source_code_tx);
         let manifest_tx = Arc::new(manifest_tx);
 
+        // No need to restart on asset changes if direct-mounting
+
+        let contains_direct_mounts = self.up_args.contains(&"--direct-mounts".to_owned());
+
         let artifact_filterer = Box::new(ArtifactFilterFactory {
             skip_build: self.skip_build,
+            skip_assets: contains_direct_mounts,
         });
         let (artifact_watcher, artifact_watcher_handle) = self
             .spawn_watchexec(

@@ -1,0 +1,30 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "A legacy test for verifying backward compatible runtime"
+name = "legacy-test"
+trigger = { type = "http" }
+version = "1.0.0"
+
+[[component]]
+id = "go"
+source = "legacy-go.wasm"
+[component.trigger]
+route = "/golang/..."
+
+[[component]]
+id = "rust"
+source = "legacy-rust.wasm"
+[component.trigger]
+route = "/rust/..."
+
+[[component]]
+id = "typescript"
+source = "legacy-typescript.wasm"
+[component.trigger]
+route = "/typescript/..."
+
+[[component]]
+id = "javascript"
+source = "legacy-javascript.wasm"
+[component.trigger]
+route = "/javascript/..."

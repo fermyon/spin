@@ -1,0 +1,13 @@
+[package]
+name = "ai"
+authors = ["Ryan Levick <me@ryanlevick.com>"]
+description = ""
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+helper = { path = "../../helper" }
+wit-bindgen = "0.16.0"

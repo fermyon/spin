@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
-use runtime_tests::{run_all, Config, OnTestError};
+use runtime_tests::RuntimeTest;
+use testing_framework::runtimes::spin_cli::SpinCli;
+use testing_framework::OnTestError;
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();
@@ -9,10 +11,7 @@ fn main() -> anyhow::Result<()> {
     let tests_path = args
         .next()
         .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests"));
-    let config = Config {
-        spin_binary_path,
-        tests_path,
-        on_error: OnTestError::Log,
-    };
-    run_all(config)
+
+    let config = OnTestError::Log;
+    RuntimeTest::<SpinCli>::run_all(&tests_path, spin_binary_path, config)
 }

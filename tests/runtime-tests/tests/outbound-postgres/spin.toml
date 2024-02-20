@@ -10,6 +10,6 @@ route = "/"
 component = "test"
 
 [component.test]
-source = "{{outbound-postgres}}"
-allowed_outbound_hosts = ["postgres://postgres:5432"]
-environment = { DB_URL = "postgres://postgres:postgres@postgres:5432/spin_dev" }
+source = "%{source=outbound-postgres}"
+allowed_outbound_hosts = ["postgres://localhost:%{port=5432}"]
+environment = { DB_URL = "postgres://postgres:postgres@localhost:%{port=5432}/spin_dev" }

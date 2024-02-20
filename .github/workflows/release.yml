@@ -11,7 +11,7 @@ on:
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 env:
-  RUST_VERSION: 1.71
+  RUST_VERSION: 1.73
 
 jobs:
   build-and-sign:
@@ -22,8 +22,6 @@ jobs:
       id-token: write
       # needed to upload artifacts to a GH release
       contents: write
-    outputs:
-      prerelease: ${{ steps.release-version.outputs.prerelease }}
     strategy:
       matrix:
         config:
@@ -116,14 +114,6 @@ jobs:
           echo 'linker = "aarch64-linux-gnu-gcc"' >> ${HOME}/.cargo/config.toml
           echo 'rustflags = ["-Ctarget-feature=+fp16"]' >> ${HOME}/.cargo/config.toml
 
-      - name: Check if pre-release
-        id: release-version
-        shell: bash
-        run: |
-          [[ "${{ env.RELEASE_VERSION }}" =~ ^v[0-9]+.[0-9]+.[0-9]+$ ]] && \
-            echo "prerelease=false" >> "$GITHUB_OUTPUT" || \
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-
       - name: build release
         shell: bash
         run: cargo build --release ${{ matrix.config.extraArgs }}
@@ -166,15 +156,6 @@ jobs:
           name: spin
           path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
 
-      - name: upload binary to Github release
-        if: startsWith(github.ref, 'refs/tags/v') && runner.os != 'Windows'
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
-          tag: ${{ github.ref }}
-          prerelease: ${{ steps.release-version.outputs.prerelease == 'true' }}
-
       - name: upload binary as GitHub artifact
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v3
@@ -182,22 +163,13 @@ jobs:
           name: spin
           path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip
 
-      - name: upload binary to Github release
-        if: startsWith(github.ref, 'refs/tags/v') &&  runner.os == 'Windows'
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip
-          tag: ${{ github.ref }}
-          prerelease: ${{ steps.release-version.outputs.prerelease == 'true' }}
-
       - name: Configure AWS Credentials
         if: |
           runner.os == 'linux' &&
           matrix.config.arch == 'amd64' &&
           github.repository_owner == 'fermyon' &&
           github.ref == 'refs/heads/main'
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.SPIN_RELEASE_ARTIFACTS_REPO }}
           role-session-name: spin-release-artifacts
@@ -215,7 +187,7 @@ jobs:
   checksums:
     name: generate release checksums
     runs-on: ubuntu-latest
-    needs: [build-and-sign]
+    needs: [build-and-sign, build-spin-static]
     steps:
       - name: set the release version (tag)
         if: startsWith(github.ref, 'refs/tags/v')
@@ -240,45 +212,47 @@ jobs:
           name: spin
           path: checksums-${{ env.RELEASE_VERSION }}.txt
 
-      - name: upload checksums to Github release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: checksums-${{ env.RELEASE_VERSION }}.txt
-          tag: ${{ github.ref }}
-          prerelease: ${{ needs.build-and-sign.outputs.prerelease == 'true' }}
-
-  update-canary:
-    name: update canary release
+  create-gh-release:
+    name: create GitHub release
     runs-on: ubuntu-latest
     needs: checksums
-    if: github.ref == 'refs/heads/main'
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Download release assets
+      - uses: actions/checkout@v3
+
+      - name: download release assets
         uses: actions/download-artifact@v3
         with:
           name: spin
+          path: _dist
 
-      - name: Delete canary tag
-        uses: dev-drprasad/delete-tag-and-release@v0.2.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: canary
-          delete_release: true
+      - name: check if pre-release
+        shell: bash
+        run: |
+          if [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+.[0-9]+.[0-9]+$ ]]
+          then
+            echo "PRERELEASE=--prerelease" >> "$GITHUB_ENV"
+          fi
 
-      - name: Recreate canary tag and release
-        uses: ncipollo/release-action@v1.13.0
-        with:
-          tag: canary
-          allowUpdates: true
-          prerelease: true
-          artifacts: "checksums-canary.txt,spin-canary*"
-          commit: ${{ github.sha }}
-          body: |
+      - name: create GitHub release (canary)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          gh release delete canary --cleanup-tag
+          gh release create canary _dist/* \
+            --title canary \
+            --prerelease \
+            --notes-file - <<- EOF
             This is a "canary" release of the most recent commits on our main branch. Canary is **not stable**.
             It is only intended for developers wishing to try out the latest features in Spin, some of which may not be fully implemented.
+          EOF
+
+      - name: create GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          gh release create ${{ github.ref_name }} _dist/* \
+            --title ${{ github.ref_name }} \
+            --generate-notes ${{ env.PRERELEASE }}
 
   create-go-sdk-tag:
     name: create tag sdk/go/v*
@@ -368,6 +342,95 @@ jobs:
         run: |
           git tag ${{ env.TEMPLATE_TAG }} -f
           git push origin ${{ env.TEMPLATE_TAG }} -f
+
+  ## statically linked spin binaries
+  build-spin-static:
+    name: Build Spin static
+    runs-on: ubuntu-latest
+    permissions:
+      # cosign uses the GitHub OIDC token
+      id-token: write
+      # needed to upload artifacts to a GH release
+      contents: write
+    strategy:
+      matrix:
+        config:
+          - {
+              arch: "aarch64",
+              target: "aarch64-unknown-linux-musl",
+              rustflags: '-C target-feature=+fp16 -C target-feature=+crt-static -C link-self-contained=yes'
+            }
+          - {
+              arch: "amd64",
+              target: "x86_64-unknown-linux-musl",
+              rustflags: '-C target-feature=+crt-static -C link-self-contained=yes'
+            }
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: set the release version (tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: echo "RELEASE_VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
+
+      - name: set the release version (main)
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: echo "RELEASE_VERSION=canary" >> $GITHUB_ENV
+
+      - name: lowercase the runner OS name
+        shell: bash
+        run: |
+          OS=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
+          echo "RUNNER_OS=$OS" >> $GITHUB_ENV
+      - name: Check if pre-release
+        id: release-version
+        shell: bash
+        run: |
+          [[ "${{ env.RELEASE_VERSION }}" =~ ^v[0-9]+.[0-9]+.[0-9]+$ ]] && \
+            echo "prerelease=false" >> "$GITHUB_OUTPUT" || \
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
+        with:
+          rust: true
+          rust-cross: true
+          rust-cache: true
+
+      - name: Cargo Build
+        run: cross build --target ${{ matrix.config.target }} --release --features openssl/vendored
+        env:
+          CARGO_INCREMENTAL: 0
+          BUILD_SPIN_EXAMPLES: 0
+          RUSTFLAGS: ${{ matrix.config.rustflags }}
+
+      - name: Install Cosign for signing Spin binary
+        uses: sigstore/cosign-installer@v3.0.1
+        with:
+          cosign-release: v2.0.0
+
+      - name: Sign the binary with GitHub OIDC token
+        shell: bash
+        run: |
+          cosign sign-blob \
+            --yes \
+            --output-certificate crt.pem \
+            --output-signature spin.sig \
+            target/${{ matrix.config.target }}/release/spin
+      - name: package release assets
+        shell: bash
+        run: |
+          mkdir _dist
+          cp crt.pem spin.sig README.md LICENSE target/${{ matrix.config.target }}/release/spin _dist/
+          cd _dist
+          tar czf \
+            spin-${{ env.RELEASE_VERSION }}-static-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz \
+            crt.pem spin.sig README.md LICENSE spin
+      - name: upload binary as GitHub artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: spin
+          path: _dist/spin-${{ env.RELEASE_VERSION }}-static-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
 
   crates:
     name: Publish to crates.io

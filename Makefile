@@ -3,44 +3,6 @@ CERT_NAME ?= local
 SPIN_DOC_NAME ?= new-doc.md
 export PATH := target/debug:target/release:$(HOME)/.cargo/bin:$(PATH)
 
-ARCH = $(shell uname -p)
-
-## dependencies for e2e-tests
-E2E_BUILD_SPIN                  ?= false
-E2E_FETCH_SPIN                  ?= true
-E2E_TESTS_DOCKERFILE            ?= e2e-tests.Dockerfile
-MYSQL_IMAGE                     ?= mysql:8.0.22
-REDIS_IMAGE                     ?= redis:7.0.8-alpine3.17
-POSTGRES_IMAGE                  ?= postgres:14.7-alpine
-REGISTRY_IMAGE                  ?= registry:2
-E2E_SPIN_RELEASE_VOLUME_MOUNT   ?=
-E2E_SPIN_DEBUG_VOLUME_MOUNT     ?=
-
-## overrides for aarch64
-ifneq ($(ARCH),x86_64)
-	MYSQL_IMAGE             = arm64v8/mysql:8.0.32
-	REDIS_IMAGE             = arm64v8/redis:6.0-alpine3.17
-	POSTGRES_IMAGE          = arm64v8/postgres:14.7
-	REGISTRY_IMAGE          = arm64v8/registry:2
-	E2E_TESTS_DOCKERFILE    = e2e-tests-aarch64.Dockerfile
-endif
-
-ifneq (,$(wildcard $(shell pwd)/target/release/spin))
-	E2E_SPIN_RELEASE_VOLUME_MOUNT = -v $(shell pwd)/target/release/spin:/from-host/target/release/spin
-endif
-
-ifneq (,$(wildcard $(shell pwd)/target/debug/spin))
-	E2E_SPIN_DEBUG_VOLUME_MOUNT = -v $(shell pwd)/target/debug/spin:/from-host/target/debug/spin
-endif
-
-## Reset volume mounts for e2e-tests if Darwin because the
-## spin binaries built on macOS won't run in the docker container
-ifeq ($(shell uname -s),Darwin)
-	E2E_SPIN_RELEASE_VOLUME_MOUNT = 
-	E2E_SPIN_DEBUG_VOLUME_MOUNT =
-	E2E_BUILD_SPIN = true
-endif
-
 ## overrides for Windows
 ifeq ($(OS),Windows_NT)
 	LOG_LEVEL_VAR = 
@@ -62,9 +24,9 @@ lint:
 	cargo clippy --all --all-targets --features all-tests -- -D warnings
 	cargo fmt --all -- --check
 
-.PHONY: lint-rust-examples-and-testcases
-lint-rust-examples-and-testcases:
-	for manifest_path in $$(find examples tests/testcases -name Cargo.toml); do \
+.PHONY: lint-rust-examples
+lint-rust-examples:
+	for manifest_path in $$(find examples  -name Cargo.toml); do \
 		echo "Linting $${manifest_path}" \
 		&& cargo clippy --manifest-path "$${manifest_path}" -- -D warnings \
 		&& cargo fmt --manifest-path "$${manifest_path}" -- --check \
@@ -73,54 +35,41 @@ lint-rust-examples-and-testcases:
 	done
 
 .PHONY: lint-all
-lint-all: lint lint-rust-examples-and-testcases
+lint-all: lint lint-rust-examples
 
 ## Bring all of the checked in `Cargo.lock` files up-to-date
 .PHONY: update-cargo-locks
 update-cargo-locks: 
 	echo "Updating Cargo.toml"
 	cargo update -w --offline; \
-	for manifest_path in $$(find examples tests/testcases -name Cargo.toml); do \
+	for manifest_path in $$(find examples -name Cargo.toml); do \
 		echo "Updating $${manifest_path}" && \
 		cargo update --manifest-path "$${manifest_path}" -w --offline; \
 	done
 
 .PHONY: test-unit
 test-unit:
-	$(LOG_LEVEL_VAR) cargo test --all --no-fail-fast -- --skip integration_tests --skip spinup_tests --skip cloud_tests --nocapture
+	$(LOG_LEVEL_VAR) cargo test --all --no-fail-fast -- --skip integration_tests --skip runtime_tests --nocapture
 
-.PHONY: test-crate
-test-crate:
-	$(LOG_LEVEL_VAR) cargo test -p $(crate) --no-fail-fast -- --skip integration_tests --skip spinup_tests --skip cloud_tests --nocapture
+# Run the runtime tests without the tests that use some sort of assumed external depedency (e.g., Docker, a language toolchain, etc.)
+.PHONY: test-runtime
+test-runtime:
+	cargo test --release runtime_tests --no-default-features --no-fail-fast -- --nocapture
 
+# Run all of the runtime tests including those that use some sort of assumed external depedency (e.g., Docker, a language toolchain, etc.)
+.PHONY: test-runtime-full
+test-runtime-full:
+	cargo test --release runtime_tests --no-default-features --features extern-dependencies-tests --no-fail-fast -- --nocapture
+
+# Run the integration tests without the tests that use some sort of assumed external depedency (e.g., Docker, a language toolchain, etc.)
 .PHONY: test-integration
-test-integration: test-kv test-sqlite
-	$(LOG_LEVEL_VAR) cargo test --test integration --no-fail-fast -- --skip spinup_tests --skip cloud_tests --nocapture
+test-integration: test-runtime
+	cargo test --release integration_tests --no-default-features --no-fail-fast -- --nocapture
 
-.PHONY: test-spin-up
-test-spin-up: build-test-spin-up run-test-spin-up
-
-.PHONY: build-test-spin-up
-build-test-spin-up:
-	docker build -t spin-e2e-tests --build-arg FETCH_SPIN=$(E2E_FETCH_SPIN) --build-arg BUILD_SPIN=$(E2E_BUILD_SPIN) -f $(E2E_TESTS_DOCKERFILE) .
-
-.PHONY: run-test-spin-up
-run-test-spin-up:
-	REDIS_IMAGE=$(REDIS_IMAGE) MYSQL_IMAGE=$(MYSQL_IMAGE) POSTGRES_IMAGE=$(POSTGRES_IMAGE) \
-	BUILD_SPIN=$(E2E_BUILD_SPIN) \
-	docker compose -f e2e-tests-docker-compose.yml run $(E2E_SPIN_RELEASE_VOLUME_MOUNT) $(E2E_SPIN_DEBUG_VOLUME_MOUNT) e2e-tests
-
-.PHONY: test-kv
-test-kv: build
-	PATH=$$(pwd)/target/release:$$PATH $(LOG_LEVEL_VAR) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::key_value --nocapture
-
-.PHONY: test-sqlite
-test-sqlite: build
-	PATH=$$(pwd)/target/release:$$PATH $(LOG_LEVEL_VAR) cargo test --test spinup_tests --features e2e-tests --no-fail-fast -- spinup_tests::sqlite --nocapture
-
-.PHONY: test-config-provider
-test-config-provider:
-	$(LOG_LEVEL_VAR) cargo test --test integration --features config-provider-tests --no-fail-fast -- integration_tests::config_provider_tests --nocapture
+# Run all of the integration tests including those that use some sort of assumed external depedency (e.g., Docker, a language toolchain, etc.)
+.PHONY: test-integration-full
+test-integration-full: test-runtime-full
+	cargo test --release integration_tests --no-default-features --features extern-dependencies-tests --no-fail-fast -- --nocapture
 
 .PHONY: test-sdk-go
 test-sdk-go:

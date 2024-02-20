@@ -1,0 +1,9 @@
+package wasi:http@0.2.0-rc-2023-11-10;
+
+/// The `wasi:http/proxy` world captures a widely-implementable intersection of
+/// hosts that includes HTTP forward and reverse proxies. Components targeting
+/// this world may concurrently stream in and out any number of incoming and
+/// outgoing HTTP requests.
+world handler {
+  import outgoing-handler;
+}

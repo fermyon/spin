@@ -1,0 +1,23 @@
+[package]
+name = "testing-framework"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+fslock = "0.2.1"
+http = "1.0"
+http-body-util = "0.1.0"
+log = "0.4"
+nix = "0.26.1"
+regex = "1.10.2"
+reqwest = { workspace = true }
+temp-dir = "0.1.11"
+test-components = { path = "../test-components" }
+spin-trigger-http = { path = "../../crates/trigger-http" }
+spin-http = { path = "../../crates/http" }
+spin-trigger = { path = "../../crates/trigger" }
+spin-loader = { path = "../../crates/loader" }
+toml = "0.8.6"
+tokio = "1.23"
+wasmtime-wasi-http = "17.0"

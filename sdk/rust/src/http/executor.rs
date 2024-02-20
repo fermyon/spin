@@ -1,9 +1,9 @@
-use crate::wit::wasi::http::outgoing_handler;
-use crate::wit::wasi::http::types::{
+use crate::wit::wasi::http0_2_0_rc_2023_10_18::outgoing_handler;
+use crate::wit::wasi::http0_2_0_rc_2023_10_18::types::{
     self, IncomingBody, IncomingResponse, OutgoingBody, OutgoingRequest,
 };
-use crate::wit::wasi::io;
-use crate::wit::wasi::io::streams::{InputStream, OutputStream, StreamError};
+use crate::wit::wasi::io0_2_0_rc_2023_10_18 as io;
+use crate::wit::wasi::io0_2_0_rc_2023_10_18::streams::{InputStream, OutputStream, StreamError};
 
 use futures::{future, sink, stream, Sink, Stream};
 

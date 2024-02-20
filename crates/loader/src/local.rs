@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, ensure, Context, Result};
 use futures::future::try_join_all;
 use reqwest::Url;
-use spin_common::{paths::parent_dir, ui::quoted_path};
+use spin_common::{paths::parent_dir, sloth, ui::quoted_path};
 use spin_locked_app::{
     locked::{
         self, ContentPath, ContentRef, LockedApp, LockedComponent, LockedComponentSource,
@@ -94,6 +94,8 @@ impl LocalLoader {
             })
             .collect::<Result<Vec<_>>>()?;
 
+        let sloth_guard = warn_if_component_load_slothful();
+
         // Load all components concurrently
         let components = try_join_all(components.into_iter().map(|(id, c)| async move {
             self.load_component(&id, c)
@@ -101,6 +103,8 @@ impl LocalLoader {
                 .with_context(|| format!("Failed to load component `{id}`"))
         }))
         .await?;
+
+        drop(sloth_guard);
 
         Ok(LockedApp {
             spin_lock_version: Default::default(),
@@ -515,4 +519,11 @@ fn file_url(path: impl AsRef<Path>) -> Result<String> {
         .canonicalize()
         .with_context(|| format!("Couldn't resolve `{}`", path.display()))?;
     Ok(Url::from_file_path(abs_path).unwrap().to_string())
+}
+
+const SLOTH_WARNING_DELAY_MILLIS: u64 = 1250;
+
+fn warn_if_component_load_slothful() -> sloth::SlothGuard {
+    let message = "Loading Wasm components is taking a few seconds...";
+    sloth::warn_if_slothful(SLOTH_WARNING_DELAY_MILLIS, format!("{message}\n"))
 }

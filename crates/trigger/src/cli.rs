@@ -17,6 +17,9 @@ use crate::{
 };
 use crate::{TriggerExecutor, TriggerExecutorBuilder};
 
+mod launch_metadata;
+pub use launch_metadata::LaunchMetadata;
+
 pub const APP_LOG_DIR: &str = "APP_LOG_DIR";
 pub const DISABLE_WASMTIME_CACHE: &str = "DISABLE_WASMTIME_CACHE";
 pub const FOLLOW_LOG_OPT: &str = "FOLLOW_ID";
@@ -32,7 +35,7 @@ pub const SPIN_WORKING_DIR: &str = "SPIN_WORKING_DIR";
 #[derive(Parser, Debug)]
 #[clap(
     usage = "spin [COMMAND] [OPTIONS]",
-    next_help_heading = "TRIGGER OPTIONS"
+    next_help_heading = help_heading::<Executor>()
 )]
 pub struct TriggerExecutorCommand<Executor: TriggerExecutor>
 where
@@ -44,6 +47,7 @@ where
         name = APP_LOG_DIR,
         short = 'L',
         long = "log-dir",
+        env = "SPIN_LOG_DIR",
     )]
     pub log: Option<PathBuf>,
 
@@ -124,6 +128,9 @@ where
 
     #[clap(long = "help-args-only", hide = true)]
     pub help_args_only: bool,
+
+    #[clap(long = "launch-metadata-only", hide = true)]
+    pub launch_metadata_only: bool,
 }
 
 /// An empty implementation of clap::Args to be used as TriggerExecutor::RunConfig
@@ -143,6 +150,13 @@ where
                 .disable_help_flag(true)
                 .help_template("{all-args}")
                 .print_long_help()?;
+            return Ok(());
+        }
+
+        if self.launch_metadata_only {
+            let lm = LaunchMetadata::infer::<Executor>();
+            let json = serde_json::to_string_pretty(&lm)?;
+            eprintln!("{json}");
             return Ok(());
         }
 
@@ -252,6 +266,16 @@ fn warn_if_wasm_build_slothful() -> sloth::SlothGuard {
     let message = "Preparing Wasm modules is taking a few seconds...";
 
     sloth::warn_if_slothful(SLOTH_WARNING_DELAY_MILLIS, format!("{message}\n"))
+}
+
+fn help_heading<E: TriggerExecutor>() -> Option<&'static str> {
+    if E::TRIGGER_TYPE == help::HelpArgsOnlyTrigger::TRIGGER_TYPE {
+        Some("TRIGGER OPTIONS")
+    } else {
+        let heading = format!("{} TRIGGER OPTIONS", E::TRIGGER_TYPE.to_uppercase());
+        let as_str = Box::new(heading).leak();
+        Some(as_str)
+    }
 }
 
 pub mod help {

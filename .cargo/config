@@ -1,2 +1,5 @@
 [net]
     git-fetch-with-cli = true
+
+[target.aarch64-unknown-linux-gnu]
+    rustflags = ["-C", "target-feature=+fp16"]

@@ -1,0 +1,15 @@
+[package]
+name = "vault-variable-test"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "Vault Application Variable Provider Example"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1"
+spin-sdk = { path = "../../sdk/rust" }
+
+[workspace]

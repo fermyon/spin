@@ -1,4 +1,0 @@
-Error: Couldn't find trigger executor for local app "spin.toml"
-
-Caused by:
-      no triggers in app

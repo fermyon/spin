@@ -22,6 +22,7 @@ use hyper::{
     service::service_fn,
     Request, Response,
 };
+use hyper_util::rt::tokio::TokioIo;
 use spin_app::{AppComponent, APP_DESCRIPTION_KEY};
 use spin_core::{Engine, OutboundWasiHttpHandler};
 use spin_http::{
@@ -94,9 +95,10 @@ impl TriggerExecutor for HttpTrigger {
 
     async fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
         let mut base = engine
-            .app()
-            .require_metadata(spin_http::trigger::METADATA_KEY)?
+            .trigger_metadata::<spin_http::trigger::Metadata>()?
+            .unwrap_or_default()
             .base;
+
         if !base.starts_with('/') {
             base = format!("/{base}");
         }
@@ -295,7 +297,7 @@ impl HttpTrigger {
             if let Err(e) = http1::Builder::new()
                 .keep_alive(true)
                 .serve_connection(
-                    stream,
+                    TokioIo::new(stream),
                     service_fn(move |request| {
                         let self_ = self_.clone();
                         async move {
@@ -343,8 +345,10 @@ impl HttpTrigger {
 
         loop {
             let (stream, addr) = listener.accept().await?;
-            let stream = acceptor.accept(stream).await?;
-            Self::serve_connection(self_.clone(), stream, addr);
+            match acceptor.accept(stream).await {
+                Ok(stream) => Self::serve_connection(self_.clone(), stream, addr),
+                Err(err) => tracing::error!(?err, "Failed to start TLS session"),
+            }
         }
     }
 }
@@ -537,11 +541,7 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use anyhow::Result;
-    use serde::Deserialize;
-    use spin_testing::test_socket_addr;
 
     use super::*;
 
@@ -665,68 +665,6 @@ mod tests {
         }
 
         res
-    }
-
-    #[tokio::test]
-    async fn test_spin_http() -> Result<()> {
-        let trigger: HttpTrigger = spin_testing::HttpTestConfig::default()
-            .test_program("rust-http-test.wasm")
-            .http_spin_trigger("/test")
-            .build_trigger()
-            .await;
-
-        let body = body::full(Bytes::from_static("Fermyon".as_bytes()));
-        let req = http::Request::post("https://myservice.fermyon.dev/test?abc=def")
-            .header("x-custom-foo", "bar")
-            .header("x-custom-foo2", "bar2")
-            .body(body)
-            .unwrap();
-
-        let res = trigger
-            .handle(req, Scheme::HTTPS, test_socket_addr())
-            .await?;
-        assert_eq!(res.status(), StatusCode::OK);
-        let body_bytes = res.into_body().collect().await.unwrap().to_bytes();
-        assert_eq!(body_bytes.to_vec(), "Hello, Fermyon".as_bytes());
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_wagi_http() -> Result<()> {
-        let trigger: HttpTrigger = spin_testing::HttpTestConfig::default()
-            .test_program("wagi-test.wasm")
-            .http_wagi_trigger("/test", Default::default())
-            .build_trigger()
-            .await;
-
-        let body = body::full(Bytes::from_static("Fermyon".as_bytes()));
-        let req = http::Request::builder()
-            .method("POST")
-            .uri("https://myservice.fermyon.dev/test?abc=def")
-            .header("x-custom-foo", "bar")
-            .header("x-custom-foo2", "bar2")
-            .body(body)
-            .unwrap();
-
-        let res = trigger
-            .handle(req, Scheme::HTTPS, test_socket_addr())
-            .await?;
-        assert_eq!(res.status(), StatusCode::OK);
-        let body_bytes = res.into_body().collect().await.unwrap().to_bytes();
-
-        #[derive(Deserialize)]
-        struct Env {
-            args: Vec<String>,
-            vars: BTreeMap<String, String>,
-        }
-        let env: Env =
-            serde_json::from_str(std::str::from_utf8(body_bytes.as_ref()).unwrap()).unwrap();
-
-        assert_eq!(env.args, ["/test", "abc=def"]);
-        assert_eq!(env.vars["HTTP_X_CUSTOM_FOO"], "bar".to_string());
-
-        Ok(())
     }
 
     #[test]

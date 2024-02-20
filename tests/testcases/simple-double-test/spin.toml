@@ -1,0 +1,22 @@
+spin_manifest_version = 2
+
+[application]
+name = "spin-hello-world"
+version = "1.0.0"
+
+[[trigger.http]]
+route = "/route1"
+component = "hello"
+
+[[trigger.http]]
+route = "/route2"
+component = "hello" # intentionally pointing to same component
+
+[variables]
+object = { default = "teapot" }
+
+[component.hello]
+source = "%{source=integration-simple}"
+files = [{ source = "assets", destination = "/" }]
+[component.hello.variables]
+message = "I'm a {{object}}"

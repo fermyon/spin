@@ -1,6 +1,6 @@
 pub mod cli;
 pub mod loader;
-mod network;
+pub mod network;
 mod runtime_config;
 mod stdio;
 
@@ -111,8 +111,14 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
             let mut builder = Engine::builder(&self.config)?;
 
             if !self.disable_default_host_components {
+                // Wasmtime 17: WASI@0.2.0
+                builder.link_import(|l, _| {
+                    wasmtime_wasi::preview2::command::add_to_linker(l)?;
+                    wasmtime_wasi_http::proxy::add_only_http_to_linker(l)
+                })?;
+
                 // Wasmtime 15: WASI@0.2.0-rc-2023-11-10
-                builder.link_import(|l, _| wasmtime_wasi_http::proxy::add_to_linker(l))?;
+                builder.link_import(|l, _| spin_core::wasi_2023_11_10::add_to_linker(l))?;
 
                 // Wasmtime 14: WASI@0.2.0-rc-2023-10-18
                 builder.link_import(|l, _| spin_core::wasi_2023_10_18::add_to_linker(l))?;
@@ -283,6 +289,10 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
     /// Returns a reference to the App.
     pub fn app(&self) -> &App {
         self.app.borrowed()
+    }
+
+    pub fn trigger_metadata<T: DeserializeOwned + Default>(&self) -> spin_app::Result<Option<T>> {
+        self.app().get_trigger_metadata(Executor::TRIGGER_TYPE)
     }
 
     /// Returns AppTriggers and typed TriggerConfigs for this executor type.

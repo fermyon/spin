@@ -7,13 +7,7 @@ use std::{
 
 use cargo_target_dep::build_target_dep;
 
-const RUST_HTTP_INTEGRATION_TEST: &str = "tests/http/simple-spin-rust";
-const RUST_HTTP_INTEGRATION_ENV_TEST: &str = "tests/http/headers-env-routes-test";
-const RUST_HTTP_VAULT_VARIABLES_TEST: &str = "tests/http/vault-variables-test";
 const TIMER_TRIGGER_INTEGRATION_TEST: &str = "examples/spin-timer/app-example";
-const WASI_HTTP_INTEGRATION_TEST: &str = "examples/wasi-http-rust-streaming-outgoing-body";
-const OUTBOUND_HTTP_POST_INTEGRATION_TEST: &str = "examples/http-rust-outbound-post";
-const WASI_HTTP_RC_11_10_INTEGRATION_TEST: &str = "tests/http/wasi-http-rust-0.2.0-rc-2023-11-10";
 
 fn main() {
     // Extract environment information to be passed to plugins.
@@ -70,12 +64,7 @@ error: the `wasm32-wasi` target is not installed
     std::fs::create_dir_all("target/test-programs").unwrap();
 
     build_wasm_test_program("core-wasi-test.wasm", "crates/core/tests/core-wasi-test");
-    build_wasm_test_program(
-        "rust-http-test.wasm",
-        "crates/trigger-http/tests/rust-http-test",
-    );
-    build_wasm_test_program("redis-rust.wasm", "crates/redis/tests/rust");
-    build_wasm_test_program("wagi-test.wasm", "crates/trigger-http/tests/wagi-test");
+    build_wasm_test_program("redis-rust.wasm", "crates/trigger-redis/tests/rust");
 
     build_wasm_test_program(
         "spin-http-benchmark.wasm",
@@ -87,39 +76,7 @@ error: the `wasm32-wasi` target is not installed
     );
     build_wasm_test_program("timer_app_example.wasm", "examples/spin-timer/app-example");
 
-    cargo_build(RUST_HTTP_INTEGRATION_TEST);
-    cargo_build(RUST_HTTP_INTEGRATION_ENV_TEST);
-    cargo_build(RUST_HTTP_VAULT_VARIABLES_TEST);
     cargo_build(TIMER_TRIGGER_INTEGRATION_TEST);
-    cargo_build(WASI_HTTP_INTEGRATION_TEST);
-    cargo_build(OUTBOUND_HTTP_POST_INTEGRATION_TEST);
-    cargo_build(WASI_HTTP_RC_11_10_INTEGRATION_TEST);
-
-    // Rather than let `spin-componentize` turn the `WASI_HTTP_RC_11_10_INTEGRATION_TEST` module into a component,
-    // we use Wasmtime 15.0.1's adapter to ensure it uses the WASI 0.2.0-rc-2023-11-10 snapshot for everything.
-    let wasi_http_rc_11_10_module = format!(
-        "{WASI_HTTP_RC_11_10_INTEGRATION_TEST}/target/wasm32-wasi/release/wasi_http_rust_rc_2023_11_10.wasm"
-    );
-    let wasi_http_rc_11_10_adapter =
-        format!("{WASI_HTTP_RC_11_10_INTEGRATION_TEST}/wasi_snapshot_preview1.reactor.wasm");
-    let wasi_http_rc_11_10_component = format!(
-        "{WASI_HTTP_RC_11_10_INTEGRATION_TEST}/target/wasm32-wasi/release/wasi_http_rust_rc_2023_11_10.component.wasm"
-    );
-    std::fs::write(
-        wasi_http_rc_11_10_component,
-        wit_component::ComponentEncoder::default()
-            .validate(true)
-            .module(&std::fs::read(wasi_http_rc_11_10_module).unwrap())
-            .unwrap()
-            .adapter(
-                "wasi_snapshot_preview1",
-                &std::fs::read(wasi_http_rc_11_10_adapter).unwrap(),
-            )
-            .unwrap()
-            .encode()
-            .unwrap(),
-    )
-    .unwrap();
 }
 
 fn build_wasm_test_program(name: &'static str, root: &'static str) {
@@ -133,10 +90,20 @@ fn build_wasm_test_program(name: &'static str, root: &'static str) {
 }
 
 fn has_wasm32_wasi_target() -> bool {
-    let output = run(vec!["rustup", "target", "list", "--installed"], None, None);
-    let output = std::str::from_utf8(&output.stdout).unwrap();
+    // Using rustc here for systems that don't have rustup
+    let output = run(
+        vec!["rustc", "--print=target-libdir", "--target=wasm32-wasi"],
+        None,
+        None,
+    );
+    let Ok(output) = std::str::from_utf8(&output.stdout) else {
+        return false;
+    };
+    // If it returns regular output on stdout, then the compiler understands
+    // If the path exists, then we know the target is installed
+    // If the path doesn't exist, it must be installed with rustup or something
     for line in output.lines() {
-        if line == "wasm32-wasi" {
+        if !line.is_empty() && std::path::Path::new(line).exists() {
             return true;
         }
     }

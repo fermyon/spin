@@ -16,10 +16,10 @@ use spin_cli::commands::{
     watch::WatchCommand,
 };
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
-use spin_redis_engine::RedisTrigger;
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
 use spin_trigger::cli::TriggerExecutorCommand;
 use spin_trigger_http::HttpTrigger;
+use spin_trigger_redis::RedisTrigger;
 
 #[tokio::main]
 async fn main() {
@@ -46,6 +46,7 @@ async fn _main() -> anyhow::Result<()> {
         .with_writer(std::io::stderr)
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive("wasmtime_wasi_http=warn".parse()?)
                 .add_directive("watchexec=off".parse()?),
         )
         .with_ansi(std::io::stderr().is_terminal())

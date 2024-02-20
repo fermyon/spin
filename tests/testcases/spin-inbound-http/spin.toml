@@ -1,0 +1,15 @@
+spin_manifest_version = 2
+
+[application]
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "Test using the spin inbound-http interface."
+name = "spin-inbound-http"
+version = "1.0.0"
+
+[application.trigger.http]
+base = "/base"
+
+[[trigger.http]]
+route = "/..."
+[trigger.http.component]
+source = "%{source=integration-spin-inbound-http}"

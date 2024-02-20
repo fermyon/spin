@@ -12,8 +12,8 @@ pub use types::{
 };
 
 use self::conversions::{TryFromIncomingResponse, TryIntoOutgoingRequest};
-use super::wit::wasi::http::types;
-use crate::wit::wasi::io::streams;
+use super::wit::wasi::http0_2_0_rc_2023_10_18::types;
+use crate::wit::wasi::io0_2_0_rc_2023_10_18::streams;
 use futures::SinkExt;
 
 /// A unified request object that can represent both incoming and outgoing requests.
@@ -114,6 +114,16 @@ impl Request {
     /// Will return `None` if the header does not exist.
     pub fn header(&self, name: &str) -> Option<&HeaderValue> {
         self.headers.get(&name.to_lowercase())
+    }
+
+    /// Set a header
+    pub fn set_header(&mut self, name: impl Into<String>, value: impl Into<String>) {
+        self.headers.insert(
+            name.into(),
+            HeaderValue {
+                inner: HeaderValueRep::String(value.into()),
+            },
+        );
     }
 
     /// The request body

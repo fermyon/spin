@@ -13,5 +13,5 @@ rusqlite = { version = "0.29.0", features = [ "bundled" ] }
 spin-sqlite = { path = "../sqlite" }
 spin-world = { path = "../world" }
 sqlparser = "0.34"
-libsql-client = { version = "0.31.5", features = ["reqwest_backend"], default_features = false }
+libsql = { version = "0.2.0-alpha.1", features = ["remote"], default-features = false }
 tokio = { version = "1", features = ["full"] }

@@ -1,15 +1,15 @@
 pub mod bindings {
     wit_bindgen::generate!({
-        world: "platform",
+        world: "platform-rc20231018",
         path: "../../../wit",
         runtime_path: "::wit_bindgen::rt"
     });
 }
 
-use bindings::wasi::http::types::{
+use bindings::wasi::http0_2_0_rc_2023_10_18::types::{
     Error, Headers, OutgoingBody, OutgoingResponse, ResponseOutparam,
 };
-use bindings::wasi::io::streams::OutputStream;
+use bindings::wasi::io0_2_0_rc_2023_10_18::streams::OutputStream;
 
 #[macro_export]
 macro_rules! define_component {
@@ -19,15 +19,15 @@ macro_rules! define_component {
         // For now, this assumes the crate using this macro has `wit-bindgen` as a dependency
         mod bindings {
             $crate::wit_bindgen::generate!({
-                world: "http-trigger",
+                world: "http-trigger-rc20231018",
                 path: "../../../../wit",
                 exports: {
-                    "wasi:http/incoming-handler": super::Component
+                    "wasi:http/incoming-handler@0.2.0-rc-2023-10-18": super::Component
                 },
             });
         }
 
-        use bindings::exports::wasi::http::incoming_handler::{Guest, IncomingRequest, ResponseOutparam};
+        use bindings::exports::wasi::http0_2_0_rc_2023_10_18::incoming_handler::{Guest, IncomingRequest, ResponseOutparam};
         struct $name;
 
         impl Guest for $name {
@@ -36,7 +36,7 @@ macro_rules! define_component {
             }
         }
 
-        impl From<ResponseOutparam> for $crate::bindings::wasi::http::types::ResponseOutparam {
+        impl From<ResponseOutparam> for $crate::bindings::wasi::http0_2_0_rc_2023_10_18::types::ResponseOutparam {
             fn from(value: ResponseOutparam) -> Self {
                 unsafe { Self::from_handle(value.into_handle()) }
             }

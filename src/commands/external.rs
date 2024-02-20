@@ -2,6 +2,7 @@ use crate::build_info::*;
 use crate::commands::plugins::{update, Install};
 use crate::opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG;
 use anyhow::{anyhow, Result};
+use spin_common::ui::quoted_path;
 use spin_plugins::{
     badger::BadgerChecker, error::Error as PluginError, manifest::warn_unsupported_version,
     PluginStore,
@@ -66,15 +67,27 @@ pub async fn execute_external_subcommand(
     )
     .await?;
 
-    let mut command = Command::new(plugin_store.installed_binary_path(&plugin_name));
+    let binary = plugin_store.installed_binary_path(&plugin_name);
+    if !binary.exists() {
+        return Err(anyhow!(
+            "plugin executable {} is missing. Try uninstalling and installing the plugin '{}' again.",
+            quoted_path(&binary),
+            plugin_name
+        ));
+    }
+
+    let mut command = Command::new(binary);
     command.args(args);
     command.envs(get_env_vars_map()?);
+    command.kill_on_drop(true);
 
     let badger = BadgerChecker::start(&plugin_name, plugin_version, SPIN_VERSION);
 
     log::info!("Executing command {:?}", command);
     // Allow user to interact with stdio/stdout of child process
-    let status = command.status().await?;
+    let mut child = command.spawn()?;
+    set_kill_on_ctrl_c(&child);
+    let status = child.wait().await?;
     log::info!("Exiting process with {}", status);
 
     report_badger_result(badger).await;
@@ -86,6 +99,18 @@ pub async fn execute_external_subcommand(
         }
     }
     Ok(())
+}
+
+#[cfg(windows)]
+fn set_kill_on_ctrl_c(_child: &tokio::process::Child) {}
+
+#[cfg(not(windows))]
+fn set_kill_on_ctrl_c(child: &tokio::process::Child) {
+    if let Some(pid) = child.id().map(|id| nix::unistd::Pid::from_raw(id as i32)) {
+        _ = ctrlc::set_handler(move || {
+            _ = nix::sys::signal::kill(pid, nix::sys::signal::SIGTERM);
+        });
+    }
 }
 
 async fn ensure_plugin_available(

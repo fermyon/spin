@@ -1,0 +1,6 @@
+[component.{{project-name | kebab_case}}]
+source = { url = "https://example.com/spin-kv-explorer.wasm", digest = "sha256:12345" }
+id = "{{ project-name | kebab_case }}"
+key_value_stores = ["default"]
+[component.{{project-name | kebab_case}}.variables]
+{% raw %}kv_credentials = "{{ secret }}"{% endraw %}

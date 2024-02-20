@@ -1,3 +1,5 @@
+use std::io::IsTerminal;
+
 use anyhow::{anyhow, Context, Result};
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
@@ -181,7 +183,9 @@ fn inner_warn_unsupported_version(
     if !is_version_fully_compatible(supported_on, spin_version)? {
         let version = Version::parse(spin_version)?;
         if !version.pre.is_empty() {
-            terminal::warn!("You're using a pre-release version of Spin ({spin_version}). This plugin might not be compatible (supported: {supported_on}). Continuing anyway.");
+            if std::io::stderr().is_terminal() {
+                terminal::warn!("You're using a pre-release version of Spin ({spin_version}). This plugin might not be compatible (supported: {supported_on}). Continuing anyway.");
+            }
         } else if override_compatibility_check {
             terminal::warn!("Plugin is not compatible with this version of Spin (supported: {supported_on}, actual: {spin_version}). Check overridden ... continuing to install or execute plugin.");
         } else {

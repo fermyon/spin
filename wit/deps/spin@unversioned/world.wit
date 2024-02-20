@@ -24,6 +24,7 @@ world platform {
   import mysql;
   import sqlite;
   import redis;
+  import mqtt;
   import key-value;
   import llm;
 }

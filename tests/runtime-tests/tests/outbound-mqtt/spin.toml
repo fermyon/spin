@@ -1,0 +1,15 @@
+spin_manifest_version = 2
+
+[application]
+name = "outbound-mqtt"
+authors = ["Suneet Nangia <suneetnangia@gmail.com>"]
+version = "0.1.0"
+
+[[trigger.http]]
+route = "/"
+component = "test"
+
+[component.test]
+source = "{{outbound-mqtt}}"
+environment = { MQTT_ADDRESS = "mqtt://mqtt:1883" }
+allowed_outbound_hosts = ["mqtt://mqtt:1883"]

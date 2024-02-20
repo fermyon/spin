@@ -14,5 +14,10 @@
     },
     "rust-analyzer.files.excludeDirs": [
         "templates"
+    ],
+    "rust-analyzer.linkedProjects": [
+        "/workspaces/spin-suneet-fork/tests/runtime-tests/Cargo.toml",
+        "./tests/testcases/outbound-mqtt-test/Cargo.toml",
+        "./tests/testcases/outbound-mqtt-test/Cargo.toml"
     ]
 }

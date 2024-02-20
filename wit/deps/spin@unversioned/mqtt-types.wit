@@ -1,0 +1,17 @@
+interface mqtt-types {
+  // General purpose error.
+  enum error {
+      success,
+      error,
+  }
+
+  // MQTT QoS levels.
+  enum qos {
+      at-most-once,
+      at-least-once,
+      exactly-once,
+  }
+
+  // The message payload.
+  type payload = list<u8>;
+}

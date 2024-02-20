@@ -123,6 +123,10 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
+                    outbound_mqtt::OutboundMqttComponent,
+                )?;
+                self.loader.add_dynamic_host_component(
+                    &mut builder,
                     outbound_mysql::OutboundMysql::default(),
                 )?;
                 self.loader

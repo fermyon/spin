@@ -1,0 +1,17 @@
+spin_manifest_version = 2
+
+[application]
+authors = ["Suneet Nangia <suneetnangia@gmail.com>"]
+name = "rust-outbound-mqtt-example"
+version = "0.1.0"
+
+[[trigger.http]]
+route = "/publish"
+component = "outbound-mqtt"
+
+[component.outbound-mqtt]
+environment = { MQTT_ADDRESS = "mqtt://172.17.0.1:1883", MQTT_TOPIC = "messages", MQTT_KEEP_ALIVE_INTERVAL = "30" }
+source = "target/wasm32-wasi/release/rust_outbound_mqtt.wasm"
+allowed_outbound_hosts = ["mqtt://172.17.0.1:1883"]
+[component.outbound-mqtt.build]
+command = "cargo build --target wasm32-wasi --release"

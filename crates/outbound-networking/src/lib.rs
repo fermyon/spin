@@ -270,6 +270,7 @@ fn well_known_port(scheme: &str) -> Option<u16> {
         "postgres" => Some(5432),
         "mysql" => Some(3306),
         "redis" => Some(6379),
+        "mqtt" => Some(1883),
         "http" => Some(80),
         "https" => Some(443),
         _ => None,

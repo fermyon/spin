@@ -48,6 +48,12 @@ extern "C" fn __spin_sdk_hash() {}
 /// Helpers for building Spin `wasi-http` components.
 pub mod http;
 
+/// Implementation of the spin mqtt interface.
+#[allow(missing_docs)]
+pub mod mqtt {
+    pub use super::wit::v2::mqtt::{Connection, Error, Payload, Qos};
+}
+
 /// Implementation of the spin redis interface.
 #[allow(missing_docs)]
 pub mod redis {

@@ -18,6 +18,7 @@ world platform {
   import wasi:http/outgoing-handler@0.2.0;
   import llm;
   import redis;
+  import mqtt;
   import postgres;
   import mysql;
   import sqlite;

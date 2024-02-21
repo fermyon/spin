@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 ## for the release tags v*, check if
-## - golang sdk tag exists
 ## - spin templates tag exists
 
 set -e
@@ -21,12 +20,6 @@ for tag in $tags; do
 
   if [[ $tag == *-rc* ]]; then
     continue
-  fi
-
-  # check golang sdk tag
-  if [[ -z "$(git tag -l sdk/go/$tag)" ]]; then
-    echo "tag sdk/go/$tag does not exist"
-    exit_code=1
   fi
 
   # remove trailing .\d+ from the version

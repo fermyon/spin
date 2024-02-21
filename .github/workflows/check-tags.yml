@@ -1,4 +1,4 @@
-name: Check tags for templates and sdk
+name: Check tags for templates
 on:
   schedule:
     - cron: '0 0 * * *'

@@ -14,7 +14,7 @@ bytes = "1"
 # General-purpose crate with common HTTP types.
 http = "0.2"
 # The Spin SDK.
-spin-sdk = { path = "../../../sdk/rust" }
+spin-sdk = "2.2.0"
 
 
 [workspace]

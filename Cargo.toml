@@ -117,8 +117,6 @@ llm-cublas = ["llm", "spin-trigger-http/llm-cublas"]
 [workspace]
 members = [
   "crates/*",
-  "sdk/rust",
-  "sdk/rust/macro",
   "tests/runtime-tests",
   "tests/testing-framework",
 ]

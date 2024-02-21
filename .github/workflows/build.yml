@@ -167,36 +167,6 @@ jobs:
         # Only run integration tests on macOS as they will be run on ubuntu separately
         if: ${{ matrix.runner == 'macos-latest' }}
 
-  test-go:
-    name: Test Spin SDK - Go
-    runs-on: ubuntu-latest
-    needs: build-rust-ubuntu
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Retrieve saved Spin Binary
-        uses: actions/download-artifact@v3
-        with:
-          name: spin-ubuntu-latest
-          path: target/debug/
-
-      - name: Fix Spin Binary permissions
-        run: |
-          ls -lah target/
-          ls -lah target/debug
-          chmod +x target/debug/spin
-
-      - name: setup dependencies
-        uses: ./.github/actions/spin-ci-dependencies
-        with:
-          rust: true
-          golang: true
-          tinygo: true
-          wasmtime: true
-
-      - name: "Test Go SDK"
-        run: make test-sdk-go
-
   all-integration-tests:
     # run on a larger runner for more SSD/resource access
     runs-on: ubuntu-22.04-4core-spin

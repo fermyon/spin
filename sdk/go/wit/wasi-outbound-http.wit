@@ -1,4 +1,0 @@
-use * from http-types
-
-// Send an HTTP request and return a response or a potential error.
-request: func(req: request) -> expected<response, http-error>

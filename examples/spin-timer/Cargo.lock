@@ -2586,7 +2586,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-mqtt"
-version = "2.2.0-pre0"
+version = "2.3.0-pre0"
 dependencies = [
  "anyhow",
  "paho-mqtt",

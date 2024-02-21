@@ -254,6 +254,27 @@ jobs:
             --title ${{ github.ref_name }} \
             --generate-notes ${{ env.PRERELEASE }}
 
+  push-templates-tag:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set the tag to spin/templates/v*
+        shell: bash
+        run: |
+          spin_tag=$(echo "${{ github.ref }}" | grep -Eo "refs/tags/v[0-9.]+")
+          IFS=. read -r major minor patch <<< "${spin_tag}"
+          echo "TEMPLATE_TAG=spin/templates/$major.$minor" >> $GITHUB_ENV
+
+      - name: Tag spin/templates/v* and push it
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git tag ${{ env.TEMPLATE_TAG }} -f
+          git push origin ${{ env.TEMPLATE_TAG }} -f
+
   ## statically linked spin binaries
   build-spin-static:
     name: Build Spin static

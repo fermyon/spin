@@ -108,7 +108,9 @@ Otherwise, switch to the branch locally.
     Follow the [wrapping up](#wrapping-up) section to finish off the release process. 
 
 ## Wrapping up
-
+1. Go to the GitHub [tags page](https://github.com/fermyon/spin/releases),
+   edit the release and add the release notes. (This step is optional if a release candidate.)
+   
 1. Be sure to include instructions for
    [verifying the signed Spin binary](./sips/012-signing-spin-releases.md). The
    `--certificate-identity` value should match this release, e.g.

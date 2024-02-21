@@ -35,7 +35,6 @@ fn publish(_req: Request) -> Result<impl IntoResponse> {
 
     match conn.publish(&topic, &message, mqtt::Qos::AtLeastOnce) {
         Ok(()) => Ok(Response::new(200, ())),
-        Err(_e) => Ok(internal_server_error()),
-        // Err(_e) => Ok(Response::new(500, _e.to_string())),
+        Err(_e) => Ok(internal_server_error()),        
     }
 }

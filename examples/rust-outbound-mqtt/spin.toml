@@ -2,6 +2,7 @@ spin_manifest_version = 2
 
 [application]
 authors = ["Suneet Nangia <suneetnangia@gmail.com>"]
+description = "An MQTT outbound application."
 name = "rust-outbound-mqtt-example"
 version = "0.1.0"
 

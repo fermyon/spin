@@ -1,5 +1,3 @@
-#![allow(dead_code)] // Refactor WIP
-
 use std::path::PathBuf;
 
 use anyhow::{ensure, Context, Result};
@@ -13,16 +11,22 @@ use tokio::fs;
 
 use spin_common::{ui::quoted_path, url::parse_file_url};
 
+/// Loader for the Spin runtime
 pub struct TriggerLoader {
+    /// Working directory where files for mounting exist.
     working_dir: PathBuf,
+    /// Set the static assets of the components in the temporary directory as writable.
     allow_transient_write: bool,
+    /// All components have been ahead of time (AOT) compiled (to cwasm) and should be loaded through deserialization.
+    aot: bool,
 }
 
 impl TriggerLoader {
-    pub fn new(working_dir: impl Into<PathBuf>, allow_transient_write: bool) -> Self {
+    pub fn new(working_dir: impl Into<PathBuf>, allow_transient_write: bool, aot: bool) -> Self {
         Self {
             working_dir: working_dir.into(),
             allow_transient_write,
+            aot,
         }
     }
 }
@@ -49,15 +53,22 @@ impl Loader for TriggerLoader {
             .as_ref()
             .context("LockedComponentSource missing source field")?;
         let path = parse_file_url(source)?;
-        let bytes = fs::read(&path).await.with_context(|| {
-            format!(
-                "failed to read component source from disk at path '{}'",
-                path.display()
-            )
-        })?;
-        let component = spin_componentize::componentize_if_necessary(&bytes)?;
-        spin_core::Component::new(engine, component.as_ref())
-            .with_context(|| format!("loading module {}", quoted_path(&path)))
+        if self.aot {
+            unsafe {
+                spin_core::Component::deserialize_file(engine, &path)
+                    .with_context(|| format!("deserializing module {}", quoted_path(&path)))
+            }
+        } else {
+            let bytes = fs::read(&path).await.with_context(|| {
+                format!(
+                    "failed to read component source from disk at path '{}'",
+                    path.display()
+                )
+            })?;
+            let component = spin_componentize::componentize_if_necessary(&bytes)?;
+            spin_core::Component::new(engine, component.as_ref())
+                .with_context(|| format!("loading module {}", quoted_path(&path)))
+        }
     }
 
     async fn load_module(

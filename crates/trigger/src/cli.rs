@@ -170,7 +170,7 @@ where
             LLmOptions { use_gpu: true },
         );
 
-        let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
+        let loader = TriggerLoader::new(working_dir, self.allow_transient_write, false);
         let executor = self.build_executor(loader, locked_url, init_data).await?;
 
         let run_fut = executor.run(self.run_config);

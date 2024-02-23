@@ -665,7 +665,7 @@ where
         Ok(e) => Ok(Ok(e.into())),
         Err(wasmtime_wasi::preview2::StreamError::Closed) => Ok(Err(StreamError::Closed)),
         Err(wasmtime_wasi::preview2::StreamError::LastOperationFailed(e)) => {
-            let e = view.table_mut().push(e)?;
+            let e = view.table().push(e)?;
             Ok(Err(StreamError::LastOperationFailed(e)))
         }
         Err(wasmtime_wasi::preview2::StreamError::Trap(e)) => Err(e),

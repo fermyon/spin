@@ -5,7 +5,9 @@ use crate::{Error, Result};
 /// Template represents a simple string template that allows expressions in
 /// double curly braces, similar to Mustache or Liquid.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Template(Vec<Part>);
+pub struct Template {
+    parts: Vec<Part>,
+}
 
 impl Template {
     pub(crate) fn new(template: impl Into<Box<str>>) -> Result<Self> {
@@ -37,11 +39,11 @@ impl Template {
             parts.push(part);
             remainder = rest.into();
         }
-        Ok(Template(parts))
+        Ok(Template { parts })
     }
 
     pub(crate) fn parts(&self) -> std::slice::Iter<Part> {
-        self.0.iter()
+        self.parts.iter()
     }
 }
 

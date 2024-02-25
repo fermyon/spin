@@ -5885,6 +5885,7 @@ dependencies = [
  "spin-build",
  "spin-common",
  "spin-doctor",
+ "spin-expressions",
  "spin-http",
  "spin-key-value",
  "spin-key-value-sqlite",
@@ -5996,6 +5997,22 @@ dependencies = [
  "toml_edit 0.20.7",
  "tracing",
  "ui-testing",
+]
+
+[[package]]
+name = "spin-expressions"
+version = "2.3.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dotenvy",
+ "once_cell",
+ "serde",
+ "spin-app",
+ "thiserror",
+ "tokio",
+ "toml 0.5.11",
+ "vaultrs",
 ]
 
 [[package]]
@@ -6383,6 +6400,7 @@ dependencies = [
  "spin-common",
  "spin-componentize",
  "spin-core",
+ "spin-expressions",
  "spin-key-value",
  "spin-key-value-azure",
  "spin-key-value-redis",
@@ -6477,6 +6495,7 @@ dependencies = [
  "serde",
  "spin-app",
  "spin-core",
+ "spin-expressions",
  "spin-world",
  "thiserror",
  "tokio",

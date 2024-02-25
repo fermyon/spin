@@ -5,7 +5,7 @@ use spin_variables::provider::{env::EnvProvider, vault::VaultProvider};
 
 use super::RuntimeConfig;
 
-pub type VariablesProvider = Box<dyn spin_variables::Provider>;
+pub type VariablesProvider = Box<dyn spin_expressions::Provider>;
 
 // Holds deserialized options from a `[[config_provider]]` runtime config section.
 #[derive(Debug, Deserialize)]

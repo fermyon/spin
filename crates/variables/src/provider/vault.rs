@@ -7,7 +7,7 @@ use vaultrs::{
     kv2,
 };
 
-use crate::{Key, Provider};
+use spin_expressions::{Key, Provider};
 
 /// A config Provider that uses HashiCorp Vault.
 #[derive(Debug)]
@@ -49,8 +49,8 @@ impl Provider for VaultProvider {
                 .build()?,
         )?;
         let path = match &self.prefix {
-            Some(prefix) => format!("{}/{}", prefix, key.0),
-            None => key.0.to_string(),
+            Some(prefix) => format!("{}/{}", prefix, key.as_str()),
+            None => key.as_str().to_string(),
         };
         match kv2::read::<Secret>(&client, &self.mount, &path).await {
             Ok(secret) => Ok(Some(secret.value)),

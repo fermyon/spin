@@ -202,6 +202,7 @@ impl HttpTrigger {
         );
 
         tracing::info!("TODO: Emit a trigger level span here");
+        tracing::info_span!("hello-world", "a" = "b", "x" = "y");
 
         let path = req.uri().path();
 

@@ -17,6 +17,7 @@
     ],
     "rust-analyzer.linkedProjects": [
         "./Cargo.toml",
-        "./tests/test-components/components/Cargo.toml"
+        "./tests/test-components/components/Cargo.toml",
+        "./crates/telemetry/Cargo.toml"
     ]
 }

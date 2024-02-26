@@ -1,0 +1,24 @@
+version: "3.7"
+
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "127.0.0.1:16686:16686" # Jaeger UI
+      - "127.0.0.1:14268:14268" # Jaeger HTTP collector
+      # - "127.0.0.1:4317:4317"   # OTLP gRPC
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=debug
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.60.0
+    volumes:
+      - ./otel-config.yaml:/etc/otelcol/config.yaml
+    ports:
+      - "8888:8888"   # Default port for Prometheus metrics exposed by the collector
+      - "8889:8889"   # Not a standard OpenTelemetry Collector port, adjust if needed
+      - "1888:1888"   # pprof extension
+      - "13133:13133" # Health check extension
+      - "55679:55679" # zPages extension
+      - "4317:4317"   # OTLP gRPC receiver

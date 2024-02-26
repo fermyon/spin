@@ -1,0 +1,28 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+
+exporters:
+  jaeger:
+    endpoint: "jaeger:14268" # Use the appropriate endpoint for your Jaeger collector
+    tls:
+      insecure: true # Use this only if you're not using TLS or if you're using self-signed certificates
+
+processors:
+  batch:
+
+extensions:
+  health_check:
+  pprof:
+    endpoint: :1888
+  zpages:
+    endpoint: :55679
+
+service:
+  extensions: [pprof, zpages, health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [jaeger] # Updated to use Jaeger exporter for traces

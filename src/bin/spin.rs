@@ -42,17 +42,20 @@ async fn main() {
 }
 
 async fn _main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("wasmtime_wasi_http=warn".parse()?)
-                .add_directive("watchexec=off".parse()?),
-        )
-        .with_ansi(std::io::stderr().is_terminal())
-        .init();
+    // tracing_subscriber::fmt()
+    //     .with_writer(std::io::stderr)
+    //     .with_env_filter(
+    //         tracing_subscriber::EnvFilter::from_default_env()
+    //             .add_directive("wasmtime_wasi_http=warn".parse()?)
+    //             .add_directive("watchexec=off".parse()?),
+    //     )
+    //     .with_ansi(std::io::stderr().is_terminal())
+    //     .init();
 
-    // TODO: Configure tracing
+    let _guard = spin_telemetry::init(
+        spin_telemetry::ServiceDescription::new("spin", Some("v1")),
+        Some("http://localhost:4317"),
+    )?;
 
     let plugin_help_entries = plugin_help_entries();
 

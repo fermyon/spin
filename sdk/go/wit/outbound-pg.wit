@@ -1,8 +1,0 @@
-use * from pg-types
-use * from rdbms-types
-
-// query the database: select
-query: func(address: string, statement: string, params: list<parameter-value>) -> expected<row-set, pg-error>
-
-// execute command to the database: insert, update, delete
-execute: func(address: string, statement: string, params: list<parameter-value>) -> expected<u64, pg-error>

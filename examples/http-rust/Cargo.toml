@@ -10,6 +10,6 @@ crate-type = ["cdylib"]
 anyhow = "1"
 http = "0.2.9"
 serde = { version = "1.0", features = ["derive"] }
-spin-sdk = { path = "../../sdk/rust" }
+spin-sdk = "2.2.0"
 
 [workspace]

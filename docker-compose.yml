@@ -6,13 +6,13 @@ services:
     ports:
       - "127.0.0.1:16686:16686" # Jaeger UI
       - "127.0.0.1:14268:14268" # Jaeger HTTP collector
-      # - "127.0.0.1:4317:4317"   # OTLP gRPC
+      - "127.0.0.1:4318:4318"   # OTLP HTTP
     environment:
       - COLLECTOR_OTLP_ENABLED=true
       - LOG_LEVEL=debug
 
   otel-collector:
-    image: otel/opentelemetry-collector:0.60.0
+    image: otel/opentelemetry-collector:0.86.0
     volumes:
       - ./otel-config.yaml:/etc/otelcol/config.yaml
     ports:

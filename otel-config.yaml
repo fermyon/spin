@@ -4,8 +4,10 @@ receivers:
       grpc:
 
 exporters:
-  jaeger:
-    endpoint: "jaeger:14268" # Use the appropriate endpoint for your Jaeger collector
+  debug:
+    verbosity: detailed
+  otlphttp:
+    endpoint: "jaeger:4318" # Use the appropriate endpoint for your Jaeger collector
     tls:
       insecure: true # Use this only if you're not using TLS or if you're using self-signed certificates
 
@@ -25,4 +27,4 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [jaeger] # Updated to use Jaeger exporter for traces
+      exporters: [otlphttp, debug] # Updated to use Jaeger exporter for traces

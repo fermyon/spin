@@ -14,7 +14,7 @@ use std::{
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use clap::Args;
-use http::{uri::Scheme, StatusCode, Uri};
+use http::{header::HOST, uri::Scheme, HeaderValue, StatusCode, Uri};
 use http_body_util::BodyExt;
 use hyper::{
     body::{Bytes, Incoming},
@@ -490,6 +490,9 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
                 .parse()
                 // origin together with the path and query must be a valid URI
                 .unwrap();
+            let host = format!("{}:{}", uri.host().unwrap(), uri.port().unwrap());
+            let headers = request.request.headers_mut();
+            headers.insert(HOST, HeaderValue::from_str(&host)?);
 
             request.use_tls = uri
                 .scheme()

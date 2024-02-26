@@ -201,6 +201,8 @@ impl HttpTrigger {
             req.uri()
         );
 
+        tracing::info!("TODO: Emit a trigger level span here");
+
         let path = req.uri().path();
 
         // Handle well-known spin paths

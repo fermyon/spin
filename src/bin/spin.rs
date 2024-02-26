@@ -52,6 +52,8 @@ async fn _main() -> anyhow::Result<()> {
         .with_ansi(std::io::stderr().is_terminal())
         .init();
 
+    // TODO: Configure tracing
+
     let plugin_help_entries = plugin_help_entries();
 
     let mut cmd = SpinApp::command();

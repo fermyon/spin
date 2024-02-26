@@ -6478,6 +6478,7 @@ dependencies = [
  "serde",
  "spin-app",
  "spin-core",
+ "spin-expressions",
  "spin-testing",
  "spin-trigger",
  "spin-world",

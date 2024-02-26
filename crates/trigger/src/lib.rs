@@ -174,13 +174,16 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         let app = self.loader.load_owned_app(app_uri).await?;
 
         let app_name = app.borrowed().require_metadata(APP_NAME_KEY)?;
+        let resolver =
+            spin_variables::make_resolver(app.borrowed(), runtime_config.variables_providers())?;
 
         self.hooks
             .iter_mut()
             .try_for_each(|h| h.app_loaded(app.borrowed(), &runtime_config))?;
 
         // Run trigger executor
-        Executor::new(TriggerAppEngine::new(engine, app_name, app, self.hooks).await?).await
+        Executor::new(TriggerAppEngine::new(engine, app_name, app, self.hooks, resolver).await?)
+            .await
     }
 }
 
@@ -223,6 +226,8 @@ pub struct TriggerAppEngine<Executor: TriggerExecutor> {
     trigger_configs: Vec<Executor::TriggerConfig>,
     // Map of {Component ID -> InstancePre} for each component.
     component_instance_pres: HashMap<String, EitherInstancePre<Executor::RuntimeData>>,
+    // Resolver for value template expressions
+    resolver: std::sync::Arc<spin_expressions::Resolver>,
 }
 
 impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
@@ -233,6 +238,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         app_name: String,
         app: OwnedApp,
         hooks: Vec<Box<dyn TriggerHooks>>,
+        resolver: spin_expressions::Resolver,
     ) -> Result<Self>
     where
         <Executor as TriggerExecutor>::TriggerConfig: DeserializeOwned,
@@ -283,6 +289,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
             hooks,
             trigger_configs: trigger_configs.into_iter().map(|(_, v)| v).collect(),
             component_instance_pres,
+            resolver: std::sync::Arc::new(resolver),
         })
     }
 
@@ -372,6 +379,13 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
                 self.app_name, component_id
             )
         })
+    }
+
+    pub async fn resolve(
+        &self,
+        template: &spin_expressions::Template,
+    ) -> Result<String, spin_expressions::Error> {
+        self.resolver.resolve_template(template).await
     }
 }
 

@@ -10,7 +10,7 @@ pub struct Template {
 }
 
 impl Template {
-    pub(crate) fn new(template: impl Into<Box<str>>) -> Result<Self> {
+    pub fn new(template: impl Into<Box<str>>) -> Result<Self> {
         let mut parts = vec![];
         let mut remainder: Box<str> = template.into();
         while !remainder.is_empty() {

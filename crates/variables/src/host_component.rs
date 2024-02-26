@@ -44,26 +44,28 @@ impl HostComponent for VariablesHostComponent {
 impl DynamicHostComponent for VariablesHostComponent {
     fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> anyhow::Result<()> {
         self.resolver.get_or_try_init(|| {
-            let mut resolver = Resolver::new(
-                component
-                    .app
-                    .variables()
-                    .map(|(key, var)| (key.clone(), var.clone())),
-            )?;
-            for component in component.app.components() {
-                resolver.add_component_variables(
-                    component.id(),
-                    component.config().map(|(k, v)| (k.into(), v.into())),
-                )?;
-            }
-            for provider in self.providers.lock().unwrap().drain(..) {
-                resolver.add_provider(provider);
-            }
-            Ok::<_, anyhow::Error>(resolver)
+            make_resolver(component.app, self.providers.lock().unwrap().drain(..))
         })?;
         data.component_id = Some(component.id().to_string());
         Ok(())
     }
+}
+
+pub fn make_resolver(
+    app: &spin_app::App,
+    providers: impl IntoIterator<Item = Box<dyn Provider>>,
+) -> anyhow::Result<Resolver> {
+    let mut resolver = Resolver::new(app.variables().map(|(key, var)| (key.clone(), var.clone())))?;
+    for component in app.components() {
+        resolver.add_component_variables(
+            component.id(),
+            component.config().map(|(k, v)| (k.into(), v.into())),
+        )?;
+    }
+    for provider in providers {
+        resolver.add_provider(provider);
+    }
+    Ok(resolver)
 }
 
 /// A component variables interface implementation.

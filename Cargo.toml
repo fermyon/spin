@@ -129,7 +129,7 @@ wasmtime = "18.0.1"
 wasmtime-wasi = { version = "18.0.1", features = ["tokio"] }
 wasmtime-wasi-http = "18.0.1"
 
-spin-componentize = { git = "https://github.com/fermyon/spin-componentize", rev = "191789170abde10cd55590466c0660dd6c7d472a" }
+spin-componentize = { path = "crates/componentize" }
 
 [[bin]]
 name = "spin"

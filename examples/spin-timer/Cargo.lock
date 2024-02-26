@@ -2571,6 +2571,7 @@ dependencies = [
  "reqwest",
  "spin-app",
  "spin-core",
+ "spin-expressions",
  "spin-locked-app",
  "spin-outbound-networking",
  "spin-world",
@@ -2587,6 +2588,7 @@ dependencies = [
  "rumqttc",
  "spin-app",
  "spin-core",
+ "spin-expressions",
  "spin-outbound-networking",
  "spin-world",
  "table",
@@ -2604,6 +2606,7 @@ dependencies = [
  "mysql_common",
  "spin-app",
  "spin-core",
+ "spin-expressions",
  "spin-outbound-networking",
  "spin-world",
  "table",
@@ -2621,6 +2624,7 @@ dependencies = [
  "postgres-native-tls",
  "spin-app",
  "spin-core",
+ "spin-expressions",
  "spin-outbound-networking",
  "spin-world",
  "table",
@@ -2637,6 +2641,7 @@ dependencies = [
  "redis",
  "spin-app",
  "spin-core",
+ "spin-expressions",
  "spin-outbound-networking",
  "spin-world",
  "table",
@@ -3746,6 +3751,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-expressions"
+version = "2.4.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dotenvy",
+ "once_cell",
+ "serde",
+ "spin-app",
+ "thiserror",
+ "tokio",
+ "vaultrs",
+]
+
+[[package]]
 name = "spin-key-value"
 version = "2.4.0-pre0"
 dependencies = [
@@ -3897,6 +3917,7 @@ version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "ipnet",
+ "spin-expressions",
  "spin-locked-app",
  "terminal",
  "url",
@@ -3976,6 +3997,7 @@ dependencies = [
  "spin-common",
  "spin-componentize",
  "spin-core",
+ "spin-expressions",
  "spin-key-value",
  "spin-key-value-azure",
  "spin-key-value-redis",
@@ -4011,6 +4033,7 @@ dependencies = [
  "serde",
  "spin-app",
  "spin-core",
+ "spin-expressions",
  "spin-world",
  "thiserror",
  "tokio",

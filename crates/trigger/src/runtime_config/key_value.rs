@@ -144,7 +144,12 @@ impl AzureCosmosConfig {
 pub struct KeyValuePersistenceMessageHook;
 
 impl TriggerHooks for KeyValuePersistenceMessageHook {
-    fn app_loaded(&mut self, app: &spin_app::App, runtime_config: &RuntimeConfig) -> Result<()> {
+    fn app_loaded(
+        &mut self,
+        app: &spin_app::App,
+        runtime_config: &RuntimeConfig,
+        _resolver: &Arc<spin_expressions::PreparedResolver>,
+    ) -> Result<()> {
         // Only print if the app actually uses KV
         if app.components().all(|c| {
             c.get_metadata(KEY_VALUE_STORES_KEY)

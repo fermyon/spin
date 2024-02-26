@@ -4257,6 +4257,7 @@ dependencies = [
  "reqwest",
  "spin-app",
  "spin-core",
+ "spin-expressions",
  "spin-locked-app",
  "spin-outbound-networking",
  "spin-world",
@@ -4273,6 +4274,7 @@ dependencies = [
  "rumqttc",
  "spin-app",
  "spin-core",
+ "spin-expressions",
  "spin-outbound-networking",
  "spin-world",
  "table",
@@ -4290,6 +4292,7 @@ dependencies = [
  "mysql_common",
  "spin-app",
  "spin-core",
+ "spin-expressions",
  "spin-outbound-networking",
  "spin-world",
  "table",
@@ -4307,6 +4310,7 @@ dependencies = [
  "postgres-native-tls",
  "spin-app",
  "spin-core",
+ "spin-expressions",
  "spin-outbound-networking",
  "spin-world",
  "table",
@@ -4323,6 +4327,7 @@ dependencies = [
  "redis 0.21.7",
  "spin-app",
  "spin-core",
+ "spin-expressions",
  "spin-outbound-networking",
  "spin-world",
  "table",
@@ -6001,7 +6006,7 @@ dependencies = [
 
 [[package]]
 name = "spin-expressions"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6242,6 +6247,7 @@ version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "ipnet",
+ "spin-expressions",
  "spin-locked-app",
  "terminal",
  "url",

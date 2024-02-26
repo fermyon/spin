@@ -4,7 +4,9 @@ use spin_core::HostComponent;
 
 use crate::OutboundMqtt;
 
-pub struct OutboundMqttComponent;
+pub struct OutboundMqttComponent {
+    pub resolver: spin_expressions::SharedPreparedResolver,
+}
 
 impl HostComponent for OutboundMqttComponent {
     type Data = OutboundMqtt;
@@ -29,8 +31,11 @@ impl DynamicHostComponent for OutboundMqttComponent {
         let hosts = component
             .get_metadata(spin_outbound_networking::ALLOWED_HOSTS_KEY)?
             .unwrap_or_default();
-        data.allowed_hosts = spin_outbound_networking::AllowedHostsConfig::parse(&hosts)
-            .context("`allowed_outbound_hosts` contained an invalid url")?;
+        data.allowed_hosts = spin_outbound_networking::AllowedHostsConfig::parse(
+            &hosts,
+            self.resolver.get().unwrap(),
+        )
+        .context("`allowed_outbound_hosts` contained an invalid url")?;
         Ok(())
     }
 }

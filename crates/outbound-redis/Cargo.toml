@@ -12,6 +12,7 @@ anyhow = "1.0"
 redis = { version = "0.21", features = ["tokio-comp", "tokio-native-tls-comp"] }
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
+spin-expressions = { path = "../expressions" }
 spin-world = { path = "../world" }
 spin-outbound-networking = { path = "../outbound-networking" }
 table = { path = "../table" }

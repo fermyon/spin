@@ -166,6 +166,7 @@ impl TriggerHooks for SqlitePersistenceMessageHook {
         &mut self,
         app: &spin_app::App,
         runtime_config: &RuntimeConfig,
+        _resolver: &Arc<spin_expressions::PreparedResolver>,
     ) -> anyhow::Result<()> {
         if app.components().all(|c| {
             c.get_metadata(DATABASES_KEY)

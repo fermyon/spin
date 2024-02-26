@@ -63,7 +63,7 @@ impl RuntimeTest<SpinCli> {
             services_config,
             testing_framework::runtimes::SpinAppType::Http,
         );
-        let env = TestEnvironment::up(env_config)?;
+        let env = TestEnvironment::up(env_config, |_| Ok(()))?;
         Ok(Self {
             test_path: config.test_path,
             on_error: config.on_error,
@@ -125,7 +125,7 @@ impl RuntimeTest<InProcessSpin> {
         };
         let services_config = services_config(&config)?;
         let env_config = TestEnvironmentConfig::in_process(services_config, preboot);
-        let env = TestEnvironment::up(env_config)?;
+        let env = TestEnvironment::up(env_config, |_| Ok(()))?;
         Ok(Self {
             test_path: config.test_path,
             on_error: config.on_error,

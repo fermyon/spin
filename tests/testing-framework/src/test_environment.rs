@@ -19,8 +19,12 @@ pub struct TestEnvironment<R> {
 
 impl<R: Runtime> TestEnvironment<R> {
     /// Spin up a test environment with a runtime
-    pub fn up(config: TestEnvironmentConfig<R>) -> anyhow::Result<Self> {
+    pub fn up(
+        config: TestEnvironmentConfig<R>,
+        init_env: impl FnOnce(&mut Self) -> crate::TestResult<anyhow::Error> + 'static,
+    ) -> anyhow::Result<Self> {
         let mut env = Self::boot(&config.services_config)?;
+        init_env(&mut env)?;
         let runtime = (config.create_runtime)(&mut env)?;
         env.start_runtime(runtime)
     }
@@ -221,7 +225,7 @@ impl TestEnvironmentConfig<InProcessSpin> {
                         let loader = TriggerLoader::new(env.path().join(".working_dir"), false);
                         let mut builder = TriggerExecutorBuilder::<HttpTrigger>::new(loader);
                         // TODO(rylev): see if we can reuse the builder from spin_trigger instead of duplicating it here
-                        builder.hooks(spin_trigger::network::Network);
+                        builder.hooks(spin_trigger::network::Network::default());
                         let trigger = builder
                             .build(
                                 format!("file:{}", env.path().join("locked.json").display()),

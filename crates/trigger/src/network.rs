@@ -1,8 +1,23 @@
+use std::sync::Arc;
+
 use crate::TriggerHooks;
 
-pub struct Network;
+#[derive(Default)]
+pub struct Network {
+    resolver: Arc<spin_expressions::PreparedResolver>,
+}
 
 impl TriggerHooks for Network {
+    fn app_loaded(
+        &mut self,
+        _app: &spin_app::App,
+        _runtime_config: &crate::RuntimeConfig,
+        resolver: &Arc<spin_expressions::PreparedResolver>,
+    ) -> anyhow::Result<()> {
+        self.resolver = resolver.clone();
+        Ok(())
+    }
+
     fn component_store_builder(
         &self,
         component: &spin_app::AppComponent,
@@ -11,7 +26,8 @@ impl TriggerHooks for Network {
         let hosts = component
             .get_metadata(spin_outbound_networking::ALLOWED_HOSTS_KEY)?
             .unwrap_or_default();
-        let allowed_hosts = spin_outbound_networking::AllowedHostsConfig::parse(&hosts)?;
+        let allowed_hosts =
+            spin_outbound_networking::AllowedHostsConfig::parse(&hosts, &self.resolver)?;
         match allowed_hosts {
             spin_outbound_networking::AllowedHostsConfig::All => {
                 store_builder.inherit_limited_network()

@@ -57,7 +57,7 @@ impl TriggerExecutor for RedisTrigger {
             .unwrap_or_default()
             .address;
         let address_expr = spin_expressions::Template::new(address)?;
-        let address = engine.resolve(&address_expr).await?;
+        let address = engine.resolve_template(&address_expr)?;
 
         let mut channel_components: HashMap<String, Vec<String>> = HashMap::new();
 

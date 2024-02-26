@@ -245,6 +245,7 @@ mod integration_tests {
             [],
             testing_framework::ServicesConfig::none(),
             SpinAppType::None,
+            |_| Ok(()),
         )?;
         let expected = r#"Error: Couldn't find trigger executor for local app "spin.toml"
 
@@ -353,13 +354,17 @@ Caused by:
     #[cfg(feature = "extern-dependencies-tests")]
     fn test_vault_config_provider() -> anyhow::Result<()> {
         use std::collections::HashMap;
+
+        use crate::testcases::run_test_inited;
         const VAULT_ROOT_TOKEN: &str = "root";
-        run_test(
+        run_test_inited(
             "vault-variables-test",
             SpinAppType::Http,
             vec!["--runtime-config-file".into(), "runtime_config.toml".into()],
             testing_framework::ServicesConfig::new(vec!["vault".into()])?,
             |env| {
+                // Vault can take a few moments to be ready
+                std::thread::sleep(std::time::Duration::from_secs(2));
                 let http_client = reqwest::blocking::Client::new();
                 let body: HashMap<String, HashMap<String, String>> =
                     serde_json::from_value(serde_json::json!(
@@ -382,6 +387,9 @@ Caused by:
                     .context("failed to send request to Vault")?
                     .status();
                 assert_eq!(status, 200);
+                Ok(())
+            },
+            |env| {
                 let spin = env.runtime_mut();
                 let request = Request::new(Method::GET, "/");
                 assert_spin_request(

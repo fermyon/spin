@@ -42,6 +42,10 @@ impl Template {
         Ok(Template { parts })
     }
 
+    pub fn is_literal(&self) -> bool {
+        self.parts.iter().all(|p| matches!(p, Part::Lit(_)))
+    }
+
     pub(crate) fn parts(&self) -> std::slice::Iter<Part> {
         self.parts.iter()
     }

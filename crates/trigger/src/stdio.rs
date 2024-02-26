@@ -90,6 +90,7 @@ impl TriggerHooks for StdioLoggingTriggerHooks {
         &mut self,
         app: &spin_app::App,
         runtime_config: &RuntimeConfig,
+        _resolver: &std::sync::Arc<spin_expressions::PreparedResolver>,
     ) -> anyhow::Result<()> {
         self.log_dir = runtime_config.log_dir();
 

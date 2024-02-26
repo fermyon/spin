@@ -207,7 +207,7 @@ where
         self.update_config(builder.config_mut())?;
 
         builder.hooks(StdioLoggingTriggerHooks::new(self.follow_components()));
-        builder.hooks(Network);
+        builder.hooks(Network::default());
         builder.hooks(KeyValuePersistenceMessageHook);
         builder.hooks(SqlitePersistenceMessageHook);
 

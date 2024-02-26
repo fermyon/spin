@@ -107,6 +107,8 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
     where
         Executor::TriggerConfig: DeserializeOwned,
     {
+        let resolver_cell = std::sync::Arc::new(std::sync::OnceLock::new());
+
         let engine = {
             let mut builder = Engine::builder(&self.config)?;
 
@@ -125,18 +127,28 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    outbound_redis::OutboundRedisComponent,
+                    outbound_redis::OutboundRedisComponent {
+                        resolver: resolver_cell.clone(),
+                    },
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    outbound_mqtt::OutboundMqttComponent,
+                    outbound_mqtt::OutboundMqttComponent {
+                        resolver: resolver_cell.clone(),
+                    },
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    outbound_mysql::OutboundMysql::default(),
+                    outbound_mysql::OutboundMysqlComponent {
+                        resolver: resolver_cell.clone(),
+                    },
                 )?;
-                self.loader
-                    .add_dynamic_host_component(&mut builder, outbound_pg::OutboundPg::default())?;
+                self.loader.add_dynamic_host_component(
+                    &mut builder,
+                    outbound_pg::OutboundPgComponent {
+                        resolver: resolver_cell.clone(),
+                    },
+                )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
                     runtime_config::llm::build_component(&runtime_config, init_data.llm.use_gpu)
@@ -157,7 +169,9 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
-                    outbound_http::OutboundHttpComponent,
+                    outbound_http::OutboundHttpComponent {
+                        resolver: resolver_cell.clone(),
+                    },
                 )?;
                 self.loader.add_dynamic_host_component(
                     &mut builder,
@@ -174,16 +188,23 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         let app = self.loader.load_owned_app(app_uri).await?;
 
         let app_name = app.borrowed().require_metadata(APP_NAME_KEY)?;
+
         let resolver =
             spin_variables::make_resolver(app.borrowed(), runtime_config.variables_providers())?;
+        let prepared_resolver = std::sync::Arc::new(resolver.prepare().await?);
+        resolver_cell
+            .set(prepared_resolver.clone())
+            .map_err(|_| anyhow::anyhow!("resolver cell was already set!"))?;
 
         self.hooks
             .iter_mut()
-            .try_for_each(|h| h.app_loaded(app.borrowed(), &runtime_config))?;
+            .try_for_each(|h| h.app_loaded(app.borrowed(), &runtime_config, &prepared_resolver))?;
 
         // Run trigger executor
-        Executor::new(TriggerAppEngine::new(engine, app_name, app, self.hooks, resolver).await?)
-            .await
+        Executor::new(
+            TriggerAppEngine::new(engine, app_name, app, self.hooks, &prepared_resolver).await?,
+        )
+        .await
     }
 }
 
@@ -227,7 +248,7 @@ pub struct TriggerAppEngine<Executor: TriggerExecutor> {
     // Map of {Component ID -> InstancePre} for each component.
     component_instance_pres: HashMap<String, EitherInstancePre<Executor::RuntimeData>>,
     // Resolver for value template expressions
-    resolver: std::sync::Arc<spin_expressions::Resolver>,
+    resolver: std::sync::Arc<spin_expressions::PreparedResolver>,
 }
 
 impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
@@ -238,7 +259,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         app_name: String,
         app: OwnedApp,
         hooks: Vec<Box<dyn TriggerHooks>>,
-        resolver: spin_expressions::Resolver,
+        resolver: &std::sync::Arc<spin_expressions::PreparedResolver>,
     ) -> Result<Self>
     where
         <Executor as TriggerExecutor>::TriggerConfig: DeserializeOwned,
@@ -289,7 +310,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
             hooks,
             trigger_configs: trigger_configs.into_iter().map(|(_, v)| v).collect(),
             component_instance_pres,
-            resolver: std::sync::Arc::new(resolver),
+            resolver: resolver.clone(),
         })
     }
 
@@ -381,11 +402,11 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         })
     }
 
-    pub async fn resolve(
+    pub fn resolve_template(
         &self,
         template: &spin_expressions::Template,
     ) -> Result<String, spin_expressions::Error> {
-        self.resolver.resolve_template(template).await
+        self.resolver.resolve_template(template)
     }
 }
 
@@ -395,7 +416,12 @@ pub trait TriggerHooks: Send + Sync {
     #![allow(unused_variables)]
 
     /// Called once, immediately after an App is loaded.
-    fn app_loaded(&mut self, app: &App, runtime_config: &RuntimeConfig) -> Result<()> {
+    fn app_loaded(
+        &mut self,
+        app: &App,
+        runtime_config: &RuntimeConfig,
+        resolver: &std::sync::Arc<spin_expressions::PreparedResolver>,
+    ) -> Result<()> {
         Ok(())
     }
 

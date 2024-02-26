@@ -19,6 +19,14 @@ pub struct Resolver {
     providers: Vec<Box<dyn Provider>>,
 }
 
+#[derive(Default)]
+pub struct PreparedResolver {
+    variables: HashMap<String, String>,
+}
+
+pub type SharedPreparedResolver =
+    std::sync::Arc<std::sync::OnceLock<std::sync::Arc<PreparedResolver>>>;
+
 impl Resolver {
     /// Creates a Resolver for the given Tree.
     pub fn new(variables: impl IntoIterator<Item = (String, Variable)>) -> Result<Self> {
@@ -84,6 +92,15 @@ impl Resolver {
         Ok(resolved_parts.concat())
     }
 
+    pub async fn prepare(&self) -> Result<PreparedResolver> {
+        let mut variables = HashMap::new();
+        for name in self.variables.keys() {
+            let value = self.resolve_variable(name).await?;
+            variables.insert(name.clone(), value);
+        }
+        Ok(PreparedResolver { variables })
+    }
+
     async fn resolve_variable(&self, key: &str) -> Result<String> {
         let var = self
             .variables
@@ -114,6 +131,26 @@ impl Resolver {
             _ => Ok(()),
         })?;
         Ok(template)
+    }
+}
+
+impl PreparedResolver {
+    fn resolve_variable(&self, key: &str) -> Result<String> {
+        self.variables
+            .get(key)
+            .cloned()
+            .ok_or(Error::InvalidName(key.to_string()))
+    }
+
+    pub fn resolve_template(&self, template: &Template) -> Result<String> {
+        let mut resolved_parts: Vec<Cow<str>> = Vec::with_capacity(template.parts().len());
+        for part in template.parts() {
+            resolved_parts.push(match part {
+                Part::Lit(lit) => lit.as_ref().into(),
+                Part::Expr(var) => self.resolve_variable(var)?.into(),
+            });
+        }
+        Ok(resolved_parts.concat())
     }
 }
 
@@ -265,5 +302,11 @@ mod tests {
         for key in ["", "aX", "1bc", "_x", "x.y", "x_", "a__b", "x-y"] {
             Key::new(key).expect_err(key);
         }
+    }
+
+    #[test]
+    fn template_literal() {
+        assert!(Template::new("hello").unwrap().is_literal());
+        assert!(!Template::new("hello {{ world }}").unwrap().is_literal());
     }
 }

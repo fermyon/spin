@@ -10,6 +10,6 @@ route = "/"
 component = "test"
 
 [component.test]
-source = "{{outbound-mqtt}}"
-environment = { MQTT_ADDRESS = "mqtt://mqtt:1883" }
-allowed_outbound_hosts = ["mqtt://mqtt:1883"]
+source = "%{source=outbound-mqtt}"
+environment = { MQTT_ADDRESS = "mqtt://localhost:%{port=1883}" }
+allowed_outbound_hosts = ["mqtt://localhost:%{port=1883}"]

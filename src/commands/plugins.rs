@@ -644,12 +644,13 @@ fn continue_to_install(
 }
 
 fn prompt_confirm_install(manifest: &PluginManifest, package: &PluginPackage) -> Result<bool> {
-    let prompt = format!(
-        "Are you sure you want to install plugin '{}' with license {} from {}?",
+    println!(
+        "You are trying to install the `{}` plugin with {} license from {} ",
         manifest.name(),
         manifest.license(),
         package.url()
     );
+    let prompt = "Are you sure you want to continue?".to_string();
     let install = dialoguer::Confirm::new()
         .with_prompt(prompt)
         .default(false)

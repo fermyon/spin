@@ -1284,7 +1284,7 @@ impl UdpSocket {
         socket: &Resource<UdpSocket>,
         explicit: bool,
     ) -> wasmtime::Result<Result<(), SocketErrorCode>> {
-        let state = table.table_mut().get_mut(socket)?;
+        let state = table.table().get_mut(socket)?;
         let (new_socket, addr) = match mem::replace(state, UdpSocket::Dummy) {
             // Implicit finishes will call `stream` for sockets in the initial
             // state.
@@ -1305,7 +1305,7 @@ impl UdpSocket {
             Ok(pair) => pair,
             Err(e) => return Ok(Err(e)),
         };
-        *table.table_mut().get_mut(socket)? = UdpSocket::Connected {
+        *table.table().get_mut(socket)? = UdpSocket::Connected {
             socket: new_socket,
             incoming,
             outgoing,
@@ -1359,7 +1359,7 @@ where
         _network: Resource<Network>,
         remote_address: IpSocketAddress,
     ) -> wasmtime::Result<Result<(), SocketErrorCode>> {
-        let socket = self.table_mut().get_mut(&self_)?;
+        let socket = self.table().get_mut(&self_)?;
         let (new_state, result) = match mem::replace(socket, UdpSocket::Dummy) {
             UdpSocket::Initial(socket) => (UdpSocket::Connecting(socket, remote_address), Ok(())),
             other => (other, Err(SocketErrorCode::ConcurrencyConflict)),
@@ -1563,7 +1563,7 @@ where
     }
 
     fn drop(&mut self, rep: Resource<UdpSocket>) -> wasmtime::Result<()> {
-        let me = self.table_mut().delete(rep)?;
+        let me = self.table().delete(rep)?;
         let socket = match me {
             UdpSocket::Initial(s) => s,
             UdpSocket::Connecting(s, _) => s,
@@ -1600,7 +1600,7 @@ where
             Ok(socket) => socket,
             Err(e) => return Ok(Err(e)),
         };
-        let socket = self.table_mut().push(UdpSocket::Initial(socket))?;
+        let socket = self.table().push(UdpSocket::Initial(socket))?;
         Ok(Ok(socket))
     }
 }
@@ -2185,7 +2185,7 @@ where
         Ok(e) => Ok(Ok(e.into())),
         Err(wasmtime_wasi::preview2::StreamError::Closed) => Ok(Err(StreamError::Closed)),
         Err(wasmtime_wasi::preview2::StreamError::LastOperationFailed(e)) => {
-            let e = view.table_mut().push(e)?;
+            let e = view.table().push(e)?;
             Ok(Err(StreamError::LastOperationFailed(e)))
         }
         Err(wasmtime_wasi::preview2::StreamError::Trap(e)) => Err(e),

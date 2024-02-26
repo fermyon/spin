@@ -20,4 +20,4 @@ spin-trigger = { path = "../../crates/trigger" }
 spin-loader = { path = "../../crates/loader" }
 toml = "0.8.6"
 tokio = "1.23"
-wasmtime-wasi-http = "17.0"
+wasmtime-wasi-http = { workspace = true }

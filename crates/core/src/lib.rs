@@ -171,22 +171,11 @@ impl<T> AsMut<T> for Data<T> {
 }
 
 impl<T: Send> wasmtime_wasi::preview2::WasiView for Data<T> {
-    fn table(&self) -> &ResourceTable {
-        &self.table
-    }
-
-    fn table_mut(&mut self) -> &mut ResourceTable {
+    fn table(&mut self) -> &mut ResourceTable {
         &mut self.table
     }
 
-    fn ctx(&self) -> &wasmtime_wasi::preview2::WasiCtx {
-        match &self.wasi {
-            Wasi::Preview1(_) => panic!("using WASI Preview 1 functions with Preview 2 store"),
-            Wasi::Preview2 { wasi_ctx, .. } => wasi_ctx,
-        }
-    }
-
-    fn ctx_mut(&mut self) -> &mut wasmtime_wasi::preview2::WasiCtx {
+    fn ctx(&mut self) -> &mut wasmtime_wasi::preview2::WasiCtx {
         match &mut self.wasi {
             Wasi::Preview1(_) => panic!("using WASI Preview 1 functions with Preview 2 store"),
             Wasi::Preview2 { wasi_ctx, .. } => wasi_ctx,

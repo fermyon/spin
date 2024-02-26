@@ -9,6 +9,8 @@ use {
     wit_component::{metadata, ComponentEncoder},
 };
 
+#[cfg(test)]
+mod abi_conformance;
 mod convert;
 
 const SPIN_ADAPTER: &[u8] = include_bytes!(concat!(
@@ -36,7 +38,7 @@ static EXPORT_INTERFACES: &[(&str, &str)] = &[
 
 pub fn componentize_if_necessary(module_or_component: &[u8]) -> Result<Cow<[u8]>> {
     for payload in Parser::new(0).parse_all(module_or_component) {
-        if let  Payload::Version { encoding, .. } = payload.context("unable to parse binary")? {
+        if let Payload::Version { encoding, .. } = payload.context("unable to parse binary")? {
             return match encoding {
                 Encoding::Component => Ok(Cow::Borrowed(module_or_component)),
                 Encoding::Module => componentize(module_or_component).map(Cow::Owned),
@@ -242,11 +244,11 @@ mod tests {
     use wasmtime_wasi::preview2::pipe::MemoryOutputPipe;
 
     use {
-        anyhow::{anyhow, Result},
-        spin_abi_conformance::{
+        super::abi_conformance::{
             InvocationStyle, KeyValueReport, LlmReport, MysqlReport, PostgresReport, RedisReport,
             Report, TestConfig, WasiReport,
         },
+        anyhow::{anyhow, Result},
         tokio::fs,
         wasmtime::{
             component::{Component, Linker},
@@ -271,7 +273,7 @@ mod tests {
         )
         .context("failed to instantiate componentized bytes")?;
 
-        let report = spin_abi_conformance::test(
+        let report = super::abi_conformance::test(
             &component,
             &engine,
             TestConfig {

@@ -1,0 +1,14 @@
+[package]
+name = "rust-case-08"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+case-helper = { path = "../case-helper" }
+anyhow = "1.0.80"
+wit-bindgen = "0.8"
+
+[workspace]

@@ -1,0 +1,11 @@
+[package]
+name = "case-helper"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.80"
+clap = { version = "~4.4", features = ["derive", "env"] }
+getrandom = "0.2.12"
+
+[workspace]

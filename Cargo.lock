@@ -5775,7 +5775,16 @@ name = "spin-componentize"
 version = "2.3.0-pre0"
 dependencies = [
  "anyhow",
+ "async-trait",
+ "cap-std",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "tempfile",
  "tokio",
+ "toml 0.8.10",
  "wasm-encoder 0.200.0",
  "wasmparser 0.200.0",
  "wasmtime",

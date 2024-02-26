@@ -13,6 +13,24 @@ mod integration_tests {
     };
     use anyhow::Context;
 
+    /// Helper macro to assert that a condition is true eventually
+    #[cfg(feature = "extern-dependencies-tests")]
+    macro_rules! assert_eventually {
+        ($e:expr, $t:expr) => {
+            let mut i = 0;
+            loop {
+                if $e {
+                    break;
+                } else if i > $t * 10 {
+                    assert!($e);
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                i += 1;
+            }
+        };
+    }
+
     #[test]
     /// Test that the --key-value flag works as expected
     fn key_value_cli_flag() -> anyhow::Result<()> {
@@ -75,23 +93,6 @@ mod integration_tests {
     #[cfg(feature = "extern-dependencies-tests")]
     /// Test that basic redis trigger support works
     fn redis_smoke_test() -> anyhow::Result<()> {
-        /// Helper macro to assert that a condition is true eventually
-        macro_rules! assert_eventually {
-            ($e:expr) => {
-                let mut i = 0;
-                loop {
-                    if $e {
-                        break;
-                    } else if i > 20 {
-                        assert!($e);
-                        break;
-                    }
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-                    i += 1;
-                }
-            };
-        }
-
         use anyhow::Context;
         use redis::Commands;
         run_test(
@@ -110,24 +111,94 @@ mod integration_tests {
                 redis
                     .publish("my-channel", "msg-from-test")
                     .context("could not publish test message to redis")?;
-                assert_eventually!({
-                    match env.read_file(".spin/logs/hello_stdout.txt") {
-                        Ok(logs) => {
-                            let logs = String::from_utf8_lossy(&logs);
-                            logs.contains("Got message: 'msg-from-test'")
+                assert_eventually!(
+                    {
+                        match env.read_file(".spin/logs/hello_stdout.txt") {
+                            Ok(logs) => {
+                                let logs = String::from_utf8_lossy(&logs);
+                                logs.contains("Got message: 'msg-from-test'")
+                            }
+                            Err(e)
+                                if e.downcast_ref()
+                                    .map(|e: &std::io::Error| {
+                                        e.kind() == std::io::ErrorKind::NotFound
+                                    })
+                                    .unwrap_or_default() =>
+                            {
+                                false
+                            }
+                            Err(e) => {
+                                return Err(
+                                    anyhow::anyhow!("could not read stdout file: {e}").into()
+                                )
+                            }
                         }
-                        Err(e)
-                            if e.downcast_ref()
-                                .map(|e: &std::io::Error| e.kind() == std::io::ErrorKind::NotFound)
-                                .unwrap_or_default() =>
-                        {
-                            false
+                    },
+                    2
+                );
+                Ok(())
+            },
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "extern-dependencies-tests")]
+    /// Test that basic otel tracing works
+    fn otel_smoke_test() -> anyhow::Result<()> {
+        use anyhow::Context;
+
+        use crate::testcases::run_test_inited;
+        run_test_inited(
+            "otel-smoke-test",
+            SpinAppType::Http,
+            [],
+            testing_framework::ServicesConfig::new(vec!["jaeger".into()])?,
+            |env| {
+                let otel_port = env
+                    .services_mut()
+                    .get_port(4318)?
+                    .context("expected a port for Jaeger")?;
+                env.set_env_var(
+                    "OTEL_EXPORTER_OTLP_ENDPOINT",
+                    format!("http://localhost:{}", otel_port),
+                );
+                Ok(())
+            },
+            move |env| {
+                let spin = env.runtime_mut();
+                assert_spin_request(
+                    spin,
+                    Request::new(Method::GET, "/test/hello"),
+                    Response::new_with_body(200, "Hello, Fermyon!\n"),
+                )?;
+
+                assert_eventually!(
+                    {
+                        let jaeger_port = env
+                            .services_mut()
+                            .get_port(16686)?
+                            .context("no jaeger port was exposed by test services")?;
+                        let url = format!("http://localhost:{jaeger_port}/api/traces?service=spin");
+                        match reqwest::blocking::get(&url).context("failed to get jaeger traces")? {
+                            resp if resp.status().is_success() => {
+                                let traces: serde_json::Value =
+                                    resp.json().context("failed to parse jaeger traces")?;
+                                let traces =
+                                    traces.get("data").context("jaeger traces has no data")?;
+                                let traces =
+                                    traces.as_array().context("jaeger traces is not an array")?;
+                                !traces.is_empty()
+                            }
+                            _resp => {
+                                eprintln!("failed to get jaeger traces:");
+                                false
+                            }
                         }
-                        Err(e) => {
-                            return Err(anyhow::anyhow!("could not read stdout file: {e}").into())
-                        }
-                    }
-                });
+                    },
+                    20
+                );
                 Ok(())
             },
         )?;
@@ -682,7 +753,7 @@ Caused by:
 
     #[test]
     fn spin_up_gives_help_on_new_app() -> anyhow::Result<()> {
-        let env = testing_framework::TestEnvironment::<()>::boot(
+        let mut env = testing_framework::TestEnvironment::<()>::boot(
             &testing_framework::ServicesConfig::none(),
         )?;
 
@@ -702,7 +773,7 @@ route = "/..."
 
         testing_framework::runtimes::spin_cli::SpinCli::start(
             &spin_binary(),
-            &env,
+            &mut env,
             Vec::<String>::new(),
             SpinAppType::None,
         )?;
@@ -720,7 +791,7 @@ route = "/..."
 
     #[test]
     fn spin_up_help_build_does_not_build() -> anyhow::Result<()> {
-        let env = testing_framework::TestEnvironment::<()>::boot(
+        let mut env = testing_framework::TestEnvironment::<()>::boot(
             &testing_framework::ServicesConfig::none(),
         )?;
 
@@ -742,7 +813,7 @@ route = "/..."
 
         testing_framework::runtimes::spin_cli::SpinCli::start(
             &spin_binary(),
-            &env,
+            &mut env,
             Vec::<String>::new(),
             SpinAppType::None,
         )?;

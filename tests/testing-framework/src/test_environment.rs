@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use crate::{
     runtimes::{in_process_spin::InProcessSpin, spin_cli::SpinCli, SpinAppType},
@@ -15,6 +18,7 @@ pub struct TestEnvironment<R> {
     temp: temp_dir::TempDir,
     services: Services,
     runtime: Option<R>,
+    env_vars: HashMap<String, String>,
 }
 
 impl<R: Runtime> TestEnvironment<R> {
@@ -52,6 +56,7 @@ impl<R> TestEnvironment<R> {
             temp,
             services,
             runtime: None,
+            env_vars: HashMap::new(),
         })
     }
 
@@ -61,6 +66,7 @@ impl<R> TestEnvironment<R> {
             temp: self.temp,
             services: self.services,
             runtime: Some(runtime),
+            env_vars: self.env_vars,
         };
         this.error().context("testing environment is not healthy")?;
         Ok(this)
@@ -160,6 +166,16 @@ impl<R> TestEnvironment<R> {
     /// Get the path to test environment
     pub fn path(&self) -> &Path {
         self.temp.path()
+    }
+
+    /// Set an environment variable in the test environment
+    pub fn set_env_var(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.env_vars.insert(key.into(), value.into());
+    }
+
+    /// Get the environment variables in the test environment
+    pub fn env_vars(&self) -> &HashMap<String, String> {
+        &self.env_vars
     }
 }
 

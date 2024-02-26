@@ -27,6 +27,7 @@ spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 spin-http = { path = "../http" }
 spin-outbound-networking = { path = "../outbound-networking" }
+spin-telemetry = { path = "../telemetry" }
 spin-trigger = { path = "../trigger" }
 spin-world = { path = "../world" }
 terminal = { path = "../terminal" }

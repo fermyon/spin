@@ -41,7 +41,7 @@ use tokio::{
     net::TcpListener,
     task,
 };
-use tracing::log;
+use tracing::{log, Instrument};
 use wasmtime_wasi_http::{body::HyperIncomingBody as Body, WasiHttpView};
 
 use crate::{handler::HttpHandlerExecutor, wagi::WagiHttpExecutor};
@@ -231,6 +231,8 @@ impl HttpTrigger {
         set_req_uri(&mut req, scheme)?;
         strip_forbidden_headers(&mut req);
 
+        spin_telemetry::extract_trace_context(&req);
+
         log::info!(
             "Processing request for application {} on URI {}",
             &self.engine.app_name,
@@ -336,6 +338,22 @@ impl HttpTrigger {
                     TokioIo::new(stream),
                     service_fn(move |request| {
                         let self_ = self_.clone();
+                        let span = tracing::info_span!(
+                            "handle_http_request",
+                            "otel.kind" = "server",
+                            "http.request.method" = %request.method(),
+                            "network.peer.address" = %addr.ip(),
+                            "network.peer.port" = %addr.port(),
+                            "network.protocol.name" = "http",
+                            "url.path" = request.uri().path(),
+                            "url.query" = request.uri().query().unwrap_or(""),
+                            "url.scheme" = request.uri().scheme_str().unwrap_or(""),
+                            "client.address" = request.headers().get("x-forwarded-for").and_then(|val| val.to_str().ok()),
+                            // TODO(Caleb): Recorded later
+                            // "error.type" = Empty,
+                            // "http.response.status_code" = Empty,
+                            // "http.route" = Empty,
+                        );
                         async move {
                             self_
                                 .handle(
@@ -346,6 +364,7 @@ impl HttpTrigger {
                                     Scheme::HTTP,
                                     addr,
                                 )
+                                .instrument(span)
                                 .await
                         }
                     }),

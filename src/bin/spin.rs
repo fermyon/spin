@@ -1,6 +1,5 @@
-use anyhow::Error;
+use anyhow::{Context, Error};
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
-use is_terminal::IsTerminal;
 use lazy_static::lazy_static;
 use spin_cli::commands::external::predefined_externals;
 use spin_cli::commands::{
@@ -42,15 +41,8 @@ async fn main() {
 }
 
 async fn _main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("wasmtime_wasi_http=warn".parse()?)
-                .add_directive("watchexec=off".parse()?),
-        )
-        .with_ansi(std::io::stderr().is_terminal())
-        .init();
+    let _telemetry_guard =
+        spin_telemetry::init(VERSION.to_string()).context("Failed to initialize telemetry")?;
 
     let plugin_help_entries = plugin_help_entries();
 

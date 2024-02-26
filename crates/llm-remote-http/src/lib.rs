@@ -8,6 +8,7 @@ use serde_json::json;
 use spin_core::async_trait;
 use spin_llm::LlmEngine;
 use spin_world::v2::llm::{self as wasi_llm};
+use tracing::instrument;
 
 #[derive(Clone)]
 pub struct RemoteHttpLlmEngine {
@@ -54,6 +55,7 @@ struct EmbeddingResponseBody {
 
 #[async_trait]
 impl LlmEngine for RemoteHttpLlmEngine {
+    #[instrument(name = "llm_generate_remote_inference", skip(self, prompt), fields(otel.kind = "client"))]
     async fn infer(
         &mut self,
         model: wasi_llm::InferencingModel,
@@ -69,6 +71,8 @@ impl LlmEngine for RemoteHttpLlmEngine {
                 wasi_llm::Error::RuntimeError("Failed to create authorization header".to_string())
             })?,
         );
+        spin_telemetry::inject_trace_context(&mut headers);
+
         let inference_options = InferRequestBodyParams {
             max_tokens: params.max_tokens,
             repeat_penalty: params.repeat_penalty,
@@ -114,6 +118,7 @@ impl LlmEngine for RemoteHttpLlmEngine {
         }
     }
 
+    #[instrument(name = "llm_generate_remote_embeddings", skip(self, data), fields(otel.kind = "client"))]
     async fn generate_embeddings(
         &mut self,
         model: wasi_llm::EmbeddingModel,
@@ -128,6 +133,7 @@ impl LlmEngine for RemoteHttpLlmEngine {
                 wasi_llm::Error::RuntimeError("Failed to create authorization header".to_string())
             })?,
         );
+        spin_telemetry::inject_trace_context(&mut headers);
 
         let body = serde_json::to_string(&json!({
             "model": model,

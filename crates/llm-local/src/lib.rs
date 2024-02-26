@@ -21,6 +21,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tokenizers::PaddingParams;
+use tracing::instrument;
 
 #[derive(Clone)]
 pub struct LocalLlmEngine {
@@ -32,6 +33,7 @@ pub struct LocalLlmEngine {
 
 #[async_trait]
 impl LlmEngine for LocalLlmEngine {
+    #[instrument(name = "llm_generate_local_inference", skip(self, prompt))]
     async fn infer(
         &mut self,
         model: wasi_llm::InferencingModel,
@@ -91,6 +93,7 @@ impl LlmEngine for LocalLlmEngine {
         Ok(response)
     }
 
+    #[instrument(name = "llm_generate_local_embeddings", skip(self, data))]
     async fn generate_embeddings(
         &mut self,
         model: wasi_llm::EmbeddingModel,

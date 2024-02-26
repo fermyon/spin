@@ -7,7 +7,7 @@ For the purposes of these tests, an "application" is a collection of the followi
 * A spin.toml manifest
 * Optional runtime-config.toml files
 
-## What are runtime tests supposed test and not test?
+## What are runtime tests supposed to test and not test?
 
 Runtime tests are meant to test the runtime functionality of Spin. In other words, they ensure that a valid combination of Spin manifest and some number of Spin compliant WebAssembly binaries perform in expected ways or fail in expected ways.
 

@@ -20,6 +20,10 @@ use spin_trigger::cli::help::HelpArgsOnlyTrigger;
 use spin_trigger::cli::TriggerExecutorCommand;
 use spin_trigger_http::HttpTrigger;
 use spin_trigger_redis::RedisTrigger;
+use tracing_subscriber::fmt::Layer;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::{fmt, EnvFilter, Registry};
+use tracing_subscriber::{prelude::*, reload};
 
 #[tokio::main]
 async fn main() {
@@ -42,20 +46,28 @@ async fn main() {
 }
 
 async fn _main() -> anyhow::Result<()> {
-    // tracing_subscriber::fmt()
-    //     .with_writer(std::io::stderr)
-    //     .with_env_filter(
-    //         tracing_subscriber::EnvFilter::from_default_env()
-    //             .add_directive("wasmtime_wasi_http=warn".parse()?)
-    //             .add_directive("watchexec=off".parse()?),
-    //     )
-    //     .with_ansi(std::io::stderr().is_terminal())
-    //     .init();
+    let fmt_layer = fmt::layer()
+        .with_writer(std::io::stderr)
+        .with_ansi(std::io::stderr().is_terminal())
+        .with_filter(
+            EnvFilter::from_default_env()
+                .add_directive("wasmtime_wasi_http=warn".parse()?)
+                .add_directive("watchexec=off".parse()?),
+        );
+    let (telemetry_layer, reload_handle) = reload::Layer::new(Some(
+        tracing_subscriber::filter::Targets::new()
+            .with_target("sqlx", tracing::Level::WARN)
+            .with_default(tracing::Level::TRACE),
+    ));
+    let subscriber = tracing_subscriber::registry()
+        .with(fmt_layer)
+        .with(telemetry_layer)
+        .init();
 
-    let _guard = spin_telemetry::init(
-        spin_telemetry::ServiceDescription::new("spin", Some("v1")),
-        Some("http://localhost:4317"),
-    )?;
+    // let _guard = spin_telemetry::init(
+    //     spin_telemetry::ServiceDescription::new("spin", Some("v1")),
+    //     Some("http://localhost:4317"),
+    // )?;
 
     let plugin_help_entries = plugin_help_entries();
 

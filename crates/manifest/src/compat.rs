@@ -41,18 +41,6 @@ pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Erro
             .map(|(key, var)| Ok((id_from_string(key)?, var)))
             .collect::<Result<_, Error>>()?;
 
-        let key_value_stores = component
-            .key_value_stores
-            .into_iter()
-            .map(id_from_string)
-            .collect::<Result<_, Error>>()?;
-
-        let sqlite_databases = component
-            .sqlite_databases
-            .into_iter()
-            .map(id_from_string)
-            .collect::<Result<_, Error>>()?;
-
         let ai_models = component
             .ai_models
             .into_iter()
@@ -79,8 +67,8 @@ pub fn v1_to_v2_app(manifest: v1::AppManifestV1) -> Result<v2::AppManifest, Erro
                 environment: component.environment,
                 files: component.files,
                 exclude_files: component.exclude_files,
-                key_value_stores,
-                sqlite_databases,
+                key_value_stores: component.key_value_stores,
+                sqlite_databases: component.sqlite_databases,
                 ai_models,
                 build: component.build,
                 tool: Default::default(),

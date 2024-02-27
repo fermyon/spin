@@ -201,10 +201,10 @@ impl HttpTrigger {
             req.uri()
         );
 
-        tracing::info!("TODO: Emit a trigger level span here");
-        tracing::info_span!("hello-world", "a" = "b", "x" = "y");
-
         let path = req.uri().path();
+
+        let span = tracing::info_span!("handle_request", "otel.kind" = "server");
+        let _enter = span.enter();
 
         // Handle well-known spin paths
         if let Some(well_known) = path.strip_prefix(spin_http::WELL_KNOWN_PREFIX) {

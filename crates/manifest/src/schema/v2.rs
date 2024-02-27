@@ -122,12 +122,20 @@ pub struct Component {
     /// `allowed_outbound_hosts = ["redis://myredishost.com:6379"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) allowed_outbound_hosts: Vec<String>,
-    /// `key_value_stores = ["default"]`
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub key_value_stores: Vec<SnakeId>,
-    /// `sqlite_databases = ["default"]`
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub sqlite_databases: Vec<SnakeId>,
+    /// `key_value_stores = ["default", "my-store"]`
+    #[serde(
+        default,
+        with = "kebab_or_snake_case",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub key_value_stores: Vec<String>,
+    /// `sqlite_databases = ["default", "my-database"]`
+    #[serde(
+        default,
+        with = "kebab_or_snake_case",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub sqlite_databases: Vec<String>,
     /// `ai_models = ["llama2-chat"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ai_models: Vec<KebabId>,
@@ -137,6 +145,42 @@ pub struct Component {
     /// Settings for custom tools or plugins. Spin ignores this field.
     #[serde(default, skip_serializing_if = "Map::is_empty")]
     pub tool: Map<String, toml::Table>,
+}
+
+mod kebab_or_snake_case {
+    use serde::{Deserialize, Serialize};
+    pub use spin_serde::{KebabId, SnakeId};
+    pub fn serialize<S>(value: &[String], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        if value.iter().all(|s| {
+            KebabId::try_from(s.clone()).is_ok() || SnakeId::try_from(s.to_owned()).is_ok()
+        }) {
+            value.serialize(serializer)
+        } else {
+            Err(serde::ser::Error::custom(
+                "expected kebab-case or snake_case",
+            ))
+        }
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = toml::Value::deserialize(deserializer)?;
+        let list: Vec<String> = Vec::deserialize(value).map_err(serde::de::Error::custom)?;
+        if list.iter().all(|s| {
+            KebabId::try_from(s.clone()).is_ok() || SnakeId::try_from(s.to_owned()).is_ok()
+        }) {
+            Ok(list)
+        } else {
+            Err(serde::de::Error::custom(
+                "expected kebab-case or snake_case",
+            ))
+        }
+    }
 }
 
 impl Component {
@@ -263,6 +307,74 @@ mod tests {
         let fake_id: KebabId = "fake".to_owned().try_into().unwrap();
         FakeComponentToolConfig::deserialize(manifest.components[&fake_id].tool["clean"].clone())
             .unwrap();
+    }
+
+    #[test]
+    fn deserializing_labels() {
+        AppManifest::deserialize(toml! {
+            spin_manifest_version = 2
+            [application]
+            name = "trigger-configs"
+            [[trigger.fake]]
+            something = "something else"
+            [component.fake]
+            source = "dummy"
+            key_value_stores = ["default", "snake_case", "kebab-case"]
+            sqlite_databases = ["default", "snake_case", "kebab-case"]
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn deserializing_labels_fails_for_non_kebab_or_snake() {
+        assert!(AppManifest::deserialize(toml! {
+            spin_manifest_version = 2
+            [application]
+            name = "trigger-configs"
+            [[trigger.fake]]
+            something = "something else"
+            [component.fake]
+            source = "dummy"
+            key_value_stores = ["b@dlabel"]
+        })
+        .is_err());
+    }
+
+    fn get_test_component_with_labels(labels: Vec<String>) -> Component {
+        Component {
+            source: ComponentSource::Local("dummy".to_string()),
+            description: "".to_string(),
+            variables: Map::new(),
+            environment: Map::new(),
+            files: vec![],
+            exclude_files: vec![],
+            allowed_http_hosts: vec![],
+            allowed_outbound_hosts: vec![],
+            key_value_stores: labels.clone(),
+            sqlite_databases: labels,
+            ai_models: vec![],
+            build: None,
+            tool: Map::new(),
+        }
+    }
+
+    #[test]
+    fn serialize_labels() {
+        let stores = vec![
+            "default".to_string(),
+            "snake_case".to_string(),
+            "kebab-case".to_string(),
+        ];
+        let component = get_test_component_with_labels(stores.clone());
+        let serialized = toml::to_string(&component).unwrap();
+        let deserialized = toml::from_str::<Component>(&serialized).unwrap();
+        assert_eq!(deserialized.key_value_stores, stores);
+    }
+
+    #[test]
+    fn serialize_labels_fails_for_non_kebab_or_snake() {
+        let component = get_test_component_with_labels(vec!["camelCase".to_string()]);
+        assert!(toml::to_string(&component).is_err());
     }
 
     #[test]

@@ -12,12 +12,14 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use local::LocalLoader;
 use spin_common::paths::parent_dir;
 use spin_locked_app::locked::LockedApp;
 
 pub mod cache;
+mod fs;
+#[cfg(feature = "async-io")]
 mod http;
 mod local;
 
@@ -33,7 +35,7 @@ pub async fn from_file(
     cache_root: Option<PathBuf>,
 ) -> Result<LockedApp> {
     let path = manifest_path.as_ref();
-    let app_root = parent_dir(path)?;
+    let app_root = parent_dir(path).context("manifest path has no parent directory")?;
     let loader = LocalLoader::new(&app_root, files_mount_strategy, cache_root).await?;
     loader.load_file(path).await
 }

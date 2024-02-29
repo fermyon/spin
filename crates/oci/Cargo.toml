@@ -10,7 +10,9 @@ async-compression = "0.4.3"
 # Fork with nested async-std dependency bumped to satisfy Windows build; branch/revision is protected
 async-tar = { git = "https://github.com/vdice/async-tar", rev = "71e037f9652971e7a55b412a8e47a37b06f9c29d" }
 base64 = "0.21"
-dkregistry = { git = "https://github.com/camallo/dkregistry-rs", rev = "37acecb4b8139dd1b1cc83795442f94f90e1ffc5" }
+# Fork with updated auth to support ACR login
+# Ref https://github.com/camallo/dkregistry-rs/pull/263
+dkregistry = { git = "https://github.com/fermyon/dkregistry-rs", rev = "161cf2b66996ed97c7abaf046e38244484814de3" }
 docker_credential = "1.0"
 dirs = "4.0"
 futures-util = "0.3"

@@ -31,33 +31,31 @@ This proposal assumes that all observability data produced should be OTEL compli
 
 ### Configuring observability
 
-The developer must be able to configure the endpoints of OTLP compliant collectors where traces and metrics can be sent. This can be expressed in the `spin.toml` manifest.
+The developer must be able to configure the endpoints of OTLP compliant collectors where traces and metrics can be sent. This can be expressed in the `runtime-config.toml`.
 
 ```toml
-[application]
-otlp_grpc_traces_endpoint = "http://localhost:4317"
-otlp_grpc_metrics_endpoint = "http://localhost:4317"
+[observability.tracing]
+endpoint = "http://localhost:4317"
+protocol = "http/protobuf" # "grpc" or "http/protobuf" or "http/json" and it defaults to "http/protobuf"
+[observability.metrics]
+endpoint = "http://localhost:4317"
+protocol = "http/protobuf" # "grpc" or "http/protobuf" or "http/json" and it defaults to "http/protobuf"
 ```
 
-**INPUT NEEDED:** How do we want to configure these endpoints? Where do they belong in the manifest? Do we want to allow for separate endpoints for traces and metrics? Do we want to allow for choosing between gRPC and HTTP? Should we let them pass a flag to `spin` to override the manifest value?
+**BIKESHED:** `observability.tracing`, `otel.tracing`, `telemetry.tracing`....
 
-The developer must be able to opt in or out of trace context propagation. This should be possible on a per component basis. By default trace context propagation is disabled for a component. This can be expressed in the `spin.toml` manifest.
+The developer must be able to configure how each component of their application handles tracing. This can be expressed in the `spin.toml` manifest.
 
 ```toml
-[component.my-component]
-allow_trace_context_propagation = true
+[component.my-component.tracing]
+context_propagation = true # This is all or nothing. If you disable propagation no context will be propagated. By default this is false.
+# Opportunity to add fields in the future to
+# - Disable tracing for performance reasons
+# - Customize span names
+# - Add additional metadata
+# - More complex allow-listing mechanism for what spans propagate
+# - etc.
 ```
-
-**INPUT NEEDED:** Is it correct to put this on the component config as opposed to the trigger config?
-
-Improving the guest observability of Spin with WASI Observe is outside the scope of this SIP. But, it is worth noting that when we add guest observability we may want to move from a simple binary model of trace context propagation to an allow-list based system.
-
-```toml
-[component.my-component]
-allowed_trace_context_propagation_origins = ["my-component", "my-other-component"]
-```
-
-**INPUT NEEDED:** I know this is something we need but I don't actually have any clue what it would look like.
 
 ### Improving observability
 

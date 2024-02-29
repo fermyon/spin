@@ -21,7 +21,7 @@ interface mqtt {
 
   resource connection {
     /// Open a connection to the Mqtt instance at `address`.
-    open: static func(address: string, keepaliveinterval: u64) -> result<connection, error>;
+    open: static func(address: string, username: string, password: string, keepaliveinterval: u64) -> result<connection, error>;
 
     /// Publish an Mqtt message to the specified `topic`.
     publish: func(topic: string, payload: payload, qos: qos) -> result<_, error>;

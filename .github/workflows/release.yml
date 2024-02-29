@@ -290,13 +290,11 @@ jobs:
         config:
           - {
               arch: "aarch64",
-              target: "aarch64-unknown-linux-musl",
-              rustflags: '-C target-feature=+fp16 -C target-feature=+crt-static -C link-self-contained=yes'
+              target: "aarch64-unknown-linux-musl"
             }
           - {
               arch: "amd64",
-              target: "x86_64-unknown-linux-musl",
-              rustflags: '-C target-feature=+crt-static -C link-self-contained=yes'
+              target: "x86_64-unknown-linux-musl"
             }
     steps:
       - uses: actions/checkout@v3
@@ -335,7 +333,6 @@ jobs:
         env:
           CARGO_INCREMENTAL: 0
           BUILD_SPIN_EXAMPLES: 0
-          RUSTFLAGS: ${{ matrix.config.rustflags }}
 
       - name: Install Cosign for signing Spin binary
         uses: sigstore/cosign-installer@v3.0.1

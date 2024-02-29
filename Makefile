@@ -51,6 +51,10 @@ update-cargo-locks:
 test-unit:
 	$(LOG_LEVEL_VAR) cargo test --all --no-fail-fast -- --skip integration_tests --skip runtime_tests --nocapture
 
+.PHONY: test-crate
+test-crate:
+	$(LOG_LEVEL_VAR) cargo test -p $(crate) --no-fail-fast -- --skip integration_tests --skip runtime_tests --nocapture
+
 # Run the runtime tests without the tests that use some sort of assumed external depedency (e.g., Docker, a language toolchain, etc.)
 .PHONY: test-runtime
 test-runtime:

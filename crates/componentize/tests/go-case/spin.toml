@@ -1,0 +1,15 @@
+spin_manifest_version = "1"
+authors = ["Joel Dice <joel.dice@gmail.com>"]
+description = ""
+name = "go-case"
+trigger = { type = "http", base = "/" }
+version = "0.1.0"
+
+[[component]]
+id = "go-case"
+source = "main.wasm"
+allowed_http_hosts = []
+[component.trigger]
+route = "/..."
+[component.build]
+command = "tinygo build -target=wasi -gc=leaking -no-debug -o main.wasm main.go"

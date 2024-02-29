@@ -10,12 +10,13 @@ You are best to visit the above link for more information, but for convenience, 
 vault server -dev -dev-root-token-id root
 ```
 
-3. Set a password:
+3. Set a token in Vault:
 
 ```bash
 export VAULT_TOKEN=root
 export VAULT_ADDR=http://127.0.0.1:8200
-vault kv put secret/secret value="test_password"
+export TOKEN=eyMyJWTToken...
+vault kv put secret/secret value=$TOKEN
 vault kv get secret/secret
 ```
 
@@ -34,6 +35,6 @@ spin up --runtime-config-file runtime_config.toml
 6. Test the application:
 
 ```bash
-$ curl localhost:3000 --data "test_password"
+$ curl localhost:3000 --data $TOKEN
 {"authentication": "accepted"}
 ```

@@ -8,6 +8,7 @@ use std::{
     collections::HashMap,
     net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
     path::PathBuf,
+    str::FromStr,
     sync::Arc,
 };
 
@@ -39,7 +40,7 @@ use tokio::{
     task,
 };
 use tracing::log;
-use wasmtime_wasi_http::body::HyperIncomingBody as Body;
+use wasmtime_wasi_http::{body::HyperIncomingBody as Body, WasiHttpView};
 
 use crate::{handler::HttpHandlerExecutor, wagi::WagiHttpExecutor};
 
@@ -50,7 +51,7 @@ pub(crate) type Store = spin_core::Store<RuntimeData>;
 
 /// The Spin HTTP trigger.
 pub struct HttpTrigger {
-    engine: TriggerAppEngine<Self>,
+    engine: Arc<TriggerAppEngine<Self>>,
     router: Router,
     // Base path for component routes.
     base: String,
@@ -144,7 +145,7 @@ impl TriggerExecutor for HttpTrigger {
             .collect();
 
         Ok(Self {
-            engine,
+            engine: Arc::new(engine),
             router,
             base,
             component_trigger_configs,
@@ -468,11 +469,9 @@ pub(crate) fn compute_default_headers<'a>(
 /// All HTTP executors must implement this trait.
 #[async_trait]
 pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
-    // TODO: allowing this lint because I want to gather feedback before
-    // investing time in reorganizing this
     async fn execute(
         &self,
-        engine: &TriggerAppEngine<HttpTrigger>,
+        engine: &Arc<TriggerAppEngine<HttpTrigger>>,
         component_id: &str,
         base: &str,
         raw_route: &str,
@@ -484,8 +483,74 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
 #[derive(Default)]
 pub struct HttpRuntimeData {
     origin: Option<String>,
+    engine: Option<Arc<TriggerAppEngine<HttpTrigger>>>,
+    handler: Option<HttpHandlerExecutor>,
     /// The hosts this app is allowed to make outbound requests to
     allowed_hosts: AllowedHostsConfig,
+}
+
+impl HttpRuntimeData {
+    fn chain_request(
+        data: &mut spin_core::Data<Self>,
+        request: wasmtime_wasi_http::types::OutgoingRequest,
+        component_id: String,
+    ) -> wasmtime::Result<
+        wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
+    >
+    where
+        Self: Sized,
+    {
+        use wasmtime_wasi_http::types::HostFutureIncomingResponse;
+        use wasmtime_wasi_http::types::IncomingResponseInternal;
+
+        let this = data.as_mut();
+
+        let engine = this.engine.clone().ok_or(wasmtime::Error::msg(
+            "Internal error: internal request chaining not prepared (engine not assigned)",
+        ))?;
+        let handler = this.handler.clone().ok_or(wasmtime::Error::msg(
+            "Internal error: internal request chaining not prepared (handler not assigned)",
+        ))?;
+
+        let base = "/";
+        let raw_route = request.request.uri().path().to_owned();
+
+        let client_addr = std::net::SocketAddr::from_str("0.0.0.0:0")?;
+
+        let between_bytes_timeout = request.between_bytes_timeout;
+        let worker = Arc::new(wasmtime_wasi::preview2::spawn(async {}));
+
+        let req = request.request;
+
+        let resp_fut = async move {
+            match handler
+                .execute(&engine, &component_id, base, &raw_route, req, client_addr)
+                .await
+            {
+                Ok(resp) => Ok(Ok(IncomingResponseInternal {
+                    resp,
+                    between_bytes_timeout,
+                    worker,
+                })),
+                Err(e) => Err(wasmtime::Error::msg(e)),
+            }
+        };
+
+        let handle = wasmtime_wasi::preview2::spawn(resp_fut);
+        Ok(data.table().push(HostFutureIncomingResponse::new(handle))?)
+    }
+}
+
+fn parse_chaining_target(request: &wasmtime_wasi_http::types::OutgoingRequest) -> Option<String> {
+    let host = request.request.uri().authority().map(|a| a.host().trim())?;
+
+    let (first, rest) = host.split_once('.')?;
+
+    if rest == "spin.internal" {
+        Some(first.to_owned())
+    } else {
+        None
+    }
 }
 
 impl OutboundWasiHttpHandler for HttpRuntimeData {
@@ -498,7 +563,8 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
     where
         Self: Sized,
     {
-        let this = data.as_ref();
+        let this = data.as_mut();
+
         let is_relative_url = request
             .request
             .uri()
@@ -564,6 +630,10 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
             };
             eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"{}\"]' to the manifest component section.", host);
             anyhow::bail!("destination-not-allowed (error 1)")
+        }
+
+        if let Some(component_id) = parse_chaining_target(&request) {
+            return Self::chain_request(data, request, component_id);
         }
 
         wasmtime_wasi_http::types::default_send_request(data, request)

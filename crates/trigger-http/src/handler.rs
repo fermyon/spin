@@ -26,7 +26,7 @@ pub struct HttpHandlerExecutor;
 impl HttpExecutor for HttpHandlerExecutor {
     async fn execute(
         &self,
-        engine: &TriggerAppEngine<HttpTrigger>,
+        engine: &Arc<TriggerAppEngine<HttpTrigger>>,
         component_id: &str,
         base: &str,
         raw_route: &str,
@@ -43,7 +43,7 @@ impl HttpExecutor for HttpHandlerExecutor {
             unreachable!()
         };
 
-        set_http_origin_from_request(&mut store, engine, &req);
+        set_http_origin_from_request(&mut store, engine, self, &req);
 
         let resp = match HandlerType::from_exports(instance.exports(&mut store)) {
             Some(HandlerType::Wasi) => {
@@ -347,7 +347,8 @@ impl HandlerType {
 
 fn set_http_origin_from_request(
     store: &mut Store,
-    engine: &TriggerAppEngine<HttpTrigger>,
+    engine: &Arc<TriggerAppEngine<HttpTrigger>>,
+    handler: &HttpHandlerExecutor,
     req: &Request<Body>,
 ) {
     if let Some(authority) = req.uri().authority() {
@@ -366,6 +367,8 @@ fn set_http_origin_from_request(
                     outbound_http_data.allowed_hosts.clone();
             }
             store.as_mut().data_mut().as_mut().origin = Some(origin);
+            store.as_mut().data_mut().as_mut().engine = Some(engine.clone());
+            store.as_mut().data_mut().as_mut().handler = Some(handler.clone())
         }
     }
 }

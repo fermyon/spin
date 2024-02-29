@@ -1743,13 +1743,12 @@ dependencies = [
 [[package]]
 name = "dkregistry"
 version = "0.5.1-alpha.0"
-source = "git+https://github.com/camallo/dkregistry-rs?rev=37acecb4b8139dd1b1cc83795442f94f90e1ffc5#37acecb4b8139dd1b1cc83795442f94f90e1ffc5"
+source = "git+https://github.com/fermyon/dkregistry-rs?rev=161cf2b66996ed97c7abaf046e38244484814de3#161cf2b66996ed97c7abaf046e38244484814de3"
 dependencies = [
  "async-stream",
  "base64 0.13.1",
  "bytes",
  "futures",
- "http 0.2.11",
  "libflate",
  "log",
  "mime",
@@ -3264,9 +3263,9 @@ checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 
 [[package]]
 name = "libflate"
-version = "1.4.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ff4ae71b685bbad2f2f391fe74f6b7659a34871c08b210fdc039e43bee07d18"
+checksum = "05605ab2bce11bcfc0e9c635ff29ef8b2ea83f29be257ee7d730cac3ee373093"
 dependencies = [
  "adler32",
  "crc32fast",

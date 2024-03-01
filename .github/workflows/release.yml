@@ -264,7 +264,7 @@ jobs:
       - name: Set the tag to spin/templates/v*
         shell: bash
         run: |
-          spin_tag=$(echo "${{ github.ref }}" | grep -Eo "refs/tags/v[0-9.]+")
+          spin_tag=$(echo "${{ github.ref }}" | grep -Eo "v[0-9.]+")
           IFS=. read -r major minor patch <<< "${spin_tag}"
           echo "TEMPLATE_TAG=spin/templates/$major.$minor" >> $GITHUB_ENV
 

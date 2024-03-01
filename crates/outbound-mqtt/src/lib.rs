@@ -34,17 +34,17 @@ impl OutboundMqtt {
         address: String,
         username: String,
         password: String,
-        keepaliveinterval: Duration,
+        keep_alive_interval: Duration,
     ) -> Result<Result<Resource<MqttConnection>, Error>> {
         Ok(async {
             let client = Client::new(address.as_str()).map_err(|_| Error::InvalidAddress)?;
             let conn_opts = paho_mqtt::ConnectOptionsBuilder::new()
-                .keep_alive_interval(keepaliveinterval)
+                .keep_alive_interval(keep_alive_interval)
                 .user_name(username)
                 .password(password)
                 .finalize();
 
-            client.connect(conn_opts).unwrap();
+            client.connect(conn_opts).map_err(other_error)?;
 
             self.connections
                 .push(client)

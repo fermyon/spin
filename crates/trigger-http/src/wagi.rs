@@ -7,6 +7,7 @@ use hyper::{Request, Response};
 use spin_core::WasiVersion;
 use spin_http::{config::WagiTriggerConfig, routes::RoutePattern, wagi};
 use spin_trigger::{EitherInstance, TriggerAppEngine};
+use tracing::instrument::WithSubscriber;
 use wasi_common_preview1::{pipe::WritePipe, I32Exit};
 
 use crate::{Body, HttpExecutor, HttpTrigger};
@@ -47,7 +48,12 @@ impl HttpExecutor for WagiHttpExecutor {
 
         let (parts, body) = req.into_parts();
 
-        let body = body.collect().await?.to_bytes().to_vec();
+        let body = body
+            .collect()
+            .with_current_subscriber()
+            .await?
+            .to_bytes()
+            .to_vec();
         let len = body.len();
 
         // TODO
@@ -91,6 +97,7 @@ impl HttpExecutor for WagiHttpExecutor {
 
         let (instance, mut store) = engine
             .prepare_instance_with_store(component, store_builder)
+            .with_current_subscriber()
             .await?;
 
         let EitherInstance::Module(instance) = instance else {
@@ -109,6 +116,7 @@ impl HttpExecutor for WagiHttpExecutor {
         tracing::trace!("Calling Wasm entry point");
         start
             .call_async(&mut store, &[], &mut [])
+            .with_current_subscriber()
             .await
             .or_else(ignore_successful_proc_exit_trap)
             .with_context(|| {

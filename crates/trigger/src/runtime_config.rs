@@ -1,6 +1,7 @@
 pub mod key_value;
 pub mod llm;
 pub mod sqlite;
+pub mod telemetry;
 pub mod variables_provider;
 
 use std::{
@@ -214,6 +215,9 @@ pub struct RuntimeConfigOpts {
 
     #[serde(rename = "sqlite_database", default)]
     pub sqlite_databases: HashMap<String, SqliteDatabaseOpts>,
+
+    #[serde(default)]
+    pub otlp_stuff: Option<telemetry::OtlpOpts>,
 
     #[serde(skip)]
     pub file_path: Option<PathBuf>,

@@ -46,28 +46,15 @@ async fn main() {
 }
 
 async fn _main() -> anyhow::Result<()> {
-    let fmt_layer = fmt::layer()
+    tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
-        .with_ansi(std::io::stderr().is_terminal())
-        .with_filter(
-            EnvFilter::from_default_env()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::from_default_env()
                 .add_directive("wasmtime_wasi_http=warn".parse()?)
                 .add_directive("watchexec=off".parse()?),
-        );
-    let (telemetry_layer, reload_handle) = reload::Layer::new(Some(
-        tracing_subscriber::filter::Targets::new()
-            .with_target("sqlx", tracing::Level::WARN)
-            .with_default(tracing::Level::TRACE),
-    ));
-    let subscriber = tracing_subscriber::registry()
-        .with(fmt_layer)
-        .with(telemetry_layer)
+        )
+        .with_ansi(std::io::stderr().is_terminal())
         .init();
-
-    // let _guard = spin_telemetry::init(
-    //     spin_telemetry::ServiceDescription::new("spin", Some("v1")),
-    //     Some("http://localhost:4317"),
-    // )?;
 
     let plugin_help_entries = plugin_help_entries();
 

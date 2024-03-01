@@ -17,6 +17,7 @@ use spin_trigger::{EitherInstance, TriggerAppEngine};
 use spin_world::v1::http_types;
 use std::sync::Arc;
 use tokio::{sync::oneshot, task};
+use tracing::instrument::WithSubscriber;
 use wasmtime_wasi_http::{proxy::Proxy, WasiHttpView};
 
 #[derive(Clone)]
@@ -38,7 +39,10 @@ impl HttpExecutor for HttpHandlerExecutor {
             component_id
         );
 
-        let (instance, mut store) = engine.prepare_instance(component_id).await?;
+        let (instance, mut store) = engine
+            .prepare_instance(component_id)
+            .with_current_subscriber()
+            .await?;
         let EitherInstance::Component(instance) = instance else {
             unreachable!()
         };
@@ -47,10 +51,13 @@ impl HttpExecutor for HttpHandlerExecutor {
 
         let resp = match HandlerType::from_exports(instance.exports(&mut store)) {
             Some(HandlerType::Wasi) => {
-                Self::execute_wasi(store, instance, base, raw_route, req, client_addr).await?
+                Self::execute_wasi(store, instance, base, raw_route, req, client_addr)
+                    .with_current_subscriber()
+                    .await?
             }
             Some(HandlerType::Spin) => {
                 Self::execute_spin(store, instance, base, raw_route, req, client_addr)
+                    .with_current_subscriber()
                     .await
                     .map_err(contextualise_err)?
             }
@@ -87,7 +94,12 @@ impl HttpHandlerExecutor {
             .typed_func::<(http_types::Request,), (http_types::Response,)>("handle-request")?;
 
         let (parts, body) = req.into_parts();
-        let bytes = body.collect().await?.to_bytes().to_vec();
+        let bytes = body
+            .collect()
+            .with_current_subscriber()
+            .await?
+            .to_bytes()
+            .to_vec();
 
         let method = if let Some(method) = Self::method(&parts.method) {
             method
@@ -115,7 +127,10 @@ impl HttpHandlerExecutor {
             body: Some(bytes),
         };
 
-        let (resp,) = func.call_async(&mut store, (req,)).await?;
+        let (resp,) = func
+            .call_async(&mut store, (req,))
+            .with_current_subscriber()
+            .await?;
 
         if resp.status < 100 || resp.status > 600 {
             tracing::error!("malformed HTTP status code");
@@ -210,41 +225,53 @@ impl HttpHandlerExecutor {
             None => Handler::Latest(Proxy::new(&mut store, &instance)?),
         };
 
-        let handle = task::spawn(async move {
-            let result = match handler {
-                Handler::Latest(proxy) => {
-                    proxy
-                        .wasi_http_incoming_handler()
-                        .call_handle(&mut store, request, response)
-                        .await
-                }
-                Handler::Handler2023_10_18(proxy) => {
-                    proxy.call_handle(&mut store, request, response).await
-                }
-                Handler::Handler2023_11_10(proxy) => {
-                    proxy.call_handle(&mut store, request, response).await
-                }
-            };
+        let handle = task::spawn(
+            async move {
+                let result = match handler {
+                    Handler::Latest(proxy) => {
+                        proxy
+                            .wasi_http_incoming_handler()
+                            .call_handle(&mut store, request, response)
+                            .with_current_subscriber()
+                            .await
+                    }
+                    Handler::Handler2023_10_18(proxy) => {
+                        proxy
+                            .call_handle(&mut store, request, response)
+                            .with_current_subscriber()
+                            .await
+                    }
+                    Handler::Handler2023_11_10(proxy) => {
+                        proxy
+                            .call_handle(&mut store, request, response)
+                            .with_current_subscriber()
+                            .await
+                    }
+                };
 
-            tracing::trace!(
-                "wasi-http memory consumed: {}",
-                store.as_ref().data().memory_consumed()
-            );
+                tracing::trace!(
+                    "wasi-http memory consumed: {}",
+                    store.as_ref().data().memory_consumed()
+                );
 
-            result
-        });
+                result
+            }
+            .with_current_subscriber(),
+        );
 
-        match response_rx.await {
+        match response_rx.with_current_subscriber().await {
             Ok(response) => {
                 task::spawn(
                     async move {
                         handle
+                            .with_current_subscriber()
                             .await
                             .context("guest invocation panicked")?
                             .context("guest invocation failed")?;
 
                         Ok(())
                     }
+                    .with_current_subscriber()
                     .map_err(|e: anyhow::Error| {
                         tracing::warn!("component error after response: {e:?}");
                     }),
@@ -255,6 +282,7 @@ impl HttpHandlerExecutor {
 
             Err(_) => {
                 handle
+                    .with_current_subscriber()
                     .await
                     .context("guest invocation panicked")?
                     .context("guest invocation failed")?;

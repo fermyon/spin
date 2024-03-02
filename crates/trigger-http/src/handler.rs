@@ -38,6 +38,9 @@ impl HttpExecutor for HttpHandlerExecutor {
             component_id
         );
 
+        let span = tracing::info_span!("execute_wasm", "otel.kind" = "server");
+        let _enter = span.enter();
+
         let (instance, mut store) = engine.prepare_instance(component_id).await?;
         let EitherInstance::Component(instance) = instance else {
             unreachable!()

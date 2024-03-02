@@ -1,11 +1,26 @@
-use tracing::Level;
+use std::io::IsTerminal;
+
+use opentelemetry::sdk::trace::Tracer;
+use std::sync::OnceLock;
+use tracing::{info, level_filters::LevelFilter};
 use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::{filter::Targets, prelude::*};
+use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::{
+    filter::Filtered,
+    prelude::*,
+    reload::{self, Handle},
+    Registry,
+};
+use url::Url;
 
 mod metrics;
 mod traces;
 
 pub use traces::handle_request;
+
+static OTEL_LAYER_WACKY_REHANDLE_THING: OnceLock<
+    Handle<Option<Filtered<OpenTelemetryLayer<Registry, Tracer>, LevelFilter, Registry>>, Registry>,
+> = OnceLock::new();
 
 // TODO: Remove concept of service description
 
@@ -28,24 +43,48 @@ impl ServiceDescription {
 ///
 /// Sets the open telemetry pipeline as the default tracing subscriber
 pub fn init(
-    service: ServiceDescription,
-    otel_endpoint: Option<impl Into<String>>,
+    _service: ServiceDescription,
+    _otel_endpoint: Option<impl Into<String>>,
 ) -> anyhow::Result<ShutdownGuard> {
-    let otel_tracing_layer = match otel_endpoint {
-        Some(endpoint) => {
-            let endpoint = endpoint.into();
-            metrics::init_otel(endpoint.clone())?;
-            Some(traces::otel_tracing_layer(service, endpoint)?)
-        }
-        None => None,
-    };
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_writer(std::io::stderr)
+        .with_ansi(std::io::stderr().is_terminal())
+        .with_filter(
+            tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive("wasmtime_wasi_http=warn".parse()?)
+                .add_directive("watchexec=off".parse()?),
+        );
+
+    let (telemetry_layer, reload_handle) = reload::Layer::new(None);
 
     tracing_subscriber::registry()
-        .with(otel_tracing_layer)
-        .with(chatty_crates_filter())
+        .with(telemetry_layer)
+        .with(fmt_layer)
         .init();
 
+    let r = OTEL_LAYER_WACKY_REHANDLE_THING.set(reload_handle);
+
+    r.is_err().then(|| {
+        info!("stuff blew up");
+
+        // return error
+        anyhow::anyhow!("stuff blew up")
+    });
+
     Ok(ShutdownGuard(None))
+}
+
+pub fn reload(service: ServiceDescription, endpoint: Url) {
+    let endpoint = endpoint.to_string();
+    let otel_tracing_layer = Some(traces::otel_tracing_layer(service, endpoint).expect("todo"));
+
+    OTEL_LAYER_WACKY_REHANDLE_THING
+        .get()
+        .unwrap()
+        .reload(otel_tracing_layer)
+        .expect("this to not fail todo fix");
+
+    info!("reloaded tracing layer");
 }
 
 /// An RAII implementation for connection to open telemetry services.
@@ -59,10 +98,4 @@ impl Drop for ShutdownGuard {
         // Give tracer provider a chance to flush any pending traces.
         opentelemetry::global::shutdown_tracer_provider();
     }
-}
-
-fn chatty_crates_filter() -> Targets {
-    Targets::new()
-        .with_target("sqlx", Level::WARN)
-        .with_default(Level::TRACE)
 }

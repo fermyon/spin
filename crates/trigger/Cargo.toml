@@ -48,6 +48,7 @@ spin-core = { path = "../core" }
 spin-loader = { path = "../loader" }
 spin-manifest = { path = "../manifest" }
 spin-variables = { path = "../variables" }
+spin-telemetry = { path = "../telemetry" }
 terminal = { path = "../terminal" }
 tokio = { version = "1.23", features = ["fs"] }
 toml = "0.5.9"

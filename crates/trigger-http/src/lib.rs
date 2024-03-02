@@ -38,7 +38,7 @@ use tokio::{
     net::TcpListener,
     task,
 };
-use tracing::{instrument::WithSubscriber, log};
+use tracing::log;
 use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
 use crate::{handler::HttpHandlerExecutor, wagi::WagiHttpExecutor};
@@ -161,11 +161,9 @@ impl TriggerExecutor for HttpTrigger {
         }
 
         if let Some(tls) = tls {
-            self.serve_tls(listen_addr, tls)
-                .with_current_subscriber()
-                .await?
+            self.serve_tls(listen_addr, tls).await?
         } else {
-            self.serve(listen_addr).with_current_subscriber().await?
+            self.serve(listen_addr).await?
         };
         Ok(())
     }
@@ -176,18 +174,12 @@ impl TriggerExecutor for HttpTrigger {
         config: &Self::TriggerConfig,
     ) -> Result<EitherInstancePre<Self::RuntimeData>> {
         if let Some(HttpExecutorType::Wagi(_)) = &config.executor {
-            let module = component
-                .load_module(engine)
-                .with_current_subscriber()
-                .await?;
+            let module = component.load_module(engine).await?;
             Ok(EitherInstancePre::Module(
                 engine.module_instantiate_pre(&module)?,
             ))
         } else {
-            let comp = component
-                .load_component(engine)
-                .with_current_subscriber()
-                .await?;
+            let comp = component.load_component(engine).await?;
             Ok(EitherInstancePre::Component(engine.instantiate_pre(&comp)?))
         }
     }
@@ -241,7 +233,6 @@ impl HttpTrigger {
                                 req,
                                 addr,
                             )
-                            .with_current_subscriber()
                             .await
                     }
                     HttpExecutorType::Wagi(wagi_config) => {
@@ -257,7 +248,6 @@ impl HttpTrigger {
                                 req,
                                 addr,
                             )
-                            .with_current_subscriber()
                             .await
                     }
                 };
@@ -306,49 +296,43 @@ impl HttpTrigger {
         stream: S,
         addr: SocketAddr,
     ) {
-        task::spawn(
-            async move {
-                if let Err(e) = http1::Builder::new()
-                    .keep_alive(true)
-                    .serve_connection(
-                        TokioIo::new(stream),
-                        service_fn(move |request| {
-                            let self_ = self_.clone();
-                            async move {
-                                self_
-                                    .handle(
-                                        request.map(|body: Incoming| {
-                                            body.map_err(wasmtime_wasi_http::hyper_response_error)
-                                                .boxed()
-                                        }),
-                                        Scheme::HTTP,
-                                        addr,
-                                    )
-                                    .with_current_subscriber()
-                                    .await
-                            }
-                        }),
-                    )
-                    .with_current_subscriber()
-                    .await
-                {
-                    log::warn!("{e:?}");
-                }
+        task::spawn(async move {
+            if let Err(e) = http1::Builder::new()
+                .keep_alive(true)
+                .serve_connection(
+                    TokioIo::new(stream),
+                    service_fn(move |request| {
+                        let self_ = self_.clone();
+                        async move {
+                            self_
+                                .handle(
+                                    request.map(|body: Incoming| {
+                                        body.map_err(wasmtime_wasi_http::hyper_response_error)
+                                            .boxed()
+                                    }),
+                                    Scheme::HTTP,
+                                    addr,
+                                )
+                                .await
+                        }
+                    }),
+                )
+                .await
+            {
+                log::warn!("{e:?}");
             }
-            .with_current_subscriber(),
-        );
+        });
     }
 
     async fn serve(self, listen_addr: SocketAddr) -> Result<()> {
         let self_ = Arc::new(self);
 
         let listener = TcpListener::bind(listen_addr)
-            .with_current_subscriber()
             .await
             .with_context(|| format!("Unable to listen on {}", listen_addr))?;
 
         loop {
-            let (stream, addr) = listener.accept().with_current_subscriber().await?;
+            let (stream, addr) = listener.accept().await?;
             Self::serve_connection(self_.clone(), stream, addr);
         }
     }
@@ -357,15 +341,14 @@ impl HttpTrigger {
         let self_ = Arc::new(self);
 
         let listener = TcpListener::bind(listen_addr)
-            .with_current_subscriber()
             .await
             .with_context(|| format!("Unable to listen on {}", listen_addr))?;
 
         let acceptor = tls.server_config()?;
 
         loop {
-            let (stream, addr) = listener.accept().with_current_subscriber().await?;
-            match acceptor.accept(stream).with_current_subscriber().await {
+            let (stream, addr) = listener.accept().await?;
+            match acceptor.accept(stream).await {
                 Ok(stream) => Self::serve_connection(self_.clone(), stream, addr),
                 Err(err) => tracing::error!(?err, "Failed to start TLS session"),
             }

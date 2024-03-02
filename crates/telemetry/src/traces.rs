@@ -1,11 +1,15 @@
 use opentelemetry::{
     propagation::{Extractor, TextMapPropagator},
-    sdk::{propagation::TraceContextPropagator, trace, Resource},
+    sdk::{
+        propagation::TraceContextPropagator,
+        trace::{self, Tracer},
+        Resource,
+    },
 };
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_semantic_conventions::resource::{SERVICE_NAME, SERVICE_VERSION};
 use tracing::metadata::LevelFilter;
-use tracing_opentelemetry::OpenTelemetrySpanExt;
+use tracing_opentelemetry::{OpenTelemetryLayer, OpenTelemetrySpanExt};
 use tracing_subscriber::{Layer, Registry};
 
 use super::ServiceDescription;
@@ -19,7 +23,13 @@ pub fn handle_request<'a>(req: impl Into<RequestExtractor<'a>>) {
 pub(crate) fn otel_tracing_layer(
     service: ServiceDescription,
     endpoint: String,
-) -> anyhow::Result<impl Layer<Registry>> {
+) -> anyhow::Result<
+    tracing_subscriber::filter::Filtered<
+        OpenTelemetryLayer<Registry, Tracer>,
+        LevelFilter,
+        Registry,
+    >,
+> {
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
     let mut service_metadata = vec![SERVICE_NAME.string(service.name)];

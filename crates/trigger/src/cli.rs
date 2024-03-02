@@ -5,12 +5,10 @@ use clap::{Args, IntoApp, Parser};
 use serde::de::DeserializeOwned;
 use spin_app::Loader;
 use spin_common::{arg_parser::parse_kv, sloth};
-use tracing::instrument::WithSubscriber;
 
 use crate::network::Network;
 use crate::runtime_config::llm::LLmOptions;
 use crate::runtime_config::sqlite::SqlitePersistenceMessageHook;
-use crate::runtime_config::telemetry::set_subscriber;
 use crate::stdio::StdioLoggingTriggerHooks;
 use crate::{
     loader::TriggerLoader,
@@ -163,7 +161,10 @@ where
         }
 
         let runtime_config = self.build_runtime_config()?;
-        let _subscriber_guard = set_subscriber(&runtime_config);
+        spin_telemetry::reload(
+            spin_telemetry::ServiceDescription::new("spin", Some("v1")),
+            url::Url::parse("http://localhost:4317")?,
+        );
 
         // Required env vars
         let working_dir = std::env::var(SPIN_WORKING_DIR).context(SPIN_WORKING_DIR)?;
@@ -178,14 +179,13 @@ where
         let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
         let executor = self
             .build_executor(loader, locked_url, init_data, runtime_config)
-            .with_current_subscriber()
             .await?;
 
-        let run_fut = executor.run(self.run_config).with_current_subscriber();
+        let run_fut = executor.run(self.run_config);
 
         let (abortable, abort_handle) = futures::future::abortable(run_fut);
         ctrlc::set_handler(move || abort_handle.abort())?;
-        match abortable.with_current_subscriber().await {
+        match abortable.await {
             Ok(Ok(())) => {
                 tracing::info!("Trigger executor shut down: exiting");
                 Ok(())

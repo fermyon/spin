@@ -6,7 +6,7 @@ use opentelemetry_otlp::{ExportConfig, Protocol, WithExportConfig};
 use std::time::Duration;
 
 /// Initialize the OpenTelemetry metrics pipeline
-pub(crate) fn init_otel(endpoint: String) -> anyhow::Result<()> {
+pub(crate) fn _init_otel(endpoint: String) -> anyhow::Result<()> {
     let export_config = ExportConfig {
         endpoint,
         timeout: Duration::from_secs(3),

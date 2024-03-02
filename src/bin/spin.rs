@@ -1,6 +1,5 @@
 use anyhow::Error;
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
-use is_terminal::IsTerminal;
 use lazy_static::lazy_static;
 use spin_cli::commands::external::predefined_externals;
 use spin_cli::commands::{
@@ -20,10 +19,6 @@ use spin_trigger::cli::help::HelpArgsOnlyTrigger;
 use spin_trigger::cli::TriggerExecutorCommand;
 use spin_trigger_http::HttpTrigger;
 use spin_trigger_redis::RedisTrigger;
-use tracing_subscriber::fmt::Layer;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::{fmt, EnvFilter, Registry};
-use tracing_subscriber::{prelude::*, reload};
 
 #[tokio::main]
 async fn main() {
@@ -46,15 +41,10 @@ async fn main() {
 }
 
 async fn _main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("wasmtime_wasi_http=warn".parse()?)
-                .add_directive("watchexec=off".parse()?),
-        )
-        .with_ansi(std::io::stderr().is_terminal())
-        .init();
+    let _telemetry_guard = spin_telemetry::init(
+        spin_telemetry::ServiceDescription::new("spin", Some("v1")),
+        "http://localhost:4317".into(),
+    )?;
 
     let plugin_help_entries = plugin_help_entries();
 

@@ -6,10 +6,12 @@ use tracing::{info, level_filters::LevelFilter};
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{
-    filter::Filtered,
+    filter::{FilterFn, Filtered},
+    fmt,
     prelude::*,
+    registry,
     reload::{self, Handle},
-    Registry,
+    EnvFilter, Registry,
 };
 use url::Url;
 
@@ -46,21 +48,18 @@ pub fn init(
     _service: ServiceDescription,
     _otel_endpoint: Option<impl Into<String>>,
 ) -> anyhow::Result<ShutdownGuard> {
-    let fmt_layer = tracing_subscriber::fmt::layer()
+    let fmt_layer = fmt::layer()
         .with_writer(std::io::stderr)
         .with_ansi(std::io::stderr().is_terminal())
         .with_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
+            EnvFilter::from_default_env()
                 .add_directive("wasmtime_wasi_http=warn".parse()?)
                 .add_directive("watchexec=off".parse()?),
         );
 
     let (telemetry_layer, reload_handle) = reload::Layer::new(None);
 
-    tracing_subscriber::registry()
-        .with(telemetry_layer)
-        .with(fmt_layer)
-        .init();
+    registry().with(telemetry_layer).with(fmt_layer).init();
 
     let r = OTEL_LAYER_WACKY_REHANDLE_THING.set(reload_handle);
 

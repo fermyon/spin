@@ -143,6 +143,7 @@ impl SchemeConfig {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum HostConfig {
     Any,
+    AnySubdomain(String),
     ToSelf,
     List(Vec<String>),
     Cidr(ipnet::IpNet),
@@ -172,12 +173,24 @@ impl HostConfig {
             bail!("hosts must not contain paths");
         }
 
+        if let Some(domain) = host.strip_prefix("*.") {
+            if domain.contains('*') {
+                bail!("Invalid allowed host {host}: wildcards are allowed only as prefixes");
+            }
+            return Ok(Self::AnySubdomain(format!(".{domain}")));
+        }
+
+        if host.contains('*') {
+            bail!("Invalid allowed host {host}: wildcards are allowed only as subdomains");
+        }
+
         Ok(Self::List(vec![host.into()]))
     }
 
     fn allows(&self, host: &str) -> bool {
         match self {
             HostConfig::Any => true,
+            HostConfig::AnySubdomain(suffix) => host.ends_with(suffix),
             HostConfig::List(l) => l.iter().any(|h| h.as_str() == host),
             HostConfig::ToSelf => false,
             HostConfig::Cidr(c) => {
@@ -399,6 +412,9 @@ mod test {
         fn new(host: &str) -> Self {
             Self::List(vec![host.into()])
         }
+        fn subdomain(domain: &str) -> Self {
+            Self::AnySubdomain(format!(".{domain}"))
+        }
     }
 
     impl PortConfig {
@@ -511,6 +527,18 @@ mod test {
     }
 
     #[test]
+    fn test_allowed_hosts_accepts_subdomain_wildcards() {
+        assert_eq!(
+            AllowedHostConfig::new(
+                SchemeConfig::new("http"),
+                HostConfig::subdomain("example.com"),
+                PortConfig::new(80)
+            ),
+            AllowedHostConfig::parse("http://*.example.com").unwrap()
+        );
+    }
+
+    #[test]
     fn test_allowed_hosts_accepts_ip_addresses() {
         assert_eq!(
             AllowedHostConfig::new(
@@ -569,6 +597,7 @@ mod test {
     fn test_allowed_hosts_rejects_path() {
         assert!(AllowedHostConfig::parse("http://spin.fermyon.dev/a").is_err());
         assert!(AllowedHostConfig::parse("http://spin.fermyon.dev:6666/a/b").is_err());
+        assert!(AllowedHostConfig::parse("http://*.fermyon.dev/a").is_err());
     }
 
     #[test]
@@ -598,6 +627,29 @@ mod test {
         assert!(!allowed.allows(&OutboundUrl::parse("http://google.com/", "http").unwrap()));
         assert!(allowed.allows(&OutboundUrl::parse("spin.fermyon.dev:443", "https").unwrap()));
         assert!(allowed.allows(&OutboundUrl::parse("example.com:8383", "http").unwrap()));
+    }
+
+    #[test]
+    fn test_allowed_hosts_can_be_subdomain_wildcards() {
+        let allowed =
+            AllowedHostsConfig::parse(&["http://*.example.com", "http://*.example2.com:8383"])
+                .unwrap();
+        assert!(
+            allowed.allows(&OutboundUrl::parse("http://a.example.com/foo/bar", "http").unwrap())
+        );
+        assert!(
+            allowed.allows(&OutboundUrl::parse("http://a.b.example.com/foo/bar", "http").unwrap())
+        );
+        assert!(allowed
+            .allows(&OutboundUrl::parse("http://a.b.example2.com:8383/foo/bar", "http").unwrap()));
+        assert!(!allowed
+            .allows(&OutboundUrl::parse("http://a.b.example2.com/foo/bar", "http").unwrap()));
+        assert!(!allowed.allows(&OutboundUrl::parse("http://example.com/foo/bar", "http").unwrap()));
+        assert!(!allowed
+            .allows(&OutboundUrl::parse("http://example.com:8383/foo/bar", "http").unwrap()));
+        assert!(
+            !allowed.allows(&OutboundUrl::parse("http://myexample.com/foo/bar", "http").unwrap())
+        );
     }
 
     #[test]

@@ -23,6 +23,7 @@ impl TriggerHooks for Network {
                             spin_outbound_networking::HostConfig::Any => {
                                 store_builder.inherit_limited_network()
                             }
+                            spin_outbound_networking::HostConfig::AnySubdomain(_) => continue,
                             spin_outbound_networking::HostConfig::ToSelf => {}
                             spin_outbound_networking::HostConfig::List(hosts) => {
                                 for host in hosts {

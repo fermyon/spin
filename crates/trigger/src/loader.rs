@@ -113,3 +113,49 @@ impl Loader for TriggerLoader {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use spin_app::locked::ContentRef;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    fn precompiled_component(file: &mut NamedTempFile) -> LockedComponentSource {
+        let wasmtime_engine = wasmtime::Engine::default();
+        let component = wasmtime::component::Component::new(&wasmtime_engine, "(component)")
+            .unwrap()
+            .serialize()
+            .unwrap();
+        let file_uri = format!("file://{}", file.path().to_str().unwrap());
+        file.write_all(&component).unwrap();
+        LockedComponentSource {
+            content: ContentRef {
+                source: Some(file_uri),
+                ..Default::default()
+            },
+            content_type: "application/wasm".to_string(),
+        }
+    }
+    #[tokio::test]
+    async fn load_component_succeeds_for_precompiled_component() {
+        let mut file = NamedTempFile::new().unwrap();
+        let source = precompiled_component(&mut file);
+        let loader = super::TriggerLoader::new("/unreferenced", false, true);
+        loader
+            .load_component(&spin_core::wasmtime::Engine::default(), &source)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn load_component_fails_for_precompiled_component() {
+        let mut file = NamedTempFile::new().unwrap();
+        let source = precompiled_component(&mut file);
+        let loader = super::TriggerLoader::new("/unreferenced", false, false);
+        let result = loader
+            .load_component(&spin_core::wasmtime::Engine::default(), &source)
+            .await;
+        assert!(result.is_err());
+    }
+}

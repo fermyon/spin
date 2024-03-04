@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
 use spin_app::{
     locked::{LockedApp, LockedComponentSource},
@@ -10,13 +10,13 @@ use spin_core::StoreBuilder;
 use tokio::fs;
 
 use spin_common::{ui::quoted_path, url::parse_file_url};
-use wasmtime::Precompiled;
 
 /// Compilation status of all components of a Spin application
 pub enum CompilationStatus {
-    /// All components are componentized and ahead of time (AOT) compiled to cwasm
+    #[cfg(feature = "aot-compilation")]
+    /// All components are componentized and ahead of time (AOT) compiled to cwasm.
     AllAotComponents,
-    /// No components are precompiled
+    /// No components are ahead of time (AOT) compiled.
     NoneAot,
 }
 
@@ -26,21 +26,31 @@ pub struct TriggerLoader {
     working_dir: PathBuf,
     /// Set the static assets of the components in the temporary directory as writable.
     allow_transient_write: bool,
-    /// Declares the compilation status of all components of a Spin application
+    /// Declares the compilation status of all components of a Spin application.
     compilation_status: CompilationStatus,
 }
 
 impl TriggerLoader {
-    pub fn new(
-        working_dir: impl Into<PathBuf>,
-        allow_transient_write: bool,
-        compilation_status: CompilationStatus,
-    ) -> Self {
+    pub fn new(working_dir: impl Into<PathBuf>, allow_transient_write: bool) -> Self {
         Self {
             working_dir: working_dir.into(),
             allow_transient_write,
-            compilation_status,
+            compilation_status: CompilationStatus::NoneAot,
         }
+    }
+
+    /// Updates the TriggerLoader to load AOT compiled components.
+    ///
+    /// # Safety
+    /// This enables using the unsafe Wasmtime `Component::deserialize` method.
+    /// The method is safe for any Wasmtime precompiled content (components
+    /// serialized with Wasmtime` Component::serialize` or
+    /// `Engine::precompile_module`). It should never be used with untrusted
+    /// input. See the Wasmtime documentation for more information:
+    /// https://docs.rs/wasmtime/latest/wasmtime/component/struct.Component.html#method.deserialize
+    #[cfg(feature = "aot-compilation")]
+    pub unsafe fn enable_loading_aot_compiled_components(&mut self) {
+        self.compilation_status = CompilationStatus::AllAotComponents;
     }
 }
 
@@ -67,25 +77,26 @@ impl Loader for TriggerLoader {
             .context("LockedComponentSource missing source field")?;
         let path = parse_file_url(source)?;
         match self.compilation_status {
+            #[cfg(feature = "aot-compilation")]
             CompilationStatus::AllAotComponents => {
                 match engine.detect_precompiled_file(&path)?{
-                    Some(Precompiled::Component) => {
+                    Some(wasmtime::Precompiled::Component) => {
                         unsafe {
                             spin_core::Component::deserialize_file(engine, &path)
                                 .with_context(|| format!("deserializing module {}", quoted_path(&path)))
                         }
                     },
-                    Some(Precompiled::Module) => bail!("Spin loader is configured to load only AOT compiled components but an AOT compiled module provided at {:?}", &path),
+                    Some(wasmtime::Precompiled::Module) => anyhow::bail!("Spin loader is configured to load only AOT compiled components but an AOT compiled module provided at {}", quoted_path(&path)),
                     None => {
-                        bail!("Spin loader is configured to load only AOT compiled components, but {:?} is not precompiled", &path)
+                        anyhow::bail!("Spin loader is configured to load only AOT compiled components, but {} is not precompiled", quoted_path(&path))
                     }
                 }
             },
             CompilationStatus::NoneAot => {
                 let bytes = fs::read(&path).await.with_context(|| {
                 format!(
-                    "failed to read component source from disk at path '{}'",
-                    path.display()
+                    "failed to read component source from disk at path {}",
+                    quoted_path(&path)
                 )
             })?;
             let component = spin_componentize::componentize_if_necessary(&bytes)?;
@@ -161,12 +172,16 @@ mod tests {
             content_type: "application/wasm".to_string(),
         }
     }
+
+    #[cfg(feature = "aot-compilation")]
     #[tokio::test]
     async fn load_component_succeeds_for_precompiled_component() {
         let mut file = NamedTempFile::new().unwrap();
         let source = precompiled_component(&mut file);
-        let loader =
-            super::TriggerLoader::new("/unreferenced", false, CompilationStatus::AllAotComponents);
+        let mut loader = super::TriggerLoader::new("/unreferenced", false);
+        unsafe {
+            loader.enable_loading_aot_compiled_components();
+        }
         loader
             .load_component(&spin_core::wasmtime::Engine::default(), &source)
             .await
@@ -177,7 +192,7 @@ mod tests {
     async fn load_component_fails_for_precompiled_component() {
         let mut file = NamedTempFile::new().unwrap();
         let source = precompiled_component(&mut file);
-        let loader = super::TriggerLoader::new("/unreferenced", false, CompilationStatus::NoneAot);
+        let loader = super::TriggerLoader::new("/unreferenced", false);
         let result = loader
             .load_component(&spin_core::wasmtime::Engine::default(), &source)
             .await;

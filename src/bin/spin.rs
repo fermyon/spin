@@ -15,6 +15,7 @@ use spin_cli::commands::{
     watch::WatchCommand,
 };
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
+use spin_telemetry::ServiceDescription;
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
 use spin_trigger::cli::TriggerExecutorCommand;
 use spin_trigger_http::HttpTrigger;
@@ -41,7 +42,8 @@ async fn main() {
 }
 
 async fn _main() -> anyhow::Result<()> {
-    let _telemetry_guard = spin_telemetry::init_globally()?;
+    let _telemetry_guard =
+        spin_telemetry::init_globally(ServiceDescription::new("spin", VERSION.to_string()))?;
 
     let plugin_help_entries = plugin_help_entries();
 

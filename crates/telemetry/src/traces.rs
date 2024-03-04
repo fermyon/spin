@@ -32,10 +32,10 @@ pub(crate) fn otel_tracing_layer(
 > {
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
-    let mut service_metadata = vec![SERVICE_NAME.string(service.name)];
-    if let Some(version) = service.version {
-        service_metadata.push(SERVICE_VERSION.string(version));
-    }
+    let service_metadata = vec![
+        SERVICE_NAME.string(service.name),
+        SERVICE_VERSION.string(service.version),
+    ];
 
     let tracer = opentelemetry_otlp::new_pipeline()
         .tracing()

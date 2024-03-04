@@ -24,20 +24,20 @@ type TelemetryLayer = Filtered<OpenTelemetryLayer<Registry, Tracer>, LevelFilter
 
 static GLOBAL_TELEMETRY_LAYER_RELOAD_HANDLE: OnceLock<Handle<Option<TelemetryLayer>, Registry>> =
     OnceLock::new();
-
-// TODO: Remove concept of service description
+static GLOBAL_SERVICE_DESCRIPTION: OnceLock<ServiceDescription> = OnceLock::new();
 
 /// Description of the service for which telemetry is being collected
+#[derive(Clone)]
 pub struct ServiceDescription {
     name: String,
-    version: Option<String>,
+    version: String,
 }
 
 impl ServiceDescription {
-    pub fn new<S1: Into<String>, S2: Into<String>>(name: S1, version: Option<S2>) -> Self {
+    pub fn new<S1: Into<String>, S2: Into<String>>(name: S1, version: S2) -> Self {
         Self {
             name: name.into(),
-            version: version.map(|s| s.into()),
+            version: version.into(),
         }
     }
 }
@@ -45,7 +45,14 @@ impl ServiceDescription {
 /// TODO
 ///
 /// Sets the open telemetry pipeline as the default tracing subscriber
-pub fn init_globally() -> anyhow::Result<ShutdownGuard> {
+pub fn init_globally(service: ServiceDescription) -> anyhow::Result<ShutdownGuard> {
+    // Globally set the service description
+    let result = GLOBAL_SERVICE_DESCRIPTION.set(service);
+    if result.is_err() {
+        return Err(anyhow::anyhow!("failed to set global service description",));
+    }
+
+    // TODO: comment
     let fmt_layer = fmt::layer()
         .with_writer(std::io::stderr)
         .with_ansi(std::io::stderr().is_terminal())
@@ -55,10 +62,10 @@ pub fn init_globally() -> anyhow::Result<ShutdownGuard> {
                 .add_directive("watchexec=off".parse()?),
         );
 
+    // TODO: comment
     let (telemetry_layer, reload_handle) = reload::Layer::new(None);
 
-    registry().with(telemetry_layer).with(fmt_layer).init();
-
+    // TODO: comment
     let result = GLOBAL_TELEMETRY_LAYER_RELOAD_HANDLE.set(reload_handle);
     if result.is_err() {
         return Err(anyhow::anyhow!(
@@ -66,13 +73,16 @@ pub fn init_globally() -> anyhow::Result<ShutdownGuard> {
         ));
     }
 
+    // TODO: comment
+    registry().with(telemetry_layer).with(fmt_layer).init();
+
     Ok(ShutdownGuard(None))
 }
 
 /// TODO
-pub fn reload_globally(service: ServiceDescription, endpoint: Url, traces: bool, metrics: bool) {
+pub fn reload_globally(endpoint: Url, traces: bool, metrics: bool) {
     if traces {
-        if let Err(error) = reload_telemetry_layer(service, endpoint) {
+        if let Err(error) = reload_telemetry_layer(endpoint) {
             tracing::error!("failed to load otlp telemetry: {}", error);
         }
     }
@@ -82,8 +92,12 @@ pub fn reload_globally(service: ServiceDescription, endpoint: Url, traces: bool,
 }
 
 /// TODO
-fn reload_telemetry_layer(service: ServiceDescription, endpoint: Url) -> anyhow::Result<()> {
-    let otel_tracing_layer = Some(traces::otel_tracing_layer(service, endpoint.to_string())?);
+fn reload_telemetry_layer(endpoint: Url) -> anyhow::Result<()> {
+    let service = GLOBAL_SERVICE_DESCRIPTION.get().unwrap();
+    let otel_tracing_layer = Some(traces::otel_tracing_layer(
+        service.clone(),
+        endpoint.to_string(),
+    )?);
 
     GLOBAL_TELEMETRY_LAYER_RELOAD_HANDLE
         .get()

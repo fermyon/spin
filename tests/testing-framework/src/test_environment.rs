@@ -218,11 +218,7 @@ impl TestEnvironmentConfig<InProcessSpin> {
                         let json = locked_app.to_json()?;
                         std::fs::write(env.path().join("locked.json"), json)?;
 
-                        let loader = TriggerLoader::new(
-                            env.path().join(".working_dir"),
-                            false,
-                            spin_trigger::loader::CompilationStatus::NoneAot,
-                        );
+                        let loader = TriggerLoader::new(env.path().join(".working_dir"), false);
                         let mut builder = TriggerExecutorBuilder::<HttpTrigger>::new(loader);
                         // TODO(rylev): see if we can reuse the builder from spin_trigger instead of duplicating it here
                         builder.hooks(spin_trigger::network::Network);

@@ -1,6 +1,15 @@
+use serde::Deserialize;
 use url::Url;
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TelemetryOpts {
+    Otlp(OtlpOpts),
+}
+
+#[derive(Debug, Deserialize)]
 pub struct OtlpOpts {
-    _endpoint: Url,
+    pub endpoint: Url,
+    pub traces: bool,
+    pub metrics: bool,
 }

@@ -217,7 +217,7 @@ pub struct RuntimeConfigOpts {
     pub sqlite_databases: HashMap<String, SqliteDatabaseOpts>,
 
     #[serde(default)]
-    pub otlp_stuff: Option<telemetry::OtlpOpts>,
+    pub telemetry: Option<telemetry::TelemetryOpts>,
 
     #[serde(skip)]
     pub file_path: Option<PathBuf>,

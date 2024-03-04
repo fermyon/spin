@@ -41,10 +41,7 @@ async fn main() {
 }
 
 async fn _main() -> anyhow::Result<()> {
-    let _telemetry_guard = spin_telemetry::init(
-        spin_telemetry::ServiceDescription::new("spin", Some("v1")),
-        "http://localhost:4317".into(),
-    )?;
+    let _telemetry_guard = spin_telemetry::init_globally()?;
 
     let plugin_help_entries = plugin_help_entries();
 

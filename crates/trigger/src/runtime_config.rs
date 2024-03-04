@@ -184,6 +184,11 @@ impl RuntimeConfig {
         }
     }
 
+    // Return the telemetry config if set.
+    pub fn telemetry(&self) -> Option<&telemetry::TelemetryOpts> {
+        self.find_opt(|opts| &opts.telemetry)
+    }
+
     /// Returns an iterator of RuntimeConfigOpts in order of decreasing precedence
     fn opts_layers(&self) -> impl Iterator<Item = &RuntimeConfigOpts> {
         std::iter::once(&self.overrides).chain(self.files.iter().rev())

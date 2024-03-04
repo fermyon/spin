@@ -2,11 +2,11 @@ use std::io::IsTerminal;
 
 use opentelemetry::sdk::trace::Tracer;
 use std::sync::OnceLock;
-use tracing::{info, level_filters::LevelFilter};
+use tracing::level_filters::LevelFilter;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{
-    filter::{FilterFn, Filtered},
+    filter::Filtered,
     fmt,
     prelude::*,
     registry,
@@ -20,9 +20,10 @@ mod traces;
 
 pub use traces::handle_request;
 
-static OTEL_LAYER_WACKY_REHANDLE_THING: OnceLock<
-    Handle<Option<Filtered<OpenTelemetryLayer<Registry, Tracer>, LevelFilter, Registry>>, Registry>,
-> = OnceLock::new();
+type TelemetryLayer = Filtered<OpenTelemetryLayer<Registry, Tracer>, LevelFilter, Registry>;
+
+static GLOBAL_TELEMETRY_LAYER_RELOAD_HANDLE: OnceLock<Handle<Option<TelemetryLayer>, Registry>> =
+    OnceLock::new();
 
 // TODO: Remove concept of service description
 
@@ -41,13 +42,10 @@ impl ServiceDescription {
     }
 }
 
-/// Initialize open telemetry
+/// TODO
 ///
 /// Sets the open telemetry pipeline as the default tracing subscriber
-pub fn init(
-    _service: ServiceDescription,
-    _otel_endpoint: Option<impl Into<String>>,
-) -> anyhow::Result<ShutdownGuard> {
+pub fn init_globally() -> anyhow::Result<ShutdownGuard> {
     let fmt_layer = fmt::layer()
         .with_writer(std::io::stderr)
         .with_ansi(std::io::stderr().is_terminal())
@@ -61,29 +59,37 @@ pub fn init(
 
     registry().with(telemetry_layer).with(fmt_layer).init();
 
-    let r = OTEL_LAYER_WACKY_REHANDLE_THING.set(reload_handle);
-
-    r.is_err().then(|| {
-        info!("stuff blew up");
-
-        // return error
-        anyhow::anyhow!("stuff blew up")
-    });
+    let result = GLOBAL_TELEMETRY_LAYER_RELOAD_HANDLE.set(reload_handle);
+    if result.is_err() {
+        return Err(anyhow::anyhow!(
+            "failed to set global telemetry layer reload handle",
+        ));
+    }
 
     Ok(ShutdownGuard(None))
 }
 
-pub fn reload(service: ServiceDescription, endpoint: Url) {
-    let endpoint = endpoint.to_string();
-    let otel_tracing_layer = Some(traces::otel_tracing_layer(service, endpoint).expect("todo"));
+/// TODO
+pub fn reload_globally(service: ServiceDescription, endpoint: Url, traces: bool, metrics: bool) {
+    if traces {
+        if let Err(error) = reload_telemetry_layer(service, endpoint) {
+            tracing::error!("failed to load otlp telemetry: {}", error);
+        }
+    }
+    if metrics {
+        // TODO: Setup metrics
+    }
+}
 
-    OTEL_LAYER_WACKY_REHANDLE_THING
+/// TODO
+fn reload_telemetry_layer(service: ServiceDescription, endpoint: Url) -> anyhow::Result<()> {
+    let otel_tracing_layer = Some(traces::otel_tracing_layer(service, endpoint.to_string())?);
+
+    GLOBAL_TELEMETRY_LAYER_RELOAD_HANDLE
         .get()
         .unwrap()
         .reload(otel_tracing_layer)
-        .expect("this to not fail todo fix");
-
-    info!("reloaded tracing layer");
+        .map_err(|e| anyhow::anyhow!(e))
 }
 
 /// An RAII implementation for connection to open telemetry services.

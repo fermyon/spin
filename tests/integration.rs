@@ -662,6 +662,47 @@ route = "/..."
         Ok(())
     }
 
+    #[test]
+    fn spin_up_help_build_does_not_build() -> anyhow::Result<()> {
+        let env = testing_framework::TestEnvironment::<()>::boot(
+            &testing_framework::ServicesConfig::none(),
+        )?;
+
+        // We still don't see full help if there are no components.
+        let toml_text = r#"spin_version = "1"
+name = "unbuilt"
+trigger = { type = "http" }
+version = "0.1.0"
+[[component]]
+id = "unbuilt"
+source = "fake.wasm"
+[component.build]
+command = "echo should_not_print"
+[component.trigger]
+route = "/..."
+"#;
+        env.write_file("spin.toml", toml_text)?;
+        env.write_file("fake.wasm", [])?;
+
+        testing_framework::runtimes::spin_cli::SpinCli::start(
+            &spin_binary(),
+            &env,
+            Vec::<String>::new(),
+            SpinAppType::None,
+        )?;
+
+        let mut up = std::process::Command::new(spin_binary());
+        up.args(["up", "--build", "--help"]);
+        let output = env.run_in(&mut up)?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("--quiet"));
+        assert!(stdout.contains("--listen"));
+        assert!(!stdout.contains("should_not_print"));
+
+        Ok(())
+    }
+
     // TODO: Test on Windows
     #[cfg(not(target_os = "windows"))]
     #[test]

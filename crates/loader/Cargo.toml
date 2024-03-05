@@ -17,7 +17,7 @@ lazy_static = "1.4.0"
 mime_guess = { version = "2.0" }
 outbound-http = { path = "../outbound-http", default-features = false }
 spin-outbound-networking = { path = "../outbound-networking" }
-path-absolutize = "3.0.11"
+path-absolutize = { version = "3.0.11", features = ["use_unix_paths_on_wasm"] }
 regex = "1.5.4"
 reqwest = "0.11.9"
 semver = "1.0"
@@ -31,7 +31,7 @@ spin-manifest = { path = "../manifest" }
 tempfile = "3.8.0"
 terminal = { path = "../terminal" }
 thiserror = "1.0.49"
-tokio = { version = "1.23", features = ["full"] }
+tokio = "1.23"
 tokio-util = "0.6"
 toml = "0.8.2"
 tracing = { workspace = true }
@@ -40,6 +40,10 @@ walkdir = "2.3.2"
 [dev-dependencies]
 tokio = { version = "1.23", features = ["rt", "macros"] }
 ui-testing = { path = "../ui-testing" }
+
+[features]
+default = ["async-io"]
+async-io = ["tokio/fs"]
 
 [[test]]
 name = "ui"

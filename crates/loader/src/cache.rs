@@ -1,9 +1,10 @@
 //! Cache for OCI registry entities.
 
 use anyhow::{ensure, Context, Result};
-use tokio::fs;
 
 use std::path::{Path, PathBuf};
+
+use crate::fs::{create_dir_all, write_file};
 
 const CONFIG_DIR: &str = "spin";
 const REGISTRY_CACHE_DIR: &str = "registry";
@@ -79,13 +80,13 @@ impl Cache {
 
     /// Write the contents in the cache's wasm directory.
     pub async fn write_wasm(&self, bytes: impl AsRef<[u8]>, digest: impl AsRef<str>) -> Result<()> {
-        fs::write(self.wasm_path(digest), bytes.as_ref()).await?;
+        write_file(&self.wasm_path(digest), bytes.as_ref()).await?;
         Ok(())
     }
 
     /// Write the contents in the cache's data directory.
     pub async fn write_data(&self, bytes: impl AsRef<[u8]>, digest: impl AsRef<str>) -> Result<()> {
-        fs::write(self.data_path(digest), bytes.as_ref()).await?;
+        write_file(&self.data_path(digest), bytes.as_ref()).await?;
         Ok(())
     }
 
@@ -110,21 +111,21 @@ impl Cache {
 
         let p = root.join(MANIFESTS_DIR);
         if !p.is_dir() {
-            fs::create_dir_all(&p).await.with_context(|| {
+            create_dir_all(&p).await.with_context(|| {
                 format!("failed to create manifests directory `{}`", p.display())
             })?;
         }
 
         let p = root.join(WASM_DIR);
         if !p.is_dir() {
-            fs::create_dir_all(&p)
+            create_dir_all(&p)
                 .await
                 .with_context(|| format!("failed to create wasm directory `{}`", p.display()))?;
         }
 
         let p = root.join(DATA_DIR);
         if !p.is_dir() {
-            fs::create_dir_all(&p)
+            create_dir_all(&p)
                 .await
                 .with_context(|| format!("failed to create assets directory `{}`", p.display()))?;
         }

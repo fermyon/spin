@@ -38,7 +38,9 @@ use tokio::{
     net::TcpListener,
     task,
 };
-use tracing::log;
+use tracing::{info_span, Span};
+use tracing::{instrument, log};
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
 use crate::{handler::HttpHandlerExecutor, wagi::WagiHttpExecutor};
@@ -205,6 +207,9 @@ impl HttpTrigger {
 
         let span = tracing::info_span!("handle_request", "otel.kind" = "server");
         let _enter = span.enter();
+
+        // TODO: This isn't working
+        spin_telemetry::accept_trace(&req);
 
         // Handle well-known spin paths
         if let Some(well_known) = path.strip_prefix(spin_http::WELL_KNOWN_PREFIX) {

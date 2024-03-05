@@ -1,5 +1,7 @@
+use http::{HeaderMap, Request};
 use opentelemetry::{
-    propagation::{Extractor, TextMapPropagator},
+    global,
+    propagation::Extractor,
     sdk::{
         propagation::TraceContextPropagator,
         trace::{self, Tracer},
@@ -14,10 +16,13 @@ use tracing_subscriber::{Layer, Registry};
 
 use super::ServiceDescription;
 
-/// Set current span's parent to context datadog expects
-pub fn handle_request<'a>(req: impl Into<RequestExtractor<'a>>) {
-    let context = opentelemetry_datadog::DatadogPropagator::new().extract(&req.into());
-    tracing::Span::current().set_parent(context);
+/// Associate the current span with the incoming requests trace context.
+pub fn accept_trace<T>(req: &Request<T>) {
+    tracing::info!("headers map {:?}", &HeaderExtractor(req.headers()).keys());
+    let parent_context = global::get_text_map_propagator(|propagator| {
+        propagator.extract(&HeaderExtractor(req.headers()))
+    });
+    tracing::Span::current().set_parent(parent_context);
 }
 
 pub(crate) fn otel_tracing_layer(
@@ -52,36 +57,20 @@ pub(crate) fn otel_tracing_layer(
         .with_filter(LevelFilter::INFO))
 }
 
-pub enum RequestExtractor<'a> {
-    Http0(&'a http0::HeaderMap),
-    Http1(&'a http1::HeaderMap),
-}
+struct HeaderExtractor<'a>(&'a HeaderMap);
 
-impl<'a> Extractor for RequestExtractor<'a> {
+impl<'a> Extractor for HeaderExtractor<'a> {
     fn get(&self, key: &str) -> Option<&str> {
-        match self {
-            RequestExtractor::Http0(headers) => {
-                headers.get(key).map(|v| v.to_str().unwrap_or_default())
-            }
-            RequestExtractor::Http1(headers) => {
-                headers.get(key).map(|v| v.to_str().unwrap_or_default())
-            }
-        }
+        self.0.get(key).and_then(|v| {
+            let s = v.to_str();
+            if let Err(ref error) = s {
+                tracing::warn!(%error, ?v, "cannot convert header value to ASCII")
+            };
+            s.ok()
+        })
     }
 
     fn keys(&self) -> Vec<&str> {
-        unimplemented!()
-    }
-}
-
-impl<'a, T> From<&'a http0::Request<T>> for RequestExtractor<'a> {
-    fn from(req: &'a http0::Request<T>) -> Self {
-        Self::Http0(req.headers())
-    }
-}
-
-impl<'a, T> From<&'a http1::Request<T>> for RequestExtractor<'a> {
-    fn from(req: &'a http1::Request<T>) -> Self {
-        Self::Http1(req.headers())
+        self.0.keys().map(|k| k.as_str()).collect()
     }
 }

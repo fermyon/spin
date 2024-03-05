@@ -1,6 +1,9 @@
 use std::io::IsTerminal;
 
-use opentelemetry::sdk::trace::Tracer;
+use opentelemetry::{
+    global,
+    sdk::{propagation::TraceContextPropagator, trace::Tracer},
+};
 use std::sync::OnceLock;
 use tracing::level_filters::LevelFilter;
 use tracing_appender::non_blocking::WorkerGuard;
@@ -18,7 +21,7 @@ use url::Url;
 mod metrics;
 mod traces;
 
-pub use traces::handle_request;
+pub use traces::accept_trace;
 
 type TelemetryLayer = Filtered<OpenTelemetryLayer<Registry, Tracer>, LevelFilter, Registry>;
 
@@ -75,6 +78,9 @@ pub fn init_globally(service: ServiceDescription) -> anyhow::Result<ShutdownGuar
 
     // TODO: comment
     registry().with(telemetry_layer).with(fmt_layer).init();
+
+    // TODO: comment
+    global::set_text_map_propagator(TraceContextPropagator::new());
 
     Ok(ShutdownGuard(None))
 }

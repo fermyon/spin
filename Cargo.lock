@@ -6493,7 +6493,6 @@ name = "spin-telemetry"
 version = "2.3.0-pre0"
 dependencies = [
  "anyhow",
- "http 0.2.11",
  "http 1.0.0",
  "opentelemetry",
  "opentelemetry-datadog",
@@ -6635,6 +6634,7 @@ dependencies = [
  "spin-core",
  "spin-http",
  "spin-outbound-networking",
+ "spin-telemetry",
  "spin-testing",
  "spin-trigger",
  "spin-world",
@@ -6643,6 +6643,7 @@ dependencies = [
  "tokio",
  "tokio-rustls 0.23.4",
  "tracing",
+ "tracing-opentelemetry",
  "url",
  "wasi-common",
  "wasmtime",

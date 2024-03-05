@@ -38,9 +38,7 @@ use tokio::{
     net::TcpListener,
     task,
 };
-use tracing::{info_span, Span};
-use tracing::{instrument, log};
-use tracing_opentelemetry::OpenTelemetrySpanExt;
+use tracing::{instrument, log, Instrument};
 use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
 use crate::{handler::HttpHandlerExecutor, wagi::WagiHttpExecutor};
@@ -189,6 +187,7 @@ impl TriggerExecutor for HttpTrigger {
 
 impl HttpTrigger {
     /// Handles incoming requests using an HTTP executor.
+    #[instrument(name = "handle_request", skip_all, fields(otel.kind = "server"))]
     pub async fn handle(
         &self,
         mut req: Request<Body>,
@@ -196,6 +195,8 @@ impl HttpTrigger {
         addr: SocketAddr,
     ) -> Result<Response<Body>> {
         set_req_uri(&mut req, scheme)?;
+
+        spin_telemetry::accept_trace(&req);
 
         log::info!(
             "Processing request for application {} on URI {}",
@@ -205,11 +206,7 @@ impl HttpTrigger {
 
         let path = req.uri().path();
 
-        let span = tracing::info_span!("handle_request", "otel.kind" = "server");
-        let _enter = span.enter();
-
         // TODO: This isn't working
-        spin_telemetry::accept_trace(&req);
 
         // Handle well-known spin paths
         if let Some(well_known) = path.strip_prefix(spin_http::WELL_KNOWN_PREFIX) {
@@ -320,6 +317,7 @@ impl HttpTrigger {
                                 )
                                 .await
                         }
+                        .instrument(tracing::info_span!("outer"))
                     }),
                 )
                 .await

@@ -17,6 +17,7 @@ use spin_trigger::{EitherInstance, TriggerAppEngine};
 use spin_world::v1::http_types;
 use std::sync::Arc;
 use tokio::{sync::oneshot, task};
+use tracing::instrument;
 use wasmtime_wasi_http::{proxy::Proxy, WasiHttpView};
 
 #[derive(Clone)]
@@ -24,6 +25,7 @@ pub struct HttpHandlerExecutor;
 
 #[async_trait]
 impl HttpExecutor for HttpHandlerExecutor {
+    #[instrument(name = "execute_wasm", skip_all, fields(otel.kind = "server"))]
     async fn execute(
         &self,
         engine: &TriggerAppEngine<HttpTrigger>,
@@ -37,9 +39,6 @@ impl HttpExecutor for HttpHandlerExecutor {
             "Executing request using the Spin executor for component {}",
             component_id
         );
-
-        let span = tracing::info_span!("execute_wasm", "otel.kind" = "server");
-        let _enter = span.enter();
 
         let (instance, mut store) = engine.prepare_instance(component_id).await?;
         let EitherInstance::Component(instance) = instance else {

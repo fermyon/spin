@@ -22,7 +22,16 @@ pub fn accept_trace<T>(req: &Request<T>) {
     let parent_context = global::get_text_map_propagator(|propagator| {
         propagator.extract(&HeaderExtractor(req.headers()))
     });
+    tracing::info!("parent context {:?}", parent_context);
+    tracing::info!(
+        "current::span context {:?}",
+        tracing::Span::current().context()
+    );
     tracing::Span::current().set_parent(parent_context);
+    tracing::info!(
+        "current::span metadata {:?}",
+        tracing::Span::current().metadata()
+    );
 }
 
 pub(crate) fn otel_tracing_layer(
@@ -66,6 +75,7 @@ impl<'a> Extractor for HeaderExtractor<'a> {
             if let Err(ref error) = s {
                 tracing::warn!(%error, ?v, "cannot convert header value to ASCII")
             };
+            tracing::info!("header key: {}, value: {}", key, s.as_ref().unwrap());
             s.ok()
         })
     }

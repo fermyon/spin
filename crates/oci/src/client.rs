@@ -1,5 +1,6 @@
 //! Spin's client for distributing applications via OCI registries
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -174,7 +175,18 @@ impl Client {
             SPIN_APPLICATION_MEDIA_TYPE.to_string(),
             None,
         );
+        let config_layer_digest = locked_config_layer.sha256_digest().clone();
         layers.push(locked_config_layer);
+
+        let mut labels = HashMap::new();
+        labels.insert(
+            "com.fermyon.spin.lockedAppDigest".to_string(),
+            config_layer_digest,
+        );
+        let cfg = oci_distribution::config::Config {
+            labels: Some(labels),
+            ..Default::default()
+        };
 
         // Construct empty/default OCI config file. Data may be parsed according to
         // the expected config structure per the image spec, so we want to ensure it conforms.
@@ -183,6 +195,11 @@ impl Client {
         let oci_config_file = ConfigFile {
             architecture: oci_distribution::config::Architecture::Wasm,
             os: oci_distribution::config::Os::Wasip1,
+            // We need to ensure that the image config for different content is updated.
+            // Without referencing the digest of the locked application in the OCI image config,
+            // all Spin applications would get the same image config digest, resulting in the same
+            // image ID in container runtimes.
+            config: Some(cfg),
             ..Default::default()
         };
         let oci_config =

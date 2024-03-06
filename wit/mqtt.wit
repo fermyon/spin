@@ -4,16 +4,15 @@ interface mqtt {
       /// An invalid address string
       invalid-address,
       /// There are too many open connections
-      too-many-connections,
-      /// A retrieved value was not of the correct type
-      type-error,
+      too-many-connections,    
+      /// Connection failure e.g. address not allowed.  
+      connection-failed(string),
       /// Some other error occurred
       other(string),
   }
 
   /// QoS for publishing Mqtt messages
-  /// TODO: will enum result in consistent values across languages?
-   enum qos {
+     enum qos {
       at-most-once,
       at-least-once,
       exactly-once,
@@ -21,7 +20,7 @@ interface mqtt {
 
   resource connection {
     /// Open a connection to the Mqtt instance at `address`.
-    open: static func(address: string, username: string, password: string, keepaliveinterval: u64) -> result<connection, error>;
+    open: static func(address: string, username: string, password: string, keep-alive-interval-in-secs: u64) -> result<connection, error>;
 
     /// Publish an Mqtt message to the specified `topic`.
     publish: func(topic: string, payload: payload, qos: qos) -> result<_, error>;

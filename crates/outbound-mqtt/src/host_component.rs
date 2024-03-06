@@ -12,7 +12,6 @@ impl HostComponent for OutboundMqttComponent {
         linker: &mut spin_core::Linker<T>,
         get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
     ) -> anyhow::Result<()> {
-        spin_world::v1::mqtt::add_to_linker(linker, get)?;
         spin_world::v2::mqtt::add_to_linker(linker, get)
     }
 

@@ -5,7 +5,6 @@ use std::time::Duration;
 use anyhow::Result;
 use paho_mqtt::Client;
 use spin_core::{async_trait, wasmtime::component::Resource};
-use spin_world::v1::mqtt as v1;
 use spin_world::v2::mqtt::{self as v2, Connection as MqttConnection, Error, Qos};
 
 pub use host_component::OutboundMqttComponent;
@@ -67,7 +66,9 @@ impl v2::HostConnection for OutboundMqtt {
         keep_alive_interval: u64,
     ) -> Result<Result<Resource<MqttConnection>, Error>> {
         if !self.is_address_allowed(&address) {
-            return Ok(Err(Error::InvalidAddress));
+            return Ok(Err(v2::Error::ConnectionFailed(format!(
+                "address {address} is not permitted"
+            ))));
         }
         self.establish_connection(
             address,
@@ -87,7 +88,7 @@ impl v2::HostConnection for OutboundMqtt {
     ) -> Result<Result<(), Error>> {
         Ok(async {
             let client = self.get_conn(connection).await.map_err(other_error)?;
-            let message = paho_mqtt::Message::new(&topic, payload, qos as i32);
+            let message = paho_mqtt::Message::new(&topic, payload, convert_to_mqtt_qos_value(qos));
             client.publish(message).map_err(other_error)?;
             Ok(())
         }
@@ -100,53 +101,16 @@ impl v2::HostConnection for OutboundMqtt {
     }
 }
 
+fn convert_to_mqtt_qos_value(qos: Qos) -> i32 {
+    match qos {
+        Qos::AtMostOnce => 0,
+        Qos::AtLeastOnce => 1,
+        Qos::ExactlyOnce => 2,
+    }
+}
+
 fn other_error(e: impl std::fmt::Display) -> Error {
     Error::Other(e.to_string())
-}
-
-/// Delegate a function call to the v2::HostConnection implementation
-macro_rules! delegate {
-    ($self:ident.$name:ident($address:expr, $username:expr, $password:expr, $dur:expr, $($arg:expr),*)) => {{
-        if !$self.is_address_allowed(&$address) {
-            return Ok(Err(v1::Error::Error));
-
-        }
-        let connection = match $self.establish_connection($address, $username, $password, $dur).await? {
-            Ok(c) => c,
-            Err(_) => return Ok(Err(v1::Error::Error)),
-        };
-        Ok(<Self as v2::HostConnection>::$name($self, connection, $($arg),*)
-            .await?
-            .map_err(|_| v1::Error::Error))
-    }};
-}
-
-#[async_trait]
-impl v1::Host for OutboundMqtt {
-    async fn publish(
-        &mut self,
-        address: String,
-        username: String,
-        password: String,
-        keep_alive_interval: u64,
-        topic: String,
-        payload: Vec<u8>,
-        qos: v1::Qos,
-    ) -> Result<Result<(), v1::Error>> {
-        delegate!(self.publish(
-            address,
-            username,
-            password,
-            Duration::from_secs(keep_alive_interval),
-            topic,
-            payload,
-            match qos {
-                v1::Qos::AtMostOnce => Qos::AtMostOnce,
-                v1::Qos::AtLeastOnce => Qos::AtLeastOnce,
-                v1::Qos::ExactlyOnce => Qos::ExactlyOnce,
-            }
-        ))
-    }
 }
 
 impl OutboundMqtt {

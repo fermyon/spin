@@ -23,7 +23,7 @@ world platform {
   import postgres;
   import mysql;
   import sqlite;
-  import redis;  
+  import redis;
   import key-value;
   import llm;
 }

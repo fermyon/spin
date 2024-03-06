@@ -18,7 +18,7 @@ source = "target/wasm32-wasi/release/vault_variable_test.wasm"
 allowed_outbound_hosts = []
 
 [component.vault-variable-test.variables]
-password = "{{ secret }}"
+token = "{{ secret }}"
 
 [component.vault-variable-test.build]
 command = "cargo build --target wasm32-wasi --release"

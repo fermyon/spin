@@ -12,9 +12,9 @@ use spin_locked_app::{
     values::{ValuesMap, ValuesMapBuilder},
 };
 use spin_manifest::schema::v2::{self, AppManifest, KebabId, WasiFilesMount};
-use tokio::{fs, sync::Semaphore};
+use tokio::sync::Semaphore;
 
-use crate::{cache::Cache, http::verified_download, FilesMountStrategy};
+use crate::{cache::Cache, FilesMountStrategy};
 
 #[derive(Debug)]
 pub struct LocalLoader {
@@ -291,7 +291,7 @@ impl LocalLoader {
         exclude_files: &[String],
     ) -> Result<()> {
         let src_path = self.app_root.join(src);
-        let meta = fs::metadata(&src_path)
+        let meta = crate::fs::metadata(&src_path)
             .await
             .with_context(|| format!("invalid file mount source {}", quoted_path(src)))?;
         if meta.is_dir() {
@@ -366,13 +366,15 @@ impl LocalLoader {
 
         let _loading_permit = self.file_loading_permits.acquire().await?;
         let dest_parent = parent_dir(dest)?;
-        fs::create_dir_all(&dest_parent).await.with_context(|| {
-            format!(
-                "Failed to create parent directory {}",
-                quoted_path(&dest_parent)
-            )
-        })?;
-        fs::copy(src, dest).await.with_context(|| {
+        crate::fs::create_dir_all(&dest_parent)
+            .await
+            .with_context(|| {
+                format!(
+                    "Failed to create parent directory {}",
+                    quoted_path(&dest_parent)
+                )
+            })?;
+        crate::fs::copy(src, dest).await.with_context(|| {
             format!(
                 "Failed to copy {} to {}",
                 quoted_path(src),
@@ -404,15 +406,18 @@ impl LocalLoader {
     }
 }
 
-/// This canonicalizes the path in a way that works with globs. On non-Windows
-/// platforms, we can use Path::canonicalize, but on Windows platforms this
-/// expands to a UNC path, and the glob library does not work with UNC paths.
-#[cfg(not(windows))]
-fn safe_canonicalize(path: &Path) -> std::io::Result<PathBuf> {
-    path.canonicalize()
+#[cfg(feature = "async-io")]
+async fn verified_download(url: &str, digest: &str, dest: &Path) -> Result<()> {
+    crate::http::verified_download(url, digest, dest)
+        .await
+        .with_context(|| format!("Error fetching source URL {url:?}"))
 }
 
-#[cfg(windows)]
+#[cfg(not(feature = "async-io"))]
+async fn verified_download(_url: &str, _digest: &str, _dest: &Path) -> Result<()> {
+    panic!("async-io feature is required for downloading Wasm sources")
+}
+
 fn safe_canonicalize(path: &Path) -> std::io::Result<PathBuf> {
     use path_absolutize::Absolutize;
     Ok(path.absolutize()?.into_owned())
@@ -515,8 +520,7 @@ fn file_content_ref(path: impl AsRef<Path>) -> Result<ContentRef> {
 
 fn file_url(path: impl AsRef<Path>) -> Result<String> {
     let path = path.as_ref();
-    let abs_path = path
-        .canonicalize()
+    let abs_path = safe_canonicalize(path)
         .with_context(|| format!("Couldn't resolve `{}`", path.display()))?;
     Ok(Url::from_file_path(abs_path).unwrap().to_string())
 }

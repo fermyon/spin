@@ -2569,7 +2569,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-http"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "http 0.2.11",
@@ -2601,7 +2601,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-mysql"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "flate2",
@@ -2619,7 +2619,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-pg"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "native-tls",
@@ -2636,7 +2636,7 @@ dependencies = [
 
 [[package]]
 name = "outbound-redis"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "redis",
@@ -3643,7 +3643,7 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
 name = "spin-app"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3658,7 +3658,7 @@ dependencies = [
 
 [[package]]
 name = "spin-common"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "dirs 4.0.0",
@@ -3670,7 +3670,7 @@ dependencies = [
 
 [[package]]
 name = "spin-componentize"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "wasm-encoder 0.200.0",
@@ -3681,7 +3681,7 @@ dependencies = [
 
 [[package]]
 name = "spin-core"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3702,7 +3702,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "lru 0.9.0",
@@ -3756,7 +3756,7 @@ dependencies = [
 
 [[package]]
 name = "spin-llm"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -3768,7 +3768,7 @@ dependencies = [
 
 [[package]]
 name = "spin-llm-remote-http"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "http 0.2.11",
@@ -3784,7 +3784,7 @@ dependencies = [
 
 [[package]]
 name = "spin-loader"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3821,7 +3821,7 @@ dependencies = [
 
 [[package]]
 name = "spin-locked-app"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3834,7 +3834,7 @@ dependencies = [
 
 [[package]]
 name = "spin-manifest"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "indexmap 1.9.3",
@@ -3848,7 +3848,7 @@ dependencies = [
 
 [[package]]
 name = "spin-outbound-networking"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "ipnet",
@@ -3860,7 +3860,7 @@ dependencies = [
 
 [[package]]
 name = "spin-serde"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "base64 0.21.7",
  "serde",
@@ -3868,7 +3868,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sqlite"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3881,7 +3881,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sqlite-inproc"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3895,7 +3895,7 @@ dependencies = [
 
 [[package]]
 name = "spin-sqlite-libsql"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3909,7 +3909,7 @@ dependencies = [
 
 [[package]]
 name = "spin-trigger"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3957,7 +3957,7 @@ dependencies = [
 
 [[package]]
 name = "spin-variables"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3974,7 +3974,7 @@ dependencies = [
 
 [[package]]
 name = "spin-world"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "wasmtime",
 ]
@@ -4130,7 +4130,7 @@ dependencies = [
 
 [[package]]
 name = "table"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 
 [[package]]
 name = "tar"

@@ -11,7 +11,7 @@ llm-cublas = ["llm", "spin-llm-local/cublas"]
 # Enables loading AOT compiled components, a potentially unsafe operation. See
 # TriggerLoader::enable_loading_aot_compiled_components documentation for more
 # information about the safety risks.
-aot-compilation = []
+unsafe-aot-compilation = []
 
 [dependencies]
 anyhow = "1.0"

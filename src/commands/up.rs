@@ -151,10 +151,6 @@ impl UpCommand {
             }
         }
 
-        if self.build {
-            app_source.build().await?;
-        }
-
         // Get working dir holder and hold on to it for the rest of the function.
         // If the working dir is a temporary dir it will be deleted on drop.
         let working_dir_holder = self.get_canonical_working_dir()?;
@@ -184,6 +180,10 @@ impl UpCommand {
                 _ = help_process.wait().await;
             }
             return Ok(());
+        }
+
+        if self.build {
+            app_source.build().await?;
         }
 
         let mut locked_app = self

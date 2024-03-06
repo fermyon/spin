@@ -13,7 +13,7 @@ use spin_common::{ui::quoted_path, url::parse_file_url};
 
 /// Compilation status of all components of a Spin application
 pub enum CompilationStatus {
-    #[cfg(feature = "aot-compilation")]
+    #[cfg(feature = "unsafe-aot-compilation")]
     /// All components are componentized and ahead of time (AOT) compiled to cwasm.
     AllAotComponents,
     /// No components are ahead of time (AOT) compiled.
@@ -48,7 +48,7 @@ impl TriggerLoader {
     /// `Engine::precompile_module`). It should never be used with untrusted
     /// input. See the Wasmtime documentation for more information:
     /// https://docs.rs/wasmtime/latest/wasmtime/component/struct.Component.html#method.deserialize
-    #[cfg(feature = "aot-compilation")]
+    #[cfg(feature = "unsafe-aot-compilation")]
     pub unsafe fn enable_loading_aot_compiled_components(&mut self) {
         self.compilation_status = CompilationStatus::AllAotComponents;
     }
@@ -77,7 +77,7 @@ impl Loader for TriggerLoader {
             .context("LockedComponentSource missing source field")?;
         let path = parse_file_url(source)?;
         match self.compilation_status {
-            #[cfg(feature = "aot-compilation")]
+            #[cfg(feature = "unsafe-aot-compilation")]
             CompilationStatus::AllAotComponents => {
                 match engine.detect_precompiled_file(&path)?{
                     Some(wasmtime::Precompiled::Component) => {
@@ -173,7 +173,7 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "aot-compilation")]
+    #[cfg(feature = "unsafe-aot-compilation")]
     #[tokio::test]
     async fn load_component_succeeds_for_precompiled_component() {
         let mut file = NamedTempFile::new().unwrap();

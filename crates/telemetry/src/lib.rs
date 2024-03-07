@@ -1,9 +1,7 @@
 use std::io::IsTerminal;
 
-use opentelemetry::{
-    global,
-    sdk::{propagation::TraceContextPropagator, trace::Tracer},
-};
+use opentelemetry::global;
+use opentelemetry_sdk::{propagation::TraceContextPropagator, trace::Tracer};
 use std::sync::OnceLock;
 use tracing::level_filters::LevelFilter;
 use tracing_appender::non_blocking::WorkerGuard;
@@ -18,7 +16,6 @@ use tracing_subscriber::{
 };
 use url::Url;
 
-mod metrics;
 mod traces;
 
 pub use traces::accept_trace;

@@ -1,14 +1,11 @@
 use http::{HeaderMap, Request};
-use opentelemetry::{
-    global,
-    propagation::Extractor,
-    sdk::{
-        propagation::TraceContextPropagator,
-        trace::{self, Tracer},
-        Resource,
-    },
-};
+use opentelemetry::{global, propagation::Extractor, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::{
+    propagation::TraceContextPropagator,
+    trace::{config, Tracer},
+    Resource,
+};
 use opentelemetry_semantic_conventions::resource::{SERVICE_NAME, SERVICE_VERSION};
 use tracing::metadata::LevelFilter;
 use tracing_opentelemetry::{OpenTelemetryLayer, OpenTelemetrySpanExt};
@@ -47,8 +44,8 @@ pub(crate) fn otel_tracing_layer(
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
     let service_metadata = vec![
-        SERVICE_NAME.string(service.name),
-        SERVICE_VERSION.string(service.version),
+        KeyValue::new(SERVICE_NAME, service.name),
+        KeyValue::new(SERVICE_VERSION, service.version),
     ];
 
     let tracer = opentelemetry_otlp::new_pipeline()
@@ -58,8 +55,8 @@ pub(crate) fn otel_tracing_layer(
                 .tonic()
                 .with_endpoint(endpoint),
         )
-        .with_trace_config(trace::config().with_resource(Resource::new(service_metadata)))
-        .install_batch(opentelemetry::runtime::Tokio)?;
+        .with_trace_config(config().with_resource(Resource::new(service_metadata)))
+        .install_batch(opentelemetry_sdk::runtime::Tokio)?;
     Ok(tracing_opentelemetry::layer()
         .with_tracer(tracer)
         .with_threads(false)

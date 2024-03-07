@@ -3,7 +3,7 @@ mod host_component;
 use std::time::Duration;
 
 use anyhow::Result;
-use paho_mqtt::Client;
+use rumqttc::AsyncClient;
 use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_world::v2::mqtt::{self as v2, Connection as MqttConnection, Error, Qos};
 
@@ -11,7 +11,7 @@ pub use host_component::OutboundMqttComponent;
 
 pub struct OutboundMqtt {
     allowed_hosts: spin_outbound_networking::AllowedHostsConfig,
-    connections: table::Table<Client>,
+    connections: table::Table<(AsyncClient, rumqttc::EventLoop)>,
 }
 
 impl Default for OutboundMqtt {
@@ -22,6 +22,8 @@ impl Default for OutboundMqtt {
         }
     }
 }
+
+const MQTT_CHANNEL_CAP: usize = 1000;
 
 impl OutboundMqtt {
     fn is_address_allowed(&self, address: &str) -> bool {
@@ -36,17 +38,16 @@ impl OutboundMqtt {
         keep_alive_interval: Duration,
     ) -> Result<Result<Resource<MqttConnection>, Error>> {
         Ok(async {
-            let client = Client::new(address.as_str()).map_err(|_| Error::InvalidAddress)?;
-            let conn_opts = paho_mqtt::ConnectOptionsBuilder::new()
-                .keep_alive_interval(keep_alive_interval)
-                .user_name(username)
-                .password(password)
-                .finalize();
-
-            client.connect(conn_opts).map_err(other_error)?;
+            let mut conn_opts = rumqttc::MqttOptions::parse_url(address).map_err(|e| {
+                tracing::error!("MQTT URL parse error: {e:?}");
+                Error::InvalidAddress
+            })?;
+            conn_opts.set_credentials(username, password);
+            conn_opts.set_keep_alive(keep_alive_interval);
+            let (client, event_loop) = AsyncClient::new(conn_opts, MQTT_CHANNEL_CAP);
 
             self.connections
-                .push(client)
+                .push((client, event_loop))
                 .map(Resource::new_own)
                 .map_err(|_| Error::TooManyConnections)
         }
@@ -87,9 +88,12 @@ impl v2::HostConnection for OutboundMqtt {
         qos: Qos,
     ) -> Result<Result<(), Error>> {
         Ok(async {
-            let client = self.get_conn(connection).await.map_err(other_error)?;
-            let message = paho_mqtt::Message::new(&topic, payload, convert_to_mqtt_qos_value(qos));
-            client.publish(message).map_err(other_error)?;
+            let (client, _) = self.get_conn(connection).await.map_err(other_error)?;
+            let qos = convert_to_mqtt_qos_value(qos);
+            client
+                .publish_bytes(topic, qos, false, payload.into())
+                .await
+                .map_err(other_error)?;
             Ok(())
         }
         .await)
@@ -101,11 +105,11 @@ impl v2::HostConnection for OutboundMqtt {
     }
 }
 
-fn convert_to_mqtt_qos_value(qos: Qos) -> i32 {
+fn convert_to_mqtt_qos_value(qos: Qos) -> rumqttc::QoS {
     match qos {
-        Qos::AtMostOnce => 0,
-        Qos::AtLeastOnce => 1,
-        Qos::ExactlyOnce => 2,
+        Qos::AtMostOnce => rumqttc::QoS::AtMostOnce,
+        Qos::AtLeastOnce => rumqttc::QoS::AtLeastOnce,
+        Qos::ExactlyOnce => rumqttc::QoS::ExactlyOnce,
     }
 }
 
@@ -117,7 +121,7 @@ impl OutboundMqtt {
     async fn get_conn(
         &mut self,
         connection: Resource<MqttConnection>,
-    ) -> Result<&mut Client, Error> {
+    ) -> Result<&mut (AsyncClient, rumqttc::EventLoop), Error> {
         self.connections
             .get_mut(connection.rep())
             .ok_or(Error::Other(

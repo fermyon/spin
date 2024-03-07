@@ -55,11 +55,11 @@ jobs:
       #   shell: bash
       #   run: echo "RELEASE_VERSION=canary" >> $GITHUB_ENV
 
-      - name: lowercase the runner OS name
-        shell: bash
-        run: |
-          OS=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
-          echo "RUNNER_OS=$OS" >> $GITHUB_ENV
+      # - name: lowercase the runner OS name
+      #   shell: bash
+      #   run: |
+      #     OS=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
+      #     echo "RUNNER_OS=$OS" >> $GITHUB_ENV
 
       # - name: Install Cosign for signing Spin binary
       #   uses: sigstore/cosign-installer@v3.0.1

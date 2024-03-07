@@ -98,7 +98,7 @@ jobs:
 
       - name: build release
         shell: bash
-        run: cargo build --release ${{ matrix.config.extraArgs }}
+        run: cargo build --release ${{ matrix.config.extraArgs }} --features openssl/vendored
 
       # - name: Sign the binary with GitHub OIDC token
       #   shell: bash

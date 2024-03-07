@@ -78,6 +78,12 @@ inputs:
     default: 'false'
     type: bool
 
+  vcpkg:
+    description: 'setup vcpkg'
+    required: false
+    default: 'false'
+    type: bool
+
 runs:
   using: "composite"
   steps:
@@ -129,3 +135,11 @@ runs:
       if: ${{ inputs.tinygo == 'true' }}
       with:
         version: ${{ inputs.tinygo-version }}
+
+    ## Install vcpgk
+    - name: "Install vcpkg"
+      run: |
+        echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+        vcpkg install openssl:x64-windows-static-md
+      shell: pwsh
+      if: ${{ inputs.vcpkg == 'true' }}

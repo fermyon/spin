@@ -125,6 +125,7 @@ jobs:
           rust-wasm: true
           rust-cache: true
           vcpkg: "${{ matrix.os == 'windows-latest' }}"
+          openssl-mac: "${{ matrix.os == 'macos-latest' }}"
 
       - name: Cargo Build
         run: cargo build --workspace --release --all-targets

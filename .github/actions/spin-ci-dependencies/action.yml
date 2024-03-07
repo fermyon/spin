@@ -84,6 +84,12 @@ inputs:
     default: 'false'
     type: bool
 
+  openssl-mac:
+    description: 'setup openssl on Mac'
+    required: false
+    default: 'false'
+    type: bool
+
 runs:
   using: "composite"
   steps:
@@ -143,3 +149,10 @@ runs:
         vcpkg install openssl:x64-windows-static-md
       shell: pwsh
       if: ${{ inputs.vcpkg == 'true' }}
+
+    # Install Mac OpenSSL libraries
+    - name: Install OpenSSL for Mac
+      shell: bash
+      if: ${{ inputs.openssl-mac == 'true' }}
+      run: |
+        brew install openssl

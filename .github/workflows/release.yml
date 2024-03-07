@@ -118,6 +118,7 @@ jobs:
         uses: ./.github/actions/spin-ci-dependencies
         with:
           vcpkg: "${{ matrix.os == 'windows-latest' }}"
+          openssl-mac: "${{ matrix.os == 'macos-latest' }}"
 
       - name: build release
         shell: bash

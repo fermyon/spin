@@ -114,6 +114,11 @@ jobs:
           echo 'linker = "aarch64-linux-gnu-gcc"' >> ${HOME}/.cargo/config.toml
           echo 'rustflags = ["-Ctarget-feature=+fp16"]' >> ${HOME}/.cargo/config.toml
 
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
+        with:
+          vcpkg: "${{ matrix.os == 'windows-latest' }}"
+
       - name: build release
         shell: bash
         run: cargo build --release ${{ matrix.config.extraArgs }}

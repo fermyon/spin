@@ -8,6 +8,10 @@ edition = { workspace = true }
 llm = ["spin-llm-local"]
 llm-metal = ["llm", "spin-llm-local/metal"]
 llm-cublas = ["llm", "spin-llm-local/cublas"]
+# Enables loading AOT compiled components, a potentially unsafe operation. See
+# `<TriggerLoader as Loader>::::enable_loading_aot_compiled_components`
+# documentation for more information about the safety risks.
+unsafe-aot-compilation = []
 
 [dependencies]
 anyhow = "1.0"

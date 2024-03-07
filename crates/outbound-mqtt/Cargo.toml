@@ -9,7 +9,7 @@ doctest = false
 
 [dependencies]
 anyhow = "1.0"
-paho-mqtt = "0.12.3"
+rumqttc = { version = "0.24", features = ["url"] }
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 spin-world = { path = "../world" }

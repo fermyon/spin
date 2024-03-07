@@ -317,7 +317,6 @@ impl HttpTrigger {
                                 )
                                 .await
                         }
-                        .instrument(tracing::info_span!("outer"))
                     }),
                 )
                 .await

@@ -39,15 +39,33 @@ impl TriggerLoader {
         }
     }
 
-    /// Updates the TriggerLoader to load AOT compiled components.
+    /// Updates the TriggerLoader to load AOT precompiled components
+    ///
+    /// **Warning: This feature may bypass important security guarantees of the
+    /// Wasmtime
+    // security sandbox if used incorrectly! Read this documentation
+    // carefully.**
+    ///
+    /// Usually, components are compiled just-in-time from portable Wasm
+    /// sources. This method causes components to instead be loaded
+    /// ahead-of-time as Wasmtime-precompiled native executable binaries.
+    /// Precompiled binaries must be produced with a compatible Wasmtime engine
+    /// using the same Wasmtime version and compiler target settings - typically
+    /// by a host with the same processor that will be executing them. See the
+    /// Wasmtime documentation for more information:
+    /// https://docs.rs/wasmtime/latest/wasmtime/struct.Module.html#method.deserialize
     ///
     /// # Safety
-    /// This enables using the unsafe Wasmtime `Component::deserialize` method.
-    /// The method is safe for any Wasmtime precompiled content (components
-    /// serialized with Wasmtime` Component::serialize` or
-    /// `Engine::precompile_module`). It should never be used with untrusted
-    /// input. See the Wasmtime documentation for more information:
-    /// https://docs.rs/wasmtime/latest/wasmtime/component/struct.Component.html#method.deserialize
+    ///
+    /// This method is marked as `unsafe` because it enables potentially unsafe
+    /// behavior if
+    // used to load malformed or malicious precompiled binaries. Loading sources
+    // from an
+    /// incompatible Wasmtime engine will fail but is otherwise safe. This
+    /// method is safe if it can be guaranteed that `<TriggerLoader as
+    /// Loader>::load_component` will only ever be called with a trusted
+    /// `LockedComponentSource`. **Precompiled binaries must never be loaded
+    /// from untrusted sources.**
     #[cfg(feature = "unsafe-aot-compilation")]
     pub unsafe fn enable_loading_aot_compiled_components(&mut self) {
         self.compilation_status = CompilationStatus::AllAotComponents;

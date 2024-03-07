@@ -20,187 +20,141 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
-  CARGO_TERM_COLOR: always
+  RUST_VERSION: 1.73
+
 jobs:
-  lint-rust:
-    name: Lint Rust
-    runs-on: "ubuntu-latest"
+  build-and-sign:
+    name: build and sign release assets
+    runs-on: ${{ matrix.config.os }}
     permissions:
-      ## Allow this job to potentially cancel the running workflow (on failure)
-      actions: write
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: setup dependencies
-        uses: ./.github/actions/spin-ci-dependencies
-        with:
-          rust: true
-          rust-wasm: true
-          rust-cache: true
-
-      - name: Run lints on main code
-        run: BUILD_SPIN_EXAMPLES=0 make lint
-
-      - name: Run lints on examples
-        run: BUILD_SPIN_EXAMPLES=0 make lint-rust-examples
-
-      - name: Cancel everything if linting fails
-        if: failure()
-        uses: andymckay/cancel-action@0.2
-
-  ## This is separated out to remove full integration tests dependencies on windows/mac builds
-  build-rust-ubuntu:
-    name: Build Spin Ubuntu
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: setup dependencies
-        uses: ./.github/actions/spin-ci-dependencies
-        with:
-          rust: true
-          rust-wasm: true
-          rust-cache: true
-
-      - name: Cargo Build
-        run: cargo build --workspace --release --all-targets --features openssl/vendored --features all-tests
-        env:
-          CARGO_INCREMENTAL: 0
-
-      - name: "Archive executable artifact"
-        uses: actions/upload-artifact@v3
-        with:
-          name: spin-ubuntu-latest
-          path: target/release/spin
-
-  build-spin-static:
-    name: Build Spin static
-    runs-on: ubuntu-latest
+      # cosign uses the GitHub OIDC token
+      id-token: write
+      # needed to upload artifacts to a GH release
+      contents: write
     strategy:
       matrix:
         config:
           - {
-              arch: "aarch64",
-              target: "aarch64-unknown-linux-musl"
-            }
-          - {
+              os: "windows-latest",
               arch: "amd64",
-              target: "x86_64-unknown-linux-musl"
+              extension: ".exe",
+              extraArgs: "",
+              target: "",
+              targetDir: "target/release",
             }
     steps:
       - uses: actions/checkout@v3
 
-      - name: setup dependencies
-        uses: ./.github/actions/spin-ci-dependencies
-        with:
-          rust: true
-          rust-cross: true
-          rust-cache: true
+      # - name: set the release version (tag)
+      #   if: startsWith(github.ref, 'refs/tags/v')
+      #   shell: bash
+      #   run: echo "RELEASE_VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
 
-      - name: Cargo Build
-        run: cross build --target ${{ matrix.config.target }} --release --features openssl/vendored
-        env:
-          CARGO_INCREMENTAL: 0
-          BUILD_SPIN_EXAMPLES: 0
+      # - name: set the release version (main)
+      #   if: github.ref == 'refs/heads/main'
+      #   shell: bash
+      #   run: echo "RELEASE_VERSION=canary" >> $GITHUB_ENV
 
-      - name: "Archive executable artifact"
-        uses: actions/upload-artifact@v3
-        with:
-          name: spin-static-${{ matrix.config.arch }}
-          path: target/${{ matrix.config.target }}/release/spin
-
-  build-spin:
-    name: Build Spin
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: setup dependencies
-        uses: ./.github/actions/spin-ci-dependencies
-        with:
-          rust: true
-          rust-wasm: true
-          rust-cache: true
-
-      - name: Cargo Build
-        if: runner.os != 'Windows'
-        run: cargo build --workspace --release --all-targets
-        env:
-          CARGO_INCREMENTAL: 0
-
-      - name: Cargo Build
-        if: runner.os == 'Windows'
+      - name: lowercase the runner OS name
         shell: bash
-        run: cargo build --release
-
-      - name: "Archive executable artifact"
-        uses: actions/upload-artifact@v3
-        with:
-          name: spin-${{ matrix.os }}
-          path: target/release/spin${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-
-
-  test-spin:
-    name: Test Spin
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      matrix:
-        runner: [ubuntu-22.04-4core-spin, macos-latest]
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: setup dependencies
-        uses: ./.github/actions/spin-ci-dependencies
-        with:
-          rust: true
-          rust-wasm: true
-          rust-cache: true
-          nomad: true
-
-      - name: Run Unit Tests
         run: |
-          make test-unit
+          OS=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
+          echo "RUNNER_OS=$OS" >> $GITHUB_ENV
 
-      - name: Run Integration Tests
+      # - name: Install Cosign for signing Spin binary
+      #   uses: sigstore/cosign-installer@v3.0.1
+      #   with:
+      #     cosign-release: v2.0.0
+
+      - name: Install Rust toolchain
+        shell: bash
         run: |
-          make test-integration
-        # Only run integration tests on macOS as they will be run on ubuntu separately
-        if: ${{ matrix.runner == 'macos-latest' }}
+          rustup toolchain install ${{ env.RUST_VERSION }}
+          rustup default ${{ env.RUST_VERSION }}
 
-  all-integration-tests:
-    # run on a larger runner for more SSD/resource access
-    runs-on: ubuntu-22.04-4core-spin
-    if: ${{ github.repository_owner == 'fermyon' }}
-    steps:
-      - uses: actions/checkout@v3
+      - name: Install target
+        if: matrix.config.target != ''
+        shell: bash
+        run: rustup target add --toolchain ${{ env.RUST_VERSION }} ${{ matrix.config.target }}
 
-      # Install all the toolchain dependencies
-      - name: Install Rust wasm target
-        run: rustup target add wasm32-wasi && rustup target add wasm32-unknown-unknown
-      - uses: goto-bus-stop/setup-zig@v2
-      - uses: actions/setup-go@v4
-        with:
-          go-version: '1.20.1'
-      - uses: acifani/setup-tinygo@v2
-        with:
-          tinygo-version: '0.27.0'
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '16.x'
-      - name: Install Swift
-        run: |
-          wget https://github.com/swiftwasm/swift/releases/download/swift-wasm-5.8-SNAPSHOT-2023-02-24-a/swift-wasm-5.8-SNAPSHOT-2023-02-24-a-ubuntu22.04_x86_64.tar.gz
-          tar -xf swift-wasm-5.8-SNAPSHOT-2023-02-24-a-ubuntu22.04_x86_64.tar.gz
-          echo "$PWD/swift-wasm-5.8-SNAPSHOT-2023-02-24-a/usr/bin" >> $GITHUB_PATH
-      - name: Install Grain
-        run: |
-          wget https://github.com/grain-lang/grain/releases/download/grain-v0.5.4/grain-linux-x64
-          chmod +x grain-linux-x64
-          mv grain-linux-x64 grain
-          echo "$PWD" >> $GITHUB_PATH
+      - name: "Install Wasm Rust target"
+        run: rustup target add wasm32-wasi --toolchain ${{ env.RUST_VERSION }} && rustup target add wasm32-unknown-unknown --toolchain ${{ env.RUST_VERSION }}
 
-      - name: Run Full Integration Tests
-        run: make test-integration-full
+      # - name: setup for cross-compiled linux aarch64 build
+      #   if: matrix.config.target == 'aarch64-unknown-linux-gnu'
+      #   run: |
+      #     sudo apt update
+      #     sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+      #     echo '[target.aarch64-unknown-linux-gnu]' >> ${HOME}/.cargo/config.toml
+      #     echo 'linker = "aarch64-linux-gnu-gcc"' >> ${HOME}/.cargo/config.toml
+      #     echo 'rustflags = ["-Ctarget-feature=+fp16"]' >> ${HOME}/.cargo/config.toml
+
+      - name: build release
+        shell: bash
+        run: cargo build --release ${{ matrix.config.extraArgs }}
+
+      # - name: Sign the binary with GitHub OIDC token
+      #   shell: bash
+      #   run: |
+      #     cosign sign-blob \
+      #       --yes \
+      #       --output-certificate crt.pem \
+      #       --output-signature spin.sig \
+      #       ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }}
+
+      # - name: package release assets
+      #   if: runner.os != 'Windows'
+      #   shell: bash
+      #   run: |
+      #     mkdir _dist
+      #     cp crt.pem spin.sig README.md LICENSE ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} _dist/
+      #     cd _dist
+      #     tar czf \
+      #       spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz \
+      #       crt.pem spin.sig README.md LICENSE spin${{ matrix.config.extension }}
+
+      # - name: package release assets
+      #   if: runner.os == 'Windows'
+      #   shell: bash
+      #   run: |
+      #     mkdir _dist
+      #     cp crt.pem spin.sig README.md LICENSE ${{ matrix.config.targetDir }}/spin${{ matrix.config.extension }} _dist/
+      #     cd _dist
+      #     7z a -tzip \
+      #       spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip \
+      #       crt.pem spin.sig README.md LICENSE spin${{ matrix.config.extension }}
+
+      # - name: upload binary as GitHub artifact
+      #   if: runner.os != 'Windows'
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: spin
+      #     path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz
+
+      # - name: upload binary as GitHub artifact
+      #   if: runner.os == 'Windows'
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: spin
+      #     path: _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.zip
+
+      # - name: Configure AWS Credentials
+      #   if: |
+      #     runner.os == 'linux' &&
+      #     matrix.config.arch == 'amd64' &&
+      #     github.repository_owner == 'fermyon' &&
+      #     github.ref == 'refs/heads/main'
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.SPIN_RELEASE_ARTIFACTS_REPO }}
+      #     role-session-name: spin-release-artifacts
+      #     aws-region: ${{ secrets.AWS_REGION }}
+
+      # - name: Copy Binary to S3 - ${{ env.RELEASE_VERSION }}
+      #   if: |
+      #     runner.os == 'linux' &&
+      #     matrix.config.arch == 'amd64' &&
+      #     github.repository_owner == 'fermyon' &&
+      #     github.ref == 'refs/heads/main'
+      #   run: |
+      #     aws s3 cp _dist/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz s3://${{ secrets.SPIN_RELEASE_ARTIFACTS_REPO }}/spin-${{ env.RELEASE_VERSION }}-${{ env.RUNNER_OS }}-${{ matrix.config.arch }}.tar.gz --acl public-read

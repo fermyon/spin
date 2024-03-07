@@ -36,7 +36,7 @@ jobs:
         config:
           - {
               os: "windows-latest",
-              arch: "amd64",
+              # arch: "amd64",
               extension: ".exe",
               extraArgs: "",
               target: "",

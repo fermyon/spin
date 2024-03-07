@@ -37,6 +37,7 @@ levenshtein = "1.0.5"
 nix = { version = "0.24", features = ["signal"] }
 outbound-http = { path = "crates/outbound-http" }
 outbound-redis = { path = "crates/outbound-redis" }
+outbound-mqtt = { path = "crates/outbound-mqtt" }
 spin-key-value = { path = "crates/key-value" }
 spin-key-value-sqlite = { path = "crates/key-value-sqlite" }
 path-absolutize = "3.0.11"

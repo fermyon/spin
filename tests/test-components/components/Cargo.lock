@@ -424,6 +424,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "outbound-mqtt-test-component"
+version = "0.1.0"
+dependencies = [
+ "helper",
+ "wit-bindgen 0.16.0",
+]
+
+[[package]]
 name = "outbound-mysql-test-component"
 version = "0.1.0"
 dependencies = [

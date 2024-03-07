@@ -38,8 +38,10 @@ impl OutboundMqtt {
         keep_alive_interval: Duration,
     ) -> Result<Result<Resource<MqttConnection>, Error>> {
         Ok(async {
-            let mut conn_opts =
-                rumqttc::MqttOptions::parse_url(address).map_err(|_| Error::InvalidAddress)?;
+            let mut conn_opts = rumqttc::MqttOptions::parse_url(address).map_err(|e| {
+                tracing::error!("MQTT URL parse error: {e:?}");
+                Error::InvalidAddress
+            })?;
             conn_opts.set_credentials(username, password);
             conn_opts.set_keep_alive(keep_alive_interval);
             let (client, event_loop) = AsyncClient::new(conn_opts, MQTT_CHANNEL_CAP);

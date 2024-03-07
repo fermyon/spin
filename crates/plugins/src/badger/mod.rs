@@ -212,7 +212,7 @@ impl BadgerEvaluator {
 }
 
 fn has_timeout_expired(from_time: chrono::DateTime<chrono::Utc>) -> bool {
-    let timeout = chrono::Duration::days(BADGER_TIMEOUT_DAYS);
+    let timeout = chrono::Duration::try_days(BADGER_TIMEOUT_DAYS).unwrap();
     let now = chrono::Utc::now();
     match now.checked_sub_signed(timeout) {
         None => true,

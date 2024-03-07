@@ -21,7 +21,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_VERSION: 1.73
+  RUST_VERSION: 1.74
 
 jobs:
   lint-rust:

@@ -133,6 +133,7 @@ jobs:
 
       - name: Cargo Build
         if: runner.os == 'Windows'
+        shell: bash
         run: cargo build --release
 
       - name: "Archive executable artifact"

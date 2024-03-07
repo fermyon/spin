@@ -1,30 +1,14 @@
 use std::io::IsTerminal;
 
 use opentelemetry::global;
-use opentelemetry_sdk::{propagation::TraceContextPropagator, trace::Tracer};
-use std::sync::OnceLock;
-use tracing::level_filters::LevelFilter;
+use opentelemetry_sdk::propagation::TraceContextPropagator;
 use tracing_appender::non_blocking::WorkerGuard;
-use tracing_opentelemetry::OpenTelemetryLayer;
-use tracing_subscriber::{
-    filter::Filtered,
-    fmt,
-    prelude::*,
-    registry,
-    reload::{self, Handle},
-    EnvFilter, Registry,
-};
+use tracing_subscriber::{fmt, prelude::*, registry, EnvFilter};
 use url::Url;
 
 mod traces;
 
 pub use traces::accept_trace;
-
-type TelemetryLayer = Filtered<OpenTelemetryLayer<Registry, Tracer>, LevelFilter, Registry>;
-
-static GLOBAL_TELEMETRY_LAYER_RELOAD_HANDLE: OnceLock<Handle<Option<TelemetryLayer>, Registry>> =
-    OnceLock::new();
-static GLOBAL_SERVICE_DESCRIPTION: OnceLock<ServiceDescription> = OnceLock::new();
 
 /// Description of the service for which telemetry is being collected
 #[derive(Clone)]
@@ -43,13 +27,16 @@ impl ServiceDescription {
 }
 
 /// TODO
-///
-/// Sets the open telemetry pipeline as the default tracing subscriber
-pub fn init_globally(service: ServiceDescription) -> anyhow::Result<ShutdownGuard> {
-    // Globally set the service description
-    let result = GLOBAL_SERVICE_DESCRIPTION.set(service);
-    if result.is_err() {
-        return Err(anyhow::anyhow!("failed to set global service description",));
+pub fn init(
+    service: ServiceDescription,
+    endpoint: Option<Url>,
+    traces_enabled: bool,
+    _metrics_enabled: bool,
+) -> anyhow::Result<ShutdownGuard> {
+    if traces_enabled && endpoint.is_none() {
+        return Err(anyhow::anyhow!(
+            "Traces are enabled but no endpoint is provided"
+        ));
     }
 
     // TODO: comment
@@ -63,50 +50,22 @@ pub fn init_globally(service: ServiceDescription) -> anyhow::Result<ShutdownGuar
         );
 
     // TODO: comment
-    let (telemetry_layer, reload_handle) = reload::Layer::new(None);
+    let otlp_layer = if traces_enabled && endpoint.is_some() {
+        Some(traces::otel_tracing_layer(
+            service,
+            endpoint.unwrap().to_string(),
+        )?)
+    } else {
+        None
+    };
 
     // TODO: comment
-    let result = GLOBAL_TELEMETRY_LAYER_RELOAD_HANDLE.set(reload_handle);
-    if result.is_err() {
-        return Err(anyhow::anyhow!(
-            "failed to set global telemetry layer reload handle",
-        ));
-    }
-
-    // TODO: comment
-    registry().with(telemetry_layer).with(fmt_layer).init();
+    registry().with(otlp_layer).with(fmt_layer).init();
 
     // TODO: comment
     global::set_text_map_propagator(TraceContextPropagator::new());
 
     Ok(ShutdownGuard(None))
-}
-
-/// TODO
-pub fn reload_globally(endpoint: Url, traces: bool, metrics: bool) {
-    if traces {
-        if let Err(error) = reload_telemetry_layer(endpoint) {
-            tracing::error!("failed to load otlp telemetry: {}", error);
-        }
-    }
-    if metrics {
-        // TODO: Setup metrics
-    }
-}
-
-/// TODO
-fn reload_telemetry_layer(endpoint: Url) -> anyhow::Result<()> {
-    let service = GLOBAL_SERVICE_DESCRIPTION.get().unwrap();
-    let otel_tracing_layer = Some(traces::otel_tracing_layer(
-        service.clone(),
-        endpoint.to_string(),
-    )?);
-
-    GLOBAL_TELEMETRY_LAYER_RELOAD_HANDLE
-        .get()
-        .unwrap()
-        .reload(otel_tracing_layer)
-        .map_err(|e| anyhow::anyhow!(e))
 }
 
 /// An RAII implementation for connection to open telemetry services.

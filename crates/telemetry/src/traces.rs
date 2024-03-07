@@ -15,20 +15,10 @@ use super::ServiceDescription;
 
 /// Associate the current span with the incoming requests trace context.
 pub fn accept_trace<T>(req: &Request<T>) {
-    tracing::info!("headers map {:?}", &HeaderExtractor(req.headers()).keys());
     let parent_context = global::get_text_map_propagator(|propagator| {
         propagator.extract(&HeaderExtractor(req.headers()))
     });
-    tracing::info!("parent context {:?}", parent_context);
-    tracing::info!(
-        "current::span context {:?}",
-        tracing::Span::current().context()
-    );
     tracing::Span::current().set_parent(parent_context);
-    tracing::info!(
-        "current::span metadata {:?}",
-        tracing::Span::current().metadata()
-    );
 }
 
 pub(crate) fn otel_tracing_layer(

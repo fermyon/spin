@@ -17,6 +17,7 @@ use spin_core::{
     OutboundWasiHttpHandler, Store, StoreBuilder, WasiVersion,
 };
 
+pub use crate::runtime_config::telemetry::TelemetryOpts;
 pub use crate::runtime_config::RuntimeConfig;
 
 pub enum EitherInstancePre<T> {

@@ -9,7 +9,6 @@ use spin_common::{arg_parser::parse_kv, sloth};
 use crate::network::Network;
 use crate::runtime_config::llm::LLmOptions;
 use crate::runtime_config::sqlite::SqlitePersistenceMessageHook;
-use crate::runtime_config::telemetry::TelemetryOpts;
 use crate::stdio::StdioLoggingTriggerHooks;
 use crate::{
     loader::TriggerLoader,
@@ -162,17 +161,6 @@ where
         }
 
         let runtime_config = self.build_runtime_config()?;
-        if let Some(telemetry_opts) = runtime_config.telemetry() {
-            match telemetry_opts {
-                TelemetryOpts::Otlp(otlp_opts) => {
-                    spin_telemetry::reload_globally(
-                        otlp_opts.endpoint.clone(),
-                        otlp_opts.traces,
-                        otlp_opts.metrics,
-                    );
-                }
-            }
-        }
 
         // Required env vars
         let working_dir = std::env::var(SPIN_WORKING_DIR).context(SPIN_WORKING_DIR)?;

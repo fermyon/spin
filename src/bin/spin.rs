@@ -15,11 +15,13 @@ use spin_cli::commands::{
     watch::WatchCommand,
 };
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
-use spin_telemetry::ServiceDescription;
+use spin_telemetry::{ServiceDescription, ShutdownGuard};
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
 use spin_trigger::cli::TriggerExecutorCommand;
+use spin_trigger::RuntimeConfig;
 use spin_trigger_http::HttpTrigger;
 use spin_trigger_redis::RedisTrigger;
+use std::path::Path;
 
 #[tokio::main]
 async fn main() {
@@ -42,8 +44,7 @@ async fn main() {
 }
 
 async fn _main() -> anyhow::Result<()> {
-    let _telemetry_guard =
-        spin_telemetry::init_globally(ServiceDescription::new("spin", VERSION.to_string()))?;
+    let _telemetry_guard = init_telemetry()?;
 
     let plugin_help_entries = plugin_help_entries();
 
@@ -75,6 +76,68 @@ async fn _main() -> anyhow::Result<()> {
     }
 
     SpinApp::from_arg_matches(&matches)?.run(cmd).await
+}
+
+/// init_telemetry uses spin_telemetry to initialize the tracing library for the purposes of
+/// logging, tracing, and metrics. It returns a ShutdownGuard that should be held onto for the
+/// duration of the program to ensure that the telemetry is properly shut down.
+///
+/// Logs are always emitted to STDERR. Based off configuration in the runtime config, traces and
+/// metrics may be optionally emitted to a remote service.
+///
+/// This function is a crime against humanity because it directly parses the runtime config here
+/// instead of down in spin_trigger where it should be done. This turns out to be necessary because
+/// a tracing subscriber can only be set once globally in a binary. We need to set the subscribe
+/// immediately so that we can start logging and tracing right away. Thus we're forced to load
+/// runtime config this early in the program.
+///
+/// There are technically ways to work around the tracing subscriber being set once globally which
+/// would subsequently let us avoid this crime against humanity:
+/// 1) You can use a scope default subscriber. This works but requires us to put
+///    .with_current_subscriber() on every async call in the trigger crates which is a really bad
+///    experience.
+/// 2) You can add a reload handle to a layer in a subscriber to reload it with the correct runtime
+///    configuration later. This works but it ends up having a bug when used with
+///    .set_parent_context() which is necessary to support trace propagation. Therefore this isn't
+///    an option until this issue is fixed upstream.
+fn init_telemetry() -> anyhow::Result<ShutdownGuard> {
+    let mut runtime_config = RuntimeConfig::new(None); // TODO: Do I need to pass a path here
+
+    let args = std::env::args().collect::<Vec<_>>();
+    let mut runtime_config_file_path = None;
+    for i in 1..args.len() {
+        if args[i] == "--runtime-config-file" {
+            if i + 1 < args.len() {
+                runtime_config_file_path = Some(args[i + 1].clone());
+                break;
+            } else {
+                // TODO: Panic or something here
+            }
+        }
+    }
+    if runtime_config_file_path.is_some() {
+        runtime_config.merge_config_file(Path::new(runtime_config_file_path.unwrap().as_str()))?;
+    }
+
+    let mut endpoint = None;
+    let mut traces_enabled = false;
+    let mut metrics_enabled = false;
+    if let Some(telemetry_opts) = runtime_config.telemetry() {
+        match telemetry_opts {
+            spin_trigger::TelemetryOpts::Otlp(otlp_opts) => {
+                traces_enabled = otlp_opts.traces;
+                metrics_enabled = otlp_opts.metrics;
+                endpoint = Some(otlp_opts.endpoint.clone());
+            }
+        }
+    }
+
+    spin_telemetry::init(
+        ServiceDescription::new("spin", VERSION.to_string()),
+        endpoint.clone(),
+        traces_enabled,
+        metrics_enabled,
+    )
 }
 
 fn print_error_chain(err: anyhow::Error) {

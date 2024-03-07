@@ -38,7 +38,7 @@ use tokio::{
     net::TcpListener,
     task,
 };
-use tracing::{instrument, log, Instrument};
+use tracing::{instrument, log};
 use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
 use crate::{handler::HttpHandlerExecutor, wagi::WagiHttpExecutor};

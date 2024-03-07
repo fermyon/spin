@@ -126,9 +126,14 @@ jobs:
           rust-cache: true
 
       - name: Cargo Build
+        if: runner.os != 'Windows'
         run: cargo build --workspace --release --all-targets
         env:
           CARGO_INCREMENTAL: 0
+
+      - name: Cargo Build
+        if: runner.os == 'Windows'
+        run: cargo build --release
 
       - name: "Archive executable artifact"
         uses: actions/upload-artifact@v3

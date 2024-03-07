@@ -9,7 +9,9 @@ doctest = false
 
 [dependencies]
 anyhow = "1.0"
-paho-mqtt = { version = "0.12.3", default-features = false, features = ["vendored-ssl"] }
+paho-mqtt = { version = "0.12.3", default-features = false, features = [
+    "bundled",
+] }
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 spin-world = { path = "../world" }

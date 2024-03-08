@@ -160,8 +160,6 @@ where
             return Ok(());
         }
 
-        let runtime_config = self.build_runtime_config()?;
-
         // Required env vars
         let working_dir = std::env::var(SPIN_WORKING_DIR).context(SPIN_WORKING_DIR)?;
         let locked_url = std::env::var(SPIN_LOCKED_URL).context(SPIN_LOCKED_URL)?;
@@ -173,9 +171,7 @@ where
         );
 
         let loader = TriggerLoader::new(working_dir, self.allow_transient_write);
-        let executor = self
-            .build_executor(loader, locked_url, init_data, runtime_config)
-            .await?;
+        let executor = self.build_executor(loader, locked_url, init_data).await?;
 
         let run_fut = executor.run(self.run_config);
 
@@ -202,8 +198,9 @@ where
         loader: impl Loader + Send + Sync + 'static,
         locked_url: String,
         init_data: crate::HostComponentInitData,
-        runtime_config: RuntimeConfig,
     ) -> Result<Executor> {
+        let runtime_config = self.build_runtime_config()?;
+
         let _sloth_guard = warn_if_wasm_build_slothful();
 
         let mut builder = TriggerExecutorBuilder::new(loader);

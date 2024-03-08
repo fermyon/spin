@@ -1,7 +1,6 @@
 pub mod key_value;
 pub mod llm;
 pub mod sqlite;
-pub mod telemetry;
 pub mod variables_provider;
 
 use std::{
@@ -184,11 +183,6 @@ impl RuntimeConfig {
         }
     }
 
-    // Return the telemetry config if set.
-    pub fn telemetry(&self) -> Option<&telemetry::TelemetryOpts> {
-        self.find_opt(|opts| &opts.telemetry)
-    }
-
     /// Returns an iterator of RuntimeConfigOpts in order of decreasing precedence
     fn opts_layers(&self) -> impl Iterator<Item = &RuntimeConfigOpts> {
         std::iter::once(&self.overrides).chain(self.files.iter().rev())
@@ -220,9 +214,6 @@ pub struct RuntimeConfigOpts {
 
     #[serde(rename = "sqlite_database", default)]
     pub sqlite_databases: HashMap<String, SqliteDatabaseOpts>,
-
-    #[serde(default)]
-    pub telemetry: Option<telemetry::TelemetryOpts>,
 
     #[serde(skip)]
     pub file_path: Option<PathBuf>,

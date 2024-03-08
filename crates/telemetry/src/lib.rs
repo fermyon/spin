@@ -1,11 +1,12 @@
 use std::io::IsTerminal;
 
+use config::Config;
 use opentelemetry::global;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{fmt, prelude::*, registry, EnvFilter};
-use url::Url;
 
+pub mod config;
 mod traces;
 
 pub use traces::accept_trace;
@@ -27,18 +28,7 @@ impl ServiceDescription {
 }
 
 /// TODO
-pub fn init(
-    service: ServiceDescription,
-    endpoint: Option<Url>,
-    traces_enabled: bool,
-    _metrics_enabled: bool,
-) -> anyhow::Result<ShutdownGuard> {
-    if traces_enabled && endpoint.is_none() {
-        return Err(anyhow::anyhow!(
-            "Traces are enabled but no endpoint is provided"
-        ));
-    }
-
+pub fn init(service: ServiceDescription, config: Config) -> anyhow::Result<ShutdownGuard> {
     // TODO: comment
     let fmt_layer = fmt::layer()
         .with_writer(std::io::stderr)
@@ -50,10 +40,13 @@ pub fn init(
         );
 
     // TODO: comment
-    let otlp_layer = if traces_enabled && endpoint.is_some() {
+    let otlp_layer = if config.is_enabled {
         Some(traces::otel_tracing_layer(
             service,
-            endpoint.unwrap().to_string(),
+            config
+                .otel_exporter_otlp_traces_endpoint
+                .unwrap()
+                .to_string(),
         )?)
     } else {
         None

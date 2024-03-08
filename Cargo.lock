@@ -6365,7 +6365,7 @@ dependencies = [
 
 [[package]]
 name = "spin-telemetry"
-version = "2.3.0-pre0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "http 1.0.0",

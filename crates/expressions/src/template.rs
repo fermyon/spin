@@ -5,10 +5,12 @@ use crate::{Error, Result};
 /// Template represents a simple string template that allows expressions in
 /// double curly braces, similar to Mustache or Liquid.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Template(Vec<Part>);
+pub struct Template {
+    parts: Vec<Part>,
+}
 
 impl Template {
-    pub(crate) fn new(template: impl Into<Box<str>>) -> Result<Self> {
+    pub fn new(template: impl Into<Box<str>>) -> Result<Self> {
         let mut parts = vec![];
         let mut remainder: Box<str> = template.into();
         while !remainder.is_empty() {
@@ -37,11 +39,15 @@ impl Template {
             parts.push(part);
             remainder = rest.into();
         }
-        Ok(Template(parts))
+        Ok(Template { parts })
+    }
+
+    pub fn is_literal(&self) -> bool {
+        self.parts.iter().all(|p| matches!(p, Part::Lit(_)))
     }
 
     pub(crate) fn parts(&self) -> std::slice::Iter<Part> {
-        self.0.iter()
+        self.parts.iter()
     }
 }
 

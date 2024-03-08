@@ -28,6 +28,7 @@ outbound-mqtt = { path = "../outbound-mqtt" }
 outbound-pg = { path = "../outbound-pg" }
 outbound-mysql = { path = "../outbound-mysql" }
 spin-common = { path = "../common" }
+spin-expressions = { path = "../expressions" }
 spin-key-value = { path = "../key-value" }
 spin-key-value-azure = { path = "../key-value-azure" }
 spin-key-value-redis = { path = "../key-value-redis" }

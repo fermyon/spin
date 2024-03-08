@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Mutex};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 
-use crate::{Key, Provider};
+use spin_expressions::{Key, Provider};
 
 const DEFAULT_ENV_PREFIX: &str = "SPIN_VARIABLE";
 const LEGACY_ENV_PREFIX: &str = "SPIN_CONFIG";

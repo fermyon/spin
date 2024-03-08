@@ -18,6 +18,7 @@ mysql_async = { version = "0.33.0", default-features = false, features = [
 mysql_common = { version = "0.31.0", default-features = false }
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
+spin-expressions = { path = "../expressions" }
 spin-outbound-networking = { path = "../outbound-networking" }
 spin-world = { path = "../world" }
 table = { path = "../table" }

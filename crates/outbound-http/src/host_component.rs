@@ -7,7 +7,9 @@ use spin_world::v1::http;
 
 use crate::host_impl::OutboundHttp;
 
-pub struct OutboundHttpComponent;
+pub struct OutboundHttpComponent {
+    pub resolver: spin_expressions::SharedPreparedResolver,
+}
 
 impl HostComponent for OutboundHttpComponent {
     type Data = OutboundHttp;
@@ -33,7 +35,7 @@ impl DynamicHostComponent for OutboundHttpComponent {
         let hosts = component
             .get_metadata(ALLOWED_HOSTS_KEY)?
             .unwrap_or_default();
-        data.allowed_hosts = AllowedHostsConfig::parse(&hosts)?;
+        data.allowed_hosts = AllowedHostsConfig::parse(&hosts, self.resolver.get().unwrap())?;
         Ok(())
     }
 }

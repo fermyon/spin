@@ -6,7 +6,7 @@ use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::{async_trait, HostComponent};
 use spin_world::v2::variables;
 
-use crate::{Error, Key, Provider, Resolver};
+use spin_expressions::{Error, Key, Provider, Resolver};
 
 pub struct VariablesHostComponent {
     providers: Mutex<Vec<Box<dyn Provider>>>,
@@ -44,26 +44,28 @@ impl HostComponent for VariablesHostComponent {
 impl DynamicHostComponent for VariablesHostComponent {
     fn update_data(&self, data: &mut Self::Data, component: &AppComponent) -> anyhow::Result<()> {
         self.resolver.get_or_try_init(|| {
-            let mut resolver = Resolver::new(
-                component
-                    .app
-                    .variables()
-                    .map(|(key, var)| (key.clone(), var.clone())),
-            )?;
-            for component in component.app.components() {
-                resolver.add_component_variables(
-                    component.id(),
-                    component.config().map(|(k, v)| (k.into(), v.into())),
-                )?;
-            }
-            for provider in self.providers.lock().unwrap().drain(..) {
-                resolver.add_provider(provider);
-            }
-            Ok::<_, anyhow::Error>(resolver)
+            make_resolver(component.app, self.providers.lock().unwrap().drain(..))
         })?;
         data.component_id = Some(component.id().to_string());
         Ok(())
     }
+}
+
+pub fn make_resolver(
+    app: &spin_app::App,
+    providers: impl IntoIterator<Item = Box<dyn Provider>>,
+) -> anyhow::Result<Resolver> {
+    let mut resolver = Resolver::new(app.variables().map(|(key, var)| (key.clone(), var.clone())))?;
+    for component in app.components() {
+        resolver.add_component_variables(
+            component.id(),
+            component.config().map(|(k, v)| (k.into(), v.into())),
+        )?;
+    }
+    for provider in providers {
+        resolver.add_provider(provider);
+    }
+    Ok(resolver)
 }
 
 /// A component variables interface implementation.
@@ -78,13 +80,13 @@ impl variables::Host for ComponentVariables {
         Ok(async {
             // Set by DynamicHostComponent::update_data
             let component_id = self.component_id.as_deref().unwrap();
-            let key = Key::new(&key)?;
-            Ok(self
-                .resolver
+            let key = Key::new(&key).map_err(as_wit)?;
+            self.resolver
                 .get()
                 .unwrap()
                 .resolve(component_id, key)
-                .await?)
+                .await
+                .map_err(as_wit)
         }
         .await)
     }
@@ -107,13 +109,11 @@ impl spin_world::v1::config::Host for ComponentVariables {
     }
 }
 
-impl From<Error> for variables::Error {
-    fn from(err: Error) -> Self {
-        match err {
-            Error::InvalidName(msg) => Self::InvalidName(msg),
-            Error::Undefined(msg) => Self::Undefined(msg),
-            Error::Provider(err) => Self::Provider(err.to_string()),
-            other => Self::Other(format!("{other}")),
-        }
+fn as_wit(err: Error) -> variables::Error {
+    match err {
+        Error::InvalidName(msg) => variables::Error::InvalidName(msg),
+        Error::Undefined(msg) => variables::Error::Undefined(msg),
+        Error::Provider(err) => variables::Error::Provider(err.to_string()),
+        other => variables::Error::Other(format!("{other}")),
     }
 }

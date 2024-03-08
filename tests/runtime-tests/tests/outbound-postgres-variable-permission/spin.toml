@@ -1,0 +1,18 @@
+spin_manifest_version = 2
+
+[application]
+name = "outbound-postgres"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+version = "0.1.0"
+
+[variables]
+pg_host = { default = "localhost" }
+
+[[trigger.http]]
+route = "/"
+component = "test"
+
+[component.test]
+source = "%{source=outbound-postgres}"
+allowed_outbound_hosts = ["postgres://{{ pg_host }}:%{port=5432}"]
+environment = { DB_URL = "postgres://postgres:postgres@localhost:%{port=5432}/spin_dev" }

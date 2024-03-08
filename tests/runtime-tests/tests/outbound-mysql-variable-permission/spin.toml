@@ -1,0 +1,18 @@
+spin_manifest_version = 2
+
+[application]
+name = "outbound-mysql"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+version = "0.1.0"
+
+[variables]
+mysql_host = { default = "localhost" }
+
+[[trigger.http]]
+route = "/"
+component = "test"
+
+[component.test]
+source = "%{source=outbound-mysql}"
+allowed_outbound_hosts = ["mysql://{{ mysql_host }}:%{port=3306}"]
+environment = { DB_URL = "mysql://spin:spin@localhost:%{port=3306}/spin_dev" }

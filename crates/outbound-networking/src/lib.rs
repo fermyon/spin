@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{ops::Range, sync::Arc};
 
 use anyhow::{bail, ensure, Context};
 use spin_locked_app::MetadataKey;
@@ -296,16 +296,59 @@ pub enum AllowedHostsConfig {
     SpecificHosts(Vec<AllowedHostConfig>),
 }
 
+enum PartialAllowedHostConfig {
+    Exact(AllowedHostConfig),
+    Unresolved(spin_expressions::Template),
+}
+
+impl PartialAllowedHostConfig {
+    fn resolve(
+        self,
+        resolver: &Arc<spin_expressions::PreparedResolver>,
+    ) -> anyhow::Result<AllowedHostConfig> {
+        match self {
+            Self::Exact(h) => Ok(h),
+            Self::Unresolved(t) => AllowedHostConfig::parse(resolver.resolve_template(&t)?),
+        }
+    }
+}
+
 impl AllowedHostsConfig {
-    pub fn parse<S: AsRef<str>>(hosts: &[S]) -> anyhow::Result<AllowedHostsConfig> {
+    pub fn parse<S: AsRef<str>>(
+        hosts: &[S],
+        resolver: &Arc<spin_expressions::PreparedResolver>,
+    ) -> anyhow::Result<AllowedHostsConfig> {
+        let partial = Self::parse_partial(hosts)?;
+        let allowed = partial
+            .into_iter()
+            .map(|p| p.resolve(resolver))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        Ok(Self::SpecificHosts(allowed))
+    }
+
+    pub fn validate<S: AsRef<str>>(hosts: &[S]) -> anyhow::Result<()> {
+        _ = Self::parse_partial(hosts)?;
+        Ok(())
+    }
+
+    // Parses literals but defers templates. This is pulled out so that `validate`
+    // doesn't have to deal with resolving templates.
+    fn parse_partial<S: AsRef<str>>(hosts: &[S]) -> anyhow::Result<Vec<PartialAllowedHostConfig>> {
         if hosts.len() == 1 && hosts[0].as_ref() == "insecure:allow-all" {
             bail!("'insecure:allow-all' is not allowed - use '*://*:*' instead if you really want to allow all outbound traffic'")
         }
         let mut allowed = Vec::with_capacity(hosts.len());
         for host in hosts {
-            allowed.push(AllowedHostConfig::parse(host.as_ref().to_owned())?)
+            let template = spin_expressions::Template::new(host.as_ref())?;
+            if template.is_literal() {
+                allowed.push(PartialAllowedHostConfig::Exact(AllowedHostConfig::parse(
+                    host.as_ref(),
+                )?));
+            } else {
+                allowed.push(PartialAllowedHostConfig::Unresolved(template));
+            }
         }
-        Ok(Self::SpecificHosts(allowed))
+        Ok(allowed)
     }
 
     /// Determine if the supplied url is allowed
@@ -426,6 +469,10 @@ mod test {
         fn range(port: Range<u16>) -> Self {
             Self::List(vec![IndividualPortConfig::Range(port)])
         }
+    }
+
+    fn dummy_resolver() -> Arc<spin_expressions::PreparedResolver> {
+        Arc::new(spin_expressions::PreparedResolver::default())
     }
 
     use super::*;
@@ -603,8 +650,12 @@ mod test {
 
     #[test]
     fn test_allowed_hosts_respects_allow_all() {
-        assert!(AllowedHostsConfig::parse(&["insecure:allow-all"]).is_err());
-        assert!(AllowedHostsConfig::parse(&["spin.fermyon.dev", "insecure:allow-all"]).is_err());
+        assert!(AllowedHostsConfig::parse(&["insecure:allow-all"], &dummy_resolver()).is_err());
+        assert!(AllowedHostsConfig::parse(
+            &["spin.fermyon.dev", "insecure:allow-all"],
+            &dummy_resolver()
+        )
+        .is_err());
     }
 
     #[test]
@@ -617,9 +668,11 @@ mod test {
 
     #[test]
     fn test_allowed_hosts_can_be_specific() {
-        let allowed =
-            AllowedHostsConfig::parse(&["*://spin.fermyon.dev:443", "http://example.com:8383"])
-                .unwrap();
+        let allowed = AllowedHostsConfig::parse(
+            &["*://spin.fermyon.dev:443", "http://example.com:8383"],
+            &dummy_resolver(),
+        )
+        .unwrap();
         assert!(
             allowed.allows(&OutboundUrl::parse("http://example.com:8383/foo/bar", "http").unwrap())
         );
@@ -632,9 +685,11 @@ mod test {
 
     #[test]
     fn test_allowed_hosts_can_be_subdomain_wildcards() {
-        let allowed =
-            AllowedHostsConfig::parse(&["http://*.example.com", "http://*.example2.com:8383"])
-                .unwrap();
+        let allowed = AllowedHostsConfig::parse(
+            &["http://*.example.com", "http://*.example2.com:8383"],
+            &dummy_resolver(),
+        )
+        .unwrap();
         assert!(
             allowed.allows(&OutboundUrl::parse("http://a.example.com/foo/bar", "http").unwrap())
         );
@@ -655,7 +710,7 @@ mod test {
 
     #[test]
     fn test_hash_char_in_db_password() {
-        let allowed = AllowedHostsConfig::parse(&["mysql://xyz.com"]).unwrap();
+        let allowed = AllowedHostsConfig::parse(&["mysql://xyz.com"], &dummy_resolver()).unwrap();
         assert!(
             allowed.allows(&OutboundUrl::parse("mysql://user:pass#word@xyz.com", "mysql").unwrap())
         );

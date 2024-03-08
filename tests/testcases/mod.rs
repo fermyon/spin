@@ -12,7 +12,32 @@ pub fn run_test(
         ) -> testing_framework::TestResult<anyhow::Error>
         + 'static,
 ) -> testing_framework::TestResult<anyhow::Error> {
-    let mut env = bootstap_env(test_name, spin_up_args, services_config, app_type)
+    run_test_inited(
+        test_name,
+        app_type,
+        spin_up_args,
+        services_config,
+        |_| Ok(()),
+        test,
+    )
+}
+
+/// Run an integration test, initialising the environment before running Spin
+pub fn run_test_inited(
+    test_name: impl Into<String>,
+    app_type: testing_framework::runtimes::SpinAppType,
+    spin_up_args: impl IntoIterator<Item = String>,
+    services_config: testing_framework::ServicesConfig,
+    init_env: impl FnOnce(
+            &mut testing_framework::TestEnvironment<testing_framework::runtimes::spin_cli::SpinCli>,
+        ) -> testing_framework::TestResult<anyhow::Error>
+        + 'static,
+    test: impl FnOnce(
+            &mut testing_framework::TestEnvironment<testing_framework::runtimes::spin_cli::SpinCli>,
+        ) -> testing_framework::TestResult<anyhow::Error>
+        + 'static,
+) -> testing_framework::TestResult<anyhow::Error> {
+    let mut env = bootstap_env(test_name, spin_up_args, services_config, app_type, init_env)
         .context("failed to boot test environment")?;
     test(&mut env)?;
     Ok(())
@@ -24,6 +49,10 @@ pub fn bootstap_env(
     spin_up_args: impl IntoIterator<Item = String>,
     services_config: testing_framework::ServicesConfig,
     app_type: testing_framework::runtimes::SpinAppType,
+    init_env: impl FnOnce(
+            &mut testing_framework::TestEnvironment<testing_framework::runtimes::spin_cli::SpinCli>,
+        ) -> testing_framework::TestResult<anyhow::Error>
+        + 'static,
 ) -> anyhow::Result<
     testing_framework::TestEnvironment<testing_framework::runtimes::spin_cli::SpinCli>,
 > {
@@ -35,7 +64,7 @@ pub fn bootstap_env(
         services_config,
         app_type,
     );
-    testing_framework::TestEnvironment::up(config)
+    testing_framework::TestEnvironment::up(config, init_env)
 }
 
 /// Assert that a request to the spin server returns the expected status and body

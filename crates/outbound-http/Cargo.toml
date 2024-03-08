@@ -13,6 +13,7 @@ http = "0.2"
 reqwest = { version = "0.11", features = ["gzip"] }
 spin-app = { path = "../app", optional = true }
 spin-core = { path = "../core", optional = true }
+spin-expressions = { path = "../expressions", optional = true }
 spin-locked-app = { path = "../locked-app" }
 spin-outbound-networking = { path = "../outbound-networking" }
 spin-world = { path = "../world", optional = true }
@@ -22,4 +23,4 @@ url = "2.2.1"
 
 [features]
 default = ["runtime"]
-runtime = ["dep:spin-app", "dep:spin-core", "dep:spin-world"]
+runtime = ["dep:spin-app", "dep:spin-core", "dep:spin-expressions", "dep:spin-world"]

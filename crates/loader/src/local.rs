@@ -124,7 +124,7 @@ impl LocalLoader {
         let allowed_outbound_hosts = component
             .normalized_allowed_outbound_hosts()
             .context("`allowed_http_hosts` is malformed")?;
-        let _ = spin_outbound_networking::AllowedHostsConfig::parse(&allowed_outbound_hosts)
+        spin_outbound_networking::AllowedHostsConfig::validate(&allowed_outbound_hosts)
             .context("`allowed_outbound_hosts` is malformed")?;
 
         let metadata = ValuesMapBuilder::new()

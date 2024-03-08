@@ -13,6 +13,10 @@ use tokio_postgres::{
     Client, NoTls, Row, Socket,
 };
 
+pub struct OutboundPgComponent {
+    pub resolver: spin_expressions::SharedPreparedResolver,
+}
+
 /// A simple implementation to support outbound pg connection
 #[derive(Default)]
 pub struct OutboundPg {
@@ -67,8 +71,8 @@ impl OutboundPg {
     }
 }
 
-impl HostComponent for OutboundPg {
-    type Data = Self;
+impl HostComponent for OutboundPgComponent {
+    type Data = OutboundPg;
 
     fn add_to_linker<T: Send>(
         linker: &mut spin_core::Linker<T>,
@@ -83,7 +87,7 @@ impl HostComponent for OutboundPg {
     }
 }
 
-impl DynamicHostComponent for OutboundPg {
+impl DynamicHostComponent for OutboundPgComponent {
     fn update_data(
         &self,
         data: &mut Self::Data,
@@ -92,8 +96,11 @@ impl DynamicHostComponent for OutboundPg {
         let hosts = component
             .get_metadata(spin_outbound_networking::ALLOWED_HOSTS_KEY)?
             .unwrap_or_default();
-        data.allowed_hosts = spin_outbound_networking::AllowedHostsConfig::parse(&hosts)
-            .context("`allowed_outbound_hosts` contained an invalid url")?;
+        data.allowed_hosts = spin_outbound_networking::AllowedHostsConfig::parse(
+            &hosts,
+            self.resolver.get().unwrap(),
+        )
+        .context("`allowed_outbound_hosts` contained an invalid url")?;
         Ok(())
     }
 }

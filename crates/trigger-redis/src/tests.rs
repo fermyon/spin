@@ -18,9 +18,9 @@ async fn test_pubsub() -> Result<()> {
         .test_program("redis-rust.wasm")
         .build_trigger("messages")
         .await;
-
+    let test = HashMap::new();
     let msg = create_trigger_event("messages", "hello");
-    trigger.handle(msg).await?;
+    trigger.handle("", &test, msg).await?;
 
     Ok(())
 }

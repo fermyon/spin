@@ -15,7 +15,7 @@ mod store;
 pub mod wasi_2023_10_18;
 pub mod wasi_2023_11_10;
 
-use std::{borrow::BorrowMut, path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use crossbeam_channel::Sender;

@@ -12,22 +12,6 @@ mod traces;
 pub use traces::extract_trace_context;
 pub use traces::inject_trace_context;
 
-/// Description of the service for which telemetry is being collected
-#[derive(Clone)]
-pub struct ServiceDescription {
-    name: String,
-    version: String,
-}
-
-impl ServiceDescription {
-    pub fn new<S1: Into<String>, S2: Into<String>>(name: S1, version: S2) -> Self {
-        Self {
-            name: name.into(),
-            version: version.into(),
-        }
-    }
-}
-
 /// TODO
 pub fn init(service: ServiceDescription, config: Config) -> anyhow::Result<ShutdownGuard> {
     // TODO: comment
@@ -72,5 +56,21 @@ impl Drop for ShutdownGuard {
     fn drop(&mut self) {
         // Give tracer provider a chance to flush any pending traces.
         opentelemetry::global::shutdown_tracer_provider();
+    }
+}
+
+/// Description of the service for which telemetry is being collected
+#[derive(Clone)]
+pub struct ServiceDescription {
+    name: String,
+    version: String,
+}
+
+impl ServiceDescription {
+    pub fn new<S1: Into<String>, S2: Into<String>>(name: S1, version: S2) -> Self {
+        Self {
+            name: name.into(),
+            version: version.into(),
+        }
     }
 }

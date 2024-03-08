@@ -206,8 +206,6 @@ impl HttpTrigger {
 
         let path = req.uri().path();
 
-        // TODO: This isn't working
-
         // Handle well-known spin paths
         if let Some(well_known) = path.strip_prefix(spin_http::WELL_KNOWN_PREFIX) {
             return match well_known {

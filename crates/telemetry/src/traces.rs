@@ -5,7 +5,6 @@ use opentelemetry::{
 };
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
-    propagation::TraceContextPropagator,
     trace::{config, Tracer},
     Resource,
 };
@@ -16,24 +15,7 @@ use tracing_subscriber::{Layer, Registry};
 
 use super::ServiceDescription;
 
-/// Extracts the OTEL trace context from the provided request and sets it as the parent of the
-/// current span.
-pub fn extract_trace_context<T>(req: &http1::Request<T>) {
-    let parent_context = global::get_text_map_propagator(|propagator| {
-        propagator.extract(&HeaderExtractor(req.headers()))
-    });
-    tracing::Span::current().set_parent(parent_context);
-}
-
-/// Injects the current OTEL trace context into the provided request.
-pub fn inject_trace_context<'a>(req: impl Into<HeaderInjector<'a>>) {
-    let mut injector = req.into();
-    global::get_text_map_propagator(|propagator| {
-        let context = tracing::Span::current().context();
-        propagator.inject_context(&context, &mut injector);
-    });
-}
-
+/// Constructs a layer for the tracing subscriber that sends spans to the OTEL collector.
 pub(crate) fn otel_tracing_layer(
     service: ServiceDescription,
     endpoint: String,
@@ -44,8 +26,6 @@ pub(crate) fn otel_tracing_layer(
         Registry,
     >,
 > {
-    opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
-
     let service_metadata = vec![
         KeyValue::new(SERVICE_NAME, service.name),
         KeyValue::new(SERVICE_VERSION, service.version),
@@ -64,6 +44,24 @@ pub(crate) fn otel_tracing_layer(
         .with_tracer(tracer)
         .with_threads(false)
         .with_filter(LevelFilter::INFO))
+}
+
+/// Injects the current OTEL trace context into the provided request.
+pub fn inject_trace_context<'a>(req: impl Into<HeaderInjector<'a>>) {
+    let mut injector = req.into();
+    global::get_text_map_propagator(|propagator| {
+        let context = tracing::Span::current().context();
+        propagator.inject_context(&context, &mut injector);
+    });
+}
+
+/// Extracts the OTEL trace context from the provided request and sets it as the parent of the
+/// current span.
+pub fn extract_trace_context<'a>(req: impl Into<HeaderExtractor<'a>>) {
+    let extractor = req.into();
+    let parent_context =
+        global::get_text_map_propagator(|propagator| propagator.extract(&extractor));
+    tracing::Span::current().set_parent(parent_context);
 }
 
 pub enum HeaderInjector<'a> {
@@ -104,20 +102,39 @@ impl<'a, T> From<&'a mut http1::Request<T>> for HeaderInjector<'a> {
     }
 }
 
-struct HeaderExtractor<'a>(&'a http1::HeaderMap);
+pub enum HeaderExtractor<'a> {
+    Http0(&'a http0::HeaderMap),
+    Http1(&'a http1::HeaderMap),
+}
 
 impl<'a> Extractor for HeaderExtractor<'a> {
     fn get(&self, key: &str) -> Option<&str> {
-        self.0.get(key).and_then(|v| {
-            let s = v.to_str();
-            if let Err(ref error) = s {
-                tracing::warn!(%error, ?v, "cannot convert header value to ASCII")
-            };
-            s.ok()
-        })
+        match self {
+            HeaderExtractor::Http0(headers) => {
+                headers.get(key).map(|v| v.to_str().unwrap_or_default())
+            }
+            HeaderExtractor::Http1(headers) => {
+                headers.get(key).map(|v| v.to_str().unwrap_or_default())
+            }
+        }
     }
 
     fn keys(&self) -> Vec<&str> {
-        self.0.keys().map(|k| k.as_str()).collect()
+        match self {
+            HeaderExtractor::Http0(headers) => headers.keys().map(|k| k.as_str()).collect(),
+            HeaderExtractor::Http1(headers) => headers.keys().map(|k| k.as_str()).collect(),
+        }
+    }
+}
+
+impl<'a, T> From<&'a http0::Request<T>> for HeaderExtractor<'a> {
+    fn from(req: &'a http0::Request<T>) -> Self {
+        Self::Http0(req.headers())
+    }
+}
+
+impl<'a, T> From<&'a http1::Request<T>> for HeaderExtractor<'a> {
+    fn from(req: &'a http1::Request<T>) -> Self {
+        Self::Http1(req.headers())
     }
 }

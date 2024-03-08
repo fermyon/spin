@@ -15,7 +15,7 @@ mod store;
 pub mod wasi_2023_10_18;
 pub mod wasi_2023_11_10;
 
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{borrow::BorrowMut, path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use crossbeam_channel::Sender;
@@ -195,15 +195,17 @@ impl<T: Send + OutboundWasiHttpHandler> WasiHttpView for Data<T> {
         &mut self.table
     }
 
+    #[instrument(name = "start_outbound_http_request", skip_all, fields(otel.kind = "client"))]
     fn send_request(
         &mut self,
-        request: wasmtime_wasi_http::types::OutgoingRequest,
+        mut request: wasmtime_wasi_http::types::OutgoingRequest,
     ) -> wasmtime::Result<
         wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
     >
     where
         Self: Sized,
     {
+        spin_telemetry::inject_trace_context(&mut request.request);
         T::send_request(self, request)
     }
 }

@@ -196,7 +196,7 @@ impl HttpTrigger {
     ) -> Result<Response<Body>> {
         set_req_uri(&mut req, scheme)?;
 
-        spin_telemetry::accept_trace(&req);
+        spin_telemetry::extract_trace_context(&req);
 
         log::info!(
             "Processing request for application {} on URI {}",

@@ -6024,6 +6024,7 @@ dependencies = [
  "io-extras",
  "rustix 0.37.27",
  "spin-componentize",
+ "spin-telemetry",
  "system-interface",
  "tempfile",
  "tokio",
@@ -6368,6 +6369,7 @@ name = "spin-telemetry"
 version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
+ "http 0.2.11",
  "http 1.0.0",
  "opentelemetry",
  "opentelemetry-otlp",

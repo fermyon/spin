@@ -1,5 +1,8 @@
-use http::{HeaderMap, Request};
-use opentelemetry::{global, propagation::Extractor, KeyValue};
+use opentelemetry::{
+    global,
+    propagation::{Extractor, Injector},
+    KeyValue,
+};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
     propagation::TraceContextPropagator,
@@ -13,12 +16,22 @@ use tracing_subscriber::{Layer, Registry};
 
 use super::ServiceDescription;
 
-/// Associate the current span with the incoming requests trace context.
-pub fn accept_trace<T>(req: &Request<T>) {
+/// Extracts the OTEL trace context from the provided request and sets it as the parent of the
+/// current span.
+pub fn extract_trace_context<T>(req: &http1::Request<T>) {
     let parent_context = global::get_text_map_propagator(|propagator| {
         propagator.extract(&HeaderExtractor(req.headers()))
     });
     tracing::Span::current().set_parent(parent_context);
+}
+
+/// Injects the current OTEL trace context into the provided request.
+pub fn inject_trace_context<'a>(req: impl Into<HeaderInjector<'a>>) {
+    let mut injector = req.into();
+    global::get_text_map_propagator(|propagator| {
+        let context = tracing::Span::current().context();
+        propagator.inject_context(&context, &mut injector);
+    });
 }
 
 pub(crate) fn otel_tracing_layer(
@@ -53,7 +66,45 @@ pub(crate) fn otel_tracing_layer(
         .with_filter(LevelFilter::INFO))
 }
 
-struct HeaderExtractor<'a>(&'a HeaderMap);
+pub enum HeaderInjector<'a> {
+    Http0(&'a mut http0::HeaderMap),
+    Http1(&'a mut http1::HeaderMap),
+}
+
+impl<'a> Injector for HeaderInjector<'a> {
+    fn set(&mut self, key: &str, value: String) {
+        match self {
+            HeaderInjector::Http0(headers) => {
+                if let Ok(name) = http0::header::HeaderName::from_bytes(key.as_bytes()) {
+                    if let Ok(val) = http0::header::HeaderValue::from_str(&value) {
+                        headers.insert(name, val);
+                    }
+                }
+            }
+            HeaderInjector::Http1(headers) => {
+                if let Ok(name) = http1::header::HeaderName::from_bytes(key.as_bytes()) {
+                    if let Ok(val) = http1::header::HeaderValue::from_str(&value) {
+                        headers.insert(name, val);
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl<'a, T> From<&'a mut http0::Request<T>> for HeaderInjector<'a> {
+    fn from(req: &'a mut http0::Request<T>) -> Self {
+        Self::Http0(req.headers_mut())
+    }
+}
+
+impl<'a, T> From<&'a mut http1::Request<T>> for HeaderInjector<'a> {
+    fn from(req: &'a mut http1::Request<T>) -> Self {
+        Self::Http1(req.headers_mut())
+    }
+}
+
+struct HeaderExtractor<'a>(&'a http1::HeaderMap);
 
 impl<'a> Extractor for HeaderExtractor<'a> {
     fn get(&self, key: &str) -> Option<&str> {
@@ -62,7 +113,6 @@ impl<'a> Extractor for HeaderExtractor<'a> {
             if let Err(ref error) = s {
                 tracing::warn!(%error, ?v, "cannot convert header value to ASCII")
             };
-            tracing::info!("header key: {}, value: {}", key, s.as_ref().unwrap());
             s.ok()
         })
     }

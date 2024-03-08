@@ -9,7 +9,8 @@ use tracing_subscriber::{fmt, prelude::*, registry, EnvFilter};
 pub mod config;
 mod traces;
 
-pub use traces::accept_trace;
+pub use traces::extract_trace_context;
+pub use traces::inject_trace_context;
 
 /// Description of the service for which telemetry is being collected
 #[derive(Clone)]

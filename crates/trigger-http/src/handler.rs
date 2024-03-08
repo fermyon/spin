@@ -17,7 +17,7 @@ use spin_trigger::{EitherInstance, TriggerAppEngine};
 use spin_world::v1::http_types;
 use std::sync::Arc;
 use tokio::{sync::oneshot, task};
-use tracing::instrument;
+use tracing::{instrument, Instrument};
 use wasmtime_wasi_http::{proxy::Proxy, WasiHttpView};
 
 #[derive(Clone)]
@@ -212,29 +212,40 @@ impl HttpHandlerExecutor {
             None => Handler::Latest(Proxy::new(&mut store, &instance)?),
         };
 
-        let handle = task::spawn(async move {
-            let result = match handler {
-                Handler::Latest(proxy) => {
-                    proxy
-                        .wasi_http_incoming_handler()
-                        .call_handle(&mut store, request, response)
-                        .await
-                }
-                Handler::Handler2023_10_18(proxy) => {
-                    proxy.call_handle(&mut store, request, response).await
-                }
-                Handler::Handler2023_11_10(proxy) => {
-                    proxy.call_handle(&mut store, request, response).await
-                }
-            };
+        let span = tracing::info_span!("execute_wasi");
+        let handle = task::spawn(
+            async move {
+                let result = match handler {
+                    Handler::Latest(proxy) => {
+                        proxy
+                            .wasi_http_incoming_handler()
+                            .call_handle(&mut store, request, response)
+                            .instrument(span)
+                            .await
+                    }
+                    Handler::Handler2023_10_18(proxy) => {
+                        proxy
+                            .call_handle(&mut store, request, response)
+                            .instrument(span)
+                            .await
+                    }
+                    Handler::Handler2023_11_10(proxy) => {
+                        proxy
+                            .call_handle(&mut store, request, response)
+                            .instrument(span)
+                            .await
+                    }
+                };
 
-            tracing::trace!(
-                "wasi-http memory consumed: {}",
-                store.as_ref().data().memory_consumed()
-            );
+                tracing::trace!(
+                    "wasi-http memory consumed: {}",
+                    store.as_ref().data().memory_consumed()
+                );
 
-            result
-        });
+                result
+            }
+            .in_current_span(),
+        );
 
         match response_rx.await {
             Ok(response) => {

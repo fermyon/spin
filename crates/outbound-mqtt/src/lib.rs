@@ -88,12 +88,24 @@ impl v2::HostConnection for OutboundMqtt {
         qos: Qos,
     ) -> Result<Result<(), Error>> {
         Ok(async {
-            let (client, _) = self.get_conn(connection).await.map_err(other_error)?;
+            let (client, eventloop) = self.get_conn(connection).await.map_err(other_error)?;
             let qos = convert_to_mqtt_qos_value(qos);
+
+            // Message published to EventLoop (not MQTT Broker)
             client
                 .publish_bytes(topic, qos, false, payload.into())
                 .await
                 .map_err(other_error)?;
+
+            // Poll EventLoop once to send the message to MQTT broker or capture/throw error
+            // We may revisit this later to manage long running connections and their issues in the connection pool.
+            eventloop
+                .poll()
+                .await
+                .map_err(|err: rumqttc::ConnectionError| {
+                    v2::Error::ConnectionFailed(err.to_string())
+                })?;
+
             Ok(())
         }
         .await)

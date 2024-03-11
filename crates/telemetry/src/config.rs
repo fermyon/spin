@@ -20,6 +20,14 @@ pub struct Config {
     /// Key-value pairs to be used as resource attributes.
     #[envconfig(from = "OTEL_RESOURCE_ATTRIBUTES", default = "")]
     pub otel_resource_attributes: KeyValues,
+
+    /// Determines the verbosity of the OpenTelemetry tracing layer.
+    ///
+    /// This is a Spin specific value. This is what allows us to have different levels of verbosity
+    /// in the fmt layer and the otel layer. The fmt layer respects `RUST_LOG` and the otel layer
+    /// respects `OTEL_TRACING_LEVEL`.
+    #[envconfig(from = "OTEL_TRACING_LEVEL", default = "info")]
+    pub otel_tracing_level: String,
 }
 
 impl Config {

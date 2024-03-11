@@ -395,14 +395,14 @@ impl<T: OutboundWasiHttpHandler + Send + Sync> Engine<T> {
     }
 
     /// Creates a new [`InstancePre`] for the given [`Component`].
-    #[instrument(skip_all)]
+    #[instrument(skip_all, level = "debug")]
     pub fn instantiate_pre(&self, component: &Component) -> Result<InstancePre<T>> {
         let inner = Arc::new(self.linker.instantiate_pre(component)?);
         Ok(InstancePre { inner })
     }
 
     /// Creates a new [`ModuleInstancePre`] for the given [`Module`].
-    #[instrument(skip_all)]
+    #[instrument(skip_all, level = "debug")]
     pub fn module_instantiate_pre(&self, module: &Module) -> Result<ModuleInstancePre<T>> {
         let inner = Arc::new(self.module_linker.instantiate_pre(module)?);
         Ok(ModuleInstancePre { inner })
@@ -431,7 +431,7 @@ pub struct InstancePre<T> {
 
 impl<T: Send + Sync> InstancePre<T> {
     /// Instantiates this instance with the given [`Store`].
-    #[instrument(skip_all)]
+    #[instrument(skip_all, level = "debug")]
     pub async fn instantiate_async(&self, store: &mut Store<T>) -> Result<Instance> {
         self.inner.instantiate_async(store).await
     }
@@ -460,7 +460,7 @@ pub struct ModuleInstancePre<T> {
 
 impl<T: Send + Sync> ModuleInstancePre<T> {
     /// Instantiates this instance with the given [`Store`].
-    #[instrument(skip_all)]
+    #[instrument(skip_all, level = "debug")]
     pub async fn instantiate_async(&self, store: &mut Store<T>) -> Result<ModuleInstance> {
         self.inner.instantiate_async(store).await
     }

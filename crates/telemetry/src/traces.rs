@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use opentelemetry::{
     global,
     propagation::{Extractor, Injector},
@@ -7,9 +9,9 @@ use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_otlp::{OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_TRACES_ENDPOINT};
 use opentelemetry_sdk::{trace::Tracer, Resource};
 use opentelemetry_semantic_conventions::resource::SERVICE_NAME;
-use tracing::metadata::LevelFilter;
+use tracing::{metadata::LevelFilter, Level};
 use tracing_opentelemetry::{OpenTelemetryLayer, OpenTelemetrySpanExt};
-use tracing_subscriber::{Layer, Registry};
+use tracing_subscriber::{EnvFilter, Layer, Registry};
 
 use crate::config::Config;
 
@@ -77,7 +79,9 @@ pub(crate) fn otel_tracing_layer(
     Ok(tracing_opentelemetry::layer()
         .with_tracer(tracer)
         .with_threads(false)
-        .with_filter(LevelFilter::INFO))
+        .with_filter(LevelFilter::from_level(Level::from_str(
+            config.otel_tracing_level.as_str(),
+        )?)))
 }
 
 /// Injects the current W3C TraceContext into the provided request.

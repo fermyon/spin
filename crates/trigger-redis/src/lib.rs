@@ -6,6 +6,7 @@ use anyhow::{anyhow, Context, Result};
 use futures::{future::join_all, StreamExt};
 use redis::{Client, ConnectionLike};
 use serde::{de::IgnoredAny, Deserialize, Serialize};
+use spin_common::url::remove_credentials;
 use spin_core::async_trait;
 use spin_trigger::{cli::NoArgs, TriggerAppEngine, TriggerExecutor};
 use std::collections::HashMap;
@@ -146,12 +147,13 @@ impl RedisTrigger {
             .with_context(|| anyhow!("Redis trigger failed to connect to {}", address))?
             .into_pubsub();
 
-        println!("Active Channels on {address}:");
+        let sanitised_addr = remove_credentials(&address)?;
+        println!("Active Channels on {sanitised_addr}:");
         // Subscribe to channels
         for (channel, component) in channel_components.iter() {
             tracing::info!("Subscribing component {component:?} to channel {channel:?}");
             pubsub.subscribe(channel).await?;
-            println!("\t{address}:{channel}: [{}]", component.join(","));
+            println!("\t{sanitised_addr}:{channel}: [{}]", component.join(","));
         }
 
         let mut stream = pubsub.on_message();

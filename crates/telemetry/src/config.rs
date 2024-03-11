@@ -1,98 +1,58 @@
-use std::{env, time::Duration};
-
-use anyhow::Result;
-use opentelemetry_otlp::{ExportConfig, Protocol};
-use url::Url;
+use envconfig::Envconfig;
+use opentelemetry::KeyValue;
+use opentelemetry_semantic_conventions::resource::SERVICE_VERSION;
 
 /// Provides configuration for the telemetry system.
-#[derive(Default, Debug)]
+///
+/// Largely consists of OpenTelemetry variables defined
+/// [here](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#general-sdk-configuration)
+/// but also has some Spin specific configuration.
+#[derive(Envconfig, Debug)]
 pub struct Config {
-    pub is_enabled: bool,
-    pub trace_log: String,
-    pub tracing_config: ExportConfig,
-    pub _metrics_config: ExportConfig,
+    /// Disable the OpenTelemetry for all signals (traces and metrics).
+    #[envconfig(from = "OTEL_SDK_DISABLED", default = "false")]
+    pub otel_sdk_disabled: bool,
+
+    /// Sets the value of the `service.name` resource attribute.
+    #[envconfig(from = "OTEL_SERVICE_NAME", default = "spin")]
+    pub otel_service_name: String,
+
+    /// Key-value pairs to be used as resource attributes.
+    #[envconfig(from = "OTEL_RESOURCE_ATTRIBUTES", default = "")]
+    pub otel_resource_attributes: KeyValues,
 }
 
 impl Config {
-    /// Derive the configuration from environment variables.
-    ///
-    /// Telemetry will only be enabled if at least one relevant environment variable is set.
-    pub fn from_env() -> Result<Self> {
-        let mut config = Self::default();
-        load_endpoint_from_env(&mut config)?;
-        load_protocol_from_env(&mut config)?;
-        load_timeout_from_env(&mut config)?;
-        Ok(config)
+    /// Initializes a new [Config] from the environment.
+    pub fn from_env() -> anyhow::Result<Self> {
+        Ok(Config::init_from_env()?)
+    }
+
+    /// TODO: This is a hack until I can figure out how to set default value for
+    /// `otel_resource_attributes` with FromStr.
+    pub fn set_version(&mut self, version: String) {
+        self.otel_resource_attributes
+            .0
+            .push(KeyValue::new(SERVICE_VERSION, version));
     }
 }
 
-fn load_endpoint_from_env(config: &mut Config) -> Result<()> {
-    if let Ok(endpoint_default) = env::var("OTEL_EXPORTER_OTLP_ENDPOINT") {
-        config.is_enabled = true;
-        let url = Url::parse(&endpoint_default)?;
-        config.tracing_config.endpoint = url.join("/v1/traces")?.to_string();
-        config._metrics_config.endpoint = url.join("/v1/metrics")?.to_string();
-    }
+/// A list of [KeyValue] pairs to be used as resource attributes.
+#[derive(Debug)]
+pub struct KeyValues(Vec<KeyValue>);
 
-    if let Ok(traces_endpoint) = env::var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") {
-        config.is_enabled = true;
-        config.tracing_config.endpoint = traces_endpoint;
+impl KeyValues {
+    /// Returns a reference to the inner list of key-value pairs.
+    pub fn inner(self) -> Vec<KeyValue> {
+        self.0
     }
-
-    if let Ok(metrics_endpoint) = env::var("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") {
-        config.is_enabled = true;
-        config._metrics_config.endpoint = metrics_endpoint;
-    }
-
-    Ok(())
 }
 
-fn load_protocol_from_env(config: &mut Config) -> Result<()> {
-    if let Ok(protocol_default) = env::var("OTEL_EXPORTER_OTLP_PROTOCOL") {
-        config.is_enabled = true;
-        let protocol = str_to_protocol(&protocol_default)?;
-        config.tracing_config.protocol = protocol;
-        config._metrics_config.protocol = protocol;
-    }
+impl std::str::FromStr for KeyValues {
+    type Err = anyhow::Error;
 
-    if let Ok(traces_protocol) = env::var("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL") {
-        config.is_enabled = true;
-        config.tracing_config.protocol = str_to_protocol(&traces_protocol)?;
-    }
-
-    if let Ok(metrics_protocol) = env::var("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL") {
-        config.is_enabled = true;
-        config._metrics_config.protocol = str_to_protocol(&metrics_protocol)?;
-    }
-
-    Ok(())
-}
-
-fn load_timeout_from_env(config: &mut Config) -> Result<()> {
-    if let Ok(timeout_default) = env::var("OTEL_EXPORTER_OTLP_TIMEOUT") {
-        config.is_enabled = true;
-        let timeout = Duration::from_millis(timeout_default.parse()?);
-        config.tracing_config.timeout = timeout;
-        config._metrics_config.timeout = timeout;
-    }
-
-    if let Ok(traces_timeout) = env::var("OTEL_EXPORTER_OTLP_TRACES_TIMEOUT") {
-        config.is_enabled = true;
-        config.tracing_config.timeout = Duration::from_millis(traces_timeout.parse()?);
-    }
-
-    if let Ok(metrics_timeout) = env::var("OTEL_EXPORTER_OTLP_METRICS_TIMEOUT") {
-        config.is_enabled = true;
-        config._metrics_config.timeout = Duration::from_millis(metrics_timeout.parse()?);
-    }
-
-    Ok(())
-}
-
-fn str_to_protocol(s: &str) -> Result<Protocol> {
-    match s {
-        "grpc" => Ok(Protocol::Grpc),
-        "http/protobuf" => Ok(Protocol::HttpBinary),
-        _ => Err(anyhow::anyhow!("Invalid protocol")),
+    fn from_str(_s: &str) -> Result<Self, Self::Err> {
+        // TODO: Get a working implementation of this
+        Ok(KeyValues(Vec::new()))
     }
 }

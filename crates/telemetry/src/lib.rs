@@ -4,7 +4,7 @@ use config::Config;
 use opentelemetry::global;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::{fmt, prelude::*, registry, EnvFilter};
+use tracing_subscriber::{fmt, prelude::*, registry, EnvFilter, Layer};
 
 pub mod config;
 mod traces;
@@ -12,9 +12,13 @@ mod traces;
 pub use traces::extract_trace_context;
 pub use traces::inject_trace_context;
 
-/// TODO
-pub fn init(service: ServiceDescription, config: Config) -> anyhow::Result<ShutdownGuard> {
-    // TODO: comment
+/// Initializes telemetry for Spin using the [tracing] library.
+///
+/// Under the hood this involves initializing a [tracing::Subscriber] with multiple [Layer]s. One
+/// [Layer] emits [tracing] events to stderr, and another sends spans to an OTLP compliant
+/// collector.
+pub fn init(config: Config) -> anyhow::Result<ShutdownGuard> {
+    // This layer will print all tracing library log messages to stderr.
     let fmt_layer = fmt::layer()
         .with_writer(std::io::stderr)
         .with_ansi(std::io::stderr().is_terminal())
@@ -24,17 +28,16 @@ pub fn init(service: ServiceDescription, config: Config) -> anyhow::Result<Shutd
                 .add_directive("watchexec=off".parse()?),
         );
 
-    // TODO: comment
-    let otlp_layer = if config.is_enabled {
-        Some(traces::otlp_tracing_layer(service, config.tracing_config)?)
-    } else {
+    let otlp_layer = if config.otel_sdk_disabled {
         None
+    } else {
+        Some(traces::otlp_tracing_layer(config)?)
     };
 
-    // TODO: comment
+    // Build a registry subscriber with the layers we want to use.
     registry().with(otlp_layer).with(fmt_layer).init();
 
-    // TODO: comment
+    // Used to propagate trace information in the standard W3C TraceContext format.
     global::set_text_map_propagator(TraceContextPropagator::new());
 
     Ok(ShutdownGuard(None))
@@ -50,21 +53,5 @@ impl Drop for ShutdownGuard {
     fn drop(&mut self) {
         // Give tracer provider a chance to flush any pending traces.
         opentelemetry::global::shutdown_tracer_provider();
-    }
-}
-
-/// Description of the service for which telemetry is being collected
-#[derive(Clone)]
-pub struct ServiceDescription {
-    name: String,
-    version: String,
-}
-
-impl ServiceDescription {
-    pub fn new<S1: Into<String>, S2: Into<String>>(name: S1, version: S2) -> Self {
-        Self {
-            name: name.into(),
-            version: version.into(),
-        }
     }
 }

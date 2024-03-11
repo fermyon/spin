@@ -15,7 +15,6 @@ use spin_cli::commands::{
     watch::WatchCommand,
 };
 use spin_cli::{build_info::*, subprocess::ExitStatusError};
-use spin_telemetry::ServiceDescription;
 use spin_trigger::cli::help::HelpArgsOnlyTrigger;
 use spin_trigger::cli::TriggerExecutorCommand;
 use spin_trigger_http::HttpTrigger;
@@ -42,17 +41,15 @@ async fn main() {
 }
 
 async fn _main() -> anyhow::Result<()> {
-    let telemetry_config = match spin_telemetry::config::Config::from_env() {
+    let mut telemetry_config = match spin_telemetry::config::Config::from_env() {
         Ok(config) => config,
         Err(err) => {
             eprintln!("Failed to load telemetry config: {err}");
             return Ok(());
         }
     };
-    let _telemetry_guard = spin_telemetry::init(
-        ServiceDescription::new("spin", VERSION.to_string()),
-        telemetry_config,
-    );
+    telemetry_config.set_version(VERSION.to_string());
+    let _telemetry_guard = spin_telemetry::init(telemetry_config);
 
     let plugin_help_entries = plugin_help_entries();
 

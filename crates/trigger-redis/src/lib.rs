@@ -68,8 +68,10 @@ impl TriggerExecutor for RedisTrigger {
             let address_expr = spin_expressions::Template::new(address)?;
             let address = engine.resolve_template(&address_expr)?;
             let server = server_channels.entry(address).or_default();
+            let channel_expr = spin_expressions::Template::new(config.channel.as_str())?;
+            let channel = engine.resolve_template(&channel_expr)?;
             server
-                .entry(config.channel.clone())
+                .entry(channel)
                 .or_default()
                 .push(config.component.clone());
         }

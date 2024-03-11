@@ -13,12 +13,12 @@ use tracing_subscriber::{Layer, Registry};
 
 use crate::config::Config;
 
-/// Constructs a layer for the tracing subscriber that sends spans to an OTLP compliant collector.
+/// Constructs a layer for the tracing subscriber that sends spans to an OTEL collector.
 ///
 /// In addition to the settings provided by [Config] it also pulls OTEL configuration from the
 /// environment based on the variables defined
 /// [here](https://opentelemetry.io/docs/specs/otel/protocol/exporter/).
-pub(crate) fn otlp_tracing_layer(
+pub(crate) fn otel_tracing_layer(
     config: Config,
 ) -> anyhow::Result<
     tracing_subscriber::filter::Filtered<

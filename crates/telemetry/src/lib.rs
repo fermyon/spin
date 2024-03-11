@@ -15,8 +15,7 @@ pub use traces::inject_trace_context;
 /// Initializes telemetry for Spin using the [tracing] library.
 ///
 /// Under the hood this involves initializing a [tracing::Subscriber] with multiple [Layer]s. One
-/// [Layer] emits [tracing] events to stderr, and another sends spans to an OTLP compliant
-/// collector.
+/// [Layer] emits [tracing] events to stderr, and another sends spans to an OTEL collector.
 pub fn init(config: Config) -> anyhow::Result<ShutdownGuard> {
     // This layer will print all tracing library log messages to stderr.
     let fmt_layer = fmt::layer()
@@ -28,14 +27,14 @@ pub fn init(config: Config) -> anyhow::Result<ShutdownGuard> {
                 .add_directive("watchexec=off".parse()?),
         );
 
-    let otlp_layer = if config.otel_sdk_disabled {
+    let otel_layer = if config.otel_sdk_disabled {
         None
     } else {
-        Some(traces::otlp_tracing_layer(config)?)
+        Some(traces::otel_tracing_layer(config)?)
     };
 
     // Build a registry subscriber with the layers we want to use.
-    registry().with(otlp_layer).with(fmt_layer).init();
+    registry().with(otel_layer).with(fmt_layer).init();
 
     // Used to propagate trace information in the standard W3C TraceContext format.
     global::set_text_map_propagator(TraceContextPropagator::new());

@@ -118,8 +118,6 @@ impl RedisTrigger {
         let channel = msg.get_channel_name();
         tracing::info!("Received message on channel {:?}", channel);
 
-        tracing::info!("TODO: Emit a trigger level span here");
-
         if let Some(component_ids) = self.channel_components.get(channel) {
             let futures = component_ids.iter().map(|id| {
                 tracing::trace!("Executing Redis component {id:?}");

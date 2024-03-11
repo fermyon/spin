@@ -11,7 +11,7 @@ use opentelemetry_sdk::{trace::Tracer, Resource};
 use opentelemetry_semantic_conventions::resource::SERVICE_NAME;
 use tracing::{metadata::LevelFilter, Level};
 use tracing_opentelemetry::{OpenTelemetryLayer, OpenTelemetrySpanExt};
-use tracing_subscriber::{EnvFilter, Layer, Registry};
+use tracing_subscriber::{Layer, Registry};
 
 use crate::config::Config;
 

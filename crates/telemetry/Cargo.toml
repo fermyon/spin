@@ -5,8 +5,7 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-# TODO: Use some workspace dependencies
-anyhow = "1.0.72"
+anyhow = { workspace = true }
 envconfig = "0.10.0"
 http0 = { version = "0.2.9", package = "http" }
 http1 = { version = "1.0.0", package = "http" }

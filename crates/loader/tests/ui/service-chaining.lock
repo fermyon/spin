@@ -1,0 +1,85 @@
+{
+  "spin_lock_version": 1,
+  "must_understand": [
+    "host_requirements"
+  ],
+  "metadata": {
+    "authors": [
+      "Gul Madred",
+      "Edward Jellico",
+      "JL"
+    ],
+    "description": "A simple application that returns the number of lights",
+    "name": "chain-of-command",
+    "origin": "file://<test-dir>/service-chaining.toml",
+    "trigger": {
+      "type": "http"
+    },
+    "triggers": {},
+    "version": "6.11.2"
+  },
+  "host_requirements": {
+    "local_service_chaining": "required"
+  },
+  "triggers": [
+    {
+      "id": "four-lights-http-trigger",
+      "trigger_type": "http",
+      "trigger_config": {
+        "component": "four-lights",
+        "executor": {
+          "type": "http"
+        },
+        "route": "/lights"
+      }
+    },
+    {
+      "id": "old-test-http-trigger",
+      "trigger_type": "http",
+      "trigger_config": {
+        "component": "old-test",
+        "route": "/test"
+      }
+    },
+    {
+      "id": "web-http-trigger",
+      "trigger_type": "http",
+      "trigger_config": {
+        "component": "web",
+        "route": "/dont/test"
+      }
+    }
+  ],
+  "components": [
+    {
+      "id": "four-lights",
+      "metadata": {
+        "allowed_outbound_hosts": [
+          "http://old-test.spin.internal"
+        ]
+      },
+      "source": {
+        "content_type": "application/wasm",
+        "source": "file://<test-dir>/wasm/dummy.wasm"
+      },
+      "env": {
+        "env1": "first",
+        "env2": "second"
+      }
+    },
+    {
+      "id": "old-test",
+      "source": {
+        "content_type": "application/wasm",
+        "source": "file://<test-dir>/wasm/dummy.wasm"
+      }
+    },
+    {
+      "id": "web",
+      "source": {
+        "content_type": "application/wasm",
+        "source": "file://<cache-dir>/spin/registry/wasm/sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  ]
+}

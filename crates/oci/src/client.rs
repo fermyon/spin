@@ -694,6 +694,8 @@ mod test {
                 triggers,
                 metadata,
                 variables,
+                must_understand: Default::default(),
+                host_requirements: Default::default(),
             };
             assert_eq!(expected, layer_count(locked).await.unwrap());
         }

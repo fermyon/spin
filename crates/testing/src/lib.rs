@@ -195,6 +195,8 @@ impl Loader for TestLoader {
             triggers,
             metadata,
             variables,
+            must_understand: Default::default(),
+            host_requirements: Default::default(),
         })
     }
 

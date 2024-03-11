@@ -22,6 +22,29 @@ impl<const V: usize> TryFrom<usize> for FixedVersion<V> {
     }
 }
 
+/// FixedVersion represents a version integer field with a const value,
+/// but accepts lower versions during deserialisation.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(into = "usize", try_from = "usize")]
+pub struct FixedVersionBackwardCompatible<const V: usize>;
+
+impl<const V: usize> From<FixedVersionBackwardCompatible<V>> for usize {
+    fn from(_: FixedVersionBackwardCompatible<V>) -> usize {
+        V
+    }
+}
+
+impl<const V: usize> TryFrom<usize> for FixedVersionBackwardCompatible<V> {
+    type Error = String;
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        if value > V {
+            return Err(format!("invalid version {} > {}", value, V));
+        }
+        Ok(Self)
+    }
+}
+
 /// FixedStringVersion represents a version string field with a const value.
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(into = "String", try_from = "String")]

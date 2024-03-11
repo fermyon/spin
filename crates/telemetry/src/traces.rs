@@ -3,7 +3,7 @@ use opentelemetry::{
     propagation::{Extractor, Injector},
     KeyValue,
 };
-use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_otlp::{ExportConfig, Protocol, SpanExporterBuilder, WithExportConfig};
 use opentelemetry_sdk::{
     trace::{config, Tracer},
     Resource,
@@ -15,10 +15,10 @@ use tracing_subscriber::{Layer, Registry};
 
 use super::ServiceDescription;
 
-/// Constructs a layer for the tracing subscriber that sends spans to the OTEL collector.
-pub(crate) fn otel_tracing_layer(
+/// Constructs a layer for the tracing subscriber that sends spans to an OTLP compliant collector.
+pub(crate) fn otlp_tracing_layer(
     service: ServiceDescription,
-    endpoint: String,
+    tracing_config: ExportConfig,
 ) -> anyhow::Result<
     tracing_subscriber::filter::Filtered<
         OpenTelemetryLayer<Registry, Tracer>,
@@ -31,13 +31,20 @@ pub(crate) fn otel_tracing_layer(
         KeyValue::new(SERVICE_VERSION, service.version),
     ];
 
+    let exporter: SpanExporterBuilder = match tracing_config.protocol {
+        Protocol::Grpc => opentelemetry_otlp::new_exporter()
+            .tonic()
+            .with_export_config(tracing_config)
+            .into(),
+        Protocol::HttpBinary => opentelemetry_otlp::new_exporter()
+            .http()
+            .with_export_config(tracing_config)
+            .into(),
+    };
+
     let tracer = opentelemetry_otlp::new_pipeline()
         .tracing()
-        .with_exporter(
-            opentelemetry_otlp::new_exporter()
-                .tonic()
-                .with_endpoint(endpoint),
-        )
+        .with_exporter(exporter)
         .with_trace_config(config().with_resource(Resource::new(service_metadata)))
         .install_batch(opentelemetry_sdk::runtime::Tokio)?;
     Ok(tracing_opentelemetry::layer()

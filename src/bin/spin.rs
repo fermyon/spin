@@ -42,9 +42,16 @@ async fn main() {
 }
 
 async fn _main() -> anyhow::Result<()> {
+    let telemetry_config = match spin_telemetry::config::Config::from_env() {
+        Ok(config) => config,
+        Err(err) => {
+            eprintln!("Failed to load telemetry config: {err}");
+            return Ok(());
+        }
+    };
     let _telemetry_guard = spin_telemetry::init(
         ServiceDescription::new("spin", VERSION.to_string()),
-        spin_telemetry::config::Config::from_env(),
+        telemetry_config,
     );
 
     let plugin_help_entries = plugin_help_entries();

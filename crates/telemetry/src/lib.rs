@@ -26,13 +26,7 @@ pub fn init(service: ServiceDescription, config: Config) -> anyhow::Result<Shutd
 
     // TODO: comment
     let otlp_layer = if config.is_enabled {
-        Some(traces::otel_tracing_layer(
-            service,
-            config
-                .otel_exporter_otlp_traces_endpoint
-                .unwrap()
-                .to_string(),
-        )?)
+        Some(traces::otlp_tracing_layer(service, config.tracing_config)?)
     } else {
         None
     };

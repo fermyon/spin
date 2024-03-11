@@ -13,21 +13,11 @@ use serde::de::DeserializeOwned;
 
 use spin_app::{App, AppComponent, AppLoader, AppTrigger, Loader, OwnedApp, APP_NAME_KEY};
 use spin_core::{
-    Config, Engine, EngineBuilder, Instance, InstancePre, ModuleInstance, ModuleInstancePre,
-    OutboundWasiHttpHandler, Store, StoreBuilder, WasiVersion,
+    Config, Engine, EngineBuilder, Instance, InstancePre, OutboundWasiHttpHandler, Store,
+    StoreBuilder, WasiVersion,
 };
 
 pub use crate::runtime_config::RuntimeConfig;
-
-pub enum EitherInstancePre<T> {
-    Component(InstancePre<T>),
-    Module(ModuleInstancePre<T>),
-}
-
-pub enum EitherInstance {
-    Component(Instance),
-    Module(ModuleInstance),
-}
 
 #[async_trait]
 pub trait TriggerExecutor: Sized + Send + Sync {
@@ -35,6 +25,7 @@ pub trait TriggerExecutor: Sized + Send + Sync {
     type RuntimeData: OutboundWasiHttpHandler + Default + Send + Sync + 'static;
     type TriggerConfig;
     type RunConfig;
+    type InstancePre: TriggerInstancePre<Self::RuntimeData, Self::TriggerConfig>;
 
     /// Create a new trigger executor.
     async fn new(engine: TriggerAppEngine<Self>) -> Result<Self>;
@@ -46,18 +37,50 @@ pub trait TriggerExecutor: Sized + Send + Sync {
     fn configure_engine(_builder: &mut EngineBuilder<Self::RuntimeData>) -> Result<()> {
         Ok(())
     }
+}
+
+/// Helper type alias to project the `Instance` of a given `TriggerExecutor`.
+pub type ExecutorInstance<T> = <<T as TriggerExecutor>::InstancePre as TriggerInstancePre<
+    <T as TriggerExecutor>::RuntimeData,
+    <T as TriggerExecutor>::TriggerConfig,
+>>::Instance;
+
+#[async_trait]
+pub trait TriggerInstancePre<T, C>: Sized + Send + Sync
+where
+    T: OutboundWasiHttpHandler + Send + Sync,
+{
+    type Instance;
 
     async fn instantiate_pre(
-        engine: &Engine<Self::RuntimeData>,
+        engine: &Engine<T>,
         component: &AppComponent,
-        _config: &Self::TriggerConfig,
-    ) -> Result<EitherInstancePre<Self::RuntimeData>> {
+        config: &C,
+    ) -> Result<Self>;
+
+    async fn instantiate(&self, store: &mut Store<T>) -> Result<Self::Instance>;
+}
+
+#[async_trait]
+impl<T, C> TriggerInstancePre<T, C> for InstancePre<T>
+where
+    T: OutboundWasiHttpHandler + Send + Sync,
+{
+    type Instance = Instance;
+
+    async fn instantiate_pre(
+        engine: &Engine<T>,
+        component: &AppComponent,
+        _config: &C,
+    ) -> Result<Self> {
         let comp = component.load_component(engine).await?;
-        Ok(EitherInstancePre::Component(
-            engine
-                .instantiate_pre(&comp)
-                .with_context(|| format!("Failed to instantiate component '{}'", component.id()))?,
-        ))
+        Ok(engine
+            .instantiate_pre(&comp)
+            .with_context(|| format!("Failed to instantiate component '{}'", component.id()))?)
+    }
+
+    async fn instantiate(&self, store: &mut Store<T>) -> Result<Self::Instance> {
+        self.instantiate_async(store).await
     }
 }
 
@@ -246,7 +269,7 @@ pub struct TriggerAppEngine<Executor: TriggerExecutor> {
     // Trigger configs for this trigger type, with order matching `app.triggers_with_type(Executor::TRIGGER_TYPE)`
     trigger_configs: Vec<Executor::TriggerConfig>,
     // Map of {Component ID -> InstancePre} for each component.
-    component_instance_pres: HashMap<String, EitherInstancePre<Executor::RuntimeData>>,
+    component_instance_pres: HashMap<String, Executor::InstancePre>,
     // Resolver for value template expressions
     resolver: std::sync::Arc<spin_expressions::PreparedResolver>,
 }
@@ -290,7 +313,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
             if let Some(config) = trigger_config {
                 component_instance_pres.insert(
                     id.to_owned(),
-                    Executor::instantiate_pre(&engine, &component, config)
+                    Executor::InstancePre::instantiate_pre(&engine, &component, config)
                         .await
                         .with_context(|| format!("Failed to instantiate component '{id}'"))?,
                 );
@@ -348,7 +371,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
     pub async fn prepare_instance(
         &self,
         component_id: &str,
-    ) -> Result<(EitherInstance, Store<Executor::RuntimeData>)> {
+    ) -> Result<(ExecutorInstance<Executor>, Store<Executor::RuntimeData>)> {
         let store_builder = self.store_builder(component_id, WasiVersion::Preview2)?;
         self.prepare_instance_with_store(component_id, store_builder)
             .await
@@ -359,7 +382,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         &self,
         component_id: &str,
         mut store_builder: StoreBuilder,
-    ) -> Result<(EitherInstance, Store<Executor::RuntimeData>)> {
+    ) -> Result<(ExecutorInstance<Executor>, Store<Executor::RuntimeData>)> {
         let component = self.get_component(component_id)?;
 
         // Build Store
@@ -372,18 +395,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
             .get(component_id)
             .expect("component_instance_pres missing valid component_id");
 
-        let instance = match pre {
-            EitherInstancePre::Component(pre) => pre
-                .instantiate_async(&mut store)
-                .await
-                .map(EitherInstance::Component),
-
-            EitherInstancePre::Module(pre) => pre
-                .instantiate_async(&mut store)
-                .await
-                .map(EitherInstance::Module),
-        }
-        .with_context(|| {
+        let instance = pre.instantiate(&mut store).await.with_context(|| {
             format!(
                 "app {:?} component {:?} instantiation failed",
                 self.app_name, component_id

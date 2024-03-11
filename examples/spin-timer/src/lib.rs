@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use clap::Args;
 use serde::{Deserialize, Serialize};
 use spin_app::MetadataKey;
-use spin_core::async_trait;
-use spin_trigger::{EitherInstance, TriggerAppEngine, TriggerExecutor};
+use spin_core::{async_trait, InstancePre};
+use spin_trigger::{TriggerAppEngine, TriggerExecutor};
 
 wasmtime::component::bindgen!({
     path: ".",
@@ -61,6 +61,8 @@ impl TriggerExecutor for TimerTrigger {
     type TriggerConfig = TimerTriggerConfig;
 
     type RunConfig = CliArgs;
+
+    type InstancePre = InstancePre<RuntimeData>;
 
     async fn new(engine: spin_trigger::TriggerAppEngine<Self>) -> anyhow::Result<Self> {
         let speedup = engine
@@ -119,9 +121,6 @@ impl TimerTrigger {
     async fn handle_timer_event(&self, component_id: &str) -> anyhow::Result<()> {
         // Load the guest...
         let (instance, mut store) = self.engine.prepare_instance(component_id).await?;
-        let EitherInstance::Component(instance) = instance else {
-            unreachable!()
-        };
         let instance = SpinTimer::new(&mut store, &instance)?;
         // ...and call the entry point
         instance.call_handle_timer_request(&mut store).await

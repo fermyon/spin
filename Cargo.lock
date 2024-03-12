@@ -6483,6 +6483,7 @@ dependencies = [
  "redis 0.21.7",
  "serde",
  "spin-app",
+ "spin-common",
  "spin-core",
  "spin-expressions",
  "spin-testing",

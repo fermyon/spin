@@ -5985,7 +5985,7 @@ dependencies = [
 
 [[package]]
 name = "spin-doctor"
-version = "0.1.0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6055,7 +6055,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value-azure"
-version = "0.1.0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "azure_data_cosmos",
@@ -6069,7 +6069,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value-redis"
-version = "0.1.0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "redis 0.21.7",
@@ -6082,7 +6082,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value-sqlite"
-version = "0.1.0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "once_cell",
@@ -6743,7 +6743,7 @@ dependencies = [
 
 [[package]]
 name = "terminal"
-version = "0.1.0"
+version = "2.4.0-pre0"
 dependencies = [
  "atty",
  "once_cell",

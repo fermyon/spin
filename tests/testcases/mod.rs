@@ -1,5 +1,5 @@
 use anyhow::Context;
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 /// Run an integration test
 pub fn run_test(
@@ -161,6 +161,7 @@ pub fn http_smoke_test_template(
     template_url: Option<&str>,
     plugins: &[&str],
     prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> anyhow::Result<()>,
+    build_env_vars: HashMap<String, String>,
     expected_body: &str,
 ) -> anyhow::Result<()> {
     http_smoke_test_template_with_route(
@@ -168,6 +169,7 @@ pub fn http_smoke_test_template(
         template_url,
         plugins,
         prebuild_hook,
+        build_env_vars,
         "/",
         expected_body,
     )
@@ -179,6 +181,7 @@ pub fn http_smoke_test_template_with_route(
     template_url: Option<&str>,
     plugins: &[&str],
     prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> anyhow::Result<()>,
+    build_env_vars: HashMap<String, String>,
     route: &str,
     expected_body: &str,
 ) -> anyhow::Result<()> {
@@ -189,6 +192,7 @@ pub fn http_smoke_test_template_with_route(
         template_name,
         |_| Ok(Vec::new()),
         prebuild_hook,
+        build_env_vars,
         |_| Ok(Vec::new()),
         testing_framework::runtimes::SpinAppType::Http,
     )?;
@@ -225,6 +229,7 @@ pub fn redis_smoke_test_template(
             Ok(new_app_args(redis_port))
         },
         prebuild_hook,
+        HashMap::default(),
         |_| Ok(Vec::new()),
         testing_framework::runtimes::SpinAppType::Redis,
     )?;
@@ -262,6 +267,7 @@ pub fn bootstrap_smoke_test(
         &mut testing_framework::TestEnvironment<()>,
     ) -> anyhow::Result<Vec<String>>,
     prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> anyhow::Result<()>,
+    build_env_vars: HashMap<String, String>,
     spin_up_args: impl FnOnce(
         &mut testing_framework::TestEnvironment<()>,
     ) -> anyhow::Result<Vec<String>>,
@@ -321,7 +327,23 @@ pub fn bootstrap_smoke_test(
     };
     let mut build = std::process::Command::new(spin_binary());
     // Ensure `spin` is on the path
-    build.env("PATH", path).args(["build"]);
+    build.env("PATH", &path).args(["build"]);
+    build_env_vars.iter().for_each(|(key, value)| {
+        if key == "PATH" {
+            let mut custom_path = value.to_owned();
+            if value.starts_with('.') {
+                let current_dir = env.path();
+                custom_path = current_dir
+                    .join(value)
+                    .to_str()
+                    .unwrap_or_default()
+                    .to_owned();
+            }
+            build.env(key, format!("{}:{}", custom_path, path));
+        } else {
+            build.env(key, value);
+        }
+    });
     env.run_in(&mut build)?;
     let spin_up_args = spin_up_args(&mut env)?;
     let spin = testing_framework::runtimes::spin_cli::SpinCli::start(

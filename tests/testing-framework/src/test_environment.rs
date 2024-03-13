@@ -158,7 +158,7 @@ impl<R> TestEnvironment<R> {
     }
 
     /// Get the path to test environment
-    pub(crate) fn path(&self) -> &Path {
+    pub fn path(&self) -> &Path {
         self.temp.path()
     }
 }

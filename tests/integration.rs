@@ -413,9 +413,6 @@ Caused by:
             let mut tidy = std::process::Command::new("pip3");
             tidy.args(["install", "-r", "requirements.txt", "-t", "."]);
             env.run_in(&mut tidy)?;
-            let mut tidy = std::process::Command::new("pip3");
-            tidy.args(["install", "componentize-py"]);
-            env.run_in(&mut tidy)?;
             Ok(())
         };
         http_smoke_test_template(

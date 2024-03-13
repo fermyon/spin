@@ -91,7 +91,7 @@ runs:
       shell: bash
       if: ${{ inputs.rust == 'true' }}
       run: |
-        rustup toolchain install ${{ inputs.rust-version }} --component clippy --component rustfmt
+        rustup toolchain install ${{ inputs.rust-version }} --component clippy --component rustfmt --no-self-update
         rustup default ${{ inputs.rust-version }}
 
     - name: "Install Wasm Rust target"

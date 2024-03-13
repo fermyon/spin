@@ -223,6 +223,7 @@ impl HttpTrigger {
         addr: SocketAddr,
     ) -> Result<Response<Body>> {
         set_req_uri(&mut req, scheme)?;
+        strip_forbidden_headers(&mut req);
 
         log::info!(
             "Processing request for application {} on URI {}",
@@ -412,6 +413,18 @@ fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> Result<()> {
     parts.scheme = Some(scheme);
     *req.uri_mut() = Uri::from_parts(parts).unwrap();
     Ok(())
+}
+
+fn strip_forbidden_headers(req: &mut Request<Body>) {
+    let headers = req.headers_mut();
+    if let Some(host_header) = headers.get("Host") {
+        if let Ok(host) = host_header.to_str() {
+            let (host, _) = host.rsplit_once(':').unwrap_or((host, ""));
+            if host.ends_with(".spin.internal") {
+                headers.remove("Host");
+            }
+        }
+    }
 }
 
 // We need to make the following pieces of information available to both executors.
@@ -773,5 +786,44 @@ mod tests {
         let addr = parse_listen_addr("localhost:12345").unwrap();
         assert_eq!(addr.ip(), Ipv4Addr::LOCALHOST);
         assert_eq!(addr.port(), 12345);
+    }
+
+    #[test]
+    fn forbidden_headers_are_removed() {
+        let mut req = Request::get("http://test.spin.internal")
+            .header("Host", "test.spin.internal")
+            .header("accept", "text/plain")
+            .body(Default::default())
+            .unwrap();
+
+        strip_forbidden_headers(&mut req);
+
+        assert_eq!(1, req.headers().len());
+        assert!(req.headers().get("Host").is_none());
+
+        let mut req = Request::get("http://test.spin.internal")
+            .header("Host", "test.spin.internal:1234")
+            .header("accept", "text/plain")
+            .body(Default::default())
+            .unwrap();
+
+        strip_forbidden_headers(&mut req);
+
+        assert_eq!(1, req.headers().len());
+        assert!(req.headers().get("Host").is_none());
+    }
+
+    #[test]
+    fn non_forbidden_headers_are_not_removed() {
+        let mut req = Request::get("http://test.example.com")
+            .header("Host", "test.example.org")
+            .header("accept", "text/plain")
+            .body(Default::default())
+            .unwrap();
+
+        strip_forbidden_headers(&mut req);
+
+        assert_eq!(2, req.headers().len());
+        assert!(req.headers().get("Host").is_some());
     }
 }

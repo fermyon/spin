@@ -526,7 +526,7 @@ impl HttpRuntimeData {
         ))?;
 
         let base = "/";
-        let raw_route = request.request.uri().path().to_owned();
+        let raw_route = "/...";
 
         let client_addr = std::net::SocketAddr::from_str("0.0.0.0:0")?;
 
@@ -537,7 +537,7 @@ impl HttpRuntimeData {
 
         let resp_fut = async move {
             match handler
-                .execute(&engine, &component_id, base, &raw_route, req, client_addr)
+                .execute(&engine, &component_id, base, raw_route, req, client_addr)
                 .await
             {
                 Ok(resp) => Ok(Ok(IncomingResponseInternal {

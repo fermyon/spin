@@ -374,13 +374,29 @@ impl LocalLoader {
                     quoted_path(&dest_parent)
                 )
             })?;
-        crate::fs::copy(src, dest).await.with_context(|| {
-            format!(
-                "Failed to copy {} to {}",
-                quoted_path(src),
-                quoted_path(dest)
-            )
-        })?;
+
+        let failed_to_copy_error = format!(
+            "Failed to copy {} to {}",
+            quoted_path(src),
+            quoted_path(dest)
+        );
+
+        let dest_str = dest
+            .to_str()
+            .expect("Could not convert destination path to str");
+
+        if dest_str.ends_with(std::path::MAIN_SEPARATOR)
+            || dest.to_str().unwrap_or_default().ends_with('.')
+            || dest.to_str().unwrap_or_default().ends_with("..")
+        {
+            bail!(format!(
+                "{failed_to_copy_error}: Illegal destination filename"
+            ))
+        }
+
+        crate::fs::copy(src, dest)
+            .await
+            .with_context(|| failed_to_copy_error)?;
         tracing::debug!("Copied {src:?} to {dest:?}");
         Ok(())
     }

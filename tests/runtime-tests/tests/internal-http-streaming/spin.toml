@@ -1,0 +1,21 @@
+spin_manifest_version = 2
+
+[application]
+name = "internal-http"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+version = "0.1.0"
+
+[[trigger.http]]
+route = "/..."
+component = "front-streaming"
+
+[component.front-streaming]
+source = "%{source=internal-http-streaming-front}"
+allowed_outbound_hosts = ["http://*.spin.internal"]
+
+[[trigger.http]]
+route = "/back/..."
+component = "back-streaming"
+
+[component.back-streaming]
+source = "%{source=internal-http-streaming-back}"

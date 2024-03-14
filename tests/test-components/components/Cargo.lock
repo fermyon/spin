@@ -221,7 +221,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytes",
- "spin-sdk",
+ "spin-sdk 2.2.0",
 ]
 
 [[package]]
@@ -229,8 +229,8 @@ name = "headers-dynamic-env"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "http",
- "spin-sdk",
+ "http 0.2.11",
+ "spin-sdk 2.2.0",
 ]
 
 [[package]]
@@ -247,8 +247,8 @@ name = "hello-world"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "http",
- "spin-sdk",
+ "http 0.2.11",
+ "spin-sdk 2.2.0",
 ]
 
 [[package]]
@@ -270,6 +270,17 @@ name = "http"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8947b1a6fad4393052c7ba1f4cd97bed3e953a95c79c92ad9b051a04611d9fbb"
+dependencies = [
+ "bytes",
+ "fnv",
+ "itoa",
+]
+
+[[package]]
+name = "http"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21b9ddb458710bc376481b842f5da65cdf31522de232c1ca8146abce2a358258"
 dependencies = [
  "bytes",
  "fnv",
@@ -308,8 +319,8 @@ name = "integration-simple"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "http",
- "spin-sdk",
+ "http 0.2.11",
+ "spin-sdk 2.2.0",
 ]
 
 [[package]]
@@ -328,7 +339,7 @@ dependencies = [
  "futures",
  "hex",
  "sha2",
- "spin-sdk",
+ "spin-sdk 2.2.0",
  "url",
 ]
 
@@ -337,6 +348,56 @@ name = "integration_wagi"
 version = "0.1.0"
 dependencies = [
  "miniserde",
+]
+
+[[package]]
+name = "internal-http-back-component"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "helper",
+ "http 0.2.11",
+ "spin-sdk 2.2.0",
+]
+
+[[package]]
+name = "internal-http-front-component"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "helper",
+ "http 0.2.11",
+ "spin-sdk 2.2.0",
+]
+
+[[package]]
+name = "internal-http-middle-component"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "helper",
+ "http 0.2.11",
+ "spin-sdk 2.2.0",
+]
+
+[[package]]
+name = "internal-http-streaming-back-component"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "helper",
+ "spin-sdk 2.2.0",
+]
+
+[[package]]
+name = "internal-http-streaming-front-component"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "helper",
+ "spin-sdk 3.0.0",
 ]
 
 [[package]]
@@ -359,7 +420,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "serde_qs",
- "spin-sdk",
+ "spin-sdk 2.2.0",
 ]
 
 [[package]]
@@ -419,8 +480,8 @@ name = "outbound-http-component"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "http",
- "spin-sdk",
+ "http 0.2.11",
+ "spin-sdk 2.2.0",
 ]
 
 [[package]]
@@ -618,7 +679,20 @@ checksum = "13524474ab9f876586e29f954377a66ed14fcb646fc9893e6f0e762213ddbd86"
 dependencies = [
  "anyhow",
  "bytes",
- "http",
+ "http 0.2.11",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "spin-macro"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a161ae2fefde8582ef555ead81d87cf897cd31a23a1d1e0c22a9c43fd9af421a"
+dependencies = [
+ "anyhow",
+ "bytes",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -632,7 +706,7 @@ dependencies = [
  "futures",
  "hex",
  "sha2",
- "spin-sdk",
+ "spin-sdk 2.2.0",
  "url",
 ]
 
@@ -647,14 +721,35 @@ dependencies = [
  "bytes",
  "form_urlencoded",
  "futures",
- "http",
+ "http 0.2.11",
  "once_cell",
  "routefinder",
  "serde",
  "serde_json",
- "spin-macro",
+ "spin-macro 2.2.0",
  "thiserror",
  "wit-bindgen 0.13.1",
+]
+
+[[package]]
+name = "spin-sdk"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2c02cf00c243c03fb330cb5be7bf4eb3c8db7c5476425068c7385ddff1567aa"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "form_urlencoded",
+ "futures",
+ "http 1.1.0",
+ "once_cell",
+ "routefinder",
+ "serde",
+ "serde_json",
+ "spin-macro 3.0.0",
+ "thiserror",
+ "wit-bindgen 0.16.0",
 ]
 
 [[package]]
@@ -799,8 +894,8 @@ name = "vault-variables-test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "http",
- "spin-sdk",
+ "http 0.2.11",
+ "spin-sdk 2.2.0",
 ]
 
 [[package]]

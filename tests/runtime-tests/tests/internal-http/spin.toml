@@ -1,0 +1,29 @@
+spin_manifest_version = 2
+
+[application]
+name = "internal-http"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+version = "0.1.0"
+
+[[trigger.http]]
+route = "/..."
+component = "front"
+
+[component.front]
+source = "%{source=internal-http-front}"
+allowed_outbound_hosts = ["http://middle.spin.internal"]
+
+[[trigger.http]]
+route = "/middle/..."
+component = "middle"
+
+[component.middle]
+source = "%{source=internal-http-middle}"
+allowed_outbound_hosts = ["https://*.spin.internal"]
+
+[[trigger.http]]
+route = "/back/..."
+component = "back"
+
+[component.back]
+source = "%{source=internal-http-back}"

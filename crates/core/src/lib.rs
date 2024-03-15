@@ -15,7 +15,7 @@ mod store;
 pub mod wasi_2023_10_18;
 pub mod wasi_2023_11_10;
 
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 use anyhow::Result;
 use crossbeam_channel::Sender;
@@ -395,14 +395,14 @@ impl<T: OutboundWasiHttpHandler + Send + Sync> Engine<T> {
     /// Creates a new [`InstancePre`] for the given [`Component`].
     #[instrument(skip_all)]
     pub fn instantiate_pre(&self, component: &Component) -> Result<InstancePre<T>> {
-        let inner = Arc::new(self.linker.instantiate_pre(component)?);
+        let inner = self.linker.instantiate_pre(component)?;
         Ok(InstancePre { inner })
     }
 
     /// Creates a new [`ModuleInstancePre`] for the given [`Module`].
     #[instrument(skip_all)]
     pub fn module_instantiate_pre(&self, module: &Module) -> Result<ModuleInstancePre<T>> {
-        let inner = Arc::new(self.module_linker.instantiate_pre(module)?);
+        let inner = self.module_linker.instantiate_pre(module)?;
         Ok(ModuleInstancePre { inner })
     }
 
@@ -424,7 +424,7 @@ impl<T> AsRef<wasmtime::Engine> for Engine<T> {
 ///
 /// See [`wasmtime::component::InstancePre`] for more information.
 pub struct InstancePre<T> {
-    inner: Arc<wasmtime::component::InstancePre<Data<T>>>,
+    inner: wasmtime::component::InstancePre<Data<T>>,
 }
 
 impl<T: Send + Sync> InstancePre<T> {
@@ -453,7 +453,7 @@ impl<T> AsRef<wasmtime::component::InstancePre<Data<T>>> for InstancePre<T> {
 ///
 /// See [`wasmtime::InstancePre`] for more information.
 pub struct ModuleInstancePre<T> {
-    inner: Arc<wasmtime::InstancePre<Data<T>>>,
+    inner: wasmtime::InstancePre<Data<T>>,
 }
 
 impl<T: Send + Sync> ModuleInstancePre<T> {

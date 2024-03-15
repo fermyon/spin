@@ -7,6 +7,7 @@ use anyhow::{bail, Context, Result};
 use docker_credential::DockerCredential;
 use futures_util::future;
 use futures_util::stream::{self, StreamExt, TryStreamExt};
+use itertools::Itertools;
 use oci_distribution::{
     client::ImageLayer, config::ConfigFile, manifest::OciImageManifest, secrets::RegistryAuth,
     token_cache::RegistryTokenType, Reference, RegistryOperation,
@@ -43,8 +44,9 @@ const MAX_PARALLEL_PULL: usize = 16;
 /// (500 appears to be the limit for Elastic Container Registry)
 const MAX_LAYER_COUNT: usize = 500;
 
-// Inline content into ContentRef iff < this size.
-const CONTENT_REF_INLINE_MAX_SIZE: usize = 128;
+/// Default maximum content size for inlining directly into config,
+/// rather than pushing as a separate layer
+const DEFAULT_CONTENT_REF_INLINE_MAX_SIZE: usize = 128;
 
 /// Client for interacting with an OCI registry for Spin applications.
 pub struct Client {
@@ -52,6 +54,15 @@ pub struct Client {
     pub cache: Cache,
     /// Underlying OCI client.
     oci: oci_distribution::Client,
+    /// Client options
+    pub opts: ClientOpts,
+}
+
+#[derive(Clone)]
+/// Options for configuring a Client
+pub struct ClientOpts {
+    /// Inline content into ContentRef iff < this size.
+    pub content_ref_inline_max_size: usize,
 }
 
 impl Client {
@@ -59,8 +70,15 @@ impl Client {
     pub async fn new(insecure: bool, cache_root: Option<PathBuf>) -> Result<Self> {
         let client = oci_distribution::Client::new(Self::build_config(insecure));
         let cache = Cache::new(cache_root).await?;
+        let opts = ClientOpts {
+            content_ref_inline_max_size: DEFAULT_CONTENT_REF_INLINE_MAX_SIZE,
+        };
 
-        Ok(Self { oci: client, cache })
+        Ok(Self {
+            oci: client,
+            cache,
+            opts,
+        })
     }
 
     /// Push a Spin application to an OCI registry and return the digest (or None
@@ -110,68 +128,29 @@ impl Client {
     /// if the digest cannot be determined).
     async fn push_locked_core(
         &mut self,
-        mut locked: LockedApp,
+        locked: LockedApp,
         auth: RegistryAuth,
         reference: Reference,
     ) -> Result<Option<String>> {
-        // For each component in the application, add a layer for the wasm module and
-        // separate layers for all static assets if application total will be under MAX_LAYER_COUNT,
-        // else an archive layer for all static assets per file entry if not.
-        // Finally, update the locked application with the layer digests.
-        let mut layers = Vec::new();
-        let mut components = Vec::new();
-        let archive_layers: bool = layer_count(locked.clone()).await? > MAX_LAYER_COUNT;
+        let mut locked_app = locked.clone();
+        let mut layers = self
+            .assemble_layers(&mut locked_app, false)
+            .await
+            .context("could not assemble layers for locked application")?;
 
-        for mut c in locked.components {
-            // Add the wasm module for the component as layers.
-            let source = c
-                .clone()
-                .source
-                .content
-                .source
-                .context("component loaded from disk should contain a file source")?;
-
-            let source = parse_file_url(source.as_str())?;
-            let layer = Self::wasm_layer(&source).await?;
-
-            // Update the module source with the content ref of the layer.
-            c.source.content = Self::content_ref_for_layer(&layer);
-
-            layers.push(layer);
-
-            let mut files = Vec::new();
-            for f in c.files {
-                let source = f
-                    .content
-                    .source
-                    .context("file mount loaded from disk should contain a file source")?;
-                let source = parse_file_url(source.as_str())?;
-
-                if archive_layers {
-                    self.push_archive_layer(&source, &mut files, &mut layers)
-                        .await
-                        .context(format!(
-                            "cannot push archive layer for source {}",
-                            quoted_path(&source)
-                        ))?;
-                } else {
-                    self.push_file_layers(&source, &mut files, &mut layers)
-                        .await
-                        .context(format!(
-                            "cannot push file layers for source {}",
-                            quoted_path(&source)
-                        ))?;
-                }
-            }
-            c.files = files;
-            components.push(c);
+        // If layer count exceeds MAX_LAYER_COUNT-1, assemble archive layers instead.
+        // (We'll be adding one more layer to represent the locked application config.)
+        if layers.len() > MAX_LAYER_COUNT - 1 {
+            locked_app = locked.clone();
+            layers = self
+                .assemble_layers(&mut locked_app, true)
+                .await
+                .context("could not assemble archive layers for locked application")?;
         }
-        locked.components = components;
-        locked.metadata.remove("origin");
 
         // Push layer for locked spin application config
         let locked_config_layer = ImageLayer::new(
-            serde_json::to_vec(&locked).context("could not serialize locked config")?,
+            serde_json::to_vec(&locked_app).context("could not serialize locked config")?,
             SPIN_APPLICATION_MEDIA_TYPE.to_string(),
             None,
         );
@@ -219,6 +198,72 @@ impl Client {
         Ok(digest)
     }
 
+    /// Assemble ImageLayers for a locked application and return the
+    /// resulting Vec<ImageLayer>.
+    /// There will always be one layer per component wasm file and
+    /// their may be one layer for each static asset included with each component
+    /// or one archive layer per component consolidating all static assets together,
+    /// to avoid exceeding certain registry layer count limits.
+    async fn assemble_layers(
+        &mut self,
+        locked: &mut LockedApp,
+        archive: bool,
+    ) -> Result<Vec<ImageLayer>> {
+        let mut layers = Vec::new();
+        let mut components = Vec::new();
+        for mut c in locked.clone().components {
+            // Add the wasm module for the component as layers.
+            let source = c
+                .clone()
+                .source
+                .content
+                .source
+                .context("component loaded from disk should contain a file source")?;
+
+            let source = parse_file_url(source.as_str())?;
+            let layer = Self::wasm_layer(&source).await?;
+
+            // Update the module source with the content ref of the layer.
+            c.source.content = self.content_ref_for_layer(&layer);
+
+            layers.push(layer);
+
+            let mut files = Vec::new();
+            for f in c.files {
+                let source = f
+                    .content
+                    .source
+                    .context("file mount loaded from disk should contain a file source")?;
+                let source = parse_file_url(source.as_str())?;
+
+                if archive {
+                    self.push_archive_layer(&source, &mut files, &mut layers)
+                        .await
+                        .context(format!(
+                            "cannot push archive layer for source {}",
+                            quoted_path(&source)
+                        ))?;
+                } else {
+                    self.push_file_layers(&source, &mut files, &mut layers)
+                        .await
+                        .context(format!(
+                            "cannot push file layers for source {}",
+                            quoted_path(&source)
+                        ))?;
+                }
+            }
+            c.files = files;
+            components.push(c);
+        }
+        locked.components = components;
+        locked.metadata.remove("origin");
+
+        // Deduplicate layers
+        layers = layers.into_iter().unique().collect();
+
+        Ok(layers)
+    }
+
     /// Archive all of the files recursively under the source directory
     /// and push as a compressed archive layer
     async fn push_archive_layer(
@@ -238,7 +283,7 @@ impl Client {
             tracing::trace!("Adding asset {rel_path:?} to component files list");
             // Add content/path to the locked component files list
             let layer = Self::data_layer(entry.path(), DATA_MEDIATYPE.to_string()).await?;
-            let content = Self::content_ref_for_layer(&layer);
+            let content = self.content_ref_for_layer(&layer);
             files.push(ContentPath {
                 content,
                 path: rel_path.into(),
@@ -279,7 +324,7 @@ impl Client {
             tracing::trace!("Adding new layer for asset {rel_path:?}");
             // Construct and push layer, adding its digest to the locked component files Vec
             let layer = Self::data_layer(entry.path(), DATA_MEDIATYPE.to_string()).await?;
-            let content = Self::content_ref_for_layer(&layer);
+            let content = self.content_ref_for_layer(&layer);
             let content_inline = content.inline.is_some();
             files.push(ContentPath {
                 content,
@@ -443,11 +488,12 @@ impl Client {
         Ok(ImageLayer::new(fs::read(&file).await?, media_type, None))
     }
 
-    fn content_ref_for_layer(layer: &ImageLayer) -> ContentRef {
+    fn content_ref_for_layer(&self, layer: &ImageLayer) -> ContentRef {
         ContentRef {
             // Inline small content as an optimization and to work around issues
             // with OCI implementations that don't support very small blobs.
-            inline: (layer.data.len() <= CONTENT_REF_INLINE_MAX_SIZE).then(|| layer.data.to_vec()),
+            inline: (layer.data.len() <= self.opts.content_ref_inline_max_size)
+                .then(|| layer.data.to_vec()),
             digest: Some(layer.sha256_digest()),
             ..Default::default()
         }
@@ -609,27 +655,6 @@ fn digest_from_url(manifest_url: &str) -> Option<String> {
     }
 }
 
-async fn layer_count(locked: LockedApp) -> Result<usize> {
-    let mut layer_count = 0;
-    for c in locked.components {
-        layer_count += 1;
-        for f in c.files {
-            let source = f
-                .content
-                .source
-                .context("file mount loaded from disk should contain a file source")?;
-            let source = parse_file_url(source.as_str())?;
-            for entry in WalkDir::new(&source) {
-                let entry = entry?;
-                if entry.file_type().is_file() && !entry.file_type().is_dir() {
-                    layer_count += 1;
-                }
-            }
-        }
-    }
-    Ok(layer_count)
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -645,59 +670,249 @@ mod test {
     }
 
     #[tokio::test]
-    async fn can_get_layer_count() {
+    async fn can_assemble_layers() {
         use spin_locked_app::locked::LockedComponent;
+        use tokio::io::AsyncWriteExt;
 
         let working_dir = tempfile::tempdir().unwrap();
-        let source_dir = working_dir.path().join("foo");
-        let _ = tokio::fs::create_dir(source_dir.as_path()).await;
-        let file_path = source_dir.join("bar");
-        let _ = tokio::fs::File::create(file_path.as_path()).await;
 
-        let tests: Vec<(Vec<LockedComponent>, usize)> = [
-            (
-                spin_testing::from_json!([{
-                "id": "test-component",
+        // Set up component/file directory tree
+        //
+        // create component1 and component2 dirs
+        let _ = tokio::fs::create_dir(working_dir.path().join("component1").as_path()).await;
+        let _ = tokio::fs::create_dir(working_dir.path().join("component2").as_path()).await;
+
+        // create component "wasm" files
+        let mut c1 = tokio::fs::File::create(working_dir.path().join("component1.wasm"))
+            .await
+            .expect("should create component wasm file");
+        c1.write_all(b"c1")
+            .await
+            .expect("should write component wasm contents");
+        let mut c2 = tokio::fs::File::create(working_dir.path().join("component2.wasm"))
+            .await
+            .expect("should create component wasm file");
+        c2.write_all(b"c2")
+            .await
+            .expect("should write component wasm contents");
+
+        // component1 files
+        let mut c1f1 = tokio::fs::File::create(working_dir.path().join("component1").join("bar"))
+            .await
+            .expect("should create component file");
+        c1f1.write_all(b"bar")
+            .await
+            .expect("should write file contents");
+        let mut c1f2 = tokio::fs::File::create(working_dir.path().join("component1").join("baz"))
+            .await
+            .expect("should create component file");
+        c1f2.write_all(b"baz")
+            .await
+            .expect("should write file contents");
+
+        // component2 files
+        let mut c2f1 = tokio::fs::File::create(working_dir.path().join("component2").join("baz"))
+            .await
+            .expect("should create component file");
+        c2f1.write_all(b"baz")
+            .await
+            .expect("should write file contents");
+
+        #[derive(Clone)]
+        struct TestCase {
+            name: &'static str,
+            opts: Option<ClientOpts>,
+            locked_components: Vec<LockedComponent>,
+            expected_layer_count: usize,
+            expected_error: Option<&'static str>,
+        }
+
+        let tests: Vec<TestCase> = [
+            TestCase {
+                name: "Two component layers",
+                opts: None,
+                locked_components: spin_testing::from_json!([{
+                    "id": "component1",
+                    "source": {
+                        "content_type": "application/wasm",
+                        "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
+                        "digest": "digest",
+                }},
+                {
+                    "id": "component2",
+                    "source": {
+                        "content_type": "application/wasm",
+                        "source": format!("file://{}", working_dir.path().join("component2.wasm").to_str().unwrap()),
+                        "digest": "digest",
+                }}]),
+                expected_layer_count: 2,
+                expected_error: None,
+            },
+            TestCase {
+                name: "One component layer and two file layers",
+                opts: Some(ClientOpts{content_ref_inline_max_size: 0}),
+                locked_components: spin_testing::from_json!([{
+                "id": "component1",
                 "source": {
                     "content_type": "application/wasm",
-                    "digest": "test-source",
-                },
-                }]),
-                1,
-            ),
-            (
-                spin_testing::from_json!([{
-                "id": "test-component",
-                "source": {
-                    "content_type": "application/wasm",
-                    "digest": "test-source",
+                    "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
+                    "digest": "digest",
                 },
                 "files": [
                     {
-                        "source": format!("file://{}", file_path.to_str().unwrap()),
-                        "path": ""
+                        "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
+                        "path": working_dir.path().join("component1").join("bar").to_str().unwrap()
+                    },
+                    {
+                        "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
+                        "path": working_dir.path().join("component1").join("baz").to_str().unwrap()
                     }
                 ]
                 }]),
-                2,
-            ),
+                expected_layer_count: 3,
+                expected_error: None,
+            },
+            TestCase {
+                name: "One component layer and one file with inlined content",
+                opts: None,
+                locked_components: spin_testing::from_json!([{
+                "id": "component1",
+                "source": {
+                    "content_type": "application/wasm",
+                    "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
+                    "digest": "digest",
+                },
+                "files": [
+                    {
+                        "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
+                        "path": working_dir.path().join("component1").join("bar").to_str().unwrap()
+                    }
+                ]
+                }]),
+                expected_layer_count: 1,
+                expected_error: None,
+            },
+            TestCase {
+                name: "Component has no source",
+                opts: None,
+                locked_components: spin_testing::from_json!([{
+                "id": "component1",
+                "source": {
+                    "content_type": "application/wasm",
+                    "source": "",
+                    "digest": "digest",
+                }
+                }]),
+                expected_layer_count: 2,
+                expected_error: Some("Invalid URL: \"\""),
+            },
+            TestCase {
+                name: "Duplicate component sources",
+                opts: None,
+                locked_components: spin_testing::from_json!([{
+                    "id": "component1",
+                    "source": {
+                        "content_type": "application/wasm",
+                        "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
+                        "digest": "digest",
+                }},
+                {
+                    "id": "component2",
+                    "source": {
+                        "content_type": "application/wasm",
+                        "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
+                        "digest": "digest",
+                }}]),
+                expected_layer_count: 1,
+                expected_error: None,
+            },
+            TestCase {
+                name: "Duplicate file paths",
+                opts: Some(ClientOpts{content_ref_inline_max_size: 0}),
+                locked_components: spin_testing::from_json!([{
+                "id": "component1",
+                "source": {
+                    "content_type": "application/wasm",
+                    "source": format!("file://{}", working_dir.path().join("component1.wasm").to_str().unwrap()),
+                    "digest": "digest",
+                },
+                "files": [
+                    {
+                        "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
+                        "path": working_dir.path().join("component1").join("bar").to_str().unwrap()
+                    },
+                    {
+                        "source": format!("file://{}", working_dir.path().join("component1").to_str().unwrap()),
+                        "path": working_dir.path().join("component1").join("baz").to_str().unwrap()
+                    }
+                ]},
+                {
+                    "id": "component2",
+                    "source": {
+                        "content_type": "application/wasm",
+                        "source": format!("file://{}", working_dir.path().join("component2.wasm").to_str().unwrap()),
+                        "digest": "digest",
+                },
+                "files": [
+                    {
+                        "source": format!("file://{}", working_dir.path().join("component2").to_str().unwrap()),
+                        "path": working_dir.path().join("component2").join("baz").to_str().unwrap()
+                    }
+                ]
+                }]),
+                expected_layer_count: 4,
+                expected_error: None,
+            },
         ]
         .to_vec();
 
-        for (components, expected) in tests {
+        for tc in tests {
             let triggers = Default::default();
             let metadata = Default::default();
             let variables = Default::default();
-            let locked = LockedApp {
+            let mut locked = LockedApp {
                 spin_lock_version: Default::default(),
-                components,
+                components: tc.locked_components,
                 triggers,
                 metadata,
                 variables,
                 must_understand: Default::default(),
                 host_requirements: Default::default(),
             };
-            assert_eq!(expected, layer_count(locked).await.unwrap());
+
+            let mut client = Client::new(false, Some(working_dir.path().to_path_buf()))
+                .await
+                .expect("should create new client");
+            if let Some(o) = tc.opts {
+                client.opts = o;
+            }
+
+            match tc.expected_error {
+                Some(e) => {
+                    assert_eq!(
+                        e,
+                        client
+                            .assemble_layers(&mut locked, false)
+                            .await
+                            .unwrap_err()
+                            .to_string(),
+                        "{}",
+                        tc.name
+                    )
+                }
+                None => {
+                    assert_eq!(
+                        tc.expected_layer_count,
+                        client
+                            .assemble_layers(&mut locked, false)
+                            .await
+                            .unwrap()
+                            .len(),
+                        "{}",
+                        tc.name
+                    )
+                }
+            }
         }
     }
 }

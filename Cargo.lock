@@ -4131,13 +4131,14 @@ dependencies = [
 [[package]]
 name = "oci-distribution"
 version = "0.10.0"
-source = "git+https://github.com/fermyon/oci-distribution?rev=63cbb0925775e0c9c870195cad1d50ac8707a264#63cbb0925775e0c9c870195cad1d50ac8707a264"
+source = "git+https://github.com/vdice/oci-distribution?rev=36b987cf433d25d968a717294fd07f3d6087869c#36b987cf433d25d968a717294fd07f3d6087869c"
 dependencies = [
  "bytes",
  "chrono",
  "futures-util",
  "http 0.2.12",
  "http-auth",
+ "itertools 0.12.1",
  "jwt",
  "lazy_static",
  "olpc-cjson",
@@ -6364,6 +6365,7 @@ dependencies = [
  "dkregistry",
  "docker_credential",
  "futures-util",
+ "itertools 0.12.1",
  "oci-distribution",
  "reqwest",
  "serde",

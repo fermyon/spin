@@ -40,6 +40,7 @@ async fn add_fileserver_does_not_create_dir() -> anyhow::Result<()> {
         output_path: app_dir.path().to_owned(),
         values: HashMap::new(),
         accept_defaults: true,
+        no_vcs: false,
     };
     manager
         .get("http-empty")?
@@ -56,6 +57,7 @@ async fn add_fileserver_does_not_create_dir() -> anyhow::Result<()> {
         output_path: app_dir.path().join("fs"),
         values: HashMap::new(),
         accept_defaults: true,
+        no_vcs: false,
     };
     manager
         .get("static-fileserver")?

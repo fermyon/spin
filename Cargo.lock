@@ -6377,7 +6377,6 @@ dependencies = [
  "spin-core",
  "spin-http",
  "spin-trigger",
- "spin-trigger-http",
  "tokio",
  "tracing-subscriber",
 ]

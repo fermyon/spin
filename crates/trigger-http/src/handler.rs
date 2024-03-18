@@ -11,7 +11,7 @@ use outbound_http::OutboundHttpComponent;
 use spin_core::async_trait;
 use spin_core::wasi_2023_10_18::exports::wasi::http::incoming_handler::Guest as IncomingHandler2023_10_18;
 use spin_core::wasi_2023_11_10::exports::wasi::http::incoming_handler::Guest as IncomingHandler2023_11_10;
-use spin_core::Instance;
+use spin_core::{ComponentType, Instance};
 use spin_http::body;
 use spin_trigger::TriggerAppEngine;
 use spin_world::v1::http_types;
@@ -39,26 +39,19 @@ impl HttpExecutor for HttpHandlerExecutor {
         );
 
         let (instance, mut store) = engine.prepare_instance(component_id).await?;
-        let HttpInstance::Component(instance) = instance else {
+        let HttpInstance::Component(instance, ty) = instance else {
             unreachable!()
         };
 
         set_http_origin_from_request(&mut store, engine, &req);
 
-        let resp = match HandlerType::from_exports(instance.exports(&mut store)) {
-            Some(HandlerType::Wasi) => {
-                Self::execute_wasi(store, instance, base, raw_route, req, client_addr).await?
-            }
-            Some(HandlerType::Spin) => {
+        let resp = match ty {
+            HandlerType::Spin => {
                 Self::execute_spin(store, instance, base, raw_route, req, client_addr)
                     .await
                     .map_err(contextualise_err)?
             }
-            None => bail!(
-                "Expected component to either export `{WASI_HTTP_EXPORT_2023_10_18}`, \
-                 `{WASI_HTTP_EXPORT_2023_11_10}`, `{WASI_HTTP_EXPORT_0_2_0}`, \
-                 or `fermyon:spin/inbound-http` but it exported none of those"
-            ),
+            _ => Self::execute_wasi(store, instance, ty, base, raw_route, req, client_addr).await?,
         };
 
         tracing::info!(
@@ -153,6 +146,7 @@ impl HttpHandlerExecutor {
     async fn execute_wasi(
         mut store: Store,
         instance: Instance,
+        ty: HandlerType,
         base: &str,
         raw_route: &str,
         mut req: Request<Body>,
@@ -184,31 +178,33 @@ impl HttpHandlerExecutor {
             Handler2023_10_18(IncomingHandler2023_10_18),
         }
 
-        let handler = match instance
-            .exports(&mut store)
-            .instance("wasi:http/incoming-handler@0.2.0-rc-2023-10-18")
-        {
-            Some(mut instance) => Some(Handler::Handler2023_10_18(IncomingHandler2023_10_18::new(
-                &mut instance,
-            )?)),
-            None => None,
-        };
-        let handler = match handler {
-            Some(handler) => Some(handler),
-            None => match instance
-                .exports(&mut store)
-                .instance("wasi:http/incoming-handler@0.2.0-rc-2023-11-10")
+        let handler =
             {
-                Some(mut instance) => Some(Handler::Handler2023_11_10(
-                    IncomingHandler2023_11_10::new(&mut instance)?,
-                )),
-                None => None,
-            },
-        };
-        let handler = match handler {
-            Some(handler) => handler,
-            None => Handler::Latest(Proxy::new(&mut store, &instance)?),
-        };
+                let mut exports = instance.exports(&mut store);
+                match ty {
+                    HandlerType::Wasi2023_10_18 => {
+                        let mut instance = exports
+                            .instance(WASI_HTTP_EXPORT_2023_10_18)
+                            .ok_or_else(|| {
+                                anyhow!("export of `{WASI_HTTP_EXPORT_2023_10_18}` not an instance")
+                            })?;
+                        Handler::Handler2023_10_18(IncomingHandler2023_10_18::new(&mut instance)?)
+                    }
+                    HandlerType::Wasi2023_11_10 => {
+                        let mut instance = exports
+                            .instance(WASI_HTTP_EXPORT_2023_11_10)
+                            .ok_or_else(|| {
+                                anyhow!("export of `{WASI_HTTP_EXPORT_2023_11_10}` not an instance")
+                            })?;
+                        Handler::Handler2023_11_10(IncomingHandler2023_11_10::new(&mut instance)?)
+                    }
+                    HandlerType::Wasi0_2 => {
+                        drop(exports);
+                        Handler::Latest(Proxy::new(&mut store, &instance)?)
+                    }
+                    HandlerType::Spin => unreachable!(),
+                }
+            };
 
         let handle = task::spawn(async move {
             let result = match handler {
@@ -320,9 +316,12 @@ impl HttpHandlerExecutor {
 }
 
 /// Whether this handler uses the custom Spin http handler interface for wasi-http
-enum HandlerType {
+#[derive(Copy, Clone)]
+pub enum HandlerType {
     Spin,
-    Wasi,
+    Wasi0_2,
+    Wasi2023_11_10,
+    Wasi2023_10_18,
 }
 
 const WASI_HTTP_EXPORT_2023_10_18: &str = "wasi:http/incoming-handler@0.2.0-rc-2023-10-18";
@@ -330,18 +329,23 @@ const WASI_HTTP_EXPORT_2023_11_10: &str = "wasi:http/incoming-handler@0.2.0-rc-2
 const WASI_HTTP_EXPORT_0_2_0: &str = "wasi:http/incoming-handler@0.2.0";
 
 impl HandlerType {
-    /// Determine the handler type from the exports
-    fn from_exports(mut exports: wasmtime::component::Exports<'_>) -> Option<HandlerType> {
-        if exports.instance(WASI_HTTP_EXPORT_2023_10_18).is_some()
-            || exports.instance(WASI_HTTP_EXPORT_2023_11_10).is_some()
-            || exports.instance(WASI_HTTP_EXPORT_0_2_0).is_some()
-        {
-            return Some(HandlerType::Wasi);
+    /// Determine the handler type from the exports of a component
+    pub fn from_component(ty: &ComponentType) -> Result<HandlerType> {
+        for (name, _) in ty.exports() {
+            match name {
+                WASI_HTTP_EXPORT_2023_10_18 => return Ok(HandlerType::Wasi2023_10_18),
+                WASI_HTTP_EXPORT_2023_11_10 => return Ok(HandlerType::Wasi2023_11_10),
+                WASI_HTTP_EXPORT_0_2_0 => return Ok(HandlerType::Wasi0_2),
+                "fermyon:spin/inbound-http" => return Ok(HandlerType::Spin),
+                _ => {}
+            }
         }
-        if exports.instance("fermyon:spin/inbound-http").is_some() {
-            return Some(HandlerType::Spin);
-        }
-        None
+
+        bail!(
+            "Expected component to either export `{WASI_HTTP_EXPORT_2023_10_18}`, \
+             `{WASI_HTTP_EXPORT_2023_11_10}`, `{WASI_HTTP_EXPORT_0_2_0}`, \
+             or `fermyon:spin/inbound-http` but it exported none of those"
+        )
     }
 }
 

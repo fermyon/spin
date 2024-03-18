@@ -62,6 +62,10 @@ pub struct TemplateNewCommandCore {
     /// by accepting the defaults if available on the template
     #[clap(short = 'a', long = "accept-defaults", takes_value = false)]
     pub accept_defaults: bool,
+
+    /// An optional argument that allows to skip creating .gitignore
+    #[clap(long = "no-vcs", takes_value = false)]
+    pub no_vcs: bool,
 }
 
 /// Scaffold a new application based on a template.
@@ -179,6 +183,7 @@ impl TemplateNewCommandCore {
             output_path,
             values,
             accept_defaults: self.accept_defaults,
+            no_vcs: self.no_vcs,
         };
 
         template.run(options).interactive().await

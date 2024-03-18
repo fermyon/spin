@@ -3916,6 +3916,7 @@ name = "spin-outbound-networking"
 version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
+ "http 1.0.0",
  "ipnet",
  "spin-expressions",
  "spin-locked-app",

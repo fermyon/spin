@@ -21,7 +21,7 @@ pub struct WagiHttpExecutor {
 impl HttpExecutor for WagiHttpExecutor {
     async fn execute(
         &self,
-        engine: &Arc<TriggerAppEngine<HttpTrigger>>,
+        engine: Arc<TriggerAppEngine<HttpTrigger>>,
         component: &str,
         base: &str,
         raw_route: &str,

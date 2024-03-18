@@ -12,6 +12,7 @@ use spin_locked_app::{
     values::{ValuesMap, ValuesMapBuilder},
 };
 use spin_manifest::schema::v2::{self, AppManifest, KebabId, WasiFilesMount};
+use spin_outbound_networking::SERVICE_CHAINING_DOMAIN_SUFFIX;
 use tokio::sync::Semaphore;
 
 use crate::{cache::Cache, FilesMountStrategy};
@@ -559,8 +560,10 @@ fn is_chaining_host(pattern: &str) -> bool {
     };
 
     match allowed.host() {
-        HostConfig::List(hosts) => hosts.iter().any(|h| h.ends_with(".spin.internal")),
-        HostConfig::AnySubdomain(domain) => domain == ".spin.internal",
+        HostConfig::List(hosts) => hosts
+            .iter()
+            .any(|h| h.ends_with(SERVICE_CHAINING_DOMAIN_SUFFIX)),
+        HostConfig::AnySubdomain(domain) => domain == SERVICE_CHAINING_DOMAIN_SUFFIX,
         _ => false,
     }
 }

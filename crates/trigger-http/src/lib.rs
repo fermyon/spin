@@ -32,7 +32,9 @@ use spin_http::{
     config::{HttpExecutorType, HttpTriggerConfig},
     routes::{RoutePattern, Router},
 };
-use spin_outbound_networking::{AllowedHostsConfig, OutboundUrl};
+use spin_outbound_networking::{
+    is_service_chaining_host, parse_service_chaining_target, AllowedHostsConfig, OutboundUrl,
+};
 use spin_trigger::{TriggerAppEngine, TriggerExecutor, TriggerInstancePre};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
@@ -253,7 +255,7 @@ impl HttpTrigger {
                     HttpExecutorType::Http => {
                         HttpHandlerExecutor
                             .execute(
-                                &self.engine,
+                                self.engine.clone(),
                                 component_id,
                                 &self.base,
                                 &trigger.route,
@@ -268,7 +270,7 @@ impl HttpTrigger {
                         };
                         executor
                             .execute(
-                                &self.engine,
+                                self.engine.clone(),
                                 component_id,
                                 &self.base,
                                 &trigger.route,
@@ -419,8 +421,7 @@ fn strip_forbidden_headers(req: &mut Request<Body>) {
     let headers = req.headers_mut();
     if let Some(host_header) = headers.get("Host") {
         if let Ok(host) = host_header.to_str() {
-            let (host, _) = host.rsplit_once(':').unwrap_or((host, ""));
-            if host.ends_with(".spin.internal") {
+            if is_service_chaining_host(host) {
                 headers.remove("Host");
             }
         }
@@ -484,7 +485,7 @@ pub(crate) fn compute_default_headers<'a>(
 pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
     async fn execute(
         &self,
-        engine: &Arc<TriggerAppEngine<HttpTrigger>>,
+        engine: Arc<TriggerAppEngine<HttpTrigger>>,
         component_id: &str,
         base: &str,
         raw_route: &str,
@@ -493,11 +494,16 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
     ) -> Result<Response<Body>>;
 }
 
+#[derive(Clone)]
+struct ChainedRequestHandler {
+    engine: Arc<TriggerAppEngine<HttpTrigger>>,
+    executor: HttpHandlerExecutor,
+}
+
 #[derive(Default)]
 pub struct HttpRuntimeData {
     origin: Option<String>,
-    engine: Option<Arc<TriggerAppEngine<HttpTrigger>>>,
-    handler: Option<HttpHandlerExecutor>,
+    chained_handler: Option<ChainedRequestHandler>,
     /// The hosts this app is allowed to make outbound requests to
     allowed_hosts: AllowedHostsConfig,
 }
@@ -509,21 +515,18 @@ impl HttpRuntimeData {
         component_id: String,
     ) -> wasmtime::Result<
         wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
-    >
-    where
-        Self: Sized,
-    {
+    > {
         use wasmtime_wasi_http::types::HostFutureIncomingResponse;
         use wasmtime_wasi_http::types::IncomingResponseInternal;
 
-        let this = data.as_mut();
+        let this = data.as_ref();
 
-        let engine = this.engine.clone().ok_or(wasmtime::Error::msg(
+        let chained_handler = this.chained_handler.clone().ok_or(wasmtime::Error::msg(
             "Internal error: internal request chaining not prepared (engine not assigned)",
         ))?;
-        let handler = this.handler.clone().ok_or(wasmtime::Error::msg(
-            "Internal error: internal request chaining not prepared (handler not assigned)",
-        ))?;
+
+        let engine = chained_handler.engine;
+        let handler = chained_handler.executor;
 
         let base = "/";
         let raw_route = "/...";
@@ -531,13 +534,22 @@ impl HttpRuntimeData {
         let client_addr = std::net::SocketAddr::from_str("0.0.0.0:0")?;
 
         let between_bytes_timeout = request.between_bytes_timeout;
+        // The IncomingResponseInternal type formally needs a "worker" join handle, but
+        // in a chained use case it doesn't seem to do anything.
         let worker = Arc::new(wasmtime_wasi::preview2::spawn(async {}));
 
         let req = request.request;
 
         let resp_fut = async move {
             match handler
-                .execute(&engine, &component_id, base, raw_route, req, client_addr)
+                .execute(
+                    engine.clone(),
+                    &component_id,
+                    base,
+                    raw_route,
+                    req,
+                    client_addr,
+                )
                 .await
             {
                 Ok(resp) => Ok(Ok(IncomingResponseInternal {
@@ -555,15 +567,7 @@ impl HttpRuntimeData {
 }
 
 fn parse_chaining_target(request: &wasmtime_wasi_http::types::OutgoingRequest) -> Option<String> {
-    let host = request.request.uri().authority().map(|a| a.host().trim())?;
-
-    let (first, rest) = host.split_once('.')?;
-
-    if rest == "spin.internal" {
-        Some(first.to_owned())
-    } else {
-        None
-    }
+    parse_service_chaining_target(request.request.uri())
 }
 
 impl OutboundWasiHttpHandler for HttpRuntimeData {

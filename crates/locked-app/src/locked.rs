@@ -33,11 +33,11 @@ pub enum MustUnderstand {
     HostRequirements,
 }
 
-/// TODO:
+/// Features or capabilities the application requires the host to support.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HostRequirement {
-    /// TODO:
+    /// The application requires local service chaining.
     LocalServiceChaining,
 }
 
@@ -56,11 +56,11 @@ pub struct LockedApp {
     #[serde(
         default,
         skip_serializing_if = "ValuesMap::is_empty",
-        deserialize_with = "i_cant_even"
+        deserialize_with = "deserialize_host_requirements"
     )]
     pub host_requirements: ValuesMap,
     /// Custom config variables
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "LockedMap::is_empty")]
     pub variables: LockedMap<Variable>,
     /// Application triggers
     pub triggers: Vec<LockedTrigger>,
@@ -68,7 +68,7 @@ pub struct LockedApp {
     pub components: Vec<LockedComponent>,
 }
 
-fn i_cant_even<'de, D>(deserializer: D) -> Result<ValuesMap, D::Error>
+fn deserialize_host_requirements<'de, D>(deserializer: D) -> Result<ValuesMap, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -84,6 +84,8 @@ where
         where
             A: serde::de::MapAccess<'de>,
         {
+            use serde::de::Error;
+
             let mut hr = ValuesMapBuilder::new();
 
             while let Some(key) = map.next_key::<String>()? {
@@ -91,8 +93,8 @@ where
                 if value.as_str() == Some(HOST_REQ_OPTIONAL) {
                     continue;
                 }
-                // TODO: something better with errors, but A::Error is not helpful
-                hr.serializable(key, value).unwrap();
+
+                hr.serializable(key, value).map_err(A::Error::custom)?;
             }
 
             Ok(hr.build())

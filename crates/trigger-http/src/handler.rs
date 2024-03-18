@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, str, str::FromStr};
 
-use crate::{Body, HttpExecutor, HttpInstance, HttpTrigger, Store};
+use crate::{Body, ChainedRequestHandler, HttpExecutor, HttpInstance, HttpTrigger, Store};
 use anyhow::bail;
 use anyhow::{anyhow, Context, Result};
 use futures::TryFutureExt;
@@ -26,7 +26,7 @@ pub struct HttpHandlerExecutor;
 impl HttpExecutor for HttpHandlerExecutor {
     async fn execute(
         &self,
-        engine: &Arc<TriggerAppEngine<HttpTrigger>>,
+        engine: Arc<TriggerAppEngine<HttpTrigger>>,
         component_id: &str,
         base: &str,
         raw_route: &str,
@@ -43,7 +43,7 @@ impl HttpExecutor for HttpHandlerExecutor {
             unreachable!()
         };
 
-        set_http_origin_from_request(&mut store, engine, self, &req);
+        set_http_origin_from_request(&mut store, engine.clone(), self, &req);
 
         let resp = match HandlerType::from_exports(instance.exports(&mut store)) {
             Some(HandlerType::Wasi) => {
@@ -347,7 +347,7 @@ impl HandlerType {
 
 fn set_http_origin_from_request(
     store: &mut Store,
-    engine: &Arc<TriggerAppEngine<HttpTrigger>>,
+    engine: Arc<TriggerAppEngine<HttpTrigger>>,
     handler: &HttpHandlerExecutor,
     req: &Request<Body>,
 ) {
@@ -366,9 +366,13 @@ fn set_http_origin_from_request(
                 store.as_mut().data_mut().as_mut().allowed_hosts =
                     outbound_http_data.allowed_hosts.clone();
             }
+
+            let chained_request_handler = ChainedRequestHandler {
+                engine: engine.clone(),
+                executor: handler.clone(),
+            };
             store.as_mut().data_mut().as_mut().origin = Some(origin);
-            store.as_mut().data_mut().as_mut().engine = Some(engine.clone());
-            store.as_mut().data_mut().as_mut().handler = Some(handler.clone())
+            store.as_mut().data_mut().as_mut().chained_handler = Some(chained_request_handler);
         }
     }
 }

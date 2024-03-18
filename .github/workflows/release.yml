@@ -117,7 +117,7 @@ jobs:
       - name: setup dependencies
         uses: ./.github/actions/spin-ci-dependencies
         with:
-          vcpkg: "${{ matrix.os == 'windows-latest' }}"
+          openssl-windows: "${{ matrix.os == 'windows-latest' }}"
 
       - name: build release
         shell: bash

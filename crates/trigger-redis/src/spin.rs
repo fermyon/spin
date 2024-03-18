@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use spin_core::Instance;
-use spin_trigger::{EitherInstance, TriggerAppEngine};
+use spin_trigger::TriggerAppEngine;
 use spin_world::v1::redis_types::{Error, Payload};
 
 use crate::{RedisExecutor, RedisTrigger, Store};
@@ -21,9 +21,6 @@ impl RedisExecutor for SpinRedisExecutor {
         tracing::trace!("Executing request using the Spin executor for component {component_id}");
 
         let (instance, store) = engine.prepare_instance(component_id).await?;
-        let EitherInstance::Component(instance) = instance else {
-            unreachable!()
-        };
 
         match Self::execute_impl(store, instance, channel, payload.to_vec()).await {
             Ok(()) => {

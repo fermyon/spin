@@ -1,12 +1,13 @@
 use std::{io::Cursor, net::SocketAddr};
 
+use crate::HttpInstance;
 use anyhow::{anyhow, ensure, Context, Result};
 use async_trait::async_trait;
 use http_body_util::BodyExt;
 use hyper::{Request, Response};
 use spin_core::WasiVersion;
 use spin_http::{config::WagiTriggerConfig, routes::RoutePattern, wagi};
-use spin_trigger::{EitherInstance, TriggerAppEngine};
+use spin_trigger::TriggerAppEngine;
 use wasi_common_preview1::{pipe::WritePipe, I32Exit};
 
 use crate::{Body, HttpExecutor, HttpTrigger};
@@ -93,7 +94,7 @@ impl HttpExecutor for WagiHttpExecutor {
             .prepare_instance_with_store(component, store_builder)
             .await?;
 
-        let EitherInstance::Module(instance) = instance else {
+        let HttpInstance::Module(instance) = instance else {
             unreachable!()
         };
 

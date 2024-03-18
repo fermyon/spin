@@ -7,7 +7,7 @@ use futures::{future::join_all, StreamExt};
 use redis::{Client, ConnectionLike};
 use serde::{de::IgnoredAny, Deserialize, Serialize};
 use spin_common::url::remove_credentials;
-use spin_core::async_trait;
+use spin_core::{async_trait, InstancePre};
 use spin_trigger::{cli::NoArgs, TriggerAppEngine, TriggerExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -53,6 +53,7 @@ impl TriggerExecutor for RedisTrigger {
     type RuntimeData = RuntimeData;
     type TriggerConfig = RedisTriggerConfig;
     type RunConfig = NoArgs;
+    type InstancePre = InstancePre<RuntimeData>;
 
     async fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
         let default_address: String = engine

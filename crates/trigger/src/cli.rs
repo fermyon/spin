@@ -291,6 +291,7 @@ pub mod help {
         type RuntimeData = ();
         type TriggerConfig = ();
         type RunConfig = NoArgs;
+        type InstancePre = spin_core::InstancePre<Self::RuntimeData>;
         async fn new(_: crate::TriggerAppEngine<Self>) -> Result<Self> {
             Ok(Self)
         }

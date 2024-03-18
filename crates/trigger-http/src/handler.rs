@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, str, str::FromStr};
 
-use crate::{Body, HttpExecutor, HttpTrigger, Store};
+use crate::{Body, HttpExecutor, HttpInstance, HttpTrigger, Store};
 use anyhow::bail;
 use anyhow::{anyhow, Context, Result};
 use futures::TryFutureExt;
@@ -13,7 +13,7 @@ use spin_core::wasi_2023_10_18::exports::wasi::http::incoming_handler::Guest as 
 use spin_core::wasi_2023_11_10::exports::wasi::http::incoming_handler::Guest as IncomingHandler2023_11_10;
 use spin_core::Instance;
 use spin_http::body;
-use spin_trigger::{EitherInstance, TriggerAppEngine};
+use spin_trigger::TriggerAppEngine;
 use spin_world::v1::http_types;
 use std::sync::Arc;
 use tokio::{sync::oneshot, task};
@@ -39,7 +39,7 @@ impl HttpExecutor for HttpHandlerExecutor {
         );
 
         let (instance, mut store) = engine.prepare_instance(component_id).await?;
-        let EitherInstance::Component(instance) = instance else {
+        let HttpInstance::Component(instance) = instance else {
             unreachable!()
         };
 

@@ -22,7 +22,7 @@ mod bindings {
         path: "../../wit",
         interfaces: r#"
             include wasi:http/proxy@0.2.0-rc-2023-10-18;
-    
+
             // NB: this is handling the historical behavior where Spin supported
             // more than "just" this snaphsot of the proxy world but additionally
             // other CLI-related interfaces.
@@ -156,6 +156,8 @@ where
     wasi::io::poll::add_to_linker(linker, |t| t)?;
     wasi::io::streams::add_to_linker(linker, |t| t)?;
     wasi::random::random::add_to_linker(linker, |t| t)?;
+    wasi::random::insecure::add_to_linker(linker, |t| t)?;
+    wasi::random::insecure_seed::add_to_linker(linker, |t| t)?;
     wasi::cli::exit::add_to_linker(linker, |t| t)?;
     wasi::cli::environment::add_to_linker(linker, |t| t)?;
     wasi::cli::stdin::add_to_linker(linker, |t| t)?;
@@ -895,6 +897,28 @@ where
 
     fn get_random_u64(&mut self) -> wasmtime::Result<u64> {
         <T as latest::random::random::Host>::get_random_u64(self)
+    }
+}
+
+impl<T> wasi::random::insecure::Host for T
+where
+    T: WasiView,
+{
+    fn get_insecure_random_bytes(&mut self, len: u64) -> wasmtime::Result<Vec<u8>> {
+        <T as latest::random::insecure::Host>::get_insecure_random_bytes(self, len)
+    }
+
+    fn get_insecure_random_u64(&mut self) -> wasmtime::Result<u64> {
+        <T as latest::random::insecure::Host>::get_insecure_random_u64(self)
+    }
+}
+
+impl<T> wasi::random::insecure_seed::Host for T
+where
+    T: WasiView,
+{
+    fn insecure_seed(&mut self) -> wasmtime::Result<(u64, u64)> {
+        <T as latest::random::insecure_seed::Host>::insecure_seed(self)
     }
 }
 

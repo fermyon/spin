@@ -400,7 +400,6 @@ impl<T: OutboundWasiHttpHandler + Send + Sync> Engine<T> {
     }
 
     /// Returns the type of this component to reflect on it at runtime.
-    #[instrument(skip_all)]
     pub fn component_type(&self, component: &Component) -> Result<ComponentType> {
         // NB: With Wasmtime 20 and bytecodealliance/wasmtime#8078 this method
         // should probably be removed to just use that instead.

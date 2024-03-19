@@ -104,10 +104,16 @@ runs:
       if: ${{ inputs.rust-cross == 'true' }}
       shell: bash
 
+    # hashFiles only works on files in the workspace
+    - name: "Copy os-release for cache key"
+      run: cp /etc/os-release .
+      if: ${{ runner.os == 'Linux' }}
+      shell: bash
+
     - uses: Swatinem/rust-cache@v2
       if: ${{ inputs.rust-cache == 'true' }}
       with:
-        shared-key: "${{ runner.os }}-full-${{ hashFiles('./Cargo.lock') }}"
+        shared-key: "${{ runner.os }}-full-${{ hashFiles('./Cargo.lock', './os-release') }}"
 
     ## Install nomad
     - name: Install nomad

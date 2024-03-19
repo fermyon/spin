@@ -6,7 +6,8 @@ use anyhow::{anyhow, Context, Result};
 use futures::{future::join_all, StreamExt};
 use redis::{Client, ConnectionLike};
 use serde::{de::IgnoredAny, Deserialize, Serialize};
-use spin_core::async_trait;
+use spin_common::url::remove_credentials;
+use spin_core::{async_trait, InstancePre};
 use spin_trigger::{cli::NoArgs, TriggerAppEngine, TriggerExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -52,6 +53,7 @@ impl TriggerExecutor for RedisTrigger {
     type RuntimeData = RuntimeData;
     type TriggerConfig = RedisTriggerConfig;
     type RunConfig = NoArgs;
+    type InstancePre = InstancePre<RuntimeData>;
 
     async fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
         let default_address: String = engine
@@ -68,8 +70,10 @@ impl TriggerExecutor for RedisTrigger {
             let address_expr = spin_expressions::Template::new(address)?;
             let address = engine.resolve_template(&address_expr)?;
             let server = server_channels.entry(address).or_default();
+            let channel_expr = spin_expressions::Template::new(config.channel.as_str())?;
+            let channel = engine.resolve_template(&channel_expr)?;
             server
-                .entry(config.channel.clone())
+                .entry(channel)
                 .or_default()
                 .push(config.component.clone());
         }
@@ -96,10 +100,11 @@ impl TriggerExecutor for RedisTrigger {
             .collect();
 
         // wait for the first handle to be returned and drop the rest
-        let (_, _, rest) = futures::future::select_all(tasks).await;
+        let (result, _, rest) = futures::future::select_all(tasks).await;
+
         drop(rest);
 
-        Ok(())
+        result?
     }
 }
 
@@ -146,12 +151,13 @@ impl RedisTrigger {
             .with_context(|| anyhow!("Redis trigger failed to connect to {}", address))?
             .into_pubsub();
 
-        println!("Active Channels on {address}:");
+        let sanitised_addr = remove_credentials(&address)?;
+        println!("Active Channels on {sanitised_addr}:");
         // Subscribe to channels
         for (channel, component) in channel_components.iter() {
             tracing::info!("Subscribing component {component:?} to channel {channel:?}");
             pubsub.subscribe(channel).await?;
-            println!("\t{address}:{channel}: [{}]", component.join(","));
+            println!("\t{sanitised_addr}:{channel}: [{}]", component.join(","));
         }
 
         let mut stream = pubsub.on_message();

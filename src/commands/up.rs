@@ -92,7 +92,7 @@ pub struct UpCommand {
     pub env: Vec<(String, String)>,
 
     /// Temporary directory for the static assets of the components.
-    #[clap(long = "temp")]
+    #[clap(long = "temp", alias = "tmp")]
     pub tmp: Option<PathBuf>,
 
     /// For local apps with directory mounts and no excluded files, mount them directly instead of using a temporary

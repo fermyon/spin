@@ -14,7 +14,7 @@ use std::{
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use clap::Args;
-use http::{uri::Scheme, StatusCode, Uri};
+use http::{header::HOST, uri::Scheme, HeaderValue, StatusCode, Uri};
 use http_body_util::BodyExt;
 use hyper::{
     body::{Bytes, Incoming},
@@ -32,7 +32,7 @@ use spin_http::{
     routes::{RoutePattern, Router},
 };
 use spin_outbound_networking::{AllowedHostsConfig, OutboundUrl};
-use spin_trigger::{EitherInstancePre, TriggerAppEngine, TriggerExecutor};
+use spin_trigger::{TriggerAppEngine, TriggerExecutor, TriggerInstancePre};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::TcpListener,
@@ -86,12 +86,23 @@ impl CliArgs {
     }
 }
 
+pub enum HttpInstancePre {
+    Component(spin_core::InstancePre<RuntimeData>),
+    Module(spin_core::ModuleInstancePre<RuntimeData>),
+}
+
+pub enum HttpInstance {
+    Component(spin_core::Instance),
+    Module(spin_core::ModuleInstance),
+}
+
 #[async_trait]
 impl TriggerExecutor for HttpTrigger {
     const TRIGGER_TYPE: &'static str = "http";
     type RuntimeData = RuntimeData;
     type TriggerConfig = HttpTriggerConfig;
     type RunConfig = CliArgs;
+    type InstancePre = HttpInstancePre;
 
     async fn new(engine: TriggerAppEngine<Self>) -> Result<Self> {
         let mut base = engine
@@ -167,20 +178,37 @@ impl TriggerExecutor for HttpTrigger {
         };
         Ok(())
     }
+}
+
+#[async_trait]
+impl TriggerInstancePre<RuntimeData, HttpTriggerConfig> for HttpInstancePre {
+    type Instance = HttpInstance;
 
     async fn instantiate_pre(
-        engine: &Engine<Self::RuntimeData>,
+        engine: &Engine<RuntimeData>,
         component: &AppComponent,
-        config: &Self::TriggerConfig,
-    ) -> Result<EitherInstancePre<Self::RuntimeData>> {
+        config: &HttpTriggerConfig,
+    ) -> Result<HttpInstancePre> {
         if let Some(HttpExecutorType::Wagi(_)) = &config.executor {
             let module = component.load_module(engine).await?;
-            Ok(EitherInstancePre::Module(
+            Ok(HttpInstancePre::Module(
                 engine.module_instantiate_pre(&module)?,
             ))
         } else {
             let comp = component.load_component(engine).await?;
-            Ok(EitherInstancePre::Component(engine.instantiate_pre(&comp)?))
+            Ok(HttpInstancePre::Component(engine.instantiate_pre(&comp)?))
+        }
+    }
+
+    async fn instantiate(&self, store: &mut Store) -> Result<HttpInstance> {
+        match self {
+            HttpInstancePre::Component(pre) => pre
+                .instantiate_async(store)
+                .await
+                .map(HttpInstance::Component),
+            HttpInstancePre::Module(pre) => {
+                pre.instantiate_async(store).await.map(HttpInstance::Module)
+            }
         }
     }
 }
@@ -490,6 +518,9 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
                 .parse()
                 // origin together with the path and query must be a valid URI
                 .unwrap();
+            let host = format!("{}:{}", uri.host().unwrap(), uri.port().unwrap());
+            let headers = request.request.headers_mut();
+            headers.insert(HOST, HeaderValue::from_str(&host)?);
 
             request.use_tls = uri
                 .scheme()

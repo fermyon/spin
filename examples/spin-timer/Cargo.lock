@@ -2244,9 +2244,9 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "0.8.10"
+version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f3d0b296e374a4e6f3c7b0a1f5a51d748a0d34c85e7dc48fc3fa9a87657fe09"
+checksum = "a4a650543ca06a924e8b371db273b2756685faae30f8487da1b56505a8f78b0c"
 dependencies = [
  "libc",
  "log",
@@ -3781,7 +3781,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value-azure"
-version = "0.1.0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "azure_data_cosmos",
@@ -3795,7 +3795,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value-redis"
-version = "0.1.0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "redis",
@@ -3808,7 +3808,7 @@ dependencies = [
 
 [[package]]
 name = "spin-key-value-sqlite"
-version = "0.1.0"
+version = "2.4.0-pre0"
 dependencies = [
  "anyhow",
  "once_cell",
@@ -4240,7 +4240,7 @@ dependencies = [
 
 [[package]]
 name = "terminal"
-version = "0.1.0"
+version = "2.4.0-pre0"
 dependencies = [
  "atty",
  "once_cell",

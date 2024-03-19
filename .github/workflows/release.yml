@@ -94,7 +94,7 @@ jobs:
       - name: Install Rust toolchain
         shell: bash
         run: |
-          rustup toolchain install ${{ env.RUST_VERSION }}
+          rustup toolchain install ${{ env.RUST_VERSION }} --no-self-update
           rustup default ${{ env.RUST_VERSION }}
 
       - name: Install target
@@ -117,7 +117,7 @@ jobs:
       - name: setup dependencies
         uses: ./.github/actions/spin-ci-dependencies
         with:
-          vcpkg: "${{ matrix.os == 'windows-latest' }}"
+          openssl-windows: "${{ matrix.os == 'windows-latest' }}"
 
       - name: build release
         shell: bash

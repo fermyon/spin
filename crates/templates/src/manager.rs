@@ -780,6 +780,7 @@ mod tests {
             name: "my project".to_owned(),
             values,
             accept_defaults: false,
+            no_vcs: false,
         };
 
         template.run(options).silent().await.unwrap();
@@ -813,6 +814,7 @@ mod tests {
             name: "my project".to_owned(),
             values,
             accept_defaults: true,
+            no_vcs: false,
         };
 
         template.run(options).silent().await.unwrap();
@@ -878,6 +880,7 @@ mod tests {
                 name: "my multi project".to_owned(),
                 values,
                 accept_defaults: false,
+                no_vcs: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -905,6 +908,7 @@ mod tests {
                 name: "hello".to_owned(),
                 values,
                 accept_defaults: false,
+                no_vcs: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -929,6 +933,7 @@ mod tests {
                 name: "hello 2".to_owned(),
                 values,
                 accept_defaults: false,
+                no_vcs: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -985,6 +990,7 @@ mod tests {
                 name: "my various project".to_owned(),
                 values,
                 accept_defaults: false,
+                no_vcs: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1012,6 +1018,7 @@ mod tests {
                 name: "insertvars".to_owned(),
                 values,
                 accept_defaults: false,
+                no_vcs: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1063,6 +1070,7 @@ mod tests {
                 name: "my various project".to_owned(),
                 values,
                 accept_defaults: false,
+                no_vcs: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1090,6 +1098,7 @@ mod tests {
                 name: "insertvars".to_owned(),
                 values,
                 accept_defaults: false,
+                no_vcs: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1114,6 +1123,7 @@ mod tests {
                 name: "insertvarsagain".to_owned(),
                 values,
                 accept_defaults: false,
+                no_vcs: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1122,6 +1132,120 @@ mod tests {
         let spin_toml = tokio::fs::read_to_string(&spin_toml_path).await.unwrap();
         assert!(spin_toml.contains("url = { default = \"https://other.example.com\" }"));
         assert!(!spin_toml.contains("service.example.com"));
+    }
+
+    #[tokio::test]
+    async fn component_new_no_vcs() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let application_dir = dest_temp_dir.path().join("no-vcs-new");
+
+        let template = manager.get("http-rust").unwrap().unwrap();
+
+        let values = [
+            ("project-description".to_owned(), "my desc".to_owned()),
+            ("http-path".to_owned(), "/path/...".to_owned()),
+        ]
+        .into_iter()
+        .collect();
+
+        let options = RunOptions {
+            variant: crate::template::TemplateVariantInfo::NewApplication,
+            output_path: application_dir.clone(),
+            name: "no vcs new".to_owned(),
+            values,
+            accept_defaults: false,
+            no_vcs: true,
+        };
+
+        template.run(options).silent().await.unwrap();
+        let gitignore = application_dir.join(".gitignore");
+        assert!(
+            !gitignore.exists(),
+            "expected .gitignore to not have been created"
+        );
+    }
+
+    #[tokio::test]
+    async fn component_add_no_vcs() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let application_dir = dest_temp_dir.path().join("no-vcs-add");
+
+        // Set up the containing app
+        {
+            let template = manager.get("http-empty").unwrap().unwrap();
+
+            let values = [("project-description".to_owned(), "my desc".to_owned())]
+                .into_iter()
+                .collect();
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantInfo::NewApplication,
+                output_path: application_dir.clone(),
+                name: "my multi project".to_owned(),
+                values,
+                accept_defaults: false,
+                no_vcs: true,
+            };
+
+            template.run(options).silent().await.unwrap();
+        }
+
+        let gitignore = application_dir.join(".gitignore");
+        let spin_toml_path = application_dir.join("spin.toml");
+        assert!(
+            !gitignore.exists(),
+            "expected .gitignore to not have been created"
+        );
+
+        {
+            let template = manager.get("http-rust").unwrap().unwrap();
+
+            let values = [
+                ("project-description".to_owned(), "my desc".to_owned()),
+                ("http-path".to_owned(), "/path/...".to_owned()),
+            ]
+            .into_iter()
+            .collect();
+
+            let output_dir = "hello";
+
+            let options = RunOptions {
+                variant: crate::template::TemplateVariantInfo::AddComponent {
+                    manifest_path: spin_toml_path.clone(),
+                },
+                output_path: PathBuf::from(output_dir),
+                name: "added_component".to_owned(),
+                values,
+                accept_defaults: false,
+                no_vcs: true,
+            };
+            template.run(options).silent().await.unwrap();
+        }
+
+        let gitignore_add = application_dir.join("hello").join(".gitignore");
+        assert!(
+            !gitignore_add.exists(),
+            "expected .gitignore to not have been created"
+        );
     }
 
     #[tokio::test]
@@ -1162,6 +1286,7 @@ mod tests {
                 name: "my multi project".to_owned(),
                 values,
                 accept_defaults: false,
+                no_vcs: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1189,6 +1314,7 @@ mod tests {
                 name: "hello".to_owned(),
                 values,
                 accept_defaults: false,
+                no_vcs: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1249,6 +1375,7 @@ mod tests {
                 name: "hello".to_owned(),
                 values,
                 accept_defaults: false,
+                no_vcs: false,
             };
 
             template
@@ -1318,6 +1445,7 @@ mod tests {
             name: "bad-filter-should-fail ".to_owned(),
             values,
             accept_defaults: false,
+            no_vcs: false,
         };
 
         let err = template

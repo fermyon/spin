@@ -126,7 +126,7 @@ jobs:
           rust: true
           rust-wasm: true
           rust-cache: true
-          vcpkg: "${{ matrix.os == 'windows-latest' }}"
+          openssl-windows: "${{ matrix.os == 'windows-latest' }}"
 
       - name: Cargo Build
         run: cargo build --workspace --release --all-targets
@@ -257,7 +257,7 @@ jobs:
       - name: Install Rust toolchain
         shell: bash
         run: |
-          rustup toolchain install ${{ env.RUST_VERSION }}
+          rustup toolchain install ${{ env.RUST_VERSION }} --no-self-update
           rustup default ${{ env.RUST_VERSION }}
 
       - name: Install target
@@ -280,8 +280,7 @@ jobs:
       - name: setup dependencies
         uses: ./.github/actions/spin-ci-dependencies
         with:
-          vcpkg: "${{ matrix.os == 'windows-latest' }}"
-          openssl-mac: "${{ matrix.os == 'macos-latest' }}"
+          openssl-windows: "${{ matrix.os == 'windows-latest' }}"
 
       - name: build release
         shell: bash

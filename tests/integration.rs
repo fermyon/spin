@@ -288,7 +288,14 @@ Caused by:
 
     #[test]
     fn http_rust_template_smoke_test() -> anyhow::Result<()> {
-        http_smoke_test_template("http-rust", None, &[], |_| Ok(()), "Hello, Fermyon")
+        http_smoke_test_template(
+            "http-rust",
+            None,
+            &[],
+            |_| Ok(()),
+            HashMap::default(),
+            "Hello, Fermyon",
+        )
     }
 
     #[test]
@@ -413,16 +420,18 @@ Caused by:
             let mut tidy = std::process::Command::new("pip3");
             tidy.args(["install", "-r", "requirements.txt", "-t", "."]);
             env.run_in(&mut tidy)?;
-            let mut tidy = std::process::Command::new("pip3");
-            tidy.args(["install", "componentize-py"]);
-            env.run_in(&mut tidy)?;
             Ok(())
         };
+        let env_vars = HashMap::from([
+            ("PATH".to_owned(), "./bin/".to_owned()),
+            ("PYTHONPATH".to_owned(), ".".to_owned()),
+        ]);
         http_smoke_test_template(
             "http-py",
             Some("https://github.com/fermyon/spin-python-sdk"),
             &[],
             prebuild,
+            env_vars,
             "Hello from Python!",
         )
     }
@@ -430,7 +439,14 @@ Caused by:
     #[test]
     #[cfg(feature = "extern-dependencies-tests")]
     fn http_c_template_smoke_test() -> anyhow::Result<()> {
-        http_smoke_test_template("http-c", None, &[], |_| Ok(()), "Hello from WAGI/1\n")
+        http_smoke_test_template(
+            "http-c",
+            None,
+            &[],
+            |_| Ok(()),
+            HashMap::default(),
+            "Hello from WAGI/1\n",
+        )
     }
 
     #[test]
@@ -442,7 +458,14 @@ Caused by:
             env.run_in(&mut tidy)?;
             Ok(())
         };
-        http_smoke_test_template("http-go", None, &[], prebuild, "Hello Fermyon!\n")
+        http_smoke_test_template(
+            "http-go",
+            None,
+            &[],
+            prebuild,
+            HashMap::default(),
+            "Hello Fermyon!\n",
+        )
     }
 
     #[test]
@@ -459,6 +482,7 @@ Caused by:
             Some("https://github.com/fermyon/spin-js-sdk"),
             &["js2wasm"],
             prebuild,
+            HashMap::default(),
             "Hello from JS-SDK",
         )
     }
@@ -477,6 +501,7 @@ Caused by:
             Some("https://github.com/fermyon/spin-js-sdk"),
             &["js2wasm"],
             prebuild,
+            HashMap::default(),
             "Hello from TS-SDK",
         )
     }
@@ -485,19 +510,40 @@ Caused by:
     #[cfg(target_arch = "x86_64")]
     #[cfg(feature = "extern-dependencies-tests")]
     fn http_grain_template_smoke_test() -> anyhow::Result<()> {
-        http_smoke_test_template("http-grain", None, &[], |_| Ok(()), "Hello, World\n")
+        http_smoke_test_template(
+            "http-grain",
+            None,
+            &[],
+            |_| Ok(()),
+            HashMap::default(),
+            "Hello, World\n",
+        )
     }
 
     #[test]
     #[cfg(feature = "extern-dependencies-tests")]
     fn http_zig_template_smoke_test() -> anyhow::Result<()> {
-        http_smoke_test_template("http-zig", None, &[], |_| Ok(()), "Hello World!\n")
+        http_smoke_test_template(
+            "http-zig",
+            None,
+            &[],
+            |_| Ok(()),
+            HashMap::default(),
+            "Hello World!\n",
+        )
     }
 
     #[test]
     #[cfg(feature = "extern-dependencies-tests")]
     fn http_swift_template_smoke_test() -> anyhow::Result<()> {
-        http_smoke_test_template("http-swift", None, &[], |_| Ok(()), "Hello from WAGI/1!\n")
+        http_smoke_test_template(
+            "http-swift",
+            None,
+            &[],
+            |_| Ok(()),
+            HashMap::default(),
+            "Hello from WAGI/1!\n",
+        )
     }
 
     #[test]
@@ -508,6 +554,7 @@ Caused by:
             None,
             &[],
             |_| Ok(()),
+            HashMap::default(),
             "/index.php",
             "Hello Fermyon Spin",
         )
@@ -582,6 +629,7 @@ Caused by:
             "http-rust",
             |_| Ok(Vec::new()),
             |_| Ok(()),
+            HashMap::default(),
             spin_up_args,
             SpinAppType::Http,
         )?;

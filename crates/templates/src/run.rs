@@ -38,6 +38,8 @@ pub struct RunOptions {
     pub values: HashMap<String, String>,
     /// If true accept default values where available
     pub accept_defaults: bool,
+    /// If true, do not create a .gitignore file
+    pub no_vcs: bool,
 }
 
 impl Run {
@@ -138,7 +140,15 @@ impl Run {
     }
 
     fn included_files(&self, from: &Path, to: &Path) -> anyhow::Result<Vec<RenderOperation>> {
-        let all_content_files = Self::list_content_files(from)?;
+        let gitignore = ".gitignore";
+        let mut all_content_files = Self::list_content_files(from)?;
+        // If user asked for no_vcs
+        if self.options.no_vcs {
+            all_content_files.retain(|file| match file.file_name() {
+                None => true,
+                Some(file_name) => file_name.to_os_string() != gitignore,
+            });
+        }
         let included_files =
             self.template
                 .included_files(from, all_content_files, &self.options.variant);

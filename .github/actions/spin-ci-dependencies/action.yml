@@ -78,8 +78,8 @@ inputs:
     default: 'false'
     type: bool
 
-  vcpkg:
-    description: 'setup vcpkg'
+  openssl-windows:
+    description: 'setup openssl on windows'
     required: false
     default: 'false'
     type: bool
@@ -91,7 +91,7 @@ runs:
       shell: bash
       if: ${{ inputs.rust == 'true' }}
       run: |
-        rustup toolchain install ${{ inputs.rust-version }} --component clippy --component rustfmt
+        rustup toolchain install ${{ inputs.rust-version }} --component clippy --component rustfmt --no-self-update
         rustup default ${{ inputs.rust-version }}
 
     - name: "Install Wasm Rust target"
@@ -136,10 +136,10 @@ runs:
       with:
         version: ${{ inputs.tinygo-version }}
 
-    ## Install vcpgk
-    - name: "Install vcpkg"
+    ## Install openssl
+    - name: "Install openssl on windows"
       run: |
         echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
         vcpkg install openssl:x64-windows-static-md
       shell: pwsh
-      if: ${{ inputs.vcpkg == 'true' }}
+      if: ${{ inputs.openssl-windows == 'true' }}

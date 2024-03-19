@@ -1,4 +1,4 @@
-use std::{ops::Range, sync::Arc};
+use std::ops::Range;
 
 use anyhow::{bail, ensure, Context};
 use spin_locked_app::MetadataKey;
@@ -304,7 +304,7 @@ enum PartialAllowedHostConfig {
 impl PartialAllowedHostConfig {
     fn resolve(
         self,
-        resolver: &Arc<spin_expressions::PreparedResolver>,
+        resolver: &spin_expressions::PreparedResolver,
     ) -> anyhow::Result<AllowedHostConfig> {
         match self {
             Self::Exact(h) => Ok(h),
@@ -316,7 +316,7 @@ impl PartialAllowedHostConfig {
 impl AllowedHostsConfig {
     pub fn parse<S: AsRef<str>>(
         hosts: &[S],
-        resolver: &Arc<spin_expressions::PreparedResolver>,
+        resolver: &spin_expressions::PreparedResolver,
     ) -> anyhow::Result<AllowedHostsConfig> {
         let partial = Self::parse_partial(hosts)?;
         let allowed = partial
@@ -471,8 +471,8 @@ mod test {
         }
     }
 
-    fn dummy_resolver() -> Arc<spin_expressions::PreparedResolver> {
-        Arc::new(spin_expressions::PreparedResolver::default())
+    fn dummy_resolver() -> spin_expressions::PreparedResolver {
+        spin_expressions::PreparedResolver::default()
     }
 
     use super::*;

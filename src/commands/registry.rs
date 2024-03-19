@@ -57,6 +57,10 @@ pub struct Push {
     /// This is a string whose format is defined by the registry standard, and generally consists of <registry>/<username>/<application-name>:<version>. E.g. ghcr.io/ogghead/spin-test-app:0.1.0
     #[clap()]
     pub reference: String,
+
+    /// Cache directory for downloaded registry data.
+    #[clap(long)]
+    pub cache_dir: Option<PathBuf>,
 }
 
 impl Push {
@@ -66,7 +70,8 @@ impl Push {
             spin_build::build(&app_file, &[]).await?;
         }
 
-        let mut client = spin_oci::Client::new(self.insecure, None).await?;
+        let mut client =
+            spin_oci::Client::new(self.insecure, self.cache_dir.clone()).await?;
 
         let _spinner = create_dotted_spinner(2000, "Pushing app to the Registry".to_owned());
 
@@ -95,12 +100,17 @@ pub struct Pull {
     /// This is a string whose format is defined by the registry standard, and generally consists of <registry>/<username>/<application-name>:<version>. E.g. ghcr.io/ogghead/spin-test-app:0.1.0
     #[clap()]
     pub reference: String,
+
+    /// Cache directory for downloaded registry data.
+    #[clap(long)]
+    pub cache_dir: Option<PathBuf>,
 }
 
 impl Pull {
     /// Pull a Spin application from an OCI registry
     pub async fn run(self) -> Result<()> {
-        let mut client = spin_oci::Client::new(self.insecure, None).await?;
+        let mut client =
+            spin_oci::Client::new(self.insecure, self.cache_dir.clone()).await?;
 
         let _spinner = create_dotted_spinner(2000, "Pulling app from the Registry".to_owned());
 

@@ -29,7 +29,7 @@ use self::host_component::{HostComponents, HostComponentsBuilder};
 pub use async_trait::async_trait;
 pub use wasmtime::{
     self,
-    component::{Component, Instance},
+    component::{types::Component as ComponentType, Component, Instance},
     Instance as ModuleInstance, Module, Trap,
 };
 pub use wasmtime_wasi::preview2::I32Exit;
@@ -397,6 +397,13 @@ impl<T: OutboundWasiHttpHandler + Send + Sync> Engine<T> {
     pub fn instantiate_pre(&self, component: &Component) -> Result<InstancePre<T>> {
         let inner = self.linker.instantiate_pre(component)?;
         Ok(InstancePre { inner })
+    }
+
+    /// Returns the type of this component to reflect on it at runtime.
+    pub fn component_type(&self, component: &Component) -> Result<ComponentType> {
+        // NB: With Wasmtime 20 and bytecodealliance/wasmtime#8078 this method
+        // should probably be removed to just use that instead.
+        self.linker.substituted_component_type(component)
     }
 
     /// Creates a new [`ModuleInstancePre`] for the given [`Module`].

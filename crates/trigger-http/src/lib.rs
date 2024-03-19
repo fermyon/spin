@@ -41,7 +41,10 @@ use tokio::{
 use tracing::log;
 use wasmtime_wasi_http::body::HyperIncomingBody as Body;
 
-use crate::{handler::HttpHandlerExecutor, wagi::WagiHttpExecutor};
+use crate::{
+    handler::{HandlerType, HttpHandlerExecutor},
+    wagi::WagiHttpExecutor,
+};
 
 pub use tls::TlsConfig;
 
@@ -87,12 +90,12 @@ impl CliArgs {
 }
 
 pub enum HttpInstancePre {
-    Component(spin_core::InstancePre<RuntimeData>),
+    Component(spin_core::InstancePre<RuntimeData>, HandlerType),
     Module(spin_core::ModuleInstancePre<RuntimeData>),
 }
 
 pub enum HttpInstance {
-    Component(spin_core::Instance),
+    Component(spin_core::Instance, HandlerType),
     Module(spin_core::ModuleInstance),
 }
 
@@ -196,16 +199,21 @@ impl TriggerInstancePre<RuntimeData, HttpTriggerConfig> for HttpInstancePre {
             ))
         } else {
             let comp = component.load_component(engine).await?;
-            Ok(HttpInstancePre::Component(engine.instantiate_pre(&comp)?))
+            let ty = engine.component_type(&comp)?;
+            let handler_ty = HandlerType::from_component(&ty)?;
+            Ok(HttpInstancePre::Component(
+                engine.instantiate_pre(&comp)?,
+                handler_ty,
+            ))
         }
     }
 
     async fn instantiate(&self, store: &mut Store) -> Result<HttpInstance> {
         match self {
-            HttpInstancePre::Component(pre) => pre
-                .instantiate_async(store)
-                .await
-                .map(HttpInstance::Component),
+            HttpInstancePre::Component(pre, ty) => Ok(HttpInstance::Component(
+                pre.instantiate_async(store).await?,
+                *ty,
+            )),
             HttpInstancePre::Module(pre) => {
                 pre.instantiate_async(store).await.map(HttpInstance::Module)
             }

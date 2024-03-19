@@ -1,7 +1,6 @@
 use std::{net::SocketAddr, str, str::FromStr};
 
 use crate::{Body, HttpExecutor, HttpInstance, HttpTrigger, Store};
-use anyhow::bail;
 use anyhow::{anyhow, Context, Result};
 use futures::TryFutureExt;
 use http::{HeaderName, HeaderValue};
@@ -331,21 +330,36 @@ const WASI_HTTP_EXPORT_0_2_0: &str = "wasi:http/incoming-handler@0.2.0";
 impl HandlerType {
     /// Determine the handler type from the exports of a component
     pub fn from_component(ty: &ComponentType) -> Result<HandlerType> {
+        let mut handler_ty = None;
+
+        let mut set = |ty: HandlerType| {
+            if handler_ty.is_none() {
+                handler_ty = Some(ty);
+                Ok(())
+            } else {
+                Err(anyhow!(
+                    "component exports multiple different handlers but \
+                     it's expected to export only one"
+                ))
+            }
+        };
         for (name, _) in ty.exports() {
             match name {
-                WASI_HTTP_EXPORT_2023_10_18 => return Ok(HandlerType::Wasi2023_10_18),
-                WASI_HTTP_EXPORT_2023_11_10 => return Ok(HandlerType::Wasi2023_11_10),
-                WASI_HTTP_EXPORT_0_2_0 => return Ok(HandlerType::Wasi0_2),
-                "fermyon:spin/inbound-http" => return Ok(HandlerType::Spin),
+                WASI_HTTP_EXPORT_2023_10_18 => set(HandlerType::Wasi2023_10_18)?,
+                WASI_HTTP_EXPORT_2023_11_10 => set(HandlerType::Wasi2023_11_10)?,
+                WASI_HTTP_EXPORT_0_2_0 => set(HandlerType::Wasi0_2)?,
+                "fermyon:spin/inbound-http" => set(HandlerType::Spin)?,
                 _ => {}
             }
         }
 
-        bail!(
-            "Expected component to either export `{WASI_HTTP_EXPORT_2023_10_18}`, \
-             `{WASI_HTTP_EXPORT_2023_11_10}`, `{WASI_HTTP_EXPORT_0_2_0}`, \
-             or `fermyon:spin/inbound-http` but it exported none of those"
-        )
+        handler_ty.ok_or_else(|| {
+            anyhow!(
+                "Expected component to either export `{WASI_HTTP_EXPORT_2023_10_18}`, \
+                 `{WASI_HTTP_EXPORT_2023_11_10}`, `{WASI_HTTP_EXPORT_0_2_0}`, \
+                 or `fermyon:spin/inbound-http` but it exported none of those"
+            )
+        })
     }
 }
 

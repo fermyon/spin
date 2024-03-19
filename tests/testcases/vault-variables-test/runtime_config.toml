@@ -3,3 +3,4 @@ type = "vault"
 url = "http://127.0.0.1:%{port=8200}"
 token = "root"
 mount = "secret"
+retry_limit = 3

@@ -15,6 +15,7 @@ spin-expressions = { path = "../expressions" }
 spin-world = { path = "../world" }
 thiserror = "1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
+tracing = { workspace = true }
 vaultrs = "0.6.2"
 serde = "1.0.188"
 

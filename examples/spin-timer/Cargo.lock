@@ -4037,6 +4037,7 @@ dependencies = [
  "spin-world",
  "thiserror",
  "tokio",
+ "tracing",
  "vaultrs",
 ]
 

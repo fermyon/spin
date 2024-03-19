@@ -70,6 +70,8 @@ pub struct VaultVariablesProviderOpts {
     pub mount: String,
     #[serde(default)]
     pub prefix: Option<String>,
+    #[serde(default)]
+    pub retry_limit: Option<u8>,
 }
 
 impl VaultVariablesProviderOpts {
@@ -79,6 +81,7 @@ impl VaultVariablesProviderOpts {
             &self.token,
             &self.mount,
             self.prefix.as_deref(),
+            self.retry_limit,
         ))
     }
 }

@@ -284,7 +284,7 @@ jobs:
   ## statically linked spin binaries
   build-spin-static:
     name: Build Spin static
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     permissions:
       # cosign uses the GitHub OIDC token
       id-token: write

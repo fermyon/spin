@@ -181,6 +181,10 @@ impl TriggerExecutor for HttpTrigger {
         };
         Ok(())
     }
+
+    fn supported_host_requirements() -> Vec<&'static str> {
+        vec![spin_app::locked::SERVICE_CHAINING_KEY]
+    }
 }
 
 #[async_trait]

@@ -182,6 +182,24 @@ impl LockedApp {
     ) -> crate::Result<T> {
         self.metadata.require_typed(key)
     }
+
+    /// Checks that the application does not have any host requirements
+    /// outside the supported set. The error case returns a comma-separated
+    /// list of unmet requirements.
+    pub fn ensure_needs_only(&self, supported: &[&str]) -> Result<(), String> {
+        let unmet_requirements = self
+            .host_requirements
+            .keys()
+            .filter(|hr| !supported.contains(&hr.as_str()))
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>();
+        if unmet_requirements.is_empty() {
+            Ok(())
+        } else {
+            let message = unmet_requirements.join(", ");
+            Err(message)
+        }
+    }
 }
 
 /// A LockedComponent represents a "fully resolved" Spin component.

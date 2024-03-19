@@ -70,8 +70,7 @@ impl Push {
             spin_build::build(&app_file, &[]).await?;
         }
 
-        let mut client =
-            spin_oci::Client::new(self.insecure, self.cache_dir.clone()).await?;
+        let mut client = spin_oci::Client::new(self.insecure, self.cache_dir.clone()).await?;
 
         let _spinner = create_dotted_spinner(2000, "Pushing app to the Registry".to_owned());
 
@@ -109,8 +108,7 @@ pub struct Pull {
 impl Pull {
     /// Pull a Spin application from an OCI registry
     pub async fn run(self) -> Result<()> {
-        let mut client =
-            spin_oci::Client::new(self.insecure, self.cache_dir.clone()).await?;
+        let mut client = spin_oci::Client::new(self.insecure, self.cache_dir.clone()).await?;
 
         let _spinner = create_dotted_spinner(2000, "Pulling app from the Registry".to_owned());
 

@@ -87,9 +87,9 @@ jobs:
           echo "RUNNER_OS=$OS" >> $GITHUB_ENV
 
       - name: Install Cosign for signing Spin binary
-        uses: sigstore/cosign-installer@v3.0.1
+        uses: sigstore/cosign-installer@v3.4.0
         with:
-          cosign-release: v2.0.0
+          cosign-release: v2.2.3
 
       - name: Install Rust toolchain
         shell: bash
@@ -340,9 +340,9 @@ jobs:
           BUILD_SPIN_EXAMPLES: 0
 
       - name: Install Cosign for signing Spin binary
-        uses: sigstore/cosign-installer@v3.0.1
+        uses: sigstore/cosign-installer@v3.4.0
         with:
-          cosign-release: v2.0.0
+          cosign-release: v2.2.3
 
       - name: Sign the binary with GitHub OIDC token
         shell: bash

@@ -293,7 +293,7 @@ impl LocalLoader {
         let src_path = self.app_root.join(src);
         let meta = crate::fs::metadata(&src_path)
             .await
-            .with_context(|| format!("invalid file mount source {}", quoted_path(src)))?;
+            .map_err(|e| explain_file_mount_source_error(e, src))?;
         if meta.is_dir() {
             // { source = "host/dir", destination = "guest/dir" }
             let pattern = src_path.join("**/*");
@@ -404,6 +404,15 @@ impl LocalLoader {
             path: dest.into(),
         })
     }
+}
+
+fn explain_file_mount_source_error(e: anyhow::Error, src: &Path) -> anyhow::Error {
+    if let Some(io_error) = e.downcast_ref::<std::io::Error>() {
+        if io_error.kind() == std::io::ErrorKind::NotFound {
+            return anyhow::anyhow!("File or directory {} does not exist", quoted_path(src));
+        }
+    }
+    e.context(format!("invalid file mount source {}", quoted_path(src)))
 }
 
 #[cfg(feature = "async-io")]

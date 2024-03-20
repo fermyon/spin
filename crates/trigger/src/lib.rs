@@ -37,6 +37,10 @@ pub trait TriggerExecutor: Sized + Send + Sync {
     fn configure_engine(_builder: &mut EngineBuilder<Self::RuntimeData>) -> Result<()> {
         Ok(())
     }
+
+    fn supported_host_requirements() -> Vec<&'static str> {
+        Vec::new()
+    }
 }
 
 /// Helper type alias to project the `Instance` of a given `TriggerExecutor`.
@@ -209,6 +213,13 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
         };
 
         let app = self.loader.load_owned_app(app_uri).await?;
+
+        if let Err(unmet) = app
+            .borrowed()
+            .ensure_needs_only(&Executor::supported_host_requirements())
+        {
+            anyhow::bail!("This application requires the following features that are not available in this version of the '{}' trigger: {unmet}", Executor::TRIGGER_TYPE);
+        }
 
         let app_name = app.borrowed().require_metadata(APP_NAME_KEY)?;
 

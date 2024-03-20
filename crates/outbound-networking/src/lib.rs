@@ -5,6 +5,9 @@ use spin_locked_app::MetadataKey;
 
 pub const ALLOWED_HOSTS_KEY: MetadataKey<Vec<String>> = MetadataKey::new("allowed_outbound_hosts");
 
+pub const SERVICE_CHAINING_DOMAIN: &str = "spin.internal";
+pub const SERVICE_CHAINING_DOMAIN_SUFFIX: &str = ".spin.internal";
+
 /// Checks address against allowed hosts
 ///
 /// Emits several warnings
@@ -430,6 +433,27 @@ impl OutboundUrl {
 impl std::fmt::Display for OutboundUrl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.original)
+    }
+}
+
+pub fn is_service_chaining_host(host: &str) -> bool {
+    parse_service_chaining_host(host).is_some()
+}
+
+pub fn parse_service_chaining_target(url: &http::Uri) -> Option<String> {
+    let host = url.authority().map(|a| a.host().trim())?;
+    parse_service_chaining_host(host)
+}
+
+fn parse_service_chaining_host(host: &str) -> Option<String> {
+    let (host, _) = host.rsplit_once(':').unwrap_or((host, ""));
+
+    let (first, rest) = host.split_once('.')?;
+
+    if rest == SERVICE_CHAINING_DOMAIN {
+        Some(first.to_owned())
+    } else {
+        None
     }
 }
 

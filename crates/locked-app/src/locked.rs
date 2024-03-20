@@ -4,21 +4,61 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use spin_serde::FixedVersion;
+use spin_serde::FixedVersionBackwardCompatible;
 
-use crate::{metadata::MetadataExt, values::ValuesMap};
+use crate::{
+    metadata::MetadataExt,
+    values::{ValuesMap, ValuesMapBuilder},
+};
 
 /// A String-keyed map with deterministic serialization order.
 pub type LockedMap<T> = std::collections::BTreeMap<String, T>;
 
-/// A LockedApp represents a "fully resolved" Spin application.
+/// If present and required in `host_requirements`, the host must support
+/// local service chaining (*.spin.internal) or reject the app.
+pub const SERVICE_CHAINING_KEY: &str = "local_service_chaining";
+
+/// Indicates that a host feature is optional. This is the default and is
+/// equivalent to omitting the feature from `host_requirements`.
+pub const HOST_REQ_OPTIONAL: &str = "optional";
+/// Indicates that a host feature is required.
+pub const HOST_REQ_REQUIRED: &str = "required";
+
+/// Identifies fields in the LockedApp that the host must process if present.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MustUnderstand {
+    /// If present in `must_understand`, the host must support all features
+    /// in the app's `host_requirements` section.
+    HostRequirements,
+}
+
+/// Features or capabilities the application requires the host to support.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HostRequirement {
+    /// The application requires local service chaining.
+    LocalServiceChaining,
+}
+
+/// A LockedApp represents a "fully resolved" Spin application.
+#[derive(Clone, Debug, Deserialize)]
 pub struct LockedApp {
     /// Locked schema version
-    pub spin_lock_version: FixedVersion<0>,
+    pub spin_lock_version: FixedVersionBackwardCompatible<1>,
+    /// Identifies fields in the LockedApp that the host must process if present.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub must_understand: Vec<MustUnderstand>,
     /// Application metadata
     #[serde(default, skip_serializing_if = "ValuesMap::is_empty")]
     pub metadata: ValuesMap,
+    /// Host requirements
+    #[serde(
+        default,
+        skip_serializing_if = "ValuesMap::is_empty",
+        deserialize_with = "deserialize_host_requirements"
+    )]
+    pub host_requirements: ValuesMap,
     /// Custom config variables
     #[serde(default, skip_serializing_if = "LockedMap::is_empty")]
     pub variables: LockedMap<Variable>,
@@ -26,6 +66,87 @@ pub struct LockedApp {
     pub triggers: Vec<LockedTrigger>,
     /// Application components
     pub components: Vec<LockedComponent>,
+}
+
+fn deserialize_host_requirements<'de, D>(deserializer: D) -> Result<ValuesMap, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct HostRequirementsVisitor;
+    impl<'de> serde::de::Visitor<'de> for HostRequirementsVisitor {
+        type Value = ValuesMap;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("struct ValuesMap")
+        }
+
+        fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+        where
+            A: serde::de::MapAccess<'de>,
+        {
+            use serde::de::Error;
+
+            let mut hr = ValuesMapBuilder::new();
+
+            while let Some(key) = map.next_key::<String>()? {
+                let value: serde_json::Value = map.next_value()?;
+                if value.as_str() == Some(HOST_REQ_OPTIONAL) {
+                    continue;
+                }
+
+                hr.serializable(key, value).map_err(A::Error::custom)?;
+            }
+
+            Ok(hr.build())
+        }
+    }
+    let m = deserializer.deserialize_map(HostRequirementsVisitor)?;
+    let unsupported: Vec<_> = m
+        .keys()
+        .filter(|k| !SUPPORTED_HOST_REQS.contains(&k.as_str()))
+        .map(|k| k.to_string())
+        .collect();
+    if unsupported.is_empty() {
+        Ok(m)
+    } else {
+        let msg = format!("This version of Spin does not support the following features required by this application: {}", unsupported.join(", "));
+        Err(serde::de::Error::custom(msg))
+    }
+}
+
+const SUPPORTED_HOST_REQS: &[&str] = &[SERVICE_CHAINING_KEY];
+
+impl Serialize for LockedApp {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        let version = if self.must_understand.is_empty() && self.host_requirements.is_empty() {
+            0
+        } else {
+            1
+        };
+
+        let mut la = serializer.serialize_struct("LockedApp", 7)?;
+        la.serialize_field("spin_lock_version", &version)?;
+        if !self.must_understand.is_empty() {
+            la.serialize_field("must_understand", &self.must_understand)?;
+        }
+        if !self.metadata.is_empty() {
+            la.serialize_field("metadata", &self.metadata)?;
+        }
+        if !self.host_requirements.is_empty() {
+            la.serialize_field("host_requirements", &self.host_requirements)?;
+        }
+        if !self.variables.is_empty() {
+            la.serialize_field("variables", &self.variables)?;
+        }
+        la.serialize_field("triggers", &self.triggers)?;
+        la.serialize_field("components", &self.components)?;
+        la.end()
+    }
 }
 
 impl LockedApp {
@@ -60,6 +181,24 @@ impl LockedApp {
         key: crate::MetadataKey<T>,
     ) -> crate::Result<T> {
         self.metadata.require_typed(key)
+    }
+
+    /// Checks that the application does not have any host requirements
+    /// outside the supported set. The error case returns a comma-separated
+    /// list of unmet requirements.
+    pub fn ensure_needs_only(&self, supported: &[&str]) -> Result<(), String> {
+        let unmet_requirements = self
+            .host_requirements
+            .keys()
+            .filter(|hr| !supported.contains(&hr.as_str()))
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>();
+        if unmet_requirements.is_empty() {
+            Ok(())
+        } else {
+            let message = unmet_requirements.join(", ");
+            Err(message)
+        }
     }
 }
 
@@ -149,4 +288,150 @@ pub struct Variable {
     /// If set, the variable's value may be sensitive and e.g. shouldn't be logged.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub secret: bool,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use crate::values::ValuesMapBuilder;
+
+    #[test]
+    fn locked_app_with_no_host_reqs_serialises_as_v0_and_v0_deserialises_as_v1() {
+        let locked_app = LockedApp {
+            spin_lock_version: Default::default(),
+            must_understand: Default::default(),
+            metadata: Default::default(),
+            host_requirements: Default::default(),
+            variables: Default::default(),
+            triggers: Default::default(),
+            components: Default::default(),
+        };
+
+        let json = locked_app.to_json().unwrap();
+
+        assert!(String::from_utf8_lossy(&json).contains(r#""spin_lock_version": 0"#));
+
+        let reloaded = LockedApp::from_json(&json).unwrap();
+
+        assert_eq!(1, Into::<usize>::into(reloaded.spin_lock_version));
+    }
+
+    #[test]
+    fn locked_app_with_host_reqs_serialises_as_v1() {
+        let mut host_requirements = ValuesMapBuilder::new();
+        host_requirements.string(SERVICE_CHAINING_KEY, "bar");
+        let host_requirements = host_requirements.build();
+
+        let locked_app = LockedApp {
+            spin_lock_version: Default::default(),
+            must_understand: vec![MustUnderstand::HostRequirements],
+            metadata: Default::default(),
+            host_requirements,
+            variables: Default::default(),
+            triggers: Default::default(),
+            components: Default::default(),
+        };
+
+        let json = locked_app.to_json().unwrap();
+
+        assert!(String::from_utf8_lossy(&json).contains(r#""spin_lock_version": 1"#));
+
+        let reloaded = LockedApp::from_json(&json).unwrap();
+
+        assert_eq!(1, Into::<usize>::into(reloaded.spin_lock_version));
+        assert_eq!(1, reloaded.must_understand.len());
+        assert_eq!(1, reloaded.host_requirements.len());
+    }
+
+    #[test]
+    fn deserialising_ignores_unknown_fields() {
+        use serde_json::json;
+        let j = serde_json::to_vec_pretty(&json!({
+            "spin_lock_version": 1,
+            "triggers": [],
+            "components": [],
+            "never_create_field_with_this_name": 123
+        }))
+        .unwrap();
+        let locked = LockedApp::from_json(&j).unwrap();
+        assert_eq!(0, locked.triggers.len());
+    }
+
+    #[test]
+    fn deserialising_does_not_ignore_must_understand_unknown_fields() {
+        use serde_json::json;
+        let j = serde_json::to_vec_pretty(&json!({
+            "spin_lock_version": 1,
+            "must_understand": vec!["never_create_field_with_this_name"],
+            "triggers": [],
+            "components": [],
+            "never_create_field_with_this_name": 123
+        }))
+        .unwrap();
+        let err = LockedApp::from_json(&j).expect_err(
+            "Should have refused to deserialise due to non-understood must-understand field",
+        );
+        assert!(err
+            .to_string()
+            .contains("never_create_field_with_this_name"));
+    }
+
+    #[test]
+    fn deserialising_accepts_must_understands_that_it_does_understand() {
+        use serde_json::json;
+        let j = serde_json::to_vec_pretty(&json!({
+            "spin_lock_version": 1,
+            "must_understand": vec!["host_requirements"],
+            "host_requirements": {
+                SERVICE_CHAINING_KEY: HOST_REQ_REQUIRED,
+            },
+            "triggers": [],
+            "components": [],
+            "never_create_field_with_this_name": 123
+        }))
+        .unwrap();
+        let locked = LockedApp::from_json(&j).unwrap();
+        assert_eq!(1, locked.must_understand.len());
+        assert_eq!(1, locked.host_requirements.len());
+    }
+
+    #[test]
+    fn deserialising_rejects_host_requirements_that_are_not_supported() {
+        use serde_json::json;
+        let j = serde_json::to_vec_pretty(&json!({
+            "spin_lock_version": 1,
+            "must_understand": vec!["host_requirements"],
+            "host_requirements": {
+                SERVICE_CHAINING_KEY: HOST_REQ_REQUIRED,
+                "accelerated_spline_reticulation": HOST_REQ_REQUIRED
+            },
+            "triggers": [],
+            "components": []
+        }))
+        .unwrap();
+        let err = LockedApp::from_json(&j).expect_err(
+            "Should have refused to deserialise due to non-understood host requirement",
+        );
+        assert!(err.to_string().contains("accelerated_spline_reticulation"));
+    }
+
+    #[test]
+    fn deserialising_skips_optional_host_requirements() {
+        use serde_json::json;
+        let j = serde_json::to_vec_pretty(&json!({
+            "spin_lock_version": 1,
+            "must_understand": vec!["host_requirements"],
+            "host_requirements": {
+                SERVICE_CHAINING_KEY: HOST_REQ_REQUIRED,
+                "accelerated_spline_reticulation": HOST_REQ_OPTIONAL
+            },
+            "triggers": [],
+            "components": []
+        }))
+        .unwrap();
+        let locked = LockedApp::from_json(&j).unwrap();
+        assert_eq!(1, locked.must_understand.len());
+        assert_eq!(1, locked.host_requirements.len());
+    }
 }

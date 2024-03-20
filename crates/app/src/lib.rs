@@ -247,6 +247,13 @@ impl<'a, L> App<'a, L> {
         self.triggers()
             .filter(move |trigger| trigger.locked.trigger_type == trigger_type)
     }
+
+    /// Checks that the application does not have any host requirements
+    /// outside the supported set. The error case returns a comma-separated
+    /// list of unmet requirements.
+    pub fn ensure_needs_only(&self, supported: &[&str]) -> std::result::Result<(), String> {
+        self.locked.ensure_needs_only(supported)
+    }
 }
 
 impl<'a> App<'a> {

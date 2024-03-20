@@ -1,3 +1,4 @@
+#[cfg(feature = "define-component")]
 pub mod bindings {
     wit_bindgen::generate!({
         world: "platform-rc20231018",
@@ -6,11 +7,14 @@ pub mod bindings {
     });
 }
 
+#[cfg(feature = "define-component")]
 use bindings::wasi::http0_2_0_rc_2023_10_18::types::{
     Error, Headers, OutgoingBody, OutgoingResponse, ResponseOutparam,
 };
+#[cfg(feature = "define-component")]
 use bindings::wasi::io0_2_0_rc_2023_10_18::streams::OutputStream;
 
+#[cfg(feature = "define-component")]
 #[macro_export]
 macro_rules! define_component {
     ($name:ident) => {
@@ -44,6 +48,7 @@ macro_rules! define_component {
     };
 }
 
+#[cfg(feature = "define-component")]
 pub fn handle(response_out: ResponseOutparam, result: Result<(), String>) {
     let response = |status| OutgoingResponse::new(status, &Headers::new(&[]));
     match result {
@@ -57,6 +62,7 @@ pub fn handle(response_out: ResponseOutparam, result: Result<(), String>) {
     }
 }
 
+#[cfg(feature = "define-component")]
 pub fn outgoing_body(body: OutgoingBody, buffer: Vec<u8>) -> Result<(), Error> {
     struct Outgoing(Option<(OutputStream, OutgoingBody)>);
 
@@ -163,4 +169,5 @@ macro_rules! bail {
     }};
 }
 
+#[cfg(feature = "define-component")]
 pub use wit_bindgen;

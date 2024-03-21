@@ -61,7 +61,7 @@ async fn new_fileserver_creates_assets_dir() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn add_fileserver_creates_assets_dir() -> anyhow::Result<()> {
+async fn add_fileserver_creates_assets_dir_next_to_manifest() -> anyhow::Result<()> {
     let built_ins_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let built_ins_src = TemplateSource::File(built_ins_dir);
 
@@ -116,12 +116,12 @@ async fn add_fileserver_creates_assets_dir() -> anyhow::Result<()> {
 
     // Finally!
     assert!(
-        app_dir.path().join("fs").exists(),
-        "<app_dir>/fs should have been created"
+        !app_dir.path().join("fs").exists(),
+        "<app_dir>/fs should not have been created"
     );
     assert!(
-        app_dir.path().join("fs").join("moarassets").exists(),
-        "<app_dir>/fs/moarassets should have been created"
+        app_dir.path().join("moarassets").exists(),
+        "<app_dir>/moarassets should have been created"
     );
     Ok(())
 }

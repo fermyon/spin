@@ -10,6 +10,7 @@ pub(crate) enum TemplateOutput {
     WriteFile(PathBuf, Vec<u8>),
     AppendToml(PathBuf, String),
     MergeToml(PathBuf, &'static str, String), // only have to worry about merging into root table for now
+    CreateDirectory(PathBuf),
 }
 
 impl TemplateOutputs {
@@ -56,6 +57,11 @@ impl TemplateOutput {
                 tokio::fs::write(path, new_toml)
                     .await
                     .with_context(|| format!("Can't save changes to {}", path.display()))?;
+            }
+            TemplateOutput::CreateDirectory(dir) => {
+                tokio::fs::create_dir_all(dir)
+                    .await
+                    .with_context(|| format!("Failed to create directory {}", dir.display()))?;
             }
         }
         Ok(())

@@ -12,7 +12,7 @@ use crate::{
     cancellable::Cancellable,
     interaction::{InteractionStrategy, Interactive, Silent},
     renderer::MergeTarget,
-    template::TemplateVariantInfo,
+    template::{ExtraOutputAction, TemplateVariantInfo},
 };
 use crate::{
     renderer::{RenderOperation, TemplateContent, TemplateRenderer},
@@ -118,7 +118,14 @@ impl Run {
             .map(|(id, path)| self.snippet_operation(id, path))
             .collect::<anyhow::Result<Vec<_>>>()?;
 
-        let render_operations = files.into_iter().chain(snippets).collect();
+        let extras = self
+            .template
+            .extra_outputs()
+            .iter()
+            .map(|extra| self.extra_operation(extra))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+
+        let render_operations = files.into_iter().chain(snippets).chain(extras).collect();
 
         match interaction.populate_parameters(self) {
             Cancellable::Ok(parameter_values) => {
@@ -289,6 +296,17 @@ impl Run {
             _ => Err(anyhow::anyhow!(
                 "Spin doesn't know what to do with snippet {id}",
             )),
+        }
+    }
+
+    fn extra_operation(&self, extra: &ExtraOutputAction) -> anyhow::Result<RenderOperation> {
+        match extra {
+            ExtraOutputAction::CreateDirectory(_, template) => {
+                Ok(RenderOperation::CreateDirectory(
+                    self.options.output_path.clone(),
+                    template.clone(),
+                ))
+            }
         }
     }
 

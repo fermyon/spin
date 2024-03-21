@@ -14,3 +14,6 @@ component = "component.txt"
 project-description = { type = "string",  prompt = "Description", default = "" }
 http-path = { type = "string", prompt = "HTTP path", default = "/static/...", pattern = "^/\\S*$" }
 files-path = { type = "string", prompt = "Directory containing the files to serve", default = "assets", pattern = "^\\S+$" }
+
+[outputs]
+create_asset_directory = { action = "create_dir", path = "{{ files-path }}" }

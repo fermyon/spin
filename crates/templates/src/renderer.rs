@@ -20,6 +20,7 @@ pub(crate) enum RenderOperation {
     AppendToml(PathBuf, TemplateContent),
     MergeToml(PathBuf, MergeTarget, TemplateContent), // file to merge into, table to merge into, content to merge
     WriteFile(PathBuf, TemplateContent),
+    CreateDirectory(PathBuf, std::sync::Arc<liquid::Template>),
 }
 
 pub(crate) enum MergeTarget {
@@ -74,6 +75,11 @@ impl RenderOperation {
                 let rendered_text = String::from_utf8(rendered)?;
                 let MergeTarget::Application(target_table) = target;
                 Ok(TemplateOutput::MergeToml(path, target_table, rendered_text))
+            }
+            Self::CreateDirectory(path, template) => {
+                let rendered = template.render(globals)?;
+                let path = path.join(rendered); // TODO: should we validate that `rendered` was relative?`
+                Ok(TemplateOutput::CreateDirectory(path))
             }
         }
     }

@@ -9,7 +9,10 @@ use regex::Regex;
 
 use crate::{
     constraints::StringConstraints,
-    reader::{RawParameter, RawTemplateManifest, RawTemplateManifestV1, RawTemplateVariant},
+    reader::{
+        RawExtraOutput, RawParameter, RawTemplateManifest, RawTemplateManifestV1,
+        RawTemplateVariant,
+    },
     run::{Run, RunOptions},
     store::TemplateLayout,
 };
@@ -24,6 +27,7 @@ pub struct Template {
     trigger: TemplateTriggerCompatibility,
     variants: HashMap<TemplateVariantKind, TemplateVariant>,
     parameters: Vec<TemplateParameter>,
+    extra_outputs: Vec<ExtraOutputAction>,
     snippets_dir: Option<PathBuf>,
     content_dir: Option<PathBuf>, // TODO: maybe always need a spin.toml file in there?
 }
@@ -113,6 +117,18 @@ pub(crate) struct TemplateParameter {
     default_value: Option<String>,
 }
 
+pub(crate) enum ExtraOutputAction {
+    CreateDirectory(String, std::sync::Arc<liquid::Template>),
+}
+
+impl std::fmt::Debug for ExtraOutputAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::CreateDirectory(orig, _) => f.debug_tuple("CreateDirectory").field(orig).finish(),
+        }
+    }
+}
+
 impl Template {
     pub(crate) fn load_from(layout: &TemplateLayout) -> anyhow::Result<Self> {
         let manifest_path = layout.manifest_path();
@@ -155,6 +171,7 @@ impl Template {
                 trigger: Self::parse_trigger_type(raw.trigger_type, layout),
                 variants: Self::parse_template_variants(raw.new_application, raw.add_component),
                 parameters: Self::parse_parameters(&raw.parameters)?,
+                extra_outputs: Self::parse_extra_outputs(&raw.outputs)?,
                 snippets_dir,
                 content_dir,
             },
@@ -235,6 +252,10 @@ impl Template {
 
     pub(crate) fn parameter(&self, name: impl AsRef<str>) -> Option<&TemplateParameter> {
         self.parameters.iter().find(|p| p.id == name.as_ref())
+    }
+
+    pub(crate) fn extra_outputs(&self) -> &[ExtraOutputAction] {
+        &self.extra_outputs
     }
 
     pub(crate) fn content_dir(&self) -> &Option<PathBuf> {
@@ -339,6 +360,18 @@ impl Template {
             Some(parameters) => parameters
                 .iter()
                 .map(|(k, v)| TemplateParameter::from_raw(k, v))
+                .collect(),
+        }
+    }
+
+    fn parse_extra_outputs(
+        raw: &Option<IndexMap<String, RawExtraOutput>>,
+    ) -> anyhow::Result<Vec<ExtraOutputAction>> {
+        match raw {
+            None => Ok(vec![]),
+            Some(parameters) => parameters
+                .iter()
+                .map(|(k, v)| ExtraOutputAction::from_raw(k, v))
                 .collect(),
         }
     }
@@ -457,6 +490,20 @@ impl TemplateParameterDataType {
         match self {
             TemplateParameterDataType::String(constraints) => constraints.validate(value),
         }
+    }
+}
+
+impl ExtraOutputAction {
+    fn from_raw(id: &str, raw: &RawExtraOutput) -> anyhow::Result<Self> {
+        Ok(match raw {
+            RawExtraOutput::CreateDir(create) => {
+                let path_template =
+                    liquid::Parser::new().parse(&create.path).with_context(|| {
+                        format!("Template error: output {id} is not a valid template")
+                    })?;
+                Self::CreateDirectory(create.path.clone(), std::sync::Arc::new(path_template))
+            }
+        })
     }
 }
 

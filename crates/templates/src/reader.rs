@@ -23,6 +23,7 @@ pub(crate) struct RawTemplateManifestV1 {
     pub add_component: Option<RawTemplateVariant>,
     pub parameters: Option<IndexMap<String, RawParameter>>,
     pub custom_filters: Option<serde::de::IgnoredAny>, // kept for error messaging
+    pub outputs: Option<IndexMap<String, RawExtraOutput>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,6 +44,18 @@ pub(crate) struct RawParameter {
     #[serde(rename = "default")]
     pub default_value: Option<String>,
     pub pattern: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case", tag = "action")]
+pub(crate) enum RawExtraOutput {
+    CreateDir(RawCreateDir),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub(crate) struct RawCreateDir {
+    pub path: String,
 }
 
 pub(crate) fn parse_manifest_toml(text: impl AsRef<str>) -> anyhow::Result<RawTemplateManifest> {

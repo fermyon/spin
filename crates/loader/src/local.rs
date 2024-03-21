@@ -241,6 +241,7 @@ impl LocalLoader {
         } else {
             let _loading_permit = self.file_loading_permits.acquire().await?;
 
+            self.cache.ensure_dirs().await?;
             let dest = self.cache.wasm_path(digest);
             verified_download(url, digest, &dest)
                 .await

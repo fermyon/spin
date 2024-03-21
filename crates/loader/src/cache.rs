@@ -2,7 +2,10 @@
 
 use anyhow::{ensure, Context, Result};
 
-use std::path::{Path, PathBuf};
+use std::{
+    path::PathBuf,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use crate::fs::{create_dir_all, write_file};
 
@@ -17,6 +20,9 @@ const DATA_DIR: &str = "data";
 pub struct Cache {
     /// Root directory for the cache instance.
     root: PathBuf,
+    /// Whether the cache directories have been checked to exist (and
+    /// created if necessary).
+    dirs_ensured_once: AtomicBool,
 }
 
 impl Cache {
@@ -29,9 +35,11 @@ impl Cache {
                 .join(CONFIG_DIR),
         };
         let root = root.join(REGISTRY_CACHE_DIR);
-        Self::ensure_dirs(&root).await?;
 
-        Ok(Self { root })
+        Ok(Self {
+            root,
+            dirs_ensured_once: AtomicBool::new(false),
+        })
     }
 
     /// The manifests directory for the current cache.
@@ -80,12 +88,14 @@ impl Cache {
 
     /// Write the contents in the cache's wasm directory.
     pub async fn write_wasm(&self, bytes: impl AsRef<[u8]>, digest: impl AsRef<str>) -> Result<()> {
+        self.ensure_dirs().await?;
         write_file(&self.wasm_path(digest), bytes.as_ref()).await?;
         Ok(())
     }
 
     /// Write the contents in the cache's data directory.
     pub async fn write_data(&self, bytes: impl AsRef<[u8]>, digest: impl AsRef<str>) -> Result<()> {
+        self.ensure_dirs().await?;
         write_file(&self.data_path(digest), bytes.as_ref()).await?;
         Ok(())
     }
@@ -106,8 +116,16 @@ impl Cache {
     ///             └──manifests
     ///             └──wasm
     ///             └─-data
-    async fn ensure_dirs(root: &Path) -> Result<()> {
-        tracing::debug!("using cache root directory {}", root.display());
+    pub async fn ensure_dirs(&self) -> Result<()> {
+        tracing::debug!("using cache root directory {}", self.root.display());
+
+        // We don't care about ordering as this function is idempotent -
+        // we are using an Atomic only for interior mutability.
+        if self.dirs_ensured_once.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
+        let root = &self.root;
 
         let p = root.join(MANIFESTS_DIR);
         if !p.is_dir() {
@@ -130,12 +148,14 @@ impl Cache {
                 .with_context(|| format!("failed to create assets directory `{}`", p.display()))?;
         }
 
+        self.dirs_ensured_once.store(true, Ordering::Relaxed);
+
         Ok(())
     }
 }
 
 #[cfg(windows)]
-fn safe_name(digest: impl AsRef<str>) -> impl AsRef<Path> {
+fn safe_name(digest: impl AsRef<str>) -> impl AsRef<std::path::Path> {
     digest.as_ref().replace(':', "_")
 }
 

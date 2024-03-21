@@ -95,6 +95,10 @@ pub struct UpCommand {
     #[clap(long = "temp", alias = "tmp")]
     pub tmp: Option<PathBuf>,
 
+    /// Cache directory for downloaded components and assets.
+    #[clap(long)]
+    pub cache_dir: Option<PathBuf>,
+
     /// For local apps with directory mounts and no excluded files, mount them directly instead of using a temporary
     /// directory.
     ///
@@ -421,7 +425,7 @@ impl UpCommand {
             // TODO: We could make the `--help` experience a little faster if
             // we could fetch just the locked app JSON at this stage.
             AppSource::OciRegistry(reference) => {
-                let mut client = spin_oci::Client::new(self.insecure, None)
+                let mut client = spin_oci::Client::new(self.insecure, self.cache_dir.clone())
                     .await
                     .context("cannot create registry client")?;
 
@@ -448,7 +452,7 @@ impl UpCommand {
                 } else {
                     FilesMountStrategy::Copy(working_dir.join("assets"))
                 };
-                spin_loader::from_file(&manifest_path, files_mount_strategy, None)
+                spin_loader::from_file(&manifest_path, files_mount_strategy, self.cache_dir.clone())
                     .await
                     .with_context(|| {
                         format!(

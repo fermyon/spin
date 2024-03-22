@@ -1,0 +1,19 @@
+spin_manifest_version = 2
+
+[application]
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "An application to exercise wasi-observe tracing functionality."
+name = "wasi-observe-tracing"
+version = "1.0.0"
+
+[[trigger.http]]
+route = "/..."
+component = "wasi-observe-tracing"
+
+[component.wasi-observe-tracing]
+source = "%{source=wasi-observe-tracing}"
+key_value_stores = ["default"]
+allowed_outbound_hosts = ["http://self", "https://asdf.com"]
+[component.wasi-observe-tracing.build]
+command = "cargo build --target wasm32-wasi --release"
+watch = ["src/**/*.rs", "Cargo.toml"]

@@ -1424,7 +1424,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a969e13a7589e9e3e4207e153bae624ade2b5622fb4684a4923b23ec3d57719"
 dependencies = [
  "serde",
- "toml",
+ "toml 0.8.19",
 ]
 
 [[package]]
@@ -1698,7 +1698,7 @@ dependencies = [
  "rust-ini",
  "serde",
  "serde_json",
- "toml",
+ "toml 0.8.19",
  "yaml-rust2",
 ]
 
@@ -2655,6 +2655,25 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.87",
+]
+
+[[package]]
+name = "fake-opentelemetry-collector"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc2711530ca4a8dd909e447cf61f299d4492ec5a046d5982e1c06694c8953756"
+dependencies = [
+ "futures",
+ "hex",
+ "opentelemetry 0.25.0",
+ "opentelemetry-otlp 0.25.0",
+ "opentelemetry-proto 0.25.0",
+ "opentelemetry_sdk 0.25.0",
+ "serde",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tracing",
 ]
 
 [[package]]
@@ -5493,6 +5512,20 @@ dependencies = [
 
 [[package]]
 name = "opentelemetry"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "803801d3d3b71cd026851a53f974ea03df3d179cb758b260136a6c9e22e196af"
+dependencies = [
+ "futures-core",
+ "futures-sink",
+ "js-sys",
+ "once_cell",
+ "pin-project-lite",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "opentelemetry"
 version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f3cebff57f7dbd1255b44d8bddc2cebeb0ea677dbaa2e25a3070a91b318f660"
@@ -5511,7 +5544,7 @@ version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab5feffc321035ad94088a7e5333abb4d84a8726e54a802e736ce9dd7237e85b"
 dependencies = [
- "opentelemetry",
+ "opentelemetry 0.27.0",
  "tracing",
  "tracing-core",
  "tracing-subscriber",
@@ -5526,8 +5559,26 @@ dependencies = [
  "async-trait",
  "bytes",
  "http 1.1.0",
- "opentelemetry",
+ "opentelemetry 0.27.0",
  "reqwest 0.12.9",
+]
+
+[[package]]
+name = "opentelemetry-otlp"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "596b1719b3cab83addb20bcbffdf21575279d9436d9ccccfe651a3bf0ab5ab06"
+dependencies = [
+ "async-trait",
+ "futures-core",
+ "http 1.1.0",
+ "opentelemetry 0.25.0",
+ "opentelemetry-proto 0.25.0",
+ "opentelemetry_sdk 0.25.0",
+ "prost 0.13.3",
+ "thiserror 1.0.69",
+ "tokio",
+ "tonic",
 ]
 
 [[package]]
@@ -5539,10 +5590,10 @@ dependencies = [
  "async-trait",
  "futures-core",
  "http 1.1.0",
- "opentelemetry",
+ "opentelemetry 0.27.0",
  "opentelemetry-http",
- "opentelemetry-proto",
- "opentelemetry_sdk",
+ "opentelemetry-proto 0.27.0",
+ "opentelemetry_sdk 0.27.0",
  "prost 0.13.3",
  "reqwest 0.12.9",
  "thiserror 1.0.69",
@@ -5553,14 +5604,48 @@ dependencies = [
 
 [[package]]
 name = "opentelemetry-proto"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c43620e8f93359eb7e627a3b16ee92d8585774986f24f2ab010817426c5ce61"
+dependencies = [
+ "opentelemetry 0.25.0",
+ "opentelemetry_sdk 0.25.0",
+ "prost 0.13.3",
+ "tonic",
+]
+
+[[package]]
+name = "opentelemetry-proto"
 version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6e05acbfada5ec79023c85368af14abd0b307c015e9064d249b2a950ef459a6"
 dependencies = [
- "opentelemetry",
- "opentelemetry_sdk",
+ "opentelemetry 0.27.0",
+ "opentelemetry_sdk 0.27.0",
  "prost 0.13.3",
  "tonic",
+]
+
+[[package]]
+name = "opentelemetry_sdk"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0da0d6b47a3dbc6e9c9e36a0520e25cf943e046843818faaa3f87365a548c82"
+dependencies = [
+ "async-std",
+ "async-trait",
+ "futures-channel",
+ "futures-executor",
+ "futures-util",
+ "glob",
+ "once_cell",
+ "opentelemetry 0.25.0",
+ "percent-encoding",
+ "rand 0.8.5",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -5575,7 +5660,7 @@ dependencies = [
  "futures-util",
  "glob",
  "once_cell",
- "opentelemetry",
+ "opentelemetry 0.27.0",
  "percent-encoding",
  "rand 0.8.5",
  "serde_json",
@@ -7606,7 +7691,7 @@ dependencies = [
  "spin-factors-test",
  "spin-locked-app",
  "tokio",
- "toml",
+ "toml 0.8.19",
 ]
 
 [[package]]
@@ -7620,7 +7705,7 @@ dependencies = [
  "subprocess",
  "terminal",
  "tokio",
- "toml",
+ "toml 0.8.19",
 ]
 
 [[package]]
@@ -7639,6 +7724,7 @@ dependencies = [
  "conformance-tests",
  "ctrlc",
  "dialoguer",
+ "fake-opentelemetry-collector",
  "futures",
  "hex",
  "http 1.1.0",
@@ -7686,7 +7772,7 @@ dependencies = [
  "test-environment",
  "testing-framework",
  "tokio",
- "toml",
+ "toml 0.8.19",
  "tracing",
  "url",
  "uuid",
@@ -7721,7 +7807,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
- "toml",
+ "toml 0.8.19",
  "tracing",
  "wasm-encoder 0.217.0",
  "wasm-metadata 0.217.0",
@@ -7780,7 +7866,7 @@ dependencies = [
  "tempfile",
  "terminal",
  "tokio",
- "toml",
+ "toml 0.8.19",
  "toml_edit 0.22.22",
  "tracing",
  "ui-testing",
@@ -7796,7 +7882,7 @@ dependencies = [
  "spin-locked-app",
  "thiserror 1.0.69",
  "tokio",
- "toml",
+ "toml 0.8.19",
 ]
 
 [[package]]
@@ -7806,6 +7892,7 @@ dependencies = [
  "anyhow",
  "serde",
  "spin-core",
+ "spin-factor-observe",
  "spin-factors",
  "spin-factors-test",
  "spin-key-value-redis",
@@ -7816,7 +7903,7 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
- "toml",
+ "toml 0.8.19",
  "tracing",
 ]
 
@@ -7827,6 +7914,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "serde",
+ "spin-factor-observe",
  "spin-factors",
  "spin-factors-test",
  "spin-llm-local",
@@ -7835,9 +7923,26 @@ dependencies = [
  "spin-telemetry",
  "spin-world",
  "tokio",
- "toml",
+ "toml 0.8.19",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "spin-factor-observe"
+version = "3.2.0-pre0"
+dependencies = [
+ "anyhow",
+ "indexmap 2.6.0",
+ "opentelemetry 0.27.0",
+ "opentelemetry_sdk 0.27.0",
+ "spin-core",
+ "spin-factors",
+ "spin-resource-table",
+ "spin-world",
+ "toml 0.5.11",
+ "tracing",
+ "tracing-opentelemetry",
 ]
 
 [[package]]
@@ -7851,6 +7956,7 @@ dependencies = [
  "ip_network",
  "reqwest 0.12.9",
  "rustls 0.23.18",
+ "spin-factor-observe",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factors",
@@ -7872,6 +7978,7 @@ dependencies = [
  "anyhow",
  "rumqttc",
  "spin-core",
+ "spin-factor-observe",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factors",
@@ -7889,6 +7996,7 @@ dependencies = [
  "anyhow",
  "mysql_async",
  "spin-core",
+ "spin-factor-observe",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factors",
@@ -7922,7 +8030,7 @@ dependencies = [
  "spin-serde",
  "tempfile",
  "tokio",
- "toml",
+ "toml 0.8.19",
  "tracing",
  "url",
  "urlencoding",
@@ -7939,6 +8047,7 @@ dependencies = [
  "native-tls",
  "postgres-native-tls",
  "spin-core",
+ "spin-factor-observe",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factors",
@@ -7957,6 +8066,7 @@ dependencies = [
  "anyhow",
  "redis 0.25.4",
  "spin-core",
+ "spin-factor-observe",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factors",
@@ -7972,6 +8082,7 @@ name = "spin-factor-sqlite"
 version = "3.2.0-pre0"
 dependencies = [
  "async-trait",
+ "spin-factor-observe",
  "spin-factors",
  "spin-factors-test",
  "spin-locked-app",
@@ -7986,6 +8097,7 @@ name = "spin-factor-variables"
 version = "3.2.0-pre0"
 dependencies = [
  "spin-expressions",
+ "spin-factor-observe",
  "spin-factors",
  "spin-factors-test",
  "spin-world",
@@ -8016,7 +8128,7 @@ dependencies = [
  "spin-app",
  "spin-factors-derive",
  "thiserror 1.0.69",
- "toml",
+ "toml 0.8.19",
  "wasmtime",
 ]
 
@@ -8051,7 +8163,7 @@ dependencies = [
  "spin-factors",
  "spin-loader",
  "tempfile",
- "toml",
+ "toml 0.8.19",
 ]
 
 [[package]]
@@ -8067,7 +8179,7 @@ dependencies = [
  "routefinder",
  "serde",
  "spin-app",
- "toml",
+ "toml 0.8.19",
  "tracing",
  "wasmtime",
  "wasmtime-wasi-http",
@@ -8181,7 +8293,7 @@ dependencies = [
  "spin-serde",
  "tempfile",
  "tokio",
- "toml",
+ "toml 0.8.19",
  "tracing",
  "ui-testing",
  "wasm-pkg-client",
@@ -8212,7 +8324,7 @@ dependencies = [
  "spin-serde",
  "terminal",
  "thiserror 1.0.69",
- "toml",
+ "toml 0.8.19",
  "ui-testing",
  "url",
  "wasm-pkg-common",
@@ -8283,6 +8395,7 @@ dependencies = [
  "spin-common",
  "spin-factor-key-value",
  "spin-factor-llm",
+ "spin-factor-observe",
  "spin-factor-outbound-http",
  "spin-factor-outbound-mqtt",
  "spin-factor-outbound-mysql",
@@ -8304,7 +8417,7 @@ dependencies = [
  "spin-world",
  "tempfile",
  "tokio",
- "toml",
+ "toml 0.8.19",
 ]
 
 [[package]]
@@ -8316,6 +8429,7 @@ dependencies = [
  "spin-common",
  "spin-factor-key-value",
  "spin-factor-llm",
+ "spin-factor-observe",
  "spin-factor-outbound-http",
  "spin-factor-outbound-mqtt",
  "spin-factor-outbound-mysql",
@@ -8353,7 +8467,7 @@ dependencies = [
  "spin-factors",
  "spin-sqlite-inproc",
  "spin-sqlite-libsql",
- "toml",
+ "toml 0.8.19",
 ]
 
 [[package]]
@@ -8387,10 +8501,10 @@ dependencies = [
  "anyhow",
  "http 0.2.12",
  "http 1.1.0",
- "opentelemetry",
+ "opentelemetry 0.27.0",
  "opentelemetry-appender-tracing",
- "opentelemetry-otlp",
- "opentelemetry_sdk",
+ "opentelemetry-otlp 0.27.0",
+ "opentelemetry_sdk 0.27.0",
  "terminal",
  "tracing",
  "tracing-opentelemetry",
@@ -8424,7 +8538,7 @@ dependencies = [
  "tar",
  "tempfile",
  "tokio",
- "toml",
+ "toml 0.8.19",
  "toml_edit 0.22.22",
  "url",
  "walkdir",
@@ -8476,6 +8590,7 @@ dependencies = [
  "serde_json",
  "spin-app",
  "spin-core",
+ "spin-factor-observe",
  "spin-factor-outbound-http",
  "spin-factor-outbound-networking",
  "spin-factor-wasi",
@@ -8531,7 +8646,9 @@ dependencies = [
 name = "spin-world"
 version = "3.2.0-pre0"
 dependencies = [
+ "anyhow",
  "async-trait",
+ "opentelemetry 0.27.0",
  "wasmtime",
 ]
 
@@ -9210,6 +9327,15 @@ dependencies = [
 
 [[package]]
 name = "toml"
+version = "0.5.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "toml"
 version = "0.8.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1ed1f98e3fdc28d6d910e6737ae6ab1a93bf1985935a1193e68f93eeb68d24e"
@@ -9382,8 +9508,8 @@ checksum = "97a971f6058498b5c0f1affa23e7ea202057a7301dbff68e968b2d578bcbd053"
 dependencies = [
  "js-sys",
  "once_cell",
- "opentelemetry",
- "opentelemetry_sdk",
+ "opentelemetry 0.27.0",
+ "opentelemetry_sdk 0.27.0",
  "smallvec",
  "tracing",
  "tracing-core",
@@ -10102,7 +10228,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tokio-util",
- "toml",
+ "toml 0.8.19",
  "tracing",
  "tracing-subscriber",
  "url",
@@ -10132,7 +10258,7 @@ dependencies = [
  "sha2",
  "thiserror 1.0.69",
  "tokio",
- "toml",
+ "toml 0.8.19",
  "tracing",
 ]
 
@@ -10299,7 +10425,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "sha2",
- "toml",
+ "toml 0.8.19",
  "windows-sys 0.52.0",
  "zstd",
 ]

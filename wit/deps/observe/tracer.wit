@@ -1,0 +1,151 @@
+interface tracer {
+    use wasi:clocks/wall-clock@0.2.0.{datetime};
+
+    /// Starts a new `span` with the given name and options.
+    start: func(name: string, options: option<start-options>) -> span;
+
+    /// Represents a unit of work or operation.
+    resource span {
+        /// Get the `span-context` for this `span`.
+        span-context: func() -> span-context;
+
+        /// Returns true when the data provided to this `span` is captured in some form. If it returns false then any data provided is discarded.
+        is-recording: func() -> bool;
+
+        /// Set attributes of this span.
+        ///
+        /// If a key already exists for an attribute of the Span it will be overwritten with the corresponding new value.
+        set-attributes: func(attributes: list<key-value>);
+
+        /// Adds an event with the provided name at the curent timestamp.
+        ///
+        /// Optionally an alternative timestamp may be provided. You may also provide attributes of this event.
+        add-event: func(name: string, timestamp: option<datetime>, attributes: option<list<key-value>>);
+
+        /// Associates this `span` with another.
+        add-link: func(link: link);
+
+        /// Override the default `span` status, which is unset.
+        set-status: func(status: status);
+
+        /// Updates the `span` name.
+        update-name: func(name: string);
+
+        /// Signals that the operation described by this span has now ended.
+        ///
+        /// If a timestamp is not provided then it is treated equivalent to passing the current time. Dropping this resource is the equivalent of calling `end(none)`.
+        end: func(timestamp: option<datetime>);
+    }
+
+    /// Configuration for starting a `span`.
+    record start-options {
+        /// Whether this span should act as the root of a new trace.
+        new-root: bool,
+        /// `span-kind` for the new `span`.
+        span-kind: option<span-kind>,
+        /// Attributes for the new `span`.
+        attributes: option<list<key-value>>,
+        /// `link`'s for the new `span`.
+        links: option<list<link>>,
+        /// When the `span` should begin. If this is not provided it defaults to the current time.
+        timestamp: option<datetime>,
+    }
+
+    /// Describes a relationship to another `span`.
+    record link {
+        /// Denotes which `span` to link to.
+        span-context: span-context,
+        /// Attributes describing the link.
+        attributes: list<key-value>,
+    }
+
+    /// Describes the relationship between the Span, its parents, and its children in a trace.
+    enum span-kind {
+        /// Indicates that the span describes a request to some remote service. This span is usually the parent of a remote server span and does not end until the response is received.
+        client,
+        /// Indicates that the span covers server-side handling of a synchronous RPC or other remote request. This span is often the child of a remote client span that was expected to wait for a response.
+        server,
+        /// Indicates that the span describes the initiators of an asynchronous request. This parent span will often end before the corresponding child consumer span, possibly even before the child span starts. In messaging scenarios with batching, tracing individual messages requires a new producer span per message to be created.
+        producer,
+        /// Indicates that the span describes a child of an asynchronous consumer request.
+        consumer,
+        /// Default value. Indicates that the span represents an internal operation within an application, as opposed to an operations with remote parents or children.
+        internal
+    }
+
+    /// The `status` of a `span`.
+    variant status {
+        /// The default status.
+        unset,
+        /// The operation has been validated by an Application developer or Operator to have completed successfully.
+        ok,
+        /// The operation contains an error with a description.
+        error(string),
+    }
+
+    /// A key-value pair describing an attribute.
+    record key-value {
+        /// The attribute name.
+        key: key,
+        /// The attribute value.
+        value: value,
+    }
+
+    /// The key part of attribute `key-value` pairs.
+    type key = string;
+
+    /// The value part of attribute `key-value` pairs.
+    variant value {
+        /// A string value.
+        %string(string),
+        /// A boolean value.
+        %bool(bool),
+        /// A double precision floating point value.
+        %float64(float64),
+        /// A signed 64 bit integer value.
+        %s64(s64),
+        /// A homogeneous array of string values.
+        string-array(list<string>),
+        /// A homogeneous array of boolean values.
+        bool-array(list<bool>),
+        /// A homogeneous array of double precision floating point values.
+        float64-array(list<float64>),
+        /// A homogeneous array of 64 bit integer values.
+        s64-array(list<s64>),
+    }
+
+    /// Identifying trace information about a span that can be serialized and propagated.
+    record span-context {
+        /// The `trace-id` for this `span-context`.
+        trace-id: trace-id,
+        /// The `span-id` for this `span-context`.
+        span-id: span-id,
+        /// The `trace-flags` for this `span-context`.
+        trace-flags: trace-flags,
+        /// Whether this `span-context` was propagated from a remote parent.
+        is-remote: bool,
+        /// The `trace-state` for this `span-context`.
+        trace-state: trace-state,
+    }
+
+    /// The trace that this `span-context` belongs to.
+    ///
+    /// 16 bytes encoded as a hexadecimal string.
+    type trace-id = string;
+
+    /// The id of this `span-context`.
+    ///
+    /// 8 bytes encoded as a hexadecimal string.
+    type span-id = string;
+
+    /// Flags that can be set on a `span-context`.
+    flags trace-flags {
+        /// Whether the `span` should be sampled or not.
+        sampled,
+    }
+
+    /// Carries system-specific configuration data, represented as a list of key-value pairs. `trace-state` allows multiple tracing systems to participate in the same trace.
+    ///
+    /// If any invalid keys or values are provided then the `trace-state` will be treated as an empty list.
+    type trace-state = list<tuple<string, string>>;
+}

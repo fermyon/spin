@@ -6134,11 +6134,10 @@ dependencies = [
  "dotenvy",
  "once_cell",
  "serde",
- "spin-app",
+ "spin-locked-app",
  "thiserror",
  "tokio",
  "toml 0.5.11",
- "vaultrs",
 ]
 
 [[package]]

@@ -2244,6 +2244,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "fake-opentelemetry-collector"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc2711530ca4a8dd909e447cf61f299d4492ec5a046d5982e1c06694c8953756"
+dependencies = [
+ "futures",
+ "hex",
+ "opentelemetry",
+ "opentelemetry-otlp",
+ "opentelemetry-proto",
+ "opentelemetry_sdk",
+ "serde 1.0.210",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tracing",
+]
+
+[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4991,6 +5010,7 @@ version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0da0d6b47a3dbc6e9c9e36a0520e25cf943e046843818faaa3f87365a548c82"
 dependencies = [
+ "async-std",
  "async-trait",
  "futures-channel",
  "futures-executor",
@@ -6943,6 +6963,7 @@ dependencies = [
  "ctrlc",
  "dialoguer",
  "dirs 5.0.1",
+ "fake-opentelemetry-collector",
  "futures",
  "glob",
  "hex",
@@ -7117,6 +7138,7 @@ dependencies = [
  "lru",
  "serde 1.0.210",
  "spin-core",
+ "spin-factor-observe",
  "spin-factors",
  "spin-factors-test",
  "spin-key-value-redis",
@@ -7137,6 +7159,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "serde 1.0.210",
+ "spin-factor-observe",
  "spin-factors",
  "spin-factors-test",
  "spin-llm-local",
@@ -7150,6 +7173,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-factor-observe"
+version = "2.8.0-pre0"
+dependencies = [
+ "anyhow",
+ "indexmap 2.5.0",
+ "opentelemetry",
+ "opentelemetry_sdk",
+ "spin-core",
+ "spin-factors",
+ "spin-world",
+ "table",
+ "toml 0.5.11",
+ "tracing",
+ "tracing-opentelemetry",
+]
+
+[[package]]
 name = "spin-factor-outbound-http"
 version = "2.8.0-pre0"
 dependencies = [
@@ -7160,6 +7200,7 @@ dependencies = [
  "ip_network",
  "reqwest 0.12.7",
  "rustls 0.23.13",
+ "spin-factor-observe",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factors",
@@ -7182,6 +7223,7 @@ dependencies = [
  "anyhow",
  "rumqttc",
  "spin-core",
+ "spin-factor-observe",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factors",
@@ -7203,6 +7245,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-expressions",
+ "spin-factor-observe",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factors",
@@ -7253,6 +7296,7 @@ dependencies = [
  "native-tls",
  "postgres-native-tls",
  "spin-core",
+ "spin-factor-observe",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factors",
@@ -7271,6 +7315,7 @@ dependencies = [
  "anyhow",
  "redis 0.25.4",
  "spin-core",
+ "spin-factor-observe",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factors",
@@ -7287,6 +7332,7 @@ version = "2.8.0-pre0"
 dependencies = [
  "async-trait",
  "serde 1.0.210",
+ "spin-factor-observe",
  "spin-factors",
  "spin-factors-test",
  "spin-locked-app",
@@ -7307,6 +7353,7 @@ dependencies = [
  "dotenvy",
  "serde 1.0.210",
  "spin-expressions",
+ "spin-factor-observe",
  "spin-factors",
  "spin-factors-test",
  "spin-world",
@@ -7612,6 +7659,7 @@ dependencies = [
  "spin-common",
  "spin-factor-key-value",
  "spin-factor-llm",
+ "spin-factor-observe",
  "spin-factor-outbound-http",
  "spin-factor-outbound-mqtt",
  "spin-factor-outbound-mysql",
@@ -7643,6 +7691,7 @@ dependencies = [
  "spin-common",
  "spin-factor-key-value",
  "spin-factor-llm",
+ "spin-factor-observe",
  "spin-factor-outbound-http",
  "spin-factor-outbound-mqtt",
  "spin-factor-outbound-mysql",
@@ -7820,6 +7869,7 @@ dependencies = [
  "serde_json",
  "spin-app",
  "spin-core",
+ "spin-factor-observe",
  "spin-factor-outbound-http",
  "spin-factor-outbound-networking",
  "spin-factor-wasi",
@@ -7861,7 +7911,9 @@ dependencies = [
 name = "spin-world"
 version = "2.8.0-pre0"
 dependencies = [
+ "anyhow",
  "async-trait",
+ "opentelemetry",
  "wasmtime",
 ]
 

@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use spin_core::{async_trait, wasmtime::component::Resource};
-use spin_world::v2::key_value;
+use spin_factor_observe::ObserveContext;
+use spin_world::{v2::key_value, wasi::observe};
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
 use tracing::{instrument, Level};
@@ -36,22 +37,25 @@ pub struct KeyValueDispatch {
     allowed_stores: HashSet<String>,
     manager: Arc<dyn StoreManager>,
     stores: Table<Arc<dyn Store>>,
+    observe_context: Option<ObserveContext>,
 }
 
 impl KeyValueDispatch {
     pub fn new(allowed_stores: HashSet<String>, manager: Arc<dyn StoreManager>) -> Self {
-        Self::new_with_capacity(allowed_stores, manager, DEFAULT_STORE_TABLE_CAPACITY)
+        Self::new_with_capacity(allowed_stores, manager, DEFAULT_STORE_TABLE_CAPACITY, None)
     }
 
     pub fn new_with_capacity(
         allowed_stores: HashSet<String>,
         manager: Arc<dyn StoreManager>,
         capacity: u32,
+        observe_context: Option<ObserveContext>,
     ) -> Self {
         Self {
             allowed_stores,
             manager,
             stores: Table::new(capacity),
+            observe_context,
         }
     }
 
@@ -71,6 +75,9 @@ impl key_value::Host for KeyValueDispatch {}
 impl key_value::HostStore for KeyValueDispatch {
     #[instrument(name = "spin_key_value.open", skip(self), err(level = Level::INFO), fields(otel.kind = "client", kv.backend=self.manager.summary(&name).unwrap_or("unknown".to_string())))]
     async fn open(&mut self, name: String) -> Result<Result<Resource<key_value::Store>, Error>> {
+        if let Some(observe_context) = self.observe_context.as_ref() {
+            observe_context.reparent_tracing_span()
+        }
         Ok(async {
             if self.allowed_stores.contains(&name) {
                 let store = self
@@ -91,6 +98,9 @@ impl key_value::HostStore for KeyValueDispatch {
         store: Resource<key_value::Store>,
         key: String,
     ) -> Result<Result<Option<Vec<u8>>, Error>> {
+        if let Some(observe_context) = self.observe_context.as_ref() {
+            observe_context.reparent_tracing_span()
+        }
         let store = self.get_store(store)?;
         Ok(store.get(&key).await)
     }
@@ -102,6 +112,9 @@ impl key_value::HostStore for KeyValueDispatch {
         key: String,
         value: Vec<u8>,
     ) -> Result<Result<(), Error>> {
+        if let Some(observe_context) = self.observe_context.as_ref() {
+            observe_context.reparent_tracing_span()
+        }
         let store = self.get_store(store)?;
         Ok(store.set(&key, &value).await)
     }
@@ -112,6 +125,9 @@ impl key_value::HostStore for KeyValueDispatch {
         store: Resource<key_value::Store>,
         key: String,
     ) -> Result<Result<(), Error>> {
+        if let Some(observe_context) = self.observe_context.as_ref() {
+            observe_context.reparent_tracing_span()
+        }
         let store = self.get_store(store)?;
         Ok(store.delete(&key).await)
     }
@@ -122,6 +138,9 @@ impl key_value::HostStore for KeyValueDispatch {
         store: Resource<key_value::Store>,
         key: String,
     ) -> Result<Result<bool, Error>> {
+        if let Some(observe_context) = self.observe_context.as_ref() {
+            observe_context.reparent_tracing_span()
+        }
         let store = self.get_store(store)?;
         Ok(store.exists(&key).await)
     }
@@ -131,6 +150,9 @@ impl key_value::HostStore for KeyValueDispatch {
         &mut self,
         store: Resource<key_value::Store>,
     ) -> Result<Result<Vec<String>, Error>> {
+        if let Some(observe_context) = self.observe_context.as_ref() {
+            observe_context.reparent_tracing_span()
+        }
         let store = self.get_store(store)?;
         Ok(store.get_keys().await)
     }

@@ -1,0 +1,8 @@
+package wasi:observe@0.2.0-draft;
+
+world imports {
+    import tracer;
+}
+
+// TODO(Reviewer): Should we make this an experimental wasi package or a Spin package
+// TODO(Reviewer): Would adding a metrics interface to this in a future version be a breaking change?

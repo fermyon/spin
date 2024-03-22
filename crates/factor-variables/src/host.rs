@@ -8,6 +8,7 @@ use crate::InstanceState;
 impl variables::Host for InstanceState {
     #[instrument(name = "spin_variables.get", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(&mut self, key: String) -> Result<String, variables::Error> {
+        self.observe_context.reparent_tracing_span();
         let key = spin_expressions::Key::new(&key).map_err(expressions_to_variables_err)?;
         self.expression_resolver
             .resolve(&self.component_id, key)

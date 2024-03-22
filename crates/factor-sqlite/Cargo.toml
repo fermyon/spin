@@ -11,6 +11,7 @@ rust-version.workspace = true
 [dependencies]
 async-trait = { workspace = true }
 serde = { workspace = true }
+spin-factor-observe = { path = "../factor-observe" }
 spin-factors = { path = "../factors" }
 spin-locked-app = { path = "../locked-app" }
 spin-world = { path = "../world" }

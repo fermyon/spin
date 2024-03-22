@@ -65,6 +65,8 @@ impl<C: Send + Sync + Client> v2::Host for InstanceState<C> {}
 impl<C: Send + Sync + Client> v2::HostConnection for InstanceState<C> {
     #[instrument(name = "spin_outbound_pg.open_connection", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql"))]
     async fn open(&mut self, address: String) -> Result<Resource<Connection>, v2::Error> {
+        self.observe_context.reparent_tracing_span();
+
         if !self
             .is_address_allowed(&address)
             .await
@@ -84,6 +86,8 @@ impl<C: Send + Sync + Client> v2::HostConnection for InstanceState<C> {
         statement: String,
         params: Vec<ParameterValue>,
     ) -> Result<u64, v2::Error> {
+        self.observe_context.reparent_tracing_span();
+
         Ok(self
             .get_client(connection)
             .await?
@@ -98,6 +102,8 @@ impl<C: Send + Sync + Client> v2::HostConnection for InstanceState<C> {
         statement: String,
         params: Vec<ParameterValue>,
     ) -> Result<RowSet, v2::Error> {
+        self.observe_context.reparent_tracing_span();
+
         Ok(self
             .get_client(connection)
             .await?

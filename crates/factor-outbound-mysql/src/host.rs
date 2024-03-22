@@ -40,6 +40,8 @@ impl<C: Client> v2::Host for InstanceState<C> {}
 impl<C: Client> v2::HostConnection for InstanceState<C> {
     #[instrument(name = "spin_outbound_mysql.open_connection", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql"))]
     async fn open(&mut self, address: String) -> Result<Resource<Connection>, v2::Error> {
+        self.observe_context.reparent_tracing_span();
+
         if !self
             .is_address_allowed(&address)
             .await
@@ -59,6 +61,8 @@ impl<C: Client> v2::HostConnection for InstanceState<C> {
         statement: String,
         params: Vec<ParameterValue>,
     ) -> Result<(), v2::Error> {
+        self.observe_context.reparent_tracing_span();
+
         Ok(self
             .get_client(connection)
             .await?
@@ -73,6 +77,8 @@ impl<C: Client> v2::HostConnection for InstanceState<C> {
         statement: String,
         params: Vec<ParameterValue>,
     ) -> Result<v2_types::RowSet, v2::Error> {
+        self.observe_context.reparent_tracing_span();
+
         Ok(self
             .get_client(connection)
             .await?

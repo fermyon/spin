@@ -1,0 +1,7 @@
+interface observe {
+  resource span {
+    close: func();
+
+    enter: static func(name: string) -> span;
+  }
+}

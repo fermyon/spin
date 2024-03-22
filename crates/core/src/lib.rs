@@ -483,7 +483,9 @@ impl<T: OutboundWasiHttpHandler + Send + Sync> Engine<T> {
         let inner = self.module_linker.instantiate_pre(module)?;
         Ok(ModuleInstancePre { inner })
     }
+}
 
+impl<T> Engine<T> {
     /// Find the [`HostComponentDataHandle`] for a [`HostComponent`] if configured for this engine.
     /// Note: [`DynamicHostComponent`]s are implicitly wrapped in `Arc`s and need to be explicitly
     /// typed as such here, e.g. `find_host_component_handle::<Arc<MyDynamicHostComponent>>()`.

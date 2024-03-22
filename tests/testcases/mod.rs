@@ -348,7 +348,7 @@ pub fn bootstrap_smoke_test(
     let spin_up_args = spin_up_args(&mut env)?;
     let spin = testing_framework::runtimes::spin_cli::SpinCli::start(
         &spin_binary(),
-        &env,
+        &mut env,
         spin_up_args,
         spin_app_type,
     )?;

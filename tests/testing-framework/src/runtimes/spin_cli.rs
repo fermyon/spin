@@ -26,7 +26,7 @@ impl SpinCli {
     /// Start Spin using the binary at `spin_binary_path` in the `env` testing environment
     pub fn start<R>(
         spin_binary_path: &Path,
-        env: &TestEnvironment<R>,
+        env: &mut TestEnvironment<R>,
         spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
         app_type: SpinAppType,
     ) -> anyhow::Result<Self> {
@@ -40,18 +40,22 @@ impl SpinCli {
     /// Start Spin assuming an HTTP app in `env` testing directory using the binary at `spin_binary_path`
     pub fn start_http<R>(
         spin_binary_path: &Path,
-        env: &TestEnvironment<R>,
+        env: &mut TestEnvironment<R>,
         spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
     ) -> anyhow::Result<Self> {
         let port = get_random_port()?;
-        let mut child = Command::new(spin_binary_path)
+        let mut spin_cmd = Command::new(spin_binary_path);
+        let child = spin_cmd
             .arg("up")
             .current_dir(env.path())
             .args(["--listen", &format!("127.0.0.1:{port}")])
             .args(spin_up_args)
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+            .stderr(Stdio::piped());
+        for (key, value) in env.env_vars() {
+            child.env(key, value);
+        }
+        let mut child = child.spawn()?;
         let stdout = OutputStream::new(child.stdout.take().unwrap());
         let stderr = OutputStream::new(child.stderr.take().unwrap());
         log::debug!("Awaiting spin binary to start up on port {port}...");
@@ -97,7 +101,7 @@ impl SpinCli {
     /// Start Spin assuming a Redis app in `env` testing directory using the binary at `spin_binary_path`
     pub fn start_redis<R>(
         spin_binary_path: &Path,
-        env: &TestEnvironment<R>,
+        env: &mut TestEnvironment<R>,
         spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
     ) -> anyhow::Result<Self> {
         let mut child = Command::new(spin_binary_path)
@@ -130,7 +134,7 @@ impl SpinCli {
 
     fn attempt_start<R>(
         spin_binary_path: &Path,
-        env: &TestEnvironment<R>,
+        env: &mut TestEnvironment<R>,
         spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
     ) -> anyhow::Result<Self> {
         let mut child = Command::new(spin_binary_path)

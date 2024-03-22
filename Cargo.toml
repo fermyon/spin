@@ -61,6 +61,7 @@ spin-locked-app = { path = "crates/locked-app" }
 spin-manifest = { path = "crates/manifest" }
 spin-oci = { path = "crates/oci" }
 spin-plugins = { path = "crates/plugins" }
+spin-telemetry = { path = "crates/telemetry" }
 spin-templates = { path = "crates/templates" }
 spin-trigger = { path = "crates/trigger" }
 spin-trigger-http = { path = "crates/trigger-http" }

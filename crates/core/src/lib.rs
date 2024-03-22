@@ -195,15 +195,17 @@ impl<T: Send + OutboundWasiHttpHandler> WasiHttpView for Data<T> {
         &mut self.table
     }
 
+    #[instrument(name = "start_outbound_http_request", skip_all, fields(otel.kind = "client"))]
     fn send_request(
         &mut self,
-        request: wasmtime_wasi_http::types::OutgoingRequest,
+        mut request: wasmtime_wasi_http::types::OutgoingRequest,
     ) -> wasmtime::Result<
         wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
     >
     where
         Self: Sized,
     {
+        spin_telemetry::inject_trace_context(&mut request.request);
         T::send_request(self, request)
     }
 }
@@ -393,14 +395,14 @@ impl<T: OutboundWasiHttpHandler + Send + Sync> Engine<T> {
     }
 
     /// Creates a new [`InstancePre`] for the given [`Component`].
-    #[instrument(skip_all)]
+    #[instrument(skip_all, level = "debug")]
     pub fn instantiate_pre(&self, component: &Component) -> Result<InstancePre<T>> {
         let inner = self.linker.instantiate_pre(component)?;
         Ok(InstancePre { inner })
     }
 
     /// Creates a new [`ModuleInstancePre`] for the given [`Module`].
-    #[instrument(skip_all)]
+    #[instrument(skip_all, level = "debug")]
     pub fn module_instantiate_pre(&self, module: &Module) -> Result<ModuleInstancePre<T>> {
         let inner = self.module_linker.instantiate_pre(module)?;
         Ok(ModuleInstancePre { inner })
@@ -429,7 +431,7 @@ pub struct InstancePre<T> {
 
 impl<T: Send + Sync> InstancePre<T> {
     /// Instantiates this instance with the given [`Store`].
-    #[instrument(skip_all)]
+    #[instrument(skip_all, level = "debug")]
     pub async fn instantiate_async(&self, store: &mut Store<T>) -> Result<Instance> {
         self.inner.instantiate_async(store).await
     }
@@ -458,7 +460,7 @@ pub struct ModuleInstancePre<T> {
 
 impl<T: Send + Sync> ModuleInstancePre<T> {
     /// Instantiates this instance with the given [`Store`].
-    #[instrument(skip_all)]
+    #[instrument(skip_all, level = "debug")]
     pub async fn instantiate_async(&self, store: &mut Store<T>) -> Result<ModuleInstance> {
         self.inner.instantiate_async(store).await
     }

@@ -1,6 +1,6 @@
 use anyhow::Result;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::{io::ErrorKind, process::ExitStatus};
 use tokio::process::Command;
 use url::Url;
 
@@ -64,7 +64,7 @@ impl GitSource {
 // TODO: the following and templates/git.rs are duplicates
 
 pub(crate) enum GitError {
-    ProgramFailed(ExitStatus, Vec<u8>),
+    ProgramFailed(Vec<u8>),
     ProgramNotFound,
     Other(anyhow::Error),
 }
@@ -74,7 +74,7 @@ impl std::fmt::Display for GitError {
         match self {
             Self::ProgramNotFound => f.write_str("`git` command not found - is git installed?"),
             Self::Other(e) => e.fmt(f),
-            Self::ProgramFailed(_, stderr) => match std::str::from_utf8(stderr) {
+            Self::ProgramFailed(stderr) => match std::str::from_utf8(stderr) {
                 Ok(s) => f.write_str(s),
                 Err(_) => f.write_str("(cannot get error)"),
             },
@@ -93,7 +93,7 @@ impl UnderstandGitResult for Result<std::process::Output, std::io::Error> {
                 if output.status.success() {
                     Ok(output.stdout)
                 } else {
-                    Err(GitError::ProgramFailed(output.status, output.stderr))
+                    Err(GitError::ProgramFailed(output.stderr))
                 }
             }
             Err(e) => match e.kind() {

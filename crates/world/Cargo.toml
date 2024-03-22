@@ -7,3 +7,4 @@ edition = { workspace = true }
 [dependencies]
 async-trait = "0.1"
 wasmtime = { workspace = true }
+opentelemetry = { version = "0.22.0", features = [ "metrics", "trace"] }

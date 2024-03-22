@@ -1,0 +1,108 @@
+interface traces {
+    use wasi:clocks/wall-clock@0.2.0.{datetime};
+
+    /// Represents a unit of work or operation.
+    resource span {
+        /// Starts a new span with the given name.
+        ///
+        /// By default the currently active `span` is set as the nex `span`'s parent.
+        start: static func(name: string) -> span;
+
+        // TODO: Start with timestamp, attrs, links, newroot, spankind, stacktrace?, context? is this possible?
+
+        /// Set an attribute of this span.
+        ///
+        /// If the key already exists for an attribute of the Span it will be overwritten with the new value.
+        set-attribute: func(attribute: key-value);
+
+        /// Set multiple attributes of this span.
+        ///
+        /// If one of the keys already exists for an attribute of the Span it will be overwritten with the corresponding new value.
+        set-attributes: func(attributes: list<key-value>);
+
+        // TODO: Get span context?
+
+        // TODO: Is recording?
+
+        /// Adds an event with the provided name at the curent timestamp.
+        ///
+        /// Optionally an alternative timestamp may be provided. You may also provide attributes of this event.
+        add-event: func(name: string, timestamp: option<datetime>, attributes: option<list<key-value>>);
+
+        /// Adds a link from the current span to another span, identified by its `span-context`.
+        ///
+        /// Links can be used to connect spans from different traces or within the same trace. Attributes can be attached to the link to provide additional context or metadata.
+        // add-link: func(span-context: span-context, attributes: option<list<key-value>>)
+
+        // TODO: Set status
+
+        // TODO: Set name, is this possible?
+        // update-name: func(name: string)
+
+        /// Signals that the operation described by this span has now ended.
+        end: func();
+
+        // TODO: Is this possible?
+        // end_with_timestamp
+    }
+
+    /// A key-value pair describing an attribute.
+    record key-value {
+        /// The attribute name.
+        key: key,
+        /// The attribute value.
+        value: value,
+    }
+
+    /// The key part of attribute `key-value` pairs.
+    type key = string;
+
+    /// The value part of attribute `key-value` pairs.
+    variant value {
+        %string(string),
+        %bool(bool),
+        %float64(float64),
+        %s64(s64),
+        string-array(list<string>),
+        bool-array(list<bool>),
+        float64-array(list<float64>),
+        s64-array(list<s64>),
+    }
+
+    /// Identifying trace information about a span.
+    // TODO: Make types for the trace-id's and such?
+    record span-context {
+      /// Hexidecimal representation of the trace id.
+      trace-id: string,
+      /// Hexidecimal representation of the span id.
+      span-id: string,
+      /// Hexidecimal representation of the trace flags
+      trace-flags: string,
+      /// Span remoteness
+      is-remote: bool,
+      /// Entirety of tracestate
+      trace-state: string,
+    }
+
+    // ????????????????????
+    // // TODO: Document this and children.
+    // enum span-kind {
+    //   client,
+    //   server,
+    //   producer,
+    //   consumer,
+    //   internal
+    // }
+
+    // ??????????????????????
+    // // An immutable representation of the entity producing telemetry as attributes.
+    // record otel-resource {
+    //     // Resource attributes.
+    //     attrs: list<tuple<string, string>>,
+
+    //     // Resource schema url.
+    //     schema-url: option<string>,
+    // }
+}
+
+// TODO: Do we want set-attribute in addition to set-attributes? I'm leaning towards no

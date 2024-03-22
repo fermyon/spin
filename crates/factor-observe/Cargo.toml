@@ -1,0 +1,38 @@
+[package]
+name = "spin-factor-observe"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+dotenvy = "0.15"
+futures-executor = "0.3"
+indexmap = "2.2.6"
+once_cell = "1"
+opentelemetry = { version = "0.22.0", features = [ "metrics", "trace"] }
+opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.15.0", default-features=false, features = ["http-proto", "trace", "http", "reqwest-client", "metrics", "grpc-tonic"] }
+pin-project-lite = "0.2"
+serde = "1.0.188"
+spin-app = { path = "../app" }
+spin-core = { path = "../core" }
+spin-expressions = { path = "../expressions" }
+spin-factors = { path = "../factors" }
+spin-telemetry = { path = "../telemetry" }
+spin-world = { path = "../world" }
+table = { path = "../table" }
+thiserror = "1"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+tracing = "0.1.40"
+tracing-opentelemetry = "0.23.0"
+vaultrs = "0.6.2"
+
+[dev-dependencies]
+toml = "0.5"
+
+[lints]
+workspace = true
+
+# TODO(Caleb): Cleanup these dependencies

@@ -24,6 +24,7 @@ world platform {
   import sqlite;
   import key-value;
   import variables;
+  include wasi:observe/imports@0.2.0-draft;
 }
 
 /// Like `platform`, but using WASI 0.2.0-rc-2023-10-18

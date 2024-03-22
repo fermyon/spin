@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use anyhow::Result;
 use http_body_util::BodyExt;
 use hyper::{Request, Response};
+use spin_factor_observe::future::FutureExt;
 use spin_http::body;
 use spin_http::routes::RouteMatch;
 use spin_world::v1::http_types;
@@ -70,7 +71,16 @@ impl HttpExecutor for SpinHttpExecutor {
             body: Some(bytes),
         };
 
-        let (resp,) = func.call_async(&mut store, (req,)).await?;
+        let observe_context = store
+            .data_mut()
+            .factors_instance_state()
+            .observe
+            .get_observe_context();
+
+        let (resp,) = func
+            .call_async(&mut store, (req,))
+            .manage_wasi_observe_spans(observe_context)
+            .await?;
 
         if resp.status < 100 || resp.status > 600 {
             tracing::error!("malformed HTTP status code");

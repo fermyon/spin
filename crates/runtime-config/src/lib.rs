@@ -5,6 +5,7 @@ use spin_factor_key_value::runtime_config::spin::{self as key_value};
 use spin_factor_key_value::{DefaultLabelResolver as _, KeyValueFactor};
 use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_factor_llm::{spin as llm, LlmFactor};
+use spin_factor_observe::ObserveFactor;
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_mqtt::OutboundMqttFactor;
 use spin_factor_outbound_mysql::OutboundMysqlFactor;
@@ -379,6 +380,12 @@ impl FactorRuntimeConfigSource<OutboundMqttFactor> for TomlRuntimeConfigSource<'
 impl FactorRuntimeConfigSource<SqliteFactor> for TomlRuntimeConfigSource<'_, '_> {
     fn get_runtime_config(&mut self) -> anyhow::Result<Option<spin_factor_sqlite::RuntimeConfig>> {
         self.sqlite.resolve_from_toml(&self.toml.table)
+    }
+}
+
+impl FactorRuntimeConfigSource<ObserveFactor> for TomlRuntimeConfigSource<'_, '_> {
+    fn get_runtime_config(&mut self) -> anyhow::Result<Option<()>> {
+        Ok(None)
     }
 }
 

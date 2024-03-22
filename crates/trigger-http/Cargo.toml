@@ -38,6 +38,7 @@ spin-outbound-networking = { path = "../outbound-networking" }
 spin-telemetry = { path = "../telemetry" }
 spin-trigger = { path = "../trigger" }
 spin-world = { path = "../world" }
+spin-factor-observe = { path = "../factor-observe" }
 terminal = { path = "../terminal" }
 tls-listener = { version = "0.10.0", features = ["rustls"] }
 tokio = { version = "1.23", features = ["full"] }

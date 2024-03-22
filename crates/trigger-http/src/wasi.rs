@@ -4,6 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use futures::TryFutureExt;
 use http::{HeaderName, HeaderValue};
 use hyper::{Request, Response};
+use spin_factor_observe::future::FutureExt;
 use spin_factor_outbound_http::wasi_2023_10_18::exports::wasi::http::incoming_handler::Guest as IncomingHandler2023_10_18;
 use spin_factor_outbound_http::wasi_2023_11_10::exports::wasi::http::incoming_handler::Guest as IncomingHandler2023_11_10;
 use spin_http::routes::RouteMatch;
@@ -98,6 +99,12 @@ impl HttpExecutor for WasiHttpExecutor {
                 }
             };
 
+        let observe_context = store
+            .data_mut()
+            .factors_instance_state()
+            .observe
+            .get_observe_context();
+
         let span = tracing::debug_span!("execute_wasi");
         let handle = task::spawn(
             async move {
@@ -106,18 +113,21 @@ impl HttpExecutor for WasiHttpExecutor {
                         proxy
                             .wasi_http_incoming_handler()
                             .call_handle(&mut store, request, response)
+                            .manage_wasi_observe_spans(observe_context)
                             .instrument(span)
                             .await
                     }
                     Handler::Handler2023_10_18(handler) => {
                         handler
                             .call_handle(&mut store, request, response)
+                            .manage_wasi_observe_spans(observe_context)
                             .instrument(span)
                             .await
                     }
                     Handler::Handler2023_11_10(handler) => {
                         handler
                             .call_handle(&mut store, request, response)
+                            .manage_wasi_observe_spans(observe_context)
                             .instrument(span)
                             .await
                     }

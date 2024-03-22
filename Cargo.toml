@@ -98,6 +98,7 @@ test-codegen-macro = { path = "crates/test-codegen-macro" }
 test-environment = { workspace = true }
 conformance-tests = { workspace = true }
 conformance = { path = "tests/conformance-tests" }
+fake-opentelemetry-collector = "0.19.0"
 
 [build-dependencies]
 cargo-target-dep = { git = "https://github.com/fermyon/cargo-target-dep", rev = "482f269eceb7b1a7e8fc618bf8c082dd24979cf1" }

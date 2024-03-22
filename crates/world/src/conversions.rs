@@ -218,3 +218,31 @@ mod llm {
         }
     }
 }
+
+mod observe {
+    use opentelemetry::StringValue;
+
+    use super::*;
+
+    impl From<wasi::observe::traces::Value> for opentelemetry::Value {
+        fn from(value: wasi::observe::traces::Value) -> Self {
+            match value {
+                wasi::observe::traces::Value::String(v) => v.into(),
+                wasi::observe::traces::Value::Bool(v) => v.into(),
+                wasi::observe::traces::Value::Float64(v) => v.into(),
+                wasi::observe::traces::Value::S64(v) => v.into(),
+                wasi::observe::traces::Value::StringArray(v) => opentelemetry::Value::Array(
+                    v.into_iter()
+                        .map(StringValue::from)
+                        .collect::<Vec<_>>()
+                        .into(),
+                ),
+                wasi::observe::traces::Value::BoolArray(v) => opentelemetry::Value::Array(v.into()),
+                wasi::observe::traces::Value::Float64Array(v) => {
+                    opentelemetry::Value::Array(v.into())
+                }
+                wasi::observe::traces::Value::S64Array(v) => opentelemetry::Value::Array(v.into()),
+            }
+        }
+    }
+}

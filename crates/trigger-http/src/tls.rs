@@ -1,3 +1,4 @@
+use crate::tls::rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
 use rustls_pemfile::{certs, pkcs8_private_keys};
 use std::{
     fs, io,
@@ -22,9 +23,12 @@ impl TlsConfig {
         let mut keys = load_keys(&self.key_path)?;
 
         let cfg = rustls::ServerConfig::builder()
-            .with_safe_defaults()
+            .with_safe_default_protocol_versions()
             .with_no_client_auth()
-            .with_single_cert(certs, keys.remove(0))
+            .with_single_cert(
+                certs,
+                tokio_rustls::rustls::pki_types::PrivateKeyDer::Pkcs8(keys.remove(0)),
+            )
             .map_err(|e| anyhow::anyhow!("{}", e))?;
 
         Ok(Arc::new(cfg).into())
@@ -32,15 +36,11 @@ impl TlsConfig {
 }
 
 // Loads public certificate from file.
-fn load_certs(path: impl AsRef<Path>) -> io::Result<Vec<rustls::Certificate>> {
-    certs(&mut io::BufReader::new(fs::File::open(path)?))
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid cert"))
-        .map(|mut certs| certs.drain(..).map(rustls::Certificate).collect())
+fn load_certs(path: impl AsRef<Path>) -> io::Result<Vec<CertificateDer<'static>>> {
+    certs(&mut io::BufReader::new(fs::File::open(path)?)).collect()
 }
 
 // Loads private key from file.
-fn load_keys(path: impl AsRef<Path>) -> io::Result<Vec<rustls::PrivateKey>> {
-    pkcs8_private_keys(&mut io::BufReader::new(fs::File::open(path)?))
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid key"))
-        .map(|mut keys| keys.drain(..).map(rustls::PrivateKey).collect())
+fn load_keys(path: impl AsRef<Path>) -> io::Result<Vec<PrivatePkcs8KeyDer<'static>>> {
+    pkcs8_private_keys(&mut io::BufReader::new(fs::File::open(path)?)).collect()
 }

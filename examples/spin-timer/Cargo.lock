@@ -3928,10 +3928,8 @@ dependencies = [
  "dotenvy",
  "once_cell",
  "serde",
- "spin-app",
+ "spin-locked-app",
  "thiserror",
- "tokio",
- "vaultrs",
 ]
 
 [[package]]

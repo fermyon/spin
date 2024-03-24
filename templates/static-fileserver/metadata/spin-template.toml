@@ -16,4 +16,4 @@ http-path = { type = "string", prompt = "HTTP path", default = "/static/...", pa
 files-path = { type = "string", prompt = "Directory containing the files to serve", default = "assets", pattern = "^\\S+$" }
 
 [outputs]
-create_asset_directory = { action = "create_dir", path = "{{ files-path }}" }
+create_asset_directory = { action = "create_dir", path = "{{ files-path }}", at = "manifest" }

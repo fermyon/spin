@@ -301,9 +301,20 @@ impl Run {
 
     fn extra_operation(&self, extra: &ExtraOutputAction) -> anyhow::Result<RenderOperation> {
         match extra {
-            ExtraOutputAction::CreateDirectory(_, template) => {
+            ExtraOutputAction::CreateDirectory(_, template, at) => {
+                let component_path = self.options.output_path.clone();
+                let base_path = match at {
+                    crate::reader::CreateLocation::Component => component_path,
+                    crate::reader::CreateLocation::Manifest => match &self.options.variant {
+                        TemplateVariantInfo::NewApplication => component_path,
+                        TemplateVariantInfo::AddComponent { manifest_path } => manifest_path
+                            .parent()
+                            .map(|p| p.to_owned())
+                            .unwrap_or(component_path),
+                    },
+                };
                 Ok(RenderOperation::CreateDirectory(
-                    self.options.output_path.clone(),
+                    base_path,
                     template.clone(),
                 ))
             }

@@ -56,6 +56,15 @@ pub(crate) enum RawExtraOutput {
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub(crate) struct RawCreateDir {
     pub path: String,
+    pub at: Option<CreateLocation>,
+}
+
+#[derive(Debug, Deserialize, Clone, Copy, Default)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub(crate) enum CreateLocation {
+    #[default]
+    Component,
+    Manifest,
 }
 
 pub(crate) fn parse_manifest_toml(text: impl AsRef<str>) -> anyhow::Result<RawTemplateManifest> {

@@ -118,13 +118,19 @@ pub(crate) struct TemplateParameter {
 }
 
 pub(crate) enum ExtraOutputAction {
-    CreateDirectory(String, std::sync::Arc<liquid::Template>),
+    CreateDirectory(
+        String,
+        std::sync::Arc<liquid::Template>,
+        crate::reader::CreateLocation,
+    ),
 }
 
 impl std::fmt::Debug for ExtraOutputAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::CreateDirectory(orig, _) => f.debug_tuple("CreateDirectory").field(orig).finish(),
+            Self::CreateDirectory(orig, ..) => {
+                f.debug_tuple("CreateDirectory").field(orig).finish()
+            }
         }
     }
 }
@@ -501,7 +507,11 @@ impl ExtraOutputAction {
                     liquid::Parser::new().parse(&create.path).with_context(|| {
                         format!("Template error: output {id} is not a valid template")
                     })?;
-                Self::CreateDirectory(create.path.clone(), std::sync::Arc::new(path_template))
+                Self::CreateDirectory(
+                    create.path.clone(),
+                    std::sync::Arc::new(path_template),
+                    create.at.unwrap_or_default(),
+                )
             }
         })
     }

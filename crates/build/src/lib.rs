@@ -138,4 +138,17 @@ mod tests {
         let bad_trigger_file = test_data_root().join("bad_trigger.toml");
         build(&bad_trigger_file, &[]).await.unwrap();
     }
+
+    #[tokio::test]
+    async fn can_load_inline_components() -> anyhow::Result<()> {
+        let inline_comp_file = test_data_root().join("inline.toml");
+        let build_configs = component_build_configs(&inline_comp_file).await?;
+        assert_eq!(1, build_configs.len());
+        assert!(build_configs[0].build.is_some());
+        assert_eq!(
+            "echo done",
+            build_configs[0].build.as_ref().unwrap().command
+        );
+        Ok(())
+    }
 }

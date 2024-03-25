@@ -4,6 +4,7 @@ use spin_app::{async_trait, MetadataKey};
 use spin_core::wasmtime::component::Resource;
 use spin_world::v2::sqlite;
 use std::{collections::HashSet, sync::Arc};
+use tracing::{instrument, Level};
 
 pub use host_component::SqliteComponent;
 
@@ -74,14 +75,17 @@ impl sqlite::Host for SqliteDispatch {}
 
 #[async_trait]
 impl sqlite::HostConnection for SqliteDispatch {
+    #[instrument(name = "open_sqlite_db", skip(self))]
     async fn open(
         &mut self,
         database: String,
     ) -> anyhow::Result<Result<Resource<sqlite::Connection>, sqlite::Error>> {
         if !self.allowed_databases.contains(&database) {
-            return Ok(Err(sqlite::Error::AccessDenied));
+            let e = sqlite::Error::AccessDenied;
+            tracing::event!(target:module_path!(), Level::INFO, error =  %e);
+            return Ok(Err(e));
         }
-        Ok(self
+        let result = self
             .connections_store
             .get_connection(&database)
             .await
@@ -91,9 +95,14 @@ impl sqlite::HostConnection for SqliteDispatch {
                     .push(conn)
                     .map_err(|()| sqlite::Error::Io("too many connections opened".to_string()))
             })
-            .map(Resource::new_own))
+            .map(Resource::new_own);
+        if let Err(e) = &result {
+            tracing::event!(target:module_path!(), Level::INFO, error =  %e);
+        }
+        Ok(result)
     }
 
+    #[instrument(name = "execute_query_sqlite_db", skip(self, connection))]
     async fn execute(
         &mut self,
         connection: Resource<sqlite::Connection>,
@@ -115,6 +124,7 @@ impl sqlite::HostConnection for SqliteDispatch {
 
 #[async_trait]
 impl spin_world::v1::sqlite::Host for SqliteDispatch {
+    #[instrument(name = "open_sqlite_db", skip(self), err(level = Level::INFO))]
     async fn open(
         &mut self,
         database: String,
@@ -123,6 +133,7 @@ impl spin_world::v1::sqlite::Host for SqliteDispatch {
         Ok(result.map_err(to_legacy_error).map(|s| s.rep()))
     }
 
+    #[instrument(name = "execute_query_sqlite_db", skip(self, connection), err(level = Level::INFO))]
     async fn execute(
         &mut self,
         connection: u32,

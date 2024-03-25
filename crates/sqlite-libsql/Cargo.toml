@@ -15,3 +15,8 @@ spin-world = { path = "../world" }
 sqlparser = "0.34"
 libsql = { version = "0.2.0-alpha.1", features = ["remote"], default-features = false }
 tokio = { version = "1", features = ["full"] }
+tracing = { workspace = true }
+
+# TODO: Remove this once https://github.com/rust-lang/rust-clippy/issues/12281 is resolved
+[lints.clippy]
+blocks_in_conditions = "allow"

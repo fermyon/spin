@@ -15,3 +15,7 @@ spin-world = { path = "../world" }
 sqlparser = "0.34"
 libsql = { version = "0.3.2", features = ["remote"], default-features = false }
 tokio = { version = "1", features = ["full"] }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

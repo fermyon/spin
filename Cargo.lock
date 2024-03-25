@@ -6504,6 +6504,7 @@ dependencies = [
  "spin-world",
  "table",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -6518,6 +6519,7 @@ dependencies = [
  "spin-sqlite",
  "spin-world",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -6532,6 +6534,7 @@ dependencies = [
  "spin-world",
  "sqlparser",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

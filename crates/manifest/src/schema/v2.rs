@@ -79,16 +79,20 @@ pub enum ComponentSpec {
     Reference(KebabId),
     /// `{ ... }`
     Inline(Box<Component>),
+    /// `"@my-component/spin-component.toml"`
+    External(std::path::PathBuf),
 }
 
 impl TryFrom<toml::Value> for ComponentSpec {
     type Error = toml::de::Error;
 
     fn try_from(value: toml::Value) -> Result<Self, Self::Error> {
-        if value.is_str() {
-            Ok(ComponentSpec::Reference(KebabId::deserialize(value)?))
-        } else {
-            Ok(ComponentSpec::Inline(Box::new(Component::deserialize(
+        match value.as_str() {
+            Some(s) => match s.strip_prefix('@') {
+                Some(path) => Ok(ComponentSpec::External(std::path::PathBuf::from(path))),
+                None => Ok(ComponentSpec::Reference(KebabId::deserialize(value)?)),
+            }
+            None => Ok(ComponentSpec::Inline(Box::new(Component::deserialize(
                 value,
             )?)))
         }

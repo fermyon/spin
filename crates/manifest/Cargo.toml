@@ -8,6 +8,7 @@ edition = { workspace = true }
 anyhow = "1.0.75"
 indexmap = { version = "1", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
+spin-common = { path = "../common" }
 spin-serde = { path = "../serde" }
 thiserror = "1"
 terminal = { path = "../terminal" }

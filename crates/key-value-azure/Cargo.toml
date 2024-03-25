@@ -13,3 +13,7 @@ spin-key-value = { path = "../key-value" }
 spin-core = { path = "../core" }
 tokio = "1"
 url = "2"
+tracing = { workspace = true }
+
+[lints]
+workspace = true

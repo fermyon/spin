@@ -134,6 +134,10 @@ wasmtime-wasi-http = "18.0.1"
 
 spin-componentize = { path = "crates/componentize" }
 
+[workspace.lints.clippy]
+# TODO: Remove this once https://github.com/rust-lang/rust-clippy/issues/12281 is resolved
+blocks_in_conditions = "allow"
+
 [[bin]]
 name = "spin"
 path = "src/bin/spin.rs"

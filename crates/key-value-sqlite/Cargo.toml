@@ -12,3 +12,7 @@ tokio = "1"
 spin-key-value = { path = "../key-value" }
 spin-core = { path = "../core" }
 spin-world = { path = "../world" }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

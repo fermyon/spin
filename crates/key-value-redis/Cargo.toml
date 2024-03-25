@@ -12,3 +12,7 @@ spin-core = { path = "../core" }
 spin-world = { path = "../world" }
 tokio = "1"
 url = "2"
+tracing = { workspace = true }
+
+[lints]
+workspace = true

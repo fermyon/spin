@@ -11,6 +11,7 @@ use tokio::{
     sync::Mutex as AsyncMutex,
     task::{self, JoinHandle},
 };
+use tracing::Instrument;
 
 const DEFAULT_CACHE_SIZE: usize = 256;
 
@@ -74,7 +75,7 @@ impl StoreManager for DelegatingStoreManager {
 /// instances.
 ///
 /// Note that, because writes are asynchronous and return immediately, durability is _not_ guaranteed.  I/O errors
-/// may occur asyncronously after the write operation has returned control to the guest, which may result in the
+/// may occur asynchronously after the write operation has returned control to the guest, which may result in the
 /// write being lost without the guest knowing.  In the future, a separate `write-durable` function could be added
 /// to key-value.wit to provide either synchronous or asynchronous feedback on durability for guests which need it.
 pub struct CachingStoreManager<T> {
@@ -119,7 +120,7 @@ impl CachingStoreState {
     /// the result.  This ensures that write order is preserved.
     fn spawn(&mut self, task: impl Future<Output = Result<(), Error>> + Send + 'static) {
         let previous_task = self.previous_task.take();
-        self.previous_task = Some(task::spawn(async move {
+        let task = async move {
             if let Some(previous_task) = previous_task {
                 previous_task
                     .await
@@ -127,7 +128,8 @@ impl CachingStoreState {
             }
 
             task.await
-        }))
+        };
+        self.previous_task = Some(task::spawn(task.in_current_span()))
     }
 
     async fn flush(&mut self) -> Result<(), Error> {

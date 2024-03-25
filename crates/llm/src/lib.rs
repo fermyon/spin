@@ -5,6 +5,7 @@ use spin_core::async_trait;
 use spin_world::v1::llm::{self as v1};
 use spin_world::v2::llm::{self as v2};
 use std::collections::HashSet;
+use tracing::instrument;
 
 pub use crate::host_component::LlmComponent;
 
@@ -34,6 +35,7 @@ pub struct LlmDispatch {
 
 #[async_trait]
 impl v2::Host for LlmDispatch {
+    #[instrument(name = "generate_inference_llm", skip(self, prompt))]
     async fn infer(
         &mut self,
         model: v2::InferencingModel,
@@ -60,6 +62,7 @@ impl v2::Host for LlmDispatch {
             .await)
     }
 
+    #[instrument(name = "generate_embeddings_llm", skip(self, data))]
     async fn generate_embeddings(
         &mut self,
         m: v1::EmbeddingModel,

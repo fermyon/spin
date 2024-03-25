@@ -16,3 +16,7 @@ spin-telemetry = { path = "../telemetry" }
 spin-world = { path = "../world" }
 reqwest = { version = "0.11", features = ["gzip", "json"] }
 tracing = { workspace = true }
+
+# TODO: Remove this once https://github.com/rust-lang/rust-clippy/issues/12281 is resolved
+[lints.clippy]
+blocks_in_conditions = "allow"

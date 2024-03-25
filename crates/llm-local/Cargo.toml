@@ -31,3 +31,7 @@ tracing = { workspace = true }
 default = []
 metal = ["llm/metal"]
 cublas = ["llm/cublas"]
+
+# TODO: Remove this once https://github.com/rust-lang/rust-clippy/issues/12281 is resolved
+[lints.clippy]
+blocks_in_conditions = "allow"

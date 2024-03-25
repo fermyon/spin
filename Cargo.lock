@@ -6226,6 +6226,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-world",
+ "tracing",
 ]
 
 [[package]]

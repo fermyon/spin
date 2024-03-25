@@ -91,10 +91,10 @@ impl TryFrom<toml::Value> for ComponentSpec {
             Some(s) => match s.strip_prefix('@') {
                 Some(path) => Ok(ComponentSpec::External(std::path::PathBuf::from(path))),
                 None => Ok(ComponentSpec::Reference(KebabId::deserialize(value)?)),
-            }
+            },
             None => Ok(ComponentSpec::Inline(Box::new(Component::deserialize(
                 value,
-            )?)))
+            )?))),
         }
     }
 }

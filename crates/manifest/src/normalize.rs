@@ -11,19 +11,22 @@ use crate::schema::v2::{AppManifest, ComponentSpec, KebabId};
 /// - Inline components in trigger configs are moved into top-level
 ///   components and replaced with a reference.
 /// - Any triggers without an ID are assigned a generated ID.
-pub fn normalize_manifest(manifest: &mut AppManifest, app_root: &std::path::Path) -> anyhow::Result<()> {
+pub fn normalize_manifest(
+    manifest: &mut AppManifest,
+    app_root: &std::path::Path,
+) -> anyhow::Result<()> {
+    // Order is important here!
     normalize_trigger_ids(manifest);
     normalize_external_references(manifest, app_root)?;
     normalize_inline_components(manifest);
     Ok(())
 }
 
-fn normalize_external_references(manifest: &mut AppManifest, app_root: &std::path::Path) -> anyhow::Result<()> {
-    // let components = &manifest.components;
-
+fn normalize_external_references(
+    manifest: &mut AppManifest,
+    app_root: &std::path::Path,
+) -> anyhow::Result<()> {
     for trigger in manifest.triggers.values_mut().flatten() {
-        // let trigger_id = &trigger.id;
-
         let component_specs = trigger
             .component
             .iter_mut()
@@ -34,9 +37,7 @@ fn normalize_external_references(manifest: &mut AppManifest, app_root: &std::pat
                     .flat_map(|specs| specs.0.iter_mut()),
             )
             .collect::<Vec<_>>();
-        // let multiple_components = component_specs.len() > 1;
 
-        // let mut counter = 1;
         for spec in component_specs {
             let ComponentSpec::External(path) = spec else {
                 continue;
@@ -50,7 +51,10 @@ fn normalize_external_references(manifest: &mut AppManifest, app_root: &std::pat
                 if inferred.is_file() {
                     (inferred, path.to_owned())
                 } else {
-                    anyhow::bail!("{} does not contain a spin-component.toml file", quoted_path(&abs_path));
+                    anyhow::bail!(
+                        "{} does not contain a spin-component.toml file",
+                        quoted_path(&abs_path)
+                    );
                 }
             } else {
                 anyhow::bail!("{} does not exist", quoted_path(abs_path));
@@ -58,30 +62,17 @@ fn normalize_external_references(manifest: &mut AppManifest, app_root: &std::pat
 
             let toml_text = std::fs::read_to_string(&abs_path)?;
             let mut component: crate::schema::v2::Component = toml::from_str(&toml_text)
-                .with_context(|| format!("{} is not a valid component manifest", quoted_path(&abs_path)))?;
+                .with_context(|| {
+                    format!(
+                        "{} is not a valid component manifest",
+                        quoted_path(&abs_path)
+                    )
+                })?;
 
             relativise_paths(&mut component, &containing_dir);
 
-            // let inline_id = {
-            //     // Try a "natural" component ID...
-            //     let mut id = KebabId::try_from(format!("{trigger_id}-component"));
-            //     // ...falling back to a counter-based component ID
-            //     if multiple_components
-            //         || id.is_err()
-            //         || components.contains_key(id.as_ref().unwrap())
-            //     {
-            //         id = Ok(loop {
-            //             let id = KebabId::try_from(format!("inline-component{counter}")).unwrap();
-            //             if !components.contains_key(&id) {
-            //                 break id;
-            //             }
-            //             counter += 1;
-            //         });
-            //     }
-            //     id.unwrap()
-            // };
-
-            // Replace the inline component with a reference...
+            // Replace the external component with an inline, which will be normalised
+            // in the next pass.
             _ = std::mem::replace(spec, ComponentSpec::Inline(Box::new(component)));
         }
     }
@@ -97,11 +88,19 @@ fn relativise_paths(component: &mut crate::schema::v2::Component, relative_to: &
 
     if let crate::schema::common::ComponentSource::Local(path) = &component.source {
         let adjusted_path = relative_to.join(path);
-        component.source = crate::schema::common::ComponentSource::Local(adjusted_path.to_string_lossy().to_string());
+        component.source = crate::schema::common::ComponentSource::Local(
+            adjusted_path.to_string_lossy().to_string(),
+        );
     }
 
-    component.files.iter_mut().for_each(|f| relativise_mount(f, relative_to));
-    component.exclude_files.iter_mut().for_each(|f| *f = relative_to.join(&f).to_string_lossy().to_string());
+    component
+        .files
+        .iter_mut()
+        .for_each(|f| relativise_mount(f, relative_to));
+    component
+        .exclude_files
+        .iter_mut()
+        .for_each(|f| *f = relative_to.join(&f).to_string_lossy().to_string());
 
     if let Some(build) = &mut component.build {
         let workdir = match &build.workdir {
@@ -115,14 +114,27 @@ fn relativise_paths(component: &mut crate::schema::v2::Component, relative_to: &
     // consumers of this section can look at to detect that the component they are looking at originated
     // in a subdir.
     let mut tool_meta_map = toml::map::Map::new();
-    tool_meta_map.insert("component-manifest-path-base".to_owned(), toml::Value::String(relative_to.to_string_lossy().to_string()));
+    tool_meta_map.insert(
+        "component-manifest-path-base".to_owned(),
+        toml::Value::String(relative_to.to_string_lossy().to_string()),
+    );
     component.tool.insert("spin:meta".to_owned(), tool_meta_map);
 }
 
 fn relativise_mount(mount: &mut crate::schema::v2::WasiFilesMount, relative_to: &std::path::Path) {
     let adjusted_mount = match mount {
-        crate::schema::common::WasiFilesMount::Pattern(f) => crate::schema::common::WasiFilesMount::Pattern(relative_to.join(f).to_string_lossy().to_string()),
-        crate::schema::common::WasiFilesMount::Placement { source, destination } => crate::schema::common::WasiFilesMount::Placement { source: relative_to.join(source).to_string_lossy().to_string(), destination: destination.to_string() },
+        crate::schema::common::WasiFilesMount::Pattern(f) => {
+            crate::schema::common::WasiFilesMount::Pattern(
+                relative_to.join(f).to_string_lossy().to_string(),
+            )
+        }
+        crate::schema::common::WasiFilesMount::Placement {
+            source,
+            destination,
+        } => crate::schema::common::WasiFilesMount::Placement {
+            source: relative_to.join(source).to_string_lossy().to_string(),
+            destination: destination.to_string(),
+        },
     };
     *mount = adjusted_mount;
 }

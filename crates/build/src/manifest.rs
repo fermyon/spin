@@ -97,7 +97,7 @@ impl TryFrom<toml::Value> for ComponentSpec {
             Some(s) => match s.strip_prefix('@') {
                 Some(path) => Ok(ComponentSpec::External(std::path::PathBuf::from(path))),
                 None => Ok(ComponentSpec::Reference(s.to_string())),
-            }
+            },
             None => Ok(ComponentSpec::Inline(Box::new(
                 ComponentBuildInfo::deserialize(value)?,
             ))),
@@ -107,7 +107,7 @@ impl TryFrom<toml::Value> for ComponentSpec {
 
 fn load_cbi_from(path: &Path, app_root: &Path) -> anyhow::Result<ComponentBuildInfo> {
     // moar duplication, we hates it precious
-    let abs_path = app_root.join(&path);
+    let abs_path = app_root.join(path);
     let (abs_path, containing_dir) = if abs_path.is_file() {
         (abs_path, path.parent().unwrap().to_owned())
     } else if abs_path.is_dir() {
@@ -115,15 +115,22 @@ fn load_cbi_from(path: &Path, app_root: &Path) -> anyhow::Result<ComponentBuildI
         if inferred.is_file() {
             (inferred, path.to_owned())
         } else {
-            anyhow::bail!("{} does not contain a spin-component.toml file", quoted_path(&abs_path));
+            anyhow::bail!(
+                "{} does not contain a spin-component.toml file",
+                quoted_path(&abs_path)
+            );
         }
     } else {
         anyhow::bail!("{} does not exist", quoted_path(abs_path));
     };
 
     let toml_text = std::fs::read_to_string(&abs_path)?;
-    let mut component: ComponentBuildInfo = toml::from_str(&toml_text)
-        .with_context(|| format!("{} is not a valid component manifest", quoted_path(&abs_path)))?;
+    let mut component: ComponentBuildInfo = toml::from_str(&toml_text).with_context(|| {
+        format!(
+            "{} is not a valid component manifest",
+            quoted_path(&abs_path)
+        )
+    })?;
 
     if let Some(build) = &mut component.build {
         let workdir = match &build.workdir {

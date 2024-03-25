@@ -6,8 +6,8 @@ pub struct LibsqlClient {
 }
 
 impl LibsqlClient {
-    pub fn create(url: &str, token: String) -> anyhow::Result<Self> {
-        let db = libsql::Database::open_remote(url, token)?;
+    pub async fn create(url: String, token: String) -> anyhow::Result<Self> {
+        let db = libsql::Builder::new_remote(url, token).build().await?;
         let inner = db.connect()?;
         Ok(Self { inner })
     }
@@ -28,7 +28,9 @@ impl spin_sqlite::Connection for LibsqlClient {
 
         Ok(sqlite::QueryResult {
             columns: columns(&result),
-            rows: convert_rows(result).map_err(|e| sqlite::Error::Io(e.to_string()))?,
+            rows: convert_rows(result)
+                .await
+                .map_err(|e| sqlite::Error::Io(e.to_string()))?,
         })
     }
 
@@ -45,12 +47,12 @@ fn columns(rows: &libsql::Rows) -> Vec<String> {
         .collect()
 }
 
-fn convert_rows(mut rows: libsql::Rows) -> anyhow::Result<Vec<RowResult>> {
+async fn convert_rows(mut rows: libsql::Rows) -> anyhow::Result<Vec<RowResult>> {
     let mut result_rows = vec![];
 
     let column_count = rows.column_count();
 
-    while let Some(row) = rows.next()? {
+    while let Some(row) = rows.next().await? {
         result_rows.push(convert_row(row, column_count));
     }
 

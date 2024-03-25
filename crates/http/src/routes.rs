@@ -170,6 +170,14 @@ impl RoutePattern {
         format!("{}{}", Self::sanitize(base.into()), Self::sanitize(path))
     }
 
+    /// Build a URL from a base prefix and the pattern
+    pub fn urlify(&self, base_url: &str) -> (String, impl fmt::Display) {
+        match self {
+            Self::Exact(path) => (format!("{base_url}{path}"), Wildness::Exact),
+            Self::Wildcard(pattern) => (format!("{base_url}{pattern}"), Wildness::Wild),
+        }
+    }
+
     fn absolutize<S: Into<String>>(s: S) -> String {
         let s = s.into();
         if s.starts_with('/') {
@@ -197,6 +205,20 @@ impl fmt::Display for RoutePattern {
         match &self {
             RoutePattern::Exact(path) => write!(f, "{}", path),
             RoutePattern::Wildcard(pattern) => write!(f, "{} (wildcard)", pattern),
+        }
+    }
+}
+
+enum Wildness {
+    Exact,
+    Wild,
+}
+
+impl fmt::Display for Wildness {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            Self::Exact => write!(f, ""),
+            Self::Wild => write!(f, " (wildcard)"),
         }
     }
 }

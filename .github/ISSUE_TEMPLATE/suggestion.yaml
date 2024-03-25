@@ -1,0 +1,25 @@
+name: 🆕 Share a suggestion
+description: Suggest an improvement, new feature, or something we could do better
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        * Before you file an issue, read the [Contributing guide](https://github.com/fermyon/nimbus/blob/main/docs/contributing/README.md).
+        * Check to make sure someone hasn't already opened a similar [issue](https://github.com/fermyon/nimbus/issues).
+
+  - type: textarea
+    attributes:
+      label: What changes or improvements are you suggesting?
+      description: |
+        - Give as much detail as you can to help us understand the change you want to see.
+        - Why should the project be changed? What use cases does it support?
+        - What is the expected outcome or behavior?
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Additional context
+      description: Add any other context or screenshots about the suggestion here.

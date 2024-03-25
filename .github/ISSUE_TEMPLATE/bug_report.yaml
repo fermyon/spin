@@ -1,0 +1,56 @@
+name: 🐛 Bug Report
+description: Let us know about something that isn't working as you expect, or ask about a problem
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        * Before you file an issue, make sure you've read the [Contributing Guide](https://developer.fermyon.com/spin/contributing).
+        * Check to make sure someone hasn't already opened a similar [issue](https://github.com/fermyon/spin/issues).
+        * Check to see if one of the following links help with your problem:
+          * [Setup Guide](https://developer.fermyon.com/spin/build#setting-up-for-spin-build)
+          * [Troubleshooting Guide - Rust](https://developer.fermyon.com/spin/rust-components#troubleshooting)
+          * [Cloud FAQ](https://developer.fermyon.com/cloud/faq)
+
+  - type: input
+    attributes:
+      label: Spin Version
+      description: "`spin --version`"
+    validations:
+      required: false
+
+  - type: input
+    attributes:
+      label: List of installed plugins
+      description: "`spin plugins list --installed`"
+    validations:
+      required: false
+
+  - type: input
+    attributes:
+      label: Operating System
+      description: "For Linux/MacOS users, use `uname -a`. For Windows users, use `winver`."
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: What is the expected behaviour?
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: What is the actual behaviour?
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Additional information
+      description: |
+        - Are you able to reliably reproduce the problem? How often does it occur? How many users are affected?
+        - Add any other context or screenshots about the feature here.
+    validations:
+      required: true

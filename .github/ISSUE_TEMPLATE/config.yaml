@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discord
+    url: https://discord.gg/eGN8saYqCk
+    about: Join us on Discord if you're having trouble.
+  - name: Twitter
+    url: https://twitter.com/spinframework
+    about: Follow us on Twitter for updates.

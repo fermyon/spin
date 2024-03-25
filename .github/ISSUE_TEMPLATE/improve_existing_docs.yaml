@@ -1,0 +1,36 @@
+name: 📖 Docs Improvement
+description: Make a suggestion to improve the content at https://developer.fermyon.com/
+labels:
+  - documentation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        * Before you file an issue, read the [Contributing guide](https://github.com/fermyon/nimbus/blob/main/docs/contributing/README.md).
+        * Check to make sure someone hasn't already opened a similar [issue](https://github.com/fermyon/nimbus/issues).
+
+  - type: textarea
+    attributes:
+      label: What article is affected?
+      description: Please link to the article you'd like to see updated.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: What part(s) of the article would you like to see updated?
+      description: |
+        - Give as much detail as you can to help us understand the change you want to see.
+        - Why should the article be changed? What use cases does it support?
+        - What is the expected outcome or behavior?
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Additional information
+      description: |
+        - Are you able to reliably reproduce the problem? How often does it occur? How many users are affected?
+        - Add any other context or screenshots about the article here.
+    validations:
+      required: false

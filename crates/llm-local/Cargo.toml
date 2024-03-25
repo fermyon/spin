@@ -31,3 +31,6 @@ tracing = { workspace = true }
 default = []
 metal = ["llm/metal"]
 cublas = ["llm/cublas"]
+
+[lints]
+workspace = true

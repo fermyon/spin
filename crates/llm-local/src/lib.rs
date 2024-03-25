@@ -33,7 +33,7 @@ pub struct LocalLlmEngine {
 
 #[async_trait]
 impl LlmEngine for LocalLlmEngine {
-    #[instrument(name = "generate_inference_local_llm", skip(self, prompt), err(level = Level::INFO))]
+    #[instrument(name = "spin_llm_local.infer", skip(self, prompt), err(level = Level::INFO))]
     async fn infer(
         &mut self,
         model: wasi_llm::InferencingModel,
@@ -93,7 +93,7 @@ impl LlmEngine for LocalLlmEngine {
         Ok(response)
     }
 
-    #[instrument(name = "generate_embeddings_local_llm", skip(self, data), err(level = Level::INFO))]
+    #[instrument(name = "spin_llm_local.generate_embeddings", skip(self, data), err(level = Level::INFO))]
     async fn generate_embeddings(
         &mut self,
         model: wasi_llm::EmbeddingModel,

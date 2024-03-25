@@ -55,7 +55,7 @@ struct EmbeddingResponseBody {
 
 #[async_trait]
 impl LlmEngine for RemoteHttpLlmEngine {
-    #[instrument(name = "generate_inference_remote_llm", skip(self, prompt), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_llm_remote_http.infer", skip(self, prompt), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn infer(
         &mut self,
         model: wasi_llm::InferencingModel,
@@ -118,7 +118,7 @@ impl LlmEngine for RemoteHttpLlmEngine {
         }
     }
 
-    #[instrument(name = "generate_embeddings_remote_llm", skip(self, data), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_llm_remote_http.generate_embeddings", skip(self, data), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn generate_embeddings(
         &mut self,
         model: wasi_llm::EmbeddingModel,

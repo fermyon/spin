@@ -13,3 +13,8 @@ spin-key-value = { path = "../key-value" }
 spin-core = { path = "../core" }
 tokio = "1"
 url = "2"
+tracing = { workspace = true }
+
+# TODO: Remove this once https://github.com/rust-lang/rust-clippy/issues/12281 is resolved
+[lints.clippy]
+blocks_in_conditions = "allow"

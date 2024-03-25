@@ -8,6 +8,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tokio::task;
+use tracing::{instrument, Level};
 
 pub enum DatabaseLocation {
     InMemory,
@@ -30,6 +31,7 @@ impl KeyValueSqlite {
 
 #[async_trait]
 impl StoreManager for KeyValueSqlite {
+    #[instrument(name = "get_sqlite_kv_store", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {
         let connection = task::block_in_place(|| {
             self.connection.get_or_try_init(|| {
@@ -62,6 +64,7 @@ impl StoreManager for KeyValueSqlite {
         }))
     }
 
+    #[instrument(name = "is_defined_sqlite_kv_store", skip(self), level = Level::DEBUG)]
     fn is_defined(&self, _store_name: &str) -> bool {
         true
     }
@@ -74,6 +77,7 @@ struct SqliteStore {
 
 #[async_trait]
 impl Store for SqliteStore {
+    #[instrument(name = "get_value_sqlite_kv", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         task::block_in_place(|| {
             self.connection
@@ -89,6 +93,7 @@ impl Store for SqliteStore {
         })
     }
 
+    #[instrument(name = "set_value_sqlite_kv", skip(self, value), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn set(&self, key: &str, value: &[u8]) -> Result<(), Error> {
         task::block_in_place(|| {
             self.connection
@@ -105,6 +110,7 @@ impl Store for SqliteStore {
         })
     }
 
+    #[instrument(name = "delete_value_sqlite_kv", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn delete(&self, key: &str) -> Result<(), Error> {
         task::block_in_place(|| {
             self.connection
@@ -118,10 +124,12 @@ impl Store for SqliteStore {
         })
     }
 
+    #[instrument(name = "key_exists_sqlite_kv", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn exists(&self, key: &str) -> Result<bool, Error> {
         Ok(self.get(key).await?.is_some())
     }
 
+    #[instrument(name = "get_keys_sqlite_kv", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
         task::block_in_place(|| {
             self.connection

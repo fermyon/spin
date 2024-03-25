@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 
 use spin_expressions::{Key, Provider};
+use tracing::instrument;
 
 const DEFAULT_ENV_PREFIX: &str = "SPIN_VARIABLE";
 const LEGACY_ENV_PREFIX: &str = "SPIN_CONFIG";
@@ -84,6 +85,7 @@ impl EnvProvider {
 
 #[async_trait]
 impl Provider for EnvProvider {
+    #[instrument(name = "get_env_config_variable", skip(self), err)]
     async fn get(&self, key: &Key) -> Result<Option<String>> {
         tokio::task::block_in_place(|| self.get_sync(key))
     }

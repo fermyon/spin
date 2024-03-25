@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 use vaultrs::{
     client::{VaultClient, VaultClientSettingsBuilder},
     error::ClientError,
@@ -41,6 +42,7 @@ struct Secret {
 
 #[async_trait]
 impl Provider for VaultProvider {
+    #[instrument(name = "get_vault_config_variable", skip(self), err, fields(otel.kind = "client"))]
     async fn get(&self, key: &Key) -> Result<Option<String>> {
         let client = VaultClient::new(
             VaultClientSettingsBuilder::default()

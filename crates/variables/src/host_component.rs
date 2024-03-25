@@ -7,6 +7,7 @@ use spin_core::{async_trait, HostComponent};
 use spin_world::v2::variables;
 
 use spin_expressions::{Error, Key, Provider, Resolver};
+use tracing::instrument;
 
 pub struct VariablesHostComponent {
     providers: Mutex<Vec<Box<dyn Provider>>>,
@@ -76,6 +77,7 @@ pub struct ComponentVariables {
 
 #[async_trait]
 impl variables::Host for ComponentVariables {
+    #[instrument(name = "get_config_variable", skip(self))]
     async fn get(&mut self, key: String) -> Result<Result<String, variables::Error>> {
         Ok(async {
             // Set by DynamicHostComponent::update_data
@@ -94,6 +96,7 @@ impl variables::Host for ComponentVariables {
 
 #[async_trait]
 impl spin_world::v1::config::Host for ComponentVariables {
+    #[instrument(name = "get_config_variable", skip(self))]
     async fn get_config(
         &mut self,
         key: String,

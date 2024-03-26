@@ -44,7 +44,7 @@ fn run_v1_to_v2_test(input: &Path) -> Result<String, Failed> {
 }
 
 fn run_normalization_test(input: impl AsRef<Path>) -> Result<String, Failed> {
-    let mut manifest = spin_manifest::manifest_from_file(input)?;
-    normalize_manifest(&mut manifest);
+    let mut manifest = spin_manifest::manifest_from_file(input.as_ref())?;
+    normalize_manifest(&mut manifest, input.as_ref().parent().unwrap())?;
     Ok(toml::to_string(&manifest).expect("serialization should work"))
 }

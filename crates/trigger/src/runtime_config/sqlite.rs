@@ -15,6 +15,7 @@ pub(crate) async fn build_component(
 ) -> anyhow::Result<SqliteComponent> {
     let databases: HashMap<_, _> = runtime_config
         .sqlite_databases()
+        .await
         .context("Failed to build sqlite component")?
         .into_iter()
         .collect();
@@ -88,10 +89,13 @@ impl SqliteDatabaseOpts {
         Self::Spin(SpinSqliteDatabaseOpts::default(runtime_config))
     }
 
-    pub fn build(&self, config_opts: &RuntimeConfigOpts) -> anyhow::Result<Arc<dyn Connection>> {
+    pub async fn build(
+        &self,
+        config_opts: &RuntimeConfigOpts,
+    ) -> anyhow::Result<Arc<dyn Connection>> {
         match self {
             Self::Spin(opts) => opts.build(config_opts),
-            Self::Libsql(opts) => opts.build(),
+            Self::Libsql(opts) => opts.build().await,
         }
     }
 }
@@ -135,14 +139,17 @@ pub struct LibsqlOpts {
 }
 
 impl LibsqlOpts {
-    fn build(&self) -> anyhow::Result<Arc<dyn Connection>> {
-        let url = &check_url(&self.url).with_context(|| {
-            format!(
-                "unexpected libSQL URL '{}' in runtime config file ",
-                self.url
-            )
-        })?;
+    async fn build(&self) -> anyhow::Result<Arc<dyn Connection>> {
+        let url = check_url(&self.url)
+            .with_context(|| {
+                format!(
+                    "unexpected libSQL URL '{}' in runtime config file ",
+                    self.url
+                )
+            })?
+            .to_owned();
         let client = spin_sqlite_libsql::LibsqlClient::create(url, self.token.clone())
+            .await
             .context("failed to create SQLite client")?;
         Ok(Arc::new(client))
     }

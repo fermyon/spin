@@ -9,6 +9,7 @@ use spin_world::v2::redis::{
 };
 
 pub use host_component::OutboundRedisComponent;
+use tracing::{instrument, Level};
 
 struct RedisResults(Vec<RedisResult>);
 
@@ -72,14 +73,18 @@ impl v2::Host for OutboundRedis {}
 
 #[async_trait]
 impl v2::HostConnection for OutboundRedis {
+    #[instrument(name = "open_redis_connection", skip(self), err(level = Level::INFO))]
     async fn open(&mut self, address: String) -> Result<Result<Resource<RedisConnection>, Error>> {
         if !self.is_address_allowed(&address) {
-            return Ok(Err(Error::InvalidAddress));
+            let e = Error::InvalidAddress;
+            tracing::event!(target:module_path!(), Level::INFO, error =  %e);
+            return Ok(Err(e));
         }
 
         self.establish_connection(address).await
     }
 
+    #[instrument(name = "publish_msg_redis", skip(self, connection, payload), err(level = Level::INFO), fields(otel.kind = "producer"))]
     async fn publish(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -96,6 +101,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "get_value_redis", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -109,6 +115,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "set_value_redis", skip(self, connection, value), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn set(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -123,6 +130,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "incr_value_redis", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn incr(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -136,6 +144,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "del_keys_redis", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn del(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -149,6 +158,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "set_add_values_redis", skip(self, connection, values), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn sadd(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -169,6 +179,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "set_retrieve_values_redis", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn smembers(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -182,6 +193,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "set_remove_values_redis", skip(self, connection, values), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn srem(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -196,6 +208,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "exec_command_redis", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn execute(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -214,10 +227,15 @@ impl v2::HostConnection for OutboundRedis {
                 }
             });
 
-            cmd.query_async::<_, RedisResults>(conn)
+            let inner = cmd
+                .query_async::<_, RedisResults>(conn)
                 .await
                 .map(|values| values.0)
-                .map_err(other_error)
+                .map_err(other_error);
+            if let Err(e) = &inner {
+                tracing::event!(target:module_path!(), Level::INFO, error =  %e);
+            }
+            inner
         }
         .await)
     }

@@ -1,4 +1,5 @@
 use spin_world::v2::sqlite::{self, RowResult};
+use tracing::{instrument, Level};
 
 #[derive(Clone)]
 pub struct LibsqlClient {
@@ -15,6 +16,7 @@ impl LibsqlClient {
 
 #[async_trait::async_trait]
 impl spin_sqlite::Connection for LibsqlClient {
+    #[instrument(name = "execute_query_libsql_sqlite_db", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn query(
         &self,
         query: &str,
@@ -34,6 +36,7 @@ impl spin_sqlite::Connection for LibsqlClient {
         })
     }
 
+    #[instrument(name = "execute_libsql_sqlite_db", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn execute_batch(&self, statements: &str) -> anyhow::Result<()> {
         self.inner.execute_batch(statements).await?;
 

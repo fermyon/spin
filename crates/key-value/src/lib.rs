@@ -4,6 +4,7 @@ use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_world::v2::key_value;
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
+use tracing::instrument;
 
 mod host_component;
 mod util;
@@ -72,6 +73,7 @@ impl key_value::Host for KeyValueDispatch {}
 
 #[async_trait]
 impl key_value::HostStore for KeyValueDispatch {
+    #[instrument(name = "open_kv_store", skip(self))]
     async fn open(&mut self, name: String) -> Result<Result<Resource<key_value::Store>, Error>> {
         Ok(async {
             if self.allowed_stores.contains(&name) {
@@ -87,6 +89,7 @@ impl key_value::HostStore for KeyValueDispatch {
         .await)
     }
 
+    #[instrument(name = "get_value_kv", skip(self, store))]
     async fn get(
         &mut self,
         store: Resource<key_value::Store>,
@@ -96,6 +99,7 @@ impl key_value::HostStore for KeyValueDispatch {
         Ok(store.get(&key).await)
     }
 
+    #[instrument(name = "set_value_kv", skip(self, store, value))]
     async fn set(
         &mut self,
         store: Resource<key_value::Store>,
@@ -106,6 +110,7 @@ impl key_value::HostStore for KeyValueDispatch {
         Ok(store.set(&key, &value).await)
     }
 
+    #[instrument(name = "delete_value_kv", skip(self, store))]
     async fn delete(
         &mut self,
         store: Resource<key_value::Store>,
@@ -115,6 +120,7 @@ impl key_value::HostStore for KeyValueDispatch {
         Ok(store.delete(&key).await)
     }
 
+    #[instrument(name = "key_exists_kv", skip(self, store))]
     async fn exists(
         &mut self,
         store: Resource<key_value::Store>,
@@ -124,6 +130,7 @@ impl key_value::HostStore for KeyValueDispatch {
         Ok(store.exists(&key).await)
     }
 
+    #[instrument(name = "get_keys_kv", skip(self, store))]
     async fn get_keys(
         &mut self,
         store: Resource<key_value::Store>,
@@ -156,11 +163,13 @@ fn to_legacy_error(value: key_value::Error) -> LegacyError {
 
 #[async_trait]
 impl spin_world::v1::key_value::Host for KeyValueDispatch {
+    #[instrument(name = "open_kv_store", skip(self))]
     async fn open(&mut self, name: String) -> Result<Result<u32, LegacyError>> {
         let result = <Self as key_value::HostStore>::open(self, name).await?;
         Ok(result.map_err(to_legacy_error).map(|s| s.rep()))
     }
 
+    #[instrument(name = "get_value_kv", skip(self, store))]
     async fn get(&mut self, store: u32, key: String) -> Result<Result<Vec<u8>, LegacyError>> {
         let this = Resource::new_borrow(store);
         let result = <Self as key_value::HostStore>::get(self, this, key).await?;
@@ -169,6 +178,7 @@ impl spin_world::v1::key_value::Host for KeyValueDispatch {
             .and_then(|v| v.ok_or(LegacyError::NoSuchKey)))
     }
 
+    #[instrument(name = "set_value_kv", skip(self, store, value))]
     async fn set(
         &mut self,
         store: u32,
@@ -180,24 +190,28 @@ impl spin_world::v1::key_value::Host for KeyValueDispatch {
         Ok(result.map_err(to_legacy_error))
     }
 
+    #[instrument(name = "delete_value_kv", skip(self, store))]
     async fn delete(&mut self, store: u32, key: String) -> Result<Result<(), LegacyError>> {
         let this = Resource::new_borrow(store);
         let result = <Self as key_value::HostStore>::delete(self, this, key).await?;
         Ok(result.map_err(to_legacy_error))
     }
 
+    #[instrument(name = "key_exists_kv", skip(self, store))]
     async fn exists(&mut self, store: u32, key: String) -> Result<Result<bool, LegacyError>> {
         let this = Resource::new_borrow(store);
         let result = <Self as key_value::HostStore>::exists(self, this, key).await?;
         Ok(result.map_err(to_legacy_error))
     }
 
+    #[instrument(name = "get_keys_kv", skip(self, store))]
     async fn get_keys(&mut self, store: u32) -> Result<Result<Vec<String>, LegacyError>> {
         let this = Resource::new_borrow(store);
         let result = <Self as key_value::HostStore>::get_keys(self, this).await?;
         Ok(result.map_err(to_legacy_error))
     }
 
+    #[instrument(name = "close_kv_store", skip(self))]
     async fn close(&mut self, store: u32) -> Result<()> {
         let this = Resource::new_borrow(store);
         <Self as key_value::HostStore>::drop(self, this)

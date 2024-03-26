@@ -14,3 +14,4 @@ llm = { git = "https://github.com/rustformers/llm", rev = "2f6ffd4435799ceaa1d1b
 spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 spin-world = { path = "../world" }
+tracing = { workspace = true }

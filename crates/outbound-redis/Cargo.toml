@@ -18,3 +18,7 @@ spin-outbound-networking = { path = "../outbound-networking" }
 table = { path = "../table" }
 tokio = { version = "1", features = ["sync"] }
 tracing = { workspace = true }
+
+# TODO: Remove this once https://github.com/rust-lang/rust-clippy/issues/12281 is resolved
+[lints.clippy]
+blocks_in_conditions = "allow"

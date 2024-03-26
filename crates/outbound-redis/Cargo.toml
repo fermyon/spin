@@ -18,3 +18,6 @@ spin-outbound-networking = { path = "../outbound-networking" }
 table = { path = "../table" }
 tokio = { version = "1", features = ["sync"] }
 tracing = { workspace = true }
+
+[lints]
+workspace = true

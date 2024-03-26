@@ -314,6 +314,7 @@ mod test {
 
         let reloaded = LockedApp::from_json(&json).unwrap();
 
+        assert_eq!(0, reloaded.spin_lock_version.actual());
         assert_eq!(1, Into::<usize>::into(reloaded.spin_lock_version));
     }
 
@@ -339,6 +340,7 @@ mod test {
 
         let reloaded = LockedApp::from_json(&json).unwrap();
 
+        assert_eq!(1, reloaded.spin_lock_version.actual());
         assert_eq!(1, Into::<usize>::into(reloaded.spin_lock_version));
         assert_eq!(1, reloaded.must_understand.len());
         assert_eq!(1, reloaded.host_requirements.len());

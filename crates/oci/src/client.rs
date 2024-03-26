@@ -48,6 +48,16 @@ const MAX_LAYER_COUNT: usize = 500;
 /// rather than pushing as a separate layer
 const DEFAULT_CONTENT_REF_INLINE_MAX_SIZE: usize = 128;
 
+/// Mode of assembly of a Spin application into an OCI image
+enum AssemblyMode {
+    /// Assemble the application as one layer per component and one layer for
+    /// every static asset included with a given component
+    Simple,
+    /// Assemble the application as one layer per component and one compressed
+    /// archive layer containing all static assets included with a given component
+    Archive,
+}
+
 /// Client for interacting with an OCI registry for Spin applications.
 pub struct Client {
     /// Global cache for the metadata, Wasm modules, and static assets pulled from OCI registries.
@@ -134,7 +144,7 @@ impl Client {
     ) -> Result<Option<String>> {
         let mut locked_app = locked.clone();
         let mut layers = self
-            .assemble_layers(&mut locked_app, false)
+            .assemble_layers(&mut locked_app, AssemblyMode::Simple)
             .await
             .context("could not assemble layers for locked application")?;
 
@@ -143,7 +153,7 @@ impl Client {
         if layers.len() > MAX_LAYER_COUNT - 1 {
             locked_app = locked.clone();
             layers = self
-                .assemble_layers(&mut locked_app, true)
+                .assemble_layers(&mut locked_app, AssemblyMode::Archive)
                 .await
                 .context("could not assemble archive layers for locked application")?;
         }
@@ -198,16 +208,12 @@ impl Client {
         Ok(digest)
     }
 
-    /// Assemble ImageLayers for a locked application and return the
-    /// resulting Vec<ImageLayer>.
-    /// There will always be one layer per component wasm file and
-    /// their may be one layer for each static asset included with each component
-    /// or one archive layer per component consolidating all static assets together,
-    /// to avoid exceeding certain registry layer count limits.
+    /// Assemble ImageLayers for a locked application using the provided
+    /// AssemblyMode and return the resulting Vec<ImageLayer>.
     async fn assemble_layers(
         &mut self,
         locked: &mut LockedApp,
-        archive: bool,
+        assembly_mode: AssemblyMode,
     ) -> Result<Vec<ImageLayer>> {
         let mut layers = Vec::new();
         let mut components = Vec::new();
@@ -236,20 +242,21 @@ impl Client {
                     .context("file mount loaded from disk should contain a file source")?;
                 let source = parse_file_url(source.as_str())?;
 
-                if archive {
-                    self.push_archive_layer(&source, &mut files, &mut layers)
+                match assembly_mode {
+                    AssemblyMode::Archive => self
+                        .push_archive_layer(&source, &mut files, &mut layers)
                         .await
                         .context(format!(
                             "cannot push archive layer for source {}",
                             quoted_path(&source)
-                        ))?;
-                } else {
-                    self.push_file_layers(&source, &mut files, &mut layers)
+                        ))?,
+                    AssemblyMode::Simple => self
+                        .push_file_layers(&source, &mut files, &mut layers)
                         .await
                         .context(format!(
                             "cannot push file layers for source {}",
                             quoted_path(&source)
-                        ))?;
+                        ))?,
                 }
             }
             c.files = files;
@@ -803,7 +810,7 @@ mod test {
                     "digest": "digest",
                 }
                 }]),
-                expected_layer_count: 2,
+                expected_layer_count: 0,
                 expected_error: Some("Invalid URL: \"\""),
             },
             TestCase {
@@ -892,7 +899,7 @@ mod test {
                     assert_eq!(
                         e,
                         client
-                            .assemble_layers(&mut locked, false)
+                            .assemble_layers(&mut locked, AssemblyMode::Simple)
                             .await
                             .unwrap_err()
                             .to_string(),
@@ -904,7 +911,7 @@ mod test {
                     assert_eq!(
                         tc.expected_layer_count,
                         client
-                            .assemble_layers(&mut locked, false)
+                            .assemble_layers(&mut locked, AssemblyMode::Simple)
                             .await
                             .unwrap()
                             .len(),

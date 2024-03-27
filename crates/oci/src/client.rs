@@ -48,6 +48,12 @@ const MAX_LAYER_COUNT: usize = 500;
 /// rather than pushing as a separate layer
 const DEFAULT_CONTENT_REF_INLINE_MAX_SIZE: usize = 128;
 
+/// Default token expiration when pushing/pulling an image to/from a registry.
+/// This value is used by the underyling OCI client when the token expiration
+/// is unspecified on a claim.
+/// This essentially equates to a timeout for push/pull.
+const DEFAULT_TOKEN_EXPIRATION_SECS: usize = 300;
+
 /// Mode of assembly of a Spin application into an OCI image
 enum AssemblyMode {
     /// Assemble the application as one layer per component and one layer for
@@ -643,6 +649,7 @@ impl Client {
 
         oci_distribution::client::ClientConfig {
             protocol,
+            default_token_expiration_secs: DEFAULT_TOKEN_EXPIRATION_SECS,
             ..Default::default()
         }
     }

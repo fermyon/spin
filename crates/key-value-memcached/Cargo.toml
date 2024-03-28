@@ -1,0 +1,14 @@
+[package]
+name = "spin-key-value-memcached"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+anyhow = "1"
+spin-key-value = { path = "../key-value" }
+spin-core = { path = "../core" }
+spin-world = { path = "../world" }
+tokio = "1"
+url = "2"
+memcache = "0.17"

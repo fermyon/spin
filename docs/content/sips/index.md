@@ -25,3 +25,6 @@ Here is a list of accepted SIPs:
 - [Signing Spin Releases](../sips/012-signing-spin-releases.md)
 - [Accessing SQLite Databases from Spin](../sips/013-sqlite.md)
 - [Fermyon Cloud Plugin](../sips/014-cloud-plugin.md)
+- [Generic Interface for LLMs](../sips/015-llm.md)
+- [Support for Inbound WebSockets](../sips/016-inbound-websockets.md)
+- [Application-Internal Service Chaining](../sips/017-service-chaining.md)

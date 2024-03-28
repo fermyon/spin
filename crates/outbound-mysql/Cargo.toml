@@ -23,5 +23,5 @@ spin-outbound-networking = { path = "../outbound-networking" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
 tokio = { version = "1", features = ["rt-multi-thread"] }
-tracing = { version = "0.1", features = ["log"] }
+tracing = { version = "0.1" }
 url = "2.3.1"

@@ -18,14 +18,14 @@ pub use propagation::inject_trace_context;
 /// Configuration is pulled from the environment.
 pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
     // This layer will print all tracing library log messages to stderr.
-    let fmt_layer = fmt::layer()
-        .with_writer(std::io::stderr)
-        .with_ansi(std::io::stderr().is_terminal())
-        .with_filter(
-            EnvFilter::from_default_env()
-                .add_directive("wasmtime_wasi_http=warn".parse()?)
-                .add_directive("watchexec=off".parse()?),
-        );
+    // let fmt_layer = fmt::layer()
+    //     .with_writer(std::io::stderr)
+    //     .with_ansi(std::io::stderr().is_terminal())
+    //     .with_filter(
+    //         EnvFilter::from_default_env()
+    //             .add_directive("wasmtime_wasi_http=warn".parse()?)
+    //             .add_directive("watchexec=off".parse()?),
+    //     );
 
     // We only want to build the otel layer if the user passed some endpoint configuration and it wasn't explicitly disabled.
     let build_otel_layer = !otel_sdk_disabled() && otel_enabled();
@@ -39,7 +39,7 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
     };
 
     // Build a registry subscriber with the layers we want to use.
-    registry().with(otel_layer).with(fmt_layer).init();
+    registry().with(otel_layer).init();
 
     // Used to propagate trace information in the standard W3C TraceContext format. Even if the otel
     // layer is disabled we still want to propagate trace context.

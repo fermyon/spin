@@ -31,11 +31,7 @@ spin-telemetry = { path = "../telemetry" }
 spin-trigger = { path = "../trigger" }
 spin-world = { path = "../world" }
 terminal = { path = "../terminal" }
-tls-listener = { version = "0.4.0", features = [
-    "rustls",
-    "hyper-h1",
-    "hyper-h2",
-] }
+tls-listener = { version = "0.10.0", features = ["rustls"] }
 tokio = { version = "1.23", features = ["full"] }
 tokio-rustls = { version = "0.23.2" }
 url = "2.4.1"

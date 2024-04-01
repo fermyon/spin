@@ -3,7 +3,7 @@ mod host_component;
 use std::time::Duration;
 
 use anyhow::Result;
-use rumqttc::AsyncClient;
+use rumqttc::{AsyncClient, Event, Incoming, Outgoing, QoS};
 use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_world::v2::mqtt::{self as v2, Connection as MqttConnection, Error, Qos};
 
@@ -105,10 +105,15 @@ impl v2::HostConnection for OutboundMqtt {
                     .await
                     .map_err(|err| v2::Error::ConnectionFailed(err.to_string()))?;
 
-                if let rumqttc::Event::Outgoing(rumqttc::Outgoing::Publish(_)) = event {
-                    return Ok(());
+                match (qos, event) {
+                    (QoS::AtMostOnce, Event::Outgoing(Outgoing::Publish(_)))
+                    | (QoS::AtLeastOnce, Event::Incoming(Incoming::PubAck(_)))
+                    | (QoS::ExactlyOnce, Event::Outgoing(Outgoing::PubComp(_))) => break,
+
+                    (_, _) => continue,
                 }
             }
+            Ok(())
         }
         .await)
     }

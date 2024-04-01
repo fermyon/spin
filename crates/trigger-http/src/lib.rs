@@ -6,6 +6,7 @@ mod wagi;
 
 use std::{
     collections::HashMap,
+    io::IsTerminal,
     net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
     path::PathBuf,
     str::FromStr,
@@ -246,7 +247,7 @@ impl HttpTrigger {
             return match well_known {
                 "health" => Ok(Response::new(body::full(Bytes::from_static(b"OK")))),
                 "info" => self.app_info(),
-                _ => Self::not_found(),
+                _ => Self::not_found(NotFoundRouteKind::WellKnown),
             };
         }
 
@@ -294,7 +295,7 @@ impl HttpTrigger {
                     }
                 }
             }
-            Err(_) => Self::not_found(),
+            Err(_) => Self::not_found(NotFoundRouteKind::Normal(path.to_string())),
         }
     }
 
@@ -320,7 +321,16 @@ impl HttpTrigger {
     }
 
     /// Creates an HTTP 404 response.
-    fn not_found() -> Result<Response<Body>> {
+    fn not_found(kind: NotFoundRouteKind) -> Result<Response<Body>> {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        static SHOWN_GENERIC_404_WARNING: AtomicBool = AtomicBool::new(false);
+        if let NotFoundRouteKind::Normal(route) = kind {
+            if !SHOWN_GENERIC_404_WARNING.fetch_or(true, Ordering::Relaxed)
+                && std::io::stderr().is_terminal()
+            {
+                terminal::warn!("Request to {route} matched no pattern, and received a generic 404 response. To serve a more informative 404 page, add a catch-all (/...) route.");
+            }
+        }
         Ok(Response::builder()
             .status(StatusCode::NOT_FOUND)
             .body(body::empty())?)
@@ -678,6 +688,12 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
 
         wasmtime_wasi_http::types::default_send_request(data, request)
     }
+}
+
+#[derive(Debug, PartialEq)]
+enum NotFoundRouteKind {
+    Normal(String),
+    WellKnown,
 }
 
 #[cfg(test)]

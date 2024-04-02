@@ -653,7 +653,7 @@ fn prompt_confirm_install(manifest: &PluginManifest, package: &PluginPackage) ->
     let prompt = "Are you sure you want to continue?".to_string();
     let install = dialoguer::Confirm::new()
         .with_prompt(prompt)
-        .default(false)
+        .default(true)
         .interact_opt()?
         .unwrap_or(false);
     if !install {

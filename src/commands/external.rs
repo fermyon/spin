@@ -158,28 +158,45 @@ async fn consider_install(
             }
             plugin_installer.run().await?;
         }
-        Ok(None) // No update badgering needed if we just updated/installed it!
-    } else if stderr().is_terminal() && matches_catalogue_plugin(plugin_store, plugin_name) {
-        if offer_install(plugin_name)? {
-            let plugin_installer = installer_for(plugin_name);
-            plugin_installer.run().await?;
-            eprintln!();
-            Ok(None) // No update badgering needed if we just updated/installed it!
-        } else {
-            process::exit(2);
-        }
-    } else {
-        tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
-        terminal::error!("'{plugin_name}' is not a known Spin command. See spin --help.\n");
-        print_similar_commands(app, plugin_name);
-        process::exit(2);
+        return Ok(None); // No update badgering needed if we just updated/installed it!
     }
+
+    if stderr().is_terminal() {
+        if let Some(plugin) = match_catalogue_plugin(plugin_store, plugin_name) {
+            let package = spin_plugins::manager::get_package(&plugin)?;
+            if offer_install(&plugin, package)? {
+                let plugin_installer = installer_for(plugin_name);
+                plugin_installer.run().await?;
+                eprintln!();
+                return Ok(None); // No update badgering needed if we just updated/installed it!
+            } else {
+                process::exit(2);
+            }
+        }
+    }
+
+    tracing::debug!("Tried to resolve {plugin_name} to plugin, got {e}");
+    terminal::error!("'{plugin_name}' is not a known Spin command. See spin --help.\n");
+    print_similar_commands(app, plugin_name);
+    process::exit(2);
 }
 
-fn offer_install(name: &str) -> anyhow::Result<bool, anyhow::Error> {
-    terminal::warn!("`{name}` is not a known Spin command, but there is a plugin with that name.");
+fn offer_install(
+    plugin: &spin_plugins::manifest::PluginManifest,
+    package: &spin_plugins::manifest::PluginPackage,
+) -> anyhow::Result<bool, anyhow::Error> {
+    terminal::warn!(
+        "`{}` is not a known Spin command, but there is a plugin with that name.",
+        plugin.name()
+    );
+    eprintln!(
+        "The plugin has the {} license and would download from {}",
+        plugin.license(),
+        package.url()
+    );
     let choice = dialoguer::Confirm::new()
-        .with_prompt("Would you like to install and run it now?")
+        .with_prompt("Would you like to install this plugin and run it now?")
+        .default(false)
         .interact_opt()?
         .unwrap_or(false);
     Ok(choice)
@@ -196,13 +213,16 @@ fn installer_for(plugin_name: &str) -> Install {
     }
 }
 
-fn matches_catalogue_plugin(plugin_store: &PluginStore, plugin_name: &str) -> bool {
+fn match_catalogue_plugin(
+    plugin_store: &PluginStore,
+    plugin_name: &str,
+) -> Option<spin_plugins::manifest::PluginManifest> {
     let Ok(known) = plugin_store.catalogue_manifests() else {
-        return false;
+        return None;
     };
     known
-        .iter()
-        .any(|m| m.name() == plugin_name && m.has_compatible_package())
+        .into_iter()
+        .find(|m| m.name() == plugin_name && m.has_compatible_package())
 }
 
 async fn report_badger_result(badger: tokio::task::JoinHandle<BadgerChecker>) {

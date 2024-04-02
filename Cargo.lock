@@ -471,7 +471,7 @@ dependencies = [
  "paste",
  "pin-project",
  "rand 0.8.5",
- "reqwest",
+ "reqwest 0.11.24",
  "rustc_version",
  "serde",
  "serde_json",
@@ -686,7 +686,7 @@ dependencies = [
  "indicatif 0.16.2",
  "log",
  "rand 0.8.5",
- "reqwest",
+ "reqwest 0.11.24",
  "serde",
  "serde_json",
  "sha2",
@@ -1768,7 +1768,7 @@ dependencies = [
  "mime",
  "pin-project",
  "regex",
- "reqwest",
+ "reqwest 0.11.24",
  "serde",
  "serde_ignored",
  "serde_json",
@@ -2912,12 +2912,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "hyper-tls"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
+dependencies = [
+ "bytes",
+ "http-body-util",
+ "hyper 1.2.0",
+ "hyper-util",
+ "native-tls",
+ "tokio",
+ "tokio-native-tls",
+ "tower-service",
+]
+
+[[package]]
 name = "hyper-util"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca38ef113da30126bbff9cd1705f9273e15d45498615d138b0c20279ac7a76aa"
 dependencies = [
  "bytes",
+ "futures-channel",
  "futures-util",
  "http 1.1.0",
  "http-body 1.0.0",
@@ -2925,6 +2942,9 @@ dependencies = [
  "pin-project-lite",
  "socket2 0.5.6",
  "tokio",
+ "tower",
+ "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -4130,19 +4150,19 @@ dependencies = [
 
 [[package]]
 name = "oci-distribution"
-version = "0.10.0"
-source = "git+https://github.com/fermyon/oci-distribution?rev=63cbb0925775e0c9c870195cad1d50ac8707a264#63cbb0925775e0c9c870195cad1d50ac8707a264"
+version = "0.11.0"
+source = "git+https://github.com/fermyon/oci-distribution?rev=7e4ce9be9bcd22e78a28f06204931f10c44402ba#7e4ce9be9bcd22e78a28f06204931f10c44402ba"
 dependencies = [
  "bytes",
  "chrono",
  "futures-util",
- "http 0.2.12",
+ "http 1.1.0",
  "http-auth",
  "jwt",
  "lazy_static",
  "olpc-cjson",
  "regex",
- "reqwest",
+ "reqwest 0.12.2",
  "serde",
  "serde_json",
  "sha2",
@@ -4266,7 +4286,7 @@ dependencies = [
  "bytes",
  "http 0.2.12",
  "opentelemetry",
- "reqwest",
+ "reqwest 0.11.24",
 ]
 
 [[package]]
@@ -4284,7 +4304,7 @@ dependencies = [
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
  "prost",
- "reqwest",
+ "reqwest 0.11.24",
  "thiserror",
 ]
 
@@ -4380,7 +4400,7 @@ version = "2.5.0-pre0"
 dependencies = [
  "anyhow",
  "http 0.2.12",
- "reqwest",
+ "reqwest 0.11.24",
  "spin-app",
  "spin-core",
  "spin-expressions",
@@ -5222,7 +5242,7 @@ dependencies = [
  "http-body 0.4.6",
  "hyper 0.14.28",
  "hyper-rustls 0.24.2",
- "hyper-tls",
+ "hyper-tls 0.5.0",
  "ipnet",
  "js-sys",
  "log",
@@ -5249,6 +5269,47 @@ dependencies = [
  "wasm-streams",
  "web-sys",
  "webpki-roots 0.25.4",
+ "winreg",
+]
+
+[[package]]
+name = "reqwest"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d66674f2b6fb864665eea7a3c1ac4e3dfacd2fda83cf6f935a612e01b0e3338"
+dependencies = [
+ "base64 0.21.7",
+ "bytes",
+ "futures-core",
+ "futures-util",
+ "http 1.1.0",
+ "http-body 1.0.0",
+ "http-body-util",
+ "hyper 1.2.0",
+ "hyper-tls 0.6.0",
+ "hyper-util",
+ "ipnet",
+ "js-sys",
+ "log",
+ "mime",
+ "native-tls",
+ "once_cell",
+ "percent-encoding",
+ "pin-project-lite",
+ "rustls-pemfile 1.0.4",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "sync_wrapper",
+ "tokio",
+ "tokio-native-tls",
+ "tokio-util 0.7.10",
+ "tower-service",
+ "url",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-streams",
+ "web-sys",
  "winreg",
 ]
 
@@ -5383,7 +5444,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "http 0.2.12",
- "reqwest",
+ "reqwest 0.11.24",
  "rustify_derive",
  "serde",
  "serde_json",
@@ -6016,7 +6077,7 @@ dependencies = [
  "rand 0.8.5",
  "redis 0.24.0",
  "regex",
- "reqwest",
+ "reqwest 0.11.24",
  "rpassword",
  "runtime-tests",
  "semver",
@@ -6129,7 +6190,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "glob",
- "reqwest",
+ "reqwest 0.11.24",
  "serde",
  "similar",
  "spin-common",
@@ -6274,7 +6335,7 @@ dependencies = [
  "anyhow",
  "http 0.2.12",
  "llm",
- "reqwest",
+ "reqwest 0.11.24",
  "serde",
  "serde_json",
  "spin-core",
@@ -6301,7 +6362,7 @@ dependencies = [
  "outbound-http",
  "path-absolutize",
  "regex",
- "reqwest",
+ "reqwest 0.11.24",
  "semver",
  "serde",
  "serde_json",
@@ -6364,8 +6425,9 @@ dependencies = [
  "dkregistry",
  "docker_credential",
  "futures-util",
+ "itertools 0.12.1",
  "oci-distribution",
- "reqwest",
+ "reqwest 0.11.24",
  "serde",
  "serde_json",
  "spin-common",
@@ -6406,7 +6468,7 @@ dependencies = [
  "flate2",
  "is-terminal",
  "path-absolutize",
- "reqwest",
+ "reqwest 0.11.24",
  "semver",
  "serde",
  "serde_json",
@@ -6949,7 +7011,7 @@ dependencies = [
  "log",
  "nix 0.26.4",
  "regex",
- "reqwest",
+ "reqwest 0.11.24",
  "spin-http",
  "spin-loader",
  "spin-trigger",
@@ -7112,7 +7174,7 @@ dependencies = [
  "rayon-cond",
  "regex",
  "regex-syntax 0.7.5",
- "reqwest",
+ "reqwest 0.11.24",
  "serde",
  "serde_json",
  "spm_precompiled",
@@ -7382,6 +7444,7 @@ dependencies = [
  "futures-util",
  "pin-project",
  "pin-project-lite",
+ "tokio",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -7689,7 +7752,7 @@ dependencies = [
  "bytes",
  "derive_builder 0.11.2",
  "http 0.2.12",
- "reqwest",
+ "reqwest 0.11.24",
  "rustify",
  "rustify_derive",
  "serde",

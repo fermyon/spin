@@ -29,7 +29,7 @@ use spin_core::{Engine, OutboundWasiHttpHandler};
 use spin_http::{
     app_info::AppInfo,
     body,
-    config::{HttpExecutorType, HttpTriggerConfig},
+    config::{HttpExecutorType, HttpTriggerConfig, HttpTriggerRouteConfig},
     routes::{RoutePattern, Router},
 };
 use spin_outbound_networking::{
@@ -119,7 +119,7 @@ impl TriggerExecutor for HttpTrigger {
 
         let component_routes = engine
             .trigger_configs()
-            .map(|(_, config)| (config.component.as_str(), config.route.as_str()));
+            .map(|(_, config)| (config.component.as_str(), &config.route));
 
         let (router, duplicate_routes) = Router::build(&base, component_routes)?;
 
@@ -257,6 +257,11 @@ impl HttpTrigger {
 
                 let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Http);
 
+                let raw_route = match &trigger.route {
+                    HttpTriggerRouteConfig::Route(r) => r.as_str(),
+                    HttpTriggerRouteConfig::IsRoutable(_) => "/...",
+                };
+
                 let res = match executor {
                     HttpExecutorType::Http => {
                         HttpHandlerExecutor
@@ -264,7 +269,7 @@ impl HttpTrigger {
                                 self.engine.clone(),
                                 component_id,
                                 &self.base,
-                                &trigger.route,
+                                raw_route,
                                 req,
                                 addr,
                             )
@@ -279,7 +284,7 @@ impl HttpTrigger {
                                 self.engine.clone(),
                                 component_id,
                                 &self.base,
-                                &trigger.route,
+                                raw_route,
                                 req,
                                 addr,
                             )

@@ -7,6 +7,8 @@ use http::Uri;
 use indexmap::IndexMap;
 use std::{borrow::Cow, fmt};
 
+use crate::config::HttpTriggerRouteConfig;
+
 /// Router for the HTTP trigger.
 #[derive(Clone, Debug)]
 pub struct Router {
@@ -15,6 +17,7 @@ pub struct Router {
 }
 
 /// A detected duplicate route.
+#[derive(Debug)] // Needed to call `expect_err` on `Router::build`
 pub struct DuplicateRoute {
     /// The duplicated route pattern.
     pub route: RoutePattern,
@@ -28,14 +31,23 @@ impl Router {
     /// Builds a router based on application configuration.
     pub fn build<'a>(
         base: &str,
-        component_routes: impl IntoIterator<Item = (&'a str, &'a str)>,
+        component_routes: impl IntoIterator<Item = (&'a str, &'a HttpTriggerRouteConfig)>,
     ) -> Result<(Self, Vec<DuplicateRoute>)> {
         let mut routes = IndexMap::new();
         let mut duplicates = vec![];
 
-        let routes_iter = component_routes.into_iter().map(|(component_id, route)| {
-            (RoutePattern::from(base, route), component_id.to_string())
-        });
+        let routes_iter = component_routes
+            .into_iter()
+            .filter_map(|(component_id, route)| {
+                match route {
+                    HttpTriggerRouteConfig::Route(r) => {
+                        Some(Ok((RoutePattern::from(base, r), component_id.to_string())))
+                    }
+                    HttpTriggerRouteConfig::IsRoutable(false) => None,
+                    HttpTriggerRouteConfig::IsRoutable(true) => Some(Err(anyhow!("route must be a string pattern or 'false': component '{component_id}' has route = 'true'"))),
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         for (route, component_id) in routes_iter {
             let replaced = routes.insert(route.clone(), component_id.clone());
@@ -417,10 +429,10 @@ mod route_tests {
         let (routes, duplicates) = Router::build(
             "/",
             vec![
-                ("/", "/"),
-                ("/foo", "/foo"),
-                ("/bar", "/bar"),
-                ("/whee/...", "/whee/..."),
+                ("/", &"/".into()),
+                ("/foo", &"/foo".into()),
+                ("/bar", &"/bar".into()),
+                ("/whee/...", &"/whee/...".into()),
             ],
         )
         .unwrap();
@@ -434,10 +446,10 @@ mod route_tests {
         let (routes, _) = Router::build(
             "/",
             vec![
-                ("/", "/"),
-                ("/foo", "/foo"),
-                ("/bar", "/bar"),
-                ("/whee/...", "/whee/..."),
+                ("/", &"/".into()),
+                ("/foo", &"/foo".into()),
+                ("/bar", &"/bar".into()),
+                ("/whee/...", &"/whee/...".into()),
             ],
         )
         .unwrap();
@@ -453,10 +465,10 @@ mod route_tests {
         let (routes, duplicates) = Router::build(
             "/",
             vec![
-                ("/", "/"),
-                ("first /foo", "/foo"),
-                ("second /foo", "/foo"),
-                ("/whee/...", "/whee/..."),
+                ("/", &"/".into()),
+                ("first /foo", &"/foo".into()),
+                ("second /foo", &"/foo".into()),
+                ("/whee/...", &"/whee/...".into()),
             ],
         )
         .unwrap();
@@ -470,10 +482,10 @@ mod route_tests {
         let (routes, duplicates) = Router::build(
             "/",
             vec![
-                ("/", "/"),
-                ("first /foo", "/foo"),
-                ("second /foo", "/foo"),
-                ("/whee/...", "/whee/..."),
+                ("/", &"/".into()),
+                ("first /foo", &"/foo".into()),
+                ("second /foo", &"/foo".into()),
+                ("/whee/...", &"/whee/...".into()),
             ],
         )
         .unwrap();
@@ -481,5 +493,38 @@ mod route_tests {
         assert_eq!("second /foo", routes.routes[1]);
         assert_eq!("first /foo", duplicates[0].replaced_id);
         assert_eq!("second /foo", duplicates[0].effective_id);
+    }
+
+    #[test]
+    fn unroutable_routes_are_skipped() {
+        let (routes, _) = Router::build(
+            "/",
+            vec![
+                ("/", &"/".into()),
+                ("/foo", &"/foo".into()),
+                ("private", &HttpTriggerRouteConfig::IsRoutable(false)),
+                ("/whee/...", &"/whee/...".into()),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(3, routes.routes.len());
+        assert!(!routes.routes.values().any(|c| c == "private"));
+    }
+
+    #[test]
+    fn unroutable_routes_have_to_be_unroutable_thats_just_common_sense() {
+        let e = Router::build(
+            "/",
+            vec![
+                ("/", &"/".into()),
+                ("/foo", &"/foo".into()),
+                ("bad component", &HttpTriggerRouteConfig::IsRoutable(true)),
+                ("/whee/...", &"/whee/...".into()),
+            ],
+        )
+        .expect_err("should not have accepted a 'route = true'");
+
+        assert!(e.to_string().contains("bad component"));
     }
 }

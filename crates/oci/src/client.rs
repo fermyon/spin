@@ -368,7 +368,7 @@ impl Client {
         // Assume that these bytes may represent the locked app config and write it as such.
         let mut cfg_bytes = Vec::new();
         self.oci
-            .pull_blob(&reference, &manifest.config.digest, &mut cfg_bytes)
+            .pull_blob(&reference, &manifest.config, &mut cfg_bytes)
             .await?;
         self.write_locked_app_config(&reference.to_string(), &cfg_bytes)
             .await
@@ -391,9 +391,7 @@ impl Client {
 
                     tracing::debug!("Pulling layer {}", &layer.digest);
                     let mut bytes = Vec::with_capacity(layer.size.try_into()?);
-                    this.oci
-                        .pull_blob(&reference, &layer.digest, &mut bytes)
-                        .await?;
+                    this.oci.pull_blob(&reference, &layer, &mut bytes).await?;
                     match layer.media_type.as_str() {
                         SPIN_APPLICATION_MEDIA_TYPE => {
                             this.write_locked_app_config(&reference.to_string(), &bytes)
@@ -569,13 +567,13 @@ impl Client {
     }
 
     /// Insert a token in the OCI client token cache.
-    pub fn insert_token(
+    pub async fn insert_token(
         &mut self,
         reference: &Reference,
         op: RegistryOperation,
         token: RegistryTokenType,
     ) {
-        self.oci.tokens.insert(reference, op, token);
+        self.oci.tokens.insert(reference, op, token).await;
     }
 
     /// Validate the credentials by attempting to send an authenticated request to the registry.

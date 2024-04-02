@@ -208,6 +208,7 @@ where
 
         builder.hooks(StdioLoggingTriggerHooks::new(self.follow_components()));
         builder.hooks(Network::default());
+        builder.hooks(crate::event_id::EventId);
         builder.hooks(KeyValuePersistenceMessageHook);
         builder.hooks(SqlitePersistenceMessageHook);
 

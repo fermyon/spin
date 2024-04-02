@@ -4244,6 +4244,7 @@ dependencies = [
  "toml 0.5.11",
  "tracing",
  "url",
+ "uuid",
  "wasmtime",
  "wasmtime-wasi",
  "wasmtime-wasi-http",

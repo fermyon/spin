@@ -159,6 +159,7 @@ fn preboot(
 pub fn http_smoke_test_template(
     template_name: &str,
     template_url: Option<&str>,
+    template_branch: Option<&str>,
     plugins: &[&str],
     prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> anyhow::Result<()>,
     build_env_vars: HashMap<String, String>,
@@ -167,6 +168,7 @@ pub fn http_smoke_test_template(
     http_smoke_test_template_with_route(
         template_name,
         template_url,
+        template_branch,
         plugins,
         prebuild_hook,
         build_env_vars,
@@ -176,9 +178,12 @@ pub fn http_smoke_test_template(
 }
 
 /// Run a smoke test against a given http route for a `spin new` http template
+// TODO: refactor this function to not take so many arguments
+#[allow(clippy::too_many_arguments)]
 pub fn http_smoke_test_template_with_route(
     template_name: &str,
     template_url: Option<&str>,
+    template_branch: Option<&str>,
     plugins: &[&str],
     prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> anyhow::Result<()>,
     build_env_vars: HashMap<String, String>,
@@ -188,6 +193,7 @@ pub fn http_smoke_test_template_with_route(
     let mut env = bootstrap_smoke_test(
         &testing_framework::ServicesConfig::none(),
         template_url,
+        template_branch,
         plugins,
         template_name,
         |_| Ok(Vec::new()),
@@ -211,6 +217,7 @@ pub fn http_smoke_test_template_with_route(
 pub fn redis_smoke_test_template(
     template_name: &str,
     template_url: Option<&str>,
+    template_branch: Option<&str>,
     plugins: &[&str],
     new_app_args: impl FnOnce(u16) -> Vec<String>,
     prebuild_hook: impl FnOnce(&mut testing_framework::TestEnvironment<()>) -> anyhow::Result<()>,
@@ -219,6 +226,7 @@ pub fn redis_smoke_test_template(
     let mut env = bootstrap_smoke_test(
         &testing_framework::ServicesConfig::new(vec!["redis".into()])?,
         template_url,
+        template_branch,
         plugins,
         template_name,
         |env| {
@@ -261,6 +269,7 @@ static TEMPLATE_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 pub fn bootstrap_smoke_test(
     services: &testing_framework::ServicesConfig,
     template_url: Option<&str>,
+    template_branch: Option<&str>,
     plugins: &[&str],
     template_name: &str,
     new_app_args: impl FnOnce(
@@ -281,6 +290,9 @@ pub fn bootstrap_smoke_test(
     let template_url = template_url.unwrap_or("https://github.com/fermyon/spin");
     let mut template_install = std::process::Command::new(spin_binary());
     template_install.args(["templates", "install", "--git", template_url, "--update"]);
+    if let Some(branch) = template_branch {
+        template_install.args(["--branch", branch]);
+    }
     // We need to serialize template installs since they can't be run in parallel
     {
         let _guard = TEMPLATE_MUTEX.lock().unwrap();

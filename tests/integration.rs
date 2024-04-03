@@ -362,6 +362,7 @@ Caused by:
         http_smoke_test_template(
             "http-rust",
             None,
+            None,
             &[],
             |_| Ok(()),
             HashMap::default(),
@@ -500,6 +501,7 @@ Caused by:
         http_smoke_test_template(
             "http-py",
             Some("https://github.com/fermyon/spin-python-sdk"),
+            Some("v2.0"),
             &[],
             prebuild,
             env_vars,
@@ -512,6 +514,7 @@ Caused by:
     fn http_c_template_smoke_test() -> anyhow::Result<()> {
         http_smoke_test_template(
             "http-c",
+            None,
             None,
             &[],
             |_| Ok(()),
@@ -532,6 +535,7 @@ Caused by:
         http_smoke_test_template(
             "http-go",
             None,
+            None,
             &[],
             prebuild,
             HashMap::default(),
@@ -551,6 +555,7 @@ Caused by:
         http_smoke_test_template(
             "http-js",
             Some("https://github.com/fermyon/spin-js-sdk"),
+            None,
             &["js2wasm"],
             prebuild,
             HashMap::default(),
@@ -570,6 +575,7 @@ Caused by:
         http_smoke_test_template(
             "http-ts",
             Some("https://github.com/fermyon/spin-js-sdk"),
+            None,
             &["js2wasm"],
             prebuild,
             HashMap::default(),
@@ -584,6 +590,7 @@ Caused by:
         http_smoke_test_template(
             "http-grain",
             None,
+            None,
             &[],
             |_| Ok(()),
             HashMap::default(),
@@ -596,6 +603,7 @@ Caused by:
     fn http_zig_template_smoke_test() -> anyhow::Result<()> {
         http_smoke_test_template(
             "http-zig",
+            None,
             None,
             &[],
             |_| Ok(()),
@@ -610,6 +618,7 @@ Caused by:
         http_smoke_test_template(
             "http-swift",
             None,
+            None,
             &[],
             |_| Ok(()),
             HashMap::default(),
@@ -622,6 +631,7 @@ Caused by:
     fn http_php_template_smoke_test() -> anyhow::Result<()> {
         super::testcases::http_smoke_test_template_with_route(
             "http-php",
+            None,
             None,
             &[],
             |_| Ok(()),
@@ -636,6 +646,7 @@ Caused by:
     fn redis_go_template_smoke_test() -> anyhow::Result<()> {
         super::testcases::redis_smoke_test_template(
             "redis-go",
+            None,
             None,
             &[],
             |port| {
@@ -660,6 +671,7 @@ Caused by:
     fn redis_rust_template_smoke_test() -> anyhow::Result<()> {
         super::testcases::redis_smoke_test_template(
             "redis-rust",
+            None,
             None,
             &[],
             |port| {
@@ -695,6 +707,7 @@ Caused by:
         };
         let mut env = super::testcases::bootstrap_smoke_test(
             &services,
+            None,
             None,
             &[],
             "http-rust",

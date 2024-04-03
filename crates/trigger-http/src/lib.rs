@@ -543,6 +543,7 @@ impl HttpRuntimeData {
         use wasmtime_wasi_http::types::IncomingResponseInternal;
 
         let this = data.as_ref();
+        let run_deteched = request.request.headers().get("spin-detach").is_some();
 
         let chained_handler = this.chained_handler.clone().ok_or(wasmtime::Error::msg(
             "Internal error: internal request chaining not prepared (engine not assigned)",
@@ -563,28 +564,55 @@ impl HttpRuntimeData {
 
         let req = request.request;
 
-        let resp_fut = async move {
-            match handler
-                .execute(
-                    engine.clone(),
-                    &component_id,
-                    base,
-                    raw_route,
-                    req,
-                    client_addr,
-                )
-                .await
-            {
-                Ok(resp) => Ok(Ok(IncomingResponseInternal {
-                    resp,
+        let handle = if run_deteched {
+            tokio::task::spawn(async move {
+                handler
+                    .execute(
+                        engine.clone(),
+                        &component_id,
+                        base,
+                        raw_route,
+                        req,
+                        client_addr,
+                    )
+                    .await
+            });
+            let synthetic_resp: hyper::Response<crate::Body> = hyper::Response::builder()
+                .status(202)
+                .header("location", "urn:fire-and-forget")
+                .body(crate::Body::default())?;
+            let resp_fut = async move {
+                Ok(Ok(IncomingResponseInternal {
+                    resp: synthetic_resp,
                     between_bytes_timeout,
                     worker,
-                })),
-                Err(e) => Err(wasmtime::Error::msg(e)),
-            }
+                }))
+            };
+            wasmtime_wasi::preview2::spawn(resp_fut)
+        } else {
+            let resp_fut = async move {
+                match handler
+                    .execute(
+                        engine.clone(),
+                        &component_id,
+                        base,
+                        raw_route,
+                        req,
+                        client_addr,
+                    )
+                    .await
+                {
+                    Ok(resp) => Ok(Ok(IncomingResponseInternal {
+                        resp,
+                        between_bytes_timeout,
+                        worker,
+                    })),
+                    Err(e) => Err(wasmtime::Error::msg(e)),
+                }
+            };
+            wasmtime_wasi::preview2::spawn(resp_fut)
         };
 
-        let handle = wasmtime_wasi::preview2::spawn(resp_fut);
         Ok(data.table().push(HostFutureIncomingResponse::new(handle))?)
     }
 }

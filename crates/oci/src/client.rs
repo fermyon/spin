@@ -1,6 +1,6 @@
 //! Spin's client for distributing applications via OCI registries
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -103,6 +103,7 @@ impl Client {
         &mut self,
         manifest_path: &Path,
         reference: impl AsRef<str>,
+        annotations: Option<BTreeMap<String, String>>,
     ) -> Result<Option<String>> {
         let reference: Reference = reference
             .as_ref()
@@ -121,7 +122,8 @@ impl Client {
         )
         .await?;
 
-        self.push_locked_core(locked, auth, reference).await
+        self.push_locked_core(locked, auth, reference, annotations)
+            .await
     }
 
     /// Push a Spin application to an OCI registry and return the digest (or None
@@ -130,6 +132,7 @@ impl Client {
         &mut self,
         locked: LockedApp,
         reference: impl AsRef<str>,
+        annotations: Option<BTreeMap<String, String>>,
     ) -> Result<Option<String>> {
         let reference: Reference = reference
             .as_ref()
@@ -137,7 +140,8 @@ impl Client {
             .with_context(|| format!("cannot parse reference {}", reference.as_ref()))?;
         let auth = Self::auth(&reference).await?;
 
-        self.push_locked_core(locked, auth, reference).await
+        self.push_locked_core(locked, auth, reference, annotations)
+            .await
     }
 
     /// Push a Spin application to an OCI registry and return the digest (or None
@@ -147,6 +151,7 @@ impl Client {
         locked: LockedApp,
         auth: RegistryAuth,
         reference: Reference,
+        annotations: Option<BTreeMap<String, String>>,
     ) -> Result<Option<String>> {
         let mut locked_app = locked.clone();
         let mut layers = self
@@ -199,7 +204,7 @@ impl Client {
         };
         let oci_config =
             oci_distribution::client::Config::oci_v1_from_config_file(oci_config_file, None)?;
-        let manifest = OciImageManifest::build(&layers, &oci_config, None);
+        let manifest = OciImageManifest::build(&layers, &oci_config, annotations);
 
         let response = self
             .oci

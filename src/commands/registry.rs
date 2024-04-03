@@ -2,6 +2,7 @@ use crate::opts::*;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use indicatif::{ProgressBar, ProgressStyle};
+use spin_common::arg_parser::parse_kv;
 use spin_oci::Client;
 use std::{io::Read, path::PathBuf, time::Duration};
 
@@ -61,6 +62,11 @@ pub struct Push {
     /// Cache directory for downloaded registry data.
     #[clap(long)]
     pub cache_dir: Option<PathBuf>,
+
+    /// Specifies the OCI image manifest annotations (in key=value format).
+    /// Any existing value will be overwritten. Can be used multiple times.
+    #[clap(long = "annotation", parse(try_from_str = parse_kv))]
+    pub annotations: Vec<(String, String)>,
 }
 
 impl Push {
@@ -70,11 +76,17 @@ impl Push {
             spin_build::build(&app_file, &[]).await?;
         }
 
+        let annotations = if self.annotations.is_empty() {
+            None
+        } else {
+            Some(self.annotations.iter().cloned().collect())
+        };
+
         let mut client = spin_oci::Client::new(self.insecure, self.cache_dir.clone()).await?;
 
         let _spinner = create_dotted_spinner(2000, "Pushing app to the Registry".to_owned());
 
-        let digest = client.push(&app_file, &self.reference).await?;
+        let digest = client.push(&app_file, &self.reference, annotations).await?;
         match digest {
             Some(digest) => println!("Pushed with digest {digest}"),
             None => println!("Pushed; the registry did not return the digest"),

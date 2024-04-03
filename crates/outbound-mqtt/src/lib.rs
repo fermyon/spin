@@ -108,7 +108,7 @@ impl v2::HostConnection for OutboundMqtt {
                 match (qos, event) {
                     (QoS::AtMostOnce, Event::Outgoing(Outgoing::Publish(_)))
                     | (QoS::AtLeastOnce, Event::Incoming(Incoming::PubAck(_)))
-                    | (QoS::ExactlyOnce, Event::Outgoing(Outgoing::PubComp(_))) => break,
+                    | (QoS::ExactlyOnce, Event::Incoming(Incoming::PubComp(_))) => break,
 
                     (_, _) => continue,
                 }

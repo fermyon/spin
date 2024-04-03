@@ -12,3 +12,4 @@ spin-app = { path = "../app" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
 tokio = "1"
+tracing = { workspace = true }

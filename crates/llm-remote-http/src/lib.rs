@@ -8,7 +8,7 @@ use serde_json::json;
 use spin_core::async_trait;
 use spin_llm::LlmEngine;
 use spin_world::v2::llm::{self as wasi_llm};
-use tracing::instrument;
+use tracing::{instrument, Level};
 
 #[derive(Clone)]
 pub struct RemoteHttpLlmEngine {
@@ -55,7 +55,7 @@ struct EmbeddingResponseBody {
 
 #[async_trait]
 impl LlmEngine for RemoteHttpLlmEngine {
-    #[instrument(name = "llm_generate_remote_inference", skip(self, prompt), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_llm_remote_http.infer", skip(self, prompt), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn infer(
         &mut self,
         model: wasi_llm::InferencingModel,
@@ -118,7 +118,7 @@ impl LlmEngine for RemoteHttpLlmEngine {
         }
     }
 
-    #[instrument(name = "llm_generate_remote_embeddings", skip(self, data), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_llm_remote_http.generate_embeddings", skip(self, data), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn generate_embeddings(
         &mut self,
         model: wasi_llm::EmbeddingModel,

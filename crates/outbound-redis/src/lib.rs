@@ -9,6 +9,7 @@ use spin_world::v2::redis::{
 };
 
 pub use host_component::OutboundRedisComponent;
+use tracing::{instrument, Level};
 
 struct RedisResults(Vec<RedisResult>);
 
@@ -70,8 +71,12 @@ impl OutboundRedis {
 
 impl v2::Host for OutboundRedis {}
 
+// TODO: #[instrument(err)] is only reporting the outer error, we want to mark the span as failed
+// if the inner result is an error too.
+
 #[async_trait]
 impl v2::HostConnection for OutboundRedis {
+    #[instrument(name = "spin_outbound_redis.open_connection", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis"))]
     async fn open(&mut self, address: String) -> Result<Result<Resource<RedisConnection>, Error>> {
         if !self.is_address_allowed(&address) {
             return Ok(Err(Error::InvalidAddress));
@@ -80,6 +85,7 @@ impl v2::HostConnection for OutboundRedis {
         self.establish_connection(address).await
     }
 
+    #[instrument(name = "spin_outbound_redis.publish", skip(self, connection, payload), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("PUBLISH {}", channel)))]
     async fn publish(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -96,6 +102,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "spin_outbound_redis.get", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("GET {}", key)))]
     async fn get(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -109,6 +116,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "spin_outbound_redis.set", skip(self, connection, value), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("SET {}", key)))]
     async fn set(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -123,6 +131,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "spin_outbound_redis.incr", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("INCRBY {} 1", key)))]
     async fn incr(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -136,6 +145,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "spin_outbound_redis.del", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("DEL {}", keys.join(" "))))]
     async fn del(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -149,6 +159,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "spin_outbound_redis.sadd", skip(self, connection, values), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("SADD {} {}", key, values.join(" "))))]
     async fn sadd(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -169,6 +180,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "spin_outbound_redis.smembers", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("SMEMBERS {}", key)))]
     async fn smembers(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -182,6 +194,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "spin_outbound_redis.srem", skip(self, connection, values), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("SREM {} {}", key, values.join(" "))))]
     async fn srem(
         &mut self,
         connection: Resource<RedisConnection>,
@@ -196,6 +209,7 @@ impl v2::HostConnection for OutboundRedis {
         .await)
     }
 
+    #[instrument(name = "spin_outbound_redis.execute", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("{}", command)))]
     async fn execute(
         &mut self,
         connection: Resource<RedisConnection>,

@@ -16,3 +16,6 @@ spin-telemetry = { path = "../telemetry" }
 spin-world = { path = "../world" }
 reqwest = { version = "0.11", features = ["gzip", "json"] }
 tracing = { workspace = true }
+
+[lints]
+workspace = true

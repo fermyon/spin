@@ -17,6 +17,10 @@ thiserror = "1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
 vaultrs = "0.6.2"
 serde = "1.0.188"
+tracing = { workspace = true }
 
 [dev-dependencies]
 toml = "0.5"
+
+[lints]
+workspace = true

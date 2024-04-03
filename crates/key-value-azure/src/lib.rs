@@ -9,6 +9,7 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use spin_core::async_trait;
 use spin_key_value::{log_error, Error, Store, StoreManager};
+use tracing::{instrument, Level};
 
 pub struct KeyValueAzureCosmos {
     client: CollectionClient,
@@ -46,11 +47,13 @@ struct AzureCosmosStore {
 
 #[async_trait]
 impl Store for AzureCosmosStore {
+    #[instrument(name = "spin_key_value_azure.get", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         let pair = self.get_pair(key).await?;
         Ok(pair.map(|p| p.value))
     }
 
+    #[instrument(name = "spin_key_value_azure.set", skip(self, value), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn set(&self, key: &str, value: &[u8]) -> Result<(), Error> {
         let pair = Pair {
             id: key.to_string(),
@@ -64,6 +67,7 @@ impl Store for AzureCosmosStore {
         Ok(())
     }
 
+    #[instrument(name = "spin_key_value_azure.delete", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn delete(&self, key: &str) -> Result<(), Error> {
         if self.exists(key).await? {
             let document_client = self.client.document_client(key, &key).map_err(log_error)?;
@@ -72,10 +76,12 @@ impl Store for AzureCosmosStore {
         Ok(())
     }
 
+    #[instrument(name = "spin_key_value_azure.exists", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn exists(&self, key: &str) -> Result<bool, Error> {
         Ok(self.get_pair(key).await?.is_some())
     }
 
+    #[instrument(name = "spin_key_value_azure.get_keys", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
         self.get_keys().await
     }

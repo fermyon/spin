@@ -6263,6 +6263,7 @@ dependencies = [
  "spin-core",
  "spin-key-value",
  "tokio",
+ "tracing",
  "url",
 ]
 
@@ -6276,6 +6277,7 @@ dependencies = [
  "spin-key-value",
  "spin-world",
  "tokio",
+ "tracing",
  "url",
 ]
 
@@ -6290,6 +6292,7 @@ dependencies = [
  "spin-key-value",
  "spin-world",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -6501,6 +6504,7 @@ dependencies = [
  "spin-world",
  "table",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -6515,6 +6519,7 @@ dependencies = [
  "spin-sqlite",
  "spin-world",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -6529,6 +6534,7 @@ dependencies = [
  "spin-world",
  "sqlparser",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -6729,6 +6735,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml 0.5.11",
+ "tracing",
  "vaultrs",
 ]
 

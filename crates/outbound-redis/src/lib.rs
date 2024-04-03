@@ -71,8 +71,8 @@ impl OutboundRedis {
 
 impl v2::Host for OutboundRedis {}
 
-// TODO: #[instrument(err)] is only reporting the outer error (if the guest traps), we want to mark
-// the span as failed if the inner result is an error too.
+// TODO: #[instrument(err)] is only reporting the outer error, we want to mark the span as failed
+// if the inner result is an error too.
 
 #[async_trait]
 impl v2::HostConnection for OutboundRedis {

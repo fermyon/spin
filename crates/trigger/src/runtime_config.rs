@@ -49,12 +49,7 @@ impl RuntimeConfig {
     /// later-loaded file take precedence over any earlier-loaded files.
     pub fn merge_config_file(&mut self, path: impl Into<PathBuf>) -> Result<()> {
         let path = path.into();
-        let bytes = fs::read(&path).with_context(|| {
-            format!("Failed to load runtime config file {}", quoted_path(&path))
-        })?;
-        let mut opts: RuntimeConfigOpts = toml::from_slice(&bytes).with_context(|| {
-            format!("Failed to parse runtime config file {}", quoted_path(&path))
-        })?;
+        let mut opts = RuntimeConfigOpts::parse_file(&path)?;
         opts.file_path = Some(path);
         self.files.push(opts);
         Ok(())
@@ -219,6 +214,30 @@ pub struct RuntimeConfigOpts {
 
     #[serde(skip)]
     pub file_path: Option<PathBuf>,
+}
+
+impl RuntimeConfigOpts {
+    fn parse_file(path: &Path) -> Result<Self> {
+        let contents = fs::read_to_string(path)
+            .with_context(|| format!("Failed to read runtime config file {}", quoted_path(path)))?;
+        let ext = path.extension().unwrap_or_default();
+        let is_json = ext != "toml" && (ext == "json" || contents.trim_start().starts_with('{'));
+        if is_json {
+            serde_json::from_str(&contents).with_context(|| {
+                format!(
+                    "Failed to parse runtime config JSON file {}",
+                    quoted_path(path)
+                )
+            })
+        } else {
+            toml::from_str(&contents).with_context(|| {
+                format!(
+                    "Failed to parse runtime config TOML file {}",
+                    quoted_path(path)
+                )
+            })
+        }
+    }
 }
 
 fn resolve_config_path(path: &Path, config_opts: &RuntimeConfigOpts) -> Result<PathBuf> {

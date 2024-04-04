@@ -16,7 +16,9 @@ use spin_app::{
     AppComponent, Loader,
 };
 use spin_core::{Component, StoreBuilder};
-use spin_http::config::{HttpExecutorType, HttpTriggerConfig, WagiTriggerConfig};
+use spin_http::config::{
+    HttpExecutorType, HttpTriggerConfig, HttpTriggerRouteConfig, WagiTriggerConfig,
+};
 use spin_trigger::{HostComponentInitData, RuntimeConfig, TriggerExecutor, TriggerExecutorBuilder};
 use tokio::fs;
 
@@ -68,7 +70,7 @@ impl HttpTestConfig {
         self.module_path(Path::new(TEST_PROGRAM_PATH).join(name))
     }
 
-    pub fn http_spin_trigger(&mut self, route: impl Into<String>) -> &mut Self {
+    pub fn http_spin_trigger(&mut self, route: impl Into<HttpTriggerRouteConfig>) -> &mut Self {
         self.http_trigger_config = HttpTriggerConfig {
             component: "test-component".to_string(),
             route: route.into(),
@@ -79,7 +81,7 @@ impl HttpTestConfig {
 
     pub fn http_wagi_trigger(
         &mut self,
-        route: impl Into<String>,
+        route: impl Into<HttpTriggerRouteConfig>,
         wagi_config: WagiTriggerConfig,
     ) -> &mut Self {
         self.http_trigger_config = HttpTriggerConfig {

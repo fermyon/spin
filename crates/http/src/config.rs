@@ -7,10 +7,30 @@ pub struct HttpTriggerConfig {
     /// Component ID to invoke
     pub component: String,
     /// HTTP route the component will be invoked for
-    pub route: String,
+    pub route: HttpTriggerRouteConfig,
     /// The HTTP executor the component requires
     #[serde(default)]
     pub executor: Option<HttpExecutorType>,
+}
+
+/// An HTTP trigger route
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum HttpTriggerRouteConfig {
+    Route(String),
+    IsRoutable(bool),
+}
+
+impl Default for HttpTriggerRouteConfig {
+    fn default() -> Self {
+        Self::Route(Default::default())
+    }
+}
+
+impl<T: Into<String>> From<T> for HttpTriggerRouteConfig {
+    fn from(value: T) -> Self {
+        Self::Route(value.into())
+    }
 }
 
 /// The executor for the HTTP component.

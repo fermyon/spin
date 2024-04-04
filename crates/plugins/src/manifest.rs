@@ -181,13 +181,16 @@ fn inner_warn_unsupported_version(
     override_compatibility_check: bool,
 ) -> Result<()> {
     if !is_version_fully_compatible(supported_on, spin_version)? {
+        let show_warnings = !suppress_compatibility_warnings();
         let version = Version::parse(spin_version)?;
         if !version.pre.is_empty() {
-            if std::io::stderr().is_terminal() {
+            if std::io::stderr().is_terminal() && show_warnings {
                 terminal::warn!("You're using a pre-release version of Spin ({spin_version}). This plugin might not be compatible (supported: {supported_on}). Continuing anyway.");
             }
         } else if override_compatibility_check {
-            terminal::warn!("Plugin is not compatible with this version of Spin (supported: {supported_on}, actual: {spin_version}). Check overridden ... continuing to install or execute plugin.");
+            if show_warnings {
+                terminal::warn!("Plugin is not compatible with this version of Spin (supported: {supported_on}, actual: {spin_version}). Check overridden ... continuing to install or execute plugin.");
+            }
         } else {
             return Err(anyhow!(
             "Plugin is not compatible with this version of Spin (supported: {supported_on}, actual: {spin_version}). Try running `spin plugins update && spin plugins upgrade --all` to install latest or override with `--override-compatibility-check`."
@@ -195,6 +198,13 @@ fn inner_warn_unsupported_version(
         }
     }
     Ok(())
+}
+
+fn suppress_compatibility_warnings() -> bool {
+    match std::env::var("SPIN_PLUGINS_SUPPRESS_COMPATIBILITY_WARNINGS") {
+        Ok(s) => !s.is_empty(),
+        Err(_) => false,
+    }
 }
 
 #[cfg(test)]

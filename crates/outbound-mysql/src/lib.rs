@@ -87,13 +87,13 @@ impl v2::Host for OutboundMysql {}
 #[async_trait]
 impl v2::HostConnection for OutboundMysql {
     #[instrument(name = "spin_outbound_mysql.open_connection", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql"))]
-    async fn open(&mut self, address: String) -> Result<Result<Resource<Connection>, v2::Error>> {
+    async fn open(&mut self, address: String) -> Result<Resource<Connection>, v2::Error> {
         if !self.is_address_allowed(&address) {
-            return Ok(Err(v2::Error::ConnectionFailed(format!(
+            return Err(v2::Error::ConnectionFailed(format!(
                 "address {address} is not permitted"
-            ))));
+            )));
         }
-        Ok(self.open_connection(&address).await)
+        self.open_connection(&address).await
     }
 
     #[instrument(name = "spin_outbound_mysql.execute", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql", otel.name = statement))]
@@ -102,20 +102,17 @@ impl v2::HostConnection for OutboundMysql {
         connection: Resource<Connection>,
         statement: String,
         params: Vec<ParameterValue>,
-    ) -> Result<Result<(), v2::Error>> {
-        Ok(async {
-            let db_params = params.into_iter().map(to_sql_parameter).collect::<Vec<_>>();
-            let parameters = mysql_async::Params::Positional(db_params);
+    ) -> Result<(), v2::Error> {
+        let db_params = params.into_iter().map(to_sql_parameter).collect::<Vec<_>>();
+        let parameters = mysql_async::Params::Positional(db_params);
 
-            self.get_conn(connection)
-                .await?
-                .exec_batch(&statement, &[parameters])
-                .await
-                .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))?;
+        self.get_conn(connection)
+            .await?
+            .exec_batch(&statement, &[parameters])
+            .await
+            .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))?;
 
-            Ok(())
-        }
-        .await)
+        Ok(())
     }
 
     #[instrument(name = "spin_outbound_mysql.query", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql", otel.name = statement))]
@@ -124,34 +121,31 @@ impl v2::HostConnection for OutboundMysql {
         connection: Resource<Connection>,
         statement: String,
         params: Vec<ParameterValue>,
-    ) -> Result<Result<v2_types::RowSet, v2::Error>> {
-        Ok(async {
-            let db_params = params.into_iter().map(to_sql_parameter).collect::<Vec<_>>();
-            let parameters = mysql_async::Params::Positional(db_params);
+    ) -> Result<v2_types::RowSet, v2::Error> {
+        let db_params = params.into_iter().map(to_sql_parameter).collect::<Vec<_>>();
+        let parameters = mysql_async::Params::Positional(db_params);
 
-            let mut query_result = self
-                .get_conn(connection)
-                .await?
-                .exec_iter(&statement, parameters)
-                .await
-                .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))?;
+        let mut query_result = self
+            .get_conn(connection)
+            .await?
+            .exec_iter(&statement, parameters)
+            .await
+            .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))?;
 
-            // We have to get these before collect() destroys them
-            let columns = convert_columns(query_result.columns());
+        // We have to get these before collect() destroys them
+        let columns = convert_columns(query_result.columns());
 
-            match query_result.collect::<mysql_async::Row>().await {
-                Err(e) => Err(v2::Error::Other(e.to_string())),
-                Ok(result_set) => {
-                    let rows = result_set
-                        .into_iter()
-                        .map(|row| convert_row(row, &columns))
-                        .collect::<Result<Vec<_>, _>>()?;
+        match query_result.collect::<mysql_async::Row>().await {
+            Err(e) => Err(v2::Error::Other(e.to_string())),
+            Ok(result_set) => {
+                let rows = result_set
+                    .into_iter()
+                    .map(|row| convert_row(row, &columns))
+                    .collect::<Result<Vec<_>, _>>()?;
 
-                    Ok(v2_types::RowSet { columns, rows })
-                }
+                Ok(v2_types::RowSet { columns, rows })
             }
         }
-        .await)
     }
 
     fn drop(&mut self, connection: Resource<Connection>) -> Result<()> {
@@ -160,21 +154,27 @@ impl v2::HostConnection for OutboundMysql {
     }
 }
 
+impl v2_types::Host for OutboundMysql {
+    fn convert_error(&mut self, error: v2::Error) -> Result<v2::Error> {
+        Ok(error)
+    }
+}
+
 /// Delegate a function call to the v2::HostConnection implementation
 macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
         if !$self.is_address_allowed(&$address) {
-            return Ok(Err(v1::MysqlError::ConnectionFailed(format!(
+            return Err(v1::MysqlError::ConnectionFailed(format!(
                 "address {} is not permitted", $address
-            ))));
+            )));
         }
         let connection = match $self.open_connection(&$address).await {
             Ok(c) => c,
-            Err(e) => return Ok(Err(e.into())),
+            Err(e) => return Err(e.into()),
         };
-        Ok(<Self as v2::HostConnection>::$name($self, connection, $($arg),*)
-            .await?
-            .map_err(Into::into))
+        <Self as v2::HostConnection>::$name($self, connection, $($arg),*)
+            .await
+            .map_err(Into::into)
     }};
 }
 
@@ -185,7 +185,7 @@ impl v1::Host for OutboundMysql {
         address: String,
         statement: String,
         params: Vec<v1::ParameterValue>,
-    ) -> Result<Result<(), v1::MysqlError>> {
+    ) -> Result<(), v1::MysqlError> {
         delegate!(self.execute(
             address,
             statement,
@@ -198,13 +198,17 @@ impl v1::Host for OutboundMysql {
         address: String,
         statement: String,
         params: Vec<v1::ParameterValue>,
-    ) -> Result<Result<v1::RowSet, v1::MysqlError>> {
+    ) -> Result<v1::RowSet, v1::MysqlError> {
         delegate!(self.query(
             address,
             statement,
             params.into_iter().map(Into::into).collect()
         ))
-        .map(|r| r.map(Into::into))
+        .map(Into::into)
+    }
+
+    fn convert_mysql_error(&mut self, error: v1::MysqlError) -> Result<v1::MysqlError> {
+        Ok(error)
     }
 }
 

@@ -37,26 +37,27 @@ impl OutboundMqtt {
         username: String,
         password: String,
         keep_alive_interval: Duration,
-    ) -> Result<Result<Resource<MqttConnection>, Error>> {
-        Ok(async {
-            let mut conn_opts = rumqttc::MqttOptions::parse_url(address).map_err(|e| {
-                tracing::error!("MQTT URL parse error: {e:?}");
-                Error::InvalidAddress
-            })?;
-            conn_opts.set_credentials(username, password);
-            conn_opts.set_keep_alive(keep_alive_interval);
-            let (client, event_loop) = AsyncClient::new(conn_opts, MQTT_CHANNEL_CAP);
+    ) -> Result<Resource<MqttConnection>, Error> {
+        let mut conn_opts = rumqttc::MqttOptions::parse_url(address).map_err(|e| {
+            tracing::error!("MQTT URL parse error: {e:?}");
+            Error::InvalidAddress
+        })?;
+        conn_opts.set_credentials(username, password);
+        conn_opts.set_keep_alive(keep_alive_interval);
+        let (client, event_loop) = AsyncClient::new(conn_opts, MQTT_CHANNEL_CAP);
 
-            self.connections
-                .push((client, event_loop))
-                .map(Resource::new_own)
-                .map_err(|_| Error::TooManyConnections)
-        }
-        .await)
+        self.connections
+            .push((client, event_loop))
+            .map(Resource::new_own)
+            .map_err(|_| Error::TooManyConnections)
     }
 }
 
-impl v2::Host for OutboundMqtt {}
+impl v2::Host for OutboundMqtt {
+    fn convert_error(&mut self, error: Error) -> Result<Error> {
+        Ok(error)
+    }
+}
 
 #[async_trait]
 impl v2::HostConnection for OutboundMqtt {
@@ -67,11 +68,11 @@ impl v2::HostConnection for OutboundMqtt {
         username: String,
         password: String,
         keep_alive_interval: u64,
-    ) -> Result<Result<Resource<MqttConnection>, Error>> {
+    ) -> Result<Resource<MqttConnection>, Error> {
         if !self.is_address_allowed(&address) {
-            return Ok(Err(v2::Error::ConnectionFailed(format!(
+            return Err(v2::Error::ConnectionFailed(format!(
                 "address {address} is not permitted"
-            ))));
+            )));
         }
         self.establish_connection(
             address,
@@ -96,36 +97,33 @@ impl v2::HostConnection for OutboundMqtt {
         topic: String,
         payload: Vec<u8>,
         qos: Qos,
-    ) -> Result<Result<(), Error>> {
-        Ok(async {
-            let (client, eventloop) = self.get_conn(connection).await.map_err(other_error)?;
-            let qos = convert_to_mqtt_qos_value(qos);
+    ) -> Result<(), Error> {
+        let (client, eventloop) = self.get_conn(connection).await.map_err(other_error)?;
+        let qos = convert_to_mqtt_qos_value(qos);
 
-            // Message published to EventLoop (not MQTT Broker)
-            client
-                .publish_bytes(topic, qos, false, payload.into())
+        // Message published to EventLoop (not MQTT Broker)
+        client
+            .publish_bytes(topic, qos, false, payload.into())
+            .await
+            .map_err(other_error)?;
+
+        // Poll event loop until outgoing publish event is iterated over to send the message to MQTT broker or capture/throw error.
+        // We may revisit this later to manage long running connections, high throughput use cases and their issues in the connection pool.
+        loop {
+            let event = eventloop
+                .poll()
                 .await
-                .map_err(other_error)?;
+                .map_err(|err| v2::Error::ConnectionFailed(err.to_string()))?;
 
-            // Poll event loop until outgoing publish event is iterated over to send the message to MQTT broker or capture/throw error.
-            // We may revisit this later to manage long running connections, high throughput use cases and their issues in the connection pool.
-            loop {
-                let event = eventloop
-                    .poll()
-                    .await
-                    .map_err(|err| v2::Error::ConnectionFailed(err.to_string()))?;
+            match (qos, event) {
+                (QoS::AtMostOnce, Event::Outgoing(Outgoing::Publish(_)))
+                | (QoS::AtLeastOnce, Event::Incoming(Incoming::PubAck(_)))
+                | (QoS::ExactlyOnce, Event::Incoming(Incoming::PubComp(_))) => break,
 
-                match (qos, event) {
-                    (QoS::AtMostOnce, Event::Outgoing(Outgoing::Publish(_)))
-                    | (QoS::AtLeastOnce, Event::Incoming(Incoming::PubAck(_)))
-                    | (QoS::ExactlyOnce, Event::Incoming(Incoming::PubComp(_))) => break,
-
-                    (_, _) => continue,
-                }
+                (_, _) => continue,
             }
-            Ok(())
         }
-        .await)
+        Ok(())
     }
 
     fn drop(&mut self, connection: Resource<MqttConnection>) -> anyhow::Result<()> {

@@ -2,6 +2,7 @@ mod host_component;
 
 use spin_app::{async_trait, MetadataKey};
 use spin_core::wasmtime::component::Resource;
+use spin_world::v1::sqlite::Error as V1SqliteError;
 use spin_world::v2::sqlite;
 use std::{collections::HashSet, sync::Arc};
 
@@ -70,19 +71,22 @@ impl SqliteDispatch {
 }
 
 #[async_trait]
-impl sqlite::Host for SqliteDispatch {}
+impl sqlite::Host for SqliteDispatch {
+    fn convert_error(&mut self, error: sqlite::Error) -> anyhow::Result<sqlite::Error> {
+        Ok(error)
+    }
+}
 
 #[async_trait]
 impl sqlite::HostConnection for SqliteDispatch {
     async fn open(
         &mut self,
         database: String,
-    ) -> anyhow::Result<Result<Resource<sqlite::Connection>, sqlite::Error>> {
+    ) -> Result<Resource<sqlite::Connection>, sqlite::Error> {
         if !self.allowed_databases.contains(&database) {
-            return Ok(Err(sqlite::Error::AccessDenied));
+            return Err(sqlite::Error::AccessDenied);
         }
-        Ok(self
-            .connections_store
+        self.connections_store
             .get_connection(&database)
             .await
             .and_then(|conn| conn.ok_or(sqlite::Error::NoSuchDatabase))
@@ -91,7 +95,7 @@ impl sqlite::HostConnection for SqliteDispatch {
                     .push(conn)
                     .map_err(|()| sqlite::Error::Io("too many connections opened".to_string()))
             })
-            .map(Resource::new_own))
+            .map(Resource::new_own)
     }
 
     async fn execute(
@@ -99,12 +103,12 @@ impl sqlite::HostConnection for SqliteDispatch {
         connection: Resource<sqlite::Connection>,
         query: String,
         parameters: Vec<sqlite::Value>,
-    ) -> anyhow::Result<Result<sqlite::QueryResult, sqlite::Error>> {
+    ) -> Result<sqlite::QueryResult, sqlite::Error> {
         let conn = match self.get_connection(connection) {
             Ok(c) => c,
-            Err(err) => return Ok(Err(err)),
+            Err(err) => return Err(err),
         };
-        Ok(conn.query(&query, parameters).await)
+        conn.query(&query, parameters).await
     }
 
     fn drop(&mut self, connection: Resource<sqlite::Connection>) -> anyhow::Result<()> {
@@ -115,12 +119,9 @@ impl sqlite::HostConnection for SqliteDispatch {
 
 #[async_trait]
 impl spin_world::v1::sqlite::Host for SqliteDispatch {
-    async fn open(
-        &mut self,
-        database: String,
-    ) -> anyhow::Result<Result<u32, spin_world::v1::sqlite::Error>> {
-        let result = <Self as sqlite::HostConnection>::open(self, database).await?;
-        Ok(result.map_err(to_legacy_error).map(|s| s.rep()))
+    async fn open(&mut self, database: String) -> Result<u32, V1SqliteError> {
+        let result = <Self as sqlite::HostConnection>::open(self, database).await;
+        result.map_err(to_legacy_error).map(|s| s.rep())
     }
 
     async fn execute(
@@ -128,8 +129,7 @@ impl spin_world::v1::sqlite::Host for SqliteDispatch {
         connection: u32,
         query: String,
         parameters: Vec<spin_world::v1::sqlite::Value>,
-    ) -> anyhow::Result<Result<spin_world::v1::sqlite::QueryResult, spin_world::v1::sqlite::Error>>
-    {
+    ) -> Result<spin_world::v1::sqlite::QueryResult, V1SqliteError> {
         let this = Resource::new_borrow(connection);
         let result = <Self as sqlite::HostConnection>::execute(
             self,
@@ -137,12 +137,16 @@ impl spin_world::v1::sqlite::Host for SqliteDispatch {
             query,
             parameters.into_iter().map(from_legacy_value).collect(),
         )
-        .await?;
-        Ok(result.map_err(to_legacy_error).map(to_legacy_query_result))
+        .await;
+        result.map_err(to_legacy_error).map(to_legacy_query_result)
     }
 
     async fn close(&mut self, connection: u32) -> anyhow::Result<()> {
         <Self as sqlite::HostConnection>::drop(self, Resource::new_own(connection))
+    }
+
+    fn convert_error(&mut self, error: V1SqliteError) -> anyhow::Result<V1SqliteError> {
+        Ok(error)
     }
 }
 use spin_world::v1::sqlite as v1;

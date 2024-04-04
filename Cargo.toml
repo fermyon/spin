@@ -127,10 +127,10 @@ hyper = { version = "1.0.0", features = ["full"] }
 reqwest = { version = "0.11", features = ["stream", "blocking"] }
 tracing = { version = "0.1", features = ["log"] }
 
-wasi-common-preview1 = { version = "18.0.1", package = "wasi-common" }
-wasmtime = "18.0.1"
-wasmtime-wasi = { version = "18.0.1", features = ["tokio"] }
-wasmtime-wasi-http = "18.0.1"
+wasi-common-preview1 = { version = "18.0.4", package = "wasi-common" }
+wasmtime = "18.0.4"
+wasmtime-wasi = { version = "18.0.4", features = ["tokio"] }
+wasmtime-wasi-http = "18.0.4"
 
 spin-componentize = { path = "crates/componentize" }
 

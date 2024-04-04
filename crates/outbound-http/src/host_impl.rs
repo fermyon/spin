@@ -5,7 +5,7 @@ use spin_core::async_trait;
 use spin_outbound_networking::{AllowedHostsConfig, OutboundUrl};
 use spin_world::v1::{
     http as outbound_http,
-    http_types::{Headers, HttpError, Method, Request, Response},
+    http_types::{self, Headers, HttpError, Method, Request, Response},
 };
 use tracing::{field::Empty, instrument, Level};
 
@@ -42,72 +42,75 @@ impl outbound_http::Host for OutboundHttp {
     #[instrument(name = "spin_outbound_http.send_request", skip_all, err(level = Level::INFO),
         fields(otel.kind = "client", url.full = Empty, http.request.method = Empty,
         http.response.status_code = Empty, otel.name = Empty, server.address = Empty, server.port = Empty))]
-    async fn send_request(&mut self, req: Request) -> Result<Result<Response, HttpError>> {
-        Ok(async {
-            let current_span = tracing::Span::current();
-            let method = format!("{:?}", req.method)
-                .strip_prefix("Method::")
-                .unwrap_or("_OTHER")
-                .to_uppercase();
-            current_span.record("otel.name", method.clone());
-            current_span.record("url.full", req.uri.clone());
-            current_span.record("http.request.method", method);
-            if let Ok(uri) = req.uri.parse::<Uri>() {
-                if let Some(authority) = uri.authority() {
-                    current_span.record("server.address", authority.host());
-                    if let Some(port) = authority.port() {
-                        current_span.record("server.port", port.as_u16());
-                    }
+    async fn send_request(&mut self, req: Request) -> Result<Response, HttpError> {
+        let current_span = tracing::Span::current();
+        let method = format!("{:?}", req.method)
+            .strip_prefix("Method::")
+            .unwrap_or("_OTHER")
+            .to_uppercase();
+        current_span.record("otel.name", method.clone());
+        current_span.record("url.full", req.uri.clone());
+        current_span.record("http.request.method", method);
+        if let Ok(uri) = req.uri.parse::<Uri>() {
+            if let Some(authority) = uri.authority() {
+                current_span.record("server.address", authority.host());
+                if let Some(port) = authority.port() {
+                    current_span.record("server.port", port.as_u16());
                 }
             }
-
-            tracing::log::trace!("Attempting to send outbound HTTP request to {}", req.uri);
-            if !self
-                .is_allowed(&req.uri)
-                .map_err(|_| HttpError::RuntimeError)?
-            {
-                tracing::log::info!("Destination not allowed: {}", req.uri);
-                if let Some((scheme, host_and_port)) = scheme_host_and_port(&req.uri) {
-                    terminal::warn!("A component tried to make a HTTP request to non-allowed host '{host_and_port}'.");
-                    eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"{scheme}://{host_and_port}\"]' to the manifest component section.");
-                }
-                return Err(HttpError::DestinationNotAllowed);
-            }
-
-            let method = method_from(req.method);
-
-            let abs_url = if req.uri.starts_with('/') {
-                format!("{}{}", self.origin, req.uri)
-            } else {
-                req.uri.clone()
-            };
-
-            let req_url = reqwest::Url::parse(&abs_url).map_err(|_| HttpError::InvalidUrl)?;
-
-            let mut headers = request_headers(req.headers).map_err(|_| HttpError::RuntimeError)?;
-            spin_telemetry::inject_trace_context(&mut headers);
-            let body = req.body.unwrap_or_default().to_vec();
-
-            if !req.params.is_empty() {
-                tracing::log::warn!("HTTP params field is deprecated");
-            }
-
-            // Allow reuse of Client's internal connection pool for multiple requests
-            // in a single component execution
-            let client = self.client.get_or_insert_with(Default::default);
-
-            let resp = client
-                .request(method, req_url)
-                .headers(headers)
-                .body(body)
-                .send()
-                .await
-                .map_err(log_reqwest_error)?;
-            tracing::log::trace!("Returning response from outbound request to {}", req.uri);
-            current_span.record("http.response.status_code", resp.status().as_u16());
-            response_from_reqwest(resp).await
         }
-        .await)
+
+        tracing::log::trace!("Attempting to send outbound HTTP request to {}", req.uri);
+        if !self
+            .is_allowed(&req.uri)
+            .map_err(|_| HttpError::RuntimeError)?
+        {
+            tracing::log::info!("Destination not allowed: {}", req.uri);
+            if let Some((scheme, host_and_port)) = scheme_host_and_port(&req.uri) {
+                terminal::warn!("A component tried to make a HTTP request to non-allowed host '{host_and_port}'.");
+                eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"{scheme}://{host_and_port}\"]' to the manifest component section.");
+            }
+            return Err(HttpError::DestinationNotAllowed);
+        }
+
+        let method = method_from(req.method);
+
+        let abs_url = if req.uri.starts_with('/') {
+            format!("{}{}", self.origin, req.uri)
+        } else {
+            req.uri.clone()
+        };
+
+        let req_url = reqwest::Url::parse(&abs_url).map_err(|_| HttpError::InvalidUrl)?;
+
+        let mut headers = request_headers(req.headers).map_err(|_| HttpError::RuntimeError)?;
+        spin_telemetry::inject_trace_context(&mut headers);
+        let body = req.body.unwrap_or_default().to_vec();
+
+        if !req.params.is_empty() {
+            tracing::log::warn!("HTTP params field is deprecated");
+        }
+
+        // Allow reuse of Client's internal connection pool for multiple requests
+        // in a single component execution
+        let client = self.client.get_or_insert_with(Default::default);
+
+        let resp = client
+            .request(method, req_url)
+            .headers(headers)
+            .body(body)
+            .send()
+            .await
+            .map_err(log_reqwest_error)?;
+        tracing::log::trace!("Returning response from outbound request to {}", req.uri);
+        current_span.record("http.response.status_code", resp.status().as_u16());
+        response_from_reqwest(resp).await
+    }
+}
+
+impl http_types::Host for OutboundHttp {
+    fn convert_http_error(&mut self, error: HttpError) -> Result<HttpError> {
+        Ok(error)
     }
 }
 

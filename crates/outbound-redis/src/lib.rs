@@ -3,7 +3,7 @@ mod host_component;
 use anyhow::Result;
 use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
 use spin_core::{async_trait, wasmtime::component::Resource};
-use spin_world::v1::redis as v1;
+use spin_world::v1::{redis as v1, redis_types};
 use spin_world::v2::redis::{
     self as v2, Connection as RedisConnection, Error, RedisParameter, RedisResult,
 };
@@ -53,33 +53,31 @@ impl OutboundRedis {
     async fn establish_connection(
         &mut self,
         address: String,
-    ) -> Result<Result<Resource<RedisConnection>, Error>> {
-        Ok(async {
-            let conn = redis::Client::open(address.as_str())
-                .map_err(|_| Error::InvalidAddress)?
-                .get_async_connection()
-                .await
-                .map_err(other_error)?;
-            self.connections
-                .push(conn)
-                .map(Resource::new_own)
-                .map_err(|_| Error::TooManyConnections)
-        }
-        .await)
+    ) -> Result<Resource<RedisConnection>, Error> {
+        let conn = redis::Client::open(address.as_str())
+            .map_err(|_| Error::InvalidAddress)?
+            .get_async_connection()
+            .await
+            .map_err(other_error)?;
+        self.connections
+            .push(conn)
+            .map(Resource::new_own)
+            .map_err(|_| Error::TooManyConnections)
     }
 }
 
-impl v2::Host for OutboundRedis {}
-
-// TODO: #[instrument(err)] is only reporting the outer error, we want to mark the span as failed
-// if the inner result is an error too.
+impl v2::Host for OutboundRedis {
+    fn convert_error(&mut self, error: Error) -> Result<Error> {
+        Ok(error)
+    }
+}
 
 #[async_trait]
 impl v2::HostConnection for OutboundRedis {
     #[instrument(name = "spin_outbound_redis.open_connection", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis"))]
-    async fn open(&mut self, address: String) -> Result<Result<Resource<RedisConnection>, Error>> {
+    async fn open(&mut self, address: String) -> Result<Resource<RedisConnection>, Error> {
         if !self.is_address_allowed(&address) {
-            return Ok(Err(Error::InvalidAddress));
+            return Err(Error::InvalidAddress);
         }
 
         self.establish_connection(address).await
@@ -91,15 +89,12 @@ impl v2::HostConnection for OutboundRedis {
         connection: Resource<RedisConnection>,
         channel: String,
         payload: Vec<u8>,
-    ) -> Result<Result<(), Error>> {
-        Ok(async {
-            let conn = self.get_conn(connection).await.map_err(other_error)?;
-            conn.publish(&channel, &payload)
-                .await
-                .map_err(other_error)?;
-            Ok(())
-        }
-        .await)
+    ) -> Result<(), Error> {
+        let conn = self.get_conn(connection).await.map_err(other_error)?;
+        conn.publish(&channel, &payload)
+            .await
+            .map_err(other_error)?;
+        Ok(())
     }
 
     #[instrument(name = "spin_outbound_redis.get", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("GET {}", key)))]
@@ -107,13 +102,10 @@ impl v2::HostConnection for OutboundRedis {
         &mut self,
         connection: Resource<RedisConnection>,
         key: String,
-    ) -> Result<Result<Option<Vec<u8>>, Error>> {
-        Ok(async {
-            let conn = self.get_conn(connection).await.map_err(other_error)?;
-            let value = conn.get(&key).await.map_err(other_error)?;
-            Ok(value)
-        }
-        .await)
+    ) -> Result<Option<Vec<u8>>, Error> {
+        let conn = self.get_conn(connection).await.map_err(other_error)?;
+        let value = conn.get(&key).await.map_err(other_error)?;
+        Ok(value)
     }
 
     #[instrument(name = "spin_outbound_redis.set", skip(self, connection, value), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("SET {}", key)))]
@@ -122,13 +114,10 @@ impl v2::HostConnection for OutboundRedis {
         connection: Resource<RedisConnection>,
         key: String,
         value: Vec<u8>,
-    ) -> Result<Result<(), Error>> {
-        Ok(async {
-            let conn = self.get_conn(connection).await.map_err(other_error)?;
-            conn.set(&key, &value).await.map_err(other_error)?;
-            Ok(())
-        }
-        .await)
+    ) -> Result<(), Error> {
+        let conn = self.get_conn(connection).await.map_err(other_error)?;
+        conn.set(&key, &value).await.map_err(other_error)?;
+        Ok(())
     }
 
     #[instrument(name = "spin_outbound_redis.incr", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("INCRBY {} 1", key)))]
@@ -136,13 +125,10 @@ impl v2::HostConnection for OutboundRedis {
         &mut self,
         connection: Resource<RedisConnection>,
         key: String,
-    ) -> Result<Result<i64, Error>> {
-        Ok(async {
-            let conn = self.get_conn(connection).await.map_err(other_error)?;
-            let value = conn.incr(&key, 1).await.map_err(other_error)?;
-            Ok(value)
-        }
-        .await)
+    ) -> Result<i64, Error> {
+        let conn = self.get_conn(connection).await.map_err(other_error)?;
+        let value = conn.incr(&key, 1).await.map_err(other_error)?;
+        Ok(value)
     }
 
     #[instrument(name = "spin_outbound_redis.del", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("DEL {}", keys.join(" "))))]
@@ -150,13 +136,10 @@ impl v2::HostConnection for OutboundRedis {
         &mut self,
         connection: Resource<RedisConnection>,
         keys: Vec<String>,
-    ) -> Result<Result<u32, Error>> {
-        Ok(async {
-            let conn = self.get_conn(connection).await.map_err(other_error)?;
-            let value = conn.del(&keys).await.map_err(other_error)?;
-            Ok(value)
-        }
-        .await)
+    ) -> Result<u32, Error> {
+        let conn = self.get_conn(connection).await.map_err(other_error)?;
+        let value = conn.del(&keys).await.map_err(other_error)?;
+        Ok(value)
     }
 
     #[instrument(name = "spin_outbound_redis.sadd", skip(self, connection, values), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("SADD {} {}", key, values.join(" "))))]
@@ -165,19 +148,16 @@ impl v2::HostConnection for OutboundRedis {
         connection: Resource<RedisConnection>,
         key: String,
         values: Vec<String>,
-    ) -> Result<Result<u32, Error>> {
-        Ok(async {
-            let conn = self.get_conn(connection).await.map_err(other_error)?;
-            let value = conn.sadd(&key, &values).await.map_err(|e| {
-                if e.kind() == redis::ErrorKind::TypeError {
-                    Error::TypeError
-                } else {
-                    Error::Other(e.to_string())
-                }
-            })?;
-            Ok(value)
-        }
-        .await)
+    ) -> Result<u32, Error> {
+        let conn = self.get_conn(connection).await.map_err(other_error)?;
+        let value = conn.sadd(&key, &values).await.map_err(|e| {
+            if e.kind() == redis::ErrorKind::TypeError {
+                Error::TypeError
+            } else {
+                Error::Other(e.to_string())
+            }
+        })?;
+        Ok(value)
     }
 
     #[instrument(name = "spin_outbound_redis.smembers", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("SMEMBERS {}", key)))]
@@ -185,13 +165,10 @@ impl v2::HostConnection for OutboundRedis {
         &mut self,
         connection: Resource<RedisConnection>,
         key: String,
-    ) -> Result<Result<Vec<String>, Error>> {
-        Ok(async {
-            let conn = self.get_conn(connection).await.map_err(other_error)?;
-            let value = conn.smembers(&key).await.map_err(other_error)?;
-            Ok(value)
-        }
-        .await)
+    ) -> Result<Vec<String>, Error> {
+        let conn = self.get_conn(connection).await.map_err(other_error)?;
+        let value = conn.smembers(&key).await.map_err(other_error)?;
+        Ok(value)
     }
 
     #[instrument(name = "spin_outbound_redis.srem", skip(self, connection, values), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("SREM {} {}", key, values.join(" "))))]
@@ -200,13 +177,10 @@ impl v2::HostConnection for OutboundRedis {
         connection: Resource<RedisConnection>,
         key: String,
         values: Vec<String>,
-    ) -> Result<Result<u32, Error>> {
-        Ok(async {
-            let conn = self.get_conn(connection).await.map_err(other_error)?;
-            let value = conn.srem(&key, &values).await.map_err(other_error)?;
-            Ok(value)
-        }
-        .await)
+    ) -> Result<u32, Error> {
+        let conn = self.get_conn(connection).await.map_err(other_error)?;
+        let value = conn.srem(&key, &values).await.map_err(other_error)?;
+        Ok(value)
     }
 
     #[instrument(name = "spin_outbound_redis.execute", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis", otel.name = format!("{}", command)))]
@@ -215,25 +189,22 @@ impl v2::HostConnection for OutboundRedis {
         connection: Resource<RedisConnection>,
         command: String,
         arguments: Vec<RedisParameter>,
-    ) -> Result<Result<Vec<RedisResult>, Error>> {
-        Ok(async {
-            let conn = self.get_conn(connection).await?;
-            let mut cmd = redis::cmd(&command);
-            arguments.iter().for_each(|value| match value {
-                RedisParameter::Int64(v) => {
-                    cmd.arg(v);
-                }
-                RedisParameter::Binary(v) => {
-                    cmd.arg(v);
-                }
-            });
+    ) -> Result<Vec<RedisResult>, Error> {
+        let conn = self.get_conn(connection).await?;
+        let mut cmd = redis::cmd(&command);
+        arguments.iter().for_each(|value| match value {
+            RedisParameter::Int64(v) => {
+                cmd.arg(v);
+            }
+            RedisParameter::Binary(v) => {
+                cmd.arg(v);
+            }
+        });
 
-            cmd.query_async::<_, RedisResults>(conn)
-                .await
-                .map(|values| values.0)
-                .map_err(other_error)
-        }
-        .await)
+        cmd.query_async::<_, RedisResults>(conn)
+            .await
+            .map(|values| values.0)
+            .map_err(other_error)
     }
 
     fn drop(&mut self, connection: Resource<RedisConnection>) -> anyhow::Result<()> {
@@ -250,15 +221,15 @@ fn other_error(e: impl std::fmt::Display) -> Error {
 macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
         if !$self.is_address_allowed(&$address) {
-            return Ok(Err(v1::Error::Error));
+            return Err(v1::Error::Error);
         }
-        let connection = match $self.establish_connection($address).await? {
+        let connection = match $self.establish_connection($address).await {
             Ok(c) => c,
-            Err(_) => return Ok(Err(v1::Error::Error)),
+            Err(_) => return Err(v1::Error::Error),
         };
-        Ok(<Self as v2::HostConnection>::$name($self, connection, $($arg),*)
-            .await?
-            .map_err(|_| v1::Error::Error))
+        <Self as v2::HostConnection>::$name($self, connection, $($arg),*)
+            .await
+            .map_err(|_| v1::Error::Error)
     }};
 }
 
@@ -269,29 +240,24 @@ impl v1::Host for OutboundRedis {
         address: String,
         channel: String,
         payload: Vec<u8>,
-    ) -> Result<Result<(), v1::Error>> {
+    ) -> Result<(), v1::Error> {
         delegate!(self.publish(address, channel, payload))
     }
 
-    async fn get(&mut self, address: String, key: String) -> Result<Result<Vec<u8>, v1::Error>> {
-        delegate!(self.get(address, key)).map(|v| v.map(|v| v.unwrap_or_default()))
+    async fn get(&mut self, address: String, key: String) -> Result<Vec<u8>, v1::Error> {
+        delegate!(self.get(address, key)).map(|v| v.unwrap_or_default())
     }
 
-    async fn set(
-        &mut self,
-        address: String,
-        key: String,
-        value: Vec<u8>,
-    ) -> Result<Result<(), v1::Error>> {
+    async fn set(&mut self, address: String, key: String, value: Vec<u8>) -> Result<(), v1::Error> {
         delegate!(self.set(address, key, value))
     }
 
-    async fn incr(&mut self, address: String, key: String) -> Result<Result<i64, v1::Error>> {
+    async fn incr(&mut self, address: String, key: String) -> Result<i64, v1::Error> {
         delegate!(self.incr(address, key))
     }
 
-    async fn del(&mut self, address: String, keys: Vec<String>) -> Result<Result<i64, v1::Error>> {
-        delegate!(self.del(address, keys)).map(|v| v.map(|v| v as i64))
+    async fn del(&mut self, address: String, keys: Vec<String>) -> Result<i64, v1::Error> {
+        delegate!(self.del(address, keys)).map(|v| v as i64)
     }
 
     async fn sadd(
@@ -299,15 +265,11 @@ impl v1::Host for OutboundRedis {
         address: String,
         key: String,
         values: Vec<String>,
-    ) -> Result<Result<i64, v1::Error>> {
-        delegate!(self.sadd(address, key, values)).map(|v| v.map(|v| v as i64))
+    ) -> Result<i64, v1::Error> {
+        delegate!(self.sadd(address, key, values)).map(|v| v as i64)
     }
 
-    async fn smembers(
-        &mut self,
-        address: String,
-        key: String,
-    ) -> Result<Result<Vec<String>, v1::Error>> {
+    async fn smembers(&mut self, address: String, key: String) -> Result<Vec<String>, v1::Error> {
         delegate!(self.smembers(address, key))
     }
 
@@ -316,8 +278,8 @@ impl v1::Host for OutboundRedis {
         address: String,
         key: String,
         values: Vec<String>,
-    ) -> Result<Result<i64, v1::Error>> {
-        delegate!(self.srem(address, key, values)).map(|v| v.map(|v| v as i64))
+    ) -> Result<i64, v1::Error> {
+        delegate!(self.srem(address, key, values)).map(|v| v as i64)
     }
 
     async fn execute(
@@ -325,13 +287,19 @@ impl v1::Host for OutboundRedis {
         address: String,
         command: String,
         arguments: Vec<v1::RedisParameter>,
-    ) -> Result<Result<Vec<v1::RedisResult>, v1::Error>> {
+    ) -> Result<Vec<v1::RedisResult>, v1::Error> {
         delegate!(self.execute(
             address,
             command,
             arguments.into_iter().map(Into::into).collect()
         ))
-        .map(|r| r.map(|v| v.into_iter().map(Into::into).collect()))
+        .map(|v| v.into_iter().map(Into::into).collect())
+    }
+}
+
+impl redis_types::Host for OutboundRedis {
+    fn convert_error(&mut self, error: redis_types::Error) -> Result<redis_types::Error> {
+        Ok(error)
     }
 }
 

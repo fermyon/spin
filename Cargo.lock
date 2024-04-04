@@ -4406,6 +4406,7 @@ dependencies = [
  "spin-expressions",
  "spin-locked-app",
  "spin-outbound-networking",
+ "spin-telemetry",
  "spin-world",
  "terminal",
  "tracing",

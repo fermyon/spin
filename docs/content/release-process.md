@@ -116,9 +116,8 @@ Otherwise, switch to the branch locally.
    `--certificate-identity` value should match this release, e.g.
    `https://github.com/fermyon/spin/.github/workflows/release.yml@refs/tags/v2.0.0`.
 
-1. Unless this is a release candidate, create a Pull Request into Fermyon's Hombrew tap
-   repository updating the [Spin formula](https://github.com/fermyon/homebrew-tap/blob/main/Formula/spin.rb).
-   In the formula, update the version, point to the latest release artifacts, and set their correct sha256 digests.
+1. Unless this is a release candidate, review and merge the bot-created Pull Request
+   in the [fermyon/homebrew-tap repository](https://github.com/fermyon/homebrew-tap/).
 
 The release is now complete!
 

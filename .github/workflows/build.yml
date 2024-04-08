@@ -24,6 +24,15 @@ env:
   RUST_VERSION: 1.74
 
 jobs:
+  dependency-review:
+    name: Review new dependencies for known vulnerabilities
+    runs-on: "ubuntu-20.04"
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+      - name: 'Dependency Review'
+        uses: actions/dependency-review-action@v4
+
   lint-rust:
     name: Lint Rust
     runs-on: "ubuntu-20.04"

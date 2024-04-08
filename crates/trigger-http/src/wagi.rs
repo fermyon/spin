@@ -8,6 +8,7 @@ use hyper::{Request, Response};
 use spin_core::WasiVersion;
 use spin_http::{config::WagiTriggerConfig, routes::RoutePattern, wagi};
 use spin_trigger::TriggerAppEngine;
+use tracing::{instrument, Level};
 use wasi_common_preview1::{pipe::WritePipe, I32Exit};
 
 use crate::{Body, HttpExecutor, HttpTrigger};
@@ -19,6 +20,7 @@ pub struct WagiHttpExecutor {
 
 #[async_trait]
 impl HttpExecutor for WagiHttpExecutor {
+    #[instrument(name = "spin_trigger_http.execute_wagi", skip_all, err(level = Level::INFO), fields(otel.name = format!("execute_wagi_component {}", component)))]
     async fn execute(
         &self,
         engine: Arc<TriggerAppEngine<HttpTrigger>>,

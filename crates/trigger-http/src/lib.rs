@@ -1,6 +1,7 @@
 //! Implementation for the Spin HTTP engine.
 
 mod handler;
+mod instrument;
 mod tls;
 mod wagi;
 
@@ -25,6 +26,7 @@ use hyper::{
     Request, Response,
 };
 use hyper_util::rt::tokio::TokioIo;
+use instrument::{finalize_http_span, http_span};
 use spin_app::{AppComponent, APP_DESCRIPTION_KEY};
 use spin_core::{Engine, OutboundWasiHttpHandler};
 use spin_http::{
@@ -42,10 +44,17 @@ use tokio::{
     net::TcpListener,
     task,
 };
-use tracing::{log, Instrument};
-use wasmtime_wasi_http::{body::HyperIncomingBody as Body, WasiHttpView};
+use tracing::{field::Empty, log, Instrument};
+use wasmtime_wasi_http::{
+    body::{HyperIncomingBody as Body, HyperOutgoingBody},
+    WasiHttpView,
+};
 
-use crate::{handler::HttpHandlerExecutor, wagi::WagiHttpExecutor};
+use crate::{
+    handler::HttpHandlerExecutor,
+    instrument::{instrument_error, MatchedRoute},
+    wagi::WagiHttpExecutor,
+};
 
 pub use tls::TlsConfig;
 
@@ -240,19 +249,22 @@ impl HttpTrigger {
             req.uri()
         );
 
-        let path = req.uri().path();
+        let path = req.uri().path().to_string();
 
         // Handle well-known spin paths
         if let Some(well_known) = path.strip_prefix(spin_http::WELL_KNOWN_PREFIX) {
             return match well_known {
-                "health" => Ok(Response::new(body::full(Bytes::from_static(b"OK")))),
-                "info" => self.app_info(),
+                "health" => Ok(MatchedRoute::with_response_extension(
+                    Response::new(body::full(Bytes::from_static(b"OK"))),
+                    path,
+                )),
+                "info" => self.app_info(path),
                 _ => Self::not_found(NotFoundRouteKind::WellKnown),
             };
         }
 
         // Route to app component
-        match self.router.route(path) {
+        match self.router.route(&path) {
             Ok(component_id) => {
                 let trigger = self.component_trigger_configs.get(component_id).unwrap();
 
@@ -293,10 +305,14 @@ impl HttpTrigger {
                     }
                 };
                 match res {
-                    Ok(res) => Ok(res),
+                    Ok(res) => Ok(MatchedRoute::with_response_extension(
+                        res,
+                        raw_route.to_string(),
+                    )),
                     Err(e) => {
                         log::error!("Error processing request: {:?}", e);
-                        Self::internal_error(None)
+                        instrument_error(&e);
+                        Self::internal_error(None, raw_route.to_string())
                     }
                 }
             }
@@ -305,24 +321,30 @@ impl HttpTrigger {
     }
 
     /// Returns spin status information.
-    fn app_info(&self) -> Result<Response<Body>> {
+    fn app_info(&self, route: String) -> Result<Response<Body>> {
         let info = AppInfo::new(self.engine.app());
         let body = serde_json::to_vec_pretty(&info)?;
-        Ok(Response::builder()
-            .header("content-type", "application/json")
-            .body(body::full(body.into()))?)
+        Ok(MatchedRoute::with_response_extension(
+            Response::builder()
+                .header("content-type", "application/json")
+                .body(body::full(body.into()))?,
+            route,
+        ))
     }
 
     /// Creates an HTTP 500 response.
-    fn internal_error(body: Option<&str>) -> Result<Response<Body>> {
+    fn internal_error(body: Option<&str>, route: String) -> Result<Response<Body>> {
         let body = match body {
             Some(body) => body::full(Bytes::copy_from_slice(body.as_bytes())),
             None => body::empty(),
         };
 
-        Ok(Response::builder()
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
-            .body(body)?)
+        Ok(MatchedRoute::with_response_extension(
+            Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(body)?,
+            route,
+        ))
     }
 
     /// Creates an HTTP 404 response.
@@ -351,44 +373,37 @@ impl HttpTrigger {
                 .keep_alive(true)
                 .serve_connection(
                     TokioIo::new(stream),
-                    service_fn(move |request| {
-                        let self_ = self_.clone();
-                        let span = tracing::info_span!(
-                            "handle_http_request",
-                            "otel.kind" = "server",
-                            "http.request.method" = %request.method(),
-                            "network.peer.address" = %addr.ip(),
-                            "network.peer.port" = %addr.port(),
-                            "network.protocol.name" = "http",
-                            "url.path" = request.uri().path(),
-                            "url.query" = request.uri().query().unwrap_or(""),
-                            "url.scheme" = request.uri().scheme_str().unwrap_or(""),
-                            "client.address" = request.headers().get("x-forwarded-for").and_then(|val| val.to_str().ok()),
-                            // TODO(Caleb): Recorded later
-                            // "error.type" = Empty,
-                            // "http.response.status_code" = Empty,
-                            // "http.route" = Empty,
-                        );
-                        async move {
-                            self_
-                                .handle(
-                                    request.map(|body: Incoming| {
-                                        body.map_err(wasmtime_wasi_http::hyper_response_error)
-                                            .boxed()
-                                    }),
-                                    Scheme::HTTP,
-                                    addr,
-                                )
-                                .instrument(span)
-                                .await
-                        }
-                    }),
+                    service_fn(move |request| self_.clone().instrumented_service_fn(addr, request)),
                 )
                 .await
             {
                 log::warn!("{e:?}");
             }
         });
+    }
+
+    async fn instrumented_service_fn(
+        self: Arc<Self>,
+        addr: SocketAddr,
+        request: Request<Incoming>,
+    ) -> Result<Response<HyperOutgoingBody>> {
+        let span = http_span!(request, addr);
+        let method = request.method().to_string();
+        async {
+            let result = self
+                .handle(
+                    request.map(|body: Incoming| {
+                        body.map_err(wasmtime_wasi_http::hyper_response_error)
+                            .boxed()
+                    }),
+                    Scheme::HTTP,
+                    addr,
+                )
+                .await;
+            finalize_http_span(result, method)
+        }
+        .instrument(span)
+        .await
     }
 
     async fn serve(self, listen_addr: SocketAddr) -> Result<()> {

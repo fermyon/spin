@@ -226,9 +226,10 @@ impl HttpTrigger {
         &self,
         mut req: Request<Body>,
         scheme: Scheme,
-        addr: SocketAddr,
+        server_addr: SocketAddr,
+        client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
-        set_req_uri(&mut req, scheme)?;
+        set_req_uri(&mut req, scheme, server_addr)?;
         strip_forbidden_headers(&mut req);
 
         spin_telemetry::extract_trace_context(&req);
@@ -266,7 +267,7 @@ impl HttpTrigger {
                                 &self.base,
                                 &trigger.route,
                                 req,
-                                addr,
+                                client_addr,
                             )
                             .await
                     }
@@ -281,7 +282,7 @@ impl HttpTrigger {
                                 &self.base,
                                 &trigger.route,
                                 req,
-                                addr,
+                                client_addr,
                             )
                             .await
                     }
@@ -329,7 +330,8 @@ impl HttpTrigger {
     fn serve_connection<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         self_: Arc<Self>,
         stream: S,
-        addr: SocketAddr,
+        server_addr: SocketAddr,
+        client_addr: SocketAddr,
     ) {
         task::spawn(async move {
             if let Err(e) = http1::Builder::new()
@@ -342,8 +344,8 @@ impl HttpTrigger {
                             "handle_http_request",
                             "otel.kind" = "server",
                             "http.request.method" = %request.method(),
-                            "network.peer.address" = %addr.ip(),
-                            "network.peer.port" = %addr.port(),
+                            "network.peer.address" = %client_addr.ip(),
+                            "network.peer.port" = %client_addr.port(),
                             "network.protocol.name" = "http",
                             "url.path" = request.uri().path(),
                             "url.query" = request.uri().query().unwrap_or(""),
@@ -362,7 +364,8 @@ impl HttpTrigger {
                                             .boxed()
                                     }),
                                     Scheme::HTTP,
-                                    addr,
+                                    server_addr,
+                                    client_addr,
                                 )
                                 .instrument(span)
                                 .await
@@ -384,8 +387,8 @@ impl HttpTrigger {
             .with_context(|| format!("Unable to listen on {}", listen_addr))?;
 
         loop {
-            let (stream, addr) = listener.accept().await?;
-            Self::serve_connection(self_.clone(), stream, addr);
+            let (stream, client_addr) = listener.accept().await?;
+            Self::serve_connection(self_.clone(), stream, listen_addr, client_addr);
         }
     }
 
@@ -401,7 +404,7 @@ impl HttpTrigger {
         loop {
             let (stream, addr) = listener.accept().await?;
             match acceptor.accept(stream).await {
-                Ok(stream) => Self::serve_connection(self_.clone(), stream, addr),
+                Ok(stream) => Self::serve_connection(self_.clone(), stream, listen_addr, addr),
                 Err(err) => tracing::error!(?err, "Failed to start TLS session"),
             }
         }
@@ -421,21 +424,15 @@ fn parse_listen_addr(addr: &str) -> anyhow::Result<SocketAddr> {
     addrs.into_iter().next().context("couldn't resolve address")
 }
 
-fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> Result<()> {
-    const DEFAULT_HOST: &str = "localhost";
-
-    let authority_hdr = req
-        .headers()
-        .get(http::header::HOST)
-        .map(|h| h.to_str().context("Expected UTF8 header value (authority)"))
-        .unwrap_or(Ok(DEFAULT_HOST))?;
+/// The incoming request's scheme and authority
+///
+/// The incoming request's URI is relative to the server, so we need to set the scheme and authority
+fn set_req_uri(req: &mut Request<Body>, scheme: Scheme, addr: SocketAddr) -> Result<()> {
     let uri = req.uri().clone();
     let mut parts = uri.into_parts();
-    parts.authority = authority_hdr
-        .parse()
-        .map(Option::Some)
-        .map_err(|e| anyhow::anyhow!("Invalid authority {:?}", e))?;
+    let authority = format!("{}:{}", addr.ip(), addr.port()).parse().unwrap();
     parts.scheme = Some(scheme);
+    parts.authority = Some(authority);
     *req.uri_mut() = Uri::from_parts(parts).unwrap();
     Ok(())
 }

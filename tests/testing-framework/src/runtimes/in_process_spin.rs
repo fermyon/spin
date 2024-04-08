@@ -33,7 +33,8 @@ impl InProcessSpin {
                 .handle(
                     req,
                     http::uri::Scheme::HTTP,
-                    (std::net::Ipv4Addr::LOCALHOST, 80).into(),
+                    (std::net::Ipv4Addr::LOCALHOST, 3000).into(),
+                    (std::net::Ipv4Addr::LOCALHOST, 7000).into(),
                 )
                 .await?;
             use http_body_util::BodyExt;

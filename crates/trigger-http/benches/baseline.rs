@@ -114,7 +114,12 @@ async fn run(trigger: &HttpTrigger, path: &str) {
         .body(Default::default())
         .unwrap();
     let resp = trigger
-        .handle(req, Scheme::HTTP, "127.0.0.1:55555".parse().unwrap())
+        .handle(
+            req,
+            Scheme::HTTP,
+            "127.0.0.1:3000".parse().unwrap(),
+            "127.0.0.1:55555".parse().unwrap(),
+        )
         .await
         .unwrap();
     assert_http_response_success(&resp);

@@ -8,6 +8,7 @@ use spin_world::v2::mysql::{self as v2, Connection};
 use spin_world::v2::rdbms_types as v2_types;
 use spin_world::v2::rdbms_types::{Column, DbDataType, DbValue, ParameterValue};
 use std::sync::Arc;
+use tracing::{instrument, Level};
 use url::Url;
 
 /// A simple implementation to support outbound mysql connection
@@ -85,6 +86,7 @@ impl v2::Host for OutboundMysql {}
 
 #[async_trait]
 impl v2::HostConnection for OutboundMysql {
+    #[instrument(name = "spin_outbound_mysql.open_connection", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql"))]
     async fn open(&mut self, address: String) -> Result<Result<Resource<Connection>, v2::Error>> {
         if !self.is_address_allowed(&address) {
             return Ok(Err(v2::Error::ConnectionFailed(format!(
@@ -94,6 +96,7 @@ impl v2::HostConnection for OutboundMysql {
         Ok(self.open_connection(&address).await)
     }
 
+    #[instrument(name = "spin_outbound_mysql.execute", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql", otel.name = statement))]
     async fn execute(
         &mut self,
         connection: Resource<Connection>,
@@ -115,6 +118,7 @@ impl v2::HostConnection for OutboundMysql {
         .await)
     }
 
+    #[instrument(name = "spin_outbound_mysql.query", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "mysql", otel.name = statement))]
     async fn query(
         &mut self,
         connection: Resource<Connection>,

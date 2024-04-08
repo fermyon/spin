@@ -12,6 +12,8 @@ use tokio_postgres::{
     types::{ToSql, Type},
     Client, NoTls, Row, Socket,
 };
+use tracing::instrument;
+use tracing::Level;
 
 pub struct OutboundPgComponent {
     pub resolver: spin_expressions::SharedPreparedResolver,
@@ -110,6 +112,7 @@ impl v2::Host for OutboundPg {}
 
 #[async_trait]
 impl v2::HostConnection for OutboundPg {
+    #[instrument(name = "spin_outbound_pg.open_connection", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql"))]
     async fn open(&mut self, address: String) -> Result<Result<Resource<Connection>, v2::Error>> {
         if !self.is_address_allowed(&address) {
             return Ok(Err(v2::Error::ConnectionFailed(format!(
@@ -119,6 +122,7 @@ impl v2::HostConnection for OutboundPg {
         Ok(self.open_connection(&address).await)
     }
 
+    #[instrument(name = "spin_outbound_pg.execute", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", otel.name = statement))]
     async fn execute(
         &mut self,
         connection: Resource<Connection>,
@@ -144,6 +148,7 @@ impl v2::HostConnection for OutboundPg {
         .await)
     }
 
+    #[instrument(name = "spin_outbound_pg.query", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", otel.name = statement))]
     async fn query(
         &mut self,
         connection: Resource<Connection>,

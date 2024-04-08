@@ -1,5 +1,5 @@
 use anyhow::Result;
-use http::HeaderMap;
+use http::{HeaderMap, Uri};
 use reqwest::Client;
 use spin_core::async_trait;
 use spin_outbound_networking::{AllowedHostsConfig, OutboundUrl};
@@ -7,6 +7,7 @@ use spin_world::v1::{
     http as outbound_http,
     http_types::{Headers, HttpError, Method, Request, Response},
 };
+use tracing::{field::Empty, instrument, Level};
 
 /// A very simple implementation for outbound HTTP requests.
 #[derive(Default, Clone)]
@@ -38,8 +39,28 @@ impl OutboundHttp {
 
 #[async_trait]
 impl outbound_http::Host for OutboundHttp {
+    #[instrument(name = "spin_outbound_http.send_request", skip_all, err(level = Level::INFO),
+        fields(otel.kind = "client", url.full = Empty, http.request.method = Empty,
+        http.response.status_code = Empty, otel.name = Empty, server.address = Empty, server.port = Empty))]
     async fn send_request(&mut self, req: Request) -> Result<Result<Response, HttpError>> {
         Ok(async {
+            let current_span = tracing::Span::current();
+            let method = format!("{:?}", req.method)
+                .strip_prefix("Method::")
+                .unwrap_or("_OTHER")
+                .to_uppercase();
+            current_span.record("otel.name", method.clone());
+            current_span.record("url.full", req.uri.clone());
+            current_span.record("http.request.method", method);
+            if let Ok(uri) = req.uri.parse::<Uri>() {
+                if let Some(authority) = uri.authority() {
+                    current_span.record("server.address", authority.host());
+                    if let Some(port) = authority.port() {
+                        current_span.record("server.port", port.as_u16());
+                    }
+                }
+            }
+
             tracing::log::trace!("Attempting to send outbound HTTP request to {}", req.uri);
             if !self
                 .is_allowed(&req.uri)
@@ -63,7 +84,8 @@ impl outbound_http::Host for OutboundHttp {
 
             let req_url = reqwest::Url::parse(&abs_url).map_err(|_| HttpError::InvalidUrl)?;
 
-            let headers = request_headers(req.headers).map_err(|_| HttpError::RuntimeError)?;
+            let mut headers = request_headers(req.headers).map_err(|_| HttpError::RuntimeError)?;
+            spin_telemetry::inject_trace_context(&mut headers);
             let body = req.body.unwrap_or_default().to_vec();
 
             if !req.params.is_empty() {
@@ -82,6 +104,7 @@ impl outbound_http::Host for OutboundHttp {
                 .await
                 .map_err(log_reqwest_error)?;
             tracing::log::trace!("Returning response from outbound request to {}", req.uri);
+            current_span.record("http.response.status_code", resp.status().as_u16());
             response_from_reqwest(resp).await
         }
         .await)

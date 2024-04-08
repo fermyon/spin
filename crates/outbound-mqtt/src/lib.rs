@@ -8,6 +8,7 @@ use spin_core::{async_trait, wasmtime::component::Resource};
 use spin_world::v2::mqtt::{self as v2, Connection as MqttConnection, Error, Qos};
 
 pub use host_component::OutboundMqttComponent;
+use tracing::{instrument, Level};
 
 pub struct OutboundMqtt {
     allowed_hosts: spin_outbound_networking::AllowedHostsConfig,
@@ -59,6 +60,7 @@ impl v2::Host for OutboundMqtt {}
 
 #[async_trait]
 impl v2::HostConnection for OutboundMqtt {
+    #[instrument(name = "spin_outbound_mqtt.open_connection", skip(self, password), err(level = Level::INFO), fields(otel.kind = "client"))]
     async fn open(
         &mut self,
         address: String,
@@ -80,6 +82,14 @@ impl v2::HostConnection for OutboundMqtt {
         .await
     }
 
+    /// Publish a message to the MQTT broker.
+    ///
+    /// OTEL trace propagation is not directly supported in MQTT V3. You will need to embed the
+    /// current trace context into the payload yourself.
+    /// https://w3c.github.io/trace-context-mqtt/#mqtt-v3-recommendation.
+    #[instrument(name = "spin_outbound_mqtt.publish", skip(self, connection, payload), err(level = Level::INFO),
+        fields(otel.kind = "producer", otel.name = format!("{} publish", topic), messaging.operation = "publish",
+        messaging.system = "mqtt"))]
     async fn publish(
         &mut self,
         connection: Resource<MqttConnection>,

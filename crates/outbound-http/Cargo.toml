@@ -17,6 +17,7 @@ spin-expressions = { path = "../expressions", optional = true }
 spin-locked-app = { path = "../locked-app" }
 spin-outbound-networking = { path = "../outbound-networking" }
 spin-world = { path = "../world", optional = true }
+spin-telemetry = { path = "../telemetry" }
 terminal = { path = "../terminal" }
 tracing = { workspace = true }
 url = "2.2.1"
@@ -24,3 +25,6 @@ url = "2.2.1"
 [features]
 default = ["runtime"]
 runtime = ["dep:spin-app", "dep:spin-core", "dep:spin-expressions", "dep:spin-world"]
+
+[lints]
+workspace = true

@@ -14,6 +14,6 @@ anyhow = "1"
 # Crate to simplify working with bytes.
 bytes = "1"
 # The Spin SDK.
-spin-sdk = "2.2.0"
+spin-sdk = "3.0.1"
 
 [workspace]

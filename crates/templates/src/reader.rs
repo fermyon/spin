@@ -33,6 +33,48 @@ pub(crate) struct RawTemplateVariant {
     pub skip_files: Option<Vec<String>>,
     pub skip_parameters: Option<Vec<String>>,
     pub snippets: Option<HashMap<String, String>>,
+    pub conditions: Option<HashMap<String, RawConditional>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub(crate) struct RawConditional {
+    pub condition: RawCondition,
+    pub skip_files: Option<Vec<String>>,
+    pub skip_parameters: Option<Vec<String>>,
+    pub skip_snippets: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(
+    deny_unknown_fields,
+    rename_all = "snake_case",
+    try_from = "toml::Value"
+)]
+pub(crate) enum RawCondition {
+    ManifestEntryExists(String),
+}
+
+impl TryFrom<toml::Value> for RawCondition {
+    type Error = anyhow::Error;
+
+    fn try_from(value: toml::Value) -> Result<Self, Self::Error> {
+        let Some(table) = value.as_table() else {
+            anyhow::bail!("Invalid condition: should be a single-entry table");
+        };
+        if table.keys().len() != 1 {
+            anyhow::bail!("Invalid condition: should be a single-entry table");
+        }
+        let Some(value) = table.get("manifest_entry_exists") else {
+            anyhow::bail!("Invalid condition: unknown condition type");
+        };
+        let Some(path) = value.as_str() else {
+            anyhow::bail!(
+                "Invalid condition: 'manifest_entry_exists' should be a dotted-path string"
+            );
+        };
+        Ok(Self::ManifestEntryExists(path.to_owned()))
+    }
 }
 
 #[derive(Debug, Deserialize)]

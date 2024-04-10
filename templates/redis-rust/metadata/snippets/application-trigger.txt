@@ -1,0 +1,2 @@
+[application.trigger.redis]
+address = "{{redis-address}}"

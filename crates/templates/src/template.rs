@@ -5,13 +5,14 @@ use std::{
 
 use anyhow::{anyhow, Context};
 use indexmap::IndexMap;
+use itertools::Itertools;
 use regex::Regex;
 
 use crate::{
     constraints::StringConstraints,
     reader::{
-        RawExtraOutput, RawParameter, RawTemplateManifest, RawTemplateManifestV1,
-        RawTemplateVariant,
+        RawCondition, RawConditional, RawExtraOutput, RawParameter, RawTemplateManifest,
+        RawTemplateManifestV1, RawTemplateVariant,
     },
     run::{Run, RunOptions},
     store::TemplateLayout,
@@ -96,6 +97,20 @@ pub(crate) struct TemplateVariant {
     skip_files: Vec<String>,
     skip_parameters: Vec<String>,
     snippets: HashMap<String, String>,
+    conditions: Vec<Conditional>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Conditional {
+    condition: Condition,
+    skip_files: Vec<String>,
+    skip_parameters: Vec<String>,
+    skip_snippets: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) enum Condition {
+    ManifestEntryExists(Vec<String>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -241,9 +256,12 @@ impl Template {
         }
     }
 
-    fn variant(&self, variant_info: &TemplateVariantInfo) -> Option<&TemplateVariant> {
+    // TODO: we should resolve this once at the start of Run and then use that forever
+    fn variant(&self, variant_info: &TemplateVariantInfo) -> Option<TemplateVariant> {
         let kind = variant_info.kind();
-        self.variants.get(&kind)
+        self.variants
+            .get(&kind)
+            .map(|vt| vt.resolve_conditions(variant_info))
     }
 
     pub(crate) fn parameters(
@@ -253,7 +271,7 @@ impl Template {
         let variant = self.variant(variant_kind).unwrap(); // TODO: for now
         self.parameters
             .iter()
-            .filter(|p| !variant.skip_parameter(p))
+            .filter(move |p| !variant.skip_parameter(p))
     }
 
     pub(crate) fn parameter(&self, name: impl AsRef<str>) -> Option<&TemplateParameter> {
@@ -277,9 +295,9 @@ impl Template {
         self.variants.contains_key(&variant.kind())
     }
 
-    pub(crate) fn snippets(&self, variant_kind: &TemplateVariantInfo) -> &HashMap<String, String> {
+    pub(crate) fn snippets(&self, variant_kind: &TemplateVariantInfo) -> HashMap<String, String> {
         let variant = self.variant(variant_kind).unwrap(); // TODO: for now
-        &variant.snippets
+        variant.snippets
     }
 
     /// Creates a runner for the template, governed by the given options. Call
@@ -355,6 +373,29 @@ impl Template {
             skip_files: raw.skip_files.unwrap_or_default(),
             skip_parameters: raw.skip_parameters.unwrap_or_default(),
             snippets: raw.snippets.unwrap_or_default(),
+            conditions: raw
+                .conditions
+                .unwrap_or_default()
+                .into_values()
+                .map(Self::parse_conditional)
+                .collect(),
+        }
+    }
+
+    fn parse_conditional(conditional: RawConditional) -> Conditional {
+        Conditional {
+            condition: Self::parse_condition(conditional.condition),
+            skip_files: conditional.skip_files.unwrap_or_default(),
+            skip_parameters: conditional.skip_parameters.unwrap_or_default(),
+            skip_snippets: conditional.skip_snippets.unwrap_or_default(),
+        }
+    }
+
+    fn parse_condition(condition: RawCondition) -> Condition {
+        match condition {
+            RawCondition::ManifestEntryExists(path) => {
+                Condition::ManifestEntryExists(path.split('.').map(|s| s.to_string()).collect_vec())
+            }
         }
     }
 
@@ -528,6 +569,43 @@ impl TemplateVariant {
     pub(crate) fn skip_parameter(&self, parameter: &TemplateParameter) -> bool {
         self.skip_parameters.iter().any(|p| &parameter.id == p)
     }
+
+    fn resolve_conditions(&self, variant_info: &TemplateVariantInfo) -> Self {
+        let mut resolved = self.clone();
+        for condition in &self.conditions {
+            if condition.condition.is_true(variant_info) {
+                resolved
+                    .skip_files
+                    .append(&mut condition.skip_files.clone());
+                resolved
+                    .skip_parameters
+                    .append(&mut condition.skip_parameters.clone());
+                resolved
+                    .snippets
+                    .retain(|id, _| !condition.skip_snippets.contains(id));
+            }
+        }
+        resolved
+    }
+}
+
+impl Condition {
+    fn is_true(&self, variant_info: &TemplateVariantInfo) -> bool {
+        match self {
+            Self::ManifestEntryExists(path) => match variant_info {
+                TemplateVariantInfo::NewApplication => false,
+                TemplateVariantInfo::AddComponent { manifest_path } => {
+                    let Ok(toml_text) = std::fs::read_to_string(manifest_path) else {
+                        return false;
+                    };
+                    let Ok(table) = toml::from_str::<toml::Value>(&toml_text) else {
+                        return false;
+                    };
+                    get_at(table, path).is_some()
+                }
+            },
+        }
+    }
 }
 
 fn parse_string_constraints(raw: &RawParameter) -> anyhow::Result<StringConstraints> {
@@ -558,4 +636,21 @@ fn validate_v1_manifest(raw: &RawTemplateManifestV1) -> anyhow::Result<()> {
         anyhow::bail!("Custom filters are not supported in this version of Spin. Please update your template.");
     }
     Ok(())
+}
+
+fn get_at(value: toml::Value, path: &[String]) -> Option<toml::Value> {
+    match path.split_first() {
+        None => Some(value), // we are at the end of the path and we have a thing
+        Some((first, rest)) => {
+            match value.as_table() {
+                None => None, // we need to key into it and we can't
+                Some(t) => {
+                    match t.get(first) {
+                        None => None,                       // we tried to key into it and no match
+                        Some(v) => get_at(v.clone(), rest), // we pathed into it! keep pathing
+                    }
+                }
+            }
+        }
+    }
 }

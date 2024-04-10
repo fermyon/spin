@@ -281,6 +281,17 @@ impl Run {
                         Err(anyhow::anyhow!("Spin doesn't know what to do with a 'component' snippet outside an 'add component' operation")),
                 }
             },
+            "application_trigger" => {
+                match &self.options.variant {
+                    TemplateVariantInfo::AddComponent { manifest_path } =>
+                        Ok(RenderOperation::AppendToml(
+                            manifest_path.clone(),
+                            content,
+                        )),
+                    TemplateVariantInfo::NewApplication =>
+                        Err(anyhow::anyhow!("Spin doesn't know what to do with an 'application_trigger' snippet outside an 'add component' operation")),
+                    }
+            },
             "variables" => {
                 match &self.options.variant {
                     TemplateVariantInfo::AddComponent { manifest_path } =>

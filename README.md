@@ -92,7 +92,7 @@ The table below summarizes the [feature support](https://developer.fermyon.com/s
 |-----|-----|-----|-----|-----|-----|
 | **Triggers** |
 | [HTTP](https://developer.fermyon.com/spin/http-trigger) | Supported | Supported | Supported | Supported | Supported |
-| [Redis](https://developer.fermyon.com/spin/redis-trigger) | Supported | Not Supported | Not Supported | Supported | Not Supported |
+| [Redis](https://developer.fermyon.com/spin/redis-trigger) | Supported | Not Supported | Supported | Supported | Not Supported |
 | **APIs** |
 | [Outbound HTTP](https://developer.fermyon.com/spin/rust-components.md#sending-outbound-http-requests) | Supported | Supported | Supported | Supported | Supported |
 | [Configuration Variables](https://developer.fermyon.com/spin/variables) | Supported | Supported | Supported | Supported | Supported |

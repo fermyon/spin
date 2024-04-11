@@ -351,6 +351,7 @@ impl UpCommand {
 
             cmd.kill_on_drop(true);
         } else {
+            cmd.env("SPIN_PLUGINS_SUPPRESS_COMPATIBILITY_WARNINGS", "1");
             cmd.arg("--help-args-only");
         }
 

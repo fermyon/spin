@@ -260,7 +260,7 @@ impl HttpTrigger {
 
                 let raw_route = match &trigger.route {
                     HttpTriggerRouteConfig::Route(r) => r.as_str(),
-                    HttpTriggerRouteConfig::IsRoutable(_) => "/...",
+                    HttpTriggerRouteConfig::Private(_) => "/...",
                 };
 
                 let res = match executor {

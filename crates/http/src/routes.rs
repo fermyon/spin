@@ -43,8 +43,11 @@ impl Router {
                     HttpTriggerRouteConfig::Route(r) => {
                         Some(Ok((RoutePattern::from(base, r), component_id.to_string())))
                     }
-                    HttpTriggerRouteConfig::IsRoutable(false) => None,
-                    HttpTriggerRouteConfig::IsRoutable(true) => Some(Err(anyhow!("route must be a string pattern or 'false': component '{component_id}' has route = 'true'"))),
+                    HttpTriggerRouteConfig::Private(endpoint) => if endpoint.private {
+                        None
+                    } else {
+                        Some(Err(anyhow!("route must be a string pattern or '{{ private = true }}': component '{component_id}' has {{ private = false }}")))
+                    }
                 }
             })
             .collect::<Result<Vec<_>>>()?;
@@ -216,6 +219,8 @@ impl fmt::Display for RoutePattern {
 #[cfg(test)]
 mod route_tests {
     use spin_testing::init_tracing;
+
+    use crate::config::HttpPrivateEndpoint;
 
     use super::*;
 
@@ -502,7 +507,10 @@ mod route_tests {
             vec![
                 ("/", &"/".into()),
                 ("/foo", &"/foo".into()),
-                ("private", &HttpTriggerRouteConfig::IsRoutable(false)),
+                (
+                    "private",
+                    &HttpTriggerRouteConfig::Private(HttpPrivateEndpoint { private: true }),
+                ),
                 ("/whee/...", &"/whee/...".into()),
             ],
         )
@@ -519,7 +527,10 @@ mod route_tests {
             vec![
                 ("/", &"/".into()),
                 ("/foo", &"/foo".into()),
-                ("bad component", &HttpTriggerRouteConfig::IsRoutable(true)),
+                (
+                    "bad component",
+                    &HttpTriggerRouteConfig::Private(HttpPrivateEndpoint { private: false }),
+                ),
                 ("/whee/...", &"/whee/...".into()),
             ],
         )

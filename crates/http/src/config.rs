@@ -18,7 +18,15 @@ pub struct HttpTriggerConfig {
 #[serde(untagged)]
 pub enum HttpTriggerRouteConfig {
     Route(String),
-    IsRoutable(bool),
+    Private(HttpPrivateEndpoint),
+}
+
+/// Indicates that a trigger is a private endpoint (not routable).
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct HttpPrivateEndpoint {
+    /// Whether the private endpoint is private. This must be true.
+    pub private: bool,
 }
 
 impl Default for HttpTriggerRouteConfig {

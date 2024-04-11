@@ -27,6 +27,7 @@ jobs:
   dependency-review:
     name: Review new dependencies for known vulnerabilities
     runs-on: "ubuntu-20.04"
+    if: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: 'Checkout Repository'
         uses: actions/checkout@v4

@@ -4,6 +4,7 @@ use anyhow::Result;
 use once_cell::sync::OnceCell;
 use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::{async_trait, HostComponent};
+use spin_world::v1::config::Error as V1ConfigError;
 use spin_world::v2::variables;
 
 use spin_expressions::{Error, Key, Provider, Resolver};
@@ -76,36 +77,37 @@ pub struct ComponentVariables {
 
 #[async_trait]
 impl variables::Host for ComponentVariables {
-    async fn get(&mut self, key: String) -> Result<Result<String, variables::Error>> {
-        Ok(async {
-            // Set by DynamicHostComponent::update_data
-            let component_id = self.component_id.as_deref().unwrap();
-            let key = Key::new(&key).map_err(as_wit)?;
-            self.resolver
-                .get()
-                .unwrap()
-                .resolve(component_id, key)
-                .await
-                .map_err(as_wit)
-        }
-        .await)
+    async fn get(&mut self, key: String) -> Result<String, variables::Error> {
+        // Set by DynamicHostComponent::update_data
+        let component_id = self.component_id.as_deref().unwrap();
+        let key = Key::new(&key).map_err(as_wit)?;
+        self.resolver
+            .get()
+            .unwrap()
+            .resolve(component_id, key)
+            .await
+            .map_err(as_wit)
+    }
+
+    fn convert_error(&mut self, error: variables::Error) -> Result<variables::Error> {
+        Ok(error)
     }
 }
 
 #[async_trait]
 impl spin_world::v1::config::Host for ComponentVariables {
-    async fn get_config(
-        &mut self,
-        key: String,
-    ) -> Result<Result<String, spin_world::v1::config::Error>> {
-        use spin_world::v1::config::Error as V1ConfigError;
-        Ok(<Self as variables::Host>::get(self, key)
-            .await?
+    async fn get_config(&mut self, key: String) -> Result<String, V1ConfigError> {
+        <Self as variables::Host>::get(self, key)
+            .await
             .map_err(|err| match err {
                 variables::Error::InvalidName(msg) => V1ConfigError::InvalidKey(msg),
                 variables::Error::Undefined(msg) => V1ConfigError::Provider(msg),
                 other => V1ConfigError::Other(format!("{other}")),
-            }))
+            })
+    }
+
+    fn convert_error(&mut self, error: V1ConfigError) -> Result<V1ConfigError> {
+        Ok(error)
     }
 }
 

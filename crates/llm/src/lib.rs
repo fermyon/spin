@@ -39,12 +39,11 @@ impl v2::Host for LlmDispatch {
         model: v2::InferencingModel,
         prompt: String,
         params: Option<v2::InferencingParams>,
-    ) -> anyhow::Result<Result<v2::InferencingResult, v2::Error>> {
+    ) -> Result<v2::InferencingResult, v2::Error> {
         if !self.allowed_models.contains(&model) {
-            return Ok(Err(access_denied_error(&model)));
+            return Err(access_denied_error(&model));
         }
-        Ok(self
-            .engine
+        self.engine
             .infer(
                 model,
                 prompt,
@@ -57,18 +56,22 @@ impl v2::Host for LlmDispatch {
                     top_p: 0.9,
                 }),
             )
-            .await)
+            .await
     }
 
     async fn generate_embeddings(
         &mut self,
         m: v1::EmbeddingModel,
         data: Vec<String>,
-    ) -> anyhow::Result<Result<v2::EmbeddingsResult, v2::Error>> {
+    ) -> Result<v2::EmbeddingsResult, v2::Error> {
         if !self.allowed_models.contains(&m) {
-            return Ok(Err(access_denied_error(&m)));
+            return Err(access_denied_error(&m));
         }
-        Ok(self.engine.generate_embeddings(m, data).await)
+        self.engine.generate_embeddings(m, data).await
+    }
+
+    fn convert_error(&mut self, error: v2::Error) -> anyhow::Result<v2::Error> {
+        Ok(error)
     }
 }
 
@@ -79,24 +82,26 @@ impl v1::Host for LlmDispatch {
         model: v1::InferencingModel,
         prompt: String,
         params: Option<v1::InferencingParams>,
-    ) -> anyhow::Result<Result<v1::InferencingResult, v1::Error>> {
-        Ok(
-            <Self as v2::Host>::infer(self, model, prompt, params.map(Into::into))
-                .await?
-                .map(Into::into)
-                .map_err(Into::into),
-        )
+    ) -> Result<v1::InferencingResult, v1::Error> {
+        <Self as v2::Host>::infer(self, model, prompt, params.map(Into::into))
+            .await
+            .map(Into::into)
+            .map_err(Into::into)
     }
 
     async fn generate_embeddings(
         &mut self,
         model: v1::EmbeddingModel,
         data: Vec<String>,
-    ) -> anyhow::Result<Result<v1::EmbeddingsResult, v1::Error>> {
-        Ok(<Self as v2::Host>::generate_embeddings(self, model, data)
-            .await?
+    ) -> Result<v1::EmbeddingsResult, v1::Error> {
+        <Self as v2::Host>::generate_embeddings(self, model, data)
+            .await
             .map(Into::into)
-            .map_err(Into::into))
+            .map_err(Into::into)
+    }
+
+    fn convert_error(&mut self, error: v1::Error) -> anyhow::Result<v1::Error> {
+        Ok(error)
     }
 }
 

@@ -6,6 +6,7 @@ use spin_core::{async_trait, wasmtime::component::Resource, HostComponent};
 use spin_world::v1::postgres as v1;
 use spin_world::v1::rdbms_types as v1_types;
 use spin_world::v2::postgres::{self as v2, Connection};
+use spin_world::v2::rdbms_types;
 use spin_world::v2::rdbms_types::{Column, DbDataType, DbValue, ParameterValue, RowSet};
 use tokio_postgres::{
     config::SslMode,
@@ -113,13 +114,13 @@ impl v2::Host for OutboundPg {}
 #[async_trait]
 impl v2::HostConnection for OutboundPg {
     #[instrument(name = "spin_outbound_pg.open_connection", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql"))]
-    async fn open(&mut self, address: String) -> Result<Result<Resource<Connection>, v2::Error>> {
+    async fn open(&mut self, address: String) -> Result<Resource<Connection>, v2::Error> {
         if !self.is_address_allowed(&address) {
-            return Ok(Err(v2::Error::ConnectionFailed(format!(
+            return Err(v2::Error::ConnectionFailed(format!(
                 "address {address} is not permitted"
-            ))));
+            )));
         }
-        Ok(self.open_connection(&address).await)
+        self.open_connection(&address).await
     }
 
     #[instrument(name = "spin_outbound_pg.execute", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", otel.name = statement))]
@@ -128,24 +129,21 @@ impl v2::HostConnection for OutboundPg {
         connection: Resource<Connection>,
         statement: String,
         params: Vec<ParameterValue>,
-    ) -> Result<Result<u64, v2::Error>> {
-        Ok(async {
-            let params: Vec<&(dyn ToSql + Sync)> = params
-                .iter()
-                .map(to_sql_parameter)
-                .collect::<anyhow::Result<Vec<_>>>()
-                .map_err(|e| v2::Error::ValueConversionFailed(format!("{:?}", e)))?;
+    ) -> Result<u64, v2::Error> {
+        let params: Vec<&(dyn ToSql + Sync)> = params
+            .iter()
+            .map(to_sql_parameter)
+            .collect::<anyhow::Result<Vec<_>>>()
+            .map_err(|e| v2::Error::ValueConversionFailed(format!("{:?}", e)))?;
 
-            let nrow = self
-                .get_client(connection)
-                .await?
-                .execute(&statement, params.as_slice())
-                .await
-                .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))?;
+        let nrow = self
+            .get_client(connection)
+            .await?
+            .execute(&statement, params.as_slice())
+            .await
+            .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))?;
 
-            Ok(nrow)
-        }
-        .await)
+        Ok(nrow)
     }
 
     #[instrument(name = "spin_outbound_pg.query", skip(self, connection), err(level = Level::INFO), fields(otel.kind = "client", db.system = "postgresql", otel.name = statement))]
@@ -154,43 +152,46 @@ impl v2::HostConnection for OutboundPg {
         connection: Resource<Connection>,
         statement: String,
         params: Vec<ParameterValue>,
-    ) -> Result<Result<RowSet, v2::Error>> {
-        Ok(async {
-            let params: Vec<&(dyn ToSql + Sync)> = params
-                .iter()
-                .map(to_sql_parameter)
-                .collect::<anyhow::Result<Vec<_>>>()
-                .map_err(|e| v2::Error::BadParameter(format!("{:?}", e)))?;
+    ) -> Result<RowSet, v2::Error> {
+        let params: Vec<&(dyn ToSql + Sync)> = params
+            .iter()
+            .map(to_sql_parameter)
+            .collect::<anyhow::Result<Vec<_>>>()
+            .map_err(|e| v2::Error::BadParameter(format!("{:?}", e)))?;
 
-            let results = self
-                .get_client(connection)
-                .await?
-                .query(&statement, params.as_slice())
-                .await
-                .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))?;
+        let results = self
+            .get_client(connection)
+            .await?
+            .query(&statement, params.as_slice())
+            .await
+            .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))?;
 
-            if results.is_empty() {
-                return Ok(RowSet {
-                    columns: vec![],
-                    rows: vec![],
-                });
-            }
-
-            let columns = infer_columns(&results[0]);
-            let rows = results
-                .iter()
-                .map(convert_row)
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))?;
-
-            Ok(RowSet { columns, rows })
+        if results.is_empty() {
+            return Ok(RowSet {
+                columns: vec![],
+                rows: vec![],
+            });
         }
-        .await)
+
+        let columns = infer_columns(&results[0]);
+        let rows = results
+            .iter()
+            .map(convert_row)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| v2::Error::QueryFailed(format!("{:?}", e)))?;
+
+        Ok(RowSet { columns, rows })
     }
 
     fn drop(&mut self, connection: Resource<Connection>) -> anyhow::Result<()> {
         self.connections.remove(connection.rep());
         Ok(())
+    }
+}
+
+impl rdbms_types::Host for OutboundPg {
+    fn convert_error(&mut self, error: v2::Error) -> Result<v2::Error> {
+        Ok(error)
     }
 }
 
@@ -411,17 +412,17 @@ impl std::fmt::Debug for PgNull {
 macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
         if !$self.is_address_allowed(&$address) {
-            return Ok(Err(v1::PgError::ConnectionFailed(format!(
+            return Err(v1::PgError::ConnectionFailed(format!(
                 "address {} is not permitted", $address
-            ))));
+            )));
         }
         let connection = match $self.open_connection(&$address).await {
             Ok(c) => c,
-            Err(e) => return Ok(Err(e.into())),
+            Err(e) => return Err(e.into()),
         };
-        Ok(<Self as v2::HostConnection>::$name($self, connection, $($arg),*)
-            .await?
-            .map_err(|e| e.into()))
+        <Self as v2::HostConnection>::$name($self, connection, $($arg),*)
+            .await
+            .map_err(|e| e.into())
     }};
 }
 
@@ -432,7 +433,7 @@ impl v1::Host for OutboundPg {
         address: String,
         statement: String,
         params: Vec<v1_types::ParameterValue>,
-    ) -> Result<Result<u64, v1::PgError>> {
+    ) -> Result<u64, v1::PgError> {
         delegate!(self.execute(
             address,
             statement,
@@ -445,12 +446,16 @@ impl v1::Host for OutboundPg {
         address: String,
         statement: String,
         params: Vec<v1_types::ParameterValue>,
-    ) -> Result<Result<v1_types::RowSet, v1::PgError>> {
+    ) -> Result<v1_types::RowSet, v1::PgError> {
         delegate!(self.query(
             address,
             statement,
             params.into_iter().map(Into::into).collect()
         ))
-        .map(|r| r.map(Into::into))
+        .map(Into::into)
+    }
+
+    fn convert_pg_error(&mut self, error: v1::PgError) -> Result<v1::PgError> {
+        Ok(error)
     }
 }

@@ -4,8 +4,8 @@ interface mqtt {
       /// An invalid address string
       invalid-address,
       /// There are too many open connections
-      too-many-connections,    
-      /// Connection failure e.g. address not allowed.  
+      too-many-connections,
+      /// Connection failure e.g. address not allowed.
       connection-failed(string),
       /// Some other error occurred
       other(string),

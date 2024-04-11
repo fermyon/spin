@@ -47,7 +47,7 @@ enum TemplateVariantKind {
 }
 
 /// The variant mode in which a template should be run.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum TemplateVariantInfo {
     /// Create a new application from the template.
     NewApplication,
@@ -111,6 +111,8 @@ pub(crate) struct Conditional {
 #[derive(Clone, Debug)]
 pub(crate) enum Condition {
     ManifestEntryExists(Vec<String>),
+    #[cfg(test)]
+    Always(bool),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -601,9 +603,11 @@ impl Condition {
                     let Ok(table) = toml::from_str::<toml::Value>(&toml_text) else {
                         return false;
                     };
-                    get_at(table, path).is_some()
+                    crate::toml::get_at(table, path).is_some()
                 }
             },
+            #[cfg(test)]
+            Self::Always(b) => *b,
         }
     }
 }
@@ -638,19 +642,127 @@ fn validate_v1_manifest(raw: &RawTemplateManifestV1) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn get_at(value: toml::Value, path: &[String]) -> Option<toml::Value> {
-    match path.split_first() {
-        None => Some(value), // we are at the end of the path and we have a thing
-        Some((first, rest)) => {
-            match value.as_table() {
-                None => None, // we need to key into it and we can't
-                Some(t) => {
-                    match t.get(first) {
-                        None => None,                       // we tried to key into it and no match
-                        Some(v) => get_at(v.clone(), rest), // we pathed into it! keep pathing
-                    }
-                }
-            }
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    struct TempFile(tempfile::TempDir, PathBuf);
+
+    impl TempFile {
+        fn path(&self) -> PathBuf {
+            self.1.clone()
         }
+    }
+
+    fn make_temp_manifest(content: &str) -> TempFile {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let temp_file = temp_dir.path().join("spin.toml");
+        std::fs::write(&temp_file, content).unwrap();
+        TempFile(temp_dir, temp_file)
+    }
+
+    #[test]
+    fn manifest_entry_exists_condition_is_false_for_new_app() {
+        let condition = Template::parse_condition(RawCondition::ManifestEntryExists(
+            "application.trigger.redis".to_owned(),
+        ));
+        assert!(!condition.is_true(&TemplateVariantInfo::NewApplication));
+    }
+
+    #[test]
+    fn manifest_entry_exists_condition_is_false_if_not_present_in_existing_manifest() {
+        let temp_file =
+            make_temp_manifest("name = \"hello\"\n[application.trigger.http]\nbase = \"/\"");
+        let condition = Template::parse_condition(RawCondition::ManifestEntryExists(
+            "application.trigger.redis".to_owned(),
+        ));
+        assert!(!condition.is_true(&TemplateVariantInfo::AddComponent {
+            manifest_path: temp_file.path()
+        }));
+    }
+
+    #[test]
+    fn manifest_entry_exists_condition_is_true_if_present_in_existing_manifest() {
+        let temp_file = make_temp_manifest(
+            "name = \"hello\"\n[application.trigger.redis]\nchannel = \"HELLO\"",
+        );
+        let condition = Template::parse_condition(RawCondition::ManifestEntryExists(
+            "application.trigger.redis".to_owned(),
+        ));
+        assert!(condition.is_true(&TemplateVariantInfo::AddComponent {
+            manifest_path: temp_file.path()
+        }));
+    }
+
+    #[test]
+    fn manifest_entry_exists_condition_is_false_if_path_does_not_exist() {
+        let condition = Template::parse_condition(RawCondition::ManifestEntryExists(
+            "application.trigger.redis".to_owned(),
+        ));
+        assert!(!condition.is_true(&TemplateVariantInfo::AddComponent {
+            manifest_path: PathBuf::from("this/file/does/not.exist")
+        }));
+    }
+
+    #[test]
+    fn selected_variant_respects_target() {
+        let add_component_vt = TemplateVariant {
+            conditions: vec![Conditional {
+                condition: Condition::Always(true),
+                skip_files: vec!["test2".to_owned()],
+                skip_parameters: vec!["p1".to_owned()],
+                skip_snippets: vec!["s1".to_owned()],
+            }],
+            skip_files: vec!["test1".to_owned()],
+            snippets: [
+                ("s1".to_owned(), "s1val".to_owned()),
+                ("s2".to_owned(), "s2val".to_owned()),
+            ]
+            .into_iter()
+            .collect(),
+            ..Default::default()
+        };
+        let variants = [
+            (
+                TemplateVariantKind::NewApplication,
+                TemplateVariant::default(),
+            ),
+            (TemplateVariantKind::AddComponent, add_component_vt),
+        ]
+        .into_iter()
+        .collect();
+        let template = Template {
+            id: "test".to_owned(),
+            tags: HashSet::new(),
+            description: None,
+            installed_from: InstalledFrom::Unknown,
+            trigger: TemplateTriggerCompatibility::Any,
+            variants,
+            parameters: vec![],
+            extra_outputs: vec![],
+            snippets_dir: None,
+            content_dir: None,
+        };
+
+        let variant_info = TemplateVariantInfo::NewApplication;
+        let variant = template.variant(&variant_info).unwrap();
+        assert!(variant.skip_files.is_empty());
+        assert!(variant.skip_parameters.is_empty());
+        assert!(variant.snippets.is_empty());
+
+        let add_variant_info = TemplateVariantInfo::AddComponent {
+            manifest_path: PathBuf::from("dummy"),
+        };
+        let add_variant = template.variant(&add_variant_info).unwrap();
+        // the conditional skip_files and skip_parameters are added to the variant's skip lists
+        assert_eq!(2, add_variant.skip_files.len());
+        assert!(add_variant.skip_files.contains(&"test1".to_owned()));
+        assert!(add_variant.skip_files.contains(&"test2".to_owned()));
+        assert_eq!(1, add_variant.skip_parameters.len());
+        assert!(add_variant.skip_parameters.contains(&"p1".to_owned()));
+        // the conditional skip_snippets are *removed from* the variant's snippets list
+        assert_eq!(1, add_variant.snippets.len());
+        assert!(!add_variant.snippets.contains_key("s1"));
+        assert!(add_variant.snippets.contains_key("s2"));
     }
 }

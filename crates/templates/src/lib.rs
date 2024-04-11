@@ -17,6 +17,7 @@ mod run;
 mod source;
 mod store;
 mod template;
+mod toml;
 mod writer;
 
 pub use manager::*;

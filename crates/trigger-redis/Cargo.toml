@@ -24,3 +24,6 @@ tokio = { version = "1.23", features = ["full"] }
 
 [dev-dependencies]
 spin-testing = { path = "../testing" }
+
+[lints]
+workspace = true

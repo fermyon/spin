@@ -11,6 +11,7 @@ use spin_core::{async_trait, InstancePre};
 use spin_trigger::{cli::NoArgs, TriggerAppEngine, TriggerExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
+use tracing::{instrument, Level};
 
 use crate::spin::SpinRedisExecutor;
 
@@ -110,6 +111,9 @@ impl TriggerExecutor for RedisTrigger {
 
 impl RedisTrigger {
     // Handle the message.
+    #[instrument(name = "spin_trigger_redis.handle_message", skip(self, channel_components, msg),
+        err(level = Level::INFO), fields(otel.name = format!("{} receive", msg.get_channel_name()),
+        otel.kind = "consumer", messaging.operation = "receive", messaging.system = "redis"))]
     async fn handle(
         &self,
         address: &str,

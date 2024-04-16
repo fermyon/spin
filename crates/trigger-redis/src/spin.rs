@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use spin_core::Instance;
 use spin_trigger::TriggerAppEngine;
 use spin_world::v1::redis_types::{Error, Payload};
+use tracing::{instrument, Level};
 
 use crate::{RedisExecutor, RedisTrigger, Store};
 
@@ -11,6 +12,7 @@ pub struct SpinRedisExecutor;
 
 #[async_trait]
 impl RedisExecutor for SpinRedisExecutor {
+    #[instrument(name = "spin_trigger_redis.execute_wasm", skip(self, engine, payload), err(level = Level::INFO), fields(otel.name = format!("execute_wasm_component {}", component_id)))]
     async fn execute(
         &self,
         engine: &TriggerAppEngine<RedisTrigger>,

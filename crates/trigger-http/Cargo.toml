@@ -54,3 +54,6 @@ harness = false
 llm = ["spin-trigger/llm"]
 llm-metal = ["llm", "spin-trigger/llm-metal"]
 llm-cublas = ["llm", "spin-trigger/llm-cublas"]
+
+[lints]
+workspace = true

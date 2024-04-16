@@ -3,6 +3,16 @@ id = "redis-rust"
 description = "Redis message handler using Rust"
 tags = ["redis", "rust"]
 
+[add_component]
+skip_files = ["spin.toml"]
+[add_component.snippets]
+component = "component.txt"
+application_trigger = "application-trigger.txt"
+[add_component.conditions.address_exists]
+condition = { manifest_entry_exists = "application.trigger.redis" }
+skip_parameters = ["redis-address"]
+skip_snippets = ["application_trigger"]
+
 [parameters]
 project-description = { type = "string",  prompt = "Description", default = "" }
 redis-address = { type = "string", prompt = "Redis address", default = "redis://localhost:6379" }

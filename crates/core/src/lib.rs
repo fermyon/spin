@@ -19,7 +19,7 @@ use std::{path::PathBuf, time::Duration};
 
 use anyhow::Result;
 use crossbeam_channel::Sender;
-use tracing::instrument;
+use tracing::{field::Empty, instrument};
 use wasmtime::{InstanceAllocationStrategy, PoolingAllocationConfig};
 use wasmtime_wasi::preview2::ResourceTable;
 use wasmtime_wasi_http::types::{default_send_request, WasiHttpCtx, WasiHttpView};
@@ -195,7 +195,7 @@ impl<T: Send + OutboundWasiHttpHandler> WasiHttpView for Data<T> {
         &mut self.table
     }
 
-    #[instrument(name = "start_outbound_http_request", skip_all, fields(otel.kind = "client"))]
+    #[instrument(name = "spin_core.send_request", skip_all, fields(otel.kind = "client", url.full = request.request.uri().to_string(), http.request.method = request.request.method().to_string(), otel.name = request.request.method().to_string(), http.response.status_code = Empty, server.address = Empty, server.port = Empty))]
     fn send_request(
         &mut self,
         mut request: wasmtime_wasi_http::types::OutgoingRequest,
@@ -205,6 +205,15 @@ impl<T: Send + OutboundWasiHttpHandler> WasiHttpView for Data<T> {
     where
         Self: Sized,
     {
+        let current_span = tracing::Span::current();
+        let uri = request.request.uri();
+        if let Some(authority) = uri.authority() {
+            current_span.record("server.address", authority.host());
+            if let Some(port) = authority.port() {
+                current_span.record("server.port", port.as_u16());
+            }
+        }
+
         spin_telemetry::inject_trace_context(&mut request.request);
         T::send_request(self, request)
     }

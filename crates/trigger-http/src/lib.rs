@@ -728,7 +728,7 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
                         }
                         res
                     }
-                    .instrument(tracing::Span::current()),
+                    .in_current_span(),
                 ))
             }
             other => other,

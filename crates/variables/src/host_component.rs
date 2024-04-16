@@ -7,11 +7,11 @@ use spin_core::{async_trait, HostComponent};
 use spin_world::v1::config::Error as V1ConfigError;
 use spin_world::v2::variables;
 
-use spin_expressions::{Error, Key, Provider, Resolver};
+use spin_expressions::{Error, Key, Provider, ProviderResolver};
 
 pub struct VariablesHostComponent {
     providers: Mutex<Vec<Box<dyn Provider>>>,
-    resolver: Arc<OnceCell<Resolver>>,
+    resolver: Arc<OnceCell<ProviderResolver>>,
 }
 
 impl VariablesHostComponent {
@@ -55,8 +55,9 @@ impl DynamicHostComponent for VariablesHostComponent {
 pub fn make_resolver(
     app: &spin_app::App,
     providers: impl IntoIterator<Item = Box<dyn Provider>>,
-) -> anyhow::Result<Resolver> {
-    let mut resolver = Resolver::new(app.variables().map(|(key, var)| (key.clone(), var.clone())))?;
+) -> anyhow::Result<ProviderResolver> {
+    let mut resolver =
+        ProviderResolver::new(app.variables().map(|(key, var)| (key.clone(), var.clone())))?;
     for component in app.components() {
         resolver.add_component_variables(
             component.id(),
@@ -71,7 +72,7 @@ pub fn make_resolver(
 
 /// A component variables interface implementation.
 pub struct ComponentVariables {
-    resolver: Arc<OnceCell<Resolver>>,
+    resolver: Arc<OnceCell<ProviderResolver>>,
     component_id: Option<String>,
 }
 

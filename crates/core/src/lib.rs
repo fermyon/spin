@@ -195,7 +195,7 @@ impl<T: Send + OutboundWasiHttpHandler> WasiHttpView for Data<T> {
         &mut self.table
     }
 
-    #[instrument(name = "spin_core.send_request", skip_all, fields(otel.kind = "client", url.full = request.request.uri().to_string(), http.request.method = request.request.method().to_string(), otel.name = request.request.method().to_string(), http.response.status_code = Empty, server.address = Empty, server.port = Empty))]
+    #[instrument(name = "spin_core.send_request", skip_all, fields(otel.kind = "client", url.full = %request.request.uri(), http.request.method = %request.request.method(), otel.name = %request.request.method(), http.response.status_code = Empty, server.address = Empty, server.port = Empty))]
     fn send_request(
         &mut self,
         mut request: wasmtime_wasi_http::types::OutgoingRequest,

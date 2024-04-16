@@ -53,6 +53,7 @@ terminal = { path = "../terminal" }
 tokio = { version = "1.23", features = ["fs"] }
 toml = "0.5.9"
 url = "2"
+uuid = { version = "^1.0", features = ["v4"] }
 spin-componentize = { workspace = true }
 tracing = { workspace = true }
 wasmtime = { workspace = true }

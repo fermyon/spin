@@ -9,6 +9,7 @@ use spin_common::{arg_parser::parse_kv, sloth};
 use crate::network::Network;
 use crate::runtime_config::llm::LLmOptions;
 use crate::runtime_config::sqlite::SqlitePersistenceMessageHook;
+use crate::runtime_config::SummariseRuntimeConfigHook;
 use crate::stdio::StdioLoggingTriggerHooks;
 use crate::{
     loader::TriggerLoader,
@@ -208,6 +209,7 @@ where
 
         builder.hooks(StdioLoggingTriggerHooks::new(self.follow_components()));
         builder.hooks(Network::default());
+        builder.hooks(SummariseRuntimeConfigHook::new(&self.runtime_config_file));
         builder.hooks(KeyValuePersistenceMessageHook);
         builder.hooks(SqlitePersistenceMessageHook);
 

@@ -15,6 +15,8 @@ use serde::Deserialize;
 use spin_common::ui::quoted_path;
 use spin_sqlite::Connection;
 
+use crate::TriggerHooks;
+
 use self::{
     key_value::{KeyValueStore, KeyValueStoreOpts},
     llm::LlmComputeOpts,
@@ -257,6 +259,77 @@ fn resolve_config_path(path: &Path, config_opts: &RuntimeConfigOpts) -> Result<P
         None => std::env::current_dir().context("failed to get current directory")?,
     };
     Ok(base_path.join(path))
+}
+
+pub(crate) struct SummariseRuntimeConfigHook {
+    runtime_config_file: Option<PathBuf>,
+}
+
+impl SummariseRuntimeConfigHook {
+    pub(crate) fn new(runtime_config_file: &Option<PathBuf>) -> Self {
+        Self {
+            runtime_config_file: runtime_config_file.clone(),
+        }
+    }
+}
+
+impl TriggerHooks for SummariseRuntimeConfigHook {
+    fn app_loaded(
+        &mut self,
+        _app: &spin_app::App,
+        runtime_config: &RuntimeConfig,
+        _resolver: &Arc<spin_expressions::PreparedResolver>,
+    ) -> anyhow::Result<()> {
+        if let Some(path) = &self.runtime_config_file {
+            let mut opts = vec![];
+            for opt in runtime_config.opts_layers() {
+                for (id, opt) in &opt.key_value_stores {
+                    opts.push(Self::summarise_kv(id, opt));
+                }
+                for (id, opt) in &opt.sqlite_databases {
+                    opts.push(Self::summarise_sqlite(id, opt));
+                }
+                for opt in &opt.llm_compute {
+                    opts.push(Self::summarise_llm(opt));
+                }
+            }
+            if !opts.is_empty() {
+                let opts_text = opts.join(", ");
+                println!(
+                    "Using {opts_text} runtime config from {}",
+                    quoted_path(path)
+                );
+            }
+        }
+        Ok(())
+    }
+}
+
+impl SummariseRuntimeConfigHook {
+    fn summarise_kv(id: &str, opt: &KeyValueStoreOpts) -> String {
+        let source = match opt {
+            KeyValueStoreOpts::Spin(_) => "spin",
+            KeyValueStoreOpts::Redis(_) => "redis",
+            KeyValueStoreOpts::AzureCosmos(_) => "cosmos",
+        };
+        format!("[key_value_store.{id}: {}]", source)
+    }
+
+    fn summarise_sqlite(id: &str, opt: &SqliteDatabaseOpts) -> String {
+        let source = match opt {
+            SqliteDatabaseOpts::Spin(_) => "spin",
+            SqliteDatabaseOpts::Libsql(_) => "libsql",
+        };
+        format!("[sqlite_database.{id}: {}]", source)
+    }
+
+    fn summarise_llm(opt: &LlmComputeOpts) -> String {
+        let source = match opt {
+            LlmComputeOpts::Spin => "spin",
+            LlmComputeOpts::RemoteHttp(_) => "remote-http",
+        };
+        format!("[llm_compute: {}]", source)
+    }
 }
 
 #[cfg(test)]

@@ -715,8 +715,8 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
             HostFutureIncomingResponse::Pending(handle) => {
                 HostFutureIncomingResponse::Pending(wasmtime_wasi::preview2::spawn(
                     async move {
-                        let res: std::prelude::v1::Result<
-                            std::prelude::v1::Result<
+                        let res: Result<
+                            Result<
                                 wasmtime_wasi_http::types::IncomingResponseInternal,
                                 wasmtime_wasi_http::bindings::http::types::ErrorCode,
                             >,

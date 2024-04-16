@@ -746,7 +746,7 @@ mod tests {
         );
 
         let content_dir = template.content_dir().as_ref().unwrap();
-        let cargo = tokio::fs::read_to_string(content_dir.join("Cargo.toml"))
+        let cargo = tokio::fs::read_to_string(content_dir.join("Cargo.toml.tmpl"))
             .await
             .unwrap();
         assert!(cargo.contains("name = \"{{project-name | kebab_case}}\""));

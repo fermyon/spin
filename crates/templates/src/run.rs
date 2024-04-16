@@ -349,7 +349,7 @@ impl Run {
         // Strip optional .tmpl extension
         // Templates can use this if they don't want to store files with their final extensions
         let paths = paths.into_iter().map(|p| {
-            if p.extension().map(|e| e == "tmpl").unwrap_or_default() {
+            if p.extension().is_some_and(|e| e == "tmpl") {
                 p.with_extension("")
             } else {
                 p

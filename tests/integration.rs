@@ -485,6 +485,7 @@ Caused by:
 
     #[test]
     #[cfg(feature = "extern-dependencies-tests")]
+    #[ignore = "https://github.com/fermyon/spin/issues/2457"]
     // TODO: Check why python is not picking up the spin_sdk from site_packages
     // Currently installing to the local directory to get around it.
     fn http_python_template_smoke_test() -> anyhow::Result<()> {

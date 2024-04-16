@@ -344,13 +344,18 @@ impl Run {
         let template_parser = Self::template_parser();
         let contents = paths
             .iter()
-            .map(std::fs::read)
-            .map(|c| {
-                c.map_err(|e| e.into())
-                    .and_then(|cc| TemplateContent::infer_from_bytes(cc, &template_parser))
-            })
+            .map(|path| TemplateContent::infer_from_bytes(std::fs::read(path)?, &template_parser))
             .collect::<Result<Vec<_>, _>>()?;
-        let pairs = paths.into_iter().zip(contents).collect();
+        // Strip optional .tmpl extension
+        // Templates can use this if they don't want to store files with their final extensions
+        let paths = paths.into_iter().map(|p| {
+            if p.extension().is_some_and(|e| e == "tmpl") {
+                p.with_extension("")
+            } else {
+                p
+            }
+        });
+        let pairs = paths.zip(contents).collect();
         Ok(pairs)
     }
 

@@ -706,6 +706,15 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
             return Self::chain_request(data, request, component_id);
         }
 
+        let current_span = tracing::Span::current();
+        let uri = request.request.uri();
+        if let Some(authority) = uri.authority() {
+            current_span.record("server.address", authority.host());
+            if let Some(port) = authority.port() {
+                current_span.record("server.port", port.as_u16());
+            }
+        }
+
         // TODO: This is a temporary workaround to make sure that outbound task is instrumented.
         // Once Wasmtime gives us the ability to do the spawn ourselves we can just call .instrument
         // and won't have to do this workaround.

@@ -205,15 +205,6 @@ impl<T: Send + OutboundWasiHttpHandler> WasiHttpView for Data<T> {
     where
         Self: Sized,
     {
-        let current_span = tracing::Span::current();
-        let uri = request.request.uri();
-        if let Some(authority) = uri.authority() {
-            current_span.record("server.address", authority.host());
-            if let Some(port) = authority.port() {
-                current_span.record("server.port", port.as_u16());
-            }
-        }
-
         spin_telemetry::inject_trace_context(&mut request.request);
         T::send_request(self, request)
     }

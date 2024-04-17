@@ -47,6 +47,7 @@ use tokio::{
 use tracing::{field::Empty, log, Instrument};
 use wasmtime_wasi_http::{
     body::{HyperIncomingBody as Body, HyperOutgoingBody},
+    types::HostFutureIncomingResponse,
     WasiHttpView,
 };
 
@@ -569,7 +570,6 @@ impl HttpRuntimeData {
     ) -> wasmtime::Result<
         wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
     > {
-        use wasmtime_wasi_http::types::HostFutureIncomingResponse;
         use wasmtime_wasi_http::types::IncomingResponseInternal;
 
         let this = data.as_ref();
@@ -706,7 +706,44 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
             return Self::chain_request(data, request, component_id);
         }
 
-        wasmtime_wasi_http::types::default_send_request(data, request)
+        let current_span = tracing::Span::current();
+        let uri = request.request.uri();
+        if let Some(authority) = uri.authority() {
+            current_span.record("server.address", authority.host());
+            if let Some(port) = authority.port() {
+                current_span.record("server.port", port.as_u16());
+            }
+        }
+
+        // TODO: This is a temporary workaround to make sure that outbound task is instrumented.
+        // Once Wasmtime gives us the ability to do the spawn ourselves we can just call .instrument
+        // and won't have to do this workaround.
+        let response_handle = wasmtime_wasi_http::types::default_send_request(data, request)?;
+        let response = data.table().get_mut(&response_handle)?;
+        *response = match std::mem::replace(response, HostFutureIncomingResponse::Consumed) {
+            HostFutureIncomingResponse::Pending(handle) => {
+                HostFutureIncomingResponse::Pending(wasmtime_wasi::preview2::spawn(
+                    async move {
+                        let res: Result<
+                            Result<
+                                wasmtime_wasi_http::types::IncomingResponseInternal,
+                                wasmtime_wasi_http::bindings::http::types::ErrorCode,
+                            >,
+                            anyhow::Error,
+                        > = handle.await;
+                        if let Ok(Ok(res)) = &res {
+                            tracing::Span::current()
+                                .record("http.response.status_code", res.resp.status().as_u16());
+                        }
+                        res
+                    }
+                    .in_current_span(),
+                ))
+            }
+            other => other,
+        };
+
+        Ok(response_handle)
     }
 }
 

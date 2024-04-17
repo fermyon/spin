@@ -19,7 +19,7 @@ use std::{path::PathBuf, time::Duration};
 
 use anyhow::Result;
 use crossbeam_channel::Sender;
-use tracing::instrument;
+use tracing::{field::Empty, instrument};
 use wasmtime::{InstanceAllocationStrategy, PoolingAllocationConfig};
 use wasmtime_wasi::preview2::ResourceTable;
 use wasmtime_wasi_http::types::{default_send_request, WasiHttpCtx, WasiHttpView};
@@ -195,7 +195,7 @@ impl<T: Send + OutboundWasiHttpHandler> WasiHttpView for Data<T> {
         &mut self.table
     }
 
-    #[instrument(name = "start_outbound_http_request", skip_all, fields(otel.kind = "client"))]
+    #[instrument(name = "spin_core.send_request", skip_all, fields(otel.kind = "client", url.full = %request.request.uri(), http.request.method = %request.request.method(), otel.name = %request.request.method(), http.response.status_code = Empty, server.address = Empty, server.port = Empty))]
     fn send_request(
         &mut self,
         mut request: wasmtime_wasi_http::types::OutgoingRequest,

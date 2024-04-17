@@ -269,7 +269,8 @@ impl LocalLoader {
             } => {
                 let src = Path::new(source);
                 let dest = dest_root.join(destination.trim_start_matches('/'));
-                self.copy_file_or_directory(src, &dest, exclude_files).await
+                self.copy_file_or_directory(src, &dest, destination, exclude_files)
+                    .await
             }
         }
     }
@@ -291,7 +292,7 @@ impl LocalLoader {
                     .await?;
             } else {
                 // "single/file.txt"
-                self.copy_single_file(&path, &dest).await?;
+                self.copy_single_file(&path, &dest, glob_or_path).await?;
             }
         } else if looks_like_glob_pattern(glob_or_path) {
             // "glob/pattern/*"
@@ -308,6 +309,7 @@ impl LocalLoader {
         &self,
         src: &Path,
         dest: &Path,
+        guest_dest: &str,
         exclude_files: &[String],
     ) -> Result<()> {
         let src_path = self.app_root.join(src);
@@ -321,7 +323,7 @@ impl LocalLoader {
                 .await?;
         } else {
             // { source = "host/file.txt", destination = "guest/file.txt" }
-            self.copy_single_file(&src_path, dest).await?;
+            self.copy_single_file(&src_path, dest, guest_dest).await?;
         }
         Ok(())
     }
@@ -368,13 +370,14 @@ impl LocalLoader {
 
             let relative_path = src.strip_prefix(src_prefix)?;
             let dest = dest_root.join(relative_path);
-            self.copy_single_file(&src, &dest).await?;
+            self.copy_single_file(&src, &dest, &relative_path.to_string_lossy())
+                .await?;
         }
         Ok(())
     }
 
     // Copy a single file from `src` to `dest`, creating parent directories.
-    async fn copy_single_file(&self, src: &Path, dest: &Path) -> Result<()> {
+    async fn copy_single_file(&self, src: &Path, dest: &Path, guest_dest: &str) -> Result<()> {
         // Sanity checks: src is in app_root...
         src.strip_prefix(&self.app_root)?;
         // ...and dest is in the Copy root.
@@ -394,15 +397,41 @@ impl LocalLoader {
                     quoted_path(&dest_parent)
                 )
             })?;
-        crate::fs::copy(src, dest).await.with_context(|| {
-            format!(
-                "Failed to copy {} to {}",
-                quoted_path(src),
-                quoted_path(dest)
-            )
-        })?;
+        crate::fs::copy(src, dest)
+            .await
+            .or_else(|e| Self::failed_to_copy_single_file_error(src, dest, guest_dest, e))?;
         tracing::debug!("Copied {src:?} to {dest:?}");
         Ok(())
+    }
+
+    fn failed_to_copy_single_file_error<T>(
+        src: &Path,
+        dest: &Path,
+        guest_dest: &str,
+        e: anyhow::Error,
+    ) -> anyhow::Result<T> {
+        let src_text = quoted_path(src);
+        let dest_text = quoted_path(dest);
+        let base_msg = format!("Failed to copy {src_text} to working path {dest_text}");
+
+        if let Some(io_error) = e.downcast_ref::<std::io::Error>() {
+            if Self::is_directory_like(guest_dest)
+                || io_error.kind() == std::io::ErrorKind::NotFound
+            {
+                return Err(anyhow::anyhow!(
+                    r#""{guest_dest}" is not a valid destination file name"#
+                ))
+                .context(base_msg);
+            }
+        }
+
+        Err(e).with_context(|| format!("{base_msg} (for destination path \"{guest_dest}\")"))
+    }
+
+    /// Does a guest path appear to be a directory name, e.g. "/" or ".."? This is for guest
+    /// paths *only* and does not consider Windows separators.
+    fn is_directory_like(guest_path: &str) -> bool {
+        guest_path.ends_with('/') || guest_path.ends_with('.') || guest_path.ends_with("..")
     }
 
     // Resolve the given direct mount directory, checking that it is valid for
@@ -583,4 +612,34 @@ const SLOTH_WARNING_DELAY_MILLIS: u64 = 1250;
 fn warn_if_component_load_slothful() -> sloth::SlothGuard {
     let message = "Loading Wasm components is taking a few seconds...";
     sloth::warn_if_slothful(SLOTH_WARNING_DELAY_MILLIS, format!("{message}\n"))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[tokio::test]
+    async fn bad_destination_filename_is_explained() -> anyhow::Result<()> {
+        let app_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("file-errors");
+        let wd = tempfile::tempdir()?;
+        let loader = LocalLoader::new(
+            &app_root,
+            FilesMountStrategy::Copy(wd.path().to_owned()),
+            None,
+        )
+        .await?;
+        let err = loader
+            .load_file(app_root.join("bad.toml"))
+            .await
+            .expect_err("loader should not have succeeded");
+        let err_ctx = format!("{err:#}");
+        assert!(
+            err_ctx.contains(r#""/" is not a valid destination file name"#),
+            "expected error to show destination file name but got {}",
+            err_ctx
+        );
+        Ok(())
+    }
 }

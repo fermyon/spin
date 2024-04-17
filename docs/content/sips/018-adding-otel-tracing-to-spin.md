@@ -1,4 +1,4 @@
-title = "SIP 017 - Adding OTel tracing to Spin"
+title = "SIP 018 - Adding OTel tracing to Spin"
 template = "main"
 date = "2024-02-27T12:00:00Z"
 

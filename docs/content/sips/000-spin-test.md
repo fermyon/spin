@@ -53,7 +53,7 @@ The composition only has the following imports:
 *Note*: 
 
 > **A few notes:** 
-* We may still wish to have the composition import `wasi:cli/stdout` so that it can easily log things.
+* We may still wish to have the composition import `wasi:cli/stdout` and `wasi:cli/stderr` so that it can easily log things.
 * It might be possible to statically configure the virtualized Spin runtime component given a manifest file by synthesizing the component on the file (in much the way that WASI-virt works). This would make it possible to no longer require that the manifest is passed to the composition component at runtime since it has already been statically configured to run correctly with that Spin manifest. This has its downsides though as composition components for the same app but different manifests cannot be shared between tests.
 * The `wasi:http` work around imports may hopefully eventually overcome with changes to the `wasi:http` package. 
 * If this and the manifest import are eliminated, tests could potentially be run by an component runtime with no imports whatsoever.

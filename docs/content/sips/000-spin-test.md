@@ -183,6 +183,7 @@ world runner {
 - How should test discovery work?
     - The most straightforward way would be for `spin-test` to require the user to specify the path to a `spin-test` compliant test component binary.
     - Another way would be for there to be a convention around a `tests` directory. This `tests` directory could include both built `spin-test` compliant test component binaries as well as directories with source code and a `spin-test.toml` configuration file that specifies how the source code is built into a `spin-test` compliant test component binary. `spin-test` would then build all the tests that need to be built and run each test binary.
+    - We could also carve away space in the `spin.toml` manifest (e.g., by using the `[component.<id>.tool]` section). Such a solution might be more appropriate if we determine that users will normally want very few test component binaries. If, however, it proves to be useful to potentially have many test binaries, splitting the configuration out to each test binary in the form of a bespoke `spin-test.toml` per test binary might be the better solution.
 - How exactly should the various worlds look like?
     - The proposal above is enough to get things working, but there is plenty of room for bike-shedding the exact shape of the worlds.
 - Which triggers should we support?

@@ -1,9 +1,12 @@
 use std::io::IsTerminal;
 
+use env::otel_enabled;
+use env::otel_sdk_disabled;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use tracing_subscriber::{fmt, prelude::*, registry, EnvFilter, Layer};
 
 pub mod detector;
+mod env;
 mod propagation;
 mod traces;
 
@@ -46,32 +49,6 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
     Ok(ShutdownGuard)
-}
-
-/// Returns a boolean indicating if the OTEL layer should be enabled.
-///
-/// It is considered enabled if any of the following environment variables are set and not empty:
-/// - `OTEL_EXPORTER_OTLP_ENDPOINT`
-/// - `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`
-/// - `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`
-///
-/// Note that this is overridden if OTEL_SDK_DISABLED is set and not empty.
-fn otel_enabled() -> bool {
-    const ENABLING_VARS: &[&str] = &[
-        "OTEL_EXPORTER_OTLP_ENDPOINT",
-        "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
-        "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
-    ];
-    ENABLING_VARS
-        .iter()
-        .any(|key| std::env::var_os(key).is_some_and(|val| !val.is_empty()))
-}
-
-/// Returns a boolean indicating if the OTEL SDK should be disabled for all signals.
-///
-/// It is considered disabled if the environment variable `OTEL_SDK_DISABLED` is set and not empty.
-fn otel_sdk_disabled() -> bool {
-    std::env::var_os("OTEL_SDK_DISABLED").is_some_and(|val| !val.is_empty())
 }
 
 fn otel_error_handler(err: opentelemetry::global::Error) {

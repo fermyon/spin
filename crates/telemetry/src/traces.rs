@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use opentelemetry_otlp::WithExportConfig;
+use anyhow::bail;
+use opentelemetry_otlp::{SpanExporterBuilder, WithExportConfig};
 use opentelemetry_otlp::{OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_TRACES_ENDPOINT};
 use opentelemetry_sdk::{
     resource::{EnvResourceDetector, TelemetryResourceDetector},
@@ -11,6 +12,7 @@ use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{EnvFilter, Layer, Registry};
 
 use crate::detector::SpinResourceDetector;
+use crate::env::OtlpProtocol;
 
 /// Constructs a layer for the tracing subscriber that sends spans to an OTEL collector.
 ///
@@ -39,9 +41,17 @@ pub(crate) fn otel_tracing_layer(
     // currently default to using the HTTP exporter but in the future we could select off of the
     // combination of OTEL_EXPORTER_OTLP_PROTOCOL and OTEL_EXPORTER_OTLP_TRACES_PROTOCOL to
     // determine whether we should use http/protobuf or grpc.
-    let mut exporter = opentelemetry_otlp::new_exporter().http();
+    let mut exporter: SpanExporterBuilder = match OtlpProtocol::traces_protocol_from_env() {
+        OtlpProtocol::Grpc => opentelemetry_otlp::new_exporter().tonic().into(),
+        OtlpProtocol::HttpProtobuf => opentelemetry_otlp::new_exporter().http().into(),
+        OtlpProtocol::HttpJson => bail!("http/json OTLP protocol is not supported"),
+    };
     if let Some(endpoint) = fix_endpoint_bug() {
-        exporter = exporter.with_endpoint(endpoint);
+        match exporter {
+            SpanExporterBuilder::Tonic(inner) => exporter = inner.with_endpoint(endpoint).into(),
+            SpanExporterBuilder::Http(inner) => exporter = inner.with_endpoint(endpoint).into(),
+            _ => {}
+        }
     }
 
     let tracer = opentelemetry_otlp::new_pipeline()

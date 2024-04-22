@@ -10,7 +10,7 @@ use http::{
     HeaderMap, HeaderValue, Response, StatusCode,
 };
 
-use crate::{body, routes::RoutePattern, Body};
+use crate::{body, routes::RouteMatch, Body};
 
 /// This sets the version of CGI that WAGI adheres to.
 ///
@@ -22,7 +22,7 @@ pub const WAGI_VERSION: &str = "CGI/1.1";
 pub const SERVER_SOFTWARE_VERSION: &str = "WAGI/1";
 
 pub fn build_headers(
-    route: &RoutePattern,
+    route_match: &RouteMatch,
     req: &Parts,
     content_length: usize,
     client_addr: SocketAddr,
@@ -30,12 +30,7 @@ pub fn build_headers(
     use_tls: bool,
 ) -> HashMap<String, String> {
     let (host, port) = parse_host_header_uri(&req.headers, &req.uri, default_host);
-    let path_info = req
-        .uri
-        .path()
-        .strip_prefix(route.path_or_prefix())
-        .unwrap_or_default()
-        .to_owned();
+    let path_info = route_match.trailing_wildcard();
 
     let mut headers = HashMap::new();
 
@@ -92,7 +87,7 @@ pub fn build_headers(
     // have a trailing '/...'
     headers.insert(
         "X_MATCHED_ROUTE".to_owned(),
-        route.full_pattern().into_owned(),
+        route_match.based_route().to_string(),
     );
 
     headers.insert(
@@ -108,7 +103,10 @@ pub fn build_headers(
     // The Path component is /$SCRIPT_NAME/$PATH_INFO
     // SCRIPT_NAME is the route that matched.
     // https://datatracker.ietf.org/doc/html/rfc3875#section-4.1.13
-    headers.insert("SCRIPT_NAME".to_owned(), route.path_or_prefix().to_owned());
+    headers.insert(
+        "SCRIPT_NAME".to_owned(),
+        route_match.based_route_or_prefix(),
+    );
     // PATH_INFO is any path information after SCRIPT_NAME
     //
     // I am intentionally ignoring the PATH_INFO rule that says that a PATH_INFO

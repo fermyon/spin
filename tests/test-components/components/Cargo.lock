@@ -288,6 +288,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "http-routing"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "helper",
+ "spin-sdk 2.2.0",
+]
+
+[[package]]
 name = "id-arena"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

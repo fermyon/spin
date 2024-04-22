@@ -32,8 +32,8 @@ use spin_core::{Engine, OutboundWasiHttpHandler};
 use spin_http::{
     app_info::AppInfo,
     body,
-    config::{HttpExecutorType, HttpTriggerConfig, HttpTriggerRouteConfig},
-    routes::{RoutePattern, Router},
+    config::{HttpExecutorType, HttpTriggerConfig},
+    routes::{RouteMatch, Router},
 };
 use spin_outbound_networking::{
     is_service_chaining_host, parse_service_chaining_target, AllowedHostsConfig, OutboundUrl,
@@ -140,7 +140,7 @@ impl TriggerExecutor for HttpTrigger {
                 log::error!(
                     "  {}: {} (duplicate of {})",
                     dup.replaced_id,
-                    dup.route.full_pattern_non_empty(),
+                    dup.route(),
                     dup.effective_id,
                 );
             }
@@ -256,34 +256,24 @@ impl HttpTrigger {
 
         // Route to app component
         match self.router.route(&path) {
-            Ok(component_id) => {
+            Ok(route_match) => {
                 spin_telemetry::metrics::monotonic_counter!(
                     spin.request_count = 1,
                     trigger_type = "http",
                     app_id = &self.engine.app_name,
-                    component_id = component_id
+                    component_id = route_match.component_id()
                 );
+
+                let component_id = route_match.component_id();
 
                 let trigger = self.component_trigger_configs.get(component_id).unwrap();
 
                 let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Http);
 
-                let raw_route = match &trigger.route {
-                    HttpTriggerRouteConfig::Route(r) => r.as_str(),
-                    HttpTriggerRouteConfig::Private(_) => "/...",
-                };
-
                 let res = match executor {
                     HttpExecutorType::Http => {
                         HttpHandlerExecutor
-                            .execute(
-                                self.engine.clone(),
-                                component_id,
-                                &self.base,
-                                raw_route,
-                                req,
-                                addr,
-                            )
+                            .execute(self.engine.clone(), &self.base, &route_match, req, addr)
                             .await
                     }
                     HttpExecutorType::Wagi(wagi_config) => {
@@ -291,26 +281,19 @@ impl HttpTrigger {
                             wagi_config: wagi_config.clone(),
                         };
                         executor
-                            .execute(
-                                self.engine.clone(),
-                                component_id,
-                                &self.base,
-                                raw_route,
-                                req,
-                                addr,
-                            )
+                            .execute(self.engine.clone(), &self.base, &route_match, req, addr)
                             .await
                     }
                 };
                 match res {
                     Ok(res) => Ok(MatchedRoute::with_response_extension(
                         res,
-                        raw_route.to_string(),
+                        route_match.raw_route(),
                     )),
                     Err(e) => {
                         log::error!("Error processing request: {:?}", e);
                         instrument_error(&e);
-                        Self::internal_error(None, raw_route.to_string())
+                        Self::internal_error(None, route_match.raw_route())
                     }
                 }
             }
@@ -331,7 +314,7 @@ impl HttpTrigger {
     }
 
     /// Creates an HTTP 500 response.
-    fn internal_error(body: Option<&str>, route: String) -> Result<Response<Body>> {
+    fn internal_error(body: Option<&str>, route: impl Into<String>) -> Result<Response<Body>> {
         let body = match body {
             Some(body) => body::full(Bytes::copy_from_slice(body.as_bytes())),
             None => body::empty(),
@@ -492,48 +475,62 @@ fn strip_forbidden_headers(req: &mut Request<Body>) {
 // modules is going to be different, so each executor must must use the info
 // in its standardized way (environment variables for the Wagi executor, and custom headers
 // for the Spin HTTP executor).
-const FULL_URL: &[&str] = &["SPIN_FULL_URL", "X_FULL_URL"];
-const PATH_INFO: &[&str] = &["SPIN_PATH_INFO", "PATH_INFO"];
-const MATCHED_ROUTE: &[&str] = &["SPIN_MATCHED_ROUTE", "X_MATCHED_ROUTE"];
-const COMPONENT_ROUTE: &[&str] = &["SPIN_COMPONENT_ROUTE", "X_COMPONENT_ROUTE"];
-const RAW_COMPONENT_ROUTE: &[&str] = &["SPIN_RAW_COMPONENT_ROUTE", "X_RAW_COMPONENT_ROUTE"];
-const BASE_PATH: &[&str] = &["SPIN_BASE_PATH", "X_BASE_PATH"];
-const CLIENT_ADDR: &[&str] = &["SPIN_CLIENT_ADDR", "X_CLIENT_ADDR"];
+const FULL_URL: [&str; 2] = ["SPIN_FULL_URL", "X_FULL_URL"];
+const PATH_INFO: [&str; 2] = ["SPIN_PATH_INFO", "PATH_INFO"];
+const MATCHED_ROUTE: [&str; 2] = ["SPIN_MATCHED_ROUTE", "X_MATCHED_ROUTE"];
+const COMPONENT_ROUTE: [&str; 2] = ["SPIN_COMPONENT_ROUTE", "X_COMPONENT_ROUTE"];
+const RAW_COMPONENT_ROUTE: [&str; 2] = ["SPIN_RAW_COMPONENT_ROUTE", "X_RAW_COMPONENT_ROUTE"];
+const BASE_PATH: [&str; 2] = ["SPIN_BASE_PATH", "X_BASE_PATH"];
+const CLIENT_ADDR: [&str; 2] = ["SPIN_CLIENT_ADDR", "X_CLIENT_ADDR"];
 
-pub(crate) fn compute_default_headers<'a>(
+pub(crate) fn compute_default_headers(
     uri: &Uri,
-    raw: &str,
     base: &str,
     host: &str,
+    route_match: &RouteMatch,
     client_addr: SocketAddr,
-) -> Result<Vec<(&'a [&'a str], String)>> {
+) -> Result<Vec<([String; 2], String)>> {
+    fn owned(strs: &[&'static str; 2]) -> [String; 2] {
+        [strs[0].to_owned(), strs[1].to_owned()]
+    }
+
+    let owned_full_url: [String; 2] = owned(&FULL_URL);
+    let owned_path_info: [String; 2] = owned(&PATH_INFO);
+    let owned_matched_route: [String; 2] = owned(&MATCHED_ROUTE);
+    let owned_component_route: [String; 2] = owned(&COMPONENT_ROUTE);
+    let owned_raw_component_route: [String; 2] = owned(&RAW_COMPONENT_ROUTE);
+    let owned_base_path: [String; 2] = owned(&BASE_PATH);
+    let owned_client_addr: [String; 2] = owned(&CLIENT_ADDR);
+
     let mut res = vec![];
     let abs_path = uri
         .path_and_query()
         .expect("cannot get path and query")
         .as_str();
 
-    let path_info = RoutePattern::from(base, raw).relative(abs_path)?;
+    let path_info = route_match.trailing_wildcard();
 
     let scheme = uri.scheme_str().unwrap_or("http");
 
     let full_url = format!("{}://{}{}", scheme, host, abs_path);
-    let matched_route = RoutePattern::sanitize_with_base(base, raw);
 
-    res.push((PATH_INFO, path_info));
-    res.push((FULL_URL, full_url));
-    res.push((MATCHED_ROUTE, matched_route));
+    res.push((owned_path_info, path_info));
+    res.push((owned_full_url, full_url));
+    res.push((owned_matched_route, route_match.based_route().to_string()));
 
-    res.push((BASE_PATH, base.to_string()));
-    res.push((RAW_COMPONENT_ROUTE, raw.to_string()));
+    res.push((owned_base_path, base.to_string()));
     res.push((
-        COMPONENT_ROUTE,
-        raw.to_string()
-            .strip_suffix("/...")
-            .unwrap_or(raw)
-            .to_string(),
+        owned_raw_component_route,
+        route_match.raw_route().to_string(),
     ));
-    res.push((CLIENT_ADDR, client_addr.to_string()));
+    res.push((owned_component_route, route_match.raw_route_or_prefix()));
+    res.push((owned_client_addr, client_addr.to_string()));
+
+    for (wild_name, wild_value) in route_match.named_wildcards() {
+        let wild_header = format!("SPIN_PATH_MATCH_{}", wild_name.to_ascii_uppercase()); // TODO: safer
+        let wild_wagi_header = format!("X_PATH_MATCH_{}", wild_name.to_ascii_uppercase()); // TODO: safer
+        res.push(([wild_header, wild_wagi_header], wild_value.clone()));
+    }
 
     Ok(res)
 }
@@ -545,9 +542,8 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
     async fn execute(
         &self,
         engine: Arc<TriggerAppEngine<HttpTrigger>>,
-        component_id: &str,
         base: &str,
-        raw_route: &str,
+        route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>>;
@@ -586,8 +582,7 @@ impl HttpRuntimeData {
         let engine = chained_handler.engine;
         let handler = chained_handler.executor;
 
-        let base = "/";
-        let raw_route = "/...";
+        let route_match = RouteMatch::synthetic(&component_id, request.request.uri().path());
 
         let client_addr = std::net::SocketAddr::from_str("0.0.0.0:0")?;
 
@@ -603,8 +598,7 @@ impl HttpRuntimeData {
                 .execute(
                     engine.clone(),
                     &component_id,
-                    base,
-                    raw_route,
+                    &route_match,
                     req,
                     client_addr,
                 )
@@ -784,35 +778,38 @@ mod tests {
             .uri(req_uri)
             .body("")?;
 
+        let (router, _) = Router::build(base, [("DUMMY", &trigger_route.into())])?;
+        let route_match = router.route("/base/foo/bar")?;
+
         let default_headers =
-            crate::compute_default_headers(req.uri(), trigger_route, base, host, client_addr)?;
+            crate::compute_default_headers(req.uri(), base, host, &route_match, client_addr)?;
 
         assert_eq!(
-            search(FULL_URL, &default_headers).unwrap(),
+            search(&FULL_URL, &default_headers).unwrap(),
             "https://fermyon.dev/base/foo/bar?key1=value1&key2=value2".to_string()
         );
         assert_eq!(
-            search(PATH_INFO, &default_headers).unwrap(),
+            search(&PATH_INFO, &default_headers).unwrap(),
             "/bar".to_string()
         );
         assert_eq!(
-            search(MATCHED_ROUTE, &default_headers).unwrap(),
+            search(&MATCHED_ROUTE, &default_headers).unwrap(),
             "/base/foo/...".to_string()
         );
         assert_eq!(
-            search(BASE_PATH, &default_headers).unwrap(),
+            search(&BASE_PATH, &default_headers).unwrap(),
             "/base".to_string()
         );
         assert_eq!(
-            search(RAW_COMPONENT_ROUTE, &default_headers).unwrap(),
+            search(&RAW_COMPONENT_ROUTE, &default_headers).unwrap(),
             "/foo/...".to_string()
         );
         assert_eq!(
-            search(COMPONENT_ROUTE, &default_headers).unwrap(),
+            search(&COMPONENT_ROUTE, &default_headers).unwrap(),
             "/foo".to_string()
         );
         assert_eq!(
-            search(CLIENT_ADDR, &default_headers).unwrap(),
+            search(&CLIENT_ADDR, &default_headers).unwrap(),
             "127.0.0.1:8777".to_string()
         );
 
@@ -839,43 +836,114 @@ mod tests {
             .uri(req_uri)
             .body("")?;
 
+        let (router, _) = Router::build(base, [("DUMMY", &trigger_route.into())])?;
+        let route_match = router.route("/foo/bar")?;
+
         let default_headers =
-            crate::compute_default_headers(req.uri(), trigger_route, base, host, client_addr)?;
+            crate::compute_default_headers(req.uri(), base, host, &route_match, client_addr)?;
 
         // TODO: we currently replace the scheme with HTTP. When TLS is supported, this should be fixed.
         assert_eq!(
-            search(FULL_URL, &default_headers).unwrap(),
+            search(&FULL_URL, &default_headers).unwrap(),
             "https://fermyon.dev/foo/bar?key1=value1&key2=value2".to_string()
         );
         assert_eq!(
-            search(PATH_INFO, &default_headers).unwrap(),
+            search(&PATH_INFO, &default_headers).unwrap(),
             "/bar".to_string()
         );
         assert_eq!(
-            search(MATCHED_ROUTE, &default_headers).unwrap(),
+            search(&MATCHED_ROUTE, &default_headers).unwrap(),
             "/foo/...".to_string()
         );
         assert_eq!(
-            search(BASE_PATH, &default_headers).unwrap(),
+            search(&BASE_PATH, &default_headers).unwrap(),
             "/".to_string()
         );
         assert_eq!(
-            search(RAW_COMPONENT_ROUTE, &default_headers).unwrap(),
+            search(&RAW_COMPONENT_ROUTE, &default_headers).unwrap(),
             "/foo/...".to_string()
         );
         assert_eq!(
-            search(COMPONENT_ROUTE, &default_headers).unwrap(),
+            search(&COMPONENT_ROUTE, &default_headers).unwrap(),
             "/foo".to_string()
         );
         assert_eq!(
-            search(CLIENT_ADDR, &default_headers).unwrap(),
+            search(&CLIENT_ADDR, &default_headers).unwrap(),
             "127.0.0.1:8777".to_string()
         );
 
         Ok(())
     }
 
-    fn search<'a>(keys: &'a [&'a str], headers: &[(&[&str], String)]) -> Option<String> {
+    #[test]
+    fn test_default_headers_with_named_wildcards() -> Result<()> {
+        let scheme = "https";
+        let host = "fermyon.dev";
+        let base = "/";
+        let trigger_route = "/foo/:userid/...";
+        let component_path = "/foo";
+        let path_info = "/bar";
+        let client_addr: SocketAddr = "127.0.0.1:8777".parse().unwrap();
+
+        let req_uri = format!(
+            "{}://{}{}/42{}?key1=value1&key2=value2",
+            scheme, host, component_path, path_info
+        );
+
+        let req = http::Request::builder()
+            .method("POST")
+            .uri(req_uri)
+            .body("")?;
+
+        let (router, _) = Router::build(base, [("DUMMY", &trigger_route.into())])?;
+        let route_match = router.route("/foo/42/bar")?;
+
+        let default_headers =
+            crate::compute_default_headers(req.uri(), base, host, &route_match, client_addr)?;
+
+        // TODO: we currently replace the scheme with HTTP. When TLS is supported, this should be fixed.
+        assert_eq!(
+            search(&FULL_URL, &default_headers).unwrap(),
+            "https://fermyon.dev/foo/42/bar?key1=value1&key2=value2".to_string()
+        );
+        assert_eq!(
+            search(&PATH_INFO, &default_headers).unwrap(),
+            "/bar".to_string()
+        );
+        assert_eq!(
+            search(&MATCHED_ROUTE, &default_headers).unwrap(),
+            "/foo/:userid/...".to_string()
+        );
+        assert_eq!(
+            search(&BASE_PATH, &default_headers).unwrap(),
+            "/".to_string()
+        );
+        assert_eq!(
+            search(&RAW_COMPONENT_ROUTE, &default_headers).unwrap(),
+            "/foo/:userid/...".to_string()
+        );
+        assert_eq!(
+            search(&COMPONENT_ROUTE, &default_headers).unwrap(),
+            "/foo/:userid".to_string()
+        );
+        assert_eq!(
+            search(&CLIENT_ADDR, &default_headers).unwrap(),
+            "127.0.0.1:8777".to_string()
+        );
+
+        assert_eq!(
+            search(
+                &["SPIN_PATH_MATCH_USERID", "X_PATH_MATCH_USERID"],
+                &default_headers
+            )
+            .unwrap(),
+            "42".to_string()
+        );
+
+        Ok(())
+    }
+
+    fn search(keys: &[&str; 2], headers: &[([String; 2], String)]) -> Option<String> {
         let mut res: Option<String> = None;
         for (k, v) in headers {
             if k[0] == keys[0] && k[1] == keys[1] {

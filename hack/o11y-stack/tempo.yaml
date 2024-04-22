@@ -1,0 +1,23 @@
+server:
+  http_listen_port: 7999
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: "0.0.0.0:4318"
+  log_received_spans:
+    enabled: true
+
+# This is not tuned at all https://grafana.com/docs/tempo/latest/configuration/#storage
+storage:
+  trace:
+    backend: local
+    block:
+      v2_encoding: zstd
+    wal:
+      path: /tmp/tempo/wal
+      v2_encoding: none
+    local:
+      path: /tmp/tempo/blocks

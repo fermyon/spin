@@ -76,7 +76,7 @@ impl DoctorCommand {
                 }
             }
         }
-        if has_problems {
+        if !has_problems {
             println!("{icon}No problems found.", icon = Emoji("❤  ", ""));
         }
         Ok(())

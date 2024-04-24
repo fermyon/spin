@@ -1,12 +1,13 @@
 use std::io::IsTerminal;
 
-use env::otel_enabled;
-use env::otel_sdk_disabled;
+use env::otel_metrics_enabled;
+use env::otel_tracing_enabled;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use tracing_subscriber::{fmt, prelude::*, registry, EnvFilter, Layer};
 
 pub mod detector;
 mod env;
+pub mod metrics;
 mod propagation;
 mod traces;
 
@@ -30,12 +31,14 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
                 .add_directive("watchexec=off".parse()?),
         );
 
-    // We only want to build the otel layer if the user passed some endpoint configuration and it wasn't explicitly disabled.
-    let build_otel_layer = !otel_sdk_disabled() && otel_enabled();
-    let otel_layer = if build_otel_layer {
-        // In this case we want to set the error handler to log errors to the tracing layer.
-        opentelemetry::global::set_error_handler(otel_error_handler)?;
+    // Even if metrics or tracing aren't enabled we're okay to turn on the global error handler
+    opentelemetry::global::set_error_handler(otel_error_handler)?;
 
+    if otel_metrics_enabled() {
+        metrics::init(spin_version.clone())?;
+    }
+
+    let otel_layer = if otel_tracing_enabled() {
         Some(traces::otel_tracing_layer(spin_version)?)
     } else {
         None

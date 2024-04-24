@@ -242,6 +242,8 @@ impl HttpTrigger {
         set_req_uri(&mut req, scheme)?;
         strip_forbidden_headers(&mut req);
 
+        spin_telemetry::metrics::u64_counter_add("todo-request-count", 1, &[]);
+        spin_telemetry::metrics::f64_histogram_record("my_histogram", 0.38, &[("key", "value")]);
         spin_telemetry::extract_trace_context(&req);
 
         log::info!(

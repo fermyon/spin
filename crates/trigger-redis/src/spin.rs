@@ -22,6 +22,13 @@ impl RedisExecutor for SpinRedisExecutor {
     ) -> Result<()> {
         tracing::trace!("Executing request using the Spin executor for component {component_id}");
 
+        spin_telemetry::metrics::monotonic_counter!(
+            spin.request_count = 1,
+            trigger_type = "redis",
+            app_id = engine.app_name,
+            component_id = component_id
+        );
+
         let (instance, store) = engine.prepare_instance(component_id).await?;
 
         match Self::execute_impl(store, instance, channel, payload.to_vec()).await {

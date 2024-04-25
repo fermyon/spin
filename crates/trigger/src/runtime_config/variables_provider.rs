@@ -1,7 +1,11 @@
 use std::path::PathBuf;
 
 use serde::Deserialize;
-use spin_variables::provider::{env::EnvProvider, vault::VaultProvider};
+use spin_variables::provider::{
+    azkv::{AzureAuthorityHost, AzureKeyVaultProvider},
+    env::EnvProvider,
+    vault::VaultProvider,
+};
 
 use super::RuntimeConfig;
 
@@ -13,6 +17,7 @@ pub type VariablesProvider = Box<dyn spin_expressions::Provider>;
 pub enum VariablesProviderOpts {
     Env(EnvVariablesProviderOpts),
     Vault(VaultVariablesProviderOpts),
+    AzureKeyVault(AzureKeyVaultVariablesProviderOpts),
 }
 
 impl VariablesProviderOpts {
@@ -26,6 +31,7 @@ impl VariablesProviderOpts {
         match self {
             Self::Env(opts) => opts.build_provider(),
             Self::Vault(opts) => opts.build_provider(),
+            Self::AzureKeyVault(opts) => opts.build_provider(),
         }
     }
 }
@@ -79,6 +85,29 @@ impl VaultVariablesProviderOpts {
             &self.token,
             &self.mount,
             self.prefix.as_deref(),
+        ))
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AzureKeyVaultVariablesProviderOpts {
+    pub client_id: String,
+    pub client_secret: String,
+    pub tenant_id: String,
+    pub vault_url: String,
+    #[serde(default)]
+    pub authority_host: AzureAuthorityHost,
+}
+
+impl AzureKeyVaultVariablesProviderOpts {
+    pub fn build_provider(&self) -> VariablesProvider {
+        Box::new(AzureKeyVaultProvider::new(
+            &self.client_id,
+            &self.client_secret,
+            &self.tenant_id,
+            &self.vault_url,
+            self.authority_host,
         ))
     }
 }

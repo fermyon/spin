@@ -86,7 +86,7 @@ impl BadgerRecordManager {
         let new = BadgerRecord {
             name: name.to_owned(),
             badgered_from: from.clone(),
-            badgered_to: to.iter().map(|v| <semver::Version>::clone(v)).collect(),
+            badgered_to: to.iter().cloned().map(<semver::Version>::clone).collect(),
             when: chrono::Utc::now(),
         };
 

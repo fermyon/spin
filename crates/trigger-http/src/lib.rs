@@ -169,27 +169,12 @@ impl TriggerExecutor for HttpTrigger {
         let listen_addr = config.address;
         let tls = config.into_tls_config();
 
-        // Print startup messages
-        let scheme = if tls.is_some() { "https" } else { "http" };
-        let base_url = format!("{}://{:?}", scheme, listen_addr);
-        terminal::step!("\nServing", "{}", base_url);
-        log::info!("Serving {}", base_url);
-
-        println!("Available Routes:");
-        for (route, component_id) in self.router.routes() {
-            println!("  {}: {}{}", component_id, base_url, route);
-            if let Some(component) = self.engine.app().get_component(component_id) {
-                if let Some(description) = component.get_metadata(APP_DESCRIPTION_KEY)? {
-                    println!("    {}", description);
-                }
-            }
-        }
-
         if let Some(tls) = tls {
             self.serve_tls(listen_addr, tls).await?
         } else {
             self.serve(listen_addr).await?
         };
+
         Ok(())
     }
 
@@ -414,6 +399,22 @@ impl HttpTrigger {
             .await
             .with_context(|| format!("Unable to listen on {}", listen_addr))?;
 
+        // Print startup messages
+        let scheme = "http";
+        let base_url = format!("{}://{:?}", scheme, listener.local_addr()?);
+        terminal::step!("\nServing", "{}", base_url);
+        log::info!("Serving {}", base_url);
+
+        println!("Available Routes:");
+        for (route, component_id) in self_.router.routes() {
+            println!("  {}: {}{}", component_id, base_url, route);
+            if let Some(component) = self_.engine.app().get_component(component_id) {
+                if let Some(description) = component.get_metadata(APP_DESCRIPTION_KEY)? {
+                    println!("    {}", description);
+                }
+            }
+        }
+
         loop {
             let (stream, addr) = listener.accept().await?;
             Self::serve_connection(self_.clone(), stream, addr);
@@ -426,6 +427,22 @@ impl HttpTrigger {
         let listener = TcpListener::bind(listen_addr)
             .await
             .with_context(|| format!("Unable to listen on {}", listen_addr))?;
+
+        // Print startup messages
+        let scheme = "https";
+        let base_url = format!("{}://{:?}", scheme, listener.local_addr()?);
+        terminal::step!("\nServing", "{}", base_url);
+        log::info!("Serving {}", base_url);
+
+        println!("Available Routes:");
+        for (route, component_id) in self_.router.routes() {
+            println!("  {}: {}{}", component_id, base_url, route);
+            if let Some(component) = self_.engine.app().get_component(component_id) {
+                if let Some(description) = component.get_metadata(APP_DESCRIPTION_KEY)? {
+                    println!("    {}", description);
+                }
+            }
+        }
 
         let acceptor = tls.server_config()?;
 

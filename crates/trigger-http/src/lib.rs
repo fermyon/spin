@@ -169,27 +169,17 @@ impl TriggerExecutor for HttpTrigger {
         let listen_addr = config.address;
         let tls = config.into_tls_config();
 
-        // Print startup messages
-        let scheme = if tls.is_some() { "https" } else { "http" };
-        let base_url = format!("{}://{:?}", scheme, listen_addr);
-        terminal::step!("\nServing", "{}", base_url);
-        log::info!("Serving {}", base_url);
+        let listener = TcpListener::bind(listen_addr)
+            .await
+            .with_context(|| format!("Unable to listen on {}", listen_addr))?;
 
-        println!("Available Routes:");
-        for (route, component_id) in self.router.routes() {
-            println!("  {}: {}{}", component_id, base_url, route);
-            if let Some(component) = self.engine.app().get_component(component_id) {
-                if let Some(description) = component.get_metadata(APP_DESCRIPTION_KEY)? {
-                    println!("    {}", description);
-                }
-            }
-        }
-
+        let self_ = Arc::new(self);
         if let Some(tls) = tls {
-            self.serve_tls(listen_addr, tls).await?
+            self_.serve_tls(listener, tls).await?
         } else {
-            self.serve(listen_addr).await?
+            self_.serve(listener).await?
         };
+
         Ok(())
     }
 
@@ -365,7 +355,7 @@ impl HttpTrigger {
     }
 
     fn serve_connection<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
-        self_: Arc<Self>,
+        self: Arc<Self>,
         stream: S,
         addr: SocketAddr,
     ) {
@@ -374,7 +364,7 @@ impl HttpTrigger {
                 .keep_alive(true)
                 .serve_connection(
                     TokioIo::new(stream),
-                    service_fn(move |request| self_.clone().instrumented_service_fn(addr, request)),
+                    service_fn(move |request| self.clone().instrumented_service_fn(addr, request)),
                 )
                 .await
             {
@@ -407,35 +397,43 @@ impl HttpTrigger {
         .await
     }
 
-    async fn serve(self, listen_addr: SocketAddr) -> Result<()> {
-        let self_ = Arc::new(self);
-
-        let listener = TcpListener::bind(listen_addr)
-            .await
-            .with_context(|| format!("Unable to listen on {}", listen_addr))?;
-
+    async fn serve(self: Arc<Self>, listener: TcpListener) -> Result<()> {
+        self.print_startup_msgs("http", &listener)?;
         loop {
             let (stream, addr) = listener.accept().await?;
-            Self::serve_connection(self_.clone(), stream, addr);
+            Self::serve_connection(self.clone(), stream, addr);
         }
     }
 
-    async fn serve_tls(self, listen_addr: SocketAddr, tls: TlsConfig) -> Result<()> {
-        let self_ = Arc::new(self);
-
-        let listener = TcpListener::bind(listen_addr)
-            .await
-            .with_context(|| format!("Unable to listen on {}", listen_addr))?;
-
+    async fn serve_tls(self: Arc<Self>, listener: TcpListener, tls: TlsConfig) -> Result<()> {
         let acceptor = tls.server_config()?;
+        self.print_startup_msgs("https", &listener)?;
 
         loop {
             let (stream, addr) = listener.accept().await?;
             match acceptor.accept(stream).await {
-                Ok(stream) => Self::serve_connection(self_.clone(), stream, addr),
+                Ok(stream) => self.clone().serve_connection(stream, addr),
                 Err(err) => tracing::error!(?err, "Failed to start TLS session"),
             }
         }
+    }
+
+    fn print_startup_msgs(&self, scheme: &str, listener: &TcpListener) -> Result<()> {
+        let local_addr = listener.local_addr()?;
+        let base_url = format!("{scheme}://{local_addr:?}");
+        terminal::step!("\nServing", "{}", base_url);
+        log::info!("Serving {}", base_url);
+
+        println!("Available Routes:");
+        for (route, component_id) in self.router.routes() {
+            println!("  {}: {}{}", component_id, base_url, route);
+            if let Some(component) = self.engine.app().get_component(component_id) {
+                if let Some(description) = component.get_metadata(APP_DESCRIPTION_KEY)? {
+                    println!("    {}", description);
+                }
+            }
+        }
+        Ok(())
     }
 }
 

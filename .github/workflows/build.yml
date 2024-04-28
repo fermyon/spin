@@ -56,10 +56,6 @@ jobs:
       - name: Run lints on examples
         run: BUILD_SPIN_EXAMPLES=0 make lint-rust-examples
 
-      - name: Cancel everything if linting fails
-        if: failure()
-        uses: andymckay/cancel-action@0.2
-
   ## This is separated out to remove full integration tests dependencies on windows/mac builds
   build-rust-ubuntu:
     name: Build Spin Ubuntu

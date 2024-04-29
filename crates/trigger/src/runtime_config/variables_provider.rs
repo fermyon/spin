@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 use spin_variables::provider::{
-    azkv::{AzureAuthorityHost, AzureKeyVaultProvider},
+    azure_key_vault::{AzureAuthorityHost, AzureKeyVaultProvider},
     env::EnvProvider,
     vault::VaultProvider,
 };

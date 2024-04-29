@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use azure_core::Url;
 use azure_security_keyvault::SecretClient;
@@ -49,10 +49,11 @@ impl Provider for AzureKeyVaultProvider {
         );
 
         let secret_client = SecretClient::new(&self.vault_url, Arc::new(credential))?;
-        match secret_client.get(key.as_str()).await {
-            Ok(secret) => Ok(Some(secret.value)),
-            Err(err) => return Err(err).context("Failed to read variable from Azure Key Vault"),
-        }
+        let secret = secret_client
+            .get(key.as_str())
+            .await
+            .context("Failed to read variable from Azure Key Vault")?;
+        Ok(Some(secret.value))
     }
 }
 
@@ -76,24 +77,29 @@ impl From<AzureAuthorityHost> for Url {
             AzureAuthorityHost::AzureChina => "https://login.chinacloudapi.cn/",
             AzureAuthorityHost::AzureGovernment => "https://login.microsoftonline.us/",
             AzureAuthorityHost::AzureGermany => "https://login.microsoftonline.de/",
-            _ => "https://login.microsoftonline.com/",
+            AzureAuthorityHost::AzurePublicCloud => "https://login.microsoftonline.com/",
         };
         Url::parse(url).unwrap()
     }
 }
-impl From<&str> for AzureAuthorityHost {
-    fn from(value: &str) -> Self {
-        match value.to_lowercase().as_str() {
+impl FromStr for AzureAuthorityHost {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::prelude::v1::Result<Self, Self::Err> {
+        Ok(match s.to_lowercase().as_str() {
             "azurechina" | "china" => AzureAuthorityHost::AzureChina,
             "azuregermany" | "germany" => AzureAuthorityHost::AzureGermany,
-            "AzureGovernment" | "gov" => AzureAuthorityHost::AzureGovernment,
-            _ => AzureAuthorityHost::AzurePublicCloud,
-        }
+            "azuregovernment" | "gov" => AzureAuthorityHost::AzureGovernment,
+            "azureublic" | "azurepubliccloud" | "public" | "publiccloud" => {
+                AzureAuthorityHost::AzurePublicCloud
+            }
+            _ => bail!("Unsupported value provided for AzureAuthorityHost"),
+        })
     }
 }
 
 impl From<String> for AzureAuthorityHost {
     fn from(value: String) -> Self {
-        AzureAuthorityHost::from(value.as_str())
+        value.as_str().parse().unwrap()
     }
 }

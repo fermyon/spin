@@ -257,6 +257,13 @@ impl HttpTrigger {
         // Route to app component
         match self.router.route(&path) {
             Ok(component_id) => {
+                spin_telemetry::metrics::monotonic_counter!(
+                    spin.request_count = 1,
+                    trigger_type = "http",
+                    app_id = &self.engine.app_name,
+                    component_id = component_id
+                );
+
                 let trigger = self.component_trigger_configs.get(component_id).unwrap();
 
                 let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Http);

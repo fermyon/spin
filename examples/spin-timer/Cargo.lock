@@ -4271,6 +4271,7 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
+ "terminal",
  "tracing",
  "tracing-appender",
  "tracing-opentelemetry",

@@ -21,6 +21,7 @@ spin-world = { path = "../world" }
 redis = { version = "0.21", features = ["tokio-comp"] }
 tracing = { workspace = true }
 tokio = { version = "1.23", features = ["full"] }
+spin-telemetry = { path = "../telemetry" }
 
 [dev-dependencies]
 spin-testing = { path = "../testing" }

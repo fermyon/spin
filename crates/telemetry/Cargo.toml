@@ -17,3 +17,4 @@ tracing-appender = "0.2.2"
 tracing-opentelemetry = "0.23.0"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json", "registry"] }
 url = "2.2.2"
+terminal = { path = "../terminal" }

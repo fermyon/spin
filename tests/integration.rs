@@ -1274,6 +1274,41 @@ route = "/..."
     }
 
     #[test]
+    fn test_http_routing() -> anyhow::Result<()> {
+        run_test(
+            "http-routing",
+            SpinAppType::Http,
+            [],
+            testing_framework::ServicesConfig::none(),
+            move |env| {
+                let spin = env.runtime_mut();
+                assert_spin_request(
+                    spin,
+                    Request::full(Method::GET, "/users/42", &[], Some("")),
+                    Response::new_with_body(200, "42:"),
+                )?;
+                assert_spin_request(
+                    spin,
+                    Request::full(Method::GET, "/users/42/", &[], Some("")),
+                    Response::new_with_body(200, "42:/"),
+                )?;
+                assert_spin_request(
+                    spin,
+                    Request::full(Method::GET, "/users/42/hello", &[], Some("")),
+                    Response::new_with_body(200, "42:/hello"),
+                )?;
+                assert_spin_request(
+                    spin,
+                    Request::full(Method::GET, "/users/42/hello/", &[], Some("")),
+                    Response::new_with_body(200, "42:/hello/"),
+                )?;
+                Ok(())
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
     fn test_outbound_post() -> anyhow::Result<()> {
         run_test(
             "wasi-http-outbound-post",

@@ -12,6 +12,7 @@ http-body-util = { workspace = true }
 wasmtime-wasi-http = { workspace = true, optional = true }
 indexmap = "1"
 percent-encoding = "2"
+routefinder = "0.5.4"
 serde = { version = "1.0", features = ["derive"] }
 tracing = { workspace = true }
 spin-app = { path = "../app", optional = true }

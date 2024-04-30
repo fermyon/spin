@@ -105,7 +105,7 @@ impl WatchCommand {
             tokio::sync::watch::channel((Uuid::new_v4(), "artifact".to_owned()));
         let (pause_tx, pause_rx) = tokio::sync::mpsc::channel(1);
         let (source_code_tx, source_code_rx) =
-            tokio::sync::watch::channel((Uuid::new_v4(), "".to_owned()));
+            tokio::sync::watch::channel((Uuid::new_v4(), "THIS_IS_ THE-FIRST BUILD".to_owned()));
         let (manifest_tx, manifest_rx) =
             tokio::sync::watch::channel((Uuid::new_v4(), "manifest".to_owned()));
         let (stop_tx, stop_rx) = tokio::sync::watch::channel(Uuid::new_v4());

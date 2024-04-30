@@ -1,5 +1,5 @@
 use command_group::AsyncCommandGroup;
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 use uuid::Uuid;
 
 use super::uppificator::Pause;
@@ -54,23 +54,37 @@ impl Buildifier {
         mut component_path: &str,
     ) -> std::io::Result<bool> {
         let manifest = spin_manifest::manifest_from_file(&self.manifest).unwrap();
-        let inner_ids: Vec<&str> = manifest.components.keys().map(|key| key.as_ref()).collect();
 
-        if !inner_ids.iter().any(|id| component_path.contains(id)) && !component_path.is_empty() {
-            component_path = inner_ids.first().cloned().unwrap_or_default();
-        }
+        let id_to_workdir: HashMap<_, _> = manifest
+            .components
+            .iter()
+            .filter_map(|(id, component)| {
+                component.build.as_ref().map(|build_config| {
+                    (
+                        id.as_ref(),
+                        build_config.workdir.clone().unwrap_or("".to_owned()),
+                    )
+                })
+            })
+            .collect();
 
-        for inner_id in inner_ids {
-            if component_path.contains(inner_id) {
+        for (inner_id, workdir) in id_to_workdir.iter() {
+            
+            if !workdir.is_empty() && component_path.contains(workdir) {
                 component_path = inner_id;
                 break;
             }
+            if component_path != "THIS_IS_ THE-FIRST BUILD" && component_path.contains(workdir) {
+                component_path = inner_id;
+            }
         }
+
+        println!("COMPONENT PATH: {:?}", &component_path);
 
         loop {
             let mut cmd = tokio::process::Command::new(&self.spin_bin);
 
-            if component_path.is_empty() {
+            if component_path == "THIS_IS_ THE-FIRST BUILD" {
                 cmd.arg("build").arg("-f").arg(&self.manifest);
             } else {
                 cmd.arg("build")

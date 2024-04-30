@@ -67,7 +67,7 @@ impl LocalLoader {
     }
 
     // Load the given manifest into a LockedApp, ready for execution.
-    async fn load_manifest(&self, mut manifest: AppManifest) -> Result<LockedApp> {
+    pub(crate) async fn load_manifest(&self, mut manifest: AppManifest) -> Result<LockedApp> {
         spin_manifest::normalize::normalize_manifest(&mut manifest);
 
         let AppManifest {

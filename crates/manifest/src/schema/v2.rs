@@ -118,10 +118,10 @@ pub struct Component {
     pub exclude_files: Vec<String>,
     /// `allowed_http_hosts = ["example.com"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub(crate) allowed_http_hosts: Vec<String>,
+    pub allowed_http_hosts: Vec<String>,
     /// `allowed_outbound_hosts = ["redis://myredishost.com:6379"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub(crate) allowed_outbound_hosts: Vec<String>,
+    pub allowed_outbound_hosts: Vec<String>,
     /// `key_value_stores = ["default", "my-store"]`
     #[serde(
         default,

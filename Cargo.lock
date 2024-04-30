@@ -7600,6 +7600,7 @@ dependencies = [
  "dunce",
  "futures",
  "glob",
+ "indexmap 1.9.3",
  "itertools 0.10.5",
  "lazy_static 1.4.0",
  "mime_guess",

@@ -13,6 +13,7 @@ use spin_manifest::schema::v2::AppManifest;
 pub enum AppSource {
     File(PathBuf),
     OciRegistry(String),
+    BareWasm(PathBuf),
     Unresolvable(String),
     None,
 }
@@ -31,7 +32,13 @@ impl AppSource {
 
     pub fn infer_file_source(path: impl Into<PathBuf>) -> Self {
         match spin_common::paths::resolve_manifest_file_path(path.into()) {
-            Ok(file) => Self::File(file),
+            Ok(file) => {
+                if is_wasm_file(&file) {
+                    Self::BareWasm(file)
+                } else {
+                    Self::File(file)
+                }
+            }
             Err(e) => Self::Unresolvable(e.to_string()),
         }
     }
@@ -58,11 +65,17 @@ impl AppSource {
     }
 }
 
+fn is_wasm_file(path: &Path) -> bool {
+    let extn = path.extension().and_then(std::ffi::OsStr::to_str);
+    extn.is_some_and(|e| e == "wasm" || e == "wat")
+}
+
 impl std::fmt::Display for AppSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::File(path) => write!(f, "local app {}", quoted_path(path)),
             Self::OciRegistry(reference) => write!(f, "remote app {reference:?}"),
+            Self::BareWasm(path) => write!(f, "Wasm file {}", quoted_path(path)),
             Self::Unresolvable(s) => write!(f, "unknown app source: {s:?}"),
             Self::None => write!(f, "<no source>"),
         }
@@ -77,6 +90,9 @@ pub enum ResolvedAppSource {
         manifest_path: PathBuf,
         manifest: AppManifest,
     },
+    BareWasm {
+        wasm_path: PathBuf,
+    },
     OciRegistry {
         locked_app: LockedApp,
     },
@@ -85,17 +101,20 @@ pub enum ResolvedAppSource {
 impl ResolvedAppSource {
     pub fn trigger_types(&self) -> anyhow::Result<Vec<&str>> {
         let types = match self {
-            ResolvedAppSource::File { manifest, .. } => {
-                manifest.triggers.keys().collect::<HashSet<_>>()
-            }
+            ResolvedAppSource::File { manifest, .. } => manifest
+                .triggers
+                .keys()
+                .map(|s| s.as_str())
+                .collect::<HashSet<_>>(),
             ResolvedAppSource::OciRegistry { locked_app } => locked_app
                 .triggers
                 .iter()
-                .map(|t| &t.trigger_type)
+                .map(|t| t.trigger_type.as_str())
                 .collect::<HashSet<_>>(),
+            ResolvedAppSource::BareWasm { .. } => ["http"].into_iter().collect(),
         };
 
         ensure!(!types.is_empty(), "no triggers in app");
-        Ok(types.into_iter().map(|t| t.as_str()).collect())
+        Ok(types.into_iter().collect())
     }
 }

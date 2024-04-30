@@ -1,6 +1,6 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use azure_core::Url;
 use azure_security_keyvault::SecretClient;
@@ -80,26 +80,5 @@ impl From<AzureAuthorityHost> for Url {
             AzureAuthorityHost::AzurePublicCloud => "https://login.microsoftonline.com/",
         };
         Url::parse(url).unwrap()
-    }
-}
-impl FromStr for AzureAuthorityHost {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> std::prelude::v1::Result<Self, Self::Err> {
-        Ok(match s.to_lowercase().as_str() {
-            "azurechina" | "china" => AzureAuthorityHost::AzureChina,
-            "azuregermany" | "germany" => AzureAuthorityHost::AzureGermany,
-            "azuregovernment" | "gov" => AzureAuthorityHost::AzureGovernment,
-            "azureublic" | "azurepubliccloud" | "public" | "publiccloud" => {
-                AzureAuthorityHost::AzurePublicCloud
-            }
-            _ => bail!("Unsupported value provided for AzureAuthorityHost"),
-        })
-    }
-}
-
-impl From<String> for AzureAuthorityHost {
-    fn from(value: String) -> Self {
-        value.as_str().parse().unwrap()
     }
 }

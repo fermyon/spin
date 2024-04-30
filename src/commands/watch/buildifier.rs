@@ -28,10 +28,10 @@ impl Buildifier {
                 break;
             }
 
-            let (_, ref changed_paths) = self.watched_changes.borrow_and_update().clone();
-            tracing::debug!("Detected changes in: {}", changed_paths);
+            let (_, ref changed_path) = self.watched_changes.borrow_and_update().clone();
+            tracing::debug!("Detected changes in: {:?}", changed_path);
 
-            let build_component_result = self.build_component(changed_paths).await;
+            let build_component_result = self.build_component(changed_path).await;
 
             if !self.has_ever_built {
                 self.has_ever_built = matches!(build_component_result, Ok(true));
@@ -49,10 +49,7 @@ impl Buildifier {
         }
     }
 
-    pub(crate) async fn build_component(
-        &mut self,
-        mut component_path: &str,
-    ) -> std::io::Result<bool> {
+    pub(crate) async fn build_component(&mut self, component_path: &str) -> std::io::Result<bool> {
         let manifest = spin_manifest::manifest_from_file(&self.manifest).unwrap();
 
         let id_to_workdir: HashMap<_, _> = manifest
@@ -68,28 +65,35 @@ impl Buildifier {
             })
             .collect();
 
-        for (inner_id, workdir) in id_to_workdir.iter() {
-            
-            if !workdir.is_empty() && component_path.contains(workdir) {
-                component_path = inner_id;
-                break;
-            }
-            if component_path != "THIS_IS_ THE-FIRST BUILD" && component_path.contains(workdir) {
-                component_path = inner_id;
+        let component_paths: Vec<&str> = component_path.split(", ").collect();
+        let mut component_ids = Vec::new();
+        let source_dir = id_to_workdir
+            .iter()
+            .find(|(_, value)| value.is_empty())
+            .map(|(key, _)| key);
+
+        for changed_path in &component_paths {
+            for (inner_id, workdir) in id_to_workdir.iter() {
+                if !workdir.is_empty() && changed_path.contains(workdir) {
+                    component_ids.push(inner_id);
+                    break;
+                }
             }
         }
 
-        println!("COMPONENT PATH: {:?}", &component_path);
+        if component_ids.len() != component_paths.len() {
+            component_ids.push(source_dir.unwrap());
+        }
 
         loop {
             let mut cmd = tokio::process::Command::new(&self.spin_bin);
 
-            if component_path == "THIS_IS_ THE-FIRST BUILD" {
+            if component_paths.contains(&"THIS_IS_ THE-FIRST BUILD") {
                 cmd.arg("build").arg("-f").arg(&self.manifest);
             } else {
                 cmd.arg("build")
                     .arg("-c")
-                    .arg(component_path)
+                    .args(&component_ids)
                     .arg("-f")
                     .arg(&self.manifest);
             }

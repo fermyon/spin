@@ -88,7 +88,9 @@ impl Buildifier {
         loop {
             let mut cmd = tokio::process::Command::new(&self.spin_bin);
 
-            if component_paths.contains(&"THIS_IS_ THE-FIRST BUILD") {
+            if component_paths.contains(&"THIS_IS_ THE-FIRST BUILD")
+                || component_paths.contains(&self.manifest.to_str().unwrap())
+            {
                 cmd.arg("build").arg("-f").arg(&self.manifest);
             } else {
                 cmd.arg("build")

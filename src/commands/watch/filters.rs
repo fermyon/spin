@@ -3,8 +3,9 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::bail;
+use anyhow::Context;
 use async_trait::async_trait;
+use spin_common::ui::quoted_path;
 use spin_manifest::schema::v2;
 
 #[async_trait]
@@ -34,7 +35,7 @@ impl FilterFactory for ArtifactFilterFactory {
         manifest: &v2::AppManifest,
     ) -> anyhow::Result<Arc<watchexec_filterer_globset::GlobsetFilterer>> {
         let manifest_glob = if self.skip_build {
-            vec![stringize_path(manifest_file)?]
+            vec![manifest_path_to_watch(manifest_file)?]
         } else {
             vec![] // In this case, manifest changes trigger a rebuild, which will poke the uppificator anyway
         };
@@ -95,7 +96,7 @@ impl FilterFactory for BuildFilterFactory {
         manifest_dir: &Path,
         manifest: &v2::AppManifest,
     ) -> anyhow::Result<Arc<watchexec_filterer_globset::GlobsetFilterer>> {
-        let manifest_glob = vec![stringize_path(manifest_file)?];
+        let manifest_glob = vec![manifest_path_to_watch(manifest_file)?];
         let src_globs = manifest
             .components
             .iter()
@@ -152,7 +153,7 @@ impl FilterFactory for ManifestFilterFactory {
         manifest_dir: &Path,
         _: &v2::AppManifest,
     ) -> anyhow::Result<Arc<watchexec_filterer_globset::GlobsetFilterer>> {
-        let manifest_glob = stringize_path(manifest_file)?;
+        let manifest_glob = manifest_path_to_watch(manifest_file)?;
 
         let filterer = watchexec_filterer_globset::GlobsetFilterer::new(
             manifest_dir,
@@ -167,11 +168,13 @@ impl FilterFactory for ManifestFilterFactory {
     }
 }
 
-fn stringize_path(path: &Path) -> anyhow::Result<String> {
-    match path.to_str() {
-        Some(s) => Ok(s.to_owned()),
-        None => bail!("Can't represent path {} as string", path.display()),
-    }
+// Although manifest dir must be absolute, and most things are safer with abs
+// file paths, the manifest _path_ for the watchers must be relative to manifest dir
+fn manifest_path_to_watch(path: &Path) -> anyhow::Result<String> {
+    let rel_path = path
+        .file_name()
+        .with_context(|| format!("resolved manifest {} has no filename", quoted_path(path)))?;
+    Ok(rel_path.to_string_lossy().to_string())
 }
 
 fn standard_ignores() -> Vec<(String, Option<PathBuf>)> {

@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use http_body_util::BodyExt;
 use hyper::{Request, Response};
 use spin_core::WasiVersion;
-use spin_http::{config::WagiTriggerConfig, routes::RoutePattern, wagi};
+use spin_http::{config::WagiTriggerConfig, routes::RouteMatch, wagi};
 use spin_trigger::TriggerAppEngine;
 use tracing::{instrument, Level};
 use wasi_common_preview1::{pipe::WritePipe, I32Exit};
@@ -20,16 +20,17 @@ pub struct WagiHttpExecutor {
 
 #[async_trait]
 impl HttpExecutor for WagiHttpExecutor {
-    #[instrument(name = "spin_trigger_http.execute_wagi", skip_all, err(level = Level::INFO), fields(otel.name = format!("execute_wagi_component {}", component)))]
+    #[instrument(name = "spin_trigger_http.execute_wagi", skip_all, err(level = Level::INFO), fields(otel.name = format!("execute_wagi_component {}", route_match.component_id())))]
     async fn execute(
         &self,
         engine: Arc<TriggerAppEngine<HttpTrigger>>,
-        component: &str,
         base: &str,
-        raw_route: &str,
+        route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
+        let component = route_match.component_id();
+
         tracing::trace!(
             "Executing request using the Wagi executor for component {}",
             component
@@ -55,14 +56,8 @@ impl HttpExecutor for WagiHttpExecutor {
 
         // TODO
         // The default host and TLS fields are currently hard-coded.
-        let mut headers = wagi::build_headers(
-            &RoutePattern::from(base, raw_route),
-            &parts,
-            len,
-            client_addr,
-            "default_host",
-            false,
-        );
+        let mut headers =
+            wagi::build_headers(route_match, &parts, len, client_addr, "default_host", false);
 
         let default_host = http::HeaderValue::from_str("localhost")?;
         let host = std::str::from_utf8(
@@ -78,7 +73,7 @@ impl HttpExecutor for WagiHttpExecutor {
         // `PATH_INFO`, or `X_FULL_URL`).
         // Note that this overrides any existing headers previously set by Wagi.
         for (keys, val) in
-            crate::compute_default_headers(&parts.uri, raw_route, base, host, client_addr)?
+            crate::compute_default_headers(&parts.uri, base, host, route_match, client_addr)?
         {
             headers.insert(keys[1].to_string(), val);
         }

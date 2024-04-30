@@ -13,6 +13,7 @@ use spin_core::wasi_2023_10_18::exports::wasi::http::incoming_handler::Guest as 
 use spin_core::wasi_2023_11_10::exports::wasi::http::incoming_handler::Guest as IncomingHandler2023_11_10;
 use spin_core::Instance;
 use spin_http::body;
+use spin_http::routes::RouteMatch;
 use spin_trigger::TriggerAppEngine;
 use spin_world::v1::http_types;
 use std::sync::Arc;
@@ -25,16 +26,17 @@ pub struct HttpHandlerExecutor;
 
 #[async_trait]
 impl HttpExecutor for HttpHandlerExecutor {
-    #[instrument(name = "spin_trigger_http.execute_wasm", skip_all, err(level = Level::INFO), fields(otel.name = format!("execute_wasm_component {}", component_id)))]
+    #[instrument(name = "spin_trigger_http.execute_wasm", skip_all, err(level = Level::INFO), fields(otel.name = format!("execute_wasm_component {}", route_match.component_id())))]
     async fn execute(
         &self,
         engine: Arc<TriggerAppEngine<HttpTrigger>>,
-        component_id: &str,
         base: &str,
-        raw_route: &str,
+        route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
+        let component_id = route_match.component_id();
+
         tracing::trace!(
             "Executing request using the Spin executor for component {}",
             component_id
@@ -49,10 +51,10 @@ impl HttpExecutor for HttpHandlerExecutor {
 
         let resp = match HandlerType::from_exports(instance.exports(&mut store)) {
             Some(HandlerType::Wasi) => {
-                Self::execute_wasi(store, instance, base, raw_route, req, client_addr).await?
+                Self::execute_wasi(store, instance, base, route_match, req, client_addr).await?
             }
             Some(HandlerType::Spin) => {
-                Self::execute_spin(store, instance, base, raw_route, req, client_addr)
+                Self::execute_spin(store, instance, base, route_match, req, client_addr)
                     .await
                     .map_err(contextualise_err)?
             }
@@ -76,11 +78,11 @@ impl HttpHandlerExecutor {
         mut store: Store,
         instance: Instance,
         base: &str,
-        raw_route: &str,
+        route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
-        let headers = Self::headers(&req, raw_route, base, client_addr)?;
+        let headers = Self::headers(&req, base, route_match, client_addr)?;
         let func = instance
             .exports(&mut store)
             .instance("fermyon:spin/inbound-http")
@@ -156,11 +158,11 @@ impl HttpHandlerExecutor {
         mut store: Store,
         instance: Instance,
         base: &str,
-        raw_route: &str,
+        route_match: &RouteMatch,
         mut req: Request<Body>,
         client_addr: SocketAddr,
     ) -> anyhow::Result<Response<Body>> {
-        let headers = Self::headers(&req, raw_route, base, client_addr)?;
+        let headers = Self::headers(&req, base, route_match, client_addr)?;
         req.headers_mut().clear();
         req.headers_mut()
             .extend(headers.into_iter().filter_map(|(n, v)| {
@@ -281,8 +283,8 @@ impl HttpHandlerExecutor {
 
     fn headers(
         req: &Request<Body>,
-        raw: &str,
         base: &str,
+        route_match: &RouteMatch,
         client_addr: SocketAddr,
     ) -> Result<Vec<(String, String)>> {
         let mut res = Vec::new();
@@ -306,9 +308,10 @@ impl HttpHandlerExecutor {
         // Set the environment information (path info, base path, etc) as headers.
         // In the future, we might want to have this information in a context
         // object as opposed to headers.
-        for (keys, val) in crate::compute_default_headers(req.uri(), raw, base, host, client_addr)?
+        for (keys, val) in
+            crate::compute_default_headers(req.uri(), base, host, route_match, client_addr)?
         {
-            res.push((Self::prepare_header_key(keys[0]), val));
+            res.push((Self::prepare_header_key(&keys[0]), val));
         }
 
         Ok(res)

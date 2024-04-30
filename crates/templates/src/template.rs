@@ -646,11 +646,14 @@ fn validate_v1_manifest(raw: &RawTemplateManifestV1) -> anyhow::Result<()> {
 mod test {
     use super::*;
 
-    struct TempFile(tempfile::TempDir, PathBuf);
+    struct TempFile {
+        _temp_dir: tempfile::TempDir,
+        path: PathBuf,
+    }
 
     impl TempFile {
         fn path(&self) -> PathBuf {
-            self.1.clone()
+            self.path.clone()
         }
     }
 
@@ -658,7 +661,10 @@ mod test {
         let temp_dir = tempfile::tempdir().unwrap();
         let temp_file = temp_dir.path().join("spin.toml");
         std::fs::write(&temp_file, content).unwrap();
-        TempFile(temp_dir, temp_file)
+        TempFile {
+            _temp_dir: temp_dir,
+            path: temp_file,
+        }
     }
 
     #[test]

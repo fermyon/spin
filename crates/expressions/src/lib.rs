@@ -9,6 +9,79 @@ pub use provider::Provider;
 use template::Part;
 pub use template::Template;
 
+/// A [`ProviderResolver`] that can be shared.
+pub type SharedPreparedResolver =
+    std::sync::Arc<std::sync::OnceLock<std::sync::Arc<PreparedResolver>>>;
+
+/// A [`Resolver`] which is extended by [`Provider`]s.
+#[derive(Debug, Default)]
+pub struct ProviderResolver {
+    internal: Resolver,
+    providers: Vec<Box<dyn Provider>>,
+}
+
+impl ProviderResolver {
+    /// Creates a Resolver for the given Tree.
+    pub fn new(variables: impl IntoIterator<Item = (String, Variable)>) -> Result<Self> {
+        Ok(Self {
+            internal: Resolver::new(variables)?,
+            providers: Default::default(),
+        })
+    }
+
+    /// Adds component variable values to the Resolver.
+    pub fn add_component_variables(
+        &mut self,
+        component_id: impl Into<String>,
+        variables: impl IntoIterator<Item = (String, String)>,
+    ) -> Result<()> {
+        self.internal
+            .add_component_variables(component_id, variables)
+    }
+
+    /// Adds a variable Provider to the Resolver.
+    pub fn add_provider(&mut self, provider: Box<dyn Provider>) {
+        self.providers.push(provider);
+    }
+
+    /// Resolves a variable value for the given path.
+    pub async fn resolve(&self, component_id: &str, key: Key<'_>) -> Result<String> {
+        let template = self.internal.get_template(component_id, key)?;
+        self.resolve_template(template).await
+    }
+
+    /// Resolves the given template.
+    pub async fn resolve_template(&self, template: &Template) -> Result<String> {
+        let mut resolved_parts: Vec<Cow<str>> = Vec::with_capacity(template.parts().len());
+        for part in template.parts() {
+            resolved_parts.push(match part {
+                Part::Lit(lit) => lit.as_ref().into(),
+                Part::Expr(var) => self.resolve_variable(var).await?.into(),
+            });
+        }
+        Ok(resolved_parts.concat())
+    }
+
+    /// Fully resolve all variables into a [`PreparedResolver`].
+    pub async fn prepare(&self) -> Result<PreparedResolver> {
+        let mut variables = HashMap::new();
+        for name in self.internal.variables.keys() {
+            let value = self.resolve_variable(name).await?;
+            variables.insert(name.clone(), value);
+        }
+        Ok(PreparedResolver { variables })
+    }
+
+    async fn resolve_variable(&self, key: &str) -> Result<String> {
+        for provider in &self.providers {
+            if let Some(value) = provider.get(&Key(key)).await.map_err(Error::Provider)? {
+                return Ok(value);
+            }
+        }
+        self.internal.resolve_variable(key)
+    }
+}
+
 /// A variable resolver.
 #[derive(Debug, Default)]
 pub struct Resolver {
@@ -16,16 +89,7 @@ pub struct Resolver {
     variables: HashMap<String, Variable>,
     // component ID -> variable key -> variable value template
     component_configs: HashMap<String, HashMap<String, Template>>,
-    providers: Vec<Box<dyn Provider>>,
 }
-
-#[derive(Default)]
-pub struct PreparedResolver {
-    variables: HashMap<String, String>,
-}
-
-pub type SharedPreparedResolver =
-    std::sync::Arc<std::sync::OnceLock<std::sync::Arc<PreparedResolver>>>;
 
 impl Resolver {
     /// Creates a Resolver for the given Tree.
@@ -36,7 +100,6 @@ impl Resolver {
         Ok(Self {
             variables,
             component_configs: Default::default(),
-            providers: Default::default(),
         })
     }
 
@@ -62,57 +125,42 @@ impl Resolver {
         Ok(())
     }
 
-    /// Adds a variable Provider to the Resolver.
-    pub fn add_provider(&mut self, provider: Box<dyn Provider>) {
-        self.providers.push(provider);
-    }
-
     /// Resolves a variable value for the given path.
-    pub async fn resolve(&self, component_id: &str, key: Key<'_>) -> Result<String> {
-        let configs = self.component_configs.get(component_id).ok_or_else(|| {
-            Error::Undefined(format!("no variable for component {component_id:?}"))
-        })?;
-
-        let key = key.as_ref();
-        let template = configs
-            .get(key)
-            .ok_or_else(|| Error::Undefined(format!("no variable for {component_id:?}.{key:?}")))?;
-
-        self.resolve_template(template).await
+    pub fn resolve(&self, component_id: &str, key: Key<'_>) -> Result<String> {
+        let template = self.get_template(component_id, key)?;
+        self.resolve_template(template)
     }
 
-    pub async fn resolve_template(&self, template: &Template) -> Result<String> {
+    /// Resolves the given template.
+    fn resolve_template(&self, template: &Template) -> Result<String> {
         let mut resolved_parts: Vec<Cow<str>> = Vec::with_capacity(template.parts().len());
         for part in template.parts() {
             resolved_parts.push(match part {
                 Part::Lit(lit) => lit.as_ref().into(),
-                Part::Expr(var) => self.resolve_variable(var).await?.into(),
+                Part::Expr(var) => self.resolve_variable(var)?.into(),
             });
         }
         Ok(resolved_parts.concat())
     }
 
-    pub async fn prepare(&self) -> Result<PreparedResolver> {
-        let mut variables = HashMap::new();
-        for name in self.variables.keys() {
-            let value = self.resolve_variable(name).await?;
-            variables.insert(name.clone(), value);
-        }
-        Ok(PreparedResolver { variables })
+    /// Gets a template for the given path.
+    fn get_template(&self, component_id: &str, key: Key<'_>) -> Result<&Template> {
+        let configs = self.component_configs.get(component_id).ok_or_else(|| {
+            Error::Undefined(format!("no variable for component {component_id:?}"))
+        })?;
+        let key = key.as_ref();
+        let template = configs
+            .get(key)
+            .ok_or_else(|| Error::Undefined(format!("no variable for {component_id:?}.{key:?}")))?;
+        Ok(template)
     }
 
-    async fn resolve_variable(&self, key: &str) -> Result<String> {
+    fn resolve_variable(&self, key: &str) -> Result<String> {
         let var = self
             .variables
             .get(key)
             // This should have been caught by validate_template
             .ok_or_else(|| Error::InvalidName(key.to_string()))?;
-
-        for provider in &self.providers {
-            if let Some(value) = provider.get(&Key(key)).await.map_err(Error::Provider)? {
-                return Ok(value);
-            }
-        }
 
         var.default.clone().ok_or_else(|| {
             Error::Provider(anyhow::anyhow!(
@@ -134,14 +182,14 @@ impl Resolver {
     }
 }
 
-impl PreparedResolver {
-    fn resolve_variable(&self, key: &str) -> Result<String> {
-        self.variables
-            .get(key)
-            .cloned()
-            .ok_or(Error::InvalidName(key.to_string()))
-    }
+/// A resolver who has resolved all variables.
+#[derive(Default)]
+pub struct PreparedResolver {
+    variables: HashMap<String, String>,
+}
 
+impl PreparedResolver {
+    /// Resolves a the given template.
     pub fn resolve_template(&self, template: &Template) -> Result<String> {
         let mut resolved_parts: Vec<Cow<str>> = Vec::with_capacity(template.parts().len());
         for part in template.parts() {
@@ -151,6 +199,13 @@ impl PreparedResolver {
             });
         }
         Ok(resolved_parts.concat())
+    }
+
+    fn resolve_variable(&self, key: &str) -> Result<String> {
+        self.variables
+            .get(key)
+            .cloned()
+            .ok_or(Error::InvalidName(key.to_string()))
     }
 }
 
@@ -245,7 +300,7 @@ mod tests {
     }
 
     async fn test_resolve(template: &str) -> Result<String> {
-        let mut resolver = Resolver::new([
+        let mut resolver = ProviderResolver::new([
             (
                 "required".into(),
                 Variable {

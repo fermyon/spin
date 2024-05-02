@@ -18,6 +18,9 @@ tokio = { version = "1", features = ["rt-multi-thread"] }
 vaultrs = "0.6.2"
 serde = "1.0.188"
 tracing = { workspace = true }
+azure_security_keyvault = "0.20.0"
+azure_core = "0.20.0"
+azure_identity = "0.20.0"
 
 [dev-dependencies]
 toml = "0.5"

@@ -409,6 +409,8 @@ impl<T: OutboundWasiHttpHandler + Send + Sync> Engine<T> {
     }
 
     /// Find the [`HostComponentDataHandle`] for a [`HostComponent`] if configured for this engine.
+    /// Note: [`DynamicHostComponent`]s are implicitly wrapped in `Arc`s and need to be explicitly
+    /// typed as such here, e.g. `find_host_component_handle::<Arc<MyDynamicHostComponent>>()`.
     pub fn find_host_component_handle<HC: HostComponent>(
         &self,
     ) -> Option<HostComponentDataHandle<HC>> {

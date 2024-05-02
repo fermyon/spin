@@ -1,0 +1,7 @@
+[[config_provider]]
+type = "azure_key_vault"
+vault_url = "https://$KV_NAME$.vault.azure.net/"
+client_id = "$CLIENT_ID$"
+client_secret = "$CLIENT_SECRET$"
+tenant_id = "$TENANT_ID$"
+authority_host = "AzurePublicCloud"

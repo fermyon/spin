@@ -1,7 +1,15 @@
 interface observe {
   resource span {
-    close: func();
-
+    /// enter returns a new span with the given name.
     enter: static func(name: string) -> span;
+
+    /// set-attribute sets an attribute on the span.
+    set-attribute: func(key: string, value: string);
+
+    /// close closes the span.
+    close: func();
   }
 }
+
+// TODO: Maybe support events?
+// TODO: Make a Rust tracing provider that uses this as a backend

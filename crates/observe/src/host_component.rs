@@ -6,6 +6,7 @@ use spin_core::wasmtime::component::Resource;
 use spin_core::{async_trait, HostComponent};
 use spin_world::v2::observe;
 use spin_world::v2::observe::Span as WitSpan;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 pub struct ObserveHostComponent {}
 
@@ -68,6 +69,26 @@ impl observe::HostSpan for ObserveData {
         state.active_spans.push(resource_id);
 
         Ok(Resource::new_own(resource_id))
+    }
+
+    async fn set_attribute(
+        &mut self,
+        resource: Resource<WitSpan>,
+        key: String,
+        value: String,
+    ) -> Result<()> {
+        if let Some(guest_span) = self
+            .state
+            .write()
+            .unwrap()
+            .guest_spans
+            .get_mut(resource.rep())
+        {
+            guest_span.inner.set_attribute(key, value);
+        } else {
+            tracing::debug!("can't find guest span to set attribute on")
+        }
+        Ok(())
     }
 
     async fn close(&mut self, resource: Resource<WitSpan>) -> Result<()> {

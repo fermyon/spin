@@ -5904,6 +5904,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-observe"
+version = "2.5.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dotenvy",
+ "once_cell",
+ "pin-project-lite",
+ "serde",
+ "spin-app",
+ "spin-core",
+ "spin-expressions",
+ "spin-world",
+ "table",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-opentelemetry",
+ "vaultrs",
+]
+
+[[package]]
 name = "spin-outbound-networking"
 version = "2.6.0-pre0"
 dependencies = [
@@ -6021,6 +6043,7 @@ dependencies = [
  "spin-llm-remote-http",
  "spin-loader",
  "spin-manifest",
+ "spin-observe",
  "spin-outbound-networking",
  "spin-sqlite",
  "spin-sqlite-inproc",

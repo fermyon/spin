@@ -19,6 +19,7 @@ tokio = { version = "1", features = ["rt-multi-thread"] }
 vaultrs = "0.6.2"
 serde = "1.0.188"
 tracing = "0.1.40"
+tracing-opentelemetry = "0.23.0"
 pin-project-lite = "0.2"
 
 [dev-dependencies]

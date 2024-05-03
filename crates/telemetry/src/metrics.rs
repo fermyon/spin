@@ -10,8 +10,9 @@ use opentelemetry_sdk::{
     resource::{EnvResourceDetector, TelemetryResourceDetector},
     runtime, Resource,
 };
-use tracing_opentelemetry::{MetricsLayer, OpenTelemetryLayer};
-use tracing_subscriber::{filter::Filtered, layer::Layered, EnvFilter, Registry};
+use tracing::Subscriber;
+use tracing_opentelemetry::MetricsLayer;
+use tracing_subscriber::{registry::LookupSpan, Layer};
 
 use crate::{detector::SpinResourceDetector, env::OtlpProtocol};
 
@@ -20,7 +21,9 @@ use crate::{detector::SpinResourceDetector, env::OtlpProtocol};
 /// It pulls OTEL configuration from the environment based on the variables defined
 /// [here](https://opentelemetry.io/docs/specs/otel/protocol/exporter/) and
 /// [here](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#general-sdk-configuration).
-pub(crate) fn otel_metrics_layer(spin_version: String) -> Result<CustomMetricsLayer> {
+pub(crate) fn otel_metrics_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
+    spin_version: String,
+) -> Result<impl Layer<S>> {
     let resource = Resource::from_detectors(
         Duration::from_secs(5),
         vec![
@@ -105,17 +108,3 @@ macro_rules! monotonic_counter {
 pub use counter;
 pub use histogram;
 pub use monotonic_counter;
-
-/// This really large type alias is require to make the registry.with() pattern happy.
-type CustomMetricsLayer = MetricsLayer<
-    Layered<
-        Option<
-            Filtered<
-                OpenTelemetryLayer<Registry, opentelemetry_sdk::trace::Tracer>,
-                EnvFilter,
-                Registry,
-            >,
-        >,
-        Registry,
-    >,
->;

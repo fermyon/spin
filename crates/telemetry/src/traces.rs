@@ -4,11 +4,10 @@ use anyhow::bail;
 use opentelemetry_otlp::SpanExporterBuilder;
 use opentelemetry_sdk::{
     resource::{EnvResourceDetector, TelemetryResourceDetector},
-    trace::Tracer,
     Resource,
 };
-use tracing_opentelemetry::OpenTelemetryLayer;
-use tracing_subscriber::{EnvFilter, Layer, Registry};
+use tracing::Subscriber;
+use tracing_subscriber::{registry::LookupSpan, EnvFilter, Layer};
 
 use crate::detector::SpinResourceDetector;
 use crate::env::OtlpProtocol;
@@ -18,11 +17,9 @@ use crate::env::OtlpProtocol;
 /// It pulls OTEL configuration from the environment based on the variables defined
 /// [here](https://opentelemetry.io/docs/specs/otel/protocol/exporter/) and
 /// [here](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#general-sdk-configuration).
-pub(crate) fn otel_tracing_layer(
+pub(crate) fn otel_tracing_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
     spin_version: String,
-) -> anyhow::Result<
-    tracing_subscriber::filter::Filtered<OpenTelemetryLayer<Registry, Tracer>, EnvFilter, Registry>,
-> {
+) -> anyhow::Result<impl Layer<S>> {
     let resource = Resource::from_detectors(
         Duration::from_secs(5),
         vec![

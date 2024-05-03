@@ -218,7 +218,7 @@ impl wasi_keyvalue::store::HostBucket for KeyValueDispatch {
         cursor: Option<u64>,
     ) -> anyhow::Result<Result<wasi_keyvalue::store::KeyResponse, wasi_keyvalue::store::Error>>
     {
-        if cursor.is_some() {
+        if cursor.unwrap_or_default() != 0 {
             anyhow::bail!("list_keys: cursor not supported");
         }
 

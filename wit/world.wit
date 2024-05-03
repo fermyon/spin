@@ -16,6 +16,7 @@ world http-trigger-rc20231018 {
 world platform {
   include wasi:cli/imports@0.2.0;
   import wasi:http/outgoing-handler@0.2.0;
+  import wasi:keyvalue/store@0.2.0-draft;
   import llm;
   import redis;
   import mqtt;

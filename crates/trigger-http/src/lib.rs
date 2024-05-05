@@ -582,6 +582,7 @@ impl HttpRuntimeData {
         let engine = chained_handler.engine;
         let handler = chained_handler.executor;
 
+        let base = "/";
         let route_match = RouteMatch::synthetic(&component_id, request.request.uri().path());
 
         let client_addr = std::net::SocketAddr::from_str("0.0.0.0:0")?;
@@ -595,13 +596,7 @@ impl HttpRuntimeData {
 
         let resp_fut = async move {
             match handler
-                .execute(
-                    engine.clone(),
-                    &component_id,
-                    &route_match,
-                    req,
-                    client_addr,
-                )
+                .execute(engine.clone(), base, &route_match, req, client_addr)
                 .await
             {
                 Ok(resp) => Ok(Ok(IncomingResponseInternal {

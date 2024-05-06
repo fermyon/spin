@@ -378,7 +378,7 @@ fn set_http_origin_from_request(
                     .host_components_data()
                     .get_or_insert(outbound_http_handle);
 
-                outbound_http_data.origin = origin.clone();
+                outbound_http_data.origin.clone_from(&origin);
                 store.as_mut().data_mut().as_mut().allowed_hosts =
                     outbound_http_data.allowed_hosts.clone();
             }

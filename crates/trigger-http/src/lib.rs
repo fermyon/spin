@@ -662,7 +662,10 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
                 .map(|s| s == &Scheme::HTTPS)
                 .unwrap_or_default();
             // We know that `uri` has an authority because we set it above
-            request.authority = uri.authority().unwrap().as_str().to_owned();
+            uri.authority()
+                .unwrap()
+                .as_str()
+                .clone_into(&mut request.authority);
             *request.request.uri_mut() = uri;
         }
 

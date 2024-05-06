@@ -1,7 +1,4 @@
-use async_trait::async_trait;
-use spin_llm::LlmEngine;
 use spin_llm_remote_http::RemoteHttpLlmEngine;
-use spin_world::v2::llm as wasi_llm;
 use url::Url;
 
 #[derive(Default)]
@@ -26,7 +23,7 @@ pub(crate) async fn build_component(
         #[cfg(not(feature = "llm"))]
         LlmComputeOpts::Spin => {
             let _ = use_gpu;
-            spin_llm::LlmComponent::new(move || Box::new(NoopLlmEngine.clone()))
+            spin_llm::LlmComponent::new(move || Box::new(noop::NoopLlmEngine.clone()))
         }
         LlmComputeOpts::RemoteHttp(config) => {
             tracing::log::info!("Using remote compute for LLMs");
@@ -50,29 +47,36 @@ pub struct RemoteHttpComputeOpts {
     auth_token: String,
 }
 
-#[derive(Clone)]
-struct NoopLlmEngine;
+#[cfg(not(feature = "llm"))]
+mod noop {
+    use async_trait::async_trait;
+    use spin_llm::LlmEngine;
+    use spin_world::v2::llm as wasi_llm;
 
-#[async_trait]
-impl LlmEngine for NoopLlmEngine {
-    async fn infer(
-        &mut self,
-        _model: wasi_llm::InferencingModel,
-        _prompt: String,
-        _params: wasi_llm::InferencingParams,
-    ) -> Result<wasi_llm::InferencingResult, wasi_llm::Error> {
-        Err(wasi_llm::Error::RuntimeError(
-            "Local LLM operations are not supported in this version of Spin.".into(),
-        ))
-    }
+    #[derive(Clone)]
+    pub(super) struct NoopLlmEngine;
 
-    async fn generate_embeddings(
-        &mut self,
-        _model: wasi_llm::EmbeddingModel,
-        _data: Vec<String>,
-    ) -> Result<wasi_llm::EmbeddingsResult, wasi_llm::Error> {
-        Err(wasi_llm::Error::RuntimeError(
-            "Local LLM operations are not supported in this version of Spin.".into(),
-        ))
+    #[async_trait]
+    impl LlmEngine for NoopLlmEngine {
+        async fn infer(
+            &mut self,
+            _model: wasi_llm::InferencingModel,
+            _prompt: String,
+            _params: wasi_llm::InferencingParams,
+        ) -> Result<wasi_llm::InferencingResult, wasi_llm::Error> {
+            Err(wasi_llm::Error::RuntimeError(
+                "Local LLM operations are not supported in this version of Spin.".into(),
+            ))
+        }
+
+        async fn generate_embeddings(
+            &mut self,
+            _model: wasi_llm::EmbeddingModel,
+            _data: Vec<String>,
+        ) -> Result<wasi_llm::EmbeddingsResult, wasi_llm::Error> {
+            Err(wasi_llm::Error::RuntimeError(
+                "Local LLM operations are not supported in this version of Spin.".into(),
+            ))
+        }
     }
 }

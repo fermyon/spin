@@ -345,11 +345,11 @@ pub fn bootstrap_smoke_test(
             let mut custom_path = value.to_owned();
             if value.starts_with('.') {
                 let current_dir = env.path();
-                custom_path = current_dir
+                current_dir
                     .join(value)
                     .to_str()
                     .unwrap_or_default()
-                    .to_owned();
+                    .clone_into(&mut custom_path);
             }
             build.env(key, format!("{}:{}", custom_path, path));
         } else {

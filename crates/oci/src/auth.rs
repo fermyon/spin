@@ -60,7 +60,7 @@ impl AuthConfig {
     /// Get the registry authentication for a given registry from the default location.
     pub async fn get_auth_from_default(server: impl AsRef<str>) -> Result<RegistryAuth> {
         let auths = Self::load_default().await?;
-        let encoded = match auths.auths.get(&server.as_ref().to_string()) {
+        let encoded = match auths.auths.get(server.as_ref()) {
             Some(e) => e,
             None => bail!(format!("no credentials stored for {}", server.as_ref())),
         };

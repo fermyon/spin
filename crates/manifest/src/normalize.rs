@@ -86,7 +86,7 @@ fn normalize_trigger_ids(manifest: &mut AppManifest) {
             if let Some(ComponentSpec::Reference(component_id)) = &trigger.component {
                 let candidate_id = format!("{component_id}-{trigger_type}-trigger");
                 if !trigger_ids.contains(&candidate_id) {
-                    trigger.id = candidate_id.clone();
+                    trigger.id.clone_from(&candidate_id);
                     trigger_ids.insert(candidate_id);
                     continue;
                 }

@@ -184,13 +184,13 @@ fn parse_host_header_uri(
     let mut parse_host = |hdr: String| {
         let mut parts = hdr.splitn(2, ':');
         match parts.next() {
-            Some(h) if !h.is_empty() => host = h.to_owned(),
+            Some(h) if !h.is_empty() => h.clone_into(&mut host),
             _ => {}
         }
         match parts.next() {
             Some(p) if !p.is_empty() => {
                 tracing::debug!(port = p, "Overriding port");
-                port = p.to_owned()
+                p.clone_into(&mut port);
             }
             _ => {}
         }

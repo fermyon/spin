@@ -1346,4 +1346,30 @@ route = "/..."
 
         Ok(())
     }
+
+    #[test]
+    /// Test that the HOST header does not allow outbound http arbitrary calls to hosts
+    fn test_spin_inbound_http_host_header() -> anyhow::Result<()> {
+        run_test(
+            "outbound-http-to-same-app",
+            SpinAppType::Http,
+            [],
+            testing_framework::ServicesConfig::none(),
+            move |env| {
+                let spin = env.runtime_mut();
+                assert_spin_request(
+                    spin,
+                    Request::full(
+                        Method::GET,
+                        "/test/outbound-allowed/hello",
+                        &[("Host", "google.com")],
+                        Some(""),
+                    ),
+                    Response::new_with_body(200, "Hello, Fermyon!\n"),
+                )?;
+                Ok(())
+            },
+        )?;
+        Ok(())
+    }
 }

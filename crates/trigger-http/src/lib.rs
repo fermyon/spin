@@ -175,9 +175,9 @@ impl TriggerExecutor for HttpTrigger {
 
         let self_ = Arc::new(self);
         if let Some(tls) = tls {
-            self_.serve_tls(listener, tls).await?
+            self_.serve_tls(listener, listen_addr, tls).await?
         } else {
-            self_.serve(listener).await?
+            self_.serve(listener, listen_addr).await?
         };
 
         Ok(())
@@ -227,9 +227,10 @@ impl HttpTrigger {
         &self,
         mut req: Request<Body>,
         scheme: Scheme,
-        addr: SocketAddr,
+        server_addr: SocketAddr,
+        client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
-        set_req_uri(&mut req, scheme)?;
+        set_req_uri(&mut req, scheme, server_addr)?;
         strip_forbidden_headers(&mut req);
 
         spin_telemetry::extract_trace_context(&req);
@@ -273,7 +274,13 @@ impl HttpTrigger {
                 let res = match executor {
                     HttpExecutorType::Http => {
                         HttpHandlerExecutor
-                            .execute(self.engine.clone(), &self.base, &route_match, req, addr)
+                            .execute(
+                                self.engine.clone(),
+                                &self.base,
+                                &route_match,
+                                req,
+                                client_addr,
+                            )
                             .await
                     }
                     HttpExecutorType::Wagi(wagi_config) => {
@@ -281,7 +288,13 @@ impl HttpTrigger {
                             wagi_config: wagi_config.clone(),
                         };
                         executor
-                            .execute(self.engine.clone(), &self.base, &route_match, req, addr)
+                            .execute(
+                                self.engine.clone(),
+                                &self.base,
+                                &route_match,
+                                req,
+                                client_addr,
+                            )
                             .await
                     }
                 };
@@ -347,14 +360,18 @@ impl HttpTrigger {
     fn serve_connection<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         self: Arc<Self>,
         stream: S,
-        addr: SocketAddr,
+        server_addr: SocketAddr,
+        client_addr: SocketAddr,
     ) {
         task::spawn(async move {
             if let Err(e) = http1::Builder::new()
                 .keep_alive(true)
                 .serve_connection(
                     TokioIo::new(stream),
-                    service_fn(move |request| self.clone().instrumented_service_fn(addr, request)),
+                    service_fn(move |request| {
+                        self.clone()
+                            .instrumented_service_fn(server_addr, client_addr, request)
+                    }),
                 )
                 .await
             {
@@ -365,10 +382,11 @@ impl HttpTrigger {
 
     async fn instrumented_service_fn(
         self: Arc<Self>,
-        addr: SocketAddr,
+        server_addr: SocketAddr,
+        client_addr: SocketAddr,
         request: Request<Incoming>,
     ) -> Result<Response<HyperOutgoingBody>> {
-        let span = http_span!(request, addr);
+        let span = http_span!(request, client_addr);
         let method = request.method().to_string();
         async {
             let result = self
@@ -378,7 +396,8 @@ impl HttpTrigger {
                             .boxed()
                     }),
                     Scheme::HTTP,
-                    addr,
+                    server_addr,
+                    client_addr,
                 )
                 .await;
             finalize_http_span(result, method)
@@ -387,22 +406,28 @@ impl HttpTrigger {
         .await
     }
 
-    async fn serve(self: Arc<Self>, listener: TcpListener) -> Result<()> {
+    async fn serve(self: Arc<Self>, listener: TcpListener, listen_addr: SocketAddr) -> Result<()> {
         self.print_startup_msgs("http", &listener)?;
         loop {
-            let (stream, addr) = listener.accept().await?;
-            Self::serve_connection(self.clone(), stream, addr);
+            let (stream, client_addr) = listener.accept().await?;
+            self.clone()
+                .serve_connection(stream, listen_addr, client_addr);
         }
     }
 
-    async fn serve_tls(self: Arc<Self>, listener: TcpListener, tls: TlsConfig) -> Result<()> {
+    async fn serve_tls(
+        self: Arc<Self>,
+        listener: TcpListener,
+        listen_addr: SocketAddr,
+        tls: TlsConfig,
+    ) -> Result<()> {
         let acceptor = tls.server_config()?;
         self.print_startup_msgs("https", &listener)?;
 
         loop {
             let (stream, addr) = listener.accept().await?;
             match acceptor.accept(stream).await {
-                Ok(stream) => self.clone().serve_connection(stream, addr),
+                Ok(stream) => self.clone().serve_connection(stream, listen_addr, addr),
                 Err(err) => tracing::error!(?err, "Failed to start TLS session"),
             }
         }
@@ -440,21 +465,15 @@ fn parse_listen_addr(addr: &str) -> anyhow::Result<SocketAddr> {
     addrs.into_iter().next().context("couldn't resolve address")
 }
 
-fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> Result<()> {
-    const DEFAULT_HOST: &str = "localhost";
-
-    let authority_hdr = req
-        .headers()
-        .get(http::header::HOST)
-        .map(|h| h.to_str().context("Expected UTF8 header value (authority)"))
-        .unwrap_or(Ok(DEFAULT_HOST))?;
+/// The incoming request's scheme and authority
+///
+/// The incoming request's URI is relative to the server, so we need to set the scheme and authority
+fn set_req_uri(req: &mut Request<Body>, scheme: Scheme, addr: SocketAddr) -> Result<()> {
     let uri = req.uri().clone();
     let mut parts = uri.into_parts();
-    parts.authority = authority_hdr
-        .parse()
-        .map(Option::Some)
-        .map_err(|e| anyhow::anyhow!("Invalid authority {:?}", e))?;
+    let authority = format!("{}:{}", addr.ip(), addr.port()).parse().unwrap();
     parts.scheme = Some(scheme);
+    parts.authority = Some(authority);
     *req.uri_mut() = Uri::from_parts(parts).unwrap();
     Ok(())
 }

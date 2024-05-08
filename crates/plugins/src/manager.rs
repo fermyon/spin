@@ -16,7 +16,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use tempfile::{tempdir, TempDir};
-use tracing::log;
 use url::Url;
 
 // Url scheme prefix of a plugin that is installed from a local source
@@ -189,7 +188,7 @@ impl PluginManager {
     ) -> PluginLookupResult<PluginManifest> {
         let plugin_manifest = match manifest_location {
             ManifestLocation::Remote(url) => {
-                log::info!("Pulling manifest for plugin from {url}");
+                tracing::info!("Pulling manifest for plugin from {url}");
                 reqwest::get(url.as_ref())
                     .await
                     .map_err(|e| {
@@ -216,7 +215,7 @@ impl PluginManager {
                     })?
             }
             ManifestLocation::Local(path) => {
-                log::info!("Pulling manifest for plugin from {}", path.display());
+                tracing::info!("Pulling manifest for plugin from {}", path.display());
                 let file = File::open(path).map_err(|e| {
                     Error::NotFound(NotFoundError::new(
                         None,
@@ -336,7 +335,7 @@ pub fn get_package(plugin_manifest: &PluginManifest) -> Result<&PluginPackage> {
 }
 
 async fn download_plugin(name: &str, temp_dir: &TempDir, target_url: &str) -> Result<PathBuf> {
-    log::trace!("Trying to get tar file for plugin '{name}' from {target_url}");
+    tracing::trace!("Trying to get tar file for plugin '{name}' from {target_url}");
     let plugin_bin = reqwest::get(target_url).await?;
     if !plugin_bin.status().is_success() {
         match plugin_bin.status() {
@@ -358,7 +357,7 @@ fn verify_checksum(plugin_file: &Path, expected_sha256: &str) -> Result<()> {
     let actual_sha256 = sha256::hex_digest_from_file(plugin_file)
         .with_context(|| format!("Cannot get digest for {}", plugin_file.display()))?;
     if actual_sha256 == expected_sha256 {
-        log::info!("Package checksum verified successfully");
+        tracing::info!("Package checksum verified successfully");
         Ok(())
     } else {
         Err(anyhow!("Checksum did not match, aborting installation."))

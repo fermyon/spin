@@ -692,7 +692,7 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
                 .allowed_hosts
                 .allows(&OutboundUrl::parse(uri_string, "https")?);
         if unallowed_relative || unallowed_absolute {
-            tracing::log::error!("Destination not allowed: {}", request.request.uri());
+            tracing::error!("Destination not allowed: {}", request.request.uri());
             let host = if unallowed_absolute {
                 // Safe to unwrap because absolute urls have a host by definition.
                 let host = uri.authority().map(|a| a.host()).unwrap();

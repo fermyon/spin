@@ -11,7 +11,6 @@ use spin_plugins::{
     manifest::{PluginManifest, PluginPackage},
 };
 use std::path::{Path, PathBuf};
-use tracing::log;
 use url::Url;
 
 use crate::build_info::*;
@@ -366,7 +365,7 @@ impl Upgrade {
                 .await
             {
                 Err(Error::NotFound(e)) => {
-                    log::info!("Could not upgrade plugin '{name}': {e:?}");
+                    tracing::info!("Could not upgrade plugin '{name}': {e:?}");
                     continue;
                 }
                 Err(e) => return Err(e.into()),

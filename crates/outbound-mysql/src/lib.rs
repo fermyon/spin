@@ -348,7 +348,7 @@ fn convert_value(value: mysql_async::Value, column: &Column) -> Result<DbValue, 
 }
 
 async fn build_conn(address: &str) -> Result<mysql_async::Conn, mysql_async::Error> {
-    tracing::log::debug!("Build new connection: {}", address);
+    tracing::debug!("Build new connection: {}", address);
 
     let opts = build_opts(address)?;
 

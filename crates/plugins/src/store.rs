@@ -7,7 +7,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use tar::Archive;
-use tracing::log;
 
 use crate::{error::*, manifest::PluginManifest};
 
@@ -131,7 +130,7 @@ impl PluginStore {
     /// Looks up and parses the JSON plugin manifest file into object form.
     pub fn read_plugin_manifest(&self, plugin_name: &str) -> PluginLookupResult<PluginManifest> {
         let manifest_path = self.installed_manifest_path(plugin_name);
-        log::info!("Reading plugin manifest from {}", manifest_path.display());
+        tracing::info!("Reading plugin manifest from {}", manifest_path.display());
         let manifest_file = File::open(manifest_path.clone()).map_err(|e| {
             Error::NotFound(NotFoundError::new(
                 Some(plugin_name.to_string()),
@@ -156,7 +155,7 @@ impl PluginStore {
             &File::create(self.installed_manifest_path(&plugin_manifest.name()))?,
             plugin_manifest,
         )?;
-        log::trace!("Added manifest for {}", &plugin_manifest.name());
+        tracing::trace!("Added manifest for {}", &plugin_manifest.name());
         Ok(())
     }
 

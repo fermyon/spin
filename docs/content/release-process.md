@@ -34,7 +34,7 @@ To cut a major / minor release of Spin, you will need to do the following:
     git push origin v2.0.0
     ```
 
-1. Switch back to `main` and update the `Cargo.toml` and `spin-macro` versions again, this time to e.g. `2.1.0-pre0` if `2.1.0` is the next anticipated release.
+1. Switch back to `main` and update the `Cargo.toml` version again, this time to e.g. `2.1.0-pre0` if `2.1.0` is the next anticipated release.
    - Run `make build update-cargo-locks` so that `Cargo.lock` and example/test `Cargo.lock` files are updated
    - PR this to `main`
    - See [sips/011-component-versioning.md](sips/011-component-versioning.md)

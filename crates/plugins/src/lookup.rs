@@ -4,7 +4,6 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
 };
-use tracing::log;
 use url::Url;
 
 // Name of directory that contains the cloned centralized Spin plugins
@@ -62,7 +61,7 @@ impl PluginLookup {
         plugins_dir: &Path,
     ) -> PluginLookupResult<PluginManifest> {
         let url = plugins_repo_url()?;
-        log::info!("Pulling manifest for plugin {} from {url}", self.name);
+        tracing::info!("Pulling manifest for plugin {} from {url}", self.name);
         fetch_plugins_repo(&url, plugins_dir, false)
             .await
             .map_err(|e| {

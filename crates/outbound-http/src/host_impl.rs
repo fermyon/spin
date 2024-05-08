@@ -60,12 +60,12 @@ impl outbound_http::Host for OutboundHttp {
             }
         }
 
-        tracing::log::trace!("Attempting to send outbound HTTP request to {}", req.uri);
+        tracing::trace!("Attempting to send outbound HTTP request to {}", req.uri);
         if !self
             .is_allowed(&req.uri)
             .map_err(|_| HttpError::RuntimeError)?
         {
-            tracing::log::info!("Destination not allowed: {}", req.uri);
+            tracing::info!("Destination not allowed: {}", req.uri);
             if let Some((scheme, host_and_port)) = scheme_host_and_port(&req.uri) {
                 terminal::warn!("A component tried to make a HTTP request to non-allowed host '{host_and_port}'.");
                 eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"{scheme}://{host_and_port}\"]' to the manifest component section.");
@@ -88,7 +88,7 @@ impl outbound_http::Host for OutboundHttp {
         let body = req.body.unwrap_or_default().to_vec();
 
         if !req.params.is_empty() {
-            tracing::log::warn!("HTTP params field is deprecated");
+            tracing::warn!("HTTP params field is deprecated");
         }
 
         // Allow reuse of Client's internal connection pool for multiple requests
@@ -102,7 +102,7 @@ impl outbound_http::Host for OutboundHttp {
             .send()
             .await
             .map_err(log_reqwest_error)?;
-        tracing::log::trace!("Returning response from outbound request to {}", req.uri);
+        tracing::trace!("Returning response from outbound request to {}", req.uri);
         current_span.record("http.response.status_code", resp.status().as_u16());
         response_from_reqwest(resp).await
     }

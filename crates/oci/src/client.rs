@@ -490,7 +490,7 @@ impl Client {
 
     /// Create a new wasm layer based on a file.
     async fn wasm_layer(file: &Path) -> Result<ImageLayer> {
-        tracing::log::trace!("Reading wasm module from {:?}", file);
+        tracing::trace!("Reading wasm module from {:?}", file);
         Ok(ImageLayer::new(
             fs::read(file).await.context("cannot read wasm module")?,
             WASM_LAYER_MEDIA_TYPE.to_string(),
@@ -500,7 +500,7 @@ impl Client {
 
     /// Create a new data layer based on a file.
     async fn data_layer(file: &Path, media_type: String) -> Result<ImageLayer> {
-        tracing::log::trace!("Reading data file from {:?}", file);
+        tracing::trace!("Reading data file from {:?}", file);
         Ok(ImageLayer::new(fs::read(&file).await?, media_type, None))
     }
 

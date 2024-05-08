@@ -263,7 +263,7 @@ pub fn compose_response(stdout: &[u8]) -> Result<Response<Body>, Error> {
                     match status_code.parse::<StatusCode>() {
                         Ok(code) => *res.status_mut() = code,
                         Err(e) => {
-                            tracing::log::warn!("Failed to parse code: {}", e);
+                            tracing::warn!("Failed to parse code: {}", e);
                             *res.status_mut() = StatusCode::BAD_GATEWAY;
                         }
                     }

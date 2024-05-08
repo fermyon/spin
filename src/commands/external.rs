@@ -10,7 +10,6 @@ use spin_plugins::{
 use std::io::{stderr, IsTerminal};
 use std::{collections::HashMap, env, process};
 use tokio::process::Command;
-use tracing::log;
 
 const BADGER_GRACE_PERIOD_MILLIS: u64 = 50;
 
@@ -83,12 +82,12 @@ pub async fn execute_external_subcommand(
 
     let badger = BadgerChecker::start(&plugin_name, plugin_version, SPIN_VERSION);
 
-    log::info!("Executing command {:?}", command);
+    tracing::info!("Executing command {:?}", command);
     // Allow user to interact with stdio/stdout of child process
     let mut child = command.spawn()?;
     set_kill_on_ctrl_c(&child);
     let status = child.wait().await?;
-    log::info!("Exiting process with {}", status);
+    tracing::info!("Exiting process with {}", status);
 
     report_badger_result(badger).await;
 

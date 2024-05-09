@@ -61,7 +61,7 @@ spin-locked-app = { path = "crates/locked-app" }
 spin-manifest = { path = "crates/manifest" }
 spin-oci = { path = "crates/oci" }
 spin-plugins = { path = "crates/plugins" }
-spin-telemetry = { path = "crates/telemetry" }
+spin-telemetry = { path = "crates/telemetry", features = ["tracing-log-compat"] }
 spin-templates = { path = "crates/templates" }
 spin-trigger = { path = "crates/trigger" }
 spin-trigger-http = { path = "crates/trigger-http" }
@@ -72,7 +72,6 @@ tempfile = "3.8.0"
 tokio = { version = "1.23", features = ["full"] }
 toml = "0.6"
 tracing = { workspace = true }
-tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 url = "2.2.2"
 uuid = { version = "^1.0", features = ["v4"] }
 wasmtime = { workspace = true }

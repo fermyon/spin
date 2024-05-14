@@ -175,7 +175,8 @@ fn use_pooling_allocator_by_default() -> bool {
         match std::env::var("SPIN_WASMTIME_POOLING") {
             Ok(s) if s == "1" => return true,
             Ok(s) if s == "0" => return false,
-            _ => {}
+            Ok(s) => panic!("SPIN_WASMTIME_POOLING={s} not supported, only 1/0 supported"),
+            Err(_) => {}
         }
 
         // If the env var isn't set then perform the dynamic runtime probe
@@ -186,12 +187,18 @@ fn use_pooling_allocator_by_default() -> bool {
         match wasmtime::Engine::new(&config) {
             Ok(engine) => {
                 let mut store = wasmtime::Store::new(&engine, ());
-                // NB: the maximum size is in wasm pages to take out the 16-bits of
-                // wasm page size here from the maximum size.
+                // NB: the maximum size is in wasm pages so take out the 16-bits
+                // of wasm page size here from the maximum size.
                 let ty = wasmtime::MemoryType::new64(0, Some(1 << (BITS_TO_TEST - 16)));
                 wasmtime::Memory::new(&mut store, ty).is_ok()
             }
-            Err(_) => false,
+            Err(_) => {
+                tracing::debug!(
+                    "unable to create an engine to test the pooling \
+                     allocator, disabling pooling allocation"
+                );
+                false
+            }
         }
     })
 }

@@ -6344,7 +6344,6 @@ dependencies = [
  "tokio",
  "toml 0.6.0",
  "tracing",
- "tracing-subscriber",
  "url",
  "uuid",
  "vergen",

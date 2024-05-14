@@ -4,13 +4,13 @@ use anyhow::Result;
 use async_trait::async_trait;
 use std::mem;
 use wasmtime::component::{Linker, Resource};
-use wasmtime_wasi::preview2::{TrappableError, WasiView};
+use wasmtime_wasi::{TrappableError, WasiView};
 use wasmtime_wasi_http::WasiHttpView;
 
 mod latest {
-    pub use wasmtime_wasi::preview2::bindings::wasi::*;
+    pub use wasmtime_wasi::bindings::*;
     pub mod http {
-        pub use wasmtime_wasi_http::bindings::wasi::http::*;
+        pub use wasmtime_wasi_http::bindings::http::*;
     }
 }
 
@@ -2010,7 +2010,7 @@ where
         this: wasmtime::component::Resource<OutgoingBody>,
         trailers: Option<wasmtime::component::Resource<Trailers>>,
     ) -> wasmtime::Result<()> {
-        <T as latest::http::types::HostOutgoingBody>::finish(self, this, trailers)??;
+        <T as latest::http::types::HostOutgoingBody>::finish(self, this, trailers)?;
         Ok(())
     }
 
@@ -2177,9 +2177,9 @@ where
             }
             None => None,
         };
-        match <T as latest::http::outgoing_handler::Host>::handle(self, request, options)? {
+        match <T as latest::http::outgoing_handler::Host>::handle(self, request, options) {
             Ok(resp) => Ok(Ok(resp)),
-            Err(e) => Ok(Err(e.into())),
+            Err(e) => Ok(Err(e.downcast()?.into())),
         }
     }
 }
@@ -2200,19 +2200,19 @@ where
 
 fn convert_stream_result<T, T2>(
     view: &mut dyn WasiView,
-    result: Result<T, wasmtime_wasi::preview2::StreamError>,
+    result: Result<T, wasmtime_wasi::StreamError>,
 ) -> wasmtime::Result<Result<T2, StreamError>>
 where
     T2: From<T>,
 {
     match result {
         Ok(e) => Ok(Ok(e.into())),
-        Err(wasmtime_wasi::preview2::StreamError::Closed) => Ok(Err(StreamError::Closed)),
-        Err(wasmtime_wasi::preview2::StreamError::LastOperationFailed(e)) => {
+        Err(wasmtime_wasi::StreamError::Closed) => Ok(Err(StreamError::Closed)),
+        Err(wasmtime_wasi::StreamError::LastOperationFailed(e)) => {
             let e = view.table().push(e)?;
             Ok(Err(StreamError::LastOperationFailed(e)))
         }
-        Err(wasmtime_wasi::preview2::StreamError::Trap(e)) => Err(e),
+        Err(wasmtime_wasi::StreamError::Trap(e)) => Err(e),
     }
 }
 

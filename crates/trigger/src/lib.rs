@@ -142,7 +142,7 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
             if !self.disable_default_host_components {
                 // Wasmtime 17: WASI@0.2.0
                 builder.link_import(|l, _| {
-                    wasmtime_wasi::preview2::command::add_to_linker(l)?;
+                    wasmtime_wasi::add_to_linker_async(l)?;
                     wasmtime_wasi_http::proxy::add_only_http_to_linker(l)
                 })?;
 

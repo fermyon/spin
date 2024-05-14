@@ -347,7 +347,10 @@ Caused by:
                 assert_spin_request(
                     spin,
                     Request::new(Method::GET, "/test/outbound-not-allowed"),
-                    Response::new(500),
+                    Response::new_with_body(
+                        500,
+                        "Error::UnexpectedError(\"ErrorCode::HttpRequestDenied\")",
+                    ),
                 )?;
 
                 Ok(())

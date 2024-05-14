@@ -8,7 +8,7 @@ inputs:
     type: bool
   rust-version:
     description: 'Rust version to setup'
-    default: '1.74'
+    default: '1.75'
     required: false
     type: string
 
@@ -72,7 +72,7 @@ inputs:
     required: false
     type: string
 
-  docker: 
+  docker:
     description: 'setup docker'
     required: false
     default: 'false'

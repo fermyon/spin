@@ -22,7 +22,7 @@ use anyhow::Result;
 use crossbeam_channel::Sender;
 use tracing::{field::Empty, instrument};
 use wasmtime::{InstanceAllocationStrategy, PoolingAllocationConfig};
-use wasmtime_wasi::preview2::ResourceTable;
+use wasmtime_wasi::ResourceTable;
 use wasmtime_wasi_http::types::{default_send_request, WasiHttpCtx, WasiHttpView};
 
 use self::host_component::{HostComponents, HostComponentsBuilder};
@@ -33,7 +33,7 @@ pub use wasmtime::{
     component::{Component, Instance},
     Instance as ModuleInstance, Module, Trap,
 };
-pub use wasmtime_wasi::preview2::I32Exit;
+pub use wasmtime_wasi::I32Exit;
 
 pub use host_component::{
     AnyHostComponentDataHandle, HostComponent, HostComponentDataHandle, HostComponentsData,
@@ -231,12 +231,12 @@ impl<T> AsMut<T> for Data<T> {
     }
 }
 
-impl<T: Send> wasmtime_wasi::preview2::WasiView for Data<T> {
+impl<T: Send> wasmtime_wasi::WasiView for Data<T> {
     fn table(&mut self) -> &mut ResourceTable {
         &mut self.table
     }
 
-    fn ctx(&mut self) -> &mut wasmtime_wasi::preview2::WasiCtx {
+    fn ctx(&mut self) -> &mut wasmtime_wasi::WasiCtx {
         match &mut self.wasi {
             Wasi::Preview1(_) => panic!("using WASI Preview 1 functions with Preview 2 store"),
             Wasi::Preview2 { wasi_ctx, .. } => wasi_ctx,
@@ -260,7 +260,7 @@ impl<T: Send + OutboundWasiHttpHandler> WasiHttpView for Data<T> {
     fn send_request(
         &mut self,
         mut request: wasmtime_wasi_http::types::OutgoingRequest,
-    ) -> wasmtime::Result<
+    ) -> wasmtime_wasi_http::HttpResult<
         wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
     >
     where
@@ -277,7 +277,7 @@ pub trait OutboundWasiHttpHandler {
     fn send_request(
         data: &mut Data<Self>,
         request: wasmtime_wasi_http::types::OutgoingRequest,
-    ) -> wasmtime::Result<
+    ) -> wasmtime_wasi_http::HttpResult<
         wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
     >
     where
@@ -288,7 +288,7 @@ impl OutboundWasiHttpHandler for () {
     fn send_request(
         data: &mut Data<Self>,
         request: wasmtime_wasi_http::types::OutgoingRequest,
-    ) -> wasmtime::Result<
+    ) -> wasmtime_wasi_http::HttpResult<
         wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
     >
     where
@@ -322,9 +322,13 @@ impl<T: Send + Sync + OutboundWasiHttpHandler> EngineBuilder<T> {
         let linker: Linker<T> = Linker::new(&engine);
         let mut module_linker = ModuleLinker::new(&engine);
 
-        wasmtime_wasi::tokio::add_to_linker(&mut module_linker, |data| match &mut data.wasi {
-            Wasi::Preview1(ctx) => ctx,
-            Wasi::Preview2 { .. } => panic!("using WASI Preview 2 functions with Preview 1 store"),
+        wasi_common_preview1::tokio::add_to_linker(&mut module_linker, |data| {
+            match &mut data.wasi {
+                Wasi::Preview1(ctx) => ctx,
+                Wasi::Preview2 { .. } => {
+                    panic!("using WASI Preview 2 functions with Preview 1 store")
+                }
+            }
         })?;
 
         Ok(Self {

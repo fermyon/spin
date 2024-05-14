@@ -4,13 +4,13 @@ use super::wasi_2023_10_18::{convert, convert_result};
 use anyhow::Result;
 use async_trait::async_trait;
 use wasmtime::component::{Linker, Resource};
-use wasmtime_wasi::preview2::WasiView;
+use wasmtime_wasi::WasiView;
 use wasmtime_wasi_http::WasiHttpView;
 
 mod latest {
-    pub use wasmtime_wasi::preview2::bindings::wasi::*;
+    pub use wasmtime_wasi::bindings::*;
     pub mod http {
-        pub use wasmtime_wasi_http::bindings::wasi::http::*;
+        pub use wasmtime_wasi_http::bindings::http::*;
     }
 }
 
@@ -658,19 +658,19 @@ where
 
 fn convert_stream_result<T, T2>(
     view: &mut dyn WasiView,
-    result: Result<T, wasmtime_wasi::preview2::StreamError>,
+    result: Result<T, wasmtime_wasi::StreamError>,
 ) -> wasmtime::Result<Result<T2, StreamError>>
 where
     T2: From<T>,
 {
     match result {
         Ok(e) => Ok(Ok(e.into())),
-        Err(wasmtime_wasi::preview2::StreamError::Closed) => Ok(Err(StreamError::Closed)),
-        Err(wasmtime_wasi::preview2::StreamError::LastOperationFailed(e)) => {
+        Err(wasmtime_wasi::StreamError::Closed) => Ok(Err(StreamError::Closed)),
+        Err(wasmtime_wasi::StreamError::LastOperationFailed(e)) => {
             let e = view.table().push(e)?;
             Ok(Err(StreamError::LastOperationFailed(e)))
         }
-        Err(wasmtime_wasi::preview2::StreamError::Trap(e)) => Err(e),
+        Err(wasmtime_wasi::StreamError::Trap(e)) => Err(e),
     }
 }
 
@@ -1934,8 +1934,10 @@ where
         this: Resource<OutgoingBody>,
         trailers: Option<Resource<Trailers>>,
     ) -> wasmtime::Result<Result<(), HttpErrorCode>> {
-        <T as latest::http::types::HostOutgoingBody>::finish(self, this, trailers)
-            .map(|r| r.map_err(|e| e.into()))
+        match <T as latest::http::types::HostOutgoingBody>::finish(self, this, trailers) {
+            Ok(()) => Ok(Ok(())),
+            Err(e) => Ok(Err(e.downcast()?.into())),
+        }
     }
 
     fn drop(&mut self, rep: Resource<OutgoingBody>) -> wasmtime::Result<()> {
@@ -2030,9 +2032,9 @@ where
         request: Resource<OutgoingRequest>,
         options: Option<Resource<RequestOptions>>,
     ) -> wasmtime::Result<Result<Resource<FutureIncomingResponse>, HttpErrorCode>> {
-        match <T as latest::http::outgoing_handler::Host>::handle(self, request, options)? {
+        match <T as latest::http::outgoing_handler::Host>::handle(self, request, options) {
             Ok(resp) => Ok(Ok(resp)),
-            Err(e) => Ok(Err(e.into())),
+            Err(e) => Ok(Err(e.downcast()?.into())),
         }
     }
 }

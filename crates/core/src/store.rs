@@ -12,8 +12,7 @@ use std::{
 use system_interface::io::ReadReady;
 use tokio::io::{AsyncRead, AsyncWrite};
 use wasi_common_preview1 as wasi_preview1;
-use wasmtime_wasi as wasmtime_wasi_preview1;
-use wasmtime_wasi::preview2::{
+use wasmtime_wasi::{
     self as wasi_preview2, HostInputStream, HostOutputStream, StdinStream, StdoutStream,
     StreamError, StreamResult, Subscribe,
 };
@@ -172,7 +171,7 @@ impl StoreBuilder {
     pub fn inherit_stdin(&mut self) {
         self.with_wasi(|wasi| match wasi {
             WasiCtxBuilder::Preview1(ctx) => {
-                ctx.set_stdin(Box::new(wasmtime_wasi_preview1::stdio::stdin()))
+                ctx.set_stdin(Box::new(wasi_common_preview1::tokio::stdio::stdin()))
             }
             WasiCtxBuilder::Preview2(ctx) => {
                 ctx.inherit_stdin();
@@ -234,7 +233,7 @@ impl StoreBuilder {
     pub fn inherit_stdout(&mut self) {
         self.with_wasi(|wasi| match wasi {
             WasiCtxBuilder::Preview1(ctx) => {
-                ctx.set_stdout(Box::new(wasmtime_wasi_preview1::stdio::stdout()))
+                ctx.set_stdout(Box::new(wasi_common_preview1::tokio::stdio::stdout()))
             }
             WasiCtxBuilder::Preview2(ctx) => {
                 ctx.inherit_stdout();
@@ -288,7 +287,7 @@ impl StoreBuilder {
     pub fn inherit_stderr(&mut self) {
         self.with_wasi(|wasi| match wasi {
             WasiCtxBuilder::Preview1(ctx) => {
-                ctx.set_stderr(Box::new(wasmtime_wasi_preview1::stdio::stderr()))
+                ctx.set_stderr(Box::new(wasi_common_preview1::tokio::stdio::stderr()))
             }
             WasiCtxBuilder::Preview2(ctx) => {
                 ctx.inherit_stderr();
@@ -378,7 +377,7 @@ impl StoreBuilder {
             match wasi {
                 WasiCtxBuilder::Preview1(ctx) => {
                     let mut dir =
-                        Box::new(wasmtime_wasi_preview1::dir::Dir::from_cap_std(cap_std_dir)) as _;
+                        Box::new(wasi_common_preview1::tokio::Dir::from_cap_std(cap_std_dir)) as _;
                     if !writable {
                         dir = Box::new(preview1::ReadOnlyDir(dir));
                     }
@@ -392,7 +391,7 @@ impl StoreBuilder {
                     };
                     let file_perms = wasi_preview2::FilePerms::all();
 
-                    ctx.preopened_dir(cap_std_dir, dir_perms, file_perms, path);
+                    ctx.preopened_dir(host_path.as_ref(), path, dir_perms, file_perms)?;
                 }
             }
             Ok(())
@@ -598,7 +597,7 @@ impl From<WasiVersion> for WasiCtxBuilder {
     fn from(value: WasiVersion) -> Self {
         match value {
             WasiVersion::Preview1 => {
-                Self::Preview1(wasmtime_wasi_preview1::WasiCtxBuilder::new().build())
+                Self::Preview1(wasi_common_preview1::tokio::WasiCtxBuilder::new().build())
             }
             WasiVersion::Preview2 => Self::Preview2(wasi_preview2::WasiCtxBuilder::new()),
         }

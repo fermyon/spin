@@ -56,13 +56,19 @@ impl StdioLoggingTriggerHooks {
         &self,
         component_id: &str,
         log_suffix: &str,
-        log_dir: &Path,
+        log_dir: Option<&Path>,
     ) -> Result<ComponentStdioWriter> {
         let sanitized_component_id = sanitize_filename::sanitize(component_id);
-        let log_path = log_dir.join(format!("{sanitized_component_id}_{log_suffix}.txt"));
+        let log_path = log_dir
+            .map(|log_dir| log_dir.join(format!("{sanitized_component_id}_{log_suffix}.txt",)));
+        let log_path = log_path.as_deref();
+
         let follow = self.follow_components.should_follow(component_id);
-        ComponentStdioWriter::new(&log_path, follow)
-            .with_context(|| format!("Failed to open log file {}", quoted_path(&log_path)))
+        match log_path {
+            Some(log_path) => ComponentStdioWriter::new_forward(log_path, follow)
+                .with_context(|| format!("Failed to open log file {}", quoted_path(log_path))),
+            None => ComponentStdioWriter::new_inherit(),
+        }
     }
 
     fn validate_follows(&self, app: &spin_app::App) -> anyhow::Result<()> {
@@ -112,27 +118,37 @@ impl TriggerHooks for StdioLoggingTriggerHooks {
         component: &spin_app::AppComponent,
         builder: &mut spin_core::StoreBuilder,
     ) -> anyhow::Result<()> {
-        match &self.log_dir {
-            Some(l) => {
-                builder.stdout_pipe(self.component_stdio_writer(component.id(), "stdout", l)?);
-                builder.stderr_pipe(self.component_stdio_writer(component.id(), "stderr", l)?);
-            }
-            None => {
-                builder.inherit_stdout();
-                builder.inherit_stderr();
-            }
-        }
+        builder.stdout_pipe(self.component_stdio_writer(
+            component.id(),
+            "stdout",
+            self.log_dir.as_deref(),
+        )?);
+        builder.stderr_pipe(self.component_stdio_writer(
+            component.id(),
+            "stderr",
+            self.log_dir.as_deref(),
+        )?);
 
         Ok(())
     }
 }
 
-/// ComponentStdioWriter forwards output to a log file and (optionally) stderr
+/// ComponentStdioWriter forwards output to a log file, (optionally) stderr, and (optionally) to a
+/// tracing compatibility layer.
 pub struct ComponentStdioWriter {
-    sync_file: std::fs::File,
-    async_file: tokio::fs::File,
-    state: ComponentStdioWriterState,
-    follow: bool,
+    inner: ComponentStdioWriterInner,
+}
+
+enum ComponentStdioWriterInner {
+    /// Inherit stdout/stderr from the parent process.
+    Inherit,
+    /// Forward stdout/stderr to a file in addition to the inherited stdout/stderr.
+    Forward {
+        sync_file: std::fs::File,
+        async_file: tokio::fs::File,
+        state: ComponentStdioWriterState,
+        follow: bool,
+    },
 }
 
 #[derive(Debug)]
@@ -142,20 +158,30 @@ enum ComponentStdioWriterState {
 }
 
 impl ComponentStdioWriter {
-    pub fn new(log_path: &Path, follow: bool) -> anyhow::Result<Self> {
+    fn new_forward(log_path: &Path, follow: bool) -> anyhow::Result<Self> {
         let sync_file = std::fs::File::options()
             .create(true)
             .append(true)
             .open(log_path)?;
+
         let async_file = sync_file
             .try_clone()
             .context("could not get async file handle")?
             .into();
+
         Ok(Self {
-            async_file,
-            sync_file,
-            state: ComponentStdioWriterState::File,
-            follow,
+            inner: ComponentStdioWriterInner::Forward {
+                sync_file,
+                async_file,
+                state: ComponentStdioWriterState::File,
+                follow,
+            },
+        })
+    }
+
+    fn new_inherit() -> anyhow::Result<Self> {
+        Ok(Self {
+            inner: ComponentStdioWriterInner::Inherit,
         })
     }
 }
@@ -167,38 +193,56 @@ impl AsyncWrite for ComponentStdioWriter {
         buf: &[u8],
     ) -> Poll<std::result::Result<usize, std::io::Error>> {
         let this = self.get_mut();
+
         loop {
-            match &this.state {
-                ComponentStdioWriterState::File => {
+            match &mut this.inner {
+                ComponentStdioWriterInner::Inherit => {
                     let written = futures::ready!(
-                        std::pin::Pin::new(&mut this.async_file).poll_write(cx, buf)
+                        std::pin::Pin::new(&mut tokio::io::stderr()).poll_write(cx, buf)
                     );
                     let written = match written {
-                        Ok(e) => e,
+                        Ok(w) => w,
                         Err(e) => return Poll::Ready(Err(e)),
                     };
-                    if this.follow {
-                        this.state = ComponentStdioWriterState::Follow(0..written);
-                    } else {
-                        return Poll::Ready(Ok(written));
+                    return Poll::Ready(Ok(written));
+                }
+                ComponentStdioWriterInner::Forward {
+                    async_file,
+                    state,
+                    follow,
+                    ..
+                } => match &state {
+                    ComponentStdioWriterState::File => {
+                        let written =
+                            futures::ready!(std::pin::Pin::new(async_file).poll_write(cx, buf));
+                        let written = match written {
+                            Ok(w) => w,
+                            Err(e) => return Poll::Ready(Err(e)),
+                        };
+                        if *follow {
+                            *state = ComponentStdioWriterState::Follow(0..written);
+                        } else {
+                            return Poll::Ready(Ok(written));
+                        }
                     }
-                }
-                ComponentStdioWriterState::Follow(range) => {
-                    let written = futures::ready!(std::pin::Pin::new(&mut tokio::io::stderr())
-                        .poll_write(cx, &buf[range.clone()]));
-                    let written = match written {
-                        Ok(e) => e,
-                        Err(e) => return Poll::Ready(Err(e)),
-                    };
-                    if range.start + written >= range.end {
-                        let end = range.end;
-                        this.state = ComponentStdioWriterState::File;
-                        return Poll::Ready(Ok(end));
-                    } else {
-                        this.state =
-                            ComponentStdioWriterState::Follow((range.start + written)..range.end);
-                    };
-                }
+                    ComponentStdioWriterState::Follow(range) => {
+                        let written = futures::ready!(std::pin::Pin::new(&mut tokio::io::stderr())
+                            .poll_write(cx, &buf[range.clone()]));
+                        let written = match written {
+                            Ok(w) => w,
+                            Err(e) => return Poll::Ready(Err(e)),
+                        };
+                        if range.start + written >= range.end {
+                            let end = range.end;
+                            *state = ComponentStdioWriterState::File;
+                            return Poll::Ready(Ok(end));
+                        } else {
+                            *state = ComponentStdioWriterState::Follow(
+                                (range.start + written)..range.end,
+                            );
+                        };
+                    }
+                },
             }
         }
     }
@@ -208,13 +252,19 @@ impl AsyncWrite for ComponentStdioWriter {
         cx: &mut std::task::Context<'_>,
     ) -> Poll<std::result::Result<(), std::io::Error>> {
         let this = self.get_mut();
-        match this.state {
-            ComponentStdioWriterState::File => {
-                std::pin::Pin::new(&mut this.async_file).poll_flush(cx)
-            }
-            ComponentStdioWriterState::Follow(_) => {
+
+        match &mut this.inner {
+            ComponentStdioWriterInner::Inherit => {
                 std::pin::Pin::new(&mut tokio::io::stderr()).poll_flush(cx)
             }
+            ComponentStdioWriterInner::Forward {
+                async_file, state, ..
+            } => match state {
+                ComponentStdioWriterState::File => std::pin::Pin::new(async_file).poll_flush(cx),
+                ComponentStdioWriterState::Follow(_) => {
+                    std::pin::Pin::new(&mut tokio::io::stderr()).poll_flush(cx)
+                }
+            },
         }
     }
 
@@ -223,32 +273,57 @@ impl AsyncWrite for ComponentStdioWriter {
         cx: &mut std::task::Context<'_>,
     ) -> Poll<std::result::Result<(), std::io::Error>> {
         let this = self.get_mut();
-        match this.state {
-            ComponentStdioWriterState::File => {
-                std::pin::Pin::new(&mut this.async_file).poll_shutdown(cx)
-            }
-            ComponentStdioWriterState::Follow(_) => {
+
+        match &mut this.inner {
+            ComponentStdioWriterInner::Inherit => {
                 std::pin::Pin::new(&mut tokio::io::stderr()).poll_flush(cx)
             }
+            ComponentStdioWriterInner::Forward {
+                async_file, state, ..
+            } => match state {
+                ComponentStdioWriterState::File => std::pin::Pin::new(async_file).poll_shutdown(cx),
+                ComponentStdioWriterState::Follow(_) => {
+                    std::pin::Pin::new(&mut tokio::io::stderr()).poll_flush(cx)
+                }
+            },
         }
     }
 }
 
 impl std::io::Write for ComponentStdioWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let written = self.sync_file.write(buf)?;
-        if self.follow {
-            std::io::stderr().write_all(&buf[..written])?;
+        spin_telemetry::log::app_log_to_tracing_event(buf);
+
+        match &mut self.inner {
+            ComponentStdioWriterInner::Inherit => {
+                std::io::stderr().write_all(buf)?;
+                Ok(buf.len())
+            }
+            ComponentStdioWriterInner::Forward {
+                sync_file, follow, ..
+            } => {
+                let written = sync_file.write(buf)?;
+                if *follow {
+                    std::io::stderr().write_all(&buf[..written])?;
+                }
+                Ok(written)
+            }
         }
-        Ok(written)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        self.sync_file.flush()?;
-        if self.follow {
-            std::io::stderr().flush()?;
+        match &mut self.inner {
+            ComponentStdioWriterInner::Inherit => std::io::stderr().flush(),
+            ComponentStdioWriterInner::Forward {
+                sync_file, follow, ..
+            } => {
+                sync_file.flush()?;
+                if *follow {
+                    std::io::stderr().flush()?;
+                }
+                Ok(())
+            }
         }
-        Ok(())
     }
 }
 

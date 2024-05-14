@@ -7,6 +7,7 @@ use tracing_subscriber::{fmt, prelude::*, registry, EnvFilter, Layer};
 
 pub mod detector;
 mod env;
+pub mod log;
 pub mod metrics;
 mod propagation;
 mod traces;
@@ -51,9 +52,15 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
         .with_writer(std::io::stderr)
         .with_ansi(std::io::stderr().is_terminal())
         .with_filter(
+            // Filter directives explained here https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#directives
             EnvFilter::from_default_env()
+                // Wasmtime is too noisy
                 .add_directive("wasmtime_wasi_http=warn".parse()?)
-                .add_directive("watchexec=off".parse()?),
+                // Watchexec is too noisy
+                .add_directive("watchexec=off".parse()?)
+                // We don't want to duplicate application logs
+                .add_directive("[{app_log}]=off".parse()?)
+                .add_directive("[{app_log_non_utf8}]=off".parse()?),
         );
 
     // Even if metrics or tracing aren't enabled we're okay to turn on the global error handler

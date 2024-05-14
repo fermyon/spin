@@ -8,6 +8,7 @@ use opentelemetry_otlp::{
 const OTEL_SDK_DISABLED: &str = "OTEL_SDK_DISABLED";
 const OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: &str = "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL";
 const OTEL_EXPORTER_OTLP_METRICS_PROTOCOL: &str = "OTEL_EXPORTER_OTLP_METRICS_PROTOCOL";
+const SPIN_DISABLE_LOG_TO_TRACING: &str = "SPIN_DISABLE_LOG_TO_TRACING";
 
 /// Returns a boolean indicating if the OTEL tracing layer should be enabled.
 ///
@@ -35,6 +36,15 @@ pub(crate) fn otel_metrics_enabled() -> bool {
         OTEL_EXPORTER_OTLP_ENDPOINT,
         OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
     ]) && !otel_sdk_disabled()
+}
+
+/// Returns a boolean indicating if the compatibility layer that emits tracing events from
+/// applications logs should be disabled.
+///
+/// It is considered disabled if the environment variable `SPIN_DISABLED_LOG_TO_TRACING` is set and not
+/// empty. By default the features is enabled.
+pub(crate) fn spin_disable_log_to_tracing() -> bool {
+    any_vars_set(&[SPIN_DISABLE_LOG_TO_TRACING])
 }
 
 fn any_vars_set(enabling_vars: &[&str]) -> bool {

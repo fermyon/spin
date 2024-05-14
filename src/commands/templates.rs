@@ -62,6 +62,7 @@ pub struct Install {
     #[clap(
         name = INSTALL_FROM_GIT_OPT,
         long = "git",
+        alias = "repo",
         conflicts_with = INSTALL_FROM_DIR_OPT,
     )]
     pub git: Option<String>,

@@ -120,7 +120,10 @@ impl Install {
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
         let source = match (&self.git, &self.dir) {
-            (Some(git), None) => TemplateSource::try_from_git(git, &self.branch, SPIN_VERSION)?,
+            (Some(git), None) => {
+                let git_url = infer_github(git);
+                TemplateSource::try_from_git(git_url, &self.branch, SPIN_VERSION)?
+            }
             (None, Some(dir)) => {
                 let abs_dir = dir.absolutize().map(|d| d.to_path_buf());
                 TemplateSource::File(abs_dir.unwrap_or_else(|_| dir.clone()))
@@ -177,6 +180,19 @@ impl Install {
                 println!("{}", table);
             }
         }
+    }
+}
+
+fn infer_github(raw: &str) -> String {
+    match url::Url::parse(raw) {
+        Err(url::ParseError::RelativeUrlWithoutBase) => {
+            if raw.starts_with('/') {
+                format!("https://github.com{raw}")
+            } else {
+                format!("https://github.com/{raw}")
+            }
+        }
+        _ => raw.to_string(), // pass it through even if error, so Git can have a try
     }
 }
 
@@ -611,4 +627,25 @@ async fn install_default_templates() -> anyhow::Result<()> {
         .await
         .context("Failed to install the default templates")?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn infers_github_url_if_needed() {
+        assert_eq!(
+            "https://github.com/fermyon/spin",
+            infer_github("fermyon/spin")
+        );
+        assert_eq!(
+            "https://github.com/fermyon/spin",
+            infer_github("/fermyon/spin")
+        );
+        assert_eq!(
+            "https://github.com/fermyon/spin",
+            infer_github("https://github.com/fermyon/spin")
+        );
+    }
 }

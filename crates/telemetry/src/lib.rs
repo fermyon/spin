@@ -1,5 +1,6 @@
 use std::io::IsTerminal;
 
+use env::otel_logs_enabled;
 use env::otel_metrics_enabled;
 use env::otel_tracing_enabled;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
@@ -7,7 +8,7 @@ use tracing_subscriber::{fmt, prelude::*, registry, EnvFilter, Layer};
 
 pub mod detector;
 mod env;
-pub mod log;
+pub mod logs;
 pub mod metrics;
 mod propagation;
 mod traces;
@@ -73,7 +74,13 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
     };
 
     let otel_metrics_layer = if otel_metrics_enabled() {
-        Some(metrics::otel_metrics_layer(spin_version)?)
+        Some(metrics::otel_metrics_layer(spin_version.clone())?)
+    } else {
+        None
+    };
+
+    let otel_logging_layer = if otel_logs_enabled() {
+        Some(logs::otel_logging_layer(spin_version)?)
     } else {
         None
     };
@@ -82,6 +89,7 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
     registry()
         .with(otel_tracing_layer)
         .with(otel_metrics_layer)
+        .with(otel_logging_layer)
         .with(fmt_layer)
         .init();
 

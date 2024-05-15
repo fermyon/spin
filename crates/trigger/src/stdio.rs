@@ -292,7 +292,7 @@ impl AsyncWrite for ComponentStdioWriter {
 
 impl std::io::Write for ComponentStdioWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        spin_telemetry::log::app_log_to_tracing_event(buf);
+        spin_telemetry::logs::handle_app_log(buf);
 
         match &mut self.inner {
             ComponentStdioWriterInner::Inherit => {

@@ -53,7 +53,7 @@ use wasmtime_wasi_http::{
 };
 
 use crate::{
-    handler::HttpHandlerExecutor,
+    handler::{HandlerType, HttpHandlerExecutor},
     instrument::{instrument_error, MatchedRoute},
     wagi::WagiHttpExecutor,
 };
@@ -102,12 +102,12 @@ impl CliArgs {
 }
 
 pub enum HttpInstancePre {
-    Component(spin_core::InstancePre<RuntimeData>),
+    Component(spin_core::InstancePre<RuntimeData>, HandlerType),
     Module(spin_core::ModuleInstancePre<RuntimeData>),
 }
 
 pub enum HttpInstance {
-    Component(spin_core::Instance),
+    Component(spin_core::Instance, HandlerType),
     Module(spin_core::ModuleInstance),
 }
 
@@ -205,16 +205,20 @@ impl TriggerInstancePre<RuntimeData, HttpTriggerConfig> for HttpInstancePre {
             ))
         } else {
             let comp = component.load_component(engine).await?;
-            Ok(HttpInstancePre::Component(engine.instantiate_pre(&comp)?))
+            let handler_ty = HandlerType::from_component(engine, &comp)?;
+            Ok(HttpInstancePre::Component(
+                engine.instantiate_pre(&comp)?,
+                handler_ty,
+            ))
         }
     }
 
     async fn instantiate(&self, store: &mut Store) -> Result<HttpInstance> {
         match self {
-            HttpInstancePre::Component(pre) => pre
-                .instantiate_async(store)
-                .await
-                .map(HttpInstance::Component),
+            HttpInstancePre::Component(pre, ty) => Ok(HttpInstance::Component(
+                pre.instantiate_async(store).await?,
+                *ty,
+            )),
             HttpInstancePre::Module(pre) => {
                 pre.instantiate_async(store).await.map(HttpInstance::Module)
             }

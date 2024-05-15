@@ -1,7 +1,6 @@
 use std::{net::SocketAddr, str, str::FromStr};
 
 use crate::{Body, ChainedRequestHandler, HttpExecutor, HttpInstance, HttpTrigger, Store};
-use anyhow::bail;
 use anyhow::{anyhow, Context, Result};
 use futures::TryFutureExt;
 use http::{HeaderName, HeaderValue};
@@ -11,7 +10,7 @@ use outbound_http::OutboundHttpComponent;
 use spin_core::async_trait;
 use spin_core::wasi_2023_10_18::exports::wasi::http::incoming_handler::Guest as IncomingHandler2023_10_18;
 use spin_core::wasi_2023_11_10::exports::wasi::http::incoming_handler::Guest as IncomingHandler2023_11_10;
-use spin_core::Instance;
+use spin_core::{Component, Engine, Instance};
 use spin_http::body;
 use spin_http::routes::RouteMatch;
 use spin_trigger::TriggerAppEngine;
@@ -43,26 +42,21 @@ impl HttpExecutor for HttpHandlerExecutor {
         );
 
         let (instance, mut store) = engine.prepare_instance(component_id).await?;
-        let HttpInstance::Component(instance) = instance else {
+        let HttpInstance::Component(instance, ty) = instance else {
             unreachable!()
         };
 
         set_http_origin_from_request(&mut store, engine.clone(), self, &req);
 
-        let resp = match HandlerType::from_exports(instance.exports(&mut store)) {
-            Some(HandlerType::Wasi) => {
-                Self::execute_wasi(store, instance, base, route_match, req, client_addr).await?
-            }
-            Some(HandlerType::Spin) => {
+        let resp = match ty {
+            HandlerType::Spin => {
                 Self::execute_spin(store, instance, base, route_match, req, client_addr)
                     .await
                     .map_err(contextualise_err)?
             }
-            None => bail!(
-                "Expected component to either export `{WASI_HTTP_EXPORT_2023_10_18}`, \
-                 `{WASI_HTTP_EXPORT_2023_11_10}`, `{WASI_HTTP_EXPORT_0_2_0}`, \
-                 or `fermyon:spin/inbound-http` but it exported none of those"
-            ),
+            _ => {
+                Self::execute_wasi(store, instance, ty, base, route_match, req, client_addr).await?
+            }
         };
 
         tracing::info!(
@@ -157,6 +151,7 @@ impl HttpHandlerExecutor {
     async fn execute_wasi(
         mut store: Store,
         instance: Instance,
+        ty: HandlerType,
         base: &str,
         route_match: &RouteMatch,
         mut req: Request<Body>,
@@ -188,31 +183,33 @@ impl HttpHandlerExecutor {
             Handler2023_10_18(IncomingHandler2023_10_18),
         }
 
-        let handler = match instance
-            .exports(&mut store)
-            .instance("wasi:http/incoming-handler@0.2.0-rc-2023-10-18")
-        {
-            Some(mut instance) => Some(Handler::Handler2023_10_18(IncomingHandler2023_10_18::new(
-                &mut instance,
-            )?)),
-            None => None,
-        };
-        let handler = match handler {
-            Some(handler) => Some(handler),
-            None => match instance
-                .exports(&mut store)
-                .instance("wasi:http/incoming-handler@0.2.0-rc-2023-11-10")
+        let handler =
             {
-                Some(mut instance) => Some(Handler::Handler2023_11_10(
-                    IncomingHandler2023_11_10::new(&mut instance)?,
-                )),
-                None => None,
-            },
-        };
-        let handler = match handler {
-            Some(handler) => handler,
-            None => Handler::Latest(Proxy::new(&mut store, &instance)?),
-        };
+                let mut exports = instance.exports(&mut store);
+                match ty {
+                    HandlerType::Wasi2023_10_18 => {
+                        let mut instance = exports
+                            .instance(WASI_HTTP_EXPORT_2023_10_18)
+                            .ok_or_else(|| {
+                                anyhow!("export of `{WASI_HTTP_EXPORT_2023_10_18}` not an instance")
+                            })?;
+                        Handler::Handler2023_10_18(IncomingHandler2023_10_18::new(&mut instance)?)
+                    }
+                    HandlerType::Wasi2023_11_10 => {
+                        let mut instance = exports
+                            .instance(WASI_HTTP_EXPORT_2023_11_10)
+                            .ok_or_else(|| {
+                                anyhow!("export of `{WASI_HTTP_EXPORT_2023_11_10}` not an instance")
+                            })?;
+                        Handler::Handler2023_11_10(IncomingHandler2023_11_10::new(&mut instance)?)
+                    }
+                    HandlerType::Wasi0_2 => {
+                        drop(exports);
+                        Handler::Latest(Proxy::new(&mut store, &instance)?)
+                    }
+                    HandlerType::Spin => panic!("should have used execute_spin instead"),
+                }
+            };
 
         let span = tracing::debug_span!("execute_wasi");
         let handle = task::spawn(
@@ -336,9 +333,12 @@ impl HttpHandlerExecutor {
 }
 
 /// Whether this handler uses the custom Spin http handler interface for wasi-http
-enum HandlerType {
+#[derive(Copy, Clone)]
+pub enum HandlerType {
     Spin,
-    Wasi,
+    Wasi0_2,
+    Wasi2023_11_10,
+    Wasi2023_10_18,
 }
 
 const WASI_HTTP_EXPORT_2023_10_18: &str = "wasi:http/incoming-handler@0.2.0-rc-2023-10-18";
@@ -346,18 +346,39 @@ const WASI_HTTP_EXPORT_2023_11_10: &str = "wasi:http/incoming-handler@0.2.0-rc-2
 const WASI_HTTP_EXPORT_0_2_0: &str = "wasi:http/incoming-handler@0.2.0";
 
 impl HandlerType {
-    /// Determine the handler type from the exports
-    fn from_exports(mut exports: wasmtime::component::Exports<'_>) -> Option<HandlerType> {
-        if exports.instance(WASI_HTTP_EXPORT_2023_10_18).is_some()
-            || exports.instance(WASI_HTTP_EXPORT_2023_11_10).is_some()
-            || exports.instance(WASI_HTTP_EXPORT_0_2_0).is_some()
-        {
-            return Some(HandlerType::Wasi);
+    /// Determine the handler type from the exports of a component
+    pub fn from_component<T>(engine: &Engine<T>, component: &Component) -> Result<HandlerType> {
+        let mut handler_ty = None;
+
+        let mut set = |ty: HandlerType| {
+            if handler_ty.is_none() {
+                handler_ty = Some(ty);
+                Ok(())
+            } else {
+                Err(anyhow!(
+                    "component exports multiple different handlers but \
+                     it's expected to export only one"
+                ))
+            }
+        };
+        let ty = component.component_type();
+        for (name, _) in ty.exports(engine.as_ref()) {
+            match name {
+                WASI_HTTP_EXPORT_2023_10_18 => set(HandlerType::Wasi2023_10_18)?,
+                WASI_HTTP_EXPORT_2023_11_10 => set(HandlerType::Wasi2023_11_10)?,
+                WASI_HTTP_EXPORT_0_2_0 => set(HandlerType::Wasi0_2)?,
+                "fermyon:spin/inbound-http" => set(HandlerType::Spin)?,
+                _ => {}
+            }
         }
-        if exports.instance("fermyon:spin/inbound-http").is_some() {
-            return Some(HandlerType::Spin);
-        }
-        None
+
+        handler_ty.ok_or_else(|| {
+            anyhow!(
+                "Expected component to either export `{WASI_HTTP_EXPORT_2023_10_18}`, \
+                 `{WASI_HTTP_EXPORT_2023_11_10}`, `{WASI_HTTP_EXPORT_0_2_0}`, \
+                 or `fermyon:spin/inbound-http` but it exported none of those"
+            )
+        })
     }
 }
 

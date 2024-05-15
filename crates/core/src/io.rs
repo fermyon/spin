@@ -1,4 +1,4 @@
-use wasmtime_wasi::preview2::{pipe::MemoryOutputPipe, HostOutputStream};
+use wasmtime_wasi::{pipe::MemoryOutputPipe, HostOutputStream};
 
 /// An in-memory stdio output buffer.
 #[derive(Clone)]

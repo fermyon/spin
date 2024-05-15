@@ -46,9 +46,10 @@ use tokio::{
 };
 use tracing::{field::Empty, log, Instrument};
 use wasmtime_wasi_http::{
+    bindings::wasi::http::types::ErrorCode,
     body::{HyperIncomingBody as Body, HyperOutgoingBody},
     types::HostFutureIncomingResponse,
-    WasiHttpView,
+    HttpError, HttpResult, WasiHttpView,
 };
 
 use crate::{
@@ -587,16 +588,19 @@ impl HttpRuntimeData {
         data: &mut spin_core::Data<Self>,
         request: wasmtime_wasi_http::types::OutgoingRequest,
         component_id: String,
-    ) -> wasmtime::Result<
+    ) -> HttpResult<
         wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
     > {
         use wasmtime_wasi_http::types::IncomingResponseInternal;
 
         let this = data.as_ref();
 
-        let chained_handler = this.chained_handler.clone().ok_or(wasmtime::Error::msg(
-            "Internal error: internal request chaining not prepared (engine not assigned)",
-        ))?;
+        let chained_handler =
+            this.chained_handler
+                .clone()
+                .ok_or(HttpError::trap(wasmtime::Error::msg(
+                    "Internal error: internal request chaining not prepared (engine not assigned)",
+                )))?;
 
         let engine = chained_handler.engine;
         let handler = chained_handler.executor;
@@ -604,12 +608,12 @@ impl HttpRuntimeData {
         let base = "/";
         let route_match = RouteMatch::synthetic(&component_id, request.request.uri().path());
 
-        let client_addr = std::net::SocketAddr::from_str("0.0.0.0:0")?;
+        let client_addr = std::net::SocketAddr::from_str("0.0.0.0:0").unwrap();
 
         let between_bytes_timeout = request.between_bytes_timeout;
         // The IncomingResponseInternal type formally needs a "worker" join handle, but
         // in a chained use case it doesn't seem to do anything.
-        let worker = Arc::new(wasmtime_wasi::preview2::spawn(async {}));
+        let worker = Arc::new(wasmtime_wasi::runtime::spawn(async {}));
 
         let req = request.request;
 
@@ -627,7 +631,7 @@ impl HttpRuntimeData {
             }
         };
 
-        let handle = wasmtime_wasi::preview2::spawn(resp_fut);
+        let handle = wasmtime_wasi::runtime::spawn(resp_fut);
         Ok(data.table().push(HostFutureIncomingResponse::new(handle))?)
     }
 }
@@ -640,7 +644,7 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
     fn send_request(
         data: &mut spin_core::Data<Self>,
         mut request: wasmtime_wasi_http::types::OutgoingRequest,
-    ) -> wasmtime::Result<
+    ) -> HttpResult<
         wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
     >
     where
@@ -669,7 +673,10 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
                 .unwrap();
             let host = format!("{}:{}", uri.host().unwrap(), uri.port().unwrap());
             let headers = request.request.headers_mut();
-            headers.insert(HOST, HeaderValue::from_str(&host)?);
+            headers.insert(
+                HOST,
+                HeaderValue::from_str(&host).map_err(|_| ErrorCode::HttpProtocolError)?,
+            );
 
             request.use_tls = uri
                 .scheme()
@@ -688,9 +695,10 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
         let unallowed_relative =
             is_relative_url && !this.allowed_hosts.allows_relative_url(&["http", "https"]);
         let unallowed_absolute = !is_relative_url
-            && !this
-                .allowed_hosts
-                .allows(&OutboundUrl::parse(uri_string, "https")?);
+            && !this.allowed_hosts.allows(
+                &OutboundUrl::parse(uri_string, "https")
+                    .map_err(|_| ErrorCode::HttpRequestUriInvalid)?,
+            );
         if unallowed_relative || unallowed_absolute {
             tracing::error!("Destination not allowed: {}", request.request.uri());
             let host = if unallowed_absolute {
@@ -715,7 +723,7 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
                 "self".into()
             };
             eprintln!("To allow requests, add 'allowed_outbound_hosts = [\"{}\"]' to the manifest component section.", host);
-            anyhow::bail!("destination-not-allowed (error 1)")
+            return Err(ErrorCode::HttpRequestDenied.into());
         }
 
         if let Some(component_id) = parse_chaining_target(&request) {
@@ -738,7 +746,7 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
         let response = data.table().get_mut(&response_handle)?;
         *response = match std::mem::replace(response, HostFutureIncomingResponse::Consumed) {
             HostFutureIncomingResponse::Pending(handle) => {
-                HostFutureIncomingResponse::Pending(wasmtime_wasi::preview2::spawn(
+                HostFutureIncomingResponse::Pending(wasmtime_wasi::runtime::spawn(
                     async move {
                         let res: Result<
                             Result<

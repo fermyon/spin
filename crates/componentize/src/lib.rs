@@ -241,7 +241,7 @@ mod tests {
     use std::{path::PathBuf, process};
 
     use anyhow::Context;
-    use wasmtime_wasi::preview2::pipe::MemoryOutputPipe;
+    use wasmtime_wasi::pipe::MemoryOutputPipe;
 
     use {
         super::abi_conformance::{
@@ -254,10 +254,8 @@ mod tests {
             component::{Component, Linker},
             Config, Engine, Store,
         },
-        wasmtime_wasi::preview2::{
-            command::Command, pipe::MemoryInputPipe, ResourceTable, WasiView,
-        },
-        wasmtime_wasi::preview2::{WasiCtx, WasiCtxBuilder},
+        wasmtime_wasi::{bindings::Command, pipe::MemoryInputPipe, ResourceTable, WasiView},
+        wasmtime_wasi::{WasiCtx, WasiCtxBuilder},
     };
 
     async fn run_spin(module: &[u8]) -> Result<()> {
@@ -357,14 +355,12 @@ mod tests {
         }
 
         let mut linker = Linker::<Wasi>::new(&engine);
-        wasmtime_wasi::preview2::command::add_to_linker(&mut linker)?;
+        wasmtime_wasi::add_to_linker_async(&mut linker)?;
         let mut ctx = WasiCtxBuilder::new();
         let stdout = MemoryOutputPipe::new(1024);
-        ctx.stdin(MemoryInputPipe::new(
-            "So rested he by the Tumtum tree".into(),
-        ))
-        .stdout(stdout.clone())
-        .args(&["Jabberwocky"]);
+        ctx.stdin(MemoryInputPipe::new("So rested he by the Tumtum tree"))
+            .stdout(stdout.clone())
+            .args(&["Jabberwocky"]);
 
         let table = ResourceTable::new();
         let wasi = Wasi {

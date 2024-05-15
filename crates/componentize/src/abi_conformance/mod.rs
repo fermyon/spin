@@ -36,9 +36,7 @@ use wasmtime::{
     component::{Component, InstancePre, Linker},
     Engine, Store,
 };
-use wasmtime_wasi::preview2::{
-    pipe::MemoryOutputPipe, ResourceTable, WasiCtx, WasiCtxBuilder, WasiView,
-};
+use wasmtime_wasi::{pipe::MemoryOutputPipe, ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
 pub use test_key_value::KeyValueReport;
 pub use test_llm::LlmReport;
@@ -163,7 +161,7 @@ pub async fn test(
     test_config: TestConfig,
 ) -> Result<Report> {
     let mut linker = Linker::<Context>::new(engine);
-    wasmtime_wasi::preview2::command::add_to_linker(&mut linker)?;
+    wasmtime_wasi::add_to_linker_async(&mut linker)?;
     http::add_to_linker(&mut linker, |context| &mut context.http)?;
     redis::add_to_linker(&mut linker, |context| &mut context.redis)?;
     postgres::add_to_linker(&mut linker, |context| &mut context.postgres)?;
@@ -189,13 +187,13 @@ pub async fn test(
 }
 
 pub(crate) fn create_store(engine: &Engine, test_config: TestConfig) -> Store<Context> {
-    create_store_with_context_and_wasi(engine, test_config, |_| {}, |b| b)
+    create_store_with_context_and_wasi(engine, test_config, |_| {}, |_| {})
 }
 
 pub(crate) fn create_store_with_wasi(
     engine: &Engine,
     test_config: TestConfig,
-    wasi_builder: impl FnOnce(WasiCtxBuilder) -> WasiCtxBuilder,
+    wasi_builder: impl FnOnce(&mut WasiCtxBuilder),
 ) -> Store<Context> {
     create_store_with_context_and_wasi(engine, test_config, |_| {}, wasi_builder)
 }
@@ -204,20 +202,21 @@ pub(crate) fn create_store_with_context(
     test_config: TestConfig,
     context_builder: impl FnOnce(&mut Context),
 ) -> Store<Context> {
-    create_store_with_context_and_wasi(engine, test_config, context_builder, |b| b)
+    create_store_with_context_and_wasi(engine, test_config, context_builder, |_| {})
 }
 
 pub(crate) fn create_store_with_context_and_wasi(
     engine: &Engine,
     test_config: TestConfig,
     context_builder: impl FnOnce(&mut Context),
-    wasi_builder: impl FnOnce(WasiCtxBuilder) -> WasiCtxBuilder,
+    wasi_builder: impl FnOnce(&mut WasiCtxBuilder),
 ) -> Store<Context> {
     let table = ResourceTable::new();
     let stderr = MemoryOutputPipe::new(1024);
     let mut builder = WasiCtxBuilder::new();
     builder.stderr(stderr.clone());
-    let wasi = wasi_builder(builder).build();
+    wasi_builder(&mut builder);
+    let wasi = builder.build();
     let mut context = Context::new(test_config, wasi, table, stderr);
     context_builder(&mut context);
     Store::new(engine, context)

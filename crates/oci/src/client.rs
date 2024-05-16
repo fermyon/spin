@@ -559,21 +559,16 @@ impl Client {
         username: impl AsRef<str>,
         password: impl AsRef<str>,
     ) -> Result<()> {
-        // We want to allow a user to login to both https://ghcr.io and ghcr.io.
-        let server = server.as_ref();
-        let server = match server.parse::<Url>() {
-            Ok(url) => url.host_str().unwrap_or(server).to_string(),
-            Err(_) => server.to_string(),
-        };
+        let registry = registry_from_input(server);
 
         // First, validate the credentials. If a user accidentally enters a wrong credential set, this
         // can catch the issue early rather than getting an error at the first operation that needs
         // to use the credentials (first time they do a push/pull/up).
-        Self::validate_credentials(&server, &username, &password).await?;
+        Self::validate_credentials(&registry, &username, &password).await?;
 
         // Save an encoded representation of the credential set in the local configuration file.
         let mut auth = AuthConfig::load_default().await?;
-        auth.insert(server, username, password)?;
+        auth.insert(registry, username, password)?;
         auth.save_default().await
     }
 
@@ -672,6 +667,20 @@ fn digest_from_url(manifest_url: &str) -> Option<String> {
     }
 }
 
+fn registry_from_input(server: impl AsRef<str>) -> String {
+    // We want to allow a user to login to both https://ghcr.io and ghcr.io.
+    let server = server.as_ref();
+    let server = match server.parse::<Url>() {
+        Ok(url) => url.host_str().unwrap_or(server).to_string(),
+        Err(_) => server.to_string(),
+    };
+    // DockerHub is commonly referenced as 'docker.io' but needs to be 'index.docker.io'
+    match server.as_str() {
+        "docker.io" => "index.docker.io".to_string(),
+        _ => server,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -684,6 +693,34 @@ mod test {
             "sha256:0a867093096e0ef01ef749b12b6e7a90e4952eda107f89a676eeedce63a8361f",
             digest
         );
+    }
+
+    #[test]
+    fn can_derive_registry_from_input() {
+        #[derive(Clone)]
+        struct TestCase {
+            input: &'static str,
+            want: &'static str,
+        }
+        let tests: Vec<TestCase> = [
+            TestCase {
+                input: "docker.io",
+                want: "index.docker.io",
+            },
+            TestCase {
+                input: "index.docker.io",
+                want: "index.docker.io",
+            },
+            TestCase {
+                input: "https://ghcr.io",
+                want: "ghcr.io",
+            },
+        ]
+        .to_vec();
+
+        for tc in tests {
+            assert_eq!(tc.want, registry_from_input(tc.input));
+        }
     }
 
     #[tokio::test]

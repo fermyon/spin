@@ -1,0 +1,17 @@
+[package]
+name = "spin-factors"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+anyhow = "1.0"
+spin-app = { path = "../app" }
+spin-factors-derive = { path = "../factors-derive" }
+wasmtime = { workspace = true }
+
+[dev-dependencies]
+spin-factors-derive = { path = "../factors-derive", features = ["expander"] }
+
+[lints]
+workspace = true

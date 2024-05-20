@@ -1,0 +1,13 @@
+[package]
+name = "spin-factor-wasi"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+anyhow = "1.0"
+spin-factors = { path = "../factors" }
+wasmtime-wasi = { workspace = true }
+
+[lints]
+workspace = true

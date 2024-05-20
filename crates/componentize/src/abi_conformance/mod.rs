@@ -59,7 +59,8 @@ mod test_wasi;
 wasmtime::component::bindgen!({
     path: "../../wit",
     world: "fermyon:spin/host",
-    async: true
+    async: true,
+    trappable_imports: true,
 });
 pub use fermyon::spin::*;
 

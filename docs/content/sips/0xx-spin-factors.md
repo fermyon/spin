@@ -49,15 +49,13 @@ new system:
 
 ## Implementation Plan
 
-The overall implementation plan will be to:
+The overall implementation plan will be to (in parallel):
 
-1. Introduce a new `spin-factors` crate containing the basic framework.
-
-2. Refactor existing Spin features (mostly existing `HostComponent`s) to use
+- Introduce a new `spin-factors` crate containing the basic framework.
+- Refactor existing Spin features (mostly existing `HostComponent`s) to use
    this new framework.
    - Framework features will be developed as needed to support this refactoring.
-
-3. Refactor `spin-core`, `spin-trigger`, etc. to use `spin-factors`.
+- Refactor `spin-core`, `spin-trigger`, etc. to use `spin-factors`.
    - Depending on subjective evaluation at this point, possibly merge
    `spin-core` and `spin-factors`.
 

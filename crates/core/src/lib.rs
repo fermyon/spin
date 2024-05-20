@@ -20,9 +20,11 @@ use std::{path::PathBuf, time::Duration};
 
 use anyhow::Result;
 use crossbeam_channel::Sender;
+use http::Request;
 use tracing::{field::Empty, instrument};
 use wasmtime::{InstanceAllocationStrategy, PoolingAllocationConfig};
 use wasmtime_wasi::ResourceTable;
+use wasmtime_wasi_http::body::HyperOutgoingBody;
 use wasmtime_wasi_http::types::{default_send_request, WasiHttpCtx, WasiHttpView};
 
 use self::host_component::{HostComponents, HostComponentsBuilder};
@@ -256,18 +258,29 @@ impl<T: Send + OutboundWasiHttpHandler> WasiHttpView for Data<T> {
         &mut self.table
     }
 
-    #[instrument(name = "spin_core.send_request", skip_all, fields(otel.kind = "client", url.full = %request.request.uri(), http.request.method = %request.request.method(), otel.name = %request.request.method(), http.response.status_code = Empty, server.address = Empty, server.port = Empty))]
+    #[instrument(
+        name = "spin_core.send_request",
+        skip_all,
+        fields(
+            otel.kind = "client",
+            url.full = %request.uri(),
+            http.request.method = %request.method(),
+            otel.name = %request.method(),
+            http.response.status_code = Empty,
+            server.address = Empty,
+            server.port = Empty,
+        ),
+    )]
     fn send_request(
         &mut self,
-        mut request: wasmtime_wasi_http::types::OutgoingRequest,
-    ) -> wasmtime_wasi_http::HttpResult<
-        wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
-    >
+        mut request: Request<HyperOutgoingBody>,
+        config: wasmtime_wasi_http::types::OutgoingRequestConfig,
+    ) -> wasmtime_wasi_http::HttpResult<wasmtime_wasi_http::types::HostFutureIncomingResponse>
     where
         Self: Sized,
     {
-        spin_telemetry::inject_trace_context(&mut request.request);
-        T::send_request(self, request)
+        spin_telemetry::inject_trace_context(&mut request);
+        T::send_request(self, request, config)
     }
 }
 
@@ -276,25 +289,23 @@ pub trait OutboundWasiHttpHandler {
     /// Send the request
     fn send_request(
         data: &mut Data<Self>,
-        request: wasmtime_wasi_http::types::OutgoingRequest,
-    ) -> wasmtime_wasi_http::HttpResult<
-        wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
-    >
+        request: Request<HyperOutgoingBody>,
+        config: wasmtime_wasi_http::types::OutgoingRequestConfig,
+    ) -> wasmtime_wasi_http::HttpResult<wasmtime_wasi_http::types::HostFutureIncomingResponse>
     where
         Self: Sized;
 }
 
 impl OutboundWasiHttpHandler for () {
     fn send_request(
-        data: &mut Data<Self>,
-        request: wasmtime_wasi_http::types::OutgoingRequest,
-    ) -> wasmtime_wasi_http::HttpResult<
-        wasmtime::component::Resource<wasmtime_wasi_http::types::HostFutureIncomingResponse>,
-    >
+        _data: &mut Data<Self>,
+        request: Request<HyperOutgoingBody>,
+        config: wasmtime_wasi_http::types::OutgoingRequestConfig,
+    ) -> wasmtime_wasi_http::HttpResult<wasmtime_wasi_http::types::HostFutureIncomingResponse>
     where
         Self: Sized,
     {
-        default_send_request(data, request)
+        Ok(default_send_request(request, config))
     }
 }
 

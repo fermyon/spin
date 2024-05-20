@@ -261,8 +261,8 @@ impl HostComponent for MultiplierHostComponent {
 struct Multiplier(i32);
 
 impl multiplier::imports::Host for Multiplier {
-    fn multiply(&mut self, a: i32) -> wasmtime::Result<i32> {
-        Ok(self.0 * a)
+    fn multiply(&mut self, a: i32) -> i32 {
+        self.0 * a
     }
 }
 

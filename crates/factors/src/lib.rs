@@ -12,7 +12,7 @@ pub type Linker<Factors> = wasmtime::component::Linker<<Factors as SpinFactors>:
 pub type ModuleLinker<Factors> = wasmtime::Linker<<Factors as SpinFactors>::InstanceState>;
 
 pub trait Factor: Any + Sized {
-    type InstancePreparer: InstancePreparer<Self>;
+    type InstancePreparer: FactorInstancePreparer<Self>;
     type InstanceState;
 
     /// Initializes this Factor for a runtime. This will be called exactly once
@@ -35,9 +35,12 @@ pub trait Factor: Any + Sized {
     }
 }
 
+type GetDataFn<Factors, Fact> =
+    fn(&mut <Factors as SpinFactors>::InstanceState) -> &mut <Fact as Factor>::InstanceState;
+
 pub struct FactorInitContext<'a, Factors: SpinFactors, Fact: Factor, Linker> {
     linker: &'a mut Linker,
-    get_data: fn(&mut Factors::InstanceState) -> &mut Fact::InstanceState,
+    get_data: GetDataFn<Factors, Fact>,
 }
 
 pub type InitContext<'a, Factors, Fact> = FactorInitContext<'a, Factors, Fact, Linker<Factors>>;
@@ -47,15 +50,16 @@ pub type ModuleInitContext<'a, Factors, Fact> =
 
 impl<'a, Factors: SpinFactors, Fact: Factor, Linker> FactorInitContext<'a, Factors, Fact, Linker> {
     #[doc(hidden)]
-    pub fn new(
-        linker: &'a mut Linker,
-        get_data: fn(&mut Factors::InstanceState) -> &mut Fact::InstanceState,
-    ) -> Self {
+    pub fn new(linker: &'a mut Linker, get_data: GetDataFn<Factors, Fact>) -> Self {
         Self { linker, get_data }
     }
 
     pub fn linker(&mut self) -> &mut Linker {
         self.linker
+    }
+
+    pub fn get_data_fn(&self) -> GetDataFn<Factors, Fact> {
+        self.get_data
     }
 
     pub fn link_bindings(
@@ -70,7 +74,23 @@ where {
     }
 }
 
+pub trait FactorInstancePreparer<T: Factor>: Sized {
+    fn new<Factors: SpinFactors>(factor: &T, _ctx: PrepareContext<Factors>) -> Result<Self>;
+
+    fn prepare(self) -> Result<T::InstanceState>;
+}
+
+pub struct PrepareContext<'a, Factors: SpinFactors> {
+    instance_preparers: &'a mut Factors::InstancePreparers,
+    // TODO: component: &'a AppComponent,
+}
+
 impl<'a, Factors: SpinFactors> PrepareContext<'a, Factors> {
+    #[doc(hidden)]
+    pub fn new(instance_preparers: &'a mut Factors::InstancePreparers) -> Self {
+        Self { instance_preparers }
+    }
+
     pub fn instance_preparer_mut<T: Factor>(&mut self) -> Result<&mut T::InstancePreparer> {
         let err_msg = match Factors::instance_preparer_mut::<T>(self.instance_preparers) {
             Some(Some(preparer)) => return Ok(preparer),
@@ -81,6 +101,22 @@ impl<'a, Factors: SpinFactors> PrepareContext<'a, Factors> {
             "could not get instance preparer for {ty}: {err_msg}",
             ty = std::any::type_name::<T>()
         )))
+    }
+}
+
+pub type DefaultInstancePreparer = ();
+
+impl<T: Factor> FactorInstancePreparer<T> for DefaultInstancePreparer
+where
+    T::InstanceState: Default,
+{
+    fn new<Factors: SpinFactors>(factor: &T, ctx: PrepareContext<Factors>) -> Result<Self> {
+        (_, _) = (factor, ctx);
+        Ok(())
+    }
+
+    fn prepare(self) -> Result<T::InstanceState> {
+        Ok(Default::default())
     }
 }
 
@@ -179,37 +215,3 @@ impl<T, U, V> Clone for Getter2<T, U, V> {
     }
 }
 impl<T, U, V> Copy for Getter2<T, U, V> {}
-
-pub trait InstancePreparer<T: Factor>: Sized {
-    fn new<Factors: SpinFactors>(_factor: &T, _ctx: PrepareContext<Factors>) -> Result<Self>;
-
-    fn prepare(self) -> Result<T::InstanceState>;
-}
-
-pub struct PrepareContext<'a, Factors: SpinFactors> {
-    instance_preparers: &'a mut Factors::InstancePreparers,
-    // TODO: component: &'a AppComponent,
-}
-
-impl<'a, Factors: SpinFactors> PrepareContext<'a, Factors> {
-    #[doc(hidden)]
-    pub fn new(instance_preparers: &'a mut Factors::InstancePreparers) -> Self {
-        Self { instance_preparers }
-    }
-}
-
-pub type DefaultInstancePreparer = ();
-
-impl<T: Factor> InstancePreparer<T> for DefaultInstancePreparer
-where
-    T::InstanceState: Default,
-{
-    fn new<Factors: SpinFactors>(factor: &T, ctx: PrepareContext<Factors>) -> Result<Self> {
-        (_, _) = (factor, ctx);
-        Ok(())
-    }
-
-    fn prepare(self) -> Result<T::InstanceState> {
-        Ok(Default::default())
-    }
-}

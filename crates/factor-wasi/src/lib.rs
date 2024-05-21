@@ -1,12 +1,14 @@
 pub mod preview1;
 
-use spin_factors::{Factor, InitContext, InstancePreparer, PrepareContext, Result, SpinFactors};
+use spin_factors::{
+    Factor, FactorInstancePreparer, InitContext, PrepareContext, Result, SpinFactors,
+};
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
 pub struct WasiFactor;
 
 impl Factor for WasiFactor {
-    type InstancePreparer = Builder;
+    type InstancePreparer = InstancePreparer;
     type InstanceState = InstanceState;
 
     fn init<Factors: SpinFactors>(&mut self, mut ctx: InitContext<Factors, Self>) -> Result<()> {
@@ -42,11 +44,11 @@ impl Factor for WasiFactor {
     }
 }
 
-pub struct Builder {
+pub struct InstancePreparer {
     wasi_ctx: WasiCtxBuilder,
 }
 
-impl InstancePreparer<WasiFactor> for Builder {
+impl FactorInstancePreparer<WasiFactor> for InstancePreparer {
     fn new<Factors: SpinFactors>(
         _factor: &WasiFactor,
         _ctx: PrepareContext<Factors>,

@@ -100,7 +100,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 };
                 #(
                     preparers.#factor_names = Some(
-                        #factors_path::InstancePreparer::<#factor_types>::new::<#name>(
+                        #factors_path::FactorInstancePreparer::<#factor_types>::new::<#name>(
                             &self.#factor_names,
                             #factors_path::PrepareContext::new(&mut preparers),
                         )?
@@ -108,7 +108,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 )*
                 Ok(#state_name {
                     #(
-                        #factor_names: #factors_path::InstancePreparer::<#factor_types>::prepare(
+                        #factor_names: #factors_path::FactorInstancePreparer::<#factor_types>::prepare(
                             preparers.#factor_names.unwrap()
                         )?,
                     )*

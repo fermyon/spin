@@ -610,7 +610,7 @@ impl WasiCtxBuilder {
             WasiCtxBuilder::Preview1(ctx) => Wasi::Preview1(ctx),
             WasiCtxBuilder::Preview2(mut b) => Wasi::Preview2 {
                 wasi_ctx: b.build(),
-                wasi_http_ctx: WasiHttpCtx,
+                wasi_http_ctx: WasiHttpCtx::new(),
             },
         }
     }

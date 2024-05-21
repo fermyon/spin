@@ -28,10 +28,17 @@ of features even more important.
 
 ## Proposal
 
+| ⚠️ NOTE: The details of this proposal are very much a work-in-progress, expected to evolve with the refactoring work intself. ⚠️ |
+|--|
+
 The basic inversion of control approach used by `HostComponent`s will be
 redesigned and expanded into a new system called Spin Factors, where independent
-feature sets are organized into individual "factors". Some of the goals of this
-new system:
+feature sets are organized into individual "factors". A "factor" encapsulates a
+single logical Spin runtime feature into a reusable Rust crate, using the Spin
+Factors framework to "hook" into various points in the lifecycle of a Spin
+trigger's execution.
+
+Some of the goals of this new system:
 
 - Expand the set integration points that a factor can use to hook into the
   lifecycle of an application request. These will be driven by feature
@@ -66,9 +73,11 @@ point for `spin-factors` (note that some type details are elided for clarity):
 
 ```rust
 pub trait Factor {
-    // Builder represents a type that can prepare request state for the factor.
+    // Builder represents a type that can prepare this Factor's Data.
     type Builder: FactorBuilder<Self>;
-    // Data represents request state for the factor.
+    // Data represents this Factor's per-trigger-execution state, which is held
+    // in a [`wasmtime::Store`].
+    // See: https://docs.rs/wasmtime/21.0.0/wasmtime/struct.Store.html#method.data
     type Data;
 
     // Init is the runtime startup lifecycle hook.

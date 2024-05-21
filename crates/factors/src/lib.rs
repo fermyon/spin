@@ -12,7 +12,7 @@ pub type Linker<Factors> = wasmtime::component::Linker<<Factors as SpinFactors>:
 pub type ModuleLinker<Factors> = wasmtime::Linker<<Factors as SpinFactors>::InstanceState>;
 
 pub trait Factor: Any + Sized {
-    type InstancePreparer: FactorInstancePreparer<Self>;
+    type InstancePreparer: InstancePreparer<Self>;
     type InstanceState;
 
     /// Initializes this Factor for a runtime. This will be called exactly once
@@ -71,14 +71,14 @@ where {
 }
 
 impl<'a, Factors: SpinFactors> PrepareContext<'a, Factors> {
-    pub fn builder_mut<T: Factor>(&mut self) -> Result<&mut T::InstancePreparer> {
-        let err_msg = match Factors::builder_mut::<T>(self.builders) {
-            Some(Some(builder)) => return Ok(builder),
-            Some(None) => "builder not yet prepared",
+    pub fn instance_preparer_mut<T: Factor>(&mut self) -> Result<&mut T::InstancePreparer> {
+        let err_msg = match Factors::instance_preparer_mut::<T>(self.instance_preparers) {
+            Some(Some(preparer)) => return Ok(preparer),
+            Some(None) => "preparer not yet initialized",
             None => "no such factor",
         };
         Err(Error::msg(format!(
-            "could not get builder for {ty}: {err_msg}",
+            "could not get instance preparer for {ty}: {err_msg}",
             ty = std::any::type_name::<T>()
         )))
     }
@@ -86,30 +86,30 @@ impl<'a, Factors: SpinFactors> PrepareContext<'a, Factors> {
 
 /// Implemented by `#[derive(SpinFactors)]`
 pub trait SpinFactors: Sized {
-    type Builders;
+    type InstancePreparers;
     type InstanceState: Send + 'static;
 
     #[doc(hidden)]
-    unsafe fn factor_builder_offset<T: Factor>() -> Option<usize>;
+    unsafe fn instance_preparer_offset<T: Factor>() -> Option<usize>;
 
     #[doc(hidden)]
-    unsafe fn factor_data_offset<T: Factor>() -> Option<usize>;
+    unsafe fn instance_state_offset<T: Factor>() -> Option<usize>;
 
-    fn data_getter<T: Factor>() -> Option<Getter<Self::InstanceState, T::InstanceState>> {
-        let offset = unsafe { Self::factor_data_offset::<T>()? };
+    fn instance_state_getter<T: Factor>() -> Option<Getter<Self::InstanceState, T::InstanceState>> {
+        let offset = unsafe { Self::instance_state_offset::<T>()? };
         Some(Getter {
             offset,
             _phantom: PhantomData,
         })
     }
 
-    fn data_getter2<T1: Factor, T2: Factor>(
+    fn instance_state_getter2<T1: Factor, T2: Factor>(
     ) -> Option<Getter2<Self::InstanceState, T1::InstanceState, T2::InstanceState>> {
-        let offset1 = unsafe { Self::factor_data_offset::<T1>()? };
-        let offset2 = unsafe { Self::factor_data_offset::<T2>()? };
+        let offset1 = unsafe { Self::instance_state_offset::<T1>()? };
+        let offset2 = unsafe { Self::instance_state_offset::<T2>()? };
         assert_ne!(
             offset1, offset2,
-            "data_getter2 with same factor twice would alias"
+            "instance_state_getter2 with same factor twice would alias"
         );
         Some(Getter2 {
             offset1,
@@ -118,12 +118,12 @@ pub trait SpinFactors: Sized {
         })
     }
 
-    fn builder_mut<T: Factor>(
-        builders: &mut Self::Builders,
+    fn instance_preparer_mut<T: Factor>(
+        preparers: &mut Self::InstancePreparers,
     ) -> Option<Option<&mut T::InstancePreparer>> {
         unsafe {
-            let offset = Self::factor_builder_offset::<T>()?;
-            let ptr = builders as *mut Self::Builders;
+            let offset = Self::instance_preparer_offset::<T>()?;
+            let ptr = preparers as *mut Self::InstancePreparers;
             let opt = &mut *ptr.add(offset).cast::<Option<T::InstancePreparer>>();
             Some(opt.as_mut())
         }
@@ -180,27 +180,27 @@ impl<T, U, V> Clone for Getter2<T, U, V> {
 }
 impl<T, U, V> Copy for Getter2<T, U, V> {}
 
-pub trait FactorInstancePreparer<T: Factor>: Sized {
+pub trait InstancePreparer<T: Factor>: Sized {
     fn new<Factors: SpinFactors>(_factor: &T, _ctx: PrepareContext<Factors>) -> Result<Self>;
 
     fn prepare(self) -> Result<T::InstanceState>;
 }
 
 pub struct PrepareContext<'a, Factors: SpinFactors> {
-    builders: &'a mut Factors::Builders,
+    instance_preparers: &'a mut Factors::InstancePreparers,
     // TODO: component: &'a AppComponent,
 }
 
 impl<'a, Factors: SpinFactors> PrepareContext<'a, Factors> {
     #[doc(hidden)]
-    pub fn new(builders: &'a mut Factors::Builders) -> Self {
-        Self { builders }
+    pub fn new(instance_preparers: &'a mut Factors::InstancePreparers) -> Self {
+        Self { instance_preparers }
     }
 }
 
-pub type DefaultBuilder = ();
+pub type DefaultInstancePreparer = ();
 
-impl<T: Factor> FactorInstancePreparer<T> for DefaultBuilder
+impl<T: Factor> InstancePreparer<T> for DefaultInstancePreparer
 where
     T::InstanceState: Default,
 {

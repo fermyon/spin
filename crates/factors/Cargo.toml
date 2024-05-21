@@ -12,6 +12,7 @@ wasmtime = { workspace = true }
 
 [dev-dependencies]
 spin-factors-derive = { path = "../factors-derive", features = ["expander"] }
+spin-factor-wasi = { path = "../factor-wasi" }
 
 [lints]
 workspace = true

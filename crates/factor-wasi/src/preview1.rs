@@ -1,5 +1,5 @@
 use spin_factors::{
-    Factor, FactorInstancePreparer, ModuleInitContext, PrepareContext, Result, SpinFactors,
+    Factor, InstancePreparer, ModuleInitContext, PrepareContext, Result, SpinFactors,
 };
 use wasmtime_wasi::{preview1::WasiP1Ctx, WasiCtxBuilder};
 
@@ -21,7 +21,7 @@ pub struct Builder {
     wasi_ctx: WasiCtxBuilder,
 }
 
-impl FactorInstancePreparer<WasiPreview1Factor> for Builder {
+impl InstancePreparer<WasiPreview1Factor> for Builder {
     fn new<Factors: SpinFactors>(
         _factor: &WasiPreview1Factor,
         _ctx: PrepareContext<Factors>,

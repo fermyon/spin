@@ -20,8 +20,8 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let name = &input.ident;
     let vis = &input.vis;
 
-    let builders_name = format_ident!("{name}Builders");
-    let data_name = format_ident!("{name}InstanceState");
+    let preparers_name = format_ident!("{name}InstancePreparers");
+    let state_name = format_ident!("{name}InstanceState");
 
     if !input.generics.params.is_empty() {
         return Err(Error::new_spanned(
@@ -63,50 +63,53 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
         impl #name {
             pub fn init(
                 &mut self,
-                linker: &mut #wasmtime::component::Linker<#data_name>
+                linker: &mut #wasmtime::component::Linker<#state_name>
             ) -> #Result<()> {
                 #(
-                    self.#factor_names.init(
+                    #Factor::init::<Self>(
+                        &mut self.#factor_names,
                         #factors_path::InitContext::<Self, #factor_types>::new(
                             linker,
-                            |data| &mut data.#factor_names,
+                            |state| &mut state.#factor_names,
                         )
                     )?;
                 )*
                 Ok(())
             }
 
+            #[allow(dead_code)]
             pub fn module_init(
                 &mut self,
-                linker: &mut #wasmtime::Linker<#data_name>
+                linker: &mut #wasmtime::Linker<#state_name>
             ) -> #Result<()> {
                 #(
-                    self.#factor_names.module_init::<Self>(
+                    #Factor::module_init::<Self>(
+                        &mut self.#factor_names,
                         #factors_path::ModuleInitContext::<Self, #factor_types>::new(
                             linker,
-                            |data| &mut data.#factor_names,
+                            |state| &mut state.#factor_names,
                         )
                     )?;
                 )*
                 Ok(())
             }
 
-            pub fn build_data(&self) -> #Result<#data_name> {
-                let mut builders = #builders_name {
+            pub fn build_store_data(&self) -> #Result<#state_name> {
+                let mut preparers = #preparers_name {
                     #( #factor_names: None, )*
                 };
                 #(
-                    builders.#factor_names = Some(
-                        #factors_path::FactorBuilder::<#factor_types>::prepare::<#name>(
+                    preparers.#factor_names = Some(
+                        #factors_path::InstancePreparer::<#factor_types>::new::<#name>(
                             &self.#factor_names,
-                            #factors_path::PrepareContext::new(&mut builders),
+                            #factors_path::PrepareContext::new(&mut preparers),
                         )?
                     );
                 )*
-                Ok(#data_name {
+                Ok(#state_name {
                     #(
-                        #factor_names: #factors_path::FactorBuilder::<#factor_types>::build(
-                            builders.#factor_names.unwrap()
+                        #factor_names: #factors_path::InstancePreparer::<#factor_types>::prepare(
+                            preparers.#factor_names.unwrap()
                         )?,
                     )*
                 })
@@ -115,20 +118,20 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
 
         impl #factors_path::SpinFactors for #name {
-            type Builders = #builders_name;
-            type InstanceState = #data_name;
+            type InstancePreparers = #preparers_name;
+            type InstanceState = #state_name;
 
-            unsafe fn factor_builder_offset<T: #Factor>() -> Option<usize> {
+            unsafe fn instance_preparer_offset<T: #Factor>() -> Option<usize> {
                 let type_id = #TypeId::of::<T>();
                 #(
                     if type_id == #TypeId::of::<#factor_types>() {
-                        return Some(std::mem::offset_of!(Self::Builders, #factor_names));
+                        return Some(std::mem::offset_of!(Self::InstancePreparers, #factor_names));
                     }
                 )*
                 None
             }
 
-            unsafe fn factor_data_offset<T: #Factor>() -> Option<usize> {
+            unsafe fn instance_state_offset<T: #Factor>() -> Option<usize> {
                 let type_id = #TypeId::of::<T>();
                 #(
                     if type_id == #TypeId::of::<#factor_types>() {
@@ -140,13 +143,13 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             }
         }
 
-        #vis struct #builders_name {
+        #vis struct #preparers_name {
             #(
-                pub #factor_names: Option<<#factor_types as #Factor>::Builder>,
+                pub #factor_names: Option<<#factor_types as #Factor>::InstancePreparer>,
             )*
         }
 
-        #vis struct #data_name {
+        #vis struct #state_name {
             #(
                 pub #factor_names: <#factor_types as #Factor>::InstanceState,
             )*

@@ -73,19 +73,17 @@ point for `spin-factors` (note that some type details are elided for clarity):
 
 ```rust
 pub trait Factor {
-    // Builder represents a type that can prepare this Factor's Data.
-    type Builder: FactorBuilder<Self>;
-    // Data represents this Factor's per-trigger-execution state, which is held
-    // in a [`wasmtime::Store`].
-    // See: https://docs.rs/wasmtime/21.0.0/wasmtime/struct.Store.html#method.data
-    type Data;
+    // InstancePreparer represents a type that can prepare this Factor's InstanceState.
+    type InstancePreparer: InstancePreparer<Self>;
+    // InstanceState represents this Factor's per-instance state.
+    type InstanceState;
 
     // Init is the runtime startup lifecycle hook.
     //
     // The `InitContext` type here gives the factor the ability to update global
     // engine configuration, most notably the `Linker`. This takes the place of
     // `HostComponent::add_to_linker`.
-    fn init(ctx: InitContext) -> Result<()> {
+    fn init(&mut self, ctx: InitContext) -> Result<()> {
         Ok(())
     }
 
@@ -97,21 +95,21 @@ pub trait Factor {
     }
 }
 
-pub trait FactorBuilder<Factor> {
-    // Prepare is the component pre-instantiation hook.
+pub trait InstancePreparer<Factor> {
+    // This is the component pre-instantiation hook.
     //
     // The `PrepareContext` type gives access to information about the Spin app
     // and component being prepared and also to the Factor itself and any other
-    // already-`prepare`d `FactorBuilder`s. The return value is the request state
-    // builder for this factor. This builder may expose mutable state to other
-    // factors, providing inter-factor dependency features. This takes the place
+    // already-`prepare`d `InstancePreparer`s. The return value is the
+    // InstancePreparer for this factor. This preparer may expose mutable state to
+    // other factors, providing inter-factor dependency features. This takes the place
     // of `DynamicHostComponent::update_data`.
-    fn prepare(ctx: PrepareContext) -> Result<Self>;
+    fn new(ctx: PrepareContext) -> Result<Self>;
 
-    // Build is the component instantiation hook.
+    // Prepare is the component instantiation hook.
     //
-    // This returns the request state for this factor. This takes the place of
+    // This returns the instance state for this factor. This takes the place of
     // `HostComponent::build_data`.
-    fn build(self) -> Factor::Data;
+    fn prepare(self) -> Factor::InstanceState;
 }
 ```

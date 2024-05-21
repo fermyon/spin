@@ -21,7 +21,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let vis = &input.vis;
 
     let builders_name = format_ident!("{name}Builders");
-    let data_name = format_ident!("{name}Data");
+    let data_name = format_ident!("{name}InstanceState");
 
     if !input.generics.params.is_empty() {
         return Err(Error::new_spanned(
@@ -116,7 +116,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
 
         impl #factors_path::SpinFactors for #name {
             type Builders = #builders_name;
-            type Data = #data_name;
+            type InstanceState = #data_name;
 
             unsafe fn factor_builder_offset<T: #Factor>() -> Option<usize> {
                 let type_id = #TypeId::of::<T>();
@@ -132,7 +132,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 let type_id = #TypeId::of::<T>();
                 #(
                     if type_id == #TypeId::of::<#factor_types>() {
-                        return Some(std::mem::offset_of!(Self::Data, #factor_names));
+                        return Some(std::mem::offset_of!(Self::InstanceState, #factor_names));
                     }
                 )*
                 None
@@ -148,7 +148,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
 
         #vis struct #data_name {
             #(
-                pub #factor_names: <#factor_types as #Factor>::Data,
+                pub #factor_names: <#factor_types as #Factor>::InstanceState,
             )*
         }
     })

@@ -1,13 +1,15 @@
 pub mod preview1;
 
-use spin_factors::{Factor, FactorBuilder, InitContext, PrepareContext, Result, SpinFactors};
+use spin_factors::{
+    Factor, FactorInstancePreparer, InitContext, PrepareContext, Result, SpinFactors,
+};
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
 pub struct WasiFactor;
 
 impl Factor for WasiFactor {
-    type Builder = Builder;
-    type Data = Data;
+    type InstancePreparer = Builder;
+    type InstanceState = InstanceState;
 
     fn init<Factors: SpinFactors>(&mut self, mut ctx: InitContext<Factors, Self>) -> Result<()> {
         use wasmtime_wasi::bindings;
@@ -46,8 +48,8 @@ pub struct Builder {
     wasi_ctx: WasiCtxBuilder,
 }
 
-impl FactorBuilder<WasiFactor> for Builder {
-    fn prepare<Factors: SpinFactors>(
+impl FactorInstancePreparer<WasiFactor> for Builder {
+    fn new<Factors: SpinFactors>(
         _factor: &WasiFactor,
         _ctx: PrepareContext<Factors>,
     ) -> Result<Self> {
@@ -56,20 +58,20 @@ impl FactorBuilder<WasiFactor> for Builder {
         })
     }
 
-    fn build(mut self) -> Result<Data> {
-        Ok(Data {
+    fn prepare(mut self) -> Result<InstanceState> {
+        Ok(InstanceState {
             ctx: self.wasi_ctx.build(),
             table: Default::default(),
         })
     }
 }
 
-pub struct Data {
+pub struct InstanceState {
     ctx: WasiCtx,
     table: ResourceTable,
 }
 
-impl WasiView for Data {
+impl WasiView for InstanceState {
     fn ctx(&mut self) -> &mut WasiCtx {
         &mut self.ctx
     }

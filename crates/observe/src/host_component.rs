@@ -1,10 +1,14 @@
 use std::sync::{Arc, RwLock};
+use std::time::{Duration, UNIX_EPOCH};
 
 use anyhow::Result;
+use opentelemetry::trace::{Span, Tracer, TracerProvider};
+use opentelemetry::Context;
 use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::wasmtime::component::Resource;
 use spin_core::{async_trait, HostComponent};
 use spin_world::v2::observe;
+use spin_world::v2::observe::ReadOnlySpan;
 use spin_world::v2::observe::Span as WitSpan;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
@@ -48,7 +52,31 @@ pub struct ObserveData {
 }
 
 #[async_trait]
-impl observe::Host for ObserveData {}
+impl observe::Host for ObserveData {
+    async fn emit_span(&mut self, read_only_span: ReadOnlySpan) -> Result<()> {
+        let tracer = opentelemetry::global::tracer_provider().tracer("wasi_observe");
+
+        let mut span = tracer
+            .span_builder(read_only_span.name)
+            .with_start_time(
+                UNIX_EPOCH
+                    + Duration::from_secs(read_only_span.start_time.seconds)
+                    + Duration::from_nanos(read_only_span.start_time.nanoseconds.into()),
+            )
+            .with_kind(opentelemetry::trace::SpanKind::Internal)
+            .with_attributes(vec![])
+            .with_events(vec![])
+            .with_links(vec![])
+            .start_with_context(&tracer, &Context::new());
+
+        span.end_with_timestamp(
+            UNIX_EPOCH
+                + Duration::from_secs(read_only_span.end_time.seconds)
+                + Duration::from_nanos(read_only_span.end_time.nanoseconds.into()),
+        );
+        Ok(())
+    }
+}
 
 #[async_trait]
 impl observe::HostSpan for ObserveData {

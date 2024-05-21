@@ -7668,6 +7668,8 @@ dependencies = [
  "async-trait",
  "dotenvy",
  "once_cell",
+ "opentelemetry",
+ "opentelemetry_sdk",
  "pin-project-lite",
  "serde",
  "spin-app",

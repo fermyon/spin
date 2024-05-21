@@ -21,6 +21,8 @@ serde = "1.0.188"
 tracing = "0.1.40"
 tracing-opentelemetry = "0.23.0"
 pin-project-lite = "0.2"
+opentelemetry = { version = "0.22.0", features = [ "metrics", "trace"] }
+opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio"] }
 
 [dev-dependencies]
 toml = "0.5"

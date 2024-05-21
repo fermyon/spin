@@ -1,4 +1,6 @@
 interface observe {
+  use wasi:clocks/wall-clock@0.2.0.{datetime};
+
   resource span {
     /// enter returns a new span with the given name.
     enter: static func(name: string) -> span;
@@ -9,7 +11,41 @@ interface observe {
     /// close closes the span.
     close: func();
   }
-}
 
-// TODO: Maybe support events?
-// TODO: Make a Rust tracing provider that uses this as a backend
+  // Emit a given completed read-only-span to the o11y host.
+  emit-span: func(span: read-only-span);
+
+  enum span-kind {
+    client,
+    server,
+    producer,
+    consumer,
+    internal
+  }
+
+  record read-only-span {
+    /// Name of the span.
+    name: string,
+
+    // TODO: Span parent context stuff
+
+    /// Kind of the span
+    span-kind: span-kind,
+
+    /// Start time of the span.
+    start-time: datetime,
+
+    /// End time of the span.
+    end-time: datetime,
+
+    // TODO: Span attributes and dropped count
+
+    // TODO: Span events
+
+    // TODO: Span links
+
+    // TODO: Status
+
+    // TODO: Resource and instrumentation lib
+  }
+}

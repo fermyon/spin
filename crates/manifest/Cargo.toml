@@ -7,6 +7,7 @@ edition = { workspace = true }
 [dependencies]
 anyhow = "1.0.75"
 indexmap = { version = "1", features = ["serde"] }
+semver = { version = "1.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 spin-serde = { path = "../serde" }
 thiserror = "1"

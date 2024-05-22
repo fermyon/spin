@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, ensure, Context, Result};
-use futures::future::try_join_all;
+use anyhow::{anyhow, bail, ensure, Context, Result};
+use futures::{future::try_join_all, StreamExt};
 use reqwest::Url;
 use spin_common::{paths::parent_dir, sloth, ui::quoted_path};
 use spin_locked_app::{
@@ -13,7 +13,7 @@ use spin_locked_app::{
 };
 use spin_manifest::schema::v2::{self, AppManifest, KebabId, WasiFilesMount};
 use spin_outbound_networking::SERVICE_CHAINING_DOMAIN_SUFFIX;
-use tokio::sync::Semaphore;
+use tokio::{io::AsyncWriteExt, sync::Semaphore};
 
 use crate::{cache::Cache, FilesMountStrategy};
 
@@ -222,6 +222,14 @@ impl LocalLoader {
             v2::ComponentSource::Remote { url, digest } => {
                 self.load_http_source(&url, &digest).await?
             }
+            v2::ComponentSource::Registry {
+                registry,
+                package,
+                version,
+            } => {
+                self.load_registry_source(registry.as_ref(), &package, &version)
+                    .await?
+            }
         };
         Ok(LockedComponentSource {
             content_type: "application/wasm".into(),
@@ -248,6 +256,57 @@ impl LocalLoader {
                 .with_context(|| format!("Error fetching source URL {url:?}"))?;
             dest
         };
+        file_content_ref(path)
+    }
+
+    async fn load_registry_source(
+        &self,
+        registry: Option<&String>,
+        package: &str,
+        version: &semver::Version,
+    ) -> Result<ContentRef> {
+        let package: wasm_pkg_loader::PackageRef = package
+            .parse()
+            .with_context(|| format!("{package:?} is not a valid registry package reference"))?;
+
+        let mut client_config =
+            wasm_pkg_loader::ClientConfig::from_default_file()?.unwrap_or_default();
+        if let Some(registry) = &registry {
+            client_config.set_namespace_registry(package.namespace().as_ref(), registry.as_str());
+        }
+        let mut pkg_loader = wasm_pkg_loader::Client::new(client_config);
+
+        let release = pkg_loader.get_release(&package, version).await.map_err(|e| {
+            if matches!(e, wasm_pkg_loader::Error::NoRegistryForNamespace(_)) && registry.is_none() {
+                anyhow!("No default registry specified for wasm-pkg-loader. Create a default config, or set `registry` for package {package:?}")
+            } else {
+                e.into()
+            }
+        })?;
+
+        let digest = match &release.content_digest {
+            wasm_pkg_loader::ContentDigest::Sha256 { hex } => format!("sha256:{hex}"),
+        };
+
+        let path = if let Ok(cached_path) = self.cache.wasm_file(&digest) {
+            cached_path
+        } else {
+            let mut stm = pkg_loader.stream_content(&package, &release).await?;
+
+            self.cache.ensure_dirs().await?;
+            let dest = self.cache.wasm_path(&digest);
+
+            let mut file = tokio::fs::File::create(&dest).await?;
+            while let Some(block) = stm.next().await {
+                let bytes = block.context("Failed to get content from registry")?;
+                file.write_all(&bytes)
+                    .await
+                    .context("Failed to save registry content to cache")?;
+            }
+
+            dest
+        };
+
         file_content_ref(path)
     }
 

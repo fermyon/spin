@@ -4738,6 +4738,7 @@ dependencies = [
  "spin-sqlite",
  "spin-sqlite-inproc",
  "spin-sqlite-libsql",
+ "spin-telemetry",
  "spin-variables",
  "spin-world",
  "terminal",

@@ -1,0 +1,18 @@
+[package]
+name = "conformance-tests"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow = "1.0"
+json5 = "0.4.1"
+serde = "1.0"
+testing-framework = { path = "../testing-framework" }
+
+[lints]
+workspace = true

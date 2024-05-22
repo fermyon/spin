@@ -117,7 +117,7 @@ llm-metal = ["llm", "spin-trigger-http/llm-metal"]
 llm-cublas = ["llm", "spin-trigger-http/llm-cublas"]
 
 [workspace]
-members = ["crates/*", "tests/runtime-tests", "tests/testing-framework"]
+members = ["crates/*", "tests/conformance-tests", "tests/runtime-tests", "tests/testing-framework"]
 
 [workspace.dependencies]
 anyhow = "1.0.75"

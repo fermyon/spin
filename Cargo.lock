@@ -1484,6 +1484,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "conformance-tests"
+version = "2.6.0-pre0"
+dependencies = [
+ "anyhow",
+ "json5",
+ "serde 1.0.197",
+ "testing-framework",
+]
+
+[[package]]
 name = "console"
 version = "0.15.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3768,6 +3778,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29c15563dc2726973df627357ce0c9ddddbea194836909d655df6a75d2cf296d"
 dependencies = [
  "wasm-bindgen",
+]
+
+[[package]]
+name = "json5"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96b0db21af676c1ce64250b5f40f3ce2cf27e4e47cb91ed91eb6fe9350b430c1"
+dependencies = [
+ "pest",
+ "pest_derive",
+ "serde 1.0.197",
 ]
 
 [[package]]

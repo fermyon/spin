@@ -1,5 +1,5 @@
 use spin_factors::{
-    Factor, FactorInstancePreparer, ModuleInitContext, PrepareContext, Result, SpinFactors,
+    Factor, FactorInstancePreparer, InitContext, PrepareContext, Result, SpinFactors,
 };
 use wasmtime_wasi::{preview1::WasiP1Ctx, WasiCtxBuilder};
 
@@ -9,11 +9,8 @@ impl Factor for WasiPreview1Factor {
     type InstancePreparer = InstancePreparer;
     type InstanceState = WasiP1Ctx;
 
-    fn module_init<Factors: SpinFactors>(
-        &mut self,
-        mut ctx: ModuleInitContext<Factors, Self>,
-    ) -> Result<()> {
-        ctx.link_bindings(wasmtime_wasi::preview1::add_to_linker_async)
+    fn init<Factors: SpinFactors>(&mut self, mut ctx: InitContext<Factors, Self>) -> Result<()> {
+        ctx.link_module_bindings(wasmtime_wasi::preview1::add_to_linker_async)
     }
 }
 

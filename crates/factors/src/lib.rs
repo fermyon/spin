@@ -21,14 +21,6 @@ pub trait Factor: Any + Sized {
         Ok(())
     }
 
-    fn module_init<Factors: SpinFactors>(
-        &mut self,
-        mut ctx: ModuleInitContext<Factors, Self>,
-    ) -> Result<()> {
-        _ = &mut ctx;
-        Ok(())
-    }
-
     fn validate_app(&self, app: &App) -> Result<()> {
         _ = app;
         Ok(())
@@ -38,24 +30,32 @@ pub trait Factor: Any + Sized {
 type GetDataFn<Factors, Fact> =
     fn(&mut <Factors as SpinFactors>::InstanceState) -> &mut <Fact as Factor>::InstanceState;
 
-pub struct FactorInitContext<'a, Factors: SpinFactors, Fact: Factor, Linker> {
-    linker: &'a mut Linker,
+pub struct InitContext<'a, Factors: SpinFactors, Fact: Factor> {
+    linker: Option<&'a mut Linker<Factors>>,
+    module_linker: Option<&'a mut ModuleLinker<Factors>>,
     get_data: GetDataFn<Factors, Fact>,
 }
 
-pub type InitContext<'a, Factors, Fact> = FactorInitContext<'a, Factors, Fact, Linker<Factors>>;
-
-pub type ModuleInitContext<'a, Factors, Fact> =
-    FactorInitContext<'a, Factors, Fact, ModuleLinker<Factors>>;
-
-impl<'a, Factors: SpinFactors, Fact: Factor, Linker> FactorInitContext<'a, Factors, Fact, Linker> {
+impl<'a, Factors: SpinFactors, Fact: Factor> InitContext<'a, Factors, Fact> {
     #[doc(hidden)]
-    pub fn new(linker: &'a mut Linker, get_data: GetDataFn<Factors, Fact>) -> Self {
-        Self { linker, get_data }
+    pub fn new(
+        linker: Option<&'a mut Linker<Factors>>,
+        module_linker: Option<&'a mut ModuleLinker<Factors>>,
+        get_data: GetDataFn<Factors, Fact>,
+    ) -> Self {
+        Self {
+            linker,
+            module_linker,
+            get_data,
+        }
     }
 
-    pub fn linker(&mut self) -> &mut Linker {
-        self.linker
+    pub fn linker(&mut self) -> Option<&mut Linker<Factors>> {
+        self.linker.as_deref_mut()
+    }
+
+    pub fn module_linker(&mut self) -> Option<&mut ModuleLinker<Factors>> {
+        self.module_linker.as_deref_mut()
     }
 
     pub fn get_data_fn(&self) -> GetDataFn<Factors, Fact> {
@@ -65,12 +65,31 @@ impl<'a, Factors: SpinFactors, Fact: Factor, Linker> FactorInitContext<'a, Facto
     pub fn link_bindings(
         &mut self,
         add_to_linker: impl Fn(
-            &mut Linker,
+            &mut Linker<Factors>,
             fn(&mut Factors::InstanceState) -> &mut Fact::InstanceState,
         ) -> Result<()>,
     ) -> Result<()>
 where {
-        add_to_linker(self.linker, self.get_data)
+        if let Some(linker) = self.linker.as_deref_mut() {
+            add_to_linker(linker, self.get_data)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn link_module_bindings(
+        &mut self,
+        add_to_linker: impl Fn(
+            &mut ModuleLinker<Factors>,
+            fn(&mut Factors::InstanceState) -> &mut Fact::InstanceState,
+        ) -> Result<()>,
+    ) -> Result<()>
+where {
+        if let Some(linker) = self.module_linker.as_deref_mut() {
+            add_to_linker(linker, self.get_data)
+        } else {
+            Ok(())
+        }
     }
 }
 

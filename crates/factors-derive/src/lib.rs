@@ -63,30 +63,15 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
         impl #name {
             pub fn init(
                 &mut self,
-                linker: &mut #wasmtime::component::Linker<#state_name>
+                mut linker: Option<&mut #wasmtime::component::Linker<#state_name>>,
+                mut module_linker: Option<&mut #wasmtime::Linker<#state_name>>,
             ) -> #Result<()> {
                 #(
                     #Factor::init::<Self>(
                         &mut self.#factor_names,
                         #factors_path::InitContext::<Self, #factor_types>::new(
-                            linker,
-                            |state| &mut state.#factor_names,
-                        )
-                    )?;
-                )*
-                Ok(())
-            }
-
-            #[allow(dead_code)]
-            pub fn module_init(
-                &mut self,
-                linker: &mut #wasmtime::Linker<#state_name>
-            ) -> #Result<()> {
-                #(
-                    #Factor::module_init::<Self>(
-                        &mut self.#factor_names,
-                        #factors_path::ModuleInitContext::<Self, #factor_types>::new(
-                            linker,
+                            linker.as_deref_mut(),
+                            module_linker.as_deref_mut(),
                             |state| &mut state.#factor_names,
                         )
                     )?;

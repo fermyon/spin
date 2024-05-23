@@ -4609,6 +4609,7 @@ dependencies = [
  "anyhow",
  "indexmap 1.9.3",
  "serde",
+ "spin-common",
  "spin-serde",
  "terminal",
  "thiserror",

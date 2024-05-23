@@ -6318,6 +6318,7 @@ version = "2.6.0-pre0"
 dependencies = [
  "anyhow",
  "futures",
+ "indexmap 1.9.3",
  "serde",
  "spin-common",
  "spin-manifest",
@@ -6697,6 +6698,7 @@ dependencies = [
  "indexmap 1.9.3",
  "serde",
  "serde_json",
+ "spin-common",
  "spin-serde",
  "terminal",
  "thiserror",

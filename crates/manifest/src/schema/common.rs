@@ -30,6 +30,15 @@ pub enum ComponentSource {
         /// `digest = `"sha256:abc123..."`
         digest: String,
     },
+    /// `{ ... }`
+    Registry {
+        /// `registry = "example.com"`
+        registry: Option<String>,
+        /// `package = "example:component"`
+        package: String,
+        /// `version = "1.2.3"`
+        version: semver::Version,
+    },
 }
 
 impl Display for ComponentSource {
@@ -37,6 +46,17 @@ impl Display for ComponentSource {
         match self {
             ComponentSource::Local(path) => write!(f, "{path:?}"),
             ComponentSource::Remote { url, digest } => write!(f, "{url:?} with digest {digest:?}"),
+            ComponentSource::Registry {
+                registry,
+                package,
+                version,
+            } => {
+                let registry_suffix = match registry {
+                    None => "default registry".to_owned(),
+                    Some(r) => format!("registry {r:?}"),
+                };
+                write!(f, "\"{package}@{version}\" from {registry_suffix}")
+            }
         }
     }
 }

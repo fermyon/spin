@@ -62,6 +62,7 @@ pub enum KeyValueStoreOpts {
     Spin(SpinKeyValueStoreOpts),
     Redis(RedisKeyValueStoreOpts),
     AzureCosmos(AzureCosmosConfig),
+    Memcached(MemcachedKeyValueStoreOpts),
 }
 
 impl KeyValueStoreOpts {
@@ -74,6 +75,7 @@ impl KeyValueStoreOpts {
             Self::Spin(opts) => opts.build_store(config_opts),
             Self::Redis(opts) => opts.build_store(),
             Self::AzureCosmos(opts) => opts.build_store(),
+            Self::Memcached(opts) => opts.build_store(),
         }
     }
 }
@@ -140,6 +142,20 @@ impl AzureCosmosConfig {
     }
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct MemcachedKeyValueStoreOpts {
+    pub servers: Vec<String>,
+    pub pool_size: Option<u32>,
+}
+
+impl MemcachedKeyValueStoreOpts {
+    fn build_store(&self) -> Result<KeyValueStore> {
+        let kv =
+            spin_key_value_memcached::KeyValueMemcached::new(self.servers.clone(), self.pool_size)?;
+        Ok(Arc::new(kv))
+    }
+}
+
 // Prints startup messages about the default key value store config.
 pub struct KeyValuePersistenceMessageHook;
 
@@ -172,6 +188,12 @@ impl TriggerHooks for KeyValuePersistenceMessageHook {
             }
             KeyValueStoreOpts::AzureCosmos(store_opts) => {
                 println!("Storing default key-value data to Azure CosmosDB: account: {}, database: {}, container: {}", store_opts.account, store_opts.database, store_opts.container);
+            }
+            KeyValueStoreOpts::Memcached(store_opts) => {
+                println!(
+                    "Storing default key-value data to memcached servers: {:?}",
+                    store_opts.servers.clone()
+                )
             }
         }
         Ok(())

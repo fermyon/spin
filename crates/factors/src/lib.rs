@@ -12,15 +12,22 @@ pub type Linker<Factors> = wasmtime::component::Linker<<Factors as SpinFactors>:
 pub type ModuleLinker<Factors> = wasmtime::Linker<<Factors as SpinFactors>::InstanceState>;
 
 pub trait Factor: Any + Sized {
+    /// The [`FactorInstancePreparer`] for this factor.
     type InstancePreparer: FactorInstancePreparer<Self>;
+
+    /// The per-instance state for this factor, constructed by a
+    /// [`FactorInstancePreparer`] and available to any host-provided imports
+    /// defined by this factor.
     type InstanceState;
 
-    /// Initializes this Factor for a runtime. This will be called exactly once
+    /// Initializes this Factor for a runtime. This should be called at most once.
     fn init<Factors: SpinFactors>(&mut self, mut ctx: InitContext<Factors, Self>) -> Result<()> {
         _ = &mut ctx;
         Ok(())
     }
 
+    /// Performs factor-specific validation of the given [`App`]`. This may be
+    /// called before, after, or instead of `init`.
     fn validate_app(&self, app: &App) -> Result<()> {
         _ = app;
         Ok(())
@@ -30,6 +37,8 @@ pub trait Factor: Any + Sized {
 type GetDataFn<Factors, Fact> =
     fn(&mut <Factors as SpinFactors>::InstanceState) -> &mut <Fact as Factor>::InstanceState;
 
+/// An InitContext is passed to [`Factor::init`], giving access to the global
+/// common [`wasmtime::component::Linker`].
 pub struct InitContext<'a, Factors: SpinFactors, Fact: Factor> {
     linker: Option<&'a mut Linker<Factors>>,
     module_linker: Option<&'a mut ModuleLinker<Factors>>,
@@ -94,11 +103,16 @@ where {
 }
 
 pub trait FactorInstancePreparer<T: Factor>: Sized {
+    /// Returns a new instance of this preparer for the given [`Factor`].
     fn new<Factors: SpinFactors>(factor: &T, _ctx: PrepareContext<Factors>) -> Result<Self>;
 
+    /// Returns a new instance of the associated [`Factor::InstanceState`].
     fn prepare(self) -> Result<T::InstanceState>;
 }
 
+/// A PrepareContext is passed to [`FactorInstancePreparer::new`], giving access
+/// to any already-initialized [`FactorInstancePreparer`]s, allowing for
+/// inter-[`Factor`] dependencies.
 pub struct PrepareContext<'a, Factors: SpinFactors> {
     instance_preparers: &'a mut Factors::InstancePreparers,
     // TODO: component: &'a AppComponent,
@@ -110,6 +124,11 @@ impl<'a, Factors: SpinFactors> PrepareContext<'a, Factors> {
         Self { instance_preparers }
     }
 
+    /// Returns a already-initialized preparer for the given [`Factor`].
+    ///
+    /// Fails if the current [`SpinFactors`] does not include the given
+    /// [`Factor`] or if the given [`Factor`]'s preparer has not been
+    /// initialized yet (because it is sequenced after this factor).
     pub fn instance_preparer_mut<T: Factor>(&mut self) -> Result<&mut T::InstancePreparer> {
         let err_msg = match Factors::instance_preparer_mut::<T>(self.instance_preparers) {
             Some(Some(preparer)) => return Ok(preparer),
@@ -123,6 +142,8 @@ impl<'a, Factors: SpinFactors> PrepareContext<'a, Factors> {
     }
 }
 
+/// DefaultInstancePreparer can be used as a [`FactorInstancePreparer`] to
+/// produce a [`Default`] [`Factor::InstanceState`].
 pub type DefaultInstancePreparer = ();
 
 impl<T: Factor> FactorInstancePreparer<T> for DefaultInstancePreparer

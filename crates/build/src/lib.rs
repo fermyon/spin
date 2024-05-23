@@ -17,16 +17,31 @@ use crate::manifest::component_build_configs;
 
 /// If present, run the build command of each component.
 pub async fn build(manifest_file: &Path, component_ids: &[String]) -> Result<()> {
-    let components = component_build_configs(manifest_file)
-        .await
-        .with_context(|| {
-            format!(
-                "Cannot read manifest file from {}",
-                quoted_path(manifest_file)
-            )
-        })?;
+    let (components, manifest_err) =
+        component_build_configs(manifest_file)
+            .await
+            .with_context(|| {
+                format!(
+                    "Cannot read manifest file from {}",
+                    quoted_path(manifest_file)
+                )
+            })?;
     let app_dir = parent_dir(manifest_file)?;
 
+    let build_result = build_components(component_ids, components, app_dir);
+
+    if let Some(e) = manifest_err {
+        terminal::warn!("The manifest has errors not related to the Wasm component build. Error details:\n{e:#}");
+    }
+
+    build_result
+}
+
+fn build_components(
+    component_ids: &[String],
+    components: Vec<ComponentBuildInfo>,
+    app_dir: PathBuf,
+) -> Result<(), anyhow::Error> {
     let components_to_build = if component_ids.is_empty() {
         components
     } else {

@@ -10,8 +10,11 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow = "1.0"
+flate2 = "1.0"
 json5 = "0.4.1"
+reqwest = { version = "0.12", features = ["blocking"] }
 serde = "1.0"
+tar = "0.4.40"
 testing-framework = { path = "../testing-framework" }
 
 [lints]

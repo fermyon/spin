@@ -23,7 +23,7 @@
     "var_one": {
       "default": "Default"
     },
-    "var_TWO": {
+    "var_two": {
       "required": true,
       "secret": true
     }

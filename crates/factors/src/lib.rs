@@ -1,6 +1,6 @@
 use std::{any::Any, marker::PhantomData};
 
-use spin_app::App;
+use anyhow::Context;
 pub use spin_factors_derive::SpinFactors;
 
 pub use wasmtime;
@@ -11,7 +11,16 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub type Linker<Factors> = wasmtime::component::Linker<<Factors as SpinFactors>::InstanceState>;
 pub type ModuleLinker<Factors> = wasmtime::Linker<<Factors as SpinFactors>::InstanceState>;
 
+// Temporary wrappers while refactoring
+pub type App = spin_app::App<'static, spin_app::InertLoader>;
+pub type AppComponent<'a> = spin_app::AppComponent<'a, spin_app::InertLoader>;
+
 pub trait Factor: Any + Sized {
+    /// App configuration for this factor.
+    ///
+    /// See [`Factor::configure_app`].
+    type AppConfig: Default;
+
     /// The [`FactorInstancePreparer`] for this factor.
     type InstancePreparer: FactorInstancePreparer<Self>;
 
@@ -20,17 +29,25 @@ pub trait Factor: Any + Sized {
     /// defined by this factor.
     type InstanceState;
 
-    /// Initializes this Factor for a runtime. This should be called at most once.
+    /// Initializes this Factor for a runtime. This will be called at most once,
+    /// before any call to [`FactorInstancePreparer::new`]
     fn init<Factors: SpinFactors>(&mut self, mut ctx: InitContext<Factors, Self>) -> Result<()> {
         _ = &mut ctx;
         Ok(())
     }
 
-    /// Performs factor-specific validation of the given [`App`]`. This may be
-    /// called before, after, or instead of `init`.
-    fn validate_app(&self, app: &App) -> Result<()> {
+    /// Performs factor-specific validation and configuration for the given
+    /// [`App`] and [`RuntimeConfig`]. A runtime may - but is not required to -
+    /// reuse the returned config across multiple instances. Note that this may
+    /// be called without any call to `init` in cases where only validation is
+    /// needed.
+    fn configure_app<Factors: SpinFactors>(
+        &self,
+        app: &App,
+        _ctx: ConfigureAppContext<Factors>,
+    ) -> Result<Self::AppConfig> {
         _ = app;
-        Ok(())
+        Ok(Default::default())
     }
 }
 
@@ -102,9 +119,28 @@ where {
     }
 }
 
+pub struct ConfigureAppContext<'a, Factors: SpinFactors> {
+    app_configs: &'a Factors::AppConfigs,
+}
+
+impl<'a, Factors: SpinFactors> ConfigureAppContext<'a, Factors> {
+    #[doc(hidden)]
+    pub fn new(app_configs: &'a Factors::AppConfigs) -> Self {
+        Self { app_configs }
+    }
+
+    pub fn app_config<T: Factor>(&self) -> Result<&T::AppConfig> {
+        Factors::app_config::<T>(self.app_configs).context("no such factor")
+    }
+}
+
 pub trait FactorInstancePreparer<T: Factor>: Sized {
     /// Returns a new instance of this preparer for the given [`Factor`].
-    fn new<Factors: SpinFactors>(factor: &T, _ctx: PrepareContext<Factors>) -> Result<Self>;
+    fn new<Factors: SpinFactors>(
+        factor: &T,
+        app_component: &AppComponent,
+        _ctx: PrepareContext<Factors>,
+    ) -> Result<Self>;
 
     /// Returns a new instance of the associated [`Factor::InstanceState`].
     fn prepare(self) -> Result<T::InstanceState>;
@@ -114,14 +150,24 @@ pub trait FactorInstancePreparer<T: Factor>: Sized {
 /// to any already-initialized [`FactorInstancePreparer`]s, allowing for
 /// inter-[`Factor`] dependencies.
 pub struct PrepareContext<'a, Factors: SpinFactors> {
+    configured_app: &'a ConfiguredApp<Factors>,
     instance_preparers: &'a mut Factors::InstancePreparers,
-    // TODO: component: &'a AppComponent,
 }
 
 impl<'a, Factors: SpinFactors> PrepareContext<'a, Factors> {
     #[doc(hidden)]
-    pub fn new(instance_preparers: &'a mut Factors::InstancePreparers) -> Self {
-        Self { instance_preparers }
+    pub fn new(
+        configured_app: &'a ConfiguredApp<Factors>,
+        instance_preparers: &'a mut Factors::InstancePreparers,
+    ) -> Self {
+        Self {
+            configured_app,
+            instance_preparers,
+        }
+    }
+
+    pub fn app_config<T: Factor>(&self) -> Result<&T::AppConfig> {
+        self.configured_app.app_config::<T>()
     }
 
     /// Returns a already-initialized preparer for the given [`Factor`].
@@ -130,28 +176,27 @@ impl<'a, Factors: SpinFactors> PrepareContext<'a, Factors> {
     /// [`Factor`] or if the given [`Factor`]'s preparer has not been
     /// initialized yet (because it is sequenced after this factor).
     pub fn instance_preparer_mut<T: Factor>(&mut self) -> Result<&mut T::InstancePreparer> {
-        let err_msg = match Factors::instance_preparer_mut::<T>(self.instance_preparers) {
-            Some(Some(preparer)) => return Ok(preparer),
-            Some(None) => "preparer not yet initialized",
-            None => "no such factor",
-        };
-        Err(Error::msg(format!(
-            "could not get instance preparer for {ty}: {err_msg}",
-            ty = std::any::type_name::<T>()
-        )))
+        Factors::instance_preparer_mut::<T>(self.instance_preparers)
+            .and_then(|maybe_preparer| maybe_preparer.context("preparer not yet initialized"))
+            .with_context(|| {
+                format!(
+                    "could not get instance preparer for {}",
+                    std::any::type_name::<T>()
+                )
+            })
     }
 }
 
-/// DefaultInstancePreparer can be used as a [`FactorInstancePreparer`] to
-/// produce a [`Default`] [`Factor::InstanceState`].
-pub type DefaultInstancePreparer = ();
-
-impl<T: Factor> FactorInstancePreparer<T> for DefaultInstancePreparer
+impl<T: Factor> FactorInstancePreparer<T> for ()
 where
     T::InstanceState: Default,
 {
-    fn new<Factors: SpinFactors>(factor: &T, ctx: PrepareContext<Factors>) -> Result<Self> {
-        (_, _) = (factor, ctx);
+    fn new<Factors: SpinFactors>(
+        factor: &T,
+        app_component: &AppComponent,
+        _ctx: PrepareContext<Factors>,
+    ) -> Result<Self> {
+        (_, _) = (factor, app_component);
         Ok(())
     }
 
@@ -160,8 +205,29 @@ where
     }
 }
 
+pub struct ConfiguredApp<Factors: SpinFactors> {
+    app: App,
+    app_configs: Factors::AppConfigs,
+}
+
+impl<Factors: SpinFactors> ConfiguredApp<Factors> {
+    #[doc(hidden)]
+    pub fn new(app: App, app_configs: Factors::AppConfigs) -> Self {
+        Self { app, app_configs }
+    }
+
+    pub fn app(&self) -> &App {
+        &self.app
+    }
+
+    pub fn app_config<T: Factor>(&self) -> Result<&T::AppConfig> {
+        Factors::app_config::<T>(&self.app_configs).context("no such factor")
+    }
+}
+
 /// Implemented by `#[derive(SpinFactors)]`
 pub trait SpinFactors: Sized {
+    type AppConfigs;
     type InstancePreparers;
     type InstanceState: Send + 'static;
 
@@ -170,6 +236,8 @@ pub trait SpinFactors: Sized {
 
     #[doc(hidden)]
     unsafe fn instance_state_offset<T: Factor>() -> Option<usize>;
+
+    fn app_config<T: Factor>(app_configs: &Self::AppConfigs) -> Option<&T::AppConfig>;
 
     fn instance_state_getter<T: Factor>() -> Option<Getter<Self::InstanceState, T::InstanceState>> {
         let offset = unsafe { Self::instance_state_offset::<T>()? };
@@ -196,12 +264,12 @@ pub trait SpinFactors: Sized {
 
     fn instance_preparer_mut<T: Factor>(
         preparers: &mut Self::InstancePreparers,
-    ) -> Option<Option<&mut T::InstancePreparer>> {
+    ) -> Result<Option<&mut T::InstancePreparer>> {
         unsafe {
-            let offset = Self::instance_preparer_offset::<T>()?;
+            let offset = Self::instance_preparer_offset::<T>().context("no such factor")?;
             let ptr = preparers as *mut Self::InstancePreparers;
             let opt = &mut *ptr.add(offset).cast::<Option<T::InstancePreparer>>();
-            Some(opt.as_mut())
+            Ok(opt.as_mut())
         }
     }
 }

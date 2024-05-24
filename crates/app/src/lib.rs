@@ -296,6 +296,14 @@ impl<'a, L> AppComponent<'a, L> {
         &self.locked.source
     }
 
+    /// Returns an iterator of environment variable (key, value) pairs.
+    pub fn environment(&self) -> impl IntoIterator<Item = (&str, &str)> {
+        self.locked
+            .env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+    }
+
     /// Returns an iterator of [`ContentPath`]s for this component's configured
     /// "directory mounts".
     pub fn files(&self) -> std::slice::Iter<ContentPath> {

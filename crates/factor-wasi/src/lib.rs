@@ -1,13 +1,28 @@
 pub mod preview1;
 
+use std::path::Path;
+
+use anyhow::ensure;
+use cap_primitives::{ipnet::IpNet, net::Pool};
 use spin_factors::{
-    Factor, FactorInstancePreparer, InitContext, PrepareContext, Result, SpinFactors,
+    AppComponent, Factor, FactorInstancePreparer, InitContext, PrepareContext, Result, SpinFactors,
 };
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
-pub struct WasiFactor;
+pub struct WasiFactor {
+    files_mounter: Box<dyn FilesMounter>,
+}
+
+impl WasiFactor {
+    pub fn new(files_mounter: impl FilesMounter + 'static) -> Self {
+        Self {
+            files_mounter: Box::new(files_mounter),
+        }
+    }
+}
 
 impl Factor for WasiFactor {
+    type AppConfig = ();
     type InstancePreparer = InstancePreparer;
     type InstanceState = InstanceState;
 
@@ -44,25 +59,104 @@ impl Factor for WasiFactor {
     }
 }
 
+pub trait FilesMounter {
+    fn mount_files(&self, app_component: &AppComponent, ctx: MountFilesContext) -> Result<()>;
+}
+
+pub struct DummyFilesMounter;
+
+impl FilesMounter for DummyFilesMounter {
+    fn mount_files(&self, app_component: &AppComponent, _ctx: MountFilesContext) -> Result<()> {
+        ensure!(
+            app_component.files().next().is_none(),
+            "DummyFilesMounter can't actually mount files"
+        );
+        Ok(())
+    }
+}
+
+pub struct MountFilesContext<'a> {
+    wasi_ctx: &'a mut WasiCtxBuilder,
+}
+
+impl<'a> MountFilesContext<'a> {
+    pub fn preopened_dir(
+        &mut self,
+        host_path: impl AsRef<Path>,
+        guest_path: impl AsRef<str>,
+        writable: bool,
+    ) -> Result<()> {
+        use wasmtime_wasi::{DirPerms, FilePerms};
+        let (dir_perms, file_perms) = if writable {
+            (DirPerms::all(), FilePerms::all())
+        } else {
+            (DirPerms::READ, FilePerms::READ)
+        };
+        self.wasi_ctx
+            .preopened_dir(host_path, guest_path, dir_perms, file_perms)?;
+        Ok(())
+    }
+}
+
 pub struct InstancePreparer {
     wasi_ctx: WasiCtxBuilder,
+    socket_allow_ports: Pool,
 }
 
 impl FactorInstancePreparer<WasiFactor> for InstancePreparer {
+    // NOTE: Replaces WASI parts of AppComponent::apply_store_config
     fn new<Factors: SpinFactors>(
-        _factor: &WasiFactor,
+        factor: &WasiFactor,
+        app_component: &AppComponent,
         _ctx: PrepareContext<Factors>,
     ) -> Result<Self> {
+        let mut wasi_ctx = WasiCtxBuilder::new();
+
+        // Apply environment variables
+        for (key, val) in app_component.environment() {
+            wasi_ctx.env(key, val);
+        }
+
+        // Mount files
+        let mount_ctx = MountFilesContext {
+            wasi_ctx: &mut wasi_ctx,
+        };
+        factor.files_mounter.mount_files(app_component, mount_ctx)?;
+
         Ok(Self {
-            wasi_ctx: WasiCtxBuilder::new(),
+            wasi_ctx,
+            socket_allow_ports: Default::default(),
         })
     }
 
-    fn prepare(mut self) -> Result<InstanceState> {
+    fn prepare(self) -> Result<InstanceState> {
+        let Self {
+            mut wasi_ctx,
+            socket_allow_ports,
+        } = self;
+
+        // Enforce socket_allow_ports
+        wasi_ctx.socket_addr_check(move |addr, _| socket_allow_ports.check_addr(addr).is_ok());
+
         Ok(InstanceState {
-            ctx: self.wasi_ctx.build(),
+            ctx: wasi_ctx.build(),
             table: Default::default(),
         })
+    }
+}
+
+impl InstancePreparer {
+    pub fn inherit_network(&mut self) {
+        self.wasi_ctx.inherit_network();
+    }
+
+    pub fn socket_allow_ports(&mut self, ip_net: IpNet, ports_start: u16, ports_end: Option<u16>) {
+        self.socket_allow_ports.insert_ip_net_port_range(
+            ip_net,
+            ports_start,
+            ports_end,
+            cap_primitives::ambient_authority(),
+        );
     }
 }
 

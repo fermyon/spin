@@ -1,11 +1,12 @@
 use spin_factors::{
-    Factor, FactorInstancePreparer, InitContext, PrepareContext, Result, SpinFactors,
+    AppComponent, Factor, FactorInstancePreparer, InitContext, PrepareContext, Result, SpinFactors,
 };
 use wasmtime_wasi::{preview1::WasiP1Ctx, WasiCtxBuilder};
 
 pub struct WasiPreview1Factor;
 
 impl Factor for WasiPreview1Factor {
+    type AppConfig = ();
     type InstancePreparer = InstancePreparer;
     type InstanceState = WasiP1Ctx;
 
@@ -21,6 +22,7 @@ pub struct InstancePreparer {
 impl FactorInstancePreparer<WasiPreview1Factor> for InstancePreparer {
     fn new<Factors: SpinFactors>(
         _factor: &WasiPreview1Factor,
+        _app_component: &AppComponent,
         _ctx: PrepareContext<Factors>,
     ) -> Result<Self> {
         Ok(Self {

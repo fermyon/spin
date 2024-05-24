@@ -20,6 +20,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let name = &input.ident;
     let vis = &input.vis;
 
+    let app_configs_name = format_ident!("{name}AppConfigs");
     let preparers_name = format_ident!("{name}InstancePreparers");
     let state_name = format_ident!("{name}InstanceState");
 
@@ -57,6 +58,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let Factor = quote!(#factors_path::Factor);
     let Result = quote!(#factors_path::Result);
     let wasmtime = quote!(#factors_path::wasmtime);
+    let ConfiguredApp = quote!(#factors_path::ConfiguredApp);
     let TypeId = quote!(::std::any::TypeId);
 
     Ok(quote! {
@@ -79,7 +81,26 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 Ok(())
             }
 
-            pub fn build_store_data(&self) -> #Result<#state_name> {
+            pub fn configure_app(&self, app: #factors_path::App) -> #Result<#ConfiguredApp<Self>> {
+                let mut app_configs = #app_configs_name {
+                    #( #factor_names: None, )*
+                };
+                #(
+                    app_configs.#factor_names = Some(
+                        #Factor::configure_app(
+                            &self.#factor_names,
+                            &app,
+                            #factors_path::ConfigureAppContext::<Self>::new(&app_configs),
+                        )?
+                    );
+                )*
+                Ok(#ConfiguredApp::new(app, app_configs))
+            }
+
+            pub fn build_store_data(&self, configured_app: &#ConfiguredApp<Self>, component_id: &str) -> #Result<#state_name> {
+                let app_component = configured_app.app().get_component(component_id).ok_or_else(|| {
+                    #factors_path::Error::msg(format!("unknown component {component_id:?}"))
+                })?;
                 let mut preparers = #preparers_name {
                     #( #factor_names: None, )*
                 };
@@ -87,14 +108,15 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                     preparers.#factor_names = Some(
                         #factors_path::FactorInstancePreparer::<#factor_types>::new::<#name>(
                             &self.#factor_names,
-                            #factors_path::PrepareContext::new(&mut preparers),
+                            &app_component,
+                            #factors_path::PrepareContext::new(configured_app, &mut preparers),
                         )?
                     );
                 )*
                 Ok(#state_name {
                     #(
                         #factor_names: #factors_path::FactorInstancePreparer::<#factor_types>::prepare(
-                            preparers.#factor_names.unwrap()
+                            preparers.#factor_names.unwrap(),
                         )?,
                     )*
                 })
@@ -103,6 +125,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
 
         impl #factors_path::SpinFactors for #name {
+            type AppConfigs = #app_configs_name;
             type InstancePreparers = #preparers_name;
             type InstanceState = #state_name;
 
@@ -126,6 +149,22 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 None
 
             }
+
+            fn app_config<T: #Factor>(app_configs: &Self::AppConfigs) -> Option<&T::AppConfig> {
+                let type_id = #TypeId::of::<T>();
+                #(
+                    if type_id == #TypeId::of::<#factor_types>() {
+                        return Some(unsafe { std::mem::transmute(&app_configs.#factor_names) });
+                    }
+                )*
+                None
+            }
+        }
+
+        #vis struct #app_configs_name {
+            #(
+                pub #factor_names: Option<<#factor_types as #Factor>::AppConfig>,
+            )*
         }
 
         #vis struct #preparers_name {

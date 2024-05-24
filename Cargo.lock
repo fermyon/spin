@@ -7559,10 +7559,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-factor-outbound-networking"
+version = "2.6.0-pre0"
+dependencies = [
+ "anyhow",
+ "ipnet",
+ "spin-factor-wasi",
+ "spin-factors",
+ "spin-outbound-networking",
+]
+
+[[package]]
 name = "spin-factor-wasi"
 version = "2.6.0-pre0"
 dependencies = [
  "anyhow",
+ "cap-primitives 3.0.0",
  "spin-factors",
  "wasmtime-wasi",
 ]
@@ -7572,7 +7584,9 @@ name = "spin-factors"
 version = "2.6.0-pre0"
 dependencies = [
  "anyhow",
+ "serde_json",
  "spin-app",
+ "spin-factor-outbound-networking",
  "spin-factor-wasi",
  "spin-factors-derive",
  "wasmtime",

@@ -1,14 +1,16 @@
 [package]
-name = "spin-factor-wasi"
+name = "spin-factor-outbound-networking"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
 anyhow = "1"
-cap-primitives = "3.0.0"
+ipnet = "2.9.0"
+spin-factor-wasi = { path = "../factor-wasi" }
 spin-factors = { path = "../factors" }
-wasmtime-wasi = { workspace = true }
+# TODO: merge with this crate
+spin-outbound-networking = { path = "../outbound-networking" }
 
 [lints]
 workspace = true

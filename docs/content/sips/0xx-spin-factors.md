@@ -73,29 +73,39 @@ point for `spin-factors` (note that some type details are elided for clarity):
 
 ```rust
 pub trait Factor {
-    // InstancePreparer represents a type that can prepare this Factor's InstanceState.
-    type InstancePreparer: InstancePreparer<Self>;
-    // InstanceState represents this Factor's per-instance state.
+    /// App configuration for this factor.
+    ///
+    /// See [`Factor::configure_app`].
+    type AppConfig;
+
+    /// The [`FactorInstancePreparer`] for this factor.
+    type InstancePreparer: FactorInstancePreparer<Self>;
+
+    /// The per-instance state for this factor, constructed by a
+    /// [`FactorInstancePreparer`] and available to any host-provided imports
+    /// defined by this factor.
     type InstanceState;
 
-    // Init is the runtime startup lifecycle hook.
-    //
-    // The `InitContext` type here gives the factor the ability to update global
-    // engine configuration, most notably the `Linker`. This takes the place of
-    // `HostComponent::add_to_linker`.
-    fn init(&mut self, ctx: InitContext) -> Result<()> {
+    /// Initializes this Factor for a runtime. This will be called at most once,
+    /// before any call to [`FactorInstancePreparer::new`]
+    fn init<Factors: SpinFactors>(&mut self, mut ctx: InitContext<Factors, Self>) -> Result<()> {
+        _ = &mut ctx;
         Ok(())
     }
 
-    // Validate app is the application initialization hook.
-    //
-    // This takes the place of `DynamicHostComponent::validate_app`.
-    fn validate_app(&self, app: &App) -> Result<()> {
-        Ok(())
-    }
+    /// Performs factor-specific validation and configuration for the given
+    /// [`App`] and [`RuntimeConfig`]. A runtime may - but is not required to -
+    /// reuse the returned config across multiple instances. Note that this may
+    /// be called without any call to `init` in cases where only validation is
+    /// needed.
+    fn configure_app<Factors: SpinFactors>(
+        &self,
+        app: &App,
+        _ctx: ConfigureAppContext<Factors>,
+    );
 }
 
-pub trait InstancePreparer<Factor> {
+pub trait FactorInstancePreparer<Factor> {
     // This is the component pre-instantiation hook.
     //
     // The `PrepareContext` type gives access to information about the Spin app

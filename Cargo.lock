@@ -1484,8 +1484,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "conformance-tests"
+name = "conformance"
 version = "2.6.0-pre0"
+dependencies = [
+ "anyhow",
+ "conformance-tests",
+ "testing-framework",
+]
+
+[[package]]
+name = "conformance-tests"
+version = "0.1.0"
+source = "git+https://github.com/fermyon/conformance-tests#37ae39ee973ff36183ef6ab463a600c9dbf25c2c"
 dependencies = [
  "anyhow",
  "flate2",
@@ -1493,7 +1503,6 @@ dependencies = [
  "reqwest 0.12.4",
  "serde 1.0.197",
  "tar",
- "testing-framework",
 ]
 
 [[package]]

@@ -40,6 +40,14 @@ pub async fn from_file(
     loader.load_file(path).await
 }
 
+/// Load a Spin locked app from a standalone Wasm file.
+pub async fn from_wasm_file(wasm_path: impl AsRef<Path>) -> Result<LockedApp> {
+    let app_root = std::env::current_dir()?;
+    let manifest = single_file_manifest(wasm_path)?;
+    let loader = LocalLoader::new(&app_root, FilesMountStrategy::Direct, None).await?;
+    loader.load_manifest(manifest).await
+}
+
 /// The strategy to use for mounting WASI files into a guest.
 #[derive(Debug)]
 pub enum FilesMountStrategy {
@@ -49,4 +57,37 @@ pub enum FilesMountStrategy {
     /// supports mounting full directories; mounting single files, glob
     /// patterns, and `exclude_files` are not supported.
     Direct,
+}
+
+fn single_file_manifest(
+    wasm_path: impl AsRef<Path>,
+) -> anyhow::Result<spin_manifest::schema::v2::AppManifest> {
+    use serde::Deserialize;
+
+    let wasm_path_str = wasm_path
+        .as_ref()
+        .to_str()
+        .context("Failed to stringise Wasm file path")?
+        .to_owned();
+    let app_name = wasm_path
+        .as_ref()
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("wasm-file")
+        .to_owned();
+
+    let manifest = toml::toml!(
+        spin_manifest_version = 2
+
+        [application]
+        name = app_name
+
+        [[trigger.http]]
+        route = "/..."
+        component = { source = wasm_path_str }
+    );
+
+    let manifest = spin_manifest::schema::v2::AppManifest::deserialize(manifest)?;
+
+    Ok(manifest)
 }

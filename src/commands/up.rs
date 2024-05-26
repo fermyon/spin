@@ -435,6 +435,9 @@ impl UpCommand {
                     .await?;
                 ResolvedAppSource::OciRegistry { locked_app }
             }
+            AppSource::BareWasm(path) => ResolvedAppSource::BareWasm {
+                wasm_path: path.clone(),
+            },
             AppSource::Unresolvable(err) => bail!("{err}"),
             AppSource::None => bail!("Internal error - should have shown help"),
         })
@@ -463,6 +466,11 @@ impl UpCommand {
                     })
             }
             ResolvedAppSource::OciRegistry { locked_app } => Ok(locked_app),
+            ResolvedAppSource::BareWasm { wasm_path } => spin_loader::from_wasm_file(&wasm_path)
+                .await
+                .with_context(|| {
+                    format!("Failed to load component from {}", quoted_path(&wasm_path))
+                }),
         }
     }
 

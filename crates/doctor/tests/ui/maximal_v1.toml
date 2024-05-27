@@ -11,7 +11,7 @@ global_option = true
 
 [variables]
 var_one = { default = "Default" }
-var_TWO = { required = true, secret = true }
+var_two = { required = true, secret = true }
 
 [[component]]
 id = "minimal-component"

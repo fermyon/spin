@@ -9,7 +9,10 @@ mod version;
 pub use version::{FixedStringVersion, FixedVersion, FixedVersionBackwardCompatible};
 
 /// A "kebab-case" identifier.
-pub type KebabId = id::Id<'-'>;
+pub type KebabId = id::Id<'-', false>;
 
 /// A "snake_case" identifier.
-pub type SnakeId = id::Id<'_'>;
+pub type SnakeId = id::Id<'_', false>;
+
+/// A lower-case "snake_case" identifier.
+pub type LowerSnakeId = id::Id<'_', true>;

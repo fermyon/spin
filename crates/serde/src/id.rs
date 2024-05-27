@@ -6,27 +6,27 @@ use serde::{Deserialize, Serialize};
 /// `word`s separated by a delimiter char.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(into = "String", try_from = "String")]
-pub struct Id<const DELIM: char>(String);
+pub struct Id<const DELIM: char, const LOWER: bool>(String);
 
-impl<const DELIM: char> std::fmt::Display for Id<DELIM> {
+impl<const DELIM: char, const LOWER: bool> std::fmt::Display for Id<DELIM, LOWER> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl<const DELIM: char> AsRef<str> for Id<DELIM> {
+impl<const DELIM: char, const LOWER: bool> AsRef<str> for Id<DELIM, LOWER> {
     fn as_ref(&self) -> &str {
         &self.0
     }
 }
 
-impl<const DELIM: char> From<Id<DELIM>> for String {
-    fn from(value: Id<DELIM>) -> Self {
+impl<const DELIM: char, const LOWER: bool> From<Id<DELIM, LOWER>> for String {
+    fn from(value: Id<DELIM, LOWER>) -> Self {
         value.0
     }
 }
 
-impl<const DELIM: char> TryFrom<String> for Id<DELIM> {
+impl<const DELIM: char, const LOWER: bool> TryFrom<String> for Id<DELIM, LOWER> {
     type Error = String;
 
     fn try_from(id: String) -> Result<Self, Self::Error> {
@@ -62,6 +62,11 @@ impl<const DELIM: char> TryFrom<String> for Id<DELIM> {
                 } else if ch.is_ascii_uppercase() != word_is_uppercase {
                     return Err(format!("{DELIM:?}-separated words must be all lowercase or all UPPERCASE; got {word:?}"));
                 }
+            }
+            if LOWER && word_is_uppercase {
+                return Err(format!(
+                    "Lower-case identifiers must be all lowercase; got {id:?}"
+                ));
             }
         }
         Ok(Self(id))

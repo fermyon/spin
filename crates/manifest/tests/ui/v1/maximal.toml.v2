@@ -12,7 +12,7 @@ global_option = true
 [variables.var_one]
 default = "Default"
 
-[variables.var_TWO]
+[variables.var_two]
 required = true
 secret = true
 

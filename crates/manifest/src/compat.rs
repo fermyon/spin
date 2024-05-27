@@ -144,7 +144,9 @@ fn component_id_from_string(id: String) -> Result<v2::KebabId, Error> {
         .map_err(|err: String| Error::InvalidID { id, reason: err })
 }
 
-fn id_from_string<const DELIM: char>(id: String) -> Result<spin_serde::id::Id<DELIM>, Error> {
+fn id_from_string<const DELIM: char, const LOWER: bool>(
+    id: String,
+) -> Result<spin_serde::id::Id<DELIM, LOWER>, Error> {
     id.clone()
         .try_into()
         .map_err(|err: String| Error::InvalidID { id, reason: err })

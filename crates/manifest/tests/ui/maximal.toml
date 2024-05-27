@@ -14,7 +14,7 @@ lint_level = "savage"
 
 [variables]
 var_one = { default = "Default" }
-var_TWO = { required = true, secret = true }
+var_two = { required = true, secret = true }
 
 [[trigger.fake]]
 component = "minimal-component"

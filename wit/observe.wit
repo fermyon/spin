@@ -12,8 +12,11 @@ interface observe {
     close: func();
   }
 
-  // Emit a given completed read-only-span to the o11y host.
+  /// Emit a given completed read-only-span to the o11y host.
   emit-span: func(span: read-only-span);
+
+  /// TODO
+  get-parent: func() -> span-context;
 
   enum span-kind {
     client,
@@ -23,11 +26,21 @@ interface observe {
     internal
   }
 
+  record span-context {
+    // TODO: This is really jank
+    trace-id: list<u8>,
+    span-id: u64,
+    // trace_flags: TraceFlags,
+    // is_remote: bool,
+    // trace_state: TraceState,
+  }
+
   record read-only-span {
     /// Name of the span.
     name: string,
 
     // TODO: Span parent context stuff
+    span-context: span-context,
 
     /// Kind of the span
     span-kind: span-kind,

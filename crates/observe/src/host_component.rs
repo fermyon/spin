@@ -2,16 +2,15 @@ use std::sync::{Arc, RwLock};
 use std::time::{Duration, UNIX_EPOCH};
 
 use anyhow::Result;
-use opentelemetry::trace::{Span, Tracer, TracerProvider};
+use opentelemetry::trace::{Span, TraceContextExt, Tracer, TracerProvider};
 use opentelemetry::Context;
 use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::wasmtime::component::Resource;
 use spin_core::{async_trait, HostComponent};
-use spin_world::v2::observe;
 use spin_world::v2::observe::ReadOnlySpan;
 use spin_world::v2::observe::Span as WitSpan;
+use spin_world::v2::observe::{self, SpanContext};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
-
 pub struct ObserveHostComponent {}
 
 impl ObserveHostComponent {
@@ -56,6 +55,14 @@ impl observe::Host for ObserveData {
     async fn emit_span(&mut self, read_only_span: ReadOnlySpan) -> Result<()> {
         let tracer = opentelemetry::global::tracer_provider().tracer("wasi_observe");
 
+        let trace_id_array: [u8; 16] = read_only_span
+            .span_context
+            .trace_id
+            .into_iter()
+            .collect::<Vec<u8>>()
+            .try_into()
+            .unwrap();
+
         let mut span = tracer
             .span_builder(read_only_span.name)
             .with_start_time(
@@ -63,6 +70,8 @@ impl observe::Host for ObserveData {
                     + Duration::from_secs(read_only_span.start_time.seconds)
                     + Duration::from_nanos(read_only_span.start_time.nanoseconds.into()),
             )
+            .with_span_id(read_only_span.span_context.span_id.into())
+            .with_trace_id(u128::from_be_bytes(trace_id_array).into())
             .with_kind(opentelemetry::trace::SpanKind::Internal)
             .with_attributes(vec![])
             .with_events(vec![])
@@ -75,6 +84,19 @@ impl observe::Host for ObserveData {
                 + Duration::from_nanos(read_only_span.end_time.nanoseconds.into()),
         );
         Ok(())
+    }
+
+    async fn get_parent(&mut self) -> Result<SpanContext> {
+        let sc = tracing::Span::current()
+            .context()
+            .span()
+            .span_context()
+            .clone();
+
+        Ok(SpanContext {
+            trace_id: sc.trace_id().to_bytes().to_vec(),
+            span_id: u64::from_be_bytes(sc.span_id().to_bytes()),
+        })
     }
 }
 

@@ -8,7 +8,7 @@ wasmtime::component::bindgen!({
         include fermyon:spin/platform@2.0.0;
     }
     "#,
-    path: "../../wit",
+    path: "wit",
     async: true,
     // The following is a roundabout way of saying "the host implementations for these interfaces don't trap"
     trappable_error_type: {

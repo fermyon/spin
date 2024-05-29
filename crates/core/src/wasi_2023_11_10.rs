@@ -18,7 +18,7 @@ mod bindings {
     use super::latest;
 
     wasmtime::component::bindgen!({
-        path: "../../wit",
+        path: "wit",
         interfaces: r#"
             include wasi:http/proxy@0.2.0-rc-2023-11-10;
 

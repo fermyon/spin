@@ -1,5 +1,5 @@
 wit_bindgen::generate!({
-    path: "../../../../wit",
+    path: "../../../../crates/world/wit",
     world: "wasi:http/proxy@0.2.0-rc-2023-11-10",
     exports: {
         "wasi:http/incoming-handler@0.2.0-rc-2023-11-10": Component

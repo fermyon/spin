@@ -57,7 +57,7 @@ mod test_redis;
 mod test_wasi;
 
 wasmtime::component::bindgen!({
-    path: "../../wit",
+    path: "wit",
     world: "fermyon:spin/host",
     async: true,
     trappable_imports: true,

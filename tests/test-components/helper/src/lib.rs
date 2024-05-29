@@ -2,7 +2,7 @@
 pub mod bindings {
     wit_bindgen::generate!({
         world: "platform-rc20231018",
-        path: "../../../wit",
+        path: "../../../crates/world/wit",
         runtime_path: "::wit_bindgen::rt"
     });
 }
@@ -24,7 +24,7 @@ macro_rules! define_component {
         mod bindings {
             $crate::wit_bindgen::generate!({
                 world: "http-trigger-rc20231018",
-                path: "../../../../wit",
+                path: "../../../../crates/world/wit",
                 exports: {
                     "wasi:http/incoming-handler@0.2.0-rc-2023-10-18": super::Component
                 },

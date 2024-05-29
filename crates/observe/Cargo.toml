@@ -13,6 +13,7 @@ spin-app = { path = "../app" }
 spin-core = { path = "../core" }
 spin-expressions = { path = "../expressions" }
 spin-world = { path = "../world" }
+spin-telemetry = { path = "../telemetry" }
 table = { path = "../table" }
 thiserror = "1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
@@ -23,6 +24,8 @@ tracing-opentelemetry = "0.23.0"
 pin-project-lite = "0.2"
 opentelemetry = { version = "0.22.0", features = [ "metrics", "trace"] }
 opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.15.0", default-features=false, features = ["http-proto", "trace", "http", "reqwest-client", "metrics", "grpc-tonic"] }
+futures-executor = "0.3"
 
 [dev-dependencies]
 toml = "0.5"

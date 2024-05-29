@@ -10,7 +10,7 @@ mod env;
 pub mod log;
 pub mod metrics;
 mod propagation;
-mod traces;
+pub mod traces;
 
 pub use propagation::extract_trace_context;
 pub use propagation::inject_trace_context;

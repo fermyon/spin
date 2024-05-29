@@ -2,8 +2,14 @@ use std::sync::{Arc, RwLock};
 use std::time::{Duration, UNIX_EPOCH};
 
 use anyhow::Result;
-use opentelemetry::trace::{Span, TraceContextExt, Tracer, TracerProvider};
-use opentelemetry::Context;
+use opentelemetry::trace::{
+    SpanContext as OtelSpanContext, SpanId, SpanKind as OtelSpanKind, Status, TraceContextExt,
+    TraceFlags, TraceId, TraceState,
+};
+use opentelemetry::InstrumentationLibrary;
+use opentelemetry_sdk::export::trace::SpanData;
+use opentelemetry_sdk::trace::{SpanEvents, SpanLinks};
+use opentelemetry_sdk::Resource as OtelResource;
 use spin_app::{AppComponent, DynamicHostComponent};
 use spin_core::wasmtime::component::Resource;
 use spin_core::{async_trait, HostComponent};
@@ -11,6 +17,7 @@ use spin_world::v2::observe::ReadOnlySpan;
 use spin_world::v2::observe::Span as WitSpan;
 use spin_world::v2::observe::{self, SpanContext};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
+
 pub struct ObserveHostComponent {}
 
 impl ObserveHostComponent {
@@ -52,41 +59,38 @@ pub struct ObserveData {
 
 #[async_trait]
 impl observe::Host for ObserveData {
-    async fn emit_span(&mut self, read_only_span: ReadOnlySpan) -> Result<()> {
-        let tracer = opentelemetry::global::tracer_provider().tracer("wasi_observe");
-
-        let trace_id_array: [u8; 16] = read_only_span
-            .span_context
-            .trace_id
-            .into_iter()
-            .collect::<Vec<u8>>()
-            .try_into()
-            .unwrap();
-
-        let mut span = tracer
-            .span_builder(read_only_span.name)
-            .with_start_time(
-                UNIX_EPOCH
-                    + Duration::from_secs(read_only_span.start_time.seconds)
-                    + Duration::from_nanos(read_only_span.start_time.nanoseconds.into()),
-            )
-            .with_span_id(read_only_span.span_context.span_id.into())
-            .with_trace_id(u128::from_be_bytes(trace_id_array).into())
-            .with_kind(opentelemetry::trace::SpanKind::Internal)
-            .with_attributes(vec![])
-            .with_events(vec![])
-            .with_links(vec![])
-            .start_with_context(&tracer, &Context::new());
-
-        span.end_with_timestamp(
-            UNIX_EPOCH
+    async fn emit_span(&mut self, read_only_span: ReadOnlySpan) -> Result<Result<(), String>> {
+        let span_data = SpanData {
+            span_context: OtelSpanContext::new(
+                TraceId::from_hex(&read_only_span.span_context.trace_id)?,
+                SpanId::from_hex(&read_only_span.span_context.span_id)?,
+                TraceFlags::SAMPLED,
+                false,
+                TraceState::default(),
+            ),
+            parent_span_id: SpanId::from_hex(&read_only_span.parent_span_id)?,
+            span_kind: OtelSpanKind::Internal,
+            name: read_only_span.name.into(),
+            start_time: UNIX_EPOCH
+                + Duration::from_secs(read_only_span.start_time.seconds)
+                + Duration::from_nanos(read_only_span.start_time.nanoseconds.into()),
+            end_time: UNIX_EPOCH
                 + Duration::from_secs(read_only_span.end_time.seconds)
                 + Duration::from_nanos(read_only_span.end_time.nanoseconds.into()),
-        );
-        Ok(())
+            attributes: vec![],
+            dropped_attributes_count: 0,
+            events: SpanEvents::default(),
+            links: SpanLinks::default(),
+            status: Status::default(),
+            resource: std::borrow::Cow::Owned(OtelResource::default().clone()),
+            instrumentation_lib: InstrumentationLibrary::default(),
+        };
+
+        spin_telemetry::traces::send_message(span_data).await?;
+        Ok(Ok(()))
     }
 
-    async fn get_parent(&mut self) -> Result<SpanContext> {
+    async fn get_parent_span_context(&mut self) -> Result<SpanContext> {
         let sc = tracing::Span::current()
             .context()
             .span()
@@ -94,8 +98,11 @@ impl observe::Host for ObserveData {
             .clone();
 
         Ok(SpanContext {
-            trace_id: sc.trace_id().to_bytes().to_vec(),
-            span_id: u64::from_be_bytes(sc.span_id().to_bytes()),
+            trace_id: sc.trace_id().to_string(),
+            span_id: sc.span_id().to_string(),
+            trace_flags: format!("{:x}", sc.trace_flags()),
+            is_remote: sc.is_remote(),
+            trace_state: "".to_string(), // TODO
         })
     }
 }

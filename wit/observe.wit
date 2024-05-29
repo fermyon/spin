@@ -1,23 +1,72 @@
 interface observe {
   use wasi:clocks/wall-clock@0.2.0.{datetime};
 
+  // TODO: Document.
   resource span {
-    /// enter returns a new span with the given name.
+    // enter returns a new span with the given name.
     enter: static func(name: string) -> span;
 
-    /// set-attribute sets an attribute on the span.
+    // set-attribute sets an attribute on the span.
     set-attribute: func(key: string, value: string);
 
-    /// close closes the span.
+    // close closes the span.
     close: func();
   }
 
-  /// Emit a given completed read-only-span to the o11y host.
-  emit-span: func(span: read-only-span);
+  // Emit a given completed read-only-span to the o11y host.
+  emit-span: func(span: read-only-span) -> result<_, string>;
 
-  /// TODO
-  get-parent: func() -> span-context;
+  // get-parent-span-context returns the parent span context of the host.
+  get-parent-span-context: func() -> span-context;
 
+  // TODO: Document.
+  record read-only-span {
+    // Span name.
+    name: string,
+
+    // Span context.
+    span-context: span-context,
+
+    // Span parent id.
+    parent-span-id: string,
+
+    // Span kind.
+    span-kind: span-kind,
+
+    // Span start time.
+    start-time: datetime,
+
+    // Span end time.
+    end-time: datetime,
+
+    // Span attributes. TODO: Support multiple types
+    attributes: list<tuple<string, string>>,
+
+    // Span resource.
+    otel-resource: otel-resource,
+
+    // TODO: Support dropped_attributes_count, events, links, status, and instrumentation lib
+  }
+
+  // Identifying trace information about a span.
+  record span-context {
+    // Hexidecimal representation of the trace id.
+    trace-id: string,
+
+    // Hexidecimal representation of the span id.
+    span-id: string,
+
+    // Hexidecimal representation of the trace flags
+    trace-flags: string,
+
+    // Span remoteness
+    is-remote: bool,
+
+    // Entirity of tracestate
+    trace-state: string,
+  }
+
+  // TODO: Document this and children.
   enum span-kind {
     client,
     server,
@@ -26,39 +75,12 @@ interface observe {
     internal
   }
 
-  record span-context {
-    // TODO: This is really jank
-    trace-id: list<u8>,
-    span-id: u64,
-    // trace_flags: TraceFlags,
-    // is_remote: bool,
-    // trace_state: TraceState,
-  }
+  // An immutable representation of the entity producing telemetry as attributes.
+  record otel-resource {
+    // Resource attributes.
+    attrs: list<tuple<string, string>>,
 
-  record read-only-span {
-    /// Name of the span.
-    name: string,
-
-    // TODO: Span parent context stuff
-    span-context: span-context,
-
-    /// Kind of the span
-    span-kind: span-kind,
-
-    /// Start time of the span.
-    start-time: datetime,
-
-    /// End time of the span.
-    end-time: datetime,
-
-    // TODO: Span attributes and dropped count
-
-    // TODO: Span events
-
-    // TODO: Span links
-
-    // TODO: Status
-
-    // TODO: Resource and instrumentation lib
+    // Resource schema url.
+    schema-url: option<string>,
   }
 }

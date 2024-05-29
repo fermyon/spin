@@ -21,8 +21,10 @@ pub async fn component_build_configs(
 }
 
 fn build_configs_from_manifest(
-    manifest: spin_manifest::schema::v2::AppManifest,
+    mut manifest: spin_manifest::schema::v2::AppManifest,
 ) -> Vec<ComponentBuildInfo> {
+    spin_manifest::normalize::normalize_manifest(&mut manifest);
+
     manifest
         .components
         .into_iter()

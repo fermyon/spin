@@ -11,3 +11,4 @@ spin-plugin-update.lock
 package-lock.json
 .spin
 .DS_Store
+.direnv

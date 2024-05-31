@@ -6730,17 +6730,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tracing-log"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
-dependencies = [
- "log",
- "once_cell",
- "tracing-core",
-]
-
-[[package]]
 name = "tracing-opentelemetry"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6784,7 +6773,6 @@ dependencies = [
  "thread_local",
  "tracing",
  "tracing-core",
- "tracing-log",
  "tracing-serde",
 ]
 
@@ -7344,7 +7332,7 @@ dependencies = [
 [[package]]
 name = "wasm-pkg-loader"
 version = "0.3.0"
-source = "git+https://github.com/bytecodealliance/wasm-pkg-tools/?rev=ce7d12deab6a36403bfd90ab3e80e6714748be52#ce7d12deab6a36403bfd90ab3e80e6714748be52"
+source = "git+https://github.com/bytecodealliance/wasm-pkg-tools/?rev=5384205af449179de07ad82ecf4bd42b171a2e40#5384205af449179de07ad82ecf4bd42b171a2e40"
 dependencies = [
  "anyhow",
  "async-trait",

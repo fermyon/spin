@@ -422,7 +422,10 @@ impl StoreBuilder {
         self.with_wasi(move |wasi| match wasi {
             WasiCtxBuilder::Preview1(_) => {}
             WasiCtxBuilder::Preview2(ctx) => {
-                ctx.socket_addr_check(move |addr, _| net_pool.check_addr(addr).is_ok());
+                ctx.socket_addr_check(move |addr, _| {
+                    let net_pool = net_pool.clone();
+                    Box::pin(async move { net_pool.check_addr(&addr).is_ok() })
+                });
             }
         });
 

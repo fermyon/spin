@@ -14,3 +14,11 @@ datasources:
     version: 1
     editable: false
     uid: tempo
+  - name: Loki
+    type: loki
+    url: http://loki:3100
+    access: proxy
+    version: 1
+    editable: false
+    uid: loki
+    basicAuth: false

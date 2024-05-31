@@ -1,5 +1,6 @@
 use std::io::IsTerminal;
 
+use env::otel_logs_enabled;
 use env::otel_metrics_enabled;
 use env::otel_tracing_enabled;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
@@ -7,7 +8,7 @@ use tracing_subscriber::{fmt, prelude::*, registry, EnvFilter, Layer};
 
 pub mod detector;
 mod env;
-pub mod log;
+pub mod logs;
 pub mod metrics;
 mod propagation;
 mod traces;
@@ -73,7 +74,7 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
     };
 
     let otel_metrics_layer = if otel_metrics_enabled() {
-        Some(metrics::otel_metrics_layer(spin_version)?)
+        Some(metrics::otel_metrics_layer(spin_version.clone())?)
     } else {
         None
     };
@@ -88,6 +89,10 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
     // Used to propagate trace information in the standard W3C TraceContext format. Even if the otel
     // layer is disabled we still want to propagate trace context.
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
+
+    if otel_logs_enabled() {
+        logs::init_otel_logging_backend(spin_version)?;
+    }
 
     Ok(ShutdownGuard)
 }

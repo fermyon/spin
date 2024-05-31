@@ -107,9 +107,12 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 #(
                     preparers.#factor_names = Some(
                         #factors_path::FactorInstancePreparer::<#factor_types>::new::<#name>(
-                            &self.#factor_names,
-                            &app_component,
-                            #factors_path::PrepareContext::new(configured_app, &mut preparers),
+                            #factors_path::PrepareContext::new(
+                                &self.#factor_names,
+                                configured_app.app_config::<#factor_types>().unwrap(),
+                                &app_component,
+                            ),
+                            #factors_path::InstancePreparers::new(&mut preparers),
                         )?
                     );
                 )*

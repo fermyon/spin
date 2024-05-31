@@ -1,11 +1,11 @@
 pub mod preview1;
 
-use std::path::Path;
+use std::{future::Future, net::SocketAddr, path::Path};
 
 use anyhow::ensure;
-use cap_primitives::{ipnet::IpNet, net::Pool};
 use spin_factors::{
-    AppComponent, Factor, FactorInstancePreparer, InitContext, PrepareContext, Result, SpinFactors,
+    AppComponent, Factor, FactorInstancePreparer, InitContext, InstancePreparers, PrepareContext,
+    Result, SpinFactors,
 };
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
@@ -27,34 +27,44 @@ impl Factor for WasiFactor {
     type InstanceState = InstanceState;
 
     fn init<Factors: SpinFactors>(&mut self, mut ctx: InitContext<Factors, Self>) -> Result<()> {
-        use wasmtime_wasi::bindings;
-        ctx.link_bindings(bindings::clocks::wall_clock::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::clocks::monotonic_clock::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::filesystem::types::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::filesystem::preopens::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::io::error::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::io::poll::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::io::streams::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::random::random::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::random::insecure::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::random::insecure_seed::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::cli::exit::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::cli::environment::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::cli::stdin::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::cli::stdout::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::cli::stderr::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::cli::terminal_input::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::cli::terminal_output::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::cli::terminal_stdin::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::cli::terminal_stdout::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::cli::terminal_stderr::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::sockets::tcp::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::sockets::tcp_create_socket::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::sockets::udp::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::sockets::udp_create_socket::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::sockets::instance_network::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::sockets::network::add_to_linker_get_host)?;
-        ctx.link_bindings(bindings::sockets::ip_name_lookup::add_to_linker_get_host)?;
+        fn type_annotate<T, F>(f: F) -> F
+        where
+            F: Fn(&mut T) -> &mut dyn WasiView,
+        {
+            f
+        }
+        let get_data = ctx.get_data_fn();
+        let closure = type_annotate(move |data| get_data(data) as &mut dyn WasiView);
+        if let Some(linker) = ctx.linker() {
+            use wasmtime_wasi::bindings;
+            bindings::clocks::wall_clock::add_to_linker_get_host(linker, closure)?;
+            bindings::clocks::monotonic_clock::add_to_linker_get_host(linker, closure)?;
+            bindings::filesystem::types::add_to_linker_get_host(linker, closure)?;
+            bindings::filesystem::preopens::add_to_linker_get_host(linker, closure)?;
+            bindings::io::error::add_to_linker_get_host(linker, closure)?;
+            bindings::io::poll::add_to_linker_get_host(linker, closure)?;
+            bindings::io::streams::add_to_linker_get_host(linker, closure)?;
+            bindings::random::random::add_to_linker_get_host(linker, closure)?;
+            bindings::random::insecure::add_to_linker_get_host(linker, closure)?;
+            bindings::random::insecure_seed::add_to_linker_get_host(linker, closure)?;
+            bindings::cli::exit::add_to_linker_get_host(linker, closure)?;
+            bindings::cli::environment::add_to_linker_get_host(linker, closure)?;
+            bindings::cli::stdin::add_to_linker_get_host(linker, closure)?;
+            bindings::cli::stdout::add_to_linker_get_host(linker, closure)?;
+            bindings::cli::stderr::add_to_linker_get_host(linker, closure)?;
+            bindings::cli::terminal_input::add_to_linker_get_host(linker, closure)?;
+            bindings::cli::terminal_output::add_to_linker_get_host(linker, closure)?;
+            bindings::cli::terminal_stdin::add_to_linker_get_host(linker, closure)?;
+            bindings::cli::terminal_stdout::add_to_linker_get_host(linker, closure)?;
+            bindings::cli::terminal_stderr::add_to_linker_get_host(linker, closure)?;
+            bindings::sockets::tcp::add_to_linker_get_host(linker, closure)?;
+            bindings::sockets::tcp_create_socket::add_to_linker_get_host(linker, closure)?;
+            bindings::sockets::udp::add_to_linker_get_host(linker, closure)?;
+            bindings::sockets::udp_create_socket::add_to_linker_get_host(linker, closure)?;
+            bindings::sockets::instance_network::add_to_linker_get_host(linker, closure)?;
+            bindings::sockets::network::add_to_linker_get_host(linker, closure)?;
+            bindings::sockets::ip_name_lookup::add_to_linker_get_host(linker, closure)?;
+        }
         Ok(())
     }
 }
@@ -100,20 +110,18 @@ impl<'a> MountFilesContext<'a> {
 
 pub struct InstancePreparer {
     wasi_ctx: WasiCtxBuilder,
-    socket_allow_ports: Pool,
 }
 
 impl FactorInstancePreparer<WasiFactor> for InstancePreparer {
     // NOTE: Replaces WASI parts of AppComponent::apply_store_config
     fn new<Factors: SpinFactors>(
-        factor: &WasiFactor,
-        app_component: &AppComponent,
-        _ctx: PrepareContext<Factors>,
+        ctx: PrepareContext<WasiFactor>,
+        _preparers: InstancePreparers<Factors>,
     ) -> Result<Self> {
         let mut wasi_ctx = WasiCtxBuilder::new();
 
         // Apply environment variables
-        for (key, val) in app_component.environment() {
+        for (key, val) in ctx.app_component().environment() {
             wasi_ctx.env(key, val);
         }
 
@@ -121,23 +129,15 @@ impl FactorInstancePreparer<WasiFactor> for InstancePreparer {
         let mount_ctx = MountFilesContext {
             wasi_ctx: &mut wasi_ctx,
         };
-        factor.files_mounter.mount_files(app_component, mount_ctx)?;
+        ctx.factor()
+            .files_mounter
+            .mount_files(ctx.app_component(), mount_ctx)?;
 
-        Ok(Self {
-            wasi_ctx,
-            socket_allow_ports: Default::default(),
-        })
+        Ok(Self { wasi_ctx })
     }
 
     fn prepare(self) -> Result<InstanceState> {
-        let Self {
-            mut wasi_ctx,
-            socket_allow_ports,
-        } = self;
-
-        // Enforce socket_allow_ports
-        wasi_ctx.socket_addr_check(move |addr, _| socket_allow_ports.check_addr(addr).is_ok());
-
+        let Self { mut wasi_ctx } = self;
         Ok(InstanceState {
             ctx: wasi_ctx.build(),
             table: Default::default(),
@@ -146,17 +146,23 @@ impl FactorInstancePreparer<WasiFactor> for InstancePreparer {
 }
 
 impl InstancePreparer {
-    pub fn inherit_network(&mut self) {
-        self.wasi_ctx.inherit_network();
-    }
-
-    pub fn socket_allow_ports(&mut self, ip_net: IpNet, ports_start: u16, ports_end: Option<u16>) {
-        self.socket_allow_ports.insert_ip_net_port_range(
-            ip_net,
-            ports_start,
-            ports_end,
-            cap_primitives::ambient_authority(),
-        );
+    pub fn outbound_socket_addr_check<F, Fut>(&mut self, check: F)
+    where
+        F: Fn(SocketAddr) -> Fut + Send + Sync + Clone + 'static,
+        Fut: Future<Output = bool> + Send + Sync,
+    {
+        self.wasi_ctx.socket_addr_check(move |addr, addr_use| {
+            let check = check.clone();
+            Box::pin(async move {
+                match addr_use {
+                    wasmtime_wasi::SocketAddrUse::TcpBind => false,
+                    wasmtime_wasi::SocketAddrUse::TcpConnect
+                    | wasmtime_wasi::SocketAddrUse::UdpBind
+                    | wasmtime_wasi::SocketAddrUse::UdpConnect
+                    | wasmtime_wasi::SocketAddrUse::UdpOutgoingDatagram => check(addr).await,
+                }
+            })
+        });
     }
 }
 

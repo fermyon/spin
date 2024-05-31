@@ -1,5 +1,7 @@
 #![allow(missing_docs)]
 
+pub use async_trait::async_trait;
+
 wasmtime::component::bindgen!({
     inline: r#"
     package fermyon:runtime;

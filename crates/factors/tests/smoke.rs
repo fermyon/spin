@@ -1,5 +1,6 @@
 use spin_app::App;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
+use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::{preview1::WasiPreview1Factor, DummyFilesMounter, WasiFactor};
 use spin_factors::SpinFactors;
 
@@ -7,6 +8,7 @@ use spin_factors::SpinFactors;
 struct Factors {
     wasi: WasiFactor,
     wasip1: WasiPreview1Factor,
+    variables: VariablesFactor,
     outbound_networking_factor: OutboundNetworkingFactor,
 }
 
@@ -14,6 +16,7 @@ fn main() -> anyhow::Result<()> {
     let mut factors = Factors {
         wasi: WasiFactor::new(DummyFilesMounter),
         wasip1: WasiPreview1Factor,
+        variables: VariablesFactor,
         outbound_networking_factor: OutboundNetworkingFactor,
         // outbound_http_factor: OutboundHttpFactor,
     };

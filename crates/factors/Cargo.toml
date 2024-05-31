@@ -14,6 +14,7 @@ wasmtime = { workspace = true }
 serde_json = "1.0"
 spin-factors-derive = { path = "../factors-derive", features = ["expander"] }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
+spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }
 
 [lints]

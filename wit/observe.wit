@@ -19,6 +19,12 @@ interface observe {
   // get-parent-span-context returns the parent span context of the host.
   get-parent-span-context: func() -> span-context;
 
+  // TODO
+  on-span-start: func(span-context: span-context);
+
+  // TODO
+  on-span-end: func(span: read-only-span);
+
   // TODO: Document.
   record read-only-span {
     // Span name.

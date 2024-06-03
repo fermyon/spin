@@ -1,7 +1,9 @@
+use core::panic;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, UNIX_EPOCH};
 
-use anyhow::Result;
+use anyhow::{bail, Result};
+use indexmap::IndexMap;
 use opentelemetry::trace::{
     SpanContext as OtelSpanContext, SpanId, SpanKind as OtelSpanKind, Status, TraceContextExt,
     TraceFlags, TraceId, TraceState,
@@ -16,6 +18,7 @@ use spin_core::{async_trait, HostComponent};
 use spin_world::v2::observe::ReadOnlySpan;
 use spin_world::v2::observe::Span as WitSpan;
 use spin_world::v2::observe::{self, SpanContext};
+use tracing::field;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 pub struct ObserveHostComponent {}
@@ -105,6 +108,63 @@ impl observe::Host for ObserveData {
             trace_state: "".to_string(), // TODO
         })
     }
+
+    async fn on_span_start(&mut self, span_context: SpanContext) -> Result<()> {
+        // Create the underlying tracing span
+        let tracing_span = tracing::info_span!("WASI Observe guest", "otel.name" = field::Empty);
+
+        // Wrap it in a GuestSpan for our own bookkeeping purposes and enter it
+        let guest_span = GuestSpan {
+            name: "unknown".to_string(),
+            inner: tracing_span,
+        };
+        guest_span.enter();
+
+        // Put the GuestSpan in our resource table and push it to our stack of active spans
+        let mut state = self.state.write().unwrap();
+        let resource_id = state.guest_spans.push(guest_span).unwrap();
+        state.active_spans.insert(span_context.span_id, resource_id);
+
+        println!("on_span_start");
+        println!("state.active_spans: {:?}", state.active_spans);
+
+        Ok(())
+    }
+
+    async fn on_span_end(&mut self, read_only_span: ReadOnlySpan) -> Result<()> {
+        // TODO: Spans seem to be inverted somehow....
+        let res_id: u32;
+        {
+            let state: std::sync::RwLockWriteGuard<State> = self.state.write().unwrap();
+            println!("on_span_end");
+            println!("state.active_spans: {:?}", state.active_spans);
+            match state.active_spans.get(&read_only_span.span_context.span_id) {
+                Some(r) => res_id = *r,
+                None => {
+                    println!("COULD NOT FIND SPAN ID IN ACTIVE SPANS");
+                    println!("state.active_spans: {:?}", state.active_spans);
+                    println!(
+                        "read_only_span.span_context.span_id: {:?}",
+                        read_only_span.span_context.span_id
+                    );
+                    return Ok(());
+                }
+            };
+        }
+
+        self.state
+            .write()
+            .unwrap()
+            .guest_spans
+            .get(res_id)
+            .unwrap()
+            .inner
+            .record("otel.name", read_only_span.name);
+
+        self.safely_close(res_id, true);
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -112,6 +172,12 @@ impl observe::HostSpan for ObserveData {
     async fn enter(&mut self, name: String) -> Result<Resource<WitSpan>> {
         // Create the underlying tracing span
         let tracing_span = tracing::info_span!("WASI Observe guest", "otel.name" = name);
+        let span_id = tracing_span
+            .context()
+            .span()
+            .span_context()
+            .span_id()
+            .to_string();
 
         // Wrap it in a GuestSpan for our own bookkeeping purposes and enter it
         let guest_span = GuestSpan {
@@ -123,7 +189,7 @@ impl observe::HostSpan for ObserveData {
         // Put the GuestSpan in our resource table and push it to our stack of active spans
         let mut state = self.state.write().unwrap();
         let resource_id = state.guest_spans.push(guest_span).unwrap();
-        state.active_spans.push(resource_id);
+        state.active_spans.insert(span_id, resource_id);
 
         Ok(Resource::new_own(resource_id))
     }
@@ -149,12 +215,12 @@ impl observe::HostSpan for ObserveData {
     }
 
     async fn close(&mut self, resource: Resource<WitSpan>) -> Result<()> {
-        self.safely_close(resource, false);
+        self.safely_close(resource.rep(), false);
         Ok(())
     }
 
     fn drop(&mut self, resource: Resource<WitSpan>) -> Result<()> {
-        self.safely_close(resource, true);
+        self.safely_close(resource.rep(), true);
         Ok(())
     }
 }
@@ -165,13 +231,13 @@ impl ObserveData {
     /// in reverse order.
     ///
     /// Exiting any spans that were already closed will not cause this to error.
-    fn safely_close(&mut self, resource: Resource<WitSpan>, drop_resource: bool) {
+    fn safely_close(&mut self, resource_id: u32, drop_resource: bool) {
         let mut state: std::sync::RwLockWriteGuard<State> = self.state.write().unwrap();
 
         if let Some(index) = state
             .active_spans
             .iter()
-            .rposition(|id| *id == resource.rep())
+            .rposition(|(_, id)| *id == resource_id)
         {
             state.close_from_back_to(index);
         } else {
@@ -179,7 +245,7 @@ impl ObserveData {
         }
 
         if drop_resource {
-            state.guest_spans.remove(resource.rep()).unwrap();
+            state.guest_spans.remove(resource_id).unwrap();
         }
     }
 }
@@ -188,11 +254,13 @@ impl ObserveData {
 pub(crate) struct State {
     /// A resource table that holds the guest spans.
     pub guest_spans: table::Table<GuestSpan>,
+
     /// A LIFO stack of guest spans that are currently active.
     ///
     /// Only a reference ID to the guest span is held here. The actual guest span must be looked up
     /// in the `guest_spans` table using the reference ID.
-    pub active_spans: Vec<u32>,
+    /// TODO: Fix comment
+    pub active_spans: IndexMap<String, u32>, // TODO: Use an indexmap?
 }
 
 impl State {
@@ -203,7 +271,7 @@ impl State {
             .split_off(index)
             .iter()
             .rev()
-            .for_each(|id| {
+            .for_each(|(_, id)| {
                 if let Some(guest_span) = self.guest_spans.get(*id) {
                     guest_span.exit();
                 } else {
@@ -214,7 +282,7 @@ impl State {
 
     /// Enter the inner [tracing] span for all active spans.
     pub(crate) fn enter_all(&self) {
-        for guest_span_id in self.active_spans.iter() {
+        for (_, guest_span_id) in self.active_spans.iter() {
             if let Some(span_resource) = self.guest_spans.get(*guest_span_id) {
                 span_resource.enter();
             } else {
@@ -225,7 +293,7 @@ impl State {
 
     /// Exit the inner [tracing] span for all active spans.
     pub(crate) fn exit_all(&self) {
-        for guest_span_id in self.active_spans.iter().rev() {
+        for (_, guest_span_id) in self.active_spans.iter().rev() {
             if let Some(span_resource) = self.guest_spans.get(*guest_span_id) {
                 span_resource.exit();
             } else {

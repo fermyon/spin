@@ -26,6 +26,7 @@ opentelemetry = { version = "0.22.0", features = [ "metrics", "trace"] }
 opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio"] }
 opentelemetry-otlp = { version = "0.15.0", default-features=false, features = ["http-proto", "trace", "http", "reqwest-client", "metrics", "grpc-tonic"] }
 futures-executor = "0.3"
+indexmap = "2.2.6"
 
 [dev-dependencies]
 toml = "0.5"

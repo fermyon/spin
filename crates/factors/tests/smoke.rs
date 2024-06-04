@@ -43,7 +43,7 @@ fn main() -> anyhow::Result<()> {
         .init(Some(&mut linker), Some(&mut module_linker))
         .unwrap();
 
-    let configured_app = factors.configure_app(app).unwrap();
+    let configured_app = factors.configure_app(app, ()).unwrap();
     let data = factors.build_store_data(&configured_app, "test").unwrap();
 
     let mut store = wasmtime::Store::new(&engine, data);

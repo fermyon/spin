@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use spin_expressions::ProviderResolver;
 use spin_factors::{
-    Factor, FactorInstancePreparer, InstancePreparers, PrepareContext, Result, SpinFactors,
+    anyhow, ConfigureAppContext, Factor, FactorInstancePreparer, InitContext, InstancePreparers,
+    PrepareContext, RuntimeConfig, SpinFactors,
 };
 use spin_world::{async_trait, v1::config as v1_config, v2::variables};
 
@@ -15,8 +16,8 @@ impl Factor for VariablesFactor {
 
     fn init<Factors: SpinFactors>(
         &mut self,
-        mut ctx: spin_factors::InitContext<Factors, Self>,
-    ) -> Result<()> {
+        mut ctx: InitContext<Factors, Self>,
+    ) -> anyhow::Result<()> {
         ctx.link_bindings(v1_config::add_to_linker)?;
         ctx.link_bindings(variables::add_to_linker)?;
         Ok(())
@@ -24,9 +25,10 @@ impl Factor for VariablesFactor {
 
     fn configure_app<Factors: SpinFactors>(
         &self,
-        app: &spin_factors::App,
-        _ctx: spin_factors::ConfigureAppContext<Factors>,
-    ) -> Result<Self::AppConfig> {
+        ctx: ConfigureAppContext<Factors>,
+        _runtime_config: &mut impl RuntimeConfig,
+    ) -> anyhow::Result<Self::AppConfig> {
+        let app = ctx.app();
         let mut resolver =
             ProviderResolver::new(app.variables().map(|(key, val)| (key.clone(), val.clone())))?;
         for component in app.components() {
@@ -61,7 +63,7 @@ impl FactorInstancePreparer<VariablesFactor> for InstancePreparer {
     fn new<Factors: SpinFactors>(
         ctx: PrepareContext<VariablesFactor>,
         _preparers: InstancePreparers<Factors>,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         let component_id = ctx.app_component().id().to_string();
         let resolver = ctx.app_config().resolver.clone();
         Ok(Self {
@@ -72,7 +74,7 @@ impl FactorInstancePreparer<VariablesFactor> for InstancePreparer {
         })
     }
 
-    fn prepare(self) -> Result<<VariablesFactor as Factor>::InstanceState> {
+    fn prepare(self) -> anyhow::Result<InstanceState> {
         Ok(self.state)
     }
 }
@@ -92,7 +94,7 @@ impl variables::Host for InstanceState {
             .map_err(expressions_to_variables_err)
     }
 
-    fn convert_error(&mut self, error: variables::Error) -> Result<variables::Error> {
+    fn convert_error(&mut self, error: variables::Error) -> anyhow::Result<variables::Error> {
         Ok(error)
     }
 }

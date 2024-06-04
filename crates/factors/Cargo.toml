@@ -6,8 +6,11 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = "1.0"
+serde = "1.0"
 spin-app = { path = "../app" }
 spin-factors-derive = { path = "../factors-derive" }
+thiserror = "1.0"
+tracing = { workspace = true }
 wasmtime = { workspace = true }
 
 [dev-dependencies]

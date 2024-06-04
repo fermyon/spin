@@ -2,10 +2,9 @@ pub mod preview1;
 
 use std::{future::Future, net::SocketAddr, path::Path};
 
-use anyhow::ensure;
 use spin_factors::{
-    AppComponent, Factor, FactorInstancePreparer, InitContext, InstancePreparers, PrepareContext,
-    Result, SpinFactors,
+    anyhow, AppComponent, Factor, FactorInstancePreparer, InitContext, InstancePreparers,
+    PrepareContext, SpinFactors,
 };
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
@@ -26,7 +25,10 @@ impl Factor for WasiFactor {
     type InstancePreparer = InstancePreparer;
     type InstanceState = InstanceState;
 
-    fn init<Factors: SpinFactors>(&mut self, mut ctx: InitContext<Factors, Self>) -> Result<()> {
+    fn init<Factors: SpinFactors>(
+        &mut self,
+        mut ctx: InitContext<Factors, Self>,
+    ) -> anyhow::Result<()> {
         fn type_annotate<T, F>(f: F) -> F
         where
             F: Fn(&mut T) -> &mut dyn WasiView,
@@ -70,14 +72,22 @@ impl Factor for WasiFactor {
 }
 
 pub trait FilesMounter {
-    fn mount_files(&self, app_component: &AppComponent, ctx: MountFilesContext) -> Result<()>;
+    fn mount_files(
+        &self,
+        app_component: &AppComponent,
+        ctx: MountFilesContext,
+    ) -> anyhow::Result<()>;
 }
 
 pub struct DummyFilesMounter;
 
 impl FilesMounter for DummyFilesMounter {
-    fn mount_files(&self, app_component: &AppComponent, _ctx: MountFilesContext) -> Result<()> {
-        ensure!(
+    fn mount_files(
+        &self,
+        app_component: &AppComponent,
+        _ctx: MountFilesContext,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
             app_component.files().next().is_none(),
             "DummyFilesMounter can't actually mount files"
         );
@@ -95,7 +105,7 @@ impl<'a> MountFilesContext<'a> {
         host_path: impl AsRef<Path>,
         guest_path: impl AsRef<str>,
         writable: bool,
-    ) -> Result<()> {
+    ) -> anyhow::Result<()> {
         use wasmtime_wasi::{DirPerms, FilePerms};
         let (dir_perms, file_perms) = if writable {
             (DirPerms::all(), FilePerms::all())
@@ -117,7 +127,7 @@ impl FactorInstancePreparer<WasiFactor> for InstancePreparer {
     fn new<Factors: SpinFactors>(
         ctx: PrepareContext<WasiFactor>,
         _preparers: InstancePreparers<Factors>,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         let mut wasi_ctx = WasiCtxBuilder::new();
 
         // Apply environment variables
@@ -136,7 +146,7 @@ impl FactorInstancePreparer<WasiFactor> for InstancePreparer {
         Ok(Self { wasi_ctx })
     }
 
-    fn prepare(self) -> Result<InstanceState> {
+    fn prepare(self) -> anyhow::Result<InstanceState> {
         let Self { mut wasi_ctx } = self;
         Ok(InstanceState {
             ctx: wasi_ctx.build(),

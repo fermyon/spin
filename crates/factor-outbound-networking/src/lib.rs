@@ -1,6 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::Context;
 use futures_util::{
     future::{BoxFuture, Shared},
     FutureExt,
@@ -8,7 +7,9 @@ use futures_util::{
 use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::WasiFactor;
 use spin_factors::{
-    Factor, FactorInstancePreparer, InstancePreparers, PrepareContext, Result, SpinFactors,
+    anyhow::{self, Context},
+    ConfigureAppContext, Factor, FactorInstancePreparer, InstancePreparers, PrepareContext,
+    RuntimeConfig, SpinFactors,
 };
 use spin_outbound_networking::{AllowedHostsConfig, ALLOWED_HOSTS_KEY};
 
@@ -21,11 +22,12 @@ impl Factor for OutboundNetworkingFactor {
 
     fn configure_app<Factors: SpinFactors>(
         &self,
-        app: &spin_factors::App,
-        _ctx: spin_factors::ConfigureAppContext<Factors>,
-    ) -> Result<Self::AppConfig> {
+        ctx: ConfigureAppContext<Factors>,
+        _runtime_config: &mut impl RuntimeConfig,
+    ) -> anyhow::Result<Self::AppConfig> {
         // Extract allowed_outbound_hosts for all components
-        let component_allowed_hosts = app
+        let component_allowed_hosts = ctx
+            .app()
             .components()
             .map(|component| {
                 Ok((
@@ -37,7 +39,7 @@ impl Factor for OutboundNetworkingFactor {
                         .into(),
                 ))
             })
-            .collect::<Result<_>>()?;
+            .collect::<anyhow::Result<_>>()?;
         Ok(AppConfig {
             component_allowed_hosts,
         })
@@ -49,17 +51,17 @@ pub struct AppConfig {
     component_allowed_hosts: HashMap<String, Arc<[String]>>,
 }
 
-type AllowedHostsFuture = Shared<BoxFuture<'static, Arc<anyhow::Result<AllowedHostsConfig>>>>;
+type SharedFutureResult<T> = Shared<BoxFuture<'static, Arc<anyhow::Result<T>>>>;
 
 pub struct InstancePreparer {
-    allowed_hosts_future: AllowedHostsFuture,
+    allowed_hosts_future: SharedFutureResult<AllowedHostsConfig>,
 }
 
 impl FactorInstancePreparer<OutboundNetworkingFactor> for InstancePreparer {
     fn new<Factors: SpinFactors>(
         ctx: PrepareContext<OutboundNetworkingFactor>,
         mut preparers: InstancePreparers<Factors>,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         let hosts = ctx
             .app_config()
             .component_allowed_hosts
@@ -104,7 +106,7 @@ impl FactorInstancePreparer<OutboundNetworkingFactor> for InstancePreparer {
         })
     }
 
-    fn prepare(self) -> Result<<OutboundNetworkingFactor as Factor>::InstanceState> {
+    fn prepare(self) -> anyhow::Result<<OutboundNetworkingFactor as Factor>::InstanceState> {
         Ok(())
     }
 }

@@ -53,13 +53,14 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
         factor_types.push(&field.ty);
     }
 
+    let TypeId = quote!(::std::any::TypeId);
     let factors_crate = format_ident!("spin_factors");
     let factors_path = quote!(::#factors_crate);
-    let Factor = quote!(#factors_path::Factor);
-    let Result = quote!(#factors_path::Result);
     let wasmtime = quote!(#factors_path::wasmtime);
+    let Result = quote!(#factors_path::Result);
+    let Factor = quote!(#factors_path::Factor);
     let ConfiguredApp = quote!(#factors_path::ConfiguredApp);
-    let TypeId = quote!(::std::any::TypeId);
+    let RuntimeConfigTracker = quote!(#factors_path::__internal::RuntimeConfigTracker);
 
     Ok(quote! {
         impl #name {
@@ -81,16 +82,21 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 Ok(())
             }
 
-            pub fn configure_app(&self, app: #factors_path::App) -> #Result<#ConfiguredApp<Self>> {
+            pub fn configure_app(
+                &self,
+                app: #factors_path::App,
+                runtime_config: impl #factors_path::RuntimeConfigSource
+            ) -> #Result<#ConfiguredApp<Self>> {
                 let mut app_configs = #app_configs_name {
                     #( #factor_names: None, )*
                 };
+                let mut runtime_config = #RuntimeConfigTracker::new(runtime_config);
                 #(
                     app_configs.#factor_names = Some(
                         #Factor::configure_app(
                             &self.#factor_names,
-                            &app,
-                            #factors_path::ConfigureAppContext::<Self>::new(&app_configs),
+                            #factors_path::ConfigureAppContext::<Self>::new(&app, &app_configs),
+                            &mut runtime_config,
                         )?
                     );
                 )*
@@ -99,7 +105,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
 
             pub fn build_store_data(&self, configured_app: &#ConfiguredApp<Self>, component_id: &str) -> #Result<#state_name> {
                 let app_component = configured_app.app().get_component(component_id).ok_or_else(|| {
-                    #factors_path::Error::msg(format!("unknown component {component_id:?}"))
+                    #wasmtime::Error::msg("unknown component")
                 })?;
                 let mut preparers = #preparers_name {
                     #( #factor_names: None, )*

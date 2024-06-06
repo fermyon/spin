@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DeriveInput, Error};
 
-#[proc_macro_derive(SpinFactors)]
+#[proc_macro_derive(RuntimeFactors)]
 pub fn derive_factors(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let expanded = expand_factors(&input).unwrap_or_else(|err| err.into_compile_error());
@@ -20,7 +20,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let name = &input.ident;
     let vis = &input.vis;
 
-    let app_configs_name = format_ident!("{name}AppConfigs");
+    let app_configs_name = format_ident!("{name}AppState");
     let preparers_name = format_ident!("{name}InstancePreparers");
     let state_name = format_ident!("{name}InstanceState");
 
@@ -133,8 +133,8 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
 
         }
 
-        impl #factors_path::SpinFactors for #name {
-            type AppConfigs = #app_configs_name;
+        impl #factors_path::RuntimeFactors for #name {
+            type AppState = #app_configs_name;
             type InstancePreparers = #preparers_name;
             type InstanceState = #state_name;
 
@@ -159,7 +159,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
 
             }
 
-            fn app_config<T: #Factor>(app_configs: &Self::AppConfigs) -> Option<&T::AppConfig> {
+            fn app_config<T: #Factor>(app_configs: &Self::AppState) -> Option<&T::AppState> {
                 let type_id = #TypeId::of::<T>();
                 #(
                     if type_id == #TypeId::of::<#factor_types>() {
@@ -172,7 +172,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
 
         #vis struct #app_configs_name {
             #(
-                pub #factor_names: Option<<#factor_types as #Factor>::AppConfig>,
+                pub #factor_names: Option<<#factor_types as #Factor>::AppState>,
             )*
         }
 

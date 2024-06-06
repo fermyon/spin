@@ -1,17 +1,17 @@
 use spin_factors::{
     anyhow, Factor, FactorInstancePreparer, InitContext, InstancePreparers, PrepareContext,
-    SpinFactors,
+    RuntimeFactors,
 };
 use wasmtime_wasi::{preview1::WasiP1Ctx, WasiCtxBuilder};
 
 pub struct WasiPreview1Factor;
 
 impl Factor for WasiPreview1Factor {
-    type AppConfig = ();
+    type AppState = ();
     type InstancePreparer = InstancePreparer;
     type InstanceState = WasiP1Ctx;
 
-    fn init<Factors: SpinFactors>(
+    fn init<Factors: RuntimeFactors>(
         &mut self,
         mut ctx: InitContext<Factors, Self>,
     ) -> anyhow::Result<()> {
@@ -24,7 +24,7 @@ pub struct InstancePreparer {
 }
 
 impl FactorInstancePreparer<WasiPreview1Factor> for InstancePreparer {
-    fn new<Factors: SpinFactors>(
+    fn new<Factors: RuntimeFactors>(
         _ctx: PrepareContext<WasiPreview1Factor>,
         _preparers: InstancePreparers<Factors>,
     ) -> anyhow::Result<Self> {

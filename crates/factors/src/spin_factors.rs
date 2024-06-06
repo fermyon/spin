@@ -7,32 +7,32 @@ use crate::Factor;
 // TODO(lann): Most of the unsafe shenanigans here probably aren't worth it;
 // consider replacing with e.g. `Any::downcast`.
 
-/// Implemented by `#[derive(SpinFactors)]`
-pub trait SpinFactors: Sized {
-    type AppConfigs;
+/// Implemented by `#[derive(RuntimeFactors)]`
+pub trait RuntimeFactors: Sized {
+    type AppState;
     type InstancePreparers;
     type InstanceState: Send + 'static;
 
     #[doc(hidden)]
-    unsafe fn instance_preparer_offset<T: Factor>() -> Option<usize>;
+    unsafe fn instance_preparer_offset<F: Factor>() -> Option<usize>;
 
     #[doc(hidden)]
-    unsafe fn instance_state_offset<T: Factor>() -> Option<usize>;
+    unsafe fn instance_state_offset<F: Factor>() -> Option<usize>;
 
-    fn app_config<T: Factor>(app_configs: &Self::AppConfigs) -> Option<&T::AppConfig>;
+    fn app_config<F: Factor>(app_configs: &Self::AppState) -> Option<&F::AppState>;
 
-    fn instance_state_getter<T: Factor>() -> Option<Getter<Self::InstanceState, T::InstanceState>> {
-        let offset = unsafe { Self::instance_state_offset::<T>()? };
+    fn instance_state_getter<F: Factor>() -> Option<Getter<Self::InstanceState, F::InstanceState>> {
+        let offset = unsafe { Self::instance_state_offset::<F>()? };
         Some(Getter {
             offset,
             _phantom: PhantomData,
         })
     }
 
-    fn instance_state_getter2<T1: Factor, T2: Factor>(
-    ) -> Option<Getter2<Self::InstanceState, T1::InstanceState, T2::InstanceState>> {
-        let offset1 = unsafe { Self::instance_state_offset::<T1>()? };
-        let offset2 = unsafe { Self::instance_state_offset::<T2>()? };
+    fn instance_state_getter2<F1: Factor, F2: Factor>(
+    ) -> Option<Getter2<Self::InstanceState, F1::InstanceState, F2::InstanceState>> {
+        let offset1 = unsafe { Self::instance_state_offset::<F1>()? };
+        let offset2 = unsafe { Self::instance_state_offset::<F2>()? };
         assert_ne!(
             offset1, offset2,
             "instance_state_getter2 with same factor twice would alias"
@@ -44,13 +44,13 @@ pub trait SpinFactors: Sized {
         })
     }
 
-    fn instance_preparer_mut<T: Factor>(
+    fn instance_preparer_mut<F: Factor>(
         preparers: &mut Self::InstancePreparers,
-    ) -> crate::Result<Option<&mut T::InstancePreparer>> {
+    ) -> crate::Result<Option<&mut F::InstancePreparer>> {
         unsafe {
-            let offset = Self::instance_preparer_offset::<T>().context("no such factor")?;
+            let offset = Self::instance_preparer_offset::<F>().context("no such factor")?;
             let ptr = preparers as *mut Self::InstancePreparers;
-            let opt = &mut *ptr.add(offset).cast::<Option<T::InstancePreparer>>();
+            let opt = &mut *ptr.add(offset).cast::<Option<F::InstancePreparer>>();
             Ok(opt.as_mut())
         }
     }

@@ -6,17 +6,17 @@ mod spin_factors;
 pub use anyhow;
 pub use wasmtime;
 
-pub use spin_factors_derive::SpinFactors;
+pub use spin_factors_derive::RuntimeFactors;
 
 pub use crate::{
     factor::{ConfigureAppContext, ConfiguredApp, Factor, InitContext},
     instance_preparer::{FactorInstancePreparer, InstancePreparers, PrepareContext},
     runtime_config::{RuntimeConfig, RuntimeConfigSource},
-    spin_factors::SpinFactors,
+    spin_factors::RuntimeFactors,
 };
 
-pub type Linker<Factors> = wasmtime::component::Linker<<Factors as SpinFactors>::InstanceState>;
-pub type ModuleLinker<Factors> = wasmtime::Linker<<Factors as SpinFactors>::InstanceState>;
+pub type Linker<T> = wasmtime::component::Linker<<T as RuntimeFactors>::InstanceState>;
+pub type ModuleLinker<T> = wasmtime::Linker<<T as RuntimeFactors>::InstanceState>;
 
 // Temporary wrappers while refactoring
 pub type App = spin_app::App<'static, spin_app::InertLoader>;

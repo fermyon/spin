@@ -3,18 +3,18 @@ use std::sync::Arc;
 use spin_expressions::ProviderResolver;
 use spin_factors::{
     anyhow, ConfigureAppContext, Factor, FactorInstancePreparer, InitContext, InstancePreparers,
-    PrepareContext, RuntimeConfig, SpinFactors,
+    PrepareContext, RuntimeConfig, RuntimeFactors,
 };
 use spin_world::{async_trait, v1::config as v1_config, v2::variables};
 
 pub struct VariablesFactor;
 
 impl Factor for VariablesFactor {
-    type AppConfig = AppConfig;
+    type AppState = AppState;
     type InstancePreparer = InstancePreparer;
     type InstanceState = InstanceState;
 
-    fn init<Factors: SpinFactors>(
+    fn init<Factors: RuntimeFactors>(
         &mut self,
         mut ctx: InitContext<Factors, Self>,
     ) -> anyhow::Result<()> {
@@ -23,11 +23,11 @@ impl Factor for VariablesFactor {
         Ok(())
     }
 
-    fn configure_app<Factors: SpinFactors>(
+    fn configure_app<Factors: RuntimeFactors>(
         &self,
         ctx: ConfigureAppContext<Factors>,
         _runtime_config: &mut impl RuntimeConfig,
-    ) -> anyhow::Result<Self::AppConfig> {
+    ) -> anyhow::Result<Self::AppState> {
         let app = ctx.app();
         let mut resolver =
             ProviderResolver::new(app.variables().map(|(key, val)| (key.clone(), val.clone())))?;
@@ -38,14 +38,14 @@ impl Factor for VariablesFactor {
             )?;
         }
         // TODO: add providers from runtime config
-        Ok(AppConfig {
+        Ok(AppState {
             resolver: Arc::new(resolver),
         })
     }
 }
 
 #[derive(Default)]
-pub struct AppConfig {
+pub struct AppState {
     resolver: Arc<ProviderResolver>,
 }
 
@@ -60,7 +60,7 @@ impl InstancePreparer {
 }
 
 impl FactorInstancePreparer<VariablesFactor> for InstancePreparer {
-    fn new<Factors: SpinFactors>(
+    fn new<Factors: RuntimeFactors>(
         ctx: PrepareContext<VariablesFactor>,
         _preparers: InstancePreparers<Factors>,
     ) -> anyhow::Result<Self> {

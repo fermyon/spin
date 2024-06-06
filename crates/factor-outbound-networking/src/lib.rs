@@ -9,22 +9,22 @@ use spin_factor_wasi::WasiFactor;
 use spin_factors::{
     anyhow::{self, Context},
     ConfigureAppContext, Factor, FactorInstancePreparer, InstancePreparers, PrepareContext,
-    RuntimeConfig, SpinFactors,
+    RuntimeConfig, RuntimeFactors,
 };
 use spin_outbound_networking::{AllowedHostsConfig, ALLOWED_HOSTS_KEY};
 
 pub struct OutboundNetworkingFactor;
 
 impl Factor for OutboundNetworkingFactor {
-    type AppConfig = AppConfig;
+    type AppState = AppState;
     type InstancePreparer = InstancePreparer;
     type InstanceState = ();
 
-    fn configure_app<Factors: SpinFactors>(
+    fn configure_app<Factors: RuntimeFactors>(
         &self,
         ctx: ConfigureAppContext<Factors>,
         _runtime_config: &mut impl RuntimeConfig,
-    ) -> anyhow::Result<Self::AppConfig> {
+    ) -> anyhow::Result<Self::AppState> {
         // Extract allowed_outbound_hosts for all components
         let component_allowed_hosts = ctx
             .app()
@@ -40,14 +40,14 @@ impl Factor for OutboundNetworkingFactor {
                 ))
             })
             .collect::<anyhow::Result<_>>()?;
-        Ok(AppConfig {
+        Ok(AppState {
             component_allowed_hosts,
         })
     }
 }
 
 #[derive(Default)]
-pub struct AppConfig {
+pub struct AppState {
     component_allowed_hosts: HashMap<String, Arc<[String]>>,
 }
 
@@ -58,7 +58,7 @@ pub struct InstancePreparer {
 }
 
 impl FactorInstancePreparer<OutboundNetworkingFactor> for InstancePreparer {
-    fn new<Factors: SpinFactors>(
+    fn new<Factors: RuntimeFactors>(
         ctx: PrepareContext<OutboundNetworkingFactor>,
         mut preparers: InstancePreparers<Factors>,
     ) -> anyhow::Result<Self> {

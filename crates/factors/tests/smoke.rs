@@ -2,9 +2,9 @@ use spin_app::App;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::{preview1::WasiPreview1Factor, DummyFilesMounter, WasiFactor};
-use spin_factors::SpinFactors;
+use spin_factors::RuntimeFactors;
 
-#[derive(SpinFactors)]
+#[derive(RuntimeFactors)]
 struct Factors {
     wasi: WasiFactor,
     wasip1: WasiPreview1Factor,

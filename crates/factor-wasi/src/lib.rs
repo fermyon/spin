@@ -4,7 +4,7 @@ use std::{future::Future, net::SocketAddr, path::Path};
 
 use spin_factors::{
     anyhow, AppComponent, Factor, FactorInstancePreparer, InitContext, InstancePreparers,
-    PrepareContext, SpinFactors,
+    PrepareContext, RuntimeFactors,
 };
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
@@ -21,11 +21,11 @@ impl WasiFactor {
 }
 
 impl Factor for WasiFactor {
-    type AppConfig = ();
+    type AppState = ();
     type InstancePreparer = InstancePreparer;
     type InstanceState = InstanceState;
 
-    fn init<Factors: SpinFactors>(
+    fn init<Factors: RuntimeFactors>(
         &mut self,
         mut ctx: InitContext<Factors, Self>,
     ) -> anyhow::Result<()> {
@@ -124,7 +124,7 @@ pub struct InstancePreparer {
 
 impl FactorInstancePreparer<WasiFactor> for InstancePreparer {
     // NOTE: Replaces WASI parts of AppComponent::apply_store_config
-    fn new<Factors: SpinFactors>(
+    fn new<Factors: RuntimeFactors>(
         ctx: PrepareContext<WasiFactor>,
         _preparers: InstancePreparers<Factors>,
     ) -> anyhow::Result<Self> {

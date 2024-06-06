@@ -4,11 +4,18 @@ use std::{
 };
 
 use crate::{
-    runtimes::{in_process_spin::InProcessSpin, spin_cli::SpinCli, SpinAppType},
+    runtimes::{
+        in_process_spin::InProcessSpin, spin_cli::SpinCli, spin_containerd_shim::SpinShim,
+        SpinAppType,
+    },
     services::{Services, ServicesConfig},
     Runtime,
 };
 use anyhow::Context as _;
+
+/// `ctr run` invocations require an ID that is unique to all currently running instances. Since
+/// only one test runs at a time, we can reuse a constant ID.
+const CTR_RUN_ID: &str = "run-id";
 
 /// A callback to create a runtime given a path to a temporary directory and a set of services
 pub type RuntimeCreator<R> = dyn FnOnce(&mut TestEnvironment<R>) -> anyhow::Result<R>;
@@ -252,6 +259,24 @@ impl TestEnvironmentConfig<InProcessSpin> {
 
                         Result::<_, anyhow::Error>::Ok(InProcessSpin::new(trigger))
                     })
+            }),
+        }
+    }
+}
+
+impl TestEnvironmentConfig<SpinShim> {
+    pub fn containerd_shim(
+        ctr_binary: PathBuf,
+        oci_image: String,
+        preboot: impl FnOnce(&mut TestEnvironment<SpinShim>) -> anyhow::Result<()> + 'static,
+        services_config: ServicesConfig,
+    ) -> Self {
+        Self {
+            services_config,
+            create_runtime: Box::new(move |env| {
+                preboot(env)?;
+                SpinShim::image_pull(&ctr_binary, &oci_image)?;
+                SpinShim::start(&ctr_binary, env, &oci_image, CTR_RUN_ID)
             }),
         }
     }

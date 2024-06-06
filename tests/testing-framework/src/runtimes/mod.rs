@@ -2,6 +2,7 @@
 
 pub mod in_process_spin;
 pub mod spin_cli;
+pub mod spin_containerd_shim;
 
 /// The type of app Spin is running
 pub enum SpinAppType {

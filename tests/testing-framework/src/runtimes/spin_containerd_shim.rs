@@ -1,20 +1,18 @@
-//! The Spin CLI runtime (i.e., the `spin` command-line tool).
-
-use anyhow::Context;
-
-use super::SpinAppType;
-use crate::{
-    http::{Request, Response},
-    io::OutputStream,
-    Runtime, TestEnvironment,
-};
 use std::{
     path::Path,
     process::{Command, Stdio},
 };
 
-/// A wrapper around a running Spin CLI instance
-pub struct SpinCli {
+use crate::{
+    http::{Request, Response},
+    io::OutputStream,
+    runtimes::spin_cli::{kill_process, IoMode, SpinConfig},
+    Runtime, TestEnvironment,
+};
+
+use anyhow::Context as _;
+
+pub struct SpinShim {
     process: std::process::Child,
     #[allow(dead_code)]
     stdout: OutputStream,
@@ -22,34 +20,50 @@ pub struct SpinCli {
     io_mode: IoMode,
 }
 
-impl SpinCli {
-    /// Start Spin using the binary at `spin_binary_path` in the `env` testing environment
-    pub fn start<R>(
+impl SpinShim {
+    pub fn regisry_push<R>(
         spin_binary_path: &Path,
+        image: &str,
         env: &mut TestEnvironment<R>,
-        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
-        app_type: SpinAppType,
-    ) -> anyhow::Result<Self> {
-        match app_type {
-            SpinAppType::Http => Self::start_http(spin_binary_path, env, spin_up_args),
-            SpinAppType::Redis => Self::start_redis(spin_binary_path, env, spin_up_args),
-            SpinAppType::None => Self::attempt_start(spin_binary_path, env, spin_up_args),
-        }
+    ) -> anyhow::Result<()> {
+        // TODO: consider enabling configuring a port
+        Command::new(spin_binary_path)
+            .args(["registry", "push"])
+            .arg(image)
+            .current_dir(env.path())
+            .output()
+            .context("failed to push spin app to registry with 'spin'")?;
+        // TODO: assess output
+        Ok(())
     }
 
-    /// Start Spin assuming an HTTP app in `env` testing directory using the binary at `spin_binary_path`
-    pub fn start_http<R>(
-        spin_binary_path: &Path,
+    pub fn image_pull(ctr_binary_path: &Path, image: &str) -> anyhow::Result<()> {
+        // TODO: consider enabling configuring a port
+        Command::new(ctr_binary_path)
+            .args(["image", "pull"])
+            .arg(image)
+            .output()
+            .context("failed to pull spin app with 'ctr'")?;
+        // TODO: assess output
+        Ok(())
+    }
+
+    /// Start the Spin app using `ctr run`
+    /// Equivalent of `sudo ctr run --rm --net-host --runtime io.containerd.spin.v2 ttl.sh/myapp:48h ctr-run-id bogus-arg` for image `ttl.sh/myapp:48h` and run id `ctr-run-id`
+    pub fn start<R>(
+        ctr_binary_path: &Path,
         env: &mut TestEnvironment<R>,
-        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
+        image: &str,
+        ctr_run_id: &str,
     ) -> anyhow::Result<Self> {
-        let port = get_random_port()?;
-        let mut spin_cmd = Command::new(spin_binary_path);
-        let child = spin_cmd
-            .arg("up")
-            .current_dir(env.path())
-            .args(["--listen", &format!("127.0.0.1:{port}")])
-            .args(spin_up_args)
+        let port = 80;
+        let mut ctr_cmd = std::process::Command::new(ctr_binary_path);
+        let child = ctr_cmd
+            .arg("run")
+            .args(["--rm", "--net-host", "--runtime", "io.containerd.spin.v2"])
+            .arg(image)
+            .arg(ctr_run_id)
+            .arg("bogus-arg")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         for (key, value) in env.env_vars() {
@@ -58,7 +72,7 @@ impl SpinCli {
         let mut child = child.spawn()?;
         let stdout = OutputStream::new(child.stdout.take().unwrap());
         let stderr = OutputStream::new(child.stderr.take().unwrap());
-        log::debug!("Awaiting spin binary to start up on port {port}...");
+        log::debug!("Awaiting shim binary to start up on port {port}...");
         let mut spin = Self {
             process: child,
             stdout,
@@ -69,7 +83,7 @@ impl SpinCli {
         loop {
             match std::net::TcpStream::connect(format!("127.0.0.1:{port}")) {
                 Ok(_) => {
-                    log::debug!("Spin started on port {port}.");
+                    log::debug!("Spin shim started on port {port}.");
                     return Ok(spin);
                 }
                 Err(e) => {
@@ -80,7 +94,7 @@ impl SpinCli {
             }
             if let Some(status) = spin.try_wait()? {
                 anyhow::bail!(
-                    "Spin exited early with status code {:?}\n{}{}",
+                    "Shim exited early with status code {:?}\n{}{}",
                     status.code(),
                     spin.stdout.output_as_str().unwrap_or("<non-utf8>"),
                     spin.stderr.output_as_str().unwrap_or("<non-utf8>")
@@ -93,66 +107,9 @@ impl SpinCli {
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
         anyhow::bail!(
-            "`spin up` did not start server or error after two minutes. stderr:\n\t{}",
+            "`ctr run` did not start server or error after two minutes. stderr:\n\t{}",
             spin.stderr.output_as_str().unwrap_or("<non-utf8>")
         )
-    }
-
-    /// Start Spin assuming a Redis app in `env` testing directory using the binary at `spin_binary_path`
-    pub fn start_redis<R>(
-        spin_binary_path: &Path,
-        env: &mut TestEnvironment<R>,
-        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
-    ) -> anyhow::Result<Self> {
-        let mut child = Command::new(spin_binary_path)
-            .arg("up")
-            .current_dir(env.path())
-            .args(spin_up_args)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        let stdout = OutputStream::new(child.stdout.take().unwrap());
-        let stderr = OutputStream::new(child.stderr.take().unwrap());
-        let mut spin = Self {
-            process: child,
-            stdout,
-            stderr,
-            io_mode: IoMode::Redis,
-        };
-        // TODO this is a hack to wait for the redis service to start
-        std::thread::sleep(std::time::Duration::from_millis(10000));
-        if let Some(status) = spin.try_wait()? {
-            anyhow::bail!(
-                "Spin exited early with status code {:?}\n{}{}",
-                status.code(),
-                spin.stdout.output_as_str().unwrap_or("<non-utf8>"),
-                spin.stderr.output_as_str().unwrap_or("<non-utf8>")
-            );
-        }
-        Ok(spin)
-    }
-
-    fn attempt_start<R>(
-        spin_binary_path: &Path,
-        env: &mut TestEnvironment<R>,
-        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
-    ) -> anyhow::Result<Self> {
-        let mut child = Command::new(spin_binary_path)
-            .arg("up")
-            .current_dir(env.path())
-            .args(spin_up_args)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        let stdout = OutputStream::new(child.stdout.take().unwrap());
-        let stderr = OutputStream::new(child.stderr.take().unwrap());
-        child.wait()?;
-        Ok(Self {
-            process: child,
-            stdout,
-            stderr,
-            io_mode: IoMode::None,
-        })
     }
 
     /// Make an HTTP request against Spin
@@ -163,10 +120,13 @@ impl SpinCli {
         request: Request<'_, B>,
     ) -> anyhow::Result<Response> {
         let IoMode::Http(port) = self.io_mode else {
-            anyhow::bail!("Spin is not running in HTTP mode");
+            anyhow::bail!("Spin shim is not running in HTTP mode");
         };
         if let Some(status) = self.try_wait()? {
-            anyhow::bail!("Spin exited early with status code {:?}", status.code());
+            anyhow::bail!(
+                "make_http_request - shim exited early with status code {:?}",
+                status.code()
+            );
         }
         log::debug!("Connecting to HTTP server on port {port}...");
         let mut outgoing = reqwest::Request::new(
@@ -225,6 +185,7 @@ impl SpinCli {
         if let Some(status) = self.try_wait()? {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
         }
+        println!("Response: {}", response.status());
         Ok(response)
     }
 
@@ -249,53 +210,20 @@ impl SpinCli {
     }
 }
 
-impl Drop for SpinCli {
+impl Drop for SpinShim {
     fn drop(&mut self) {
         kill_process(&mut self.process);
     }
 }
 
-impl Runtime for SpinCli {
+impl Runtime for SpinShim {
     type Config = SpinConfig;
 
     fn error(&mut self) -> anyhow::Result<()> {
         if !matches!(self.io_mode, IoMode::None) && self.try_wait()?.is_some() {
-            anyhow::bail!("Spin exited early: {}", self.stderr());
+            anyhow::bail!("Containerd shim spin exited early: {}", self.stderr());
         }
 
         Ok(())
     }
-}
-
-pub struct SpinConfig {
-    pub binary_path: std::path::PathBuf,
-}
-
-pub fn kill_process(process: &mut std::process::Child) {
-    #[cfg(windows)]
-    {
-        let _ = process.kill();
-    }
-    #[cfg(not(windows))]
-    {
-        let pid = nix::unistd::Pid::from_raw(process.id() as i32);
-        let _ = nix::sys::signal::kill(pid, nix::sys::signal::SIGTERM);
-    }
-}
-
-/// How this Spin instance is communicating with the outside world
-pub enum IoMode {
-    /// An http server is running on this port
-    Http(u16),
-    /// Spin is running in redis mode
-    Redis,
-    /// Spin may or may not be running
-    None,
-}
-
-/// Uses a track to ge a random unused port
-fn get_random_port() -> anyhow::Result<u16> {
-    Ok(std::net::TcpListener::bind("localhost:0")?
-        .local_addr()?
-        .port())
 }

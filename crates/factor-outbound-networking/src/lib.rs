@@ -8,8 +8,7 @@ use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::WasiFactor;
 use spin_factors::{
     anyhow::{self, Context},
-    ConfigureAppContext, Factor, FactorInstancePreparer, InstancePreparers, PrepareContext,
-    RuntimeConfig, RuntimeFactors,
+    ConfigureAppContext, Factor, InstancePreparers, PrepareContext, RuntimeConfig, RuntimeFactors,
 };
 use spin_outbound_networking::{AllowedHostsConfig, ALLOWED_HOSTS_KEY};
 
@@ -44,24 +43,11 @@ impl Factor for OutboundNetworkingFactor {
             component_allowed_hosts,
         })
     }
-}
 
-#[derive(Default)]
-pub struct AppState {
-    component_allowed_hosts: HashMap<String, Arc<[String]>>,
-}
-
-type SharedFutureResult<T> = Shared<BoxFuture<'static, Arc<anyhow::Result<T>>>>;
-
-pub struct InstancePreparer {
-    allowed_hosts_future: SharedFutureResult<AllowedHostsConfig>,
-}
-
-impl FactorInstancePreparer<OutboundNetworkingFactor> for InstancePreparer {
-    fn new<Factors: RuntimeFactors>(
-        ctx: PrepareContext<OutboundNetworkingFactor>,
-        mut preparers: InstancePreparers<Factors>,
-    ) -> anyhow::Result<Self> {
+    fn create_preparer<T: RuntimeFactors>(
+        ctx: PrepareContext<Self>,
+        mut preparers: InstancePreparers<T>,
+    ) -> anyhow::Result<Self::InstancePreparer> {
         let hosts = ctx
             .app_config()
             .component_allowed_hosts
@@ -101,18 +87,40 @@ impl FactorInstancePreparer<OutboundNetworkingFactor> for InstancePreparer {
                 }
             }
         });
-        Ok(Self {
-            allowed_hosts_future,
-        })
+        Ok(InstancePreparer::new(allowed_hosts_future))
     }
 
-    fn prepare(self) -> anyhow::Result<<OutboundNetworkingFactor as Factor>::InstanceState> {
+    fn prepare(
+        &self,
+        _preparer: InstancePreparer,
+    ) -> anyhow::Result<<OutboundNetworkingFactor as Factor>::InstanceState> {
         Ok(())
     }
 }
 
+#[derive(Default)]
+pub struct AppState {
+    component_allowed_hosts: HashMap<String, Arc<[String]>>,
+}
+
+type SharedFutureResult<T> = Shared<BoxFuture<'static, Arc<anyhow::Result<T>>>>;
+
+#[derive(Default)]
+pub struct InstancePreparer {
+    allowed_hosts_future: Option<SharedFutureResult<AllowedHostsConfig>>,
+}
+
 impl InstancePreparer {
+    fn new(allowed_hosts_future: SharedFutureResult<AllowedHostsConfig>) -> Self {
+        Self {
+            allowed_hosts_future: Some(allowed_hosts_future),
+        }
+    }
+
     pub async fn resolve_allowed_hosts(&self) -> Arc<anyhow::Result<AllowedHostsConfig>> {
-        self.allowed_hosts_future.clone().await
+        self.allowed_hosts_future
+            .clone()
+            .expect("allowed_hosts_future not set")
+            .await
     }
 }

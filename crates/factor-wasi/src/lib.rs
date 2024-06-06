@@ -3,8 +3,7 @@ pub mod preview1;
 use std::{future::Future, net::SocketAddr, path::Path};
 
 use spin_factors::{
-    anyhow, AppComponent, Factor, FactorInstancePreparer, InitContext, InstancePreparers,
-    PrepareContext, RuntimeFactors,
+    anyhow, AppComponent, Factor, InitContext, InstancePreparers, PrepareContext, RuntimeFactors,
 };
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
@@ -69,6 +68,36 @@ impl Factor for WasiFactor {
         }
         Ok(())
     }
+
+    fn create_preparer<T: RuntimeFactors>(
+        ctx: PrepareContext<Self>,
+        _preparers: InstancePreparers<T>,
+    ) -> anyhow::Result<Self::InstancePreparer> {
+        let mut wasi_ctx = WasiCtxBuilder::new();
+
+        // Apply environment variables
+        for (key, val) in ctx.app_component().environment() {
+            wasi_ctx.env(key, val);
+        }
+
+        // Mount files
+        let mount_ctx = MountFilesContext {
+            wasi_ctx: &mut wasi_ctx,
+        };
+        ctx.factor()
+            .files_mounter
+            .mount_files(ctx.app_component(), mount_ctx)?;
+
+        Ok(InstancePreparer { wasi_ctx })
+    }
+
+    fn prepare(&self, preparer: InstancePreparer) -> anyhow::Result<InstanceState> {
+        let InstancePreparer { mut wasi_ctx } = preparer;
+        Ok(InstanceState {
+            ctx: wasi_ctx.build(),
+            table: Default::default(),
+        })
+    }
 }
 
 pub trait FilesMounter {
@@ -122,36 +151,11 @@ pub struct InstancePreparer {
     wasi_ctx: WasiCtxBuilder,
 }
 
-impl FactorInstancePreparer<WasiFactor> for InstancePreparer {
-    // NOTE: Replaces WASI parts of AppComponent::apply_store_config
-    fn new<Factors: RuntimeFactors>(
-        ctx: PrepareContext<WasiFactor>,
-        _preparers: InstancePreparers<Factors>,
-    ) -> anyhow::Result<Self> {
-        let mut wasi_ctx = WasiCtxBuilder::new();
-
-        // Apply environment variables
-        for (key, val) in ctx.app_component().environment() {
-            wasi_ctx.env(key, val);
+impl Default for InstancePreparer {
+    fn default() -> Self {
+        Self {
+            wasi_ctx: WasiCtxBuilder::new(),
         }
-
-        // Mount files
-        let mount_ctx = MountFilesContext {
-            wasi_ctx: &mut wasi_ctx,
-        };
-        ctx.factor()
-            .files_mounter
-            .mount_files(ctx.app_component(), mount_ctx)?;
-
-        Ok(Self { wasi_ctx })
-    }
-
-    fn prepare(self) -> anyhow::Result<InstanceState> {
-        let Self { mut wasi_ctx } = self;
-        Ok(InstanceState {
-            ctx: wasi_ctx.build(),
-            table: Default::default(),
-        })
     }
 }
 

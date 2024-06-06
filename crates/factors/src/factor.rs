@@ -2,7 +2,9 @@ use std::any::Any;
 
 use anyhow::Context;
 
-use crate::{App, FactorInstancePreparer, Linker, ModuleLinker, RuntimeConfig, RuntimeFactors};
+use crate::{
+    App, InstancePreparers, Linker, ModuleLinker, PrepareContext, RuntimeConfig, RuntimeFactors,
+};
 
 pub trait Factor: Any + Sized {
     /// Per-app state for this factor.
@@ -11,7 +13,7 @@ pub trait Factor: Any + Sized {
     type AppState: Default;
 
     /// The [`FactorInstancePreparer`] for this factor.
-    type InstancePreparer: FactorInstancePreparer<Self>;
+    type InstancePreparer: Default;
 
     /// The per-instance state for this factor, constructed by a
     /// [`FactorInstancePreparer`] and available to any host-provided imports
@@ -38,6 +40,18 @@ pub trait Factor: Any + Sized {
         _ = ctx;
         Ok(Default::default())
     }
+
+    /// Returns a new instance of this preparer for the given [`Factor`].
+    fn create_preparer<T: RuntimeFactors>(
+        ctx: PrepareContext<Self>,
+        _preparers: InstancePreparers<T>,
+    ) -> anyhow::Result<Self::InstancePreparer> {
+        _ = ctx;
+        Ok(Default::default())
+    }
+
+    /// Returns a new instance of the associated [`Factor::InstanceState`].
+    fn prepare(&self, preparer: Self::InstancePreparer) -> anyhow::Result<Self::InstanceState>;
 }
 
 pub(crate) type GetDataFn<Facts, Fact> =

@@ -2,33 +2,6 @@ use anyhow::Context;
 
 use crate::{AppComponent, Factor, RuntimeFactors};
 
-pub trait FactorInstancePreparer<F: Factor>: Sized {
-    /// Returns a new instance of this preparer for the given [`Factor`].
-    fn new<T: RuntimeFactors>(
-        ctx: PrepareContext<F>,
-        _preparers: InstancePreparers<T>,
-    ) -> anyhow::Result<Self>;
-
-    /// Returns a new instance of the associated [`Factor::InstanceState`].
-    fn prepare(self) -> anyhow::Result<F::InstanceState>;
-}
-
-impl<F: Factor> FactorInstancePreparer<F> for ()
-where
-    F::InstanceState: Default,
-{
-    fn new<T: RuntimeFactors>(
-        _ctx: PrepareContext<F>,
-        _preparers: InstancePreparers<T>,
-    ) -> anyhow::Result<Self> {
-        Ok(())
-    }
-
-    fn prepare(self) -> anyhow::Result<F::InstanceState> {
-        Ok(Default::default())
-    }
-}
-
 /// A PrepareContext is passed to [`FactorInstancePreparer::new`], giving access
 /// to any already-initialized [`FactorInstancePreparer`]s, allowing for
 /// inter-[`Factor`] dependencies.

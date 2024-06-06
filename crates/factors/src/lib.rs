@@ -1,5 +1,5 @@
 mod factor;
-mod instance_preparer;
+mod prepare;
 mod runtime_config;
 mod spin_factors;
 
@@ -10,7 +10,7 @@ pub use spin_factors_derive::RuntimeFactors;
 
 pub use crate::{
     factor::{ConfigureAppContext, ConfiguredApp, Factor, InitContext},
-    instance_preparer::{FactorInstancePreparer, InstancePreparers, PrepareContext},
+    prepare::{InstancePreparers, PrepareContext},
     runtime_config::{RuntimeConfig, RuntimeConfigSource},
     spin_factors::RuntimeFactors,
 };

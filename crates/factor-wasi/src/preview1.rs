@@ -1,7 +1,4 @@
-use spin_factors::{
-    anyhow, Factor, FactorInstancePreparer, InitContext, InstancePreparers, PrepareContext,
-    RuntimeFactors,
-};
+use spin_factors::{anyhow, Factor, InitContext, RuntimeFactors};
 use wasmtime_wasi::{preview1::WasiP1Ctx, WasiCtxBuilder};
 
 pub struct WasiPreview1Factor;
@@ -17,23 +14,20 @@ impl Factor for WasiPreview1Factor {
     ) -> anyhow::Result<()> {
         ctx.link_module_bindings(wasmtime_wasi::preview1::add_to_linker_async)
     }
+
+    fn prepare(&self, mut preparer: InstancePreparer) -> anyhow::Result<WasiP1Ctx> {
+        Ok(preparer.wasi_ctx.build_p1())
+    }
 }
 
 pub struct InstancePreparer {
     wasi_ctx: WasiCtxBuilder,
 }
 
-impl FactorInstancePreparer<WasiPreview1Factor> for InstancePreparer {
-    fn new<Factors: RuntimeFactors>(
-        _ctx: PrepareContext<WasiPreview1Factor>,
-        _preparers: InstancePreparers<Factors>,
-    ) -> anyhow::Result<Self> {
-        Ok(Self {
+impl Default for InstancePreparer {
+    fn default() -> Self {
+        Self {
             wasi_ctx: WasiCtxBuilder::new(),
-        })
-    }
-
-    fn prepare(mut self) -> anyhow::Result<WasiP1Ctx> {
-        Ok(self.wasi_ctx.build_p1())
+        }
     }
 }

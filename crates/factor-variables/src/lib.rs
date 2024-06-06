@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use spin_expressions::ProviderResolver;
 use spin_factors::{
-    anyhow, ConfigureAppContext, Factor, FactorInstancePreparer, InitContext, InstancePreparers,
-    PrepareContext, RuntimeConfig, RuntimeFactors,
+    anyhow, ConfigureAppContext, Factor, InitContext, InstancePreparers, PrepareContext,
+    RuntimeConfig, RuntimeFactors,
 };
 use spin_world::{async_trait, v1::config as v1_config, v2::variables};
 
@@ -42,6 +42,24 @@ impl Factor for VariablesFactor {
             resolver: Arc::new(resolver),
         })
     }
+
+    fn create_preparer<T: RuntimeFactors>(
+        ctx: PrepareContext<Self>,
+        _preparers: InstancePreparers<T>,
+    ) -> anyhow::Result<Self::InstancePreparer> {
+        let component_id = ctx.app_component().id().to_string();
+        let resolver = ctx.app_config().resolver.clone();
+        Ok(InstancePreparer {
+            state: InstanceState {
+                component_id,
+                resolver,
+            },
+        })
+    }
+
+    fn prepare(&self, preparer: InstancePreparer) -> anyhow::Result<InstanceState> {
+        Ok(preparer.state)
+    }
 }
 
 #[derive(Default)]
@@ -49,6 +67,7 @@ pub struct AppState {
     resolver: Arc<ProviderResolver>,
 }
 
+#[derive(Default)]
 pub struct InstancePreparer {
     state: InstanceState,
 }
@@ -59,26 +78,7 @@ impl InstancePreparer {
     }
 }
 
-impl FactorInstancePreparer<VariablesFactor> for InstancePreparer {
-    fn new<Factors: RuntimeFactors>(
-        ctx: PrepareContext<VariablesFactor>,
-        _preparers: InstancePreparers<Factors>,
-    ) -> anyhow::Result<Self> {
-        let component_id = ctx.app_component().id().to_string();
-        let resolver = ctx.app_config().resolver.clone();
-        Ok(Self {
-            state: InstanceState {
-                component_id,
-                resolver,
-            },
-        })
-    }
-
-    fn prepare(self) -> anyhow::Result<InstanceState> {
-        Ok(self.state)
-    }
-}
-
+#[derive(Default)]
 pub struct InstanceState {
     component_id: String,
     resolver: Arc<ProviderResolver>,

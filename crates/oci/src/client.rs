@@ -38,6 +38,9 @@ const CONFIG_FILE: &str = "config.json";
 const LATEST_TAG: &str = "latest";
 const MANIFEST_FILE: &str = "manifest.json";
 
+/// Env var to force use of archive layers when publishing a Spin app
+const SPIN_OCI_ARCHIVE_LAYERS_OPT: &str = "SPIN_OCI_ARCHIVE_LAYERS";
+
 const MAX_PARALLEL_PULL: usize = 16;
 /// Maximum layer count allowed per app, set in accordance to the lowest
 /// known maximum per image in well-known OCI registry implementations.
@@ -159,9 +162,11 @@ impl Client {
             .await
             .context("could not assemble layers for locked application")?;
 
-        // If layer count exceeds MAX_LAYER_COUNT-1, assemble archive layers instead.
-        // (We'll be adding one more layer to represent the locked application config.)
-        if layers.len() > MAX_LAYER_COUNT - 1 {
+        // If SPIN_OCI_ARCHIVE_LAYERS_OPT is set *or* if layer count exceeds MAX_LAYER_COUNT-1,
+        // assemble archive layers instead. (An additional layer to represent the locked
+        // application config is added.)
+        if std::env::var(SPIN_OCI_ARCHIVE_LAYERS_OPT).is_ok() || layers.len() > MAX_LAYER_COUNT - 1
+        {
             locked_app = locked.clone();
             layers = self
                 .assemble_layers(&mut locked_app, AssemblyMode::Archive)

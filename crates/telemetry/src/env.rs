@@ -1,13 +1,15 @@
 use std::env::VarError;
 
 use opentelemetry_otlp::{
-    OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_METRICS_ENDPOINT, OTEL_EXPORTER_OTLP_PROTOCOL,
+    OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
+    OTEL_EXPORTER_OTLP_METRICS_ENDPOINT, OTEL_EXPORTER_OTLP_PROTOCOL,
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
 };
 
 const OTEL_SDK_DISABLED: &str = "OTEL_SDK_DISABLED";
 const OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: &str = "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL";
 const OTEL_EXPORTER_OTLP_METRICS_PROTOCOL: &str = "OTEL_EXPORTER_OTLP_METRICS_PROTOCOL";
+const OTEL_EXPORTER_OTLP_LOGS_PROTOCOL: &str = "OTEL_EXPORTER_OTLP_LOGS_PROTOCOL";
 const SPIN_DISABLE_LOG_TO_TRACING: &str = "SPIN_DISABLE_LOG_TO_TRACING";
 
 /// Returns a boolean indicating if the OTEL tracing layer should be enabled.
@@ -35,6 +37,20 @@ pub(crate) fn otel_metrics_enabled() -> bool {
     any_vars_set(&[
         OTEL_EXPORTER_OTLP_ENDPOINT,
         OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
+    ]) && !otel_sdk_disabled()
+}
+
+/// Returns a boolean indicating if the OTEL log layer should be enabled.
+///
+/// It is considered enabled if any of the following environment variables are set and not empty:
+/// - `OTEL_EXPORTER_OTLP_ENDPOINT`
+/// - `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`
+///
+/// Note that this is overridden if OTEL_SDK_DISABLED is set and not empty.
+pub(crate) fn otel_logs_enabled() -> bool {
+    any_vars_set(&[
+        OTEL_EXPORTER_OTLP_ENDPOINT,
+        OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
     ]) && !otel_sdk_disabled()
 }
 
@@ -80,6 +96,14 @@ impl OtlpProtocol {
     pub(crate) fn metrics_protocol_from_env() -> Self {
         Self::protocol_from_env(
             std::env::var(OTEL_EXPORTER_OTLP_METRICS_PROTOCOL),
+            std::env::var(OTEL_EXPORTER_OTLP_PROTOCOL),
+        )
+    }
+
+    /// Returns the protocol to be used for exporting logs as defined by the environment.
+    pub(crate) fn logs_protocol_from_env() -> Self {
+        Self::protocol_from_env(
+            std::env::var(OTEL_EXPORTER_OTLP_LOGS_PROTOCOL),
             std::env::var(OTEL_EXPORTER_OTLP_PROTOCOL),
         )
     }

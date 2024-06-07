@@ -1,18 +1,44 @@
-use std::sync::Arc;
+mod provider_type;
 
+use std::{collections::HashMap, sync::Arc};
+
+use provider_type::{provider_maker, ProviderMaker};
+use serde::Deserialize;
 use spin_expressions::ProviderResolver;
 use spin_factors::{
-    anyhow, ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
-    PrepareContext, RuntimeFactors,
+    anyhow::{self, bail, Context},
+    ConfigureAppContext, Factor, FactorRuntimeConfig, InitContext, InstanceBuilders,
+    PrepareContext, RuntimeFactors, SelfInstanceBuilder,
 };
 use spin_world::{async_trait, v1::config as v1_config, v2::variables};
 
-pub struct VariablesFactor;
+pub use provider_type::{StaticVariables, VariablesProviderType};
+
+#[derive(Default)]
+pub struct VariablesFactor {
+    provider_types: HashMap<&'static str, ProviderMaker>,
+}
+
+impl VariablesFactor {
+    pub fn add_provider_type<T: VariablesProviderType>(
+        &mut self,
+        provider_type: T,
+    ) -> anyhow::Result<()> {
+        if self
+            .provider_types
+            .insert(T::TYPE, provider_maker(provider_type))
+            .is_some()
+        {
+            bail!("duplicate provider type {:?}", T::TYPE);
+        }
+        Ok(())
+    }
+}
 
 impl Factor for VariablesFactor {
-    type RuntimeConfig = ();
+    type RuntimeConfig = RuntimeConfig;
     type AppState = AppState;
-    type InstanceBuilder = InstanceBuilder;
+    type InstanceBuilder = InstanceState;
 
     fn init<Factors: RuntimeFactors>(
         &mut self,
@@ -25,18 +51,30 @@ impl Factor for VariablesFactor {
 
     fn configure_app<T: RuntimeFactors>(
         &self,
-        ctx: ConfigureAppContext<T, Self>,
+        mut ctx: ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState> {
         let app = ctx.app();
         let mut resolver =
             ProviderResolver::new(app.variables().map(|(key, val)| (key.clone(), val.clone())))?;
+
         for component in app.components() {
             resolver.add_component_variables(
                 component.id(),
                 component.config().map(|(k, v)| (k.into(), v.into())),
             )?;
         }
-        // TODO: add providers from runtime config
+
+        if let Some(runtime_config) = ctx.take_runtime_config() {
+            for ProviderConfig { type_, config } in runtime_config.provider_configs {
+                let provider_maker = self
+                    .provider_types
+                    .get(type_.as_str())
+                    .with_context(|| format!("unknown variables provider type {type_}"))?;
+                let provider = provider_maker(config)?;
+                resolver.add_provider(provider);
+            }
+        }
+
         Ok(AppState {
             resolver: Arc::new(resolver),
         })
@@ -45,46 +83,50 @@ impl Factor for VariablesFactor {
     fn prepare<T: RuntimeFactors>(
         ctx: PrepareContext<Self>,
         _builders: &mut InstanceBuilders<T>,
-    ) -> anyhow::Result<InstanceBuilder> {
+    ) -> anyhow::Result<InstanceState> {
         let component_id = ctx.app_component().id().to_string();
         let resolver = ctx.app_state().resolver.clone();
-        Ok(InstanceBuilder {
-            state: InstanceState {
-                component_id,
-                resolver,
-            },
+        Ok(InstanceState {
+            component_id,
+            resolver,
         })
     }
 }
 
-#[derive(Default)]
+#[derive(Deserialize)]
+#[serde(transparent)]
+pub struct RuntimeConfig {
+    provider_configs: Vec<ProviderConfig>,
+}
+
+impl FactorRuntimeConfig for RuntimeConfig {
+    const KEY: &'static str = "variable_provider";
+}
+
+#[derive(Deserialize)]
+struct ProviderConfig {
+    #[serde(rename = "type")]
+    type_: String,
+    #[serde(flatten)]
+    config: toml::Table,
+}
+
 pub struct AppState {
     resolver: Arc<ProviderResolver>,
 }
 
-pub struct InstanceBuilder {
-    state: InstanceState,
-}
-
-impl InstanceBuilder {
-    pub fn resolver(&self) -> &Arc<ProviderResolver> {
-        &self.state.resolver
-    }
-}
-
-impl FactorInstanceBuilder for InstanceBuilder {
-    type InstanceState = InstanceState;
-
-    fn build(self) -> anyhow::Result<Self::InstanceState> {
-        Ok(self.state)
-    }
-}
-
-#[derive(Default)]
 pub struct InstanceState {
     component_id: String,
     resolver: Arc<ProviderResolver>,
 }
+
+impl InstanceState {
+    pub fn resolver(&self) -> &Arc<ProviderResolver> {
+        &self.resolver
+    }
+}
+
+impl SelfInstanceBuilder for InstanceState {}
 
 #[async_trait]
 impl variables::Host for InstanceState {

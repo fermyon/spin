@@ -5,6 +5,8 @@ use serde::de::DeserializeOwned;
 
 use crate::Factor;
 
+pub const NO_RUNTIME_CONFIG: &str = "<no runtime config>";
+
 /// FactorRuntimeConfig represents an application's runtime configuration.
 ///
 /// Runtime configuration is partitioned, with each partition being the
@@ -16,7 +18,7 @@ pub trait FactorRuntimeConfig: DeserializeOwned {
 }
 
 impl FactorRuntimeConfig for () {
-    const KEY: &'static str = "<unused>";
+    const KEY: &'static str = NO_RUNTIME_CONFIG;
 }
 
 pub trait RuntimeConfigSource {
@@ -24,15 +26,14 @@ pub trait RuntimeConfigSource {
     ///
     /// Should only include keys that have been positively provided. A runtime
     /// may treat unrecognized keys as a warning or error.
-    fn factor_config_keys(&self) -> impl Iterator<Item = &str>;
+    fn config_keys(&self) -> impl IntoIterator<Item = &str>;
 
     /// Returns deserialized runtime config of the given type for the given
     /// factor config key.
     ///
     /// Returns Ok(None) if no configuration is available for the given key.
     /// Returns Err if configuration is available but deserialization fails.
-    fn get_config<T: DeserializeOwned>(&self, factor_config_key: &str)
-        -> anyhow::Result<Option<T>>;
+    fn get_config<T: DeserializeOwned>(&self, key: &str) -> anyhow::Result<Option<T>>;
 }
 
 impl RuntimeConfigSource for () {
@@ -43,7 +44,7 @@ impl RuntimeConfigSource for () {
         Ok(None)
     }
 
-    fn factor_config_keys(&self) -> impl Iterator<Item = &str> {
+    fn config_keys(&self) -> impl IntoIterator<Item = &str> {
         std::iter::empty()
     }
 }
@@ -57,7 +58,11 @@ pub struct RuntimeConfigTracker<S> {
 impl<S: RuntimeConfigSource> RuntimeConfigTracker<S> {
     #[doc(hidden)]
     pub fn new(source: S) -> Self {
-        let unused_keys = source.factor_config_keys().map(ToOwned::to_owned).collect();
+        let unused_keys = source
+            .config_keys()
+            .into_iter()
+            .map(ToOwned::to_owned)
+            .collect();
         Self {
             source,
             used_keys: Default::default(),
@@ -66,18 +71,28 @@ impl<S: RuntimeConfigSource> RuntimeConfigTracker<S> {
     }
 
     #[doc(hidden)]
-    pub fn validate_all_keys_used(self) -> Result<(), impl IntoIterator<Item = String>> {
-        if self.unused_keys.is_empty() {
-            Ok(())
-        } else {
-            Err(self.unused_keys)
+    pub fn validate_all_keys_used(self) -> anyhow::Result<()> {
+        if !self.unused_keys.is_empty() {
+            bail!(
+                "unused runtime config key(s): {keys}",
+                keys = self
+                    .unused_keys
+                    .iter()
+                    .map(|key| format!("{key:?}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
         }
+        Ok(())
     }
 
     pub fn get_config<F: Factor>(&mut self) -> anyhow::Result<Option<F::RuntimeConfig>> {
         let key = F::RuntimeConfig::KEY;
+        if key == NO_RUNTIME_CONFIG {
+            return Ok(None);
+        }
         if !self.used_keys.insert(key) {
-            bail!("already got runtime config key {key:?}");
+            bail!("already used runtime config key {key:?}");
         }
         self.unused_keys.remove(key);
         self.source.get_config::<F::RuntimeConfig>(key)

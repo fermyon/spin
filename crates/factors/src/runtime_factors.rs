@@ -1,8 +1,4 @@
-use std::marker::PhantomData;
-
-use anyhow::Context;
-
-use crate::{factor::FactorInstanceState, Factor};
+use crate::Factor;
 
 // TODO(lann): Most of the unsafe shenanigans here probably aren't worth it;
 // consider replacing with e.g. `Any::downcast`.
@@ -13,99 +9,9 @@ pub trait RuntimeFactors: Sized {
     type InstanceBuilders;
     type InstanceState: Send + 'static;
 
-    #[doc(hidden)]
-    unsafe fn instance_builder_offset<F: Factor>() -> Option<usize>;
-
-    #[doc(hidden)]
-    unsafe fn instance_state_offset<F: Factor>() -> Option<usize>;
-
     fn app_state<F: Factor>(app_state: &Self::AppState) -> Option<&F::AppState>;
-
-    fn instance_state_getter<F: Factor>(
-    ) -> Option<Getter<Self::InstanceState, FactorInstanceState<F>>> {
-        let offset = unsafe { Self::instance_state_offset::<F>()? };
-        Some(Getter {
-            offset,
-            _phantom: PhantomData,
-        })
-    }
-
-    fn instance_state_getter2<F1: Factor, F2: Factor>(
-    ) -> Option<Getter2<Self::InstanceState, FactorInstanceState<F1>, FactorInstanceState<F2>>>
-    {
-        let offset1 = unsafe { Self::instance_state_offset::<F1>()? };
-        let offset2 = unsafe { Self::instance_state_offset::<F2>()? };
-        assert_ne!(
-            offset1, offset2,
-            "instance_state_getter2 with same factor twice would alias"
-        );
-        Some(Getter2 {
-            offset1,
-            offset2,
-            _phantom: PhantomData,
-        })
-    }
 
     fn instance_builder_mut<F: Factor>(
         builders: &mut Self::InstanceBuilders,
-    ) -> crate::Result<Option<&mut F::InstanceBuilder>> {
-        unsafe {
-            let offset = Self::instance_builder_offset::<F>().context("no such factor")?;
-            let ptr = builders as *mut Self::InstanceBuilders;
-            let opt = &mut *ptr.add(offset).cast::<Option<F::InstanceBuilder>>();
-            Ok(opt.as_mut())
-        }
-    }
+    ) -> Option<Option<&mut F::InstanceBuilder>>;
 }
-
-pub struct Getter<T, U> {
-    pub(crate) offset: usize,
-    pub(crate) _phantom: PhantomData<fn(&mut T) -> &mut U>,
-}
-
-impl<T, U> Getter<T, U> {
-    pub fn get_mut<'a>(&self, container: &'a mut T) -> &'a mut U {
-        let ptr = container as *mut T;
-        unsafe { &mut *ptr.add(self.offset).cast::<U>() }
-    }
-}
-
-impl<T, U> Clone for Getter<T, U> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T, U> Copy for Getter<T, U> {}
-
-pub struct Getter2<T, U, V> {
-    pub(crate) offset1: usize,
-    pub(crate) offset2: usize,
-    #[allow(clippy::type_complexity)]
-    pub(crate) _phantom: PhantomData<fn(&mut T) -> (&mut U, &mut V)>,
-}
-
-impl<T, U, V> Getter2<T, U, V> {
-    pub fn get_mut<'a>(&self, container: &'a mut T) -> (&'a mut U, &'a mut V)
-    where
-        T: 'static,
-        U: 'static,
-        V: 'static,
-    {
-        let ptr = container as *mut T;
-        unsafe {
-            (
-                &mut *ptr.add(self.offset1).cast::<U>(),
-                &mut *ptr.add(self.offset2).cast::<V>(),
-            )
-        }
-    }
-}
-
-impl<T, U, V> Clone for Getter2<T, U, V> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T, U, V> Copy for Getter2<T, U, V> {}

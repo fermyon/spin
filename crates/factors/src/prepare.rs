@@ -1,10 +1,10 @@
-use std::marker::PhantomData;
+use std::{any::Any, marker::PhantomData};
 
 use anyhow::Context;
 
 use crate::{AppComponent, Factor, RuntimeFactors};
 
-pub trait FactorInstanceBuilder {
+pub trait FactorInstanceBuilder: Any {
     type InstanceState;
 
     fn build(self) -> anyhow::Result<Self::InstanceState>;
@@ -12,11 +12,21 @@ pub trait FactorInstanceBuilder {
 
 pub struct DefaultInstanceBuilder<T>(PhantomData<fn() -> T>);
 
-impl<T: Default> FactorInstanceBuilder for DefaultInstanceBuilder<T> {
+impl<T: Default + 'static> FactorInstanceBuilder for DefaultInstanceBuilder<T> {
     type InstanceState = T;
 
     fn build(self) -> anyhow::Result<Self::InstanceState> {
         Ok(Default::default())
+    }
+}
+
+pub trait SelfInstanceBuilder: 'static {}
+
+impl<T: SelfInstanceBuilder> FactorInstanceBuilder for T {
+    type InstanceState = Self;
+
+    fn build(self) -> anyhow::Result<Self::InstanceState> {
+        Ok(self)
     }
 }
 
@@ -68,6 +78,8 @@ impl<'a, T: RuntimeFactors> InstanceBuilders<'a, T> {
     /// [`Factor`] or if the given [`Factor`]'s builder has not been prepared
     /// yet (because it is sequenced after this factor).
     pub fn get_mut<F: Factor>(&mut self) -> crate::Result<&mut F::InstanceBuilder> {
-        T::instance_builder_mut::<F>(self.inner)?.context("builder not prepared")
+        T::instance_builder_mut::<F>(self.inner)
+            .context("no such factor")?
+            .context("builder not prepared")
     }
 }

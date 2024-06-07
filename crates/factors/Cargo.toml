@@ -19,6 +19,8 @@ spin-factors-derive = { path = "../factors-derive", features = ["expander"] }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }
+tokio = { version = "1", features = ["macros", "rt"] }
+toml = "0.8"
 
 [lints]
 workspace = true

@@ -104,6 +104,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                         )?
                     );
                 )*
+                runtime_config_tracker.validate_all_keys_used()?;
                 Ok(#ConfiguredApp::new(app, app_state))
             }
 
@@ -142,32 +143,29 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             type InstanceBuilders = #builders_name;
             type InstanceState = #state_name;
 
-            unsafe fn instance_builder_offset<T: #Factor>() -> Option<usize> {
-                let type_id = #TypeId::of::<T>();
+            fn app_state<F: #Factor>(app_state: &Self::AppState) -> Option<&F::AppState> {
+                let type_id = #TypeId::of::<F>();
                 #(
                     if type_id == #TypeId::of::<#factor_types>() {
-                        return Some(std::mem::offset_of!(Self::InstanceBuilders, #factor_names));
+                        unsafe {
+                            return Some(::std::mem::transmute(&app_state.#factor_names));
+                        }
                     }
                 )*
                 None
             }
 
-            unsafe fn instance_state_offset<T: #Factor>() -> Option<usize> {
-                let type_id = #TypeId::of::<T>();
+            fn instance_builder_mut<F: #Factor>(
+                builders: &mut Self::InstanceBuilders,
+            ) -> Option<Option<&mut F::InstanceBuilder>> {
+                let type_id = #TypeId::of::<F>();
                 #(
                     if type_id == #TypeId::of::<#factor_types>() {
-                        return Some(std::mem::offset_of!(Self::InstanceState, #factor_names));
-                    }
-                )*
-                None
-
-            }
-
-            fn app_state<T: #Factor>(app_state: &Self::AppState) -> Option<&T::AppState> {
-                let type_id = #TypeId::of::<T>();
-                #(
-                    if type_id == #TypeId::of::<#factor_types>() {
-                        return Some(unsafe { std::mem::transmute(&app_state.#factor_names) });
+                        return Some(
+                            builders.#factor_names.as_mut().map(|builder| {
+                                unsafe { ::std::mem::transmute(builder) }
+                            })
+                        );
                     }
                 )*
                 None

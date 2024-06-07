@@ -7575,9 +7575,11 @@ dependencies = [
 name = "spin-factor-variables"
 version = "2.6.0-pre0"
 dependencies = [
+ "serde 1.0.197",
  "spin-expressions",
  "spin-factors",
  "spin-world",
+ "toml 0.8.12",
 ]
 
 [[package]]
@@ -7602,6 +7604,8 @@ dependencies = [
  "spin-factor-wasi",
  "spin-factors-derive",
  "thiserror",
+ "tokio",
+ "toml 0.8.12",
  "tracing",
  "wasmtime",
 ]

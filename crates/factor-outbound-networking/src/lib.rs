@@ -91,14 +91,12 @@ impl Factor for OutboundNetworkingFactor {
     }
 }
 
-#[derive(Default)]
 pub struct AppState {
     component_allowed_hosts: HashMap<String, Arc<[String]>>,
 }
 
 type SharedFutureResult<T> = Shared<BoxFuture<'static, Arc<anyhow::Result<T>>>>;
 
-#[derive(Default)]
 pub struct InstanceBuilder {
     allowed_hosts_future: Option<SharedFutureResult<AllowedHostsConfig>>,
 }

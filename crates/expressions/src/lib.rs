@@ -5,6 +5,8 @@ use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
 use spin_locked_app::Variable;
 
+pub use async_trait;
+
 pub use provider::Provider;
 use template::Part;
 pub use template::Template;
@@ -248,6 +250,14 @@ impl<'a> Key<'a> {
             }
         }
         .map_err(|reason| Error::InvalidName(format!("{key:?}: {reason}")))
+    }
+}
+
+impl<'a> TryFrom<&'a str> for Key<'a> {
+    type Error = Error;
+
+    fn try_from(value: &'a str) -> std::prelude::v1::Result<Self, Self::Error> {
+        Self::new(value)
     }
 }
 

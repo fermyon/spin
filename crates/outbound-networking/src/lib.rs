@@ -187,6 +187,9 @@ impl HostConfig {
             bail!("Invalid allowed host {host}: wildcards are allowed only as subdomains");
         }
 
+        // Remove trailing slashes
+        host = host.trim_end_matches('/');
+
         Ok(Self::List(vec![host.into()]))
     }
 
@@ -503,6 +506,37 @@ mod test {
     use std::net::{Ipv4Addr, Ipv6Addr};
 
     #[test]
+    fn test_allowed_hosts_accepts_url_without_port() {
+        assert_eq!(
+            AllowedHostConfig::new(
+                SchemeConfig::new("http"),
+                HostConfig::new("spin.fermyon.dev"),
+                PortConfig::new(80)
+            ),
+            AllowedHostConfig::parse("http://spin.fermyon.dev").unwrap()
+        );
+
+        assert_eq!(
+            AllowedHostConfig::new(
+                SchemeConfig::new("http"),
+                // Trailing slash is removed
+                HostConfig::new("spin.fermyon.dev"),
+                PortConfig::new(80)
+            ),
+            AllowedHostConfig::parse("http://spin.fermyon.dev/").unwrap()
+        );
+
+        assert_eq!(
+            AllowedHostConfig::new(
+                SchemeConfig::new("https"),
+                HostConfig::new("spin.fermyon.dev"),
+                PortConfig::new(443)
+            ),
+            AllowedHostConfig::parse("https://spin.fermyon.dev").unwrap()
+        );
+    }
+
+    #[test]
     fn test_allowed_hosts_accepts_url_with_port() {
         assert_eq!(
             AllowedHostConfig::new(
@@ -667,6 +701,9 @@ mod test {
 
     #[test]
     fn test_allowed_hosts_rejects_path() {
+        // An empty path is allowed
+        assert!(AllowedHostConfig::parse("http://spin.fermyon.dev/").is_ok());
+        // All other paths are not allowed
         assert!(AllowedHostConfig::parse("http://spin.fermyon.dev/a").is_err());
         assert!(AllowedHostConfig::parse("http://spin.fermyon.dev:6666/a/b").is_err());
         assert!(AllowedHostConfig::parse("http://*.fermyon.dev/a").is_err());
@@ -700,11 +737,21 @@ mod test {
         assert!(
             allowed.allows(&OutboundUrl::parse("http://example.com:8383/foo/bar", "http").unwrap())
         );
+        // Allow urls with and without a trailing slash
+        assert!(allowed.allows(&OutboundUrl::parse("https://spin.fermyon.dev", "https").unwrap()));
         assert!(allowed.allows(&OutboundUrl::parse("https://spin.fermyon.dev/", "https").unwrap()));
         assert!(!allowed.allows(&OutboundUrl::parse("http://example.com/", "http").unwrap()));
         assert!(!allowed.allows(&OutboundUrl::parse("http://google.com/", "http").unwrap()));
         assert!(allowed.allows(&OutboundUrl::parse("spin.fermyon.dev:443", "https").unwrap()));
         assert!(allowed.allows(&OutboundUrl::parse("example.com:8383", "http").unwrap()));
+    }
+
+    #[test]
+    fn test_allowed_hosts_with_trailing_slash() {
+        let allowed =
+            AllowedHostsConfig::parse(&["https://my.api.com/"], &dummy_resolver()).unwrap();
+        assert!(allowed.allows(&OutboundUrl::parse("https://my.api.com", "https").unwrap()));
+        assert!(allowed.allows(&OutboundUrl::parse("https://my.api.com/", "https").unwrap()));
     }
 
     #[test]

@@ -3,7 +3,8 @@ pub mod preview1;
 use std::{future::Future, net::SocketAddr, path::Path};
 
 use spin_factors::{
-    anyhow, AppComponent, Factor, InitContext, InstancePreparers, PrepareContext, RuntimeFactors,
+    anyhow, AppComponent, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
+    PrepareContext, RuntimeFactors,
 };
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
@@ -20,9 +21,9 @@ impl WasiFactor {
 }
 
 impl Factor for WasiFactor {
+    type RuntimeConfig = ();
     type AppState = ();
-    type InstancePreparer = InstancePreparer;
-    type InstanceState = InstanceState;
+    type InstanceBuilder = InstanceBuilder;
 
     fn init<Factors: RuntimeFactors>(
         &mut self,
@@ -69,10 +70,10 @@ impl Factor for WasiFactor {
         Ok(())
     }
 
-    fn create_preparer<T: RuntimeFactors>(
+    fn prepare<T: RuntimeFactors>(
         ctx: PrepareContext<Self>,
-        _preparers: InstancePreparers<T>,
-    ) -> anyhow::Result<Self::InstancePreparer> {
+        _builders: &mut InstanceBuilders<T>,
+    ) -> anyhow::Result<InstanceBuilder> {
         let mut wasi_ctx = WasiCtxBuilder::new();
 
         // Apply environment variables
@@ -88,15 +89,7 @@ impl Factor for WasiFactor {
             .files_mounter
             .mount_files(ctx.app_component(), mount_ctx)?;
 
-        Ok(InstancePreparer { wasi_ctx })
-    }
-
-    fn prepare(&self, preparer: InstancePreparer) -> anyhow::Result<InstanceState> {
-        let InstancePreparer { mut wasi_ctx } = preparer;
-        Ok(InstanceState {
-            ctx: wasi_ctx.build(),
-            table: Default::default(),
-        })
+        Ok(InstanceBuilder { wasi_ctx })
     }
 }
 
@@ -147,19 +140,23 @@ impl<'a> MountFilesContext<'a> {
     }
 }
 
-pub struct InstancePreparer {
+pub struct InstanceBuilder {
     wasi_ctx: WasiCtxBuilder,
 }
 
-impl Default for InstancePreparer {
-    fn default() -> Self {
-        Self {
-            wasi_ctx: WasiCtxBuilder::new(),
-        }
+impl FactorInstanceBuilder for InstanceBuilder {
+    type InstanceState = InstanceState;
+
+    fn build(self) -> anyhow::Result<Self::InstanceState> {
+        let InstanceBuilder { mut wasi_ctx } = self;
+        Ok(InstanceState {
+            ctx: wasi_ctx.build(),
+            table: Default::default(),
+        })
     }
 }
 
-impl InstancePreparer {
+impl InstanceBuilder {
     pub fn outbound_socket_addr_check<F, Fut>(&mut self, check: F)
     where
         F: Fn(SocketAddr) -> Fut + Send + Sync + Clone + 'static,

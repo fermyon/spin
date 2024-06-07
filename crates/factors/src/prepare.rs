@@ -1,26 +1,40 @@
+use std::marker::PhantomData;
+
 use anyhow::Context;
 
 use crate::{AppComponent, Factor, RuntimeFactors};
 
-/// A PrepareContext is passed to [`FactorInstancePreparer::new`], giving access
-/// to any already-initialized [`FactorInstancePreparer`]s, allowing for
+pub trait FactorInstanceBuilder {
+    type InstanceState;
+
+    fn build(self) -> anyhow::Result<Self::InstanceState>;
+}
+
+pub struct DefaultInstanceBuilder<T>(PhantomData<fn() -> T>);
+
+impl<T: Default> FactorInstanceBuilder for DefaultInstanceBuilder<T> {
+    type InstanceState = T;
+
+    fn build(self) -> anyhow::Result<Self::InstanceState> {
+        Ok(Default::default())
+    }
+}
+
+/// A PrepareContext is passed to [`Factor::prepare`], giving access to any
+/// already-initialized [`FactorInstanceBuilder`]s, allowing for
 /// inter-[`Factor`] dependencies.
 pub struct PrepareContext<'a, F: Factor> {
     pub(crate) factor: &'a F,
-    pub(crate) app_config: &'a F::AppState,
+    pub(crate) app_state: &'a F::AppState,
     pub(crate) app_component: &'a AppComponent<'a>,
 }
 
 impl<'a, F: Factor> PrepareContext<'a, F> {
     #[doc(hidden)]
-    pub fn new(
-        factor: &'a F,
-        app_config: &'a F::AppState,
-        app_component: &'a AppComponent,
-    ) -> Self {
+    pub fn new(factor: &'a F, app_state: &'a F::AppState, app_component: &'a AppComponent) -> Self {
         Self {
             factor,
-            app_config,
+            app_state,
             app_component,
         }
     }
@@ -29,8 +43,8 @@ impl<'a, F: Factor> PrepareContext<'a, F> {
         self.factor
     }
 
-    pub fn app_config(&self) -> &F::AppState {
-        self.app_config
+    pub fn app_state(&self) -> &F::AppState {
+        self.app_state
     }
 
     pub fn app_component(&self) -> &AppComponent {
@@ -38,22 +52,22 @@ impl<'a, F: Factor> PrepareContext<'a, F> {
     }
 }
 
-pub struct InstancePreparers<'a, T: RuntimeFactors> {
-    pub(crate) inner: &'a mut T::InstancePreparers,
+pub struct InstanceBuilders<'a, T: RuntimeFactors> {
+    pub(crate) inner: &'a mut T::InstanceBuilders,
 }
 
-impl<'a, T: RuntimeFactors> InstancePreparers<'a, T> {
+impl<'a, T: RuntimeFactors> InstanceBuilders<'a, T> {
     #[doc(hidden)]
-    pub fn new(inner: &'a mut T::InstancePreparers) -> Self {
+    pub fn new(inner: &'a mut T::InstanceBuilders) -> Self {
         Self { inner }
     }
 
-    /// Returns a already-initialized preparer for the given [`Factor`].
+    /// Returns the prepared [`FactorInstanceBuilder`] for the given [`Factor`].
     ///
     /// Fails if the current [`RuntimeFactors`] does not include the given
-    /// [`Factor`] or if the given [`Factor`]'s preparer has not been
-    /// initialized yet (because it is sequenced after this factor).
-    pub fn get_mut<F: Factor>(&mut self) -> crate::Result<&mut F::InstancePreparer> {
-        T::instance_preparer_mut::<F>(self.inner)?.context("preparer not initialized")
+    /// [`Factor`] or if the given [`Factor`]'s builder has not been prepared
+    /// yet (because it is sequenced after this factor).
+    pub fn get_mut<F: Factor>(&mut self) -> crate::Result<&mut F::InstanceBuilder> {
+        T::instance_builder_mut::<F>(self.inner)?.context("builder not prepared")
     }
 }

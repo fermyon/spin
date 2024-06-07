@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use anyhow::Context;
 
-use crate::Factor;
+use crate::{factor::FactorInstanceState, Factor};
 
 // TODO(lann): Most of the unsafe shenanigans here probably aren't worth it;
 // consider replacing with e.g. `Any::downcast`.
@@ -10,18 +10,19 @@ use crate::Factor;
 /// Implemented by `#[derive(RuntimeFactors)]`
 pub trait RuntimeFactors: Sized {
     type AppState;
-    type InstancePreparers;
+    type InstanceBuilders;
     type InstanceState: Send + 'static;
 
     #[doc(hidden)]
-    unsafe fn instance_preparer_offset<F: Factor>() -> Option<usize>;
+    unsafe fn instance_builder_offset<F: Factor>() -> Option<usize>;
 
     #[doc(hidden)]
     unsafe fn instance_state_offset<F: Factor>() -> Option<usize>;
 
-    fn app_config<F: Factor>(app_configs: &Self::AppState) -> Option<&F::AppState>;
+    fn app_state<F: Factor>(app_state: &Self::AppState) -> Option<&F::AppState>;
 
-    fn instance_state_getter<F: Factor>() -> Option<Getter<Self::InstanceState, F::InstanceState>> {
+    fn instance_state_getter<F: Factor>(
+    ) -> Option<Getter<Self::InstanceState, FactorInstanceState<F>>> {
         let offset = unsafe { Self::instance_state_offset::<F>()? };
         Some(Getter {
             offset,
@@ -30,7 +31,8 @@ pub trait RuntimeFactors: Sized {
     }
 
     fn instance_state_getter2<F1: Factor, F2: Factor>(
-    ) -> Option<Getter2<Self::InstanceState, F1::InstanceState, F2::InstanceState>> {
+    ) -> Option<Getter2<Self::InstanceState, FactorInstanceState<F1>, FactorInstanceState<F2>>>
+    {
         let offset1 = unsafe { Self::instance_state_offset::<F1>()? };
         let offset2 = unsafe { Self::instance_state_offset::<F2>()? };
         assert_ne!(
@@ -44,13 +46,13 @@ pub trait RuntimeFactors: Sized {
         })
     }
 
-    fn instance_preparer_mut<F: Factor>(
-        preparers: &mut Self::InstancePreparers,
-    ) -> crate::Result<Option<&mut F::InstancePreparer>> {
+    fn instance_builder_mut<F: Factor>(
+        builders: &mut Self::InstanceBuilders,
+    ) -> crate::Result<Option<&mut F::InstanceBuilder>> {
         unsafe {
-            let offset = Self::instance_preparer_offset::<F>().context("no such factor")?;
-            let ptr = preparers as *mut Self::InstancePreparers;
-            let opt = &mut *ptr.add(offset).cast::<Option<F::InstancePreparer>>();
+            let offset = Self::instance_builder_offset::<F>().context("no such factor")?;
+            let ptr = builders as *mut Self::InstanceBuilders;
+            let opt = &mut *ptr.add(offset).cast::<Option<F::InstanceBuilder>>();
             Ok(opt.as_mut())
         }
     }

@@ -3,22 +3,16 @@ use std::any::Any;
 use anyhow::Context;
 
 use crate::{
-    App, InstancePreparers, Linker, ModuleLinker, PrepareContext, RuntimeConfig, RuntimeFactors,
+    prepare::FactorInstanceBuilder, runtime_config::RuntimeConfigTracker, App, FactorRuntimeConfig,
+    InstanceBuilders, Linker, ModuleLinker, PrepareContext, RuntimeConfigSource, RuntimeFactors,
 };
 
 pub trait Factor: Any + Sized {
-    /// Per-app state for this factor.
-    ///
-    /// See [`Factor::configure_app`].
+    type RuntimeConfig: FactorRuntimeConfig;
+
     type AppState: Default;
 
-    /// The [`FactorInstancePreparer`] for this factor.
-    type InstancePreparer: Default;
-
-    /// The per-instance state for this factor, constructed by a
-    /// [`FactorInstancePreparer`] and available to any host-provided imports
-    /// defined by this factor.
-    type InstanceState;
+    type InstanceBuilder: FactorInstanceBuilder;
 
     /// Initializes this Factor for a runtime. This will be called at most once,
     /// before any call to [`FactorInstancePreparer::new`]
@@ -34,28 +28,23 @@ pub trait Factor: Any + Sized {
     /// any call to `init` in cases where only validation is needed.
     fn configure_app<T: RuntimeFactors>(
         &self,
-        ctx: ConfigureAppContext<T>,
-        _runtime_config: &mut impl RuntimeConfig,
+        ctx: ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState> {
         _ = ctx;
         Ok(Default::default())
     }
 
-    /// Returns a new instance of this preparer for the given [`Factor`].
-    fn create_preparer<T: RuntimeFactors>(
+    fn prepare<T: RuntimeFactors>(
         ctx: PrepareContext<Self>,
-        _preparers: InstancePreparers<T>,
-    ) -> anyhow::Result<Self::InstancePreparer> {
-        _ = ctx;
-        Ok(Default::default())
-    }
-
-    /// Returns a new instance of the associated [`Factor::InstanceState`].
-    fn prepare(&self, preparer: Self::InstancePreparer) -> anyhow::Result<Self::InstanceState>;
+        _builders: &mut InstanceBuilders<T>,
+    ) -> anyhow::Result<Self::InstanceBuilder>;
 }
 
-pub(crate) type GetDataFn<Facts, Fact> =
-    fn(&mut <Facts as RuntimeFactors>::InstanceState) -> &mut <Fact as Factor>::InstanceState;
+pub(crate) type FactorInstanceState<F> =
+    <<F as Factor>::InstanceBuilder as FactorInstanceBuilder>::InstanceState;
+
+pub(crate) type GetDataFn<Facts, F> =
+    fn(&mut <Facts as RuntimeFactors>::InstanceState) -> &mut FactorInstanceState<F>;
 
 /// An InitContext is passed to [`Factor::init`], giving access to the global
 /// common [`wasmtime::component::Linker`].
@@ -95,7 +84,7 @@ impl<'a, T: RuntimeFactors, F: Factor> InitContext<'a, T, F> {
         &mut self,
         add_to_linker: impl Fn(
             &mut Linker<T>,
-            fn(&mut T::InstanceState) -> &mut F::InstanceState,
+            fn(&mut T::InstanceState) -> &mut FactorInstanceState<F>,
         ) -> anyhow::Result<()>,
     ) -> anyhow::Result<()>
 where {
@@ -110,7 +99,7 @@ where {
         &mut self,
         add_to_linker: impl Fn(
             &mut ModuleLinker<T>,
-            fn(&mut T::InstanceState) -> &mut F::InstanceState,
+            fn(&mut T::InstanceState) -> &mut FactorInstanceState<F>,
         ) -> anyhow::Result<()>,
     ) -> anyhow::Result<()>
 where {
@@ -122,42 +111,60 @@ where {
     }
 }
 
-pub struct ConfigureAppContext<'a, T: RuntimeFactors> {
-    pub(crate) app: &'a App,
-    pub(crate) app_configs: &'a T::AppState,
+pub struct ConfigureAppContext<'a, T: RuntimeFactors, F: Factor> {
+    app: &'a App,
+    app_state: &'a T::AppState,
+    runtime_config: Option<F::RuntimeConfig>,
 }
 
-impl<'a, T: RuntimeFactors> ConfigureAppContext<'a, T> {
+impl<'a, T: RuntimeFactors, F: Factor> ConfigureAppContext<'a, T, F> {
     #[doc(hidden)]
-    pub fn new(app: &'a App, app_configs: &'a T::AppState) -> Self {
-        Self { app, app_configs }
+    pub fn new<S: RuntimeConfigSource>(
+        app: &'a App,
+        app_state: &'a T::AppState,
+        runtime_config_tracker: &mut RuntimeConfigTracker<S>,
+    ) -> anyhow::Result<Self> {
+        let runtime_config = runtime_config_tracker.get_config::<F>()?;
+        Ok(Self {
+            app,
+            app_state,
+            runtime_config,
+        })
     }
 
     pub fn app(&self) -> &App {
         self.app
     }
 
-    pub fn app_config<F: Factor>(&self) -> crate::Result<&F::AppState> {
-        T::app_config::<F>(self.app_configs).context("no such factor")
+    pub fn app_state<U: Factor>(&self) -> crate::Result<&U::AppState> {
+        T::app_state::<U>(self.app_state).context("no such factor")
+    }
+
+    pub fn runtime_config(&self) -> Option<&F::RuntimeConfig> {
+        self.runtime_config.as_ref()
+    }
+
+    pub fn take_runtime_config(&mut self) -> Option<F::RuntimeConfig> {
+        self.runtime_config.take()
     }
 }
 
 pub struct ConfiguredApp<T: RuntimeFactors> {
     app: App,
-    app_configs: T::AppState,
+    app_state: T::AppState,
 }
 
 impl<T: RuntimeFactors> ConfiguredApp<T> {
     #[doc(hidden)]
-    pub fn new(app: App, app_configs: T::AppState) -> Self {
-        Self { app, app_configs }
+    pub fn new(app: App, app_state: T::AppState) -> Self {
+        Self { app, app_state }
     }
 
     pub fn app(&self) -> &App {
         &self.app
     }
 
-    pub fn app_config<F: Factor>(&self) -> crate::Result<&F::AppState> {
-        T::app_config::<F>(&self.app_configs).context("no such factor")
+    pub fn app_state<F: Factor>(&self) -> crate::Result<&F::AppState> {
+        T::app_state::<F>(&self.app_state).context("no such factor")
     }
 }

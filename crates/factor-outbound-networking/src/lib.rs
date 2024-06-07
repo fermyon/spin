@@ -8,21 +8,21 @@ use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::WasiFactor;
 use spin_factors::{
     anyhow::{self, Context},
-    ConfigureAppContext, Factor, InstancePreparers, PrepareContext, RuntimeConfig, RuntimeFactors,
+    ConfigureAppContext, Factor, FactorInstanceBuilder, InstanceBuilders, PrepareContext,
+    RuntimeFactors,
 };
 use spin_outbound_networking::{AllowedHostsConfig, ALLOWED_HOSTS_KEY};
 
 pub struct OutboundNetworkingFactor;
 
 impl Factor for OutboundNetworkingFactor {
+    type RuntimeConfig = ();
     type AppState = AppState;
-    type InstancePreparer = InstancePreparer;
-    type InstanceState = ();
+    type InstanceBuilder = InstanceBuilder;
 
-    fn configure_app<Factors: RuntimeFactors>(
+    fn configure_app<T: RuntimeFactors>(
         &self,
-        ctx: ConfigureAppContext<Factors>,
-        _runtime_config: &mut impl RuntimeConfig,
+        ctx: ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState> {
         // Extract allowed_outbound_hosts for all components
         let component_allowed_hosts = ctx
@@ -44,17 +44,17 @@ impl Factor for OutboundNetworkingFactor {
         })
     }
 
-    fn create_preparer<T: RuntimeFactors>(
+    fn prepare<T: RuntimeFactors>(
         ctx: PrepareContext<Self>,
-        mut preparers: InstancePreparers<T>,
-    ) -> anyhow::Result<Self::InstancePreparer> {
+        builders: &mut InstanceBuilders<T>,
+    ) -> anyhow::Result<Self::InstanceBuilder> {
         let hosts = ctx
-            .app_config()
+            .app_state()
             .component_allowed_hosts
             .get(ctx.app_component().id())
             .cloned()
             .context("missing component allowed hosts")?;
-        let resolver = preparers.get_mut::<VariablesFactor>()?.resolver().clone();
+        let resolver = builders.get_mut::<VariablesFactor>()?.resolver().clone();
         let allowed_hosts_future = async move {
             let prepared = resolver.prepare().await?;
             AllowedHostsConfig::parse(&hosts, &prepared)
@@ -69,7 +69,7 @@ impl Factor for OutboundNetworkingFactor {
         // )?;
 
         // Update Wasi socket allowed ports
-        let wasi_preparer = preparers.get_mut::<WasiFactor>()?;
+        let wasi_preparer = builders.get_mut::<WasiFactor>()?;
         let hosts_future = allowed_hosts_future.clone();
         wasi_preparer.outbound_socket_addr_check(move |addr| {
             let hosts_future = hosts_future.clone();
@@ -87,14 +87,7 @@ impl Factor for OutboundNetworkingFactor {
                 }
             }
         });
-        Ok(InstancePreparer::new(allowed_hosts_future))
-    }
-
-    fn prepare(
-        &self,
-        _preparer: InstancePreparer,
-    ) -> anyhow::Result<<OutboundNetworkingFactor as Factor>::InstanceState> {
-        Ok(())
+        Ok(InstanceBuilder::new(allowed_hosts_future))
     }
 }
 
@@ -106,11 +99,11 @@ pub struct AppState {
 type SharedFutureResult<T> = Shared<BoxFuture<'static, Arc<anyhow::Result<T>>>>;
 
 #[derive(Default)]
-pub struct InstancePreparer {
+pub struct InstanceBuilder {
     allowed_hosts_future: Option<SharedFutureResult<AllowedHostsConfig>>,
 }
 
-impl InstancePreparer {
+impl InstanceBuilder {
     fn new(allowed_hosts_future: SharedFutureResult<AllowedHostsConfig>) -> Self {
         Self {
             allowed_hosts_future: Some(allowed_hosts_future),
@@ -122,5 +115,13 @@ impl InstancePreparer {
             .clone()
             .expect("allowed_hosts_future not set")
             .await
+    }
+}
+
+impl FactorInstanceBuilder for InstanceBuilder {
+    type InstanceState = ();
+
+    fn build(self) -> anyhow::Result<Self::InstanceState> {
+        Ok(())
     }
 }

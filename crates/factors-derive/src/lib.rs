@@ -20,8 +20,8 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let name = &input.ident;
     let vis = &input.vis;
 
-    let app_configs_name = format_ident!("{name}AppState");
-    let preparers_name = format_ident!("{name}InstancePreparers");
+    let app_state_name = format_ident!("{name}AppState");
+    let builders_name = format_ident!("{name}InstanceBuilders");
     let state_name = format_ident!("{name}InstanceState");
 
     if !input.generics.params.is_empty() {
@@ -61,6 +61,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let Factor = quote!(#factors_path::Factor);
     let ConfiguredApp = quote!(#factors_path::ConfiguredApp);
     let RuntimeConfigTracker = quote!(#factors_path::__internal::RuntimeConfigTracker);
+    let FactorInstanceBuilder = quote!(#factors_path::FactorInstanceBuilder);
 
     Ok(quote! {
         impl #name {
@@ -87,46 +88,48 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 app: #factors_path::App,
                 runtime_config: impl #factors_path::RuntimeConfigSource
             ) -> #Result<#ConfiguredApp<Self>> {
-                let mut app_configs = #app_configs_name {
+                let mut app_state = #app_state_name {
                     #( #factor_names: None, )*
                 };
-                let mut runtime_config = #RuntimeConfigTracker::new(runtime_config);
+                let mut runtime_config_tracker = #RuntimeConfigTracker::new(runtime_config);
                 #(
-                    app_configs.#factor_names = Some(
+                    app_state.#factor_names = Some(
                         #Factor::configure_app(
                             &self.#factor_names,
-                            #factors_path::ConfigureAppContext::<Self>::new(&app, &app_configs),
-                            &mut runtime_config,
+                            #factors_path::ConfigureAppContext::<Self, #factor_types>::new(
+                                &app,
+                                &app_state,
+                                &mut runtime_config_tracker,
+                            )?,
                         )?
                     );
                 )*
-                Ok(#ConfiguredApp::new(app, app_configs))
+                Ok(#ConfiguredApp::new(app, app_state))
             }
 
             pub fn build_store_data(&self, configured_app: &#ConfiguredApp<Self>, component_id: &str) -> #Result<#state_name> {
                 let app_component = configured_app.app().get_component(component_id).ok_or_else(|| {
                     #wasmtime::Error::msg("unknown component")
                 })?;
-                let mut preparers = #preparers_name {
+                let mut builders = #builders_name {
                     #( #factor_names: None, )*
                 };
                 #(
-                    preparers.#factor_names = Some(
-                        #Factor::create_preparer::<Self>(
+                    builders.#factor_names = Some(
+                        #Factor::prepare::<Self>(
                             #factors_path::PrepareContext::new(
                                 &self.#factor_names,
-                                configured_app.app_config::<#factor_types>().unwrap(),
+                                configured_app.app_state::<#factor_types>().unwrap(),
                                 &app_component,
                             ),
-                            #factors_path::InstancePreparers::new(&mut preparers),
+                            &mut #factors_path::InstanceBuilders::new(&mut builders),
                         )?
                     );
                 )*
                 Ok(#state_name {
                     #(
-                        #factor_names: #Factor::prepare(
-                            &self.#factor_names,
-                            preparers.#factor_names.unwrap(),
+                        #factor_names: #FactorInstanceBuilder::build(
+                            builders.#factor_names.unwrap(),
                         )?,
                     )*
                 })
@@ -135,15 +138,15 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
 
         impl #factors_path::RuntimeFactors for #name {
-            type AppState = #app_configs_name;
-            type InstancePreparers = #preparers_name;
+            type AppState = #app_state_name;
+            type InstanceBuilders = #builders_name;
             type InstanceState = #state_name;
 
-            unsafe fn instance_preparer_offset<T: #Factor>() -> Option<usize> {
+            unsafe fn instance_builder_offset<T: #Factor>() -> Option<usize> {
                 let type_id = #TypeId::of::<T>();
                 #(
                     if type_id == #TypeId::of::<#factor_types>() {
-                        return Some(std::mem::offset_of!(Self::InstancePreparers, #factor_names));
+                        return Some(std::mem::offset_of!(Self::InstanceBuilders, #factor_names));
                     }
                 )*
                 None
@@ -160,32 +163,32 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
 
             }
 
-            fn app_config<T: #Factor>(app_configs: &Self::AppState) -> Option<&T::AppState> {
+            fn app_state<T: #Factor>(app_state: &Self::AppState) -> Option<&T::AppState> {
                 let type_id = #TypeId::of::<T>();
                 #(
                     if type_id == #TypeId::of::<#factor_types>() {
-                        return Some(unsafe { std::mem::transmute(&app_configs.#factor_names) });
+                        return Some(unsafe { std::mem::transmute(&app_state.#factor_names) });
                     }
                 )*
                 None
             }
         }
 
-        #vis struct #app_configs_name {
+        #vis struct #app_state_name {
             #(
                 pub #factor_names: Option<<#factor_types as #Factor>::AppState>,
             )*
         }
 
-        #vis struct #preparers_name {
+        #vis struct #builders_name {
             #(
-                pub #factor_names: Option<<#factor_types as #Factor>::InstancePreparer>,
+                pub #factor_names: Option<<#factor_types as #Factor>::InstanceBuilder>,
             )*
         }
 
         #vis struct #state_name {
             #(
-                pub #factor_names: <#factor_types as #Factor>::InstanceState,
+                pub #factor_names: <<#factor_types as #Factor>::InstanceBuilder as #FactorInstanceBuilder>::InstanceState,
             )*
         }
     })

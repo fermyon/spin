@@ -2,17 +2,17 @@ use std::sync::Arc;
 
 use spin_expressions::ProviderResolver;
 use spin_factors::{
-    anyhow, ConfigureAppContext, Factor, InitContext, InstancePreparers, PrepareContext,
-    RuntimeConfig, RuntimeFactors,
+    anyhow, ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
+    PrepareContext, RuntimeFactors,
 };
 use spin_world::{async_trait, v1::config as v1_config, v2::variables};
 
 pub struct VariablesFactor;
 
 impl Factor for VariablesFactor {
+    type RuntimeConfig = ();
     type AppState = AppState;
-    type InstancePreparer = InstancePreparer;
-    type InstanceState = InstanceState;
+    type InstanceBuilder = InstanceBuilder;
 
     fn init<Factors: RuntimeFactors>(
         &mut self,
@@ -23,10 +23,9 @@ impl Factor for VariablesFactor {
         Ok(())
     }
 
-    fn configure_app<Factors: RuntimeFactors>(
+    fn configure_app<T: RuntimeFactors>(
         &self,
-        ctx: ConfigureAppContext<Factors>,
-        _runtime_config: &mut impl RuntimeConfig,
+        ctx: ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState> {
         let app = ctx.app();
         let mut resolver =
@@ -43,22 +42,18 @@ impl Factor for VariablesFactor {
         })
     }
 
-    fn create_preparer<T: RuntimeFactors>(
+    fn prepare<T: RuntimeFactors>(
         ctx: PrepareContext<Self>,
-        _preparers: InstancePreparers<T>,
-    ) -> anyhow::Result<Self::InstancePreparer> {
+        _builders: &mut InstanceBuilders<T>,
+    ) -> anyhow::Result<InstanceBuilder> {
         let component_id = ctx.app_component().id().to_string();
-        let resolver = ctx.app_config().resolver.clone();
-        Ok(InstancePreparer {
+        let resolver = ctx.app_state().resolver.clone();
+        Ok(InstanceBuilder {
             state: InstanceState {
                 component_id,
                 resolver,
             },
         })
-    }
-
-    fn prepare(&self, preparer: InstancePreparer) -> anyhow::Result<InstanceState> {
-        Ok(preparer.state)
     }
 }
 
@@ -67,14 +62,21 @@ pub struct AppState {
     resolver: Arc<ProviderResolver>,
 }
 
-#[derive(Default)]
-pub struct InstancePreparer {
+pub struct InstanceBuilder {
     state: InstanceState,
 }
 
-impl InstancePreparer {
+impl InstanceBuilder {
     pub fn resolver(&self) -> &Arc<ProviderResolver> {
         &self.state.resolver
+    }
+}
+
+impl FactorInstanceBuilder for InstanceBuilder {
+    type InstanceState = InstanceState;
+
+    fn build(self) -> anyhow::Result<Self::InstanceState> {
+        Ok(self.state)
     }
 }
 

@@ -1,7 +1,7 @@
 mod factor;
 mod prepare;
 mod runtime_config;
-mod spin_factors;
+mod runtime_factors;
 
 pub use anyhow;
 pub use wasmtime;
@@ -10,9 +10,9 @@ pub use spin_factors_derive::RuntimeFactors;
 
 pub use crate::{
     factor::{ConfigureAppContext, ConfiguredApp, Factor, InitContext},
-    prepare::{InstancePreparers, PrepareContext},
-    runtime_config::{RuntimeConfig, RuntimeConfigSource},
-    spin_factors::RuntimeFactors,
+    prepare::{FactorInstanceBuilder, InstanceBuilders, PrepareContext},
+    runtime_config::{FactorRuntimeConfig, RuntimeConfigSource},
+    runtime_factors::RuntimeFactors,
 };
 
 pub type Linker<T> = wasmtime::component::Linker<<T as RuntimeFactors>::InstanceState>;

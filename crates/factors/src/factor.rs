@@ -10,7 +10,7 @@ use crate::{
 pub trait Factor: Any + Sized {
     type RuntimeConfig: FactorRuntimeConfig;
 
-    type AppState: Default;
+    type AppState;
 
     type InstanceBuilder: FactorInstanceBuilder;
 
@@ -29,10 +29,7 @@ pub trait Factor: Any + Sized {
     fn configure_app<T: RuntimeFactors>(
         &self,
         ctx: ConfigureAppContext<T, Self>,
-    ) -> anyhow::Result<Self::AppState> {
-        _ = ctx;
-        Ok(Default::default())
-    }
+    ) -> anyhow::Result<Self::AppState>;
 
     fn prepare<T: RuntimeFactors>(
         ctx: PrepareContext<Self>,

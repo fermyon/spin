@@ -15,6 +15,13 @@ impl Factor for WasiPreview1Factor {
         ctx.link_module_bindings(wasmtime_wasi::preview1::add_to_linker_async)
     }
 
+    fn configure_app<T: RuntimeFactors>(
+        &self,
+        _ctx: spin_factors::ConfigureAppContext<T, Self>,
+    ) -> anyhow::Result<Self::AppState> {
+        Ok(())
+    }
+
     fn prepare<T: RuntimeFactors>(
         _ctx: spin_factors::PrepareContext<Self>,
         _builders: &mut spin_factors::InstanceBuilders<T>,

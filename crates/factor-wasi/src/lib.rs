@@ -70,6 +70,13 @@ impl Factor for WasiFactor {
         Ok(())
     }
 
+    fn configure_app<T: RuntimeFactors>(
+        &self,
+        _ctx: spin_factors::ConfigureAppContext<T, Self>,
+    ) -> anyhow::Result<Self::AppState> {
+        Ok(())
+    }
+
     fn prepare<T: RuntimeFactors>(
         ctx: PrepareContext<Self>,
         _builders: &mut InstanceBuilders<T>,

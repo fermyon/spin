@@ -26,10 +26,10 @@ impl VariablesFactor {
     ) -> anyhow::Result<()> {
         if self
             .provider_types
-            .insert(T::TYPE, provider_maker(provider_type))
+            .insert(T::RUNTIME_CONFIG_TYPE, provider_maker(provider_type))
             .is_some()
         {
-            bail!("duplicate provider type {:?}", T::TYPE);
+            bail!("duplicate provider type {:?}", T::RUNTIME_CONFIG_TYPE);
         }
         Ok(())
     }

@@ -5,7 +5,7 @@ use spin_expressions::{async_trait::async_trait, Key, Provider};
 use spin_factors::anyhow;
 
 pub trait MakeVariablesProvider: 'static {
-    const TYPE: &'static str;
+    const RUNTIME_CONFIG_TYPE: &'static str;
 
     type RuntimeConfig: DeserializeOwned;
     type Provider: Provider;
@@ -26,7 +26,7 @@ pub(crate) fn provider_maker<T: MakeVariablesProvider>(provider_type: T) -> Prov
 pub struct StaticVariables;
 
 impl MakeVariablesProvider for StaticVariables {
-    const TYPE: &'static str = "static";
+    const RUNTIME_CONFIG_TYPE: &'static str = "static";
 
     type RuntimeConfig = StaticVariablesProvider;
     type Provider = StaticVariablesProvider;

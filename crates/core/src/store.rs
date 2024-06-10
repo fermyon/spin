@@ -1,10 +1,11 @@
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use cap_primitives::net::Pool;
-use cap_std::ipnet::IpNet;
+use cap_std::ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use std::{
     io::{Read, Write},
     mem,
+    net::{Ipv4Addr, Ipv6Addr},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -201,17 +202,27 @@ impl StoreBuilder {
         );
     }
 
-    /// Inherit the host network with a few hardcoded caveats
-    pub fn inherit_limited_network(&mut self) {
+    /// Allow unrestricted outbound access to the host network.
+    pub fn inherit_network(&mut self) {
         self.with_wasi(|wasi| match wasi {
             WasiCtxBuilder::Preview1(_) => {
                 panic!("Enabling network only allowed in preview2")
             }
-            WasiCtxBuilder::Preview2(ctx) => {
+            WasiCtxBuilder::Preview2(_) => {
                 // TODO: ctx.allow_udp(false);
-                ctx.inherit_network();
             }
         });
+
+        // Allow access to 0.0.0.0/0, i.e. all IPv4 addresses
+        self.net_pool.insert_ip_net_port_any(
+            IpNet::V4(Ipv4Net::new(Ipv4Addr::new(0, 0, 0, 0), 0).unwrap()),
+            cap_primitives::ambient_authority(),
+        );
+        // Allow access to 0:/0, i.e. all IPv6 addresses
+        self.net_pool.insert_ip_net_port_any(
+            IpNet::V6(Ipv6Net::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0), 0).unwrap()),
+            cap_primitives::ambient_authority(),
+        );
     }
 
     /// Sets the WASI `stdin` descriptor to the given [`Read`]er.

@@ -1,8 +1,5 @@
 use crate::Factor;
 
-// TODO(lann): Most of the unsafe shenanigans here probably aren't worth it;
-// consider replacing with e.g. `Any::downcast`.
-
 /// Implemented by `#[derive(RuntimeFactors)]`
 pub trait RuntimeFactors: Sized {
     type AppState;

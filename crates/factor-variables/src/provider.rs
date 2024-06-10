@@ -4,7 +4,7 @@ use serde::{de::DeserializeOwned, Deserialize};
 use spin_expressions::{async_trait::async_trait, Key, Provider};
 use spin_factors::anyhow;
 
-pub trait VariablesProviderType: 'static {
+pub trait MakeVariablesProvider: 'static {
     const TYPE: &'static str;
 
     type RuntimeConfig: DeserializeOwned;
@@ -15,7 +15,7 @@ pub trait VariablesProviderType: 'static {
 
 pub(crate) type ProviderMaker = Box<dyn Fn(toml::Table) -> anyhow::Result<Box<dyn Provider>>>;
 
-pub(crate) fn provider_maker<T: VariablesProviderType>(provider_type: T) -> ProviderMaker {
+pub(crate) fn provider_maker<T: MakeVariablesProvider>(provider_type: T) -> ProviderMaker {
     Box::new(move |table| {
         let runtime_config: T::RuntimeConfig = table.try_into()?;
         let provider = provider_type.make_provider(runtime_config)?;
@@ -25,7 +25,7 @@ pub(crate) fn provider_maker<T: VariablesProviderType>(provider_type: T) -> Prov
 
 pub struct StaticVariables;
 
-impl VariablesProviderType for StaticVariables {
+impl MakeVariablesProvider for StaticVariables {
     const TYPE: &'static str = "static";
 
     type RuntimeConfig = StaticVariablesProvider;

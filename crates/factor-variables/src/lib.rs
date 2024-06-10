@@ -1,8 +1,8 @@
-mod provider_type;
+mod provider;
 
 use std::{collections::HashMap, sync::Arc};
 
-use provider_type::{provider_maker, ProviderMaker};
+use provider::{provider_maker, ProviderMaker};
 use serde::Deserialize;
 use spin_expressions::ProviderResolver;
 use spin_factors::{
@@ -12,7 +12,7 @@ use spin_factors::{
 };
 use spin_world::{async_trait, v1::config as v1_config, v2::variables};
 
-pub use provider_type::{StaticVariables, VariablesProviderType};
+pub use provider::{MakeVariablesProvider, StaticVariables};
 
 #[derive(Default)]
 pub struct VariablesFactor {
@@ -20,7 +20,7 @@ pub struct VariablesFactor {
 }
 
 impl VariablesFactor {
-    pub fn add_provider_type<T: VariablesProviderType>(
+    pub fn add_provider_type<T: MakeVariablesProvider>(
         &mut self,
         provider_type: T,
     ) -> anyhow::Result<()> {

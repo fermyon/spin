@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, collections::HashMap};
 
 use anyhow::Context;
 
@@ -23,18 +23,36 @@ pub trait Factor: Any + Sized {
     }
 
     /// Performs factor-specific validation and configuration for the given
-    /// [`App`]. A runtime may - but is not required to - reuse the returned
-    /// config across multiple instances. Note that this may be called without
-    /// any call to `init` in cases where only validation is needed.
+    /// [`App`].
+    ///
+    /// A runtime may - but is not required to - reuse the returned config
+    /// across multiple instances. Note that this may be called without any call
+    /// to `init` in cases where only validation is needed.
     fn configure_app<T: RuntimeFactors>(
         &self,
         ctx: ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState>;
 
+    /// Prepares an instance builder for this factor.
+    ///
+    /// This method is given access to the app component being instantiated and
+    /// to any other factors' instance builders that have already been prepared.
     fn prepare<T: RuntimeFactors>(
         ctx: PrepareContext<Self>,
         _builders: &mut InstanceBuilders<T>,
     ) -> anyhow::Result<Self::InstanceBuilder>;
+
+    /// Returns [JSON Schema](https://json-schema.org/) for this factor's
+    /// runtime config.
+    ///
+    /// Note that this represents only a fragment of an entire JSON document (a
+    /// "child instance" in JSON Schema terms), so `$schema` isn't needed.
+    ///
+    /// The default implementation returns an empty schema, which accepts any
+    /// configuration.
+    fn runtime_config_json_schema(&self) -> impl serde::Serialize {
+        HashMap::<(), ()>::new()
+    }
 }
 
 pub(crate) type FactorInstanceState<F> =

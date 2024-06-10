@@ -13,9 +13,9 @@ pub trait MakeVariablesProvider: 'static {
     fn make_provider(&self, runtime_config: Self::RuntimeConfig) -> anyhow::Result<Self::Provider>;
 }
 
-pub(crate) type ProviderMaker = Box<dyn Fn(toml::Table) -> anyhow::Result<Box<dyn Provider>>>;
+pub(crate) type ProviderFromToml = Box<dyn Fn(toml::Table) -> anyhow::Result<Box<dyn Provider>>>;
 
-pub(crate) fn provider_maker<T: MakeVariablesProvider>(provider_type: T) -> ProviderMaker {
+pub(crate) fn provider_from_toml<T: MakeVariablesProvider>(provider_type: T) -> ProviderFromToml {
     Box::new(move |table| {
         let runtime_config: T::RuntimeConfig = table.try_into()?;
         let provider = provider_type.make_provider(runtime_config)?;

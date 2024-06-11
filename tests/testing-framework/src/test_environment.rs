@@ -1,10 +1,6 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, path::Path};
 
 use crate::{
-    runtimes::{in_process_spin::InProcessSpin, spin_cli::SpinCli, SpinAppType},
     services::{Services, ServicesConfig},
     Runtime,
 };
@@ -23,6 +19,8 @@ pub struct TestEnvironment<R> {
 
 impl<R: Runtime> TestEnvironment<R> {
     /// Spin up a test environment with a runtime
+    ///
+    /// `config` specifies the services to run and how to create the runtime.
     pub fn up(
         config: TestEnvironmentConfig<R>,
         init_env: impl FnOnce(&mut Self) -> crate::TestResult<anyhow::Error> + 'static,
@@ -33,7 +31,9 @@ impl<R: Runtime> TestEnvironment<R> {
         env.start_runtime(runtime)
     }
 
-    /// Whether an error has occurred
+    /// Returns an error if the environment is not healthy.
+    ///
+    /// If a runtime is present, it will also be checked for errors.
     fn error(&mut self) -> anyhow::Result<()> {
         self.services.healthy()?;
         if let Some(runtime) = &mut self.runtime {
@@ -45,6 +45,8 @@ impl<R: Runtime> TestEnvironment<R> {
 
 impl<R> TestEnvironment<R> {
     /// Spin up a test environment without a runtime
+    ///
+    /// `services` specifies the services to run.
     pub fn boot(services: &ServicesConfig) -> anyhow::Result<Self> {
         let temp = temp_dir::TempDir::new()
             .context("failed to produce a temporary directory to run the test in")?;
@@ -61,6 +63,8 @@ impl<R> TestEnvironment<R> {
     }
 
     /// Start the runtime
+    ///
+    /// Will error if the environment is not healthy.
     pub fn start_runtime<N: Runtime>(self, runtime: N) -> anyhow::Result<TestEnvironment<N>> {
         let mut this = TestEnvironment {
             temp: self.temp,
@@ -182,77 +186,7 @@ impl<R> TestEnvironment<R> {
 /// Configuration for a test environment
 pub struct TestEnvironmentConfig<R> {
     /// A callback to create a runtime given a path to a temporary directory
-    create_runtime: Box<RuntimeCreator<R>>,
+    pub create_runtime: Box<RuntimeCreator<R>>,
     /// The services that the test requires
-    services_config: ServicesConfig,
-}
-
-impl TestEnvironmentConfig<SpinCli> {
-    /// Configure a test environment that uses a local Spin binary as a runtime
-    ///
-    /// * `spin_binary` - the path to the Spin binary
-    /// * `preboot` - a callback that happens after the services have started but before the runtime is
-    /// * `test` - a callback that runs the test against the runtime
-    /// * `services_config` - the services that the test requires
-    pub fn spin(
-        spin_binary: PathBuf,
-        spin_up_args: impl IntoIterator<Item = String>,
-        preboot: impl FnOnce(&mut TestEnvironment<SpinCli>) -> anyhow::Result<()> + 'static,
-        services_config: ServicesConfig,
-        app_type: SpinAppType,
-    ) -> Self {
-        let spin_up_args = spin_up_args.into_iter().collect();
-        Self {
-            services_config,
-            create_runtime: Box::new(move |env| {
-                preboot(env)?;
-                SpinCli::start(&spin_binary, env, spin_up_args, app_type)
-            }),
-        }
-    }
-}
-
-impl TestEnvironmentConfig<InProcessSpin> {
-    pub fn in_process(
-        services_config: ServicesConfig,
-        preboot: impl FnOnce(&mut TestEnvironment<InProcessSpin>) -> anyhow::Result<()> + 'static,
-    ) -> Self {
-        Self {
-            services_config,
-            create_runtime: Box::new(|env| {
-                preboot(env)?;
-                tokio::runtime::Runtime::new()
-                    .context("failed to start tokio runtime")?
-                    .block_on(async {
-                        use spin_trigger::{
-                            loader::TriggerLoader, HostComponentInitData, RuntimeConfig,
-                            TriggerExecutorBuilder,
-                        };
-                        use spin_trigger_http::HttpTrigger;
-                        let locked_app = spin_loader::from_file(
-                            env.path().join("spin.toml"),
-                            spin_loader::FilesMountStrategy::Direct,
-                            None,
-                        )
-                        .await?;
-                        let json = locked_app.to_json()?;
-                        std::fs::write(env.path().join("locked.json"), json)?;
-
-                        let loader = TriggerLoader::new(env.path().join(".working_dir"), false);
-                        let mut builder = TriggerExecutorBuilder::<HttpTrigger>::new(loader);
-                        // TODO(rylev): see if we can reuse the builder from spin_trigger instead of duplicating it here
-                        builder.hooks(spin_trigger::network::Network::default());
-                        let trigger = builder
-                            .build(
-                                format!("file:{}", env.path().join("locked.json").display()),
-                                RuntimeConfig::default(),
-                                HostComponentInitData::default(),
-                            )
-                            .await?;
-
-                        Result::<_, anyhow::Error>::Ok(InProcessSpin::new(trigger))
-                    })
-            }),
-        }
-    }
+    pub services_config: ServicesConfig,
 }

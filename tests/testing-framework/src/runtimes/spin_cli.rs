@@ -6,10 +6,10 @@ use super::SpinAppType;
 use crate::{
     http::{Request, Response},
     io::OutputStream,
-    Runtime, TestEnvironment,
+    Runtime, ServicesConfig, TestEnvironment, TestEnvironmentConfig,
 };
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
@@ -246,6 +246,31 @@ impl SpinCli {
 
     fn try_wait(&mut self) -> std::io::Result<Option<std::process::ExitStatus>> {
         self.process.try_wait()
+    }
+}
+
+impl TestEnvironmentConfig<SpinCli> {
+    /// Configure a test environment that uses a local Spin binary as a runtime
+    ///
+    /// * `spin_binary` - the path to the Spin binary
+    /// * `preboot` - a callback that happens after the services have started but before the runtime is
+    /// * `test` - a callback that runs the test against the runtime
+    /// * `services_config` - the services that the test requires
+    pub fn spin(
+        spin_binary: PathBuf,
+        spin_up_args: impl IntoIterator<Item = String>,
+        preboot: impl FnOnce(&mut TestEnvironment<SpinCli>) -> anyhow::Result<()> + 'static,
+        services_config: ServicesConfig,
+        app_type: SpinAppType,
+    ) -> Self {
+        let spin_up_args = spin_up_args.into_iter().collect();
+        Self {
+            services_config,
+            create_runtime: Box::new(move |env| {
+                preboot(env)?;
+                SpinCli::start(&spin_binary, env, spin_up_args, app_type)
+            }),
+        }
     }
 }
 

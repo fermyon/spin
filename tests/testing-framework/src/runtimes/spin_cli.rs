@@ -256,8 +256,6 @@ impl Drop for SpinCli {
 }
 
 impl Runtime for SpinCli {
-    type Config = SpinConfig;
-
     fn error(&mut self) -> anyhow::Result<()> {
         if !matches!(self.io_mode, IoMode::None) && self.try_wait()?.is_some() {
             anyhow::bail!("Spin exited early: {}", self.stderr());

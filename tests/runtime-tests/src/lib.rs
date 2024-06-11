@@ -6,14 +6,17 @@ use testing_framework::{
         in_process_spin::InProcessSpin,
         spin_cli::{SpinCli, SpinConfig},
     },
-    EnvTemplate, OnTestError, Runtime, ServicesConfig, TestEnvironment, TestEnvironmentConfig,
-    TestError, TestResult,
+    EnvTemplate, OnTestError, ServicesConfig, TestEnvironment, TestEnvironmentConfig, TestError,
+    TestResult,
 };
 
 /// Configuration for a runtime test
-pub struct RuntimeTestConfig<R: Runtime> {
+pub struct RuntimeTestConfig<R> {
+    /// Path to the test
     pub test_path: PathBuf,
-    pub runtime_config: R::Config,
+    /// Specific configuration for the runtime
+    pub runtime_config: R,
+    /// What to do when a test errors
     pub on_error: OnTestError,
 }
 
@@ -47,7 +50,7 @@ impl RuntimeTest<SpinCli> {
         })
     }
 
-    pub fn bootstrap(config: RuntimeTestConfig<SpinCli>) -> anyhow::Result<Self> {
+    pub fn bootstrap(config: RuntimeTestConfig<SpinConfig>) -> anyhow::Result<Self> {
         log::info!("Testing: {}", config.test_path.display());
         let test_path_clone = config.test_path.to_owned();
         let spin_binary = config.runtime_config.binary_path.clone();
@@ -116,7 +119,7 @@ impl RuntimeTest<InProcessSpin> {
         })
     }
 
-    pub fn bootstrap(config: RuntimeTestConfig<InProcessSpin>) -> anyhow::Result<Self> {
+    pub fn bootstrap(config: RuntimeTestConfig<()>) -> anyhow::Result<Self> {
         log::info!("Testing: {}", config.test_path.display());
         let test_path_clone = config.test_path.to_owned();
         let preboot = move |env: &mut TestEnvironment<InProcessSpin>| {
@@ -258,7 +261,7 @@ impl<R> RuntimeTest<R> {
     }
 }
 
-fn services_config<R: Runtime>(config: &RuntimeTestConfig<R>) -> anyhow::Result<ServicesConfig> {
+fn services_config<R>(config: &RuntimeTestConfig<R>) -> anyhow::Result<ServicesConfig> {
     let required_services = required_services(&config.test_path)?;
     let services_config = ServicesConfig::new(required_services)?;
     Ok(services_config)

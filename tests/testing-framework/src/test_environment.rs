@@ -13,7 +13,7 @@ use anyhow::Context as _;
 /// A callback to create a runtime given a path to a temporary directory and a set of services
 pub type RuntimeCreator<R> = dyn FnOnce(&mut TestEnvironment<R>) -> anyhow::Result<R>;
 
-/// All the requirements to run a test
+/// An environment for running tests
 pub struct TestEnvironment<R> {
     temp: temp_dir::TempDir,
     services: Services,

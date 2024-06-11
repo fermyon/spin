@@ -26,9 +26,7 @@ pub enum OnTestError {
 
 /// A runtime which can be tested
 pub trait Runtime {
-    type Config;
-
-    /// Return an error if one has occurred
+    /// Return an error if the runtime has errored
     fn error(&mut self) -> anyhow::Result<()>;
 }
 

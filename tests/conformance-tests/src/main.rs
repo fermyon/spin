@@ -1,10 +1,14 @@
 fn main() {
+    let spin_binary: std::path::PathBuf = std::env::args()
+        .skip(1)
+        .next()
+        .expect("expected first argument to be path to spin binary")
+        .into();
     let tests_dir = conformance_tests::download_tests().unwrap();
 
     for test in conformance_tests::tests(&tests_dir).unwrap() {
-        let spin_binary = "/Users/rylev/.local/bin/spin".into();
         let env_config = testing_framework::TestEnvironmentConfig::spin(
-            spin_binary,
+            spin_binary.clone(),
             [],
             move |e| {
                 e.copy_into(&test.manifest, "spin.toml")?;

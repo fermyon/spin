@@ -52,8 +52,6 @@ impl InProcessSpin {
 }
 
 impl Runtime for InProcessSpin {
-    type Config = ();
-
     fn error(&mut self) -> anyhow::Result<()> {
         Ok(())
     }

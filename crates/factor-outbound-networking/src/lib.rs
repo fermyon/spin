@@ -13,6 +13,10 @@ use spin_factors::{
 };
 use spin_outbound_networking::{AllowedHostsConfig, ALLOWED_HOSTS_KEY};
 
+pub use spin_outbound_networking::OutboundUrl;
+
+pub type SharedFutureResult<T> = Shared<BoxFuture<'static, Result<Arc<T>, Arc<anyhow::Error>>>>;
+
 pub struct OutboundNetworkingFactor;
 
 impl Factor for OutboundNetworkingFactor {
@@ -59,7 +63,7 @@ impl Factor for OutboundNetworkingFactor {
             let prepared = resolver.prepare().await?;
             AllowedHostsConfig::parse(&hosts, &prepared)
         }
-        .map(Arc::new)
+        .map(|res| res.map(Arc::new).map_err(Arc::new))
         .boxed()
         .shared();
         // let prepared_resolver = resolver.prepare().await?;
@@ -74,10 +78,10 @@ impl Factor for OutboundNetworkingFactor {
         wasi_preparer.outbound_socket_addr_check(move |addr| {
             let hosts_future = hosts_future.clone();
             async move {
-                match &*hosts_future.await {
+                match hosts_future.await {
                     Ok(allowed_hosts) => {
                         // TODO: verify this actually works...
-                        spin_outbound_networking::check_url(&addr.to_string(), "*", allowed_hosts)
+                        spin_outbound_networking::check_url(&addr.to_string(), "*", &allowed_hosts)
                     }
                     Err(err) => {
                         // TODO: should this trap (somehow)?
@@ -87,7 +91,9 @@ impl Factor for OutboundNetworkingFactor {
                 }
             }
         });
-        Ok(InstanceBuilder::new(allowed_hosts_future))
+        Ok(InstanceBuilder {
+            allowed_hosts_future,
+        })
     }
 }
 
@@ -95,24 +101,15 @@ pub struct AppState {
     component_allowed_hosts: HashMap<String, Arc<[String]>>,
 }
 
-type SharedFutureResult<T> = Shared<BoxFuture<'static, Arc<anyhow::Result<T>>>>;
-
 pub struct InstanceBuilder {
-    allowed_hosts_future: Option<SharedFutureResult<AllowedHostsConfig>>,
+    allowed_hosts_future: SharedFutureResult<AllowedHostsConfig>,
 }
 
 impl InstanceBuilder {
-    fn new(allowed_hosts_future: SharedFutureResult<AllowedHostsConfig>) -> Self {
-        Self {
-            allowed_hosts_future: Some(allowed_hosts_future),
+    pub fn allowed_hosts(&self) -> OutboundAllowedHosts {
+        OutboundAllowedHosts {
+            allowed_hosts_future: self.allowed_hosts_future.clone(),
         }
-    }
-
-    pub async fn resolve_allowed_hosts(&self) -> Arc<anyhow::Result<AllowedHostsConfig>> {
-        self.allowed_hosts_future
-            .clone()
-            .expect("allowed_hosts_future not set")
-            .await
     }
 }
 
@@ -121,5 +118,32 @@ impl FactorInstanceBuilder for InstanceBuilder {
 
     fn build(self) -> anyhow::Result<Self::InstanceState> {
         Ok(())
+    }
+}
+
+// TODO: Refactor w/ spin-outbound-networking crate to simplify
+pub struct OutboundAllowedHosts {
+    allowed_hosts_future: SharedFutureResult<AllowedHostsConfig>,
+}
+
+impl OutboundAllowedHosts {
+    pub async fn allows(&self, url: &OutboundUrl) -> anyhow::Result<bool> {
+        Ok(self.resolve().await?.allows(url))
+    }
+
+    pub async fn check_url(&self, url: &str, scheme: &str) -> anyhow::Result<bool> {
+        let allowed_hosts = self.resolve().await?;
+        Ok(spin_outbound_networking::check_url(
+            url,
+            scheme,
+            &allowed_hosts,
+        ))
+    }
+
+    async fn resolve(&self) -> anyhow::Result<Arc<AllowedHostsConfig>> {
+        self.allowed_hosts_future.clone().await.map_err(|err| {
+            // TODO: better way to handle this?
+            anyhow::Error::msg(err)
+        })
     }
 }

@@ -1,4 +1,4 @@
-use std::{any::Any, marker::PhantomData};
+use std::any::Any;
 
 use anyhow::Context;
 
@@ -10,13 +10,11 @@ pub trait FactorInstanceBuilder: Any {
     fn build(self) -> anyhow::Result<Self::InstanceState>;
 }
 
-pub struct DefaultInstanceBuilder<T>(PhantomData<fn() -> T>);
-
-impl<T: Default + 'static> FactorInstanceBuilder for DefaultInstanceBuilder<T> {
-    type InstanceState = T;
+impl FactorInstanceBuilder for () {
+    type InstanceState = ();
 
     fn build(self) -> anyhow::Result<Self::InstanceState> {
-        Ok(Default::default())
+        Ok(())
     }
 }
 

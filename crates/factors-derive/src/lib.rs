@@ -65,6 +65,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
 
     Ok(quote! {
         impl #name {
+            #[allow(clippy::needless_option_as_deref)]
             pub fn init(
                 &mut self,
                 mut linker: Option<&mut #wasmtime::component::Linker<#state_name>>,
@@ -170,6 +171,17 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 )*
                 None
             }
+
+            fn instance_state_offset<F: #Factor>() -> Option<usize> {
+                let type_id = #TypeId::of::<F>();
+                #(
+                    if type_id == #TypeId::of::<#factor_types>() {
+                        return Some(std::mem::offset_of!(Self::InstanceState, #factor_names));
+                    }
+                )*
+                None
+            }
+
         }
 
         #vis struct #app_state_name {

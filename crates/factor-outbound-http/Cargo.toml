@@ -1,0 +1,18 @@
+[package]
+name = "spin-factor-outbound-http"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+anyhow = "1.0"
+http = "1.1.0"
+spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
+spin-factor-wasi = { path = "../factor-wasi" }
+spin-factors = { path = "../factors" }
+spin-world = { path = "../world" }
+tracing = { workspace = true }
+wasmtime-wasi-http = { workspace = true }
+
+[lints]
+workspace = true

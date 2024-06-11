@@ -6,7 +6,7 @@ use spin_factors::{
     anyhow, AppComponent, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
     PrepareContext, RuntimeFactors,
 };
-use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
+use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiImpl, WasiView};
 
 pub struct WasiFactor {
     files_mounter: Box<dyn FilesMounter>,
@@ -29,14 +29,14 @@ impl Factor for WasiFactor {
         &mut self,
         mut ctx: InitContext<Factors, Self>,
     ) -> anyhow::Result<()> {
-        fn type_annotate<T, F>(f: F) -> F
+        fn type_annotate<T, U: WasiView, F>(f: F) -> F
         where
-            F: Fn(&mut T) -> &mut dyn WasiView,
+            F: Fn(&mut T) -> WasiImpl<&mut U>,
         {
             f
         }
         let get_data = ctx.get_data_fn();
-        let closure = type_annotate(move |data| get_data(data) as &mut dyn WasiView);
+        let closure = type_annotate(move |data| WasiImpl(get_data(data)));
         if let Some(linker) = ctx.linker() {
             use wasmtime_wasi::bindings;
             bindings::clocks::wall_clock::add_to_linker_get_host(linker, closure)?;
@@ -187,6 +187,12 @@ impl InstanceBuilder {
 pub struct InstanceState {
     ctx: WasiCtx,
     table: ResourceTable,
+}
+
+impl InstanceState {
+    pub fn table(&mut self) -> &mut ResourceTable {
+        &mut self.table
+    }
 }
 
 impl WasiView for InstanceState {

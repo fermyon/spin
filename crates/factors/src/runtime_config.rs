@@ -24,27 +24,28 @@ impl FactorRuntimeConfig for () {
 pub trait RuntimeConfigSource {
     /// Returns an iterator of factor config keys available in this source.
     ///
-    /// Should only include keys that have been positively provided. A runtime
-    /// may treat unrecognized keys as a warning or error.
-    fn config_keys(&self) -> impl IntoIterator<Item = &str>;
+    /// Should only include keys that have been positively provided and that
+    /// haven't already been parsed by the runtime. A runtime may treat
+    /// unrecognized keys as a warning or error.
+    fn factor_config_keys(&self) -> impl IntoIterator<Item = &str>;
 
     /// Returns deserialized runtime config of the given type for the given
     /// factor config key.
     ///
     /// Returns Ok(None) if no configuration is available for the given key.
     /// Returns Err if configuration is available but deserialization fails.
-    fn get_config<T: DeserializeOwned>(&self, key: &str) -> anyhow::Result<Option<T>>;
+    fn get_factor_config<T: DeserializeOwned>(&self, key: &str) -> anyhow::Result<Option<T>>;
 }
 
 impl RuntimeConfigSource for () {
-    fn get_config<T: DeserializeOwned>(
+    fn get_factor_config<T: DeserializeOwned>(
         &self,
         _factor_config_key: &str,
     ) -> anyhow::Result<Option<T>> {
         Ok(None)
     }
 
-    fn config_keys(&self) -> impl IntoIterator<Item = &str> {
+    fn factor_config_keys(&self) -> impl IntoIterator<Item = &str> {
         std::iter::empty()
     }
 }
@@ -59,7 +60,7 @@ impl<S: RuntimeConfigSource> RuntimeConfigTracker<S> {
     #[doc(hidden)]
     pub fn new(source: S) -> Self {
         let unused_keys = source
-            .config_keys()
+            .factor_config_keys()
             .into_iter()
             .map(ToOwned::to_owned)
             .collect();
@@ -95,6 +96,6 @@ impl<S: RuntimeConfigSource> RuntimeConfigTracker<S> {
             bail!("already used runtime config key {key:?}");
         }
         self.unused_keys.remove(key);
-        self.source.get_config::<F::RuntimeConfig>(key)
+        self.source.get_factor_config::<F::RuntimeConfig>(key)
     }
 }

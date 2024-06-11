@@ -1,4 +1,5 @@
 use spin_app::App;
+use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::{StaticVariables, VariablesFactor};
 use spin_factor_wasi::{preview1::WasiPreview1Factor, DummyFilesMounter, WasiFactor};
@@ -7,19 +8,20 @@ use spin_factors::{FactorRuntimeConfig, RuntimeConfigSource, RuntimeFactors};
 #[derive(RuntimeFactors)]
 struct Factors {
     wasi: WasiFactor,
-    wasip1: WasiPreview1Factor,
+    wasi_p1: WasiPreview1Factor,
     variables: VariablesFactor,
     outbound_networking_factor: OutboundNetworkingFactor,
+    outbound_http_factor: OutboundHttpFactor,
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
 async fn main() -> anyhow::Result<()> {
     let mut factors = Factors {
         wasi: WasiFactor::new(DummyFilesMounter),
-        wasip1: WasiPreview1Factor,
+        wasi_p1: WasiPreview1Factor,
         variables: VariablesFactor::default(),
         outbound_networking_factor: OutboundNetworkingFactor,
-        // outbound_http_factor: OutboundHttpFactor,
+        outbound_http_factor: OutboundHttpFactor,
     };
     factors.variables.add_provider_type(StaticVariables)?;
 
@@ -79,11 +81,14 @@ async fn main() -> anyhow::Result<()> {
 struct TestSource;
 
 impl RuntimeConfigSource for TestSource {
-    fn config_keys(&self) -> impl IntoIterator<Item = &str> {
+    fn factor_config_keys(&self) -> impl IntoIterator<Item = &str> {
         [spin_factor_variables::RuntimeConfig::KEY]
     }
 
-    fn get_config<T: serde::de::DeserializeOwned>(&self, key: &str) -> anyhow::Result<Option<T>> {
+    fn get_factor_config<T: serde::de::DeserializeOwned>(
+        &self,
+        key: &str,
+    ) -> anyhow::Result<Option<T>> {
         let Some(table) = toml::toml! {
             [[variable_provider]]
             type = "static"

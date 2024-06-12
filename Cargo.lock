@@ -2477,6 +2477,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "field-offset"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38e2275cc4e4fc009b0669731a1e5ab7ebf11f469eaede2bab9309a5b4d6057f"
+dependencies = [
+ "memoffset 0.9.1",
+ "rustc_version",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3292,12 +3302,12 @@ dependencies = [
 
 [[package]]
 name = "http-body-util"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0475f8b2ac86659c21b64320d5d653f9efe42acd2a4e560073ec61a155a34f1d"
+checksum = "793429d76616a256bcb62c2a2ec2bed781c8307e797e2598c50010f2bee2544f"
 dependencies = [
  "bytes",
- "futures-core",
+ "futures-util",
  "http 1.1.0",
  "http-body 1.0.0",
  "pin-project-lite",
@@ -7549,6 +7559,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-factor-key-value"
+version = "2.6.0-pre0"
+dependencies = [
+ "anyhow",
+ "serde 1.0.197",
+ "spin-factors",
+ "spin-key-value",
+ "spin-world",
+ "toml 0.8.12",
+]
+
+[[package]]
 name = "spin-factor-outbound-http"
 version = "2.6.0-pre0"
 dependencies = [
@@ -7600,19 +7622,27 @@ name = "spin-factors"
 version = "2.6.0-pre0"
 dependencies = [
  "anyhow",
+ "field-offset",
+ "http 1.1.0",
+ "http-body-util",
  "serde 1.0.197",
  "serde_json",
  "spin-app",
+ "spin-componentize",
+ "spin-factor-key-value",
  "spin-factor-outbound-http",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors-derive",
+ "spin-key-value-sqlite",
+ "spin-loader",
  "thiserror",
  "tokio",
  "toml 0.8.12",
  "tracing",
  "wasmtime",
+ "wasmtime-wasi-http",
 ]
 
 [[package]]

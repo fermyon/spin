@@ -2,7 +2,7 @@ mod provider;
 
 use std::{collections::HashMap, sync::Arc};
 
-use provider::{provider_from_toml, ProviderFromToml};
+use provider::{provider_from_toml_fn, ProviderFromToml};
 use serde::Deserialize;
 use spin_expressions::ProviderResolver;
 use spin_factors::{
@@ -10,7 +10,7 @@ use spin_factors::{
     ConfigureAppContext, Factor, FactorRuntimeConfig, InitContext, InstanceBuilders,
     PrepareContext, RuntimeFactors, SelfInstanceBuilder,
 };
-use spin_world::{async_trait, v1::config as v1_config, v2::variables};
+use spin_world::{async_trait, v1, v2::variables};
 
 pub use provider::{MakeVariablesProvider, StaticVariables};
 
@@ -26,7 +26,7 @@ impl VariablesFactor {
     ) -> anyhow::Result<()> {
         if self
             .provider_types
-            .insert(T::RUNTIME_CONFIG_TYPE, provider_from_toml(provider_type))
+            .insert(T::RUNTIME_CONFIG_TYPE, provider_from_toml_fn(provider_type))
             .is_some()
         {
             bail!("duplicate provider type {:?}", T::RUNTIME_CONFIG_TYPE);
@@ -44,8 +44,8 @@ impl Factor for VariablesFactor {
         &mut self,
         mut ctx: InitContext<Factors, Self>,
     ) -> anyhow::Result<()> {
-        ctx.link_bindings(v1_config::add_to_linker)?;
-        ctx.link_bindings(variables::add_to_linker)?;
+        ctx.link_bindings(spin_world::v1::config::add_to_linker)?;
+        ctx.link_bindings(spin_world::v2::variables::add_to_linker)?;
         Ok(())
     }
 
@@ -69,7 +69,7 @@ impl Factor for VariablesFactor {
                 let provider_maker = self
                     .provider_types
                     .get(type_.as_str())
-                    .with_context(|| format!("unknown variables provider type {type_}"))?;
+                    .with_context(|| format!("unknown variables provider type {type_:?}"))?;
                 let provider = provider_maker(config)?;
                 resolver.add_provider(provider);
             }
@@ -144,18 +144,18 @@ impl variables::Host for InstanceState {
 }
 
 #[async_trait]
-impl v1_config::Host for InstanceState {
-    async fn get_config(&mut self, key: String) -> Result<String, v1_config::Error> {
+impl v1::config::Host for InstanceState {
+    async fn get_config(&mut self, key: String) -> Result<String, v1::config::Error> {
         <Self as variables::Host>::get(self, key)
             .await
             .map_err(|err| match err {
-                variables::Error::InvalidName(msg) => v1_config::Error::InvalidKey(msg),
-                variables::Error::Undefined(msg) => v1_config::Error::Provider(msg),
-                other => v1_config::Error::Other(format!("{other}")),
+                variables::Error::InvalidName(msg) => v1::config::Error::InvalidKey(msg),
+                variables::Error::Undefined(msg) => v1::config::Error::Provider(msg),
+                other => v1::config::Error::Other(format!("{other}")),
             })
     }
 
-    fn convert_error(&mut self, err: v1_config::Error) -> anyhow::Result<v1_config::Error> {
+    fn convert_error(&mut self, err: v1::config::Error) -> anyhow::Result<v1::config::Error> {
         Ok(err)
     }
 }

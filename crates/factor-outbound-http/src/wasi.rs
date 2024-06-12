@@ -38,3 +38,14 @@ impl<'a> WasiHttpView for MutStates<'a> {
         self.wasi.table()
     }
 }
+
+// TODO: This is a little weird, organizationally
+pub fn get_wasi_http_view<T: RuntimeFactors>(
+    instance_state: &mut T::InstanceState,
+) -> anyhow::Result<impl WasiHttpView + '_> {
+    let wasi_and_http_getter =
+        T::instance_state_getter2::<spin_factor_wasi::WasiFactor, crate::OutboundHttpFactor>()
+            .context("failed to get WasiFactor")?;
+    let (wasi, http) = wasi_and_http_getter.get_states(instance_state);
+    Ok(MutStates { http, wasi })
+}

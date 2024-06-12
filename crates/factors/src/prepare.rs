@@ -5,7 +5,7 @@ use anyhow::Context;
 use crate::{AppComponent, Factor, RuntimeFactors};
 
 pub trait FactorInstanceBuilder: Any {
-    type InstanceState;
+    type InstanceState: Send + 'static;
 
     fn build(self) -> anyhow::Result<Self::InstanceState>;
 }
@@ -18,7 +18,7 @@ impl FactorInstanceBuilder for () {
     }
 }
 
-pub trait SelfInstanceBuilder: 'static {}
+pub trait SelfInstanceBuilder: Send + 'static {}
 
 impl<T: SelfInstanceBuilder> FactorInstanceBuilder for T {
     type InstanceState = Self;

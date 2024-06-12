@@ -7,6 +7,9 @@ use spin_factors::{
     SelfInstanceBuilder,
 };
 use wasmtime_wasi_http::WasiHttpCtx;
+
+pub use wasi::get_wasi_http_view;
+
 pub struct OutboundHttpFactor;
 
 impl Factor for OutboundHttpFactor {

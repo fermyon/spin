@@ -56,6 +56,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let TypeId = quote!(::std::any::TypeId);
     let factors_crate = format_ident!("spin_factors");
     let factors_path = quote!(::#factors_crate);
+    let field_offset = quote!(#factors_path::__internal::field_offset);
     let wasmtime = quote!(#factors_path::wasmtime);
     let Result = quote!(#factors_path::Result);
     let Factor = quote!(#factors_path::Factor);
@@ -172,16 +173,23 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 None
             }
 
-            fn instance_state_offset<F: #Factor>() -> Option<usize> {
+            fn instance_state_offset<F: #Factor>() -> Option<
+                #field_offset::FieldOffset<
+                    Self::InstanceState,
+                    <<F as #Factor>::InstanceBuilder as #FactorInstanceBuilder>::InstanceState,
+                >
+            > {
                 let type_id = #TypeId::of::<F>();
                 #(
                     if type_id == #TypeId::of::<#factor_types>() {
-                        return Some(std::mem::offset_of!(Self::InstanceState, #factor_names));
+                        let offset = #field_offset::offset_of!(Self::InstanceState => #factor_names);
+                        return Some(
+                            unsafe { ::std::mem::transmute(offset) }
+                        );
                     }
                 )*
                 None
             }
-
         }
 
         #vis struct #app_state_name {

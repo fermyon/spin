@@ -6,6 +6,7 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = "1.0"
+field-offset = "0.3.6"
 serde = "1.0"
 spin-app = { path = "../app" }
 spin-factors-derive = { path = "../factors-derive" }
@@ -14,14 +15,21 @@ tracing = { workspace = true }
 wasmtime = { workspace = true }
 
 [dev-dependencies]
+http = "1.1.0"
+http-body-util = "0.1.2"
 serde_json = "1.0"
+spin-componentize = { path = "../componentize" }
 spin-factors-derive = { path = "../factors-derive", features = ["expander"] }
+spin-factor-key-value = { path = "../factor-key-value" }
 spin-factor-outbound-http = { path = "../factor-outbound-http" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }
-tokio = { version = "1", features = ["macros", "rt"] }
+spin-key-value-sqlite = { path = "../key-value-sqlite" }
+spin-loader = { path = "../loader" }
+tokio = { version = "1", features = ["macros", "rt", "sync"] }
 toml = "0.8"
+wasmtime-wasi-http = { workspace = true }
 
 [lints]
 workspace = true

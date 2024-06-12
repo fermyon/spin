@@ -28,4 +28,5 @@ pub type Result<T> = wasmtime::Result<T>;
 #[doc(hidden)]
 pub mod __internal {
     pub use crate::runtime_config::RuntimeConfigTracker;
+    pub use field_offset;
 }

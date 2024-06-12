@@ -1,13 +1,17 @@
 use anyhow::Context;
 use std::path::{Path, PathBuf};
-use testing_framework::{
+use test_environment::{
     http::{Method, Request},
+    manifest_template::EnvTemplate,
+    services::ServicesConfig,
+    TestEnvironment,
+};
+use testing_framework::{
     runtimes::{
         in_process_spin::InProcessSpin,
         spin_cli::{SpinCli, SpinConfig},
     },
-    EnvTemplate, OnTestError, ServicesConfig, TestEnvironment, TestEnvironmentConfig, TestError,
-    TestResult,
+    OnTestError, TestError, TestResult,
 };
 
 /// Configuration for a runtime test
@@ -59,7 +63,7 @@ impl RuntimeTest<SpinCli> {
             Ok(())
         };
         let services_config = services_config(&config)?;
-        let env_config = TestEnvironmentConfig::spin(
+        let env_config = SpinCli::config(
             spin_binary,
             [],
             preboot,
@@ -78,7 +82,7 @@ impl RuntimeTest<SpinCli> {
     pub fn run(&mut self) {
         self.run_test(|env| {
             let runtime = env.runtime_mut();
-            let request = Request::new(Method::GET, "/");
+            let request = Request::new(Method::Get, "/");
             let response = runtime.make_http_request(request)?;
             if response.status() == 200 {
                 return Ok(());
@@ -127,7 +131,7 @@ impl RuntimeTest<InProcessSpin> {
             Ok(())
         };
         let services_config = services_config(&config)?;
-        let env_config = TestEnvironmentConfig::in_process(services_config, preboot);
+        let env_config = InProcessSpin::config(services_config, preboot);
         let env = TestEnvironment::up(env_config, |_| Ok(()))?;
         Ok(Self {
             test_path: config.test_path,
@@ -139,7 +143,7 @@ impl RuntimeTest<InProcessSpin> {
     pub fn run(&mut self) {
         self.run_test(|env| {
             let runtime = env.runtime_mut();
-            let response = runtime.make_http_request(Request::new(Method::GET, "/"))?;
+            let response = runtime.make_http_request(Request::new(Method::Get, "/"))?;
             if response.status() == 200 {
                 return Ok(());
             }
@@ -293,7 +297,7 @@ fn copy_manifest<R>(test_dir: &Path, env: &mut TestEnvironment<R>) -> anyhow::Re
             test_dir.display()
         )
     })?;
-    manifest.substitute(env)?;
+    manifest.substitute(env, |s| Some(PathBuf::from(test_components::path(s)?)))?;
     env.write_file("spin.toml", manifest.contents())
         .context("failed to copy spin.toml manifest to temporary directory")?;
     Ok(())

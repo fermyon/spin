@@ -1,10 +1,11 @@
 //! The Spin runtime running in the same process as the test
 
-use crate::{
-    http::{Request, Response},
-    Runtime, ServicesConfig, TestEnvironment, TestEnvironmentConfig,
-};
 use anyhow::Context as _;
+use test_environment::{
+    http::{Request, Response},
+    services::ServicesConfig,
+    Runtime, TestEnvironment, TestEnvironmentConfig,
+};
 
 /// An instance of Spin running in the same process as the tests instead of as a separate process
 ///
@@ -20,11 +21,10 @@ impl InProcessSpin {
 
     pub fn make_http_request(&self, req: Request<'_, &[u8]>) -> anyhow::Result<Response> {
         tokio::runtime::Runtime::new()?.block_on(async {
-            let method = http::Method::from_bytes(req.method.as_str().as_bytes())
-                .context("could not parse runtime test HTTP method")?;
+            let method: reqwest::Method = req.method.into();
             let req = http::request::Request::builder()
                 .method(method)
-                .uri(req.uri)
+                .uri(req.path)
                 // TODO(rylev): convert headers and body as well
                 .body(spin_http::body::empty())
                 .unwrap();
@@ -57,12 +57,12 @@ impl Runtime for InProcessSpin {
     }
 }
 
-impl TestEnvironmentConfig<InProcessSpin> {
-    pub fn in_process(
+impl InProcessSpin {
+    pub fn config(
         services_config: ServicesConfig,
         preboot: impl FnOnce(&mut TestEnvironment<InProcessSpin>) -> anyhow::Result<()> + 'static,
-    ) -> Self {
-        Self {
+    ) -> TestEnvironmentConfig<Self> {
+        TestEnvironmentConfig {
             services_config,
             create_runtime: Box::new(|env| {
                 preboot(env)?;

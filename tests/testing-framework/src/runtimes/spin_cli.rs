@@ -1,13 +1,14 @@
 //! The Spin CLI runtime (i.e., the `spin` command-line tool).
 
-use anyhow::Context;
-
-use super::SpinAppType;
-use crate::{
+use test_environment::{
     http::{Request, Response},
     io::OutputStream,
-    Runtime, ServicesConfig, TestEnvironment, TestEnvironmentConfig,
+    services::ServicesConfig,
+    TestEnvironment, TestEnvironmentConfig,
 };
+
+use super::SpinAppType;
+use crate::Runtime;
 use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -169,58 +170,7 @@ impl SpinCli {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
         }
         log::debug!("Connecting to HTTP server on port {port}...");
-        let mut outgoing = reqwest::Request::new(
-            request.method,
-            reqwest::Url::parse(&format!("http://localhost:{port}"))
-                .unwrap()
-                .join(request.uri)
-                .context("could not construct url for request against Spin")?,
-        );
-        outgoing
-            .headers_mut()
-            .extend(request.headers.iter().map(|(k, v)| {
-                (
-                    reqwest::header::HeaderName::from_bytes(k.as_bytes()).unwrap(),
-                    reqwest::header::HeaderValue::from_str(v).unwrap(),
-                )
-            }));
-        *outgoing.body_mut() = request.body.map(Into::into);
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
-        let response = rt.block_on(async {
-            let mut retries = 0;
-            let mut response = loop {
-                let Some(request) = outgoing.try_clone() else {
-                    break reqwest::Client::new().execute(outgoing).await;
-                };
-                let response = reqwest::Client::new().execute(request).await;
-                if response.is_err() && retries < 5 {
-                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-                    retries += 1;
-                } else {
-                    break response;
-                }
-            }?;
-            let mut chunks = Vec::new();
-            while let Some(chunk) = response.chunk().await? {
-                chunks.push(chunk.to_vec());
-            }
-            Result::<_, anyhow::Error>::Ok(Response::full(
-                response.status().as_u16(),
-                response
-                    .headers()
-                    .into_iter()
-                    .map(|(k, v)| {
-                        (
-                            k.as_str().to_owned(),
-                            v.to_str().unwrap_or("<non-utf8>").to_owned(),
-                        )
-                    })
-                    .collect(),
-                chunks,
-            ))
-        })?;
+        let response = request.send("localhost", port)?;
         log::debug!("Awaiting response from server");
         if let Some(status) = self.try_wait()? {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
@@ -249,22 +199,23 @@ impl SpinCli {
     }
 }
 
-impl TestEnvironmentConfig<SpinCli> {
+impl SpinCli {
     /// Configure a test environment that uses a local Spin binary as a runtime
     ///
     /// * `spin_binary` - the path to the Spin binary
+    /// * `spin_up_args` - the arguments to pass to `spin up`
     /// * `preboot` - a callback that happens after the services have started but before the runtime is
-    /// * `test` - a callback that runs the test against the runtime
     /// * `services_config` - the services that the test requires
-    pub fn spin(
+    /// * `app_type` - the type of trigger for the app that Spin is running
+    pub fn config(
         spin_binary: PathBuf,
         spin_up_args: impl IntoIterator<Item = String>,
         preboot: impl FnOnce(&mut TestEnvironment<SpinCli>) -> anyhow::Result<()> + 'static,
         services_config: ServicesConfig,
         app_type: SpinAppType,
-    ) -> Self {
+    ) -> TestEnvironmentConfig<Self> {
         let spin_up_args = spin_up_args.into_iter().collect();
-        Self {
+        TestEnvironmentConfig {
             services_config,
             create_runtime: Box::new(move |env| {
                 preboot(env)?;

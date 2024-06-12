@@ -1489,13 +1489,14 @@ version = "2.6.0-pre0"
 dependencies = [
  "anyhow",
  "conformance-tests",
+ "test-environment",
  "testing-framework",
 ]
 
 [[package]]
 name = "conformance-tests"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/conformance-tests#37ae39ee973ff36183ef6ab463a600c9dbf25c2c"
+source = "git+https://github.com/fermyon/conformance-tests?branch=testing-environment#ee9475b3fa1eddf11b8fc361b65f8716a2c5aa1e"
 dependencies = [
  "anyhow",
  "flate2",
@@ -1503,6 +1504,7 @@ dependencies = [
  "reqwest 0.12.4",
  "serde 1.0.197",
  "tar",
+ "test-environment",
 ]
 
 [[package]]
@@ -6474,6 +6476,8 @@ dependencies = [
  "anyhow",
  "env_logger",
  "log",
+ "test-components",
+ "test-environment",
  "testing-framework",
 ]
 
@@ -7352,7 +7356,7 @@ dependencies = [
  "rand 0.8.5",
  "redis 0.24.0",
  "regex",
- "reqwest 0.11.27",
+ "reqwest 0.12.4",
  "rpassword",
  "runtime-tests",
  "semver",
@@ -7383,6 +7387,7 @@ dependencies = [
  "terminal",
  "test-codegen-macro",
  "test-components",
+ "test-environment",
  "testing-framework",
  "tokio",
  "toml 0.6.0",
@@ -8303,6 +8308,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-environment"
+version = "0.1.0"
+source = "git+https://github.com/fermyon/conformance-tests?branch=testing-environment#ee9475b3fa1eddf11b8fc361b65f8716a2c5aa1e"
+dependencies = [
+ "anyhow",
+ "fslock",
+ "regex",
+ "reqwest 0.12.4",
+ "temp-dir",
+ "tokio",
+]
+
+[[package]]
 name = "testing-framework"
 version = "0.1.0"
 dependencies = [
@@ -8313,13 +8331,13 @@ dependencies = [
  "log",
  "nix 0.26.4",
  "regex",
- "reqwest 0.11.27",
+ "reqwest 0.12.4",
  "spin-http",
  "spin-loader",
  "spin-trigger",
  "spin-trigger-http",
  "temp-dir",
- "test-components",
+ "test-environment",
  "tokio",
  "toml 0.8.12",
  "wasmtime-wasi-http",

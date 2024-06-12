@@ -61,7 +61,9 @@ spin-locked-app = { path = "crates/locked-app" }
 spin-manifest = { path = "crates/manifest" }
 spin-oci = { path = "crates/oci" }
 spin-plugins = { path = "crates/plugins" }
-spin-telemetry = { path = "crates/telemetry", features = ["tracing-log-compat"] }
+spin-telemetry = { path = "crates/telemetry", features = [
+  "tracing-log-compat",
+] }
 spin-templates = { path = "crates/templates" }
 spin-trigger = { path = "crates/trigger" }
 spin-trigger-http = { path = "crates/trigger-http" }
@@ -97,6 +99,7 @@ redis = "0.24"
 runtime-tests = { path = "tests/runtime-tests" }
 test-components = { path = "tests/test-components" }
 test-codegen-macro = { path = "crates/test-codegen-macro" }
+test-environment = { git = "https://github.com/fermyon/conformance-tests", branch = "testing-environment" }
 
 [build-dependencies]
 cargo-target-dep = { git = "https://github.com/fermyon/cargo-target-dep", rev = "482f269eceb7b1a7e8fc618bf8c082dd24979cf1" }
@@ -117,16 +120,23 @@ llm-metal = ["llm", "spin-trigger-http/llm-metal"]
 llm-cublas = ["llm", "spin-trigger-http/llm-cublas"]
 
 [workspace]
-members = ["crates/*", "tests/conformance-tests", "tests/runtime-tests", "tests/testing-framework"]
+members = [
+  "crates/*",
+  "tests/conformance-tests",
+  "tests/runtime-tests",
+  "tests/testing-framework",
+]
 
 [workspace.dependencies]
 anyhow = "1.0.75"
 http-body-util = "0.1.0"
 hyper = { version = "1.0.0", features = ["full"] }
-reqwest = { version = "0.11", features = ["stream", "blocking"] }
+reqwest = { version = "0.12", features = ["stream", "blocking"] }
 tracing = { version = "0.1", features = ["log"] }
 
-wasi-common-preview1 = { version = "21.0.1", package = "wasi-common", features = ["tokio"] }
+wasi-common-preview1 = { version = "21.0.1", package = "wasi-common", features = [
+  "tokio",
+] }
 wasmtime = "21.0.1"
 wasmtime-wasi = "21.0.1"
 wasmtime-wasi-http = "21.0.1"

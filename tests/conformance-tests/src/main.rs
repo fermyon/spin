@@ -28,7 +28,7 @@ fn main() {
                 .send(|request| spin.make_http_request(request))
                 .unwrap();
             if let Err(e) =
-                conformance_tests::assertions::assert_response(invocation.response, actual)
+                conformance_tests::assertions::assert_response(&invocation.response, &actual)
             {
                 eprintln!("Test failed: {e}");
                 eprintln!("stderr: {}", spin.stderr());
@@ -36,4 +36,5 @@ fn main() {
             }
         }
     }
+    println!("All tests passed!")
 }

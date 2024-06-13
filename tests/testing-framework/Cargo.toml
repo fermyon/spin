@@ -11,9 +11,9 @@ http-body-util = "0.1.0"
 log = "0.4"
 nix = "0.26.1"
 regex = "1.10.2"
-reqwest = "0.12"
+reqwest = { workspace = true }
 temp-dir = "0.1.11"
-test-environment = { git = "https://github.com/fermyon/conformance-tests", branch = "testing-environment" }
+test-environment = { git = "https://github.com/fermyon/conformance-tests" }
 spin-trigger-http = { path = "../../crates/trigger-http" }
 spin-http = { path = "../../crates/http" }
 spin-trigger = { path = "../../crates/trigger" }

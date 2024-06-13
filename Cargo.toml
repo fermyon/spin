@@ -99,7 +99,7 @@ redis = "0.24"
 runtime-tests = { path = "tests/runtime-tests" }
 test-components = { path = "tests/test-components" }
 test-codegen-macro = { path = "crates/test-codegen-macro" }
-test-environment = { git = "https://github.com/fermyon/conformance-tests", branch = "testing-environment" }
+test-environment = { git = "https://github.com/fermyon/conformance-tests" }
 
 [build-dependencies]
 cargo-target-dep = { git = "https://github.com/fermyon/cargo-target-dep", rev = "482f269eceb7b1a7e8fc618bf8c082dd24979cf1" }

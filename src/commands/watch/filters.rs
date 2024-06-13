@@ -7,6 +7,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use spin_common::ui::quoted_path;
 use spin_manifest::schema::v2;
+use watchexec::filter::Filterer;
 
 #[async_trait]
 pub(crate) trait FilterFactory: Send + Sync {
@@ -15,7 +16,7 @@ pub(crate) trait FilterFactory: Send + Sync {
         manifest_file: &Path,
         manifest_dir: &Path,
         manifest: &v2::AppManifest,
-    ) -> anyhow::Result<Arc<watchexec_filterer_globset::GlobsetFilterer>>;
+    ) -> anyhow::Result<Arc<dyn Filterer>>;
 }
 
 pub(crate) struct ArtifactFilterFactory {
@@ -33,7 +34,7 @@ impl FilterFactory for ArtifactFilterFactory {
         manifest_file: &Path,
         manifest_dir: &Path,
         manifest: &v2::AppManifest,
-    ) -> anyhow::Result<Arc<watchexec_filterer_globset::GlobsetFilterer>> {
+    ) -> anyhow::Result<Arc<dyn Filterer>> {
         let manifest_glob = if self.skip_build {
             vec![manifest_path_to_watch(manifest_file)?]
         } else {
@@ -63,17 +64,9 @@ impl FilterFactory for ArtifactFilterFactory {
             .into_iter()
             .chain(wasm_globs)
             .chain(asset_globs)
-            .map(|s| (s, None))
             .collect::<Vec<_>>();
 
-        let filterer = watchexec_filterer_globset::GlobsetFilterer::new(
-            manifest_dir,
-            artifact_globs,
-            standard_ignores(),
-            [],
-            [],
-        )
-        .await?;
+        let filterer = globset_filter(manifest_dir, artifact_globs).await?;
 
         Ok(Arc::new(filterer))
     }
@@ -95,28 +88,22 @@ impl FilterFactory for BuildFilterFactory {
         manifest_file: &Path,
         manifest_dir: &Path,
         manifest: &v2::AppManifest,
-    ) -> anyhow::Result<Arc<watchexec_filterer_globset::GlobsetFilterer>> {
-        let manifest_glob = vec![manifest_path_to_watch(manifest_file)?];
-        let src_globs = manifest
-            .components
-            .iter()
-            .flat_map(|(cid, c)| create_source_globs(cid.as_ref(), c))
-            .collect::<Vec<_>>();
+    ) -> anyhow::Result<Arc<dyn Filterer>> {
+        let mut filterers: Vec<Box<dyn Filterer>> =
+            Vec::with_capacity(manifest.components.len() + 1);
 
-        let build_globs = manifest_glob
-            .into_iter()
-            .chain(src_globs)
-            .map(|s| (s, None))
-            .collect::<Vec<_>>();
+        let manifest_globs = vec![manifest_path_to_watch(manifest_file)?];
+        let manifest_filterer = globset_filter(manifest_dir, manifest_globs).await?;
 
-        let filterer = watchexec_filterer_globset::GlobsetFilterer::new(
-            manifest_dir,
-            build_globs,
-            standard_ignores(),
-            [],
-            [],
-        )
-        .await?;
+        filterers.push(Box::new(manifest_filterer));
+
+        for (cid, c) in &manifest.components {
+            let build_globs = create_source_globs(cid.as_ref(), c);
+            let build_filterer = globset_filter(manifest_dir, build_globs).await?;
+            filterers.push(Box::new(build_filterer));
+        }
+
+        let filterer = CompositeFilterer { filterers };
 
         Ok(Arc::new(filterer))
     }
@@ -152,20 +139,29 @@ impl FilterFactory for ManifestFilterFactory {
         manifest_file: &Path,
         manifest_dir: &Path,
         _: &v2::AppManifest,
-    ) -> anyhow::Result<Arc<watchexec_filterer_globset::GlobsetFilterer>> {
+    ) -> anyhow::Result<Arc<dyn Filterer>> {
         let manifest_glob = manifest_path_to_watch(manifest_file)?;
 
-        let filterer = watchexec_filterer_globset::GlobsetFilterer::new(
-            manifest_dir,
-            vec![(manifest_glob, None)],
-            standard_ignores(),
-            [],
-            [],
-        )
-        .await?;
+        let filterer = globset_filter(manifest_dir, [manifest_glob]).await?;
 
         Ok(Arc::new(filterer))
     }
+}
+
+async fn globset_filter(
+    manifest_dir: &Path,
+    globs: impl IntoIterator<Item = String>,
+) -> anyhow::Result<watchexec_filterer_globset::GlobsetFilterer> {
+    let filterer = watchexec_filterer_globset::GlobsetFilterer::new(
+        manifest_dir,
+        globs.into_iter().map(|s| (s, None)),
+        standard_ignores(),
+        [],
+        [],
+    )
+    .await?;
+
+    Ok(filterer)
 }
 
 // Although manifest dir must be absolute, and most things are safer with abs
@@ -184,4 +180,25 @@ fn standard_ignores() -> Vec<(String, Option<PathBuf>)> {
     .into_iter()
     .map(|pat| (pat.to_owned(), None))
     .collect()
+}
+
+#[derive(Debug)]
+struct CompositeFilterer {
+    filterers: Vec<Box<dyn watchexec::filter::Filterer>>,
+}
+
+impl watchexec::filter::Filterer for CompositeFilterer {
+    fn check_event(
+        &self,
+        event: &watchexec::event::Event,
+        priority: watchexec::event::Priority,
+    ) -> Result<bool, watchexec::error::RuntimeError> {
+        // We are interested in a change if _any_ component is interested in it
+        for f in &self.filterers {
+            if f.check_event(event, priority)? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
 }

@@ -108,6 +108,11 @@ pub struct Install {
 
 impl Install {
     pub async fn run(&self) -> Result<()> {
+        // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+        _ = ctrlc::set_handler(|| {
+            _ = dialoguer::console::Term::stderr().show_cursor();
+        });
+
         let manifest_location = match (&self.local_manifest_src, &self.remote_manifest_src, &self.name) {
             (Some(path), None, None) => ManifestLocation::Local(path.to_path_buf()),
             (None, Some(url), None) => ManifestLocation::Remote(url.clone()),
@@ -231,6 +236,11 @@ impl Upgrade {
     /// Also, by default, Spin displays the list of installed plugins that are in
     /// the catalogue and prompts user to choose which ones to upgrade.
     pub async fn run(self) -> Result<()> {
+        // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+        _ = ctrlc::set_handler(|| {
+            _ = dialoguer::console::Term::stderr().show_cursor();
+        });
+
         let manager = PluginManager::try_default()?;
         let manifests_dir = manager.store().installed_manifests_directory();
 

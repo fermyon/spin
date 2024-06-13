@@ -56,6 +56,11 @@ pub async fn execute_external_subcommand(
     cmd: Vec<String>,
     app: clap::App<'_>,
 ) -> anyhow::Result<()> {
+    // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+    _ = ctrlc::set_handler(|| {
+        _ = dialoguer::console::Term::stderr().show_cursor();
+    });
+
     let (plugin_name, args, override_compatibility_check) = parse_subcommand(cmd)?;
     let plugin_store = PluginStore::try_default()?;
     let plugin_version = ensure_plugin_available(

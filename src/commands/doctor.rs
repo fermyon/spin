@@ -25,6 +25,11 @@ pub struct DoctorCommand {
 
 impl DoctorCommand {
     pub async fn run(self) -> Result<()> {
+        // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+        _ = ctrlc::set_handler(|| {
+            _ = dialoguer::console::Term::stderr().show_cursor();
+        });
+
         let manifest_file = spin_common::paths::resolve_manifest_file_path(&self.app_source)?;
 
         println!("{icon}The Spin Doctor is in.", icon = Emoji("📟 ", ""));

@@ -117,6 +117,11 @@ pub struct Uninstall {
 
 impl Install {
     pub async fn run(self) -> Result<()> {
+        // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+        _ = ctrlc::set_handler(|| {
+            _ = dialoguer::console::Term::stderr().show_cursor();
+        });
+
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
         let source = match (&self.git, &self.dir) {
@@ -198,6 +203,11 @@ fn infer_github(raw: &str) -> String {
 
 impl Upgrade {
     pub async fn run(&self) -> Result<()> {
+        // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+        _ = ctrlc::set_handler(|| {
+            _ = dialoguer::console::Term::stderr().show_cursor();
+        });
+
         if self.git.is_some() {
             // This is equivalent to `install --update`
             let install = Install {
@@ -478,6 +488,11 @@ pub enum ListFormat {
 
 impl List {
     pub async fn run(self) -> Result<()> {
+        // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+        _ = ctrlc::set_handler(|| {
+            _ = dialoguer::console::Term::stderr().show_cursor();
+        });
+
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
 

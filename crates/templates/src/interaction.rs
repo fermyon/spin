@@ -123,6 +123,7 @@ pub(crate) fn prompt_parameter(parameter: &TemplateParameter) -> Option<String> 
             },
             Err(e) => {
                 println!("Invalid value: {}", e);
+                return None;
             }
         }
     }

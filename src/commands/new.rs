@@ -125,6 +125,11 @@ impl AddCommand {
 
 impl TemplateNewCommandCore {
     pub async fn run(&self, variant: TemplateVariantInfo) -> Result<()> {
+        // work around https://github.com/console-rs/dialoguer/issues/294
+        _ = ctrlc::set_handler(|| {
+            _ = dialoguer::console::Term::stderr().show_cursor();
+        });
+
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
 

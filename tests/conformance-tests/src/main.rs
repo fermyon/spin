@@ -8,23 +8,29 @@ fn main() {
     let tests_dir = conformance_tests::download_tests().unwrap();
 
     for test in conformance_tests::tests(&tests_dir).unwrap() {
+        println!("Running test '{}'", test.name);
         let env_config = SpinCli::config(
             SpinConfig {
                 binary_path: spin_binary.clone(),
                 spin_up_args: Vec::new(),
                 app_type: testing_framework::runtimes::SpinAppType::Http,
             },
-            test_environment::services::ServicesConfig::none(),
+            test_environment::services::ServicesConfig::new(test.config.services).unwrap(),
             move |e| {
-                e.copy_into(&test.manifest, "spin.toml")?;
+                let mut manifest =
+                    test_environment::manifest_template::EnvTemplate::from_file(&test.manifest)
+                        .unwrap();
+                manifest.substitute(e, |_| None).unwrap();
+                e.write_file("spin.toml", manifest.contents())?;
                 e.copy_into(&test.component, test.component.file_name().unwrap())?;
                 Ok(())
             },
         );
         let mut env = test_environment::TestEnvironment::up(env_config, |_| Ok(())).unwrap();
-        let spin = env.runtime_mut();
         for invocation in test.config.invocations {
-            let conformance_tests::config::Invocation::Http(invocation) = invocation;
+            let conformance_tests::config::Invocation::Http(mut invocation) = invocation;
+            invocation.request.substitute_from_env(&mut env).unwrap();
+            let spin = env.runtime_mut();
             let actual = invocation
                 .request
                 .send(|request| spin.make_http_request(request))
@@ -32,7 +38,7 @@ fn main() {
             if let Err(e) =
                 conformance_tests::assertions::assert_response(&invocation.response, &actual)
             {
-                eprintln!("Test failed: {e}");
+                eprintln!("Test '{}' failed: {e}", test.name);
                 eprintln!("stderr: {}", spin.stderr());
                 std::process::exit(1);
             }

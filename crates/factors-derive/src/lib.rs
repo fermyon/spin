@@ -53,6 +53,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
         factor_types.push(&field.ty);
     }
 
+    let Any = quote!(::std::any::Any);
     let TypeId = quote!(::std::any::TypeId);
     let factors_crate = format_ident!("spin_factors");
     let factors_path = quote!(::#factors_crate);
@@ -146,11 +147,10 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             type InstanceState = #state_name;
 
             fn app_state<F: #Factor>(app_state: &Self::AppState) -> Option<&F::AppState> {
-                let type_id = #TypeId::of::<F>();
                 #(
-                    if type_id == #TypeId::of::<#factor_types>() {
-                        unsafe {
-                            return Some(::std::mem::transmute(&app_state.#factor_names));
+                    if let Some(state) = &app_state.#factor_names {
+                        if let Some(state) = <dyn #Any>::downcast_ref(state) {
+                            return Some(state)
                         }
                     }
                 )*
@@ -165,7 +165,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                     if type_id == #TypeId::of::<#factor_types>() {
                         return Some(
                             builders.#factor_names.as_mut().map(|builder| {
-                                unsafe { ::std::mem::transmute(builder) }
+                                <dyn #Any>::downcast_mut(builder).unwrap()
                             })
                         );
                     }

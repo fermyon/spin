@@ -13,11 +13,13 @@ Created: May 20, 2024
 ## Background
 
 Spin 1.0 shipped with a mechanism for extending the runtime environment with
-loosely-coupled host functionality called "host components". As Spin has
-evolved, more and more runtime functionality has fallen outside of the scope of
-this mechanism, leading to the code for these features spreading out over the
-Spin codebase. This not only makes it hard to read and understand these features
-but also raises the bar for unfamiliar developers trying to add new features.
+loosely-coupled host functionality called
+[`HostComponent`](https://fermyon.github.io/rust-docs/spin/v2.2.0/spin_core/trait.HostComponent.html).
+As Spin has evolved, more and more runtime functionality has fallen outside of
+the scope of this mechanism, leading to the code for these features spreading
+out over the Spin codebase. This not only makes it hard to read and understand
+these features but also raises the bar for unfamiliar developers trying to add
+new features.
 
 Separately, the introduction of the SpinKube project has made it clear that
 there will be (at least) two major embeddings of the Spin runtime environment:
@@ -27,9 +29,6 @@ implementations will diverge between these embeddings, making the loose coupling
 of features even more important.
 
 ## Proposal
-
-| ⚠️ NOTE: The details of this proposal are very much a work-in-progress, expected to evolve with the refactoring work intself. ⚠️ |
-|--|
 
 The basic inversion of control approach used by `HostComponent`s will be
 redesigned and expanded into a new system called Spin Factors, where independent
@@ -69,57 +68,62 @@ The overall implementation plan will be to (in parallel):
 ## Implementation Details
 
 Based on initial prototyping, the following Rust types represent the starting
-point for `spin-factors` (note that some type details are elided for clarity):
+point for `spin-factors` (simplified from the actual code for clarity):
 
 ```rust
 pub trait Factor {
-    /// App configuration for this factor.
-    ///
-    /// See [`Factor::configure_app`].
-    type AppConfig;
+    // This provides a mechanism to configure this factor on a per-app basis
+    // based on "runtime config", as currently implemented by
+    // `spin_trigger::RuntimeConfig`.
+    type RuntimeConfig;
 
-    /// The [`FactorInstancePreparer`] for this factor.
-    type InstancePreparer: FactorInstancePreparer<Self>;
+    // This stores per-app state for the factor; see `configure_app` below.
+    // This state *may* be cached by the runtime across multiple requests.
+    type AppState;
 
-    /// The per-instance state for this factor, constructed by a
-    /// [`FactorInstancePreparer`] and available to any host-provided imports
-    /// defined by this factor.
-    type InstanceState;
+    // This type is used to build per-instance (i.e. per-request) state; see
+    // `FactorInstanceBuilder` below.
+    type InstanceBuilder: FactorInstanceBuilder;
 
-    /// Initializes this Factor for a runtime. This will be called at most once,
-    /// before any call to [`FactorInstancePreparer::new`]
-    fn init<Factors: SpinFactors>(&mut self, mut ctx: InitContext<Factors, Self>) -> Result<()> {
-        _ = &mut ctx;
+    // Initializes the factor once at runtime startup. `InitContext` provides
+    // access to the wasmtime `Linker`, so this is where any bindgen
+    // `add_to_linker` calls go.
+    fn init(&mut self, ctx: InitContext<Factors, Self>) -> Result<()> {
         Ok(())
     }
 
-    /// Performs factor-specific validation and configuration for the given
-    /// [`App`] and [`RuntimeConfig`]. A runtime may - but is not required to -
-    /// reuse the returned config across multiple instances. Note that this may
-    /// be called without any call to `init` in cases where only validation is
-    /// needed.
-    fn configure_app<Factors: SpinFactors>(
-        &self,
-        app: &App,
-        _ctx: ConfigureAppContext<Factors>,
-    );
+    // This validates and uses app (manifest) and runtime configuration to build
+    // `Self::AppState` to be used in `prepare` below.
+    // 
+    // `ConfigureAppContext` gives access to:
+    // - The `spin_app::App`
+    // - This factors's `RuntimeConfig`
+    // - The `AppState` for any factors configured before this one
+    //
+    // These methods can also be used on their own (without `init` or `prepare`)
+    // to just validate app configuration for e.g. `spin doctor`.
+    fn configure_app(&self, ctx: ConfigureAppContext) -> Result<Self::AppState>;
+
+    // Creates a new `FactorInstanceBuilder`, which will later build per-instance
+    // state for this factor.
+    //
+    // `PrepareContext` gives access to the `spin_app::AppComponent` and this
+    // factor's `AppState`.
+    //
+    // This is primary place for inter-factor dependencies to be used via the
+    // provided `InstanceBuilders` which gives access to the `InstanceBuilder`s
+    // of any factors prepared before this one.
+    fn prepare(ctx: PrepareContext, builders: &mut InstanceBuilders) -> Result<Self::InstanceBuilder>;
 }
 
-pub trait FactorInstancePreparer<Factor> {
-    // This is the component pre-instantiation hook.
+pub trait FactorInstanceBuilder {
+    // This instance state is built per-component-instance (per-request).
     //
-    // The `PrepareContext` type gives access to information about the Spin app
-    // and component being prepared and also to the Factor itself and any other
-    // already-`prepare`d `InstancePreparer`s. The return value is the
-    // InstancePreparer for this factor. This preparer may expose mutable state to
-    // other factors, providing inter-factor dependency features. This takes the place
-    // of `DynamicHostComponent::update_data`.
-    fn new(ctx: PrepareContext) -> Result<Self>;
+    // This is equivalent to the existing `HostComponent::Data` and ends up
+    // being stored in the `wasmtime::Store`. Any `bindgen` traits for this
+    // factor will be implemented on this type.
+    type InstanceState;
 
-    // Prepare is the component instantiation hook.
-    //
-    // This returns the instance state for this factor. This takes the place of
-    // `HostComponent::build_data`.
-    fn prepare(self) -> Factor::InstanceState;
+    fn build(self) -> Result<Self::InstanceState>;
 }
 ```

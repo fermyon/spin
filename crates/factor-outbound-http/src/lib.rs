@@ -36,6 +36,7 @@ impl Factor for OutboundHttpFactor {
     }
 
     fn prepare<T: RuntimeFactors>(
+        &self,
         _ctx: PrepareContext<Self>,
         builders: &mut InstanceBuilders<T>,
     ) -> anyhow::Result<Self::InstanceBuilder> {

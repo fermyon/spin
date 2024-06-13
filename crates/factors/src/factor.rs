@@ -38,6 +38,7 @@ pub trait Factor: Any + Sized {
     /// This method is given access to the app component being instantiated and
     /// to any other factors' instance builders that have already been prepared.
     fn prepare<T: RuntimeFactors>(
+        &self,
         ctx: PrepareContext<Self>,
         _builders: &mut InstanceBuilders<T>,
     ) -> anyhow::Result<Self::InstanceBuilder>;

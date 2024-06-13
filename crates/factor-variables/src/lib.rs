@@ -81,6 +81,7 @@ impl Factor for VariablesFactor {
     }
 
     fn prepare<T: RuntimeFactors>(
+        &self,
         ctx: PrepareContext<Self>,
         _builders: &mut InstanceBuilders<T>,
     ) -> anyhow::Result<InstanceState> {

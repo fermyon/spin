@@ -102,6 +102,7 @@ impl Factor for KeyValueFactor {
     }
 
     fn prepare<T: RuntimeFactors>(
+        &self,
         ctx: PrepareContext<Self>,
         _builders: &mut InstanceBuilders<T>,
     ) -> anyhow::Result<InstanceBuilder> {

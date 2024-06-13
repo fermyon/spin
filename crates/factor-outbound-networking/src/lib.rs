@@ -49,6 +49,7 @@ impl Factor for OutboundNetworkingFactor {
     }
 
     fn prepare<T: RuntimeFactors>(
+        &self,
         ctx: PrepareContext<Self>,
         builders: &mut InstanceBuilders<T>,
     ) -> anyhow::Result<Self::InstanceBuilder> {

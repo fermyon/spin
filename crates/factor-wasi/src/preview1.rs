@@ -23,6 +23,7 @@ impl Factor for WasiPreview1Factor {
     }
 
     fn prepare<T: RuntimeFactors>(
+        &self,
         _ctx: spin_factors::PrepareContext<Self>,
         _builders: &mut spin_factors::InstanceBuilders<T>,
     ) -> anyhow::Result<Self::InstanceBuilder> {

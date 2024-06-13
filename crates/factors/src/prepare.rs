@@ -32,23 +32,17 @@ impl<T: SelfInstanceBuilder> FactorInstanceBuilder for T {
 /// already-initialized [`FactorInstanceBuilder`]s, allowing for
 /// inter-[`Factor`] dependencies.
 pub struct PrepareContext<'a, F: Factor> {
-    pub(crate) factor: &'a F,
     pub(crate) app_state: &'a F::AppState,
     pub(crate) app_component: &'a AppComponent<'a>,
 }
 
 impl<'a, F: Factor> PrepareContext<'a, F> {
     #[doc(hidden)]
-    pub fn new(factor: &'a F, app_state: &'a F::AppState, app_component: &'a AppComponent) -> Self {
+    pub fn new(app_state: &'a F::AppState, app_component: &'a AppComponent) -> Self {
         Self {
-            factor,
             app_state,
             app_component,
         }
-    }
-
-    pub fn factor(&self) -> &F {
-        self.factor
     }
 
     pub fn app_state(&self) -> &F::AppState {

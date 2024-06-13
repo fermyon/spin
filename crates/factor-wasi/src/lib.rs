@@ -78,6 +78,7 @@ impl Factor for WasiFactor {
     }
 
     fn prepare<T: RuntimeFactors>(
+        &self,
         ctx: PrepareContext<Self>,
         _builders: &mut InstanceBuilders<T>,
     ) -> anyhow::Result<InstanceBuilder> {
@@ -92,8 +93,7 @@ impl Factor for WasiFactor {
         let mount_ctx = MountFilesContext {
             wasi_ctx: &mut wasi_ctx,
         };
-        ctx.factor()
-            .files_mounter
+        self.files_mounter
             .mount_files(ctx.app_component(), mount_ctx)?;
 
         Ok(InstanceBuilder { wasi_ctx })

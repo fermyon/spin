@@ -121,8 +121,8 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 #(
                     builders.#factor_names = Some(
                         #Factor::prepare::<Self>(
+                            &self.#factor_names,
                             #factors_path::PrepareContext::new(
-                                &self.#factor_names,
                                 configured_app.app_state::<#factor_types>().unwrap(),
                                 &app_component,
                             ),

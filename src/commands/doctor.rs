@@ -3,6 +3,7 @@ use std::{fmt::Debug, path::PathBuf};
 use anyhow::Result;
 use clap::Parser;
 use dialoguer::{console::Emoji, Confirm, Select};
+use spin_common::ui::Interruptible;
 use spin_doctor::{Diagnosis, DryRunNotSupported, PatientDiagnosis};
 
 use crate::opts::{APP_MANIFEST_FILE_OPT, DEFAULT_MANIFEST_FILE};
@@ -110,7 +111,8 @@ fn prompt_treatment(summary: String, dry_run: Option<String>) -> Result<bool> {
         .with_prompt(prompt)
         .items(&items)
         .default(0)
-        .interact_opt()?;
+        .interact_opt()
+        .cancel_on_interrupt()?;
 
     match selection {
         Some(2) => {
@@ -122,7 +124,8 @@ fn prompt_treatment(summary: String, dry_run: Option<String>) -> Result<bool> {
             Ok(Confirm::new()
                 .with_prompt("Would you like to apply this fix?")
                 .default(true)
-                .interact_opt()?
+                .interact_opt()
+                .cancel_on_interrupt()?
                 .unwrap_or_default())
         }
         Some(0) => Ok(true),

@@ -4,6 +4,7 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 use semver::Version;
+use spin_common::ui::Interruptible;
 use spin_plugins::{
     error::Error,
     lookup::{fetch_plugins_repo, plugins_repo_url, PluginLookup},
@@ -327,7 +328,11 @@ impl Upgrade {
         eprintln!(
             "Select plugins to upgrade. Use Space to select/deselect and Enter to confirm selection."
         );
-        let selected_indexes = match dialoguer::MultiSelect::new().items(&names).interact_opt()? {
+        let selected_indexes = match dialoguer::MultiSelect::new()
+            .items(&names)
+            .interact_opt()
+            .cancel_on_interrupt()?
+        {
             Some(indexes) => indexes,
             None => return Ok(()),
         };
@@ -663,7 +668,8 @@ fn prompt_confirm_install(manifest: &PluginManifest, package: &PluginPackage) ->
     let install = dialoguer::Confirm::new()
         .with_prompt(prompt)
         .default(true)
-        .interact_opt()?
+        .interact_opt()
+        .cancel_on_interrupt()?
         .unwrap_or(false);
     if !install {
         println!("Plugin '{}' will not be installed", manifest.name());

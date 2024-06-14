@@ -10,6 +10,7 @@ use itertools::Itertools;
 use path_absolutize::Absolutize;
 use tokio;
 
+use spin_common::ui::Interruptible;
 use spin_templates::{RunOptions, Template, TemplateManager, TemplateVariantInfo};
 
 use crate::opts::{APP_MANIFEST_FILE_OPT, DEFAULT_MANIFEST_FILE};
@@ -165,7 +166,10 @@ impl TemplateNewCommandCore {
 
         let name = match &name {
             Some(name) => name.to_owned(),
-            None => prompt_name(&variant).await?,
+            None => match prompt_name(&variant).await? {
+                Some(name) => name,
+                None => return Ok(()),
+            },
         };
 
         let output_path = if self.init {
@@ -315,7 +319,8 @@ async fn prompt_template(
         .with_prompt(prompt)
         .items(&opts)
         .default(0)
-        .interact_opt()?
+        .interact_opt()
+        .cancel_on_interrupt()?
     {
         Some(i) => i,
         None => return Ok(None),
@@ -336,18 +341,23 @@ async fn list_or_install_templates(
     }
 }
 
-async fn prompt_name(variant: &TemplateVariantInfo) -> anyhow::Result<String> {
+async fn prompt_name(variant: &TemplateVariantInfo) -> anyhow::Result<Option<String>> {
     let noun = variant.prompt_noun();
     let mut prompt = format!("Enter a name for your new {noun}");
     loop {
         let result = dialoguer::Input::<String>::new()
             .with_prompt(prompt)
-            .interact_text()?;
+            .interact_text()
+            .cancel_on_interrupt()?;
+        let Some(result) = result else {
+            return Ok(None);
+        };
+
         if result.trim().is_empty() {
             prompt = format!("Name is required. Try another {noun} name (or Crl+C to exit)");
             continue;
         } else {
-            return Ok(result);
+            return Ok(Some(result));
         }
     }
 }

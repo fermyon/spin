@@ -24,6 +24,30 @@ pub struct SpinCli {
 }
 
 impl SpinCli {
+    /// Configure a test environment that uses a local Spin binary as a runtime
+    ///
+    /// * `spin_binary` - the path to the Spin binary
+    /// * `spin_up_args` - the arguments to pass to `spin up`
+    /// * `preboot` - a callback that happens after the services have started but before the runtime is
+    /// * `services_config` - the services that the test requires
+    /// * `app_type` - the type of trigger for the app that Spin is running
+    pub fn config(
+        spin_binary: PathBuf,
+        spin_up_args: impl IntoIterator<Item = String>,
+        preboot: impl FnOnce(&mut TestEnvironment<SpinCli>) -> anyhow::Result<()> + 'static,
+        services_config: ServicesConfig,
+        app_type: SpinAppType,
+    ) -> TestEnvironmentConfig<Self> {
+        let spin_up_args = spin_up_args.into_iter().collect();
+        TestEnvironmentConfig {
+            services_config,
+            create_runtime: Box::new(move |env| {
+                preboot(env)?;
+                SpinCli::start(&spin_binary, env, spin_up_args, app_type)
+            }),
+        }
+    }
+
     /// Start Spin using the binary at `spin_binary_path` in the `env` testing environment
     pub fn start<R>(
         spin_binary_path: &Path,
@@ -196,32 +220,6 @@ impl SpinCli {
 
     fn try_wait(&mut self) -> std::io::Result<Option<std::process::ExitStatus>> {
         self.process.try_wait()
-    }
-}
-
-impl SpinCli {
-    /// Configure a test environment that uses a local Spin binary as a runtime
-    ///
-    /// * `spin_binary` - the path to the Spin binary
-    /// * `spin_up_args` - the arguments to pass to `spin up`
-    /// * `preboot` - a callback that happens after the services have started but before the runtime is
-    /// * `services_config` - the services that the test requires
-    /// * `app_type` - the type of trigger for the app that Spin is running
-    pub fn config(
-        spin_binary: PathBuf,
-        spin_up_args: impl IntoIterator<Item = String>,
-        preboot: impl FnOnce(&mut TestEnvironment<SpinCli>) -> anyhow::Result<()> + 'static,
-        services_config: ServicesConfig,
-        app_type: SpinAppType,
-    ) -> TestEnvironmentConfig<Self> {
-        let spin_up_args = spin_up_args.into_iter().collect();
-        TestEnvironmentConfig {
-            services_config,
-            create_runtime: Box::new(move |env| {
-                preboot(env)?;
-                SpinCli::start(&spin_binary, env, spin_up_args, app_type)
-            }),
-        }
     }
 }
 

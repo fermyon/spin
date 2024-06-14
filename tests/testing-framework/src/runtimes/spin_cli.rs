@@ -1,17 +1,15 @@
 //! The Spin CLI runtime (i.e., the `spin` command-line tool).
 
-use anyhow::Context;
-
-use super::SpinAppType;
-use crate::{
+use test_environment::{
     http::{Request, Response},
     io::OutputStream,
-    Runtime, TestEnvironment,
+    services::ServicesConfig,
+    TestEnvironment, TestEnvironmentConfig,
 };
-use std::{
-    path::Path,
-    process::{Command, Stdio},
-};
+
+use super::SpinAppType;
+use crate::Runtime;
+use std::process::{Command, Stdio};
 
 /// A wrapper around a running Spin CLI instance
 pub struct SpinCli {
@@ -23,33 +21,48 @@ pub struct SpinCli {
 }
 
 impl SpinCli {
+    /// Configure a test environment that uses a local Spin binary as a runtime
+    ///
+    /// * `spin_binary` - the path to the Spin binary
+    /// * `spin_up_args` - the arguments to pass to `spin up`
+    /// * `preboot` - a callback that happens after the services have started but before the runtime is
+    /// * `services_config` - the services that the test requires
+    /// * `app_type` - the type of trigger for the app that Spin is running
+    pub fn config(
+        spin_config: SpinConfig,
+        services_config: ServicesConfig,
+        preboot: impl FnOnce(&mut TestEnvironment<SpinCli>) -> anyhow::Result<()> + 'static,
+    ) -> TestEnvironmentConfig<Self> {
+        TestEnvironmentConfig {
+            services_config,
+            create_runtime: Box::new(move |env| {
+                preboot(env)?;
+                SpinCli::start(spin_config, env)
+            }),
+        }
+    }
+
     /// Start Spin using the binary at `spin_binary_path` in the `env` testing environment
-    pub fn start<R>(
-        spin_binary_path: &Path,
-        env: &mut TestEnvironment<R>,
-        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
-        app_type: SpinAppType,
-    ) -> anyhow::Result<Self> {
-        match app_type {
-            SpinAppType::Http => Self::start_http(spin_binary_path, env, spin_up_args),
-            SpinAppType::Redis => Self::start_redis(spin_binary_path, env, spin_up_args),
-            SpinAppType::None => Self::attempt_start(spin_binary_path, env, spin_up_args),
+    pub fn start<R>(spin_config: SpinConfig, env: &mut TestEnvironment<R>) -> anyhow::Result<Self> {
+        match spin_config.app_type {
+            SpinAppType::Http => Self::start_http(spin_config, env),
+            SpinAppType::Redis => Self::start_redis(spin_config, env),
+            SpinAppType::None => Self::attempt_start(spin_config, env),
         }
     }
 
     /// Start Spin assuming an HTTP app in `env` testing directory using the binary at `spin_binary_path`
     pub fn start_http<R>(
-        spin_binary_path: &Path,
+        spin_config: SpinConfig,
         env: &mut TestEnvironment<R>,
-        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
     ) -> anyhow::Result<Self> {
         let port = get_random_port()?;
-        let mut spin_cmd = Command::new(spin_binary_path);
+        let mut spin_cmd = Command::new(spin_config.binary_path);
         let child = spin_cmd
             .arg("up")
             .current_dir(env.path())
             .args(["--listen", &format!("127.0.0.1:{port}")])
-            .args(spin_up_args)
+            .args(spin_config.spin_up_args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         for (key, value) in env.env_vars() {
@@ -100,14 +113,13 @@ impl SpinCli {
 
     /// Start Spin assuming a Redis app in `env` testing directory using the binary at `spin_binary_path`
     pub fn start_redis<R>(
-        spin_binary_path: &Path,
+        spin_config: SpinConfig,
         env: &mut TestEnvironment<R>,
-        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
     ) -> anyhow::Result<Self> {
-        let mut child = Command::new(spin_binary_path)
+        let mut child = Command::new(spin_config.binary_path)
             .arg("up")
             .current_dir(env.path())
-            .args(spin_up_args)
+            .args(spin_config.spin_up_args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
@@ -133,14 +145,13 @@ impl SpinCli {
     }
 
     fn attempt_start<R>(
-        spin_binary_path: &Path,
+        spin_config: SpinConfig,
         env: &mut TestEnvironment<R>,
-        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
     ) -> anyhow::Result<Self> {
-        let mut child = Command::new(spin_binary_path)
+        let mut child = Command::new(spin_config.binary_path)
             .arg("up")
             .current_dir(env.path())
-            .args(spin_up_args)
+            .args(spin_config.spin_up_args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
@@ -169,58 +180,7 @@ impl SpinCli {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
         }
         log::debug!("Connecting to HTTP server on port {port}...");
-        let mut outgoing = reqwest::Request::new(
-            request.method,
-            reqwest::Url::parse(&format!("http://localhost:{port}"))
-                .unwrap()
-                .join(request.uri)
-                .context("could not construct url for request against Spin")?,
-        );
-        outgoing
-            .headers_mut()
-            .extend(request.headers.iter().map(|(k, v)| {
-                (
-                    reqwest::header::HeaderName::from_bytes(k.as_bytes()).unwrap(),
-                    reqwest::header::HeaderValue::from_str(v).unwrap(),
-                )
-            }));
-        *outgoing.body_mut() = request.body.map(Into::into);
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
-        let response = rt.block_on(async {
-            let mut retries = 0;
-            let mut response = loop {
-                let Some(request) = outgoing.try_clone() else {
-                    break reqwest::Client::new().execute(outgoing).await;
-                };
-                let response = reqwest::Client::new().execute(request).await;
-                if response.is_err() && retries < 5 {
-                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-                    retries += 1;
-                } else {
-                    break response;
-                }
-            }?;
-            let mut chunks = Vec::new();
-            while let Some(chunk) = response.chunk().await? {
-                chunks.push(chunk.to_vec());
-            }
-            Result::<_, anyhow::Error>::Ok(Response::full(
-                response.status().as_u16(),
-                response
-                    .headers()
-                    .into_iter()
-                    .map(|(k, v)| {
-                        (
-                            k.as_str().to_owned(),
-                            v.to_str().unwrap_or("<non-utf8>").to_owned(),
-                        )
-                    })
-                    .collect(),
-                chunks,
-            ))
-        })?;
+        let response = request.send("localhost", port)?;
         log::debug!("Awaiting response from server");
         if let Some(status) = self.try_wait()? {
             anyhow::bail!("Spin exited early with status code {:?}", status.code());
@@ -256,8 +216,6 @@ impl Drop for SpinCli {
 }
 
 impl Runtime for SpinCli {
-    type Config = SpinConfig;
-
     fn error(&mut self) -> anyhow::Result<()> {
         if !matches!(self.io_mode, IoMode::None) && self.try_wait()?.is_some() {
             anyhow::bail!("Spin exited early: {}", self.stderr());
@@ -267,8 +225,11 @@ impl Runtime for SpinCli {
     }
 }
 
+/// Configuration for how the Spin CLI will run
 pub struct SpinConfig {
     pub binary_path: std::path::PathBuf,
+    pub spin_up_args: Vec<String>,
+    pub app_type: SpinAppType,
 }
 
 fn kill_process(process: &mut std::process::Child) {

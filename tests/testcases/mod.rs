@@ -3,34 +3,25 @@ use std::{collections::HashMap, path::PathBuf};
 use test_environment::{
     http, manifest_template::EnvTemplate, services::ServicesConfig, TestEnvironment,
 };
-use testing_framework::runtimes::spin_cli::SpinCli;
+use testing_framework::runtimes::spin_cli::{SpinCli, SpinConfig};
 
 /// Run an integration test
 pub fn run_test(
     test_name: impl Into<String>,
-    app_type: testing_framework::runtimes::SpinAppType,
-    spin_up_args: impl IntoIterator<Item = String>,
+    spin_config: SpinConfig,
     services_config: ServicesConfig,
     test: impl FnOnce(
             &mut TestEnvironment<testing_framework::runtimes::spin_cli::SpinCli>,
         ) -> testing_framework::TestResult<anyhow::Error>
         + 'static,
 ) -> testing_framework::TestResult<anyhow::Error> {
-    run_test_inited(
-        test_name,
-        app_type,
-        spin_up_args,
-        services_config,
-        |_| Ok(()),
-        test,
-    )
+    run_test_inited(test_name, spin_config, services_config, |_| Ok(()), test)
 }
 
 /// Run an integration test, initialising the environment before running Spin
 pub fn run_test_inited(
     test_name: impl Into<String>,
-    app_type: testing_framework::runtimes::SpinAppType,
-    spin_up_args: impl IntoIterator<Item = String>,
+    spin_config: SpinConfig,
     services_config: ServicesConfig,
     init_env: impl FnOnce(
             &mut TestEnvironment<testing_framework::runtimes::spin_cli::SpinCli>,
@@ -41,7 +32,7 @@ pub fn run_test_inited(
         ) -> testing_framework::TestResult<anyhow::Error>
         + 'static,
 ) -> testing_framework::TestResult<anyhow::Error> {
-    let mut env = bootstap_env(test_name, spin_up_args, services_config, app_type, init_env)
+    let mut env = bootstap_env(test_name, spin_config, services_config, init_env)
         .context("failed to boot test environment")?;
     test(&mut env)?;
     Ok(())
@@ -50,22 +41,17 @@ pub fn run_test_inited(
 /// Bootstrap a test environment
 pub fn bootstap_env(
     test_name: impl Into<String>,
-    spin_up_args: impl IntoIterator<Item = String>,
+    spin_config: SpinConfig,
     services_config: ServicesConfig,
-    app_type: testing_framework::runtimes::SpinAppType,
     init_env: impl FnOnce(
             &mut TestEnvironment<testing_framework::runtimes::spin_cli::SpinCli>,
         ) -> anyhow::Result<()>
         + 'static,
 ) -> anyhow::Result<TestEnvironment<testing_framework::runtimes::spin_cli::SpinCli>> {
     let test_name = test_name.into();
-    let config = SpinCli::config(
-        spin_binary(),
-        spin_up_args,
-        move |env| preboot(&test_name, env),
-        services_config,
-        app_type,
-    );
+    let config = SpinCli::config(spin_config, services_config, move |env| {
+        preboot(&test_name, env)
+    });
     TestEnvironment::up(config, init_env)
 }
 
@@ -354,12 +340,13 @@ pub fn bootstrap_smoke_test(
         }
     });
     env.run_in(&mut build)?;
-    let spin_up_args = spin_up_args(&mut env)?;
     let spin = testing_framework::runtimes::spin_cli::SpinCli::start(
-        &spin_binary(),
+        SpinConfig {
+            binary_path: spin_binary(),
+            spin_up_args: spin_up_args(&mut env)?,
+            app_type: spin_app_type,
+        },
         &mut env,
-        spin_up_args,
-        spin_app_type,
     )?;
     let env = env.start_runtime(spin)?;
     Ok(env)

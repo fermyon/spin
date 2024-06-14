@@ -7,7 +7,7 @@ mod integration_tests {
         http::{Method, Request, Response},
         services::ServicesConfig,
     };
-    use testing_framework::runtimes::SpinAppType;
+    use testing_framework::runtimes::{spin_cli::SpinConfig, SpinAppType};
 
     use super::testcases::{
         assert_spin_request, bootstap_env, http_smoke_test_template, run_test, spin_binary,
@@ -39,8 +39,11 @@ mod integration_tests {
         let test_value = uuid::Uuid::new_v4().to_string();
         run_test(
             "key-value",
-            SpinAppType::Http,
-            ["--key-value".into(), format!("{test_key}={test_value}")],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: vec!["--key-value".into(), format!("{test_key}={test_value}")],
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
@@ -59,8 +62,11 @@ mod integration_tests {
     fn http_smoke_test() -> anyhow::Result<()> {
         run_test(
             "http-smoke-test",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
@@ -98,8 +104,11 @@ mod integration_tests {
         use redis::Commands;
         run_test(
             "redis-smoke-test",
-            SpinAppType::Redis,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Redis,
+            },
             ServicesConfig::new(vec!["redis".into()])?,
             move |env| {
                 let redis_port = env
@@ -153,8 +162,11 @@ mod integration_tests {
         use crate::testcases::run_test_inited;
         run_test_inited(
             "otel-smoke-test",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::new(vec!["jaeger".into()])?,
             |env| {
                 let otel_port = env
@@ -212,8 +224,11 @@ mod integration_tests {
     fn dynamic_env_test() -> anyhow::Result<()> {
         run_test(
             "dynamic-env-test",
-            SpinAppType::Http,
-            vec!["--env".to_owned(), "foo=bar".to_owned()],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: vec!["--env".to_owned(), "foo=bar".to_owned()],
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
@@ -243,8 +258,11 @@ mod integration_tests {
     fn assets_routing_test() -> anyhow::Result<()> {
         run_test(
             "assets-test",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
@@ -286,8 +304,11 @@ mod integration_tests {
     fn legacy_apps() -> anyhow::Result<()> {
         run_test(
             "legacy-apps-test",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
@@ -314,9 +335,12 @@ mod integration_tests {
     fn bad_build_test() -> anyhow::Result<()> {
         let mut env = bootstap_env(
             "error",
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::None,
+            },
             ServicesConfig::none(),
-            SpinAppType::None,
             |_| Ok(()),
         )?;
         let expected = r#"Error: Couldn't find trigger executor for local app "spin.toml"
@@ -334,8 +358,11 @@ Caused by:
     fn outbound_http_works() -> anyhow::Result<()> {
         run_test(
             "outbound-http-to-same-app",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
@@ -378,8 +405,11 @@ Caused by:
     fn test_simple_rust_local() -> anyhow::Result<()> {
         run_test(
             "simple-test",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::none(),
             |env| {
                 let spin = env.runtime_mut();
@@ -410,8 +440,11 @@ Caused by:
     fn test_duplicate_rust_local() -> anyhow::Result<()> {
         run_test(
             "simple-double-test",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::none(),
             |env| {
                 let spin = env.runtime_mut();
@@ -442,8 +475,11 @@ Caused by:
         const VAULT_ROOT_TOKEN: &str = "root";
         run_test_inited(
             "vault-variables-test",
-            SpinAppType::Http,
-            vec!["--runtime-config-file".into(), "runtime_config.toml".into()],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: vec!["--runtime-config-file".into(), "runtime_config.toml".into()],
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::new(vec!["vault".into()])?,
             |env| {
                 // Vault can take a few moments to be ready
@@ -745,8 +781,11 @@ Caused by:
 
         run_test(
             test_name,
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::new(vec!["http-echo".into()])?,
             move |env| {
                 let port = env
@@ -788,10 +827,12 @@ route = "/..."
         env.write_file("fake.wasm", [])?;
 
         testing_framework::runtimes::spin_cli::SpinCli::start(
-            &spin_binary(),
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::None,
+            },
             &mut env,
-            Vec::<String>::new(),
-            SpinAppType::None,
         )?;
 
         let mut up = std::process::Command::new(spin_binary());
@@ -826,10 +867,12 @@ route = "/..."
         env.write_file("fake.wasm", [])?;
 
         testing_framework::runtimes::spin_cli::SpinCli::start(
-            &spin_binary(),
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::None,
+            },
             &mut env,
-            Vec::<String>::new(),
-            SpinAppType::None,
         )?;
 
         let mut up = std::process::Command::new(spin_binary());
@@ -1083,8 +1126,11 @@ route = "/..."
 
         run_test(
             "wasi-http-streaming",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
@@ -1130,8 +1176,11 @@ route = "/..."
         .collect::<HashMap<_, _>>();
         run_test(
             "wasi-http-streaming",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::new(vec!["http-responses-from-file".into()])?,
             move |env| {
                 let service_url = format!(
@@ -1200,8 +1249,11 @@ route = "/..."
     fn test_spin_inbound_http() -> anyhow::Result<()> {
         run_test(
             "spin-inbound-http",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
@@ -1230,8 +1282,11 @@ route = "/..."
     fn test_wagi_http() -> anyhow::Result<()> {
         run_test(
             "wagi-http",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
@@ -1271,8 +1326,11 @@ route = "/..."
     fn test_http_routing() -> anyhow::Result<()> {
         run_test(
             "http-routing",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();
@@ -1306,8 +1364,11 @@ route = "/..."
     fn test_outbound_post() -> anyhow::Result<()> {
         run_test(
             "wasi-http-outbound-post",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::new(vec!["http-echo".into()])?,
             move |env| {
                 let service_url = format!(
@@ -1395,8 +1456,11 @@ route = "/..."
     fn test_spin_inbound_http_host_header() -> anyhow::Result<()> {
         run_test(
             "outbound-http-to-same-app",
-            SpinAppType::Http,
-            [],
+            SpinConfig {
+                binary_path: spin_binary(),
+                spin_up_args: Vec::new(),
+                app_type: SpinAppType::Http,
+            },
             ServicesConfig::none(),
             move |env| {
                 let spin = env.runtime_mut();

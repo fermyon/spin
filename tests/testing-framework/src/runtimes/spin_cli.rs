@@ -9,10 +9,7 @@ use test_environment::{
 
 use super::SpinAppType;
 use crate::Runtime;
-use std::{
-    path::{Path, PathBuf},
-    process::{Command, Stdio},
-};
+use std::process::{Command, Stdio};
 
 /// A wrapper around a running Spin CLI instance
 pub struct SpinCli {
@@ -32,49 +29,40 @@ impl SpinCli {
     /// * `services_config` - the services that the test requires
     /// * `app_type` - the type of trigger for the app that Spin is running
     pub fn config(
-        spin_binary: PathBuf,
-        spin_up_args: impl IntoIterator<Item = String>,
-        preboot: impl FnOnce(&mut TestEnvironment<SpinCli>) -> anyhow::Result<()> + 'static,
+        spin_config: SpinConfig,
         services_config: ServicesConfig,
-        app_type: SpinAppType,
+        preboot: impl FnOnce(&mut TestEnvironment<SpinCli>) -> anyhow::Result<()> + 'static,
     ) -> TestEnvironmentConfig<Self> {
-        let spin_up_args = spin_up_args.into_iter().collect();
         TestEnvironmentConfig {
             services_config,
             create_runtime: Box::new(move |env| {
                 preboot(env)?;
-                SpinCli::start(&spin_binary, env, spin_up_args, app_type)
+                SpinCli::start(spin_config, env)
             }),
         }
     }
 
     /// Start Spin using the binary at `spin_binary_path` in the `env` testing environment
-    pub fn start<R>(
-        spin_binary_path: &Path,
-        env: &mut TestEnvironment<R>,
-        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
-        app_type: SpinAppType,
-    ) -> anyhow::Result<Self> {
-        match app_type {
-            SpinAppType::Http => Self::start_http(spin_binary_path, env, spin_up_args),
-            SpinAppType::Redis => Self::start_redis(spin_binary_path, env, spin_up_args),
-            SpinAppType::None => Self::attempt_start(spin_binary_path, env, spin_up_args),
+    pub fn start<R>(spin_config: SpinConfig, env: &mut TestEnvironment<R>) -> anyhow::Result<Self> {
+        match spin_config.app_type {
+            SpinAppType::Http => Self::start_http(spin_config, env),
+            SpinAppType::Redis => Self::start_redis(spin_config, env),
+            SpinAppType::None => Self::attempt_start(spin_config, env),
         }
     }
 
     /// Start Spin assuming an HTTP app in `env` testing directory using the binary at `spin_binary_path`
     pub fn start_http<R>(
-        spin_binary_path: &Path,
+        spin_config: SpinConfig,
         env: &mut TestEnvironment<R>,
-        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
     ) -> anyhow::Result<Self> {
         let port = get_random_port()?;
-        let mut spin_cmd = Command::new(spin_binary_path);
+        let mut spin_cmd = Command::new(spin_config.binary_path);
         let child = spin_cmd
             .arg("up")
             .current_dir(env.path())
             .args(["--listen", &format!("127.0.0.1:{port}")])
-            .args(spin_up_args)
+            .args(spin_config.spin_up_args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         for (key, value) in env.env_vars() {
@@ -125,14 +113,13 @@ impl SpinCli {
 
     /// Start Spin assuming a Redis app in `env` testing directory using the binary at `spin_binary_path`
     pub fn start_redis<R>(
-        spin_binary_path: &Path,
+        spin_config: SpinConfig,
         env: &mut TestEnvironment<R>,
-        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
     ) -> anyhow::Result<Self> {
-        let mut child = Command::new(spin_binary_path)
+        let mut child = Command::new(spin_config.binary_path)
             .arg("up")
             .current_dir(env.path())
-            .args(spin_up_args)
+            .args(spin_config.spin_up_args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
@@ -158,14 +145,13 @@ impl SpinCli {
     }
 
     fn attempt_start<R>(
-        spin_binary_path: &Path,
+        spin_config: SpinConfig,
         env: &mut TestEnvironment<R>,
-        spin_up_args: Vec<impl AsRef<std::ffi::OsStr>>,
     ) -> anyhow::Result<Self> {
-        let mut child = Command::new(spin_binary_path)
+        let mut child = Command::new(spin_config.binary_path)
             .arg("up")
             .current_dir(env.path())
-            .args(spin_up_args)
+            .args(spin_config.spin_up_args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
@@ -239,8 +225,11 @@ impl Runtime for SpinCli {
     }
 }
 
+/// Configuration for how the Spin CLI will run
 pub struct SpinConfig {
     pub binary_path: std::path::PathBuf,
+    pub spin_up_args: Vec<String>,
+    pub app_type: SpinAppType,
 }
 
 fn kill_process(process: &mut std::process::Child) {

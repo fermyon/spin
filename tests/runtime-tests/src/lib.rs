@@ -46,6 +46,8 @@ impl RuntimeTest<SpinCli> {
                 test_path,
                 runtime_config: SpinConfig {
                     binary_path: spin_binary.clone(),
+                    spin_up_args: Vec::new(),
+                    app_type: testing_framework::runtimes::SpinAppType::Http,
                 },
                 on_error,
             };
@@ -64,11 +66,13 @@ impl RuntimeTest<SpinCli> {
         };
         let services_config = services_config(&config)?;
         let env_config = SpinCli::config(
-            spin_binary,
-            [],
-            preboot,
+            SpinConfig {
+                binary_path: spin_binary,
+                spin_up_args: Vec::new(),
+                app_type: testing_framework::runtimes::SpinAppType::Http,
+            },
             services_config,
-            testing_framework::runtimes::SpinAppType::Http,
+            preboot,
         );
         let env = TestEnvironment::up(env_config, |_| Ok(()))?;
         Ok(Self {

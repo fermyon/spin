@@ -1,4 +1,4 @@
-use testing_framework::runtimes::spin_cli::SpinCli;
+use testing_framework::runtimes::spin_cli::{SpinCli, SpinConfig};
 
 fn main() {
     let spin_binary: std::path::PathBuf = std::env::args()
@@ -9,15 +9,17 @@ fn main() {
 
     for test in conformance_tests::tests(&tests_dir).unwrap() {
         let env_config = SpinCli::config(
-            spin_binary.clone(),
-            [],
+            SpinConfig {
+                binary_path: spin_binary.clone(),
+                spin_up_args: Vec::new(),
+                app_type: testing_framework::runtimes::SpinAppType::Http,
+            },
+            test_environment::services::ServicesConfig::none(),
             move |e| {
                 e.copy_into(&test.manifest, "spin.toml")?;
                 e.copy_into(&test.component, test.component.file_name().unwrap())?;
                 Ok(())
             },
-            test_environment::services::ServicesConfig::none(),
-            testing_framework::runtimes::SpinAppType::Http,
         );
         let mut env = test_environment::TestEnvironment::up(env_config, |_| Ok(())).unwrap();
         let spin = env.runtime_mut();

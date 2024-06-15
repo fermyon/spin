@@ -506,6 +506,7 @@ impl BertEncoder {
 pub struct BertModel {
     embeddings: BertEmbeddings,
     encoder: BertEncoder,
+    #[allow(dead_code)]
     pub device: Device,
     span: tracing::Span,
 }

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
@@ -6,6 +6,7 @@ use spin_app::{
     locked::{LockedApp, LockedComponentSource},
     AppComponent, Loader,
 };
+use spin_componentize::bugs::WasiLibc377Bug;
 use spin_core::StoreBuilder;
 use tokio::fs;
 
@@ -135,6 +136,7 @@ impl Loader for TriggerLoader {
             .as_ref()
             .context("LockedComponentSource missing source field")?;
         let path = parse_file_url(source)?;
+        check_uncomponentizable_module_deprecation(&path);
         spin_core::Module::from_file(engine, &path)
             .with_context(|| format!("loading module {}", quoted_path(&path)))
     }
@@ -164,6 +166,41 @@ impl Loader for TriggerLoader {
             }
         }
         Ok(())
+    }
+}
+
+// Check whether the given module is (likely) susceptible to a wasi-libc bug
+// that makes it unsafe to componentize. If so, print a deprecation warning;
+// this will turn into a hard error in a future release.
+fn check_uncomponentizable_module_deprecation(module_path: &Path) {
+    let module = match std::fs::read(module_path) {
+        Ok(module) => module,
+        Err(err) => {
+            tracing::warn!("Failed to read {module_path:?}: {err:#}");
+            return;
+        }
+    };
+    match WasiLibc377Bug::detect(&module) {
+        Ok(WasiLibc377Bug::ProbablySafe) => {}
+        not_safe @ Ok(WasiLibc377Bug::ProbablyUnsafe | WasiLibc377Bug::Unknown) => {
+            println!(
+                "\n!!! DEPRECATION WARNING !!!\n\
+                The Wasm module at {path}\n\
+                {verbs} have been compiled with wasi-sdk version <19 and is likely to\n\
+                contain a critical memory safety bug. Spin has deprecated execution of these\n\
+                modules; they will stop working in a future release.\n\
+                For more information, see: https://github.com/fermyon/spin/issues/2552\n",
+                path = module_path.display(),
+                verbs = if not_safe.unwrap() == WasiLibc377Bug::ProbablyUnsafe {
+                    "appears to"
+                } else {
+                    "may"
+                }
+            );
+        }
+        Err(err) => {
+            tracing::warn!("Failed to apply wasi-libc bug heuristic on {module_path:?}: {err:#}");
+        }
     }
 }
 

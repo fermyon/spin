@@ -1,5 +1,5 @@
 use anyhow::Context;
-use spin_common::data_dir::default_data_dir;
+use spin_common::data_dir::data_dir;
 use std::path::{Path, PathBuf};
 
 use crate::directory::subdirectories;
@@ -20,7 +20,7 @@ impl TemplateStore {
     }
 
     pub(crate) fn try_default() -> anyhow::Result<Self> {
-        Ok(Self::new(default_data_dir()?.join("templates")))
+        Ok(Self::new(data_dir()?.join("templates")))
     }
 
     pub(crate) fn get_directory(&self, id: impl AsRef<str>) -> PathBuf {

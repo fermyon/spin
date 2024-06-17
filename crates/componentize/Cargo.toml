@@ -10,8 +10,10 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+tracing = "0.1"
 wasmparser = "0.200.0"
 wasm-encoder = "0.200.0"
+wasm-metadata = "0.200.0"
 wit-component = "0.200.0"
 wit-parser = "0.200.0"
 
@@ -28,3 +30,4 @@ serde = { version = "1.0.197", features = ["derive"] }
 tempfile = "3.10.0"
 toml = "0.8.10"
 serde_json = "1.0"
+wat = "1.200.0"

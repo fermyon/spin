@@ -9,6 +9,8 @@ use {
     wit_component::{metadata, ComponentEncoder},
 };
 
+pub mod bugs;
+
 #[cfg(test)]
 mod abi_conformance;
 mod convert;

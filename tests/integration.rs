@@ -903,7 +903,7 @@ route = "/..."
                 "--yes",
             ])
             // Ensure that spin installs the plugins into the temporary directory
-            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+            .env("SPIN_DATA_DIR", "./plugins");
         env.run_in(&mut install)?;
 
         /// Make sure that the plugin is uninstalled after the test
@@ -927,13 +927,11 @@ route = "/..."
                 "--yes",
             ])
             // Ensure that spin installs the plugins into the temporary directory
-            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+            .env("SPIN_DATA_DIR", "./plugins");
         env.run_in(&mut install)?;
 
         let mut execute = std::process::Command::new(spin_binary());
-        execute
-            .args(["example"])
-            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+        execute.args(["example"]).env("SPIN_DATA_DIR", "./plugins");
         let output = env.run_in(&mut execute)?;
 
         // Verify plugin successfully wrote to output file
@@ -957,12 +955,11 @@ route = "/..."
                 "example-plugin-manifest.json",
                 "--yes",
             ])
-            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+            .env("SPIN_DATA_DIR", "./plugins");
         env.run_in(&mut upgrade)?;
 
         // Check plugin version
         let installed_manifest = std::path::PathBuf::from("plugins")
-            .join("spin")
             .join("plugins")
             .join("manifests")
             .join("example.json");
@@ -984,7 +981,7 @@ route = "/..."
         login
             .args(["login", "--help"])
             // Ensure that spin installs the plugins into the temporary directory
-            .env("TEST_PLUGINS_DIRECTORY", "./plugins");
+            .env("SPIN_DATA_DIR", "./plugins");
         let output = env.run_in(&mut login)?;
 
         // Verify plugin successfully wrote to output file
@@ -1361,7 +1358,7 @@ route = "/..."
 
         // Create a test plugin store so we don't modify the user's real one.
         let plugin_store_dir = Path::new(concat!(env!("OUT_DIR"), "/plugin-store"));
-        let plugins_dir = plugin_store_dir.join("spin/plugins");
+        let plugins_dir = plugin_store_dir.join("plugins");
 
         let plugin_dir = plugins_dir.join("trigger-timer");
         fs::create_dir_all(&plugin_dir)?;
@@ -1388,7 +1385,7 @@ route = "/..."
                 &format!("{TIMER_TRIGGER_INTEGRATION_TEST}/spin.toml"),
                 "--test",
             ])
-            .env("TEST_PLUGINS_DIRECTORY", plugin_store_dir)
+            .env("SPIN_DATA_DIR", plugin_store_dir)
             .output()?;
         assert!(
             out.status.success(),

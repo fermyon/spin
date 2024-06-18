@@ -5708,7 +5708,9 @@ name = "spin-componentize"
 version = "2.6.0-pre0"
 dependencies = [
  "anyhow",
+ "tracing",
  "wasm-encoder 0.200.0",
+ "wasm-metadata",
  "wasmparser 0.200.0",
  "wit-component",
  "wit-parser 0.200.0",

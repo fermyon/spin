@@ -1,3 +1,4 @@
+use conformance_tests::config::KeyValueStorePrecondition;
 use testing_framework::runtimes::spin_cli::{SpinCli, SpinConfig};
 
 fn main() {
@@ -9,13 +10,29 @@ fn main() {
 
     for test in conformance_tests::tests(&tests_dir).unwrap() {
         println!("Running test '{}'", test.name);
+        let mut services = Vec::new();
+        for precondition in &test.config.preconditions {
+            match precondition {
+                conformance_tests::config::Precondition::KeyValueStore(
+                    KeyValueStorePrecondition { label },
+                ) => {
+                    if label != "default" {
+                        panic!("Unsupported precondition: KeyValueStore with label '{label}'")
+                    }
+                }
+
+                conformance_tests::config::Precondition::HttpEcho => {
+                    services.push("http-echo".into())
+                }
+            }
+        }
         let env_config = SpinCli::config(
             SpinConfig {
                 binary_path: spin_binary.clone(),
                 spin_up_args: Vec::new(),
                 app_type: testing_framework::runtimes::SpinAppType::Http,
             },
-            test_environment::services::ServicesConfig::new(test.config.services).unwrap(),
+            test_environment::services::ServicesConfig::new(services).unwrap(),
             move |e| {
                 let mut manifest =
                     test_environment::manifest_template::EnvTemplate::from_file(&test.manifest)

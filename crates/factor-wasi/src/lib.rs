@@ -1,5 +1,3 @@
-pub mod preview1;
-
 use std::{future::Future, net::SocketAddr, path::Path};
 
 use spin_factors::{
@@ -37,36 +35,35 @@ impl Factor for WasiFactor {
         }
         let get_data = ctx.get_data_fn();
         let closure = type_annotate(move |data| WasiImpl(get_data(data)));
-        if let Some(linker) = ctx.linker() {
-            use wasmtime_wasi::bindings;
-            bindings::clocks::wall_clock::add_to_linker_get_host(linker, closure)?;
-            bindings::clocks::monotonic_clock::add_to_linker_get_host(linker, closure)?;
-            bindings::filesystem::types::add_to_linker_get_host(linker, closure)?;
-            bindings::filesystem::preopens::add_to_linker_get_host(linker, closure)?;
-            bindings::io::error::add_to_linker_get_host(linker, closure)?;
-            bindings::io::poll::add_to_linker_get_host(linker, closure)?;
-            bindings::io::streams::add_to_linker_get_host(linker, closure)?;
-            bindings::random::random::add_to_linker_get_host(linker, closure)?;
-            bindings::random::insecure::add_to_linker_get_host(linker, closure)?;
-            bindings::random::insecure_seed::add_to_linker_get_host(linker, closure)?;
-            bindings::cli::exit::add_to_linker_get_host(linker, closure)?;
-            bindings::cli::environment::add_to_linker_get_host(linker, closure)?;
-            bindings::cli::stdin::add_to_linker_get_host(linker, closure)?;
-            bindings::cli::stdout::add_to_linker_get_host(linker, closure)?;
-            bindings::cli::stderr::add_to_linker_get_host(linker, closure)?;
-            bindings::cli::terminal_input::add_to_linker_get_host(linker, closure)?;
-            bindings::cli::terminal_output::add_to_linker_get_host(linker, closure)?;
-            bindings::cli::terminal_stdin::add_to_linker_get_host(linker, closure)?;
-            bindings::cli::terminal_stdout::add_to_linker_get_host(linker, closure)?;
-            bindings::cli::terminal_stderr::add_to_linker_get_host(linker, closure)?;
-            bindings::sockets::tcp::add_to_linker_get_host(linker, closure)?;
-            bindings::sockets::tcp_create_socket::add_to_linker_get_host(linker, closure)?;
-            bindings::sockets::udp::add_to_linker_get_host(linker, closure)?;
-            bindings::sockets::udp_create_socket::add_to_linker_get_host(linker, closure)?;
-            bindings::sockets::instance_network::add_to_linker_get_host(linker, closure)?;
-            bindings::sockets::network::add_to_linker_get_host(linker, closure)?;
-            bindings::sockets::ip_name_lookup::add_to_linker_get_host(linker, closure)?;
-        }
+        let linker = ctx.linker();
+        use wasmtime_wasi::bindings;
+        bindings::clocks::wall_clock::add_to_linker_get_host(linker, closure)?;
+        bindings::clocks::monotonic_clock::add_to_linker_get_host(linker, closure)?;
+        bindings::filesystem::types::add_to_linker_get_host(linker, closure)?;
+        bindings::filesystem::preopens::add_to_linker_get_host(linker, closure)?;
+        bindings::io::error::add_to_linker_get_host(linker, closure)?;
+        bindings::io::poll::add_to_linker_get_host(linker, closure)?;
+        bindings::io::streams::add_to_linker_get_host(linker, closure)?;
+        bindings::random::random::add_to_linker_get_host(linker, closure)?;
+        bindings::random::insecure::add_to_linker_get_host(linker, closure)?;
+        bindings::random::insecure_seed::add_to_linker_get_host(linker, closure)?;
+        bindings::cli::exit::add_to_linker_get_host(linker, closure)?;
+        bindings::cli::environment::add_to_linker_get_host(linker, closure)?;
+        bindings::cli::stdin::add_to_linker_get_host(linker, closure)?;
+        bindings::cli::stdout::add_to_linker_get_host(linker, closure)?;
+        bindings::cli::stderr::add_to_linker_get_host(linker, closure)?;
+        bindings::cli::terminal_input::add_to_linker_get_host(linker, closure)?;
+        bindings::cli::terminal_output::add_to_linker_get_host(linker, closure)?;
+        bindings::cli::terminal_stdin::add_to_linker_get_host(linker, closure)?;
+        bindings::cli::terminal_stdout::add_to_linker_get_host(linker, closure)?;
+        bindings::cli::terminal_stderr::add_to_linker_get_host(linker, closure)?;
+        bindings::sockets::tcp::add_to_linker_get_host(linker, closure)?;
+        bindings::sockets::tcp_create_socket::add_to_linker_get_host(linker, closure)?;
+        bindings::sockets::udp::add_to_linker_get_host(linker, closure)?;
+        bindings::sockets::udp_create_socket::add_to_linker_get_host(linker, closure)?;
+        bindings::sockets::instance_network::add_to_linker_get_host(linker, closure)?;
+        bindings::sockets::network::add_to_linker_get_host(linker, closure)?;
+        bindings::sockets::ip_name_lookup::add_to_linker_get_host(linker, closure)?;
         Ok(())
     }
 

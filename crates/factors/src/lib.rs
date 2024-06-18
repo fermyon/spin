@@ -16,7 +16,6 @@ pub use crate::{
 };
 
 pub type Linker<T> = wasmtime::component::Linker<<T as RuntimeFactors>::InstanceState>;
-pub type ModuleLinker<T> = wasmtime::Linker<<T as RuntimeFactors>::InstanceState>;
 
 // Temporary wrappers while refactoring
 pub type App = spin_app::App<'static, spin_app::InertLoader>;

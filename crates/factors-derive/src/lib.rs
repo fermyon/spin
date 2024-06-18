@@ -70,15 +70,13 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             #[allow(clippy::needless_option_as_deref)]
             pub fn init(
                 &mut self,
-                mut linker: Option<&mut #wasmtime::component::Linker<#state_name>>,
-                mut module_linker: Option<&mut #wasmtime::Linker<#state_name>>,
+                linker: &mut #wasmtime::component::Linker<#state_name>,
             ) -> #Result<()> {
                 #(
                     #Factor::init::<Self>(
                         &mut self.#factor_names,
                         #factors_path::InitContext::<Self, #factor_types>::new(
-                            linker.as_deref_mut(),
-                            module_linker.as_deref_mut(),
+                            linker,
                             |state| &mut state.#factor_names,
                         )
                     )?;

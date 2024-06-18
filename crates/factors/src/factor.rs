@@ -4,7 +4,7 @@ use anyhow::Context;
 
 use crate::{
     prepare::FactorInstanceBuilder, runtime_config::RuntimeConfigTracker, App, FactorRuntimeConfig,
-    InstanceBuilders, Linker, ModuleLinker, PrepareContext, RuntimeConfigSource, RuntimeFactors,
+    InstanceBuilders, Linker, PrepareContext, RuntimeConfigSource, RuntimeFactors,
 };
 
 pub trait Factor: Any + Sized {
@@ -65,31 +65,18 @@ pub(crate) type GetDataFn<Facts, F> =
 /// An InitContext is passed to [`Factor::init`], giving access to the global
 /// common [`wasmtime::component::Linker`].
 pub struct InitContext<'a, T: RuntimeFactors, F: Factor> {
-    pub(crate) linker: Option<&'a mut Linker<T>>,
-    pub(crate) module_linker: Option<&'a mut ModuleLinker<T>>,
+    pub(crate) linker: &'a mut Linker<T>,
     pub(crate) get_data: GetDataFn<T, F>,
 }
 
 impl<'a, T: RuntimeFactors, F: Factor> InitContext<'a, T, F> {
     #[doc(hidden)]
-    pub fn new(
-        linker: Option<&'a mut Linker<T>>,
-        module_linker: Option<&'a mut ModuleLinker<T>>,
-        get_data: GetDataFn<T, F>,
-    ) -> Self {
-        Self {
-            linker,
-            module_linker,
-            get_data,
-        }
+    pub fn new(linker: &'a mut Linker<T>, get_data: GetDataFn<T, F>) -> Self {
+        Self { linker, get_data }
     }
 
-    pub fn linker(&mut self) -> Option<&mut Linker<T>> {
-        self.linker.as_deref_mut()
-    }
-
-    pub fn module_linker(&mut self) -> Option<&mut ModuleLinker<T>> {
-        self.module_linker.as_deref_mut()
+    pub fn linker(&mut self) -> &mut Linker<T> {
+        self.linker
     }
 
     pub fn get_data_fn(&self) -> GetDataFn<T, F> {
@@ -104,26 +91,7 @@ impl<'a, T: RuntimeFactors, F: Factor> InitContext<'a, T, F> {
         ) -> anyhow::Result<()>,
     ) -> anyhow::Result<()>
 where {
-        if let Some(linker) = self.linker.as_deref_mut() {
-            add_to_linker(linker, self.get_data)
-        } else {
-            Ok(())
-        }
-    }
-
-    pub fn link_module_bindings(
-        &mut self,
-        add_to_linker: impl Fn(
-            &mut ModuleLinker<T>,
-            fn(&mut T::InstanceState) -> &mut FactorInstanceState<F>,
-        ) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()>
-where {
-        if let Some(linker) = self.module_linker.as_deref_mut() {
-            add_to_linker(linker, self.get_data)
-        } else {
-            Ok(())
-        }
+        add_to_linker(self.linker, self.get_data)
     }
 }
 

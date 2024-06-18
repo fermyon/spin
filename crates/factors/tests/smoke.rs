@@ -8,7 +8,7 @@ use spin_factor_key_value::{KeyValueFactor, MakeKeyValueStore};
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::{StaticVariables, VariablesFactor};
-use spin_factor_wasi::{preview1::WasiPreview1Factor, DummyFilesMounter, WasiFactor};
+use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
 use spin_factors::{FactorRuntimeConfig, RuntimeConfigSource, RuntimeFactors};
 use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
 use wasmtime_wasi_http::WasiHttpView;
@@ -16,7 +16,6 @@ use wasmtime_wasi_http::WasiHttpView;
 #[derive(RuntimeFactors)]
 struct Factors {
     wasi: WasiFactor,
-    wasi_p1: WasiPreview1Factor,
     variables: VariablesFactor,
     outbound_networking: OutboundNetworkingFactor,
     outbound_http: OutboundHttpFactor,
@@ -27,7 +26,6 @@ struct Factors {
 async fn main() -> anyhow::Result<()> {
     let mut factors = Factors {
         wasi: WasiFactor::new(DummyFilesMounter),
-        wasi_p1: WasiPreview1Factor,
         variables: VariablesFactor::default(),
         outbound_networking: OutboundNetworkingFactor,
         outbound_http: OutboundHttpFactor,
@@ -48,11 +46,8 @@ async fn main() -> anyhow::Result<()> {
 
     let engine = wasmtime::Engine::new(wasmtime::Config::new().async_support(true))?;
     let mut linker = wasmtime::component::Linker::new(&engine);
-    let mut module_linker = wasmtime::Linker::new(&engine);
 
-    factors
-        .init(Some(&mut linker), Some(&mut module_linker))
-        .unwrap();
+    factors.init(&mut linker).unwrap();
 
     let configured_app = factors.configure_app(app, TestSource)?;
     let data = factors.build_store_data(&configured_app, "smoke-app")?;
@@ -81,9 +76,6 @@ async fn main() -> anyhow::Result<()> {
     let component_bytes = spin_componentize::componentize_if_necessary(&wasm_bytes)?;
     let component = wasmtime::component::Component::new(&engine, component_bytes)?;
     let instance = linker.instantiate_async(&mut store, &component).await?;
-
-    let module = wasmtime::Module::new(&engine, b"(module)")?;
-    let _module_instance = module_linker.instantiate_async(&mut store, &module).await?;
 
     // Invoke handler
     let req = http::Request::get("/").body(Default::default()).unwrap();

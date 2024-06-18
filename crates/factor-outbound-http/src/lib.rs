@@ -22,9 +22,7 @@ impl Factor for OutboundHttpFactor {
         mut ctx: spin_factors::InitContext<T, Self>,
     ) -> anyhow::Result<()> {
         ctx.link_bindings(spin_world::v1::http::add_to_linker)?;
-        if let Some(linker) = ctx.linker() {
-            wasi::add_to_linker::<T>(linker)?;
-        }
+        wasi::add_to_linker::<T>(ctx.linker())?;
         Ok(())
     }
 

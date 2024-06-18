@@ -22,7 +22,7 @@ git fetch -q origin "refs/pull/${pr}/head"
 git fetch -q origin "refs/heads/${branch}"
 branch_head="$(git rev-parse FETCH_HEAD)"
 
-work_tree="$(git rev-parse --git-dir)/backport-worktree"
+work_tree="$(git rev-parse --git-dir)/worktrees/backport-worktree"
 [[ -e "${work_tree}" ]] || git worktree add -f "${work_tree}" "${branch_head}"
 cd "${work_tree}"
 

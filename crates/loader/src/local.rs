@@ -416,7 +416,10 @@ impl LocalLoader {
                 continue;
             }
 
-            let app_root_path = src.strip_prefix(&self.app_root)?;
+            let Ok(app_root_path) = src.strip_prefix(&self.app_root) else {
+                bail!("{pattern} cannot be mapped because it is outside the application directory. Files must be within the application directory.");
+            };
+
             if exclude_patterns
                 .iter()
                 .any(|pattern| pattern.matches_path(app_root_path))

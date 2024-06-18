@@ -105,11 +105,17 @@ The table below summarizes the [feature support](https://developer.fermyon.com/s
 | **Extensibility** |
 | [Authoring Custom Triggers](https://developer.fermyon.com/spin/extending-and-embedding) | Supported | Not Supported | Not Supported | Not Supported | Not Supported |
 
-## Contributing
+## Getting Involved and Contributing
 
 We are delighted that you are interested in making Spin better! Thank you!
-Please follow the [contributing guide](https://developer.fermyon.com/spin/contributing).
-And join our [Discord server](https://discord.gg/eGN8saYqCk).
+
+Each Monday at 2:30om UTC and 9:00pm UTC (alternating), we meet to discuss Spin issues, roadmap, and ideas in our Spin Project Meetings. Subscribe to this This [Google Calendar](https://calendar.google.com/calendar/u/1?cid=c3Bpbi5tYWludGFpbmVyc0BnbWFpbC5jb20) for meeting dates.
+
+The [Spin Project Meeting agenda](https://docs.google.com/document/d/1EG392gb8Eg-1ZEPDy18pgFZvMMrdAEybpCSufFXoe00/edit?usp=sharing) is a public document. The document contains a rolling agenda with the date and time of each meeting, the Zoom link, and topics of discussion for the day. You will also find the meeting minutes for each meeting and the link to the recording. If you have something you would like to demo or discuss at the project meeting, we encourage you to add it to the agenda.
+
+You can find the contributing guide [here](https://developer.fermyon.com/spin/contributing).
+
+Fermyon also hosts a Discord server, where we discuss anything Spin: [Discord server](https://discord.gg/eGN8saYqCk).
 
 ## Stay in Touch
 Follow us on Twitter: [@spinframework](https://twitter.com/spinframework)

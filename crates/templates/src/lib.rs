@@ -25,5 +25,6 @@ pub use run::{Run, RunOptions};
 pub use source::TemplateSource;
 pub use template::{Template, TemplateVariantInfo};
 
+#[allow(clippy::duplicated_attributes)]
 #[cfg(test)]
 mod test_built_ins;

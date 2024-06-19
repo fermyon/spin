@@ -1,14 +1,16 @@
 use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
 
 use crate::{runtime_config::RuntimeConfig, TriggerHooks};
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use serde::Deserialize;
 use spin_common::ui::quoted_path;
 use spin_key_value::{
     CachingStoreManager, DelegatingStoreManager, KeyValueComponent, StoreManager,
     KEY_VALUE_STORES_KEY,
 };
-use spin_key_value_azure::KeyValueAzureCosmos;
+use spin_key_value_azure::{
+    KeyValueAzureCosmos, KeyValueAzureCosmosAuthOptions, KeyValueAzureCosmosRuntimeConfigOptions,
+};
 use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
 
 use super::{resolve_config_path, RuntimeConfigOpts};
@@ -122,19 +124,33 @@ impl RedisKeyValueStoreOpts {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct AzureCosmosConfig {
+    #[serde(default)]
     key: String,
     account: String,
     database: String,
     container: String,
+    #[serde(default)]
+    environmental_auth: bool,
 }
 
 impl AzureCosmosConfig {
     pub fn build_store(&self) -> Result<Arc<dyn StoreManager>> {
+        let auth_options = if self.key.is_empty() || self.environmental_auth {
+            KeyValueAzureCosmosAuthOptions::Environmental
+        } else {
+            if self.key.is_empty() {
+                return Err(anyhow!(
+                    "missing required field `key` for Azure Cosmos Key Value store."
+                ));
+            }
+            let config_values = KeyValueAzureCosmosRuntimeConfigOptions::new(self.key.clone());
+            KeyValueAzureCosmosAuthOptions::RuntimeConfigValues(config_values)
+        };
         let kv_azure_cosmos = KeyValueAzureCosmos::new(
-            self.key.clone(),
             self.account.clone(),
             self.database.clone(),
             self.container.clone(),
+            auth_options,
         )?;
         Ok(Arc::new(kv_azure_cosmos))
     }

@@ -2,6 +2,8 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
+use wasm_pkg_common::{package::PackageRef, registry::Registry};
+
 /// Variable definition
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -33,9 +35,9 @@ pub enum ComponentSource {
     /// `{ ... }`
     Registry {
         /// `registry = "example.com"`
-        registry: Option<String>,
+        registry: Option<Registry>,
         /// `package = "example:component"`
-        package: String,
+        package: PackageRef,
         /// `version = "1.2.3"`
         version: semver::Version,
     },

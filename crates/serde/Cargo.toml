@@ -5,5 +5,8 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-base64 = "0.21.4"
+anyhow = "1.0"
+base64 = "0.22.1"
+semver = { version = "1.0", features = ["serde"] }
 serde = "1.0.189"
+wasm-pkg-common = "0.4.1"

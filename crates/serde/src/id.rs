@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// An ID is a non-empty string containing one or more component model
 /// `word`s separated by a delimiter char.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(into = "String", try_from = "String")]
 pub struct Id<const DELIM: char, const LOWER: bool>(String);
 

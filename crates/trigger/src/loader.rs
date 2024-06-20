@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
 use spin_app::{
-    locked::{LockedApp, LockedComponentSource},
+    locked::{LockedApp, LockedComponent, LockedComponentSource},
     AppComponent, Loader,
 };
 use spin_componentize::bugs::WasiLibc377Bug;
@@ -87,9 +87,10 @@ impl Loader for TriggerLoader {
     async fn load_component(
         &self,
         engine: &spin_core::wasmtime::Engine,
-        source: &LockedComponentSource,
+        component: &LockedComponent,
     ) -> Result<spin_core::Component> {
-        let source = source
+        let source = component
+            .source
             .content
             .source
             .as_ref()
@@ -112,14 +113,12 @@ impl Loader for TriggerLoader {
                 }
             }
             AotCompilationStatus::Disabled => {
-                let bytes = fs::read(&path).await.with_context(|| {
-                    format!(
-                        "failed to read component source from disk at path {}",
-                        quoted_path(&path)
-                    )
-                })?;
-                let component = spin_componentize::componentize_if_necessary(&bytes)?;
-                spin_core::Component::new(engine, component.as_ref())
+                let component_loader = ComponentLoader;
+                let composed = spin_compose::compose(&component_loader, component)
+                    .await
+                    .with_context(|| format!("failed to compose component {:?}", component.id))?;
+
+                spin_core::Component::new(engine, composed)
                     .with_context(|| format!("loading module {}", quoted_path(&path)))
             }
         }
@@ -204,6 +203,35 @@ fn check_uncomponentizable_module_deprecation(module_path: &Path) {
     }
 }
 
+struct ComponentLoader;
+
+#[async_trait]
+impl spin_compose::ComponentLoader for ComponentLoader {
+    async fn load_component(
+        &self,
+        source: &spin_app::locked::LockedComponentSource,
+    ) -> anyhow::Result<Vec<u8>> {
+        let source = source
+            .content
+            .source
+            .as_ref()
+            .context("LockedComponentSource missing source field")?;
+
+        let path = parse_file_url(source)?;
+
+        let bytes: Vec<u8> = fs::read(&path).await.with_context(|| {
+            format!(
+                "failed to read component source from disk at path {}",
+                quoted_path(&path)
+            )
+        })?;
+
+        let component = spin_componentize::componentize_if_necessary(&bytes)?;
+
+        Ok(component.into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -247,9 +275,18 @@ mod tests {
     async fn load_component_fails_for_precompiled_component() {
         let mut file = NamedTempFile::new().unwrap();
         let source = precompiled_component(&mut file);
+        let locked = spin_app::locked::LockedComponent {
+            id: "test".to_string(),
+            source,
+            metadata: Default::default(),
+            env: Default::default(),
+            files: Default::default(),
+            config: Default::default(),
+            dependencies: Default::default(),
+        };
         let loader = super::TriggerLoader::new("/unreferenced", false);
         let result = loader
-            .load_component(&spin_core::wasmtime::Engine::default(), &source)
+            .load_component(&spin_core::wasmtime::Engine::default(), &locked)
             .await;
         assert!(result.is_err());
     }

@@ -4,7 +4,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use spin_serde::FixedVersionBackwardCompatible;
+use spin_serde::{DependencyName, FixedVersionBackwardCompatible};
+use std::collections::BTreeMap;
 
 use crate::{
     metadata::MetadataExt,
@@ -221,6 +222,43 @@ pub struct LockedComponent {
     /// Custom config values
     #[serde(default, skip_serializing_if = "LockedMap::is_empty")]
     pub config: LockedMap<String>,
+    /// Component dependencies
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub dependencies: BTreeMap<DependencyName, LockedComponentDependency>,
+}
+
+/// A LockedDependency represents a "fully resolved" Spin component dependency.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LockedComponentDependency {
+    /// Locked dependency source
+    pub source: LockedComponentSource,
+    /// The specific export to use from the dependency, if any.
+    pub export: Option<String>,
+    /// Which configurations to inherit from parent
+    #[serde(default, skip_serializing_if = "InheritConfiguration::is_none")]
+    pub inherit: InheritConfiguration,
+}
+
+/// InheritConfiguration specifies which configurations to inherit from parent.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum InheritConfiguration {
+    /// Dependencies will inherit all configurations from parent.
+    All,
+    /// Dependencies will inherit only the specified configurations from parent
+    /// (if empty then deny-all is enforced).
+    Some(Vec<String>),
+}
+
+impl Default for InheritConfiguration {
+    fn default() -> Self {
+        InheritConfiguration::Some(vec![])
+    }
+}
+
+impl InheritConfiguration {
+    fn is_none(&self) -> bool {
+        matches!(self, InheritConfiguration::Some(configs) if configs.is_empty())
+    }
 }
 
 /// A LockedComponentSource specifies a Wasm source.
@@ -245,7 +283,7 @@ pub struct ContentPath {
 
 /// A ContentRef represents content used by an application.
 ///
-/// At least one of `source` or `digest` must be specified. Implementations may
+/// At least one of `source`, `inline`, or `digest` must be specified. Implementations may
 /// require one or the other (or both).
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ContentRef {

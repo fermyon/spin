@@ -31,8 +31,8 @@ outbound-mysql = { path = "../outbound-mysql" }
 rustls-pemfile = "2.1.2"
 rustls-pki-types = "1.7.0"
 spin-common = { path = "../common" }
+spin-compose ={ path = "../compose" }
 spin-expressions = { path = "../expressions" }
-spin-serde = { path = "../serde" }
 spin-key-value = { path = "../key-value" }
 spin-key-value-azure = { path = "../key-value-azure" }
 spin-key-value-redis = { path = "../key-value-redis" }
@@ -45,6 +45,7 @@ spin-world = { path = "../world" }
 spin-llm = { path = "../llm" }
 spin-llm-local = { path = "../llm-local", optional = true }
 spin-llm-remote-http = { path = "../llm-remote-http" }
+spin-serde = { path = "../serde" }
 spin-telemetry = { path = "../telemetry" }
 sanitize-filename = "0.4"
 serde = "1.0.188"

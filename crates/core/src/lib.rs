@@ -48,7 +48,6 @@ pub const DEFAULT_EPOCH_TICK_INTERVAL: Duration = Duration::from_millis(10);
 
 const MB: u64 = 1 << 20;
 const GB: u64 = 1 << 30;
-const WASM_PAGE_SIZE: u64 = 64 * 1024;
 
 /// Global configuration for `EngineBuilder`.
 ///
@@ -127,7 +126,7 @@ impl Default for Config {
                 // Nothing is lost from allowing the maximum size of memory for
                 // all instance as it's still limited through other the normal
                 // `StoreLimitsAsync` accounting method too.
-                .memory_pages(4 * GB / WASM_PAGE_SIZE)
+                .max_memory_size((4 * GB) as usize)
                 // These numbers are completely arbitrary at something above 0.
                 .linear_memory_keep_resident((2 * MB) as usize)
                 .table_keep_resident((MB / 2) as usize);

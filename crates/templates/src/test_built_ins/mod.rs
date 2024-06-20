@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 // Module for unit-testing the built-in templates when a full integration test would be overkill.
 // If your test involves invoking the Spin CLI, or builds or runs an application, use
 // an integration test.

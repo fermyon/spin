@@ -4,7 +4,7 @@
 ///
 /// TODO: Remove this file when a new release of Candle makes it obsolete.
 use anyhow::{bail, Result};
-use candle::{DType, Device, Tensor};
+use candle::{DType, Tensor};
 use candle_nn::{Embedding, VarBuilder};
 use serde::Deserialize;
 
@@ -503,10 +503,9 @@ impl BertEncoder {
 }
 
 // https://github.com/huggingface/transformers/blob/6eedfa6dd15dc1e22a55ae036f681914e5a0d9a1/src/transformers/models/bert/modeling_bert.py#L874
-pub struct BertModel {
+pub(crate) struct BertModel {
     embeddings: BertEmbeddings,
     encoder: BertEncoder,
-    pub device: Device,
     span: tracing::Span,
 }
 
@@ -535,7 +534,6 @@ impl BertModel {
         Ok(Self {
             embeddings,
             encoder,
-            device: vb.device().clone(),
             span: tracing::span!(tracing::Level::TRACE, "model"),
         })
     }

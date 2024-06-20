@@ -9,6 +9,7 @@ use spin_app::App;
 use spin_common::ui::quoted_path;
 use spin_common::url::parse_file_url;
 use spin_common::{arg_parser::parse_kv, sloth};
+use spin_core::async_trait;
 use spin_factors_executor::{ComponentLoader, FactorsExecutor};
 use spin_runtime_config::{ResolvedRuntimeConfig, UserProvidedPath};
 
@@ -352,8 +353,37 @@ impl<T: Trigger> TriggerAppBuilder<T> {
 
         // TODO: port the rest of the component loader logic
         struct SimpleComponentLoader;
+
+        #[async_trait]
+        impl spin_compose::LockedComponentSourceLoader for SimpleComponentLoader {
+            async fn load_component_source(
+                &self,
+                source: &spin_app::locked::LockedComponentSource,
+            ) -> anyhow::Result<Vec<u8>> {
+                let source = source
+                    .content
+                    .source
+                    .as_ref()
+                    .context("LockedComponentSource missing source field")?;
+
+                let path = parse_file_url(source)?;
+
+                let bytes: Vec<u8> = tokio::fs::read(&path).await.with_context(|| {
+                    format!(
+                        "failed to read component source from disk at path {}",
+                        quoted_path(&path)
+                    )
+                })?;
+
+                let component = spin_componentize::componentize_if_necessary(&bytes)?;
+
+                Ok(component.into())
+            }
+        }
+
+        #[async_trait]
         impl ComponentLoader for SimpleComponentLoader {
-            fn load_component(
+            async fn load_component(
                 &mut self,
                 engine: &spin_core::wasmtime::Engine,
                 component: &spin_factors::AppComponent,
@@ -365,15 +395,14 @@ impl<T: Trigger> TriggerAppBuilder<T> {
                     .as_ref()
                     .context("LockedComponentSource missing source field")?;
                 let path = parse_file_url(source)?;
-                let bytes = std::fs::read(&path).with_context(|| {
-                    format!(
-                        "failed to read component source from disk at path {}",
-                        quoted_path(&path)
-                    )
-                })?;
-                let component = spin_componentize::componentize_if_necessary(&bytes)
-                    .with_context(|| format!("preparing wasm {}", quoted_path(&path)))?;
-                spin_core::Component::new(engine, component)
+
+                let composed = spin_compose::compose(self, component.locked)
+                    .await
+                    .with_context(|| {
+                        format!("failed to compose component {:?}", component.locked.id)
+                    })?;
+
+                spin_core::Component::new(engine, composed)
                     .with_context(|| format!("compiling wasm {}", quoted_path(&path)))
             }
         }
@@ -391,7 +420,9 @@ impl<T: Trigger> TriggerAppBuilder<T> {
 
         let configured_app = {
             let _sloth_guard = warn_if_wasm_build_slothful();
-            executor.load_app(app, runtime_config.runtime_config, SimpleComponentLoader)?
+            executor
+                .load_app(app, runtime_config.runtime_config, SimpleComponentLoader)
+                .await?
         };
 
         Ok(configured_app)

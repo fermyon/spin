@@ -28,6 +28,7 @@ shellexpand = "3.1"
 spin-locked-app = { path = "../locked-app" }
 spin-common = { path = "../common" }
 spin-manifest = { path = "../manifest" }
+spin-serde = { path = "../serde" }
 tempfile = "3.8.0"
 terminal = { path = "../terminal" }
 thiserror = "1.0.49"

@@ -1,6 +1,8 @@
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use spin_serde::{FixedVersion, LowerSnakeId};
+use spin_serde::{DependencyName, DependencyPackageName, FixedVersion, LowerSnakeId};
 pub use spin_serde::{KebabId, SnakeId};
+use std::path::PathBuf;
 
 pub use super::common::{ComponentBuildConfig, ComponentSource, Variable, WasiFilesMount};
 
@@ -24,6 +26,19 @@ pub struct AppManifest {
     #[serde(rename = "component")]
     #[serde(default, skip_serializing_if = "Map::is_empty")]
     pub components: Map<KebabId, Component>,
+}
+
+impl AppManifest {
+    /// This method ensures that the dependencies of each component are valid.
+    pub fn validate_dependencies(&self) -> anyhow::Result<()> {
+        for (component_id, component) in &self.components {
+            component
+                .dependencies
+                .validate()
+                .with_context(|| format!("component {component_id:?} has invalid dependencies"))?;
+        }
+        Ok(())
+    }
 }
 
 /// App details
@@ -95,6 +110,33 @@ impl TryFrom<toml::Value> for ComponentSpec {
     }
 }
 
+/// Component dependency
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum ComponentDependency {
+    /// `... = ">= 0.1.0"`
+    Version(String),
+    /// `... = { version = "0.1.0", registry = "registry.io", ...}`
+    Package {
+        /// Package version requirement
+        version: String,
+        /// Optional registry spec
+        registry: Option<String>,
+        /// Optional package name `foo:bar`. If not specified, the package name
+        /// is inferred from the DependencyName key.
+        package: Option<String>,
+        /// Optional export name
+        export: Option<String>,
+    },
+    /// `... = { path = "path/to/component.wasm", export = "my-export" }`
+    Local {
+        /// Path to Wasm
+        path: PathBuf,
+        /// Optional export name
+        export: Option<String>,
+    },
+}
+
 /// Component definition
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -145,6 +187,153 @@ pub struct Component {
     /// Settings for custom tools or plugins. Spin ignores this field.
     #[serde(default, skip_serializing_if = "Map::is_empty")]
     pub tool: Map<String, toml::Table>,
+    /// If true, allow dependencies to inherit configuration.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub dependencies_inherit_configuration: bool,
+    /// Component dependencies
+    #[serde(default, skip_serializing_if = "ComponentDependencies::is_empty")]
+    pub dependencies: ComponentDependencies,
+}
+
+/// Component dependencies
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(try_from = "Map<DependencyName, ComponentDependency>")]
+pub struct ComponentDependencies {
+    /// `dependencies = { "foo:bar" = ">= 0.1.0" }`
+    pub inner: Map<DependencyName, ComponentDependency>,
+}
+
+impl TryFrom<Map<DependencyName, ComponentDependency>> for ComponentDependencies {
+    type Error = anyhow::Error;
+
+    fn try_from(value: Map<DependencyName, ComponentDependency>) -> Result<Self, Self::Error> {
+        Ok(ComponentDependencies { inner: value })
+    }
+}
+
+impl ComponentDependencies {
+    /// This method validates the correct specification of dependencies in a
+    /// component section of the manifest. See the documentation on the methods
+    /// called for more information on the specific checks.
+    fn validate(&self) -> anyhow::Result<()> {
+        self.ensure_plain_names_have_package()?;
+        self.ensure_package_names_no_export()?;
+        self.ensure_disjoint()?;
+        Ok(())
+    }
+
+    /// This method ensures that all dependency names in plain form (e.g.
+    /// "foo-bar") do not map to a `ComponentDependency::Version`, or a
+    /// `ComponentDependency::Package` where the `package` is `None`.
+    fn ensure_plain_names_have_package(&self) -> anyhow::Result<()> {
+        for (dependency_name, dependency) in self.inner.iter() {
+            let DependencyName::Plain(plain) = dependency_name else {
+                continue;
+            };
+            match dependency {
+                ComponentDependency::Package { package, .. } if package.is_none() => {}
+                ComponentDependency::Version(_) => {}
+                _ => continue,
+            }
+            anyhow::bail!("dependency {plain:?} must specify a package name");
+        }
+        Ok(())
+    }
+
+    /// This method ensures that dependency names in the package form (e.g.
+    /// "foo:bar" or "foo:bar@0.1.0") do not map to specific exported
+    /// interfaces, e.g. `"foo:bar = { ..., export = "my-export" }"` is invalid.
+    fn ensure_package_names_no_export(&self) -> anyhow::Result<()> {
+        for (dependency_name, dependency) in self.inner.iter() {
+            if let DependencyName::Package(name) = dependency_name {
+                if name.interface.is_none() {
+                    let export = match dependency {
+                        ComponentDependency::Package { export, .. } => export,
+                        ComponentDependency::Local { export, .. } => export,
+                        _ => continue,
+                    };
+
+                    anyhow::ensure!(
+                        export.is_none(),
+                        "using an export to satisfy the package dependency {dependency_name:?} is not currently permitted",
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// This method ensures that dependencies names do not conflict with each other. That is to say
+    /// that two dependencies of the same package must have disjoint versions or interfaces.
+    fn ensure_disjoint(&self) -> anyhow::Result<()> {
+        for (idx, this) in self.inner.keys().enumerate() {
+            for other in self.inner.keys().skip(idx + 1) {
+                let DependencyName::Package(other) = other else {
+                    continue;
+                };
+                let DependencyName::Package(this) = this else {
+                    continue;
+                };
+
+                if this.package == other.package {
+                    Self::check_disjoint(this, other)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn check_disjoint(
+        this: &DependencyPackageName,
+        other: &DependencyPackageName,
+    ) -> anyhow::Result<()> {
+        assert_eq!(this.package, other.package);
+
+        if let (Some(this_ver), Some(other_ver)) = (this.version.clone(), other.version.clone()) {
+            if Self::normalize_compatible_version(this_ver)
+                != Self::normalize_compatible_version(other_ver)
+            {
+                return Ok(());
+            }
+        }
+
+        if let (Some(this_itf), Some(other_itf)) =
+            (this.interface.as_ref(), other.interface.as_ref())
+        {
+            if this_itf != other_itf {
+                return Ok(());
+            }
+        }
+
+        anyhow::bail!("{this:?} dependency conflicts with {other:?}")
+    }
+
+    /// Normalize version to perform a compatibility check against another version.
+    ///
+    /// See backwards comptabilitiy rules at https://semver.org/
+    fn normalize_compatible_version(mut version: semver::Version) -> semver::Version {
+        version.build = semver::BuildMetadata::EMPTY;
+
+        if version.pre != semver::Prerelease::EMPTY {
+            return version;
+        }
+        if version.major > 0 {
+            version.minor = 0;
+            version.patch = 0;
+            return version;
+        }
+
+        if version.minor > 0 {
+            version.patch = 0;
+            return version;
+        }
+
+        version
+    }
+
+    fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
 }
 
 mod kebab_or_snake_case {
@@ -355,6 +544,8 @@ mod tests {
             ai_models: vec![],
             build: None,
             tool: Map::new(),
+            dependencies_inherit_configuration: false,
+            dependencies: Default::default(),
         }
     }
 
@@ -403,5 +594,148 @@ mod tests {
                 panic!("{invalid:?} should not be a valid SnakeId");
             }
         }
+    }
+
+    #[test]
+    fn test_check_disjoint() {
+        for (a, b) in [
+            ("foo:bar@0.1.0", "foo:bar@0.2.0"),
+            ("foo:bar/baz@0.1.0", "foo:bar/baz@0.2.0"),
+            ("foo:bar/baz@0.1.0", "foo:bar/bub@0.1.0"),
+            ("foo:bar@0.1.0", "foo:bar/bub@0.2.0"),
+            ("foo:bar@1.0.0", "foo:bar@2.0.0"),
+            ("foo:bar@0.1.0", "foo:bar@1.0.0"),
+            ("foo:bar/baz", "foo:bar/bub"),
+            ("foo:bar/baz@0.1.0-alpha", "foo:bar/baz@0.1.0-beta"),
+        ] {
+            let a: DependencyPackageName = a.parse().expect(a);
+            let b: DependencyPackageName = b.parse().expect(b);
+            ComponentDependencies::check_disjoint(&a, &b).unwrap();
+        }
+
+        for (a, b) in [
+            ("foo:bar@0.1.0", "foo:bar@0.1.1"),
+            ("foo:bar/baz@0.1.0", "foo:bar@0.1.0"),
+            ("foo:bar/baz@0.1.0", "foo:bar@0.1.0"),
+            ("foo:bar", "foo:bar@0.1.0"),
+            ("foo:bar@0.1.0-pre", "foo:bar@0.1.0-pre"),
+        ] {
+            let a: DependencyPackageName = a.parse().expect(a);
+            let b: DependencyPackageName = b.parse().expect(b);
+            assert!(
+                ComponentDependencies::check_disjoint(&a, &b).is_err(),
+                "{a} should conflict with {b}",
+            );
+        }
+    }
+
+    #[test]
+    fn test_validate_dependencies() {
+        // Specifying a dependency name as a plain-name without a package is an error
+        assert!(ComponentDependencies::deserialize(toml! {
+            "plain-name" = "0.1.0"
+        })
+        .unwrap()
+        .validate()
+        .is_err());
+
+        // Specifying a dependency name as a plain-name without a package is an error
+        assert!(ComponentDependencies::deserialize(toml! {
+            "plain-name" = { version = "0.1.0" }
+        })
+        .unwrap()
+        .validate()
+        .is_err());
+
+        // Specifying an export to satisfy a package dependency name is an error
+        assert!(ComponentDependencies::deserialize(toml! {
+            "foo:baz@0.1.0" = { path = "foo.wasm", export = "foo"}
+        })
+        .unwrap()
+        .validate()
+        .is_err());
+
+        // Two compatible versions of the same package is an error
+        assert!(ComponentDependencies::deserialize(toml! {
+            "foo:baz@0.1.0" = "0.1.0"
+            "foo:bar@0.2.1" = "0.2.1"
+            "foo:bar@0.2.2" = "0.2.2"
+        })
+        .unwrap()
+        .validate()
+        .is_err());
+
+        // Two disjoint versions of the same package is ok
+        assert!(ComponentDependencies::deserialize(toml! {
+            "foo:bar@0.1.0" = "0.1.0"
+            "foo:bar@0.2.0" = "0.2.0"
+            "foo:baz@0.2.0" = "0.1.0"
+        })
+        .unwrap()
+        .validate()
+        .is_ok());
+
+        // Unversioned and versioned dependencies of the same package is an error
+        assert!(ComponentDependencies::deserialize(toml! {
+            "foo:bar@0.1.0" = "0.1.0"
+            "foo:bar" = ">= 0.2.0"
+        })
+        .unwrap()
+        .validate()
+        .is_err());
+
+        // Two interfaces of two disjoint versions of a package is ok
+        assert!(ComponentDependencies::deserialize(toml! {
+            "foo:bar/baz@0.1.0" = "0.1.0"
+            "foo:bar/baz@0.2.0" = "0.2.0"
+        })
+        .unwrap()
+        .validate()
+        .is_ok());
+
+        // A versioned interface and a different versioned package is ok
+        assert!(ComponentDependencies::deserialize(toml! {
+            "foo:bar/baz@0.1.0" = "0.1.0"
+            "foo:bar@0.2.0" = "0.2.0"
+        })
+        .unwrap()
+        .validate()
+        .is_ok());
+
+        // A versioned interface and package of the same version is an error
+        assert!(ComponentDependencies::deserialize(toml! {
+            "foo:bar/baz@0.1.0" = "0.1.0"
+            "foo:bar@0.1.0" = "0.1.0"
+        })
+        .unwrap()
+        .validate()
+        .is_err());
+
+        // A versioned interface and unversioned package is an error
+        assert!(ComponentDependencies::deserialize(toml! {
+            "foo:bar/baz@0.1.0" = "0.1.0"
+            "foo:bar" = "0.1.0"
+        })
+        .unwrap()
+        .validate()
+        .is_err());
+
+        // An unversioned interface and versioned package is an error
+        assert!(ComponentDependencies::deserialize(toml! {
+            "foo:bar/baz" = "0.1.0"
+            "foo:bar@0.1.0" = "0.1.0"
+        })
+        .unwrap()
+        .validate()
+        .is_err());
+
+        // An unversioned interface and unversioned package is an error
+        assert!(ComponentDependencies::deserialize(toml! {
+            "foo:bar/baz" = "0.1.0"
+            "foo:bar" = "0.1.0"
+        })
+        .unwrap()
+        .validate()
+        .is_err());
     }
 }

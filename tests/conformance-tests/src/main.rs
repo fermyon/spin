@@ -1,3 +1,4 @@
+use anyhow::Context as _;
 use testing_framework::runtimes::spin_cli::{SpinCli, SpinConfig};
 
 fn main() {
@@ -14,6 +15,9 @@ fn run_test(test: conformance_tests::Test, spin_binary: &std::path::Path) -> any
         match precondition {
             conformance_tests::config::Precondition::HttpEcho => {
                 services.push("http-echo".into());
+            }
+            conformance_tests::config::Precondition::TcpEcho => {
+                services.push("tcp-echo".into());
             }
             conformance_tests::config::Precondition::KeyValueStore(_) => {}
         }
@@ -42,7 +46,15 @@ fn run_test(test: conformance_tests::Test, spin_binary: &std::path::Path) -> any
         let actual = invocation
             .request
             .send(|request| spin.make_http_request(request))?;
-        conformance_tests::assertions::assert_response(&invocation.response, &actual)?;
+
+        conformance_tests::assertions::assert_response(&invocation.response, &actual)
+            .with_context(|| {
+                format!(
+                    "Failed assertion.\nstdout: {}\nstderr: {}",
+                    spin.stdout().to_owned(),
+                    spin.stderr()
+                )
+            })?;
     }
     Ok(())
 }

@@ -47,7 +47,7 @@ pub struct UpCommand {
     pub help: bool,
 
     /// The application to run. This may be a manifest (spin.toml) file, a
-    /// directory containing a spin.toml file, or a remote registry reference.
+    /// directory containing a spin.toml file, a remote registry reference or a Wasm module (a .wasm file).
     /// If omitted, it defaults to "spin.toml".
     #[clap(
         name = APPLICATION_OPT,

@@ -2,6 +2,7 @@ pub mod key_value;
 pub mod llm;
 pub mod sqlite;
 pub mod variables_provider;
+pub mod client_tls;
 
 use std::{
     collections::HashMap,
@@ -18,6 +19,7 @@ use spin_sqlite::Connection;
 use crate::TriggerHooks;
 
 use self::{
+    client_tls::ClientTlsOpts,
     key_value::{KeyValueStore, KeyValueStoreOpts},
     llm::LlmComputeOpts,
     sqlite::SqliteDatabaseOpts,
@@ -26,7 +28,6 @@ use self::{
 
 pub const DEFAULT_STATE_DIR: &str = ".spin";
 const DEFAULT_LOGS_DIR: &str = "logs";
-
 /// RuntimeConfig allows multiple sources of runtime configuration to be
 /// queried uniformly.
 #[derive(Debug, Default)]
@@ -216,6 +217,9 @@ pub struct RuntimeConfigOpts {
 
     #[serde(skip)]
     pub file_path: Option<PathBuf>,
+
+    #[serde(rename = "client_tls", default)]
+    pub client_tls_opts: Vec<ClientTlsOpts>,
 }
 
 impl RuntimeConfigOpts {

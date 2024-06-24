@@ -1496,11 +1496,12 @@ dependencies = [
 [[package]]
 name = "conformance-tests"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/conformance-tests#8549e0fa0cb7ed41263335cb895eb509c1b61a49"
+source = "git+https://github.com/fermyon/conformance-tests?branch=main#4eb7a94fbd1b640babd89e729df380ef4cd84fe6"
 dependencies = [
  "anyhow",
  "flate2",
  "json5",
+ "libtest-mimic 0.7.3",
  "reqwest 0.12.4",
  "serde 1.0.197",
  "tar",
@@ -2350,6 +2351,12 @@ checksum = "d817e038c30374a4bcb22f94d0a8a0e216958d4c3dcde369b1439fec4bdda6e6"
 dependencies = [
  "cc",
 ]
+
+[[package]]
+name = "escape8259"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5692dd7b5a1978a5aeb0ce83b7655c58ca8efdcb79d21036ea249da95afec2c6"
 
 [[package]]
 name = "event-listener"
@@ -4053,6 +4060,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d8de370f98a6cb8a4606618e53e802f93b094ddec0f96988eaec2c27e6e9ce7"
 dependencies = [
  "clap 4.5.4",
+ "termcolor",
+ "threadpool",
+]
+
+[[package]]
+name = "libtest-mimic"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc0bda45ed5b3a2904262c1bb91e526127aa70e7ef3758aba2ef93cf896b9b58"
+dependencies = [
+ "clap 4.5.4",
+ "escape8259",
  "termcolor",
  "threadpool",
 ]
@@ -5924,8 +5943,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80b776a1b2dc779f5ee0641f8ade0125bc1298dd41a9a0c16d8bd57b42d222b1"
 dependencies = [
  "bytes",
- "heck 0.4.1",
- "itertools 0.10.5",
+ "heck 0.5.0",
+ "itertools 0.12.1",
  "log",
  "multimap",
  "once_cell",
@@ -8333,7 +8352,7 @@ dependencies = [
 [[package]]
 name = "test-environment"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/conformance-tests#8549e0fa0cb7ed41263335cb895eb509c1b61a49"
+source = "git+https://github.com/fermyon/conformance-tests?branch=main#4eb7a94fbd1b640babd89e729df380ef4cd84fe6"
 dependencies = [
  "anyhow",
  "fslock",
@@ -9018,7 +9037,7 @@ version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
  "dirs 4.0.0",
- "libtest-mimic",
+ "libtest-mimic 0.6.1",
  "snapbox",
  "tokio",
 ]

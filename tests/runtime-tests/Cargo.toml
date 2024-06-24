@@ -13,5 +13,5 @@ anyhow = "1.0"
 env_logger = "0.10.0"
 log = "0.4"
 testing-framework = { path = "../testing-framework" }
-test-environment = { git = "https://github.com/fermyon/conformance-tests" }
+test-environment = { git = "https://github.com/fermyon/conformance-tests", branch = "main" }
 test-components = { path = "../test-components" }

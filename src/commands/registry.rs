@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use indicatif::{ProgressBar, ProgressStyle};
 use spin_common::arg_parser::parse_kv;
 use spin_oci::Client;
-use std::{io::Read, path::PathBuf, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 /// Commands for working with OCI registries to distribute applications.
 #[derive(Subcommand, Debug)]
@@ -176,10 +176,8 @@ impl Login {
         // Otherwise, if the --password flag was passed with a value, use that value. Finally, if
         // neither was passed, prompt the user to input the password.
         let password = if self.password_stdin {
-            let mut buf = String::new();
             let mut stdin = std::io::stdin().lock();
-            stdin.read_to_string(&mut buf)?;
-            buf
+            rpassword::read_password_from_bufread(&mut stdin)?
         } else {
             match self.password {
                 Some(p) => p,

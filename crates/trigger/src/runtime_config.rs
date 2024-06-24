@@ -19,7 +19,7 @@ use spin_sqlite::Connection;
 use crate::TriggerHooks;
 
 use self::{
-    client_tls::ClientTlsOpts,
+    client_tls::{load_certs, load_keys, ClientTlsOpts},
     key_value::{KeyValueStore, KeyValueStoreOpts},
     llm::LlmComputeOpts,
     sqlite::SqliteDatabaseOpts,
@@ -518,4 +518,42 @@ mod tests {
             other => panic!("unexpected default store opts {other:?}"),
         }
     }
+}
+
+// parsed client tls options
+#[derive(Debug, Clone)]
+pub struct ParsedClientTlsOpts {
+    pub components: Vec<String>,
+    pub hosts: Vec<String>,
+    pub custom_root_ca: Option<Vec<rustls_pki_types::CertificateDer<'static>>>,
+    pub cert_chain: Option<Vec<rustls_pki_types::CertificateDer<'static>>>,
+    pub private_key: Option<Arc<rustls_pki_types::PrivateKeyDer<'static>>>,
+}
+
+fn parse_client_tls_opts(inp: &ClientTlsOpts) -> Result<ParsedClientTlsOpts, anyhow::Error> {
+    let custom_root_ca = match &inp.custom_root_ca_file {
+        Some(path) => Some(load_certs(&path).context("loading custom root ca")?),
+        None => None,
+    };
+
+    let cert_chain = match &inp.cert_chain_file {
+        Some(file) => Some(load_certs(&file).context("loading client tls certs")?),
+        None => None,
+    };
+
+    let private_key = match &inp.private_key_file {
+        Some(file) => {
+            let privatekey = load_keys(&file).context("loading private key")?;
+            Some(Arc::from(privatekey))
+        }
+        None => None,
+    };
+
+    Ok(ParsedClientTlsOpts {
+        hosts: inp.hosts.clone(),
+        components: inp.component_ids.clone(),
+        custom_root_ca,
+        cert_chain,
+        private_key,
+    })
 }

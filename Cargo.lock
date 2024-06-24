@@ -7909,6 +7909,8 @@ dependencies = [
  "outbound-mysql",
  "outbound-pg",
  "outbound-redis",
+ "rustls-pemfile 2.1.2",
+ "rustls-pki-types",
  "sanitize-filename",
  "serde 1.0.197",
  "serde_json",

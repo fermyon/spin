@@ -27,6 +27,8 @@ outbound-redis = { path = "../outbound-redis" }
 outbound-mqtt = { path = "../outbound-mqtt" }
 outbound-pg = { path = "../outbound-pg" }
 outbound-mysql = { path = "../outbound-mysql" }
+rustls-pemfile = "2.1.2"
+rustls-pki-types = "1.7.0"
 spin-common = { path = "../common" }
 spin-expressions = { path = "../expressions" }
 spin-key-value = { path = "../key-value" }

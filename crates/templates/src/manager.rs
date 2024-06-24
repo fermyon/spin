@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{io::IsTerminal, path::Path};
 
 use anyhow::Context;
 
@@ -90,10 +90,11 @@ pub struct ListResults {
 }
 
 impl ListResults {
-    /// Returns true if no templates were found or skipped indicating that
-    /// templates may not be installed.
+    /// Returns true if no templates were found or skipped, and the UI should prompt to
+    /// install templates. This is specifically for interactive use and returns false
+    /// if not connected to a terminal.
     pub fn needs_install(&self) -> bool {
-        self.templates.is_empty() && self.skipped.is_empty()
+        self.templates.is_empty() && self.skipped.is_empty() && std::io::stderr().is_terminal()
     }
 }
 

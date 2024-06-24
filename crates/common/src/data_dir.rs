@@ -4,7 +4,10 @@ use anyhow::{anyhow, Result};
 use std::path::{Path, PathBuf};
 
 /// Return the default data directory for Spin
-pub fn default_data_dir() -> Result<PathBuf> {
+pub fn data_dir() -> Result<PathBuf> {
+    if let Ok(data_dir) = std::env::var("SPIN_DATA_DIR") {
+        return Ok(PathBuf::from(data_dir));
+    }
     if let Some(pkg_mgr_dir) = package_manager_data_dir() {
         return Ok(pkg_mgr_dir);
     }

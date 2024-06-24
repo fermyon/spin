@@ -76,7 +76,7 @@ pub struct HttpTrigger {
 #[derive(Args)]
 pub struct CliArgs {
     /// IP address and port to listen on
-    #[clap(long = "listen", default_value = "127.0.0.1:3000", value_parser = parse_listen_addr)]
+    #[clap(long = "listen", env = "SPIN_HTTP_LISTEN_ADDR", default_value = "127.0.0.1:3000", value_parser = parse_listen_addr)]
     pub address: SocketAddr,
 
     /// The path to the certificate to use for https, if this is not set, normal http will be used. The cert should be in PEM format

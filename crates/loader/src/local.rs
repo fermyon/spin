@@ -261,22 +261,18 @@ impl LocalLoader {
 
     async fn load_registry_source(
         &self,
-        registry: Option<&String>,
-        package: &str,
+        registry: Option<&wasm_pkg_loader::Registry>,
+        package: &wasm_pkg_loader::PackageRef,
         version: &semver::Version,
     ) -> Result<ContentRef> {
-        let package: wasm_pkg_loader::PackageRef = package
-            .parse()
-            .with_context(|| format!("{package:?} is not a valid registry package reference"))?;
+        let mut client_config = wasm_pkg_loader::Config::global_defaults()?;
 
-        let mut client_config =
-            wasm_pkg_loader::ClientConfig::from_default_file()?.unwrap_or_default();
-        if let Some(registry) = &registry {
-            client_config.set_namespace_registry(package.namespace().as_ref(), registry.as_str());
+        if let Some(registry) = registry.cloned() {
+            client_config.set_package_registry_override(package.clone(), registry);
         }
         let mut pkg_loader = wasm_pkg_loader::Client::new(client_config);
 
-        let release = pkg_loader.get_release(&package, version).await.map_err(|e| {
+        let release = pkg_loader.get_release(package, version).await.map_err(|e| {
             if matches!(e, wasm_pkg_loader::Error::NoRegistryForNamespace(_)) && registry.is_none() {
                 anyhow!("No default registry specified for wasm-pkg-loader. Create a default config, or set `registry` for package {package:?}")
             } else {
@@ -291,7 +287,7 @@ impl LocalLoader {
         let path = if let Ok(cached_path) = self.cache.wasm_file(&digest) {
             cached_path
         } else {
-            let mut stm = pkg_loader.stream_content(&package, &release).await?;
+            let mut stm = pkg_loader.stream_content(package, &release).await?;
 
             self.cache.ensure_dirs().await?;
             let dest = self.cache.wasm_path(&digest);
@@ -416,7 +412,10 @@ impl LocalLoader {
                 continue;
             }
 
-            let app_root_path = src.strip_prefix(&self.app_root)?;
+            let Ok(app_root_path) = src.strip_prefix(&self.app_root) else {
+                bail!("{pattern} cannot be mapped because it is outside the application directory. Files must be within the application directory.");
+            };
+
             if exclude_patterns
                 .iter()
                 .any(|pattern| pattern.matches_path(app_root_path))

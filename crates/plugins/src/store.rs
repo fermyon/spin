@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use flate2::read::GzDecoder;
-use spin_common::data_dir::default_data_dir;
+use spin_common::data_dir::data_dir;
 use std::{
     ffi::OsStr,
     fs::{self, File},
@@ -25,12 +25,7 @@ impl PluginStore {
     }
 
     pub fn try_default() -> Result<Self> {
-        let data_dir = if let Ok(test_dir) = std::env::var("TEST_PLUGINS_DIRECTORY") {
-            PathBuf::from(test_dir).join("spin")
-        } else {
-            default_data_dir()?
-        };
-        Ok(Self::new(data_dir.join("plugins")))
+        Ok(Self::new(data_dir()?.join("plugins")))
     }
 
     /// Gets the path to where Spin plugin are installed.

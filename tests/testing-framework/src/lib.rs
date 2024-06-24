@@ -1,19 +1,8 @@
 //! Testing infrastructure
-//!
-//! This crate has a few entry points depending on what you want to do:
-//! * `RuntimeTest` - bootstraps and runs a single runtime test
-//! * `TestEnvironment` - bootstraps a test environment which can be used by more than just runtime tests
 
-pub mod http;
-mod io;
-mod manifest_template;
+use test_environment::{Runtime, TestEnvironment};
+
 pub mod runtimes;
-mod services;
-mod test_environment;
-
-pub use manifest_template::EnvTemplate;
-pub use services::ServicesConfig;
-pub use test_environment::{TestEnvironment, TestEnvironmentConfig};
 
 #[derive(Debug, Clone, Copy)]
 /// What to do when a test errors
@@ -22,14 +11,6 @@ pub enum OnTestError {
     Panic,
     /// Log the error to stderr
     Log,
-}
-
-/// A runtime which can be tested
-pub trait Runtime {
-    type Config;
-
-    /// Return an error if one has occurred
-    fn error(&mut self) -> anyhow::Result<()>;
 }
 
 /// A test which can be run against a runtime

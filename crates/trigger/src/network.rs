@@ -29,15 +29,13 @@ impl TriggerHooks for Network {
         let allowed_hosts =
             spin_outbound_networking::AllowedHostsConfig::parse(&hosts, &self.resolver)?;
         match allowed_hosts {
-            spin_outbound_networking::AllowedHostsConfig::All => {
-                store_builder.inherit_limited_network()
-            }
+            spin_outbound_networking::AllowedHostsConfig::All => store_builder.inherit_network(),
             spin_outbound_networking::AllowedHostsConfig::SpecificHosts(configs) => {
                 for config in configs {
                     if config.scheme().allows_any() {
                         match config.host() {
                             spin_outbound_networking::HostConfig::Any => {
-                                store_builder.inherit_limited_network()
+                                store_builder.inherit_network()
                             }
                             spin_outbound_networking::HostConfig::AnySubdomain(_) => continue,
                             spin_outbound_networking::HostConfig::ToSelf => {}

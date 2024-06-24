@@ -8,7 +8,7 @@ edition = { workspace = true }
 anyhow = { workspace = true }
 http0 = { version = "0.2.9", package = "http" }
 http1 = { version = "1.0.0", package = "http" }
-opentelemetry = { version = "0.22.0", features = [ "metrics", "trace"] }
+opentelemetry = { version = "0.22.0", features = [ "metrics", "trace", "logs"] }
 opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio", "logs_level_enabled"] }
 opentelemetry-otlp = { version = "0.15.0", default-features=false, features = ["http-proto", "trace", "http", "reqwest-client", "metrics", "grpc-tonic", "logs"] }
 opentelemetry-semantic-conventions = "0.14.0"

@@ -1,5 +1,5 @@
 [package]
-name = "runtime-tests"
+name = "conformance"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -10,8 +10,9 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow = "1.0"
-env_logger = "0.10.0"
-log = "0.4"
 testing-framework = { path = "../testing-framework" }
+conformance-tests = { git = "https://github.com/fermyon/conformance-tests", branch = "main" }
 test-environment = { git = "https://github.com/fermyon/conformance-tests", branch = "main" }
-test-components = { path = "../test-components" }
+
+[lints]
+workspace = true

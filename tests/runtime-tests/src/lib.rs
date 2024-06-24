@@ -1,19 +1,26 @@
 use anyhow::Context;
 use std::path::{Path, PathBuf};
-use testing_framework::{
+use test_environment::{
     http::{Method, Request},
+    manifest_template::EnvTemplate,
+    services::ServicesConfig,
+    TestEnvironment,
+};
+use testing_framework::{
     runtimes::{
         in_process_spin::InProcessSpin,
         spin_cli::{SpinCli, SpinConfig},
     },
-    EnvTemplate, OnTestError, Runtime, ServicesConfig, TestEnvironment, TestEnvironmentConfig,
-    TestError, TestResult,
+    OnTestError, TestError, TestResult,
 };
 
 /// Configuration for a runtime test
-pub struct RuntimeTestConfig<R: Runtime> {
+pub struct RuntimeTestConfig<R> {
+    /// Path to the test
     pub test_path: PathBuf,
-    pub runtime_config: R::Config,
+    /// Specific configuration for the runtime
+    pub runtime_config: R,
+    /// What to do when a test errors
     pub on_error: OnTestError,
 }
 
@@ -39,6 +46,8 @@ impl RuntimeTest<SpinCli> {
                 test_path,
                 runtime_config: SpinConfig {
                     binary_path: spin_binary.clone(),
+                    spin_up_args: Vec::new(),
+                    app_type: testing_framework::runtimes::SpinAppType::Http,
                 },
                 on_error,
             };
@@ -47,7 +56,7 @@ impl RuntimeTest<SpinCli> {
         })
     }
 
-    pub fn bootstrap(config: RuntimeTestConfig<SpinCli>) -> anyhow::Result<Self> {
+    pub fn bootstrap(config: RuntimeTestConfig<SpinConfig>) -> anyhow::Result<Self> {
         log::info!("Testing: {}", config.test_path.display());
         let test_path_clone = config.test_path.to_owned();
         let spin_binary = config.runtime_config.binary_path.clone();
@@ -56,12 +65,14 @@ impl RuntimeTest<SpinCli> {
             Ok(())
         };
         let services_config = services_config(&config)?;
-        let env_config = TestEnvironmentConfig::spin(
-            spin_binary,
-            [],
-            preboot,
+        let env_config = SpinCli::config(
+            SpinConfig {
+                binary_path: spin_binary,
+                spin_up_args: Vec::new(),
+                app_type: testing_framework::runtimes::SpinAppType::Http,
+            },
             services_config,
-            testing_framework::runtimes::SpinAppType::Http,
+            preboot,
         );
         let env = TestEnvironment::up(env_config, |_| Ok(()))?;
         Ok(Self {
@@ -75,7 +86,7 @@ impl RuntimeTest<SpinCli> {
     pub fn run(&mut self) {
         self.run_test(|env| {
             let runtime = env.runtime_mut();
-            let request = Request::new(Method::GET, "/");
+            let request = Request::new(Method::Get, "/");
             let response = runtime.make_http_request(request)?;
             if response.status() == 200 {
                 return Ok(());
@@ -116,7 +127,7 @@ impl RuntimeTest<InProcessSpin> {
         })
     }
 
-    pub fn bootstrap(config: RuntimeTestConfig<InProcessSpin>) -> anyhow::Result<Self> {
+    pub fn bootstrap(config: RuntimeTestConfig<()>) -> anyhow::Result<Self> {
         log::info!("Testing: {}", config.test_path.display());
         let test_path_clone = config.test_path.to_owned();
         let preboot = move |env: &mut TestEnvironment<InProcessSpin>| {
@@ -124,7 +135,7 @@ impl RuntimeTest<InProcessSpin> {
             Ok(())
         };
         let services_config = services_config(&config)?;
-        let env_config = TestEnvironmentConfig::in_process(services_config, preboot);
+        let env_config = InProcessSpin::config(services_config, preboot);
         let env = TestEnvironment::up(env_config, |_| Ok(()))?;
         Ok(Self {
             test_path: config.test_path,
@@ -136,7 +147,7 @@ impl RuntimeTest<InProcessSpin> {
     pub fn run(&mut self) {
         self.run_test(|env| {
             let runtime = env.runtime_mut();
-            let response = runtime.make_http_request(Request::new(Method::GET, "/"))?;
+            let response = runtime.make_http_request(Request::new(Method::Get, "/"))?;
             if response.status() == 200 {
                 return Ok(());
             }
@@ -258,7 +269,7 @@ impl<R> RuntimeTest<R> {
     }
 }
 
-fn services_config<R: Runtime>(config: &RuntimeTestConfig<R>) -> anyhow::Result<ServicesConfig> {
+fn services_config<R>(config: &RuntimeTestConfig<R>) -> anyhow::Result<ServicesConfig> {
     let required_services = required_services(&config.test_path)?;
     let services_config = ServicesConfig::new(required_services)?;
     Ok(services_config)
@@ -290,7 +301,7 @@ fn copy_manifest<R>(test_dir: &Path, env: &mut TestEnvironment<R>) -> anyhow::Re
             test_dir.display()
         )
     })?;
-    manifest.substitute(env)?;
+    manifest.substitute(env, |s| Some(PathBuf::from(test_components::path(s)?)))?;
     env.write_file("spin.toml", manifest.contents())
         .context("failed to copy spin.toml manifest to temporary directory")?;
     Ok(())

@@ -37,7 +37,7 @@ tokio-util = "0.6"
 toml = "0.8.2"
 tracing = { workspace = true }
 walkdir = "2.3.2"
-wasm-pkg-loader = { git = "https://github.com/bytecodealliance/wasm-pkg-tools/", rev = "5384205af449179de07ad82ecf4bd42b171a2e40" }
+wasm-pkg-loader = "0.4.1"
 
 [dev-dependencies]
 tokio = { version = "1.23", features = ["rt", "macros"] }

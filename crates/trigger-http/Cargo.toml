@@ -20,7 +20,8 @@ http-body-util = { workspace = true }
 indexmap = "1"
 outbound-http = { path = "../outbound-http" }
 percent-encoding = "2"
-rustls-pemfile = "0.3.0"
+rustls-pemfile = "2.1.2"
+rustls-pki-types = "1.7"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 spin-app = { path = "../app" }
@@ -33,7 +34,7 @@ spin-world = { path = "../world" }
 terminal = { path = "../terminal" }
 tls-listener = { version = "0.10.0", features = ["rustls"] }
 tokio = { version = "1.23", features = ["full"] }
-tokio-rustls = { version = "0.23.2" }
+tokio-rustls = { version = "0.25.0" }
 url = "2.4.1"
 tracing = { workspace = true }
 wasmtime = { workspace = true }

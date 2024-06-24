@@ -1076,14 +1076,7 @@ pub async fn default_send_request_handler(
         #[cfg(not(any(target_arch = "riscv64", target_arch = "s390x")))]
         {
             use rustls::pki_types::ServerName;
-
-            // derived from https://github.com/rustls/rustls/blob/main/examples/src/bin/simpleclient.rs
-            let root_cert_store = rustls::RootCertStore {
-                roots: webpki_roots::TLS_SERVER_ROOTS.into(),
-            };
-            let config = rustls::ClientConfig::builder()
-                .with_root_certificates(root_cert_store)
-                .with_no_client_auth();
+            let config = get_client_tls_config_for_authority(&authority);
             let connector = tokio_rustls::TlsConnector::from(std::sync::Arc::new(config));
             let mut parts = authority.split(":");
             let host = parts.next().unwrap_or(&authority);
@@ -1165,4 +1158,15 @@ pub async fn default_send_request_handler(
         worker: Some(worker),
         between_bytes_timeout,
     })
+}
+
+fn get_client_tls_config_for_authority(_authority: &String) -> rustls::ClientConfig {
+    // derived from https://github.com/tokio-rs/tls/blob/master/tokio-rustls/examples/client/src/main.rs
+    let root_cert_store = rustls::RootCertStore {
+        roots: webpki_roots::TLS_SERVER_ROOTS.into(),
+    };
+
+    return rustls::ClientConfig::builder()
+        .with_root_certificates(root_cert_store)
+        .with_no_client_auth();
 }

@@ -39,7 +39,7 @@ use spin_http::{
 use spin_outbound_networking::{
     is_service_chaining_host, parse_service_chaining_target, AllowedHostsConfig, OutboundUrl,
 };
-use spin_trigger::{TriggerAppEngine, TriggerExecutor, TriggerInstancePre};
+use spin_trigger::{ParsedClientTlsOpts, TriggerAppEngine, TriggerExecutor, TriggerInstancePre};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::{TcpListener, TcpStream},
@@ -586,6 +586,8 @@ struct ChainedRequestHandler {
 pub struct HttpRuntimeData {
     origin: Option<String>,
     chained_handler: Option<ChainedRequestHandler>,
+    /// If provided, these options used for client cert auth
+    client_tls_opts: Option<HashMap<String, ParsedClientTlsOpts>>,
     /// The hosts this app is allowed to make outbound requests to
     allowed_hosts: AllowedHostsConfig,
 }

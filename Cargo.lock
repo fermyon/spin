@@ -7964,6 +7964,7 @@ dependencies = [
  "num_cpus",
  "outbound-http",
  "percent-encoding",
+ "rustls 0.22.3",
  "rustls-pemfile 2.1.2",
  "rustls-pki-types",
  "serde 1.0.197",
@@ -7986,6 +7987,7 @@ dependencies = [
  "wasmtime",
  "wasmtime-wasi",
  "wasmtime-wasi-http",
+ "webpki-roots 0.26.1",
 ]
 
 [[package]]

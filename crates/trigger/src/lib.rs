@@ -17,7 +17,7 @@ use spin_core::{
     StoreBuilder, WasiVersion,
 };
 
-pub use crate::runtime_config::RuntimeConfig;
+pub use crate::runtime_config::{ParsedClientTlsOpts, RuntimeConfig};
 
 #[async_trait]
 pub trait TriggerExecutor: Sized + Send + Sync {
@@ -236,7 +236,15 @@ impl<Executor: TriggerExecutor> TriggerExecutorBuilder<Executor> {
 
         // Run trigger executor
         Executor::new(
-            TriggerAppEngine::new(engine, app_name, app, self.hooks, &prepared_resolver).await?,
+            TriggerAppEngine::new(
+                engine,
+                app_name,
+                app,
+                self.hooks,
+                &prepared_resolver,
+                runtime_config.client_tls_opts()?,
+            )
+            .await?,
         )
         .await
     }
@@ -283,6 +291,8 @@ pub struct TriggerAppEngine<Executor: TriggerExecutor> {
     component_instance_pres: HashMap<String, Executor::InstancePre>,
     // Resolver for value template expressions
     resolver: std::sync::Arc<spin_expressions::PreparedResolver>,
+    // Map of { Component ID -> Map of { Host -> ParsedClientTlsOpts} }
+    client_tls_opts: HashMap<String, HashMap<String, ParsedClientTlsOpts>>,
 }
 
 impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
@@ -294,6 +304,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         app: OwnedApp,
         hooks: Vec<Box<dyn TriggerHooks>>,
         resolver: &std::sync::Arc<spin_expressions::PreparedResolver>,
+        client_tls_opts: HashMap<String, HashMap<String, ParsedClientTlsOpts>>,
     ) -> Result<Self>
     where
         <Executor as TriggerExecutor>::TriggerConfig: DeserializeOwned,
@@ -345,6 +356,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
             trigger_configs: trigger_configs.into_iter().map(|(_, v)| v).collect(),
             component_instance_pres,
             resolver: resolver.clone(),
+            client_tls_opts,
         })
     }
 
@@ -423,6 +435,13 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
                 self.app_name, component_id
             )
         })
+    }
+
+    pub fn get_client_tls_opts(
+        &self,
+        component_id: &str,
+    ) -> Option<HashMap<String, ParsedClientTlsOpts>> {
+        self.client_tls_opts.get(component_id).cloned()
     }
 
     pub fn resolve_template(

@@ -1,8 +1,8 @@
+pub mod client_tls;
 pub mod key_value;
 pub mod llm;
 pub mod sqlite;
 pub mod variables_provider;
-pub mod client_tls;
 
 use std::{
     collections::HashMap,
@@ -181,6 +181,29 @@ impl RuntimeConfig {
         } else {
             &LlmComputeOpts::Spin
         }
+    }
+
+    // returns the client tls options in form of nested
+    // HashMap of { Component ID -> HashMap of { Host -> ParsedClientTlsOpts} }
+    pub fn client_tls_opts(&self) -> Result<HashMap<String, HashMap<String, ParsedClientTlsOpts>>> {
+        let mut components_map: HashMap<String, HashMap<String, ParsedClientTlsOpts>> =
+            HashMap::new();
+
+        for opt_layer in self.opts_layers() {
+            for opts in &opt_layer.client_tls_opts {
+                let parsed = parse_client_tls_opts(opts).context("parsing client tls options")?;
+                for component_id in &opts.component_ids {
+                    let mut hostmap: HashMap<String, ParsedClientTlsOpts> = HashMap::new();
+                    for host in &opts.hosts {
+                        hostmap.insert(host.to_owned(), parsed.clone());
+                    }
+
+                    components_map.insert(component_id.to_owned(), hostmap);
+                }
+            }
+        }
+
+        Ok(components_map)
     }
 
     /// Returns an iterator of RuntimeConfigOpts in order of decreasing precedence

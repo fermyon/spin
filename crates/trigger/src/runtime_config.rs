@@ -12,6 +12,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use http::uri::Authority;
 use serde::Deserialize;
 use spin_common::ui::quoted_path;
 use spin_sqlite::Connection;
@@ -185,16 +186,18 @@ impl RuntimeConfig {
 
     // returns the client tls options in form of nested
     // HashMap of { Component ID -> HashMap of { Host -> ParsedClientTlsOpts} }
-    pub fn client_tls_opts(&self) -> Result<HashMap<String, HashMap<String, ParsedClientTlsOpts>>> {
-        let mut components_map: HashMap<String, HashMap<String, ParsedClientTlsOpts>> =
+    pub fn client_tls_opts(
+        &self,
+    ) -> Result<HashMap<String, HashMap<Authority, ParsedClientTlsOpts>>> {
+        let mut components_map: HashMap<String, HashMap<Authority, ParsedClientTlsOpts>> =
             HashMap::new();
 
         for opt_layer in self.opts_layers() {
             for opts in &opt_layer.client_tls_opts {
                 let parsed = parse_client_tls_opts(opts).context("parsing client tls options")?;
                 for component_id in &opts.component_ids {
-                    let mut hostmap: HashMap<String, ParsedClientTlsOpts> = HashMap::new();
-                    for host in &opts.hosts {
+                    let mut hostmap: HashMap<Authority, ParsedClientTlsOpts> = HashMap::new();
+                    for host in &parsed.hosts {
                         hostmap.insert(host.to_owned(), parsed.clone());
                     }
 
@@ -547,7 +550,7 @@ mod tests {
 #[derive(Debug, Clone)]
 pub struct ParsedClientTlsOpts {
     pub components: Vec<String>,
-    pub hosts: Vec<String>,
+    pub hosts: Vec<Authority>,
     pub custom_root_ca: Option<Vec<rustls_pki_types::CertificateDer<'static>>>,
     pub cert_chain: Option<Vec<rustls_pki_types::CertificateDer<'static>>>,
     pub private_key: Option<Arc<rustls_pki_types::PrivateKeyDer<'static>>>,
@@ -572,8 +575,18 @@ fn parse_client_tls_opts(inp: &ClientTlsOpts) -> Result<ParsedClientTlsOpts, any
         None => None,
     };
 
+    let parsed_hosts: Vec<Authority> = inp
+        .hosts
+        .clone()
+        .into_iter()
+        .map(|s| {
+            s.parse::<Authority>()
+                .map_err(|e| anyhow::anyhow!("failed to parse uri {:?}", e))
+        })
+        .collect::<Result<Vec<Authority>, anyhow::Error>>()?;
+
     Ok(ParsedClientTlsOpts {
-        hosts: inp.hosts.clone(),
+        hosts: parsed_hosts,
         components: inp.component_ids.clone(),
         custom_root_ca,
         cert_chain,

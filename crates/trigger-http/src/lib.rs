@@ -18,7 +18,7 @@ use std::{
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use clap::Args;
-use http::{header::HOST, uri::Scheme, HeaderValue, StatusCode, Uri};
+use http::{header::HOST, uri::Authority, uri::Scheme, HeaderValue, StatusCode, Uri};
 use http_body_util::BodyExt;
 use hyper::{
     body::{Bytes, Incoming},
@@ -587,7 +587,7 @@ pub struct HttpRuntimeData {
     origin: Option<String>,
     chained_handler: Option<ChainedRequestHandler>,
     /// If provided, these options used for client cert auth
-    client_tls_opts: Option<HashMap<String, ParsedClientTlsOpts>>,
+    client_tls_opts: Option<HashMap<Authority, ParsedClientTlsOpts>>,
     /// The hosts this app is allowed to make outbound requests to
     allowed_hosts: AllowedHostsConfig,
 }
@@ -1018,9 +1018,9 @@ pub async fn send_request_handler(
         first_byte_timeout,
         between_bytes_timeout,
     }: wasmtime_wasi_http::types::OutgoingRequestConfig,
-    client_tls_opts: Option<HashMap<String, ParsedClientTlsOpts>>,
+    client_tls_opts: Option<HashMap<Authority, ParsedClientTlsOpts>>,
 ) -> Result<wasmtime_wasi_http::types::IncomingResponse, types::ErrorCode> {
-    let authority = if let Some(authority) = request.uri().authority() {
+    let authority_str = if let Some(authority) = request.uri().authority() {
         if authority.port().is_some() {
             authority.to_string()
         } else {
@@ -1030,7 +1030,10 @@ pub async fn send_request_handler(
     } else {
         return Err(types::ErrorCode::HttpRequestUriInvalid);
     };
-    let tcp_stream = timeout(connect_timeout, TcpStream::connect(&authority))
+
+    let authority = &authority_str.parse::<Authority>().unwrap();
+
+    let tcp_stream = timeout(connect_timeout, TcpStream::connect(&authority_str))
         .await
         .map_err(|_| types::ErrorCode::ConnectionTimeout)?
         .map_err(|e| match e.kind() {
@@ -1062,8 +1065,8 @@ pub async fn send_request_handler(
             use rustls::pki_types::ServerName;
             let config = get_client_tls_config_for_authority(&authority, client_tls_opts);
             let connector = tokio_rustls::TlsConnector::from(std::sync::Arc::new(config));
-            let mut parts = authority.split(":");
-            let host = parts.next().unwrap_or(&authority);
+            let mut parts = authority_str.split(":");
+            let host = parts.next().unwrap_or(&authority_str);
             let domain = ServerName::try_from(host)
                 .map_err(|e| {
                     tracing::warn!("dns lookup error: {e:?}");
@@ -1145,8 +1148,8 @@ pub async fn send_request_handler(
 }
 
 fn get_client_tls_config_for_authority(
-    authority: &String,
-    client_tls_opts: Option<HashMap<String, ParsedClientTlsOpts>>,
+    authority: &Authority,
+    client_tls_opts: Option<HashMap<Authority, ParsedClientTlsOpts>>,
 ) -> rustls::ClientConfig {
     // derived from https://github.com/tokio-rs/tls/blob/master/tokio-rustls/examples/client/src/main.rs
     let mut root_cert_store = rustls::RootCertStore {

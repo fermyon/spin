@@ -8,6 +8,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use anyhow::{Context, Result};
 pub use async_trait::async_trait;
+use http::uri::Authority;
 use runtime_config::llm::LLmOptions;
 use serde::de::DeserializeOwned;
 
@@ -291,8 +292,8 @@ pub struct TriggerAppEngine<Executor: TriggerExecutor> {
     component_instance_pres: HashMap<String, Executor::InstancePre>,
     // Resolver for value template expressions
     resolver: std::sync::Arc<spin_expressions::PreparedResolver>,
-    // Map of { Component ID -> Map of { Host -> ParsedClientTlsOpts} }
-    client_tls_opts: HashMap<String, HashMap<String, ParsedClientTlsOpts>>,
+    // Map of { Component ID -> Map of { Authority -> ParsedClientTlsOpts} }
+    client_tls_opts: HashMap<String, HashMap<Authority, ParsedClientTlsOpts>>,
 }
 
 impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
@@ -304,7 +305,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         app: OwnedApp,
         hooks: Vec<Box<dyn TriggerHooks>>,
         resolver: &std::sync::Arc<spin_expressions::PreparedResolver>,
-        client_tls_opts: HashMap<String, HashMap<String, ParsedClientTlsOpts>>,
+        client_tls_opts: HashMap<String, HashMap<Authority, ParsedClientTlsOpts>>,
     ) -> Result<Self>
     where
         <Executor as TriggerExecutor>::TriggerConfig: DeserializeOwned,
@@ -440,7 +441,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
     pub fn get_client_tls_opts(
         &self,
         component_id: &str,
-    ) -> Option<HashMap<String, ParsedClientTlsOpts>> {
+    ) -> Option<HashMap<Authority, ParsedClientTlsOpts>> {
         self.client_tls_opts.get(component_id).cloned()
     }
 

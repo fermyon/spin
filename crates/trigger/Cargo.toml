@@ -22,6 +22,7 @@ dirs = "4"
 futures = "0.3"
 indexmap = "1"
 ipnet = "2.9.0"
+http = "1.0.0"
 outbound-http = { path = "../outbound-http" }
 outbound-redis = { path = "../outbound-redis" }
 outbound-mqtt = { path = "../outbound-mqtt" }

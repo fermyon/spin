@@ -2,7 +2,10 @@ use anyhow::Context;
 use rustls_pemfile::private_key;
 use std::io;
 use std::io::Cursor;
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]

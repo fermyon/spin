@@ -25,7 +25,6 @@ pub fn load_certs(
     let mut custom_root_ca_cursor = Cursor::new(contents);
 
     Ok(rustls_pemfile::certs(&mut custom_root_ca_cursor)
-        .into_iter()
         .map(|certs| certs.unwrap())
         .collect())
 }

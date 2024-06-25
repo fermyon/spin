@@ -7,8 +7,8 @@
     flake-utils.url = "github:numtide/flake-utils";
 
     fenix = {
-      url = "github:nix-community/fenix";
-      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:nix-community/fenix?rev=6f2fec850f569d61562d3a47dc263f19e9c7d825";
+      #inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 

@@ -19,7 +19,7 @@ use spin_sqlite::Connection;
 use crate::TriggerHooks;
 
 use self::{
-    client_tls::{load_certs, load_keys, ClientTlsOpts},
+    client_tls::{load_certs, load_key, ClientTlsOpts},
     key_value::{KeyValueStore, KeyValueStoreOpts},
     llm::LlmComputeOpts,
     sqlite::SqliteDatabaseOpts,
@@ -555,18 +555,18 @@ pub struct ParsedClientTlsOpts {
 
 fn parse_client_tls_opts(inp: &ClientTlsOpts) -> Result<ParsedClientTlsOpts, anyhow::Error> {
     let custom_root_ca = match &inp.custom_root_ca_file {
-        Some(path) => Some(load_certs(&path).context("loading custom root ca")?),
+        Some(path) => Some(load_certs(path).context("loading custom root ca")?),
         None => None,
     };
 
     let cert_chain = match &inp.cert_chain_file {
-        Some(file) => Some(load_certs(&file).context("loading client tls certs")?),
+        Some(file) => Some(load_certs(file).context("loading client tls certs")?),
         None => None,
     };
 
     let private_key = match &inp.private_key_file {
         Some(file) => {
-            let privatekey = load_keys(&file).context("loading private key")?;
+            let privatekey = load_key(file).context("loading private key")?;
             Some(Arc::from(privatekey))
         }
         None => None,

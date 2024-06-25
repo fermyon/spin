@@ -2,16 +2,16 @@ use anyhow::Context;
 use rustls_pemfile::private_key;
 use std::io;
 use std::io::Cursor;
-use std::{fs, path::Path};
+use std::{fs, path::{Path, PathBuf}};
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub struct ClientTlsOpts {
     pub component_ids: Vec<String>,
     pub hosts: Vec<String>,
-    pub custom_root_ca_file: Option<String>,
-    pub cert_chain_file: Option<String>,
-    pub private_key_file: Option<String>,
+    pub custom_root_ca_file: Option<PathBuf>,
+    pub cert_chain_file: Option<PathBuf>,
+    pub private_key_file: Option<PathBuf>,
 }
 
 // load_certs parse and return the certs from the provided file
@@ -28,7 +28,7 @@ pub fn load_certs(
 }
 
 // load_keys parse and return the first private key from the provided file
-pub fn load_keys(
+pub fn load_key(
     path: impl AsRef<Path>,
 ) -> anyhow::Result<rustls_pki_types::PrivateKeyDer<'static>> {
     private_key(&mut io::BufReader::new(

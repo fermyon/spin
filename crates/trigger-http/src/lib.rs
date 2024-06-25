@@ -738,8 +738,7 @@ impl OutboundWasiHttpHandler for HttpRuntimeData {
         // Once Wasmtime gives us the ability to do the spawn ourselves we can just call .instrument
         // and won't have to do this workaround.
         let response_handle = async move {
-            let res =
-                default_send_request_handler(request, config, client_tls_opts).await;
+            let res = send_request_handler(request, config, client_tls_opts).await;
             if let Ok(res) = &res {
                 tracing::Span::current()
                     .record("http.response.status_code", res.resp.status().as_u16());
@@ -1008,30 +1007,10 @@ mod tests {
     }
 }
 
-/// Translate a [`hyper::Error`] to a wasi-http `ErrorCode` in the context of a request.
-pub fn hyper_request_error(err: hyper::Error) -> ErrorCode {
-    // If there's a source, we might be able to extract a wasi-http error from it.
-    if let Some(cause) = err.source() {
-        if let Some(err) = cause.downcast_ref::<ErrorCode>() {
-            return err.clone();
-        }
-    }
-
-    tracing::warn!("hyper request error: {err:?}");
-
-    ErrorCode::HttpProtocolError
-}
-
-pub fn dns_error(rcode: String, info_code: u16) -> ErrorCode {
-    ErrorCode::DnsError(wasmtime_wasi_http::bindings::http::types::DnsErrorPayload {
-        rcode: Some(rcode),
-        info_code: Some(info_code),
-    })
-}
-
-/// This is a fork of wasmtime_wasi_http::default_send_request_handler function.
+/// This is a fork of wasmtime_wasi_http::default_send_request_handler function
+/// forked from bytecodealliance/wasmtime commit-sha 29a76b68200fcfa69c8fb18ce6c850754279a05b
 /// This fork provides the ability to configure client cert auth for mTLS
-pub async fn default_send_request_handler(
+pub async fn send_request_handler(
     mut request: hyper::Request<HyperOutgoingBody>,
     wasmtime_wasi_http::types::OutgoingRequestConfig {
         use_tls,
@@ -1215,4 +1194,25 @@ fn get_client_tls_config_for_authority(
             .with_root_certificates(root_cert_store)
             .with_no_client_auth(),
     }
+}
+
+/// Translate a [`hyper::Error`] to a wasi-http `ErrorCode` in the context of a request.
+pub fn hyper_request_error(err: hyper::Error) -> ErrorCode {
+    // If there's a source, we might be able to extract a wasi-http error from it.
+    if let Some(cause) = err.source() {
+        if let Some(err) = cause.downcast_ref::<ErrorCode>() {
+            return err.clone();
+        }
+    }
+
+    tracing::warn!("hyper request error: {err:?}");
+
+    ErrorCode::HttpProtocolError
+}
+
+pub fn dns_error(rcode: String, info_code: u16) -> ErrorCode {
+    ErrorCode::DnsError(wasmtime_wasi_http::bindings::http::types::DnsErrorPayload {
+        rcode: Some(rcode),
+        info_code: Some(info_code),
+    })
 }

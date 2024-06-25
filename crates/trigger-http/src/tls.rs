@@ -19,7 +19,7 @@ impl TlsConfig {
     // Creates a TLS acceptor from server config.
     pub(super) fn server_config(&self) -> anyhow::Result<TlsAcceptor> {
         let certs = load_certs(&self.cert_path)?;
-        let private_key = load_keys(&self.key_path)?;
+        let private_key = load_key(&self.key_path)?;
 
         let cfg = rustls::ServerConfig::builder()
             .with_no_client_auth()
@@ -47,7 +47,7 @@ pub fn load_certs(
 }
 
 // load_keys parse and return the first private key from the provided file
-pub fn load_keys(path: impl AsRef<Path>) -> io::Result<rustls_pki_types::PrivateKeyDer<'static>> {
+pub fn load_key(path: impl AsRef<Path>) -> io::Result<rustls_pki_types::PrivateKeyDer<'static>> {
     private_key(&mut io::BufReader::new(fs::File::open(path).map_err(
         |err| {
             io::Error::new(
@@ -110,7 +110,7 @@ mod tests {
         let mut path = testdatadir();
         path.push("non-existing-file.pem");
 
-        let keys = load_keys(path);
+        let keys = load_key(path);
         assert!(keys.is_err());
         assert_eq!(keys.err().unwrap().to_string(), "failed to read private key file Os { code: 2, kind: NotFound, message: \"No such file or directory\" }");
     }
@@ -120,7 +120,7 @@ mod tests {
         let mut path = testdatadir();
         path.push("invalid-private-key.pem");
 
-        let keys = load_keys(path);
+        let keys = load_key(path);
         assert!(keys.is_err());
         assert_eq!(keys.err().unwrap().to_string(), "invalid private key");
     }
@@ -130,7 +130,7 @@ mod tests {
         let mut path = testdatadir();
         path.push("valid-private-key.pem");
 
-        let keys = load_keys(path);
+        let keys = load_key(path);
         assert!(keys.is_ok());
     }
 }

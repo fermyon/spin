@@ -531,6 +531,57 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_parsing_valid_hosts_in_client_opts() {
+        let input = ClientTlsOpts {
+            component_ids: vec!["component-id-foo".to_string()],
+            hosts: vec!["fermyon.com".to_string(), "fermyon.com:5443".to_string()],
+            custom_root_ca_file: None,
+            cert_chain_file: None,
+            private_key_file: None,
+        };
+
+        let parsed = parse_client_tls_opts(&input);
+        assert!(parsed.is_ok());
+        assert_eq!(parsed.unwrap().hosts.len(), 2)
+    }
+
+    #[test]
+    fn test_parsing_empty_hosts_in_client_opts() {
+        let input = ClientTlsOpts {
+            component_ids: vec!["component-id-foo".to_string()],
+            hosts: vec!["".to_string(), "fermyon.com:5443".to_string()],
+            custom_root_ca_file: None,
+            cert_chain_file: None,
+            private_key_file: None,
+        };
+
+        let parsed = parse_client_tls_opts(&input);
+        assert!(parsed.is_err());
+        assert_eq!(
+            "failed to parse uri ''. error: InvalidUri(Empty)",
+            parsed.unwrap_err().to_string()
+        )
+    }
+
+    #[test]
+    fn test_parsing_invalid_hosts_in_client_opts() {
+        let input = ClientTlsOpts {
+            component_ids: vec!["component-id-foo".to_string()],
+            hosts: vec!["perc%ent:443".to_string(), "fermyon.com:5443".to_string()],
+            custom_root_ca_file: None,
+            cert_chain_file: None,
+            private_key_file: None,
+        };
+
+        let parsed = parse_client_tls_opts(&input);
+        assert!(parsed.is_err());
+        assert_eq!(
+            "failed to parse uri 'perc%ent:443'. error: InvalidUri(InvalidAuthority)",
+            parsed.unwrap_err().to_string()
+        )
+    }
+
     fn merge_config_toml(config: &mut RuntimeConfig, value: toml::Value) {
         let data = toml::to_vec(&value).expect("encode toml");
         let mut file = NamedTempFile::new().expect("temp file");
@@ -581,7 +632,7 @@ fn parse_client_tls_opts(inp: &ClientTlsOpts) -> Result<ParsedClientTlsOpts, any
         .into_iter()
         .map(|s| {
             s.parse::<Authority>()
-                .map_err(|e| anyhow::anyhow!("failed to parse uri {:?}", e))
+                .map_err(|e| anyhow::anyhow!("failed to parse uri '{}'. error: {:?}", s, e))
         })
         .collect::<Result<Vec<Authority>, anyhow::Error>>()?;
 

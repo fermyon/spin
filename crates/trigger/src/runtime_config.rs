@@ -196,6 +196,7 @@ impl RuntimeConfig {
             for opts in &opt_layer.client_tls_opts {
                 let parsed = parse_client_tls_opts(opts).context("parsing client tls options")?;
                 for component_id in &opts.component_ids {
+                    #[allow(clippy::mutable_key_type)]
                     let hostmap = parsed
                         .hosts
                         .clone()
@@ -636,6 +637,7 @@ ca_roots_file = "{}"
             .get(&"component-no1".to_string())
             .is_some());
 
+        #[allow(clippy::mutable_key_type)]
         let component_no1_client_tls_opts = client_tls_opts_ok
             .get(&"component-no1".to_string())
             .expect("get opts for component-no1");
@@ -653,6 +655,7 @@ ca_roots_file = "{}"
             .get(&"component-no2".to_string())
             .is_some());
 
+        #[allow(clippy::mutable_key_type)]
         let component_no2_client_tls_opts = client_tls_opts_ok
             .get(&"component-no2".to_string())
             .expect("get opts for component-no2");
@@ -712,6 +715,7 @@ ca_roots_file = "{}"
             .get(&"component-no1".to_string())
             .is_some());
 
+        #[allow(clippy::mutable_key_type)]
         let component_no1_client_tls_opts = client_tls_opts_ok
             .get(&"component-no1".to_string())
             .expect("get opts for component-no1");
@@ -789,9 +793,7 @@ fn parse_client_tls_opts(inp: &ClientTlsOpts) -> Result<ParsedClientTlsOpts, any
     // 2. custom_root_ca is not provided
     //
     // if custom_root_ca is provided, use_ca_webpki_roots defaults to false
-    let ca_webpki_roots =
-        inp.ca_webpki_roots
-            .unwrap_or(if custom_root_ca_provided { false } else { true });
+    let ca_webpki_roots = inp.ca_webpki_roots.unwrap_or(!custom_root_ca_provided);
 
     let parsed_component_ids: Vec<String> = inp
         .component_ids

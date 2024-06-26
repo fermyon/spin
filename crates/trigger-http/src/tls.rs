@@ -42,7 +42,6 @@ pub fn load_certs(
             )
         },
     )?))
-    .into_iter()
     .collect::<io::Result<Vec<rustls_pki_types::CertificateDer<'static>>>>()
 }
 

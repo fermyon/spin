@@ -1162,7 +1162,7 @@ fn get_client_tls_config_for_authority(
     client_tls_opts: Option<HashMap<Authority, ParsedClientTlsOpts>>,
 ) -> Result<rustls::ClientConfig> {
     // derived from https://github.com/tokio-rs/tls/blob/master/tokio-rustls/examples/client/src/main.rs
-    let mut root_cert_store = rustls::RootCertStore {
+    let ca_webpki_roots = rustls::RootCertStore {
         roots: webpki_roots::TLS_SERVER_ROOTS.into(),
     };
 
@@ -1170,7 +1170,7 @@ fn get_client_tls_config_for_authority(
         Some(opts) => opts,
         _ => {
             return Ok(rustls::ClientConfig::builder()
-                .with_root_certificates(root_cert_store)
+                .with_root_certificates(ca_webpki_roots)
                 .with_no_client_auth());
         }
     };
@@ -1179,9 +1179,26 @@ fn get_client_tls_config_for_authority(
         Some(opts) => opts,
         _ => {
             return Ok(rustls::ClientConfig::builder()
-                .with_root_certificates(root_cert_store)
+                .with_root_certificates(ca_webpki_roots)
                 .with_no_client_auth());
         }
+    };
+
+    let custom_root_ca_provided = client_tls_opts_for_host.custom_root_ca.is_some();
+
+    // use_ca_webpki_roots is true if
+    // 1. ca_webpki_roots is explicitly true in runtime config OR
+    // 2. custom_root_ca is not provided
+    //
+    // if custom_root_ca is provided, use_ca_webpki_roots defaults to false
+    let use_ca_webpki_roots = client_tls_opts_for_host
+        .ca_webpki_roots
+        .unwrap_or(if custom_root_ca_provided { false } else { true });
+
+    let mut root_cert_store = if use_ca_webpki_roots {
+        ca_webpki_roots
+    } else {
+        rustls::RootCertStore::empty()
     };
 
     if let Some(custom_root_ca) = &client_tls_opts_for_host.custom_root_ca {

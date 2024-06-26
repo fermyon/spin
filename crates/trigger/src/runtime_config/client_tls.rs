@@ -12,9 +12,10 @@ use std::{
 pub struct ClientTlsOpts {
     pub component_ids: Vec<String>,
     pub hosts: Vec<String>,
-    pub custom_root_ca_file: Option<PathBuf>,
+    pub ca_roots_file: Option<PathBuf>,
     pub cert_chain_file: Option<PathBuf>,
     pub private_key_file: Option<PathBuf>,
+    pub ca_webpki_roots: Option<bool>,
 }
 
 // load_certs parse and return the certs from the provided file

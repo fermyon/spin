@@ -537,9 +537,10 @@ mod tests {
         let input = ClientTlsOpts {
             component_ids: vec!["component-id-foo".to_string()],
             hosts: vec!["fermyon.com".to_string(), "fermyon.com:5443".to_string()],
-            custom_root_ca_file: None,
+            ca_roots_file: None,
             cert_chain_file: None,
             private_key_file: None,
+            ca_webpki_roots: None,
         };
 
         let parsed = parse_client_tls_opts(&input);
@@ -552,9 +553,10 @@ mod tests {
         let input = ClientTlsOpts {
             component_ids: vec!["component-id-foo".to_string()],
             hosts: vec!["".to_string(), "fermyon.com:5443".to_string()],
-            custom_root_ca_file: None,
+            ca_roots_file: None,
             cert_chain_file: None,
             private_key_file: None,
+            ca_webpki_roots: None,
         };
 
         let parsed = parse_client_tls_opts(&input);
@@ -570,9 +572,10 @@ mod tests {
         let input = ClientTlsOpts {
             component_ids: vec!["component-id-foo".to_string()],
             hosts: vec!["perc%ent:443".to_string(), "fermyon.com:5443".to_string()],
-            custom_root_ca_file: None,
+            ca_roots_file: None,
             cert_chain_file: None,
             private_key_file: None,
+            ca_webpki_roots: None,
         };
 
         let parsed = parse_client_tls_opts(&input);
@@ -606,10 +609,11 @@ pub struct ParsedClientTlsOpts {
     pub custom_root_ca: Option<Vec<rustls_pki_types::CertificateDer<'static>>>,
     pub cert_chain: Option<Vec<rustls_pki_types::CertificateDer<'static>>>,
     pub private_key: Option<Arc<rustls_pki_types::PrivateKeyDer<'static>>>,
+    pub ca_webpki_roots: Option<bool>,
 }
 
 fn parse_client_tls_opts(inp: &ClientTlsOpts) -> Result<ParsedClientTlsOpts, anyhow::Error> {
-    let custom_root_ca = match &inp.custom_root_ca_file {
+    let custom_root_ca = match &inp.ca_roots_file {
         Some(path) => Some(load_certs(path).context("loading custom root ca")?),
         None => None,
     };
@@ -643,5 +647,6 @@ fn parse_client_tls_opts(inp: &ClientTlsOpts) -> Result<ParsedClientTlsOpts, any
         custom_root_ca,
         cert_chain,
         private_key,
+        ca_webpki_roots: inp.ca_webpki_roots,
     })
 }

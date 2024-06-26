@@ -712,7 +712,7 @@ ca_roots_file = "{}"
         let component_no1_host_client_tls_opts = component_no1_client_tls_opts
             .get(&"localhost:6551".parse::<Authority>().unwrap())
             .unwrap();
-        
+
         // verify that the last client_tls block wins for same component-id and host combination
         assert!(component_no1_host_client_tls_opts.custom_root_ca.is_some());
     }
@@ -740,7 +740,7 @@ pub struct ParsedClientTlsOpts {
     pub custom_root_ca: Option<Vec<rustls_pki_types::CertificateDer<'static>>>,
     pub cert_chain: Option<Vec<rustls_pki_types::CertificateDer<'static>>>,
     pub private_key: Option<Arc<rustls_pki_types::PrivateKeyDer<'static>>>,
-    pub ca_webpki_roots: Option<bool>,
+    pub ca_webpki_roots: bool,
 }
 
 fn parse_client_tls_opts(inp: &ClientTlsOpts) -> Result<ParsedClientTlsOpts, anyhow::Error> {
@@ -772,12 +772,23 @@ fn parse_client_tls_opts(inp: &ClientTlsOpts) -> Result<ParsedClientTlsOpts, any
         })
         .collect::<Result<Vec<Authority>, anyhow::Error>>()?;
 
+    let custom_root_ca_provided = custom_root_ca.is_some();
+
+    // use_ca_webpki_roots is true if
+    // 1. ca_webpki_roots is explicitly true in runtime config OR
+    // 2. custom_root_ca is not provided
+    //
+    // if custom_root_ca is provided, use_ca_webpki_roots defaults to false
+    let ca_webpki_roots =
+        inp.ca_webpki_roots
+            .unwrap_or(if custom_root_ca_provided { false } else { true });
+
     Ok(ParsedClientTlsOpts {
         hosts: parsed_hosts,
         components: inp.component_ids.clone(),
         custom_root_ca,
         cert_chain,
         private_key,
-        ca_webpki_roots: inp.ca_webpki_roots,
+        ca_webpki_roots,
     })
 }

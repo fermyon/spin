@@ -1184,18 +1184,7 @@ fn get_client_tls_config_for_authority(
         }
     };
 
-    let custom_root_ca_provided = client_tls_opts_for_host.custom_root_ca.is_some();
-
-    // use_ca_webpki_roots is true if
-    // 1. ca_webpki_roots is explicitly true in runtime config OR
-    // 2. custom_root_ca is not provided
-    //
-    // if custom_root_ca is provided, use_ca_webpki_roots defaults to false
-    let use_ca_webpki_roots = client_tls_opts_for_host
-        .ca_webpki_roots
-        .unwrap_or(if custom_root_ca_provided { false } else { true });
-
-    let mut root_cert_store = if use_ca_webpki_roots {
+    let mut root_cert_store = if client_tls_opts_for_host.ca_webpki_roots {
         ca_webpki_roots
     } else {
         rustls::RootCertStore::empty()

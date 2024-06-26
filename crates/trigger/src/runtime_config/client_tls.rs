@@ -1,7 +1,6 @@
 use anyhow::Context;
 use rustls_pemfile::private_key;
 use std::io;
-use std::io::Cursor;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -21,13 +20,16 @@ pub struct ClientTlsOpts {
 // load_certs parse and return the certs from the provided file
 pub fn load_certs(
     path: impl AsRef<Path>,
-) -> anyhow::Result<Vec<rustls_pki_types::CertificateDer<'static>>> {
-    let contents = fs::read_to_string(path).expect("Should have been able to read the file");
-    let mut custom_root_ca_cursor = Cursor::new(contents);
-
-    Ok(rustls_pemfile::certs(&mut custom_root_ca_cursor)
-        .map(|certs| certs.unwrap())
-        .collect())
+) -> io::Result<Vec<rustls_pki_types::CertificateDer<'static>>> {
+    rustls_pemfile::certs(&mut io::BufReader::new(fs::File::open(path).map_err(
+        |err| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("failed to read cert file {:?}", err),
+            )
+        },
+    )?))
+    .collect::<io::Result<Vec<rustls_pki_types::CertificateDer<'static>>>>()
 }
 
 // load_keys parse and return the first private key from the provided file
@@ -38,5 +40,11 @@ pub fn load_key(
         fs::File::open(path).context("loading private key")?,
     ))
     .map_err(|_| anyhow::anyhow!("invalid input"))
-    .map(|keys| keys.unwrap())
+    .transpose()
+    .ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "private key file contains no private keys",
+        )
+    })?
 }

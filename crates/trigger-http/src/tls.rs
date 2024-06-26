@@ -56,7 +56,13 @@ pub fn load_key(path: impl AsRef<Path>) -> io::Result<rustls_pki_types::PrivateK
         },
     )?))
     .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid private key"))
-    .map(|keys| keys.unwrap())
+    .transpose()
+    .ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "private key file contains no private keys",
+        )
+    })?
 }
 
 #[cfg(test)]

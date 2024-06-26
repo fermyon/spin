@@ -1055,15 +1055,25 @@ pub async fn send_request_handler(
     let (mut sender, worker) = if use_tls {
         #[cfg(any(target_arch = "riscv64", target_arch = "s390x"))]
         {
-            return Err(crate::bindings::http::types::ErrorCode::InternalError(
-                Some("unsupported architecture for SSL".to_string()),
-            ));
+            return Err(
+                wasmtime_wasi_http::bindings::http::types::ErrorCode::InternalError(Some(
+                    "unsupported architecture for SSL".to_string(),
+                )),
+            );
         }
 
         #[cfg(not(any(target_arch = "riscv64", target_arch = "s390x")))]
         {
             use rustls::pki_types::ServerName;
-            let config = get_client_tls_config_for_authority(&authority, client_tls_opts);
+            let config =
+                get_client_tls_config_for_authority(&authority, client_tls_opts).map_err(|e| {
+                    wasmtime_wasi_http::bindings::http::types::ErrorCode::InternalError(Some(
+                        format!(
+                            "failed to configure client tls config for authority. error: {}",
+                            e
+                        ),
+                    ))
+                })?;
             let connector = tokio_rustls::TlsConnector::from(std::sync::Arc::new(config));
             let mut parts = authority_str.split(":");
             let host = parts.next().unwrap_or(&authority_str);
@@ -1150,7 +1160,7 @@ pub async fn send_request_handler(
 fn get_client_tls_config_for_authority(
     authority: &Authority,
     client_tls_opts: Option<HashMap<Authority, ParsedClientTlsOpts>>,
-) -> rustls::ClientConfig {
+) -> Result<rustls::ClientConfig> {
     // derived from https://github.com/tokio-rs/tls/blob/master/tokio-rustls/examples/client/src/main.rs
     let mut root_cert_store = rustls::RootCertStore {
         roots: webpki_roots::TLS_SERVER_ROOTS.into(),
@@ -1159,18 +1169,18 @@ fn get_client_tls_config_for_authority(
     let client_tls_opts = match client_tls_opts {
         Some(opts) => opts,
         _ => {
-            return rustls::ClientConfig::builder()
+            return Ok(rustls::ClientConfig::builder()
                 .with_root_certificates(root_cert_store)
-                .with_no_client_auth();
+                .with_no_client_auth());
         }
     };
 
     let client_tls_opts_for_host = match client_tls_opts.get(authority) {
         Some(opts) => opts,
         _ => {
-            return rustls::ClientConfig::builder()
+            return Ok(rustls::ClientConfig::builder()
                 .with_root_certificates(root_cert_store)
-                .with_no_client_auth();
+                .with_no_client_auth());
         }
     };
 
@@ -1179,7 +1189,10 @@ fn get_client_tls_config_for_authority(
             match root_cert_store.add(cer.to_owned()) {
                 Ok(_) => {}
                 Err(e) => {
-                    tracing::warn!("failed to add custom cert to root_cert_store. error: {}", e)
+                    return Err(anyhow::anyhow!(
+                        "failed to add custom cert to root_cert_store. error: {}",
+                        e
+                    ));
                 }
             }
         }
@@ -1189,13 +1202,13 @@ fn get_client_tls_config_for_authority(
         &client_tls_opts_for_host.cert_chain,
         &client_tls_opts_for_host.private_key,
     ) {
-        (Some(cert_chain), Some(private_key)) => rustls::ClientConfig::builder()
+        (Some(cert_chain), Some(private_key)) => Ok(rustls::ClientConfig::builder()
             .with_root_certificates(root_cert_store)
             .with_client_auth_cert(cert_chain.to_owned(), private_key.clone_key())
-            .unwrap(),
-        _ => rustls::ClientConfig::builder()
+            .unwrap()),
+        _ => Ok(rustls::ClientConfig::builder()
             .with_root_certificates(root_cert_store)
-            .with_no_client_auth(),
+            .with_no_client_auth()),
     }
 }
 

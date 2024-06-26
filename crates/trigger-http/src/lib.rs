@@ -586,7 +586,7 @@ struct ChainedRequestHandler {
 pub struct HttpRuntimeData {
     origin: Option<String>,
     chained_handler: Option<ChainedRequestHandler>,
-    /// If provided, these options used for client cert auth
+    // Optional mapping of authority and TLS options for the current component
     client_tls_opts: Option<HashMap<Authority, ParsedClientTlsOpts>>,
     /// The hosts this app is allowed to make outbound requests to
     allowed_hosts: AllowedHostsConfig,

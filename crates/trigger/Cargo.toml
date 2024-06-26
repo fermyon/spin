@@ -32,6 +32,7 @@ rustls-pemfile = "2.1.2"
 rustls-pki-types = "1.7.0"
 spin-common = { path = "../common" }
 spin-expressions = { path = "../expressions" }
+spin-serde = { path = "../serde" }
 spin-key-value = { path = "../key-value" }
 spin-key-value-azure = { path = "../key-value-azure" }
 spin-key-value-redis = { path = "../key-value-redis" }

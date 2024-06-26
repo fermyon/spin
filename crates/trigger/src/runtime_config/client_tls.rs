@@ -10,7 +10,7 @@ use std::{
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub struct ClientTlsOpts {
-    pub component_ids: Vec<String>,
+    pub component_ids: Vec<spin_serde::KebabId>,
     pub hosts: Vec<String>,
     pub ca_roots_file: Option<PathBuf>,
     pub cert_chain_file: Option<PathBuf>,

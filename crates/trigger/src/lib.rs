@@ -442,7 +442,7 @@ impl<Executor: TriggerExecutor> TriggerAppEngine<Executor> {
         &self,
         component_id: &str,
     ) -> Option<HashMap<Authority, ParsedClientTlsOpts>> {
-        self.client_tls_opts.get(component_id).cloned()
+        self.client_tls_opts.get(&component_id.to_string()).cloned()
     }
 
     pub fn resolve_template(

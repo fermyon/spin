@@ -7930,6 +7930,7 @@ dependencies = [
  "spin-loader",
  "spin-manifest",
  "spin-outbound-networking",
+ "spin-serde",
  "spin-sqlite",
  "spin-sqlite-inproc",
  "spin-sqlite-libsql",

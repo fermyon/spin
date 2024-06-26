@@ -202,7 +202,7 @@ impl RuntimeConfig {
                         .into_iter()
                         .map(|host| (host, parsed.clone()))
                         .collect::<HashMap<Authority, ParsedClientTlsOpts>>();
-                    components_map.insert(component_id.to_owned(), hostmap);
+                    components_map.insert(component_id.to_string().to_owned(), hostmap);
                 }
             }
         }
@@ -532,10 +532,14 @@ mod tests {
         Ok(())
     }
 
+    fn to_component_id(inp: &str) -> spin_serde::KebabId {
+        spin_serde::KebabId::try_from(inp.to_string()).expect("parse component id into kebab id")
+    }
+
     #[test]
     fn test_parsing_valid_hosts_in_client_tls_opts() {
         let input = ClientTlsOpts {
-            component_ids: vec!["component-id-foo".to_string()],
+            component_ids: vec![to_component_id("component-id-foo")],
             hosts: vec!["fermyon.com".to_string(), "fermyon.com:5443".to_string()],
             ca_roots_file: None,
             cert_chain_file: None,
@@ -551,7 +555,7 @@ mod tests {
     #[test]
     fn test_parsing_empty_hosts_in_client_tls_opts() {
         let input = ClientTlsOpts {
-            component_ids: vec!["component-id-foo".to_string()],
+            component_ids: vec![to_component_id("component-id-foo")],
             hosts: vec!["".to_string(), "fermyon.com:5443".to_string()],
             ca_roots_file: None,
             cert_chain_file: None,
@@ -570,7 +574,7 @@ mod tests {
     #[test]
     fn test_parsing_invalid_hosts_in_client_tls_opts() {
         let input = ClientTlsOpts {
-            component_ids: vec!["component-id-foo".to_string()],
+            component_ids: vec![to_component_id("component-id-foo")],
             hosts: vec!["perc%ent:443".to_string(), "fermyon.com:5443".to_string()],
             ca_roots_file: None,
             cert_chain_file: None,
@@ -628,10 +632,12 @@ ca_roots_file = "{}"
         let client_tls_opts_ok = client_tls_opts.as_ref().unwrap();
 
         // assert for component-no1
-        assert!(client_tls_opts_ok.get("component-no1").is_some());
+        assert!(client_tls_opts_ok
+            .get(&"component-no1".to_string())
+            .is_some());
 
         let component_no1_client_tls_opts = client_tls_opts_ok
-            .get("component-no1")
+            .get(&"component-no1".to_string())
             .expect("get opts for component-no1");
         assert!(component_no1_client_tls_opts
             .get(&"localhost:6551".parse::<Authority>().unwrap())
@@ -643,10 +649,12 @@ ca_roots_file = "{}"
         assert!(component_no1_host_client_tls_opts.custom_root_ca.is_none());
 
         // assert for component-no2
-        assert!(client_tls_opts_ok.get("component-no2").is_some());
+        assert!(client_tls_opts_ok
+            .get(&"component-no2".to_string())
+            .is_some());
 
         let component_no2_client_tls_opts = client_tls_opts_ok
-            .get("component-no2")
+            .get(&"component-no2".to_string())
             .expect("get opts for component-no2");
         assert!(component_no2_client_tls_opts
             .get(&"localhost:6551".parse::<Authority>().unwrap())
@@ -700,10 +708,12 @@ ca_roots_file = "{}"
         let client_tls_opts_ok = client_tls_opts.as_ref().unwrap();
 
         // assert for component-no1
-        assert!(client_tls_opts_ok.get("component-no1").is_some());
+        assert!(client_tls_opts_ok
+            .get(&"component-no1".to_string())
+            .is_some());
 
         let component_no1_client_tls_opts = client_tls_opts_ok
-            .get("component-no1")
+            .get(&"component-no1".to_string())
             .expect("get opts for component-no1");
         assert!(component_no1_client_tls_opts
             .get(&"localhost:6551".parse::<Authority>().unwrap())
@@ -783,9 +793,16 @@ fn parse_client_tls_opts(inp: &ClientTlsOpts) -> Result<ParsedClientTlsOpts, any
         inp.ca_webpki_roots
             .unwrap_or(if custom_root_ca_provided { false } else { true });
 
+    let parsed_component_ids: Vec<String> = inp
+        .component_ids
+        .clone()
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect();
+
     Ok(ParsedClientTlsOpts {
         hosts: parsed_hosts,
-        components: inp.component_ids.clone(),
+        components: parsed_component_ids,
         custom_root_ca,
         cert_chain,
         private_key,

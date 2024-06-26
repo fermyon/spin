@@ -533,7 +533,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parsing_valid_hosts_in_client_opts() {
+    fn test_parsing_valid_hosts_in_client_tls_opts() {
         let input = ClientTlsOpts {
             component_ids: vec!["component-id-foo".to_string()],
             hosts: vec!["fermyon.com".to_string(), "fermyon.com:5443".to_string()],
@@ -549,7 +549,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parsing_empty_hosts_in_client_opts() {
+    fn test_parsing_empty_hosts_in_client_tls_opts() {
         let input = ClientTlsOpts {
             component_ids: vec!["component-id-foo".to_string()],
             hosts: vec!["".to_string(), "fermyon.com:5443".to_string()],
@@ -568,7 +568,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parsing_invalid_hosts_in_client_opts() {
+    fn test_parsing_invalid_hosts_in_client_tls_opts() {
         let input = ClientTlsOpts {
             component_ids: vec!["component-id-foo".to_string()],
             hosts: vec!["perc%ent:443".to_string(), "fermyon.com:5443".to_string()],
@@ -584,6 +584,137 @@ mod tests {
             "failed to parse uri 'perc%ent:443'. error: InvalidUri(InvalidAuthority)",
             parsed.unwrap_err().to_string()
         )
+    }
+
+    #[test]
+    fn test_parsing_multiple_client_tls_opts() {
+        let custom_root_ca = r#"
+-----BEGIN CERTIFICATE-----
+MIIBeDCCAR2gAwIBAgIBADAKBggqhkjOPQQDAjAjMSEwHwYDVQQDDBhrM3Mtc2Vy
+dmVyLWNhQDE3MTc3ODA1MjAwHhcNMjQwNjA3MTcxNTIwWhcNMzQwNjA1MTcxNTIw
+WjAjMSEwHwYDVQQDDBhrM3Mtc2VydmVyLWNhQDE3MTc3ODA1MjAwWTATBgcqhkjO
+PQIBBggqhkjOPQMBBwNCAAQnhGmz/r5E+ZBgkg/kpeSliS4LjMFaeFNM3C0SUksV
+cVDbymRZt+D2loVpSIn9PnBHUIiR9kz+cmWJaJDhcY6Ho0IwQDAOBgNVHQ8BAf8E
+BAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUzXLACkzCDPAXXERIxQim
+NdG07zEwCgYIKoZIzj0EAwIDSQAwRgIhALwsHX2R7a7GXfgmn7h8rNRRvlQwyRaG
+9hyv0a1cyJr2AiEA8+2vF0CZ/S0MG6rT0Y6xZ+iqi/vhcDnmBhJCxx2rwAI=
+-----END CERTIFICATE-----        
+"#;
+        let mut custom_root_ca_file = NamedTempFile::new().expect("temp file for custom root ca");
+        custom_root_ca_file
+            .write_all(custom_root_ca.as_bytes())
+            .expect("write custom root ca file");
+
+        let runtimeconfig_data = format!(
+            r#"
+[[client_tls]]
+hosts = ["localhost:6551"]
+component_ids = ["component-no1"]
+[[client_tls]]
+hosts = ["localhost:6551"]
+component_ids = ["component-no2"]
+ca_roots_file = "{}"
+"#,
+            custom_root_ca_file.path().to_str().unwrap()
+        );
+
+        let mut config = RuntimeConfig::new(None);
+        merge_config_toml(&mut config, toml::from_str(&runtimeconfig_data).unwrap());
+
+        let client_tls_opts = config.client_tls_opts();
+        assert!(client_tls_opts.is_ok());
+
+        //assert that component level mapping works as expected
+        let client_tls_opts_ok = client_tls_opts.as_ref().unwrap();
+
+        // assert for component-no1
+        assert!(client_tls_opts_ok.get("component-no1").is_some());
+
+        let component_no1_client_tls_opts = client_tls_opts_ok
+            .get("component-no1")
+            .expect("get opts for component-no1");
+        assert!(component_no1_client_tls_opts
+            .get(&"localhost:6551".parse::<Authority>().unwrap())
+            .is_some());
+
+        let component_no1_host_client_tls_opts = component_no1_client_tls_opts
+            .get(&"localhost:6551".parse::<Authority>().unwrap())
+            .unwrap();
+        assert!(component_no1_host_client_tls_opts.custom_root_ca.is_none());
+
+        // assert for component-no2
+        assert!(client_tls_opts_ok.get("component-no2").is_some());
+
+        let component_no2_client_tls_opts = client_tls_opts_ok
+            .get("component-no2")
+            .expect("get opts for component-no2");
+        assert!(component_no2_client_tls_opts
+            .get(&"localhost:6551".parse::<Authority>().unwrap())
+            .is_some());
+
+        let component_no2_host_client_tls_opts = component_no2_client_tls_opts
+            .get(&"localhost:6551".parse::<Authority>().unwrap())
+            .unwrap();
+        assert!(component_no2_host_client_tls_opts.custom_root_ca.is_some())
+    }
+
+    #[test]
+    fn test_parsing_multiple_overlapping_client_tls_opts() {
+        let custom_root_ca = r#"
+-----BEGIN CERTIFICATE-----
+MIIBeDCCAR2gAwIBAgIBADAKBggqhkjOPQQDAjAjMSEwHwYDVQQDDBhrM3Mtc2Vy
+dmVyLWNhQDE3MTc3ODA1MjAwHhcNMjQwNjA3MTcxNTIwWhcNMzQwNjA1MTcxNTIw
+WjAjMSEwHwYDVQQDDBhrM3Mtc2VydmVyLWNhQDE3MTc3ODA1MjAwWTATBgcqhkjO
+PQIBBggqhkjOPQMBBwNCAAQnhGmz/r5E+ZBgkg/kpeSliS4LjMFaeFNM3C0SUksV
+cVDbymRZt+D2loVpSIn9PnBHUIiR9kz+cmWJaJDhcY6Ho0IwQDAOBgNVHQ8BAf8E
+BAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUzXLACkzCDPAXXERIxQim
+NdG07zEwCgYIKoZIzj0EAwIDSQAwRgIhALwsHX2R7a7GXfgmn7h8rNRRvlQwyRaG
+9hyv0a1cyJr2AiEA8+2vF0CZ/S0MG6rT0Y6xZ+iqi/vhcDnmBhJCxx2rwAI=
+-----END CERTIFICATE-----        
+"#;
+        let mut custom_root_ca_file = NamedTempFile::new().expect("temp file for custom root ca");
+        custom_root_ca_file
+            .write_all(custom_root_ca.as_bytes())
+            .expect("write custom root ca file");
+
+        let runtimeconfig_data = format!(
+            r#"
+[[client_tls]]
+hosts = ["localhost:6551"]
+component_ids = ["component-no1"]
+[[client_tls]]
+hosts = ["localhost:6551"]
+component_ids = ["component-no1"]
+ca_roots_file = "{}"
+"#,
+            custom_root_ca_file.path().to_str().unwrap()
+        );
+
+        let mut config = RuntimeConfig::new(None);
+        merge_config_toml(&mut config, toml::from_str(&runtimeconfig_data).unwrap());
+
+        let client_tls_opts = config.client_tls_opts();
+        assert!(client_tls_opts.is_ok());
+
+        //assert that component level mapping works as expected
+        let client_tls_opts_ok = client_tls_opts.as_ref().unwrap();
+
+        // assert for component-no1
+        assert!(client_tls_opts_ok.get("component-no1").is_some());
+
+        let component_no1_client_tls_opts = client_tls_opts_ok
+            .get("component-no1")
+            .expect("get opts for component-no1");
+        assert!(component_no1_client_tls_opts
+            .get(&"localhost:6551".parse::<Authority>().unwrap())
+            .is_some());
+
+        let component_no1_host_client_tls_opts = component_no1_client_tls_opts
+            .get(&"localhost:6551".parse::<Authority>().unwrap())
+            .unwrap();
+        
+        // verify that the last client_tls block wins for same component-id and host combination
+        assert!(component_no1_host_client_tls_opts.custom_root_ca.is_some());
     }
 
     fn merge_config_toml(config: &mut RuntimeConfig, value: toml::Value) {

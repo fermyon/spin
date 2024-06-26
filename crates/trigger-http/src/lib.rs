@@ -962,8 +962,7 @@ fn get_client_tls_config_for_authority(
     ) {
         (Some(cert_chain), Some(private_key)) => Ok(rustls::ClientConfig::builder()
             .with_root_certificates(root_cert_store)
-            .with_client_auth_cert(cert_chain.to_owned(), private_key.clone_key())
-            .unwrap()),
+            .with_client_auth_cert(cert_chain.to_owned(), private_key.clone_key())?),
         _ => Ok(rustls::ClientConfig::builder()
             .with_root_certificates(root_cert_store)
             .with_no_client_auth()),

@@ -196,11 +196,12 @@ impl RuntimeConfig {
             for opts in &opt_layer.client_tls_opts {
                 let parsed = parse_client_tls_opts(opts).context("parsing client tls options")?;
                 for component_id in &opts.component_ids {
-                    let mut hostmap: HashMap<Authority, ParsedClientTlsOpts> = HashMap::new();
-                    for host in &parsed.hosts {
-                        hostmap.insert(host.to_owned(), parsed.clone());
-                    }
-
+                    let hostmap = parsed
+                        .hosts
+                        .clone()
+                        .into_iter()
+                        .map(|host| (host, parsed.clone()))
+                        .collect::<HashMap<Authority, ParsedClientTlsOpts>>();
                     components_map.insert(component_id.to_owned(), hostmap);
                 }
             }

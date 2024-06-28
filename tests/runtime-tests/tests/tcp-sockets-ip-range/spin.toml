@@ -11,5 +11,5 @@ component = "test"
 
 [component.test]
 source = "%{source=tcp-sockets}"
-environment = { ADDRESS = "127.0.0.1:%{port=5000}" }
-allowed_outbound_hosts = ["*://127.0.0.0/24:%{port=5000}"]
+environment = { ADDRESS = "127.0.0.1:%{port=7}" }
+allowed_outbound_hosts = ["*://127.0.0.0/24:%{port=7}"]

@@ -220,7 +220,6 @@ impl RuntimeConfig {
                         .hosts
                         .clone()
                         .into_iter()
-                        .into_iter()
                         .filter_map(|host| {
                             use_existing_if_available(
                                 existing_opts_for_component,

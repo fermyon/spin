@@ -54,10 +54,11 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     }
 
     let Any = quote!(::std::any::Any);
+    let Box = quote!(::std::boxed::Box);
+    let Send = quote!(::std::marker::Send);
     let TypeId = quote!(::std::any::TypeId);
     let factors_crate = format_ident!("spin_factors");
     let factors_path = quote!(::#factors_crate);
-    let field_offset = quote!(#factors_path::__internal::field_offset);
     let wasmtime = quote!(#factors_path::wasmtime);
     let Result = quote!(#factors_path::Result);
     let Factor = quote!(#factors_path::Factor);
@@ -77,7 +78,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                         &mut self.#factor_names,
                         #factors_path::InitContext::<Self, #factor_types>::new(
                             linker,
-                            |state| &mut state.#factor_names,
+                            |state| #factors_path::GetFactorState::get::<#factor_types>(state).unwrap(),
                         )
                     )?;
                 )*
@@ -129,11 +130,16 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                     );
                 )*
                 Ok(#state_name {
-                    #(
-                        #factor_names: #FactorInstanceBuilder::build(
-                            builders.#factor_names.unwrap(),
-                        )?,
-                    )*
+                    factors: vec![
+                        #(
+                            (
+                                #TypeId::of::<#factor_types>(),
+                                #Box::new(
+                                    #FactorInstanceBuilder::build(builders.#factor_names.unwrap())?
+                                ) as #Box<dyn #Any + #Send>
+                            ),
+                        )*
+                    ].into_iter().collect()
                 })
             }
 
@@ -170,24 +176,6 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 )*
                 None
             }
-
-            fn instance_state_offset<F: #Factor>() -> Option<
-                #field_offset::FieldOffset<
-                    Self::InstanceState,
-                    <<F as #Factor>::InstanceBuilder as #FactorInstanceBuilder>::InstanceState,
-                >
-            > {
-                let type_id = #TypeId::of::<F>();
-                #(
-                    if type_id == #TypeId::of::<#factor_types>() {
-                        let offset = #field_offset::offset_of!(Self::InstanceState => #factor_names);
-                        return Some(
-                            unsafe { ::std::mem::transmute(offset) }
-                        );
-                    }
-                )*
-                None
-            }
         }
 
         #vis struct #app_state_name {
@@ -203,9 +191,13 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
 
         #vis struct #state_name {
-            #(
-                pub #factor_names: <<#factor_types as #Factor>::InstanceBuilder as #FactorInstanceBuilder>::InstanceState,
-            )*
+            factors: ::std::collections::HashMap<#TypeId, #Box<dyn #Any + #Send>>,
+        }
+
+        impl #factors_path::GetFactorState for #state_name {
+            fn get<F: #Factor>(&mut self) -> ::std::option::Option<&mut #factors_path::FactorInstanceState<F>> {
+                self.factors.get_mut(&#TypeId::of::<F>())?.downcast_mut()
+            }
         }
     })
 }

@@ -9,10 +9,10 @@ pub use wasmtime;
 pub use spin_factors_derive::RuntimeFactors;
 
 pub use crate::{
-    factor::{ConfigureAppContext, ConfiguredApp, Factor, InitContext},
+    factor::{ConfigureAppContext, ConfiguredApp, Factor, FactorInstanceState, InitContext},
     prepare::{FactorInstanceBuilder, InstanceBuilders, PrepareContext, SelfInstanceBuilder},
     runtime_config::{FactorRuntimeConfig, RuntimeConfigSource},
-    runtime_factors::RuntimeFactors,
+    runtime_factors::{GetFactorState, RuntimeFactors},
 };
 
 pub type Linker<T> = wasmtime::component::Linker<<T as RuntimeFactors>::InstanceState>;
@@ -27,5 +27,4 @@ pub type Result<T> = wasmtime::Result<T>;
 #[doc(hidden)]
 pub mod __internal {
     pub use crate::runtime_config::RuntimeConfigTracker;
-    pub use field_offset;
 }

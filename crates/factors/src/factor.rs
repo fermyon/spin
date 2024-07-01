@@ -56,7 +56,8 @@ pub trait Factor: Any + Sized {
     }
 }
 
-pub(crate) type FactorInstanceState<F> =
+/// The instance state of the given [`Factor`] `F`.
+pub type FactorInstanceState<F> =
     <<F as Factor>::InstanceBuilder as FactorInstanceBuilder>::InstanceState;
 
 pub(crate) type GetDataFn<Facts, F> =
@@ -89,8 +90,7 @@ impl<'a, T: RuntimeFactors, F: Factor> InitContext<'a, T, F> {
             &mut Linker<T>,
             fn(&mut T::InstanceState) -> &mut FactorInstanceState<F>,
         ) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()>
-where {
+    ) -> anyhow::Result<()> {
         add_to_linker(self.linker, self.get_data)
     }
 }

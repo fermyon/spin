@@ -2487,16 +2487,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "field-offset"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38e2275cc4e4fc009b0669731a1e5ab7ebf11f469eaede2bab9309a5b4d6057f"
-dependencies = [
- "memoffset 0.9.1",
- "rustc_version",
-]
-
-[[package]]
 name = "filetime"
 version = "0.2.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7632,7 +7622,6 @@ name = "spin-factors"
 version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
- "field-offset",
  "http 1.1.0",
  "http-body-util",
  "serde 1.0.197",

@@ -49,24 +49,30 @@ async fn execute_statements(
     if statements.is_empty() {
         return Ok(());
     }
-    let Some(default) = databases.get("default") else {
-        debug_assert!(
-            false,
-            "the 'default' sqlite database should always be available but for some reason was not"
-        );
-        return Ok(());
-    };
 
     for m in statements {
         if let Some(file) = m.strip_prefix('@') {
+            let database = file.strip_suffix(".sql").unwrap_or(file);
+            let database = databases.get(database).with_context(|| {
+                format!(
+                    "based on the sql file '{file}' a registered database named '{database}' was expected but not found. The registered databases are '{:?}'", databases.keys()
+                )
+            })?;
             let sql = std::fs::read_to_string(file).with_context(|| {
                 format!("could not read file '{file}' containing sql statements")
             })?;
-            default
+            database
                 .execute_batch(&sql)
                 .await
                 .with_context(|| format!("failed to execute sql from file '{file}'"))?;
         } else {
+            let Some(default) = databases.get("default") else {
+                debug_assert!(
+            false,
+            "the 'default' sqlite database should always be available but for some reason was not"
+        );
+                return Ok(());
+            };
             default
                 .query(m, Vec::new())
                 .await

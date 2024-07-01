@@ -1,21 +1,14 @@
-use anyhow::Context;
-use spin_factors::{Linker, RuntimeFactors};
+use spin_factors::{GetFactorState, Linker, RuntimeFactors};
 use wasmtime_wasi_http::{WasiHttpImpl, WasiHttpView};
 
 pub(crate) fn add_to_linker<T: RuntimeFactors>(linker: &mut Linker<T>) -> anyhow::Result<()> {
-    fn type_annotate<T, F>(f: F) -> F
+    fn type_annotate<T, U, F>(f: F) -> F
     where
-        F: Fn(&mut T) -> WasiHttpImpl<MutStates>,
+        F: Fn(&mut T) -> WasiHttpImpl<MutStates<'_, U>>,
     {
         f
     }
-    let wasi_and_http_getter =
-        T::instance_state_getter2::<spin_factor_wasi::WasiFactor, crate::OutboundHttpFactor>()
-            .context("failed to get WasiFactor")?;
-    let host_getter = type_annotate(move |data| {
-        let (wasi, http) = wasi_and_http_getter.get_states(data);
-        WasiHttpImpl(MutStates { http, wasi })
-    });
+    let host_getter = type_annotate(move |data| WasiHttpImpl(MutStates { inner: data }));
     wasmtime_wasi_http::bindings::http::outgoing_handler::add_to_linker_get_host(
         linker,
         host_getter,
@@ -24,28 +17,35 @@ pub(crate) fn add_to_linker<T: RuntimeFactors>(linker: &mut Linker<T>) -> anyhow
     Ok(())
 }
 
-struct MutStates<'a> {
-    http: &'a mut crate::InstanceState,
-    wasi: &'a mut spin_factor_wasi::InstanceState,
+struct MutStates<'a, T> {
+    inner: &'a mut T,
 }
 
-impl<'a> WasiHttpView for MutStates<'a> {
+impl<'a, T> WasiHttpView for MutStates<'a, T>
+where
+    T: GetFactorState + Send,
+{
     fn ctx(&mut self) -> &mut wasmtime_wasi_http::WasiHttpCtx {
-        &mut self.http.wasi_http_ctx
+        &mut self
+            .inner
+            .get::<crate::OutboundHttpFactor>()
+            .expect("failed to get `OutboundHttpFactor`")
+            .wasi_http_ctx
     }
 
     fn table(&mut self) -> &mut spin_factors::wasmtime::component::ResourceTable {
-        self.wasi.table()
+        self.inner
+            .get::<spin_factor_wasi::WasiFactor>()
+            .expect("failed to get `WasiFactor`")
+            .table()
     }
 }
 
 // TODO: This is a little weird, organizationally
 pub fn get_wasi_http_view<T: RuntimeFactors>(
     instance_state: &mut T::InstanceState,
-) -> anyhow::Result<impl WasiHttpView + '_> {
-    let wasi_and_http_getter =
-        T::instance_state_getter2::<spin_factor_wasi::WasiFactor, crate::OutboundHttpFactor>()
-            .context("failed to get WasiFactor")?;
-    let (wasi, http) = wasi_and_http_getter.get_states(instance_state);
-    Ok(MutStates { http, wasi })
+) -> impl WasiHttpView + '_ {
+    MutStates {
+        inner: instance_state,
+    }
 }

@@ -6,7 +6,6 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = "1.0"
-field-offset = "0.3.6"
 serde = "1.0"
 spin-app = { path = "../app" }
 spin-factors-derive = { path = "../factors-derive" }

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::bail;
+use anyhow::{bail, Context};
 use http_body_util::BodyExt;
 use serde::Deserialize;
 use spin_app::App;
@@ -9,7 +9,7 @@ use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::{StaticVariables, VariablesFactor};
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
-use spin_factors::{FactorRuntimeConfig, RuntimeConfigSource, RuntimeFactors};
+use spin_factors::{FactorRuntimeConfig, GetFactorState, RuntimeConfigSource, RuntimeFactors};
 use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
 use wasmtime_wasi_http::WasiHttpView;
 
@@ -23,7 +23,7 @@ struct Factors {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn main() -> anyhow::Result<()> {
+async fn smoke_test_works() -> anyhow::Result<()> {
     let mut factors = Factors {
         wasi: WasiFactor::new(DummyFilesMounter),
         variables: VariablesFactor::default(),
@@ -50,10 +50,11 @@ async fn main() -> anyhow::Result<()> {
     factors.init(&mut linker).unwrap();
 
     let configured_app = factors.configure_app(app, TestSource)?;
-    let data = factors.build_store_data(&configured_app, "smoke-app")?;
+    let mut data = factors.build_store_data(&configured_app, "smoke-app")?;
 
+    let variables = data.get::<VariablesFactor>().unwrap();
     assert_eq!(
-        data.variables
+        variables
             .resolver()
             .resolve("smoke-app", "other".try_into().unwrap())
             .await
@@ -72,7 +73,8 @@ async fn main() -> anyhow::Result<()> {
         .unwrap()
         .strip_prefix("file://")
         .unwrap();
-    let wasm_bytes = std::fs::read(wasm_path)?;
+    let wasm_bytes = std::fs::read(wasm_path)
+        .with_context(|| format!("wasm binary not found at '{wasm_path}'. Did you remember to run `spin build` in the `smoke-app` directory?"))?;
     let component_bytes = spin_componentize::componentize_if_necessary(&wasm_bytes)?;
     let component = wasmtime::component::Component::new(&engine, component_bytes)?;
     let instance = linker.instantiate_async(&mut store, &component).await?;
@@ -80,7 +82,7 @@ async fn main() -> anyhow::Result<()> {
     // Invoke handler
     let req = http::Request::get("/").body(Default::default()).unwrap();
     let mut wasi_http_view =
-        spin_factor_outbound_http::get_wasi_http_view::<Factors>(store.data_mut())?;
+        spin_factor_outbound_http::get_wasi_http_view::<Factors>(store.data_mut());
     let request = wasi_http_view.new_incoming_request(req)?;
     let (response_tx, response_rx) = tokio::sync::oneshot::channel();
     let response = wasi_http_view.new_response_outparam(response_tx)?;

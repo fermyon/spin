@@ -192,16 +192,42 @@ impl RuntimeConfig {
         let mut components_map: HashMap<String, HashMap<Authority, ParsedClientTlsOpts>> =
             HashMap::new();
 
+        // if available, use the existing client tls opts value for a given component-id and host-authority
+        // to ensure first-one wins incase of duplicate options
+        fn use_existing_if_available(
+            existing_opts: Option<&HashMap<Authority, ParsedClientTlsOpts>>,
+            host: Authority,
+            newopts: ParsedClientTlsOpts,
+        ) -> Option<(Authority, ParsedClientTlsOpts)> {
+            match existing_opts {
+                None => Some((host, newopts.clone())),
+                Some(opts) => match opts.get(&host) {
+                    Some(existing_opts_for_component_and_host) => {
+                        Some((host, existing_opts_for_component_and_host.to_owned()))
+                    }
+                    None => Some((host, newopts.clone())),
+                },
+            }
+        }
+
         for opt_layer in self.opts_layers() {
             for opts in &opt_layer.client_tls_opts {
                 let parsed = parse_client_tls_opts(opts).context("parsing client tls options")?;
                 for component_id in &opts.component_ids {
+                    let existing_opts_for_component = components_map.get(&component_id.to_string());
                     #[allow(clippy::mutable_key_type)]
                     let hostmap = parsed
                         .hosts
                         .clone()
                         .into_iter()
-                        .map(|host| (host, parsed.clone()))
+                        .into_iter()
+                        .filter_map(|host| {
+                            use_existing_if_available(
+                                existing_opts_for_component,
+                                host,
+                                parsed.clone(),
+                            )
+                        })
                         .collect::<HashMap<Authority, ParsedClientTlsOpts>>();
                     components_map.insert(component_id.to_string().to_owned(), hostmap);
                 }
@@ -728,7 +754,7 @@ ca_roots_file = "{}"
             .unwrap();
 
         // verify that the last client_tls block wins for same component-id and host combination
-        assert!(component_no1_host_client_tls_opts.custom_root_ca.is_some());
+        assert!(component_no1_host_client_tls_opts.custom_root_ca.is_none());
     }
 
     fn merge_config_toml(config: &mut RuntimeConfig, value: toml::Value) {

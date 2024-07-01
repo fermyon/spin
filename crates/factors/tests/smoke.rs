@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::bail;
+use anyhow::{bail, Context};
 use http_body_util::BodyExt;
 use serde::Deserialize;
 use spin_app::App;
@@ -23,7 +23,7 @@ struct Factors {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn main() -> anyhow::Result<()> {
+async fn smoke_test_works() -> anyhow::Result<()> {
     let mut factors = Factors {
         wasi: WasiFactor::new(DummyFilesMounter),
         variables: VariablesFactor::default(),
@@ -72,7 +72,8 @@ async fn main() -> anyhow::Result<()> {
         .unwrap()
         .strip_prefix("file://")
         .unwrap();
-    let wasm_bytes = std::fs::read(wasm_path)?;
+    let wasm_bytes = std::fs::read(wasm_path)
+        .with_context(|| format!("wasm binary not found at '{wasm_path}'. Did you remember to run `spin build` in the `smoke-app` directory?"))?;
     let component_bytes = spin_componentize::componentize_if_necessary(&wasm_bytes)?;
     let component = wasmtime::component::Component::new(&engine, component_bytes)?;
     let instance = linker.instantiate_async(&mut store, &component).await?;

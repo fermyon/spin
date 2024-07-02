@@ -181,7 +181,7 @@ pub fn http_smoke_test_template_with_route(
     expected_body: &str,
 ) -> anyhow::Result<()> {
     let mut env = bootstrap_smoke_test(
-        &ServicesConfig::none(),
+        ServicesConfig::none(),
         template_url,
         template_branch,
         plugins,
@@ -214,7 +214,7 @@ pub fn redis_smoke_test_template(
 ) -> anyhow::Result<()> {
     use redis::Commands;
     let mut env = bootstrap_smoke_test(
-        &test_environment::services::ServicesConfig::new(vec!["redis".into()])?,
+        test_environment::services::ServicesConfig::new(vec!["redis"])?,
         template_url,
         template_branch,
         plugins,
@@ -257,7 +257,7 @@ static TEMPLATE_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 // TODO: refactor this function to not take so many arguments
 #[allow(clippy::too_many_arguments)]
 pub fn bootstrap_smoke_test(
-    services: &ServicesConfig,
+    services: ServicesConfig,
     template_url: Option<&str>,
     template_branch: Option<&str>,
     plugins: &[&str],
@@ -310,6 +310,7 @@ pub fn bootstrap_smoke_test(
             "-o",
             ".",
             "--accept-defaults",
+            "--allow-overwrite",
         ])
         .args(new_app_args(&mut env)?);
     env.run_in(&mut new_app)?;

@@ -52,8 +52,9 @@ pub use propagation::inject_trace_context;
 /// ```
 pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
     // This layer will print all tracing library log messages to stderr.
+    let (writer, guard) = tracing_appender::non_blocking(std::io::stderr());
     let fmt_layer = fmt::layer()
-        .with_writer(std::io::stderr)
+        .with_writer(writer)
         .with_ansi(std::io::stderr().is_terminal())
         .with_filter(
             // Filter directives explained here https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#directives
@@ -97,7 +98,7 @@ pub fn init(spin_version: String) -> anyhow::Result<ShutdownGuard> {
         logs::init_otel_logging_backend(spin_version)?;
     }
 
-    Ok(ShutdownGuard)
+    Ok(ShutdownGuard(guard))
 }
 
 fn otel_error_handler(err: opentelemetry::global::Error) {
@@ -135,7 +136,7 @@ fn otel_error_handler(err: opentelemetry::global::Error) {
 ///
 /// Shutdown of the open telemetry services will happen on `Drop`.
 #[must_use]
-pub struct ShutdownGuard;
+pub struct ShutdownGuard(tracing_appender::non_blocking::WorkerGuard);
 
 impl Drop for ShutdownGuard {
     fn drop(&mut self) {

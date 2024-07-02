@@ -42,10 +42,10 @@ pub fn load_certs(
             )
         },
     )?))
-    .collect::<io::Result<Vec<rustls_pki_types::CertificateDer<'static>>>>()
+    .collect()
 }
 
-// load_keys parse and return the first private key from the provided file
+// parse and return the first private key from the provided file
 pub fn load_key(path: impl AsRef<Path>) -> io::Result<rustls_pki_types::PrivateKeyDer<'static>> {
     private_key(&mut io::BufReader::new(fs::File::open(path).map_err(
         |err| {

@@ -198,14 +198,14 @@ impl RuntimeConfig {
             existing_opts: Option<&HashMap<Authority, ParsedClientTlsOpts>>,
             host: Authority,
             newopts: ParsedClientTlsOpts,
-        ) -> Option<(Authority, ParsedClientTlsOpts)> {
+        ) -> (Authority, ParsedClientTlsOpts) {
             match existing_opts {
-                None => Some((host, newopts.clone())),
+                None => (host, newopts),
                 Some(opts) => match opts.get(&host) {
                     Some(existing_opts_for_component_and_host) => {
-                        Some((host, existing_opts_for_component_and_host.to_owned()))
+                        (host, existing_opts_for_component_and_host.to_owned())
                     }
-                    None => Some((host, newopts.clone())),
+                    None => (host, newopts),
                 },
             }
         }
@@ -214,13 +214,13 @@ impl RuntimeConfig {
             for opts in &opt_layer.client_tls_opts {
                 let parsed = parse_client_tls_opts(opts).context("parsing client tls options")?;
                 for component_id in &opts.component_ids {
-                    let existing_opts_for_component = components_map.get(&component_id.to_string());
+                    let existing_opts_for_component = components_map.get(component_id.as_ref());
                     #[allow(clippy::mutable_key_type)]
                     let hostmap = parsed
                         .hosts
                         .clone()
                         .into_iter()
-                        .filter_map(|host| {
+                        .map(|host| {
                             use_existing_if_available(
                                 existing_opts_for_component,
                                 host,
@@ -228,7 +228,7 @@ impl RuntimeConfig {
                             )
                         })
                         .collect::<HashMap<Authority, ParsedClientTlsOpts>>();
-                    components_map.insert(component_id.to_string().to_owned(), hostmap);
+                    components_map.insert(component_id.to_string(), hostmap);
                 }
             }
         }

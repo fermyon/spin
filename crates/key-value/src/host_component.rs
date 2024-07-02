@@ -48,6 +48,7 @@ impl HostComponent for KeyValueComponent {
         get: impl Fn(&mut spin_core::Data<T>) -> &mut Self::Data + Send + Sync + Copy + 'static,
     ) -> anyhow::Result<()> {
         super::key_value::add_to_linker(linker, get)?;
+        super::wasi_keyvalue::store::add_to_linker(linker, get)?;
         spin_world::v1::key_value::add_to_linker(linker, get)
     }
 

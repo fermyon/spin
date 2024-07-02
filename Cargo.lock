@@ -7743,6 +7743,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-observe"
+version = "2.6.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dotenvy",
+ "futures-executor",
+ "indexmap 2.2.6",
+ "once_cell",
+ "opentelemetry",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
+ "pin-project-lite",
+ "serde 1.0.197",
+ "spin-app",
+ "spin-core",
+ "spin-expressions",
+ "spin-telemetry",
+ "spin-world",
+ "table",
+ "thiserror",
+ "tokio",
+ "toml 0.5.11",
+ "tracing",
+ "tracing-opentelemetry",
+ "vaultrs",
+]
+
+[[package]]
 name = "spin-oci"
 version = "2.7.0-pre0"
 dependencies = [
@@ -7875,6 +7904,7 @@ dependencies = [
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
  "terminal",
+ "tokio",
  "tracing",
  "tracing-appender",
  "tracing-opentelemetry",
@@ -7968,6 +7998,7 @@ dependencies = [
  "spin-llm-remote-http",
  "spin-loader",
  "spin-manifest",
+ "spin-observe",
  "spin-outbound-networking",
  "spin-sqlite",
  "spin-sqlite-inproc",
@@ -8010,6 +8041,7 @@ dependencies = [
  "spin-app",
  "spin-core",
  "spin-http",
+ "spin-observe",
  "spin-outbound-networking",
  "spin-telemetry",
  "spin-testing",

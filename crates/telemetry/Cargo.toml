@@ -18,6 +18,7 @@ tracing-opentelemetry = { version = "0.23.0", default-features = false, features
 tracing-subscriber = { version = "0.3.17", default-features = false, features = ["smallvec", "fmt", "ansi", "std", "env-filter", "json", "registry"] }
 url = "2.2.2"
 terminal = { path = "../terminal" }
+tokio = { version = "1.23", features = ["full"] }
 
 [features]
 tracing-log-compat = ["tracing-subscriber/tracing-log", "tracing-opentelemetry/tracing-log"]

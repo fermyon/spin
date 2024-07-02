@@ -1,16 +1,21 @@
 use std::time::Duration;
 
 use anyhow::bail;
-use opentelemetry_otlp::SpanExporterBuilder;
+use opentelemetry_otlp::{SpanExporter, SpanExporterBuilder};
+use opentelemetry_sdk::export::trace::SpanExporter as _;
 use opentelemetry_sdk::{
+    export::trace::SpanData,
     resource::{EnvResourceDetector, TelemetryResourceDetector},
     Resource,
 };
+use tokio::sync::Mutex;
 use tracing::Subscriber;
 use tracing_subscriber::{registry::LookupSpan, EnvFilter, Layer};
 
 use crate::detector::SpinResourceDetector;
 use crate::env::OtlpProtocol;
+
+static WASI_OBSERVE_EXPORTER: Mutex<Option<SpanExporter>> = Mutex::const_new(None);
 
 /// Constructs a layer for the tracing subscriber that sends spans to an OTEL collector.
 ///
@@ -37,7 +42,7 @@ pub(crate) fn otel_tracing_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
     // currently default to using the HTTP exporter but in the future we could select off of the
     // combination of OTEL_EXPORTER_OTLP_PROTOCOL and OTEL_EXPORTER_OTLP_TRACES_PROTOCOL to
     // determine whether we should use http/protobuf or grpc.
-    let exporter: SpanExporterBuilder = match OtlpProtocol::traces_protocol_from_env() {
+    let exporter_builder: SpanExporterBuilder = match OtlpProtocol::traces_protocol_from_env() {
         OtlpProtocol::Grpc => opentelemetry_otlp::new_exporter().tonic().into(),
         OtlpProtocol::HttpProtobuf => opentelemetry_otlp::new_exporter().http().into(),
         OtlpProtocol::HttpJson => bail!("http/json OTLP protocol is not supported"),
@@ -45,7 +50,7 @@ pub(crate) fn otel_tracing_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
 
     let tracer = opentelemetry_otlp::new_pipeline()
         .tracing()
-        .with_exporter(exporter)
+        .with_exporter(exporter_builder)
         .with_trace_config(opentelemetry_sdk::trace::config().with_resource(resource))
         .install_batch(opentelemetry_sdk::runtime::Tokio)?;
 
@@ -59,4 +64,30 @@ pub(crate) fn otel_tracing_layer<S: Subscriber + for<'span> LookupSpan<'span>>(
         .with_tracer(tracer)
         .with_threads(false)
         .with_filter(env_filter))
+}
+
+pub async fn send_message(span_data: SpanData) -> anyhow::Result<()> {
+    let mut exporter_lock = WASI_OBSERVE_EXPORTER.lock().await;
+
+    // Lazily initialize exporter
+    if exporter_lock.is_none() {
+        // This will configure the exporter based on the OTEL_EXPORTER_* environment variables. We
+        // currently default to using the HTTP exporter but in the future we could select off of the
+        // combination of OTEL_EXPORTER_OTLP_PROTOCOL and OTEL_EXPORTER_OTLP_TRACES_PROTOCOL to
+        // determine whether we should use http/protobuf or grpc.
+        let exporter_builder: SpanExporterBuilder = match OtlpProtocol::traces_protocol_from_env() {
+            OtlpProtocol::Grpc => opentelemetry_otlp::new_exporter().tonic().into(),
+            OtlpProtocol::HttpProtobuf => opentelemetry_otlp::new_exporter().http().into(),
+            OtlpProtocol::HttpJson => bail!("http/json OTLP protocol is not supported"),
+        };
+
+        *exporter_lock = Some(exporter_builder.build_span_exporter()?);
+    }
+
+    exporter_lock
+        .as_mut()
+        .unwrap()
+        .export(vec![span_data])
+        .await?;
+    Ok(())
 }

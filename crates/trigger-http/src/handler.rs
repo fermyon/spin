@@ -13,6 +13,7 @@ use spin_core::wasi_2023_11_10::exports::wasi::http::incoming_handler::Guest as 
 use spin_core::{Component, Engine, Instance};
 use spin_http::body;
 use spin_http::routes::RouteMatch;
+use spin_observe::future::{FutureExt, ObserveContext};
 use spin_trigger::TriggerAppEngine;
 use spin_world::v1::http_types;
 use std::sync::Arc;
@@ -48,14 +49,32 @@ impl HttpExecutor for HttpHandlerExecutor {
 
         set_http_origin_from_request(&mut store, engine.clone(), self, &req);
 
+        let observe_context = ObserveContext::new(&mut store, &engine.engine)?;
+
         let resp = match ty {
-            HandlerType::Spin => {
-                Self::execute_spin(store, instance, base, route_match, req, client_addr)
-                    .await
-                    .map_err(contextualise_err)?
-            }
+            HandlerType::Spin => Self::execute_spin(
+                store,
+                observe_context,
+                instance,
+                base,
+                route_match,
+                req,
+                client_addr,
+            )
+            .await
+            .map_err(contextualise_err)?,
             _ => {
-                Self::execute_wasi(store, instance, ty, base, route_match, req, client_addr).await?
+                Self::execute_wasi(
+                    store,
+                    observe_context,
+                    instance,
+                    ty,
+                    base,
+                    route_match,
+                    req,
+                    client_addr,
+                )
+                .await?
             }
         };
 
@@ -70,6 +89,7 @@ impl HttpExecutor for HttpHandlerExecutor {
 impl HttpHandlerExecutor {
     pub async fn execute_spin(
         mut store: Store,
+        observe_context: ObserveContext,
         instance: Instance,
         base: &str,
         route_match: &RouteMatch,
@@ -113,7 +133,10 @@ impl HttpHandlerExecutor {
             body: Some(bytes),
         };
 
-        let (resp,) = func.call_async(&mut store, (req,)).await?;
+        let (resp,) = func
+            .call_async(&mut store, (req,))
+            .manage_guest_spans(observe_context)?
+            .await?;
 
         if resp.status < 100 || resp.status > 600 {
             tracing::error!("malformed HTTP status code");
@@ -150,6 +173,7 @@ impl HttpHandlerExecutor {
 
     async fn execute_wasi(
         mut store: Store,
+        observe_context: ObserveContext,
         instance: Instance,
         ty: HandlerType,
         base: &str,
@@ -219,18 +243,21 @@ impl HttpHandlerExecutor {
                         proxy
                             .wasi_http_incoming_handler()
                             .call_handle(&mut store, request, response)
+                            .manage_guest_spans(observe_context)?
                             .instrument(span)
                             .await
                     }
                     Handler::Handler2023_10_18(proxy) => {
                         proxy
                             .call_handle(&mut store, request, response)
+                            .manage_guest_spans(observe_context)?
                             .instrument(span)
                             .await
                     }
                     Handler::Handler2023_11_10(proxy) => {
                         proxy
                             .call_handle(&mut store, request, response)
+                            .manage_guest_spans(observe_context)?
                             .instrument(span)
                             .await
                     }

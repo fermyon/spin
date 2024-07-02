@@ -4,6 +4,7 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 use semver::Version;
+use spin_common::ui::Interruptible;
 use spin_plugins::{
     error::Error,
     lookup::{fetch_plugins_repo, plugins_repo_url, PluginLookup},
@@ -108,6 +109,11 @@ pub struct Install {
 
 impl Install {
     pub async fn run(&self) -> Result<()> {
+        // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+        _ = ctrlc::set_handler(|| {
+            _ = dialoguer::console::Term::stderr().show_cursor();
+        });
+
         let manifest_location = match (&self.local_manifest_src, &self.remote_manifest_src, &self.name) {
             (Some(path), None, None) => ManifestLocation::Local(path.to_path_buf()),
             (None, Some(url), None) => ManifestLocation::Remote(url.clone()),
@@ -231,6 +237,11 @@ impl Upgrade {
     /// Also, by default, Spin displays the list of installed plugins that are in
     /// the catalogue and prompts user to choose which ones to upgrade.
     pub async fn run(self) -> Result<()> {
+        // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+        _ = ctrlc::set_handler(|| {
+            _ = dialoguer::console::Term::stderr().show_cursor();
+        });
+
         let manager = PluginManager::try_default()?;
         let manifests_dir = manager.store().installed_manifests_directory();
 
@@ -317,7 +328,11 @@ impl Upgrade {
         eprintln!(
             "Select plugins to upgrade. Use Space to select/deselect and Enter to confirm selection."
         );
-        let selected_indexes = match dialoguer::MultiSelect::new().items(&names).interact_opt()? {
+        let selected_indexes = match dialoguer::MultiSelect::new()
+            .items(&names)
+            .interact_opt()
+            .cancel_on_interrupt()?
+        {
             Some(indexes) => indexes,
             None => return Ok(()),
         };
@@ -653,7 +668,8 @@ fn prompt_confirm_install(manifest: &PluginManifest, package: &PluginPackage) ->
     let install = dialoguer::Confirm::new()
         .with_prompt(prompt)
         .default(true)
-        .interact_opt()?
+        .interact_opt()
+        .cancel_on_interrupt()?
         .unwrap_or(false);
     if !install {
         println!("Plugin '{}' will not be installed", manifest.name());

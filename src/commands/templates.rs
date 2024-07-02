@@ -6,6 +6,7 @@ use comfy_table::Table;
 use path_absolutize::Absolutize;
 
 use serde::Serialize;
+use spin_common::ui::Interruptible;
 use spin_templates::{
     InstallOptions, InstallationResults, InstalledTemplateWarning, ListResults, ProgressReporter,
     SkippedReason, Template, TemplateManager, TemplateSource,
@@ -117,6 +118,11 @@ pub struct Uninstall {
 
 impl Install {
     pub async fn run(self) -> Result<()> {
+        // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+        _ = ctrlc::set_handler(|| {
+            _ = dialoguer::console::Term::stderr().show_cursor();
+        });
+
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
         let source = match (&self.git, &self.dir) {
@@ -198,6 +204,11 @@ fn infer_github(raw: &str) -> String {
 
 impl Upgrade {
     pub async fn run(&self) -> Result<()> {
+        // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+        _ = ctrlc::set_handler(|| {
+            _ = dialoguer::console::Term::stderr().show_cursor();
+        });
+
         if self.git.is_some() {
             // This is equivalent to `install --update`
             let install = Install {
@@ -316,7 +327,8 @@ impl Upgrade {
             eprintln!("Select repos to upgrade. Use Space to select/deselect and Enter to confirm selection.");
             let selected_indexes = match dialoguer::MultiSelect::new()
                 .items(&sources)
-                .interact_opt()?
+                .interact_opt()
+                .cancel_on_interrupt()?
             {
                 Some(indexes) => indexes,
                 None => return Ok(None),
@@ -478,6 +490,11 @@ pub enum ListFormat {
 
 impl List {
     pub async fn run(self) -> Result<()> {
+        // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+        _ = ctrlc::set_handler(|| {
+            _ = dialoguer::console::Term::stderr().show_cursor();
+        });
+
         let template_manager = TemplateManager::try_default()
             .context("Failed to construct template directory path")?;
 
@@ -602,7 +619,8 @@ pub(crate) async fn prompt_install_default_templates(
     let should_install = dialoguer::Confirm::new()
         .with_prompt(DEFAULT_TEMPLATES_INSTALL_PROMPT)
         .default(true)
-        .interact_opt()?;
+        .interact_opt()
+        .cancel_on_interrupt()?;
     if should_install == Some(true) {
         install_default_templates().await?;
         Ok(Some(template_manager.list().await?.templates))

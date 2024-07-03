@@ -2,7 +2,7 @@ use crate::opts::*;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use indicatif::{ProgressBar, ProgressStyle};
-use spin_common::arg_parser::parse_kv;
+use spin_common::{arg_parser::parse_kv, ui::Interruptible};
 use spin_oci::Client;
 use std::{io::Read, path::PathBuf, time::Duration};
 
@@ -155,6 +155,11 @@ pub struct Login {
 
 impl Login {
     pub async fn run(self) -> Result<()> {
+        // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+        _ = ctrlc::set_handler(|| {
+            _ = dialoguer::console::Term::stderr().show_cursor();
+        });
+
         let username = match self.username {
             Some(u) => u,
             None => {
@@ -162,7 +167,11 @@ impl Login {
                 loop {
                     let result = dialoguer::Input::<String>::new()
                         .with_prompt(prompt)
-                        .interact_text()?;
+                        .interact_text()
+                        .cancel_on_interrupt()?;
+                    let Some(result) = result else {
+                        return Ok(());
+                    };
                     if result.trim().is_empty() {
                         continue;
                     } else {

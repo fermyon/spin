@@ -2,7 +2,7 @@ use crate::build_info::*;
 use crate::commands::plugins::{update, Install};
 use crate::opts::PLUGIN_OVERRIDE_COMPATIBILITY_CHECK_FLAG;
 use anyhow::{anyhow, Result};
-use spin_common::ui::quoted_path;
+use spin_common::ui::{quoted_path, Interruptible};
 use spin_plugins::{
     badger::BadgerChecker, error::Error as PluginError, manifest::warn_unsupported_version,
     PluginStore,
@@ -56,6 +56,11 @@ pub async fn execute_external_subcommand(
     cmd: Vec<String>,
     app: clap::App<'_>,
 ) -> anyhow::Result<()> {
+    // This may use dialoguer so we work around https://github.com/console-rs/dialoguer/issues/294
+    _ = ctrlc::set_handler(|| {
+        _ = dialoguer::console::Term::stderr().show_cursor();
+    });
+
     let (plugin_name, args, override_compatibility_check) = parse_subcommand(cmd)?;
     let plugin_store = PluginStore::try_default()?;
     let plugin_version = ensure_plugin_available(
@@ -196,7 +201,8 @@ fn offer_install(
     let choice = dialoguer::Confirm::new()
         .with_prompt("Would you like to install this plugin and run it now?")
         .default(false)
-        .interact_opt()?
+        .interact_opt()
+        .cancel_on_interrupt()?
         .unwrap_or(false);
     Ok(choice)
 }

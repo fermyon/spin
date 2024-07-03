@@ -9,6 +9,7 @@ use crate::{
 use anyhow::anyhow;
 // use console::style;
 use dialoguer::{Confirm, Input};
+use spin_common::ui::Interruptible;
 
 pub(crate) trait InteractionStrategy {
     fn allow_generate_into(&self, target_dir: &Path) -> Cancellable<(), anyhow::Error>;
@@ -45,7 +46,7 @@ impl InteractionStrategy for Interactive {
                 "Directory '{}' already contains other files. Generate into it anyway?",
                 target_dir.display()
             );
-            match crate::interaction::confirm(&prompt) {
+            match crate::interaction::confirm(&prompt).cancel_on_interrupt() {
                 Ok(true) => Cancellable::Ok(()),
                 Ok(false) => Cancellable::Cancelled,
                 Err(e) => Cancellable::Err(anyhow::Error::from(e)),
@@ -115,27 +116,33 @@ pub(crate) fn prompt_parameter(parameter: &TemplateParameter) -> Option<String> 
         };
 
         match input {
-            Ok(text) => match parameter.validate_value(text) {
+            Cancellable::Ok(text) => match parameter.validate_value(text) {
                 Ok(text) => return Some(text),
                 Err(e) => {
                     println!("Invalid value: {}", e);
                 }
             },
-            Err(e) => {
+            Cancellable::Cancelled => {
+                return None;
+            }
+            Cancellable::Err(e) => {
                 println!("Invalid value: {}", e);
             }
         }
     }
 }
 
-fn ask_free_text(prompt: &str, default_value: &Option<String>) -> anyhow::Result<String> {
+fn ask_free_text(
+    prompt: &str,
+    default_value: &Option<String>,
+) -> Cancellable<String, std::io::Error> {
     let mut input = Input::<String>::new();
     input.with_prompt(prompt);
     if let Some(s) = default_value {
         input.default(s.to_owned());
     }
-    let result = input.interact_text()?;
-    Ok(result)
+    let result = input.interact_text().cancel_on_interrupt();
+    result.into()
 }
 
 fn is_directory_empty(path: &Path) -> bool {

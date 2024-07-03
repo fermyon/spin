@@ -51,11 +51,16 @@ async fn execute_statements(
     }
 
     for m in statements {
-        if let Some(file) = m.strip_prefix('@') {
-            let database = file.strip_suffix(".sql").unwrap_or(file);
+        if let Some(config) = m.strip_prefix('@') {
+            let config = config.trim();
+            let (file, database) = match config.split_once(':') {
+                Some((file, database)) if database.trim().is_empty() => (file.trim(), "default"),
+                Some((file, database)) => (file.trim(), database.trim()),
+                None => (config, "default"),
+            };
             let database = databases.get(database).with_context(|| {
                 format!(
-                    "based on the sql file '{file}' a registered database named '{database}' was expected but not found. The registered databases are '{:?}'", databases.keys()
+                    "based on the '@{config}' a registered database named '{database}' was expected but not found. The registered databases are '{:?}'", databases.keys()
                 )
             })?;
             let sql = std::fs::read_to_string(file).with_context(|| {

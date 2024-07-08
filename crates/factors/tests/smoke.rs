@@ -9,7 +9,7 @@ use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::{StaticVariables, VariablesFactor};
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
-use spin_factors::{FactorRuntimeConfig, GetFactorState, RuntimeConfigSource, RuntimeFactors};
+use spin_factors::{FactorRuntimeConfig, RuntimeConfigSource, RuntimeFactors};
 use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
 use wasmtime_wasi_http::WasiHttpView;
 
@@ -50,11 +50,10 @@ async fn smoke_test_works() -> anyhow::Result<()> {
     factors.init(&mut linker).unwrap();
 
     let configured_app = factors.configure_app(app, TestSource)?;
-    let mut data = factors.build_store_data(&configured_app, "smoke-app")?;
+    let data = factors.build_store_data(&configured_app, "smoke-app")?;
 
-    let variables = data.get::<VariablesFactor>().unwrap();
     assert_eq!(
-        variables
+        data.variables
             .resolver()
             .resolve("smoke-app", "other".try_into().unwrap())
             .await

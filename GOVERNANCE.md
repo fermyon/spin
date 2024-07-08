@@ -47,7 +47,7 @@ The default decision making process is objection-free consensus. In other words
 
 Decision making scenarios should be promoted appropriately by the maintainer overseeing the issue:
 
-- tag maintainers in relevant issues / SIPs
+- tag maintainers in relevant issues and SIPs
 - send out mailing list reminders
 - communicate updates in meetings
 
@@ -82,27 +82,11 @@ The Spin Governance Committee will select a chair to set agendas, call meetings,
 
 ### Decision Making
 
-The default decision making process is objection-free consensus except for changes to the Governance of the project which requires a supermajority agreement of the committee. The process for making governance related changes is described below.
+The default decision making process is objection-free consensus. All governance related decisions require supermajority quorum. All substantial changes require a SIP. A substantial change is one that changes the project governance itself, instead of editorial changes providing clarifications, small bugfixes, etc.
 
 Decision making scenarios should be promoted appropriately by the member overseeing the issue.
 
-In the extreme case that objection-free consensus cannot be reached after a reasonable amount of time and effort,
-a member can call for a supermajority vote from the committee.
-
-### Changes to Governance
-
-The process for changes to the GOVERNANCE.md file is as follows:
-
-1. Decide whether the change is substantial in nature. A substantial change is one that changes the project governance itself, instead of editorial changes providing clarifications, small bugfixes, etc
-2. Then,
-    - For substantial changes:
-        i. Open a new SIP for the changes
-        ii. Follow the [normal SIP process](https://github.com/fermyon/spin/blob/main/docs/content/sips/index.md), requiring a supermajority for acceptance
-    - For editorial changes:
-        i. Open a PR with the changes to GOVERNANCE.md
-        ii. Land the PR after getting at least two positive reviews, and waiting for at least 3 workdays across all time zones
-
-_Note: PRs landed without SIPs can be challenged as substantial for up to 2 weeks afterwards, at which point they have to be backed out, and the proposed changes have to go through the SIP process instead._
+In the extreme case that objection-free consensus cannot be reached after a reasonable amount of time and effort, a committee member can call for a supermajority vote form the committee. If another member seconds the vote, the vote must take place.
 
 ## Glossary
 

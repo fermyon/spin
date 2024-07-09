@@ -1,0 +1,15 @@
+[package]
+name = "spin-factors-test"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+spin-app = { path = "../app" }
+spin-factors = { path = "../factors" }
+spin-loader = { path = "../loader" }
+tempfile = "3.10.1"
+toml = "0.8.14"
+
+[lints]
+workspace = true

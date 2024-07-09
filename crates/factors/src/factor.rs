@@ -15,7 +15,7 @@ pub trait Factor: Any + Sized {
     type InstanceBuilder: FactorInstanceBuilder;
 
     /// Initializes this Factor for a runtime. This will be called at most once,
-    /// before any call to [`FactorInstancePreparer::new`]
+    /// before any call to [`FactorInstanceBuilder::new`]
     fn init<T: RuntimeFactors>(&mut self, mut ctx: InitContext<T, Self>) -> anyhow::Result<()> {
         // TODO: Should `ctx` always be immut? Rename this param/type?
         _ = &mut ctx;

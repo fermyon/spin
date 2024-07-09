@@ -11,5 +11,9 @@ spin-factors = { path = "../factors" }
 spin-world = { path = "../world" }
 toml = "0.8"
 
+[dev-dependencies]
+spin-factors-test = { path = "../factors-test" }
+tokio = { version = "1", features = ["macros", "rt"] }
+
 [lints]
 workspace = true

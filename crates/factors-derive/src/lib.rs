@@ -66,9 +66,13 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let FactorInstanceBuilder = quote!(#factors_path::FactorInstanceBuilder);
 
     Ok(quote! {
-        impl #name {
+        impl #factors_path::RuntimeFactors for #name {
+            type AppState = #app_state_name;
+            type InstanceBuilders = #builders_name;
+            type InstanceState = #state_name;
+
             #[allow(clippy::needless_option_as_deref)]
-            pub fn init(
+            fn init(
                 &mut self,
                 linker: &mut #wasmtime::component::Linker<#state_name>,
             ) -> #Result<()> {
@@ -84,7 +88,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 Ok(())
             }
 
-            pub fn configure_app(
+            fn configure_app(
                 &self,
                 app: #factors_path::App,
                 runtime_config: impl #factors_path::RuntimeConfigSource
@@ -109,7 +113,10 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 Ok(#ConfiguredApp::new(app, app_state))
             }
 
-            pub fn build_store_data(&self, configured_app: &#ConfiguredApp<Self>, component_id: &str) -> #Result<#state_name> {
+            fn build_store_data(
+                &self, configured_app: &#ConfiguredApp<Self>,
+                component_id: &str,
+            ) -> #Result<Self::InstanceState> {
                 let app_component = configured_app.app().get_component(component_id).ok_or_else(|| {
                     #wasmtime::Error::msg("unknown component")
                 })?;
@@ -134,12 +141,6 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                     )*
                 })
             }
-        }
-
-        impl #factors_path::RuntimeFactors for #name {
-            type AppState = #app_state_name;
-            type InstanceBuilders = #builders_name;
-            type InstanceState = #state_name;
 
             fn app_state<F: #Factor>(app_state: &Self::AppState) -> Option<&F::AppState> {
                 #(

@@ -84,6 +84,17 @@ pub struct ClientOpts {
     pub content_ref_inline_max_size: usize,
 }
 
+/// Controls whether predefined annotations are generated when pushing an application.
+/// If an explicit annotation has the same name as a predefined one, the explicit
+/// one takes precedence.
+#[derive(Debug, PartialEq)]
+pub enum InferPredefinedAnnotations {
+    /// Infer annotations for created, authors, version, name and description.
+    All,
+    /// Do not generate any annotations; use only explicitly supplied annotations.
+    None,
+}
+
 impl Client {
     /// Create a new instance of an OCI client for distributing Spin applications.
     pub async fn new(insecure: bool, cache_root: Option<PathBuf>) -> Result<Self> {
@@ -107,6 +118,7 @@ impl Client {
         manifest_path: &Path,
         reference: impl AsRef<str>,
         annotations: Option<BTreeMap<String, String>>,
+        infer_annotations: InferPredefinedAnnotations,
     ) -> Result<Option<String>> {
         let reference: Reference = reference
             .as_ref()
@@ -125,7 +137,7 @@ impl Client {
         )
         .await?;
 
-        self.push_locked_core(locked, auth, reference, annotations)
+        self.push_locked_core(locked, auth, reference, annotations, infer_annotations)
             .await
     }
 
@@ -136,6 +148,7 @@ impl Client {
         locked: LockedApp,
         reference: impl AsRef<str>,
         annotations: Option<BTreeMap<String, String>>,
+        infer_annotations: InferPredefinedAnnotations,
     ) -> Result<Option<String>> {
         let reference: Reference = reference
             .as_ref()
@@ -143,7 +156,7 @@ impl Client {
             .with_context(|| format!("cannot parse reference {}", reference.as_ref()))?;
         let auth = Self::auth(&reference).await?;
 
-        self.push_locked_core(locked, auth, reference, annotations)
+        self.push_locked_core(locked, auth, reference, annotations, infer_annotations)
             .await
     }
 
@@ -155,6 +168,7 @@ impl Client {
         auth: RegistryAuth,
         reference: Reference,
         annotations: Option<BTreeMap<String, String>>,
+        infer_annotations: InferPredefinedAnnotations,
     ) -> Result<Option<String>> {
         let mut locked_app = locked.clone();
         let mut layers = self
@@ -173,6 +187,8 @@ impl Client {
                 .await
                 .context("could not assemble archive layers for locked application")?;
         }
+
+        let annotations = all_annotations(&locked_app, annotations, infer_annotations);
 
         // Push layer for locked spin application config
         let locked_config_layer = ImageLayer::new(
@@ -688,6 +704,76 @@ fn registry_from_input(server: impl AsRef<str>) -> String {
     }
 }
 
+fn all_annotations(
+    locked_app: &LockedApp,
+    explicit: Option<BTreeMap<String, String>>,
+    predefined: InferPredefinedAnnotations,
+) -> Option<BTreeMap<String, String>> {
+    use spin_locked_app::{MetadataKey, APP_DESCRIPTION_KEY, APP_NAME_KEY, APP_VERSION_KEY};
+    const APP_AUTHORS_KEY: MetadataKey<Vec<String>> = MetadataKey::new("authors");
+
+    if predefined == InferPredefinedAnnotations::None {
+        return explicit;
+    }
+
+    // We will always, at minimum, have a `created` annotation, so if we don't already have an
+    // anootations collection then we may as well create one now...
+    let mut current = explicit.unwrap_or_default();
+
+    let authors = locked_app
+        .get_metadata(APP_AUTHORS_KEY)
+        .unwrap_or_default()
+        .unwrap_or_default();
+    if !authors.is_empty() {
+        let authors = authors.join(", ");
+        add_inferred(
+            &mut current,
+            oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_AUTHORS,
+            Some(authors),
+        );
+    }
+
+    let name = locked_app.get_metadata(APP_NAME_KEY).unwrap_or_default();
+    add_inferred(
+        &mut current,
+        oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_TITLE,
+        name,
+    );
+
+    let description = locked_app
+        .get_metadata(APP_DESCRIPTION_KEY)
+        .unwrap_or_default();
+    add_inferred(
+        &mut current,
+        oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_DESCRIPTION,
+        description,
+    );
+
+    let version = locked_app.get_metadata(APP_VERSION_KEY).unwrap_or_default();
+    add_inferred(
+        &mut current,
+        oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_VERSION,
+        version,
+    );
+
+    let created = chrono::Utc::now().to_rfc3339();
+    add_inferred(
+        &mut current,
+        oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_CREATED,
+        Some(created),
+    );
+
+    Some(current)
+}
+
+fn add_inferred(map: &mut BTreeMap<String, String>, key: &str, value: Option<String>) {
+    if let Some(value) = value {
+        if let std::collections::btree_map::Entry::Vacant(e) = map.entry(key.to_string()) {
+            e.insert(value);
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -975,5 +1061,153 @@ mod test {
                 }
             }
         }
+    }
+
+    fn annotatable_app() -> LockedApp {
+        let mut meta_builder = spin_locked_app::values::ValuesMapBuilder::new();
+        meta_builder
+            .string("name", "this-is-spinal-tap")
+            .string("version", "11.11.11")
+            .string("description", "")
+            .string_array("authors", vec!["Marty DiBergi", "Artie Fufkin"]);
+        let metadata = meta_builder.build();
+        LockedApp {
+            spin_lock_version: Default::default(),
+            must_understand: vec![],
+            metadata,
+            host_requirements: Default::default(),
+            variables: Default::default(),
+            triggers: Default::default(),
+            components: Default::default(),
+        }
+    }
+
+    fn as_annotations(annotations: &[(&str, &str)]) -> Option<BTreeMap<String, String>> {
+        Some(
+            annotations
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn no_annotations_no_infer_result_is_no_annotations() {
+        let locked_app = annotatable_app();
+        let explicit = None;
+        let infer = InferPredefinedAnnotations::None;
+
+        assert!(all_annotations(&locked_app, explicit, infer).is_none());
+    }
+
+    #[test]
+    fn explicit_annotations_no_infer_result_is_explicit_annotations() {
+        let locked_app = annotatable_app();
+        let explicit = as_annotations(&[("volume", "11"), ("dimensions", "feet")]);
+        let infer = InferPredefinedAnnotations::None;
+
+        let annotations =
+            all_annotations(&locked_app, explicit, infer).expect("should still have annotations");
+        assert_eq!(2, annotations.len());
+        assert_eq!("11", annotations.get("volume").unwrap());
+        assert_eq!("feet", annotations.get("dimensions").unwrap());
+    }
+
+    #[test]
+    fn no_annotations_infer_all_result_is_auto_annotations() {
+        let locked_app = annotatable_app();
+        let explicit = None;
+        let infer = InferPredefinedAnnotations::All;
+
+        let annotations =
+            all_annotations(&locked_app, explicit, infer).expect("should now have annotations");
+        assert_eq!(4, annotations.len());
+        assert_eq!(
+            "Marty DiBergi, Artie Fufkin",
+            annotations
+                .get(oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_AUTHORS)
+                .expect("should have authors annotation")
+        );
+        assert_eq!(
+            "this-is-spinal-tap",
+            annotations
+                .get(oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_TITLE)
+                .expect("should have title annotation")
+        );
+        assert_eq!(
+            "11.11.11",
+            annotations
+                .get(oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_VERSION)
+                .expect("should have version annotation")
+        );
+        assert!(
+            annotations
+                .get(oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_DESCRIPTION)
+                .is_none(),
+            "empty description should not have generated annotation"
+        );
+        assert!(
+            annotations
+                .get(oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_CREATED)
+                .is_some(),
+            "creation annotation should have been generated"
+        );
+    }
+
+    #[test]
+    fn explicit_annotations_infer_all_gets_both_sets() {
+        let locked_app = annotatable_app();
+        let explicit = as_annotations(&[("volume", "11"), ("dimensions", "feet")]);
+        let infer = InferPredefinedAnnotations::All;
+
+        let annotations =
+            all_annotations(&locked_app, explicit, infer).expect("should still have annotations");
+        assert_eq!(6, annotations.len());
+        assert_eq!(
+            "11",
+            annotations
+                .get("volume")
+                .expect("should have retained explicit annotation")
+        );
+        assert_eq!(
+            "Marty DiBergi, Artie Fufkin",
+            annotations
+                .get(oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_AUTHORS)
+                .expect("should have authors annotation")
+        );
+    }
+
+    #[test]
+    fn explicit_annotations_take_precedence_over_inferred() {
+        let locked_app = annotatable_app();
+        let explicit = as_annotations(&[
+            ("volume", "11"),
+            (
+                oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_AUTHORS,
+                "David St Hubbins, Nigel Tufnel",
+            ),
+        ]);
+        let infer = InferPredefinedAnnotations::All;
+
+        let annotations =
+            all_annotations(&locked_app, explicit, infer).expect("should still have annotations");
+        assert_eq!(
+            5,
+            annotations.len(),
+            "should have one custom, one predefined explicit, and three inferred"
+        );
+        assert_eq!(
+            "11",
+            annotations
+                .get("volume")
+                .expect("should have retained explicit annotation")
+        );
+        assert_eq!(
+            "David St Hubbins, Nigel Tufnel",
+            annotations
+                .get(oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_AUTHORS)
+                .expect("should have authors annotation"),
+            "explicit authors should have taken precedence"
+        );
     }
 }

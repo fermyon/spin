@@ -54,7 +54,6 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     }
 
     let Any = quote!(::std::any::Any);
-    let Box = quote!(::std::boxed::Box);
     let Send = quote!(::std::marker::Send);
     let TypeId = quote!(::std::any::TypeId);
     let factors_crate = format_ident!("spin_factors");
@@ -78,7 +77,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                         &mut self.#factor_names,
                         #factors_path::InitContext::<Self, #factor_types>::new(
                             linker,
-                            |state| #factors_path::GetFactorState::get::<#factor_types>(state).unwrap(),
+                            |state| &mut state.#factor_names,
                         )
                     )?;
                 )*
@@ -130,19 +129,11 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                     );
                 )*
                 Ok(#state_name {
-                    factors: vec![
-                        #(
-                            (
-                                #TypeId::of::<#factor_types>(),
-                                #Box::new(
-                                    #FactorInstanceBuilder::build(builders.#factor_names.unwrap())?
-                                ) as #Box<dyn #Any + #Send>
-                            ),
-                        )*
-                    ].into_iter().collect()
+                    #(
+                        #factor_names: #FactorInstanceBuilder::build(builders.#factor_names.unwrap())?,
+                    )*
                 })
             }
-
         }
 
         impl #factors_path::RuntimeFactors for #name {
@@ -191,12 +182,19 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
 
         #vis struct #state_name {
-            factors: ::std::collections::HashMap<#TypeId, #Box<dyn #Any + #Send>>,
+            #(
+                pub #factor_names: #factors_path::FactorInstanceState<#factor_types>,
+            )*
         }
 
         impl #factors_path::GetFactorState for #state_name {
             fn get<F: #Factor>(&mut self) -> ::std::option::Option<&mut #factors_path::FactorInstanceState<F>> {
-                self.factors.get_mut(&#TypeId::of::<F>())?.downcast_mut()
+                #(
+                    if let Some(state) = (&mut self.#factor_names as &mut (dyn #Any + #Send)).downcast_mut() {
+                        return Some(state)
+                    }
+                )*
+                None
             }
         }
     })

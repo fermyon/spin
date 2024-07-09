@@ -1,0 +1,20 @@
+[package]
+name = "spin-factor-outbound-redis"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+anyhow = "1.0"
+spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
+spin-factor-wasi = { path = "../factor-wasi" }
+spin-factors = { path = "../factors" }
+spin-core = { path = "../core" }
+spin-world = { path = "../world" }
+tracing = { workspace = true }
+table = { path = "../table" }
+redis = { version = "0.21", features = ["tokio-comp", "tokio-native-tls-comp", "aio"] }
+
+# wasmtime-wasi-http = { workspace = true }
+[lints]
+workspace = true

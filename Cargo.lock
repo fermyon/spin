@@ -7636,6 +7636,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-factor-outbound-redis"
+version = "2.7.0-pre0"
+dependencies = [
+ "anyhow",
+ "redis 0.21.7",
+ "spin-core",
+ "spin-factor-outbound-networking",
+ "spin-factor-wasi",
+ "spin-factors",
+ "spin-world",
+ "table",
+ "tracing",
+]
+
+[[package]]
 name = "spin-factor-variables"
 version = "2.7.0-pre0"
 dependencies = [
@@ -7677,6 +7692,7 @@ dependencies = [
  "spin-factor-key-value-spin",
  "spin-factor-outbound-http",
  "spin-factor-outbound-networking",
+ "spin-factor-outbound-redis",
  "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors-derive",

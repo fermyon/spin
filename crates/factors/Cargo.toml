@@ -24,6 +24,7 @@ spin-factor-key-value-redis = { path = "../factor-key-value-redis" }
 spin-factor-key-value-spin = { path = "../factor-key-value-spin" }
 spin-factor-outbound-http = { path = "../factor-outbound-http" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
+spin-factor-outbound-redis = { path = "../factor-outbound-redis" }
 spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }
 spin-loader = { path = "../loader" }

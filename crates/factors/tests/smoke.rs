@@ -22,6 +22,7 @@ struct Factors {
     outbound_networking: OutboundNetworkingFactor,
     outbound_http: OutboundHttpFactor,
     key_value: KeyValueFactor,
+    redis: OutboundRedisFactor,
 }
 
 struct Data {

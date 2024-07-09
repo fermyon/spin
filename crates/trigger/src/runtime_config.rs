@@ -1,3 +1,4 @@
+pub mod client_tls;
 pub mod key_value;
 pub mod llm;
 pub mod sqlite;
@@ -11,6 +12,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use http::uri::Authority;
 use serde::Deserialize;
 use spin_common::ui::quoted_path;
 use spin_sqlite::Connection;
@@ -18,6 +20,7 @@ use spin_sqlite::Connection;
 use crate::TriggerHooks;
 
 use self::{
+    client_tls::{load_certs, load_key, ClientTlsOpts},
     key_value::{KeyValueStore, KeyValueStoreOpts},
     llm::LlmComputeOpts,
     sqlite::SqliteDatabaseOpts,
@@ -26,7 +29,6 @@ use self::{
 
 pub const DEFAULT_STATE_DIR: &str = ".spin";
 const DEFAULT_LOGS_DIR: &str = "logs";
-
 /// RuntimeConfig allows multiple sources of runtime configuration to be
 /// queried uniformly.
 #[derive(Debug, Default)]
@@ -182,6 +184,58 @@ impl RuntimeConfig {
         }
     }
 
+    // returns the client tls options in form of nested
+    // HashMap of { Component ID -> HashMap of { Host -> ParsedClientTlsOpts} }
+    pub fn client_tls_opts(
+        &self,
+    ) -> Result<HashMap<String, HashMap<Authority, ParsedClientTlsOpts>>> {
+        let mut components_map: HashMap<String, HashMap<Authority, ParsedClientTlsOpts>> =
+            HashMap::new();
+
+        // if available, use the existing client tls opts value for a given component-id and host-authority
+        // to ensure first-one wins incase of duplicate options
+        fn use_existing_if_available(
+            existing_opts: Option<&HashMap<Authority, ParsedClientTlsOpts>>,
+            host: Authority,
+            newopts: ParsedClientTlsOpts,
+        ) -> (Authority, ParsedClientTlsOpts) {
+            match existing_opts {
+                None => (host, newopts),
+                Some(opts) => match opts.get(&host) {
+                    Some(existing_opts_for_component_and_host) => {
+                        (host, existing_opts_for_component_and_host.to_owned())
+                    }
+                    None => (host, newopts),
+                },
+            }
+        }
+
+        for opt_layer in self.opts_layers() {
+            for opts in &opt_layer.client_tls_opts {
+                let parsed = parse_client_tls_opts(opts).context("parsing client tls options")?;
+                for component_id in &opts.component_ids {
+                    let existing_opts_for_component = components_map.get(component_id.as_ref());
+                    #[allow(clippy::mutable_key_type)]
+                    let hostmap = parsed
+                        .hosts
+                        .clone()
+                        .into_iter()
+                        .map(|host| {
+                            use_existing_if_available(
+                                existing_opts_for_component,
+                                host,
+                                parsed.clone(),
+                            )
+                        })
+                        .collect::<HashMap<Authority, ParsedClientTlsOpts>>();
+                    components_map.insert(component_id.to_string(), hostmap);
+                }
+            }
+        }
+
+        Ok(components_map)
+    }
+
     /// Returns an iterator of RuntimeConfigOpts in order of decreasing precedence
     fn opts_layers(&self) -> impl Iterator<Item = &RuntimeConfigOpts> {
         std::iter::once(&self.overrides).chain(self.files.iter().rev())
@@ -216,6 +270,9 @@ pub struct RuntimeConfigOpts {
 
     #[serde(skip)]
     pub file_path: Option<PathBuf>,
+
+    #[serde(rename = "client_tls", default)]
+    pub client_tls_opts: Vec<ClientTlsOpts>,
 }
 
 impl RuntimeConfigOpts {
@@ -501,6 +558,204 @@ mod tests {
         Ok(())
     }
 
+    fn to_component_id(inp: &str) -> spin_serde::KebabId {
+        spin_serde::KebabId::try_from(inp.to_string()).expect("parse component id into kebab id")
+    }
+
+    #[test]
+    fn test_parsing_valid_hosts_in_client_tls_opts() {
+        let input = ClientTlsOpts {
+            component_ids: vec![to_component_id("component-id-foo")],
+            hosts: vec!["fermyon.com".to_string(), "fermyon.com:5443".to_string()],
+            ca_roots_file: None,
+            cert_chain_file: None,
+            private_key_file: None,
+            ca_webpki_roots: None,
+        };
+
+        let parsed = parse_client_tls_opts(&input);
+        assert!(parsed.is_ok());
+        assert_eq!(parsed.unwrap().hosts.len(), 2)
+    }
+
+    #[test]
+    fn test_parsing_empty_hosts_in_client_tls_opts() {
+        let input = ClientTlsOpts {
+            component_ids: vec![to_component_id("component-id-foo")],
+            hosts: vec!["".to_string(), "fermyon.com:5443".to_string()],
+            ca_roots_file: None,
+            cert_chain_file: None,
+            private_key_file: None,
+            ca_webpki_roots: None,
+        };
+
+        let parsed = parse_client_tls_opts(&input);
+        assert!(parsed.is_err());
+        assert_eq!(
+            "failed to parse uri ''. error: InvalidUri(Empty)",
+            parsed.unwrap_err().to_string()
+        )
+    }
+
+    #[test]
+    fn test_parsing_invalid_hosts_in_client_tls_opts() {
+        let input = ClientTlsOpts {
+            component_ids: vec![to_component_id("component-id-foo")],
+            hosts: vec!["perc%ent:443".to_string(), "fermyon.com:5443".to_string()],
+            ca_roots_file: None,
+            cert_chain_file: None,
+            private_key_file: None,
+            ca_webpki_roots: None,
+        };
+
+        let parsed = parse_client_tls_opts(&input);
+        assert!(parsed.is_err());
+        assert_eq!(
+            "failed to parse uri 'perc%ent:443'. error: InvalidUri(InvalidAuthority)",
+            parsed.unwrap_err().to_string()
+        )
+    }
+
+    #[test]
+    fn test_parsing_multiple_client_tls_opts() {
+        let custom_root_ca = r#"
+-----BEGIN CERTIFICATE-----
+MIIBeDCCAR2gAwIBAgIBADAKBggqhkjOPQQDAjAjMSEwHwYDVQQDDBhrM3Mtc2Vy
+dmVyLWNhQDE3MTc3ODA1MjAwHhcNMjQwNjA3MTcxNTIwWhcNMzQwNjA1MTcxNTIw
+WjAjMSEwHwYDVQQDDBhrM3Mtc2VydmVyLWNhQDE3MTc3ODA1MjAwWTATBgcqhkjO
+PQIBBggqhkjOPQMBBwNCAAQnhGmz/r5E+ZBgkg/kpeSliS4LjMFaeFNM3C0SUksV
+cVDbymRZt+D2loVpSIn9PnBHUIiR9kz+cmWJaJDhcY6Ho0IwQDAOBgNVHQ8BAf8E
+BAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUzXLACkzCDPAXXERIxQim
+NdG07zEwCgYIKoZIzj0EAwIDSQAwRgIhALwsHX2R7a7GXfgmn7h8rNRRvlQwyRaG
+9hyv0a1cyJr2AiEA8+2vF0CZ/S0MG6rT0Y6xZ+iqi/vhcDnmBhJCxx2rwAI=
+-----END CERTIFICATE-----        
+"#;
+        let mut custom_root_ca_file = NamedTempFile::new().expect("temp file for custom root ca");
+        custom_root_ca_file
+            .write_all(custom_root_ca.as_bytes())
+            .expect("write custom root ca file");
+
+        let runtimeconfig_data = format!(
+            r#"
+[[client_tls]]
+hosts = ["localhost:6551"]
+component_ids = ["component-no1"]
+[[client_tls]]
+hosts = ["localhost:6551"]
+component_ids = ["component-no2"]
+ca_roots_file = "{}"
+"#,
+            custom_root_ca_file.path().to_str().unwrap()
+        );
+
+        let mut config = RuntimeConfig::new(None);
+        merge_config_toml(&mut config, toml::from_str(&runtimeconfig_data).unwrap());
+
+        let client_tls_opts = config.client_tls_opts();
+        assert!(client_tls_opts.is_ok());
+
+        //assert that component level mapping works as expected
+        let client_tls_opts_ok = client_tls_opts.as_ref().unwrap();
+
+        // assert for component-no1
+        assert!(client_tls_opts_ok
+            .get(&"component-no1".to_string())
+            .is_some());
+
+        #[allow(clippy::mutable_key_type)]
+        let component_no1_client_tls_opts = client_tls_opts_ok
+            .get(&"component-no1".to_string())
+            .expect("get opts for component-no1");
+        assert!(component_no1_client_tls_opts
+            .get(&"localhost:6551".parse::<Authority>().unwrap())
+            .is_some());
+
+        let component_no1_host_client_tls_opts = component_no1_client_tls_opts
+            .get(&"localhost:6551".parse::<Authority>().unwrap())
+            .unwrap();
+        assert!(component_no1_host_client_tls_opts.custom_root_ca.is_none());
+
+        // assert for component-no2
+        assert!(client_tls_opts_ok
+            .get(&"component-no2".to_string())
+            .is_some());
+
+        #[allow(clippy::mutable_key_type)]
+        let component_no2_client_tls_opts = client_tls_opts_ok
+            .get(&"component-no2".to_string())
+            .expect("get opts for component-no2");
+        assert!(component_no2_client_tls_opts
+            .get(&"localhost:6551".parse::<Authority>().unwrap())
+            .is_some());
+
+        let component_no2_host_client_tls_opts = component_no2_client_tls_opts
+            .get(&"localhost:6551".parse::<Authority>().unwrap())
+            .unwrap();
+        assert!(component_no2_host_client_tls_opts.custom_root_ca.is_some())
+    }
+
+    #[test]
+    fn test_parsing_multiple_overlapping_client_tls_opts() {
+        let custom_root_ca = r#"
+-----BEGIN CERTIFICATE-----
+MIIBeDCCAR2gAwIBAgIBADAKBggqhkjOPQQDAjAjMSEwHwYDVQQDDBhrM3Mtc2Vy
+dmVyLWNhQDE3MTc3ODA1MjAwHhcNMjQwNjA3MTcxNTIwWhcNMzQwNjA1MTcxNTIw
+WjAjMSEwHwYDVQQDDBhrM3Mtc2VydmVyLWNhQDE3MTc3ODA1MjAwWTATBgcqhkjO
+PQIBBggqhkjOPQMBBwNCAAQnhGmz/r5E+ZBgkg/kpeSliS4LjMFaeFNM3C0SUksV
+cVDbymRZt+D2loVpSIn9PnBHUIiR9kz+cmWJaJDhcY6Ho0IwQDAOBgNVHQ8BAf8E
+BAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUzXLACkzCDPAXXERIxQim
+NdG07zEwCgYIKoZIzj0EAwIDSQAwRgIhALwsHX2R7a7GXfgmn7h8rNRRvlQwyRaG
+9hyv0a1cyJr2AiEA8+2vF0CZ/S0MG6rT0Y6xZ+iqi/vhcDnmBhJCxx2rwAI=
+-----END CERTIFICATE-----        
+"#;
+        let mut custom_root_ca_file = NamedTempFile::new().expect("temp file for custom root ca");
+        custom_root_ca_file
+            .write_all(custom_root_ca.as_bytes())
+            .expect("write custom root ca file");
+
+        let runtimeconfig_data = format!(
+            r#"
+[[client_tls]]
+hosts = ["localhost:6551"]
+component_ids = ["component-no1"]
+[[client_tls]]
+hosts = ["localhost:6551"]
+component_ids = ["component-no1"]
+ca_roots_file = "{}"
+"#,
+            custom_root_ca_file.path().to_str().unwrap()
+        );
+
+        let mut config = RuntimeConfig::new(None);
+        merge_config_toml(&mut config, toml::from_str(&runtimeconfig_data).unwrap());
+
+        let client_tls_opts = config.client_tls_opts();
+        assert!(client_tls_opts.is_ok());
+
+        //assert that component level mapping works as expected
+        let client_tls_opts_ok = client_tls_opts.as_ref().unwrap();
+
+        // assert for component-no1
+        assert!(client_tls_opts_ok
+            .get(&"component-no1".to_string())
+            .is_some());
+
+        #[allow(clippy::mutable_key_type)]
+        let component_no1_client_tls_opts = client_tls_opts_ok
+            .get(&"component-no1".to_string())
+            .expect("get opts for component-no1");
+        assert!(component_no1_client_tls_opts
+            .get(&"localhost:6551".parse::<Authority>().unwrap())
+            .is_some());
+
+        let component_no1_host_client_tls_opts = component_no1_client_tls_opts
+            .get(&"localhost:6551".parse::<Authority>().unwrap())
+            .unwrap();
+
+        // verify that the last client_tls block wins for same component-id and host combination
+        assert!(component_no1_host_client_tls_opts.custom_root_ca.is_none());
+    }
+
     fn merge_config_toml(config: &mut RuntimeConfig, value: toml::Value) {
         let data = toml::to_vec(&value).expect("encode toml");
         let mut file = NamedTempFile::new().expect("temp file");
@@ -514,4 +769,70 @@ mod tests {
             other => panic!("unexpected default store opts {other:?}"),
         }
     }
+}
+
+// parsed client tls options
+#[derive(Debug, Clone)]
+pub struct ParsedClientTlsOpts {
+    pub components: Vec<String>,
+    pub hosts: Vec<Authority>,
+    pub custom_root_ca: Option<Vec<rustls_pki_types::CertificateDer<'static>>>,
+    pub cert_chain: Option<Vec<rustls_pki_types::CertificateDer<'static>>>,
+    pub private_key: Option<Arc<rustls_pki_types::PrivateKeyDer<'static>>>,
+    pub ca_webpki_roots: bool,
+}
+
+fn parse_client_tls_opts(inp: &ClientTlsOpts) -> Result<ParsedClientTlsOpts, anyhow::Error> {
+    let custom_root_ca = match &inp.ca_roots_file {
+        Some(path) => Some(load_certs(path).context("loading custom root ca")?),
+        None => None,
+    };
+
+    let cert_chain = match &inp.cert_chain_file {
+        Some(file) => Some(load_certs(file).context("loading client tls certs")?),
+        None => None,
+    };
+
+    let private_key = match &inp.private_key_file {
+        Some(file) => {
+            let privatekey = load_key(file).context("loading private key")?;
+            Some(Arc::from(privatekey))
+        }
+        None => None,
+    };
+
+    let parsed_hosts: Vec<Authority> = inp
+        .hosts
+        .clone()
+        .into_iter()
+        .map(|s| {
+            s.parse::<Authority>()
+                .map_err(|e| anyhow::anyhow!("failed to parse uri '{}'. error: {:?}", s, e))
+        })
+        .collect::<Result<Vec<Authority>, anyhow::Error>>()?;
+
+    let custom_root_ca_provided = custom_root_ca.is_some();
+
+    // use_ca_webpki_roots is true if
+    // 1. ca_webpki_roots is explicitly true in runtime config OR
+    // 2. custom_root_ca is not provided
+    //
+    // if custom_root_ca is provided, use_ca_webpki_roots defaults to false
+    let ca_webpki_roots = inp.ca_webpki_roots.unwrap_or(!custom_root_ca_provided);
+
+    let parsed_component_ids: Vec<String> = inp
+        .component_ids
+        .clone()
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect();
+
+    Ok(ParsedClientTlsOpts {
+        hosts: parsed_hosts,
+        components: parsed_component_ids,
+        custom_root_ca,
+        cert_chain,
+        private_key,
+        ca_webpki_roots,
+    })
 }

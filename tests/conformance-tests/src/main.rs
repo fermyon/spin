@@ -19,7 +19,9 @@ fn run_test(test: conformance_tests::Test, spin_binary: &std::path::Path) -> any
             conformance_tests::config::Precondition::TcpEcho => {
                 services.push("tcp-echo".into());
             }
+            conformance_tests::config::Precondition::Redis => services.push("redis".into()),
             conformance_tests::config::Precondition::KeyValueStore(_) => {}
+            conformance_tests::config::Precondition::Sqlite => {}
         }
     }
     let env_config = SpinCli::config(

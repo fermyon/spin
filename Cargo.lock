@@ -7562,7 +7562,9 @@ dependencies = [
  "serde 1.0.197",
  "spin-expressions",
  "spin-factors",
+ "spin-factors-test",
  "spin-world",
+ "tokio",
  "toml 0.8.14",
 ]
 
@@ -7610,6 +7612,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.58",
+]
+
+[[package]]
+name = "spin-factors-test"
+version = "2.7.0-pre0"
+dependencies = [
+ "spin-app",
+ "spin-factors",
+ "spin-loader",
+ "tempfile",
+ "toml 0.8.14",
 ]
 
 [[package]]

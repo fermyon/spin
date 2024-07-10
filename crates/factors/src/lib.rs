@@ -4,6 +4,7 @@ mod runtime_config;
 mod runtime_factors;
 
 pub use anyhow;
+pub use serde;
 pub use wasmtime;
 
 pub use spin_factors_derive::RuntimeFactors;

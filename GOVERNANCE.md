@@ -82,7 +82,7 @@ The Spin Governance Committee will select a chair to set agendas, call meetings,
 
 ### Decision Making
 
-The default decision making process is objection-free consensus. All governance related decisions require supermajority quorum. All substantial changes require a SIP. A substantial change is one that changes the project governance itself, instead of editorial changes providing clarifications, small bugfixes, etc.
+The default decision making process is objection-free consensus. All governance related decisions require supermajority quorum. All substantial changes to governance require a SIP. A substantial change is one that changes the project governance itself, instead of editorial changes providing clarifications, small bugfixes, etc.
 
 Decision making scenarios should be promoted appropriately by the member overseeing the issue.
 

@@ -4,7 +4,12 @@ use spin_factors::{
     anyhow, AppComponent, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
     PrepareContext, RuntimeFactors,
 };
-use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiImpl, WasiView};
+use tokio::io::{AsyncRead, AsyncWrite};
+use wasmtime_wasi::{
+    pipe::{AsyncReadStream, AsyncWriteStream},
+    AsyncStdinStream, AsyncStdoutStream, DirPerms, FilePerms, ResourceTable, StdinStream,
+    StdoutStream, WasiCtx, WasiCtxBuilder, WasiImpl, WasiView,
+};
 
 pub struct WasiFactor {
     files_mounter: Box<dyn FilesMounter>,
@@ -81,19 +86,17 @@ impl Factor for WasiFactor {
     ) -> anyhow::Result<InstanceBuilder> {
         let mut wasi_ctx = WasiCtxBuilder::new();
 
-        // Apply environment variables
-        for (key, val) in ctx.app_component().environment() {
-            wasi_ctx.env(key, val);
-        }
-
         // Mount files
-        let mount_ctx = MountFilesContext {
-            wasi_ctx: &mut wasi_ctx,
-        };
+        let mount_ctx = MountFilesContext { ctx: &mut wasi_ctx };
         self.files_mounter
             .mount_files(ctx.app_component(), mount_ctx)?;
 
-        Ok(InstanceBuilder { wasi_ctx })
+        let mut builder = InstanceBuilder { ctx: wasi_ctx };
+
+        // Apply environment variables
+        builder.env(ctx.app_component().environment());
+
+        Ok(builder)
     }
 }
 
@@ -122,7 +125,7 @@ impl FilesMounter for DummyFilesMounter {
 }
 
 pub struct MountFilesContext<'a> {
-    wasi_ctx: &'a mut WasiCtxBuilder,
+    ctx: &'a mut WasiCtxBuilder,
 }
 
 impl<'a> MountFilesContext<'a> {
@@ -138,21 +141,91 @@ impl<'a> MountFilesContext<'a> {
         } else {
             (DirPerms::READ, FilePerms::READ)
         };
-        self.wasi_ctx
+        self.ctx
             .preopened_dir(host_path, guest_path, dir_perms, file_perms)?;
         Ok(())
     }
 }
 
 pub struct InstanceBuilder {
-    wasi_ctx: WasiCtxBuilder,
+    ctx: WasiCtxBuilder,
+}
+
+impl InstanceBuilder {
+    /// Sets the WASI `stdin` descriptor to the given [`StdinStream`].
+    pub fn stdin(&mut self, stdin: impl StdinStream + 'static) {
+        self.ctx.stdin(stdin);
+    }
+
+    /// Sets the WASI `stdin` descriptor to the given [`AsyncRead`]er.
+    pub fn stdin_pipe(&mut self, r: impl AsyncRead + Send + Unpin + 'static) {
+        self.stdin(AsyncStdinStream::new(AsyncReadStream::new(r)));
+    }
+
+    /// Sets the WASI `stdout` descriptor to the given [`StdoutStream`].
+    pub fn stdout(&mut self, stdout: impl StdoutStream + 'static) {
+        self.ctx.stdout(stdout);
+    }
+
+    /// Sets the WASI `stdout` descriptor to the given [`AsyncWrite`]r.
+    pub fn stdout_pipe(&mut self, w: impl AsyncWrite + Send + Unpin + 'static) {
+        self.stdout(AsyncStdoutStream::new(AsyncWriteStream::new(
+            1024 * 1024,
+            w,
+        )));
+    }
+
+    /// Sets the WASI `stderr` descriptor to the given [`StdoutStream`].
+    pub fn stderr(&mut self, stderr: impl StdoutStream + 'static) {
+        self.ctx.stderr(stderr);
+    }
+
+    /// Sets the WASI `stderr` descriptor to the given [`AsyncWrite`]r.
+    pub fn stderr_pipe(&mut self, w: impl AsyncWrite + Send + Unpin + 'static) {
+        self.stderr(AsyncStdoutStream::new(AsyncWriteStream::new(
+            1024 * 1024,
+            w,
+        )));
+    }
+
+    /// Appends the given strings to the WASI 'args'.
+    pub fn args(&mut self, args: impl IntoIterator<Item = impl AsRef<str>>) {
+        for arg in args {
+            self.ctx.arg(arg);
+        }
+    }
+
+    /// Sets the given key/value string entries on the WASI 'env'.
+    pub fn env(&mut self, vars: impl IntoIterator<Item = (impl AsRef<str>, impl AsRef<str>)>) {
+        for (k, v) in vars {
+            self.ctx.env(k, v);
+        }
+    }
+
+    /// "Mounts" the given `host_path` into the WASI filesystem at the given
+    /// `guest_path`.
+    pub fn preopened_dir(
+        &mut self,
+        host_path: impl AsRef<Path>,
+        guest_path: impl AsRef<str>,
+        writable: bool,
+    ) -> anyhow::Result<()> {
+        let (dir_perms, file_perms) = if writable {
+            (DirPerms::all(), FilePerms::all())
+        } else {
+            (DirPerms::READ, FilePerms::READ)
+        };
+        self.ctx
+            .preopened_dir(host_path, guest_path, dir_perms, file_perms)?;
+        Ok(())
+    }
 }
 
 impl FactorInstanceBuilder for InstanceBuilder {
     type InstanceState = InstanceState;
 
     fn build(self) -> anyhow::Result<Self::InstanceState> {
-        let InstanceBuilder { mut wasi_ctx } = self;
+        let InstanceBuilder { ctx: mut wasi_ctx } = self;
         Ok(InstanceState {
             ctx: wasi_ctx.build(),
             table: Default::default(),
@@ -166,7 +239,7 @@ impl InstanceBuilder {
         F: Fn(SocketAddr) -> Fut + Send + Sync + Clone + 'static,
         Fut: Future<Output = bool> + Send + Sync,
     {
-        self.wasi_ctx.socket_addr_check(move |addr, addr_use| {
+        self.ctx.socket_addr_check(move |addr, addr_use| {
             let check = check.clone();
             Box::pin(async move {
                 match addr_use {

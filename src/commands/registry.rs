@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use indicatif::{ProgressBar, ProgressStyle};
 use spin_common::arg_parser::parse_kv;
-use spin_oci::Client;
+use spin_oci::{client::InferPredefinedAnnotations, Client};
 use std::{io::Read, path::PathBuf, time::Duration};
 
 /// Commands for working with OCI registries to distribute applications.
@@ -86,7 +86,14 @@ impl Push {
 
         let _spinner = create_dotted_spinner(2000, "Pushing app to the Registry".to_owned());
 
-        let digest = client.push(&app_file, &self.reference, annotations).await?;
+        let digest = client
+            .push(
+                &app_file,
+                &self.reference,
+                annotations,
+                InferPredefinedAnnotations::All,
+            )
+            .await?;
         match digest {
             Some(digest) => println!("Pushed with digest {digest}"),
             None => println!("Pushed; the registry did not return the digest"),

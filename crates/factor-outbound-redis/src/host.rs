@@ -1,52 +1,21 @@
 use anyhow::Result;
 use redis::{aio::Connection, AsyncCommands, FromRedisValue, Value};
 use spin_core::{async_trait, wasmtime::component::Resource};
+use spin_factor_outbound_networking::OutboundAllowedHosts;
 use spin_world::v1::{redis as v1, redis_types};
 use spin_world::v2::redis::{
     self as v2, Connection as RedisConnection, Error, RedisParameter, RedisResult,
 };
-
-// pub use host_component::OutboundRedisComponent;
 use tracing::{instrument, Level};
 
-struct RedisResults(Vec<RedisResult>);
-
-impl FromRedisValue for RedisResults {
-    fn from_redis_value(value: &Value) -> redis::RedisResult<Self> {
-        fn append(values: &mut Vec<RedisResult>, value: &Value) {
-            match value {
-                Value::Nil | Value::Okay => (),
-                Value::Int(v) => values.push(RedisResult::Int64(*v)),
-                Value::Data(bytes) => values.push(RedisResult::Binary(bytes.to_owned())),
-                Value::Bulk(bulk) => bulk.iter().for_each(|value| append(values, value)),
-                Value::Status(message) => values.push(RedisResult::Status(message.to_owned())),
-            }
-        }
-
-        let mut values = Vec::new();
-        append(&mut values, value);
-        Ok(RedisResults(values))
-    }
+pub struct InstanceState {
+    pub allowed_hosts: OutboundAllowedHosts,
+    pub connections: table::Table<Connection>,
 }
 
-// pub struct crate::InstanceState{
-//     allowed_hosts: spin_outbound_networking::AllowedHostsConfig,
-//     connections: table::Table<Connection>,
-// }
-
-// impl Default for crate::InstanceState{
-//     fn default() -> Self {
-//         Self {
-//             allowed_hosts: Default::default(),
-//             connections: table::Table::new(1024),
-//         }
-//     }
-// }
-
-impl crate::InstanceState {
-    async fn is_address_allowed(&self, address: &str) -> bool {
-        // TODO: handle better
-        self.allowed_hosts.check_url(address, "redis").await.unwrap()
+impl InstanceState {
+    async fn is_address_allowed(&self, address: &str) -> Result<bool> {
+        self.allowed_hosts.check_url(address, "redis").await
     }
 
     async fn establish_connection(
@@ -63,6 +32,17 @@ impl crate::InstanceState {
             .map(Resource::new_own)
             .map_err(|_| Error::TooManyConnections)
     }
+
+    async fn get_conn(
+        &mut self,
+        connection: Resource<RedisConnection>,
+    ) -> Result<&mut Connection, Error> {
+        self.connections
+            .get_mut(connection.rep())
+            .ok_or(Error::Other(
+                "could not find connection for resource".into(),
+            ))
+    }
 }
 
 impl v2::Host for crate::InstanceState {
@@ -72,10 +52,14 @@ impl v2::Host for crate::InstanceState {
 }
 
 #[async_trait]
-impl v2::HostConnection for crate::InstanceState{
+impl v2::HostConnection for crate::InstanceState {
     #[instrument(name = "spin_outbound_redis.open_connection", skip(self), err(level = Level::INFO), fields(otel.kind = "client", db.system = "redis"))]
     async fn open(&mut self, address: String) -> Result<Resource<RedisConnection>, Error> {
-        if !self.is_address_allowed(&address) {
+        if !self
+            .is_address_allowed(&address)
+            .await
+            .map_err(|e| v2::Error::Other(e.to_string()))?
+        {
             return Err(Error::InvalidAddress);
         }
 
@@ -219,7 +203,7 @@ fn other_error(e: impl std::fmt::Display) -> Error {
 /// Delegate a function call to the v2::HostConnection implementation
 macro_rules! delegate {
     ($self:ident.$name:ident($address:expr, $($arg:expr),*)) => {{
-        if !$self.is_address_allowed(&$address) {
+        if !$self.is_address_allowed(&$address).await.map_err(|_| v1::Error::Error)?  {
             return Err(v1::Error::Error);
         }
         let connection = match $self.establish_connection($address).await {
@@ -233,7 +217,7 @@ macro_rules! delegate {
 }
 
 #[async_trait]
-impl v1::Host for crate::InstanceState{
+impl v1::Host for crate::InstanceState {
     async fn publish(
         &mut self,
         address: String,
@@ -296,21 +280,28 @@ impl v1::Host for crate::InstanceState{
     }
 }
 
-impl redis_types::Host for crate::InstanceState{
+impl redis_types::Host for crate::InstanceState {
     fn convert_error(&mut self, error: redis_types::Error) -> Result<redis_types::Error> {
         Ok(error)
     }
 }
 
-impl crate::InstanceState{
-    async fn get_conn(
-        &mut self,
-        connection: Resource<RedisConnection>,
-    ) -> Result<&mut Connection, Error> {
-        self.connections
-            .get_mut(connection.rep())
-            .ok_or(Error::Other(
-                "could not find connection for resource".into(),
-            ))
+struct RedisResults(Vec<RedisResult>);
+
+impl FromRedisValue for RedisResults {
+    fn from_redis_value(value: &Value) -> redis::RedisResult<Self> {
+        fn append(values: &mut Vec<RedisResult>, value: &Value) {
+            match value {
+                Value::Nil | Value::Okay => (),
+                Value::Int(v) => values.push(RedisResult::Int64(*v)),
+                Value::Data(bytes) => values.push(RedisResult::Binary(bytes.to_owned())),
+                Value::Bulk(bulk) => bulk.iter().for_each(|value| append(values, value)),
+                Value::Status(message) => values.push(RedisResult::Status(message.to_owned())),
+            }
+        }
+
+        let mut values = Vec::new();
+        append(&mut values, value);
+        Ok(RedisResults(values))
     }
 }

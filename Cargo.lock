@@ -7643,10 +7643,13 @@ dependencies = [
  "redis 0.21.7",
  "spin-core",
  "spin-factor-outbound-networking",
+ "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors",
+ "spin-factors-test",
  "spin-world",
  "table",
+ "tokio",
  "tracing",
 ]
 
@@ -7692,7 +7695,6 @@ dependencies = [
  "spin-factor-key-value-spin",
  "spin-factor-outbound-http",
  "spin-factor-outbound-networking",
- "spin-factor-outbound-redis",
  "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors-derive",

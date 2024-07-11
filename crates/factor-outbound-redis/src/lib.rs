@@ -1,14 +1,12 @@
-mod factor_redis;
+mod host;
 
-use spin_factor_outbound_networking::{OutboundAllowedHosts, OutboundNetworkingFactor};
+use host::InstanceState;
+use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factors::{
     anyhow, ConfigureAppContext, Factor, InstanceBuilders, PrepareContext, RuntimeFactors,
     SelfInstanceBuilder,
 };
-
-use redis::aio::Connection;
- 
-// use wasmtime_wasi_http::WasiHttpCtx;
+use std::marker::Send;
 pub struct OutboundRedisFactor;
 
 impl Factor for OutboundRedisFactor {
@@ -16,7 +14,7 @@ impl Factor for OutboundRedisFactor {
     type AppState = ();
     type InstanceBuilder = InstanceState;
 
-    fn init<T: RuntimeFactors>(
+    fn init<T: Send + 'static>(
         &mut self,
         mut ctx: spin_factors::InitContext<T, Self>,
     ) -> anyhow::Result<()> {
@@ -46,21 +44,5 @@ impl Factor for OutboundRedisFactor {
         })
     }
 }
-
-pub struct InstanceState {
-    allowed_hosts: OutboundAllowedHosts,
-    connections: table::Table<Connection>,
-
-}
-
-
-// impl Default for InstanceState {
-//     fn default() -> Self {
-//         Self {
-//             allowed_hosts: Default::default(),
-//             connections: table::Table::new(1024),
-//         }
-//     }
-// }
 
 impl SelfInstanceBuilder for InstanceState {}

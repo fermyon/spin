@@ -32,7 +32,7 @@ impl LlmFactor {
 impl Factor for LlmFactor {
     type RuntimeConfig = ();
     type AppState = AppState;
-    type InstanceBuilder = LlmDispatch;
+    type InstanceBuilder = InstanceState;
 
     fn init<T: RuntimeFactors>(
         &mut self,
@@ -79,7 +79,7 @@ impl Factor for LlmFactor {
             .cloned()
             .unwrap_or_default();
 
-        Ok(LlmDispatch {
+        Ok(InstanceState {
             engine: (self.create_engine)(),
             allowed_models,
         })
@@ -90,12 +90,12 @@ pub struct AppState {
     component_allowed_models: HashMap<String, Arc<HashSet<String>>>,
 }
 
-pub struct LlmDispatch {
+pub struct InstanceState {
     engine: Box<dyn LlmEngine>,
     pub allowed_models: Arc<HashSet<String>>,
 }
 
-impl SelfInstanceBuilder for LlmDispatch {}
+impl SelfInstanceBuilder for InstanceState {}
 
 #[async_trait]
 pub trait LlmEngine: Send + Sync {

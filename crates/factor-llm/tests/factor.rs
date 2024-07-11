@@ -12,7 +12,7 @@ struct TestFactors {
 }
 
 #[tokio::test]
-async fn static_provider_works() -> anyhow::Result<()> {
+async fn llm_works() -> anyhow::Result<()> {
     let factors = TestFactors {
         llm: LlmFactor::new(|| Box::new(FakeLLm) as _),
     };

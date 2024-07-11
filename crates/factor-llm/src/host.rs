@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use spin_world::v1::llm::{self as v1};
 use spin_world::v2::llm::{self as v2};
 
-use crate::LlmDispatch;
+use crate::InstanceState;
 
 #[async_trait]
-impl v2::Host for LlmDispatch {
+impl v2::Host for InstanceState {
     async fn infer(
         &mut self,
         model: v2::InferencingModel,
@@ -48,7 +48,7 @@ impl v2::Host for LlmDispatch {
 }
 
 #[async_trait]
-impl v1::Host for LlmDispatch {
+impl v1::Host for InstanceState {
     async fn infer(
         &mut self,
         model: v1::InferencingModel,

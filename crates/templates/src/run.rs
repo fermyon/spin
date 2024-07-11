@@ -93,12 +93,14 @@ impl Run {
         // TODO: rationalise `path` and `dir`
         let to = self.generation_target_dir();
 
-        match interaction.allow_generate_into(&to) {
-            Cancellable::Cancelled => return Ok(None),
-            Cancellable::Ok(_) => (),
-            Cancellable::Err(e) => return Err(e),
-        };
-
+        // If the user isn't accepting default, asking for permission to generate into a non-empty directory
+        if !self.options.accept_defaults {
+            match interaction.allow_generate_into(&to) {
+                Cancellable::Cancelled => return Ok(None),
+                Cancellable::Ok(_) => (),
+                Cancellable::Err(e) => return Err(e),
+            };
+        }
         self.validate_provided_values()?;
 
         let files = match self.template.content_dir() {

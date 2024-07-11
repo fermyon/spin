@@ -102,7 +102,7 @@ impl InteractionStrategy for Silent {
 }
 
 pub(crate) fn confirm(text: &str) -> std::io::Result<bool> {
-    Confirm::new().with_prompt(text).interact()
+    Confirm::new().with_prompt(text).default(true).interact()
 }
 
 pub(crate) fn prompt_parameter(parameter: &TemplateParameter) -> Option<String> {

@@ -2423,6 +2423,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "factor-llm"
+version = "2.7.0-pre0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "spin-factors",
+ "spin-factors-test",
+ "spin-locked-app",
+ "spin-world",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

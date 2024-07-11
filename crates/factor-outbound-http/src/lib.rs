@@ -1,5 +1,7 @@
 mod spin;
 mod wasi;
+mod wasi_2023_10_18;
+mod wasi_2023_11_10;
 
 use spin_factor_outbound_networking::{OutboundAllowedHosts, OutboundNetworkingFactor};
 use spin_factors::{

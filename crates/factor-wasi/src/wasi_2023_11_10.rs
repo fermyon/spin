@@ -1,12 +1,8 @@
-#![doc(hidden)] // internal implementation detail used in tests and spin-trigger
-
 use super::wasi_2023_10_18::{convert, convert_result};
 use async_trait::async_trait;
 use spin_factors::anyhow::{self, Result};
 use wasmtime::component::{Linker, Resource};
 use wasmtime_wasi::{WasiImpl, WasiView};
-
-use crate::InstanceState;
 
 mod latest {
     pub use wasmtime_wasi::bindings::*;
@@ -119,6 +115,8 @@ use wasi::sockets::tcp::{
 use wasi::sockets::udp::{
     IncomingDatagram, IncomingDatagramStream, OutgoingDatagram, OutgoingDatagramStream, UdpSocket,
 };
+
+use crate::InstanceState;
 
 pub fn add_to_linker<T, F>(linker: &mut Linker<T>, closure: F) -> Result<()>
 where

@@ -1,5 +1,5 @@
-pub mod wasi_2023_10_18;
-pub mod wasi_2023_11_10;
+mod wasi_2023_10_18;
+mod wasi_2023_11_10;
 
 use std::{future::Future, net::SocketAddr, path::Path};
 

@@ -1,12 +1,8 @@
-#![doc(hidden)] // internal implementation detail used in tests and spin-trigger
-
 use async_trait::async_trait;
 use spin_factors::anyhow::{self, Result};
 use std::mem;
 use wasmtime::component::{Linker, Resource};
 use wasmtime_wasi::{Pollable, TrappableError, WasiImpl, WasiView};
-
-use crate::InstanceState;
 
 mod latest {
     pub use wasmtime_wasi::bindings::*;
@@ -127,18 +123,13 @@ use wasi::sockets::tcp::{
 };
 use wasi::sockets::udp::Datagram;
 
+use crate::InstanceState;
+
 pub fn add_to_linker<T, F>(linker: &mut Linker<T>, closure: F) -> Result<()>
 where
     T: Send,
     F: Fn(&mut T) -> WasiImpl<&mut InstanceState> + Send + Sync + Copy + 'static,
 {
-    fn type_annotate<T, U: WasiView, F>(f: F) -> F
-    where
-        F: Fn(&mut T) -> WasiImpl<&mut U>,
-    {
-        f
-    }
-    let closure = type_annotate(closure);
     wasi::clocks::monotonic_clock::add_to_linker_get_host(linker, closure)?;
     wasi::clocks::wall_clock::add_to_linker_get_host(linker, closure)?;
     wasi::filesystem::types::add_to_linker_get_host(linker, closure)?;

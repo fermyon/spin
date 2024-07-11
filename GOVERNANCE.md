@@ -37,24 +37,9 @@ Changes to project maintainers use the following:
 
 - A project maintainer may step down by emailing the mailing list. When a project maintainer steps down, they become an emeritus maintainer.
 - Project maintainers MUST remain active on the project. If they are unresponsive for > 3 months, they will lose project maintainer-ship, unless the remaining project maintainers of the given project and the Spin Governance Committee agree to extend the period to be greater than 3 months.
-- New maintainers must be nominated by existing maintainers. Maintainers are to discuss and agree in a private setting adding a new maintainer. Once a descision has been made, a maintainer may be added to the project via a pull request to the relevant MAINTAINERS.md file.
+- New maintainers MUST be nominated by existing maintainers. Maintainers are to discuss and agree in a private setting adding a new maintainer. Once a descision has been made, a maintainer may be added to the project via a pull request to the relevant MAINTAINERS.md file.
 - A maintainer may be removed for a [code of conduct](CODE_OF_CONDUCT.md) violation by the Spin Governance Committee. Code of conduct violations may be submitted to any member(s) on the Spin Governance Committee by email. See email information on MAINTAINERS.md.
 - When a project has no active maintainers, the maintainers of the [fermyon/spin Github repo](https://github.com/fermyon/spin) become responsible for it, and may archive the project, or find new maintainers
-
-### Decision Making
-
-The default decision making process is objection-free consensus. In other words, a decision is made when all decision makers have had time to consider the decision and do not raise any objections. Silence on any consensus decision is equivalent to non-objection. Explicit agreement may be stated at will.
-
-Decision making scenarios should be promoted appropriately by the maintainer overseeing the issue:
-
-- tag maintainers in relevant issues and SIPs
-- send out mailing list reminders
-- communicate updates in meetings
-
-In the extreme case that objection-free consensus cannot be reached after a reasonable amount of time and effort,
-a maintainer can call for a [supermajority](https://en.wikipedia.org/wiki/Supermajority#Two-thirds_vote) vote from the project maintainers for a repo on a decision. If quorum cannot be met for a decision, all members of the Spin Governance Committee are added to the relevant vote.
-
-If a decision impacts multiple repositories or requires a coordinated effort across multiple repositories and project maintainers are unable to reach a decision on their own for the relevant projects, a maintainer can call for a decision from the Spin Governance Committee.
 
 ## Spin Governance Committee
 
@@ -80,13 +65,19 @@ The Spin Governance Committee have to match the following criteria:
 
 The Spin Governance Committee will select a chair to set agendas, call meetings, and oversee the decision making process.
 
-### Decision Making
+## Decision Making
 
-The default decision making process is objection-free consensus. All governance related decisions require supermajority quorum. All substantial changes to governance require a SIP. A substantial change is one that changes the project governance itself, instead of editorial changes providing clarifications, small bugfixes, etc.
+The default decision making process is objection-free consensus. In other words, a decision is made when all decision makers have had time to consider the decision and do not raise any objections. Silence on any consensus decision is equivalent to non-objection. Explicit agreement may be stated at will.
 
-Decision making scenarios should be promoted appropriately by the member overseeing the issue.
+Decision making scenarios MUST be promoted appropriately by the maintainer or committee member overseeing the issue. All substantial changes in any part of the Spin project including for governance related changes require a SIP.
 
-In the extreme case that objection-free consensus cannot be reached after a reasonable amount of time and effort, a committee member can call for a supermajority vote form the committee. If another member seconds the vote, the vote must take place.
+All substantial changes to governance require a supermajority quorum on the governance committee.
+
+In the extreme case that objection-free consensus cannot be reached after a reasonable amount of time and effort between project maintainers on a project level decision, a project maintainer can call for a [supermajority](https://en.wikipedia.org/wiki/Supermajority#Two-thirds_vote) vote from the project maintainers for a repo on a decision. If quorum cannot be met for a decision, all members of the Spin Governance Committee are added to the relevant vote.
+
+If a decision impacts multiple repositories or requires a coordinated effort across multiple repositories and project maintainers are unable to reach a decision on their own for the relevant projects, a maintainer can call for a decision from the Spin Governance Committee.
+
+In the extreme case that objection-free consensus cannot be reached after a reasonable amount of time and effort on the governance committee, a committee member can call for a supermajority vote form the committee. If another member seconds the vote, the vote MUST take place.
 
 ## Glossary
 

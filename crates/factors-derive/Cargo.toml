@@ -11,7 +11,7 @@ proc-macro = true
 expander = ["dep:expander"]
 
 [dependencies]
-expander = { version = "2.1.0", optional = true }
+expander = { version = "2.2.1", optional = true }
 proc-macro2 = "1.0.79"
 quote = "1.0.35"
 syn = "2.0.52"

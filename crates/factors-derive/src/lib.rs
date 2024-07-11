@@ -8,9 +8,13 @@ pub fn derive_factors(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     let expanded = expand_factors(&input).unwrap_or_else(|err| err.into_compile_error());
 
     #[cfg(feature = "expander")]
-    let expanded = expander::Expander::new("factors")
-        .write_to_out_dir(expanded)
-        .unwrap();
+    let expanded = if let Some(dest_dir) = std::env::var_os("SPIN_FACTORS_DERIVE_EXPAND_DIR") {
+        expander::Expander::new("factors")
+            .write_to(expanded, std::path::Path::new(&dest_dir))
+            .unwrap()
+    } else {
+        expanded
+    };
 
     expanded.into()
 }

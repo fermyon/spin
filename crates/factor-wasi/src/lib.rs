@@ -1,3 +1,6 @@
+pub mod wasi_2023_10_18;
+pub mod wasi_2023_11_10;
+
 use std::{future::Future, net::SocketAddr, path::Path};
 
 use spin_factors::{
@@ -69,6 +72,10 @@ impl Factor for WasiFactor {
         bindings::sockets::instance_network::add_to_linker_get_host(linker, closure)?;
         bindings::sockets::network::add_to_linker_get_host(linker, closure)?;
         bindings::sockets::ip_name_lookup::add_to_linker_get_host(linker, closure)?;
+
+        wasi_2023_10_18::add_to_linker(linker, closure)?;
+        wasi_2023_11_10::add_to_linker(linker, closure)?;
+
         Ok(())
     }
 

@@ -7573,10 +7573,12 @@ dependencies = [
 name = "spin-factor-wasi"
 version = "2.7.0-pre0"
 dependencies = [
+ "async-trait",
  "cap-primitives 3.0.0",
  "spin-factors",
  "spin-factors-test",
  "tokio",
+ "wasmtime",
  "wasmtime-wasi",
 ]
 

@@ -9,17 +9,46 @@ use spin_loader::FilesMountStrategy;
 
 pub use toml::toml;
 
-#[derive(Default)]
 pub struct TestEnvironment {
     pub manifest: toml::Table,
     pub runtime_config: toml::Table,
 }
 
+impl Default for TestEnvironment {
+    fn default() -> Self {
+        let manifest = toml! {
+            spin_manifest_version = 2
+
+            [application]
+            name = "test-app"
+
+            [[trigger.test-trigger]]
+        };
+        Self {
+            manifest,
+            runtime_config: Default::default(),
+        }
+    }
+}
+
 impl TestEnvironment {
+    /// Builds a TestEnvironment by extending a default manifest with the given
+    /// manifest TOML.
+    ///
+    /// The default manifest includes boilerplate like the
+    /// `spin_manifest_version` and `[application]` section, so you typically
+    /// need to pass only a `[component.test-component]` section.
+    pub fn default_manifest_extend(manifest_merge: toml::Table) -> Self {
+        let mut env = Self::default();
+        env.manifest.extend(manifest_merge);
+        env
+    }
+
     /// Starting from a new _uninitialized_ [`RuntimeFactors`], run through the
-    /// [`Factor`]s' lifecycle(s) to build a [`RuntimeFactors::InstanceState`].
+    /// [`Factor`]s' lifecycle(s) to build a [`RuntimeFactors::InstanceState`]
+    /// for the first component defined in the manifest.
     pub async fn build_instance_state<T: RuntimeFactors>(
-        &mut self,
+        &self,
         mut factors: T,
     ) -> anyhow::Result<T::InstanceState> {
         let mut linker = Self::new_linker::<T>();

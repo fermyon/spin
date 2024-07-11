@@ -8,24 +8,21 @@ struct TestFactors {
     wasi: WasiFactor,
 }
 
+fn test_env() -> TestEnvironment {
+    TestEnvironment::default_manifest_extend(toml! {
+        [component.test-component]
+        source = "does-not-exist.wasm"
+        environment = { FOO = "bar" }
+    })
+}
+
 #[tokio::test]
 async fn environment_works() -> anyhow::Result<()> {
     let factors = TestFactors {
         wasi: WasiFactor::new(DummyFilesMounter),
     };
 
-    let mut env = TestEnvironment {
-        manifest: toml! {
-            spin_manifest_version = 2
-            application.name = "test-app"
-            [[trigger.test]]
-
-            [component.test-component]
-            source = "does-not-exist.wasm"
-            environment = { FOO = "bar" }
-        },
-        ..Default::default()
-    };
+    let env = test_env();
     let mut state = env.build_instance_state(factors).await?;
     let mut wasi = WasiImpl(&mut state.wasi);
     let val = wasi

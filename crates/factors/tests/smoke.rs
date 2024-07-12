@@ -50,7 +50,7 @@ async fn smoke_test_works() -> anyhow::Result<()> {
     factors.init(&mut linker).unwrap();
 
     let configured_app = factors.configure_app(app, TestSource)?;
-    let data = factors.build_store_data(&configured_app, "smoke-app")?;
+    let data = factors.build_instance_state(&configured_app, "smoke-app")?;
 
     assert_eq!(
         data.variables

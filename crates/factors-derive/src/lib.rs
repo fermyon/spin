@@ -118,7 +118,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 Ok(#ConfiguredApp::new(app, app_state))
             }
 
-            fn build_store_data(
+            fn build_instance_state(
                 &self, configured_app: &#ConfiguredApp<Self>,
                 component_id: &str,
             ) -> #Result<Self::InstanceState> {

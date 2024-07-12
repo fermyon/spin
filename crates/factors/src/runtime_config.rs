@@ -13,6 +13,7 @@ pub const NO_RUNTIME_CONFIG: &str = "<no runtime config>";
 /// to be shared between Factors, one Factor can be selected as the owner
 /// and the others will have a dependency relationship with that owner.
 pub trait FactorRuntimeConfig: DeserializeOwned {
+    /// The key used to identify this runtime configuration in a [`RuntimeConfigSource`].
     const KEY: &'static str;
 }
 
@@ -20,6 +21,7 @@ impl FactorRuntimeConfig for () {
     const KEY: &'static str = NO_RUNTIME_CONFIG;
 }
 
+/// The source of runtime configuration for a Factor.
 pub trait RuntimeConfigSource {
     /// Returns an iterator of factor config keys available in this source.
     ///
@@ -49,6 +51,10 @@ impl RuntimeConfigSource for () {
     }
 }
 
+/// Tracks runtime configuration keys used by the runtime.
+///
+/// This ensures that the runtime config source does not have any unused keys.
+#[doc(hidden)]
 pub struct RuntimeConfigTracker<S> {
     source: S,
     used_keys: HashSet<&'static str>,
@@ -80,17 +86,18 @@ impl<S: RuntimeConfigSource> RuntimeConfigTracker<S> {
         Ok(())
     }
 
-    pub fn get_config<T: Factor>(&mut self) -> crate::Result<Option<T::RuntimeConfig>> {
-        let key = T::RuntimeConfig::KEY;
+    /// Get the runtime configuration for a factor.
+    pub(crate) fn get_config<F: Factor>(&mut self) -> crate::Result<Option<F::RuntimeConfig>> {
+        let key = F::RuntimeConfig::KEY;
         if key == NO_RUNTIME_CONFIG {
             return Ok(None);
         }
         if !self.used_keys.insert(key) {
-            return Err(Error::runtime_config_reused_key::<T>(key));
+            return Err(Error::runtime_config_reused_key::<F>(key));
         }
         self.unused_keys.remove(key);
         self.source
-            .get_factor_config::<T::RuntimeConfig>(key)
+            .get_factor_config::<F::RuntimeConfig>(key)
             .map_err(Error::RuntimeConfigSource)
     }
 }

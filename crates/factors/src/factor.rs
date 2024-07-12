@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap};
+use std::any::Any;
 
 use anyhow::Context;
 
@@ -17,7 +17,6 @@ pub trait Factor: Any + Sized {
     /// Initializes this Factor for a runtime. This will be called at most once,
     /// before any call to [`FactorInstanceBuilder::new`]
     fn init<T: RuntimeFactors>(&mut self, mut ctx: InitContext<T, Self>) -> anyhow::Result<()> {
-        // TODO: Should `ctx` always be immut? Rename this param/type?
         _ = &mut ctx;
         Ok(())
     }
@@ -42,18 +41,6 @@ pub trait Factor: Any + Sized {
         ctx: PrepareContext<Self>,
         _builders: &mut InstanceBuilders<T>,
     ) -> anyhow::Result<Self::InstanceBuilder>;
-
-    /// Returns [JSON Schema](https://json-schema.org/) for this factor's
-    /// runtime config.
-    ///
-    /// Note that this represents only a fragment of an entire JSON document (a
-    /// "child instance" in JSON Schema terms), so `$schema` isn't needed.
-    ///
-    /// The default implementation returns an empty schema, which accepts any
-    /// configuration.
-    fn runtime_config_json_schema(&self) -> impl serde::Serialize {
-        HashMap::<(), ()>::new()
-    }
 }
 
 /// The instance state of the given [`Factor`] `F`.

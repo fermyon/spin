@@ -1,10 +1,9 @@
 use std::{any::Any, collections::HashMap};
 
-use anyhow::Context;
-
 use crate::{
-    prepare::FactorInstanceBuilder, runtime_config::RuntimeConfigTracker, App, FactorRuntimeConfig,
-    InstanceBuilders, Linker, PrepareContext, RuntimeConfigSource, RuntimeFactors,
+    prepare::FactorInstanceBuilder, runtime_config::RuntimeConfigTracker, App, Error,
+    FactorRuntimeConfig, InstanceBuilders, Linker, PrepareContext, RuntimeConfigSource,
+    RuntimeFactors,
 };
 
 pub trait Factor: Any + Sized {
@@ -107,7 +106,7 @@ impl<'a, T: RuntimeFactors, F: Factor> ConfigureAppContext<'a, T, F> {
         app: &'a App,
         app_state: &'a T::AppState,
         runtime_config_tracker: &mut RuntimeConfigTracker<S>,
-    ) -> anyhow::Result<Self> {
+    ) -> crate::Result<Self> {
         let runtime_config = runtime_config_tracker.get_config::<F>()?;
         Ok(Self {
             app,
@@ -121,7 +120,7 @@ impl<'a, T: RuntimeFactors, F: Factor> ConfigureAppContext<'a, T, F> {
     }
 
     pub fn app_state<U: Factor>(&self) -> crate::Result<&U::AppState> {
-        T::app_state::<U>(self.app_state).context("no such factor")
+        T::app_state::<U>(self.app_state).ok_or(Error::no_such_factor::<U>())
     }
 
     pub fn runtime_config(&self) -> Option<&F::RuntimeConfig> {
@@ -148,7 +147,7 @@ impl<T: RuntimeFactors> ConfiguredApp<T> {
         &self.app
     }
 
-    pub fn app_state<F: Factor>(&self) -> crate::Result<&F::AppState> {
-        T::app_state::<F>(&self.app_state).context("no such factor")
+    pub fn app_state<U: Factor>(&self) -> crate::Result<&U::AppState> {
+        T::app_state::<U>(&self.app_state).ok_or(Error::no_such_factor::<U>())
     }
 }

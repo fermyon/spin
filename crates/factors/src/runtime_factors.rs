@@ -6,19 +6,19 @@ pub trait RuntimeFactors: Sized + 'static {
     type InstanceBuilders;
     type InstanceState: GetFactorState + Send + 'static;
 
-    fn init(&mut self, linker: &mut Linker<Self>) -> anyhow::Result<()>;
+    fn init(&mut self, linker: &mut Linker<Self>) -> crate::Result<()>;
 
     fn configure_app(
         &self,
         app: App,
         runtime_config: impl RuntimeConfigSource,
-    ) -> anyhow::Result<ConfiguredApp<Self>>;
+    ) -> crate::Result<ConfiguredApp<Self>>;
 
     fn build_store_data(
         &self,
         configured_app: &ConfiguredApp<Self>,
         component_id: &str,
-    ) -> anyhow::Result<Self::InstanceState>;
+    ) -> crate::Result<Self::InstanceState>;
 
     fn app_state<F: Factor>(app_state: &Self::AppState) -> Option<&F::AppState>;
 

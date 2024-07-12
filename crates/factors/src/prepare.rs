@@ -1,8 +1,6 @@
 use std::any::Any;
 
-use anyhow::Context;
-
-use crate::{AppComponent, Factor, RuntimeFactors};
+use crate::{AppComponent, Error, Factor, RuntimeFactors};
 
 pub trait FactorInstanceBuilder: Any {
     type InstanceState: Send + 'static;
@@ -69,9 +67,14 @@ impl<'a, T: RuntimeFactors> InstanceBuilders<'a, T> {
     /// Fails if the current [`RuntimeFactors`] does not include the given
     /// [`Factor`] or if the given [`Factor`]'s builder has not been prepared
     /// yet (because it is sequenced after this factor).
-    pub fn get_mut<F: Factor>(&mut self) -> crate::Result<&mut F::InstanceBuilder> {
-        T::instance_builder_mut::<F>(self.inner)
-            .context("no such factor")?
-            .context("builder not prepared")
+    pub fn get_mut<U: Factor>(&mut self) -> crate::Result<&mut U::InstanceBuilder> {
+        T::instance_builder_mut::<U>(self.inner)
+            .ok_or(Error::no_such_factor::<U>())?
+            .ok_or_else(|| {
+                Error::DependencyOrderingError(format!(
+                    "{factor} builder requested before it was prepared",
+                    factor = std::any::type_name::<U>()
+                ))
+            })
     }
 }

@@ -68,6 +68,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let ConfiguredApp = quote!(#factors_path::ConfiguredApp);
     let RuntimeConfigTracker = quote!(#factors_path::__internal::RuntimeConfigTracker);
     let FactorInstanceBuilder = quote!(#factors_path::FactorInstanceBuilder);
+    let runtime_factor_error = quote!(#factors_path::__internal::runtime_factor_error);
 
     Ok(quote! {
         impl #factors_path::RuntimeFactors for #name {
@@ -87,7 +88,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                             linker,
                             |state| &mut state.#factor_names,
                         )
-                    )?;
+                    ).map_err(|err| #runtime_factor_error::<#factor_types>("init", err))?;
                 )*
                 Ok(())
             }
@@ -110,7 +111,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                                 &app_state,
                                 &mut runtime_config_tracker,
                             )?,
-                        )?
+                        ).map_err(|err| #runtime_factor_error::<#factor_types>("configure_app", err))?
                     );
                 )*
                 runtime_config_tracker.validate_all_keys_used()?;
@@ -122,7 +123,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 component_id: &str,
             ) -> #Result<Self::InstanceState> {
                 let app_component = configured_app.app().get_component(component_id).ok_or_else(|| {
-                    #wasmtime::Error::msg("unknown component")
+                    #factors_path::Error::UnknownComponent(component_id.to_string())
                 })?;
                 let mut builders = #builders_name {
                     #( #factor_names: None, )*
@@ -136,12 +137,14 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                                 &app_component,
                             ),
                             &mut #factors_path::InstanceBuilders::new(&mut builders),
-                        )?
+                        ).map_err(|err| #runtime_factor_error::<#factor_types>("prepare", err))?
                     );
                 )*
                 Ok(#state_name {
                     #(
-                        #factor_names: #FactorInstanceBuilder::build(builders.#factor_names.unwrap())?,
+                        #factor_names: #FactorInstanceBuilder::build(
+                            builders.#factor_names.unwrap()
+                        ).map_err(|err| #runtime_factor_error::<#factor_types>("build", err))?,
                     )*
                 })
             }

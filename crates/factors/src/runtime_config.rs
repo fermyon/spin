@@ -1,9 +1,8 @@
 use std::collections::HashSet;
 
-use anyhow::bail;
 use serde::de::DeserializeOwned;
 
-use crate::Factor;
+use crate::{Error, Factor};
 
 pub const NO_RUNTIME_CONFIG: &str = "<no runtime config>";
 
@@ -72,30 +71,26 @@ impl<S: RuntimeConfigSource> RuntimeConfigTracker<S> {
     }
 
     #[doc(hidden)]
-    pub fn validate_all_keys_used(self) -> anyhow::Result<()> {
+    pub fn validate_all_keys_used(self) -> crate::Result<()> {
         if !self.unused_keys.is_empty() {
-            bail!(
-                "unused runtime config key(s): {keys}",
-                keys = self
-                    .unused_keys
-                    .iter()
-                    .map(|key| format!("{key:?}"))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
+            return Err(Error::RuntimeConfigUnusedKeys {
+                keys: self.unused_keys.into_iter().collect(),
+            });
         }
         Ok(())
     }
 
-    pub fn get_config<F: Factor>(&mut self) -> anyhow::Result<Option<F::RuntimeConfig>> {
-        let key = F::RuntimeConfig::KEY;
+    pub fn get_config<T: Factor>(&mut self) -> crate::Result<Option<T::RuntimeConfig>> {
+        let key = T::RuntimeConfig::KEY;
         if key == NO_RUNTIME_CONFIG {
             return Ok(None);
         }
         if !self.used_keys.insert(key) {
-            bail!("already used runtime config key {key:?}");
+            return Err(Error::runtime_config_reused_key::<T>(key));
         }
         self.unused_keys.remove(key);
-        self.source.get_factor_config::<F::RuntimeConfig>(key)
+        self.source
+            .get_factor_config::<T::RuntimeConfig>(key)
+            .map_err(Error::RuntimeConfigSource)
     }
 }

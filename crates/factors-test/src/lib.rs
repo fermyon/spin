@@ -64,7 +64,7 @@ impl TestEnvironment {
             .components()
             .next()
             .context("no components")?;
-        factors.build_store_data(&configured_app, component.id())
+        Ok(factors.build_store_data(&configured_app, component.id())?)
     }
 
     pub fn new_linker<T: RuntimeFactors>() -> Linker<T> {

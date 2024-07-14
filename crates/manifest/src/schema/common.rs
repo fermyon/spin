@@ -39,7 +39,7 @@ pub enum ComponentSource {
         /// `package = "example:component"`
         package: PackageRef,
         /// `version = "1.2.3"`
-        version: semver::Version,
+        version: String,
     },
 }
 

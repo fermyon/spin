@@ -98,9 +98,10 @@ impl FilterFactory for BuildFilterFactory {
         filterers.push(Box::new(manifest_filterer));
 
         for (cid, c) in &manifest.components {
-            let build_globs = create_source_globs(cid.as_ref(), c);
-            let build_filterer = globset_filter(manifest_dir, build_globs).await?;
-            filterers.push(Box::new(build_filterer));
+            if let Some(build_globs) = create_source_globs(cid.as_ref(), c) {
+                let build_filterer = globset_filter(manifest_dir, build_globs).await?;
+                filterers.push(Box::new(build_filterer));
+            }
         }
 
         let filterer = CompositeFilterer { filterers };
@@ -109,17 +110,15 @@ impl FilterFactory for BuildFilterFactory {
     }
 }
 
-fn create_source_globs(cid: &str, c: &v2::Component) -> Vec<String> {
-    let Some(build) = &c.build else {
-        return vec![];
-    };
+fn create_source_globs(cid: &str, c: &v2::Component) -> Option<Vec<String>> {
+    let build = c.build.as_ref()?;
     if build.watch.is_empty() {
         eprintln!(
             "You haven't configured what to watch for the component: '{cid}'. Learn how to configure Spin watch at https://developer.fermyon.com/common/cli-reference#watch"
         );
-        return vec![];
+        return None;
     };
-    build
+    let globs = build
         .workdir
         .as_deref()
         .map(|workdir| {
@@ -129,7 +128,13 @@ fn create_source_globs(cid: &str, c: &v2::Component) -> Vec<String> {
                 .filter_map(|w| Path::new(workdir).join(w).to_str().map(String::from))
                 .collect()
         })
-        .unwrap_or_else(|| build.watch.clone())
+        .unwrap_or_else(|| build.watch.clone());
+    if globs.is_empty() {
+        // watchexec misinterprets empty list as "match all"
+        None
+    } else {
+        Some(globs)
+    }
 }
 
 #[async_trait]

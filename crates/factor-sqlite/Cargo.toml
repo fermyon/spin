@@ -1,0 +1,19 @@
+[package]
+name = "factor-sqlite"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait = "0.1"
+spin-factors = { path = "../factors" }
+spin-locked-app = { path = "../locked-app" }
+spin-world = { path = "../world" }
+table = { path = "../table" }
+
+[lints]
+workspace = true

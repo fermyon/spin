@@ -20,11 +20,19 @@ use store::{store_from_toml_fn, StoreFromToml};
 
 pub use store::MakeKeyValueStore;
 
-#[derive(Default)]
 pub struct KeyValueFactor {
     store_types: HashMap<&'static str, StoreFromToml>,
+    default_store_type: &'static str,
 }
 
+impl Default for KeyValueFactor {
+    fn default() -> KeyValueFactor {
+        KeyValueFactor {
+            store_types: HashMap::default(),
+            default_store_type: "spin",
+        }
+    }
+}
 impl KeyValueFactor {
     pub fn add_store_type<T: MakeKeyValueStore>(&mut self, store_type: T) -> anyhow::Result<()> {
         if self
@@ -61,8 +69,12 @@ impl Factor for KeyValueFactor {
     ) -> anyhow::Result<Self::AppState> {
         // Build StoreManager from runtime config
         let mut stores = HashMap::new();
+        let mut add_default_store = true;
         if let Some(runtime_config) = ctx.take_runtime_config() {
             for (label, StoreConfig { type_, config }) in runtime_config.store_configs {
+                if label == "default" {
+                    add_default_store = false;
+                }
                 let store_maker = self
                     .store_types
                     .get(type_.as_str())
@@ -70,6 +82,19 @@ impl Factor for KeyValueFactor {
                 let store = store_maker(config)?;
                 stores.insert(label, store);
             }
+        }
+        if add_default_store {
+            let store_maker = self
+                .store_types
+                .get(self.default_store_type)
+                .with_context(|| {
+                    format!(
+                        "default key value store {} does not exist",
+                        self.default_store_type
+                    )
+                })?;
+            let store = store_maker(toml::value::Table::new())?;
+            stores.insert("default".to_string(), store);
         }
         let delegating_manager = DelegatingStoreManager::new(stores);
         let caching_manager = CachingStoreManager::new(delegating_manager);

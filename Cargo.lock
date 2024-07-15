@@ -7544,6 +7544,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-factor-key-value-redis"
+version = "2.7.0-pre0"
+dependencies = [
+ "anyhow",
+ "serde 1.0.197",
+ "spin-factor-key-value",
+ "spin-key-value-redis",
+]
+
+[[package]]
 name = "spin-factor-outbound-http"
 version = "2.7.0-pre0"
 dependencies = [
@@ -7606,6 +7616,7 @@ dependencies = [
  "spin-app",
  "spin-componentize",
  "spin-factor-key-value",
+ "spin-factor-key-value-redis",
  "spin-factor-outbound-http",
  "spin-factor-outbound-networking",
  "spin-factor-variables",

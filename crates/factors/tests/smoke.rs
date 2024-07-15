@@ -11,6 +11,7 @@ use spin_factor_variables::{StaticVariables, VariablesFactor};
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
 use spin_factors::{FactorRuntimeConfig, RuntimeConfigSource, RuntimeFactors};
 use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
+use spin_factor_key_value_redis::RedisKeyValueStore;
 use wasmtime_wasi_http::WasiHttpView;
 
 #[derive(RuntimeFactors)]
@@ -35,6 +36,8 @@ async fn smoke_test_works() -> anyhow::Result<()> {
     factors.variables.add_provider_type(StaticVariables)?;
 
     factors.key_value.add_store_type(TestSpinKeyValueStore)?;
+
+    factors.key_value.add_store_type(RedisKeyValueStore)?;
 
     let locked = spin_loader::from_file(
         "tests/smoke-app/spin.toml",
@@ -124,6 +127,9 @@ impl RuntimeConfigSource for TestSource {
 
             [key_value_store.default]
             type = "spin"
+            [key_value_store.other]
+            type = "redis"
+            url = "redis://localhost:6379"
         }
         .remove(key) else {
             return Ok(None);

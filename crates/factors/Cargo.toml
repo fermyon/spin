@@ -20,6 +20,7 @@ serde_json = "1.0"
 spin-componentize = { path = "../componentize" }
 spin-factors-derive = { path = "../factors-derive", features = ["expander"] }
 spin-factor-key-value = { path = "../factor-key-value" }
+spin-factor-key-value-redis = { path = "../factor-key-value-redis" }
 spin-factor-outbound-http = { path = "../factor-outbound-http" }
 spin-factor-outbound-networking = { path = "../factor-outbound-networking" }
 spin-factor-variables = { path = "../factor-variables" }

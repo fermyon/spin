@@ -16,6 +16,12 @@ pub struct InstanceState {
     get_pool: ConnectionPoolGetter,
 }
 
+impl InstanceState {
+    pub fn allowed_databases(&self) -> &HashSet<String> {
+        &self.allowed_databases
+    }
+}
+
 /// A function that takes a database label and returns a connection pool, if one exists.
 pub type ConnectionPoolGetter = Arc<dyn Fn(&str) -> Option<Arc<dyn ConnectionPool>> + Send + Sync>;
 

@@ -1,5 +1,5 @@
 mod host;
-mod runtime_config;
+pub mod runtime_config;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;

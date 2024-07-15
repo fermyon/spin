@@ -2443,9 +2443,11 @@ dependencies = [
  "async-trait",
  "serde 1.0.197",
  "spin-factors",
+ "spin-factors-test",
  "spin-locked-app",
  "spin-world",
  "table",
+ "tokio",
  "toml 0.8.14",
 ]
 

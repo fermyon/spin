@@ -1,4 +1,5 @@
 mod host;
+mod runtime_config;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -6,20 +7,19 @@ use std::sync::Arc;
 use host::InstanceState;
 
 use async_trait::async_trait;
-use serde::Deserialize;
-use spin_factors::{anyhow, Factor, FactorRuntimeConfig, RuntimeFactors};
+use spin_factors::{anyhow, Factor, RuntimeFactors};
 use spin_locked_app::MetadataKey;
 use spin_world::v1::sqlite as v1;
 use spin_world::v2::sqlite as v2;
 
 pub struct SqliteFactor {
-    runtime_config_resolver: Arc<dyn RuntimeConfigResolver + Sync + Send + 'static>,
+    runtime_config_resolver: Arc<dyn runtime_config::RuntimeConfigResolver + Sync + Send + 'static>,
 }
 
 impl SqliteFactor {
     /// Create a new `SqliteFactor`
     pub fn new(
-        runtime_config_resolver: impl RuntimeConfigResolver + Send + Sync + 'static,
+        runtime_config_resolver: impl runtime_config::RuntimeConfigResolver + Send + Sync + 'static,
     ) -> Self {
         Self {
             runtime_config_resolver: Arc::new(runtime_config_resolver),
@@ -30,7 +30,7 @@ impl SqliteFactor {
 pub const ALLOWED_DATABASES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("databases");
 
 impl Factor for SqliteFactor {
-    type RuntimeConfig = RuntimeConfig;
+    type RuntimeConfig = runtime_config::RuntimeConfig;
     type AppState = AppState;
     type InstanceBuilder = InstanceState;
 
@@ -49,7 +49,9 @@ impl Factor for SqliteFactor {
     ) -> anyhow::Result<Self::AppState> {
         let mut connection_pools = HashMap::new();
         if let Some(runtime_config) = ctx.take_runtime_config() {
-            for (database_label, StoreConfig { type_, config }) in runtime_config.store_configs {
+            for (database_label, runtime_config::StoreConfig { type_, config }) in
+                runtime_config.store_configs
+            {
                 let pool = self.runtime_config_resolver.get_pool(&type_, config)?;
                 connection_pools.insert(database_label, pool);
             }
@@ -103,39 +105,6 @@ pub struct AppState {
     allowed_databases: HashMap<String, Arc<HashSet<String>>>,
     /// A map from database name to a connection pool
     connection_pools: host::ConnectionPoolGetter,
-}
-
-#[derive(Deserialize)]
-#[serde(transparent)]
-pub struct RuntimeConfig {
-    store_configs: HashMap<String, StoreConfig>,
-}
-
-impl FactorRuntimeConfig for RuntimeConfig {
-    const KEY: &'static str = "sqlite_database";
-}
-
-#[derive(Deserialize)]
-struct StoreConfig {
-    #[serde(rename = "type")]
-    type_: String,
-    #[serde(flatten)]
-    config: toml::Table,
-}
-
-/// Resolves some piece of runtime configuration to a connection pool
-pub trait RuntimeConfigResolver {
-    /// Get a connection pool for a given runtime configuration type and the raw configuration.
-    fn get_pool(
-        &self,
-        r#type: &str,
-        config: toml::Table,
-    ) -> anyhow::Result<Arc<dyn ConnectionPool>>;
-
-    /// If there is no runtime configuration for a given database label, return a default connection pool.
-    ///
-    /// If `Option::None` is returned, the database is not allowed.
-    fn default(&self, label: &str) -> Option<Arc<dyn ConnectionPool>>;
 }
 
 /// A store of connections for all accessible databases for an application

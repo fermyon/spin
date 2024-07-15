@@ -10,8 +10,8 @@ use crate::{
 pub trait Factor: Any + Sized {
     /// The particular runtime configuration relevant to this factor.
     ///
-    /// Runtime configuration allows for user provided customization of the
-    /// factor's behavior on a per app basis.
+    /// Runtime configuration allows for user-provided customization of the
+    /// factor's behavior on a per-app basis.
     type RuntimeConfig: FactorRuntimeConfig;
 
     /// The application state of this factor.
@@ -41,21 +41,24 @@ pub trait Factor: Any + Sized {
     /// - The `AppState` for any factors configured before this one
     ///
     /// A runtime may - but is not required to - reuse the returned config
-    /// across multiple instances.
+    /// across multiple instances. Because this method may be called
+    /// per-instantiation, it should avoid any blocking operations that could
+    /// unnecessarily delay execution.
     ///
-    /// This method may be called without any call to `init` or prepare in
+    /// This method may be called without any call to `init` or `prepare` in
     /// cases where only validation is needed (e.g., `spin doctor`).
     fn configure_app<T: RuntimeFactors>(
         &self,
         ctx: ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState>;
 
-    /// Creates a new `FactorInstanceBuilder`, which will later build per-instance
-    /// state for this factor.
+    /// Creates a new `FactorInstanceBuilder`, which will later build
+    /// per-instance state for this factor.
     ///
     /// This method is given access to the app component being instantiated and
     /// to any other factors' instance builders that have already been prepared.
-    /// As such this is primary place for inter-factor dependencies.
+    /// As such, this is the primary place for inter-factor dependencies to be
+    /// used.
     fn prepare<T: RuntimeFactors>(
         &self,
         ctx: PrepareContext<Self>,

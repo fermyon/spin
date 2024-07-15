@@ -5,13 +5,13 @@ use http_body_util::BodyExt;
 use serde::Deserialize;
 use spin_app::App;
 use spin_factor_key_value::{KeyValueFactor, MakeKeyValueStore};
+use spin_factor_key_value_redis::RedisKeyValueStore;
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::{StaticVariables, VariablesFactor};
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
 use spin_factors::{FactorRuntimeConfig, RuntimeConfigSource, RuntimeFactors};
 use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
-use spin_factor_key_value_redis::RedisKeyValueStore;
 use wasmtime_wasi_http::WasiHttpView;
 
 #[derive(RuntimeFactors)]
@@ -53,7 +53,8 @@ async fn smoke_test_works() -> anyhow::Result<()> {
     factors.init(&mut linker).unwrap();
 
     let configured_app = factors.configure_app(app, TestSource)?;
-    let data = factors.build_instance_state(&configured_app, "smoke-app")?;
+    let builders = factors.prepare(&configured_app, "smoke-app")?;
+    let data = factors.build_instance_state(builders)?;
 
     assert_eq!(
         data.variables

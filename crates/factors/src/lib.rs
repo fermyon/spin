@@ -16,6 +16,7 @@ pub use crate::{
     runtime_factors::{GetFactorState, RuntimeFactors},
 };
 
+/// A [`wasmtime::component::Linker`] used for a [`RuntimeFactors`] collection.
 pub type Linker<T> = wasmtime::component::Linker<<T as RuntimeFactors>::InstanceState>;
 
 // Temporary wrappers while refactoring

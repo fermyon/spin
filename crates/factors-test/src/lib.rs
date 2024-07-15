@@ -9,8 +9,11 @@ use spin_loader::FilesMountStrategy;
 
 pub use toml::toml;
 
+/// A test environment for building [`RuntimeFactors`] instances.
 pub struct TestEnvironment {
+    /// The `spin.toml` manifest.
     pub manifest: toml::Table,
+    /// The runtime config.
     pub runtime_config: toml::Table,
 }
 
@@ -54,21 +57,24 @@ impl TestEnvironment {
         let mut linker = Self::new_linker::<T>();
         factors.init(&mut linker)?;
 
-        let locked_app = self.build_locked_app().await?;
+        let locked_app = self
+            .build_locked_app()
+            .await
+            .context("failed to build locked app")?;
         let app = App::inert(locked_app);
         let runtime_config = TomlRuntimeConfig(&self.runtime_config);
         let configured_app = factors.configure_app(app, runtime_config)?;
 
-        let component = configured_app
-            .app()
-            .components()
-            .next()
-            .context("no components")?;
-        Ok(factors.build_store_data(&configured_app, component.id())?)
+        let component =
+            configured_app.app().components().next().context(
+                "expected configured app to have at least one component, but it did not",
+            )?;
+        Ok(factors.build_instance_state(&configured_app, component.id())?)
     }
 
     pub fn new_linker<T: RuntimeFactors>() -> Linker<T> {
-        let engine = Engine::new(Config::new().async_support(true)).expect("engine");
+        let engine = Engine::new(Config::new().async_support(true))
+            .expect("wasmtime engine failed to initialize");
         Linker::<T>::new(&engine)
     }
 
@@ -81,6 +87,7 @@ impl TestEnvironment {
     }
 }
 
+/// A [`RuntimeConfigSource`] that reads from a TOML table.
 pub struct TomlRuntimeConfig<'a>(&'a toml::Table);
 
 impl RuntimeConfigSource for TomlRuntimeConfig<'_> {

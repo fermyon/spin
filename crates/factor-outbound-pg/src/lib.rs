@@ -1,18 +1,22 @@
+pub mod client;
 mod host;
 
+use client::Client;
 use spin_factor_outbound_networking::{OutboundAllowedHosts, OutboundNetworkingFactor};
 use spin_factors::{
     anyhow, ConfigureAppContext, Factor, InstanceBuilders, PrepareContext, RuntimeFactors,
     SelfInstanceBuilder,
 };
-use tokio_postgres::Client;
+use tokio_postgres::Client as PgClient;
 
-pub struct OutboundPgFactor;
+pub struct OutboundPgFactor<C = PgClient> {
+    _phantom: std::marker::PhantomData<C>,
+}
 
-impl Factor for OutboundPgFactor {
+impl<C: Send + Sync + Client + 'static> Factor for OutboundPgFactor<C> {
     type RuntimeConfig = ();
     type AppState = ();
-    type InstanceBuilder = InstanceState;
+    type InstanceBuilder = InstanceState<C>;
 
     fn init<T: RuntimeFactors>(
         &mut self,
@@ -45,9 +49,23 @@ impl Factor for OutboundPgFactor {
     }
 }
 
-pub struct InstanceState {
-    allowed_hosts: OutboundAllowedHosts,
-    connections: table::Table<Client>,
+impl<C> Default for OutboundPgFactor<C> {
+    fn default() -> Self {
+        Self {
+            _phantom: Default::default(),
+        }
+    }
 }
 
-impl SelfInstanceBuilder for InstanceState {}
+impl<C> OutboundPgFactor<C> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+pub struct InstanceState<C> {
+    allowed_hosts: OutboundAllowedHosts,
+    connections: table::Table<C>,
+}
+
+impl<C: Send + 'static> SelfInstanceBuilder for InstanceState<C> {}

@@ -39,6 +39,7 @@ async fn new_fileserver_creates_assets_dir() -> anyhow::Result<()> {
         values: HashMap::new(),
         accept_defaults: true,
         no_vcs: false,
+        allow_overwrite: false,
     };
     manager
         .get("static-fileserver")?
@@ -85,6 +86,7 @@ async fn add_fileserver_creates_assets_dir_next_to_manifest() -> anyhow::Result<
         values: HashMap::new(),
         accept_defaults: true,
         no_vcs: false,
+        allow_overwrite: false,
     };
     manager
         .get("http-empty")?
@@ -104,6 +106,7 @@ async fn add_fileserver_creates_assets_dir_next_to_manifest() -> anyhow::Result<
         values: fs_settings,
         accept_defaults: true,
         no_vcs: false,
+        allow_overwrite: false,
     };
     manager
         .get("static-fileserver")?

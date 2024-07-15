@@ -7143,6 +7143,7 @@ dependencies = [
  "spin-llm-local",
  "spin-llm-remote-http",
  "spin-locked-app",
+ "spin-telemetry",
  "spin-world",
  "tokio",
  "toml 0.8.19",

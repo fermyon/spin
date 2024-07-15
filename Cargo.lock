@@ -2441,10 +2441,12 @@ name = "factor-sqlite"
 version = "2.7.0-pre0"
 dependencies = [
  "async-trait",
+ "serde 1.0.197",
  "spin-factors",
  "spin-locked-app",
  "spin-world",
  "table",
+ "toml 0.8.14",
 ]
 
 [[package]]

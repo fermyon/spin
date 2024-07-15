@@ -8,28 +8,29 @@ use spin_factors::{anyhow, SelfInstanceBuilder};
 use spin_world::v1::sqlite as v1;
 use spin_world::v2::sqlite as v2;
 
-use crate::{Connection, ConnectionsStore};
+use crate::{Connection, ConnectionPool};
 
 pub struct InstanceState {
     allowed_databases: Arc<HashSet<String>>,
     connections: table::Table<Arc<dyn Connection>>,
-    connections_store: Arc<dyn ConnectionsStore>,
+    get_pool: ConnectionPoolGetter,
 }
 
+/// A function that takes a database label and returns a connection pool, if one exists.
+pub type ConnectionPoolGetter = Arc<dyn Fn(&str) -> Option<Arc<dyn ConnectionPool>> + Send + Sync>;
+
 impl InstanceState {
-    pub fn new(
-        allowed_databases: Arc<HashSet<String>>,
-        connections_store: Arc<dyn ConnectionsStore>,
-    ) -> Self {
+    /// Create a new `InstanceState`
+    ///
+    /// Takes the list of allowed databases, and a function for getting a connection pool given a database label.
+    pub fn new(allowed_databases: Arc<HashSet<String>>, get_pool: ConnectionPoolGetter) -> Self {
         Self {
             allowed_databases,
             connections: table::Table::new(256),
-            connections_store,
+            get_pool,
         }
     }
-}
 
-impl InstanceState {
     fn get_connection(
         &self,
         connection: Resource<v2::Connection>,
@@ -54,10 +55,10 @@ impl v2::HostConnection for InstanceState {
         if !self.allowed_databases.contains(&database) {
             return Err(v2::Error::AccessDenied);
         }
-        self.connections_store
-            .get_connection(&database)
+        (self.get_pool)(&database)
+            .ok_or(v2::Error::NoSuchDatabase)?
+            .get_connection()
             .await
-            .and_then(|conn| conn.ok_or(v2::Error::NoSuchDatabase))
             .and_then(|conn| {
                 self.connections
                     .push(conn)

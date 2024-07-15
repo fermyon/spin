@@ -29,6 +29,26 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub enum Error {
     #[error("factor dependency ordering error: {0}")]
     DependencyOrderingError(String),
+    #[error("{factor}::InstanceBuilder::build failed: {source}")]
+    FactorBuildError {
+        factor: &'static str,
+        source: anyhow::Error,
+    },
+    #[error("{factor}::configure_app failed: {source}")]
+    FactorConfigureAppError {
+        factor: &'static str,
+        source: anyhow::Error,
+    },
+    #[error("{factor}::init failed: {source}")]
+    FactorInitError {
+        factor: &'static str,
+        source: anyhow::Error,
+    },
+    #[error("{factor}::prepare failed: {source}")]
+    FactorPrepareError {
+        factor: &'static str,
+        source: anyhow::Error,
+    },
     #[error("no such factor: {0}")]
     NoSuchFactor(&'static str),
     #[error("{factor} requested already-consumed key {key:?}")]
@@ -37,12 +57,6 @@ pub enum Error {
     RuntimeConfigSource(#[source] anyhow::Error),
     #[error("unused runtime config key(s): {}", keys.join(", "))]
     RuntimeConfigUnusedKeys { keys: Vec<String> },
-    #[error("{factor} {method} failed: {source}")]
-    RuntimeFactorError {
-        factor: &'static str,
-        method: &'static str,
-        source: anyhow::Error,
-    },
     #[error("unknown component: {0}")]
     UnknownComponent(String),
 }
@@ -58,20 +72,35 @@ impl Error {
             key: key.into(),
         }
     }
+
+    // These helpers are used by factors-derive
+
+    #[doc(hidden)]
+    pub fn factor_init_error<T: Factor>(source: anyhow::Error) -> Self {
+        let factor = std::any::type_name::<T>();
+        Self::FactorInitError { factor, source }
+    }
+
+    #[doc(hidden)]
+    pub fn factor_configure_app_error<T: Factor>(source: anyhow::Error) -> Self {
+        let factor = std::any::type_name::<T>();
+        Self::FactorConfigureAppError { factor, source }
+    }
+
+    #[doc(hidden)]
+    pub fn factor_prepare_error<T: Factor>(source: anyhow::Error) -> Self {
+        let factor = std::any::type_name::<T>();
+        Self::FactorPrepareError { factor, source }
+    }
+
+    #[doc(hidden)]
+    pub fn factor_build_error<T: Factor>(source: anyhow::Error) -> Self {
+        let factor = std::any::type_name::<T>();
+        Self::FactorBuildError { factor, source }
+    }
 }
 
 #[doc(hidden)]
 pub mod __internal {
     pub use crate::runtime_config::RuntimeConfigTracker;
-
-    pub fn runtime_factor_error<T: crate::Factor>(
-        method: &'static str,
-        source: anyhow::Error,
-    ) -> crate::Error {
-        crate::Error::RuntimeFactorError {
-            factor: std::any::type_name::<T>(),
-            method,
-            source,
-        }
-    }
 }

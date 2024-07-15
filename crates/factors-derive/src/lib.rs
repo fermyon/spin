@@ -64,11 +64,11 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let factors_path = quote!(::#factors_crate);
     let wasmtime = quote!(#factors_path::wasmtime);
     let Result = quote!(#factors_path::Result);
+    let Error = quote!(#factors_path::Error);
     let Factor = quote!(#factors_path::Factor);
     let ConfiguredApp = quote!(#factors_path::ConfiguredApp);
     let RuntimeConfigTracker = quote!(#factors_path::__internal::RuntimeConfigTracker);
     let FactorInstanceBuilder = quote!(#factors_path::FactorInstanceBuilder);
-    let runtime_factor_error = quote!(#factors_path::__internal::runtime_factor_error);
 
     Ok(quote! {
         impl #factors_path::RuntimeFactors for #name {
@@ -88,7 +88,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                             linker,
                             |state| &mut state.#factor_names,
                         )
-                    ).map_err(|err| #runtime_factor_error::<#factor_types>("init", err))?;
+                    ).map_err(#Error::factor_init_error::<#factor_types>)?;
                 )*
                 Ok(())
             }
@@ -111,7 +111,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                                 &app_state,
                                 &mut runtime_config_tracker,
                             )?,
-                        ).map_err(|err| #runtime_factor_error::<#factor_types>("configure_app", err))?
+                        ).map_err(#Error::factor_configure_app_error::<#factor_types>)?
                     );
                 )*
                 runtime_config_tracker.validate_all_keys_used()?;
@@ -137,14 +137,14 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                                 &app_component,
                             ),
                             &mut #factors_path::InstanceBuilders::new(&mut builders),
-                        ).map_err(|err| #runtime_factor_error::<#factor_types>("prepare", err))?
+                        ).map_err(#Error::factor_prepare_error::<#factor_types>)?
                     );
                 )*
                 Ok(#state_name {
                     #(
                         #factor_names: #FactorInstanceBuilder::build(
                             builders.#factor_names.unwrap()
-                        ).map_err(|err| #runtime_factor_error::<#factor_types>("build", err))?,
+                        ).map_err(#Error::factor_build_error::<#factor_types>)?,
                     )*
                 })
             }

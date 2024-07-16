@@ -3,7 +3,7 @@ use std::sync::Arc;
 use serde::de::DeserializeOwned;
 use spin_key_value::StoreManager;
 
-pub trait MakeKeyValueStore: 'static {
+pub trait MakeKeyValueStore: 'static + Send + Sync {
     const RUNTIME_CONFIG_TYPE: &'static str;
 
     type RuntimeConfig: DeserializeOwned;
@@ -13,7 +13,8 @@ pub trait MakeKeyValueStore: 'static {
         -> anyhow::Result<Self::StoreManager>;
 }
 
-pub(crate) type StoreFromToml = Box<dyn Fn(toml::Table) -> anyhow::Result<Arc<dyn StoreManager>>>;
+pub(crate) type StoreFromToml =
+    Box<dyn Fn(toml::Table) -> anyhow::Result<Arc<dyn StoreManager>> + Send + Sync>;
 
 pub(crate) fn store_from_toml_fn<T: MakeKeyValueStore>(provider_type: T) -> StoreFromToml {
     Box::new(move |table| {

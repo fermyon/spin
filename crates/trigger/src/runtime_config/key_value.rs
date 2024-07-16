@@ -47,8 +47,11 @@ pub async fn build_key_value_component(
             bail!("Failed to access key-value store to set requested entries");
         }
     }
-
-    let delegating_manager = DelegatingStoreManager::new(stores);
+    // This is a temporary addition while factors work is in progress
+    // The default manager should already be added for all default labels
+    // and this should never be called.
+    let default_manager_fn = |_: &str| -> Option<Arc<dyn StoreManager>> { None };
+    let delegating_manager = DelegatingStoreManager::new(stores, Arc::new(default_manager_fn));
     let caching_manager = Arc::new(CachingStoreManager::new(delegating_manager));
     Ok(KeyValueComponent::new(spin_key_value::manager(move |_| {
         caching_manager.clone()

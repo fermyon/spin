@@ -4,7 +4,7 @@ use anyhow::{bail, Context};
 use http_body_util::BodyExt;
 use serde::Deserialize;
 use spin_app::App;
-use spin_factor_key_value::{KeyValueFactor, MakeKeyValueStore};
+use spin_factor_key_value::{KeyValueFactor, MakeKeyValueStore, spin_cli_resolver::SpinCliRuntimeConfigResolver};
 use spin_factor_key_value_redis::RedisKeyValueStore;
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
@@ -25,19 +25,19 @@ struct Factors {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn smoke_test_works() -> anyhow::Result<()> {
+    let mut key_value_resolver = SpinCliRuntimeConfigResolver::default();
+    key_value_resolver.add_store_type(TestSpinKeyValueStore)?;
+    key_value_resolver.add_store_type(RedisKeyValueStore)?;
+
     let mut factors = Factors {
         wasi: WasiFactor::new(DummyFilesMounter),
         variables: VariablesFactor::default(),
         outbound_networking: OutboundNetworkingFactor,
         outbound_http: OutboundHttpFactor,
-        key_value: KeyValueFactor::default(),
+        key_value: KeyValueFactor::new(key_value_resolver),
     };
 
     factors.variables.add_provider_type(StaticVariables)?;
-
-    factors.key_value.add_store_type(TestSpinKeyValueStore)?;
-
-    factors.key_value.add_store_type(RedisKeyValueStore)?;
 
     let locked = spin_loader::from_file(
         "tests/smoke-app/spin.toml",
@@ -126,8 +126,6 @@ impl RuntimeConfigSource for TestSource {
             [variable_provider.values]
             foo = "bar"
 
-            [key_value_store.default]
-            type = "spin"
             [key_value_store.other]
             type = "redis"
             url = "redis://localhost:6379"

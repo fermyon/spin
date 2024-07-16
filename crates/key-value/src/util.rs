@@ -28,25 +28,37 @@ impl StoreManager for EmptyStoreManager {
     }
 }
 
+/// A function that takes a store label and returns the default store manager, if one exists.
+pub type DefaultManagerGetter = Arc<dyn Fn(&str) -> Option<Arc<dyn StoreManager>> + Send + Sync>;
+
 pub struct DelegatingStoreManager {
     delegates: HashMap<String, Arc<dyn StoreManager>>,
+    default_manager: DefaultManagerGetter,
 }
 
 impl DelegatingStoreManager {
-    pub fn new(delegates: impl IntoIterator<Item = (String, Arc<dyn StoreManager>)>) -> Self {
+    pub fn new(
+        delegates: impl IntoIterator<Item = (String, Arc<dyn StoreManager>)>,
+        default_manager: DefaultManagerGetter,
+    ) -> Self {
         let delegates = delegates.into_iter().collect();
-        Self { delegates }
+        Self {
+            delegates,
+            default_manager,
+        }
     }
 }
 
 #[async_trait]
 impl StoreManager for DelegatingStoreManager {
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {
-        self.delegates
-            .get(name)
-            .ok_or(Error::NoSuchStore)?
-            .get(name)
-            .await
+        match self.delegates.get(name) {
+            Some(store) => store.get(name).await,
+            None => {
+                let store = (self.default_manager)(name).ok_or(Error::NoSuchStore)?;
+                store.get(name).await
+            }
+        }
     }
 
     fn is_defined(&self, store_name: &str) -> bool {

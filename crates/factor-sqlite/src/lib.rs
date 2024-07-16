@@ -13,21 +13,19 @@ use spin_world::v1::sqlite as v1;
 use spin_world::v2::sqlite as v2;
 
 pub struct SqliteFactor {
-    runtime_config_resolver: Arc<dyn runtime_config::RuntimeConfigResolver + Sync + Send + 'static>,
+    runtime_config_resolver: Arc<dyn runtime_config::RuntimeConfigResolver>,
 }
 
 impl SqliteFactor {
     /// Create a new `SqliteFactor`
     pub fn new(
-        runtime_config_resolver: impl runtime_config::RuntimeConfigResolver + Send + Sync + 'static,
+        runtime_config_resolver: impl runtime_config::RuntimeConfigResolver + 'static,
     ) -> Self {
         Self {
             runtime_config_resolver: Arc::new(runtime_config_resolver),
         }
     }
 }
-
-pub const ALLOWED_DATABASES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("databases");
 
 impl Factor for SqliteFactor {
     type RuntimeConfig = runtime_config::RuntimeConfig;
@@ -49,10 +47,17 @@ impl Factor for SqliteFactor {
     ) -> anyhow::Result<Self::AppState> {
         let mut connection_pools = HashMap::new();
         if let Some(runtime_config) = ctx.take_runtime_config() {
-            for (database_label, runtime_config::StoreConfig { type_, config }) in
-                runtime_config.store_configs
+            for (
+                database_label,
+                runtime_config::StoreConfig {
+                    type_: database_kind,
+                    config,
+                },
+            ) in runtime_config.store_configs
             {
-                let pool = self.runtime_config_resolver.get_pool(&type_, config)?;
+                let pool = self
+                    .runtime_config_resolver
+                    .get_pool(&database_kind, config)?;
                 connection_pools.insert(database_label, pool);
             }
         }
@@ -75,7 +80,7 @@ impl Factor for SqliteFactor {
         let resolver = self.runtime_config_resolver.clone();
         Ok(AppState {
             allowed_databases,
-            connection_pools: Arc::new(move |label| {
+            get_connection_pool: Arc::new(move |label| {
                 connection_pools
                     .get(label)
                     .cloned()
@@ -95,16 +100,18 @@ impl Factor for SqliteFactor {
             .get(ctx.app_component().id())
             .cloned()
             .unwrap_or_default();
-        let connection_pools = ctx.app_state().connection_pools.clone();
-        Ok(InstanceState::new(allowed_databases, connection_pools))
+        let get_connection_pool = ctx.app_state().get_connection_pool.clone();
+        Ok(InstanceState::new(allowed_databases, get_connection_pool))
     }
 }
 
+pub const ALLOWED_DATABASES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("databases");
+
 pub struct AppState {
-    /// A map from component id to a set of allowed databases
+    /// A map from component id to a set of allowed database labels.
     allowed_databases: HashMap<String, Arc<HashSet<String>>>,
-    /// A map from database name to a connection pool
-    connection_pools: host::ConnectionPoolGetter,
+    /// A function for mapping from database name to a connection pool
+    get_connection_pool: host::ConnectionPoolGetter,
 }
 
 /// A store of connections for all accessible databases for an application

@@ -24,11 +24,14 @@ pub struct StoreConfig {
 }
 
 /// Resolves some piece of runtime configuration to a connection pool
-pub trait RuntimeConfigResolver {
-    /// Get a connection pool for a given runtime configuration type and the raw configuration.
+pub trait RuntimeConfigResolver: Send + Sync {
+    /// Get a connection pool for a given database kind and the raw configuration.
+    ///
+    /// `database_kind` is equivalent to the `type` field in the
+    /// `[sqlite_database.$databasename]` runtime configuration table.
     fn get_pool(
         &self,
-        r#type: &str,
+        database_kind: &str,
         config: toml::Table,
     ) -> anyhow::Result<Arc<dyn ConnectionPool>>;
 

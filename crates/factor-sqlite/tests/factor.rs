@@ -32,17 +32,18 @@ async fn sqlite_works() -> anyhow::Result<()> {
 
 struct RuntimeConfigResolver;
 
-#[allow(unused_variables)]
 impl factor_sqlite::runtime_config::RuntimeConfigResolver for RuntimeConfigResolver {
     fn get_pool(
         &self,
-        r#type: &str,
+        database_kind: &str,
         config: toml::Table,
     ) -> anyhow::Result<Arc<dyn factor_sqlite::ConnectionPool>> {
+        let _ = (database_kind, config);
         todo!()
     }
 
     fn default(&self, label: &str) -> Option<Arc<dyn factor_sqlite::ConnectionPool>> {
+        let _ = label;
         todo!()
     }
 }

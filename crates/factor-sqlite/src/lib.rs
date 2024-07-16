@@ -114,11 +114,32 @@ pub struct AppState {
     get_connection_pool: host::ConnectionPoolGetter,
 }
 
-/// A store of connections for all accessible databases for an application
+/// A pool of connections for a particular SQLite database
 #[async_trait]
 pub trait ConnectionPool: Send + Sync {
     /// Get a `Connection` from the pool
     async fn get_connection(&self) -> Result<Arc<dyn Connection + 'static>, v2::Error>;
+}
+
+/// A simple [`ConnectionPool`] that always creates a new connection.
+pub struct SimpleConnectionPool(
+    Box<dyn Fn() -> anyhow::Result<Arc<dyn Connection + 'static>> + Send + Sync>,
+);
+
+impl SimpleConnectionPool {
+    /// Create a new `SimpleConnectionPool` with the given connection factory.
+    pub fn new(
+        factory: impl Fn() -> anyhow::Result<Arc<dyn Connection + 'static>> + Send + Sync + 'static,
+    ) -> Self {
+        Self(Box::new(factory))
+    }
+}
+
+#[async_trait::async_trait]
+impl ConnectionPool for SimpleConnectionPool {
+    async fn get_connection(&self) -> Result<Arc<dyn Connection + 'static>, v2::Error> {
+        (self.0)().map_err(|_| v2::Error::InvalidConnection)
+    }
 }
 
 /// A trait abstracting over operations to a SQLite database

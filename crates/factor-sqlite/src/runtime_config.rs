@@ -1,3 +1,6 @@
+#[cfg(feature = "spin-cli")]
+pub mod spin;
+
 use std::{collections::HashMap, sync::Arc};
 
 use serde::Deserialize;

@@ -2437,6 +2437,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "factor-sqlite"
+version = "2.7.0-pre0"
+dependencies = [
+ "async-trait",
+ "serde 1.0.197",
+ "spin-factors",
+ "spin-factors-test",
+ "spin-locked-app",
+ "spin-world",
+ "table",
+ "tokio",
+ "toml 0.8.14",
+]
+
+[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

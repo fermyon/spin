@@ -69,7 +69,9 @@ impl TestEnvironment {
             configured_app.app().components().next().context(
                 "expected configured app to have at least one component, but it did not",
             )?;
-        Ok(factors.build_instance_state(&configured_app, component.id())?)
+        let builders = factors.prepare(&configured_app, component.id())?;
+
+        Ok(factors.build_instance_state(builders)?)
     }
 
     pub fn new_linker<T: RuntimeFactors>() -> Linker<T> {

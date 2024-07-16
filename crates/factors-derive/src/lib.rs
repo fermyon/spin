@@ -118,10 +118,10 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 Ok(#ConfiguredApp::new(app, app_state))
             }
 
-            fn build_instance_state(
+            fn prepare(
                 &self, configured_app: &#ConfiguredApp<Self>,
                 component_id: &str,
-            ) -> #Result<Self::InstanceState> {
+            ) -> #Result<Self::InstanceBuilders> {
                 let app_component = configured_app.app().get_component(component_id).ok_or_else(|| {
                     #factors_path::Error::UnknownComponent(component_id.to_string())
                 })?;
@@ -140,6 +140,13 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                         ).map_err(#Error::factor_prepare_error::<#factor_types>)?
                     );
                 )*
+                Ok(builders)
+            }
+
+            fn build_instance_state(
+                &self,
+                builders: Self::InstanceBuilders,
+            ) -> #Result<Self::InstanceState> {
                 Ok(#state_name {
                     #(
                         #factor_names: #FactorInstanceBuilder::build(

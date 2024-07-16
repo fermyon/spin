@@ -46,11 +46,17 @@ pub trait RuntimeFactors: Sized + 'static {
         runtime_config: impl RuntimeConfigSource,
     ) -> crate::Result<ConfiguredApp<Self>>;
 
-    /// Build the instance state for the factors.
-    fn build_instance_state(
+    /// Prepare the factors' instance state builders.
+    fn prepare(
         &self,
         configured_app: &ConfiguredApp<Self>,
         component_id: &str,
+    ) -> crate::Result<Self::InstanceBuilders>;
+
+    /// Build the instance state for the factors.
+    fn build_instance_state(
+        &self,
+        builders: Self::InstanceBuilders,
     ) -> crate::Result<Self::InstanceState>;
 
     /// Get the app state related to a particular factor.

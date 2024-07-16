@@ -53,3 +53,19 @@ async fn configures_wasi_socket_addr_check() -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+#[tokio::test]
+async fn wasi_factor_is_optional() -> anyhow::Result<()> {
+    #[derive(RuntimeFactors)]
+    struct WithoutWasi {
+        variables: VariablesFactor,
+        networking: OutboundNetworkingFactor,
+    }
+    TestEnvironment::default()
+        .build_instance_state(WithoutWasi {
+            variables: VariablesFactor::default(),
+            networking: OutboundNetworkingFactor,
+        })
+        .await?;
+    Ok(())
+}

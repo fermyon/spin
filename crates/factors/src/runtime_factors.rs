@@ -1,3 +1,5 @@
+use wasmtime::component::ResourceTable;
+
 use crate::{factor::FactorInstanceState, App, ConfiguredApp, Factor, Linker, RuntimeConfigSource};
 
 /// A collection of `Factor`s that are initialized and configured together.
@@ -30,7 +32,7 @@ pub trait RuntimeFactors: Sized + 'static {
     /// The per application state of all the factors.
     type AppState;
     /// The per instance state of the factors.
-    type InstanceState: GetFactorState + Send + 'static;
+    type InstanceState: RuntimeFactorsInstanceState;
     /// The collection of all the `InstanceBuilder`s of the factors.
     type InstanceBuilders;
 
@@ -74,6 +76,16 @@ pub trait RuntimeFactors: Sized + 'static {
 /// Get the state of a particular Factor from the overall InstanceState
 ///
 /// Implemented by `#[derive(RuntimeFactors)]`
-pub trait GetFactorState {
-    fn get<F: Factor>(&mut self) -> Option<&mut FactorInstanceState<F>>;
+pub trait RuntimeFactorsInstanceState: Send + 'static {
+    fn get_with_table<F: Factor>(
+        &mut self,
+    ) -> Option<(&mut FactorInstanceState<F>, &mut ResourceTable)>;
+
+    fn get<F: Factor>(&mut self) -> Option<&mut FactorInstanceState<F>> {
+        self.get_with_table::<F>().map(|(state, _)| state)
+    }
+
+    fn table(&self) -> &ResourceTable;
+
+    fn table_mut(&mut self) -> &mut ResourceTable;
 }

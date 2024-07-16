@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use anyhow::bail;
 use http::Request;
-use spin_factor_outbound_http::{get_wasi_http_view, OutboundHttpFactor};
+use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
@@ -38,7 +38,7 @@ async fn disallowed_host_fails() -> anyhow::Result<()> {
     };
     let env = test_env();
     let mut state = env.build_instance_state(factors).await?;
-    let mut wasi_http = get_wasi_http_view(&mut state);
+    let mut wasi_http = OutboundHttpFactor::get_wasi_http_impl(&mut state).unwrap();
 
     let req = Request::get("https://denied.test").body(Default::default())?;
     let res = wasi_http.send_request(req, test_request_config());

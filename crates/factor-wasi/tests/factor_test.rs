@@ -1,7 +1,7 @@
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
 use spin_factors::{anyhow, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
-use wasmtime_wasi::{bindings::cli::environment::Host, WasiImpl};
+use wasmtime_wasi::bindings::cli::environment::Host;
 
 #[derive(RuntimeFactors)]
 struct TestFactors {
@@ -23,8 +23,7 @@ async fn environment_works() -> anyhow::Result<()> {
     };
     let env = test_env();
     let mut state = env.build_instance_state(factors).await?;
-    let mut wasi = WasiImpl(&mut state.wasi);
-
+    let mut wasi = WasiFactor::get_wasi_impl(&mut state).unwrap();
     let val = wasi
         .get_environment()?
         .into_iter()

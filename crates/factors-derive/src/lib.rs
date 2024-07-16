@@ -63,6 +63,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let factors_crate = format_ident!("spin_factors");
     let factors_path = quote!(::#factors_crate);
     let wasmtime = quote!(#factors_path::wasmtime);
+    let ResourceTable = quote!(#wasmtime::component::ResourceTable);
     let Result = quote!(#factors_path::Result);
     let Error = quote!(#factors_path::Error);
     let Factor = quote!(#factors_path::Factor);
@@ -87,6 +88,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                         #factors_path::InitContext::<Self, #factor_types>::new(
                             linker,
                             |state| &mut state.#factor_names,
+                            |state| (&mut state.#factor_names, &mut state.__table),
                         )
                     ).map_err(#Error::factor_init_error::<#factor_types>)?;
                 )*
@@ -148,6 +150,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 builders: Self::InstanceBuilders,
             ) -> #Result<Self::InstanceState> {
                 Ok(#state_name {
+                    __table: #ResourceTable::new(),
                     #(
                         #factor_names: #FactorInstanceBuilder::build(
                             builders.#factor_names.unwrap()
@@ -197,19 +200,30 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
 
         #vis struct #state_name {
+            __table: #ResourceTable,
             #(
                 pub #factor_names: #factors_path::FactorInstanceState<#factor_types>,
             )*
         }
 
-        impl #factors_path::GetFactorState for #state_name {
-            fn get<F: #Factor>(&mut self) -> ::std::option::Option<&mut #factors_path::FactorInstanceState<F>> {
+        impl #factors_path::RuntimeFactorsInstanceState for #state_name {
+            fn get_with_table<F: #Factor>(
+                &mut self
+            ) -> ::std::option::Option<(&mut #factors_path::FactorInstanceState<F>, &mut #ResourceTable)> {
                 #(
                     if let Some(state) = (&mut self.#factor_names as &mut (dyn #Any + #Send)).downcast_mut() {
-                        return Some(state)
+                        return Some((state, &mut self.__table))
                     }
                 )*
                 None
+            }
+
+            fn table(&self) -> &#ResourceTable {
+                &self.__table
+            }
+
+            fn table_mut(&mut self) -> &mut #ResourceTable {
+                &mut self.__table
             }
         }
     })

@@ -5,7 +5,7 @@ use std::{future::Future, net::SocketAddr, path::Path};
 
 use spin_factors::{
     anyhow, AppComponent, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
-    PrepareContext, RuntimeFactors,
+    PrepareContext, RuntimeFactors, RuntimeFactorsInstanceState,
 };
 use tokio::io::{AsyncRead, AsyncWrite};
 use wasmtime_wasi::{
@@ -26,6 +26,16 @@ impl WasiFactor {
             files_mounter: Box::new(files_mounter),
         }
     }
+
+    pub fn get_wasi_impl(
+        runtime_instance_state: &mut impl RuntimeFactorsInstanceState,
+    ) -> Option<WasiImpl<impl WasiView + '_>> {
+        let (state, table) = runtime_instance_state.get_with_table::<WasiFactor>()?;
+        Some(WasiImpl(WasiImplInner {
+            ctx: &mut state.ctx,
+            table,
+        }))
+    }
 }
 
 impl Factor for WasiFactor {
@@ -37,14 +47,20 @@ impl Factor for WasiFactor {
         &mut self,
         mut ctx: InitContext<Factors, Self>,
     ) -> anyhow::Result<()> {
-        fn type_annotate<T, U: WasiView, F>(f: F) -> F
+        fn type_annotate<T, F>(f: F) -> F
         where
-            F: Fn(&mut T) -> WasiImpl<&mut U>,
+            F: Fn(&mut T) -> WasiImpl<WasiImplInner>,
         {
             f
         }
-        let get_data = ctx.get_data_fn();
-        let closure = type_annotate(move |data| WasiImpl(get_data(data)));
+        let get_data_with_table = ctx.get_data_with_table_fn();
+        let closure = type_annotate(move |data| {
+            let (state, table) = get_data_with_table(data);
+            WasiImpl(WasiImplInner {
+                ctx: &mut state.ctx,
+                table,
+            })
+        });
         let linker = ctx.linker();
         use wasmtime_wasi::bindings;
         bindings::clocks::wall_clock::add_to_linker_get_host(linker, closure)?;
@@ -237,7 +253,6 @@ impl FactorInstanceBuilder for InstanceBuilder {
         let InstanceBuilder { ctx: mut wasi_ctx } = self;
         Ok(InstanceState {
             ctx: wasi_ctx.build(),
-            table: Default::default(),
         })
     }
 }
@@ -267,21 +282,19 @@ impl InstanceBuilder {
 
 pub struct InstanceState {
     ctx: WasiCtx,
-    table: ResourceTable,
 }
 
-impl InstanceState {
-    pub fn table(&mut self) -> &mut ResourceTable {
-        &mut self.table
-    }
+struct WasiImplInner<'a> {
+    ctx: &'a mut WasiCtx,
+    table: &'a mut ResourceTable,
 }
 
-impl WasiView for InstanceState {
+impl<'a> WasiView for WasiImplInner<'a> {
     fn ctx(&mut self) -> &mut WasiCtx {
-        &mut self.ctx
+        self.ctx
     }
 
     fn table(&mut self) -> &mut ResourceTable {
-        &mut self.table
+        self.table
     }
 }

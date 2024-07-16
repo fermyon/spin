@@ -13,7 +13,7 @@ pub use crate::{
     factor::{ConfigureAppContext, ConfiguredApp, Factor, FactorInstanceState, InitContext},
     prepare::{FactorInstanceBuilder, InstanceBuilders, PrepareContext, SelfInstanceBuilder},
     runtime_config::{FactorRuntimeConfig, RuntimeConfigSource},
-    runtime_factors::{GetFactorState, RuntimeFactors},
+    runtime_factors::{RuntimeFactors, RuntimeFactorsInstanceState},
 };
 
 /// A [`wasmtime::component::Linker`] used for a [`RuntimeFactors`] collection.

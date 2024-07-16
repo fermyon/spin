@@ -1,5 +1,7 @@
 use std::any::Any;
 
+use wasmtime::component::ResourceTable;
+
 use crate::{
     prepare::FactorInstanceBuilder, runtime_config::RuntimeConfigTracker, App, Error,
     FactorRuntimeConfig, InstanceBuilders, Linker, PrepareContext, RuntimeConfigSource,
@@ -70,20 +72,33 @@ pub trait Factor: Any + Sized {
 pub type FactorInstanceState<F> =
     <<F as Factor>::InstanceBuilder as FactorInstanceBuilder>::InstanceState;
 
-pub(crate) type GetDataFn<Facts, F> =
-    fn(&mut <Facts as RuntimeFactors>::InstanceState) -> &mut FactorInstanceState<F>;
+pub(crate) type GetDataFn<T, U> =
+    fn(&mut <T as RuntimeFactors>::InstanceState) -> &mut FactorInstanceState<U>;
+
+pub(crate) type GetDataWithTableFn<T, U> = fn(
+    &mut <T as RuntimeFactors>::InstanceState,
+) -> (&mut FactorInstanceState<U>, &mut ResourceTable);
 
 /// An InitContext is passed to [`Factor::init`], giving access to the global
 /// common [`wasmtime::component::Linker`].
-pub struct InitContext<'a, T: RuntimeFactors, F: Factor> {
+pub struct InitContext<'a, T: RuntimeFactors, U: Factor> {
     pub(crate) linker: &'a mut Linker<T>,
-    pub(crate) get_data: GetDataFn<T, F>,
+    pub(crate) get_data: GetDataFn<T, U>,
+    pub(crate) get_data_with_table: GetDataWithTableFn<T, U>,
 }
 
-impl<'a, T: RuntimeFactors, F: Factor> InitContext<'a, T, F> {
+impl<'a, T: RuntimeFactors, U: Factor> InitContext<'a, T, U> {
     #[doc(hidden)]
-    pub fn new(linker: &'a mut Linker<T>, get_data: GetDataFn<T, F>) -> Self {
-        Self { linker, get_data }
+    pub fn new(
+        linker: &'a mut Linker<T>,
+        get_data: GetDataFn<T, U>,
+        get_data_with_table: GetDataWithTableFn<T, U>,
+    ) -> Self {
+        Self {
+            linker,
+            get_data,
+            get_data_with_table,
+        }
     }
 
     /// Returns a mutable reference to the [`wasmtime::component::Linker`].
@@ -92,8 +107,14 @@ impl<'a, T: RuntimeFactors, F: Factor> InitContext<'a, T, F> {
     }
 
     /// Returns a function that can be used to get the instance state for this factor.
-    pub fn get_data_fn(&self) -> GetDataFn<T, F> {
+    pub fn get_data_fn(&self) -> GetDataFn<T, U> {
         self.get_data
+    }
+
+    /// Returns a function that can be used to get the instance state for this
+    /// factor along with the instance's [`ResourceTable`].
+    pub fn get_data_with_table_fn(&self) -> GetDataWithTableFn<T, U> {
+        self.get_data_with_table
     }
 
     /// Convenience method to link a binding to the linker.
@@ -101,7 +122,7 @@ impl<'a, T: RuntimeFactors, F: Factor> InitContext<'a, T, F> {
         &mut self,
         add_to_linker: impl Fn(
             &mut Linker<T>,
-            fn(&mut T::InstanceState) -> &mut FactorInstanceState<F>,
+            fn(&mut T::InstanceState) -> &mut FactorInstanceState<U>,
         ) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
         add_to_linker(self.linker, self.get_data)

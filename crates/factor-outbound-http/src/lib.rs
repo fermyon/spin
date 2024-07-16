@@ -10,8 +10,6 @@ use spin_factors::{
 };
 use wasmtime_wasi_http::WasiHttpCtx;
 
-pub use wasi::get_wasi_http_view;
-
 pub struct OutboundHttpFactor;
 
 impl Factor for OutboundHttpFactor {
@@ -24,7 +22,7 @@ impl Factor for OutboundHttpFactor {
         mut ctx: spin_factors::InitContext<T, Self>,
     ) -> anyhow::Result<()> {
         ctx.link_bindings(spin_world::v1::http::add_to_linker)?;
-        wasi::add_to_linker::<T>(ctx.linker())?;
+        wasi::add_to_linker::<T>(&mut ctx)?;
         Ok(())
     }
 

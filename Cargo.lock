@@ -7591,8 +7591,11 @@ dependencies = [
  "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors",
+ "spin-factors-test",
  "spin-outbound-networking",
+ "tokio",
  "tracing",
+ "wasmtime-wasi",
 ]
 
 [[package]]

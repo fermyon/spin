@@ -11,6 +11,8 @@ use wasmtime_wasi::{
     StdoutStream, WasiCtx, WasiCtxBuilder, WasiImpl, WasiView,
 };
 
+pub use wasmtime_wasi::SocketAddrUse;
+
 pub struct WasiFactor {
     files_mounter: Box<dyn FilesMounter>,
 }
@@ -236,7 +238,7 @@ impl FactorInstanceBuilder for InstanceBuilder {
 impl InstanceBuilder {
     pub fn outbound_socket_addr_check<F, Fut>(&mut self, check: F)
     where
-        F: Fn(SocketAddr) -> Fut + Send + Sync + Clone + 'static,
+        F: Fn(SocketAddr, SocketAddrUse) -> Fut + Send + Sync + Clone + 'static,
         Fut: Future<Output = bool> + Send + Sync,
     {
         self.ctx.socket_addr_check(move |addr, addr_use| {
@@ -247,7 +249,9 @@ impl InstanceBuilder {
                     wasmtime_wasi::SocketAddrUse::TcpConnect
                     | wasmtime_wasi::SocketAddrUse::UdpBind
                     | wasmtime_wasi::SocketAddrUse::UdpConnect
-                    | wasmtime_wasi::SocketAddrUse::UdpOutgoingDatagram => check(addr).await,
+                    | wasmtime_wasi::SocketAddrUse::UdpOutgoingDatagram => {
+                        check(addr, addr_use).await
+                    }
                 }
             })
         });

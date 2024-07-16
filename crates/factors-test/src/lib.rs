@@ -26,6 +26,9 @@ impl Default for TestEnvironment {
             name = "test-app"
 
             [[trigger.test-trigger]]
+
+            [component.empty]
+            source = "does-not-exist.wasm"
         };
         Self {
             manifest,
@@ -49,7 +52,7 @@ impl TestEnvironment {
 
     /// Starting from a new _uninitialized_ [`RuntimeFactors`], run through the
     /// [`Factor`]s' lifecycle(s) to build a [`RuntimeFactors::InstanceState`]
-    /// for the first component defined in the manifest.
+    /// for the last component defined in the manifest.
     pub async fn build_instance_state<T: RuntimeFactors>(
         &self,
         mut factors: T,
@@ -66,7 +69,7 @@ impl TestEnvironment {
         let configured_app = factors.configure_app(app, runtime_config)?;
 
         let component =
-            configured_app.app().components().next().context(
+            configured_app.app().components().last().context(
                 "expected configured app to have at least one component, but it did not",
             )?;
         let builders = factors.prepare(&configured_app, component.id())?;

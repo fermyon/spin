@@ -14,5 +14,10 @@ spin-factors = { path = "../factors" }
 spin-outbound-networking = { path = "../outbound-networking" }
 tracing = { workspace = true }
 
+[dev-dependencies]
+spin-factors-test = { path = "../factors-test" }
+tokio = { version = "1", features = ["macros", "rt"] }
+wasmtime-wasi = { workspace = true }
+
 [lints]
 workspace = true

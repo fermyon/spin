@@ -5,10 +5,10 @@ use futures_util::{
     FutureExt,
 };
 use spin_factor_variables::VariablesFactor;
-use spin_factor_wasi::WasiFactor;
+use spin_factor_wasi::{SocketAddrUse, WasiFactor};
 use spin_factors::{
     anyhow::{self, Context},
-    ConfigureAppContext, Factor, FactorInstanceBuilder, InstanceBuilders, PrepareContext,
+    ConfigureAppContext, Error, Factor, FactorInstanceBuilder, InstanceBuilders, PrepareContext,
     RuntimeFactors,
 };
 use spin_outbound_networking::{AllowedHostsConfig, ALLOWED_HOSTS_KEY};
@@ -67,31 +67,36 @@ impl Factor for OutboundNetworkingFactor {
         .map(|res| res.map(Arc::new).map_err(Arc::new))
         .boxed()
         .shared();
-        // let prepared_resolver = resolver.prepare().await?;
-        // let allowed_hosts = AllowedHostsConfig::parse(
-        //         .context("missing component allowed hosts")?,
-        //     &prepared_resolver,
-        // )?;
 
-        // Update Wasi socket allowed ports
-        let wasi_preparer = builders.get_mut::<WasiFactor>()?;
-        let hosts_future = allowed_hosts_future.clone();
-        wasi_preparer.outbound_socket_addr_check(move |addr| {
-            let hosts_future = hosts_future.clone();
-            async move {
-                match hosts_future.await {
-                    Ok(allowed_hosts) => {
-                        // TODO: verify this actually works...
-                        spin_outbound_networking::check_url(&addr.to_string(), "*", &allowed_hosts)
+        match builders.get_mut::<WasiFactor>() {
+            Ok(wasi_builder) => {
+                // Update Wasi socket allowed ports
+                let hosts_future = allowed_hosts_future.clone();
+                wasi_builder.outbound_socket_addr_check(move |addr, addr_use| {
+                    let hosts_future = hosts_future.clone();
+                    async move {
+                        match hosts_future.await {
+                            Ok(allowed_hosts) => {
+                                // TODO: validate against existing spin-core behavior
+                                let scheme = match addr_use {
+                                    SocketAddrUse::TcpBind => return false,
+                                    SocketAddrUse::TcpConnect => "tcp",
+                                    SocketAddrUse::UdpBind | SocketAddrUse::UdpConnect | SocketAddrUse::UdpOutgoingDatagram => "udp",
+                                };
+                                spin_outbound_networking::check_url(&addr.to_string(),scheme, &allowed_hosts)
+                            }
+                            Err(err) => {
+                                // TODO: should this trap (somehow)?
+                                tracing::error!(%err, "allowed_outbound_hosts variable resolution failed");
+                                false
+                            }
+                        }
                     }
-                    Err(err) => {
-                        // TODO: should this trap (somehow)?
-                        tracing::error!(%err, "allowed_outbound_hosts variable resolution failed");
-                        false
-                    }
-                }
+                });
             }
-        });
+            Err(Error::NoSuchFactor(_)) => (), // no WasiFactor to configure; that's OK
+            Err(err) => return Err(err.into()),
+        }
         Ok(InstanceBuilder {
             allowed_hosts_future,
         })

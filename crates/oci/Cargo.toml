@@ -10,6 +10,7 @@ async-compression = "0.4.3"
 # Fork with nested async-std dependency bumped to satisfy Windows build; branch/revision is protected
 async-tar = { git = "https://github.com/vdice/async-tar", rev = "71e037f9652971e7a55b412a8e47a37b06f9c29d" }
 base64 = "0.21"
+chrono = "0.4"
 # Fork with updated auth to support ACR login
 # Ref https://github.com/camallo/dkregistry-rs/pull/263
 dkregistry = { git = "https://github.com/fermyon/dkregistry-rs", rev = "161cf2b66996ed97c7abaf046e38244484814de3" }

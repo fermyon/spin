@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    io::IsTerminal,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -66,6 +67,15 @@ pub struct TemplateNewCommandCore {
     /// An optional argument that allows to skip creating .gitignore
     #[clap(long = "no-vcs", takes_value = false)]
     pub no_vcs: bool,
+
+    /// If the output directory already contains files, generate the new files into
+    /// it without confirming, overwriting any existing files with the same names.
+    #[clap(
+        long = "allow-overwrite",
+        alias = "allow-overwrites",
+        takes_value = false
+    )]
+    pub allow_overwrite: bool,
 }
 
 /// Scaffold a new application based on a template.
@@ -184,9 +194,16 @@ impl TemplateNewCommandCore {
             values,
             accept_defaults: self.accept_defaults,
             no_vcs: self.no_vcs,
+            allow_overwrite: self.allow_overwrite,
         };
 
-        template.run(options).interactive().await
+        let run = template.run(options);
+
+        if std::io::stderr().is_terminal() {
+            run.interactive().await
+        } else {
+            run.silent().await
+        }
     }
 
     // Try to guess if the user is using v1 or v2 syntax, and fix things up so

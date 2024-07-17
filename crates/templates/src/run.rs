@@ -40,6 +40,9 @@ pub struct RunOptions {
     pub accept_defaults: bool,
     /// If true, do not create a .gitignore file
     pub no_vcs: bool,
+    /// Skip the overwrite prompt if the output directory already contains files
+    /// (or, if silent, allow overwrite instead of erroring).
+    pub allow_overwrite: bool,
 }
 
 impl Run {
@@ -93,11 +96,13 @@ impl Run {
         // TODO: rationalise `path` and `dir`
         let to = self.generation_target_dir();
 
-        match interaction.allow_generate_into(&to) {
-            Cancellable::Cancelled => return Ok(None),
-            Cancellable::Ok(_) => (),
-            Cancellable::Err(e) => return Err(e),
-        };
+        if !self.options.allow_overwrite {
+            match interaction.allow_generate_into(&to) {
+                Cancellable::Cancelled => return Ok(None),
+                Cancellable::Ok(_) => (),
+                Cancellable::Err(e) => return Err(e),
+            };
+        }
 
         self.validate_provided_values()?;
 

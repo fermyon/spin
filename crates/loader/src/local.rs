@@ -156,7 +156,7 @@ impl LocalLoader {
             .take();
 
         let source = self
-            .load_component_source(component.source.clone())
+            .load_component_source(id, component.source.clone())
             .await
             .with_context(|| format!("Failed to load Wasm source {}", component.source))?;
 
@@ -215,6 +215,7 @@ impl LocalLoader {
     // URL with an absolute path to the content.
     async fn load_component_source(
         &self,
+        component_id: &KebabId,
         source: v2::ComponentSource,
     ) -> Result<LockedComponentSource> {
         let content = match source {
@@ -227,6 +228,7 @@ impl LocalLoader {
                 package,
                 version,
             } => {
+                let version = semver::Version::parse(&version).with_context(|| format!("Component {component_id} specifies an invalid semantic version ({version:?}) for its package version"))?;
                 self.load_registry_source(registry.as_ref(), &package, &version)
                     .await?
             }

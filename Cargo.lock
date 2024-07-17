@@ -7882,6 +7882,7 @@ dependencies = [
  "async-compression",
  "async-tar",
  "base64 0.21.7",
+ "chrono",
  "dirs 4.0.0",
  "dkregistry",
  "docker_credential",

@@ -782,6 +782,7 @@ mod tests {
             values,
             accept_defaults: false,
             no_vcs: false,
+            allow_overwrite: false,
         };
 
         template.run(options).silent().await.unwrap();
@@ -816,6 +817,7 @@ mod tests {
             values,
             accept_defaults: true,
             no_vcs: false,
+            allow_overwrite: false,
         };
 
         template.run(options).silent().await.unwrap();
@@ -882,6 +884,7 @@ mod tests {
                 values,
                 accept_defaults: false,
                 no_vcs: false,
+                allow_overwrite: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -910,6 +913,7 @@ mod tests {
                 values,
                 accept_defaults: false,
                 no_vcs: false,
+                allow_overwrite: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -935,6 +939,7 @@ mod tests {
                 values,
                 accept_defaults: false,
                 no_vcs: false,
+                allow_overwrite: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -992,6 +997,7 @@ mod tests {
                 values,
                 accept_defaults: false,
                 no_vcs: false,
+                allow_overwrite: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1020,6 +1026,7 @@ mod tests {
                 values,
                 accept_defaults: false,
                 no_vcs: false,
+                allow_overwrite: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1072,6 +1079,7 @@ mod tests {
                 values,
                 accept_defaults: false,
                 no_vcs: false,
+                allow_overwrite: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1100,6 +1108,7 @@ mod tests {
                 values,
                 accept_defaults: false,
                 no_vcs: false,
+                allow_overwrite: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1125,6 +1134,7 @@ mod tests {
                 values,
                 accept_defaults: false,
                 no_vcs: false,
+                allow_overwrite: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1166,6 +1176,7 @@ mod tests {
             values,
             accept_defaults: false,
             no_vcs: true,
+            allow_overwrite: false,
         };
 
         template.run(options).silent().await.unwrap();
@@ -1205,6 +1216,7 @@ mod tests {
                 values,
                 accept_defaults: false,
                 no_vcs: true,
+                allow_overwrite: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1238,6 +1250,7 @@ mod tests {
                 values,
                 accept_defaults: false,
                 no_vcs: true,
+                allow_overwrite: false,
             };
             template.run(options).silent().await.unwrap();
         }
@@ -1288,6 +1301,7 @@ mod tests {
                 values,
                 accept_defaults: false,
                 no_vcs: false,
+                allow_overwrite: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1316,6 +1330,7 @@ mod tests {
                 values,
                 accept_defaults: false,
                 no_vcs: false,
+                allow_overwrite: false,
             };
 
             template.run(options).silent().await.unwrap();
@@ -1377,6 +1392,7 @@ mod tests {
                 values,
                 accept_defaults: false,
                 no_vcs: false,
+                allow_overwrite: false,
             };
 
             template
@@ -1385,6 +1401,104 @@ mod tests {
                 .await
                 .expect_err("Expected to fail to add component, but it succeeded");
         }
+    }
+
+    #[tokio::test]
+    async fn cannot_generate_over_existing_files_by_default() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let template = manager.get("http-rust").unwrap().unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let output_dir = dest_temp_dir.path().join("myproj");
+
+        tokio::fs::create_dir_all(&output_dir).await.unwrap();
+        let manifest_path = output_dir.join("spin.toml");
+        tokio::fs::write(&manifest_path, "cookies").await.unwrap();
+
+        let values = [
+            ("project-description".to_owned(), "my desc".to_owned()),
+            ("http-path".to_owned(), "/path/...".to_owned()),
+        ]
+        .into_iter()
+        .collect();
+        let options = RunOptions {
+            variant: crate::template::TemplateVariantInfo::NewApplication,
+            output_path: output_dir.clone(),
+            name: "my project".to_owned(),
+            values,
+            accept_defaults: false,
+            no_vcs: false,
+            allow_overwrite: false,
+        };
+
+        template
+            .run(options)
+            .silent()
+            .await
+            .expect_err("generate into existing dir should have failed");
+
+        assert!(tokio::fs::read_to_string(&manifest_path)
+            .await
+            .unwrap()
+            .contains("cookies"));
+    }
+
+    #[tokio::test]
+    async fn can_generate_over_existing_files_if_so_configured() {
+        let temp_dir = tempdir().unwrap();
+        let store = TemplateStore::new(temp_dir.path());
+        let manager = TemplateManager { store };
+        let source = TemplateSource::File(project_root());
+
+        manager
+            .install(&source, &InstallOptions::default(), &DiscardingReporter)
+            .await
+            .unwrap();
+
+        let template = manager.get("http-rust").unwrap().unwrap();
+
+        let dest_temp_dir = tempdir().unwrap();
+        let output_dir = dest_temp_dir.path().join("myproj");
+
+        tokio::fs::create_dir_all(&output_dir).await.unwrap();
+        let manifest_path = output_dir.join("spin.toml");
+        tokio::fs::write(&manifest_path, "cookies").await.unwrap();
+
+        let values = [
+            ("project-description".to_owned(), "my desc".to_owned()),
+            ("http-path".to_owned(), "/path/...".to_owned()),
+        ]
+        .into_iter()
+        .collect();
+        let options = RunOptions {
+            variant: crate::template::TemplateVariantInfo::NewApplication,
+            output_path: output_dir.clone(),
+            name: "my project".to_owned(),
+            values,
+            accept_defaults: false,
+            no_vcs: false,
+            allow_overwrite: true,
+        };
+
+        template
+            .run(options)
+            .silent()
+            .await
+            .expect("generate into existing dir should have succeeded");
+
+        assert!(tokio::fs::read_to_string(&manifest_path)
+            .await
+            .unwrap()
+            .contains("[[trigger.http]]"));
     }
 
     #[tokio::test]
@@ -1447,6 +1561,7 @@ mod tests {
             values,
             accept_defaults: false,
             no_vcs: false,
+            allow_overwrite: false,
         };
 
         let err = template

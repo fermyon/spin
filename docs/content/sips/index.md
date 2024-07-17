@@ -28,3 +28,5 @@ Here is a list of accepted SIPs:
 - [Generic Interface for LLMs](../sips/015-llm.md)
 - [Support for Inbound WebSockets](../sips/016-inbound-websockets.md)
 - [Application-Internal Service Chaining](../sips/017-service-chaining.md)
+- [Adding OTel tracing to Spin](../sips/018-adding-otel-tracing-to-spin.md)
+- [Spin Governance](../sips/019-governance.md)

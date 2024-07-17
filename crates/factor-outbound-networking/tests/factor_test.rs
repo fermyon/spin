@@ -3,7 +3,7 @@ use spin_factor_variables::VariablesFactor;
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
 use spin_factors::{anyhow, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
-use wasmtime_wasi::{bindings::sockets::instance_network::Host, SocketAddrUse, WasiImpl, WasiView};
+use wasmtime_wasi::{bindings::sockets::instance_network::Host, SocketAddrUse, WasiView};
 
 #[derive(RuntimeFactors)]
 struct TestFactors {
@@ -30,7 +30,7 @@ async fn configures_wasi_socket_addr_check() -> anyhow::Result<()> {
 
     let env = test_env();
     let mut state = env.build_instance_state(factors).await?;
-    let mut wasi = WasiImpl(&mut state.wasi);
+    let mut wasi = WasiFactor::get_wasi_impl(&mut state).unwrap();
 
     let network_resource = wasi.instance_network()?;
     let network = wasi.table().get(&network_resource)?;

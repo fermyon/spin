@@ -2,7 +2,6 @@
 
 use super::wasi_2023_10_18::convert;
 use anyhow::Result;
-use spin_factors::GetFactorState;
 use wasmtime::component::{Linker, Resource};
 use wasmtime_wasi_http::{WasiHttpImpl, WasiHttpView};
 
@@ -55,12 +54,11 @@ use wasi::http::types::{
 use wasi::io::poll::Pollable;
 use wasi::io::streams::{Error as IoError, InputStream, OutputStream};
 
-use crate::wasi::MutStates;
+use crate::wasi::WasiHttpImplInner;
 
 pub fn add_to_linker<T, F>(linker: &mut Linker<T>, closure: F) -> Result<()>
 where
-    T: GetFactorState + Send,
-    F: Fn(&mut T) -> WasiHttpImpl<MutStates<T>> + Send + Sync + Copy + 'static,
+    F: Fn(&mut T) -> WasiHttpImpl<WasiHttpImplInner> + Send + Sync + Copy + 'static,
 {
     wasi::http::types::add_to_linker_get_host(linker, closure)?;
     wasi::http::outgoing_handler::add_to_linker_get_host(linker, closure)?;

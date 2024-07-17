@@ -84,11 +84,11 @@ async fn smoke_test_works() -> anyhow::Result<()> {
 
     // Invoke handler
     let req = http::Request::get("/").body(Default::default()).unwrap();
-    let mut wasi_http_view = spin_factor_outbound_http::get_wasi_http_view(store.data_mut());
-    let request = wasi_http_view.new_incoming_request(req)?;
+    let mut wasi_http = OutboundHttpFactor::get_wasi_http_impl(store.data_mut()).unwrap();
+    let request = wasi_http.new_incoming_request(req)?;
     let (response_tx, response_rx) = tokio::sync::oneshot::channel();
-    let response = wasi_http_view.new_response_outparam(response_tx)?;
-    drop(wasi_http_view);
+    let response = wasi_http.new_response_outparam(response_tx)?;
+    drop(wasi_http);
 
     let guest = wasmtime_wasi_http::proxy::Proxy::new(&mut store, &instance)?;
     let call_task = tokio::spawn(async move {

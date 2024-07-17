@@ -1,5 +1,5 @@
-mod runtime_config;
 pub mod delegating_resolver;
+mod runtime_config;
 mod store;
 
 use std::{

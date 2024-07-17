@@ -1,19 +1,18 @@
 use std::path::PathBuf;
 
-use anyhow::{bail, Context};
+use anyhow::Context;
 use http_body_util::BodyExt;
-use serde::Deserialize;
 use spin_app::App;
 use spin_factor_key_value::{
     delegating_resolver::DelegatingRuntimeConfigResolver, KeyValueFactor, MakeKeyValueStore,
 };
 use spin_factor_key_value_redis::RedisKeyValueStore;
+use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::{StaticVariables, VariablesFactor};
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
 use spin_factors::{FactorRuntimeConfig, RuntimeConfigSource, RuntimeFactors};
-use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
 use wasmtime_wasi_http::WasiHttpView;
 
 #[derive(RuntimeFactors)]
@@ -28,8 +27,14 @@ struct Factors {
 #[tokio::test(flavor = "multi_thread")]
 async fn smoke_test_works() -> anyhow::Result<()> {
     let mut key_value_resolver = DelegatingRuntimeConfigResolver::default();
-    key_value_resolver.add_default_store("default", "spin", toml::value::Table::new());
-    key_value_resolver.add_store_type(TestSpinKeyValueStore)?;
+    let default_config =
+        SpinKeyValueRuntimeConfig::default(Some(PathBuf::from("tests/smoke-app/.spin")));
+    key_value_resolver.add_default_store(
+        "default",
+        SpinKeyValueStore::RUNTIME_CONFIG_TYPE,
+        toml::value::Table::try_from(default_config)?,
+    );
+    key_value_resolver.add_store_type(SpinKeyValueStore::new(None)?)?;
     key_value_resolver.add_store_type(RedisKeyValueStore)?;
 
     let mut factors = Factors {
@@ -139,33 +144,4 @@ impl RuntimeConfigSource for TestSource {
         let config = table.try_into()?;
         Ok(Some(config))
     }
-}
-
-struct TestSpinKeyValueStore;
-
-impl MakeKeyValueStore for TestSpinKeyValueStore {
-    const RUNTIME_CONFIG_TYPE: &'static str = "spin";
-
-    type RuntimeConfig = TestSpinKeyValueRuntimeConfig;
-
-    type StoreManager = KeyValueSqlite;
-
-    fn make_store(
-        &self,
-        runtime_config: Self::RuntimeConfig,
-    ) -> anyhow::Result<Self::StoreManager> {
-        let location = match runtime_config.path {
-            Some(_) => {
-                // TODO(lann): need state_dir to derive default store path
-                bail!("spin key value runtime config not implemented")
-            }
-            None => DatabaseLocation::InMemory,
-        };
-        Ok(KeyValueSqlite::new(location))
-    }
-}
-
-#[derive(Deserialize)]
-struct TestSpinKeyValueRuntimeConfig {
-    path: Option<PathBuf>,
 }

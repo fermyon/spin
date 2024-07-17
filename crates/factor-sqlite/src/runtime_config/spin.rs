@@ -19,23 +19,33 @@ use super::RuntimeConfigResolver;
 /// This type implements the [`RuntimeConfigResolver`] trait and provides a way to
 /// opt into the default behavior of Spin's SQLite database handling.
 pub struct SpinSqliteRuntimeConfig {
-    state_dir: PathBuf,
-    base_path: Option<PathBuf>,
+    default_database_dir: PathBuf,
+    local_database_dir: PathBuf,
 }
 
 impl SpinSqliteRuntimeConfig {
     /// Create a new `SpinSqliteRuntimeConfig`
     ///
     /// This takes as arguments:
-    /// * the state directory path (i.e., the path to the `.spin` file). This
-    /// is used to derive the default path a local SQLite database file.
-    /// * the base path from which relative paths referenced in configuration are resolved
-    /// (this should most likely be the path to the runtime-config file). If
-    /// `None`, the current working directory is used.
-    pub fn new(state_dir: PathBuf, base_path: Option<PathBuf>) -> Self {
+    /// * the directory to use as the default location for SQLite databases. Usually this
+    /// will be the path to the `.spin` state directory.
+    /// * the *absolute* path to the directory from which relative paths to local SQLite
+    /// databases are resolved.  (this should most likely be the path to the runtime-config
+    /// file or the current working dir).
+    ///
+    /// Panics if either `default_database_dir` or `local_database_dir` are not absolute paths.
+    pub fn new(default_database_dir: PathBuf, local_database_dir: PathBuf) -> Self {
+        assert!(
+            default_database_dir.is_absolute(),
+            "default_database_dir must be an absolute path"
+        );
+        assert!(
+            local_database_dir.is_absolute(),
+            "local_database_dir must be an absolute path"
+        );
         Self {
-            state_dir,
-            base_path,
+            default_database_dir,
+            local_database_dir,
         }
     }
 }
@@ -49,7 +59,7 @@ impl RuntimeConfigResolver for SpinSqliteRuntimeConfig {
         let pool = match database_kind {
             "spin" => {
                 let config: LocalDatabase = config.try_into()?;
-                config.pool(self.base_path.as_deref())?
+                config.pool(&self.local_database_dir)?
             }
             "libsql" => {
                 let config: LibSqlDatabase = config.try_into()?;
@@ -66,7 +76,7 @@ impl RuntimeConfigResolver for SpinSqliteRuntimeConfig {
             return None;
         }
 
-        let path = self.state_dir.join(DEFAULT_SQLITE_DB_FILENAME);
+        let path = self.default_database_dir.join(DEFAULT_SQLITE_DB_FILENAME);
         let factory = move || {
             let location = spin_sqlite_inproc::InProcDatabaseLocation::Path(path.clone());
             let connection = spin_sqlite_inproc::InProcConnection::new(location)?;
@@ -157,11 +167,12 @@ pub struct LocalDatabase {
 
 impl LocalDatabase {
     /// Create a new connection pool for a local database.
-    fn pool(self, base_path: Option<&Path>) -> anyhow::Result<SimpleConnectionPool> {
+    ///
+    /// `base_dir` is the base directory path from which `path` is resolved if it is a relative path.
+    fn pool(self, base_dir: &Path) -> anyhow::Result<SimpleConnectionPool> {
         let location = match self.path {
             Some(path) => {
-                // TODO: `base_path` should be passed in from the runtime config
-                let path = resolve_relative_path(&path, base_path)?;
+                let path = resolve_relative_path(&path, base_dir);
                 // Create the store's parent directory if necessary
                 // unwrapping the parent is fine, because `resolve_relative_path`` will always return a path with a parent
                 std::fs::create_dir_all(path.parent().unwrap())
@@ -178,24 +189,14 @@ impl LocalDatabase {
     }
 }
 
-/// Resolve a relative path against an optional base path.
-fn resolve_relative_path(path: &Path, base_path: Option<&Path>) -> anyhow::Result<PathBuf> {
+/// Resolve a relative path against a base dir.
+///
+/// If the path is absolute, it is returned as is. Otherwise, it is resolved against the base dir.
+fn resolve_relative_path(path: &Path, base_dir: &Path) -> PathBuf {
     if path.is_absolute() {
-        return Ok(path.to_owned());
+        return path.to_owned();
     }
-    let base_path = match base_path {
-        Some(base_path) => base_path
-            .parent()
-            .with_context(|| {
-                format!(
-                    "failed to get parent of runtime config file path \"{}\"",
-                    base_path.display()
-                )
-            })?
-            .to_owned(),
-        None => std::env::current_dir().context("failed to get current directory")?,
-    };
-    Ok(base_path.join(path))
+    base_dir.join(path)
 }
 
 /// Configuration for a libSQL database.

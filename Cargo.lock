@@ -7606,6 +7606,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-factor-outbound-pg"
+version = "2.7.0-pre0"
+dependencies = [
+ "anyhow",
+ "native-tls",
+ "postgres-native-tls",
+ "spin-core",
+ "spin-factor-outbound-networking",
+ "spin-factor-variables",
+ "spin-factor-wasi",
+ "spin-factors",
+ "spin-factors-test",
+ "spin-world",
+ "table",
+ "tokio",
+ "tokio-postgres",
+ "tracing",
+]
+
+[[package]]
 name = "spin-factor-variables"
 version = "2.7.0-pre0"
 dependencies = [

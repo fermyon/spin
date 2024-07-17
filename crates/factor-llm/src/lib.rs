@@ -34,7 +34,7 @@ impl Factor for LlmFactor {
     type AppState = AppState;
     type InstanceBuilder = InstanceState;
 
-    fn init<T: RuntimeFactors>(
+    fn init<T: Send + 'static>(
         &mut self,
         mut ctx: spin_factors::InitContext<T, Self>,
     ) -> anyhow::Result<()> {

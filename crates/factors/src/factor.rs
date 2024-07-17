@@ -1,11 +1,10 @@
 use std::any::Any;
 
-use wasmtime::component::ResourceTable;
+use wasmtime::component::{Linker, ResourceTable};
 
 use crate::{
     prepare::FactorInstanceBuilder, runtime_config::RuntimeConfigTracker, App, Error,
-    FactorRuntimeConfig, InstanceBuilders, Linker, PrepareContext, RuntimeConfigSource,
-    RuntimeFactors,
+    FactorRuntimeConfig, InstanceBuilders, PrepareContext, RuntimeConfigSource, RuntimeFactors,
 };
 
 /// A contained (i.e., "factored") piece of runtime functionality.
@@ -29,7 +28,7 @@ pub trait Factor: Any + Sized {
     /// This will be called at most once, before any call to [`FactorInstanceBuilder::new`].
     /// `InitContext` provides access to a wasmtime `Linker`, so this is where any bindgen
     /// `add_to_linker` calls go.
-    fn init<T: RuntimeFactors>(&mut self, mut ctx: InitContext<T, Self>) -> anyhow::Result<()> {
+    fn init<T: Send + 'static>(&mut self, mut ctx: InitContext<T, Self>) -> anyhow::Result<()> {
         _ = &mut ctx;
         Ok(())
     }
@@ -72,22 +71,20 @@ pub trait Factor: Any + Sized {
 pub type FactorInstanceState<F> =
     <<F as Factor>::InstanceBuilder as FactorInstanceBuilder>::InstanceState;
 
-pub(crate) type GetDataFn<T, U> =
-    fn(&mut <T as RuntimeFactors>::InstanceState) -> &mut FactorInstanceState<U>;
+pub(crate) type GetDataFn<T, U> = fn(&mut T) -> &mut FactorInstanceState<U>;
 
-pub(crate) type GetDataWithTableFn<T, U> = fn(
-    &mut <T as RuntimeFactors>::InstanceState,
-) -> (&mut FactorInstanceState<U>, &mut ResourceTable);
+pub(crate) type GetDataWithTableFn<T, U> =
+    fn(&mut T) -> (&mut FactorInstanceState<U>, &mut ResourceTable);
 
 /// An InitContext is passed to [`Factor::init`], giving access to the global
 /// common [`wasmtime::component::Linker`].
-pub struct InitContext<'a, T: RuntimeFactors, U: Factor> {
+pub struct InitContext<'a, T, U: Factor> {
     pub(crate) linker: &'a mut Linker<T>,
     pub(crate) get_data: GetDataFn<T, U>,
     pub(crate) get_data_with_table: GetDataWithTableFn<T, U>,
 }
 
-impl<'a, T: RuntimeFactors, U: Factor> InitContext<'a, T, U> {
+impl<'a, T, U: Factor> InitContext<'a, T, U> {
     #[doc(hidden)]
     pub fn new(
         linker: &'a mut Linker<T>,
@@ -122,7 +119,7 @@ impl<'a, T: RuntimeFactors, U: Factor> InitContext<'a, T, U> {
         &mut self,
         add_to_linker: impl Fn(
             &mut Linker<T>,
-            fn(&mut T::InstanceState) -> &mut FactorInstanceState<U>,
+            fn(&mut T) -> &mut FactorInstanceState<U>,
         ) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
         add_to_linker(self.linker, self.get_data)

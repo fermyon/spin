@@ -1,6 +1,6 @@
-use wasmtime::component::ResourceTable;
+use wasmtime::component::{Linker, ResourceTable};
 
-use crate::{factor::FactorInstanceState, App, ConfiguredApp, Factor, Linker, RuntimeConfigSource};
+use crate::{factor::FactorInstanceState, App, ConfiguredApp, Factor, RuntimeConfigSource};
 
 /// A collection of `Factor`s that are initialized and configured together.
 ///
@@ -10,7 +10,7 @@ use crate::{factor::FactorInstanceState, App, ConfiguredApp, Factor, Linker, Run
 ///
 /// A typical usage of `RuntimeFactors` would look something like the following pseudo-code:
 ///
-/// ```no_run
+/// ```ignore
 /// #[derive(RuntimeFactors)]
 /// struct MyFactors {
 ///  // ...
@@ -21,8 +21,10 @@ use crate::{factor::FactorInstanceState, App, ConfiguredApp, Factor, Linker, Run
 /// factors.init(&mut linker)?;
 /// // Configure the factors with an app and runtime config
 /// let configured_app = factors.configure_app(app, runtime_config)?;
+/// // Prepare instance state builders
+/// let builders = factors.prepare(&configured_app, "component-id")?;
 /// // Build the instance state for the factors
-/// let data factors.build_instance_state(&configured_app, component.id())
+/// let data = factors.build_instance_state(builders)?;
 /// // Initialize a `wasmtime` store with the instance state
 /// let mut store = wasmtime::Store::new(&engine, data);
 /// // Instantiate the component
@@ -39,7 +41,10 @@ pub trait RuntimeFactors: Sized + 'static {
     /// Initialize the factors with a linker.
     ///
     /// Each factor's `init` is called in turn.
-    fn init(&mut self, linker: &mut Linker<Self>) -> crate::Result<()>;
+    fn init<T: AsMut<Self::InstanceState> + Send + 'static>(
+        &mut self,
+        linker: &mut Linker<T>,
+    ) -> crate::Result<()>;
 
     /// Configure the factors with an app and runtime config.
     fn configure_app(
@@ -76,7 +81,7 @@ pub trait RuntimeFactors: Sized + 'static {
 /// Get the state of a particular Factor from the overall InstanceState
 ///
 /// Implemented by `#[derive(RuntimeFactors)]`
-pub trait RuntimeFactorsInstanceState: Send + 'static {
+pub trait RuntimeFactorsInstanceState: AsMut<Self> + Send + 'static {
     fn get_with_table<F: Factor>(
         &mut self,
     ) -> Option<(&mut FactorInstanceState<F>, &mut ResourceTable)>;

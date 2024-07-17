@@ -7575,10 +7575,14 @@ dependencies = [
  "anyhow",
  "http 1.1.0",
  "spin-factor-outbound-networking",
+ "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors",
+ "spin-factors-test",
  "spin-world",
+ "tokio",
  "tracing",
+ "wasmtime",
  "wasmtime-wasi-http",
 ]
 
@@ -7615,10 +7619,12 @@ dependencies = [
 name = "spin-factor-wasi"
 version = "2.7.0-pre0"
 dependencies = [
+ "async-trait",
  "cap-primitives 3.0.0",
  "spin-factors",
  "spin-factors-test",
  "tokio",
+ "wasmtime",
  "wasmtime-wasi",
 ]
 

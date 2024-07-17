@@ -12,7 +12,13 @@ spin-factor-wasi = { path = "../factor-wasi" }
 spin-factors = { path = "../factors" }
 spin-world = { path = "../world" }
 tracing = { workspace = true }
+wasmtime = { workspace = true }
 wasmtime-wasi-http = { workspace = true }
+
+[dev-dependencies]
+spin-factor-variables = { path = "../factor-variables" }
+spin-factors-test = { path = "../factors-test" }
+tokio = { version = "1", features = ["macros", "rt"] }
 
 [lints]
 workspace = true

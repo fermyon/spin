@@ -84,8 +84,7 @@ async fn smoke_test_works() -> anyhow::Result<()> {
 
     // Invoke handler
     let req = http::Request::get("/").body(Default::default()).unwrap();
-    let mut wasi_http_view =
-        spin_factor_outbound_http::get_wasi_http_view::<Factors>(store.data_mut());
+    let mut wasi_http_view = spin_factor_outbound_http::get_wasi_http_view(store.data_mut());
     let request = wasi_http_view.new_incoming_request(req)?;
     let (response_tx, response_rx) = tokio::sync::oneshot::channel();
     let response = wasi_http_view.new_response_outparam(response_tx)?;

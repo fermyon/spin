@@ -5,9 +5,11 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
+async-trait = "0.1"
 cap-primitives = "3.0.0"
 spin-factors = { path = "../factors" }
 tokio = { version = "1" }
+wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
 
 [dev-dependencies]

@@ -21,10 +21,10 @@ async fn environment_works() -> anyhow::Result<()> {
     let factors = TestFactors {
         wasi: WasiFactor::new(DummyFilesMounter),
     };
-
     let env = test_env();
     let mut state = env.build_instance_state(factors).await?;
     let mut wasi = WasiImpl(&mut state.wasi);
+
     let val = wasi
         .get_environment()?
         .into_iter()

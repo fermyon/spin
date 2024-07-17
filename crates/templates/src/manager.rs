@@ -512,9 +512,57 @@ mod tests {
 
     impl std::ops::Deref for TempManager {
         type Target = TemplateManager;
-    
+
         fn deref(&self) -> &Self::Target {
             &self.manager
+        }
+    }
+
+    // Constructs an options object to control how a template is run, with defaults.
+    // to save repeating the same thing over and over! By default, the options are:
+    // * Create a mew application
+    // * Dummy parameter values to satisfy the HTTP template
+    // * All other flags are false
+    // Use the `rest` callback to modify fields not given in the `name` and `output_path`
+    // arguments. For example, to create a RunOptions with `no_vcs` turned on, do:
+    // `run_options(name, path, |opts| { opts.no_vcs = true; })`
+    fn run_options(
+        name: impl AsRef<str>,
+        output_path: impl AsRef<Path>,
+        rest: impl FnOnce(&mut RunOptions),
+    ) -> RunOptions {
+        let mut options = RunOptions {
+            variant: crate::template::TemplateVariantInfo::NewApplication,
+            name: name.as_ref().to_owned(),
+            output_path: output_path.as_ref().to_owned(),
+            values: dummy_values(),
+            accept_defaults: false,
+            no_vcs: false,
+            allow_overwrite: false,
+        };
+        rest(&mut options);
+        options
+    }
+
+    fn make_values<SK: ToString, SV: ToString>(
+        values: impl IntoIterator<Item = (SK, SV)>,
+    ) -> HashMap<String, String> {
+        values
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    fn dummy_values() -> HashMap<String, String> {
+        make_values([
+            ("project-description", "dummy desc"),
+            ("http-path", "/dummy/dummy/dummy/..."),
+        ])
+    }
+
+    fn add_component_to(manifest_path: impl AsRef<Path>) -> crate::template::TemplateVariantInfo {
+        crate::template::TemplateVariantInfo::AddComponent {
+            manifest_path: manifest_path.as_ref().to_owned(),
         }
     }
 
@@ -524,7 +572,7 @@ mod tests {
     async fn can_install_into_new_directory() {
         let manager = TempManager::new();
         assert_eq!(0, manager.list().await.unwrap().templates.len());
-        
+
         let install_result = manager.install_this_repo_templates().await;
         assert_eq!(TPLS_IN_THIS, install_result.installed.len());
         assert_eq!(0, install_result.skipped.len());
@@ -660,8 +708,7 @@ mod tests {
             manager.list().await.unwrap().templates.len()
         );
 
-        let install_result = manager
-            .install_this_repo_templates().await;
+        let install_result = manager.install_this_repo_templates().await;
         assert_eq!(2, install_result.installed.len());
         assert_eq!(TPLS_IN_THIS - 2, install_result.skipped.len());
 
@@ -722,21 +769,8 @@ mod tests {
 
         let dest_temp_dir = tempdir().unwrap();
         let output_dir = dest_temp_dir.path().join("myproj");
-        let values = [
-            ("project-description".to_owned(), "my desc".to_owned()),
-            ("http-path".to_owned(), "/path/...".to_owned()),
-        ]
-        .into_iter()
-        .collect();
-        let options = RunOptions {
-            variant: crate::template::TemplateVariantInfo::NewApplication,
-            output_path: output_dir.clone(),
-            name: "my project".to_owned(),
-            values,
-            accept_defaults: false,
-            no_vcs: false,
-            allow_overwrite: false,
-        };
+
+        let options = run_options("my project", &output_dir, |_| {});
 
         template.run(options).silent().await.unwrap();
 
@@ -754,16 +788,10 @@ mod tests {
 
         let dest_temp_dir = tempdir().unwrap();
         let output_dir = dest_temp_dir.path().join("myproj");
-        let values = HashMap::new();
-        let options = RunOptions {
-            variant: crate::template::TemplateVariantInfo::NewApplication,
-            output_path: output_dir.clone(),
-            name: "my project".to_owned(),
-            values,
-            accept_defaults: true,
-            no_vcs: false,
-            allow_overwrite: false,
-        };
+        let options = run_options("my project", &output_dir, |opts| {
+            opts.values = HashMap::new();
+            opts.accept_defaults = true;
+        });
 
         template.run(options).silent().await.unwrap();
 
@@ -781,9 +809,7 @@ mod tests {
     async fn cannot_use_custom_filter_in_template() {
         let manager = TempManager::new();
 
-        let install_results = manager
-            .install_test_data_templates()
-            .await;
+        let install_results = manager.install_test_data_templates().await;
 
         assert_eq!(1, install_results.skipped.len());
 
@@ -807,18 +833,9 @@ mod tests {
         {
             let template = manager.get("http-empty").unwrap().unwrap();
 
-            let values = [("project-description".to_owned(), "my desc".to_owned())]
-                .into_iter()
-                .collect();
-            let options = RunOptions {
-                variant: crate::template::TemplateVariantInfo::NewApplication,
-                output_path: application_dir.clone(),
-                name: "my multi project".to_owned(),
-                values,
-                accept_defaults: false,
-                no_vcs: false,
-                allow_overwrite: false,
-            };
+            let options = run_options("my multi project", &application_dir, |opts| {
+                opts.values = make_values([("project-description", "my desc")])
+            });
 
             template.run(options).silent().await.unwrap();
         }
@@ -830,24 +847,9 @@ mod tests {
         {
             let template = manager.get("http-rust").unwrap().unwrap();
 
-            let output_dir = "hello";
-            let values = [
-                ("project-description".to_owned(), "hello".to_owned()),
-                ("http-path".to_owned(), "/hello".to_owned()),
-            ]
-            .into_iter()
-            .collect();
-            let options = RunOptions {
-                variant: crate::template::TemplateVariantInfo::AddComponent {
-                    manifest_path: spin_toml_path.clone(),
-                },
-                output_path: PathBuf::from(output_dir),
-                name: "hello".to_owned(),
-                values,
-                accept_defaults: false,
-                no_vcs: false,
-                allow_overwrite: false,
-            };
+            let options = run_options("hello", "hello", |opts| {
+                opts.variant = add_component_to(&spin_toml_path);
+            });
 
             template.run(options).silent().await.unwrap();
         }
@@ -856,24 +858,9 @@ mod tests {
         {
             let template = manager.get("http-rust").unwrap().unwrap();
 
-            let output_dir = "encore";
-            let values = [
-                ("project-description".to_owned(), "hello 2".to_owned()),
-                ("http-path".to_owned(), "/hello-2".to_owned()),
-            ]
-            .into_iter()
-            .collect();
-            let options = RunOptions {
-                variant: crate::template::TemplateVariantInfo::AddComponent {
-                    manifest_path: spin_toml_path.clone(),
-                },
-                output_path: PathBuf::from(output_dir),
-                name: "hello 2".to_owned(),
-                values,
-                accept_defaults: false,
-                no_vcs: false,
-                allow_overwrite: false,
-            };
+            let options = run_options("hello 2", "encore", |opts| {
+                opts.variant = add_component_to(&spin_toml_path);
+            });
 
             template.run(options).silent().await.unwrap();
         }
@@ -906,21 +893,7 @@ mod tests {
         {
             let template = manager.get("http-rust").unwrap().unwrap();
 
-            let values = [
-                ("project-description".to_owned(), "my desc".to_owned()),
-                ("http-path".to_owned(), "/...".to_owned()),
-            ]
-            .into_iter()
-            .collect();
-            let options = RunOptions {
-                variant: crate::template::TemplateVariantInfo::NewApplication,
-                output_path: application_dir.clone(),
-                name: "my various project".to_owned(),
-                values,
-                accept_defaults: false,
-                no_vcs: false,
-                allow_overwrite: false,
-            };
+            let options = run_options("my various project", &application_dir, |_| {});
 
             template.run(options).silent().await.unwrap();
         }
@@ -932,24 +905,10 @@ mod tests {
         {
             let template = manager.get("add-variables").unwrap().unwrap();
 
-            let output_dir = "hello";
-            let values = [(
-                "service-url".to_owned(),
-                "https://service.example.com".to_owned(),
-            )]
-            .into_iter()
-            .collect();
-            let options = RunOptions {
-                variant: crate::template::TemplateVariantInfo::AddComponent {
-                    manifest_path: spin_toml_path.clone(),
-                },
-                output_path: PathBuf::from(output_dir),
-                name: "insertvars".to_owned(),
-                values,
-                accept_defaults: false,
-                no_vcs: false,
-                allow_overwrite: false,
-            };
+            let options = run_options("insertvars", "hello", |opts| {
+                opts.variant = add_component_to(&spin_toml_path);
+                opts.values = make_values([("service-url", "https://service.example.com")])
+            });
 
             template.run(options).silent().await.unwrap();
         }
@@ -977,21 +936,7 @@ mod tests {
         {
             let template = manager.get("http-rust").unwrap().unwrap();
 
-            let values = [
-                ("project-description".to_owned(), "my desc".to_owned()),
-                ("http-path".to_owned(), "/...".to_owned()),
-            ]
-            .into_iter()
-            .collect();
-            let options = RunOptions {
-                variant: crate::template::TemplateVariantInfo::NewApplication,
-                output_path: application_dir.clone(),
-                name: "my various project".to_owned(),
-                values,
-                accept_defaults: false,
-                no_vcs: false,
-                allow_overwrite: false,
-            };
+            let options = run_options("my various project", &application_dir, |_| {});
 
             template.run(options).silent().await.unwrap();
         }
@@ -1003,24 +948,10 @@ mod tests {
         {
             let template = manager.get("add-variables").unwrap().unwrap();
 
-            let output_dir = "hello";
-            let values = [(
-                "service-url".to_owned(),
-                "https://service.example.com".to_owned(),
-            )]
-            .into_iter()
-            .collect();
-            let options = RunOptions {
-                variant: crate::template::TemplateVariantInfo::AddComponent {
-                    manifest_path: spin_toml_path.clone(),
-                },
-                output_path: PathBuf::from(output_dir),
-                name: "insertvars".to_owned(),
-                values,
-                accept_defaults: false,
-                no_vcs: false,
-                allow_overwrite: false,
-            };
+            let options = run_options("insertvars", "hello", |opts| {
+                opts.variant = add_component_to(&spin_toml_path);
+                opts.values = make_values([("service-url", "https://service.example.com")]);
+            });
 
             template.run(options).silent().await.unwrap();
         }
@@ -1029,24 +960,10 @@ mod tests {
         {
             let template = manager.get("add-variables").unwrap().unwrap();
 
-            let output_dir = "hello";
-            let values = [(
-                "service-url".to_owned(),
-                "https://other.example.com".to_owned(),
-            )]
-            .into_iter()
-            .collect();
-            let options = RunOptions {
-                variant: crate::template::TemplateVariantInfo::AddComponent {
-                    manifest_path: spin_toml_path.clone(),
-                },
-                output_path: PathBuf::from(output_dir),
-                name: "insertvarsagain".to_owned(),
-                values,
-                accept_defaults: false,
-                no_vcs: false,
-                allow_overwrite: false,
-            };
+            let options = run_options("insertvarsagain", "hello", |opts| {
+                opts.variant = add_component_to(&spin_toml_path);
+                opts.values = make_values([("service-url", "https://other.example.com")]);
+            });
 
             template.run(options).silent().await.unwrap();
         }
@@ -1065,22 +982,9 @@ mod tests {
 
         let template = manager.get("http-rust").unwrap().unwrap();
 
-        let values = [
-            ("project-description".to_owned(), "my desc".to_owned()),
-            ("http-path".to_owned(), "/path/...".to_owned()),
-        ]
-        .into_iter()
-        .collect();
-
-        let options = RunOptions {
-            variant: crate::template::TemplateVariantInfo::NewApplication,
-            output_path: application_dir.clone(),
-            name: "no vcs new".to_owned(),
-            values,
-            accept_defaults: false,
-            no_vcs: true,
-            allow_overwrite: false,
-        };
+        let options = run_options("no vcs new", &application_dir, |opts| {
+            opts.no_vcs = true;
+        });
 
         template.run(options).silent().await.unwrap();
         let gitignore = application_dir.join(".gitignore");
@@ -1101,18 +1005,10 @@ mod tests {
         {
             let template = manager.get("http-empty").unwrap().unwrap();
 
-            let values = [("project-description".to_owned(), "my desc".to_owned())]
-                .into_iter()
-                .collect();
-            let options = RunOptions {
-                variant: crate::template::TemplateVariantInfo::NewApplication,
-                output_path: application_dir.clone(),
-                name: "my multi project".to_owned(),
-                values,
-                accept_defaults: false,
-                no_vcs: true,
-                allow_overwrite: false,
-            };
+            let options = run_options("my multi project", &application_dir, |opts| {
+                opts.values = make_values([("project-description", "my desc")]);
+                opts.no_vcs = true;
+            });
 
             template.run(options).silent().await.unwrap();
         }
@@ -1127,26 +1023,10 @@ mod tests {
         {
             let template = manager.get("http-rust").unwrap().unwrap();
 
-            let values = [
-                ("project-description".to_owned(), "my desc".to_owned()),
-                ("http-path".to_owned(), "/path/...".to_owned()),
-            ]
-            .into_iter()
-            .collect();
-
-            let output_dir = "hello";
-
-            let options = RunOptions {
-                variant: crate::template::TemplateVariantInfo::AddComponent {
-                    manifest_path: spin_toml_path.clone(),
-                },
-                output_path: PathBuf::from(output_dir),
-                name: "added_component".to_owned(),
-                values,
-                accept_defaults: false,
-                no_vcs: true,
-                allow_overwrite: false,
-            };
+            let options = run_options("added_component", "hello", |opts| {
+                opts.variant = add_component_to(&spin_toml_path);
+                opts.no_vcs = true;
+            });
             template.run(options).silent().await.unwrap();
         }
 
@@ -1168,28 +1048,13 @@ mod tests {
         {
             let template = manager.get("redis-rust").unwrap().unwrap();
 
-            let values = [
-                ("project-description".to_owned(), "my desc".to_owned()),
-                (
-                    "redis-address".to_owned(),
-                    "redis://localhost:6379".to_owned(),
-                ),
-                (
-                    "redis-channel".to_owned(),
-                    "the-horrible-knuckles".to_owned(),
-                ),
-            ]
-            .into_iter()
-            .collect();
-            let options = RunOptions {
-                variant: crate::template::TemplateVariantInfo::NewApplication,
-                output_path: application_dir.clone(),
-                name: "my multi project".to_owned(),
-                values,
-                accept_defaults: false,
-                no_vcs: false,
-                allow_overwrite: false,
-            };
+            let options = run_options("my multi project", &application_dir, |opts| {
+                opts.values = make_values([
+                    ("project-description", "my desc"),
+                    ("redis-address", "redis://localhost:6379"),
+                    ("redis-channel", "the-horrible-knuckles"),
+                ])
+            });
 
             template.run(options).silent().await.unwrap();
         }
@@ -1201,24 +1066,9 @@ mod tests {
         {
             let template = manager.get("http-rust").unwrap().unwrap();
 
-            let output_dir = "hello";
-            let values = [
-                ("project-description".to_owned(), "hello".to_owned()),
-                ("http-path".to_owned(), "/hello".to_owned()),
-            ]
-            .into_iter()
-            .collect();
-            let options = RunOptions {
-                variant: crate::template::TemplateVariantInfo::AddComponent {
-                    manifest_path: spin_toml_path.clone(),
-                },
-                output_path: PathBuf::from(output_dir),
-                name: "hello".to_owned(),
-                values,
-                accept_defaults: false,
-                no_vcs: false,
-                allow_overwrite: false,
-            };
+            let options = run_options("hello", "hello", |opts| {
+                opts.variant = add_component_to(&spin_toml_path);
+            });
 
             template.run(options).silent().await.unwrap();
         }
@@ -1255,24 +1105,9 @@ mod tests {
         {
             let template = manager.get("http-rust").unwrap().unwrap();
 
-            let output_dir = "hello";
-            let values = [
-                ("project-description".to_owned(), "hello".to_owned()),
-                ("http-path".to_owned(), "/hello".to_owned()),
-            ]
-            .into_iter()
-            .collect();
-            let options = RunOptions {
-                variant: crate::template::TemplateVariantInfo::AddComponent {
-                    manifest_path: spin_toml_path.clone(),
-                },
-                output_path: PathBuf::from(output_dir),
-                name: "hello".to_owned(),
-                values,
-                accept_defaults: false,
-                no_vcs: false,
-                allow_overwrite: false,
-            };
+            let options = run_options("hello", "hello", |opts| {
+                opts.variant = add_component_to(&spin_toml_path);
+            });
 
             template
                 .run(options)
@@ -1295,21 +1130,7 @@ mod tests {
         let manifest_path = output_dir.join("spin.toml");
         tokio::fs::write(&manifest_path, "cookies").await.unwrap();
 
-        let values = [
-            ("project-description".to_owned(), "my desc".to_owned()),
-            ("http-path".to_owned(), "/path/...".to_owned()),
-        ]
-        .into_iter()
-        .collect();
-        let options = RunOptions {
-            variant: crate::template::TemplateVariantInfo::NewApplication,
-            output_path: output_dir.clone(),
-            name: "my project".to_owned(),
-            values,
-            accept_defaults: false,
-            no_vcs: false,
-            allow_overwrite: false,
-        };
+        let options = run_options("my project", &output_dir, |_| {});
 
         template
             .run(options)
@@ -1336,21 +1157,9 @@ mod tests {
         let manifest_path = output_dir.join("spin.toml");
         tokio::fs::write(&manifest_path, "cookies").await.unwrap();
 
-        let values = [
-            ("project-description".to_owned(), "my desc".to_owned()),
-            ("http-path".to_owned(), "/path/...".to_owned()),
-        ]
-        .into_iter()
-        .collect();
-        let options = RunOptions {
-            variant: crate::template::TemplateVariantInfo::NewApplication,
-            output_path: output_dir.clone(),
-            name: "my project".to_owned(),
-            values,
-            accept_defaults: false,
-            no_vcs: false,
-            allow_overwrite: true,
-        };
+        let options = run_options("my project", &output_dir, |opts| {
+            opts.allow_overwrite = true;
+        });
 
         template
             .run(options)
@@ -1396,18 +1205,9 @@ mod tests {
 
         let dest_temp_dir = tempdir().unwrap();
         let output_dir = dest_temp_dir.path().join("myproj");
-        let values = [("p1".to_owned(), "biscuits".to_owned())]
-            .into_iter()
-            .collect();
-        let options = RunOptions {
-            variant: crate::template::TemplateVariantInfo::NewApplication,
-            output_path: output_dir.clone(),
-            name: "bad-filter-should-fail".to_owned(),
-            values,
-            accept_defaults: false,
-            no_vcs: false,
-            allow_overwrite: false,
-        };
+        let options = run_options("bad-filter-should-fail", &output_dir, move |opts| {
+            opts.values = make_values([("p1", "biscuits")]);
+        });
 
         let err = template
             .run(options)

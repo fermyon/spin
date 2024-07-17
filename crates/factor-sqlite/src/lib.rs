@@ -68,24 +68,31 @@ impl Factor for SqliteFactor {
             .map(|component| {
                 Ok((
                     component.id().to_string(),
-                    component
-                        .get_metadata(ALLOWED_DATABASES_KEY)?
-                        .unwrap_or_default()
-                        .into_iter()
-                        .collect::<HashSet<_>>()
-                        .into(),
+                    Arc::new(
+                        component
+                            .get_metadata(ALLOWED_DATABASES_KEY)?
+                            .unwrap_or_default()
+                            .into_iter()
+                            .collect::<HashSet<_>>(),
+                    ),
                 ))
             })
-            .collect::<anyhow::Result<_>>()?;
+            .collect::<anyhow::Result<HashMap<_, _>>>()?;
         let resolver = self.runtime_config_resolver.clone();
+        let get_connection_pool: host::ConnectionPoolGetter = Arc::new(move |label| {
+            connection_pools
+                .get(label)
+                .cloned()
+                .or_else(|| resolver.default(label))
+        });
+
+        ensure_allowed_databases_are_configured(&allowed_databases, |label| {
+            get_connection_pool(label).is_some()
+        })?;
+
         Ok(AppState {
             allowed_databases,
-            get_connection_pool: Arc::new(move |label| {
-                connection_pools
-                    .get(label)
-                    .cloned()
-                    .or_else(|| resolver.default(label))
-            }),
+            get_connection_pool,
         })
     }
 
@@ -103,6 +110,39 @@ impl Factor for SqliteFactor {
         let get_connection_pool = ctx.app_state().get_connection_pool.clone();
         Ok(InstanceState::new(allowed_databases, get_connection_pool))
     }
+}
+
+/// Ensure that all the databases in the allowed databases list for each component are configured
+fn ensure_allowed_databases_are_configured(
+    allowed_databases: &HashMap<String, Arc<HashSet<String>>>,
+    is_configured: impl Fn(&str) -> bool,
+) -> anyhow::Result<()> {
+    let mut errors = Vec::new();
+    for (component_id, allowed_dbs) in allowed_databases {
+        for allowed in allowed_dbs.iter() {
+            if !is_configured(allowed) {
+                errors.push(format!(
+                    "- Component {component_id} uses database '{allowed}'"
+                ));
+            }
+        }
+    }
+
+    if !errors.is_empty() {
+        let prologue = vec![
+            "One or more components use SQLite databases which are not defined.",
+            "Check the spelling, or pass a runtime configuration file that defines these stores.",
+            "See https://developer.fermyon.com/spin/dynamic-configuration#sqlite-storage-runtime-configuration",
+            "Details:",
+        ];
+        let lines: Vec<_> = prologue
+            .into_iter()
+            .map(|s| s.to_owned())
+            .chain(errors)
+            .collect();
+        return Err(anyhow::anyhow!(lines.join("\n")));
+    }
+    Ok(())
 }
 
 pub const ALLOWED_DATABASES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("databases");

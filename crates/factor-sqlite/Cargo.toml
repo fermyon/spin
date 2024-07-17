@@ -15,11 +15,24 @@ spin-factors = { path = "../factors" }
 spin-locked-app = { path = "../locked-app" }
 spin-world = { path = "../world" }
 table = { path = "../table" }
+tokio = "1"
 toml = "0.8"
+spin-sqlite = { path = "../sqlite", optional = true }
+spin-sqlite-inproc = { path = "../sqlite-inproc", optional = true }
+spin-sqlite-libsql = { path = "../sqlite-libsql", optional = true }
 
 [dev-dependencies]
 spin-factors-test = { path = "../factors-test" }
 tokio = { version = "1", features = ["macros", "rt"] }
+
+[features]
+default = ["spin-cli"]
+# Includes the runtime configuration handling used by the Spin CLI
+spin-cli = [
+    "dep:spin-sqlite",
+    "dep:spin-sqlite-inproc",
+    "dep:spin-sqlite-libsql",
+]
 
 [lints]
 workspace = true

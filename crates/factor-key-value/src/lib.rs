@@ -1,5 +1,5 @@
 mod runtime_config;
-pub mod spin_cli_resolver;
+pub mod delegating_resolver;
 mod store;
 
 use std::{
@@ -14,8 +14,8 @@ use spin_factors::{
     PrepareContext, RuntimeFactors,
 };
 use spin_key_value::{
-    CachingStoreManager, DelegatingStoreManager, DefaultManagerGetter, KeyValueDispatch, StoreManager,
-    KEY_VALUE_STORES_KEY,
+    CachingStoreManager, DefaultManagerGetter, DelegatingStoreManager, KeyValueDispatch,
+    StoreManager, KEY_VALUE_STORES_KEY,
 };
 pub use store::MakeKeyValueStore;
 
@@ -70,7 +70,7 @@ impl Factor for KeyValueFactor {
         }
         let resolver_clone = self.runtime_config_resolver.clone();
         let default_fn: DefaultManagerGetter =
-            Arc::new(move |label| resolver_clone.default(label));
+            Arc::new(move |label| resolver_clone.default_store(label));
 
         let delegating_manager = DelegatingStoreManager::new(store_managers, default_fn);
         let caching_manager = CachingStoreManager::new(delegating_manager);
@@ -89,7 +89,7 @@ impl Factor for KeyValueFactor {
                 // TODO: port nicer errors from KeyValueComponent (via error type?)
                 ensure!(
                     store_manager_manager.is_defined(label)
-                        || self.runtime_config_resolver.default(label).is_some(),
+                        || self.runtime_config_resolver.default_store(label).is_some(),
                     "unknown key_value_stores label {label:?} for component {component_id:?}"
                 );
             }

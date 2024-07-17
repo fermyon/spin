@@ -4,11 +4,29 @@ use spin_key_value::StoreManager;
 use std::{collections::HashMap, sync::Arc};
 
 #[derive(Default)]
-pub struct SpinCliRuntimeConfigResolver {
+pub struct DelegatingRuntimeConfigResolver {
     store_types: HashMap<&'static str, StoreFromToml>,
+    defaults: HashMap<&'static str, StoreConfig>,
 }
 
-impl SpinCliRuntimeConfigResolver {
+type StoreConfig = (&'static str, toml::value::Table);
+
+impl DelegatingRuntimeConfigResolver {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn add_default_store(
+        &mut self,
+        label: &'static str,
+        store_kind: &'static str,
+        config: toml::value::Table,
+    ) {
+        self.defaults.insert(label, (store_kind, config));
+    }
+}
+
+impl DelegatingRuntimeConfigResolver {
     pub fn add_store_type<T: MakeKeyValueStore>(&mut self, store_type: T) -> anyhow::Result<()> {
         if self
             .store_types
@@ -24,7 +42,7 @@ impl SpinCliRuntimeConfigResolver {
     }
 }
 
-impl RuntimeConfigResolver for SpinCliRuntimeConfigResolver {
+impl RuntimeConfigResolver for DelegatingRuntimeConfigResolver {
     fn get_store(
         &self,
         store_kind: &str,
@@ -37,11 +55,8 @@ impl RuntimeConfigResolver for SpinCliRuntimeConfigResolver {
         store_from_toml(config)
     }
 
-    fn default(&self, label: &str) -> Option<Arc<dyn StoreManager>> {
-        if label == "default" {
-            self.get_store("spin", toml::value::Table::new()).ok()
-        } else {
-            None
-        }
+    fn default_store(&self, label: &str) -> Option<Arc<dyn StoreManager>> {
+        let (store_kind, config) = self.defaults.get(label)?;
+        self.get_store(store_kind, config.to_owned()).ok()
     }
 }

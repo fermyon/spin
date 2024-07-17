@@ -4,7 +4,9 @@ use anyhow::{bail, Context};
 use http_body_util::BodyExt;
 use serde::Deserialize;
 use spin_app::App;
-use spin_factor_key_value::{KeyValueFactor, MakeKeyValueStore, spin_cli_resolver::SpinCliRuntimeConfigResolver};
+use spin_factor_key_value::{
+    delegating_resolver::DelegatingRuntimeConfigResolver, KeyValueFactor, MakeKeyValueStore,
+};
 use spin_factor_key_value_redis::RedisKeyValueStore;
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
@@ -25,7 +27,8 @@ struct Factors {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn smoke_test_works() -> anyhow::Result<()> {
-    let mut key_value_resolver = SpinCliRuntimeConfigResolver::default();
+    let mut key_value_resolver = DelegatingRuntimeConfigResolver::default();
+    key_value_resolver.add_default_store("default", "spin", toml::value::Table::new());
     key_value_resolver.add_store_type(TestSpinKeyValueStore)?;
     key_value_resolver.add_store_type(RedisKeyValueStore)?;
 

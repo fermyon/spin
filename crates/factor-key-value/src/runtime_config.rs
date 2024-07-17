@@ -38,5 +38,5 @@ pub trait RuntimeConfigResolver: Send + Sync {
     /// if there is no runtime configuration for the label.
     ///
     /// If `Option::None` is returned, the database is not allowed.
-    fn default(&self, label: &str) -> Option<Arc<dyn StoreManager>>;
+    fn default_store(&self, label: &str) -> Option<Arc<dyn StoreManager>>;
 }

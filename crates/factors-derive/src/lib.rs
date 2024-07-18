@@ -77,18 +77,20 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             type InstanceBuilders = #builders_name;
             type InstanceState = #state_name;
 
-            #[allow(clippy::needless_option_as_deref)]
-            fn init(
+            fn init<T: AsMut<Self::InstanceState> + Send + 'static>(
                 &mut self,
-                linker: &mut #wasmtime::component::Linker<#state_name>,
+                linker: &mut #wasmtime::component::Linker<T>,
             ) -> #Result<()> {
                 #(
-                    #Factor::init::<Self>(
+                    #Factor::init::<T>(
                         &mut self.#factor_names,
-                        #factors_path::InitContext::<Self, #factor_types>::new(
+                        #factors_path::InitContext::<T, #factor_types>::new(
                             linker,
-                            |state| &mut state.#factor_names,
-                            |state| (&mut state.#factor_names, &mut state.__table),
+                            |data| &mut data.as_mut().#factor_names,
+                            |data| {
+                                let state = data.as_mut();
+                                (&mut state.#factor_names, &mut state.__table)
+                            },
                         )
                     ).map_err(#Error::factor_init_error::<#factor_types>)?;
                 )*
@@ -224,6 +226,12 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
 
             fn table_mut(&mut self) -> &mut #ResourceTable {
                 &mut self.__table
+            }
+        }
+
+        impl AsMut<#state_name> for #state_name {
+            fn as_mut(&mut self) -> &mut Self {
+                self
             }
         }
     })

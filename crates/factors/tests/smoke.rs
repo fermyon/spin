@@ -23,6 +23,17 @@ struct Factors {
     key_value: KeyValueFactor,
 }
 
+struct Data {
+    factors_instance_state: FactorsInstanceState,
+    _other_data: usize,
+}
+
+impl AsMut<FactorsInstanceState> for Data {
+    fn as_mut(&mut self) -> &mut FactorsInstanceState {
+        &mut self.factors_instance_state
+    }
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn smoke_test_works() -> anyhow::Result<()> {
     let mut factors = Factors {
@@ -50,20 +61,26 @@ async fn smoke_test_works() -> anyhow::Result<()> {
     let engine = wasmtime::Engine::new(wasmtime::Config::new().async_support(true))?;
     let mut linker = wasmtime::component::Linker::new(&engine);
 
-    factors.init(&mut linker).unwrap();
+    factors.init::<Data>(&mut linker).unwrap();
 
     let configured_app = factors.configure_app(app, TestSource)?;
     let builders = factors.prepare(&configured_app, "smoke-app")?;
-    let data = factors.build_instance_state(builders)?;
+    let state = factors.build_instance_state(builders)?;
 
     assert_eq!(
-        data.variables
+        state
+            .variables
             .resolver()
             .resolve("smoke-app", "other".try_into().unwrap())
             .await
             .unwrap(),
         "<other value>"
     );
+
+    let data = Data {
+        factors_instance_state: state,
+        _other_data: 1,
+    };
 
     let mut store = wasmtime::Store::new(&engine, data);
 
@@ -84,7 +101,7 @@ async fn smoke_test_works() -> anyhow::Result<()> {
 
     // Invoke handler
     let req = http::Request::get("/").body(Default::default()).unwrap();
-    let mut wasi_http = OutboundHttpFactor::get_wasi_http_impl(store.data_mut()).unwrap();
+    let mut wasi_http = OutboundHttpFactor::get_wasi_http_impl(store.data_mut().as_mut()).unwrap();
     let request = wasi_http.new_incoming_request(req)?;
     let (response_tx, response_rx) = tokio::sync::oneshot::channel();
     let response = wasi_http.new_response_outparam(response_tx)?;

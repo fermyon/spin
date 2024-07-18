@@ -1,14 +1,12 @@
 use http::Request;
-use spin_factors::{
-    wasmtime::component::ResourceTable, RuntimeFactors, RuntimeFactorsInstanceState,
-};
+use spin_factors::{wasmtime::component::ResourceTable, RuntimeFactorsInstanceState};
 use wasmtime_wasi_http::{
     bindings::http::types::ErrorCode, WasiHttpCtx, WasiHttpImpl, WasiHttpView,
 };
 
 use crate::{wasi_2023_10_18, wasi_2023_11_10, OutboundHttpFactor};
 
-pub(crate) fn add_to_linker<T: RuntimeFactors>(
+pub(crate) fn add_to_linker<T: Send + 'static>(
     ctx: &mut spin_factors::InitContext<T, OutboundHttpFactor>,
 ) -> anyhow::Result<()> {
     fn type_annotate<T, F>(f: F) -> F

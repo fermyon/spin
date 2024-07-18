@@ -2,8 +2,8 @@ use spin_app::locked::LockedApp;
 use spin_factors::{
     anyhow::{self, Context},
     serde::de::DeserializeOwned,
-    wasmtime::{Config, Engine},
-    App, Linker, RuntimeConfigSource, RuntimeFactors,
+    wasmtime::{component::Linker, Config, Engine},
+    App, RuntimeConfigSource, RuntimeFactors,
 };
 use spin_loader::FilesMountStrategy;
 
@@ -57,8 +57,8 @@ impl TestEnvironment {
         &self,
         mut factors: T,
     ) -> anyhow::Result<T::InstanceState> {
-        let mut linker = Self::new_linker::<T>();
-        factors.init(&mut linker)?;
+        let mut linker = Self::new_linker::<T::InstanceState>();
+        factors.init::<T::InstanceState>(&mut linker)?;
 
         let locked_app = self
             .build_locked_app()
@@ -77,7 +77,7 @@ impl TestEnvironment {
         Ok(factors.build_instance_state(builders)?)
     }
 
-    pub fn new_linker<T: RuntimeFactors>() -> Linker<T> {
+    pub fn new_linker<T>() -> Linker<T> {
         let engine = Engine::new(Config::new().async_support(true))
             .expect("wasmtime engine failed to initialize");
         Linker::<T>::new(&engine)

@@ -43,9 +43,9 @@ impl Factor for WasiFactor {
     type AppState = ();
     type InstanceBuilder = InstanceBuilder;
 
-    fn init<Factors: RuntimeFactors>(
+    fn init<T: Send + 'static>(
         &mut self,
-        mut ctx: InitContext<Factors, Self>,
+        mut ctx: InitContext<T, Self>,
     ) -> anyhow::Result<()> {
         fn type_annotate<T, F>(f: F) -> F
         where

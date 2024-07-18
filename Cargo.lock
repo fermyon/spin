@@ -7572,6 +7572,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin-factor-key-value-spin"
+version = "2.7.0-pre0"
+dependencies = [
+ "anyhow",
+ "serde 1.0.197",
+ "spin-factor-key-value",
+ "spin-key-value-sqlite",
+]
+
+[[package]]
 name = "spin-factor-outbound-http"
 version = "2.7.0-pre0"
 dependencies = [
@@ -7664,12 +7674,12 @@ dependencies = [
  "spin-componentize",
  "spin-factor-key-value",
  "spin-factor-key-value-redis",
+ "spin-factor-key-value-spin",
  "spin-factor-outbound-http",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
  "spin-factor-wasi",
  "spin-factors-derive",
- "spin-key-value-sqlite",
  "spin-loader",
  "thiserror",
  "tokio",

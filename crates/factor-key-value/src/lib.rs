@@ -1,3 +1,5 @@
+pub mod delegating_resolver;
+mod runtime_config;
 mod store;
 
 use std::{
@@ -5,47 +7,29 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{bail, ensure};
-use serde::Deserialize;
+use anyhow::ensure;
+use runtime_config::RuntimeConfig;
 use spin_factors::{
-    anyhow::{self, Context},
-    ConfigureAppContext, Factor, FactorInstanceBuilder, FactorRuntimeConfig, InitContext,
-    InstanceBuilders, PrepareContext, RuntimeFactors,
+    ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
+    PrepareContext, RuntimeFactors,
 };
 use spin_key_value::{
-    CachingStoreManager, DelegatingStoreManager, KeyValueDispatch, StoreManager,
-    KEY_VALUE_STORES_KEY,
+    CachingStoreManager, DefaultManagerGetter, DelegatingStoreManager, KeyValueDispatch,
+    StoreManager, KEY_VALUE_STORES_KEY,
 };
-use store::{store_from_toml_fn, StoreFromToml};
-
 pub use store::MakeKeyValueStore;
 
 pub struct KeyValueFactor {
-    store_types: HashMap<&'static str, StoreFromToml>,
-    default_store_type: &'static str,
+    runtime_config_resolver: Arc<dyn runtime_config::RuntimeConfigResolver>,
 }
 
-impl Default for KeyValueFactor {
-    fn default() -> KeyValueFactor {
-        KeyValueFactor {
-            store_types: HashMap::default(),
-            default_store_type: "spin",
-        }
-    }
-}
 impl KeyValueFactor {
-    pub fn add_store_type<T: MakeKeyValueStore>(&mut self, store_type: T) -> anyhow::Result<()> {
-        if self
-            .store_types
-            .insert(T::RUNTIME_CONFIG_TYPE, store_from_toml_fn(store_type))
-            .is_some()
-        {
-            bail!(
-                "duplicate key value store type {:?}",
-                T::RUNTIME_CONFIG_TYPE
-            );
+    pub fn new(
+        runtime_config_resolver: impl runtime_config::RuntimeConfigResolver + 'static,
+    ) -> Self {
+        Self {
+            runtime_config_resolver: Arc::new(runtime_config_resolver),
         }
-        Ok(())
     }
 }
 
@@ -65,37 +49,29 @@ impl Factor for KeyValueFactor {
         mut ctx: ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState> {
         // Build StoreManager from runtime config
-        let mut stores = HashMap::new();
-        let mut add_default_store = true;
+        let mut store_managers: HashMap<String, Arc<dyn StoreManager>> = HashMap::new();
         if let Some(runtime_config) = ctx.take_runtime_config() {
-            for (label, StoreConfig { type_, config }) in runtime_config.store_configs {
-                if label == "default" {
-                    add_default_store = false;
-                }
-                let store_maker = self
-                    .store_types
-                    .get(type_.as_str())
-                    .with_context(|| format!("unknown key value store type {type_:?}"))?;
-                let store = store_maker(config)?;
-                stores.insert(label, store);
+            for (
+                store_label,
+                runtime_config::StoreConfig {
+                    type_: store_kind,
+                    config,
+                },
+            ) in runtime_config.store_configs
+            {
+                let store = self
+                    .runtime_config_resolver
+                    .get_store(&store_kind, config)?;
+                store_managers.insert(store_label, store);
             }
         }
-        if add_default_store {
-            let store_maker = self
-                .store_types
-                .get(self.default_store_type)
-                .with_context(|| {
-                    format!(
-                        "default key value store {} does not exist",
-                        self.default_store_type
-                    )
-                })?;
-            let store = store_maker(toml::value::Table::new())?;
-            stores.insert("default".to_string(), store);
-        }
-        let delegating_manager = DelegatingStoreManager::new(stores);
+        let resolver_clone = self.runtime_config_resolver.clone();
+        let default_fn: DefaultManagerGetter =
+            Arc::new(move |label| resolver_clone.default_store(label));
+
+        let delegating_manager = DelegatingStoreManager::new(store_managers, default_fn);
         let caching_manager = CachingStoreManager::new(delegating_manager);
-        let store_manager = Arc::new(caching_manager);
+        let store_manager_manager = Arc::new(caching_manager);
 
         // Build component -> allowed stores map
         let mut component_allowed_stores = HashMap::new();
@@ -109,7 +85,8 @@ impl Factor for KeyValueFactor {
             for label in &key_value_stores {
                 // TODO: port nicer errors from KeyValueComponent (via error type?)
                 ensure!(
-                    store_manager.is_defined(label),
+                    store_manager_manager.is_defined(label)
+                        || self.runtime_config_resolver.default_store(label).is_some(),
                     "unknown key_value_stores label {label:?} for component {component_id:?}"
                 );
             }
@@ -118,7 +95,7 @@ impl Factor for KeyValueFactor {
         }
 
         Ok(AppState {
-            store_manager,
+            store_manager: store_manager_manager,
             component_allowed_stores,
         })
     }
@@ -139,24 +116,6 @@ impl Factor for KeyValueFactor {
             allowed_stores,
         })
     }
-}
-
-#[derive(Deserialize)]
-#[serde(transparent)]
-pub struct RuntimeConfig {
-    store_configs: HashMap<String, StoreConfig>,
-}
-
-impl FactorRuntimeConfig for RuntimeConfig {
-    const KEY: &'static str = "key_value_store";
-}
-
-#[derive(Deserialize)]
-struct StoreConfig {
-    #[serde(rename = "type")]
-    type_: String,
-    #[serde(flatten)]
-    config: toml::Table,
 }
 
 type AppStoreManager = CachingStoreManager<DelegatingStoreManager>;

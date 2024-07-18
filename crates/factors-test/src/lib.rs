@@ -58,13 +58,13 @@ impl TestEnvironment {
         mut factors: T,
     ) -> anyhow::Result<T::InstanceState> {
         let mut linker = Self::new_linker::<T::InstanceState>();
-        factors.init::<T::InstanceState>(&mut linker)?;
+        factors.init(&mut linker)?;
 
         let locked_app = self
             .build_locked_app()
             .await
             .context("failed to build locked app")?;
-        let app = App::inert(locked_app);
+        let app = App::new("test-app", locked_app);
         let runtime_config = TomlRuntimeConfig(&self.runtime_config);
         let configured_app = factors.configure_app(app, runtime_config)?;
 

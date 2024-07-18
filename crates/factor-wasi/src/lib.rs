@@ -3,9 +3,10 @@ mod wasi_2023_11_10;
 
 use std::{future::Future, net::SocketAddr, path::Path};
 
+use spin_app::AppComponent;
 use spin_factors::{
-    anyhow, AppComponent, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
-    PrepareContext, RuntimeFactors, RuntimeFactorsInstanceState,
+    anyhow, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders, PrepareContext,
+    RuntimeFactors, RuntimeFactorsInstanceState,
 };
 use tokio::io::{AsyncRead, AsyncWrite};
 use wasmtime_wasi::{
@@ -43,10 +44,7 @@ impl Factor for WasiFactor {
     type AppState = ();
     type InstanceBuilder = InstanceBuilder;
 
-    fn init<T: Send + 'static>(
-        &mut self,
-        mut ctx: InitContext<T, Self>,
-    ) -> anyhow::Result<()> {
+    fn init<T: Send + 'static>(&mut self, mut ctx: InitContext<T, Self>) -> anyhow::Result<()> {
         fn type_annotate<T, F>(f: F) -> F
         where
             F: Fn(&mut T) -> WasiImpl<WasiImplInner>,

@@ -1,6 +1,8 @@
 use std::any::Any;
 
-use crate::{AppComponent, Error, Factor, RuntimeFactors};
+use spin_app::AppComponent;
+
+use crate::{Error, Factor, RuntimeFactors};
 
 /// A builder for a [`Factor`]'s per instance state.
 pub trait FactorInstanceBuilder: Any {

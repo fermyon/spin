@@ -7341,10 +7341,8 @@ version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
- "ouroboros",
  "serde 1.0.197",
  "serde_json",
- "spin-core",
  "spin-locked-app",
  "spin-serde",
  "thiserror",
@@ -7493,24 +7491,17 @@ version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
- "bytes",
- "cap-primitives 3.0.0",
- "cap-std 3.0.0",
  "crossbeam-channel",
- "futures",
- "http 1.1.0",
- "io-extras",
- "rustix 0.37.27",
+ "serde_json",
  "spin-componentize",
- "spin-telemetry",
- "system-interface",
- "tempfile",
+ "spin-factor-wasi",
+ "spin-factors",
+ "spin-factors-test",
+ "spin-locked-app",
  "tokio",
  "tracing",
- "wasi-common",
  "wasmtime",
  "wasmtime-wasi",
- "wasmtime-wasi-http",
 ]
 
 [[package]]
@@ -7672,6 +7663,7 @@ version = "2.7.0-pre0"
 dependencies = [
  "async-trait",
  "cap-primitives 3.0.0",
+ "spin-app",
  "spin-factors",
  "spin-factors-test",
  "tokio",

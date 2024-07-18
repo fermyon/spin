@@ -69,7 +69,7 @@ async fn smoke_test_works() -> anyhow::Result<()> {
     let engine = wasmtime::Engine::new(wasmtime::Config::new().async_support(true))?;
     let mut linker = wasmtime::component::Linker::new(&engine);
 
-    factors.init::<Data>(&mut linker).unwrap();
+    factors.init(&mut linker).unwrap();
 
     let configured_app = factors.configure_app(app, TestSource)?;
     let builders = factors.prepare(&configured_app, "smoke-app")?;

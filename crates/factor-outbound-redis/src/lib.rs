@@ -6,7 +6,6 @@ use spin_factors::{
     anyhow, ConfigureAppContext, Factor, InstanceBuilders, PrepareContext, RuntimeFactors,
     SelfInstanceBuilder,
 };
-use std::marker::Send;
 pub struct OutboundRedisFactor;
 
 impl Factor for OutboundRedisFactor {

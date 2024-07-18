@@ -25,9 +25,12 @@ pub trait Factor: Any + Sized {
 
     /// Initializes this `Factor` for a runtime once at runtime startup.
     ///
-    /// This will be called at most once, before any call to [`FactorInstanceBuilder::new`].
-    /// `InitContext` provides access to a wasmtime `Linker`, so this is where any bindgen
-    /// `add_to_linker` calls go.
+    /// This will be called at most once, before any call to
+    /// [`Factor::prepare`]. `InitContext` provides access to a wasmtime
+    /// `Linker`, so this is where any bindgen `add_to_linker` calls go.
+    ///
+    /// The type parameter `T` here is the same as the [`wasmtime::Store`] type
+    /// parameter `T`, which will contain the [`RuntimeFactors::InstanceState`].
     fn init<T: Send + 'static>(&mut self, mut ctx: InitContext<T, Self>) -> anyhow::Result<()> {
         _ = &mut ctx;
         Ok(())

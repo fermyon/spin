@@ -38,15 +38,16 @@ pub trait RuntimeFactors: Sized + 'static {
     /// The collection of all the `InstanceBuilder`s of the factors.
     type InstanceBuilders;
 
-    /// Initialize the factors with a linker.
+    /// Initialize the factors with the given linker.
     ///
-    /// Each factor's `init` is called in turn.
+    /// Each factor's `init` is called in turn. Must be called once before
+    /// [`RuntimeFactors::prepare`].
     fn init<T: AsMut<Self::InstanceState> + Send + 'static>(
         &mut self,
         linker: &mut Linker<T>,
     ) -> crate::Result<()>;
 
-    /// Configure the factors with an app and runtime config.
+    /// Configure the factors with the given app and runtime config.
     fn configure_app(
         &self,
         app: App,

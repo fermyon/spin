@@ -1496,7 +1496,7 @@ dependencies = [
 [[package]]
 name = "conformance-tests"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/conformance-tests?branch=main#db0ee32a825561d35f884a246e1d390134d78823"
+source = "git+https://github.com/fermyon/conformance-tests?branch=main#e846bcebdaaccb317e46387de4dbbc2e39a7199d"
 dependencies = [
  "anyhow",
  "flate2",
@@ -3355,7 +3355,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.6",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -5943,7 +5943,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80b776a1b2dc779f5ee0641f8ade0125bc1298dd41a9a0c16d8bd57b42d222b1"
 dependencies = [
  "bytes",
- "heck 0.5.0",
+ "heck 0.4.1",
  "itertools 0.12.1",
  "log",
  "multimap",
@@ -8318,7 +8318,7 @@ dependencies = [
 [[package]]
 name = "test-environment"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/conformance-tests?branch=main#db0ee32a825561d35f884a246e1d390134d78823"
+source = "git+https://github.com/fermyon/conformance-tests?branch=main#e846bcebdaaccb317e46387de4dbbc2e39a7199d"
 dependencies = [
  "anyhow",
  "fslock",
@@ -8950,7 +8950,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 

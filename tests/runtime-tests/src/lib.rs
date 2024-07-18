@@ -271,7 +271,12 @@ impl<R> RuntimeTest<R> {
 
 fn services_config<R>(config: &RuntimeTestConfig<R>) -> anyhow::Result<ServicesConfig> {
     let required_services = required_services(&config.test_path)?;
-    let services_config = ServicesConfig::new(required_services)?;
+    let services_config = ServicesConfig::new(
+        required_services
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+    )?;
     Ok(services_config)
 }
 

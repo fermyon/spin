@@ -1,4 +1,4 @@
-# TODO: remove after factors branch passes regular CI
+# TODO(factors): remove after factors branch passes regular CI
 name: Factors
 on:
   push:

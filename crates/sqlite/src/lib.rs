@@ -1,4 +1,4 @@
-// TODO: Code left for reference; remove after migration to factors
+// TODO(factors): Code left for reference; remove after migration to factors
 // mod host_component;
 
 use spin_app::MetadataKey;

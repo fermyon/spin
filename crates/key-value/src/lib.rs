@@ -5,7 +5,7 @@ use spin_world::v2::key_value;
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
 
-// TODO: Code left for reference; remove after migration to factors
+// TODO(factors): Code left for reference; remove after migration to factors
 // mod host_component;
 mod util;
 

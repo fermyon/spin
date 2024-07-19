@@ -7,7 +7,6 @@ edition = { workspace = true }
 [dependencies]
 async-trait = "0.1"
 cap-primitives = "3.0.0"
-spin-app = { path = "../app" }
 spin-factors = { path = "../factors" }
 tokio = { version = "1" }
 wasmtime = { workspace = true }

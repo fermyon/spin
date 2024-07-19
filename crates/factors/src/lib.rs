@@ -7,7 +7,7 @@ pub use anyhow;
 pub use serde;
 pub use wasmtime;
 
-pub use spin_app::App;
+pub use spin_app::{App, AppComponent};
 pub use spin_factors_derive::RuntimeFactors;
 
 pub use crate::{
@@ -17,7 +17,7 @@ pub use crate::{
     runtime_factors::{RuntimeFactors, RuntimeFactorsInstanceState},
 };
 
-// Temporary wrappers while refactoring
+/// Result wrapper type defaulting to use [`Error`].
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, thiserror::Error)]

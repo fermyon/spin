@@ -3,10 +3,9 @@ mod wasi_2023_11_10;
 
 use std::{future::Future, net::SocketAddr, path::Path};
 
-use spin_app::AppComponent;
 use spin_factors::{
-    anyhow, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders, PrepareContext,
-    RuntimeFactors, RuntimeFactorsInstanceState,
+    anyhow, AppComponent, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
+    PrepareContext, RuntimeFactors, RuntimeFactorsInstanceState,
 };
 use tokio::io::{AsyncRead, AsyncWrite};
 use wasmtime_wasi::{

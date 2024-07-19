@@ -52,11 +52,15 @@ impl DelegatingStoreManager {
 #[async_trait]
 impl StoreManager for DelegatingStoreManager {
     async fn get(&self, name: &str) -> Result<Arc<dyn Store>, Error> {
-        let store = match self.delegates.get(name) {
-            Some(store) => store,
-            None => &(self.default_manager)(name).ok_or(Error::NoSuchStore)?,
-        };
-        store.get(name).await
+        match self.delegates.get(name) {
+            Some(store) => store.get(name).await,
+            None => {
+                (self.default_manager)(name)
+                    .ok_or(Error::NoSuchStore)?
+                    .get(name)
+                    .await
+            }
+        }
     }
 
     fn is_defined(&self, store_name: &str) -> bool {

@@ -1,0 +1,20 @@
+# TODO(factors): remove after factors branch passes regular CI
+name: Factors
+on:
+  push:
+    branches: ["factors"]
+  pull_request:
+    branches: ["factors"]
+jobs:
+  factors-tests:
+    runs-on: ubuntu-22.04-4core-spin
+    steps:
+      - uses: actions/checkout@v3
+      - name: setup dependencies
+        uses: ./.github/actions/spin-ci-dependencies
+        with:
+          rust: true
+          rust-wasm: true
+          rust-cache: true
+      - name: Run factors tests
+        run: ./run-factors-tests.sh

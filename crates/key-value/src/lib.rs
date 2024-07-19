@@ -5,10 +5,10 @@ use spin_world::v2::key_value;
 use std::{collections::HashSet, sync::Arc};
 use table::Table;
 
-mod host_component;
+// TODO(factors): Code left for reference; remove after migration to factors
+// mod host_component;
 mod util;
 
-pub use host_component::{manager, KeyValueComponent};
 pub use util::{
     CachingStoreManager, DefaultManagerGetter, DelegatingStoreManager, EmptyStoreManager,
 };

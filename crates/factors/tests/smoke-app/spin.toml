@@ -15,11 +15,7 @@ route = "/..."
 component = "smoke-app"
 
 [component.smoke-app]
-source = "target/wasm32-wasi/release/smoke_app.wasm"
+source = "smoke_app.wasm"
 allowed_outbound_hosts = ["https://{{ host }}"]
 key_value_stores = ["default"]
 variables = { "other" = "<{{ other }}>"}
-
-[component.smoke-app.build]
-command = "cargo build --target wasm32-wasi --release"
-watch = ["src/**/*.rs", "Cargo.toml"]

@@ -7631,6 +7631,7 @@ name = "spin-factors"
 version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
+ "cargo-target-dep",
  "http 1.1.0",
  "http-body-util",
  "serde 1.0.197",

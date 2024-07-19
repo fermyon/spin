@@ -5,11 +5,6 @@
 
 use std::time::Duration;
 
-wit_bindgen::generate!({
-    world: "multiplier",
-    path: "wit/multiplier.wit"
-});
-
 type Result = std::result::Result<(), Box<dyn std::error::Error>>;
 
 fn main() -> Result {
@@ -43,12 +38,6 @@ fn main() -> Result {
             let path = args.next().expect("path");
             eprintln!("write {path}");
             std::fs::write(path, "content")?;
-        }
-        "multiply" => {
-            let input: i32 = args.next().expect("input").parse().expect("i32");
-            eprintln!("multiply {input}");
-            let output = imports::multiply(input);
-            println!("{output}");
         }
         "sleep" => {
             let duration =

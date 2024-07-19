@@ -64,7 +64,7 @@ async fn smoke_test_works() -> anyhow::Result<()> {
         None,
     )
     .await?;
-    let app = App::inert(locked);
+    let app = App::new("test-app", locked);
 
     let engine = wasmtime::Engine::new(wasmtime::Config::new().async_support(true))?;
     let mut linker = wasmtime::component::Linker::new(&engine);

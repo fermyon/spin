@@ -157,7 +157,6 @@ impl<'a> MountFilesContext<'a> {
         guest_path: impl AsRef<str>,
         writable: bool,
     ) -> anyhow::Result<()> {
-        use wasmtime_wasi::{DirPerms, FilePerms};
         let (dir_perms, file_perms) = if writable {
             (DirPerms::all(), FilePerms::all())
         } else {

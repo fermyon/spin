@@ -4,7 +4,8 @@ use anyhow::Context;
 use http_body_util::BodyExt;
 use spin_app::App;
 use spin_factor_key_value::{
-    delegating_resolver::DelegatingRuntimeConfigResolver, KeyValueFactor, MakeKeyValueStore,
+    delegating_resolver::{DelegatingRuntimeConfigResolver, StoreConfig},
+    KeyValueFactor, MakeKeyValueStore,
 };
 use spin_factor_key_value_redis::RedisKeyValueStore;
 use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
@@ -21,7 +22,7 @@ struct Factors {
     variables: VariablesFactor,
     outbound_networking: OutboundNetworkingFactor,
     outbound_http: OutboundHttpFactor,
-    key_value: KeyValueFactor,
+    key_value: KeyValueFactor<StoreConfig>,
 }
 
 struct Data {
@@ -42,8 +43,10 @@ async fn smoke_test_works() -> anyhow::Result<()> {
         SpinKeyValueRuntimeConfig::default(Some(PathBuf::from("tests/smoke-app/.spin")));
     key_value_resolver.add_default_store(
         "default",
-        SpinKeyValueStore::RUNTIME_CONFIG_TYPE,
-        toml::value::Table::try_from(default_config)?,
+        StoreConfig {
+            type_: SpinKeyValueStore::RUNTIME_CONFIG_TYPE.to_string(),
+            config: toml::value::Table::try_from(default_config)?,
+        },
     );
     key_value_resolver.add_store_type(SpinKeyValueStore::new(None)?)?;
     key_value_resolver.add_store_type(RedisKeyValueStore)?;

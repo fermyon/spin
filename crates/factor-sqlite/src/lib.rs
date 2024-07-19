@@ -14,13 +14,13 @@ use spin_world::v1::sqlite as v1;
 use spin_world::v2::sqlite as v2;
 
 pub struct SqliteFactor<C> {
-    runtime_config_resolver: Arc<dyn runtime_config::RuntimeConfigResolver<C>>,
+    runtime_config_resolver: Arc<dyn runtime_config::RuntimeConfigResolver<Config = C>>,
 }
 
 impl<C> SqliteFactor<C> {
     /// Create a new `SqliteFactor`
     pub fn new(
-        runtime_config_resolver: impl runtime_config::RuntimeConfigResolver<C> + 'static,
+        runtime_config_resolver: impl runtime_config::RuntimeConfigResolver<Config = C> + 'static,
     ) -> Self {
         Self {
             runtime_config_resolver: Arc::new(runtime_config_resolver),

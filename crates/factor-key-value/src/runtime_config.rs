@@ -15,9 +15,12 @@ impl<C: DeserializeOwned> FactorRuntimeConfig for RuntimeConfig<C> {
 }
 
 /// Resolves some piece of runtime configuration to a connection pool
-pub trait RuntimeConfigResolver<C>: Send + Sync {
+pub trait RuntimeConfigResolver: Send + Sync {
+    /// The type of configuration that this resolver can handle.
+    type Config: DeserializeOwned;
+
     /// Get a store manager for a given config.
-    fn get_store(&self, config: C) -> anyhow::Result<Arc<dyn StoreManager>>;
+    fn get_store(&self, config: Self::Config) -> anyhow::Result<Arc<dyn StoreManager>>;
 
     /// Returns a default store manager for a given label. Should only be called
     /// if there is no runtime configuration for the label.

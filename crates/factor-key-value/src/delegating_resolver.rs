@@ -36,7 +36,9 @@ impl DelegatingRuntimeConfigResolver {
     }
 }
 
-impl RuntimeConfigResolver<StoreConfig> for DelegatingRuntimeConfigResolver {
+impl RuntimeConfigResolver for DelegatingRuntimeConfigResolver {
+    type Config = StoreConfig;
+
     fn get_store(&self, config: StoreConfig) -> anyhow::Result<Arc<dyn StoreManager>> {
         let store_kind = config.type_.as_str();
         let store_from_toml = self

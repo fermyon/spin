@@ -19,10 +19,12 @@ impl<C: DeserializeOwned> FactorRuntimeConfig for RuntimeConfig<C> {
 }
 
 /// Resolves some piece of runtime configuration to a connection pool
-pub trait RuntimeConfigResolver<C>: Send + Sync {
+pub trait RuntimeConfigResolver: Send + Sync {
+    type Config;
+
     /// Get a connection pool for a given config.
     ///
-    fn get_pool(&self, config: C) -> anyhow::Result<Arc<dyn ConnectionPool>>;
+    fn get_pool(&self, config: Self::Config) -> anyhow::Result<Arc<dyn ConnectionPool>>;
 
     /// If there is no runtime configuration for a given database label, return a default connection pool.
     ///

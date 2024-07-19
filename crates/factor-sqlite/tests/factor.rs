@@ -1,7 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use factor_sqlite::SqliteFactor;
-use serde::Deserialize;
+use factor_sqlite::{runtime_config::spin::RuntimeConfig, SqliteFactor};
 use spin_factors::{
     anyhow::{self, bail},
     RuntimeFactors,
@@ -91,7 +90,9 @@ impl RuntimeConfigResolver {
     }
 }
 
-impl factor_sqlite::runtime_config::RuntimeConfigResolver<RuntimeConfig> for RuntimeConfigResolver {
+impl factor_sqlite::runtime_config::RuntimeConfigResolver for RuntimeConfigResolver {
+    type Config = RuntimeConfig;
+
     fn get_pool(
         &self,
         config: RuntimeConfig,
@@ -118,12 +119,4 @@ impl factor_sqlite::ConnectionPool for InvalidConnectionPool {
     ) -> Result<Arc<dyn factor_sqlite::Connection + 'static>, spin_world::v2::sqlite::Error> {
         Err(spin_world::v2::sqlite::Error::InvalidConnection)
     }
-}
-
-#[derive(Deserialize)]
-pub struct RuntimeConfig {
-    #[serde(rename = "type")]
-    pub type_: String,
-    #[serde(flatten)]
-    pub config: toml::Table,
 }

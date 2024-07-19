@@ -21,12 +21,12 @@ use spin_key_value::{
 pub use store::MakeKeyValueStore;
 
 pub struct KeyValueFactor<C> {
-    runtime_config_resolver: Arc<dyn runtime_config::RuntimeConfigResolver<C>>,
+    runtime_config_resolver: Arc<dyn runtime_config::RuntimeConfigResolver<Config = C>>,
 }
 
 impl<C> KeyValueFactor<C> {
     pub fn new(
-        runtime_config_resolver: impl runtime_config::RuntimeConfigResolver<C> + 'static,
+        runtime_config_resolver: impl runtime_config::RuntimeConfigResolver<Config = C> + 'static,
     ) -> Self {
         Self {
             runtime_config_resolver: Arc::new(runtime_config_resolver),

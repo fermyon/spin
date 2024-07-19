@@ -1,0 +1,19 @@
+[package]
+name = "spin-factor-key-value-azure"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow = "1.0"
+serde = { version = "1.0", features = ["rc"] }
+spin-factor-key-value = { path = "../factor-key-value" }
+# TODO: merge with this crate
+spin-key-value-azure = { path = "../key-value-azure" }
+
+[lints]
+workspace = true

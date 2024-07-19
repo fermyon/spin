@@ -1,10 +1,14 @@
 use serde::Deserialize;
 use spin_factor_key_value::MakeKeyValueStore;
 use spin_key_value_redis::KeyValueRedis;
+
+/// A key-value store that uses Redis as the backend.
 pub struct RedisKeyValueStore;
 
+/// Runtime configuration for the Redis key-value store.
 #[derive(Deserialize)]
 pub struct RedisKeyValueRuntimeConfig {
+    /// The URL of the Redis server.
     url: String,
 }
 

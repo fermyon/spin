@@ -1104,14 +1104,6 @@ criteria = "safe-to-deploy"
 version = "6.3.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.ouroboros]]
-version = "0.15.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.ouroboros_macro]]
-version = "0.15.6"
-criteria = "safe-to-deploy"
-
 [[exemptions.overload]]
 version = "0.1.1"
 criteria = "safe-to-deploy"

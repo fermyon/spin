@@ -50,11 +50,10 @@ impl SpinSqliteRuntimeConfig {
     }
 }
 
-impl RuntimeConfigResolver for SpinSqliteRuntimeConfig {
+impl RuntimeConfigResolver<(&str, toml::Table)> for SpinSqliteRuntimeConfig {
     fn get_pool(
         &self,
-        database_kind: &str,
-        config: toml::Table,
+        (database_kind, config): (&str, toml::Table),
     ) -> anyhow::Result<Arc<dyn ConnectionPool>> {
         let pool = match database_kind {
             "spin" => {

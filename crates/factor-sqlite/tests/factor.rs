@@ -1,6 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use factor_sqlite::SqliteFactor;
+use serde::Deserialize;
 use spin_factors::{
     anyhow::{self, bail},
     RuntimeFactors,
@@ -9,7 +10,7 @@ use spin_factors_test::{toml, TestEnvironment};
 
 #[derive(RuntimeFactors)]
 struct TestFactors {
-    sqlite: SqliteFactor,
+    sqlite: SqliteFactor<RuntimeConfig>,
 }
 
 #[tokio::test]
@@ -70,7 +71,9 @@ async fn no_error_when_database_is_configured() -> anyhow::Result<()> {
         [sqlite_database.foo]
         type = "sqlite"
     };
-    assert!(env.build_instance_state(factors).await.is_ok());
+    if let Err(e) = env.build_instance_state(factors).await {
+        bail!("Expected build_instance_state to succeed but it errored: {e}");
+    }
 
     Ok(())
 }
@@ -88,13 +91,12 @@ impl RuntimeConfigResolver {
     }
 }
 
-impl factor_sqlite::runtime_config::RuntimeConfigResolver for RuntimeConfigResolver {
+impl factor_sqlite::runtime_config::RuntimeConfigResolver<RuntimeConfig> for RuntimeConfigResolver {
     fn get_pool(
         &self,
-        database_kind: &str,
-        config: toml::Table,
+        config: RuntimeConfig,
     ) -> anyhow::Result<Arc<dyn factor_sqlite::ConnectionPool>> {
-        let _ = (database_kind, config);
+        let _ = config;
         Ok(Arc::new(InvalidConnectionPool))
     }
 
@@ -116,4 +118,12 @@ impl factor_sqlite::ConnectionPool for InvalidConnectionPool {
     ) -> Result<Arc<dyn factor_sqlite::Connection + 'static>, spin_world::v2::sqlite::Error> {
         Err(spin_world::v2::sqlite::Error::InvalidConnection)
     }
+}
+
+#[derive(Deserialize)]
+pub struct RuntimeConfig {
+    #[serde(rename = "type")]
+    pub type_: String,
+    #[serde(flatten)]
+    pub config: toml::Table,
 }

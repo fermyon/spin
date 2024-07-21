@@ -473,33 +473,6 @@ dependencies = [
 [[package]]
 name = "azure_core"
 version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34ce3de4b65b1ee2667c81d1fc692949049502a4cf9c38118d811d6d79a7eaef"
-dependencies = [
- "async-trait",
- "base64 0.22.0",
- "bytes",
- "dyn-clone",
- "futures",
- "getrandom 0.2.12",
- "http-types",
- "once_cell",
- "paste",
- "pin-project",
- "rand 0.8.5",
- "reqwest 0.12.4",
- "rustc_version",
- "serde 1.0.203",
- "serde_json",
- "time",
- "tracing",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "azure_core"
-version = "0.20.0"
 source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
@@ -531,7 +504,7 @@ version = "0.20.0"
 source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
- "azure_core 0.20.0 (git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c)",
+ "azure_core",
  "bytes",
  "futures",
  "serde 1.0.203",
@@ -546,33 +519,12 @@ dependencies = [
 [[package]]
 name = "azure_identity"
 version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72c97790480791ec1ee9b76f5c6499b1d0aac0d4cd1e62010bfc19bb545544c5"
-dependencies = [
- "async-lock 3.3.0",
- "async-process 2.2.2",
- "async-trait",
- "azure_core 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures",
- "oauth2",
- "pin-project",
- "serde 1.0.203",
- "time",
- "tracing",
- "tz-rs",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "azure_identity"
-version = "0.20.0"
 source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-lock 3.3.0",
  "async-process 2.2.2",
  "async-trait",
- "azure_core 0.20.0 (git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c)",
+ "azure_core",
  "futures",
  "oauth2",
  "pin-project",
@@ -587,11 +539,10 @@ dependencies = [
 [[package]]
 name = "azure_security_keyvault"
 version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "338cac645bda0555f59189873be0cccaf420c26791f009b2207b62474cebbab8"
+source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
- "azure_core 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "azure_core",
  "futures",
  "serde 1.0.203",
  "serde_json",
@@ -5782,7 +5733,7 @@ version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
  "azure_data_cosmos",
- "azure_identity 0.20.0 (git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c)",
+ "azure_identity",
  "futures",
  "serde 1.0.203",
  "spin-core",
@@ -6062,8 +6013,8 @@ version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
- "azure_core 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "azure_identity 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "azure_core",
+ "azure_identity",
  "azure_security_keyvault",
  "dotenvy",
  "once_cell",

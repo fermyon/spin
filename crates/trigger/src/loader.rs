@@ -106,8 +106,20 @@ struct ComponentSourceLoader;
 
 #[async_trait]
 impl spin_compose::ComponentSourceLoader for ComponentSourceLoader {
-    async fn load_component_source(
-        &self,
+    type Component = spin_app::locked::LockedComponent;
+    type Dependency = spin_app::locked::LockedComponentDependency;
+
+    async fn load_component_source(&self, source: &Self::Component) -> anyhow::Result<Vec<u8>> {
+        Self::load_from_locked_source(&source.source).await
+    }
+
+    async fn load_dependency_source(&self, source: &Self::Dependency) -> anyhow::Result<Vec<u8>> {
+        Self::load_from_locked_source(&source.source).await
+    }
+}
+
+impl ComponentSourceLoader {
+    async fn load_from_locked_source(
         source: &spin_app::locked::LockedComponentSource,
     ) -> anyhow::Result<Vec<u8>> {
         let source = source

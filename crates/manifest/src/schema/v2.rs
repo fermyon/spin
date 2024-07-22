@@ -56,6 +56,9 @@ pub struct AppDetails {
     /// `authors = ["author@example.com"]`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authors: Vec<String>,
+    /// `targets = ["spin-2.5", "fermyon-cloud", "spinkube-0.4"]`
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub targets: Vec<String>,
     /// `[application.triggers.<type>]`
     #[serde(rename = "trigger", default, skip_serializing_if = "Map::is_empty")]
     pub trigger_global_configs: Map<String, toml::Table>,

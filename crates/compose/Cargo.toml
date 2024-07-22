@@ -14,9 +14,11 @@ async-trait = { workspace = true }
 indexmap = "2"
 semver = "1"
 spin-app = { path = "../app" }
+spin-common = { path = "../common" }
 spin-componentize = { workspace = true }
 spin-serde = { path = "../serde" }
 thiserror = { workspace = true }
+tokio = { version = "1.23", features = ["fs"] }
 wac-graph = "0.6"
 
 [lints]

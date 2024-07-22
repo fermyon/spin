@@ -22,7 +22,7 @@ struct Factors {
     variables: VariablesFactor,
     outbound_networking: OutboundNetworkingFactor,
     outbound_http: OutboundHttpFactor,
-    key_value: KeyValueFactor<StoreConfig>,
+    key_value: KeyValueFactor<DelegatingRuntimeConfigResolver>,
 }
 
 struct Data {

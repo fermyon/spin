@@ -8,8 +8,7 @@ use std::{
 };
 
 use anyhow::ensure;
-use runtime_config::RuntimeConfig;
-use serde::de::DeserializeOwned;
+use runtime_config::{RuntimeConfig, RuntimeConfigResolver};
 use spin_factors::{
     ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
     PrepareContext, RuntimeFactors,
@@ -20,22 +19,20 @@ use spin_key_value::{
 };
 pub use store::MakeKeyValueStore;
 
-pub struct KeyValueFactor<C> {
-    runtime_config_resolver: Arc<dyn runtime_config::RuntimeConfigResolver<Config = C>>,
+pub struct KeyValueFactor<R> {
+    runtime_config_resolver: Arc<R>,
 }
 
-impl<C> KeyValueFactor<C> {
-    pub fn new(
-        runtime_config_resolver: impl runtime_config::RuntimeConfigResolver<Config = C> + 'static,
-    ) -> Self {
+impl<R> KeyValueFactor<R> {
+    pub fn new(runtime_config_resolver: R) -> Self {
         Self {
             runtime_config_resolver: Arc::new(runtime_config_resolver),
         }
     }
 }
 
-impl<C: DeserializeOwned + 'static> Factor for KeyValueFactor<C> {
-    type RuntimeConfig = RuntimeConfig<C>;
+impl<R: RuntimeConfigResolver + 'static> Factor for KeyValueFactor<R> {
+    type RuntimeConfig = RuntimeConfig<R::Config>;
     type AppState = AppState;
     type InstanceBuilder = InstanceBuilder;
 

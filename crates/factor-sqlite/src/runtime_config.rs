@@ -20,7 +20,7 @@ impl<C: DeserializeOwned> FactorRuntimeConfig for RuntimeConfig<C> {
 
 /// Resolves some piece of runtime configuration to a connection pool
 pub trait RuntimeConfigResolver: Send + Sync {
-    type Config;
+    type Config: DeserializeOwned;
 
     /// Get a connection pool for a given config.
     ///

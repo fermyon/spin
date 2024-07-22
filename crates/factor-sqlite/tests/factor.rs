@@ -9,7 +9,7 @@ use spin_factors_test::{toml, TestEnvironment};
 
 #[derive(RuntimeFactors)]
 struct TestFactors {
-    sqlite: SqliteFactor<RuntimeConfig>,
+    sqlite: SqliteFactor<RuntimeConfigResolver>,
 }
 
 #[tokio::test]

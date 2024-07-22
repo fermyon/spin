@@ -7,29 +7,29 @@ use std::sync::Arc;
 use host::InstanceState;
 
 use async_trait::async_trait;
-use serde::de::DeserializeOwned;
+use runtime_config::RuntimeConfigResolver;
 use spin_factors::{anyhow, Factor};
 use spin_locked_app::MetadataKey;
 use spin_world::v1::sqlite as v1;
 use spin_world::v2::sqlite as v2;
 
-pub struct SqliteFactor<C> {
-    runtime_config_resolver: Arc<dyn runtime_config::RuntimeConfigResolver<Config = C>>,
+pub struct SqliteFactor<R> {
+    runtime_config_resolver: Arc<R>,
 }
 
-impl<C> SqliteFactor<C> {
+impl<R> SqliteFactor<R> {
     /// Create a new `SqliteFactor`
-    pub fn new(
-        runtime_config_resolver: impl runtime_config::RuntimeConfigResolver<Config = C> + 'static,
-    ) -> Self {
+    ///
+    /// Takes a `runtime_config_resolver` that can resolve a runtime configuration into a connection pool.
+    pub fn new(runtime_config_resolver: R) -> Self {
         Self {
             runtime_config_resolver: Arc::new(runtime_config_resolver),
         }
     }
 }
 
-impl<C: DeserializeOwned + 'static> Factor for SqliteFactor<C> {
-    type RuntimeConfig = runtime_config::RuntimeConfig<C>;
+impl<R: RuntimeConfigResolver + 'static> Factor for SqliteFactor<R> {
+    type RuntimeConfig = runtime_config::RuntimeConfig<R::Config>;
     type AppState = AppState;
     type InstanceBuilder = InstanceState;
 

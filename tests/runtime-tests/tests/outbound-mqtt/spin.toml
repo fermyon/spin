@@ -1,0 +1,16 @@
+spin_manifest_version = 2
+
+[application]
+name = "outbound-mqtt"
+authors = ["Suneet Nangia <suneetnangia@gmail.com>"]
+version = "0.1.0"
+
+[[trigger.http]]
+route = "/"
+component = "test"
+
+[component.test]
+source = "%{source=outbound-mqtt}"
+allowed_outbound_hosts = ["mqtt://localhost:%{port=1883}"]
+# To test anonymous MQTT authentication, remove the values from MQTT_USERNAME and MQTT_PASSWORD env variables.
+environment = { MQTT_ADDRESS = "mqtt://localhost:%{port=1883}?client_id=spintest", MQTT_USERNAME = "user", MQTT_PASSWORD = "password", MQTT_KEEP_ALIVE_INTERVAL = "30" }

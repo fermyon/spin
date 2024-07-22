@@ -7328,8 +7328,6 @@ dependencies = [
  "clearscreen",
  "comfy-table",
  "command-group",
- "conformance",
- "conformance-tests",
  "ctrlc",
  "dialoguer 0.10.4",
  "dirs 4.0.0",

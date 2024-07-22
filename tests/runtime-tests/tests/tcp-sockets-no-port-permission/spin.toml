@@ -1,0 +1,16 @@
+spin_manifest_version = 2
+
+[application]
+name = "tcp-sockets"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+version = "0.1.0"
+
+[[trigger.http]]
+route = "/"
+component = "test"
+
+[component.test]
+source = "%{source=tcp-sockets}"
+environment = { ADDRESS = "127.0.0.1:6001" }
+# Component expects port 6001 but we allow 6002
+allowed_outbound_hosts = ["*://127.0.0.1:6002"]

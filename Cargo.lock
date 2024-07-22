@@ -1496,7 +1496,7 @@ dependencies = [
 [[package]]
 name = "conformance-tests"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/conformance-tests?rev=2bb3eb83467a9e9595fa0fd11d7a49fa0300b113#2bb3eb83467a9e9595fa0fd11d7a49fa0300b113"
+source = "git+https://github.com/fermyon/conformance-tests?rev=d2129a3fd73140a76c77f15a030a5273b37cbd11#d2129a3fd73140a76c77f15a030a5273b37cbd11"
 dependencies = [
  "anyhow",
  "flate2",
@@ -8317,7 +8317,7 @@ dependencies = [
 [[package]]
 name = "test-environment"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/conformance-tests?rev=2bb3eb83467a9e9595fa0fd11d7a49fa0300b113#2bb3eb83467a9e9595fa0fd11d7a49fa0300b113"
+source = "git+https://github.com/fermyon/conformance-tests?rev=d2129a3fd73140a76c77f15a030a5273b37cbd11#d2129a3fd73140a76c77f15a030a5273b37cbd11"
 dependencies = [
  "anyhow",
  "fslock",

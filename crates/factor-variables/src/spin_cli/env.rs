@@ -13,21 +13,26 @@ use tracing::{instrument, Level};
 
 use crate::MakeVariablesProvider;
 
+use super::RuntimeConfig;
+
 /// Creator of a environment variables provider.
 pub struct EnvVariables;
 
 impl MakeVariablesProvider for EnvVariables {
-    const RUNTIME_CONFIG_TYPE: &'static str = "env";
+    type RuntimeConfig = RuntimeConfig;
 
-    type RuntimeConfig = EnvVariablesConfig;
-    type Provider = EnvVariablesProvider;
-
-    fn make_provider(&self, runtime_config: Self::RuntimeConfig) -> anyhow::Result<Self::Provider> {
-        Ok(EnvVariablesProvider::new(
-            runtime_config.prefix,
+    fn make_provider(
+        &self,
+        runtime_config: &Self::RuntimeConfig,
+    ) -> anyhow::Result<Option<Box<dyn Provider>>> {
+        let RuntimeConfig::Env(runtime_config) = runtime_config else {
+            return Ok(None);
+        };
+        Ok(Some(Box::new(EnvVariablesProvider::new(
+            runtime_config.prefix.clone(),
             |key| std::env::var(key),
-            runtime_config.dotenv_path,
-        ))
+            runtime_config.dotenv_path.clone(),
+        ))))
     }
 }
 

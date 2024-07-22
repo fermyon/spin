@@ -1,10 +1,11 @@
-use spin_factor_variables::{StaticVariables, VariablesFactor};
+use spin_factor_variables::spin_cli::{RuntimeConfig, StaticVariables};
+use spin_factor_variables::VariablesFactor;
 use spin_factors::{anyhow, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
 
 #[derive(RuntimeFactors)]
 struct TestFactors {
-    variables: VariablesFactor,
+    variables: VariablesFactor<RuntimeConfig>,
 }
 
 fn test_env() -> TestEnvironment {

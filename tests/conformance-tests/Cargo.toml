@@ -11,8 +11,8 @@ rust-version.workspace = true
 [dependencies]
 anyhow = "1.0"
 testing-framework = { path = "../testing-framework" }
-conformance-tests = { git = "https://github.com/fermyon/conformance-tests", branch = "main" }
-test-environment = { git = "https://github.com/fermyon/conformance-tests", branch = "main" }
+conformance-tests = { git = "https://github.com/fermyon/conformance-tests", rev = "d2129a3fd73140a76c77f15a030a5273b37cbd11" }
+test-environment = { git = "https://github.com/fermyon/conformance-tests", rev = "d2129a3fd73140a76c77f15a030a5273b37cbd11" }
 
 [lints]
 workspace = true

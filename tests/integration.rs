@@ -109,7 +109,7 @@ mod integration_tests {
                 spin_up_args: Vec::new(),
                 app_type: SpinAppType::Redis,
             },
-            ServicesConfig::new(vec!["redis".into()])?,
+            ServicesConfig::new(vec!["redis"])?,
             move |env| {
                 let redis_port = env
                     .services_mut()
@@ -167,7 +167,7 @@ mod integration_tests {
                 spin_up_args: Vec::new(),
                 app_type: SpinAppType::Http,
             },
-            ServicesConfig::new(vec!["jaeger".into()])?,
+            ServicesConfig::new(vec!["jaeger"])?,
             |env| {
                 let otel_port = env
                     .services_mut()
@@ -480,7 +480,7 @@ Caused by:
                 spin_up_args: vec!["--runtime-config-file".into(), "runtime_config.toml".into()],
                 app_type: SpinAppType::Http,
             },
-            ServicesConfig::new(vec!["vault".into()])?,
+            ServicesConfig::new(vec!["vault"])?,
             |env| {
                 // Vault can take a few moments to be ready
                 std::thread::sleep(std::time::Duration::from_secs(2));
@@ -730,7 +730,7 @@ Caused by:
     #[test]
     #[cfg(feature = "extern-dependencies-tests")]
     fn registry_works() -> anyhow::Result<()> {
-        let services = ServicesConfig::new(vec!["registry".into()])?;
+        let services = ServicesConfig::new(vec!["registry"])?;
         let spin_up_args = |env: &mut test_environment::TestEnvironment<()>| {
             let registry_url = format!(
                 "localhost:{}/spin-e2e-tests/registry-works/v1",
@@ -747,7 +747,7 @@ Caused by:
             ])
         };
         let mut env = super::testcases::bootstrap_smoke_test(
-            &services,
+            services,
             None,
             None,
             &[],
@@ -786,7 +786,7 @@ Caused by:
                 spin_up_args: Vec::new(),
                 app_type: SpinAppType::Http,
             },
-            ServicesConfig::new(vec!["http-echo".into()])?,
+            ServicesConfig::new(vec!["http-echo"])?,
             move |env| {
                 let port = env
                     .get_port(80)?
@@ -810,7 +810,7 @@ Caused by:
 
     #[test]
     fn spin_up_gives_help_on_new_app() -> anyhow::Result<()> {
-        let mut env = test_environment::TestEnvironment::<()>::boot(&ServicesConfig::none())?;
+        let mut env = test_environment::TestEnvironment::<()>::boot(ServicesConfig::none())?;
 
         // We still don't see full help if there are no components.
         let toml_text = r#"spin_version = "1"
@@ -848,7 +848,7 @@ route = "/..."
 
     #[test]
     fn spin_up_help_build_does_not_build() -> anyhow::Result<()> {
-        let mut env = test_environment::TestEnvironment::<()>::boot(&ServicesConfig::none())?;
+        let mut env = test_environment::TestEnvironment::<()>::boot(ServicesConfig::none())?;
 
         // We still don't see full help if there are no components.
         let toml_text = r#"spin_version = "1"
@@ -891,7 +891,7 @@ route = "/..."
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn test_spin_plugin_install_command() -> anyhow::Result<()> {
-        let env = test_environment::TestEnvironment::<()>::boot(&ServicesConfig::none())?;
+        let env = test_environment::TestEnvironment::<()>::boot(ServicesConfig::none())?;
 
         let path_to_test_dir = std::env::current_dir()?;
         let file_url = format!(
@@ -1011,7 +1011,7 @@ route = "/..."
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn test_cloud_plugin_autoinstall() -> anyhow::Result<()> {
-        let env = test_environment::TestEnvironment::<()>::boot(&ServicesConfig::none())?;
+        let env = test_environment::TestEnvironment::<()>::boot(ServicesConfig::none())?;
 
         let mut login = std::process::Command::new(spin_binary());
         login
@@ -1065,7 +1065,7 @@ route = "/..."
             })
             .collect::<std::collections::HashMap<_, _>>();
 
-        let env = test_environment::TestEnvironment::<()>::boot(&ServicesConfig::none())?;
+        let env = test_environment::TestEnvironment::<()>::boot(ServicesConfig::none())?;
         env.copy_into(dir, ".")?;
 
         let mut build = std::process::Command::new(spin_binary());
@@ -1178,7 +1178,7 @@ route = "/..."
                 spin_up_args: Vec::new(),
                 app_type: SpinAppType::Http,
             },
-            ServicesConfig::new(vec!["http-responses-from-file".into()])?,
+            ServicesConfig::new(vec!["http-responses-from-file"])?,
             move |env| {
                 let service_url = format!(
                     "http://localhost:{}",
@@ -1366,7 +1366,7 @@ route = "/..."
                 spin_up_args: Vec::new(),
                 app_type: SpinAppType::Http,
             },
-            ServicesConfig::new(vec!["http-echo".into()])?,
+            ServicesConfig::new(vec!["http-echo"])?,
             move |env| {
                 let service_url = format!(
                     "http://localhost:{}",

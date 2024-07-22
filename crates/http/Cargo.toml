@@ -19,7 +19,6 @@ spin-app = { path = "../app", optional = true }
 spin-locked-app = { path = "../locked-app" }
 
 [dev-dependencies]
-spin-testing = { path = "../testing" }
 toml = "0.8.2"
 
 [features]

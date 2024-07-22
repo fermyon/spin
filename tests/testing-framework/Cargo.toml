@@ -13,7 +13,7 @@ nix = "0.26.1"
 regex = "1.10.2"
 reqwest = { workspace = true }
 temp-dir = "0.1.11"
-test-environment = { git = "https://github.com/fermyon/conformance-tests", branch = "main" }
+test-environment = { git = "https://github.com/fermyon/conformance-tests", rev = "2bb3eb83467a9e9595fa0fd11d7a49fa0300b113" }
 spin-trigger-http = { path = "../../crates/trigger-http" }
 spin-http = { path = "../../crates/http" }
 spin-trigger = { path = "../../crates/trigger" }

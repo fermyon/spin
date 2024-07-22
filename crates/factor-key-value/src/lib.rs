@@ -8,7 +8,7 @@ use std::{
 };
 
 use anyhow::ensure;
-use runtime_config::RuntimeConfig;
+use runtime_config::{RuntimeConfig, RuntimeConfigResolver};
 use spin_factors::{
     ConfigureAppContext, Factor, FactorInstanceBuilder, InitContext, InstanceBuilders,
     PrepareContext, RuntimeFactors,
@@ -19,22 +19,20 @@ use spin_key_value::{
 };
 pub use store::MakeKeyValueStore;
 
-pub struct KeyValueFactor {
-    runtime_config_resolver: Arc<dyn runtime_config::RuntimeConfigResolver>,
+pub struct KeyValueFactor<R> {
+    runtime_config_resolver: Arc<R>,
 }
 
-impl KeyValueFactor {
-    pub fn new(
-        runtime_config_resolver: impl runtime_config::RuntimeConfigResolver + 'static,
-    ) -> Self {
+impl<R> KeyValueFactor<R> {
+    pub fn new(runtime_config_resolver: R) -> Self {
         Self {
             runtime_config_resolver: Arc::new(runtime_config_resolver),
         }
     }
 }
 
-impl Factor for KeyValueFactor {
-    type RuntimeConfig = RuntimeConfig;
+impl<R: RuntimeConfigResolver + 'static> Factor for KeyValueFactor<R> {
+    type RuntimeConfig = RuntimeConfig<R::Config>;
     type AppState = AppState;
     type InstanceBuilder = InstanceBuilder;
 
@@ -51,17 +49,8 @@ impl Factor for KeyValueFactor {
         // Build StoreManager from runtime config
         let mut store_managers: HashMap<String, Arc<dyn StoreManager>> = HashMap::new();
         if let Some(runtime_config) = ctx.take_runtime_config() {
-            for (
-                store_label,
-                runtime_config::StoreConfig {
-                    type_: store_kind,
-                    config,
-                },
-            ) in runtime_config.store_configs
-            {
-                let store = self
-                    .runtime_config_resolver
-                    .get_store(&store_kind, config)?;
+            for (store_label, config) in runtime_config.store_configs {
+                let store = self.runtime_config_resolver.get_store(config)?;
                 store_managers.insert(store_label, store);
             }
         }

@@ -50,22 +50,29 @@ impl SpinSqliteRuntimeConfig {
     }
 }
 
+#[derive(Deserialize)]
+pub struct RuntimeConfig {
+    #[serde(rename = "type")]
+    pub type_: String,
+    #[serde(flatten)]
+    pub config: toml::Table,
+}
+
 impl RuntimeConfigResolver for SpinSqliteRuntimeConfig {
-    fn get_pool(
-        &self,
-        database_kind: &str,
-        config: toml::Table,
-    ) -> anyhow::Result<Arc<dyn ConnectionPool>> {
+    type Config = RuntimeConfig;
+
+    fn get_pool(&self, config: RuntimeConfig) -> anyhow::Result<Arc<dyn ConnectionPool>> {
+        let database_kind = config.type_.as_str();
         let pool = match database_kind {
             "spin" => {
-                let config: LocalDatabase = config.try_into()?;
+                let config: LocalDatabase = config.config.try_into()?;
                 config.pool(&self.local_database_dir)?
             }
             "libsql" => {
-                let config: LibSqlDatabase = config.try_into()?;
+                let config: LibSqlDatabase = config.config.try_into()?;
                 config.pool()?
             }
-            _ => anyhow::bail!("Unknown database kind: {}", database_kind),
+            _ => anyhow::bail!("Unknown database kind: {database_kind}"),
         };
         Ok(Arc::new(pool))
     }

@@ -7,28 +7,29 @@ use std::sync::Arc;
 use host::InstanceState;
 
 use async_trait::async_trait;
+use runtime_config::RuntimeConfigResolver;
 use spin_factors::{anyhow, Factor};
 use spin_locked_app::MetadataKey;
 use spin_world::v1::sqlite as v1;
 use spin_world::v2::sqlite as v2;
 
-pub struct SqliteFactor {
-    runtime_config_resolver: Arc<dyn runtime_config::RuntimeConfigResolver>,
+pub struct SqliteFactor<R> {
+    runtime_config_resolver: Arc<R>,
 }
 
-impl SqliteFactor {
+impl<R> SqliteFactor<R> {
     /// Create a new `SqliteFactor`
-    pub fn new(
-        runtime_config_resolver: impl runtime_config::RuntimeConfigResolver + 'static,
-    ) -> Self {
+    ///
+    /// Takes a `runtime_config_resolver` that can resolve a runtime configuration into a connection pool.
+    pub fn new(runtime_config_resolver: R) -> Self {
         Self {
             runtime_config_resolver: Arc::new(runtime_config_resolver),
         }
     }
 }
 
-impl Factor for SqliteFactor {
-    type RuntimeConfig = runtime_config::RuntimeConfig;
+impl<R: RuntimeConfigResolver + 'static> Factor for SqliteFactor<R> {
+    type RuntimeConfig = runtime_config::RuntimeConfig<R::Config>;
     type AppState = AppState;
     type InstanceBuilder = InstanceState;
 
@@ -47,17 +48,8 @@ impl Factor for SqliteFactor {
     ) -> anyhow::Result<Self::AppState> {
         let mut connection_pools = HashMap::new();
         if let Some(runtime_config) = ctx.take_runtime_config() {
-            for (
-                database_label,
-                runtime_config::StoreConfig {
-                    type_: database_kind,
-                    config,
-                },
-            ) in runtime_config.store_configs
-            {
-                let pool = self
-                    .runtime_config_resolver
-                    .get_pool(&database_kind, config)?;
+            for (database_label, config) in runtime_config.store_configs {
+                let pool = self.runtime_config_resolver.get_pool(config)?;
                 connection_pools.insert(database_label, pool);
             }
         }

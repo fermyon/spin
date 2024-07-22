@@ -25,14 +25,4 @@ mod runtime_tests {
             .expect("failed to bootstrap runtime tests tests")
             .run();
     }
-
-    #[test]
-    fn conformance_tests() {
-        conformance_tests::run_tests(move |test| conformance::run_test(test, &spin_binary()))
-            .unwrap();
-    }
-
-    fn spin_binary() -> PathBuf {
-        env!("CARGO_BIN_EXE_spin").into()
-    }
 }

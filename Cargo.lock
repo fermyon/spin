@@ -1496,7 +1496,7 @@ dependencies = [
 [[package]]
 name = "conformance-tests"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/conformance-tests?branch=main#e846bcebdaaccb317e46387de4dbbc2e39a7199d"
+source = "git+https://github.com/fermyon/conformance-tests?rev=2bb3eb83467a9e9595fa0fd11d7a49fa0300b113#2bb3eb83467a9e9595fa0fd11d7a49fa0300b113"
 dependencies = [
  "anyhow",
  "flate2",
@@ -7512,7 +7512,6 @@ dependencies = [
  "serde 1.0.197",
  "spin-app",
  "spin-locked-app",
- "spin-testing",
  "toml 0.8.14",
  "tracing",
  "wasmtime-wasi-http",
@@ -8318,7 +8317,7 @@ dependencies = [
 [[package]]
 name = "test-environment"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/conformance-tests?branch=main#e846bcebdaaccb317e46387de4dbbc2e39a7199d"
+source = "git+https://github.com/fermyon/conformance-tests?rev=2bb3eb83467a9e9595fa0fd11d7a49fa0300b113#2bb3eb83467a9e9595fa0fd11d7a49fa0300b113"
 dependencies = [
  "anyhow",
  "fslock",

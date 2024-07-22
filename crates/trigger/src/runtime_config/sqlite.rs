@@ -52,12 +52,7 @@ async fn execute_statements(
 
     for m in statements {
         if let Some(config) = m.strip_prefix('@') {
-            let config = config.trim();
-            let (file, database) = match config.split_once(':') {
-                Some((file, database)) if database.trim().is_empty() => (file.trim(), "default"),
-                Some((file, database)) => (file.trim(), database.trim()),
-                None => (config, "default"),
-            };
+            let (file, database) = parse_file_and_label(config)?;
             let database = databases.get(database).with_context(|| {
                 format!(
                     "based on the '@{config}' a registered database named '{database}' was expected but not found. The registered databases are '{:?}'", databases.keys()
@@ -72,10 +67,7 @@ async fn execute_statements(
                 .with_context(|| format!("failed to execute sql from file '{file}'"))?;
         } else {
             let Some(default) = databases.get("default") else {
-                debug_assert!(
-            false,
-            "the 'default' sqlite database should always be available but for some reason was not"
-        );
+                debug_assert!(false, "the 'default' sqlite database should always be available but for some reason was not");
                 return Ok(());
             };
             default
@@ -85,6 +77,19 @@ async fn execute_statements(
         }
     }
     Ok(())
+}
+
+/// Parses a @{file:label} sqlite statement
+fn parse_file_and_label(config: &str) -> anyhow::Result<(&str, &str)> {
+    let config = config.trim();
+    let (file, label) = match config.split_once(':') {
+        Some((_, label)) if label.trim().is_empty() => {
+            anyhow::bail!("database label is empty in the '@{config}' sqlite statement")
+        }
+        Some((file, label)) => (file.trim(), label.trim()),
+        None => (config, "default"),
+    };
+    Ok((file, label))
 }
 
 // Holds deserialized options from a `[sqlite_database.<name>]` runtime config section.
@@ -211,5 +216,25 @@ impl TriggerHooks for SqlitePersistenceMessageHook {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn can_parse_file_and_label() {
+        let config = "file:label";
+        let result = parse_file_and_label(config).unwrap();
+        assert_eq!(result, ("file", "label"));
+
+        let config = "file:";
+        let result = parse_file_and_label(config);
+        assert!(result.is_err());
+
+        let config = "file";
+        let result = parse_file_and_label(config).unwrap();
+        assert_eq!(result, ("file", "default"));
     }
 }

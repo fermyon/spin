@@ -5,11 +5,14 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
+dotenvy = "0.15"
 serde = { version = "1.0", features = ["rc"] }
 spin-expressions = { path = "../expressions" }
 spin-factors = { path = "../factors" }
 spin-world = { path = "../world" }
+tokio = { version = "1", features = ["rt-multi-thread"] }
 toml = "0.8"
+tracing = { workspace = true }
 
 [dev-dependencies]
 spin-factors-test = { path = "../factors-test" }

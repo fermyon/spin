@@ -1,8 +1,7 @@
-mod provider;
+pub mod provider;
 
 use std::{collections::HashMap, sync::Arc};
 
-use provider::{provider_from_toml_fn, ProviderFromToml};
 use serde::Deserialize;
 use spin_expressions::ProviderResolver;
 use spin_factors::{
@@ -16,7 +15,7 @@ pub use provider::{MakeVariablesProvider, StaticVariables};
 
 #[derive(Default)]
 pub struct VariablesFactor {
-    provider_types: HashMap<&'static str, ProviderFromToml>,
+    provider_types: HashMap<&'static str, provider::ProviderFromToml>,
 }
 
 impl VariablesFactor {
@@ -26,7 +25,10 @@ impl VariablesFactor {
     ) -> anyhow::Result<()> {
         if self
             .provider_types
-            .insert(T::RUNTIME_CONFIG_TYPE, provider_from_toml_fn(provider_type))
+            .insert(
+                T::RUNTIME_CONFIG_TYPE,
+                provider::provider_from_toml_fn(provider_type),
+            )
             .is_some()
         {
             bail!("duplicate provider type {:?}", T::RUNTIME_CONFIG_TYPE);

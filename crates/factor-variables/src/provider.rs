@@ -1,7 +1,11 @@
-use std::{collections::HashMap, sync::Arc};
+mod env;
+mod statik;
 
-use serde::{de::DeserializeOwned, Deserialize};
-use spin_expressions::{async_trait::async_trait, Key, Provider};
+pub use env::EnvVariables;
+pub use statik::StaticVariables;
+
+use serde::de::DeserializeOwned;
+use spin_expressions::Provider;
 use spin_factors::anyhow;
 
 pub trait MakeVariablesProvider: 'static {
@@ -23,29 +27,4 @@ pub(crate) fn provider_from_toml_fn<T: MakeVariablesProvider>(
         let provider = provider_type.make_provider(runtime_config)?;
         Ok(Box::new(provider))
     })
-}
-
-pub struct StaticVariables;
-
-impl MakeVariablesProvider for StaticVariables {
-    const RUNTIME_CONFIG_TYPE: &'static str = "static";
-
-    type RuntimeConfig = StaticVariablesProvider;
-    type Provider = StaticVariablesProvider;
-
-    fn make_provider(&self, runtime_config: Self::RuntimeConfig) -> anyhow::Result<Self::Provider> {
-        Ok(runtime_config)
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct StaticVariablesProvider {
-    values: Arc<HashMap<String, String>>,
-}
-
-#[async_trait]
-impl Provider for StaticVariablesProvider {
-    async fn get(&self, key: &Key) -> anyhow::Result<Option<String>> {
-        Ok(self.values.get(key.as_str()).cloned())
-    }
 }

@@ -7630,6 +7630,7 @@ dependencies = [
 name = "spin-factor-variables"
 version = "2.7.0-pre0"
 dependencies = [
+ "dotenvy",
  "serde 1.0.197",
  "spin-expressions",
  "spin-factors",
@@ -7637,6 +7638,7 @@ dependencies = [
  "spin-world",
  "tokio",
  "toml 0.8.14",
+ "tracing",
 ]
 
 [[package]]

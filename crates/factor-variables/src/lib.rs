@@ -1,44 +1,42 @@
 pub mod provider;
+pub mod spin_cli;
 
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
-use serde::Deserialize;
+use serde::{de::DeserializeOwned, Deserialize};
 use spin_expressions::ProviderResolver;
 use spin_factors::{
-    anyhow::{self, bail, Context},
-    ConfigureAppContext, Factor, FactorRuntimeConfig, InitContext, InstanceBuilders,
+    anyhow, ConfigureAppContext, Factor, FactorRuntimeConfig, InitContext, InstanceBuilders,
     PrepareContext, RuntimeFactors, SelfInstanceBuilder,
 };
 use spin_world::{async_trait, v1, v2::variables};
 
-pub use provider::{MakeVariablesProvider, StaticVariables};
+pub use provider::MakeVariablesProvider;
 
-#[derive(Default)]
-pub struct VariablesFactor {
-    provider_types: HashMap<&'static str, provider::ProviderFromToml>,
+pub struct VariablesFactor<C> {
+    provider_types: Vec<Box<dyn MakeVariablesProvider<RuntimeConfig = C>>>,
 }
 
-impl VariablesFactor {
-    pub fn add_provider_type<T: MakeVariablesProvider>(
+impl<C> Default for VariablesFactor<C> {
+    fn default() -> Self {
+        Self {
+            provider_types: Default::default(),
+        }
+    }
+}
+
+impl<C> VariablesFactor<C> {
+    pub fn add_provider_type<T: MakeVariablesProvider<RuntimeConfig = C>>(
         &mut self,
         provider_type: T,
     ) -> anyhow::Result<()> {
-        if self
-            .provider_types
-            .insert(
-                T::RUNTIME_CONFIG_TYPE,
-                provider::provider_from_toml_fn(provider_type),
-            )
-            .is_some()
-        {
-            bail!("duplicate provider type {:?}", T::RUNTIME_CONFIG_TYPE);
-        }
+        self.provider_types.push(Box::new(provider_type) as _);
         Ok(())
     }
 }
 
-impl Factor for VariablesFactor {
-    type RuntimeConfig = RuntimeConfig;
+impl<C: DeserializeOwned + 'static> Factor for VariablesFactor<C> {
+    type RuntimeConfig = RuntimeConfig<C>;
     type AppState = AppState;
     type InstanceBuilder = InstanceState;
 
@@ -64,13 +62,12 @@ impl Factor for VariablesFactor {
         }
 
         if let Some(runtime_config) = ctx.take_runtime_config() {
-            for ProviderConfig { type_, config } in runtime_config.provider_configs {
-                let provider_maker = self
-                    .provider_types
-                    .get(type_.as_str())
-                    .with_context(|| format!("unknown variables provider type {type_:?}"))?;
-                let provider = provider_maker(config)?;
-                resolver.add_provider(provider);
+            for config in runtime_config.provider_configs {
+                for make_provider in self.provider_types.iter() {
+                    if let Some(provider) = make_provider.make_provider(&config)? {
+                        resolver.add_provider(provider);
+                    }
+                }
             }
         }
 
@@ -95,20 +92,12 @@ impl Factor for VariablesFactor {
 
 #[derive(Deserialize)]
 #[serde(transparent)]
-pub struct RuntimeConfig {
-    provider_configs: Vec<ProviderConfig>,
+pub struct RuntimeConfig<C> {
+    provider_configs: Vec<C>,
 }
 
-impl FactorRuntimeConfig for RuntimeConfig {
+impl<C: DeserializeOwned> FactorRuntimeConfig for RuntimeConfig<C> {
     const KEY: &'static str = "variable_provider";
-}
-
-#[derive(Deserialize)]
-struct ProviderConfig {
-    #[serde(rename = "type")]
-    type_: String,
-    #[serde(flatten)]
-    config: toml::Table,
 }
 
 pub struct AppState {

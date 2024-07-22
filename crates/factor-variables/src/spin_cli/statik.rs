@@ -6,22 +6,27 @@ use spin_factors::anyhow;
 
 use crate::MakeVariablesProvider;
 
+use super::RuntimeConfig;
+
 /// Creator of a static variables provider.
 pub struct StaticVariables;
 
 impl MakeVariablesProvider for StaticVariables {
-    const RUNTIME_CONFIG_TYPE: &'static str = "static";
+    type RuntimeConfig = RuntimeConfig;
 
-    type RuntimeConfig = StaticVariablesProvider;
-    type Provider = StaticVariablesProvider;
-
-    fn make_provider(&self, runtime_config: Self::RuntimeConfig) -> anyhow::Result<Self::Provider> {
-        Ok(runtime_config)
+    fn make_provider(
+        &self,
+        runtime_config: &Self::RuntimeConfig,
+    ) -> anyhow::Result<Option<Box<dyn Provider>>> {
+        let RuntimeConfig::Static(config) = runtime_config else {
+            return Ok(None);
+        };
+        Ok(Some(Box::new(config.clone()) as _))
     }
 }
 
 /// A variables provider that reads variables from an static map.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StaticVariablesProvider {
     values: Arc<HashMap<String, String>>,
 }

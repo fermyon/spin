@@ -15,9 +15,73 @@ pub struct KeyValueAzureCosmos {
     client: CollectionClient,
 }
 
+/// Azure Cosmos Key / Value runtime config literal options for authentication
+#[derive(Clone, Debug)]
+pub struct KeyValueAzureCosmosRuntimeConfigOptions {
+    key: String,
+}
+
+impl KeyValueAzureCosmosRuntimeConfigOptions {
+    pub fn new(key: String) -> Self {
+        Self { key }
+    }
+}
+
+/// Azure Cosmos Key / Value enumeration for the possible authentication options
+#[derive(Clone, Debug)]
+pub enum KeyValueAzureCosmosAuthOptions {
+    /// Runtime Config values indicates the account and key have been specified directly
+    RuntimeConfigValues(KeyValueAzureCosmosRuntimeConfigOptions),
+    /// Environmental indicates that the environment variables of the process should be used to
+    /// create the TokenCredential for the Cosmos client. This will use the Azure Rust SDK's
+    /// DefaultCredentialChain to derive the TokenCredential based on what environment variables
+    /// have been set.
+    ///
+    /// Service Principal with client secret:
+    /// - `AZURE_TENANT_ID`: ID of the service principal's Azure tenant.
+    /// - `AZURE_CLIENT_ID`: the service principal's client ID.
+    /// - `AZURE_CLIENT_SECRET`: one of the service principal's secrets.
+    ///
+    /// Service Principal with certificate:
+    /// - `AZURE_TENANT_ID`: ID of the service principal's Azure tenant.
+    /// - `AZURE_CLIENT_ID`: the service principal's client ID.
+    /// - `AZURE_CLIENT_CERTIFICATE_PATH`: path to a PEM or PKCS12 certificate file including the private key.
+    /// - `AZURE_CLIENT_CERTIFICATE_PASSWORD`: (optional) password for the certificate file.
+    ///
+    /// Workload Identity (Kubernetes, injected by the Workload Identity mutating webhook):
+    /// - `AZURE_TENANT_ID`: ID of the service principal's Azure tenant.
+    /// - `AZURE_CLIENT_ID`: the service principal's client ID.
+    /// - `AZURE_FEDERATED_TOKEN_FILE`: TokenFilePath is the path of a file containing a Kubernetes service account token.
+    ///
+    /// Managed Identity (User Assigned or System Assigned identities):
+    /// - `AZURE_CLIENT_ID`: (optional) if using a user assigned identity, this will be the client ID of the identity.
+    ///
+    /// Azure CLI:
+    /// - `AZURE_TENANT_ID`: (optional) use a specific tenant via the Azure CLI.
+    ///
+    /// Common across each:
+    /// - `AZURE_AUTHORITY_HOST`: (optional) the host for the identity provider. For example, for Azure public cloud the host defaults to "https://login.microsoftonline.com".
+    /// See also: https://github.com/Azure/azure-sdk-for-rust/blob/main/sdk/identity/README.md
+    Environmental,
+}
+
 impl KeyValueAzureCosmos {
-    pub fn new(key: String, account: String, database: String, container: String) -> Result<Self> {
-        let token = AuthorizationToken::primary_from_base64(&key).map_err(log_error)?;
+    pub fn new(
+        account: String,
+        database: String,
+        container: String,
+        auth_options: KeyValueAzureCosmosAuthOptions,
+    ) -> Result<Self> {
+        let token = match auth_options {
+            KeyValueAzureCosmosAuthOptions::RuntimeConfigValues(config) => {
+                AuthorizationToken::primary_key(config.key).map_err(log_error)?
+            }
+            KeyValueAzureCosmosAuthOptions::Environmental => {
+                AuthorizationToken::from_token_credential(
+                    azure_identity::create_default_credential()?,
+                )
+            }
+        };
         let cosmos_client = CosmosClient::new(account, token);
         let database_client = cosmos_client.database_client(database);
         let client = database_client.collection_client(container);
@@ -47,13 +111,20 @@ struct AzureCosmosStore {
 
 #[async_trait]
 impl Store for AzureCosmosStore {
-    #[instrument(name = "spin_key_value_azure.get", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_key_value_azure.get", skip(self), err(level = Level::INFO), fields(
+        otel.kind = "client"
+    ))]
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         let pair = self.get_pair(key).await?;
         Ok(pair.map(|p| p.value))
     }
 
-    #[instrument(name = "spin_key_value_azure.set", skip(self, value), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(
+        name = "spin_key_value_azure.set",
+        skip(self, value),
+        err(level = Level::INFO),
+        fields(otel.kind = "client")
+    )]
     async fn set(&self, key: &str, value: &[u8]) -> Result<(), Error> {
         let pair = Pair {
             id: key.to_string(),
@@ -67,7 +138,9 @@ impl Store for AzureCosmosStore {
         Ok(())
     }
 
-    #[instrument(name = "spin_key_value_azure.delete", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_key_value_azure.delete", skip(self), err(level = Level::INFO), fields(
+        otel.kind = "client"
+    ))]
     async fn delete(&self, key: &str) -> Result<(), Error> {
         if self.exists(key).await? {
             let document_client = self.client.document_client(key, &key).map_err(log_error)?;
@@ -76,12 +149,19 @@ impl Store for AzureCosmosStore {
         Ok(())
     }
 
-    #[instrument(name = "spin_key_value_azure.exists", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(name = "spin_key_value_azure.exists", skip(self), err(level = Level::INFO), fields(
+        otel.kind = "client"
+    ))]
     async fn exists(&self, key: &str) -> Result<bool, Error> {
         Ok(self.get_pair(key).await?.is_some())
     }
 
-    #[instrument(name = "spin_key_value_azure.get_keys", skip(self), err(level = Level::INFO), fields(otel.kind = "client"))]
+    #[instrument(
+        name = "spin_key_value_azure.get_keys",
+        skip(self),
+        err(level = Level::INFO),
+        fields(otel.kind = "client")
+    )]
     async fn get_keys(&self) -> Result<Vec<String>, Error> {
         self.get_keys().await
     }

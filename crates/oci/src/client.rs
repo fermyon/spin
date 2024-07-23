@@ -1141,15 +1141,13 @@ mod test {
                 .expect("should have version annotation")
         );
         assert!(
-            annotations
-                .get(oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_DESCRIPTION)
-                .is_none(),
+            !annotations
+                .contains_key(oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_DESCRIPTION),
             "empty description should not have generated annotation"
         );
         assert!(
             annotations
-                .get(oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_CREATED)
-                .is_some(),
+                .contains_key(oci_distribution::annotations::ORG_OPENCONTAINERS_IMAGE_CREATED),
             "creation annotation should have been generated"
         );
     }

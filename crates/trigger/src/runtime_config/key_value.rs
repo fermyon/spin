@@ -8,7 +8,9 @@ use spin_key_value::{
     CachingStoreManager, DelegatingStoreManager, KeyValueComponent, StoreManager,
     KEY_VALUE_STORES_KEY,
 };
-use spin_key_value_azure::KeyValueAzureCosmos;
+use spin_key_value_azure::{
+    KeyValueAzureCosmos, KeyValueAzureCosmosAuthOptions, KeyValueAzureCosmosRuntimeConfigOptions,
+};
 use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
 
 use super::{resolve_config_path, RuntimeConfigOpts};
@@ -122,7 +124,7 @@ impl RedisKeyValueStoreOpts {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct AzureCosmosConfig {
-    key: String,
+    key: Option<String>,
     account: String,
     database: String,
     container: String,
@@ -130,11 +132,22 @@ pub struct AzureCosmosConfig {
 
 impl AzureCosmosConfig {
     pub fn build_store(&self) -> Result<Arc<dyn StoreManager>> {
+        let auth_options = match self.key.clone() {
+            Some(key) => {
+                tracing::debug!("Azure key value is using key auth.");
+                let config_values = KeyValueAzureCosmosRuntimeConfigOptions::new(key);
+                KeyValueAzureCosmosAuthOptions::RuntimeConfigValues(config_values)
+            }
+            None => {
+                tracing::debug!("Azure key value is using environmental auth.");
+                KeyValueAzureCosmosAuthOptions::Environmental
+            }
+        };
         let kv_azure_cosmos = KeyValueAzureCosmos::new(
-            self.key.clone(),
             self.account.clone(),
             self.database.clone(),
             self.container.clone(),
+            auth_options,
         )?;
         Ok(Arc::new(kv_azure_cosmos))
     }

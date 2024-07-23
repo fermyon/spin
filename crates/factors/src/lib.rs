@@ -22,6 +22,8 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("two or more factors share the same type: {0}")]
+    DuplicateFactorTypes(String),
     #[error("factor dependency ordering error: {0}")]
     DependencyOrderingError(String),
     #[error("{factor}::InstanceBuilder::build failed: {source}")]

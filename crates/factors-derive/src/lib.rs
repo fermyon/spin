@@ -81,6 +81,17 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 &mut self,
                 linker: &mut #wasmtime::component::Linker<T>,
             ) -> #Result<()> {
+                let factor_type_ids = [#(
+                    (stringify!(#factor_types), #TypeId::of::<(<#factor_types as #Factor>::InstanceBuilder, <#factor_types as #Factor>::AppState)>()),
+                )*];
+
+                let mut unique = ::std::collections::HashSet::new();
+                for (name, type_id) in factor_type_ids {
+                    if !unique.insert(type_id) {
+                        return Err(#Error::DuplicateFactorTypes(name.to_owned()));
+                    }
+                }
+
                 #(
                     #Factor::init::<T>(
                         &mut self.#factor_names,
@@ -175,9 +186,9 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             fn instance_builder_mut<F: #Factor>(
                 builders: &mut Self::InstanceBuilders,
             ) -> Option<Option<&mut F::InstanceBuilder>> {
-                let type_id = #TypeId::of::<F>();
+                let type_id = #TypeId::of::<(F::InstanceBuilder, F::AppState)>();
                 #(
-                    if type_id == #TypeId::of::<#factor_types>() {
+                    if type_id == #TypeId::of::<(<#factor_types as #Factor>::InstanceBuilder, <#factor_types as #Factor>::AppState)>() {
                         return Some(
                             builders.#factor_names.as_mut().map(|builder| {
                                 <dyn #Any>::downcast_mut(builder).unwrap()

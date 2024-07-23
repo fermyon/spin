@@ -6,19 +6,19 @@ use spin_factors::anyhow;
 
 use crate::ProviderResolver;
 
-use super::RuntimeConfig;
+use super::VariableProviderConfiguration;
 
 /// Creator of a static variables provider.
 pub struct StaticVariables;
 
 impl ProviderResolver for StaticVariables {
-    type RuntimeConfig = RuntimeConfig;
+    type RuntimeConfig = VariableProviderConfiguration;
 
     fn resolve_provider(
         &self,
         runtime_config: &Self::RuntimeConfig,
     ) -> anyhow::Result<Option<Box<dyn Provider>>> {
-        let RuntimeConfig::Static(config) = runtime_config else {
+        let VariableProviderConfiguration::Static(config) = runtime_config else {
             return Ok(None);
         };
         Ok(Some(Box::new(config.clone()) as _))

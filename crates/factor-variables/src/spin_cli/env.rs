@@ -13,19 +13,19 @@ use tracing::{instrument, Level};
 
 use crate::ProviderResolver;
 
-use super::RuntimeConfig;
+use super::VariableProviderConfiguration;
 
 /// Creator of a environment variables provider.
 pub struct EnvVariables;
 
 impl ProviderResolver for EnvVariables {
-    type RuntimeConfig = RuntimeConfig;
+    type RuntimeConfig = VariableProviderConfiguration;
 
     fn resolve_provider(
         &self,
         runtime_config: &Self::RuntimeConfig,
     ) -> anyhow::Result<Option<Box<dyn Provider>>> {
-        let RuntimeConfig::Env(runtime_config) = runtime_config else {
+        let VariableProviderConfiguration::Env(runtime_config) = runtime_config else {
             return Ok(None);
         };
         Ok(Some(Box::new(EnvVariablesProvider::new(

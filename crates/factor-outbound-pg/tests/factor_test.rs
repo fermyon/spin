@@ -31,7 +31,7 @@ async fn disallowed_host_fails() -> anyhow::Result<()> {
         networking: OutboundNetworkingFactor,
         pg: OutboundPgFactor,
     };
-    factors.variables.add_provider_type(StaticVariables)?;
+    factors.variables.add_provider_resolver(StaticVariables)?;
 
     let env = test_env();
     let mut state = env.build_instance_state(factors).await?;

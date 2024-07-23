@@ -11,17 +11,17 @@ use spin_factors::anyhow::{self, Context as _};
 use spin_world::async_trait;
 use tracing::{instrument, Level};
 
-use crate::MakeVariablesProvider;
+use crate::ProviderResolver;
 
 use super::RuntimeConfig;
 
 /// Creator of a environment variables provider.
 pub struct EnvVariables;
 
-impl MakeVariablesProvider for EnvVariables {
+impl ProviderResolver for EnvVariables {
     type RuntimeConfig = RuntimeConfig;
 
-    fn make_provider(
+    fn resolve_provider(
         &self,
         runtime_config: &Self::RuntimeConfig,
     ) -> anyhow::Result<Option<Box<dyn Provider>>> {

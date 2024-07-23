@@ -4,17 +4,17 @@ use serde::Deserialize;
 use spin_expressions::{async_trait::async_trait, Key, Provider};
 use spin_factors::anyhow;
 
-use crate::MakeVariablesProvider;
+use crate::ProviderResolver;
 
 use super::RuntimeConfig;
 
 /// Creator of a static variables provider.
 pub struct StaticVariables;
 
-impl MakeVariablesProvider for StaticVariables {
+impl ProviderResolver for StaticVariables {
     type RuntimeConfig = RuntimeConfig;
 
-    fn make_provider(
+    fn resolve_provider(
         &self,
         runtime_config: &Self::RuntimeConfig,
     ) -> anyhow::Result<Option<Box<dyn Provider>>> {

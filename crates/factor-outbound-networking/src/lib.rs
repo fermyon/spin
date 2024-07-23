@@ -59,7 +59,10 @@ impl Factor for OutboundNetworkingFactor {
             .get(ctx.app_component().id())
             .cloned()
             .context("missing component allowed hosts")?;
-        let resolver = builders.get_mut::<VariablesFactor>()?.resolver().clone();
+        let resolver = builders
+            .get_mut::<VariablesFactor>()?
+            .expression_resolver()
+            .clone();
         let allowed_hosts_future = async move {
             let prepared = resolver.prepare().await?;
             AllowedHostsConfig::parse(&hosts, &prepared)

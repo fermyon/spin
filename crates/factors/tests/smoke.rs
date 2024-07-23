@@ -61,7 +61,7 @@ async fn smoke_test_works() -> anyhow::Result<()> {
         key_value: KeyValueFactor::new(key_value_resolver),
     };
 
-    factors.variables.add_provider_type(StaticVariables)?;
+    factors.variables.add_provider_resolver(StaticVariables)?;
 
     let locked = spin_loader::from_file(
         "tests/smoke-app/spin.toml",
@@ -83,7 +83,7 @@ async fn smoke_test_works() -> anyhow::Result<()> {
     assert_eq!(
         state
             .variables
-            .resolver()
+            .expression_resolver()
             .resolve("smoke-app", "other".try_into().unwrap())
             .await
             .unwrap(),

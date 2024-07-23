@@ -28,7 +28,7 @@ fn get_test_factors() -> TestFactors {
 async fn no_outbound_hosts_fails() -> anyhow::Result<()> {
     let mut factors = get_test_factors();
 
-    factors.variables.add_provider_type(StaticVariables)?;
+    factors.variables.add_provider_resolver(StaticVariables)?;
 
     let env = TestEnvironment {
         manifest: toml! {

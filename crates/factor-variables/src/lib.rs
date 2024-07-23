@@ -4,33 +4,40 @@ pub mod spin_cli;
 use std::sync::Arc;
 
 use serde::{de::DeserializeOwned, Deserialize};
-use spin_expressions::ProviderResolver;
+use spin_expressions::ProviderResolver as ExpressionResolver;
 use spin_factors::{
     anyhow, ConfigureAppContext, Factor, FactorRuntimeConfig, InitContext, InstanceBuilders,
     PrepareContext, RuntimeFactors, SelfInstanceBuilder,
 };
 use spin_world::{async_trait, v1, v2::variables};
 
-pub use provider::MakeVariablesProvider;
+pub use provider::ProviderResolver;
 
+/// A factor for providing variables to components.
+///
+/// The factor is generic over the type of runtime configuration used to configure the providers.
 pub struct VariablesFactor<C> {
-    provider_types: Vec<Box<dyn MakeVariablesProvider<RuntimeConfig = C>>>,
+    provider_resolvers: Vec<Box<dyn ProviderResolver<RuntimeConfig = C>>>,
 }
 
 impl<C> Default for VariablesFactor<C> {
     fn default() -> Self {
         Self {
-            provider_types: Default::default(),
+            provider_resolvers: Default::default(),
         }
     }
 }
 
 impl<C> VariablesFactor<C> {
-    pub fn add_provider_type<T: MakeVariablesProvider<RuntimeConfig = C>>(
+    /// Adds a provider resolver to the factor.
+    ///
+    /// Each added provider will be called in order with the runtime configuration. This order
+    /// will be the order in which the providers are called to resolve variables.
+    pub fn add_provider_resolver<T: ProviderResolver<RuntimeConfig = C>>(
         &mut self,
         provider_type: T,
     ) -> anyhow::Result<()> {
-        self.provider_types.push(Box::new(provider_type) as _);
+        self.provider_resolvers.push(Box::new(provider_type));
         Ok(())
     }
 }
@@ -51,11 +58,11 @@ impl<C: DeserializeOwned + 'static> Factor for VariablesFactor<C> {
         mut ctx: ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState> {
         let app = ctx.app();
-        let mut resolver =
-            ProviderResolver::new(app.variables().map(|(key, val)| (key.clone(), val.clone())))?;
+        let mut expression_resolver =
+            ExpressionResolver::new(app.variables().map(|(key, val)| (key.clone(), val.clone())))?;
 
         for component in app.components() {
-            resolver.add_component_variables(
+            expression_resolver.add_component_variables(
                 component.id(),
                 component.config().map(|(k, v)| (k.into(), v.into())),
             )?;
@@ -63,16 +70,16 @@ impl<C: DeserializeOwned + 'static> Factor for VariablesFactor<C> {
 
         if let Some(runtime_config) = ctx.take_runtime_config() {
             for config in runtime_config.provider_configs {
-                for make_provider in self.provider_types.iter() {
-                    if let Some(provider) = make_provider.make_provider(&config)? {
-                        resolver.add_provider(provider);
+                for provider_resolver in self.provider_resolvers.iter() {
+                    if let Some(provider) = provider_resolver.resolve_provider(&config)? {
+                        expression_resolver.add_provider(provider);
                     }
                 }
             }
         }
 
         Ok(AppState {
-            resolver: Arc::new(resolver),
+            expression_resolver: Arc::new(expression_resolver),
         })
     }
 
@@ -82,14 +89,15 @@ impl<C: DeserializeOwned + 'static> Factor for VariablesFactor<C> {
         _builders: &mut InstanceBuilders<T>,
     ) -> anyhow::Result<InstanceState> {
         let component_id = ctx.app_component().id().to_string();
-        let resolver = ctx.app_state().resolver.clone();
+        let expression_resolver = ctx.app_state().expression_resolver.clone();
         Ok(InstanceState {
             component_id,
-            resolver,
+            expression_resolver,
         })
     }
 }
 
+/// The runtime configuration for the variables factor.
 #[derive(Deserialize)]
 #[serde(transparent)]
 pub struct RuntimeConfig<C> {
@@ -101,17 +109,17 @@ impl<C: DeserializeOwned> FactorRuntimeConfig for RuntimeConfig<C> {
 }
 
 pub struct AppState {
-    resolver: Arc<ProviderResolver>,
+    expression_resolver: Arc<ExpressionResolver>,
 }
 
 pub struct InstanceState {
     component_id: String,
-    resolver: Arc<ProviderResolver>,
+    expression_resolver: Arc<ExpressionResolver>,
 }
 
 impl InstanceState {
-    pub fn resolver(&self) -> &Arc<ProviderResolver> {
-        &self.resolver
+    pub fn expression_resolver(&self) -> &Arc<ExpressionResolver> {
+        &self.expression_resolver
     }
 }
 
@@ -121,7 +129,7 @@ impl SelfInstanceBuilder for InstanceState {}
 impl variables::Host for InstanceState {
     async fn get(&mut self, key: String) -> Result<String, variables::Error> {
         let key = spin_expressions::Key::new(&key).map_err(expressions_to_variables_err)?;
-        self.resolver
+        self.expression_resolver
             .resolve(&self.component_id, key)
             .await
             .map_err(expressions_to_variables_err)

@@ -1,4 +1,4 @@
-use spin_factor_variables::spin_cli::{RuntimeConfig, StaticVariables};
+use spin_factor_variables::spin_cli::{EnvVariables, RuntimeConfig, StaticVariables};
 use spin_factor_variables::VariablesFactor;
 use spin_factors::{anyhow, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
@@ -30,13 +30,15 @@ async fn static_provider_works() -> anyhow::Result<()> {
     let mut factors = TestFactors {
         variables: VariablesFactor::default(),
     };
-    factors.variables.add_provider_type(StaticVariables)?;
+    factors.variables.add_provider_resolver(StaticVariables)?;
+    // The env provider will be ignored since there's no configuration for it.
+    factors.variables.add_provider_resolver(EnvVariables)?;
 
     let env = test_env();
     let state = env.build_instance_state(factors).await?;
     let val = state
         .variables
-        .resolver()
+        .expression_resolver()
         .resolve("test-component", "baz".try_into().unwrap())
         .await?;
     assert_eq!(val, "<bar>");

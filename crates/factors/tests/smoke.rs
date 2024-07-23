@@ -11,7 +11,7 @@ use spin_factor_key_value_redis::RedisKeyValueStore;
 use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
-use spin_factor_variables::{StaticVariables, VariablesFactor};
+use spin_factor_variables::{spin_cli::StaticVariables, VariablesFactor};
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
 use spin_factors::{FactorRuntimeConfig, RuntimeConfigSource, RuntimeFactors};
 use wasmtime_wasi_http::WasiHttpView;
@@ -19,7 +19,7 @@ use wasmtime_wasi_http::WasiHttpView;
 #[derive(RuntimeFactors)]
 struct Factors {
     wasi: WasiFactor,
-    variables: VariablesFactor,
+    variables: VariablesFactor<spin_factor_variables::spin_cli::VariableProviderConfiguration>,
     outbound_networking: OutboundNetworkingFactor,
     outbound_http: OutboundHttpFactor,
     key_value: KeyValueFactor<DelegatingRuntimeConfigResolver>,
@@ -142,7 +142,7 @@ struct TestSource;
 
 impl RuntimeConfigSource for TestSource {
     fn factor_config_keys(&self) -> impl IntoIterator<Item = &str> {
-        [spin_factor_variables::RuntimeConfig::KEY]
+        [spin_factor_variables::RuntimeConfig::<()>::KEY]
     }
 
     fn get_factor_config<T: serde::de::DeserializeOwned>(

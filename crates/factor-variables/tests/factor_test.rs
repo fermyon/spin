@@ -1,11 +1,14 @@
-use spin_factor_variables::spin_cli::{EnvVariables, RuntimeConfig, StaticVariables};
+use spin_factor_variables::spin_cli::{
+    EnvVariables, StaticVariables, VariableProviderConfiguration,
+};
 use spin_factor_variables::VariablesFactor;
 use spin_factors::{anyhow, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
+use spin_world::v2::variables::Host;
 
 #[derive(RuntimeFactors)]
 struct TestFactors {
-    variables: VariablesFactor<RuntimeConfig>,
+    variables: VariablesFactor<VariableProviderConfiguration>,
 }
 
 fn test_env() -> TestEnvironment {
@@ -35,12 +38,8 @@ async fn static_provider_works() -> anyhow::Result<()> {
     factors.variables.add_provider_resolver(EnvVariables)?;
 
     let env = test_env();
-    let state = env.build_instance_state(factors).await?;
-    let val = state
-        .variables
-        .expression_resolver()
-        .resolve("test-component", "baz".try_into().unwrap())
-        .await?;
+    let mut state = env.build_instance_state(factors).await?;
+    let val = state.variables.get("baz".try_into().unwrap()).await?;
     assert_eq!(val, "<bar>");
     Ok(())
 }

@@ -513,7 +513,9 @@ impl Client {
     async fn wasm_layer(file: &Path) -> Result<ImageLayer> {
         tracing::trace!("Reading wasm module from {:?}", file);
         Ok(ImageLayer::new(
-            fs::read(file).await.context("cannot read wasm module")?,
+            fs::read(file)
+                .await
+                .with_context(|| format!("cannot read wasm module {}", quoted_path(file)))?,
             WASM_LAYER_MEDIA_TYPE.to_string(),
             None,
         ))
@@ -522,7 +524,13 @@ impl Client {
     /// Create a new data layer based on a file.
     async fn data_layer(file: &Path, media_type: String) -> Result<ImageLayer> {
         tracing::trace!("Reading data file from {:?}", file);
-        Ok(ImageLayer::new(fs::read(&file).await?, media_type, None))
+        Ok(ImageLayer::new(
+            fs::read(&file)
+                .await
+                .with_context(|| format!("cannot read file {}", quoted_path(file)))?,
+            media_type,
+            None,
+        ))
     }
 
     fn content_ref_for_layer(&self, layer: &ImageLayer) -> ContentRef {

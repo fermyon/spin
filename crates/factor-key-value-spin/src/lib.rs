@@ -16,13 +16,8 @@ pub struct SpinKeyValueStore {
 
 impl SpinKeyValueStore {
     /// Create a new SpinKeyValueStore with the given base path.
-    /// If the base path is None, the current directory is used.
-    pub fn new(base_path: Option<PathBuf>) -> anyhow::Result<Self> {
-        let base_path = match base_path {
-            Some(path) => path,
-            None => std::env::current_dir().context("failed to get current directory")?,
-        };
-        Ok(Self { base_path })
+    pub fn new(base_path: PathBuf) -> Self {
+        Self { base_path }
     }
 }
 
@@ -38,10 +33,11 @@ impl SpinKeyValueRuntimeConfig {
     const DEFAULT_SPIN_STORE_FILENAME: &'static str = "sqlite_key_value.db";
 
     /// Create a new runtime configuration with the given state directory.
-    /// If the state directory is None, the database is in-memory.
-    /// If the state directory is Some, the database is stored in a file in the state directory.
-    pub fn default(state_dir: Option<PathBuf>) -> Self {
-        let path = state_dir.map(|dir| dir.join(Self::DEFAULT_SPIN_STORE_FILENAME));
+    ///
+    /// If the database directory is None, the database is in-memory.
+    /// If the database directory is Some, the database is stored in a file in the state directory.
+    pub fn default(default_database_dir: Option<PathBuf>) -> Self {
+        let path = default_database_dir.map(|dir| dir.join(Self::DEFAULT_SPIN_STORE_FILENAME));
         Self { path }
     }
 }

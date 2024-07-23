@@ -30,6 +30,11 @@ impl MakeKeyValueStore for AzureKeyValueStore {
         &self,
         runtime_config: Self::RuntimeConfig,
     ) -> anyhow::Result<Self::StoreManager> {
-        KeyValueAzureCosmos::new(runtime_config.key, runtime_config.account, runtime_config.database, runtime_config.container)
+        KeyValueAzureCosmos::new(
+            runtime_config.key,
+            runtime_config.account,
+            runtime_config.database,
+            runtime_config.container,
+        )
     }
 }

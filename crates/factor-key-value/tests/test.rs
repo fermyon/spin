@@ -1,27 +1,32 @@
-use std::collections::HashSet;
-use spin_factor_key_value::{DelegatingRuntimeConfigResolver, KeyValueFactor, MakeKeyValueStore};
+use anyhow::Context;
+use spin_factor_key_value::{
+    DelegatingRuntimeConfigResolver, KeyValueFactor, MakeKeyValueStore, StoreConfig,
+};
 use spin_factor_key_value_redis::RedisKeyValueStore;
 use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_factors::RuntimeFactors;
 use spin_factors_test::{toml, TestEnvironment};
+use std::collections::HashSet;
 
 #[derive(RuntimeFactors)]
 struct TestFactors {
-    key_value: KeyValueFactor,
+    key_value: KeyValueFactor<DelegatingRuntimeConfigResolver>,
 }
 
 fn default_key_value_resolver(
 ) -> anyhow::Result<(DelegatingRuntimeConfigResolver, tempdir::TempDir)> {
     let mut test_resolver = DelegatingRuntimeConfigResolver::new();
-    test_resolver.add_store_type(SpinKeyValueStore::new(None)?)?;
+    test_resolver.add_store_type(SpinKeyValueStore::new(
+        std::env::current_dir().context("failed to get current directory")?,
+    ))?;
     let tmp_dir = tempdir::TempDir::new("example")?;
     let path = tmp_dir.path().to_path_buf();
     let default_config = SpinKeyValueRuntimeConfig::default(Some(path));
-    test_resolver.add_default_store(
-        "default",
-        SpinKeyValueStore::RUNTIME_CONFIG_TYPE,
-        toml::value::Table::try_from(default_config)?,
-    );
+    let store_config = StoreConfig::new(
+        SpinKeyValueStore::RUNTIME_CONFIG_TYPE.to_string(),
+        default_config,
+    )?;
+    test_resolver.add_default_store("default", store_config);
     Ok((test_resolver, tmp_dir))
 }
 
@@ -69,7 +74,6 @@ async fn run_test_with_config_and_stores_for_label(
         env.runtime_config.extend(runtime_config);
     }
     let state = env.build_instance_state(factors).await?;
-    // String::new("foo").as
     assert_eq!(
         labels,
         state.key_value.allowed_stores().iter().collect::<Vec<_>>()
@@ -101,7 +105,9 @@ async fn custom_spin_key_value_works() -> anyhow::Result<()> {
     };
     run_test_with_config_and_stores_for_label(
         Some(runtime_config),
-        vec![SpinKeyValueStore::new(None)?],
+        vec![SpinKeyValueStore::new(
+            std::env::current_dir().context("failed to get current directory")?,
+        )],
         vec!["custom"],
     )
     .await
@@ -119,7 +125,9 @@ async fn custom_spin_key_value_works_with_absolute_path() -> anyhow::Result<()> 
     };
     run_test_with_config_and_stores_for_label(
         Some(runtime_config),
-        vec![SpinKeyValueStore::new(None)?],
+        vec![SpinKeyValueStore::new(
+            std::env::current_dir().context("failed to get current directory")?,
+        )],
         vec!["custom"],
     )
     .await?;
@@ -138,7 +146,7 @@ async fn custom_spin_key_value_works_with_relative_path() -> anyhow::Result<()> 
     };
     run_test_with_config_and_stores_for_label(
         Some(runtime_config),
-        vec![SpinKeyValueStore::new(Some(path))?],
+        vec![SpinKeyValueStore::new(path)],
         vec!["custom"],
     )
     .await?;
@@ -170,7 +178,9 @@ async fn misconfigured_spin_key_value_fails() -> anyhow::Result<()> {
     };
     assert!(run_test_with_config_and_stores_for_label(
         Some(runtime_config),
-        vec![SpinKeyValueStore::new(None)?],
+        vec![SpinKeyValueStore::new(
+            std::env::current_dir().context("failed to get current directory")?
+        )],
         vec!["custom"]
     )
     .await
@@ -179,7 +189,7 @@ async fn misconfigured_spin_key_value_fails() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn multiple_custom_key_value_fails() -> anyhow::Result<()> {
+async fn multiple_custom_key_value_uses_first_store() -> anyhow::Result<()> {
     let tmp_dir = tempdir::TempDir::new("example")?;
     let runtime_config = toml::toml! {
         [key_value_store.custom]
@@ -192,7 +202,7 @@ async fn multiple_custom_key_value_fails() -> anyhow::Result<()> {
     };
     let mut test_resolver = DelegatingRuntimeConfigResolver::new();
     test_resolver.add_store_type(RedisKeyValueStore)?;
-    test_resolver.add_store_type(SpinKeyValueStore::new(Some(tmp_dir.path().to_owned()))?)?;
+    test_resolver.add_store_type(SpinKeyValueStore::new(tmp_dir.path().to_owned()))?;
     let factors = TestFactors {
         key_value: KeyValueFactor::new(test_resolver),
     };

@@ -287,10 +287,13 @@ async fn run_command(
         match store.data().test_config.invocation_style {
             InvocationStyle::InboundHttp => {
                 let func = instance
-                    .exports(&mut *store)
-                    .instance("fermyon:spin/inbound-http")
-                    .ok_or_else(|| anyhow!("no fermyon:spin/inbound-http instance found"))?
-                    .typed_func::<(Request,), (Response,)>("handle-request")?;
+                    .get_export(&mut *store, None, "fermyon:spin/inbound-http")
+                    .and_then(|i| instance.get_export(&mut *store, Some(&i), "handle-request"))
+                    .ok_or_else(|| {
+                        anyhow!("no fermyon:spin/inbound-http/handle-request function was found")
+                    })?;
+                let func =
+                    instance.get_typed_func::<(Request,), (Response,)>(&mut *store, &func)?;
 
                 let result = func
                     .call_async(

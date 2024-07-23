@@ -1,6 +1,9 @@
 use std::{net::SocketAddr, str, str::FromStr};
 
-use crate::{Body, ChainedRequestHandler, HttpExecutor, HttpInstance, HttpTrigger, Store};
+use crate::types::Scheme;
+use crate::{
+    Body, ChainedRequestHandler, HttpExecutor, HttpInstance, HttpRuntimeData, HttpTrigger, Store,
+};
 use anyhow::{anyhow, Context, Result};
 use futures::TryFutureExt;
 use http::{HeaderName, HeaderValue};
@@ -8,9 +11,13 @@ use http_body_util::BodyExt;
 use hyper::{Request, Response};
 use outbound_http::OutboundHttpComponent;
 use spin_core::async_trait;
-use spin_core::wasi_2023_10_18::exports::wasi::http::incoming_handler::Guest as IncomingHandler2023_10_18;
-use spin_core::wasi_2023_11_10::exports::wasi::http::incoming_handler::Guest as IncomingHandler2023_11_10;
-use spin_core::{Component, Engine, Instance};
+use spin_core::wasi_2023_10_18::exports::wasi::http::incoming_handler::{
+    Guest as Guest2023_10_18, GuestPre as GuestPre2023_10_18,
+};
+use spin_core::wasi_2023_11_10::exports::wasi::http::incoming_handler::{
+    Guest as Guest2023_11_10, GuestPre as GuestPre2023_11_10,
+};
+use spin_core::Instance;
 use spin_http::body;
 use spin_http::routes::RouteMatch;
 use spin_trigger::TriggerAppEngine;
@@ -18,7 +25,10 @@ use spin_world::v1::http_types;
 use std::sync::Arc;
 use tokio::{sync::oneshot, task};
 use tracing::{instrument, Instrument, Level};
-use wasmtime_wasi_http::{proxy::Proxy, WasiHttpView};
+use wasmtime_wasi_http::{
+    bindings::{Proxy, ProxyPre},
+    WasiHttpView,
+};
 
 #[derive(Clone)]
 pub struct HttpHandlerExecutor;
@@ -42,7 +52,7 @@ impl HttpExecutor for HttpHandlerExecutor {
         );
 
         let (instance, mut store) = engine.prepare_instance(component_id).await?;
-        let HttpInstance::Component(instance, ty) = instance else {
+        let HttpInstance::Component(handler) = instance else {
             unreachable!()
         };
 
@@ -56,15 +66,13 @@ impl HttpExecutor for HttpHandlerExecutor {
         store.as_mut().data_mut().as_mut().client_tls_opts =
             engine.get_client_tls_opts(component_id);
 
-        let resp = match ty {
-            HandlerType::Spin => {
+        let resp = match handler {
+            Handler::Spin(instance) => {
                 Self::execute_spin(store, instance, base, route_match, req, client_addr)
                     .await
                     .map_err(contextualise_err)?
             }
-            _ => {
-                Self::execute_wasi(store, instance, ty, base, route_match, req, client_addr).await?
-            }
+            _ => Self::execute_wasi(store, handler, base, route_match, req, client_addr).await?,
         };
 
         tracing::info!(
@@ -85,12 +93,18 @@ impl HttpHandlerExecutor {
         client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
         let headers = Self::headers(&req, base, route_match, client_addr)?;
-        let func = instance
-            .exports(&mut store)
-            .instance("fermyon:spin/inbound-http")
+        let handle_request = instance
+            .get_export(&mut store, None, "fermyon:spin/inbound-http")
+            .and_then(|inbound_http| {
+                instance.get_export(&mut store, Some(&inbound_http), "handle-request")
+            })
             // Safe since we have already checked that this instance exists
-            .expect("no fermyon:spin/inbound-http found")
-            .typed_func::<(http_types::Request,), (http_types::Response,)>("handle-request")?;
+            .expect("no fermyon:spin/inbound-http/handle-request found");
+
+        let func = instance.get_typed_func::<(http_types::Request,), (http_types::Response,)>(
+            &mut store,
+            &handle_request,
+        )?;
 
         let (parts, body) = req.into_parts();
         let bytes = body.collect().await?.to_bytes().to_vec();
@@ -158,8 +172,7 @@ impl HttpHandlerExecutor {
 
     async fn execute_wasi(
         mut store: Store,
-        instance: Instance,
-        ty: HandlerType,
+        handler: Handler,
         base: &str,
         route_match: &RouteMatch,
         mut req: Request<Body>,
@@ -177,7 +190,20 @@ impl HttpHandlerExecutor {
                 };
                 Some((name, value))
             }));
-        let request = store.as_mut().data_mut().new_incoming_request(req)?;
+
+        let (parts, body) = req.into_parts();
+        let body = wasmtime_wasi_http::body::HostIncomingBody::new(
+            body,
+            // TODO: this needs to be plumbed through
+            std::time::Duration::from_millis(600 * 1000),
+        );
+        let request = wasmtime_wasi_http::types::HostIncomingRequest::new(
+            store.as_mut().data_mut(),
+            parts,
+            Scheme::Http,
+            Some(body),
+        )?;
+        let request = store.as_mut().data_mut().table().push(request)?;
 
         let (response_tx, response_rx) = oneshot::channel();
         let response = store
@@ -185,63 +211,30 @@ impl HttpHandlerExecutor {
             .data_mut()
             .new_response_outparam(response_tx)?;
 
-        enum Handler {
-            Latest(Proxy),
-            Handler2023_11_10(IncomingHandler2023_11_10),
-            Handler2023_10_18(IncomingHandler2023_10_18),
-        }
-
-        let handler =
-            {
-                let mut exports = instance.exports(&mut store);
-                match ty {
-                    HandlerType::Wasi2023_10_18 => {
-                        let mut instance = exports
-                            .instance(WASI_HTTP_EXPORT_2023_10_18)
-                            .ok_or_else(|| {
-                                anyhow!("export of `{WASI_HTTP_EXPORT_2023_10_18}` not an instance")
-                            })?;
-                        Handler::Handler2023_10_18(IncomingHandler2023_10_18::new(&mut instance)?)
-                    }
-                    HandlerType::Wasi2023_11_10 => {
-                        let mut instance = exports
-                            .instance(WASI_HTTP_EXPORT_2023_11_10)
-                            .ok_or_else(|| {
-                                anyhow!("export of `{WASI_HTTP_EXPORT_2023_11_10}` not an instance")
-                            })?;
-                        Handler::Handler2023_11_10(IncomingHandler2023_11_10::new(&mut instance)?)
-                    }
-                    HandlerType::Wasi0_2 => {
-                        drop(exports);
-                        Handler::Latest(Proxy::new(&mut store, &instance)?)
-                    }
-                    HandlerType::Spin => panic!("should have used execute_spin instead"),
-                }
-            };
-
         let span = tracing::debug_span!("execute_wasi");
         let handle = task::spawn(
             async move {
                 let result = match handler {
-                    Handler::Latest(proxy) => {
+                    Handler::Wasi0_2(proxy) => {
                         proxy
                             .wasi_http_incoming_handler()
                             .call_handle(&mut store, request, response)
                             .instrument(span)
                             .await
                     }
-                    Handler::Handler2023_10_18(proxy) => {
+                    Handler::Wasi2023_11_10(proxy) => {
                         proxy
                             .call_handle(&mut store, request, response)
                             .instrument(span)
                             .await
                     }
-                    Handler::Handler2023_11_10(proxy) => {
+                    Handler::Wasi2023_10_18(proxy) => {
                         proxy
                             .call_handle(&mut store, request, response)
                             .instrument(span)
                             .await
                     }
+                    Handler::Spin(_) => unreachable!("should be in `execute_spin` instead"),
                 };
 
                 tracing::trace!(
@@ -340,27 +333,37 @@ impl HttpHandlerExecutor {
     }
 }
 
-/// Whether this handler uses the custom Spin http handler interface for wasi-http
-#[derive(Copy, Clone)]
-pub enum HandlerType {
-    Spin,
-    Wasi0_2,
-    Wasi2023_11_10,
-    Wasi2023_10_18,
+/// Pre-instantiated version of the kinds of handlers that this trigger
+/// supports.
+#[derive(Clone)]
+pub enum HandlerPre {
+    Spin(spin_core::InstancePre<HttpRuntimeData>),
+    Wasi0_2(ProxyPre<spin_core::Data<HttpRuntimeData>>),
+    Wasi2023_11_10(spin_core::InstancePre<HttpRuntimeData>, GuestPre2023_11_10),
+    Wasi2023_10_18(spin_core::InstancePre<HttpRuntimeData>, GuestPre2023_10_18),
+}
+
+/// Instantiated version of [`HandlerPre`] for the types of components this
+/// trigger supports.
+pub enum Handler {
+    Spin(spin_core::Instance),
+    Wasi0_2(Proxy),
+    Wasi2023_11_10(Guest2023_11_10),
+    Wasi2023_10_18(Guest2023_10_18),
 }
 
 const WASI_HTTP_EXPORT_2023_10_18: &str = "wasi:http/incoming-handler@0.2.0-rc-2023-10-18";
 const WASI_HTTP_EXPORT_2023_11_10: &str = "wasi:http/incoming-handler@0.2.0-rc-2023-11-10";
 const WASI_HTTP_EXPORT_0_2_0: &str = "wasi:http/incoming-handler@0.2.0";
 
-impl HandlerType {
+impl HandlerPre {
     /// Determine the handler type from the exports of a component
-    pub fn from_component<T>(engine: &Engine<T>, component: &Component) -> Result<HandlerType> {
-        let mut handler_ty = None;
+    pub fn from_instance_pre(pre: spin_core::InstancePre<HttpRuntimeData>) -> Result<HandlerPre> {
+        let mut handler = None;
 
-        let mut set = |ty: HandlerType| {
-            if handler_ty.is_none() {
-                handler_ty = Some(ty);
+        let mut set = |pre: HandlerPre| {
+            if handler.is_none() {
+                handler = Some(pre);
                 Ok(())
             } else {
                 Err(anyhow!(
@@ -369,24 +372,45 @@ impl HandlerType {
                 ))
             }
         };
-        let ty = component.component_type();
-        for (name, _) in ty.exports(engine.as_ref()) {
-            match name {
-                WASI_HTTP_EXPORT_2023_10_18 => set(HandlerType::Wasi2023_10_18)?,
-                WASI_HTTP_EXPORT_2023_11_10 => set(HandlerType::Wasi2023_11_10)?,
-                WASI_HTTP_EXPORT_0_2_0 => set(HandlerType::Wasi0_2)?,
-                "fermyon:spin/inbound-http" => set(HandlerType::Spin)?,
-                _ => {}
-            }
+        if let Ok(guest) = GuestPre2023_10_18::new(pre.component()) {
+            set(HandlerPre::Wasi2023_10_18(pre.clone(), guest))?;
+        }
+        if let Ok(guest) = GuestPre2023_11_10::new(pre.component()) {
+            set(HandlerPre::Wasi2023_11_10(pre.clone(), guest))?;
+        }
+        if let Ok(pre) = ProxyPre::new(pre.as_ref().clone()) {
+            set(HandlerPre::Wasi0_2(pre))?;
+        }
+        if pre
+            .component()
+            .export_index(None, "fermyon:spin/inbound-http")
+            .is_some()
+        {
+            set(HandlerPre::Spin(pre))?;
         }
 
-        handler_ty.ok_or_else(|| {
+        handler.ok_or_else(|| {
             anyhow!(
                 "Expected component to either export `{WASI_HTTP_EXPORT_2023_10_18}`, \
                  `{WASI_HTTP_EXPORT_2023_11_10}`, `{WASI_HTTP_EXPORT_0_2_0}`, \
                  or `fermyon:spin/inbound-http` but it exported none of those"
             )
         })
+    }
+
+    pub async fn instantiate(&self, store: &mut Store) -> Result<Handler> {
+        match self {
+            HandlerPre::Spin(pre) => Ok(Handler::Spin(pre.instantiate_async(store).await?)),
+            HandlerPre::Wasi0_2(pre) => Ok(Handler::Wasi0_2(pre.instantiate_async(store).await?)),
+            HandlerPre::Wasi2023_11_10(pre, guest) => {
+                let instance = pre.instantiate_async(store).await?;
+                Ok(Handler::Wasi2023_11_10(guest.load(store, &instance)?))
+            }
+            HandlerPre::Wasi2023_10_18(pre, guest) => {
+                let instance = pre.instantiate_async(store).await?;
+                Ok(Handler::Wasi2023_10_18(guest.load(store, &instance)?))
+            }
+        }
     }
 }
 

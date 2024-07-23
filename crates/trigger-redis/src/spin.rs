@@ -51,11 +51,14 @@ impl SpinRedisExecutor {
         _channel: &str,
         payload: Vec<u8>,
     ) -> Result<()> {
+        let redis = instance
+            .get_export(&mut store, None, "fermyon:spin/inbound-redis")
+            .ok_or_else(|| anyhow!("no fermyon:spin/inbound-redis instance found"))?;
+        let handle_message = instance
+            .get_export(&mut store, Some(&redis), "handle-message")
+            .ok_or_else(|| anyhow!("no `handle-message` function found"))?;
         let func = instance
-            .exports(&mut store)
-            .instance("fermyon:spin/inbound-redis")
-            .ok_or_else(|| anyhow!("no fermyon:spin/inbound-redis instance found"))?
-            .typed_func::<(Payload,), (Result<(), Error>,)>("handle-message")?;
+            .get_typed_func::<(Payload,), (Result<(), Error>,)>(&mut store, handle_message)?;
 
         match func.call_async(store, (payload,)).await? {
             (Ok(()) | Err(Error::Success),) => Ok(()),

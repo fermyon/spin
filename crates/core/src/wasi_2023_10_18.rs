@@ -1,4 +1,5 @@
-#![doc(hidden)] // internal implementation detail used in tests and spin-trigger
+// #![doc(hidden)] // internal implementation detail used in tests and spin-trigger
+#![allow(missing_docs)]
 
 use anyhow::Result;
 use async_trait::async_trait;

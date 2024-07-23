@@ -3,7 +3,7 @@ use wasm_metadata::Producers;
 use wasmparser::{Encoding, ExternalKind, Parser, Payload};
 
 /// Represents the detected likelihood of the allocation bug fixed in
-/// https://github.com/WebAssembly/wasi-libc/pull/377 being present in a Wasm
+/// <https://github.com/WebAssembly/wasi-libc/pull/377> being present in a Wasm
 /// module.
 #[derive(Debug, PartialEq)]
 pub enum WasiLibc377Bug {

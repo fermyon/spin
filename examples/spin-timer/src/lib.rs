@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use clap::Args;
 use serde::{Deserialize, Serialize};
-use spin_app::MetadataKey;
-use spin_core::{async_trait, InstancePre};
-use spin_trigger::{TriggerAppEngine, TriggerExecutor};
+use spin_app::{AppComponent, MetadataKey};
+use spin_core::{async_trait, Data, Engine, Store};
+use spin_trigger::{TriggerAppEngine, TriggerExecutor, TriggerInstancePre};
 
 wasmtime::component::bindgen!({
     path: ".",
@@ -62,7 +62,7 @@ impl TriggerExecutor for TimerTrigger {
 
     type RunConfig = CliArgs;
 
-    type InstancePre = InstancePre<RuntimeData>;
+    type InstancePre = SpinTimerPre<Data<RuntimeData>>;
 
     async fn new(engine: spin_trigger::TriggerAppEngine<Self>) -> anyhow::Result<Self> {
         let speedup = engine
@@ -117,11 +117,28 @@ impl TriggerExecutor for TimerTrigger {
     }
 }
 
+#[async_trait]
+impl TriggerInstancePre<RuntimeData, TimerTriggerConfig> for SpinTimerPre<Data<RuntimeData>> {
+    type Instance = SpinTimer;
+
+    async fn instantiate_pre(
+        engine: &Engine<RuntimeData>,
+        component: &AppComponent,
+        _config: &TimerTriggerConfig,
+    ) -> anyhow::Result<Self> {
+        let comp = component.load_component(engine).await?;
+        SpinTimerPre::new(engine.instantiate_pre(&comp)?.as_ref().clone())
+    }
+
+    async fn instantiate(&self, store: &mut Store<RuntimeData>) -> anyhow::Result<Self::Instance> {
+        self.instantiate_async(store).await
+    }
+}
+
 impl TimerTrigger {
     async fn handle_timer_event(&self, component_id: &str) -> anyhow::Result<()> {
         // Load the guest...
         let (instance, mut store) = self.engine.prepare_instance(component_id).await?;
-        let instance = SpinTimer::new(&mut store, &instance)?;
         // ...and call the entry point
         instance.call_handle_timer_request(&mut store).await
     }

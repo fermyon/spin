@@ -506,11 +506,19 @@ pub struct InstancePre<T> {
     inner: wasmtime::component::InstancePre<Data<T>>,
 }
 
-impl<T: Send + Sync> InstancePre<T> {
+impl<T> InstancePre<T> {
     /// Instantiates this instance with the given [`Store`].
     #[instrument(skip_all, level = "debug")]
-    pub async fn instantiate_async(&self, store: &mut Store<T>) -> Result<Instance> {
+    pub async fn instantiate_async(&self, store: &mut Store<T>) -> Result<Instance>
+    where
+        T: Send + Sync,
+    {
         self.inner.instantiate_async(store).await
+    }
+
+    /// Returns the underlying component used to create this `InstancePre<T>`
+    pub fn component(&self) -> &Component {
+        self.inner.component()
     }
 }
 

@@ -49,14 +49,14 @@ use tokio::{
 
 use tracing::{field::Empty, log, Instrument};
 use wasmtime_wasi_http::{
-    bindings::wasi::http::{types, types::ErrorCode},
+    bindings::http::{types, types::ErrorCode},
     body::{HyperIncomingBody as Body, HyperOutgoingBody},
     types::HostFutureIncomingResponse,
     HttpError, HttpResult,
 };
 
 use crate::{
-    handler::{HandlerType, HttpHandlerExecutor},
+    handler::{Handler, HandlerPre, HttpHandlerExecutor},
     instrument::{instrument_error, MatchedRoute},
     wagi::WagiHttpExecutor,
 };
@@ -105,12 +105,12 @@ impl CliArgs {
 }
 
 pub enum HttpInstancePre {
-    Component(spin_core::InstancePre<RuntimeData>, HandlerType),
+    Component(HandlerPre),
     Module(spin_core::ModuleInstancePre<RuntimeData>),
 }
 
 pub enum HttpInstance {
-    Component(spin_core::Instance, HandlerType),
+    Component(Handler),
     Module(spin_core::ModuleInstance),
 }
 
@@ -208,20 +208,17 @@ impl TriggerInstancePre<RuntimeData, HttpTriggerConfig> for HttpInstancePre {
             ))
         } else {
             let comp = component.load_component(engine).await?;
-            let handler_ty = HandlerType::from_component(engine, &comp)?;
-            Ok(HttpInstancePre::Component(
-                engine.instantiate_pre(&comp)?,
-                handler_ty,
-            ))
+            let pre = engine.instantiate_pre(&comp)?;
+            let handler = HandlerPre::from_instance_pre(pre)?;
+            Ok(HttpInstancePre::Component(handler))
         }
     }
 
     async fn instantiate(&self, store: &mut Store) -> Result<HttpInstance> {
         match self {
-            HttpInstancePre::Component(pre, ty) => Ok(HttpInstance::Component(
-                pre.instantiate_async(store).await?,
-                *ty,
-            )),
+            HttpInstancePre::Component(pre) => {
+                Ok(HttpInstance::Component(pre.instantiate(store).await?))
+            }
             HttpInstancePre::Module(pre) => {
                 pre.instantiate_async(store).await.map(HttpInstance::Module)
             }

@@ -15,10 +15,12 @@ pub(crate) async fn test(
         let instance = pre.instantiate_async(&mut store).await?;
 
         let func = instance
-            .exports(&mut store)
-            .instance("fermyon:spin/inbound-http")
-            .ok_or_else(|| anyhow!("no fermyon:spin/inbound-http instance found"))?
-            .typed_func::<(Request,), (Response,)>("handle-request")?;
+            .get_export(&mut store, None, "fermyon:spin/inbound-http")
+            .and_then(|i| instance.get_export(&mut store, Some(&i), "handle-request"))
+            .ok_or_else(|| {
+                anyhow!("no fermyon:spin/inbound-http/handle-request function was found")
+            })?;
+        let func = instance.get_typed_func::<(Request,), (Response,)>(&mut store, &func)?;
 
         let (response,) = func
             .call_async(

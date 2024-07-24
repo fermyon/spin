@@ -437,6 +437,7 @@ fn list_installed_plugins() -> Result<Vec<PluginDescriptor>> {
             installed: true,
             compatibility: PluginCompatibility::for_current(&m),
             manifest: m,
+            installed_version: None,
         })
         .collect();
     Ok(descriptors)
@@ -458,6 +459,7 @@ async fn list_catalogue_plugins() -> Result<Vec<PluginDescriptor>> {
             installed: m.is_installed_in(store),
             compatibility: PluginCompatibility::for_current(&m),
             manifest: m,
+            installed_version: None,
         })
         .collect();
     Ok(descriptors)
@@ -469,12 +471,80 @@ async fn list_catalogue_and_installed_plugins() -> Result<Vec<PluginDescriptor>>
     Ok(merge_plugin_lists(catalogue, installed))
 }
 
+fn summarise(all_plugins: Vec<PluginDescriptor>) -> Vec<PluginDescriptor> {
+    use itertools::Itertools;
+
+    let names_to_versions = all_plugins
+        .into_iter()
+        .into_group_map_by(|pd| pd.name.clone());
+    names_to_versions
+        .into_values()
+        .flat_map(|versions| {
+            let (latest, rest) = latest_and_rest(versions);
+            let Some(mut latest) = latest else {
+                // We can't parse things well enough to summarise: return all versions.
+                return rest;
+            };
+            if latest.installed {
+                // The installed is the latest: return it.
+                return vec![latest];
+            }
+
+            let installed = rest.into_iter().find(|pd| pd.installed);
+            let Some(installed) = installed else {
+                // No installed version: return the latest.
+                return vec![latest];
+            };
+
+            // If we get here then there is an installed version which is not the latest.
+            // Mark the latest as installed (representing, in this case, that the plugin
+            // is installed, even though this version isn't), and record what version _is_
+            // installed.
+            latest.installed = true;
+            latest.installed_version = Some(installed.version);
+            vec![latest]
+        })
+        .collect()
+}
+
+/// Given a list of plugin descriptors, this looks for the one with the latest version.
+/// If it can determine a latest version, it returns a tuple where the first element is
+/// the latest version, and the second is the remaining versions (order not preserved).
+/// Otherwise it returns None and the original list.
+fn latest_and_rest(
+    mut plugins: Vec<PluginDescriptor>,
+) -> (Option<PluginDescriptor>, Vec<PluginDescriptor>) {
+    // `versions` is the parsed version of each plugin in the vector, in the same order.
+    // We rely on this 1-1 order-preserving behaviour as we are going to calculate
+    // an index from `versions` and use it to index into `plugins`.
+    let Ok(versions) = plugins
+        .iter()
+        .map(|pd| semver::Version::parse(&pd.version))
+        .collect::<Result<Vec<_>, _>>()
+    else {
+        return (None, plugins);
+    };
+    let Some((latest_index, _)) = versions.iter().enumerate().max_by_key(|(_, v)| *v) else {
+        return (None, plugins);
+    };
+    let pd = plugins.swap_remove(latest_index);
+    (Some(pd), plugins)
+}
+
 /// List available or installed plugins.
 #[derive(Parser, Debug)]
 pub struct List {
     /// List only installed plugins.
-    #[clap(long = "installed", takes_value = false)]
+    #[clap(long = "installed", takes_value = false, group = "which")]
     pub installed: bool,
+
+    /// List all versions of plugins. This is the default behaviour.
+    #[clap(long = "all", takes_value = false, group = "which")]
+    pub all: bool,
+
+    /// List latest and installed versions of plugins.
+    #[clap(long = "summary", takes_value = false, group = "which")]
+    pub summary: bool,
 
     /// Filter the list to plugins containing this string.
     #[clap(long = "filter")]
@@ -488,6 +558,10 @@ impl List {
         } else {
             list_catalogue_and_installed_plugins().await
         }?;
+
+        if self.summary {
+            plugins = summarise(plugins);
+        }
 
         plugins.sort_by(|p, q| p.cmp(q));
 
@@ -504,7 +578,15 @@ impl List {
             println!("No plugins found");
         } else {
             for p in plugins {
-                let installed = if p.installed { " [installed]" } else { "" };
+                let installed = if p.installed {
+                    if let Some(installed) = p.installed_version.as_ref() {
+                        format!(" [installed version: {installed}]")
+                    } else {
+                        " [installed]".to_string()
+                    }
+                } else {
+                    "".to_string()
+                };
                 let compat = match &p.compatibility {
                     PluginCompatibility::Compatible => String::new(),
                     PluginCompatibility::IncompatibleSpin(v) => format!(" [requires Spin {v}]"),
@@ -527,6 +609,8 @@ impl Search {
     async fn run(&self) -> anyhow::Result<()> {
         let list_cmd = List {
             installed: false,
+            all: true,
+            summary: false,
             filter: self.filter.clone(),
         };
 
@@ -563,6 +647,7 @@ struct PluginDescriptor {
     compatibility: PluginCompatibility,
     installed: bool,
     manifest: PluginManifest,
+    installed_version: Option<String>, // only in "latest" mode and if installed version is not latest
 }
 
 impl PluginDescriptor {
@@ -699,5 +784,63 @@ async fn try_install(
         Ok(true)
     } else {
         Ok(false)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn dummy_descriptor(version: &str) -> PluginDescriptor {
+        use serde::Deserialize;
+        PluginDescriptor {
+            name: "dummy".into(),
+            version: version.into(),
+            compatibility: PluginCompatibility::Compatible,
+            installed: false,
+            manifest: PluginManifest::deserialize(serde_json::json!({
+                "name": "dummy",
+                "version": version,
+                "spinCompatibility": ">= 0.1",
+                "license": "dummy",
+                "packages": []
+            }))
+            .unwrap(),
+            installed_version: None,
+        }
+    }
+
+    #[test]
+    fn latest_and_rest_if_empty_returns_no_latest_rest_empty() {
+        let (latest, rest) = latest_and_rest(vec![]);
+        assert!(latest.is_none());
+        assert_eq!(0, rest.len());
+    }
+
+    #[test]
+    fn latest_and_rest_if_invalid_ver_returns_no_latest_all_rest() {
+        let (latest, rest) = latest_and_rest(vec![
+            dummy_descriptor("1.2.3"),
+            dummy_descriptor("spork"),
+            dummy_descriptor("1.3.5"),
+        ]);
+        assert!(latest.is_none());
+        assert_eq!(3, rest.len());
+    }
+
+    #[test]
+    fn latest_and_rest_if_valid_ver_returns_latest_and_rest() {
+        let (latest, rest) = latest_and_rest(vec![
+            dummy_descriptor("1.2.3"),
+            dummy_descriptor("2.4.6"),
+            dummy_descriptor("1.3.5"),
+        ]);
+        let latest = latest.expect("should have found a latest");
+        assert_eq!("2.4.6", latest.version);
+
+        assert_eq!(2, rest.len());
+        let rest_vers: std::collections::HashSet<_> = rest.into_iter().map(|p| p.version).collect();
+        assert!(rest_vers.contains("1.2.3"));
+        assert!(rest_vers.contains("1.3.5"));
     }
 }

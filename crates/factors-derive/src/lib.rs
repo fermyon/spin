@@ -68,7 +68,6 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let Error = quote!(#factors_path::Error);
     let Factor = quote!(#factors_path::Factor);
     let ConfiguredApp = quote!(#factors_path::ConfiguredApp);
-    let RuntimeConfigTracker = quote!(#factors_path::__internal::RuntimeConfigTracker);
     let FactorInstanceBuilder = quote!(#factors_path::FactorInstanceBuilder);
 
     Ok(quote! {
@@ -111,12 +110,11 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             fn configure_app(
                 &self,
                 app: #factors_path::App,
-                runtime_config: impl #factors_path::RuntimeConfigSource
+                mut runtime_config: impl #factors_path::RuntimeConfigSource
             ) -> #Result<#ConfiguredApp<Self>> {
                 let mut app_state = #app_state_name {
                     #( #factor_names: None, )*
                 };
-                let mut runtime_config_tracker = #RuntimeConfigTracker::new(runtime_config);
                 #(
                     app_state.#factor_names = Some(
                         #Factor::configure_app(
@@ -124,12 +122,11 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                             #factors_path::ConfigureAppContext::<Self, #factor_types>::new(
                                 &app,
                                 &app_state,
-                                &mut runtime_config_tracker,
+                                &mut runtime_config,
                             )?,
                         ).map_err(#Error::factor_configure_app_error::<#factor_types>)?
                     );
                 )*
-                runtime_config_tracker.validate_all_keys_used()?;
                 Ok(#ConfiguredApp::new(app, app_state))
             }
 

@@ -3,8 +3,8 @@ use std::any::Any;
 use wasmtime::component::{Linker, ResourceTable};
 
 use crate::{
-    prepare::FactorInstanceBuilder, runtime_config::RuntimeConfigTracker, App, Error,
-    FactorRuntimeConfig, InstanceBuilders, PrepareContext, RuntimeConfigSource, RuntimeFactors,
+    prepare::FactorInstanceBuilder, App, Error, InstanceBuilders, PrepareContext,
+    RuntimeConfigSource, RuntimeFactors,
 };
 
 /// A contained (i.e., "factored") piece of runtime functionality.
@@ -13,7 +13,7 @@ pub trait Factor: Any + Sized {
     ///
     /// Runtime configuration allows for user-provided customization of the
     /// factor's behavior on a per-app basis.
-    type RuntimeConfig: FactorRuntimeConfig;
+    type RuntimeConfig;
 
     /// The application state of this factor.
     ///
@@ -140,9 +140,10 @@ impl<'a, T: RuntimeFactors, F: Factor> ConfigureAppContext<'a, T, F> {
     pub fn new<S: RuntimeConfigSource>(
         app: &'a App,
         app_state: &'a T::AppState,
-        runtime_config_tracker: &mut RuntimeConfigTracker<S>,
+        runtime_config: &mut S,
     ) -> crate::Result<Self> {
-        let runtime_config = runtime_config_tracker.get_config::<F>()?;
+        // TODO: fix error
+        let runtime_config = runtime_config.get_factor_config::<F>().unwrap();
         Ok(Self {
             app,
             app_state,

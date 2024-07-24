@@ -7,29 +7,29 @@ use std::sync::Arc;
 use host::InstanceState;
 
 use async_trait::async_trait;
-use runtime_config::RuntimeConfigResolver;
+use runtime_config::DefaultLabelResolver;
 use spin_factors::{anyhow, Factor};
 use spin_locked_app::MetadataKey;
 use spin_world::v1::sqlite as v1;
 use spin_world::v2::sqlite as v2;
 
-pub struct SqliteFactor<R> {
-    runtime_config_resolver: Arc<R>,
+pub struct SqliteFactor {
+    runtime_config_resolver: Arc<dyn DefaultLabelResolver>,
 }
 
-impl<R> SqliteFactor<R> {
+impl SqliteFactor {
     /// Create a new `SqliteFactor`
     ///
     /// Takes a `runtime_config_resolver` that can resolve a runtime configuration into a connection pool.
-    pub fn new(runtime_config_resolver: R) -> Self {
+    pub fn new(runtime_config_resolver: impl DefaultLabelResolver + 'static) -> Self {
         Self {
             runtime_config_resolver: Arc::new(runtime_config_resolver),
         }
     }
 }
 
-impl<R: RuntimeConfigResolver + 'static> Factor for SqliteFactor<R> {
-    type RuntimeConfig = runtime_config::RuntimeConfig<R::Config>;
+impl Factor for SqliteFactor {
+    type RuntimeConfig = runtime_config::RuntimeConfig;
     type AppState = AppState;
     type InstanceBuilder = InstanceState;
 
@@ -46,13 +46,10 @@ impl<R: RuntimeConfigResolver + 'static> Factor for SqliteFactor<R> {
         &self,
         mut ctx: spin_factors::ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState> {
-        let mut connection_pools = HashMap::new();
-        if let Some(runtime_config) = ctx.take_runtime_config() {
-            for (database_label, config) in runtime_config.store_configs {
-                let pool = self.runtime_config_resolver.get_pool(config)?;
-                connection_pools.insert(database_label, pool);
-            }
-        }
+        let connection_pools = ctx
+            .take_runtime_config()
+            .map(|r| r.pools)
+            .unwrap_or_default();
 
         let allowed_databases = ctx
             .app()

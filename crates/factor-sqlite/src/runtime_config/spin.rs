@@ -10,9 +10,8 @@ use spin_factors::anyhow::{self, Context as _};
 use spin_world::v2::sqlite as v2;
 use tokio::sync::OnceCell;
 
+use super::DefaultLabelResolver;
 use crate::{Connection, ConnectionPool, SimpleConnectionPool};
-
-use super::RuntimeConfigResolver;
 
 /// Spin's default handling of the runtime configuration for SQLite databases.
 ///
@@ -48,20 +47,32 @@ impl SpinSqliteRuntimeConfig {
             local_database_dir,
         }
     }
-}
 
-#[derive(Deserialize)]
-pub struct RuntimeConfig {
-    #[serde(rename = "type")]
-    pub type_: String,
-    #[serde(flatten)]
-    pub config: toml::Table,
-}
+    /// Get the runtime configuration for SQLite databases from a TOML table.
+    ///
+    /// Expects table to be in the format:
+    /// ````toml
+    /// [sqlite_database.$database-label]
+    /// type = "$database-type"
+    /// ... extra type specific configuration ...
+    /// ```
+    pub fn config_from_table<T: GetKey + AsRef<toml::Table>>(
+        &self,
+        table: &T,
+    ) -> anyhow::Result<Option<super::RuntimeConfig>> {
+        let Some(table) = table.get("sqlite_database") else {
+            return Ok(None);
+        };
+        let config: std::collections::HashMap<String, RuntimeConfig> = table.clone().try_into()?;
+        let pools = config
+            .into_iter()
+            .map(|(k, v)| Ok((k, self.get_pool(v)?)))
+            .collect::<anyhow::Result<_>>()?;
+        Ok(Some(super::RuntimeConfig { pools }))
+    }
 
-impl RuntimeConfigResolver for SpinSqliteRuntimeConfig {
-    type Config = RuntimeConfig;
-
-    fn get_pool(&self, config: RuntimeConfig) -> anyhow::Result<Arc<dyn ConnectionPool>> {
+    /// Get a connection pool for a given runtime configuration.
+    pub fn get_pool(&self, config: RuntimeConfig) -> anyhow::Result<Arc<dyn ConnectionPool>> {
         let database_kind = config.type_.as_str();
         let pool = match database_kind {
             "spin" => {
@@ -76,7 +87,21 @@ impl RuntimeConfigResolver for SpinSqliteRuntimeConfig {
         };
         Ok(Arc::new(pool))
     }
+}
 
+pub trait GetKey {
+    fn get(&self, key: &str) -> Option<&toml::Value>;
+}
+
+#[derive(Deserialize)]
+pub struct RuntimeConfig {
+    #[serde(rename = "type")]
+    pub type_: String,
+    #[serde(flatten)]
+    pub config: toml::Table,
+}
+
+impl DefaultLabelResolver for SpinSqliteRuntimeConfig {
     fn default(&self, label: &str) -> Option<Arc<dyn ConnectionPool>> {
         // Only default the database labeled "default".
         if label != "default" {

@@ -13,7 +13,7 @@ pub use spin_factors_derive::RuntimeFactors;
 pub use crate::{
     factor::{ConfigureAppContext, ConfiguredApp, Factor, FactorInstanceState, InitContext},
     prepare::{FactorInstanceBuilder, InstanceBuilders, PrepareContext, SelfInstanceBuilder},
-    runtime_config::{FactorRuntimeConfig, RuntimeConfigSource},
+    runtime_config::RuntimeConfigSource,
     runtime_factors::{RuntimeFactors, RuntimeFactorsInstanceState},
 };
 
@@ -63,7 +63,7 @@ impl Error {
         Self::NoSuchFactor(std::any::type_name::<T>())
     }
 
-    fn runtime_config_reused_key<T: Factor>(key: impl Into<String>) -> Self {
+    pub fn runtime_config_reused_key<T: Factor>(key: impl Into<String>) -> Self {
         Self::RuntimeConfigReusedKey {
             factor: std::any::type_name::<T>(),
             key: key.into(),
@@ -95,9 +95,4 @@ impl Error {
         let factor = std::any::type_name::<T>();
         Self::FactorBuildError { factor, source }
     }
-}
-
-#[doc(hidden)]
-pub mod __internal {
-    pub use crate::runtime_config::RuntimeConfigTracker;
 }

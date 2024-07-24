@@ -181,7 +181,7 @@ impl DefaultLabelResolver {
     }
 }
 
-impl factor_sqlite::runtime_config::DefaultLabelResolver for DefaultLabelResolver {
+impl factor_sqlite::DefaultLabelResolver for DefaultLabelResolver {
     fn default(&self, label: &str) -> Option<Arc<dyn factor_sqlite::ConnectionPool>> {
         let Some(default) = &self.default else {
             return None;

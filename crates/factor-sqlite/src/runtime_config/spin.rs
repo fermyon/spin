@@ -10,8 +10,7 @@ use spin_factors::anyhow::{self, Context as _};
 use spin_world::v2::sqlite as v2;
 use tokio::sync::OnceCell;
 
-use super::DefaultLabelResolver;
-use crate::{Connection, ConnectionPool, SimpleConnectionPool};
+use crate::{Connection, ConnectionPool, DefaultLabelResolver, SimpleConnectionPool};
 
 /// Spin's default handling of the runtime configuration for SQLite databases.
 ///

@@ -7,23 +7,23 @@ use std::sync::Arc;
 use host::InstanceState;
 
 use async_trait::async_trait;
-use runtime_config::DefaultLabelResolver;
 use spin_factors::{anyhow, Factor};
 use spin_locked_app::MetadataKey;
 use spin_world::v1::sqlite as v1;
 use spin_world::v2::sqlite as v2;
 
 pub struct SqliteFactor {
-    runtime_config_resolver: Arc<dyn DefaultLabelResolver>,
+    default_label_resolver: Arc<dyn DefaultLabelResolver>,
 }
 
 impl SqliteFactor {
     /// Create a new `SqliteFactor`
     ///
-    /// Takes a `runtime_config_resolver` that can resolve a runtime configuration into a connection pool.
-    pub fn new(runtime_config_resolver: impl DefaultLabelResolver + 'static) -> Self {
+    /// Takes a `default_label_resolver` for how to handle when a database label doesn't
+    /// have a corresponding runtime configuration.
+    pub fn new(default_label_resolver: impl DefaultLabelResolver + 'static) -> Self {
         Self {
-            runtime_config_resolver: Arc::new(runtime_config_resolver),
+            default_label_resolver: Arc::new(default_label_resolver),
         }
     }
 }
@@ -67,7 +67,7 @@ impl Factor for SqliteFactor {
                 ))
             })
             .collect::<anyhow::Result<HashMap<_, _>>>()?;
-        let resolver = self.runtime_config_resolver.clone();
+        let resolver = self.default_label_resolver.clone();
         let get_connection_pool: host::ConnectionPoolGetter = Arc::new(move |label| {
             connection_pools
                 .get(label)
@@ -135,6 +135,14 @@ fn ensure_allowed_databases_are_configured(
 }
 
 pub const ALLOWED_DATABASES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("databases");
+
+/// Resolves a label to a default connection pool.
+pub trait DefaultLabelResolver: Send + Sync {
+    /// If there is no runtime configuration for a given database label, return a default connection pool.
+    ///
+    /// If `Option::None` is returned, the database is not allowed.
+    fn default(&self, label: &str) -> Option<Arc<dyn ConnectionPool>>;
+}
 
 pub struct AppState {
     /// A map from component id to a set of allowed database labels.

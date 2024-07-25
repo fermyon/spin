@@ -1038,7 +1038,6 @@ route = "/..."
 
     /// Build an app whose component `workdir` is a subdirectory.
     #[test]
-    #[cfg(not(tarpaulin))]
     fn test_build_command_nested_workdir() -> anyhow::Result<()> {
         do_test_build_command("tests/testcases/nested-build")
     }

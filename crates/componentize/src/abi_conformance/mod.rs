@@ -12,12 +12,12 @@
 //! (i.e. inbound requests) or by the host (i.e. outbound requests).
 //!
 //! - For a guest-implemented function, the host will call the function and assert the result matches what is
-//! expected (see [`Report::inbound_http`] for an example).
+//!   expected (see [`Report::inbound_http`] for an example).
 //!
 //! - For a host-implemented function, the host will call a guest-implemented function according to the specified
-//! [`InvocationStyle`] with a set of arguments indicating which host function to call and with what arguments.
-//! The host then asserts that host function was indeed called with the expected arguments (see
-//! [`Report::http`] for an example).
+//!   [`InvocationStyle`] with a set of arguments indicating which host function to call and with what arguments.
+//!   The host then asserts that host function was indeed called with the expected arguments (see
+//!   [`Report::http`] for an example).
 
 #![deny(warnings)]
 
@@ -88,7 +88,7 @@ pub struct TestConfig {
 /// - Guest-implemented exports which behave as prescribed by the test (e.g. `inbound_http` and `inbound_redis`)
 ///
 /// - Host-implemented imports which are called by the guest with the arguments specified by the host
-/// (e.g. `http`)
+///   (e.g. `http`)
 #[derive(Serialize, PartialEq, Eq, Debug)]
 pub struct Report {
     /// Result of the Spin inbound HTTP test

@@ -346,7 +346,7 @@ impl TriggerHooks for SummariseRuntimeConfigHook {
                 for (id, opt) in &opt.sqlite_databases {
                     opts.push(Self::summarise_sqlite(id, opt));
                 }
-                for opt in &opt.llm_compute {
+                if let Some(opt) = &opt.llm_compute {
                     opts.push(Self::summarise_llm(opt));
                 }
             }

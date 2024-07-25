@@ -61,6 +61,10 @@ impl KeyValueDispatch {
     pub fn get_store(&self, store: Resource<key_value::Store>) -> anyhow::Result<&Arc<dyn Store>> {
         self.stores.get(store.rep()).context("invalid store")
     }
+
+    pub fn allowed_stores(&self) -> &HashSet<String> {
+        &self.allowed_stores
+    }
 }
 
 impl Default for KeyValueDispatch {

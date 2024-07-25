@@ -1,6 +1,7 @@
 pub mod delegating_resolver;
 mod runtime_config;
 mod store;
+pub use delegating_resolver::{DelegatingRuntimeConfigResolver, StoreConfig};
 
 use std::{
     collections::{HashMap, HashSet},
@@ -19,11 +20,16 @@ use spin_key_value::{
 };
 pub use store::MakeKeyValueStore;
 
+/// A factor that provides key-value storage.
 pub struct KeyValueFactor<R> {
+    /// Resolves runtime configuration into store managers.
     runtime_config_resolver: Arc<R>,
 }
 
 impl<R> KeyValueFactor<R> {
+    /// Create a new KeyValueFactor.  
+    ///  
+    /// The `runtime_config_resolver` is used to resolve runtime configuration into store managers.
     pub fn new(runtime_config_resolver: R) -> Self {
         Self {
             runtime_config_resolver: Arc::new(runtime_config_resolver),
@@ -46,12 +52,18 @@ impl<R: RuntimeConfigResolver + 'static> Factor for KeyValueFactor<R> {
         &self,
         mut ctx: ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState> {
-        // Build StoreManager from runtime config
+        // Build store manager from runtime config
         let mut store_managers: HashMap<String, Arc<dyn StoreManager>> = HashMap::new();
         if let Some(runtime_config) = ctx.take_runtime_config() {
             for (store_label, config) in runtime_config.store_configs {
-                let store = self.runtime_config_resolver.get_store(config)?;
-                store_managers.insert(store_label, store);
+                if let std::collections::hash_map::Entry::Vacant(e) =
+                    store_managers.entry(store_label)
+                {
+                    // Only add manager for labels that are not already configured. Runtime config
+                    // takes top-down precedence.
+                    let store = self.runtime_config_resolver.get_store(config)?;
+                    e.insert(store);
+                }
             }
         }
         let resolver_clone = self.runtime_config_resolver.clone();
@@ -110,12 +122,27 @@ impl<R: RuntimeConfigResolver + 'static> Factor for KeyValueFactor<R> {
 type AppStoreManager = CachingStoreManager<DelegatingStoreManager>;
 
 pub struct AppState {
+    /// The store manager for the app.
+    ///
+    /// This is a cache around a delegating store manager. For `get` requests,
+    /// first checks the cache before delegating to the underlying store
+    /// manager.
     store_manager: Arc<AppStoreManager>,
+    /// The allowed stores for each component.
+    ///
+    /// This is a map from component ID to the set of store labels that the
+    /// component is allowed to use.
     component_allowed_stores: HashMap<String, HashSet<String>>,
 }
 
 pub struct InstanceBuilder {
+    /// The store manager for the app.
+    ///
+    /// This is a cache around a delegating store manager. For `get` requests,
+    /// first checks the cache before delegating to the underlying store
+    /// manager.
     store_manager: Arc<AppStoreManager>,
+    /// The allowed stores for this component instance.
     allowed_stores: HashSet<String>,
 }
 

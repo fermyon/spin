@@ -48,7 +48,9 @@ async fn smoke_test_works() -> anyhow::Result<()> {
             config: toml::value::Table::try_from(default_config)?,
         },
     );
-    key_value_resolver.add_store_type(SpinKeyValueStore::new(None)?)?;
+    key_value_resolver.add_store_type(SpinKeyValueStore::new(
+        std::env::current_dir().context("failed to get current directory")?,
+    ))?;
     key_value_resolver.add_store_type(RedisKeyValueStore)?;
 
     let mut factors = Factors {

@@ -8,30 +8,36 @@ use serde::{Deserialize, Serialize};
 use spin_factor_key_value::MakeKeyValueStore;
 use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
 
+/// A key-value store that uses SQLite as the backend.
 pub struct SpinKeyValueStore {
+    /// The base path or directory for the SQLite database file.
     base_path: PathBuf,
 }
 
 impl SpinKeyValueStore {
-    pub fn new(base_path: Option<PathBuf>) -> anyhow::Result<Self> {
-        let base_path = match base_path {
-            Some(path) => path,
-            None => std::env::current_dir().context("failed to get current directory")?,
-        };
-        Ok(Self { base_path })
+    /// Create a new SpinKeyValueStore with the given base path.
+    pub fn new(base_path: PathBuf) -> Self {
+        Self { base_path }
     }
 }
 
+/// Runtime configuration for the SQLite key-value store.
 #[derive(Deserialize, Serialize)]
 pub struct SpinKeyValueRuntimeConfig {
+    /// The path to the SQLite database file.
     path: Option<PathBuf>,
 }
 
 impl SpinKeyValueRuntimeConfig {
+    /// The default filename for the SQLite database.
     const DEFAULT_SPIN_STORE_FILENAME: &'static str = "sqlite_key_value.db";
 
-    pub fn default(state_dir: Option<PathBuf>) -> Self {
-        let path = state_dir.map(|dir| dir.join(Self::DEFAULT_SPIN_STORE_FILENAME));
+    /// Create a new runtime configuration with the given state directory.
+    ///
+    /// If the database directory is None, the database is in-memory.
+    /// If the database directory is Some, the database is stored in a file in the state directory.
+    pub fn default(default_database_dir: Option<PathBuf>) -> Self {
+        let path = default_database_dir.map(|dir| dir.join(Self::DEFAULT_SPIN_STORE_FILENAME));
         Self { path }
     }
 }

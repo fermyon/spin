@@ -61,7 +61,7 @@ pub enum KeyValueAzureCosmosAuthOptions {
     ///
     /// Common across each:
     /// - `AZURE_AUTHORITY_HOST`: (optional) the host for the identity provider. For example, for Azure public cloud the host defaults to "https://login.microsoftonline.com".
-    /// See also: https://github.com/Azure/azure-sdk-for-rust/blob/main/sdk/identity/README.md
+    ///   See also: https://github.com/Azure/azure-sdk-for-rust/blob/main/sdk/identity/README.md
     Environmental,
 }
 

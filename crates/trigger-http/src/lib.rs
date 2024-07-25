@@ -238,7 +238,7 @@ impl HttpTrigger {
         server_addr: SocketAddr,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
-        set_req_uri(&mut req, scheme, server_addr)?;
+        set_req_uri(&mut req, scheme)?;
         strip_forbidden_headers(&mut req);
 
         spin_telemetry::extract_trace_context(&req);
@@ -288,6 +288,7 @@ impl HttpTrigger {
                                 &route_match,
                                 req,
                                 client_addr,
+                                server_addr.to_string().as_str(),
                             )
                             .await
                     }
@@ -302,6 +303,7 @@ impl HttpTrigger {
                                 &route_match,
                                 req,
                                 client_addr,
+                                server_addr.to_string().as_str(),
                             )
                             .await
                     }
@@ -370,6 +372,7 @@ impl HttpTrigger {
         stream: S,
         server_addr: SocketAddr,
         client_addr: SocketAddr,
+        scheme: Scheme,
     ) {
         task::spawn(async move {
             if let Err(e) = http1::Builder::new()
@@ -377,8 +380,12 @@ impl HttpTrigger {
                 .serve_connection(
                     TokioIo::new(stream),
                     service_fn(move |request| {
-                        self.clone()
-                            .instrumented_service_fn(server_addr, client_addr, request)
+                        self.clone().instrumented_service_fn(
+                            server_addr,
+                            client_addr,
+                            scheme.clone(),
+                            request,
+                        )
                     }),
                 )
                 .await
@@ -392,6 +399,7 @@ impl HttpTrigger {
         self: Arc<Self>,
         server_addr: SocketAddr,
         client_addr: SocketAddr,
+        scheme: Scheme,
         request: Request<Incoming>,
     ) -> Result<Response<HyperOutgoingBody>> {
         let span = http_span!(request, client_addr);
@@ -403,7 +411,7 @@ impl HttpTrigger {
                         body.map_err(wasmtime_wasi_http::hyper_response_error)
                             .boxed()
                     }),
-                    Scheme::HTTP,
+                    scheme,
                     server_addr,
                     client_addr,
                 )
@@ -419,7 +427,7 @@ impl HttpTrigger {
         loop {
             let (stream, client_addr) = listener.accept().await?;
             self.clone()
-                .serve_connection(stream, listen_addr, client_addr);
+                .serve_connection(stream, listen_addr, client_addr, Scheme::HTTP);
         }
     }
 
@@ -435,7 +443,10 @@ impl HttpTrigger {
         loop {
             let (stream, addr) = listener.accept().await?;
             match acceptor.accept(stream).await {
-                Ok(stream) => self.clone().serve_connection(stream, listen_addr, addr),
+                Ok(stream) => {
+                    self.clone()
+                        .serve_connection(stream, listen_addr, addr, Scheme::HTTPS)
+                }
                 Err(err) => tracing::error!(?err, "Failed to start TLS session"),
             }
         }
@@ -475,11 +486,21 @@ fn parse_listen_addr(addr: &str) -> anyhow::Result<SocketAddr> {
 
 /// The incoming request's scheme and authority
 ///
-/// The incoming request's URI is relative to the server, so we need to set the scheme and authority
-fn set_req_uri(req: &mut Request<Body>, scheme: Scheme, addr: SocketAddr) -> Result<()> {
+/// The incoming request's URI is relative to the server, so we need to set the scheme and authority.
+/// The `Host` header is used to set the authority. This function will error if not `Host` header is
+/// present or if it is not parseable as an `Authority`.
+fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> Result<()> {
     let uri = req.uri().clone();
     let mut parts = uri.into_parts();
-    let authority = format!("{}:{}", addr.ip(), addr.port()).parse().unwrap();
+    let headers = req.headers();
+    let authority = headers
+        .get(HOST)
+        .context("missing Host header")?
+        .to_str()
+        .context("Host header is not valid UTF-8")?;
+    let authority = authority
+        .parse()
+        .context("Host header contains an invalid authority")?;
     parts.scheme = Some(scheme);
     parts.authority = Some(authority);
     *req.uri_mut() = Uri::from_parts(parts).unwrap();
@@ -573,6 +594,7 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
         route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,
+        self_authority: &str,
     ) -> Result<Response<Body>>;
 }
 
@@ -620,9 +642,17 @@ impl HttpRuntimeData {
 
         let between_bytes_timeout = config.between_bytes_timeout;
 
+        let self_authority = this.origin.clone().expect("origin must be set");
         let resp_fut = async move {
             match handler
-                .execute(engine.clone(), base, &route_match, request, client_addr)
+                .execute(
+                    engine.clone(),
+                    base,
+                    &route_match,
+                    request,
+                    client_addr,
+                    &self_authority,
+                )
                 .await
             {
                 Ok(resp) => Ok(Ok(IncomingResponse {

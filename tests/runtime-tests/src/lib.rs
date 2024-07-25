@@ -147,7 +147,7 @@ impl RuntimeTest<InProcessSpin> {
     pub fn run(&mut self) {
         self.run_test(|env| {
             let runtime = env.runtime_mut();
-            let response = runtime.make_http_request(Request::new(Method::Get, "/"))?;
+            let response = runtime.make_http_request(Request::full(Method::Get, "/", &[("Host", "example.com")], None))?;
             if response.status() == 200 {
                 return Ok(());
             }

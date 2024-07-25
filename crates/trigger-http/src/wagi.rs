@@ -28,6 +28,7 @@ impl HttpExecutor for WagiHttpExecutor {
         route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,
+        _self_authority: &str,
     ) -> Result<Response<Body>> {
         let component = route_match.component_id();
 

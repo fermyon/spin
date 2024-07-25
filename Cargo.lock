@@ -7665,7 +7665,6 @@ dependencies = [
  "spin-core",
  "spin-factor-outbound-networking",
  "spin-factor-variables",
- "spin-factor-wasi",
  "spin-factors",
  "spin-factors-test",
  "spin-world",

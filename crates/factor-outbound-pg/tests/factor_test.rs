@@ -24,7 +24,7 @@ fn factors() -> Result<TestFactors> {
         networking: OutboundNetworkingFactor,
         pg: OutboundPgFactor::<MockClient>::new(),
     };
-    f.variables.add_provider_type(StaticVariables)?;
+    f.variables.add_provider_resolver(StaticVariables)?;
     Ok(f)
 }
 
@@ -43,7 +43,7 @@ async fn disallowed_host_fails() -> anyhow::Result<()> {
         [component.test-component]
         source = "does-not-exist.wasm"
     });
-    let mut state = env.build_instance_state(factors).await?;
+    let mut state = env.build_instance_state(factors, ()).await?;
 
     let res = state
         .pg
@@ -61,7 +61,7 @@ async fn disallowed_host_fails() -> anyhow::Result<()> {
 async fn allowed_host_succeeds() -> anyhow::Result<()> {
     let factors = factors()?;
     let env = test_env();
-    let mut state = env.build_instance_state(factors).await?;
+    let mut state = env.build_instance_state(factors, ()).await?;
 
     let res = state
         .pg
@@ -78,7 +78,7 @@ async fn allowed_host_succeeds() -> anyhow::Result<()> {
 async fn exercise_execute() -> anyhow::Result<()> {
     let factors = factors()?;
     let env = test_env();
-    let mut state = env.build_instance_state(factors).await?;
+    let mut state = env.build_instance_state(factors, ()).await?;
 
     let connection = state
         .pg
@@ -97,7 +97,7 @@ async fn exercise_execute() -> anyhow::Result<()> {
 async fn exercise_query() -> anyhow::Result<()> {
     let factors = factors()?;
     let env = test_env();
-    let mut state = env.build_instance_state(factors).await?;
+    let mut state = env.build_instance_state(factors, ()).await?;
 
     let connection = state
         .pg

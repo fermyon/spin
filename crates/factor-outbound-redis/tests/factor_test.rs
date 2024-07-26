@@ -41,7 +41,7 @@ async fn no_outbound_hosts_fails() -> anyhow::Result<()> {
         },
         ..Default::default()
     };
-    let mut state = env.build_instance_state(factors).await?;
+    let mut state = env.build_instance_state(factors, ()).await?;
     let connection = state
         .redis
         .open("redis://redis.test:8080".to_string())

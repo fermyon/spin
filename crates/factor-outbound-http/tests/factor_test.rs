@@ -37,7 +37,7 @@ async fn disallowed_host_fails() -> anyhow::Result<()> {
         http: OutboundHttpFactor,
     };
     let env = test_env();
-    let mut state = env.build_instance_state(factors).await?;
+    let mut state = env.build_instance_state(factors, ()).await?;
     let mut wasi_http = OutboundHttpFactor::get_wasi_http_impl(&mut state).unwrap();
 
     let req = Request::get("https://denied.test").body(Default::default())?;

@@ -22,7 +22,7 @@ async fn environment_works() -> anyhow::Result<()> {
         wasi: WasiFactor::new(DummyFilesMounter),
     };
     let env = test_env();
-    let mut state = env.build_instance_state(factors).await?;
+    let mut state = env.build_instance_state(factors, ()).await?;
     let mut wasi = WasiFactor::get_wasi_impl(&mut state).unwrap();
     let val = wasi
         .get_environment()?

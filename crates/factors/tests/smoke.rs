@@ -13,7 +13,7 @@ use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_variables::{spin_cli::StaticVariables, VariablesFactor};
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
-use spin_factors::{FactorRuntimeConfig, RuntimeConfigSource, RuntimeFactors};
+use spin_factors::RuntimeFactors;
 use wasmtime_wasi_http::WasiHttpView;
 
 #[derive(RuntimeFactors)]

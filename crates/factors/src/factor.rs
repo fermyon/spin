@@ -3,8 +3,8 @@ use std::any::Any;
 use wasmtime::component::{Linker, ResourceTable};
 
 use crate::{
-    prepare::FactorInstanceBuilder, App, Error, InstanceBuilders, PrepareContext,
-    RuntimeConfigSource, RuntimeFactors,
+    prepare::FactorInstanceBuilder, runtime_config::FactorRuntimeConfigSource, App, Error,
+    InstanceBuilders, PrepareContext, RuntimeFactors,
 };
 
 /// A contained (i.e., "factored") piece of runtime functionality.
@@ -137,13 +137,14 @@ pub struct ConfigureAppContext<'a, T: RuntimeFactors, F: Factor> {
 
 impl<'a, T: RuntimeFactors, F: Factor> ConfigureAppContext<'a, T, F> {
     #[doc(hidden)]
-    pub fn new<S: RuntimeConfigSource>(
+    pub fn new<S: FactorRuntimeConfigSource<F>>(
         app: &'a App,
         app_state: &'a T::AppState,
         runtime_config: &mut S,
     ) -> crate::Result<Self> {
-        // TODO: fix error
-        let runtime_config = runtime_config.get_factor_config::<F>().unwrap();
+        let runtime_config = runtime_config
+            .get_runtime_config()
+            .map_err(Error::factor_configure_app_error::<F>)?;
         Ok(Self {
             app,
             app_state,

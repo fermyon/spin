@@ -1,17 +1,39 @@
 use crate::Factor;
 
-/// The source of runtime configuration for a Factor.
-pub trait RuntimeConfigSource {
-    /// Returns deserialized runtime config of the given type for the given
-    /// factor config key.
+/// The source of runtime configuration for a [`RuntimeFactors`][crate::RuntimeFactors].
+pub trait RuntimeConfigSource<C> {
+    /// Get the runtime configuration for all the factors.
     ///
-    /// Returns Ok(None) if no configuration is available for the given key.
-    /// Returns Err if configuration is available but deserialization fails.
-    fn get_factor_config<F: Factor>(&self) -> anyhow::Result<Option<F::RuntimeConfig>>;
+    /// This will be called once per call to [`RuntimeFactors::configure_app`][crate::RuntimeFactors::configure_app].
+    fn get_factor_configs(&mut self) -> anyhow::Result<C>;
 }
 
-impl RuntimeConfigSource for () {
-    fn get_factor_config<F: Factor>(&self) -> anyhow::Result<Option<F::RuntimeConfig>> {
+impl RuntimeConfigSource<()> for () {
+    fn get_factor_configs(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
+
+/// The source of runtime configuration for a particular [`Factor`].
+pub trait FactorRuntimeConfigSource<F: Factor> {
+    /// Get the runtime configuration for the factor.
+    fn get_runtime_config(&mut self) -> anyhow::Result<Option<F::RuntimeConfig>>;
+}
+
+impl<F: Factor> FactorRuntimeConfigSource<F> for () {
+    fn get_runtime_config(&mut self) -> anyhow::Result<Option<<F as Factor>::RuntimeConfig>> {
         Ok(None)
+    }
+}
+
+/// Run some finalization logic on a [`RuntimeConfigSource`].
+pub trait RuntimeConfigSourceFinalizer {
+    /// Finalize the runtime config source.
+    fn finalize(&mut self) -> anyhow::Result<()>;
+}
+
+impl RuntimeConfigSourceFinalizer for () {
+    fn finalize(&mut self) -> anyhow::Result<()> {
+        Ok(())
     }
 }

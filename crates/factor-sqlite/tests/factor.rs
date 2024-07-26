@@ -1,4 +1,4 @@
-use std::{any::TypeId, cell::RefCell, collections::HashSet, sync::Arc};
+use std::{cell::RefCell, collections::HashSet, sync::Arc};
 
 use factor_sqlite::{
     runtime_config::spin::{GetKey, SpinSqliteRuntimeConfig},
@@ -6,7 +6,7 @@ use factor_sqlite::{
 };
 use spin_factors::{
     anyhow::{self, bail},
-    Factor, RuntimeConfigSource, RuntimeFactors,
+    Factor, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors,
 };
 use spin_factors_test::{toml, TestEnvironment};
 
@@ -77,7 +77,7 @@ async fn no_error_when_database_is_configured() -> anyhow::Result<()> {
     if let Err(e) = env
         .build_instance_state(
             factors,
-            TomlRuntimeSource::new(&runtime_config, sqlite_config),
+            Foo(TomlRuntimeSource::new(&runtime_config, sqlite_config)),
         )
         .await
     {
@@ -101,18 +101,17 @@ impl<'a> TomlRuntimeSource<'a> {
     }
 }
 
-impl<'a> RuntimeConfigSource for TomlRuntimeSource<'a> {
-    fn get_factor_config<F: spin_factors::Factor>(
-        &self,
-    ) -> anyhow::Result<Option<F::RuntimeConfig>> {
-        if TypeId::of::<F>() == TypeId::of::<SqliteFactor>() {
-            let Some(config) = self.sqlite_config.config_from_table(&self.table)? else {
-                return Ok(None);
-            };
-            type_cast::<SqliteFactor, F>(config).map(Some)
-        } else {
-            Ok(None)
-        }
+impl FactorRuntimeConfigSource<SqliteFactor> for TomlRuntimeSource<'_> {
+    fn get_runtime_config(
+        &mut self,
+    ) -> anyhow::Result<Option<<SqliteFactor as Factor>::RuntimeConfig>> {
+        self.sqlite_config.config_from_table(&self.table)
+    }
+}
+
+impl RuntimeConfigSourceFinalizer for TomlRuntimeSource<'_> {
+    fn finalize(&mut self) -> anyhow::Result<()> {
+        Ok(self.table.validate_all_keys_used().unwrap())
     }
 }
 
@@ -129,7 +128,7 @@ impl<'a> TomlKeyTracker<'a> {
         }
     }
 
-    fn validate_all_keys_used(self) -> Result<(), spin_factors::Error> {
+    fn validate_all_keys_used(&self) -> anyhow::Result<(), spin_factors::Error> {
         if !self.unused_keys.borrow().is_empty() {
             return Err(spin_factors::Error::RuntimeConfigUnusedKeys {
                 keys: self
@@ -155,17 +154,6 @@ impl AsRef<toml::Table> for TomlKeyTracker<'_> {
     fn as_ref(&self) -> &toml::Table {
         self.table
     }
-}
-
-/// Casts a concrete configuration type to a generic one.
-///
-/// Will panic if the types are not the same.
-fn type_cast<F1: Factor, F2: Factor>(
-    config: F1::RuntimeConfig,
-) -> Result<F2::RuntimeConfig, anyhow::Error> {
-    assert_eq!(TypeId::of::<F1>(), TypeId::of::<F2>());
-    let boxed = <Box<dyn std::any::Any>>::downcast::<F2::RuntimeConfig>(Box::new(config)).unwrap();
-    Ok(*boxed)
 }
 
 /// Will return an `InvalidConnectionPool` for the supplied default database.

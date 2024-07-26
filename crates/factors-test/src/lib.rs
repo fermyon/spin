@@ -47,10 +47,14 @@ impl TestEnvironment {
     /// Starting from a new _uninitialized_ [`RuntimeFactors`], run through the
     /// [`Factor`]s' lifecycle(s) to build a [`RuntimeFactors::InstanceState`]
     /// for the last component defined in the manifest.
-    pub async fn build_instance_state<'a, T: RuntimeFactors, C: RuntimeConfigSource + 'a>(
+    pub async fn build_instance_state<
+        'a,
+        T: RuntimeFactors,
+        S: RuntimeConfigSource<T::RuntimeConfig> + 'a,
+    >(
         &'a self,
         mut factors: T,
-        runtime_config: C,
+        runtime_config: S,
     ) -> anyhow::Result<T::InstanceState> {
         let mut linker = Self::new_linker::<T::InstanceState>();
         factors.init(&mut linker)?;
@@ -85,20 +89,3 @@ impl TestEnvironment {
         spin_loader::from_file(&path, FilesMountStrategy::Direct, None).await
     }
 }
-
-// / A [`RuntimeConfigSource`] that reads from a TOML table.
-// pub struct TomlRuntimeConfig<'a>(&'a toml::Table);
-
-// impl RuntimeConfigSource for TomlRuntimeConfig<'_> {
-//     fn factor_config_keys(&self) -> impl IntoIterator<Item = &str> {
-//         self.0.keys().map(|key| key.as_str())
-//     }
-
-//     fn get_factor_config<F: Factor>(&self, key: &str) -> anyhow::Result<Option<F>> {
-//         let Some(val) = self.0.get(key) else {
-//             return Ok(None);
-//         };
-//         let config = val.clone().try_into()?;
-//         Ok(Some(config))
-//     }
-// }

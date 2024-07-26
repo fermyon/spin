@@ -1,6 +1,8 @@
 use serde::Deserialize;
 use spin_factor_key_value::MakeKeyValueStore;
-use spin_key_value_azure::KeyValueAzureCosmos;
+use spin_key_value_azure::{
+    KeyValueAzureCosmos, KeyValueAzureCosmosAuthOptions, KeyValueAzureCosmosRuntimeConfigOptions,
+};
 
 /// A key-value store that uses Azure Cosmos as the backend.
 pub struct AzureKeyValueStore;
@@ -9,7 +11,7 @@ pub struct AzureKeyValueStore;
 #[derive(Deserialize)]
 pub struct AzureCosmosKeyValueRuntimeConfig {
     /// The authorization token for the Azure Cosmos DB account.
-    key: String,
+    key: Option<String>,
     /// The Azure Cosmos DB account name.
     account: String,
     /// The Azure Cosmos DB database.
@@ -30,11 +32,17 @@ impl MakeKeyValueStore for AzureKeyValueStore {
         &self,
         runtime_config: Self::RuntimeConfig,
     ) -> anyhow::Result<Self::StoreManager> {
+        let auth_options = match runtime_config.key {
+            Some(key) => KeyValueAzureCosmosAuthOptions::RuntimeConfigValues(
+                KeyValueAzureCosmosRuntimeConfigOptions::new(key),
+            ),
+            None => KeyValueAzureCosmosAuthOptions::Environmental,
+        };
         KeyValueAzureCosmos::new(
-            runtime_config.key,
             runtime_config.account,
             runtime_config.database,
             runtime_config.container,
+            auth_options,
         )
     }
 }

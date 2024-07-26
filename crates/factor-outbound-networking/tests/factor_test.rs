@@ -12,14 +12,6 @@ struct TestFactors {
     networking: OutboundNetworkingFactor,
 }
 
-fn test_env() -> TestEnvironment {
-    TestEnvironment::default_manifest_extend(toml! {
-        [component.test-component]
-        source = "does-not-exist.wasm"
-        allowed_outbound_hosts = ["*://192.0.2.1:12345"]
-    })
-}
-
 #[tokio::test]
 async fn configures_wasi_socket_addr_check() -> anyhow::Result<()> {
     let factors = TestFactors {
@@ -27,9 +19,12 @@ async fn configures_wasi_socket_addr_check() -> anyhow::Result<()> {
         variables: VariablesFactor::default(),
         networking: OutboundNetworkingFactor,
     };
-
-    let env = test_env();
-    let mut state = env.build_instance_state(factors, ()).await?;
+    let env = TestEnvironment::new(factors).extend_manifest(toml! {
+        [component.test-component]
+        source = "does-not-exist.wasm"
+        allowed_outbound_hosts = ["*://192.0.2.1:12345"]
+    });
+    let mut state = env.build_instance_state().await?;
     let mut wasi = WasiFactor::get_wasi_impl(&mut state).unwrap();
 
     let network_resource = wasi.instance_network()?;
@@ -61,14 +56,11 @@ async fn wasi_factor_is_optional() -> anyhow::Result<()> {
         variables: VariablesFactor,
         networking: OutboundNetworkingFactor,
     }
-    TestEnvironment::default()
-        .build_instance_state(
-            WithoutWasi {
-                variables: VariablesFactor::default(),
-                networking: OutboundNetworkingFactor,
-            },
-            (),
-        )
-        .await?;
+    TestEnvironment::new(WithoutWasi {
+        variables: VariablesFactor::default(),
+        networking: OutboundNetworkingFactor,
+    })
+    .build_instance_state()
+    .await?;
     Ok(())
 }

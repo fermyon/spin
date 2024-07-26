@@ -2,7 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use factor_sqlite::{runtime_config::spin::SpinSqliteRuntimeConfig, SqliteFactor};
 use spin_factors::{
-    anyhow::{self, bail},
+    anyhow::{self, bail, Context},
     runtime_config::toml::TomlKeyTracker,
     Factor, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors,
 };
@@ -19,12 +19,12 @@ async fn sqlite_works() -> anyhow::Result<()> {
     let factors = TestFactors {
         sqlite: SqliteFactor::new(test_resolver),
     };
-    let env = TestEnvironment::default_manifest_extend(toml! {
+    let env = TestEnvironment::new(factors).extend_manifest(toml! {
         [component.test-component]
         source = "does-not-exist.wasm"
         sqlite_databases = ["default"]
     });
-    let state = env.build_instance_state(factors, ()).await?;
+    let state = env.build_instance_state().await?;
 
     assert_eq!(
         state.sqlite.allowed_databases(),
@@ -40,12 +40,12 @@ async fn errors_when_non_configured_database_used() -> anyhow::Result<()> {
     let factors = TestFactors {
         sqlite: SqliteFactor::new(test_resolver),
     };
-    let env = TestEnvironment::default_manifest_extend(toml! {
+    let env = TestEnvironment::new(factors).extend_manifest(toml! {
         [component.test-component]
         source = "does-not-exist.wasm"
         sqlite_databases = ["foo"]
     });
-    let Err(err) = env.build_instance_state(factors, ()).await else {
+    let Err(err) = env.build_instance_state().await else {
         bail!("Expected build_instance_state to error but it did not");
     };
 
@@ -62,26 +62,21 @@ async fn no_error_when_database_is_configured() -> anyhow::Result<()> {
     let factors = TestFactors {
         sqlite: SqliteFactor::new(test_resolver),
     };
-    let env = TestEnvironment::default_manifest_extend(toml! {
-        [component.test-component]
-        source = "does-not-exist.wasm"
-        sqlite_databases = ["foo"]
-    });
     let runtime_config = toml! {
         [sqlite_database.foo]
         type = "spin"
     };
     let sqlite_config = SpinSqliteRuntimeConfig::new("/".into(), "/".into());
-    if let Err(e) = env
-        .build_instance_state(
-            factors,
-            TomlRuntimeSource::new(&runtime_config, sqlite_config),
-        )
+    let env = TestEnvironment::new(factors)
+        .extend_manifest(toml! {
+            [component.test-component]
+            source = "does-not-exist.wasm"
+            sqlite_databases = ["foo"]
+        })
+        .runtime_config(TomlRuntimeSource::new(&runtime_config, sqlite_config))?;
+    env.build_instance_state()
         .await
-    {
-        bail!("Expected build_instance_state to succeed but it errored: {e}");
-    }
-
+        .context("build_instance_state failed")?;
     Ok(())
 }
 

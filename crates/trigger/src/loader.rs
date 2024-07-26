@@ -13,12 +13,12 @@ use tokio::fs;
 use spin_common::{ui::quoted_path, url::parse_file_url};
 
 /// Compilation status of all components of a Spin application
-pub enum CompilationStatus {
+pub enum AotCompilationStatus {
+    /// No components are ahead of time (AOT) compiled.
+    Disabled,
     #[cfg(feature = "unsafe-aot-compilation")]
     /// All components are componentized and ahead of time (AOT) compiled to cwasm.
-    AllAotComponents,
-    /// No components are ahead of time (AOT) compiled.
-    NoneAot,
+    Enabled,
 }
 
 /// Loader for the Spin runtime
@@ -28,7 +28,7 @@ pub struct TriggerLoader {
     /// Set the static assets of the components in the temporary directory as writable.
     allow_transient_write: bool,
     /// Declares the compilation status of all components of a Spin application.
-    compilation_status: CompilationStatus,
+    aot_compilation_status: AotCompilationStatus,
 }
 
 impl TriggerLoader {
@@ -36,7 +36,7 @@ impl TriggerLoader {
         Self {
             working_dir: working_dir.into(),
             allow_transient_write,
-            compilation_status: CompilationStatus::NoneAot,
+            aot_compilation_status: AotCompilationStatus::Disabled,
         }
     }
 
@@ -69,7 +69,7 @@ impl TriggerLoader {
     /// from untrusted sources.**
     #[cfg(feature = "unsafe-aot-compilation")]
     pub unsafe fn enable_loading_aot_compiled_components(&mut self) {
-        self.compilation_status = CompilationStatus::AllAotComponents;
+        self.aot_compilation_status = AotCompilationStatus::Enabled;
     }
 }
 
@@ -95,9 +95,9 @@ impl Loader for TriggerLoader {
             .as_ref()
             .context("LockedComponentSource missing source field")?;
         let path = parse_file_url(source)?;
-        match self.compilation_status {
+        match self.aot_compilation_status {
             #[cfg(feature = "unsafe-aot-compilation")]
-            CompilationStatus::AllAotComponents => {
+            AotCompilationStatus::Enabled => {
                 match engine.detect_precompiled_file(&path)?{
                     Some(wasmtime::Precompiled::Component) => {
                         unsafe {
@@ -110,17 +110,17 @@ impl Loader for TriggerLoader {
                         anyhow::bail!("Spin loader is configured to load only AOT compiled components, but {} is not precompiled", quoted_path(&path))
                     }
                 }
-            },
-            CompilationStatus::NoneAot => {
+            }
+            AotCompilationStatus::Disabled => {
                 let bytes = fs::read(&path).await.with_context(|| {
-                format!(
-                    "failed to read component source from disk at path {}",
-                    quoted_path(&path)
-                )
-            })?;
-            let component = spin_componentize::componentize_if_necessary(&bytes)?;
-            spin_core::Component::new(engine, component.as_ref())
-                .with_context(|| format!("loading module {}", quoted_path(&path)))
+                    format!(
+                        "failed to read component source from disk at path {}",
+                        quoted_path(&path)
+                    )
+                })?;
+                let component = spin_componentize::componentize_if_necessary(&bytes)?;
+                spin_core::Component::new(engine, component.as_ref())
+                    .with_context(|| format!("loading module {}", quoted_path(&path)))
             }
         }
     }

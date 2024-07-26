@@ -4,7 +4,7 @@ use anyhow::bail;
 use http::Request;
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
-use spin_factor_variables::VariablesFactor;
+use spin_factor_variables::spin_cli::VariablesFactor;
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
 use spin_factors::{anyhow, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
@@ -37,7 +37,7 @@ async fn disallowed_host_fails() -> anyhow::Result<()> {
         http: OutboundHttpFactor,
     };
     let env = test_env();
-    let mut state = env.build_instance_state(factors).await?;
+    let mut state = env.build_instance_state(factors, ()).await?;
     let mut wasi_http = OutboundHttpFactor::get_wasi_http_impl(&mut state).unwrap();
 
     let req = Request::get("https://denied.test").body(Default::default())?;

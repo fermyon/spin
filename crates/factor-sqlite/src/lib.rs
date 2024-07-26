@@ -7,29 +7,29 @@ use std::sync::Arc;
 use host::InstanceState;
 
 use async_trait::async_trait;
-use runtime_config::RuntimeConfigResolver;
 use spin_factors::{anyhow, Factor};
 use spin_locked_app::MetadataKey;
 use spin_world::v1::sqlite as v1;
 use spin_world::v2::sqlite as v2;
 
-pub struct SqliteFactor<R> {
-    runtime_config_resolver: Arc<R>,
+pub struct SqliteFactor {
+    default_label_resolver: Arc<dyn DefaultLabelResolver>,
 }
 
-impl<R> SqliteFactor<R> {
+impl SqliteFactor {
     /// Create a new `SqliteFactor`
     ///
-    /// Takes a `runtime_config_resolver` that can resolve a runtime configuration into a connection pool.
-    pub fn new(runtime_config_resolver: R) -> Self {
+    /// Takes a `default_label_resolver` for how to handle when a database label doesn't
+    /// have a corresponding runtime configuration.
+    pub fn new(default_label_resolver: impl DefaultLabelResolver + 'static) -> Self {
         Self {
-            runtime_config_resolver: Arc::new(runtime_config_resolver),
+            default_label_resolver: Arc::new(default_label_resolver),
         }
     }
 }
 
-impl<R: RuntimeConfigResolver + 'static> Factor for SqliteFactor<R> {
-    type RuntimeConfig = runtime_config::RuntimeConfig<R::Config>;
+impl Factor for SqliteFactor {
+    type RuntimeConfig = runtime_config::RuntimeConfig;
     type AppState = AppState;
     type InstanceBuilder = InstanceState;
 
@@ -46,13 +46,10 @@ impl<R: RuntimeConfigResolver + 'static> Factor for SqliteFactor<R> {
         &self,
         mut ctx: spin_factors::ConfigureAppContext<T, Self>,
     ) -> anyhow::Result<Self::AppState> {
-        let mut connection_pools = HashMap::new();
-        if let Some(runtime_config) = ctx.take_runtime_config() {
-            for (database_label, config) in runtime_config.store_configs {
-                let pool = self.runtime_config_resolver.get_pool(config)?;
-                connection_pools.insert(database_label, pool);
-            }
-        }
+        let connection_pools = ctx
+            .take_runtime_config()
+            .map(|r| r.pools)
+            .unwrap_or_default();
 
         let allowed_databases = ctx
             .app()
@@ -70,7 +67,7 @@ impl<R: RuntimeConfigResolver + 'static> Factor for SqliteFactor<R> {
                 ))
             })
             .collect::<anyhow::Result<HashMap<_, _>>>()?;
-        let resolver = self.runtime_config_resolver.clone();
+        let resolver = self.default_label_resolver.clone();
         let get_connection_pool: host::ConnectionPoolGetter = Arc::new(move |label| {
             connection_pools
                 .get(label)
@@ -138,6 +135,14 @@ fn ensure_allowed_databases_are_configured(
 }
 
 pub const ALLOWED_DATABASES_KEY: MetadataKey<Vec<String>> = MetadataKey::new("databases");
+
+/// Resolves a label to a default connection pool.
+pub trait DefaultLabelResolver: Send + Sync {
+    /// If there is no runtime configuration for a given database label, return a default connection pool.
+    ///
+    /// If `Option::None` is returned, the database is not allowed.
+    fn default(&self, label: &str) -> Option<Arc<dyn ConnectionPool>>;
+}
 
 pub struct AppState {
     /// A map from component id to a set of allowed database labels.

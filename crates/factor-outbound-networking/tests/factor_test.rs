@@ -1,5 +1,5 @@
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
-use spin_factor_variables::VariablesFactor;
+use spin_factor_variables::spin_cli::VariablesFactor;
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
 use spin_factors::{anyhow, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
@@ -29,7 +29,7 @@ async fn configures_wasi_socket_addr_check() -> anyhow::Result<()> {
     };
 
     let env = test_env();
-    let mut state = env.build_instance_state(factors).await?;
+    let mut state = env.build_instance_state(factors, ()).await?;
     let mut wasi = WasiFactor::get_wasi_impl(&mut state).unwrap();
 
     let network_resource = wasi.instance_network()?;
@@ -62,10 +62,13 @@ async fn wasi_factor_is_optional() -> anyhow::Result<()> {
         networking: OutboundNetworkingFactor,
     }
     TestEnvironment::default()
-        .build_instance_state(WithoutWasi {
-            variables: VariablesFactor::default(),
-            networking: OutboundNetworkingFactor,
-        })
+        .build_instance_state(
+            WithoutWasi {
+                variables: VariablesFactor::default(),
+                networking: OutboundNetworkingFactor,
+            },
+            (),
+        )
         .await?;
     Ok(())
 }

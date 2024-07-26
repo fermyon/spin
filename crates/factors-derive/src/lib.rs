@@ -27,6 +27,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let app_state_name = format_ident!("{name}AppState");
     let builders_name = format_ident!("{name}InstanceBuilders");
     let state_name = format_ident!("{name}InstanceState");
+    let runtime_config_name = format_ident!("{name}RuntimeConfig");
 
     if !input.generics.params.is_empty() {
         return Err(Error::new_spanned(
@@ -68,7 +69,6 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
     let Error = quote!(#factors_path::Error);
     let Factor = quote!(#factors_path::Factor);
     let ConfiguredApp = quote!(#factors_path::ConfiguredApp);
-    let RuntimeConfigTracker = quote!(#factors_path::__internal::RuntimeConfigTracker);
     let FactorInstanceBuilder = quote!(#factors_path::FactorInstanceBuilder);
 
     Ok(quote! {
@@ -76,11 +76,23 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             type AppState = #app_state_name;
             type InstanceBuilders = #builders_name;
             type InstanceState = #state_name;
+            type RuntimeConfig = #runtime_config_name;
 
             fn init<T: AsMut<Self::InstanceState> + Send + 'static>(
                 &mut self,
                 linker: &mut #wasmtime::component::Linker<T>,
             ) -> #Result<()> {
+                let factor_type_ids = [#(
+                    (stringify!(#factor_types), #TypeId::of::<(<#factor_types as #Factor>::InstanceBuilder, <#factor_types as #Factor>::AppState)>()),
+                )*];
+
+                let mut unique = ::std::collections::HashSet::new();
+                for (name, type_id) in factor_type_ids {
+                    if !unique.insert(type_id) {
+                        return Err(#Error::DuplicateFactorTypes(name.to_owned()));
+                    }
+                }
+
                 #(
                     #Factor::init::<T>(
                         &mut self.#factor_names,
@@ -100,12 +112,11 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             fn configure_app(
                 &self,
                 app: #factors_path::App,
-                runtime_config: impl #factors_path::RuntimeConfigSource
+                mut runtime_config: Self::RuntimeConfig,
             ) -> #Result<#ConfiguredApp<Self>> {
                 let mut app_state = #app_state_name {
                     #( #factor_names: None, )*
                 };
-                let mut runtime_config_tracker = #RuntimeConfigTracker::new(runtime_config);
                 #(
                     app_state.#factor_names = Some(
                         #Factor::configure_app(
@@ -113,12 +124,11 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                             #factors_path::ConfigureAppContext::<Self, #factor_types>::new(
                                 &app,
                                 &app_state,
-                                &mut runtime_config_tracker,
+                                &mut runtime_config,
                             )?,
                         ).map_err(#Error::factor_configure_app_error::<#factor_types>)?
                     );
                 )*
-                runtime_config_tracker.validate_all_keys_used()?;
                 Ok(#ConfiguredApp::new(app, app_state))
             }
 
@@ -175,9 +185,9 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             fn instance_builder_mut<F: #Factor>(
                 builders: &mut Self::InstanceBuilders,
             ) -> Option<Option<&mut F::InstanceBuilder>> {
-                let type_id = #TypeId::of::<F>();
+                let type_id = #TypeId::of::<(F::InstanceBuilder, F::AppState)>();
                 #(
-                    if type_id == #TypeId::of::<#factor_types>() {
+                    if type_id == #TypeId::of::<(<#factor_types as #Factor>::InstanceBuilder, <#factor_types as #Factor>::AppState)>() {
                         return Some(
                             builders.#factor_names.as_mut().map(|builder| {
                                 <dyn #Any>::downcast_mut(builder).unwrap()
@@ -234,5 +244,47 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 self
             }
         }
+
+        #vis struct #runtime_config_name {
+            #(
+                pub #factor_names: Option<<#factor_types as #Factor>::RuntimeConfig>,
+            )*
+        }
+
+        impl #runtime_config_name {
+            /// Get the runtime configuration from the given source.
+            pub fn from_source<T>(mut source: T) -> anyhow::Result<Self>
+                where T: #(#factors_path::FactorRuntimeConfigSource<#factor_types> +)* #factors_path::RuntimeConfigSourceFinalizer
+            {
+                #(
+                    let #factor_names = <T as #factors_path::FactorRuntimeConfigSource<#factor_types>>::get_runtime_config(&mut source)?;
+                )*
+                source.finalize()?;
+                Ok(#runtime_config_name {
+                    #(
+                        #factor_names,
+                    )*
+                })
+            }
+        }
+
+        impl From<()> for #runtime_config_name {
+            fn from(_: ()) -> Self {
+                #runtime_config_name {
+                    #(
+                        #factor_names: None,
+                    )*
+                }
+            }
+        }
+
+        #(
+            impl #factors_path::FactorRuntimeConfigSource<#factor_types> for #runtime_config_name {
+                fn get_runtime_config(&mut self) -> anyhow::Result<Option<<#factor_types as #Factor>::RuntimeConfig>> {
+                    Ok(self.#factor_names.take())
+                }
+            }
+        )*
+
     })
 }

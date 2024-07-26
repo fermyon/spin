@@ -11,15 +11,20 @@ use spin_factor_key_value_redis::RedisKeyValueStore;
 use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
 use spin_factor_outbound_http::OutboundHttpFactor;
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
-use spin_factor_variables::{StaticVariables, VariablesFactor};
+use spin_factor_variables::{
+    spin_cli::{StaticVariables, VariableProviderConfiguration},
+    VariablesFactor,
+};
 use spin_factor_wasi::{DummyFilesMounter, WasiFactor};
-use spin_factors::{FactorRuntimeConfig, RuntimeConfigSource, RuntimeFactors};
+use spin_factors::{
+    Factor, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors,
+};
 use wasmtime_wasi_http::WasiHttpView;
 
 #[derive(RuntimeFactors)]
 struct Factors {
     wasi: WasiFactor,
-    variables: VariablesFactor,
+    variables: VariablesFactor<VariableProviderConfiguration>,
     outbound_networking: OutboundNetworkingFactor,
     outbound_http: OutboundHttpFactor,
     key_value: KeyValueFactor<DelegatingRuntimeConfigResolver>,
@@ -61,7 +66,7 @@ async fn smoke_test_works() -> anyhow::Result<()> {
         key_value: KeyValueFactor::new(key_value_resolver),
     };
 
-    factors.variables.add_provider_type(StaticVariables)?;
+    factors.variables.add_provider_resolver(StaticVariables)?;
 
     let locked = spin_loader::from_file(
         "tests/smoke-app/spin.toml",
@@ -74,16 +79,16 @@ async fn smoke_test_works() -> anyhow::Result<()> {
     let engine = wasmtime::Engine::new(wasmtime::Config::new().async_support(true))?;
     let mut linker = wasmtime::component::Linker::new(&engine);
 
-    factors.init(&mut linker).unwrap();
+    factors.init(&mut linker)?;
 
-    let configured_app = factors.configure_app(app, TestSource)?;
+    let configured_app = factors.configure_app(app, TestSource.try_into()?)?;
     let builders = factors.prepare(&configured_app, "smoke-app")?;
     let state = factors.build_instance_state(builders)?;
 
     assert_eq!(
         state
             .variables
-            .resolver()
+            .expression_resolver()
             .resolve("smoke-app", "other".try_into().unwrap())
             .await
             .unwrap(),
@@ -140,29 +145,74 @@ async fn smoke_test_works() -> anyhow::Result<()> {
 
 struct TestSource;
 
-impl RuntimeConfigSource for TestSource {
-    fn factor_config_keys(&self) -> impl IntoIterator<Item = &str> {
-        [spin_factor_variables::RuntimeConfig::KEY]
-    }
+impl TryFrom<TestSource> for FactorsRuntimeConfig {
+    type Error = anyhow::Error;
 
-    fn get_factor_config<T: serde::de::DeserializeOwned>(
-        &self,
-        key: &str,
-    ) -> anyhow::Result<Option<T>> {
-        let Some(table) = toml::toml! {
+    fn try_from(value: TestSource) -> Result<Self, Self::Error> {
+        Self::from_source(value)
+    }
+}
+
+impl FactorRuntimeConfigSource<KeyValueFactor<DelegatingRuntimeConfigResolver>> for TestSource {
+    fn get_runtime_config(
+        &mut self,
+    ) -> anyhow::Result<
+        Option<<KeyValueFactor<DelegatingRuntimeConfigResolver> as Factor>::RuntimeConfig>,
+    > {
+        let config = toml::toml! {
+            [other]
+            type = "redis"
+            url = "redis://localhost:6379"
+        };
+
+        Ok(Some(config.try_into()?))
+    }
+}
+
+impl FactorRuntimeConfigSource<VariablesFactor<VariableProviderConfiguration>> for TestSource {
+    fn get_runtime_config(
+        &mut self,
+    ) -> anyhow::Result<
+        Option<<VariablesFactor<VariableProviderConfiguration> as Factor>::RuntimeConfig>,
+    > {
+        let config = toml::toml! {
             [[variable_provider]]
             type = "static"
             [variable_provider.values]
             foo = "bar"
-
-            [key_value_store.other]
-            type = "redis"
-            url = "redis://localhost:6379"
         }
-        .remove(key) else {
-            return Ok(None);
-        };
-        let config = table.try_into()?;
-        Ok(Some(config))
+        .remove("variable_provider")
+        .unwrap();
+        Ok(Some(config.try_into()?))
+    }
+}
+
+impl FactorRuntimeConfigSource<WasiFactor> for TestSource {
+    fn get_runtime_config(
+        &mut self,
+    ) -> anyhow::Result<Option<<WasiFactor as Factor>::RuntimeConfig>> {
+        Ok(None)
+    }
+}
+
+impl FactorRuntimeConfigSource<OutboundNetworkingFactor> for TestSource {
+    fn get_runtime_config(
+        &mut self,
+    ) -> anyhow::Result<Option<<OutboundNetworkingFactor as Factor>::RuntimeConfig>> {
+        Ok(None)
+    }
+}
+
+impl FactorRuntimeConfigSource<OutboundHttpFactor> for TestSource {
+    fn get_runtime_config(
+        &mut self,
+    ) -> anyhow::Result<Option<<OutboundHttpFactor as Factor>::RuntimeConfig>> {
+        Ok(None)
+    }
+}
+
+impl RuntimeConfigSourceFinalizer for TestSource {
+    fn finalize(&mut self) -> anyhow::Result<()> {
+        Ok(())
     }
 }

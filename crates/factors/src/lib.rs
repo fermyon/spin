@@ -1,6 +1,6 @@
 mod factor;
 mod prepare;
-mod runtime_config;
+pub mod runtime_config;
 mod runtime_factors;
 
 pub use anyhow;
@@ -13,7 +13,7 @@ pub use spin_factors_derive::RuntimeFactors;
 pub use crate::{
     factor::{ConfigureAppContext, ConfiguredApp, Factor, FactorInstanceState, InitContext},
     prepare::{FactorInstanceBuilder, InstanceBuilders, PrepareContext, SelfInstanceBuilder},
-    runtime_config::{FactorRuntimeConfig, RuntimeConfigSource},
+    runtime_config::{FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer},
     runtime_factors::{RuntimeFactors, RuntimeFactorsInstanceState},
 };
 
@@ -22,6 +22,8 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("two or more factors share the same type: {0}")]
+    DuplicateFactorTypes(String),
     #[error("factor dependency ordering error: {0}")]
     DependencyOrderingError(String),
     #[error("{factor}::InstanceBuilder::build failed: {source}")]
@@ -61,7 +63,7 @@ impl Error {
         Self::NoSuchFactor(std::any::type_name::<T>())
     }
 
-    fn runtime_config_reused_key<T: Factor>(key: impl Into<String>) -> Self {
+    pub fn runtime_config_reused_key<T: Factor>(key: impl Into<String>) -> Self {
         Self::RuntimeConfigReusedKey {
             factor: std::any::type_name::<T>(),
             key: key.into(),
@@ -93,9 +95,4 @@ impl Error {
         let factor = std::any::type_name::<T>();
         Self::FactorBuildError { factor, source }
     }
-}
-
-#[doc(hidden)]
-pub mod __internal {
-    pub use crate::runtime_config::RuntimeConfigTracker;
 }

@@ -5,6 +5,7 @@ authors = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
+serde = "1.0"
 spin-app = { path = "../app" }
 spin-factors = { path = "../factors" }
 spin-factors-derive = { path = "../factors-derive", features = ["expander"] }

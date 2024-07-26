@@ -4,7 +4,9 @@ use spin_factor_key_value::{
 };
 use spin_factor_key_value_redis::RedisKeyValueStore;
 use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};
-use spin_factors::RuntimeFactors;
+use spin_factors::{
+    Factor, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors,
+};
 use spin_factors_test::{toml, TestEnvironment};
 use std::collections::HashSet;
 
@@ -41,7 +43,7 @@ async fn default_key_value_works() -> anyhow::Result<()> {
         source = "does-not-exist.wasm"
         key_value_stores = ["default"]
     });
-    let state = env.build_instance_state(factors).await?;
+    let state = env.build_instance_state(factors, ()).await?;
 
     assert_eq!(
         state.key_value.allowed_stores(),
@@ -65,15 +67,14 @@ async fn run_test_with_config_and_stores_for_label(
         key_value: KeyValueFactor::new(test_resolver),
     };
     let labels_clone = labels.clone();
-    let mut env = TestEnvironment::default_manifest_extend(toml! {
+    let env = TestEnvironment::default_manifest_extend(toml! {
         [component.test-component]
         source = "does-not-exist.wasm"
         key_value_stores = labels_clone
     });
-    if let Some(runtime_config) = runtime_config {
-        env.runtime_config.extend(runtime_config);
-    }
-    let state = env.build_instance_state(factors).await?;
+    let state = env
+        .build_instance_state(factors, TomlConfig(runtime_config))
+        .await?;
     assert_eq!(
         labels,
         state.key_value.allowed_stores().iter().collect::<Vec<_>>()
@@ -206,13 +207,14 @@ async fn multiple_custom_key_value_uses_first_store() -> anyhow::Result<()> {
     let factors = TestFactors {
         key_value: KeyValueFactor::new(test_resolver),
     };
-    let mut env = TestEnvironment::default_manifest_extend(toml! {
+    let env = TestEnvironment::default_manifest_extend(toml! {
         [component.test-component]
         source = "does-not-exist.wasm"
         key_value_stores = ["custom"]
     });
-    env.runtime_config.extend(runtime_config);
-    let state = env.build_instance_state(factors).await?;
+    let state = env
+        .build_instance_state(factors, TomlConfig(Some(runtime_config)))
+        .await?;
 
     assert_eq!(
         state.key_value.allowed_stores(),
@@ -221,4 +223,33 @@ async fn multiple_custom_key_value_uses_first_store() -> anyhow::Result<()> {
     // Check that the first store in the config was chosen by verifying the existence of the DB directory
     assert!(tmp_dir.path().exists());
     Ok(())
+}
+
+struct TomlConfig(Option<toml::Table>);
+
+impl TryFrom<TomlConfig> for TestFactorsRuntimeConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(value: TomlConfig) -> Result<Self, Self::Error> {
+        Self::from_source(value)
+    }
+}
+
+impl FactorRuntimeConfigSource<KeyValueFactor<DelegatingRuntimeConfigResolver>> for TomlConfig {
+    fn get_runtime_config(
+        &mut self,
+    ) -> anyhow::Result<
+        Option<<KeyValueFactor<DelegatingRuntimeConfigResolver> as Factor>::RuntimeConfig>,
+    > {
+        let Some(table) = self.0.as_ref().and_then(|t| t.get("key_value_store")) else {
+            return Ok(None);
+        };
+        Ok(Some(table.clone().try_into()?))
+    }
+}
+
+impl RuntimeConfigSourceFinalizer for TomlConfig {
+    fn finalize(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }

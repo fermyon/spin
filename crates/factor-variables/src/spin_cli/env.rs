@@ -11,23 +11,28 @@ use spin_factors::anyhow::{self, Context as _};
 use spin_world::async_trait;
 use tracing::{instrument, Level};
 
-use crate::MakeVariablesProvider;
+use crate::ProviderResolver;
+
+use super::VariableProviderConfiguration;
 
 /// Creator of a environment variables provider.
 pub struct EnvVariables;
 
-impl MakeVariablesProvider for EnvVariables {
-    const RUNTIME_CONFIG_TYPE: &'static str = "env";
+impl ProviderResolver for EnvVariables {
+    type RuntimeConfig = VariableProviderConfiguration;
 
-    type RuntimeConfig = EnvVariablesConfig;
-    type Provider = EnvVariablesProvider;
-
-    fn make_provider(&self, runtime_config: Self::RuntimeConfig) -> anyhow::Result<Self::Provider> {
-        Ok(EnvVariablesProvider::new(
-            runtime_config.prefix,
+    fn resolve_provider(
+        &self,
+        runtime_config: &Self::RuntimeConfig,
+    ) -> anyhow::Result<Option<Box<dyn Provider>>> {
+        let VariableProviderConfiguration::Env(runtime_config) = runtime_config else {
+            return Ok(None);
+        };
+        Ok(Some(Box::new(EnvVariablesProvider::new(
+            runtime_config.prefix.clone(),
             |key| std::env::var(key),
-            runtime_config.dotenv_path,
-        ))
+            runtime_config.dotenv_path.clone(),
+        ))))
     }
 }
 

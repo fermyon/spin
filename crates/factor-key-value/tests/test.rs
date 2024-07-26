@@ -70,10 +70,7 @@ async fn run_test_with_config_and_stores_for_label(
         source = "does-not-exist.wasm"
         key_value_stores = labels_clone
     });
-    if let Some(runtime_config) = runtime_config {
-        env.runtime_config.extend(runtime_config);
-    }
-    let state = env.build_instance_state(factors).await?;
+    let state = env.build_instance_state(factors, runtime_config).await?;
     assert_eq!(
         labels,
         state.key_value.allowed_stores().iter().collect::<Vec<_>>()

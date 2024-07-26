@@ -6,8 +6,8 @@ use std::sync::Arc;
 use serde::{de::DeserializeOwned, Deserialize};
 use spin_expressions::ProviderResolver as ExpressionResolver;
 use spin_factors::{
-    anyhow, ConfigureAppContext, Factor, FactorRuntimeConfig, InitContext, InstanceBuilders,
-    PrepareContext, RuntimeFactors, SelfInstanceBuilder,
+    anyhow, ConfigureAppContext, Factor, InitContext, InstanceBuilders, PrepareContext,
+    RuntimeFactors, SelfInstanceBuilder,
 };
 use spin_world::{async_trait, v1, v2::variables};
 
@@ -102,10 +102,6 @@ impl<C: DeserializeOwned + 'static> Factor for VariablesFactor<C> {
 #[serde(transparent)]
 pub struct RuntimeConfig<C> {
     provider_configs: Vec<C>,
-}
-
-impl<C: DeserializeOwned> FactorRuntimeConfig for RuntimeConfig<C> {
-    const KEY: &'static str = "variable_provider";
 }
 
 pub struct AppState {

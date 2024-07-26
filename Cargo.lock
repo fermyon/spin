@@ -7763,6 +7763,7 @@ dependencies = [
 name = "spin-factors-test"
 version = "2.7.0-pre0"
 dependencies = [
+ "serde 1.0.197",
  "spin-app",
  "spin-factors",
  "spin-factors-derive",

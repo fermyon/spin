@@ -15,8 +15,22 @@ pub fn run_test(
             conformance_tests::config::Precondition::TcpEcho => {
                 services.push("tcp-echo");
             }
-            conformance_tests::config::Precondition::Redis => services.push("redis"),
-            conformance_tests::config::Precondition::Mqtt => services.push("mqtt"),
+            conformance_tests::config::Precondition::Redis => {
+                if should_run_docker_based_tests() {
+                    services.push("redis")
+                } else {
+                    // Skip the test if docker is not installed.
+                    return Ok(());
+                }
+            }
+            conformance_tests::config::Precondition::Mqtt => {
+                if should_run_docker_based_tests() {
+                    services.push("mqtt")
+                } else {
+                    // Skip the test if docker is not installed.
+                    return Ok(());
+                }
+            }
             conformance_tests::config::Precondition::KeyValueStore(_) => {}
             conformance_tests::config::Precondition::Sqlite => {}
         }
@@ -56,4 +70,9 @@ pub fn run_test(
             })?;
     }
     Ok(())
+}
+
+/// Whether or not docker is installed on the system.
+fn should_run_docker_based_tests() -> bool {
+    std::env::var("SPIN_CONFORMANCE_TESTS_DOCKER_OPT_OUT").is_err()
 }

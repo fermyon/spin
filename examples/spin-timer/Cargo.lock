@@ -466,32 +466,6 @@ dependencies = [
 
 [[package]]
 name = "azure_core"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32568c56fda7f2f1173430298bddeb507ed44e99bd989ba1156a25534bff5d98"
-dependencies = [
- "async-trait",
- "base64 0.21.7",
- "bytes",
- "dyn-clone",
- "futures",
- "getrandom 0.2.12",
- "http-types",
- "log",
- "paste",
- "pin-project",
- "rand 0.8.5",
- "reqwest 0.11.24",
- "rustc_version",
- "serde 1.0.203",
- "serde_json",
- "time",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "azure_core"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34ce3de4b65b1ee2667c81d1fc692949049502a4cf9c38118d811d6d79a7eaef"
@@ -518,22 +492,47 @@ dependencies = [
 ]
 
 [[package]]
-name = "azure_data_cosmos"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73dede39a91e205b2050f250f6e31ed7c4c72be7ee694930c155c4d7636fe8e1"
+name = "azure_core"
+version = "0.20.0"
+source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
 dependencies = [
  "async-trait",
- "azure_core 0.11.0",
+ "base64 0.22.0",
  "bytes",
+ "dyn-clone",
  "futures",
+ "getrandom 0.2.12",
  "hmac",
- "log",
+ "http-types",
+ "once_cell",
+ "paste",
+ "pin-project",
+ "rand 0.8.5",
+ "reqwest 0.12.4",
+ "rustc_version",
  "serde 1.0.203",
  "serde_json",
  "sha2",
+ "time",
+ "tracing",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "azure_data_cosmos"
+version = "0.20.0"
+source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
+dependencies = [
+ "async-trait",
+ "azure_core 0.20.0 (git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c)",
+ "bytes",
+ "futures",
+ "serde 1.0.203",
+ "serde_json",
  "thiserror",
  "time",
+ "tracing",
  "url",
  "uuid",
 ]
@@ -547,7 +546,27 @@ dependencies = [
  "async-lock 3.3.0",
  "async-process 2.2.2",
  "async-trait",
- "azure_core 0.20.0",
+ "azure_core 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures",
+ "oauth2",
+ "pin-project",
+ "serde 1.0.203",
+ "time",
+ "tracing",
+ "tz-rs",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "azure_identity"
+version = "0.20.0"
+source = "git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c#8c4caa251c3903d5eae848b41bb1d02a4d65231c"
+dependencies = [
+ "async-lock 3.3.0",
+ "async-process 2.2.2",
+ "async-trait",
+ "azure_core 0.20.0 (git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c)",
  "futures",
  "oauth2",
  "pin-project",
@@ -566,7 +585,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "338cac645bda0555f59189873be0cccaf420c26791f009b2207b62474cebbab8"
 dependencies = [
  "async-trait",
- "azure_core 0.20.0",
+ "azure_core 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures",
  "serde 1.0.203",
  "serde_json",
@@ -4853,7 +4872,6 @@ dependencies = [
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-streams",
  "web-sys",
  "webpki-roots 0.25.4",
  "winreg 0.50.0",
@@ -5706,6 +5724,7 @@ version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
  "azure_data_cosmos",
+ "azure_identity 0.20.0 (git+https://github.com/azure/azure-sdk-for-rust.git?rev=8c4caa251c3903d5eae848b41bb1d02a4d65231c)",
  "futures",
  "serde 1.0.203",
  "spin-core",
@@ -5984,8 +6003,8 @@ version = "2.7.0-pre0"
 dependencies = [
  "anyhow",
  "async-trait",
- "azure_core 0.20.0",
- "azure_identity",
+ "azure_core 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "azure_identity 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "azure_security_keyvault",
  "dotenvy",
  "once_cell",

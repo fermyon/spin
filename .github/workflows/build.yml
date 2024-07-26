@@ -170,6 +170,8 @@ jobs:
       - name: Run Integration Tests
         run: |
           make test-integration
+        env:
+          SPIN_CONFORMANCE_TESTS_DOCKER_OPT_OUT: true
         # Only run integration tests on macOS as they will be run on ubuntu separately
         if: ${{ matrix.runner == 'macos-14' }}
 

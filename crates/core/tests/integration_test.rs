@@ -77,7 +77,6 @@ async fn test_set_deadline_violated() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[cfg(not(tarpaulin))]
 async fn test_panic() {
     let err = run_test(["panic"], |_| {}, |_| {}).await.unwrap_err();
     let trap = err.downcast::<Trap>().expect("trap");

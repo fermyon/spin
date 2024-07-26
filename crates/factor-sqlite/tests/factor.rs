@@ -77,7 +77,7 @@ async fn no_error_when_database_is_configured() -> anyhow::Result<()> {
     if let Err(e) = env
         .build_instance_state(
             factors,
-            Foo(TomlRuntimeSource::new(&runtime_config, sqlite_config)),
+            TomlRuntimeSource::new(&runtime_config, sqlite_config),
         )
         .await
     {
@@ -112,6 +112,14 @@ impl FactorRuntimeConfigSource<SqliteFactor> for TomlRuntimeSource<'_> {
 impl RuntimeConfigSourceFinalizer for TomlRuntimeSource<'_> {
     fn finalize(&mut self) -> anyhow::Result<()> {
         Ok(self.table.validate_all_keys_used().unwrap())
+    }
+}
+
+impl TryFrom<TomlRuntimeSource<'_>> for TestFactorsRuntimeConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(value: TomlRuntimeSource<'_>) -> Result<Self, Self::Error> {
+        Self::from_source(value)
     }
 }
 

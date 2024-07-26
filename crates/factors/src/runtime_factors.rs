@@ -1,6 +1,6 @@
 use wasmtime::component::{Linker, ResourceTable};
 
-use crate::{factor::FactorInstanceState, App, ConfiguredApp, Factor, RuntimeConfigSource};
+use crate::{factor::FactorInstanceState, App, ConfiguredApp, Factor};
 
 /// A collection of `Factor`s that are initialized and configured together.
 ///
@@ -53,7 +53,7 @@ pub trait RuntimeFactors: Sized + 'static {
     fn configure_app(
         &self,
         app: App,
-        runtime_config: impl RuntimeConfigSource<Self::RuntimeConfig>,
+        runtime_config: Self::RuntimeConfig,
     ) -> crate::Result<ConfiguredApp<Self>>;
 
     /// Prepare the factors' instance state builders.

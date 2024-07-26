@@ -1,19 +1,5 @@
 use crate::Factor;
 
-/// The source of runtime configuration for a [`RuntimeFactors`][crate::RuntimeFactors].
-pub trait RuntimeConfigSource<C> {
-    /// Get the runtime configuration for all the factors.
-    ///
-    /// This will be called once per call to [`RuntimeFactors::configure_app`][crate::RuntimeFactors::configure_app].
-    fn get_factor_configs(&mut self) -> anyhow::Result<C>;
-}
-
-impl RuntimeConfigSource<()> for () {
-    fn get_factor_configs(&mut self) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
-
 /// The source of runtime configuration for a particular [`Factor`].
 pub trait FactorRuntimeConfigSource<F: Factor> {
     /// Get the runtime configuration for the factor.

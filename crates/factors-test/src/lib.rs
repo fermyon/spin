@@ -2,7 +2,7 @@ use spin_app::locked::LockedApp;
 use spin_factors::{
     anyhow::{self, Context},
     wasmtime::{component::Linker, Config, Engine},
-    App, RuntimeConfigSource, RuntimeFactors,
+    App, RuntimeFactors,
 };
 use spin_loader::FilesMountStrategy;
 
@@ -47,15 +47,16 @@ impl TestEnvironment {
     /// Starting from a new _uninitialized_ [`RuntimeFactors`], run through the
     /// [`Factor`]s' lifecycle(s) to build a [`RuntimeFactors::InstanceState`]
     /// for the last component defined in the manifest.
-    pub async fn build_instance_state<
-        'a,
-        T: RuntimeFactors,
-        S: RuntimeConfigSource<T::RuntimeConfig> + 'a,
-    >(
+    pub async fn build_instance_state<'a, T, C, E>(
         &'a self,
         mut factors: T,
-        runtime_config: S,
-    ) -> anyhow::Result<T::InstanceState> {
+        runtime_config: C,
+    ) -> anyhow::Result<T::InstanceState>
+    where
+        T: RuntimeFactors,
+        C: TryInto<T::RuntimeConfig, Error = E>,
+        E: Into<anyhow::Error>,
+    {
         let mut linker = Self::new_linker::<T::InstanceState>();
         factors.init(&mut linker)?;
 
@@ -64,7 +65,8 @@ impl TestEnvironment {
             .await
             .context("failed to build locked app")?;
         let app = App::new("test-app", locked_app);
-        let configured_app = factors.configure_app(app, runtime_config)?;
+        let configured_app =
+            factors.configure_app(app, runtime_config.try_into().map_err(|e| e.into())?)?;
 
         let component =
             configured_app.app().components().last().context(

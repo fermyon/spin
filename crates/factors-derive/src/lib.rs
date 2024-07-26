@@ -112,12 +112,11 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             fn configure_app(
                 &self,
                 app: #factors_path::App,
-                mut runtime_config: impl #factors_path::RuntimeConfigSource<Self::RuntimeConfig>,
+                mut runtime_config: Self::RuntimeConfig,
             ) -> #Result<#ConfiguredApp<Self>> {
                 let mut app_state = #app_state_name {
                     #( #factor_names: None, )*
                 };
-                let mut configs = runtime_config.get_factor_configs().map_err(#Error::RuntimeConfigSource)?;
                 #(
                     app_state.#factor_names = Some(
                         #Factor::configure_app(
@@ -125,7 +124,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                             #factors_path::ConfigureAppContext::<Self, #factor_types>::new(
                                 &app,
                                 &app_state,
-                                &mut configs,
+                                &mut runtime_config,
                             )?,
                         ).map_err(#Error::factor_configure_app_error::<#factor_types>)?
                     );
@@ -252,17 +251,15 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             )*
         }
 
-        /// TODO: figure out how to make this work
-        struct Foo<T>(T);
-
-        impl<T> #factors_path::RuntimeConfigSource<#runtime_config_name> for Foo<T>
-            where T: #(#factors_path::FactorRuntimeConfigSource<#factor_types> +)* #factors_path::RuntimeConfigSourceFinalizer
-        {
-            fn get_factor_configs(&mut self) -> anyhow::Result<#runtime_config_name> {
+        impl #runtime_config_name {
+            /// Get the runtime configuration from the given source.
+            pub fn from_source<T>(mut source: T) -> anyhow::Result<Self>
+                where T: #(#factors_path::FactorRuntimeConfigSource<#factor_types> +)* #factors_path::RuntimeConfigSourceFinalizer
+            {
                 #(
-                    let #factor_names = <T as #factors_path::FactorRuntimeConfigSource<#factor_types>>::get_runtime_config(&mut self.0)?;
+                    let #factor_names = <T as #factors_path::FactorRuntimeConfigSource<#factor_types>>::get_runtime_config(&mut source)?;
                 )*
-                self.0.finalize()?;
+                source.finalize()?;
                 Ok(#runtime_config_name {
                     #(
                         #factor_names,
@@ -270,13 +267,14 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 })
             }
         }
-        impl #factors_path::RuntimeConfigSource<#runtime_config_name> for () {
-            fn get_factor_configs(&mut self) -> anyhow::Result<#runtime_config_name> {
-                Ok(#runtime_config_name {
+
+        impl From<()> for #runtime_config_name {
+            fn from(_: ()) -> Self {
+                #runtime_config_name {
                     #(
                         #factor_names: None,
                     )*
-                })
+                }
             }
         }
 

@@ -1,6 +1,6 @@
 use std::{io::Cursor, net::SocketAddr, sync::Arc};
 
-use crate::HttpInstance;
+use crate::{HttpInstance, SelfRequestDefinition};
 use anyhow::{anyhow, ensure, Context, Result};
 use async_trait::async_trait;
 use http_body_util::BodyExt;
@@ -28,7 +28,7 @@ impl HttpExecutor for WagiHttpExecutor {
         route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,
-        _self_authority: &str,
+        _self_authority: SelfRequestDefinition,
     ) -> Result<Response<Body>> {
         let component = route_match.component_id();
 

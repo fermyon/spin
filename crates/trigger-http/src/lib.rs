@@ -238,7 +238,7 @@ impl HttpTrigger {
         server_addr: SocketAddr,
         client_addr: SocketAddr,
     ) -> Result<Response<Body>> {
-        set_req_uri(&mut req, scheme)?;
+        set_req_uri(&mut req, scheme.clone())?;
         strip_forbidden_headers(&mut req);
 
         spin_telemetry::extract_trace_context(&req);
@@ -278,6 +278,12 @@ impl HttpTrigger {
                 let trigger = self.component_trigger_configs.get(component_id).unwrap();
 
                 let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Http);
+                // Set the definition of outbound requests to `self` to be equal to
+                // the incoming request's scheme and the bound listening address.
+                let self_definition = SelfRequestDefinition {
+                    scheme,
+                    authority: server_addr.to_string(),
+                };
 
                 let res = match executor {
                     HttpExecutorType::Http => {
@@ -288,7 +294,7 @@ impl HttpTrigger {
                                 &route_match,
                                 req,
                                 client_addr,
-                                server_addr.to_string().as_str(),
+                                self_definition,
                             )
                             .await
                     }
@@ -303,7 +309,7 @@ impl HttpTrigger {
                                 &route_match,
                                 req,
                                 client_addr,
-                                server_addr.to_string().as_str(),
+                                self_definition,
                             )
                             .await
                     }
@@ -594,14 +600,22 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
         route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,
-        self_authority: &str,
+        self_definition: SelfRequestDefinition,
     ) -> Result<Response<Body>>;
+}
+
+/// The definition of the `self` host for outbound requests.
+#[derive(Clone)]
+pub struct SelfRequestDefinition {
+    scheme: Scheme,
+    authority: String,
 }
 
 #[derive(Clone)]
 struct ChainedRequestHandler {
     engine: Arc<TriggerAppEngine<HttpTrigger>>,
     executor: HttpHandlerExecutor,
+    self_definition: SelfRequestDefinition,
 }
 
 #[derive(Default)]
@@ -642,7 +656,6 @@ impl HttpRuntimeData {
 
         let between_bytes_timeout = config.between_bytes_timeout;
 
-        let self_authority = this.origin.clone().expect("origin must be set");
         let resp_fut = async move {
             match handler
                 .execute(
@@ -651,7 +664,7 @@ impl HttpRuntimeData {
                     &route_match,
                     request,
                     client_addr,
-                    &self_authority,
+                    chained_handler.self_definition,
                 )
                 .await
             {

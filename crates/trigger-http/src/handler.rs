@@ -1,6 +1,9 @@
 use std::{net::SocketAddr, str, str::FromStr};
 
-use crate::{Body, ChainedRequestHandler, HttpExecutor, HttpInstance, HttpTrigger, Store};
+use crate::{
+    Body, ChainedRequestHandler, HttpExecutor, HttpInstance, HttpTrigger, SelfRequestDefinition,
+    Store,
+};
 use anyhow::{anyhow, Context, Result};
 use futures::TryFutureExt;
 use http::{HeaderName, HeaderValue};
@@ -33,7 +36,7 @@ impl HttpExecutor for HttpHandlerExecutor {
         route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,
-        self_authority: &str,
+        self_definition: SelfRequestDefinition,
     ) -> Result<Response<Body>> {
         let component_id = route_match.component_id();
 
@@ -47,7 +50,7 @@ impl HttpExecutor for HttpHandlerExecutor {
             unreachable!()
         };
 
-        set_http_origin(&mut store, engine.clone(), self, &self_authority);
+        set_http_origin(&mut store, engine.clone(), self, self_definition);
 
         // set the client tls options for the current component_id.
         // The OutboundWasiHttpHandler in this file is only used
@@ -395,9 +398,9 @@ fn set_http_origin(
     store: &mut Store,
     engine: Arc<TriggerAppEngine<HttpTrigger>>,
     handler: &HttpHandlerExecutor,
-    self_authority: &str,
+    self_definition: SelfRequestDefinition,
 ) {
-    let origin = format!("http://{self_authority}");
+    let origin = format!("{}://{}", self_definition.scheme, self_definition.authority);
     if let Some(outbound_http_handle) = engine
         .engine
         .find_host_component_handle::<Arc<OutboundHttpComponent>>()
@@ -413,6 +416,7 @@ fn set_http_origin(
     let chained_request_handler = ChainedRequestHandler {
         engine: engine.clone(),
         executor: handler.clone(),
+        self_definition,
     };
     store.as_mut().data_mut().as_mut().origin = Some(origin);
     store.as_mut().data_mut().as_mut().chained_handler = Some(chained_request_handler);

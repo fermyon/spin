@@ -10,6 +10,8 @@ serde = "1.0"
 spin-app = { path = "../app" }
 spin-factors-derive = { path = "../factors-derive" }
 thiserror = "1.0"
+# TODO: make this optional and behind a feature flag
+toml = "0.8"
 tracing = { workspace = true }
 wasmtime = { workspace = true }
 
@@ -28,7 +30,6 @@ spin-factor-variables = { path = "../factor-variables" }
 spin-factor-wasi = { path = "../factor-wasi" }
 spin-loader = { path = "../loader" }
 tokio = { version = "1", features = ["macros", "rt", "sync"] }
-toml = "0.8"
 wasmtime-wasi-http = { workspace = true }
 
 [build-dependencies]

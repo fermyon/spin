@@ -1,11 +1,9 @@
-use std::{cell::RefCell, collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
-use factor_sqlite::{
-    runtime_config::spin::{GetKey, SpinSqliteRuntimeConfig},
-    SqliteFactor,
-};
+use factor_sqlite::{runtime_config::spin::SpinSqliteRuntimeConfig, SqliteFactor};
 use spin_factors::{
     anyhow::{self, bail},
+    runtime_config::toml::TomlKeyTracker,
     Factor, FactorRuntimeConfigSource, RuntimeConfigSourceFinalizer, RuntimeFactors,
 };
 use spin_factors_test::{toml, TestEnvironment};
@@ -120,47 +118,6 @@ impl TryFrom<TomlRuntimeSource<'_>> for TestFactorsRuntimeConfig {
 
     fn try_from(value: TomlRuntimeSource<'_>) -> Result<Self, Self::Error> {
         Self::from_source(value)
-    }
-}
-
-struct TomlKeyTracker<'a> {
-    unused_keys: RefCell<HashSet<&'a str>>,
-    table: &'a toml::Table,
-}
-
-impl<'a> TomlKeyTracker<'a> {
-    fn new(table: &'a toml::Table) -> Self {
-        Self {
-            unused_keys: RefCell::new(table.keys().map(String::as_str).collect()),
-            table,
-        }
-    }
-
-    fn validate_all_keys_used(&self) -> anyhow::Result<(), spin_factors::Error> {
-        if !self.unused_keys.borrow().is_empty() {
-            return Err(spin_factors::Error::RuntimeConfigUnusedKeys {
-                keys: self
-                    .unused_keys
-                    .borrow()
-                    .iter()
-                    .map(|s| (*s).to_owned())
-                    .collect(),
-            });
-        }
-        Ok(())
-    }
-}
-
-impl GetKey for TomlKeyTracker<'_> {
-    fn get(&self, key: &str) -> Option<&toml::Value> {
-        self.unused_keys.borrow_mut().remove(key);
-        self.table.get(key)
-    }
-}
-
-impl AsRef<toml::Table> for TomlKeyTracker<'_> {
-    fn as_ref(&self) -> &toml::Table {
-        self.table
     }
 }
 

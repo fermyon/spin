@@ -1,6 +1,6 @@
 mod factor;
 mod prepare;
-mod runtime_config;
+pub mod runtime_config;
 mod runtime_factors;
 
 pub use anyhow;

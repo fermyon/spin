@@ -1,3 +1,5 @@
+pub mod toml;
+
 use crate::Factor;
 
 /// The source of runtime configuration for a particular [`Factor`].

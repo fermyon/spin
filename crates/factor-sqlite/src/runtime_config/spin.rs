@@ -6,7 +6,10 @@ use std::{
 };
 
 use serde::Deserialize;
-use spin_factors::anyhow::{self, Context as _};
+use spin_factors::{
+    anyhow::{self, Context as _},
+    runtime_config::toml::GetTomlValue,
+};
 use spin_world::v2::sqlite as v2;
 use tokio::sync::OnceCell;
 
@@ -55,7 +58,7 @@ impl SpinSqliteRuntimeConfig {
     /// type = "$database-type"
     /// ... extra type specific configuration ...
     /// ```
-    pub fn config_from_table<T: GetKey + AsRef<toml::Table>>(
+    pub fn config_from_table<T: GetTomlValue + AsRef<toml::Table>>(
         &self,
         table: &T,
     ) -> anyhow::Result<Option<super::RuntimeConfig>> {
@@ -86,10 +89,6 @@ impl SpinSqliteRuntimeConfig {
         };
         Ok(Arc::new(pool))
     }
-}
-
-pub trait GetKey {
-    fn get(&self, key: &str) -> Option<&toml::Value>;
 }
 
 #[derive(Deserialize)]

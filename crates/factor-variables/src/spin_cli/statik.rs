@@ -4,7 +4,7 @@ use serde::Deserialize;
 use spin_expressions::{async_trait::async_trait, Key, Provider};
 use spin_factors::anyhow;
 
-/// A variables provider that reads variables from an static map.
+/// A [`Provider`] that reads variables from an static map.
 #[derive(Debug, Deserialize, Clone)]
 pub struct StaticVariablesProvider {
     values: Arc<HashMap<String, String>>,

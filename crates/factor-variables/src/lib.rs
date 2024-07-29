@@ -12,14 +12,9 @@ use spin_factors::{
 };
 
 /// A factor for providing variables to components.
+#[derive(Default)]
 pub struct VariablesFactor {
     _priv: (),
-}
-
-impl Default for VariablesFactor {
-    fn default() -> Self {
-        Self { _priv: () }
-    }
 }
 
 impl Factor for VariablesFactor {

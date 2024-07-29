@@ -10,7 +10,7 @@ struct TestFactors {
     variables: VariablesFactor,
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn static_provider_works() -> anyhow::Result<()> {
     let factors = TestFactors {
         variables: VariablesFactor::default(),
@@ -58,7 +58,7 @@ impl FactorRuntimeConfigSource<VariablesFactor> for TomlConfig {
     fn get_runtime_config(
         &mut self,
     ) -> anyhow::Result<Option<<VariablesFactor as Factor>::RuntimeConfig>> {
-        spin_cli::runtime_config_from_toml(&self.table)
+        spin_cli::runtime_config_from_toml(&self.table).map(Some)
     }
 }
 

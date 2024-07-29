@@ -174,6 +174,7 @@ impl FactorRuntimeConfigSource<VariablesFactor> for TestSource {
             [variable_provider.values]
             foo = "bar"
         })
+        .map(Some)
     }
 }
 

@@ -3,25 +3,30 @@
 mod env;
 mod statik;
 
+pub use env::*;
+pub use statik::*;
+
 use serde::Deserialize;
 use spin_expressions::Provider;
 use spin_factors::anyhow;
-use statik::StaticVariablesProvider;
 
 use crate::runtime_config::RuntimeConfig;
 
 /// Resolves a runtime configuration for the variables factor from a TOML table.
-pub fn runtime_config_from_toml(table: &toml::Table) -> anyhow::Result<Option<RuntimeConfig>> {
+pub fn runtime_config_from_toml(table: &toml::Table) -> anyhow::Result<RuntimeConfig> {
+    // Always include the environment variable provider.
+    let mut providers = vec![Box::new(EnvVariablesProvider::default()) as _];
     let Some(array) = table.get("variable_provider") else {
-        return Ok(None);
+        return Ok(RuntimeConfig { providers });
     };
 
     let provider_configs: Vec<VariableProviderConfiguration> = array.clone().try_into()?;
-    let providers = provider_configs
-        .into_iter()
-        .map(VariableProviderConfiguration::into_provider)
-        .collect();
-    Ok(Some(RuntimeConfig { providers }))
+    providers.extend(
+        provider_configs
+            .into_iter()
+            .map(VariableProviderConfiguration::into_provider),
+    );
+    Ok(RuntimeConfig { providers })
 }
 
 /// A runtime configuration used in the Spin CLI for one type of variable provider.
@@ -31,7 +36,7 @@ pub enum VariableProviderConfiguration {
     /// A static provider of variables.
     Static(StaticVariablesProvider),
     /// An environment variable provider.
-    Env(env::EnvVariablesConfig),
+    Env(EnvVariablesConfig),
 }
 
 impl VariableProviderConfiguration {

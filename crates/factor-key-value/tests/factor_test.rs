@@ -38,12 +38,12 @@ async fn default_key_value_works() -> anyhow::Result<()> {
     let factors = TestFactors {
         key_value: KeyValueFactor::new(test_resolver),
     };
-    let env = TestEnvironment::default_manifest_extend(toml! {
+    let env = TestEnvironment::new(factors).extend_manifest(toml! {
         [component.test-component]
         source = "does-not-exist.wasm"
         key_value_stores = ["default"]
     });
-    let state = env.build_instance_state(factors, ()).await?;
+    let state = env.build_instance_state().await?;
 
     assert_eq!(
         state.key_value.allowed_stores(),
@@ -67,14 +67,14 @@ async fn run_test_with_config_and_stores_for_label(
         key_value: KeyValueFactor::new(test_resolver),
     };
     let labels_clone = labels.clone();
-    let env = TestEnvironment::default_manifest_extend(toml! {
-        [component.test-component]
-        source = "does-not-exist.wasm"
-        key_value_stores = labels_clone
-    });
-    let state = env
-        .build_instance_state(factors, TomlConfig(runtime_config))
-        .await?;
+    let env = TestEnvironment::new(factors)
+        .extend_manifest(toml! {
+            [component.test-component]
+            source = "does-not-exist.wasm"
+            key_value_stores = labels_clone
+        })
+        .runtime_config(TomlConfig(runtime_config))?;
+    let state = env.build_instance_state().await?;
     assert_eq!(
         labels,
         state.key_value.allowed_stores().iter().collect::<Vec<_>>()
@@ -192,29 +192,28 @@ async fn misconfigured_spin_key_value_fails() -> anyhow::Result<()> {
 #[tokio::test]
 async fn multiple_custom_key_value_uses_first_store() -> anyhow::Result<()> {
     let tmp_dir = tempdir::TempDir::new("example")?;
-    let runtime_config = toml::toml! {
-        [key_value_store.custom]
-        type = "spin"
-        path = "custom.db"
-
-        [key_value_store.custom]
-        type = "redis"
-        url = "redis://localhost:6379"
-    };
     let mut test_resolver = DelegatingRuntimeConfigResolver::new();
     test_resolver.add_store_type(RedisKeyValueStore)?;
     test_resolver.add_store_type(SpinKeyValueStore::new(tmp_dir.path().to_owned()))?;
     let factors = TestFactors {
         key_value: KeyValueFactor::new(test_resolver),
     };
-    let env = TestEnvironment::default_manifest_extend(toml! {
-        [component.test-component]
-        source = "does-not-exist.wasm"
-        key_value_stores = ["custom"]
-    });
-    let state = env
-        .build_instance_state(factors, TomlConfig(Some(runtime_config)))
-        .await?;
+    let env = TestEnvironment::new(factors)
+        .extend_manifest(toml! {
+            [component.test-component]
+            source = "does-not-exist.wasm"
+            key_value_stores = ["custom"]
+        })
+        .runtime_config(TomlConfig(Some(toml::toml! {
+            [key_value_store.custom]
+            type = "spin"
+            path = "custom.db"
+
+            [key_value_store.custom]
+            type = "redis"
+            url = "redis://localhost:6379"
+        })))?;
+    let state = env.build_instance_state().await?;
 
     assert_eq!(
         state.key_value.allowed_stores(),

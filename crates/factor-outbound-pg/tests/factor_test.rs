@@ -2,7 +2,7 @@ use anyhow::{bail, Result};
 use spin_factor_outbound_networking::OutboundNetworkingFactor;
 use spin_factor_outbound_pg::client::Client;
 use spin_factor_outbound_pg::OutboundPgFactor;
-use spin_factor_variables::spin_cli::{StaticVariables, VariablesFactor};
+use spin_factor_variables::spin_cli::VariablesFactor;
 use spin_factors::{anyhow, RuntimeFactors};
 use spin_factors_test::{toml, TestEnvironment};
 use spin_world::async_trait;
@@ -18,18 +18,16 @@ struct TestFactors {
     pg: OutboundPgFactor<MockClient>,
 }
 
-fn factors() -> Result<TestFactors> {
-    let mut f = TestFactors {
+fn factors() -> TestFactors {
+    TestFactors {
         variables: VariablesFactor::default(),
         networking: OutboundNetworkingFactor,
         pg: OutboundPgFactor::<MockClient>::new(),
-    };
-    f.variables.add_provider_resolver(StaticVariables)?;
-    Ok(f)
+    }
 }
 
-fn test_env() -> TestEnvironment {
-    TestEnvironment::default_manifest_extend(toml! {
+fn test_env() -> TestEnvironment<TestFactors> {
+    TestEnvironment::new(factors()).extend_manifest(toml! {
         [component.test-component]
         source = "does-not-exist.wasm"
         allowed_outbound_hosts = ["postgres://*:*"]
@@ -38,12 +36,11 @@ fn test_env() -> TestEnvironment {
 
 #[tokio::test]
 async fn disallowed_host_fails() -> anyhow::Result<()> {
-    let factors = factors()?;
-    let env = TestEnvironment::default_manifest_extend(toml! {
+    let env = TestEnvironment::new(factors()).extend_manifest(toml! {
         [component.test-component]
         source = "does-not-exist.wasm"
     });
-    let mut state = env.build_instance_state(factors, ()).await?;
+    let mut state = env.build_instance_state().await?;
 
     let res = state
         .pg
@@ -59,9 +56,7 @@ async fn disallowed_host_fails() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allowed_host_succeeds() -> anyhow::Result<()> {
-    let factors = factors()?;
-    let env = test_env();
-    let mut state = env.build_instance_state(factors, ()).await?;
+    let mut state = test_env().build_instance_state().await?;
 
     let res = state
         .pg
@@ -76,9 +71,7 @@ async fn allowed_host_succeeds() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn exercise_execute() -> anyhow::Result<()> {
-    let factors = factors()?;
-    let env = test_env();
-    let mut state = env.build_instance_state(factors, ()).await?;
+    let mut state = test_env().build_instance_state().await?;
 
     let connection = state
         .pg
@@ -95,9 +88,7 @@ async fn exercise_execute() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn exercise_query() -> anyhow::Result<()> {
-    let factors = factors()?;
-    let env = test_env();
-    let mut state = env.build_instance_state(factors, ()).await?;
+    let mut state = test_env().build_instance_state().await?;
 
     let connection = state
         .pg

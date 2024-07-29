@@ -13,24 +13,8 @@ struct TestFactors {
     variables: VariablesFactor<VariableProviderConfiguration>,
 }
 
-fn test_env() -> TestEnvironment {
-    TestEnvironment::default_manifest_extend(toml! {
-        [variables]
-        foo = { required = true }
-
-        [component.test-component]
-        source = "does-not-exist.wasm"
-        variables = { baz = "<{{ foo }}>" }
-    })
-}
-
 #[tokio::test]
 async fn static_provider_works() -> anyhow::Result<()> {
-    let runtime_config = toml! {
-        [[variable_provider]]
-        type = "static"
-        values = { foo = "bar" }
-    };
     let mut factors = TestFactors {
         variables: VariablesFactor::default(),
     };
@@ -38,10 +22,22 @@ async fn static_provider_works() -> anyhow::Result<()> {
     // The env provider will be ignored since there's no configuration for it.
     factors.variables.add_provider_resolver(EnvVariables)?;
 
-    let env = test_env();
-    let mut state = env
-        .build_instance_state(factors, TomlConfig(runtime_config))
-        .await?;
+    let env = TestEnvironment::new(factors)
+        .extend_manifest(toml! {
+            [variables]
+            foo = { required = true }
+
+            [component.test-component]
+            source = "does-not-exist.wasm"
+            variables = { baz = "<{{ foo }}>" }
+        })
+        .runtime_config(TomlConfig(toml! {
+            [[variable_provider]]
+            type = "static"
+            values = { foo = "bar" }
+        }))?;
+
+    let mut state = env.build_instance_state().await?;
     let val = state.variables.get("baz".try_into().unwrap()).await?;
     assert_eq!(val, "<bar>");
     Ok(())

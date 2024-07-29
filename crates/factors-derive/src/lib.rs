@@ -112,7 +112,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             fn configure_app(
                 &self,
                 app: #factors_path::App,
-                mut runtime_config: Self::RuntimeConfig,
+                runtime_config: Self::RuntimeConfig,
             ) -> #Result<#ConfiguredApp<Self>> {
                 let mut app_state = #app_state_name {
                     #( #factor_names: None, )*
@@ -124,7 +124,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                             #factors_path::ConfigureAppContext::<Self, #factor_types>::new(
                                 &app,
                                 &app_state,
-                                &mut runtime_config,
+                                runtime_config.#factor_names,
                             )?,
                         ).map_err(#Error::factor_configure_app_error::<#factor_types>)?
                     );
@@ -245,6 +245,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
             }
         }
 
+        #[derive(Default)]
         #vis struct #runtime_config_name {
             #(
                 pub #factor_names: Option<<#factor_types as #Factor>::RuntimeConfig>,
@@ -253,6 +254,7 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
 
         impl #runtime_config_name {
             /// Get the runtime configuration from the given source.
+            #[allow(dead_code)]
             pub fn from_source<T>(mut source: T) -> anyhow::Result<Self>
                 where T: #(#factors_path::FactorRuntimeConfigSource<#factor_types> +)* #factors_path::RuntimeConfigSourceFinalizer
             {
@@ -267,24 +269,5 @@ fn expand_factors(input: &DeriveInput) -> syn::Result<TokenStream> {
                 })
             }
         }
-
-        impl From<()> for #runtime_config_name {
-            fn from(_: ()) -> Self {
-                #runtime_config_name {
-                    #(
-                        #factor_names: None,
-                    )*
-                }
-            }
-        }
-
-        #(
-            impl #factors_path::FactorRuntimeConfigSource<#factor_types> for #runtime_config_name {
-                fn get_runtime_config(&mut self) -> anyhow::Result<Option<<#factor_types as #Factor>::RuntimeConfig>> {
-                    Ok(self.#factor_names.take())
-                }
-            }
-        )*
-
     })
 }

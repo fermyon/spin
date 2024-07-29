@@ -52,10 +52,12 @@ pub struct EnvVariablesConfig {
 
 const DEFAULT_ENV_PREFIX: &str = "SPIN_VARIABLE";
 
+type EnvFetcherFn = Box<dyn Fn(&str) -> Result<String, VarError> + Send + Sync>;
+
 /// A config Provider that uses environment variables.
 pub struct EnvVariablesProvider {
     prefix: Option<String>,
-    env_fetcher: Box<dyn Fn(&str) -> Result<String, VarError> + Send + Sync>,
+    env_fetcher: EnvFetcherFn,
     dotenv_path: Option<PathBuf>,
     dotenv_cache: OnceLock<HashMap<String, String>>,
 }

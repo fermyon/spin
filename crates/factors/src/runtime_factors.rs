@@ -38,7 +38,7 @@ pub trait RuntimeFactors: Sized + 'static {
     /// The collection of all the `InstanceBuilder`s of the factors.
     type InstanceBuilders;
     /// The runtime configuration of all the factors.
-    type RuntimeConfig;
+    type RuntimeConfig: Default;
 
     /// Initialize the factors with the given linker.
     ///

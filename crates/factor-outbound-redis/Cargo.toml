@@ -19,7 +19,6 @@ redis = { version = "0.21", features = ["tokio-comp", "tokio-native-tls-comp", "
 spin-factors-test = { path = "../factors-test" }
 tokio = { version = "1", features = ["macros", "rt"] }
 spin-factor-variables = { path = "../factor-variables" }
-spin-factor-wasi = { path = "../factor-wasi" }
 
 # wasmtime-wasi-http = { workspace = true }
 [lints]

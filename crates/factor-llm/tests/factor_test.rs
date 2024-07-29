@@ -42,13 +42,13 @@ async fn llm_works() -> anyhow::Result<()> {
             }) as _
         }),
     };
-
-    let env = TestEnvironment::default_manifest_extend(toml! {
+    let env = TestEnvironment::new(factors).extend_manifest(toml! {
         [component.test-component]
         source = "does-not-exist.wasm"
         ai_models = ["llama2-chat"]
     });
-    let mut state = env.build_instance_state(factors, ()).await?;
+    let mut state = env.build_instance_state().await?;
+
     assert_eq!(
         &*state.llm.allowed_models,
         &["llama2-chat".to_owned()]

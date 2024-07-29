@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use spin_factor_key_value::MakeKeyValueStore;
+use spin_factor_key_value::runtime_config::spin::MakeKeyValueStore;
 use spin_key_value_sqlite::{DatabaseLocation, KeyValueSqlite};
 
 /// A key-value store that uses SQLite as the backend.
@@ -32,10 +32,10 @@ impl SpinKeyValueRuntimeConfig {
     /// The default filename for the SQLite database.
     const DEFAULT_SPIN_STORE_FILENAME: &'static str = "sqlite_key_value.db";
 
-    /// Create a new runtime configuration with the given state directory.
+    /// Create a new runtime configuration with the given directory.
     ///
     /// If the database directory is None, the database is in-memory.
-    /// If the database directory is Some, the database is stored in a file in the state directory.
+    /// If the database directory is Some, the database is stored in a file in the given directory.
     pub fn default(default_database_dir: Option<PathBuf>) -> Self {
         let path = default_database_dir.map(|dir| dir.join(Self::DEFAULT_SPIN_STORE_FILENAME));
         Self { path }

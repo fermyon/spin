@@ -1,6 +1,7 @@
 use anyhow::Context;
 use spin_factor_key_value::{
-    KeyValueFactor, MakeKeyValueStore, RuntimeConfig, RuntimeConfigResolver, StoreConfig,
+    runtime_config::spin::{MakeKeyValueStore, RuntimeConfigResolver, StoreConfig},
+    KeyValueFactor, RuntimeConfig,
 };
 use spin_factor_key_value_redis::RedisKeyValueStore;
 use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};

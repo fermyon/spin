@@ -1,7 +1,4 @@
-pub mod delegating_resolver;
-mod runtime_config;
-mod store;
-pub use delegating_resolver::{RuntimeConfigResolver, StoreConfig};
+pub mod runtime_config;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -19,7 +16,6 @@ use spin_key_value::{
 };
 
 pub use runtime_config::RuntimeConfig;
-pub use store::MakeKeyValueStore;
 
 /// A factor that provides key-value storage.
 pub struct KeyValueFactor {

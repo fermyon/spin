@@ -1,3 +1,5 @@
+pub mod spin;
+
 use std::{collections::HashMap, sync::Arc};
 
 use spin_key_value::StoreManager;

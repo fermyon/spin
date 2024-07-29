@@ -4,8 +4,8 @@ use anyhow::Context;
 use http_body_util::BodyExt;
 use spin_app::App;
 use spin_factor_key_value::{
-    delegating_resolver::{RuntimeConfigResolver, StoreConfig},
-    KeyValueFactor, MakeKeyValueStore,
+    runtime_config::spin::{MakeKeyValueStore, RuntimeConfigResolver, StoreConfig},
+    KeyValueFactor,
 };
 use spin_factor_key_value_redis::RedisKeyValueStore;
 use spin_factor_key_value_spin::{SpinKeyValueRuntimeConfig, SpinKeyValueStore};

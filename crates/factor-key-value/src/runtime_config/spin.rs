@@ -1,11 +1,41 @@
-use crate::{
-    store::{store_from_toml_fn, MakeKeyValueStore, StoreFromToml},
-    DefaultLabelResolver, RuntimeConfig,
-};
-use anyhow::Context;
+//! Runtime configuration implementation used by Spin CLI.
+
+use crate::{DefaultLabelResolver, RuntimeConfig};
+use anyhow::Context as _;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use spin_key_value::StoreManager;
 use std::{collections::HashMap, sync::Arc};
+
+/// Defines the construction of a key value store from a serialized runtime config.
+pub trait MakeKeyValueStore: 'static + Send + Sync {
+    /// Unique type identifier for the store.
+    const RUNTIME_CONFIG_TYPE: &'static str;
+    /// Runtime configuration for the store.
+    type RuntimeConfig: DeserializeOwned;
+    /// The store manager for the store.
+    type StoreManager: StoreManager;
+
+    /// Creates a new store manager from the runtime configuration.
+    fn make_store(&self, runtime_config: Self::RuntimeConfig)
+        -> anyhow::Result<Self::StoreManager>;
+}
+
+/// A function that creates a store manager from a TOML table.
+type StoreFromToml =
+    Box<dyn Fn(toml::Table) -> anyhow::Result<Arc<dyn StoreManager>> + Send + Sync>;
+
+/// Creates a `StoreFromToml` function from a `MakeKeyValueStore` implementation.
+fn store_from_toml_fn<T: MakeKeyValueStore>(provider_type: T) -> StoreFromToml {
+    Box::new(move |table| {
+        let runtime_config: T::RuntimeConfig =
+            table.try_into().context("could not parse runtime config")?;
+        let provider = provider_type
+            .make_store(runtime_config)
+            .context("could not make store")?;
+        Ok(Arc::new(provider))
+    })
+}
 
 /// Converts from toml based runtime configuration into a [`RuntimeConfig`].
 ///

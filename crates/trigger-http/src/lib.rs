@@ -280,7 +280,7 @@ impl HttpTrigger {
                 let executor = trigger.executor.as_ref().unwrap_or(&HttpExecutorType::Http);
                 // Set the definition of outbound requests to `self` to be equal to
                 // the incoming request's scheme and the bound listening address.
-                let self_definition = SelfRequestDefinition {
+                let self_origin = SelfRequestOrigin {
                     scheme,
                     authority: server_addr.to_string(),
                 };
@@ -294,7 +294,7 @@ impl HttpTrigger {
                                 &route_match,
                                 req,
                                 client_addr,
-                                self_definition,
+                                self_origin,
                             )
                             .await
                     }
@@ -309,7 +309,7 @@ impl HttpTrigger {
                                 &route_match,
                                 req,
                                 client_addr,
-                                self_definition,
+                                self_origin,
                             )
                             .await
                     }
@@ -493,18 +493,18 @@ fn parse_listen_addr(addr: &str) -> anyhow::Result<SocketAddr> {
 /// The incoming request's scheme and authority
 ///
 /// The incoming request's URI is relative to the server, so we need to set the scheme and authority.
-/// The `Host` header is used to set the authority. This function will error if not `Host` header is
+/// The `Host` header is used to set the authority. This function will error if no `Host` header is
 /// present or if it is not parseable as an `Authority`.
 fn set_req_uri(req: &mut Request<Body>, scheme: Scheme) -> Result<()> {
     let uri = req.uri().clone();
     let mut parts = uri.into_parts();
     let headers = req.headers();
-    let authority = headers
+    let host_header = headers
         .get(HOST)
         .context("missing Host header")?
         .to_str()
         .context("Host header is not valid UTF-8")?;
-    let authority = authority
+    let authority = host_header
         .parse()
         .context("Host header contains an invalid authority")?;
     parts.scheme = Some(scheme);
@@ -600,13 +600,13 @@ pub(crate) trait HttpExecutor: Clone + Send + Sync + 'static {
         route_match: &RouteMatch,
         req: Request<Body>,
         client_addr: SocketAddr,
-        self_definition: SelfRequestDefinition,
+        self_origin: SelfRequestOrigin,
     ) -> Result<Response<Body>>;
 }
 
-/// The definition of the `self` host for outbound requests.
+/// The origin of the `self` host for outbound requests.
 #[derive(Clone)]
-pub struct SelfRequestDefinition {
+pub struct SelfRequestOrigin {
     scheme: Scheme,
     authority: String,
 }
@@ -615,7 +615,7 @@ pub struct SelfRequestDefinition {
 struct ChainedRequestHandler {
     engine: Arc<TriggerAppEngine<HttpTrigger>>,
     executor: HttpHandlerExecutor,
-    self_definition: SelfRequestDefinition,
+    self_origin: SelfRequestOrigin,
 }
 
 #[derive(Default)]
@@ -664,7 +664,7 @@ impl HttpRuntimeData {
                     &route_match,
                     request,
                     client_addr,
-                    chained_handler.self_definition,
+                    chained_handler.self_origin,
                 )
                 .await
             {
